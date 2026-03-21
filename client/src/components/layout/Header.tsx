@@ -52,6 +52,7 @@ export default function Header({ title }: { title?: string }) {
       </div>
 
       <div className="flex items-center gap-3">
+        <span className="text-xs text-muted-foreground">v0.1.0</span>
         {currentUser && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
