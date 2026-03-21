@@ -1,4 +1,4 @@
-import type { UserRole, OpportunityStage, ProjectStatus, TaxCategory, SettlementMethod } from './enums';
+import type { UserRole, OpportunityStage, ProjectStatus, TaxCategory, SettlementMethod, BroadcastType, MediaPlatform, InvoiceGroupStatus } from './enums';
 
 // 共通フィールド
 export interface BaseEntity {
@@ -71,17 +71,59 @@ export interface Project extends BaseEntity {
   event_start: string | null;
   event_end: string | null;
   status: ProjectStatus;
+  broadcast_type: BroadcastType;
+  media_platform: MediaPlatform;
   application_form: boolean;
   logo_permission: boolean;
   notes: string | null;
   // Joined
   customer_name?: string;
+  episode_count?: number;
+}
+
+// 話数(エピソード)
+export interface Episode extends BaseEntity {
+  project_id: string;
+  episode_number: number;
+  episode_code: string;
+  recording_date: string | null;
+  broadcast_date: string | null;
+  delivery_date: string | null;
+  revenue_budget: number;
+  cost_budget: number;
+  notes: string | null;
+  // 集計フィールド
+  actual_revenue?: number;
+  actual_cost?: number;
+}
+
+// 発注バッチ
+export interface EpisodeOrder extends BaseEntity {
+  project_id: string;
+  order_date: string;
+  episode_count: number;
+  start_episode: number;
+  end_episode: number;
+  notes: string | null;
+}
+
+// 請求グループ
+export interface InvoiceGroup extends BaseEntity {
+  project_id: string;
+  title: string;
+  invoice_date: string | null;
+  status: InvoiceGroupStatus;
+  notes: string | null;
+  episodes?: Episode[];
+  total_amount?: number;
+  episode_count?: number;
 }
 
 // 売上
 export interface Revenue extends BaseEntity {
   billing_key: string | null;
   project_id: string;
+  episode_id: string | null;
   customer_id: string;
   assigned_to: string | null;
   tax_category: TaxCategory;
@@ -98,6 +140,7 @@ export interface Revenue extends BaseEntity {
 // 仕入
 export interface Purchase extends BaseEntity {
   project_id: string;
+  episode_id: string | null;
   vendor_id: string;
   assigned_to: string | null;
   settlement_method: SettlementMethod | null;

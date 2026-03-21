@@ -90,12 +90,13 @@ export default function ProjectListPage() {
                 <TableHead>ステータス</TableHead>
                 <TableHead>本番日</TableHead>
                 <TableHead>リハ日</TableHead>
+                <TableHead>話数</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {projects.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground">
                     データがありません
                   </TableCell>
                 </TableRow>
@@ -104,7 +105,7 @@ export default function ProjectListPage() {
                   <TableRow
                     key={p.id as string}
                     className="cursor-pointer"
-                    onClick={() => navigate(`/projects/${p.id}`)}
+                    onClick={() => navigate(`/projects/${p.id}/episodes`)}
                   >
                     <TableCell className="font-mono text-sm font-medium text-primary">
                       {p.gls_number as string}
@@ -118,6 +119,7 @@ export default function ProjectListPage() {
                     </TableCell>
                     <TableCell>{formatDate(p.event_date as string)}</TableCell>
                     <TableCell>{formatDate(p.rehearsal_date as string)}</TableCell>
+                    <TableCell>{(p.episode_count as number) ?? "-"}</TableCell>
                   </TableRow>
                 ))
               )}

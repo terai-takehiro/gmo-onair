@@ -65,6 +65,8 @@ CREATE TABLE IF NOT EXISTS projects (
   event_end         TEXT,
   status            TEXT NOT NULL DEFAULT 'tentative'
                     CHECK (status IN ('tentative','confirmed','completed','cancelled')),
+  broadcast_type    TEXT DEFAULT 'recording',
+  media_platform    TEXT DEFAULT 'other',
   application_form  INTEGER NOT NULL DEFAULT 0,
   logo_permission   INTEGER NOT NULL DEFAULT 0,
   notes             TEXT,
@@ -99,6 +101,7 @@ CREATE TABLE IF NOT EXISTS revenues (
   id               TEXT PRIMARY KEY,
   billing_key      TEXT,
   project_id       TEXT NOT NULL REFERENCES projects(id),
+  episode_id       TEXT,
   customer_id      TEXT NOT NULL REFERENCES customers(id),
   assigned_to      TEXT,
   tax_category     TEXT NOT NULL DEFAULT 'tax10'
@@ -118,6 +121,7 @@ CREATE TABLE IF NOT EXISTS revenues (
 CREATE TABLE IF NOT EXISTS purchases (
   id                  TEXT PRIMARY KEY,
   project_id          TEXT NOT NULL REFERENCES projects(id),
+  episode_id          TEXT,
   vendor_id           TEXT NOT NULL REFERENCES vendors(id),
   assigned_to         TEXT,
   settlement_method   TEXT CHECK (settlement_method IN ('rakuraku','xpoint','other')),

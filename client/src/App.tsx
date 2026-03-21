@@ -7,6 +7,7 @@ import OpportunityListPage from "@/features/opportunities/OpportunityListPage";
 import OpportunityFormPage from "@/features/opportunities/OpportunityFormPage";
 import ProjectListPage from "@/features/projects/ProjectListPage";
 import ProjectDetailPage from "@/features/projects/ProjectDetailPage";
+import EpisodeListPage from "@/features/episodes/EpisodeListPage";
 import RevenueListPage from "@/features/revenues/RevenueListPage";
 import PurchaseListPage from "@/features/purchases/PurchaseListPage";
 import StudioCalendarPage from "@/features/calendar/StudioCalendarPage";
@@ -65,6 +66,7 @@ function AppRoutes() {
         <Route path="/opportunities/:id" element={<OpportunityFormPage />} />
         <Route path="/projects" element={<ProjectListPage />} />
         <Route path="/projects/:id" element={<ProjectDetailPage />} />
+        <Route path="/projects/:projectId/episodes" element={<EpisodeListPage />} />
         <Route path="/revenues" element={<RevenueListPage />} />
         <Route path="/purchases" element={<PurchaseListPage />} />
         <Route path="/calendar" element={<StudioCalendarPage />} />

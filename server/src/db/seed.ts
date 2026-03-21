@@ -87,22 +87,22 @@ export async function seed() {
     ins(partSql, [uuidv4(), name, email, phone, title, specs, null]);
   }
 
-  // Projects
-  const projSql = `INSERT INTO projects (id, gls_number, name, customer_id, rehearsal_start, rehearsal_end, event_start, event_end, status, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-  const projectData: [string, string, string, string | null, string | null, string | null, string | null, string][] = [
-    ['GLS-202603-0001', 'GMO IR説明会 2026春', 'GMO-IG', '2026-03-18', '2026-03-18', '2026-03-19', '2026-03-19', 'completed'],
-    ['GLS-202603-0002', 'テレ東 特番収録「未来の技術」', 'テレ東', '2026-03-20', '2026-03-20', '2026-03-22', '2026-03-22', 'confirmed'],
-    ['GLS-202603-0003', 'ABEMA 生放送「Tech Night」', 'ABEMA', null, null, '2026-03-25', '2026-03-25', 'confirmed'],
-    ['GLS-202603-0004', 'GMO-PG 新サービス発表会', 'GMO-PG', '2026-03-28', '2026-03-28', '2026-03-30', '2026-03-30', 'tentative'],
-    ['GLS-202604-0001', 'Netflix ドキュメンタリー撮影', 'Netflix', '2026-04-02', '2026-04-03', '2026-04-05', '2026-04-07', 'confirmed'],
-    ['GLS-202604-0002', 'CA 社内イベント中継', 'CA', null, null, '2026-04-10', '2026-04-10', 'tentative'],
-    ['GLS-202604-0003', 'TBS 番組パイロット撮影', 'TBS', '2026-04-12', '2026-04-12', '2026-04-14', '2026-04-15', 'tentative'],
-    ['GLS-202603-0005', 'フジ CM撮影「春キャンペーン」', 'フジ', '2026-03-10', '2026-03-10', '2026-03-12', '2026-03-12', 'completed'],
+  // Projects (broadcast_type: live/recording, media_platform: youtube/terrestrial_tv/net_media/zoom/teams/other)
+  const projSql = `INSERT INTO projects (id, gls_number, name, customer_id, rehearsal_start, rehearsal_end, event_start, event_end, status, broadcast_type, media_platform, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const projectData: [string, string, string, string | null, string | null, string | null, string | null, string, string, string][] = [
+    ['GLS-202603-0001', 'GMO IR説明会 2026春', 'GMO-IG', '2026-03-18', '2026-03-18', '2026-03-19', '2026-03-19', 'completed', 'live', 'youtube'],
+    ['GLS-202603-0002', 'テレ東 特番収録「未来の技術」', 'テレ東', '2026-03-20', '2026-03-20', '2026-03-22', '2026-03-22', 'confirmed', 'recording', 'terrestrial_tv'],
+    ['GLS-202603-0003', 'ABEMA 生放送「Tech Night」', 'ABEMA', null, null, '2026-03-25', '2026-03-25', 'confirmed', 'live', 'net_media'],
+    ['GLS-202603-0004', 'GMO-PG 新サービス発表会', 'GMO-PG', '2026-03-28', '2026-03-28', '2026-03-30', '2026-03-30', 'tentative', 'live', 'zoom'],
+    ['GLS-202604-0001', 'Netflix ドキュメンタリー撮影', 'Netflix', '2026-04-02', '2026-04-03', '2026-04-05', '2026-04-07', 'confirmed', 'recording', 'net_media'],
+    ['GLS-202604-0002', 'CA 社内イベント中継', 'CA', null, null, '2026-04-10', '2026-04-10', 'tentative', 'live', 'teams'],
+    ['GLS-202604-0003', 'TBS 番組パイロット撮影', 'TBS', '2026-04-12', '2026-04-12', '2026-04-14', '2026-04-15', 'tentative', 'recording', 'terrestrial_tv'],
+    ['GLS-202603-0005', 'フジ CM撮影「春キャンペーン」', 'フジ', '2026-03-10', '2026-03-10', '2026-03-12', '2026-03-12', 'completed', 'recording', 'terrestrial_tv'],
   ];
-  for (const [gls, name, custKey, rs, re, es, ee, status] of projectData) {
+  for (const [gls, name, custKey, rs, re, es, ee, status, bType, mPlatform] of projectData) {
     const id = uuidv4();
     PROJECTS[gls] = id;
-    ins(projSql, [id, gls, name, CUSTOMERS[custKey], rs, re, es, ee, status, USERS.admin]);
+    ins(projSql, [id, gls, name, CUSTOMERS[custKey], rs, re, es, ee, status, bType, mPlatform, USERS.admin]);
   }
 
   // Sequences
@@ -177,6 +177,66 @@ export async function seed() {
   ];
   for (const [glsNum, vendorType, method, tax, invQual, amount, desc, recDate] of purchaseData) {
     ins(purSql, [uuidv4(), PROJECTS[glsNum], VENDORS[vendorType], staffIds[Math.floor(Math.random() * 3)], method, tax, invQual, amount, desc, recDate, null]);
+  }
+
+  // Episodes - テレ東特番(GLS-202603-0002): 12話一括 + 1話追加
+  const epSql = `INSERT INTO episodes (id, project_id, episode_number, episode_code, recording_date, broadcast_date, delivery_date, revenue_budget, cost_budget, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const EPISODES: Record<string, string> = {};
+  const teltoProject = PROJECTS['GLS-202603-0002'];
+  for (let i = 1; i <= 13; i++) {
+    const epId = uuidv4();
+    const code = `GLS-202603-0002-${String(i).padStart(3, '0')}`;
+    EPISODES[code] = epId;
+    const recDate = `2026-${String(3 + Math.floor((i - 1) / 4)).padStart(2, '0')}-${String(((i - 1) % 28) + 1).padStart(2, '0')}`;
+    const bcastDate = `2026-${String(3 + Math.floor(i / 4)).padStart(2, '0')}-${String((i % 28) + 7).padStart(2, '0')}`;
+    ins(epSql, [epId, teltoProject, i, code, recDate, bcastDate, bcastDate, 600000, 350000, USERS.admin]);
+  }
+
+  // Episodes - ABEMA生放送(GLS-202603-0003): 4話(生放送なので収録日=放送日)
+  const abemaProject = PROJECTS['GLS-202603-0003'];
+  for (let i = 1; i <= 4; i++) {
+    const epId = uuidv4();
+    const code = `GLS-202603-0003-${String(i).padStart(3, '0')}`;
+    EPISODES[code] = epId;
+    const liveDate = `2026-03-${String(24 + i).padStart(2, '0')}`;
+    ins(epSql, [epId, abemaProject, i, code, liveDate, liveDate, liveDate, 1200000, 700000, USERS.admin]);
+  }
+
+  // Netflix(GLS-202604-0001): 6話
+  const netflixProject = PROJECTS['GLS-202604-0001'];
+  for (let i = 1; i <= 6; i++) {
+    const epId = uuidv4();
+    const code = `GLS-202604-0001-${String(i).padStart(3, '0')}`;
+    EPISODES[code] = epId;
+    const recDate = `2026-04-${String(i * 2 + 1).padStart(2, '0')}`;
+    const bcastDate = `2026-05-${String(i * 3).padStart(2, '0')}`;
+    ins(epSql, [epId, netflixProject, i, code, recDate, bcastDate, bcastDate, 2000000, 900000, USERS.admin]);
+  }
+
+  // Episode Orders
+  const eoSql = `INSERT INTO episode_orders (id, project_id, order_date, episode_count, start_episode, end_episode, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+  ins(eoSql, [uuidv4(), teltoProject, '2025-12-02', 12, 1, 12, '初回一括発注', USERS.admin]);
+  ins(eoSql, [uuidv4(), teltoProject, '2026-05-01', 1, 13, 13, '追加発注', USERS.admin]);
+  ins(eoSql, [uuidv4(), abemaProject, '2026-02-15', 4, 1, 4, '4話一括発注', USERS.admin]);
+  ins(eoSql, [uuidv4(), netflixProject, '2026-03-01', 6, 1, 6, 'シーズン1発注', USERS.admin]);
+
+  // Invoice Groups - テレ東: 4話ずつグループ化
+  const igSql = `INSERT INTO invoice_groups (id, project_id, title, invoice_date, status, created_by) VALUES (?, ?, ?, ?, ?, ?)`;
+  const igEpSql = `INSERT INTO invoice_group_episodes (invoice_group_id, episode_id) VALUES (?, ?)`;
+  const ig1 = uuidv4();
+  ins(igSql, [ig1, teltoProject, '第1Q請求 (#1-#4)', '2026-03-31', 'paid', USERS.admin]);
+  for (let i = 1; i <= 4; i++) {
+    ins(igEpSql, [ig1, EPISODES[`GLS-202603-0002-${String(i).padStart(3, '0')}`]]);
+  }
+  const ig2 = uuidv4();
+  ins(igSql, [ig2, teltoProject, '第2Q請求 (#5-#8)', '2026-06-30', 'sent', USERS.admin]);
+  for (let i = 5; i <= 8; i++) {
+    ins(igEpSql, [ig2, EPISODES[`GLS-202603-0002-${String(i).padStart(3, '0')}`]]);
+  }
+  const ig3 = uuidv4();
+  ins(igSql, [ig3, teltoProject, '第3Q請求 (#9-#12)', '2026-09-30', 'draft', USERS.admin]);
+  for (let i = 9; i <= 12; i++) {
+    ins(igEpSql, [ig3, EPISODES[`GLS-202603-0002-${String(i).padStart(3, '0')}`]]);
   }
 
   saveDb();

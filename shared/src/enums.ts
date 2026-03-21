@@ -90,3 +90,55 @@ export const SettlementMethodLabels: Record<SettlementMethod, string> = {
   xpoint: 'X-Point',
   other: 'その他',
 };
+
+// 番組種別
+export const BroadcastType = {
+  LIVE: 'live',
+  RECORDING: 'recording',
+} as const;
+export type BroadcastType = (typeof BroadcastType)[keyof typeof BroadcastType];
+
+export const BroadcastTypeLabels: Record<BroadcastType, string> = {
+  live: '生放送',
+  recording: '収録',
+};
+
+// 配信媒体
+export const MediaPlatform = {
+  YOUTUBE: 'youtube',
+  TERRESTRIAL_TV: 'terrestrial_tv',
+  NET_MEDIA: 'net_media',
+  ZOOM: 'zoom',
+  TEAMS: 'teams',
+  OTHER: 'other',
+} as const;
+export type MediaPlatform = (typeof MediaPlatform)[keyof typeof MediaPlatform];
+
+export const MediaPlatformLabels: Record<MediaPlatform, string> = {
+  youtube: 'YouTube',
+  terrestrial_tv: '地上波TV',
+  net_media: 'ネットメディア',
+  zoom: 'ZOOM',
+  teams: 'Teams',
+  other: 'その他',
+};
+
+// 請求グループステータス
+export const InvoiceGroupStatus = {
+  DRAFT: 'draft',
+  SENT: 'sent',
+  PAID: 'paid',
+} as const;
+export type InvoiceGroupStatus = (typeof InvoiceGroupStatus)[keyof typeof InvoiceGroupStatus];
+
+export const InvoiceGroupStatusLabels: Record<InvoiceGroupStatus, string> = {
+  draft: '下書き',
+  sent: '送付済',
+  paid: '入金済',
+};
+
+export const InvoiceGroupStatusColors: Record<InvoiceGroupStatus, string> = {
+  draft: '#94a3b8',
+  sent: '#f59e0b',
+  paid: '#22c55e',
+};

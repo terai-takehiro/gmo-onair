@@ -10,7 +10,7 @@
     {
       "name": "client",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["node_modules/vite/bin/vite.js", "--config", "client/vite.config.ts"],
+      "runtimeArgs": ["scripts/start-client.js"],
       "port": 5173
     }
   ]
