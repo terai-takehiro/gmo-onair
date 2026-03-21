@@ -67,12 +67,16 @@ router.post('/:projectId/episodes/batch', requireAuth, (req, res) => {
   const nextNum = getNextEpisodeNumber(projectId);
   const createdEpisodes: unknown[] = [];
 
+  const startEp = nextNum;
+  const endEp = nextNum + count - 1;
+
   // Create episode_orders record
   const orderId = uuidv4();
+  const today = order_date || new Date().toISOString().split('T')[0];
   execute(
-    `INSERT INTO episode_orders (id, project_id, order_date, episode_count, notes, created_by)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [orderId, projectId, order_date || null, count, notes || null, req.user!.id]
+    `INSERT INTO episode_orders (id, project_id, order_date, episode_count, start_episode, end_episode, notes, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [orderId, projectId, today, count, startEp, endEp, notes || null, req.user!.id]
   );
 
   for (let i = 0; i < count; i++) {
@@ -81,9 +85,9 @@ router.post('/:projectId/episodes/batch', requireAuth, (req, res) => {
     const id = uuidv4();
 
     execute(
-      `INSERT INTO episodes (id, project_id, episode_code, episode_number, episode_order_id, created_by)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [id, projectId, episodeCode, episodeNumber, orderId, req.user!.id]
+      `INSERT INTO episodes (id, project_id, episode_code, episode_number, created_by)
+       VALUES (?, ?, ?, ?, ?)`,
+      [id, projectId, episodeCode, episodeNumber, req.user!.id]
     );
 
     const row = queryOne('SELECT * FROM episodes WHERE id = ?', [id]);

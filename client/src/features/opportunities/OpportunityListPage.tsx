@@ -12,6 +12,15 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Search, Loader2 } from "lucide-react";
 
+const projectTypeLabel: Record<string, string> = {
+  offline_event: "オフライン",
+  hybrid_event: "ハイブリット",
+  live_broadcast: "生放送",
+  recording: "収録",
+  gmo_project: "GMO案件",
+  other: "その他",
+};
+
 const stageOptions = [
   { value: "", label: "全て" },
   { value: "neta", label: "ネタ" },
@@ -106,7 +115,7 @@ export default function OpportunityListPage() {
                 <TableHead>案件名</TableHead>
                 <TableHead>顧客</TableHead>
                 <TableHead>ステージ</TableHead>
-                <TableHead className="text-right">確度(%)</TableHead>
+                <TableHead>案件種類</TableHead>
                 <TableHead className="text-right">想定金額</TableHead>
                 <TableHead>想定日</TableHead>
                 <TableHead>担当者</TableHead>
@@ -134,7 +143,7 @@ export default function OpportunityListPage() {
                         {stageLabel[opp.stage as string] || (opp.stage as string)}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">{opp.probability as number}%</TableCell>
+                    <TableCell className="text-xs">{projectTypeLabel[opp.project_type as string] || (opp.project_type as string) || "-"}</TableCell>
                     <TableCell className="text-right">{formatCurrency(opp.expected_amount as number)}</TableCell>
                     <TableCell>{formatDate(opp.expected_date as string)}</TableCell>
                     <TableCell>{(opp.assigned_to_name as string) || "-"}</TableCell>

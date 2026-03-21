@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import api from "@/lib/api";
-import { formatCurrency } from "@/lib/format";
+// format utils available if needed
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,7 +25,6 @@ import {
 import SimulationDialog from "./SimulationDialog";
 
 const stageOrder: OpportunityStage[] = ['neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 's_completed', 'e_lost'];
-const activeStages: OpportunityStage[] = ['neta', 'd_hold', 'c_proposal'];
 
 interface FormValues {
   title: string;
