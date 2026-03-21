@@ -22,7 +22,6 @@ interface FormValues {
   count: number;
   order_date: string;
   revenue_total: number;
-  cost_total: number;
   notes: string;
 }
 
@@ -31,17 +30,13 @@ export default function EpisodeBatchDialog({ projectId, open, onOpenChange }: Pr
   const today = new Date().toISOString().slice(0, 10);
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<FormValues>({
-    defaultValues: { count: 1, order_date: today, revenue_total: 0, cost_total: 0, notes: "" },
+    defaultValues: { count: 1, order_date: today, revenue_total: 0, notes: "" },
   });
 
   const count = useWatch({ control, name: "count" }) || 1;
   const revenueTotal = useWatch({ control, name: "revenue_total" }) || 0;
-  const costTotal = useWatch({ control, name: "cost_total" }) || 0;
 
   const revenuePerEp = count > 0 ? Math.floor(revenueTotal / count) : 0;
-  const costPerEp = count > 0 ? Math.floor(costTotal / count) : 0;
-  const grossPerEp = revenuePerEp - costPerEp;
-  const grossMargin = revenuePerEp > 0 ? Math.round((grossPerEp / revenuePerEp) * 1000) / 10 : 0;
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) =>
@@ -49,13 +44,12 @@ export default function EpisodeBatchDialog({ projectId, open, onOpenChange }: Pr
         count: Number(values.count),
         order_date: values.order_date,
         revenue_budget_per_episode: Math.floor(Number(values.revenue_total) / Number(values.count)),
-        cost_budget_per_episode: Math.floor(Number(values.cost_total) / Number(values.count)),
         notes: values.notes,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["episodes", projectId] });
       qc.invalidateQueries({ queryKey: ["episode-orders", projectId] });
-      reset({ count: 1, order_date: today, revenue_total: 0, cost_total: 0, notes: "" });
+      reset({ count: 1, order_date: today, revenue_total: 0, notes: "" });
       onOpenChange(false);
     },
   });
@@ -85,49 +79,22 @@ export default function EpisodeBatchDialog({ projectId, open, onOpenChange }: Pr
 
           <Separator />
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>売上(合計)</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
-                <Input
-                  type="number" min={0} className="pl-7"
-                  {...register("revenue_total", { valueAsNumber: true })}
-                />
-              </div>
+          <div className="space-y-2">
+            <Label>売上(合計)</Label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
+              <Input
+                type="number" min={0} className="pl-7"
+                {...register("revenue_total", { valueAsNumber: true })}
+              />
             </div>
-            <div className="space-y-2">
-              <Label>仕入(合計)</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
-                <Input
-                  type="number" min={0} className="pl-7"
-                  {...register("cost_total", { valueAsNumber: true })}
-                />
-              </div>
-            </div>
+            <p className="text-xs text-muted-foreground">仕入は各話ごとに個別登録します</p>
           </div>
 
-          {/* 按分プレビュー */}
-          {(revenueTotal > 0 || costTotal > 0) && count > 0 && (
-            <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
-              <p className="text-xs font-medium text-muted-foreground">1話あたり按分プレビュー（{count}話）</p>
-              <div className="grid grid-cols-3 gap-2 text-sm">
-                <div>
-                  <span className="text-xs text-muted-foreground">売上</span>
-                  <p className="font-mono font-medium">{formatCurrency(revenuePerEp)}</p>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground">仕入</span>
-                  <p className="font-mono font-medium">{formatCurrency(costPerEp)}</p>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground">粗利</span>
-                  <p className={`font-mono font-medium ${grossPerEp >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {formatCurrency(grossPerEp)} ({grossMargin}%)
-                  </p>
-                </div>
-              </div>
+          {revenueTotal > 0 && count > 0 && (
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">1話あたり売上（{count}話で按分）</p>
+              <p className="font-mono font-semibold text-primary">{formatCurrency(revenuePerEp)}</p>
             </div>
           )}
 
