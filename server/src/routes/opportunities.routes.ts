@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../db/connection';
 import { requireAuth } from '../middleware/auth';
 import { extractPagination, paginatedResponse } from '../services/pagination';
-import { generateSequenceNumber } from '../services/sequence.service';
+import { generateSequenceNumber, generateGlsNumber, generateEpisodeCode } from '../services/sequence.service';
 import { AppError } from '../middleware/errorHandler';
 
 const router = Router();
@@ -50,22 +50,45 @@ router.put('/:id', requireAuth, (req, res) => {
 });
 
 router.patch('/:id/stage', requireAuth, (req, res) => {
-  const { stage } = req.body;
+  const { stage, broadcast_type, media_platform, initial_episode_count } = req.body;
   if (!stage) throw new AppError(400, 'VALIDATION_ERROR', 'stageは必須です');
   const opp = queryOne('SELECT * FROM opportunities WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!opp) throw new AppError(404, 'NOT_FOUND', 'ヨミが見つかりません');
   execute(`UPDATE opportunities SET stage=?, updated_at=datetime('now'), updated_by=? WHERE id=?`, [stage, req.user!.id, req.params.id]);
   let project = null;
+  let episodes: unknown[] = [];
+  let episodeOrder = null;
   if (stage === 'won' && !opp.project_id) {
     const projId = uuidv4();
-    const glsNumber = generateSequenceNumber('gls_number', 'GLS');
-    execute(`INSERT INTO projects (id, gls_number, name, customer_id, opportunity_id, status, created_by) VALUES (?, ?, ?, ?, ?, 'tentative', ?)`,
-      [projId, glsNumber, opp.title, opp.customer_id, req.params.id, req.user!.id]);
+    const glsNumber = generateGlsNumber();
+    const bType = broadcast_type || 'recording';
+    const mPlatform = media_platform || 'other';
+    execute(`INSERT INTO projects (id, gls_number, name, customer_id, opportunity_id, status, broadcast_type, media_platform, created_by) VALUES (?, ?, ?, ?, ?, 'confirmed', ?, ?, ?)`,
+      [projId, glsNumber, opp.title, opp.customer_id, req.params.id, bType, mPlatform, req.user!.id]);
     execute(`UPDATE opportunities SET project_id=?, updated_at=datetime('now') WHERE id=?`, [projId, req.params.id]);
+
+    // 初回発注: 話数を一括作成
+    const epCount = parseInt(initial_episode_count) || 0;
+    if (epCount > 0) {
+      for (let i = 1; i <= epCount; i++) {
+        const epId = uuidv4();
+        const epCode = generateEpisodeCode(glsNumber, i);
+        execute(`INSERT INTO episodes (id, project_id, episode_number, episode_code, created_by) VALUES (?, ?, ?, ?, ?)`,
+          [epId, projId, i, epCode, req.user!.id]);
+      }
+      // 発注バッチ記録
+      const orderId = uuidv4();
+      const today = new Date().toISOString().split('T')[0];
+      execute(`INSERT INTO episode_orders (id, project_id, order_date, episode_count, start_episode, end_episode, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [orderId, projId, today, epCount, 1, epCount, '受注時初回発注', req.user!.id]);
+      episodes = queryAll('SELECT * FROM episodes WHERE project_id = ? AND deleted_at IS NULL ORDER BY episode_number', [projId]);
+      episodeOrder = queryOne('SELECT * FROM episode_orders WHERE id = ?', [orderId]);
+    }
+
     project = queryOne('SELECT * FROM projects WHERE id = ?', [projId]);
   }
   const updated = queryOne('SELECT o.*, c.name as customer_name FROM opportunities o LEFT JOIN customers c ON c.id = o.customer_id WHERE o.id = ?', [req.params.id]);
-  res.json({ success: true, data: updated, project });
+  res.json({ success: true, data: updated, project, episodes, episodeOrder });
 });
 
 router.delete('/:id', requireAuth, (req, res) => {
