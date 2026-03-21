@@ -112,11 +112,11 @@ export default function EpisodeEditDialog({ projectId, episode, broadcastType, o
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="revenue_budget">売上予算</Label>
+              <Label htmlFor="revenue_budget">売上</Label>
               <Input id="revenue_budget" type="number" min={0} {...register("revenue_budget")} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cost_budget">仕入予算</Label>
+              <Label htmlFor="cost_budget">仕入</Label>
               <Input id="cost_budget" type="number" min={0} {...register("cost_budget")} />
             </div>
           </div>

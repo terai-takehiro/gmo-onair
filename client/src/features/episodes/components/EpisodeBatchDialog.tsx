@@ -1,17 +1,14 @@
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
+import { formatCurrency } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { Loader2 } from "lucide-react";
 
@@ -24,6 +21,8 @@ interface Props {
 interface FormValues {
   count: number;
   order_date: string;
+  revenue_total: number;
+  cost_total: number;
   notes: string;
 }
 
@@ -31,63 +30,117 @@ export default function EpisodeBatchDialog({ projectId, open, onOpenChange }: Pr
   const qc = useQueryClient();
   const today = new Date().toISOString().slice(0, 10);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormValues>({
-    defaultValues: { count: 1, order_date: today, notes: "" },
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<FormValues>({
+    defaultValues: { count: 1, order_date: today, revenue_total: 0, cost_total: 0, notes: "" },
   });
+
+  const count = useWatch({ control, name: "count" }) || 1;
+  const revenueTotal = useWatch({ control, name: "revenue_total" }) || 0;
+  const costTotal = useWatch({ control, name: "cost_total" }) || 0;
+
+  const revenuePerEp = count > 0 ? Math.floor(revenueTotal / count) : 0;
+  const costPerEp = count > 0 ? Math.floor(costTotal / count) : 0;
+  const grossPerEp = revenuePerEp - costPerEp;
+  const grossMargin = revenuePerEp > 0 ? Math.round((grossPerEp / revenuePerEp) * 1000) / 10 : 0;
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) =>
-      api.post(`/projects/${projectId}/episodes/batch`, values),
+      api.post(`/projects/${projectId}/episodes/batch`, {
+        count: Number(values.count),
+        order_date: values.order_date,
+        revenue_budget_per_episode: Math.floor(Number(values.revenue_total) / Number(values.count)),
+        cost_budget_per_episode: Math.floor(Number(values.cost_total) / Number(values.count)),
+        notes: values.notes,
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["episodes", projectId] });
       qc.invalidateQueries({ queryKey: ["episode-orders", projectId] });
-      reset({ count: 1, order_date: today, notes: "" });
+      reset({ count: 1, order_date: today, revenue_total: 0, cost_total: 0, notes: "" });
       onOpenChange(false);
     },
   });
-
-  const onSubmit = (values: FormValues) => {
-    mutation.mutate({ ...values, count: Number(values.count) });
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>発注追加</DialogTitle>
-          <DialogDescription>新しい話数を一括で追加します。</DialogDescription>
+          <DialogDescription>話数を一括追加し、予算を均等按分します。各話の予算は後から個別調整可能です。</DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="count">発注話数</Label>
-            <Input
-              id="count"
-              type="number"
-              min={1}
-              {...register("count", { required: "必須項目です", min: { value: 1, message: "1以上を入力してください" } })}
-            />
-            {errors.count && <p className="text-sm text-destructive">{errors.count.message}</p>}
+        <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>発注話数 *</Label>
+              <Input
+                type="number" min={1}
+                {...register("count", { required: "必須", min: { value: 1, message: "1以上" }, valueAsNumber: true })}
+              />
+              {errors.count && <p className="text-xs text-destructive">{errors.count.message}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label>発注日 *</Label>
+              <Input type="date" {...register("order_date", { required: "必須" })} />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="order_date">発注日</Label>
-            <Input
-              id="order_date"
-              type="date"
-              {...register("order_date", { required: "必須項目です" })}
-            />
-            {errors.order_date && <p className="text-sm text-destructive">{errors.order_date.message}</p>}
+
+          <Separator />
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>売上(合計)</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
+                <Input
+                  type="number" min={0} className="pl-7"
+                  {...register("revenue_total", { valueAsNumber: true })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>仕入(合計)</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
+                <Input
+                  type="number" min={0} className="pl-7"
+                  {...register("cost_total", { valueAsNumber: true })}
+                />
+              </div>
+            </div>
           </div>
+
+          {/* 按分プレビュー */}
+          {(revenueTotal > 0 || costTotal > 0) && count > 0 && (
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground">1話あたり按分プレビュー（{count}話）</p>
+              <div className="grid grid-cols-3 gap-2 text-sm">
+                <div>
+                  <span className="text-xs text-muted-foreground">売上</span>
+                  <p className="font-mono font-medium">{formatCurrency(revenuePerEp)}</p>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground">仕入</span>
+                  <p className="font-mono font-medium">{formatCurrency(costPerEp)}</p>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground">粗利</span>
+                  <p className={`font-mono font-medium ${grossPerEp >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatCurrency(grossPerEp)} ({grossMargin}%)
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
-            <Label htmlFor="notes">メモ</Label>
-            <Textarea id="notes" rows={3} {...register("notes")} />
+            <Label>メモ</Label>
+            <Textarea rows={2} {...register("notes")} />
           </div>
+
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              キャンセル
-            </Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
             <Button type="submit" disabled={mutation.isPending}>
               {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              追加
+              発注追加
             </Button>
           </DialogFooter>
         </form>

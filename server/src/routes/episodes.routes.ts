@@ -57,7 +57,7 @@ router.get('/:projectId/episodes/:id', (req, res) => {
 // Batch create episodes
 router.post('/:projectId/episodes/batch', requireAuth, (req, res) => {
   const projectId = req.params.projectId as string;
-  const { count, order_date, notes } = req.body;
+  const { count, order_date, notes, revenue_budget_per_episode, cost_budget_per_episode } = req.body;
 
   if (!count || count < 1) throw new AppError(400, 'VALIDATION_ERROR', '作成数は1以上を指定してください');
 
@@ -85,9 +85,9 @@ router.post('/:projectId/episodes/batch', requireAuth, (req, res) => {
     const id = uuidv4();
 
     execute(
-      `INSERT INTO episodes (id, project_id, episode_code, episode_number, created_by)
-       VALUES (?, ?, ?, ?, ?)`,
-      [id, projectId, episodeCode, episodeNumber, req.user!.id]
+      `INSERT INTO episodes (id, project_id, episode_code, episode_number, revenue_budget, cost_budget, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [id, projectId, episodeCode, episodeNumber, revenue_budget_per_episode || 0, cost_budget_per_episode || 0, req.user!.id]
     );
 
     const row = queryOne('SELECT * FROM episodes WHERE id = ?', [id]);

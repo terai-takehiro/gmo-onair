@@ -180,8 +180,8 @@ export default function EpisodeListPage() {
         <TabsContent value="episodes" className="space-y-4">
           {/* Summary Cards */}
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-            <SummaryCard title="売上予算計" value={formatCurrency(totalRevenueBudget)} />
-            <SummaryCard title="仕入予算計" value={formatCurrency(totalCostBudget)} />
+            <SummaryCard title="売上計" value={formatCurrency(totalRevenueBudget)} />
+            <SummaryCard title="仕入計" value={formatCurrency(totalCostBudget)} />
             <SummaryCard title="粗利予算" value={formatCurrency(grossProfitBudget)} />
             <SummaryCard title="実績売上計" value={formatCurrency(totalActualRevenue)} />
             <SummaryCard title="実績仕入計" value={formatCurrency(totalActualCost)} />
@@ -208,8 +208,8 @@ export default function EpisodeListPage() {
                   <TableHead>収録日</TableHead>
                   <TableHead>放送日</TableHead>
                   <TableHead>納品日</TableHead>
-                  <TableHead className="text-right">売上予算</TableHead>
-                  <TableHead className="text-right">仕入予算</TableHead>
+                  <TableHead className="text-right">売上</TableHead>
+                  <TableHead className="text-right">仕入</TableHead>
                   <TableHead className="w-24">操作</TableHead>
                 </TableRow>
               </TableHeader>
