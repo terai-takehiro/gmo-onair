@@ -8,7 +8,10 @@
       "Bash(curl -s http://localhost:3001/api/v1/internal/projects?limit=1)",
       "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(d[''''data''''][0][''''id'''']\\)\")",
       "Bash(git commit:*)",
-      "Bash(gh auth:*)"
+      "Bash(gh auth:*)",
+      "Bash(gh repo:*)",
+      "Bash(git add:*)",
+      "Bash(git push:*)"
     ]
   }
 }

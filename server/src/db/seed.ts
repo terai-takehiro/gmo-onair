@@ -183,9 +183,6 @@ export async function seed() {
   console.log('Seed data inserted successfully.');
 }
 
-// Import saveDb
-import { saveDb } from './connection';
-
 if (require.main === module) {
   runMigrations().then(() => seed()).then(() => closeDb());
 }
