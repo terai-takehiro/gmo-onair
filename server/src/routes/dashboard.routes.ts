@@ -46,4 +46,32 @@ router.get('/recent-projects', (_req, res) => {
   res.json({ success: true, data: rows });
 });
 
+router.get('/monthly-chart', (_req, res) => {
+  const months: Array<{ month: string; revenue: number; purchase: number; profit: number }> = [];
+  const now = new Date();
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const monthStart = `${ym}-01`;
+    const monthEnd = `${ym}-31`;
+    const rev = queryOne(`SELECT COALESCE(SUM(amount),0) as total FROM revenues WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [monthStart, monthEnd]);
+    const pur = queryOne(`SELECT COALESCE(SUM(amount),0) as total FROM purchases WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [monthStart, monthEnd]);
+    const revenue = (rev?.total as number) || 0;
+    const purchase = (pur?.total as number) || 0;
+    months.push({ month: ym, revenue, purchase, profit: revenue - purchase });
+  }
+  res.json({ success: true, data: months });
+});
+
+router.get('/pipeline', (_req, res) => {
+  const stages = queryAll(
+    `SELECT stage, COUNT(*) as count, COALESCE(SUM(expected_amount),0) as total_amount
+     FROM opportunities WHERE deleted_at IS NULL AND stage NOT IN ('e_lost','s_completed')
+     GROUP BY stage ORDER BY CASE stage
+       WHEN 'neta' THEN 1 WHEN 'd_hold' THEN 2 WHEN 'c_proposal' THEN 3
+       WHEN 'b_verbal' THEN 4 WHEN 'a_won' THEN 5 END`
+  );
+  res.json({ success: true, data: stages });
+});
+
 export default router;

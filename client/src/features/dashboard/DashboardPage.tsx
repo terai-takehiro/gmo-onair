@@ -5,6 +5,10 @@ import { formatCurrency, formatPercent } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer, Line, ComposedChart, Cell,
+} from 'recharts';
+import {
   TrendingUp,
   FolderKanban,
   Receipt,
@@ -41,6 +45,30 @@ interface Project {
   customer_name?: string;
   status: string;
 }
+
+interface MonthlyChart {
+  month: string;
+  revenue: number;
+  purchase: number;
+  profit: number;
+}
+
+interface PipelineStage {
+  stage: string;
+  count: number;
+  total_amount: number;
+}
+
+const stageLabels: Record<string, string> = {
+  neta: 'ネタ', d_hold: 'D 仮押さえ', c_proposal: 'C 見積提案',
+  b_verbal: 'B 口頭決定', a_won: 'A 受注済',
+};
+const stageColors: Record<string, string> = {
+  neta: '#94a3b8', d_hold: '#a78bfa', c_proposal: '#3b82f6',
+  b_verbal: '#f59e0b', a_won: '#22c55e',
+};
+
+const formatYen = (value: number) => `\u00a5${(value / 10000).toLocaleString()}万`;
 
 const alertTypeColor: Record<string, string> = {
   warning: "#f59e0b",
@@ -87,6 +115,16 @@ export default function DashboardPage() {
     staleTime: 60000, // only check once per minute
   });
 
+  const { data: chartData } = useQuery<MonthlyChart[]>({
+    queryKey: ['dashboard-chart'],
+    queryFn: async () => (await api.get('/dashboard/monthly-chart')).data.data,
+  });
+
+  const { data: pipelineData } = useQuery<PipelineStage[]>({
+    queryKey: ['dashboard-pipeline'],
+    queryFn: async () => (await api.get('/dashboard/pipeline')).data.data,
+  });
+
   const kpiCards = [
     { label: "今月売上", value: kpi ? formatCurrency(kpi.monthly_revenue) : "-", icon: DollarSign, color: "text-green-600" },
     { label: "今月粗利率", value: kpi ? formatPercent(kpi.monthly_gross_margin) : "-", icon: BarChart3, color: "text-blue-600" },
@@ -129,6 +167,79 @@ export default function DashboardPage() {
           ))}
         </div>
       )}
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Monthly Revenue/Purchase/Profit Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">月次推移</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {chartData && chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <ComposedChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="month"
+                    tickFormatter={(v: string) => `${parseInt(v.split('-')[1])}月`}
+                  />
+                  <YAxis
+                    tickFormatter={(v: number) => `${(v / 1000000).toFixed(0)}M`}
+                  />
+                  <Tooltip
+                    formatter={(value) => [formatYen(Number(value)), '']}
+                    labelFormatter={(label) => `${parseInt(String(label).split('-')[1])}月`}
+                  />
+                  <Legend />
+                  <Bar dataKey="revenue" fill="#005bac" name="売上" />
+                  <Bar dataKey="purchase" fill="#f59e0b" name="仕入" />
+                  <Line type="monotone" dataKey="profit" stroke="#22c55e" name="粗利" strokeWidth={2} dot={false} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-sm text-muted-foreground py-8 text-center">データがありません</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Pipeline Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">ヨミパイプライン</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {pipelineData && pipelineData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart
+                  data={pipelineData.map((s) => ({
+                    ...s,
+                    label: stageLabels[s.stage] || s.stage,
+                  }))}
+                  layout="vertical"
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" tickFormatter={(v: number) => `${(v / 1000000).toFixed(0)}M`} />
+                  <YAxis type="category" dataKey="label" width={100} />
+                  <Tooltip
+                    formatter={(value) => [formatYen(Number(value)), '金額']}
+                  />
+                  <Bar dataKey="total_amount" name="金額" label={{ position: 'right', formatter: (v) => {
+                    const item = pipelineData.find((s) => s.total_amount === Number(v));
+                    return item ? `${item.count}件` : '';
+                  } }}>
+                    {pipelineData.map((s, idx) => (
+                      <Cell key={idx} fill={stageColors[s.stage] || '#94a3b8'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-sm text-muted-foreground py-8 text-center">データがありません</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Alerts */}
