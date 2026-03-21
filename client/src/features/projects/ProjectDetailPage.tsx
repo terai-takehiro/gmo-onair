@@ -191,11 +191,11 @@ export default function ProjectDetailPage() {
               <CardContent className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">本番日</span>
-                  <span>{formatDate(project.event_date)}</span>
+                  <span>{formatDate(project.event_start)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">リハ日</span>
-                  <span>{formatDate(project.rehearsal_date)}</span>
+                  <span>{formatDate(project.rehearsal_start)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">会場手配</span>

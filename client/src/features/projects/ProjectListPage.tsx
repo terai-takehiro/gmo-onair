@@ -91,12 +91,13 @@ export default function ProjectListPage() {
                 <TableHead>本番日</TableHead>
                 <TableHead>リハ日</TableHead>
                 <TableHead>話数</TableHead>
+                <TableHead>グループ</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {projects.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground">
                     データがありません
                   </TableCell>
                 </TableRow>
@@ -117,9 +118,10 @@ export default function ProjectListPage() {
                         {statusLabel[p.status as string] || (p.status as string)}
                       </Badge>
                     </TableCell>
-                    <TableCell>{formatDate(p.event_date as string)}</TableCell>
-                    <TableCell>{formatDate(p.rehearsal_date as string)}</TableCell>
+                    <TableCell>{formatDate(p.event_start as string)}</TableCell>
+                    <TableCell>{formatDate(p.rehearsal_start as string)}</TableCell>
                     <TableCell>{(p.episode_count as number) ?? "-"}</TableCell>
+                    <TableCell className="text-xs">{(p.group_name as string) || "-"}</TableCell>
                   </TableRow>
                 ))
               )}

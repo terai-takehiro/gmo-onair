@@ -135,7 +135,7 @@ export default function OpportunityListPage() {
                     className="cursor-pointer"
                     onClick={() => navigate(`/opportunities/${opp.id}`)}
                   >
-                    <TableCell className="font-mono text-xs">{(opp.opportunity_code as string) || "-"}</TableCell>
+                    <TableCell className="font-mono text-xs">{(opp.opp_code as string) || "-"}</TableCell>
                     <TableCell className="font-medium">{opp.title as string}</TableCell>
                     <TableCell>{(opp.customer_name as string) || "-"}</TableCell>
                     <TableCell>
