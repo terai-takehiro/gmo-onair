@@ -14,6 +14,7 @@ import {
   Truck,
   Users,
   UserCog,
+  DollarSign,
   X,
 } from "lucide-react";
 
@@ -60,6 +61,7 @@ const navSections: NavSection[] = [
       { label: "顧客", to: "/masters/customers", icon: Building2 },
       { label: "仕入先", to: "/masters/vendors", icon: Truck },
       { label: "パートナー", to: "/masters/partners", icon: Users },
+      { label: "料金表", to: "/masters/pricing", icon: DollarSign },
     ],
   },
   {

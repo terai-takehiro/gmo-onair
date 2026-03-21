@@ -78,23 +78,25 @@ CREATE TABLE IF NOT EXISTS projects (
 );
 
 CREATE TABLE IF NOT EXISTS opportunities (
-  id              TEXT PRIMARY KEY,
-  opp_code        TEXT NOT NULL UNIQUE,
-  title           TEXT NOT NULL,
-  customer_id     TEXT NOT NULL REFERENCES customers(id),
-  stage           TEXT NOT NULL DEFAULT 'lead'
-                  CHECK (stage IN ('lead','proposal','negotiation','won','lost')),
-  probability     INTEGER DEFAULT 0 CHECK (probability BETWEEN 0 AND 100),
-  expected_amount INTEGER DEFAULT 0,
-  expected_date   TEXT,
-  project_id      TEXT REFERENCES projects(id),
-  assigned_to     TEXT NOT NULL REFERENCES users(id),
-  notes           TEXT,
-  created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
-  created_by      TEXT,
-  updated_by      TEXT,
-  deleted_at      TEXT
+  id                TEXT PRIMARY KEY,
+  opp_code          TEXT NOT NULL UNIQUE,
+  title             TEXT NOT NULL,
+  customer_id       TEXT NOT NULL REFERENCES customers(id),
+  project_type      TEXT DEFAULT 'other',
+  project_type_other TEXT,
+  stage             TEXT NOT NULL DEFAULT 'neta'
+                    CHECK (stage IN ('neta','d_hold','c_proposal','b_verbal','a_won','s_completed','e_lost')),
+  probability       INTEGER DEFAULT 0 CHECK (probability BETWEEN 0 AND 100),
+  expected_amount   INTEGER DEFAULT 0,
+  expected_date     TEXT,
+  project_id        TEXT REFERENCES projects(id),
+  assigned_to       TEXT NOT NULL REFERENCES users(id),
+  notes             TEXT,
+  created_at        TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at        TEXT NOT NULL DEFAULT (datetime('now')),
+  created_by        TEXT,
+  updated_by        TEXT,
+  deleted_at        TEXT
 );
 
 CREATE TABLE IF NOT EXISTS revenues (
@@ -150,9 +152,59 @@ CREATE TABLE IF NOT EXISTS sequences (
   counter     INTEGER NOT NULL DEFAULT 0
 );
 
+-- 料金カテゴリ
+CREATE TABLE IF NOT EXISTS pricing_categories (
+  id          TEXT PRIMARY KEY,
+  name        TEXT NOT NULL,
+  sort_order  INTEGER DEFAULT 0,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  deleted_at  TEXT
+);
+
+-- 料金項目
+CREATE TABLE IF NOT EXISTS pricing_items (
+  id          TEXT PRIMARY KEY,
+  category_id TEXT NOT NULL REFERENCES pricing_categories(id),
+  name        TEXT NOT NULL,
+  sub_label   TEXT,
+  unit_price  INTEGER NOT NULL DEFAULT 0,
+  calc_type   TEXT NOT NULL DEFAULT 'days'
+              CHECK (calc_type IN ('days','hours','fixed','days_qty','days_people','toggle')),
+  sort_order  INTEGER DEFAULT 0,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  deleted_at  TEXT
+);
+
+-- ヨミ日程(複数日対応)
+CREATE TABLE IF NOT EXISTS opportunity_dates (
+  id              TEXT PRIMARY KEY,
+  opportunity_id  TEXT NOT NULL REFERENCES opportunities(id),
+  date_start      TEXT NOT NULL,
+  date_end        TEXT,
+  label           TEXT,
+  sort_order      INTEGER DEFAULT 0
+);
+
+-- ヨミ シミュレーション結果
+CREATE TABLE IF NOT EXISTS opportunity_simulations (
+  id               TEXT PRIMARY KEY,
+  opportunity_id   TEXT NOT NULL REFERENCES opportunities(id),
+  pricing_item_id  TEXT NOT NULL REFERENCES pricing_items(id),
+  quantity         INTEGER NOT NULL DEFAULT 1,
+  days             INTEGER NOT NULL DEFAULT 1,
+  unit_price       INTEGER NOT NULL DEFAULT 0,
+  subtotal         INTEGER NOT NULL DEFAULT 0,
+  created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- インデックス
 CREATE INDEX IF NOT EXISTS idx_opportunities_stage ON opportunities(stage) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_opportunities_assigned ON opportunities(assigned_to) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_pricing_items_category ON pricing_items(category_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_opp_dates_opp ON opportunity_dates(opportunity_id);
+CREATE INDEX IF NOT EXISTS idx_opp_sims_opp ON opportunity_simulations(opportunity_id);
 CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_projects_event_start ON projects(event_start) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_revenues_project ON revenues(project_id) WHERE deleted_at IS NULL;

@@ -29,12 +29,12 @@ router.get('/:id', (req, res) => {
 });
 
 router.post('/', requireAuth, (req, res) => {
-  const { title, customer_id, stage, probability, expected_amount, expected_date, assigned_to, notes } = req.body;
+  const { title, customer_id, stage, probability, expected_amount, expected_date, assigned_to, notes, project_type, project_type_other } = req.body;
   if (!title || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件仮称と顧客は必須です');
   const id = uuidv4();
   const oppCode = generateSequenceNumber('opp_code', 'OPP');
-  execute(`INSERT INTO opportunities (id, opp_code, title, customer_id, stage, probability, expected_amount, expected_date, assigned_to, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, oppCode, title, customer_id, stage || 'lead', probability || 0, expected_amount || 0, expected_date || null, assigned_to || req.user!.id, notes || null, req.user!.id]);
+  execute(`INSERT INTO opportunities (id, opp_code, title, customer_id, stage, probability, expected_amount, expected_date, assigned_to, notes, project_type, project_type_other, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, oppCode, title, customer_id, stage || 'neta', probability || 0, expected_amount || 0, expected_date || null, assigned_to || req.user!.id, notes || null, project_type || null, project_type_other || null, req.user!.id]);
   const row = queryOne('SELECT o.*, c.name as customer_name FROM opportunities o LEFT JOIN customers c ON c.id = o.customer_id WHERE o.id = ?', [id]);
   res.status(201).json({ success: true, data: row });
 });
@@ -42,9 +42,9 @@ router.post('/', requireAuth, (req, res) => {
 router.put('/:id', requireAuth, (req, res) => {
   const existing = queryOne('SELECT id FROM opportunities WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'ヨミが見つかりません');
-  const { title, customer_id, stage, probability, expected_amount, expected_date, assigned_to, notes } = req.body;
-  execute(`UPDATE opportunities SET title=?, customer_id=?, stage=?, probability=?, expected_amount=?, expected_date=?, assigned_to=?, notes=?, updated_at=datetime('now'), updated_by=? WHERE id=?`,
-    [title, customer_id, stage, probability, expected_amount, expected_date || null, assigned_to, notes || null, req.user!.id, req.params.id]);
+  const { title, customer_id, stage, probability, expected_amount, expected_date, assigned_to, notes, project_type, project_type_other } = req.body;
+  execute(`UPDATE opportunities SET title=?, customer_id=?, stage=?, probability=?, expected_amount=?, expected_date=?, assigned_to=?, notes=?, project_type=?, project_type_other=?, updated_at=datetime('now'), updated_by=? WHERE id=?`,
+    [title, customer_id, stage, probability, expected_amount, expected_date || null, assigned_to, notes || null, project_type || null, project_type_other || null, req.user!.id, req.params.id]);
   const row = queryOne('SELECT o.*, c.name as customer_name FROM opportunities o LEFT JOIN customers c ON c.id = o.customer_id WHERE o.id = ?', [req.params.id]);
   res.json({ success: true, data: row });
 });
@@ -52,13 +52,13 @@ router.put('/:id', requireAuth, (req, res) => {
 router.patch('/:id/stage', requireAuth, (req, res) => {
   const { stage, broadcast_type, media_platform, initial_episode_count } = req.body;
   if (!stage) throw new AppError(400, 'VALIDATION_ERROR', 'stageは必須です');
-  const opp = queryOne('SELECT * FROM opportunities WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+  const opp = queryOne('SELECT * FROM opportunities WHERE id = ? AND deleted_at IS NULL', [req.params.id]) as any;
   if (!opp) throw new AppError(404, 'NOT_FOUND', 'ヨミが見つかりません');
   execute(`UPDATE opportunities SET stage=?, updated_at=datetime('now'), updated_by=? WHERE id=?`, [stage, req.user!.id, req.params.id]);
   let project = null;
   let episodes: unknown[] = [];
   let episodeOrder = null;
-  if (stage === 'won' && !opp.project_id) {
+  if (stage === 'b_verbal' && !opp.project_id) {
     const projId = uuidv4();
     const glsNumber = generateGlsNumber();
     const bType = broadcast_type || 'recording';
@@ -89,6 +89,43 @@ router.patch('/:id/stage', requireAuth, (req, res) => {
   }
   const updated = queryOne('SELECT o.*, c.name as customer_name FROM opportunities o LEFT JOIN customers c ON c.id = o.customer_id WHERE o.id = ?', [req.params.id]);
   res.json({ success: true, data: updated, project, episodes, episodeOrder });
+});
+
+// GET /opportunities/:id/dates - List dates for opportunity
+router.get('/:id/dates', (req, res) => {
+  const opp = queryOne('SELECT id FROM opportunities WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+  if (!opp) throw new AppError(404, 'NOT_FOUND', 'ヨミが見つかりません');
+  const dates = queryAll(
+    `SELECT id, date_start, date_end, label, sort_order FROM opportunity_dates WHERE opportunity_id = ? AND deleted_at IS NULL ORDER BY sort_order, date_start`,
+    [req.params.id]
+  );
+  res.json({ success: true, data: dates });
+});
+
+// PUT /opportunities/:id/dates - Save dates (full replace)
+router.put('/:id/dates', requireAuth, (req, res) => {
+  const opp = queryOne('SELECT id FROM opportunities WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+  if (!opp) throw new AppError(404, 'NOT_FOUND', 'ヨミが見つかりません');
+  const { dates } = req.body;
+  if (!Array.isArray(dates)) throw new AppError(400, 'VALIDATION_ERROR', 'datesは配列で指定してください');
+
+  // Delete existing dates
+  execute(`DELETE FROM opportunity_dates WHERE opportunity_id = ?`, [req.params.id]);
+
+  // Insert new dates
+  for (const d of dates) {
+    const id = uuidv4();
+    execute(
+      `INSERT INTO opportunity_dates (id, opportunity_id, date_start, date_end, label, sort_order, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [id, req.params.id, d.date_start, d.date_end || null, d.label || null, d.sort_order ?? 0, req.user!.id]
+    );
+  }
+
+  const saved = queryAll(
+    `SELECT id, date_start, date_end, label, sort_order FROM opportunity_dates WHERE opportunity_id = ? AND deleted_at IS NULL ORDER BY sort_order, date_start`,
+    [req.params.id]
+  );
+  res.json({ success: true, data: saved });
 });
 
 router.delete('/:id', requireAuth, (req, res) => {

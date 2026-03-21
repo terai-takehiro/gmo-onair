@@ -13,6 +13,8 @@ import invoiceGroupsRoutes from './invoice-groups.routes';
 import revenuesRoutes from './revenues.routes';
 import purchasesRoutes from './purchases.routes';
 import calendarRoutes from './calendar.routes';
+import pricingRoutes from './pricing.routes';
+import simulationsRoutes from './simulations.routes';
 
 export function createRoutes(): Router {
   const router = Router();
@@ -31,6 +33,8 @@ export function createRoutes(): Router {
   router.use('/revenues', revenuesRoutes);
   router.use('/purchases', purchasesRoutes);
   router.use('/calendar', calendarRoutes);
+  router.use('/pricing', pricingRoutes);
+  router.use('/opportunities', simulationsRoutes);
 
   return router;
 }

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import api from "@/lib/api";
+import { formatCurrency } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,36 +16,34 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink } from "lucide-react";
+import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator, Plus, Trash2 } from "lucide-react";
 import {
-  BroadcastTypeLabels, MediaPlatformLabels,
+  OpportunityStageLabels, OpportunityStageColors, OpportunityStageProbability,
+  ProjectTypeLabels, BroadcastTypeLabels, MediaPlatformLabels,
+  type OpportunityStage,
 } from "@/types";
+import SimulationDialog from "./SimulationDialog";
 
-const stageLabel: Record<string, string> = {
-  lead: "リード",
-  proposal: "提案中",
-  negotiation: "交渉中",
-  won: "受注",
-  lost: "失注",
-};
-
-const stageColor: Record<string, string> = {
-  lead: "#6b7280",
-  proposal: "#3b82f6",
-  negotiation: "#f59e0b",
-  won: "#22c55e",
-  lost: "#ef4444",
-};
+const stageOrder: OpportunityStage[] = ['neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 's_completed', 'e_lost'];
+const activeStages: OpportunityStage[] = ['neta', 'd_hold', 'c_proposal'];
 
 interface FormValues {
   title: string;
   customer_id: string;
+  project_type: string;
+  project_type_other: string;
   expected_date: string;
   expected_amount: number;
-  probability: number;
+  stage: string;
   assigned_to: string;
   notes: string;
-  stage: string;
+}
+
+interface DateEntry {
+  id?: string;
+  date_start: string;
+  date_end: string;
+  label: string;
 }
 
 interface WonDialogState {
@@ -68,6 +67,8 @@ export default function OpportunityFormPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
+  const [dates, setDates] = useState<DateEntry[]>([]);
+  const [simOpen, setSimOpen] = useState(false);
   const [wonDialog, setWonDialog] = useState<WonDialogState>({
     open: false, broadcast_type: "recording", media_platform: "other", initial_episode_count: 0,
   });
@@ -77,8 +78,8 @@ export default function OpportunityFormPage() {
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<FormValues>({
     defaultValues: {
-      title: "", customer_id: "", expected_date: "", expected_amount: 0,
-      probability: 50, assigned_to: "", notes: "", stage: "lead",
+      title: "", customer_id: "", project_type: "other", project_type_other: "",
+      expected_date: "", expected_amount: 0, stage: "neta", assigned_to: "", notes: "",
     },
   });
 
@@ -100,27 +101,64 @@ export default function OpportunityFormPage() {
   });
   const users = usersData ?? [];
 
+  // Fetch dates for existing opportunity
+  const { data: datesData } = useQuery({
+    queryKey: ["opportunity-dates", id],
+    queryFn: async () => (await api.get(`/opportunities/${id}/dates`)).data.data,
+    enabled: isEdit,
+  });
+
   useEffect(() => {
     if (opportunity) {
       reset({
         title: opportunity.title || "",
         customer_id: opportunity.customer_id || "",
+        project_type: opportunity.project_type || "other",
+        project_type_other: opportunity.project_type_other || "",
         expected_date: opportunity.expected_date?.split("T")[0] || "",
         expected_amount: opportunity.expected_amount || 0,
-        probability: opportunity.probability ?? 50,
+        stage: opportunity.stage || "neta",
         assigned_to: opportunity.assigned_to || "",
         notes: opportunity.notes || "",
-        stage: opportunity.stage || "lead",
       });
     }
   }, [opportunity, reset]);
 
+  useEffect(() => {
+    if (datesData) {
+      setDates(datesData.map((d: DateEntry) => ({
+        id: d.id, date_start: d.date_start, date_end: d.date_end || "", label: d.label || "",
+      })));
+    }
+  }, [datesData]);
+
   const saveMutation = useMutation({
     mutationFn: async (values: FormValues) => {
+      const payload = {
+        ...values,
+        probability: OpportunityStageProbability[values.stage as OpportunityStage] ?? 0,
+      };
+      let result;
       if (isEdit) {
-        return (await api.put(`/opportunities/${id}`, values)).data.data;
+        result = (await api.put(`/opportunities/${id}`, payload)).data.data;
+        // Save dates
+        await api.put(`/opportunities/${id}/dates`, {
+          dates: dates.filter(d => d.date_start).map((d, i) => ({
+            date_start: d.date_start, date_end: d.date_end || null, label: d.label || null, sort_order: i,
+          })),
+        });
+      } else {
+        result = (await api.post("/opportunities", payload)).data.data;
+        // Save dates for new opportunity
+        if (dates.some(d => d.date_start)) {
+          await api.put(`/opportunities/${result.id}/dates`, {
+            dates: dates.filter(d => d.date_start).map((d, i) => ({
+              date_start: d.date_start, date_end: d.date_end || null, label: d.label || null, sort_order: i,
+            })),
+          });
+        }
       }
-      return (await api.post("/opportunities", values)).data.data;
+      return result;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["opportunities"] });
@@ -143,27 +181,32 @@ export default function OpportunityFormPage() {
           projectId: data.project.id,
           episodeCount: data.episodes?.length || 0,
         });
-      } else {
-        navigate("/opportunities");
       }
     },
   });
 
-  const handleWonConfirm = () => {
+  const handleGlsConfirm = () => {
     setWonDialog({ ...wonDialog, open: false });
     stageMutation.mutate({
-      stage: "won",
+      stage: "b_verbal",
       broadcast_type: wonDialog.broadcast_type,
       media_platform: wonDialog.media_platform,
       initial_episode_count: wonDialog.initial_episode_count,
     });
   };
 
-  const onSubmit = (values: FormValues) => {
-    saveMutation.mutate(values);
-  };
+  const onSubmit = (values: FormValues) => saveMutation.mutate(values);
 
-  const currentStage = watch("stage");
+  const currentStage = watch("stage") as OpportunityStage;
+  const projectType = watch("project_type");
+
+  const addDate = () => setDates([...dates, { date_start: "", date_end: "", label: "" }]);
+  const removeDate = (idx: number) => setDates(dates.filter((_, i) => i !== idx));
+  const updateDate = (idx: number, field: keyof DateEntry, value: string) => {
+    const updated = [...dates];
+    updated[idx] = { ...updated[idx], [field]: value };
+    setDates(updated);
+  };
 
   if (isEdit && oppLoading) {
     return (
@@ -173,72 +216,77 @@ export default function OpportunityFormPage() {
     );
   }
 
+  const isTerminal = currentStage === 'a_won' || currentStage === 's_completed' || currentStage === 'e_lost';
+  const hasProject = opportunity?.project_id;
+
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-6">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate("/opportunities")}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-2xl font-bold">
-          {isEdit ? "ヨミ編集" : "新規ヨミ作成"}
-        </h1>
+        <h1 className="text-2xl font-bold">{isEdit ? "ヨミ編集" : "新規ヨミ作成"}</h1>
         {isEdit && (
-          <Badge style={{ backgroundColor: stageColor[currentStage] }} className="text-white">
-            {stageLabel[currentStage] || currentStage}
+          <Badge style={{ backgroundColor: OpportunityStageColors[currentStage] }} className="text-white">
+            {OpportunityStageLabels[currentStage] || currentStage}
           </Badge>
         )}
       </div>
 
       {/* Stage change actions */}
-      {isEdit && opportunity && opportunity.stage !== "won" && opportunity.stage !== "lost" && (
+      {isEdit && opportunity && !isTerminal && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">ステージ変更</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-base">ステージ変更</CardTitle></CardHeader>
           <CardContent className="flex flex-wrap gap-2">
-            {opportunity.stage === "lead" && (
-              <Button variant="outline" size="sm" onClick={() => stageMutation.mutate({ stage: "proposal" })}>
-                提案中へ
+            {currentStage === 'neta' && (
+              <Button variant="outline" size="sm" onClick={() => stageMutation.mutate({ stage: "d_hold" })}>
+                D 仮押さえへ
               </Button>
             )}
-            {(opportunity.stage === "lead" || opportunity.stage === "proposal") && (
-              <Button variant="outline" size="sm" onClick={() => stageMutation.mutate({ stage: "negotiation" })}>
-                交渉中へ
+            {(currentStage === 'neta' || currentStage === 'd_hold') && (
+              <Button variant="outline" size="sm" onClick={() => stageMutation.mutate({ stage: "c_proposal" })}>
+                C 見積提案済へ
               </Button>
             )}
-            <Button
-              size="sm"
-              className="bg-green-600 hover:bg-green-700"
-              onClick={() => setWonDialog({ ...wonDialog, open: true })}
-              disabled={stageMutation.isPending}
-            >
-              <Trophy className="mr-2 h-4 w-4" />
-              受注確定
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => stageMutation.mutate({ stage: "lost" })}
-              disabled={stageMutation.isPending}
-            >
-              失注
+            {!hasProject && (
+              <Button
+                size="sm"
+                className="bg-green-600 hover:bg-green-700"
+                onClick={() => setWonDialog({ ...wonDialog, open: true })}
+                disabled={stageMutation.isPending}
+              >
+                <Trophy className="mr-2 h-4 w-4" />
+                B 口頭決定 → GLS発番
+              </Button>
+            )}
+            {hasProject && currentStage === 'b_verbal' && (
+              <Button
+                size="sm"
+                className="bg-green-600 hover:bg-green-700"
+                onClick={() => stageMutation.mutate({ stage: "a_won" })}
+                disabled={stageMutation.isPending}
+              >
+                A 受注済へ
+              </Button>
+            )}
+            <Button variant="destructive" size="sm" onClick={() => stageMutation.mutate({ stage: "e_lost" })} disabled={stageMutation.isPending}>
+              E 失注
             </Button>
           </CardContent>
         </Card>
       )}
 
-      {/* 受注済みの場合、番組管理へのリンクを表示 */}
-      {isEdit && opportunity && opportunity.stage === "won" && opportunity.project_id && (
+      {/* 番組管理リンク(B以降) */}
+      {isEdit && hasProject && (
         <Card className="border-green-200 bg-green-50">
           <CardContent className="flex items-center justify-between py-4">
             <div className="flex items-center gap-3">
               <CheckCircle2 className="h-5 w-5 text-green-600" />
-              <span className="font-medium text-green-800">受注済み</span>
+              <span className="font-medium text-green-800">
+                {currentStage === 'a_won' ? 'A 受注済' : currentStage === 's_completed' ? 'S 案件終了' : 'B 口頭決定済'}
+              </span>
             </div>
-            <Button
-              size="sm"
-              onClick={() => navigate(`/projects/${opportunity.project_id}/episodes`)}
-            >
+            <Button size="sm" onClick={() => navigate(`/projects/${opportunity.project_id}/episodes`)}>
               <ExternalLink className="mr-2 h-4 w-4" />
               番組管理を開く
             </Button>
@@ -248,9 +296,7 @@ export default function OpportunityFormPage() {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">基本情報</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-base">基本情報</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div>
               <Label>案件仮称 *</Label>
@@ -258,49 +304,82 @@ export default function OpportunityFormPage() {
               {errors.title && <p className="mt-1 text-xs text-destructive">{errors.title.message}</p>}
             </div>
 
-            <div>
-              <Label>顧客 *</Label>
-              <Select
-                value={watch("customer_id")}
-                onValueChange={(v) => setValue("customer_id", v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="顧客を選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  {customers.map((c: { id: string; name: string }) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <Label>顧客 *</Label>
+                <Select value={watch("customer_id")} onValueChange={(v) => setValue("customer_id", v)}>
+                  <SelectTrigger><SelectValue placeholder="顧客を選択" /></SelectTrigger>
+                  <SelectContent>
+                    {customers.map((c: { id: string; name: string }) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>案件種類 *</Label>
+                <Select value={projectType} onValueChange={(v) => setValue("project_type", v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.entries(ProjectTypeLabels) as [string, string][]).map(([val, label]) => (
+                      <SelectItem key={val} value={val}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+            {projectType === "other" && (
+              <div>
+                <Label>案件種類(その他)</Label>
+                <Input {...register("project_type_other")} placeholder="案件種類を入力" />
+              </div>
+            )}
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
-                <Label>想定実施日 *</Label>
-                <Input type="date" {...register("expected_date", { required: "必須です" })} />
-                {errors.expected_date && <p className="mt-1 text-xs text-destructive">{errors.expected_date.message}</p>}
+                <Label>ヨミ区分 *</Label>
+                <Select value={currentStage} onValueChange={(v) => setValue("stage", v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {stageOrder.filter(s => !['s_completed'].includes(s)).map((s) => (
+                      <SelectItem key={s} value={s}>{OpportunityStageLabels[s]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label>想定金額 *</Label>
-                <Input type="number" {...register("expected_amount", { required: "必須です", valueAsNumber: true })} />
-                {errors.expected_amount && <p className="mt-1 text-xs text-destructive">{errors.expected_amount.message}</p>}
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
+                  <Input
+                    type="number"
+                    className="pl-7"
+                    {...register("expected_amount", { required: "必須です", valueAsNumber: true })}
+                  />
+                </div>
+                {isEdit && id && (
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    className="mt-1 h-auto p-0 text-xs"
+                    onClick={() => setSimOpen(true)}
+                  >
+                    <Calculator className="mr-1 h-3 w-3" />
+                    料金シミュレーション
+                  </Button>
+                )}
               </div>
               <div>
-                <Label>受注確度(%) *</Label>
-                <Input type="number" min={0} max={100} {...register("probability", { required: "必須です", valueAsNumber: true })} />
+                <Label>想定実施日</Label>
+                <Input type="date" {...register("expected_date")} />
               </div>
             </div>
 
             <div>
               <Label>担当者</Label>
-              <Select
-                value={watch("assigned_to")}
-                onValueChange={(v) => setValue("assigned_to", v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="担当者を選択" />
-                </SelectTrigger>
+              <Select value={watch("assigned_to")} onValueChange={(v) => setValue("assigned_to", v)}>
+                <SelectTrigger><SelectValue placeholder="担当者を選択" /></SelectTrigger>
                 <SelectContent>
                   {(users as Array<{ id: string; name: string }>).map((u) => (
                     <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
@@ -311,15 +390,66 @@ export default function OpportunityFormPage() {
 
             <div>
               <Label>メモ</Label>
-              <Textarea {...register("notes")} rows={4} />
+              <Textarea {...register("notes")} rows={3} />
             </div>
           </CardContent>
         </Card>
 
+        {/* 日程管理 */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">日程</CardTitle>
+              <Button type="button" variant="outline" size="sm" onClick={addDate}>
+                <Plus className="mr-1 h-4 w-4" />
+                日程追加
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {dates.length === 0 && (
+              <p className="text-sm text-muted-foreground">日程が設定されていません</p>
+            )}
+            {dates.map((d, i) => (
+              <div key={i} className="flex items-end gap-2">
+                <div className="w-32">
+                  <Label className="text-xs">ラベル</Label>
+                  <Input
+                    value={d.label}
+                    onChange={(e) => updateDate(i, "label", e.target.value)}
+                    placeholder="本番日"
+                    className="text-sm"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">開始日</Label>
+                  <Input
+                    type="date"
+                    value={d.date_start}
+                    onChange={(e) => updateDate(i, "date_start", e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">終了日</Label>
+                  <Input
+                    type="date"
+                    value={d.date_end}
+                    onChange={(e) => updateDate(i, "date_end", e.target.value)}
+                    className="text-sm"
+                    placeholder="単日なら空欄"
+                  />
+                </div>
+                <Button type="button" variant="ghost" size="icon" onClick={() => removeDate(i)} className="shrink-0">
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
         <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={() => navigate("/opportunities")}>
-            キャンセル
-          </Button>
+          <Button type="button" variant="outline" onClick={() => navigate("/opportunities")}>キャンセル</Button>
           <Button type="submit" disabled={saveMutation.isPending}>
             {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             <Save className="mr-2 h-4 w-4" />
@@ -328,13 +458,23 @@ export default function OpportunityFormPage() {
         </div>
       </form>
 
-      {/* 受注確定ダイアログ */}
+      {/* 料金シミュレーションダイアログ */}
+      {isEdit && id && (
+        <SimulationDialog
+          open={simOpen}
+          onOpenChange={setSimOpen}
+          opportunityId={id}
+          onApply={(total) => setValue("expected_amount", total)}
+        />
+      )}
+
+      {/* GLS発番ダイアログ */}
       <Dialog open={wonDialog.open} onOpenChange={(open) => setWonDialog({ ...wonDialog, open })}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Trophy className="h-5 w-5 text-green-600" />
-              受注確定
+              B 口頭決定 → GLS発番
             </DialogTitle>
             <DialogDescription>
               GLS番号を発番し、番組を作成します。初回発注話数も設定できます。
@@ -351,9 +491,7 @@ export default function OpportunityFormPage() {
                 {(Object.entries(BroadcastTypeLabels) as [string, string][]).map(([val, label]) => (
                   <label key={val} className="flex items-center gap-2 cursor-pointer">
                     <input
-                      type="radio"
-                      name="broadcast_type"
-                      value={val}
+                      type="radio" name="broadcast_type" value={val}
                       checked={wonDialog.broadcast_type === val}
                       onChange={(e) => setWonDialog({ ...wonDialog, broadcast_type: e.target.value })}
                       className="accent-primary"
@@ -365,13 +503,8 @@ export default function OpportunityFormPage() {
             </div>
             <div>
               <Label>配信媒体 *</Label>
-              <Select
-                value={wonDialog.media_platform}
-                onValueChange={(v) => setWonDialog({ ...wonDialog, media_platform: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={wonDialog.media_platform} onValueChange={(v) => setWonDialog({ ...wonDialog, media_platform: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {(Object.entries(MediaPlatformLabels) as [string, string][]).map(([val, label]) => (
                     <SelectItem key={val} value={val}>{label}</SelectItem>
@@ -382,9 +515,7 @@ export default function OpportunityFormPage() {
             <div>
               <Label>初回発注話数</Label>
               <Input
-                type="number"
-                min={0}
-                max={999}
+                type="number" min={0} max={999}
                 value={wonDialog.initial_episode_count}
                 onChange={(e) => setWonDialog({ ...wonDialog, initial_episode_count: parseInt(e.target.value) || 0 })}
                 placeholder="0 = 後から設定"
@@ -393,28 +524,22 @@ export default function OpportunityFormPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setWonDialog({ ...wonDialog, open: false })}>
-              キャンセル
-            </Button>
-            <Button
-              className="bg-green-600 hover:bg-green-700"
-              onClick={handleWonConfirm}
-              disabled={stageMutation.isPending}
-            >
+            <Button variant="outline" onClick={() => setWonDialog({ ...wonDialog, open: false })}>キャンセル</Button>
+            <Button className="bg-green-600 hover:bg-green-700" onClick={handleGlsConfirm} disabled={stageMutation.isPending}>
               {stageMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              受注確定する
+              GLS発番する
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* 受注完了ダイアログ */}
+      {/* GLS発番完了ダイアログ */}
       <Dialog open={wonResult.open} onOpenChange={(open) => { if (!open) setWonResult({ ...wonResult, open: false }); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-green-700">
               <CheckCircle2 className="h-6 w-6" />
-              受注確定完了
+              GLS番号 発番完了
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-4">

@@ -14,6 +14,7 @@ import StudioCalendarPage from "@/features/calendar/StudioCalendarPage";
 import CustomerListPage from "@/features/masters/CustomerListPage";
 import VendorListPage from "@/features/masters/VendorListPage";
 import PartnerListPage from "@/features/masters/PartnerListPage";
+import PricingListPage from "@/features/masters/PricingListPage";
 import UserListPage from "@/features/users/UserListPage";
 import { Loader2 } from "lucide-react";
 
@@ -73,6 +74,7 @@ function AppRoutes() {
         <Route path="/masters/customers" element={<CustomerListPage />} />
         <Route path="/masters/vendors" element={<VendorListPage />} />
         <Route path="/masters/partners" element={<PartnerListPage />} />
+        <Route path="/masters/pricing" element={<PricingListPage />} />
         <Route path="/admin/users" element={<UserListPage />} />
       </Route>
 

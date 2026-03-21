@@ -1,4 +1,4 @@
-import type { UserRole, OpportunityStage, ProjectStatus, TaxCategory, SettlementMethod, BroadcastType, MediaPlatform, InvoiceGroupStatus } from './enums';
+import type { UserRole, OpportunityStage, ProjectStatus, TaxCategory, SettlementMethod, BroadcastType, MediaPlatform, InvoiceGroupStatus, ProjectType, CalcType } from './enums';
 
 // 共通フィールド
 export interface BaseEntity {
@@ -48,6 +48,8 @@ export interface Opportunity extends BaseEntity {
   opp_code: string;
   title: string;
   customer_id: string;
+  project_type: ProjectType;
+  project_type_other: string | null;
   stage: OpportunityStage;
   probability: number;
   expected_amount: number;
@@ -58,6 +60,49 @@ export interface Opportunity extends BaseEntity {
   // Joined
   customer_name?: string;
   assigned_to_name?: string;
+  dates?: OpportunityDate[];
+}
+
+// ヨミ日程
+export interface OpportunityDate {
+  id: string;
+  opportunity_id: string;
+  date_start: string;
+  date_end: string | null;
+  label: string | null;
+  sort_order: number;
+}
+
+// 料金カテゴリ
+export interface PricingCategory extends BaseEntity {
+  name: string;
+  sort_order: number;
+  items?: PricingItem[];
+}
+
+// 料金項目
+export interface PricingItem extends BaseEntity {
+  category_id: string;
+  name: string;
+  sub_label: string | null;
+  unit_price: number;
+  calc_type: CalcType;
+  sort_order: number;
+}
+
+// シミュレーション項目
+export interface SimulationItem {
+  id: string;
+  opportunity_id: string;
+  pricing_item_id: string;
+  quantity: number;
+  days: number;
+  unit_price: number;
+  subtotal: number;
+  // Joined
+  item_name?: string;
+  category_name?: string;
+  calc_type?: CalcType;
 }
 
 // 案件

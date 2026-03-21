@@ -14,27 +14,33 @@ import { Plus, Search, Loader2 } from "lucide-react";
 
 const stageOptions = [
   { value: "", label: "全て" },
-  { value: "lead", label: "リード" },
-  { value: "proposal", label: "提案中" },
-  { value: "negotiation", label: "交渉中" },
-  { value: "won", label: "受注" },
-  { value: "lost", label: "失注" },
+  { value: "neta", label: "ネタ" },
+  { value: "d_hold", label: "D:保留" },
+  { value: "c_proposal", label: "C:提案中" },
+  { value: "b_verbal", label: "B:内示" },
+  { value: "a_won", label: "A:受注" },
+  { value: "s_completed", label: "S:完了" },
+  { value: "e_lost", label: "E:失注" },
 ];
 
 const stageLabel: Record<string, string> = {
-  lead: "リード",
-  proposal: "提案中",
-  negotiation: "交渉中",
-  won: "受注",
-  lost: "失注",
+  neta: "ネタ",
+  d_hold: "D:保留",
+  c_proposal: "C:提案中",
+  b_verbal: "B:内示",
+  a_won: "A:受注",
+  s_completed: "S:完了",
+  e_lost: "E:失注",
 };
 
 const stageColor: Record<string, string> = {
-  lead: "#6b7280",
-  proposal: "#3b82f6",
-  negotiation: "#f59e0b",
-  won: "#22c55e",
-  lost: "#ef4444",
+  neta: "#6b7280",
+  d_hold: "#9ca3af",
+  c_proposal: "#3b82f6",
+  b_verbal: "#f59e0b",
+  a_won: "#22c55e",
+  s_completed: "#059669",
+  e_lost: "#ef4444",
 };
 
 export default function OpportunityListPage() {

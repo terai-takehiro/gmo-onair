@@ -109,30 +109,92 @@ export async function seed() {
   ins(`INSERT INTO sequences (seq_name, prefix, year_month, counter) VALUES (?, ?, ?, ?)`, ['gls_number', 'GLS', '202604', 3]);
   ins(`INSERT INTO sequences (seq_name, prefix, year_month, counter) VALUES (?, ?, ?, ?)`, ['opp_code', 'OPP', '202603', 15]);
 
-  // Opportunities
-  const oppSql = `INSERT INTO opportunities (id, opp_code, title, customer_id, stage, probability, expected_amount, expected_date, assigned_to, project_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  // Pricing Categories & Items
+  const catSql = `INSERT INTO pricing_categories (id, name, sort_order) VALUES (?, ?, ?)`;
+  const itemSql = `INSERT INTO pricing_items (id, category_id, name, sub_label, unit_price, calc_type, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+  const CATS: Record<string, string> = {};
+
+  const catData: [string, number][] = [
+    ['基本料金', 1], ['控室利用料金', 2], ['機材費', 3],
+    ['技術人件費', 4], ['技術運用費', 5], ['追加演出', 6], ['その他', 7],
+  ];
+  for (const [name, order] of catData) {
+    const id = uuidv4();
+    CATS[name] = id;
+    ins(catSql, [id, name, order]);
+  }
+
+  // 基本料金
+  ins(itemSql, [uuidv4(), CATS['基本料金'], '基本利用料金', '平日', 1500000, 'days', 1]);
+  ins(itemSql, [uuidv4(), CATS['基本料金'], '基本利用料金', '土日祝／繁忙期', 2000000, 'days', 2]);
+  ins(itemSql, [uuidv4(), CATS['基本料金'], '時間外利用料金', '平日', 100000, 'days', 3]);
+  ins(itemSql, [uuidv4(), CATS['基本料金'], '時間外利用料金', '土日祝／繁忙期', 150000, 'days', 4]);
+  ins(itemSql, [uuidv4(), CATS['基本料金'], '時間外対応料金', null, 40000, 'hours', 5]);
+  ins(itemSql, [uuidv4(), CATS['基本料金'], '施設管理費・清掃対応費', null, 50000, 'fixed', 6]);
+  ins(itemSql, [uuidv4(), CATS['基本料金'], 'パントリー利用', null, 100000, 'days', 7]);
+
+  // 控室利用料金
+  ins(itemSql, [uuidv4(), CATS['控室利用料金'], '全室利用', null, 100000, 'days', 1]);
+  ins(itemSql, [uuidv4(), CATS['控室利用料金'], 'ROOM A', null, 20000, 'days', 2]);
+  ins(itemSql, [uuidv4(), CATS['控室利用料金'], 'ROOM B', null, 20000, 'days', 3]);
+  ins(itemSql, [uuidv4(), CATS['控室利用料金'], 'ROOM C', null, 20000, 'days', 4]);
+  ins(itemSql, [uuidv4(), CATS['控室利用料金'], 'VIP LOUNGE', null, 50000, 'days', 5]);
+
+  // 機材費
+  ins(itemSql, [uuidv4(), CATS['機材費'], 'クレーンカメラ', null, 150000, 'days_qty', 1]);
+  ins(itemSql, [uuidv4(), CATS['機材費'], 'スタジオカメラ', null, 100000, 'days_qty', 2]);
+  ins(itemSql, [uuidv4(), CATS['機材費'], 'ワイヤレスジンバルカメラ', null, 50000, 'days_qty', 3]);
+  ins(itemSql, [uuidv4(), CATS['機材費'], '汎用PC', null, 15000, 'days_qty', 4]);
+
+  // 技術人件費
+  ins(itemSql, [uuidv4(), CATS['技術人件費'], 'テクニカルサポート（TD）', null, 50000, 'days_people', 1]);
+  ins(itemSql, [uuidv4(), CATS['技術人件費'], 'LEDエンジニア', null, 60000, 'days_people', 2]);
+  ins(itemSql, [uuidv4(), CATS['技術人件費'], 'スイッチャー', null, 60000, 'days_people', 3]);
+  ins(itemSql, [uuidv4(), CATS['技術人件費'], 'ビデオエンジニア', null, 55000, 'days_people', 4]);
+  ins(itemSql, [uuidv4(), CATS['技術人件費'], 'スタジオカメラ', null, 55000, 'days_people', 5]);
+  ins(itemSql, [uuidv4(), CATS['技術人件費'], 'オーディオミキサー', null, 55000, 'days_people', 6]);
+  ins(itemSql, [uuidv4(), CATS['技術人件費'], 'PAミキサー', null, 55000, 'days_people', 7]);
+  ins(itemSql, [uuidv4(), CATS['技術人件費'], 'テクニカルアシスタント', null, 45000, 'days_people', 8]);
+  ins(itemSql, [uuidv4(), CATS['技術人件費'], '配信管理・収録', null, 55000, 'days_people', 9]);
+  ins(itemSql, [uuidv4(), CATS['技術人件費'], 'ライティングディレクター／オペレーター', null, 55000, 'days_people', 10]);
+
+  // 技術運用費
+  ins(itemSql, [uuidv4(), CATS['技術運用費'], 'LED／XR調整費', null, 10000, 'days', 1]);
+  ins(itemSql, [uuidv4(), CATS['技術運用費'], '照明事前調整費', null, 10000, 'days', 2]);
+
+  // 追加演出
+  ins(itemSql, [uuidv4(), CATS['追加演出'], 'XR/AR演出制作費用', null, 150000, 'toggle', 1]);
+  ins(itemSql, [uuidv4(), CATS['追加演出'], '多言語演出', null, 200000, 'toggle', 2]);
+  ins(itemSql, [uuidv4(), CATS['追加演出'], 'ZOOM中継', null, 100000, 'toggle', 3]);
+  ins(itemSql, [uuidv4(), CATS['追加演出'], 'IP中継', null, 200000, 'toggle', 4]);
+
+  // その他
+  ins(itemSql, [uuidv4(), CATS['その他'], 'ロケハン対応', null, 0, 'toggle', 1]);
+
+  // Opportunities (新ステージ体系)
+  const oppSql = `INSERT INTO opportunities (id, opp_code, title, customer_id, project_type, stage, probability, expected_amount, expected_date, assigned_to, project_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   const staffIds = [USERS.staff1, USERS.staff2, USERS.staff3];
-  const oppData: [string, string, string, string, number, number, string, string | null][] = [
-    ['OPP-202603-0001', '日テレ 春の特番企画', '日テレ', 'lead', 20, 3000000, '2026-05-01', null],
-    ['OPP-202603-0002', 'GMO-IG サマーイベント', 'GMO-IG', 'lead', 30, 5000000, '2026-06-15', null],
-    ['OPP-202603-0003', 'CA 動画配信スタジオ定期利用', 'CA', 'lead', 15, 1200000, '2026-04-20', null],
-    ['OPP-202603-0004', 'テレ東 ドラマ撮影', 'テレ東', 'proposal', 40, 8000000, '2026-05-10', null],
-    ['OPP-202603-0005', 'ABEMA 格闘技中継', 'ABEMA', 'proposal', 50, 6000000, '2026-04-25', null],
-    ['OPP-202603-0006', 'Netflix リアリティ番組', 'Netflix', 'proposal', 45, 12000000, '2026-06-01', null],
-    ['OPP-202603-0007', 'TBS 音楽番組収録', 'TBS', 'negotiation', 60, 4500000, '2026-04-18', null],
-    ['OPP-202603-0008', 'フジ バラエティ撮影', 'フジ', 'negotiation', 70, 3500000, '2026-04-22', null],
-    ['OPP-202603-0009', 'GMO-PG IR動画制作', 'GMO-PG', 'negotiation', 75, 2000000, '2026-04-08', null],
-    ['OPP-202603-0010', 'GMO IR説明会 2026春', 'GMO-IG', 'won', 100, 4000000, '2026-03-19', 'GLS-202603-0001'],
-    ['OPP-202603-0011', 'テレ東 特番収録「未来の技術」', 'テレ東', 'won', 100, 7500000, '2026-03-22', 'GLS-202603-0002'],
-    ['OPP-202603-0012', 'ABEMA 生放送「Tech Night」', 'ABEMA', 'won', 100, 5500000, '2026-03-25', 'GLS-202603-0003'],
-    ['OPP-202603-0013', '日テレ 年末特番企画', '日テレ', 'lost', 0, 10000000, '2026-03-01', null],
-    ['OPP-202603-0014', 'GMOクリック CM撮影', 'GMOクリック', 'lost', 0, 2500000, '2026-02-20', null],
-    ['OPP-202603-0015', 'TBS ドラマ撮影（延期）', 'TBS', 'lost', 0, 9000000, '2026-03-15', null],
+  const oppData: [string, string, string, string, string, number, number, string, string | null][] = [
+    ['OPP-202603-0001', '日テレ 春の特番企画', '日テレ', 'recording', 'neta', 0, 3000000, '2026-05-01', null],
+    ['OPP-202603-0002', 'GMO-IG サマーイベント', 'GMO-IG', 'hybrid_event', 'neta', 0, 5000000, '2026-06-15', null],
+    ['OPP-202603-0003', 'CA 動画配信スタジオ定期利用', 'CA', 'live_broadcast', 'd_hold', 20, 1200000, '2026-04-20', null],
+    ['OPP-202603-0004', 'テレ東 ドラマ撮影', 'テレ東', 'recording', 'c_proposal', 40, 8000000, '2026-05-10', null],
+    ['OPP-202603-0005', 'ABEMA 格闘技中継', 'ABEMA', 'live_broadcast', 'c_proposal', 40, 6000000, '2026-04-25', null],
+    ['OPP-202603-0006', 'Netflix リアリティ番組', 'Netflix', 'recording', 'c_proposal', 40, 12000000, '2026-06-01', null],
+    ['OPP-202603-0007', 'TBS 音楽番組収録', 'TBS', 'recording', 'd_hold', 20, 4500000, '2026-04-18', null],
+    ['OPP-202603-0008', 'フジ バラエティ撮影', 'フジ', 'offline_event', 'd_hold', 20, 3500000, '2026-04-22', null],
+    ['OPP-202603-0009', 'GMO-PG IR動画制作', 'GMO-PG', 'gmo_project', 'c_proposal', 40, 2000000, '2026-04-08', null],
+    ['OPP-202603-0010', 'GMO IR説明会 2026春', 'GMO-IG', 'hybrid_event', 'a_won', 100, 4000000, '2026-03-19', 'GLS-202603-0001'],
+    ['OPP-202603-0011', 'テレ東 特番収録「未来の技術」', 'テレ東', 'recording', 'a_won', 100, 7500000, '2026-03-22', 'GLS-202603-0002'],
+    ['OPP-202603-0012', 'ABEMA 生放送「Tech Night」', 'ABEMA', 'live_broadcast', 'a_won', 100, 5500000, '2026-03-25', 'GLS-202603-0003'],
+    ['OPP-202603-0013', '日テレ 年末特番企画', '日テレ', 'recording', 'e_lost', 0, 10000000, '2026-03-01', null],
+    ['OPP-202603-0014', 'GMOクリック CM撮影', 'GMOクリック', 'offline_event', 'e_lost', 0, 2500000, '2026-02-20', null],
+    ['OPP-202603-0015', 'TBS ドラマ撮影（延期）', 'TBS', 'recording', 'e_lost', 0, 9000000, '2026-03-15', null],
   ];
   for (let i = 0; i < oppData.length; i++) {
-    const [code, title, custKey, stage, prob, amt, date, projGls] = oppData[i];
+    const [code, title, custKey, projType, stage, prob, amt, date, projGls] = oppData[i];
     const projId = projGls ? PROJECTS[projGls] || null : null;
-    ins(oppSql, [uuidv4(), code, title, CUSTOMERS[custKey], stage, prob, amt, date, staffIds[i % 3], projId, USERS.admin]);
+    ins(oppSql, [uuidv4(), code, title, CUSTOMERS[custKey], projType, stage, prob, amt, date, staffIds[i % 3], projId, USERS.admin]);
   }
 
   // Revenues

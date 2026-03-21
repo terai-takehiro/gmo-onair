@@ -16,28 +16,79 @@ export const UserRoleLabels: Record<UserRole, string> = {
 
 // ヨミステージ
 export const OpportunityStage = {
-  LEAD: 'lead',
-  PROPOSAL: 'proposal',
-  NEGOTIATION: 'negotiation',
-  WON: 'won',
-  LOST: 'lost',
+  NETA: 'neta',
+  D_HOLD: 'd_hold',
+  C_PROPOSAL: 'c_proposal',
+  B_VERBAL: 'b_verbal',
+  A_WON: 'a_won',
+  S_COMPLETED: 's_completed',
+  E_LOST: 'e_lost',
 } as const;
 export type OpportunityStage = (typeof OpportunityStage)[keyof typeof OpportunityStage];
 
 export const OpportunityStageLabels: Record<OpportunityStage, string> = {
-  lead: 'リード',
-  proposal: '提案中',
-  negotiation: '交渉中',
-  won: '受注',
-  lost: '失注',
+  neta: 'ネタ',
+  d_hold: 'D 仮押さえ',
+  c_proposal: 'C 見積提案済',
+  b_verbal: 'B 口頭決定',
+  a_won: 'A 受注済',
+  s_completed: 'S 案件終了',
+  e_lost: 'E 失注',
 };
 
 export const OpportunityStageColors: Record<OpportunityStage, string> = {
-  lead: '#94a3b8',
-  proposal: '#3b82f6',
-  negotiation: '#f59e0b',
-  won: '#22c55e',
-  lost: '#ef4444',
+  neta: '#94a3b8',
+  d_hold: '#a78bfa',
+  c_proposal: '#3b82f6',
+  b_verbal: '#f59e0b',
+  a_won: '#22c55e',
+  s_completed: '#6b7280',
+  e_lost: '#ef4444',
+};
+
+export const OpportunityStageProbability: Record<OpportunityStage, number> = {
+  neta: 0, d_hold: 20, c_proposal: 40,
+  b_verbal: 80, a_won: 100, s_completed: 100, e_lost: 0,
+};
+
+// 案件種類
+export const ProjectType = {
+  OFFLINE_EVENT: 'offline_event',
+  HYBRID_EVENT: 'hybrid_event',
+  LIVE_BROADCAST: 'live_broadcast',
+  RECORDING: 'recording',
+  GMO_PROJECT: 'gmo_project',
+  OTHER: 'other',
+} as const;
+export type ProjectType = (typeof ProjectType)[keyof typeof ProjectType];
+
+export const ProjectTypeLabels: Record<ProjectType, string> = {
+  offline_event: 'オフラインイベント',
+  hybrid_event: 'ハイブリットイベント',
+  live_broadcast: '生放送',
+  recording: '収録',
+  gmo_project: 'GMO案件',
+  other: 'その他',
+};
+
+// 料金計算タイプ
+export const CalcType = {
+  DAYS: 'days',
+  HOURS: 'hours',
+  FIXED: 'fixed',
+  DAYS_QTY: 'days_qty',
+  DAYS_PEOPLE: 'days_people',
+  TOGGLE: 'toggle',
+} as const;
+export type CalcType = (typeof CalcType)[keyof typeof CalcType];
+
+export const CalcTypeLabels: Record<CalcType, string> = {
+  days: '日数×単価',
+  hours: '時間×単価',
+  fixed: '固定',
+  days_qty: '台数×日数×単価',
+  days_people: '人数×日数×単価',
+  toggle: '有無×単価',
 };
 
 // 案件ステータス
