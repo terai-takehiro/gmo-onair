@@ -1,0 +1,201 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import api from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
+import { Plus, Search, Pencil, Trash2, Loader2 } from "lucide-react";
+
+interface Customer {
+  id: string;
+  name: string;
+  contact_name?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+}
+
+interface CustomerForm {
+  name: string;
+  contact_name: string;
+  email: string;
+  phone: string;
+  address: string;
+}
+
+export default function CustomerListPage() {
+  const qc = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const form = useForm<CustomerForm>({
+    defaultValues: { name: "", contact_name: "", email: "", phone: "", address: "" },
+  });
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["customers", page, search],
+    queryFn: async () => {
+      const params: Record<string, string | number> = { page, limit: 20 };
+      if (search) params.search = search;
+      return (await api.get("/customers", { params })).data;
+    },
+  });
+
+  const customers: Customer[] = data?.data ?? [];
+  const pagination = data?.pagination;
+
+  const saveMutation = useMutation({
+    mutationFn: async (values: CustomerForm) => {
+      if (editingId) {
+        return (await api.put(`/customers/${editingId}`, values)).data;
+      }
+      return (await api.post("/customers", values)).data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["customers"] });
+      closeDialog();
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/customers/${id}`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["customers"] });
+    },
+  });
+
+  const openAdd = () => {
+    setEditingId(null);
+    form.reset({ name: "", contact_name: "", email: "", phone: "", address: "" });
+    setDialogOpen(true);
+  };
+
+  const openEdit = (c: Customer) => {
+    setEditingId(c.id);
+    form.reset({
+      name: c.name || "",
+      contact_name: c.contact_name || "",
+      email: c.email || "",
+      phone: c.phone || "",
+      address: c.address || "",
+    });
+    setDialogOpen(true);
+  };
+
+  const closeDialog = () => {
+    setDialogOpen(false);
+    setEditingId(null);
+  };
+
+  return (
+    <div className="space-y-4 p-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">顧客マスター</h1>
+        <Button onClick={openAdd}>
+          <Plus className="mr-2 h-4 w-4" />
+          新規追加
+        </Button>
+      </div>
+
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="顧客名で検索..."
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          className="pl-9"
+        />
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+      ) : (
+        <>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>顧客名</TableHead>
+                <TableHead>担当者</TableHead>
+                <TableHead>メール</TableHead>
+                <TableHead>電話</TableHead>
+                <TableHead>住所</TableHead>
+                <TableHead className="w-24"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {customers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground">データがありません</TableCell>
+                </TableRow>
+              ) : (
+                customers.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="font-medium">{c.name}</TableCell>
+                    <TableCell>{c.contact_name || "-"}</TableCell>
+                    <TableCell>{c.email || "-"}</TableCell>
+                    <TableCell>{c.phone || "-"}</TableCell>
+                    <TableCell>{c.address || "-"}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(c.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+
+          {pagination && pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">全{pagination.total}件</p>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>前へ</Button>
+                <Button variant="outline" size="sm" disabled={page >= pagination.totalPages} onClick={() => setPage((p) => p + 1)}>次へ</Button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingId ? "顧客編集" : "顧客追加"}</DialogTitle>
+            <DialogDescription>{editingId ? "顧客情報を編集します" : "新しい顧客を追加します"}</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={form.handleSubmit((v) => saveMutation.mutate(v))} className="space-y-4">
+            <div><Label>顧客名 *</Label><Input {...form.register("name", { required: true })} /></div>
+            <div><Label>担当者名</Label><Input {...form.register("contact_name")} /></div>
+            <div><Label>メール</Label><Input type="email" {...form.register("email")} /></div>
+            <div><Label>電話</Label><Input {...form.register("phone")} /></div>
+            <div><Label>住所</Label><Input {...form.register("address")} /></div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={closeDialog}>キャンセル</Button>
+              <Button type="submit" disabled={saveMutation.isPending}>
+                {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                保存
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

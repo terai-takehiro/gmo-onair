@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vite:*)",
+      "Bash(npx tsc:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(python -c \"import json,sys; msgs = json.load\\(sys.stdin\\); errors = [m[''''text''''][:200] for m in msgs if m.get\\(''''type''''\\) in \\(''''error'''',''''exception''''\\)]; print\\(''''\\\\n---\\\\n''''.join\\(errors[:5]\\)\\)\")",
+      "Bash(curl -s http://localhost:3001/api/v1/internal/projects?limit=1)",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(d[''''data''''][0][''''id'''']\\)\")"
+    ]
+  }
+}
