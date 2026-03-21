@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS projects (
   name              TEXT NOT NULL,
   customer_id       TEXT NOT NULL REFERENCES customers(id),
   opportunity_id    TEXT,
+  group_id          TEXT,
   rehearsal_start   TEXT,
   rehearsal_end     TEXT,
   event_start       TEXT,
@@ -199,7 +200,55 @@ CREATE TABLE IF NOT EXISTS opportunity_simulations (
   created_at       TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- 案件グループ(親案件)
+CREATE TABLE IF NOT EXISTS project_groups (
+  id           TEXT PRIMARY KEY,
+  name         TEXT NOT NULL,
+  description  TEXT,
+  period_start TEXT,
+  period_end   TEXT,
+  created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  created_by   TEXT,
+  updated_by   TEXT,
+  deleted_at   TEXT
+);
+
+-- グループ共通仕入
+CREATE TABLE IF NOT EXISTS group_purchases (
+  id                TEXT PRIMARY KEY,
+  group_id          TEXT NOT NULL REFERENCES project_groups(id),
+  vendor_id         TEXT NOT NULL REFERENCES vendors(id),
+  assigned_to       TEXT,
+  settlement_method TEXT CHECK (settlement_method IN ('rakuraku','xpoint','other')),
+  tax_category      TEXT NOT NULL DEFAULT 'tax10'
+                    CHECK (tax_category IN ('tax10','tax8','exempt')),
+  invoice_qualified INTEGER NOT NULL DEFAULT 1,
+  amount            INTEGER NOT NULL DEFAULT 0,
+  description       TEXT,
+  recognition_date  TEXT,
+  notes             TEXT,
+  created_at        TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at        TEXT NOT NULL DEFAULT (datetime('now')),
+  created_by        TEXT,
+  updated_by        TEXT,
+  deleted_at        TEXT
+);
+
+-- グループ仕入按分
+CREATE TABLE IF NOT EXISTS group_purchase_allocations (
+  id                 TEXT PRIMARY KEY,
+  group_purchase_id  TEXT NOT NULL REFERENCES group_purchases(id),
+  project_id         TEXT NOT NULL REFERENCES projects(id),
+  allocated_amount   INTEGER NOT NULL DEFAULT 0,
+  created_at         TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- インデックス
+CREATE INDEX IF NOT EXISTS idx_projects_group ON projects(group_id) WHERE group_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_group_purchases_group ON group_purchases(group_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_gpa_purchase ON group_purchase_allocations(group_purchase_id);
+CREATE INDEX IF NOT EXISTS idx_gpa_project ON group_purchase_allocations(project_id);
 CREATE INDEX IF NOT EXISTS idx_opportunities_stage ON opportunities(stage) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_opportunities_assigned ON opportunities(assigned_to) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_pricing_items_category ON pricing_items(category_id) WHERE deleted_at IS NULL;

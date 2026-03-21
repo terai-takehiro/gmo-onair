@@ -288,6 +288,29 @@ export async function seed() {
     ins(igEpSql, [ig3, EPISODES[`GLS002-${String(i).padStart(3, '0')}`]]);
   }
 
+  // Project Group - グループ株主総会 2026
+  const pgSql = `INSERT INTO project_groups (id, name, description, period_start, period_end, created_by) VALUES (?, ?, ?, ?, ?, ?)`;
+  const groupId = uuidv4();
+  ins(pgSql, [groupId, 'グループ株主総会 2026', 'グローバルホールディングスグループ各社の定時株主総会', '2026-03-15', '2026-03-25', USERS.admin]);
+
+  // GLS001とGLS004をグループに紐付け
+  execute(`UPDATE projects SET group_id = ? WHERE id = ?`, [groupId, PROJECTS['GLS001']]);
+  execute(`UPDATE projects SET group_id = ? WHERE id = ?`, [groupId, PROJECTS['GLS004']]);
+
+  // グループ共通仕入
+  const gpSql = `INSERT INTO group_purchases (id, group_id, vendor_id, amount, description, tax_category, invoice_qualified, recognition_date, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const gp1 = uuidv4();
+  ins(gpSql, [gp1, groupId, VENDORS['技術'], 3000000, 'スタジオ技術チーム(全社共通)', 'tax10', 1, '2026-03-31', USERS.admin]);
+  const gp2 = uuidv4();
+  ins(gpSql, [gp2, groupId, VENDORS['配信'], 1500000, '配信システム(全社共通)', 'tax10', 1, '2026-03-31', USERS.admin]);
+
+  // 均等按分(2社)
+  const gpaSql = `INSERT INTO group_purchase_allocations (id, group_purchase_id, project_id, allocated_amount) VALUES (?, ?, ?, ?)`;
+  ins(gpaSql, [uuidv4(), gp1, PROJECTS['GLS001'], 1500000]);
+  ins(gpaSql, [uuidv4(), gp1, PROJECTS['GLS004'], 1500000]);
+  ins(gpaSql, [uuidv4(), gp2, PROJECTS['GLS001'], 750000]);
+  ins(gpaSql, [uuidv4(), gp2, PROJECTS['GLS004'], 750000]);
+
   saveDb();
   console.log('Seed data inserted successfully.');
 }

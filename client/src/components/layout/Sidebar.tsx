@@ -41,6 +41,7 @@ const navSections: NavSection[] = [
     items: [
       { label: "ヨミ管理", to: "/opportunities", icon: TrendingUp },
       { label: "案件管理", to: "/projects", icon: FolderKanban },
+      { label: "案件グループ", to: "/project-groups", icon: FolderKanban },
     ],
   },
   {

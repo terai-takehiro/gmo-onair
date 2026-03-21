@@ -15,6 +15,8 @@ import purchasesRoutes from './purchases.routes';
 import calendarRoutes from './calendar.routes';
 import pricingRoutes from './pricing.routes';
 import simulationsRoutes from './simulations.routes';
+import projectGroupsRoutes from './project-groups.routes';
+import groupPurchasesRoutes from './group-purchases.routes';
 
 export function createRoutes(): Router {
   const router = Router();
@@ -35,6 +37,8 @@ export function createRoutes(): Router {
   router.use('/calendar', calendarRoutes);
   router.use('/pricing', pricingRoutes);
   router.use('/opportunities', simulationsRoutes);
+  router.use('/project-groups', projectGroupsRoutes);
+  router.use('/project-groups', groupPurchasesRoutes);
 
   return router;
 }

@@ -105,12 +105,49 @@ export interface SimulationItem {
   calc_type?: CalcType;
 }
 
+// 案件グループ(親案件)
+export interface ProjectGroup extends BaseEntity {
+  name: string;
+  description: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  project_count?: number;
+  total_group_purchase?: number;
+}
+
+// グループ共通仕入
+export interface GroupPurchase extends BaseEntity {
+  group_id: string;
+  vendor_id: string;
+  assigned_to: string | null;
+  settlement_method: SettlementMethod | null;
+  tax_category: TaxCategory;
+  invoice_qualified: boolean;
+  amount: number;
+  description: string | null;
+  recognition_date: string | null;
+  notes: string | null;
+  vendor_name?: string;
+  allocation_count?: number;
+}
+
+// グループ仕入按分
+export interface GroupPurchaseAllocation {
+  id: string;
+  group_purchase_id: string;
+  project_id: string;
+  allocated_amount: number;
+  project_name?: string;
+  gls_number?: string;
+}
+
 // 案件
 export interface Project extends BaseEntity {
   gls_number: string;
   name: string;
   customer_id: string;
   opportunity_id: string | null;
+  group_id: string | null;
   rehearsal_start: string | null;
   rehearsal_end: string | null;
   event_start: string | null;
@@ -124,6 +161,8 @@ export interface Project extends BaseEntity {
   // Joined
   customer_name?: string;
   episode_count?: number;
+  group_name?: string;
+  group_allocated_cost?: number;
 }
 
 // 話数(エピソード)

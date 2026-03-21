@@ -16,6 +16,8 @@ import VendorListPage from "@/features/masters/VendorListPage";
 import PartnerListPage from "@/features/masters/PartnerListPage";
 import PricingListPage from "@/features/masters/PricingListPage";
 import UserListPage from "@/features/users/UserListPage";
+import ProjectGroupListPage from "@/features/project-groups/ProjectGroupListPage";
+import ProjectGroupDetailPage from "@/features/project-groups/ProjectGroupDetailPage";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -65,6 +67,8 @@ function AppRoutes() {
         <Route path="/opportunities" element={<OpportunityListPage />} />
         <Route path="/opportunities/new" element={<OpportunityFormPage />} />
         <Route path="/opportunities/:id" element={<OpportunityFormPage />} />
+        <Route path="/project-groups" element={<ProjectGroupListPage />} />
+        <Route path="/project-groups/:id" element={<ProjectGroupDetailPage />} />
         <Route path="/projects" element={<ProjectListPage />} />
         <Route path="/projects/:id" element={<ProjectDetailPage />} />
         <Route path="/projects/:projectId/episodes" element={<EpisodeListPage />} />

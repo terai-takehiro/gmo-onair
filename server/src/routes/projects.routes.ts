@@ -18,7 +18,7 @@ router.get('/', (req, res) => {
   if (status) { where += ` AND p.status = ?`; params.push(status); }
   if (customerId) { where += ` AND p.customer_id = ?`; params.push(customerId); }
   const total = (queryOne(`SELECT COUNT(*) as c FROM projects p ${where}`, params) as any).c;
-  const rows = queryAll(`SELECT p.*, c.name as customer_name, (SELECT COUNT(*) FROM episodes WHERE project_id = p.id AND deleted_at IS NULL) as episode_count FROM projects p LEFT JOIN customers c ON c.id = p.customer_id ${where} ORDER BY COALESCE(p.event_start, p.created_at) DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
+  const rows = queryAll(`SELECT p.*, c.name as customer_name, pg.name as group_name, (SELECT COUNT(*) FROM episodes WHERE project_id = p.id AND deleted_at IS NULL) as episode_count FROM projects p LEFT JOIN customers c ON c.id = p.customer_id LEFT JOIN project_groups pg ON pg.id = p.group_id ${where} ORDER BY COALESCE(p.event_start, p.created_at) DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
   res.json(paginatedResponse(rows, total, page, limit));
 });
 
@@ -41,12 +41,12 @@ router.get('/:id/summary', (req, res) => {
 });
 
 router.post('/', requireAuth, (req, res) => {
-  const { name, customer_id, opportunity_id, rehearsal_start, rehearsal_end, event_start, event_end, status, broadcast_type, media_platform, notes } = req.body;
+  const { name, customer_id, opportunity_id, group_id, rehearsal_start, rehearsal_end, event_start, event_end, status, broadcast_type, media_platform, notes } = req.body;
   if (!name || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名と顧客は必須です');
   const id = uuidv4();
   const glsNumber = generateSequenceNumber('gls_number', 'GLS');
-  execute(`INSERT INTO projects (id, gls_number, name, customer_id, opportunity_id, rehearsal_start, rehearsal_end, event_start, event_end, status, broadcast_type, media_platform, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, glsNumber, name, customer_id, opportunity_id || null, rehearsal_start || null, rehearsal_end || null, event_start || null, event_end || null, status || 'tentative', broadcast_type || null, media_platform || null, notes || null, req.user!.id]);
+  execute(`INSERT INTO projects (id, gls_number, name, customer_id, opportunity_id, group_id, rehearsal_start, rehearsal_end, event_start, event_end, status, broadcast_type, media_platform, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, glsNumber, name, customer_id, opportunity_id || null, group_id || null, rehearsal_start || null, rehearsal_end || null, event_start || null, event_end || null, status || 'tentative', broadcast_type || null, media_platform || null, notes || null, req.user!.id]);
   const row = queryOne('SELECT p.*, c.name as customer_name FROM projects p LEFT JOIN customers c ON c.id = p.customer_id WHERE p.id = ?', [id]);
   res.status(201).json({ success: true, data: row });
 });
@@ -54,9 +54,9 @@ router.post('/', requireAuth, (req, res) => {
 router.put('/:id', requireAuth, (req, res) => {
   const existing = queryOne('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!existing) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
-  const { name, customer_id, rehearsal_start, rehearsal_end, event_start, event_end, status, broadcast_type, media_platform, application_form, logo_permission, notes } = req.body;
-  execute(`UPDATE projects SET name=?, customer_id=?, rehearsal_start=?, rehearsal_end=?, event_start=?, event_end=?, status=?, broadcast_type=?, media_platform=?, application_form=?, logo_permission=?, notes=?, updated_at=datetime('now'), updated_by=? WHERE id=?`,
-    [name, customer_id, rehearsal_start || null, rehearsal_end || null, event_start || null, event_end || null, status, broadcast_type || null, media_platform || null, application_form ? 1 : 0, logo_permission ? 1 : 0, notes || null, req.user!.id, req.params.id]);
+  const { name, customer_id, group_id, rehearsal_start, rehearsal_end, event_start, event_end, status, broadcast_type, media_platform, application_form, logo_permission, notes } = req.body;
+  execute(`UPDATE projects SET name=?, customer_id=?, group_id=?, rehearsal_start=?, rehearsal_end=?, event_start=?, event_end=?, status=?, broadcast_type=?, media_platform=?, application_form=?, logo_permission=?, notes=?, updated_at=datetime('now'), updated_by=? WHERE id=?`,
+    [name, customer_id, group_id || null, rehearsal_start || null, rehearsal_end || null, event_start || null, event_end || null, status, broadcast_type || null, media_platform || null, application_form ? 1 : 0, logo_permission ? 1 : 0, notes || null, req.user!.id, req.params.id]);
   const row = queryOne('SELECT p.*, c.name as customer_name FROM projects p LEFT JOIN customers c ON c.id = p.customer_id WHERE p.id = ?', [req.params.id]);
   res.json({ success: true, data: row });
 });
