@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: gmo-onair
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build:render
+    startCommand: npm run start:render
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DB_PATH
+        value: /tmp/gmo-onair.db

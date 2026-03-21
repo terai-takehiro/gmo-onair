@@ -3,14 +3,14 @@
   "configurations": [
     {
       "name": "api",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:server"],
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["node_modules/tsx/dist/cli.mjs", "server/src/index.ts"],
       "port": 3001
     },
     {
       "name": "client",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:client"],
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["node_modules/vite/bin/vite.js", "--config", "client/vite.config.ts"],
       "port": 5173
     }
   ]

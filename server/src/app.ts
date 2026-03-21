@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import path from 'path';
 import { mockAuth } from './middleware/auth';
 import { errorHandler } from './middleware/errorHandler';
 import { createRoutes } from './routes';
@@ -23,6 +24,17 @@ export function createApp(): express.Express {
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', name: 'GMO ONAiR API' });
   });
+
+  // In production, serve the React client build
+  if (process.env.NODE_ENV === 'production') {
+    const clientDistPath = path.join(__dirname, '../../client/dist');
+    app.use(express.static(clientDistPath));
+
+    // SPA fallback: any non-API route serves index.html
+    app.get('*', (_req, res) => {
+      res.sendFile(path.join(clientDistPath, 'index.html'));
+    });
+  }
 
   // Error handler
   app.use(errorHandler);
