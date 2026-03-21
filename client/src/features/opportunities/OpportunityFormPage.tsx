@@ -357,18 +357,16 @@ export default function OpportunityFormPage() {
                     {...register("expected_amount", { required: "必須です", valueAsNumber: true })}
                   />
                 </div>
-                {isEdit && id && (
-                  <Button
-                    type="button"
-                    variant="link"
-                    size="sm"
-                    className="mt-1 h-auto p-0 text-xs"
-                    onClick={() => setSimOpen(true)}
-                  >
-                    <Calculator className="mr-1 h-3 w-3" />
-                    料金シミュレーション
-                  </Button>
-                )}
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  className="mt-1 h-auto p-0 text-xs"
+                  onClick={() => setSimOpen(true)}
+                >
+                  <Calculator className="mr-1 h-3 w-3" />
+                  料金シミュレーション
+                </Button>
               </div>
               <div>
                 <Label>想定実施日</Label>
@@ -459,14 +457,12 @@ export default function OpportunityFormPage() {
       </form>
 
       {/* 料金シミュレーションダイアログ */}
-      {isEdit && id && (
-        <SimulationDialog
-          open={simOpen}
-          onOpenChange={setSimOpen}
-          opportunityId={id}
-          onApply={(total) => setValue("expected_amount", total)}
-        />
-      )}
+      <SimulationDialog
+        open={simOpen}
+        onOpenChange={setSimOpen}
+        opportunityId={isEdit ? id : undefined}
+        onApply={(total) => setValue("expected_amount", total)}
+      />
 
       {/* GLS発番ダイアログ */}
       <Dialog open={wonDialog.open} onOpenChange={(open) => setWonDialog({ ...wonDialog, open })}>

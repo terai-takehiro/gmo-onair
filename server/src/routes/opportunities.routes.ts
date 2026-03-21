@@ -96,7 +96,7 @@ router.get('/:id/dates', (req, res) => {
   const opp = queryOne('SELECT id FROM opportunities WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!opp) throw new AppError(404, 'NOT_FOUND', 'ヨミが見つかりません');
   const dates = queryAll(
-    `SELECT id, date_start, date_end, label, sort_order FROM opportunity_dates WHERE opportunity_id = ? AND deleted_at IS NULL ORDER BY sort_order, date_start`,
+    `SELECT id, date_start, date_end, label, sort_order FROM opportunity_dates WHERE opportunity_id = ? ORDER BY sort_order, date_start`,
     [req.params.id]
   );
   res.json({ success: true, data: dates });
@@ -116,13 +116,13 @@ router.put('/:id/dates', requireAuth, (req, res) => {
   for (const d of dates) {
     const id = uuidv4();
     execute(
-      `INSERT INTO opportunity_dates (id, opportunity_id, date_start, date_end, label, sort_order, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [id, req.params.id, d.date_start, d.date_end || null, d.label || null, d.sort_order ?? 0, req.user!.id]
+      `INSERT INTO opportunity_dates (id, opportunity_id, date_start, date_end, label, sort_order) VALUES (?, ?, ?, ?, ?, ?)`,
+      [id, req.params.id, d.date_start, d.date_end || null, d.label || null, d.sort_order ?? 0]
     );
   }
 
   const saved = queryAll(
-    `SELECT id, date_start, date_end, label, sort_order FROM opportunity_dates WHERE opportunity_id = ? AND deleted_at IS NULL ORDER BY sort_order, date_start`,
+    `SELECT id, date_start, date_end, label, sort_order FROM opportunity_dates WHERE opportunity_id = ? ORDER BY sort_order, date_start`,
     [req.params.id]
   );
   res.json({ success: true, data: saved });
