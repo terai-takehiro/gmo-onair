@@ -17,6 +17,11 @@ const statusColorMap: Record<string, string> = {
   cancelled: "#ef4444",
 };
 
+const typeColorMap: Record<string, string> = {
+  recording: "#8b5cf6",
+  broadcast: "#06b6d4",
+};
+
 export default function StudioCalendarPage() {
   const navigate = useNavigate();
   const [dateRange, setDateRange] = useState<{ from: string; to: string }>({
@@ -66,8 +71,8 @@ export default function StudioCalendarPage() {
       title: e.gls_number ? `${e.gls_number} ${e.title}` : e.title,
       start: e.start,
       end: e.end,
-      backgroundColor: statusColorMap[e.status] || "#6b7280",
-      borderColor: statusColorMap[e.status] || "#6b7280",
+      backgroundColor: typeColorMap[e.type] || statusColorMap[e.status] || "#6b7280",
+      borderColor: typeColorMap[e.type] || statusColorMap[e.status] || "#6b7280",
       textColor: "#ffffff",
       classNames: e.type === "rehearsal" ? ["opacity-75"] : [],
       extendedProps: {
@@ -99,6 +104,14 @@ export default function StudioCalendarPage() {
         <div className="flex items-center gap-1.5">
           <div className="h-3 w-3 rounded" style={{ backgroundColor: "#ef4444" }} />
           <span>中止</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-3 w-3 rounded" style={{ backgroundColor: "#8b5cf6" }} />
+          <span>収録</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-3 w-3 rounded" style={{ backgroundColor: "#06b6d4" }} />
+          <span>放送</span>
         </div>
       </div>
 

@@ -23,7 +23,7 @@ router.get('/', (req, res) => {
 });
 
 router.get('/:id', (req, res) => {
-  const row = queryOne(`SELECT p.*, c.name as customer_name FROM projects p LEFT JOIN customers c ON c.id = p.customer_id WHERE p.id = ? AND p.deleted_at IS NULL`, [req.params.id]);
+  const row = queryOne(`SELECT p.*, c.name as customer_name, o.project_type FROM projects p LEFT JOIN customers c ON c.id = p.customer_id LEFT JOIN opportunities o ON o.id = p.opportunity_id WHERE p.id = ? AND p.deleted_at IS NULL`, [req.params.id]);
   if (!row) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
   res.json({ success: true, data: row });
 });

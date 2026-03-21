@@ -86,6 +86,16 @@ router.patch('/:id/stage', requireAuth, (req, res) => {
     }
 
     project = queryOne('SELECT * FROM projects WHERE id = ?', [projId]);
+
+    // Auto-create revenue from expected_amount
+    if (opp.expected_amount && opp.expected_amount > 0) {
+      const revId = uuidv4();
+      execute(
+        `INSERT INTO revenues (id, billing_key, project_id, customer_id, assigned_to, tax_category, amount, notes, created_by)
+         VALUES (?, ?, ?, ?, ?, 'tax10', ?, ?, ?)`,
+        [revId, `${glsNumber}-AUTO`, projId, opp.customer_id, req.user!.id, opp.expected_amount, 'ヨミからの自動連携', req.user!.id]
+      );
+    }
   }
   const updated = queryOne('SELECT o.*, c.name as customer_name FROM opportunities o LEFT JOIN customers c ON c.id = o.customer_id WHERE o.id = ?', [req.params.id]);
   res.json({ success: true, data: updated, project, episodes, episodeOrder });

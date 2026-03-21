@@ -21,8 +21,20 @@ interface Props {
   projectId: string;
   episode: Episode | null;
   broadcastType: BroadcastType;
+  projectType?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+}
+
+function getDateLabels(projectType: string): { recording: string; broadcast: string; delivery: string } {
+  switch (projectType) {
+    case 'offline_event': return { recording: 'リハ日', broadcast: '本番日', delivery: '納品日' };
+    case 'hybrid_event': return { recording: 'リハ日', broadcast: '本番・放送日', delivery: '納品日' };
+    case 'live_broadcast': return { recording: '収録日(=放送日)', broadcast: '放送日', delivery: '納品日' };
+    case 'recording': return { recording: '収録日', broadcast: '放送日', delivery: '納品日' };
+    case 'gmo_project': case 'other': return { recording: '対応開始日', broadcast: '対応終了日', delivery: '完了日' };
+    default: return { recording: '収録日', broadcast: '放送日', delivery: '納品日' };
+  }
 }
 
 interface FormValues {
@@ -34,9 +46,10 @@ interface FormValues {
   notes: string;
 }
 
-export default function EpisodeEditDialog({ projectId, episode, broadcastType, open, onOpenChange }: Props) {
+export default function EpisodeEditDialog({ projectId, episode, broadcastType, projectType, open, onOpenChange }: Props) {
   const qc = useQueryClient();
   const isLive = broadcastType === "live";
+  const dateLabels = getDateLabels(projectType ?? "");
 
   const { register, handleSubmit, reset, watch, setValue } = useForm<FormValues>();
 
@@ -88,11 +101,11 @@ export default function EpisodeEditDialog({ projectId, episode, broadcastType, o
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="recording_date">収録日</Label>
+              <Label htmlFor="recording_date">{dateLabels.recording}</Label>
               <Input id="recording_date" type="date" {...register("recording_date")} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="broadcast_date">放送日</Label>
+              <Label htmlFor="broadcast_date">{dateLabels.broadcast}</Label>
               <Input
                 id="broadcast_date"
                 type="date"
@@ -107,7 +120,7 @@ export default function EpisodeEditDialog({ projectId, episode, broadcastType, o
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="delivery_date">納品日</Label>
+            <Label htmlFor="delivery_date">{dateLabels.delivery}</Label>
             <Input id="delivery_date" type="date" {...register("delivery_date")} />
           </div>
           <div className="grid grid-cols-2 gap-4">

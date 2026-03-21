@@ -80,6 +80,13 @@ export default function DashboardPage() {
     queryFn: async () => (await api.get("/dashboard/recent-projects")).data.data,
   });
 
+  // Auto-check completed projects on dashboard load
+  useQuery({
+    queryKey: ['check-completed'],
+    queryFn: async () => (await api.get('/dashboard/check-completed')).data,
+    staleTime: 60000, // only check once per minute
+  });
+
   const kpiCards = [
     { label: "今月売上", value: kpi ? formatCurrency(kpi.monthly_revenue) : "-", icon: DollarSign, color: "text-green-600" },
     { label: "今月粗利率", value: kpi ? formatPercent(kpi.monthly_gross_margin) : "-", icon: BarChart3, color: "text-blue-600" },

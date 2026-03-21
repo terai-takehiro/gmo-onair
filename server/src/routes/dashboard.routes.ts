@@ -1,7 +1,25 @@
 import { Router } from 'express';
-import { queryAll, queryOne } from '../db/connection';
+import { queryAll, queryOne, execute } from '../db/connection';
 
 const router = Router();
+
+// Auto-complete: A受注済み → S案件終了 (event_end < today)
+router.get('/check-completed', (_req, res) => {
+  const today = new Date().toISOString().split('T')[0];
+  const rows = queryAll(
+    `SELECT o.id as opp_id FROM opportunities o
+     JOIN projects p ON p.id = o.project_id
+     WHERE o.stage = 'a_won' AND o.deleted_at IS NULL
+     AND p.event_end IS NOT NULL AND p.event_end < ?`,
+    [today]
+  );
+  let updated = 0;
+  for (const row of rows) {
+    execute(`UPDATE opportunities SET stage='s_completed', updated_at=datetime('now') WHERE id=?`, [row.opp_id]);
+    updated++;
+  }
+  res.json({ success: true, data: { updated } });
+});
 
 router.get('/kpi', (_req, res) => {
   const now = new Date();

@@ -47,11 +47,24 @@ import {
   Trash2,
   Pencil,
   ArrowLeft,
+  ShoppingCart,
 } from "lucide-react";
 
 import EpisodeBatchDialog from "./components/EpisodeBatchDialog";
 import EpisodeEditDialog from "./components/EpisodeEditDialog";
+import EpisodePurchaseDialog from "./components/EpisodePurchaseDialog";
 import InvoiceGroupDialog from "./components/InvoiceGroupDialog";
+
+function getDateLabels(projectType: string): { recording: string; broadcast: string; delivery: string } {
+  switch (projectType) {
+    case 'offline_event': return { recording: 'リハ日', broadcast: '本番日', delivery: '納品日' };
+    case 'hybrid_event': return { recording: 'リハ日', broadcast: '本番・放送日', delivery: '納品日' };
+    case 'live_broadcast': return { recording: '収録日(=放送日)', broadcast: '放送日', delivery: '納品日' };
+    case 'recording': return { recording: '収録日', broadcast: '放送日', delivery: '納品日' };
+    case 'gmo_project': case 'other': return { recording: '対応開始日', broadcast: '対応終了日', delivery: '完了日' };
+    default: return { recording: '収録日', broadcast: '放送日', delivery: '納品日' };
+  }
+}
 
 export default function EpisodeListPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -64,6 +77,8 @@ export default function EpisodeListPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [invoiceGroupDialogOpen, setInvoiceGroupDialogOpen] = useState(false);
   const [editInvoiceGroup, setEditInvoiceGroup] = useState<InvoiceGroup | null>(null);
+  const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
+  const [purchaseEpisode, setPurchaseEpisode] = useState<Episode | null>(null);
 
   // Fetch project
   const { data: projectData, isLoading: projectLoading } = useQuery({
@@ -125,6 +140,10 @@ export default function EpisodeListPage() {
   const totalActualRevenue = episodes.reduce((s, e) => s + (e.actual_revenue ?? 0), 0);
   const totalActualCost = episodes.reduce((s, e) => s + (e.actual_cost ?? 0), 0);
   const actualGrossProfit = totalActualRevenue - totalActualCost;
+
+  // Dynamic date labels based on project type
+  const projectType = (projectData?.data as any)?.project_type ?? "";
+  const dateLabels = getDateLabels(projectType);
 
   if (projectLoading) {
     return (
@@ -205,18 +224,19 @@ export default function EpisodeListPage() {
                 <TableRow>
                   <TableHead className="w-12">#</TableHead>
                   <TableHead>エピソードコード</TableHead>
-                  <TableHead>収録日</TableHead>
-                  <TableHead>放送日</TableHead>
-                  <TableHead>納品日</TableHead>
+                  <TableHead>{dateLabels.recording}</TableHead>
+                  <TableHead>{dateLabels.broadcast}</TableHead>
+                  <TableHead>{dateLabels.delivery}</TableHead>
                   <TableHead className="text-right">売上</TableHead>
                   <TableHead className="text-right">仕入</TableHead>
-                  <TableHead className="w-24">操作</TableHead>
+                  <TableHead className="text-right">実績仕入</TableHead>
+                  <TableHead className="w-28">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {episodes.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center text-muted-foreground">
                       データがありません
                     </TableCell>
                   </TableRow>
@@ -237,6 +257,7 @@ export default function EpisodeListPage() {
                       <TableCell>{formatDate(ep.delivery_date)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(ep.revenue_budget)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(ep.cost_budget)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(ep.actual_cost)}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
                           <Button
@@ -250,6 +271,19 @@ export default function EpisodeListPage() {
                             }}
                           >
                             <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPurchaseEpisode(ep);
+                              setPurchaseDialogOpen(true);
+                            }}
+                            title="仕入管理"
+                          >
+                            <ShoppingCart className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
@@ -430,9 +464,19 @@ export default function EpisodeListPage() {
         projectId={projectId!}
         episode={editEpisode}
         broadcastType={project.broadcast_type}
+        projectType={projectType}
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
       />
+      {purchaseEpisode && (
+        <EpisodePurchaseDialog
+          projectId={projectId!}
+          episodeId={purchaseEpisode.id}
+          episodeCode={purchaseEpisode.episode_code}
+          open={purchaseDialogOpen}
+          onOpenChange={setPurchaseDialogOpen}
+        />
+      )}
       <InvoiceGroupDialog
         projectId={projectId!}
         episodes={episodes}

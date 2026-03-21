@@ -20,6 +20,44 @@ router.get('/events', (req, res) => {
       events.push({ id: `${p.id}-event`, title: `${p.gls_number} ${p.name}`, start: p.event_start, end: p.event_end || p.event_start, type: 'event', status: p.status, gls_number: p.gls_number, project_id: p.id, customer_name: p.customer_name });
     }
   }
+  // Episode events
+  const episodeEvents = queryAll(
+    `SELECT e.id, e.episode_code as title, e.recording_date, e.broadcast_date,
+     p.gls_number, p.id as project_id, p.status
+     FROM episodes e
+     JOIN projects p ON p.id = e.project_id
+     WHERE e.deleted_at IS NULL AND p.deleted_at IS NULL
+     AND ((e.recording_date BETWEEN ? AND ?) OR (e.broadcast_date BETWEEN ? AND ?))`,
+    [from, to, from, to]
+  );
+
+  for (const ep of episodeEvents) {
+    if (ep.recording_date) {
+      events.push({
+        id: `${ep.id}-rec`,
+        title: `📹 ${ep.title}`,
+        start: ep.recording_date,
+        end: ep.recording_date,
+        type: 'recording',
+        status: ep.status,
+        gls_number: ep.gls_number,
+        project_id: ep.project_id,
+      });
+    }
+    if (ep.broadcast_date && ep.broadcast_date !== ep.recording_date) {
+      events.push({
+        id: `${ep.id}-bc`,
+        title: `📡 ${ep.title}`,
+        start: ep.broadcast_date,
+        end: ep.broadcast_date,
+        type: 'broadcast',
+        status: ep.status,
+        gls_number: ep.gls_number,
+        project_id: ep.project_id,
+      });
+    }
+  }
+
   res.json({ success: true, data: events });
 });
 

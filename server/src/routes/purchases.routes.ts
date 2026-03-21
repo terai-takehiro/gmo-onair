@@ -10,10 +10,12 @@ const router = Router();
 router.get('/', (req, res) => {
   const { page, limit, offset, search } = extractPagination(req);
   const projectId = req.query.project_id as string;
+  const episodeId = req.query.episode_id as string;
   let where = 'WHERE pu.deleted_at IS NULL';
   const params: unknown[] = [];
   if (search) { where += ` AND (pu.description LIKE ? OR v.name LIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
   if (projectId) { where += ` AND pu.project_id = ?`; params.push(projectId); }
+  if (episodeId) { where += ' AND pu.episode_id = ?'; params.push(episodeId); }
   const total = (queryOne(`SELECT COUNT(*) as c FROM purchases pu LEFT JOIN vendors v ON v.id = pu.vendor_id ${where}`, params) as any).c;
   const rows = queryAll(`SELECT pu.*, p.name as project_name, p.gls_number, v.name as vendor_name FROM purchases pu LEFT JOIN projects p ON p.id = pu.project_id LEFT JOIN vendors v ON v.id = pu.vendor_id ${where} ORDER BY pu.recognition_date DESC, pu.created_at DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
   res.json(paginatedResponse(rows, total, page, limit));
@@ -26,11 +28,11 @@ router.get('/:id', (req, res) => {
 });
 
 router.post('/', requireAuth, (req, res) => {
-  const { project_id, vendor_id, settlement_method, settlement_number, tax_category, invoice_qualified, amount, description, recognition_date, inspection_date, payment_due_date, notes } = req.body;
+  const { project_id, episode_id, vendor_id, settlement_method, settlement_number, tax_category, invoice_qualified, amount, description, recognition_date, inspection_date, payment_due_date, notes } = req.body;
   if (!project_id || !vendor_id) throw new AppError(400, 'VALIDATION_ERROR', '案件と仕入先は必須です');
   const id = uuidv4();
-  execute(`INSERT INTO purchases (id, project_id, vendor_id, assigned_to, settlement_method, settlement_number, tax_category, invoice_qualified, amount, description, recognition_date, inspection_date, payment_due_date, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, project_id, vendor_id, req.user!.id, settlement_method || null, settlement_number || null, tax_category || 'tax10', invoice_qualified !== undefined ? (invoice_qualified ? 1 : 0) : 1, amount || 0, description || null, recognition_date || null, inspection_date || null, payment_due_date || null, notes || null, req.user!.id]);
+  execute(`INSERT INTO purchases (id, project_id, episode_id, vendor_id, assigned_to, settlement_method, settlement_number, tax_category, invoice_qualified, amount, description, recognition_date, inspection_date, payment_due_date, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, project_id, episode_id || null, vendor_id, req.user!.id, settlement_method || null, settlement_number || null, tax_category || 'tax10', invoice_qualified !== undefined ? (invoice_qualified ? 1 : 0) : 1, amount || 0, description || null, recognition_date || null, inspection_date || null, payment_due_date || null, notes || null, req.user!.id]);
   const row = queryOne('SELECT * FROM purchases WHERE id = ?', [id]);
   res.status(201).json({ success: true, data: row });
 });
