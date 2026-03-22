@@ -399,6 +399,18 @@ export default function EpisodeListPage() {
               <Plus className="mr-1 h-4 w-4" />
               請求グループ追加
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={async () => {
+                try {
+                  await api.post(`/projects/${projectId}/invoice-groups/auto-by-recording-date`);
+                  qc.invalidateQueries({ queryKey: ["invoice-groups", projectId] });
+                } catch {}
+              }}
+            >
+              収録日で自動グループ化
+            </Button>
           </div>
 
           {igLoading ? (
