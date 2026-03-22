@@ -11,6 +11,7 @@ const ALLOWED_TABLES = [
   'project_groups', 'projects', 'episodes', 'episode_orders',
   'invoice_groups', 'invoice_group_episodes',
   'revenues', 'purchases', 'purchase_allocations',
+  'sga_expenses', 'purchase_episode_allocations',
 ];
 
 // GET /data-viewer/tables - list tables with row counts

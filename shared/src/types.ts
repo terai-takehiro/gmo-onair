@@ -203,8 +203,35 @@ export interface Revenue extends BaseEntity {
   customer_name?: string;
 }
 
+// 販管費
+export interface SgaExpense extends BaseEntity {
+  billing_key: string;
+  assigned_to: string | null;
+  settlement_method: SettlementMethod | null;
+  settlement_number: string | null;
+  vendor_name: string;
+  vendor_id: string | null;
+  description: string | null;
+  notes: string | null;
+  recognition_date: string | null;
+  payment_due_date: string | null;
+  tax_category: TaxCategory;
+  invoice_qualified: boolean;
+  amount: number;
+}
+
+// 仕入の話数按分
+export interface PurchaseEpisodeAllocation {
+  id: string;
+  purchase_id: string;
+  episode_id: string;
+  allocated_amount: number;
+  episode_code?: string;
+}
+
 // 仕入
 export interface Purchase extends BaseEntity {
+  billing_key: string | null;
   project_id: string;
   group_id: string | null;
   episode_id: string | null;

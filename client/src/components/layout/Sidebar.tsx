@@ -47,10 +47,11 @@ const navSections: NavSection[] = [
     ],
   },
   {
-    title: "売上・仕入",
+    title: "売上・仕入・販管費",
     items: [
       { label: "売上一覧", to: "/revenues", icon: Receipt },
       { label: "仕入一覧", to: "/purchases", icon: ShoppingCart },
+      { label: "販管費", to: "/sga", icon: Receipt },
     ],
   },
   {

@@ -19,6 +19,7 @@ import projectGroupsRoutes from './project-groups.routes';
 import reportsRoutes from './reports.routes';
 import searchRoutes from './search.routes';
 import dataViewerRoutes from './data-viewer.routes';
+import sgaRoutes from './sga.routes';
 
 export function createRoutes(): Router {
   const router = Router();
@@ -36,6 +37,7 @@ export function createRoutes(): Router {
   router.use('/projects', invoiceGroupsRoutes);
   router.use('/revenues', revenuesRoutes);
   router.use('/purchases', purchasesRoutes);
+  router.use('/sga', sgaRoutes);
   router.use('/calendar', calendarRoutes);
   router.use('/pricing', pricingRoutes);
   router.use('/opportunities', simulationsRoutes);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
@@ -27,6 +27,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectTrigger,
@@ -35,6 +36,22 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Loader2, Plus, Trash2 } from "lucide-react";
+
+function formatSettlementNo(method: string, number: string): string {
+  if (!number || number === "pending") return "未定";
+  if (method === "xpoint") return `X-${number}`;
+  if (method === "rakuraku") return `楽-${number}`;
+  return number;
+}
+
+function generateBillingKeyPreview(
+  episodeCode: string,
+  taxCategory: string
+): string {
+  if (!episodeCode) return "";
+  const taxSuffix = taxCategory === "tax8" ? "-8" : "-10";
+  return `${episodeCode}${taxSuffix}`;
+}
 
 interface Props {
   open: boolean;
@@ -59,6 +76,15 @@ export default function EpisodePurchaseDialog({
   const [settlementMethod, setSettlementMethod] = useState<string>("rakuraku");
   const [taxCategory, setTaxCategory] = useState<string>("tax10");
   const [description, setDescription] = useState("");
+  const [settlementNumber, setSettlementNumber] = useState("");
+  const [settlementNumberPending, setSettlementNumberPending] = useState(false);
+  const [invoiceQualified, setInvoiceQualified] = useState<string>("qualified");
+
+  // Billing key preview
+  const billingKeyPreview = useMemo(
+    () => generateBillingKeyPreview(episodeCode, taxCategory),
+    [episodeCode, taxCategory]
+  );
 
   // Fetch existing purchases for this episode
   const { data: purchasesData, isLoading: purchasesLoading } = useQuery({
@@ -90,6 +116,9 @@ export default function EpisodePurchaseDialog({
       setSettlementMethod("rakuraku");
       setTaxCategory("tax10");
       setDescription("");
+      setSettlementNumber("");
+      setSettlementNumberPending(false);
+      setInvoiceQualified("qualified");
     },
   });
 
@@ -110,15 +139,18 @@ export default function EpisodePurchaseDialog({
       vendor_id: vendorId,
       amount,
       settlement_method: settlementMethod,
+      settlement_number: settlementNumberPending
+        ? "pending"
+        : settlementNumber || null,
       tax_category: taxCategory,
       description,
-      invoice_qualified: 1,
+      invoice_qualified: invoiceQualified === "qualified" ? 1 : 0,
     });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>仕入管理 - {episodeCode}</DialogTitle>
         </DialogHeader>
@@ -132,8 +164,10 @@ export default function EpisodePurchaseDialog({
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>請求KEY</TableHead>
                 <TableHead>仕入先</TableHead>
                 <TableHead>説明</TableHead>
+                <TableHead>精算No.</TableHead>
                 <TableHead className="text-right">金額</TableHead>
                 <TableHead className="w-12"></TableHead>
               </TableRow>
@@ -142,7 +176,7 @@ export default function EpisodePurchaseDialog({
               {purchases.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={4}
+                    colSpan={6}
                     className="text-center text-muted-foreground"
                   >
                     仕入データなし
@@ -151,8 +185,17 @@ export default function EpisodePurchaseDialog({
               ) : (
                 purchases.map((pur) => (
                   <TableRow key={pur.id}>
+                    <TableCell className="font-mono text-xs">
+                      {pur.billing_key || "-"}
+                    </TableCell>
                     <TableCell>{pur.vendor_name ?? "-"}</TableCell>
                     <TableCell>{pur.description ?? "-"}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {formatSettlementNo(
+                        pur.settlement_method ?? "",
+                        pur.settlement_number ?? ""
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">
                       {formatCurrency(pur.amount)}
                     </TableCell>
@@ -184,6 +227,14 @@ export default function EpisodePurchaseDialog({
             <Plus className="h-4 w-4" />
             仕入追加
           </h4>
+
+          {/* Billing key preview */}
+          {billingKeyPreview && (
+            <p className="text-xs text-muted-foreground">
+              請求KEY: {billingKeyPreview}
+            </p>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label>仕入先</Label>
@@ -249,6 +300,50 @@ export default function EpisodePurchaseDialog({
                       </SelectItem>
                     )
                   )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>精算番号</Label>
+              <div className="flex items-center gap-2 mb-1">
+                <Checkbox
+                  checked={settlementNumberPending}
+                  onCheckedChange={(checked) => {
+                    setSettlementNumberPending(!!checked);
+                    if (checked) setSettlementNumber("");
+                  }}
+                />
+                <span className="text-sm text-muted-foreground">未定</span>
+              </div>
+              <Input
+                type="number"
+                disabled={settlementNumberPending}
+                value={settlementNumber}
+                onChange={(e) => setSettlementNumber(e.target.value)}
+                placeholder="精算番号"
+              />
+              {(settlementNumber || settlementNumberPending) && (
+                <p className="text-xs text-muted-foreground">
+                  表示:{" "}
+                  {formatSettlementNo(
+                    settlementMethod,
+                    settlementNumberPending ? "pending" : settlementNumber
+                  )}
+                </p>
+              )}
+            </div>
+            <div className="space-y-1">
+              <Label>インボイス</Label>
+              <Select
+                value={invoiceQualified}
+                onValueChange={setInvoiceQualified}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="qualified">適格事業者</SelectItem>
+                  <SelectItem value="unqualified">非適格事業者</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -259,6 +259,7 @@ CREATE TABLE IF NOT EXISTS revenues (
 -- episode_id: 話数紐付き(話数仕入)
 CREATE TABLE IF NOT EXISTS purchases (
   id                TEXT PRIMARY KEY,
+  billing_key       TEXT,
   project_id        TEXT REFERENCES projects(id),
   group_id          TEXT REFERENCES project_groups(id),
   episode_id        TEXT REFERENCES episodes(id),
@@ -283,13 +284,46 @@ CREATE TABLE IF NOT EXISTS purchases (
   deleted_at        TEXT
 );
 
--- 仕入按分(グループ共通仕入の各案件への配分)
+-- 仕入按分(グループ共通仕入 → 案件への配分)
 CREATE TABLE IF NOT EXISTS purchase_allocations (
   id               TEXT PRIMARY KEY,
   purchase_id      TEXT NOT NULL REFERENCES purchases(id),
   project_id       TEXT NOT NULL REFERENCES projects(id),
   allocated_amount INTEGER NOT NULL DEFAULT 0,
   created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- 仕入の話数按分(1仕入 → 複数話数への配分)
+CREATE TABLE IF NOT EXISTS purchase_episode_allocations (
+  id               TEXT PRIMARY KEY,
+  purchase_id      TEXT NOT NULL REFERENCES purchases(id),
+  episode_id       TEXT NOT NULL REFERENCES episodes(id),
+  allocated_amount INTEGER NOT NULL DEFAULT 0,
+  created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- 販管費
+CREATE TABLE IF NOT EXISTS sga_expenses (
+  id                TEXT PRIMARY KEY,
+  billing_key       TEXT NOT NULL,
+  assigned_to       TEXT,
+  settlement_method TEXT CHECK (settlement_method IN ('xpoint','rakuraku','other')),
+  settlement_number TEXT,
+  vendor_name       TEXT NOT NULL,
+  vendor_id         TEXT REFERENCES vendors(id),
+  description       TEXT,
+  notes             TEXT,
+  recognition_date  TEXT,
+  payment_due_date  TEXT,
+  tax_category      TEXT NOT NULL DEFAULT 'tax10'
+                    CHECK (tax_category IN ('tax10','tax8','exempt')),
+  invoice_qualified INTEGER NOT NULL DEFAULT 1,
+  amount            INTEGER NOT NULL DEFAULT 0,
+  created_at        TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at        TEXT NOT NULL DEFAULT (datetime('now')),
+  created_by        TEXT,
+  updated_by        TEXT,
+  deleted_at        TEXT
 );
 
 -- ============================================================
@@ -315,3 +349,6 @@ CREATE INDEX IF NOT EXISTS idx_purchases_group ON purchases(group_id) WHERE grou
 CREATE INDEX IF NOT EXISTS idx_purchases_episode ON purchases(episode_id);
 CREATE INDEX IF NOT EXISTS idx_pa_purchase ON purchase_allocations(purchase_id);
 CREATE INDEX IF NOT EXISTS idx_pa_project ON purchase_allocations(project_id);
+CREATE INDEX IF NOT EXISTS idx_pea_purchase ON purchase_episode_allocations(purchase_id);
+CREATE INDEX IF NOT EXISTS idx_pea_episode ON purchase_episode_allocations(episode_id);
+CREATE INDEX IF NOT EXISTS idx_sga_recognition ON sga_expenses(recognition_date) WHERE deleted_at IS NULL;

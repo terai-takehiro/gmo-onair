@@ -10,6 +10,7 @@ import ProjectDetailPage from "@/features/projects/ProjectDetailPage";
 import EpisodeListPage from "@/features/episodes/EpisodeListPage";
 import RevenueListPage from "@/features/revenues/RevenueListPage";
 import PurchaseListPage from "@/features/purchases/PurchaseListPage";
+import SgaListPage from "@/features/sga/SgaListPage";
 import StudioCalendarPage from "@/features/calendar/StudioCalendarPage";
 import CustomerListPage from "@/features/masters/CustomerListPage";
 import VendorListPage from "@/features/masters/VendorListPage";
@@ -76,6 +77,7 @@ function AppRoutes() {
         <Route path="/projects/:projectId/episodes" element={<EpisodeListPage />} />
         <Route path="/revenues" element={<RevenueListPage />} />
         <Route path="/purchases" element={<PurchaseListPage />} />
+        <Route path="/sga" element={<SgaListPage />} />
         <Route path="/calendar" element={<StudioCalendarPage />} />
         <Route path="/masters/customers" element={<CustomerListPage />} />
         <Route path="/masters/vendors" element={<VendorListPage />} />
