@@ -17,7 +17,6 @@ import {
   Building2,
   DollarSign,
   BarChart3,
-  Briefcase,
   AlertTriangle,
   Loader2,
 } from "lucide-react";
@@ -131,14 +130,7 @@ export default function DashboardPage() {
     queryFn: async () => (await api.get('/dashboard/pipeline')).data.data,
   });
 
-  const kpiCards = [
-    { label: "今月売上", value: kpi ? formatCurrency(kpi.monthly_revenue) : "-", icon: DollarSign, color: "text-blue-600" },
-    { label: "変動原価(仕入)", value: kpi ? formatCurrency(kpi.monthly_purchase) : "-", icon: ShoppingCart, color: "text-orange-600" },
-    { label: "粗利", value: kpi ? `${formatCurrency(kpi.gross_profit)} (${formatPercent(kpi.monthly_gross_margin)})` : "-", icon: TrendingUp, color: "text-green-600" },
-    { label: "販管費", value: kpi ? formatCurrency(kpi.monthly_sga) : "-", icon: Receipt, color: "text-red-500" },
-    { label: "営業利益", value: kpi ? `${formatCurrency(kpi.operating_profit)} (${formatPercent(kpi.operating_margin)})` : "-", icon: BarChart3, color: kpi && kpi.operating_profit >= 0 ? "text-green-700" : "text-red-600" },
-    { label: "進行中案件", value: kpi?.active_projects ?? "-", icon: Briefcase, color: "text-purple-600" },
-  ];
+
 
   const quickLinks = [
     { label: "ヨミ管理", to: "/opportunities", icon: TrendingUp },
@@ -153,28 +145,85 @@ export default function DashboardPage() {
     <div className="space-y-6 p-6">
       <h1 className="text-2xl font-bold">ダッシュボード</h1>
 
-      {/* KPI Cards */}
+      {/* P&L Infographic */}
       {kpiLoading ? (
         <div className="flex justify-center py-8">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {kpiCards.map((k) => (
-            <Card key={k.label}>
-              <CardContent className="flex items-center gap-4 p-6">
-                <div className={`rounded-lg bg-muted p-3 ${k.color}`}>
-                  <k.icon className="h-6 w-6" />
+      ) : kpi ? (
+        <Card className="overflow-hidden">
+          <CardContent className="p-0">
+            {/* P&L Flow */}
+            <div className="flex flex-col lg:flex-row items-stretch">
+              {/* 売上 */}
+              <div className="flex-1 bg-blue-600 text-white p-6 flex flex-col justify-center items-center relative animate-[fadeIn_0.5s_ease-out]">
+                <DollarSign className="h-8 w-8 mb-2 opacity-80" />
+                <p className="text-sm font-medium opacity-80">売上</p>
+                <p className="text-3xl font-bold font-mono">{formatCurrency(kpi.monthly_revenue)}</p>
+                <div className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 bg-white rounded-full p-1 shadow">
+                  <span className="text-gray-400 text-lg font-bold">-</span>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{k.label}</p>
-                  <p className="text-2xl font-bold">{k.value}</p>
+              </div>
+              {/* 仕入(変動原価) */}
+              <div className="flex-1 bg-orange-500 text-white p-6 flex flex-col justify-center items-center relative animate-[fadeIn_0.7s_ease-out]">
+                <ShoppingCart className="h-8 w-8 mb-2 opacity-80" />
+                <p className="text-sm font-medium opacity-80">変動原価(仕入)</p>
+                <p className="text-3xl font-bold font-mono">{formatCurrency(kpi.monthly_purchase)}</p>
+                <div className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 bg-white rounded-full p-1 shadow">
+                  <span className="text-gray-400 text-lg font-bold">=</span>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+              </div>
+              {/* 粗利 */}
+              <div className="flex-1 bg-emerald-600 text-white p-6 flex flex-col justify-center items-center relative animate-[fadeIn_0.9s_ease-out]">
+                <TrendingUp className="h-8 w-8 mb-2 opacity-80" />
+                <p className="text-sm font-medium opacity-80">粗利</p>
+                <p className="text-3xl font-bold font-mono">{formatCurrency(kpi.gross_profit)}</p>
+                <p className="text-lg font-semibold opacity-90">{formatPercent(kpi.monthly_gross_margin)}</p>
+                <div className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 bg-white rounded-full p-1 shadow">
+                  <span className="text-gray-400 text-lg font-bold">-</span>
+                </div>
+              </div>
+              {/* 販管費 */}
+              <div className="flex-1 bg-red-500 text-white p-6 flex flex-col justify-center items-center relative animate-[fadeIn_1.1s_ease-out]">
+                <Receipt className="h-8 w-8 mb-2 opacity-80" />
+                <p className="text-sm font-medium opacity-80">販管費</p>
+                <p className="text-3xl font-bold font-mono">{formatCurrency(kpi.monthly_sga)}</p>
+                <div className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 bg-white rounded-full p-1 shadow">
+                  <span className="text-gray-400 text-lg font-bold">=</span>
+                </div>
+              </div>
+              {/* 営業利益 */}
+              <div className={`flex-1 p-6 flex flex-col justify-center items-center animate-[fadeIn_1.3s_ease-out] ${
+                kpi.operating_profit >= 0 ? 'bg-gradient-to-br from-green-700 to-emerald-800' : 'bg-gradient-to-br from-red-700 to-red-800'
+              } text-white`}>
+                <BarChart3 className="h-8 w-8 mb-2 opacity-80" />
+                <p className="text-sm font-medium opacity-80">営業利益</p>
+                <p className="text-3xl font-bold font-mono">{formatCurrency(kpi.operating_profit)}</p>
+                <p className="text-lg font-semibold opacity-90">{formatPercent(kpi.operating_margin)}</p>
+              </div>
+            </div>
+            {/* Sub KPIs */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 border-t">
+              <div className="p-4 text-center border-r">
+                <p className="text-xs text-muted-foreground">進行中案件</p>
+                <p className="text-2xl font-bold text-primary">{kpi.active_projects}</p>
+              </div>
+              <div className="p-4 text-center border-r">
+                <p className="text-xs text-muted-foreground">アクティブヨミ</p>
+                <p className="text-2xl font-bold text-orange-600">{kpi.active_opportunities}</p>
+              </div>
+              <div className="p-4 text-center border-r">
+                <p className="text-xs text-muted-foreground">粗利率</p>
+                <p className="text-2xl font-bold text-emerald-600">{formatPercent(kpi.monthly_gross_margin)}</p>
+              </div>
+              <div className="p-4 text-center">
+                <p className="text-xs text-muted-foreground">営業利益率</p>
+                <p className={`text-2xl font-bold ${kpi.operating_profit >= 0 ? 'text-green-700' : 'text-red-600'}`}>{formatPercent(kpi.operating_margin)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {/* Charts */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
