@@ -80,7 +80,7 @@ export default function EpisodeBatchDialog({ projectId, open, onOpenChange }: Pr
           <Separator />
 
           <div className="space-y-2">
-            <Label>売上(合計)</Label>
+            <Label>売上高(合計)</Label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
               <Input
@@ -93,7 +93,7 @@ export default function EpisodeBatchDialog({ projectId, open, onOpenChange }: Pr
 
           {revenueTotal > 0 && count > 0 && (
             <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">1話あたり売上（{count}話で按分）</p>
+              <p className="text-xs font-medium text-muted-foreground">1話あたり売上高（{count}話で按分）</p>
               <p className="font-mono font-semibold text-primary">{formatCurrency(revenuePerEp)}</p>
             </div>
           )}

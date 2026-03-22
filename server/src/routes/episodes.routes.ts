@@ -4,6 +4,7 @@ import { queryAll, queryOne, execute } from '../db/connection';
 import { requireAuth } from '../middleware/auth';
 import { extractPagination, paginatedResponse } from '../services/pagination';
 import { generateEpisodeCode, getNextEpisodeNumber } from '../services/sequence.service';
+import { generateBillingKey } from '../services/billing-key.service';
 import { AppError } from '../middleware/errorHandler';
 
 const router = Router();
@@ -63,14 +64,16 @@ router.post('/:projectId/episodes/batch', requireAuth, (req, res) => {
 
   if (!count || count < 1) throw new AppError(400, 'VALIDATION_ERROR', '作成数は1以上を指定してください');
 
-  const project = queryOne('SELECT gls_number FROM projects WHERE id = ? AND deleted_at IS NULL', [projectId]) as any;
+  const project = queryOne('SELECT gls_number, customer_id FROM projects WHERE id = ? AND deleted_at IS NULL', [projectId]) as any;
   if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
 
+  const customerId = project.customer_id;
   const nextNum = getNextEpisodeNumber(projectId);
   const createdEpisodes: unknown[] = [];
 
   const startEp = nextNum;
   const endEp = nextNum + count - 1;
+  const revPerEp = revenue_budget_per_episode || 0;
 
   // Create episode_orders record
   const orderId = uuidv4();
@@ -89,8 +92,19 @@ router.post('/:projectId/episodes/batch', requireAuth, (req, res) => {
     execute(
       `INSERT INTO episodes (id, project_id, episode_code, episode_number, revenue_budget, cost_budget, created_by)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [id, projectId, episodeCode, episodeNumber, revenue_budget_per_episode || 0, cost_budget_per_episode || 0, req.user!.id]
+      [id, projectId, episodeCode, episodeNumber, 0, cost_budget_per_episode || 0, req.user!.id]
     );
+
+    // Create revenue record for this episode instead of setting revenue_budget
+    if (revPerEp > 0) {
+      const revId = uuidv4();
+      const billingKey = generateBillingKey(episodeCode, 'tax10');
+      execute(
+        `INSERT INTO revenues (id, billing_key, project_id, episode_id, customer_id, assigned_to, tax_category, amount, notes, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, 'tax10', ?, ?, ?)`,
+        [revId, billingKey, projectId, id, customerId, req.user!.id, revPerEp, '発注時按分', req.user!.id]
+      );
+    }
 
     const row = queryOne('SELECT * FROM episodes WHERE id = ?', [id]);
     createdEpisodes.push(row);
@@ -109,7 +123,7 @@ router.put('/:projectId/episodes/:id', requireAuth, (req, res) => {
 
   const {
     title, recording_date, broadcast_date, status,
-    revenue_budget, cost_budget, notes
+    cost_budget, notes
   } = req.body;
 
   // For live broadcasts, recording_date also sets broadcast_date
@@ -127,12 +141,12 @@ router.put('/:projectId/episodes/:id', requireAuth, (req, res) => {
   execute(
     `UPDATE episodes SET
       title = ?, recording_date = ?, broadcast_date = ?, status = ?,
-      revenue_budget = ?, cost_budget = ?, notes = ?,
+      cost_budget = ?, notes = ?,
       updated_at = datetime('now'), updated_by = ?
     WHERE id = ?`,
     [
       title || null, recording_date || null, finalBroadcastDate,
-      status || null, revenue_budget || null, cost_budget || null,
+      status || null, cost_budget || null,
       notes || null, req.user!.id, req.params.id
     ]
   );

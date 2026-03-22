@@ -134,7 +134,6 @@ export default function EpisodeListPage() {
   });
 
   // Summary calculations
-  const totalRevenueBudget = episodes.reduce((s, e) => s + (e.revenue_budget ?? 0), 0);
   const totalActualRevenue = episodes.reduce((s, e) => s + (e.actual_revenue ?? 0), 0);
   const totalActualCost = episodes.reduce((s, e) => s + (e.actual_cost ?? 0), 0);
   const grossProfit = totalActualRevenue - totalActualCost;
@@ -196,9 +195,8 @@ export default function EpisodeListPage() {
         {/* Tab 1: Episodes */}
         <TabsContent value="episodes" className="space-y-4">
           {/* Summary Cards */}
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <SummaryCard title="売上高計" value={formatCurrency(totalRevenueBudget)} />
-            <SummaryCard title="売上実績計" value={formatCurrency(totalActualRevenue)} />
+          <div className="grid grid-cols-3 gap-4">
+            <SummaryCard title="売上高計" value={formatCurrency(totalActualRevenue)} />
             <SummaryCard title="仕入実績計" value={formatCurrency(totalActualCost)} />
             <SummaryCard title="粗利(実績)" value={formatCurrency(grossProfit)} />
           </div>
@@ -224,7 +222,6 @@ export default function EpisodeListPage() {
                   <TableHead>{dateLabels.broadcast}</TableHead>
                   <TableHead>{dateLabels.delivery}</TableHead>
                   <TableHead className="text-right">売上高</TableHead>
-                  <TableHead className="text-right">売上実績</TableHead>
                   <TableHead className="text-right">仕入実績</TableHead>
                   <TableHead className="w-28">操作</TableHead>
                 </TableRow>
@@ -232,7 +229,7 @@ export default function EpisodeListPage() {
               <TableBody>
                 {episodes.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center text-muted-foreground">
                       データがありません
                     </TableCell>
                   </TableRow>
@@ -251,7 +248,6 @@ export default function EpisodeListPage() {
                       <TableCell>{formatDate(ep.recording_date)}</TableCell>
                       <TableCell>{formatDate(ep.broadcast_date)}</TableCell>
                       <TableCell>{formatDate(ep.delivery_date)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(ep.revenue_budget)}</TableCell>
                       <TableCell className="text-right">
                         <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-sm ${
                           (ep.revenue_count ?? 0) > 0 ? 'bg-blue-50 text-blue-700' : 'text-muted-foreground'

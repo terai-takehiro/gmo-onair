@@ -87,8 +87,9 @@ router.patch('/:id/stage', requireAuth, (req, res) => {
 
     project = queryOne('SELECT * FROM projects WHERE id = ?', [projId]);
 
-    // Auto-create revenue from expected_amount
-    if (opp.expected_amount && opp.expected_amount > 0) {
+    // Auto-create revenue from expected_amount only when no episodes are created
+    // (when episodes are created, revenue records are created per-episode in batch endpoint)
+    if (opp.expected_amount && opp.expected_amount > 0 && epCount === 0) {
       const revId = uuidv4();
       execute(
         `INSERT INTO revenues (id, billing_key, project_id, customer_id, assigned_to, tax_category, amount, notes, created_by)

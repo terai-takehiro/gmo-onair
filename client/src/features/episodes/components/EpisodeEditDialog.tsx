@@ -43,7 +43,6 @@ interface FormValues {
   recording_date: string;
   broadcast_date: string;
   delivery_date: string;
-  revenue_budget: number;
   notes: string;
 }
 
@@ -60,7 +59,6 @@ export default function EpisodeEditDialog({ projectId, episode, broadcastType, p
         recording_date: episode.recording_date?.slice(0, 10) ?? "",
         broadcast_date: episode.broadcast_date?.slice(0, 10) ?? "",
         delivery_date: episode.delivery_date?.slice(0, 10) ?? "",
-        revenue_budget: episode.revenue_budget ?? 0,
         notes: episode.notes ?? "",
       });
     }
@@ -76,10 +74,7 @@ export default function EpisodeEditDialog({ projectId, episode, broadcastType, p
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) =>
-      api.put(`/projects/${projectId}/episodes/${episode?.id}`, {
-        ...values,
-        revenue_budget: Number(values.revenue_budget),
-      }),
+      api.put(`/projects/${projectId}/episodes/${episode?.id}`, values),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["episodes", projectId] });
       onOpenChange(false);
@@ -126,11 +121,12 @@ export default function EpisodeEditDialog({ projectId, episode, broadcastType, p
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="revenue_budget">売上</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
-                <Input id="revenue_budget" type="number" min={0} className="pl-7" {...register("revenue_budget")} />
+              <Label>売上高</Label>
+              <div className="flex items-center gap-2 h-10 px-3 rounded-md border bg-muted/50">
+                <span className="font-mono text-sm">{formatCurrency(episode.actual_revenue || 0)}</span>
+                <span className="text-xs text-muted-foreground">({episode.revenue_count ?? 0}件)</span>
               </div>
+              <p className="text-xs text-muted-foreground">売上は売上一覧から管理します</p>
             </div>
             <div className="space-y-2">
               <Label>仕入(実績)</Label>
