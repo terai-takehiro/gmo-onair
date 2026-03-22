@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
@@ -22,6 +23,7 @@ import {
 } from "lucide-react";
 
 interface KPI {
+  period_label: string;
   monthly_revenue: number;
   monthly_purchase: number;
   monthly_sga: number;
@@ -97,10 +99,11 @@ const statusColor: Record<string, string> = {
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const [kpiPeriod, setKpiPeriod] = useState<'monthly' | 'yearly'>('monthly');
 
   const { data: kpi, isLoading: kpiLoading } = useQuery<KPI>({
-    queryKey: ["dashboard-kpi"],
-    queryFn: async () => (await api.get("/dashboard/kpi")).data.data,
+    queryKey: ["dashboard-kpi", kpiPeriod],
+    queryFn: async () => (await api.get("/dashboard/kpi", { params: { period: kpiPeriod } })).data.data,
   });
 
   const { data: alerts } = useQuery<Alert[]>({
@@ -160,7 +163,23 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 p-6">
-      <h1 className="text-2xl font-bold">ダッシュボード</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">ダッシュボード</h1>
+        <div className="flex gap-1 rounded-lg border p-1">
+          <button
+            onClick={() => setKpiPeriod('monthly')}
+            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${kpiPeriod === 'monthly' ? 'bg-primary text-white' : 'hover:bg-muted'}`}
+          >
+            今月
+          </button>
+          <button
+            onClick={() => setKpiPeriod('yearly')}
+            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${kpiPeriod === 'yearly' ? 'bg-primary text-white' : 'hover:bg-muted'}`}
+          >
+            年間
+          </button>
+        </div>
+      </div>
 
       {/* P&L Infographic */}
       {kpiLoading ? (
@@ -169,6 +188,9 @@ export default function DashboardPage() {
         </div>
       ) : kpi ? (
         <Card className="overflow-hidden">
+          <div className="bg-muted/50 px-4 py-2 text-sm font-medium text-muted-foreground border-b">
+            {kpi.period_label || (kpiPeriod === 'yearly' ? '年間' : '今月')} 損益サマリー
+          </div>
           <CardContent className="p-0">
             {/* P&L Flow */}
             <div className="flex flex-col lg:flex-row items-stretch">

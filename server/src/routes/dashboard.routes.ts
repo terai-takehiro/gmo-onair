@@ -27,18 +27,28 @@ router.get('/check-completed', (_req, res) => {
   res.json({ success: true, data: { updated } });
 });
 
-router.get('/kpi', (_req, res) => {
+router.get('/kpi', (req, res) => {
   const now = new Date();
-  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-  const monthEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-31`;
+  const period = req.query.period as string || 'monthly';
+  let periodStart: string, periodEnd: string, periodLabel: string;
+
+  if (period === 'yearly') {
+    periodStart = `${now.getFullYear()}-01-01`;
+    periodEnd = `${now.getFullYear()}-12-31`;
+    periodLabel = `${now.getFullYear()}年`;
+  } else {
+    periodStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    periodEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-31`;
+    periodLabel = `${now.getFullYear()}年${now.getMonth() + 1}月`;
+  }
+  const monthStart = periodStart;
+  const monthEnd = periodEnd;
   const rev = queryOne(`SELECT COALESCE(SUM(amount), 0) as total FROM revenues WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [monthStart, monthEnd]);
   const pur = queryOne(`SELECT COALESCE(SUM(amount), 0) as total FROM purchases WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [monthStart, monthEnd]);
   const activeProjects = queryOne(`SELECT COUNT(*) as c FROM projects WHERE status IN ('tentative','confirmed') AND deleted_at IS NULL`);
   const activeOpps = queryOne(`SELECT COUNT(*) as c FROM opportunities WHERE stage IN ('neta','d_hold','c_proposal','b_verbal') AND deleted_at IS NULL`);
-  // Calculate monthly SGA: spot expenses with amortization spread across months, plus fixed/non-amortized
-  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-
-  // Non-amortized: spot without amortize period, or fixed costs in current month
+  // Calculate SGA with amortization
+  // Non-amortized
   const sgaNonAmortized = queryOne(
     `SELECT COALESCE(SUM(amount),0) as total FROM sga_expenses
      WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL
@@ -46,30 +56,46 @@ router.get('/kpi', (_req, res) => {
     [monthStart, monthEnd]
   );
 
-  // Amortized: spread across months
-  const sgaAmortized = queryAll(
-    `SELECT amount, amortize_start, amortize_end FROM sga_expenses
-     WHERE deleted_at IS NULL AND amortize_start IS NOT NULL AND amortize_start != ''
-     AND amortize_start <= ? AND amortize_end >= ?`,
-    [currentMonth, currentMonth]
-  );
-
-  let monthlySgaAmortized = 0;
-  for (const row of sgaAmortized) {
-    const start = row.amortize_start as string;
-    const end = row.amortize_end as string;
-    const months = countMonths(start, end);
-    if (months > 0) monthlySgaAmortized += Math.floor((row.amount as number) / months);
+  // Amortized: calculate how much falls in the period
+  let sgaAmortizedTotal = 0;
+  if (period === 'yearly') {
+    // For yearly: sum monthly amounts for each month in the year
+    for (let m = 0; m < 12; m++) {
+      const ym = `${now.getFullYear()}-${String(m + 1).padStart(2, '0')}`;
+      const amortRows = queryAll(
+        `SELECT amount, amortize_start, amortize_end FROM sga_expenses
+         WHERE deleted_at IS NULL AND amortize_start IS NOT NULL AND amortize_start != ''
+         AND amortize_start <= ? AND amortize_end >= ?`,
+        [ym, ym]
+      );
+      for (const row of amortRows) {
+        const months = countMonths(row.amortize_start as string, row.amortize_end as string);
+        if (months > 0) sgaAmortizedTotal += Math.floor((row.amount as number) / months);
+      }
+    }
+  } else {
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const amortRows = queryAll(
+      `SELECT amount, amortize_start, amortize_end FROM sga_expenses
+       WHERE deleted_at IS NULL AND amortize_start IS NOT NULL AND amortize_start != ''
+       AND amortize_start <= ? AND amortize_end >= ?`,
+      [currentMonth, currentMonth]
+    );
+    for (const row of amortRows) {
+      const months = countMonths(row.amortize_start as string, row.amortize_end as string);
+      if (months > 0) sgaAmortizedTotal += Math.floor((row.amount as number) / months);
+    }
   }
 
   const monthlyRevenue = (rev?.total as number) || 0;
   const monthlyPurchase = (pur?.total as number) || 0;
-  const monthlySga = ((sgaNonAmortized?.total as number) || 0) + monthlySgaAmortized;
+  const monthlySga = ((sgaNonAmortized?.total as number) || 0) + sgaAmortizedTotal;
   const grossProfit = monthlyRevenue - monthlyPurchase;
   const grossMargin = monthlyRevenue > 0 ? Math.round((grossProfit / monthlyRevenue) * 1000) / 10 : 0;
   const operatingProfit = grossProfit - monthlySga;
   const operatingMargin = monthlyRevenue > 0 ? Math.round((operatingProfit / monthlyRevenue) * 1000) / 10 : 0;
   res.json({ success: true, data: {
+    period_label: periodLabel,
     monthly_revenue: monthlyRevenue,
     monthly_purchase: monthlyPurchase,
     monthly_sga: monthlySga,
