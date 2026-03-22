@@ -135,11 +135,9 @@ export default function EpisodeListPage() {
 
   // Summary calculations
   const totalRevenueBudget = episodes.reduce((s, e) => s + (e.revenue_budget ?? 0), 0);
-  const totalCostBudget = episodes.reduce((s, e) => s + (e.cost_budget ?? 0), 0);
-  const grossProfitBudget = totalRevenueBudget - totalCostBudget;
   const totalActualRevenue = episodes.reduce((s, e) => s + (e.actual_revenue ?? 0), 0);
   const totalActualCost = episodes.reduce((s, e) => s + (e.actual_cost ?? 0), 0);
-  const actualGrossProfit = totalActualRevenue - totalActualCost;
+  const grossProfit = totalActualRevenue - totalActualCost;
 
   // Dynamic date labels based on project type
   const projectType = (projectData?.data as any)?.project_type ?? "";
@@ -198,13 +196,11 @@ export default function EpisodeListPage() {
         {/* Tab 1: Episodes */}
         <TabsContent value="episodes" className="space-y-4">
           {/* Summary Cards */}
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-            <SummaryCard title="売上計" value={formatCurrency(totalRevenueBudget)} />
-            <SummaryCard title="仕入計" value={formatCurrency(totalCostBudget)} />
-            <SummaryCard title="粗利予算" value={formatCurrency(grossProfitBudget)} />
-            <SummaryCard title="実績売上計" value={formatCurrency(totalActualRevenue)} />
-            <SummaryCard title="実績仕入計" value={formatCurrency(totalActualCost)} />
-            <SummaryCard title="実績粗利" value={formatCurrency(actualGrossProfit)} />
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <SummaryCard title="売上予算計" value={formatCurrency(totalRevenueBudget)} />
+            <SummaryCard title="売上実績計" value={formatCurrency(totalActualRevenue)} />
+            <SummaryCard title="仕入実績計" value={formatCurrency(totalActualCost)} />
+            <SummaryCard title="粗利(実績)" value={formatCurrency(grossProfit)} />
           </div>
 
           <div className="flex justify-end">
@@ -227,9 +223,9 @@ export default function EpisodeListPage() {
                   <TableHead>{dateLabels.recording}</TableHead>
                   <TableHead>{dateLabels.broadcast}</TableHead>
                   <TableHead>{dateLabels.delivery}</TableHead>
-                  <TableHead className="text-right">売上</TableHead>
-                  <TableHead className="text-right">仕入</TableHead>
-                  <TableHead className="text-right">実績仕入</TableHead>
+                  <TableHead className="text-right">売上予算</TableHead>
+                  <TableHead className="text-right">売上実績</TableHead>
+                  <TableHead className="text-right">仕入実績</TableHead>
                   <TableHead className="w-28">操作</TableHead>
                 </TableRow>
               </TableHeader>
@@ -256,8 +252,18 @@ export default function EpisodeListPage() {
                       <TableCell>{formatDate(ep.broadcast_date)}</TableCell>
                       <TableCell>{formatDate(ep.delivery_date)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(ep.revenue_budget)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(ep.cost_budget)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(ep.actual_cost)}</TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(ep.actual_revenue ?? 0)}
+                        {(ep.revenue_count ?? 0) > 0 && (
+                          <span className="ml-1 text-xs text-muted-foreground">({ep.revenue_count}件)</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(ep.actual_cost ?? 0)}
+                        {(ep.purchase_count ?? 0) > 0 && (
+                          <span className="ml-1 text-xs text-muted-foreground">({ep.purchase_count}件)</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
                           <Button
@@ -467,6 +473,11 @@ export default function EpisodeListPage() {
         projectType={projectType}
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
+        onOpenPurchases={editEpisode ? () => {
+          setPurchaseEpisode(editEpisode);
+          setEditDialogOpen(false);
+          setPurchaseDialogOpen(true);
+        } : undefined}
       />
       {purchaseEpisode && (
         <EpisodePurchaseDialog

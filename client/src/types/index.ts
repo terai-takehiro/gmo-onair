@@ -345,6 +345,8 @@ export interface Episode extends BaseEntity {
   notes: string | null;
   actual_revenue?: number;
   actual_cost?: number;
+  revenue_count?: number;
+  purchase_count?: number;
 }
 
 // 発注バッチ

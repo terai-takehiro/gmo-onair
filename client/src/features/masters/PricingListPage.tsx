@@ -203,13 +203,17 @@ function ItemDialog({
           </div>
           <div>
             <Label>単価 *</Label>
-            <Input
-              type="number"
-              {...form.register("unit_price", {
-                required: true,
-                valueAsNumber: true,
-              })}
-            />
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
+              <Input
+                type="number"
+                className="pl-7"
+                {...form.register("unit_price", {
+                  required: true,
+                  valueAsNumber: true,
+                })}
+              />
+            </div>
           </div>
           <div>
             <Label>計算タイプ *</Label>

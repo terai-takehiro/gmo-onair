@@ -467,12 +467,16 @@ export default function ProjectGroupDetailPage() {
 
             <div className="space-y-2">
               <Label htmlFor="amount">金額 *</Label>
-              <Input
-                id="amount"
-                type="number"
-                {...purchaseForm.register("amount", { required: true })}
-                placeholder="1000000"
-              />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
+                <Input
+                  id="amount"
+                  type="number"
+                  className="pl-7"
+                  {...purchaseForm.register("amount", { required: true })}
+                  placeholder="1000000"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -714,18 +718,21 @@ function PurchaseRow({
                         </TableCell>
                         <TableCell>{a.project_name ?? "-"}</TableCell>
                         <TableCell className="text-right">
-                          <Input
-                            type="number"
-                            className="w-32 ml-auto text-right"
-                            value={
-                              editedAllocations[a.project_id] !== undefined
-                                ? editedAllocations[a.project_id]
-                                : String(a.allocated_amount)
-                            }
-                            onChange={(e) =>
-                              handleAllocChange(a.project_id, e.target.value)
-                            }
-                          />
+                          <div className="relative w-36 ml-auto">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
+                            <Input
+                              type="number"
+                              className="pl-7 text-right"
+                              value={
+                                editedAllocations[a.project_id] !== undefined
+                                  ? editedAllocations[a.project_id]
+                                  : String(a.allocated_amount)
+                              }
+                              onChange={(e) =>
+                                handleAllocChange(a.project_id, e.target.value)
+                              }
+                            />
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
+import { formatCurrency } from "@/lib/format";
 import { Episode, BroadcastType } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +25,7 @@ interface Props {
   projectType?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onOpenPurchases?: () => void;
 }
 
 function getDateLabels(projectType: string): { recording: string; broadcast: string; delivery: string } {
@@ -42,11 +44,10 @@ interface FormValues {
   broadcast_date: string;
   delivery_date: string;
   revenue_budget: number;
-  cost_budget: number;
   notes: string;
 }
 
-export default function EpisodeEditDialog({ projectId, episode, broadcastType, projectType, open, onOpenChange }: Props) {
+export default function EpisodeEditDialog({ projectId, episode, broadcastType, projectType, open, onOpenChange, onOpenPurchases }: Props) {
   const qc = useQueryClient();
   const isLive = broadcastType === "live";
   const dateLabels = getDateLabels(projectType ?? "");
@@ -60,7 +61,6 @@ export default function EpisodeEditDialog({ projectId, episode, broadcastType, p
         broadcast_date: episode.broadcast_date?.slice(0, 10) ?? "",
         delivery_date: episode.delivery_date?.slice(0, 10) ?? "",
         revenue_budget: episode.revenue_budget ?? 0,
-        cost_budget: episode.cost_budget ?? 0,
         notes: episode.notes ?? "",
       });
     }
@@ -79,7 +79,6 @@ export default function EpisodeEditDialog({ projectId, episode, broadcastType, p
       api.put(`/projects/${projectId}/episodes/${episode?.id}`, {
         ...values,
         revenue_budget: Number(values.revenue_budget),
-        cost_budget: Number(values.cost_budget),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["episodes", projectId] });
@@ -90,6 +89,8 @@ export default function EpisodeEditDialog({ projectId, episode, broadcastType, p
   const onSubmit = (values: FormValues) => mutation.mutate(values);
 
   if (!episode) return null;
+
+  const purchaseCount = episode.purchase_count ?? 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -126,11 +127,22 @@ export default function EpisodeEditDialog({ projectId, episode, broadcastType, p
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="revenue_budget">売上</Label>
-              <Input id="revenue_budget" type="number" min={0} {...register("revenue_budget")} />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
+                <Input id="revenue_budget" type="number" min={0} className="pl-7" {...register("revenue_budget")} />
+              </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cost_budget">仕入</Label>
-              <Input id="cost_budget" type="number" min={0} {...register("cost_budget")} />
+              <Label>仕入(実績)</Label>
+              <div className="flex items-center gap-2 h-10 px-3 rounded-md border bg-muted/50">
+                <span className="font-mono text-sm">{formatCurrency(episode.actual_cost || 0)}</span>
+                <span className="text-xs text-muted-foreground">({purchaseCount}件)</span>
+              </div>
+              {onOpenPurchases && (
+                <Button type="button" variant="link" size="sm" className="mt-1 h-auto p-0 text-xs" onClick={onOpenPurchases}>
+                  仕入を管理 →
+                </Button>
+              )}
             </div>
           </div>
           <div className="space-y-2">
