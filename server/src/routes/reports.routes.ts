@@ -138,14 +138,16 @@ router.get('/invoice/:invoiceGroupId', requireAuth, (req, res) => {
   }
 
   const episodes = queryAll(
-    `SELECT e.* FROM episodes e
+    `SELECT e.*,
+       COALESCE((SELECT SUM(r.amount) FROM revenues r WHERE r.episode_id = e.id AND r.deleted_at IS NULL), 0) as actual_revenue
+     FROM episodes e
      JOIN invoice_group_episodes ige ON ige.episode_id = e.id
      WHERE ige.invoice_group_id = ? AND e.deleted_at IS NULL
      ORDER BY e.episode_number`,
     [invoiceGroupId]
   ) as Record<string, any>[];
 
-  const totalRevenue = episodes.reduce((sum: number, ep: Record<string, any>) => sum + (ep.revenue_budget || 0), 0);
+  const totalRevenue = episodes.reduce((sum: number, ep: Record<string, any>) => sum + (ep.actual_revenue || 0), 0);
   const tax = Math.floor(totalRevenue * 0.1);
   const grandTotal = totalRevenue + tax;
   const invoiceDate = ig.invoice_date || new Date().toISOString().split('T')[0];
@@ -156,7 +158,7 @@ router.get('/invoice/:invoiceGroupId', requireAuth, (req, res) => {
       <td>${escapeHtml(ep.episode_code)}</td>
       <td>第${ep.episode_number}話</td>
       <td>${ep.broadcast_date || '-'}</td>
-      <td class="num">${formatYen(ep.revenue_budget)}</td>
+      <td class="num">${formatYen(ep.actual_revenue)}</td>
     </tr>`;
   });
 
@@ -218,7 +220,7 @@ router.get('/performance/:projectId', requireAuth, (req, res) => {
 
   // Build CSV
   const BOM = '\uFEFF';
-  const header = '案件番号,案件名,顧客名,話数コード,話数,売上高,仕入予算,実績売上,実績仕入,粗利,粗利率(%)';
+  const header = '案件番号,案件名,顧客名,話数コード,話数,実績売上,実績仕入,粗利,粗利率(%)';
   const rows = episodes.map((ep: Record<string, any>) => {
     const grossProfit = (ep.actual_revenue || 0) - (ep.actual_purchase || 0);
     const marginRate = ep.actual_revenue > 0 ? Math.round((grossProfit / ep.actual_revenue) * 1000) / 10 : 0;
@@ -228,8 +230,6 @@ router.get('/performance/:projectId', requireAuth, (req, res) => {
       `"${(project.customer_name || '').replace(/"/g, '""')}"`,
       ep.episode_code,
       ep.episode_number,
-      ep.revenue_budget || 0,
-      ep.cost_budget || 0,
       ep.actual_revenue || 0,
       ep.actual_purchase || 0,
       grossProfit,
@@ -240,19 +240,17 @@ router.get('/performance/:projectId', requireAuth, (req, res) => {
   // Add total row
   const totals = episodes.reduce(
     (acc: Record<string, number>, ep: Record<string, any>) => {
-      acc.revBudget += ep.revenue_budget || 0;
-      acc.costBudget += ep.cost_budget || 0;
       acc.revenue += ep.actual_revenue || 0;
       acc.purchase += ep.actual_purchase || 0;
       return acc;
     },
-    { revBudget: 0, costBudget: 0, revenue: 0, purchase: 0 }
+    { revenue: 0, purchase: 0 }
   );
   const totalProfit = totals.revenue - totals.purchase;
   const totalMargin = totals.revenue > 0 ? Math.round((totalProfit / totals.revenue) * 1000) / 10 : 0;
   rows.push([
     '', '"合計"', '', '', '',
-    totals.revBudget, totals.costBudget, totals.revenue, totals.purchase,
+    totals.revenue, totals.purchase,
     totalProfit, totalMargin,
   ].join(','));
 

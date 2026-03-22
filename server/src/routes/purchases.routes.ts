@@ -74,8 +74,8 @@ router.post('/', requireAuth, (req, res) => {
       const allocId = uuidv4();
       const allocAmount = index === 0 ? perEpisodeAmount + remainder : perEpisodeAmount;
       execute(
-        `INSERT INTO purchase_episode_allocations (id, purchase_id, episode_id, amount, created_by) VALUES (?, ?, ?, ?, ?)`,
-        [allocId, id, epId, allocAmount, req.user!.id]
+        `INSERT INTO purchase_episode_allocations (id, purchase_id, episode_id, allocated_amount) VALUES (?, ?, ?, ?)`,
+        [allocId, id, epId, allocAmount]
       );
     });
   }
@@ -106,8 +106,8 @@ router.post('/:id/allocate-episodes', requireAuth, (req, res) => {
     const allocId = uuidv4();
     const allocAmount = index === 0 ? perEpisodeAmount + remainder : perEpisodeAmount;
     execute(
-      `INSERT INTO purchase_episode_allocations (id, purchase_id, episode_id, amount, created_by) VALUES (?, ?, ?, ?, ?)`,
-      [allocId, req.params.id, epId, allocAmount, req.user!.id]
+      `INSERT INTO purchase_episode_allocations (id, purchase_id, episode_id, allocated_amount) VALUES (?, ?, ?, ?)`,
+      [allocId, req.params.id, epId, allocAmount]
     );
   });
 

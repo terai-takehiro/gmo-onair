@@ -185,7 +185,7 @@ export default function InvoiceGroupDialog({
                       />
                       <span className="font-mono">{ep.episode_code}</span>
                       <span className="text-muted-foreground">
-                        {formatCurrency(ep.revenue_budget)}
+                        {formatCurrency(ep.actual_revenue ?? 0)}
                       </span>
                     </label>
                   ))}

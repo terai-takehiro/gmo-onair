@@ -204,14 +204,14 @@ export async function seed() {
   // ============================================================
   // Episodes - ALL projects must have at least 1 episode
   // ============================================================
-  const epSql = `INSERT INTO episodes (id, project_id, episode_number, episode_code, recording_date, broadcast_date, delivery_date, revenue_budget, cost_budget, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const epSql = `INSERT INTO episodes (id, project_id, episode_number, episode_code, recording_date, broadcast_date, delivery_date, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
 
   // GLS001 (GH IR説明会): Single event -> 1 episode
   {
     const epId = uuidv4();
     const code = 'GLS001-001';
     EPISODES[code] = epId;
-    ins(epSql, [epId, PROJECTS['GLS001'], 1, code, '2026-03-19', '2026-03-19', '2026-03-19', 0, 0, USERS.admin]);
+    ins(epSql, [epId, PROJECTS['GLS001'], 1, code, '2026-03-19', '2026-03-19', '2026-03-19', USERS.admin]);
   }
 
   // GLS002 (東都TV特番): 13 episodes
@@ -221,7 +221,7 @@ export async function seed() {
     EPISODES[code] = epId;
     const recDate = `2026-${String(3 + Math.floor((i - 1) / 4)).padStart(2, '0')}-${String(((i - 1) % 28) + 1).padStart(2, '0')}`;
     const bcastDate = `2026-${String(3 + Math.floor(i / 4)).padStart(2, '0')}-${String((i % 28) + 7).padStart(2, '0')}`;
-    ins(epSql, [epId, PROJECTS['GLS002'], i, code, recDate, bcastDate, bcastDate, 0, 0, USERS.admin]);
+    ins(epSql, [epId, PROJECTS['GLS002'], i, code, recDate, bcastDate, bcastDate, USERS.admin]);
   }
 
   // GLS003 (SN生放送): 4 episodes (live: recording = broadcast)
@@ -230,7 +230,7 @@ export async function seed() {
     const code = `GLS003-${String(i).padStart(3, '0')}`;
     EPISODES[code] = epId;
     const liveDate = `2026-03-${String(24 + i).padStart(2, '0')}`;
-    ins(epSql, [epId, PROJECTS['GLS003'], i, code, liveDate, liveDate, liveDate, 0, 0, USERS.admin]);
+    ins(epSql, [epId, PROJECTS['GLS003'], i, code, liveDate, liveDate, liveDate, USERS.admin]);
   }
 
   // GLS004 (PW新サービス発表会): Single event -> 1 episode
@@ -238,7 +238,7 @@ export async function seed() {
     const epId = uuidv4();
     const code = 'GLS004-001';
     EPISODES[code] = epId;
-    ins(epSql, [epId, PROJECTS['GLS004'], 1, code, '2026-03-30', '2026-03-30', '2026-03-30', 0, 0, USERS.admin]);
+    ins(epSql, [epId, PROJECTS['GLS004'], 1, code, '2026-03-30', '2026-03-30', '2026-03-30', USERS.admin]);
   }
 
   // GLS005 (GEドキュメンタリー): 6 episodes
@@ -248,7 +248,7 @@ export async function seed() {
     EPISODES[code] = epId;
     const recDate = `2026-04-${String(i * 2 + 1).padStart(2, '0')}`;
     const bcastDate = `2026-05-${String(i * 3).padStart(2, '0')}`;
-    ins(epSql, [epId, PROJECTS['GLS005'], i, code, recDate, bcastDate, bcastDate, 0, 0, USERS.admin]);
+    ins(epSql, [epId, PROJECTS['GLS005'], i, code, recDate, bcastDate, bcastDate, USERS.admin]);
   }
 
   // GLS006 (DA社内イベント中継): Single event -> 1 episode
@@ -256,7 +256,7 @@ export async function seed() {
     const epId = uuidv4();
     const code = 'GLS006-001';
     EPISODES[code] = epId;
-    ins(epSql, [epId, PROJECTS['GLS006'], 1, code, '2026-04-10', '2026-04-10', '2026-04-10', 0, 0, USERS.admin]);
+    ins(epSql, [epId, PROJECTS['GLS006'], 1, code, '2026-04-10', '2026-04-10', '2026-04-10', USERS.admin]);
   }
 
   // GLS007 (JB番組パイロット): Single event -> 1 episode
@@ -264,7 +264,7 @@ export async function seed() {
     const epId = uuidv4();
     const code = 'GLS007-001';
     EPISODES[code] = epId;
-    ins(epSql, [epId, PROJECTS['GLS007'], 1, code, '2026-04-14', '2026-04-15', '2026-04-15', 0, 0, USERS.admin]);
+    ins(epSql, [epId, PROJECTS['GLS007'], 1, code, '2026-04-14', '2026-04-15', '2026-04-15', USERS.admin]);
   }
 
   // GLS008 (富士見CM): Single event -> 1 episode
@@ -272,7 +272,7 @@ export async function seed() {
     const epId = uuidv4();
     const code = 'GLS008-001';
     EPISODES[code] = epId;
-    ins(epSql, [epId, PROJECTS['GLS008'], 1, code, '2026-03-12', '2026-03-12', '2026-03-12', 0, 0, USERS.admin]);
+    ins(epSql, [epId, PROJECTS['GLS008'], 1, code, '2026-03-12', '2026-03-12', '2026-03-12', USERS.admin]);
   }
 
   // ============================================================

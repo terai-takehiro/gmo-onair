@@ -340,9 +340,8 @@ export interface Episode extends BaseEntity {
   recording_date: string | null;
   broadcast_date: string | null;
   delivery_date: string | null;
-  revenue_budget: number;
-  cost_budget: number;
   notes: string | null;
+  // 集計フィールド
   actual_revenue?: number;
   actual_cost?: number;
   revenue_count?: number;

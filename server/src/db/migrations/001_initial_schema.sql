@@ -182,8 +182,6 @@ CREATE TABLE IF NOT EXISTS episodes (
   recording_date TEXT,
   broadcast_date TEXT,
   delivery_date  TEXT,
-  revenue_budget INTEGER NOT NULL DEFAULT 0,
-  cost_budget    INTEGER NOT NULL DEFAULT 0,
   notes          TEXT,
   created_at     TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at     TEXT NOT NULL DEFAULT (datetime('now')),

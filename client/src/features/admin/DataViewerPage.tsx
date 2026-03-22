@@ -122,8 +122,6 @@ const COLUMN_LABELS: Record<string, string> = {
   recording_date: '収録日',
   broadcast_date: '放送日',
   delivery_date: '納品日',
-  revenue_budget: '売上高',
-  cost_budget: '仕入予算',
   order_date: '発注日',
   episode_count: '発注話数',
   start_episode: '開始話数',
