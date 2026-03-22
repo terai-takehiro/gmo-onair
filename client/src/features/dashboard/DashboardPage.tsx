@@ -379,8 +379,8 @@ export default function DashboardPage() {
               <p className="text-sm text-muted-foreground">アラートはありません</p>
             ) : (
               <div className="space-y-3">
-                {alerts.map((a) => (
-                  <div key={a.id} className="flex items-start gap-3 rounded-md border p-3">
+                {alerts.map((a, idx) => (
+                  <div key={`${a.id}-${a.alert_type}-${idx}`} className="flex items-start gap-3 rounded-md border p-3">
                     <Badge color={alertTypeColor[a.alert_type] || "#6b7280"}>
                       {a.alert_type}
                     </Badge>

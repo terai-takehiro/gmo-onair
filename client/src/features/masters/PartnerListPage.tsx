@@ -5,7 +5,6 @@ import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -17,15 +16,15 @@ import { Plus, Search, Pencil, Trash2, Loader2 } from "lucide-react";
 interface Partner {
   id: string;
   name: string;
-  contact_name?: string;
+  role_title?: string;
   email?: string;
   phone?: string;
-  specialties?: string;
+  specialties?: string[];
 }
 
 interface PartnerForm {
   name: string;
-  contact_name: string;
+  role_title: string;
   email: string;
   phone: string;
   specialties: string;
@@ -39,7 +38,7 @@ export default function PartnerListPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const form = useForm<PartnerForm>({
-    defaultValues: { name: "", contact_name: "", email: "", phone: "", specialties: "" },
+    defaultValues: { name: "", role_title: "", email: "", phone: "", specialties: "" },
   });
 
   const { data, isLoading } = useQuery({
@@ -56,8 +55,15 @@ export default function PartnerListPage() {
 
   const saveMutation = useMutation({
     mutationFn: async (values: PartnerForm) => {
-      if (editingId) return (await api.put(`/partners/${editingId}`, values)).data;
-      return (await api.post("/partners", values)).data;
+      const payload = {
+        name: values.name,
+        role_title: values.role_title,
+        email: values.email,
+        phone: values.phone,
+        specialties: values.specialties ? values.specialties.split(",").map(s => s.trim()).filter(Boolean) : [],
+      };
+      if (editingId) return (await api.put(`/partners/${editingId}`, payload)).data;
+      return (await api.post("/partners", payload)).data;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["partners"] }); closeDialog(); },
   });
@@ -69,7 +75,7 @@ export default function PartnerListPage() {
 
   const openAdd = () => {
     setEditingId(null);
-    form.reset({ name: "", contact_name: "", email: "", phone: "", specialties: "" });
+    form.reset({ name: "", role_title: "", email: "", phone: "", specialties: "" });
     setDialogOpen(true);
   };
 
@@ -77,10 +83,10 @@ export default function PartnerListPage() {
     setEditingId(p.id);
     form.reset({
       name: p.name || "",
-      contact_name: p.contact_name || "",
+      role_title: p.role_title || "",
       email: p.email || "",
       phone: p.phone || "",
-      specialties: p.specialties || "",
+      specialties: Array.isArray(p.specialties) ? p.specialties.join(", ") : "",
     });
     setDialogOpen(true);
   };
@@ -107,7 +113,7 @@ export default function PartnerListPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>パートナー名</TableHead>
-                <TableHead>担当者</TableHead>
+                <TableHead>役職</TableHead>
                 <TableHead>メール</TableHead>
                 <TableHead>電話</TableHead>
                 <TableHead>専門分野</TableHead>
@@ -121,16 +127,16 @@ export default function PartnerListPage() {
                 partners.map((p) => (
                   <TableRow key={p.id}>
                     <TableCell className="font-medium">{p.name}</TableCell>
-                    <TableCell>{p.contact_name || "-"}</TableCell>
+                    <TableCell>{p.role_title || "-"}</TableCell>
                     <TableCell>{p.email || "-"}</TableCell>
                     <TableCell>{p.phone || "-"}</TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        {p.specialties
-                          ? p.specialties.split(",").map((s, i) => (
-                              <Badge key={i} variant="secondary" className="text-xs">
+                        {Array.isArray(p.specialties) && p.specialties.length > 0
+                          ? p.specialties.map((s: string, i: number) => (
+                              <span key={i} className="inline-block rounded-full bg-muted px-2 py-0.5 text-xs">
                                 {s.trim()}
-                              </Badge>
+                              </span>
                             ))
                           : "-"}
                       </div>
@@ -167,7 +173,7 @@ export default function PartnerListPage() {
           </DialogHeader>
           <form onSubmit={form.handleSubmit((v) => saveMutation.mutate(v))} className="space-y-4">
             <div><Label>パートナー名 *</Label><Input {...form.register("name", { required: true })} /></div>
-            <div><Label>担当者名</Label><Input {...form.register("contact_name")} /></div>
+            <div><Label>役職</Label><Input {...form.register("role_title")} /></div>
             <div><Label>メール</Label><Input type="email" {...form.register("email")} /></div>
             <div><Label>電話</Label><Input {...form.register("phone")} /></div>
             <div><Label>専門分野 (カンマ区切り)</Label><Input {...form.register("specialties")} placeholder="映像,音響,照明" /></div>

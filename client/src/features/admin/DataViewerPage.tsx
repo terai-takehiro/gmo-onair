@@ -41,6 +41,124 @@ interface PaginationInfo {
   totalPages: number;
 }
 
+const TABLE_LABELS: Record<string, string> = {
+  users: 'ユーザー',
+  customers: '顧客',
+  vendors: '仕入先',
+  partners: 'パートナー',
+  pricing_categories: '料金カテゴリ',
+  pricing_items: '料金項目',
+  sequences: '自動採番',
+  opportunities: 'ヨミ(営業)',
+  opportunity_dates: 'ヨミ日程',
+  opportunity_simulations: 'シミュレーション',
+  project_groups: '案件グループ',
+  projects: '案件(番組)',
+  episodes: '話数',
+  episode_orders: '発注バッチ',
+  invoice_groups: '請求グループ',
+  invoice_group_episodes: '請求↔話数',
+  revenues: '売上',
+  purchases: '仕入',
+  purchase_allocations: '仕入按分(グループ)',
+  purchase_episode_allocations: '仕入按分(話数)',
+  sga_expenses: '販管費',
+};
+
+const COLUMN_LABELS: Record<string, string> = {
+  id: 'ID',
+  name: '名前',
+  email: 'メール',
+  role: '権限',
+  short_name: '略称',
+  notes: 'メモ',
+  address: '住所',
+  vendor_type: '種別',
+  invoice_registration_number: 'インボイス番号',
+  phone: '電話',
+  role_title: '役職',
+  specialties: '専門分野',
+  sort_order: '表示順',
+  category_id: 'カテゴリID',
+  sub_label: '補足',
+  unit_price: '単価',
+  calc_type: '計算タイプ',
+  seq_name: '採番名',
+  prefix: 'プレフィックス',
+  year_month: '年月',
+  counter: 'カウンター',
+  opp_code: 'OPPコード',
+  title: '案件名',
+  customer_id: '顧客ID',
+  project_type: '案件種類',
+  project_type_other: '案件種類(その他)',
+  stage: 'ステージ',
+  expected_amount: '想定金額',
+  expected_date: '想定日',
+  project_id: '案件ID',
+  assigned_to: '担当者',
+  opportunity_id: 'ヨミID',
+  date_start: '開始日',
+  date_end: '終了日',
+  label: 'ラベル',
+  pricing_item_id: '料金項目ID',
+  quantity: '数量',
+  days: '日数',
+  subtotal: '小計',
+  description: '説明',
+  gls_number: 'GLS番号',
+  group_id: 'グループID',
+  rehearsal_start: 'リハ開始',
+  rehearsal_end: 'リハ終了',
+  event_start: '本番開始',
+  event_end: '本番終了',
+  status: 'ステータス',
+  broadcast_type: '番組種別',
+  media_platform: '配信媒体',
+  application_form: '申込書',
+  logo_permission: 'ロゴ許可',
+  episode_number: '話数番号',
+  episode_code: 'エピソードコード',
+  recording_date: '収録日',
+  broadcast_date: '放送日',
+  delivery_date: '納品日',
+  revenue_budget: '売上予算',
+  cost_budget: '仕入予算',
+  order_date: '発注日',
+  episode_count: '発注話数',
+  start_episode: '開始話数',
+  end_episode: '終了話数',
+  invoice_date: '請求日',
+  invoice_group_id: '請求グループID',
+  episode_id: '話数ID',
+  billing_key: '請求KEY',
+  tax_category: '税区分',
+  amount: '金額',
+  recognition_date: '計上日',
+  billing_date: '請求予定日',
+  payment_due_date: '支払期日',
+  vendor_id: '仕入先ID',
+  settlement_method: '精算方法',
+  settlement_number: '精算番号',
+  external_ref_id: '外部参照ID',
+  invoice_qualified: 'インボイス',
+  inspection_date: '検収日',
+  purchase_id: '仕入ID',
+  allocated_amount: '按分額',
+  vendor_name: '支払先',
+  expense_type: '種別',
+  amortize_start: '按分開始',
+  amortize_end: '按分終了',
+  source: '処理元',
+  period_start: '期間開始',
+  period_end: '期間終了',
+  created_at: '作成日',
+  updated_at: '更新日',
+  created_by: '作成者',
+  updated_by: '更新者',
+  deleted_at: '削除日',
+};
+
 const ID_COLUMNS = ["id", "user_id", "customer_id", "vendor_id", "partner_id", "project_id", "episode_id", "group_id", "opportunity_id", "invoice_group_id", "category_id", "item_id", "order_id", "revenue_id", "purchase_id", "allocation_id", "simulation_id", "created_by", "updated_by"];
 const MONEY_COLUMNS = ["amount", "unit_price", "total_amount", "subtotal", "tax_amount", "gross_profit", "price", "cost", "budget", "revenue_amount", "purchase_amount"];
 
@@ -180,19 +298,18 @@ export default function DataViewerPage() {
               <button
                 key={table.name}
                 onClick={() => handleTableSelect(table.name)}
-                className={`w-full flex items-center justify-between rounded-md px-3 py-1.5 text-sm transition-colors ${
+                className={`w-full text-left rounded-md px-3 py-1.5 text-sm transition-colors ${
                   selectedTable === table.name
                     ? "bg-primary text-white"
                     : "hover:bg-muted text-foreground"
                 }`}
               >
-                <span className="truncate">{table.name}</span>
-                <Badge
-                  variant={selectedTable === table.name ? "secondary" : "outline"}
-                  className="ml-1 text-xs tabular-nums"
-                >
-                  {table.count}
-                </Badge>
+                <span className="block font-medium truncate">{TABLE_LABELS[table.name] || table.name}</span>
+                <span className={`block text-xs truncate ${
+                  selectedTable === table.name ? "text-white/70" : "text-muted-foreground"
+                }`}>
+                  {table.name} ({table.count})
+                </span>
               </button>
             ))}
           </nav>
@@ -206,9 +323,12 @@ export default function DataViewerPage() {
             {/* Header */}
             <div className="flex items-center justify-between border-b px-4 py-3">
               <div className="flex items-center gap-3">
-                <h2 className="text-lg font-semibold">{selectedTable}</h2>
+                <h2 className="text-lg font-semibold">
+                  {TABLE_LABELS[selectedTable] || selectedTable}
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">{selectedTable}</span>
+                </h2>
                 <Badge variant="outline">
-                  {selectedTableInfo?.count ?? 0} rows
+                  {selectedTableInfo?.count ?? 0}件
                 </Badge>
               </div>
               <div className="flex items-center gap-2">
@@ -255,9 +375,10 @@ export default function DataViewerPage() {
                             key={col}
                             className="cursor-pointer select-none whitespace-nowrap hover:bg-muted/50"
                             onClick={() => handleSort(col)}
+                            title={col}
                           >
                             <div className="flex items-center gap-1">
-                              {col}
+                              {COLUMN_LABELS[col] || col}
                               <ArrowUpDown className={`h-3 w-3 ${sort === col ? "text-primary" : "text-muted-foreground/50"}`} />
                               {sort === col && (
                                 <span className="text-xs text-primary">
