@@ -29,10 +29,25 @@ router.get('/kpi', (_req, res) => {
   const pur = queryOne(`SELECT COALESCE(SUM(amount), 0) as total FROM purchases WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [monthStart, monthEnd]);
   const activeProjects = queryOne(`SELECT COUNT(*) as c FROM projects WHERE status IN ('tentative','confirmed') AND deleted_at IS NULL`);
   const activeOpps = queryOne(`SELECT COUNT(*) as c FROM opportunities WHERE stage IN ('neta','d_hold','c_proposal','b_verbal') AND deleted_at IS NULL`);
+  const sga = queryOne(`SELECT COALESCE(SUM(amount), 0) as total FROM sga_expenses WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [monthStart, monthEnd]);
   const monthlyRevenue = (rev?.total as number) || 0;
   const monthlyPurchase = (pur?.total as number) || 0;
-  const grossMargin = monthlyRevenue > 0 ? Math.round(((monthlyRevenue - monthlyPurchase) / monthlyRevenue) * 1000) / 10 : 0;
-  res.json({ success: true, data: { monthly_revenue: monthlyRevenue, monthly_gross_margin: grossMargin, active_projects: (activeProjects?.c as number) || 0, active_opportunities: (activeOpps?.c as number) || 0 } });
+  const monthlySga = (sga?.total as number) || 0;
+  const grossProfit = monthlyRevenue - monthlyPurchase;
+  const grossMargin = monthlyRevenue > 0 ? Math.round((grossProfit / monthlyRevenue) * 1000) / 10 : 0;
+  const operatingProfit = grossProfit - monthlySga;
+  const operatingMargin = monthlyRevenue > 0 ? Math.round((operatingProfit / monthlyRevenue) * 1000) / 10 : 0;
+  res.json({ success: true, data: {
+    monthly_revenue: monthlyRevenue,
+    monthly_purchase: monthlyPurchase,
+    monthly_sga: monthlySga,
+    gross_profit: grossProfit,
+    monthly_gross_margin: grossMargin,
+    operating_profit: operatingProfit,
+    operating_margin: operatingMargin,
+    active_projects: (activeProjects?.c as number) || 0,
+    active_opportunities: (activeOpps?.c as number) || 0,
+  } });
 });
 
 router.get('/alerts', (_req, res) => {
@@ -47,7 +62,7 @@ router.get('/recent-projects', (_req, res) => {
 });
 
 router.get('/monthly-chart', (_req, res) => {
-  const months: Array<{ month: string; revenue: number; purchase: number; profit: number }> = [];
+  const months: Array<{ month: string; revenue: number; purchase: number; sga: number; gross_profit: number; operating_profit: number }> = [];
   const now = new Date();
   for (let i = 11; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -56,9 +71,12 @@ router.get('/monthly-chart', (_req, res) => {
     const monthEnd = `${ym}-31`;
     const rev = queryOne(`SELECT COALESCE(SUM(amount),0) as total FROM revenues WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [monthStart, monthEnd]);
     const pur = queryOne(`SELECT COALESCE(SUM(amount),0) as total FROM purchases WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [monthStart, monthEnd]);
+    const sgaRow = queryOne(`SELECT COALESCE(SUM(amount),0) as total FROM sga_expenses WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [monthStart, monthEnd]);
     const revenue = (rev?.total as number) || 0;
     const purchase = (pur?.total as number) || 0;
-    months.push({ month: ym, revenue, purchase, profit: revenue - purchase });
+    const sga = (sgaRow?.total as number) || 0;
+    const gross_profit = revenue - purchase;
+    months.push({ month: ym, revenue, purchase, sga, gross_profit, operating_profit: gross_profit - sga });
   }
   res.json({ success: true, data: months });
 });

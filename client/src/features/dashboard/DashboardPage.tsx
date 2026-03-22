@@ -18,14 +18,18 @@ import {
   DollarSign,
   BarChart3,
   Briefcase,
-  Target,
   AlertTriangle,
   Loader2,
 } from "lucide-react";
 
 interface KPI {
   monthly_revenue: number;
+  monthly_purchase: number;
+  monthly_sga: number;
+  gross_profit: number;
   monthly_gross_margin: number;
+  operating_profit: number;
+  operating_margin: number;
   active_projects: number;
   active_opportunities: number;
 }
@@ -50,7 +54,9 @@ interface MonthlyChart {
   month: string;
   revenue: number;
   purchase: number;
-  profit: number;
+  sga: number;
+  gross_profit: number;
+  operating_profit: number;
 }
 
 interface PipelineStage {
@@ -126,10 +132,12 @@ export default function DashboardPage() {
   });
 
   const kpiCards = [
-    { label: "今月売上", value: kpi ? formatCurrency(kpi.monthly_revenue) : "-", icon: DollarSign, color: "text-green-600" },
-    { label: "今月粗利率", value: kpi ? formatPercent(kpi.monthly_gross_margin) : "-", icon: BarChart3, color: "text-blue-600" },
-    { label: "進行中案件数", value: kpi?.active_projects ?? "-", icon: Briefcase, color: "text-purple-600" },
-    { label: "アクティブヨミ数", value: kpi?.active_opportunities ?? "-", icon: Target, color: "text-orange-600" },
+    { label: "今月売上", value: kpi ? formatCurrency(kpi.monthly_revenue) : "-", icon: DollarSign, color: "text-blue-600" },
+    { label: "変動原価(仕入)", value: kpi ? formatCurrency(kpi.monthly_purchase) : "-", icon: ShoppingCart, color: "text-orange-600" },
+    { label: "粗利", value: kpi ? `${formatCurrency(kpi.gross_profit)} (${formatPercent(kpi.monthly_gross_margin)})` : "-", icon: TrendingUp, color: "text-green-600" },
+    { label: "販管費", value: kpi ? formatCurrency(kpi.monthly_sga) : "-", icon: Receipt, color: "text-red-500" },
+    { label: "営業利益", value: kpi ? `${formatCurrency(kpi.operating_profit)} (${formatPercent(kpi.operating_margin)})` : "-", icon: BarChart3, color: kpi && kpi.operating_profit >= 0 ? "text-green-700" : "text-red-600" },
+    { label: "進行中案件", value: kpi?.active_projects ?? "-", icon: Briefcase, color: "text-purple-600" },
   ];
 
   const quickLinks = [
@@ -194,7 +202,9 @@ export default function DashboardPage() {
                   <Legend />
                   <Bar dataKey="revenue" fill="#005bac" name="売上" />
                   <Bar dataKey="purchase" fill="#f59e0b" name="仕入" />
-                  <Line type="monotone" dataKey="profit" stroke="#22c55e" name="粗利" strokeWidth={2} dot={false} />
+                  <Bar dataKey="sga" fill="#ef4444" name="販管費" />
+                  <Line type="monotone" dataKey="gross_profit" stroke="#22c55e" name="粗利" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="operating_profit" stroke="#7c3aed" name="営業利益" strokeWidth={2} dot={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             ) : (
