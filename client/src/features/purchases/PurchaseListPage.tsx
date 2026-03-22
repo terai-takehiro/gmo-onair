@@ -34,6 +34,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Search, Loader2, Plus } from "lucide-react";
 
 function formatSettlementNo(method: string, number: string): string {
@@ -399,18 +400,12 @@ export default function PurchaseListPage() {
             {/* Vendor */}
             <div className="space-y-1">
               <Label>仕入先</Label>
-              <Select value={vendorId} onValueChange={setVendorId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="仕入先を選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  {vendors.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {v.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={vendors.map((v) => ({ value: v.id, label: v.name, subLabel: v.vendor_type || '' }))}
+                value={vendorId}
+                onChange={setVendorId}
+                placeholder="仕入先を検索..."
+              />
             </div>
 
             {/* Tax + Settlement */}

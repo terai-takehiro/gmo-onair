@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
@@ -305,14 +306,12 @@ export default function OpportunityFormPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label>顧客 *</Label>
-                <Select value={watch("customer_id")} onValueChange={(v) => setValue("customer_id", v)}>
-                  <SelectTrigger><SelectValue placeholder="顧客を選択" /></SelectTrigger>
-                  <SelectContent>
-                    {customers.map((c: { id: string; name: string }) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  options={customers.map((c: { id: string; name: string; short_name?: string }) => ({ value: c.id, label: c.name, subLabel: c.short_name || '' }))}
+                  value={watch("customer_id")}
+                  onChange={(v) => setValue("customer_id", v)}
+                  placeholder="顧客を検索..."
+                />
               </div>
               <div>
                 <Label>案件種類 *</Label>
@@ -374,14 +373,12 @@ export default function OpportunityFormPage() {
 
             <div>
               <Label>担当者</Label>
-              <Select value={watch("assigned_to")} onValueChange={(v) => setValue("assigned_to", v)}>
-                <SelectTrigger><SelectValue placeholder="担当者を選択" /></SelectTrigger>
-                <SelectContent>
-                  {(users as Array<{ id: string; name: string }>).map((u) => (
-                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={(users as Array<{ id: string; name: string }>).map((u) => ({ value: u.id, label: u.name }))}
+                value={watch("assigned_to")}
+                onChange={(v) => setValue("assigned_to", v)}
+                placeholder="担当者を検索..."
+              />
             </div>
 
             <div>

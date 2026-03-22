@@ -35,6 +35,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 
 function formatSettlementNo(method: string, number: string): string {
@@ -238,18 +239,12 @@ export default function EpisodePurchaseDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label>仕入先</Label>
-              <Select value={vendorId} onValueChange={setVendorId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="選択してください" />
-                </SelectTrigger>
-                <SelectContent>
-                  {vendors.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {v.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={vendors.map((v) => ({ value: v.id, label: v.name, subLabel: v.vendor_type || '' }))}
+                value={vendorId}
+                onChange={setVendorId}
+                placeholder="仕入先を検索..."
+              />
             </div>
             <div className="space-y-1">
               <Label>金額</Label>

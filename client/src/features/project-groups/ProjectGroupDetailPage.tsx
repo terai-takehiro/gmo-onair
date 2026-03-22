@@ -31,6 +31,7 @@ import {
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Separator } from "@/components/ui/separator";
 import {
   ArrowLeft, Plus, Trash2, Calculator, Pencil, Loader2,
@@ -456,21 +457,12 @@ export default function ProjectGroupDetailPage() {
           >
             <div className="space-y-2">
               <Label>仕入先 *</Label>
-              <Select
+              <SearchableSelect
+                options={vendors.map((v) => ({ value: v.id, label: v.name, subLabel: v.vendor_type || '' }))}
                 value={purchaseForm.watch("vendor_id")}
-                onValueChange={(v) => purchaseForm.setValue("vendor_id", v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="仕入先を選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  {vendors.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {v.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onChange={(v) => purchaseForm.setValue("vendor_id", v)}
+                placeholder="仕入先を検索..."
+              />
             </div>
 
             <div className="space-y-2">

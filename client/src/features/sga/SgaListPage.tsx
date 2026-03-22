@@ -36,6 +36,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Search, Loader2, Plus, Pencil, Trash2 } from "lucide-react";
 
 function formatSettlementNo(method: string, number: string): string {
@@ -395,9 +396,11 @@ export default function SgaListPage() {
                   placeholder="支払先名"
                 />
                 {vendors.length > 0 && (
-                  <Select
+                  <SearchableSelect
+                    className="mt-1"
+                    options={vendors.map((v) => ({ value: v.id, label: v.name, subLabel: v.vendor_type || '' }))}
                     value={form.vendor_id}
-                    onValueChange={(val) => {
+                    onChange={(val) => {
                       const v = vendors.find((vn) => vn.id === val);
                       setForm((f) => ({
                         ...f,
@@ -405,18 +408,8 @@ export default function SgaListPage() {
                         vendor_name: v?.name ?? f.vendor_name,
                       }));
                     }}
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="仕入先マスタから選択（任意）" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {vendors.map((v) => (
-                        <SelectItem key={v.id} value={v.id}>
-                          {v.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder="仕入先マスタから検索（任意）"
+                  />
                 )}
               </div>
               <div className="space-y-1">
@@ -601,25 +594,14 @@ export default function SgaListPage() {
               </div>
               <div className="space-y-1">
                 <Label>担当者</Label>
-                <Select
+                <SearchableSelect
+                  options={users.map((u: { id: string; name: string }) => ({ value: u.id, label: u.name }))}
                   value={form.assigned_to}
-                  onValueChange={(val) =>
+                  onChange={(val) =>
                     setForm((f) => ({ ...f, assigned_to: val }))
                   }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="担当者を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {users.map(
-                      (u: { id: string; name: string }) => (
-                        <SelectItem key={u.id} value={u.id}>
-                          {u.name}
-                        </SelectItem>
-                      )
-                    )}
-                  </SelectContent>
-                </Select>
+                  placeholder="担当者を検索..."
+                />
               </div>
             </div>
 
