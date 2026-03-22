@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator, Plus, Trash2 } from "lucide-react";
 import {
-  OpportunityStageLabels, OpportunityStageColors, OpportunityStageProbability,
+  OpportunityStageLabels, OpportunityStageColors,
   ProjectTypeLabels, BroadcastTypeLabels, MediaPlatformLabels,
   type OpportunityStage,
 } from "@/types";
@@ -135,7 +135,6 @@ export default function OpportunityFormPage() {
     mutationFn: async (values: FormValues) => {
       const payload = {
         ...values,
-        probability: OpportunityStageProbability[values.stage as OpportunityStage] ?? 0,
       };
       let result;
       if (isEdit) {

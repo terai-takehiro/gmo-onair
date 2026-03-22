@@ -29,12 +29,12 @@ router.get('/:id', (req, res) => {
 });
 
 router.post('/', requireAuth, (req, res) => {
-  const { title, customer_id, stage, probability, expected_amount, expected_date, assigned_to, notes, project_type, project_type_other } = req.body;
+  const { title, customer_id, stage, expected_amount, expected_date, assigned_to, notes, project_type, project_type_other } = req.body;
   if (!title || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件仮称と顧客は必須です');
   const id = uuidv4();
   const oppCode = generateSequenceNumber('opp_code', 'OPP');
-  execute(`INSERT INTO opportunities (id, opp_code, title, customer_id, stage, probability, expected_amount, expected_date, assigned_to, notes, project_type, project_type_other, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, oppCode, title, customer_id, stage || 'neta', probability || 0, expected_amount || 0, expected_date || null, assigned_to || req.user!.id, notes || null, project_type || null, project_type_other || null, req.user!.id]);
+  execute(`INSERT INTO opportunities (id, opp_code, title, customer_id, stage, expected_amount, expected_date, assigned_to, notes, project_type, project_type_other, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, oppCode, title, customer_id, stage || 'neta', expected_amount || 0, expected_date || null, assigned_to || req.user!.id, notes || null, project_type || null, project_type_other || null, req.user!.id]);
   const row = queryOne('SELECT o.*, c.name as customer_name FROM opportunities o LEFT JOIN customers c ON c.id = o.customer_id WHERE o.id = ?', [id]);
   res.status(201).json({ success: true, data: row });
 });
@@ -42,9 +42,9 @@ router.post('/', requireAuth, (req, res) => {
 router.put('/:id', requireAuth, (req, res) => {
   const existing = queryOne('SELECT id FROM opportunities WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'ヨミが見つかりません');
-  const { title, customer_id, stage, probability, expected_amount, expected_date, assigned_to, notes, project_type, project_type_other } = req.body;
-  execute(`UPDATE opportunities SET title=?, customer_id=?, stage=?, probability=?, expected_amount=?, expected_date=?, assigned_to=?, notes=?, project_type=?, project_type_other=?, updated_at=datetime('now'), updated_by=? WHERE id=?`,
-    [title, customer_id, stage, probability, expected_amount, expected_date || null, assigned_to, notes || null, project_type || null, project_type_other || null, req.user!.id, req.params.id]);
+  const { title, customer_id, stage, expected_amount, expected_date, assigned_to, notes, project_type, project_type_other } = req.body;
+  execute(`UPDATE opportunities SET title=?, customer_id=?, stage=?, expected_amount=?, expected_date=?, assigned_to=?, notes=?, project_type=?, project_type_other=?, updated_at=datetime('now'), updated_by=? WHERE id=?`,
+    [title, customer_id, stage, expected_amount, expected_date || null, assigned_to, notes || null, project_type || null, project_type_other || null, req.user!.id, req.params.id]);
   const row = queryOne('SELECT o.*, c.name as customer_name FROM opportunities o LEFT JOIN customers c ON c.id = o.customer_id WHERE o.id = ?', [req.params.id]);
   res.json({ success: true, data: row });
 });

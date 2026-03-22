@@ -16,6 +16,7 @@ import {
   UserCog,
   DollarSign,
   BarChart3,
+  Database,
   X,
 } from "lucide-react";
 
@@ -76,6 +77,7 @@ const navSections: NavSection[] = [
     title: "管理",
     items: [
       { label: "ユーザー管理", to: "/admin/users", icon: UserCog, adminOnly: true },
+      { label: "データビューア", to: "/admin/data-viewer", icon: Database, adminOnly: true },
     ],
   },
 ];

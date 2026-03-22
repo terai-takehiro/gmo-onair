@@ -159,29 +159,29 @@ export async function seed() {
   ins(itemSql, [uuidv4(), CATS['その他'], 'ロケハン対応', null, 0, 'toggle', 1]);
 
   // Opportunities (架空案件名、新ステージ体系)
-  const oppSql = `INSERT INTO opportunities (id, opp_code, title, customer_id, project_type, stage, probability, expected_amount, expected_date, assigned_to, project_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const oppSql = `INSERT INTO opportunities (id, opp_code, title, customer_id, project_type, stage, expected_amount, expected_date, assigned_to, project_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   const staffIds = [USERS.staff1, USERS.staff2, USERS.staff3];
-  const oppData: [string, string, string, string, string, number, number, string, string | null][] = [
-    ['OPP-202603-0001', '中央放送 春の特別企画', '中央放送', 'recording', 'neta', 0, 3000000, '2026-05-01', null],
-    ['OPP-202603-0002', 'GH サマーカンファレンス', 'GH', 'hybrid_event', 'neta', 0, 5000000, '2026-06-15', null],
-    ['OPP-202603-0003', 'DA 動画配信スタジオ定期利用', 'DA', 'live_broadcast', 'd_hold', 20, 1200000, '2026-04-20', null],
-    ['OPP-202603-0004', '東都TV ドラマ撮影', '東都TV', 'recording', 'c_proposal', 40, 8000000, '2026-05-10', null],
-    ['OPP-202603-0005', 'SN スポーツ中継', 'SN', 'live_broadcast', 'c_proposal', 40, 6000000, '2026-04-25', null],
-    ['OPP-202603-0006', 'GE リアリティ番組制作', 'GE', 'recording', 'c_proposal', 40, 12000000, '2026-06-01', null],
-    ['OPP-202603-0007', 'JB 音楽番組収録', 'JB', 'recording', 'd_hold', 20, 4500000, '2026-04-18', null],
-    ['OPP-202603-0008', '富士見 バラエティ撮影', '富士見', 'offline_event', 'd_hold', 20, 3500000, '2026-04-22', null],
-    ['OPP-202603-0009', 'PW IR動画制作', 'PW', 'gmo_project', 'c_proposal', 40, 2000000, '2026-04-08', null],
-    ['OPP-202603-0010', 'GH IR説明会 2026春', 'GH', 'hybrid_event', 'a_won', 100, 4000000, '2026-03-19', 'GLS001'],
-    ['OPP-202603-0011', '東都TV 特番収録「サイエンス・フロンティア」', '東都TV', 'recording', 'a_won', 100, 7500000, '2026-03-22', 'GLS002'],
-    ['OPP-202603-0012', 'SN 生放送「ナイトトーク」', 'SN', 'live_broadcast', 'a_won', 100, 5500000, '2026-03-25', 'GLS003'],
-    ['OPP-202603-0013', '中央放送 年末特別企画', '中央放送', 'recording', 'e_lost', 0, 10000000, '2026-03-01', null],
-    ['OPP-202603-0014', 'DT CM撮影', 'DT', 'offline_event', 'e_lost', 0, 2500000, '2026-02-20', null],
-    ['OPP-202603-0015', 'JB ドラマ撮影（延期）', 'JB', 'recording', 'e_lost', 0, 9000000, '2026-03-15', null],
+  const oppData: [string, string, string, string, string, number, string, string | null][] = [
+    ['OPP-202603-0001', '中央放送 春の特別企画', '中央放送', 'recording', 'neta', 3000000, '2026-05-01', null],
+    ['OPP-202603-0002', 'GH サマーカンファレンス', 'GH', 'hybrid_event', 'neta', 5000000, '2026-06-15', null],
+    ['OPP-202603-0003', 'DA 動画配信スタジオ定期利用', 'DA', 'live_broadcast', 'd_hold', 1200000, '2026-04-20', null],
+    ['OPP-202603-0004', '東都TV ドラマ撮影', '東都TV', 'recording', 'c_proposal', 8000000, '2026-05-10', null],
+    ['OPP-202603-0005', 'SN スポーツ中継', 'SN', 'live_broadcast', 'c_proposal', 6000000, '2026-04-25', null],
+    ['OPP-202603-0006', 'GE リアリティ番組制作', 'GE', 'recording', 'c_proposal', 12000000, '2026-06-01', null],
+    ['OPP-202603-0007', 'JB 音楽番組収録', 'JB', 'recording', 'd_hold', 4500000, '2026-04-18', null],
+    ['OPP-202603-0008', '富士見 バラエティ撮影', '富士見', 'offline_event', 'd_hold', 3500000, '2026-04-22', null],
+    ['OPP-202603-0009', 'PW IR動画制作', 'PW', 'gmo_project', 'c_proposal', 2000000, '2026-04-08', null],
+    ['OPP-202603-0010', 'GH IR説明会 2026春', 'GH', 'hybrid_event', 'a_won', 4000000, '2026-03-19', 'GLS001'],
+    ['OPP-202603-0011', '東都TV 特番収録「サイエンス・フロンティア」', '東都TV', 'recording', 'a_won', 7500000, '2026-03-22', 'GLS002'],
+    ['OPP-202603-0012', 'SN 生放送「ナイトトーク」', 'SN', 'live_broadcast', 'a_won', 5500000, '2026-03-25', 'GLS003'],
+    ['OPP-202603-0013', '中央放送 年末特別企画', '中央放送', 'recording', 'e_lost', 10000000, '2026-03-01', null],
+    ['OPP-202603-0014', 'DT CM撮影', 'DT', 'offline_event', 'e_lost', 2500000, '2026-02-20', null],
+    ['OPP-202603-0015', 'JB ドラマ撮影（延期）', 'JB', 'recording', 'e_lost', 9000000, '2026-03-15', null],
   ];
   for (let i = 0; i < oppData.length; i++) {
-    const [code, title, custKey, projType, stage, prob, amt, date, projGls] = oppData[i];
+    const [code, title, custKey, projType, stage, amt, date, projGls] = oppData[i];
     const projId = projGls ? PROJECTS[projGls] || null : null;
-    ins(oppSql, [uuidv4(), code, title, CUSTOMERS[custKey], projType, stage, prob, amt, date, staffIds[i % 3], projId, USERS.admin]);
+    ins(oppSql, [uuidv4(), code, title, CUSTOMERS[custKey], projType, stage, amt, date, staffIds[i % 3], projId, USERS.admin]);
   }
 
   // Revenues
@@ -297,15 +297,15 @@ export async function seed() {
   execute(`UPDATE projects SET group_id = ? WHERE id = ?`, [groupId, PROJECTS['GLS001']]);
   execute(`UPDATE projects SET group_id = ? WHERE id = ?`, [groupId, PROJECTS['GLS004']]);
 
-  // グループ共通仕入
-  const gpSql = `INSERT INTO group_purchases (id, group_id, vendor_id, amount, description, tax_category, invoice_qualified, recognition_date, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  // グループ共通仕入(purchasesテーブルにgroup_id付きで挿入)
+  const gpSql = `INSERT INTO purchases (id, group_id, vendor_id, amount, description, tax_category, invoice_qualified, recognition_date, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   const gp1 = uuidv4();
   ins(gpSql, [gp1, groupId, VENDORS['技術'], 3000000, 'スタジオ技術チーム(全社共通)', 'tax10', 1, '2026-03-31', USERS.admin]);
   const gp2 = uuidv4();
   ins(gpSql, [gp2, groupId, VENDORS['配信'], 1500000, '配信システム(全社共通)', 'tax10', 1, '2026-03-31', USERS.admin]);
 
   // 均等按分(2社)
-  const gpaSql = `INSERT INTO group_purchase_allocations (id, group_purchase_id, project_id, allocated_amount) VALUES (?, ?, ?, ?)`;
+  const gpaSql = `INSERT INTO purchase_allocations (id, purchase_id, project_id, allocated_amount) VALUES (?, ?, ?, ?)`;
   ins(gpaSql, [uuidv4(), gp1, PROJECTS['GLS001'], 1500000]);
   ins(gpaSql, [uuidv4(), gp1, PROJECTS['GLS004'], 1500000]);
   ins(gpaSql, [uuidv4(), gp2, PROJECTS['GLS001'], 750000]);

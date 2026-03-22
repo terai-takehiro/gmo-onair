@@ -51,7 +51,6 @@ export interface Opportunity extends BaseEntity {
   project_type: ProjectType;
   project_type_other: string | null;
   stage: OpportunityStage;
-  probability: number;
   expected_amount: number;
   expected_date: string | null;
   project_id: string | null;
@@ -115,26 +114,10 @@ export interface ProjectGroup extends BaseEntity {
   total_group_purchase?: number;
 }
 
-// グループ共通仕入
-export interface GroupPurchase extends BaseEntity {
-  group_id: string;
-  vendor_id: string;
-  assigned_to: string | null;
-  settlement_method: SettlementMethod | null;
-  tax_category: TaxCategory;
-  invoice_qualified: boolean;
-  amount: number;
-  description: string | null;
-  recognition_date: string | null;
-  notes: string | null;
-  vendor_name?: string;
-  allocation_count?: number;
-}
-
-// グループ仕入按分
-export interface GroupPurchaseAllocation {
+// 仕入按分
+export interface PurchaseAllocation {
   id: string;
-  group_purchase_id: string;
+  purchase_id: string;
   project_id: string;
   allocated_amount: number;
   project_name?: string;
@@ -146,7 +129,6 @@ export interface Project extends BaseEntity {
   gls_number: string;
   name: string;
   customer_id: string;
-  opportunity_id: string | null;
   group_id: string | null;
   rehearsal_start: string | null;
   rehearsal_end: string | null;
@@ -224,6 +206,7 @@ export interface Revenue extends BaseEntity {
 // 仕入
 export interface Purchase extends BaseEntity {
   project_id: string;
+  group_id: string | null;
   episode_id: string | null;
   vendor_id: string;
   assigned_to: string | null;

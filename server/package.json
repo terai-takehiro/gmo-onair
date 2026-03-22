@@ -11,11 +11,11 @@
     "db:reset": "tsx src/db/reset.ts"
   },
   "dependencies": {
-    "sql.js": "^1.11.0",
     "cors": "^2.8.5",
     "express": "^4.21.0",
     "helmet": "^8.0.0",
     "morgan": "^1.10.0",
+    "sql.js": "^1.11.0",
     "uuid": "^10.0.0",
     "zod": "^3.23.0"
   },
@@ -24,6 +24,7 @@
     "@types/express": "^5.0.0",
     "@types/morgan": "^1.9.9",
     "@types/uuid": "^10.0.0",
+    "pptxgenjs": "^4.0.1",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
   }

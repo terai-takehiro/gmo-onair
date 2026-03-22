@@ -19,6 +19,7 @@ import UserListPage from "@/features/users/UserListPage";
 import ProjectGroupListPage from "@/features/project-groups/ProjectGroupListPage";
 import ProjectGroupDetailPage from "@/features/project-groups/ProjectGroupDetailPage";
 import VendorReportPage from "@/features/reports/VendorReportPage";
+import DataViewerPage from "@/features/admin/DataViewerPage";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -82,6 +83,7 @@ function AppRoutes() {
         <Route path="/masters/pricing" element={<PricingListPage />} />
         <Route path="/reports/vendors" element={<VendorReportPage />} />
         <Route path="/admin/users" element={<UserListPage />} />
+        <Route path="/admin/data-viewer" element={<DataViewerPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

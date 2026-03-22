@@ -6,8 +6,8 @@ import api from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type {
   Project,
-  GroupPurchase,
-  GroupPurchaseAllocation,
+  Purchase,
+  PurchaseAllocation,
   Vendor,
 } from "@/types";
 import {
@@ -61,7 +61,7 @@ export default function ProjectGroupDetailPage() {
   });
   const group = groupData?.data;
   const projects: Project[] = group?.projects ?? [];
-  const purchases: GroupPurchase[] = group?.purchases ?? [];
+  const purchases: Purchase[] = group?.purchases ?? [];
 
   // ---------- Vendors ----------
   const { data: vendorData } = useQuery({
@@ -107,7 +107,7 @@ export default function ProjectGroupDetailPage() {
 
   // ---------- Purchase dialog ----------
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
-  const [editingPurchase, setEditingPurchase] = useState<GroupPurchase | null>(null);
+  const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null);
   const purchaseForm = useForm<PurchaseForm>({
     defaultValues: {
       vendor_id: "",
@@ -136,7 +136,7 @@ export default function ProjectGroupDetailPage() {
     setPurchaseDialogOpen(true);
   }
 
-  function openEditPurchase(p: GroupPurchase) {
+  function openEditPurchase(p: Purchase) {
     setEditingPurchase(p);
     purchaseForm.reset({
       vendor_id: p.vendor_id,
@@ -585,7 +585,7 @@ export default function ProjectGroupDetailPage() {
 // ==================== Purchase Row with Allocation Expand ====================
 
 interface PurchaseRowProps {
-  purchase: GroupPurchase;
+  purchase: Purchase;
   groupId: string;
   expanded: boolean;
   onToggle: () => void;
@@ -613,7 +613,7 @@ function PurchaseRow({
       (await api.get(`/project-groups/${groupId}/purchases/${purchase.id}/allocations`)).data,
     enabled: expanded,
   });
-  const allocations: GroupPurchaseAllocation[] = allocData?.data ?? [];
+  const allocations: PurchaseAllocation[] = allocData?.data ?? [];
 
   const [editedAllocations, setEditedAllocations] = useState<
     Record<string, string>

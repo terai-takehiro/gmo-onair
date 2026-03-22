@@ -23,7 +23,7 @@ router.get('/', (req, res) => {
 });
 
 router.get('/:id', (req, res) => {
-  const row = queryOne(`SELECT p.*, c.name as customer_name, o.project_type FROM projects p LEFT JOIN customers c ON c.id = p.customer_id LEFT JOIN opportunities o ON o.id = p.opportunity_id WHERE p.id = ? AND p.deleted_at IS NULL`, [req.params.id]);
+  const row = queryOne(`SELECT p.*, c.name as customer_name FROM projects p LEFT JOIN customers c ON c.id = p.customer_id WHERE p.id = ? AND p.deleted_at IS NULL`, [req.params.id]);
   if (!row) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
   res.json({ success: true, data: row });
 });
@@ -41,12 +41,12 @@ router.get('/:id/summary', (req, res) => {
 });
 
 router.post('/', requireAuth, (req, res) => {
-  const { name, customer_id, opportunity_id, group_id, rehearsal_start, rehearsal_end, event_start, event_end, status, broadcast_type, media_platform, notes } = req.body;
+  const { name, customer_id, group_id, rehearsal_start, rehearsal_end, event_start, event_end, status, broadcast_type, media_platform, notes } = req.body;
   if (!name || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名と顧客は必須です');
   const id = uuidv4();
   const glsNumber = generateSequenceNumber('gls_number', 'GLS');
-  execute(`INSERT INTO projects (id, gls_number, name, customer_id, opportunity_id, group_id, rehearsal_start, rehearsal_end, event_start, event_end, status, broadcast_type, media_platform, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, glsNumber, name, customer_id, opportunity_id || null, group_id || null, rehearsal_start || null, rehearsal_end || null, event_start || null, event_end || null, status || 'tentative', broadcast_type || null, media_platform || null, notes || null, req.user!.id]);
+  execute(`INSERT INTO projects (id, gls_number, name, customer_id, group_id, rehearsal_start, rehearsal_end, event_start, event_end, status, broadcast_type, media_platform, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, glsNumber, name, customer_id, group_id || null, rehearsal_start || null, rehearsal_end || null, event_start || null, event_end || null, status || 'tentative', broadcast_type || null, media_platform || null, notes || null, req.user!.id]);
   const row = queryOne('SELECT p.*, c.name as customer_name FROM projects p LEFT JOIN customers c ON c.id = p.customer_id WHERE p.id = ?', [id]);
   res.status(201).json({ success: true, data: row });
 });
