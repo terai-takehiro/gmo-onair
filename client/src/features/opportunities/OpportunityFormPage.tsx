@@ -468,7 +468,7 @@ export default function OpportunityFormPage() {
               B 口頭決定 → GLS発番
             </DialogTitle>
             <DialogDescription>
-              GLS番号を発番し、番組を作成します。初回発注話数も設定できます。
+              イベントコードを発番し、番組を作成します。初回発注話数も設定できます。
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -530,13 +530,13 @@ export default function OpportunityFormPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-green-700">
               <CheckCircle2 className="h-6 w-6" />
-              GLS番号 発番完了
+              イベントコード 発番完了
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-4">
             <div className="rounded-lg border bg-green-50 p-4 space-y-2">
               <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">GLS番号</span>
+                <span className="text-sm text-muted-foreground">イベントコード</span>
                 <span className="font-mono font-bold text-lg">{wonResult.glsNumber}</span>
               </div>
               <div className="flex justify-between">

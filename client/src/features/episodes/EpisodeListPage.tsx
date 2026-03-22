@@ -253,16 +253,37 @@ export default function EpisodeListPage() {
                       <TableCell>{formatDate(ep.delivery_date)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(ep.revenue_budget)}</TableCell>
                       <TableCell className="text-right">
-                        {formatCurrency(ep.actual_revenue ?? 0)}
-                        {(ep.revenue_count ?? 0) > 0 && (
-                          <span className="ml-1 text-xs text-muted-foreground">({ep.revenue_count}件)</span>
-                        )}
+                        <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-sm ${
+                          (ep.revenue_count ?? 0) > 0 ? 'bg-blue-50 text-blue-700' : 'text-muted-foreground'
+                        }`}>
+                          <span className="font-mono">{formatCurrency(ep.actual_revenue ?? 0)}</span>
+                          {(ep.revenue_count ?? 0) > 0 && (
+                            <span className="text-xs opacity-70">({ep.revenue_count}件)</span>
+                          )}
+                        </span>
                       </TableCell>
                       <TableCell className="text-right">
-                        {formatCurrency(ep.actual_cost ?? 0)}
-                        {(ep.purchase_count ?? 0) > 0 && (
-                          <span className="ml-1 text-xs text-muted-foreground">({ep.purchase_count}件)</span>
-                        )}
+                        <button
+                          className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-sm transition-colors ${
+                            (ep.purchase_count ?? 0) > 0
+                              ? 'bg-orange-50 text-orange-700 hover:bg-orange-100 cursor-pointer'
+                              : 'text-muted-foreground'
+                          }`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if ((ep.purchase_count ?? 0) > 0 || true) {
+                              setPurchaseEpisode(ep);
+                              setPurchaseDialogOpen(true);
+                            }
+                          }}
+                          title="クリックで仕入詳細を表示"
+                        >
+                          <span className="font-mono">{formatCurrency(ep.actual_cost ?? 0)}</span>
+                          {(ep.purchase_count ?? 0) > 0 && (
+                            <span className="text-xs opacity-70">({ep.purchase_count}件)</span>
+                          )}
+                          <ShoppingCart className="h-3 w-3 opacity-50" />
+                        </button>
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">

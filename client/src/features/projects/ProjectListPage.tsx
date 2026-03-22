@@ -68,7 +68,7 @@ export default function ProjectListPage() {
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="GLS番号・案件名で検索..."
+          placeholder="イベントコード・案件名で検索..."
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           className="pl-9"
@@ -84,7 +84,7 @@ export default function ProjectListPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>GLS番号</TableHead>
+                <TableHead>イベントコード</TableHead>
                 <TableHead>案件名</TableHead>
                 <TableHead>顧客</TableHead>
                 <TableHead>ステータス</TableHead>
@@ -108,8 +108,13 @@ export default function ProjectListPage() {
                     className="cursor-pointer"
                     onClick={() => navigate(`/projects/${p.id}/episodes`)}
                   >
-                    <TableCell className="font-mono text-sm font-medium text-primary">
-                      {p.gls_number as string}
+                    <TableCell>
+                      <button
+                        className="font-mono text-sm font-medium text-primary hover:underline"
+                        onClick={(e) => { e.stopPropagation(); navigate(`/projects/${p.id}/episodes`); }}
+                      >
+                        {p.gls_number as string}
+                      </button>
                     </TableCell>
                     <TableCell className="font-medium">{p.name as string}</TableCell>
                     <TableCell>{(p.customer_name as string) || "-"}</TableCell>

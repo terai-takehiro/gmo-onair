@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,7 @@ interface EpisodeOption {
 }
 
 export default function RevenueListPage() {
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -154,7 +156,7 @@ export default function RevenueListPage() {
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="GLS番号・案件名・顧客名で検索..."
+          placeholder="イベントコード・案件名・顧客名で検索..."
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
@@ -174,7 +176,7 @@ export default function RevenueListPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>請求KEY</TableHead>
-                <TableHead>GLS番号</TableHead>
+                <TableHead>イベントコード</TableHead>
                 <TableHead>案件名</TableHead>
                 <TableHead>顧客</TableHead>
                 <TableHead>税区分</TableHead>
@@ -198,8 +200,17 @@ export default function RevenueListPage() {
                     <TableCell className="font-mono text-xs">
                       {(r.billing_key as string) || "-"}
                     </TableCell>
-                    <TableCell className="text-primary">
-                      {(r.gls_number as string) || "-"}
+                    <TableCell>
+                      {r.project_id ? (
+                        <button
+                          className="font-mono text-sm font-medium text-primary hover:underline"
+                          onClick={() => navigate(`/projects/${r.project_id}/episodes`)}
+                        >
+                          {(r.gls_number as string) || "-"}
+                        </button>
+                      ) : (
+                        <span className="text-primary">{(r.gls_number as string) || "-"}</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       {(r.project_name as string) || "-"}

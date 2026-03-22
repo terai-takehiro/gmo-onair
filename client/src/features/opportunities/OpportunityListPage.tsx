@@ -135,7 +135,18 @@ export default function OpportunityListPage() {
                     className="cursor-pointer"
                     onClick={() => navigate(`/opportunities/${opp.id}`)}
                   >
-                    <TableCell className="font-mono text-xs">{(opp.opp_code as string) || "-"}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {opp.project_id ? (
+                        <button
+                          className="font-mono text-sm font-medium text-primary hover:underline"
+                          onClick={(e) => { e.stopPropagation(); navigate(`/projects/${opp.project_id}/episodes`); }}
+                        >
+                          {(opp.gls_number as string) || (opp.opp_code as string) || "-"}
+                        </button>
+                      ) : (
+                        (opp.opp_code as string) || "-"
+                      )}
+                    </TableCell>
                     <TableCell className="font-medium">{opp.title as string}</TableCell>
                     <TableCell>{(opp.customer_name as string) || "-"}</TableCell>
                     <TableCell>

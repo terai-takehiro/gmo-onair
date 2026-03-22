@@ -106,7 +106,7 @@ const COLUMN_LABELS: Record<string, string> = {
   days: '日数',
   subtotal: '小計',
   description: '説明',
-  gls_number: 'GLS番号',
+  gls_number: 'イベントコード',
   group_id: 'グループID',
   rehearsal_start: 'リハ開始',
   rehearsal_end: 'リハ終了',

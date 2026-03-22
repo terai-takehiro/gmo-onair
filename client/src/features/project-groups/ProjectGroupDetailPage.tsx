@@ -273,7 +273,7 @@ export default function ProjectGroupDetailPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>GLS番号</TableHead>
+                <TableHead>イベントコード</TableHead>
                 <TableHead>案件名</TableHead>
                 <TableHead>顧客</TableHead>
                 <TableHead>ステータス</TableHead>
@@ -291,7 +291,14 @@ export default function ProjectGroupDetailPage() {
               ) : (
                 projects.map((p) => (
                   <TableRow key={p.id}>
-                    <TableCell className="text-primary">{p.gls_number}</TableCell>
+                    <TableCell>
+                      <button
+                        className="font-mono text-sm font-medium text-primary hover:underline"
+                        onClick={() => navigate(`/projects/${p.id}/episodes`)}
+                      >
+                        {p.gls_number}
+                      </button>
+                    </TableCell>
                     <TableCell>{p.name}</TableCell>
                     <TableCell>{p.customer_name ?? "-"}</TableCell>
                     <TableCell>
@@ -381,7 +388,7 @@ export default function ProjectGroupDetailPage() {
           </DialogHeader>
           <div className="space-y-4">
             <Input
-              placeholder="GLS番号・案件名で検索..."
+              placeholder="イベントコード・案件名で検索..."
               value={projectSearch}
               onChange={(e) => setProjectSearch(e.target.value)}
             />
@@ -705,7 +712,7 @@ function PurchaseRow({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>GLS番号</TableHead>
+                      <TableHead>イベントコード</TableHead>
                       <TableHead>案件名</TableHead>
                       <TableHead className="text-right">按分額</TableHead>
                     </TableRow>
