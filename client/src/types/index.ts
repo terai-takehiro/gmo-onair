@@ -401,6 +401,10 @@ export interface SgaExpense extends BaseEntity {
   tax_category: TaxCategory;
   invoice_qualified: boolean;
   amount: number;
+  expense_type: 'fixed' | 'spot';
+  amortize_start: string | null;
+  amortize_end: string | null;
+  source: 'staff' | 'accounting';
 }
 
 export interface PurchaseEpisodeAllocation {

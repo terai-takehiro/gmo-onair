@@ -218,6 +218,10 @@ export interface SgaExpense extends BaseEntity {
   tax_category: TaxCategory;
   invoice_qualified: boolean;
   amount: number;
+  expense_type: 'fixed' | 'spot';
+  amortize_start: string | null;
+  amortize_end: string | null;
+  source: 'staff' | 'accounting';
 }
 
 // 仕入の話数按分

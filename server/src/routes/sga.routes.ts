@@ -13,10 +13,15 @@ router.get('/', (req, res) => {
   const { page, limit, offset, search } = extractPagination(req);
   const dateFrom = req.query.date_from as string;
   const dateTo = req.query.date_to as string;
+  const source = req.query.source as string;
 
   let where = 'WHERE s.deleted_at IS NULL';
   const params: unknown[] = [];
 
+  if (source && (source === 'staff' || source === 'accounting')) {
+    where += ` AND s.source = ?`;
+    params.push(source);
+  }
   if (search) {
     where += ` AND (s.vendor_name LIKE ? OR s.description LIKE ?)`;
     params.push(`%${search}%`, `%${search}%`);
@@ -49,7 +54,8 @@ router.get('/:id', (req, res) => {
 router.post('/', requireAuth, (req, res) => {
   const {
     vendor_name, vendor_id, settlement_method, settlement_number, description, notes,
-    recognition_date, payment_due_date, tax_category, invoice_qualified, amount
+    recognition_date, payment_due_date, tax_category, invoice_qualified, amount,
+    expense_type, amortize_start, amortize_end, source
   } = req.body;
 
   if (!recognition_date) throw new AppError(400, 'VALIDATION_ERROR', '発生日は必須です');
@@ -58,7 +64,7 @@ router.post('/', requireAuth, (req, res) => {
   const id = uuidv4();
 
   execute(
-    `INSERT INTO sga_expenses (id, billing_key, vendor_name, vendor_id, settlement_method, settlement_number, description, notes, recognition_date, payment_due_date, tax_category, invoice_qualified, amount, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO sga_expenses (id, billing_key, vendor_name, vendor_id, settlement_method, settlement_number, description, notes, recognition_date, payment_due_date, tax_category, invoice_qualified, amount, expense_type, amortize_start, amortize_end, source, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id, billing_key, vendor_name || null, vendor_id || null,
       settlement_method || null, settlement_number || null,
@@ -66,7 +72,11 @@ router.post('/', requireAuth, (req, res) => {
       recognition_date, payment_due_date || null,
       tax_category || 'tax10',
       invoice_qualified !== undefined ? (invoice_qualified ? 1 : 0) : 1,
-      amount || 0, req.user!.id
+      amount || 0,
+      expense_type || 'spot',
+      amortize_start || null, amortize_end || null,
+      source || 'staff',
+      req.user!.id
     ]
   );
 
@@ -81,7 +91,8 @@ router.put('/:id', requireAuth, (req, res) => {
 
   const {
     vendor_name, vendor_id, settlement_method, settlement_number, description, notes,
-    recognition_date, payment_due_date, tax_category, invoice_qualified, amount
+    recognition_date, payment_due_date, tax_category, invoice_qualified, amount,
+    expense_type, amortize_start, amortize_end, source
   } = req.body;
 
   // Regenerate billing_key if recognition_date or tax_category changed
@@ -93,7 +104,7 @@ router.put('/:id', requireAuth, (req, res) => {
   }
 
   execute(
-    `UPDATE sga_expenses SET billing_key=?, vendor_name=?, vendor_id=?, settlement_method=?, settlement_number=?, description=?, notes=?, recognition_date=?, payment_due_date=?, tax_category=?, invoice_qualified=?, amount=?, updated_at=datetime('now'), updated_by=? WHERE id=?`,
+    `UPDATE sga_expenses SET billing_key=?, vendor_name=?, vendor_id=?, settlement_method=?, settlement_number=?, description=?, notes=?, recognition_date=?, payment_due_date=?, tax_category=?, invoice_qualified=?, amount=?, expense_type=?, amortize_start=?, amortize_end=?, source=?, updated_at=datetime('now'), updated_by=? WHERE id=?`,
     [
       billing_key, vendor_name || null, vendor_id || null,
       settlement_method || null, settlement_number || null,
@@ -103,6 +114,10 @@ router.put('/:id', requireAuth, (req, res) => {
       tax_category || existing.tax_category,
       invoice_qualified !== undefined ? (invoice_qualified ? 1 : 0) : existing.invoice_qualified,
       amount !== undefined ? amount : existing.amount,
+      expense_type !== undefined ? expense_type : existing.expense_type,
+      amortize_start !== undefined ? (amortize_start || null) : existing.amortize_start,
+      amortize_end !== undefined ? (amortize_end || null) : existing.amortize_end,
+      source || existing.source || 'staff',
       req.user!.id, req.params.id
     ]
   );

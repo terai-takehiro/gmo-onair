@@ -130,6 +130,23 @@ export default function DashboardPage() {
     queryFn: async () => (await api.get('/dashboard/pipeline')).data.data,
   });
 
+  const { data: weeklyData } = useQuery({
+    queryKey: ['dashboard-weekly'],
+    queryFn: async () => (await api.get('/dashboard/weekly-schedule')).data.data,
+  });
+
+  const typeColors: Record<string, string> = {
+    event: 'bg-blue-500',
+    rehearsal: 'bg-amber-500',
+    recording: 'bg-purple-500',
+    broadcast: 'bg-cyan-500',
+  };
+  const typeLabels: Record<string, string> = {
+    event: '本番',
+    rehearsal: 'リハ',
+    recording: '収録',
+    broadcast: '放送',
+  };
 
 
   const quickLinks = [
@@ -224,6 +241,54 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       ) : null}
+
+      {/* Weekly Schedule */}
+      {weeklyData && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Calendar className="h-5 w-5 text-primary" />
+              今週のスケジュール
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-7 gap-1">
+              {(weeklyData as Array<{ date: string; dayLabel: string; events: Array<{ gls_number?: string; name?: string; project_name?: string; episode_code?: string; type: string }> }>).map((day) => {
+                const isToday = day.date === new Date().toISOString().split('T')[0];
+                return (
+                  <div key={day.date} className={`min-h-[120px] rounded-lg border p-2 ${isToday ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'bg-muted/30'}`}>
+                    <div className={`text-center mb-2 ${isToday ? 'font-bold text-primary' : ''}`}>
+                      <div className="text-xs text-muted-foreground">{day.dayLabel}</div>
+                      <div className="text-sm">{day.date.split('-')[2]}</div>
+                    </div>
+                    <div className="space-y-1">
+                      {day.events.slice(0, 4).map((ev, i) => (
+                        <div key={i} className={`rounded px-1.5 py-0.5 text-white text-[10px] leading-tight truncate ${typeColors[ev.type] || 'bg-gray-400'}`} title={`${typeLabels[ev.type] || ev.type}: ${ev.name || ev.project_name || ev.episode_code}`}>
+                          {typeLabels[ev.type]}: {ev.gls_number || ev.episode_code}
+                        </div>
+                      ))}
+                      {day.events.length > 4 && (
+                        <div className="text-[10px] text-muted-foreground text-center">+{day.events.length - 4}件</div>
+                      )}
+                      {day.events.length === 0 && (
+                        <div className="text-[10px] text-muted-foreground text-center mt-4">予定なし</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex gap-3 mt-3 justify-center">
+              {Object.entries(typeLabels).map(([key, label]) => (
+                <div key={key} className="flex items-center gap-1">
+                  <div className={`w-2.5 h-2.5 rounded-sm ${typeColors[key]}`} />
+                  <span className="text-xs text-muted-foreground">{label}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Charts */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

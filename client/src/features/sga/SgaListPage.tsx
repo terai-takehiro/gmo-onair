@@ -60,6 +60,11 @@ interface SgaFormData {
   invoice_qualified: boolean;
   payment_due_date: string;
   assigned_to: string;
+  expense_type: 'fixed' | 'spot';
+  amortize_enabled: boolean;
+  amortize_start: string;
+  amortize_end: string;
+  source: 'staff' | 'accounting';
 }
 
 const initialFormData: SgaFormData = {
@@ -76,7 +81,19 @@ const initialFormData: SgaFormData = {
   invoice_qualified: true,
   payment_due_date: "",
   assigned_to: "",
+  expense_type: "spot",
+  amortize_enabled: false,
+  amortize_start: "",
+  amortize_end: "",
+  source: "staff",
 };
+
+function countAmortizeMonths(start: string, end: string): number {
+  if (!start || !end) return 0;
+  const [sy, sm] = start.split('-').map(Number);
+  const [ey, em] = end.split('-').map(Number);
+  return (ey - sy) * 12 + (em - sm) + 1;
+}
 
 function generateBillingKeyPreview(recognitionDate: string): string {
   if (!recognitionDate) return "";
@@ -92,6 +109,7 @@ export default function SgaListPage() {
   const { currentUser } = useAuth();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
+  const [sourceFilter, setSourceFilter] = useState<string>("");
   const [page, setPage] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -99,10 +117,11 @@ export default function SgaListPage() {
 
   // Fetch SGA expenses
   const { data, isLoading } = useQuery({
-    queryKey: ["sga-list", page, search],
+    queryKey: ["sga-list", page, search, sourceFilter],
     queryFn: async () => {
       const params: Record<string, string | number> = { page, limit: 20 };
       if (search) params.search = search;
+      if (sourceFilter) params.source = sourceFilter;
       return (await api.get("/sga", { params })).data;
     },
   });
@@ -184,6 +203,11 @@ export default function SgaListPage() {
       invoice_qualified: item.invoice_qualified ?? true,
       payment_due_date: item.payment_due_date?.slice(0, 10) ?? "",
       assigned_to: item.assigned_to ?? currentUser?.id ?? "",
+      expense_type: item.expense_type ?? "spot",
+      amortize_enabled: !!(item.amortize_start),
+      amortize_start: item.amortize_start ?? "",
+      amortize_end: item.amortize_end ?? "",
+      source: item.source || "staff",
     });
     setDialogOpen(true);
   };
@@ -193,6 +217,11 @@ export default function SgaListPage() {
     setEditingId(null);
     setForm(initialFormData);
   };
+
+  const amortizeMonths = useMemo(
+    () => countAmortizeMonths(form.amortize_start, form.amortize_end),
+    [form.amortize_start, form.amortize_end]
+  );
 
   const handleSubmit = () => {
     const payload: Record<string, unknown> = {
@@ -210,6 +239,10 @@ export default function SgaListPage() {
       invoice_qualified: form.invoice_qualified,
       payment_due_date: form.payment_due_date || null,
       assigned_to: form.assigned_to || null,
+      expense_type: form.expense_type,
+      amortize_start: (form.expense_type === 'spot' && form.amortize_enabled && form.amortize_start) ? form.amortize_start : null,
+      amortize_end: (form.expense_type === 'spot' && form.amortize_enabled && form.amortize_end) ? form.amortize_end : null,
+      source: form.source,
     };
 
     if (editingId) {
@@ -229,6 +262,24 @@ export default function SgaListPage() {
           <Plus className="mr-1 h-4 w-4" />
           新規登録
         </Button>
+      </div>
+
+      {/* Source Filter Tabs */}
+      <div className="flex gap-2">
+        {[
+          { value: "", label: "全て" },
+          { value: "staff", label: "スタッフ入力" },
+          { value: "accounting", label: "経理入力" },
+        ].map((tab) => (
+          <Button
+            key={tab.value}
+            variant={sourceFilter === tab.value ? "default" : "outline"}
+            size="sm"
+            onClick={() => { setSourceFilter(tab.value); setPage(1); }}
+          >
+            {tab.label}
+          </Button>
+        ))}
       </div>
 
       <div className="relative max-w-sm">
@@ -262,6 +313,8 @@ export default function SgaListPage() {
                 <TableHead className="text-right">金額</TableHead>
                 <TableHead>精算方法</TableHead>
                 <TableHead>精算No.</TableHead>
+                <TableHead>種別</TableHead>
+                <TableHead>処理元</TableHead>
                 <TableHead className="w-20">操作</TableHead>
               </TableRow>
             </TableHeader>
@@ -269,7 +322,7 @@ export default function SgaListPage() {
               {sgaList.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={10}
+                    colSpan={11}
                     className="text-center text-muted-foreground"
                   >
                     データがありません
@@ -308,6 +361,28 @@ export default function SgaListPage() {
                         item.settlement_method ?? "",
                         item.settlement_number ?? ""
                       )}
+                    </TableCell>
+                    <TableCell>
+                      {item.amortize_start ? (
+                        <span className="inline-block rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+                          按分中
+                        </span>
+                      ) : item.expense_type === 'fixed' ? (
+                        <span className="inline-block rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                          固定
+                        </span>
+                      ) : (
+                        <span className="inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                          スポット
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                        item.source === 'accounting' ? 'bg-amber-100 text-amber-700' : 'bg-sky-100 text-sky-700'
+                      }`}>
+                        {item.source === 'accounting' ? '経理' : 'スタッフ'}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
@@ -546,6 +621,100 @@ export default function SgaListPage() {
               </div>
             </div>
 
+            {/* Row 4.5: expense_type + amortization */}
+            <div className="space-y-2">
+              <Label>販管費種別</Label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="expense_type"
+                    checked={form.expense_type === "spot"}
+                    onChange={() =>
+                      setForm((f) => ({ ...f, expense_type: "spot" }))
+                    }
+                    className="accent-primary"
+                  />
+                  <span className="text-sm">スポット</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="expense_type"
+                    checked={form.expense_type === "fixed"}
+                    onChange={() =>
+                      setForm((f) => ({
+                        ...f,
+                        expense_type: "fixed",
+                        amortize_enabled: false,
+                        amortize_start: "",
+                        amortize_end: "",
+                      }))
+                    }
+                    className="accent-primary"
+                  />
+                  <span className="text-sm">固定(毎月)</span>
+                </label>
+              </div>
+
+              {form.expense_type === "spot" && (
+                <div className="ml-2 space-y-2 border-l-2 border-muted pl-4">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={form.amortize_enabled}
+                      onCheckedChange={(checked) =>
+                        setForm((f) => ({
+                          ...f,
+                          amortize_enabled: !!checked,
+                          amortize_start: checked ? f.amortize_start : "",
+                          amortize_end: checked ? f.amortize_end : "",
+                        }))
+                      }
+                    />
+                    <span className="text-sm">月按分する</span>
+                  </div>
+                  {form.amortize_enabled && (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <Label className="text-xs">按分開始月</Label>
+                          <Input
+                            type="month"
+                            value={form.amortize_start}
+                            onChange={(e) =>
+                              setForm((f) => ({
+                                ...f,
+                                amortize_start: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">按分終了月</Label>
+                          <Input
+                            type="month"
+                            value={form.amortize_end}
+                            onChange={(e) =>
+                              setForm((f) => ({
+                                ...f,
+                                amortize_end: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                      </div>
+                      {form.amount > 0 && amortizeMonths > 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          {formatCurrency(form.amount)} ÷ {amortizeMonths}ヶ月 ={" "}
+                          {formatCurrency(Math.floor(form.amount / amortizeMonths))}/月
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Row 5: description + notes */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
@@ -568,6 +737,18 @@ export default function SgaListPage() {
                   placeholder="備考"
                 />
               </div>
+            </div>
+
+            {/* Row 5.5: source (処理元) */}
+            <div className="space-y-1">
+              <Label>処理元</Label>
+              <Select value={form.source} onValueChange={(val) => setForm(f => ({ ...f, source: val as 'staff' | 'accounting' }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="staff">スタッフ入力</SelectItem>
+                  <SelectItem value="accounting">経理入力</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Row 6: invoice + assigned_to */}

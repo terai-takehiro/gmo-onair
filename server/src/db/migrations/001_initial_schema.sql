@@ -313,8 +313,14 @@ CREATE TABLE IF NOT EXISTS sga_expenses (
   vendor_id         TEXT REFERENCES vendors(id),
   description       TEXT,
   notes             TEXT,
+  expense_type      TEXT NOT NULL DEFAULT 'spot'
+                    CHECK (expense_type IN ('fixed','spot')),
+  source            TEXT NOT NULL DEFAULT 'staff'
+                    CHECK (source IN ('staff','accounting')),
   recognition_date  TEXT,
   payment_due_date  TEXT,
+  amortize_start    TEXT,
+  amortize_end      TEXT,
   tax_category      TEXT NOT NULL DEFAULT 'tax10'
                     CHECK (tax_category IN ('tax10','tax8','exempt')),
   invoice_qualified INTEGER NOT NULL DEFAULT 1,
