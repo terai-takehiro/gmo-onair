@@ -61,7 +61,7 @@ export default function UserListPage() {
 
   const { data: users, isLoading } = useQuery<User[]>({
     queryKey: ["users"],
-    queryFn: async () => (await api.get("/auth/users")).data,
+    queryFn: async () => (await api.get("/auth/users")).data.data,
     enabled: isAdmin,
   });
 
