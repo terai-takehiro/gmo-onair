@@ -14,6 +14,7 @@ const USERS = {
 const CUSTOMERS: Record<string, string> = {};
 const VENDORS: Record<string, string> = {};
 const PROJECTS: Record<string, string> = {};
+const EPISODES: Record<string, string> = {};
 
 export async function seed() {
   await initDb();
@@ -25,8 +26,11 @@ export async function seed() {
   }
 
   const ins = (sql: string, params: unknown[]) => execute(sql, params);
+  const staffIds = [USERS.staff1, USERS.staff2, USERS.staff3];
 
+  // ============================================================
   // Users
+  // ============================================================
   const userSql = `INSERT INTO users (id, name, email, role) VALUES (?, ?, ?, ?)`;
   ins(userSql, [USERS.admin, '山田 太郎', 'yamada@globalstudio.example.com', 'system_admin']);
   ins(userSql, [USERS.staff1, '佐藤 花子', 'sato@globalstudio.example.com', 'staff']);
@@ -35,7 +39,9 @@ export async function seed() {
   ins(userSql, [USERS.viewer, '田中 健二', 'tanaka@globalstudio.example.com', 'viewer']);
   ins(userSql, [USERS.external, '外部 クライアント', 'client@example.com', 'external_client']);
 
-  // Customers (架空企業)
+  // ============================================================
+  // Customers
+  // ============================================================
   const custSql = `INSERT INTO customers (id, name, short_name, notes) VALUES (?, ?, ?, ?)`;
   const customerData: [string, string][] = [
     ['株式会社グローバルホールディングス', 'GH'],
@@ -55,7 +61,9 @@ export async function seed() {
     ins(custSql, [id, name, short, null]);
   }
 
-  // Vendors (架空企業)
+  // ============================================================
+  // Vendors
+  // ============================================================
   const vendSql = `INSERT INTO vendors (id, name, address, vendor_type, invoice_registration_number, notes) VALUES (?, ?, ?, ?, ?, ?)`;
   const vendorData: [string, string, string, string | null][] = [
     ['株式会社テクノハウス', '東京都港区', '技術', 'T1234567890123'],
@@ -73,7 +81,9 @@ export async function seed() {
     ins(vendSql, [id, name, addr, type, inv, null]);
   }
 
+  // ============================================================
   // Partners
+  // ============================================================
   const partSql = `INSERT INTO partners (id, name, email, phone, role_title, specialties, notes) VALUES (?, ?, ?, ?, ?, ?, ?)`;
   const partnerData: [string, string, string, string, string][] = [
     ['中村 誠', 'nakamura@example.com', '090-1111-2222', 'チーフカメラマン', '["撮影","ドローン"]'],
@@ -87,7 +97,9 @@ export async function seed() {
     ins(partSql, [uuidv4(), name, email, phone, title, specs, null]);
   }
 
-  // Projects (架空番組名、GLS001形式)
+  // ============================================================
+  // Projects
+  // ============================================================
   const projSql = `INSERT INTO projects (id, gls_number, name, customer_id, rehearsal_start, rehearsal_end, event_start, event_end, status, broadcast_type, media_platform, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   const projectData: [string, string, string, string | null, string | null, string | null, string | null, string, string, string][] = [
     ['GLS001', 'GH IR説明会 2026春', 'GH', '2026-03-18', '2026-03-18', '2026-03-19', '2026-03-19', 'completed', 'live', 'youtube'],
@@ -105,11 +117,15 @@ export async function seed() {
     ins(projSql, [id, gls, name, CUSTOMERS[custKey], rs, re, es, ee, status, bType, mPlatform, USERS.admin]);
   }
 
+  // ============================================================
   // Sequences
+  // ============================================================
   ins(`INSERT INTO sequences (seq_name, prefix, year_month, counter) VALUES (?, ?, ?, ?)`, ['gls_global', 'GLS', '000000', 8]);
   ins(`INSERT INTO sequences (seq_name, prefix, year_month, counter) VALUES (?, ?, ?, ?)`, ['opp_code', 'OPP', '202603', 15]);
 
+  // ============================================================
   // Pricing Categories & Items
+  // ============================================================
   const catSql = `INSERT INTO pricing_categories (id, name, sort_order) VALUES (?, ?, ?)`;
   const itemSql = `INSERT INTO pricing_items (id, category_id, name, sub_label, unit_price, calc_type, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)`;
   const CATS: Record<string, string> = {};
@@ -158,9 +174,10 @@ export async function seed() {
   ins(itemSql, [uuidv4(), CATS['追加演出'], 'IP中継', null, 200000, 'toggle', 4]);
   ins(itemSql, [uuidv4(), CATS['その他'], 'ロケハン対応', null, 0, 'toggle', 1]);
 
-  // Opportunities (架空案件名、新ステージ体系)
+  // ============================================================
+  // Opportunities
+  // ============================================================
   const oppSql = `INSERT INTO opportunities (id, opp_code, title, customer_id, project_type, stage, expected_amount, expected_date, assigned_to, project_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-  const staffIds = [USERS.staff1, USERS.staff2, USERS.staff3];
   const oppData: [string, string, string, string, string, number, string, string | null][] = [
     ['OPP-202603-0001', '中央放送 春の特別企画', '中央放送', 'recording', 'neta', 3000000, '2026-05-01', null],
     ['OPP-202603-0002', 'GH サマーカンファレンス', 'GH', 'hybrid_event', 'neta', 5000000, '2026-06-15', null],
@@ -184,132 +201,256 @@ export async function seed() {
     ins(oppSql, [uuidv4(), code, title, CUSTOMERS[custKey], projType, stage, amt, date, staffIds[i % 3], projId, USERS.admin]);
   }
 
-  // Revenues
-  const revSql = `INSERT INTO revenues (id, billing_key, project_id, customer_id, assigned_to, tax_category, amount, recognition_date, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-  const revenueData: [string, string, string, number, string, string][] = [
-    ['GLS001', 'GH', 'tax10', 4000000, '2026-03-31', 'スタジオ利用+技術費'],
-    ['GLS002', '東都TV', 'tax10', 5000000, '2026-03-31', 'スタジオ利用料'],
-    ['GLS002', '東都TV', 'tax10', 2500000, '2026-03-31', '技術スタッフ費'],
-    ['GLS003', 'SN', 'tax10', 3500000, '2026-03-31', 'スタジオ利用+配信技術'],
-    ['GLS003', 'SN', 'tax10', 2000000, '2026-03-31', '追加機材レンタル'],
-    ['GLS004', 'PW', 'tax10', 2800000, '2026-04-30', 'スタジオ利用料（仮）'],
-    ['GLS005', 'GE', 'tax10', 8000000, '2026-04-30', '撮影スタジオ3日間'],
-    ['GLS005', 'GE', 'tax10', 4000000, '2026-04-30', '技術スタッフ+機材'],
-    ['GLS006', 'DA', 'tax10', 1500000, '2026-04-30', 'スタジオ利用料'],
-    ['GLS007', 'JB', 'tax10', 3000000, '2026-04-30', 'パイロット撮影費'],
-    ['GLS007', 'JB', 'tax10', 1500000, '2026-04-30', '編集室利用料'],
-    ['GLS008', '富士見', 'tax10', 3200000, '2026-03-31', 'CM撮影一式'],
-  ];
-  for (let i = 0; i < revenueData.length; i++) {
-    const [glsNum, custKey, tax, amount, recDate, note] = revenueData[i];
-    ins(revSql, [uuidv4(), `${glsNum}-${(i % 3) + 1}`, PROJECTS[glsNum], CUSTOMERS[custKey], staffIds[i % 3], tax, amount, recDate, note]);
-  }
-
-  // Purchases
-  const purSql = `INSERT INTO purchases (id, project_id, vendor_id, assigned_to, settlement_method, tax_category, invoice_qualified, amount, description, recognition_date, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-  const purchaseData: [string, string, string, string, number, number, string, string][] = [
-    ['GLS001', '技術', 'rakuraku', 'tax10', 1, 800000, 'カメラクルー2名', '2026-03-31'],
-    ['GLS001', '弁当', 'rakuraku', 'tax8', 0, 50000, 'ケータリング30名分', '2026-03-31'],
-    ['GLS002', '技術', 'xpoint', 'tax10', 1, 1200000, '撮影技術チーム', '2026-03-31'],
-    ['GLS002', '照明', 'xpoint', 'tax10', 1, 600000, '照明セット+オペレーター', '2026-03-31'],
-    ['GLS002', '弁当', 'rakuraku', 'tax8', 0, 80000, 'ケータリング50名分', '2026-03-31'],
-    ['GLS003', '配信', 'other', 'tax10', 1, 900000, 'ライブ配信システム', '2026-03-31'],
-    ['GLS003', '音響', 'other', 'tax10', 1, 450000, '音響機材+オペレーター', '2026-03-31'],
-    ['GLS004', '技術', 'rakuraku', 'tax10', 1, 700000, '技術スタッフ（見積）', '2026-04-30'],
-    ['GLS005', '技術', 'xpoint', 'tax10', 1, 2500000, '撮影チーム3日間', '2026-04-30'],
-    ['GLS005', '機材', 'xpoint', 'tax10', 1, 1800000, '特殊機材レンタル', '2026-04-30'],
-    ['GLS005', '美術', 'other', 'tax10', 1, 600000, 'セットデザイン', '2026-04-30'],
-    ['GLS005', '弁当', 'rakuraku', 'tax8', 0, 120000, 'ケータリング3日間', '2026-04-30'],
-    ['GLS006', '配信', 'rakuraku', 'tax10', 1, 400000, '中継システム', '2026-04-30'],
-    ['GLS007', '技術', 'xpoint', 'tax10', 1, 900000, '撮影チーム', '2026-04-30'],
-    ['GLS008', '技術', 'rakuraku', 'tax10', 1, 1000000, 'CM撮影技術チーム', '2026-03-31'],
-  ];
-  for (const [glsNum, vendorType, method, tax, invQual, amount, desc, recDate] of purchaseData) {
-    ins(purSql, [uuidv4(), PROJECTS[glsNum], VENDORS[vendorType], staffIds[Math.floor(Math.random() * 3)], method, tax, invQual, amount, desc, recDate, null]);
-  }
-
-  // Episodes - 東都TV特番(GLS002): 12話一括 + 1話追加
+  // ============================================================
+  // Episodes - ALL projects must have at least 1 episode
+  // ============================================================
   const epSql = `INSERT INTO episodes (id, project_id, episode_number, episode_code, recording_date, broadcast_date, delivery_date, revenue_budget, cost_budget, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-  const EPISODES: Record<string, string> = {};
-  const tttvProject = PROJECTS['GLS002'];
+
+  // GLS001 (GH IR説明会): Single event -> 1 episode
+  {
+    const epId = uuidv4();
+    const code = 'GLS001-001';
+    EPISODES[code] = epId;
+    ins(epSql, [epId, PROJECTS['GLS001'], 1, code, '2026-03-19', '2026-03-19', '2026-03-19', 4000000, 850000, USERS.admin]);
+  }
+
+  // GLS002 (東都TV特番): 13 episodes
   for (let i = 1; i <= 13; i++) {
     const epId = uuidv4();
     const code = `GLS002-${String(i).padStart(3, '0')}`;
     EPISODES[code] = epId;
     const recDate = `2026-${String(3 + Math.floor((i - 1) / 4)).padStart(2, '0')}-${String(((i - 1) % 28) + 1).padStart(2, '0')}`;
     const bcastDate = `2026-${String(3 + Math.floor(i / 4)).padStart(2, '0')}-${String((i % 28) + 7).padStart(2, '0')}`;
-    ins(epSql, [epId, tttvProject, i, code, recDate, bcastDate, bcastDate, 600000, 350000, USERS.admin]);
+    ins(epSql, [epId, PROJECTS['GLS002'], i, code, recDate, bcastDate, bcastDate, 600000, 350000, USERS.admin]);
   }
 
-  // Episodes - SN生放送(GLS003): 4話(生放送なので収録日=放送日)
-  const snProject = PROJECTS['GLS003'];
+  // GLS003 (SN生放送): 4 episodes (live: recording = broadcast)
   for (let i = 1; i <= 4; i++) {
     const epId = uuidv4();
     const code = `GLS003-${String(i).padStart(3, '0')}`;
     EPISODES[code] = epId;
     const liveDate = `2026-03-${String(24 + i).padStart(2, '0')}`;
-    ins(epSql, [epId, snProject, i, code, liveDate, liveDate, liveDate, 1200000, 700000, USERS.admin]);
+    ins(epSql, [epId, PROJECTS['GLS003'], i, code, liveDate, liveDate, liveDate, 1200000, 700000, USERS.admin]);
   }
 
-  // GE ドキュメンタリー(GLS005): 6話
-  const geProject = PROJECTS['GLS005'];
+  // GLS004 (PW新サービス発表会): Single event -> 1 episode
+  {
+    const epId = uuidv4();
+    const code = 'GLS004-001';
+    EPISODES[code] = epId;
+    ins(epSql, [epId, PROJECTS['GLS004'], 1, code, '2026-03-30', '2026-03-30', '2026-03-30', 2800000, 700000, USERS.admin]);
+  }
+
+  // GLS005 (GEドキュメンタリー): 6 episodes
   for (let i = 1; i <= 6; i++) {
     const epId = uuidv4();
     const code = `GLS005-${String(i).padStart(3, '0')}`;
     EPISODES[code] = epId;
     const recDate = `2026-04-${String(i * 2 + 1).padStart(2, '0')}`;
     const bcastDate = `2026-05-${String(i * 3).padStart(2, '0')}`;
-    ins(epSql, [epId, geProject, i, code, recDate, bcastDate, bcastDate, 2000000, 900000, USERS.admin]);
+    ins(epSql, [epId, PROJECTS['GLS005'], i, code, recDate, bcastDate, bcastDate, 2000000, 900000, USERS.admin]);
   }
 
-  // Episode Orders
-  const eoSql = `INSERT INTO episode_orders (id, project_id, order_date, episode_count, start_episode, end_episode, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-  ins(eoSql, [uuidv4(), tttvProject, '2025-12-02', 12, 1, 12, '初回一括発注', USERS.admin]);
-  ins(eoSql, [uuidv4(), tttvProject, '2026-05-01', 1, 13, 13, '追加発注', USERS.admin]);
-  ins(eoSql, [uuidv4(), snProject, '2026-02-15', 4, 1, 4, '4話一括発注', USERS.admin]);
-  ins(eoSql, [uuidv4(), geProject, '2026-03-01', 6, 1, 6, 'シーズン1発注', USERS.admin]);
+  // GLS006 (DA社内イベント中継): Single event -> 1 episode
+  {
+    const epId = uuidv4();
+    const code = 'GLS006-001';
+    EPISODES[code] = epId;
+    ins(epSql, [epId, PROJECTS['GLS006'], 1, code, '2026-04-10', '2026-04-10', '2026-04-10', 1500000, 400000, USERS.admin]);
+  }
 
-  // Invoice Groups - 東都TV: 4話ずつグループ化
+  // GLS007 (JB番組パイロット): Single event -> 1 episode
+  {
+    const epId = uuidv4();
+    const code = 'GLS007-001';
+    EPISODES[code] = epId;
+    ins(epSql, [epId, PROJECTS['GLS007'], 1, code, '2026-04-14', '2026-04-15', '2026-04-15', 4500000, 900000, USERS.admin]);
+  }
+
+  // GLS008 (富士見CM): Single event -> 1 episode
+  {
+    const epId = uuidv4();
+    const code = 'GLS008-001';
+    EPISODES[code] = epId;
+    ins(epSql, [epId, PROJECTS['GLS008'], 1, code, '2026-03-12', '2026-03-12', '2026-03-12', 3200000, 1000000, USERS.admin]);
+  }
+
+  // ============================================================
+  // Episode Orders
+  // ============================================================
+  const eoSql = `INSERT INTO episode_orders (id, project_id, order_date, episode_count, start_episode, end_episode, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+  // Single-episode projects
+  ins(eoSql, [uuidv4(), PROJECTS['GLS001'], '2026-02-01', 1, 1, 1, '単発案件', USERS.admin]);
+  // GLS002: 12 + 1
+  ins(eoSql, [uuidv4(), PROJECTS['GLS002'], '2025-12-02', 12, 1, 12, '初回一括発注', USERS.admin]);
+  ins(eoSql, [uuidv4(), PROJECTS['GLS002'], '2026-05-01', 1, 13, 13, '追加発注', USERS.admin]);
+  // GLS003: 4
+  ins(eoSql, [uuidv4(), PROJECTS['GLS003'], '2026-02-15', 4, 1, 4, '4話一括発注', USERS.admin]);
+  // GLS004: single
+  ins(eoSql, [uuidv4(), PROJECTS['GLS004'], '2026-03-01', 1, 1, 1, '単発案件', USERS.admin]);
+  // GLS005: 6
+  ins(eoSql, [uuidv4(), PROJECTS['GLS005'], '2026-03-01', 6, 1, 6, 'シーズン1発注', USERS.admin]);
+  // GLS006: single
+  ins(eoSql, [uuidv4(), PROJECTS['GLS006'], '2026-03-10', 1, 1, 1, '単発案件', USERS.admin]);
+  // GLS007: single
+  ins(eoSql, [uuidv4(), PROJECTS['GLS007'], '2026-03-15', 1, 1, 1, '単発案件', USERS.admin]);
+  // GLS008: single
+  ins(eoSql, [uuidv4(), PROJECTS['GLS008'], '2026-02-20', 1, 1, 1, '単発案件', USERS.admin]);
+
+  // ============================================================
+  // Revenues (with episode_id and proper billing_key)
+  // ============================================================
+  const revSql = `INSERT INTO revenues (id, billing_key, project_id, episode_id, customer_id, assigned_to, tax_category, amount, recognition_date, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+  // GLS001: 1 revenue -> episode GLS001-001
+  ins(revSql, [uuidv4(), 'GLS001-001-1', PROJECTS['GLS001'], EPISODES['GLS001-001'], CUSTOMERS['GH'], USERS.staff1, 'tax10', 4000000, '2026-03-31', 'スタジオ利用+技術費']);
+
+  // GLS002: 2 revenues -> episode GLS002-001 (project-level, linked to first ep)
+  ins(revSql, [uuidv4(), 'GLS002-001-1', PROJECTS['GLS002'], EPISODES['GLS002-001'], CUSTOMERS['東都TV'], USERS.staff2, 'tax10', 5000000, '2026-03-31', 'スタジオ利用料']);
+  ins(revSql, [uuidv4(), 'GLS002-002-1', PROJECTS['GLS002'], EPISODES['GLS002-002'], CUSTOMERS['東都TV'], USERS.staff3, 'tax10', 2500000, '2026-03-31', '技術スタッフ費']);
+
+  // GLS003: 2 revenues -> episodes
+  ins(revSql, [uuidv4(), 'GLS003-001-1', PROJECTS['GLS003'], EPISODES['GLS003-001'], CUSTOMERS['SN'], USERS.staff1, 'tax10', 3500000, '2026-03-31', 'スタジオ利用+配信技術']);
+  ins(revSql, [uuidv4(), 'GLS003-002-1', PROJECTS['GLS003'], EPISODES['GLS003-002'], CUSTOMERS['SN'], USERS.staff2, 'tax10', 2000000, '2026-03-31', '追加機材レンタル']);
+
+  // GLS004: 1 revenue -> episode GLS004-001
+  ins(revSql, [uuidv4(), 'GLS004-001-1', PROJECTS['GLS004'], EPISODES['GLS004-001'], CUSTOMERS['PW'], USERS.staff3, 'tax10', 2800000, '2026-04-30', 'スタジオ利用料（仮）']);
+
+  // GLS005: 2 revenues -> episodes
+  ins(revSql, [uuidv4(), 'GLS005-001-1', PROJECTS['GLS005'], EPISODES['GLS005-001'], CUSTOMERS['GE'], USERS.staff1, 'tax10', 8000000, '2026-04-30', '撮影スタジオ3日間']);
+  ins(revSql, [uuidv4(), 'GLS005-002-1', PROJECTS['GLS005'], EPISODES['GLS005-002'], CUSTOMERS['GE'], USERS.staff2, 'tax10', 4000000, '2026-04-30', '技術スタッフ+機材']);
+
+  // GLS006: 1 revenue -> episode GLS006-001
+  ins(revSql, [uuidv4(), 'GLS006-001-1', PROJECTS['GLS006'], EPISODES['GLS006-001'], CUSTOMERS['DA'], USERS.staff3, 'tax10', 1500000, '2026-04-30', 'スタジオ利用料']);
+
+  // GLS007: 2 revenues -> episode GLS007-001
+  ins(revSql, [uuidv4(), 'GLS007-001-1', PROJECTS['GLS007'], EPISODES['GLS007-001'], CUSTOMERS['JB'], USERS.staff1, 'tax10', 3000000, '2026-04-30', 'パイロット撮影費']);
+  ins(revSql, [uuidv4(), 'GLS007-001-2', PROJECTS['GLS007'], EPISODES['GLS007-001'], CUSTOMERS['JB'], USERS.staff2, 'tax10', 1500000, '2026-04-30', '編集室利用料']);
+
+  // GLS008: 1 revenue -> episode GLS008-001
+  ins(revSql, [uuidv4(), 'GLS008-001-1', PROJECTS['GLS008'], EPISODES['GLS008-001'], CUSTOMERS['富士見'], USERS.staff3, 'tax10', 3200000, '2026-03-31', 'CM撮影一式']);
+
+  // ============================================================
+  // Purchases (with billing_key, settlement_number, episode_id)
+  // ============================================================
+  const purSql = `INSERT INTO purchases (id, billing_key, project_id, episode_id, vendor_id, assigned_to, settlement_method, settlement_number, tax_category, invoice_qualified, amount, description, recognition_date, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+  // GLS001 purchases -> episode GLS001-001
+  ins(purSql, [uuidv4(), 'GLS001-001-1', PROJECTS['GLS001'], EPISODES['GLS001-001'], VENDORS['技術'], USERS.staff1, 'rakuraku', '147510', 'tax10', 1, 800000, 'カメラクルー2名', '2026-03-31', null]);
+  ins(purSql, [uuidv4(), 'GLS001-001-2', PROJECTS['GLS001'], EPISODES['GLS001-001'], VENDORS['弁当'], USERS.staff1, 'rakuraku', '147511', 'tax8', 0, 50000, 'ケータリング30名分', '2026-03-31', null]);
+
+  // GLS002 purchases -> episode GLS002-001
+  ins(purSql, [uuidv4(), 'GLS002-001-1', PROJECTS['GLS002'], EPISODES['GLS002-001'], VENDORS['技術'], USERS.staff2, 'xpoint', '230001', 'tax10', 1, 1200000, '撮影技術チーム', '2026-03-31', null]);
+  ins(purSql, [uuidv4(), 'GLS002-001-2', PROJECTS['GLS002'], EPISODES['GLS002-001'], VENDORS['照明'], USERS.staff2, 'xpoint', '230002', 'tax10', 1, 600000, '照明セット+オペレーター', '2026-03-31', null]);
+  ins(purSql, [uuidv4(), 'GLS002-002-2', PROJECTS['GLS002'], EPISODES['GLS002-002'], VENDORS['弁当'], USERS.staff3, 'rakuraku', '147512', 'tax8', 0, 80000, 'ケータリング50名分', '2026-03-31', null]);
+
+  // GLS003 purchases -> episode GLS003-001
+  ins(purSql, [uuidv4(), 'GLS003-001-1', PROJECTS['GLS003'], EPISODES['GLS003-001'], VENDORS['配信'], USERS.staff1, 'other', '330001', 'tax10', 1, 900000, 'ライブ配信システム', '2026-03-31', null]);
+  ins(purSql, [uuidv4(), 'GLS003-002-1', PROJECTS['GLS003'], EPISODES['GLS003-002'], VENDORS['音響'], USERS.staff2, 'other', '330002', 'tax10', 1, 450000, '音響機材+オペレーター', '2026-03-31', null]);
+
+  // GLS004 purchases -> episode GLS004-001
+  ins(purSql, [uuidv4(), 'GLS004-001-1', PROJECTS['GLS004'], EPISODES['GLS004-001'], VENDORS['技術'], USERS.staff3, 'rakuraku', '147513', 'tax10', 1, 700000, '技術スタッフ（見積）', '2026-04-30', null]);
+
+  // GLS005 purchases -> episodes
+  ins(purSql, [uuidv4(), 'GLS005-001-1', PROJECTS['GLS005'], EPISODES['GLS005-001'], VENDORS['技術'], USERS.staff1, 'xpoint', '230003', 'tax10', 1, 2500000, '撮影チーム3日間', '2026-04-30', null]);
+  ins(purSql, [uuidv4(), 'GLS005-002-1', PROJECTS['GLS005'], EPISODES['GLS005-002'], VENDORS['機材'], USERS.staff2, 'xpoint', '230004', 'tax10', 1, 1800000, '特殊機材レンタル', '2026-04-30', null]);
+  ins(purSql, [uuidv4(), 'GLS005-003-1', PROJECTS['GLS005'], EPISODES['GLS005-003'], VENDORS['美術'], USERS.staff3, 'other', '530001', 'tax10', 1, 600000, 'セットデザイン', '2026-04-30', null]);
+  ins(purSql, [uuidv4(), 'GLS005-004-2', PROJECTS['GLS005'], EPISODES['GLS005-004'], VENDORS['弁当'], USERS.staff1, 'rakuraku', '147514', 'tax8', 0, 120000, 'ケータリング3日間', '2026-04-30', null]);
+
+  // GLS006 purchases -> episode GLS006-001
+  ins(purSql, [uuidv4(), 'GLS006-001-1', PROJECTS['GLS006'], EPISODES['GLS006-001'], VENDORS['配信'], USERS.staff2, 'rakuraku', '147515', 'tax10', 1, 400000, '中継システム', '2026-04-30', null]);
+
+  // GLS007 purchases -> episode GLS007-001
+  ins(purSql, [uuidv4(), 'GLS007-001-1', PROJECTS['GLS007'], EPISODES['GLS007-001'], VENDORS['技術'], USERS.staff3, 'xpoint', '230005', 'tax10', 1, 900000, '撮影チーム', '2026-04-30', null]);
+
+  // GLS008 purchases -> episode GLS008-001
+  ins(purSql, [uuidv4(), 'GLS008-001-1', PROJECTS['GLS008'], EPISODES['GLS008-001'], VENDORS['技術'], USERS.staff1, 'rakuraku', '147516', 'tax10', 1, 1000000, 'CM撮影技術チーム', '2026-03-31', null]);
+
+  // ============================================================
+  // Invoice Groups (GLS002: 4 episodes per group)
+  // ============================================================
   const igSql = `INSERT INTO invoice_groups (id, project_id, title, invoice_date, status, created_by) VALUES (?, ?, ?, ?, ?, ?)`;
   const igEpSql = `INSERT INTO invoice_group_episodes (invoice_group_id, episode_id) VALUES (?, ?)`;
+
   const ig1 = uuidv4();
-  ins(igSql, [ig1, tttvProject, '第1Q請求 (#1-#4)', '2026-03-31', 'paid', USERS.admin]);
+  ins(igSql, [ig1, PROJECTS['GLS002'], '第1Q請求 (#1-#4)', '2026-03-31', 'paid', USERS.admin]);
   for (let i = 1; i <= 4; i++) {
     ins(igEpSql, [ig1, EPISODES[`GLS002-${String(i).padStart(3, '0')}`]]);
   }
+
   const ig2 = uuidv4();
-  ins(igSql, [ig2, tttvProject, '第2Q請求 (#5-#8)', '2026-06-30', 'sent', USERS.admin]);
+  ins(igSql, [ig2, PROJECTS['GLS002'], '第2Q請求 (#5-#8)', '2026-06-30', 'sent', USERS.admin]);
   for (let i = 5; i <= 8; i++) {
     ins(igEpSql, [ig2, EPISODES[`GLS002-${String(i).padStart(3, '0')}`]]);
   }
+
   const ig3 = uuidv4();
-  ins(igSql, [ig3, tttvProject, '第3Q請求 (#9-#12)', '2026-09-30', 'draft', USERS.admin]);
+  ins(igSql, [ig3, PROJECTS['GLS002'], '第3Q請求 (#9-#12)', '2026-09-30', 'draft', USERS.admin]);
   for (let i = 9; i <= 12; i++) {
     ins(igEpSql, [ig3, EPISODES[`GLS002-${String(i).padStart(3, '0')}`]]);
   }
 
+  // ============================================================
   // Project Group - グループ株主総会 2026
+  // ============================================================
   const pgSql = `INSERT INTO project_groups (id, name, description, period_start, period_end, created_by) VALUES (?, ?, ?, ?, ?, ?)`;
   const groupId = uuidv4();
   ins(pgSql, [groupId, 'グループ株主総会 2026', 'グローバルホールディングスグループ各社の定時株主総会', '2026-03-15', '2026-03-25', USERS.admin]);
 
-  // GLS001とGLS004をグループに紐付け
+  // Link GLS001 and GLS004 to group
   execute(`UPDATE projects SET group_id = ? WHERE id = ?`, [groupId, PROJECTS['GLS001']]);
   execute(`UPDATE projects SET group_id = ? WHERE id = ?`, [groupId, PROJECTS['GLS004']]);
 
-  // グループ共通仕入(purchasesテーブルにgroup_id付きで挿入)
+  // Group purchases (group_id set, no project_id, no episode_id, no billing_key)
   const gpSql = `INSERT INTO purchases (id, group_id, vendor_id, amount, description, tax_category, invoice_qualified, recognition_date, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   const gp1 = uuidv4();
   ins(gpSql, [gp1, groupId, VENDORS['技術'], 3000000, 'スタジオ技術チーム(全社共通)', 'tax10', 1, '2026-03-31', USERS.admin]);
   const gp2 = uuidv4();
   ins(gpSql, [gp2, groupId, VENDORS['配信'], 1500000, '配信システム(全社共通)', 'tax10', 1, '2026-03-31', USERS.admin]);
 
-  // 均等按分(2社)
+  // Allocations (50/50 split between GLS001 and GLS004)
   const gpaSql = `INSERT INTO purchase_allocations (id, purchase_id, project_id, allocated_amount) VALUES (?, ?, ?, ?)`;
   ins(gpaSql, [uuidv4(), gp1, PROJECTS['GLS001'], 1500000]);
   ins(gpaSql, [uuidv4(), gp1, PROJECTS['GLS004'], 1500000]);
   ins(gpaSql, [uuidv4(), gp2, PROJECTS['GLS001'], 750000]);
   ins(gpaSql, [uuidv4(), gp2, PROJECTS['GLS004'], 750000]);
+
+  // ============================================================
+  // SGA Expenses
+  // ============================================================
+  const sgaSql = `INSERT INTO sga_expenses (id, billing_key, assigned_to, settlement_method, settlement_number, vendor_name, description, recognition_date, payment_due_date, tax_category, invoice_qualified, amount, expense_type, amortize_start, amortize_end, source, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+  // Office rent: 800,000/month, fixed, staff source, amortized 2026-01 to 2026-12
+  ins(sgaSql, [
+    uuidv4(), '20260101-1', USERS.staff1, 'other', '900001',
+    '株式会社スタジオプロパティ', 'オフィス賃料（月額）',
+    '2026-01-01', '2026-01-31', 'tax10', 1, 800000,
+    'fixed', '2026-01', '2026-12', 'staff', USERS.admin,
+  ]);
+
+  // Insurance: 300,000, spot, staff source, amortized 2026-04 to 2027-03
+  ins(sgaSql, [
+    uuidv4(), '20260401-1', USERS.staff2, 'other', '900002',
+    '東京海上日動火災保険', '事業用火災保険',
+    '2026-04-01', '2026-04-30', 'tax10', 1, 300000,
+    'spot', '2026-04', '2027-03', 'staff', USERS.admin,
+  ]);
+
+  // Meeting expense: 45,000, spot, staff source, recognition_date 2026-03-15
+  ins(sgaSql, [
+    uuidv4(), '20260315-1', USERS.staff3, 'rakuraku', '147520',
+    'ホテルニューオータニ', '顧客打ち合わせ会食費',
+    '2026-03-15', '2026-04-15', 'tax10', 1, 45000,
+    'spot', null, null, 'staff', USERS.admin,
+  ]);
+
+  // Accounting software: 120,000, spot, accounting source, recognition_date 2026-03-01
+  ins(sgaSql, [
+    uuidv4(), '20260301-1', USERS.staff1, 'other', '900003',
+    '株式会社マネーフォワード', '会計ソフト年間利用料',
+    '2026-03-01', '2026-03-31', 'tax10', 1, 120000,
+    'spot', null, null, 'accounting', USERS.admin,
+  ]);
 
   saveDb();
   console.log('Seed data inserted successfully.');
