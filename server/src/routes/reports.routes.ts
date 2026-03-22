@@ -218,7 +218,7 @@ router.get('/performance/:projectId', requireAuth, (req, res) => {
 
   // Build CSV
   const BOM = '\uFEFF';
-  const header = '案件番号,案件名,顧客名,話数コード,話数,売上予算,仕入予算,実績売上,実績仕入,粗利,粗利率(%)';
+  const header = '案件番号,案件名,顧客名,話数コード,話数,売上高,仕入予算,実績売上,実績仕入,粗利,粗利率(%)';
   const rows = episodes.map((ep: Record<string, any>) => {
     const grossProfit = (ep.actual_revenue || 0) - (ep.actual_purchase || 0);
     const marginRate = ep.actual_revenue > 0 ? Math.round((grossProfit / ep.actual_revenue) * 1000) / 10 : 0;
