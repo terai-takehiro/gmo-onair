@@ -10,11 +10,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import type { DatesSetArg, EventClickArg } from "@fullcalendar/core";
 
-const statusColorMap: Record<string, string> = {
-  tentative: "#f59e0b",
-  confirmed: "#005bac",
-  completed: "#22c55e",
-  cancelled: "#ef4444",
+const stageColorMap: Record<string, string> = {
+  neta: '#94a3b8',
+  d_hold: '#a78bfa',
+  c_proposal: '#3b82f6',
+  b_verbal: '#f59e0b',
+  a_won: '#22c55e',
+  s_completed: '#6b7280',
+  e_lost: '#ef4444',
 };
 
 const typeColorMap: Record<string, string> = {
@@ -63,7 +66,7 @@ export default function StudioCalendarPage() {
       start: string;
       end: string;
       type: string;
-      status: string;
+      stage: string;
       gls_number?: string;
       project_id?: string;
     }) => ({
@@ -71,14 +74,13 @@ export default function StudioCalendarPage() {
       title: e.gls_number ? `${e.gls_number} ${e.title}` : e.title,
       start: e.start,
       end: e.end,
-      backgroundColor: typeColorMap[e.type] || statusColorMap[e.status] || "#6b7280",
-      borderColor: typeColorMap[e.type] || statusColorMap[e.status] || "#6b7280",
+      backgroundColor: typeColorMap[e.type] || stageColorMap[e.stage] || "#6b7280",
+      borderColor: typeColorMap[e.type] || stageColorMap[e.stage] || "#6b7280",
       textColor: "#ffffff",
-      classNames: e.type === "rehearsal" ? ["opacity-75"] : [],
       extendedProps: {
         project_id: e.project_id,
         type: e.type,
-        status: e.status,
+        stage: e.stage,
       },
     })
   );
@@ -91,19 +93,11 @@ export default function StudioCalendarPage() {
       <div className="flex flex-wrap gap-4 text-sm">
         <div className="flex items-center gap-1.5">
           <div className="h-3 w-3 rounded" style={{ backgroundColor: "#f59e0b" }} />
-          <span>仮</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="h-3 w-3 rounded" style={{ backgroundColor: "#005bac" }} />
-          <span>確定</span>
+          <span>B口頭決定</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="h-3 w-3 rounded" style={{ backgroundColor: "#22c55e" }} />
-          <span>完了</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="h-3 w-3 rounded" style={{ backgroundColor: "#ef4444" }} />
-          <span>中止</span>
+          <span>A受注済</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="h-3 w-3 rounded" style={{ backgroundColor: "#8b5cf6" }} />

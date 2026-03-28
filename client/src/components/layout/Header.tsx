@@ -34,8 +34,7 @@ const stageLabelMap: Record<string, string> = {
 };
 
 interface SearchResults {
-  opportunities: Array<{ id: string; opp_code: string; title: string; stage: string }>;
-  projects: Array<{ id: string; gls_number: string; name: string; status: string }>;
+  projects: Array<{ id: string; code: string; gls_number: string | null; name: string; stage: string }>;
   customers: Array<{ id: string; name: string; short_name: string }>;
   vendors: Array<{ id: string; name: string; vendor_type: string }>;
 }
@@ -110,8 +109,7 @@ export default function Header({ title }: { title?: string }) {
 
   const hasResults =
     searchResults &&
-    (searchResults.opportunities.length > 0 ||
-      searchResults.projects.length > 0 ||
+    (searchResults.projects.length > 0 ||
       searchResults.customers.length > 0 ||
       searchResults.vendors.length > 0);
 
@@ -160,26 +158,6 @@ export default function Header({ title }: { title?: string }) {
                   </div>
                 )}
 
-                {searchResults.opportunities.length > 0 && (
-                  <div>
-                    <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground">
-                      ヨミ
-                    </div>
-                    {searchResults.opportunities.map((opp) => (
-                      <button
-                        key={opp.id}
-                        className="flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-sm hover:bg-accent text-left"
-                        onClick={() => handleResultClick(`/opportunities/${opp.id}`)}
-                      >
-                        <span className="truncate flex-1">{opp.title}</span>
-                        <Badge variant="outline" className="text-[10px] shrink-0">
-                          {stageLabelMap[opp.stage] || opp.stage}
-                        </Badge>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
                 {searchResults.projects.length > 0 && (
                   <div>
                     <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground">
@@ -189,10 +167,13 @@ export default function Header({ title }: { title?: string }) {
                       <button
                         key={proj.id}
                         className="flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-sm hover:bg-accent text-left"
-                        onClick={() => handleResultClick(`/projects/${proj.id}/episodes`)}
+                        onClick={() => handleResultClick(`/projects/${proj.id}`)}
                       >
-                        <span className="text-muted-foreground text-xs shrink-0">{proj.gls_number}</span>
+                        <span className="text-muted-foreground text-xs shrink-0">{proj.gls_number || proj.code}</span>
                         <span className="truncate flex-1">{proj.name}</span>
+                        <Badge variant="outline" className="text-[10px] shrink-0">
+                          {stageLabelMap[proj.stage] || proj.stage}
+                        </Badge>
                       </button>
                     ))}
                   </div>
@@ -242,7 +223,7 @@ export default function Header({ title }: { title?: string }) {
           )}
         </div>
 
-        <span className="text-xs text-muted-foreground">v0.1.0</span>
+        <span className="text-xs text-muted-foreground">v0.2.0</span>
         {currentUser && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

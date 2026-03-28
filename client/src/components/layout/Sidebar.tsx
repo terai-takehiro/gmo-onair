@@ -5,7 +5,6 @@ import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   LayoutDashboard,
-  TrendingUp,
   FolderKanban,
   Receipt,
   ShoppingCart,
@@ -43,11 +42,9 @@ const navSections: NavSection[] = [
   {
     title: "営業・案件管理",
     items: [
-      { label: "ヨミ管理", to: "/opportunities", icon: TrendingUp },
+      { label: "案件管理", to: "/projects", icon: FolderKanban },
       { label: "営業活動記録", to: "/activity-logs", icon: ClipboardList },
       { label: "営業レビュー", to: "/sales-review", icon: Award },
-      { label: "案件管理", to: "/projects", icon: FolderKanban },
-      { label: "案件グループ", to: "/project-groups", icon: FolderKanban },
     ],
   },
   {

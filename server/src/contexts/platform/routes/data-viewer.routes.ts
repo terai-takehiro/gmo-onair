@@ -7,11 +7,12 @@ const router = Router();
 const ALLOWED_TABLES = [
   'users', 'customers', 'vendors', 'partners',
   'pricing_categories', 'pricing_items', 'sequences',
-  'opportunities', 'opportunity_dates', 'opportunity_simulations',
-  'project_groups', 'projects', 'episodes', 'episode_orders',
+  'projects', 'episodes', 'episode_orders',
+  'simulations',
   'invoice_groups', 'invoice_group_episodes',
-  'revenues', 'purchases', 'purchase_allocations',
-  'sga_expenses', 'purchase_episode_allocations',
+  'revenues', 'purchases',
+  'sga_expenses',
+  'activity_logs', 'sales_targets',
 ];
 
 // GET /data-viewer/tables - list tables with row counts

@@ -9,19 +9,15 @@ import DashboardPage from "@/contexts/platform/pages/DashboardPage";
 import UserListPage from "@/contexts/platform/pages/UserListPage";
 import DataViewerPage from "@/contexts/platform/pages/DataViewerPage";
 
-// Sales
-import OpportunityListPage from "@/contexts/sales/pages/OpportunityListPage";
-import OpportunityFormPage from "@/contexts/sales/pages/OpportunityFormPage";
+// Sales (統合案件管理)
+import ProjectListPage from "@/contexts/sales/pages/ProjectListPage";
+import ProjectFormPage from "@/contexts/sales/pages/ProjectFormPage";
 import CustomerListPage from "@/contexts/sales/pages/CustomerListPage";
 import PricingListPage from "@/contexts/sales/pages/PricingListPage";
 import ActivityLogPage from "@/contexts/sales/pages/ActivityLogPage";
 import SalesReviewPage from "@/contexts/sales/pages/SalesReviewPage";
 
 // Production
-import ProjectListPage from "@/contexts/production/pages/ProjectListPage";
-import ProjectDetailPage from "@/contexts/production/pages/ProjectDetailPage";
-import ProjectGroupListPage from "@/contexts/production/pages/ProjectGroupListPage";
-import ProjectGroupDetailPage from "@/contexts/production/pages/ProjectGroupDetailPage";
 import EpisodeListPage from "@/contexts/production/pages/EpisodeListPage";
 import StudioCalendarPage from "@/contexts/production/pages/StudioCalendarPage";
 import VendorReportPage from "@/contexts/production/pages/VendorReportPage";
@@ -81,21 +77,25 @@ function AppRoutes() {
         <Route path="/admin/users" element={<UserListPage />} />
         <Route path="/admin/data-viewer" element={<DataViewerPage />} />
 
-        {/* Sales */}
-        <Route path="/opportunities" element={<OpportunityListPage />} />
-        <Route path="/opportunities/new" element={<OpportunityFormPage />} />
-        <Route path="/opportunities/:id" element={<OpportunityFormPage />} />
+        {/* 統合案件管理 */}
+        <Route path="/projects" element={<ProjectListPage />} />
+        <Route path="/projects/new" element={<ProjectFormPage />} />
+        <Route path="/projects/:id" element={<ProjectFormPage />} />
+        <Route path="/projects/:projectId/episodes" element={<EpisodeListPage />} />
+
+        {/* 旧URLリダイレクト */}
+        <Route path="/opportunities" element={<Navigate to="/projects" replace />} />
+        <Route path="/opportunities/*" element={<Navigate to="/projects" replace />} />
+        <Route path="/project-groups" element={<Navigate to="/projects" replace />} />
+        <Route path="/project-groups/*" element={<Navigate to="/projects" replace />} />
+
+        {/* Sales support */}
         <Route path="/masters/customers" element={<CustomerListPage />} />
         <Route path="/masters/pricing" element={<PricingListPage />} />
         <Route path="/activity-logs" element={<ActivityLogPage />} />
         <Route path="/sales-review" element={<SalesReviewPage />} />
 
         {/* Production */}
-        <Route path="/project-groups" element={<ProjectGroupListPage />} />
-        <Route path="/project-groups/:id" element={<ProjectGroupDetailPage />} />
-        <Route path="/projects" element={<ProjectListPage />} />
-        <Route path="/projects/:id" element={<ProjectDetailPage />} />
-        <Route path="/projects/:projectId/episodes" element={<EpisodeListPage />} />
         <Route path="/calendar" element={<StudioCalendarPage />} />
         <Route path="/reports/vendors" element={<VendorReportPage />} />
 

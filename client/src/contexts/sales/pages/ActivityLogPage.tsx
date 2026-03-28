@@ -27,7 +27,7 @@ const ACTIVITY_TYPES = [
 const getActivityType = (value: string) => ACTIVITY_TYPES.find(t => t.value === value) || ACTIVITY_TYPES[7];
 
 interface FormData {
-  opportunity_id: string;
+  project_id: string;
   customer_id: string;
   activity_type: string;
   activity_date: string;
@@ -39,7 +39,7 @@ interface FormData {
 }
 
 const emptyForm: FormData = {
-  opportunity_id: "", customer_id: "", activity_type: "call",
+  project_id: "", customer_id: "", activity_type: "call",
   activity_date: new Date().toISOString().split("T")[0],
   duration_minutes: "", subject: "", description: "",
   next_action: "", next_action_date: "",
@@ -74,13 +74,13 @@ export default function ActivityLogPage() {
   });
   const upcomingActions: any[] = upcomingData?.data ?? [];
 
-  // ヨミ一覧（プルダウン用）
-  const { data: oppsData } = useQuery({
-    queryKey: ["opportunities-dropdown"],
-    queryFn: async () => (await api.get("/opportunities?limit=200")).data,
+  // 案件一覧（プルダウン用）
+  const { data: projectsData } = useQuery({
+    queryKey: ["projects-dropdown"],
+    queryFn: async () => (await api.get("/projects?limit=200")).data,
     enabled: dialogOpen,
   });
-  const opportunities: any[] = oppsData?.data ?? [];
+  const projectOptions: any[] = projectsData?.data ?? [];
 
   // 顧客一覧（プルダウン用）
   const { data: custData } = useQuery({
@@ -96,7 +96,7 @@ export default function ActivityLogPage() {
       const payload = {
         ...data,
         duration_minutes: data.duration_minutes ? Number(data.duration_minutes) : null,
-        opportunity_id: data.opportunity_id || null,
+        project_id: data.project_id || null,
         customer_id: data.customer_id || null,
         next_action: data.next_action || null,
         next_action_date: data.next_action_date || null,
@@ -126,7 +126,7 @@ export default function ActivityLogPage() {
   const openEdit = (log: any) => {
     setEditingId(log.id);
     setForm({
-      opportunity_id: log.opportunity_id || "",
+      project_id: log.project_id || "",
       customer_id: log.customer_id || "",
       activity_type: log.activity_type,
       activity_date: log.activity_date,
@@ -170,8 +170,8 @@ export default function ActivityLogPage() {
                     {formatDate(a.next_action_date)}
                   </Badge>
                   <span className="truncate">{a.next_action}</span>
-                  {a.opportunity_title && (
-                    <span className="text-muted-foreground truncate">({a.opp_code})</span>
+                  {a.project_name && (
+                    <span className="text-muted-foreground truncate">({a.project_code})</span>
                   )}
                 </div>
               ))}
@@ -233,7 +233,7 @@ export default function ActivityLogPage() {
                     </TableCell>
                     <TableCell className="font-medium max-w-[200px] truncate">{log.subject}</TableCell>
                     <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">
-                      {log.opp_code ? `${log.opp_code}` : log.customer_name || "-"}
+                      {log.project_code ? `${log.project_code}` : log.customer_name || "-"}
                     </TableCell>
                     <TableCell className="text-sm">{log.performed_by_name}</TableCell>
                     <TableCell className="text-center text-sm">
@@ -311,13 +311,13 @@ export default function ActivityLogPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>ヨミ（任意）</Label>
-                <Select value={form.opportunity_id || "none"} onValueChange={(v) => setForm(f => ({ ...f, opportunity_id: v === "none" ? "" : v }))}>
+                <Label>案件（任意）</Label>
+                <Select value={form.project_id || "none"} onValueChange={(v) => setForm(f => ({ ...f, project_id: v === "none" ? "" : v }))}>
                   <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">なし</SelectItem>
-                    {opportunities.map((o: any) => (
-                      <SelectItem key={o.id} value={o.id}>{o.opp_code} {o.title}</SelectItem>
+                    {projectOptions.map((o: any) => (
+                      <SelectItem key={o.id} value={o.id}>{o.gls_number || o.code} {o.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

@@ -296,7 +296,7 @@ export default function SalesReviewPage() {
                             {p.achievement_rate}%
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right">{p.total_opportunities}</TableCell>
+                        <TableCell className="text-right">{p.total_count}</TableCell>
                         <TableCell className="text-right">{p.won_count}</TableCell>
                         <TableCell className="text-right">{p.win_rate}%</TableCell>
                         <TableCell className="text-right">{formatCurrency(p.avg_deal_size)}</TableCell>

@@ -7,33 +7,32 @@ const router = Router();
 
 router.get('/', (req, res) => {
   const { page, limit, offset, search } = extractPagination(req);
-  const opportunityId = req.query.opportunity_id as string;
-  const customerId = req.query.customer_id as string;
-  const performedBy = req.query.performed_by as string;
-  const activityType = req.query.activity_type as string;
-  const result = activityLogService.list({ search, opportunityId, customerId, performedBy, activityType }, page, limit, offset);
+  const filter = {
+    search,
+    projectId: req.query.project_id as string,
+    customerId: req.query.customer_id as string,
+    userId: req.query.user_id as string,
+    activityType: req.query.activity_type as string,
+  };
+  const result = activityLogService.list(filter, page, limit, offset);
   res.json(paginatedResponse(result.rows, result.total, result.page, result.limit));
 });
 
 router.get('/upcoming', requireAuth, (req, res) => {
   const days = parseInt(req.query.days as string) || 7;
-  const rows = activityLogService.getUpcomingActions(req.user!.id, days);
-  res.json({ success: true, data: rows });
+  res.json({ success: true, data: activityLogService.getUpcomingActions(req.user!.id, days) });
 });
 
 router.get('/:id', (req, res) => {
-  const row = activityLogService.getById(req.params.id as string);
-  res.json({ success: true, data: row });
+  res.json({ success: true, data: activityLogService.getById(req.params.id as string) });
 });
 
 router.post('/', requireAuth, (req, res) => {
-  const row = activityLogService.create(req.body, req.user!.id);
-  res.status(201).json({ success: true, data: row });
+  res.status(201).json({ success: true, data: activityLogService.create(req.body, req.user!.id) });
 });
 
 router.put('/:id', requireAuth, (req, res) => {
-  const row = activityLogService.update(req.params.id as string, req.body, req.user!.id);
-  res.json({ success: true, data: row });
+  res.json({ success: true, data: activityLogService.update(req.params.id as string, req.body) });
 });
 
 router.delete('/:id', requireAuth, (req, res) => {

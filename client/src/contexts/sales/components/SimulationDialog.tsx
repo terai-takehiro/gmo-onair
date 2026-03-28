@@ -18,6 +18,8 @@ import { Loader2, Calculator, Save, ArrowRight } from "lucide-react";
 interface SimulationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  projectId?: string;
+  /** @deprecated Use projectId instead */
   opportunityId?: string;
   onApply: (total: number) => void;
 }
@@ -51,7 +53,8 @@ const calcTypeUnit: Record<string, { qtyLabel?: string; daysLabel: string }> = {
   toggle: { daysLabel: "" },
 };
 
-export default function SimulationDialog({ open, onOpenChange, opportunityId, onApply }: SimulationDialogProps) {
+export default function SimulationDialog({ open, onOpenChange, projectId: propProjectId, opportunityId, onApply }: SimulationDialogProps) {
+  const projectId = propProjectId || opportunityId;
   const [itemStates, setItemStates] = useState<Record<string, ItemState>>({});
 
   const { data: categoriesData, isLoading: loadingCategories } = useQuery({
@@ -61,9 +64,9 @@ export default function SimulationDialog({ open, onOpenChange, opportunityId, on
   });
 
   const { data: simulationData, isLoading: loadingSimulation } = useQuery({
-    queryKey: ["simulation", opportunityId],
-    queryFn: async () => (await api.get(`/opportunities/${opportunityId}/simulation`)).data,
-    enabled: open && !!opportunityId,
+    queryKey: ["simulation", projectId],
+    queryFn: async () => (await api.get(`/projects/${projectId}/simulation`)).data,
+    enabled: open && !!projectId,
   });
 
   const categories: PricingCategory[] = categoriesData?.data ?? [];
@@ -106,7 +109,7 @@ export default function SimulationDialog({ open, onOpenChange, opportunityId, on
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!opportunityId) return;
+      if (!projectId) return;
       const items: Array<{ pricing_item_id: string; quantity: number; days: number; unit_price: number; subtotal: number }> = [];
       categories.forEach((cat) => {
         cat.items?.forEach((item) => {
@@ -121,17 +124,17 @@ export default function SimulationDialog({ open, onOpenChange, opportunityId, on
           }
         });
       });
-      await api.put(`/opportunities/${opportunityId}/simulation`, { items });
+      await api.put(`/projects/${projectId}/simulation`, { items });
     },
   });
 
   const handleApply = () => {
-    if (opportunityId) saveMutation.mutate();
+    if (projectId) saveMutation.mutate();
     onApply(total);
     onOpenChange(false);
   };
 
-  const isLoading = loadingCategories || (!!opportunityId && loadingSimulation);
+  const isLoading = loadingCategories || (!!projectId && loadingSimulation);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -269,7 +272,7 @@ export default function SimulationDialog({ open, onOpenChange, opportunityId, on
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>閉じる</Button>
-            {opportunityId && (
+            {projectId && (
               <Button variant="outline" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
                 {saveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 保存

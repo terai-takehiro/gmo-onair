@@ -47,30 +47,30 @@ function escapeHtml(str: string | null | undefined): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-// GET /reports/estimate/:opportunityId - 見積書 HTML
-router.get('/estimate/:opportunityId', requireAuth, (req, res) => {
-  const { opportunityId } = req.params;
+// GET /reports/estimate/:projectId - 見積書 HTML
+router.get('/estimate/:projectId', requireAuth, (req, res) => {
+  const { projectId } = req.params;
 
-  const opp = queryOne(
-    `SELECT o.*, c.name as customer_name FROM opportunities o
-     LEFT JOIN customers c ON c.id = o.customer_id
-     WHERE o.id = ? AND o.deleted_at IS NULL`,
-    [opportunityId]
+  const project = queryOne(
+    `SELECT p.*, c.name as customer_name FROM projects p
+     LEFT JOIN customers c ON c.id = p.customer_id
+     WHERE p.id = ? AND p.deleted_at IS NULL`,
+    [projectId]
   ) as Record<string, any> | undefined;
 
-  if (!opp) {
-    res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: '見積対象のヨミが見つかりません' } });
+  if (!project) {
+    res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: '見積対象の案件が見つかりません' } });
     return;
   }
 
   const simItems = queryAll(
-    `SELECT os.*, pi.name as item_name, pc.name as category_name
-     FROM opportunity_simulations os
-     LEFT JOIN pricing_items pi ON pi.id = os.pricing_item_id
+    `SELECT s.*, pi.name as item_name, pc.name as category_name
+     FROM simulations s
+     LEFT JOIN pricing_items pi ON pi.id = s.pricing_item_id
      LEFT JOIN pricing_categories pc ON pc.id = pi.category_id
-     WHERE os.opportunity_id = ?
+     WHERE s.project_id = ?
      ORDER BY pc.sort_order, pi.sort_order`,
-    [opportunityId]
+    [projectId]
   ) as Record<string, any>[];
 
   const totalAmount = simItems.reduce((sum: number, item: Record<string, any>) => sum + (item.subtotal || 0), 0);
@@ -93,9 +93,9 @@ router.get('/estimate/:opportunityId', requireAuth, (req, res) => {
   const body = `
     <h1>御 見 積 書</h1>
     <div class="meta">
-      <div class="meta-row"><span>見積番号: EST-${escapeHtml(opp.opp_code)}</span><span>発行日: ${today}</span></div>
-      <div class="meta-row"><span>宛先: ${escapeHtml(opp.customer_name)} 御中</span></div>
-      <div class="meta-row"><span>件名: ${escapeHtml(opp.title)}</span></div>
+      <div class="meta-row"><span>見積番号: EST-${escapeHtml(project.code)}</span><span>発行日: ${today}</span></div>
+      <div class="meta-row"><span>宛先: ${escapeHtml(project.customer_name)} 御中</span></div>
+      <div class="meta-row"><span>件名: ${escapeHtml(project.name)}</span></div>
     </div>
     <h2>見積金額: ${formatYen(grandTotal)}（税込）</h2>
     <table>
@@ -116,7 +116,7 @@ router.get('/estimate/:opportunityId', requireAuth, (req, res) => {
     </div>`;
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.send(htmlPage(`見積書 - ${opp.title}`, body));
+  res.send(htmlPage(`見積書 - ${project.name}`, body));
 });
 
 // GET /reports/invoice/:invoiceGroupId - 請求書 HTML
@@ -257,7 +257,7 @@ router.get('/performance/:projectId', requireAuth, (req, res) => {
   const csv = BOM + header + '\n' + rows.join('\n') + '\n';
 
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename=performance-${project.gls_number}.csv`);
+  res.setHeader('Content-Disposition', `attachment; filename=performance-${project.gls_number || project.code}.csv`);
   res.send(csv);
 });
 

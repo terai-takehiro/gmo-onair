@@ -164,12 +164,16 @@ export default function EpisodeListPage() {
             <span className="font-mono text-primary">{project.gls_number}</span>{" "}
             {project.name}
           </h1>
-          <Badge color="#005bac">
-            {BroadcastTypeLabels[project.broadcast_type] ?? project.broadcast_type}
-          </Badge>
-          <Badge variant="outline">
-            {MediaPlatformLabels[project.media_platform] ?? project.media_platform}
-          </Badge>
+          {project.broadcast_type && (
+            <Badge color="#005bac">
+              {BroadcastTypeLabels[project.broadcast_type as keyof typeof BroadcastTypeLabels] ?? project.broadcast_type}
+            </Badge>
+          )}
+          {project.media_platform && (
+            <Badge variant="outline">
+              {MediaPlatformLabels[project.media_platform as keyof typeof MediaPlatformLabels] ?? project.media_platform}
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -488,7 +492,7 @@ export default function EpisodeListPage() {
       <EpisodeEditDialog
         projectId={projectId!}
         episode={editEpisode}
-        broadcastType={project.broadcast_type}
+        broadcastType={project.broadcast_type as any}
         projectType={projectType}
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}

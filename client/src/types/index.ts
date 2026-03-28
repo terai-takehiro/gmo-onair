@@ -20,7 +20,8 @@ export const UserRoleLabels: Record<UserRole, string> = {
   external_client: '外部顧客',
 };
 
-export const OpportunityStage = {
+// 統合ステージ (ヨミ〜案件終了まで一本化)
+export const ProjectStage = {
   NETA: 'neta',
   D_HOLD: 'd_hold',
   C_PROPOSAL: 'c_proposal',
@@ -29,9 +30,9 @@ export const OpportunityStage = {
   S_COMPLETED: 's_completed',
   E_LOST: 'e_lost',
 } as const;
-export type OpportunityStage = (typeof OpportunityStage)[keyof typeof OpportunityStage];
+export type ProjectStage = (typeof ProjectStage)[keyof typeof ProjectStage];
 
-export const OpportunityStageLabels: Record<OpportunityStage, string> = {
+export const ProjectStageLabels: Record<ProjectStage, string> = {
   neta: 'ネタ',
   d_hold: 'D 仮押さえ',
   c_proposal: 'C 見積提案済',
@@ -41,7 +42,7 @@ export const OpportunityStageLabels: Record<OpportunityStage, string> = {
   e_lost: 'E 失注',
 };
 
-export const OpportunityStageColors: Record<OpportunityStage, string> = {
+export const ProjectStageColors: Record<ProjectStage, string> = {
   neta: '#94a3b8',
   d_hold: '#a78bfa',
   c_proposal: '#3b82f6',
@@ -51,17 +52,25 @@ export const OpportunityStageColors: Record<OpportunityStage, string> = {
   e_lost: '#ef4444',
 };
 
-export const OpportunityStageProbability: Record<OpportunityStage, number> = {
+export const ProjectStageProbability: Record<ProjectStage, number> = {
   neta: 0, d_hold: 20, c_proposal: 40,
   b_verbal: 80, a_won: 100, s_completed: 100, e_lost: 0,
 };
 
-export const OPPORTUNITY_STAGES = Object.entries(OpportunityStageLabels).map(([value, label]) => ({
-  value: value as OpportunityStage,
+export const PROJECT_STAGES = Object.entries(ProjectStageLabels).map(([value, label]) => ({
+  value: value as ProjectStage,
   label,
-  color: OpportunityStageColors[value as OpportunityStage],
-  probability: OpportunityStageProbability[value as OpportunityStage],
+  color: ProjectStageColors[value as ProjectStage],
+  probability: ProjectStageProbability[value as ProjectStage],
 }));
+
+// Backward compat aliases
+export const OpportunityStage = ProjectStage;
+export type OpportunityStage = ProjectStage;
+export const OpportunityStageLabels = ProjectStageLabels;
+export const OpportunityStageColors = ProjectStageColors;
+export const OpportunityStageProbability = ProjectStageProbability;
+export const OPPORTUNITY_STAGES = PROJECT_STAGES;
 
 // 案件種類
 export const ProjectType = {
@@ -101,28 +110,6 @@ export const CalcTypeLabels: Record<CalcType, string> = {
   days_qty: '台数×日数×単価',
   days_people: '人数×日数×単価',
   toggle: '有無×単価',
-};
-
-export const ProjectStatus = {
-  TENTATIVE: 'tentative',
-  CONFIRMED: 'confirmed',
-  COMPLETED: 'completed',
-  CANCELLED: 'cancelled',
-} as const;
-export type ProjectStatus = (typeof ProjectStatus)[keyof typeof ProjectStatus];
-
-export const ProjectStatusLabels: Record<ProjectStatus, string> = {
-  tentative: '仮',
-  confirmed: '確定',
-  completed: '完了',
-  cancelled: '中止',
-};
-
-export const ProjectStatusColors: Record<ProjectStatus, string> = {
-  tentative: '#f59e0b',
-  confirmed: '#005bac',
-  completed: '#22c55e',
-  cancelled: '#ef4444',
 };
 
 export const TaxCategory = {
@@ -245,30 +232,31 @@ export interface Partner extends BaseEntity {
   notes: string | null;
 }
 
-export interface Opportunity extends BaseEntity {
-  opp_code: string;
-  title: string;
+// 統合プロジェクト (ヨミ + 案件 = 1テーブル)
+export interface Project extends BaseEntity {
+  code: string;
+  gls_number: string | null;
+  name: string;
   customer_id: string;
+  stage: ProjectStage;
   project_type: ProjectType;
   project_type_other: string | null;
-  stage: OpportunityStage;
   expected_amount: number;
-  expected_date: string | null;
-  project_id: string | null;
+  event_start: string | null;
+  event_end: string | null;
+  broadcast_type: string | null;
+  media_platform: string | null;
   assigned_to: string;
+  tags: string;
+  lost_reason: string | null;
+  lost_reason_note: string | null;
+  application_form: boolean;
+  logo_permission: boolean;
   notes: string | null;
+  // joined fields
   customer_name?: string;
   assigned_to_name?: string;
-  dates?: OpportunityDate[];
-}
-
-export interface OpportunityDate {
-  id: string;
-  opportunity_id: string;
-  date_start: string;
-  date_end: string | null;
-  label: string | null;
-  sort_order: number;
+  episode_count?: number;
 }
 
 export interface PricingCategory extends BaseEntity {
@@ -288,7 +276,7 @@ export interface PricingItem extends BaseEntity {
 
 export interface SimulationItem {
   id: string;
-  opportunity_id: string;
+  project_id: string;
   pricing_item_id: string;
   quantity: number;
   days: number;
@@ -297,46 +285,6 @@ export interface SimulationItem {
   item_name?: string;
   category_name?: string;
   calc_type?: CalcType;
-}
-
-// 案件グループ
-export interface ProjectGroup extends BaseEntity {
-  name: string;
-  description: string | null;
-  period_start: string | null;
-  period_end: string | null;
-  project_count?: number;
-  total_group_purchase?: number;
-}
-
-export interface PurchaseAllocation {
-  id: string;
-  purchase_id: string;
-  project_id: string;
-  allocated_amount: number;
-  project_name?: string;
-  gls_number?: string;
-}
-
-export interface Project extends BaseEntity {
-  gls_number: string;
-  name: string;
-  customer_id: string;
-  group_id: string | null;
-  rehearsal_start: string | null;
-  rehearsal_end: string | null;
-  event_start: string | null;
-  event_end: string | null;
-  status: ProjectStatus;
-  broadcast_type: BroadcastType;
-  media_platform: MediaPlatform;
-  application_form: boolean;
-  logo_permission: boolean;
-  notes: string | null;
-  customer_name?: string;
-  episode_count?: number;
-  group_name?: string;
-  group_allocated_cost?: number;
 }
 
 // 話数(エピソード)
@@ -413,24 +361,14 @@ export interface SgaExpense extends BaseEntity {
   source: 'staff' | 'accounting';
 }
 
-export interface PurchaseEpisodeAllocation {
-  id: string;
-  purchase_id: string;
-  episode_id: string;
-  allocated_amount: number;
-  episode_code?: string;
-}
-
 export interface Purchase extends BaseEntity {
   billing_key: string | null;
   project_id: string;
-  group_id: string | null;
   episode_id: string | null;
   vendor_id: string;
   assigned_to: string | null;
   settlement_method: SettlementMethod | null;
   settlement_number: string | null;
-  external_ref_id: string | null;
   tax_category: TaxCategory;
   invoice_qualified: boolean;
   amount: number;
@@ -440,8 +378,9 @@ export interface Purchase extends BaseEntity {
   payment_due_date: string | null;
   notes: string | null;
   project_name?: string;
+  gls_number?: string;
   vendor_name?: string;
-  allocation_count?: number;
+  episode_code?: string;
 }
 
 // ---------- API Response Types ----------
@@ -475,10 +414,16 @@ export interface ProjectSummary {
 }
 
 export interface DashboardKpi {
+  period_label: string;
   monthly_revenue: number;
+  monthly_purchase: number;
+  monthly_sga: number;
+  gross_profit: number;
   monthly_gross_margin: number;
+  operating_profit: number;
+  operating_margin: number;
   active_projects: number;
-  active_opportunities: number;
+  active_yomi: number;
 }
 
 export interface CalendarEvent {
@@ -486,8 +431,8 @@ export interface CalendarEvent {
   title: string;
   start: string;
   end: string;
-  type: 'rehearsal' | 'event';
-  status: ProjectStatus;
+  type: 'event' | 'recording' | 'broadcast';
+  stage: ProjectStage;
   gls_number: string;
   project_id: string;
 }

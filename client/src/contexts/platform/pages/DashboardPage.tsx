@@ -32,7 +32,7 @@ interface KPI {
   operating_profit: number;
   operating_margin: number;
   active_projects: number;
-  active_opportunities: number;
+  active_yomi: number;
 }
 
 interface Alert {
@@ -48,7 +48,7 @@ interface Project {
   gls_number: string;
   name: string;
   customer_name?: string;
-  status: string;
+  stage: string;
 }
 
 interface MonthlyChart {
@@ -83,18 +83,14 @@ const alertTypeColor: Record<string, string> = {
   info: "#3b82f6",
 };
 
-const statusLabel: Record<string, string> = {
-  tentative: "仮",
-  confirmed: "確定",
-  completed: "完了",
-  cancelled: "中止",
+const projectStageLabel: Record<string, string> = {
+  neta: 'ネタ', d_hold: 'D 仮押さえ', c_proposal: 'C 見積提案',
+  b_verbal: 'B 口頭決定', a_won: 'A 受注済', s_completed: 'S 完了', e_lost: 'E 失注',
 };
 
-const statusColor: Record<string, string> = {
-  tentative: "#f59e0b",
-  confirmed: "#005bac",
-  completed: "#22c55e",
-  cancelled: "#ef4444",
+const projectStageColor: Record<string, string> = {
+  neta: '#94a3b8', d_hold: '#a78bfa', c_proposal: '#3b82f6',
+  b_verbal: '#f59e0b', a_won: '#22c55e', s_completed: '#6b7280', e_lost: '#ef4444',
 };
 
 export default function DashboardPage() {
@@ -140,20 +136,17 @@ export default function DashboardPage() {
 
   const typeColors: Record<string, string> = {
     event: 'bg-blue-500',
-    rehearsal: 'bg-amber-500',
     recording: 'bg-purple-500',
     broadcast: 'bg-cyan-500',
   };
   const typeLabels: Record<string, string> = {
     event: '本番',
-    rehearsal: 'リハ',
     recording: '収録',
     broadcast: '放送',
   };
 
 
   const quickLinks = [
-    { label: "ヨミ管理", to: "/opportunities", icon: TrendingUp },
     { label: "案件管理", to: "/projects", icon: FolderKanban },
     { label: "売上一覧", to: "/revenues", icon: Receipt },
     { label: "仕入一覧", to: "/purchases", icon: ShoppingCart },
@@ -249,7 +242,7 @@ export default function DashboardPage() {
               </div>
               <div className="p-4 text-center border-r">
                 <p className="text-xs text-muted-foreground">アクティブヨミ</p>
-                <p className="text-2xl font-bold text-orange-600">{kpi.active_opportunities}</p>
+                <p className="text-2xl font-bold text-orange-600">{kpi.active_yomi}</p>
               </div>
               <div className="p-4 text-center border-r">
                 <p className="text-xs text-muted-foreground">粗利率</p>
@@ -439,8 +432,8 @@ export default function DashboardPage() {
                         <p className="text-xs text-muted-foreground">{p.customer_name}</p>
                       )}
                     </div>
-                    <Badge color={statusColor[p.status]}>
-                      {statusLabel[p.status] || p.status}
+                    <Badge style={{ backgroundColor: projectStageColor[p.stage], color: '#fff' }}>
+                      {projectStageLabel[p.stage] || p.stage}
                     </Badge>
                   </div>
                 ))}

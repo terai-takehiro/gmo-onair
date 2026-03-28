@@ -9,20 +9,15 @@ router.get('/', requireAuth, (req, res) => {
   const q = req.query.q as string;
 
   if (!q || q.length < 1) {
-    res.json({ success: true, data: { opportunities: [], projects: [], customers: [], vendors: [] } });
+    res.json({ success: true, data: { projects: [], customers: [], vendors: [] } });
     return;
   }
 
   const like = `%${q}%`;
 
-  const opportunities = queryAll(
-    `SELECT id, opp_code, title, stage FROM opportunities WHERE (title LIKE ? OR opp_code LIKE ?) AND deleted_at IS NULL LIMIT 5`,
-    [like, like]
-  );
-
   const projects = queryAll(
-    `SELECT id, gls_number, name, status FROM projects WHERE (name LIKE ? OR gls_number LIKE ?) AND deleted_at IS NULL LIMIT 5`,
-    [like, like]
+    `SELECT id, code, gls_number, name, stage FROM projects WHERE (name LIKE ? OR code LIKE ? OR gls_number LIKE ?) AND deleted_at IS NULL LIMIT 10`,
+    [like, like, like]
   );
 
   const customers = queryAll(
@@ -35,7 +30,7 @@ router.get('/', requireAuth, (req, res) => {
     [like, like]
   );
 
-  res.json({ success: true, data: { opportunities, projects, customers, vendors } });
+  res.json({ success: true, data: { projects, customers, vendors } });
 });
 
 export default router;
