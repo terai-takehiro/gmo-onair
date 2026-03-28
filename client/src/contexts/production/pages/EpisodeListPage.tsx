@@ -206,37 +206,76 @@ export default function EpisodeListPage() {
             <div className="flex justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
+          ) : episodes.length === 0 ? (
+            <p className="py-8 text-center text-muted-foreground">データがありません</p>
           ) : (
-            <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">#</TableHead>
-                  <TableHead>エピソードコード</TableHead>
-                  <TableHead>{dateLabels.recording}</TableHead>
-                  <TableHead>{dateLabels.broadcast}</TableHead>
-                  <TableHead>{dateLabels.delivery}</TableHead>
-                  <TableHead className="text-right">売上高</TableHead>
-                  <TableHead className="text-right">仕入実績</TableHead>
-                  <TableHead className="w-28">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {episodes.length === 0 ? (
+            <>
+              {/* Mobile cards */}
+              <div className="space-y-2 lg:hidden">
+                {episodes.map((ep) => (
+                  <div
+                    key={ep.id}
+                    className="rounded-lg border p-3 transition-colors hover:bg-muted/50 active:bg-muted"
+                    onClick={() => { setEditEpisode(ep); setEditDialogOpen(true); }}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-sm font-medium">{ep.episode_code}</span>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setEditEpisode(ep); setEditDialogOpen(true); }}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setPurchaseEpisode(ep); setPurchaseDialogOpen(true); }}>
+                          <ShoppingCart className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); if (confirm("この話数を削除しますか？")) deleteEpisodeMutation.mutate(ep.id); }}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                      {ep.recording_date && <span>{dateLabels.recording}: {formatDate(ep.recording_date)}</span>}
+                      {ep.broadcast_date && <span>{dateLabels.broadcast}: {formatDate(ep.broadcast_date)}</span>}
+                    </div>
+                    <div className="mt-2 flex items-center gap-3">
+                      <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-sm ${(ep.revenue_count ?? 0) > 0 ? 'bg-blue-50 text-blue-700' : 'text-muted-foreground'}`}>
+                        <span className="text-[10px]">売上</span>
+                        <span className="font-number font-medium">{formatCurrency(ep.actual_revenue ?? 0)}</span>
+                        {(ep.revenue_count ?? 0) > 0 && <span className="text-[10px] opacity-70">({ep.revenue_count}件)</span>}
+                      </span>
+                      <button
+                        className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-sm ${(ep.purchase_count ?? 0) > 0 ? 'bg-orange-50 text-orange-700' : 'text-muted-foreground'}`}
+                        onClick={(e) => { e.stopPropagation(); setPurchaseEpisode(ep); setPurchaseDialogOpen(true); }}
+                      >
+                        <span className="text-[10px]">仕入</span>
+                        <span className="font-number font-medium">{formatCurrency(ep.actual_cost ?? 0)}</span>
+                        {(ep.purchase_count ?? 0) > 0 && <span className="text-[10px] opacity-70">({ep.purchase_count}件)</span>}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden lg:block overflow-x-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground">
-                      データがありません
-                    </TableCell>
+                    <TableHead className="w-12">#</TableHead>
+                    <TableHead>エピソードコード</TableHead>
+                    <TableHead>{dateLabels.recording}</TableHead>
+                    <TableHead>{dateLabels.broadcast}</TableHead>
+                    <TableHead>{dateLabels.delivery}</TableHead>
+                    <TableHead className="text-right">売上高</TableHead>
+                    <TableHead className="text-right">仕入実績</TableHead>
+                    <TableHead className="w-28">操作</TableHead>
                   </TableRow>
-                ) : (
-                  episodes.map((ep) => (
+                </TableHeader>
+                <TableBody>
+                  {episodes.map((ep) => (
                     <TableRow
                       key={ep.id}
                       className="cursor-pointer"
-                      onClick={() => {
-                        setEditEpisode(ep);
-                        setEditDialogOpen(true);
-                      }}
+                      onClick={() => { setEditEpisode(ep); setEditDialogOpen(true); }}
                     >
                       <TableCell>{ep.episode_number}</TableCell>
                       <TableCell className="font-mono text-sm">{ep.episode_code}</TableCell>
@@ -244,86 +283,34 @@ export default function EpisodeListPage() {
                       <TableCell>{formatDate(ep.broadcast_date)}</TableCell>
                       <TableCell>{formatDate(ep.delivery_date)}</TableCell>
                       <TableCell className="text-right">
-                        <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-sm ${
-                          (ep.revenue_count ?? 0) > 0 ? 'bg-blue-50 text-blue-700' : 'text-muted-foreground'
-                        }`}>
+                        <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-sm ${(ep.revenue_count ?? 0) > 0 ? 'bg-blue-50 text-blue-700' : 'text-muted-foreground'}`}>
                           <span className="font-number">{formatCurrency(ep.actual_revenue ?? 0)}</span>
-                          {(ep.revenue_count ?? 0) > 0 && (
-                            <span className="text-xs opacity-70">({ep.revenue_count}件)</span>
-                          )}
+                          {(ep.revenue_count ?? 0) > 0 && <span className="text-xs opacity-70">({ep.revenue_count}件)</span>}
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
                         <button
-                          className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-sm transition-colors ${
-                            (ep.purchase_count ?? 0) > 0
-                              ? 'bg-orange-50 text-orange-700 hover:bg-orange-100 cursor-pointer'
-                              : 'text-muted-foreground'
-                          }`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if ((ep.purchase_count ?? 0) > 0 || true) {
-                              setPurchaseEpisode(ep);
-                              setPurchaseDialogOpen(true);
-                            }
-                          }}
-                          title="クリックで仕入詳細を表示"
+                          className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-sm transition-colors ${(ep.purchase_count ?? 0) > 0 ? 'bg-orange-50 text-orange-700 hover:bg-orange-100 cursor-pointer' : 'text-muted-foreground'}`}
+                          onClick={(e) => { e.stopPropagation(); setPurchaseEpisode(ep); setPurchaseDialogOpen(true); }}
                         >
                           <span className="font-number">{formatCurrency(ep.actual_cost ?? 0)}</span>
-                          {(ep.purchase_count ?? 0) > 0 && (
-                            <span className="text-xs opacity-70">({ep.purchase_count}件)</span>
-                          )}
+                          {(ep.purchase_count ?? 0) > 0 && <span className="text-xs opacity-70">({ep.purchase_count}件)</span>}
                           <ShoppingCart className="h-3 w-3 opacity-50" />
                         </button>
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditEpisode(ep);
-                              setEditDialogOpen(true);
-                            }}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setPurchaseEpisode(ep);
-                              setPurchaseDialogOpen(true);
-                            }}
-                            title="仕入管理"
-                          >
-                            <ShoppingCart className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-destructive"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (confirm("この話数を削除しますか？")) {
-                                deleteEpisodeMutation.mutate(ep.id);
-                              }
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setEditEpisode(ep); setEditDialogOpen(true); }}><Pencil className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setPurchaseEpisode(ep); setPurchaseDialogOpen(true); }} title="仕入管理"><ShoppingCart className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={(e) => { e.stopPropagation(); if (confirm("この話数を削除しますか？")) deleteEpisodeMutation.mutate(ep.id); }}><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-            </div>
+                  ))}
+                </TableBody>
+              </Table>
+              </div>
+            </>
           )}
         </TabsContent>
 
@@ -333,27 +320,52 @@ export default function EpisodeListPage() {
             <div className="flex justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
+          ) : orders.length === 0 ? (
+            <p className="py-8 text-center text-muted-foreground">データがありません</p>
           ) : (
-            <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>発注日</TableHead>
-                  <TableHead>話数</TableHead>
-                  <TableHead>範囲</TableHead>
-                  <TableHead>メモ</TableHead>
-                  <TableHead className="w-16">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {orders.length === 0 ? (
+            <>
+              {/* Mobile cards */}
+              <div className="space-y-2 lg:hidden">
+                {orders.map((o) => (
+                  <div key={o.id} className="rounded-lg border p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-sm font-medium">#{o.start_episode}~#{o.end_episode}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">({o.episode_count}話)</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive"
+                        onClick={() => {
+                          if (confirm("この発注履歴を削除しますか？")) deleteOrderMutation.mutate(o.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      発注日: {formatDate(o.order_date)}
+                    </div>
+                    {o.notes && <p className="mt-1 text-xs text-muted-foreground truncate">{o.notes}</p>}
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden lg:block overflow-x-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground">
-                      データがありません
-                    </TableCell>
+                    <TableHead>発注日</TableHead>
+                    <TableHead>話数</TableHead>
+                    <TableHead>範囲</TableHead>
+                    <TableHead>メモ</TableHead>
+                    <TableHead className="w-16">操作</TableHead>
                   </TableRow>
-                ) : (
-                  orders.map((o) => (
+                </TableHeader>
+                <TableBody>
+                  {orders.map((o) => (
                     <TableRow key={o.id}>
                       <TableCell>{formatDate(o.order_date)}</TableCell>
                       <TableCell>{o.episode_count}</TableCell>
@@ -367,20 +379,18 @@ export default function EpisodeListPage() {
                           size="icon"
                           className="h-7 w-7 text-destructive"
                           onClick={() => {
-                            if (confirm("この発注履歴を削除しますか？")) {
-                              deleteOrderMutation.mutate(o.id);
-                            }
+                            if (confirm("この発注履歴を削除しますか？")) deleteOrderMutation.mutate(o.id);
                           }}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-            </div>
+                  ))}
+                </TableBody>
+              </Table>
+              </div>
+            </>
           )}
         </TabsContent>
 
@@ -415,27 +425,50 @@ export default function EpisodeListPage() {
             <div className="flex justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
+          ) : invoiceGroups.length === 0 ? (
+            <p className="py-8 text-center text-muted-foreground">データがありません</p>
           ) : (
-            <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>グループ名</TableHead>
-                  <TableHead>話数</TableHead>
-                  <TableHead className="text-right">合計額</TableHead>
-                  <TableHead>ステータス</TableHead>
-                  <TableHead className="w-24">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {invoiceGroups.length === 0 ? (
+            <>
+              {/* Mobile cards */}
+              <div className="space-y-2 lg:hidden">
+                {invoiceGroups.map((ig) => (
+                  <div key={ig.id} className="rounded-lg border p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-sm truncate">{ig.title}</span>
+                      <div className="flex gap-1 shrink-0">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditInvoiceGroup(ig); setInvoiceGroupDialogOpen(true); }}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => { if (confirm("この請求グループを削除しますか？")) deleteIgMutation.mutate(ig.id); }}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="mt-1 flex items-center gap-3 text-sm">
+                      <span className="text-xs text-muted-foreground">{ig.episode_count ?? ig.episodes?.length ?? 0}話</span>
+                      <span className="font-number font-medium">{formatCurrency(ig.total_amount)}</span>
+                      <Badge color={InvoiceGroupStatusColors[ig.status]}>
+                        {InvoiceGroupStatusLabels[ig.status]}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden lg:block overflow-x-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground">
-                      データがありません
-                    </TableCell>
+                    <TableHead>グループ名</TableHead>
+                    <TableHead>話数</TableHead>
+                    <TableHead className="text-right">合計額</TableHead>
+                    <TableHead>ステータス</TableHead>
+                    <TableHead className="w-24">操作</TableHead>
                   </TableRow>
-                ) : (
-                  invoiceGroups.map((ig) => (
+                </TableHeader>
+                <TableBody>
+                  {invoiceGroups.map((ig) => (
                     <TableRow key={ig.id}>
                       <TableCell className="font-medium">{ig.title}</TableCell>
                       <TableCell>{ig.episode_count ?? ig.episodes?.length ?? 0}</TableCell>
@@ -449,37 +482,20 @@ export default function EpisodeListPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => {
-                              setEditInvoiceGroup(ig);
-                              setInvoiceGroupDialogOpen(true);
-                            }}
-                          >
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditInvoiceGroup(ig); setInvoiceGroupDialogOpen(true); }}>
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-destructive"
-                            onClick={() => {
-                              if (confirm("この請求グループを削除しますか？")) {
-                                deleteIgMutation.mutate(ig.id);
-                              }
-                            }}
-                          >
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => { if (confirm("この請求グループを削除しますか？")) deleteIgMutation.mutate(ig.id); }}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-            </div>
+                  ))}
+                </TableBody>
+              </Table>
+              </div>
+            </>
           )}
         </TabsContent>
 

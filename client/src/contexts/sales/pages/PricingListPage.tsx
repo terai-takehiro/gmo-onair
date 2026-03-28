@@ -362,68 +362,72 @@ export default function PricingListPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>項目名</TableHead>
-                    <TableHead>サブラベル</TableHead>
-                    <TableHead className="text-right">単価</TableHead>
-                    <TableHead>計算タイプ</TableHead>
-                    <TableHead className="w-24"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(cat.items ?? []).length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={5}
-                        className="text-center text-muted-foreground"
-                      >
-                        項目がありません
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    (cat.items ?? []).map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-medium">
-                          {item.name}
-                        </TableCell>
-                        <TableCell>{item.sub_label || "-"}</TableCell>
-                        <TableCell className="text-right font-number">
-                          {formatCurrency(item.unit_price)}
-                        </TableCell>
-                        <TableCell>
-                          {CalcTypeLabels[item.calc_type]}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => openEditItem(cat.id, item)}
-                            >
+              {(cat.items ?? []).length === 0 ? (
+                <p className="py-4 text-center text-sm text-muted-foreground">項目がありません</p>
+              ) : (
+                <>
+                  {/* Mobile cards */}
+                  <div className="space-y-2 lg:hidden">
+                    {(cat.items ?? []).map((item) => (
+                      <div key={item.id} className="rounded-lg border p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <span className="text-sm font-medium">{item.name}</span>
+                            {item.sub_label && <span className="ml-1 text-xs text-muted-foreground">({item.sub_label})</span>}
+                          </div>
+                          <div className="flex gap-1 shrink-0">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditItem(cat.id, item)}>
                               <Pencil className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive"
-                              onClick={() =>
-                                deleteItemMutation.mutate(item.id)
-                              }
-                            >
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteItemMutation.mutate(item.id)}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
-                        </TableCell>
+                        </div>
+                        <div className="mt-1 flex items-center gap-3 text-sm">
+                          <span className="font-number font-medium">{formatCurrency(item.unit_price)}</span>
+                          <span className="text-xs text-muted-foreground">{CalcTypeLabels[item.calc_type]}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Desktop table */}
+                  <div className="hidden lg:block overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>項目名</TableHead>
+                        <TableHead>サブラベル</TableHead>
+                        <TableHead className="text-right">単価</TableHead>
+                        <TableHead>計算タイプ</TableHead>
+                        <TableHead className="w-24"></TableHead>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {(cat.items ?? []).map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-medium">{item.name}</TableCell>
+                          <TableCell>{item.sub_label || "-"}</TableCell>
+                          <TableCell className="text-right font-number">{formatCurrency(item.unit_price)}</TableCell>
+                          <TableCell>{CalcTypeLabels[item.calc_type]}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditItem(cat.id, item)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteItemMutation.mutate(item.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  </div>
+                </>
+              )}
               <div className="mt-2">
                 <Button
                   variant="outline"

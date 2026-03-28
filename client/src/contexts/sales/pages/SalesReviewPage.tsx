@@ -273,40 +273,79 @@ export default function SalesReviewPage() {
                   データがありません。目標を設定するか、ヨミを登録してください。
                 </p>
               ) : (
-                <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>担当者</TableHead>
-                      <TableHead className="text-right">目標金額</TableHead>
-                      <TableHead className="text-right">受注金額</TableHead>
-                      <TableHead className="text-right">達成率</TableHead>
-                      <TableHead className="text-right">ヨミ数</TableHead>
-                      <TableHead className="text-right">受注数</TableHead>
-                      <TableHead className="text-right">受注率</TableHead>
-                      <TableHead className="text-right">平均単価</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                <>
+                  {/* Mobile cards */}
+                  <div className="space-y-3 lg:hidden">
                     {performance.map((p: any) => (
-                      <TableRow key={p.user_id}>
-                        <TableCell className="font-medium">{p.user_name}</TableCell>
-                        <TableCell className="text-right font-number">{formatCurrency(p.target_amount)}</TableCell>
-                        <TableCell className="text-right font-medium font-number">{formatCurrency(p.won_amount)}</TableCell>
-                        <TableCell className="text-right">
+                      <div key={p.user_id} className="rounded-lg border p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">{p.user_name}</span>
                           <Badge variant={p.achievement_rate >= 100 ? "default" : p.achievement_rate >= 70 ? "secondary" : "destructive"}>
-                            {p.achievement_rate}%
+                            達成率 {p.achievement_rate}%
                           </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">{p.total_count}</TableCell>
-                        <TableCell className="text-right">{p.won_count}</TableCell>
-                        <TableCell className="text-right">{p.win_rate}%</TableCell>
-                        <TableCell className="text-right font-number">{formatCurrency(p.avg_deal_size)}</TableCell>
-                      </TableRow>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <span className="text-xs text-muted-foreground">目標金額</span>
+                            <p className="font-number font-medium">{formatCurrency(p.target_amount)}</p>
+                          </div>
+                          <div>
+                            <span className="text-xs text-muted-foreground">受注金額</span>
+                            <p className="font-number font-medium text-primary">{formatCurrency(p.won_amount)}</p>
+                          </div>
+                          <div>
+                            <span className="text-xs text-muted-foreground">ヨミ数 / 受注数</span>
+                            <p>{p.total_count}件 / {p.won_count}件</p>
+                          </div>
+                          <div>
+                            <span className="text-xs text-muted-foreground">受注率</span>
+                            <p>{p.win_rate}%</p>
+                          </div>
+                          <div className="col-span-2">
+                            <span className="text-xs text-muted-foreground">平均単価</span>
+                            <p className="font-number">{formatCurrency(p.avg_deal_size)}</p>
+                          </div>
+                        </div>
+                      </div>
                     ))}
-                  </TableBody>
-                </Table>
-                </div>
+                  </div>
+
+                  {/* Desktop table */}
+                  <div className="hidden lg:block overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>担当者</TableHead>
+                        <TableHead className="text-right">目標金額</TableHead>
+                        <TableHead className="text-right">受注金額</TableHead>
+                        <TableHead className="text-right">達成率</TableHead>
+                        <TableHead className="text-right">ヨミ数</TableHead>
+                        <TableHead className="text-right">受注数</TableHead>
+                        <TableHead className="text-right">受注率</TableHead>
+                        <TableHead className="text-right">平均単価</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {performance.map((p: any) => (
+                        <TableRow key={p.user_id}>
+                          <TableCell className="font-medium">{p.user_name}</TableCell>
+                          <TableCell className="text-right font-number">{formatCurrency(p.target_amount)}</TableCell>
+                          <TableCell className="text-right font-medium font-number">{formatCurrency(p.won_amount)}</TableCell>
+                          <TableCell className="text-right">
+                            <Badge variant={p.achievement_rate >= 100 ? "default" : p.achievement_rate >= 70 ? "secondary" : "destructive"}>
+                              {p.achievement_rate}%
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">{p.total_count}</TableCell>
+                          <TableCell className="text-right">{p.won_count}</TableCell>
+                          <TableCell className="text-right">{p.win_rate}%</TableCell>
+                          <TableCell className="text-right font-number">{formatCurrency(p.avg_deal_size)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>

@@ -168,6 +168,68 @@ export default function SimulationDialog({ open, onOpenChange, projectId: propPr
                       </Badge>
                     )}
                   </div>
+
+                  {/* Mobile card layout */}
+                  <div className="space-y-0 divide-y sm:hidden">
+                    {(cat.items ?? []).map((item) => {
+                      const state = itemStates[item.id];
+                      if (!state) return null;
+                      const subtotal = calcSubtotal(item.calc_type, state);
+                      const units = calcTypeUnit[item.calc_type] || {};
+                      const showQty = item.calc_type === 'days_qty' || item.calc_type === 'days_people';
+                      const showDays = item.calc_type === 'days' || item.calc_type === 'hours' || item.calc_type === 'days_qty' || item.calc_type === 'days_people';
+
+                      return (
+                        <div key={item.id} className={`p-3 ${state.checked ? 'bg-primary/5' : 'opacity-60'}`}>
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              checked={state.checked}
+                              onCheckedChange={(checked) => updateItem(item.id, { checked: !!checked })}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium">{item.name}</div>
+                              {item.sub_label && <div className="text-xs text-muted-foreground">{item.sub_label}</div>}
+                            </div>
+                            <span className="font-number text-sm shrink-0">
+                              {state.checked ? (
+                                <span className="font-semibold text-primary">{formatCurrency(subtotal)}</span>
+                              ) : '-'}
+                            </span>
+                          </div>
+                          {state.checked && (showQty || showDays) && (
+                            <div className="mt-2 flex items-center gap-3 pl-7">
+                              {showQty && (
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    type="number" min={0}
+                                    value={state.quantity}
+                                    onChange={(e) => updateItem(item.id, { quantity: Number(e.target.value) || 0 })}
+                                    className="h-7 w-14 text-center text-sm"
+                                  />
+                                  <span className="text-xs text-muted-foreground">{units.qtyLabel}</span>
+                                </div>
+                              )}
+                              {showDays && (
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    type="number" min={0}
+                                    value={state.days}
+                                    onChange={(e) => updateItem(item.id, { days: Number(e.target.value) || 0 })}
+                                    className="h-7 w-14 text-center text-sm"
+                                  />
+                                  <span className="text-xs text-muted-foreground">{units.daysLabel}</span>
+                                </div>
+                              )}
+                              <span className="text-xs text-muted-foreground ml-auto">@{formatCurrency(state.unitPrice)}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Desktop table */}
+                  <div className="hidden sm:block">
                   <Table>
                     <TableHeader>
                       <TableRow className="text-xs">
@@ -251,6 +313,7 @@ export default function SimulationDialog({ open, onOpenChange, projectId: propPr
                       })}
                     </TableBody>
                   </Table>
+                  </div>
                 </div>
               ))}
             </div>

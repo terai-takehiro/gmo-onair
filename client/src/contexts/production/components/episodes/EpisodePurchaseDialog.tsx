@@ -164,35 +164,60 @@ export default function EpisodePurchaseDialog({
           <DialogTitle>仕入管理 - {episodeCode}</DialogTitle>
         </DialogHeader>
 
-        {/* Existing purchases table */}
+        {/* Existing purchases */}
         {purchasesLoading ? (
           <div className="flex justify-center py-4">
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
           </div>
+        ) : purchases.length === 0 ? (
+          <p className="py-4 text-center text-sm text-muted-foreground">仕入データなし</p>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>請求KEY</TableHead>
-                <TableHead>仕入先</TableHead>
-                <TableHead>説明</TableHead>
-                <TableHead>精算No.</TableHead>
-                <TableHead className="text-right">金額</TableHead>
-                <TableHead className="w-12"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {purchases.length === 0 ? (
+          <>
+            {/* Mobile cards */}
+            <div className="space-y-2 sm:hidden">
+              {purchases.map((pur) => (
+                <div key={pur.id} className="rounded-lg border p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium truncate">{pur.vendor_name ?? "-"}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive shrink-0"
+                      disabled={deleteMutation.isPending}
+                      onClick={() => { if (confirm("この仕入を削除しますか？")) deleteMutation.mutate(pur.id); }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between">
+                    <span className="font-mono text-xs text-muted-foreground">{pur.billing_key || "-"}</span>
+                    <span className="font-number font-medium">{formatCurrency(pur.amount)}</span>
+                  </div>
+                  {pur.description && <p className="mt-0.5 text-xs text-muted-foreground truncate">{pur.description}</p>}
+                  {pur.settlement_number && (
+                    <span className="mt-0.5 inline-block font-mono text-xs text-muted-foreground">
+                      精算: {formatSettlementNo(pur.settlement_method ?? "", pur.settlement_number ?? "")}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden sm:block">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    className="text-center text-muted-foreground"
-                  >
-                    仕入データなし
-                  </TableCell>
+                  <TableHead>請求KEY</TableHead>
+                  <TableHead>仕入先</TableHead>
+                  <TableHead>説明</TableHead>
+                  <TableHead>精算No.</TableHead>
+                  <TableHead className="text-right">金額</TableHead>
+                  <TableHead className="w-12"></TableHead>
                 </TableRow>
-              ) : (
-                purchases.map((pur) => (
+              </TableHeader>
+              <TableBody>
+                {purchases.map((pur) => (
                   <TableRow key={pur.id}>
                     <TableCell className="font-mono text-xs">
                       {pur.billing_key || "-"}
@@ -215,19 +240,18 @@ export default function EpisodePurchaseDialog({
                         className="h-7 w-7 text-destructive"
                         disabled={deleteMutation.isPending}
                         onClick={() => {
-                          if (confirm("この仕入を削除しますか？")) {
-                            deleteMutation.mutate(pur.id);
-                          }
+                          if (confirm("この仕入を削除しますか？")) deleteMutation.mutate(pur.id);
                         }}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ))}
+              </TableBody>
+            </Table>
+            </div>
+          </>
         )}
 
         {/* Add purchase form */}
@@ -244,7 +268,7 @@ export default function EpisodePurchaseDialog({
             </p>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label>仕入先</Label>
               <SearchableSelect

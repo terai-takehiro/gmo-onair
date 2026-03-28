@@ -119,48 +119,66 @@ export default function VendorReportPage() {
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
+          ) : items.length === 0 ? (
+            <p className="text-center py-8 text-muted-foreground">データがありません</p>
           ) : (
-            <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>仕入先名</TableHead>
-                  <TableHead>種別</TableHead>
-                  <TableHead className="text-right">件数</TableHead>
-                  <TableHead className="text-right">合計額</TableHead>
-                  <TableHead className="text-right">構成比</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.length === 0 ? (
+            <>
+              {/* Mobile cards */}
+              <div className="space-y-2 p-3 lg:hidden">
+                {items.map((item) => (
+                  <div key={item.vendor_id} className="rounded-lg border p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-sm truncate">{item.vendor_name}</span>
+                      <span className="text-xs text-muted-foreground shrink-0">{item.vendor_type || "-"}</span>
+                    </div>
+                    <div className="mt-1 flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">{item.purchase_count}件</span>
+                      <span className="font-number font-medium">{formatCurrency(item.total_amount)}</span>
+                      <span className="text-xs text-muted-foreground">{item.percentage.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                ))}
+                <div className="rounded-lg border bg-muted/50 p-3 font-semibold">
+                  <div className="flex items-center justify-between text-sm">
+                    <span>合計 ({totalCount}件)</span>
+                    <span className="font-number">{formatCurrency(grandTotal)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden lg:block overflow-x-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                      データがありません
-                    </TableCell>
+                    <TableHead>仕入先名</TableHead>
+                    <TableHead>種別</TableHead>
+                    <TableHead className="text-right">件数</TableHead>
+                    <TableHead className="text-right">合計額</TableHead>
+                    <TableHead className="text-right">構成比</TableHead>
                   </TableRow>
-                ) : (
-                  <>
-                    {items.map((item) => (
-                      <TableRow key={item.vendor_id}>
-                        <TableCell className="font-medium">{item.vendor_name}</TableCell>
-                        <TableCell className="text-muted-foreground">{item.vendor_type || "-"}</TableCell>
-                        <TableCell className="text-right tabular-nums">{item.purchase_count}</TableCell>
-                        <TableCell className="text-right tabular-nums font-number">{formatCurrency(item.total_amount)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{item.percentage.toFixed(1)}%</TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow className="bg-muted/50 font-semibold">
-                      <TableCell>合計</TableCell>
-                      <TableCell />
-                      <TableCell className="text-right tabular-nums">{totalCount}</TableCell>
-                      <TableCell className="text-right tabular-nums font-number">{formatCurrency(grandTotal)}</TableCell>
-                      <TableCell className="text-right tabular-nums">100.0%</TableCell>
+                </TableHeader>
+                <TableBody>
+                  {items.map((item) => (
+                    <TableRow key={item.vendor_id}>
+                      <TableCell className="font-medium">{item.vendor_name}</TableCell>
+                      <TableCell className="text-muted-foreground">{item.vendor_type || "-"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{item.purchase_count}</TableCell>
+                      <TableCell className="text-right tabular-nums font-number">{formatCurrency(item.total_amount)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{item.percentage.toFixed(1)}%</TableCell>
                     </TableRow>
-                  </>
-                )}
-              </TableBody>
-            </Table>
-            </div>
+                  ))}
+                  <TableRow className="bg-muted/50 font-semibold">
+                    <TableCell>合計</TableCell>
+                    <TableCell />
+                    <TableCell className="text-right tabular-nums">{totalCount}</TableCell>
+                    <TableCell className="text-right tabular-nums font-number">{formatCurrency(grandTotal)}</TableCell>
+                    <TableCell className="text-right tabular-nums">100.0%</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
