@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +17,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator } from "lucide-react";
+import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator, AlertTriangle, Info } from "lucide-react";
 import {
   ProjectStageLabels, ProjectStageColors,
   ProjectTypeLabels, BroadcastTypeLabels, MediaPlatformLabels,
@@ -24,6 +25,21 @@ import {
 } from "@/types";
 import SimulationDialog from "../components/SimulationDialog";
 
+const LOST_REASONS = [
+  '予算不足',
+  '競合負け',
+  'スケジュール不一致',
+  '顧客都合（延期・中止）',
+  '自社リソース不足',
+  '条件不一致',
+  'その他',
+] as const;
+
+interface LostDialogState {
+  open: boolean;
+  lost_reason: string;
+  lost_reason_note: string;
+}
 
 interface FormValues {
   name: string;
@@ -57,6 +73,9 @@ export default function ProjectFormPage() {
     open: false, broadcast_type: "recording", media_platform: "other",
   });
   const [glsResult, setGlsResult] = useState<{ open: boolean; glsNumber: string } | null>(null);
+  const [lostDialog, setLostDialog] = useState<LostDialogState>({
+    open: false, lost_reason: '', lost_reason_note: '',
+  });
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<FormValues>({
     defaultValues: {
@@ -121,8 +140,8 @@ export default function ProjectFormPage() {
   });
 
   const stageMutation = useMutation({
-    mutationFn: async (stage: string) => {
-      return (await api.patch(`/projects/${id}/stage`, { stage })).data;
+    mutationFn: async (params: { stage: string; lost_reason?: string; lost_reason_note?: string }) => {
+      return (await api.patch(`/projects/${id}/stage`, params)).data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects"] });
@@ -182,6 +201,20 @@ export default function ProjectFormPage() {
         )}
       </div>
 
+      {/* Stage guide */}
+      {isEdit && project && !isTerminal && (
+        <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+          <Info className="h-4 w-4 mt-0.5 shrink-0" />
+          <span>
+            {currentStage === 'neta' && 'ネタ段階です。仮押さえ・見積提案を経て、確度が高まったらGLS発番で正式な案件にしましょう。'}
+            {currentStage === 'd_hold' && '仮押さえ中です。見積提案を行うか、確定したらGLS発番に進みましょう。'}
+            {currentStage === 'c_proposal' && '見積提案済みです。顧客の承認が得られたらGLS発番で案件を確定しましょう。'}
+            {currentStage === 'b_verbal' && 'GLS発番済みです。正式受注が確定したら「A 受注済へ」に進み、エピソード管理で制作準備を始めましょう。'}
+            {currentStage === 'a_won' && '受注済みです。エピソード管理で制作を進めましょう。イベント完了後は自動的に案件終了になります。'}
+          </span>
+        </div>
+      )}
+
       {/* Stage change actions */}
       {isEdit && project && !isTerminal && (
         <Card>
@@ -189,12 +222,12 @@ export default function ProjectFormPage() {
           <CardContent className="flex flex-wrap gap-2">
             {/* ヨミ段階の遷移 */}
             {currentStage === 'neta' && (
-              <Button variant="outline" size="sm" onClick={() => stageMutation.mutate("d_hold")} disabled={stageMutation.isPending}>
+              <Button variant="outline" size="sm" onClick={() => stageMutation.mutate({ stage: "d_hold" })} disabled={stageMutation.isPending}>
                 D 仮押さえへ
               </Button>
             )}
             {(currentStage === 'neta' || currentStage === 'd_hold') && (
-              <Button variant="outline" size="sm" onClick={() => stageMutation.mutate("c_proposal")} disabled={stageMutation.isPending}>
+              <Button variant="outline" size="sm" onClick={() => stageMutation.mutate({ stage: "c_proposal" })} disabled={stageMutation.isPending}>
                 C 見積提案済へ
               </Button>
             )}
@@ -217,7 +250,7 @@ export default function ProjectFormPage() {
               <Button
                 size="sm"
                 className="bg-green-600 hover:bg-green-700"
-                onClick={() => stageMutation.mutate("a_won")}
+                onClick={() => stageMutation.mutate({ stage: "a_won" })}
                 disabled={stageMutation.isPending}
               >
                 A 受注済へ
@@ -225,7 +258,7 @@ export default function ProjectFormPage() {
             )}
 
             {/* 失注 */}
-            <Button variant="destructive" size="sm" onClick={() => stageMutation.mutate("e_lost")} disabled={stageMutation.isPending}>
+            <Button variant="destructive" size="sm" onClick={() => setLostDialog({ open: true, lost_reason: '', lost_reason_note: '' })} disabled={stageMutation.isPending}>
               E 失注
             </Button>
           </CardContent>
@@ -295,14 +328,10 @@ export default function ProjectFormPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label>想定金額</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
-                  <Input
-                    type="number"
-                    className="pl-7"
-                    {...register("expected_amount", { valueAsNumber: true })}
-                  />
-                </div>
+                <CurrencyInput
+                  value={watch("expected_amount")}
+                  onChange={(v) => setValue("expected_amount", v)}
+                />
                 {isEdit && (
                   <Button
                     type="button"
@@ -503,6 +532,66 @@ export default function ProjectFormPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* 失注ダイアログ */}
+      <Dialog open={lostDialog.open} onOpenChange={(open) => setLostDialog({ ...lostDialog, open })}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              失注登録
+            </DialogTitle>
+            <DialogDescription>
+              失注理由を記録してください。今後の営業改善に活用されます。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>失注理由 *</Label>
+              <div className="mt-2 space-y-2">
+                {LOST_REASONS.map((reason) => (
+                  <label key={reason} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio" name="lost_reason" value={reason}
+                      checked={lostDialog.lost_reason === reason}
+                      onChange={(e) => setLostDialog({ ...lostDialog, lost_reason: e.target.value })}
+                      className="accent-red-500"
+                    />
+                    <span className="text-sm">{reason}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div>
+              <Label>補足メモ</Label>
+              <Textarea
+                value={lostDialog.lost_reason_note}
+                onChange={(e) => setLostDialog({ ...lostDialog, lost_reason_note: e.target.value })}
+                placeholder="失注に至った経緯など"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLostDialog({ ...lostDialog, open: false })}>キャンセル</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                stageMutation.mutate({
+                  stage: 'e_lost',
+                  lost_reason: lostDialog.lost_reason,
+                  lost_reason_note: lostDialog.lost_reason_note,
+                });
+                setLostDialog({ open: false, lost_reason: '', lost_reason_note: '' });
+              }}
+              disabled={!lostDialog.lost_reason || stageMutation.isPending}
+            >
+              {stageMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              失注にする
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -248,18 +249,10 @@ export default function EpisodePurchaseDialog({
             </div>
             <div className="space-y-1">
               <Label>金額</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                  ¥
-                </span>
-                <Input
-                  type="number"
-                  min={0}
-                  className="pl-7"
-                  value={amount}
-                  onChange={(e) => setAmount(Number(e.target.value))}
-                />
-              </div>
+              <CurrencyInput
+                value={amount}
+                onChange={(v) => setAmount(v)}
+              />
             </div>
             <div className="space-y-1">
               <Label>精算方法</Label>

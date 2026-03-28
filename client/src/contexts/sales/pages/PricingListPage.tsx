@@ -7,6 +7,7 @@ import type { PricingCategory, PricingItem, CalcType } from "@/types";
 import { CalcTypeLabels } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import {
   Card,
@@ -203,17 +204,10 @@ function ItemDialog({
           </div>
           <div>
             <Label>単価 *</Label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
-              <Input
-                type="number"
-                className="pl-7"
-                {...form.register("unit_price", {
-                  required: true,
-                  valueAsNumber: true,
-                })}
-              />
-            </div>
+            <CurrencyInput
+              value={form.watch("unit_price")}
+              onChange={(v) => form.setValue("unit_price", v, { shouldValidate: true })}
+            />
           </div>
           <div>
             <Label>計算タイプ *</Label>

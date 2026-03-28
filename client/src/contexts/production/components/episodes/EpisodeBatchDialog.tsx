@@ -4,6 +4,7 @@ import api from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
@@ -29,7 +30,7 @@ export default function EpisodeBatchDialog({ projectId, open, onOpenChange }: Pr
   const qc = useQueryClient();
   const today = new Date().toISOString().slice(0, 10);
 
-  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<FormValues>({
     defaultValues: { count: 1, order_date: today, revenue_total: 0, notes: "" },
   });
 
@@ -81,13 +82,10 @@ export default function EpisodeBatchDialog({ projectId, open, onOpenChange }: Pr
 
           <div className="space-y-2">
             <Label>売上高(合計)</Label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
-              <Input
-                type="number" min={0} className="pl-7"
-                {...register("revenue_total", { valueAsNumber: true })}
-              />
-            </div>
+            <CurrencyInput
+              value={revenueTotal}
+              onChange={(v) => setValue("revenue_total", v)}
+            />
             <p className="text-xs text-muted-foreground">仕入は各話ごとに個別登録します</p>
           </div>
 

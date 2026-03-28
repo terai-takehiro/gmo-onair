@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -345,10 +346,9 @@ export default function SalesReviewPage() {
             </div>
             <div>
               <Label>目標金額</Label>
-              <Input
-                type="number"
-                value={targetForm.amount || ""}
-                onChange={(e) => setTargetForm(f => ({ ...f, amount: Number(e.target.value) }))}
+              <CurrencyInput
+                value={targetForm.amount}
+                onChange={(v) => setTargetForm(f => ({ ...f, amount: v }))}
                 placeholder="10000000"
               />
             </div>

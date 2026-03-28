@@ -145,34 +145,34 @@ export async function seed() {
 
   // --- ヨミ段階（GLS番号なし）---
   const yomiData: [string, string, string, string, string, number, string, string][] = [
-    ['OPP-202603-0001', '中央放送 春の特別企画', '中央放送', 'recording', 'neta', 3000000, '2026-05-01', ''],
-    ['OPP-202603-0002', 'GH サマーカンファレンス', 'GH', 'hybrid_event', 'neta', 5000000, '2026-06-15', ''],
-    ['OPP-202603-0003', 'DA 動画配信スタジオ定期利用', 'DA', 'live_broadcast', 'd_hold', 1200000, '2026-04-20', ''],
-    ['OPP-202603-0004', '東都TV ドラマ撮影', '東都TV', 'recording', 'c_proposal', 8000000, '2026-05-10', ''],
-    ['OPP-202603-0005', 'SN スポーツ中継', 'SN', 'live_broadcast', 'c_proposal', 6000000, '2026-04-25', ''],
-    ['OPP-202603-0006', 'GE リアリティ番組制作', 'GE', 'recording', 'c_proposal', 12000000, '2026-06-01', ''],
-    ['OPP-202603-0007', 'JB 音楽番組収録', 'JB', 'recording', 'd_hold', 4500000, '2026-04-18', ''],
-    ['OPP-202603-0008', '富士見 バラエティ撮影', '富士見', 'offline_event', 'd_hold', 3500000, '2026-04-22', ''],
-    ['OPP-202603-0009', 'PW IR動画制作', 'PW', 'gmo_project', 'c_proposal', 2000000, '2026-04-08', ''],
+    ['OPP-202603-0001', '中央放送 春の特別企画', '中央放送', 'recording', 'neta', 3000000, '2026-05-01', '2026-05-01'],
+    ['OPP-202603-0002', 'GH サマーカンファレンス', 'GH', 'hybrid_event', 'neta', 5000000, '2026-06-15', '2026-06-16'],
+    ['OPP-202603-0003', 'DA 動画配信スタジオ定期利用', 'DA', 'live_broadcast', 'd_hold', 1200000, '2026-04-20', '2026-04-20'],
+    ['OPP-202603-0004', '東都TV ドラマ撮影', '東都TV', 'recording', 'c_proposal', 8000000, '2026-05-10', '2026-05-12'],
+    ['OPP-202603-0005', 'SN スポーツ中継', 'SN', 'live_broadcast', 'c_proposal', 6000000, '2026-04-25', '2026-04-25'],
+    ['OPP-202603-0006', 'GE リアリティ番組制作', 'GE', 'recording', 'c_proposal', 12000000, '2026-06-01', '2026-06-03'],
+    ['OPP-202603-0007', 'JB 音楽番組収録', 'JB', 'recording', 'd_hold', 4500000, '2026-04-18', '2026-04-18'],
+    ['OPP-202603-0008', '富士見 バラエティ撮影', '富士見', 'offline_event', 'd_hold', 3500000, '2026-04-22', '2026-04-22'],
+    ['OPP-202603-0009', 'PW IR動画制作', 'PW', 'gmo_project', 'c_proposal', 2000000, '2026-04-08', '2026-04-08'],
   ];
   for (let i = 0; i < yomiData.length; i++) {
-    const [code, name, custKey, projType, stage, amt, date, tags] = yomiData[i];
+    const [code, name, custKey, projType, stage, amt, eventStart, eventEnd] = yomiData[i];
     const id = uuidv4();
-    ins(projSql, [id, code, null, name, CUSTOMERS[custKey], stage, projType, amt, date, null, null, null, staffIds[i % 3], tags, USERS.admin]);
+    ins(projSql, [id, code, null, name, CUSTOMERS[custKey], stage, projType, amt, eventStart, eventEnd, null, null, staffIds[i % 3], '', USERS.admin]);
   }
 
   // --- 失注 ---
-  const lostData: [string, string, string, string, number, string][] = [
-    ['OPP-202603-0013', '中央放送 年末特別企画', '中央放送', 'recording', 10000000, '2026-03-01'],
-    ['OPP-202603-0014', 'DT CM撮影', 'DT', 'offline_event', 2500000, '2026-02-20'],
-    ['OPP-202603-0015', 'JB ドラマ撮影（延期）', 'JB', 'recording', 9000000, '2026-03-15'],
+  const lostData: [string, string, string, string, number, string, string, string][] = [
+    ['OPP-202603-0013', '中央放送 年末特別企画', '中央放送', 'recording', 10000000, '2026-03-01', '予算不足', '先方の年度予算が確定せず見送り'],
+    ['OPP-202603-0014', 'DT CM撮影', 'DT', 'offline_event', 2500000, '2026-02-20', '競合負け', '他社スタジオの方が安価だったため'],
+    ['OPP-202603-0015', 'JB ドラマ撮影（延期）', 'JB', 'recording', 9000000, '2026-03-15', '顧客都合（延期・中止）', '企画自体が無期限延期に'],
   ];
   for (let i = 0; i < lostData.length; i++) {
-    const [code, name, custKey, projType, amt, date] = lostData[i];
+    const [code, name, custKey, projType, amt, date, reason, note] = lostData[i];
     const id = uuidv4();
     execute(
-      `INSERT INTO projects (id, code, name, customer_id, stage, project_type, expected_amount, event_start, assigned_to, lost_reason, created_by) VALUES (?, ?, ?, ?, 'e_lost', ?, ?, ?, ?, ?, ?)`,
-      [id, code, name, CUSTOMERS[custKey], projType, amt, date, staffIds[i % 3], '予算不足', USERS.admin]
+      `INSERT INTO projects (id, code, name, customer_id, stage, project_type, expected_amount, event_start, assigned_to, lost_reason, lost_reason_note, created_by) VALUES (?, ?, ?, ?, 'e_lost', ?, ?, ?, ?, ?, ?, ?)`,
+      [id, code, name, CUSTOMERS[custKey], projType, amt, date, staffIds[i % 3], reason, note, USERS.admin]
     );
   }
 
@@ -352,6 +352,59 @@ export async function seed() {
   ins(sgaSql, [uuidv4(), '20260401-1', USERS.staff2, 'other', '900002', '東京海上日動火災保険', '事業用火災保険', '2026-04-01', '2026-04-30', 'tax10', 1, 300000, 'spot', '2026-04', '2027-03', 'staff', USERS.admin]);
   ins(sgaSql, [uuidv4(), '20260315-1', USERS.staff3, 'rakuraku', '147520', 'ホテルニューオータニ', '顧客打ち合わせ会食費', '2026-03-15', '2026-04-15', 'tax10', 1, 45000, 'spot', null, null, 'staff', USERS.admin]);
   ins(sgaSql, [uuidv4(), '20260301-1', USERS.staff1, 'other', '900003', '株式会社マネーフォワード', '会計ソフト年間利用料', '2026-03-01', '2026-03-31', 'tax10', 1, 120000, 'spot', null, null, 'accounting', USERS.admin]);
+
+  // ============================================================
+  // Partners
+  // ============================================================
+  const partnerSql = `INSERT INTO partners (id, name, email, phone, role_title, specialties, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+  ins(partnerSql, [uuidv4(), '渡辺 剛', 'watanabe@freelance.example.com', '090-1234-5678', 'フリーランスTD', '["TD","スイッチャー"]', '10年以上の経験あり。大型案件向き', USERS.admin]);
+  ins(partnerSql, [uuidv4(), '小林 由美', 'kobayashi@freelance.example.com', '090-2345-6789', 'フリーランス照明', '["照明","LD"]', '柔軟なスケジュール対応可', USERS.admin]);
+  ins(partnerSql, [uuidv4(), '中村 拓也', 'nakamura@freelance.example.com', '090-3456-7890', 'フリーランスカメラ', '["カメラ","VE"]', '映画系出身。ドキュメンタリーに強い', USERS.admin]);
+  ins(partnerSql, [uuidv4(), '伊藤 真理', 'ito@freelance.example.com', '090-4567-8901', 'フリーランス音声', '["音声","MA"]', 'PA兼務可。音楽番組の経験豊富', USERS.admin]);
+  ins(partnerSql, [uuidv4(), '木村 健太', 'kimura@freelance.example.com', '090-5678-9012', 'フリーランスCG', '["CG","XR","AR"]', 'XR/AR演出の専門家', USERS.admin]);
+
+  // ============================================================
+  // Activity Logs
+  // ============================================================
+  const actSql = `INSERT INTO activity_logs (id, project_id, customer_id, user_id, activity_type, subject, description, activity_date, next_action, next_action_date, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+  // GH関連の営業活動
+  ins(actSql, [uuidv4(), null, CUSTOMERS['GH'], USERS.staff1, 'call', 'GH 春季IR説明会の打診', '先方IR担当の田村氏と電話。昨年同様の春季IR説明会を検討中とのこと。', '2026-02-01', '企画書送付', '2026-02-05', USERS.staff1]);
+  ins(actSql, [uuidv4(), null, CUSTOMERS['GH'], USERS.staff1, 'email', '企画書送付', 'IR説明会の企画書（ハイブリッド配信プラン）をメール送付。', '2026-02-05', '打ち合わせ設定', '2026-02-12', USERS.staff1]);
+  ins(actSql, [uuidv4(), null, CUSTOMERS['GH'], USERS.staff1, 'meeting', 'GH IR担当と打ち合わせ', '田村氏・佐々木部長と弊社にて打ち合わせ。YouTube Live配信を希望。予算4M前後。3月実施で調整中。', '2026-02-12', '見積書作成', '2026-02-15', USERS.staff1]);
+  ins(actSql, [uuidv4(), null, CUSTOMERS['GH'], USERS.staff1, 'proposal', '見積書提出', '見積書（¥4,000,000 税別）を提出。先方2週間以内に回答予定。', '2026-02-15', '回答フォロー', '2026-03-01', USERS.staff1]);
+
+  // 東都TV関連
+  ins(actSql, [uuidv4(), null, CUSTOMERS['東都TV'], USERS.staff2, 'meeting', '東都TV 新番組企画の相談', '東都TVの制作部長より新番組「サイエンス・フロンティア」のスタジオ利用について相談。13話構成の科学番組。', '2026-01-20', '技術要件ヒアリング', '2026-01-25', USERS.staff2]);
+  ins(actSql, [uuidv4(), null, CUSTOMERS['東都TV'], USERS.staff2, 'visit', '東都TV 技術要件ヒアリング', '先方オフィスで技術担当と打ち合わせ。LED壁を使ったバーチャルセットを希望。', '2026-01-25', '技術見積作成', '2026-02-01', USERS.staff2]);
+  ins(actSql, [uuidv4(), null, CUSTOMERS['東都TV'], USERS.staff2, 'proposal', '技術見積提出', '13話分のスタジオ利用＋技術スタッフ見積を提出。¥7,500,000。', '2026-02-01', '社内稟議結果待ち', '2026-02-20', USERS.staff2]);
+
+  // SN関連
+  ins(actSql, [uuidv4(), null, CUSTOMERS['SN'], USERS.staff3, 'call', 'SN 生放送番組の問い合わせ', 'SNの番組プロデューサーから電話。週1回の生放送トーク番組のスタジオを探しているとのこと。', '2026-02-10', 'スタジオ見学の設定', '2026-02-15', USERS.staff3]);
+  ins(actSql, [uuidv4(), null, CUSTOMERS['SN'], USERS.staff3, 'meeting', 'SN スタジオ見学＋打ち合わせ', 'スタジオ見学後、配信要件と予算について打ち合わせ。4話トライアル→レギュラー化の方向。', '2026-02-18', '見積提出', '2026-02-25', USERS.staff3]);
+
+  // PW関連
+  ins(actSql, [uuidv4(), null, CUSTOMERS['PW'], USERS.staff1, 'email', 'PW 新サービス発表会の打診', 'PW広報担当からメール。4月の新サービスローンチイベントについて相談。', '2026-02-20', '電話で詳細ヒアリング', '2026-02-22', USERS.staff1]);
+  ins(actSql, [uuidv4(), null, CUSTOMERS['PW'], USERS.staff1, 'call', 'PW 発表会の詳細ヒアリング', 'Zoom配信メインのハイブリッド型。来場者50名＋オンライン500名規模。3/30実施予定。', '2026-02-22', '企画書・見積作成', '2026-02-28', USERS.staff1]);
+
+  // フォローアップ
+  ins(actSql, [uuidv4(), null, CUSTOMERS['GE'], USERS.staff2, 'followup', 'GE ドキュメンタリー進捗確認', '先方の企画会議が来週。結果を踏まえてスケジュール確定予定。', '2026-03-10', '企画会議結果の確認', '2026-03-17', USERS.staff2]);
+  ins(actSql, [uuidv4(), null, CUSTOMERS['DA'], USERS.staff3, 'followup', 'DA 定期利用契約フォロー', '定期利用プランの見積書フォロー。先方検討中だが前向き。', '2026-03-05', '契約条件の最終確認', '2026-03-12', USERS.staff3]);
+
+  // ============================================================
+  // Sales Targets (2026年度)
+  // ============================================================
+  const stSql = `INSERT INTO sales_targets (id, user_id, target_year, target_month, target_amount) VALUES (?, ?, ?, ?, ?)`;
+  const monthlyTargets: Record<string, number[]> = {
+    [USERS.staff1]: [8000000, 9000000, 10000000, 12000000, 10000000, 8000000, 7000000, 6000000, 9000000, 11000000, 12000000, 10000000],
+    [USERS.staff2]: [10000000, 11000000, 12000000, 14000000, 12000000, 10000000, 9000000, 8000000, 11000000, 13000000, 14000000, 12000000],
+    [USERS.staff3]: [6000000, 7000000, 8000000, 9000000, 8000000, 7000000, 6000000, 5000000, 7000000, 8000000, 9000000, 8000000],
+  };
+  for (const [userId, targets] of Object.entries(monthlyTargets)) {
+    for (let m = 0; m < 12; m++) {
+      ins(stSql, [uuidv4(), userId, 2026, m + 1, targets[m]]);
+    }
+  }
 
   saveDb();
   console.log('Seed data inserted successfully.');

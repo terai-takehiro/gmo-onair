@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -356,18 +357,10 @@ export default function RevenueListPage() {
             {/* Amount */}
             <div className="space-y-1">
               <Label>金額</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                  ¥
-                </span>
-                <Input
-                  type="number"
-                  min={0}
-                  className="pl-7"
-                  value={amount}
-                  onChange={(e) => setAmount(Number(e.target.value))}
-                />
-              </div>
+              <CurrencyInput
+                value={amount}
+                onChange={(v) => setAmount(v)}
+              />
             </div>
 
             {/* Dates */}

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -280,20 +281,13 @@ export default function SgaDialog({
           {/* Row 4: amount */}
           <div className="space-y-1">
             <Label>金額</Label>
-            <div className="relative max-w-xs">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                ¥
-              </span>
-              <Input
-                type="number"
-                min={0}
-                className="pl-7"
-                value={form.amount}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, amount: Number(e.target.value) }))
-                }
-              />
-            </div>
+            <CurrencyInput
+              className="max-w-xs"
+              value={form.amount}
+              onChange={(v) =>
+                setForm((f) => ({ ...f, amount: v }))
+              }
+            />
           </div>
 
           {/* Row 4.5: expense_type + amortization */}
