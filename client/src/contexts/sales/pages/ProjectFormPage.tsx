@@ -26,20 +26,11 @@ import {
 } from "@/types";
 import SimulationDialog from "../components/SimulationDialog";
 
-const LOST_REASONS = [
-  '予算不足',
-  '競合負け',
-  'スケジュール不一致',
-  '顧客都合（延期・中止）',
-  '自社リソース不足',
-  '条件不一致',
-  'その他',
-] as const;
-
 interface LostDialogState {
   open: boolean;
   lost_reason: string;
   lost_reason_note: string;
+  lessons_learned: string;
 }
 
 interface FormValues {
@@ -75,8 +66,15 @@ export default function ProjectFormPage() {
   });
   const [glsResult, setGlsResult] = useState<{ open: boolean; glsNumber: string } | null>(null);
   const [lostDialog, setLostDialog] = useState<LostDialogState>({
-    open: false, lost_reason: '', lost_reason_note: '',
+    open: false, lost_reason: '', lost_reason_note: '', lessons_learned: '',
   });
+
+  // 失注理由カテゴリ（DBマスタ）
+  const { data: lostReasonsData } = useQuery({
+    queryKey: ["lost-reason-categories"],
+    queryFn: async () => (await api.get("/sales-analytics/lost-reason-categories")).data,
+  });
+  const lostReasonCategories: { id: string; name: string }[] = lostReasonsData?.data ?? [];
   const [holdPromptOpen, setHoldPromptOpen] = useState(false);
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<FormValues>({
@@ -142,7 +140,7 @@ export default function ProjectFormPage() {
   });
 
   const stageMutation = useMutation({
-    mutationFn: async (params: { stage: string; lost_reason?: string; lost_reason_note?: string }) => {
+    mutationFn: async (params: { stage: string; lost_reason?: string; lost_reason_note?: string; lessons_learned?: string }) => {
       return (await api.patch(`/projects/${id}/stage`, params)).data;
     },
     onSuccess: (_data, variables) => {
@@ -286,7 +284,7 @@ export default function ProjectFormPage() {
             )}
 
             {/* 失注 */}
-            <Button variant="destructive" size="sm" onClick={() => setLostDialog({ open: true, lost_reason: '', lost_reason_note: '' })} disabled={stageMutation.isPending}>
+            <Button variant="destructive" size="sm" onClick={() => setLostDialog({ open: true, lost_reason: '', lost_reason_note: '', lessons_learned: '' })} disabled={stageMutation.isPending}>
               E 失注
             </Button>
           </CardContent>
@@ -599,15 +597,15 @@ export default function ProjectFormPage() {
             <div>
               <Label>失注理由 *</Label>
               <div className="mt-2 space-y-2">
-                {LOST_REASONS.map((reason) => (
-                  <label key={reason} className="flex items-center gap-2 cursor-pointer">
+                {lostReasonCategories.map((cat) => (
+                  <label key={cat.id} className="flex items-center gap-2 cursor-pointer">
                     <input
-                      type="radio" name="lost_reason" value={reason}
-                      checked={lostDialog.lost_reason === reason}
+                      type="radio" name="lost_reason" value={cat.name}
+                      checked={lostDialog.lost_reason === cat.name}
                       onChange={(e) => setLostDialog({ ...lostDialog, lost_reason: e.target.value })}
                       className="accent-red-500"
                     />
-                    <span className="text-sm">{reason}</span>
+                    <span className="text-sm">{cat.name}</span>
                   </label>
                 ))}
               </div>
@@ -618,8 +616,20 @@ export default function ProjectFormPage() {
                 value={lostDialog.lost_reason_note}
                 onChange={(e) => setLostDialog({ ...lostDialog, lost_reason_note: e.target.value })}
                 placeholder="失注に至った経緯など"
+                rows={2}
+              />
+            </div>
+            <div>
+              <Label>教訓・学び</Label>
+              <Textarea
+                value={lostDialog.lessons_learned}
+                onChange={(e) => setLostDialog({ ...lostDialog, lessons_learned: e.target.value })}
+                placeholder="次回に活かすべきポイント、改善すべき点など"
                 rows={3}
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                ここに記録した内容は営業レビューの失注分析で共有されます
+              </p>
             </div>
           </div>
           <DialogFooter>
@@ -631,8 +641,9 @@ export default function ProjectFormPage() {
                   stage: 'e_lost',
                   lost_reason: lostDialog.lost_reason,
                   lost_reason_note: lostDialog.lost_reason_note,
+                  lessons_learned: lostDialog.lessons_learned,
                 });
-                setLostDialog({ open: false, lost_reason: '', lost_reason_note: '' });
+                setLostDialog({ open: false, lost_reason: '', lost_reason_note: '', lessons_learned: '' });
               }}
               disabled={!lostDialog.lost_reason || stageMutation.isPending}
             >

@@ -2,6 +2,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 
 export class SalesAnalyticsService {
+  /** 失注理由カテゴリマスタ取得 */
+  getLostReasonCategories() {
+    return queryAll('SELECT * FROM lost_reason_categories ORDER BY sort_order');
+  }
+
   /** ファネル分析: 各ステージのコンバージョン率と滞留日数 */
   getFunnelAnalysis(year?: number, month?: number) {
     let dateFilter = '';
@@ -49,6 +54,45 @@ export class SalesAnalyticsService {
       params
     );
 
+    // 月別受注推移（年指定時のみ）
+    let monthlyTrend: unknown[] = [];
+    if (year && !month) {
+      monthlyTrend = queryAll(
+        `SELECT strftime('%m', p.updated_at) as month,
+                COUNT(CASE WHEN p.stage IN ('a_won','b_verbal','s_completed') THEN 1 END) as won_count,
+                COUNT(CASE WHEN p.stage = 'e_lost' THEN 1 END) as lost_count,
+                COUNT(*) as total_count,
+                COALESCE(SUM(CASE WHEN p.stage IN ('a_won','b_verbal','s_completed') THEN p.expected_amount END), 0) as won_amount
+         FROM projects p
+         WHERE p.deleted_at IS NULL AND strftime('%Y', p.created_at) = ?
+         GROUP BY strftime('%m', p.updated_at)
+         ORDER BY month`,
+        [String(year)]
+      );
+    }
+
+    // ステージ間コンバージョン率
+    const stageOrder = ['neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won'];
+    const conversions: { from: string; to: string; rate: number }[] = [];
+    for (let i = 0; i < stageOrder.length - 1; i++) {
+      const fromStage = stageOrder[i];
+      const toStage = stageOrder[i + 1];
+      const fromData = stageCounts.find((s: any) => s.stage === fromStage);
+      const toData = stageCounts.find((s: any) => s.stage === toStage);
+      // Count includes projects that passed through this stage (current stage >= this stage)
+      const fromCount = stageCounts
+        .filter((s: any) => stageOrder.indexOf(s.stage as string) >= i || s.stage === 's_completed' || s.stage === 'e_lost')
+        .reduce((sum: number, s: any) => sum + (s.count as number), 0);
+      const toCount = stageCounts
+        .filter((s: any) => stageOrder.indexOf(s.stage as string) >= i + 1 || s.stage === 's_completed')
+        .reduce((sum: number, s: any) => sum + (s.count as number), 0);
+      conversions.push({
+        from: fromStage,
+        to: toStage,
+        rate: fromCount > 0 ? Math.round((toCount / fromCount) * 1000) / 10 : 0,
+      });
+    }
+
     return {
       stage_counts: stageCounts,
       total_count: totalCount,
@@ -57,6 +101,8 @@ export class SalesAnalyticsService {
       win_rate: totalCount > 0 ? Math.round((wonCount / totalCount) * 1000) / 10 : 0,
       loss_rate: totalCount > 0 ? Math.round((lostCount / totalCount) * 1000) / 10 : 0,
       avg_dwell_days: Math.round(((avgDwellRow as any)?.avg_days || 0) * 10) / 10,
+      conversions,
+      monthly_trend: monthlyTrend,
     };
   }
 
@@ -65,7 +111,7 @@ export class SalesAnalyticsService {
     let dateFilter = '';
     const params: unknown[] = [];
     if (year) {
-      dateFilter = `AND strftime('%Y', p.created_at) = ?`;
+      dateFilter = `AND strftime('%Y', p.updated_at) = ?`;
       params.push(String(year));
     }
 
@@ -78,14 +124,44 @@ export class SalesAnalyticsService {
       params
     );
 
-    const totalLost = queryOne(
-      `SELECT COUNT(*) as c FROM projects p WHERE p.deleted_at IS NULL AND p.stage = 'e_lost' ${dateFilter}`,
+    const totalRow = queryOne(
+      `SELECT COUNT(*) as c, COALESCE(SUM(p.expected_amount), 0) as total_amount,
+              COALESCE(AVG(p.expected_amount), 0) as avg_amount
+       FROM projects p WHERE p.deleted_at IS NULL AND p.stage = 'e_lost' ${dateFilter}`,
+      params
+    );
+
+    // 月別失注推移
+    const monthlyTrend = queryAll(
+      `SELECT strftime('%m', p.updated_at) as month,
+              COUNT(*) as count,
+              COALESCE(SUM(p.expected_amount), 0) as total_amount
+       FROM projects p
+       WHERE p.deleted_at IS NULL AND p.stage = 'e_lost' ${dateFilter}
+       GROUP BY strftime('%m', p.updated_at)
+       ORDER BY month`,
+      params
+    );
+
+    // 教訓付き失注案件一覧（直近）
+    const lessonsData = queryAll(
+      `SELECT p.id, p.name, p.gls_number, p.code, p.lost_reason, p.lessons_learned, p.expected_amount,
+              p.lost_at, c.name as customer_name, c.short_name as customer_short_name
+       FROM projects p
+       LEFT JOIN customers c ON c.id = p.customer_id
+       WHERE p.deleted_at IS NULL AND p.stage = 'e_lost' AND p.lessons_learned IS NOT NULL AND p.lessons_learned != '' ${dateFilter}
+       ORDER BY p.lost_at DESC, p.updated_at DESC
+       LIMIT 20`,
       params
     );
 
     return {
       reasons,
-      total_lost: (totalLost as any)?.c || 0,
+      total_lost: (totalRow as any)?.c || 0,
+      total_lost_amount: (totalRow as any)?.total_amount || 0,
+      avg_lost_amount: Math.round((totalRow as any)?.avg_amount || 0),
+      monthly_trend: monthlyTrend,
+      lessons: lessonsData,
     };
   }
 

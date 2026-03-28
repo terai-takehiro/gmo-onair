@@ -163,17 +163,19 @@ export async function seed() {
   }
 
   // --- 失注 ---
-  const lostData: [string, string, string, string, number, string, string, string][] = [
-    ['OPP-202603-0013', '中央放送 年末特別企画', '中央放送', 'recording', 10000000, '2026-03-01', '予算不足', '先方の年度予算が確定せず見送り'],
-    ['OPP-202603-0014', 'DT CM撮影', 'DT', 'offline_event', 2500000, '2026-02-20', '競合負け', '他社スタジオの方が安価だったため'],
-    ['OPP-202603-0015', 'JB ドラマ撮影（延期）', 'JB', 'recording', 9000000, '2026-03-15', '顧客都合（延期・中止）', '企画自体が無期限延期に'],
+  const lostData: [string, string, string, string, number, string, string, string, string, string][] = [
+    ['OPP-202603-0013', '中央放送 年末特別企画', '中央放送', 'recording', 10000000, '2026-01-15', '予算不足', '先方の年度予算が確定せず見送り', '早期段階で予算規模を確認すべき。ヒアリング段階で予算枠の有無を必ず確認する。', '2026-01-20'],
+    ['OPP-202603-0014', 'DT CM撮影', 'DT', 'offline_event', 2500000, '2026-02-20', '競合負け', '他社スタジオの方が安価だったため', '価格だけの勝負にならないよう、付加価値（設備・サポート体制）を提案書に明記する。', '2026-02-25'],
+    ['OPP-202603-0015', 'JB ドラマ撮影（延期）', 'JB', 'recording', 9000000, '2026-03-15', '顧客都合（延期・中止）', '企画自体が無期限延期に', '延期リスクがある案件は仮押さえ段階でキャンセルポリシーを合意しておく。', '2026-03-18'],
+    ['OPP-202603-0016', 'SN 新番組パイロット', 'SN', 'recording', 4500000, '2026-02-01', 'スケジュール不一致', 'スタジオ空き日程が合わなかった', 'スケジュール提案を2パターン以上用意し、代替案を早めに提示すべき。', '2026-02-05'],
+    ['OPP-202603-0017', 'GE 社員研修配信', 'GE', 'live_broadcast', 1800000, '2026-03-05', '条件不一致', '求められた配信品質の要件が合わなかった', '技術要件のすり合わせを営業段階で行い、テスト配信の提案も検討する。', '2026-03-08'],
   ];
   for (let i = 0; i < lostData.length; i++) {
-    const [code, name, custKey, projType, amt, date, reason, note] = lostData[i];
+    const [code, name, custKey, projType, amt, date, reason, note, lessons, lostAt] = lostData[i];
     const id = uuidv4();
     execute(
-      `INSERT INTO projects (id, code, name, customer_id, stage, project_type, expected_amount, event_start, assigned_to, lost_reason, lost_reason_note, created_by) VALUES (?, ?, ?, ?, 'e_lost', ?, ?, ?, ?, ?, ?, ?)`,
-      [id, code, name, CUSTOMERS[custKey], projType, amt, date, staffIds[i % 3], reason, note, USERS.admin]
+      `INSERT INTO projects (id, code, name, customer_id, stage, project_type, expected_amount, event_start, assigned_to, lost_reason, lost_reason_note, lessons_learned, lost_at, created_by) VALUES (?, ?, ?, ?, 'e_lost', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, code, name, CUSTOMERS[custKey], projType, amt, date, staffIds[i % 3], reason, note, lessons, lostAt, USERS.admin]
     );
   }
 

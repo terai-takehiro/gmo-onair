@@ -133,8 +133,8 @@ export class ProjectService {
 
     if (stage === 'e_lost') {
       execute(
-        `UPDATE projects SET stage=?, lost_reason=?, lost_reason_note=?, updated_at=datetime('now'), updated_by=? WHERE id=?`,
-        [stage, data.lost_reason || null, data.lost_reason_note || null, userId, id]
+        `UPDATE projects SET stage=?, lost_reason=?, lost_reason_note=?, lessons_learned=?, lost_at=datetime('now'), updated_at=datetime('now'), updated_by=? WHERE id=?`,
+        [stage, data.lost_reason || null, data.lost_reason_note || null, data.lessons_learned || null, userId, id]
       );
     } else {
       execute(

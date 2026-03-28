@@ -11,6 +11,11 @@ router.get('/funnel', (req, res) => {
   res.json({ success: true, data });
 });
 
+router.get('/lost-reason-categories', (_req, res) => {
+  const data = salesAnalyticsService.getLostReasonCategories();
+  res.json({ success: true, data });
+});
+
 router.get('/lost-reasons', (req, res) => {
   const year = parseInt(req.query.year as string) || undefined;
   const data = salesAnalyticsService.getLostReasonAnalysis(year);
