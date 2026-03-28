@@ -52,7 +52,8 @@ router.post('/', requireAuth, (req, res) => {
     [project_id]
   ) as any).c;
   const seqNum = String(existingCount + 1).padStart(3, '0');
-  const billing_key = `${base}-${seqNum}`;
+  const taxSuffix = (tax_category || 'tax10') === 'tax8' ? '2' : (tax_category === 'exempt' ? '0' : '1');
+  const billing_key = `${base}-${seqNum}-${taxSuffix}`;
 
   const id = uuidv4();
 
@@ -83,8 +84,13 @@ router.put('/:id', requireAuth, (req, res) => {
   if (!existing) throw new AppError(404, 'NOT_FOUND', '売上が見つかりません');
   const { billing_key, project_id, customer_id, episode_id, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, items, subtitle } = req.body;
 
-  // billing_keyは変更しない（連番は固定）
-  const finalBillingKey = existing.billing_key;
+  // 税区分変更時はbilling_keyの末尾税枝番を更新
+  let finalBillingKey = existing.billing_key;
+  if (tax_category && tax_category !== existing.tax_category) {
+    const taxSuffix = tax_category === 'tax8' ? '2' : (tax_category === 'exempt' ? '0' : '1');
+    // 末尾の税枝番を置換 (GLS-A004-001-1 → GLS-A004-001-2)
+    finalBillingKey = existing.billing_key.replace(/-\d$/, `-${taxSuffix}`);
+  }
 
   // 明細行がある場合は合計を計算
   const finalAmount = Array.isArray(items) && items.length > 0
