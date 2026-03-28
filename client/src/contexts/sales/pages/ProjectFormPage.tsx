@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -17,7 +17,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator, AlertTriangle, Info } from "lucide-react";
+import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator, AlertTriangle, Info, CalendarDays } from "lucide-react";
 import {
   ProjectStageLabels, ProjectStageColors,
   ProjectTypeLabels, BroadcastTypeLabels, MediaPlatformLabels,
@@ -77,6 +77,7 @@ export default function ProjectFormPage() {
   const [lostDialog, setLostDialog] = useState<LostDialogState>({
     open: false, lost_reason: '', lost_reason_note: '',
   });
+  const [holdPromptOpen, setHoldPromptOpen] = useState(false);
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<FormValues>({
     defaultValues: {
@@ -144,9 +145,13 @@ export default function ProjectFormPage() {
     mutationFn: async (params: { stage: string; lost_reason?: string; lost_reason_note?: string }) => {
       return (await api.patch(`/projects/${id}/stage`, params)).data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ["projects"] });
       qc.invalidateQueries({ queryKey: ["project", id] });
+      // A系で仮押さえに移行した場合、スタジオ予約を促す
+      if (variables.stage === 'd_hold' && isCategoryARef.current) {
+        setHoldPromptOpen(true);
+      }
     },
   });
 
@@ -177,6 +182,8 @@ export default function ProjectFormPage() {
   const isYomi = !hasGls;
   const isTerminal = currentStage === 's_completed' || currentStage === 'e_lost';
   const isCategoryA = getProjectCategory(projectType) === 'A';
+  const isCategoryARef = useRef(isCategoryA);
+  isCategoryARef.current = isCategoryA;
 
   if (isEdit && projectLoading) {
     return (
@@ -209,7 +216,9 @@ export default function ProjectFormPage() {
           <Info className="h-4 w-4 mt-0.5 shrink-0" />
           <span>
             {currentStage === 'neta' && 'ネタ段階です。仮押さえ・見積提案を経て、確度が高まったらGLS発番で正式な案件にしましょう。'}
-            {currentStage === 'd_hold' && '仮押さえ中です。見積提案を行うか、確定したらGLS発番に進みましょう。'}
+            {currentStage === 'd_hold' && (isCategoryA
+              ? '仮押さえ中です。スタジオ予約カレンダーで日程を押さえましょう。見積提案を経てGLS発番へ進みます。'
+              : '仮押さえ中です。見積提案を行うか、確定したらGLS発番に進みましょう。')}
             {currentStage === 'c_proposal' && '見積提案済みです。顧客の承認が得られたらGLS発番で案件を確定しましょう。'}
             {currentStage === 'b_verbal' && (isCategoryA
               ? 'GLS発番済みです。正式受注が確定したら「A 受注済へ」に進み、エピソード管理で制作準備を始めましょう。'
@@ -235,6 +244,19 @@ export default function ProjectFormPage() {
             {(currentStage === 'neta' || currentStage === 'd_hold') && (
               <Button variant="outline" size="sm" onClick={() => stageMutation.mutate({ stage: "c_proposal" })} disabled={stageMutation.isPending}>
                 C 見積提案済へ
+              </Button>
+            )}
+
+            {/* 仮押さえ中 + A系：スタジオ予約ショートカット */}
+            {currentStage === 'd_hold' && isCategoryA && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                onClick={() => navigate("/studio")}
+              >
+                <CalendarDays className="mr-1 h-4 w-4" />
+                スタジオ予約
               </Button>
             )}
 
@@ -616,6 +638,50 @@ export default function ProjectFormPage() {
             >
               {stageMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               失注にする
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 仮押さえ完了 → スタジオ予約誘導ダイアログ */}
+      <Dialog open={holdPromptOpen} onOpenChange={setHoldPromptOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-blue-700">
+              <CalendarDays className="h-5 w-5" />
+              仮押さえに移行しました
+            </DialogTitle>
+            <DialogDescription>
+              スタジオの日程を押さえましょう。カレンダーから空き状況を確認して予約できます。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 space-y-2">
+              <div className="flex justify-between">
+                <span className="text-sm text-muted-foreground">案件名</span>
+                <span className="font-medium text-sm">{project?.name}</span>
+              </div>
+              {project?.event_start && (
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">イベント予定日</span>
+                  <span className="font-medium text-sm">{project.event_start}{project.event_end && project.event_end !== project.event_start ? ` 〜 ${project.event_end}` : ''}</span>
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setHoldPromptOpen(false)}>
+              あとで
+            </Button>
+            <Button
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={() => {
+                setHoldPromptOpen(false);
+                navigate("/studio");
+              }}
+            >
+              <CalendarDays className="mr-2 h-4 w-4" />
+              スタジオ予約へ
             </Button>
           </DialogFooter>
         </DialogContent>
