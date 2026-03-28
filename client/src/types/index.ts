@@ -179,26 +179,6 @@ export const MediaPlatformLabels: Record<MediaPlatform, string> = {
   other: 'その他',
 };
 
-// 請求グループステータス
-export const InvoiceGroupStatus = {
-  DRAFT: 'draft',
-  SENT: 'sent',
-  PAID: 'paid',
-} as const;
-export type InvoiceGroupStatus = (typeof InvoiceGroupStatus)[keyof typeof InvoiceGroupStatus];
-
-export const InvoiceGroupStatusLabels: Record<InvoiceGroupStatus, string> = {
-  draft: '下書き',
-  sent: '送付済',
-  paid: '入金済',
-};
-
-export const InvoiceGroupStatusColors: Record<InvoiceGroupStatus, string> = {
-  draft: '#94a3b8',
-  sent: '#f59e0b',
-  paid: '#22c55e',
-};
-
 // ---------- Base Entity ----------
 
 export interface BaseEntity {
@@ -294,44 +274,6 @@ export interface SimulationItem {
   item_name?: string;
   category_name?: string;
   calc_type?: CalcType;
-}
-
-// 話数(エピソード)
-export interface Episode extends BaseEntity {
-  project_id: string;
-  episode_number: number;
-  episode_code: string;
-  recording_date: string | null;
-  broadcast_date: string | null;
-  delivery_date: string | null;
-  notes: string | null;
-  // 集計フィールド
-  actual_revenue?: number;
-  actual_cost?: number;
-  revenue_count?: number;
-  purchase_count?: number;
-}
-
-// 発注バッチ
-export interface EpisodeOrder extends BaseEntity {
-  project_id: string;
-  order_date: string;
-  episode_count: number;
-  start_episode: number;
-  end_episode: number;
-  notes: string | null;
-}
-
-// 請求グループ
-export interface InvoiceGroup extends BaseEntity {
-  project_id: string;
-  title: string;
-  invoice_date: string | null;
-  status: InvoiceGroupStatus;
-  notes: string | null;
-  episodes?: Episode[];
-  total_amount?: number;
-  episode_count?: number;
 }
 
 export interface Revenue extends BaseEntity {

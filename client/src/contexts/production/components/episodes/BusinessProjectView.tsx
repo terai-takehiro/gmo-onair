@@ -115,6 +115,7 @@ export default function BusinessProjectView({ project, projectId }: Props) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["revenues-project", projectId] });
       qc.invalidateQueries({ queryKey: ["project-summary", projectId] });
+      qc.invalidateQueries({ queryKey: ["revenues-all"] });
       closeDialog();
     },
   });
@@ -125,6 +126,7 @@ export default function BusinessProjectView({ project, projectId }: Props) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["revenues-project", projectId] });
       qc.invalidateQueries({ queryKey: ["project-summary", projectId] });
+      qc.invalidateQueries({ queryKey: ["revenues-all"] });
     },
   });
 

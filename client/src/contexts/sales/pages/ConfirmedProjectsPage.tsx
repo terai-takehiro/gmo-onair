@@ -21,7 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Loader2, Film, Briefcase, Receipt } from "lucide-react";
+import { Search, Loader2, Film, Briefcase } from "lucide-react";
 
 type StageFilter = "all" | "active" | "completed";
 
@@ -188,17 +188,6 @@ export default function ConfirmedProjectsPage() {
                     )}
                   </div>
                 </div>
-                <div className="mt-2 pt-2 border-t flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={() => navigate(`/revenues?project_id=${p.id}&project_name=${encodeURIComponent(`${p.gls_number} ${p.name}`)}`)}
-                  >
-                    <Receipt className="h-3 w-3 mr-1" />
-                    売上管理
-                  </Button>
-                </div>
               </div>
             ))}
           </div>
@@ -216,7 +205,6 @@ export default function ConfirmedProjectsPage() {
                   <TableHead className="text-right">想定金額</TableHead>
                   {isStudio && <TableHead>イベント日</TableHead>}
                   <TableHead>担当者</TableHead>
-                  <TableHead className="w-20"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -266,20 +254,6 @@ export default function ConfirmedProjectsPage() {
                     )}
                     <TableCell>
                       {(p.assigned_to_name as string) || "-"}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/revenues?project_id=${p.id}&project_name=${encodeURIComponent(`${p.gls_number} ${p.name}`)}`);
-                        }}
-                      >
-                        <Receipt className="h-3 w-3 mr-1" />
-                        売上
-                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
