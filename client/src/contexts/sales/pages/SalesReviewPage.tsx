@@ -284,7 +284,7 @@ export default function SalesReviewPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {OPPORTUNITY_STAGES.map((stage, idx) => {
+              {OPPORTUNITY_STAGES.map((stage) => {
                 const data = stageCountMap.get(stage.value);
                 const count = data?.count ?? 0;
                 const amount = data?.total_amount ?? 0;

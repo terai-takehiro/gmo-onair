@@ -25,14 +25,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -44,7 +36,6 @@ import {
   Plus,
   Trash2,
   Pencil,
-  Receipt,
   Loader2,
   FileText,
 } from "lucide-react";
@@ -65,6 +56,7 @@ interface Revenue {
   billing_date: string | null;
   payment_due_date: string | null;
   notes: string | null;
+  subtitle: string | null;
   customer_name: string;
   items?: RevenueItem[];
 }
@@ -92,6 +84,7 @@ export default function BusinessProjectView({ project, projectId }: Props) {
   const [billingDate, setBillingDate] = useState("");
   const [paymentDueDate, setPaymentDueDate] = useState("");
   const [notes, setNotes] = useState("");
+  const [subtitle, setSubtitle] = useState("");
   const [items, setItems] = useState<RevenueItem[]>([
     { description: "", quantity: 1, unit_price: 0, amount: 0 },
   ]);
@@ -103,13 +96,6 @@ export default function BusinessProjectView({ project, projectId }: Props) {
       (await api.get("/revenues", { params: { project_id: projectId, limit: 100 } })).data,
   });
   const revenues: Revenue[] = revenuesData?.data ?? [];
-
-  // Fetch revenue detail (for edit)
-  const { data: editData } = useQuery({
-    queryKey: ["revenue-detail", editingId],
-    queryFn: async () => (await api.get(`/revenues/${editingId}`)).data,
-    enabled: !!editingId,
-  });
 
   // Fetch project summary
   const { data: summaryData } = useQuery({
@@ -150,6 +136,7 @@ export default function BusinessProjectView({ project, projectId }: Props) {
     setBillingDate("");
     setPaymentDueDate("");
     setNotes("");
+    setSubtitle("");
     setItems([{ description: "", quantity: 1, unit_price: 0, amount: 0 }]);
   };
 
@@ -165,6 +152,7 @@ export default function BusinessProjectView({ project, projectId }: Props) {
     setBillingDate(rev.billing_date || "");
     setPaymentDueDate(rev.payment_due_date || "");
     setNotes(rev.notes || "");
+    setSubtitle(rev.subtitle || "");
     // Fetch detail with items
     try {
       const res = await api.get(`/revenues/${rev.id}`);
@@ -237,6 +225,7 @@ export default function BusinessProjectView({ project, projectId }: Props) {
       billing_date: billingDate || null,
       payment_due_date: paymentDueDate || null,
       notes: notes || null,
+      subtitle: subtitle || null,
       items: items.filter((it) => it.description),
     });
   };
@@ -368,6 +357,9 @@ export default function BusinessProjectView({ project, projectId }: Props) {
                         <span className="font-mono text-sm font-semibold">
                           {rev.billing_key}
                         </span>
+                        {rev.subtitle && (
+                          <span className="text-sm font-medium">{rev.subtitle}</span>
+                        )}
                         <Badge variant="outline" className="text-[10px]">
                           {taxLabels[rev.tax_category] || rev.tax_category}
                         </Badge>
@@ -414,6 +406,31 @@ export default function BusinessProjectView({ project, projectId }: Props) {
                       </Button>
                     </div>
                   </div>
+                  {/* 明細項目の展開表示 */}
+                  {rev.items && rev.items.length > 0 && (
+                    <div className="mt-3 border-t pt-2">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-muted-foreground">
+                            <th className="text-left font-normal pb-1">項目</th>
+                            <th className="text-right font-normal pb-1 w-16">数量</th>
+                            <th className="text-right font-normal pb-1 w-24">単価</th>
+                            <th className="text-right font-normal pb-1 w-24">金額</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rev.items.map((item, idx) => (
+                            <tr key={idx} className="border-t border-dashed">
+                              <td className="py-1">{item.description}</td>
+                              <td className="py-1 text-right font-number">{item.quantity}</td>
+                              <td className="py-1 text-right font-number">{formatCurrency(item.unit_price)}</td>
+                              <td className="py-1 text-right font-number font-medium">{formatCurrency(item.amount)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
@@ -431,6 +448,21 @@ export default function BusinessProjectView({ project, projectId }: Props) {
           </DialogHeader>
 
           <div className="space-y-4">
+            {/* Subtitle (A-type only) */}
+            {isCategoryA && (
+              <div>
+                <Label>番号ラベル（小見出し）</Label>
+                <Input
+                  placeholder="例: 2025年株主総会"
+                  value={subtitle}
+                  onChange={(e) => setSubtitle(e.target.value)}
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  この番号が何を表すかのラベル（番組名・イベント年度など）
+                </p>
+              </div>
+            )}
+
             {/* Line Items */}
             <div>
               <Label className="text-sm font-semibold">明細項目</Label>
