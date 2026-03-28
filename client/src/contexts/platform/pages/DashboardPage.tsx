@@ -81,6 +81,16 @@ const alertTypeColor: Record<string, string> = {
   warning: "#f59e0b",
   danger: "#ef4444",
   info: "#3b82f6",
+  application_form: "#ef4444",
+  upcoming_event: "#f59e0b",
+};
+
+const alertTypeLabel: Record<string, string> = {
+  application_form: "申込書未提出",
+  upcoming_event: "イベント直前",
+  warning: "警告",
+  danger: "緊急",
+  info: "情報",
 };
 
 const projectStageLabel: Record<string, string> = {
@@ -466,7 +476,7 @@ export default function DashboardPage() {
                 {alerts.map((a, idx) => (
                   <div key={`${a.id}-${a.alert_type}-${idx}`} className="flex items-start gap-3 rounded-md border p-3">
                     <Badge color={alertTypeColor[a.alert_type] || "#6b7280"}>
-                      {a.alert_type}
+                      {alertTypeLabel[a.alert_type] || a.alert_type}
                     </Badge>
                     <div className="flex-1">
                       <p className="text-sm font-medium">{a.name}</p>
