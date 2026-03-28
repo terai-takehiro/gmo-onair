@@ -1,6 +1,6 @@
 export function formatCurrency(amount: number | null | undefined): string {
-  if (amount == null) return "¥0";
-  return `¥${amount.toLocaleString("ja-JP")}`;
+  if (amount == null) return "¥ 0";
+  return `¥ ${amount.toLocaleString("ja-JP")}`;
 }
 
 export function formatDate(dateStr: string | null | undefined): string {
