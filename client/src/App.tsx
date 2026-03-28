@@ -1,27 +1,35 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "@/features/auth/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/platform/AuthContext";
 import AppShell from "@/components/layout/AppShell";
-import LoginPage from "@/features/auth/LoginPage";
-import DashboardPage from "@/features/dashboard/DashboardPage";
-import OpportunityListPage from "@/features/opportunities/OpportunityListPage";
-import OpportunityFormPage from "@/features/opportunities/OpportunityFormPage";
-import ProjectListPage from "@/features/projects/ProjectListPage";
-import ProjectDetailPage from "@/features/projects/ProjectDetailPage";
-import EpisodeListPage from "@/features/episodes/EpisodeListPage";
-import RevenueListPage from "@/features/revenues/RevenueListPage";
-import PurchaseListPage from "@/features/purchases/PurchaseListPage";
-import SgaListPage from "@/features/sga/SgaListPage";
-import StudioCalendarPage from "@/features/calendar/StudioCalendarPage";
-import CustomerListPage from "@/features/masters/CustomerListPage";
-import VendorListPage from "@/features/masters/VendorListPage";
-import PartnerListPage from "@/features/masters/PartnerListPage";
-import PricingListPage from "@/features/masters/PricingListPage";
-import UserListPage from "@/features/users/UserListPage";
-import ProjectGroupListPage from "@/features/project-groups/ProjectGroupListPage";
-import ProjectGroupDetailPage from "@/features/project-groups/ProjectGroupDetailPage";
-import VendorReportPage from "@/features/reports/VendorReportPage";
-import DataViewerPage from "@/features/admin/DataViewerPage";
 import { Loader2 } from "lucide-react";
+
+// Platform
+import LoginPage from "@/contexts/platform/pages/LoginPage";
+import DashboardPage from "@/contexts/platform/pages/DashboardPage";
+import UserListPage from "@/contexts/platform/pages/UserListPage";
+import DataViewerPage from "@/contexts/platform/pages/DataViewerPage";
+
+// Sales
+import OpportunityListPage from "@/contexts/sales/pages/OpportunityListPage";
+import OpportunityFormPage from "@/contexts/sales/pages/OpportunityFormPage";
+import CustomerListPage from "@/contexts/sales/pages/CustomerListPage";
+import PricingListPage from "@/contexts/sales/pages/PricingListPage";
+
+// Production
+import ProjectListPage from "@/contexts/production/pages/ProjectListPage";
+import ProjectDetailPage from "@/contexts/production/pages/ProjectDetailPage";
+import ProjectGroupListPage from "@/contexts/production/pages/ProjectGroupListPage";
+import ProjectGroupDetailPage from "@/contexts/production/pages/ProjectGroupDetailPage";
+import EpisodeListPage from "@/contexts/production/pages/EpisodeListPage";
+import StudioCalendarPage from "@/contexts/production/pages/StudioCalendarPage";
+import VendorReportPage from "@/contexts/production/pages/VendorReportPage";
+
+// Finance
+import RevenueListPage from "@/contexts/finance/pages/RevenueListPage";
+import PurchaseListPage from "@/contexts/finance/pages/PurchaseListPage";
+import SgaListPage from "@/contexts/finance/pages/SgaListPage";
+import VendorListPage from "@/contexts/finance/pages/VendorListPage";
+import PartnerListPage from "@/contexts/finance/pages/PartnerListPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -66,26 +74,33 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
+        {/* Platform */}
         <Route path="/" element={<DashboardPage />} />
+        <Route path="/admin/users" element={<UserListPage />} />
+        <Route path="/admin/data-viewer" element={<DataViewerPage />} />
+
+        {/* Sales */}
         <Route path="/opportunities" element={<OpportunityListPage />} />
         <Route path="/opportunities/new" element={<OpportunityFormPage />} />
         <Route path="/opportunities/:id" element={<OpportunityFormPage />} />
+        <Route path="/masters/customers" element={<CustomerListPage />} />
+        <Route path="/masters/pricing" element={<PricingListPage />} />
+
+        {/* Production */}
         <Route path="/project-groups" element={<ProjectGroupListPage />} />
         <Route path="/project-groups/:id" element={<ProjectGroupDetailPage />} />
         <Route path="/projects" element={<ProjectListPage />} />
         <Route path="/projects/:id" element={<ProjectDetailPage />} />
         <Route path="/projects/:projectId/episodes" element={<EpisodeListPage />} />
+        <Route path="/calendar" element={<StudioCalendarPage />} />
+        <Route path="/reports/vendors" element={<VendorReportPage />} />
+
+        {/* Finance */}
         <Route path="/revenues" element={<RevenueListPage />} />
         <Route path="/purchases" element={<PurchaseListPage />} />
         <Route path="/sga" element={<SgaListPage />} />
-        <Route path="/calendar" element={<StudioCalendarPage />} />
-        <Route path="/masters/customers" element={<CustomerListPage />} />
         <Route path="/masters/vendors" element={<VendorListPage />} />
         <Route path="/masters/partners" element={<PartnerListPage />} />
-        <Route path="/masters/pricing" element={<PricingListPage />} />
-        <Route path="/reports/vendors" element={<VendorReportPage />} />
-        <Route path="/admin/users" element={<UserListPage />} />
-        <Route path="/admin/data-viewer" element={<DataViewerPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

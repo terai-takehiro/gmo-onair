@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { useAuth } from "@/features/auth/AuthContext";
+import { useAuth } from "@/contexts/platform/AuthContext";
 import {
   SgaExpense,
   Vendor,
@@ -27,7 +27,7 @@ import SgaDialog, {
   type SgaFormData,
   initialFormData,
   formatSettlementNo,
-} from "./SgaDialog";
+} from "../components/SgaDialog";
 
 export default function SgaListPage() {
   const { currentUser } = useAuth();

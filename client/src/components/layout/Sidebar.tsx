@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { useAuth } from "@/features/auth/AuthContext";
+import { useAuth } from "@/contexts/platform/AuthContext";
 import { useUiStore } from "@/stores/uiStore";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";

@@ -23,7 +23,7 @@ import {
   ProjectTypeLabels, BroadcastTypeLabels, MediaPlatformLabels,
   type OpportunityStage,
 } from "@/types";
-import SimulationDialog from "./SimulationDialog";
+import SimulationDialog from "../components/SimulationDialog";
 
 const stageOrder: OpportunityStage[] = ['neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 's_completed', 'e_lost'];
 

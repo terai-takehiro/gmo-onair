@@ -38,12 +38,12 @@ import {
   ShoppingCart,
 } from "lucide-react";
 
-import EpisodeBatchDialog from "./components/EpisodeBatchDialog";
-import EpisodeEditDialog from "./components/EpisodeEditDialog";
-import EpisodePurchaseDialog from "./components/EpisodePurchaseDialog";
-import InvoiceGroupDialog from "./components/InvoiceGroupDialog";
-import EpisodeSummaryCards from "./components/EpisodeSummaryCards";
-import ProjectSettingsTab from "./components/ProjectSettingsTab";
+import EpisodeBatchDialog from "../components/episodes/EpisodeBatchDialog";
+import EpisodeEditDialog from "../components/episodes/EpisodeEditDialog";
+import EpisodePurchaseDialog from "../components/episodes/EpisodePurchaseDialog";
+import InvoiceGroupDialog from "../components/episodes/InvoiceGroupDialog";
+import EpisodeSummaryCards from "../components/episodes/EpisodeSummaryCards";
+import ProjectSettingsTab from "../components/episodes/ProjectSettingsTab";
 
 function getDateLabels(projectType: string): { recording: string; broadcast: string; delivery: string } {
   switch (projectType) {

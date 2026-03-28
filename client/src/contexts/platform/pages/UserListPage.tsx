@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import api from "@/lib/api";
-import { useAuth } from "@/features/auth/AuthContext";
+import { useAuth } from "@/contexts/platform/AuthContext";
 import { formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

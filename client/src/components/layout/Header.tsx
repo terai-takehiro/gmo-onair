@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useAuth } from "@/features/auth/AuthContext";
+import { useAuth } from "@/contexts/platform/AuthContext";
 import { useUiStore } from "@/stores/uiStore";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
