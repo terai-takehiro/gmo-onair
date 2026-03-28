@@ -6,6 +6,8 @@
   html, body {
     overflow-x: hidden;
     overscroll-behavior-x: none;
+    touch-action: pan-y;
+    -webkit-text-size-adjust: 100%;
   }
 
   :root {
