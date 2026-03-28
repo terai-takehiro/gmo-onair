@@ -192,7 +192,7 @@ export async function seed() {
     const id = uuidv4();
     PROJECTS[gls] = id;
     // GLS発番済みなので code = OPP-xxx (元のヨミコード) + gls_number
-    const oppCode = `OPP-202603-${String(10 + i).padStart(4, '0')}`;
+    const oppCode = `OPP-202603-${String(20 + i).padStart(4, '0')}`;
     ins(projSql, [id, oppCode, gls, name, CUSTOMERS[custKey], stage, projType, amt, es, ee, bType, mPlatform, staffIds[i % 3], tags, USERS.admin]);
   }
 
