@@ -13,6 +13,8 @@ export interface ConfirmOrderInput {
   broadcastType?: string;
   mediaPlatform?: string;
   initialEpisodeCount?: number;
+  lostReasonId?: string;
+  lostReasonNote?: string;
 }
 
 export interface ConfirmOrderResult {
@@ -94,7 +96,15 @@ export class OpportunityService {
     const opp = queryOne('SELECT * FROM opportunities WHERE id = ? AND deleted_at IS NULL', [id]) as any;
     if (!opp) throw new AppError(404, 'NOT_FOUND', 'ヨミが見つかりません');
 
-    execute(`UPDATE opportunities SET stage=?, updated_at=datetime('now'), updated_by=? WHERE id=?`, [stage, userId, id]);
+    // 失注時は理由を記録
+    if (stage === 'e_lost') {
+      execute(
+        `UPDATE opportunities SET stage=?, lost_reason_id=?, lost_reason_note=?, updated_at=datetime('now'), updated_by=? WHERE id=?`,
+        [stage, input.lostReasonId || null, input.lostReasonNote || null, userId, id]
+      );
+    } else {
+      execute(`UPDATE opportunities SET stage=?, updated_at=datetime('now'), updated_by=? WHERE id=?`, [stage, userId, id]);
+    }
 
     let project = null;
     let episodes: Record<string, unknown>[] = [];

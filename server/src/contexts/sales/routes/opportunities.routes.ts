@@ -29,11 +29,13 @@ router.put('/:id', requireAuth, (req, res) => {
 });
 
 router.patch('/:id/stage', requireAuth, (req, res) => {
-  const { stage, broadcast_type, media_platform, initial_episode_count } = req.body;
+  const { stage, broadcast_type, media_platform, initial_episode_count, lost_reason_id, lost_reason_note } = req.body;
   const result = opportunityService.changeStage(req.params.id as string, stage, {
     broadcastType: broadcast_type,
     mediaPlatform: media_platform,
     initialEpisodeCount: parseInt(initial_episode_count) || 0,
+    lostReasonId: lost_reason_id,
+    lostReasonNote: lost_reason_note,
   }, req.user!.id);
   res.json({ success: true, data: result.opportunity, project: result.project, episodes: result.episodes, episodeOrder: result.episodeOrder });
 });

@@ -14,6 +14,8 @@ import OpportunityListPage from "@/contexts/sales/pages/OpportunityListPage";
 import OpportunityFormPage from "@/contexts/sales/pages/OpportunityFormPage";
 import CustomerListPage from "@/contexts/sales/pages/CustomerListPage";
 import PricingListPage from "@/contexts/sales/pages/PricingListPage";
+import ActivityLogPage from "@/contexts/sales/pages/ActivityLogPage";
+import SalesReviewPage from "@/contexts/sales/pages/SalesReviewPage";
 
 // Production
 import ProjectListPage from "@/contexts/production/pages/ProjectListPage";
@@ -85,6 +87,8 @@ function AppRoutes() {
         <Route path="/opportunities/:id" element={<OpportunityFormPage />} />
         <Route path="/masters/customers" element={<CustomerListPage />} />
         <Route path="/masters/pricing" element={<PricingListPage />} />
+        <Route path="/activity-logs" element={<ActivityLogPage />} />
+        <Route path="/sales-review" element={<SalesReviewPage />} />
 
         {/* Production */}
         <Route path="/project-groups" element={<ProjectGroupListPage />} />

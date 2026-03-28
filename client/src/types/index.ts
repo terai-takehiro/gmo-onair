@@ -56,6 +56,13 @@ export const OpportunityStageProbability: Record<OpportunityStage, number> = {
   b_verbal: 80, a_won: 100, s_completed: 100, e_lost: 0,
 };
 
+export const OPPORTUNITY_STAGES = Object.entries(OpportunityStageLabels).map(([value, label]) => ({
+  value: value as OpportunityStage,
+  label,
+  color: OpportunityStageColors[value as OpportunityStage],
+  probability: OpportunityStageProbability[value as OpportunityStage],
+}));
+
 // 案件種類
 export const ProjectType = {
   OFFLINE_EVENT: 'offline_event',
