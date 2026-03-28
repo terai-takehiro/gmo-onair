@@ -1,9 +1,10 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
+import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
 import api from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
@@ -69,14 +70,42 @@ const bookingTypeLabels: Record<string, string> = {
   other: "その他",
 };
 
+function useIsMobile(breakpoint = 640) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" ? window.innerWidth < breakpoint : false
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    setIsMobile(mq.matches);
+    return () => mq.removeEventListener("change", handler);
+  }, [breakpoint]);
+  return isMobile;
+}
+
 export default function StudioCalendarPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const isMobile = useIsMobile();
+  const calendarRef = useRef<any>(null);
 
   const [dateRange, setDateRange] = useState<{ from: string; to: string }>({
     from: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0],
     to: new Date(new Date().getFullYear(), new Date().getMonth() + 2, 0).toISOString().split("T")[0],
   });
+
+  // モバイル/デスクトップ切り替え時にビューを変更
+  useEffect(() => {
+    const api = calendarRef.current?.getApi?.();
+    if (!api) return;
+    const currentView = api.view.type;
+    if (isMobile && currentView === "dayGridMonth") {
+      api.changeView("timeGridDay");
+    } else if (!isMobile && currentView === "listWeek") {
+      api.changeView("dayGridMonth");
+    }
+  }, [isMobile]);
 
   // Filter state
   const [selectedRoomIds, setSelectedRoomIds] = useState<Set<string>>(new Set());
@@ -268,7 +297,7 @@ export default function StudioCalendarPage() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-xl lg:text-2xl font-bold">スタジオ予約</h1>
-          <p className="text-sm text-muted-foreground">カレンダーをタップして予約を追加</p>
+          <p className="hidden sm:block text-sm text-muted-foreground">カレンダーをタップして予約を追加</p>
         </div>
         <div className="flex gap-2">
           <Button
@@ -367,19 +396,25 @@ export default function StudioCalendarPage() {
           ) : (
             <div className="studio-calendar">
               <FullCalendar
-                plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                initialView="dayGridMonth"
+                ref={calendarRef}
+                plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+                initialView={isMobile ? "timeGridDay" : "dayGridMonth"}
                 locale="ja"
-                headerToolbar={{
+                headerToolbar={isMobile ? {
+                  left: "prev,next",
+                  center: "title",
+                  right: "timeGridDay,listWeek,dayGridMonth",
+                } : {
                   left: "prev,next today",
                   center: "title",
-                  right: "dayGridMonth,timeGridWeek,timeGridDay",
+                  right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
                 }}
                 buttonText={{
                   today: "今日",
                   month: "月",
                   week: "週",
                   day: "日",
+                  list: "一覧",
                 }}
                 events={calendarEvents}
                 datesSet={handleDatesSet}
@@ -387,20 +422,24 @@ export default function StudioCalendarPage() {
                 select={handleDateSelect}
                 selectable={true}
                 selectMirror={true}
-                height="auto"
+                height={isMobile ? "auto" : "auto"}
+                contentHeight={isMobile ? "auto" : undefined}
                 eventDisplay="block"
-                dayMaxEvents={4}
+                dayMaxEvents={isMobile ? 2 : 4}
                 slotMinTime="06:00:00"
                 slotMaxTime="24:00:00"
-                slotDuration="00:30:00"
+                slotDuration={isMobile ? "01:00:00" : "00:30:00"}
                 allDayText="終日"
                 nowIndicator={true}
+                expandRows={!isMobile}
+                stickyHeaderDates={true}
                 eventTimeFormat={{
                   hour: "2-digit",
                   minute: "2-digit",
                   meridiem: false,
                   hour12: false,
                 }}
+                titleFormat={isMobile ? { month: "short", day: "numeric" } : undefined}
               />
             </div>
           )}
