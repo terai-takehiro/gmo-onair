@@ -12,6 +12,7 @@ import {
   MediaPlatformLabels,
   InvoiceGroupStatusLabels,
   InvoiceGroupStatusColors,
+  getProjectCategory,
 } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +37,7 @@ import {
   Pencil,
   ArrowLeft,
   ShoppingCart,
+  Receipt,
 } from "lucide-react";
 
 import EpisodeBatchDialog from "../components/episodes/EpisodeBatchDialog";
@@ -44,6 +46,7 @@ import EpisodePurchaseDialog from "../components/episodes/EpisodePurchaseDialog"
 import InvoiceGroupDialog from "../components/episodes/InvoiceGroupDialog";
 import EpisodeSummaryCards from "../components/episodes/EpisodeSummaryCards";
 import ProjectSettingsTab from "../components/episodes/ProjectSettingsTab";
+import BusinessProjectView from "../components/episodes/BusinessProjectView";
 
 function getDateLabels(projectType: string): { recording: string; broadcast: string; delivery: string } {
   switch (projectType) {
@@ -146,6 +149,10 @@ export default function EpisodeListPage() {
     );
   }
 
+  // A系・B系ともに見積・売上ベースのビューに統一
+  return <BusinessProjectView project={project} projectId={projectId!} />;
+
+  // 以下はレガシー（話数管理）- 将来削除予定
   return (
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       {/* Header */}
