@@ -132,34 +132,55 @@ export default function StudioCalendarPage() {
   const calendarEvents = useMemo(() => {
     const events: any[] = [];
 
-    // Studio bookings
+    // Studio bookings — 部屋ごとに1イベントとして表示
     for (const b of bookings) {
-      // Filter by selected rooms
-      if (selectedRoomIds.size > 0) {
-        const hasMatch = b.rooms.some((r) => selectedRoomIds.has(r.room_id));
-        if (!hasMatch && b.rooms.length > 0) continue;
+      const typeColor = b.booking_type === "maintenance" ? "#ef4444"
+        : b.booking_type === "tour" ? "#8b5cf6"
+        : b.booking_type === "internal" ? "#f59e0b"
+        : bookingTypeColors[b.booking_type] || "#6b7280";
+
+      if (b.rooms.length > 0) {
+        // 部屋ごとに個別イベント
+        for (const room of b.rooms) {
+          if (selectedRoomIds.size > 0 && !selectedRoomIds.has(room.room_id)) continue;
+
+          const color = b.booking_type === "maintenance" || b.booking_type === "tour"
+            ? typeColor : room.room_color;
+
+          events.push({
+            id: `booking-${b.id}-${room.room_id}`,
+            title: `${room.room_name} | ${b.title}`,
+            start: b.start_time,
+            end: b.all_day ? addOneDay(b.end_time) : b.end_time,
+            allDay: !!b.all_day,
+            backgroundColor: color,
+            borderColor: color,
+            textColor: "#ffffff",
+            extendedProps: {
+              kind: "booking",
+              bookingId: b.id,
+              bookingType: b.booking_type,
+            },
+          });
+        }
+      } else {
+        // 外現場など部屋なし
+        events.push({
+          id: `booking-${b.id}`,
+          title: `📍 ${b.title}${b.location_note ? ` (${b.location_note})` : ""}`,
+          start: b.start_time,
+          end: b.all_day ? addOneDay(b.end_time) : b.end_time,
+          allDay: !!b.all_day,
+          backgroundColor: typeColor,
+          borderColor: typeColor,
+          textColor: "#ffffff",
+          extendedProps: {
+            kind: "booking",
+            bookingId: b.id,
+            bookingType: b.booking_type,
+          },
+        });
       }
-
-      const roomColor = b.rooms.length > 0 ? b.rooms[0].room_color : bookingTypeColors[b.booking_type];
-      const roomNames = b.rooms.map((r) => r.room_name).join(", ");
-
-      events.push({
-        id: `booking-${b.id}`,
-        title: b.rooms.length > 0
-          ? `${roomNames} | ${b.title}`
-          : `📍 ${b.title}${b.location_note ? ` (${b.location_note})` : ""}`,
-        start: b.start_time,
-        end: b.all_day ? addOneDay(b.end_time) : b.end_time,
-        allDay: !!b.all_day,
-        backgroundColor: b.booking_type === "maintenance" ? "#ef4444" : b.booking_type === "tour" ? "#8b5cf6" : roomColor,
-        borderColor: b.booking_type === "maintenance" ? "#ef4444" : b.booking_type === "tour" ? "#8b5cf6" : roomColor,
-        textColor: "#ffffff",
-        extendedProps: {
-          kind: "booking",
-          bookingId: b.id,
-          bookingType: b.booking_type,
-        },
-      });
     }
 
     // Project events (recording/broadcast from existing calendar API)
