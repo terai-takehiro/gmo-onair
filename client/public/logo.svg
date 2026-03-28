@@ -1,15 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 160" fill="none">
-  <!-- GMO text -->
-  <g fill="#1565C0">
-    <!-- G -->
-    <path d="M45 8C20.1 8 0 28.1 0 53s20.1 45 45 45c20.5 0 38-13.7 43.5-32.5H50v-13h55v6.5C105 83.9 78.9 110 45 110 20.1 110 0 89.9 0 65h0C-0.5 28.1 20.1 8 45 8c15.8 0 29.7 8.2 37.7 20.5l-11.2 7C65 26.2 55.8 20 45 20c-18.2 0-33 14.8-33 33s14.8 33 33 33c14 0 26-8.7 30.8-21H50V53h45.5c0.3 2 0.5 4 0.5 6 0 27.6-22.4 50-50 50S-4 86.6-4 59 18.4 8 45 8z" transform="translate(5,2) scale(0.72)"/>
-    <!-- M -->
-    <path d="M120 10h18l27 55 27-55h18v88h-14V30l-27 55h-8L134 30v68h-14V10z" transform="translate(5,2) scale(0.72)"/>
-    <!-- O -->
-    <path d="M280 54c0-27.6-20.1-47-45-47s-45 19.4-45 47 20.1 47 45 47 45-19.4 45-47zm-45 35c-18.2 0-33-15.7-33-35s14.8-35 33-35 33 15.7 33 35-14.8 35-33 35z" transform="translate(5,2) scale(0.72)"/>
-  </g>
-  <!-- GLOBAL STUDIO text -->
-  <text x="200" y="130" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="32" letter-spacing="3">
-    <tspan fill="#222" font-weight="300">GLOBAL </tspan><tspan fill="#222" font-weight="700">STUDIO</tspan>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 50" fill="none">
+  <text x="0" y="22" font-family="'Arial Black', 'Helvetica Neue', Arial, sans-serif" font-size="26" font-weight="900" fill="#1565C0" letter-spacing="-1">GMO</text>
+  <text x="0" y="44" font-family="'Helvetica Neue', Arial, sans-serif" font-size="16" letter-spacing="2">
+    <tspan fill="#333" font-weight="300">GLOBAL </tspan><tspan fill="#333" font-weight="700">STUDIO</tspan>
   </text>
 </svg>

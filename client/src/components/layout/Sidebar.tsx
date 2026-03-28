@@ -107,12 +107,11 @@ export default function Sidebar() {
       >
         {/* Logo header */}
         <div className="flex h-14 items-center justify-between border-b px-4">
-          <div className="flex items-center gap-2">
-            <img
-              src="/logo.svg"
-              alt="GMO GLOBAL STUDIO"
-              className="h-8 w-auto"
-            />
+          <div className="flex flex-col leading-none">
+            <span className="text-xl font-black tracking-tight text-primary">GMO</span>
+            <span className="text-[9px] tracking-[0.15em] text-foreground/80">
+              <span className="font-light">GLOBAL </span><span className="font-bold">STUDIO</span>
+            </span>
           </div>
           <button
             className="rounded p-1 hover:bg-sidebar-accent lg:hidden"
