@@ -171,6 +171,14 @@ export default function StudioCalendarPage() {
         : b.booking_type === "internal" ? "#f59e0b"
         : bookingTypeColors[b.booking_type] || "#6b7280";
 
+      // 終日イベントを時間軸上に展開（06:00〜24:00）
+      const toTimedRange = (startStr: string, endStr: string, isAllDay: boolean) => {
+        if (!isAllDay) return { start: startStr, end: endStr };
+        // 終日 → 各日を06:00〜24:00の時間帯イベントに変換
+        return { start: `${startStr}T06:00:00`, end: `${endStr}T23:59:00` };
+      };
+      const { start: evStart, end: evEnd } = toTimedRange(b.start_time, b.end_time, !!b.all_day);
+
       if (b.rooms.length > 0) {
         // 部屋ごとに個別イベント
         for (const room of b.rooms) {
@@ -182,9 +190,9 @@ export default function StudioCalendarPage() {
           events.push({
             id: `booking-${b.id}-${room.room_id}`,
             title: `${room.room_name} | ${b.title}`,
-            start: b.start_time,
-            end: b.all_day ? addOneDay(b.end_time) : b.end_time,
-            allDay: !!b.all_day,
+            start: evStart,
+            end: evEnd,
+            allDay: false,
             backgroundColor: color,
             borderColor: color,
             textColor: "#ffffff",
@@ -200,9 +208,9 @@ export default function StudioCalendarPage() {
         events.push({
           id: `booking-${b.id}`,
           title: `📍 ${b.title}${b.location_note ? ` (${b.location_note})` : ""}`,
-          start: b.start_time,
-          end: b.all_day ? addOneDay(b.end_time) : b.end_time,
-          allDay: !!b.all_day,
+          start: evStart,
+          end: evEnd,
+          allDay: false,
           backgroundColor: typeColor,
           borderColor: typeColor,
           textColor: "#ffffff",
@@ -432,7 +440,7 @@ export default function StudioCalendarPage() {
                 slotMinTime="06:00:00"
                 slotMaxTime="24:00:00"
                 slotDuration={isMobile ? "01:00:00" : "00:30:00"}
-                allDayText="終日"
+                allDaySlot={false}
                 nowIndicator={true}
                 expandRows={!isMobile}
                 stickyHeaderDates={true}
@@ -470,11 +478,4 @@ export default function StudioCalendarPage() {
       />
     </div>
   );
-}
-
-// Helper: add one day for allDay events (FullCalendar exclusive end date)
-function addOneDay(dateStr: string): string {
-  const d = new Date(dateStr);
-  d.setDate(d.getDate() + 1);
-  return d.toISOString().split("T")[0];
 }
