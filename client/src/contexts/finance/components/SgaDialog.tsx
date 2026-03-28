@@ -84,10 +84,21 @@ function generateBillingKeyPreview(recognitionDate: string): string {
 }
 
 export function formatSettlementNo(method: string, number: string): string {
-  if (!number || number === "pending") return "未定";
+  if (!number || number === "pending") return "";
   if (method === "xpoint") return `X-${number}`;
   if (method === "rakuraku") return `楽-${number}`;
   return number;
+}
+
+export function SettlementBadge({ number }: { number: string | null | undefined }) {
+  const isApplied = !!number && number !== "pending";
+  return (
+    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+      isApplied ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+    }`}>
+      {isApplied ? '申請済' : '未申請'}
+    </span>
+  );
 }
 
 interface SgaDialogProps {
@@ -238,23 +249,11 @@ export default function SgaDialog({
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>精算番号</Label>
-              <div className="flex items-center gap-2 mb-1">
-                <Checkbox
-                  checked={form.settlement_number_pending}
-                  onCheckedChange={(checked) =>
-                    setForm((f) => ({
-                      ...f,
-                      settlement_number_pending: !!checked,
-                      settlement_number: checked ? "" : f.settlement_number,
-                    }))
-                  }
-                />
-                <span className="text-sm text-muted-foreground">未定</span>
+              <div className="flex items-center gap-2">
+                <Label>精算番号</Label>
+                <SettlementBadge number={form.settlement_number} />
               </div>
               <Input
-                type="number"
-                disabled={form.settlement_number_pending}
                 value={form.settlement_number}
                 onChange={(e) =>
                   setForm((f) => ({
@@ -262,17 +261,11 @@ export default function SgaDialog({
                     settlement_number: e.target.value,
                   }))
                 }
-                placeholder="精算番号"
+                placeholder="申請後に番号を入力（任意）"
               />
-              {(form.settlement_number || form.settlement_number_pending) && (
+              {form.settlement_number && (
                 <p className="text-xs text-muted-foreground">
-                  表示:{" "}
-                  {formatSettlementNo(
-                    form.settlement_method,
-                    form.settlement_number_pending
-                      ? "pending"
-                      : form.settlement_number
-                  )}
+                  表示: {formatSettlementNo(form.settlement_method, form.settlement_number)}
                 </p>
               )}
             </div>
@@ -373,7 +366,7 @@ export default function SgaDialog({
                       </div>
                     </div>
                     {form.amount > 0 && amortizeMonths > 0 && (
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-muted-foreground font-number">
                         {formatCurrency(form.amount)} ÷ {amortizeMonths}ヶ月 ={" "}
                         {formatCurrency(Math.floor(form.amount / amortizeMonths))}/月
                       </p>

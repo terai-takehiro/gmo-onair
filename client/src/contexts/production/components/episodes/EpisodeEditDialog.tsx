@@ -123,7 +123,7 @@ export default function EpisodeEditDialog({ projectId, episode, broadcastType, p
             <div className="space-y-2">
               <Label>売上高</Label>
               <div className="flex items-center gap-2 h-10 px-3 rounded-md border bg-muted/50">
-                <span className="font-mono text-sm">{formatCurrency(episode.actual_revenue || 0)}</span>
+                <span className="font-number text-sm">{formatCurrency(episode.actual_revenue || 0)}</span>
                 <span className="text-xs text-muted-foreground">({episode.revenue_count ?? 0}件)</span>
               </div>
               <p className="text-xs text-muted-foreground">売上は売上一覧から管理します</p>
@@ -131,7 +131,7 @@ export default function EpisodeEditDialog({ projectId, episode, broadcastType, p
             <div className="space-y-2">
               <Label>仕入(実績)</Label>
               <div className="flex items-center gap-2 h-10 px-3 rounded-md border bg-muted/50">
-                <span className="font-mono text-sm">{formatCurrency(episode.actual_cost || 0)}</span>
+                <span className="font-number text-sm">{formatCurrency(episode.actual_cost || 0)}</span>
                 <span className="text-xs text-muted-foreground">({purchaseCount}件)</span>
               </div>
               {onOpenPurchases && (

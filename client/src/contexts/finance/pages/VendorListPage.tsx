@@ -87,9 +87,9 @@ export default function VendorListPage() {
   const closeDialog = () => { setDialogOpen(false); setEditingId(null); };
 
   return (
-    <div className="space-y-4 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">仕入先マスター</h1>
+    <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
+      <div className="flex flex-wrap gap-2 items-center justify-between">
+        <h1 className="text-xl lg:text-2xl font-bold">仕入先マスター</h1>
         <Button onClick={openAdd}><Plus className="mr-2 h-4 w-4" />新規追加</Button>
       </div>
 
@@ -102,6 +102,7 @@ export default function VendorListPage() {
         <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
       ) : (
         <>
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -135,6 +136,7 @@ export default function VendorListPage() {
               )}
             </TableBody>
           </Table>
+          </div>
 
           {pagination && pagination.totalPages > 1 && (
             <div className="flex items-center justify-between">

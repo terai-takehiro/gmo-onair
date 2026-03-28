@@ -41,8 +41,13 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-slate-100">
       <div className="w-full max-w-2xl px-4">
         <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold text-primary">GMO ONAiR</h1>
-          <p className="mt-2 text-lg text-muted-foreground">
+          <img
+            src="https://group.gmo/assets/images/service/logo/00364.png"
+            alt="GMO ONAiR"
+            className="mx-auto mb-3 h-12 w-auto"
+          />
+          <h1 className="text-3xl font-bold text-primary sm:text-4xl">GMO ONAiR</h1>
+          <p className="mt-2 text-base text-muted-foreground sm:text-lg">
             統合業務管理システム
           </p>
         </div>

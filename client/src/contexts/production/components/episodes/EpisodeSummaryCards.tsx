@@ -12,7 +12,7 @@ function SummaryCard({ title, value }: SummaryCardProps) {
         <CardTitle className="text-xs font-normal text-muted-foreground">{title}</CardTitle>
       </CardHeader>
       <CardContent className="pb-3 px-4">
-        <p className="text-lg font-bold">{value}</p>
+        <p className="text-lg font-bold font-number">{value}</p>
       </CardContent>
     </Card>
   );

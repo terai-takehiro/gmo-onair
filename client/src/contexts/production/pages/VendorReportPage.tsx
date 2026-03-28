@@ -73,9 +73,9 @@ export default function VendorReportPage() {
   const totalCount = items.reduce((s, r) => s + r.purchase_count, 0);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">仕入先別集計レポート</h1>
+    <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
+      <div className="flex flex-wrap gap-2 items-center justify-between">
+        <h1 className="text-xl lg:text-2xl font-bold">仕入先別集計レポート</h1>
         <Button onClick={handleExport} variant="outline" className="gap-2">
           <Download className="h-4 w-4" />
           CSV出力
@@ -87,7 +87,7 @@ export default function VendorReportPage() {
           <CardTitle className="text-base">期間指定</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-end gap-4">
+          <div className="flex flex-wrap items-end gap-4">
             <div className="space-y-1">
               <Label htmlFor="from">開始日</Label>
               <Input
@@ -95,7 +95,7 @@ export default function VendorReportPage() {
                 type="date"
                 value={from}
                 onChange={(e) => setFrom(e.target.value)}
-                className="w-44"
+                className="w-full sm:w-44"
               />
             </div>
             <span className="pb-2 text-muted-foreground">~</span>
@@ -106,7 +106,7 @@ export default function VendorReportPage() {
                 type="date"
                 value={to}
                 onChange={(e) => setTo(e.target.value)}
-                className="w-44"
+                className="w-full sm:w-44"
               />
             </div>
           </div>
@@ -120,6 +120,7 @@ export default function VendorReportPage() {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -144,7 +145,7 @@ export default function VendorReportPage() {
                         <TableCell className="font-medium">{item.vendor_name}</TableCell>
                         <TableCell className="text-muted-foreground">{item.vendor_type || "-"}</TableCell>
                         <TableCell className="text-right tabular-nums">{item.purchase_count}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatCurrency(item.total_amount)}</TableCell>
+                        <TableCell className="text-right tabular-nums font-number">{formatCurrency(item.total_amount)}</TableCell>
                         <TableCell className="text-right tabular-nums">{item.percentage.toFixed(1)}%</TableCell>
                       </TableRow>
                     ))}
@@ -152,13 +153,14 @@ export default function VendorReportPage() {
                       <TableCell>合計</TableCell>
                       <TableCell />
                       <TableCell className="text-right tabular-nums">{totalCount}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatCurrency(grandTotal)}</TableCell>
+                      <TableCell className="text-right tabular-nums font-number">{formatCurrency(grandTotal)}</TableCell>
                       <TableCell className="text-right tabular-nums">100.0%</TableCell>
                     </TableRow>
                   </>
                 )}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

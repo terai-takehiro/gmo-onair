@@ -86,8 +86,8 @@ export default function StudioCalendarPage() {
   );
 
   return (
-    <div className="space-y-4 p-6">
-      <h1 className="text-2xl font-bold">カレンダー</h1>
+    <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
+      <h1 className="text-xl lg:text-2xl font-bold">カレンダー</h1>
 
       {/* Legend */}
       <div className="flex flex-wrap gap-4 text-sm">

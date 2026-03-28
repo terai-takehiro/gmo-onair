@@ -320,9 +320,9 @@ export default function PricingListPage() {
   };
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">料金表マスター</h1>
+    <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h1 className="text-xl lg:text-2xl font-bold">料金表マスター</h1>
         <Button onClick={openAddCategory}>
           <Plus className="mr-2 h-4 w-4" />
           カテゴリ追加
@@ -362,6 +362,7 @@ export default function PricingListPage() {
               </div>
             </CardHeader>
             <CardContent>
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -389,7 +390,7 @@ export default function PricingListPage() {
                           {item.name}
                         </TableCell>
                         <TableCell>{item.sub_label || "-"}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right font-number">
                           {formatCurrency(item.unit_price)}
                         </TableCell>
                         <TableCell>
@@ -422,6 +423,7 @@ export default function PricingListPage() {
                   )}
                 </TableBody>
               </Table>
+              </div>
               <div className="mt-2">
                 <Button
                   variant="outline"

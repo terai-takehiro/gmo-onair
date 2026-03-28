@@ -184,7 +184,7 @@ export default function InvoiceGroupDialog({
                         onCheckedChange={() => toggleEpisode(ep.id)}
                       />
                       <span className="font-mono">{ep.episode_code}</span>
-                      <span className="text-muted-foreground">
+                      <span className="text-muted-foreground font-number">
                         {formatCurrency(ep.actual_revenue ?? 0)}
                       </span>
                     </label>

@@ -28,7 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
+
 import {
   Select,
   SelectTrigger,
@@ -40,10 +40,21 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 
 function formatSettlementNo(method: string, number: string): string {
-  if (!number || number === "pending") return "未定";
+  if (!number || number === "pending") return "";
   if (method === "xpoint") return `X-${number}`;
   if (method === "rakuraku") return `楽-${number}`;
   return number;
+}
+
+function SettlementBadge({ number }: { number: string | null | undefined }) {
+  const isApplied = !!number && number !== "pending";
+  return (
+    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+      isApplied ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+    }`}>
+      {isApplied ? '申請済' : '未申請'}
+    </span>
+  );
 }
 
 function generateBillingKeyPreview(
@@ -79,7 +90,6 @@ export default function EpisodePurchaseDialog({
   const [taxCategory, setTaxCategory] = useState<string>("tax10");
   const [description, setDescription] = useState("");
   const [settlementNumber, setSettlementNumber] = useState("");
-  const [settlementNumberPending, setSettlementNumberPending] = useState(false);
   const [invoiceQualified, setInvoiceQualified] = useState<string>("qualified");
 
   // Billing key preview
@@ -119,7 +129,6 @@ export default function EpisodePurchaseDialog({
       setTaxCategory("tax10");
       setDescription("");
       setSettlementNumber("");
-      setSettlementNumberPending(false);
       setInvoiceQualified("qualified");
     },
   });
@@ -141,9 +150,7 @@ export default function EpisodePurchaseDialog({
       vendor_id: vendorId,
       amount,
       settlement_method: settlementMethod,
-      settlement_number: settlementNumberPending
-        ? "pending"
-        : settlementNumber || null,
+      settlement_number: settlementNumber || null,
       tax_category: taxCategory,
       description,
       invoice_qualified: invoiceQualified === "qualified" ? 1 : 0,
@@ -198,7 +205,7 @@ export default function EpisodePurchaseDialog({
                         pur.settlement_number ?? ""
                       )}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right font-number">
                       {formatCurrency(pur.amount)}
                     </TableCell>
                     <TableCell>
@@ -292,31 +299,19 @@ export default function EpisodePurchaseDialog({
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>精算番号</Label>
-              <div className="flex items-center gap-2 mb-1">
-                <Checkbox
-                  checked={settlementNumberPending}
-                  onCheckedChange={(checked) => {
-                    setSettlementNumberPending(!!checked);
-                    if (checked) setSettlementNumber("");
-                  }}
-                />
-                <span className="text-sm text-muted-foreground">未定</span>
+              <div className="flex items-center gap-2">
+                <Label>精算番号</Label>
+                <SettlementBadge number={settlementNumber || null} />
               </div>
               <Input
-                type="number"
-                disabled={settlementNumberPending}
                 value={settlementNumber}
                 onChange={(e) => setSettlementNumber(e.target.value)}
-                placeholder="精算番号"
+                placeholder="申請後に番号を入力（任意）"
               />
-              {(settlementNumber || settlementNumberPending) && (
+              {settlementNumber && (
                 <p className="text-xs text-muted-foreground">
                   表示:{" "}
-                  {formatSettlementNo(
-                    settlementMethod,
-                    settlementNumberPending ? "pending" : settlementNumber
-                  )}
+                  {formatSettlementNo(settlementMethod, settlementNumber)}
                 </p>
               )}
             </div>

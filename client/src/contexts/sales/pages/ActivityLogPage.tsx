@@ -142,10 +142,10 @@ export default function ActivityLogPage() {
   const isOverdue = (date: string) => date < new Date().toISOString().split("T")[0];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h1 className="text-2xl font-bold">営業活動記録</h1>
+          <h1 className="text-xl lg:text-2xl font-bold">営業活動記録</h1>
           <p className="text-sm text-muted-foreground">電話・訪問・メール等の営業活動を記録</p>
         </div>
         <Button onClick={() => { setEditingId(null); setForm(emptyForm); setDialogOpen(true); }}>
@@ -205,6 +205,7 @@ export default function ActivityLogPage() {
       {/* 一覧 */}
       <Card>
         <CardContent className="p-0">
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -269,6 +270,7 @@ export default function ActivityLogPage() {
               })}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 
@@ -288,7 +290,7 @@ export default function ActivityLogPage() {
             <DialogTitle>{editingId ? "活動記録の編集" : "活動を記録"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>活動種別</Label>
                 <Select value={form.activity_type} onValueChange={(v) => setForm(f => ({ ...f, activity_type: v }))}>
@@ -309,7 +311,7 @@ export default function ActivityLogPage() {
               <Label>件名 *</Label>
               <Input value={form.subject} onChange={(e) => setForm(f => ({ ...f, subject: e.target.value }))} placeholder="打合せ内容の概要" />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>案件（任意）</Label>
                 <Select value={form.project_id || "none"} onValueChange={(v) => setForm(f => ({ ...f, project_id: v === "none" ? "" : v }))}>
@@ -345,7 +347,7 @@ export default function ActivityLogPage() {
             </div>
             <div className="border-t pt-4">
               <p className="text-sm font-medium mb-2">次回アクション</p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 <div className="col-span-2">
                   <Label>内容</Label>
                   <Input value={form.next_action} onChange={(e) => setForm(f => ({ ...f, next_action: e.target.value }))} placeholder="見積書を送付" />

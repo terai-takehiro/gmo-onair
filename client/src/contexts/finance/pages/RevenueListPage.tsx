@@ -145,9 +145,9 @@ export default function RevenueListPage() {
   };
 
   return (
-    <div className="space-y-4 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">売上一覧</h1>
+    <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
+      <div className="flex flex-wrap gap-2 items-center justify-between">
+        <h1 className="text-xl lg:text-2xl font-bold">売上一覧</h1>
         <Button onClick={() => setDialogOpen(true)}>
           <Plus className="mr-1 h-4 w-4" />
           新規売上
@@ -173,6 +173,7 @@ export default function RevenueListPage() {
         </div>
       ) : (
         <>
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -220,7 +221,7 @@ export default function RevenueListPage() {
                       {(r.customer_name as string) || "-"}
                     </TableCell>
                     <TableCell>{r.tax_type as string}</TableCell>
-                    <TableCell className="text-right font-medium">
+                    <TableCell className="text-right font-medium font-number">
                       {formatCurrency(r.amount as number)}
                     </TableCell>
                     <TableCell>
@@ -231,6 +232,7 @@ export default function RevenueListPage() {
               )}
             </TableBody>
           </Table>
+          </div>
 
           {pagination && pagination.totalPages > 1 && (
             <div className="flex items-center justify-between">
@@ -364,7 +366,7 @@ export default function RevenueListPage() {
             </div>
 
             {/* Dates */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div className="space-y-1">
                 <Label>計上年月</Label>
                 <Input

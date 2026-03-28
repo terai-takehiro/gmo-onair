@@ -27,6 +27,7 @@ import SgaDialog, {
   type SgaFormData,
   initialFormData,
   formatSettlementNo,
+  SettlementBadge,
 } from "../components/SgaDialog";
 
 export default function SgaListPage() {
@@ -144,9 +145,7 @@ export default function SgaListPage() {
       tax_category: form.tax_category,
       recognition_date: form.recognition_date || null,
       settlement_method: form.settlement_method,
-      settlement_number: form.settlement_number_pending
-        ? "pending"
-        : form.settlement_number || null,
+      settlement_number: form.settlement_number || null,
       amount: form.amount,
       description: form.description || null,
       notes: form.notes || null,
@@ -169,9 +168,9 @@ export default function SgaListPage() {
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="space-y-4 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">販管費一覧</h1>
+    <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
+      <div className="flex flex-wrap gap-2 items-center justify-between">
+        <h1 className="text-xl lg:text-2xl font-bold">販管費一覧</h1>
         <Button onClick={handleOpenCreate}>
           <Plus className="mr-1 h-4 w-4" />
           新規登録
@@ -215,6 +214,7 @@ export default function SgaListPage() {
         </div>
       ) : (
         <>
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -226,7 +226,7 @@ export default function SgaListPage() {
                 <TableHead>税区分</TableHead>
                 <TableHead className="text-right">金額</TableHead>
                 <TableHead>精算方法</TableHead>
-                <TableHead>精算No.</TableHead>
+                <TableHead>精算状況</TableHead>
                 <TableHead>種別</TableHead>
                 <TableHead>処理元</TableHead>
                 <TableHead className="w-20">操作</TableHead>
@@ -262,7 +262,7 @@ export default function SgaListPage() {
                       {TaxCategoryLabels[item.tax_category as TaxCategory] ??
                         item.tax_category}
                     </TableCell>
-                    <TableCell className="text-right font-medium">
+                    <TableCell className="text-right font-medium font-number">
                       {formatCurrency(item.amount)}
                     </TableCell>
                     <TableCell>
@@ -270,11 +270,15 @@ export default function SgaListPage() {
                         item.settlement_method as SettlementMethod
                       ] ?? item.settlement_method ?? "-"}
                     </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {formatSettlementNo(
-                        item.settlement_method ?? "",
-                        item.settlement_number ?? ""
-                      )}
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <SettlementBadge number={item.settlement_number} />
+                        {item.settlement_number && item.settlement_number !== "pending" && (
+                          <span className="font-mono text-xs">
+                            {formatSettlementNo(item.settlement_method ?? "", item.settlement_number)}
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {item.amortize_start ? (
@@ -328,6 +332,7 @@ export default function SgaListPage() {
               )}
             </TableBody>
           </Table>
+          </div>
 
           {pagination && pagination.totalPages > 1 && (
             <div className="flex items-center justify-between">

@@ -163,7 +163,7 @@ export default function SimulationDialog({ open, onOpenChange, projectId: propPr
                   <div className="flex items-center justify-between bg-muted/50 px-4 py-2.5">
                     <h3 className="font-semibold text-sm">{cat.name}</h3>
                     {categoryTotals[cat.id] > 0 && (
-                      <Badge variant="secondary" className="font-mono">
+                      <Badge variant="secondary" className="font-number">
                         {formatCurrency(categoryTotals[cat.id])}
                       </Badge>
                     )}
@@ -234,12 +234,12 @@ export default function SimulationDialog({ open, onOpenChange, projectId: propPr
                                 <span className="text-xs text-muted-foreground">-</span>
                               )}
                             </TableCell>
-                            <TableCell className="text-right font-mono text-sm">
+                            <TableCell className="text-right font-number text-sm">
                               {formatCurrency(state.unitPrice)}
                             </TableCell>
                             <TableCell className="text-right">
                               {state.checked ? (
-                                <span className="font-mono font-semibold text-sm text-primary">
+                                <span className="font-number font-semibold text-sm text-primary">
                                   {formatCurrency(subtotal)}
                                 </span>
                               ) : (
@@ -265,7 +265,7 @@ export default function SimulationDialog({ open, onOpenChange, projectId: propPr
             </span>
             <div className="text-right">
               <div className="text-xs text-muted-foreground">見積合計</div>
-              <div className="text-2xl font-bold font-mono text-primary">
+              <div className="text-2xl font-bold font-number text-primary">
                 {formatCurrency(total)}
               </div>
             </div>

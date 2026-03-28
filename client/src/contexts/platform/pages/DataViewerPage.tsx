@@ -277,9 +277,9 @@ export default function DataViewerPage() {
   const pagination = tableData?.pagination;
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">
+    <div className="flex flex-col lg:flex-row h-[calc(100vh-3.5rem)] overflow-hidden">
       {/* Left sidebar - table list */}
-      <div className="w-56 flex-shrink-0 border-r bg-muted/30 overflow-y-auto">
+      <div className="w-full lg:w-56 flex-shrink-0 border-b lg:border-b-0 lg:border-r bg-muted/30 overflow-y-auto max-h-48 lg:max-h-none">
         <div className="p-3 border-b">
           <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
             <Database className="h-4 w-4" />
@@ -319,7 +319,7 @@ export default function DataViewerPage() {
         {selectedTable ? (
           <>
             {/* Header */}
-            <div className="flex items-center justify-between border-b px-4 py-3">
+            <div className="flex flex-wrap gap-2 items-center justify-between border-b px-4 py-3">
               <div className="flex items-center gap-3">
                 <h2 className="text-lg font-semibold">
                   {TABLE_LABELS[selectedTable] || selectedTable}

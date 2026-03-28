@@ -15,6 +15,9 @@ const config: Config = {
       },
     },
     extend: {
+      fontFamily: {
+        number: ['Oswald', 'sans-serif'],
+      },
       colors: {
         primary: {
           DEFAULT: '#005bac',

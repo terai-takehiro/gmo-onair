@@ -99,9 +99,9 @@ export default function CustomerListPage() {
   };
 
   return (
-    <div className="space-y-4 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">顧客マスター</h1>
+    <div className="space-y-4 p-3 lg:p-6">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h1 className="text-xl lg:text-2xl font-bold">顧客マスター</h1>
         <Button onClick={openAdd}>
           <Plus className="mr-2 h-4 w-4" />
           新規追加
@@ -122,6 +122,7 @@ export default function CustomerListPage() {
         <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
       ) : (
         <>
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -161,6 +162,7 @@ export default function CustomerListPage() {
               )}
             </TableBody>
           </Table>
+          </div>
 
           {pagination && pagination.totalPages > 1 && (
             <div className="flex items-center justify-between">

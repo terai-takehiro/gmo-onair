@@ -92,7 +92,7 @@ export default function EpisodeBatchDialog({ projectId, open, onOpenChange }: Pr
           {revenueTotal > 0 && count > 0 && (
             <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
               <p className="text-xs font-medium text-muted-foreground">1話あたり売上高（{count}話で按分）</p>
-              <p className="font-mono font-semibold text-primary">{formatCurrency(revenuePerEp)}</p>
+              <p className="font-number font-semibold text-primary">{formatCurrency(revenuePerEp)}</p>
             </div>
           )}
 

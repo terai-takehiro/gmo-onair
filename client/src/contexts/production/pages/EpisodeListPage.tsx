@@ -147,7 +147,7 @@ export default function EpisodeListPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       {/* Header */}
       <div className="space-y-2">
         <Button
@@ -159,8 +159,8 @@ export default function EpisodeListPage() {
           <ArrowLeft className="h-4 w-4" />
           案件一覧
         </Button>
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-xl lg:text-2xl font-bold">
             <span className="font-mono text-primary">{project.gls_number}</span>{" "}
             {project.name}
           </h1>
@@ -207,6 +207,7 @@ export default function EpisodeListPage() {
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -246,7 +247,7 @@ export default function EpisodeListPage() {
                         <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-sm ${
                           (ep.revenue_count ?? 0) > 0 ? 'bg-blue-50 text-blue-700' : 'text-muted-foreground'
                         }`}>
-                          <span className="font-mono">{formatCurrency(ep.actual_revenue ?? 0)}</span>
+                          <span className="font-number">{formatCurrency(ep.actual_revenue ?? 0)}</span>
                           {(ep.revenue_count ?? 0) > 0 && (
                             <span className="text-xs opacity-70">({ep.revenue_count}件)</span>
                           )}
@@ -268,7 +269,7 @@ export default function EpisodeListPage() {
                           }}
                           title="クリックで仕入詳細を表示"
                         >
-                          <span className="font-mono">{formatCurrency(ep.actual_cost ?? 0)}</span>
+                          <span className="font-number">{formatCurrency(ep.actual_cost ?? 0)}</span>
                           {(ep.purchase_count ?? 0) > 0 && (
                             <span className="text-xs opacity-70">({ep.purchase_count}件)</span>
                           )}
@@ -322,6 +323,7 @@ export default function EpisodeListPage() {
                 )}
               </TableBody>
             </Table>
+            </div>
           )}
         </TabsContent>
 
@@ -332,6 +334,7 @@ export default function EpisodeListPage() {
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -377,6 +380,7 @@ export default function EpisodeListPage() {
                 )}
               </TableBody>
             </Table>
+            </div>
           )}
         </TabsContent>
 
@@ -412,6 +416,7 @@ export default function EpisodeListPage() {
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -434,7 +439,7 @@ export default function EpisodeListPage() {
                     <TableRow key={ig.id}>
                       <TableCell className="font-medium">{ig.title}</TableCell>
                       <TableCell>{ig.episode_count ?? ig.episodes?.length ?? 0}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right font-number">
                         {formatCurrency(ig.total_amount)}
                       </TableCell>
                       <TableCell>
@@ -474,6 +479,7 @@ export default function EpisodeListPage() {
                 )}
               </TableBody>
             </Table>
+            </div>
           )}
         </TabsContent>
 

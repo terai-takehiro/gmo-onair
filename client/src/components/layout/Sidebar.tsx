@@ -107,7 +107,14 @@ export default function Sidebar() {
       >
         {/* Logo header */}
         <div className="flex h-14 items-center justify-between border-b px-4">
-          <span className="text-lg font-bold text-primary">GMO ONAiR</span>
+          <div className="flex items-center gap-2">
+            <img
+              src="https://group.gmo/assets/images/service/logo/00364.png"
+              alt="GMO ONAiR"
+              className="h-7 w-auto"
+            />
+            <span className="text-lg font-bold text-primary">ONAiR</span>
+          </div>
           <button
             className="rounded p-1 hover:bg-sidebar-accent lg:hidden"
             onClick={() => setSidebarOpen(false)}

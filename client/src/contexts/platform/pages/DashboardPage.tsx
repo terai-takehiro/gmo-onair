@@ -191,28 +191,28 @@ export default function DashboardPage() {
                 <DollarSign className="h-5 w-5 shrink-0 opacity-80" />
                 <div className="min-w-0">
                   <p className="text-[10px] opacity-80">売上</p>
-                  <p className="text-base font-bold font-mono truncate">{formatCurrency(kpi.monthly_revenue)}</p>
+                  <p className="text-base font-bold font-number truncate">{formatCurrency(kpi.monthly_revenue)}</p>
                 </div>
               </div>
               <div className="bg-orange-500 text-white p-3 flex items-center gap-2">
                 <ShoppingCart className="h-5 w-5 shrink-0 opacity-80" />
                 <div className="min-w-0">
                   <p className="text-[10px] opacity-80">変動原価</p>
-                  <p className="text-base font-bold font-mono truncate">{formatCurrency(kpi.monthly_purchase)}</p>
+                  <p className="text-base font-bold font-number truncate">{formatCurrency(kpi.monthly_purchase)}</p>
                 </div>
               </div>
               <div className="bg-emerald-600 text-white p-3 flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 shrink-0 opacity-80" />
                 <div className="min-w-0">
                   <p className="text-[10px] opacity-80">粗利 <span className="font-semibold">{formatPercent(kpi.monthly_gross_margin)}</span></p>
-                  <p className="text-base font-bold font-mono truncate">{formatCurrency(kpi.gross_profit)}</p>
+                  <p className="text-base font-bold font-number truncate">{formatCurrency(kpi.gross_profit)}</p>
                 </div>
               </div>
               <div className="bg-red-500 text-white p-3 flex items-center gap-2">
                 <Receipt className="h-5 w-5 shrink-0 opacity-80" />
                 <div className="min-w-0">
                   <p className="text-[10px] opacity-80">販管費</p>
-                  <p className="text-base font-bold font-mono truncate">{formatCurrency(kpi.monthly_sga)}</p>
+                  <p className="text-base font-bold font-number truncate">{formatCurrency(kpi.monthly_sga)}</p>
                 </div>
               </div>
               <div className={`col-span-2 p-3 flex items-center justify-center gap-3 ${
@@ -221,7 +221,7 @@ export default function DashboardPage() {
                 <BarChart3 className="h-5 w-5 shrink-0 opacity-80" />
                 <div className="flex items-baseline gap-2">
                   <p className="text-[10px] opacity-80">営業利益</p>
-                  <p className="text-lg font-bold font-mono">{formatCurrency(kpi.operating_profit)}</p>
+                  <p className="text-lg font-bold font-number">{formatCurrency(kpi.operating_profit)}</p>
                   <p className="text-sm font-semibold opacity-90">{formatPercent(kpi.operating_margin)}</p>
                 </div>
               </div>
@@ -231,7 +231,7 @@ export default function DashboardPage() {
               <div className="flex-1 bg-blue-600 text-white p-6 flex flex-col justify-center items-center relative animate-[fadeIn_0.5s_ease-out]">
                 <DollarSign className="h-8 w-8 mb-2 opacity-80" />
                 <p className="text-sm font-medium opacity-80">売上</p>
-                <p className="text-3xl font-bold font-mono">{formatCurrency(kpi.monthly_revenue)}</p>
+                <p className="text-3xl font-bold font-number">{formatCurrency(kpi.monthly_revenue)}</p>
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 bg-white rounded-full p-1 shadow">
                   <span className="text-gray-400 text-lg font-bold">-</span>
                 </div>
@@ -239,7 +239,7 @@ export default function DashboardPage() {
               <div className="flex-1 bg-orange-500 text-white p-6 flex flex-col justify-center items-center relative animate-[fadeIn_0.7s_ease-out]">
                 <ShoppingCart className="h-8 w-8 mb-2 opacity-80" />
                 <p className="text-sm font-medium opacity-80">変動原価(仕入)</p>
-                <p className="text-3xl font-bold font-mono">{formatCurrency(kpi.monthly_purchase)}</p>
+                <p className="text-3xl font-bold font-number">{formatCurrency(kpi.monthly_purchase)}</p>
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 bg-white rounded-full p-1 shadow">
                   <span className="text-gray-400 text-lg font-bold">=</span>
                 </div>
@@ -247,7 +247,7 @@ export default function DashboardPage() {
               <div className="flex-1 bg-emerald-600 text-white p-6 flex flex-col justify-center items-center relative animate-[fadeIn_0.9s_ease-out]">
                 <TrendingUp className="h-8 w-8 mb-2 opacity-80" />
                 <p className="text-sm font-medium opacity-80">粗利</p>
-                <p className="text-3xl font-bold font-mono">{formatCurrency(kpi.gross_profit)}</p>
+                <p className="text-3xl font-bold font-number">{formatCurrency(kpi.gross_profit)}</p>
                 <p className="text-lg font-semibold opacity-90">{formatPercent(kpi.monthly_gross_margin)}</p>
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 bg-white rounded-full p-1 shadow">
                   <span className="text-gray-400 text-lg font-bold">-</span>
@@ -256,7 +256,7 @@ export default function DashboardPage() {
               <div className="flex-1 bg-red-500 text-white p-6 flex flex-col justify-center items-center relative animate-[fadeIn_1.1s_ease-out]">
                 <Receipt className="h-8 w-8 mb-2 opacity-80" />
                 <p className="text-sm font-medium opacity-80">販管費</p>
-                <p className="text-3xl font-bold font-mono">{formatCurrency(kpi.monthly_sga)}</p>
+                <p className="text-3xl font-bold font-number">{formatCurrency(kpi.monthly_sga)}</p>
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 bg-white rounded-full p-1 shadow">
                   <span className="text-gray-400 text-lg font-bold">=</span>
                 </div>
@@ -266,7 +266,7 @@ export default function DashboardPage() {
               } text-white`}>
                 <BarChart3 className="h-8 w-8 mb-2 opacity-80" />
                 <p className="text-sm font-medium opacity-80">営業利益</p>
-                <p className="text-3xl font-bold font-mono">{formatCurrency(kpi.operating_profit)}</p>
+                <p className="text-3xl font-bold font-number">{formatCurrency(kpi.operating_profit)}</p>
                 <p className="text-lg font-semibold opacity-90">{formatPercent(kpi.operating_margin)}</p>
               </div>
             </div>

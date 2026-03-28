@@ -43,9 +43,9 @@ export default function ProjectListPage() {
   const pagination = data?.pagination;
 
   return (
-    <div className="space-y-4 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">案件管理</h1>
+    <div className="space-y-4 p-3 lg:p-6">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h1 className="text-xl lg:text-2xl font-bold">案件管理</h1>
         <Button onClick={() => navigate("/projects/new")}>
           <Plus className="mr-2 h-4 w-4" />
           新規作成
@@ -79,6 +79,7 @@ export default function ProjectListPage() {
         </div>
       ) : (
         <>
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -119,7 +120,7 @@ export default function ProjectListPage() {
                     <TableCell className="text-xs">
                       {ProjectTypeLabels[p.project_type as keyof typeof ProjectTypeLabels] || (p.project_type as string) || "-"}
                     </TableCell>
-                    <TableCell className="text-right">{formatCurrency(p.expected_amount as number)}</TableCell>
+                    <TableCell className="text-right font-number">{formatCurrency(p.expected_amount as number)}</TableCell>
                     <TableCell>{formatDate(p.event_start as string)}</TableCell>
                     <TableCell>{(p.assigned_to_name as string) || "-"}</TableCell>
                   </TableRow>
@@ -127,6 +128,7 @@ export default function ProjectListPage() {
               )}
             </TableBody>
           </Table>
+          </div>
 
           {/* Pagination */}
           {pagination && pagination.totalPages > 1 && (

@@ -40,10 +40,21 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Search, Loader2, Plus } from "lucide-react";
 
 function formatSettlementNo(method: string, number: string): string {
-  if (!number || number === "pending") return "未定";
+  if (!number || number === "pending") return "";
   if (method === "xpoint") return `X-${number}`;
   if (method === "rakuraku") return `楽-${number}`;
   return number;
+}
+
+function SettlementBadge({ number }: { number: string | null | undefined }) {
+  const isApplied = !!number && number !== "pending";
+  return (
+    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+      isApplied ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+    }`}>
+      {isApplied ? '申請済' : '未申請'}
+    </span>
+  );
 }
 
 interface ProjectOption {
@@ -73,7 +84,6 @@ export default function PurchaseListPage() {
   const [taxCategory, setTaxCategory] = useState("tax10");
   const [settlementMethod, setSettlementMethod] = useState("rakuraku");
   const [settlementNumber, setSettlementNumber] = useState("");
-  const [settlementNumberPending, setSettlementNumberPending] = useState(false);
   const [invoiceQualified, setInvoiceQualified] = useState("qualified");
   const [amount, setAmount] = useState<number>(0);
   const [description, setDescription] = useState("");
@@ -153,7 +163,6 @@ export default function PurchaseListPage() {
     setTaxCategory("tax10");
     setSettlementMethod("rakuraku");
     setSettlementNumber("");
-    setSettlementNumberPending(false);
     setInvoiceQualified("qualified");
     setAmount(0);
     setDescription("");
@@ -174,9 +183,7 @@ export default function PurchaseListPage() {
       vendor_id: vendorId,
       tax_category: taxCategory,
       settlement_method: settlementMethod,
-      settlement_number: settlementNumberPending
-        ? "pending"
-        : settlementNumber || null,
+      settlement_number: settlementNumber || null,
       invoice_qualified: invoiceQualified === "qualified" ? 1 : 0,
       amount,
       description: description || null,
@@ -192,9 +199,9 @@ export default function PurchaseListPage() {
   };
 
   return (
-    <div className="space-y-4 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">仕入一覧</h1>
+    <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
+      <div className="flex flex-wrap gap-2 items-center justify-between">
+        <h1 className="text-xl lg:text-2xl font-bold">仕入一覧</h1>
         <Button onClick={() => setDialogOpen(true)}>
           <Plus className="mr-1 h-4 w-4" />
           新規仕入
@@ -220,6 +227,7 @@ export default function PurchaseListPage() {
         </div>
       ) : (
         <>
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -228,7 +236,7 @@ export default function PurchaseListPage() {
                 <TableHead>案件名</TableHead>
                 <TableHead>仕入先</TableHead>
                 <TableHead>精算方法</TableHead>
-                <TableHead>精算No.</TableHead>
+                <TableHead>精算状況</TableHead>
                 <TableHead>税区分</TableHead>
                 <TableHead className="text-right">金額</TableHead>
                 <TableHead>計上日</TableHead>
@@ -274,17 +282,19 @@ export default function PurchaseListPage() {
                         p.settlement_method as SettlementMethod
                       ] ?? (p.settlement_method as string) ?? "-"}
                     </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {formatSettlementNo(
-                        (p.settlement_method as string) ?? "",
-                        (p.settlement_number as string) ?? ""
+                    <TableCell>
+                      <SettlementBadge number={p.settlement_number as string | null} />
+                      {(p.settlement_number as string) && (p.settlement_number as string) !== "pending" && (
+                        <span className="ml-1 font-mono text-xs text-muted-foreground">
+                          {formatSettlementNo((p.settlement_method as string) ?? "", (p.settlement_number as string) ?? "")}
+                        </span>
                       )}
                     </TableCell>
                     <TableCell>
                       {TaxCategoryLabels[p.tax_category as TaxCategory] ??
                         (p.tax_type as string)}
                     </TableCell>
-                    <TableCell className="text-right font-medium">
+                    <TableCell className="text-right font-medium font-number">
                       {formatCurrency(p.amount as number)}
                     </TableCell>
                     <TableCell>
@@ -298,6 +308,7 @@ export default function PurchaseListPage() {
               )}
             </TableBody>
           </Table>
+          </div>
 
           {pagination && pagination.totalPages > 1 && (
             <div className="flex items-center justify-between">
@@ -421,7 +432,7 @@ export default function PurchaseListPage() {
             </div>
 
             {/* Tax + Settlement */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>税区分</Label>
                 <Select value={taxCategory} onValueChange={setTaxCategory}>
@@ -465,31 +476,18 @@ export default function PurchaseListPage() {
 
             {/* Settlement number */}
             <div className="space-y-1">
-              <Label>精算番号</Label>
-              <div className="flex items-center gap-2 mb-1">
-                <Checkbox
-                  checked={settlementNumberPending}
-                  onCheckedChange={(checked) => {
-                    setSettlementNumberPending(!!checked);
-                    if (checked) setSettlementNumber("");
-                  }}
-                />
-                <span className="text-sm text-muted-foreground">未定</span>
+              <div className="flex items-center gap-2">
+                <Label>精算番号</Label>
+                <SettlementBadge number={settlementNumber} />
               </div>
               <Input
-                type="number"
-                disabled={settlementNumberPending}
                 value={settlementNumber}
                 onChange={(e) => setSettlementNumber(e.target.value)}
-                placeholder="精算番号"
+                placeholder="申請後に番号を入力（任意）"
               />
-              {(settlementNumber || settlementNumberPending) && (
+              {settlementNumber && (
                 <p className="text-xs text-muted-foreground">
-                  表示:{" "}
-                  {formatSettlementNo(
-                    settlementMethod,
-                    settlementNumberPending ? "pending" : settlementNumber
-                  )}
+                  表示: {formatSettlementNo(settlementMethod, settlementNumber)}
                 </p>
               )}
             </div>
@@ -533,7 +531,7 @@ export default function PurchaseListPage() {
                       className="flex justify-between text-sm"
                     >
                       <span>{a.episodeCode}</span>
-                      <span className="font-mono">
+                      <span className="font-number">
                         {formatCurrency(a.amount)}
                       </span>
                     </div>

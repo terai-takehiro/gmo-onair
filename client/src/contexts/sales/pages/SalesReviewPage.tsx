@@ -85,11 +85,11 @@ export default function SalesReviewPage() {
   const maxCount = Math.max(...Array.from(stageCountMap.values()).map(v => v.count), 1);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h1 className="text-2xl font-bold">営業レビュー</h1>
+          <h1 className="text-xl lg:text-2xl font-bold">営業レビュー</h1>
           <p className="text-sm text-muted-foreground">ファネル分析・失注分析・営業評価</p>
         </div>
         <div className="flex gap-2 items-center">
@@ -193,7 +193,7 @@ export default function SalesReviewPage() {
                           style={{ width: `${Math.max(width, count > 0 ? 3 : 0)}%`, backgroundColor: stage.color }}
                         />
                         <span className="absolute inset-0 flex items-center px-2 text-xs font-medium">
-                          {count}件 / {formatCurrency(amount)}
+                          {count}件 / <span className="font-number">{formatCurrency(amount)}</span>
                         </span>
                       </div>
                     </div>
@@ -228,7 +228,7 @@ export default function SalesReviewPage() {
                                 style={{ width: `${pct}%` }}
                               />
                               <span className="absolute inset-0 flex items-center px-2 text-xs font-medium">
-                                {r.count}件 ({pct}%) / {formatCurrency(r.total_amount)}
+                                {r.count}件 ({pct}%) / <span className="font-number">{formatCurrency(r.total_amount)}</span>
                               </span>
                             </div>
                           </div>
@@ -273,6 +273,7 @@ export default function SalesReviewPage() {
                   データがありません。目標を設定するか、ヨミを登録してください。
                 </p>
               ) : (
+                <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -290,8 +291,8 @@ export default function SalesReviewPage() {
                     {performance.map((p: any) => (
                       <TableRow key={p.user_id}>
                         <TableCell className="font-medium">{p.user_name}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(p.target_amount)}</TableCell>
-                        <TableCell className="text-right font-medium">{formatCurrency(p.won_amount)}</TableCell>
+                        <TableCell className="text-right font-number">{formatCurrency(p.target_amount)}</TableCell>
+                        <TableCell className="text-right font-medium font-number">{formatCurrency(p.won_amount)}</TableCell>
                         <TableCell className="text-right">
                           <Badge variant={p.achievement_rate >= 100 ? "default" : p.achievement_rate >= 70 ? "secondary" : "destructive"}>
                             {p.achievement_rate}%
@@ -300,11 +301,12 @@ export default function SalesReviewPage() {
                         <TableCell className="text-right">{p.total_count}</TableCell>
                         <TableCell className="text-right">{p.won_count}</TableCell>
                         <TableCell className="text-right">{p.win_rate}%</TableCell>
-                        <TableCell className="text-right">{formatCurrency(p.avg_deal_size)}</TableCell>
+                        <TableCell className="text-right font-number">{formatCurrency(p.avg_deal_size)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -327,7 +329,7 @@ export default function SalesReviewPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>年度</Label>
                 <Input type="number" value={year} readOnly />

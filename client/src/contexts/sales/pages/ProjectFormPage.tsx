@@ -185,12 +185,12 @@ export default function ProjectFormPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-6">
-      <div className="flex items-center gap-4">
+    <div className="mx-auto max-w-3xl space-y-4 lg:space-y-6 p-3 lg:p-6">
+      <div className="flex items-center gap-4 flex-wrap">
         <Button variant="ghost" size="icon" onClick={() => navigate("/projects")}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-2xl font-bold">{isEdit ? "案件編集" : "新規案件作成"}</h1>
+        <h1 className="text-xl lg:text-2xl font-bold">{isEdit ? "案件編集" : "新規案件作成"}</h1>
         {isEdit && (
           <Badge style={{ backgroundColor: ProjectStageColors[currentStage], color: '#fff' }}>
             {ProjectStageLabels[currentStage] || currentStage}
