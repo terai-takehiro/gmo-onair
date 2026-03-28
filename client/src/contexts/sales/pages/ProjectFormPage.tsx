@@ -22,6 +22,7 @@ import {
   ProjectStageLabels, ProjectStageColors,
   ProjectTypeLabels, BroadcastTypeLabels, MediaPlatformLabels,
   type ProjectStage,
+  getProjectCategory,
 } from "@/types";
 import SimulationDialog from "../components/SimulationDialog";
 
@@ -175,6 +176,7 @@ export default function ProjectFormPage() {
   const hasGls = !!project?.gls_number;
   const isYomi = !hasGls;
   const isTerminal = currentStage === 's_completed' || currentStage === 'e_lost';
+  const isCategoryA = getProjectCategory(projectType) === 'A';
 
   if (isEdit && projectLoading) {
     return (
@@ -209,8 +211,12 @@ export default function ProjectFormPage() {
             {currentStage === 'neta' && 'ネタ段階です。仮押さえ・見積提案を経て、確度が高まったらGLS発番で正式な案件にしましょう。'}
             {currentStage === 'd_hold' && '仮押さえ中です。見積提案を行うか、確定したらGLS発番に進みましょう。'}
             {currentStage === 'c_proposal' && '見積提案済みです。顧客の承認が得られたらGLS発番で案件を確定しましょう。'}
-            {currentStage === 'b_verbal' && 'GLS発番済みです。正式受注が確定したら「A 受注済へ」に進み、エピソード管理で制作準備を始めましょう。'}
-            {currentStage === 'a_won' && '受注済みです。エピソード管理で制作を進めましょう。イベント完了後は自動的に案件終了になります。'}
+            {currentStage === 'b_verbal' && (isCategoryA
+              ? 'GLS発番済みです。正式受注が確定したら「A 受注済へ」に進み、エピソード管理で制作準備を始めましょう。'
+              : 'GLS発番済みです。正式受注が確定したら「A 受注済へ」に進みましょう。')}
+            {currentStage === 'a_won' && (isCategoryA
+              ? '受注済みです。エピソード管理で制作を進めましょう。イベント完了後は案件終了になります。'
+              : '受注済みです。売上管理から売上明細を登録しましょう。')}
           </span>
         </div>
       )}
@@ -277,10 +283,17 @@ export default function ProjectFormPage() {
                 {currentStage === 's_completed' && ' (S 案件終了)'}
               </span>
             </div>
-            <Button size="sm" onClick={() => navigate(`/projects/${id}/episodes`)}>
-              <ExternalLink className="mr-2 h-4 w-4" />
-              エピソード管理
-            </Button>
+            {isCategoryA ? (
+              <Button size="sm" onClick={() => navigate(`/projects/${id}/episodes`)}>
+                <ExternalLink className="mr-2 h-4 w-4" />
+                エピソード管理
+              </Button>
+            ) : (
+              <Button size="sm" onClick={() => navigate(`/revenues`)}>
+                <ExternalLink className="mr-2 h-4 w-4" />
+                売上管理
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
@@ -332,7 +345,7 @@ export default function ProjectFormPage() {
                   value={watch("expected_amount")}
                   onChange={(v) => setValue("expected_amount", v)}
                 />
-                {isEdit && (
+                {isEdit && isCategoryA && (
                   <Button
                     type="button"
                     variant="link"
@@ -363,25 +376,27 @@ export default function ProjectFormPage() {
           </CardContent>
         </Card>
 
-        {/* イベント日程 (常に表示だが、ヨミ段階では簡易表示) */}
-        <Card>
-          <CardHeader><CardTitle className="text-base">日程</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <Label>イベント開始日</Label>
-                <Input type="date" {...register("event_start")} />
+        {/* イベント日程 (A系のみ) */}
+        {isCategoryA && (
+          <Card>
+            <CardHeader><CardTitle className="text-base">日程</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <Label>イベント開始日</Label>
+                  <Input type="date" {...register("event_start")} />
+                </div>
+                <div>
+                  <Label>イベント終了日</Label>
+                  <Input type="date" {...register("event_end")} />
+                </div>
               </div>
-              <div>
-                <Label>イベント終了日</Label>
-                <Input type="date" {...register("event_end")} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* 番組情報 (GLS発番後のみ表示) */}
-        {hasGls && (
+        {/* 番組情報 (A系 + GLS発番後のみ表示) */}
+        {hasGls && isCategoryA && (
           <Card>
             <CardHeader><CardTitle className="text-base">番組情報</CardTitle></CardHeader>
             <CardContent className="space-y-4">
@@ -452,41 +467,47 @@ export default function ProjectFormPage() {
               GLS発番
             </DialogTitle>
             <DialogDescription>
-              イベントコードを発番します。番組種別と配信媒体を設定してください。
+              {isCategoryA
+                ? 'イベントコード（GLS-A）を発番します。番組種別と配信媒体を設定してください。'
+                : '案件コード（GLS-B）を発番します。'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <Label>番組名</Label>
+              <Label>案件名</Label>
               <Input value={project?.name || ""} disabled className="bg-muted" />
             </div>
-            <div>
-              <Label>番組種別 *</Label>
-              <div className="mt-2 flex gap-4">
-                {(Object.entries(BroadcastTypeLabels) as [string, string][]).map(([val, label]) => (
-                  <label key={val} className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio" name="broadcast_type" value={val}
-                      checked={glsDialog.broadcast_type === val}
-                      onChange={(e) => setGlsDialog({ ...glsDialog, broadcast_type: e.target.value })}
-                      className="accent-primary"
-                    />
-                    <span className="text-sm">{label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div>
-              <Label>配信媒体 *</Label>
-              <Select value={glsDialog.media_platform} onValueChange={(v) => setGlsDialog({ ...glsDialog, media_platform: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {(Object.entries(MediaPlatformLabels) as [string, string][]).map(([val, label]) => (
-                    <SelectItem key={val} value={val}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {isCategoryA && (
+              <>
+                <div>
+                  <Label>番組種別 *</Label>
+                  <div className="mt-2 flex gap-4">
+                    {(Object.entries(BroadcastTypeLabels) as [string, string][]).map(([val, label]) => (
+                      <label key={val} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio" name="broadcast_type" value={val}
+                          checked={glsDialog.broadcast_type === val}
+                          onChange={(e) => setGlsDialog({ ...glsDialog, broadcast_type: e.target.value })}
+                          className="accent-primary"
+                        />
+                        <span className="text-sm">{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <Label>配信媒体 *</Label>
+                  <Select value={glsDialog.media_platform} onValueChange={(v) => setGlsDialog({ ...glsDialog, media_platform: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(Object.entries(MediaPlatformLabels) as [string, string][]).map(([val, label]) => (
+                        <SelectItem key={val} value={val}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setGlsDialog({ ...glsDialog, open: false })}>キャンセル</Button>
@@ -524,10 +545,17 @@ export default function ProjectFormPage() {
               <Button variant="outline" onClick={() => { setGlsResult(null); }}>
                 閉じる
               </Button>
-              <Button onClick={() => { setGlsResult(null); navigate(`/projects/${id}/episodes`); }}>
-                <ExternalLink className="mr-2 h-4 w-4" />
-                エピソード管理へ
-              </Button>
+              {isCategoryA ? (
+                <Button onClick={() => { setGlsResult(null); navigate(`/projects/${id}/episodes`); }}>
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  エピソード管理へ
+                </Button>
+              ) : (
+                <Button onClick={() => { setGlsResult(null); navigate(`/revenues`); }}>
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  売上管理へ
+                </Button>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>

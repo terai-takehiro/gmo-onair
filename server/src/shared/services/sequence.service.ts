@@ -1,5 +1,8 @@
 import { queryOne, execute } from '../db/connection';
 
+// A系(制作): エピソード・スタジオ予約あり
+const CATEGORY_A_TYPES = ['offline_event', 'hybrid_event', 'live_broadcast', 'recording'];
+
 // 従来の年月ベース採番 (OPPコード用)
 export function generateSequenceNumber(seqName: string, prefix: string): string {
   const now = new Date();
@@ -22,24 +25,27 @@ export function generateSequenceNumber(seqName: string, prefix: string): string 
   return `${prefix}-${ym}-${String(counter).padStart(4, '0')}`;
 }
 
-// GLS番号: GLS001, GLS002, ... (グローバル連番)
-export function generateGlsNumber(): string {
-  const seqName = 'gls_global';
+// GLS番号: GLS-A001 (制作系) / GLS-B001 (その他売上)
+export function generateGlsNumber(projectType?: string): string {
+  const category = projectType && CATEGORY_A_TYPES.includes(projectType) ? 'A' : 'B';
+  const seqName = `gls_${category.toLowerCase()}`;
+
   const row = queryOne('SELECT counter FROM sequences WHERE seq_name = ?', [seqName]);
 
   let counter: number;
   if (!row) {
     counter = 1;
-    execute('INSERT INTO sequences (seq_name, prefix, year_month, counter) VALUES (?, ?, ?, ?)', [seqName, 'GLS', '000000', counter]);
+    execute('INSERT INTO sequences (seq_name, prefix, year_month, counter) VALUES (?, ?, ?, ?)',
+      [seqName, `GLS-${category}`, '000000', counter]);
   } else {
     counter = (row.counter as number) + 1;
     execute('UPDATE sequences SET counter = ? WHERE seq_name = ?', [counter, seqName]);
   }
 
-  return `GLS${String(counter).padStart(3, '0')}`;
+  return `GLS-${category}${String(counter).padStart(3, '0')}`;
 }
 
-// エピソードコード生成: GLS001-001
+// エピソードコード生成: GLS-A001-001
 export function generateEpisodeCode(glsNumber: string, episodeNumber: number): string {
   return `${glsNumber}-${String(episodeNumber).padStart(3, '0')}`;
 }
@@ -51,4 +57,9 @@ export function getNextEpisodeNumber(projectId: string): number {
     [projectId]
   );
   return row && row.max_num ? (row.max_num as number) + 1 : 1;
+}
+
+// プロジェクトタイプからカテゴリを判定
+export function getGlsCategory(projectType: string): 'A' | 'B' {
+  return CATEGORY_A_TYPES.includes(projectType) ? 'A' : 'B';
 }

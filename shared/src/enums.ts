@@ -58,6 +58,7 @@ export const ProjectType = {
   LIVE_BROADCAST: 'live_broadcast',
   RECORDING: 'recording',
   GMO_PROJECT: 'gmo_project',
+  CONSULTING: 'consulting',
   OTHER: 'other',
 } as const;
 export type ProjectType = (typeof ProjectType)[keyof typeof ProjectType];
@@ -68,8 +69,12 @@ export const ProjectTypeLabels: Record<ProjectType, string> = {
   live_broadcast: '生放送',
   recording: '収録',
   gmo_project: 'GMO案件',
+  consulting: 'コンサルティング',
   other: 'その他',
 };
+
+export const PROJECT_CATEGORY_A: ProjectType[] = ['offline_event', 'hybrid_event', 'live_broadcast', 'recording'];
+export const PROJECT_CATEGORY_B: ProjectType[] = ['gmo_project', 'consulting', 'other'];
 
 // 料金計算タイプ
 export const CalcType = {

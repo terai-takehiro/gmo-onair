@@ -147,7 +147,7 @@ export class ProjectService {
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
     if (project.gls_number) throw new AppError(400, 'VALIDATION_ERROR', '既にGLS番号が発番済みです');
 
-    const glsNumber = generateGlsNumber();
+    const glsNumber = generateGlsNumber(project.project_type as string);
     const { broadcast_type, media_platform } = data;
 
     execute(

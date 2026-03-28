@@ -108,7 +108,8 @@ CREATE TABLE IF NOT EXISTS projects (
   customer_id        TEXT NOT NULL REFERENCES customers(id),
   stage              TEXT NOT NULL DEFAULT 'neta'
                      CHECK (stage IN ('neta','d_hold','c_proposal','b_verbal','a_won','s_completed','e_lost')),
-  project_type       TEXT DEFAULT 'other',
+  project_type       TEXT DEFAULT 'other'
+                     CHECK (project_type IN ('offline_event','hybrid_event','live_broadcast','recording','gmo_project','consulting','other')),
   project_type_other TEXT,
   expected_amount    INTEGER DEFAULT 0,
   event_start        TEXT,
@@ -265,6 +266,19 @@ CREATE TABLE IF NOT EXISTS sga_expenses (
   deleted_at        TEXT
 );
 
+-- 売上明細行
+CREATE TABLE IF NOT EXISTS revenue_items (
+  id              TEXT PRIMARY KEY,
+  revenue_id      TEXT NOT NULL REFERENCES revenues(id),
+  description     TEXT NOT NULL,
+  quantity        INTEGER NOT NULL DEFAULT 1,
+  unit_price      INTEGER NOT NULL DEFAULT 0,
+  amount          INTEGER NOT NULL DEFAULT 0,
+  pricing_item_id TEXT REFERENCES pricing_items(id),
+  sort_order      INTEGER DEFAULT 0,
+  created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- ============================================================
 -- 営業支援 (2テーブル)
 -- ============================================================
@@ -378,6 +392,7 @@ CREATE INDEX IF NOT EXISTS idx_revenues_episode ON revenues(episode_id);
 CREATE INDEX IF NOT EXISTS idx_purchases_project ON purchases(project_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_purchases_episode ON purchases(episode_id);
 CREATE INDEX IF NOT EXISTS idx_sga_recognition ON sga_expenses(recognition_date) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_revenue_items_revenue ON revenue_items(revenue_id);
 CREATE INDEX IF NOT EXISTS idx_activity_logs_project ON activity_logs(project_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_activity_logs_user ON activity_logs(user_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_simulations_project ON simulations(project_id);
