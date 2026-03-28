@@ -1,6 +1,6 @@
 {
   "name": "gmo-onair",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "private": true,
   "description": "GMO ONAiR - 統合業務管理システム",
   "workspaces": [
