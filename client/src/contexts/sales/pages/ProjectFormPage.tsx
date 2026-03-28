@@ -81,7 +81,7 @@ export default function ProjectFormPage() {
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<FormValues>({
     defaultValues: {
-      name: "", customer_id: "", project_type: "other", project_type_other: "",
+      name: "", customer_id: "", project_type: "", project_type_other: "",
       event_start: "", event_end: "", expected_amount: 0, assigned_to: "",
       broadcast_type: "", media_platform: "", tags: "", notes: "",
     },
@@ -344,7 +344,7 @@ export default function ProjectFormPage() {
               <div>
                 <Label>案件種類</Label>
                 <Select value={projectType} onValueChange={(v) => setValue("project_type", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="選択してください" /></SelectTrigger>
                   <SelectContent>
                     {(Object.entries(ProjectTypeLabels) as [string, string][]).map(([val, label]) => (
                       <SelectItem key={val} value={val}>{label}</SelectItem>
