@@ -57,7 +57,7 @@ const navSections: NavSection[] = [
   },
   {
     items: [
-      { label: "カレンダー", to: "/calendar", icon: Calendar },
+      { label: "スタジオ予約", to: "/calendar", icon: Calendar },
     ],
   },
   {

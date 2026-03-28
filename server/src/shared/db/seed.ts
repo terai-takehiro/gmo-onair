@@ -406,6 +406,105 @@ export async function seed() {
     }
   }
 
+  // ============================================================
+  // Studio Locations & Rooms
+  // ============================================================
+  const locSql = `INSERT INTO studio_locations (id, name, sort_order) VALUES (?, ?, ?)`;
+  const LOC_YOGA = uuidv4();
+  const LOC_SHIBUYA = uuidv4();
+  const LOC_EXTERNAL = uuidv4();
+  ins(locSql, [LOC_YOGA, '用賀スタジオ', 1]);
+  ins(locSql, [LOC_SHIBUYA, '渋谷スタジオ', 2]);
+  ins(locSql, [LOC_EXTERNAL, '外現場', 3]);
+
+  const roomSql = `INSERT INTO studio_rooms (id, location_id, name, color, sort_order) VALUES (?, ?, ?, ?, ?)`;
+  // 用賀スタジオ
+  const ROOMS: Record<string, string> = {};
+  const yogaRooms: [string, string, number][] = [
+    ['WORLD STUDIO', '#2563eb', 1],
+    ['SKY STUDIO', '#7c3aed', 2],
+    ['LOUNGE STUDIO', '#0891b2', 3],
+    ['MEETING ROOM', '#6b7280', 4],
+    ['ROOM A', '#059669', 5],
+    ['ROOM B', '#d97706', 6],
+    ['ROOM C', '#dc2626', 7],
+    ['VIP LOUNGE', '#9333ea', 8],
+    ['第1調整室', '#4f46e5', 9],
+    ['第2調整室', '#0284c7', 10],
+  ];
+  for (const [name, color, order] of yogaRooms) {
+    const id = uuidv4();
+    ROOMS[name] = id;
+    ins(roomSql, [id, LOC_YOGA, name, color, order]);
+  }
+
+  // 渋谷スタジオ
+  const shibuyaRooms: [string, string, number][] = [
+    ['第1スタジオ', '#e11d48', 1],
+    ['第2スタジオ', '#ea580c', 2],
+    ['第3スタジオ', '#ca8a04', 3],
+  ];
+  for (const [name, color, order] of shibuyaRooms) {
+    const id = uuidv4();
+    ROOMS[name] = id;
+    ins(roomSql, [id, LOC_SHIBUYA, name, color, order]);
+  }
+
+  // ============================================================
+  // Studio Bookings (サンプル予約)
+  // ============================================================
+  const bkSql = `INSERT INTO studio_bookings (id, title, booking_type, project_id, episode_id, all_day, start_time, end_time, location_note, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const bkRoomSql = `INSERT INTO studio_booking_rooms (booking_id, room_id) VALUES (?, ?)`;
+
+  // GLS001 IR説明会 → WORLD STUDIO + MEETING ROOM (終日)
+  const bk1 = uuidv4();
+  ins(bkSql, [bk1, 'GLS001 GH春季IR説明会 リハーサル', 'project', PROJECTS['GLS001'], EPISODES['GLS001-001'], 1, '2026-03-27', '2026-03-27', null, 'リハーサル。前日仕込み含む', USERS.staff1]);
+  ins(bkRoomSql, [bk1, ROOMS['WORLD STUDIO']]);
+  ins(bkRoomSql, [bk1, ROOMS['MEETING ROOM']]);
+
+  const bk2 = uuidv4();
+  ins(bkSql, [bk2, 'GLS001 GH春季IR説明会 本番', 'project', PROJECTS['GLS001'], EPISODES['GLS001-001'], 1, '2026-03-28', '2026-03-28', null, '本番日', USERS.staff1]);
+  ins(bkRoomSql, [bk2, ROOMS['WORLD STUDIO']]);
+  ins(bkRoomSql, [bk2, ROOMS['MEETING ROOM']]);
+  ins(bkRoomSql, [bk2, ROOMS['VIP LOUNGE']]);
+
+  // GLS002 サイエンス・フロンティア 収録 (時間指定)
+  const bk3 = uuidv4();
+  ins(bkSql, [bk3, 'GLS002 #001 サイエンスF 収録', 'project', PROJECTS['GLS002'], EPISODES['GLS002-001'], 0, '2026-04-07T09:00', '2026-04-07T18:00', null, '第1話収録', USERS.staff2]);
+  ins(bkRoomSql, [bk3, ROOMS['SKY STUDIO']]);
+  ins(bkRoomSql, [bk3, ROOMS['第1調整室']]);
+
+  const bk4 = uuidv4();
+  ins(bkSql, [bk4, 'GLS002 #002 サイエンスF 収録', 'project', PROJECTS['GLS002'], EPISODES['GLS002-002'], 0, '2026-04-14T09:00', '2026-04-14T18:00', null, '第2話収録', USERS.staff2]);
+  ins(bkRoomSql, [bk4, ROOMS['SKY STUDIO']]);
+  ins(bkRoomSql, [bk4, ROOMS['第1調整室']]);
+
+  // GLS003 ネットライブ配信 (LOUNGE STUDIO)
+  const bk5 = uuidv4();
+  ins(bkSql, [bk5, 'GLS003 #001 ネットライブ配信', 'project', PROJECTS['GLS003'], EPISODES['GLS003-001'], 0, '2026-04-05T19:00', '2026-04-05T22:00', null, '生配信', USERS.staff3]);
+  ins(bkRoomSql, [bk5, ROOMS['LOUNGE STUDIO']]);
+  ins(bkRoomSql, [bk5, ROOMS['第2調整室']]);
+
+  // メンテナンス予約
+  const bk6 = uuidv4();
+  ins(bkSql, [bk6, 'WORLD STUDIO 定期メンテナンス', 'maintenance', null, null, 1, '2026-04-01', '2026-04-01', null, '照明・音響設備の定期点検', USERS.admin]);
+  ins(bkRoomSql, [bk6, ROOMS['WORLD STUDIO']]);
+
+  // 内覧予約
+  const bk7 = uuidv4();
+  ins(bkSql, [bk7, 'クライアント内覧（○○テレビ様）', 'tour', null, null, 0, '2026-04-03T14:00', '2026-04-03T16:00', null, '新規顧客。WORLD/SKYを見学希望', USERS.staff1]);
+  ins(bkRoomSql, [bk7, ROOMS['WORLD STUDIO']]);
+  ins(bkRoomSql, [bk7, ROOMS['SKY STUDIO']]);
+
+  // 渋谷スタジオ予約
+  const bk8 = uuidv4();
+  ins(bkSql, [bk8, 'GLS008 富士見 CM収録', 'project', PROJECTS['GLS008'], EPISODES['GLS008-001'], 0, '2026-03-25T10:00', '2026-03-25T20:00', null, 'CM撮影', USERS.staff3]);
+  ins(bkRoomSql, [bk8, ROOMS['第1スタジオ']]);
+
+  // 外現場
+  const bk9 = uuidv4();
+  ins(bkSql, [bk9, 'GLS005 GE ドキュメンタリー ロケ', 'project', PROJECTS['GLS005'], EPISODES['GLS005-001'], 1, '2026-04-10', '2026-04-12', '富士山麓ロケーション', '3日間ロケ撮影', USERS.staff2]);
+
   saveDb();
   console.log('Seed data inserted successfully.');
 }

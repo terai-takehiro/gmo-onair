@@ -105,6 +105,42 @@
   }
 }
 
+/* FullCalendar mobile responsive overrides */
+.studio-calendar .fc .fc-toolbar {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.studio-calendar .fc .fc-toolbar-title {
+  font-size: 1rem;
+}
+@media (max-width: 640px) {
+  .studio-calendar .fc .fc-toolbar {
+    justify-content: center;
+  }
+  .studio-calendar .fc .fc-toolbar-title {
+    font-size: 0.875rem;
+    width: 100%;
+    text-align: center;
+    order: -1;
+  }
+  .studio-calendar .fc .fc-button {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+  .studio-calendar .fc .fc-daygrid-event {
+    font-size: 0.65rem;
+    padding: 0 2px;
+  }
+  .studio-calendar .fc .fc-col-header-cell-cushion {
+    font-size: 0.75rem;
+    padding: 0.25rem;
+  }
+  .studio-calendar .fc .fc-daygrid-day-number {
+    font-size: 0.75rem;
+    padding: 2px 4px;
+  }
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }

@@ -314,6 +314,53 @@ CREATE TABLE IF NOT EXISTS simulations (
 );
 
 -- ============================================================
+-- スタジオ予約
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS studio_locations (
+  id         TEXT PRIMARY KEY,
+  name       TEXT NOT NULL,
+  sort_order INTEGER DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  deleted_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS studio_rooms (
+  id          TEXT PRIMARY KEY,
+  location_id TEXT NOT NULL REFERENCES studio_locations(id),
+  name        TEXT NOT NULL,
+  color       TEXT DEFAULT '#3b82f6',
+  sort_order  INTEGER DEFAULT 0,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  deleted_at  TEXT
+);
+
+CREATE TABLE IF NOT EXISTS studio_bookings (
+  id            TEXT PRIMARY KEY,
+  title         TEXT NOT NULL,
+  booking_type  TEXT NOT NULL DEFAULT 'project'
+                CHECK (booking_type IN ('project','maintenance','tour','internal','other')),
+  project_id    TEXT REFERENCES projects(id),
+  episode_id    TEXT REFERENCES episodes(id),
+  all_day       INTEGER NOT NULL DEFAULT 0,
+  start_time    TEXT NOT NULL,
+  end_time      TEXT NOT NULL,
+  location_note TEXT,
+  notes         TEXT,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  created_by    TEXT,
+  updated_by    TEXT,
+  deleted_at    TEXT
+);
+
+CREATE TABLE IF NOT EXISTS studio_booking_rooms (
+  booking_id TEXT NOT NULL REFERENCES studio_bookings(id),
+  room_id    TEXT NOT NULL REFERENCES studio_rooms(id),
+  PRIMARY KEY (booking_id, room_id)
+);
+
+-- ============================================================
 -- インデックス
 -- ============================================================
 
@@ -334,3 +381,6 @@ CREATE INDEX IF NOT EXISTS idx_sga_recognition ON sga_expenses(recognition_date)
 CREATE INDEX IF NOT EXISTS idx_activity_logs_project ON activity_logs(project_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_activity_logs_user ON activity_logs(user_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_simulations_project ON simulations(project_id);
+CREATE INDEX IF NOT EXISTS idx_studio_rooms_location ON studio_rooms(location_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_studio_bookings_time ON studio_bookings(start_time, end_time) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_studio_bookings_project ON studio_bookings(project_id) WHERE deleted_at IS NULL;

@@ -4,6 +4,7 @@ import episodeOrdersRoutes from './routes/episode-orders.routes';
 import invoiceGroupsRoutes from './routes/invoice-groups.routes';
 import calendarRoutes from './routes/calendar.routes';
 import reportsRoutes from './routes/reports.routes';
+import studioRoutes from './routes/studio.routes';
 
 export function createProductionRoutes(): Router {
   const router = Router();
@@ -14,6 +15,7 @@ export function createProductionRoutes(): Router {
   router.use('/projects', invoiceGroupsRoutes);
   router.use('/calendar', calendarRoutes);
   router.use('/reports', reportsRoutes);
+  router.use('/studios', studioRoutes);
 
   return router;
 }
