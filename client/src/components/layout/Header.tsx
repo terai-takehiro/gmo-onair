@@ -232,7 +232,7 @@ export default function Header({ title }: { title?: string }) {
           )}
         </div>
 
-        <span className="text-xs text-muted-foreground">v0.3.7</span>
+        <span className="text-xs text-muted-foreground">v0.3.8</span>
         {currentUser && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

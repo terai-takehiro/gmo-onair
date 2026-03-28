@@ -16,6 +16,9 @@ router.get('/', (req, res) => {
   const params: unknown[] = [];
   if (search) { where += ` AND (r.billing_key LIKE ? OR r.notes LIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
   if (projectId) { where += ` AND r.project_id = ?`; params.push(projectId); }
+  const status = req.query.status as string;
+  if (status) { where += ` AND r.status = ?`; params.push(status); }
+  else if (!projectId) { where += ` AND r.status = 'confirmed'`; } // デフォルトは確定のみ（案件絞込み時は全件）
   const total = (queryOne(`SELECT COUNT(*) as c FROM revenues r ${where}`, params) as any).c;
   const rows = queryAll(`SELECT r.*, p.name as project_name, p.gls_number, p.project_type, c.name as customer_name, e.episode_code FROM revenues r LEFT JOIN projects p ON p.id = r.project_id LEFT JOIN customers c ON c.id = r.customer_id LEFT JOIN episodes e ON e.id = r.episode_id ${where} ORDER BY r.billing_key ASC, r.created_at DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
 
@@ -41,19 +44,30 @@ router.get('/:id', (req, res) => {
 
 // 新規売上（明細行対応、episode_id任意）
 router.post('/', requireAuth, (req, res) => {
-  const { project_id, customer_id, episode_id, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, items, subtitle } = req.body;
+  const { project_id, customer_id, episode_id, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, items, subtitle, status: reqStatus } = req.body;
   if (!project_id || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件と顧客は必須です');
 
-  // billing_key生成: GLS番号-連番 (例: GLS-A004-001, GLS-A004-002)
-  const project = queryOne('SELECT gls_number FROM projects WHERE id = ?', [project_id]) as any;
-  const base = project?.gls_number || 'REV';
+  const revenueStatus = reqStatus === 'estimate' ? 'estimate' : 'confirmed';
+
+  // billing_key生成
+  const project = queryOne('SELECT gls_number, code FROM projects WHERE id = ?', [project_id]) as any;
   const existingCount = (queryOne(
     `SELECT COUNT(*) as c FROM revenues WHERE project_id = ? AND deleted_at IS NULL`,
     [project_id]
   ) as any).c;
   const seqNum = String(existingCount + 1).padStart(3, '0');
   const taxSuffix = (tax_category || 'tax10') === 'tax8' ? '2' : (tax_category === 'exempt' ? '0' : '1');
-  const billing_key = `${base}-${seqNum}-${taxSuffix}`;
+
+  let billing_key: string;
+  if (revenueStatus === 'estimate') {
+    // 概算見積: EST-OPPコード-連番-税枝番
+    const base = project?.code || 'EST';
+    billing_key = `EST-${seqNum}-${taxSuffix}`;
+  } else {
+    // 確定: GLS番号-連番-税枝番
+    const base = project?.gls_number || 'REV';
+    billing_key = `${base}-${seqNum}-${taxSuffix}`;
+  }
 
   const id = uuidv4();
 
@@ -62,8 +76,8 @@ router.post('/', requireAuth, (req, res) => {
     ? items.reduce((sum: number, it: any) => sum + (it.amount || 0), 0)
     : (amount || 0);
 
-  execute(`INSERT INTO revenues (id, billing_key, project_id, customer_id, episode_id, assigned_to, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, subtitle, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, billing_key, project_id, customer_id, episode_id || null, req.user!.id, tax_category || 'tax10', finalAmount, recognition_date || null, billing_date || null, payment_due_date || null, notes || null, subtitle || null, req.user!.id]);
+  execute(`INSERT INTO revenues (id, billing_key, project_id, customer_id, episode_id, assigned_to, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, subtitle, status, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, billing_key, project_id, customer_id, episode_id || null, req.user!.id, tax_category || 'tax10', finalAmount, recognition_date || null, billing_date || null, payment_due_date || null, notes || null, subtitle || null, revenueStatus, req.user!.id]);
 
   // 明細行を保存
   if (Array.isArray(items)) {

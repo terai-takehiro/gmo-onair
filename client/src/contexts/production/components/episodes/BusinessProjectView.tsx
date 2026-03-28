@@ -64,6 +64,7 @@ interface Revenue {
 interface Props {
   project: Project;
   projectId: string;
+  isEstimateMode?: boolean;
 }
 
 const taxLabels: Record<string, string> = {
@@ -72,7 +73,7 @@ const taxLabels: Record<string, string> = {
   exempt: "非課税",
 };
 
-export default function BusinessProjectView({ project, projectId }: Props) {
+export default function BusinessProjectView({ project, projectId, isEstimateMode }: Props) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const isCategoryA = getProjectCategory(project.project_type) === "A";
@@ -229,6 +230,7 @@ export default function BusinessProjectView({ project, projectId }: Props) {
       notes: notes || null,
       subtitle: subtitle || null,
       items: items.filter((it) => it.description),
+      ...(isEstimateMode ? { status: 'estimate' } : {}),
     });
   };
 
@@ -241,23 +243,30 @@ export default function BusinessProjectView({ project, projectId }: Props) {
           size="sm"
           className="gap-1 text-muted-foreground"
           onClick={() =>
-            navigate(
-              isCategoryA
-                ? "/projects/confirmed/studio"
-                : "/projects/confirmed/business"
-            )
+            isEstimateMode
+              ? navigate(`/projects/${projectId}`)
+              : navigate(
+                  isCategoryA
+                    ? "/projects/confirmed/studio"
+                    : "/projects/confirmed/business"
+                )
           }
         >
           <ArrowLeft className="h-4 w-4" />
-          確定案件一覧
+          {isEstimateMode ? "案件に戻る" : "確定案件一覧"}
         </Button>
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-xl lg:text-2xl font-bold">
-            <span className="font-mono text-primary">
-              {project.gls_number}
-            </span>{" "}
+            {project.gls_number && (
+              <span className="font-mono text-primary">
+                {project.gls_number}{" "}
+              </span>
+            )}
             {project.name}
           </h1>
+          {isEstimateMode && (
+            <Badge className="bg-orange-500 text-white">概算見積</Badge>
+          )}
           {isCategoryA && project.broadcast_type && (
             <Badge color="#005bac">
               {BroadcastTypeLabels[
@@ -284,6 +293,16 @@ export default function BusinessProjectView({ project, projectId }: Props) {
           {(project as any).customer_name}
         </p>
       </div>
+
+      {/* Estimate mode info banner */}
+      {isEstimateMode && (
+        <div className="flex items-start gap-2 rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm text-orange-800">
+          <FileText className="h-4 w-4 mt-0.5 shrink-0" />
+          <span>
+            概算見積の作成モードです。ここで作成した見積はGLS発番時に自動で確定売上に変換されます。
+          </span>
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-3">
@@ -330,11 +349,11 @@ export default function BusinessProjectView({ project, projectId }: Props) {
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold flex items-center gap-2">
             <FileText className="h-4 w-4" />
-            見積・売上明細
+            {isEstimateMode ? "概算見積書" : "見積・売上明細"}
           </h2>
           <Button size="sm" onClick={openNew}>
             <Plus className="h-4 w-4 mr-1" />
-            明細追加
+            {isEstimateMode ? "見積追加" : "明細追加"}
           </Button>
         </div>
 
@@ -445,7 +464,9 @@ export default function BusinessProjectView({ project, projectId }: Props) {
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingId ? "売上明細の編集" : "売上明細の追加"}
+              {isEstimateMode
+                ? (editingId ? "概算見積の編集" : "概算見積の追加")
+                : (editingId ? "売上明細の編集" : "売上明細の追加")}
             </DialogTitle>
           </DialogHeader>
 
@@ -551,7 +572,7 @@ export default function BusinessProjectView({ project, projectId }: Props) {
             </div>
 
             {/* Tax & Dates */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className={`grid gap-3 ${isEstimateMode ? 'grid-cols-1' : 'grid-cols-2'}`}>
               <div>
                 <Label>税区分</Label>
                 <Select value={taxCategory} onValueChange={setTaxCategory}>
@@ -565,30 +586,34 @@ export default function BusinessProjectView({ project, projectId }: Props) {
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label>計上日</Label>
-                <Input
-                  type="date"
-                  value={recognitionDate}
-                  onChange={(e) => setRecognitionDate(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>請求日</Label>
-                <Input
-                  type="date"
-                  value={billingDate}
-                  onChange={(e) => setBillingDate(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>支払期日</Label>
-                <Input
-                  type="date"
-                  value={paymentDueDate}
-                  onChange={(e) => setPaymentDueDate(e.target.value)}
-                />
-              </div>
+              {!isEstimateMode && (
+                <>
+                  <div>
+                    <Label>計上日</Label>
+                    <Input
+                      type="date"
+                      value={recognitionDate}
+                      onChange={(e) => setRecognitionDate(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label>請求日</Label>
+                    <Input
+                      type="date"
+                      value={billingDate}
+                      onChange={(e) => setBillingDate(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label>支払期日</Label>
+                    <Input
+                      type="date"
+                      value={paymentDueDate}
+                      onChange={(e) => setPaymentDueDate(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Notes */}

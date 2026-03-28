@@ -25,6 +25,11 @@ router.get('/tags', (_req, res) => {
   res.json({ success: true, data: projectService.getTags() });
 });
 
+// GLS番号付き案件一覧（リンク先選択用）
+router.get('/gls-projects', (_req, res) => {
+  res.json({ success: true, data: projectService.getGlsProjects() });
+});
+
 // 詳細
 router.get('/:id', (req, res) => {
   res.json({ success: true, data: projectService.getById(req.params.id as string) });
@@ -57,6 +62,13 @@ router.patch('/:id/stage', requireAuth, (req, res) => {
 // GLS発番
 router.post('/:id/issue-gls', requireAuth, (req, res) => {
   const result = projectService.issueGls(req.params.id as string, req.body, req.user!.id);
+  res.json({ success: true, data: result });
+});
+
+// 既存GLS案件へのリンク（エピソード追加）
+router.post('/:id/link-gls', requireAuth, (req, res) => {
+  const { target_project_id } = req.body;
+  const result = projectService.linkToExistingGls(req.params.id as string, target_project_id, req.user!.id);
   res.json({ success: true, data: result });
 });
 

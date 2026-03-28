@@ -17,7 +17,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator, AlertTriangle, Info, CalendarDays } from "lucide-react";
+import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator, AlertTriangle, Info, CalendarDays, FileText } from "lucide-react";
 import {
   ProjectStageLabels, ProjectStageColors,
   ProjectTypeLabels, BroadcastTypeLabels, MediaPlatformLabels,
@@ -50,8 +50,10 @@ interface FormValues {
 
 interface GlsDialogState {
   open: boolean;
+  mode: 'new' | 'link';
   broadcast_type: string;
   media_platform: string;
+  target_project_id: string;
 }
 
 export default function ProjectFormPage() {
@@ -62,7 +64,7 @@ export default function ProjectFormPage() {
 
   const [simOpen, setSimOpen] = useState(false);
   const [glsDialog, setGlsDialog] = useState<GlsDialogState>({
-    open: false, broadcast_type: "recording", media_platform: "other",
+    open: false, mode: 'new', broadcast_type: "recording", media_platform: "other", target_project_id: "",
   });
   const [glsResult, setGlsResult] = useState<{ open: boolean; glsNumber: string } | null>(null);
   const [lostDialog, setLostDialog] = useState<LostDialogState>({
@@ -153,6 +155,14 @@ export default function ProjectFormPage() {
     },
   });
 
+  // GLS番号付き案件一覧（リンク先選択用）
+  const { data: glsProjectsData } = useQuery({
+    queryKey: ["gls-projects"],
+    queryFn: async () => (await api.get("/projects/gls-projects")).data,
+    enabled: glsDialog.open && glsDialog.mode === 'link',
+  });
+  const glsProjects: { id: string; gls_number: string; name: string; customer_name: string }[] = glsProjectsData?.data ?? [];
+
   const glsMutation = useMutation({
     mutationFn: async (params: { broadcast_type: string; media_platform: string }) => {
       return (await api.post(`/projects/${id}/issue-gls`, params)).data;
@@ -165,11 +175,27 @@ export default function ProjectFormPage() {
     },
   });
 
+  const linkGlsMutation = useMutation({
+    mutationFn: async (targetProjectId: string) => {
+      return (await api.post(`/projects/${id}/link-gls`, { target_project_id: targetProjectId })).data;
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["projects"] });
+      qc.invalidateQueries({ queryKey: ["project", id] });
+      setGlsDialog({ ...glsDialog, open: false });
+      setGlsResult({ open: true, glsNumber: data.data.gls_number });
+    },
+  });
+
   const handleGlsConfirm = () => {
-    glsMutation.mutate({
-      broadcast_type: glsDialog.broadcast_type,
-      media_platform: glsDialog.media_platform,
-    });
+    if (glsDialog.mode === 'link') {
+      linkGlsMutation.mutate(glsDialog.target_project_id);
+    } else {
+      glsMutation.mutate({
+        broadcast_type: glsDialog.broadcast_type,
+        media_platform: glsDialog.media_platform,
+      });
+    }
   };
 
   const onSubmit = (values: FormValues) => saveMutation.mutate(values);
@@ -282,6 +308,25 @@ export default function ProjectFormPage() {
             {/* 失注 */}
             <Button variant="destructive" size="sm" onClick={() => setLostDialog({ open: true, lost_reason: '', lost_reason_note: '', lessons_learned: '' })} disabled={stageMutation.isPending}>
               E 失注
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 概算見積セクション (ヨミ段階のみ) */}
+      {isEdit && isYomi && !isTerminal && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardContent className="flex items-center justify-between py-4">
+            <div className="flex items-center gap-3">
+              <FileText className="h-5 w-5 text-orange-600" />
+              <div>
+                <span className="font-medium text-orange-800">概算見積書</span>
+                <p className="text-xs text-orange-600">提案用の概算見積を作成できます。GLS発番時に確定売上へ自動変換されます。</p>
+              </div>
+            </div>
+            <Button size="sm" variant="outline" className="border-orange-300 text-orange-700 hover:bg-orange-100" onClick={() => navigate(`/projects/${id}/estimates`)}>
+              <ExternalLink className="mr-2 h-4 w-4" />
+              概算見積作成
             </Button>
           </CardContent>
         </Card>
@@ -476,17 +521,37 @@ export default function ProjectFormPage() {
               GLS発番
             </DialogTitle>
             <DialogDescription>
-              {isCategoryA
-                ? 'イベントコード（GLS-A）を発番します。番組種別と配信媒体を設定してください。'
-                : '案件コード（GLS-B）を発番します。'}
+              新規番組としてGLS番号を発番するか、既存のGLS案件にエピソードを追加するか選択してください。
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* モード選択 */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                className={`rounded-lg border-2 p-3 text-left transition-colors ${glsDialog.mode === 'new' ? 'border-green-500 bg-green-50' : 'border-muted hover:border-green-300'}`}
+                onClick={() => setGlsDialog({ ...glsDialog, mode: 'new', target_project_id: '' })}
+              >
+                <div className="font-medium text-sm">新規番組</div>
+                <p className="text-xs text-muted-foreground mt-1">新しいGLS番号を発番</p>
+              </button>
+              <button
+                type="button"
+                className={`rounded-lg border-2 p-3 text-left transition-colors ${glsDialog.mode === 'link' ? 'border-blue-500 bg-blue-50' : 'border-muted hover:border-blue-300'}`}
+                onClick={() => setGlsDialog({ ...glsDialog, mode: 'link' })}
+              >
+                <div className="font-medium text-sm">既存案件に追加</div>
+                <p className="text-xs text-muted-foreground mt-1">エピソード追加</p>
+              </button>
+            </div>
+
             <div>
               <Label>案件名</Label>
               <Input value={project?.name || ""} disabled className="bg-muted" />
             </div>
-            {isCategoryA && (
+
+            {/* 新規モード: A系の場合は番組種別と配信媒体 */}
+            {glsDialog.mode === 'new' && isCategoryA && (
               <>
                 <div>
                   <Label>番組種別 *</Label>
@@ -517,12 +582,39 @@ export default function ProjectFormPage() {
                 </div>
               </>
             )}
+
+            {/* リンクモード: 既存GLS案件を選択 */}
+            {glsDialog.mode === 'link' && (
+              <div>
+                <Label>リンク先GLS案件 *</Label>
+                <SearchableSelect
+                  options={glsProjects.map((p) => ({
+                    value: p.id,
+                    label: `${p.gls_number} ${p.name}`,
+                    subLabel: p.customer_name,
+                  }))}
+                  value={glsDialog.target_project_id}
+                  onChange={(v) => setGlsDialog({ ...glsDialog, target_project_id: v })}
+                  placeholder="GLS番号で検索..."
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  選択した案件のGLS番号が割り当てられ、概算見積が確定売上に変換されます。
+                </p>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setGlsDialog({ ...glsDialog, open: false })}>キャンセル</Button>
-            <Button className="bg-green-600 hover:bg-green-700" onClick={handleGlsConfirm} disabled={glsMutation.isPending}>
-              {glsMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              GLS発番する
+            <Button
+              className="bg-green-600 hover:bg-green-700"
+              onClick={handleGlsConfirm}
+              disabled={
+                glsMutation.isPending || linkGlsMutation.isPending ||
+                (glsDialog.mode === 'link' && !glsDialog.target_project_id)
+              }
+            >
+              {(glsMutation.isPending || linkGlsMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {glsDialog.mode === 'link' ? 'GLS番号をリンク' : 'GLS発番する'}
             </Button>
           </DialogFooter>
         </DialogContent>

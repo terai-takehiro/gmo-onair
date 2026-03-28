@@ -163,7 +163,79 @@ export class ProjectService {
       [glsNumber, broadcast_type || null, media_platform || null, userId, id]
     );
 
+    // 概算見積を確定売上に変換
+    this.migrateEstimates(id, glsNumber);
+
     return this.getById(id);
+  }
+
+  /**
+   * 既存GLS案件へのリンク（エピソード追加）
+   */
+  linkToExistingGls(id: string, targetProjectId: string, userId: string) {
+    const project = queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [id]) as any;
+    if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
+    if (project.gls_number) throw new AppError(400, 'VALIDATION_ERROR', '既にGLS番号が発番済みです');
+
+    const target = queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [targetProjectId]) as any;
+    if (!target || !target.gls_number) throw new AppError(400, 'VALIDATION_ERROR', 'リンク先にGLS番号がありません');
+
+    execute(
+      `UPDATE projects SET gls_number=?, broadcast_type=?, media_platform=?,
+       stage=CASE WHEN stage IN ('neta','d_hold','c_proposal') THEN 'b_verbal' ELSE stage END,
+       updated_at=datetime('now'), updated_by=? WHERE id=?`,
+      [target.gls_number, target.broadcast_type || null, target.media_platform || null, userId, id]
+    );
+
+    // 概算見積を確定売上に変換
+    this.migrateEstimates(id, target.gls_number);
+
+    return this.getById(id);
+  }
+
+  /**
+   * GLS番号付き案件一覧（リンク先選択用）
+   */
+  getGlsProjects() {
+    return queryAll(
+      `SELECT p.id, p.gls_number, p.name, c.name as customer_name
+       FROM projects p LEFT JOIN customers c ON c.id = p.customer_id
+       WHERE p.gls_number IS NOT NULL AND p.deleted_at IS NULL
+       ORDER BY p.gls_number DESC`
+    );
+  }
+
+  /**
+   * 概算見積→確定売上に変換（billing_key再生成＋ステータス変更）
+   */
+  private migrateEstimates(projectId: string, glsNumber: string) {
+    const estimates = queryAll(
+      `SELECT id, tax_category FROM revenues
+       WHERE project_id = ? AND status = 'estimate' AND deleted_at IS NULL
+       ORDER BY created_at ASC`,
+      [projectId]
+    ) as any[];
+    if (estimates.length === 0) return;
+
+    // 既存の確定売上数をカウント（同一GLS番号の全プロジェクト横断）
+    const existingConfirmed = (queryOne(
+      `SELECT COUNT(*) as c FROM revenues r
+       JOIN projects p ON p.id = r.project_id
+       WHERE p.gls_number = ? AND r.status = 'confirmed' AND r.deleted_at IS NULL`,
+      [glsNumber]
+    ) as any).c;
+
+    for (let i = 0; i < estimates.length; i++) {
+      const est = estimates[i];
+      const seq = existingConfirmed + i + 1;
+      const seqNum = String(seq).padStart(3, '0');
+      const taxSuffix = est.tax_category === 'tax8' ? '2' : (est.tax_category === 'exempt' ? '0' : '1');
+      const newBillingKey = `${glsNumber}-${seqNum}-${taxSuffix}`;
+      execute(
+        `UPDATE revenues SET status = 'confirmed', billing_key = ?, updated_at = datetime('now') WHERE id = ?`,
+        [newBillingKey, est.id]
+      );
+    }
   }
 
   /**
