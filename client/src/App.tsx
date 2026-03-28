@@ -16,6 +16,7 @@ import CustomerListPage from "@/contexts/sales/pages/CustomerListPage";
 import PricingListPage from "@/contexts/sales/pages/PricingListPage";
 import ActivityLogPage from "@/contexts/sales/pages/ActivityLogPage";
 import SalesReviewPage from "@/contexts/sales/pages/SalesReviewPage";
+import ConfirmedProjectsPage from "@/contexts/sales/pages/ConfirmedProjectsPage";
 
 // Production
 import EpisodeListPage from "@/contexts/production/pages/EpisodeListPage";
@@ -81,6 +82,7 @@ function AppRoutes() {
         <Route path="/projects" element={<ProjectListPage />} />
         <Route path="/projects/new" element={<ProjectFormPage />} />
         <Route path="/projects/:id" element={<ProjectFormPage />} />
+        <Route path="/projects/confirmed/:category" element={<ConfirmedProjectsPage />} />
         <Route path="/projects/:projectId/episodes" element={<EpisodeListPage />} />
 
         {/* 旧URLリダイレクト */}

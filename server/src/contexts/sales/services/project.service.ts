@@ -9,6 +9,7 @@ export interface ProjectFilter {
   assignedTo?: string;
   tab?: 'all' | 'yomi' | 'active' | 'completed' | 'lost';
   tag?: string;
+  glsCategory?: 'A' | 'B';
 }
 
 export class ProjectService {
@@ -32,8 +33,8 @@ export class ProjectService {
 
     // 個別フィルタ
     if (filter.search) {
-      where += ` AND (p.name LIKE ? OR p.code LIKE ? OR p.gls_number LIKE ?)`;
-      params.push(`%${filter.search}%`, `%${filter.search}%`, `%${filter.search}%`);
+      where += ` AND (p.name LIKE ? OR p.code LIKE ? OR p.gls_number LIKE ? OR c.name LIKE ? OR c.short_name LIKE ?)`;
+      params.push(`%${filter.search}%`, `%${filter.search}%`, `%${filter.search}%`, `%${filter.search}%`, `%${filter.search}%`);
     }
     if (filter.stage) {
       where += ` AND p.stage = ?`;
@@ -47,8 +48,13 @@ export class ProjectService {
       where += ` AND (',' || p.tags || ',') LIKE ?`;
       params.push(`%,${filter.tag},%`);
     }
+    if (filter.glsCategory === 'A') {
+      where += ` AND p.gls_number IS NOT NULL AND p.gls_number LIKE 'GLS-A%'`;
+    } else if (filter.glsCategory === 'B') {
+      where += ` AND p.gls_number IS NOT NULL AND p.gls_number LIKE 'GLS-B%'`;
+    }
 
-    const total = (queryOne(`SELECT COUNT(*) as c FROM projects p ${where}`, params) as any).c;
+    const total = (queryOne(`SELECT COUNT(*) as c FROM projects p LEFT JOIN customers c ON c.id = p.customer_id ${where}`, params) as any).c;
     const rows = queryAll(
       `SELECT p.*, c.name as customer_name, c.short_name as customer_short_name, u.name as assigned_to_name
        FROM projects p

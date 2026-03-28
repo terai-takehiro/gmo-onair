@@ -19,6 +19,8 @@ import {
   X,
   ClipboardList,
   Award,
+  Film,
+  Briefcase,
 } from "lucide-react";
 
 interface NavItem {
@@ -43,6 +45,8 @@ const navSections: NavSection[] = [
     title: "営業・案件管理",
     items: [
       { label: "案件管理", to: "/projects", icon: FolderKanban },
+      { label: "確定案件（スタジオ）", to: "/projects/confirmed/studio", icon: Film },
+      { label: "確定案件（ビジネス）", to: "/projects/confirmed/business", icon: Briefcase },
       { label: "営業活動記録", to: "/activity-logs", icon: ClipboardList },
       { label: "営業レビュー", to: "/sales-review", icon: Award },
     ],

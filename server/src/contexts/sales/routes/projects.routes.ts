@@ -14,6 +14,7 @@ router.get('/', (req, res) => {
     assignedTo: req.query.assigned_to as string,
     tab: (req.query.tab as ProjectFilter['tab']) || 'all',
     tag: req.query.tag as string,
+    glsCategory: req.query.gls_category as ProjectFilter['glsCategory'],
   };
   const { rows, total } = projectService.list(filter, page, limit, offset);
   res.json(paginatedResponse(rows, total, page, limit));
