@@ -144,16 +144,19 @@ export async function seed() {
   const projSql = `INSERT INTO projects (id, code, gls_number, name, customer_id, stage, project_type, expected_amount, event_start, event_end, broadcast_type, media_platform, assigned_to, tags, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
   // --- ヨミ段階（GLS番号なし）---
+  // neta: 初期段階、まだ具体化していない案件
+  // d_hold: スタジオ仮押さえ済み、日程調整中
+  // c_proposal: 見積提出済み、返答待ち
   const yomiData: [string, string, string, string, string, number, string, string][] = [
-    ['OPP-202603-0001', '中央放送 春の特別企画', '中央放送', 'recording', 'neta', 3000000, '2026-05-01', ''],
-    ['OPP-202603-0002', 'GH サマーカンファレンス', 'GH', 'hybrid_event', 'neta', 5000000, '2026-06-15', ''],
-    ['OPP-202603-0003', 'DA 動画配信スタジオ定期利用', 'DA', 'live_broadcast', 'd_hold', 1200000, '2026-04-20', ''],
-    ['OPP-202603-0004', '東都TV ドラマ撮影', '東都TV', 'recording', 'c_proposal', 8000000, '2026-05-10', ''],
-    ['OPP-202603-0005', 'SN スポーツ中継', 'SN', 'live_broadcast', 'c_proposal', 6000000, '2026-04-25', ''],
-    ['OPP-202603-0006', 'GE リアリティ番組制作', 'GE', 'recording', 'c_proposal', 12000000, '2026-06-01', ''],
-    ['OPP-202603-0007', 'JB 音楽番組収録', 'JB', 'recording', 'd_hold', 4500000, '2026-04-18', ''],
-    ['OPP-202603-0008', '富士見 バラエティ撮影', '富士見', 'offline_event', 'd_hold', 3500000, '2026-04-22', ''],
-    ['OPP-202603-0009', 'PW IR動画制作', 'PW', 'gmo_project', 'c_proposal', 2000000, '2026-04-08', ''],
+    ['OPP-202603-0001', '中央放送 夏の音楽祭2026', '中央放送', 'live_broadcast', 'neta', 8500000, '2026-07-20', '音楽'],
+    ['OPP-202603-0002', 'GH グループ決算説明会', 'GH', 'hybrid_event', 'neta', 3500000, '2026-06-15', '株主総会2026,IR'],
+    ['OPP-202603-0003', 'DA 月例ウェビナー（Q2分）', 'DA', 'live_broadcast', 'd_hold', 3600000, '2026-04-20', '定期'],
+    ['OPP-202603-0004', '東都TV 連続ドラマ「東京タワー」', '東都TV', 'recording', 'c_proposal', 18000000, '2026-05-10', 'ドラマ'],
+    ['OPP-202603-0005', 'SN プロ野球オールスター中継', 'SN', 'live_broadcast', 'c_proposal', 15000000, '2026-07-25', 'スポーツ'],
+    ['OPP-202603-0006', 'GE リアリティ番組「サバイバルキッチン」S2', 'GE', 'recording', 'c_proposal', 24000000, '2026-06-01', 'バラエティ'],
+    ['OPP-202603-0007', 'JB 年末カウントダウンライブ2026', 'JB', 'live_broadcast', 'd_hold', 12000000, '2026-12-31', '音楽,年末特番'],
+    ['OPP-202603-0008', '富士見 旅バラエティ「行こう日本」', '富士見', 'recording', 'd_hold', 6000000, '2026-05-15', 'バラエティ'],
+    ['OPP-202603-0009', 'PW 新決済サービスPR動画', 'PW', 'gmo_project', 'c_proposal', 2500000, '2026-04-08', 'GMO,プロモーション'],
   ];
   for (let i = 0; i < yomiData.length; i++) {
     const [code, name, custKey, projType, stage, amt, date, tags] = yomiData[i];
@@ -161,31 +164,34 @@ export async function seed() {
     ins(projSql, [id, code, null, name, CUSTOMERS[custKey], stage, projType, amt, date, null, null, null, staffIds[i % 3], tags, USERS.admin]);
   }
 
-  // --- 失注 ---
-  const lostData: [string, string, string, string, number, string][] = [
-    ['OPP-202603-0013', '中央放送 年末特別企画', '中央放送', 'recording', 10000000, '2026-03-01'],
-    ['OPP-202603-0014', 'DT CM撮影', 'DT', 'offline_event', 2500000, '2026-02-20'],
-    ['OPP-202603-0015', 'JB ドラマ撮影（延期）', 'JB', 'recording', 9000000, '2026-03-15'],
+  // --- 失注 (リアルな失注理由を設定) ---
+  const lostData: [string, string, string, string, number, string, string][] = [
+    ['OPP-202603-0013', '中央放送 年末歌謡祭2025', '中央放送', 'recording', 10000000, '2025-12-20', '他社に決定（価格競争）'],
+    ['OPP-202603-0014', 'DT 新サービスCM撮影', 'DT', 'offline_event', 2500000, '2026-02-20', 'クライアント都合で企画中止'],
+    ['OPP-202603-0015', 'JB 連続ドラマ撮影（延期）', 'JB', 'recording', 9000000, '2026-01-15', 'スケジュール調整不可（スタジオ空き無し）'],
   ];
   for (let i = 0; i < lostData.length; i++) {
-    const [code, name, custKey, projType, amt, date] = lostData[i];
+    const [code, name, custKey, projType, amt, date, reason] = lostData[i];
     const id = uuidv4();
     execute(
       `INSERT INTO projects (id, code, name, customer_id, stage, project_type, expected_amount, event_start, assigned_to, lost_reason, created_by) VALUES (?, ?, ?, ?, 'e_lost', ?, ?, ?, ?, ?, ?)`,
-      [id, code, name, CUSTOMERS[custKey], projType, amt, date, staffIds[i % 3], '予算不足', USERS.admin]
+      [id, code, name, CUSTOMERS[custKey], projType, amt, date, staffIds[i % 3], reason, USERS.admin]
     );
   }
 
   // --- GLS発番済み（案件進行中）---
+  // s_completed: 納品・放送完了、請求済み
+  // a_won: 受注確定、制作進行中
+  // b_verbal: 口頭内示あり、正式発注待ち
   const glsData: [string, string, string, string, string, number, string, string, string, string, string][] = [
-    ['GLS001', 'GH IR説明会 2026春', 'GH', 'hybrid_event', 's_completed', 4000000, '2026-03-19', '2026-03-19', 'live', 'youtube', '株主総会2026'],
-    ['GLS002', '東都TV 特番収録「サイエンス・フロンティア」', '東都TV', 'recording', 'a_won', 7500000, '2026-03-22', '2026-03-22', 'recording', 'terrestrial_tv', ''],
-    ['GLS003', 'SN 生放送「ナイトトーク」', 'SN', 'live_broadcast', 'a_won', 5500000, '2026-03-25', '2026-03-25', 'live', 'net_media', ''],
-    ['GLS004', 'PW 新サービス発表会', 'PW', 'hybrid_event', 'b_verbal', 2800000, '2026-03-30', '2026-03-30', 'live', 'zoom', '株主総会2026'],
-    ['GLS005', 'GE ドキュメンタリー撮影', 'GE', 'recording', 'a_won', 12000000, '2026-04-05', '2026-04-07', 'recording', 'net_media', ''],
-    ['GLS006', 'DA 社内イベント中継', 'DA', 'live_broadcast', 'b_verbal', 1500000, '2026-04-10', '2026-04-10', 'live', 'teams', ''],
-    ['GLS007', 'JB 番組パイロット撮影', 'JB', 'recording', 'b_verbal', 4500000, '2026-04-14', '2026-04-15', 'recording', 'terrestrial_tv', ''],
-    ['GLS008', '富士見 CM撮影「春キャンペーン」', '富士見', 'offline_event', 's_completed', 3200000, '2026-03-12', '2026-03-12', 'recording', 'terrestrial_tv', ''],
+    ['GLS001', 'GH 2026年度IR説明会（春季）', 'GH', 'hybrid_event', 's_completed', 4000000, '2026-03-19', '2026-03-19', 'live', 'youtube', '株主総会2026,IR'],
+    ['GLS002', '東都TV「サイエンス・フロンティア」レギュラー収録', '東都TV', 'recording', 'a_won', 7500000, '2026-03-22', '2026-09-30', 'recording', 'terrestrial_tv', '地上波,レギュラー'],
+    ['GLS003', 'SN「ナイトトーク LIVE」週1レギュラー', 'SN', 'live_broadcast', 'a_won', 5500000, '2026-03-25', '2026-04-15', 'live', 'net_media', 'ネット配信,レギュラー'],
+    ['GLS004', 'PW 新決済サービス記者発表会', 'PW', 'hybrid_event', 'b_verbal', 2800000, '2026-03-30', '2026-03-30', 'live', 'zoom', 'GMO,プレス発表'],
+    ['GLS005', 'GE「地球の記憶」ドキュメンタリー全6話', 'GE', 'recording', 'a_won', 12000000, '2026-04-05', '2026-06-30', 'recording', 'net_media', 'ドキュメンタリー'],
+    ['GLS006', 'DA 全社キックオフミーティング中継', 'DA', 'live_broadcast', 'b_verbal', 1500000, '2026-04-10', '2026-04-10', 'live', 'teams', 'GMO,社内'],
+    ['GLS007', 'JB 新番組パイロット版「クイズバトル」', 'JB', 'recording', 'b_verbal', 4500000, '2026-04-14', '2026-04-15', 'recording', 'terrestrial_tv', '地上波,パイロット'],
+    ['GLS008', '富士見 春キャンペーンCM撮影', '富士見', 'offline_event', 's_completed', 3200000, '2026-03-12', '2026-03-12', 'recording', 'terrestrial_tv', 'CM'],
   ];
   for (let i = 0; i < glsData.length; i++) {
     const [gls, name, custKey, projType, stage, amt, es, ee, bType, mPlatform, tags] = glsData[i];
@@ -348,10 +354,15 @@ export async function seed() {
   // ============================================================
   const sgaSql = `INSERT INTO sga_expenses (id, billing_key, assigned_to, settlement_method, settlement_number, vendor_name, description, recognition_date, payment_due_date, tax_category, invoice_qualified, amount, expense_type, amortize_start, amortize_end, source, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-  ins(sgaSql, [uuidv4(), '20260101-1', USERS.staff1, 'other', '900001', '株式会社スタジオプロパティ', 'オフィス賃料（月額）', '2026-01-01', '2026-01-31', 'tax10', 1, 800000, 'fixed', '2026-01', '2026-12', 'staff', USERS.admin]);
-  ins(sgaSql, [uuidv4(), '20260401-1', USERS.staff2, 'other', '900002', '東京海上日動火災保険', '事業用火災保険', '2026-04-01', '2026-04-30', 'tax10', 1, 300000, 'spot', '2026-04', '2027-03', 'staff', USERS.admin]);
-  ins(sgaSql, [uuidv4(), '20260315-1', USERS.staff3, 'rakuraku', '147520', 'ホテルニューオータニ', '顧客打ち合わせ会食費', '2026-03-15', '2026-04-15', 'tax10', 1, 45000, 'spot', null, null, 'staff', USERS.admin]);
-  ins(sgaSql, [uuidv4(), '20260301-1', USERS.staff1, 'other', '900003', '株式会社マネーフォワード', '会計ソフト年間利用料', '2026-03-01', '2026-03-31', 'tax10', 1, 120000, 'spot', null, null, 'accounting', USERS.admin]);
+  // 固定費（月額按分）
+  ins(sgaSql, [uuidv4(), '20260101-1', USERS.staff1, 'other', '900001', '株式会社スタジオプロパティ', 'スタジオ賃料（月額・渋谷）', '2026-01-01', '2026-01-31', 'tax10', 1, 800000, 'fixed', '2026-01', '2026-12', 'staff', USERS.admin]);
+  ins(sgaSql, [uuidv4(), '20260301-2', USERS.staff1, 'other', '900004', '東京電力エナジーパートナー', '電気料金（3月分）', '2026-03-01', '2026-03-31', 'tax10', 1, 185000, 'fixed', '2026-01', '2026-12', 'accounting', USERS.admin]);
+  ins(sgaSql, [uuidv4(), '20260301-3', USERS.staff1, 'other', '900005', 'NTTコミュニケーションズ', '通信回線費（専用線+インターネット）', '2026-03-01', '2026-03-31', 'tax10', 1, 120000, 'fixed', '2026-01', '2026-12', 'accounting', USERS.admin]);
+  // スポット費用
+  ins(sgaSql, [uuidv4(), '20260401-1', USERS.staff2, 'other', '900002', '東京海上日動火災保険', '事業用火災・動産総合保険（年払い）', '2026-04-01', '2026-04-30', 'tax10', 1, 480000, 'spot', '2026-04', '2027-03', 'staff', USERS.admin]);
+  ins(sgaSql, [uuidv4(), '20260315-1', USERS.staff3, 'rakuraku', '147520', 'ホテルニューオータニ', '顧客接待（東都TV番組打合せ会食）', '2026-03-15', '2026-04-15', 'tax10', 1, 68000, 'spot', null, null, 'staff', USERS.admin]);
+  ins(sgaSql, [uuidv4(), '20260301-1', USERS.staff1, 'other', '900003', '株式会社マネーフォワード', 'クラウド会計ソフト年間利用料', '2026-03-01', '2026-03-31', 'tax10', 1, 120000, 'spot', null, null, 'accounting', USERS.admin]);
+  ins(sgaSql, [uuidv4(), '20260320-1', USERS.staff2, 'rakuraku', '147521', '東京タクシー株式会社', 'ロケハン移動費（GE ドキュメンタリー下見）', '2026-03-20', '2026-04-20', 'tax10', 1, 24000, 'spot', null, null, 'staff', USERS.admin]);
 
   saveDb();
   console.log('Seed data inserted successfully.');
