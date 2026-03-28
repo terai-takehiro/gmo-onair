@@ -115,17 +115,26 @@ export default function Header({ title }: { title?: string }) {
 
   return (
     <header className="flex h-14 items-center justify-between border-b bg-background px-4 lg:px-6">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <Button
           variant="ghost"
           size="icon"
-          className="lg:hidden"
+          className="lg:hidden shrink-0"
           onClick={toggleSidebar}
         >
           <Menu className="h-5 w-5" />
         </Button>
+        <span
+          className="cursor-pointer text-sm font-bold text-primary hover:opacity-80 transition-opacity shrink-0"
+          onClick={() => navigate("/")}
+        >
+          ONAiR
+        </span>
         {title && (
-          <h1 className="text-lg font-semibold">{title}</h1>
+          <>
+            <span className="text-muted-foreground/50 hidden sm:inline">/</span>
+            <h1 className="text-sm font-medium text-muted-foreground hidden sm:block truncate">{title}</h1>
+          </>
         )}
       </div>
 
