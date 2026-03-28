@@ -109,11 +109,10 @@ export default function Sidebar() {
         <div className="flex h-14 items-center justify-between border-b px-4">
           <div className="flex items-center gap-2">
             <img
-              src="https://group.gmo/assets/images/service/logo/00364.png"
-              alt="GMO ONAiR"
-              className="h-7 w-auto"
+              src="/logo.svg"
+              alt="GMO GLOBAL STUDIO"
+              className="h-8 w-auto"
             />
-            <span className="text-lg font-bold text-primary">ONAiR</span>
           </div>
           <button
             className="rounded p-1 hover:bg-sidebar-accent lg:hidden"

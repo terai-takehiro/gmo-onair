@@ -42,9 +42,9 @@ export default function LoginPage() {
       <div className="w-full max-w-2xl px-4">
         <div className="mb-8 text-center">
           <img
-            src="https://group.gmo/assets/images/service/logo/00364.png"
-            alt="GMO ONAiR"
-            className="mx-auto mb-3 h-12 w-auto"
+            src="/logo.svg"
+            alt="GMO GLOBAL STUDIO"
+            className="mx-auto mb-3 h-16 w-auto"
           />
           <h1 className="text-3xl font-bold text-primary sm:text-4xl">GMO ONAiR</h1>
           <p className="mt-2 text-base text-muted-foreground sm:text-lg">
