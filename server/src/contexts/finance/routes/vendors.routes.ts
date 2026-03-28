@@ -1,0 +1,51 @@
+import { Router } from 'express';
+import { v4 as uuidv4 } from 'uuid';
+import { queryAll, queryOne, execute } from '../../../shared/db/connection';
+import { requireAuth } from '../../../shared/middleware/auth';
+import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
+import { AppError } from '../../../shared/middleware/errorHandler';
+
+const router = Router();
+
+router.get('/', (req, res) => {
+  const { page, limit, offset, search } = extractPagination(req);
+  let where = 'WHERE deleted_at IS NULL';
+  const params: unknown[] = [];
+  if (search) { where += ` AND (name LIKE ? OR vendor_type LIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
+  const total = (queryOne(`SELECT COUNT(*) as c FROM vendors ${where}`, params) as any).c;
+  const rows = queryAll(`SELECT * FROM vendors ${where} ORDER BY name LIMIT ? OFFSET ?`, [...params, limit, offset]);
+  res.json(paginatedResponse(rows, total, page, limit));
+});
+
+router.get('/:id', (req, res) => {
+  const row = queryOne('SELECT * FROM vendors WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+  if (!row) throw new AppError(404, 'NOT_FOUND', '仕入先が見つかりません');
+  res.json({ success: true, data: row });
+});
+
+router.post('/', requireAuth, (req, res) => {
+  const { name, address, vendor_type, invoice_registration_number, notes } = req.body;
+  if (!name) throw new AppError(400, 'VALIDATION_ERROR', '仕入先名は必須です');
+  const id = uuidv4();
+  execute('INSERT INTO vendors (id, name, address, vendor_type, invoice_registration_number, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [id, name, address || null, vendor_type || null, invoice_registration_number || null, notes || null, req.user!.id]);
+  const row = queryOne('SELECT * FROM vendors WHERE id = ?', [id]);
+  res.status(201).json({ success: true, data: row });
+});
+
+router.put('/:id', requireAuth, (req, res) => {
+  const existing = queryOne('SELECT id FROM vendors WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+  if (!existing) throw new AppError(404, 'NOT_FOUND', '仕入先が見つかりません');
+  const { name, address, vendor_type, invoice_registration_number, notes } = req.body;
+  execute(`UPDATE vendors SET name=?, address=?, vendor_type=?, invoice_registration_number=?, notes=?, updated_at=datetime('now'), updated_by=? WHERE id=?`,
+    [name, address || null, vendor_type || null, invoice_registration_number || null, notes || null, req.user!.id, req.params.id]);
+  const row = queryOne('SELECT * FROM vendors WHERE id = ?', [req.params.id]);
+  res.json({ success: true, data: row });
+});
+
+router.delete('/:id', requireAuth, (req, res) => {
+  execute(`UPDATE vendors SET deleted_at=datetime('now'), updated_by=? WHERE id=? AND deleted_at IS NULL`, [req.user!.id, req.params.id]);
+  res.json({ success: true, message: '削除しました' });
+});
+
+export default router;

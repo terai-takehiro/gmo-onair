@@ -3,8 +3,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import path from 'path';
-import { mockAuth } from './middleware/auth';
-import { errorHandler } from './middleware/errorHandler';
+import { mockAuth } from './shared/middleware/auth';
+import { errorHandler } from './shared/middleware/errorHandler';
 import { createRoutes } from './routes';
 
 export function createApp(): express.Express {

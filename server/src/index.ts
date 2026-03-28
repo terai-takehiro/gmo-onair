@@ -1,8 +1,8 @@
 import { createApp } from './app';
 import { config } from './config';
-import { initDb } from './db/connection';
-import { runMigrations } from './db/migrate';
-import { seed } from './db/seed';
+import { initDb } from './shared/db/connection';
+import { runMigrations } from './shared/db/migrate';
+import { seed } from './shared/db/seed';
 
 async function main() {
   await initDb();
