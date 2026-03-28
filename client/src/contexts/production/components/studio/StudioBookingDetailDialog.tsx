@@ -14,7 +14,10 @@ interface BookingRoom {
   room_id: string;
   room_name: string;
   room_color: string;
+  room_type?: string;
   location_id: string;
+  occupant?: string;
+  usage_note?: string;
 }
 
 interface StudioBooking {
@@ -130,6 +133,32 @@ export default function StudioBookingDetailDialog({
                     {r.room_name}
                   </span>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Greenroom occupant details */}
+          {booking.rooms.some((r) => r.occupant || r.usage_note) && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground">控室の利用者・用途</p>
+              <div className="space-y-1.5 rounded-lg border p-2.5">
+                {booking.rooms
+                  .filter((r) => r.occupant || r.usage_note)
+                  .map((r) => (
+                    <div key={r.room_id} className="flex items-start gap-2">
+                      <span
+                        className="h-2.5 w-2.5 rounded-full shrink-0 mt-1"
+                        style={{ backgroundColor: r.room_color }}
+                      />
+                      <div className="text-sm">
+                        <span className="font-medium">{r.room_name}</span>
+                        {r.occupant && <span className="ml-2">{r.occupant}</span>}
+                        {r.usage_note && (
+                          <span className="ml-1 text-muted-foreground">({r.usage_note})</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
               </div>
             </div>
           )}

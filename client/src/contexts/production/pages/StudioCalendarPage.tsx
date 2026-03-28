@@ -34,7 +34,10 @@ interface BookingRoom {
   room_id: string;
   room_name: string;
   room_color: string;
+  room_type?: string;
   location_id: string;
+  occupant?: string;
+  usage_note?: string;
 }
 
 interface StudioBooking {

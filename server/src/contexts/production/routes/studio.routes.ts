@@ -38,11 +38,11 @@ router.post('/locations', requireAuth, (req, res) => {
 
 // POST /studios/rooms — 部屋追加
 router.post('/rooms', requireAuth, (req, res) => {
-  const { location_id, name, color, sort_order } = req.body;
+  const { location_id, name, room_type, color, sort_order } = req.body;
   if (!location_id || !name) throw new AppError(400, 'VALIDATION_ERROR', 'ロケーションと名前は必須です');
   const id = uuidv4();
-  execute(`INSERT INTO studio_rooms (id, location_id, name, color, sort_order) VALUES (?, ?, ?, ?, ?)`,
-    [id, location_id, name, color || '#3b82f6', sort_order ?? 0]);
+  execute(`INSERT INTO studio_rooms (id, location_id, name, room_type, color, sort_order) VALUES (?, ?, ?, ?, ?, ?)`,
+    [id, location_id, name, room_type || 'studio', color || '#3b82f6', sort_order ?? 0]);
   const row = queryOne('SELECT * FROM studio_rooms WHERE id = ?', [id]);
   res.status(201).json({ success: true, data: row });
 });
@@ -72,9 +72,10 @@ router.get('/bookings', (req, res) => {
     params
   ) as any[];
 
-  // Attach rooms to each booking
+  // Attach rooms (with occupant info) to each booking
   const allBookingRooms = queryAll(
-    `SELECT br.booking_id, br.room_id, r.name as room_name, r.color as room_color, r.location_id
+    `SELECT br.booking_id, br.room_id, br.occupant, br.usage_note,
+            r.name as room_name, r.color as room_color, r.room_type, r.location_id
      FROM studio_booking_rooms br
      JOIN studio_rooms r ON r.id = br.room_id`
   ) as any[];
@@ -110,7 +111,8 @@ router.get('/bookings/:id', (req, res) => {
   if (!booking) throw new AppError(404, 'NOT_FOUND', '予約が見つかりません');
 
   const rooms = queryAll(
-    `SELECT br.room_id, r.name as room_name, r.color as room_color, r.location_id
+    `SELECT br.room_id, br.occupant, br.usage_note,
+            r.name as room_name, r.color as room_color, r.room_type, r.location_id
      FROM studio_booking_rooms br
      JOIN studio_rooms r ON r.id = br.room_id
      WHERE br.booking_id = ?`, [req.params.id]
@@ -121,7 +123,7 @@ router.get('/bookings/:id', (req, res) => {
 
 // POST /studios/bookings — 予約作成
 router.post('/bookings', requireAuth, (req, res) => {
-  const { title, booking_type, project_id, episode_id, all_day, start_time, end_time, room_ids, location_note, notes } = req.body;
+  const { title, booking_type, project_id, episode_id, all_day, start_time, end_time, room_ids, room_details, location_note, notes } = req.body;
   if (!title || !start_time || !end_time) throw new AppError(400, 'VALIDATION_ERROR', 'タイトル・開始・終了は必須です');
 
   const id = uuidv4();
@@ -132,8 +134,13 @@ router.post('/bookings', requireAuth, (req, res) => {
      all_day ? 1 : 0, start_time, end_time, location_note || null, notes || null, req.user!.id]
   );
 
-  // Insert room associations
-  if (Array.isArray(room_ids)) {
+  // Insert room associations (with optional occupant/usage_note)
+  if (Array.isArray(room_details) && room_details.length > 0) {
+    for (const rd of room_details) {
+      execute(`INSERT INTO studio_booking_rooms (booking_id, room_id, occupant, usage_note) VALUES (?, ?, ?, ?)`,
+        [id, rd.room_id, rd.occupant || null, rd.usage_note || null]);
+    }
+  } else if (Array.isArray(room_ids)) {
     for (const roomId of room_ids) {
       execute(`INSERT INTO studio_booking_rooms (booking_id, room_id) VALUES (?, ?)`, [id, roomId]);
     }
@@ -148,7 +155,7 @@ router.put('/bookings/:id', requireAuth, (req, res) => {
   const existing = queryOne('SELECT id FROM studio_bookings WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!existing) throw new AppError(404, 'NOT_FOUND', '予約が見つかりません');
 
-  const { title, booking_type, project_id, episode_id, all_day, start_time, end_time, room_ids, location_note, notes } = req.body;
+  const { title, booking_type, project_id, episode_id, all_day, start_time, end_time, room_ids, room_details, location_note, notes } = req.body;
   execute(
     `UPDATE studio_bookings SET title=?, booking_type=?, project_id=?, episode_id=?, all_day=?,
      start_time=?, end_time=?, location_note=?, notes=?, updated_at=datetime('now'), updated_by=? WHERE id=?`,
@@ -157,10 +164,17 @@ router.put('/bookings/:id', requireAuth, (req, res) => {
   );
 
   // Replace room associations
-  if (Array.isArray(room_ids)) {
+  if (Array.isArray(room_details) || Array.isArray(room_ids)) {
     execute('DELETE FROM studio_booking_rooms WHERE booking_id = ?', [req.params.id]);
-    for (const roomId of room_ids) {
-      execute(`INSERT INTO studio_booking_rooms (booking_id, room_id) VALUES (?, ?)`, [req.params.id, roomId]);
+    if (Array.isArray(room_details) && room_details.length > 0) {
+      for (const rd of room_details) {
+        execute(`INSERT INTO studio_booking_rooms (booking_id, room_id, occupant, usage_note) VALUES (?, ?, ?, ?)`,
+          [req.params.id, rd.room_id, rd.occupant || null, rd.usage_note || null]);
+      }
+    } else if (Array.isArray(room_ids)) {
+      for (const roomId of room_ids) {
+        execute(`INSERT INTO studio_booking_rooms (booking_id, room_id) VALUES (?, ?)`, [req.params.id, roomId]);
+      }
     }
   }
 

@@ -19,12 +19,13 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { Loader2, Calendar, Clock, MapPin } from "lucide-react";
+import { Loader2, Calendar, Clock, MapPin, User } from "lucide-react";
 
 interface StudioRoom {
   id: string;
   location_id: string;
   name: string;
+  room_type?: string;
   color: string;
 }
 
@@ -38,7 +39,10 @@ interface BookingRoom {
   room_id: string;
   room_name: string;
   room_color: string;
+  room_type?: string;
   location_id: string;
+  occupant?: string;
+  usage_note?: string;
 }
 
 interface StudioBooking {
@@ -91,6 +95,7 @@ export default function StudioBookingDialog({
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("18:00");
   const [selectedRoomIds, setSelectedRoomIds] = useState<Set<string>>(new Set());
+  const [roomDetails, setRoomDetails] = useState<Record<string, { occupant: string; usage_note: string }>>({});
   const [locationNote, setLocationNote] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -124,6 +129,13 @@ export default function StudioBookingDialog({
       setLocationNote(b.location_note || "");
       setNotes(b.notes || "");
       setSelectedRoomIds(new Set(b.rooms.map((r) => r.room_id)));
+      const details: Record<string, { occupant: string; usage_note: string }> = {};
+      for (const r of b.rooms) {
+        if (r.occupant || r.usage_note) {
+          details[r.room_id] = { occupant: r.occupant || "", usage_note: r.usage_note || "" };
+        }
+      }
+      setRoomDetails(details);
 
       if (b.all_day) {
         setStartDate(b.start_time.split("T")[0]);
@@ -146,6 +158,7 @@ export default function StudioBookingDialog({
       setLocationNote("");
       setNotes("");
       setSelectedRoomIds(new Set());
+      setRoomDetails({});
 
       if (presetDate) {
         setAllDay(presetDate.allDay);
@@ -215,6 +228,12 @@ export default function StudioBookingDialog({
   const handleSubmit = () => {
     if (!title || !startDate || !endDate) return;
 
+    const room_details_arr = Array.from(selectedRoomIds).map((rid) => ({
+      room_id: rid,
+      occupant: roomDetails[rid]?.occupant || null,
+      usage_note: roomDetails[rid]?.usage_note || null,
+    }));
+
     const payload = {
       title,
       booking_type: bookingType,
@@ -223,7 +242,7 @@ export default function StudioBookingDialog({
       all_day: allDay,
       start_time: allDay ? startDate : `${startDate}T${startTime}`,
       end_time: allDay ? endDate : `${endDate}T${endTime}`,
-      room_ids: Array.from(selectedRoomIds),
+      room_details: room_details_arr,
       location_note: locationNote || null,
       notes: notes || null,
     };
@@ -433,6 +452,63 @@ export default function StudioBookingDialog({
               </div>
             </div>
           </div>
+
+          {/* Greenroom occupant details */}
+          {(() => {
+            const allRooms = locations.flatMap((l) => l.rooms);
+            const greenrooms = allRooms.filter(
+              (r) => selectedRoomIds.has(r.id) && r.room_type === "greenroom"
+            );
+            if (greenrooms.length === 0) return null;
+            return (
+              <div className="space-y-2">
+                <div className="flex items-center gap-1">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <Label className="mb-0">控室の利用者・用途</Label>
+                </div>
+                <div className="space-y-2 rounded-lg border p-3">
+                  {greenrooms.map((room) => {
+                    const detail = roomDetails[room.id] || { occupant: "", usage_note: "" };
+                    return (
+                      <div key={room.id} className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="h-2.5 w-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: room.color }}
+                          />
+                          <span className="text-sm font-medium">{room.name}</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-5">
+                          <Input
+                            value={detail.occupant}
+                            onChange={(e) =>
+                              setRoomDetails((prev) => ({
+                                ...prev,
+                                [room.id]: { ...prev[room.id] || { occupant: "", usage_note: "" }, occupant: e.target.value },
+                              }))
+                            }
+                            placeholder="利用者（例：出演者A様）"
+                            className="text-sm h-8"
+                          />
+                          <Input
+                            value={detail.usage_note}
+                            onChange={(e) =>
+                              setRoomDetails((prev) => ({
+                                ...prev,
+                                [room.id]: { ...prev[room.id] || { occupant: "", usage_note: "" }, usage_note: e.target.value },
+                              }))
+                            }
+                            placeholder="用途（例：楽屋）"
+                            className="text-sm h-8"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Notes */}
           <div className="space-y-1">

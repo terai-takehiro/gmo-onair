@@ -343,6 +343,7 @@ CREATE TABLE IF NOT EXISTS studio_rooms (
   id          TEXT PRIMARY KEY,
   location_id TEXT NOT NULL REFERENCES studio_locations(id),
   name        TEXT NOT NULL,
+  room_type   TEXT DEFAULT 'studio' CHECK (room_type IN ('studio','greenroom','control','other')),
   color       TEXT DEFAULT '#3b82f6',
   sort_order  INTEGER DEFAULT 0,
   created_at  TEXT NOT NULL DEFAULT (datetime('now')),
@@ -371,6 +372,8 @@ CREATE TABLE IF NOT EXISTS studio_bookings (
 CREATE TABLE IF NOT EXISTS studio_booking_rooms (
   booking_id TEXT NOT NULL REFERENCES studio_bookings(id),
   room_id    TEXT NOT NULL REFERENCES studio_rooms(id),
+  occupant   TEXT,
+  usage_note TEXT,
   PRIMARY KEY (booking_id, room_id)
 );
 
