@@ -109,51 +109,94 @@ export default function PartnerListPage() {
         <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
       ) : (
         <>
-          <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>パートナー名</TableHead>
-                <TableHead>役職</TableHead>
-                <TableHead>メール</TableHead>
-                <TableHead>電話</TableHead>
-                <TableHead>専門分野</TableHead>
-                <TableHead className="w-24"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {partners.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">データがありません</TableCell></TableRow>
-              ) : (
-                partners.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-medium">{p.name}</TableCell>
-                    <TableCell>{p.role_title || "-"}</TableCell>
-                    <TableCell>{p.email || "-"}</TableCell>
-                    <TableCell>{p.phone || "-"}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {Array.isArray(p.specialties) && p.specialties.length > 0
-                          ? p.specialties.map((s: string, i: number) => (
+          {partners.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">データがありません</p>
+          ) : (
+            <>
+              {/* Mobile cards */}
+              <div className="space-y-2 lg:hidden">
+                {partners.map((p) => (
+                  <div key={p.id} className="rounded-lg border p-3 transition-colors hover:bg-muted/50">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium truncate">{p.name}</span>
+                          {p.role_title && (
+                            <span className="text-xs text-muted-foreground shrink-0">{p.role_title}</span>
+                          )}
+                        </div>
+                        {Array.isArray(p.specialties) && p.specialties.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {p.specialties.map((s: string, i: number) => (
                               <span key={i} className="inline-block rounded-full bg-muted px-2 py-0.5 text-xs">
                                 {s.trim()}
                               </span>
-                            ))
-                          : "-"}
+                            ))}
+                          </div>
+                        )}
+                        <div className="text-sm text-muted-foreground mt-1 truncate">
+                          {p.email && <span>{p.email}</span>}
+                          {p.phone && <span>{p.email ? " / " : ""}{p.phone}</span>}
+                          {!p.email && !p.phone && "-"}
+                        </div>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(p.id)}><Trash2 className="h-4 w-4" /></Button>
+                      <div className="flex gap-1 shrink-0">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(p.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                    </TableCell>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden lg:block overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>パートナー名</TableHead>
+                    <TableHead>役職</TableHead>
+                    <TableHead>メール</TableHead>
+                    <TableHead>電話</TableHead>
+                    <TableHead>専門分野</TableHead>
+                    <TableHead className="w-24"></TableHead>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {partners.map((p) => (
+                    <TableRow key={p.id}>
+                      <TableCell className="font-medium">{p.name}</TableCell>
+                      <TableCell>{p.role_title || "-"}</TableCell>
+                      <TableCell>{p.email || "-"}</TableCell>
+                      <TableCell>{p.phone || "-"}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {Array.isArray(p.specialties) && p.specialties.length > 0
+                            ? p.specialties.map((s: string, i: number) => (
+                                <span key={i} className="inline-block rounded-full bg-muted px-2 py-0.5 text-xs">
+                                  {s.trim()}
+                                </span>
+                              ))
+                            : "-"}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(p.id)}><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              </div>
+            </>
+          )}
 
           {pagination && pagination.totalPages > 1 && (
             <div className="flex items-center justify-between">

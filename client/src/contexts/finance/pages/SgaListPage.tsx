@@ -214,125 +214,176 @@ export default function SgaListPage() {
         </div>
       ) : (
         <>
-          <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>請求KEY</TableHead>
-                <TableHead>支払先</TableHead>
-                <TableHead>詳細</TableHead>
-                <TableHead>発生年月</TableHead>
-                <TableHead>支払期日</TableHead>
-                <TableHead>税区分</TableHead>
-                <TableHead className="text-right">金額</TableHead>
-                <TableHead>精算方法</TableHead>
-                <TableHead>精算状況</TableHead>
-                <TableHead>種別</TableHead>
-                <TableHead>処理元</TableHead>
-                <TableHead className="w-20">操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sgaList.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={12}
-                    className="text-center text-muted-foreground"
-                  >
-                    データがありません
-                  </TableCell>
-                </TableRow>
-              ) : (
-                sgaList.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-mono text-xs">
-                      {item.billing_key || "-"}
-                    </TableCell>
-                    <TableCell>{item.vendor_name || "-"}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">
-                      {item.description || "-"}
-                    </TableCell>
-                    <TableCell>
-                      {formatDate(item.recognition_date)}
-                    </TableCell>
-                    <TableCell>
-                      {formatDate(item.payment_due_date)}
-                    </TableCell>
-                    <TableCell>
-                      {TaxCategoryLabels[item.tax_category as TaxCategory] ??
-                        item.tax_category}
-                    </TableCell>
-                    <TableCell className="text-right font-medium font-number">
-                      {formatCurrency(item.amount)}
-                    </TableCell>
-                    <TableCell>
-                      {SettlementMethodLabels[
-                        item.settlement_method as SettlementMethod
-                      ] ?? item.settlement_method ?? "-"}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <SettlementBadge number={item.settlement_number} />
-                        {item.settlement_number && item.settlement_number !== "pending" && (
-                          <span className="font-mono text-xs">
-                            {formatSettlementNo(item.settlement_method ?? "", item.settlement_number)}
+          {sgaList.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">データがありません</p>
+          ) : (
+            <>
+              {/* Mobile cards */}
+              <div className="space-y-2 lg:hidden">
+                {sgaList.map((item) => (
+                  <div key={item.id} className="rounded-lg border p-3 transition-colors hover:bg-muted/50">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium truncate">{item.vendor_name || "-"}</span>
+                          <SettlementBadge number={item.settlement_number} />
+                          {item.amortize_start ? (
+                            <span className="inline-block rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">按分中</span>
+                          ) : item.expense_type === 'fixed' ? (
+                            <span className="inline-block rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">固定</span>
+                          ) : (
+                            <span className="inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">スポット</span>
+                          )}
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1 truncate">
+                          {item.description || "-"}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {formatDate(item.recognition_date)}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <div className="font-medium font-number">{formatCurrency(item.amount)}</div>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => handleOpenEdit(item)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive"
+                            disabled={deleteMutation.isPending}
+                            onClick={() => {
+                              if (confirm("この販管費を削除しますか？")) {
+                                deleteMutation.mutate(item.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden lg:block overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>請求KEY</TableHead>
+                    <TableHead>支払先</TableHead>
+                    <TableHead>詳細</TableHead>
+                    <TableHead>発生年月</TableHead>
+                    <TableHead>支払期日</TableHead>
+                    <TableHead>税区分</TableHead>
+                    <TableHead className="text-right">金額</TableHead>
+                    <TableHead>精算方法</TableHead>
+                    <TableHead>精算状況</TableHead>
+                    <TableHead>種別</TableHead>
+                    <TableHead>処理元</TableHead>
+                    <TableHead className="w-20">操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sgaList.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-mono text-xs">
+                        {item.billing_key || "-"}
+                      </TableCell>
+                      <TableCell>{item.vendor_name || "-"}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">
+                        {item.description || "-"}
+                      </TableCell>
+                      <TableCell>
+                        {formatDate(item.recognition_date)}
+                      </TableCell>
+                      <TableCell>
+                        {formatDate(item.payment_due_date)}
+                      </TableCell>
+                      <TableCell>
+                        {TaxCategoryLabels[item.tax_category as TaxCategory] ??
+                          item.tax_category}
+                      </TableCell>
+                      <TableCell className="text-right font-medium font-number">
+                        {formatCurrency(item.amount)}
+                      </TableCell>
+                      <TableCell>
+                        {SettlementMethodLabels[
+                          item.settlement_method as SettlementMethod
+                        ] ?? item.settlement_method ?? "-"}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <SettlementBadge number={item.settlement_number} />
+                          {item.settlement_number && item.settlement_number !== "pending" && (
+                            <span className="font-mono text-xs">
+                              {formatSettlementNo(item.settlement_method ?? "", item.settlement_number)}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {item.amortize_start ? (
+                          <span className="inline-block rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+                            按分中
+                          </span>
+                        ) : item.expense_type === 'fixed' ? (
+                          <span className="inline-block rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                            固定
+                          </span>
+                        ) : (
+                          <span className="inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                            スポット
                           </span>
                         )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {item.amortize_start ? (
-                        <span className="inline-block rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
-                          按分中
+                      </TableCell>
+                      <TableCell>
+                        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                          item.source === 'accounting' ? 'bg-amber-100 text-amber-700' : 'bg-sky-100 text-sky-700'
+                        }`}>
+                          {item.source === 'accounting' ? '経理' : 'スタッフ'}
                         </span>
-                      ) : item.expense_type === 'fixed' ? (
-                        <span className="inline-block rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                          固定
-                        </span>
-                      ) : (
-                        <span className="inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-                          スポット
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                        item.source === 'accounting' ? 'bg-amber-100 text-amber-700' : 'bg-sky-100 text-sky-700'
-                      }`}>
-                        {item.source === 'accounting' ? '経理' : 'スタッフ'}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => handleOpenEdit(item)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive"
-                          disabled={deleteMutation.isPending}
-                          onClick={() => {
-                            if (confirm("この販管費を削除しますか？")) {
-                              deleteMutation.mutate(item.id);
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-          </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => handleOpenEdit(item)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive"
+                            disabled={deleteMutation.isPending}
+                            onClick={() => {
+                              if (confirm("この販管費を削除しますか？")) {
+                                deleteMutation.mutate(item.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              </div>
+            </>
+          )}
 
           {pagination && pagination.totalPages > 1 && (
             <div className="flex items-center justify-between">

@@ -173,66 +173,91 @@ export default function RevenueListPage() {
         </div>
       ) : (
         <>
-          <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>請求KEY</TableHead>
-                <TableHead>イベントコード</TableHead>
-                <TableHead>案件名</TableHead>
-                <TableHead>顧客</TableHead>
-                <TableHead>税区分</TableHead>
-                <TableHead className="text-right">金額</TableHead>
-                <TableHead>計上日</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {revenues.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={7}
-                    className="text-center text-muted-foreground"
+          {revenues.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">データがありません</p>
+          ) : (
+            <>
+              {/* Mobile cards */}
+              <div className="space-y-2 lg:hidden">
+                {revenues.map((r: Record<string, unknown>) => (
+                  <div
+                    key={r.id as string}
+                    className="rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                    onClick={() => r.project_id && navigate(`/projects/${r.project_id}/episodes`)}
+                    role={r.project_id ? "button" : undefined}
                   >
-                    データがありません
-                  </TableCell>
-                </TableRow>
-              ) : (
-                revenues.map((r: Record<string, unknown>) => (
-                  <TableRow key={r.id as string}>
-                    <TableCell className="font-mono text-xs">
-                      {(r.billing_key as string) || "-"}
-                    </TableCell>
-                    <TableCell>
-                      {r.project_id ? (
-                        <button
-                          className="font-mono text-sm font-medium text-primary hover:underline"
-                          onClick={() => navigate(`/projects/${r.project_id}/episodes`)}
-                        >
-                          {(r.gls_number as string) || "-"}
-                        </button>
-                      ) : (
-                        <span className="text-primary">{(r.gls_number as string) || "-"}</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {(r.project_name as string) || "-"}
-                    </TableCell>
-                    <TableCell>
-                      {(r.customer_name as string) || "-"}
-                    </TableCell>
-                    <TableCell>{r.tax_type as string}</TableCell>
-                    <TableCell className="text-right font-medium font-number">
-                      {formatCurrency(r.amount as number)}
-                    </TableCell>
-                    <TableCell>
-                      {formatDate(r.recording_date as string)}
-                    </TableCell>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs text-muted-foreground">{(r.billing_key as string) || "-"}</span>
+                          <span className="font-mono text-sm font-medium text-primary">{(r.gls_number as string) || "-"}</span>
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1 truncate">
+                          {(r.customer_name as string) || "-"}
+                          {(r.project_name as string) && <span> / {r.project_name as string}</span>}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="font-medium font-number">{formatCurrency(r.amount as number)}</div>
+                        <div className="text-xs text-muted-foreground">{formatDate(r.recording_date as string)}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden lg:block overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>請求KEY</TableHead>
+                    <TableHead>イベントコード</TableHead>
+                    <TableHead>案件名</TableHead>
+                    <TableHead>顧客</TableHead>
+                    <TableHead>税区分</TableHead>
+                    <TableHead className="text-right">金額</TableHead>
+                    <TableHead>計上日</TableHead>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {revenues.map((r: Record<string, unknown>) => (
+                    <TableRow key={r.id as string}>
+                      <TableCell className="font-mono text-xs">
+                        {(r.billing_key as string) || "-"}
+                      </TableCell>
+                      <TableCell>
+                        {r.project_id ? (
+                          <button
+                            className="font-mono text-sm font-medium text-primary hover:underline"
+                            onClick={() => navigate(`/projects/${r.project_id}/episodes`)}
+                          >
+                            {(r.gls_number as string) || "-"}
+                          </button>
+                        ) : (
+                          <span className="text-primary">{(r.gls_number as string) || "-"}</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {(r.project_name as string) || "-"}
+                      </TableCell>
+                      <TableCell>
+                        {(r.customer_name as string) || "-"}
+                      </TableCell>
+                      <TableCell>{r.tax_type as string}</TableCell>
+                      <TableCell className="text-right font-medium font-number">
+                        {formatCurrency(r.amount as number)}
+                      </TableCell>
+                      <TableCell>
+                        {formatDate(r.recording_date as string)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              </div>
+            </>
+          )}
 
           {pagination && pagination.totalPages > 1 && (
             <div className="flex items-center justify-between">

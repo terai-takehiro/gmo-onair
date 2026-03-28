@@ -205,72 +205,125 @@ export default function ActivityLogPage() {
       {/* 一覧 */}
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>日付</TableHead>
-                <TableHead>種別</TableHead>
-                <TableHead>件名</TableHead>
-                <TableHead>ヨミ / 顧客</TableHead>
-                <TableHead>担当</TableHead>
-                <TableHead className="text-center">時間</TableHead>
-                <TableHead>次回アクション</TableHead>
-                <TableHead className="w-20"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8">読み込み中...</TableCell></TableRow>
-              ) : logs.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">活動記録がありません</TableCell></TableRow>
-              ) : logs.map((log: any) => {
-                const at = getActivityType(log.activity_type);
-                return (
-                  <TableRow key={log.id}>
-                    <TableCell className="text-sm">{formatDate(log.activity_date)}</TableCell>
-                    <TableCell>
-                      <span className={`text-xs px-2 py-0.5 rounded ${at.color}`}>{at.label}</span>
-                    </TableCell>
-                    <TableCell className="font-medium max-w-[200px] truncate">{log.subject}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">
-                      {log.project_code ? `${log.project_code}` : log.customer_name || "-"}
-                    </TableCell>
-                    <TableCell className="text-sm">{log.performed_by_name}</TableCell>
-                    <TableCell className="text-center text-sm">
-                      {log.duration_minutes ? `${log.duration_minutes}分` : "-"}
-                    </TableCell>
-                    <TableCell className="text-sm max-w-[150px] truncate">
-                      {log.next_action ? (
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {log.next_action}
-                          {log.next_action_date && (
-                            <Badge variant={isOverdue(log.next_action_date) ? "destructive" : "outline"} className="text-[10px] ml-1">
-                              {formatDate(log.next_action_date)}
-                            </Badge>
+          {isLoading ? (
+            <div className="flex justify-center py-8">読み込み中...</div>
+          ) : logs.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">活動記録がありません</div>
+          ) : (
+            <>
+              {/* Mobile cards */}
+              <div className="space-y-2 lg:hidden">
+                {logs.map((log: any) => {
+                  const at = getActivityType(log.activity_type);
+                  return (
+                    <div key={log.id} className="rounded-lg border p-3 transition-colors hover:bg-muted/50">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs px-2 py-0.5 rounded shrink-0 ${at.color}`}>{at.label}</span>
+                            <span className="font-medium truncate">{log.subject}</span>
+                          </div>
+                          <div className="text-sm text-muted-foreground mt-1 truncate">
+                            {log.project_code ? log.project_code : log.customer_name || "-"}
+                            {log.performed_by_name && <span> / {log.performed_by_name}</span>}
+                          </div>
+                          <div className="text-sm text-muted-foreground flex items-center gap-2 mt-0.5">
+                            <span>{formatDate(log.activity_date)}</span>
+                            {log.duration_minutes && <span>{log.duration_minutes}分</span>}
+                          </div>
+                          {log.next_action && (
+                            <div className="text-sm mt-1 flex items-center gap-1">
+                              <Clock className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{log.next_action}</span>
+                              {log.next_action_date && (
+                                <Badge variant={isOverdue(log.next_action_date) ? "destructive" : "outline"} className="text-[10px] ml-1 shrink-0">
+                                  {formatDate(log.next_action_date)}
+                                </Badge>
+                              )}
+                            </div>
                           )}
-                        </span>
-                      ) : "-"}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(log)}>
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => {
-                          if (confirm("削除しますか？")) deleteMutation.mutate(log.id);
-                        }}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(log)}>
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => {
+                            if (confirm("削除しますか？")) deleteMutation.mutate(log.id);
+                          }}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
-                    </TableCell>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden lg:block overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>日付</TableHead>
+                    <TableHead>種別</TableHead>
+                    <TableHead>件名</TableHead>
+                    <TableHead>ヨミ / 顧客</TableHead>
+                    <TableHead>担当</TableHead>
+                    <TableHead className="text-center">時間</TableHead>
+                    <TableHead>次回アクション</TableHead>
+                    <TableHead className="w-20"></TableHead>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {logs.map((log: any) => {
+                    const at = getActivityType(log.activity_type);
+                    return (
+                      <TableRow key={log.id}>
+                        <TableCell className="text-sm">{formatDate(log.activity_date)}</TableCell>
+                        <TableCell>
+                          <span className={`text-xs px-2 py-0.5 rounded ${at.color}`}>{at.label}</span>
+                        </TableCell>
+                        <TableCell className="font-medium max-w-[200px] truncate">{log.subject}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">
+                          {log.project_code ? `${log.project_code}` : log.customer_name || "-"}
+                        </TableCell>
+                        <TableCell className="text-sm">{log.performed_by_name}</TableCell>
+                        <TableCell className="text-center text-sm">
+                          {log.duration_minutes ? `${log.duration_minutes}分` : "-"}
+                        </TableCell>
+                        <TableCell className="text-sm max-w-[150px] truncate">
+                          {log.next_action ? (
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {log.next_action}
+                              {log.next_action_date && (
+                                <Badge variant={isOverdue(log.next_action_date) ? "destructive" : "outline"} className="text-[10px] ml-1">
+                                  {formatDate(log.next_action_date)}
+                                </Badge>
+                              )}
+                            </span>
+                          ) : "-"}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(log)}>
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => {
+                              if (confirm("削除しますか？")) deleteMutation.mutate(log.id);
+                            }}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

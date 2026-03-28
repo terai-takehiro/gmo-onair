@@ -112,43 +112,78 @@ export default function UserListPage() {
       {isLoading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
       ) : (
-        <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>名前</TableHead>
-              <TableHead>メール</TableHead>
-              <TableHead>ロール</TableHead>
-              <TableHead>作成日</TableHead>
-              <TableHead className="w-24"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {(!users || users.length === 0) ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">データがありません</TableCell></TableRow>
-            ) : (
-              users.map((u) => (
-                <TableRow key={u.id}>
-                  <TableCell className="font-medium">{u.name}</TableCell>
-                  <TableCell>{u.email}</TableCell>
-                  <TableCell>
-                    <Badge color={roleColorMap[u.role]}>
-                      {roleLabelMap[u.role] || u.role}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{formatDate(u.created_at)}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(u)}><Pencil className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(u.id)}><Trash2 className="h-4 w-4" /></Button>
+        <>
+          {(!users || users.length === 0) ? (
+            <p className="text-center text-muted-foreground py-8">データがありません</p>
+          ) : (
+            <>
+              {/* Mobile cards */}
+              <div className="space-y-2 lg:hidden">
+                {users.map((u) => (
+                  <div key={u.id} className="rounded-lg border p-3 transition-colors hover:bg-muted/50">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium truncate">{u.name}</span>
+                          <Badge color={roleColorMap[u.role]}>
+                            {roleLabelMap[u.role] || u.role}
+                          </Badge>
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1 truncate">{u.email}</div>
+                        {u.created_at && (
+                          <div className="text-xs text-muted-foreground mt-0.5">{formatDate(u.created_at)}</div>
+                        )}
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(u)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(u.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-        </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden lg:block overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>名前</TableHead>
+                    <TableHead>メール</TableHead>
+                    <TableHead>ロール</TableHead>
+                    <TableHead>作成日</TableHead>
+                    <TableHead className="w-24"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.map((u) => (
+                    <TableRow key={u.id}>
+                      <TableCell className="font-medium">{u.name}</TableCell>
+                      <TableCell>{u.email}</TableCell>
+                      <TableCell>
+                        <Badge color={roleColorMap[u.role]}>
+                          {roleLabelMap[u.role] || u.role}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{formatDate(u.created_at)}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(u)}><Pencil className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(u.id)}><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              </div>
+            </>
+          )}
+        </>
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

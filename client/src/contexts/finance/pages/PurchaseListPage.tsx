@@ -227,88 +227,115 @@ export default function PurchaseListPage() {
         </div>
       ) : (
         <>
-          <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>請求KEY</TableHead>
-                <TableHead>イベントコード</TableHead>
-                <TableHead>案件名</TableHead>
-                <TableHead>仕入先</TableHead>
-                <TableHead>精算方法</TableHead>
-                <TableHead>精算状況</TableHead>
-                <TableHead>税区分</TableHead>
-                <TableHead className="text-right">金額</TableHead>
-                <TableHead>計上日</TableHead>
-                <TableHead>適格</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {purchases.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={10}
-                    className="text-center text-muted-foreground"
+          {purchases.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">データがありません</p>
+          ) : (
+            <>
+              {/* Mobile cards */}
+              <div className="space-y-2 lg:hidden">
+                {purchases.map((p: Record<string, unknown>) => (
+                  <div
+                    key={p.id as string}
+                    className="rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                    onClick={() => p.project_id && navigate(`/projects/${p.project_id}/episodes`)}
+                    role={p.project_id ? "button" : undefined}
                   >
-                    データがありません
-                  </TableCell>
-                </TableRow>
-              ) : (
-                purchases.map((p: Record<string, unknown>) => (
-                  <TableRow key={p.id as string}>
-                    <TableCell className="font-mono text-xs">
-                      {(p.billing_key as string) || "-"}
-                    </TableCell>
-                    <TableCell>
-                      {p.project_id ? (
-                        <button
-                          className="font-mono text-sm font-medium text-primary hover:underline"
-                          onClick={() => navigate(`/projects/${p.project_id}/episodes`)}
-                        >
-                          {(p.gls_number as string) || "-"}
-                        </button>
-                      ) : (
-                        <span className="text-primary">{(p.gls_number as string) || "-"}</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {(p.project_name as string) || "-"}
-                    </TableCell>
-                    <TableCell>
-                      {(p.vendor_name as string) || "-"}
-                    </TableCell>
-                    <TableCell>
-                      {SettlementMethodLabels[
-                        p.settlement_method as SettlementMethod
-                      ] ?? (p.settlement_method as string) ?? "-"}
-                    </TableCell>
-                    <TableCell>
-                      <SettlementBadge number={p.settlement_number as string | null} />
-                      {(p.settlement_number as string) && (p.settlement_number as string) !== "pending" && (
-                        <span className="ml-1 font-mono text-xs text-muted-foreground">
-                          {formatSettlementNo((p.settlement_method as string) ?? "", (p.settlement_number as string) ?? "")}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {TaxCategoryLabels[p.tax_category as TaxCategory] ??
-                        (p.tax_type as string)}
-                    </TableCell>
-                    <TableCell className="text-right font-medium font-number">
-                      {formatCurrency(p.amount as number)}
-                    </TableCell>
-                    <TableCell>
-                      {formatDate(p.recording_date as string)}
-                    </TableCell>
-                    <TableCell>
-                      {p.is_qualified_invoice ? "○" : "×"}
-                    </TableCell>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs text-muted-foreground">{(p.billing_key as string) || "-"}</span>
+                          <SettlementBadge number={p.settlement_number as string | null} />
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1 truncate">
+                          {(p.vendor_name as string) || "-"}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {formatDate(p.recording_date as string)}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="font-medium font-number">{formatCurrency(p.amount as number)}</div>
+                        <div className="text-xs text-muted-foreground">{(p.gls_number as string) || "-"}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden lg:block overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>請求KEY</TableHead>
+                    <TableHead>イベントコード</TableHead>
+                    <TableHead>案件名</TableHead>
+                    <TableHead>仕入先</TableHead>
+                    <TableHead>精算方法</TableHead>
+                    <TableHead>精算状況</TableHead>
+                    <TableHead>税区分</TableHead>
+                    <TableHead className="text-right">金額</TableHead>
+                    <TableHead>計上日</TableHead>
+                    <TableHead>適格</TableHead>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {purchases.map((p: Record<string, unknown>) => (
+                    <TableRow key={p.id as string}>
+                      <TableCell className="font-mono text-xs">
+                        {(p.billing_key as string) || "-"}
+                      </TableCell>
+                      <TableCell>
+                        {p.project_id ? (
+                          <button
+                            className="font-mono text-sm font-medium text-primary hover:underline"
+                            onClick={() => navigate(`/projects/${p.project_id}/episodes`)}
+                          >
+                            {(p.gls_number as string) || "-"}
+                          </button>
+                        ) : (
+                          <span className="text-primary">{(p.gls_number as string) || "-"}</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {(p.project_name as string) || "-"}
+                      </TableCell>
+                      <TableCell>
+                        {(p.vendor_name as string) || "-"}
+                      </TableCell>
+                      <TableCell>
+                        {SettlementMethodLabels[
+                          p.settlement_method as SettlementMethod
+                        ] ?? (p.settlement_method as string) ?? "-"}
+                      </TableCell>
+                      <TableCell>
+                        <SettlementBadge number={p.settlement_number as string | null} />
+                        {(p.settlement_number as string) && (p.settlement_number as string) !== "pending" && (
+                          <span className="ml-1 font-mono text-xs text-muted-foreground">
+                            {formatSettlementNo((p.settlement_method as string) ?? "", (p.settlement_number as string) ?? "")}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {TaxCategoryLabels[p.tax_category as TaxCategory] ??
+                          (p.tax_type as string)}
+                      </TableCell>
+                      <TableCell className="text-right font-medium font-number">
+                        {formatCurrency(p.amount as number)}
+                      </TableCell>
+                      <TableCell>
+                        {formatDate(p.recording_date as string)}
+                      </TableCell>
+                      <TableCell>
+                        {p.is_qualified_invoice ? "○" : "×"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              </div>
+            </>
+          )}
 
           {pagination && pagination.totalPages > 1 && (
             <div className="flex items-center justify-between">

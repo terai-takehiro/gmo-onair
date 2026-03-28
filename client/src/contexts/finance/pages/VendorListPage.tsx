@@ -102,41 +102,76 @@ export default function VendorListPage() {
         <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
       ) : (
         <>
-          <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>仕入先名</TableHead>
-                <TableHead>担当者</TableHead>
-                <TableHead>メール</TableHead>
-                <TableHead>電話</TableHead>
-                <TableHead>適格請求書番号</TableHead>
-                <TableHead className="w-24"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {vendors.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">データがありません</TableCell></TableRow>
-              ) : (
-                vendors.map((v) => (
-                  <TableRow key={v.id}>
-                    <TableCell className="font-medium">{v.name}</TableCell>
-                    <TableCell>{v.contact_name || "-"}</TableCell>
-                    <TableCell>{v.email || "-"}</TableCell>
-                    <TableCell>{v.phone || "-"}</TableCell>
-                    <TableCell className="font-mono text-xs">{v.invoice_registration_number || "-"}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(v)}><Pencil className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(v.id)}><Trash2 className="h-4 w-4" /></Button>
+          {vendors.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">データがありません</p>
+          ) : (
+            <>
+              {/* Mobile cards */}
+              <div className="space-y-2 lg:hidden">
+                {vendors.map((v) => (
+                  <div key={v.id} className="rounded-lg border p-3 transition-colors hover:bg-muted/50">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium truncate">{v.name}</div>
+                        <div className="text-sm text-muted-foreground truncate">
+                          {v.contact_name && <span>{v.contact_name}</span>}
+                          {v.phone && <span>{v.contact_name ? " / " : ""}{v.phone}</span>}
+                          {!v.contact_name && !v.phone && "-"}
+                        </div>
+                        {v.email && (
+                          <div className="text-sm text-muted-foreground truncate">{v.email}</div>
+                        )}
+                        {v.invoice_registration_number && (
+                          <div className="text-xs font-mono text-muted-foreground mt-0.5">{v.invoice_registration_number}</div>
+                        )}
                       </div>
-                    </TableCell>
+                      <div className="flex gap-1 shrink-0">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(v)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(v.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden lg:block overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>仕入先名</TableHead>
+                    <TableHead>担当者</TableHead>
+                    <TableHead>メール</TableHead>
+                    <TableHead>電話</TableHead>
+                    <TableHead>適格請求書番号</TableHead>
+                    <TableHead className="w-24"></TableHead>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {vendors.map((v) => (
+                    <TableRow key={v.id}>
+                      <TableCell className="font-medium">{v.name}</TableCell>
+                      <TableCell>{v.contact_name || "-"}</TableCell>
+                      <TableCell>{v.email || "-"}</TableCell>
+                      <TableCell>{v.phone || "-"}</TableCell>
+                      <TableCell className="font-mono text-xs">{v.invoice_registration_number || "-"}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(v)}><Pencil className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(v.id)}><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              </div>
+            </>
+          )}
 
           {pagination && pagination.totalPages > 1 && (
             <div className="flex items-center justify-between">

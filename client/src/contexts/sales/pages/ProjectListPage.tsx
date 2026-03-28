@@ -79,56 +79,84 @@ export default function ProjectListPage() {
         </div>
       ) : (
         <>
-          <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>コード</TableHead>
-                <TableHead>案件名</TableHead>
-                <TableHead>顧客</TableHead>
-                <TableHead>ステージ</TableHead>
-                <TableHead>案件種類</TableHead>
-                <TableHead className="text-right">想定金額</TableHead>
-                <TableHead>イベント日</TableHead>
-                <TableHead>担当者</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {projects.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground">
-                    データがありません
-                  </TableCell>
-                </TableRow>
-              ) : (
-                projects.map((p: Record<string, unknown>) => (
-                  <TableRow
+          {projects.length === 0 ? (
+            <p className="py-12 text-center text-muted-foreground">データがありません</p>
+          ) : (
+            <>
+              {/* Mobile: Card layout */}
+              <div className="space-y-2 lg:hidden">
+                {projects.map((p: Record<string, unknown>) => (
+                  <div
                     key={p.id as string}
-                    className="cursor-pointer"
+                    className="cursor-pointer rounded-lg border p-3 transition-colors hover:bg-muted/50 active:bg-muted"
                     onClick={() => navigate(`/projects/${p.id}`)}
                   >
-                    <TableCell className="font-mono text-xs">
-                      {(p.gls_number as string) || (p.code as string) || "-"}
-                    </TableCell>
-                    <TableCell className="font-medium">{p.name as string}</TableCell>
-                    <TableCell>{(p.customer_name as string) || "-"}</TableCell>
-                    <TableCell>
-                      <Badge style={{ backgroundColor: ProjectStageColors[p.stage as ProjectStage], color: '#fff' }}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium leading-tight">{p.name as string}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {(p.gls_number as string) || (p.code as string)} / {(p.customer_name as string) || "-"}
+                        </p>
+                      </div>
+                      <Badge className="shrink-0" style={{ backgroundColor: ProjectStageColors[p.stage as ProjectStage], color: '#fff' }}>
                         {ProjectStageLabels[p.stage as ProjectStage] || (p.stage as string)}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      {ProjectTypeLabels[p.project_type as keyof typeof ProjectTypeLabels] || (p.project_type as string) || "-"}
-                    </TableCell>
-                    <TableCell className="text-right font-number">{formatCurrency(p.expected_amount as number)}</TableCell>
-                    <TableCell>{formatDate(p.event_start as string)}</TableCell>
-                    <TableCell>{(p.assigned_to_name as string) || "-"}</TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-          </div>
+                    </div>
+                    <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+                      <span className="font-number text-sm font-medium text-foreground">{formatCurrency(p.expected_amount as number)}</span>
+                      <span>{ProjectTypeLabels[p.project_type as keyof typeof ProjectTypeLabels] || (p.project_type as string) || "-"}</span>
+                      {(p.event_start as string) && <span>{formatDate(p.event_start as string)}</span>}
+                      {(p.assigned_to_name as string) && <span>{p.assigned_to_name as string}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop: Table layout */}
+              <div className="hidden lg:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>コード</TableHead>
+                      <TableHead>案件名</TableHead>
+                      <TableHead>顧客</TableHead>
+                      <TableHead>ステージ</TableHead>
+                      <TableHead>案件種類</TableHead>
+                      <TableHead className="text-right">想定金額</TableHead>
+                      <TableHead>イベント日</TableHead>
+                      <TableHead>担当者</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {projects.map((p: Record<string, unknown>) => (
+                      <TableRow
+                        key={p.id as string}
+                        className="cursor-pointer"
+                        onClick={() => navigate(`/projects/${p.id}`)}
+                      >
+                        <TableCell className="font-mono text-xs">
+                          {(p.gls_number as string) || (p.code as string) || "-"}
+                        </TableCell>
+                        <TableCell className="font-medium">{p.name as string}</TableCell>
+                        <TableCell>{(p.customer_name as string) || "-"}</TableCell>
+                        <TableCell>
+                          <Badge style={{ backgroundColor: ProjectStageColors[p.stage as ProjectStage], color: '#fff' }}>
+                            {ProjectStageLabels[p.stage as ProjectStage] || (p.stage as string)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {ProjectTypeLabels[p.project_type as keyof typeof ProjectTypeLabels] || (p.project_type as string) || "-"}
+                        </TableCell>
+                        <TableCell className="text-right font-number">{formatCurrency(p.expected_amount as number)}</TableCell>
+                        <TableCell>{formatDate(p.event_start as string)}</TableCell>
+                        <TableCell>{(p.assigned_to_name as string) || "-"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
 
           {/* Pagination */}
           {pagination && pagination.totalPages > 1 && (
