@@ -8,12 +8,11 @@ import BusinessProjectView from "../components/episodes/BusinessProjectView";
 export default function EpisodeListPage() {
   const { projectId } = useParams<{ projectId: string }>();
 
-  const { data: projectData, isLoading } = useQuery({
+  const { data: project, isLoading } = useQuery({
     queryKey: ["project", projectId],
-    queryFn: async () => (await api.get(`/projects/${projectId}`)).data,
+    queryFn: async () => (await api.get(`/projects/${projectId}`)).data.data as Project,
     enabled: !!projectId,
   });
-  const project: Project | undefined = projectData?.data;
 
   if (isLoading) {
     return (
