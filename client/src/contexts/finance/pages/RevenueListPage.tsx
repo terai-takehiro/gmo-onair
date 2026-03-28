@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { getProjectCategory } from "@/types";
@@ -56,6 +56,9 @@ interface RevenueItem {
 
 export default function RevenueListPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const filterProjectId = searchParams.get("project_id") || "";
+  const filterProjectName = searchParams.get("project_name") || "";
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -74,10 +77,11 @@ export default function RevenueListPage() {
   const [items, setItems] = useState<RevenueItem[]>([]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["revenues-all", page, search],
+    queryKey: ["revenues-all", page, search, filterProjectId],
     queryFn: async () => {
       const params: Record<string, string | number> = { page, limit: 20 };
       if (search) params.search = search;
+      if (filterProjectId) params.project_id = filterProjectId;
       return (await api.get("/revenues", { params })).data;
     },
   });
@@ -234,7 +238,19 @@ export default function RevenueListPage() {
   return (
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       <div className="flex flex-wrap gap-2 items-center justify-between">
-        <h1 className="text-xl lg:text-2xl font-bold">売上一覧</h1>
+        <div>
+          <h1 className="text-xl lg:text-2xl font-bold">売上一覧</h1>
+          {filterProjectId && filterProjectName && (
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-sm text-muted-foreground">
+                絞り込み: <span className="font-medium text-foreground">{filterProjectName}</span>
+              </span>
+              <Button variant="ghost" size="sm" className="h-5 px-1.5 text-xs" onClick={() => navigate("/revenues")}>
+                解除
+              </Button>
+            </div>
+          )}
+        </div>
         <Button onClick={() => setDialogOpen(true)}>
           <Plus className="mr-1 h-4 w-4" />
           新規売上

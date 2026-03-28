@@ -21,7 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Loader2, Film, Briefcase } from "lucide-react";
+import { Search, Loader2, Film, Briefcase, Receipt } from "lucide-react";
 
 type StageFilter = "all" | "active" | "completed";
 
@@ -135,54 +135,69 @@ export default function ConfirmedProjectsPage() {
             {projects.map((p: Record<string, unknown>) => (
               <div
                 key={p.id as string}
-                className="cursor-pointer rounded-lg border p-3 transition-colors hover:bg-muted/50 active:bg-muted"
-                onClick={() => navigate(`/projects/${p.id}`)}
+                className="rounded-lg border p-3 transition-colors hover:bg-muted/50"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium leading-tight">
-                      {p.name as string}
-                    </p>
-                    <div className="mt-1 flex items-center gap-2">
-                      <span className="font-mono text-xs font-semibold text-primary">
-                        {p.gls_number as string}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {(p.customer_short_name as string) ||
-                          (p.customer_name as string) ||
-                          "-"}
-                      </span>
+                <div
+                  className="cursor-pointer"
+                  onClick={() => navigate(`/projects/${p.id}`)}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium leading-tight">
+                        {p.name as string}
+                      </p>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="font-mono text-xs font-semibold text-primary">
+                          {p.gls_number as string}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {(p.customer_short_name as string) ||
+                            (p.customer_name as string) ||
+                            "-"}
+                        </span>
+                      </div>
                     </div>
+                    <Badge
+                      className="shrink-0"
+                      style={{
+                        backgroundColor:
+                          ProjectStageColors[p.stage as ProjectStage],
+                        color: "#fff",
+                      }}
+                    >
+                      {ProjectStageLabels[p.stage as ProjectStage] ||
+                        (p.stage as string)}
+                    </Badge>
                   </div>
-                  <Badge
-                    className="shrink-0"
-                    style={{
-                      backgroundColor:
-                        ProjectStageColors[p.stage as ProjectStage],
-                      color: "#fff",
-                    }}
-                  >
-                    {ProjectStageLabels[p.stage as ProjectStage] ||
-                      (p.stage as string)}
-                  </Badge>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    <span className="font-number text-sm font-medium text-foreground">
+                      {formatCurrency(p.expected_amount as number)}
+                    </span>
+                    <span>
+                      {ProjectTypeLabels[
+                        p.project_type as keyof typeof ProjectTypeLabels
+                      ] ||
+                        (p.project_type as string) ||
+                        "-"}
+                    </span>
+                    {(p.event_start as string) && (
+                      <span>{formatDate(p.event_start as string)}</span>
+                    )}
+                    {(p.assigned_to_name as string) && (
+                      <span>{p.assigned_to_name as string}</span>
+                    )}
+                  </div>
                 </div>
-                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                  <span className="font-number text-sm font-medium text-foreground">
-                    {formatCurrency(p.expected_amount as number)}
-                  </span>
-                  <span>
-                    {ProjectTypeLabels[
-                      p.project_type as keyof typeof ProjectTypeLabels
-                    ] ||
-                      (p.project_type as string) ||
-                      "-"}
-                  </span>
-                  {(p.event_start as string) && (
-                    <span>{formatDate(p.event_start as string)}</span>
-                  )}
-                  {(p.assigned_to_name as string) && (
-                    <span>{p.assigned_to_name as string}</span>
-                  )}
+                <div className="mt-2 pt-2 border-t flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => navigate(`/revenues?project_id=${p.id}&project_name=${encodeURIComponent(`${p.gls_number} ${p.name}`)}`)}
+                  >
+                    <Receipt className="h-3 w-3 mr-1" />
+                    売上管理
+                  </Button>
                 </div>
               </div>
             ))}
@@ -201,6 +216,7 @@ export default function ConfirmedProjectsPage() {
                   <TableHead className="text-right">想定金額</TableHead>
                   {isStudio && <TableHead>イベント日</TableHead>}
                   <TableHead>担当者</TableHead>
+                  <TableHead className="w-20"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -250,6 +266,20 @@ export default function ConfirmedProjectsPage() {
                     )}
                     <TableCell>
                       {(p.assigned_to_name as string) || "-"}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/revenues?project_id=${p.id}&project_name=${encodeURIComponent(`${p.gls_number} ${p.name}`)}`);
+                        }}
+                      >
+                        <Receipt className="h-3 w-3 mr-1" />
+                        売上
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
