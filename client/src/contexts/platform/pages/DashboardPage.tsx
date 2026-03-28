@@ -155,9 +155,9 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-4 p-3 lg:space-y-6 lg:p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">ダッシュボード</h1>
+        <h1 className="text-lg lg:text-2xl font-bold">ダッシュボード</h1>
         <div className="flex gap-1 rounded-lg border p-1">
           <button
             onClick={() => setKpiPeriod('monthly')}
@@ -185,46 +185,82 @@ export default function DashboardPage() {
             {kpi.period_label || (kpiPeriod === 'yearly' ? '年間' : '今月')} 損益サマリー
           </div>
           <CardContent className="p-0">
-            {/* P&L Flow */}
-            <div className="flex flex-col lg:flex-row items-stretch">
-              {/* 売上 */}
+            {/* Mobile: Compact grid */}
+            <div className="grid grid-cols-2 gap-px bg-border lg:hidden">
+              <div className="bg-blue-600 text-white p-3 flex items-center gap-2">
+                <DollarSign className="h-5 w-5 shrink-0 opacity-80" />
+                <div className="min-w-0">
+                  <p className="text-[10px] opacity-80">売上</p>
+                  <p className="text-base font-bold font-mono truncate">{formatCurrency(kpi.monthly_revenue)}</p>
+                </div>
+              </div>
+              <div className="bg-orange-500 text-white p-3 flex items-center gap-2">
+                <ShoppingCart className="h-5 w-5 shrink-0 opacity-80" />
+                <div className="min-w-0">
+                  <p className="text-[10px] opacity-80">変動原価</p>
+                  <p className="text-base font-bold font-mono truncate">{formatCurrency(kpi.monthly_purchase)}</p>
+                </div>
+              </div>
+              <div className="bg-emerald-600 text-white p-3 flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 shrink-0 opacity-80" />
+                <div className="min-w-0">
+                  <p className="text-[10px] opacity-80">粗利 <span className="font-semibold">{formatPercent(kpi.monthly_gross_margin)}</span></p>
+                  <p className="text-base font-bold font-mono truncate">{formatCurrency(kpi.gross_profit)}</p>
+                </div>
+              </div>
+              <div className="bg-red-500 text-white p-3 flex items-center gap-2">
+                <Receipt className="h-5 w-5 shrink-0 opacity-80" />
+                <div className="min-w-0">
+                  <p className="text-[10px] opacity-80">販管費</p>
+                  <p className="text-base font-bold font-mono truncate">{formatCurrency(kpi.monthly_sga)}</p>
+                </div>
+              </div>
+              <div className={`col-span-2 p-3 flex items-center justify-center gap-3 ${
+                kpi.operating_profit >= 0 ? 'bg-gradient-to-r from-green-700 to-emerald-800' : 'bg-gradient-to-r from-red-700 to-red-800'
+              } text-white`}>
+                <BarChart3 className="h-5 w-5 shrink-0 opacity-80" />
+                <div className="flex items-baseline gap-2">
+                  <p className="text-[10px] opacity-80">営業利益</p>
+                  <p className="text-lg font-bold font-mono">{formatCurrency(kpi.operating_profit)}</p>
+                  <p className="text-sm font-semibold opacity-90">{formatPercent(kpi.operating_margin)}</p>
+                </div>
+              </div>
+            </div>
+            {/* Desktop: Horizontal flow */}
+            <div className="hidden lg:flex flex-row items-stretch">
               <div className="flex-1 bg-blue-600 text-white p-6 flex flex-col justify-center items-center relative animate-[fadeIn_0.5s_ease-out]">
                 <DollarSign className="h-8 w-8 mb-2 opacity-80" />
                 <p className="text-sm font-medium opacity-80">売上</p>
                 <p className="text-3xl font-bold font-mono">{formatCurrency(kpi.monthly_revenue)}</p>
-                <div className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 bg-white rounded-full p-1 shadow">
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 bg-white rounded-full p-1 shadow">
                   <span className="text-gray-400 text-lg font-bold">-</span>
                 </div>
               </div>
-              {/* 仕入(変動原価) */}
               <div className="flex-1 bg-orange-500 text-white p-6 flex flex-col justify-center items-center relative animate-[fadeIn_0.7s_ease-out]">
                 <ShoppingCart className="h-8 w-8 mb-2 opacity-80" />
                 <p className="text-sm font-medium opacity-80">変動原価(仕入)</p>
                 <p className="text-3xl font-bold font-mono">{formatCurrency(kpi.monthly_purchase)}</p>
-                <div className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 bg-white rounded-full p-1 shadow">
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 bg-white rounded-full p-1 shadow">
                   <span className="text-gray-400 text-lg font-bold">=</span>
                 </div>
               </div>
-              {/* 粗利 */}
               <div className="flex-1 bg-emerald-600 text-white p-6 flex flex-col justify-center items-center relative animate-[fadeIn_0.9s_ease-out]">
                 <TrendingUp className="h-8 w-8 mb-2 opacity-80" />
                 <p className="text-sm font-medium opacity-80">粗利</p>
                 <p className="text-3xl font-bold font-mono">{formatCurrency(kpi.gross_profit)}</p>
                 <p className="text-lg font-semibold opacity-90">{formatPercent(kpi.monthly_gross_margin)}</p>
-                <div className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 bg-white rounded-full p-1 shadow">
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 bg-white rounded-full p-1 shadow">
                   <span className="text-gray-400 text-lg font-bold">-</span>
                 </div>
               </div>
-              {/* 販管費 */}
               <div className="flex-1 bg-red-500 text-white p-6 flex flex-col justify-center items-center relative animate-[fadeIn_1.1s_ease-out]">
                 <Receipt className="h-8 w-8 mb-2 opacity-80" />
                 <p className="text-sm font-medium opacity-80">販管費</p>
                 <p className="text-3xl font-bold font-mono">{formatCurrency(kpi.monthly_sga)}</p>
-                <div className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 bg-white rounded-full p-1 shadow">
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 bg-white rounded-full p-1 shadow">
                   <span className="text-gray-400 text-lg font-bold">=</span>
                 </div>
               </div>
-              {/* 営業利益 */}
               <div className={`flex-1 p-6 flex flex-col justify-center items-center animate-[fadeIn_1.3s_ease-out] ${
                 kpi.operating_profit >= 0 ? 'bg-gradient-to-br from-green-700 to-emerald-800' : 'bg-gradient-to-br from-red-700 to-red-800'
               } text-white`}>
@@ -235,22 +271,22 @@ export default function DashboardPage() {
               </div>
             </div>
             {/* Sub KPIs */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 border-t">
-              <div className="p-4 text-center border-r">
-                <p className="text-xs text-muted-foreground">進行中案件</p>
-                <p className="text-2xl font-bold text-primary">{kpi.active_projects}</p>
+            <div className="grid grid-cols-4 border-t">
+              <div className="p-2 lg:p-4 text-center border-r">
+                <p className="text-[10px] lg:text-xs text-muted-foreground">進行中案件</p>
+                <p className="text-lg lg:text-2xl font-bold text-primary">{kpi.active_projects}</p>
               </div>
-              <div className="p-4 text-center border-r">
-                <p className="text-xs text-muted-foreground">アクティブヨミ</p>
-                <p className="text-2xl font-bold text-orange-600">{kpi.active_yomi}</p>
+              <div className="p-2 lg:p-4 text-center border-r">
+                <p className="text-[10px] lg:text-xs text-muted-foreground">ヨミ</p>
+                <p className="text-lg lg:text-2xl font-bold text-orange-600">{kpi.active_yomi}</p>
               </div>
-              <div className="p-4 text-center border-r">
-                <p className="text-xs text-muted-foreground">粗利率</p>
-                <p className="text-2xl font-bold text-emerald-600">{formatPercent(kpi.monthly_gross_margin)}</p>
+              <div className="p-2 lg:p-4 text-center border-r">
+                <p className="text-[10px] lg:text-xs text-muted-foreground">粗利率</p>
+                <p className="text-lg lg:text-2xl font-bold text-emerald-600">{formatPercent(kpi.monthly_gross_margin)}</p>
               </div>
-              <div className="p-4 text-center">
-                <p className="text-xs text-muted-foreground">営業利益率</p>
-                <p className={`text-2xl font-bold ${kpi.operating_profit >= 0 ? 'text-green-700' : 'text-red-600'}`}>{formatPercent(kpi.operating_margin)}</p>
+              <div className="p-2 lg:p-4 text-center">
+                <p className="text-[10px] lg:text-xs text-muted-foreground">営業利益率</p>
+                <p className={`text-lg lg:text-2xl font-bold ${kpi.operating_profit >= 0 ? 'text-green-700' : 'text-red-600'}`}>{formatPercent(kpi.operating_margin)}</p>
               </div>
             </div>
           </CardContent>
@@ -267,7 +303,35 @@ export default function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-7 gap-1">
+            {/* Mobile: Compact horizontal scroll */}
+            <div className="flex gap-2 overflow-x-auto pb-2 lg:hidden snap-x snap-mandatory">
+              {(weeklyData as Array<{ date: string; dayLabel: string; events: Array<{ gls_number?: string; name?: string; project_name?: string; episode_code?: string; type: string }> }>).map((day) => {
+                const isToday = day.date === new Date().toISOString().split('T')[0];
+                return (
+                  <div key={day.date} className={`min-w-[120px] snap-start shrink-0 rounded-lg border p-2 ${isToday ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'bg-muted/30'}`}>
+                    <div className={`text-center mb-1 ${isToday ? 'font-bold text-primary' : ''}`}>
+                      <span className="text-xs text-muted-foreground">{day.dayLabel}</span>
+                      <span className="text-xs ml-1">{day.date.split('-')[2]}日</span>
+                    </div>
+                    <div className="space-y-0.5">
+                      {day.events.slice(0, 3).map((ev, i) => (
+                        <div key={i} className={`rounded px-1 py-0.5 text-white text-[10px] leading-tight truncate ${typeColors[ev.type] || 'bg-gray-400'}`}>
+                          {typeLabels[ev.type]}: {ev.gls_number || ev.episode_code}
+                        </div>
+                      ))}
+                      {day.events.length > 3 && (
+                        <div className="text-[10px] text-muted-foreground text-center">+{day.events.length - 3}件</div>
+                      )}
+                      {day.events.length === 0 && (
+                        <div className="text-[10px] text-muted-foreground text-center mt-2">-</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Desktop: 7-column grid */}
+            <div className="hidden lg:grid grid-cols-7 gap-1">
               {(weeklyData as Array<{ date: string; dayLabel: string; events: Array<{ gls_number?: string; name?: string; project_name?: string; episode_code?: string; type: string }> }>).map((day) => {
                 const isToday = day.date === new Date().toISOString().split('T')[0];
                 return (
@@ -293,7 +357,7 @@ export default function DashboardPage() {
                 );
               })}
             </div>
-            <div className="flex gap-3 mt-3 justify-center">
+            <div className="flex gap-3 mt-2 lg:mt-3 justify-center">
               {Object.entries(typeLabels).map(([key, label]) => (
                 <div key={key} className="flex items-center gap-1">
                   <div className={`w-2.5 h-2.5 rounded-sm ${typeColors[key]}`} />
@@ -306,15 +370,15 @@ export default function DashboardPage() {
       )}
 
       {/* Charts */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:gap-6 lg:grid-cols-2">
         {/* Monthly Revenue/Purchase/Profit Chart */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">月次推移</CardTitle>
+          <CardHeader className="pb-2 lg:pb-6">
+            <CardTitle className="text-base lg:text-lg">月次推移</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-2 lg:px-6">
             {chartData && chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={220}>
                 <ComposedChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis
@@ -344,12 +408,12 @@ export default function DashboardPage() {
 
         {/* Pipeline Chart */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">ヨミパイプライン</CardTitle>
+          <CardHeader className="pb-2 lg:pb-6">
+            <CardTitle className="text-base lg:text-lg">ヨミパイプライン</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-2 lg:px-6">
             {pipelineData && pipelineData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={220}>
                 <BarChart
                   data={pipelineData.map((s) => ({
                     ...s,
@@ -380,12 +444,12 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:gap-6 lg:grid-cols-2">
         {/* Alerts */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+          <CardHeader className="pb-2 lg:pb-6">
+            <CardTitle className="flex items-center gap-2 text-base lg:text-lg">
+              <AlertTriangle className="h-4 w-4 lg:h-5 lg:w-5 text-yellow-500" />
               アラート
             </CardTitle>
           </CardHeader>
@@ -412,8 +476,8 @@ export default function DashboardPage() {
 
         {/* Recent Projects */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">最近の案件</CardTitle>
+          <CardHeader className="pb-2 lg:pb-6">
+            <CardTitle className="text-base lg:text-lg">最近の案件</CardTitle>
           </CardHeader>
           <CardContent>
             {!recentProjects || recentProjects.length === 0 ? (
@@ -445,17 +509,17 @@ export default function DashboardPage() {
 
       {/* Quick Links */}
       <div>
-        <h2 className="mb-4 text-lg font-semibold">クイックリンク</h2>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        <h2 className="mb-2 lg:mb-4 text-base lg:text-lg font-semibold">クイックリンク</h2>
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-3 lg:grid-cols-6 lg:gap-4">
           {quickLinks.map((link) => (
             <Card
               key={link.to}
               className="cursor-pointer transition-all hover:shadow-md hover:ring-1 hover:ring-primary/30"
               onClick={() => navigate(link.to)}
             >
-              <CardContent className="flex flex-col items-center gap-2 p-6">
-                <link.icon className="h-8 w-8 text-primary" />
-                <p className="text-sm font-medium">{link.label}</p>
+              <CardContent className="flex flex-col items-center gap-1 p-3 lg:gap-2 lg:p-6">
+                <link.icon className="h-6 w-6 lg:h-8 lg:w-8 text-primary" />
+                <p className="text-xs lg:text-sm font-medium">{link.label}</p>
               </CardContent>
             </Card>
           ))}
