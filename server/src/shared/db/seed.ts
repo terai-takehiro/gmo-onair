@@ -42,43 +42,43 @@ export async function seed() {
   // ============================================================
   // Customers
   // ============================================================
-  const custSql = `INSERT INTO customers (id, name, short_name, notes) VALUES (?, ?, ?, ?)`;
-  const customerData: [string, string][] = [
-    ['株式会社グローバルホールディングス', 'GH'],
-    ['株式会社ペイメントワークス', 'PW'],
-    ['株式会社デジタルトレード', 'DT'],
-    ['東都テレビ株式会社', '東都TV'],
-    ['サンネットワーク株式会社', 'SN'],
-    ['グローバルエンターテインメント株式会社', 'GE'],
-    ['JBCテレビ株式会社', 'JB'],
-    ['富士見放送株式会社', '富士見'],
-    ['株式会社デジタルアドバンス', 'DA'],
-    ['中央放送株式会社', '中央放送'],
+  const custSql = `INSERT INTO customers (id, name, short_name, contact_name, email, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+  const customerData: [string, string, string, string, string, string][] = [
+    ['株式会社グローバルホールディングス', 'GH', '中村 洋介', 'nakamura@global-hd.example.com', '03-1234-5678', '東京都渋谷区桜丘町26-1'],
+    ['株式会社ペイメントワークス', 'PW', '小林 真理', 'kobayashi@paymentworks.example.com', '03-2345-6789', '東京都渋谷区道玄坂1-14-6'],
+    ['株式会社デジタルトレード', 'DT', '伊藤 直樹', 'ito@digitaltrade.example.com', '03-3456-7890', '東京都港区六本木3-2-1'],
+    ['東都テレビ株式会社', '東都TV', '松本 健太', 'matsumoto@toto-tv.example.com', '03-4567-8901', '東京都港区台場2-4-8'],
+    ['サンネットワーク株式会社', 'SN', '渡辺 美穂', 'watanabe@sunnetwork.example.com', '03-5678-9012', '東京都新宿区西新宿2-8-1'],
+    ['グローバルエンターテインメント株式会社', 'GE', '加藤 隆志', 'kato@global-ent.example.com', '03-6789-0123', '東京都目黒区下目黒1-8-1'],
+    ['JBCテレビ株式会社', 'JB', '吉田 恵子', 'yoshida@jbc-tv.example.com', '03-7890-1234', '東京都港区赤坂5-3-6'],
+    ['富士見放送株式会社', '富士見', '木村 大輔', 'kimura@fujimi-bc.example.com', '03-8901-2345', '東京都新宿区河田町1-1'],
+    ['株式会社デジタルアドバンス', 'DA', '山口 芳恵', 'yamaguchi@digital-adv.example.com', '03-9012-3456', '東京都千代田区神田錦町3-1'],
+    ['中央放送株式会社', '中央放送', '藤田 修一', 'fujita@chuo-bc.example.com', '03-0123-4567', '東京都港区虎ノ門4-3-12'],
   ];
-  for (const [name, short] of customerData) {
+  for (const [name, short, contact, email, phone, address] of customerData) {
     const id = uuidv4();
     CUSTOMERS[short] = id;
-    ins(custSql, [id, name, short, null]);
+    ins(custSql, [id, name, short, contact, email, phone, address]);
   }
 
   // ============================================================
   // Vendors
   // ============================================================
-  const vendorSql = `INSERT INTO vendors (id, name, vendor_type, invoice_registration_number) VALUES (?, ?, ?, ?)`;
-  const vendorData: [string, string, string | null][] = [
-    ['株式会社テクニカルプロ', '技術', 'T1234567890123'],
-    ['ライティングサービス株式会社', '照明', 'T2345678901234'],
-    ['株式会社サウンドクリエイト', '音響', 'T3456789012345'],
-    ['ストリームテック株式会社', '配信', 'T4567890123456'],
-    ['株式会社アートワークス', '美術', 'T5678901234567'],
-    ['プロレンタル株式会社', '機材', 'T6789012345678'],
-    ['ケータリングデリシャス株式会社', '弁当', null],
-    ['株式会社トランスポートサービス', '運送', 'T8901234567890'],
+  const vendorSql = `INSERT INTO vendors (id, name, contact_name, email, phone, address, vendor_type, invoice_registration_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+  const vendorData: [string, string, string, string, string, string, string | null][] = [
+    ['株式会社テクニカルプロ', '技術', '岡田 誠', 'okada@techpro.example.com', '03-1111-2222', '東京都品川区大崎1-6-4', 'T1234567890123'],
+    ['ライティングサービス株式会社', '照明', '森 光太郎', 'mori@lighting-sv.example.com', '03-2222-3333', '東京都世田谷区三軒茶屋2-11-7', 'T2345678901234'],
+    ['株式会社サウンドクリエイト', '音響', '石川 雅人', 'ishikawa@soundcreate.example.com', '03-3333-4444', '東京都杉並区高円寺北3-22-5', 'T3456789012345'],
+    ['ストリームテック株式会社', '配信', '前田 亮', 'maeda@streamtech.example.com', '03-4444-5555', '東京都中央区日本橋2-7-1', 'T4567890123456'],
+    ['株式会社アートワークス', '美術', '坂本 裕子', 'sakamoto@artworks.example.com', '03-5555-6666', '東京都目黒区中目黒1-1-17', 'T5678901234567'],
+    ['プロレンタル株式会社', '機材', '田村 健一', 'tamura@prorental.example.com', '03-6666-7777', '東京都大田区蒲田5-13-14', 'T6789012345678'],
+    ['ケータリングデリシャス株式会社', '弁当', '原田 美和', 'harada@delicious-c.example.com', '03-7777-8888', '東京都江東区豊洲3-2-20', null],
+    ['株式会社トランスポートサービス', '運送', '中島 剛', 'nakajima@transport-sv.example.com', '03-8888-9999', '東京都板橋区成増2-17-10', 'T8901234567890'],
   ];
-  for (const [name, vType, regNum] of vendorData) {
+  for (const [name, vType, contact, email, phone, address, regNum] of vendorData) {
     const id = uuidv4();
     VENDORS[vType] = id;
-    ins(vendorSql, [id, name, vType, regNum]);
+    ins(vendorSql, [id, name, contact, email, phone, address, vType, regNum]);
   }
 
   // ============================================================

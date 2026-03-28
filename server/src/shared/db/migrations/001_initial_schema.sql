@@ -19,10 +19,14 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS customers (
-  id         TEXT PRIMARY KEY,
-  name       TEXT NOT NULL,
-  short_name TEXT,
-  notes      TEXT,
+  id             TEXT PRIMARY KEY,
+  name           TEXT NOT NULL,
+  short_name     TEXT,
+  contact_name   TEXT,
+  email          TEXT,
+  phone          TEXT,
+  address        TEXT,
+  notes          TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
   created_by TEXT,
@@ -33,6 +37,9 @@ CREATE TABLE IF NOT EXISTS customers (
 CREATE TABLE IF NOT EXISTS vendors (
   id                          TEXT PRIMARY KEY,
   name                        TEXT NOT NULL,
+  contact_name                TEXT,
+  email                       TEXT,
+  phone                       TEXT,
   address                     TEXT,
   vendor_type                 TEXT,
   invoice_registration_number TEXT,

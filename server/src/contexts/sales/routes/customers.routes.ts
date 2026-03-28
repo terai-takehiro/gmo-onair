@@ -24,11 +24,11 @@ router.get('/:id', (req, res) => {
 });
 
 router.post('/', requireAuth, (req, res) => {
-  const { name, short_name, notes } = req.body;
+  const { name, short_name, contact_name, email, phone, address, notes } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', '顧客名は必須です');
   const id = uuidv4();
-  execute('INSERT INTO customers (id, name, short_name, notes, created_by) VALUES (?, ?, ?, ?, ?)',
-    [id, name, short_name || null, notes || null, req.user!.id]);
+  execute('INSERT INTO customers (id, name, short_name, contact_name, email, phone, address, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, name, short_name || null, contact_name || null, email || null, phone || null, address || null, notes || null, req.user!.id]);
   const row = queryOne('SELECT * FROM customers WHERE id = ?', [id]);
   res.status(201).json({ success: true, data: row });
 });
@@ -36,9 +36,9 @@ router.post('/', requireAuth, (req, res) => {
 router.put('/:id', requireAuth, (req, res) => {
   const existing = queryOne('SELECT id FROM customers WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!existing) throw new AppError(404, 'NOT_FOUND', '顧客が見つかりません');
-  const { name, short_name, notes } = req.body;
-  execute(`UPDATE customers SET name=?, short_name=?, notes=?, updated_at=datetime('now'), updated_by=? WHERE id=?`,
-    [name, short_name || null, notes || null, req.user!.id, req.params.id]);
+  const { name, short_name, contact_name, email, phone, address, notes } = req.body;
+  execute(`UPDATE customers SET name=?, short_name=?, contact_name=?, email=?, phone=?, address=?, notes=?, updated_at=datetime('now'), updated_by=? WHERE id=?`,
+    [name, short_name || null, contact_name || null, email || null, phone || null, address || null, notes || null, req.user!.id, req.params.id]);
   const row = queryOne('SELECT * FROM customers WHERE id = ?', [req.params.id]);
   res.json({ success: true, data: row });
 });
