@@ -379,25 +379,29 @@ export default function DashboardPage() {
           <CardContent className="px-2 lg:px-6">
             {chartData && chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={220}>
-                <ComposedChart data={chartData}>
+                <ComposedChart data={chartData} margin={{ left: 0, right: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis
                     dataKey="month"
                     tickFormatter={(v: string) => `${parseInt(v.split('-')[1])}月`}
+                    tick={{ fontSize: 12 }}
                   />
                   <YAxis
                     tickFormatter={(v: number) => `${(v / 1000000).toFixed(0)}M`}
+                    tick={{ fontSize: 12 }}
+                    width={45}
                   />
                   <Tooltip
                     formatter={(value) => [formatYen(Number(value)), '']}
                     labelFormatter={(label) => `${parseInt(String(label).split('-')[1])}月`}
+                    wrapperStyle={{ zIndex: 10 }}
                   />
-                  <Legend />
-                  <Bar dataKey="revenue" fill="#005bac" name="売上" />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
                   <Bar dataKey="purchase" fill="#f59e0b" name="仕入" />
                   <Bar dataKey="sga" fill="#ef4444" name="販管費" />
-                  <Line type="monotone" dataKey="gross_profit" stroke="#22c55e" name="粗利" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="operating_profit" stroke="#7c3aed" name="営業利益" strokeWidth={2} dot={false} />
+                  <Bar dataKey="revenue" fill="#005bac" name="売上" />
+                  <Line type="monotone" dataKey="gross_profit" stroke="#22c55e" name="粗利" strokeWidth={2} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="operating_profit" stroke="#7c3aed" name="営業利益" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 3 }} />
                 </ComposedChart>
               </ResponsiveContainer>
             ) : (
@@ -420,14 +424,15 @@ export default function DashboardPage() {
                     label: stageLabels[s.stage] || s.stage,
                   }))}
                   layout="vertical"
+                  margin={{ left: 10, right: 40 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis type="number" tickFormatter={(v: number) => `${(v / 1000000).toFixed(0)}M`} />
-                  <YAxis type="category" dataKey="label" width={100} />
+                  <YAxis type="category" dataKey="label" width={80} tick={{ fontSize: 12 }} />
                   <Tooltip
                     formatter={(value) => [formatYen(Number(value)), '金額']}
                   />
-                  <Bar dataKey="total_amount" name="金額" label={{ position: 'right', formatter: (v) => {
+                  <Bar dataKey="total_amount" name="金額" label={{ position: 'right', fontSize: 11, formatter: (v: unknown) => {
                     const item = pipelineData.find((s) => s.total_amount === Number(v));
                     return item ? `${item.count}件` : '';
                   } }}>

@@ -41,13 +41,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-slate-100">
       <div className="w-full max-w-2xl px-4">
         <div className="mb-8 text-center">
-          <div className="mb-2">
-            <span className="text-5xl font-black tracking-tight text-primary sm:text-6xl">GMO</span>
-            <p className="text-sm tracking-[0.2em] text-foreground/70 sm:text-base">
-              <span className="font-light">GLOBAL </span><span className="font-bold">STUDIO</span>
-            </p>
-          </div>
-          <h1 className="text-2xl font-bold text-primary sm:text-3xl">ONAiR</h1>
+          <h1 className="text-3xl font-bold text-primary sm:text-4xl">GMO ONAiR</h1>
           <p className="mt-2 text-base text-muted-foreground sm:text-lg">
             統合業務管理システム
           </p>

@@ -107,12 +107,7 @@ export default function Sidebar() {
       >
         {/* Logo header */}
         <div className="flex h-14 items-center justify-between border-b px-4">
-          <div className="flex flex-col leading-none">
-            <span className="text-xl font-black tracking-tight text-primary">GMO</span>
-            <span className="text-[9px] tracking-[0.15em] text-foreground/80">
-              <span className="font-light">GLOBAL </span><span className="font-bold">STUDIO</span>
-            </span>
-          </div>
+          <span className="text-lg font-bold text-primary">GMO ONAiR</span>
           <button
             className="rounded p-1 hover:bg-sidebar-accent lg:hidden"
             onClick={() => setSidebarOpen(false)}
