@@ -139,7 +139,7 @@ export default function ConfirmedProjectsPage() {
               >
                 <div
                   className="cursor-pointer"
-                  onClick={() => navigate(`/projects/${p.id}`)}
+                  onClick={() => navigate(isStudio ? `/projects/${p.id}/episodes` : `/revenues?project_id=${p.id}&project_name=${encodeURIComponent(`${p.gls_number} ${p.name}`)}`)}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
@@ -224,7 +224,7 @@ export default function ConfirmedProjectsPage() {
                   <TableRow
                     key={p.id as string}
                     className="cursor-pointer"
-                    onClick={() => navigate(`/projects/${p.id}`)}
+                    onClick={() => navigate(isStudio ? `/projects/${p.id}/episodes` : `/revenues?project_id=${p.id}&project_name=${encodeURIComponent(`${p.gls_number} ${p.name}`)}`)}
                   >
                     <TableCell className="font-mono text-xs font-semibold text-primary">
                       {p.gls_number as string}
