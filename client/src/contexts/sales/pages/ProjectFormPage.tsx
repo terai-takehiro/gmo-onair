@@ -218,12 +218,8 @@ export default function ProjectFormPage() {
               ? '仮押さえ中です。スタジオ予約カレンダーで日程を押さえましょう。見積提案を経てGLS発番へ進みます。'
               : '仮押さえ中です。見積提案を行うか、確定したらGLS発番に進みましょう。')}
             {currentStage === 'c_proposal' && '見積提案済みです。顧客の承認が得られたらGLS発番で案件を確定しましょう。'}
-            {currentStage === 'b_verbal' && (isCategoryA
-              ? 'GLS発番済みです。正式受注が確定したら「A 受注済へ」に進み、エピソード管理で制作準備を始めましょう。'
-              : 'GLS発番済みです。正式受注が確定したら「A 受注済へ」に進みましょう。')}
-            {currentStage === 'a_won' && (isCategoryA
-              ? '受注済みです。エピソード管理で制作を進めましょう。イベント完了後は案件終了になります。'
-              : '受注済みです。売上管理から売上明細を登録しましょう。')}
+            {currentStage === 'b_verbal' && 'GLS発番済みです。正式受注が確定したら「A 受注済へ」に進み、見積・売上管理で制作準備を始めましょう。'}
+            {currentStage === 'a_won' && '受注済みです。見積・売上管理から明細を登録しましょう。'}
           </span>
         </div>
       )}
@@ -303,17 +299,10 @@ export default function ProjectFormPage() {
                 {currentStage === 's_completed' && ' (S 案件終了)'}
               </span>
             </div>
-            {isCategoryA ? (
-              <Button size="sm" onClick={() => navigate(`/projects/${id}/episodes`)}>
-                <ExternalLink className="mr-2 h-4 w-4" />
-                エピソード管理
-              </Button>
-            ) : (
-              <Button size="sm" onClick={() => navigate(`/revenues`)}>
-                <ExternalLink className="mr-2 h-4 w-4" />
-                売上管理
-              </Button>
-            )}
+            <Button size="sm" onClick={() => navigate(`/projects/${id}/episodes`)}>
+              <ExternalLink className="mr-2 h-4 w-4" />
+              見積・売上管理
+            </Button>
           </CardContent>
         </Card>
       )}
@@ -565,17 +554,10 @@ export default function ProjectFormPage() {
               <Button variant="outline" onClick={() => { setGlsResult(null); }}>
                 閉じる
               </Button>
-              {isCategoryA ? (
-                <Button onClick={() => { setGlsResult(null); navigate(`/projects/${id}/episodes`); }}>
+              <Button onClick={() => { setGlsResult(null); navigate(`/projects/${id}/episodes`); }}>
                   <ExternalLink className="mr-2 h-4 w-4" />
-                  エピソード管理へ
-                </Button>
-              ) : (
-                <Button onClick={() => { setGlsResult(null); navigate(`/revenues`); }}>
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  売上管理へ
-                </Button>
-              )}
+                  見積・売上管理へ
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
