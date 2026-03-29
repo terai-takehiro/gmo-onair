@@ -248,4 +248,121 @@ router.post('/:id/revenues', requireAuth, (req, res) => {
   res.status(201).json({ success: true, data: row });
 });
 
+// グループ仕入更新（按分つき）
+router.put('/:id/purchases/:purchaseId', requireAuth, (req, res) => {
+  const group = queryOne('SELECT id FROM project_groups WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+  if (!group) throw new AppError(404, 'NOT_FOUND', 'グループが見つかりません');
+  const existing = queryOne('SELECT id FROM purchases WHERE id = ? AND group_id = ? AND deleted_at IS NULL', [req.params.purchaseId, req.params.id]);
+  if (!existing) throw new AppError(404, 'NOT_FOUND', '仕入が見つかりません');
+
+  const { vendor_id, amount, description, tax_category, settlement_method, settlement_number,
+          invoice_qualified, recognition_date, allocations } = req.body;
+
+  execute(
+    `UPDATE purchases SET vendor_id=?, amount=?, description=?, tax_category=?, settlement_method=?, settlement_number=?, invoice_qualified=?, recognition_date=?, updated_at=datetime('now'), updated_by=? WHERE id=?`,
+    [vendor_id, amount || 0, description || null, tax_category || 'tax10',
+     settlement_method || null, settlement_number || null,
+     invoice_qualified !== undefined ? (invoice_qualified ? 1 : 0) : 1,
+     recognition_date || null, req.user!.id, req.params.purchaseId]
+  );
+
+  // 按分明細を置換
+  if (Array.isArray(allocations) && allocations.length > 0) {
+    execute('DELETE FROM purchase_allocations WHERE purchase_id = ?', [req.params.purchaseId]);
+    for (const alloc of allocations) {
+      execute(
+        `INSERT INTO purchase_allocations (id, purchase_id, project_id, allocated_amount) VALUES (?, ?, ?, ?)`,
+        [uuidv4(), req.params.purchaseId, alloc.project_id, alloc.allocated_amount]
+      );
+    }
+  }
+
+  const row = queryOne(
+    `SELECT pu.*, v.name as vendor_name FROM purchases pu LEFT JOIN vendors v ON v.id = pu.vendor_id WHERE pu.id = ?`,
+    [req.params.purchaseId]
+  );
+  const allocs = queryAll(
+    `SELECT pa.*, p.name as project_name, p.gls_number FROM purchase_allocations pa JOIN projects p ON p.id = pa.project_id WHERE pa.purchase_id = ?`,
+    [req.params.purchaseId]
+  );
+  res.json({ success: true, data: { ...row, allocations: allocs } });
+});
+
+// グループ仕入削除
+router.delete('/:id/purchases/:purchaseId', requireAuth, (req, res) => {
+  const existing = queryOne('SELECT id FROM purchases WHERE id = ? AND group_id = ? AND deleted_at IS NULL', [req.params.purchaseId, req.params.id]);
+  if (!existing) throw new AppError(404, 'NOT_FOUND', '仕入が見つかりません');
+
+  execute('DELETE FROM purchase_allocations WHERE purchase_id = ?', [req.params.purchaseId]);
+  execute(`UPDATE purchases SET deleted_at=datetime('now'), updated_by=? WHERE id=?`, [req.user!.id, req.params.purchaseId]);
+  res.json({ success: true, message: '削除しました' });
+});
+
+// グループ売上更新（按分つき）
+router.put('/:id/revenues/:revenueId', requireAuth, (req, res) => {
+  const group = queryOne('SELECT id FROM project_groups WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+  if (!group) throw new AppError(404, 'NOT_FOUND', 'グループが見つかりません');
+  const existing = queryOne('SELECT * FROM revenues WHERE id = ? AND group_id = ? AND deleted_at IS NULL', [req.params.revenueId, req.params.id]) as any;
+  if (!existing) throw new AppError(404, 'NOT_FOUND', '売上が見つかりません');
+
+  const { customer_id, tax_category, subtitle, recognition_date, billing_date, notes, status: reqStatus, items, allocations } = req.body;
+
+  const finalAmount = Array.isArray(items) && items.length > 0
+    ? items.reduce((sum: number, it: any) => sum + (it.amount || 0), 0)
+    : existing.amount;
+
+  execute(
+    `UPDATE revenues SET customer_id=?, tax_category=?, amount=?, recognition_date=?, billing_date=?, notes=?, subtitle=?, status=?, updated_at=datetime('now'), updated_by=? WHERE id=?`,
+    [customer_id || existing.customer_id, tax_category || existing.tax_category, finalAmount,
+     recognition_date || null, billing_date || null, notes || null,
+     subtitle !== undefined ? (subtitle || null) : existing.subtitle,
+     reqStatus || existing.status, req.user!.id, req.params.revenueId]
+  );
+
+  // 明細行を置換
+  if (Array.isArray(items)) {
+    execute('DELETE FROM revenue_items WHERE revenue_id = ?', [req.params.revenueId]);
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      execute(
+        `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount, pricing_item_id, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [uuidv4(), req.params.revenueId, it.description || '', it.quantity || 1, it.unit_price || 0, it.amount || 0, it.pricing_item_id || null, i + 1]
+      );
+    }
+  }
+
+  // 按分明細を置換
+  if (Array.isArray(allocations) && allocations.length > 0) {
+    execute('DELETE FROM revenue_allocations WHERE revenue_id = ?', [req.params.revenueId]);
+    for (const alloc of allocations) {
+      execute(
+        `INSERT INTO revenue_allocations (id, revenue_id, project_id, allocated_amount) VALUES (?, ?, ?, ?)`,
+        [uuidv4(), req.params.revenueId, alloc.project_id, alloc.allocated_amount]
+      );
+    }
+  }
+
+  const row = queryOne(
+    `SELECT r.*, c.name as customer_name FROM revenues r LEFT JOIN customers c ON c.id = r.customer_id WHERE r.id = ?`,
+    [req.params.revenueId]
+  ) as any;
+  row.items = queryAll('SELECT * FROM revenue_items WHERE revenue_id = ? ORDER BY sort_order', [req.params.revenueId]);
+  row.allocations = queryAll(
+    `SELECT ra.*, p.name as project_name, p.gls_number FROM revenue_allocations ra JOIN projects p ON p.id = ra.project_id WHERE ra.revenue_id = ?`,
+    [req.params.revenueId]
+  );
+  res.json({ success: true, data: row });
+});
+
+// グループ売上削除
+router.delete('/:id/revenues/:revenueId', requireAuth, (req, res) => {
+  const existing = queryOne('SELECT id FROM revenues WHERE id = ? AND group_id = ? AND deleted_at IS NULL', [req.params.revenueId, req.params.id]);
+  if (!existing) throw new AppError(404, 'NOT_FOUND', '売上が見つかりません');
+
+  execute('DELETE FROM revenue_allocations WHERE revenue_id = ?', [req.params.revenueId]);
+  execute('DELETE FROM revenue_items WHERE revenue_id = ?', [req.params.revenueId]);
+  execute(`UPDATE revenues SET deleted_at=datetime('now'), updated_by=? WHERE id=?`, [req.user!.id, req.params.revenueId]);
+  res.json({ success: true, message: '削除しました' });
+});
+
 export default router;

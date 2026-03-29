@@ -74,7 +74,11 @@ interface GroupPurchase {
   id: string;
   amount: number;
   description: string;
+  vendor_id: string;
   vendor_name: string;
+  tax_category: string;
+  settlement_method: string;
+  settlement_number: string | null;
   recognition_date: string;
   allocations: Allocation[];
 }
@@ -92,9 +96,11 @@ interface GroupRevenue {
   amount: number;
   subtitle: string | null;
   tax_category: string;
+  customer_id: string;
   customer_name: string;
   recognition_date: string | null;
   billing_date: string | null;
+  notes: string | null;
   status: string;
   items: RevenueItem[];
   allocations: Allocation[];
@@ -217,9 +223,16 @@ export default function ProjectGroupListPage() {
     },
   });
 
-  // グループ仕入
+  // 編集中のID
+  const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
+  const [editingRevenueId, setEditingRevenueId] = useState<string | null>(null);
+
+  // グループ仕入（新規 or 更新）
   const savePurchaseMutation = useMutation({
     mutationFn: async (data: any) => {
+      if (editingPurchaseId) {
+        return (await api.put(`/project-groups/${selectedGroupId}/purchases/${editingPurchaseId}`, data)).data;
+      }
       return (await api.post(`/project-groups/${selectedGroupId}/purchases`, data)).data;
     },
     onSuccess: () => {
@@ -229,9 +242,24 @@ export default function ProjectGroupListPage() {
     },
   });
 
-  // グループ売上
+  // グループ仕入削除
+  const deletePurchaseMutation = useMutation({
+    mutationFn: async (purchaseId: string) => {
+      return (await api.delete(`/project-groups/${selectedGroupId}/purchases/${purchaseId}`)).data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["project-group-detail", selectedGroupId] });
+      qc.invalidateQueries({ queryKey: ["purchases-all"] });
+      qc.invalidateQueries({ queryKey: ["project-groups"] });
+    },
+  });
+
+  // グループ売上（新規 or 更新）
   const saveRevenueMutation = useMutation({
     mutationFn: async (data: any) => {
+      if (editingRevenueId) {
+        return (await api.put(`/project-groups/${selectedGroupId}/revenues/${editingRevenueId}`, data)).data;
+      }
       return (await api.post(`/project-groups/${selectedGroupId}/revenues`, data)).data;
     },
     onSuccess: () => {
@@ -239,6 +267,18 @@ export default function ProjectGroupListPage() {
       qc.invalidateQueries({ queryKey: ["revenues-all"] });
       qc.invalidateQueries({ queryKey: ["project-groups"] });
       closeRevenueDialog();
+    },
+  });
+
+  // グループ売上削除
+  const deleteRevenueMutation = useMutation({
+    mutationFn: async (revenueId: string) => {
+      return (await api.delete(`/project-groups/${selectedGroupId}/revenues/${revenueId}`)).data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["project-group-detail", selectedGroupId] });
+      qc.invalidateQueries({ queryKey: ["revenues-all"] });
+      qc.invalidateQueries({ queryKey: ["project-groups"] });
     },
   });
 
@@ -261,6 +301,7 @@ export default function ProjectGroupListPage() {
 
   const closePurchaseDialog = () => {
     setPurchaseDialogOpen(false);
+    setEditingPurchaseId(null);
     setPurVendorId("");
     setPurAmount(0);
     setPurDesc("");
@@ -272,8 +313,36 @@ export default function ProjectGroupListPage() {
     setCustomAllocations({});
   };
 
+  const openEditPurchase = (pu: any) => {
+    setEditingPurchaseId(pu.id);
+    setPurVendorId(pu.vendor_id || "");
+    setPurAmount(pu.amount || 0);
+    setPurDesc(pu.description || "");
+    setPurTax(pu.tax_category || "tax10");
+    setPurSettlement(pu.settlement_method || "rakuraku");
+    setPurSettlementNo(pu.settlement_number || "");
+    setPurRecDate(pu.recognition_date?.slice(0, 10) || "");
+    // 按分モード: カスタムアロケーションがあればcustom
+    if (pu.allocations && pu.allocations.length > 0) {
+      const allEqual = pu.allocations.every((a: Allocation) =>
+        Math.abs(a.allocated_amount - pu.amount / pu.allocations.length) <= 1
+      );
+      if (allEqual) {
+        setPurAllocMode("equal");
+        setCustomAllocations({});
+      } else {
+        setPurAllocMode("custom");
+        const ca: Record<string, number> = {};
+        pu.allocations.forEach((a: Allocation) => { ca[a.project_id] = a.allocated_amount; });
+        setCustomAllocations(ca);
+      }
+    }
+    setPurchaseDialogOpen(true);
+  };
+
   const closeRevenueDialog = () => {
     setRevenueDialogOpen(false);
+    setEditingRevenueId(null);
     setRevCustomerId("");
     setRevTax("tax10");
     setRevSubtitle("");
@@ -284,6 +353,43 @@ export default function ProjectGroupListPage() {
     setRevItems([{ description: "", quantity: 1, unit_price: 0, amount: 0 }]);
     setRevAllocMode("equal");
     setRevCustomAllocations({});
+  };
+
+  const openEditRevenue = (rev: any) => {
+    setEditingRevenueId(rev.id);
+    setRevCustomerId(rev.customer_id || "");
+    setRevTax(rev.tax_category || "tax10");
+    setRevSubtitle(rev.subtitle || "");
+    setRevRecDate(rev.recognition_date?.slice(0, 10) || "");
+    setRevBillingDate(rev.billing_date?.slice(0, 10) || "");
+    setRevNotes(rev.notes || "");
+    setRevStatus(rev.status || "confirmed");
+    if (rev.items && rev.items.length > 0) {
+      setRevItems(rev.items.map((it: any) => ({
+        description: it.description || "",
+        quantity: it.quantity || 1,
+        unit_price: it.unit_price || 0,
+        amount: it.amount || 0,
+      })));
+    } else {
+      setRevItems([{ description: "", quantity: 1, unit_price: 0, amount: 0 }]);
+    }
+    if (rev.allocations && rev.allocations.length > 0) {
+      const revAmt = rev.amount || 0;
+      const allEqual = rev.allocations.every((a: Allocation) =>
+        Math.abs(a.allocated_amount - revAmt / rev.allocations.length) <= 1
+      );
+      if (allEqual) {
+        setRevAllocMode("equal");
+        setRevCustomAllocations({});
+      } else {
+        setRevAllocMode("custom");
+        const ca: Record<string, number> = {};
+        rev.allocations.forEach((a: Allocation) => { ca[a.project_id] = a.allocated_amount; });
+        setRevCustomAllocations(ca);
+      }
+    }
+    setRevenueDialogOpen(true);
   };
 
   const toggleMember = (id: string) => {
@@ -446,53 +552,6 @@ export default function ProjectGroupListPage() {
                 </CardContent>
               </Card>
 
-              {/* グループ仕入 */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-base font-semibold flex items-center gap-2">
-                    <ShoppingCart className="h-4 w-4" />
-                    グループ仕入（按分）
-                  </h2>
-                  <Button size="sm" onClick={() => setPurchaseDialogOpen(true)} disabled={detail.members.length === 0}>
-                    <Plus className="h-4 w-4 mr-1" />
-                    仕入追加
-                  </Button>
-                </div>
-
-                {detail.purchases.length === 0 ? (
-                  <Card>
-                    <CardContent className="py-6 text-center text-muted-foreground">
-                      グループ仕入がありません
-                    </CardContent>
-                  </Card>
-                ) : (
-                  detail.purchases.map((pu) => (
-                    <Card key={pu.id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <div className="font-medium">{pu.description || "（説明なし）"}</div>
-                            <div className="text-xs text-muted-foreground">{pu.vendor_name}</div>
-                          </div>
-                          <span className="font-number text-lg font-bold">{formatCurrency(pu.amount)}</span>
-                        </div>
-                        {pu.allocations && pu.allocations.length > 0 && (
-                          <div className="mt-3 border-t pt-2">
-                            <p className="text-xs font-medium text-muted-foreground mb-1">按分内訳</p>
-                            {pu.allocations.map((a: Allocation, i: number) => (
-                              <div key={i} className="flex justify-between text-xs py-0.5">
-                                <span className="font-mono">{a.gls_number} {a.project_name}</span>
-                                <span className="font-number font-medium">{formatCurrency(a.allocated_amount)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))
-                )}
-              </div>
-
               {/* グループ売上 */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -530,7 +589,19 @@ export default function ProjectGroupListPage() {
                               {rev.recognition_date && ` / ${formatDate(rev.recognition_date)}`}
                             </div>
                           </div>
-                          <span className="font-number text-lg font-bold shrink-0">{formatCurrency(rev.amount)}</span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="font-number text-lg font-bold">{formatCurrency(rev.amount)}</span>
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditRevenue(rev)}>
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => {
+                                if (confirm("この売上を削除しますか？")) deleteRevenueMutation.mutate(rev.id);
+                              }}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
                         </div>
                         {rev.items && rev.items.length > 0 && (
                           <div className="mt-2 border-t pt-2">
@@ -573,6 +644,65 @@ export default function ProjectGroupListPage() {
                 )}
               </div>
 
+              {/* グループ仕入 */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-semibold flex items-center gap-2">
+                    <ShoppingCart className="h-4 w-4" />
+                    グループ仕入（按分）
+                  </h2>
+                  <Button size="sm" onClick={() => setPurchaseDialogOpen(true)} disabled={detail.members.length === 0}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    仕入追加
+                  </Button>
+                </div>
+
+                {detail.purchases.length === 0 ? (
+                  <Card>
+                    <CardContent className="py-6 text-center text-muted-foreground">
+                      グループ仕入がありません
+                    </CardContent>
+                  </Card>
+                ) : (
+                  detail.purchases.map((pu) => (
+                    <Card key={pu.id}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="font-medium">{pu.description || "（説明なし）"}</div>
+                            <div className="text-xs text-muted-foreground">{pu.vendor_name}</div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="font-number text-lg font-bold">{formatCurrency(pu.amount)}</span>
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditPurchase(pu)}>
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => {
+                                if (confirm("この仕入を削除しますか？")) deletePurchaseMutation.mutate(pu.id);
+                              }}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                        {pu.allocations && pu.allocations.length > 0 && (
+                          <div className="mt-3 border-t pt-2">
+                            <p className="text-xs font-medium text-muted-foreground mb-1">按分内訳</p>
+                            {pu.allocations.map((a: Allocation, i: number) => (
+                              <div key={i} className="flex justify-between text-xs py-0.5">
+                                <span className="font-mono">{a.gls_number} {a.project_name}</span>
+                                <span className="font-number font-medium">{formatCurrency(a.allocated_amount)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
+
               {/* 合計 */}
               {(detail.purchases.length > 0 || detail.revenues.length > 0) && (
                 <div className="flex justify-end gap-4 flex-wrap">
@@ -602,7 +732,7 @@ export default function ProjectGroupListPage() {
         <Dialog open={purchaseDialogOpen} onOpenChange={setPurchaseDialogOpen}>
           <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>グループ仕入登録</DialogTitle>
+              <DialogTitle>{editingPurchaseId ? 'グループ仕入編集' : 'グループ仕入登録'}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
@@ -723,7 +853,7 @@ export default function ProjectGroupListPage() {
         <Dialog open={revenueDialogOpen} onOpenChange={setRevenueDialogOpen}>
           <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>グループ売上登録</DialogTitle>
+              <DialogTitle>{editingRevenueId ? 'グループ売上編集' : 'グループ売上登録'}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
