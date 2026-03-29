@@ -45,7 +45,7 @@ function generateEqCode(): string {
 router.get('/projects', (req: Request, res: Response) => {
   const { search } = req.query;
   let sql = `
-    SELECT id, gls_number, name, status
+    SELECT id, gls_number, name, stage
     FROM projects
     WHERE deleted_at IS NULL
   `;
