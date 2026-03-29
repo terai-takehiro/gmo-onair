@@ -752,21 +752,35 @@ export async function seed() {
   // Equipment items
   const eqItemIds: Record<string, string> = {};
   const eqItems = [
-    // 設備系
-    { key: 'cam1', name: 'Sony PXW-FX9', cat: 'camera', type: 'facility', mfr: 'Sony', model: 'PXW-FX9', serial: 'FX9-2024-001', cost: 1980000, life: 5, loc: 'A棟 3F カメラ庫', lendable: true },
-    { key: 'cam2', name: 'Sony PXW-FX6', cat: 'camera', type: 'rental', mfr: 'Sony', model: 'PXW-FX6', serial: 'FX6-2024-002', cost: 650000, life: 5, loc: 'A棟 3F カメラ庫', lendable: true },
-    { key: 'cam3', name: 'Blackmagic URSA Mini Pro 12K', cat: 'camera', type: 'facility', mfr: 'Blackmagic', model: 'URSA Mini Pro 12K', serial: 'BM-12K-001', cost: 980000, life: 5, loc: 'ワールドスタジオ', lendable: false },
-    { key: 'sw1', name: 'Blackmagic ATEM 4 M/E', cat: 'switcher', type: 'facility', mfr: 'Blackmagic', model: 'ATEM 4 M/E Constellation 4K', serial: 'ATEM4ME-001', cost: 4500000, life: 7, loc: 'サブ1', lendable: false },
-    { key: 'sw2', name: 'Blackmagic ATEM Mini Extreme ISO', cat: 'switcher', type: 'rental', mfr: 'Blackmagic', model: 'ATEM Mini Extreme ISO', serial: 'AMEI-003', cost: 180000, life: 5, loc: 'A棟 3F 機材庫', lendable: true },
-    { key: 'mon1', name: 'Sony BVM-HX3110', cat: 'monitor', type: 'facility', mfr: 'Sony', model: 'BVM-HX3110', serial: 'HX3110-001', cost: 3200000, life: 7, loc: 'ワールドスタジオ サブ', lendable: false },
-    { key: 'mon2', name: 'SmallHD Cine 13', cat: 'monitor', type: 'rental', mfr: 'SmallHD', model: 'Cine 13', serial: 'SHD-C13-004', cost: 480000, life: 5, loc: 'A棟 3F 機材庫', lendable: true },
-    { key: 'light1', name: 'ARRI SkyPanel S60-C', cat: 'lighting', type: 'facility', mfr: 'ARRI', model: 'SkyPanel S60-C', serial: 'ARRI-S60-001', cost: 750000, life: 7, loc: 'ワールドスタジオ 照明バトン', lendable: false },
-    { key: 'light2', name: 'Aputure 600d Pro', cat: 'lighting', type: 'rental', mfr: 'Aputure', model: '600d Pro', serial: 'APT-600D-002', cost: 280000, life: 5, loc: 'A棟 3F 照明庫', lendable: true },
-    { key: 'mic1', name: 'Sennheiser MKH416', cat: 'audio', type: 'rental', mfr: 'Sennheiser', model: 'MKH416', serial: 'MKH416-005', cost: 120000, life: 7, loc: 'A棟 3F 音響庫', lendable: true },
-    { key: 'mixer1', name: 'Yamaha DM7', cat: 'audio', type: 'facility', mfr: 'Yamaha', model: 'DM7', serial: 'DM7-001', cost: 3800000, life: 10, loc: 'ワールドスタジオ サブ', lendable: false },
-    { key: 'srv1', name: 'Dell PowerEdge R760', cat: 'pc', type: 'facility', mfr: 'Dell', model: 'PowerEdge R760', serial: 'SRV-R760-001', cost: 1200000, life: 5, loc: 'サーバールーム ラックA-1', lendable: false },
-    { key: 'lens1', name: 'Canon CN-E 50mm T1.3', cat: 'lens', type: 'rental', mfr: 'Canon', model: 'CN-E 50mm T1.3 L F', serial: 'CNE50-001', cost: 450000, life: 7, loc: 'A棟 3F カメラ庫', lendable: true },
-    { key: 'net1', name: 'Cisco Catalyst 9300', cat: 'network', type: 'facility', mfr: 'Cisco', model: 'Catalyst 9300-24T', serial: 'C9300-001', cost: 650000, life: 7, loc: 'サーバールーム ラックB-2', lendable: false },
+    // カメラ (複数台あり)
+    { key: 'cam1',   name: 'Sony PXW-FX9', cat: 'camera', type: 'facility', mfr: 'Sony', model: 'PXW-FX9', serial: 'FX9-2024-001', cost: 1980000, life: 5, loc: 'A棟 3F カメラ庫', lendable: false, unit: 1 },
+    { key: 'cam1b',  name: 'Sony PXW-FX9', cat: 'camera', type: 'facility', mfr: 'Sony', model: 'PXW-FX9', serial: 'FX9-2024-002', cost: 1980000, life: 5, loc: 'ワールドスタジオ', lendable: false, unit: 2 },
+    { key: 'cam2',   name: 'Sony PXW-FX6', cat: 'camera', type: 'rental', mfr: 'Sony', model: 'PXW-FX6', serial: 'FX6-2024-001', cost: 650000, life: 5, loc: 'A棟 3F カメラ庫', lendable: true, unit: 1 },
+    { key: 'cam2b',  name: 'Sony PXW-FX6', cat: 'camera', type: 'rental', mfr: 'Sony', model: 'PXW-FX6', serial: 'FX6-2024-002', cost: 650000, life: 5, loc: 'A棟 3F カメラ庫', lendable: true, unit: 2 },
+    { key: 'cam2c',  name: 'Sony PXW-FX6', cat: 'camera', type: 'rental', mfr: 'Sony', model: 'PXW-FX6', serial: 'FX6-2024-003', cost: 650000, life: 5, loc: 'A棟 3F カメラ庫', lendable: true, unit: 3 },
+    { key: 'cam3',   name: 'Blackmagic URSA Mini Pro 12K', cat: 'camera', type: 'facility', mfr: 'Blackmagic', model: 'URSA Mini Pro 12K', serial: 'BM-12K-001', cost: 980000, life: 5, loc: 'ワールドスタジオ', lendable: false, unit: 1 },
+    // スイッチャー
+    { key: 'sw1',    name: 'Blackmagic ATEM 4 M/E', cat: 'switcher', type: 'facility', mfr: 'Blackmagic', model: 'ATEM 4 M/E Constellation 4K', serial: 'ATEM4ME-001', cost: 4500000, life: 7, loc: 'サブ1', lendable: false, unit: 1 },
+    { key: 'sw2',    name: 'Blackmagic ATEM Mini Extreme ISO', cat: 'switcher', type: 'rental', mfr: 'Blackmagic', model: 'ATEM Mini Extreme ISO', serial: 'AMEI-001', cost: 180000, life: 5, loc: 'A棟 3F 機材庫', lendable: true, unit: 1 },
+    { key: 'sw2b',   name: 'Blackmagic ATEM Mini Extreme ISO', cat: 'switcher', type: 'rental', mfr: 'Blackmagic', model: 'ATEM Mini Extreme ISO', serial: 'AMEI-002', cost: 180000, life: 5, loc: 'A棟 3F 機材庫', lendable: true, unit: 2 },
+    // モニター
+    { key: 'mon1',   name: 'Sony BVM-HX3110', cat: 'monitor', type: 'facility', mfr: 'Sony', model: 'BVM-HX3110', serial: 'HX3110-001', cost: 3200000, life: 7, loc: 'ワールドスタジオ サブ', lendable: false, unit: 1 },
+    { key: 'mon2',   name: 'SmallHD Cine 13', cat: 'monitor', type: 'rental', mfr: 'SmallHD', model: 'Cine 13', serial: 'SHD-C13-001', cost: 480000, life: 5, loc: 'A棟 3F 機材庫', lendable: true, unit: 1 },
+    { key: 'mon2b',  name: 'SmallHD Cine 13', cat: 'monitor', type: 'rental', mfr: 'SmallHD', model: 'Cine 13', serial: 'SHD-C13-002', cost: 480000, life: 5, loc: 'A棟 3F 機材庫', lendable: true, unit: 2 },
+    // 照明
+    { key: 'light1', name: 'ARRI SkyPanel S60-C', cat: 'lighting', type: 'facility', mfr: 'ARRI', model: 'SkyPanel S60-C', serial: 'ARRI-S60-001', cost: 750000, life: 7, loc: 'ワールドスタジオ 照明バトン', lendable: false, unit: 1 },
+    { key: 'light2', name: 'Aputure 600d Pro', cat: 'lighting', type: 'rental', mfr: 'Aputure', model: '600d Pro', serial: 'APT-600D-001', cost: 280000, life: 5, loc: 'A棟 3F 照明庫', lendable: true, unit: 1 },
+    { key: 'light2b',name: 'Aputure 600d Pro', cat: 'lighting', type: 'rental', mfr: 'Aputure', model: '600d Pro', serial: 'APT-600D-002', cost: 280000, life: 5, loc: 'A棟 3F 照明庫', lendable: true, unit: 2 },
+    // 音響
+    { key: 'mic1',   name: 'Sennheiser MKH416', cat: 'audio', type: 'rental', mfr: 'Sennheiser', model: 'MKH416', serial: 'MKH416-001', cost: 120000, life: 7, loc: 'A棟 3F 音響庫', lendable: true, unit: 1 },
+    { key: 'mic1b',  name: 'Sennheiser MKH416', cat: 'audio', type: 'rental', mfr: 'Sennheiser', model: 'MKH416', serial: 'MKH416-002', cost: 120000, life: 7, loc: 'A棟 3F 音響庫', lendable: true, unit: 2 },
+    { key: 'mixer1', name: 'Yamaha DM7', cat: 'audio', type: 'facility', mfr: 'Yamaha', model: 'DM7', serial: 'DM7-001', cost: 3800000, life: 10, loc: 'ワールドスタジオ サブ', lendable: false, unit: 1 },
+    // PC・サーバー
+    { key: 'srv1',   name: 'Dell PowerEdge R760', cat: 'pc', type: 'facility', mfr: 'Dell', model: 'PowerEdge R760', serial: 'SRV-R760-001', cost: 1200000, life: 5, loc: 'サーバールーム ラックA-1', lendable: false, unit: 1 },
+    // レンズ
+    { key: 'lens1',  name: 'Canon CN-E 50mm T1.3', cat: 'lens', type: 'rental', mfr: 'Canon', model: 'CN-E 50mm T1.3 L F', serial: 'CNE50-001', cost: 450000, life: 7, loc: 'A棟 3F カメラ庫', lendable: true, unit: 1 },
+    // ネットワーク
+    { key: 'net1',   name: 'Cisco Catalyst 9300', cat: 'network', type: 'facility', mfr: 'Cisco', model: 'Catalyst 9300-24T', serial: 'C9300-001', cost: 650000, life: 7, loc: 'サーバールーム ラックB-2', lendable: false, unit: 1 },
   ];
 
   // Update EQ code sequence
@@ -791,13 +805,13 @@ export async function seed() {
     eqItemIds[eq.key] = uuidv4();
     const eqCode = nextEqCode();
     ins(`INSERT INTO equipment_items (
-      id, eq_code, name, category_id, item_type,
+      id, eq_code, name, category_id, item_type, unit_number,
       manufacturer, model_number, serial_number,
       acquisition_cost, useful_life, asset_class, depreciation_method,
       status, condition, location_detail,
       is_lendable, acquisition_date, created_by
-    ) VALUES (?,?,?,?,?, ?,?,?, ?,?,?,?, ?,?,?, ?,?,?)`, [
-      eqItemIds[eq.key], eqCode, eq.name, eqCatIds[eq.cat], eq.type,
+    ) VALUES (?,?,?,?,?,?, ?,?,?, ?,?,?,?, ?,?,?, ?,?,?)`, [
+      eqItemIds[eq.key], eqCode, eq.name, eqCatIds[eq.cat], eq.type, eq.unit,
       eq.mfr, eq.model, eq.serial,
       eq.cost, eq.life, 'fixed_asset', 'straight_line',
       'active', 'good', eq.loc,

@@ -68,21 +68,27 @@ export default function EquipmentDetailPage() {
         </Button>
         <div className="flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={copyEqCode}
-              className="flex items-center gap-1 font-mono text-sm text-primary bg-primary/10 px-2.5 py-1 rounded hover:bg-primary/20 transition-colors"
-              title="EQコードをコピー"
-            >
-              <QrCode className="h-3.5 w-3.5" />
-              {item.eq_code}
-              <Copy className="h-3 w-3 opacity-50" />
-            </button>
             <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[item.status] || ""}`}>
               {statusLabels[item.status]}
             </span>
             <Badge variant="outline">{item.item_type === "rental" ? "貸出系" : "設備系"}</Badge>
+            {item.category_name && (
+              <span className="text-xs text-muted-foreground">{item.category_name}</span>
+            )}
           </div>
-          <h1 className="text-xl font-bold mt-1">{item.name}</h1>
+          <h1 className="text-xl font-bold mt-1">
+            {item.name}
+            {item.unit_number && <span className="text-primary ml-2">No.{item.unit_number}</span>}
+          </h1>
+          <button
+            onClick={copyEqCode}
+            className="flex items-center gap-1 font-mono text-[11px] text-muted-foreground hover:text-foreground mt-1 transition-colors"
+            title="EQコードをコピー"
+          >
+            <QrCode className="h-3 w-3" />
+            {item.eq_code}
+            <Copy className="h-2.5 w-2.5 opacity-40" />
+          </button>
         </div>
       </div>
 

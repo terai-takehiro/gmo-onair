@@ -161,7 +161,7 @@ router.get('/items', (req: Request, res: Response) => {
   const countSql = sql.replace(/SELECT ei\.\*, ec\.name as category_name/, 'SELECT COUNT(*) as total');
   const countRow = queryOne(countSql, params) as any;
 
-  sql += ' ORDER BY ei.created_at DESC';
+  sql += ' ORDER BY ec.sort_order, ec.name, ei.name, ei.unit_number';
   if (limit) { sql += ' LIMIT ?'; params.push(Number(limit)); }
   if (offset) { sql += ' OFFSET ?'; params.push(Number(offset)); }
 
@@ -231,7 +231,7 @@ router.post('/items', (req: Request, res: Response) => {
   const id = uuid();
   const eq_code = generateEqCode();
   const {
-    name, category_id, item_type,
+    name, category_id, item_type, unit_number,
     manufacturer, model_number, serial_number, description, image_url,
     asset_number, acquisition_date, acquisition_cost, depreciation_method, useful_life, book_value, asset_class,
     status, condition, location_id, location_detail, notes,
@@ -240,15 +240,15 @@ router.post('/items', (req: Request, res: Response) => {
 
   execute(`
     INSERT INTO equipment_items (
-      id, eq_code, name, category_id, item_type,
+      id, eq_code, name, category_id, item_type, unit_number,
       manufacturer, model_number, serial_number, description, image_url,
       asset_number, acquisition_date, acquisition_cost, depreciation_method, useful_life, book_value, asset_class,
       status, condition, location_id, location_detail, notes,
       is_lendable, lending_rules,
       created_by, updated_by
-    ) VALUES (?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?,?, ?,?, ?,?)
+    ) VALUES (?,?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?,?, ?,?, ?,?)
   `, [
-    id, eq_code, name, category_id || null, item_type || 'facility',
+    id, eq_code, name, category_id || null, item_type || 'facility', unit_number || null,
     manufacturer || null, model_number || null, serial_number || null, description || null, image_url || null,
     asset_number || null, acquisition_date || null, acquisition_cost || null, depreciation_method || null, useful_life || null, book_value || null, asset_class || 'fixed_asset',
     status || 'active', condition || 'good', location_id || null, location_detail || null, notes || null,
@@ -261,7 +261,7 @@ router.post('/items', (req: Request, res: Response) => {
 
 router.put('/items/:id', (req: Request, res: Response) => {
   const {
-    name, category_id, item_type,
+    name, category_id, item_type, unit_number,
     manufacturer, model_number, serial_number, description, image_url,
     asset_number, acquisition_date, acquisition_cost, depreciation_method, useful_life, book_value, asset_class,
     status, condition, location_id, location_detail, notes,
@@ -270,7 +270,7 @@ router.put('/items/:id', (req: Request, res: Response) => {
 
   execute(`
     UPDATE equipment_items SET
-      name=?, category_id=?, item_type=?,
+      name=?, category_id=?, item_type=?, unit_number=?,
       manufacturer=?, model_number=?, serial_number=?, description=?, image_url=?,
       asset_number=?, acquisition_date=?, acquisition_cost=?, depreciation_method=?, useful_life=?, book_value=?, asset_class=?,
       status=?, condition=?, location_id=?, location_detail=?, notes=?,
@@ -278,7 +278,7 @@ router.put('/items/:id', (req: Request, res: Response) => {
       updated_by=?, updated_at=datetime('now')
     WHERE id=? AND deleted_at IS NULL
   `, [
-    name, category_id || null, item_type,
+    name, category_id || null, item_type, unit_number || null,
     manufacturer || null, model_number || null, serial_number || null, description || null, image_url || null,
     asset_number || null, acquisition_date || null, acquisition_cost || null, depreciation_method || null, useful_life || null, book_value || null, asset_class || 'fixed_asset',
     status || 'active', condition || 'good', location_id || null, location_detail || null, notes || null,
@@ -302,7 +302,7 @@ router.delete('/items/:id', (req: Request, res: Response) => {
 router.get('/lendings', (req: Request, res: Response) => {
   const { status, equipment_id, project_id } = req.query;
   let sql = `
-    SELECT el.*, ei.name as equipment_name, ei.eq_code,
+    SELECT el.*, ei.name as equipment_name, ei.eq_code, ei.unit_number,
            p.name as project_name, p.gls_number
     FROM equipment_lendings el
     JOIN equipment_items ei ON ei.id = el.equipment_id

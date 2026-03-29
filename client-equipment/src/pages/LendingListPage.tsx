@@ -72,6 +72,16 @@ export default function LendingListPage() {
     return lendableItems.filter((item: any) => item.category_id === filterCategoryId);
   }, [lendableItems, filterCategoryId]);
 
+  // Group items by name to detect single-unit equipment
+  const unitCountByName = useMemo(() => {
+    const counts: Record<string, string[]> = {};
+    (filteredLendableItems || []).forEach((item: any) => {
+      if (!counts[item.name]) counts[item.name] = [];
+      counts[item.name].push(item.id);
+    });
+    return counts;
+  }, [filteredLendableItems]);
+
   const lendMutation = useMutation({
     mutationFn: (payload: any) => api.post("/equipment/lendings", payload),
     onSuccess: () => {
@@ -156,10 +166,10 @@ export default function LendingListPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono text-xs text-primary bg-primary/10 px-2 py-0.5 rounded">
-                          {l.eq_code}
+                        <span className="font-medium text-sm">
+                          {l.equipment_name}
+                          {l.unit_number && <span className="text-primary ml-1">No.{l.unit_number}</span>}
                         </span>
-                        <span className="font-medium text-sm">{l.equipment_name}</span>
                       </div>
                       <div className="mt-1 flex items-center gap-2 flex-wrap">
                         <Badge
@@ -317,11 +327,14 @@ export default function LendingListPage() {
               <Select value={form.equipment_id} onValueChange={(v) => setForm({ ...form, equipment_id: v })}>
                 <SelectTrigger><SelectValue placeholder="機材を選択..." /></SelectTrigger>
                 <SelectContent>
-                  {filteredLendableItems.map((item: any) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.eq_code} {item.name}
-                    </SelectItem>
-                  ))}
+                  {filteredLendableItems.map((item: any) => {
+                    const showNo = unitCountByName[item.name]?.length > 1;
+                    return (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.name}{showNo && item.unit_number ? ` No.${item.unit_number}` : ""}
+                      </SelectItem>
+                    );
+                  })}
                   {filteredLendableItems.length === 0 && (
                     <div className="px-3 py-2 text-sm text-muted-foreground">
                       貸出可能な機材がありません

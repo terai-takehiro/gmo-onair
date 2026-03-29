@@ -56,7 +56,7 @@ export default function EquipmentListPage() {
 
   // Form state
   const [form, setForm] = useState({
-    name: "", category_id: "", item_type: "facility" as string,
+    name: "", category_id: "", item_type: "facility" as string, unit_number: "",
     manufacturer: "", model_number: "", serial_number: "", description: "",
     asset_number: "", acquisition_date: "", acquisition_cost: "",
     depreciation_method: "straight_line", useful_life: "", asset_class: "fixed_asset",
@@ -66,7 +66,7 @@ export default function EquipmentListPage() {
   });
 
   const resetForm = () => setForm({
-    name: "", category_id: "", item_type: "facility",
+    name: "", category_id: "", item_type: "facility", unit_number: "",
     manufacturer: "", model_number: "", serial_number: "", description: "",
     asset_number: "", acquisition_date: "", acquisition_cost: "",
     depreciation_method: "straight_line", useful_life: "", asset_class: "fixed_asset",
@@ -133,6 +133,7 @@ export default function EquipmentListPage() {
       name: item.name || "",
       category_id: item.category_id || "",
       item_type: item.item_type || "facility",
+      unit_number: item.unit_number?.toString() || "",
       manufacturer: item.manufacturer || "",
       model_number: item.model_number || "",
       serial_number: item.serial_number || "",
@@ -159,6 +160,7 @@ export default function EquipmentListPage() {
     if (!form.name) return;
     saveMutation.mutate({
       ...form,
+      unit_number: form.unit_number ? Number(form.unit_number) : null,
       acquisition_cost: form.acquisition_cost ? Number(form.acquisition_cost) : null,
       useful_life: form.useful_life ? Number(form.useful_life) : null,
       category_id: form.category_id || null,
@@ -234,21 +236,23 @@ export default function EquipmentListPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono text-xs text-primary bg-primary/10 px-2 py-0.5 rounded">
-                        {item.eq_code}
-                      </span>
                       <Badge variant="outline" className="text-[10px]">
                         {typeLabels[item.item_type] || item.item_type}
                       </Badge>
                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[item.status] || ""}`}>
                         {statusLabels[item.status] || item.status}
                       </span>
+                      {item.category_name && (
+                        <span className="text-[10px] text-muted-foreground">{item.category_name}</span>
+                      )}
                     </div>
-                    <h3 className="font-semibold mt-1 truncate">{item.name}</h3>
+                    <h3 className="font-semibold mt-1 truncate">
+                      {item.name}
+                      {item.unit_number && <span className="text-primary ml-1.5">No.{item.unit_number}</span>}
+                    </h3>
                     <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground mt-1">
                       {item.manufacturer && <span>{item.manufacturer}</span>}
                       {item.model_number && <span>{item.model_number}</span>}
-                      {item.category_name && <span>{item.category_name}</span>}
                       {item.location_detail && <span>📍 {item.location_detail}</span>}
                     </div>
                     {item.item_type === "rental" && item.is_lendable && item.current_lending && (
@@ -294,6 +298,10 @@ export default function EquipmentListPage() {
               <div className="space-y-1 sm:col-span-2">
                 <Label>機材名 *</Label>
                 <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Sony PXW-FX9" />
+              </div>
+              <div className="space-y-1">
+                <Label>個体No.</Label>
+                <Input type="number" min="1" value={form.unit_number} onChange={(e) => setForm({ ...form, unit_number: e.target.value })} placeholder="1, 2, 3..." />
               </div>
               <div className="space-y-1">
                 <Label>種別</Label>
