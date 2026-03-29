@@ -18,7 +18,8 @@ router.get('/', (req, res) => {
   const rows = queryAll(
     `SELECT pg.*,
        (SELECT COUNT(*) FROM project_group_members pgm WHERE pgm.group_id = pg.id) as member_count,
-       (SELECT COALESCE(SUM(pu.amount), 0) FROM purchases pu WHERE pu.group_id = pg.id AND pu.deleted_at IS NULL) as total_purchase
+       (SELECT COALESCE(SUM(pu.amount), 0) FROM purchases pu WHERE pu.group_id = pg.id AND pu.deleted_at IS NULL) as total_purchase,
+       (SELECT COALESCE(SUM(r.amount), 0) FROM revenues r WHERE r.group_id = pg.id AND r.deleted_at IS NULL) as total_revenue
      FROM project_groups pg ${where}
      ORDER BY pg.created_at DESC LIMIT ? OFFSET ?`,
     [...params, limit, offset]
@@ -30,7 +31,8 @@ router.get('/', (req, res) => {
 router.get('/:id', (req, res) => {
   const group = queryOne(
     `SELECT pg.*,
-       (SELECT COALESCE(SUM(pu.amount), 0) FROM purchases pu WHERE pu.group_id = pg.id AND pu.deleted_at IS NULL) as total_purchase
+       (SELECT COALESCE(SUM(pu.amount), 0) FROM purchases pu WHERE pu.group_id = pg.id AND pu.deleted_at IS NULL) as total_purchase,
+       (SELECT COALESCE(SUM(r.amount), 0) FROM revenues r WHERE r.group_id = pg.id AND r.deleted_at IS NULL) as total_revenue
      FROM project_groups pg WHERE pg.id = ? AND pg.deleted_at IS NULL`, [req.params.id]);
   if (!group) throw new AppError(404, 'NOT_FOUND', 'グループが見つかりません');
 
@@ -49,7 +51,7 @@ router.get('/:id', (req, res) => {
      WHERE pu.group_id = ? AND pu.deleted_at IS NULL
      ORDER BY pu.created_at DESC`, [req.params.id]);
 
-  // 按分明細つき
+  // 仕入按分明細つき
   for (const pu of purchases as any[]) {
     pu.allocations = queryAll(
       `SELECT pa.*, p.name as project_name, p.gls_number
@@ -58,7 +60,25 @@ router.get('/:id', (req, res) => {
        WHERE pa.purchase_id = ?`, [pu.id]);
   }
 
-  res.json({ success: true, data: { ...group, members, purchases } });
+  // 売上（グループ按分）
+  const revenues = queryAll(
+    `SELECT r.*, p.name as project_name, p.gls_number, c.name as customer_name
+     FROM revenues r
+     LEFT JOIN projects p ON p.id = r.project_id
+     LEFT JOIN customers c ON c.id = r.customer_id
+     WHERE r.group_id = ? AND r.deleted_at IS NULL
+     ORDER BY r.created_at DESC`, [req.params.id]);
+
+  for (const rev of revenues as any[]) {
+    rev.items = queryAll('SELECT * FROM revenue_items WHERE revenue_id = ? ORDER BY sort_order', [rev.id]);
+    rev.allocations = queryAll(
+      `SELECT ra.*, p.name as project_name, p.gls_number
+       FROM revenue_allocations ra
+       JOIN projects p ON p.id = ra.project_id
+       WHERE ra.revenue_id = ?`, [rev.id]);
+  }
+
+  res.json({ success: true, data: { ...group, members, purchases, revenues } });
 });
 
 // 新規作成
@@ -109,8 +129,9 @@ router.put('/:id', requireAuth, (req, res) => {
 router.delete('/:id', requireAuth, (req, res) => {
   execute(`UPDATE project_groups SET deleted_at = datetime('now'), updated_by = ? WHERE id = ? AND deleted_at IS NULL`,
     [req.user!.id, req.params.id]);
-  // グループ仕入のgroup_idもクリア
+  // グループ仕入・売上のgroup_idもクリア
   execute(`UPDATE purchases SET group_id = NULL WHERE group_id = ?`, [req.params.id]);
+  execute(`UPDATE revenues SET group_id = NULL WHERE group_id = ?`, [req.params.id]);
   res.json({ success: true, message: '削除しました' });
 });
 
@@ -154,6 +175,77 @@ router.post('/:id/purchases', requireAuth, (req, res) => {
     [purchaseId]
   );
   res.status(201).json({ success: true, data: { ...row, allocations: allocs } });
+});
+
+// グループ売上登録（按分つき）
+router.post('/:id/revenues', requireAuth, (req, res) => {
+  const group = queryOne('SELECT id FROM project_groups WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+  if (!group) throw new AppError(404, 'NOT_FOUND', 'グループが見つかりません');
+
+  const { customer_id, tax_category, subtitle, recognition_date, billing_date, payment_due_date, notes, items, status: reqStatus, allocations } = req.body;
+  if (!customer_id) throw new AppError(400, 'VALIDATION_ERROR', '顧客は必須です');
+  if (!allocations || !Array.isArray(allocations) || allocations.length === 0) {
+    throw new AppError(400, 'VALIDATION_ERROR', '按分先を指定してください');
+  }
+
+  const revenueStatus = reqStatus === 'estimate' ? 'estimate' : 'confirmed';
+  const taxCat = tax_category || 'tax10';
+
+  // billing_key生成
+  const project = queryOne('SELECT gls_number, code FROM projects WHERE id = ?', [allocations[0].project_id]) as any;
+  const existingCount = (queryOne(
+    `SELECT COUNT(*) as c FROM revenues WHERE project_id = ? AND deleted_at IS NULL`,
+    [allocations[0].project_id]
+  ) as any).c;
+  const seqNum = String(existingCount + 1).padStart(3, '0');
+  const taxSuffix = taxCat === 'tax8' ? '2' : (taxCat === 'exempt' ? '0' : '1');
+  const billing_key = revenueStatus === 'estimate'
+    ? `EST-${seqNum}-${taxSuffix}`
+    : `${project?.gls_number || 'REV'}-${seqNum}-${taxSuffix}`;
+
+  // 明細行がある場合は合計を計算
+  const finalAmount = Array.isArray(items) && items.length > 0
+    ? items.reduce((sum: number, it: any) => sum + (it.amount || 0), 0)
+    : 0;
+
+  const revenueId = uuidv4();
+  execute(
+    `INSERT INTO revenues (id, billing_key, project_id, group_id, customer_id, assigned_to, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, subtitle, status, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [revenueId, billing_key, allocations[0].project_id, req.params.id, customer_id, req.user!.id,
+     taxCat, finalAmount, recognition_date || null, billing_date || null, payment_due_date || null,
+     notes || null, subtitle || null, revenueStatus, req.user!.id]
+  );
+
+  // 明細行を保存
+  if (Array.isArray(items)) {
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      execute(
+        `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount, pricing_item_id, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [uuidv4(), revenueId, it.description || '', it.quantity || 1, it.unit_price || 0, it.amount || 0, it.pricing_item_id || null, i + 1]
+      );
+    }
+  }
+
+  // 按分明細
+  for (const alloc of allocations) {
+    execute(
+      `INSERT INTO revenue_allocations (id, revenue_id, project_id, allocated_amount) VALUES (?, ?, ?, ?)`,
+      [uuidv4(), revenueId, alloc.project_id, alloc.allocated_amount]
+    );
+  }
+
+  const row = queryOne(
+    `SELECT r.*, c.name as customer_name FROM revenues r LEFT JOIN customers c ON c.id = r.customer_id WHERE r.id = ?`,
+    [revenueId]
+  ) as any;
+  row.items = queryAll('SELECT * FROM revenue_items WHERE revenue_id = ? ORDER BY sort_order', [revenueId]);
+  row.allocations = queryAll(
+    `SELECT ra.*, p.name as project_name, p.gls_number FROM revenue_allocations ra JOIN projects p ON p.id = ra.project_id WHERE ra.revenue_id = ?`,
+    [revenueId]
+  );
+  res.status(201).json({ success: true, data: row });
 });
 
 export default router;

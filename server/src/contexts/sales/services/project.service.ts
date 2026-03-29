@@ -245,11 +245,13 @@ export class ProjectService {
     const project = queryOne('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [id]);
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
 
-    const rev = queryOne('SELECT COALESCE(SUM(amount), 0) as total FROM revenues WHERE project_id = ? AND deleted_at IS NULL', [id]);
+    // 直接売上（group_id なし）+ グループ按分された売上
+    const directRev = queryOne('SELECT COALESCE(SUM(amount), 0) as total FROM revenues WHERE project_id = ? AND group_id IS NULL AND deleted_at IS NULL', [id]);
+    const allocatedRev = queryOne('SELECT COALESCE(SUM(ra.allocated_amount), 0) as total FROM revenue_allocations ra JOIN revenues r ON r.id = ra.revenue_id AND r.deleted_at IS NULL WHERE ra.project_id = ?', [id]);
     // 直接仕入（group_id なし）+ グループ按分された金額
     const directPur = queryOne('SELECT COALESCE(SUM(amount), 0) as total FROM purchases WHERE project_id = ? AND group_id IS NULL AND deleted_at IS NULL', [id]);
     const allocatedPur = queryOne('SELECT COALESCE(SUM(pa.allocated_amount), 0) as total FROM purchase_allocations pa JOIN purchases pu ON pu.id = pa.purchase_id AND pu.deleted_at IS NULL WHERE pa.project_id = ?', [id]);
-    const totalRevenue = (rev?.total as number) || 0;
+    const totalRevenue = ((directRev?.total as number) || 0) + ((allocatedRev?.total as number) || 0);
     const totalPurchase = ((directPur?.total as number) || 0) + ((allocatedPur?.total as number) || 0);
     const grossProfit = totalRevenue - totalPurchase;
     const grossMargin = totalRevenue > 0 ? Math.round((grossProfit / totalRevenue) * 1000) / 10 : 0;

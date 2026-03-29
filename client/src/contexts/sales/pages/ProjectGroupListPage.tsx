@@ -2,8 +2,9 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDate } from "@/lib/format";
 import {
+  Customer,
   Vendor,
   SettlementMethod,
   SettlementMethodLabels,
@@ -41,6 +42,7 @@ import {
   Loader2,
   FolderOpen,
   ShoppingCart,
+  FileText,
 } from "lucide-react";
 
 interface GroupSummary {
@@ -49,6 +51,7 @@ interface GroupSummary {
   description: string | null;
   member_count: number;
   total_purchase: number;
+  total_revenue: number;
 }
 
 interface GroupMember {
@@ -75,13 +78,36 @@ interface GroupPurchase {
   allocations: Allocation[];
 }
 
+interface RevenueItem {
+  description: string;
+  quantity: number;
+  unit_price: number;
+  amount: number;
+}
+
+interface GroupRevenue {
+  id: string;
+  billing_key: string;
+  amount: number;
+  subtitle: string | null;
+  tax_category: string;
+  customer_name: string;
+  recognition_date: string | null;
+  billing_date: string | null;
+  status: string;
+  items: RevenueItem[];
+  allocations: Allocation[];
+}
+
 interface GroupDetail {
   id: string;
   name: string;
   description: string | null;
   total_purchase: number;
+  total_revenue: number;
   members: GroupMember[];
   purchases: GroupPurchase[];
+  revenues: GroupRevenue[];
 }
 
 interface GlsProject {
@@ -114,6 +140,19 @@ export default function ProjectGroupListPage() {
   const [purAllocMode, setPurAllocMode] = useState<"equal" | "custom">("equal");
   const [customAllocations, setCustomAllocations] = useState<Record<string, number>>({});
 
+  // 売上登録ダイアログ
+  const [revenueDialogOpen, setRevenueDialogOpen] = useState(false);
+  const [revCustomerId, setRevCustomerId] = useState("");
+  const [revTax, setRevTax] = useState("tax10");
+  const [revSubtitle, setRevSubtitle] = useState("");
+  const [revRecDate, setRevRecDate] = useState("");
+  const [revBillingDate, setRevBillingDate] = useState("");
+  const [revNotes, setRevNotes] = useState("");
+  const [revStatus, setRevStatus] = useState<"estimate" | "confirmed">("confirmed");
+  const [revItems, setRevItems] = useState<RevenueItem[]>([{ description: "", quantity: 1, unit_price: 0, amount: 0 }]);
+  const [revAllocMode, setRevAllocMode] = useState<"equal" | "custom">("equal");
+  const [revCustomAllocations, setRevCustomAllocations] = useState<Record<string, number>>({});
+
   // グループ一覧
   const { data: groupsData, isLoading } = useQuery({
     queryKey: ["project-groups"],
@@ -144,6 +183,14 @@ export default function ProjectGroupListPage() {
     enabled: purchaseDialogOpen,
   });
   const vendors: Vendor[] = vendorsData?.data ?? [];
+
+  // 顧客一覧
+  const { data: customersData } = useQuery({
+    queryKey: ["customers-list"],
+    queryFn: async () => (await api.get("/customers?limit=200")).data,
+    enabled: revenueDialogOpen,
+  });
+  const customers: Customer[] = customersData?.data ?? [];
 
   // グループCRUD
   const saveGroupMutation = useMutation({
@@ -181,6 +228,19 @@ export default function ProjectGroupListPage() {
     },
   });
 
+  // グループ売上
+  const saveRevenueMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return (await api.post(`/project-groups/${selectedGroupId}/revenues`, data)).data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["project-group-detail", selectedGroupId] });
+      qc.invalidateQueries({ queryKey: ["revenues-all"] });
+      qc.invalidateQueries({ queryKey: ["project-groups"] });
+      closeRevenueDialog();
+    },
+  });
+
   const closeGroupDialog = () => {
     setGroupDialogOpen(false);
     setEditingGroupId(null);
@@ -209,6 +269,20 @@ export default function ProjectGroupListPage() {
     setPurRecDate("");
     setPurAllocMode("equal");
     setCustomAllocations({});
+  };
+
+  const closeRevenueDialog = () => {
+    setRevenueDialogOpen(false);
+    setRevCustomerId("");
+    setRevTax("tax10");
+    setRevSubtitle("");
+    setRevRecDate("");
+    setRevBillingDate("");
+    setRevNotes("");
+    setRevStatus("confirmed");
+    setRevItems([{ description: "", quantity: 1, unit_price: 0, amount: 0 }]);
+    setRevAllocMode("equal");
+    setRevCustomAllocations({});
   };
 
   const toggleMember = (id: string) => {
@@ -241,6 +315,67 @@ export default function ProjectGroupListPage() {
   }, [detail, purAmount, purAllocMode, customAllocations]);
 
   const customTotal = allocPreview.reduce((s, a) => s + a.allocated_amount, 0);
+
+  // 売上按分プレビュー
+  const revTotal = revItems.reduce((s, it) => s + it.amount, 0);
+  const revAllocPreview = useMemo(() => {
+    if (!detail || detail.members.length === 0 || !revTotal) return [];
+    const members = detail.members;
+    if (revAllocMode === "equal") {
+      const per = Math.floor(revTotal / members.length);
+      const remainder = revTotal - per * members.length;
+      return members.map((m, idx) => ({
+        project_id: m.id,
+        gls_number: m.gls_number,
+        name: m.name,
+        allocated_amount: per + (idx === 0 ? remainder : 0),
+      }));
+    }
+    return members.map((m) => ({
+      project_id: m.id,
+      gls_number: m.gls_number,
+      name: m.name,
+      allocated_amount: revCustomAllocations[m.id] || 0,
+    }));
+  }, [detail, revTotal, revAllocMode, revCustomAllocations]);
+
+  const revCustomTotal = revAllocPreview.reduce((s, a) => s + a.allocated_amount, 0);
+
+  const handleRevenueSubmit = () => {
+    saveRevenueMutation.mutate({
+      customer_id: revCustomerId,
+      tax_category: revTax,
+      subtitle: revSubtitle || null,
+      recognition_date: revRecDate || null,
+      billing_date: revBillingDate || null,
+      notes: revNotes || null,
+      status: revStatus,
+      items: revItems.filter((it) => it.description || it.amount),
+      allocations: revAllocPreview.map((a) => ({
+        project_id: a.project_id,
+        allocated_amount: a.allocated_amount,
+      })),
+    });
+  };
+
+  const updateRevItem = (idx: number, field: keyof RevenueItem, value: string | number) => {
+    setRevItems((prev) => {
+      const next = [...prev];
+      next[idx] = { ...next[idx], [field]: value };
+      if (field === "quantity" || field === "unit_price") {
+        next[idx].amount = (next[idx].quantity || 0) * (next[idx].unit_price || 0);
+      }
+      return next;
+    });
+  };
+
+  const addRevItem = () => {
+    setRevItems((prev) => [...prev, { description: "", quantity: 1, unit_price: 0, amount: 0 }]);
+  };
+
+  const removeRevItem = (idx: number) => {
+    setRevItems((prev) => prev.filter((_, i) => i !== idx));
+  };
 
   const handlePurchaseSubmit = () => {
     savePurchaseMutation.mutate({
@@ -357,13 +492,101 @@ export default function ProjectGroupListPage() {
                 )}
               </div>
 
+              {/* グループ売上 */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-semibold flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    グループ売上（按分）
+                  </h2>
+                  <Button size="sm" onClick={() => setRevenueDialogOpen(true)} disabled={detail.members.length === 0}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    売上追加
+                  </Button>
+                </div>
+
+                {detail.revenues.length === 0 ? (
+                  <Card>
+                    <CardContent className="py-6 text-center text-muted-foreground">
+                      グループ売上がありません
+                    </CardContent>
+                  </Card>
+                ) : (
+                  detail.revenues.map((rev) => (
+                    <Card key={rev.id}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-mono text-sm font-semibold">{rev.billing_key}</span>
+                              {rev.subtitle && <span className="text-sm">{rev.subtitle}</span>}
+                              <Badge variant="outline" className="text-[10px]">
+                                {rev.status === "estimate" ? "見積" : "確定"}
+                              </Badge>
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              {rev.customer_name}
+                              {rev.recognition_date && ` / ${formatDate(rev.recognition_date)}`}
+                            </div>
+                          </div>
+                          <span className="font-number text-lg font-bold shrink-0">{formatCurrency(rev.amount)}</span>
+                        </div>
+                        {rev.items && rev.items.length > 0 && (
+                          <div className="mt-2 border-t pt-2">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="text-muted-foreground">
+                                  <th className="text-left font-normal pb-1">項目</th>
+                                  <th className="text-right font-normal pb-1 w-16">数量</th>
+                                  <th className="text-right font-normal pb-1 w-24">単価</th>
+                                  <th className="text-right font-normal pb-1 w-24">金額</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {rev.items.map((item, idx) => (
+                                  <tr key={idx} className="border-t border-dashed">
+                                    <td className="py-1">{item.description}</td>
+                                    <td className="py-1 text-right font-number">{item.quantity}</td>
+                                    <td className="py-1 text-right font-number">{formatCurrency(item.unit_price)}</td>
+                                    <td className="py-1 text-right font-number font-medium">{formatCurrency(item.amount)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                        {rev.allocations && rev.allocations.length > 0 && (
+                          <div className="mt-2 border-t pt-2">
+                            <p className="text-xs font-medium text-muted-foreground mb-1">按分内訳</p>
+                            {rev.allocations.map((a: Allocation, i: number) => (
+                              <div key={i} className="flex justify-between text-xs py-0.5">
+                                <span className="font-mono">{a.gls_number} {a.project_name}</span>
+                                <span className="font-number font-medium">{formatCurrency(a.allocated_amount)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
+
               {/* 合計 */}
-              {detail.purchases.length > 0 && (
-                <div className="flex justify-end">
-                  <div className="rounded-lg bg-muted p-3 text-right">
-                    <span className="text-sm text-muted-foreground mr-3">グループ仕入合計</span>
-                    <span className="text-lg font-bold font-number">{formatCurrency(detail.total_purchase)}</span>
-                  </div>
+              {(detail.purchases.length > 0 || detail.revenues.length > 0) && (
+                <div className="flex justify-end gap-4 flex-wrap">
+                  {detail.revenues.length > 0 && (
+                    <div className="rounded-lg bg-muted p-3 text-right">
+                      <span className="text-sm text-muted-foreground mr-3">グループ売上合計</span>
+                      <span className="text-lg font-bold font-number">{formatCurrency(detail.total_revenue)}</span>
+                    </div>
+                  )}
+                  {detail.purchases.length > 0 && (
+                    <div className="rounded-lg bg-muted p-3 text-right">
+                      <span className="text-sm text-muted-foreground mr-3">グループ仕入合計</span>
+                      <span className="text-lg font-bold font-number">{formatCurrency(detail.total_purchase)}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </>
@@ -495,6 +718,167 @@ export default function ProjectGroupListPage() {
           </DialogContent>
         </Dialog>
 
+        {/* 売上登録ダイアログ */}
+        <Dialog open={revenueDialogOpen} onOpenChange={setRevenueDialogOpen}>
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>グループ売上登録</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>顧客 *</Label>
+                <SearchableSelect
+                  options={customers.map((c) => ({ value: c.id, label: c.name, subLabel: c.short_name || '' }))}
+                  value={revCustomerId}
+                  onChange={setRevCustomerId}
+                  placeholder="顧客を検索..."
+                />
+              </div>
+              <div>
+                <Label>件名</Label>
+                <Input value={revSubtitle} onChange={(e) => setRevSubtitle(e.target.value)} placeholder="見積件名" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>ステータス</Label>
+                  <Select value={revStatus} onValueChange={(v) => setRevStatus(v as "estimate" | "confirmed")}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="estimate">見積</SelectItem>
+                      <SelectItem value="confirmed">確定</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>税区分</Label>
+                  <Select value={revTax} onValueChange={setRevTax}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(TaxCategoryLabels) as TaxCategory[]).map((k) => (
+                        <SelectItem key={k} value={k}>{TaxCategoryLabels[k]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>計上日</Label>
+                  <Input type="date" value={revRecDate} onChange={(e) => setRevRecDate(e.target.value)} />
+                </div>
+                <div>
+                  <Label>請求日</Label>
+                  <Input type="date" value={revBillingDate} onChange={(e) => setRevBillingDate(e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <Label>備考</Label>
+                <Input value={revNotes} onChange={(e) => setRevNotes(e.target.value)} placeholder="備考" />
+              </div>
+
+              {/* 明細行 */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold">明細項目</Label>
+                  <Button type="button" variant="ghost" size="sm" onClick={addRevItem}>
+                    <Plus className="h-3 w-3 mr-1" />行追加
+                  </Button>
+                </div>
+                {revItems.map((item, idx) => (
+                  <div key={idx} className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      {idx === 0 && <Label className="text-xs">項目名</Label>}
+                      <Input value={item.description} onChange={(e) => updateRevItem(idx, "description", e.target.value)} placeholder="項目" />
+                    </div>
+                    <div className="w-16">
+                      {idx === 0 && <Label className="text-xs">数量</Label>}
+                      <Input type="number" min={1} value={item.quantity} onChange={(e) => updateRevItem(idx, "quantity", Number(e.target.value))} />
+                    </div>
+                    <div className="w-28">
+                      {idx === 0 && <Label className="text-xs">単価</Label>}
+                      <CurrencyInput value={item.unit_price} onChange={(v) => updateRevItem(idx, "unit_price", v)} />
+                    </div>
+                    <div className="w-28">
+                      {idx === 0 && <Label className="text-xs">金額</Label>}
+                      <div className="h-9 flex items-center justify-end text-sm font-number font-medium">
+                        {formatCurrency(item.amount)}
+                      </div>
+                    </div>
+                    {revItems.length > 1 && (
+                      <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => removeRevItem(idx)}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                <div className="flex justify-end text-sm">
+                  <span className="text-muted-foreground mr-2">合計:</span>
+                  <span className="font-number font-bold">{formatCurrency(revTotal)}</span>
+                </div>
+              </div>
+
+              {/* 按分設定 */}
+              {detail && detail.members.length > 0 && revTotal > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <Label className="text-sm font-semibold">按分方法</Label>
+                    <div className="flex gap-3">
+                      <label className="flex items-center gap-1 text-sm cursor-pointer">
+                        <input type="radio" checked={revAllocMode === "equal"} onChange={() => setRevAllocMode("equal")} className="accent-primary" />
+                        均等按分
+                      </label>
+                      <label className="flex items-center gap-1 text-sm cursor-pointer">
+                        <input type="radio" checked={revAllocMode === "custom"} onChange={() => setRevAllocMode("custom")} className="accent-primary" />
+                        任意比率
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border p-3 space-y-2">
+                    {revAllocPreview.map((a) => (
+                      <div key={a.project_id} className="flex items-center justify-between gap-2">
+                        <span className="text-sm">
+                          <span className="font-mono text-primary mr-1">{a.gls_number}</span>
+                          {a.name}
+                        </span>
+                        {revAllocMode === "custom" ? (
+                          <CurrencyInput
+                            value={revCustomAllocations[a.project_id] || 0}
+                            onChange={(v) => setRevCustomAllocations((prev) => ({ ...prev, [a.project_id]: v }))}
+                          />
+                        ) : (
+                          <span className="font-number font-medium text-sm">{formatCurrency(a.allocated_amount)}</span>
+                        )}
+                      </div>
+                    ))}
+                    {revAllocMode === "custom" && (
+                      <div className="flex justify-between border-t pt-2 text-sm">
+                        <span className="font-medium">按分合計</span>
+                        <span className={`font-number font-bold ${revCustomTotal !== revTotal ? 'text-destructive' : ''}`}>
+                          {formatCurrency(revCustomTotal)} / {formatCurrency(revTotal)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={closeRevenueDialog}>キャンセル</Button>
+              <Button
+                onClick={handleRevenueSubmit}
+                disabled={
+                  !revCustomerId || revTotal <= 0 || saveRevenueMutation.isPending ||
+                  (revAllocMode === "custom" && revCustomTotal !== revTotal)
+                }
+              >
+                {saveRevenueMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                登録
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* グループ編集ダイアログ（共通） */}
         <GroupFormDialog
           open={groupDialogOpen}
@@ -551,7 +935,11 @@ export default function ProjectGroupListPage() {
                 {g.description && <p className="text-xs text-muted-foreground mt-1 truncate">{g.description}</p>}
                 <div className="flex items-center justify-between mt-3">
                   <Badge variant="outline">{g.member_count}案件</Badge>
-                  <span className="font-number text-sm font-medium">{formatCurrency(g.total_purchase)}</span>
+                  <div className="text-right text-xs">
+                    {g.total_revenue > 0 && <div className="font-number">売上 {formatCurrency(g.total_revenue)}</div>}
+                    {g.total_purchase > 0 && <div className="font-number">仕入 {formatCurrency(g.total_purchase)}</div>}
+                    {g.total_revenue === 0 && g.total_purchase === 0 && <span className="text-muted-foreground">-</span>}
+                  </div>
                 </div>
               </CardContent>
             </Card>
