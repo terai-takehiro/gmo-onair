@@ -1,12 +1,11 @@
 import { Router } from 'express';
+import { createEquipmentRoutes } from '../equipment';
 
 export function createAssetRoutes(): Router {
   const router = Router();
 
-  // Phase 4 で実装予定:
-  // router.use('/equipment', equipmentRoutes);
-  // router.use('/studios', studiosRoutes);
-  // router.use('/maintenance', maintenanceRoutes);
+  // Equipment management routes
+  router.use(createEquipmentRoutes());
 
   return router;
 }

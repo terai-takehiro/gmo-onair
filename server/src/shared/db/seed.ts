@@ -706,6 +706,107 @@ export async function seed() {
   const bk9 = uuidv4();
   ins(bkSql, [bk9, 'GLS-A005 GE ドキュメンタリー ロケ', 'project', PROJECTS['GLS-A005'], EPISODES['GLS-A005-001'], 1, '2026-04-10', '2026-04-12', '富士山麓ロケーション', '3日間ロケ撮影', USERS.staff2]);
 
+  // ==========================================================
+  // Equipment (機材管理)
+  // ==========================================================
+
+  // Categories
+  const eqCatIds: Record<string, string> = {};
+  const eqCats = [
+    { key: 'camera', name: 'カメラ', type: 'both', order: 1 },
+    { key: 'lens', name: 'レンズ', type: 'rental', order: 2 },
+    { key: 'lighting', name: '照明', type: 'both', order: 3 },
+    { key: 'audio', name: '音響', type: 'both', order: 4 },
+    { key: 'monitor', name: 'モニター', type: 'both', order: 5 },
+    { key: 'switcher', name: 'スイッチャー', type: 'facility', order: 6 },
+    { key: 'pc', name: 'PC・サーバー', type: 'facility', order: 7 },
+    { key: 'network', name: 'ネットワーク', type: 'facility', order: 8 },
+    { key: 'other', name: 'その他', type: 'both', order: 99 },
+  ];
+  for (const c of eqCats) {
+    eqCatIds[c.key] = uuidv4();
+    ins("INSERT INTO equipment_categories (id, name, item_type, sort_order) VALUES (?,?,?,?)",
+      [eqCatIds[c.key], c.name, c.type, c.order]);
+  }
+
+  // Equipment items
+  const eqItemIds: Record<string, string> = {};
+  const eqItems = [
+    // 設備系
+    { key: 'cam1', name: 'Sony PXW-FX9', cat: 'camera', type: 'facility', mfr: 'Sony', model: 'PXW-FX9', serial: 'FX9-2024-001', cost: 1980000, life: 5, loc: 'A棟 3F カメラ庫', lendable: true },
+    { key: 'cam2', name: 'Sony PXW-FX6', cat: 'camera', type: 'rental', mfr: 'Sony', model: 'PXW-FX6', serial: 'FX6-2024-002', cost: 650000, life: 5, loc: 'A棟 3F カメラ庫', lendable: true },
+    { key: 'cam3', name: 'Blackmagic URSA Mini Pro 12K', cat: 'camera', type: 'facility', mfr: 'Blackmagic', model: 'URSA Mini Pro 12K', serial: 'BM-12K-001', cost: 980000, life: 5, loc: 'ワールドスタジオ', lendable: false },
+    { key: 'sw1', name: 'Blackmagic ATEM 4 M/E', cat: 'switcher', type: 'facility', mfr: 'Blackmagic', model: 'ATEM 4 M/E Constellation 4K', serial: 'ATEM4ME-001', cost: 4500000, life: 7, loc: 'サブ1', lendable: false },
+    { key: 'sw2', name: 'Blackmagic ATEM Mini Extreme ISO', cat: 'switcher', type: 'rental', mfr: 'Blackmagic', model: 'ATEM Mini Extreme ISO', serial: 'AMEI-003', cost: 180000, life: 5, loc: 'A棟 3F 機材庫', lendable: true },
+    { key: 'mon1', name: 'Sony BVM-HX3110', cat: 'monitor', type: 'facility', mfr: 'Sony', model: 'BVM-HX3110', serial: 'HX3110-001', cost: 3200000, life: 7, loc: 'ワールドスタジオ サブ', lendable: false },
+    { key: 'mon2', name: 'SmallHD Cine 13', cat: 'monitor', type: 'rental', mfr: 'SmallHD', model: 'Cine 13', serial: 'SHD-C13-004', cost: 480000, life: 5, loc: 'A棟 3F 機材庫', lendable: true },
+    { key: 'light1', name: 'ARRI SkyPanel S60-C', cat: 'lighting', type: 'facility', mfr: 'ARRI', model: 'SkyPanel S60-C', serial: 'ARRI-S60-001', cost: 750000, life: 7, loc: 'ワールドスタジオ 照明バトン', lendable: false },
+    { key: 'light2', name: 'Aputure 600d Pro', cat: 'lighting', type: 'rental', mfr: 'Aputure', model: '600d Pro', serial: 'APT-600D-002', cost: 280000, life: 5, loc: 'A棟 3F 照明庫', lendable: true },
+    { key: 'mic1', name: 'Sennheiser MKH416', cat: 'audio', type: 'rental', mfr: 'Sennheiser', model: 'MKH416', serial: 'MKH416-005', cost: 120000, life: 7, loc: 'A棟 3F 音響庫', lendable: true },
+    { key: 'mixer1', name: 'Yamaha DM7', cat: 'audio', type: 'facility', mfr: 'Yamaha', model: 'DM7', serial: 'DM7-001', cost: 3800000, life: 10, loc: 'ワールドスタジオ サブ', lendable: false },
+    { key: 'srv1', name: 'Dell PowerEdge R760', cat: 'pc', type: 'facility', mfr: 'Dell', model: 'PowerEdge R760', serial: 'SRV-R760-001', cost: 1200000, life: 5, loc: 'サーバールーム ラックA-1', lendable: false },
+    { key: 'lens1', name: 'Canon CN-E 50mm T1.3', cat: 'lens', type: 'rental', mfr: 'Canon', model: 'CN-E 50mm T1.3 L F', serial: 'CNE50-001', cost: 450000, life: 7, loc: 'A棟 3F カメラ庫', lendable: true },
+    { key: 'net1', name: 'Cisco Catalyst 9300', cat: 'network', type: 'facility', mfr: 'Cisco', model: 'Catalyst 9300-24T', serial: 'C9300-001', cost: 650000, life: 7, loc: 'サーバールーム ラックB-2', lendable: false },
+  ];
+
+  // Update EQ code sequence
+  const db = getDb();
+  db.run("UPDATE sequences SET counter = 0 WHERE seq_name = 'eq_code'");
+
+  const eqChars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  let eqCounter = 0;
+  function nextEqCode(): string {
+    eqCounter++;
+    let code = '';
+    let seed = eqCounter;
+    for (let i = 0; i < 10; i++) {
+      const idx = (seed * 31 + i * 7 + eqCounter) % eqChars.length;
+      code += eqChars[Math.abs(idx) % eqChars.length];
+      seed = Math.floor(seed / eqChars.length) + eqCounter + i;
+    }
+    return `EQ-${code}`;
+  }
+
+  for (const eq of eqItems) {
+    eqItemIds[eq.key] = uuidv4();
+    const eqCode = nextEqCode();
+    ins(`INSERT INTO equipment_items (
+      id, eq_code, name, category_id, item_type,
+      manufacturer, model_number, serial_number,
+      acquisition_cost, useful_life, asset_class, depreciation_method,
+      status, condition, location_detail,
+      is_lendable, acquisition_date, created_by
+    ) VALUES (?,?,?,?,?, ?,?,?, ?,?,?,?, ?,?,?, ?,?,?)`, [
+      eqItemIds[eq.key], eqCode, eq.name, eqCatIds[eq.cat], eq.type,
+      eq.mfr, eq.model, eq.serial,
+      eq.cost, eq.life, 'fixed_asset', 'straight_line',
+      'active', 'good', eq.loc,
+      eq.lendable ? 1 : 0, '2024-04-01', USERS.admin,
+    ]);
+  }
+
+  // Update sequence counter
+  db.run(`UPDATE sequences SET counter = ${eqCounter} WHERE seq_name = 'eq_code'`);
+
+  // Sample lendings
+  const lend1 = uuidv4();
+  ins(`INSERT INTO equipment_lendings (id, equipment_id, project_id, borrower_name, purpose, lent_at, due_date, status, condition_out, lent_by) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+    [lend1, eqItemIds['cam2'], PROJECTS['GLS-A005'], '鈴木一郎', 'ドキュメンタリーロケ撮影', '2026-03-20', '2026-04-15', 'lent', 'good', USERS.staff2]);
+
+  const lend2 = uuidv4();
+  ins(`INSERT INTO equipment_lendings (id, equipment_id, project_id, borrower_name, purpose, lent_at, due_date, returned_at, status, condition_out, condition_in, lent_by, returned_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    [lend2, eqItemIds['sw2'], PROJECTS['GLS-A003'], '佐藤花子', 'イベント配信', '2026-03-10', '2026-03-15', '2026-03-15T18:00', 'returned', 'good', 'good', USERS.staff1, USERS.staff1]);
+
+  // Sample maintenance record
+  const maint1 = uuidv4();
+  ins(`INSERT INTO maintenance_records (id, equipment_id, record_type, title, description, reported_by, status, vendor_name, repair_cost) VALUES (?,?,?,?,?,?,?,?,?)`,
+    [maint1, eqItemIds['light2'], 'maintenance', '定期点検 2026年3月', 'ファンの異音確認 → 清掃で改善', USERS.staff3, 'completed', null, null]);
+
+  // Accessories
+  const acc1 = uuidv4();
+  ins("INSERT INTO equipment_accessories (id, parent_id, child_id, note) VALUES (?,?,?,?)",
+    [acc1, eqItemIds['cam1'], eqItemIds['lens1'], '標準レンズキット']);
+
   saveDb();
   console.log('Seed data inserted successfully.');
 }
