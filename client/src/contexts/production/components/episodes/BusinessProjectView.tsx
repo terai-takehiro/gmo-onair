@@ -60,6 +60,9 @@ interface Revenue {
   subtitle: string | null;
   customer_name: string;
   items?: RevenueItem[];
+  group_name?: string | null;
+  allocated_amount?: number | null;
+  group_id?: string | null;
 }
 
 interface Props {
@@ -404,6 +407,9 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                         <Badge variant="outline" className="text-[10px]">
                           {taxLabels[rev.tax_category] || rev.tax_category}
                         </Badge>
+                        {rev.group_name && (
+                          <Badge variant="secondary" className="text-[10px]">按分: {rev.group_name}</Badge>
+                        )}
                       </div>
                       <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                         {rev.recognition_date && (
@@ -423,9 +429,16 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                       )}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <span className="font-number text-lg font-bold mr-2">
-                        {formatCurrency(rev.amount)}
-                      </span>
+                      <div className="text-right mr-2">
+                        <span className="font-number text-lg font-bold">
+                          {formatCurrency(rev.allocated_amount != null ? rev.allocated_amount : rev.amount)}
+                        </span>
+                        {rev.allocated_amount != null && rev.allocated_amount !== rev.amount && (
+                          <div className="text-[10px] text-muted-foreground font-number">
+                            全体 {formatCurrency(rev.amount)}
+                          </div>
+                        )}
+                      </div>
                       {rev.items && rev.items.length > 0 && (
                         <Button
                           variant="ghost"

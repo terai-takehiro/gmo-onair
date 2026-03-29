@@ -15,12 +15,35 @@ router.get('/', (req, res) => {
   let where = 'WHERE r.deleted_at IS NULL';
   const params: unknown[] = [];
   if (search) { where += ` AND (r.billing_key LIKE ? OR r.notes LIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
-  if (projectId) { where += ` AND r.project_id = ?`; params.push(projectId); }
+
+  // プロジェクト絞込み: 直接売上 + グループ按分された売上
+  if (projectId) {
+    where += ` AND ((r.project_id = ? AND r.group_id IS NULL) OR r.id IN (SELECT revenue_id FROM revenue_allocations WHERE project_id = ?))`;
+    params.push(projectId, projectId);
+  }
   const status = req.query.status as string;
   if (status) { where += ` AND r.status = ?`; params.push(status); }
-  else if (!projectId) { where += ` AND r.status = 'confirmed'`; } // デフォルトは確定のみ（案件絞込み時は全件）
+  else if (!projectId) { where += ` AND r.status = 'confirmed'`; }
+
   const total = (queryOne(`SELECT COUNT(*) as c FROM revenues r ${where}`, params) as any).c;
-  const rows = queryAll(`SELECT r.*, p.name as project_name, p.gls_number, p.project_type, c.name as customer_name, e.episode_code FROM revenues r LEFT JOIN projects p ON p.id = r.project_id LEFT JOIN customers c ON c.id = r.customer_id LEFT JOIN episodes e ON e.id = r.episode_id ${where} ORDER BY r.billing_key ASC, r.created_at DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
+
+  // allocated_amount: グループ按分時はこのプロジェクトへの配分額
+  const allocJoin = projectId
+    ? `LEFT JOIN revenue_allocations ra ON ra.revenue_id = r.id AND ra.project_id = '${projectId.replace(/'/g, "''")}'`
+    : '';
+  const allocCol = projectId ? ', ra.allocated_amount, pg.name as group_name' : '';
+
+  const rows = queryAll(
+    `SELECT r.*, p.name as project_name, p.gls_number, p.project_type, c.name as customer_name, e.episode_code${allocCol}
+     FROM revenues r
+     LEFT JOIN projects p ON p.id = r.project_id
+     LEFT JOIN customers c ON c.id = r.customer_id
+     LEFT JOIN episodes e ON e.id = r.episode_id
+     ${allocJoin}
+     ${projectId ? 'LEFT JOIN project_groups pg ON pg.id = r.group_id' : ''}
+     ${where} ORDER BY r.billing_key ASC, r.created_at DESC LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  );
 
   // プロジェクト絞込み時は明細行も付与
   if (projectId) {

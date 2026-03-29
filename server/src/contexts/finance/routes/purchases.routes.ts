@@ -15,15 +15,26 @@ router.get('/', (req, res) => {
   let where = 'WHERE pu.deleted_at IS NULL';
   const params: unknown[] = [];
   if (search) { where += ` AND (pu.description LIKE ? OR v.name LIKE ? OR p.gls_number LIKE ?)`; params.push(`%${search}%`, `%${search}%`, `%${search}%`); }
-  if (projectId) { where += ` AND pu.project_id = ?`; params.push(projectId); }
+  // プロジェクト絞込み: 直接仕入 + グループ按分された仕入
+  if (projectId) {
+    where += ` AND ((pu.project_id = ? AND pu.group_id IS NULL) OR pu.id IN (SELECT purchase_id FROM purchase_allocations WHERE project_id = ?))`;
+    params.push(projectId, projectId);
+  }
   if (groupId) { where += ` AND pu.group_id = ?`; params.push(groupId); }
-  const total = (queryOne(`SELECT COUNT(*) as c FROM purchases pu LEFT JOIN vendors v ON v.id = pu.vendor_id LEFT JOIN projects p ON p.id = pu.project_id ${where}`, params) as any).c;
+
+  const allocJoin = projectId
+    ? `LEFT JOIN purchase_allocations pa ON pa.purchase_id = pu.id AND pa.project_id = '${projectId.replace(/'/g, "''")}'`
+    : '';
+  const allocCol = projectId ? ', pa.allocated_amount' : '';
+
+  const total = (queryOne(`SELECT COUNT(*) as c FROM purchases pu LEFT JOIN vendors v ON v.id = pu.vendor_id LEFT JOIN projects p ON p.id = pu.project_id ${allocJoin} ${where}`, params) as any).c;
   const rows = queryAll(
-    `SELECT pu.*, p.name as project_name, p.gls_number, v.name as vendor_name, pg.name as group_name
+    `SELECT pu.*, p.name as project_name, p.gls_number, v.name as vendor_name, pg.name as group_name${allocCol}
      FROM purchases pu
      LEFT JOIN projects p ON p.id = pu.project_id
      LEFT JOIN vendors v ON v.id = pu.vendor_id
      LEFT JOIN project_groups pg ON pg.id = pu.group_id
+     ${allocJoin}
      ${where} ORDER BY pu.recognition_date DESC, pu.created_at DESC LIMIT ? OFFSET ?`,
     [...params, limit, offset]
   );

@@ -17,6 +17,7 @@ const config: Config = {
     extend: {
       fontFamily: {
         sans: ['Noto Sans JP', 'sans-serif'],
+        mono: ['Oswald', 'sans-serif'],
         number: ['Oswald', 'sans-serif'],
       },
       colors: {
