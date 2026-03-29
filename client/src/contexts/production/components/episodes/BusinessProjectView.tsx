@@ -38,6 +38,7 @@ import {
   Pencil,
   Loader2,
   FileText,
+  Download,
 } from "lucide-react";
 
 interface RevenueItem {
@@ -130,6 +131,25 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
       qc.invalidateQueries({ queryKey: ["revenues-all"] });
     },
   });
+
+  const handleDownloadPdf = async (revenueId: string) => {
+    try {
+      const res = await api.get(`/revenues/${revenueId}/pdf`, { responseType: 'blob' });
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const disposition = res.headers['content-disposition'] || '';
+      const match = disposition.match(/filename\*=UTF-8''(.+)/);
+      a.download = match ? decodeURIComponent(match[1]) : 'document.pdf';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('PDF生成に失敗しました');
+    }
+  };
 
   const closeDialog = () => {
     setDialogOpen(false);
@@ -406,6 +426,17 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                       <span className="font-number text-lg font-bold mr-2">
                         {formatCurrency(rev.amount)}
                       </span>
+                      {rev.items && rev.items.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="PDF出力"
+                          onClick={() => handleDownloadPdf(rev.id)}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"

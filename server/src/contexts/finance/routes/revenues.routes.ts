@@ -4,7 +4,7 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth } from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
-// billing-key service no longer used for revenues (sequential numbering now)
+import { generateEstimatePdf } from '../../../shared/services/pdf.service';
 
 const router = Router();
 
@@ -40,6 +40,47 @@ router.get('/:id', (req, res) => {
   const items = queryAll('SELECT * FROM revenue_items WHERE revenue_id = ? ORDER BY sort_order', [req.params.id]);
   row.items = items;
   res.json({ success: true, data: row });
+});
+
+// PDF出力
+router.get('/:id/pdf', async (req, res, next) => {
+  try {
+    const row = queryOne(`SELECT r.*, p.name as project_name, p.gls_number, c.name as customer_name FROM revenues r LEFT JOIN projects p ON p.id = r.project_id LEFT JOIN customers c ON c.id = r.customer_id WHERE r.id = ? AND r.deleted_at IS NULL`, [req.params.id]) as any;
+    if (!row) throw new AppError(404, 'NOT_FOUND', '売上が見つかりません');
+
+    const items = queryAll('SELECT * FROM revenue_items WHERE revenue_id = ? ORDER BY sort_order', [req.params.id]) as any[];
+
+    const pdfBuffer = await generateEstimatePdf({
+      billing_key: row.billing_key,
+      subtitle: row.subtitle,
+      customer_name: row.customer_name || '',
+      project_name: row.project_name || '',
+      gls_number: row.gls_number,
+      tax_category: row.tax_category,
+      amount: row.amount,
+      recognition_date: row.recognition_date,
+      billing_date: row.billing_date,
+      payment_due_date: row.payment_due_date,
+      notes: row.notes,
+      status: row.status || 'confirmed',
+      items: items.map((it: any) => ({
+        description: it.description,
+        quantity: it.quantity,
+        unit_price: it.unit_price,
+        amount: it.amount,
+      })),
+    });
+
+    const isEstimate = row.status === 'estimate';
+    const filename = `${isEstimate ? '見積書' : '請求書'}_${row.billing_key}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
+  } catch (err) {
+    next(err);
+  }
 });
 
 // 新規売上（明細行対応、episode_id任意）
