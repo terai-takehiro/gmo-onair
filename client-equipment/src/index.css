@@ -3,11 +3,14 @@
 @tailwind utilities;
 
 @layer base {
-  html, body {
+  html, body, #root {
     overflow-x: hidden;
     overscroll-behavior-x: none;
-    touch-action: pan-y;
     -webkit-text-size-adjust: 100%;
+    max-width: 100vw;
+  }
+  html {
+    touch-action: pan-y;
   }
 
   :root {
