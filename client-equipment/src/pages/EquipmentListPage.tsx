@@ -307,10 +307,10 @@ export default function EquipmentListPage() {
               </div>
               <div className="space-y-1">
                 <Label>カテゴリ</Label>
-                <Select value={form.category_id} onValueChange={(v) => setForm({ ...form, category_id: v })}>
+                <Select value={form.category_id || "none"} onValueChange={(v) => setForm({ ...form, category_id: v === "none" ? "" : v })}>
                   <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">なし</SelectItem>
+                    <SelectItem value="none">なし</SelectItem>
                     {categories.map((c: any) => (
                       <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                     ))}
@@ -331,7 +331,7 @@ export default function EquipmentListPage() {
               </div>
               <div className="space-y-1">
                 <Label>保管場所</Label>
-                <Select value={form.location_id} onValueChange={(v) => setForm({ ...form, location_id: v === "none" ? "" : v })}>
+                <Select value={form.location_id || "none"} onValueChange={(v) => setForm({ ...form, location_id: v === "none" ? "" : v })}>
                   <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">なし</SelectItem>
