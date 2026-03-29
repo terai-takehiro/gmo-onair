@@ -194,7 +194,7 @@ export default function SgaDialog({
           </div>
 
           {/* Row 2: recognition_date + billing_key preview */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>発生年月</Label>
               <Input
@@ -337,7 +337,7 @@ export default function SgaDialog({
                 </div>
                 {form.amortize_enabled && (
                   <div className="space-y-2">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1">
                         <Label className="text-xs">按分開始月</Label>
                         <Input

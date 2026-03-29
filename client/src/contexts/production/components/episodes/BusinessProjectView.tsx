@@ -813,7 +813,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
             </div>
 
             {/* Tax & Dates */}
-            <div className={`grid gap-3 ${isEstimateMode ? 'grid-cols-1' : 'grid-cols-2'}`}>
+            <div className={`grid gap-3 ${isEstimateMode ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
               <div>
                 <Label>税区分</Label>
                 <Select value={taxCategory} onValueChange={setTaxCategory}>
@@ -942,7 +942,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label>精算番号</Label>
                 <Input value={purSettlementNo} onChange={(e) => setPurSettlementNo(e.target.value)} placeholder="任意" />

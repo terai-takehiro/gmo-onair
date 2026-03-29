@@ -44,4 +44,14 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* 日付入力のモバイル表示修正 */
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    min-height: 2.5rem;
+    line-height: 1.5;
+  }
 }

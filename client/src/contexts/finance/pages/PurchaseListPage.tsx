@@ -385,7 +385,7 @@ export default function PurchaseListPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label>精算番号</Label>
                 <Input value={settlementNumber} onChange={(e) => setSettlementNumber(e.target.value)} placeholder="任意" />

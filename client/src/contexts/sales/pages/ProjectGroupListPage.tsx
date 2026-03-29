@@ -776,7 +776,7 @@ export default function ProjectGroupListPage() {
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label>精算番号</Label>
                   <Input value={purSettlementNo} onChange={(e) => setPurSettlementNo(e.target.value)} placeholder="任意" />
@@ -892,7 +892,7 @@ export default function ProjectGroupListPage() {
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label>計上日</Label>
                   <Input type="date" value={revRecDate} onChange={(e) => setRevRecDate(e.target.value)} />

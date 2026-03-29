@@ -209,7 +209,7 @@ export default function LendingListPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>貸出登録</DialogTitle>
+            <DialogTitle>新規貸出登録</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             {/* Lending type selection */}
