@@ -290,13 +290,13 @@ export async function seed() {
   // ============================================================
   // Revenues
   // ============================================================
-  const revSql = `INSERT INTO revenues (id, billing_key, project_id, episode_id, customer_id, assigned_to, tax_category, amount, recognition_date, notes, subtitle) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const revSql = `INSERT INTO revenues (id, billing_key, project_id, episode_id, customer_id, assigned_to, tax_category, amount, recognition_date, notes, subtitle, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   const riSql = `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)`;
 
   // GLS-A001: IR説明会（明細項目付き）
   {
     const revId = uuidv4();
-    ins(revSql, [revId, 'GLS-A001-001-1', PROJECTS['GLS-A001'], EPISODES['GLS-A001-001'], CUSTOMERS['GH'], USERS.staff1, 'tax10', 4000000, '2026-03-31', null, '2026年春季IR説明会']);
+    ins(revSql, [revId, 'GLS-A001-001-1', PROJECTS['GLS-A001'], EPISODES['GLS-A001-001'], CUSTOMERS['GH'], USERS.staff1, 'tax10', 4000000, '2026-03-31', null, '2026年春季IR説明会', 'confirmed']);
     ins(riSql, [uuidv4(), revId, 'スタジオ基本利用料（WORLD STUDIO）', 2, 1500000, 3000000, 1]);
     ins(riSql, [uuidv4(), revId, 'YouTube Live配信設備', 1, 500000, 500000, 2]);
     ins(riSql, [uuidv4(), revId, '技術スタッフ（TD・SW・VE）', 1, 300000, 300000, 3]);
@@ -308,7 +308,7 @@ export async function seed() {
     const code = `GLS-A002-${String(i).padStart(3, '0')}`;
     const amt = i === 1 ? 576923 + (7500000 - 576923 * 13) : 576923;
     const revId = uuidv4();
-    ins(revSql, [revId, `${code}-1`, PROJECTS['GLS-A002'], EPISODES[code], CUSTOMERS['東都TV'], staffIds[i % 3], 'tax10', amt, '2026-03-31', null, `第${i}話`]);
+    ins(revSql, [revId, `${code}-1`, PROJECTS['GLS-A002'], EPISODES[code], CUSTOMERS['東都TV'], staffIds[i % 3], 'tax10', amt, '2026-03-31', null, `第${i}話`, 'confirmed']);
     ins(riSql, [uuidv4(), revId, 'スタジオ収録費', 1, Math.round(amt * 0.6), Math.round(amt * 0.6), 1]);
     ins(riSql, [uuidv4(), revId, '技術費', 1, Math.round(amt * 0.3), Math.round(amt * 0.3), 2]);
     ins(riSql, [uuidv4(), revId, '諸経費', 1, amt - Math.round(amt * 0.6) - Math.round(amt * 0.3), amt - Math.round(amt * 0.6) - Math.round(amt * 0.3), 3]);
@@ -318,7 +318,7 @@ export async function seed() {
   for (let i = 1; i <= 4; i++) {
     const code = `GLS-A003-${String(i).padStart(3, '0')}`;
     const revId = uuidv4();
-    ins(revSql, [revId, `${code}-1`, PROJECTS['GLS-A003'], EPISODES[code], CUSTOMERS['SN'], staffIds[i % 3], 'tax10', 1375000, '2026-03-31', null, `第${i}回放送`]);
+    ins(revSql, [revId, `${code}-1`, PROJECTS['GLS-A003'], EPISODES[code], CUSTOMERS['SN'], staffIds[i % 3], 'tax10', 1375000, '2026-03-31', null, `第${i}回放送`, 'confirmed']);
     ins(riSql, [uuidv4(), revId, 'スタジオ利用＋生放送設備', 1, 800000, 800000, 1]);
     ins(riSql, [uuidv4(), revId, '配信技術費', 1, 375000, 375000, 2]);
     ins(riSql, [uuidv4(), revId, '音響・照明', 1, 200000, 200000, 3]);
@@ -327,7 +327,7 @@ export async function seed() {
   // GLS-A004: 新サービス発表会
   {
     const revId = uuidv4();
-    ins(revSql, [revId, 'GLS-A004-001-1', PROJECTS['GLS-A004'], EPISODES['GLS-A004-001'], CUSTOMERS['PW'], USERS.staff3, 'tax10', 2800000, '2026-04-30', null, '2026年株主総会']);
+    ins(revSql, [revId, 'GLS-A004-001-1', PROJECTS['GLS-A004'], EPISODES['GLS-A004-001'], CUSTOMERS['PW'], USERS.staff3, 'tax10', 2800000, '2026-04-30', null, '2026年株主総会', 'confirmed']);
     ins(riSql, [uuidv4(), revId, 'スタジオ基本利用料', 1, 1500000, 1500000, 1]);
     ins(riSql, [uuidv4(), revId, 'Zoom配信設備＋オペレーション', 1, 600000, 600000, 2]);
     ins(riSql, [uuidv4(), revId, '技術スタッフ', 1, 400000, 400000, 3]);
@@ -338,7 +338,7 @@ export async function seed() {
   for (let i = 1; i <= 6; i++) {
     const code = `GLS-A005-${String(i).padStart(3, '0')}`;
     const revId = uuidv4();
-    ins(revSql, [revId, `${code}-1`, PROJECTS['GLS-A005'], EPISODES[code], CUSTOMERS['GE'], staffIds[i % 3], 'tax10', 2000000, '2026-04-30', null, `撮影${i}日目`]);
+    ins(revSql, [revId, `${code}-1`, PROJECTS['GLS-A005'], EPISODES[code], CUSTOMERS['GE'], staffIds[i % 3], 'tax10', 2000000, '2026-04-30', null, `撮影${i}日目`, 'confirmed']);
     ins(riSql, [uuidv4(), revId, 'スタジオ収録費', 1, 1200000, 1200000, 1]);
     ins(riSql, [uuidv4(), revId, '撮影技術費', 1, 600000, 600000, 2]);
     ins(riSql, [uuidv4(), revId, '諸経費', 1, 200000, 200000, 3]);
@@ -347,39 +347,37 @@ export async function seed() {
   // GLS-A006〜008: 単発案件
   {
     const revId6 = uuidv4();
-    ins(revSql, [revId6, 'GLS-A006-001-1', PROJECTS['GLS-A006'], EPISODES['GLS-A006-001'], CUSTOMERS['DA'], USERS.staff3, 'tax10', 1500000, '2026-04-30', null, '社内イベント中継']);
+    ins(revSql, [revId6, 'GLS-A006-001-1', PROJECTS['GLS-A006'], EPISODES['GLS-A006-001'], CUSTOMERS['DA'], USERS.staff3, 'tax10', 1500000, '2026-04-30', null, '社内イベント中継', 'confirmed']);
     ins(riSql, [uuidv4(), revId6, '配信設備＋オペレーション', 1, 900000, 900000, 1]);
     ins(riSql, [uuidv4(), revId6, '技術スタッフ', 1, 400000, 400000, 2]);
     ins(riSql, [uuidv4(), revId6, '通信回線費', 1, 200000, 200000, 3]);
   }
   {
     const revId7 = uuidv4();
-    ins(revSql, [revId7, 'GLS-A007-001-1', PROJECTS['GLS-A007'], EPISODES['GLS-A007-001'], CUSTOMERS['JB'], USERS.staff1, 'tax10', 4500000, '2026-04-30', null, 'パイロット版']);
+    ins(revSql, [revId7, 'GLS-A007-001-1', PROJECTS['GLS-A007'], EPISODES['GLS-A007-001'], CUSTOMERS['JB'], USERS.staff1, 'tax10', 4500000, '2026-04-30', null, 'パイロット版', 'estimate']);
     ins(riSql, [uuidv4(), revId7, 'スタジオ利用料（2日間）', 2, 1500000, 3000000, 1]);
     ins(riSql, [uuidv4(), revId7, '技術スタッフ', 1, 900000, 900000, 2]);
     ins(riSql, [uuidv4(), revId7, '照明・音響', 1, 600000, 600000, 3]);
   }
   {
     const revId8 = uuidv4();
-    ins(revSql, [revId8, 'GLS-A008-001-1', PROJECTS['GLS-A008'], EPISODES['GLS-A008-001'], CUSTOMERS['富士見'], USERS.staff3, 'tax10', 3200000, '2026-03-31', null, '春キャンペーンCM']);
+    ins(revSql, [revId8, 'GLS-A008-001-1', PROJECTS['GLS-A008'], EPISODES['GLS-A008-001'], CUSTOMERS['富士見'], USERS.staff3, 'tax10', 3200000, '2026-03-31', null, '春キャンペーンCM', 'confirmed']);
     ins(riSql, [uuidv4(), revId8, 'スタジオ利用料', 1, 1500000, 1500000, 1]);
     ins(riSql, [uuidv4(), revId8, 'CM撮影技術費', 1, 1200000, 1200000, 2]);
     ins(riSql, [uuidv4(), revId8, '美術・セット費', 1, 500000, 500000, 3]);
   }
 
   // --- B系売上（エピソードなし）---
-  const revBSql = `INSERT INTO revenues (id, billing_key, project_id, episode_id, customer_id, assigned_to, tax_category, amount, recognition_date, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-
   // GLS-B001: コンサルティング契約（月額×12）
   const revB001Id = uuidv4();
-  ins(revBSql, [revB001Id, 'GLS-B001-001-1', PROJECTS['GLS-B001'], null, CUSTOMERS['GH'], USERS.staff1, 'tax10', 3600000, '2026-03-31', '年間コンサルティング契約']);
+  ins(revSql, [revB001Id, 'GLS-B001-001-1', PROJECTS['GLS-B001'], null, CUSTOMERS['GH'], USERS.staff1, 'tax10', 3600000, '2026-03-31', '年間コンサルティング契約', null, 'confirmed']);
   ins(riSql, [uuidv4(), revB001Id, '配信コンサルティング（月額）', 12, 250000, 3000000, 1]);
   ins(riSql, [uuidv4(), revB001Id, '配信環境構築サポート', 1, 400000, 400000, 2]);
   ins(riSql, [uuidv4(), revB001Id, 'レポート作成費', 4, 50000, 200000, 3]);
 
   // GLS-B002: 動画戦略コンサルティング
   const revB002Id = uuidv4();
-  ins(revBSql, [revB002Id, 'GLS-B002-001-1', PROJECTS['GLS-B002'], null, CUSTOMERS['PW'], USERS.staff2, 'tax10', 2400000, '2026-04-30', '動画戦略コンサルティング']);
+  ins(revSql, [revB002Id, 'GLS-B002-001-1', PROJECTS['GLS-B002'], null, CUSTOMERS['PW'], USERS.staff2, 'tax10', 2400000, '2026-04-30', '動画戦略コンサルティング', null, 'confirmed']);
   ins(riSql, [uuidv4(), revB002Id, '動画戦略策定', 1, 800000, 800000, 1]);
   ins(riSql, [uuidv4(), revB002Id, '競合分析レポート', 1, 600000, 600000, 2]);
   ins(riSql, [uuidv4(), revB002Id, '運用マニュアル作成', 1, 500000, 500000, 3]);
@@ -417,6 +415,7 @@ export async function seed() {
   const pgSql = `INSERT INTO project_groups (id, name, description, created_by) VALUES (?, ?, ?, ?)`;
   const pgmSql = `INSERT INTO project_group_members (group_id, project_id) VALUES (?, ?)`;
   const paSql = `INSERT INTO purchase_allocations (id, purchase_id, project_id, allocated_amount) VALUES (?, ?, ?, ?)`;
+  const raSql = `INSERT INTO revenue_allocations (id, revenue_id, project_id, allocated_amount) VALUES (?, ?, ?, ?)`;
 
   // グループ1: GH IR関連（GLS-A001 + GLS-B001）
   const GROUP1 = uuidv4();
@@ -431,6 +430,15 @@ export async function seed() {
   ins(paSql, [uuidv4(), gpPur1, PROJECTS['GLS-A001'], 300000]);
   ins(paSql, [uuidv4(), gpPur1, PROJECTS['GLS-B001'], 200000]);
 
+  // グループ売上: IR関連共通プロデュース費（GLS-A001:70%, GLS-B001:30%）
+  const gpRev1 = uuidv4();
+  ins(revSql, [gpRev1, 'GLS-A001-002-1', PROJECTS['GLS-A001'], null, CUSTOMERS['GH'], USERS.staff1, 'tax10', 1000000, '2026-03-31', null, 'IR関連共通プロデュース費', 'confirmed']);
+  execute(`UPDATE revenues SET group_id = ? WHERE id = ?`, [GROUP1, gpRev1]);
+  ins(riSql, [uuidv4(), gpRev1, 'IR関連プロデュース費', 1, 700000, 700000, 1]);
+  ins(riSql, [uuidv4(), gpRev1, '配信環境コーディネート費', 1, 300000, 300000, 2]);
+  ins(raSql, [uuidv4(), gpRev1, PROJECTS['GLS-A001'], 700000]);
+  ins(raSql, [uuidv4(), gpRev1, PROJECTS['GLS-B001'], 300000]);
+
   // グループ2: PW 案件横断（GLS-A004 + GLS-B002）
   const GROUP2 = uuidv4();
   ins(pgSql, [GROUP2, 'PW 2026年度案件', 'PW社の発表会とコンサルティング横断費用', USERS.admin]);
@@ -443,6 +451,15 @@ export async function seed() {
   execute(`UPDATE purchases SET group_id = ? WHERE id = ?`, [GROUP2, gpPur2]);
   ins(paSql, [uuidv4(), gpPur2, PROJECTS['GLS-A004'], 200000]);
   ins(paSql, [uuidv4(), gpPur2, PROJECTS['GLS-B002'], 200000]);
+
+  // グループ売上: PW横断企画費（均等按分）
+  const gpRev2 = uuidv4();
+  ins(revSql, [gpRev2, 'GLS-A004-002-1', PROJECTS['GLS-A004'], null, CUSTOMERS['PW'], USERS.staff2, 'tax10', 600000, '2026-04-30', null, 'PW 2026年度横断企画費', 'estimate']);
+  execute(`UPDATE revenues SET group_id = ? WHERE id = ?`, [GROUP2, gpRev2]);
+  ins(riSql, [uuidv4(), gpRev2, '年間企画コーディネート費', 1, 400000, 400000, 1]);
+  ins(riSql, [uuidv4(), gpRev2, '共通資料制作ディレクション', 1, 200000, 200000, 2]);
+  ins(raSql, [uuidv4(), gpRev2, PROJECTS['GLS-A004'], 300000]);
+  ins(raSql, [uuidv4(), gpRev2, PROJECTS['GLS-B002'], 300000]);
 
   // ============================================================
   // Invoice Groups (GLS-A002)
