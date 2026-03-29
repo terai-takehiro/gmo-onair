@@ -159,6 +159,7 @@ export async function seed() {
   for (let i = 0; i < yomiData.length; i++) {
     const [code, name, custKey, projType, stage, amt, eventStart, eventEnd] = yomiData[i];
     const id = uuidv4();
+    PROJECTS[code] = id;
     ins(projSql, [id, code, null, name, CUSTOMERS[custKey], stage, projType, amt, eventStart, eventEnd, null, null, staffIds[i % 3], '', USERS.admin]);
   }
 
@@ -382,6 +383,70 @@ export async function seed() {
   ins(riSql, [uuidv4(), revB002Id, '競合分析レポート', 1, 600000, 600000, 2]);
   ins(riSql, [uuidv4(), revB002Id, '運用マニュアル作成', 1, 500000, 500000, 3]);
   ins(riSql, [uuidv4(), revB002Id, 'トレーニング（3回）', 3, 166667, 500000, 4]);
+
+  // --- ヨミ段階の概算見積もり ---
+  // OPP-202603-0001: 中央放送 春の特別企画
+  {
+    const revId = uuidv4();
+    ins(revSql, [revId, 'EST-001-1', PROJECTS['OPP-202603-0001'], null, CUSTOMERS['中央放送'], USERS.staff1, 'tax10', 3000000, null, '概算見積り', '春の特別企画', 'estimate']);
+    ins(riSql, [uuidv4(), revId, 'スタジオ基本利用料（1日）', 1, 1500000, 1500000, 1]);
+    ins(riSql, [uuidv4(), revId, '収録技術スタッフ', 1, 800000, 800000, 2]);
+    ins(riSql, [uuidv4(), revId, '照明・音響', 1, 500000, 500000, 3]);
+    ins(riSql, [uuidv4(), revId, '諸経費', 1, 200000, 200000, 4]);
+  }
+
+  // OPP-202603-0002: GH サマーカンファレンス
+  {
+    const revId = uuidv4();
+    ins(revSql, [revId, 'EST-001-1', PROJECTS['OPP-202603-0002'], null, CUSTOMERS['GH'], USERS.staff2, 'tax10', 5000000, null, '概算見積り', 'サマーカンファレンス', 'estimate']);
+    ins(riSql, [uuidv4(), revId, 'WORLD STUDIO利用料（2日間）', 2, 1500000, 3000000, 1]);
+    ins(riSql, [uuidv4(), revId, 'ハイブリッド配信設備', 1, 800000, 800000, 2]);
+    ins(riSql, [uuidv4(), revId, '技術スタッフ（TD・SW・VE・カメラ）', 1, 700000, 700000, 3]);
+    ins(riSql, [uuidv4(), revId, '控室利用（VIP LOUNGE＋ROOM A/B）', 2, 150000, 300000, 4]);
+    ins(riSql, [uuidv4(), revId, '施設管理費', 1, 200000, 200000, 5]);
+  }
+
+  // OPP-202603-0004: 東都TV ドラマ撮影
+  {
+    const revId = uuidv4();
+    ins(revSql, [revId, 'EST-001-1', PROJECTS['OPP-202603-0004'], null, CUSTOMERS['東都TV'], USERS.staff1, 'tax10', 8000000, null, '概算見積り', 'ドラマ撮影（3日間）', 'estimate']);
+    ins(riSql, [uuidv4(), revId, 'SKY STUDIO利用料（3日間）', 3, 1500000, 4500000, 1]);
+    ins(riSql, [uuidv4(), revId, '撮影技術チーム', 3, 600000, 1800000, 2]);
+    ins(riSql, [uuidv4(), revId, '照明セット＋オペレーター', 3, 300000, 900000, 3]);
+    ins(riSql, [uuidv4(), revId, '美術・セット費', 1, 500000, 500000, 4]);
+    ins(riSql, [uuidv4(), revId, '諸経費（ケータリング等）', 1, 300000, 300000, 5]);
+  }
+
+  // OPP-202603-0005: SN スポーツ中継
+  {
+    const revId = uuidv4();
+    ins(revSql, [revId, 'EST-001-1', PROJECTS['OPP-202603-0005'], null, CUSTOMERS['SN'], USERS.staff3, 'tax10', 6000000, null, '概算見積り', 'スポーツ中継', 'estimate']);
+    ins(riSql, [uuidv4(), revId, 'WORLD STUDIO利用料', 1, 2000000, 2000000, 1]);
+    ins(riSql, [uuidv4(), revId, '生中継技術（カメラ6台＋SW）', 1, 2000000, 2000000, 2]);
+    ins(riSql, [uuidv4(), revId, '配信設備＋回線費', 1, 1200000, 1200000, 3]);
+    ins(riSql, [uuidv4(), revId, 'スタッフ・諸経費', 1, 800000, 800000, 4]);
+  }
+
+  // OPP-202603-0006: GE リアリティ番組制作
+  {
+    const revId = uuidv4();
+    ins(revSql, [revId, 'EST-001-1', PROJECTS['OPP-202603-0006'], null, CUSTOMERS['GE'], USERS.staff3, 'tax10', 12000000, null, '概算見積り', 'リアリティ番組（3日間撮影）', 'estimate']);
+    ins(riSql, [uuidv4(), revId, 'WORLD STUDIO利用料（3日間）', 3, 2000000, 6000000, 1]);
+    ins(riSql, [uuidv4(), revId, '撮影技術チーム（カメラ8台）', 3, 1000000, 3000000, 2]);
+    ins(riSql, [uuidv4(), revId, '照明・音響・美術', 3, 600000, 1800000, 3]);
+    ins(riSql, [uuidv4(), revId, '控室・ケータリング', 3, 200000, 600000, 4]);
+    ins(riSql, [uuidv4(), revId, '諸経費', 1, 600000, 600000, 5]);
+  }
+
+  // OPP-202603-0009: PW IR動画制作
+  {
+    const revId = uuidv4();
+    ins(revSql, [revId, 'EST-001-1', PROJECTS['OPP-202603-0009'], null, CUSTOMERS['PW'], USERS.staff1, 'tax10', 2000000, null, '概算見積り', 'IR動画制作', 'estimate']);
+    ins(riSql, [uuidv4(), revId, '動画撮影（半日）', 1, 800000, 800000, 1]);
+    ins(riSql, [uuidv4(), revId, '編集・MA', 1, 700000, 700000, 2]);
+    ins(riSql, [uuidv4(), revId, 'ナレーション・テロップ', 1, 300000, 300000, 3]);
+    ins(riSql, [uuidv4(), revId, 'ディレクション費', 1, 200000, 200000, 4]);
+  }
 
   // ============================================================
   // Purchases
