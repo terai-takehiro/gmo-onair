@@ -3,7 +3,7 @@ services:
     name: gmo-onair
     runtime: node
     plan: free
-    buildCommand: npm cache clean --force && npm install --include=dev && npm run build:render
+    buildCommand: rm -rf node_modules client/dist client-equipment/dist server/dist && npm cache clean --force && npm install --include=dev && npm run build:render
     startCommand: npm run start:render
     envVars:
       - key: NODE_ENV
