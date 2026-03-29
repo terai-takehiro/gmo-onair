@@ -5,16 +5,16 @@ import fs from 'fs';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const pdfmake = require('pdfmake');
 
-// フォント登録
+// フォント登録（pdfmake v0.3.x はファイルパスを要求）
 const fontsDir = path.resolve(__dirname, '../../../assets/fonts');
-const fontData = fs.readFileSync(path.join(fontsDir, 'NotoSansJP.ttf'));
+const fontPath = path.join(fontsDir, 'NotoSansJP.ttf');
 
 pdfmake.fonts = {
   NotoSansJP: {
-    normal: fontData,
-    bold: fontData,
-    italics: fontData,
-    bolditalics: fontData,
+    normal: fontPath,
+    bold: fontPath,
+    italics: fontPath,
+    bolditalics: fontPath,
   },
 };
 
