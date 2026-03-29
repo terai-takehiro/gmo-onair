@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import api from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
+import { PageTransition } from "@/components/ui/motion";
 import type { PricingCategory, PricingItem, CalcType } from "@/types";
 import { CalcTypeLabels } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -320,6 +321,7 @@ export default function PricingListPage() {
   };
 
   return (
+    <PageTransition>
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-xl lg:text-2xl font-bold">料金表マスター</h1>
@@ -456,5 +458,6 @@ export default function PricingListPage() {
         editingItem={editingItem}
       />
     </div>
+    </PageTransition>
   );
 }

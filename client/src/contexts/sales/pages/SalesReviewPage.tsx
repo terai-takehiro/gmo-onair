@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { PageTransition } from "@/components/ui/motion";
+import { AnimatedCurrency, AnimatedNumber } from "@/components/ui/animated-number";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -155,6 +157,7 @@ export default function SalesReviewPage() {
       : 0;
 
   return (
+    <PageTransition>
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -228,7 +231,7 @@ export default function SalesReviewPage() {
                   <div className="min-w-0">
                     <p className="text-xs text-muted-foreground">ヨミ総数</p>
                     <p className="text-2xl font-bold font-number">
-                      {funnel?.total_count ?? 0}
+                      <AnimatedNumber value={funnel?.total_count ?? 0} />
                     </p>
                   </div>
                 </div>
@@ -241,7 +244,7 @@ export default function SalesReviewPage() {
                   <div className="min-w-0">
                     <p className="text-xs text-muted-foreground">受注率</p>
                     <p className="text-2xl font-bold font-number">
-                      {funnel?.win_rate ?? 0}%
+                      <AnimatedNumber value={funnel?.win_rate ?? 0} suffix="%" />
                     </p>
                   </div>
                 </div>
@@ -254,7 +257,7 @@ export default function SalesReviewPage() {
                   <div className="min-w-0">
                     <p className="text-xs text-muted-foreground">失注率</p>
                     <p className="text-2xl font-bold font-number">
-                      {funnel?.loss_rate ?? 0}%
+                      <AnimatedNumber value={funnel?.loss_rate ?? 0} suffix="%" />
                     </p>
                   </div>
                 </div>
@@ -267,8 +270,7 @@ export default function SalesReviewPage() {
                   <div className="min-w-0">
                     <p className="text-xs text-muted-foreground">平均滞留</p>
                     <p className="text-2xl font-bold font-number">
-                      {funnel?.avg_dwell_days ?? 0}
-                      <span className="text-sm font-normal">日</span>
+                      <AnimatedNumber value={funnel?.avg_dwell_days ?? 0} suffix="日" />
                     </p>
                   </div>
                 </div>
@@ -442,10 +444,7 @@ export default function SalesReviewPage() {
               <CardContent className="pt-4 pb-3">
                 <p className="text-xs text-muted-foreground">失注件数</p>
                 <p className="text-2xl font-bold text-red-500 font-number">
-                  {lostAnalysis?.total_lost ?? 0}
-                  <span className="text-sm font-normal text-muted-foreground ml-1">
-                    件
-                  </span>
+                  <AnimatedNumber value={lostAnalysis?.total_lost ?? 0} suffix="件" />
                 </p>
               </CardContent>
             </Card>
@@ -453,7 +452,7 @@ export default function SalesReviewPage() {
               <CardContent className="pt-4 pb-3">
                 <p className="text-xs text-muted-foreground">失注金額合計</p>
                 <p className="text-xl font-bold text-red-500 font-number">
-                  {formatCurrency(lostAnalysis?.total_lost_amount ?? 0)}
+                  <AnimatedCurrency value={lostAnalysis?.total_lost_amount ?? 0} />
                 </p>
               </CardContent>
             </Card>
@@ -461,7 +460,7 @@ export default function SalesReviewPage() {
               <CardContent className="pt-4 pb-3">
                 <p className="text-xs text-muted-foreground">平均失注金額</p>
                 <p className="text-xl font-bold font-number">
-                  {formatCurrency(lostAnalysis?.avg_lost_amount ?? 0)}
+                  <AnimatedCurrency value={lostAnalysis?.avg_lost_amount ?? 0} />
                 </p>
               </CardContent>
             </Card>
@@ -969,5 +968,6 @@ export default function SalesReviewPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </PageTransition>
   );
 }

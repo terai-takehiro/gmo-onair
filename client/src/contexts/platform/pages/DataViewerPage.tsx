@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
+import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -277,6 +278,7 @@ export default function DataViewerPage() {
   const pagination = tableData?.pagination;
 
   return (
+    <PageTransition>
     <div className="flex flex-col lg:flex-row h-[calc(100vh-3.5rem)] overflow-hidden">
       {/* Left sidebar - table list */}
       <div className="w-full lg:w-56 flex-shrink-0 border-b lg:border-b-0 lg:border-r bg-muted/30 overflow-y-auto max-h-48 lg:max-h-none">
@@ -456,5 +458,6 @@ export default function DataViewerPage() {
         )}
       </div>
     </div>
+    </PageTransition>
   );
 }

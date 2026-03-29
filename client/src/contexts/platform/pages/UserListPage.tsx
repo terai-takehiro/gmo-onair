@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import api from "@/lib/api";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { formatDate } from "@/lib/format";
+import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -103,6 +104,7 @@ export default function UserListPage() {
   }
 
   return (
+    <PageTransition>
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       <div className="flex flex-wrap gap-2 items-center justify-between">
         <h1 className="text-xl lg:text-2xl font-bold">ユーザー管理</h1>
@@ -217,5 +219,6 @@ export default function UserListPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </PageTransition>
   );
 }

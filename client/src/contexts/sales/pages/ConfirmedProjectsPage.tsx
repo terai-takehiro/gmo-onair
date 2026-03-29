@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { PageTransition } from "@/components/ui/motion";
 import {
   ProjectStageLabels,
   ProjectStageColors,
@@ -65,6 +66,7 @@ export default function ConfirmedProjectsPage() {
     : "GLS-B：コンサルティング・その他売上案件";
 
   return (
+    <PageTransition>
     <div className="space-y-4 p-3 lg:p-6">
       {/* Header */}
       <div className="flex items-center gap-3">
@@ -293,5 +295,6 @@ export default function ConfirmedProjectsPage() {
         </>
       )}
     </div>
+    </PageTransition>
   );
 }

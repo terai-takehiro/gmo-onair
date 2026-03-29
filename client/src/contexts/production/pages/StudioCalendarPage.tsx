@@ -7,6 +7,7 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
 import api from "@/lib/api";
+import { PageTransition } from "@/components/ui/motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -303,6 +304,7 @@ export default function StudioCalendarPage() {
   const clearFilter = () => setSelectedRoomIds(new Set());
 
   return (
+    <PageTransition>
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -477,5 +479,6 @@ export default function StudioCalendarPage() {
         }}
       />
     </div>
+    </PageTransition>
   );
 }

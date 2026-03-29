@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { PageTransition } from "@/components/ui/motion";
 import {
   Customer,
   Vendor,
@@ -900,6 +901,7 @@ export default function ProjectGroupListPage() {
 
   // 一覧ビュー
   return (
+    <PageTransition>
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3">
@@ -962,6 +964,7 @@ export default function ProjectGroupListPage() {
         isEdit={!!editingGroupId}
       />
     </div>
+    </PageTransition>
   );
 }
 

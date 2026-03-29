@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import api from "@/lib/api";
+import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -218,6 +219,7 @@ export default function ProjectFormPage() {
   }
 
   return (
+    <PageTransition>
     <div className="mx-auto max-w-3xl space-y-4 lg:space-y-6 p-3 lg:p-6">
       <div className="flex items-center gap-4 flex-wrap">
         <Button variant="ghost" size="icon" onClick={() => navigate("/projects")}>
@@ -772,5 +774,6 @@ export default function ProjectFormPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </PageTransition>
   );
 }

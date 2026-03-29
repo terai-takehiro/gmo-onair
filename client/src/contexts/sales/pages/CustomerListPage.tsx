@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import api from "@/lib/api";
+import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -99,6 +100,7 @@ export default function CustomerListPage() {
   };
 
   return (
+    <PageTransition>
     <div className="space-y-4 p-3 lg:p-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-xl lg:text-2xl font-bold">顧客マスター</h1>
@@ -229,5 +231,6 @@ export default function CustomerListPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </PageTransition>
   );
 }

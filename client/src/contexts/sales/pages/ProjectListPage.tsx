@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { ProjectStageLabels, ProjectStageColors, ProjectTypeLabels, type ProjectStage } from "@/types";
+import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +44,7 @@ export default function ProjectListPage() {
   const pagination = data?.pagination;
 
   return (
+    <PageTransition>
     <div className="space-y-4 p-3 lg:p-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-xl lg:text-2xl font-bold">案件管理</h1>
@@ -188,5 +190,6 @@ export default function ProjectListPage() {
         </>
       )}
     </div>
+    </PageTransition>
   );
 }

@@ -2,8 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "../AuthContext";
+import { StaggerList, StaggerItem, LiftCard } from "@/components/ui/motion";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { CardContent } from "@/components/ui/card";
 import { Loader2, User } from "lucide-react";
 
 const roleLabelMap: Record<string, string> = {
@@ -52,31 +53,32 @@ export default function LoginPage() {
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <StaggerList className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {users?.map((user) => (
-              <Card
-                key={user.id}
-                className="cursor-pointer transition-all hover:shadow-lg hover:ring-2 hover:ring-primary/50"
-                onClick={() => handleLogin(user.id)}
-              >
-                <CardContent className="flex items-center gap-4 p-6">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                    <User className="h-6 w-6 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold">{user.name}</p>
-                    <p className="text-sm text-muted-foreground">{user.email}</p>
-                    <Badge
-                      className="mt-1"
-                      color={roleColorMap[user.role]}
-                    >
-                      {roleLabelMap[user.role] || user.role}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
+              <StaggerItem key={user.id}>
+                <LiftCard
+                  className="cursor-pointer rounded-lg border bg-card text-card-foreground shadow-sm"
+                  onClick={() => handleLogin(user.id)}
+                >
+                  <CardContent className="flex items-center gap-4 p-6">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                      <User className="h-6 w-6 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold">{user.name}</p>
+                      <p className="text-sm text-muted-foreground">{user.email}</p>
+                      <Badge
+                        className="mt-1"
+                        color={roleColorMap[user.role]}
+                      >
+                        {roleLabelMap[user.role] || user.role}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </LiftCard>
+              </StaggerItem>
             ))}
-          </div>
+          </StaggerList>
         )}
 
         <p className="mt-8 text-center text-xs text-muted-foreground">

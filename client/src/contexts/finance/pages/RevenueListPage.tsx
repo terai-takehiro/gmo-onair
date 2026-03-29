@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { PageTransition } from "@/components/ui/motion";
 import { getProjectCategory } from "@/types";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -236,6 +237,7 @@ export default function RevenueListPage() {
     !createMutation.isPending;
 
   return (
+    <PageTransition>
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       <div className="flex flex-wrap gap-2 items-center justify-between">
         <div>
@@ -753,5 +755,6 @@ export default function RevenueListPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </PageTransition>
   );
 }

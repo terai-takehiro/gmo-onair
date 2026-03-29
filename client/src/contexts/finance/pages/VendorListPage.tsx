@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import api from "@/lib/api";
+import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -87,6 +88,7 @@ export default function VendorListPage() {
   const closeDialog = () => { setDialogOpen(false); setEditingId(null); };
 
   return (
+    <PageTransition>
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       <div className="flex flex-wrap gap-2 items-center justify-between">
         <h1 className="text-xl lg:text-2xl font-bold">仕入先マスター</h1>
@@ -207,5 +209,6 @@ export default function VendorListPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </PageTransition>
   );
 }

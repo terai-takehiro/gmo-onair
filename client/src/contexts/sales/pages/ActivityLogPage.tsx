@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { formatDate } from "@/lib/format";
+import { PageTransition } from "@/components/ui/motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -142,6 +143,7 @@ export default function ActivityLogPage() {
   const isOverdue = (date: string) => date < new Date().toISOString().split("T")[0];
 
   return (
+    <PageTransition>
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
@@ -421,5 +423,6 @@ export default function ActivityLogPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </PageTransition>
   );
 }

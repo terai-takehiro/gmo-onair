@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useAuth } from "@/contexts/platform/AuthContext";
+import { PageTransition } from "@/components/ui/motion";
 import {
   SgaExpense,
   Vendor,
@@ -168,6 +169,7 @@ export default function SgaListPage() {
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
+    <PageTransition>
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       <div className="flex flex-wrap gap-2 items-center justify-between">
         <h1 className="text-xl lg:text-2xl font-bold">販管費一覧</h1>
@@ -432,5 +434,6 @@ export default function SgaListPage() {
         onClose={handleCloseDialog}
       />
     </div>
+    </PageTransition>
   );
 }

@@ -2,7 +2,9 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
-import { formatCurrency, formatPercent } from "@/lib/format";
+import { formatPercent } from "@/lib/format";
+import { AnimatedCurrency } from "@/components/ui/animated-number";
+import { PageTransition, StaggerList, StaggerItem, LiftCard } from "@/components/ui/motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -165,6 +167,7 @@ export default function DashboardPage() {
   ];
 
   return (
+    <PageTransition>
     <div className="space-y-4 p-3 lg:space-y-6 lg:p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-lg lg:text-2xl font-bold">ダッシュボード</h1>
@@ -201,28 +204,28 @@ export default function DashboardPage() {
                 <DollarSign className="h-5 w-5 shrink-0 opacity-80" />
                 <div className="min-w-0">
                   <p className="text-[10px] opacity-80">売上</p>
-                  <p className="text-base font-bold font-number truncate">{formatCurrency(kpi.monthly_revenue)}</p>
+                  <AnimatedCurrency value={kpi.monthly_revenue} className="text-base font-bold font-number truncate" />
                 </div>
               </div>
               <div className="bg-orange-500 text-white p-3 flex items-center gap-2">
                 <ShoppingCart className="h-5 w-5 shrink-0 opacity-80" />
                 <div className="min-w-0">
                   <p className="text-[10px] opacity-80">変動原価</p>
-                  <p className="text-base font-bold font-number truncate">{formatCurrency(kpi.monthly_purchase)}</p>
+                  <AnimatedCurrency value={kpi.monthly_purchase} className="text-base font-bold font-number truncate" />
                 </div>
               </div>
               <div className="bg-emerald-600 text-white p-3 flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 shrink-0 opacity-80" />
                 <div className="min-w-0">
                   <p className="text-[10px] opacity-80">粗利 <span className="font-semibold">{formatPercent(kpi.monthly_gross_margin)}</span></p>
-                  <p className="text-base font-bold font-number truncate">{formatCurrency(kpi.gross_profit)}</p>
+                  <AnimatedCurrency value={kpi.gross_profit} className="text-base font-bold font-number truncate" />
                 </div>
               </div>
               <div className="bg-red-500 text-white p-3 flex items-center gap-2">
                 <Receipt className="h-5 w-5 shrink-0 opacity-80" />
                 <div className="min-w-0">
                   <p className="text-[10px] opacity-80">販管費</p>
-                  <p className="text-base font-bold font-number truncate">{formatCurrency(kpi.monthly_sga)}</p>
+                  <AnimatedCurrency value={kpi.monthly_sga} className="text-base font-bold font-number truncate" />
                 </div>
               </div>
               <div className={`col-span-2 p-3 flex items-center justify-center gap-3 ${
@@ -231,7 +234,7 @@ export default function DashboardPage() {
                 <BarChart3 className="h-5 w-5 shrink-0 opacity-80" />
                 <div className="flex items-baseline gap-2">
                   <p className="text-[10px] opacity-80">営業利益</p>
-                  <p className="text-lg font-bold font-number">{formatCurrency(kpi.operating_profit)}</p>
+                  <AnimatedCurrency value={kpi.operating_profit} className="text-lg font-bold font-number" />
                   <p className="text-sm font-semibold opacity-90">{formatPercent(kpi.operating_margin)}</p>
                 </div>
               </div>
@@ -241,7 +244,7 @@ export default function DashboardPage() {
               <div className="flex-1 bg-blue-600 text-white p-6 flex flex-col justify-center items-center relative animate-[fadeIn_0.5s_ease-out]">
                 <DollarSign className="h-8 w-8 mb-2 opacity-80" />
                 <p className="text-sm font-medium opacity-80">売上</p>
-                <p className="text-3xl font-bold font-number">{formatCurrency(kpi.monthly_revenue)}</p>
+                <AnimatedCurrency value={kpi.monthly_revenue} className="text-3xl font-bold font-number" />
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 bg-white rounded-full p-1 shadow">
                   <span className="text-gray-400 text-lg font-bold">-</span>
                 </div>
@@ -249,7 +252,7 @@ export default function DashboardPage() {
               <div className="flex-1 bg-orange-500 text-white p-6 flex flex-col justify-center items-center relative animate-[fadeIn_0.7s_ease-out]">
                 <ShoppingCart className="h-8 w-8 mb-2 opacity-80" />
                 <p className="text-sm font-medium opacity-80">変動原価(仕入)</p>
-                <p className="text-3xl font-bold font-number">{formatCurrency(kpi.monthly_purchase)}</p>
+                <AnimatedCurrency value={kpi.monthly_purchase} className="text-3xl font-bold font-number" />
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 bg-white rounded-full p-1 shadow">
                   <span className="text-gray-400 text-lg font-bold">=</span>
                 </div>
@@ -257,7 +260,7 @@ export default function DashboardPage() {
               <div className="flex-1 bg-emerald-600 text-white p-6 flex flex-col justify-center items-center relative animate-[fadeIn_0.9s_ease-out]">
                 <TrendingUp className="h-8 w-8 mb-2 opacity-80" />
                 <p className="text-sm font-medium opacity-80">粗利</p>
-                <p className="text-3xl font-bold font-number">{formatCurrency(kpi.gross_profit)}</p>
+                <AnimatedCurrency value={kpi.gross_profit} className="text-3xl font-bold font-number" />
                 <p className="text-lg font-semibold opacity-90">{formatPercent(kpi.monthly_gross_margin)}</p>
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 bg-white rounded-full p-1 shadow">
                   <span className="text-gray-400 text-lg font-bold">-</span>
@@ -266,7 +269,7 @@ export default function DashboardPage() {
               <div className="flex-1 bg-red-500 text-white p-6 flex flex-col justify-center items-center relative animate-[fadeIn_1.1s_ease-out]">
                 <Receipt className="h-8 w-8 mb-2 opacity-80" />
                 <p className="text-sm font-medium opacity-80">販管費</p>
-                <p className="text-3xl font-bold font-number">{formatCurrency(kpi.monthly_sga)}</p>
+                <AnimatedCurrency value={kpi.monthly_sga} className="text-3xl font-bold font-number" />
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 bg-white rounded-full p-1 shadow">
                   <span className="text-gray-400 text-lg font-bold">=</span>
                 </div>
@@ -276,7 +279,7 @@ export default function DashboardPage() {
               } text-white`}>
                 <BarChart3 className="h-8 w-8 mb-2 opacity-80" />
                 <p className="text-sm font-medium opacity-80">営業利益</p>
-                <p className="text-3xl font-bold font-number">{formatCurrency(kpi.operating_profit)}</p>
+                <AnimatedCurrency value={kpi.operating_profit} className="text-3xl font-bold font-number" />
                 <p className="text-lg font-semibold opacity-90">{formatPercent(kpi.operating_margin)}</p>
               </div>
             </div>
@@ -525,21 +528,23 @@ export default function DashboardPage() {
       {/* Quick Links */}
       <div>
         <h2 className="mb-2 lg:mb-4 text-base lg:text-lg font-semibold">クイックリンク</h2>
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-3 lg:grid-cols-6 lg:gap-4">
+        <StaggerList className="grid grid-cols-3 gap-2 sm:grid-cols-3 lg:grid-cols-6 lg:gap-4">
           {quickLinks.map((link) => (
-            <Card
-              key={link.to}
-              className="cursor-pointer transition-all hover:shadow-md hover:ring-1 hover:ring-primary/30"
-              onClick={() => navigate(link.to)}
-            >
-              <CardContent className="flex flex-col items-center gap-1 p-3 lg:gap-2 lg:p-6">
-                <link.icon className="h-6 w-6 lg:h-8 lg:w-8 text-primary" />
-                <p className="text-xs lg:text-sm font-medium">{link.label}</p>
-              </CardContent>
-            </Card>
+            <StaggerItem key={link.to}>
+              <LiftCard
+                className="cursor-pointer rounded-lg border bg-card text-card-foreground shadow-sm"
+                onClick={() => navigate(link.to)}
+              >
+                <CardContent className="flex flex-col items-center gap-1 p-3 lg:gap-2 lg:p-6">
+                  <link.icon className="h-6 w-6 lg:h-8 lg:w-8 text-primary" />
+                  <p className="text-xs lg:text-sm font-medium">{link.label}</p>
+                </CardContent>
+              </LiftCard>
+            </StaggerItem>
           ))}
-        </div>
+        </StaggerList>
       </div>
     </div>
+    </PageTransition>
   );
 }

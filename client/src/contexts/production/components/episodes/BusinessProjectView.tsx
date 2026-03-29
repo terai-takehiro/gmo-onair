@@ -40,6 +40,7 @@ import {
   FileText,
   Download,
 } from "lucide-react";
+import { AnimatedCurrency } from "@/components/ui/animated-number";
 
 interface RevenueItem {
   description: string;
@@ -336,9 +337,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
             </CardTitle>
           </CardHeader>
           <CardContent className="pb-3 px-4">
-            <p className="text-lg font-bold font-number">
-              {formatCurrency(summary?.total_revenue ?? 0)}
-            </p>
+            <AnimatedCurrency value={summary?.total_revenue ?? 0} className="text-lg font-bold font-number" />
           </CardContent>
         </Card>
         <Card>
@@ -348,9 +347,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
             </CardTitle>
           </CardHeader>
           <CardContent className="pb-3 px-4">
-            <p className="text-lg font-bold font-number">
-              {formatCurrency(summary?.total_purchase ?? 0)}
-            </p>
+            <AnimatedCurrency value={summary?.total_purchase ?? 0} className="text-lg font-bold font-number" />
           </CardContent>
         </Card>
         <Card>
@@ -360,9 +357,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
             </CardTitle>
           </CardHeader>
           <CardContent className="pb-3 px-4">
-            <p className="text-lg font-bold font-number">
-              {formatCurrency(summary?.gross_profit ?? 0)}
-            </p>
+            <AnimatedCurrency value={summary?.gross_profit ?? 0} className="text-lg font-bold font-number" />
           </CardContent>
         </Card>
       </div>

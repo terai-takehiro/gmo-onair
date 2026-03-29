@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
+import { PageTransition } from "@/components/ui/motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,6 +74,7 @@ export default function VendorReportPage() {
   const totalCount = items.reduce((s, r) => s + r.purchase_count, 0);
 
   return (
+    <PageTransition>
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       <div className="flex flex-wrap gap-2 items-center justify-between">
         <h1 className="text-xl lg:text-2xl font-bold">仕入先別集計レポート</h1>
@@ -183,5 +185,6 @@ export default function VendorReportPage() {
         </CardContent>
       </Card>
     </div>
+    </PageTransition>
   );
 }
