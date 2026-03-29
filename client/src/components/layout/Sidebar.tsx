@@ -22,6 +22,7 @@ import {
   Film,
   Briefcase,
   GitBranch,
+  Package,
 } from "lucide-react";
 
 interface NavItem {
@@ -29,6 +30,7 @@ interface NavItem {
   to: string;
   icon: React.ElementType;
   adminOnly?: boolean;
+  external?: boolean;
 }
 
 interface NavSection {
@@ -62,8 +64,10 @@ const navSections: NavSection[] = [
     ],
   },
   {
+    title: "制作・運用",
     items: [
       { label: "スタジオ予約", to: "/calendar", icon: Calendar },
+      { label: "機材管理", to: "/equipment/", icon: Package, external: true },
     ],
   },
   {
@@ -138,25 +142,40 @@ export default function Sidebar() {
                       {section.title}
                     </p>
                   )}
-                  {visibleItems.map((item) => (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      end={item.to === "/"}
-                      onClick={() => setSidebarOpen(false)}
-                      className={({ isActive }) =>
-                        cn(
-                          "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                          isActive
-                            ? "bg-primary/10 text-primary"
-                            : "text-sidebar-foreground hover:bg-sidebar-accent"
-                        )
-                      }
-                    >
-                      <item.icon className="h-4 w-4" />
-                      {item.label}
-                    </NavLink>
-                  ))}
+                  {visibleItems.map((item) =>
+                    item.external ? (
+                      <a
+                        key={item.to}
+                        href={item.to}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setSidebarOpen(false)}
+                        className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors text-sidebar-foreground hover:bg-sidebar-accent"
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {item.label}
+                        <span className="ml-auto text-[10px] text-muted-foreground">↗</span>
+                      </a>
+                    ) : (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        end={item.to === "/"}
+                        onClick={() => setSidebarOpen(false)}
+                        className={({ isActive }) =>
+                          cn(
+                            "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                            isActive
+                              ? "bg-primary/10 text-primary"
+                              : "text-sidebar-foreground hover:bg-sidebar-accent"
+                          )
+                        }
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {item.label}
+                      </NavLink>
+                    )
+                  )}
                 </div>
               );
             })}

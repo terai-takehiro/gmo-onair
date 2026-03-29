@@ -22,6 +22,7 @@ import {
   BarChart3,
   AlertTriangle,
   Loader2,
+  Package,
 } from "lucide-react";
 
 interface KPI {
@@ -164,6 +165,7 @@ export default function DashboardPage() {
     { label: "仕入一覧", to: "/purchases", icon: ShoppingCart },
     { label: "カレンダー", to: "/calendar", icon: Calendar },
     { label: "マスター管理", to: "/masters/customers", icon: Building2 },
+    { label: "機材管理", to: "/equipment/", icon: Package, external: true },
   ];
 
   return (
@@ -533,7 +535,13 @@ export default function DashboardPage() {
             <StaggerItem key={link.to}>
               <LiftCard
                 className="cursor-pointer rounded-lg border bg-card text-card-foreground shadow-sm"
-                onClick={() => navigate(link.to)}
+                onClick={() => {
+                  if ('external' in link && link.external) {
+                    window.open(link.to, '_blank');
+                  } else {
+                    navigate(link.to);
+                  }
+                }}
               >
                 <CardContent className="flex flex-col items-center gap-1 p-3 lg:gap-2 lg:p-6">
                   <link.icon className="h-6 w-6 lg:h-8 lg:w-8 text-primary" />
