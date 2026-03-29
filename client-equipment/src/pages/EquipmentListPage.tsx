@@ -93,6 +93,12 @@ export default function EquipmentListPage() {
   });
   const categories: any[] = categoriesData ?? [];
 
+  const { data: locationsData } = useQuery({
+    queryKey: ["equipment-locations"],
+    queryFn: async () => (await api.get("/equipment/locations")).data.data,
+  });
+  const locations: any[] = locationsData ?? [];
+
   const items: any[] = itemsData?.data ?? [];
 
   // Mutations
@@ -245,7 +251,7 @@ export default function EquipmentListPage() {
                       {item.category_name && <span>{item.category_name}</span>}
                       {item.location_detail && <span>📍 {item.location_detail}</span>}
                     </div>
-                    {item.is_lendable && item.current_lending && (
+                    {item.item_type === "rental" && item.is_lendable && item.current_lending && (
                       <div className="mt-1.5 text-xs text-amber-700 bg-amber-50 rounded px-2 py-1 inline-block">
                         貸出中: {item.current_lending.borrower_name}
                       </div>
@@ -325,7 +331,19 @@ export default function EquipmentListPage() {
               </div>
               <div className="space-y-1">
                 <Label>保管場所</Label>
-                <Input value={form.location_detail} onChange={(e) => setForm({ ...form, location_detail: e.target.value })} placeholder="3F ラックB-2" />
+                <Select value={form.location_id} onValueChange={(v) => setForm({ ...form, location_id: v === "none" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">なし</SelectItem>
+                    {locations.map((loc: any) => (
+                      <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>場所補足</Label>
+                <Input value={form.location_detail} onChange={(e) => setForm({ ...form, location_detail: e.target.value })} placeholder="ラックB-2 など" />
               </div>
             </div>
 
@@ -377,7 +395,7 @@ export default function EquipmentListPage() {
             {/* Status */}
             <div className="border-t pt-4">
               <p className="text-sm font-semibold mb-3">状態</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <Label>ステータス</Label>
                   <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
@@ -403,19 +421,21 @@ export default function EquipmentListPage() {
               </div>
             </div>
 
-            {/* Lending */}
-            <div className="border-t pt-4">
-              <div className="flex items-center gap-2 mb-3">
-                <input
-                  type="checkbox"
-                  id="is_lendable"
-                  checked={form.is_lendable}
-                  onChange={(e) => setForm({ ...form, is_lendable: e.target.checked })}
-                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                />
-                <Label htmlFor="is_lendable" className="cursor-pointer">貸出可能</Label>
+            {/* Lending (貸出系のみ) */}
+            {form.item_type === "rental" && (
+              <div className="border-t pt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <input
+                    type="checkbox"
+                    id="is_lendable"
+                    checked={form.is_lendable}
+                    onChange={(e) => setForm({ ...form, is_lendable: e.target.checked })}
+                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <Label htmlFor="is_lendable" className="cursor-pointer">貸出可能</Label>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Notes */}
             <div className="space-y-1">

@@ -40,6 +40,64 @@ function generateEqCode(): string {
 }
 
 // ============================================================
+// GLS案件検索 (貸出時に紐づけるため)
+// ============================================================
+router.get('/projects', (req: Request, res: Response) => {
+  const { search } = req.query;
+  let sql = `
+    SELECT id, gls_number, name, status
+    FROM projects
+    WHERE deleted_at IS NULL
+  `;
+  const params: any[] = [];
+  if (search) {
+    sql += ' AND (gls_number LIKE ? OR name LIKE ?)';
+    const s = `%${search}%`;
+    params.push(s, s);
+  }
+  sql += ' ORDER BY created_at DESC LIMIT 50';
+  const rows = queryAll(sql, params);
+  res.json({ success: true, data: rows });
+});
+
+// ============================================================
+// 設置/保管場所 CRUD
+// ============================================================
+router.get('/locations', (_req: Request, res: Response) => {
+  const rows = queryAll(
+    "SELECT * FROM equipment_locations WHERE deleted_at IS NULL ORDER BY sort_order, name"
+  );
+  res.json({ success: true, data: rows });
+});
+
+router.post('/locations', (req: Request, res: Response) => {
+  const { name, description, building, floor, area, sort_order } = req.body;
+  const id = uuid();
+  execute(
+    "INSERT INTO equipment_locations (id, name, description, building, floor, area, sort_order) VALUES (?,?,?,?,?,?,?)",
+    [id, name, description || null, building || null, floor || null, area || null, sort_order || 0]
+  );
+  saveDb();
+  res.status(201).json({ success: true, data: { id } });
+});
+
+router.put('/locations/:id', (req: Request, res: Response) => {
+  const { name, description, building, floor, area, sort_order } = req.body;
+  execute(
+    "UPDATE equipment_locations SET name=?, description=?, building=?, floor=?, area=?, sort_order=?, updated_at=datetime('now') WHERE id=?",
+    [name, description || null, building || null, floor || null, area || null, sort_order || 0, req.params.id]
+  );
+  saveDb();
+  res.json({ success: true });
+});
+
+router.delete('/locations/:id', (req: Request, res: Response) => {
+  execute("UPDATE equipment_locations SET deleted_at=datetime('now') WHERE id=?", [req.params.id]);
+  saveDb();
+  res.json({ success: true });
+});
+
+// ============================================================
 // カテゴリ CRUD
 // ============================================================
 router.get('/categories', (_req: Request, res: Response) => {

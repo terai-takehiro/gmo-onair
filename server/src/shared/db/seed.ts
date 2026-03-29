@@ -710,6 +710,26 @@ export async function seed() {
   // Equipment (機材管理)
   // ==========================================================
 
+  // Locations (保管場所)
+  const eqLocIds: Record<string, string> = {};
+  const eqLocs = [
+    { key: 'world_studio', name: 'ワールドスタジオ', building: 'A棟', floor: '1F', area: 'スタジオ', order: 1 },
+    { key: 'world_sub', name: 'ワールドスタジオ サブ', building: 'A棟', floor: '1F', area: 'サブコントロール', order: 2 },
+    { key: 'camera_storage', name: 'カメラ庫', building: 'A棟', floor: '3F', area: '機材エリア', order: 3 },
+    { key: 'equipment_storage', name: '機材庫', building: 'A棟', floor: '3F', area: '機材エリア', order: 4 },
+    { key: 'lighting_storage', name: '照明庫', building: 'A棟', floor: '3F', area: '機材エリア', order: 5 },
+    { key: 'audio_storage', name: '音響庫', building: 'A棟', floor: '3F', area: '機材エリア', order: 6 },
+    { key: 'server_room', name: 'サーバールーム', building: 'A棟', floor: 'B1F', area: 'インフラ', order: 7 },
+    { key: 'edit_room1', name: '編集室1', building: 'A棟', floor: '2F', area: 'ポスプロ', order: 8 },
+    { key: 'edit_room2', name: '編集室2', building: 'A棟', floor: '2F', area: 'ポスプロ', order: 9 },
+    { key: 'office', name: 'オフィスフロア', building: 'A棟', floor: '4F', area: 'オフィス', order: 10 },
+  ];
+  for (const loc of eqLocs) {
+    eqLocIds[loc.key] = uuidv4();
+    ins("INSERT INTO equipment_locations (id, name, building, floor, area, sort_order) VALUES (?,?,?,?,?,?)",
+      [eqLocIds[loc.key], loc.name, loc.building, loc.floor, loc.area, loc.order]);
+  }
+
   // Categories
   const eqCatIds: Record<string, string> = {};
   const eqCats = [

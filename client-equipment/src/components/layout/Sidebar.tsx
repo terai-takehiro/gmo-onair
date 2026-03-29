@@ -10,6 +10,7 @@ import {
   Settings,
   X,
   QrCode,
+  MapPin,
 } from "lucide-react";
 
 const navItems = [
@@ -20,6 +21,7 @@ const navItems = [
   { label: "棚卸し", path: "/equipment/inventory", icon: ClipboardCheck },
   { label: "QRスキャン", path: "/equipment/scan", icon: QrCode },
   { label: "カテゴリ管理", path: "/equipment/categories", icon: Settings },
+  { label: "保管場所管理", path: "/equipment/locations", icon: MapPin },
 ];
 
 export default function Sidebar() {
