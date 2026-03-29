@@ -39,6 +39,7 @@ import {
   Loader2,
   FileText,
   Download,
+  ShoppingCart,
 } from "lucide-react";
 import { AnimatedCurrency } from "@/components/ui/animated-number";
 
@@ -64,6 +65,20 @@ interface Revenue {
   group_name?: string | null;
   allocated_amount?: number | null;
   group_id?: string | null;
+}
+
+interface Purchase {
+  id: string;
+  amount: number;
+  description: string | null;
+  vendor_name: string;
+  recognition_date: string | null;
+  settlement_method: string | null;
+  settlement_number: string | null;
+  tax_category: string;
+  group_name?: string | null;
+  group_id?: string | null;
+  allocated_amount?: number | null;
 }
 
 interface Props {
@@ -102,6 +117,14 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
       (await api.get("/revenues", { params: { project_id: projectId, limit: 100 } })).data,
   });
   const revenues: Revenue[] = revenuesData?.data ?? [];
+
+  // Fetch purchases for this project
+  const { data: purchasesData, isLoading: purchasesLoading } = useQuery({
+    queryKey: ["purchases-project", projectId],
+    queryFn: async () =>
+      (await api.get("/purchases", { params: { project_id: projectId, limit: 100 } })).data,
+  });
+  const purchases: Purchase[] = purchasesData?.data ?? [];
 
   // Fetch project summary
   const { data: summaryData } = useQuery({
@@ -491,6 +514,63 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                       </table>
                     </div>
                   )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 仕入一覧 */}
+      <div className="space-y-3">
+        <h2 className="text-base font-semibold flex items-center gap-2">
+          <ShoppingCart className="h-4 w-4" />
+          仕入一覧
+        </h2>
+
+        {purchasesLoading ? (
+          <div className="flex justify-center py-6">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : purchases.length === 0 ? (
+          <Card>
+            <CardContent className="py-6 text-center text-muted-foreground">
+              仕入データがありません
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {purchases.map((pu) => (
+              <Card key={pu.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-sm">
+                        {pu.description || "（説明なし）"}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {pu.vendor_name}
+                        {pu.recognition_date && ` / ${formatDate(pu.recognition_date)}`}
+                      </div>
+                      {pu.group_name && (
+                        <Badge variant="outline" className="mt-1 text-[10px]">
+                          按分: {pu.group_name}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      {pu.allocated_amount != null && pu.allocated_amount !== pu.amount ? (
+                        <>
+                          <span className="font-number text-lg font-bold">{formatCurrency(pu.allocated_amount)}</span>
+                          <div className="text-[10px] text-muted-foreground">
+                            全体 {formatCurrency(pu.amount)}
+                          </div>
+                        </>
+                      ) : (
+                        <span className="font-number text-lg font-bold">{formatCurrency(pu.amount)}</span>
+                      )}
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             ))}
