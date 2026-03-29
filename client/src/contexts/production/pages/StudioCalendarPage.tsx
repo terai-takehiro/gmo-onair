@@ -15,6 +15,7 @@ import { Loader2, Plus, Filter } from "lucide-react";
 import type { DatesSetArg, EventClickArg, DateSelectArg } from "@fullcalendar/core";
 import StudioBookingDialog from "../components/studio/StudioBookingDialog";
 import StudioBookingDetailDialog from "../components/studio/StudioBookingDetailDialog";
+import KoubanView from "../components/studio/KoubanView";
 
 interface StudioRoom {
   id: string;
@@ -110,6 +111,11 @@ export default function StudioCalendarPage() {
       api.changeView("dayGridMonth");
     }
   }, [isMobile]);
+
+  // Track current FullCalendar view to prevent resets
+  const [currentView, setCurrentView] = useState<string>(isMobile ? "timeGridDay" : "dayGridMonth");
+  // Track current date for 香盤 view
+  const [koubanDate, setKoubanDate] = useState<Date>(new Date());
 
   // Filter state
   const [selectedRoomIds, setSelectedRoomIds] = useState<Set<string>>(new Set());
@@ -254,6 +260,12 @@ export default function StudioCalendarPage() {
       from: arg.startStr.split("T")[0],
       to: arg.endStr.split("T")[0],
     });
+    // Track the current view so we don't reset on re-render
+    setCurrentView(arg.view.type);
+    // Sync kouban date with calendar's current date
+    if (arg.view.type === "timeGridDay") {
+      setKoubanDate(arg.start);
+    }
   }, []);
 
   const handleEventClick = useCallback((info: EventClickArg) => {
@@ -399,63 +411,118 @@ export default function StudioCalendarPage() {
         </div>
       </div>
 
+      {/* 香盤 View (PC day view) */}
+      {!isMobile && currentView === "timeGridDay" ? (
+        <Card>
+          <CardContent className="p-2 sm:p-4">
+            <div className="flex items-center justify-end gap-2 mb-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setCurrentView("dayGridMonth");
+                  const calApi = calendarRef.current?.getApi?.();
+                  if (calApi) calApi.changeView("dayGridMonth");
+                }}
+              >
+                月カレンダーに戻る
+              </Button>
+            </div>
+            {bookingsLoading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <KoubanView
+                date={koubanDate}
+                locations={locations}
+                bookings={bookings}
+                onDateChange={(d) => {
+                  setKoubanDate(d);
+                  // Update date range so bookings are fetched for the new date
+                  const from = new Date(d);
+                  from.setDate(from.getDate() - 1);
+                  const to = new Date(d);
+                  to.setDate(to.getDate() + 2);
+                  setDateRange({
+                    from: from.toISOString().split("T")[0],
+                    to: to.toISOString().split("T")[0],
+                  });
+                  // Sync FullCalendar date
+                  const calApi = calendarRef.current?.getApi?.();
+                  if (calApi) calApi.gotoDate(d);
+                }}
+                onBookingClick={(booking) => {
+                  setDetailBooking(booking);
+                  setDetailDialogOpen(true);
+                }}
+                onSlotClick={(_roomId, start, end) => {
+                  setPresetDate({ start, end, allDay: false });
+                  setEditingBooking(null);
+                  setBookingDialogOpen(true);
+                }}
+              />
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
+
       {/* Calendar */}
-      <Card>
-        <CardContent className="p-2 sm:p-4">
-          {bookingsLoading ? (
-            <div className="flex justify-center py-12">
+      <Card className={!isMobile && currentView === "timeGridDay" ? "hidden" : ""}>
+        <CardContent className="p-2 sm:p-4 relative">
+          {bookingsLoading && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-          ) : (
-            <div className="studio-calendar">
-              <FullCalendar
-                ref={calendarRef}
-                plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-                initialView={isMobile ? "timeGridDay" : "dayGridMonth"}
-                locale="ja"
-                headerToolbar={isMobile ? {
-                  left: "prev,next",
-                  center: "title",
-                  right: "timeGridDay,listWeek,dayGridMonth",
-                } : {
-                  left: "prev,next today",
-                  center: "title",
-                  right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
-                }}
-                buttonText={{
-                  today: "今日",
-                  month: "月",
-                  week: "週",
-                  day: "日",
-                  list: "一覧",
-                }}
-                events={calendarEvents}
-                datesSet={handleDatesSet}
-                eventClick={handleEventClick}
-                select={handleDateSelect}
-                selectable={true}
-                selectMirror={true}
-                height={isMobile ? "auto" : "auto"}
-                contentHeight={isMobile ? "auto" : undefined}
-                eventDisplay="block"
-                dayMaxEvents={isMobile ? 2 : 4}
-                slotMinTime="06:00:00"
-                slotMaxTime="24:00:00"
-                slotDuration={isMobile ? "01:00:00" : "00:30:00"}
-                allDaySlot={false}
-                nowIndicator={true}
-                expandRows={!isMobile}
-                stickyHeaderDates={true}
-                eventTimeFormat={{
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  meridiem: false,
-                  hour12: false,
-                }}
-                titleFormat={isMobile ? { month: "short", day: "numeric" } : undefined}
-              />
-            </div>
           )}
+          <div className="studio-calendar">
+            <FullCalendar
+              ref={calendarRef}
+              plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+              initialView={isMobile ? "timeGridDay" : "dayGridMonth"}
+              locale="ja"
+              headerToolbar={isMobile ? {
+                left: "prev,next",
+                center: "title",
+                right: "timeGridDay,listWeek,dayGridMonth",
+              } : {
+                left: "prev,next today",
+                center: "title",
+                right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
+              }}
+              buttonText={{
+                today: "今日",
+                month: "月",
+                week: "週",
+                day: "日",
+                list: "一覧",
+              }}
+              events={calendarEvents}
+              datesSet={handleDatesSet}
+              eventClick={handleEventClick}
+              select={handleDateSelect}
+              selectable={true}
+              selectMirror={true}
+              height={isMobile ? "auto" : "auto"}
+              contentHeight={isMobile ? "auto" : undefined}
+              eventDisplay="block"
+              dayMaxEvents={isMobile ? 2 : 4}
+              slotMinTime="06:00:00"
+              slotMaxTime="24:00:00"
+              slotDuration={isMobile ? "01:00:00" : "00:30:00"}
+              allDaySlot={false}
+              nowIndicator={true}
+              expandRows={!isMobile}
+              stickyHeaderDates={true}
+              eventTimeFormat={{
+                hour: "2-digit",
+                minute: "2-digit",
+                meridiem: false,
+                hour12: false,
+              }}
+              titleFormat={isMobile ? { month: "short", day: "numeric" } : undefined}
+            />
+          </div>
         </CardContent>
       </Card>
 
