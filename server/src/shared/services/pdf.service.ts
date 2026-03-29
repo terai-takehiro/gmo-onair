@@ -20,10 +20,10 @@ pdfmake.fonts = {
 
 // 会社情報（ハードコード）
 const COMPANY_INFO = {
-  name: 'GMOメディア株式会社',
+  name: 'GMOグローバルスタジオ株式会社',
   department: 'ONAiR事業部',
-  zipCode: '150-8512',
-  address: '東京都渋谷区桜丘町26番1号 セルリアンタワー',
+  zipCode: '158-0097',
+  address: '東京都世田谷区用賀四丁目10番1号 GMOインターネットTOWER 27F',
   tel: '03-5456-2555',
   registrationNumber: 'T9011001046041',
 };
