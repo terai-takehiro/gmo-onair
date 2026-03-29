@@ -48,6 +48,7 @@ const navSections: NavSection[] = [
       { label: "案件管理", to: "/projects", icon: FolderKanban },
       { label: "確定案件（スタジオ）", to: "/projects/confirmed/studio", icon: Film },
       { label: "確定案件（ビジネス）", to: "/projects/confirmed/business", icon: Briefcase },
+      { label: "按分グループ", to: "/project-groups", icon: GitBranch },
       { label: "営業活動記録", to: "/activity-logs", icon: ClipboardList },
       { label: "営業レビュー", to: "/sales-review", icon: Award },
     ],
@@ -57,7 +58,6 @@ const navSections: NavSection[] = [
     items: [
       { label: "売上一覧", to: "/revenues", icon: Receipt },
       { label: "仕入一覧", to: "/purchases", icon: ShoppingCart },
-      { label: "按分グループ", to: "/project-groups", icon: GitBranch },
       { label: "販管費", to: "/sga", icon: Receipt },
     ],
   },
