@@ -5,11 +5,17 @@ import api from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
 import {
   Project,
+  Vendor,
   ProjectTypeLabels,
   BroadcastTypeLabels,
   MediaPlatformLabels,
+  SettlementMethod,
+  SettlementMethodLabels,
+  TaxCategory,
+  TaxCategoryLabels,
   getProjectCategory,
 } from "@/types";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -71,11 +77,13 @@ interface Purchase {
   id: string;
   amount: number;
   description: string | null;
+  vendor_id: string;
   vendor_name: string;
   recognition_date: string | null;
   settlement_method: string | null;
   settlement_number: string | null;
   tax_category: string;
+  invoice_qualified: number;
   group_name?: string | null;
   group_id?: string | null;
   allocated_amount?: number | null;
@@ -110,6 +118,18 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
     { description: "", quantity: 1, unit_price: 0, amount: 0 },
   ]);
 
+  // 仕入ダイアログ
+  const [purDialogOpen, setPurDialogOpen] = useState(false);
+  const [editingPurId, setEditingPurId] = useState<string | null>(null);
+  const [purVendorId, setPurVendorId] = useState("");
+  const [purAmount, setPurAmount] = useState(0);
+  const [purDesc, setPurDesc] = useState("");
+  const [purTax, setPurTax] = useState("tax10");
+  const [purSettlement, setPurSettlement] = useState("rakuraku");
+  const [purSettlementNo, setPurSettlementNo] = useState("");
+  const [purInvoice, setPurInvoice] = useState("qualified");
+  const [purRecDate, setPurRecDate] = useState("");
+
   // Fetch revenues for this project
   const { data: revenuesData, isLoading } = useQuery({
     queryKey: ["revenues-project", projectId],
@@ -125,6 +145,86 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
       (await api.get("/purchases", { params: { project_id: projectId, limit: 100 } })).data,
   });
   const purchases: Purchase[] = purchasesData?.data ?? [];
+
+  // 仕入先一覧
+  const { data: vendorsData } = useQuery({
+    queryKey: ["vendors-list"],
+    queryFn: async () => (await api.get("/vendors?limit=200")).data,
+    enabled: purDialogOpen,
+  });
+  const vendors: Vendor[] = vendorsData?.data ?? [];
+
+  // 仕入 保存
+  const savePurMutation = useMutation({
+    mutationFn: async (data: any) => {
+      if (editingPurId) {
+        return (await api.put(`/purchases/${editingPurId}`, data)).data;
+      }
+      return (await api.post("/purchases", data)).data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["purchases-project", projectId] });
+      qc.invalidateQueries({ queryKey: ["project-summary", projectId] });
+      qc.invalidateQueries({ queryKey: ["purchases-all"] });
+      closePurDialog();
+    },
+  });
+
+  // 仕入 削除
+  const deletePurMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/purchases/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["purchases-project", projectId] });
+      qc.invalidateQueries({ queryKey: ["project-summary", projectId] });
+      qc.invalidateQueries({ queryKey: ["purchases-all"] });
+    },
+  });
+
+  const closePurDialog = () => {
+    setPurDialogOpen(false);
+    setEditingPurId(null);
+    setPurVendorId("");
+    setPurAmount(0);
+    setPurDesc("");
+    setPurTax("tax10");
+    setPurSettlement("rakuraku");
+    setPurSettlementNo("");
+    setPurInvoice("qualified");
+    setPurRecDate("");
+  };
+
+  const openNewPurchase = () => {
+    closePurDialog();
+    setPurDialogOpen(true);
+  };
+
+  const openEditPurchase = (pu: Purchase) => {
+    setEditingPurId(pu.id);
+    setPurVendorId(pu.vendor_id || "");
+    setPurAmount(pu.amount || 0);
+    setPurDesc(pu.description || "");
+    setPurTax(pu.tax_category || "tax10");
+    setPurSettlement(pu.settlement_method || "rakuraku");
+    setPurSettlementNo(pu.settlement_number || "");
+    setPurInvoice(pu.invoice_qualified ? "qualified" : "unqualified");
+    setPurRecDate(pu.recognition_date?.slice(0, 10) || "");
+    setPurDialogOpen(true);
+  };
+
+  const handlePurSubmit = () => {
+    if (!purVendorId) return;
+    savePurMutation.mutate({
+      project_id: projectId,
+      vendor_id: purVendorId,
+      amount: purAmount,
+      description: purDesc || null,
+      tax_category: purTax,
+      settlement_method: purSettlement,
+      settlement_number: purSettlementNo || null,
+      invoice_qualified: purInvoice === "qualified" ? 1 : 0,
+      recognition_date: purRecDate || null,
+    });
+  };
 
   // Fetch project summary
   const { data: summaryData } = useQuery({
@@ -523,10 +623,18 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
 
       {/* 仕入一覧 */}
       <div className="space-y-3">
-        <h2 className="text-base font-semibold flex items-center gap-2">
-          <ShoppingCart className="h-4 w-4" />
-          仕入一覧
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold flex items-center gap-2">
+            <ShoppingCart className="h-4 w-4" />
+            仕入一覧
+          </h2>
+          {!isEstimateMode && (
+            <Button size="sm" onClick={openNewPurchase}>
+              <Plus className="h-4 w-4 mr-1" />
+              仕入追加
+            </Button>
+          )}
+        </div>
 
         {purchasesLoading ? (
           <div className="flex justify-center py-6">
@@ -558,16 +666,30 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                         </Badge>
                       )}
                     </div>
-                    <div className="text-right shrink-0">
-                      {pu.allocated_amount != null && pu.allocated_amount !== pu.amount ? (
-                        <>
-                          <span className="font-number text-lg font-bold">{formatCurrency(pu.allocated_amount)}</span>
-                          <div className="text-[10px] text-muted-foreground">
-                            全体 {formatCurrency(pu.amount)}
-                          </div>
-                        </>
-                      ) : (
-                        <span className="font-number text-lg font-bold">{formatCurrency(pu.amount)}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="text-right">
+                        {pu.allocated_amount != null && pu.allocated_amount !== pu.amount ? (
+                          <>
+                            <span className="font-number text-lg font-bold">{formatCurrency(pu.allocated_amount)}</span>
+                            <div className="text-[10px] text-muted-foreground">
+                              全体 {formatCurrency(pu.amount)}
+                            </div>
+                          </>
+                        ) : (
+                          <span className="font-number text-lg font-bold">{formatCurrency(pu.amount)}</span>
+                        )}
+                      </div>
+                      {!pu.group_id && (
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditPurchase(pu)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => {
+                            if (confirm("この仕入を削除しますか？")) deletePurMutation.mutate(pu.id);
+                          }}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -762,6 +884,92 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
               {editingId ? "更新" : "追加"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 仕入追加/編集ダイアログ */}
+      <Dialog open={purDialogOpen} onOpenChange={(open) => { if (!open) closePurDialog(); }}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingPurId ? "仕入の編集" : "仕入の追加"}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label>仕入先 *</Label>
+              <SearchableSelect
+                options={vendors.map((v) => ({ value: v.id, label: v.name, subLabel: v.vendor_type || "" }))}
+                value={purVendorId}
+                onChange={setPurVendorId}
+                placeholder="仕入先を検索..."
+              />
+            </div>
+
+            <div>
+              <Label>金額</Label>
+              <CurrencyInput value={purAmount} onChange={setPurAmount} />
+            </div>
+
+            <div>
+              <Label>説明</Label>
+              <Input value={purDesc} onChange={(e) => setPurDesc(e.target.value)} placeholder="仕入の説明" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>税区分</Label>
+                <Select value={purTax} onValueChange={setPurTax}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(TaxCategoryLabels) as TaxCategory[]).map((key) => (
+                      <SelectItem key={key} value={key}>{TaxCategoryLabels[key]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>精算方法</Label>
+                <Select value={purSettlement} onValueChange={setPurSettlement}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(SettlementMethodLabels) as SettlementMethod[]).map((key) => (
+                      <SelectItem key={key} value={key}>{SettlementMethodLabels[key]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>精算番号</Label>
+                <Input value={purSettlementNo} onChange={(e) => setPurSettlementNo(e.target.value)} placeholder="任意" />
+              </div>
+              <div>
+                <Label>計上日</Label>
+                <Input type="date" value={purRecDate} onChange={(e) => setPurRecDate(e.target.value)} />
+              </div>
+            </div>
+
+            <div>
+              <Label>インボイス</Label>
+              <Select value={purInvoice} onValueChange={setPurInvoice}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="qualified">適格事業者</SelectItem>
+                  <SelectItem value="unqualified">非適格事業者</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closePurDialog}>キャンセル</Button>
+            <Button disabled={!purVendorId || savePurMutation.isPending} onClick={handlePurSubmit}>
+              {savePurMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {editingPurId ? "更新" : "追加"}
             </Button>
           </DialogFooter>
         </DialogContent>
