@@ -127,6 +127,7 @@ export default function StudioCalendarPage() {
   const [detailBooking, setDetailBooking] = useState<StudioBooking | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [presetDate, setPresetDate] = useState<{ start: string; end: string; allDay: boolean } | null>(null);
+  const [presetRoomIds, setPresetRoomIds] = useState<string[]>([]);
 
   // Fetch locations & rooms
   const { data: locationsData } = useQuery({
@@ -181,8 +182,8 @@ export default function StudioCalendarPage() {
       // 終日イベントを時間軸上に展開（06:00〜24:00）
       const toTimedRange = (startStr: string, endStr: string, isAllDay: boolean) => {
         if (!isAllDay) return { start: startStr, end: endStr };
-        // 終日 → 各日を06:00〜24:00の時間帯イベントに変換
-        return { start: `${startStr}T06:00:00`, end: `${endStr}T23:59:00` };
+        // 終日 → 各日を00:00〜24:00の時間帯イベントに変換
+        return { start: `${startStr}T00:00:00`, end: `${endStr}T23:59:00` };
       };
       const { start: evStart, end: evEnd } = toTimedRange(b.start_time, b.end_time, !!b.all_day);
 
@@ -287,12 +288,14 @@ export default function StudioCalendarPage() {
       end: info.endStr,
       allDay: info.allDay,
     });
+    setPresetRoomIds([]);
     setEditingBooking(null);
     setBookingDialogOpen(true);
   }, []);
 
   const handleNewBooking = () => {
     setPresetDate(null);
+    setPresetRoomIds([]);
     setEditingBooking(null);
     setBookingDialogOpen(true);
   };
@@ -300,6 +303,7 @@ export default function StudioCalendarPage() {
   const handleEditBooking = (booking: StudioBooking) => {
     setEditingBooking(booking);
     setPresetDate(null);
+    setPresetRoomIds([]);
     setDetailDialogOpen(false);
     setBookingDialogOpen(true);
   };
@@ -444,9 +448,11 @@ export default function StudioCalendarPage() {
                   from.setDate(from.getDate() - 1);
                   const to = new Date(d);
                   to.setDate(to.getDate() + 2);
+                  const pad = (n: number) => String(n).padStart(2, "0");
+                  const toLocal = (dt: Date) => `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`;
                   setDateRange({
-                    from: from.toISOString().split("T")[0],
-                    to: to.toISOString().split("T")[0],
+                    from: toLocal(from),
+                    to: toLocal(to),
                   });
                   // Sync FullCalendar date
                   const calApi = calendarRef.current?.getApi?.();
@@ -456,8 +462,9 @@ export default function StudioCalendarPage() {
                   setDetailBooking(booking);
                   setDetailDialogOpen(true);
                 }}
-                onSlotClick={(_roomId, start, end) => {
+                onSlotClick={(roomId, start, end) => {
                   setPresetDate({ start, end, allDay: false });
+                  setPresetRoomIds([roomId]);
                   setEditingBooking(null);
                   setBookingDialogOpen(true);
                 }}
@@ -507,7 +514,7 @@ export default function StudioCalendarPage() {
               contentHeight={isMobile ? "auto" : undefined}
               eventDisplay="block"
               dayMaxEvents={isMobile ? 2 : 4}
-              slotMinTime="06:00:00"
+              slotMinTime="00:00:00"
               slotMaxTime="24:00:00"
               slotDuration={isMobile ? "01:00:00" : "00:30:00"}
               allDaySlot={false}
@@ -533,6 +540,7 @@ export default function StudioCalendarPage() {
         locations={locations}
         editingBooking={editingBooking}
         presetDate={presetDate}
+        presetRoomIds={presetRoomIds}
       />
 
       {/* Detail Dialog */}

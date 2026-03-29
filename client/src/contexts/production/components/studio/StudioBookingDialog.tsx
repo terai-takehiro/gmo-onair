@@ -65,6 +65,7 @@ interface Props {
   locations: StudioLocation[];
   editingBooking: StudioBooking | null;
   presetDate: { start: string; end: string; allDay: boolean } | null;
+  presetRoomIds?: string[];
 }
 
 const bookingTypeOptions = [
@@ -81,6 +82,7 @@ export default function StudioBookingDialog({
   locations,
   editingBooking,
   presetDate,
+  presetRoomIds,
 }: Props) {
   const qc = useQueryClient();
 
@@ -157,7 +159,7 @@ export default function StudioBookingDialog({
       setEpisodeId("");
       setLocationNote("");
       setNotes("");
-      setSelectedRoomIds(new Set());
+      setSelectedRoomIds(presetRoomIds ? new Set(presetRoomIds) : new Set());
       setRoomDetails({});
 
       if (presetDate) {
@@ -188,7 +190,7 @@ export default function StudioBookingDialog({
         setEndTime("18:00");
       }
     }
-  }, [open, editingBooking, presetDate]);
+  }, [open, editingBooking, presetDate, presetRoomIds]);
 
   // Auto-set title based on project
   useEffect(() => {

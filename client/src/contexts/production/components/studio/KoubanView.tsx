@@ -53,7 +53,7 @@ const bookingTypeColors: Record<string, string> = {
   other: "#6b7280",
 };
 
-const SLOT_START = 6; // 06:00
+const SLOT_START = 0; // 00:00
 const SLOT_END = 24; // 24:00
 const SLOT_HEIGHT = 48; // px per 30min slot
 const SLOTS_PER_HOUR = 2;
@@ -71,12 +71,24 @@ function formatTime(hour: number, min: number): string {
   return `${String(hour).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
 }
 
+function toLocalDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function extractDatePart(timeStr: string): string {
+  // Handle both "2026-03-29" and "2026-03-29T10:00:00" formats
+  return timeStr.split("T")[0];
+}
+
 function timeToSlot(timeStr: string): number {
-  const d = new Date(timeStr);
-  const hours = d.getHours();
-  const minutes = d.getMinutes();
-  // Clamp to slot range
-  const totalMin = (hours - SLOT_START) * 60 + minutes;
+  // Parse time part from string like "2026-03-29T10:00:00" or "10:00:00"
+  const timePart = timeStr.includes("T") ? timeStr.split("T")[1] : null;
+  if (!timePart) return 0; // Date-only string = start of day
+  const [hh, mm] = timePart.split(":").map(Number);
+  const totalMin = (hh - SLOT_START) * 60 + mm;
   return Math.max(0, Math.min(TOTAL_SLOTS, Math.round(totalMin / 30)));
 }
 
@@ -99,7 +111,7 @@ export default function KoubanView({
 }: KoubanViewProps) {
   const [activeTab, setActiveTab] = useState<LocationTab>("yoga");
 
-  const dateStr = date.toISOString().split("T")[0];
+  const dateStr = toLocalDateStr(date);
   const dateLabel = `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
   const weekDay = ["日", "月", "火", "水", "木", "金", "土"][date.getDay()];
 
@@ -119,8 +131,9 @@ export default function KoubanView({
   const otherBookings = useMemo(() => {
     if (activeTab !== "other") return [];
     return bookings.filter((b) => {
-      const bDate = b.start_time.split("T")[0];
-      return bDate === dateStr && b.rooms.length === 0;
+      const bStartDate = extractDatePart(b.start_time);
+      const bEndDate = extractDatePart(b.end_time);
+      return bStartDate <= dateStr && bEndDate >= dateStr && b.rooms.length === 0;
     });
   }, [bookings, dateStr, activeTab]);
 
@@ -133,8 +146,8 @@ export default function KoubanView({
     }
 
     for (const b of bookings) {
-      const bStartDate = b.start_time.split("T")[0];
-      const bEndDate = b.end_time.split("T")[0];
+      const bStartDate = extractDatePart(b.start_time);
+      const bEndDate = extractDatePart(b.end_time);
       // Check if booking overlaps with current date
       if (bStartDate > dateStr || bEndDate < dateStr) continue;
 
