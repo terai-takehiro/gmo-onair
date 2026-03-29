@@ -106,8 +106,8 @@ export async function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer>
           width: '50%',
           stack: [
             { text: `${data.customer_name} 御中`, style: 'customerName', margin: [0, 0, 0, 4] },
-            { text: `案件: ${data.gls_number || ''} ${data.project_name}`, style: 'small', margin: [0, 0, 0, 2] },
-            ...(data.subtitle ? [{ text: `件名: ${data.subtitle}`, style: 'small', margin: [0, 0, 0, 2] }] : []),
+            { text: `${data.gls_number || ''} ${data.project_name}`.trim(), style: 'small', margin: [0, 0, 0, 2] },
+            ...(data.subtitle ? [{ text: data.subtitle, style: 'small', margin: [0, 0, 0, 2] }] : []),
             { text: ' ', margin: [0, 0, 0, 8] },
             // 合計金額を目立たせる
             {
