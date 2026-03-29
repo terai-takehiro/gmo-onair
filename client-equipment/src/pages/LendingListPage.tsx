@@ -30,6 +30,7 @@ export default function LendingListPage() {
   });
   const [lendingType, setLendingType] = useState<"standalone" | "program">("standalone");
   const [filterCategoryId, setFilterCategoryId] = useState("");
+  const [selectedEquipmentName, setSelectedEquipmentName] = useState("");
   const [projectSearch, setProjectSearch] = useState("");
 
   const { data: lendingsData, isLoading } = useQuery({
@@ -72,15 +73,21 @@ export default function LendingListPage() {
     return lendableItems.filter((item: any) => item.category_id === filterCategoryId);
   }, [lendableItems, filterCategoryId]);
 
-  // Group items by name to detect single-unit equipment
-  const unitCountByName = useMemo(() => {
-    const counts: Record<string, string[]> = {};
-    (filteredLendableItems || []).forEach((item: any) => {
-      if (!counts[item.name]) counts[item.name] = [];
-      counts[item.name].push(item.id);
-    });
-    return counts;
+  // Unique equipment names for step 1
+  const equipmentNames = useMemo(() => {
+    const seen = new Set<string>();
+    return (filteredLendableItems || []).filter((item: any) => {
+      if (seen.has(item.name)) return false;
+      seen.add(item.name);
+      return true;
+    }).map((item: any) => item.name);
   }, [filteredLendableItems]);
+
+  // Units for selected equipment name (step 2)
+  const unitsForSelected = useMemo(() => {
+    if (!selectedEquipmentName) return [];
+    return (filteredLendableItems || []).filter((item: any) => item.name === selectedEquipmentName);
+  }, [filteredLendableItems, selectedEquipmentName]);
 
   const lendMutation = useMutation({
     mutationFn: (payload: any) => api.post("/equipment/lendings", payload),
@@ -117,6 +124,7 @@ export default function LendingListPage() {
     });
     setLendingType("standalone");
     setFilterCategoryId("");
+    setSelectedEquipmentName("");
     setProjectSearch("");
     setDialogOpen(true);
   };
@@ -306,11 +314,12 @@ export default function LendingListPage() {
               </div>
             )}
 
-            {/* Category filter + Equipment selection */}
+            {/* Category filter */}
             <div className="space-y-1">
               <Label>カテゴリ絞り込み</Label>
               <Select value={filterCategoryId} onValueChange={(v) => {
                 setFilterCategoryId(v === "all" ? "" : v);
+                setSelectedEquipmentName("");
                 setForm({ ...form, equipment_id: "" });
               }}>
                 <SelectTrigger><SelectValue placeholder="すべてのカテゴリ" /></SelectTrigger>
@@ -322,20 +331,26 @@ export default function LendingListPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Step 1: Equipment name */}
             <div className="space-y-1">
-              <Label>機材 *</Label>
-              <Select value={form.equipment_id} onValueChange={(v) => setForm({ ...form, equipment_id: v })}>
+              <Label>機材名 *</Label>
+              <Select value={selectedEquipmentName} onValueChange={(name) => {
+                setSelectedEquipmentName(name);
+                // Auto-select if only 1 unit
+                const units = (filteredLendableItems || []).filter((item: any) => item.name === name);
+                if (units.length === 1) {
+                  setForm({ ...form, equipment_id: units[0].id });
+                } else {
+                  setForm({ ...form, equipment_id: "" });
+                }
+              }}>
                 <SelectTrigger><SelectValue placeholder="機材を選択..." /></SelectTrigger>
                 <SelectContent>
-                  {filteredLendableItems.map((item: any) => {
-                    const showNo = unitCountByName[item.name]?.length > 1;
-                    return (
-                      <SelectItem key={item.id} value={item.id}>
-                        {item.name}{showNo && item.unit_number ? ` No.${item.unit_number}` : ""}
-                      </SelectItem>
-                    );
-                  })}
-                  {filteredLendableItems.length === 0 && (
+                  {equipmentNames.map((name: string) => (
+                    <SelectItem key={name} value={name}>{name}</SelectItem>
+                  ))}
+                  {equipmentNames.length === 0 && (
                     <div className="px-3 py-2 text-sm text-muted-foreground">
                       貸出可能な機材がありません
                     </div>
@@ -343,6 +358,28 @@ export default function LendingListPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Step 2: Unit No. (only if multiple units) */}
+            {selectedEquipmentName && unitsForSelected.length > 1 && (
+              <div className="space-y-1">
+                <Label>個体No. *</Label>
+                <Select value={form.equipment_id} onValueChange={(v) => setForm({ ...form, equipment_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="No.を選択..." /></SelectTrigger>
+                  <SelectContent>
+                    {unitsForSelected.map((item: any) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        No.{item.unit_number || "?"}
+                        {item.serial_number && <span className="text-muted-foreground ml-2">({item.serial_number})</span>}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {/* Auto-selected confirmation */}
+            {selectedEquipmentName && unitsForSelected.length === 1 && form.equipment_id && (
+              <p className="text-xs text-muted-foreground">※ 1台のみのため自動選択されました</p>
+            )}
 
             <div className="space-y-1">
               <Label>借用者 *</Label>
