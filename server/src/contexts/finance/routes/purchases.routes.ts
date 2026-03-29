@@ -11,19 +11,19 @@ const router = Router();
 router.get('/', (req, res) => {
   const { page, limit, offset, search } = extractPagination(req);
   const projectId = req.query.project_id as string;
-  const episodeId = req.query.episode_id as string;
+  const groupId = req.query.group_id as string;
   let where = 'WHERE pu.deleted_at IS NULL';
   const params: unknown[] = [];
-  if (search) { where += ` AND (pu.description LIKE ? OR v.name LIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
+  if (search) { where += ` AND (pu.description LIKE ? OR v.name LIKE ? OR p.gls_number LIKE ?)`; params.push(`%${search}%`, `%${search}%`, `%${search}%`); }
   if (projectId) { where += ` AND pu.project_id = ?`; params.push(projectId); }
-  if (episodeId) { where += ' AND pu.episode_id = ?'; params.push(episodeId); }
-  const total = (queryOne(`SELECT COUNT(*) as c FROM purchases pu LEFT JOIN vendors v ON v.id = pu.vendor_id ${where}`, params) as any).c;
+  if (groupId) { where += ` AND pu.group_id = ?`; params.push(groupId); }
+  const total = (queryOne(`SELECT COUNT(*) as c FROM purchases pu LEFT JOIN vendors v ON v.id = pu.vendor_id LEFT JOIN projects p ON p.id = pu.project_id ${where}`, params) as any).c;
   const rows = queryAll(
-    `SELECT pu.*, p.name as project_name, p.gls_number, v.name as vendor_name, e.episode_code
+    `SELECT pu.*, p.name as project_name, p.gls_number, v.name as vendor_name, pg.name as group_name
      FROM purchases pu
      LEFT JOIN projects p ON p.id = pu.project_id
      LEFT JOIN vendors v ON v.id = pu.vendor_id
-     LEFT JOIN episodes e ON e.id = pu.episode_id
+     LEFT JOIN project_groups pg ON pg.id = pu.group_id
      ${where} ORDER BY pu.recognition_date DESC, pu.created_at DESC LIMIT ? OFFSET ?`,
     [...params, limit, offset]
   );

@@ -21,6 +21,7 @@ import {
   Award,
   Film,
   Briefcase,
+  GitBranch,
 } from "lucide-react";
 
 interface NavItem {
@@ -56,6 +57,7 @@ const navSections: NavSection[] = [
     items: [
       { label: "売上一覧", to: "/revenues", icon: Receipt },
       { label: "仕入一覧", to: "/purchases", icon: ShoppingCart },
+      { label: "按分グループ", to: "/project-groups", icon: GitBranch },
       { label: "販管費", to: "/sga", icon: Receipt },
     ],
   },

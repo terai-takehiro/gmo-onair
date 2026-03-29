@@ -18,6 +18,7 @@ import ActivityLogPage from "@/contexts/sales/pages/ActivityLogPage";
 import SalesReviewPage from "@/contexts/sales/pages/SalesReviewPage";
 import ConfirmedProjectsPage from "@/contexts/sales/pages/ConfirmedProjectsPage";
 import EstimatePage from "@/contexts/sales/pages/EstimatePage";
+import ProjectGroupListPage from "@/contexts/sales/pages/ProjectGroupListPage";
 
 // Production
 import EpisodeListPage from "@/contexts/production/pages/EpisodeListPage";
@@ -86,6 +87,7 @@ function AppRoutes() {
         <Route path="/projects/confirmed/:category" element={<ConfirmedProjectsPage />} />
         <Route path="/projects/:projectId/episodes" element={<EpisodeListPage />} />
         <Route path="/projects/:projectId/estimates" element={<EstimatePage />} />
+        <Route path="/project-groups" element={<ProjectGroupListPage />} />
 
         {/* 旧URLリダイレクト */}
         <Route path="/opportunities" element={<Navigate to="/projects" replace />} />

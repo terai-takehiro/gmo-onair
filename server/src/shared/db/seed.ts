@@ -412,6 +412,39 @@ export async function seed() {
   ins(purSql, [uuidv4(), 'GLS-A008-001-1', PROJECTS['GLS-A008'], EPISODES['GLS-A008-001'], VENDORS['技術'], USERS.staff1, 'rakuraku', '147516', 'tax10', 1, 1000000, 'CM撮影技術チーム', '2026-03-31', null]);
 
   // ============================================================
+  // Project Groups (按分グループ)
+  // ============================================================
+  const pgSql = `INSERT INTO project_groups (id, name, description, created_by) VALUES (?, ?, ?, ?)`;
+  const pgmSql = `INSERT INTO project_group_members (group_id, project_id) VALUES (?, ?)`;
+  const paSql = `INSERT INTO purchase_allocations (id, purchase_id, project_id, allocated_amount) VALUES (?, ?, ?, ?)`;
+
+  // グループ1: GH IR関連（GLS-A001 + GLS-B001）
+  const GROUP1 = uuidv4();
+  ins(pgSql, [GROUP1, 'GH IR関連 2026', 'GH社のIR説明会とコンサルティング契約を横断する共通費用', USERS.admin]);
+  ins(pgmSql, [GROUP1, PROJECTS['GLS-A001']]);
+  ins(pgmSql, [GROUP1, PROJECTS['GLS-B001']]);
+
+  // グループ仕入: 通訳スタッフ（GLS-A001:60%, GLS-B001:40%）
+  const gpPur1 = uuidv4();
+  ins(purSql, [gpPur1, null, PROJECTS['GLS-A001'], null, VENDORS['技術'], USERS.staff1, 'other', '440001', 'tax10', 1, 500000, '通訳スタッフ（IR関連共通）', '2026-03-31', null]);
+  execute(`UPDATE purchases SET group_id = ? WHERE id = ?`, [GROUP1, gpPur1]);
+  ins(paSql, [uuidv4(), gpPur1, PROJECTS['GLS-A001'], 300000]);
+  ins(paSql, [uuidv4(), gpPur1, PROJECTS['GLS-B001'], 200000]);
+
+  // グループ2: PW 案件横断（GLS-A004 + GLS-B002）
+  const GROUP2 = uuidv4();
+  ins(pgSql, [GROUP2, 'PW 2026年度案件', 'PW社の発表会とコンサルティング横断費用', USERS.admin]);
+  ins(pgmSql, [GROUP2, PROJECTS['GLS-A004']]);
+  ins(pgmSql, [GROUP2, PROJECTS['GLS-B002']]);
+
+  // グループ仕入: 資料制作費（均等按分）
+  const gpPur2 = uuidv4();
+  ins(purSql, [gpPur2, null, PROJECTS['GLS-A004'], null, VENDORS['美術'], USERS.staff2, 'rakuraku', '147530', 'tax10', 1, 400000, '企業紹介資料デザイン制作', '2026-04-15', null]);
+  execute(`UPDATE purchases SET group_id = ? WHERE id = ?`, [GROUP2, gpPur2]);
+  ins(paSql, [uuidv4(), gpPur2, PROJECTS['GLS-A004'], 200000]);
+  ins(paSql, [uuidv4(), gpPur2, PROJECTS['GLS-B002'], 200000]);
+
+  // ============================================================
   // Invoice Groups (GLS-A002)
   // ============================================================
   const igSql = `INSERT INTO invoice_groups (id, project_id, title, invoice_date, status, created_by) VALUES (?, ?, ?, ?, ?, ?)`;

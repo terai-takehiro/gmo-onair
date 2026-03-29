@@ -104,14 +104,12 @@ export interface SimulationItem {
   calc_type?: CalcType;
 }
 
-// 案件グループ(親案件)
+// 案件グループ（費用按分用）
 export interface ProjectGroup extends BaseEntity {
   name: string;
   description: string | null;
-  period_start: string | null;
-  period_end: string | null;
-  project_count?: number;
-  total_group_purchase?: number;
+  member_count?: number;
+  total_purchase?: number;
 }
 
 // 仕入按分
