@@ -1,6 +1,8 @@
-export function formatCurrency(amount: number | null | undefined): string {
+export function formatCurrency(amount: number | string | null | undefined): string {
   if (amount == null) return "¥0";
-  return `¥${amount.toLocaleString("ja-JP")}`;
+  const num = typeof amount === 'string' ? Number(amount) : amount;
+  if (isNaN(num)) return "¥0";
+  return `¥${num.toLocaleString("ja-JP")}`;
 }
 
 export function formatDate(dateStr: string | null | undefined): string {
@@ -13,7 +15,9 @@ export function formatDate(dateStr: string | null | undefined): string {
   return `${y}/${m}/${day}`;
 }
 
-export function formatPercent(value: number | null | undefined): string {
+export function formatPercent(value: number | string | null | undefined): string {
   if (value == null) return "0.0%";
-  return `${value.toFixed(1)}%`;
+  const num = typeof value === 'string' ? Number(value) : value;
+  if (isNaN(num)) return "0.0%";
+  return `${num.toFixed(1)}%`;
 }
