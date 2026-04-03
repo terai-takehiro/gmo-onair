@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS users (
   name       TEXT NOT NULL,
   email      TEXT NOT NULL UNIQUE,
   role       TEXT NOT NULL CHECK (role IN ('system_admin','staff','viewer','external_client')),
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT NOW(),
+  updated_at TEXT NOT NULL DEFAULT NOW(),
   created_by TEXT,
   updated_by TEXT,
   deleted_at TEXT
@@ -23,8 +23,8 @@ CREATE TABLE IF NOT EXISTS customers (
   name       TEXT NOT NULL,
   short_name TEXT,
   notes      TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT NOW(),
+  updated_at TEXT NOT NULL DEFAULT NOW(),
   created_by TEXT,
   updated_by TEXT,
   deleted_at TEXT
@@ -37,8 +37,8 @@ CREATE TABLE IF NOT EXISTS vendors (
   vendor_type                 TEXT,
   invoice_registration_number TEXT,
   notes                       TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT NOW(),
+  updated_at TEXT NOT NULL DEFAULT NOW(),
   created_by TEXT,
   updated_by TEXT,
   deleted_at TEXT
@@ -52,8 +52,8 @@ CREATE TABLE IF NOT EXISTS partners (
   role_title  TEXT,
   specialties TEXT DEFAULT '[]',
   notes       TEXT,
-  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at  TEXT NOT NULL DEFAULT NOW(),
+  updated_at  TEXT NOT NULL DEFAULT NOW(),
   created_by  TEXT,
   updated_by  TEXT,
   deleted_at  TEXT
@@ -63,8 +63,8 @@ CREATE TABLE IF NOT EXISTS pricing_categories (
   id         TEXT PRIMARY KEY,
   name       TEXT NOT NULL,
   sort_order INTEGER DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT NOW(),
+  updated_at TEXT NOT NULL DEFAULT NOW(),
   deleted_at TEXT
 );
 
@@ -77,8 +77,8 @@ CREATE TABLE IF NOT EXISTS pricing_items (
   calc_type   TEXT NOT NULL DEFAULT 'days'
               CHECK (calc_type IN ('days','hours','fixed','days_qty','days_people','toggle')),
   sort_order  INTEGER DEFAULT 0,
-  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at  TEXT NOT NULL DEFAULT NOW(),
+  updated_at  TEXT NOT NULL DEFAULT NOW(),
   deleted_at  TEXT
 );
 
@@ -115,8 +115,8 @@ CREATE TABLE IF NOT EXISTS projects (
   application_form   INTEGER NOT NULL DEFAULT 0,
   logo_permission    INTEGER NOT NULL DEFAULT 0,
   notes              TEXT,
-  created_at         TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at         TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at         TEXT NOT NULL DEFAULT NOW(),
+  updated_at         TEXT NOT NULL DEFAULT NOW(),
   created_by         TEXT,
   updated_by         TEXT,
   deleted_at         TEXT
@@ -135,8 +135,8 @@ CREATE TABLE IF NOT EXISTS episodes (
   broadcast_date TEXT,
   delivery_date  TEXT,
   notes          TEXT,
-  created_at     TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at     TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at     TEXT NOT NULL DEFAULT NOW(),
+  updated_at     TEXT NOT NULL DEFAULT NOW(),
   created_by     TEXT,
   updated_by     TEXT,
   deleted_at     TEXT
@@ -150,8 +150,8 @@ CREATE TABLE IF NOT EXISTS episode_orders (
   start_episode INTEGER NOT NULL,
   end_episode   INTEGER NOT NULL,
   notes         TEXT,
-  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at    TEXT NOT NULL DEFAULT NOW(),
+  updated_at    TEXT NOT NULL DEFAULT NOW(),
   created_by    TEXT,
   updated_by    TEXT,
   deleted_at    TEXT
@@ -165,8 +165,8 @@ CREATE TABLE IF NOT EXISTS invoice_groups (
   status       TEXT NOT NULL DEFAULT 'draft'
                CHECK (status IN ('draft','sent','paid')),
   notes        TEXT,
-  created_at   TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at   TEXT NOT NULL DEFAULT NOW(),
+  updated_at   TEXT NOT NULL DEFAULT NOW(),
   created_by   TEXT,
   updated_by   TEXT,
   deleted_at   TEXT
@@ -196,8 +196,8 @@ CREATE TABLE IF NOT EXISTS revenues (
   billing_date     TEXT,
   payment_due_date TEXT,
   notes            TEXT,
-  created_at       TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at       TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at       TEXT NOT NULL DEFAULT NOW(),
+  updated_at       TEXT NOT NULL DEFAULT NOW(),
   created_by       TEXT,
   updated_by       TEXT,
   deleted_at       TEXT
@@ -222,8 +222,8 @@ CREATE TABLE IF NOT EXISTS purchases (
   inspection_date   TEXT,
   payment_due_date  TEXT,
   notes             TEXT,
-  created_at        TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at        TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at        TEXT NOT NULL DEFAULT NOW(),
+  updated_at        TEXT NOT NULL DEFAULT NOW(),
   created_by        TEXT,
   updated_by        TEXT,
   deleted_at        TEXT
@@ -251,8 +251,8 @@ CREATE TABLE IF NOT EXISTS sga_expenses (
                     CHECK (tax_category IN ('tax10','tax8','exempt')),
   invoice_qualified INTEGER NOT NULL DEFAULT 1,
   amount            INTEGER NOT NULL DEFAULT 0,
-  created_at        TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at        TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at        TEXT NOT NULL DEFAULT NOW(),
+  updated_at        TEXT NOT NULL DEFAULT NOW(),
   created_by        TEXT,
   updated_by        TEXT,
   deleted_at        TEXT
@@ -273,8 +273,8 @@ CREATE TABLE IF NOT EXISTS activity_logs (
   activity_date TEXT NOT NULL,
   next_action   TEXT,
   next_action_date TEXT,
-  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at    TEXT NOT NULL DEFAULT NOW(),
+  updated_at    TEXT NOT NULL DEFAULT NOW(),
   created_by    TEXT,
   updated_by    TEXT,
   deleted_at    TEXT
@@ -286,8 +286,8 @@ CREATE TABLE IF NOT EXISTS sales_targets (
   target_year   INTEGER NOT NULL,
   target_month  INTEGER NOT NULL,
   target_amount INTEGER NOT NULL DEFAULT 0,
-  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at    TEXT NOT NULL DEFAULT NOW(),
+  updated_at    TEXT NOT NULL DEFAULT NOW(),
   UNIQUE(user_id, target_year, target_month)
 );
 
@@ -303,7 +303,7 @@ CREATE TABLE IF NOT EXISTS simulations (
   days            INTEGER NOT NULL DEFAULT 1,
   unit_price      INTEGER NOT NULL DEFAULT 0,
   subtotal        INTEGER NOT NULL DEFAULT 0,
-  created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at      TEXT NOT NULL DEFAULT NOW()
 );
 
 -- ============================================================
