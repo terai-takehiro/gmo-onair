@@ -7,12 +7,12 @@ GMO ONAiR = GMOグローバルスタジオの「会社OS」を目指すウェブ
 
 ## 技術構成
 - **フロントエンド**: React + Vite + TailwindCSS + shadcn/ui
-- **バックエンド**: Express + sql.js (SQLite Wasm版) → PostgreSQL に移行予定
+- **バックエンド**: Express + PostgreSQL (pg)
 - **モノレポ**: client/ + server/ を1つのリポジトリで管理
-- **現在のデプロイ先**: Render (mainブランチ監視で自動デプロイ)
-- **次のデプロイ先**: CoNoHa VPS (PostgreSQL + Nginx) ← **次のステップ**
+- **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
+- **旧デプロイ先**: Render (廃止予定)
 
-## 現在のバージョン: v0.2.2
+## 現在のバージョン: v0.6.0
 
 ## ブランチ運用
 - **デプロイ**: 常に `main` ブランチにプッシュ（masterではない）
@@ -31,11 +31,14 @@ GMO ONAiR = GMOグローバルスタジオの「会社OS」を目指すウェブ
 
 ### NOW: CoNoHa VPS移行
 ONAiRをRenderからCoNoHa VPSに移行し、本番運用可能な状態にする。
-- [ ] PostgreSQLへのDB切り替え (sql.js → PostgreSQL)
-- [ ] Docker/Docker Compose対応
-- [ ] Nginx設定 (リバースプロキシ + SSL)
-- [ ] CoNoHa VPSにデプロイ
-- [ ] 環境変数管理 (.env)
+- [x] PostgreSQLへのDB切り替え (sql.js → PostgreSQL)
+- [x] Docker/Docker Compose対応
+- [x] Nginx設定 (リバースプロキシ)
+- [x] CoNoHa VPSにデプロイ (http://133.117.74.239)
+- [x] 環境変数管理 (.env)
+- [x] master (v0.5.3) と main (PostgreSQL) のブランチ統合
+- [ ] HTTPS対応 (ドメイン取得後に SSL/Let's Encrypt)
+- [ ] VPSに統合版 v0.6.0 を再デプロイ
 
 ### NEXT: Qシートアプリ連携
 別アプリとしてCoNoHa上で並走させ、GLSナンバー+エピソードで連携。
