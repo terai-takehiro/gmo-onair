@@ -32,6 +32,17 @@ import SgaListPage from "@/contexts/finance/pages/SgaListPage";
 import VendorListPage from "@/contexts/finance/pages/VendorListPage";
 import PartnerListPage from "@/contexts/finance/pages/PartnerListPage";
 
+// Equipment
+import EquipmentDashboardPage from "@/contexts/equipment/pages/DashboardPage";
+import EquipmentListPage from "@/contexts/equipment/pages/EquipmentListPage";
+import EquipmentDetailPage from "@/contexts/equipment/pages/EquipmentDetailPage";
+import LendingListPage from "@/contexts/equipment/pages/LendingListPage";
+import CategoryPage from "@/contexts/equipment/pages/CategoryPage";
+import LocationPage from "@/contexts/equipment/pages/LocationPage";
+import MaintenancePage from "@/contexts/equipment/pages/MaintenancePage";
+import InventoryPage from "@/contexts/equipment/pages/InventoryPage";
+import ScanPage from "@/contexts/equipment/pages/ScanPage";
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
 
@@ -47,6 +58,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
+  return <>{children}</>;
+}
+
+/** ロールベースのルート保護。許可されたロール以外はダッシュボードにリダイレクト */
+function RoleRoute({ roles, children }: { roles: string[]; children: React.ReactNode }) {
+  const { currentUser } = useAuth();
+  if (!currentUser || !roles.includes(currentUser.role)) {
+    return <Navigate to="/" replace />;
+  }
   return <>{children}</>;
 }
 
@@ -77,8 +97,8 @@ function AppRoutes() {
       >
         {/* Platform */}
         <Route path="/" element={<DashboardPage />} />
-        <Route path="/admin/users" element={<UserListPage />} />
-        <Route path="/admin/data-viewer" element={<DataViewerPage />} />
+        <Route path="/admin/users" element={<RoleRoute roles={["system_admin"]}><UserListPage /></RoleRoute>} />
+        <Route path="/admin/data-viewer" element={<RoleRoute roles={["system_admin"]}><DataViewerPage /></RoleRoute>} />
 
         {/* 統合案件管理 */}
         <Route path="/projects" element={<ProjectListPage />} />
@@ -111,6 +131,17 @@ function AppRoutes() {
         <Route path="/sga" element={<SgaListPage />} />
         <Route path="/masters/vendors" element={<VendorListPage />} />
         <Route path="/masters/partners" element={<PartnerListPage />} />
+
+        {/* Equipment */}
+        <Route path="/equipment" element={<EquipmentDashboardPage />} />
+        <Route path="/equipment/items" element={<EquipmentListPage />} />
+        <Route path="/equipment/items/:id" element={<EquipmentDetailPage />} />
+        <Route path="/equipment/lending" element={<LendingListPage />} />
+        <Route path="/equipment/categories" element={<CategoryPage />} />
+        <Route path="/equipment/locations" element={<LocationPage />} />
+        <Route path="/equipment/maintenance" element={<MaintenancePage />} />
+        <Route path="/equipment/inventory" element={<InventoryPage />} />
+        <Route path="/equipment/scan" element={<ScanPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

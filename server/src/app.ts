@@ -36,20 +36,12 @@ export function createApp(): express.Express {
     res.json({ status: 'ok', name: 'GMO ONAiR API' });
   });
 
-  // In production, serve both React client builds
+  // In production, serve React client build
   if (process.env.NODE_ENV === 'production') {
-    // Equipment client at /equipment/*
-    const equipmentDistPath = path.join(__dirname, '../../client-equipment/dist');
-    app.use('/equipment', express.static(equipmentDistPath));
-    app.get('/equipment/*', (_req, res) => {
-      res.sendFile(path.join(equipmentDistPath, 'index.html'));
-    });
-
-    // Main ONAiR client at /*
     const clientDistPath = path.join(__dirname, '../../client/dist');
     app.use(express.static(clientDistPath));
 
-    // SPA fallback: any non-API, non-equipment route serves main index.html
+    // SPA fallback: any non-API route serves index.html
     app.get('*', (_req, res) => {
       res.sendFile(path.join(clientDistPath, 'index.html'));
     });

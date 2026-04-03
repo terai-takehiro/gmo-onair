@@ -31,11 +31,15 @@ interface NavItem {
   icon: React.ElementType;
   adminOnly?: boolean;
   external?: boolean;
+  /** アクセス可能なロール。未指定の場合は全員アクセス可（adminOnlyを除く） */
+  roles?: string[];
 }
 
 interface NavSection {
   title?: string;
   items: NavItem[];
+  /** セクション全体のロール制限 */
+  roles?: string[];
 }
 
 const navSections: NavSection[] = [
@@ -46,6 +50,7 @@ const navSections: NavSection[] = [
   },
   {
     title: "営業・案件管理",
+    roles: ["system_admin", "staff"],
     items: [
       { label: "案件管理", to: "/projects", icon: FolderKanban },
       { label: "確定案件（スタジオ）", to: "/projects/confirmed/studio", icon: Film },
@@ -57,6 +62,7 @@ const navSections: NavSection[] = [
   },
   {
     title: "売上・仕入・販管費",
+    roles: ["system_admin", "staff"],
     items: [
       { label: "売上一覧", to: "/revenues", icon: Receipt },
       { label: "仕入一覧", to: "/purchases", icon: ShoppingCart },
@@ -67,11 +73,13 @@ const navSections: NavSection[] = [
     title: "制作・運用",
     items: [
       { label: "スタジオ予約", to: "/calendar", icon: Calendar },
-      { label: "機材管理", to: "/equipment/", icon: Package, external: true },
+      { label: "機材管理", to: "/equipment", icon: Package },
+      { label: "貸出管理", to: "/equipment/lending", icon: ClipboardList },
     ],
   },
   {
     title: "マスター",
+    roles: ["system_admin", "staff"],
     items: [
       { label: "顧客", to: "/masters/customers", icon: Building2 },
       { label: "仕入先", to: "/masters/vendors", icon: Truck },
@@ -81,6 +89,7 @@ const navSections: NavSection[] = [
   },
   {
     title: "レポート",
+    roles: ["system_admin", "staff"],
     items: [
       { label: "仕入先集計", to: "/reports/vendors", icon: BarChart3 },
     ],
@@ -98,6 +107,7 @@ export default function Sidebar() {
   const { currentUser } = useAuth();
   const { sidebarOpen, setSidebarOpen } = useUiStore();
   const isAdmin = currentUser?.role === "system_admin";
+  const userRole = currentUser?.role || "";
 
   return (
     <>
@@ -130,8 +140,14 @@ export default function Sidebar() {
         <ScrollArea className="flex-1">
           <nav className="space-y-1 p-3">
             {navSections.map((section, si) => {
+              // セクションレベルのロール制限
+              if (section.roles && !section.roles.includes(userRole)) return null;
               const visibleItems = section.items.filter(
-                (item) => !item.adminOnly || isAdmin
+                (item) => {
+                  if (item.adminOnly && !isAdmin) return false;
+                  if (item.roles && !item.roles.includes(userRole)) return false;
+                  return true;
+                }
               );
               if (visibleItems.length === 0) return null;
 

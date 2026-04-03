@@ -2,6 +2,7 @@
 export const UserRole = {
   SYSTEM_ADMIN: 'system_admin',
   STAFF: 'staff',
+  EQUIPMENT_STAFF: 'equipment_staff',
   VIEWER: 'viewer',
   EXTERNAL_CLIENT: 'external_client',
 } as const;
@@ -10,6 +11,7 @@ export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 export const UserRoleLabels: Record<UserRole, string> = {
   system_admin: 'システム管理者',
   staff: '担当者',
+  equipment_staff: '機材担当',
   viewer: '閲覧者',
   external_client: '外部顧客',
 };
