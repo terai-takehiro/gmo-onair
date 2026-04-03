@@ -12,7 +12,10 @@ export function createApp(): express.Express {
 
   // Middleware
   app.use(helmet({
-    contentSecurityPolicy: false,  // React SPAのインラインスクリプトを許可
+    contentSecurityPolicy: false,
+    hsts: false,                    // HTTPSなしの環境でHTTPS強制を無効化
+    crossOriginOpenerPolicy: false,
+    originAgentCluster: false,
   }));
   const allowedOrigins = [
     'http://localhost:5173',
