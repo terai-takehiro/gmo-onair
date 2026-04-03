@@ -11,8 +11,15 @@ export function createApp(): express.Express {
   const app = express();
 
   // Middleware
-  app.use(helmet());
-  app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:3000'], credentials: true }));
+  app.use(helmet({
+    contentSecurityPolicy: false,  // React SPAのインラインスクリプトを許可
+  }));
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : []),
+  ];
+  app.use(cors({ origin: allowedOrigins, credentials: true }));
   app.use(express.json());
   app.use(morgan('dev'));
   app.use(mockAuth);
