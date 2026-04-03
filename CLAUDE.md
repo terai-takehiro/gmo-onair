@@ -46,20 +46,46 @@ GMO ONAiR = GMOグローバルスタジオの「会社OS」を目指すウェブ
 ### CoNoHa VPS最終構成
 ```
 CoNoHa VPS
+├── Nginx (リバースプロキシ + SSL)
+│   ├── onair.example.com    → localhost:3000
+│   └── qsheet.example.com  → localhost:3456
 ├── GMO ONAiR        (port 3000) - 案件管理OS
-│   └── PostgreSQL DB
-├── GMO Qsheet Editor (port 3001) - Qシート制作
-│   └── PostgreSQL DB
-├── Nginx (リバースプロキシ)
+│   ├── Express + React + Vite
+│   └── PostgreSQL DB: onair_db
+├── GMO Qsheet Editor (port 3456) - Qシート制作
+│   ├── Express + Vanilla JS + Quill.js
+│   ├── PostgreSQL DB: qsheet_db
+│   └── Google OAuth 2.0認証 (Passport.js)
+├── PostgreSQL 16 (両アプリ共有インスタンス、DB分離)
+├── Docker Compose で一括管理
 └── 共通: Box Node SDK + JWT認証
 ```
 
 ## Qシートアプリ連携計画
 - リポジトリ: terai-takehiro/GMO-Qsheet-Editor
+- **技術構成**: Express + Vanilla JS + PostgreSQL + Docker Compose
+- **認証**: Google OAuth 2.0 + Passport.js (招待制)
+- **マルチテナント**: tenants/roles (master/client_admin/client_user)
+- **データ**: documents テーブルに JSONB でQシート全体を保存
+- **PDF出力**: pdfkit サーバーサイド生成 (A4/A3, Noto Sans JP)
+- **ポート**: 3456 (ONAiRの3000と共存可能)
+
+### 連携設計
 - **GLSナンバーが共通キー**: 両アプリをGLS番号で紐付け
 - **BOXがハブ**: 同じGLSフォルダを両アプリから読み書き
-- **API連携**: ONAiRから案件情報送信、Qシートからステータス通知
+- **API連携**:
+  - ONAiR → Qシート: 案件作成時にGLS番号+基本情報を送信、「Qシート作成」ボタン
+  - Qシート → ONAiR: Qシート確定時にWebhookでステータス通知
+- **認証統合**: 将来的にONAiRもGoogle OAuth対応でSSO化検討
 - 別アプリとして独立稼働しつつ、GLS番号+BOXで連動
+
+### 連携実装フェーズ
+```
+Phase 1: CoNoHa移行 → ONAiR PostgreSQL化 + Qシート Docker Compose + Nginx
+Phase 2: GLS連携   → Qシートにgls_number対応、ONAiR画面にQシートリンク
+Phase 3: BOX連携   → JWT認証共通化、PDF出力先BOX化、ドキュメント一覧
+Phase 4: 高度連携  → Qシート確定通知、Google OAuth統合、統合ダッシュボード
+```
 
 ## 完了済みフェーズ
 - [x] Phase A: ヨミと案件の統合（サーバー+クライアント全て完了）
