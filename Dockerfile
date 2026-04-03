@@ -13,7 +13,6 @@ RUN npm install --workspaces --include-workspace-root
 # Copy source
 COPY client/ client/
 COPY server/ server/
-COPY tsconfig.json ./
 
 # Build client (Vite) and server (TypeScript)
 RUN npm run build --workspace=client
