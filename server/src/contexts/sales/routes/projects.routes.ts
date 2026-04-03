@@ -6,7 +6,7 @@ import { projectService, ProjectFilter } from '../services/project.service';
 const router = Router();
 
 // 統合一覧（タブ: all/yomi/active/completed/lost）
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const { page, limit, offset, search } = extractPagination(req);
   const filter: ProjectFilter = {
     search,
@@ -16,13 +16,13 @@ router.get('/', (req, res) => {
     tag: req.query.tag as string,
     glsCategory: req.query.gls_category as ProjectFilter['glsCategory'],
   };
-  const { rows, total } = projectService.list(filter, page, limit, offset);
+  const { rows, total } = await projectService.list(filter, page, limit, offset);
   res.json(paginatedResponse(rows, total, page, limit));
 });
 
 // タグ一覧
-router.get('/tags', (_req, res) => {
-  res.json({ success: true, data: projectService.getTags() });
+router.get('/tags', async (_req, res) => {
+  res.json({ success: true, data: await projectService.getTags() });
 });
 
 // GLS番号付き案件一覧（リンク先選択用）
@@ -31,37 +31,37 @@ router.get('/gls-projects', (_req, res) => {
 });
 
 // 詳細
-router.get('/:id', (req, res) => {
-  res.json({ success: true, data: projectService.getById(req.params.id as string) });
+router.get('/:id', async (req, res) => {
+  res.json({ success: true, data: await projectService.getById(req.params.id as string) });
 });
 
 // サマリー（売上/仕入/粗利）
-router.get('/:id/summary', (req, res) => {
-  res.json({ success: true, data: projectService.getSummary(req.params.id as string) });
+router.get('/:id/summary', async (req, res) => {
+  res.json({ success: true, data: await projectService.getSummary(req.params.id as string) });
 });
 
 // 新規作成（ヨミ段階）
-router.post('/', requireAuth, (req, res) => {
-  const result = projectService.create(req.body, req.user!.id);
+router.post('/', requireAuth, async (req, res) => {
+  const result = await projectService.create(req.body, req.user!.id);
   res.status(201).json({ success: true, data: result });
 });
 
 // 更新
-router.put('/:id', requireAuth, (req, res) => {
-  const result = projectService.update(req.params.id as string, req.body, req.user!.id);
+router.put('/:id', requireAuth, async (req, res) => {
+  const result = await projectService.update(req.params.id as string, req.body, req.user!.id);
   res.json({ success: true, data: result });
 });
 
 // ステージ変更
-router.patch('/:id/stage', requireAuth, (req, res) => {
+router.patch('/:id/stage', requireAuth, async (req, res) => {
   const { stage, ...rest } = req.body;
-  const result = projectService.changeStage(req.params.id as string, stage, rest, req.user!.id);
+  const result = await projectService.changeStage(req.params.id as string, stage, rest, req.user!.id);
   res.json({ success: true, data: result });
 });
 
 // GLS発番
-router.post('/:id/issue-gls', requireAuth, (req, res) => {
-  const result = projectService.issueGls(req.params.id as string, req.body, req.user!.id);
+router.post('/:id/issue-gls', requireAuth, async (req, res) => {
+  const result = await projectService.issueGls(req.params.id as string, req.body, req.user!.id);
   res.json({ success: true, data: result });
 });
 
@@ -73,8 +73,8 @@ router.post('/:id/link-gls', requireAuth, (req, res) => {
 });
 
 // 削除
-router.delete('/:id', requireAuth, (req, res) => {
-  projectService.delete(req.params.id as string, req.user!.id);
+router.delete('/:id', requireAuth, async (req, res) => {
+  await projectService.delete(req.params.id as string, req.user!.id);
   res.json({ success: true, message: '削除しました' });
 });
 

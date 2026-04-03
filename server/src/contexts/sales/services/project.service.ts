@@ -16,7 +16,7 @@ export class ProjectService {
   /**
    * 統合一覧: タブ（ヨミ/進行中/完了/失注）+ フィルタ
    */
-  list(filter: ProjectFilter, page: number, limit: number, offset: number) {
+  async list(filter: ProjectFilter, page: number, limit: number, offset: number) {
     let where = 'WHERE p.deleted_at IS NULL';
     const params: unknown[] = [];
 
@@ -33,7 +33,7 @@ export class ProjectService {
 
     // 個別フィルタ
     if (filter.search) {
-      where += ` AND (p.name LIKE ? OR p.code LIKE ? OR p.gls_number LIKE ? OR c.name LIKE ? OR c.short_name LIKE ?)`;
+      where += ` AND (p.name ILIKE ? OR p.code ILIKE ? OR p.gls_number ILIKE ? OR c.name ILIKE ? OR c.short_name ILIKE ?)`;
       params.push(`%${filter.search}%`, `%${filter.search}%`, `%${filter.search}%`, `%${filter.search}%`, `%${filter.search}%`);
     }
     if (filter.stage) {
@@ -54,8 +54,8 @@ export class ProjectService {
       where += ` AND p.gls_number IS NOT NULL AND p.gls_number LIKE 'GLS-B%'`;
     }
 
-    const total = (queryOne(`SELECT COUNT(*) as c FROM projects p LEFT JOIN customers c ON c.id = p.customer_id ${where}`, params) as any).c;
-    const rows = queryAll(
+    const total = ((await queryOne(`SELECT COUNT(*) as c FROM projects p LEFT JOIN customers c ON c.id = p.customer_id ${where}`, params)) as any).c;
+    const rows = await queryAll(
       `SELECT p.*, c.name as customer_name, c.short_name as customer_short_name, u.name as assigned_to_name
        FROM projects p
        LEFT JOIN customers c ON c.id = p.customer_id
@@ -66,8 +66,8 @@ export class ProjectService {
     return { rows, total, page, limit };
   }
 
-  getById(id: string) {
-    const row = queryOne(
+  async getById(id: string) {
+    const row = await queryOne(
       `SELECT p.*, c.name as customer_name, c.short_name as customer_short_name, u.name as assigned_to_name
        FROM projects p
        LEFT JOIN customers c ON c.id = p.customer_id
@@ -82,13 +82,13 @@ export class ProjectService {
   /**
    * 新規作成（ヨミ段階: 最低限の入力でOK）
    */
-  create(data: Record<string, unknown>, userId: string) {
+  async create(data: Record<string, unknown>, userId: string) {
     const { name, customer_id, expected_amount, assigned_to, project_type, notes } = data;
     if (!name || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名と顧客は必須です');
 
     const id = uuidv4();
-    const code = generateSequenceNumber('opp_code', 'OPP');
-    execute(
+    const code = await generateSequenceNumber('opp_code', 'OPP');
+    await execute(
       `INSERT INTO projects (id, code, name, customer_id, stage, project_type, expected_amount, assigned_to, notes, created_by)
        VALUES (?, ?, ?, ?, 'neta', ?, ?, ?, ?, ?)`,
       [id, code, name, customer_id, project_type || 'other', expected_amount || 0, assigned_to || userId, notes || null, userId]
@@ -99,19 +99,19 @@ export class ProjectService {
   /**
    * 更新（ヨミ段階でも案件段階でも同じAPI）
    */
-  update(id: string, data: Record<string, unknown>, userId: string) {
-    const existing = queryOne('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [id]);
+  async update(id: string, data: Record<string, unknown>, userId: string) {
+    const existing = await queryOne('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [id]);
     if (!existing) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
 
     const { name, customer_id, expected_amount, assigned_to, project_type, project_type_other,
             event_start, event_end, broadcast_type, media_platform, tags,
             application_form, logo_permission, notes } = data;
-    execute(
+    await execute(
       `UPDATE projects SET name=?, customer_id=?, expected_amount=?, assigned_to=?,
        project_type=?, project_type_other=?, event_start=?, event_end=?,
        broadcast_type=?, media_platform=?, tags=?,
        application_form=?, logo_permission=?, notes=?,
-       updated_at=datetime('now'), updated_by=? WHERE id=?`,
+       updated_at=NOW(), updated_by=? WHERE id=?`,
       [name, customer_id, expected_amount || 0, assigned_to,
        project_type || 'other', project_type_other || null,
        event_start || null, event_end || null,
@@ -125,20 +125,20 @@ export class ProjectService {
   /**
    * ステージ変更（ステージだけ変える。他の処理は含めない）
    */
-  changeStage(id: string, stage: string, data: Record<string, unknown>, userId: string) {
+  async changeStage(id: string, stage: string, data: Record<string, unknown>, userId: string) {
     if (!stage) throw new AppError(400, 'VALIDATION_ERROR', 'stageは必須です');
 
-    const project = queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [id]) as any;
+    const project = await queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [id]) as any;
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
 
     if (stage === 'e_lost') {
-      execute(
-        `UPDATE projects SET stage=?, lost_reason=?, lost_reason_note=?, lessons_learned=?, lost_at=datetime('now'), updated_at=datetime('now'), updated_by=? WHERE id=?`,
+      await execute(
+        `UPDATE projects SET stage=?, lost_reason=?, lost_reason_note=?, lessons_learned=?, lost_at=NOW(), updated_at=NOW(), updated_by=? WHERE id=?`,
         [stage, data.lost_reason || null, data.lost_reason_note || null, data.lessons_learned || null, userId, id]
       );
     } else {
-      execute(
-        `UPDATE projects SET stage=?, updated_at=datetime('now'), updated_by=? WHERE id=?`,
+      await execute(
+        `UPDATE projects SET stage=?, updated_at=NOW(), updated_by=? WHERE id=?`,
         [stage, userId, id]
       );
     }
@@ -148,23 +148,23 @@ export class ProjectService {
   /**
    * GLS発番（口頭決定以降で呼ぶ。案件に GLS番号を付与する）
    */
-  issueGls(id: string, data: Record<string, unknown>, userId: string) {
-    const project = queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [id]) as any;
+  async issueGls(id: string, data: Record<string, unknown>, userId: string) {
+    const project = await queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [id]) as any;
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
     if (project.gls_number) throw new AppError(400, 'VALIDATION_ERROR', '既にGLS番号が発番済みです');
 
-    const glsNumber = generateGlsNumber(project.project_type as string);
+    const glsNumber = await generateGlsNumber(project.project_type as string);
     const { broadcast_type, media_platform } = data;
 
-    execute(
+    await execute(
       `UPDATE projects SET gls_number=?, broadcast_type=?, media_platform=?,
        stage=CASE WHEN stage IN ('neta','d_hold','c_proposal') THEN 'b_verbal' ELSE stage END,
-       updated_at=datetime('now'), updated_by=? WHERE id=?`,
+       updated_at=NOW(), updated_by=? WHERE id=?`,
       [glsNumber, broadcast_type || null, media_platform || null, userId, id]
     );
 
     // 概算見積を確定売上に変換
-    this.migrateEstimates(id, glsNumber);
+    await this.migrateEstimates(id, glsNumber);
 
     return this.getById(id);
   }
@@ -172,23 +172,23 @@ export class ProjectService {
   /**
    * 既存GLS案件へのリンク（エピソード追加）
    */
-  linkToExistingGls(id: string, targetProjectId: string, userId: string) {
-    const project = queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [id]) as any;
+  async linkToExistingGls(id: string, targetProjectId: string, userId: string) {
+    const project = await queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [id]) as any;
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
     if (project.gls_number) throw new AppError(400, 'VALIDATION_ERROR', '既にGLS番号が発番済みです');
 
-    const target = queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [targetProjectId]) as any;
+    const target = await queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [targetProjectId]) as any;
     if (!target || !target.gls_number) throw new AppError(400, 'VALIDATION_ERROR', 'リンク先にGLS番号がありません');
 
-    execute(
+    await execute(
       `UPDATE projects SET gls_number=?, broadcast_type=?, media_platform=?,
        stage=CASE WHEN stage IN ('neta','d_hold','c_proposal') THEN 'b_verbal' ELSE stage END,
-       updated_at=datetime('now'), updated_by=? WHERE id=?`,
+       updated_at=NOW(), updated_by=? WHERE id=?`,
       [target.gls_number, target.broadcast_type || null, target.media_platform || null, userId, id]
     );
 
     // 概算見積を確定売上に変換
-    this.migrateEstimates(id, target.gls_number);
+    await this.migrateEstimates(id, target.gls_number);
 
     return this.getById(id);
   }
@@ -196,8 +196,8 @@ export class ProjectService {
   /**
    * GLS番号付き案件一覧（リンク先選択用）
    */
-  getGlsProjects() {
-    return queryAll(
+  async getGlsProjects() {
+    return await queryAll(
       `SELECT p.id, p.gls_number, p.name, c.name as customer_name
        FROM projects p LEFT JOIN customers c ON c.id = p.customer_id
        WHERE p.gls_number IS NOT NULL AND p.deleted_at IS NULL
@@ -208,8 +208,8 @@ export class ProjectService {
   /**
    * 概算見積→確定売上に変換（billing_key再生成＋ステータス変更）
    */
-  private migrateEstimates(projectId: string, glsNumber: string) {
-    const estimates = queryAll(
+  private async migrateEstimates(projectId: string, glsNumber: string) {
+    const estimates = await queryAll(
       `SELECT id, tax_category FROM revenues
        WHERE project_id = ? AND status = 'estimate' AND deleted_at IS NULL
        ORDER BY created_at ASC`,
@@ -218,12 +218,12 @@ export class ProjectService {
     if (estimates.length === 0) return;
 
     // 既存の確定売上数をカウント（同一GLS番号の全プロジェクト横断）
-    const existingConfirmed = (queryOne(
+    const existingConfirmed = ((await queryOne(
       `SELECT COUNT(*) as c FROM revenues r
        JOIN projects p ON p.id = r.project_id
        WHERE p.gls_number = ? AND r.status = 'confirmed' AND r.deleted_at IS NULL`,
       [glsNumber]
-    ) as any).c;
+    )) as any).c;
 
     for (let i = 0; i < estimates.length; i++) {
       const est = estimates[i];
@@ -231,8 +231,8 @@ export class ProjectService {
       const seqNum = String(seq).padStart(3, '0');
       const taxSuffix = est.tax_category === 'tax8' ? '2' : (est.tax_category === 'exempt' ? '0' : '1');
       const newBillingKey = `${glsNumber}-${seqNum}-${taxSuffix}`;
-      execute(
-        `UPDATE revenues SET status = 'confirmed', billing_key = ?, updated_at = datetime('now') WHERE id = ?`,
+      await execute(
+        `UPDATE revenues SET status = 'confirmed', billing_key = ?, updated_at = NOW() WHERE id = ?`,
         [newBillingKey, est.id]
       );
     }
@@ -241,16 +241,16 @@ export class ProjectService {
   /**
    * 案件サマリー（売上/仕入/粗利）
    */
-  getSummary(id: string) {
-    const project = queryOne('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [id]);
+  async getSummary(id: string) {
+    const project = await queryOne('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [id]);
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
 
     // 直接売上（group_id なし）+ グループ按分された売上
-    const directRev = queryOne('SELECT COALESCE(SUM(amount), 0) as total FROM revenues WHERE project_id = ? AND group_id IS NULL AND deleted_at IS NULL', [id]);
-    const allocatedRev = queryOne('SELECT COALESCE(SUM(ra.allocated_amount), 0) as total FROM revenue_allocations ra JOIN revenues r ON r.id = ra.revenue_id AND r.deleted_at IS NULL WHERE ra.project_id = ?', [id]);
+    const directRev = await queryOne('SELECT COALESCE(SUM(amount), 0) as total FROM revenues WHERE project_id = ? AND group_id IS NULL AND deleted_at IS NULL', [id]);
+    const allocatedRev = await queryOne('SELECT COALESCE(SUM(ra.allocated_amount), 0) as total FROM revenue_allocations ra JOIN revenues r ON r.id = ra.revenue_id AND r.deleted_at IS NULL WHERE ra.project_id = ?', [id]);
     // 直接仕入（group_id なし）+ グループ按分された金額
-    const directPur = queryOne('SELECT COALESCE(SUM(amount), 0) as total FROM purchases WHERE project_id = ? AND group_id IS NULL AND deleted_at IS NULL', [id]);
-    const allocatedPur = queryOne('SELECT COALESCE(SUM(pa.allocated_amount), 0) as total FROM purchase_allocations pa JOIN purchases pu ON pu.id = pa.purchase_id AND pu.deleted_at IS NULL WHERE pa.project_id = ?', [id]);
+    const directPur = await queryOne('SELECT COALESCE(SUM(amount), 0) as total FROM purchases WHERE project_id = ? AND group_id IS NULL AND deleted_at IS NULL', [id]);
+    const allocatedPur = await queryOne('SELECT COALESCE(SUM(pa.allocated_amount), 0) as total FROM purchase_allocations pa JOIN purchases pu ON pu.id = pa.purchase_id AND pu.deleted_at IS NULL WHERE pa.project_id = ?', [id]);
     const totalRevenue = ((directRev?.total as number) || 0) + ((allocatedRev?.total as number) || 0);
     const totalPurchase = ((directPur?.total as number) || 0) + ((allocatedPur?.total as number) || 0);
     const grossProfit = totalRevenue - totalPurchase;
@@ -261,8 +261,8 @@ export class ProjectService {
   /**
    * タグ一覧（全案件から使用中のタグを抽出）
    */
-  getTags() {
-    const rows = queryAll("SELECT tags FROM projects WHERE deleted_at IS NULL AND tags != '' AND tags IS NOT NULL");
+  async getTags() {
+    const rows = await queryAll("SELECT tags FROM projects WHERE deleted_at IS NULL AND tags != '' AND tags IS NOT NULL");
     const tagSet = new Set<string>();
     for (const row of rows) {
       const tags = (row.tags as string).split(',').map(t => t.trim()).filter(Boolean);
@@ -271,8 +271,8 @@ export class ProjectService {
     return Array.from(tagSet).sort();
   }
 
-  delete(id: string, userId: string) {
-    execute(`UPDATE projects SET deleted_at=datetime('now'), updated_by=? WHERE id=? AND deleted_at IS NULL`, [userId, id]);
+  async delete(id: string, userId: string) {
+    await execute(`UPDATE projects SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`, [userId, id]);
   }
 }
 

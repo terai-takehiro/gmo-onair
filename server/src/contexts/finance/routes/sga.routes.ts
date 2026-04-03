@@ -9,7 +9,7 @@ import { generateSgaBillingKey } from '../../../shared/services/billing-key.serv
 const router = Router();
 
 // GET /sga - List with pagination, search, filters
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const { page, limit, offset, search } = extractPagination(req);
   const dateFrom = req.query.date_from as string;
   const dateTo = req.query.date_to as string;
@@ -23,7 +23,7 @@ router.get('/', (req, res) => {
     params.push(source);
   }
   if (search) {
-    where += ` AND (s.vendor_name LIKE ? OR s.description LIKE ?)`;
+    where += ` AND (s.vendor_name ILIKE ? OR s.description ILIKE ?)`;
     params.push(`%${search}%`, `%${search}%`);
   }
   if (dateFrom) {
@@ -35,8 +35,8 @@ router.get('/', (req, res) => {
     params.push(dateTo);
   }
 
-  const total = (queryOne(`SELECT COUNT(*) as c FROM sga_expenses s ${where}`, params) as any).c;
-  const rows = queryAll(
+  const total = ((await queryOne(`SELECT COUNT(*) as c FROM sga_expenses s ${where}`, params)) as any).c;
+  const rows = await queryAll(
     `SELECT s.* FROM sga_expenses s ${where} ORDER BY s.recognition_date DESC, s.created_at DESC LIMIT ? OFFSET ?`,
     [...params, limit, offset]
   );
@@ -44,14 +44,14 @@ router.get('/', (req, res) => {
 });
 
 // GET /sga/:id - Get single
-router.get('/:id', (req, res) => {
-  const row = queryOne('SELECT * FROM sga_expenses WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+router.get('/:id', async (req, res) => {
+  const row = await queryOne('SELECT * FROM sga_expenses WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!row) throw new AppError(404, 'NOT_FOUND', '販管費が見つかりません');
   res.json({ success: true, data: row });
 });
 
 // POST /sga - Create
-router.post('/', requireAuth, (req, res) => {
+router.post('/', requireAuth, async (req, res) => {
   const {
     vendor_name, vendor_id, settlement_method, settlement_number, description, notes,
     recognition_date, payment_due_date, tax_category, invoice_qualified, amount,
@@ -63,7 +63,7 @@ router.post('/', requireAuth, (req, res) => {
   const billing_key = generateSgaBillingKey(recognition_date, tax_category || 'tax10');
   const id = uuidv4();
 
-  execute(
+  await execute(
     `INSERT INTO sga_expenses (id, billing_key, vendor_name, vendor_id, settlement_method, settlement_number, description, notes, recognition_date, payment_due_date, tax_category, invoice_qualified, amount, expense_type, amortize_start, amortize_end, source, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id, billing_key, vendor_name || null, vendor_id || null,
@@ -80,13 +80,13 @@ router.post('/', requireAuth, (req, res) => {
     ]
   );
 
-  const row = queryOne('SELECT * FROM sga_expenses WHERE id = ?', [id]);
+  const row = await queryOne('SELECT * FROM sga_expenses WHERE id = ?', [id]);
   res.status(201).json({ success: true, data: row });
 });
 
 // PUT /sga/:id - Update
-router.put('/:id', requireAuth, (req, res) => {
-  const existing = queryOne('SELECT * FROM sga_expenses WHERE id = ? AND deleted_at IS NULL', [req.params.id]) as any;
+router.put('/:id', requireAuth, async (req, res) => {
+  const existing = await queryOne('SELECT * FROM sga_expenses WHERE id = ? AND deleted_at IS NULL', [req.params.id]) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '販管費が見つかりません');
 
   const {
@@ -103,8 +103,8 @@ router.put('/:id', requireAuth, (req, res) => {
     billing_key = generateSgaBillingKey(newDate, newTax);
   }
 
-  execute(
-    `UPDATE sga_expenses SET billing_key=?, vendor_name=?, vendor_id=?, settlement_method=?, settlement_number=?, description=?, notes=?, recognition_date=?, payment_due_date=?, tax_category=?, invoice_qualified=?, amount=?, expense_type=?, amortize_start=?, amortize_end=?, source=?, updated_at=datetime('now'), updated_by=? WHERE id=?`,
+  await execute(
+    `UPDATE sga_expenses SET billing_key=?, vendor_name=?, vendor_id=?, settlement_method=?, settlement_number=?, description=?, notes=?, recognition_date=?, payment_due_date=?, tax_category=?, invoice_qualified=?, amount=?, expense_type=?, amortize_start=?, amortize_end=?, source=?, updated_at=NOW(), updated_by=? WHERE id=?`,
     [
       billing_key, vendor_name || null, vendor_id || null,
       settlement_method || null, settlement_number || null,
@@ -122,14 +122,14 @@ router.put('/:id', requireAuth, (req, res) => {
     ]
   );
 
-  const row = queryOne('SELECT * FROM sga_expenses WHERE id = ?', [req.params.id]);
+  const row = await queryOne('SELECT * FROM sga_expenses WHERE id = ?', [req.params.id]);
   res.json({ success: true, data: row });
 });
 
 // DELETE /sga/:id - Soft delete
-router.delete('/:id', requireAuth, (req, res) => {
-  execute(
-    `UPDATE sga_expenses SET deleted_at=datetime('now'), updated_by=? WHERE id=? AND deleted_at IS NULL`,
+router.delete('/:id', requireAuth, async (req, res) => {
+  await execute(
+    `UPDATE sga_expenses SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`,
     [req.user!.id, req.params.id]
   );
   res.json({ success: true, message: '削除しました' });

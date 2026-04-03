@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS equipment_categories (
   item_type TEXT NOT NULL DEFAULT 'both' CHECK(item_type IN ('facility', 'rental', 'both')),
   parent_id TEXT REFERENCES equipment_categories(id),
   sort_order INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (NOW()),
+  updated_at TEXT NOT NULL DEFAULT (NOW()),
   deleted_at TEXT
 );
 
@@ -51,14 +51,15 @@ CREATE TABLE IF NOT EXISTS equipment_items (
 
   created_by TEXT,
   updated_by TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (NOW()),
+  updated_at TEXT NOT NULL DEFAULT (NOW()),
   deleted_at TEXT
 );
 
 -- EQコード用シーケンス
-INSERT OR IGNORE INTO sequences (seq_name, prefix, year_month, counter)
-VALUES ('eq_code', 'EQ', '000000', 0);
+INSERT INTO sequences (seq_name, prefix, year_month, counter)
+VALUES ('eq_code', 'EQ', '000000', 0)
+ON CONFLICT DO NOTHING;
 
 -- 棚卸し
 CREATE TABLE IF NOT EXISTS inventory_checks (
@@ -68,8 +69,8 @@ CREATE TABLE IF NOT EXISTS inventory_checks (
   status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'in_progress', 'completed')),
   checked_by TEXT,
   notes TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (NOW()),
+  updated_at TEXT NOT NULL DEFAULT (NOW())
 );
 
 CREATE TABLE IF NOT EXISTS inventory_check_items (
@@ -92,7 +93,7 @@ CREATE TABLE IF NOT EXISTS maintenance_records (
   title TEXT NOT NULL,
   description TEXT,
   reported_by TEXT,
-  reported_at TEXT NOT NULL DEFAULT (datetime('now')),
+  reported_at TEXT NOT NULL DEFAULT (NOW()),
 
   assigned_to TEXT,
   vendor_name TEXT,
@@ -102,8 +103,8 @@ CREATE TABLE IF NOT EXISTS maintenance_records (
   status TEXT NOT NULL DEFAULT 'reported' CHECK(status IN ('reported', 'in_progress', 'completed', 'cancelled')),
   result TEXT,
 
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (NOW()),
+  updated_at TEXT NOT NULL DEFAULT (NOW())
 );
 
 -- 貸出管理
@@ -126,8 +127,8 @@ CREATE TABLE IF NOT EXISTS equipment_lendings (
 
   lent_by TEXT,
   returned_by TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (NOW()),
+  updated_at TEXT NOT NULL DEFAULT (NOW())
 );
 
 -- 付属品・セット管理

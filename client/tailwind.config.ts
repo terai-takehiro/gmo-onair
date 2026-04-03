@@ -14,6 +14,9 @@ const config: Config = {
         '2xl': '1400px',
       },
     },
+    fontFamily: {
+      sans: ['"Noto Sans JP"', 'sans-serif'],
+    },
     extend: {
       fontFamily: {
         sans: ['Noto Sans JP', 'sans-serif'],

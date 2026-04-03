@@ -176,13 +176,13 @@ export default function DashboardPage() {
         <div className="flex gap-1 rounded-lg border p-1">
           <button
             onClick={() => setKpiPeriod('monthly')}
-            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${kpiPeriod === 'monthly' ? 'bg-primary text-white' : 'hover:bg-muted'}`}
+            className={`rounded-md px-3 py-1 text-xs sm:px-4 sm:py-1.5 sm:text-sm font-medium transition-colors ${kpiPeriod === 'monthly' ? 'bg-primary text-white' : 'hover:bg-muted'}`}
           >
             今月
           </button>
           <button
             onClick={() => setKpiPeriod('yearly')}
-            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${kpiPeriod === 'yearly' ? 'bg-primary text-white' : 'hover:bg-muted'}`}
+            className={`rounded-md px-3 py-1 text-xs sm:px-4 sm:py-1.5 sm:text-sm font-medium transition-colors ${kpiPeriod === 'yearly' ? 'bg-primary text-white' : 'hover:bg-muted'}`}
           >
             年間
           </button>
@@ -191,12 +191,12 @@ export default function DashboardPage() {
 
       {/* P&L Infographic */}
       {kpiLoading ? (
-        <div className="flex justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="flex justify-center py-6">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
         </div>
       ) : kpi ? (
         <Card className="overflow-hidden">
-          <div className="bg-muted/50 px-4 py-2 text-sm font-medium text-muted-foreground border-b">
+          <div className="bg-muted/50 px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium text-muted-foreground border-b">
             {kpi.period_label || (kpiPeriod === 'yearly' ? '年間' : '今月')} 損益サマリー
           </div>
           <CardContent className="p-0">
@@ -285,6 +285,7 @@ export default function DashboardPage() {
                 <p className="text-lg font-semibold opacity-90">{formatPercent(kpi.operating_margin)}</p>
               </div>
             </div>
+
             {/* Sub KPIs */}
             <div className="grid grid-cols-4 border-t">
               <div className="p-2 lg:p-4 text-center border-r">
@@ -311,9 +312,9 @@ export default function DashboardPage() {
       {/* Weekly Schedule */}
       {weeklyData && (
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Calendar className="h-5 w-5 text-primary" />
+          <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6">
+            <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+              <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
               今週のスケジュール
             </CardTitle>
           </CardHeader>
@@ -375,8 +376,8 @@ export default function DashboardPage() {
             <div className="flex gap-3 mt-2 lg:mt-3 justify-center">
               {Object.entries(typeLabels).map(([key, label]) => (
                 <div key={key} className="flex items-center gap-1">
-                  <div className={`w-2.5 h-2.5 rounded-sm ${typeColors[key]}`} />
-                  <span className="text-xs text-muted-foreground">{label}</span>
+                  <div className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-sm ${typeColors[key]}`} />
+                  <span className="text-[10px] sm:text-xs text-muted-foreground">{label}</span>
                 </div>
               ))}
             </div>
@@ -412,9 +413,9 @@ export default function DashboardPage() {
                     wrapperStyle={{ zIndex: 10 }}
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="revenue" fill="#005bac" name="売上" />
                   <Bar dataKey="purchase" fill="#f59e0b" name="仕入" />
                   <Bar dataKey="sga" fill="#ef4444" name="販管費" />
-                  <Bar dataKey="revenue" fill="#005bac" name="売上" />
                   <Line type="monotone" dataKey="gross_profit" stroke="#22c55e" name="粗利" strokeWidth={2} dot={{ r: 3 }} />
                   <Line type="monotone" dataKey="operating_profit" stroke="#7c3aed" name="営業利益" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 3 }} />
                 </ComposedChart>
@@ -473,19 +474,19 @@ export default function DashboardPage() {
               アラート
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3 sm:px-6">
             {!alerts || alerts.length === 0 ? (
               <p className="text-sm text-muted-foreground">アラートはありません</p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 {alerts.map((a, idx) => (
-                  <div key={`${a.id}-${a.alert_type}-${idx}`} className="flex items-start gap-3 rounded-md border p-3">
+                  <div key={`${a.id}-${a.alert_type}-${idx}`} className="flex items-start gap-2 sm:gap-3 rounded-md border p-2 sm:p-3">
                     <Badge color={alertTypeColor[a.alert_type] || "#6b7280"}>
                       {alertTypeLabel[a.alert_type] || a.alert_type}
                     </Badge>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{a.name}</p>
-                      <p className="text-xs text-muted-foreground">{a.message}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs sm:text-sm font-medium truncate">{a.name}</p>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">{a.message}</p>
                     </div>
                   </div>
                 ))}
@@ -499,24 +500,24 @@ export default function DashboardPage() {
           <CardHeader className="pb-2 lg:pb-6">
             <CardTitle className="text-base lg:text-lg">最近の案件</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3 sm:px-6">
             {!recentProjects || recentProjects.length === 0 ? (
               <p className="text-sm text-muted-foreground">案件がありません</p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 {recentProjects.slice(0, 5).map((p) => (
                   <div
                     key={p.id}
-                    className="flex cursor-pointer items-center justify-between rounded-md border p-3 transition-colors hover:bg-muted/50"
+                    className="flex cursor-pointer items-center justify-between gap-2 rounded-md border p-2 sm:p-3 transition-colors hover:bg-muted/50"
                     onClick={() => navigate(`/projects/${p.id}`)}
                   >
-                    <div>
-                      <p className="text-sm font-medium">{p.gls_number} {p.name}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-sm font-medium truncate">{p.gls_number} {p.name}</p>
                       {p.customer_name && (
-                        <p className="text-xs text-muted-foreground">{p.customer_name}</p>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground">{p.customer_name}</p>
                       )}
                     </div>
-                    <Badge style={{ backgroundColor: projectStageColor[p.stage], color: '#fff' }}>
+                    <Badge className="shrink-0 text-[10px] sm:text-xs" style={{ backgroundColor: projectStageColor[p.stage], color: '#fff' }}>
                       {projectStageLabel[p.stage] || p.stage}
                     </Badge>
                   </div>

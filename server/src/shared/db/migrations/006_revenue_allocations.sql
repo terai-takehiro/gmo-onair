@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS revenue_allocations (
   revenue_id       TEXT NOT NULL REFERENCES revenues(id),
   project_id       TEXT NOT NULL REFERENCES projects(id),
   allocated_amount INTEGER NOT NULL DEFAULT 0,
-  created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at       TEXT NOT NULL DEFAULT (NOW())
 );
 
 -- 売上にグループID追加

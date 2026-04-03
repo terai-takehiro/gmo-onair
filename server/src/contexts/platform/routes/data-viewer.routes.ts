@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getDb, queryAll, queryOne } from '../../../shared/db/connection';
+import { queryAll, queryOne } from '../../../shared/db/connection';
 import { requireAuth, requireRole } from '../../../shared/middleware/auth';
 
 const router = Router();
@@ -16,65 +16,60 @@ const ALLOWED_TABLES = [
 ];
 
 // GET /data-viewer/tables - list tables with row counts
-router.get('/tables', requireAuth, requireRole('system_admin'), (_req, res) => {
-  const tables = ALLOWED_TABLES.map(name => {
-    const row = queryOne(`SELECT COUNT(*) as count FROM ${name}`);
-    return { name, count: (row?.count as number) || 0 };
-  });
+router.get('/tables', requireAuth, requireRole('system_admin'), async (_req, res) => {
+  const tables = [];
+  for (const name of ALLOWED_TABLES) {
+    const row = await queryOne(`SELECT COUNT(*) as count FROM ${name}`);
+    tables.push({ name, count: (row?.count as number) || 0 });
+  }
   res.json({ success: true, data: tables });
 });
 
 // GET /data-viewer/tables/:name/schema - column info
-router.get('/tables/:name/schema', requireAuth, requireRole('system_admin'), (req, res) => {
+router.get('/tables/:name/schema', requireAuth, requireRole('system_admin'), async (req, res) => {
   const name = req.params.name as string;
   if (!ALLOWED_TABLES.includes(name)) { res.status(400).json({ success: false, error: 'Invalid table' }); return; }
-  const db = getDb();
-  const stmt = db.prepare(`PRAGMA table_info(${name})`);
-  const columns: Array<{ name: string; type: string }> = [];
-  while (stmt.step()) {
-    const row = stmt.getAsObject();
-    columns.push({ name: row.name as string, type: row.type as string });
-  }
-  stmt.free();
+  const columns = await queryAll(
+    `SELECT column_name as name, data_type as type FROM information_schema.columns WHERE table_name = ?`,
+    [name]
+  ) as Array<{ name: string; type: string }>;
   res.json({ success: true, data: columns });
 });
 
 // GET /data-viewer/tables/:name - paginated data
-router.get('/tables/:name', requireAuth, requireRole('system_admin'), (req, res) => {
+router.get('/tables/:name', requireAuth, requireRole('system_admin'), async (req, res) => {
   const name = req.params.name as string;
   if (!ALLOWED_TABLES.includes(name)) { res.status(400).json({ success: false, error: 'Invalid table' }); return; }
 
   const page = parseInt(req.query.page as string) || 1;
   const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
   const offset = (page - 1) * limit;
-  const sort = req.query.sort as string || 'rowid';
+  const sort = req.query.sort as string || 'id';
   const order = (req.query.order as string)?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
   const search = req.query.search as string;
 
   // Validate sort column exists
-  const db = getDb();
-  const pragmaStmt = db.prepare(`PRAGMA table_info(${name})`);
-  const validColumns: string[] = [];
-  while (pragmaStmt.step()) {
-    validColumns.push(pragmaStmt.getAsObject().name as string);
-  }
-  pragmaStmt.free();
+  const colRows = await queryAll(
+    `SELECT column_name as name FROM information_schema.columns WHERE table_name = ?`,
+    [name]
+  ) as Array<{ name: string }>;
+  const validColumns = colRows.map(r => r.name);
 
-  const safeSort = validColumns.includes(sort) ? sort : 'rowid';
+  const safeSort = validColumns.includes(sort) ? sort : 'id';
 
   let where = '';
   const params: unknown[] = [];
   if (search) {
     // Search across all text columns
-    const textCols = validColumns.filter(c => c !== 'rowid');
-    const conditions = textCols.map(c => `CAST(${c} AS TEXT) LIKE ?`);
+    const textCols = validColumns.filter(c => c !== 'id');
+    const conditions = textCols.map(c => `CAST(${c} AS TEXT) ILIKE ?`);
     where = `WHERE ${conditions.join(' OR ')}`;
     for (let i = 0; i < textCols.length; i++) params.push(`%${search}%`);
   }
 
-  const totalRow = queryOne(`SELECT COUNT(*) as c FROM ${name} ${where}`, params);
+  const totalRow = await queryOne(`SELECT COUNT(*) as c FROM ${name} ${where}`, params);
   const total = (totalRow?.c as number) || 0;
-  const rows = queryAll(`SELECT * FROM ${name} ${where} ORDER BY ${safeSort} ${order} LIMIT ? OFFSET ?`, [...params, limit, offset]);
+  const rows = await queryAll(`SELECT * FROM ${name} ${where} ORDER BY ${safeSort} ${order} LIMIT ? OFFSET ?`, [...params, limit, offset]);
 
   res.json({
     success: true,
@@ -85,17 +80,17 @@ router.get('/tables/:name', requireAuth, requireRole('system_admin'), (req, res)
 });
 
 // GET /data-viewer/tables/:name/export - CSV export
-router.get('/tables/:name/export', requireAuth, requireRole('system_admin'), (req, res) => {
+router.get('/tables/:name/export', requireAuth, requireRole('system_admin'), async (req, res) => {
   const name = req.params.name as string;
   if (!ALLOWED_TABLES.includes(name)) { res.status(400).json({ success: false, error: 'Invalid table' }); return; }
 
-  const db = getDb();
-  const pragmaStmt = db.prepare(`PRAGMA table_info(${name})`);
-  const columns: string[] = [];
-  while (pragmaStmt.step()) { columns.push(pragmaStmt.getAsObject().name as string); }
-  pragmaStmt.free();
+  const colRows = await queryAll(
+    `SELECT column_name as name FROM information_schema.columns WHERE table_name = ?`,
+    [name]
+  ) as Array<{ name: string }>;
+  const columns = colRows.map(r => r.name);
 
-  const rows = queryAll(`SELECT * FROM ${name}`);
+  const rows = await queryAll(`SELECT * FROM ${name}`);
 
   // BOM for Excel UTF-8 compatibility
   let csv = '\uFEFF' + columns.join(',') + '\n';

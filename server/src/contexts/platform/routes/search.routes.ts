@@ -5,7 +5,7 @@ import { requireAuth } from '../../../shared/middleware/auth';
 const router = Router();
 
 // GET /search?q=keyword - Cross-search across entities
-router.get('/', requireAuth, (req, res) => {
+router.get('/', requireAuth, async (req, res) => {
   const q = req.query.q as string;
 
   if (!q || q.length < 1) {
@@ -15,18 +15,18 @@ router.get('/', requireAuth, (req, res) => {
 
   const like = `%${q}%`;
 
-  const projects = queryAll(
-    `SELECT id, code, gls_number, name, stage FROM projects WHERE (name LIKE ? OR code LIKE ? OR gls_number LIKE ?) AND deleted_at IS NULL LIMIT 10`,
+  const projects = await queryAll(
+    `SELECT id, code, gls_number, name, stage FROM projects WHERE (name ILIKE ? OR code ILIKE ? OR gls_number ILIKE ?) AND deleted_at IS NULL LIMIT 10`,
     [like, like, like]
   );
 
-  const customers = queryAll(
-    `SELECT id, name, short_name FROM customers WHERE (name LIKE ? OR short_name LIKE ?) AND deleted_at IS NULL LIMIT 5`,
+  const customers = await queryAll(
+    `SELECT id, name, short_name FROM customers WHERE (name ILIKE ? OR short_name ILIKE ?) AND deleted_at IS NULL LIMIT 5`,
     [like, like]
   );
 
-  const vendors = queryAll(
-    `SELECT id, name, vendor_type FROM vendors WHERE (name LIKE ? OR vendor_type LIKE ?) AND deleted_at IS NULL LIMIT 5`,
+  const vendors = await queryAll(
+    `SELECT id, name, vendor_type FROM vendors WHERE (name ILIKE ? OR vendor_type ILIKE ?) AND deleted_at IS NULL LIMIT 5`,
     [like, like]
   );
 

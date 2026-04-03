@@ -16,11 +16,11 @@ declare global {
   }
 }
 
-export function mockAuth(req: Request, _res: Response, next: NextFunction): void {
+export async function mockAuth(req: Request, _res: Response, next: NextFunction): Promise<void> {
   const userId = req.headers['x-user-id'] as string;
   if (!userId) { next(); return; }
   try {
-    const user = queryOne('SELECT id, name, email, role FROM users WHERE id = ? AND deleted_at IS NULL', [userId]) as AuthUser | undefined;
+    const user = await queryOne('SELECT id, name, email, role FROM users WHERE id = ? AND deleted_at IS NULL', [userId]) as AuthUser | undefined;
     if (user) req.user = user;
   } catch (_) {
     // DB not ready yet

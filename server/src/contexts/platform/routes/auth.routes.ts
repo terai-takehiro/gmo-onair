@@ -5,16 +5,16 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 
 const router = Router();
 
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   const { userId } = req.body;
   if (!userId) throw new AppError(400, 'VALIDATION_ERROR', 'userId is required');
-  const user = queryOne('SELECT id, name, email, role FROM users WHERE id = ? AND deleted_at IS NULL', [userId]);
+  const user = await queryOne('SELECT id, name, email, role FROM users WHERE id = ? AND deleted_at IS NULL', [userId]);
   if (!user) throw new AppError(404, 'NOT_FOUND', 'User not found');
   res.json({ success: true, data: user });
 });
 
-router.get('/users', (_req, res) => {
-  const users = queryAll('SELECT id, name, email, role FROM users WHERE deleted_at IS NULL ORDER BY name');
+router.get('/users', async (_req, res) => {
+  const users = await queryAll('SELECT id, name, email, role FROM users WHERE deleted_at IS NULL ORDER BY name');
   res.json({ success: true, data: users });
 });
 

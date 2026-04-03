@@ -7,19 +7,19 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 const router = Router();
 
 // List order history for a project
-router.get('/:projectId/orders', (req, res) => {
+router.get('/:projectId/orders', async (req, res) => {
   const { page, limit, offset } = extractPagination(req);
   const projectId = req.params.projectId;
 
-  const project = queryOne('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [projectId]);
+  const project = await queryOne('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [projectId]);
   if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
 
   const where = 'WHERE eo.project_id = ? AND eo.deleted_at IS NULL';
   const params: unknown[] = [projectId];
 
-  const total = (queryOne(`SELECT COUNT(*) as c FROM episode_orders eo ${where}`, params) as any).c;
+  const total = ((await queryOne(`SELECT COUNT(*) as c FROM episode_orders eo ${where}`, params)) as any).c;
 
-  const rows = queryAll(
+  const rows = await queryAll(
     `SELECT eo.*, u.name as created_by_name
     FROM episode_orders eo
     LEFT JOIN users u ON u.id = eo.created_by
@@ -33,15 +33,15 @@ router.get('/:projectId/orders', (req, res) => {
 });
 
 // Soft delete an order record
-router.delete('/:projectId/orders/:id', requireAuth, (req, res) => {
-  const existing = queryOne(
+router.delete('/:projectId/orders/:id', requireAuth, async (req, res) => {
+  const existing = await queryOne(
     'SELECT id FROM episode_orders WHERE id = ? AND project_id = ? AND deleted_at IS NULL',
     [req.params.id, req.params.projectId]
   );
   if (!existing) throw new AppError(404, 'NOT_FOUND', '発注記録が見つかりません');
 
-  execute(
-    `UPDATE episode_orders SET deleted_at = datetime('now'), updated_by = ? WHERE id = ?`,
+  await execute(
+    `UPDATE episode_orders SET deleted_at = NOW(), updated_by = ? WHERE id = ?`,
     [req.user!.id, req.params.id]
   );
   res.json({ success: true, message: '削除しました' });

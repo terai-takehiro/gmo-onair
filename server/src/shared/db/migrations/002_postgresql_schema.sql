@@ -1,4 +1,5 @@
--- GMO ONAiR 統合スキーマ v3
+-- GMO ONAiR PostgreSQL スキーマ v3
+-- 001_initial_schema.sql (SQLite) → PostgreSQL 互換版
 -- ヨミ(opportunities)と案件(projects)を統合
 -- テーブル数: 14(中間テーブル含む)
 
@@ -11,44 +12,37 @@ CREATE TABLE IF NOT EXISTS users (
   name       TEXT NOT NULL,
   email      TEXT NOT NULL UNIQUE,
   role       TEXT NOT NULL CHECK (role IN ('system_admin','staff','viewer','external_client')),
-  created_at TEXT NOT NULL DEFAULT NOW(),
-  updated_at TEXT NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
   created_by TEXT,
   updated_by TEXT,
-  deleted_at TEXT
+  deleted_at TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS customers (
-  id             TEXT PRIMARY KEY,
-  name           TEXT NOT NULL,
-  short_name     TEXT,
-  contact_name   TEXT,
-  email          TEXT,
-  phone          TEXT,
-  address        TEXT,
-  notes          TEXT,
-  created_at TEXT NOT NULL DEFAULT NOW(),
-  updated_at TEXT NOT NULL DEFAULT NOW(),
+  id         TEXT PRIMARY KEY,
+  name       TEXT NOT NULL,
+  short_name TEXT,
+  notes      TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
   created_by TEXT,
   updated_by TEXT,
-  deleted_at TEXT
+  deleted_at TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS vendors (
   id                          TEXT PRIMARY KEY,
   name                        TEXT NOT NULL,
-  contact_name                TEXT,
-  email                       TEXT,
-  phone                       TEXT,
   address                     TEXT,
   vendor_type                 TEXT,
   invoice_registration_number TEXT,
   notes                       TEXT,
-  created_at TEXT NOT NULL DEFAULT NOW(),
-  updated_at TEXT NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
   created_by TEXT,
   updated_by TEXT,
-  deleted_at TEXT
+  deleted_at TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS partners (
@@ -59,20 +53,20 @@ CREATE TABLE IF NOT EXISTS partners (
   role_title  TEXT,
   specialties TEXT DEFAULT '[]',
   notes       TEXT,
-  created_at  TEXT NOT NULL DEFAULT NOW(),
-  updated_at  TEXT NOT NULL DEFAULT NOW(),
+  created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMP NOT NULL DEFAULT NOW(),
   created_by  TEXT,
   updated_by  TEXT,
-  deleted_at  TEXT
+  deleted_at  TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS pricing_categories (
   id         TEXT PRIMARY KEY,
   name       TEXT NOT NULL,
   sort_order INTEGER DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT NOW(),
-  updated_at TEXT NOT NULL DEFAULT NOW(),
-  deleted_at TEXT
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS pricing_items (
@@ -84,9 +78,9 @@ CREATE TABLE IF NOT EXISTS pricing_items (
   calc_type   TEXT NOT NULL DEFAULT 'days'
               CHECK (calc_type IN ('days','hours','fixed','days_qty','days_people','toggle')),
   sort_order  INTEGER DEFAULT 0,
-  created_at  TEXT NOT NULL DEFAULT NOW(),
-  updated_at  TEXT NOT NULL DEFAULT NOW(),
-  deleted_at  TEXT
+  created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at  TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS sequences (
@@ -108,8 +102,7 @@ CREATE TABLE IF NOT EXISTS projects (
   customer_id        TEXT NOT NULL REFERENCES customers(id),
   stage              TEXT NOT NULL DEFAULT 'neta'
                      CHECK (stage IN ('neta','d_hold','c_proposal','b_verbal','a_won','s_completed','e_lost')),
-  project_type       TEXT DEFAULT 'other'
-                     CHECK (project_type IN ('offline_event','hybrid_event','live_broadcast','recording','gmo_project','consulting','other')),
+  project_type       TEXT DEFAULT 'other',
   project_type_other TEXT,
   expected_amount    INTEGER DEFAULT 0,
   event_start        TEXT,
@@ -123,11 +116,11 @@ CREATE TABLE IF NOT EXISTS projects (
   application_form   INTEGER NOT NULL DEFAULT 0,
   logo_permission    INTEGER NOT NULL DEFAULT 0,
   notes              TEXT,
-  created_at         TEXT NOT NULL DEFAULT NOW(),
-  updated_at         TEXT NOT NULL DEFAULT NOW(),
+  created_at         TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at         TIMESTAMP NOT NULL DEFAULT NOW(),
   created_by         TEXT,
   updated_by         TEXT,
-  deleted_at         TEXT
+  deleted_at         TIMESTAMP
 );
 
 -- ============================================================
@@ -143,11 +136,11 @@ CREATE TABLE IF NOT EXISTS episodes (
   broadcast_date TEXT,
   delivery_date  TEXT,
   notes          TEXT,
-  created_at     TEXT NOT NULL DEFAULT NOW(),
-  updated_at     TEXT NOT NULL DEFAULT NOW(),
+  created_at     TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at     TIMESTAMP NOT NULL DEFAULT NOW(),
   created_by     TEXT,
   updated_by     TEXT,
-  deleted_at     TEXT
+  deleted_at     TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS episode_orders (
@@ -158,11 +151,11 @@ CREATE TABLE IF NOT EXISTS episode_orders (
   start_episode INTEGER NOT NULL,
   end_episode   INTEGER NOT NULL,
   notes         TEXT,
-  created_at    TEXT NOT NULL DEFAULT NOW(),
-  updated_at    TEXT NOT NULL DEFAULT NOW(),
+  created_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMP NOT NULL DEFAULT NOW(),
   created_by    TEXT,
   updated_by    TEXT,
-  deleted_at    TEXT
+  deleted_at    TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS invoice_groups (
@@ -173,11 +166,11 @@ CREATE TABLE IF NOT EXISTS invoice_groups (
   status       TEXT NOT NULL DEFAULT 'draft'
                CHECK (status IN ('draft','sent','paid')),
   notes        TEXT,
-  created_at   TEXT NOT NULL DEFAULT NOW(),
-  updated_at   TEXT NOT NULL DEFAULT NOW(),
+  created_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at   TIMESTAMP NOT NULL DEFAULT NOW(),
   created_by   TEXT,
   updated_by   TEXT,
-  deleted_at   TEXT
+  deleted_at   TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS invoice_group_episodes (
@@ -204,11 +197,11 @@ CREATE TABLE IF NOT EXISTS revenues (
   billing_date     TEXT,
   payment_due_date TEXT,
   notes            TEXT,
-  created_at       TEXT NOT NULL DEFAULT NOW(),
-  updated_at       TEXT NOT NULL DEFAULT NOW(),
+  created_at       TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at       TIMESTAMP NOT NULL DEFAULT NOW(),
   created_by       TEXT,
   updated_by       TEXT,
-  deleted_at       TEXT
+  deleted_at       TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS purchases (
@@ -230,11 +223,11 @@ CREATE TABLE IF NOT EXISTS purchases (
   inspection_date   TEXT,
   payment_due_date  TEXT,
   notes             TEXT,
-  created_at        TEXT NOT NULL DEFAULT NOW(),
-  updated_at        TEXT NOT NULL DEFAULT NOW(),
+  created_at        TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMP NOT NULL DEFAULT NOW(),
   created_by        TEXT,
   updated_by        TEXT,
-  deleted_at        TEXT
+  deleted_at        TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS sga_expenses (
@@ -259,24 +252,11 @@ CREATE TABLE IF NOT EXISTS sga_expenses (
                     CHECK (tax_category IN ('tax10','tax8','exempt')),
   invoice_qualified INTEGER NOT NULL DEFAULT 1,
   amount            INTEGER NOT NULL DEFAULT 0,
-  created_at        TEXT NOT NULL DEFAULT NOW(),
-  updated_at        TEXT NOT NULL DEFAULT NOW(),
+  created_at        TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMP NOT NULL DEFAULT NOW(),
   created_by        TEXT,
   updated_by        TEXT,
-  deleted_at        TEXT
-);
-
--- 売上明細行
-CREATE TABLE IF NOT EXISTS revenue_items (
-  id              TEXT PRIMARY KEY,
-  revenue_id      TEXT NOT NULL REFERENCES revenues(id),
-  description     TEXT NOT NULL,
-  quantity        INTEGER NOT NULL DEFAULT 1,
-  unit_price      INTEGER NOT NULL DEFAULT 0,
-  amount          INTEGER NOT NULL DEFAULT 0,
-  pricing_item_id TEXT REFERENCES pricing_items(id),
-  sort_order      INTEGER DEFAULT 0,
-  created_at      TEXT NOT NULL DEFAULT NOW()
+  deleted_at        TIMESTAMP
 );
 
 -- ============================================================
@@ -294,11 +274,11 @@ CREATE TABLE IF NOT EXISTS activity_logs (
   activity_date TEXT NOT NULL,
   next_action   TEXT,
   next_action_date TEXT,
-  created_at    TEXT NOT NULL DEFAULT NOW(),
-  updated_at    TEXT NOT NULL DEFAULT NOW(),
+  created_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMP NOT NULL DEFAULT NOW(),
   created_by    TEXT,
   updated_by    TEXT,
-  deleted_at    TEXT
+  deleted_at    TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS sales_targets (
@@ -307,8 +287,8 @@ CREATE TABLE IF NOT EXISTS sales_targets (
   target_year   INTEGER NOT NULL,
   target_month  INTEGER NOT NULL,
   target_amount INTEGER NOT NULL DEFAULT 0,
-  created_at    TEXT NOT NULL DEFAULT NOW(),
-  updated_at    TEXT NOT NULL DEFAULT NOW(),
+  created_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMP NOT NULL DEFAULT NOW(),
   UNIQUE(user_id, target_year, target_month)
 );
 
@@ -324,57 +304,7 @@ CREATE TABLE IF NOT EXISTS simulations (
   days            INTEGER NOT NULL DEFAULT 1,
   unit_price      INTEGER NOT NULL DEFAULT 0,
   subtotal        INTEGER NOT NULL DEFAULT 0,
-  created_at      TEXT NOT NULL DEFAULT NOW()
-);
-
--- ============================================================
--- スタジオ予約
--- ============================================================
-
-CREATE TABLE IF NOT EXISTS studio_locations (
-  id         TEXT PRIMARY KEY,
-  name       TEXT NOT NULL,
-  sort_order INTEGER DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT NOW(),
-  deleted_at TEXT
-);
-
-CREATE TABLE IF NOT EXISTS studio_rooms (
-  id          TEXT PRIMARY KEY,
-  location_id TEXT NOT NULL REFERENCES studio_locations(id),
-  name        TEXT NOT NULL,
-  room_type   TEXT DEFAULT 'studio' CHECK (room_type IN ('studio','greenroom','control','other')),
-  color       TEXT DEFAULT '#3b82f6',
-  sort_order  INTEGER DEFAULT 0,
-  created_at  TEXT NOT NULL DEFAULT NOW(),
-  deleted_at  TEXT
-);
-
-CREATE TABLE IF NOT EXISTS studio_bookings (
-  id            TEXT PRIMARY KEY,
-  title         TEXT NOT NULL,
-  booking_type  TEXT NOT NULL DEFAULT 'project'
-                CHECK (booking_type IN ('project','maintenance','tour','internal','other')),
-  project_id    TEXT REFERENCES projects(id),
-  episode_id    TEXT REFERENCES episodes(id),
-  all_day       INTEGER NOT NULL DEFAULT 0,
-  start_time    TEXT NOT NULL,
-  end_time      TEXT NOT NULL,
-  location_note TEXT,
-  notes         TEXT,
-  created_at    TEXT NOT NULL DEFAULT NOW(),
-  updated_at    TEXT NOT NULL DEFAULT NOW(),
-  created_by    TEXT,
-  updated_by    TEXT,
-  deleted_at    TEXT
-);
-
-CREATE TABLE IF NOT EXISTS studio_booking_rooms (
-  booking_id TEXT NOT NULL REFERENCES studio_bookings(id),
-  room_id    TEXT NOT NULL REFERENCES studio_rooms(id),
-  occupant   TEXT,
-  usage_note TEXT,
-  PRIMARY KEY (booking_id, room_id)
+  created_at      TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 -- ============================================================
@@ -395,10 +325,6 @@ CREATE INDEX IF NOT EXISTS idx_revenues_episode ON revenues(episode_id);
 CREATE INDEX IF NOT EXISTS idx_purchases_project ON purchases(project_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_purchases_episode ON purchases(episode_id);
 CREATE INDEX IF NOT EXISTS idx_sga_recognition ON sga_expenses(recognition_date) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_revenue_items_revenue ON revenue_items(revenue_id);
 CREATE INDEX IF NOT EXISTS idx_activity_logs_project ON activity_logs(project_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_activity_logs_user ON activity_logs(user_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_simulations_project ON simulations(project_id);
-CREATE INDEX IF NOT EXISTS idx_studio_rooms_location ON studio_rooms(location_id) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_studio_bookings_time ON studio_bookings(start_time, end_time) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_studio_bookings_project ON studio_bookings(project_id) WHERE deleted_at IS NULL;

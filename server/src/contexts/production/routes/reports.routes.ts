@@ -48,10 +48,10 @@ function escapeHtml(str: string | null | undefined): string {
 }
 
 // GET /reports/estimate/:projectId - 見積書 HTML
-router.get('/estimate/:projectId', requireAuth, (req, res) => {
+router.get('/estimate/:projectId', requireAuth, async (req, res) => {
   const { projectId } = req.params;
 
-  const project = queryOne(
+  const project = await queryOne(
     `SELECT p.*, c.name as customer_name FROM projects p
      LEFT JOIN customers c ON c.id = p.customer_id
      WHERE p.id = ? AND p.deleted_at IS NULL`,
@@ -63,7 +63,7 @@ router.get('/estimate/:projectId', requireAuth, (req, res) => {
     return;
   }
 
-  const simItems = queryAll(
+  const simItems = await queryAll(
     `SELECT s.*, pi.name as item_name, pc.name as category_name
      FROM simulations s
      LEFT JOIN pricing_items pi ON pi.id = s.pricing_item_id
@@ -120,10 +120,10 @@ router.get('/estimate/:projectId', requireAuth, (req, res) => {
 });
 
 // GET /reports/invoice/:invoiceGroupId - 請求書 HTML
-router.get('/invoice/:invoiceGroupId', requireAuth, (req, res) => {
+router.get('/invoice/:invoiceGroupId', requireAuth, async (req, res) => {
   const { invoiceGroupId } = req.params;
 
-  const ig = queryOne(
+  const ig = await queryOne(
     `SELECT ig.*, p.name as project_name, p.gls_number, c.name as customer_name
      FROM invoice_groups ig
      LEFT JOIN projects p ON p.id = ig.project_id
@@ -137,7 +137,7 @@ router.get('/invoice/:invoiceGroupId', requireAuth, (req, res) => {
     return;
   }
 
-  const episodes = queryAll(
+  const episodes = await queryAll(
     `SELECT e.*,
        COALESCE((SELECT SUM(r.amount) FROM revenues r WHERE r.episode_id = e.id AND r.deleted_at IS NULL), 0) as actual_revenue
      FROM episodes e
@@ -193,10 +193,10 @@ router.get('/invoice/:invoiceGroupId', requireAuth, (req, res) => {
 });
 
 // GET /reports/performance/:projectId - 案件別損益 CSV
-router.get('/performance/:projectId', requireAuth, (req, res) => {
+router.get('/performance/:projectId', requireAuth, async (req, res) => {
   const { projectId } = req.params;
 
-  const project = queryOne(
+  const project = await queryOne(
     `SELECT p.*, c.name as customer_name FROM projects p
      LEFT JOIN customers c ON c.id = p.customer_id
      WHERE p.id = ? AND p.deleted_at IS NULL`,
@@ -208,7 +208,7 @@ router.get('/performance/:projectId', requireAuth, (req, res) => {
     return;
   }
 
-  const episodes = queryAll(
+  const episodes = await queryAll(
     `SELECT e.*,
        COALESCE((SELECT SUM(r.amount) FROM revenues r WHERE r.episode_id = e.id AND r.deleted_at IS NULL), 0) as actual_revenue,
        COALESCE((SELECT SUM(pu.amount) FROM purchases pu WHERE pu.episode_id = e.id AND pu.deleted_at IS NULL), 0) as actual_purchase
@@ -262,7 +262,7 @@ router.get('/performance/:projectId', requireAuth, (req, res) => {
 });
 
 // GET /reports/vendor-summary?from=&to=&format= - 仕入先別集計
-router.get('/vendor-summary', requireAuth, (req, res) => {
+router.get('/vendor-summary', requireAuth, async (req, res) => {
   const from = req.query.from as string || '';
   const to = req.query.to as string || '';
   const format = req.query.format as string || 'json';
@@ -279,7 +279,7 @@ router.get('/vendor-summary', requireAuth, (req, res) => {
     params.push(to);
   }
 
-  const rows = queryAll(
+  const rows = await queryAll(
     `SELECT v.id as vendor_id, v.name as vendor_name, v.vendor_type,
             COUNT(p.id) as purchase_count,
             COALESCE(SUM(p.amount), 0) as total_amount

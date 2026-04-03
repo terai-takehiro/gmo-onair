@@ -11,11 +11,11 @@ const router = Router();
 // ============================================================
 
 // GET /studios/locations — ロケーション＋部屋一覧
-router.get('/locations', (_req, res) => {
-  const locations = queryAll(
+router.get('/locations', async (_req, res) => {
+  const locations = await queryAll(
     `SELECT * FROM studio_locations WHERE deleted_at IS NULL ORDER BY sort_order`
   );
-  const rooms = queryAll(
+  const rooms = await queryAll(
     `SELECT * FROM studio_rooms WHERE deleted_at IS NULL ORDER BY sort_order`
   );
   // Nest rooms under locations
@@ -27,23 +27,23 @@ router.get('/locations', (_req, res) => {
 });
 
 // POST /studios/locations — ロケーション追加
-router.post('/locations', requireAuth, (req, res) => {
+router.post('/locations', requireAuth, async (req, res) => {
   const { name, sort_order } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', '名前は必須です');
   const id = uuidv4();
-  execute(`INSERT INTO studio_locations (id, name, sort_order) VALUES (?, ?, ?)`, [id, name, sort_order ?? 0]);
-  const row = queryOne('SELECT * FROM studio_locations WHERE id = ?', [id]);
+  await execute(`INSERT INTO studio_locations (id, name, sort_order) VALUES (?, ?, ?)`, [id, name, sort_order ?? 0]);
+  const row = await queryOne('SELECT * FROM studio_locations WHERE id = ?', [id]);
   res.status(201).json({ success: true, data: row });
 });
 
 // POST /studios/rooms — 部屋追加
-router.post('/rooms', requireAuth, (req, res) => {
+router.post('/rooms', requireAuth, async (req, res) => {
   const { location_id, name, room_type, color, sort_order } = req.body;
   if (!location_id || !name) throw new AppError(400, 'VALIDATION_ERROR', 'ロケーションと名前は必須です');
   const id = uuidv4();
-  execute(`INSERT INTO studio_rooms (id, location_id, name, room_type, color, sort_order) VALUES (?, ?, ?, ?, ?, ?)`,
+  await execute(`INSERT INTO studio_rooms (id, location_id, name, room_type, color, sort_order) VALUES (?, ?, ?, ?, ?, ?)`,
     [id, location_id, name, room_type || 'studio', color || '#3b82f6', sort_order ?? 0]);
-  const row = queryOne('SELECT * FROM studio_rooms WHERE id = ?', [id]);
+  const row = await queryOne('SELECT * FROM studio_rooms WHERE id = ?', [id]);
   res.status(201).json({ success: true, data: row });
 });
 
@@ -52,7 +52,7 @@ router.post('/rooms', requireAuth, (req, res) => {
 // ============================================================
 
 // GET /studios/bookings — 予約一覧(カレンダー用)
-router.get('/bookings', (req, res) => {
+router.get('/bookings', async (req, res) => {
   const from = req.query.from as string;
   const to = req.query.to as string;
   const roomId = req.query.room_id as string;
@@ -62,7 +62,7 @@ router.get('/bookings', (req, res) => {
   if (from) { where += ' AND b.end_time >= ?'; params.push(from); }
   if (to) { where += ' AND b.start_time <= ?'; params.push(to); }
 
-  const bookings = queryAll(
+  const bookings = await queryAll(
     `SELECT b.*, p.name as project_name, p.gls_number, e.episode_code
      FROM studio_bookings b
      LEFT JOIN projects p ON p.id = b.project_id
@@ -73,7 +73,7 @@ router.get('/bookings', (req, res) => {
   ) as any[];
 
   // Attach rooms (with occupant info) to each booking
-  const allBookingRooms = queryAll(
+  const allBookingRooms = await queryAll(
     `SELECT br.booking_id, br.room_id, br.occupant, br.usage_note,
             r.name as room_name, r.color as room_color, r.room_type, r.location_id
      FROM studio_booking_rooms br
@@ -100,8 +100,8 @@ router.get('/bookings', (req, res) => {
 });
 
 // GET /studios/bookings/:id
-router.get('/bookings/:id', (req, res) => {
-  const booking = queryOne(
+router.get('/bookings/:id', async (req, res) => {
+  const booking = await queryOne(
     `SELECT b.*, p.name as project_name, p.gls_number, e.episode_code
      FROM studio_bookings b
      LEFT JOIN projects p ON p.id = b.project_id
@@ -110,7 +110,7 @@ router.get('/bookings/:id', (req, res) => {
   ) as any;
   if (!booking) throw new AppError(404, 'NOT_FOUND', '予約が見つかりません');
 
-  const rooms = queryAll(
+  const rooms = await queryAll(
     `SELECT br.room_id, br.occupant, br.usage_note,
             r.name as room_name, r.color as room_color, r.room_type, r.location_id
      FROM studio_booking_rooms br
@@ -122,12 +122,12 @@ router.get('/bookings/:id', (req, res) => {
 });
 
 // POST /studios/bookings — 予約作成
-router.post('/bookings', requireAuth, (req, res) => {
+router.post('/bookings', requireAuth, async (req, res) => {
   const { title, booking_type, project_id, episode_id, all_day, start_time, end_time, room_ids, room_details, location_note, notes } = req.body;
   if (!title || !start_time || !end_time) throw new AppError(400, 'VALIDATION_ERROR', 'タイトル・開始・終了は必須です');
 
   const id = uuidv4();
-  execute(
+  await execute(
     `INSERT INTO studio_bookings (id, title, booking_type, project_id, episode_id, all_day, start_time, end_time, location_note, notes, created_by)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, title, booking_type || 'other', project_id || null, episode_id || null,
@@ -137,54 +137,54 @@ router.post('/bookings', requireAuth, (req, res) => {
   // Insert room associations (with optional occupant/usage_note)
   if (Array.isArray(room_details) && room_details.length > 0) {
     for (const rd of room_details) {
-      execute(`INSERT INTO studio_booking_rooms (booking_id, room_id, occupant, usage_note) VALUES (?, ?, ?, ?)`,
+      await execute(`INSERT INTO studio_booking_rooms (booking_id, room_id, occupant, usage_note) VALUES (?, ?, ?, ?)`,
         [id, rd.room_id, rd.occupant || null, rd.usage_note || null]);
     }
   } else if (Array.isArray(room_ids)) {
     for (const roomId of room_ids) {
-      execute(`INSERT INTO studio_booking_rooms (booking_id, room_id) VALUES (?, ?)`, [id, roomId]);
+      await execute(`INSERT INTO studio_booking_rooms (booking_id, room_id) VALUES (?, ?)`, [id, roomId]);
     }
   }
 
-  const row = queryOne('SELECT * FROM studio_bookings WHERE id = ?', [id]);
+  const row = await queryOne('SELECT * FROM studio_bookings WHERE id = ?', [id]);
   res.status(201).json({ success: true, data: row });
 });
 
 // PUT /studios/bookings/:id — 予約更新
-router.put('/bookings/:id', requireAuth, (req, res) => {
-  const existing = queryOne('SELECT id FROM studio_bookings WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+router.put('/bookings/:id', requireAuth, async (req, res) => {
+  const existing = await queryOne('SELECT id FROM studio_bookings WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!existing) throw new AppError(404, 'NOT_FOUND', '予約が見つかりません');
 
   const { title, booking_type, project_id, episode_id, all_day, start_time, end_time, room_ids, room_details, location_note, notes } = req.body;
-  execute(
+  await execute(
     `UPDATE studio_bookings SET title=?, booking_type=?, project_id=?, episode_id=?, all_day=?,
-     start_time=?, end_time=?, location_note=?, notes=?, updated_at=datetime('now'), updated_by=? WHERE id=?`,
+     start_time=?, end_time=?, location_note=?, notes=?, updated_at=NOW(), updated_by=? WHERE id=?`,
     [title, booking_type || 'other', project_id || null, episode_id || null,
      all_day ? 1 : 0, start_time, end_time, location_note || null, notes || null, req.user!.id, req.params.id]
   );
 
   // Replace room associations
   if (Array.isArray(room_details) || Array.isArray(room_ids)) {
-    execute('DELETE FROM studio_booking_rooms WHERE booking_id = ?', [req.params.id]);
+    await execute('DELETE FROM studio_booking_rooms WHERE booking_id = ?', [req.params.id]);
     if (Array.isArray(room_details) && room_details.length > 0) {
       for (const rd of room_details) {
-        execute(`INSERT INTO studio_booking_rooms (booking_id, room_id, occupant, usage_note) VALUES (?, ?, ?, ?)`,
+        await execute(`INSERT INTO studio_booking_rooms (booking_id, room_id, occupant, usage_note) VALUES (?, ?, ?, ?)`,
           [req.params.id, rd.room_id, rd.occupant || null, rd.usage_note || null]);
       }
     } else if (Array.isArray(room_ids)) {
       for (const roomId of room_ids) {
-        execute(`INSERT INTO studio_booking_rooms (booking_id, room_id) VALUES (?, ?)`, [req.params.id, roomId]);
+        await execute(`INSERT INTO studio_booking_rooms (booking_id, room_id) VALUES (?, ?)`, [req.params.id, roomId]);
       }
     }
   }
 
-  const row = queryOne('SELECT * FROM studio_bookings WHERE id = ?', [req.params.id]);
+  const row = await queryOne('SELECT * FROM studio_bookings WHERE id = ?', [req.params.id]);
   res.json({ success: true, data: row });
 });
 
 // DELETE /studios/bookings/:id
-router.delete('/bookings/:id', requireAuth, (req, res) => {
-  execute(`UPDATE studio_bookings SET deleted_at=datetime('now'), updated_by=? WHERE id=? AND deleted_at IS NULL`,
+router.delete('/bookings/:id', requireAuth, async (req, res) => {
+  await execute(`UPDATE studio_bookings SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`,
     [req.user!.id, req.params.id]);
   res.json({ success: true, message: '削除しました' });
 });

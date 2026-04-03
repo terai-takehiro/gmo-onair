@@ -1,15 +1,15 @@
 import fs from 'fs';
 import path from 'path';
-import { initDb, getDb, saveDb, closeDb } from './connection';
+import { initDb, getDb, closeDb } from './connection';
 
 export async function runMigrations(): Promise<void> {
   await initDb();
-  const db = getDb();
+  const pool = getDb();
 
   // マイグレーション管理テーブルを作成
-  db.run(`CREATE TABLE IF NOT EXISTS _migrations (
+  await pool.query(`CREATE TABLE IF NOT EXISTS _migrations (
     name TEXT PRIMARY KEY,
-    executed_at TEXT NOT NULL DEFAULT (datetime('now'))
+    executed_at TIMESTAMP NOT NULL DEFAULT NOW()
   )`);
 
   const migrationsDir = path.join(__dirname, 'migrations');
@@ -17,33 +17,38 @@ export async function runMigrations(): Promise<void> {
 
   for (const file of files) {
     // 実行済みチェック
-    const stmt = db.prepare('SELECT name FROM _migrations WHERE name = ?');
-    stmt.bind([file]);
-    const alreadyRun = stmt.step();
-    stmt.free();
+    const result = await pool.query('SELECT name FROM _migrations WHERE name = $1', [file]);
 
-    if (alreadyRun) {
+    if (result.rows.length > 0) {
       continue;
     }
 
     const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf-8');
     console.log(`Running migration: ${file}`);
+
+    const client = await pool.connect();
     try {
-      db.run(sql);
-      // 実行済みとして記録
-      const insert = db.prepare('INSERT INTO _migrations (name) VALUES (?)');
-      insert.bind([file]);
-      insert.step();
-      insert.free();
+      await client.query('BEGIN');
+      await client.query(sql);
+      await client.query('INSERT INTO _migrations (name) VALUES ($1)', [file]);
+      await client.query('COMMIT');
     } catch (err) {
+      await client.query('ROLLBACK');
       console.error(`Migration failed: ${file}`, err);
       throw err;
+    } finally {
+      client.release();
     }
   }
-  saveDb();
+
   console.log('Migrations complete.');
 }
 
 if (require.main === module) {
-  runMigrations().then(() => closeDb());
+  runMigrations()
+    .then(() => closeDb())
+    .catch((err) => {
+      console.error(err);
+      process.exit(1);
+    });
 }

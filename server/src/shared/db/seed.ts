@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { initDb, getDb, saveDb, closeDb, queryOne, execute } from './connection';
+import { initDb, saveDb, closeDb, queryOne, execute } from './connection';
 import { runMigrations } from './migrate';
 
 const USERS = {
@@ -19,25 +19,25 @@ const EPISODES: Record<string, string> = {};
 export async function seed() {
   await initDb();
 
-  const row = queryOne('SELECT COUNT(*) as c FROM users');
+  const row = await queryOne('SELECT COUNT(*) as c FROM users');
   if (row && (row.c as number) > 0) {
     console.log('Database already seeded. Skipping.');
     return;
   }
 
-  const ins = (sql: string, params: unknown[]) => execute(sql, params);
+  const ins = async (sql: string, params: unknown[]) => { await execute(sql, params); };
   const staffIds = [USERS.staff1, USERS.staff2, USERS.staff3];
 
   // ============================================================
   // Users
   // ============================================================
   const userSql = `INSERT INTO users (id, name, email, role) VALUES (?, ?, ?, ?)`;
-  ins(userSql, [USERS.admin, '山田 太郎', 'yamada@globalstudio.example.com', 'system_admin']);
-  ins(userSql, [USERS.staff1, '佐藤 花子', 'sato@globalstudio.example.com', 'staff']);
-  ins(userSql, [USERS.staff2, '鈴木 一郎', 'suzuki@globalstudio.example.com', 'staff']);
-  ins(userSql, [USERS.staff3, '高橋 美咲', 'takahashi@globalstudio.example.com', 'staff']);
-  ins(userSql, [USERS.viewer, '田中 健二', 'tanaka@globalstudio.example.com', 'viewer']);
-  ins(userSql, [USERS.external, '外部 クライアント', 'client@example.com', 'external_client']);
+  await ins(userSql, [USERS.admin, '山田 太郎', 'yamada@globalstudio.example.com', 'system_admin']);
+  await ins(userSql, [USERS.staff1, '佐藤 花子', 'sato@globalstudio.example.com', 'staff']);
+  await ins(userSql, [USERS.staff2, '鈴木 一郎', 'suzuki@globalstudio.example.com', 'staff']);
+  await ins(userSql, [USERS.staff3, '高橋 美咲', 'takahashi@globalstudio.example.com', 'staff']);
+  await ins(userSql, [USERS.viewer, '田中 健二', 'tanaka@globalstudio.example.com', 'viewer']);
+  await ins(userSql, [USERS.external, '外部 クライアント', 'client@example.com', 'external_client']);
 
   // ============================================================
   // Customers
@@ -58,7 +58,7 @@ export async function seed() {
   for (const [name, short, contact, email, phone, address] of customerData) {
     const id = uuidv4();
     CUSTOMERS[short] = id;
-    ins(custSql, [id, name, short, contact, email, phone, address]);
+    await ins(custSql, [id, name, short, contact, email, phone, address]);
   }
 
   // ============================================================
@@ -78,7 +78,7 @@ export async function seed() {
   for (const [name, vType, contact, email, phone, address, regNum] of vendorData) {
     const id = uuidv4();
     VENDORS[vType] = id;
-    ins(vendorSql, [id, name, contact, email, phone, address, vType, regNum]);
+    await ins(vendorSql, [id, name, contact, email, phone, address, vType, regNum]);
   }
 
   // ============================================================
@@ -95,49 +95,49 @@ export async function seed() {
   for (const [name, order] of catData) {
     const id = uuidv4();
     CATS[name] = id;
-    ins(catSql, [id, name, order]);
+    await ins(catSql, [id, name, order]);
   }
 
-  ins(itemSql, [uuidv4(), CATS['基本料金'], '基本利用料金', '平日', 1500000, 'days', 1]);
-  ins(itemSql, [uuidv4(), CATS['基本料金'], '基本利用料金', '土日祝／繁忙期', 2000000, 'days', 2]);
-  ins(itemSql, [uuidv4(), CATS['基本料金'], '時間外利用料金', '平日', 100000, 'days', 3]);
-  ins(itemSql, [uuidv4(), CATS['基本料金'], '時間外利用料金', '土日祝／繁忙期', 150000, 'days', 4]);
-  ins(itemSql, [uuidv4(), CATS['基本料金'], '時間外対応料金', null, 40000, 'hours', 5]);
-  ins(itemSql, [uuidv4(), CATS['基本料金'], '施設管理費・清掃対応費', null, 50000, 'fixed', 6]);
-  ins(itemSql, [uuidv4(), CATS['基本料金'], 'パントリー利用', null, 100000, 'days', 7]);
-  ins(itemSql, [uuidv4(), CATS['控室利用料金'], '全室利用', null, 100000, 'days', 1]);
-  ins(itemSql, [uuidv4(), CATS['控室利用料金'], 'ROOM A', null, 20000, 'days', 2]);
-  ins(itemSql, [uuidv4(), CATS['控室利用料金'], 'ROOM B', null, 20000, 'days', 3]);
-  ins(itemSql, [uuidv4(), CATS['控室利用料金'], 'ROOM C', null, 20000, 'days', 4]);
-  ins(itemSql, [uuidv4(), CATS['控室利用料金'], 'VIP LOUNGE', null, 50000, 'days', 5]);
-  ins(itemSql, [uuidv4(), CATS['機材費'], 'クレーンカメラ', null, 150000, 'days_qty', 1]);
-  ins(itemSql, [uuidv4(), CATS['機材費'], 'スタジオカメラ', null, 100000, 'days_qty', 2]);
-  ins(itemSql, [uuidv4(), CATS['機材費'], 'ワイヤレスジンバルカメラ', null, 50000, 'days_qty', 3]);
-  ins(itemSql, [uuidv4(), CATS['機材費'], '汎用PC', null, 15000, 'days_qty', 4]);
-  ins(itemSql, [uuidv4(), CATS['技術人件費'], 'テクニカルサポート（TD）', null, 50000, 'days_people', 1]);
-  ins(itemSql, [uuidv4(), CATS['技術人件費'], 'LEDエンジニア', null, 60000, 'days_people', 2]);
-  ins(itemSql, [uuidv4(), CATS['技術人件費'], 'スイッチャー', null, 60000, 'days_people', 3]);
-  ins(itemSql, [uuidv4(), CATS['技術人件費'], 'ビデオエンジニア', null, 55000, 'days_people', 4]);
-  ins(itemSql, [uuidv4(), CATS['技術人件費'], 'スタジオカメラ', null, 55000, 'days_people', 5]);
-  ins(itemSql, [uuidv4(), CATS['技術人件費'], 'オーディオミキサー', null, 55000, 'days_people', 6]);
-  ins(itemSql, [uuidv4(), CATS['技術人件費'], 'PAミキサー', null, 55000, 'days_people', 7]);
-  ins(itemSql, [uuidv4(), CATS['技術人件費'], 'テクニカルアシスタント', null, 45000, 'days_people', 8]);
-  ins(itemSql, [uuidv4(), CATS['技術人件費'], '配信管理・収録', null, 55000, 'days_people', 9]);
-  ins(itemSql, [uuidv4(), CATS['技術人件費'], 'ライティングディレクター／オペレーター', null, 55000, 'days_people', 10]);
-  ins(itemSql, [uuidv4(), CATS['技術運用費'], 'LED／XR調整費', null, 10000, 'hours', 1]);
-  ins(itemSql, [uuidv4(), CATS['技術運用費'], '照明事前調整費', null, 10000, 'hours', 2]);
-  ins(itemSql, [uuidv4(), CATS['追加演出'], 'XR/AR演出制作費用', null, 150000, 'toggle', 1]);
-  ins(itemSql, [uuidv4(), CATS['追加演出'], '多言語演出', null, 200000, 'toggle', 2]);
-  ins(itemSql, [uuidv4(), CATS['追加演出'], 'ZOOM中継', null, 100000, 'toggle', 3]);
-  ins(itemSql, [uuidv4(), CATS['追加演出'], 'IP中継', null, 200000, 'toggle', 4]);
-  ins(itemSql, [uuidv4(), CATS['その他'], 'ロケハン対応', null, 0, 'toggle', 1]);
+  await ins(itemSql, [uuidv4(), CATS['基本料金'], '基本利用料金', '平日', 1500000, 'days', 1]);
+  await ins(itemSql, [uuidv4(), CATS['基本料金'], '基本利用料金', '土日祝／繁忙期', 2000000, 'days', 2]);
+  await ins(itemSql, [uuidv4(), CATS['基本料金'], '時間外利用料金', '平日', 100000, 'days', 3]);
+  await ins(itemSql, [uuidv4(), CATS['基本料金'], '時間外利用料金', '土日祝／繁忙期', 150000, 'days', 4]);
+  await ins(itemSql, [uuidv4(), CATS['基本料金'], '時間外対応料金', null, 40000, 'hours', 5]);
+  await ins(itemSql, [uuidv4(), CATS['基本料金'], '施設管理費・清掃対応費', null, 50000, 'fixed', 6]);
+  await ins(itemSql, [uuidv4(), CATS['基本料金'], 'パントリー利用', null, 100000, 'days', 7]);
+  await ins(itemSql, [uuidv4(), CATS['控室利用料金'], '全室利用', null, 100000, 'days', 1]);
+  await ins(itemSql, [uuidv4(), CATS['控室利用料金'], 'ROOM A', null, 20000, 'days', 2]);
+  await ins(itemSql, [uuidv4(), CATS['控室利用料金'], 'ROOM B', null, 20000, 'days', 3]);
+  await ins(itemSql, [uuidv4(), CATS['控室利用料金'], 'ROOM C', null, 20000, 'days', 4]);
+  await ins(itemSql, [uuidv4(), CATS['控室利用料金'], 'VIP LOUNGE', null, 50000, 'days', 5]);
+  await ins(itemSql, [uuidv4(), CATS['機材費'], 'クレーンカメラ', null, 150000, 'days_qty', 1]);
+  await ins(itemSql, [uuidv4(), CATS['機材費'], 'スタジオカメラ', null, 100000, 'days_qty', 2]);
+  await ins(itemSql, [uuidv4(), CATS['機材費'], 'ワイヤレスジンバルカメラ', null, 50000, 'days_qty', 3]);
+  await ins(itemSql, [uuidv4(), CATS['機材費'], '汎用PC', null, 15000, 'days_qty', 4]);
+  await ins(itemSql, [uuidv4(), CATS['技術人件費'], 'テクニカルサポート（TD）', null, 50000, 'days_people', 1]);
+  await ins(itemSql, [uuidv4(), CATS['技術人件費'], 'LEDエンジニア', null, 60000, 'days_people', 2]);
+  await ins(itemSql, [uuidv4(), CATS['技術人件費'], 'スイッチャー', null, 60000, 'days_people', 3]);
+  await ins(itemSql, [uuidv4(), CATS['技術人件費'], 'ビデオエンジニア', null, 55000, 'days_people', 4]);
+  await ins(itemSql, [uuidv4(), CATS['技術人件費'], 'スタジオカメラ', null, 55000, 'days_people', 5]);
+  await ins(itemSql, [uuidv4(), CATS['技術人件費'], 'オーディオミキサー', null, 55000, 'days_people', 6]);
+  await ins(itemSql, [uuidv4(), CATS['技術人件費'], 'PAミキサー', null, 55000, 'days_people', 7]);
+  await ins(itemSql, [uuidv4(), CATS['技術人件費'], 'テクニカルアシスタント', null, 45000, 'days_people', 8]);
+  await ins(itemSql, [uuidv4(), CATS['技術人件費'], '配信管理・収録', null, 55000, 'days_people', 9]);
+  await ins(itemSql, [uuidv4(), CATS['技術人件費'], 'ライティングディレクター／オペレーター', null, 55000, 'days_people', 10]);
+  await ins(itemSql, [uuidv4(), CATS['技術運用費'], 'LED／XR調整費', null, 10000, 'hours', 1]);
+  await ins(itemSql, [uuidv4(), CATS['技術運用費'], '照明事前調整費', null, 10000, 'hours', 2]);
+  await ins(itemSql, [uuidv4(), CATS['追加演出'], 'XR/AR演出制作費用', null, 150000, 'toggle', 1]);
+  await ins(itemSql, [uuidv4(), CATS['追加演出'], '多言語演出', null, 200000, 'toggle', 2]);
+  await ins(itemSql, [uuidv4(), CATS['追加演出'], 'ZOOM中継', null, 100000, 'toggle', 3]);
+  await ins(itemSql, [uuidv4(), CATS['追加演出'], 'IP中継', null, 200000, 'toggle', 4]);
+  await ins(itemSql, [uuidv4(), CATS['その他'], 'ロケハン対応', null, 0, 'toggle', 1]);
 
   // ============================================================
   // Sequences
   // ============================================================
-  ins(`INSERT INTO sequences (seq_name, prefix, year_month, counter) VALUES (?, ?, ?, ?)`, ['gls_a', 'GLS-A', '000000', 8]);
-  ins(`INSERT INTO sequences (seq_name, prefix, year_month, counter) VALUES (?, ?, ?, ?)`, ['gls_b', 'GLS-B', '000000', 2]);
-  ins(`INSERT INTO sequences (seq_name, prefix, year_month, counter) VALUES (?, ?, ?, ?)`, ['opp_code', 'OPP', '202603', 15]);
+  await ins(`INSERT INTO sequences (seq_name, prefix, year_month, counter) VALUES (?, ?, ?, ?)`, ['gls_a', 'GLS-A', '000000', 8]);
+  await ins(`INSERT INTO sequences (seq_name, prefix, year_month, counter) VALUES (?, ?, ?, ?)`, ['gls_b', 'GLS-B', '000000', 2]);
+  await ins(`INSERT INTO sequences (seq_name, prefix, year_month, counter) VALUES (?, ?, ?, ?)`, ['opp_code', 'OPP', '202603', 15]);
 
   // ============================================================
   // Projects (統合: ヨミ段階 + GLS発番済み)
@@ -160,7 +160,7 @@ export async function seed() {
     const [code, name, custKey, projType, stage, amt, eventStart, eventEnd] = yomiData[i];
     const id = uuidv4();
     PROJECTS[code] = id;
-    ins(projSql, [id, code, null, name, CUSTOMERS[custKey], stage, projType, amt, eventStart, eventEnd, null, null, staffIds[i % 3], '', USERS.admin]);
+    await ins(projSql, [id, code, null, name, CUSTOMERS[custKey], stage, projType, amt, eventStart, eventEnd, null, null, staffIds[i % 3], '', USERS.admin]);
   }
 
   // --- 失注 ---
@@ -174,7 +174,7 @@ export async function seed() {
   for (let i = 0; i < lostData.length; i++) {
     const [code, name, custKey, projType, amt, date, reason, note, lessons, lostAt] = lostData[i];
     const id = uuidv4();
-    execute(
+    await execute(
       `INSERT INTO projects (id, code, name, customer_id, stage, project_type, expected_amount, event_start, assigned_to, lost_reason, lost_reason_note, lessons_learned, lost_at, created_by) VALUES (?, ?, ?, ?, 'e_lost', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, code, name, CUSTOMERS[custKey], projType, amt, date, staffIds[i % 3], reason, note, lessons, lostAt, USERS.admin]
     );
@@ -197,7 +197,7 @@ export async function seed() {
     PROJECTS[gls] = id;
     // GLS発番済みなので code = OPP-xxx (元のヨミコード) + gls_number
     const oppCode = `OPP-202603-${String(20 + i).padStart(4, '0')}`;
-    ins(projSql, [id, oppCode, gls, name, CUSTOMERS[custKey], stage, projType, amt, es, ee, bType, mPlatform, staffIds[i % 3], tags, USERS.admin]);
+    await ins(projSql, [id, oppCode, gls, name, CUSTOMERS[custKey], stage, projType, amt, es, ee, bType, mPlatform, staffIds[i % 3], tags, USERS.admin]);
   }
 
   // --- B系: GLS-B (その他売上) ---
@@ -211,7 +211,7 @@ export async function seed() {
     const id = uuidv4();
     PROJECTS[gls] = id;
     const oppCode = `OPP-202603-${String(30 + i).padStart(4, '0')}`;
-    ins(projBSql, [id, oppCode, gls, name, CUSTOMERS[custKey], stage, projType, amt, staffIds[i % 3], '', USERS.admin]);
+    await ins(projBSql, [id, oppCode, gls, name, CUSTOMERS[custKey], stage, projType, amt, staffIds[i % 3], '', USERS.admin]);
   }
 
   // ============================================================
@@ -223,7 +223,7 @@ export async function seed() {
   {
     const epId = uuidv4();
     EPISODES['GLS-A001-001'] = epId;
-    ins(epSql, [epId, PROJECTS['GLS-A001'], 1, 'GLS-A001-001', '2026-03-19', '2026-03-19', '2026-03-19', USERS.admin]);
+    await ins(epSql, [epId, PROJECTS['GLS-A001'], 1, 'GLS-A001-001', '2026-03-19', '2026-03-19', '2026-03-19', USERS.admin]);
   }
 
   // GLS-A002: 13 episodes
@@ -233,7 +233,7 @@ export async function seed() {
     EPISODES[code] = epId;
     const recDate = `2026-${String(3 + Math.floor((i - 1) / 4)).padStart(2, '0')}-${String(((i - 1) % 28) + 1).padStart(2, '0')}`;
     const bcastDate = `2026-${String(3 + Math.floor(i / 4)).padStart(2, '0')}-${String((i % 28) + 7).padStart(2, '0')}`;
-    ins(epSql, [epId, PROJECTS['GLS-A002'], i, code, recDate, bcastDate, bcastDate, USERS.admin]);
+    await ins(epSql, [epId, PROJECTS['GLS-A002'], i, code, recDate, bcastDate, bcastDate, USERS.admin]);
   }
 
   // GLS-A003: 4 episodes
@@ -242,14 +242,14 @@ export async function seed() {
     const code = `GLS-A003-${String(i).padStart(3, '0')}`;
     EPISODES[code] = epId;
     const liveDate = `2026-03-${String(24 + i).padStart(2, '0')}`;
-    ins(epSql, [epId, PROJECTS['GLS-A003'], i, code, liveDate, liveDate, liveDate, USERS.admin]);
+    await ins(epSql, [epId, PROJECTS['GLS-A003'], i, code, liveDate, liveDate, liveDate, USERS.admin]);
   }
 
   // GLS-A004: 1 episode
   {
     const epId = uuidv4();
     EPISODES['GLS-A004-001'] = epId;
-    ins(epSql, [epId, PROJECTS['GLS-A004'], 1, 'GLS-A004-001', '2026-03-30', '2026-03-30', '2026-03-30', USERS.admin]);
+    await ins(epSql, [epId, PROJECTS['GLS-A004'], 1, 'GLS-A004-001', '2026-03-30', '2026-03-30', '2026-03-30', USERS.admin]);
   }
 
   // GLS-A005: 6 episodes
@@ -259,7 +259,7 @@ export async function seed() {
     EPISODES[code] = epId;
     const recDate = `2026-04-${String(i * 2 + 1).padStart(2, '0')}`;
     const bcastDate = `2026-05-${String(i * 3).padStart(2, '0')}`;
-    ins(epSql, [epId, PROJECTS['GLS-A005'], i, code, recDate, bcastDate, bcastDate, USERS.admin]);
+    await ins(epSql, [epId, PROJECTS['GLS-A005'], i, code, recDate, bcastDate, bcastDate, USERS.admin]);
   }
 
   // GLS-A006-008: 1 episode each
@@ -271,22 +271,22 @@ export async function seed() {
     const epId = uuidv4();
     const code = `${gls}-001`;
     EPISODES[code] = epId;
-    ins(epSql, [epId, PROJECTS[gls], 1, code, recDate, bcastDate, bcastDate, USERS.admin]);
+    await ins(epSql, [epId, PROJECTS[gls], 1, code, recDate, bcastDate, bcastDate, USERS.admin]);
   }
 
   // ============================================================
   // Episode Orders
   // ============================================================
   const eoSql = `INSERT INTO episode_orders (id, project_id, order_date, episode_count, start_episode, end_episode, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-  ins(eoSql, [uuidv4(), PROJECTS['GLS-A001'], '2026-02-01', 1, 1, 1, '単発案件', USERS.admin]);
-  ins(eoSql, [uuidv4(), PROJECTS['GLS-A002'], '2025-12-02', 12, 1, 12, '初回一括発注', USERS.admin]);
-  ins(eoSql, [uuidv4(), PROJECTS['GLS-A002'], '2026-05-01', 1, 13, 13, '追加発注', USERS.admin]);
-  ins(eoSql, [uuidv4(), PROJECTS['GLS-A003'], '2026-02-15', 4, 1, 4, '4話一括発注', USERS.admin]);
-  ins(eoSql, [uuidv4(), PROJECTS['GLS-A004'], '2026-03-01', 1, 1, 1, '単発案件', USERS.admin]);
-  ins(eoSql, [uuidv4(), PROJECTS['GLS-A005'], '2026-03-01', 6, 1, 6, 'シーズン1発注', USERS.admin]);
-  ins(eoSql, [uuidv4(), PROJECTS['GLS-A006'], '2026-03-10', 1, 1, 1, '単発案件', USERS.admin]);
-  ins(eoSql, [uuidv4(), PROJECTS['GLS-A007'], '2026-03-15', 1, 1, 1, '単発案件', USERS.admin]);
-  ins(eoSql, [uuidv4(), PROJECTS['GLS-A008'], '2026-02-20', 1, 1, 1, '単発案件', USERS.admin]);
+  await ins(eoSql, [uuidv4(), PROJECTS['GLS-A001'], '2026-02-01', 1, 1, 1, '単発案件', USERS.admin]);
+  await ins(eoSql, [uuidv4(), PROJECTS['GLS-A002'], '2025-12-02', 12, 1, 12, '初回一括発注', USERS.admin]);
+  await ins(eoSql, [uuidv4(), PROJECTS['GLS-A002'], '2026-05-01', 1, 13, 13, '追加発注', USERS.admin]);
+  await ins(eoSql, [uuidv4(), PROJECTS['GLS-A003'], '2026-02-15', 4, 1, 4, '4話一括発注', USERS.admin]);
+  await ins(eoSql, [uuidv4(), PROJECTS['GLS-A004'], '2026-03-01', 1, 1, 1, '単発案件', USERS.admin]);
+  await ins(eoSql, [uuidv4(), PROJECTS['GLS-A005'], '2026-03-01', 6, 1, 6, 'シーズン1発注', USERS.admin]);
+  await ins(eoSql, [uuidv4(), PROJECTS['GLS-A006'], '2026-03-10', 1, 1, 1, '単発案件', USERS.admin]);
+  await ins(eoSql, [uuidv4(), PROJECTS['GLS-A007'], '2026-03-15', 1, 1, 1, '単発案件', USERS.admin]);
+  await ins(eoSql, [uuidv4(), PROJECTS['GLS-A008'], '2026-02-20', 1, 1, 1, '単発案件', USERS.admin]);
 
   // ============================================================
   // Revenues
@@ -297,11 +297,11 @@ export async function seed() {
   // GLS-A001: IR説明会（明細項目付き）
   {
     const revId = uuidv4();
-    ins(revSql, [revId, 'GLS-A001-001-1', PROJECTS['GLS-A001'], EPISODES['GLS-A001-001'], CUSTOMERS['GH'], USERS.staff1, 'tax10', 4000000, '2026-03-31', null, '2026年春季IR説明会', 'confirmed']);
-    ins(riSql, [uuidv4(), revId, 'スタジオ基本利用料（WORLD STUDIO）', 2, 1500000, 3000000, 1]);
-    ins(riSql, [uuidv4(), revId, 'YouTube Live配信設備', 1, 500000, 500000, 2]);
-    ins(riSql, [uuidv4(), revId, '技術スタッフ（TD・SW・VE）', 1, 300000, 300000, 3]);
-    ins(riSql, [uuidv4(), revId, '控室利用（VIP LOUNGE + MEETING ROOM）', 2, 100000, 200000, 4]);
+    await ins(revSql, [revId, 'GLS-A001-001-1', PROJECTS['GLS-A001'], EPISODES['GLS-A001-001'], CUSTOMERS['GH'], USERS.staff1, 'tax10', 4000000, '2026-03-31', null, '2026年春季IR説明会', 'confirmed']);
+    await ins(riSql, [uuidv4(), revId, 'スタジオ基本利用料（WORLD STUDIO）', 2, 1500000, 3000000, 1]);
+    await ins(riSql, [uuidv4(), revId, 'YouTube Live配信設備', 1, 500000, 500000, 2]);
+    await ins(riSql, [uuidv4(), revId, '技術スタッフ（TD・SW・VE）', 1, 300000, 300000, 3]);
+    await ins(riSql, [uuidv4(), revId, '控室利用（VIP LOUNGE + MEETING ROOM）', 2, 100000, 200000, 4]);
   }
 
   // GLS-A002: 13話の番組収録（各話に明細）
@@ -309,143 +309,143 @@ export async function seed() {
     const code = `GLS-A002-${String(i).padStart(3, '0')}`;
     const amt = i === 1 ? 576923 + (7500000 - 576923 * 13) : 576923;
     const revId = uuidv4();
-    ins(revSql, [revId, `${code}-1`, PROJECTS['GLS-A002'], EPISODES[code], CUSTOMERS['東都TV'], staffIds[i % 3], 'tax10', amt, '2026-03-31', null, `第${i}話`, 'confirmed']);
-    ins(riSql, [uuidv4(), revId, 'スタジオ収録費', 1, Math.round(amt * 0.6), Math.round(amt * 0.6), 1]);
-    ins(riSql, [uuidv4(), revId, '技術費', 1, Math.round(amt * 0.3), Math.round(amt * 0.3), 2]);
-    ins(riSql, [uuidv4(), revId, '諸経費', 1, amt - Math.round(amt * 0.6) - Math.round(amt * 0.3), amt - Math.round(amt * 0.6) - Math.round(amt * 0.3), 3]);
+    await ins(revSql, [revId, `${code}-1`, PROJECTS['GLS-A002'], EPISODES[code], CUSTOMERS['東都TV'], staffIds[i % 3], 'tax10', amt, '2026-03-31', null, `第${i}話`, 'confirmed']);
+    await ins(riSql, [uuidv4(), revId, 'スタジオ収録費', 1, Math.round(amt * 0.6), Math.round(amt * 0.6), 1]);
+    await ins(riSql, [uuidv4(), revId, '技術費', 1, Math.round(amt * 0.3), Math.round(amt * 0.3), 2]);
+    await ins(riSql, [uuidv4(), revId, '諸経費', 1, amt - Math.round(amt * 0.6) - Math.round(amt * 0.3), amt - Math.round(amt * 0.6) - Math.round(amt * 0.3), 3]);
   }
 
   // GLS-A003: 生放送4回
   for (let i = 1; i <= 4; i++) {
     const code = `GLS-A003-${String(i).padStart(3, '0')}`;
     const revId = uuidv4();
-    ins(revSql, [revId, `${code}-1`, PROJECTS['GLS-A003'], EPISODES[code], CUSTOMERS['SN'], staffIds[i % 3], 'tax10', 1375000, '2026-03-31', null, `第${i}回放送`, 'confirmed']);
-    ins(riSql, [uuidv4(), revId, 'スタジオ利用＋生放送設備', 1, 800000, 800000, 1]);
-    ins(riSql, [uuidv4(), revId, '配信技術費', 1, 375000, 375000, 2]);
-    ins(riSql, [uuidv4(), revId, '音響・照明', 1, 200000, 200000, 3]);
+    await ins(revSql, [revId, `${code}-1`, PROJECTS['GLS-A003'], EPISODES[code], CUSTOMERS['SN'], staffIds[i % 3], 'tax10', 1375000, '2026-03-31', null, `第${i}回放送`, 'confirmed']);
+    await ins(riSql, [uuidv4(), revId, 'スタジオ利用＋生放送設備', 1, 800000, 800000, 1]);
+    await ins(riSql, [uuidv4(), revId, '配信技術費', 1, 375000, 375000, 2]);
+    await ins(riSql, [uuidv4(), revId, '音響・照明', 1, 200000, 200000, 3]);
   }
 
   // GLS-A004: 新サービス発表会
   {
     const revId = uuidv4();
-    ins(revSql, [revId, 'GLS-A004-001-1', PROJECTS['GLS-A004'], EPISODES['GLS-A004-001'], CUSTOMERS['PW'], USERS.staff3, 'tax10', 2800000, '2026-04-30', null, '2026年株主総会', 'confirmed']);
-    ins(riSql, [uuidv4(), revId, 'スタジオ基本利用料', 1, 1500000, 1500000, 1]);
-    ins(riSql, [uuidv4(), revId, 'Zoom配信設備＋オペレーション', 1, 600000, 600000, 2]);
-    ins(riSql, [uuidv4(), revId, '技術スタッフ', 1, 400000, 400000, 3]);
-    ins(riSql, [uuidv4(), revId, '控室・ケータリング', 1, 300000, 300000, 4]);
+    await ins(revSql, [revId, 'GLS-A004-001-1', PROJECTS['GLS-A004'], EPISODES['GLS-A004-001'], CUSTOMERS['PW'], USERS.staff3, 'tax10', 2800000, '2026-04-30', null, '2026年株主総会', 'confirmed']);
+    await ins(riSql, [uuidv4(), revId, 'スタジオ基本利用料', 1, 1500000, 1500000, 1]);
+    await ins(riSql, [uuidv4(), revId, 'Zoom配信設備＋オペレーション', 1, 600000, 600000, 2]);
+    await ins(riSql, [uuidv4(), revId, '技術スタッフ', 1, 400000, 400000, 3]);
+    await ins(riSql, [uuidv4(), revId, '控室・ケータリング', 1, 300000, 300000, 4]);
   }
 
   // GLS-A005: ドキュメンタリー6回撮影
   for (let i = 1; i <= 6; i++) {
     const code = `GLS-A005-${String(i).padStart(3, '0')}`;
     const revId = uuidv4();
-    ins(revSql, [revId, `${code}-1`, PROJECTS['GLS-A005'], EPISODES[code], CUSTOMERS['GE'], staffIds[i % 3], 'tax10', 2000000, '2026-04-30', null, `撮影${i}日目`, 'confirmed']);
-    ins(riSql, [uuidv4(), revId, 'スタジオ収録費', 1, 1200000, 1200000, 1]);
-    ins(riSql, [uuidv4(), revId, '撮影技術費', 1, 600000, 600000, 2]);
-    ins(riSql, [uuidv4(), revId, '諸経費', 1, 200000, 200000, 3]);
+    await ins(revSql, [revId, `${code}-1`, PROJECTS['GLS-A005'], EPISODES[code], CUSTOMERS['GE'], staffIds[i % 3], 'tax10', 2000000, '2026-04-30', null, `撮影${i}日目`, 'confirmed']);
+    await ins(riSql, [uuidv4(), revId, 'スタジオ収録費', 1, 1200000, 1200000, 1]);
+    await ins(riSql, [uuidv4(), revId, '撮影技術費', 1, 600000, 600000, 2]);
+    await ins(riSql, [uuidv4(), revId, '諸経費', 1, 200000, 200000, 3]);
   }
 
   // GLS-A006〜008: 単発案件
   {
     const revId6 = uuidv4();
-    ins(revSql, [revId6, 'GLS-A006-001-1', PROJECTS['GLS-A006'], EPISODES['GLS-A006-001'], CUSTOMERS['DA'], USERS.staff3, 'tax10', 1500000, '2026-04-30', null, '社内イベント中継', 'confirmed']);
-    ins(riSql, [uuidv4(), revId6, '配信設備＋オペレーション', 1, 900000, 900000, 1]);
-    ins(riSql, [uuidv4(), revId6, '技術スタッフ', 1, 400000, 400000, 2]);
-    ins(riSql, [uuidv4(), revId6, '通信回線費', 1, 200000, 200000, 3]);
+    await ins(revSql, [revId6, 'GLS-A006-001-1', PROJECTS['GLS-A006'], EPISODES['GLS-A006-001'], CUSTOMERS['DA'], USERS.staff3, 'tax10', 1500000, '2026-04-30', null, '社内イベント中継', 'confirmed']);
+    await ins(riSql, [uuidv4(), revId6, '配信設備＋オペレーション', 1, 900000, 900000, 1]);
+    await ins(riSql, [uuidv4(), revId6, '技術スタッフ', 1, 400000, 400000, 2]);
+    await ins(riSql, [uuidv4(), revId6, '通信回線費', 1, 200000, 200000, 3]);
   }
   {
     const revId7 = uuidv4();
-    ins(revSql, [revId7, 'GLS-A007-001-1', PROJECTS['GLS-A007'], EPISODES['GLS-A007-001'], CUSTOMERS['JB'], USERS.staff1, 'tax10', 4500000, '2026-04-30', null, 'パイロット版', 'estimate']);
-    ins(riSql, [uuidv4(), revId7, 'スタジオ利用料（2日間）', 2, 1500000, 3000000, 1]);
-    ins(riSql, [uuidv4(), revId7, '技術スタッフ', 1, 900000, 900000, 2]);
-    ins(riSql, [uuidv4(), revId7, '照明・音響', 1, 600000, 600000, 3]);
+    await ins(revSql, [revId7, 'GLS-A007-001-1', PROJECTS['GLS-A007'], EPISODES['GLS-A007-001'], CUSTOMERS['JB'], USERS.staff1, 'tax10', 4500000, '2026-04-30', null, 'パイロット版', 'estimate']);
+    await ins(riSql, [uuidv4(), revId7, 'スタジオ利用料（2日間）', 2, 1500000, 3000000, 1]);
+    await ins(riSql, [uuidv4(), revId7, '技術スタッフ', 1, 900000, 900000, 2]);
+    await ins(riSql, [uuidv4(), revId7, '照明・音響', 1, 600000, 600000, 3]);
   }
   {
     const revId8 = uuidv4();
-    ins(revSql, [revId8, 'GLS-A008-001-1', PROJECTS['GLS-A008'], EPISODES['GLS-A008-001'], CUSTOMERS['富士見'], USERS.staff3, 'tax10', 3200000, '2026-03-31', null, '春キャンペーンCM', 'confirmed']);
-    ins(riSql, [uuidv4(), revId8, 'スタジオ利用料', 1, 1500000, 1500000, 1]);
-    ins(riSql, [uuidv4(), revId8, 'CM撮影技術費', 1, 1200000, 1200000, 2]);
-    ins(riSql, [uuidv4(), revId8, '美術・セット費', 1, 500000, 500000, 3]);
+    await ins(revSql, [revId8, 'GLS-A008-001-1', PROJECTS['GLS-A008'], EPISODES['GLS-A008-001'], CUSTOMERS['富士見'], USERS.staff3, 'tax10', 3200000, '2026-03-31', null, '春キャンペーンCM', 'confirmed']);
+    await ins(riSql, [uuidv4(), revId8, 'スタジオ利用料', 1, 1500000, 1500000, 1]);
+    await ins(riSql, [uuidv4(), revId8, 'CM撮影技術費', 1, 1200000, 1200000, 2]);
+    await ins(riSql, [uuidv4(), revId8, '美術・セット費', 1, 500000, 500000, 3]);
   }
 
   // --- B系売上（エピソードなし）---
   // GLS-B001: コンサルティング契約（月額×12）
   const revB001Id = uuidv4();
-  ins(revSql, [revB001Id, 'GLS-B001-001-1', PROJECTS['GLS-B001'], null, CUSTOMERS['GH'], USERS.staff1, 'tax10', 3600000, '2026-03-31', '年間コンサルティング契約', null, 'confirmed']);
-  ins(riSql, [uuidv4(), revB001Id, '配信コンサルティング（月額）', 12, 250000, 3000000, 1]);
-  ins(riSql, [uuidv4(), revB001Id, '配信環境構築サポート', 1, 400000, 400000, 2]);
-  ins(riSql, [uuidv4(), revB001Id, 'レポート作成費', 4, 50000, 200000, 3]);
+  await ins(revSql, [revB001Id, 'GLS-B001-001-1', PROJECTS['GLS-B001'], null, CUSTOMERS['GH'], USERS.staff1, 'tax10', 3600000, '2026-03-31', '年間コンサルティング契約', null, 'confirmed']);
+  await ins(riSql, [uuidv4(), revB001Id, '配信コンサルティング（月額）', 12, 250000, 3000000, 1]);
+  await ins(riSql, [uuidv4(), revB001Id, '配信環境構築サポート', 1, 400000, 400000, 2]);
+  await ins(riSql, [uuidv4(), revB001Id, 'レポート作成費', 4, 50000, 200000, 3]);
 
   // GLS-B002: 動画戦略コンサルティング
   const revB002Id = uuidv4();
-  ins(revSql, [revB002Id, 'GLS-B002-001-1', PROJECTS['GLS-B002'], null, CUSTOMERS['PW'], USERS.staff2, 'tax10', 2400000, '2026-04-30', '動画戦略コンサルティング', null, 'confirmed']);
-  ins(riSql, [uuidv4(), revB002Id, '動画戦略策定', 1, 800000, 800000, 1]);
-  ins(riSql, [uuidv4(), revB002Id, '競合分析レポート', 1, 600000, 600000, 2]);
-  ins(riSql, [uuidv4(), revB002Id, '運用マニュアル作成', 1, 500000, 500000, 3]);
-  ins(riSql, [uuidv4(), revB002Id, 'トレーニング（3回）', 3, 166667, 500000, 4]);
+  await ins(revSql, [revB002Id, 'GLS-B002-001-1', PROJECTS['GLS-B002'], null, CUSTOMERS['PW'], USERS.staff2, 'tax10', 2400000, '2026-04-30', '動画戦略コンサルティング', null, 'confirmed']);
+  await ins(riSql, [uuidv4(), revB002Id, '動画戦略策定', 1, 800000, 800000, 1]);
+  await ins(riSql, [uuidv4(), revB002Id, '競合分析レポート', 1, 600000, 600000, 2]);
+  await ins(riSql, [uuidv4(), revB002Id, '運用マニュアル作成', 1, 500000, 500000, 3]);
+  await ins(riSql, [uuidv4(), revB002Id, 'トレーニング（3回）', 3, 166667, 500000, 4]);
 
   // --- ヨミ段階の概算見積もり ---
   // OPP-202603-0001: 中央放送 春の特別企画
   {
     const revId = uuidv4();
-    ins(revSql, [revId, 'EST-001-1', PROJECTS['OPP-202603-0001'], null, CUSTOMERS['中央放送'], USERS.staff1, 'tax10', 3000000, null, '概算見積り', '春の特別企画', 'estimate']);
-    ins(riSql, [uuidv4(), revId, 'スタジオ基本利用料（1日）', 1, 1500000, 1500000, 1]);
-    ins(riSql, [uuidv4(), revId, '収録技術スタッフ', 1, 800000, 800000, 2]);
-    ins(riSql, [uuidv4(), revId, '照明・音響', 1, 500000, 500000, 3]);
-    ins(riSql, [uuidv4(), revId, '諸経費', 1, 200000, 200000, 4]);
+    await ins(revSql, [revId, 'EST-001-1', PROJECTS['OPP-202603-0001'], null, CUSTOMERS['中央放送'], USERS.staff1, 'tax10', 3000000, null, '概算見積り', '春の特別企画', 'estimate']);
+    await ins(riSql, [uuidv4(), revId, 'スタジオ基本利用料（1日）', 1, 1500000, 1500000, 1]);
+    await ins(riSql, [uuidv4(), revId, '収録技術スタッフ', 1, 800000, 800000, 2]);
+    await ins(riSql, [uuidv4(), revId, '照明・音響', 1, 500000, 500000, 3]);
+    await ins(riSql, [uuidv4(), revId, '諸経費', 1, 200000, 200000, 4]);
   }
 
   // OPP-202603-0002: GH サマーカンファレンス
   {
     const revId = uuidv4();
-    ins(revSql, [revId, 'EST-001-1', PROJECTS['OPP-202603-0002'], null, CUSTOMERS['GH'], USERS.staff2, 'tax10', 5000000, null, '概算見積り', 'サマーカンファレンス', 'estimate']);
-    ins(riSql, [uuidv4(), revId, 'WORLD STUDIO利用料（2日間）', 2, 1500000, 3000000, 1]);
-    ins(riSql, [uuidv4(), revId, 'ハイブリッド配信設備', 1, 800000, 800000, 2]);
-    ins(riSql, [uuidv4(), revId, '技術スタッフ（TD・SW・VE・カメラ）', 1, 700000, 700000, 3]);
-    ins(riSql, [uuidv4(), revId, '控室利用（VIP LOUNGE＋ROOM A/B）', 2, 150000, 300000, 4]);
-    ins(riSql, [uuidv4(), revId, '施設管理費', 1, 200000, 200000, 5]);
+    await ins(revSql, [revId, 'EST-001-1', PROJECTS['OPP-202603-0002'], null, CUSTOMERS['GH'], USERS.staff2, 'tax10', 5000000, null, '概算見積り', 'サマーカンファレンス', 'estimate']);
+    await ins(riSql, [uuidv4(), revId, 'WORLD STUDIO利用料（2日間）', 2, 1500000, 3000000, 1]);
+    await ins(riSql, [uuidv4(), revId, 'ハイブリッド配信設備', 1, 800000, 800000, 2]);
+    await ins(riSql, [uuidv4(), revId, '技術スタッフ（TD・SW・VE・カメラ）', 1, 700000, 700000, 3]);
+    await ins(riSql, [uuidv4(), revId, '控室利用（VIP LOUNGE＋ROOM A/B）', 2, 150000, 300000, 4]);
+    await ins(riSql, [uuidv4(), revId, '施設管理費', 1, 200000, 200000, 5]);
   }
 
   // OPP-202603-0004: 東都TV ドラマ撮影
   {
     const revId = uuidv4();
-    ins(revSql, [revId, 'EST-001-1', PROJECTS['OPP-202603-0004'], null, CUSTOMERS['東都TV'], USERS.staff1, 'tax10', 8000000, null, '概算見積り', 'ドラマ撮影（3日間）', 'estimate']);
-    ins(riSql, [uuidv4(), revId, 'SKY STUDIO利用料（3日間）', 3, 1500000, 4500000, 1]);
-    ins(riSql, [uuidv4(), revId, '撮影技術チーム', 3, 600000, 1800000, 2]);
-    ins(riSql, [uuidv4(), revId, '照明セット＋オペレーター', 3, 300000, 900000, 3]);
-    ins(riSql, [uuidv4(), revId, '美術・セット費', 1, 500000, 500000, 4]);
-    ins(riSql, [uuidv4(), revId, '諸経費（ケータリング等）', 1, 300000, 300000, 5]);
+    await ins(revSql, [revId, 'EST-001-1', PROJECTS['OPP-202603-0004'], null, CUSTOMERS['東都TV'], USERS.staff1, 'tax10', 8000000, null, '概算見積り', 'ドラマ撮影（3日間）', 'estimate']);
+    await ins(riSql, [uuidv4(), revId, 'SKY STUDIO利用料（3日間）', 3, 1500000, 4500000, 1]);
+    await ins(riSql, [uuidv4(), revId, '撮影技術チーム', 3, 600000, 1800000, 2]);
+    await ins(riSql, [uuidv4(), revId, '照明セット＋オペレーター', 3, 300000, 900000, 3]);
+    await ins(riSql, [uuidv4(), revId, '美術・セット費', 1, 500000, 500000, 4]);
+    await ins(riSql, [uuidv4(), revId, '諸経費（ケータリング等）', 1, 300000, 300000, 5]);
   }
 
   // OPP-202603-0005: SN スポーツ中継
   {
     const revId = uuidv4();
-    ins(revSql, [revId, 'EST-001-1', PROJECTS['OPP-202603-0005'], null, CUSTOMERS['SN'], USERS.staff3, 'tax10', 6000000, null, '概算見積り', 'スポーツ中継', 'estimate']);
-    ins(riSql, [uuidv4(), revId, 'WORLD STUDIO利用料', 1, 2000000, 2000000, 1]);
-    ins(riSql, [uuidv4(), revId, '生中継技術（カメラ6台＋SW）', 1, 2000000, 2000000, 2]);
-    ins(riSql, [uuidv4(), revId, '配信設備＋回線費', 1, 1200000, 1200000, 3]);
-    ins(riSql, [uuidv4(), revId, 'スタッフ・諸経費', 1, 800000, 800000, 4]);
+    await ins(revSql, [revId, 'EST-001-1', PROJECTS['OPP-202603-0005'], null, CUSTOMERS['SN'], USERS.staff3, 'tax10', 6000000, null, '概算見積り', 'スポーツ中継', 'estimate']);
+    await ins(riSql, [uuidv4(), revId, 'WORLD STUDIO利用料', 1, 2000000, 2000000, 1]);
+    await ins(riSql, [uuidv4(), revId, '生中継技術（カメラ6台＋SW）', 1, 2000000, 2000000, 2]);
+    await ins(riSql, [uuidv4(), revId, '配信設備＋回線費', 1, 1200000, 1200000, 3]);
+    await ins(riSql, [uuidv4(), revId, 'スタッフ・諸経費', 1, 800000, 800000, 4]);
   }
 
   // OPP-202603-0006: GE リアリティ番組制作
   {
     const revId = uuidv4();
-    ins(revSql, [revId, 'EST-001-1', PROJECTS['OPP-202603-0006'], null, CUSTOMERS['GE'], USERS.staff3, 'tax10', 12000000, null, '概算見積り', 'リアリティ番組（3日間撮影）', 'estimate']);
-    ins(riSql, [uuidv4(), revId, 'WORLD STUDIO利用料（3日間）', 3, 2000000, 6000000, 1]);
-    ins(riSql, [uuidv4(), revId, '撮影技術チーム（カメラ8台）', 3, 1000000, 3000000, 2]);
-    ins(riSql, [uuidv4(), revId, '照明・音響・美術', 3, 600000, 1800000, 3]);
-    ins(riSql, [uuidv4(), revId, '控室・ケータリング', 3, 200000, 600000, 4]);
-    ins(riSql, [uuidv4(), revId, '諸経費', 1, 600000, 600000, 5]);
+    await ins(revSql, [revId, 'EST-001-1', PROJECTS['OPP-202603-0006'], null, CUSTOMERS['GE'], USERS.staff3, 'tax10', 12000000, null, '概算見積り', 'リアリティ番組（3日間撮影）', 'estimate']);
+    await ins(riSql, [uuidv4(), revId, 'WORLD STUDIO利用料（3日間）', 3, 2000000, 6000000, 1]);
+    await ins(riSql, [uuidv4(), revId, '撮影技術チーム（カメラ8台）', 3, 1000000, 3000000, 2]);
+    await ins(riSql, [uuidv4(), revId, '照明・音響・美術', 3, 600000, 1800000, 3]);
+    await ins(riSql, [uuidv4(), revId, '控室・ケータリング', 3, 200000, 600000, 4]);
+    await ins(riSql, [uuidv4(), revId, '諸経費', 1, 600000, 600000, 5]);
   }
 
   // OPP-202603-0009: PW IR動画制作
   {
     const revId = uuidv4();
-    ins(revSql, [revId, 'EST-001-1', PROJECTS['OPP-202603-0009'], null, CUSTOMERS['PW'], USERS.staff1, 'tax10', 2000000, null, '概算見積り', 'IR動画制作', 'estimate']);
-    ins(riSql, [uuidv4(), revId, '動画撮影（半日）', 1, 800000, 800000, 1]);
-    ins(riSql, [uuidv4(), revId, '編集・MA', 1, 700000, 700000, 2]);
-    ins(riSql, [uuidv4(), revId, 'ナレーション・テロップ', 1, 300000, 300000, 3]);
-    ins(riSql, [uuidv4(), revId, 'ディレクション費', 1, 200000, 200000, 4]);
+    await ins(revSql, [revId, 'EST-001-1', PROJECTS['OPP-202603-0009'], null, CUSTOMERS['PW'], USERS.staff1, 'tax10', 2000000, null, '概算見積り', 'IR動画制作', 'estimate']);
+    await ins(riSql, [uuidv4(), revId, '動画撮影（半日）', 1, 800000, 800000, 1]);
+    await ins(riSql, [uuidv4(), revId, '編集・MA', 1, 700000, 700000, 2]);
+    await ins(riSql, [uuidv4(), revId, 'ナレーション・テロップ', 1, 300000, 300000, 3]);
+    await ins(riSql, [uuidv4(), revId, 'ディレクション費', 1, 200000, 200000, 4]);
   }
 
   // ============================================================
@@ -453,26 +453,26 @@ export async function seed() {
   // ============================================================
   const purSql = `INSERT INTO purchases (id, billing_key, project_id, episode_id, vendor_id, assigned_to, settlement_method, settlement_number, tax_category, invoice_qualified, amount, description, recognition_date, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-  ins(purSql, [uuidv4(), 'GLS-A001-001-1', PROJECTS['GLS-A001'], EPISODES['GLS-A001-001'], VENDORS['技術'], USERS.staff1, 'rakuraku', '147510', 'tax10', 1, 800000, 'カメラクルー2名', '2026-03-31', null]);
-  ins(purSql, [uuidv4(), 'GLS-A001-001-2', PROJECTS['GLS-A001'], EPISODES['GLS-A001-001'], VENDORS['弁当'], USERS.staff1, 'rakuraku', '147511', 'tax8', 0, 50000, 'ケータリング30名分', '2026-03-31', null]);
+  await ins(purSql, [uuidv4(), 'GLS-A001-001-1', PROJECTS['GLS-A001'], EPISODES['GLS-A001-001'], VENDORS['技術'], USERS.staff1, 'rakuraku', '147510', 'tax10', 1, 800000, 'カメラクルー2名', '2026-03-31', null]);
+  await ins(purSql, [uuidv4(), 'GLS-A001-001-2', PROJECTS['GLS-A001'], EPISODES['GLS-A001-001'], VENDORS['弁当'], USERS.staff1, 'rakuraku', '147511', 'tax8', 0, 50000, 'ケータリング30名分', '2026-03-31', null]);
 
-  ins(purSql, [uuidv4(), 'GLS-A002-001-1', PROJECTS['GLS-A002'], EPISODES['GLS-A002-001'], VENDORS['技術'], USERS.staff2, 'xpoint', '230001', 'tax10', 1, 1200000, '撮影技術チーム', '2026-03-31', null]);
-  ins(purSql, [uuidv4(), 'GLS-A002-001-2', PROJECTS['GLS-A002'], EPISODES['GLS-A002-001'], VENDORS['照明'], USERS.staff2, 'xpoint', '230002', 'tax10', 1, 600000, '照明セット+オペレーター', '2026-03-31', null]);
-  ins(purSql, [uuidv4(), 'GLS-A002-002-2', PROJECTS['GLS-A002'], EPISODES['GLS-A002-002'], VENDORS['弁当'], USERS.staff3, 'rakuraku', '147512', 'tax8', 0, 80000, 'ケータリング50名分', '2026-03-31', null]);
+  await ins(purSql, [uuidv4(), 'GLS-A002-001-1', PROJECTS['GLS-A002'], EPISODES['GLS-A002-001'], VENDORS['技術'], USERS.staff2, 'xpoint', '230001', 'tax10', 1, 1200000, '撮影技術チーム', '2026-03-31', null]);
+  await ins(purSql, [uuidv4(), 'GLS-A002-001-2', PROJECTS['GLS-A002'], EPISODES['GLS-A002-001'], VENDORS['照明'], USERS.staff2, 'xpoint', '230002', 'tax10', 1, 600000, '照明セット+オペレーター', '2026-03-31', null]);
+  await ins(purSql, [uuidv4(), 'GLS-A002-002-2', PROJECTS['GLS-A002'], EPISODES['GLS-A002-002'], VENDORS['弁当'], USERS.staff3, 'rakuraku', '147512', 'tax8', 0, 80000, 'ケータリング50名分', '2026-03-31', null]);
 
-  ins(purSql, [uuidv4(), 'GLS-A003-001-1', PROJECTS['GLS-A003'], EPISODES['GLS-A003-001'], VENDORS['配信'], USERS.staff1, 'other', '330001', 'tax10', 1, 900000, 'ライブ配信システム', '2026-03-31', null]);
-  ins(purSql, [uuidv4(), 'GLS-A003-002-1', PROJECTS['GLS-A003'], EPISODES['GLS-A003-002'], VENDORS['音響'], USERS.staff2, 'other', '330002', 'tax10', 1, 450000, '音響機材+オペレーター', '2026-03-31', null]);
+  await ins(purSql, [uuidv4(), 'GLS-A003-001-1', PROJECTS['GLS-A003'], EPISODES['GLS-A003-001'], VENDORS['配信'], USERS.staff1, 'other', '330001', 'tax10', 1, 900000, 'ライブ配信システム', '2026-03-31', null]);
+  await ins(purSql, [uuidv4(), 'GLS-A003-002-1', PROJECTS['GLS-A003'], EPISODES['GLS-A003-002'], VENDORS['音響'], USERS.staff2, 'other', '330002', 'tax10', 1, 450000, '音響機材+オペレーター', '2026-03-31', null]);
 
-  ins(purSql, [uuidv4(), 'GLS-A004-001-1', PROJECTS['GLS-A004'], EPISODES['GLS-A004-001'], VENDORS['技術'], USERS.staff3, 'rakuraku', '147513', 'tax10', 1, 700000, '技術スタッフ（見積）', '2026-04-30', null]);
+  await ins(purSql, [uuidv4(), 'GLS-A004-001-1', PROJECTS['GLS-A004'], EPISODES['GLS-A004-001'], VENDORS['技術'], USERS.staff3, 'rakuraku', '147513', 'tax10', 1, 700000, '技術スタッフ（見積）', '2026-04-30', null]);
 
-  ins(purSql, [uuidv4(), 'GLS-A005-001-1', PROJECTS['GLS-A005'], EPISODES['GLS-A005-001'], VENDORS['技術'], USERS.staff1, 'xpoint', '230003', 'tax10', 1, 2500000, '撮影チーム3日間', '2026-04-30', null]);
-  ins(purSql, [uuidv4(), 'GLS-A005-002-1', PROJECTS['GLS-A005'], EPISODES['GLS-A005-002'], VENDORS['機材'], USERS.staff2, 'xpoint', '230004', 'tax10', 1, 1800000, '特殊機材レンタル', '2026-04-30', null]);
-  ins(purSql, [uuidv4(), 'GLS-A005-003-1', PROJECTS['GLS-A005'], EPISODES['GLS-A005-003'], VENDORS['美術'], USERS.staff3, 'other', '530001', 'tax10', 1, 600000, 'セットデザイン', '2026-04-30', null]);
-  ins(purSql, [uuidv4(), 'GLS-A005-004-2', PROJECTS['GLS-A005'], EPISODES['GLS-A005-004'], VENDORS['弁当'], USERS.staff1, 'rakuraku', '147514', 'tax8', 0, 120000, 'ケータリング3日間', '2026-04-30', null]);
+  await ins(purSql, [uuidv4(), 'GLS-A005-001-1', PROJECTS['GLS-A005'], EPISODES['GLS-A005-001'], VENDORS['技術'], USERS.staff1, 'xpoint', '230003', 'tax10', 1, 2500000, '撮影チーム3日間', '2026-04-30', null]);
+  await ins(purSql, [uuidv4(), 'GLS-A005-002-1', PROJECTS['GLS-A005'], EPISODES['GLS-A005-002'], VENDORS['機材'], USERS.staff2, 'xpoint', '230004', 'tax10', 1, 1800000, '特殊機材レンタル', '2026-04-30', null]);
+  await ins(purSql, [uuidv4(), 'GLS-A005-003-1', PROJECTS['GLS-A005'], EPISODES['GLS-A005-003'], VENDORS['美術'], USERS.staff3, 'other', '530001', 'tax10', 1, 600000, 'セットデザイン', '2026-04-30', null]);
+  await ins(purSql, [uuidv4(), 'GLS-A005-004-2', PROJECTS['GLS-A005'], EPISODES['GLS-A005-004'], VENDORS['弁当'], USERS.staff1, 'rakuraku', '147514', 'tax8', 0, 120000, 'ケータリング3日間', '2026-04-30', null]);
 
-  ins(purSql, [uuidv4(), 'GLS-A006-001-1', PROJECTS['GLS-A006'], EPISODES['GLS-A006-001'], VENDORS['配信'], USERS.staff2, 'rakuraku', '147515', 'tax10', 1, 400000, '中継システム', '2026-04-30', null]);
-  ins(purSql, [uuidv4(), 'GLS-A007-001-1', PROJECTS['GLS-A007'], EPISODES['GLS-A007-001'], VENDORS['技術'], USERS.staff3, 'xpoint', '230005', 'tax10', 1, 900000, '撮影チーム', '2026-04-30', null]);
-  ins(purSql, [uuidv4(), 'GLS-A008-001-1', PROJECTS['GLS-A008'], EPISODES['GLS-A008-001'], VENDORS['技術'], USERS.staff1, 'rakuraku', '147516', 'tax10', 1, 1000000, 'CM撮影技術チーム', '2026-03-31', null]);
+  await ins(purSql, [uuidv4(), 'GLS-A006-001-1', PROJECTS['GLS-A006'], EPISODES['GLS-A006-001'], VENDORS['配信'], USERS.staff2, 'rakuraku', '147515', 'tax10', 1, 400000, '中継システム', '2026-04-30', null]);
+  await ins(purSql, [uuidv4(), 'GLS-A007-001-1', PROJECTS['GLS-A007'], EPISODES['GLS-A007-001'], VENDORS['技術'], USERS.staff3, 'xpoint', '230005', 'tax10', 1, 900000, '撮影チーム', '2026-04-30', null]);
+  await ins(purSql, [uuidv4(), 'GLS-A008-001-1', PROJECTS['GLS-A008'], EPISODES['GLS-A008-001'], VENDORS['技術'], USERS.staff1, 'rakuraku', '147516', 'tax10', 1, 1000000, 'CM撮影技術チーム', '2026-03-31', null]);
 
   // ============================================================
   // Project Groups (按分グループ)
@@ -484,47 +484,47 @@ export async function seed() {
 
   // グループ1: GH IR関連（GLS-A001 + GLS-B001）
   const GROUP1 = uuidv4();
-  ins(pgSql, [GROUP1, 'GH IR関連 2026', 'GH社のIR説明会とコンサルティング契約を横断する共通費用', USERS.admin]);
-  ins(pgmSql, [GROUP1, PROJECTS['GLS-A001']]);
-  ins(pgmSql, [GROUP1, PROJECTS['GLS-B001']]);
+  await ins(pgSql, [GROUP1, 'GH IR関連 2026', 'GH社のIR説明会とコンサルティング契約を横断する共通費用', USERS.admin]);
+  await ins(pgmSql, [GROUP1, PROJECTS['GLS-A001']]);
+  await ins(pgmSql, [GROUP1, PROJECTS['GLS-B001']]);
 
   // グループ仕入: 通訳スタッフ（GLS-A001:60%, GLS-B001:40%）
   const gpPur1 = uuidv4();
-  ins(purSql, [gpPur1, null, PROJECTS['GLS-A001'], null, VENDORS['技術'], USERS.staff1, 'other', '440001', 'tax10', 1, 500000, '通訳スタッフ（IR関連共通）', '2026-03-31', null]);
-  execute(`UPDATE purchases SET group_id = ? WHERE id = ?`, [GROUP1, gpPur1]);
-  ins(paSql, [uuidv4(), gpPur1, PROJECTS['GLS-A001'], 300000]);
-  ins(paSql, [uuidv4(), gpPur1, PROJECTS['GLS-B001'], 200000]);
+  await ins(purSql, [gpPur1, null, PROJECTS['GLS-A001'], null, VENDORS['技術'], USERS.staff1, 'other', '440001', 'tax10', 1, 500000, '通訳スタッフ（IR関連共通）', '2026-03-31', null]);
+  await execute(`UPDATE purchases SET group_id = ? WHERE id = ?`, [GROUP1, gpPur1]);
+  await ins(paSql, [uuidv4(), gpPur1, PROJECTS['GLS-A001'], 300000]);
+  await ins(paSql, [uuidv4(), gpPur1, PROJECTS['GLS-B001'], 200000]);
 
   // グループ売上: IR関連共通プロデュース費（GLS-A001:70%, GLS-B001:30%）
   const gpRev1 = uuidv4();
-  ins(revSql, [gpRev1, 'GLS-A001-002-1', PROJECTS['GLS-A001'], null, CUSTOMERS['GH'], USERS.staff1, 'tax10', 1000000, '2026-03-31', null, 'IR関連共通プロデュース費', 'confirmed']);
-  execute(`UPDATE revenues SET group_id = ? WHERE id = ?`, [GROUP1, gpRev1]);
-  ins(riSql, [uuidv4(), gpRev1, 'IR関連プロデュース費', 1, 700000, 700000, 1]);
-  ins(riSql, [uuidv4(), gpRev1, '配信環境コーディネート費', 1, 300000, 300000, 2]);
-  ins(raSql, [uuidv4(), gpRev1, PROJECTS['GLS-A001'], 700000]);
-  ins(raSql, [uuidv4(), gpRev1, PROJECTS['GLS-B001'], 300000]);
+  await ins(revSql, [gpRev1, 'GLS-A001-002-1', PROJECTS['GLS-A001'], null, CUSTOMERS['GH'], USERS.staff1, 'tax10', 1000000, '2026-03-31', null, 'IR関連共通プロデュース費', 'confirmed']);
+  await execute(`UPDATE revenues SET group_id = ? WHERE id = ?`, [GROUP1, gpRev1]);
+  await ins(riSql, [uuidv4(), gpRev1, 'IR関連プロデュース費', 1, 700000, 700000, 1]);
+  await ins(riSql, [uuidv4(), gpRev1, '配信環境コーディネート費', 1, 300000, 300000, 2]);
+  await ins(raSql, [uuidv4(), gpRev1, PROJECTS['GLS-A001'], 700000]);
+  await ins(raSql, [uuidv4(), gpRev1, PROJECTS['GLS-B001'], 300000]);
 
   // グループ2: PW 案件横断（GLS-A004 + GLS-B002）
   const GROUP2 = uuidv4();
-  ins(pgSql, [GROUP2, 'PW 2026年度案件', 'PW社の発表会とコンサルティング横断費用', USERS.admin]);
-  ins(pgmSql, [GROUP2, PROJECTS['GLS-A004']]);
-  ins(pgmSql, [GROUP2, PROJECTS['GLS-B002']]);
+  await ins(pgSql, [GROUP2, 'PW 2026年度案件', 'PW社の発表会とコンサルティング横断費用', USERS.admin]);
+  await ins(pgmSql, [GROUP2, PROJECTS['GLS-A004']]);
+  await ins(pgmSql, [GROUP2, PROJECTS['GLS-B002']]);
 
   // グループ仕入: 資料制作費（均等按分）
   const gpPur2 = uuidv4();
-  ins(purSql, [gpPur2, null, PROJECTS['GLS-A004'], null, VENDORS['美術'], USERS.staff2, 'rakuraku', '147530', 'tax10', 1, 400000, '企業紹介資料デザイン制作', '2026-04-15', null]);
-  execute(`UPDATE purchases SET group_id = ? WHERE id = ?`, [GROUP2, gpPur2]);
-  ins(paSql, [uuidv4(), gpPur2, PROJECTS['GLS-A004'], 200000]);
-  ins(paSql, [uuidv4(), gpPur2, PROJECTS['GLS-B002'], 200000]);
+  await ins(purSql, [gpPur2, null, PROJECTS['GLS-A004'], null, VENDORS['美術'], USERS.staff2, 'rakuraku', '147530', 'tax10', 1, 400000, '企業紹介資料デザイン制作', '2026-04-15', null]);
+  await execute(`UPDATE purchases SET group_id = ? WHERE id = ?`, [GROUP2, gpPur2]);
+  await ins(paSql, [uuidv4(), gpPur2, PROJECTS['GLS-A004'], 200000]);
+  await ins(paSql, [uuidv4(), gpPur2, PROJECTS['GLS-B002'], 200000]);
 
   // グループ売上: PW横断企画費（均等按分）
   const gpRev2 = uuidv4();
-  ins(revSql, [gpRev2, 'GLS-A004-002-1', PROJECTS['GLS-A004'], null, CUSTOMERS['PW'], USERS.staff2, 'tax10', 600000, '2026-04-30', null, 'PW 2026年度横断企画費', 'estimate']);
-  execute(`UPDATE revenues SET group_id = ? WHERE id = ?`, [GROUP2, gpRev2]);
-  ins(riSql, [uuidv4(), gpRev2, '年間企画コーディネート費', 1, 400000, 400000, 1]);
-  ins(riSql, [uuidv4(), gpRev2, '共通資料制作ディレクション', 1, 200000, 200000, 2]);
-  ins(raSql, [uuidv4(), gpRev2, PROJECTS['GLS-A004'], 300000]);
-  ins(raSql, [uuidv4(), gpRev2, PROJECTS['GLS-B002'], 300000]);
+  await ins(revSql, [gpRev2, 'GLS-A004-002-1', PROJECTS['GLS-A004'], null, CUSTOMERS['PW'], USERS.staff2, 'tax10', 600000, '2026-04-30', null, 'PW 2026年度横断企画費', 'estimate']);
+  await execute(`UPDATE revenues SET group_id = ? WHERE id = ?`, [GROUP2, gpRev2]);
+  await ins(riSql, [uuidv4(), gpRev2, '年間企画コーディネート費', 1, 400000, 400000, 1]);
+  await ins(riSql, [uuidv4(), gpRev2, '共通資料制作ディレクション', 1, 200000, 200000, 2]);
+  await ins(raSql, [uuidv4(), gpRev2, PROJECTS['GLS-A004'], 300000]);
+  await ins(raSql, [uuidv4(), gpRev2, PROJECTS['GLS-B002'], 300000]);
 
   // ============================================================
   // Invoice Groups (GLS-A002)
@@ -533,36 +533,36 @@ export async function seed() {
   const igEpSql = `INSERT INTO invoice_group_episodes (invoice_group_id, episode_id) VALUES (?, ?)`;
 
   const ig1 = uuidv4();
-  ins(igSql, [ig1, PROJECTS['GLS-A002'], '第1Q請求 (#1-#4)', '2026-03-31', 'paid', USERS.admin]);
-  for (let i = 1; i <= 4; i++) ins(igEpSql, [ig1, EPISODES[`GLS-A002-${String(i).padStart(3, '0')}`]]);
+  await ins(igSql, [ig1, PROJECTS['GLS-A002'], '第1Q請求 (#1-#4)', '2026-03-31', 'paid', USERS.admin]);
+  for (let i = 1; i <= 4; i++) await ins(igEpSql, [ig1, EPISODES[`GLS-A002-${String(i).padStart(3, '0')}`]]);
 
   const ig2 = uuidv4();
-  ins(igSql, [ig2, PROJECTS['GLS-A002'], '第2Q請求 (#5-#8)', '2026-06-30', 'sent', USERS.admin]);
-  for (let i = 5; i <= 8; i++) ins(igEpSql, [ig2, EPISODES[`GLS-A002-${String(i).padStart(3, '0')}`]]);
+  await ins(igSql, [ig2, PROJECTS['GLS-A002'], '第2Q請求 (#5-#8)', '2026-06-30', 'sent', USERS.admin]);
+  for (let i = 5; i <= 8; i++) await ins(igEpSql, [ig2, EPISODES[`GLS-A002-${String(i).padStart(3, '0')}`]]);
 
   const ig3 = uuidv4();
-  ins(igSql, [ig3, PROJECTS['GLS-A002'], '第3Q請求 (#9-#12)', '2026-09-30', 'draft', USERS.admin]);
-  for (let i = 9; i <= 12; i++) ins(igEpSql, [ig3, EPISODES[`GLS-A002-${String(i).padStart(3, '0')}`]]);
+  await ins(igSql, [ig3, PROJECTS['GLS-A002'], '第3Q請求 (#9-#12)', '2026-09-30', 'draft', USERS.admin]);
+  for (let i = 9; i <= 12; i++) await ins(igEpSql, [ig3, EPISODES[`GLS-A002-${String(i).padStart(3, '0')}`]]);
 
   // ============================================================
   // SGA Expenses
   // ============================================================
   const sgaSql = `INSERT INTO sga_expenses (id, billing_key, assigned_to, settlement_method, settlement_number, vendor_name, description, recognition_date, payment_due_date, tax_category, invoice_qualified, amount, expense_type, amortize_start, amortize_end, source, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-  ins(sgaSql, [uuidv4(), '20260101-1', USERS.staff1, 'other', '900001', '株式会社スタジオプロパティ', 'オフィス賃料（月額）', '2026-01-01', '2026-01-31', 'tax10', 1, 800000, 'fixed', '2026-01', '2026-12', 'staff', USERS.admin]);
-  ins(sgaSql, [uuidv4(), '20260401-1', USERS.staff2, 'other', '900002', '東京海上日動火災保険', '事業用火災保険', '2026-04-01', '2026-04-30', 'tax10', 1, 300000, 'spot', '2026-04', '2027-03', 'staff', USERS.admin]);
-  ins(sgaSql, [uuidv4(), '20260315-1', USERS.staff3, 'rakuraku', '147520', 'ホテルニューオータニ', '顧客打ち合わせ会食費', '2026-03-15', '2026-04-15', 'tax10', 1, 45000, 'spot', null, null, 'staff', USERS.admin]);
-  ins(sgaSql, [uuidv4(), '20260301-1', USERS.staff1, 'other', '900003', '株式会社マネーフォワード', '会計ソフト年間利用料', '2026-03-01', '2026-03-31', 'tax10', 1, 120000, 'spot', null, null, 'accounting', USERS.admin]);
+  await ins(sgaSql, [uuidv4(), '20260101-1', USERS.staff1, 'other', '900001', '株式会社スタジオプロパティ', 'オフィス賃料（月額）', '2026-01-01', '2026-01-31', 'tax10', 1, 800000, 'fixed', '2026-01', '2026-12', 'staff', USERS.admin]);
+  await ins(sgaSql, [uuidv4(), '20260401-1', USERS.staff2, 'other', '900002', '東京海上日動火災保険', '事業用火災保険', '2026-04-01', '2026-04-30', 'tax10', 1, 300000, 'spot', '2026-04', '2027-03', 'staff', USERS.admin]);
+  await ins(sgaSql, [uuidv4(), '20260315-1', USERS.staff3, 'rakuraku', '147520', 'ホテルニューオータニ', '顧客打ち合わせ会食費', '2026-03-15', '2026-04-15', 'tax10', 1, 45000, 'spot', null, null, 'staff', USERS.admin]);
+  await ins(sgaSql, [uuidv4(), '20260301-1', USERS.staff1, 'other', '900003', '株式会社マネーフォワード', '会計ソフト年間利用料', '2026-03-01', '2026-03-31', 'tax10', 1, 120000, 'spot', null, null, 'accounting', USERS.admin]);
 
   // ============================================================
   // Partners
   // ============================================================
   const partnerSql = `INSERT INTO partners (id, name, email, phone, role_title, specialties, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-  ins(partnerSql, [uuidv4(), '渡辺 剛', 'watanabe@freelance.example.com', '090-1234-5678', 'フリーランスTD', '["TD","スイッチャー"]', '10年以上の経験あり。大型案件向き', USERS.admin]);
-  ins(partnerSql, [uuidv4(), '小林 由美', 'kobayashi@freelance.example.com', '090-2345-6789', 'フリーランス照明', '["照明","LD"]', '柔軟なスケジュール対応可', USERS.admin]);
-  ins(partnerSql, [uuidv4(), '中村 拓也', 'nakamura@freelance.example.com', '090-3456-7890', 'フリーランスカメラ', '["カメラ","VE"]', '映画系出身。ドキュメンタリーに強い', USERS.admin]);
-  ins(partnerSql, [uuidv4(), '伊藤 真理', 'ito@freelance.example.com', '090-4567-8901', 'フリーランス音声', '["音声","MA"]', 'PA兼務可。音楽番組の経験豊富', USERS.admin]);
-  ins(partnerSql, [uuidv4(), '木村 健太', 'kimura@freelance.example.com', '090-5678-9012', 'フリーランスCG', '["CG","XR","AR"]', 'XR/AR演出の専門家', USERS.admin]);
+  await ins(partnerSql, [uuidv4(), '渡辺 剛', 'watanabe@freelance.example.com', '090-1234-5678', 'フリーランスTD', '["TD","スイッチャー"]', '10年以上の経験あり。大型案件向き', USERS.admin]);
+  await ins(partnerSql, [uuidv4(), '小林 由美', 'kobayashi@freelance.example.com', '090-2345-6789', 'フリーランス照明', '["照明","LD"]', '柔軟なスケジュール対応可', USERS.admin]);
+  await ins(partnerSql, [uuidv4(), '中村 拓也', 'nakamura@freelance.example.com', '090-3456-7890', 'フリーランスカメラ', '["カメラ","VE"]', '映画系出身。ドキュメンタリーに強い', USERS.admin]);
+  await ins(partnerSql, [uuidv4(), '伊藤 真理', 'ito@freelance.example.com', '090-4567-8901', 'フリーランス音声', '["音声","MA"]', 'PA兼務可。音楽番組の経験豊富', USERS.admin]);
+  await ins(partnerSql, [uuidv4(), '木村 健太', 'kimura@freelance.example.com', '090-5678-9012', 'フリーランスCG', '["CG","XR","AR"]', 'XR/AR演出の専門家', USERS.admin]);
 
   // ============================================================
   // Activity Logs
@@ -570,27 +570,27 @@ export async function seed() {
   const actSql = `INSERT INTO activity_logs (id, project_id, customer_id, user_id, activity_type, subject, description, activity_date, next_action, next_action_date, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
   // GH関連の営業活動
-  ins(actSql, [uuidv4(), null, CUSTOMERS['GH'], USERS.staff1, 'call', 'GH 春季IR説明会の打診', '先方IR担当の田村氏と電話。昨年同様の春季IR説明会を検討中とのこと。', '2026-02-01', '企画書送付', '2026-02-05', USERS.staff1]);
-  ins(actSql, [uuidv4(), null, CUSTOMERS['GH'], USERS.staff1, 'email', '企画書送付', 'IR説明会の企画書（ハイブリッド配信プラン）をメール送付。', '2026-02-05', '打ち合わせ設定', '2026-02-12', USERS.staff1]);
-  ins(actSql, [uuidv4(), null, CUSTOMERS['GH'], USERS.staff1, 'meeting', 'GH IR担当と打ち合わせ', '田村氏・佐々木部長と弊社にて打ち合わせ。YouTube Live配信を希望。予算4M前後。3月実施で調整中。', '2026-02-12', '見積書作成', '2026-02-15', USERS.staff1]);
-  ins(actSql, [uuidv4(), null, CUSTOMERS['GH'], USERS.staff1, 'proposal', '見積書提出', '見積書（¥4,000,000 税別）を提出。先方2週間以内に回答予定。', '2026-02-15', '回答フォロー', '2026-03-01', USERS.staff1]);
+  await ins(actSql, [uuidv4(), null, CUSTOMERS['GH'], USERS.staff1, 'call', 'GH 春季IR説明会の打診', '先方IR担当の田村氏と電話。昨年同様の春季IR説明会を検討中とのこと。', '2026-02-01', '企画書送付', '2026-02-05', USERS.staff1]);
+  await ins(actSql, [uuidv4(), null, CUSTOMERS['GH'], USERS.staff1, 'email', '企画書送付', 'IR説明会の企画書（ハイブリッド配信プラン）をメール送付。', '2026-02-05', '打ち合わせ設定', '2026-02-12', USERS.staff1]);
+  await ins(actSql, [uuidv4(), null, CUSTOMERS['GH'], USERS.staff1, 'meeting', 'GH IR担当と打ち合わせ', '田村氏・佐々木部長と弊社にて打ち合わせ。YouTube Live配信を希望。予算4M前後。3月実施で調整中。', '2026-02-12', '見積書作成', '2026-02-15', USERS.staff1]);
+  await ins(actSql, [uuidv4(), null, CUSTOMERS['GH'], USERS.staff1, 'proposal', '見積書提出', '見積書（¥4,000,000 税別）を提出。先方2週間以内に回答予定。', '2026-02-15', '回答フォロー', '2026-03-01', USERS.staff1]);
 
   // 東都TV関連
-  ins(actSql, [uuidv4(), null, CUSTOMERS['東都TV'], USERS.staff2, 'meeting', '東都TV 新番組企画の相談', '東都TVの制作部長より新番組「サイエンス・フロンティア」のスタジオ利用について相談。13話構成の科学番組。', '2026-01-20', '技術要件ヒアリング', '2026-01-25', USERS.staff2]);
-  ins(actSql, [uuidv4(), null, CUSTOMERS['東都TV'], USERS.staff2, 'visit', '東都TV 技術要件ヒアリング', '先方オフィスで技術担当と打ち合わせ。LED壁を使ったバーチャルセットを希望。', '2026-01-25', '技術見積作成', '2026-02-01', USERS.staff2]);
-  ins(actSql, [uuidv4(), null, CUSTOMERS['東都TV'], USERS.staff2, 'proposal', '技術見積提出', '13話分のスタジオ利用＋技術スタッフ見積を提出。¥7,500,000。', '2026-02-01', '社内稟議結果待ち', '2026-02-20', USERS.staff2]);
+  await ins(actSql, [uuidv4(), null, CUSTOMERS['東都TV'], USERS.staff2, 'meeting', '東都TV 新番組企画の相談', '東都TVの制作部長より新番組「サイエンス・フロンティア」のスタジオ利用について相談。13話構成の科学番組。', '2026-01-20', '技術要件ヒアリング', '2026-01-25', USERS.staff2]);
+  await ins(actSql, [uuidv4(), null, CUSTOMERS['東都TV'], USERS.staff2, 'visit', '東都TV 技術要件ヒアリング', '先方オフィスで技術担当と打ち合わせ。LED壁を使ったバーチャルセットを希望。', '2026-01-25', '技術見積作成', '2026-02-01', USERS.staff2]);
+  await ins(actSql, [uuidv4(), null, CUSTOMERS['東都TV'], USERS.staff2, 'proposal', '技術見積提出', '13話分のスタジオ利用＋技術スタッフ見積を提出。¥7,500,000。', '2026-02-01', '社内稟議結果待ち', '2026-02-20', USERS.staff2]);
 
   // SN関連
-  ins(actSql, [uuidv4(), null, CUSTOMERS['SN'], USERS.staff3, 'call', 'SN 生放送番組の問い合わせ', 'SNの番組プロデューサーから電話。週1回の生放送トーク番組のスタジオを探しているとのこと。', '2026-02-10', 'スタジオ見学の設定', '2026-02-15', USERS.staff3]);
-  ins(actSql, [uuidv4(), null, CUSTOMERS['SN'], USERS.staff3, 'meeting', 'SN スタジオ見学＋打ち合わせ', 'スタジオ見学後、配信要件と予算について打ち合わせ。4話トライアル→レギュラー化の方向。', '2026-02-18', '見積提出', '2026-02-25', USERS.staff3]);
+  await ins(actSql, [uuidv4(), null, CUSTOMERS['SN'], USERS.staff3, 'call', 'SN 生放送番組の問い合わせ', 'SNの番組プロデューサーから電話。週1回の生放送トーク番組のスタジオを探しているとのこと。', '2026-02-10', 'スタジオ見学の設定', '2026-02-15', USERS.staff3]);
+  await ins(actSql, [uuidv4(), null, CUSTOMERS['SN'], USERS.staff3, 'meeting', 'SN スタジオ見学＋打ち合わせ', 'スタジオ見学後、配信要件と予算について打ち合わせ。4話トライアル→レギュラー化の方向。', '2026-02-18', '見積提出', '2026-02-25', USERS.staff3]);
 
   // PW関連
-  ins(actSql, [uuidv4(), null, CUSTOMERS['PW'], USERS.staff1, 'email', 'PW 新サービス発表会の打診', 'PW広報担当からメール。4月の新サービスローンチイベントについて相談。', '2026-02-20', '電話で詳細ヒアリング', '2026-02-22', USERS.staff1]);
-  ins(actSql, [uuidv4(), null, CUSTOMERS['PW'], USERS.staff1, 'call', 'PW 発表会の詳細ヒアリング', 'Zoom配信メインのハイブリッド型。来場者50名＋オンライン500名規模。3/30実施予定。', '2026-02-22', '企画書・見積作成', '2026-02-28', USERS.staff1]);
+  await ins(actSql, [uuidv4(), null, CUSTOMERS['PW'], USERS.staff1, 'email', 'PW 新サービス発表会の打診', 'PW広報担当からメール。4月の新サービスローンチイベントについて相談。', '2026-02-20', '電話で詳細ヒアリング', '2026-02-22', USERS.staff1]);
+  await ins(actSql, [uuidv4(), null, CUSTOMERS['PW'], USERS.staff1, 'call', 'PW 発表会の詳細ヒアリング', 'Zoom配信メインのハイブリッド型。来場者50名＋オンライン500名規模。3/30実施予定。', '2026-02-22', '企画書・見積作成', '2026-02-28', USERS.staff1]);
 
   // フォローアップ
-  ins(actSql, [uuidv4(), null, CUSTOMERS['GE'], USERS.staff2, 'followup', 'GE ドキュメンタリー進捗確認', '先方の企画会議が来週。結果を踏まえてスケジュール確定予定。', '2026-03-10', '企画会議結果の確認', '2026-03-17', USERS.staff2]);
-  ins(actSql, [uuidv4(), null, CUSTOMERS['DA'], USERS.staff3, 'followup', 'DA 定期利用契約フォロー', '定期利用プランの見積書フォロー。先方検討中だが前向き。', '2026-03-05', '契約条件の最終確認', '2026-03-12', USERS.staff3]);
+  await ins(actSql, [uuidv4(), null, CUSTOMERS['GE'], USERS.staff2, 'followup', 'GE ドキュメンタリー進捗確認', '先方の企画会議が来週。結果を踏まえてスケジュール確定予定。', '2026-03-10', '企画会議結果の確認', '2026-03-17', USERS.staff2]);
+  await ins(actSql, [uuidv4(), null, CUSTOMERS['DA'], USERS.staff3, 'followup', 'DA 定期利用契約フォロー', '定期利用プランの見積書フォロー。先方検討中だが前向き。', '2026-03-05', '契約条件の最終確認', '2026-03-12', USERS.staff3]);
 
   // ============================================================
   // Sales Targets (2026年度)
@@ -603,7 +603,7 @@ export async function seed() {
   };
   for (const [userId, targets] of Object.entries(monthlyTargets)) {
     for (let m = 0; m < 12; m++) {
-      ins(stSql, [uuidv4(), userId, 2026, m + 1, targets[m]]);
+      await ins(stSql, [uuidv4(), userId, 2026, m + 1, targets[m]]);
     }
   }
 
@@ -614,9 +614,9 @@ export async function seed() {
   const LOC_YOGA = uuidv4();
   const LOC_SHIBUYA = uuidv4();
   const LOC_EXTERNAL = uuidv4();
-  ins(locSql, [LOC_YOGA, '用賀スタジオ', 1]);
-  ins(locSql, [LOC_SHIBUYA, '渋谷スタジオ', 2]);
-  ins(locSql, [LOC_EXTERNAL, '外現場', 3]);
+  await ins(locSql, [LOC_YOGA, '用賀スタジオ', 1]);
+  await ins(locSql, [LOC_SHIBUYA, '渋谷スタジオ', 2]);
+  await ins(locSql, [LOC_EXTERNAL, '外現場', 3]);
 
   const roomSql = `INSERT INTO studio_rooms (id, location_id, name, room_type, color, sort_order) VALUES (?, ?, ?, ?, ?, ?)`;
   // 用賀スタジオ
@@ -636,7 +636,7 @@ export async function seed() {
   for (const [name, roomType, color, order] of yogaRooms) {
     const id = uuidv4();
     ROOMS[name] = id;
-    ins(roomSql, [id, LOC_YOGA, name, roomType, color, order]);
+    await ins(roomSql, [id, LOC_YOGA, name, roomType, color, order]);
   }
 
   // 渋谷スタジオ
@@ -648,7 +648,7 @@ export async function seed() {
   for (const [name, roomType, color, order] of shibuyaRooms) {
     const id = uuidv4();
     ROOMS[name] = id;
-    ins(roomSql, [id, LOC_SHIBUYA, name, roomType, color, order]);
+    await ins(roomSql, [id, LOC_SHIBUYA, name, roomType, color, order]);
   }
 
   // ============================================================
@@ -659,52 +659,52 @@ export async function seed() {
 
   // GLS-A001 IR説明会 → WORLD STUDIO + MEETING ROOM + VIP LOUNGE
   const bk1 = uuidv4();
-  ins(bkSql, [bk1, 'GLS-A001 GH春季IR説明会 リハーサル', 'project', PROJECTS['GLS-A001'], EPISODES['GLS-A001-001'], 1, '2026-03-27', '2026-03-27', null, 'リハーサル。前日仕込み含む', USERS.staff1]);
-  ins(bkRoomSql, [bk1, ROOMS['WORLD STUDIO'], null, null]);
-  ins(bkRoomSql, [bk1, ROOMS['MEETING ROOM'], 'スタッフ控室', '技術チーム待機']);
+  await ins(bkSql, [bk1, 'GLS-A001 GH春季IR説明会 リハーサル', 'project', PROJECTS['GLS-A001'], EPISODES['GLS-A001-001'], 1, '2026-03-27', '2026-03-27', null, 'リハーサル。前日仕込み含む', USERS.staff1]);
+  await ins(bkRoomSql, [bk1, ROOMS['WORLD STUDIO'], null, null]);
+  await ins(bkRoomSql, [bk1, ROOMS['MEETING ROOM'], 'スタッフ控室', '技術チーム待機']);
 
   const bk2 = uuidv4();
-  ins(bkSql, [bk2, 'GLS-A001 GH春季IR説明会 本番', 'project', PROJECTS['GLS-A001'], EPISODES['GLS-A001-001'], 1, '2026-03-28', '2026-03-28', null, '本番日', USERS.staff1]);
-  ins(bkRoomSql, [bk2, ROOMS['WORLD STUDIO'], null, null]);
-  ins(bkRoomSql, [bk2, ROOMS['MEETING ROOM'], 'GH社 田村様ほか5名', '来賓控室']);
-  ins(bkRoomSql, [bk2, ROOMS['VIP LOUNGE'], 'GH社 代表取締役', 'VIP控室']);
+  await ins(bkSql, [bk2, 'GLS-A001 GH春季IR説明会 本番', 'project', PROJECTS['GLS-A001'], EPISODES['GLS-A001-001'], 1, '2026-03-28', '2026-03-28', null, '本番日', USERS.staff1]);
+  await ins(bkRoomSql, [bk2, ROOMS['WORLD STUDIO'], null, null]);
+  await ins(bkRoomSql, [bk2, ROOMS['MEETING ROOM'], 'GH社 田村様ほか5名', '来賓控室']);
+  await ins(bkRoomSql, [bk2, ROOMS['VIP LOUNGE'], 'GH社 代表取締役', 'VIP控室']);
 
   // GLS-A002 サイエンス・フロンティア 収録 (時間指定)
   const bk3 = uuidv4();
-  ins(bkSql, [bk3, 'GLS-A002 #001 サイエンスF 収録', 'project', PROJECTS['GLS-A002'], EPISODES['GLS-A002-001'], 0, '2026-04-07T09:00', '2026-04-07T18:00', null, '第1話収録', USERS.staff2]);
-  ins(bkRoomSql, [bk3, ROOMS['SKY STUDIO'], null, null]);
-  ins(bkRoomSql, [bk3, ROOMS['第1調整室'], null, null]);
+  await ins(bkSql, [bk3, 'GLS-A002 #001 サイエンスF 収録', 'project', PROJECTS['GLS-A002'], EPISODES['GLS-A002-001'], 0, '2026-04-07T09:00', '2026-04-07T18:00', null, '第1話収録', USERS.staff2]);
+  await ins(bkRoomSql, [bk3, ROOMS['SKY STUDIO'], null, null]);
+  await ins(bkRoomSql, [bk3, ROOMS['第1調整室'], null, null]);
 
   const bk4 = uuidv4();
-  ins(bkSql, [bk4, 'GLS-A002 #002 サイエンスF 収録', 'project', PROJECTS['GLS-A002'], EPISODES['GLS-A002-002'], 0, '2026-04-14T09:00', '2026-04-14T18:00', null, '第2話収録', USERS.staff2]);
-  ins(bkRoomSql, [bk4, ROOMS['SKY STUDIO'], null, null]);
-  ins(bkRoomSql, [bk4, ROOMS['第1調整室'], null, null]);
+  await ins(bkSql, [bk4, 'GLS-A002 #002 サイエンスF 収録', 'project', PROJECTS['GLS-A002'], EPISODES['GLS-A002-002'], 0, '2026-04-14T09:00', '2026-04-14T18:00', null, '第2話収録', USERS.staff2]);
+  await ins(bkRoomSql, [bk4, ROOMS['SKY STUDIO'], null, null]);
+  await ins(bkRoomSql, [bk4, ROOMS['第1調整室'], null, null]);
 
   // GLS-A003 ネットライブ配信 (LOUNGE STUDIO)
   const bk5 = uuidv4();
-  ins(bkSql, [bk5, 'GLS-A003 #001 ネットライブ配信', 'project', PROJECTS['GLS-A003'], EPISODES['GLS-A003-001'], 0, '2026-04-05T19:00', '2026-04-05T22:00', null, '生配信', USERS.staff3]);
-  ins(bkRoomSql, [bk5, ROOMS['LOUNGE STUDIO'], null, null]);
-  ins(bkRoomSql, [bk5, ROOMS['第2調整室'], null, null]);
+  await ins(bkSql, [bk5, 'GLS-A003 #001 ネットライブ配信', 'project', PROJECTS['GLS-A003'], EPISODES['GLS-A003-001'], 0, '2026-04-05T19:00', '2026-04-05T22:00', null, '生配信', USERS.staff3]);
+  await ins(bkRoomSql, [bk5, ROOMS['LOUNGE STUDIO'], null, null]);
+  await ins(bkRoomSql, [bk5, ROOMS['第2調整室'], null, null]);
 
   // メンテナンス予約
   const bk6 = uuidv4();
-  ins(bkSql, [bk6, 'WORLD STUDIO 定期メンテナンス', 'maintenance', null, null, 1, '2026-04-01', '2026-04-01', null, '照明・音響設備の定期点検', USERS.admin]);
-  ins(bkRoomSql, [bk6, ROOMS['WORLD STUDIO'], null, null]);
+  await ins(bkSql, [bk6, 'WORLD STUDIO 定期メンテナンス', 'maintenance', null, null, 1, '2026-04-01', '2026-04-01', null, '照明・音響設備の定期点検', USERS.admin]);
+  await ins(bkRoomSql, [bk6, ROOMS['WORLD STUDIO'], null, null]);
 
   // 内覧予約
   const bk7 = uuidv4();
-  ins(bkSql, [bk7, 'クライアント内覧（○○テレビ様）', 'tour', null, null, 0, '2026-04-03T14:00', '2026-04-03T16:00', null, '新規顧客。WORLD/SKYを見学希望', USERS.staff1]);
-  ins(bkRoomSql, [bk7, ROOMS['WORLD STUDIO'], null, null]);
-  ins(bkRoomSql, [bk7, ROOMS['SKY STUDIO'], null, null]);
+  await ins(bkSql, [bk7, 'クライアント内覧（○○テレビ様）', 'tour', null, null, 0, '2026-04-03T14:00', '2026-04-03T16:00', null, '新規顧客。WORLD/SKYを見学希望', USERS.staff1]);
+  await ins(bkRoomSql, [bk7, ROOMS['WORLD STUDIO'], null, null]);
+  await ins(bkRoomSql, [bk7, ROOMS['SKY STUDIO'], null, null]);
 
   // 渋谷スタジオ予約
   const bk8 = uuidv4();
-  ins(bkSql, [bk8, 'GLS-A008 富士見 CM収録', 'project', PROJECTS['GLS-A008'], EPISODES['GLS-A008-001'], 0, '2026-03-25T10:00', '2026-03-25T20:00', null, 'CM撮影', USERS.staff3]);
-  ins(bkRoomSql, [bk8, ROOMS['第1スタジオ'], null, null]);
+  await ins(bkSql, [bk8, 'GLS-A008 富士見 CM収録', 'project', PROJECTS['GLS-A008'], EPISODES['GLS-A008-001'], 0, '2026-03-25T10:00', '2026-03-25T20:00', null, 'CM撮影', USERS.staff3]);
+  await ins(bkRoomSql, [bk8, ROOMS['第1スタジオ'], null, null]);
 
   // 外現場
   const bk9 = uuidv4();
-  ins(bkSql, [bk9, 'GLS-A005 GE ドキュメンタリー ロケ', 'project', PROJECTS['GLS-A005'], EPISODES['GLS-A005-001'], 1, '2026-04-10', '2026-04-12', '富士山麓ロケーション', '3日間ロケ撮影', USERS.staff2]);
+  await ins(bkSql, [bk9, 'GLS-A005 GE ドキュメンタリー ロケ', 'project', PROJECTS['GLS-A005'], EPISODES['GLS-A005-001'], 1, '2026-04-10', '2026-04-12', '富士山麓ロケーション', '3日間ロケ撮影', USERS.staff2]);
 
   // ==========================================================
   // Equipment (機材管理)
@@ -726,7 +726,7 @@ export async function seed() {
   ];
   for (const loc of eqLocs) {
     eqLocIds[loc.key] = uuidv4();
-    ins("INSERT INTO equipment_locations (id, name, building, floor, area, sort_order) VALUES (?,?,?,?,?,?)",
+    await ins("INSERT INTO equipment_locations (id, name, building, floor, area, sort_order) VALUES (?,?,?,?,?,?)",
       [eqLocIds[loc.key], loc.name, loc.building, loc.floor, loc.area, loc.order]);
   }
 
@@ -745,7 +745,7 @@ export async function seed() {
   ];
   for (const c of eqCats) {
     eqCatIds[c.key] = uuidv4();
-    ins("INSERT INTO equipment_categories (id, name, item_type, sort_order) VALUES (?,?,?,?)",
+    await ins("INSERT INTO equipment_categories (id, name, item_type, sort_order) VALUES (?,?,?,?)",
       [eqCatIds[c.key], c.name, c.type, c.order]);
   }
 
@@ -784,8 +784,7 @@ export async function seed() {
   ];
 
   // Update EQ code sequence
-  const db = getDb();
-  db.run("UPDATE sequences SET counter = 0 WHERE seq_name = 'eq_code'");
+  await execute("UPDATE sequences SET counter = 0 WHERE seq_name = 'eq_code'", []);
 
   const eqChars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
   let eqCounter = 0;
@@ -804,7 +803,7 @@ export async function seed() {
   for (const eq of eqItems) {
     eqItemIds[eq.key] = uuidv4();
     const eqCode = nextEqCode();
-    ins(`INSERT INTO equipment_items (
+    await ins(`INSERT INTO equipment_items (
       id, eq_code, name, category_id, item_type, unit_number,
       manufacturer, model_number, serial_number,
       acquisition_cost, useful_life, asset_class, depreciation_method,
@@ -820,25 +819,25 @@ export async function seed() {
   }
 
   // Update sequence counter
-  db.run(`UPDATE sequences SET counter = ${eqCounter} WHERE seq_name = 'eq_code'`);
+  await execute(`UPDATE sequences SET counter = ? WHERE seq_name = 'eq_code'`, [eqCounter]);
 
   // Sample lendings
   const lend1 = uuidv4();
-  ins(`INSERT INTO equipment_lendings (id, equipment_id, project_id, borrower_name, purpose, lent_at, due_date, status, condition_out, lent_by) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+  await ins(`INSERT INTO equipment_lendings (id, equipment_id, project_id, borrower_name, purpose, lent_at, due_date, status, condition_out, lent_by) VALUES (?,?,?,?,?,?,?,?,?,?)`,
     [lend1, eqItemIds['cam2'], PROJECTS['GLS-A005'], '鈴木一郎', 'ドキュメンタリーロケ撮影', '2026-03-20', '2026-04-15', 'lent', 'good', USERS.staff2]);
 
   const lend2 = uuidv4();
-  ins(`INSERT INTO equipment_lendings (id, equipment_id, project_id, borrower_name, purpose, lent_at, due_date, returned_at, status, condition_out, condition_in, lent_by, returned_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+  await ins(`INSERT INTO equipment_lendings (id, equipment_id, project_id, borrower_name, purpose, lent_at, due_date, returned_at, status, condition_out, condition_in, lent_by, returned_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [lend2, eqItemIds['sw2'], PROJECTS['GLS-A003'], '佐藤花子', 'イベント配信', '2026-03-10', '2026-03-15', '2026-03-15T18:00', 'returned', 'good', 'good', USERS.staff1, USERS.staff1]);
 
   // Sample maintenance record
   const maint1 = uuidv4();
-  ins(`INSERT INTO maintenance_records (id, equipment_id, record_type, title, description, reported_by, status, vendor_name, repair_cost) VALUES (?,?,?,?,?,?,?,?,?)`,
+  await ins(`INSERT INTO maintenance_records (id, equipment_id, record_type, title, description, reported_by, status, vendor_name, repair_cost) VALUES (?,?,?,?,?,?,?,?,?)`,
     [maint1, eqItemIds['light2'], 'maintenance', '定期点検 2026年3月', 'ファンの異音確認 → 清掃で改善', USERS.staff3, 'completed', null, null]);
 
   // Accessories
   const acc1 = uuidv4();
-  ins("INSERT INTO equipment_accessories (id, parent_id, child_id, note) VALUES (?,?,?,?)",
+  await ins("INSERT INTO equipment_accessories (id, parent_id, child_id, note) VALUES (?,?,?,?)",
     [acc1, eqItemIds['cam1'], eqItemIds['lens1'], '標準レンズキット']);
 
   saveDb();
