@@ -15,7 +15,7 @@ export class ProjectService {
   /**
    * 統合一覧: タブ（ヨミ/進行中/完了/失注）+ フィルタ
    */
-  list(filter: ProjectFilter, page: number, limit: number, offset: number) {
+  async list(filter: ProjectFilter, page: number, limit: number, offset: number) {
     let where = 'WHERE p.deleted_at IS NULL';
     const params: unknown[] = [];
 
@@ -32,7 +32,7 @@ export class ProjectService {
 
     // 個別フィルタ
     if (filter.search) {
-      where += ` AND (p.name LIKE ? OR p.code LIKE ? OR p.gls_number LIKE ?)`;
+      where += ` AND (p.name ILIKE ? OR p.code ILIKE ? OR p.gls_number ILIKE ?)`;
       params.push(`%${filter.search}%`, `%${filter.search}%`, `%${filter.search}%`);
     }
     if (filter.stage) {
@@ -48,8 +48,8 @@ export class ProjectService {
       params.push(`%,${filter.tag},%`);
     }
 
-    const total = (queryOne(`SELECT COUNT(*) as c FROM projects p ${where}`, params) as any).c;
-    const rows = queryAll(
+    const total = ((await queryOne(`SELECT COUNT(*) as c FROM projects p ${where}`, params)) as any).c;
+    const rows = await queryAll(
       `SELECT p.*, c.name as customer_name, c.short_name as customer_short_name, u.name as assigned_to_name
        FROM projects p
        LEFT JOIN customers c ON c.id = p.customer_id
@@ -60,8 +60,8 @@ export class ProjectService {
     return { rows, total, page, limit };
   }
 
-  getById(id: string) {
-    const row = queryOne(
+  async getById(id: string) {
+    const row = await queryOne(
       `SELECT p.*, c.name as customer_name, c.short_name as customer_short_name, u.name as assigned_to_name
        FROM projects p
        LEFT JOIN customers c ON c.id = p.customer_id
@@ -76,13 +76,13 @@ export class ProjectService {
   /**
    * 新規作成（ヨミ段階: 最低限の入力でOK）
    */
-  create(data: Record<string, unknown>, userId: string) {
+  async create(data: Record<string, unknown>, userId: string) {
     const { name, customer_id, expected_amount, assigned_to, project_type, notes } = data;
     if (!name || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名と顧客は必須です');
 
     const id = uuidv4();
-    const code = generateSequenceNumber('opp_code', 'OPP');
-    execute(
+    const code = await generateSequenceNumber('opp_code', 'OPP');
+    await execute(
       `INSERT INTO projects (id, code, name, customer_id, stage, project_type, expected_amount, assigned_to, notes, created_by)
        VALUES (?, ?, ?, ?, 'neta', ?, ?, ?, ?, ?)`,
       [id, code, name, customer_id, project_type || 'other', expected_amount || 0, assigned_to || userId, notes || null, userId]
@@ -93,19 +93,19 @@ export class ProjectService {
   /**
    * 更新（ヨミ段階でも案件段階でも同じAPI）
    */
-  update(id: string, data: Record<string, unknown>, userId: string) {
-    const existing = queryOne('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [id]);
+  async update(id: string, data: Record<string, unknown>, userId: string) {
+    const existing = await queryOne('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [id]);
     if (!existing) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
 
     const { name, customer_id, expected_amount, assigned_to, project_type, project_type_other,
             event_start, event_end, broadcast_type, media_platform, tags,
             application_form, logo_permission, notes } = data;
-    execute(
+    await execute(
       `UPDATE projects SET name=?, customer_id=?, expected_amount=?, assigned_to=?,
        project_type=?, project_type_other=?, event_start=?, event_end=?,
        broadcast_type=?, media_platform=?, tags=?,
        application_form=?, logo_permission=?, notes=?,
-       updated_at=datetime('now'), updated_by=? WHERE id=?`,
+       updated_at=NOW(), updated_by=? WHERE id=?`,
       [name, customer_id, expected_amount || 0, assigned_to,
        project_type || 'other', project_type_other || null,
        event_start || null, event_end || null,
@@ -119,20 +119,20 @@ export class ProjectService {
   /**
    * ステージ変更（ステージだけ変える。他の処理は含めない）
    */
-  changeStage(id: string, stage: string, data: Record<string, unknown>, userId: string) {
+  async changeStage(id: string, stage: string, data: Record<string, unknown>, userId: string) {
     if (!stage) throw new AppError(400, 'VALIDATION_ERROR', 'stageは必須です');
 
-    const project = queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [id]) as any;
+    const project = await queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [id]) as any;
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
 
     if (stage === 'e_lost') {
-      execute(
-        `UPDATE projects SET stage=?, lost_reason=?, lost_reason_note=?, updated_at=datetime('now'), updated_by=? WHERE id=?`,
+      await execute(
+        `UPDATE projects SET stage=?, lost_reason=?, lost_reason_note=?, updated_at=NOW(), updated_by=? WHERE id=?`,
         [stage, data.lost_reason || null, data.lost_reason_note || null, userId, id]
       );
     } else {
-      execute(
-        `UPDATE projects SET stage=?, updated_at=datetime('now'), updated_by=? WHERE id=?`,
+      await execute(
+        `UPDATE projects SET stage=?, updated_at=NOW(), updated_by=? WHERE id=?`,
         [stage, userId, id]
       );
     }
@@ -142,18 +142,18 @@ export class ProjectService {
   /**
    * GLS発番（口頭決定以降で呼ぶ。案件に GLS番号を付与する）
    */
-  issueGls(id: string, data: Record<string, unknown>, userId: string) {
-    const project = queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [id]) as any;
+  async issueGls(id: string, data: Record<string, unknown>, userId: string) {
+    const project = await queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [id]) as any;
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
     if (project.gls_number) throw new AppError(400, 'VALIDATION_ERROR', '既にGLS番号が発番済みです');
 
-    const glsNumber = generateGlsNumber();
+    const glsNumber = await generateGlsNumber();
     const { broadcast_type, media_platform } = data;
 
-    execute(
+    await execute(
       `UPDATE projects SET gls_number=?, broadcast_type=?, media_platform=?,
        stage=CASE WHEN stage IN ('neta','d_hold','c_proposal') THEN 'b_verbal' ELSE stage END,
-       updated_at=datetime('now'), updated_by=? WHERE id=?`,
+       updated_at=NOW(), updated_by=? WHERE id=?`,
       [glsNumber, broadcast_type || null, media_platform || null, userId, id]
     );
 
@@ -163,12 +163,12 @@ export class ProjectService {
   /**
    * 案件サマリー（売上/仕入/粗利）
    */
-  getSummary(id: string) {
-    const project = queryOne('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [id]);
+  async getSummary(id: string) {
+    const project = await queryOne('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [id]);
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
 
-    const rev = queryOne('SELECT COALESCE(SUM(amount), 0) as total FROM revenues WHERE project_id = ? AND deleted_at IS NULL', [id]);
-    const pur = queryOne('SELECT COALESCE(SUM(amount), 0) as total FROM purchases WHERE project_id = ? AND deleted_at IS NULL', [id]);
+    const rev = await queryOne('SELECT COALESCE(SUM(amount), 0) as total FROM revenues WHERE project_id = ? AND deleted_at IS NULL', [id]);
+    const pur = await queryOne('SELECT COALESCE(SUM(amount), 0) as total FROM purchases WHERE project_id = ? AND deleted_at IS NULL', [id]);
     const totalRevenue = (rev?.total as number) || 0;
     const totalPurchase = (pur?.total as number) || 0;
     const grossProfit = totalRevenue - totalPurchase;
@@ -179,8 +179,8 @@ export class ProjectService {
   /**
    * タグ一覧（全案件から使用中のタグを抽出）
    */
-  getTags() {
-    const rows = queryAll("SELECT tags FROM projects WHERE deleted_at IS NULL AND tags != '' AND tags IS NOT NULL");
+  async getTags() {
+    const rows = await queryAll("SELECT tags FROM projects WHERE deleted_at IS NULL AND tags != '' AND tags IS NOT NULL");
     const tagSet = new Set<string>();
     for (const row of rows) {
       const tags = (row.tags as string).split(',').map(t => t.trim()).filter(Boolean);
@@ -189,8 +189,8 @@ export class ProjectService {
     return Array.from(tagSet).sort();
   }
 
-  delete(id: string, userId: string) {
-    execute(`UPDATE projects SET deleted_at=datetime('now'), updated_by=? WHERE id=? AND deleted_at IS NULL`, [userId, id]);
+  async delete(id: string, userId: string) {
+    await execute(`UPDATE projects SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`, [userId, id]);
   }
 }
 

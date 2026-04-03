@@ -1,96 +1,78 @@
-import initSqlJs, { Database } from 'sql.js';
-import path from 'path';
-import fs from 'fs';
-import { config } from '../../config';
+import { Pool, PoolClient } from 'pg';
 
-let db: Database | null = null;
+let pool: Pool | null = null;
 
-export async function initDb(): Promise<Database> {
-  if (db) return db;
+const DEFAULT_DATABASE_URL = 'postgresql://postgres:postgres@localhost:5432/onair_db';
 
-  const SQL = await initSqlJs();
-  const dir = path.dirname(config.dbPath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-
-  if (fs.existsSync(config.dbPath)) {
-    const buffer = fs.readFileSync(config.dbPath);
-    db = new SQL.Database(buffer);
-  } else {
-    db = new SQL.Database();
-  }
-
-  db.run('PRAGMA foreign_keys = ON');
-  return db;
+/**
+ * Convert sql.js style `?` placeholders to PostgreSQL `$1, $2, $3...` format.
+ * This allows existing queries throughout the codebase to remain unchanged.
+ */
+function convertPlaceholders(sql: string): string {
+  let index = 0;
+  return sql.replace(/\?/g, () => {
+    index++;
+    return `$${index}`;
+  });
 }
 
-export function getDb(): Database {
-  if (!db) {
+export async function initDb(): Promise<Pool> {
+  if (pool) return pool;
+
+  const connectionString = process.env.DATABASE_URL || DEFAULT_DATABASE_URL;
+
+  pool = new Pool({ connectionString });
+
+  // Verify the connection works
+  const client = await pool.connect();
+  client.release();
+
+  return pool;
+}
+
+export function getDb(): Pool {
+  if (!pool) {
     throw new Error('Database not initialized. Call initDb() first.');
   }
-  return db;
+  return pool;
 }
 
 export function saveDb(): void {
-  if (db) {
-    const data = db.export();
-    const buffer = Buffer.from(data);
-    const dir = path.dirname(config.dbPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(config.dbPath, buffer);
+  // No-op: PostgreSQL persists data automatically
+}
+
+export async function closeDb(): Promise<void> {
+  if (pool) {
+    await pool.end();
+    pool = null;
   }
 }
 
-export function closeDb(): void {
-  if (db) {
-    saveDb();
-    db.close();
-    db = null;
-  }
-}
-
-// Helper: sql.js uses different API than better-sqlite3
-// Wrap common patterns for easier use
+// Helper types and functions
 
 export interface Row {
   [key: string]: unknown;
 }
 
-export function queryAll(sql: string, params: unknown[] = []): Row[] {
-  const d = getDb();
-  const stmt = d.prepare(sql);
-  if (params.length > 0) stmt.bind(params);
-  const results: Row[] = [];
-  while (stmt.step()) {
-    results.push(stmt.getAsObject() as Row);
-  }
-  stmt.free();
-  return results;
+export async function queryAll(sql: string, params: unknown[] = []): Promise<Row[]> {
+  const p = getDb();
+  const pgSql = convertPlaceholders(sql);
+  const result = await p.query(pgSql, params);
+  return result.rows;
 }
 
-export function queryOne(sql: string, params: unknown[] = []): Row | undefined {
-  const results = queryAll(sql, params);
-  return results[0];
+export async function queryOne(sql: string, params: unknown[] = []): Promise<Row | undefined> {
+  const rows = await queryAll(sql, params);
+  return rows[0];
 }
 
-export function execute(sql: string, params: unknown[] = []): void {
-  const d = getDb();
-  if (params.length > 0) {
-    const stmt = d.prepare(sql);
-    stmt.bind(params);
-    stmt.step();
-    stmt.free();
-  } else {
-    d.run(sql);
-  }
-  saveDb();
+export async function execute(sql: string, params: unknown[] = []): Promise<void> {
+  const p = getDb();
+  const pgSql = convertPlaceholders(sql);
+  await p.query(pgSql, params);
 }
 
-export function execMultiple(sql: string): void {
-  const d = getDb();
-  d.run(sql);
-  saveDb();
+export async function execMultiple(sql: string): Promise<void> {
+  const p = getDb();
+  await p.query(sql);
 }

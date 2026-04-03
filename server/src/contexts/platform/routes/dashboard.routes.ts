@@ -10,10 +10,10 @@ function countMonths(start: string, end: string): number {
 }
 
 // Auto-complete: A受注済み → S案件終了 (event_end < today)
-router.get('/check-completed', (_req, res) => {
+router.get('/check-completed', async (_req, res) => {
   const today = new Date().toISOString().split('T')[0];
-  execute(
-    `UPDATE projects SET stage='s_completed', updated_at=datetime('now')
+  await execute(
+    `UPDATE projects SET stage='s_completed', updated_at=NOW()
      WHERE stage = 'a_won' AND deleted_at IS NULL
      AND event_end IS NOT NULL AND event_end < ?`,
     [today]
@@ -21,7 +21,7 @@ router.get('/check-completed', (_req, res) => {
   res.json({ success: true, data: { updated: true } });
 });
 
-router.get('/kpi', (req, res) => {
+router.get('/kpi', async (req, res) => {
   const now = new Date();
   const period = req.query.period as string || 'monthly';
   let periodStart: string, periodEnd: string, periodLabel: string;
@@ -36,13 +36,13 @@ router.get('/kpi', (req, res) => {
     periodLabel = `${now.getFullYear()}年${now.getMonth() + 1}月`;
   }
 
-  const rev = queryOne(`SELECT COALESCE(SUM(amount), 0) as total FROM revenues WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [periodStart, periodEnd]);
-  const pur = queryOne(`SELECT COALESCE(SUM(amount), 0) as total FROM purchases WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [periodStart, periodEnd]);
-  const activeProjects = queryOne(`SELECT COUNT(*) as c FROM projects WHERE gls_number IS NOT NULL AND stage NOT IN ('s_completed','e_lost') AND deleted_at IS NULL`);
-  const activeYomi = queryOne(`SELECT COUNT(*) as c FROM projects WHERE gls_number IS NULL AND stage NOT IN ('e_lost') AND deleted_at IS NULL`);
+  const rev = await queryOne(`SELECT COALESCE(SUM(amount), 0) as total FROM revenues WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [periodStart, periodEnd]);
+  const pur = await queryOne(`SELECT COALESCE(SUM(amount), 0) as total FROM purchases WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [periodStart, periodEnd]);
+  const activeProjects = await queryOne(`SELECT COUNT(*) as c FROM projects WHERE gls_number IS NOT NULL AND stage NOT IN ('s_completed','e_lost') AND deleted_at IS NULL`);
+  const activeYomi = await queryOne(`SELECT COUNT(*) as c FROM projects WHERE gls_number IS NULL AND stage NOT IN ('e_lost') AND deleted_at IS NULL`);
 
   // SGA calculation
-  const sgaNonAmortized = queryOne(
+  const sgaNonAmortized = await queryOne(
     `SELECT COALESCE(SUM(amount),0) as total FROM sga_expenses
      WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL
      AND (amortize_start IS NULL OR amortize_start = '')`,
@@ -53,7 +53,7 @@ router.get('/kpi', (req, res) => {
   if (period === 'yearly') {
     for (let m = 0; m < 12; m++) {
       const ym = `${now.getFullYear()}-${String(m + 1).padStart(2, '0')}`;
-      const amortRows = queryAll(
+      const amortRows = await queryAll(
         `SELECT amount, amortize_start, amortize_end FROM sga_expenses
          WHERE deleted_at IS NULL AND amortize_start IS NOT NULL AND amortize_start != ''
          AND amortize_start <= ? AND amortize_end >= ?`,
@@ -66,7 +66,7 @@ router.get('/kpi', (req, res) => {
     }
   } else {
     const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const amortRows = queryAll(
+    const amortRows = await queryAll(
       `SELECT amount, amortize_start, amortize_end FROM sga_expenses
        WHERE deleted_at IS NULL AND amortize_start IS NOT NULL AND amortize_start != ''
        AND amortize_start <= ? AND amortize_end >= ?`,
@@ -100,31 +100,31 @@ router.get('/kpi', (req, res) => {
   } });
 });
 
-router.get('/alerts', (_req, res) => {
-  const alerts = queryAll(
+router.get('/alerts', async (_req, res) => {
+  const alerts = await queryAll(
     `SELECT id, gls_number, name, 'application_form' as alert_type, '申込書未提出' as message
      FROM projects WHERE application_form = 0 AND gls_number IS NOT NULL
      AND stage NOT IN ('s_completed','e_lost') AND deleted_at IS NULL
      UNION ALL
      SELECT id, gls_number, name, 'upcoming_event' as alert_type, 'イベントが近づいています' as message
      FROM projects WHERE event_start IS NOT NULL
-     AND event_start BETWEEN date('now') AND date('now', '+7 days') AND deleted_at IS NULL`
+     AND event_start BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days' AND deleted_at IS NULL`
   );
   res.json({ success: true, data: alerts });
 });
 
-router.get('/recent-projects', (_req, res) => {
-  const rows = queryAll(
+router.get('/recent-projects', async (_req, res) => {
+  const rows = await queryAll(
     `SELECT p.*, c.name as customer_name FROM projects p
      LEFT JOIN customers c ON c.id = p.customer_id
      WHERE p.deleted_at IS NULL AND p.gls_number IS NOT NULL
-     AND p.event_start BETWEEN date('now') AND date('now', '+7 days')
+     AND p.event_start BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'
      ORDER BY p.event_start LIMIT 10`
   );
   res.json({ success: true, data: rows });
 });
 
-router.get('/weekly-schedule', (_req, res) => {
+router.get('/weekly-schedule', async (_req, res) => {
   const now = new Date();
   const dayOfWeek = now.getDay();
   const days: Array<{ date: string; dayLabel: string; events: unknown[] }> = [];
@@ -140,13 +140,13 @@ router.get('/weekly-schedule', (_req, res) => {
     d.setDate(d.getDate() + daysToAdd);
     const dateStr = d.toISOString().split('T')[0];
 
-    const projects = queryAll(
+    const projects = await queryAll(
       `SELECT p.id, p.gls_number, p.name, p.stage, 'event' as type
        FROM projects p WHERE p.deleted_at IS NULL AND p.gls_number IS NOT NULL
        AND (p.event_start <= ? AND p.event_end >= ? OR p.event_start = ?)`,
       [dateStr, dateStr, dateStr]
     );
-    const episodes = queryAll(
+    const episodes = await queryAll(
       `SELECT e.episode_code, e.recording_date, e.broadcast_date, p.gls_number, p.name as project_name
        FROM episodes e JOIN projects p ON p.id = e.project_id
        WHERE e.deleted_at IS NULL AND (e.recording_date = ? OR e.broadcast_date = ?)`,
@@ -164,7 +164,7 @@ router.get('/weekly-schedule', (_req, res) => {
   res.json({ success: true, data: days });
 });
 
-router.get('/monthly-chart', (_req, res) => {
+router.get('/monthly-chart', async (_req, res) => {
   const months: Array<{ month: string; revenue: number; purchase: number; sga: number; gross_profit: number; operating_profit: number }> = [];
   const now = new Date();
   for (let i = 11; i >= 0; i--) {
@@ -172,15 +172,15 @@ router.get('/monthly-chart', (_req, res) => {
     const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     const monthStart = `${ym}-01`;
     const monthEnd = `${ym}-31`;
-    const rev = queryOne(`SELECT COALESCE(SUM(amount),0) as total FROM revenues WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [monthStart, monthEnd]);
-    const pur = queryOne(`SELECT COALESCE(SUM(amount),0) as total FROM purchases WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [monthStart, monthEnd]);
-    const sgaNonAmortizedRow = queryOne(
+    const rev = await queryOne(`SELECT COALESCE(SUM(amount),0) as total FROM revenues WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [monthStart, monthEnd]);
+    const pur = await queryOne(`SELECT COALESCE(SUM(amount),0) as total FROM purchases WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [monthStart, monthEnd]);
+    const sgaNonAmortizedRow = await queryOne(
       `SELECT COALESCE(SUM(amount),0) as total FROM sga_expenses
        WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL
        AND (amortize_start IS NULL OR amortize_start = '')`,
       [monthStart, monthEnd]
     );
-    const sgaAmortizedRows = queryAll(
+    const sgaAmortizedRows = await queryAll(
       `SELECT amount, amortize_start, amortize_end FROM sga_expenses
        WHERE deleted_at IS NULL AND amortize_start IS NOT NULL AND amortize_start != ''
        AND amortize_start <= ? AND amortize_end >= ?`,
@@ -199,8 +199,8 @@ router.get('/monthly-chart', (_req, res) => {
   res.json({ success: true, data: months });
 });
 
-router.get('/pipeline', (_req, res) => {
-  const stages = queryAll(
+router.get('/pipeline', async (_req, res) => {
+  const stages = await queryAll(
     `SELECT stage, COUNT(*) as count, COALESCE(SUM(expected_amount),0) as total_amount
      FROM projects WHERE deleted_at IS NULL AND stage NOT IN ('e_lost','s_completed')
      GROUP BY stage ORDER BY CASE stage

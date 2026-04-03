@@ -3,18 +3,18 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 
 export class SalesAnalyticsService {
   /** ファネル分析: 各ステージのコンバージョン率と滞留日数 */
-  getFunnelAnalysis(year?: number, month?: number) {
+  async getFunnelAnalysis(year?: number, month?: number) {
     let dateFilter = '';
     const params: unknown[] = [];
     if (year && month) {
-      dateFilter = `AND strftime('%Y', p.created_at) = ? AND strftime('%m', p.created_at) = ?`;
+      dateFilter = `AND TO_CHAR(p.created_at, 'YYYY') = ? AND TO_CHAR(p.created_at, 'MM') = ?`;
       params.push(String(year), String(month).padStart(2, '0'));
     } else if (year) {
-      dateFilter = `AND strftime('%Y', p.created_at) = ?`;
+      dateFilter = `AND TO_CHAR(p.created_at, 'YYYY') = ?`;
       params.push(String(year));
     }
 
-    const stageCounts = queryAll(
+    const stageCounts = await queryAll(
       `SELECT stage, COUNT(*) as count, COALESCE(SUM(expected_amount), 0) as total_amount
        FROM projects p
        WHERE p.deleted_at IS NULL ${dateFilter}
@@ -22,28 +22,28 @@ export class SalesAnalyticsService {
       params
     );
 
-    const totalRow = queryOne(
+    const totalRow = await queryOne(
       `SELECT COUNT(*) as total FROM projects p WHERE p.deleted_at IS NULL ${dateFilter}`,
       params
     );
     const totalCount = (totalRow as any)?.total || 0;
 
-    const wonRow = queryOne(
+    const wonRow = await queryOne(
       `SELECT COUNT(*) as won FROM projects p
        WHERE p.deleted_at IS NULL AND p.stage IN ('a_won', 's_completed', 'b_verbal') ${dateFilter}`,
       params
     );
     const wonCount = (wonRow as any)?.won || 0;
 
-    const lostRow = queryOne(
+    const lostRow = await queryOne(
       `SELECT COUNT(*) as lost FROM projects p
        WHERE p.deleted_at IS NULL AND p.stage = 'e_lost' ${dateFilter}`,
       params
     );
     const lostCount = (lostRow as any)?.lost || 0;
 
-    const avgDwellRow = queryOne(
-      `SELECT AVG(julianday(p.updated_at) - julianday(p.created_at)) as avg_days
+    const avgDwellRow = await queryOne(
+      `SELECT AVG(EXTRACT(EPOCH FROM (p.updated_at::timestamp - p.created_at::timestamp)) / 86400) as avg_days
        FROM projects p
        WHERE p.deleted_at IS NULL AND p.stage NOT IN ('neta') ${dateFilter}`,
       params
@@ -61,15 +61,15 @@ export class SalesAnalyticsService {
   }
 
   /** 失注理由の集計 */
-  getLostReasonAnalysis(year?: number) {
+  async getLostReasonAnalysis(year?: number) {
     let dateFilter = '';
     const params: unknown[] = [];
     if (year) {
-      dateFilter = `AND strftime('%Y', p.created_at) = ?`;
+      dateFilter = `AND TO_CHAR(p.created_at, 'YYYY') = ?`;
       params.push(String(year));
     }
 
-    const reasons = queryAll(
+    const reasons = await queryAll(
       `SELECT COALESCE(p.lost_reason, '未設定') as reason, COUNT(*) as count, COALESCE(SUM(p.expected_amount), 0) as total_amount
        FROM projects p
        WHERE p.deleted_at IS NULL AND p.stage = 'e_lost' ${dateFilter}
@@ -78,7 +78,7 @@ export class SalesAnalyticsService {
       params
     );
 
-    const totalLost = queryOne(
+    const totalLost = await queryOne(
       `SELECT COUNT(*) as c FROM projects p WHERE p.deleted_at IS NULL AND p.stage = 'e_lost' ${dateFilter}`,
       params
     );
@@ -90,12 +90,12 @@ export class SalesAnalyticsService {
   }
 
   /** 営業目標の取得 */
-  getTargets(year: number, userId?: string) {
+  async getTargets(year: number, userId?: string) {
     let where = 'WHERE t.target_year = ?';
     const params: unknown[] = [year];
     if (userId) { where += ' AND t.user_id = ?'; params.push(userId); }
 
-    return queryAll(
+    return await queryAll(
       `SELECT t.*, u.name as user_name
        FROM sales_targets t
        LEFT JOIN users u ON u.id = t.user_id
@@ -106,38 +106,38 @@ export class SalesAnalyticsService {
   }
 
   /** 営業目標の設定（upsert） */
-  upsertTarget(userId: string, year: number, month: number, targetAmount: number) {
-    const existing = queryOne(
+  async upsertTarget(userId: string, year: number, month: number, targetAmount: number) {
+    const existing = await queryOne(
       'SELECT id FROM sales_targets WHERE user_id = ? AND target_year = ? AND target_month = ?',
       [userId, year, month]
     );
 
     if (existing) {
-      execute(
-        `UPDATE sales_targets SET target_amount=?, updated_at=datetime('now') WHERE id=?`,
+      await execute(
+        `UPDATE sales_targets SET target_amount=?, updated_at=NOW() WHERE id=?`,
         [targetAmount, (existing as any).id]
       );
-      return queryOne('SELECT * FROM sales_targets WHERE id = ?', [(existing as any).id]);
+      return await queryOne('SELECT * FROM sales_targets WHERE id = ?', [(existing as any).id]);
     } else {
       const id = uuidv4();
-      execute(
+      await execute(
         `INSERT INTO sales_targets (id, user_id, target_year, target_month, target_amount) VALUES (?, ?, ?, ?, ?)`,
         [id, userId, year, month, targetAmount]
       );
-      return queryOne('SELECT * FROM sales_targets WHERE id = ?', [id]);
+      return await queryOne('SELECT * FROM sales_targets WHERE id = ?', [id]);
     }
   }
 
   /** 営業評価: 担当者別の目標 vs 実績 */
-  getPerformanceReview(year: number, month?: number) {
-    let wonFilter = `AND strftime('%Y', p.updated_at) = ?`;
+  async getPerformanceReview(year: number, month?: number) {
+    let wonFilter = `AND TO_CHAR(p.updated_at, 'YYYY') = ?`;
     const wonParams: unknown[] = [String(year)];
     if (month) {
-      wonFilter += ` AND strftime('%m', p.updated_at) = ?`;
+      wonFilter += ` AND TO_CHAR(p.updated_at, 'MM') = ?`;
       wonParams.push(String(month).padStart(2, '0'));
     }
 
-    const actuals = queryAll(
+    const actuals = await queryAll(
       `SELECT p.assigned_to, u.name as user_name,
               COUNT(*) as won_count,
               COALESCE(SUM(p.expected_amount), 0) as won_amount
@@ -148,14 +148,14 @@ export class SalesAnalyticsService {
       wonParams
     );
 
-    let allFilter = `AND strftime('%Y', p.created_at) = ?`;
+    let allFilter = `AND TO_CHAR(p.created_at, 'YYYY') = ?`;
     const allParams: unknown[] = [String(year)];
     if (month) {
-      allFilter += ` AND strftime('%m', p.created_at) = ?`;
+      allFilter += ` AND TO_CHAR(p.created_at, 'MM') = ?`;
       allParams.push(String(month).padStart(2, '0'));
     }
 
-    const activities = queryAll(
+    const activities = await queryAll(
       `SELECT p.assigned_to,
               COUNT(*) as total_count,
               COUNT(CASE WHEN p.stage = 'e_lost' THEN 1 END) as lost_count,
@@ -173,7 +173,7 @@ export class SalesAnalyticsService {
       targetParams.push(month);
     }
 
-    const targets = queryAll(
+    const targets = await queryAll(
       `SELECT t.user_id, u.name as user_name,
               SUM(t.target_amount) as target_amount
        FROM sales_targets t
