@@ -108,7 +108,7 @@ router.get('/alerts', async (_req, res) => {
      UNION ALL
      SELECT id, gls_number, name, 'upcoming_event' as alert_type, 'イベントが近づいています' as message
      FROM projects WHERE event_start IS NOT NULL
-     AND event_start BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days' AND deleted_at IS NULL`
+     AND event_start BETWEEN CURRENT_DATE::text AND (CURRENT_DATE + INTERVAL '7 days')::text AND deleted_at IS NULL`
   );
   res.json({ success: true, data: alerts });
 });
@@ -118,7 +118,7 @@ router.get('/recent-projects', async (_req, res) => {
     `SELECT p.*, c.name as customer_name FROM projects p
      LEFT JOIN customers c ON c.id = p.customer_id
      WHERE p.deleted_at IS NULL AND p.gls_number IS NOT NULL
-     AND p.event_start BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'
+     AND p.event_start BETWEEN CURRENT_DATE::text AND (CURRENT_DATE + INTERVAL '7 days')::text
      ORDER BY p.event_start LIMIT 10`
   );
   res.json({ success: true, data: rows });

@@ -16,4 +16,9 @@ async function main() {
   });
 }
 
+// Prevent unhandled promise rejections from crashing the process
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled rejection:', err);
+});
+
 main().catch(console.error);

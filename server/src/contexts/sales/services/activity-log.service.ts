@@ -93,7 +93,7 @@ export class ActivityLogService {
          AND a.user_id = ?
          AND a.next_action IS NOT NULL
          AND a.next_action_date IS NOT NULL
-         AND a.next_action_date <= CURRENT_DATE + (? || ' days')::interval
+         AND a.next_action_date <= (CURRENT_DATE + (? || ' days')::interval)::text
        ORDER BY a.next_action_date ASC`,
       [userId, daysAhead]
     );
