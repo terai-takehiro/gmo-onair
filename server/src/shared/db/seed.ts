@@ -43,25 +43,40 @@ export async function seed() {
   // User Permissions (system_admin bypasses checks, so only non-admin users)
   // ============================================================
   const permSql = `INSERT INTO user_permissions (id, user_id, module, access_level) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING`;
-  // staff1 & staff2: マネージャー（削除含むフル操作）
-  for (const userId of [USERS.staff1, USERS.staff2]) {
-    for (const mod of ['sales', 'budget', 'studio', 'equipment']) {
-      await ins(permSql, [uuidv4(), userId, mod, 'manager']);
-    }
-  }
+  // ブロックアプリごとに個別設定
+  const perms: [string, string, string][] = [
+    // staff1 — 佐藤（営業マネージャー寄り）
+    //        営業管理    予算管理      スタジオ     機材管理
+    [USERS.staff1, 'sales',     'owner'],      // 営業の責任者
+    [USERS.staff1, 'budget',    'manager'],    // 予算も削除可
+    [USERS.staff1, 'studio',    'editor'],     // スタジオ予約は編集まで
+    [USERS.staff1, 'equipment', 'exporter'],   // 機材は閲覧+出力のみ
 
-  // staff3: エディター（制作系のみ、予算アクセスなし）
-  for (const mod of ['sales', 'studio', 'equipment']) {
-    await ins(permSql, [uuidv4(), USERS.staff3, mod, 'editor']);
-  }
+    // staff2 — 鈴木（制作マネージャー寄り）
+    [USERS.staff2, 'sales',     'editor'],     // 営業は編集まで
+    [USERS.staff2, 'budget',    'exporter'],   // 予算は出力まで
+    [USERS.staff2, 'studio',    'owner'],      // スタジオの責任者
+    [USERS.staff2, 'equipment', 'manager'],    // 機材は削除可
 
-  // viewer: エクスポーター（閲覧+出力のみ）
-  for (const mod of ['sales', 'studio']) {
-    await ins(permSql, [uuidv4(), USERS.viewer, mod, 'exporter']);
-  }
+    // staff3 — 高橋（制作スタッフ）
+    [USERS.staff3, 'sales',     'reader'],     // 営業は閲覧のみ
+    [USERS.staff3, 'studio',    'editor'],     // スタジオ予約は編集可
+    [USERS.staff3, 'equipment', 'editor'],     // 機材も編集可
+    // budget: アクセスなし
 
-  // external: リーダー（スタジオカレンダー閲覧のみ）
-  await ins(permSql, [uuidv4(), USERS.external, 'studio', 'reader']);
+    // viewer — 田中（経営層・閲覧用）
+    [USERS.viewer, 'sales',     'exporter'],   // 営業レポート出力
+    [USERS.viewer, 'budget',    'exporter'],   // 予算レポート出力
+    [USERS.viewer, 'studio',    'reader'],     // スタジオは閲覧のみ
+    // equipment: アクセスなし
+
+    // external — 山田（外部クライアント）
+    [USERS.external, 'studio',  'reader'],     // カレンダー閲覧のみ
+  ];
+
+  for (const [userId, mod, level] of perms) {
+    await ins(permSql, [uuidv4(), userId, mod, level]);
+  }
 
   // ============================================================
   // Customers
