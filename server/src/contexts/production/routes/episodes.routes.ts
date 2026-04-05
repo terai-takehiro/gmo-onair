@@ -165,7 +165,7 @@ router.put('/:projectId/episodes/:id', requirePermission('sales', 'editor'), asy
 });
 
 // Soft delete episode
-router.delete('/:projectId/episodes/:id', requirePermission('sales', 'member'), async (req, res) => {
+router.delete('/:projectId/episodes/:id', requirePermission('sales', 'manager'), async (req, res) => {
   const existing = await queryOne(
     'SELECT id FROM episodes WHERE id = ? AND project_id = ? AND deleted_at IS NULL',
     [req.params.id, req.params.projectId]

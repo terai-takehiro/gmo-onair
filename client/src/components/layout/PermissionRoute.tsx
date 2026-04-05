@@ -3,11 +3,11 @@ import { useAuth } from "@/contexts/platform/AuthContext";
 
 interface Props {
   module: string;
-  minLevel?: "viewer" | "editor" | "member" | "admin";
+  minLevel?: "reader" | "exporter" | "editor" | "manager" | "owner";
   children: React.ReactNode;
 }
 
-export default function PermissionRoute({ module, minLevel = "viewer", children }: Props) {
+export default function PermissionRoute({ module, minLevel = "reader", children }: Props) {
   const { hasPermission, isAuthenticated } = useAuth();
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;

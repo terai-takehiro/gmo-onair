@@ -101,7 +101,7 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
   res.json({ success: true, data: row });
 });
 
-router.delete('/:id', requirePermission('budget', 'member'), async (req, res) => {
+router.delete('/:id', requirePermission('budget', 'manager'), async (req, res) => {
   await execute(`UPDATE purchases SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`, [req.user!.id, req.params.id]);
   res.json({ success: true, message: '削除しました' });
 });

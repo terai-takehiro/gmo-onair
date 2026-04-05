@@ -43,25 +43,25 @@ export async function seed() {
   // User Permissions (system_admin bypasses checks, so only non-admin users)
   // ============================================================
   const permSql = `INSERT INTO user_permissions (id, user_id, module, access_level) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING`;
-  // staff1 & staff2: sales, budget, studio, equipment at "member" level (社員 — delete access)
+  // staff1 & staff2: マネージャー（削除含むフル操作）
   for (const userId of [USERS.staff1, USERS.staff2]) {
     for (const mod of ['sales', 'budget', 'studio', 'equipment']) {
-      await ins(permSql, [uuidv4(), userId, mod, 'member']);
+      await ins(permSql, [uuidv4(), userId, mod, 'manager']);
     }
   }
 
-  // staff3: production-focused — no budget access
+  // staff3: エディター（制作系のみ、予算アクセスなし）
   for (const mod of ['sales', 'studio', 'equipment']) {
     await ins(permSql, [uuidv4(), USERS.staff3, mod, 'editor']);
   }
 
-  // viewer: read-only on sales and calendar
+  // viewer: エクスポーター（閲覧+出力のみ）
   for (const mod of ['sales', 'studio']) {
-    await ins(permSql, [uuidv4(), USERS.viewer, mod, 'viewer']);
+    await ins(permSql, [uuidv4(), USERS.viewer, mod, 'exporter']);
   }
 
-  // external: calendar only
-  await ins(permSql, [uuidv4(), USERS.external, 'studio', 'viewer']);
+  // external: リーダー（スタジオカレンダー閲覧のみ）
+  await ins(permSql, [uuidv4(), USERS.external, 'studio', 'reader']);
 
   // ============================================================
   // Customers

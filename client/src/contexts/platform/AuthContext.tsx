@@ -49,12 +49,13 @@ export const MODULE_LABELS: Record<string, string> = {
   admin: "システム管理",
 };
 
-/** アクセスレベル定義（BOX風 4段階） */
+/** アクセスレベル定義（BOX風 5段階） */
 export const ACCESS_LEVEL_LABELS: Record<string, string> = {
-  viewer: "閲覧者",
-  editor: "編集者",
-  member: "社員編集者",
-  admin: "管理者",
+  reader: "リーダー",
+  exporter: "エクスポーター",
+  editor: "エディター",
+  manager: "マネージャー",
+  owner: "オーナー",
 };
 
 interface AuthContextType {
@@ -65,12 +66,12 @@ interface AuthContextType {
   loading: boolean;
   permissions: Permissions;
   /** モジュールへのアクセス権があるかチェック */
-  hasPermission: (module: string, minLevel?: "viewer" | "editor" | "member" | "admin") => boolean;
+  hasPermission: (module: string, minLevel?: "reader" | "exporter" | "editor" | "manager" | "owner") => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const LEVEL_ORDER: Record<string, number> = { viewer: 1, editor: 2, member: 3, admin: 4 };
+const LEVEL_ORDER: Record<string, number> = { reader: 1, exporter: 2, editor: 3, manager: 4, owner: 5 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -123,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [setCurrentUserId]);
 
   const hasPermission = useCallback(
-    (module: string, minLevel: "viewer" | "editor" | "member" | "admin" = "viewer") => {
+    (module: string, minLevel: "reader" | "exporter" | "editor" | "manager" | "owner" = "reader") => {
       if (!currentUser) return false;
       // system_admin は全権限
       if (currentUser.role === "system_admin") return true;

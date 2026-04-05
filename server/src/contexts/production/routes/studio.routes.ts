@@ -186,7 +186,7 @@ router.put('/bookings/:id', requirePermission('studio', 'editor'), async (req, r
 });
 
 // DELETE /studios/bookings/:id
-router.delete('/bookings/:id', requirePermission('studio', 'member'), async (req, res) => {
+router.delete('/bookings/:id', requirePermission('studio', 'manager'), async (req, res) => {
   await execute(`UPDATE studio_bookings SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`,
     [req.user!.id, req.params.id]);
   res.json({ success: true, message: '削除しました' });

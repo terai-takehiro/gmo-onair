@@ -106,7 +106,7 @@ router.put('/:projectId/invoice-groups/:id', requirePermission('sales', 'editor'
 });
 
 // Soft delete invoice group
-router.delete('/:projectId/invoice-groups/:id', requirePermission('sales', 'member'), async (req, res) => {
+router.delete('/:projectId/invoice-groups/:id', requirePermission('sales', 'manager'), async (req, res) => {
   const existing = await queryOne(
     'SELECT id FROM invoice_groups WHERE id = ? AND project_id = ? AND deleted_at IS NULL',
     [req.params.id, req.params.projectId]
