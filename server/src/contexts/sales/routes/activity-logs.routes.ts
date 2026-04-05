@@ -21,7 +21,7 @@ router.get('/', async (req, res) => {
   res.json(paginatedResponse(result.rows, result.total, result.page, result.limit));
 });
 
-router.get('/upcoming', requireAuth, async (req, res) => {
+router.get('/upcoming', async (req, res) => {
   const days = parseInt(req.query.days as string) || 7;
   res.json({ success: true, data: await activityLogService.getUpcomingActions(req.user!.id, days) });
 });
@@ -30,15 +30,15 @@ router.get('/:id', async (req, res) => {
   res.json({ success: true, data: await activityLogService.getById(req.params.id as string) });
 });
 
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requirePermission('projects', 'edit'), async (req, res) => {
   res.status(201).json({ success: true, data: await activityLogService.create(req.body, req.user!.id) });
 });
 
-router.put('/:id', requireAuth, async (req, res) => {
+router.put('/:id', requirePermission('projects', 'edit'), async (req, res) => {
   res.json({ success: true, data: await activityLogService.update(req.params.id as string, req.body) });
 });
 
-router.delete('/:id', requireAuth, async (req, res) => {
+router.delete('/:id', requirePermission('projects', 'edit'), async (req, res) => {
   await activityLogService.delete(req.params.id as string);
   res.json({ success: true, message: '削除しました' });
 });

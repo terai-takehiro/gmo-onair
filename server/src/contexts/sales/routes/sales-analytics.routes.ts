@@ -32,7 +32,7 @@ router.get('/targets', async (req, res) => {
   res.json({ success: true, data });
 });
 
-router.post('/targets', requireAuth, async (req, res) => {
+router.post('/targets', requirePermission('projects', 'edit'), async (req, res) => {
   const { user_id, target_year, target_month, target_amount } = req.body;
   const data = await salesAnalyticsService.upsertTarget(user_id, target_year, target_month, target_amount);
   res.json({ success: true, data });

@@ -19,7 +19,7 @@ const ALLOWED_TABLES = [
 ];
 
 // GET /data-viewer/tables - list tables with row counts
-router.get('/tables', requireAuth, requireRole('system_admin'), async (_req, res) => {
+router.get('/tables', requireRole('system_admin'), async (_req, res) => {
   const tables = [];
   for (const name of ALLOWED_TABLES) {
     const row = await queryOne(`SELECT COUNT(*) as count FROM ${name}`);
@@ -29,7 +29,7 @@ router.get('/tables', requireAuth, requireRole('system_admin'), async (_req, res
 });
 
 // GET /data-viewer/tables/:name/schema - column info
-router.get('/tables/:name/schema', requireAuth, requireRole('system_admin'), async (req, res) => {
+router.get('/tables/:name/schema', requireRole('system_admin'), async (req, res) => {
   const name = req.params.name as string;
   if (!ALLOWED_TABLES.includes(name)) { res.status(400).json({ success: false, error: 'Invalid table' }); return; }
   const columns = await queryAll(
@@ -40,7 +40,7 @@ router.get('/tables/:name/schema', requireAuth, requireRole('system_admin'), asy
 });
 
 // GET /data-viewer/tables/:name - paginated data
-router.get('/tables/:name', requireAuth, requireRole('system_admin'), async (req, res) => {
+router.get('/tables/:name', requireRole('system_admin'), async (req, res) => {
   const name = req.params.name as string;
   if (!ALLOWED_TABLES.includes(name)) { res.status(400).json({ success: false, error: 'Invalid table' }); return; }
 
@@ -83,7 +83,7 @@ router.get('/tables/:name', requireAuth, requireRole('system_admin'), async (req
 });
 
 // GET /data-viewer/tables/:name/export - CSV export
-router.get('/tables/:name/export', requireAuth, requireRole('system_admin'), async (req, res) => {
+router.get('/tables/:name/export', requireRole('system_admin'), async (req, res) => {
   const name = req.params.name as string;
   if (!ALLOWED_TABLES.includes(name)) { res.status(400).json({ success: false, error: 'Invalid table' }); return; }
 
