@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/platform/AuthContext";
 import AppShell from "@/components/layout/AppShell";
+import PermissionRoute from "@/components/layout/PermissionRoute";
 import { Loader2 } from "lucide-react";
 
 // Platform
@@ -76,41 +77,39 @@ function AppRoutes() {
         }
       >
         {/* Platform */}
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="/admin/users" element={<UserListPage />} />
-        <Route path="/admin/data-viewer" element={<DataViewerPage />} />
+        <Route path="/" element={<PermissionRoute module="dashboard"><DashboardPage /></PermissionRoute>} />
+        <Route path="/admin/users" element={<PermissionRoute module="admin"><UserListPage /></PermissionRoute>} />
+        <Route path="/admin/data-viewer" element={<PermissionRoute module="admin"><DataViewerPage /></PermissionRoute>} />
 
         {/* 統合案件管理 */}
-        <Route path="/projects" element={<ProjectListPage />} />
-        <Route path="/projects/new" element={<ProjectFormPage />} />
-        <Route path="/projects/:id" element={<ProjectFormPage />} />
-        <Route path="/projects/confirmed/:category" element={<ConfirmedProjectsPage />} />
-        <Route path="/projects/:projectId/episodes" element={<EpisodeListPage />} />
-        <Route path="/projects/:projectId/estimates" element={<EstimatePage />} />
-        <Route path="/project-groups" element={<ProjectGroupListPage />} />
+        <Route path="/projects" element={<PermissionRoute module="projects"><ProjectListPage /></PermissionRoute>} />
+        <Route path="/projects/new" element={<PermissionRoute module="projects"><ProjectFormPage /></PermissionRoute>} />
+        <Route path="/projects/:id" element={<PermissionRoute module="projects"><ProjectFormPage /></PermissionRoute>} />
+        <Route path="/projects/confirmed/:category" element={<PermissionRoute module="projects"><ConfirmedProjectsPage /></PermissionRoute>} />
+        <Route path="/projects/:projectId/episodes" element={<PermissionRoute module="projects"><EpisodeListPage /></PermissionRoute>} />
+        <Route path="/projects/:projectId/estimates" element={<PermissionRoute module="projects"><EstimatePage /></PermissionRoute>} />
+        <Route path="/project-groups" element={<PermissionRoute module="projects"><ProjectGroupListPage /></PermissionRoute>} />
 
         {/* 旧URLリダイレクト */}
         <Route path="/opportunities" element={<Navigate to="/projects" replace />} />
         <Route path="/opportunities/*" element={<Navigate to="/projects" replace />} />
-        <Route path="/project-groups" element={<Navigate to="/projects" replace />} />
-        <Route path="/project-groups/*" element={<Navigate to="/projects" replace />} />
 
         {/* Sales support */}
-        <Route path="/masters/customers" element={<CustomerListPage />} />
-        <Route path="/masters/pricing" element={<PricingListPage />} />
-        <Route path="/activity-logs" element={<ActivityLogPage />} />
-        <Route path="/sales-review" element={<SalesReviewPage />} />
+        <Route path="/masters/customers" element={<PermissionRoute module="masters"><CustomerListPage /></PermissionRoute>} />
+        <Route path="/masters/pricing" element={<PermissionRoute module="masters"><PricingListPage /></PermissionRoute>} />
+        <Route path="/activity-logs" element={<PermissionRoute module="projects"><ActivityLogPage /></PermissionRoute>} />
+        <Route path="/sales-review" element={<PermissionRoute module="projects"><SalesReviewPage /></PermissionRoute>} />
 
         {/* Production */}
-        <Route path="/calendar" element={<StudioCalendarPage />} />
-        <Route path="/reports/vendors" element={<VendorReportPage />} />
+        <Route path="/calendar" element={<PermissionRoute module="calendar"><StudioCalendarPage /></PermissionRoute>} />
+        <Route path="/reports/vendors" element={<PermissionRoute module="reports"><VendorReportPage /></PermissionRoute>} />
 
         {/* Finance */}
-        <Route path="/revenues" element={<RevenueListPage />} />
-        <Route path="/purchases" element={<PurchaseListPage />} />
-        <Route path="/sga" element={<SgaListPage />} />
-        <Route path="/masters/vendors" element={<VendorListPage />} />
-        <Route path="/masters/partners" element={<PartnerListPage />} />
+        <Route path="/revenues" element={<PermissionRoute module="revenues"><RevenueListPage /></PermissionRoute>} />
+        <Route path="/purchases" element={<PermissionRoute module="purchases"><PurchaseListPage /></PermissionRoute>} />
+        <Route path="/sga" element={<PermissionRoute module="sga"><SgaListPage /></PermissionRoute>} />
+        <Route path="/masters/vendors" element={<PermissionRoute module="masters"><VendorListPage /></PermissionRoute>} />
+        <Route path="/masters/partners" element={<PermissionRoute module="masters"><PartnerListPage /></PermissionRoute>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

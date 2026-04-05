@@ -1,11 +1,14 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
-import { requireAuth } from '../../../shared/middleware/auth';
+import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
 
 const router = Router();
+
+// Apply auth + permission middleware to all routes
+router.use(requireAuth, requirePermission('projects'));
 
 // 一覧
 router.get('/', async (req, res) => {
@@ -82,7 +85,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // 新規作成
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requirePermission('projects', 'edit'), async (req, res) => {
   const { name, description, member_project_ids } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', 'グループ名は必須です');
 
@@ -103,7 +106,7 @@ router.post('/', requireAuth, async (req, res) => {
 });
 
 // 更新
-router.put('/:id', requireAuth, async (req, res) => {
+router.put('/:id', requirePermission('projects', 'edit'), async (req, res) => {
   const existing = await queryOne('SELECT id FROM project_groups WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'グループが見つかりません');
 

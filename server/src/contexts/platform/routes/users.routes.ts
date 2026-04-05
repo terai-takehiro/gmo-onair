@@ -61,19 +61,21 @@ router.put('/:id/permissions', requireAuth, requireRole('system_admin'), async (
   const { permissions } = req.body; // { module: access_level } or { module: null } to remove
   if (!permissions || typeof permissions !== 'object') throw new AppError(400, 'VALIDATION_ERROR', 'permissions オブジェクトが必要です');
 
-  for (const [module, level] of Object.entries(permissions)) {
-    if (!level) {
-      // パーミッション削除
-      await execute('DELETE FROM user_permissions WHERE user_id = ? AND module = ?', [req.params.id, module]);
-    } else {
-      // upsert
-      const existing = await queryOne('SELECT id FROM user_permissions WHERE user_id = ? AND module = ?', [req.params.id, module]);
-      if (existing) {
-        await execute('UPDATE user_permissions SET access_level = ?, updated_at = NOW() WHERE user_id = ? AND module = ?', [level, req.params.id, module]);
-      } else {
-        await execute('INSERT INTO user_permissions (id, user_id, module, access_level) VALUES (?, ?, ?, ?)', [uuidv4(), req.params.id, module, level]);
-      }
-    }
+  // Delete removed permissions, then upsert remaining
+  const modules = Object.keys(permissions);
+  const toSet = Object.entries(permissions).filter(([, v]) => v) as [string, string][];
+  const toRemove = modules.filter(m => !permissions[m]);
+
+  if (toRemove.length > 0) {
+    const placeholders = toRemove.map((_, i) => `?`).join(', ');
+    await execute(`DELETE FROM user_permissions WHERE user_id = ? AND module IN (${placeholders})`, [req.params.id, ...toRemove]);
+  }
+
+  for (const [module, level] of toSet) {
+    await execute(
+      `INSERT INTO user_permissions (id, user_id, module, access_level) VALUES (?, ?, ?, ?) ON CONFLICT (user_id, module) DO UPDATE SET access_level = EXCLUDED.access_level, updated_at = NOW()`,
+      [uuidv4(), req.params.id, module, level]
+    );
   }
 
   const perms = await queryAll('SELECT module, access_level FROM user_permissions WHERE user_id = ?', [req.params.id]);

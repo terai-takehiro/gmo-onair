@@ -1,8 +1,11 @@
 import { Router } from 'express';
 import { queryAll, queryOne } from '../../../shared/db/connection';
-import { requireAuth, requireRole } from '../../../shared/middleware/auth';
+import { requireAuth, requireRole, requirePermission } from '../../../shared/middleware/auth';
 
 const router = Router();
+
+// Apply auth + permission middleware to all routes
+router.use(requireAuth, requirePermission('admin'));
 
 const ALLOWED_TABLES = [
   'users', 'customers', 'vendors', 'partners',

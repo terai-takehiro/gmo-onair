@@ -1,12 +1,15 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
-import { requireAuth } from '../../../shared/middleware/auth';
+import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateBillingKey } from '../../../shared/services/billing-key.service';
 
 const router = Router();
+
+// Apply auth + permission middleware to all routes
+router.use(requireAuth, requirePermission('purchases'));
 
 router.get('/', async (req, res) => {
   const { page, limit, offset, search } = extractPagination(req);
@@ -51,7 +54,7 @@ router.get('/:id', async (req, res) => {
   res.json({ success: true, data: row });
 });
 
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requirePermission('purchases', 'edit'), async (req, res) => {
   const { project_id, episode_id, vendor_id, settlement_method, settlement_number,
           tax_category, invoice_qualified, amount, description,
           recognition_date, inspection_date, payment_due_date, notes } = req.body;
@@ -77,7 +80,7 @@ router.post('/', requireAuth, async (req, res) => {
   res.status(201).json({ success: true, data: row });
 });
 
-router.put('/:id', requireAuth, async (req, res) => {
+router.put('/:id', requirePermission('purchases', 'edit'), async (req, res) => {
   const existing = await queryOne('SELECT id FROM purchases WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!existing) throw new AppError(404, 'NOT_FOUND', '仕入が見つかりません');
 
@@ -98,7 +101,7 @@ router.put('/:id', requireAuth, async (req, res) => {
   res.json({ success: true, data: row });
 });
 
-router.delete('/:id', requireAuth, async (req, res) => {
+router.delete('/:id', requirePermission('purchases', 'edit'), async (req, res) => {
   await execute(`UPDATE purchases SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`, [req.user!.id, req.params.id]);
   res.json({ success: true, message: '削除しました' });
 });

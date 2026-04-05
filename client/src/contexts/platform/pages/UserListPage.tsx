@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import api from "@/lib/api";
@@ -68,26 +68,21 @@ function PermissionDialog({
     enabled: open && !!user && !isTargetAdmin,
   });
 
-  // Sync fetched permissions into local state when data arrives
-  const permsKey = permsData ? JSON.stringify(permsData) : "";
-  const [syncedKey, setSyncedKey] = useState("");
-  if (permsKey && permsKey !== syncedKey) {
-    const map: Record<string, string> = {};
-    for (const p of permsData!) {
-      map[p.module] = p.access_level;
+  useEffect(() => {
+    if (permsData) {
+      const map: Record<string, string> = {};
+      for (const p of permsData) {
+        map[p.module] = p.access_level;
+      }
+      setLocalPerms(map);
     }
-    setLocalPerms(map);
-    setSyncedKey(permsKey);
-  }
+  }, [permsData]);
 
-  // Reset synced key when dialog closes or user changes
-  const userIdRef = user?.id ?? "";
-  const [prevUserId, setPrevUserId] = useState("");
-  if (userIdRef !== prevUserId) {
-    setPrevUserId(userIdRef);
-    setSyncedKey("");
-    setLocalPerms({});
-  }
+  useEffect(() => {
+    if (!open) {
+      setLocalPerms({});
+    }
+  }, [open, user?.id]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {

@@ -1,11 +1,14 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
-import { requireAuth } from '../../../shared/middleware/auth';
+import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
 
 const router = Router();
+
+// Apply auth + permission middleware to all routes
+router.use(requireAuth, requirePermission('masters'));
 
 router.get('/', async (req, res) => {
   const { page, limit, offset, search } = extractPagination(req);
@@ -24,7 +27,7 @@ router.get('/:id', async (req, res) => {
   res.json({ success: true, data: { ...row, specialties: JSON.parse((row.specialties as string) || '[]') } });
 });
 
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requirePermission('masters', 'edit'), async (req, res) => {
   const { name, email, phone, role_title, specialties, notes } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', '氏名は必須です');
   const id = uuidv4();
@@ -34,7 +37,7 @@ router.post('/', requireAuth, async (req, res) => {
   res.status(201).json({ success: true, data: { ...row, specialties: JSON.parse((row!.specialties as string) || '[]') } });
 });
 
-router.put('/:id', requireAuth, async (req, res) => {
+router.put('/:id', requirePermission('masters', 'edit'), async (req, res) => {
   const existing = await queryOne('SELECT id FROM partners WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'パートナーが見つかりません');
   const { name, email, phone, role_title, specialties, notes } = req.body;
@@ -44,7 +47,7 @@ router.put('/:id', requireAuth, async (req, res) => {
   res.json({ success: true, data: { ...row, specialties: JSON.parse((row!.specialties as string) || '[]') } });
 });
 
-router.delete('/:id', requireAuth, async (req, res) => {
+router.delete('/:id', requirePermission('masters', 'edit'), async (req, res) => {
   await execute(`UPDATE partners SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`, [req.user!.id, req.params.id]);
   res.json({ success: true, message: '削除しました' });
 });

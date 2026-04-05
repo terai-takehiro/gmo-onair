@@ -1,8 +1,11 @@
 import { Router } from 'express';
-import { requireAuth } from '../../../shared/middleware/auth';
+import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { salesAnalyticsService } from '../services/sales-analytics.service';
 
 const router = Router();
+
+// Apply auth + permission middleware to all routes
+router.use(requireAuth, requirePermission('projects'));
 
 router.get('/funnel', async (req, res) => {
   const year = parseInt(req.query.year as string) || undefined;

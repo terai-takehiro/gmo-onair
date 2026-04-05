@@ -1,9 +1,12 @@
 import { Router } from 'express';
-import { requireAuth } from '../../../shared/middleware/auth';
+import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { activityLogService } from '../services/activity-log.service';
 
 const router = Router();
+
+// Apply auth + permission middleware to all routes
+router.use(requireAuth, requirePermission('projects'));
 
 router.get('/', async (req, res) => {
   const { page, limit, offset, search } = extractPagination(req);

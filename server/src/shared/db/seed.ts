@@ -40,6 +40,32 @@ export async function seed() {
   await ins(userSql, [USERS.external, '外部 クライアント', 'client@example.com', 'external_client']);
 
   // ============================================================
+  // User Permissions (system_admin bypasses checks, so only non-admin users)
+  // ============================================================
+  const permSql = `INSERT INTO user_permissions (id, user_id, module, access_level) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING`;
+  const allEditModules = ['dashboard', 'projects', 'calendar', 'equipment', 'reports', 'customers', 'vendors', 'pricing'];
+
+  // staff1 & staff2: all modules at "edit" level
+  for (const userId of [USERS.staff1, USERS.staff2]) {
+    for (const mod of allEditModules) {
+      await ins(permSql, [uuidv4(), userId, mod, 'edit']);
+    }
+  }
+
+  // staff3: focused on production — limited modules
+  for (const [mod, level] of [['dashboard', 'view'], ['projects', 'edit'], ['calendar', 'edit'], ['equipment', 'edit']] as const) {
+    await ins(permSql, [uuidv4(), USERS.staff3, mod, level]);
+  }
+
+  // viewer: read-only overview
+  for (const mod of ['dashboard', 'projects', 'calendar', 'reports']) {
+    await ins(permSql, [uuidv4(), USERS.viewer, mod, 'view']);
+  }
+
+  // external: calendar view only
+  await ins(permSql, [uuidv4(), USERS.external, 'calendar', 'view']);
+
+  // ============================================================
   // Customers
   // ============================================================
   const custSql = `INSERT INTO customers (id, name, short_name, contact_name, email, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?)`;
@@ -820,6 +846,51 @@ export async function seed() {
 
   // Update sequence counter
   await execute(`UPDATE sequences SET counter = ? WHERE seq_name = 'eq_code'`, [eqCounter]);
+
+  // Parent-child relationships (equipment sets)
+  // Create a "カメラセット A" parent item, then assign camera + lens children
+  const camSetAId = uuidv4();
+  eqCounter++;
+  const camSetACode = `EQ-CAMSET-A`;
+  await ins(`INSERT INTO equipment_items (
+    id, eq_code, name, category_id, item_type, unit_number,
+    manufacturer, model_number, serial_number,
+    acquisition_cost, useful_life, asset_class, depreciation_method,
+    status, condition, location_detail,
+    is_lendable, acquisition_date, created_by
+  ) VALUES (?,?,?,?,?,?, ?,?,?, ?,?,?,?, ?,?,?, ?,?,?)`, [
+    camSetAId, camSetACode, 'カメラセット A (FX9 + CN-E 50mm)', eqCatIds['camera'], 'facility', 1,
+    null, null, null,
+    0, 5, 'fixed_asset', 'straight_line',
+    'active', 'good', 'A棟 3F カメラ庫',
+    0, '2024-04-01', USERS.admin,
+  ]);
+
+  // Set cam1 (Sony PXW-FX9 #1) and lens1 (Canon CN-E 50mm) as children of カメラセット A
+  await execute(`UPDATE equipment_items SET parent_id = ? WHERE id = ?`, [camSetAId, eqItemIds['cam1']]);
+  await execute(`UPDATE equipment_items SET parent_id = ? WHERE id = ?`, [camSetAId, eqItemIds['lens1']]);
+
+  // Create a "照明セット A" parent item for lighting equipment
+  const lightSetAId = uuidv4();
+  eqCounter++;
+  const lightSetACode = `EQ-LTSET-A`;
+  await ins(`INSERT INTO equipment_items (
+    id, eq_code, name, category_id, item_type, unit_number,
+    manufacturer, model_number, serial_number,
+    acquisition_cost, useful_life, asset_class, depreciation_method,
+    status, condition, location_detail,
+    is_lendable, acquisition_date, created_by
+  ) VALUES (?,?,?,?,?,?, ?,?,?, ?,?,?,?, ?,?,?, ?,?,?)`, [
+    lightSetAId, lightSetACode, '照明セット A (Aputure 600d Pro x2)', eqCatIds['lighting'], 'rental', 1,
+    null, null, null,
+    0, 5, 'fixed_asset', 'straight_line',
+    'active', 'good', 'A棟 3F 照明庫',
+    1, '2024-04-01', USERS.admin,
+  ]);
+
+  // Set light2 and light2b (Aputure 600d Pro #1 & #2) as children of 照明セット A
+  await execute(`UPDATE equipment_items SET parent_id = ? WHERE id = ?`, [lightSetAId, eqItemIds['light2']]);
+  await execute(`UPDATE equipment_items SET parent_id = ? WHERE id = ?`, [lightSetAId, eqItemIds['light2b']]);
 
   // Sample lendings
   const lend1 = uuidv4();
