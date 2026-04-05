@@ -8,7 +8,7 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 const router = Router();
 
 // Apply auth + permission middleware to all routes
-router.use(requireAuth, requirePermission('masters'));
+router.use(requireAuth, requirePermission('sales'));
 
 router.get('/', async (req, res) => {
   const { page, limit, offset, search } = extractPagination(req);
@@ -26,7 +26,7 @@ router.get('/:id', async (req, res) => {
   res.json({ success: true, data: row });
 });
 
-router.post('/', requirePermission('masters', 'edit'), async (req, res) => {
+router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
   const { name, short_name, contact_name, email, phone, address, notes } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', '顧客名は必須です');
   const id = uuidv4();
@@ -36,7 +36,7 @@ router.post('/', requirePermission('masters', 'edit'), async (req, res) => {
   res.status(201).json({ success: true, data: row });
 });
 
-router.put('/:id', requirePermission('masters', 'edit'), async (req, res) => {
+router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
   const existing = await queryOne('SELECT id FROM customers WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!existing) throw new AppError(404, 'NOT_FOUND', '顧客が見つかりません');
   const { name, short_name, contact_name, email, phone, address, notes } = req.body;
@@ -46,7 +46,7 @@ router.put('/:id', requirePermission('masters', 'edit'), async (req, res) => {
   res.json({ success: true, data: row });
 });
 
-router.delete('/:id', requirePermission('masters', 'edit'), async (req, res) => {
+router.delete('/:id', requirePermission('sales', 'editor'), async (req, res) => {
   await execute(`UPDATE customers SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`, [req.user!.id, req.params.id]);
   res.json({ success: true, message: '削除しました' });
 });

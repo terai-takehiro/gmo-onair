@@ -5,7 +5,7 @@ import { requireAuth, requirePermission } from '../../../shared/middleware/auth'
 const router = Router();
 
 // Apply auth + permission middleware to all routes
-router.use(requireAuth, requirePermission('dashboard'));
+router.use(requireAuth, requirePermission('sales'));
 
 function countMonths(start: string, end: string): number {
   const [sy, sm] = start.split('-').map(Number);

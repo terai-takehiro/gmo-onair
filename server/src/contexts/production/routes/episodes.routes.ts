@@ -10,7 +10,7 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 const router = Router();
 
 // Apply auth + permission middleware to all routes
-router.use(requireAuth, requirePermission('projects'));
+router.use(requireAuth, requirePermission('sales'));
 
 // List episodes for a project
 router.get('/:projectId/episodes', async (req, res) => {
@@ -61,7 +61,7 @@ router.get('/:projectId/episodes/:id', async (req, res) => {
 });
 
 // Batch create episodes
-router.post('/:projectId/episodes/batch', requirePermission('projects', 'edit'), async (req, res) => {
+router.post('/:projectId/episodes/batch', requirePermission('sales', 'editor'), async (req, res) => {
   const projectId = req.params.projectId as string;
   const { count, order_date, notes, revenue_budget_per_episode } = req.body;
 
@@ -117,7 +117,7 @@ router.post('/:projectId/episodes/batch', requirePermission('projects', 'edit'),
 });
 
 // Update episode
-router.put('/:projectId/episodes/:id', requirePermission('projects', 'edit'), async (req, res) => {
+router.put('/:projectId/episodes/:id', requirePermission('sales', 'editor'), async (req, res) => {
   const existing = await queryOne(
     'SELECT e.id FROM episodes e WHERE e.id = ? AND e.project_id = ? AND e.deleted_at IS NULL',
     [req.params.id, req.params.projectId]
@@ -165,7 +165,7 @@ router.put('/:projectId/episodes/:id', requirePermission('projects', 'edit'), as
 });
 
 // Soft delete episode
-router.delete('/:projectId/episodes/:id', requirePermission('projects', 'edit'), async (req, res) => {
+router.delete('/:projectId/episodes/:id', requirePermission('sales', 'editor'), async (req, res) => {
   const existing = await queryOne(
     'SELECT id FROM episodes WHERE id = ? AND project_id = ? AND deleted_at IS NULL',
     [req.params.id, req.params.projectId]

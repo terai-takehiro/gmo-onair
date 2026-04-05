@@ -7,7 +7,7 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 const router = Router();
 
 // Apply auth + permission middleware to all routes
-router.use(requireAuth, requirePermission('calendar'));
+router.use(requireAuth, requirePermission('studio'));
 
 // ============================================================
 // Studio Locations & Rooms
@@ -30,7 +30,7 @@ router.get('/locations', async (_req, res) => {
 });
 
 // POST /studios/locations — ロケーション追加
-router.post('/locations', requirePermission('calendar', 'edit'), async (req, res) => {
+router.post('/locations', requirePermission('studio', 'editor'), async (req, res) => {
   const { name, sort_order } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', '名前は必須です');
   const id = uuidv4();
@@ -40,7 +40,7 @@ router.post('/locations', requirePermission('calendar', 'edit'), async (req, res
 });
 
 // POST /studios/rooms — 部屋追加
-router.post('/rooms', requirePermission('calendar', 'edit'), async (req, res) => {
+router.post('/rooms', requirePermission('studio', 'editor'), async (req, res) => {
   const { location_id, name, room_type, color, sort_order } = req.body;
   if (!location_id || !name) throw new AppError(400, 'VALIDATION_ERROR', 'ロケーションと名前は必須です');
   const id = uuidv4();
@@ -125,7 +125,7 @@ router.get('/bookings/:id', async (req, res) => {
 });
 
 // POST /studios/bookings — 予約作成
-router.post('/bookings', requirePermission('calendar', 'edit'), async (req, res) => {
+router.post('/bookings', requirePermission('studio', 'editor'), async (req, res) => {
   const { title, booking_type, project_id, episode_id, all_day, start_time, end_time, room_ids, room_details, location_note, notes } = req.body;
   if (!title || !start_time || !end_time) throw new AppError(400, 'VALIDATION_ERROR', 'タイトル・開始・終了は必須です');
 
@@ -154,7 +154,7 @@ router.post('/bookings', requirePermission('calendar', 'edit'), async (req, res)
 });
 
 // PUT /studios/bookings/:id — 予約更新
-router.put('/bookings/:id', requirePermission('calendar', 'edit'), async (req, res) => {
+router.put('/bookings/:id', requirePermission('studio', 'editor'), async (req, res) => {
   const existing = await queryOne('SELECT id FROM studio_bookings WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!existing) throw new AppError(404, 'NOT_FOUND', '予約が見つかりません');
 
@@ -186,7 +186,7 @@ router.put('/bookings/:id', requirePermission('calendar', 'edit'), async (req, r
 });
 
 // DELETE /studios/bookings/:id
-router.delete('/bookings/:id', requirePermission('calendar', 'edit'), async (req, res) => {
+router.delete('/bookings/:id', requirePermission('studio', 'editor'), async (req, res) => {
   await execute(`UPDATE studio_bookings SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`,
     [req.user!.id, req.params.id]);
   res.json({ success: true, message: '削除しました' });

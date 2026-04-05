@@ -7,7 +7,7 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 const router = Router();
 
 // Apply auth + permission middleware to all routes
-router.use(requireAuth, requirePermission('projects'));
+router.use(requireAuth, requirePermission('sales'));
 
 // GET /projects/:id/simulation
 router.get('/:id/simulation', async (req, res) => {
@@ -29,7 +29,7 @@ router.get('/:id/simulation', async (req, res) => {
 });
 
 // PUT /projects/:id/simulation
-router.put('/:id/simulation', requirePermission('projects', 'edit'), async (req, res) => {
+router.put('/:id/simulation', requirePermission('sales', 'editor'), async (req, res) => {
   const project = await queryOne('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
 

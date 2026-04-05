@@ -9,7 +9,7 @@ import { generateEstimatePdf } from '../../../shared/services/pdf.service';
 const router = Router();
 
 // Apply auth + permission middleware to all routes
-router.use(requireAuth, requirePermission('revenues'));
+router.use(requireAuth, requirePermission('budget'));
 
 // 売上一覧
 router.get('/', async (req, res) => {
@@ -110,7 +110,7 @@ router.get('/:id/pdf', async (req, res, next) => {
 });
 
 // 新規売上（明細行対応、episode_id任意）
-router.post('/', requirePermission('revenues', 'edit'), async (req, res) => {
+router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
   const { project_id, customer_id, episode_id, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, items, subtitle, status: reqStatus } = req.body;
   if (!project_id || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件と顧客は必須です');
 
@@ -159,7 +159,7 @@ router.post('/', requirePermission('revenues', 'edit'), async (req, res) => {
 });
 
 // 売上更新（明細行対応）
-router.put('/:id', requirePermission('revenues', 'edit'), async (req, res) => {
+router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
   const existing = await queryOne('SELECT * FROM revenues WHERE id = ? AND deleted_at IS NULL', [req.params.id]) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '売上が見つかりません');
   const { billing_key, project_id, customer_id, episode_id, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, items, subtitle } = req.body;
@@ -195,7 +195,7 @@ router.put('/:id', requirePermission('revenues', 'edit'), async (req, res) => {
 });
 
 // 売上削除
-router.delete('/:id', requirePermission('revenues', 'edit'), async (req, res) => {
+router.delete('/:id', requirePermission('budget', 'editor'), async (req, res) => {
   await execute(`UPDATE revenues SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`, [req.user!.id, req.params.id]);
   res.json({ success: true, message: '削除しました' });
 });

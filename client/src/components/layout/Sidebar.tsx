@@ -1,10 +1,9 @@
-import { NavLink } from "react-router-dom";
-import { useAuth } from "@/contexts/platform/AuthContext";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { BLOCK_APPS } from "@/contexts/platform/AuthContext";
 import { useUiStore } from "@/stores/uiStore";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  LayoutDashboard,
   FolderKanban,
   Receipt,
   ShoppingCart,
@@ -23,89 +22,130 @@ import {
   Briefcase,
   GitBranch,
   Package,
+  PiggyBank,
+  Home,
+  ChevronLeft,
+  Sparkles,
+  FileText,
+  BookOpen,
+  Settings,
 } from "lucide-react";
+
+const ICON_MAP: Record<string, React.ElementType> = {
+  FolderKanban, PiggyBank, Calendar, Package, FileText,
+  BookOpen, Users, Truck, Sparkles,
+};
 
 interface NavItem {
   label: string;
   to: string;
   icon: React.ElementType;
-  /** 必要なモジュール権限 (未指定=全員表示) */
-  module?: string;
-  /** 必要なアクセスレベル (デフォルト: view) */
-  minLevel?: "view" | "edit" | "full";
 }
 
 interface NavSection {
   title?: string;
   items: NavItem[];
-  /** セクション全体に必要なモジュール権限 */
-  module?: string;
 }
 
-const navSections: NavSection[] = [
-  {
-    items: [
-      { label: "ダッシュボード", to: "/", icon: LayoutDashboard, module: "dashboard" },
-    ],
-  },
-  {
-    title: "営業・案件管理",
-    module: "projects",
-    items: [
-      { label: "案件管理", to: "/projects", icon: FolderKanban },
-      { label: "確定案件（スタジオ）", to: "/projects/confirmed/studio", icon: Film },
-      { label: "確定案件（ビジネス）", to: "/projects/confirmed/business", icon: Briefcase },
-      { label: "按分グループ", to: "/project-groups", icon: GitBranch },
-      { label: "営業活動記録", to: "/activity-logs", icon: ClipboardList },
-      { label: "営業レビュー", to: "/sales-review", icon: Award },
-    ],
-  },
-  {
-    title: "売上・仕入・販管費",
-    items: [
-      { label: "売上管理", to: "/revenues", icon: Receipt, module: "revenues" },
-      { label: "仕入管理", to: "/purchases", icon: ShoppingCart, module: "purchases" },
-      { label: "販管費", to: "/sga", icon: Receipt, module: "sga" },
-    ],
-  },
-  {
-    title: "制作・運用",
-    items: [
-      { label: "スタジオ予約", to: "/calendar", icon: Calendar, module: "calendar" },
-      { label: "機材管理", to: "/equipment", icon: Package, module: "equipment" },
-      { label: "貸出管理", to: "/equipment/lending", icon: ClipboardList, module: "equipment" },
-    ],
-  },
-  {
-    title: "マスター管理",
-    module: "masters",
-    items: [
-      { label: "顧客", to: "/masters/customers", icon: Building2 },
-      { label: "仕入先", to: "/masters/vendors", icon: Truck },
-      { label: "パートナー", to: "/masters/partners", icon: Users },
-      { label: "料金表", to: "/masters/pricing", icon: DollarSign },
-    ],
-  },
-  {
-    title: "レポート",
-    module: "reports",
-    items: [
-      { label: "仕入先集計", to: "/reports/vendors", icon: BarChart3 },
-    ],
-  },
-  {
-    title: "システム管理",
-    module: "admin",
-    items: [
-      { label: "ユーザー管理", to: "/admin/users", icon: UserCog },
-      { label: "データビューア", to: "/admin/data-viewer", icon: Database },
-    ],
-  },
-];
+/** ブロックアプリ別のナビゲーション定義 */
+const APP_NAV: Record<string, NavSection[]> = {
+  sales: [
+    {
+      title: "案件",
+      items: [
+        { label: "案件一覧", to: "/sales/projects", icon: FolderKanban },
+        { label: "確定案件（スタジオ）", to: "/sales/projects/confirmed/studio", icon: Film },
+        { label: "確定案件（ビジネス）", to: "/sales/projects/confirmed/business", icon: Briefcase },
+        { label: "按分グループ", to: "/sales/project-groups", icon: GitBranch },
+      ],
+    },
+    {
+      title: "営業",
+      items: [
+        { label: "営業活動記録", to: "/sales/activity-logs", icon: ClipboardList },
+        { label: "営業レビュー", to: "/sales/review", icon: Award },
+        { label: "ダッシュボード", to: "/sales/dashboard", icon: BarChart3 },
+      ],
+    },
+    {
+      title: "マスター",
+      items: [
+        { label: "顧客", to: "/sales/customers", icon: Building2 },
+        { label: "料金表", to: "/sales/pricing", icon: DollarSign },
+      ],
+    },
+  ],
+  budget: [
+    {
+      title: "収支",
+      items: [
+        { label: "売上管理", to: "/budget/revenues", icon: Receipt },
+        { label: "仕入管理", to: "/budget/purchases", icon: ShoppingCart },
+        { label: "販管費", to: "/budget/sga", icon: Receipt },
+      ],
+    },
+    {
+      title: "マスター",
+      items: [
+        { label: "仕入先", to: "/budget/vendors", icon: Truck },
+        { label: "パートナー", to: "/budget/partners", icon: Users },
+      ],
+    },
+    {
+      title: "レポート",
+      items: [
+        { label: "仕入先集計", to: "/budget/reports/vendors", icon: BarChart3 },
+      ],
+    },
+  ],
+  studio: [
+    {
+      items: [
+        { label: "カレンダー", to: "/studio/calendar", icon: Calendar },
+      ],
+    },
+  ],
+  equipment: [
+    {
+      items: [
+        { label: "機材一覧", to: "/equipment/items", icon: Package },
+        { label: "貸出管理", to: "/equipment/lending", icon: ClipboardList },
+      ],
+    },
+  ],
+  admin: [
+    {
+      items: [
+        { label: "ユーザー管理", to: "/admin/users", icon: UserCog },
+        { label: "データビューア", to: "/admin/data-viewer", icon: Database },
+        { label: "システム設定", to: "/admin/settings", icon: Settings },
+      ],
+    },
+  ],
+};
+
+/** 現在のパスからアクティブなブロックアプリIDを判定 */
+function useActiveApp(): string | null {
+  const { pathname } = useLocation();
+  // /admin は特別扱い
+  if (pathname.startsWith("/admin")) return "admin";
+  const app = BLOCK_APPS.find((a) => pathname.startsWith(a.basePath));
+  return app?.id ?? null;
+}
 
 export default function Sidebar() {
-  const { hasPermission } = useAuth();
   const { sidebarOpen, setSidebarOpen } = useUiStore();
+  const navigate = useNavigate();
+  const activeAppId = useActiveApp();
+
+  // ホーム画面ではサイドバー非表示
+  if (!activeAppId) return null;
+
+  const activeApp = BLOCK_APPS.find((a) => a.id === activeAppId);
+  const AppIcon = activeApp ? (ICON_MAP[activeApp.icon] || Package) : Settings;
+  const appLabel = activeApp?.label ?? "システム管理";
+  const appColor = activeApp?.color ?? "bg-slate-500";
+  const sections = APP_NAV[activeAppId] || [];
 
   return (
     <>
@@ -123,11 +163,23 @@ export default function Sidebar() {
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        {/* Logo header */}
-        <div className="flex h-14 items-center justify-between border-b px-4">
-          <span className="text-lg font-bold text-primary">GMO ONAiR</span>
+        {/* App Header */}
+        <div className="flex h-14 items-center gap-3 border-b px-3">
           <button
-            className="rounded p-1 hover:bg-sidebar-accent lg:hidden"
+            onClick={() => navigate("/")}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-sidebar-accent"
+            title="ホームに戻る"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <div className="flex items-center gap-2 min-w-0">
+            <div className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-white", appColor)}>
+              <AppIcon className="h-4 w-4" />
+            </div>
+            <span className="truncate text-sm font-bold">{appLabel}</span>
+          </div>
+          <button
+            className="ml-auto rounded p-1 hover:bg-sidebar-accent lg:hidden"
             onClick={() => setSidebarOpen(false)}
           >
             <X className="h-5 w-5" />
@@ -137,47 +189,46 @@ export default function Sidebar() {
         {/* Navigation */}
         <ScrollArea className="flex-1">
           <nav className="space-y-1 p-3">
-            {navSections.map((section, si) => {
-              // セクションレベルのパーミッションチェック
-              if (section.module && !hasPermission(section.module)) return null;
-
-              const visibleItems = section.items.filter((item) => {
-                if (item.module && !hasPermission(item.module, item.minLevel)) return false;
-                return true;
-              });
-              if (visibleItems.length === 0) return null;
-
-              return (
-                <div key={si} className={si > 0 ? "pt-4" : ""}>
-                  {section.title && (
-                    <p className="mb-1 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {section.title}
-                    </p>
-                  )}
-                  {visibleItems.map((item) => (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      end={item.to === "/"}
-                      onClick={() => setSidebarOpen(false)}
-                      className={({ isActive }) =>
-                        cn(
-                          "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                          isActive
-                            ? "bg-primary/10 text-primary"
-                            : "text-sidebar-foreground hover:bg-sidebar-accent"
-                        )
-                      }
-                    >
-                      <item.icon className="h-4 w-4" />
-                      {item.label}
-                    </NavLink>
-                  ))}
-                </div>
-              );
-            })}
+            {sections.map((section, si) => (
+              <div key={si} className={si > 0 ? "pt-4" : ""}>
+                {section.title && (
+                  <p className="mb-1 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {section.title}
+                  </p>
+                )}
+                {section.items.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    onClick={() => setSidebarOpen(false)}
+                    className={({ isActive }) =>
+                      cn(
+                        "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                        isActive
+                          ? "bg-primary/10 text-primary"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent"
+                      )
+                    }
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.label}
+                  </NavLink>
+                ))}
+              </div>
+            ))}
           </nav>
         </ScrollArea>
+
+        {/* Home button at bottom */}
+        <div className="border-t p-3">
+          <button
+            onClick={() => { navigate("/"); setSidebarOpen(false); }}
+            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          >
+            <Home className="h-4 w-4" />
+            ホームに戻る
+          </button>
+        </div>
       </aside>
     </>
   );

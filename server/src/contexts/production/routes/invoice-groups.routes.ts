@@ -8,7 +8,7 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 const router = Router();
 
 // Apply auth + permission middleware to all routes
-router.use(requireAuth, requirePermission('projects'));
+router.use(requireAuth, requirePermission('sales'));
 
 // List invoice groups with episode count and total amount
 router.get('/:projectId/invoice-groups', async (req, res) => {
@@ -39,7 +39,7 @@ router.get('/:projectId/invoice-groups', async (req, res) => {
 });
 
 // Create invoice group
-router.post('/:projectId/invoice-groups', requirePermission('projects', 'edit'), async (req, res) => {
+router.post('/:projectId/invoice-groups', requirePermission('sales', 'editor'), async (req, res) => {
   const projectId = req.params.projectId;
   const { title, invoice_date, episode_ids } = req.body;
 
@@ -77,7 +77,7 @@ router.post('/:projectId/invoice-groups', requirePermission('projects', 'edit'),
 });
 
 // Update invoice group
-router.put('/:projectId/invoice-groups/:id', requirePermission('projects', 'edit'), async (req, res) => {
+router.put('/:projectId/invoice-groups/:id', requirePermission('sales', 'editor'), async (req, res) => {
   const existing = await queryOne(
     'SELECT id FROM invoice_groups WHERE id = ? AND project_id = ? AND deleted_at IS NULL',
     [req.params.id, req.params.projectId]
@@ -106,7 +106,7 @@ router.put('/:projectId/invoice-groups/:id', requirePermission('projects', 'edit
 });
 
 // Soft delete invoice group
-router.delete('/:projectId/invoice-groups/:id', requirePermission('projects', 'edit'), async (req, res) => {
+router.delete('/:projectId/invoice-groups/:id', requirePermission('sales', 'editor'), async (req, res) => {
   const existing = await queryOne(
     'SELECT id FROM invoice_groups WHERE id = ? AND project_id = ? AND deleted_at IS NULL',
     [req.params.id, req.params.projectId]
@@ -121,7 +121,7 @@ router.delete('/:projectId/invoice-groups/:id', requirePermission('projects', 'e
 });
 
 // Update episode assignments for an invoice group
-router.put('/:projectId/invoice-groups/:id/episodes', requirePermission('projects', 'edit'), async (req, res) => {
+router.put('/:projectId/invoice-groups/:id/episodes', requirePermission('sales', 'editor'), async (req, res) => {
   const existing = await queryOne(
     'SELECT id FROM invoice_groups WHERE id = ? AND project_id = ? AND deleted_at IS NULL',
     [req.params.id, req.params.projectId]
@@ -154,7 +154,7 @@ router.put('/:projectId/invoice-groups/:id/episodes', requirePermission('project
 });
 
 // Auto-create invoice groups by recording date
-router.post('/:projectId/invoice-groups/auto-by-recording-date', requirePermission('projects', 'edit'), async (req, res) => {
+router.post('/:projectId/invoice-groups/auto-by-recording-date', requirePermission('sales', 'editor'), async (req, res) => {
   const projectId = req.params.projectId;
   const project = await queryOne('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [projectId]);
   if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');

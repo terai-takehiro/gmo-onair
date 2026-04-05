@@ -7,7 +7,7 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 const router = Router();
 
 // Apply auth + permission middleware to all routes
-router.use(requireAuth, requirePermission('projects'));
+router.use(requireAuth, requirePermission('sales'));
 
 // List order history for a project
 router.get('/:projectId/orders', async (req, res) => {
@@ -36,7 +36,7 @@ router.get('/:projectId/orders', async (req, res) => {
 });
 
 // Soft delete an order record
-router.delete('/:projectId/orders/:id', requirePermission('projects', 'edit'), async (req, res) => {
+router.delete('/:projectId/orders/:id', requirePermission('sales', 'editor'), async (req, res) => {
   const existing = await queryOne(
     'SELECT id FROM episode_orders WHERE id = ? AND project_id = ? AND deleted_at IS NULL',
     [req.params.id, req.params.projectId]

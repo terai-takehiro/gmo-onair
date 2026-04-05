@@ -6,7 +6,7 @@ import { projectService, ProjectFilter } from '../services/project.service';
 const router = Router();
 
 // Apply auth + permission middleware to all routes
-router.use(requireAuth, requirePermission('projects'));
+router.use(requireAuth, requirePermission('sales'));
 
 // 統合一覧（タブ: all/yomi/active/completed/lost）
 router.get('/', async (req, res) => {
@@ -44,39 +44,39 @@ router.get('/:id/summary', async (req, res) => {
 });
 
 // 新規作成（ヨミ段階）
-router.post('/', requirePermission('projects', 'edit'), async (req, res) => {
+router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
   const result = await projectService.create(req.body, req.user!.id);
   res.status(201).json({ success: true, data: result });
 });
 
 // 更新
-router.put('/:id', requirePermission('projects', 'edit'), async (req, res) => {
+router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
   const result = await projectService.update(req.params.id as string, req.body, req.user!.id);
   res.json({ success: true, data: result });
 });
 
 // ステージ変更
-router.patch('/:id/stage', requirePermission('projects', 'edit'), async (req, res) => {
+router.patch('/:id/stage', requirePermission('sales', 'editor'), async (req, res) => {
   const { stage, ...rest } = req.body;
   const result = await projectService.changeStage(req.params.id as string, stage, rest, req.user!.id);
   res.json({ success: true, data: result });
 });
 
 // GLS発番
-router.post('/:id/issue-gls', requirePermission('projects', 'edit'), async (req, res) => {
+router.post('/:id/issue-gls', requirePermission('sales', 'editor'), async (req, res) => {
   const result = await projectService.issueGls(req.params.id as string, req.body, req.user!.id);
   res.json({ success: true, data: result });
 });
 
 // 既存GLS案件へのリンク（エピソード追加）
-router.post('/:id/link-gls', requirePermission('projects', 'edit'), (req, res) => {
+router.post('/:id/link-gls', requirePermission('sales', 'editor'), (req, res) => {
   const { target_project_id } = req.body;
   const result = projectService.linkToExistingGls(req.params.id as string, target_project_id, req.user!.id);
   res.json({ success: true, data: result });
 });
 
 // 削除
-router.delete('/:id', requirePermission('projects', 'edit'), async (req, res) => {
+router.delete('/:id', requirePermission('sales', 'editor'), async (req, res) => {
   await projectService.delete(req.params.id as string, req.user!.id);
   res.json({ success: true, message: '削除しました' });
 });

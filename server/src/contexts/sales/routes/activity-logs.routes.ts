@@ -6,7 +6,7 @@ import { activityLogService } from '../services/activity-log.service';
 const router = Router();
 
 // Apply auth + permission middleware to all routes
-router.use(requireAuth, requirePermission('projects'));
+router.use(requireAuth, requirePermission('sales'));
 
 router.get('/', async (req, res) => {
   const { page, limit, offset, search } = extractPagination(req);
@@ -30,15 +30,15 @@ router.get('/:id', async (req, res) => {
   res.json({ success: true, data: await activityLogService.getById(req.params.id as string) });
 });
 
-router.post('/', requirePermission('projects', 'edit'), async (req, res) => {
+router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
   res.status(201).json({ success: true, data: await activityLogService.create(req.body, req.user!.id) });
 });
 
-router.put('/:id', requirePermission('projects', 'edit'), async (req, res) => {
+router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
   res.json({ success: true, data: await activityLogService.update(req.params.id as string, req.body) });
 });
 
-router.delete('/:id', requirePermission('projects', 'edit'), async (req, res) => {
+router.delete('/:id', requirePermission('sales', 'editor'), async (req, res) => {
   await activityLogService.delete(req.params.id as string);
   res.json({ success: true, message: '削除しました' });
 });

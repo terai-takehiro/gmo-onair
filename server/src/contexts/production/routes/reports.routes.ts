@@ -5,7 +5,7 @@ import { requireAuth, requirePermission } from '../../../shared/middleware/auth'
 const router = Router();
 
 // Apply auth + permission middleware to all routes
-router.use(requireAuth, requirePermission('reports'));
+router.use(requireAuth, requirePermission('budget'));
 
 // Helper: wrap HTML content in a printable page
 function htmlPage(title: string, body: string): string {

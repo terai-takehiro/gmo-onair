@@ -12,24 +12,48 @@ interface User {
 /** モジュール別パーミッション: module名 → access_level */
 type Permissions = Record<string, string>;
 
-/** モジュール定義（日本語ラベル付き） */
+/** ブロックアプリ定義 */
+export interface BlockApp {
+  id: string;
+  label: string;
+  description: string;
+  icon: string;       // lucide icon name (resolved in UI)
+  color: string;      // tailwind color class
+  status: "active" | "coming_soon";
+  basePath: string;
+}
+
+export const BLOCK_APPS: BlockApp[] = [
+  { id: "sales",     label: "営業管理",       description: "案件パイプライン・顧客・見積",   icon: "FolderKanban", color: "bg-blue-500",    status: "active",      basePath: "/sales" },
+  { id: "budget",    label: "予算管理",       description: "売上・仕入・販管費・損益",       icon: "PiggyBank",    color: "bg-emerald-500", status: "active",      basePath: "/budget" },
+  { id: "studio",    label: "スタジオ予約",   description: "スタジオカレンダー・ブッキング", icon: "Calendar",     color: "bg-violet-500",  status: "active",      basePath: "/studio" },
+  { id: "equipment", label: "機材管理",       description: "機材台帳・貸出・メンテナンス",   icon: "Package",      color: "bg-amber-500",   status: "active",      basePath: "/equipment" },
+  { id: "qsheet",    label: "Qシート",        description: "Qシート作成・放送進行",         icon: "FileText",     color: "bg-rose-500",    status: "coming_soon", basePath: "/qsheet" },
+  { id: "techdocs",  label: "技術資料",       description: "技術資料作成支援",               icon: "BookOpen",     color: "bg-cyan-500",    status: "coming_soon", basePath: "/techdocs" },
+  { id: "assign",    label: "スタッフ配置",   description: "スタッフアサイン管理",           icon: "Users",        color: "bg-orange-500",  status: "coming_soon", basePath: "/assign" },
+  { id: "delivery",     label: "素材納品",       description: "VTR/素材の納品管理",             icon: "Truck",        color: "bg-teal-500",    status: "coming_soon", basePath: "/delivery" },
+  { id: "interactive",  label: "インタラクティブ演出", description: "スタンプ・リアルタイム演出支援", icon: "Sparkles",     color: "bg-pink-500",    status: "coming_soon", basePath: "/interactive" },
+];
+
+/** モジュール定義（日本語ラベル付き）— パーミッションキーとして使用 */
 export const MODULE_LABELS: Record<string, string> = {
-  dashboard: "ダッシュボード",
-  projects: "案件管理",
-  calendar: "スタジオ予約",
+  sales: "営業管理",
+  budget: "予算管理",
+  studio: "スタジオ予約",
   equipment: "機材管理",
-  revenues: "売上管理",
-  purchases: "仕入管理",
-  sga: "販管費",
-  masters: "マスター管理",
-  reports: "レポート",
+  qsheet: "Qシート",
+  techdocs: "技術資料",
+  assign: "スタッフ配置",
+  delivery: "素材納品",
+  interactive: "インタラクティブ演出",
   admin: "システム管理",
 };
 
+/** アクセスレベル定義（BOX風） */
 export const ACCESS_LEVEL_LABELS: Record<string, string> = {
-  view: "閲覧のみ",
-  edit: "閲覧・編集",
-  full: "フルアクセス",
+  viewer: "閲覧者",
+  editor: "編集者",
+  admin: "管理者",
 };
 
 interface AuthContextType {
@@ -40,12 +64,12 @@ interface AuthContextType {
   loading: boolean;
   permissions: Permissions;
   /** モジュールへのアクセス権があるかチェック */
-  hasPermission: (module: string, minLevel?: "view" | "edit" | "full") => boolean;
+  hasPermission: (module: string, minLevel?: "viewer" | "editor" | "admin") => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const LEVEL_ORDER: Record<string, number> = { view: 1, edit: 2, full: 3 };
+const LEVEL_ORDER: Record<string, number> = { viewer: 1, editor: 2, admin: 3 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -98,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [setCurrentUserId]);
 
   const hasPermission = useCallback(
-    (module: string, minLevel: "view" | "edit" | "full" = "view") => {
+    (module: string, minLevel: "viewer" | "editor" | "admin" = "viewer") => {
       if (!currentUser) return false;
       // system_admin は全権限
       if (currentUser.role === "system_admin") return true;

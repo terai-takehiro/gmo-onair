@@ -9,7 +9,7 @@ import { generateSgaBillingKey } from '../../../shared/services/billing-key.serv
 const router = Router();
 
 // Apply auth + permission middleware to all routes
-router.use(requireAuth, requirePermission('sga'));
+router.use(requireAuth, requirePermission('budget'));
 
 // GET /sga - List with pagination, search, filters
 router.get('/', async (req, res) => {
@@ -54,7 +54,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /sga - Create
-router.post('/', requirePermission('sga', 'edit'), async (req, res) => {
+router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
   const {
     vendor_name, vendor_id, settlement_method, settlement_number, description, notes,
     recognition_date, payment_due_date, tax_category, invoice_qualified, amount,
@@ -88,7 +88,7 @@ router.post('/', requirePermission('sga', 'edit'), async (req, res) => {
 });
 
 // PUT /sga/:id - Update
-router.put('/:id', requirePermission('sga', 'edit'), async (req, res) => {
+router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
   const existing = await queryOne('SELECT * FROM sga_expenses WHERE id = ? AND deleted_at IS NULL', [req.params.id]) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '販管費が見つかりません');
 
@@ -130,7 +130,7 @@ router.put('/:id', requirePermission('sga', 'edit'), async (req, res) => {
 });
 
 // DELETE /sga/:id - Soft delete
-router.delete('/:id', requirePermission('sga', 'edit'), async (req, res) => {
+router.delete('/:id', requirePermission('budget', 'editor'), async (req, res) => {
   await execute(
     `UPDATE sga_expenses SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`,
     [req.user!.id, req.params.id]

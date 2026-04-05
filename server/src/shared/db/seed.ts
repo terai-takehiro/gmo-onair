@@ -43,27 +43,25 @@ export async function seed() {
   // User Permissions (system_admin bypasses checks, so only non-admin users)
   // ============================================================
   const permSql = `INSERT INTO user_permissions (id, user_id, module, access_level) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING`;
-  const allEditModules = ['dashboard', 'projects', 'calendar', 'equipment', 'reports', 'customers', 'vendors', 'pricing'];
-
-  // staff1 & staff2: all modules at "edit" level
+  // staff1 & staff2: sales, budget, studio, equipment at "editor" level
   for (const userId of [USERS.staff1, USERS.staff2]) {
-    for (const mod of allEditModules) {
-      await ins(permSql, [uuidv4(), userId, mod, 'edit']);
+    for (const mod of ['sales', 'budget', 'studio', 'equipment']) {
+      await ins(permSql, [uuidv4(), userId, mod, 'editor']);
     }
   }
 
-  // staff3: focused on production — limited modules
-  for (const [mod, level] of [['dashboard', 'view'], ['projects', 'edit'], ['calendar', 'edit'], ['equipment', 'edit']] as const) {
-    await ins(permSql, [uuidv4(), USERS.staff3, mod, level]);
+  // staff3: production-focused — no budget access
+  for (const mod of ['sales', 'studio', 'equipment']) {
+    await ins(permSql, [uuidv4(), USERS.staff3, mod, 'editor']);
   }
 
-  // viewer: read-only overview
-  for (const mod of ['dashboard', 'projects', 'calendar', 'reports']) {
-    await ins(permSql, [uuidv4(), USERS.viewer, mod, 'view']);
+  // viewer: read-only on sales and calendar
+  for (const mod of ['sales', 'studio']) {
+    await ins(permSql, [uuidv4(), USERS.viewer, mod, 'viewer']);
   }
 
-  // external: calendar view only
-  await ins(permSql, [uuidv4(), USERS.external, 'calendar', 'view']);
+  // external: calendar only
+  await ins(permSql, [uuidv4(), USERS.external, 'studio', 'viewer']);
 
   // ============================================================
   // Customers
