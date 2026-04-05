@@ -46,4 +46,53 @@ router.delete('/:id', requireAuth, requireRole('system_admin'), async (req, res)
   res.json({ success: true, message: '削除しました' });
 });
 
+// ============================================================
+// パーミッション管理
+// ============================================================
+
+// ユーザーのパーミッション一覧
+router.get('/:id/permissions', requireAuth, async (req, res) => {
+  const perms = await queryAll('SELECT module, access_level FROM user_permissions WHERE user_id = ?', [req.params.id]);
+  res.json({ success: true, data: perms });
+});
+
+// ユーザーのパーミッション一括更新
+router.put('/:id/permissions', requireAuth, requireRole('system_admin'), async (req, res) => {
+  const { permissions } = req.body; // { module: access_level } or { module: null } to remove
+  if (!permissions || typeof permissions !== 'object') throw new AppError(400, 'VALIDATION_ERROR', 'permissions オブジェクトが必要です');
+
+  for (const [module, level] of Object.entries(permissions)) {
+    if (!level) {
+      // パーミッション削除
+      await execute('DELETE FROM user_permissions WHERE user_id = ? AND module = ?', [req.params.id, module]);
+    } else {
+      // upsert
+      const existing = await queryOne('SELECT id FROM user_permissions WHERE user_id = ? AND module = ?', [req.params.id, module]);
+      if (existing) {
+        await execute('UPDATE user_permissions SET access_level = ?, updated_at = NOW() WHERE user_id = ? AND module = ?', [level, req.params.id, module]);
+      } else {
+        await execute('INSERT INTO user_permissions (id, user_id, module, access_level) VALUES (?, ?, ?, ?)', [uuidv4(), req.params.id, module, level]);
+      }
+    }
+  }
+
+  const perms = await queryAll('SELECT module, access_level FROM user_permissions WHERE user_id = ?', [req.params.id]);
+  res.json({ success: true, data: perms });
+});
+
+// 現在ログインユーザーのパーミッション（クライアント用）
+router.get('/me/permissions', requireAuth, async (req, res) => {
+  if (req.user!.role === 'system_admin') {
+    // system_admin は全モジュールfull
+    res.json({ success: true, data: { _all: 'full' } });
+    return;
+  }
+  const perms = await queryAll('SELECT module, access_level FROM user_permissions WHERE user_id = ?', [req.user!.id]);
+  const permMap: Record<string, string> = {};
+  for (const p of perms) {
+    permMap[p.module as string] = p.access_level as string;
+  }
+  res.json({ success: true, data: permMap });
+});
+
 export default router;

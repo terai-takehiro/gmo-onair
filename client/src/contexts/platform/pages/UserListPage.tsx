@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import api from "@/lib/api";
-import { useAuth } from "@/contexts/platform/AuthContext";
+import { useAuth, MODULE_LABELS, ACCESS_LEVEL_LABELS } from "@/contexts/platform/AuthContext";
 import { formatDate } from "@/lib/format";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Loader2, ShieldAlert } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, ShieldAlert, KeyRound } from "lucide-react";
 
 const roleLabelMap: Record<string, string> = {
   system_admin: "システム管理者",
@@ -48,11 +48,148 @@ interface UserForm {
   role: string;
 }
 
+/* ---------- Permission Dialog ---------- */
+function PermissionDialog({
+  user,
+  open,
+  onOpenChange,
+}: {
+  user: User | null;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
+  const [localPerms, setLocalPerms] = useState<Record<string, string>>({});
+
+  const isTargetAdmin = user?.role === "system_admin";
+
+  const { data: permsData, isLoading } = useQuery<{ module: string; access_level: string }[]>({
+    queryKey: ["user-permissions", user?.id],
+    queryFn: async () => (await api.get(`/users/${user!.id}/permissions`)).data.data,
+    enabled: open && !!user && !isTargetAdmin,
+  });
+
+  // Sync fetched permissions into local state when data arrives
+  const permsKey = permsData ? JSON.stringify(permsData) : "";
+  const [syncedKey, setSyncedKey] = useState("");
+  if (permsKey && permsKey !== syncedKey) {
+    const map: Record<string, string> = {};
+    for (const p of permsData!) {
+      map[p.module] = p.access_level;
+    }
+    setLocalPerms(map);
+    setSyncedKey(permsKey);
+  }
+
+  // Reset synced key when dialog closes or user changes
+  const userIdRef = user?.id ?? "";
+  const [prevUserId, setPrevUserId] = useState("");
+  if (userIdRef !== prevUserId) {
+    setPrevUserId(userIdRef);
+    setSyncedKey("");
+    setLocalPerms({});
+  }
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const permissions: Record<string, string | null> = {};
+      for (const mod of Object.keys(MODULE_LABELS)) {
+        permissions[mod] = localPerms[mod] || null;
+      }
+      await api.put(`/users/${user!.id}/permissions`, { permissions });
+    },
+    onSuccess: () => {
+      onOpenChange(false);
+    },
+  });
+
+  const setModuleLevel = (mod: string, level: string) => {
+    setLocalPerms((prev) => {
+      const next = { ...prev };
+      if (level === "none") {
+        delete next[mod];
+      } else {
+        next[mod] = level;
+      }
+      return next;
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>権限設定 — {user?.name}</DialogTitle>
+          <DialogDescription>
+            各モジュールのアクセスレベルを設定します
+          </DialogDescription>
+        </DialogHeader>
+
+        {isTargetAdmin ? (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground bg-muted rounded-md p-3">
+              管理者は全権限を持ちます
+            </p>
+            <div className="space-y-2">
+              {Object.entries(MODULE_LABELS).map(([mod, label]) => (
+                <div key={mod} className="flex items-center justify-between py-1.5 px-1">
+                  <span className="text-sm font-medium">{label}</span>
+                  <Badge className="bg-primary/10 text-primary">フルアクセス</Badge>
+                </div>
+              ))}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>閉じる</Button>
+            </DialogFooter>
+          </div>
+        ) : isLoading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              {Object.entries(MODULE_LABELS).map(([mod, label]) => (
+                <div key={mod} className="flex items-center justify-between gap-4 py-1">
+                  <span className="text-sm font-medium whitespace-nowrap">{label}</span>
+                  <Select
+                    value={localPerms[mod] || "none"}
+                    onValueChange={(v) => setModuleLevel(mod, v)}
+                  >
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">アクセスなし</SelectItem>
+                      {Object.entries(ACCESS_LEVEL_LABELS).map(([level, levelLabel]) => (
+                        <SelectItem key={level} value={level}>{levelLabel}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
+              <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+                {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                保存
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ---------- Main Page ---------- */
 export default function UserListPage() {
   const { currentUser } = useAuth();
   const qc = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [permUser, setPermUser] = useState<User | null>(null);
+  const [permDialogOpen, setPermDialogOpen] = useState(false);
 
   const form = useForm<UserForm>({
     defaultValues: { name: "", email: "", role: "staff" },
@@ -137,6 +274,9 @@ export default function UserListPage() {
                         )}
                       </div>
                       <div className="flex gap-1 shrink-0">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setPermUser(u); setPermDialogOpen(true); }} title="権限設定">
+                          <KeyRound className="h-4 w-4" />
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(u)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -158,7 +298,7 @@ export default function UserListPage() {
                     <TableHead>メール</TableHead>
                     <TableHead>ロール</TableHead>
                     <TableHead>作成日</TableHead>
-                    <TableHead className="w-24"></TableHead>
+                    <TableHead className="w-32"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -174,6 +314,7 @@ export default function UserListPage() {
                       <TableCell>{formatDate(u.created_at)}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setPermUser(u); setPermDialogOpen(true); }} title="権限設定"><KeyRound className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(u)}><Pencil className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(u.id)}><Trash2 className="h-4 w-4" /></Button>
                         </div>
@@ -218,6 +359,8 @@ export default function UserListPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <PermissionDialog user={permUser} open={permDialogOpen} onOpenChange={setPermDialogOpen} />
     </div>
     </PageTransition>
   );

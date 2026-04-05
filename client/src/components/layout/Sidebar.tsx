@@ -29,23 +29,28 @@ interface NavItem {
   label: string;
   to: string;
   icon: React.ElementType;
-  adminOnly?: boolean;
-  external?: boolean;
+  /** 必要なモジュール権限 (未指定=全員表示) */
+  module?: string;
+  /** 必要なアクセスレベル (デフォルト: view) */
+  minLevel?: "view" | "edit" | "full";
 }
 
 interface NavSection {
   title?: string;
   items: NavItem[];
+  /** セクション全体に必要なモジュール権限 */
+  module?: string;
 }
 
 const navSections: NavSection[] = [
   {
     items: [
-      { label: "ダッシュボード", to: "/", icon: LayoutDashboard },
+      { label: "ダッシュボード", to: "/", icon: LayoutDashboard, module: "dashboard" },
     ],
   },
   {
     title: "営業・案件管理",
+    module: "projects",
     items: [
       { label: "案件管理", to: "/projects", icon: FolderKanban },
       { label: "確定案件（スタジオ）", to: "/projects/confirmed/studio", icon: Film },
@@ -58,20 +63,22 @@ const navSections: NavSection[] = [
   {
     title: "売上・仕入・販管費",
     items: [
-      { label: "売上一覧", to: "/revenues", icon: Receipt },
-      { label: "仕入一覧", to: "/purchases", icon: ShoppingCart },
-      { label: "販管費", to: "/sga", icon: Receipt },
+      { label: "売上管理", to: "/revenues", icon: Receipt, module: "revenues" },
+      { label: "仕入管理", to: "/purchases", icon: ShoppingCart, module: "purchases" },
+      { label: "販管費", to: "/sga", icon: Receipt, module: "sga" },
     ],
   },
   {
     title: "制作・運用",
     items: [
-      { label: "スタジオ予約", to: "/calendar", icon: Calendar },
-      { label: "機材管理", to: "/equipment/", icon: Package, external: true },
+      { label: "スタジオ予約", to: "/calendar", icon: Calendar, module: "calendar" },
+      { label: "機材管理", to: "/equipment", icon: Package, module: "equipment" },
+      { label: "貸出管理", to: "/equipment/lending", icon: ClipboardList, module: "equipment" },
     ],
   },
   {
-    title: "マスター",
+    title: "マスター管理",
+    module: "masters",
     items: [
       { label: "顧客", to: "/masters/customers", icon: Building2 },
       { label: "仕入先", to: "/masters/vendors", icon: Truck },
@@ -81,23 +88,24 @@ const navSections: NavSection[] = [
   },
   {
     title: "レポート",
+    module: "reports",
     items: [
       { label: "仕入先集計", to: "/reports/vendors", icon: BarChart3 },
     ],
   },
   {
-    title: "管理",
+    title: "システム管理",
+    module: "admin",
     items: [
-      { label: "ユーザー管理", to: "/admin/users", icon: UserCog, adminOnly: true },
-      { label: "データビューア", to: "/admin/data-viewer", icon: Database, adminOnly: true },
+      { label: "ユーザー管理", to: "/admin/users", icon: UserCog },
+      { label: "データビューア", to: "/admin/data-viewer", icon: Database },
     ],
   },
 ];
 
 export default function Sidebar() {
-  const { currentUser } = useAuth();
+  const { hasPermission } = useAuth();
   const { sidebarOpen, setSidebarOpen } = useUiStore();
-  const isAdmin = currentUser?.role === "system_admin";
 
   return (
     <>
@@ -130,9 +138,13 @@ export default function Sidebar() {
         <ScrollArea className="flex-1">
           <nav className="space-y-1 p-3">
             {navSections.map((section, si) => {
-              const visibleItems = section.items.filter(
-                (item) => !item.adminOnly || isAdmin
-              );
+              // セクションレベルのパーミッションチェック
+              if (section.module && !hasPermission(section.module)) return null;
+
+              const visibleItems = section.items.filter((item) => {
+                if (item.module && !hasPermission(item.module, item.minLevel)) return false;
+                return true;
+              });
               if (visibleItems.length === 0) return null;
 
               return (
@@ -142,40 +154,25 @@ export default function Sidebar() {
                       {section.title}
                     </p>
                   )}
-                  {visibleItems.map((item) =>
-                    item.external ? (
-                      <a
-                        key={item.to}
-                        href={item.to}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={() => setSidebarOpen(false)}
-                        className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors text-sidebar-foreground hover:bg-sidebar-accent"
-                      >
-                        <item.icon className="h-4 w-4" />
-                        {item.label}
-                        <span className="ml-auto text-[10px] text-muted-foreground">↗</span>
-                      </a>
-                    ) : (
-                      <NavLink
-                        key={item.to}
-                        to={item.to}
-                        end={item.to === "/"}
-                        onClick={() => setSidebarOpen(false)}
-                        className={({ isActive }) =>
-                          cn(
-                            "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                            isActive
-                              ? "bg-primary/10 text-primary"
-                              : "text-sidebar-foreground hover:bg-sidebar-accent"
-                          )
-                        }
-                      >
-                        <item.icon className="h-4 w-4" />
-                        {item.label}
-                      </NavLink>
-                    )
-                  )}
+                  {visibleItems.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      end={item.to === "/"}
+                      onClick={() => setSidebarOpen(false)}
+                      className={({ isActive }) =>
+                        cn(
+                          "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                          isActive
+                            ? "bg-primary/10 text-primary"
+                            : "text-sidebar-foreground hover:bg-sidebar-accent"
+                        )
+                      }
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {item.label}
+                    </NavLink>
+                  ))}
                 </div>
               );
             })}
