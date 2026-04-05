@@ -36,7 +36,7 @@ router.get('/categories', async (req, res) => {
 });
 
 // POST /pricing/categories - Create category
-router.post('/categories', requirePermission('sales', 'editor'), async (req, res) => {
+router.post('/categories', requirePermission('sales', 'owner'), async (req, res) => {
   const { name, sort_order } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', 'カテゴリ名は必須です');
   const id = uuidv4();
@@ -49,7 +49,7 @@ router.post('/categories', requirePermission('sales', 'editor'), async (req, res
 });
 
 // PUT /pricing/categories/:id - Update category
-router.put('/categories/:id', requirePermission('sales', 'editor'), async (req, res) => {
+router.put('/categories/:id', requirePermission('sales', 'owner'), async (req, res) => {
   const existing = await queryOne('SELECT id FROM pricing_categories WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'カテゴリが見つかりません');
   const { name, sort_order } = req.body;
@@ -62,7 +62,7 @@ router.put('/categories/:id', requirePermission('sales', 'editor'), async (req, 
 });
 
 // DELETE /pricing/categories/:id - Soft delete category
-router.delete('/categories/:id', requirePermission('sales', 'manager'), async (req, res) => {
+router.delete('/categories/:id', requirePermission('sales', 'owner'), async (req, res) => {
   await execute(
     `UPDATE pricing_categories SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`,
     [req.user!.id, req.params.id]

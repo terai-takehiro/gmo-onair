@@ -5,6 +5,7 @@ import { requireAuth, requirePermission } from '../../../shared/middleware/auth'
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateBillingKey } from '../../../shared/services/billing-key.service';
+import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
 
 const router = Router();
 
@@ -42,6 +43,20 @@ router.get('/', async (req, res) => {
     [...params, limit, offset]
   );
   res.json(paginatedResponse(rows, total, page, limit));
+});
+
+// CSV Export
+router.get('/export', requirePermission('budget', 'exporter'), async (_req, res) => {
+  const rows = await queryAll(
+    `SELECT v.name as vendor_name, p.name as project_name, pu.description, pu.amount, pu.tax_category as tax, pu.amount as total, pu.recognition_date as date
+     FROM purchases pu
+     LEFT JOIN projects p ON p.id = pu.project_id
+     LEFT JOIN vendors v ON v.id = pu.vendor_id
+     WHERE pu.deleted_at IS NULL
+     ORDER BY pu.recognition_date DESC, pu.created_at DESC`
+  ) as Record<string, unknown>[];
+  const columns = ['vendor_name', 'project_name', 'description', 'amount', 'tax', 'total', 'date'];
+  csvResponse(res, 'purchases.csv', generateCsv(rows, columns));
 });
 
 router.get('/:id', async (req, res) => {

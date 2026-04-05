@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { v4 as uuid } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
+import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
 
 const router = Router();
 
@@ -75,7 +76,7 @@ router.get('/locations', async (_req: Request, res: Response) => {
   res.json({ success: true, data: rows });
 });
 
-router.post('/locations', async (req: Request, res: Response) => {
+router.post('/locations', requirePermission('equipment', 'owner'), async (req: Request, res: Response) => {
   const { name, description, building, floor, area, sort_order } = req.body;
   const id = uuid();
   await execute(
@@ -85,7 +86,7 @@ router.post('/locations', async (req: Request, res: Response) => {
   res.status(201).json({ success: true, data: { id } });
 });
 
-router.put('/locations/:id', async (req: Request, res: Response) => {
+router.put('/locations/:id', requirePermission('equipment', 'owner'), async (req: Request, res: Response) => {
   const { name, description, building, floor, area, sort_order } = req.body;
   await execute(
     "UPDATE equipment_locations SET name=$1, description=$2, building=$3, floor=$4, area=$5, sort_order=$6, updated_at=NOW() WHERE id=$7",
@@ -94,7 +95,7 @@ router.put('/locations/:id', async (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
-router.delete('/locations/:id', async (req: Request, res: Response) => {
+router.delete('/locations/:id', requirePermission('equipment', 'owner'), async (req: Request, res: Response) => {
   await execute("UPDATE equipment_locations SET deleted_at=NOW() WHERE id=$1", [req.params.id]);
   res.json({ success: true });
 });
@@ -109,7 +110,7 @@ router.get('/categories', async (_req: Request, res: Response) => {
   res.json({ success: true, data: rows });
 });
 
-router.post('/categories', async (req: Request, res: Response) => {
+router.post('/categories', requirePermission('equipment', 'owner'), async (req: Request, res: Response) => {
   const { name, item_type, parent_id, sort_order } = req.body;
   const id = uuid();
   await execute(
@@ -119,7 +120,7 @@ router.post('/categories', async (req: Request, res: Response) => {
   res.status(201).json({ success: true, data: { id } });
 });
 
-router.put('/categories/:id', async (req: Request, res: Response) => {
+router.put('/categories/:id', requirePermission('equipment', 'owner'), async (req: Request, res: Response) => {
   const { name, item_type, parent_id, sort_order } = req.body;
   await execute(
     "UPDATE equipment_categories SET name=$1, item_type=$2, parent_id=$3, sort_order=$4, updated_at=NOW() WHERE id=$5",
@@ -128,7 +129,7 @@ router.put('/categories/:id', async (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
-router.delete('/categories/:id', async (req: Request, res: Response) => {
+router.delete('/categories/:id', requirePermission('equipment', 'owner'), async (req: Request, res: Response) => {
   await execute("UPDATE equipment_categories SET deleted_at=NOW() WHERE id=$1", [req.params.id]);
   res.json({ success: true });
 });
@@ -180,6 +181,20 @@ router.get('/items', async (req: Request, res: Response) => {
   }
 
   res.json({ success: true, data: rows, meta: { total: countRow?.total || 0 } });
+});
+
+// CSV Export (must be before /items/:id to avoid route conflict)
+router.get('/items/export', requirePermission('equipment', 'exporter'), async (_req: Request, res: Response) => {
+  const rows = await queryAll(`
+    SELECT ei.eq_code, ei.name, ec.name as category_name, ei.item_type,
+           ei.manufacturer, ei.model_number, ei.serial_number, ei.status, ei.condition, ei.location_detail as location
+    FROM equipment_items ei
+    LEFT JOIN equipment_categories ec ON ec.id = ei.category_id AND ec.deleted_at IS NULL
+    WHERE ei.deleted_at IS NULL
+    ORDER BY ec.sort_order, ec.name, ei.name, ei.unit_number
+  `) as Record<string, unknown>[];
+  const columns = ['eq_code', 'name', 'category_name', 'item_type', 'manufacturer', 'model_number', 'serial_number', 'status', 'condition', 'location'];
+  csvResponse(res, 'equipment_items.csv', generateCsv(rows, columns));
 });
 
 router.get('/items/:id', async (req: Request, res: Response) => {

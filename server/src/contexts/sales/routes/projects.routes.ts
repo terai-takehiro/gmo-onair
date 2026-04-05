@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { projectService, ProjectFilter } from '../services/project.service';
+import { queryAll } from '../../../shared/db/connection';
+import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
 
 const router = Router();
 
@@ -21,6 +23,19 @@ router.get('/', async (req, res) => {
   };
   const { rows, total } = await projectService.list(filter, page, limit, offset);
   res.json(paginatedResponse(rows, total, page, limit));
+});
+
+// CSV Export
+router.get('/export', requirePermission('sales', 'exporter'), async (_req, res) => {
+  const rows = await queryAll(
+    `SELECT p.gls_number, p.name, c.name as client_name, p.stage, p.probability, p.amount
+     FROM projects p
+     LEFT JOIN customers c ON c.id = p.customer_id
+     WHERE p.deleted_at IS NULL
+     ORDER BY p.created_at DESC`
+  ) as Record<string, unknown>[];
+  const columns = ['gls_number', 'name', 'client_name', 'stage', 'probability', 'amount'];
+  csvResponse(res, 'projects.csv', generateCsv(rows, columns));
 });
 
 // タグ一覧

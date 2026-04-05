@@ -26,7 +26,7 @@ router.get('/:id', async (req, res) => {
   res.json({ success: true, data: row });
 });
 
-router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
+router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
   const { name, short_name, contact_name, email, phone, address, notes } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', '顧客名は必須です');
   const id = uuidv4();
@@ -36,7 +36,7 @@ router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
   res.status(201).json({ success: true, data: row });
 });
 
-router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
+router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
   const existing = await queryOne('SELECT id FROM customers WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!existing) throw new AppError(404, 'NOT_FOUND', '顧客が見つかりません');
   const { name, short_name, contact_name, email, phone, address, notes } = req.body;

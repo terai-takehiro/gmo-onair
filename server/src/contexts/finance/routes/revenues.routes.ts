@@ -5,6 +5,7 @@ import { requireAuth, requirePermission } from '../../../shared/middleware/auth'
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateEstimatePdf } from '../../../shared/services/pdf.service';
+import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
 
 const router = Router();
 
@@ -56,6 +57,19 @@ router.get('/', async (req, res) => {
   }
 
   res.json(paginatedResponse(rows, total, page, limit));
+});
+
+// CSV Export
+router.get('/export', requirePermission('budget', 'exporter'), async (_req, res) => {
+  const rows = await queryAll(
+    `SELECT p.name as project_name, r.subtitle, r.amount, r.tax_category, r.amount as total, r.status, r.recognition_date as date
+     FROM revenues r
+     LEFT JOIN projects p ON p.id = r.project_id
+     WHERE r.deleted_at IS NULL
+     ORDER BY r.billing_key ASC, r.created_at DESC`
+  ) as Record<string, unknown>[];
+  const columns = ['project_name', 'subtitle', 'amount', 'tax_category', 'total', 'status', 'date'];
+  csvResponse(res, 'revenues.csv', generateCsv(rows, columns));
 });
 
 // 売上詳細（明細行つき）
