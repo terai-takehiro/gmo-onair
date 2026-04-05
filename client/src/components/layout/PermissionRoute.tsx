@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/platform/AuthContext";
 
 interface Props {
   module: string;
-  minLevel?: "viewer" | "editor" | "admin";
+  minLevel?: "viewer" | "editor" | "member" | "admin";
   children: React.ReactNode;
 }
 

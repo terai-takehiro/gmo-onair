@@ -43,10 +43,10 @@ export async function seed() {
   // User Permissions (system_admin bypasses checks, so only non-admin users)
   // ============================================================
   const permSql = `INSERT INTO user_permissions (id, user_id, module, access_level) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING`;
-  // staff1 & staff2: sales, budget, studio, equipment at "editor" level
+  // staff1 & staff2: sales, budget, studio, equipment at "member" level (社員 — delete access)
   for (const userId of [USERS.staff1, USERS.staff2]) {
     for (const mod of ['sales', 'budget', 'studio', 'equipment']) {
-      await ins(permSql, [uuidv4(), userId, mod, 'editor']);
+      await ins(permSql, [uuidv4(), userId, mod, 'member']);
     }
   }
 

@@ -63,10 +63,10 @@ export function requireRole(...roles: string[]) {
  * モジュール別パーミッションチェック
  * system_admin は常にアクセス可能
  * @param module - チェック対象のモジュール名
- * @param minLevel - 最低限必要なアクセスレベル ('viewer' | 'editor' | 'admin')
+ * @param minLevel - 最低限必要なアクセスレベル ('viewer' | 'editor' | 'member' | 'admin')
  */
-export function requirePermission(module: string, minLevel: 'viewer' | 'editor' | 'admin' = 'viewer') {
-  const levelOrder = { viewer: 1, editor: 2, admin: 3 };
+export function requirePermission(module: string, minLevel: 'viewer' | 'editor' | 'member' | 'admin' = 'viewer') {
+  const levelOrder = { viewer: 1, editor: 2, member: 3, admin: 4 };
 
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {

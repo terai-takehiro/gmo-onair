@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS user_permissions (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   module TEXT NOT NULL,
-  access_level TEXT NOT NULL DEFAULT 'viewer' CHECK(access_level IN ('viewer', 'editor', 'admin')),
+  access_level TEXT NOT NULL DEFAULT 'viewer' CHECK(access_level IN ('viewer', 'editor', 'member', 'admin')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE(user_id, module)

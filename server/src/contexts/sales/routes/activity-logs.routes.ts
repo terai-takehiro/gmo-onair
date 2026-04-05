@@ -38,7 +38,7 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
   res.json({ success: true, data: await activityLogService.update(req.params.id as string, req.body) });
 });
 
-router.delete('/:id', requirePermission('sales', 'editor'), async (req, res) => {
+router.delete('/:id', requirePermission('sales', 'member'), async (req, res) => {
   await activityLogService.delete(req.params.id as string);
   res.json({ success: true, message: '削除しました' });
 });

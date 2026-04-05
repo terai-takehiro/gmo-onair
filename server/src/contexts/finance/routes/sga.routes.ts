@@ -130,7 +130,7 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
 });
 
 // DELETE /sga/:id - Soft delete
-router.delete('/:id', requirePermission('budget', 'editor'), async (req, res) => {
+router.delete('/:id', requirePermission('budget', 'member'), async (req, res) => {
   await execute(
     `UPDATE sga_expenses SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`,
     [req.user!.id, req.params.id]

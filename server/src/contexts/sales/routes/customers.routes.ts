@@ -46,7 +46,7 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
   res.json({ success: true, data: row });
 });
 
-router.delete('/:id', requirePermission('sales', 'editor'), async (req, res) => {
+router.delete('/:id', requirePermission('sales', 'member'), async (req, res) => {
   await execute(`UPDATE customers SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`, [req.user!.id, req.params.id]);
   res.json({ success: true, message: '削除しました' });
 });

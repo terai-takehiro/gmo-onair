@@ -129,7 +129,7 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
 });
 
 // 削除
-router.delete('/:id', requirePermission('sales', 'editor'), async (req, res) => {
+router.delete('/:id', requirePermission('sales', 'member'), async (req, res) => {
   await execute(`UPDATE project_groups SET deleted_at = NOW(), updated_by = ? WHERE id = ? AND deleted_at IS NULL`,
     [req.user!.id, req.params.id]);
   // グループ仕入・売上のgroup_idもクリア
@@ -292,7 +292,7 @@ router.put('/:id/purchases/:purchaseId', requirePermission('sales', 'editor'), a
 });
 
 // グループ仕入削除
-router.delete('/:id/purchases/:purchaseId', requirePermission('sales', 'editor'), async (req, res) => {
+router.delete('/:id/purchases/:purchaseId', requirePermission('sales', 'member'), async (req, res) => {
   const existing = await queryOne('SELECT id FROM purchases WHERE id = ? AND group_id = ? AND deleted_at IS NULL', [req.params.purchaseId, req.params.id]);
   if (!existing) throw new AppError(404, 'NOT_FOUND', '仕入が見つかりません');
 
@@ -358,7 +358,7 @@ router.put('/:id/revenues/:revenueId', requirePermission('sales', 'editor'), asy
 });
 
 // グループ売上削除
-router.delete('/:id/revenues/:revenueId', requirePermission('sales', 'editor'), async (req, res) => {
+router.delete('/:id/revenues/:revenueId', requirePermission('sales', 'member'), async (req, res) => {
   const existing = await queryOne('SELECT id FROM revenues WHERE id = ? AND group_id = ? AND deleted_at IS NULL', [req.params.revenueId, req.params.id]);
   if (!existing) throw new AppError(404, 'NOT_FOUND', '売上が見つかりません');
 

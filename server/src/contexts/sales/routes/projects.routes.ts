@@ -76,7 +76,7 @@ router.post('/:id/link-gls', requirePermission('sales', 'editor'), (req, res) =>
 });
 
 // 削除
-router.delete('/:id', requirePermission('sales', 'editor'), async (req, res) => {
+router.delete('/:id', requirePermission('sales', 'member'), async (req, res) => {
   await projectService.delete(req.params.id as string, req.user!.id);
   res.json({ success: true, message: '削除しました' });
 });

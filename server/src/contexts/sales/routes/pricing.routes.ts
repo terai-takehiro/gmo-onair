@@ -62,7 +62,7 @@ router.put('/categories/:id', requirePermission('sales', 'editor'), async (req, 
 });
 
 // DELETE /pricing/categories/:id - Soft delete category
-router.delete('/categories/:id', requirePermission('sales', 'editor'), async (req, res) => {
+router.delete('/categories/:id', requirePermission('sales', 'member'), async (req, res) => {
   await execute(
     `UPDATE pricing_categories SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`,
     [req.user!.id, req.params.id]
@@ -101,7 +101,7 @@ router.put('/items/:id', requirePermission('sales', 'editor'), async (req, res) 
 });
 
 // DELETE /pricing/items/:id - Soft delete item
-router.delete('/items/:id', requirePermission('sales', 'editor'), async (req, res) => {
+router.delete('/items/:id', requirePermission('sales', 'member'), async (req, res) => {
   await execute(
     `UPDATE pricing_items SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`,
     [req.user!.id, req.params.id]

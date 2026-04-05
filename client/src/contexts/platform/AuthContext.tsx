@@ -49,10 +49,11 @@ export const MODULE_LABELS: Record<string, string> = {
   admin: "システム管理",
 };
 
-/** アクセスレベル定義（BOX風） */
+/** アクセスレベル定義（BOX風 4段階） */
 export const ACCESS_LEVEL_LABELS: Record<string, string> = {
   viewer: "閲覧者",
   editor: "編集者",
+  member: "社員編集者",
   admin: "管理者",
 };
 
@@ -64,12 +65,12 @@ interface AuthContextType {
   loading: boolean;
   permissions: Permissions;
   /** モジュールへのアクセス権があるかチェック */
-  hasPermission: (module: string, minLevel?: "viewer" | "editor" | "admin") => boolean;
+  hasPermission: (module: string, minLevel?: "viewer" | "editor" | "member" | "admin") => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const LEVEL_ORDER: Record<string, number> = { viewer: 1, editor: 2, admin: 3 };
+const LEVEL_ORDER: Record<string, number> = { viewer: 1, editor: 2, member: 3, admin: 4 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -122,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [setCurrentUserId]);
 
   const hasPermission = useCallback(
-    (module: string, minLevel: "viewer" | "editor" | "admin" = "viewer") => {
+    (module: string, minLevel: "viewer" | "editor" | "member" | "admin" = "viewer") => {
       if (!currentUser) return false;
       // system_admin は全権限
       if (currentUser.role === "system_admin") return true;

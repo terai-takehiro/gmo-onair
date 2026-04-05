@@ -36,7 +36,7 @@ router.get('/:projectId/orders', async (req, res) => {
 });
 
 // Soft delete an order record
-router.delete('/:projectId/orders/:id', requirePermission('sales', 'editor'), async (req, res) => {
+router.delete('/:projectId/orders/:id', requirePermission('sales', 'member'), async (req, res) => {
   const existing = await queryOne(
     'SELECT id FROM episode_orders WHERE id = ? AND project_id = ? AND deleted_at IS NULL',
     [req.params.id, req.params.projectId]
