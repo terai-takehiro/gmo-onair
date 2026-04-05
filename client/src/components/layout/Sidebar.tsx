@@ -17,11 +17,13 @@ import {
   Database,
   X,
   ClipboardList,
+  ClipboardCheck,
   Award,
   Film,
   Briefcase,
   GitBranch,
   Package,
+  Wrench,
   PiggyBank,
   Home,
   ChevronLeft,
@@ -108,8 +110,11 @@ const APP_NAV: Record<string, NavSection[]> = {
   equipment: [
     {
       items: [
+        { label: "ダッシュボード", to: "/equipment", icon: BarChart3 },
         { label: "機材一覧", to: "/equipment/items", icon: Package },
         { label: "貸出管理", to: "/equipment/lending", icon: ClipboardList },
+        { label: "メンテナンス", to: "/equipment/maintenance", icon: Wrench },
+        { label: "棚卸し", to: "/equipment/inventory", icon: ClipboardCheck },
       ],
     },
   ],

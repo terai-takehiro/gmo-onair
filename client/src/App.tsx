@@ -34,6 +34,15 @@ import SgaListPage from "@/contexts/finance/pages/SgaListPage";
 import VendorListPage from "@/contexts/finance/pages/VendorListPage";
 import PartnerListPage from "@/contexts/finance/pages/PartnerListPage";
 
+// Equipment (機材管理)
+import EquipmentDashboard from "@/contexts/equipment/pages/EquipmentDashboard";
+import EquipmentListPage from "@/contexts/equipment/pages/EquipmentListPage";
+import EquipmentDetailPage from "@/contexts/equipment/pages/EquipmentDetailPage";
+import LendingListPage from "@/contexts/equipment/pages/LendingListPage";
+import MaintenancePage from "@/contexts/equipment/pages/MaintenancePage";
+import InventoryPage from "@/contexts/equipment/pages/InventoryPage";
+import SettingsPage from "@/contexts/platform/pages/SettingsPage";
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
 
@@ -106,11 +115,17 @@ function AppRoutes() {
         <Route path="/studio/calendar" element={<PermissionRoute module="studio"><StudioCalendarPage /></PermissionRoute>} />
 
         {/* ===== 機材管理 (equipment) ===== */}
-        {/* TODO: 機材ページ新規作成後にルート追加 */}
+        <Route path="/equipment" element={<PermissionRoute module="equipment"><EquipmentDashboard /></PermissionRoute>} />
+        <Route path="/equipment/items" element={<PermissionRoute module="equipment"><EquipmentListPage /></PermissionRoute>} />
+        <Route path="/equipment/items/:id" element={<PermissionRoute module="equipment"><EquipmentDetailPage /></PermissionRoute>} />
+        <Route path="/equipment/lending" element={<PermissionRoute module="equipment"><LendingListPage /></PermissionRoute>} />
+        <Route path="/equipment/maintenance" element={<PermissionRoute module="equipment"><MaintenancePage /></PermissionRoute>} />
+        <Route path="/equipment/inventory" element={<PermissionRoute module="equipment"><InventoryPage /></PermissionRoute>} />
 
         {/* ===== システム管理 (admin) ===== */}
         <Route path="/admin/users" element={<PermissionRoute module="admin"><UserListPage /></PermissionRoute>} />
         <Route path="/admin/data-viewer" element={<PermissionRoute module="admin"><DataViewerPage /></PermissionRoute>} />
+        <Route path="/admin/settings" element={<PermissionRoute module="admin"><SettingsPage /></PermissionRoute>} />
 
         {/* 旧URLリダイレクト */}
         <Route path="/projects" element={<Navigate to="/sales/projects" replace />} />
