@@ -16,6 +16,7 @@ import {
   UserCog,
   Database,
   Settings,
+  ExternalLink,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -33,6 +34,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
 function AppCard({ app, onClick }: { app: BlockApp; onClick: () => void }) {
   const Icon = ICON_MAP[app.icon] || Package;
   const isComingSoon = app.status === "coming_soon";
+  const isExternal = !!app.externalUrl;
 
   return (
     <button
@@ -64,6 +66,9 @@ function AppCard({ app, onClick }: { app: BlockApp; onClick: () => void }) {
         <Badge variant="secondary" className="absolute top-3 right-3 text-[10px]">
           準備中
         </Badge>
+      )}
+      {isExternal && !isComingSoon && (
+        <ExternalLink className="absolute top-3 right-3 h-3.5 w-3.5 text-muted-foreground/50" />
       )}
     </button>
   );
@@ -97,7 +102,13 @@ export default function HomePage() {
             <StaggerItem key={app.id}>
               <AppCard
                 app={app}
-                onClick={() => navigate(app.basePath)}
+                onClick={() => {
+                  if (app.externalUrl) {
+                    window.open(app.externalUrl, "_blank", "noopener,noreferrer");
+                  } else {
+                    navigate(app.basePath);
+                  }
+                }}
               />
             </StaggerItem>
           ))}

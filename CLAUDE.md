@@ -40,19 +40,30 @@ ONAiRをRenderからCoNoHa VPSに移行し、本番運用可能な状態にす�
 - [ ] HTTPS対応 (ドメイン取得後に SSL/Let's Encrypt)
 - [ ] VPSに統合版 v0.6.0 を再デプロイ
 
-### NEXT: Qシートアプリ連携
-別アプリとしてCoNoHa上で並走させ、GLSナンバー+エピソードで連携。
-- [ ] Qシートアプリも同じVPSにデプロイ (port 3456)
-- [ ] GLS + エピソード番号で紐付け (ONAiR episodes → Qシート documents)
-- [ ] ONAiR案件画面に「Qシート」リンク追加
-- [ ] Qシートのエピソード選択UIをONAiRのAPIから取得
+### NOW: 3アプリ並走 (v0.6.x)
+ONAiR + Qsheet + EventStamp をDocker Compose + Nginxで同一VPS上に並走。
+- [x] docker-compose.yml に3サービス追加 (onair:3000, qsheet:3456, eventstamp:3001)
+- [x] Nginx リバースプロキシ設定 (path-based routing + WebSocket upgrade)
+- [x] PostgreSQL複数DB初期化スクリプト (onair_db + qsheet_db)
+- [x] ONAiRホーム画面からQsheet/EventStampへの外部リンク
+- [ ] VPSにデプロイ・動作確認
+- [ ] HTTPS対応 (ドメイン取得後に SSL/Let's Encrypt)
 
-### LATER: アプリ統合
-QシートエディタをONAiRに統合し、1つのアプリにする。
-- [ ] Qシートエディタ(Vanilla JS)をReactコンポーネント化
-- [ ] DB統合 (documents テーブルをONAiR DBに移植)
-- [ ] 認証統合 (Google OAuth をONAiR全体に適用)
-- [ ] リポジトリ統合 (GMO-Qsheet-Editor → gmo-onair)
+### NEXT: Qシートサブアプリ統合 (v0.7.x)
+QsheetのReactクライアントをONAiRモノレポにサブアプリとして組み込む。
+- [ ] client-qsheet/ ワークスペース追加 (equipment方式)
+- [ ] Qsheet DB マイグレーション (012_qsheet_schema.sql)
+- [ ] qsheet サーバーコンテキスト追加 (routes + services)
+- [ ] episode_id でONAiR案件と連携
+- [ ] ONAiR案件画面に「Qシート」リンク追加
+
+### LATER: EventStamp完全統合 + 認証統一 (v0.8.x+)
+EventStampをReact化してONAiRに統合。全アプリの認証をGoogle OAuthに統一。
+- [ ] EventStamp React化 (client-interactive/)
+- [ ] SQLite → PostgreSQL 移行 (013_interactive_schema.sql)
+- [ ] Socket.IO統合 (server/src/index.ts)
+- [ ] mockAuth廃止 → Google OAuth 2.0 + Passport.js
+- [ ] 認証統合 (全クライアントをBearer tokenに移行)
 
 ### LATER: BOX連携
 御社契約のBOXをドキュメントハブとして活用。
@@ -78,6 +89,18 @@ QシートエディタをONAiRに統合し、1つのアプリにする。
 - **PDF出力**: pdfkit サーバーサイド生成 (A4/A3, Noto Sans JP)
 - **ポート**: 3456
 - **連携キー**: GLS番号 + エピソードコード (例: GLS002-003)
+- **Reactクライアント**: client/ に React 19 + Vite 8 + TailwindCSS 4 版あり (pages: Dashboard, Editor, OnAir, Login)
+
+## EventStampアプリ情報
+- リポジトリ: terai-takehiro/gmo_eventstamp
+- **技術構成**: Express + Socket.IO + SQLite (sql.js) + Vanilla JS
+- **認証**: セッションベース + Google OAuth 2.0 + TOTP 2FA
+- **マルチテナント**: tenants/admins (master/admin)
+- **リアルタイム**: Socket.IO 200ms集約ブロードキャスト
+- **機能**: スタンプ連打、透過出力(OBS/NDI/SDI)、QRコード生成、マルチチャンネル
+- **ポート**: 3001
+- **CoNoHaスケーリング**: 同時接続数に応じたVPSリサイズ (512MB〜16GB)
+- **ONAiR連携先**: interactiveブロックアプリ (インタラクティブ演出支援)
 
 ## BOXフォルダ構造 (将来: 案件ごと)
 ```
@@ -91,20 +114,25 @@ QシートエディタをONAiRに統合し、1つのアプリにする。
 │   └── 📁 06_納品物/
 ```
 
-## CoNoHa VPS構成
+## CoNoHa VPS構成 (3アプリ並走)
 ```
-CoNoHa VPS
+CoNoHa VPS (2GB RAM)
 ├── Nginx (リバースプロキシ + SSL)
-│   ├── onair.example.com    → localhost:3000
-│   └── qsheet.example.com  → localhost:3456
-├── GMO ONAiR        (port 3000)
-│   ├── Express + React
-│   └── PostgreSQL DB: onair_db
-├── GMO Qsheet Editor (port 3456) ← 将来統合
-│   ├── Express + Vanilla JS
-│   └── PostgreSQL DB: qsheet_db
-├── PostgreSQL 16
-└── Docker Compose で一括管理
+│   ├── /              → localhost:3000  (ONAiR)
+│   ├── /qsheet/      → localhost:3456  (Qsheet)
+│   └── /interactive/  → localhost:3001  (EventStamp + WebSocket)
+├── Docker Compose
+│   ├── GMO ONAiR           (port 3000)
+│   │   ├── Express + React
+│   │   └── DB: onair_db
+│   ├── GMO Qsheet Editor   (port 3456) ← v0.7でサブアプリ化
+│   │   ├── Express + React/Vanilla JS
+│   │   └── DB: qsheet_db
+│   ├── GMO EventStamp       (port 3001) ← v0.8でReact化
+│   │   ├── Express + Socket.IO
+│   │   └── DB: SQLite (→ PostgreSQL移行予定)
+│   └── PostgreSQL 16 (onair_db + qsheet_db 共有)
+└── Volume: pgdata, eventstamp-data, eventstamp-uploads
 ```
 
 ## 完了済み
