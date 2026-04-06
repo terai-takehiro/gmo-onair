@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,8 @@ import {
   Trash2,
   Calendar,
   Clock,
+  FolderKanban,
+  X,
 } from "lucide-react";
 
 interface QsheetDocument {
@@ -31,6 +33,9 @@ interface QsheetDocument {
   status: string;
   broadcast_date: string | null;
   episode_code: string | null;
+  project_id: string | null;
+  project_name: string | null;
+  gls_number: string | null;
   creator_name: string | null;
   created_at: string;
   updated_at: string;
@@ -45,17 +50,21 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newBroadcastDate, setNewBroadcastDate] = useState("");
 
+  const projectFilter = searchParams.get("project");
+
   const { data: documents, isLoading } = useQuery({
-    queryKey: ["qsheet-documents", search],
+    queryKey: ["qsheet-documents", search, projectFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
+      if (projectFilter) params.set("project_id", projectFilter);
       const res = await api.get(`/qsheet/documents?${params}`);
       return res.data.data as QsheetDocument[];
     },
@@ -66,6 +75,7 @@ export default function DashboardPage() {
       const res = await api.post("/qsheet/documents", {
         title: newTitle || "無題のQシート",
         broadcast_date: newBroadcastDate || null,
+        project_id: projectFilter || null,
         data: {
           meta: { title: newTitle || "無題のQシート", draft: "準備稿" },
           blocks: [
@@ -134,6 +144,27 @@ export default function DashboardPage() {
         </Button>
       </div>
 
+      {/* Project filter banner */}
+      {projectFilter && documents && documents.length > 0 && documents[0].project_name && (
+        <div className="flex items-center gap-2 rounded-lg border bg-primary/5 px-4 py-2.5">
+          <FolderKanban className="h-4 w-4 text-primary shrink-0" />
+          <span className="text-sm">
+            <span className="font-medium">{documents[0].gls_number}</span>
+            <span className="text-muted-foreground ml-1">{documents[0].project_name}</span>
+            のQシート
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 ml-auto shrink-0"
+            onClick={() => setSearchParams({})}
+            title="フィルタ解除"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+
       {/* Search */}
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -166,9 +197,11 @@ export default function DashboardPage() {
                       <h3 className="font-semibold text-sm truncate">
                         {doc.title || "無題のQシート"}
                       </h3>
-                      {doc.episode_code && (
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {doc.episode_code}
+                      {(doc.gls_number || doc.episode_code) && (
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                          {doc.gls_number && <span className="font-medium">{doc.gls_number}</span>}
+                          {doc.gls_number && doc.project_name && <span> {doc.project_name}</span>}
+                          {doc.episode_code && <span>{doc.gls_number ? ' / ' : ''}{doc.episode_code}</span>}
                         </p>
                       )}
                     </div>

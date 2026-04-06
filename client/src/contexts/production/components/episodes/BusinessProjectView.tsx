@@ -497,7 +497,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
               </div>
             </div>
             <Button size="sm" variant="outline" className="gap-1" asChild>
-              <a href={`/qsheet/editor?project=${projectId}`} target="_blank" rel="noopener noreferrer">
+              <a href={`/qsheet?project=${projectId}`}>
                 <FileText className="h-3.5 w-3.5" />
                 Qシート管理
               </a>

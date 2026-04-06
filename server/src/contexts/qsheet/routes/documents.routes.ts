@@ -24,11 +24,13 @@ function sanitizeSearch(input: unknown): string | null {
 // ============================================================
 router.get('/documents', async (req: Request, res: Response) => {
   try {
-    const { status, episode_id, search } = req.query;
+    const { status, episode_id, project_id, search } = req.query;
     let sql = `
-      SELECT d.*, u.name as creator_name
+      SELECT d.*, u.name as creator_name,
+             p.name as project_name, p.gls_number
       FROM qsheet_documents d
       LEFT JOIN users u ON d.created_by = u.id
+      LEFT JOIN projects p ON d.project_id = p.id
       WHERE d.deleted_at IS NULL
     `;
     const params: unknown[] = [];
@@ -41,6 +43,10 @@ router.get('/documents', async (req: Request, res: Response) => {
     if (episode_id && typeof episode_id === 'string') {
       sql += ` AND d.episode_id = $${paramIndex++}`;
       params.push(episode_id);
+    }
+    if (project_id && typeof project_id === 'string') {
+      sql += ` AND d.project_id = $${paramIndex++}`;
+      params.push(project_id);
     }
     if (search) {
       const safe = sanitizeSearch(search);
