@@ -10,9 +10,9 @@ GMO ONAiR = GMOグローバルスタジオの「会社OS」を目指すウェブ
 - **バックエンド**: Express + PostgreSQL (pg)
 - **モノレポ**: client/ + server/ を1つのリポジトリで管理
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
-- **旧デプロイ先**: Render (廃止予定)
+- **旧デプロイ先**: Render (廃止済み・render.yaml削除済み)
 
-## 現在のバージョン: v0.6.0
+## 現在のバージョン: v0.8.0
 
 ## ブランチ運用
 - **デプロイ**: 常に `main` ブランチにプッシュ（masterではない）
@@ -23,7 +23,7 @@ GMO ONAiR = GMOグローバルスタジオの「会社OS」を目指すウェブ
 - `stage`フィールド: neta → d_hold → c_proposal → b_verbal → a_won → s_completed / e_lost
 - `gls_number IS NULL` = ヨミ段階, `IS NOT NULL` = GLS発番済み
 - GLS発番は別エンドポイント: `POST /projects/:id/issue-gls`
-- タグベースのグループ分け（旧project_groupsは廃止）
+- タグベースの案件分類 + `project_groups`テーブルによる費用按分グループ（売上・仕入の按分配分に使用）
 
 ---
 
@@ -49,19 +49,30 @@ ONAiR + Qsheet + EventStamp をDocker Compose + Nginxで同一VPS上に並走。
 - [ ] VPSにデプロイ・動作確認
 - [ ] HTTPS対応 (ドメイン取得後に SSL/Let's Encrypt)
 
-### NEXT: Qシートサブアプリ統合 (v0.7.x)
+### DONE: Qシートサブアプリ統合 (v0.7.x)
 QsheetのReactクライアントをONAiRモノレポにサブアプリとして組み込む。
-- [ ] client-qsheet/ ワークスペース追加 (equipment方式)
-- [ ] Qsheet DB マイグレーション (012_qsheet_schema.sql)
-- [ ] qsheet サーバーコンテキスト追加 (routes + services)
+- [x] client-qsheet/ ワークスペース追加 (equipment方式)
+- [x] Qsheet DB マイグレーション (012_qsheet_schema.sql)
+- [x] qsheet サーバーコンテキスト追加 (routes + services)
 - [ ] episode_id でONAiR案件と連携
 - [ ] ONAiR案件画面に「Qシート」リンク追加
 
-### LATER: EventStamp完全統合 + 認証統一 (v0.8.x+)
-EventStampをReact化してONAiRに統合。全アプリの認証をGoogle OAuthに統一。
-- [ ] EventStamp React化 (client-interactive/)
-- [ ] SQLite → PostgreSQL 移行 (013_interactive_schema.sql)
-- [ ] Socket.IO統合 (server/src/index.ts)
+### DONE: EventStampサブアプリ統合 (v0.8.x)
+EventStampをReact化してONAiRに統合。
+- [x] EventStamp React化 (client-interactive/)
+- [x] PostgreSQL マイグレーション (013_interactive_schema.sql)
+- [x] Socket.IO統合 (server/src/index.ts)
+- [x] インタラクティブ演出サーバーコンテキスト (routes + socket)
+
+### DONE: UI/UX全面リニューアル
+- [x] GMO Blue (#005bac) + Warm Neutrals デザインシステム導入
+- [x] Noto Serif JP 見出しフォント + 全4アプリ統一CSS変数
+- [x] コンポーネント warm化 (card ring shadow, input rounded-xl)
+- [x] レイアウト統一 (bg-card header/sidebar)
+- [x] 不要コード整理 (sql.js型, render.yaml, Opportunity型, CSVバグ修正)
+
+### LATER: 認証統一 (v0.9.x+)
+全アプリの認証をGoogle OAuthに統一。
 - [ ] mockAuth廃止 → Google OAuth 2.0 + Passport.js
 - [ ] 認証統合 (全クライアントをBearer tokenに移行)
 
@@ -128,9 +139,9 @@ CoNoHa VPS (2GB RAM)
 │   ├── GMO Qsheet Editor   (port 3456) ← v0.7でサブアプリ化
 │   │   ├── Express + React/Vanilla JS
 │   │   └── DB: qsheet_db
-│   ├── GMO EventStamp       (port 3001) ← v0.8でReact化
+│   ├── GMO EventStamp       (port 3001) ← v0.8で統合済み
 │   │   ├── Express + Socket.IO
-│   │   └── DB: SQLite (→ PostgreSQL移行予定)
+│   │   └── DB: PostgreSQL (interactive_* テーブル)
 │   └── PostgreSQL 16 (onair_db + qsheet_db 共有)
 └── Volume: pgdata, eventstamp-data, eventstamp-uploads
 ```
@@ -139,3 +150,8 @@ CoNoHa VPS (2GB RAM)
 - [x] Phase A: ヨミと案件の統合（サーバー+クライアント全て完了）
 - [x] ダッシュボード モバイル最適化 (v0.2.1)
 - [x] シードデータのリアル化（プロジェクト名・タグ・失注理由・販管費）
+- [x] Qシートサブアプリ統合 (v0.7.x)
+- [x] セキュリティ脆弱性修正 (SQLインジェクション・認証・CSP)
+- [x] EventStampサブアプリ統合 (v0.8.x)
+- [x] UI/UX全面リニューアル (GMO Blue + Warm Neutrals)
+- [x] 不要コード・DB整理 (sql.js型, render.yaml, Opportunity型削除, CSVバグ修正)
