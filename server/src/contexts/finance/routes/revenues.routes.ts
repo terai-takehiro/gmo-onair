@@ -18,7 +18,11 @@ router.get('/', async (req, res) => {
   const projectId = req.query.project_id as string;
   let where = 'WHERE r.deleted_at IS NULL';
   const params: unknown[] = [];
-  if (search) { where += ` AND (r.billing_key ILIKE ? OR r.notes ILIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
+  if (search) {
+    const safeSearch = String(search).slice(0, 100).replace(/[%_\\]/g, '\\$&');
+    where += ` AND (r.billing_key ILIKE ? ESCAPE '\\' OR r.notes ILIKE ? ESCAPE '\\')`;
+    params.push(`%${safeSearch}%`, `%${safeSearch}%`);
+  }
 
   // プロジェクト絞込み: 直接売上 + グループ按分された売上
   if (projectId) {
@@ -33,8 +37,9 @@ router.get('/', async (req, res) => {
 
   // allocated_amount: グループ按分時はこのプロジェクトへの配分額
   const allocJoin = projectId
-    ? `LEFT JOIN revenue_allocations ra ON ra.revenue_id = r.id AND ra.project_id = '${projectId.replace(/'/g, "''")}'`
+    ? `LEFT JOIN revenue_allocations ra ON ra.revenue_id = r.id AND ra.project_id = ?`
     : '';
+  const allocParams: unknown[] = projectId ? [projectId] : [];
   const allocCol = projectId ? ', ra.allocated_amount, pg.name as group_name' : '';
 
   const rows = await queryAll(
@@ -46,7 +51,7 @@ router.get('/', async (req, res) => {
      ${allocJoin}
      ${projectId ? 'LEFT JOIN project_groups pg ON pg.id = r.group_id' : ''}
      ${where} ORDER BY r.billing_key ASC, r.created_at DESC LIMIT ? OFFSET ?`,
-    [...params, limit, offset]
+    [...allocParams, ...params, limit, offset]
   );
 
   // プロジェクト絞込み時は明細行も付与

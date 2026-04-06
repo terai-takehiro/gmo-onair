@@ -11,11 +11,23 @@ export function createApp(): express.Express {
   const app = express();
 
   // Middleware
+  const isProduction = process.env.NODE_ENV === 'production';
   app.use(helmet({
-    contentSecurityPolicy: false,
-    hsts: false,                    // HTTPSなしの環境でHTTPS強制を無効化
-    crossOriginOpenerPolicy: false,
-    originAgentCluster: false,
+    contentSecurityPolicy: isProduction ? {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+      },
+    } : false,
+    hsts: isProduction,
+    crossOriginOpenerPolicy: isProduction,
+    originAgentCluster: isProduction,
   }));
   const allowedOrigins = [
     'http://localhost:5173',
@@ -24,7 +36,7 @@ export function createApp(): express.Express {
     ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : []),
   ];
   app.use(cors({ origin: allowedOrigins, credentials: true }));
-  app.use(express.json());
+  app.use(express.json({ limit: '10mb' }));
   app.use(morgan('dev'));
   app.use(mockAuth);
 
