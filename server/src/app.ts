@@ -38,6 +38,7 @@ export function createApp(): express.Express {
     'http://localhost:5174',
     'http://localhost:5175',
     'http://localhost:5176',
+    'http://localhost:5177',
     'http://localhost:3000',
     ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : []),
   ];
@@ -83,6 +84,13 @@ export function createApp(): express.Express {
     app.use('/interactive', express.static(interactiveDistPath));
     app.get('/interactive/*', (_req, res) => {
       res.sendFile(path.join(interactiveDistPath, 'index.html'));
+    });
+
+    // TechSheet client at /techsheet/*
+    const techsheetDistPath = path.join(__dirname, '../../client-techsheet/dist');
+    app.use('/techsheet', express.static(techsheetDistPath));
+    app.get('/techsheet/*', (_req, res) => {
+      res.sendFile(path.join(techsheetDistPath, 'index.html'));
     });
 
     // Main ONAiR client at /*
