@@ -35,7 +35,7 @@ import {
 
 const ICON_MAP: Record<string, React.ElementType> = {
   FolderKanban, PiggyBank, Calendar, Package, FileText,
-  BookOpen, Users, Truck, Sparkles,
+  BookOpen, Users, Truck, Sparkles, Wrench,
 };
 
 interface NavItem {

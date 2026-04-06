@@ -9,7 +9,9 @@ COPY client/package.json client/
 COPY client-equipment/package.json client-equipment/
 COPY client-qsheet/package.json client-qsheet/
 COPY client-interactive/package.json client-interactive/
+COPY client-techsheet/package.json client-techsheet/
 COPY server/package.json server/
+COPY shared/package.json shared/
 
 RUN npm install --workspaces --include-workspace-root
 
@@ -18,13 +20,17 @@ COPY client/ client/
 COPY client-equipment/ client-equipment/
 COPY client-qsheet/ client-qsheet/
 COPY client-interactive/ client-interactive/
+COPY client-techsheet/ client-techsheet/
 COPY server/ server/
+COPY shared/ shared/
 
-# Build all clients (Vite) and server (TypeScript)
+# Build shared first, then all clients and server
+RUN npm run build --workspace=shared 2>/dev/null || true
 RUN npm run build --workspace=client
 RUN npm run build --workspace=client-equipment
 RUN npm run build --workspace=client-qsheet
 RUN npm run build --workspace=client-interactive
+RUN npm run build --workspace=client-techsheet
 RUN npm run build --workspace=server
 
 # Production image
@@ -45,6 +51,7 @@ COPY --from=builder /app/client/dist client/dist
 COPY --from=builder /app/client-equipment/dist client-equipment/dist
 COPY --from=builder /app/client-qsheet/dist client-qsheet/dist
 COPY --from=builder /app/client-interactive/dist client-interactive/dist
+COPY --from=builder /app/client-techsheet/dist client-techsheet/dist
 
 # Upload directories
 RUN mkdir -p /app/uploads/qsheet
