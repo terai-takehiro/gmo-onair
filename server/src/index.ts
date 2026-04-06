@@ -5,6 +5,7 @@ import { initDb } from './shared/db/connection';
 import { runMigrations } from './shared/db/migrate';
 import { seed } from './shared/db/seed';
 import { initSocketIO, shutdownSocketIO } from './contexts/interactive/socket';
+import { initQsheetSocketIO } from './contexts/qsheet/socket';
 
 async function main() {
   await initDb();
@@ -14,13 +15,14 @@ async function main() {
   const app = createApp();
   const httpServer = http.createServer(app);
 
-  // Socket.IO for interactive events
-  initSocketIO(httpServer);
+  // Socket.IO for interactive events + qsheet sync
+  const io = initSocketIO(httpServer);
+  initQsheetSocketIO(io);
 
   httpServer.listen(config.port, () => {
     console.log(`GMO ONAiR API running on http://localhost:${config.port}`);
     console.log(`  Environment: ${config.nodeEnv}`);
-    console.log(`  Socket.IO: enabled (interactive events)`);
+    console.log(`  Socket.IO: enabled (interactive events, qsheet sync)`);
   });
 
   // Graceful shutdown

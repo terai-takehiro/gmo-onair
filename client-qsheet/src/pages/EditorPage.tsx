@@ -15,6 +15,7 @@ import {
   Trash2,
   GripVertical,
   Radio,
+  List,
   Clock,
   Download,
   Upload,
@@ -393,6 +394,10 @@ export default function EditorPage() {
           <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs" onClick={exportPdf}>
             <FileDown className="h-3.5 w-3.5" />
             <span className="hidden lg:inline">PDF</span>
+          </Button>
+          <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => navigate(`/qsheet/rundown/${doc.id}`)}>
+            <List className="h-4 w-4" />
+            <span className="hidden sm:inline text-xs">ランダウン</span>
           </Button>
           <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => navigate(`/qsheet/onair/${doc.id}`)}>
             <Radio className="h-4 w-4" />

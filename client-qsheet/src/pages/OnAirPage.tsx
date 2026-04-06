@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
+import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -145,6 +146,45 @@ export default function OnAirPage() {
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [handleKey]);
+
+  // Socket.IO: broadcast state & receive remote commands
+  const socketRef = useRef<ReturnType<typeof getQsheetSocket> | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+    const socket = getQsheetSocket(id);
+    socketRef.current = socket;
+
+    // Receive remote commands from Rundown
+    socket.on('cue:next', () => {
+      setCurrentCue((prev) => Math.min(prev + 1, flatCues.length - 1));
+    });
+    socket.on('cue:prev', () => {
+      setCurrentCue((prev) => Math.max(prev - 1, 0));
+    });
+    socket.on('cue:jump', (data: { cueIndex: number }) => {
+      setCurrentCue(data.cueIndex);
+      if (flatCues[data.cueIndex]) setElapsed(flatCues[data.cueIndex].startTime);
+    });
+    socket.on('cue:play', () => setIsPlaying(true));
+    socket.on('cue:pause', () => setIsPlaying(false));
+    socket.on('cue:reset', () => {
+      setIsPlaying(false);
+      setCurrentCue(0);
+      setElapsed(0);
+    });
+
+    return () => {
+      disconnectQsheetSocket();
+      socketRef.current = null;
+    };
+  }, [id, flatCues.length]);
+
+  // Broadcast state to Rundown every second while playing, or on cue change
+  useEffect(() => {
+    if (!socketRef.current) return;
+    socketRef.current.emit('cue:update', { currentCue, elapsed, isPlaying });
+  }, [currentCue, elapsed, isPlaying]);
 
   const formatTime = (seconds: number): string => {
     const h = Math.floor(seconds / 3600);

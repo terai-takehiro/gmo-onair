@@ -5,6 +5,7 @@ import LoginPage from "@/pages/LoginPage";
 import DashboardPage from "@/pages/DashboardPage";
 import EditorPage from "@/pages/EditorPage";
 import OnAirPage from "@/pages/OnAirPage";
+import RundownPage from "@/pages/RundownPage";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -33,6 +34,15 @@ export default function App() {
         element={
           <ProtectedRoute>
             <OnAirPage />
+          </ProtectedRoute>
+        }
+      />
+      {/* Rundown page: full screen, no sidebar */}
+      <Route
+        path="/qsheet/rundown/:id"
+        element={
+          <ProtectedRoute>
+            <RundownPage />
           </ProtectedRoute>
         }
       />
