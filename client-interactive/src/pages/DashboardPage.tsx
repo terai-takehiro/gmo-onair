@@ -51,11 +51,11 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Sparkles className="h-6 w-6 text-pink-500" />
+          <h1 className="heading-page text-2xl flex items-center gap-2">
+            <Sparkles className="h-6 w-6 text-primary" />
             イベント一覧
           </h1>
-          <p className="text-sm text-gray-500 mt-1">インタラクティブ演出イベントの管理</p>
+          <p className="text-sm text-muted-foreground mt-1">インタラクティブ演出イベントの管理</p>
         </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
@@ -77,7 +77,7 @@ export default function DashboardPage() {
       {/* Filters */}
       <div className="flex gap-3 items-center">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input className="pl-9" placeholder="イベントを検索..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <div className="flex gap-1">
@@ -91,11 +91,11 @@ export default function DashboardPage() {
 
       {/* Event Grid */}
       {isLoading ? (
-        <div className="text-center py-12 text-gray-500">読み込み中...</div>
+        <div className="text-center py-12 text-muted-foreground">読み込み中...</div>
       ) : events.length === 0 ? (
         <div className="text-center py-12">
-          <Sparkles className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500">イベントがまだありません</p>
+          <Sparkles className="h-12 w-12 text-muted-foreground/60 mx-auto mb-3" />
+          <p className="text-muted-foreground">イベントがまだありません</p>
           <Button className="mt-4" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-1" />最初のイベントを作成</Button>
         </div>
       ) : (
@@ -120,12 +120,12 @@ export default function DashboardPage() {
                   </div>
                   <h3 className="font-semibold mb-1 line-clamp-2">{event.title}</h3>
                   {event.project_name && (
-                    <p className="text-xs text-gray-500 mb-2">{event.gls_number} {event.project_name}</p>
+                    <p className="text-xs text-muted-foreground mb-2">{event.gls_number} {event.project_name}</p>
                   )}
-                  <div className="flex items-center gap-3 text-xs text-gray-500 mt-3">
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground mt-3">
                     <span>スタンプ: {event.stamp_count || 0}</span>
                     {event.status === 'live' && (
-                      <span className="text-pink-600 font-medium flex items-center gap-1">
+                      <span className="text-primary font-medium flex items-center gap-1">
                         <Radio className="h-3 w-3 animate-pulse" />
                         {event.active_connections || 0}人接続中
                       </span>

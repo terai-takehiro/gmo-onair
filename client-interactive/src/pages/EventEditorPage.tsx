@@ -52,8 +52,8 @@ export default function EventEditorPage() {
     },
   });
 
-  if (isLoading) return <div className="p-8 text-center text-gray-500">読み込み中...</div>;
-  if (!eventData) return <div className="p-8 text-center text-gray-500">イベントが見つかりません</div>;
+  if (isLoading) return <div className="p-8 text-center text-muted-foreground">読み込み中...</div>;
+  if (!eventData) return <div className="p-8 text-center text-muted-foreground">イベントが見つかりません</div>;
 
   const stamps = eventData.stamps || [];
   const audienceUrl = `${window.location.origin}/interactive/audience/${id}`;
@@ -89,23 +89,23 @@ export default function EventEditorPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <label className="text-sm font-medium text-gray-700">タイトル</label>
+            <label className="text-sm font-medium text-foreground">タイトル</label>
             <Input
               defaultValue={eventData.title}
               onBlur={e => { if (e.target.value !== eventData.title) updateEvent.mutate({ title: e.target.value }); }}
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700">説明</label>
+            <label className="text-sm font-medium text-foreground">説明</label>
             <textarea
-              className="flex w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-500 min-h-[80px]"
+              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[80px]"
               defaultValue={eventData.description || ''}
               onBlur={e => updateEvent.mutate({ description: e.target.value })}
               placeholder="イベントの説明（任意）"
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700">最大接続数</label>
+            <label className="text-sm font-medium text-foreground">最大接続数</label>
             <Input
               type="number"
               defaultValue={eventData.max_connections}
@@ -138,7 +138,7 @@ export default function EventEditorPage() {
         </CardHeader>
         <CardContent>
           {stamps.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-4">スタンプを追加してください</p>
+            <p className="text-sm text-muted-foreground text-center py-4">スタンプを追加してください</p>
           ) : (
             <div className="space-y-3">
               {stamps.map((stamp: any, i: number) => (
@@ -214,7 +214,7 @@ export default function EventEditorPage() {
         <CardHeader><CardTitle>共有リンク</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div>
-            <label className="text-sm font-medium text-gray-700 flex items-center gap-1">
+            <label className="text-sm font-medium text-foreground flex items-center gap-1">
               <QrCode className="h-3.5 w-3.5" /> 視聴者URL
             </label>
             <div className="flex gap-2 mt-1">
@@ -225,7 +225,7 @@ export default function EventEditorPage() {
             </div>
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700 flex items-center gap-1">
+            <label className="text-sm font-medium text-foreground flex items-center gap-1">
               <Eye className="h-3.5 w-3.5" /> オーバーレイURL (OBS)
             </label>
             <div className="flex gap-2 mt-1">

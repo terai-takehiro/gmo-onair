@@ -14,12 +14,12 @@ export function AppShell() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white border-b shadow-sm">
+      <header className="sticky top-0 z-40 bg-card border-b">
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link to="/" className="flex items-center gap-2 font-bold text-pink-600">
+            <Link to="/" className="flex items-center gap-2 font-serif font-medium text-primary">
               <Sparkles className="h-5 w-5" />
               <span>EventStamp</span>
             </Link>
@@ -31,11 +31,11 @@ export function AppShell() {
             )}
           </div>
           <div className="flex items-center gap-3">
-            <a href="/" className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1">
+            <a href="/" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
               <LayoutDashboard className="h-3 w-3" />
               ONAiR
             </a>
-            <span className="text-sm text-gray-600">{user?.name}</span>
+            <span className="text-sm text-muted-foreground">{user?.name}</span>
             <Button variant="ghost" size="icon" onClick={handleLogout} title="ログアウト">
               <LogOut className="h-4 w-4" />
             </Button>

@@ -44,7 +44,7 @@ function AppCard({ app, onClick }: { app: BlockApp; onClick: () => void }) {
         "group relative flex flex-col items-center gap-3 rounded-2xl border-2 p-6 text-center transition-all",
         isComingSoon
           ? "cursor-default border-dashed border-muted bg-muted/30 opacity-60"
-          : "border-transparent bg-card shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-primary/20 active:scale-[0.98]"
+          : "border-transparent bg-card shadow-none hover:shadow-[0_0_0_1px_#d5d3cb] hover:-translate-y-1 hover:border-primary/20 active:scale-[0.98]"
       )}
     >
       <div
@@ -57,7 +57,7 @@ function AppCard({ app, onClick }: { app: BlockApp; onClick: () => void }) {
         <Icon className="h-7 w-7" />
       </div>
       <div>
-        <h3 className="text-base font-bold">{app.label}</h3>
+        <h3 className="text-base font-serif font-medium">{app.label}</h3>
         <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
           {app.description}
         </p>
@@ -88,7 +88,7 @@ export default function HomePage() {
       <div className="mx-auto max-w-5xl px-4 py-8 lg:py-12">
         {/* Header */}
         <div className="mb-10 text-center">
-          <h1 className="text-3xl font-bold tracking-tight lg:text-4xl">
+          <h1 className="heading-page text-3xl tracking-tight lg:text-4xl">
             GMO ON<span className="text-primary">Ai</span>R
           </h1>
           <p className="mt-2 text-muted-foreground">

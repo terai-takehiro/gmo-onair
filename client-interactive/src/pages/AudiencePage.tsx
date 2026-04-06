@@ -108,9 +108,9 @@ export default function AudiencePage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white p-4">
+      <div className="min-h-screen bg-[#1c1c1a] flex items-center justify-center text-white p-4">
         <div className="text-center">
-          <Sparkles className="h-12 w-12 mx-auto mb-4 text-pink-500" />
+          <Sparkles className="h-12 w-12 mx-auto mb-4 text-primary" />
           <p className="text-lg">{error}</p>
         </div>
       </div>
@@ -119,19 +119,19 @@ export default function AudiencePage() {
 
   if (eventStatus === 'ended') {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white p-4">
+      <div className="min-h-screen bg-[#1c1c1a] flex items-center justify-center text-white p-4">
         <div className="text-center">
-          <Sparkles className="h-12 w-12 mx-auto mb-4 text-gray-500" />
+          <Sparkles className="h-12 w-12 mx-auto mb-4 text-[#8a8983]" />
           <h1 className="text-xl font-bold mb-2">{eventTitle}</h1>
-          <p className="text-gray-400">このイベントは終了しました</p>
-          <p className="text-gray-500 text-sm mt-4">ご参加ありがとうございました！</p>
+          <p className="text-[#b5b3ab]">このイベントは終了しました</p>
+          <p className="text-[#8a8983] text-sm mt-4">ご参加ありがとうございました！</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col relative overflow-hidden">
+    <div className="min-h-screen bg-[#1c1c1a] text-white flex flex-col relative overflow-hidden">
       {/* Floating emojis */}
       {floatingEmojis.map(f => (
         <div
@@ -149,18 +149,18 @@ export default function AudiencePage() {
 
       {/* Header */}
       <div className="text-center py-6 px-4">
-        <div className="flex items-center justify-center gap-2 text-pink-400 mb-2">
+        <div className="flex items-center justify-center gap-2 text-primary/80 mb-2">
           <Sparkles className="h-5 w-5" />
           <span className="text-sm font-medium">EventStamp</span>
         </div>
         <h1 className="text-lg font-bold">{eventTitle}</h1>
         {eventStatus === 'draft' && (
-          <p className="text-sm text-gray-400 mt-2">イベント開始を待っています...</p>
+          <p className="text-sm text-[#b5b3ab] mt-2">イベント開始を待っています...</p>
         )}
         {eventStatus === 'live' && (
           <div className="flex items-center justify-center gap-1 mt-2">
-            <div className="w-2 h-2 rounded-full bg-pink-500 animate-pulse" />
-            <span className="text-xs text-pink-400">LIVE</span>
+            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+            <span className="text-xs text-primary/80">LIVE</span>
           </div>
         )}
       </div>
@@ -185,7 +185,7 @@ export default function AudiencePage() {
               disabled={eventStatus !== 'live'}
             >
               <span className="text-4xl mb-2">{stamp.emoji}</span>
-              <span className="text-xs font-medium text-gray-300">{stamp.label}</span>
+              <span className="text-xs font-medium text-[#b5b3ab]">{stamp.label}</span>
               <span className="text-lg font-bold mt-1 tabular-nums" style={{ color: stamp.color }}>
                 {(stampCounts[stamp.id] || 0).toLocaleString()}
               </span>
@@ -195,7 +195,7 @@ export default function AudiencePage() {
       </div>
 
       {/* Footer */}
-      <div className="text-center py-4 text-xs text-gray-600">
+      <div className="text-center py-4 text-xs text-[#5c5b57]">
         Powered by GMO EventStamp
       </div>
     </div>

@@ -11,7 +11,7 @@ export default function Header({ userName, onLogout }: Props) {
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
 
   return (
-    <header className="flex h-14 items-center justify-between border-b bg-white px-4">
+    <header className="flex h-14 items-center justify-between border-b bg-card px-4">
       <button
         className="lg:hidden p-2 rounded-md hover:bg-muted"
         onClick={toggleSidebar}

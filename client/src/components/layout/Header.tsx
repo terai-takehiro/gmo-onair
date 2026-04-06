@@ -114,7 +114,7 @@ export default function Header({ title }: { title?: string }) {
       searchResults.vendors.length > 0);
 
   return (
-    <header className="flex h-14 items-center justify-between border-b bg-background px-4 lg:px-6">
+    <header className="flex h-14 items-center justify-between border-b bg-card px-4 lg:px-6">
       <div className="flex items-center gap-2">
         <Button
           variant="ghost"
@@ -125,7 +125,7 @@ export default function Header({ title }: { title?: string }) {
           <Menu className="h-5 w-5" />
         </Button>
         <span
-          className="cursor-pointer text-sm font-bold text-primary hover:opacity-80 transition-opacity shrink-0"
+          className="cursor-pointer text-sm font-serif font-medium text-primary hover:opacity-80 transition-opacity shrink-0"
           onClick={() => navigate("/")}
         >
           ONAiR

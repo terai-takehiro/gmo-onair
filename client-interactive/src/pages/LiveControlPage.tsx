@@ -67,7 +67,7 @@ export default function LiveControlPage() {
     navigate(`/event/${id}`);
   };
 
-  if (!eventData) return <div className="p-8 text-center text-gray-500">読み込み中...</div>;
+  if (!eventData) return <div className="p-8 text-center text-muted-foreground">読み込み中...</div>;
 
   const stamps = eventData.stamps || [];
   const audienceUrl = `${window.location.origin}/interactive/audience/${id}`;
@@ -90,7 +90,7 @@ export default function LiveControlPage() {
               <><Radio className="h-4 w-4 mr-1 animate-pulse" />LIVE</>
             ) : eventData.status}
           </Badge>
-          <h1 className="text-xl font-bold">{eventData.title}</h1>
+          <h1 className="heading-page text-xl">{eventData.title}</h1>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1 text-sm">
@@ -109,23 +109,23 @@ export default function LiveControlPage() {
       <div className="grid grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-4 text-center">
-            <Users className="h-6 w-6 mx-auto text-pink-500 mb-1" />
+            <Users className="h-6 w-6 mx-auto text-primary mb-1" />
             <div className="text-3xl font-bold">{connectionCount}</div>
-            <div className="text-xs text-gray-500">接続中</div>
+            <div className="text-xs text-muted-foreground">接続中</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <BarChart3 className="h-6 w-6 mx-auto text-pink-500 mb-1" />
+            <BarChart3 className="h-6 w-6 mx-auto text-primary mb-1" />
             <div className="text-3xl font-bold">{grandTotal.toLocaleString()}</div>
-            <div className="text-xs text-gray-500">総スタンプ数</div>
+            <div className="text-xs text-muted-foreground">総スタンプ数</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <Users className="h-6 w-6 mx-auto text-pink-500 mb-1" />
+            <Users className="h-6 w-6 mx-auto text-primary mb-1" />
             <div className="text-3xl font-bold">{statsData?.sessions?.total || 0}</div>
-            <div className="text-xs text-gray-500">累計参加者</div>
+            <div className="text-xs text-muted-foreground">累計参加者</div>
           </CardContent>
         </Card>
       </div>
@@ -150,7 +150,7 @@ export default function LiveControlPage() {
                   <div className="relative z-10 text-center">
                     <div className="text-3xl mb-1">{stamp.emoji}</div>
                     <div className="text-2xl font-bold">{total.toLocaleString()}</div>
-                    <div className="text-xs text-gray-500">{stamp.label}</div>
+                    <div className="text-xs text-muted-foreground">{stamp.label}</div>
                   </div>
                 </div>
               );

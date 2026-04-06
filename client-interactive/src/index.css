@@ -2,13 +2,40 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --primary: 330 81% 60%;
-  --primary-foreground: 0 0% 100%;
-}
+@layer base {
+  :root {
+    /* GMO ONAiR Warm Design System */
+    --background: 40 20% 96%;
+    --foreground: 60 6% 11%;
+    --card: 40 25% 99%;
+    --card-foreground: 60 6% 11%;
+    --popover: 40 25% 99%;
+    --popover-foreground: 60 6% 11%;
+    --primary: 209 100% 34%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 43 15% 88%;
+    --secondary-foreground: 48 4% 28%;
+    --muted: 43 15% 88%;
+    --muted-foreground: 48 3% 35%;
+    --accent: 43 15% 88%;
+    --accent-foreground: 48 4% 28%;
+    --destructive: 0 55% 46%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 40 18% 91%;
+    --input: 43 15% 88%;
+    --ring: 209 100% 34%;
+    --radius: 0.5rem;
+  }
 
-body {
-  font-family: 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
+  * { @apply border-border; }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Noto Sans JP', 'Hiragino Sans', sans-serif;
+    line-height: 1.60;
+  }
+  .heading-page { font-family: 'Noto Serif JP', Georgia, serif; font-weight: 500; line-height: 1.20; letter-spacing: 0.01em; }
+  .heading-section { font-family: 'Noto Serif JP', Georgia, serif; font-weight: 500; line-height: 1.25; }
+  .heading-card { font-family: 'Noto Serif JP', Georgia, serif; font-weight: 500; line-height: 1.30; }
 }
 
 /* Stamp animation */
@@ -36,7 +63,6 @@ body {
 .stamp-shake { animation: stamp-shake 0.3s ease-out; }
 .float-up { animation: float-up 1.5s ease-out forwards; }
 
-/* Overlay transparent background */
 .overlay-transparent {
   background: transparent !important;
 }

@@ -123,7 +123,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl lg:text-2xl font-bold">Qシート一覧</h1>
+          <h1 className="heading-page text-xl lg:text-2xl">Qシート一覧</h1>
           <p className="text-sm text-muted-foreground">
             キューシートの作成・編集・放送進行管理
           </p>

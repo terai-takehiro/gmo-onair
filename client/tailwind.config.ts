@@ -16,10 +16,12 @@ const config: Config = {
     },
     fontFamily: {
       sans: ['"Noto Sans JP"', 'sans-serif'],
+      serif: ['"Noto Serif JP"', 'Georgia', 'serif'],
     },
     extend: {
       fontFamily: {
         sans: ['Noto Sans JP', 'sans-serif'],
+        serif: ['Noto Serif JP', 'Georgia', 'serif'],
         mono: ['Oswald', 'sans-serif'],
         number: ['Oswald', 'sans-serif'],
       },

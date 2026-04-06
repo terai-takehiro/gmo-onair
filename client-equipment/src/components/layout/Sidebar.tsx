@@ -41,7 +41,7 @@ export default function Sidebar() {
 
       <aside
         className={cn(
-          "fixed lg:static inset-y-0 left-0 z-50 flex w-64 flex-col border-r bg-white transition-transform lg:translate-x-0",
+          "fixed lg:static inset-y-0 left-0 z-50 flex w-64 flex-col border-r bg-card transition-transform lg:translate-x-0",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -53,7 +53,7 @@ export default function Sidebar() {
           >
             <Package className="h-6 w-6 text-primary" />
             <div>
-              <span className="text-lg font-bold text-primary">機材管理</span>
+              <span className="text-lg font-serif font-medium text-primary">機材管理</span>
               <span className="block text-[10px] text-muted-foreground leading-none">
                 GMO ONAiR Equipment
               </span>
