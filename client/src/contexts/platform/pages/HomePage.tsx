@@ -105,6 +105,9 @@ export default function HomePage() {
                 onClick={() => {
                   if (app.externalUrl) {
                     window.open(app.externalUrl, "_blank", "noopener,noreferrer");
+                  } else if (['qsheet', 'equipment', 'interactive'].includes(app.id)) {
+                    // Sub-apps are separate SPAs — full page navigation
+                    window.location.href = app.basePath;
                   } else {
                     navigate(app.basePath);
                   }

@@ -19,7 +19,7 @@ export function createApp(): express.Express {
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "blob:"],
-        connectSrc: ["'self'"],
+        connectSrc: ["'self'", "ws:", "wss:"],
         fontSrc: ["'self'"],
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"],
@@ -32,6 +32,8 @@ export function createApp(): express.Express {
   const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:5174',
+    'http://localhost:5175',
+    'http://localhost:5176',
     'http://localhost:3000',
     ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : []),
   ];
@@ -62,6 +64,13 @@ export function createApp(): express.Express {
     app.use('/qsheet', express.static(qsheetDistPath));
     app.get('/qsheet/*', (_req, res) => {
       res.sendFile(path.join(qsheetDistPath, 'index.html'));
+    });
+
+    // Interactive client at /interactive/*
+    const interactiveDistPath = path.join(__dirname, '../../client-interactive/dist');
+    app.use('/interactive', express.static(interactiveDistPath));
+    app.get('/interactive/*', (_req, res) => {
+      res.sendFile(path.join(interactiveDistPath, 'index.html'));
     });
 
     // Main ONAiR client at /*

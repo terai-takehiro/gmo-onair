@@ -1,0 +1,37 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from './hooks/useAuth';
+import { AppShell } from './components/layout/AppShell';
+import DashboardPage from './pages/DashboardPage';
+import EventEditorPage from './pages/EventEditorPage';
+import LiveControlPage from './pages/LiveControlPage';
+import OverlayPage from './pages/OverlayPage';
+import AudiencePage from './pages/AudiencePage';
+import LoginPage from './pages/LoginPage';
+
+export default function App() {
+  const { user } = useAuth();
+
+  return (
+    <BrowserRouter basename="/interactive">
+      <Routes>
+        {/* Public routes (no auth needed) */}
+        <Route path="/audience/:eventId" element={<AudiencePage />} />
+        <Route path="/overlay/:eventId" element={<OverlayPage />} />
+
+        {/* Auth routes */}
+        <Route path="/login" element={<LoginPage />} />
+
+        {/* Protected routes */}
+        {user ? (
+          <Route element={<AppShell />}>
+            <Route index element={<DashboardPage />} />
+            <Route path="/event/:id" element={<EventEditorPage />} />
+            <Route path="/live/:id" element={<LiveControlPage />} />
+          </Route>
+        ) : (
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        )}
+      </Routes>
+    </BrowserRouter>
+  );
+}
