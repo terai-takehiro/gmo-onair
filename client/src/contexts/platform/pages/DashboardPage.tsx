@@ -538,7 +538,7 @@ export default function DashboardPage() {
                 className="cursor-pointer rounded-lg border bg-card text-card-foreground shadow-sm"
                 onClick={() => {
                   if ('external' in link && link.external) {
-                    window.open(link.to, '_blank');
+                    window.open(link.to, '_blank', 'noopener,noreferrer');
                   } else {
                     navigate(link.to);
                   }

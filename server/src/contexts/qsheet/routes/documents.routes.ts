@@ -8,6 +8,17 @@ const router = Router();
 // Apply auth + permission middleware to all routes
 router.use(requireAuth, requirePermission('qsheet'));
 
+// Input validation helpers
+const MAX_TITLE_LENGTH = 500;
+const MAX_SEARCH_LENGTH = 100;
+const VALID_STATUSES = ['draft', 'rehearsal', 'on_air', 'archived'];
+
+function sanitizeSearch(input: unknown): string | null {
+  if (typeof input !== 'string') return null;
+  // Escape LIKE special characters to prevent pattern injection
+  return input.slice(0, MAX_SEARCH_LENGTH).replace(/[%_\\]/g, '\\$&');
+}
+
 // ============================================================
 // ドキュメント一覧
 // ============================================================
@@ -23,25 +34,29 @@ router.get('/documents', async (req: Request, res: Response) => {
     const params: unknown[] = [];
     let paramIndex = 1;
 
-    if (status) {
+    if (status && typeof status === 'string' && VALID_STATUSES.includes(status)) {
       sql += ` AND d.status = $${paramIndex++}`;
       params.push(status);
     }
-    if (episode_id) {
+    if (episode_id && typeof episode_id === 'string') {
       sql += ` AND d.episode_id = $${paramIndex++}`;
       params.push(episode_id);
     }
     if (search) {
-      sql += ` AND d.title ILIKE $${paramIndex++}`;
-      params.push(`%${search}%`);
+      const safe = sanitizeSearch(search);
+      if (safe) {
+        sql += ` AND d.title ILIKE $${paramIndex++} ESCAPE '\\'`;
+        params.push(`%${safe}%`);
+      }
     }
 
-    sql += ' ORDER BY d.updated_at DESC';
+    sql += ' ORDER BY d.updated_at DESC LIMIT 200';
 
     const rows = await queryAll(sql, params);
     res.json({ success: true, data: rows });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: err.message } });
+  } catch (err: unknown) {
+    console.error('GET /documents error:', err);
+    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: 'サーバー内部エラーが発生しました' } });
   }
 });
 
@@ -62,8 +77,9 @@ router.get('/documents/:id', async (req: Request, res: Response) => {
       return;
     }
     res.json({ success: true, data: row });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: err.message } });
+  } catch (err: unknown) {
+    console.error('GET /documents/:id error:', err);
+    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: 'サーバー内部エラーが発生しました' } });
   }
 });
 
@@ -75,16 +91,23 @@ router.post('/documents', requirePermission('qsheet', 'editor'), async (req: Req
     const id = uuid();
     const { title, data, episode_id, project_id, broadcast_date, episode_code } = req.body;
 
+    // Validate title length
+    const safeTitle = typeof title === 'string' ? title.slice(0, MAX_TITLE_LENGTH) : '';
+
+    // Validate data is an object
+    const safeData = (data && typeof data === 'object') ? data : {};
+
     await execute(
       `INSERT INTO qsheet_documents (id, title, data, episode_id, project_id, broadcast_date, episode_code, status, created_by, updated_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7, 'draft', $8, $8)`,
-      [id, title || '', JSON.stringify(data || {}), episode_id || null, project_id || null, broadcast_date || null, episode_code || null, req.user!.id]
+      [id, safeTitle, JSON.stringify(safeData), episode_id || null, project_id || null, broadcast_date || null, episode_code || null, req.user!.id]
     );
 
     const row = await queryOne('SELECT * FROM qsheet_documents WHERE id = $1', [id]);
     res.status(201).json({ success: true, data: row });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: err.message } });
+  } catch (err: unknown) {
+    console.error('POST /documents error:', err);
+    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: 'サーバー内部エラーが発生しました' } });
   }
 });
 
@@ -101,19 +124,24 @@ router.put('/documents/:id', requirePermission('qsheet', 'editor'), async (req: 
 
     const { title, data, episode_id, project_id, broadcast_date, episode_code, status } = req.body;
 
+    const safeTitle = typeof title === 'string' ? title.slice(0, MAX_TITLE_LENGTH) : '';
+    const safeStatus = (typeof status === 'string' && VALID_STATUSES.includes(status)) ? status : 'draft';
+    const safeData = (data && typeof data === 'object') ? data : {};
+
     await execute(
       `UPDATE qsheet_documents
        SET title = $1, data = $2, episode_id = $3, project_id = $4,
            broadcast_date = $5, episode_code = $6, status = $7,
            updated_by = $8, updated_at = NOW()
        WHERE id = $9`,
-      [title, JSON.stringify(data), episode_id || null, project_id || null, broadcast_date || null, episode_code || null, status || 'draft', req.user!.id, req.params.id]
+      [safeTitle, JSON.stringify(safeData), episode_id || null, project_id || null, broadcast_date || null, episode_code || null, safeStatus, req.user!.id, req.params.id]
     );
 
     const row = await queryOne('SELECT * FROM qsheet_documents WHERE id = $1', [req.params.id]);
     res.json({ success: true, data: row });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: err.message } });
+  } catch (err: unknown) {
+    console.error('PUT /documents/:id error:', err);
+    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: 'サーバー内部エラーが発生しました' } });
   }
 });
 
@@ -134,8 +162,9 @@ router.delete('/documents/:id', requirePermission('qsheet', 'manager'), async (r
     );
 
     res.json({ success: true, data: { id: req.params.id } });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: err.message } });
+  } catch (err: unknown) {
+    console.error('DELETE /documents/:id error:', err);
+    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: 'サーバー内部エラーが発生しました' } });
   }
 });
 
@@ -155,17 +184,21 @@ router.get('/episodes', async (req: Request, res: Response) => {
     let paramIndex = 1;
 
     if (search) {
-      sql += ` AND (e.title ILIKE $${paramIndex} OR e.episode_code ILIKE $${paramIndex})`;
-      params.push(`%${search}%`);
-      paramIndex++;
+      const safe = sanitizeSearch(search);
+      if (safe) {
+        sql += ` AND (e.title ILIKE $${paramIndex} OR e.episode_code ILIKE $${paramIndex}) ESCAPE '\\'`;
+        params.push(`%${safe}%`);
+        paramIndex++;
+      }
     }
 
     sql += ' ORDER BY e.broadcast_date DESC LIMIT 50';
 
     const rows = await queryAll(sql, params);
     res.json({ success: true, data: rows });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: err.message } });
+  } catch (err: unknown) {
+    console.error('GET /episodes error:', err);
+    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: 'サーバー内部エラーが発生しました' } });
   }
 });
 

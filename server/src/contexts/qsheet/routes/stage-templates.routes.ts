@@ -21,8 +21,9 @@ router.get('/', async (_req: Request, res: Response) => {
        ORDER BY st.name ASC`
     );
     res.json({ success: true, data: rows });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: err.message } });
+  } catch (err: unknown) {
+    console.error('stage-templates error:', err);
+    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: 'サーバー内部エラーが発生しました' } });
   }
 });
 
@@ -40,8 +41,9 @@ router.get('/:id', async (req: Request, res: Response) => {
       return;
     }
     res.json({ success: true, data: row });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: err.message } });
+  } catch (err: unknown) {
+    console.error('stage-templates error:', err);
+    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: 'サーバー内部エラーが発生しました' } });
   }
 });
 
@@ -53,16 +55,20 @@ router.post('/', requirePermission('qsheet', 'editor'), async (req: Request, res
     const id = uuid();
     const { name, elements } = req.body;
 
+    const safeName = typeof name === 'string' ? name.slice(0, 255) : '';
+    const safeElements = Array.isArray(elements) ? elements : [];
+
     await execute(
       `INSERT INTO qsheet_stage_templates (id, name, elements, created_by, updated_by)
        VALUES ($1, $2, $3, $4, $4)`,
-      [id, name, JSON.stringify(elements || []), req.user!.id]
+      [id, safeName, JSON.stringify(safeElements), req.user!.id]
     );
 
     const row = await queryOne('SELECT * FROM qsheet_stage_templates WHERE id = $1', [id]);
     res.status(201).json({ success: true, data: row });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: err.message } });
+  } catch (err: unknown) {
+    console.error('stage-templates error:', err);
+    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: 'サーバー内部エラーが発生しました' } });
   }
 });
 
@@ -88,8 +94,9 @@ router.put('/:id', requirePermission('qsheet', 'editor'), async (req: Request, r
 
     const row = await queryOne('SELECT * FROM qsheet_stage_templates WHERE id = $1', [req.params.id]);
     res.json({ success: true, data: row });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: err.message } });
+  } catch (err: unknown) {
+    console.error('stage-templates error:', err);
+    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: 'サーバー内部エラーが発生しました' } });
   }
 });
 
@@ -110,8 +117,9 @@ router.delete('/:id', requirePermission('qsheet', 'manager'), async (req: Reques
     );
 
     res.json({ success: true, data: { id: req.params.id } });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: err.message } });
+  } catch (err: unknown) {
+    console.error('stage-templates error:', err);
+    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: 'サーバー内部エラーが発生しました' } });
   }
 });
 
