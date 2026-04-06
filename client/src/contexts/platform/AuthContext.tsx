@@ -64,6 +64,8 @@ interface AuthContextType {
   currentUser: User | null;
   isAuthenticated: boolean;
   login: (userId: string) => Promise<void>;
+  /** OAuth callback: JWT tokenでログイン */
+  loginWithToken: (token: string) => Promise<void>;
   logout: () => void;
   loading: boolean;
   permissions: Permissions;
@@ -91,18 +93,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const stored = localStorage.getItem("gmo_onair_user");
-    if (stored) {
-      try {
-        const user = JSON.parse(stored);
-        setCurrentUser(user);
-        setCurrentUserId(user.id);
-        fetchPermissions();
-      } catch {
-        localStorage.removeItem("gmo_onair_user");
+    const init = async () => {
+      // If we have a JWT token, validate via /auth/me
+      const token = localStorage.getItem("gmo_onair_token");
+      if (token) {
+        try {
+          const res = await api.get("/auth/me");
+          const user = res.data.data;
+          setCurrentUser(user);
+          setCurrentUserId(user.id);
+          localStorage.setItem("gmo_onair_user", JSON.stringify(user));
+          await fetchPermissions();
+          setLoading(false);
+          return;
+        } catch {
+          localStorage.removeItem("gmo_onair_token");
+          localStorage.removeItem("gmo_onair_user");
+        }
       }
-    }
-    setLoading(false);
+
+      // Fallback: mock mode — restore from localStorage
+      const stored = localStorage.getItem("gmo_onair_user");
+      if (stored) {
+        try {
+          const user = JSON.parse(stored);
+          setCurrentUser(user);
+          setCurrentUserId(user.id);
+          fetchPermissions();
+        } catch {
+          localStorage.removeItem("gmo_onair_user");
+        }
+      }
+      setLoading(false);
+    };
+    init();
   }, [setCurrentUserId, fetchPermissions]);
 
   const login = useCallback(
@@ -118,11 +142,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [setCurrentUserId, fetchPermissions]
   );
 
+  /** OAuth callback login: store token and fetch user from /auth/me */
+  const loginWithToken = useCallback(
+    async (token: string) => {
+      localStorage.setItem("gmo_onair_token", token);
+      const res = await api.get("/auth/me");
+      const user = res.data.data;
+      setCurrentUser(user);
+      setCurrentUserId(user.id);
+      localStorage.setItem("gmo_onair_user", JSON.stringify(user));
+      await fetchPermissions();
+    },
+    [setCurrentUserId, fetchPermissions]
+  );
+
   const logout = useCallback(() => {
     setCurrentUser(null);
     setPermissions({});
     setCurrentUserId(null);
     localStorage.removeItem("gmo_onair_user");
+    localStorage.removeItem("gmo_onair_token");
+    api.post("/auth/logout").catch(() => {});
   }, [setCurrentUserId]);
 
   const hasPermission = useCallback(
@@ -145,6 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         currentUser,
         isAuthenticated: !!currentUser,
         login,
+        loginWithToken,
         logout,
         loading,
         permissions,

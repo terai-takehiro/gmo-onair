@@ -3,10 +3,15 @@ import { useUiStore } from '@/stores/uiStore';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api/v1/internal',
+  withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 });
 
 api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('gmo_onair_token');
+  if (token) {
+    config.headers['Authorization'] = `Bearer ${token}`;
+  }
   const userId = useUiStore.getState().currentUserId;
   if (userId) {
     config.headers['x-user-id'] = userId;

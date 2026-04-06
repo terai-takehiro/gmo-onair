@@ -2,10 +2,13 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import cookieParser from 'cookie-parser';
+import passport from 'passport';
 import path from 'path';
-import { mockAuth } from './shared/middleware/auth';
+import { createAuthMiddleware } from './shared/middleware/auth';
 import { errorHandler } from './shared/middleware/errorHandler';
 import { createRoutes } from './routes';
+import { config } from './config';
 
 export function createApp(): express.Express {
   const app = express();
@@ -16,13 +19,14 @@ export function createApp(): express.Express {
     contentSecurityPolicy: isProduction ? {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "blob:"],
-        connectSrc: ["'self'", "ws:", "wss:"],
-        fontSrc: ["'self'"],
+        scriptSrc: ["'self'", "https://accounts.google.com", "https://apis.google.com"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://accounts.google.com"],
+        imgSrc: ["'self'", "data:", "blob:", "https://*.googleusercontent.com"],
+        connectSrc: ["'self'", "ws:", "wss:", "https://accounts.google.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"],
+        frameSrc: ["https://accounts.google.com"],
       },
     } : false,
     hsts: isProduction,
@@ -39,8 +43,16 @@ export function createApp(): express.Express {
   ];
   app.use(cors({ origin: allowedOrigins, credentials: true }));
   app.use(express.json({ limit: '10mb' }));
+  app.use(cookieParser());
   app.use(morgan('dev'));
-  app.use(mockAuth);
+
+  // Passport initialization (required for Google OAuth strategy)
+  if (config.authMode === 'oauth') {
+    app.use(passport.initialize());
+  }
+
+  // Auto-select auth middleware: jwtAuth (OAuth mode) or mockAuth (dev mode)
+  app.use(createAuthMiddleware());
 
   // Routes
   app.use('/api/v1/internal', createRoutes());

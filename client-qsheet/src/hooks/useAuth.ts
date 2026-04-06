@@ -15,17 +15,38 @@ export function useAuth() {
   const setCurrentUserId = useUiStore((s) => s.setCurrentUserId);
 
   useEffect(() => {
-    const stored = localStorage.getItem("qs_user");
-    if (stored) {
-      try {
-        const user = JSON.parse(stored);
-        setCurrentUser(user);
-        setCurrentUserId(user.id);
-      } catch {
-        localStorage.removeItem("qs_user");
+    const init = async () => {
+      // OAuth mode: validate JWT token via /auth/me
+      const token = localStorage.getItem("gmo_onair_token");
+      if (token) {
+        try {
+          const res = await api.get("/auth/me");
+          const user = res.data.data;
+          setCurrentUser(user);
+          setCurrentUserId(user.id);
+          localStorage.setItem("qs_user", JSON.stringify(user));
+          setLoading(false);
+          return;
+        } catch {
+          localStorage.removeItem("gmo_onair_token");
+          localStorage.removeItem("qs_user");
+        }
       }
-    }
-    setLoading(false);
+
+      // Mock mode: restore from localStorage
+      const stored = localStorage.getItem("qs_user");
+      if (stored) {
+        try {
+          const user = JSON.parse(stored);
+          setCurrentUser(user);
+          setCurrentUserId(user.id);
+        } catch {
+          localStorage.removeItem("qs_user");
+        }
+      }
+      setLoading(false);
+    };
+    init();
   }, [setCurrentUserId]);
 
   const login = useCallback(
@@ -40,10 +61,24 @@ export function useAuth() {
     [setCurrentUserId]
   );
 
+  const loginWithToken = useCallback(
+    async (token: string) => {
+      localStorage.setItem("gmo_onair_token", token);
+      const res = await api.get("/auth/me");
+      const user = res.data.data;
+      setCurrentUser(user);
+      setCurrentUserId(user.id);
+      localStorage.setItem("qs_user", JSON.stringify(user));
+    },
+    [setCurrentUserId]
+  );
+
   const logout = useCallback(() => {
     setCurrentUser(null);
     setCurrentUserId(null);
     localStorage.removeItem("qs_user");
+    localStorage.removeItem("gmo_onair_token");
+    api.post("/auth/logout").catch(() => {});
   }, [setCurrentUserId]);
 
   return {
@@ -51,6 +86,7 @@ export function useAuth() {
     isAuthenticated: !!currentUser,
     loading,
     login,
+    loginWithToken,
     logout,
   };
 }

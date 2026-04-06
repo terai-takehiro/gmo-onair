@@ -9,7 +9,7 @@ import AudiencePage from './pages/AudiencePage';
 import LoginPage from './pages/LoginPage';
 
 export default function App() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
   return (
     <BrowserRouter basename="/interactive">
@@ -22,7 +22,9 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
 
         {/* Protected routes */}
-        {user ? (
+        {loading ? (
+          <Route path="*" element={<div className="flex h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>} />
+        ) : user ? (
           <Route element={<AppShell />}>
             <Route index element={<DashboardPage />} />
             <Route path="/event/:id" element={<EventEditorPage />} />
