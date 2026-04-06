@@ -28,13 +28,13 @@ router.get('/', async (req, res) => {
 // CSV Export
 router.get('/export', requirePermission('sales', 'exporter'), async (_req, res) => {
   const rows = await queryAll(
-    `SELECT p.gls_number, p.name, c.name as client_name, p.stage, p.probability, p.amount
+    `SELECT p.gls_number, p.name, c.name as client_name, p.stage, p.expected_amount
      FROM projects p
      LEFT JOIN customers c ON c.id = p.customer_id
      WHERE p.deleted_at IS NULL
      ORDER BY p.created_at DESC`
   ) as Record<string, unknown>[];
-  const columns = ['gls_number', 'name', 'client_name', 'stage', 'probability', 'amount'];
+  const columns = ['gls_number', 'name', 'client_name', 'stage', 'expected_amount'];
   csvResponse(res, 'projects.csv', generateCsv(rows, columns));
 });
 

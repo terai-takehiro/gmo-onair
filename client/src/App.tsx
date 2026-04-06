@@ -130,8 +130,6 @@ function AppRoutes() {
         {/* 旧URLリダイレクト */}
         <Route path="/projects" element={<Navigate to="/sales/projects" replace />} />
         <Route path="/projects/*" element={<Navigate to="/sales/projects" replace />} />
-        <Route path="/opportunities" element={<Navigate to="/sales/projects" replace />} />
-        <Route path="/opportunities/*" element={<Navigate to="/sales/projects" replace />} />
         <Route path="/revenues" element={<Navigate to="/budget/revenues" replace />} />
         <Route path="/purchases" element={<Navigate to="/budget/purchases" replace />} />
         <Route path="/sga" element={<Navigate to="/budget/sga" replace />} />
