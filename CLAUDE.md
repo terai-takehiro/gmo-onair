@@ -1,16 +1,34 @@
 # GMO ONAiR - プロジェクトメモリ
 
 ## プロジェクト概要
-GMO ONAiR = GMOグローバルスタジオの「会社OS」を目指すウェブアプリ。
-スタジオ案件管理・売上仕入管理・損益管理を一元化するシステム。
-将来的にQシートアプリ(GMO-Qsheet-Editor)も統合し、ワンストップの制作管理OSにする。
+GMO ONAiR = GMOグローバルスタジオの制作管理プラットフォーム（会社OS）の総称。
+複数の「ブロックアプリ」を束ねるプラットフォームであり、特定の機能を指す名称ではない。
+GLS番号を中核として全アプリのデータが紐づく。
+
+### ブロックアプリ一覧
+| アプリ | ディレクトリ | ベースパス | ポート | 概要 |
+|---|---|---|---|---|
+| 案件管理 | `client/` | `/` | 5173 | 案件・売上・仕入・損益管理 |
+| Qシート | `client-qsheet/` | `/qsheet/` | 5174 | Qシート作成・OnAir・ランダウン |
+| 機材管理 | `client-equipment/` | `/equipment/` | 5175 | 機材台帳・貸出管理 |
+| インタラクティブ | `client-interactive/` | `/interactive/` | 5176 | EventStamp・リアルタイム演出 |
+| 技術資料 | `client-techsheet/` | `/techsheet/` | 5177 | カメラ・映像・音声技術仕様書 |
+
+### 共有ライブラリ (`shared/`)
+全ブロックアプリの共通コードを集約。各アプリは設定値のみ渡すラッパーファイルで利用。
+- `shared/src/client/createApi.ts` — axiosインスタンスのファクトリ (storageKey, loginPath)
+- `shared/src/client/createAuthHook.ts` — useAuthフックのファクトリ (storageKey, api)
+- `shared/src/client/queryClient.ts` — 共通QueryClient設定
+- `shared/src/client/uiStore.ts` — 共通UIストア (Zustand)
+- `shared/src/client/utils.ts` — cn()ユーティリティ
+- ストレージキー: `qs_user` (qsheet), `ts_user` (techsheet), `is_user` (interactive), `eq_user` (equipment)
 
 ## 技術構成
-- **フロントエンド**: React + Vite + TailwindCSS + shadcn/ui
+- **フロントエンド**: React 19 + Vite 8 + TailwindCSS 4 + shadcn/ui
 - **バックエンド**: Express + PostgreSQL (pg)
-- **モノレポ**: client/ + server/ を1つのリポジトリで管理
+- **モノレポ**: npm workspaces (client, client-qsheet, client-equipment, client-interactive, client-techsheet, server, shared)
+- **リアルタイム**: Socket.IO (`/qsheet` ネームスペース: OnAir↔ランダウン同期, `/interactive`: スタンプ)
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
-- **旧デプロイ先**: Render (廃止済み・render.yaml削除済み)
 
 ## 現在のバージョン: v0.8.0
 
@@ -96,6 +114,25 @@ EventStampをReact化してONAiRに統合。
 - [x] レイアウト統一 (bg-card header/sidebar)
 - [x] 不要コード整理 (sql.js型, render.yaml, Opportunity型, CSVバグ修正)
 
+### DONE: 技術資料アプリ (TechSheet) プロトタイプ
+- [x] techsheet_documents テーブル (014_techsheet_schema.sql)
+- [x] サーバーコンテキスト (CRUD + auth)
+- [x] エディタ画面 (タブ式: ヘッダー/カメラ/映像/音声/通信)
+- [x] 印刷画面 (A4 per-section, @media print)
+- [ ] 機材管理DB連携 (equipment_items → techsheet内で参照)
+- [ ] PDF出力
+
+### DONE: 共有ライブラリ集約
+- [x] shared/src/client/ にファクトリ関数集約
+- [x] 4クライアントアプリのリファクタリング (576行削減)
+- [x] 全アプリ型チェック通過
+
+### LATER: 制作支援アプリ (ProdSheet) — 未着手
+スケジュール・スタッフ配置・ケータリング・連絡先等の制作進行支援。TechSheetと連携。
+- [ ] 設計・DB設計
+- [ ] client-prodsheet/ ワークスペース追加
+- [ ] TechSheet ↔ ProdSheet 相互参照API
+
 ### LATER: 認証統一 (v0.9.x+)
 全アプリの認証をGoogle OAuthに統一。
 - [ ] mockAuth廃止 → Google OAuth 2.0 + Passport.js
@@ -117,15 +154,15 @@ EventStampをReact化してONAiRに統合。
 ---
 
 ## Qシートアプリ情報
-- リポジトリ: terai-takehiro/GMO-Qsheet-Editor
-- **技術構成**: Express + Vanilla JS + Quill.js + PostgreSQL + Docker Compose
-- **認証**: Google OAuth 2.0 + Passport.js (招待制)
-- **マルチテナント**: tenants/roles (master/client_admin/client_user)
+- リポジトリ: terai-takehiro/GMO-Qsheet-Editor (旧)、現在はモノレポ内 `client-qsheet/`
+- **技術構成**: React 19 + Vite 8 + TailwindCSS 4 + shadcn/ui
+- **認証**: mockAuth (dev) / Google OAuth (prod) 自動切替
 - **データ**: documents テーブルに JSONB でQシート全体を保存
 - **PDF出力**: pdfkit サーバーサイド生成 (A4/A3, Noto Sans JP)
-- **ポート**: 3456
+- **ポート**: 5174 (dev) / 3456 (prod)
 - **連携キー**: GLS番号 + エピソードコード (例: GLS002-003)
-- **Reactクライアント**: client/ に React 19 + Vite 8 + TailwindCSS 4 版あり (pages: Dashboard, Editor, OnAir, Login)
+- **画面**: Dashboard, Editor, OnAir, Rundown, Login
+- **Socket.IO**: `/qsheet` ネームスペース — OnAir↔ランダウンのリアルタイム同期 (cue:update/sync/next/prev/jump/play/pause/reset)
 
 ## EventStampアプリ情報
 - リポジトリ: terai-takehiro/gmo_eventstamp
@@ -150,25 +187,22 @@ EventStampをReact化してONAiRに統合。
 │   └── 📁 06_納品物/
 ```
 
-## CoNoHa VPS構成 (3アプリ並走)
+## CoNoHa VPS構成 (5ブロックアプリ)
 ```
 CoNoHa VPS (2GB RAM)
 ├── Nginx (リバースプロキシ + SSL)
-│   ├── /              → localhost:3000  (ONAiR)
-│   ├── /qsheet/      → localhost:3456  (Qsheet)
-│   └── /interactive/  → localhost:3001  (EventStamp + WebSocket)
-├── Docker Compose
-│   ├── GMO ONAiR           (port 3000)
-│   │   ├── Express + React
-│   │   └── DB: onair_db
-│   ├── GMO Qsheet Editor   (port 3456) ← v0.7でサブアプリ化
-│   │   ├── Express + React/Vanilla JS
-│   │   └── DB: qsheet_db
-│   ├── GMO EventStamp       (port 3001) ← v0.8で統合済み
-│   │   ├── Express + Socket.IO
-│   │   └── DB: PostgreSQL (interactive_* テーブル)
-│   └── PostgreSQL 16 (onair_db + qsheet_db 共有)
-└── Volume: pgdata, eventstamp-data, eventstamp-uploads
+│   ├── /              → 案件管理 (client/)
+│   ├── /qsheet/      → Qシート (client-qsheet/)
+│   ├── /equipment/   → 機材管理 (client-equipment/)
+│   ├── /interactive/  → インタラクティブ (client-interactive/ + WebSocket)
+│   └── /techsheet/   → 技術資料 (client-techsheet/)
+├── Express サーバー (port 3000)
+│   ├── /api/v1/internal/* — 全ブロックアプリ共通API
+│   ├── Socket.IO: /qsheet, /interactive
+│   └── 各ブロックアプリの静的ファイル配信
+├── PostgreSQL 16
+│   └── 単一DB: projects, documents, equipment_items, interactive_*, techsheet_documents...
+└── Volume: pgdata
 ```
 
 ## 完了済み
@@ -180,3 +214,6 @@ CoNoHa VPS (2GB RAM)
 - [x] EventStampサブアプリ統合 (v0.8.x)
 - [x] UI/UX全面リニューアル (GMO Blue + Warm Neutrals)
 - [x] 不要コード・DB整理 (sql.js型, render.yaml, Opportunity型削除, CSVバグ修正)
+- [x] Qシート ディレクター用ランダウン画面 (Socket.IO同期, 押し/巻き表示)
+- [x] 技術資料アプリ (TechSheet) プロトタイプ (カメラ/映像/音声/通信シート)
+- [x] 共有ライブラリ集約 (shared/src/client/) — 40+重複ファイル → ファクトリ関数化
