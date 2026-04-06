@@ -30,7 +30,7 @@ export const BLOCK_APPS: BlockApp[] = [
   { id: "budget",    label: "予算管理",       description: "売上・仕入・販管費・損益",       icon: "PiggyBank",    color: "bg-emerald-500", status: "active",      basePath: "/budget" },
   { id: "studio",    label: "スタジオ予約",   description: "スタジオカレンダー・ブッキング", icon: "Calendar",     color: "bg-violet-500",  status: "active",      basePath: "/studio" },
   { id: "equipment", label: "機材管理",       description: "機材台帳・貸出・メンテナンス",   icon: "Package",      color: "bg-amber-500",   status: "active",      basePath: "/equipment" },
-  { id: "qsheet",    label: "Qシート",        description: "Qシート作成・放送進行",         icon: "FileText",     color: "bg-rose-500",    status: "active",      basePath: "/qsheet",      externalUrl: "/qsheet/" },
+  { id: "qsheet",    label: "Qシート",        description: "Qシート作成・放送進行",         icon: "FileText",     color: "bg-rose-500",    status: "active",      basePath: "/qsheet" },
   { id: "interactive",  label: "インタラクティブ演出", description: "スタンプ・リアルタイム演出支援", icon: "Sparkles",     color: "bg-pink-500",    status: "active",      basePath: "/interactive",  externalUrl: "/interactive/" },
   { id: "techdocs",  label: "技術資料",       description: "技術資料作成支援",               icon: "BookOpen",     color: "bg-cyan-500",    status: "coming_soon", basePath: "/techdocs" },
   { id: "assign",    label: "スタッフ配置",   description: "スタッフアサイン管理",           icon: "Users",        color: "bg-orange-500",  status: "coming_soon", basePath: "/assign" },

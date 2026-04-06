@@ -46,32 +46,37 @@ export async function seed() {
   // ブロックアプリごとに個別設定
   const perms: [string, string, string][] = [
     // staff1 — 佐藤（営業マネージャー寄り）
-    //        営業管理    予算管理      スタジオ     機材管理
+    //        営業管理    予算管理      スタジオ     機材管理     Qシート
     [USERS.staff1, 'sales',     'owner'],      // 営業の責任者
     [USERS.staff1, 'budget',    'manager'],    // 予算も削除可
     [USERS.staff1, 'studio',    'editor'],     // スタジオ予約は編集まで
     [USERS.staff1, 'equipment', 'exporter'],   // 機材は閲覧+出力のみ
+    [USERS.staff1, 'qsheet',    'editor'],     // Qシート編集可
 
     // staff2 — 鈴木（制作マネージャー寄り）
     [USERS.staff2, 'sales',     'editor'],     // 営業は編集まで
     [USERS.staff2, 'budget',    'exporter'],   // 予算は出力まで
     [USERS.staff2, 'studio',    'owner'],      // スタジオの責任者
     [USERS.staff2, 'equipment', 'manager'],    // 機材は削除可
+    [USERS.staff2, 'qsheet',    'owner'],      // Qシートの責任者
 
     // staff3 — 高橋（制作スタッフ）
     [USERS.staff3, 'sales',     'reader'],     // 営業は閲覧のみ
     [USERS.staff3, 'studio',    'editor'],     // スタジオ予約は編集可
     [USERS.staff3, 'equipment', 'editor'],     // 機材も編集可
+    [USERS.staff3, 'qsheet',    'editor'],     // Qシート編集可
     // budget: アクセスなし
 
     // viewer — 田中（経営層・閲覧用）
     [USERS.viewer, 'sales',     'exporter'],   // 営業レポート出力
     [USERS.viewer, 'budget',    'exporter'],   // 予算レポート出力
     [USERS.viewer, 'studio',    'reader'],     // スタジオは閲覧のみ
+    [USERS.viewer, 'qsheet',    'reader'],     // Qシート閲覧のみ
     // equipment: アクセスなし
 
     // external — 山田（外部クライアント）
     [USERS.external, 'studio',  'reader'],     // カレンダー閲覧のみ
+    [USERS.external, 'qsheet',  'reader'],     // Qシート閲覧のみ
   ];
 
   for (const [userId, mod, level] of perms) {

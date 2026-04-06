@@ -45,6 +45,13 @@ export function createApp(): express.Express {
       res.sendFile(path.join(equipmentDistPath, 'index.html'));
     });
 
+    // Qsheet client at /qsheet/*
+    const qsheetDistPath = path.join(__dirname, '../../client-qsheet/dist');
+    app.use('/qsheet', express.static(qsheetDistPath));
+    app.get('/qsheet/*', (_req, res) => {
+      res.sendFile(path.join(qsheetDistPath, 'index.html'));
+    });
+
     // Main ONAiR client at /*
     const clientDistPath = path.join(__dirname, '../../client/dist');
     app.use(express.static(clientDistPath));

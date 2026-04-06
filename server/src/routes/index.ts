@@ -4,6 +4,7 @@ import { createSalesRoutes } from '../contexts/sales';
 import { createProductionRoutes } from '../contexts/production';
 import { createFinanceRoutes } from '../contexts/finance';
 import { createAssetRoutes } from '../contexts/asset';
+import { createQsheetRoutes } from '../contexts/qsheet';
 
 export function createRoutes(): Router {
   const router = Router();
@@ -14,6 +15,7 @@ export function createRoutes(): Router {
   router.use(createProductionRoutes());
   router.use(createFinanceRoutes());
   router.use(createAssetRoutes());
+  router.use(createQsheetRoutes());
 
   return router;
 }
