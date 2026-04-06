@@ -1,13 +1,28 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Radio, Eye, Settings, Trash2, Search, Sparkles } from 'lucide-react';
+import { Plus, Radio, Eye, Settings, Trash2, Search, Sparkles, Link2 } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+interface GlsProject {
+  id: string;
+  gls_number: string;
+  name: string;
+  customer_name: string | null;
+}
+
+interface EpisodeOption {
+  id: string;
+  episode_code: string;
+  episode_number: number;
+  broadcast_date: string | null;
+}
 
 const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'success' | 'secondary' | 'warning' }> = {
   draft: { label: '下書き', variant: 'secondary' },
@@ -23,18 +38,45 @@ export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
+  const [linkToProject, setLinkToProject] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [selectedEpisodeId, setSelectedEpisodeId] = useState('');
 
   const { data, isLoading } = useQuery({
     queryKey: ['interactive-events', search, statusFilter],
     queryFn: () => api.get('/interactive/events', { params: { search, status: statusFilter || undefined } }).then(r => r.data),
   });
 
+  // GLS project list for selector
+  const { data: glsProjects } = useQuery({
+    queryKey: ['gls-options'],
+    queryFn: async () => {
+      const res = await api.get('/lookup/gls-options');
+      return res.data.data as GlsProject[];
+    },
+    enabled: linkToProject,
+  });
+
+  // Episodes for selected project
+  const { data: episodes } = useQuery({
+    queryKey: ['episode-options', selectedProjectId],
+    queryFn: async () => {
+      const res = await api.get(`/lookup/${selectedProjectId}/episodes-options`);
+      return res.data.data as EpisodeOption[];
+    },
+    enabled: !!selectedProjectId,
+  });
+
   const createMutation = useMutation({
-    mutationFn: (title: string) => api.post('/interactive/events', { title }),
+    mutationFn: () => api.post('/interactive/events', {
+      title: newTitle,
+      project_id: linkToProject && selectedProjectId ? selectedProjectId : null,
+      episode_id: linkToProject && selectedEpisodeId ? selectedEpisodeId : null,
+    }),
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['interactive-events'] });
       setCreateOpen(false);
-      setNewTitle('');
+      resetCreateForm();
       navigate(`/event/${res.data.data.id}`);
     },
   });
@@ -43,6 +85,18 @@ export default function DashboardPage() {
     mutationFn: (id: string) => api.delete(`/interactive/events/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['interactive-events'] }),
   });
+
+  const resetCreateForm = () => {
+    setNewTitle('');
+    setLinkToProject(false);
+    setSelectedProjectId('');
+    setSelectedEpisodeId('');
+  };
+
+  const handleProjectChange = (value: string) => {
+    setSelectedProjectId(value);
+    setSelectedEpisodeId('');
+  };
 
   const events = data?.data || [];
 
@@ -57,7 +111,7 @@ export default function DashboardPage() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">インタラクティブ演出イベントの管理</p>
         </div>
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) resetCreateForm(); }}>
           <DialogTrigger asChild>
             <Button><Plus className="h-4 w-4 mr-1" />新規イベント</Button>
           </DialogTrigger>
@@ -65,9 +119,69 @@ export default function DashboardPage() {
             <DialogHeader><DialogTitle>新規イベント作成</DialogTitle></DialogHeader>
             <div className="space-y-4 mt-4">
               <Input placeholder="イベントタイトル" value={newTitle} onChange={e => setNewTitle(e.target.value)} autoFocus />
+
+              {/* GLS Project Linking */}
+              <div className="border-t pt-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={linkToProject}
+                    onChange={(e) => {
+                      setLinkToProject(e.target.checked);
+                      if (!e.target.checked) {
+                        setSelectedProjectId('');
+                        setSelectedEpisodeId('');
+                      }
+                    }}
+                    className="rounded border-input"
+                  />
+                  <Link2 className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">GLS案件に紐付ける</span>
+                </label>
+
+                {linkToProject && (
+                  <div className="mt-3 space-y-3 pl-6">
+                    <div>
+                      <label className="text-xs text-muted-foreground">GLS案件</label>
+                      <Select value={selectedProjectId} onValueChange={handleProjectChange}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="案件を選択..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {glsProjects?.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.gls_number} — {p.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {selectedProjectId && episodes && episodes.length > 0 && (
+                      <div>
+                        <label className="text-xs text-muted-foreground">エピソード（任意）</label>
+                        <Select value={selectedEpisodeId} onValueChange={setSelectedEpisodeId}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder="エピソードを選択..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {episodes.map((ep) => (
+                              <SelectItem key={ep.id} value={ep.id}>
+                                {ep.episode_code}
+                                {ep.broadcast_date && ` — ${ep.broadcast_date}`}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setCreateOpen(false)}>キャンセル</Button>
-                <Button onClick={() => createMutation.mutate(newTitle)} disabled={!newTitle.trim() || createMutation.isPending}>作成</Button>
+                <Button onClick={() => createMutation.mutate()} disabled={!newTitle.trim() || createMutation.isPending}>作成</Button>
               </div>
             </div>
           </DialogContent>

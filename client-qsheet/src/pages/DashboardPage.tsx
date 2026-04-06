@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
@@ -14,6 +14,13 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   FileText,
   Plus,
   Search,
@@ -25,6 +32,7 @@ import {
   Clock,
   FolderKanban,
   X,
+  Link2,
 } from "lucide-react";
 
 interface QsheetDocument {
@@ -39,6 +47,21 @@ interface QsheetDocument {
   creator_name: string | null;
   created_at: string;
   updated_at: string;
+}
+
+interface GlsProject {
+  id: string;
+  gls_number: string;
+  name: string;
+  customer_name: string | null;
+}
+
+interface EpisodeOption {
+  id: string;
+  episode_code: string;
+  episode_number: number;
+  broadcast_date: string | null;
+  recording_date: string | null;
 }
 
 const statusConfig: Record<string, { label: string; color: string }> = {
@@ -56,8 +79,19 @@ export default function DashboardPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newBroadcastDate, setNewBroadcastDate] = useState("");
+  const [linkToProject, setLinkToProject] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [selectedEpisodeId, setSelectedEpisodeId] = useState<string>("");
 
   const projectFilter = searchParams.get("project");
+
+  // Auto-enable project linking when URL param is set
+  useEffect(() => {
+    if (projectFilter) {
+      setLinkToProject(true);
+      setSelectedProjectId(projectFilter);
+    }
+  }, [projectFilter]);
 
   const { data: documents, isLoading } = useQuery({
     queryKey: ["qsheet-documents", search, projectFilter],
@@ -70,12 +104,35 @@ export default function DashboardPage() {
     },
   });
 
+  // GLS project list for selector
+  const { data: glsProjects } = useQuery({
+    queryKey: ["gls-options"],
+    queryFn: async () => {
+      const res = await api.get("/lookup/gls-options");
+      return res.data.data as GlsProject[];
+    },
+    enabled: linkToProject,
+  });
+
+  // Episodes for selected project
+  const { data: episodes } = useQuery({
+    queryKey: ["episode-options", selectedProjectId],
+    queryFn: async () => {
+      const res = await api.get(`/lookup/${selectedProjectId}/episodes-options`);
+      return res.data.data as EpisodeOption[];
+    },
+    enabled: !!selectedProjectId,
+  });
+
   const createMutation = useMutation({
     mutationFn: async () => {
+      const selectedEpisode = episodes?.find((e) => e.id === selectedEpisodeId);
       const res = await api.post("/qsheet/documents", {
         title: newTitle || "無題のQシート",
-        broadcast_date: newBroadcastDate || null,
-        project_id: projectFilter || null,
+        broadcast_date: newBroadcastDate || selectedEpisode?.broadcast_date || null,
+        project_id: linkToProject && selectedProjectId ? selectedProjectId : null,
+        episode_id: linkToProject && selectedEpisodeId ? selectedEpisodeId : null,
+        episode_code: linkToProject && selectedEpisode ? selectedEpisode.episode_code : null,
         data: {
           meta: { title: newTitle || "無題のQシート", draft: "準備稿" },
           blocks: [
@@ -92,8 +149,7 @@ export default function DashboardPage() {
     onSuccess: (doc) => {
       queryClient.invalidateQueries({ queryKey: ["qsheet-documents"] });
       setShowCreate(false);
-      setNewTitle("");
-      setNewBroadcastDate("");
+      resetCreateForm();
       navigate(`/qsheet/editor/${doc.id}`);
     },
   });
@@ -106,6 +162,30 @@ export default function DashboardPage() {
       queryClient.invalidateQueries({ queryKey: ["qsheet-documents"] });
     },
   });
+
+  const resetCreateForm = () => {
+    setNewTitle("");
+    setNewBroadcastDate("");
+    if (!projectFilter) {
+      setLinkToProject(false);
+      setSelectedProjectId("");
+    }
+    setSelectedEpisodeId("");
+  };
+
+  const handleProjectChange = (value: string) => {
+    setSelectedProjectId(value);
+    setSelectedEpisodeId("");
+  };
+
+  const handleEpisodeChange = (value: string) => {
+    setSelectedEpisodeId(value);
+    // Auto-fill broadcast date from episode if not manually set
+    if (!newBroadcastDate && value) {
+      const ep = episodes?.find((e) => e.id === value);
+      if (ep?.broadcast_date) setNewBroadcastDate(ep.broadcast_date);
+    }
+  };
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return null;
@@ -292,7 +372,7 @@ export default function DashboardPage() {
       )}
 
       {/* Create dialog */}
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+      <Dialog open={showCreate} onOpenChange={(open) => { setShowCreate(open); if (!open) resetCreateForm(); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>新規Qシート作成</DialogTitle>
@@ -317,6 +397,66 @@ export default function DashboardPage() {
                 onChange={(e) => setNewBroadcastDate(e.target.value)}
               />
             </div>
+
+            {/* GLS Project Linking */}
+            <div className="border-t pt-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={linkToProject}
+                  onChange={(e) => {
+                    setLinkToProject(e.target.checked);
+                    if (!e.target.checked) {
+                      if (!projectFilter) setSelectedProjectId("");
+                      setSelectedEpisodeId("");
+                    }
+                  }}
+                  className="rounded border-input"
+                />
+                <Link2 className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">GLS案件に紐付ける</span>
+              </label>
+
+              {linkToProject && (
+                <div className="mt-3 space-y-3 pl-6">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">GLS案件</Label>
+                    <Select value={selectedProjectId} onValueChange={handleProjectChange}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="案件を選択..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {glsProjects?.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.gls_number} — {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {selectedProjectId && episodes && episodes.length > 0 && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">エピソード（任意）</Label>
+                      <Select value={selectedEpisodeId} onValueChange={handleEpisodeChange}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="エピソードを選択..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {episodes.map((ep) => (
+                            <SelectItem key={ep.id} value={ep.id}>
+                              {ep.episode_code}
+                              {ep.broadcast_date && ` — ${ep.broadcast_date}`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setShowCreate(false)}>
                 キャンセル
