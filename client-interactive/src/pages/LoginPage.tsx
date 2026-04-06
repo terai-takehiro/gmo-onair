@@ -14,7 +14,7 @@ interface UserOption {
 }
 
 export default function LoginPage() {
-  const { user, login, loginWithToken } = useAuth();
+  const { currentUser: user, login, loginWithToken } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const error = searchParams.get('error');
@@ -46,7 +46,7 @@ export default function LoginPage() {
   }, [user, navigate, token, loginWithToken]);
 
   const handleLogin = (u: UserOption) => {
-    login(u);
+    login(u.id);
     navigate('/', { replace: true });
   };
 

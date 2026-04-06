@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 export function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { currentUser: user, logout } = useAuth();
 
   const handleLogout = () => {
     logout();

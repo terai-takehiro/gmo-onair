@@ -9,7 +9,7 @@ import AudiencePage from './pages/AudiencePage';
 import LoginPage from './pages/LoginPage';
 
 export default function App() {
-  const { user, loading } = useAuth();
+  const { currentUser: user, loading } = useAuth();
 
   return (
     <BrowserRouter basename="/interactive">
