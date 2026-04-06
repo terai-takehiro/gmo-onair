@@ -18,6 +18,31 @@ GMO ONAiR = GMOグローバルスタジオの「会社OS」を目指すウェブ
 - **デプロイ**: 常に `main` ブランチにプッシュ（masterではない）
 - **バージョン管理**: インクリメンタル（v0.2.1, v0.2.2...）、大きくジャンプしない
 
+## セキュリティポリシー
+
+### 絶対にやってはいけないこと
+- `.env` や認証情報をGitにコミットしない（.gitignore済み）
+- APIキー・パスワード・JWTシークレットをソースコードにハードコードしない
+- 本番DBの接続情報を開発環境のコードやログに出力しない
+- `JWT_SECRET` にデフォルト値(`dev-jwt-secret-do-not-use-in-production`)を本番で使わない
+
+### 認証
+- **開発**: `GOOGLE_CLIENT_ID` 未設定 → mockAuth自動有効（ユーザーカード選択式）
+- **本番**: `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` 設定 → Google OAuth自動有効
+- JWT: HTTP-only cookie + Authorization Bearerヘッダーの二重送信
+- 招待制: Googleログインは `users` テーブルに登録済みのメールアドレスのみ許可
+
+### 環境変数の管理
+- `.env.example` をテンプレートとして使用（`cp .env.example .env`）
+- 本番の `JWT_SECRET` は `openssl rand -hex 32` で生成
+- 本番の `DB_PASSWORD` は十分な長さのランダム文字列を使用
+- Docker Compose は `.env` ファイルから自動読み込み
+
+### 開発環境
+- ローカル開発は `.devcontainer/` (Dev Containers) を使用して隔離
+- コンテナ内で `npm install` + `npm run dev` が完結する構成
+- ホストマシンの認証情報やSSHキーはコンテナに渡さない
+
 ## 統合プロジェクトライフサイクル (Phase A完了)
 - 旧: `opportunities`テーブル + `projects`テーブル → 統合: 単一`projects`テーブル
 - `stage`フィールド: neta → d_hold → c_proposal → b_verbal → a_won → s_completed / e_lost
