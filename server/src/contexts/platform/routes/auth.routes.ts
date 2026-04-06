@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+import rateLimit from 'express-rate-limit';
 import { queryOne, queryAll } from '../../../shared/db/connection';
 import { requireAuth } from '../../../shared/middleware/auth';
 import { signToken } from '../../../shared/auth/jwt';
@@ -8,6 +9,15 @@ import { config } from '../../../config';
 import { AppError } from '../../../shared/middleware/errorHandler';
 
 const router = Router();
+
+// Rate limit: auth endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,
+  message: { success: false, error: { code: 'RATE_LIMIT', message: 'リクエスト回数が上限に達しました。しばらく待ってから再試行してください。' } },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // ============================================================
 // Google OAuth (有効時のみ設定)
@@ -82,7 +92,7 @@ router.get('/mode', (_req, res) => {
 // ============================================================
 // Mock Login (開発用、authMode === 'mock' 時のみ動作)
 // ============================================================
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
   if (config.authMode === 'oauth') {
     throw new AppError(400, 'NOT_AVAILABLE', '開発用ログインは本番環境で無効です');
   }

@@ -8,11 +8,22 @@ const stampBuffer: Map<string, Map<string, number>> = new Map(); // eventId -> (
 let flushInterval: ReturnType<typeof setInterval> | null = null;
 
 export function initSocketIO(httpServer: HttpServer): Server {
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:5175',
+    'http://localhost:5176',
+    'http://localhost:5177',
+    'http://localhost:3000',
+    ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : []),
+  ];
+
   const io = new Server(httpServer, {
     path: '/socket.io/',
     cors: {
-      origin: '*',
+      origin: allowedOrigins,
       methods: ['GET', 'POST'],
+      credentials: true,
     },
     transports: ['websocket', 'polling'],
   });

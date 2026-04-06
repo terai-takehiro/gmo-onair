@@ -27,11 +27,12 @@ router.get('/', async (req, res) => {
   if (groupId) { where += ` AND pu.group_id = ?`; params.push(groupId); }
 
   const allocJoin = projectId
-    ? `LEFT JOIN purchase_allocations pa ON pa.purchase_id = pu.id AND pa.project_id = '${projectId.replace(/'/g, "''")}'`
+    ? `LEFT JOIN purchase_allocations pa ON pa.purchase_id = pu.id AND pa.project_id = ?`
     : '';
   const allocCol = projectId ? ', pa.allocated_amount' : '';
+  const allocParams = projectId ? [projectId] : [];
 
-  const total = ((await queryOne(`SELECT COUNT(*) as c FROM purchases pu LEFT JOIN vendors v ON v.id = pu.vendor_id LEFT JOIN projects p ON p.id = pu.project_id ${allocJoin} ${where}`, params)) as any).c;
+  const total = ((await queryOne(`SELECT COUNT(*) as c FROM purchases pu LEFT JOIN vendors v ON v.id = pu.vendor_id LEFT JOIN projects p ON p.id = pu.project_id ${allocJoin} ${where}`, [...allocParams, ...params])) as any).c;
   const rows = await queryAll(
     `SELECT pu.*, p.name as project_name, p.gls_number, v.name as vendor_name, pg.name as group_name${allocCol}
      FROM purchases pu
@@ -40,7 +41,7 @@ router.get('/', async (req, res) => {
      LEFT JOIN project_groups pg ON pg.id = pu.group_id
      ${allocJoin}
      ${where} ORDER BY pu.recognition_date DESC, pu.created_at DESC LIMIT ? OFFSET ?`,
-    [...params, limit, offset]
+    [...allocParams, ...params, limit, offset]
   );
   res.json(paginatedResponse(rows, total, page, limit));
 });

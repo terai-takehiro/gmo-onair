@@ -66,6 +66,7 @@ router.post('/:projectId/episodes/batch', requirePermission('sales', 'editor'), 
   const { count, order_date, notes, revenue_budget_per_episode } = req.body;
 
   if (!count || count < 1) throw new AppError(400, 'VALIDATION_ERROR', '作成数は1以上を指定してください');
+  if (count > 100) throw new AppError(400, 'VALIDATION_ERROR', '一度に作成できるのは100件までです');
 
   const project = await queryOne('SELECT gls_number, customer_id FROM projects WHERE id = ? AND deleted_at IS NULL', [projectId]) as any;
   if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
