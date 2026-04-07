@@ -15,23 +15,25 @@ export function createApp(): express.Express {
 
   // Middleware
   const isProduction = process.env.NODE_ENV === 'production';
+  const hasHttps = !!process.env.HTTPS_ENABLED;
   app.use(helmet({
     contentSecurityPolicy: isProduction ? {
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "https://accounts.google.com", "https://apis.google.com"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://accounts.google.com"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://accounts.google.com", "https://fonts.googleapis.com"],
         imgSrc: ["'self'", "data:", "blob:", "https://*.googleusercontent.com"],
         connectSrc: ["'self'", "ws:", "wss:", "https://accounts.google.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"],
         frameSrc: ["https://accounts.google.com"],
+        upgradeInsecureRequests: hasHttps ? [] : null,
       },
     } : false,
-    hsts: isProduction,
-    crossOriginOpenerPolicy: isProduction,
-    originAgentCluster: isProduction,
+    hsts: hasHttps,
+    crossOriginOpenerPolicy: hasHttps,
+    originAgentCluster: hasHttps,
   }));
   const devOrigins = isProduction ? [] : [
     'http://localhost:5173',
