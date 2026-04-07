@@ -7,10 +7,10 @@ if (isProduction && !process.env.JWT_SECRET) {
   process.exit(1);
 }
 
-// Warn if mock auth is active in production (should never happen)
+// Warn if mock auth is active in production
 if (isProduction && !(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)) {
-  console.error('FATAL: GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required in production.');
-  process.exit(1);
+  console.warn('WARNING: GOOGLE_CLIENT_ID/SECRET not set — running with mockAuth in production.');
+  console.warn('Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET for Google OAuth.');
 }
 
 export const config = {
