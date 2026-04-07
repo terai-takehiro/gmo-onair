@@ -16,43 +16,6 @@ export const UserRoleLabels: Record<UserRole, string> = {
   external_client: '外部顧客',
 };
 
-// ヨミステージ
-export const OpportunityStage = {
-  NETA: 'neta',
-  D_HOLD: 'd_hold',
-  C_PROPOSAL: 'c_proposal',
-  B_VERBAL: 'b_verbal',
-  A_WON: 'a_won',
-  S_COMPLETED: 's_completed',
-  E_LOST: 'e_lost',
-} as const;
-export type OpportunityStage = (typeof OpportunityStage)[keyof typeof OpportunityStage];
-
-export const OpportunityStageLabels: Record<OpportunityStage, string> = {
-  neta: 'ネタ',
-  d_hold: 'D 仮押さえ',
-  c_proposal: 'C 見積提案済',
-  b_verbal: 'B 口頭決定',
-  a_won: 'A 受注済',
-  s_completed: 'S 案件終了',
-  e_lost: 'E 失注',
-};
-
-export const OpportunityStageColors: Record<OpportunityStage, string> = {
-  neta: '#94a3b8',
-  d_hold: '#a78bfa',
-  c_proposal: '#3b82f6',
-  b_verbal: '#f59e0b',
-  a_won: '#22c55e',
-  s_completed: '#6b7280',
-  e_lost: '#ef4444',
-};
-
-export const OpportunityStageProbability: Record<OpportunityStage, number> = {
-  neta: 0, d_hold: 20, c_proposal: 40,
-  b_verbal: 80, a_won: 100, s_completed: 100, e_lost: 0,
-};
-
 // 案件種類
 export const ProjectType = {
   OFFLINE_EVENT: 'offline_event',

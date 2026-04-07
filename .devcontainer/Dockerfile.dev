@@ -1,0 +1,10 @@
+FROM node:20-alpine
+
+# Development tools
+RUN apk add --no-cache git bash curl
+
+WORKDIR /workspace
+
+# Non-root user for security
+RUN addgroup -S devuser && adduser -S devuser -G devuser
+USER devuser

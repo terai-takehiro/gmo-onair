@@ -1,8 +1,11 @@
 import { Router } from 'express';
 import { queryAll, queryOne } from '../../../shared/db/connection';
-import { requireAuth } from '../../../shared/middleware/auth';
+import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 
 const router = Router();
+
+// Apply auth + permission middleware to all routes
+router.use(requireAuth, requirePermission('budget'));
 
 // Helper: wrap HTML content in a printable page
 function htmlPage(title: string, body: string): string {
@@ -48,7 +51,7 @@ function escapeHtml(str: string | null | undefined): string {
 }
 
 // GET /reports/estimate/:projectId - 見積書 HTML
-router.get('/estimate/:projectId', requireAuth, async (req, res) => {
+router.get('/estimate/:projectId', async (req, res) => {
   const { projectId } = req.params;
 
   const project = await queryOne(
@@ -120,7 +123,7 @@ router.get('/estimate/:projectId', requireAuth, async (req, res) => {
 });
 
 // GET /reports/invoice/:invoiceGroupId - 請求書 HTML
-router.get('/invoice/:invoiceGroupId', requireAuth, async (req, res) => {
+router.get('/invoice/:invoiceGroupId', async (req, res) => {
   const { invoiceGroupId } = req.params;
 
   const ig = await queryOne(
@@ -193,7 +196,7 @@ router.get('/invoice/:invoiceGroupId', requireAuth, async (req, res) => {
 });
 
 // GET /reports/performance/:projectId - 案件別損益 CSV
-router.get('/performance/:projectId', requireAuth, async (req, res) => {
+router.get('/performance/:projectId', async (req, res) => {
   const { projectId } = req.params;
 
   const project = await queryOne(
@@ -262,7 +265,7 @@ router.get('/performance/:projectId', requireAuth, async (req, res) => {
 });
 
 // GET /reports/vendor-summary?from=&to=&format= - 仕入先別集計
-router.get('/vendor-summary', requireAuth, async (req, res) => {
+router.get('/vendor-summary', async (req, res) => {
   const from = req.query.from as string || '';
   const to = req.query.to as string || '';
   const format = req.query.format as string || 'json';

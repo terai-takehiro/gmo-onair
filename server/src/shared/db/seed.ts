@@ -40,6 +40,54 @@ export async function seed() {
   await ins(userSql, [USERS.external, '外部 クライアント', 'client@example.com', 'external_client']);
 
   // ============================================================
+  // User Permissions (system_admin bypasses checks, so only non-admin users)
+  // ============================================================
+  const permSql = `INSERT INTO user_permissions (id, user_id, module, access_level) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING`;
+  // ブロックアプリごとに個別設定
+  const perms: [string, string, string][] = [
+    // staff1 — 佐藤（営業マネージャー寄り）
+    //        営業管理    予算管理      スタジオ     機材管理     Qシート
+    [USERS.staff1, 'sales',     'owner'],      // 営業の責任者
+    [USERS.staff1, 'budget',    'manager'],    // 予算も削除可
+    [USERS.staff1, 'studio',    'editor'],     // スタジオ予約は編集まで
+    [USERS.staff1, 'equipment', 'exporter'],   // 機材は閲覧+出力のみ
+    [USERS.staff1, 'qsheet',    'editor'],     // Qシート編集可
+    [USERS.staff1, 'interactive', 'editor'],  // インタラクティブ編集可
+
+    // staff2 — 鈴木（制作マネージャー寄り）
+    [USERS.staff2, 'sales',     'editor'],     // 営業は編集まで
+    [USERS.staff2, 'budget',    'exporter'],   // 予算は出力まで
+    [USERS.staff2, 'studio',    'owner'],      // スタジオの責任者
+    [USERS.staff2, 'equipment', 'manager'],    // 機材は削除可
+    [USERS.staff2, 'qsheet',    'owner'],      // Qシートの責任者
+    [USERS.staff2, 'interactive', 'owner'],   // インタラクティブ責任者
+
+    // staff3 — 高橋（制作スタッフ）
+    [USERS.staff3, 'sales',     'reader'],     // 営業は閲覧のみ
+    [USERS.staff3, 'studio',    'editor'],     // スタジオ予約は編集可
+    [USERS.staff3, 'equipment', 'editor'],     // 機材も編集可
+    [USERS.staff3, 'qsheet',    'editor'],     // Qシート編集可
+    [USERS.staff3, 'interactive', 'editor'],  // インタラクティブ編集可
+    // budget: アクセスなし
+
+    // viewer — 田中（経営層・閲覧用）
+    [USERS.viewer, 'sales',     'exporter'],   // 営業レポート出力
+    [USERS.viewer, 'budget',    'exporter'],   // 予算レポート出力
+    [USERS.viewer, 'studio',    'reader'],     // スタジオは閲覧のみ
+    [USERS.viewer, 'qsheet',    'reader'],     // Qシート閲覧のみ
+    [USERS.viewer, 'interactive', 'reader'],  // インタラクティブ閲覧
+    // equipment: アクセスなし
+
+    // external — 山田（外部クライアント）
+    [USERS.external, 'studio',  'reader'],     // カレンダー閲覧のみ
+    [USERS.external, 'qsheet',  'reader'],     // Qシート閲覧のみ
+  ];
+
+  for (const [userId, mod, level] of perms) {
+    await ins(permSql, [uuidv4(), userId, mod, level]);
+  }
+
+  // ============================================================
   // Customers
   // ============================================================
   const custSql = `INSERT INTO customers (id, name, short_name, contact_name, email, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?)`;
@@ -820,6 +868,51 @@ export async function seed() {
 
   // Update sequence counter
   await execute(`UPDATE sequences SET counter = ? WHERE seq_name = 'eq_code'`, [eqCounter]);
+
+  // Parent-child relationships (equipment sets)
+  // Create a "カメラセット A" parent item, then assign camera + lens children
+  const camSetAId = uuidv4();
+  eqCounter++;
+  const camSetACode = `EQ-CAMSET-A`;
+  await ins(`INSERT INTO equipment_items (
+    id, eq_code, name, category_id, item_type, unit_number,
+    manufacturer, model_number, serial_number,
+    acquisition_cost, useful_life, asset_class, depreciation_method,
+    status, condition, location_detail,
+    is_lendable, acquisition_date, created_by
+  ) VALUES (?,?,?,?,?,?, ?,?,?, ?,?,?,?, ?,?,?, ?,?,?)`, [
+    camSetAId, camSetACode, 'カメラセット A (FX9 + CN-E 50mm)', eqCatIds['camera'], 'facility', 1,
+    null, null, null,
+    0, 5, 'fixed_asset', 'straight_line',
+    'active', 'good', 'A棟 3F カメラ庫',
+    0, '2024-04-01', USERS.admin,
+  ]);
+
+  // Set cam1 (Sony PXW-FX9 #1) and lens1 (Canon CN-E 50mm) as children of カメラセット A
+  await execute(`UPDATE equipment_items SET parent_id = ? WHERE id = ?`, [camSetAId, eqItemIds['cam1']]);
+  await execute(`UPDATE equipment_items SET parent_id = ? WHERE id = ?`, [camSetAId, eqItemIds['lens1']]);
+
+  // Create a "照明セット A" parent item for lighting equipment
+  const lightSetAId = uuidv4();
+  eqCounter++;
+  const lightSetACode = `EQ-LTSET-A`;
+  await ins(`INSERT INTO equipment_items (
+    id, eq_code, name, category_id, item_type, unit_number,
+    manufacturer, model_number, serial_number,
+    acquisition_cost, useful_life, asset_class, depreciation_method,
+    status, condition, location_detail,
+    is_lendable, acquisition_date, created_by
+  ) VALUES (?,?,?,?,?,?, ?,?,?, ?,?,?,?, ?,?,?, ?,?,?)`, [
+    lightSetAId, lightSetACode, '照明セット A (Aputure 600d Pro x2)', eqCatIds['lighting'], 'rental', 1,
+    null, null, null,
+    0, 5, 'fixed_asset', 'straight_line',
+    'active', 'good', 'A棟 3F 照明庫',
+    1, '2024-04-01', USERS.admin,
+  ]);
+
+  // Set light2 and light2b (Aputure 600d Pro #1 & #2) as children of 照明セット A
+  await execute(`UPDATE equipment_items SET parent_id = ? WHERE id = ?`, [lightSetAId, eqItemIds['light2']]);
+  await execute(`UPDATE equipment_items SET parent_id = ? WHERE id = ?`, [lightSetAId, eqItemIds['light2b']]);
 
   // Sample lendings
   const lend1 = uuidv4();

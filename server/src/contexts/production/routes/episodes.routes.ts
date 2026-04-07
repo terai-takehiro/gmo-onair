@@ -1,13 +1,16 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
-import { requireAuth } from '../../../shared/middleware/auth';
+import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { generateEpisodeCode, getNextEpisodeNumber } from '../../../shared/services/sequence.service';
 import { generateBillingKey } from '../../../shared/services/billing-key.service';
 import { AppError } from '../../../shared/middleware/errorHandler';
 
 const router = Router();
+
+// Apply auth + permission middleware to all routes
+router.use(requireAuth, requirePermission('sales'));
 
 // List episodes for a project
 router.get('/:projectId/episodes', async (req, res) => {
@@ -58,11 +61,12 @@ router.get('/:projectId/episodes/:id', async (req, res) => {
 });
 
 // Batch create episodes
-router.post('/:projectId/episodes/batch', requireAuth, async (req, res) => {
+router.post('/:projectId/episodes/batch', requirePermission('sales', 'editor'), async (req, res) => {
   const projectId = req.params.projectId as string;
   const { count, order_date, notes, revenue_budget_per_episode } = req.body;
 
   if (!count || count < 1) throw new AppError(400, 'VALIDATION_ERROR', '作成数は1以上を指定してください');
+  if (count > 100) throw new AppError(400, 'VALIDATION_ERROR', '一度に作成できるのは100件までです');
 
   const project = await queryOne('SELECT gls_number, customer_id FROM projects WHERE id = ? AND deleted_at IS NULL', [projectId]) as any;
   if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
@@ -114,7 +118,7 @@ router.post('/:projectId/episodes/batch', requireAuth, async (req, res) => {
 });
 
 // Update episode
-router.put('/:projectId/episodes/:id', requireAuth, async (req, res) => {
+router.put('/:projectId/episodes/:id', requirePermission('sales', 'editor'), async (req, res) => {
   const existing = await queryOne(
     'SELECT e.id FROM episodes e WHERE e.id = ? AND e.project_id = ? AND e.deleted_at IS NULL',
     [req.params.id, req.params.projectId]
@@ -162,7 +166,7 @@ router.put('/:projectId/episodes/:id', requireAuth, async (req, res) => {
 });
 
 // Soft delete episode
-router.delete('/:projectId/episodes/:id', requireAuth, async (req, res) => {
+router.delete('/:projectId/episodes/:id', requirePermission('sales', 'manager'), async (req, res) => {
   const existing = await queryOne(
     'SELECT id FROM episodes WHERE id = ? AND project_id = ? AND deleted_at IS NULL',
     [req.params.id, req.params.projectId]

@@ -1,9 +1,14 @@
 import { Router } from 'express';
-import { requireAuth } from '../../../shared/middleware/auth';
+import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { projectService, ProjectFilter } from '../services/project.service';
+import { queryAll } from '../../../shared/db/connection';
+import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
 
 const router = Router();
+
+// Apply auth + permission middleware to all routes
+router.use(requireAuth, requirePermission('sales'));
 
 // 統合一覧（タブ: all/yomi/active/completed/lost）
 router.get('/', async (req, res) => {
@@ -18,6 +23,19 @@ router.get('/', async (req, res) => {
   };
   const { rows, total } = await projectService.list(filter, page, limit, offset);
   res.json(paginatedResponse(rows, total, page, limit));
+});
+
+// CSV Export
+router.get('/export', requirePermission('sales', 'exporter'), async (_req, res) => {
+  const rows = await queryAll(
+    `SELECT p.gls_number, p.name, c.name as client_name, p.stage, p.expected_amount
+     FROM projects p
+     LEFT JOIN customers c ON c.id = p.customer_id
+     WHERE p.deleted_at IS NULL
+     ORDER BY p.created_at DESC`
+  ) as Record<string, unknown>[];
+  const columns = ['gls_number', 'name', 'client_name', 'stage', 'expected_amount'];
+  csvResponse(res, 'projects.csv', generateCsv(rows, columns));
 });
 
 // タグ一覧
@@ -41,39 +59,39 @@ router.get('/:id/summary', async (req, res) => {
 });
 
 // 新規作成（ヨミ段階）
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
   const result = await projectService.create(req.body, req.user!.id);
   res.status(201).json({ success: true, data: result });
 });
 
 // 更新
-router.put('/:id', requireAuth, async (req, res) => {
+router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
   const result = await projectService.update(req.params.id as string, req.body, req.user!.id);
   res.json({ success: true, data: result });
 });
 
 // ステージ変更
-router.patch('/:id/stage', requireAuth, async (req, res) => {
+router.patch('/:id/stage', requirePermission('sales', 'editor'), async (req, res) => {
   const { stage, ...rest } = req.body;
   const result = await projectService.changeStage(req.params.id as string, stage, rest, req.user!.id);
   res.json({ success: true, data: result });
 });
 
 // GLS発番
-router.post('/:id/issue-gls', requireAuth, async (req, res) => {
+router.post('/:id/issue-gls', requirePermission('sales', 'editor'), async (req, res) => {
   const result = await projectService.issueGls(req.params.id as string, req.body, req.user!.id);
   res.json({ success: true, data: result });
 });
 
 // 既存GLS案件へのリンク（エピソード追加）
-router.post('/:id/link-gls', requireAuth, (req, res) => {
+router.post('/:id/link-gls', requirePermission('sales', 'editor'), (req, res) => {
   const { target_project_id } = req.body;
   const result = projectService.linkToExistingGls(req.params.id as string, target_project_id, req.user!.id);
   res.json({ success: true, data: result });
 });
 
 // 削除
-router.delete('/:id', requireAuth, async (req, res) => {
+router.delete('/:id', requirePermission('sales', 'manager'), async (req, res) => {
   await projectService.delete(req.params.id as string, req.user!.id);
   res.json({ success: true, message: '削除しました' });
 });

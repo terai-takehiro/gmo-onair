@@ -1,8 +1,13 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuid } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
+import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
+import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
 
 const router = Router();
+
+// Apply auth + permission middleware to all routes
+router.use(requireAuth, requirePermission('equipment'));
 
 // ============================================================
 // EQコード発番
@@ -71,7 +76,7 @@ router.get('/locations', async (_req: Request, res: Response) => {
   res.json({ success: true, data: rows });
 });
 
-router.post('/locations', async (req: Request, res: Response) => {
+router.post('/locations', requirePermission('equipment', 'owner'), async (req: Request, res: Response) => {
   const { name, description, building, floor, area, sort_order } = req.body;
   const id = uuid();
   await execute(
@@ -81,7 +86,7 @@ router.post('/locations', async (req: Request, res: Response) => {
   res.status(201).json({ success: true, data: { id } });
 });
 
-router.put('/locations/:id', async (req: Request, res: Response) => {
+router.put('/locations/:id', requirePermission('equipment', 'owner'), async (req: Request, res: Response) => {
   const { name, description, building, floor, area, sort_order } = req.body;
   await execute(
     "UPDATE equipment_locations SET name=$1, description=$2, building=$3, floor=$4, area=$5, sort_order=$6, updated_at=NOW() WHERE id=$7",
@@ -90,7 +95,7 @@ router.put('/locations/:id', async (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
-router.delete('/locations/:id', async (req: Request, res: Response) => {
+router.delete('/locations/:id', requirePermission('equipment', 'owner'), async (req: Request, res: Response) => {
   await execute("UPDATE equipment_locations SET deleted_at=NOW() WHERE id=$1", [req.params.id]);
   res.json({ success: true });
 });
@@ -105,7 +110,7 @@ router.get('/categories', async (_req: Request, res: Response) => {
   res.json({ success: true, data: rows });
 });
 
-router.post('/categories', async (req: Request, res: Response) => {
+router.post('/categories', requirePermission('equipment', 'owner'), async (req: Request, res: Response) => {
   const { name, item_type, parent_id, sort_order } = req.body;
   const id = uuid();
   await execute(
@@ -115,7 +120,7 @@ router.post('/categories', async (req: Request, res: Response) => {
   res.status(201).json({ success: true, data: { id } });
 });
 
-router.put('/categories/:id', async (req: Request, res: Response) => {
+router.put('/categories/:id', requirePermission('equipment', 'owner'), async (req: Request, res: Response) => {
   const { name, item_type, parent_id, sort_order } = req.body;
   await execute(
     "UPDATE equipment_categories SET name=$1, item_type=$2, parent_id=$3, sort_order=$4, updated_at=NOW() WHERE id=$5",
@@ -124,7 +129,7 @@ router.put('/categories/:id', async (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
-router.delete('/categories/:id', async (req: Request, res: Response) => {
+router.delete('/categories/:id', requirePermission('equipment', 'owner'), async (req: Request, res: Response) => {
   await execute("UPDATE equipment_categories SET deleted_at=NOW() WHERE id=$1", [req.params.id]);
   res.json({ success: true });
 });
@@ -178,6 +183,20 @@ router.get('/items', async (req: Request, res: Response) => {
   res.json({ success: true, data: rows, meta: { total: countRow?.total || 0 } });
 });
 
+// CSV Export (must be before /items/:id to avoid route conflict)
+router.get('/items/export', requirePermission('equipment', 'exporter'), async (_req: Request, res: Response) => {
+  const rows = await queryAll(`
+    SELECT ei.eq_code, ei.name, ec.name as category_name, ei.item_type,
+           ei.manufacturer, ei.model_number, ei.serial_number, ei.status, ei.condition, ei.location_detail as location
+    FROM equipment_items ei
+    LEFT JOIN equipment_categories ec ON ec.id = ei.category_id AND ec.deleted_at IS NULL
+    WHERE ei.deleted_at IS NULL
+    ORDER BY ec.sort_order, ec.name, ei.name, ei.unit_number
+  `) as Record<string, unknown>[];
+  const columns = ['eq_code', 'name', 'category_name', 'item_type', 'manufacturer', 'model_number', 'serial_number', 'status', 'condition', 'location'];
+  csvResponse(res, 'equipment_items.csv', generateCsv(rows, columns));
+});
+
 router.get('/items/:id', async (req: Request, res: Response) => {
   const item = await queryOne(`
     SELECT ei.*, ec.name as category_name
@@ -212,6 +231,19 @@ router.get('/items/:id', async (req: Request, res: Response) => {
     WHERE ea.child_id = $1 AND ei.deleted_at IS NULL
   `, [req.params.id]);
 
+  // 子機材（ケース/セットのグルーピング）
+  const children = await queryAll(`
+    SELECT id, eq_code, name, status, condition
+    FROM equipment_items
+    WHERE parent_id = $1 AND deleted_at IS NULL
+    ORDER BY name
+  `, [req.params.id]);
+
+  // 親機材（この機材がセットに含まれている場合）
+  const parent = (item as any).parent_id
+    ? await queryOne(`SELECT id, eq_code, name FROM equipment_items WHERE id = $1 AND deleted_at IS NULL`, [(item as any).parent_id])
+    : null;
+
   res.json({
     success: true,
     data: {
@@ -220,6 +252,8 @@ router.get('/items/:id', async (req: Request, res: Response) => {
       maintenance,
       accessories,
       parent_of: parentOf,
+      children,
+      parent,
     },
   });
 });
@@ -228,7 +262,7 @@ router.post('/items', async (req: Request, res: Response) => {
   const id = uuid();
   const eq_code = await generateEqCode();
   const {
-    name, category_id, item_type, unit_number,
+    name, category_id, item_type, unit_number, parent_id,
     manufacturer, model_number, serial_number, description, image_url,
     asset_number, acquisition_date, acquisition_cost, depreciation_method, useful_life, book_value, asset_class,
     status, condition, location_id, location_detail, notes,
@@ -237,15 +271,15 @@ router.post('/items', async (req: Request, res: Response) => {
 
   await execute(`
     INSERT INTO equipment_items (
-      id, eq_code, name, category_id, item_type, unit_number,
+      id, eq_code, name, category_id, item_type, unit_number, parent_id,
       manufacturer, model_number, serial_number, description, image_url,
       asset_number, acquisition_date, acquisition_cost, depreciation_method, useful_life, book_value, asset_class,
       status, condition, location_id, location_detail, notes,
       is_lendable, lending_rules,
       created_by, updated_by
-    ) VALUES ($1,$2,$3,$4,$5,$6, $7,$8,$9,$10,$11, $12,$13,$14,$15,$16,$17,$18, $19,$20,$21,$22,$23, $24,$25, $26,$27)
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7, $8,$9,$10,$11,$12, $13,$14,$15,$16,$17,$18,$19, $20,$21,$22,$23,$24, $25,$26, $27,$28)
   `, [
-    id, eq_code, name, category_id || null, item_type || 'facility', unit_number || null,
+    id, eq_code, name, category_id || null, item_type || 'facility', unit_number || null, parent_id || null,
     manufacturer || null, model_number || null, serial_number || null, description || null, image_url || null,
     asset_number || null, acquisition_date || null, acquisition_cost || null, depreciation_method || null, useful_life || null, book_value || null, asset_class || 'fixed_asset',
     status || 'active', condition || 'good', location_id || null, location_detail || null, notes || null,
@@ -257,7 +291,7 @@ router.post('/items', async (req: Request, res: Response) => {
 
 router.put('/items/:id', async (req: Request, res: Response) => {
   const {
-    name, category_id, item_type, unit_number,
+    name, category_id, item_type, unit_number, parent_id,
     manufacturer, model_number, serial_number, description, image_url,
     asset_number, acquisition_date, acquisition_cost, depreciation_method, useful_life, book_value, asset_class,
     status, condition, location_id, location_detail, notes,
@@ -266,15 +300,15 @@ router.put('/items/:id', async (req: Request, res: Response) => {
 
   await execute(`
     UPDATE equipment_items SET
-      name=$1, category_id=$2, item_type=$3, unit_number=$4,
-      manufacturer=$5, model_number=$6, serial_number=$7, description=$8, image_url=$9,
-      asset_number=$10, acquisition_date=$11, acquisition_cost=$12, depreciation_method=$13, useful_life=$14, book_value=$15, asset_class=$16,
-      status=$17, condition=$18, location_id=$19, location_detail=$20, notes=$21,
-      is_lendable=$22, lending_rules=$23,
-      updated_by=$24, updated_at=NOW()
-    WHERE id=$25 AND deleted_at IS NULL
+      name=$1, category_id=$2, item_type=$3, unit_number=$4, parent_id=$5,
+      manufacturer=$6, model_number=$7, serial_number=$8, description=$9, image_url=$10,
+      asset_number=$11, acquisition_date=$12, acquisition_cost=$13, depreciation_method=$14, useful_life=$15, book_value=$16, asset_class=$17,
+      status=$18, condition=$19, location_id=$20, location_detail=$21, notes=$22,
+      is_lendable=$23, lending_rules=$24,
+      updated_by=$25, updated_at=NOW()
+    WHERE id=$26 AND deleted_at IS NULL
   `, [
-    name, category_id || null, item_type, unit_number || null,
+    name, category_id || null, item_type, unit_number || null, parent_id !== undefined ? (parent_id || null) : undefined,
     manufacturer || null, model_number || null, serial_number || null, description || null, image_url || null,
     asset_number || null, acquisition_date || null, acquisition_cost || null, depreciation_method || null, useful_life || null, book_value || null, asset_class || 'fixed_asset',
     status || 'active', condition || 'good', location_id || null, location_detail || null, notes || null,

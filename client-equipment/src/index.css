@@ -14,25 +14,26 @@
   }
 
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 173 58% 39%;
+    /* GMO ONAiR Warm Design System */
+    --background: 40 20% 96%;
+    --foreground: 60 6% 11%;
+    --card: 40 25% 99%;
+    --card-foreground: 60 6% 11%;
+    --popover: 40 25% 99%;
+    --popover-foreground: 60 6% 11%;
+    --primary: 209 100% 34%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 173 58% 39%;
+    --secondary: 43 15% 88%;
+    --secondary-foreground: 48 4% 28%;
+    --muted: 43 15% 88%;
+    --muted-foreground: 48 3% 35%;
+    --accent: 43 15% 88%;
+    --accent-foreground: 48 4% 28%;
+    --destructive: 0 55% 46%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 40 18% 91%;
+    --input: 43 15% 88%;
+    --ring: 209 100% 34%;
     --radius: 0.5rem;
   }
 }
@@ -43,7 +44,11 @@
   }
   body {
     @apply bg-background text-foreground;
+    line-height: 1.60;
   }
+  .heading-page { font-family: 'Noto Serif JP', Georgia, serif; font-weight: 500; line-height: 1.20; letter-spacing: 0.01em; }
+  .heading-section { font-family: 'Noto Serif JP', Georgia, serif; font-weight: 500; line-height: 1.25; }
+  .heading-card { font-family: 'Noto Serif JP', Georgia, serif; font-weight: 500; line-height: 1.30; }
   /* 日付入力のモバイル表示修正 */
   input[type="date"],
   input[type="time"],

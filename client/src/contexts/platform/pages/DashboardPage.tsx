@@ -172,7 +172,7 @@ export default function DashboardPage() {
     <PageTransition>
     <div className="space-y-4 p-3 lg:space-y-6 lg:p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg lg:text-2xl font-bold">ダッシュボード</h1>
+        <h1 className="heading-page text-lg lg:text-2xl">ダッシュボード</h1>
         <div className="flex gap-1 rounded-lg border p-1">
           <button
             onClick={() => setKpiPeriod('monthly')}
@@ -530,7 +530,7 @@ export default function DashboardPage() {
 
       {/* Quick Links */}
       <div>
-        <h2 className="mb-2 lg:mb-4 text-base lg:text-lg font-semibold">クイックリンク</h2>
+        <h2 className="heading-section mb-2 lg:mb-4 text-base lg:text-lg">クイックリンク</h2>
         <StaggerList className="grid grid-cols-3 gap-2 sm:grid-cols-3 lg:grid-cols-6 lg:gap-4">
           {quickLinks.map((link) => (
             <StaggerItem key={link.to}>
@@ -538,7 +538,7 @@ export default function DashboardPage() {
                 className="cursor-pointer rounded-lg border bg-card text-card-foreground shadow-sm"
                 onClick={() => {
                   if ('external' in link && link.external) {
-                    window.open(link.to, '_blank');
+                    window.open(link.to, '_blank', 'noopener,noreferrer');
                   } else {
                     navigate(link.to);
                   }

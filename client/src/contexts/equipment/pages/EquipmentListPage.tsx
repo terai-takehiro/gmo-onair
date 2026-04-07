@@ -2,115 +2,159 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
-import { Button } from "@/components/ui/button";
+import { PageTransition } from "@/components/ui/motion";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
 } from "@/components/ui/select";
-import {
-  Loader2, Plus, Search, Package, Pencil, Trash2,
-} from "lucide-react";
+import { Search, Loader2, Plus } from "lucide-react";
+
+interface EquipmentItem {
+  id: string;
+  eq_code: string;
+  name: string;
+  category_id: string;
+  category_name?: string;
+  item_type: "facility" | "rental";
+  status: string;
+  condition?: string;
+  location_name?: string;
+  manufacturer?: string;
+  model_number?: string;
+  serial_number?: string;
+  is_lendable?: boolean;
+  child_count?: number;
+}
+
+interface Category {
+  id: string;
+  name: string;
+}
 
 const statusLabels: Record<string, string> = {
   active: "稼働中",
   in_repair: "修理中",
-  retired: "引退",
+  retired: "退役",
   disposed: "廃棄",
   lost: "紛失",
 };
 
 const statusColors: Record<string, string> = {
-  active: "bg-green-100 text-green-800",
-  in_repair: "bg-amber-100 text-amber-800",
+  active: "bg-green-100 text-green-700",
+  in_repair: "bg-yellow-100 text-yellow-700",
   retired: "bg-gray-100 text-gray-600",
-  disposed: "bg-red-100 text-red-800",
-  lost: "bg-red-200 text-red-900",
+  disposed: "bg-red-100 text-red-700",
+  lost: "bg-red-100 text-red-700",
 };
 
-const conditionLabels: Record<string, string> = {
-  excellent: "優良",
-  good: "良好",
-  fair: "可",
-  poor: "不良",
-};
-
-const typeLabels: Record<string, string> = {
+const itemTypeLabels: Record<string, string> = {
   facility: "設備",
-  rental: "貸出",
+  rental: "レンタル",
+};
+
+const LIMIT = 20;
+
+const statusTabs = [
+  { value: "", label: "すべて" },
+  { value: "active", label: "稼働中" },
+  { value: "in_repair", label: "修理中" },
+  { value: "retired", label: "退役" },
+  { value: "disposed", label: "廃棄" },
+];
+
+interface FormState {
+  name: string;
+  category_id: string;
+  item_type: string;
+  manufacturer: string;
+  model_number: string;
+  serial_number: string;
+  status: string;
+  condition: string;
+  is_lendable: boolean;
+}
+
+const emptyForm: FormState = {
+  name: "",
+  category_id: "",
+  item_type: "facility",
+  manufacturer: "",
+  model_number: "",
+  serial_number: "",
+  status: "active",
+  condition: "",
+  is_lendable: false,
 };
 
 export default function EquipmentListPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
-  const [filterType, setFilterType] = useState<string>("");
-  const [filterStatus, setFilterStatus] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [page, setPage] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<FormState>(emptyForm);
 
-  // Form state
-  const [form, setForm] = useState({
-    name: "", category_id: "", item_type: "facility" as string, unit_number: "",
-    manufacturer: "", model_number: "", serial_number: "", description: "",
-    asset_number: "", acquisition_date: "", acquisition_cost: "",
-    depreciation_method: "straight_line", useful_life: "", asset_class: "fixed_asset",
-    status: "active", condition: "good",
-    location_id: "", location_detail: "", notes: "",
-    is_lendable: false, lending_rules: "",
-  });
-
-  const resetForm = () => setForm({
-    name: "", category_id: "", item_type: "facility", unit_number: "",
-    manufacturer: "", model_number: "", serial_number: "", description: "",
-    asset_number: "", acquisition_date: "", acquisition_cost: "",
-    depreciation_method: "straight_line", useful_life: "", asset_class: "fixed_asset",
-    status: "active", condition: "good",
-    location_id: "", location_detail: "", notes: "",
-    is_lendable: false, lending_rules: "",
-  });
-
-  // Queries
-  const { data: itemsData, isLoading } = useQuery({
-    queryKey: ["equipment-items", search, filterType, filterStatus],
+  const { data, isLoading } = useQuery({
+    queryKey: ["equipment-items", page, search, statusFilter, categoryFilter],
     queryFn: async () => {
-      const params: Record<string, string> = {};
+      const params: Record<string, string | number> = { limit: LIMIT, offset: (page - 1) * LIMIT };
       if (search) params.search = search;
-      if (filterType) params.item_type = filterType;
-      if (filterStatus) params.status = filterStatus;
+      if (statusFilter) params.status = statusFilter;
+      if (categoryFilter) params.category_id = categoryFilter;
       return (await api.get("/equipment/items", { params })).data;
     },
   });
 
+  const items: EquipmentItem[] = data?.data ?? [];
+  const total: number = data?.meta?.total ?? 0;
+  const totalPages = Math.ceil(total / LIMIT);
+
   const { data: categoriesData } = useQuery({
     queryKey: ["equipment-categories"],
-    queryFn: async () => (await api.get("/equipment/categories")).data.data,
+    queryFn: async () => (await api.get("/equipment/categories")).data,
   });
-  const categories: any[] = categoriesData ?? [];
+  const categories: Category[] = categoriesData?.data ?? [];
 
-  const { data: locationsData } = useQuery({
-    queryKey: ["equipment-locations"],
-    queryFn: async () => (await api.get("/equipment/locations")).data.data,
-  });
-  const locations: any[] = locationsData ?? [];
-
-  const items: any[] = itemsData?.data ?? [];
-
-  // Mutations
-  const saveMutation = useMutation({
-    mutationFn: (payload: any) =>
-      editingId
-        ? api.put(`/equipment/items/${editingId}`, payload)
-        : api.post("/equipment/items", payload),
+  const createMutation = useMutation({
+    mutationFn: (payload: Record<string, unknown>) => api.post("/equipment/items", payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["equipment-items"] });
-      qc.invalidateQueries({ queryKey: ["equipment-stats"] });
-      setDialogOpen(false);
+      handleCloseDialog();
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Record<string, unknown> }) =>
+      api.put(`/equipment/items/${id}`, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["equipment-items"] });
+      handleCloseDialog();
     },
   });
 
@@ -118,350 +162,336 @@ export default function EquipmentListPage() {
     mutationFn: (id: string) => api.delete(`/equipment/items/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["equipment-items"] });
-      qc.invalidateQueries({ queryKey: ["equipment-stats"] });
     },
   });
 
-  const openNew = () => {
-    resetForm();
+  const handleCloseDialog = () => {
+    setDialogOpen(false);
     setEditingId(null);
+    setForm(emptyForm);
+  };
+
+  const handleOpenCreate = () => {
+    setEditingId(null);
+    setForm(emptyForm);
     setDialogOpen(true);
   };
 
-  const openEdit = (item: any) => {
+  const handleOpenEdit = (item: EquipmentItem) => {
+    setEditingId(item.id);
     setForm({
-      name: item.name || "",
+      name: item.name,
       category_id: item.category_id || "",
       item_type: item.item_type || "facility",
-      unit_number: item.unit_number?.toString() || "",
       manufacturer: item.manufacturer || "",
       model_number: item.model_number || "",
       serial_number: item.serial_number || "",
-      description: item.description || "",
-      asset_number: item.asset_number || "",
-      acquisition_date: item.acquisition_date || "",
-      acquisition_cost: item.acquisition_cost?.toString() || "",
-      depreciation_method: item.depreciation_method || "straight_line",
-      useful_life: item.useful_life?.toString() || "",
-      asset_class: item.asset_class || "fixed_asset",
       status: item.status || "active",
-      condition: item.condition || "good",
-      location_id: item.location_id || "",
-      location_detail: item.location_detail || "",
-      notes: item.notes || "",
+      condition: item.condition || "",
       is_lendable: !!item.is_lendable,
-      lending_rules: item.lending_rules || "",
     });
-    setEditingId(item.id);
     setDialogOpen(true);
   };
 
   const handleSubmit = () => {
-    if (!form.name) return;
-    saveMutation.mutate({
-      ...form,
-      unit_number: form.unit_number ? Number(form.unit_number) : null,
-      acquisition_cost: form.acquisition_cost ? Number(form.acquisition_cost) : null,
-      useful_life: form.useful_life ? Number(form.useful_life) : null,
-      category_id: form.category_id || null,
-      location_id: form.location_id || null,
-    });
+    if (!form.name || !form.category_id) return;
+    const payload = { ...form };
+    if (editingId) {
+      updateMutation.mutate({ id: editingId, payload });
+    } else {
+      createMutation.mutate(payload);
+    }
   };
 
+  const isPending = createMutation.isPending || updateMutation.isPending;
+
   return (
-    <div className="space-y-4 p-4 lg:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl lg:text-2xl font-bold">機材一覧</h1>
-        <Button size="sm" onClick={openNew}>
-          <Plus className="h-4 w-4 mr-1" />
-          機材登録
-        </Button>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            className="pl-9"
-            placeholder="名前・EQコード・型番で検索..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+    <PageTransition>
+      <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
+        {/* Header */}
+        <div className="flex flex-wrap gap-2 items-center justify-between">
+          <h1 className="text-xl lg:text-2xl font-bold">機材一覧</h1>
+          <Button onClick={handleOpenCreate}>
+            <Plus className="mr-1 h-4 w-4" />
+            新規登録
+          </Button>
         </div>
-        <Select value={filterType} onValueChange={(v) => setFilterType(v === "all" ? "" : v)}>
-          <SelectTrigger className="w-[120px]">
-            <SelectValue placeholder="種別" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">すべて</SelectItem>
-            <SelectItem value="facility">設備</SelectItem>
-            <SelectItem value="rental">貸出</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v === "all" ? "" : v)}>
-          <SelectTrigger className="w-[120px]">
-            <SelectValue placeholder="状態" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">すべて</SelectItem>
-            <SelectItem value="active">稼働中</SelectItem>
-            <SelectItem value="in_repair">修理中</SelectItem>
-            <SelectItem value="retired">引退</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
 
-      {/* Items list */}
-      {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        {/* Filters */}
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="relative max-w-sm flex-1 min-w-[180px]">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="機材名・コードで検索..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              className="pl-9"
+            />
+          </div>
+          <Select value={categoryFilter} onValueChange={(v) => { setCategoryFilter(v === "all" ? "" : v); setPage(1); }}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="カテゴリ" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">すべてのカテゴリ</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-      ) : items.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center text-muted-foreground">
-            <Package className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p>機材が登録されていません</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-2">
-          {items.map((item: any) => (
-            <Card
-              key={item.id}
-              className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => navigate(`/equipment/items/${item.id}`)}
+
+        {/* Status Tabs */}
+        <div className="flex gap-1 rounded-lg border p-1 w-fit">
+          {statusTabs.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => { setStatusFilter(tab.value); setPage(1); }}
+              className={`rounded-md px-3 py-1 text-xs sm:px-4 sm:py-1.5 sm:text-sm font-medium transition-colors ${
+                statusFilter === tab.value ? "bg-primary text-white" : "hover:bg-muted"
+              }`}
             >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant="outline" className="text-[10px]">
-                        {typeLabels[item.item_type] || item.item_type}
-                      </Badge>
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[item.status] || ""}`}>
-                        {statusLabels[item.status] || item.status}
-                      </span>
-                      {item.category_name && (
-                        <span className="text-[10px] text-muted-foreground">{item.category_name}</span>
-                      )}
-                    </div>
-                    <h3 className="font-semibold mt-1 truncate">
-                      {item.name}
-                      {item.unit_number && <span className="text-primary ml-1.5">No.{item.unit_number}</span>}
-                    </h3>
-                    <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground mt-1">
-                      {item.manufacturer && <span>{item.manufacturer}</span>}
-                      {item.model_number && <span>{item.model_number}</span>}
-                      {item.location_detail && <span>📍 {item.location_detail}</span>}
-                    </div>
-                    {item.item_type === "rental" && item.is_lendable && item.current_lending && (
-                      <div className="mt-1.5 text-xs text-amber-700 bg-amber-50 rounded px-2 py-1 inline-block">
-                        貸出中: {item.current_lending.borrower_name}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      variant="ghost" size="icon"
-                      className="h-8 w-8"
-                      onClick={() => openEdit(item)}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost" size="icon"
-                      className="h-8 w-8 text-destructive"
-                      onClick={() => {
-                        if (confirm(`「${item.name}」を削除しますか？`)) deleteMutation.mutate(item.id);
-                      }}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+              {tab.label}
+            </button>
           ))}
         </div>
-      )}
 
-      {/* Create/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingId ? "機材編集" : "機材登録"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {/* Basic */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1 sm:col-span-2">
-                <Label>機材名 *</Label>
-                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Sony PXW-FX9" />
-              </div>
-              <div className="space-y-1">
-                <Label>個体No.</Label>
-                <Input type="number" min="1" value={form.unit_number} onChange={(e) => setForm({ ...form, unit_number: e.target.value })} placeholder="1, 2, 3..." />
-              </div>
-              <div className="space-y-1">
-                <Label>種別</Label>
-                <Select value={form.item_type} onValueChange={(v) => setForm({ ...form, item_type: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="facility">設備系</SelectItem>
-                    <SelectItem value="rental">貸出系</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>カテゴリ</Label>
-                <Select value={form.category_id || "none"} onValueChange={(v) => setForm({ ...form, category_id: v === "none" ? "" : v })}>
-                  <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">なし</SelectItem>
-                    {categories.map((c: any) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>メーカー</Label>
-                <Input value={form.manufacturer} onChange={(e) => setForm({ ...form, manufacturer: e.target.value })} />
-              </div>
-              <div className="space-y-1">
-                <Label>型番</Label>
-                <Input value={form.model_number} onChange={(e) => setForm({ ...form, model_number: e.target.value })} />
-              </div>
-              <div className="space-y-1">
-                <Label>シリアルナンバー</Label>
-                <Input value={form.serial_number} onChange={(e) => setForm({ ...form, serial_number: e.target.value })} />
-              </div>
-              <div className="space-y-1">
-                <Label>保管場所</Label>
-                <Select value={form.location_id || "none"} onValueChange={(v) => setForm({ ...form, location_id: v === "none" ? "" : v })}>
-                  <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">なし</SelectItem>
-                    {locations.map((loc: any) => (
-                      <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>場所補足</Label>
-                <Input value={form.location_detail} onChange={(e) => setForm({ ...form, location_detail: e.target.value })} placeholder="ラックB-2 など" />
-              </div>
+        {/* Content */}
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : items.length === 0 ? (
+          <p className="text-center text-muted-foreground py-8">データがありません</p>
+        ) : (
+          <>
+            {/* Mobile cards */}
+            <div className="space-y-2 lg:hidden">
+              {items.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-lg border p-3 transition-colors hover:bg-muted/50 cursor-pointer"
+                  onClick={() => navigate(`/equipment/items/${item.id}`)}
+                  role="button"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-xs">{item.eq_code}</span>
+                        <Badge className={`text-[10px] ${statusColors[item.status] || "bg-gray-100 text-gray-600"}`}>
+                          {statusLabels[item.status] || item.status}
+                        </Badge>
+                        {item.child_count && item.child_count > 0 && (
+                          <Badge variant="outline" className="text-[10px]">{item.child_count}点</Badge>
+                        )}
+                      </div>
+                      <div className="text-sm mt-1 font-medium truncate">{item.name}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {item.category_name || "-"} / {itemTypeLabels[item.item_type] || item.item_type}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
 
-            {/* Asset info */}
-            <div className="border-t pt-4">
-              <p className="text-sm font-semibold mb-3">資産情報</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <Label>資産区分</Label>
-                  <Select value={form.asset_class} onValueChange={(v) => setForm({ ...form, asset_class: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+            {/* Desktop table */}
+            <div className="hidden lg:block overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>機材コード</TableHead>
+                    <TableHead>名称</TableHead>
+                    <TableHead>カテゴリ</TableHead>
+                    <TableHead>種別</TableHead>
+                    <TableHead>ステータス</TableHead>
+                    <TableHead>ロケーション</TableHead>
+                    <TableHead className="w-[80px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((item) => (
+                    <TableRow
+                      key={item.id}
+                      className="cursor-pointer"
+                      onClick={() => navigate(`/equipment/items/${item.id}`)}
+                    >
+                      <TableCell className="font-mono text-sm">{item.eq_code}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{item.name}</span>
+                          {item.child_count && item.child_count > 0 && (
+                            <Badge variant="outline" className="text-[10px]">{item.child_count}点</Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>{item.category_name || "-"}</TableCell>
+                      <TableCell>{itemTypeLabels[item.item_type] || item.item_type}</TableCell>
+                      <TableCell>
+                        <Badge className={statusColors[item.status] || "bg-gray-100 text-gray-600"}>
+                          {statusLabels[item.status] || item.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{item.location_name || "-"}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => { e.stopPropagation(); handleOpenEdit(item); }}
+                        >
+                          編集
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  全{total}件中 {(page - 1) * LIMIT + 1}-{Math.min(page * LIMIT, total)}件
+                </p>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                    前へ
+                  </Button>
+                  <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+                    次へ
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Create / Edit Dialog */}
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{editingId ? "機材編集" : "新規機材登録"}</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div>
+                <Label>名称 *</Label>
+                <Input
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="機材名"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>カテゴリ *</Label>
+                  <Select value={form.category_id} onValueChange={(v) => setForm({ ...form, category_id: v })}>
+                    <SelectTrigger><SelectValue placeholder="選択" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="fixed_asset">固定資産</SelectItem>
-                      <SelectItem value="consumable">消耗品</SelectItem>
-                      <SelectItem value="low_value">少額資産</SelectItem>
+                      {categories.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1">
-                  <Label>管理番号</Label>
-                  <Input value={form.asset_number} onChange={(e) => setForm({ ...form, asset_number: e.target.value })} />
-                </div>
-                <div className="space-y-1">
-                  <Label>取得日</Label>
-                  <Input type="date" value={form.acquisition_date} onChange={(e) => setForm({ ...form, acquisition_date: e.target.value })} />
-                </div>
-                <div className="space-y-1">
-                  <Label>取得価額</Label>
-                  <Input type="number" value={form.acquisition_cost} onChange={(e) => setForm({ ...form, acquisition_cost: e.target.value })} />
-                </div>
-                <div className="space-y-1">
-                  <Label>耐用年数</Label>
-                  <Input type="number" value={form.useful_life} onChange={(e) => setForm({ ...form, useful_life: e.target.value })} placeholder="年" />
-                </div>
-                <div className="space-y-1">
-                  <Label>償却方法</Label>
-                  <Select value={form.depreciation_method} onValueChange={(v) => setForm({ ...form, depreciation_method: v })}>
+                <div>
+                  <Label>種別 *</Label>
+                  <Select value={form.item_type} onValueChange={(v) => setForm({ ...form, item_type: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="straight_line">定額法</SelectItem>
-                      <SelectItem value="declining">定率法</SelectItem>
-                      <SelectItem value="none">なし</SelectItem>
+                      <SelectItem value="facility">設備</SelectItem>
+                      <SelectItem value="rental">レンタル</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-            </div>
 
-            {/* Status */}
-            <div className="border-t pt-4">
-              <p className="text-sm font-semibold mb-3">状態</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="space-y-1">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>メーカー</Label>
+                  <Input
+                    value={form.manufacturer}
+                    onChange={(e) => setForm({ ...form, manufacturer: e.target.value })}
+                    placeholder="メーカー名"
+                  />
+                </div>
+                <div>
+                  <Label>型番</Label>
+                  <Input
+                    value={form.model_number}
+                    onChange={(e) => setForm({ ...form, model_number: e.target.value })}
+                    placeholder="型番"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label>シリアル番号</Label>
+                <Input
+                  value={form.serial_number}
+                  onChange={(e) => setForm({ ...form, serial_number: e.target.value })}
+                  placeholder="シリアル番号"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
                   <Label>ステータス</Label>
                   <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {Object.entries(statusLabels).map(([k, v]) => (
-                        <SelectItem key={k} value={k}>{v}</SelectItem>
+                      {Object.entries(statusLabels).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>{label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1">
+                <div>
                   <Label>コンディション</Label>
-                  <Select value={form.condition} onValueChange={(v) => setForm({ ...form, condition: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(conditionLabels).map(([k, v]) => (
-                        <SelectItem key={k} value={k}>{v}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-
-            {/* Lending (貸出系のみ) */}
-            {form.item_type === "rental" && (
-              <div className="border-t pt-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <input
-                    type="checkbox"
-                    id="is_lendable"
-                    checked={form.is_lendable}
-                    onChange={(e) => setForm({ ...form, is_lendable: e.target.checked })}
-                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  <Input
+                    value={form.condition}
+                    onChange={(e) => setForm({ ...form, condition: e.target.value })}
+                    placeholder="良好 / 要注意 等"
                   />
-                  <Label htmlFor="is_lendable" className="cursor-pointer">貸出可能</Label>
                 </div>
               </div>
-            )}
 
-            {/* Notes */}
-            <div className="space-y-1">
-              <Label>メモ</Label>
-              <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="備考" />
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="is_lendable"
+                  checked={form.is_lendable}
+                  onCheckedChange={(checked) => setForm({ ...form, is_lendable: !!checked })}
+                />
+                <Label htmlFor="is_lendable" className="cursor-pointer">貸出可能</Label>
+              </div>
             </div>
 
-            {/* Submit */}
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>キャンセル</Button>
-              <Button onClick={handleSubmit} disabled={!form.name || saveMutation.isPending}>
-                {saveMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+            <DialogFooter>
+              {editingId && (
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    if (confirm("この機材を削除しますか？")) {
+                      deleteMutation.mutate(editingId);
+                      handleCloseDialog();
+                    }
+                  }}
+                  className="mr-auto"
+                >
+                  削除
+                </Button>
+              )}
+              <Button variant="outline" onClick={handleCloseDialog}>キャンセル</Button>
+              <Button disabled={!form.name || !form.category_id || isPending} onClick={handleSubmit}>
+                {isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                 {editingId ? "更新" : "登録"}
               </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </PageTransition>
   );
 }

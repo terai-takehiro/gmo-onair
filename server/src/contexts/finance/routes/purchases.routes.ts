@@ -1,12 +1,16 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
-import { requireAuth } from '../../../shared/middleware/auth';
+import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateBillingKey } from '../../../shared/services/billing-key.service';
+import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
 
 const router = Router();
+
+// Apply auth + permission middleware to all routes
+router.use(requireAuth, requirePermission('budget'));
 
 router.get('/', async (req, res) => {
   const { page, limit, offset, search } = extractPagination(req);
@@ -23,11 +27,12 @@ router.get('/', async (req, res) => {
   if (groupId) { where += ` AND pu.group_id = ?`; params.push(groupId); }
 
   const allocJoin = projectId
-    ? `LEFT JOIN purchase_allocations pa ON pa.purchase_id = pu.id AND pa.project_id = '${projectId.replace(/'/g, "''")}'`
+    ? `LEFT JOIN purchase_allocations pa ON pa.purchase_id = pu.id AND pa.project_id = ?`
     : '';
   const allocCol = projectId ? ', pa.allocated_amount' : '';
+  const allocParams = projectId ? [projectId] : [];
 
-  const total = ((await queryOne(`SELECT COUNT(*) as c FROM purchases pu LEFT JOIN vendors v ON v.id = pu.vendor_id LEFT JOIN projects p ON p.id = pu.project_id ${allocJoin} ${where}`, params)) as any).c;
+  const total = ((await queryOne(`SELECT COUNT(*) as c FROM purchases pu LEFT JOIN vendors v ON v.id = pu.vendor_id LEFT JOIN projects p ON p.id = pu.project_id ${allocJoin} ${where}`, [...allocParams, ...params])) as any).c;
   const rows = await queryAll(
     `SELECT pu.*, p.name as project_name, p.gls_number, v.name as vendor_name, pg.name as group_name${allocCol}
      FROM purchases pu
@@ -36,9 +41,23 @@ router.get('/', async (req, res) => {
      LEFT JOIN project_groups pg ON pg.id = pu.group_id
      ${allocJoin}
      ${where} ORDER BY pu.recognition_date DESC, pu.created_at DESC LIMIT ? OFFSET ?`,
-    [...params, limit, offset]
+    [...allocParams, ...params, limit, offset]
   );
   res.json(paginatedResponse(rows, total, page, limit));
+});
+
+// CSV Export
+router.get('/export', requirePermission('budget', 'exporter'), async (_req, res) => {
+  const rows = await queryAll(
+    `SELECT v.name as vendor_name, p.name as project_name, pu.description, pu.amount, pu.tax_category as tax, pu.amount as total, pu.recognition_date as date
+     FROM purchases pu
+     LEFT JOIN projects p ON p.id = pu.project_id
+     LEFT JOIN vendors v ON v.id = pu.vendor_id
+     WHERE pu.deleted_at IS NULL
+     ORDER BY pu.recognition_date DESC, pu.created_at DESC`
+  ) as Record<string, unknown>[];
+  const columns = ['vendor_name', 'project_name', 'description', 'amount', 'tax', 'total', 'date'];
+  csvResponse(res, 'purchases.csv', generateCsv(rows, columns));
 });
 
 router.get('/:id', async (req, res) => {
@@ -51,7 +70,7 @@ router.get('/:id', async (req, res) => {
   res.json({ success: true, data: row });
 });
 
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
   const { project_id, episode_id, vendor_id, settlement_method, settlement_number,
           tax_category, invoice_qualified, amount, description,
           recognition_date, inspection_date, payment_due_date, notes } = req.body;
@@ -77,7 +96,7 @@ router.post('/', requireAuth, async (req, res) => {
   res.status(201).json({ success: true, data: row });
 });
 
-router.put('/:id', requireAuth, async (req, res) => {
+router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
   const existing = await queryOne('SELECT id FROM purchases WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!existing) throw new AppError(404, 'NOT_FOUND', '仕入が見つかりません');
 
@@ -98,7 +117,7 @@ router.put('/:id', requireAuth, async (req, res) => {
   res.json({ success: true, data: row });
 });
 
-router.delete('/:id', requireAuth, async (req, res) => {
+router.delete('/:id', requirePermission('budget', 'manager'), async (req, res) => {
   await execute(`UPDATE purchases SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`, [req.user!.id, req.params.id]);
   res.json({ success: true, message: '削除しました' });
 });

@@ -1,8 +1,18 @@
 node_modules/
 dist/
-.env
 *.db
 *.sqlite
 .DS_Store
 *.log
 .vite/
+
+# Environment & secrets - NEVER commit these
+.env
+.mcp.json
+.env.local
+.env.production
+.env.*.local
+*.pem
+*.key
+credentials.json
+service-account.json
