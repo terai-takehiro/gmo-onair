@@ -47,24 +47,24 @@ function AppCard({ app, onClick }: { app: BlockApp; onClick: () => void }) {
       onClick={isComingSoon ? undefined : onClick}
       disabled={isComingSoon}
       className={cn(
-        "group relative flex flex-col items-center gap-2 rounded-2xl border-2 p-4 text-center transition-all",
+        "group relative flex flex-col items-center gap-2 rounded-2xl border-2 p-5 text-center transition-all h-full",
         isComingSoon
           ? "cursor-default border-dashed border-muted bg-muted/30 opacity-60"
-          : "border-transparent bg-card shadow-none hover:shadow-[0_0_0_1px_#d5d3cb] hover:-translate-y-1 hover:border-primary/20 active:scale-[0.98]"
+          : "border-transparent bg-card shadow-sm hover:shadow-md hover:-translate-y-1 hover:border-primary/20 active:scale-[0.98]"
       )}
     >
       <div
         className={cn(
-          "flex h-11 w-11 items-center justify-center rounded-xl text-white transition-transform",
+          "flex h-12 w-12 items-center justify-center rounded-xl text-white transition-transform",
           isComingSoon ? "bg-muted-foreground/30" : app.color,
           !isComingSoon && "group-hover:scale-110"
         )}
       >
         <Icon className="h-5 w-5" />
       </div>
-      <div>
-        <h3 className="text-sm font-serif font-medium">{app.label}</h3>
-        <p className="mt-0.5 text-[10px] text-muted-foreground leading-relaxed hidden sm:block">
+      <div className="flex-1 flex flex-col justify-center">
+        <h3 className="text-sm font-semibold">{app.label}</h3>
+        <p className="mt-0.5 text-[10px] text-muted-foreground leading-relaxed">
           {app.description}
         </p>
       </div>
@@ -438,7 +438,7 @@ export default function HomePage() {
           <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
             ブロックアプリ
           </h2>
-          <StaggerList className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5 lg:gap-4">
+          <StaggerList className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 lg:gap-4">
             {visibleApps.map((app) => (
               <StaggerItem key={app.id}>
                 <AppCard

@@ -39,7 +39,7 @@ export default function LoginPage() {
         const mode = r.data.data.mode;
         setAuthMode(mode);
         if (mode === 'mock') {
-          api.get('/users').then((r2) => setUsers(r2.data.data || [])).catch(() => {});
+          api.get('/auth/users').then((r2) => setUsers(r2.data.data || [])).catch(() => {});
         }
       })
       .catch(() => setAuthMode('mock'));

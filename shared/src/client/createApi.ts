@@ -34,7 +34,10 @@ export function createApi(config: ApiConfig) {
       if (error.response?.status === 401) {
         useUiStore.getState().setCurrentUserId(null);
         localStorage.removeItem(config.storageKey);
-        window.location.href = config.loginPath;
+        // Don't redirect if already on login page (prevents infinite loop)
+        if (!window.location.pathname.endsWith('/login')) {
+          window.location.href = config.loginPath;
+        }
       }
       return Promise.reject(error);
     },
