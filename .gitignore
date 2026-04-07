@@ -16,3 +16,6 @@ dist/
 *.key
 credentials.json
 service-account.json
+
+# TypeScript build info
+*.tsbuildinfo
