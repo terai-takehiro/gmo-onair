@@ -22,4 +22,4 @@ CREATE INDEX IF NOT EXISTS idx_techsheet_documents_updated_at ON techsheet_docum
 CREATE INDEX IF NOT EXISTS idx_techsheet_documents_created_by ON techsheet_documents(created_by);
 
 -- qsheet: updated_at sort
-CREATE INDEX IF NOT EXISTS idx_qsheet_documents_updated_at ON documents(updated_at);
+CREATE INDEX IF NOT EXISTS idx_qsheet_documents_updated_at ON qsheet_documents(updated_at);
