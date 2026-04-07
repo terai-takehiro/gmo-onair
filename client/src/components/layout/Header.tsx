@@ -125,7 +125,7 @@ export default function Header({ title }: { title?: string }) {
           <Menu className="h-5 w-5" />
         </Button>
         <span
-          className="cursor-pointer text-sm font-serif font-medium text-primary hover:opacity-80 transition-opacity shrink-0"
+          className="cursor-pointer text-sm font-sans font-bold text-primary hover:opacity-80 transition-opacity shrink-0"
           onClick={() => navigate("/")}
         >
           ONAiR

@@ -19,7 +19,7 @@ export function AppShell() {
       <header className="sticky top-0 z-40 bg-card border-b">
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link to="/" className="flex items-center gap-2 font-serif font-medium text-primary">
+            <Link to="/" className="flex items-center gap-2 font-sans font-bold text-primary">
               <Sparkles className="h-5 w-5" />
               <span>EventStamp</span>
             </Link>

@@ -53,7 +53,7 @@ export default function Sidebar() {
           >
             <Package className="h-6 w-6 text-primary" />
             <div>
-              <span className="text-lg font-serif font-medium text-primary">機材管理</span>
+              <span className="text-lg font-sans font-bold text-primary">機材管理</span>
               <span className="block text-[10px] text-muted-foreground leading-none">
                 GMO ONAiR Equipment
               </span>

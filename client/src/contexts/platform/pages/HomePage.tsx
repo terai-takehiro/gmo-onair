@@ -438,7 +438,7 @@ export default function HomePage() {
           <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
             ブロックアプリ
           </h2>
-          <StaggerList className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 lg:gap-4">
+          <StaggerList className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 lg:gap-4 auto-rows-fr">
             {visibleApps.map((app) => (
               <StaggerItem key={app.id}>
                 <AppCard

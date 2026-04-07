@@ -43,7 +43,7 @@ export default function Sidebar() {
           >
             <FileText className="h-6 w-6 text-primary" />
             <div>
-              <span className="text-lg font-serif font-medium text-primary">Qシート</span>
+              <span className="text-lg font-sans font-bold text-primary">Qシート</span>
               <span className="block text-[10px] text-muted-foreground leading-none">
                 GMO ONAiR Cue Sheet
               </span>
