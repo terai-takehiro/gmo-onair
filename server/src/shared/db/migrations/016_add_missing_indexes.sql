@@ -1,7 +1,6 @@
 -- 016: Add missing indexes for FK columns and common query patterns
 
--- revenues: vendor_id FK, billing_key lookup
-CREATE INDEX IF NOT EXISTS idx_revenues_vendor ON revenues(vendor_id) WHERE deleted_at IS NULL;
+-- revenues: billing_key lookup
 CREATE INDEX IF NOT EXISTS idx_revenues_billing_key ON revenues(billing_key) WHERE deleted_at IS NULL;
 
 -- purchases: vendor_id FK, billing_key lookup
