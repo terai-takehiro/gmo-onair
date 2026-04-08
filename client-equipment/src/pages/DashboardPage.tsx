@@ -12,15 +12,24 @@ import {
 } from "lucide-react";
 
 export default function DashboardPage() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["equipment-stats"],
     queryFn: async () => (await api.get("/equipment/stats")).data.data,
+    retry: false,
   });
 
   if (isLoading) {
     return (
       <div className="flex justify-center py-24">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex justify-center py-24">
+        <p className="text-sm text-muted-foreground">データを取得できませんでした。サーバー接続を確認してください。</p>
       </div>
     );
   }
