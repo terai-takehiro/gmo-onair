@@ -42,8 +42,12 @@
   * {
     @apply border-border;
   }
+  html {
+    font-family: 'Noto Sans JP', sans-serif;
+  }
   body {
     @apply bg-background text-foreground;
+    font-family: 'Noto Sans JP', sans-serif;
     line-height: 1.60;
   }
   .heading-page { font-family: 'Noto Sans JP', sans-serif; font-weight: 700; line-height: 1.20; letter-spacing: 0.01em; }

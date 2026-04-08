@@ -108,8 +108,12 @@
   * {
     @apply border-border;
   }
+  html {
+    font-family: 'Noto Sans JP', sans-serif;
+  }
   body {
     @apply bg-background text-foreground;
+    font-family: 'Noto Sans JP', sans-serif;
   }
   /* 日付入力のモバイル表示修正 */
   input[type="date"],
