@@ -469,7 +469,7 @@ export default function DashboardPage() {
               <div className="space-y-2 sm:space-y-3">
                 {alerts.map((a, idx) => (
                   <div key={`${a.id}-${a.alert_type}-${idx}`} className="flex items-start gap-2 sm:gap-3 rounded-md border p-2 sm:p-3">
-                    <Badge color={alertTypeColor[a.alert_type] || "#6b7280"}>
+                    <Badge style={{ backgroundColor: alertTypeColor[a.alert_type] || "#6b7280", color: '#fff' }}>
                       {alertTypeLabel[a.alert_type] || a.alert_type}
                     </Badge>
                     <div className="flex-1 min-w-0">
