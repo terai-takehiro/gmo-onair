@@ -68,6 +68,8 @@ interface AuthContextType {
   loginWithToken: (token: string) => Promise<void>;
   logout: () => void;
   loading: boolean;
+  /** パーミッション取得が完了したか（PermissionRouteの表示制御に使用） */
+  permissionsLoaded: boolean;
   permissions: Permissions;
   /** モジュールへのアクセス権があるかチェック */
   hasPermission: (module: string, minLevel?: "reader" | "exporter" | "editor" | "manager" | "owner") => boolean;
@@ -81,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [permissions, setPermissions] = useState<Permissions>({});
   const [loading, setLoading] = useState(true);
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const setCurrentUserId = useUiStore((s) => s.setCurrentUserId);
 
   const fetchPermissions = useCallback(async () => {
@@ -89,6 +92,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setPermissions(res.data.data || {});
     } catch {
       setPermissions({});
+    } finally {
+      setPermissionsLoaded(true);
     }
   }, []);
 
@@ -122,7 +127,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           fetchPermissions();
         } catch {
           localStorage.removeItem("gmo_onair_user");
+          setPermissionsLoaded(true);
         }
+      } else {
+        setPermissionsLoaded(true);
       }
       setLoading(false);
     };
@@ -159,6 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     setCurrentUser(null);
     setPermissions({});
+    setPermissionsLoaded(false);
     setCurrentUserId(null);
     localStorage.removeItem("gmo_onair_user");
     localStorage.removeItem("gmo_onair_token");
@@ -188,6 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loginWithToken,
         logout,
         loading,
+        permissionsLoaded,
         permissions,
         hasPermission,
       }}

@@ -41,7 +41,8 @@ export default function EquipmentDashboard() {
 
   const { data: stats, isLoading } = useQuery<EquipmentStats>({
     queryKey: ["equipment-stats"],
-    queryFn: async () => (await api.get("/equipment/stats")).data.data ?? (await api.get("/equipment/stats")).data,
+    queryFn: async () => (await api.get("/equipment/stats")).data.data,
+    retry: false,
   });
 
   return (
