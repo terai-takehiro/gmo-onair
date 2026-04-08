@@ -986,11 +986,11 @@ export async function seed() {
   // ============================================================
   // TechSheet Documents (技術資料)
   // ============================================================
-  const techsheetSql = `INSERT INTO techsheet_documents (id, title, project_id, episode_id, venue, air_date, status, data, created_by) VALUES (?,?,?,?,?,?,?,?,?)`;
+  const techsheetSql = `INSERT INTO techsheet_documents (id, title, project_id, episode_id, production_date, venue, status, data, created_by) VALUES (?,?,?,?,?,?,?,?,?)`;
 
   await ins(techsheetSql, [
     uuidv4(), 'GH春季IR説明会 技術仕様書', PROJECTS['GLS-A001'], EPISODES['GLS-A001-001'],
-    '用賀 WORLD STUDIO', '2026-03-28', 'confirmed',
+    '2026-03-28', '用賀 WORLD STUDIO', 'confirmed',
     JSON.stringify({
       cameras: [
         { position: 'CAM1', model: 'Sony PXW-FX9', lens: '24-70mm', operator: '鈴木一郎', notes: '演台メインカメラ' },
@@ -1006,7 +1006,7 @@ export async function seed() {
 
   await ins(techsheetSql, [
     uuidv4(), 'サイエンス・フロンティア 収録 技術仕様書', PROJECTS['GLS-A002'], EPISODES['GLS-A002-001'],
-    '用賀 SKY STUDIO', '2026-04-07', 'draft',
+    '2026-04-07', '用賀 SKY STUDIO', 'draft',
     JSON.stringify({
       cameras: [
         { position: 'CAM1', model: 'Blackmagic URSA Mini Pro 12K', lens: 'Canon CN-E 50mm', operator: '鈴木一郎', notes: 'メインカメラ' },

@@ -8,7 +8,8 @@
     "start": "node dist/index.js",
     "db:migrate": "tsx src/shared/db/migrate.ts",
     "db:seed": "tsx src/shared/db/seed.ts",
-    "db:reset": "tsx src/shared/db/reset.ts"
+    "db:reset": "tsx src/shared/db/reset.ts",
+    "db:seed:subapps": "tsx src/shared/db/seed-subapps.ts"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",

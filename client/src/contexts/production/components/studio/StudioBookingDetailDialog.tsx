@@ -179,7 +179,7 @@ export default function StudioBookingDetailDialog({
                 className="text-sm font-medium text-primary hover:underline flex items-center gap-1"
                 onClick={() => {
                   onOpenChange(false);
-                  navigate(`/projects/${booking.project_id}/episodes`);
+                  navigate(`/sales/projects/${booking.project_id}/episodes`);
                 }}
               >
                 <ExternalLink className="h-3 w-3" />
