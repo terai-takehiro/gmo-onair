@@ -254,7 +254,7 @@ export default function DashboardPage() {
     <PageTransition>
     <div className="space-y-4 p-3 lg:space-y-6 lg:p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg lg:text-2xl font-bold">ダッシュボード</h1>
+        <h1 className="heading-page text-lg lg:text-2xl">ダッシュボード</h1>
         <div className="flex gap-1 rounded-lg border p-1">
           <button
             onClick={() => setKpiPeriod('monthly')}
@@ -621,7 +621,7 @@ export default function DashboardPage() {
                 onClick={() => {
                   if (block.comingSoon || !block.to) return;
                   if (block.external) {
-                    window.open(block.to, '_blank');
+                    window.open(block.to, '_blank', 'noopener,noreferrer');
                   } else {
                     navigate(block.to);
                   }

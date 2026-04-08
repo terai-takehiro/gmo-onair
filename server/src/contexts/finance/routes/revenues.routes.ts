@@ -1,12 +1,16 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
-import { requireAuth } from '../../../shared/middleware/auth';
+import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateEstimatePdf } from '../../../shared/services/pdf.service';
+import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
 
 const router = Router();
+
+// Apply auth + permission middleware to all routes
+router.use(requireAuth, requirePermission('budget'));
 
 // 売上一覧
 router.get('/', async (req, res) => {
@@ -14,7 +18,11 @@ router.get('/', async (req, res) => {
   const projectId = req.query.project_id as string;
   let where = 'WHERE r.deleted_at IS NULL';
   const params: unknown[] = [];
-  if (search) { where += ` AND (r.billing_key ILIKE ? OR r.notes ILIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
+  if (search) {
+    const safeSearch = String(search).slice(0, 100).replace(/[%_\\]/g, '\\$&');
+    where += ` AND (r.billing_key ILIKE ? ESCAPE '\\' OR r.notes ILIKE ? ESCAPE '\\')`;
+    params.push(`%${safeSearch}%`, `%${safeSearch}%`);
+  }
 
   // プロジェクト絞込み: 直接売上 + グループ按分された売上
   if (projectId) {
@@ -29,8 +37,9 @@ router.get('/', async (req, res) => {
 
   // allocated_amount: グループ按分時はこのプロジェクトへの配分額
   const allocJoin = projectId
-    ? `LEFT JOIN revenue_allocations ra ON ra.revenue_id = r.id AND ra.project_id = '${projectId.replace(/'/g, "''")}'`
+    ? `LEFT JOIN revenue_allocations ra ON ra.revenue_id = r.id AND ra.project_id = ?`
     : '';
+  const allocParams: unknown[] = projectId ? [projectId] : [];
   const allocCol = projectId ? ', ra.allocated_amount, pg.name as group_name' : '';
 
   const rows = await queryAll(
@@ -42,7 +51,7 @@ router.get('/', async (req, res) => {
      ${allocJoin}
      ${projectId ? 'LEFT JOIN project_groups pg ON pg.id = r.group_id' : ''}
      ${where} ORDER BY r.billing_key ASC, r.created_at DESC LIMIT ? OFFSET ?`,
-    [...params, limit, offset]
+    [...allocParams, ...params, limit, offset]
   );
 
   // プロジェクト絞込み時は明細行も付与
@@ -53,6 +62,19 @@ router.get('/', async (req, res) => {
   }
 
   res.json(paginatedResponse(rows, total, page, limit));
+});
+
+// CSV Export
+router.get('/export', requirePermission('budget', 'exporter'), async (_req, res) => {
+  const rows = await queryAll(
+    `SELECT p.name as project_name, r.subtitle, r.amount, r.tax_category, r.amount as total, r.status, r.recognition_date as date
+     FROM revenues r
+     LEFT JOIN projects p ON p.id = r.project_id
+     WHERE r.deleted_at IS NULL
+     ORDER BY r.billing_key ASC, r.created_at DESC`
+  ) as Record<string, unknown>[];
+  const columns = ['project_name', 'subtitle', 'amount', 'tax_category', 'total', 'status', 'date'];
+  csvResponse(res, 'revenues.csv', generateCsv(rows, columns));
 });
 
 // 売上詳細（明細行つき）
@@ -107,7 +129,7 @@ router.get('/:id/pdf', async (req, res, next) => {
 });
 
 // 新規売上（明細行対応、episode_id任意）
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
   const { project_id, customer_id, episode_id, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, items, subtitle, status: reqStatus } = req.body;
   if (!project_id || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件と顧客は必須です');
 
@@ -156,7 +178,7 @@ router.post('/', requireAuth, async (req, res) => {
 });
 
 // 売上更新（明細行対応）
-router.put('/:id', requireAuth, async (req, res) => {
+router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
   const existing = await queryOne('SELECT * FROM revenues WHERE id = ? AND deleted_at IS NULL', [req.params.id]) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '売上が見つかりません');
   const { billing_key, project_id, customer_id, episode_id, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, items, subtitle } = req.body;
@@ -192,7 +214,7 @@ router.put('/:id', requireAuth, async (req, res) => {
 });
 
 // 売上削除
-router.delete('/:id', requireAuth, async (req, res) => {
+router.delete('/:id', requirePermission('budget', 'manager'), async (req, res) => {
   await execute(`UPDATE revenues SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`, [req.user!.id, req.params.id]);
   res.json({ success: true, message: '削除しました' });
 });

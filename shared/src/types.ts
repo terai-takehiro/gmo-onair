@@ -1,4 +1,4 @@
-import type { UserRole, OpportunityStage, ProjectStatus, TaxCategory, SettlementMethod, BroadcastType, MediaPlatform, InvoiceGroupStatus, ProjectType, CalcType } from './enums';
+import type { UserRole, ProjectStatus, TaxCategory, SettlementMethod, BroadcastType, MediaPlatform, InvoiceGroupStatus, ProjectType, CalcType } from './enums';
 
 // 共通フィールド
 export interface BaseEntity {
@@ -41,35 +41,6 @@ export interface Partner extends BaseEntity {
   role_title: string | null;
   specialties: string[];
   notes: string | null;
-}
-
-// ヨミ
-export interface Opportunity extends BaseEntity {
-  opp_code: string;
-  title: string;
-  customer_id: string;
-  project_type: ProjectType;
-  project_type_other: string | null;
-  stage: OpportunityStage;
-  expected_amount: number;
-  expected_date: string | null;
-  project_id: string | null;
-  assigned_to: string;
-  notes: string | null;
-  // Joined
-  customer_name?: string;
-  assigned_to_name?: string;
-  dates?: OpportunityDate[];
-}
-
-// ヨミ日程
-export interface OpportunityDate {
-  id: string;
-  opportunity_id: string;
-  date_start: string;
-  date_end: string | null;
-  label: string | null;
-  sort_order: number;
 }
 
 // 料金カテゴリ
@@ -289,7 +260,7 @@ export interface DashboardKpi {
   monthly_revenue: number;
   monthly_gross_margin: number;
   active_projects: number;
-  active_opportunities: number;
+  active_yomi: number;
 }
 
 // カレンダーイベント

@@ -20,20 +20,27 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS customers (
-  id         TEXT PRIMARY KEY,
-  name       TEXT NOT NULL,
-  short_name TEXT,
-  notes      TEXT,
-  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-  created_by TEXT,
-  updated_by TEXT,
-  deleted_at TIMESTAMP
+  id           TEXT PRIMARY KEY,
+  name         TEXT NOT NULL,
+  short_name   TEXT,
+  contact_name TEXT,
+  email        TEXT,
+  phone        TEXT,
+  address      TEXT,
+  notes        TEXT,
+  created_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_by   TEXT,
+  updated_by   TEXT,
+  deleted_at   TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS vendors (
   id                          TEXT PRIMARY KEY,
   name                        TEXT NOT NULL,
+  contact_name                TEXT,
+  email                       TEXT,
+  phone                       TEXT,
   address                     TEXT,
   vendor_type                 TEXT,
   invoice_registration_number TEXT,
@@ -292,6 +299,19 @@ CREATE TABLE IF NOT EXISTS sales_targets (
   UNIQUE(user_id, target_year, target_month)
 );
 
+-- 売上明細行
+CREATE TABLE IF NOT EXISTS revenue_items (
+  id              TEXT PRIMARY KEY,
+  revenue_id      TEXT NOT NULL REFERENCES revenues(id),
+  description     TEXT NOT NULL,
+  quantity        INTEGER NOT NULL DEFAULT 1,
+  unit_price      INTEGER NOT NULL DEFAULT 0,
+  amount          INTEGER NOT NULL DEFAULT 0,
+  pricing_item_id TEXT REFERENCES pricing_items(id),
+  sort_order      INTEGER DEFAULT 0,
+  created_at      TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 -- ============================================================
 -- 料金シミュレーション（独立機能）
 -- ============================================================
@@ -305,6 +325,56 @@ CREATE TABLE IF NOT EXISTS simulations (
   unit_price      INTEGER NOT NULL DEFAULT 0,
   subtotal        INTEGER NOT NULL DEFAULT 0,
   created_at      TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
+-- スタジオ予約
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS studio_locations (
+  id         TEXT PRIMARY KEY,
+  name       TEXT NOT NULL,
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS studio_rooms (
+  id          TEXT PRIMARY KEY,
+  location_id TEXT NOT NULL REFERENCES studio_locations(id),
+  name        TEXT NOT NULL,
+  room_type   TEXT DEFAULT 'studio' CHECK (room_type IN ('studio','greenroom','control','other')),
+  color       TEXT DEFAULT '#3b82f6',
+  sort_order  INTEGER DEFAULT 0,
+  created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+  deleted_at  TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS studio_bookings (
+  id            TEXT PRIMARY KEY,
+  title         TEXT NOT NULL,
+  booking_type  TEXT NOT NULL DEFAULT 'project'
+                CHECK (booking_type IN ('project','maintenance','tour','internal','other')),
+  project_id    TEXT REFERENCES projects(id),
+  episode_id    TEXT REFERENCES episodes(id),
+  all_day       INTEGER NOT NULL DEFAULT 0,
+  start_time    TEXT NOT NULL,
+  end_time      TEXT NOT NULL,
+  location_note TEXT,
+  notes         TEXT,
+  created_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_by    TEXT,
+  updated_by    TEXT,
+  deleted_at    TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS studio_booking_rooms (
+  booking_id TEXT NOT NULL REFERENCES studio_bookings(id),
+  room_id    TEXT NOT NULL REFERENCES studio_rooms(id),
+  occupant   TEXT,
+  usage_note TEXT,
+  PRIMARY KEY (booking_id, room_id)
 );
 
 -- ============================================================
@@ -328,3 +398,7 @@ CREATE INDEX IF NOT EXISTS idx_sga_recognition ON sga_expenses(recognition_date)
 CREATE INDEX IF NOT EXISTS idx_activity_logs_project ON activity_logs(project_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_activity_logs_user ON activity_logs(user_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_simulations_project ON simulations(project_id);
+CREATE INDEX IF NOT EXISTS idx_revenue_items_revenue ON revenue_items(revenue_id);
+CREATE INDEX IF NOT EXISTS idx_studio_rooms_location ON studio_rooms(location_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_studio_bookings_time ON studio_bookings(start_time, end_time) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_studio_bookings_project ON studio_bookings(project_id) WHERE deleted_at IS NULL;

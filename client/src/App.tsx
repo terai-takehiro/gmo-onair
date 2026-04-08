@@ -1,15 +1,18 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/platform/AuthContext";
 import AppShell from "@/components/layout/AppShell";
+import PermissionRoute from "@/components/layout/PermissionRoute";
 import { Loader2 } from "lucide-react";
 
 // Platform
 import LoginPage from "@/contexts/platform/pages/LoginPage";
-import DashboardPage from "@/contexts/platform/pages/DashboardPage";
+import AuthCallbackPage from "@/contexts/platform/pages/AuthCallbackPage";
+import HomePage from "@/contexts/platform/pages/HomePage";
 import UserListPage from "@/contexts/platform/pages/UserListPage";
 import DataViewerPage from "@/contexts/platform/pages/DataViewerPage";
 
-// Sales (統合案件管理)
+// Sales (営業管理)
+import DashboardPage from "@/contexts/platform/pages/DashboardPage";
 import ProjectListPage from "@/contexts/sales/pages/ProjectListPage";
 import ProjectFormPage from "@/contexts/sales/pages/ProjectFormPage";
 import CustomerListPage from "@/contexts/sales/pages/CustomerListPage";
@@ -20,17 +23,26 @@ import ConfirmedProjectsPage from "@/contexts/sales/pages/ConfirmedProjectsPage"
 import EstimatePage from "@/contexts/sales/pages/EstimatePage";
 import ProjectGroupListPage from "@/contexts/sales/pages/ProjectGroupListPage";
 
-// Production
+// Production (スタジオ予約)
 import EpisodeListPage from "@/contexts/production/pages/EpisodeListPage";
 import StudioCalendarPage from "@/contexts/production/pages/StudioCalendarPage";
 import VendorReportPage from "@/contexts/production/pages/VendorReportPage";
 
-// Finance
+// Finance (予算管理)
 import RevenueListPage from "@/contexts/finance/pages/RevenueListPage";
 import PurchaseListPage from "@/contexts/finance/pages/PurchaseListPage";
 import SgaListPage from "@/contexts/finance/pages/SgaListPage";
 import VendorListPage from "@/contexts/finance/pages/VendorListPage";
 import PartnerListPage from "@/contexts/finance/pages/PartnerListPage";
+
+// Equipment (機材管理)
+import EquipmentDashboard from "@/contexts/equipment/pages/EquipmentDashboard";
+import EquipmentListPage from "@/contexts/equipment/pages/EquipmentListPage";
+import EquipmentDetailPage from "@/contexts/equipment/pages/EquipmentDetailPage";
+import LendingListPage from "@/contexts/equipment/pages/LendingListPage";
+import MaintenancePage from "@/contexts/equipment/pages/MaintenancePage";
+import InventoryPage from "@/contexts/equipment/pages/InventoryPage";
+import SettingsPage from "@/contexts/platform/pages/SettingsPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -67,6 +79,7 @@ function AppRoutes() {
         path="/login"
         element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />}
       />
+      <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
       <Route
         element={
@@ -75,42 +88,59 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        {/* Platform */}
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="/admin/users" element={<UserListPage />} />
-        <Route path="/admin/data-viewer" element={<DataViewerPage />} />
+        {/* ホーム（アプリランチャー） */}
+        <Route path="/" element={<HomePage />} />
 
-        {/* 統合案件管理 */}
-        <Route path="/projects" element={<ProjectListPage />} />
-        <Route path="/projects/new" element={<ProjectFormPage />} />
-        <Route path="/projects/:id" element={<ProjectFormPage />} />
-        <Route path="/projects/confirmed/:category" element={<ConfirmedProjectsPage />} />
-        <Route path="/projects/:projectId/episodes" element={<EpisodeListPage />} />
-        <Route path="/projects/:projectId/estimates" element={<EstimatePage />} />
-        <Route path="/project-groups" element={<ProjectGroupListPage />} />
+        {/* ===== 営業管理 (sales) ===== */}
+        <Route path="/sales/dashboard" element={<PermissionRoute module="sales"><DashboardPage /></PermissionRoute>} />
+        <Route path="/sales/projects" element={<PermissionRoute module="sales"><ProjectListPage /></PermissionRoute>} />
+        <Route path="/sales/projects/new" element={<PermissionRoute module="sales"><ProjectFormPage /></PermissionRoute>} />
+        <Route path="/sales/projects/:id" element={<PermissionRoute module="sales"><ProjectFormPage /></PermissionRoute>} />
+        <Route path="/sales/projects/confirmed/:category" element={<PermissionRoute module="sales"><ConfirmedProjectsPage /></PermissionRoute>} />
+        <Route path="/sales/projects/:projectId/episodes" element={<PermissionRoute module="sales"><EpisodeListPage /></PermissionRoute>} />
+        <Route path="/sales/projects/:projectId/estimates" element={<PermissionRoute module="sales"><EstimatePage /></PermissionRoute>} />
+        <Route path="/sales/project-groups" element={<PermissionRoute module="sales"><ProjectGroupListPage /></PermissionRoute>} />
+        <Route path="/sales/activity-logs" element={<PermissionRoute module="sales"><ActivityLogPage /></PermissionRoute>} />
+        <Route path="/sales/review" element={<PermissionRoute module="sales"><SalesReviewPage /></PermissionRoute>} />
+        <Route path="/sales/customers" element={<PermissionRoute module="sales"><CustomerListPage /></PermissionRoute>} />
+        <Route path="/sales/pricing" element={<PermissionRoute module="sales"><PricingListPage /></PermissionRoute>} />
+
+        {/* ===== 予算管理 (budget) ===== */}
+        <Route path="/budget/revenues" element={<PermissionRoute module="budget"><RevenueListPage /></PermissionRoute>} />
+        <Route path="/budget/purchases" element={<PermissionRoute module="budget"><PurchaseListPage /></PermissionRoute>} />
+        <Route path="/budget/sga" element={<PermissionRoute module="budget"><SgaListPage /></PermissionRoute>} />
+        <Route path="/budget/vendors" element={<PermissionRoute module="budget"><VendorListPage /></PermissionRoute>} />
+        <Route path="/budget/partners" element={<PermissionRoute module="budget"><PartnerListPage /></PermissionRoute>} />
+        <Route path="/budget/reports/vendors" element={<PermissionRoute module="budget"><VendorReportPage /></PermissionRoute>} />
+
+        {/* ===== スタジオ予約 (studio) ===== */}
+        <Route path="/studio/calendar" element={<PermissionRoute module="studio"><StudioCalendarPage /></PermissionRoute>} />
+
+        {/* ===== 機材管理 (equipment) ===== */}
+        <Route path="/equipment" element={<PermissionRoute module="equipment"><EquipmentDashboard /></PermissionRoute>} />
+        <Route path="/equipment/items" element={<PermissionRoute module="equipment"><EquipmentListPage /></PermissionRoute>} />
+        <Route path="/equipment/items/:id" element={<PermissionRoute module="equipment"><EquipmentDetailPage /></PermissionRoute>} />
+        <Route path="/equipment/lending" element={<PermissionRoute module="equipment"><LendingListPage /></PermissionRoute>} />
+        <Route path="/equipment/maintenance" element={<PermissionRoute module="equipment"><MaintenancePage /></PermissionRoute>} />
+        <Route path="/equipment/inventory" element={<PermissionRoute module="equipment"><InventoryPage /></PermissionRoute>} />
+
+        {/* ===== システム管理 (admin) ===== */}
+        <Route path="/admin/users" element={<PermissionRoute module="admin"><UserListPage /></PermissionRoute>} />
+        <Route path="/admin/data-viewer" element={<PermissionRoute module="admin"><DataViewerPage /></PermissionRoute>} />
+        <Route path="/admin/settings" element={<PermissionRoute module="admin"><SettingsPage /></PermissionRoute>} />
 
         {/* 旧URLリダイレクト */}
-        <Route path="/opportunities" element={<Navigate to="/projects" replace />} />
-        <Route path="/opportunities/*" element={<Navigate to="/projects" replace />} />
-        <Route path="/project-groups" element={<Navigate to="/projects" replace />} />
-        <Route path="/project-groups/*" element={<Navigate to="/projects" replace />} />
-
-        {/* Sales support */}
-        <Route path="/masters/customers" element={<CustomerListPage />} />
-        <Route path="/masters/pricing" element={<PricingListPage />} />
-        <Route path="/activity-logs" element={<ActivityLogPage />} />
-        <Route path="/sales-review" element={<SalesReviewPage />} />
-
-        {/* Production */}
-        <Route path="/calendar" element={<StudioCalendarPage />} />
-        <Route path="/reports/vendors" element={<VendorReportPage />} />
-
-        {/* Finance */}
-        <Route path="/revenues" element={<RevenueListPage />} />
-        <Route path="/purchases" element={<PurchaseListPage />} />
-        <Route path="/sga" element={<SgaListPage />} />
-        <Route path="/masters/vendors" element={<VendorListPage />} />
-        <Route path="/masters/partners" element={<PartnerListPage />} />
+        <Route path="/projects" element={<Navigate to="/sales/projects" replace />} />
+        <Route path="/projects/*" element={<Navigate to="/sales/projects" replace />} />
+        <Route path="/revenues" element={<Navigate to="/budget/revenues" replace />} />
+        <Route path="/purchases" element={<Navigate to="/budget/purchases" replace />} />
+        <Route path="/sga" element={<Navigate to="/budget/sga" replace />} />
+        <Route path="/calendar" element={<Navigate to="/studio/calendar" replace />} />
+        <Route path="/masters/customers" element={<Navigate to="/sales/customers" replace />} />
+        <Route path="/masters/pricing" element={<Navigate to="/sales/pricing" replace />} />
+        <Route path="/masters/vendors" element={<Navigate to="/budget/vendors" replace />} />
+        <Route path="/masters/partners" element={<Navigate to="/budget/partners" replace />} />
+        <Route path="/reports/vendors" element={<Navigate to="/budget/reports/vendors" replace />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

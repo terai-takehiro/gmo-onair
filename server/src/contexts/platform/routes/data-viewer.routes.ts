@@ -1,8 +1,11 @@
 import { Router } from 'express';
 import { queryAll, queryOne } from '../../../shared/db/connection';
-import { requireAuth, requireRole } from '../../../shared/middleware/auth';
+import { requireAuth, requireRole, requirePermission } from '../../../shared/middleware/auth';
 
 const router = Router();
+
+// Apply auth + permission middleware to all routes
+router.use(requireAuth, requirePermission('admin'));
 
 const ALLOWED_TABLES = [
   'users', 'customers', 'vendors', 'partners',
@@ -15,18 +18,23 @@ const ALLOWED_TABLES = [
   'activity_logs', 'sales_targets',
 ];
 
+// PostgreSQL identifier quoting (prevents injection in table/column names)
+function quoteIdent(name: string): string {
+  return '"' + name.replace(/"/g, '""') + '"';
+}
+
 // GET /data-viewer/tables - list tables with row counts
-router.get('/tables', requireAuth, requireRole('system_admin'), async (_req, res) => {
+router.get('/tables', requireRole('system_admin'), async (_req, res) => {
   const tables = [];
   for (const name of ALLOWED_TABLES) {
-    const row = await queryOne(`SELECT COUNT(*) as count FROM ${name}`);
+    const row = await queryOne(`SELECT COUNT(*) as count FROM ${quoteIdent(name)}`);
     tables.push({ name, count: (row?.count as number) || 0 });
   }
   res.json({ success: true, data: tables });
 });
 
 // GET /data-viewer/tables/:name/schema - column info
-router.get('/tables/:name/schema', requireAuth, requireRole('system_admin'), async (req, res) => {
+router.get('/tables/:name/schema', requireRole('system_admin'), async (req, res) => {
   const name = req.params.name as string;
   if (!ALLOWED_TABLES.includes(name)) { res.status(400).json({ success: false, error: 'Invalid table' }); return; }
   const columns = await queryAll(
@@ -37,7 +45,7 @@ router.get('/tables/:name/schema', requireAuth, requireRole('system_admin'), asy
 });
 
 // GET /data-viewer/tables/:name - paginated data
-router.get('/tables/:name', requireAuth, requireRole('system_admin'), async (req, res) => {
+router.get('/tables/:name', requireRole('system_admin'), async (req, res) => {
   const name = req.params.name as string;
   if (!ALLOWED_TABLES.includes(name)) { res.status(400).json({ success: false, error: 'Invalid table' }); return; }
 
@@ -60,16 +68,18 @@ router.get('/tables/:name', requireAuth, requireRole('system_admin'), async (req
   let where = '';
   const params: unknown[] = [];
   if (search) {
-    // Search across all text columns
+    const safeSearch = String(search).slice(0, 100).replace(/[%_\\]/g, '\\$&');
+    // Search across all text columns with quoted identifiers
     const textCols = validColumns.filter(c => c !== 'id');
-    const conditions = textCols.map(c => `CAST(${c} AS TEXT) ILIKE ?`);
+    const conditions = textCols.map(c => `CAST(${quoteIdent(c)} AS TEXT) ILIKE ? ESCAPE '\\'`);
     where = `WHERE ${conditions.join(' OR ')}`;
-    for (let i = 0; i < textCols.length; i++) params.push(`%${search}%`);
+    for (let i = 0; i < textCols.length; i++) params.push(`%${safeSearch}%`);
   }
 
-  const totalRow = await queryOne(`SELECT COUNT(*) as c FROM ${name} ${where}`, params);
+  const quotedTable = quoteIdent(name);
+  const totalRow = await queryOne(`SELECT COUNT(*) as c FROM ${quotedTable} ${where}`, params);
   const total = (totalRow?.c as number) || 0;
-  const rows = await queryAll(`SELECT * FROM ${name} ${where} ORDER BY ${safeSort} ${order} LIMIT ? OFFSET ?`, [...params, limit, offset]);
+  const rows = await queryAll(`SELECT * FROM ${quotedTable} ${where} ORDER BY ${quoteIdent(safeSort)} ${order} LIMIT ? OFFSET ?`, [...params, limit, offset]);
 
   res.json({
     success: true,
@@ -80,7 +90,7 @@ router.get('/tables/:name', requireAuth, requireRole('system_admin'), async (req
 });
 
 // GET /data-viewer/tables/:name/export - CSV export
-router.get('/tables/:name/export', requireAuth, requireRole('system_admin'), async (req, res) => {
+router.get('/tables/:name/export', requireRole('system_admin'), async (req, res) => {
   const name = req.params.name as string;
   if (!ALLOWED_TABLES.includes(name)) { res.status(400).json({ success: false, error: 'Invalid table' }); return; }
 
@@ -90,7 +100,7 @@ router.get('/tables/:name/export', requireAuth, requireRole('system_admin'), asy
   ) as Array<{ name: string }>;
   const columns = colRows.map(r => r.name);
 
-  const rows = await queryAll(`SELECT * FROM ${name}`);
+  const rows = await queryAll(`SELECT * FROM ${quoteIdent(name)}`);
 
   // BOM for Excel UTF-8 compatibility
   let csv = '\uFEFF' + columns.join(',') + '\n';
