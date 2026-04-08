@@ -129,6 +129,11 @@ function AppRoutes() {
         <Route path="/admin/data-viewer" element={<PermissionRoute module="admin"><DataViewerPage /></PermissionRoute>} />
         <Route path="/admin/settings" element={<PermissionRoute module="admin"><SettingsPage /></PermissionRoute>} />
 
+        {/* ブロックアプリ インデックスリダイレクト（BLOCK_APPS.basePath対応） */}
+        <Route path="/sales" element={<Navigate to="/sales/projects" replace />} />
+        <Route path="/budget" element={<Navigate to="/budget/revenues" replace />} />
+        <Route path="/studio" element={<Navigate to="/studio/calendar" replace />} />
+
         {/* 旧URLリダイレクト */}
         <Route path="/projects" element={<Navigate to="/sales/projects" replace />} />
         <Route path="/projects/*" element={<Navigate to="/sales/projects" replace />} />
