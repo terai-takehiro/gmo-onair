@@ -4,6 +4,7 @@ import { config } from './config';
 import { initDb } from './shared/db/connection';
 import { runMigrations } from './shared/db/migrate';
 import { seed } from './shared/db/seed';
+import { seedSubApps } from './shared/db/seed-subapps';
 import { initSocketIO, shutdownSocketIO } from './contexts/interactive/socket';
 import { initQsheetSocketIO } from './contexts/qsheet/socket';
 
@@ -11,6 +12,7 @@ async function main() {
   await initDb();
   await runMigrations();
   await seed();
+  await seedSubApps();
 
   const app = createApp();
   const httpServer = http.createServer(app);

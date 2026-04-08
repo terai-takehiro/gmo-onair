@@ -1,4 +1,5 @@
 import { Navigate } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/platform/AuthContext";
 
 interface Props {
@@ -8,9 +9,16 @@ interface Props {
 }
 
 export default function PermissionRoute({ module, minLevel = "reader", children }: Props) {
-  const { hasPermission, isAuthenticated } = useAuth();
+  const { hasPermission, isAuthenticated, permissionsLoaded } = useAuth();
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!permissionsLoaded) {
+    return (
+      <div className="flex justify-center py-24">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
   if (!hasPermission(module, minLevel)) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-24">

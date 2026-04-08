@@ -1,7 +1,8 @@
 /**
  * seed-subapps.ts
- * Qシート・技術資料・インタラクティブのダミーデータを既存DBに追加するスクリプト。
+ * 機材管理・Qシート・技術資料・インタラクティブのダミーデータを既存DBに追加するスクリプト。
  * 初回シード後にこれらのテーブルが空の場合に実行してください。
+ * サーバー起動時に自動実行されます。
  *
  *   npm run db:seed:subapps -w server
  */
@@ -14,15 +15,17 @@ async function seedSubApps() {
   await initDb();
 
   // -------- 既存データ確認 --------
+  const eqCount = await queryOne('SELECT COUNT(*)::int AS c FROM equipment_items');
   const qCount  = await queryOne('SELECT COUNT(*)::int AS c FROM qsheet_documents');
   const tsCount = await queryOne('SELECT COUNT(*)::int AS c FROM techsheet_documents');
   const evCount = await queryOne('SELECT COUNT(*)::int AS c FROM interactive_events');
 
+  const hasEquipment   = (eqCount?.c as number) > 0;
   const hasQsheet      = (qCount?.c  as number) > 0;
   const hasTechsheet   = (tsCount?.c as number) > 0;
   const hasInteractive = (evCount?.c as number) > 0;
 
-  if (hasQsheet && hasTechsheet && hasInteractive) {
+  if (hasEquipment && hasQsheet && hasTechsheet && hasInteractive) {
     console.log('Sub-app data already seeded. Skipping.');
     return;
   }
@@ -53,6 +56,103 @@ async function seedSubApps() {
   const EA001 = await getEpisode('GLS-A001-001');
   const EA002 = await getEpisode('GLS-A002-001');
   const EA003 = await getEpisode('GLS-A003-001');
+
+  // ============================================================
+  // 機材管理データ
+  // ============================================================
+  if (!hasEquipment) {
+    console.log('Seeding equipment data...');
+
+    // Locations
+    const locIds: Record<string, string> = {};
+    const locs = [
+      { k: 'world',   name: 'ワールドスタジオ',        b: 'A棟', f: '1F', a: 'スタジオ',          o: 1 },
+      { k: 'sub',     name: 'ワールドスタジオ サブ',    b: 'A棟', f: '1F', a: 'サブコントロール',    o: 2 },
+      { k: 'cam',     name: 'カメラ庫',                b: 'A棟', f: '3F', a: '機材エリア',          o: 3 },
+      { k: 'equip',   name: '機材庫',                  b: 'A棟', f: '3F', a: '機材エリア',          o: 4 },
+      { k: 'light',   name: '照明庫',                  b: 'A棟', f: '3F', a: '機材エリア',          o: 5 },
+      { k: 'audio',   name: '音響庫',                  b: 'A棟', f: '3F', a: '機材エリア',          o: 6 },
+      { k: 'server',  name: 'サーバールーム',            b: 'A棟', f: 'B1F', a: 'インフラ',          o: 7 },
+      { k: 'edit1',   name: '編集室1',                 b: 'A棟', f: '2F', a: 'ポスプロ',            o: 8 },
+    ];
+    for (const l of locs) {
+      locIds[l.k] = uuidv4();
+      await ins(
+        'INSERT INTO equipment_locations (id, name, building, floor, area, sort_order) VALUES (?,?,?,?,?,?) ON CONFLICT DO NOTHING',
+        [locIds[l.k], l.name, l.b, l.f, l.a, l.o]
+      );
+    }
+
+    // Categories
+    const catIds: Record<string, string> = {};
+    const cats = [
+      { k: 'camera',   name: 'カメラ',       t: 'both',     o: 1 },
+      { k: 'lens',     name: 'レンズ',       t: 'rental',   o: 2 },
+      { k: 'lighting', name: '照明',         t: 'both',     o: 3 },
+      { k: 'audio',    name: '音響',         t: 'both',     o: 4 },
+      { k: 'monitor',  name: 'モニター',     t: 'both',     o: 5 },
+      { k: 'switcher', name: 'スイッチャー', t: 'facility', o: 6 },
+      { k: 'pc',       name: 'PC・サーバー', t: 'facility', o: 7 },
+      { k: 'other',    name: 'その他',       t: 'both',     o: 99 },
+    ];
+    for (const c of cats) {
+      catIds[c.k] = uuidv4();
+      await ins(
+        'INSERT INTO equipment_categories (id, name, item_type, sort_order) VALUES (?,?,?,?) ON CONFLICT DO NOTHING',
+        [catIds[c.k], c.name, c.t, c.o]
+      );
+    }
+
+    // Equipment items
+    const eqSql = `INSERT INTO equipment_items
+      (id, eq_code, name, category_id, item_type, unit_number,
+       manufacturer, model_number, serial_number,
+       acquisition_cost, useful_life, asset_class,
+       status, condition, location_detail, is_lendable, created_by, updated_by)
+      VALUES (?,?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?,?,?,?)
+      ON CONFLICT DO NOTHING`;
+
+    const items = [
+      { k:'cam1',    code:'EQ-CAM-001', name:'Sony PXW-FX9',                   cat:'camera',   t:'facility', u:1, mfr:'Sony',        mdl:'PXW-FX9',                    sn:'FX9-2024-001', cost:1980000, life:5, loc:'A棟 3F カメラ庫',     lend:false },
+      { k:'cam1b',   code:'EQ-CAM-002', name:'Sony PXW-FX9',                   cat:'camera',   t:'facility', u:2, mfr:'Sony',        mdl:'PXW-FX9',                    sn:'FX9-2024-002', cost:1980000, life:5, loc:'ワールドスタジオ',   lend:false },
+      { k:'cam2',    code:'EQ-CAM-003', name:'Sony PXW-FX6',                   cat:'camera',   t:'rental',   u:1, mfr:'Sony',        mdl:'PXW-FX6',                    sn:'FX6-2024-001', cost:650000,  life:5, loc:'A棟 3F カメラ庫',     lend:true  },
+      { k:'cam2b',   code:'EQ-CAM-004', name:'Sony PXW-FX6',                   cat:'camera',   t:'rental',   u:2, mfr:'Sony',        mdl:'PXW-FX6',                    sn:'FX6-2024-002', cost:650000,  life:5, loc:'A棟 3F カメラ庫',     lend:true  },
+      { k:'cam2c',   code:'EQ-CAM-005', name:'Sony PXW-FX6',                   cat:'camera',   t:'rental',   u:3, mfr:'Sony',        mdl:'PXW-FX6',                    sn:'FX6-2024-003', cost:650000,  life:5, loc:'A棟 3F カメラ庫',     lend:true  },
+      { k:'sw1',     code:'EQ-SW-001',  name:'Blackmagic ATEM 4 M/E',          cat:'switcher', t:'facility', u:1, mfr:'Blackmagic',  mdl:'ATEM 4 M/E Constellation 4K',sn:'ATEM4ME-001',  cost:4500000, life:7, loc:'サブコントロール',   lend:false },
+      { k:'sw2',     code:'EQ-SW-002',  name:'Blackmagic ATEM Mini Extreme ISO',cat:'switcher', t:'rental',   u:1, mfr:'Blackmagic',  mdl:'ATEM Mini Extreme ISO',      sn:'AMEI-001',     cost:180000,  life:5, loc:'A棟 3F 機材庫',       lend:true  },
+      { k:'sw2b',    code:'EQ-SW-003',  name:'Blackmagic ATEM Mini Extreme ISO',cat:'switcher', t:'rental',   u:2, mfr:'Blackmagic',  mdl:'ATEM Mini Extreme ISO',      sn:'AMEI-002',     cost:180000,  life:5, loc:'A棟 3F 機材庫',       lend:true  },
+      { k:'mon1',    code:'EQ-MON-001', name:'Sony BVM-HX3110',                cat:'monitor',  t:'facility', u:1, mfr:'Sony',        mdl:'BVM-HX3110',                 sn:'HX3110-001',   cost:3200000, life:7, loc:'ワールドスタジオ サブ',lend:false },
+      { k:'mon2',    code:'EQ-MON-002', name:'SmallHD Cine 13',               cat:'monitor',  t:'rental',   u:1, mfr:'SmallHD',     mdl:'Cine 13',                    sn:'SHD-C13-001',  cost:480000,  life:5, loc:'A棟 3F 機材庫',       lend:true  },
+      { k:'mon2b',   code:'EQ-MON-003', name:'SmallHD Cine 13',               cat:'monitor',  t:'rental',   u:2, mfr:'SmallHD',     mdl:'Cine 13',                    sn:'SHD-C13-002',  cost:480000,  life:5, loc:'A棟 3F 機材庫',       lend:true  },
+      { k:'light1',  code:'EQ-LT-001',  name:'ARRI SkyPanel S60-C',            cat:'lighting', t:'facility', u:1, mfr:'ARRI',        mdl:'SkyPanel S60-C',             sn:'ARRI-S60-001', cost:750000,  life:7, loc:'ワールドスタジオ',   lend:false },
+      { k:'light2',  code:'EQ-LT-002',  name:'Aputure 600d Pro',              cat:'lighting', t:'rental',   u:1, mfr:'Aputure',     mdl:'600d Pro',                   sn:'APT-600D-001', cost:280000,  life:5, loc:'A棟 3F 照明庫',       lend:true  },
+      { k:'light2b', code:'EQ-LT-003',  name:'Aputure 600d Pro',              cat:'lighting', t:'rental',   u:2, mfr:'Aputure',     mdl:'600d Pro',                   sn:'APT-600D-002', cost:280000,  life:5, loc:'A棟 3F 照明庫',       lend:true  },
+      { k:'mic1',    code:'EQ-AU-001',  name:'Sennheiser MKH416',              cat:'audio',    t:'rental',   u:1, mfr:'Sennheiser',  mdl:'MKH416',                     sn:'MKH416-001',   cost:120000,  life:7, loc:'A棟 3F 音響庫',       lend:true  },
+      { k:'mic1b',   code:'EQ-AU-002',  name:'Sennheiser MKH416',              cat:'audio',    t:'rental',   u:2, mfr:'Sennheiser',  mdl:'MKH416',                     sn:'MKH416-002',   cost:120000,  life:7, loc:'A棟 3F 音響庫',       lend:true  },
+      { k:'mixer1',  code:'EQ-AU-003',  name:'Yamaha DM7',                     cat:'audio',    t:'facility', u:1, mfr:'Yamaha',      mdl:'DM7',                        sn:'DM7-001',      cost:3800000, life:10,loc:'ワールドスタジオ サブ',lend:false },
+      { k:'srv1',    code:'EQ-PC-001',  name:'Dell PowerEdge R760',            cat:'pc',       t:'facility', u:1, mfr:'Dell',        mdl:'PowerEdge R760',             sn:'SRV-R760-001', cost:1200000, life:5, loc:'サーバールーム',     lend:false },
+      { k:'lens1',   code:'EQ-LN-001',  name:'Canon CN-E 50mm T1.3',           cat:'lens',     t:'rental',   u:1, mfr:'Canon',       mdl:'CN-E 50mm T1.3 L F',        sn:'CNE50-001',    cost:450000,  life:7, loc:'A棟 3F カメラ庫',     lend:true  },
+    ];
+
+    const eqIds: Record<string, string> = {};
+    for (const i of items) {
+      eqIds[i.k] = uuidv4();
+      await ins(eqSql, [
+        eqIds[i.k], i.code, i.name, catIds[i.cat], i.t, i.u,
+        i.mfr, i.mdl, i.sn,
+        i.cost, i.life, 'fixed_asset',
+        'active', 'good', i.loc, i.lend ? 1 : 0, adminId, adminId,
+      ]);
+    }
+
+    // Sequence counter for EQ code generation
+    await ins(
+      "INSERT INTO sequences (seq_name, counter) VALUES ('eq_code', ?) ON CONFLICT (seq_name) DO UPDATE SET counter = EXCLUDED.counter",
+      [items.length]
+    );
+
+    console.log('  equipment_items: OK');
+  }
 
   // ============================================================
   // Qシートドキュメント
