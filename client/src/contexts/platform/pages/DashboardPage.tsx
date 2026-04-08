@@ -23,6 +23,13 @@ import {
   AlertTriangle,
   Loader2,
   Package,
+  PiggyBank,
+  CalendarDays,
+  FileText,
+  Sparkles,
+  BookOpen,
+  Users2,
+  Truck,
 } from "lucide-react";
 
 interface KPI {
@@ -159,13 +166,88 @@ export default function DashboardPage() {
   };
 
 
-  const quickLinks = [
-    { label: "案件管理", to: "/projects", icon: FolderKanban },
-    { label: "売上一覧", to: "/revenues", icon: Receipt },
-    { label: "仕入一覧", to: "/purchases", icon: ShoppingCart },
-    { label: "カレンダー", to: "/calendar", icon: Calendar },
-    { label: "マスター管理", to: "/masters/customers", icon: Building2 },
-    { label: "機材管理", to: "/equipment/", icon: Package, external: true },
+  const appBlocks = [
+    {
+      label: "案件管理",
+      subtitle: "案件パイプライン・顧客・見積",
+      to: "/projects",
+      icon: FolderKanban,
+      color: "bg-blue-600",
+      comingSoon: false,
+      external: false,
+    },
+    {
+      label: "予算管理",
+      subtitle: "売上・仕入・販管費・損益",
+      to: "/revenues",
+      icon: PiggyBank,
+      color: "bg-emerald-600",
+      comingSoon: false,
+      external: false,
+    },
+    {
+      label: "スタジオ予約",
+      subtitle: "スタジオカレンダー・ブッキング",
+      to: "/calendar",
+      icon: CalendarDays,
+      color: "bg-purple-600",
+      comingSoon: false,
+      external: false,
+    },
+    {
+      label: "Qシート",
+      subtitle: "Qシート作成・OnAir・ランダウン",
+      to: null,
+      icon: FileText,
+      color: "bg-rose-500",
+      comingSoon: false,
+      external: true,
+    },
+    {
+      label: "機材管理",
+      subtitle: "機材台帳・貸出・メンテナンス",
+      to: "/equipment/",
+      icon: Package,
+      color: "bg-orange-500",
+      comingSoon: false,
+      external: true,
+    },
+    {
+      label: "インタラクティブ演出",
+      subtitle: "スタンプ・リアルタイム演出支援",
+      to: null,
+      icon: Sparkles,
+      color: "bg-pink-600",
+      comingSoon: false,
+      external: true,
+    },
+    {
+      label: "技術資料",
+      subtitle: "カメラ・映像・音声技術仕様書",
+      to: null,
+      icon: BookOpen,
+      color: "bg-cyan-600",
+      comingSoon: false,
+      external: true,
+    },
+    {
+      label: "制作支援",
+      subtitle: "スケジュール・スタッフ配置",
+      to: null,
+      icon: Users2,
+      color: "bg-gray-400",
+      comingSoon: true,
+      external: false,
+    },
+    {
+      label: "素材納品",
+      subtitle: "VTR/素材の納品管理",
+      to: null,
+      icon: Truck,
+      color: "bg-gray-400",
+      comingSoon: true,
+      external: false,
+    },
   ];
 
   return (
@@ -528,25 +610,36 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Quick Links */}
+      {/* Block Apps */}
       <div>
-        <h2 className="heading-section mb-2 lg:mb-4 text-base lg:text-lg">クイックリンク</h2>
-        <StaggerList className="grid grid-cols-3 gap-2 sm:grid-cols-3 lg:grid-cols-6 lg:gap-4">
-          {quickLinks.map((link) => (
-            <StaggerItem key={link.to}>
+        <h2 className="mb-2 lg:mb-4 text-base lg:text-lg font-semibold">ブロックアプリ</h2>
+        <StaggerList className="grid grid-cols-3 gap-3 lg:gap-4">
+          {appBlocks.map((block) => (
+            <StaggerItem key={block.label}>
               <LiftCard
-                className="cursor-pointer rounded-lg border bg-card text-card-foreground shadow-sm"
+                className={`relative rounded-xl border bg-card text-card-foreground shadow-sm ${block.comingSoon ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
                 onClick={() => {
-                  if ('external' in link && link.external) {
-                    window.open(link.to, '_blank', 'noopener,noreferrer');
+                  if (block.comingSoon || !block.to) return;
+                  if (block.external) {
+                    window.open(block.to, '_blank', 'noopener,noreferrer');
                   } else {
-                    navigate(link.to);
+                    navigate(block.to);
                   }
                 }}
               >
-                <CardContent className="flex flex-col items-center gap-1 p-3 lg:gap-2 lg:p-6">
-                  <link.icon className="h-6 w-6 lg:h-8 lg:w-8 text-primary" />
-                  <p className="text-xs lg:text-sm font-medium">{link.label}</p>
+                {block.comingSoon && (
+                  <span className="absolute top-2 right-2 text-[10px] font-medium bg-gray-200 text-gray-500 rounded-full px-1.5 py-0.5">
+                    準備中
+                  </span>
+                )}
+                <CardContent className="flex flex-col items-center gap-2 p-3 lg:p-5 text-center">
+                  <div className={`${block.color} rounded-xl p-2.5 lg:p-3`}>
+                    <block.icon className="h-6 w-6 lg:h-7 lg:w-7 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-xs lg:text-sm font-bold leading-tight">{block.label}</p>
+                    <p className="text-[10px] lg:text-xs text-muted-foreground mt-0.5 leading-tight">{block.subtitle}</p>
+                  </div>
                 </CardContent>
               </LiftCard>
             </StaggerItem>
