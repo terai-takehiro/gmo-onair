@@ -145,12 +145,6 @@ async function seedSubApps() {
       ]);
     }
 
-    // Sequence counter for EQ code generation
-    await ins(
-      "INSERT INTO sequences (seq_name, counter) VALUES ('eq_code', ?) ON CONFLICT (seq_name) DO UPDATE SET counter = EXCLUDED.counter",
-      [items.length]
-    );
-
     console.log('  equipment_items: OK');
   }
 

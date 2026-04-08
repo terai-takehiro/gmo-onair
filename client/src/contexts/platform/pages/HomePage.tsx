@@ -37,18 +37,19 @@ const ICON_MAP: Record<string, React.ElementType> = {
 // ──────────────────────────────────────
 // App Card (compact)
 // ──────────────────────────────────────
-function AppCard({ app, onClick }: { app: BlockApp; onClick: () => void }) {
+function AppCard({ app, onClick, disabled: forceDisabled }: { app: BlockApp; onClick: () => void; disabled?: boolean }) {
   const Icon = ICON_MAP[app.icon] || Package;
   const isComingSoon = app.status === "coming_soon";
+  const isDisabled = isComingSoon || forceDisabled;
   const isExternal = !!app.externalUrl;
 
   return (
     <button
-      onClick={isComingSoon ? undefined : onClick}
-      disabled={isComingSoon}
+      onClick={isDisabled ? undefined : onClick}
+      disabled={isDisabled}
       className={cn(
         "group relative flex flex-col items-center gap-2 rounded-2xl border-2 p-5 text-center transition-all h-full",
-        isComingSoon
+        isDisabled
           ? "cursor-default border-dashed border-muted bg-muted/30 opacity-60"
           : "border-transparent bg-card shadow-sm hover:shadow-md hover:-translate-y-1 hover:border-primary/20 active:scale-[0.98]"
       )}
@@ -56,8 +57,8 @@ function AppCard({ app, onClick }: { app: BlockApp; onClick: () => void }) {
       <div
         className={cn(
           "flex h-12 w-12 items-center justify-center rounded-xl text-white transition-transform",
-          isComingSoon ? "bg-muted-foreground/30" : app.color,
-          !isComingSoon && "group-hover:scale-110"
+          isDisabled ? "bg-muted-foreground/30" : app.color,
+          !isDisabled && "group-hover:scale-110"
         )}
       >
         <Icon className="h-5 w-5" />
@@ -73,7 +74,7 @@ function AppCard({ app, onClick }: { app: BlockApp; onClick: () => void }) {
           準備中
         </Badge>
       )}
-      {isExternal && !isComingSoon && (
+      {isExternal && !isDisabled && (
         <ExternalLink className="absolute top-2 right-2 h-3 w-3 text-muted-foreground/50" />
       )}
     </button>
@@ -384,13 +385,11 @@ function RecentProjectsWidget() {
 // ──────────────────────────────────────
 export default function HomePage() {
   const navigate = useNavigate();
-  const { currentUser, hasPermission } = useAuth();
+  const { currentUser, hasPermission, permissionsLoaded } = useAuth();
   const isAdmin = currentUser?.role === "system_admin";
 
-  const visibleApps = BLOCK_APPS.filter(
-    (app) => app.status === "coming_soon" || hasPermission(app.id)
-  );
-
+  // 全アプリを常に表示（グリッドサイズを固定してがたつき防止）
+  // 権限ロード中は全アプリをdisabledにし、ロード後に権限のないものをdisabled表示
   const canSeeSales = hasPermission("sales");
   const canSeeStudio = hasPermission("studio");
 
@@ -414,24 +413,26 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* ── Role-based widgets ── */}
-        <div className="space-y-4 mb-8">
-          {/* Row 1: KPI + Schedule (for sales/studio users) */}
-          {(canSeeSales || canSeeStudio) && (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              {canSeeSales && <KpiWidget />}
-              {canSeeStudio && <ScheduleWidget />}
-            </div>
-          )}
+        {/* ── Role-based widgets (権限ロード後のみ表示してがたつき防止) ── */}
+        {permissionsLoaded && (
+          <div className="space-y-4 mb-8">
+            {/* Row 1: KPI + Schedule (for sales/studio users) */}
+            {(canSeeSales || canSeeStudio) && (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {canSeeSales && <KpiWidget />}
+                {canSeeStudio && <ScheduleWidget />}
+              </div>
+            )}
 
-          {/* Row 2: Alerts + Recent Projects (for sales users) */}
-          {canSeeSales && (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <AlertsWidget />
-              <RecentProjectsWidget />
-            </div>
-          )}
-        </div>
+            {/* Row 2: Alerts + Recent Projects (for sales users) */}
+            {canSeeSales && (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <AlertsWidget />
+                <RecentProjectsWidget />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── App Grid ── */}
         <div className="mb-8">
@@ -439,10 +440,15 @@ export default function HomePage() {
             ブロックアプリ
           </h2>
           <StaggerList className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 lg:gap-4 auto-rows-fr">
-            {visibleApps.map((app) => (
+            {BLOCK_APPS.map((app) => {
+              // 権限ロード中 or 権限なし → disabled（coming_soonは常にdisabled）
+              const noPermission = permissionsLoaded && app.status !== "coming_soon" && !hasPermission(app.id);
+              const isDisabled = !permissionsLoaded || noPermission;
+              return (
               <StaggerItem key={app.id}>
                 <AppCard
                   app={app}
+                  disabled={isDisabled}
                   onClick={() => {
                     if (app.externalUrl) {
                       window.open(app.externalUrl, "_blank", "noopener,noreferrer");
@@ -455,7 +461,8 @@ export default function HomePage() {
                   }}
                 />
               </StaggerItem>
-            ))}
+              );
+            })}
           </StaggerList>
         </div>
 
