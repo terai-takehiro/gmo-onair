@@ -17,7 +17,6 @@ import {
   Receipt,
   ShoppingCart,
   Calendar,
-  Building2,
   DollarSign,
   BarChart3,
   AlertTriangle,
