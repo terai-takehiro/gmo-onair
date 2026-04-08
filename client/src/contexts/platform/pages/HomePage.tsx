@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth, BLOCK_APPS, type BlockApp } from "@/contexts/platform/AuthContext";
-import { PageTransition, StaggerList, StaggerItem } from "@/components/ui/motion";
+import { PageTransition } from "@/components/ui/motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -385,11 +385,9 @@ function RecentProjectsWidget() {
 // ──────────────────────────────────────
 export default function HomePage() {
   const navigate = useNavigate();
-  const { currentUser, hasPermission, permissionsLoaded } = useAuth();
+  const { currentUser, hasPermission } = useAuth();
   const isAdmin = currentUser?.role === "system_admin";
 
-  // 全アプリを常に表示（グリッドサイズを固定してがたつき防止）
-  // 権限ロード中は全アプリをdisabledにし、ロード後に権限のないものをdisabled表示
   const canSeeSales = hasPermission("sales");
   const canSeeStudio = hasPermission("studio");
 
@@ -413,57 +411,45 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* ── Role-based widgets (権限ロード後のみ表示してがたつき防止) ── */}
-        {permissionsLoaded && (
-          <div className="space-y-4 mb-8">
-            {/* Row 1: KPI + Schedule (for sales/studio users) */}
-            {(canSeeSales || canSeeStudio) && (
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                {canSeeSales && <KpiWidget />}
-                {canSeeStudio && <ScheduleWidget />}
-              </div>
-            )}
-
-            {/* Row 2: Alerts + Recent Projects (for sales users) */}
-            {canSeeSales && (
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <AlertsWidget />
-                <RecentProjectsWidget />
-              </div>
-            )}
-          </div>
-        )}
+        {/* ── Role-based widgets ── */}
+        <div className="space-y-4 mb-8">
+          {(canSeeSales || canSeeStudio) && (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {canSeeSales && <KpiWidget />}
+              {canSeeStudio && <ScheduleWidget />}
+            </div>
+          )}
+          {canSeeSales && (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <AlertsWidget />
+              <RecentProjectsWidget />
+            </div>
+          )}
+        </div>
 
         {/* ── App Grid ── */}
         <div className="mb-8">
           <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
             ブロックアプリ
           </h2>
-          <StaggerList className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 lg:gap-4 auto-rows-fr">
-            {BLOCK_APPS.map((app) => {
-              // 権限ロード中 or 権限なし → disabled（coming_soonは常にdisabled）
-              const noPermission = permissionsLoaded && app.status !== "coming_soon" && !hasPermission(app.id);
-              const isDisabled = !permissionsLoaded || noPermission;
-              return (
-              <StaggerItem key={app.id}>
-                <AppCard
-                  app={app}
-                  disabled={isDisabled}
-                  onClick={() => {
-                    if (app.externalUrl) {
-                      window.open(app.externalUrl, "_blank", "noopener,noreferrer");
-                    } else if (["equipment", "qsheet", "interactive", "techsheet"].includes(app.id)) {
-                      // サブアプリは必ずフルページリロード（専用ビルドへ遷移）
-                      window.location.href = app.basePath;
-                    } else {
-                      navigate(app.basePath);
-                    }
-                  }}
-                />
-              </StaggerItem>
-              );
-            })}
-          </StaggerList>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 lg:gap-4 auto-rows-fr">
+            {BLOCK_APPS.map((app) => (
+              <AppCard
+                key={app.id}
+                app={app}
+                disabled={!hasPermission(app.id)}
+                onClick={() => {
+                  if (app.externalUrl) {
+                    window.open(app.externalUrl, "_blank", "noopener,noreferrer");
+                  } else if (["equipment", "qsheet", "interactive", "techsheet"].includes(app.id)) {
+                    window.location.href = app.basePath;
+                  } else {
+                    navigate(app.basePath);
+                  }
+                }}
+              />
+            ))}
+          </div>
         </div>
 
         {/* Admin Section */}
