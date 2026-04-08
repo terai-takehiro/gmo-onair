@@ -391,7 +391,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
           className="gap-1 text-muted-foreground"
           onClick={() =>
             isEstimateMode
-              ? navigate(`/projects/${projectId}`)
+              ? navigate(`/sales/projects/${projectId}`)
               : navigate(
                   isCategoryA
                     ? "/projects/confirmed/studio"

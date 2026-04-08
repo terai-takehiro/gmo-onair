@@ -278,7 +278,7 @@ export default function StudioCalendarPage() {
         setDetailDialogOpen(true);
       }
     } else if (props.kind === "episode" && props.project_id) {
-      navigate(`/projects/${props.project_id}`);
+      navigate(`/sales/projects/${props.project_id}`);
     }
   }, [bookings, navigate]);
 

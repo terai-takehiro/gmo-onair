@@ -446,7 +446,8 @@ export default function HomePage() {
                   onClick={() => {
                     if (app.externalUrl) {
                       window.open(app.externalUrl, "_blank", "noopener,noreferrer");
-                    } else if (["qsheet", "interactive", "techsheet"].includes(app.id)) {
+                    } else if (["equipment", "qsheet", "interactive", "techsheet"].includes(app.id)) {
+                      // サブアプリは必ずフルページリロード（専用ビルドへ遷移）
                       window.location.href = app.basePath;
                     } else {
                       navigate(app.basePath);
