@@ -171,84 +171,371 @@ async function seedSubApps() {
   }
 
   // ============================================================
-  // Qシートドキュメント
+  // Qシートドキュメント（常にリセット＆再投入）
   // ============================================================
-  if (!hasQsheet) {
-    console.log('Seeding qsheet_documents...');
+  console.log('Seeding qsheet_documents (force reset)...');
+  await execute('DELETE FROM qsheet_documents', []);
+  {
     const qSql = `INSERT INTO qsheet_documents
       (id, title, episode_id, project_id, broadcast_date, status, data, created_by, updated_by)
       VALUES (?,?,?,?,?,?,?,?,?)`;
 
+    // ── 共通ブロック定義 ──────────────────────────────────
+    const stdBlocks = [
+      { id: 'blk_s1', type: 'scenario',  label: 'シナリオ',   width: 'L', widthPx: 400 },
+      { id: 'blk_v1', type: 'video',     label: '映像',       width: 'M', widthPx: 200 },
+      { id: 'blk_a1', type: 'audio',     label: '音声',       width: 'S', widthPx: 140 },
+      { id: 'blk_t1', type: 'telop',     label: 'テロップ',   width: 'S', widthPx: 140 },
+    ];
+    const sce = (entries: { name: string; html: string }[]) => ({ entries });
+    const row = (dur: string, s1: any, v1: string, a1: string, t1: string) => ({
+      duration: dur,
+      cells: { blk_s1: s1, blk_v1: v1, blk_a1: a1, blk_t1: t1 },
+    });
+    const cm = (label: string, dur: string) => ({ _break: true, label, duration: dur, rows: [] });
+    const pb = () => ({ _pageBreak: true, label: '', rows: [] });
+    // doc3用: 4列目が blk_r1 (remarks)
+    const row3 = (dur: string, s1: any, v1: string, a1: string, r1: string) => ({
+      duration: dur,
+      cells: { blk_s1: s1, blk_v1: v1, blk_a1: a1, blk_r1: r1 },
+    });
+
+    // ── Doc 1: GH春季IR説明会 ─────────────────────────────
     if (PA001 && EA001) {
       await ins(qSql, [
         uuidv4(), 'GH春季IR説明会 Qシート', EA001, PA001, '2026-03-28', 'confirmed',
         JSON.stringify({
-          rows: [
-            { id: '1', time: '13:00', duration: '5',  item: 'OA',   content: 'オープニングアニメーション', cast: '',        notes: 'CG再生' },
-            { id: '2', time: '13:05', duration: '3',  item: '挨拶',  content: '代表取締役ご挨拶',          cast: '代表取締役', notes: '演台マイク' },
-            { id: '3', time: '13:08', duration: '25', item: '説明',  content: '2025年度決算報告',           cast: 'CFO 田村氏', notes: 'スライド投影' },
-            { id: '4', time: '13:33', duration: '20', item: '説明',  content: '2026年度事業計画',           cast: 'CEO',       notes: 'スライド+動画' },
-            { id: '5', time: '13:53', duration: '2',  item: '休憩',  content: '休憩',                      cast: '',          notes: '' },
-            { id: '6', time: '13:55', duration: '20', item: 'Q&A',  content: '質疑応答',                   cast: '登壇者全員', notes: '会場マイク巡回' },
-            { id: '7', time: '14:15', duration: '5',  item: 'ED',   content: 'エンディング・閉会挨拶',      cast: '司会',      notes: '' },
+          _version: 1,
+          meta: {
+            title: 'GH春季IR説明会 Qシート', draftType: '決定稿', draftNumber: 1,
+            broadcastDate: '2026-03-28', broadcastStartTime: '13:00:00',
+            recordingDate: '2026-03-28', rehearsalDate: '2026-03-27',
+            location: '用賀 WORLD STUDIO', author: '田中太郎',
+          },
+          blocks: stdBlocks,
+          masters: {
+            persons: ['MC 田中', 'CEO 橋本', 'CFO 村田', '司会 鈴木'],
+            video: ['OA映像', '社名ロゴ', 'スライド投影', '収録VTR'],
+            audio: ['BGM', 'SE', 'ピンマイク', 'ハンドマイク'],
+            telop: ['社名テロップ', '氏名テロップ', 'Q&Aテロップ'],
+          },
+          sections: [
+            {
+              label: '【OA】オープニング', duration: '0:05', rows: [
+                row('0:05',
+                  sce([{ name: 'MC 田中', html: '皆様、本日はGHグループ春季IR説明会にお越しいただきありがとうございます。只今より開会いたします。' }]),
+                  'OA映像→社名ロゴ', 'BGM フェードイン', '「GHグループ 春季IR説明会」'),
+              ],
+            },
+            {
+              label: '【挨拶】代表取締役ご挨拶', duration: '0:03', rows: [
+                row('0:03',
+                  sce([
+                    { name: 'MC 田中',  html: 'それでは、代表取締役よりご挨拶申し上げます。' },
+                    { name: 'CEO 橋本', html: '本日はお集まりいただきありがとうございます。2025年度は皆様のご支援のおかげで…' },
+                  ]),
+                  '演台フル', 'ピンマイク', '「代表取締役 橋本◯◯」'),
+              ],
+            },
+            cm('転換・SE', '0:01'),
+            {
+              label: '【説明1】2025年度決算報告', duration: '0:25', rows: [
+                row('0:10',
+                  sce([{ name: 'CFO 村田', html: '2025年度の決算についてご説明いたします。売上高は前年比110%の◯◯億円、営業利益は◯◯億円となりました。' }]),
+                  'スライド（P.1〜P.8）', 'ピンマイク', '「2025年度 決算ハイライト」'),
+                row('0:15',
+                  sce([{ name: 'CFO 村田', html: 'セグメント別の詳細についてご説明します。主力の◯◯事業においては売上が前期比115%となり…' }]),
+                  'スライド（P.9〜P.20）', 'ピンマイク', '「セグメント別業績」'),
+              ],
+            },
+            {
+              label: '【説明2】2026年度事業計画', duration: '0:20', rows: [
+                row('0:10',
+                  sce([{ name: 'CEO 橋本', html: '2026年度の事業計画についてご説明いたします。今期は3つの重点施策を中心に積極的な投資を予定しています。' }]),
+                  'スライド（P.21〜P.28）', 'ピンマイク', '「2026年度 事業計画」'),
+                row('0:10',
+                  sce([{ name: 'CEO 橋本', html: '中期経営計画の進捗と2027年度の目標についてご説明します。VTRをご覧ください。' }]),
+                  'スライド+収録VTR', 'ピンマイク', '「中期経営計画」'),
+              ],
+            },
+            cm('休憩', '0:05'),
+            {
+              label: '【Q&A】質疑応答', duration: '0:20', rows: [
+                row('0:20',
+                  sce([
+                    { name: 'MC 田中',  html: 'それでは質疑応答の時間とさせていただきます。会場のお客様はお手を挙げてください。' },
+                    { name: '',         html: '（会場からの質問→登壇者回答）' },
+                    { name: 'MC 田中',  html: 'お時間となりましたので質疑応答を終了いたします。' },
+                  ]),
+                  '会場全景→質問者', 'ハンドマイク巡回', '「Q&A」'),
+              ],
+            },
+            {
+              label: '【ED】エンディング・閉会', duration: '0:05', rows: [
+                row('0:05',
+                  sce([{ name: 'MC 田中', html: '以上をもちまして、GHグループ春季IR説明会を終了いたします。本日はご参加いただきありがとうございました。' }]),
+                  '社名ロゴ→暗転', 'BGM フェードイン', '「ありがとうございました」'),
+              ],
+            },
           ],
+          stageTemplates: [],
+          sectionTemplates: [],
         }),
         staff1Id, staff1Id,
       ]);
     }
 
+    // ── Doc 2: サイエンス・フロンティア #001 ──────────────
     if (PA002 && EA002) {
       await ins(qSql, [
         uuidv4(), 'サイエンス・フロンティア #001 Qシート', EA002, PA002, '2026-04-07', 'draft',
         JSON.stringify({
-          rows: [
-            { id: '1', time: '10:00', duration: '3',  item: 'OP',    content: 'オープニングタイトル',                  cast: '',            notes: 'CG' },
-            { id: '2', time: '10:03', duration: '5',  item: 'VTR',   content: '前回のあらすじ',                        cast: 'ナレーション', notes: 'VTR再生' },
-            { id: '3', time: '10:08', duration: '15', item: 'トーク', content: '今回のテーマ紹介「量子コンピュータの現在」', cast: 'MC 高橋・ゲスト教授', notes: '' },
-            { id: '4', time: '10:23', duration: '12', item: 'VTR',   content: '取材VTR：量子研究所訪問',               cast: '',            notes: 'VTR再生' },
-            { id: '5', time: '10:35', duration: '10', item: 'トーク', content: 'ゲスト解説・実験コーナー',               cast: 'MC・教授',    notes: '実験セットあり' },
-            { id: '6', time: '10:45', duration: '3',  item: 'ED',    content: 'エンディング・次回予告',                  cast: 'MC',          notes: '' },
+          _version: 1,
+          meta: {
+            title: 'サイエンス・フロンティア #001 Qシート', draftType: '準備稿', draftNumber: 2,
+            broadcastDate: '2026-04-07', broadcastStartTime: '10:00:00',
+            recordingDate: '2026-04-07', rehearsalDate: '2026-04-06',
+            location: '用賀 SKY STUDIO', author: '高橋美咲',
+          },
+          blocks: stdBlocks,
+          masters: {
+            persons: ['MC 高橋', 'ゲスト 山田教授', 'ナレーション'],
+            video: ['OPタイトルCG', '前回VTR', '取材VTR', '実験映像'],
+            audio: ['BGM', 'ラベリアマイク', 'ブームマイク'],
+            telop: ['番組タイトル', '氏名テロップ', 'テーマテロップ'],
+          },
+          sections: [
+            {
+              label: '【OP】オープニング', duration: '0:03', rows: [
+                row('0:03',
+                  sce([{ name: 'ナレーション', html: '（ナレーション）驚きの科学の世界へようこそ。サイエンス・フロンティア！' }]),
+                  'OPタイトルCG', 'BGM フル', '「サイエンス・フロンティア」'),
+              ],
+            },
+            {
+              label: '【VTR1】前回のあらすじ', duration: '0:05', rows: [
+                row('0:05',
+                  sce([{ name: 'ナレーション', html: '前回は宇宙の起源について学びました。今回は量子コンピュータに迫ります。' }]),
+                  '前回VTR 再生', 'BGM ダウン', '「前回のあらすじ」'),
+              ],
+            },
+            {
+              label: '【トーク1】テーマ紹介', duration: '0:10', rows: [
+                row('0:10',
+                  sce([
+                    { name: 'MC 高橋',    html: '今回のテーマは「量子コンピュータの現在と未来」。山田教授、よろしくお願いします！' },
+                    { name: 'ゲスト 山田教授', html: 'よろしくお願いします。量子コンピュータはこれからの社会を大きく変える技術です…' },
+                  ]),
+                  'MC・ゲスト2ショット', 'ラベリアマイク', '「量子コンピュータとは」'),
+              ],
+            },
+            cm('CM', '1:00'),
+            {
+              label: '【VTR2】取材VTR：量子研究所訪問', duration: '0:12', rows: [
+                row('0:12',
+                  sce([{ name: 'ナレーション', html: '東京大学量子コンピュータ研究所に潜入！研究者の素顔に迫ります。' }]),
+                  '取材VTR 再生', 'BGM ダウン', '「取材：量子研究所」'),
+              ],
+            },
+            {
+              label: '【トーク2】ゲスト解説・実験', duration: '0:10', rows: [
+                row('0:10',
+                  sce([
+                    { name: 'MC 高橋',    html: 'VTR、いかがでしたか？では実際に実験してみましょう！' },
+                    { name: 'ゲスト 山田教授', html: 'こちらが量子ビットを可視化した装置です。見てください…' },
+                  ]),
+                  '実験映像', 'ラベリアマイク', '「実験：量子ビット」'),
+              ],
+            },
+            {
+              label: '【ED】エンディング・次回予告', duration: '0:03', rows: [
+                row('0:03',
+                  sce([
+                    { name: 'MC 高橋',    html: '今日は量子コンピュータの世界を山田教授とともに学びました！' },
+                    { name: 'ナレーション', html: '次回は「AIと医療」の最前線に迫ります。お楽しみに！' },
+                  ]),
+                  'MC締め→次回予告テロップ', 'BGM フェードイン', '「次回予告」'),
+              ],
+            },
           ],
+          stageTemplates: [],
+          sectionTemplates: [],
         }),
         staff2Id, staff2Id,
       ]);
     }
 
+    // ── Doc 3: ネットLIVE配信 #001 ────────────────────────
     if (PA003 && EA003) {
       await ins(qSql, [
         uuidv4(), 'ネットLIVE配信 #001 Qシート', EA003, PA003, '2026-04-05', 'confirmed',
         JSON.stringify({
-          rows: [
-            { id: '1', time: '19:00', duration: '5',  item: 'OP',      content: 'オープニング・配信開始', cast: 'MC',            notes: 'YouTube Live開始' },
-            { id: '2', time: '19:05', duration: '20', item: 'コーナー1', content: '今週のテックニュース',   cast: 'MC・コメンテーター', notes: '' },
-            { id: '3', time: '19:25', duration: '15', item: 'コーナー2', content: 'ゲストインタビュー',     cast: 'ゲスト',        notes: 'リモート出演' },
-            { id: '4', time: '19:40', duration: '10', item: 'コーナー3', content: 'チャットQ&A',           cast: 'MC',            notes: 'チャット読み上げ' },
-            { id: '5', time: '19:50', duration: '5',  item: 'ED',       content: '次回予告・配信終了',      cast: 'MC',            notes: '' },
+          _version: 1,
+          meta: {
+            title: 'ネットLIVE配信 #001 Qシート', draftType: '決定稿', draftNumber: 1,
+            broadcastDate: '2026-04-05', broadcastStartTime: '19:00:00',
+            recordingDate: '2026-04-05', rehearsalDate: '2026-04-05',
+            location: '用賀 LOUNGE STUDIO', author: '佐藤花子',
+          },
+          blocks: [
+            { id: 'blk_s1', type: 'scenario', label: 'シナリオ', width: 'L', widthPx: 360 },
+            { id: 'blk_v1', type: 'video',    label: '映像',     width: 'M', widthPx: 160 },
+            { id: 'blk_a1', type: 'audio',    label: '音声',     width: 'S', widthPx: 120 },
+            { id: 'blk_r1', type: 'remarks',  label: '備考',     width: 'S', widthPx: 140 },
           ],
+          masters: {
+            persons: ['MC', 'ゲスト', 'コメンテーター'],
+            video: ['YouTube Live', 'OBSスイッチャー', 'ゲスト画面（Zoom）'],
+            audio: ['BGM', 'ラベリアマイク'],
+            telop: ['配信テロップ', 'チャットテロップ'],
+          },
+          sections: [
+            {
+              label: '【OP】オープニング・配信開始', duration: '0:05', rows: [
+                row('0:05',
+                  sce([
+                    { name: 'MC', html: '皆さんこんばんは！ネットLIVE配信 第1回、始まりました！チャットで「こんばんは！」と送ってください。' },
+                  ]),
+                  'YouTube Live 開始', 'BGM フェードイン', '「配信スタート！」'),
+              ],
+            },
+            {
+              label: '【コーナー1】今週のテックニュース', duration: '0:20', rows: [
+                row('0:10',
+                  sce([
+                    { name: 'MC',           html: '今週のテックニュース、第1弾はAI規制法案について！コメンテーターの田村さん、どう見ますか？' },
+                    { name: 'コメンテーター', html: 'EU AI規制法の施行により、高リスクAIシステムには事前審査が義務付けられます…' },
+                  ]),
+                  'OBSスイッチャー', 'ラベリアマイク', '「今週のテックニュース」'),
+                row('0:10',
+                  sce([
+                    { name: 'MC',           html: '第2弾、量子コンピュータの商用化が加速中！IBMが新チップを発表しましたね。' },
+                    { name: 'コメンテーター', html: '今回のチップは127量子ビット。実用的な問題解決に近づいてきました…' },
+                  ]),
+                  'OBSスイッチャー', 'ラベリアマイク', '「量子コンピュータ最新動向」'),
+              ],
+            },
+            {
+              label: '【コーナー2】ゲストインタビュー', duration: '0:15', rows: [
+                row('0:15',
+                  sce([
+                    { name: 'MC',    html: '本日のゲストはスタートアップ創業者の山田さんです！リモートでつないでいます。' },
+                    { name: 'ゲスト', html: 'よろしくお願いします！私たちはAIを使った農業DXに取り組んでいます…' },
+                    { name: 'MC',    html: 'チャットから質問来てますよ、「農業AIの課題は？」' },
+                    { name: 'ゲスト', html: 'データ収集が一番の課題です。農家さんとの信頼構築も重要で…' },
+                  ]),
+                  'ゲスト画面（Zoom）', 'ラベリアマイク', '「ゲスト：山田◯◯氏」'),
+              ],
+            },
+            {
+              label: '【コーナー3】チャットQ&A', duration: '0:10', rows: [
+                row('0:10',
+                  sce([
+                    { name: 'MC', html: 'チャットから質問を読み上げます！「プログラミング初心者におすすめの言語は？」…Python一択ですね！' },
+                    { name: 'MC', html: '続いて「AIで仕事はなくなりますか？」…なくなるのではなく変わっていくと思います。' },
+                  ]),
+                  'OBSスイッチャー', 'ラベリアマイク', '「チャットQ&A」'),
+              ],
+            },
+            {
+              label: '【ED】次回予告・配信終了', duration: '0:05', rows: [
+                row('0:05',
+                  sce([
+                    { name: 'MC', html: '今日もありがとうございました！次回は来週土曜19時。テーマは「メタバースの最前線」！チャンネル登録よろしく！' },
+                  ]),
+                  'YouTube Live エンディング', 'BGM フェードイン', '「また来週！」'),
+              ],
+            },
+          ],
+          stageTemplates: [],
+          sectionTemplates: [],
         }),
         staff3Id, staff3Id,
       ]);
     }
 
-    // スタンドアロンQシート（プロジェクト未紐付け）
+    // ── Doc 4: バラエティ番組テンプレート（スタンドアロン） ─
     await ins(qSql, [
-      uuidv4(), 'バラエティ番組 収録Qシート（テンプレ）', null, null, '2026-05-10', 'draft',
+      uuidv4(), 'バラエティ収録 Qシートテンプレート', null, null, '2026-05-10', 'draft',
       JSON.stringify({
-        rows: [
-          { id: '1', time: '09:00', duration: '30', item: '仕込み',  content: 'セット設置・カメラ設定',     cast: '技術スタッフ', notes: '' },
-          { id: '2', time: '09:30', duration: '30', item: 'リハーサル', content: '進行確認・通し稽古',       cast: '出演者・スタッフ', notes: '' },
-          { id: '3', time: '10:00', duration: '5',  item: 'OP',     content: 'オープニング',               cast: 'MC',          notes: '' },
-          { id: '4', time: '10:05', duration: '20', item: 'コーナー1', content: 'トーク',                  cast: 'MC・ゲスト',  notes: '' },
-          { id: '5', time: '10:25', duration: '5',  item: 'VTR',    content: 'VTR紹介',                   cast: '',            notes: '' },
-          { id: '6', time: '10:30', duration: '15', item: 'コーナー2', content: 'クイズ',                  cast: 'MC・ゲスト',  notes: '' },
-          { id: '7', time: '10:45', duration: '5',  item: 'ED',     content: 'エンディング',               cast: 'MC',          notes: '' },
-          { id: '8', time: '10:50', duration: '10', item: '撤収',   content: '機材撤収・確認',              cast: '技術スタッフ', notes: '' },
+        _version: 1,
+        meta: {
+          title: 'バラエティ収録 Qシートテンプレート', draftType: '準備稿', draftNumber: 1,
+          broadcastDate: '2026-05-10', broadcastStartTime: '10:00:00',
+          recordingDate: '2026-05-10', rehearsalDate: '2026-05-09',
+          location: 'スタジオ', author: '制作部',
+        },
+        blocks: stdBlocks,
+        masters: {
+          persons: ['MC', 'ゲストA', 'ゲストB', 'ナレーション'],
+          video: ['OPタイトル', 'VTR', 'スライド', 'テロップ送り'],
+          audio: ['BGM', 'SE', 'ピンマイク', 'ブームマイク'],
+          telop: ['タイトルテロップ', '氏名テロップ', '情報テロップ'],
+        },
+        sections: [
+          {
+            label: '【OP】オープニング', duration: '0:05', rows: [
+              row('0:05',
+                sce([
+                  { name: 'ナレーション', html: '（ナレーション）※オープニングナレーション' },
+                  { name: 'MC',          html: 'みなさんこんにちは！◯◯へようこそ！今日のゲストはこちら！' },
+                ]),
+                'OPタイトルCG', 'BGM フル', '「◯◯ #001」'),
+            ],
+          },
+          {
+            label: '【コーナー1】トーク', duration: '0:20', rows: [
+              row('0:10',
+                sce([
+                  { name: 'MC',    html: '今日のテーマは「◯◯」ですね。ゲストAさんはいかがですか？' },
+                  { name: 'ゲストA', html: '（トーク内容）' },
+                ]),
+                'MC・ゲスト2ショット', 'ピンマイク', '「コーナー1：トーク」'),
+              row('0:10',
+                sce([
+                  { name: 'MC',    html: 'ゲストBさんはどう思いますか？' },
+                  { name: 'ゲストB', html: '（トーク内容）' },
+                ]),
+                'MC・ゲスト3ショット', 'ピンマイク', ''),
+            ],
+          },
+          cm('CM', '1:00'),
+          {
+            label: '【VTR】VTR紹介', duration: '0:05', rows: [
+              row('0:05',
+                sce([{ name: 'ナレーション', html: '（ナレーション）※VTRナレーション' }]),
+                'VTR 再生', 'BGM ダウン', '「VTR：◯◯」'),
+            ],
+          },
+          {
+            label: '【コーナー2】クイズ・ゲーム', duration: '0:15', rows: [
+              row('0:15',
+                sce([
+                  { name: 'MC',    html: 'それでは問題です！「◯◯はどれでしょう？」正解は…' },
+                  { name: 'ゲストA', html: '（回答）' },
+                  { name: 'ゲストB', html: '（回答）' },
+                ]),
+                'テロップ送り', 'SE ブー/ピンポン', '「Q.◯◯はどれ？」'),
+            ],
+          },
+          pb(),
+          {
+            label: '【ED】エンディング', duration: '0:05', rows: [
+              row('0:05',
+                sce([
+                  { name: 'MC', html: '今日はありがとうございました！また来週もよろしくお願いします！' },
+                ]),
+                '全員集合ショット→暗転', 'BGM フェードイン', '「またね！」'),
+            ],
+          },
         ],
+        stageTemplates: [],
+        sectionTemplates: [],
       }),
       adminId, adminId,
     ]);
 
-    console.log('  qsheet_documents: OK');
+    console.log('  qsheet_documents: OK (4件)');
   }
 
   // ============================================================

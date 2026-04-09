@@ -99,6 +99,67 @@ const SPEAKER_COLORS = [
   "bg-green-700", "bg-blue-800", "bg-red-800", "bg-indigo-700", "bg-orange-700",
 ];
 
+// ─── ScenarioCell ───────────────────────────────────────
+// 話者名カラーピル + テキストの表示。クリックでtextarea編集へ。
+function ScenarioCell({
+  cell,
+  speakerColorMap,
+  onChange,
+}: {
+  cell: any;
+  speakerColorMap: Record<string, string>;
+  onChange: (val: string) => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const entries: Array<{ name?: string; html?: string }> | null =
+    Array.isArray(cell?.entries) ? cell.entries : null;
+  const plainText = typeof cell === "string" ? cell : (cell?.value || "");
+
+  if (isEditing) {
+    const initText = entries
+      ? entries.map((e) => `${e.name ? `【${e.name}】` : ""}${e.html || ""}`).join("\n")
+      : plainText;
+    return (
+      <textarea
+        autoFocus
+        defaultValue={initText}
+        onBlur={(e) => { onChange(e.target.value); setIsEditing(false); }}
+        className="w-full min-h-[5rem] rounded border border-blue-400 dark:border-blue-600 px-2 py-1 text-[12px] resize-y outline-none bg-white dark:bg-zinc-800"
+        rows={4}
+      />
+    );
+  }
+
+  if (entries && entries.length > 0) {
+    return (
+      <div
+        onClick={() => setIsEditing(true)}
+        className="w-full min-h-[3rem] px-2 py-1.5 cursor-text rounded hover:ring-1 hover:ring-zinc-200 dark:hover:ring-zinc-700 space-y-1.5 transition-all"
+      >
+        {entries.map((e, i) => (
+          <div key={i} className="text-[12px] leading-relaxed">
+            {e.name && (
+              <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold text-white mr-1.5 mb-0.5 ${speakerColorMap[e.name] || "bg-slate-600"}`}>
+                {e.name}
+              </span>
+            )}
+            {e.html && <span className="text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap">{e.html}</span>}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      onClick={() => setIsEditing(true)}
+      className={`w-full px-2 py-1.5 cursor-text rounded hover:ring-1 hover:ring-zinc-200 dark:hover:ring-zinc-700 text-[12px] whitespace-pre-wrap leading-relaxed text-zinc-700 dark:text-zinc-300 transition-all ${plainText ? "min-h-[2rem]" : "min-h-[3rem]"}`}
+    >
+      {plainText}
+    </div>
+  );
+}
+
 // ─── CueTable ───────────────────────────────────────────
 export default function CueTable({
   blocks,
@@ -447,13 +508,28 @@ export default function CueTable({
                               if (isCollapsed) return <td key={blk.id} className="px-0 py-1" />;
 
                               const cellValue = row.cells?.[blk.id];
-                              const textValue = typeof cellValue === "string" ? cellValue : (cellValue?.value || cellValue?.entries?.map((e: any) => `${e.name ? `【${e.name}】` : ""}${e.html || ""}`).join("\n") || "");
 
+                              // シナリオ列: 話者ピル付きセル
+                              if (blk.type === "scenario") {
+                                return (
+                                  <td key={blk.id} className="px-2 py-1 align-top">
+                                    <ScenarioCell
+                                      cell={cellValue}
+                                      speakerColorMap={speakerColorMap}
+                                      onChange={(val) => updateRow(si, ri, (r) => ({
+                                        ...r,
+                                        cells: { ...r.cells, [blk.id]: val },
+                                      }))}
+                                    />
+                                  </td>
+                                );
+                              }
+
+                              const textValue = typeof cellValue === "string" ? cellValue : (cellValue?.value || "");
                               return (
                                 <td key={blk.id} className="px-2 py-1 align-top">
                                   <textarea
                                     className={`w-full min-h-[2rem] rounded border border-zinc-200 dark:border-zinc-700 px-2 py-1 text-[12px] resize-y outline-none focus:ring-1 focus:ring-blue-400 transition-colors ${
-                                      blk.type === "scenario" ? "bg-white dark:bg-zinc-800 min-h-[3rem]" :
                                       blk.type === "remarks" ? "bg-amber-50/50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300" :
                                       blk.type === "telop" ? "bg-blue-50/50 dark:bg-blue-950/20 font-mono" :
                                       blk.type === "item" ? "bg-green-50/50 dark:bg-green-950/20" :
@@ -467,7 +543,7 @@ export default function CueTable({
                                       }));
                                     }}
                                     placeholder={blk.label}
-                                    rows={blk.type === "scenario" ? 3 : 2}
+                                    rows={2}
                                   />
                                 </td>
                               );
