@@ -14,27 +14,49 @@
   }
 
   :root {
-    /* GMO ONAiR Warm Design System */
-    --background: 40 20% 96%;
-    --foreground: 60 6% 11%;
-    --card: 40 25% 99%;
-    --card-foreground: 60 6% 11%;
-    --popover: 40 25% 99%;
-    --popover-foreground: 60 6% 11%;
+    /* Qsheet Design System — Zinc Neutral (original style) */
+    --background: 0 0% 100%;
+    --foreground: 220 15% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 15% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 15% 15%;
     --primary: 209 100% 34%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 43 15% 88%;
-    --secondary-foreground: 48 4% 28%;
-    --muted: 43 15% 88%;
-    --muted-foreground: 48 3% 35%;
-    --accent: 43 15% 88%;
-    --accent-foreground: 48 4% 28%;
-    --destructive: 0 55% 46%;
+    --secondary: 210 14% 93%;
+    --secondary-foreground: 220 9% 28%;
+    --muted: 210 14% 93%;
+    --muted-foreground: 215 10% 42%;
+    --accent: 210 14% 93%;
+    --accent-foreground: 220 9% 28%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 40 18% 91%;
-    --input: 43 15% 88%;
+    --border: 214 14% 89%;
+    --input: 214 14% 89%;
     --ring: 209 100% 34%;
     --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 220 16% 12%;
+    --foreground: 210 14% 93%;
+    --card: 220 14% 16%;
+    --card-foreground: 210 14% 93%;
+    --popover: 220 14% 16%;
+    --popover-foreground: 210 14% 93%;
+    --primary: 209 100% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 12% 22%;
+    --secondary-foreground: 210 14% 80%;
+    --muted: 220 12% 22%;
+    --muted-foreground: 215 10% 55%;
+    --accent: 220 12% 22%;
+    --accent-foreground: 210 14% 80%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 12% 22%;
+    --input: 220 12% 22%;
+    --ring: 209 100% 55%;
   }
 }
 
@@ -43,16 +65,18 @@
     @apply border-border;
   }
   html {
-    font-family: 'Noto Sans JP', sans-serif;
+    /* Oswald for Latin/numbers, Noto Sans JP for Japanese — matches OswaldLatin in original */
+    font-family: 'Oswald', -apple-system, BlinkMacSystemFont, 'Noto Sans JP', 'Segoe UI', sans-serif;
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Noto Sans JP', sans-serif;
+    font-family: 'Oswald', -apple-system, BlinkMacSystemFont, 'Noto Sans JP', 'Segoe UI', sans-serif;
     line-height: 1.60;
   }
-  .heading-page { font-family: 'Noto Sans JP', sans-serif; font-weight: 700; line-height: 1.20; letter-spacing: 0.01em; }
-  .heading-section { font-family: 'Noto Sans JP', sans-serif; font-weight: 600; line-height: 1.25; }
-  .heading-card { font-family: 'Noto Sans JP', sans-serif; font-weight: 600; line-height: 1.30; }
+  .heading-page    { font-family: 'Oswald', 'Noto Sans JP', sans-serif; font-weight: 600; line-height: 1.20; letter-spacing: 0.02em; }
+  .heading-section { font-family: 'Oswald', 'Noto Sans JP', sans-serif; font-weight: 500; line-height: 1.25; }
+  .heading-card    { font-family: 'Oswald', 'Noto Sans JP', sans-serif; font-weight: 500; line-height: 1.30; }
+
   input[type="date"],
   input[type="time"],
   input[type="datetime-local"] {

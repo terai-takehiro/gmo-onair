@@ -95,14 +95,15 @@ export default function Sidebar() {
           })}
         </nav>
 
-        {/* Footer link to ONAiR */}
-        <div className="border-t p-3">
+        {/* Footer */}
+        <div className="border-t p-3 space-y-1">
           <a
             href="/"
             className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
             GMO ONAiR 本体へ
           </a>
+          <p className="px-3 text-[10px] text-muted-foreground/50">v0.7.0</p>
         </div>
       </aside>
     </>

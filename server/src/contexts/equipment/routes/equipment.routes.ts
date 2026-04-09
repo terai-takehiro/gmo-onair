@@ -509,6 +509,8 @@ router.put('/inventory-checks/:id/status', async (req: Request, res: Response) =
 // ダッシュボード統計
 // ============================================================
 router.get('/stats', async (_req: Request, res: Response) => {
+  const toInt = (v: any) => parseInt(v?.count ?? v ?? '0', 10) || 0;
+
   const totalItems = await queryOne("SELECT COUNT(*) as count FROM equipment_items WHERE deleted_at IS NULL") as any;
   const activeItems = await queryOne("SELECT COUNT(*) as count FROM equipment_items WHERE deleted_at IS NULL AND status='active'") as any;
   const inRepair = await queryOne("SELECT COUNT(*) as count FROM equipment_items WHERE deleted_at IS NULL AND status='in_repair'") as any;
@@ -517,16 +519,40 @@ router.get('/stats', async (_req: Request, res: Response) => {
   const totalAssetValue = await queryOne("SELECT COALESCE(SUM(acquisition_cost), 0) as total FROM equipment_items WHERE deleted_at IS NULL AND asset_class='fixed_asset'") as any;
   const openMaintenance = await queryOne("SELECT COUNT(*) as count FROM maintenance_records WHERE status IN ('reported', 'in_progress')") as any;
 
+  // Recent active lendings for dashboard
+  const recentLendings = await queryAll(
+    `SELECT el.id, el.borrower_name, el.due_date, el.lent_at,
+            ei.name as equipment_name, ei.unit_number,
+            p.name as project_name, p.gls_number
+     FROM equipment_lendings el
+     JOIN equipment_items ei ON ei.id = el.equipment_id
+     LEFT JOIN projects p ON p.id = el.project_id
+     WHERE el.status = 'lent'
+     ORDER BY el.lent_at DESC LIMIT 5`
+  );
+
+  // Recent maintenance (open)
+  const recentMaintenance = await queryAll(
+    `SELECT mr.id, mr.title, mr.record_type, mr.status, mr.created_at,
+            ei.name as equipment_name
+     FROM maintenance_records mr
+     JOIN equipment_items ei ON ei.id = mr.equipment_id
+     WHERE mr.status IN ('reported', 'in_progress')
+     ORDER BY mr.created_at DESC LIMIT 5`
+  );
+
   res.json({
     success: true,
     data: {
-      total_items: totalItems?.count || 0,
-      active_items: activeItems?.count || 0,
-      in_repair: inRepair?.count || 0,
-      lent_out: lentOut?.count || 0,
-      overdue: overdue?.count || 0,
-      total_asset_value: totalAssetValue?.total || 0,
-      open_maintenance: openMaintenance?.count || 0,
+      total_items: toInt(totalItems),
+      active_items: toInt(activeItems),
+      in_repair: toInt(inRepair),
+      lent_out: toInt(lentOut),
+      overdue: toInt(overdue),
+      total_asset_value: parseFloat(totalAssetValue?.total ?? '0') || 0,
+      open_maintenance: toInt(openMaintenance),
+      recent_lendings: recentLendings,
+      recent_maintenance: recentMaintenance,
     },
   });
 });

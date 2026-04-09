@@ -70,40 +70,35 @@ export function createApp(): express.Express {
 
   // In production, serve React client build
   if (process.env.NODE_ENV === 'production') {
-    // Equipment client at /equipment/*
-    const equipmentDistPath = path.join(__dirname, '../../client-equipment/dist');
-    app.use('/equipment', express.static(equipmentDistPath));
-    app.get('/equipment/*', (_req, res) => {
-      res.sendFile(path.join(equipmentDistPath, 'index.html'));
-    });
+    // Static file options: no-cache for HTML, immutable cache for hashed assets
+    const staticOptions: Parameters<typeof express.static>[1] = {
+      setHeaders(res, filePath) {
+        if (filePath.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        } else {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+      },
+    };
 
-    // Qsheet client at /qsheet/*
-    const qsheetDistPath = path.join(__dirname, '../../client-qsheet/dist');
-    app.use('/qsheet', express.static(qsheetDistPath));
-    app.get('/qsheet/*', (_req, res) => {
-      res.sendFile(path.join(qsheetDistPath, 'index.html'));
-    });
+    const serveApp = (prefix: string, distPath: string) => {
+      app.use(prefix, express.static(distPath, staticOptions));
+      app.get(`${prefix}/*`, (_req, res) => {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    };
 
-    // Interactive client at /interactive/*
-    const interactiveDistPath = path.join(__dirname, '../../client-interactive/dist');
-    app.use('/interactive', express.static(interactiveDistPath));
-    app.get('/interactive/*', (_req, res) => {
-      res.sendFile(path.join(interactiveDistPath, 'index.html'));
-    });
-
-    // TechSheet client at /techsheet/*
-    const techsheetDistPath = path.join(__dirname, '../../client-techsheet/dist');
-    app.use('/techsheet', express.static(techsheetDistPath));
-    app.get('/techsheet/*', (_req, res) => {
-      res.sendFile(path.join(techsheetDistPath, 'index.html'));
-    });
+    serveApp('/equipment', path.join(__dirname, '../../client-equipment/dist'));
+    serveApp('/qsheet', path.join(__dirname, '../../client-qsheet/dist'));
+    serveApp('/interactive', path.join(__dirname, '../../client-interactive/dist'));
+    serveApp('/techsheet', path.join(__dirname, '../../client-techsheet/dist'));
 
     // Main ONAiR client at /*
     const clientDistPath = path.join(__dirname, '../../client/dist');
-    app.use(express.static(clientDistPath));
-
-    // SPA fallback: any non-API route serves index.html
+    app.use(express.static(clientDistPath, staticOptions));
     app.get('*', (_req, res) => {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.sendFile(path.join(clientDistPath, 'index.html'));
     });
   }

@@ -6,6 +6,7 @@ import DashboardPage from "@/pages/DashboardPage";
 import EditorPage from "@/pages/EditorPage";
 import OnAirPage from "@/pages/OnAirPage";
 import RundownPage from "@/pages/RundownPage";
+import PrompterPage from "@/pages/PrompterPage";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -43,6 +44,15 @@ export default function App() {
         element={
           <ProtectedRoute>
             <RundownPage />
+          </ProtectedRoute>
+        }
+      />
+      {/* Prompter page: full screen teleprompter */}
+      <Route
+        path="/qsheet/prompter/:id"
+        element={
+          <ProtectedRoute>
+            <PrompterPage />
           </ProtectedRoute>
         }
       />
