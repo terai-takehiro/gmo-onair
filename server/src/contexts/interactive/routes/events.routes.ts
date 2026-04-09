@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
+import QRCode from 'qrcode';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
@@ -95,15 +96,28 @@ router.put('/:id', requirePermission('interactive', 'editor'), async (req, res) 
   const existing = await queryOne('SELECT * FROM interactive_events WHERE id = ? AND deleted_at IS NULL', [req.params.id]) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
 
-  const { title, description, project_id, episode_id, config, max_connections, status } = req.body;
+  const { title, description, project_id, episode_id, config, max_connections, status, youtube_url, banner_url, admin_comment } = req.body;
 
   const safeTitle = title ? String(title).slice(0, 500) : existing.title;
   const safeStatus = status && VALID_STATUSES.includes(status) ? status : existing.status;
   const safeMaxConn = max_connections ? Math.min(Math.max(Number(max_connections), 1), 10000) : existing.max_connections;
 
   await execute(
-    `UPDATE interactive_events SET title=?, description=?, project_id=?, episode_id=?, config=?, max_connections=?, status=?, updated_by=?, updated_at=NOW() WHERE id=?`,
-    [safeTitle, description !== undefined ? description : existing.description, project_id !== undefined ? (project_id || null) : existing.project_id, episode_id !== undefined ? (episode_id || null) : existing.episode_id, JSON.stringify(config || existing.config), safeMaxConn, safeStatus, req.user!.id, req.params.id]
+    `UPDATE interactive_events SET title=?, description=?, project_id=?, episode_id=?, config=?, max_connections=?, status=?, youtube_url=?, banner_url=?, admin_comment=?, updated_by=?, updated_at=NOW() WHERE id=?`,
+    [
+      safeTitle,
+      description !== undefined ? description : existing.description,
+      project_id !== undefined ? (project_id || null) : existing.project_id,
+      episode_id !== undefined ? (episode_id || null) : existing.episode_id,
+      JSON.stringify(config || existing.config),
+      safeMaxConn,
+      safeStatus,
+      youtube_url !== undefined ? (youtube_url || null) : existing.youtube_url,
+      banner_url !== undefined ? (banner_url || null) : existing.banner_url,
+      admin_comment !== undefined ? (admin_comment || null) : existing.admin_comment,
+      req.user!.id,
+      req.params.id,
+    ]
   );
 
   const row = await queryOne('SELECT * FROM interactive_events WHERE id = ?', [req.params.id]);
@@ -137,6 +151,19 @@ router.post('/:id/stop', requirePermission('interactive', 'editor'), async (req,
 
   const row = await queryOne('SELECT * FROM interactive_events WHERE id = ?', [req.params.id]);
   res.json({ success: true, data: row });
+});
+
+// QRコード生成
+router.get('/:id/qr', async (req, res) => {
+  const event = await queryOne('SELECT id FROM interactive_events WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+  if (!event) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
+
+  const clientUrl = process.env.CLIENT_URL || `${req.protocol}://${req.get('host')}`;
+  const audienceUrl = `${clientUrl}/interactive/audience/${req.params.id}`;
+  const svg = await QRCode.toString(audienceUrl, { type: 'svg', margin: 1, color: { dark: '#1a2332', light: '#ffffff' } });
+
+  res.setHeader('Content-Type', 'image/svg+xml');
+  res.send(svg);
 });
 
 // イベント削除
