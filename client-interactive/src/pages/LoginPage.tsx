@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Sparkles, AlertCircle } from 'lucide-react';
+import { Sparkles, AlertCircle, User } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import api from '@/lib/api';
 
@@ -12,6 +11,13 @@ interface UserOption {
   email: string;
   role: string;
 }
+
+const roleLabelMap: Record<string, string> = {
+  system_admin: "システム管理者",
+  staff: "スタッフ",
+  viewer: "閲覧者",
+  external_client: "外部",
+};
 
 export default function LoginPage() {
   const { currentUser: user, login, loginWithToken } = useAuth();
@@ -25,7 +31,6 @@ export default function LoginPage() {
   useEffect(() => {
     if (user && !token) { navigate('/', { replace: true }); return; }
 
-    // Handle OAuth callback token
     if (token) {
       loginWithToken(token)
         .then(() => navigate('/', { replace: true }))
@@ -33,7 +38,6 @@ export default function LoginPage() {
       return;
     }
 
-    // Detect auth mode
     api.get('/auth/mode')
       .then((r) => {
         const mode = r.data.data.mode;
@@ -55,18 +59,25 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 to-fuchsia-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 text-pink-600 mb-2">
-            <Sparkles className="h-8 w-8" />
-            <h1 className="text-2xl font-bold">EventStamp</h1>
+    <div className="login-bg relative flex min-h-screen items-center justify-center overflow-hidden p-4">
+      <div className="login-orb login-orb-1" />
+      <div className="login-orb login-orb-2" />
+
+      <div className="glass-card animate-slide-up relative z-10 w-full max-w-md px-8 py-10">
+        <div className="mb-8 text-center">
+          <div className="inline-flex items-center justify-center gap-3 mb-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
+              <Sparkles className="h-6 w-6 text-primary" />
+            </div>
+            <h1 className="text-3xl font-bold text-primary">EventStamp</h1>
           </div>
-          <p className="text-gray-500 text-sm">インタラクティブ演出支援</p>
+          <p className="text-base text-muted-foreground">
+            インタラクティブ演出支援
+          </p>
         </div>
 
         {error && (
-          <div className="mb-6 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+          <div className="mb-6 flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
             <AlertCircle className="h-4 w-4 flex-shrink-0" />
             <span>認証に失敗しました。管理者にお問い合わせください。</span>
           </div>
@@ -76,7 +87,7 @@ export default function LoginPage() {
           <div className="flex flex-col items-center gap-6">
             <Button
               size="lg"
-              className="flex items-center gap-3 px-8 py-6 text-base"
+              className="flex items-center gap-3 px-8 py-6 text-base rounded-xl"
               onClick={handleGoogleLogin}
             >
               <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -92,21 +103,32 @@ export default function LoginPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {users.map((u) => (
-              <Card key={u.id} className="cursor-pointer hover:border-pink-300 hover:shadow-md transition-all" onClick={() => handleLogin(u)}>
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center text-pink-600 font-bold">
-                    {u.name.charAt(0)}
-                  </div>
-                  <div>
-                    <div className="font-medium">{u.name}</div>
-                    <div className="text-xs text-gray-500">{u.email}</div>
-                  </div>
-                </CardContent>
-              </Card>
+              <button
+                key={u.id}
+                onClick={() => handleLogin(u)}
+                className="w-full flex items-center gap-4 rounded-2xl border border-primary/10 bg-white/60 backdrop-blur-sm p-4 text-left shadow-sm transition-all hover:shadow-lg hover:-translate-y-0.5 hover:bg-white/80 hover:border-primary/20"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 shrink-0">
+                  <User className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold truncate">{u.name}</div>
+                  <div className="text-xs text-muted-foreground truncate">{u.email}</div>
+                  <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                    {roleLabelMap[u.role] || u.role}
+                  </span>
+                </div>
+              </button>
             ))}
           </div>
+        )}
+
+        {authMode === 'mock' && (
+          <p className="mt-8 text-center text-xs text-muted-foreground">
+            開発モード — ユーザーカードをクリックしてログイン
+          </p>
         )}
       </div>
     </div>

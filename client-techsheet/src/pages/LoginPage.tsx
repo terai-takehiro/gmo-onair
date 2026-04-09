@@ -47,20 +47,25 @@ export default function LoginPage() {
   const isOAuth = authMode?.mode === "oauth";
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-slate-100">
-      <div className="w-full max-w-2xl px-4">
+    <div className="login-bg relative flex min-h-screen items-center justify-center overflow-hidden p-4">
+      <div className="login-orb login-orb-1" />
+      <div className="login-orb login-orb-2" />
+
+      <div className="glass-card animate-slide-up relative z-10 w-full max-w-2xl px-8 py-10">
         <div className="mb-8 text-center">
-          <div className="flex items-center justify-center gap-3 mb-2">
-            <Wrench className="h-10 w-10 text-primary" />
+          <div className="inline-flex items-center justify-center gap-3 mb-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
+              <Wrench className="h-6 w-6 text-primary" />
+            </div>
             <h1 className="text-3xl font-bold text-primary sm:text-4xl">技術資料</h1>
           </div>
-          <p className="text-base text-muted-foreground sm:text-lg">
+          <p className="text-base text-muted-foreground">
             GMO ONAiR TechSheet
           </p>
         </div>
 
         {error && (
-          <div className="mb-6 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+          <div className="mb-6 flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
             <AlertCircle className="h-4 w-4 flex-shrink-0" />
             <span>認証に失敗しました。管理者にお問い合わせください。</span>
           </div>
@@ -70,7 +75,7 @@ export default function LoginPage() {
           <div className="flex flex-col items-center gap-6">
             <Button
               size="lg"
-              className="flex items-center gap-3 px-8 py-6 text-base"
+              className="flex items-center gap-3 px-8 py-6 text-base rounded-xl"
               onClick={handleGoogleLogin}
             >
               <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -96,14 +101,14 @@ export default function LoginPage() {
                 <button
                   key={user.id}
                   onClick={() => handleLogin(user.id)}
-                  className="flex items-center gap-4 rounded-lg border bg-white p-5 text-left shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
+                  className="flex items-center gap-4 rounded-2xl border border-primary/10 bg-white/60 backdrop-blur-sm p-5 text-left shadow-sm transition-all hover:shadow-lg hover:-translate-y-0.5 hover:bg-white/80 hover:border-primary/20"
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 shrink-0">
                     <User className="h-6 w-6 text-primary" />
                   </div>
-                  <div className="flex-1">
-                    <p className="font-semibold">{user.name}</p>
-                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold truncate">{user.name}</p>
+                    <p className="text-sm text-muted-foreground truncate">{user.email}</p>
                     <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
                       {roleLabelMap[user.role] || user.role}
                     </span>

@@ -217,7 +217,7 @@ export default function DashboardPage() {
           {events.map((event: any) => {
             const st = STATUS_MAP[event.status] || STATUS_MAP.draft;
             return (
-              <Card key={event.id} className="group hover:shadow-md transition-shadow">
+              <Card key={event.id} className="group hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
                 <CardContent className="p-5">
                   <div className="flex items-start justify-between mb-3">
                     <Badge variant={st.variant}>{st.label}</Badge>
