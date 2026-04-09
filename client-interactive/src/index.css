@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    /* GMO ONAiR Warm Design System */
+    /* GMO ONAiR Warm Design System (admin UI) */
     --background: 40 20% 96%;
     --foreground: 60 6% 11%;
     --card: 40 25% 99%;
@@ -30,39 +30,122 @@
   * { @apply border-border; }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Noto Sans JP', 'Hiragino Sans', sans-serif;
+    font-family: 'Inter', 'Noto Sans JP', 'Hiragino Sans', sans-serif;
     line-height: 1.60;
   }
-  .heading-page { font-family: 'Noto Sans JP', sans-serif; font-weight: 700; line-height: 1.20; letter-spacing: 0.01em; }
-  .heading-section { font-family: 'Noto Sans JP', sans-serif; font-weight: 600; line-height: 1.25; }
-  .heading-card { font-family: 'Noto Sans JP', sans-serif; font-weight: 600; line-height: 1.30; }
 }
 
-/* Stamp animation */
+/* ── Audience page dark background ─── */
+.audience-bg {
+  background: radial-gradient(ellipse at top, #0f1a2e 0%, #080c14 50%, #060810 100%);
+  min-height: 100dvh;
+}
+
+.audience-comment-card {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(8px);
+}
+
+/* ── Stamp animations ─── */
 @keyframes stamp-bounce {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.3); }
+  0% { transform: scale(1); }
+  30% { transform: scale(1.35); }
+  60% { transform: scale(0.92); }
+  80% { transform: scale(1.08); }
+  100% { transform: scale(1); }
 }
 @keyframes stamp-pop {
-  0% { transform: scale(0); opacity: 0; }
-  50% { transform: scale(1.2); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
+  0% { transform: scale(0.8); }
+  40% { transform: scale(1.3); }
+  70% { transform: scale(0.95); }
+  100% { transform: scale(1); }
 }
 @keyframes stamp-shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-4px); }
-  75% { transform: translateX(4px); }
+  0%, 100% { transform: translateX(0) scale(1); }
+  20% { transform: translateX(-5px) scale(1.05); }
+  40% { transform: translateX(5px) scale(1.05); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
 }
+@keyframes stamp-fade {
+  0% { opacity: 0.5; transform: scale(0.95); }
+  50% { opacity: 1; transform: scale(1.05); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes stamp-slide {
+  0% { transform: translateY(6px) scale(0.97); }
+  60% { transform: translateY(-3px) scale(1.02); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+.stamp-bounce { animation: stamp-bounce 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.stamp-pop    { animation: stamp-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.stamp-shake  { animation: stamp-shake 0.35s ease-out; }
+.stamp-fade   { animation: stamp-fade 0.3s ease-out; }
+.stamp-slide  { animation: stamp-slide 0.3s ease-out; }
+.stamp-none   { animation: stamp-pop 0.2s ease-out; }
+
+/* Floating emoji */
 @keyframes float-up {
-  0% { transform: translateY(0) scale(1); opacity: 1; }
-  100% { transform: translateY(-120px) scale(0.5); opacity: 0; }
+  0%   { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(-160px) scale(0.4); opacity: 0; }
+}
+.float-up { animation: float-up 1.8s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+
+/* Stamp button base */
+.stamp-btn {
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 
-.stamp-bounce { animation: stamp-bounce 0.3s ease-out; }
-.stamp-pop { animation: stamp-pop 0.3s ease-out; }
-.stamp-shake { animation: stamp-shake 0.3s ease-out; }
-.float-up { animation: float-up 1.5s ease-out forwards; }
-
+/* Overlay transparent (OBS) */
 .overlay-transparent {
   background: transparent !important;
 }
+
+/* ── Glassmorphism (admin login) ─── */
+.glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 91, 172, 0.12);
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(0, 91, 172, 0.08), 0 1px 2px rgba(0,0,0,0.04);
+}
+
+.login-bg {
+  background: linear-gradient(135deg, #e8f1fb 0%, #f5f7fa 40%, #eef2f7 100%);
+}
+
+.login-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+}
+.login-orb-1 {
+  width: 420px; height: 420px;
+  background: radial-gradient(circle, rgba(0,91,172,0.35), transparent 70%);
+  top: -120px; right: -120px;
+  animation: orb-float 20s ease-in-out infinite;
+}
+.login-orb-2 {
+  width: 320px; height: 320px;
+  background: radial-gradient(circle, rgba(0,116,217,0.25), transparent 70%);
+  bottom: -80px; left: -80px;
+  animation: orb-float 20s ease-in-out infinite reverse;
+  animation-delay: -10s;
+}
+
+@keyframes orb-float {
+  0%, 100% { transform: translate(0, 0); }
+  33% { transform: translate(40px, -50px); }
+  66% { transform: translate(-30px, 30px); }
+}
+
+@keyframes slide-up-in {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up { animation: slide-up-in 0.5s ease-out both; }

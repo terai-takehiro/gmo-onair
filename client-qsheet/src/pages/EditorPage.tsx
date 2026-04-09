@@ -24,6 +24,7 @@ import {
   PanelRightClose,
   ChevronUp,
   ChevronDown,
+  MonitorPlay,
 } from "lucide-react";
 
 // ============================================================
@@ -406,6 +407,10 @@ export default function EditorPage() {
             <List className="h-4 w-4" />
             <span className="hidden sm:inline text-xs">ランダウン</span>
           </Button>
+          <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => navigate(`/qsheet/prompter/${doc.id}`)}>
+            <MonitorPlay className="h-4 w-4" />
+            <span className="hidden sm:inline text-xs">プロンプター</span>
+          </Button>
           <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => navigate(`/qsheet/onair/${doc.id}`)}>
             <Radio className="h-4 w-4" />
             <span className="hidden sm:inline text-xs">ON AIR</span>
@@ -536,6 +541,30 @@ export default function EditorPage() {
                                             value={(row[block.id] as string) || ""}
                                             onChange={(e) => updateRow(section.id, row.id, block.id, e.target.value)}
                                             placeholder="【話者名】台本内容..."
+                                            rows={2}
+                                          />
+                                        ) : block.type === "remarks" ? (
+                                          <textarea
+                                            className="w-full min-h-[2rem] rounded border border-input bg-amber-50/50 px-2 py-1 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-amber-800"
+                                            value={(row[block.id] as string) || ""}
+                                            onChange={(e) => updateRow(section.id, row.id, block.id, e.target.value)}
+                                            placeholder="備考・注意事項..."
+                                            rows={2}
+                                          />
+                                        ) : block.type === "telop" ? (
+                                          <textarea
+                                            className="w-full min-h-[2rem] rounded border border-input bg-blue-50/50 px-2 py-1 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono"
+                                            value={(row[block.id] as string) || ""}
+                                            onChange={(e) => updateRow(section.id, row.id, block.id, e.target.value)}
+                                            placeholder="テロップ内容..."
+                                            rows={2}
+                                          />
+                                        ) : block.type === "item" ? (
+                                          <textarea
+                                            className="w-full min-h-[2rem] rounded border border-input bg-green-50/50 px-2 py-1 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                            value={(row[block.id] as string) || ""}
+                                            onChange={(e) => updateRow(section.id, row.id, block.id, e.target.value)}
+                                            placeholder="アイテム・小道具..."
                                             rows={2}
                                           />
                                         ) : block.type === "slide" || block.type === "image" ? (
