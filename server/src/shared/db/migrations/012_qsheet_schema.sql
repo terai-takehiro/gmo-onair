@@ -20,8 +20,8 @@ CREATE TABLE IF NOT EXISTS qsheet_documents (
 
   created_by TEXT REFERENCES users(id),
   updated_by TEXT REFERENCES users(id),
-  created_at TEXT NOT NULL DEFAULT (NOW()),
-  updated_at TEXT NOT NULL DEFAULT (NOW()),
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
   deleted_at TEXT
 );
 
@@ -33,8 +33,8 @@ CREATE TABLE IF NOT EXISTS qsheet_stage_templates (
 
   created_by TEXT REFERENCES users(id),
   updated_by TEXT REFERENCES users(id),
-  created_at TEXT NOT NULL DEFAULT (NOW()),
-  updated_at TEXT NOT NULL DEFAULT (NOW()),
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
   deleted_at TEXT
 );
 

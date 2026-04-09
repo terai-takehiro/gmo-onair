@@ -14,6 +14,28 @@ import { runMigrations } from './migrate';
 async function seedSubApps() {
   await initDb();
 
+  // -------- テーブル存在確認 --------
+  const tableExists = async (name: string): Promise<boolean> => {
+    const r = await queryOne(
+      `SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=$1`,
+      [name]
+    );
+    return !!r;
+  };
+
+  const eqTableOk = await tableExists('equipment_items');
+  const qTableOk  = await tableExists('qsheet_documents');
+  const tsTableOk = await tableExists('techsheet_documents');
+  const evTableOk = await tableExists('interactive_events');
+
+  if (!eqTableOk || !qTableOk || !tsTableOk || !evTableOk) {
+    console.warn('[seed-subapps] テーブルが未作成のためスキップ:', {
+      equipment_items: eqTableOk, qsheet_documents: qTableOk,
+      techsheet_documents: tsTableOk, interactive_events: evTableOk,
+    });
+    return;
+  }
+
   // -------- 既存データ確認 --------
   const eqCount = await queryOne('SELECT COUNT(*)::int AS c FROM equipment_items');
   const qCount  = await queryOne('SELECT COUNT(*)::int AS c FROM qsheet_documents');

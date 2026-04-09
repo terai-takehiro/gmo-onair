@@ -12,7 +12,10 @@ async function main() {
   await initDb();
   await runMigrations();
   await seed();
-  await seedSubApps().catch((err) => console.warn('[seed-subapps] warn:', err?.message ?? err));
+  await seedSubApps().catch((err) => {
+    console.warn('[seed-subapps] warn:', err?.message ?? err);
+    if (err?.stack) console.warn('[seed-subapps] stack:', err.stack);
+  });
 
   const app = createApp();
   const httpServer = http.createServer(app);

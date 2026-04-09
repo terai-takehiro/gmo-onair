@@ -10,8 +10,8 @@ CREATE TABLE IF NOT EXISTS equipment_locations (
   floor TEXT,
   area TEXT,
   sort_order INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT (NOW()),
-  updated_at TEXT NOT NULL DEFAULT (NOW()),
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
   deleted_at TEXT
 );
 
