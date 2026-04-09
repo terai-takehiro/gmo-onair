@@ -129,7 +129,7 @@ export default function InventoryPage() {
   return (
     <div className="space-y-4 p-4 lg:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl lg:text-2xl font-bold">棚卸し</h1>
+        <h1 className="heading-page text-xl lg:text-2xl">棚卸し</h1>
         <Button size="sm" onClick={() => {
           setForm({ title: "", check_date: new Date().toISOString().split("T")[0], notes: "" });
           setDialogOpen(true);

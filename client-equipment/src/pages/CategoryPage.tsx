@@ -58,7 +58,7 @@ export default function CategoryPage() {
   return (
     <div className="space-y-4 p-4 lg:p-6">
       <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl lg:text-2xl font-bold">カテゴリ管理</h1>
+        <h1 className="heading-page text-xl lg:text-2xl">カテゴリ管理</h1>
         <Button size="sm" onClick={openNew}>
           <Plus className="h-4 w-4 mr-1" />
           追加

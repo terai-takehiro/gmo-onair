@@ -70,7 +70,7 @@ export default function MaintenancePage() {
   return (
     <div className="space-y-4 p-4 lg:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl lg:text-2xl font-bold">メンテナンス</h1>
+        <h1 className="heading-page text-xl lg:text-2xl">メンテナンス</h1>
         <Button size="sm" onClick={() => {
           setForm({ equipment_id: "", record_type: "breakdown", title: "", description: "", assigned_to: "", vendor_name: "", repair_cost: "" });
           setDialogOpen(true);
