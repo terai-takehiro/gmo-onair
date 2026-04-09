@@ -19,7 +19,7 @@ export default function SettingsPage() {
               <dt className="text-muted-foreground">アプリ名</dt>
               <dd className="font-medium">GMO ONAiR</dd>
               <dt className="text-muted-foreground">バージョン</dt>
-              <dd className="font-medium">v0.6.0</dd>
+              <dd className="font-medium">v0.7.0</dd>
             </dl>
           </CardContent>
         </Card>
