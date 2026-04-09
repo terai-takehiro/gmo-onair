@@ -194,7 +194,7 @@ export default function PurchaseListPage() {
                   <div
                     key={p.id as string}
                     className="rounded-lg border p-3 transition-colors hover:bg-muted/50"
-                    onClick={() => p.project_id && navigate(`/projects/${p.project_id}/episodes`)}
+                    onClick={() => p.project_id && navigate(`/sales/projects/${p.project_id}/episodes`)}
                     role={p.project_id ? "button" : undefined}
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -244,7 +244,7 @@ export default function PurchaseListPage() {
                           {p.project_id ? (
                             <button
                               className="font-mono text-sm font-medium text-primary hover:underline"
-                              onClick={() => navigate(`/projects/${p.project_id}/episodes`)}
+                              onClick={() => navigate(`/sales/projects/${p.project_id}/episodes`)}
                             >
                               {(p.gls_number as string) || "-"}
                             </button>

@@ -1,8 +1,11 @@
 import { Router } from 'express';
-import { requireAuth } from '../../../shared/middleware/auth';
+import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { salesAnalyticsService } from '../services/sales-analytics.service';
 
 const router = Router();
+
+// Apply auth + permission middleware to all routes
+router.use(requireAuth, requirePermission('sales'));
 
 router.get('/funnel', async (req, res) => {
   const year = parseInt(req.query.year as string) || undefined;
@@ -29,7 +32,7 @@ router.get('/targets', async (req, res) => {
   res.json({ success: true, data });
 });
 
-router.post('/targets', requireAuth, async (req, res) => {
+router.post('/targets', requirePermission('sales', 'editor'), async (req, res) => {
   const { user_id, target_year, target_month, target_amount } = req.body;
   const data = await salesAnalyticsService.upsertTarget(user_id, target_year, target_month, target_amount);
   res.json({ success: true, data });

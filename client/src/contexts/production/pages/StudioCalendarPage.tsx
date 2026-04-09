@@ -278,7 +278,7 @@ export default function StudioCalendarPage() {
         setDetailDialogOpen(true);
       }
     } else if (props.kind === "episode" && props.project_id) {
-      navigate(`/projects/${props.project_id}`);
+      navigate(`/sales/projects/${props.project_id}`);
     }
   }, [bookings, navigate]);
 
@@ -498,12 +498,15 @@ export default function StudioCalendarPage() {
                 right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
               }}
               buttonText={{
+                prev: "＜",
+                next: "＞",
                 today: "今日",
                 month: "月",
                 week: "週",
                 day: "日",
                 list: "一覧",
               }}
+              buttonIcons={false}
               events={calendarEvents}
               datesSet={handleDatesSet}
               eventClick={handleEventClick}

@@ -76,7 +76,7 @@ export default function EquipmentDetailPage() {
               <span className="text-xs text-muted-foreground">{item.category_name}</span>
             )}
           </div>
-          <h1 className="text-xl font-bold mt-1">
+          <h1 className="heading-page text-xl mt-1">
             {item.name}
             {item.unit_number && <span className="text-primary ml-2">No.{item.unit_number}</span>}
           </h1>

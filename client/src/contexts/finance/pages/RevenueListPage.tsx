@@ -292,7 +292,7 @@ export default function RevenueListPage() {
                     className="rounded-lg border p-3 transition-colors hover:bg-muted/50"
                     onClick={() =>
                       r.project_id &&
-                      navigate(`/projects/${r.project_id}/episodes`)
+                      navigate(`/sales/projects/${r.project_id}/episodes`)
                     }
                     role={r.project_id ? "button" : undefined}
                   >

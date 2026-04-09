@@ -1,7 +1,11 @@
 import { Router } from 'express';
 import { queryAll } from '../../../shared/db/connection';
+import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 
 const router = Router();
+
+// Apply auth + permission middleware to all routes
+router.use(requireAuth, requirePermission('studio'));
 
 router.get('/events', async (req, res) => {
   const from = req.query.from as string;

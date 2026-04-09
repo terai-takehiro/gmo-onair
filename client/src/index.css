@@ -11,32 +11,33 @@
   }
 
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* GMO ONAiR Warm Design System — GMO Blue + Warm Neutrals */
+    --background: 40 20% 96%;        /* #f7f6f3 Warm Ivory */
+    --foreground: 60 6% 11%;         /* #1c1c1a Warm Near Black */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 40 25% 99%;              /* #fdfcfa Soft Ivory */
+    --card-foreground: 60 6% 11%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 40 25% 99%;
+    --popover-foreground: 60 6% 11%;
 
-    --primary: 209 100% 34%;
+    --primary: 209 100% 34%;         /* #005bac GMO Blue */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 43 15% 88%;         /* #e8e6de Warm Sand */
+    --secondary-foreground: 48 4% 28%; /* #4a4945 Warm Charcoal */
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 43 15% 88%;
+    --muted-foreground: 48 3% 35%;   /* #5c5b57 Warm Olive */
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 43 15% 88%;
+    --accent-foreground: 48 4% 28%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 55% 46%;        /* #b53333 Deep Red */
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+    --border: 40 18% 91%;            /* #edebe5 Warm Border */
+    --input: 43 15% 88%;
     --ring: 209 100% 34%;
 
     --radius: 0.5rem;
@@ -47,43 +48,43 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-background: 40 25% 99%;
+    --sidebar-foreground: 48 3% 35%;
     --sidebar-primary: 209 100% 34%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
+    --sidebar-accent: 43 15% 88%;
+    --sidebar-accent-foreground: 48 4% 28%;
+    --sidebar-border: 40 18% 91%;
     --sidebar-ring: 209 100% 34%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 60 6% 11%;         /* #1c1c1a Warm Dark */
+    --foreground: 43 7% 69%;         /* #b5b3ab Warm Silver */
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 60 4% 18%;               /* #2e2e2c Dark Card */
+    --card-foreground: 43 7% 69%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 60 4% 18%;
+    --popover-foreground: 43 7% 69%;
 
     --primary: 209 100% 44%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 60 4% 18%;
+    --secondary-foreground: 43 7% 69%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 60 4% 18%;
+    --muted-foreground: 44 3% 53%;   /* #8a8983 Stone */
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 60 4% 18%;
+    --accent-foreground: 43 7% 69%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 55% 40%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
+    --border: 60 4% 18%;
+    --input: 60 4% 18%;
     --ring: 209 100% 44%;
 
     --chart-1: 220 70% 50%;
@@ -92,13 +93,13 @@
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
 
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-background: 60 6% 11%;
+    --sidebar-foreground: 43 7% 69%;
     --sidebar-primary: 209 100% 44%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-accent: 60 4% 18%;
+    --sidebar-accent-foreground: 43 7% 69%;
+    --sidebar-border: 60 4% 18%;
     --sidebar-ring: 209 100% 44%;
   }
 }
@@ -107,8 +108,12 @@
   * {
     @apply border-border;
   }
+  html {
+    font-family: 'Noto Sans JP', sans-serif;
+  }
   body {
     @apply bg-background text-foreground;
+    font-family: 'Noto Sans JP', sans-serif;
   }
   /* 日付入力のモバイル表示修正 */
   input[type="date"],
@@ -221,6 +226,24 @@
     font-size: 0.8125rem;
     padding: 0.5rem;
   }
+}
+
+/* Warm Design System — Typography utilities */
+.heading-page {
+  font-family: 'Noto Sans JP', sans-serif;
+  font-weight: 700;
+  line-height: 1.20;
+  letter-spacing: 0.01em;
+}
+.heading-section {
+  font-family: 'Noto Sans JP', sans-serif;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.heading-card {
+  font-family: 'Noto Sans JP', sans-serif;
+  font-weight: 600;
+  line-height: 1.30;
 }
 
 @keyframes fadeIn {

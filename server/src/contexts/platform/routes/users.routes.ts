@@ -7,11 +7,18 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 
 const router = Router();
 
+// Apply auth to all user routes
+router.use(requireAuth);
+
 router.get('/', async (req, res) => {
   const { page, limit, offset, search } = extractPagination(req);
   let where = 'WHERE deleted_at IS NULL';
   const params: unknown[] = [];
-  if (search) { where += ` AND (name ILIKE ? OR email ILIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
+  if (search) {
+    const safeSearch = String(search).slice(0, 100).replace(/[%_\\]/g, '\\$&');
+    where += ` AND (name ILIKE ? ESCAPE '\\' OR email ILIKE ? ESCAPE '\\')`;
+    params.push(`%${safeSearch}%`, `%${safeSearch}%`);
+  }
   const total = ((await queryOne(`SELECT COUNT(*) as c FROM users ${where}`, params)) as any).c;
   const rows = await queryAll(`SELECT id, name, email, role, created_at FROM users ${where} ORDER BY name LIMIT ? OFFSET ?`, [...params, limit, offset]);
   res.json(paginatedResponse(rows, total, page, limit));
@@ -23,7 +30,7 @@ router.get('/:id', async (req, res) => {
   res.json({ success: true, data: row });
 });
 
-router.post('/', requireAuth, requireRole('system_admin'), async (req, res) => {
+router.post('/', requireRole('system_admin'), async (req, res) => {
   const { name, email, role } = req.body;
   if (!name || !email || !role) throw new AppError(400, 'VALIDATION_ERROR', '名前、メール、ロールは必須です');
   const id = uuidv4();
@@ -32,7 +39,7 @@ router.post('/', requireAuth, requireRole('system_admin'), async (req, res) => {
   res.status(201).json({ success: true, data: row });
 });
 
-router.put('/:id', requireAuth, requireRole('system_admin'), async (req, res) => {
+router.put('/:id', requireRole('system_admin'), async (req, res) => {
   const existing = await queryOne('SELECT id FROM users WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'ユーザーが見つかりません');
   const { name, email, role } = req.body;
@@ -41,9 +48,60 @@ router.put('/:id', requireAuth, requireRole('system_admin'), async (req, res) =>
   res.json({ success: true, data: row });
 });
 
-router.delete('/:id', requireAuth, requireRole('system_admin'), async (req, res) => {
+router.delete('/:id', requireRole('system_admin'), async (req, res) => {
   await execute(`UPDATE users SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`, [req.user!.id, req.params.id]);
   res.json({ success: true, message: '削除しました' });
+});
+
+// ============================================================
+// パーミッション管理
+// ============================================================
+
+// ユーザーのパーミッション一覧
+router.get('/:id/permissions', async (req, res) => {
+  const perms = await queryAll('SELECT module, access_level FROM user_permissions WHERE user_id = ?', [req.params.id]);
+  res.json({ success: true, data: perms });
+});
+
+// ユーザーのパーミッション一括更新
+router.put('/:id/permissions', requireRole('system_admin'), async (req, res) => {
+  const { permissions } = req.body; // { module: access_level } or { module: null } to remove
+  if (!permissions || typeof permissions !== 'object') throw new AppError(400, 'VALIDATION_ERROR', 'permissions オブジェクトが必要です');
+
+  // Delete removed permissions, then upsert remaining
+  const modules = Object.keys(permissions);
+  const toSet = Object.entries(permissions).filter(([, v]) => v) as [string, string][];
+  const toRemove = modules.filter(m => !permissions[m]);
+
+  if (toRemove.length > 0) {
+    const placeholders = toRemove.map((_, i) => `?`).join(', ');
+    await execute(`DELETE FROM user_permissions WHERE user_id = ? AND module IN (${placeholders})`, [req.params.id, ...toRemove]);
+  }
+
+  for (const [module, level] of toSet) {
+    await execute(
+      `INSERT INTO user_permissions (id, user_id, module, access_level) VALUES (?, ?, ?, ?) ON CONFLICT (user_id, module) DO UPDATE SET access_level = EXCLUDED.access_level, updated_at = NOW()`,
+      [uuidv4(), req.params.id, module, level]
+    );
+  }
+
+  const perms = await queryAll('SELECT module, access_level FROM user_permissions WHERE user_id = ?', [req.params.id]);
+  res.json({ success: true, data: perms });
+});
+
+// 現在ログインユーザーのパーミッション（クライアント用）
+router.get('/me/permissions', async (req, res) => {
+  if (req.user!.role === 'system_admin') {
+    // system_admin は全モジュールfull
+    res.json({ success: true, data: { _all: 'full' } });
+    return;
+  }
+  const perms = await queryAll('SELECT module, access_level FROM user_permissions WHERE user_id = ?', [req.user!.id]);
+  const permMap: Record<string, string> = {};
+  for (const p of perms) {
+    permMap[p.module as string] = p.access_level as string;
+  }
+  res.json({ success: true, data: permMap });
 });
 
 export default router;

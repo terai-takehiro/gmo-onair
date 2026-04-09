@@ -65,11 +65,6 @@ export const PROJECT_STAGES = Object.entries(ProjectStageLabels).map(([value, la
 }));
 
 // Backward compat aliases
-export const OpportunityStage = ProjectStage;
-export type OpportunityStage = ProjectStage;
-export const OpportunityStageLabels = ProjectStageLabels;
-export const OpportunityStageColors = ProjectStageColors;
-export const OpportunityStageProbability = ProjectStageProbability;
 export const OPPORTUNITY_STAGES = PROJECT_STAGES;
 
 // 案件種類

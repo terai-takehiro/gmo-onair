@@ -48,7 +48,7 @@ export default function ProjectListPage() {
     <div className="space-y-4 p-3 lg:p-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-xl lg:text-2xl font-bold">案件管理</h1>
-        <Button onClick={() => navigate("/projects/new")}>
+        <Button onClick={() => navigate("/sales/projects/new")}>
           <Plus className="mr-2 h-4 w-4" />
           新規作成
         </Button>
@@ -91,7 +91,7 @@ export default function ProjectListPage() {
                   <div
                     key={p.id as string}
                     className="cursor-pointer rounded-lg border p-3 transition-colors hover:bg-muted/50 active:bg-muted"
-                    onClick={() => navigate(`/projects/${p.id}`)}
+                    onClick={() => navigate(`/sales/projects/${p.id}`)}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
@@ -134,7 +134,7 @@ export default function ProjectListPage() {
                       <TableRow
                         key={p.id as string}
                         className="cursor-pointer"
-                        onClick={() => navigate(`/projects/${p.id}`)}
+                        onClick={() => navigate(`/sales/projects/${p.id}`)}
                       >
                         <TableCell className="font-mono text-xs">
                           {(p.gls_number as string) || (p.code as string) || "-"}

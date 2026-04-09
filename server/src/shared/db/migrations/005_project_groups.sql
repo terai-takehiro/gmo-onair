@@ -3,8 +3,8 @@ CREATE TABLE IF NOT EXISTS project_groups (
   id          TEXT PRIMARY KEY,
   name        TEXT NOT NULL,
   description TEXT,
-  created_at  TEXT NOT NULL DEFAULT (NOW()),
-  updated_at  TEXT NOT NULL DEFAULT (NOW()),
+  created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMP NOT NULL DEFAULT NOW(),
   created_by  TEXT,
   updated_by  TEXT,
   deleted_at  TEXT
@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS purchase_allocations (
   purchase_id      TEXT NOT NULL REFERENCES purchases(id),
   project_id       TEXT NOT NULL REFERENCES projects(id),
   allocated_amount INTEGER NOT NULL DEFAULT 0,
-  created_at       TEXT NOT NULL DEFAULT (NOW())
+  created_at       TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 -- 仕入にグループID追加

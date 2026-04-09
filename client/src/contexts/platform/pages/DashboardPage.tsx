@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { formatPercent } from "@/lib/format";
 import { AnimatedCurrency } from "@/components/ui/animated-number";
-import { PageTransition, StaggerList, StaggerItem, LiftCard } from "@/components/ui/motion";
+import { PageTransition } from "@/components/ui/motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -13,16 +13,13 @@ import {
 } from 'recharts';
 import {
   TrendingUp,
-  FolderKanban,
   Receipt,
   ShoppingCart,
   Calendar,
-  Building2,
   DollarSign,
   BarChart3,
   AlertTriangle,
   Loader2,
-  Package,
 } from "lucide-react";
 
 interface KPI {
@@ -159,20 +156,11 @@ export default function DashboardPage() {
   };
 
 
-  const quickLinks = [
-    { label: "案件管理", to: "/projects", icon: FolderKanban },
-    { label: "売上一覧", to: "/revenues", icon: Receipt },
-    { label: "仕入一覧", to: "/purchases", icon: ShoppingCart },
-    { label: "カレンダー", to: "/calendar", icon: Calendar },
-    { label: "マスター管理", to: "/masters/customers", icon: Building2 },
-    { label: "機材管理", to: "/equipment/", icon: Package, external: true },
-  ];
-
   return (
     <PageTransition>
     <div className="space-y-4 p-3 lg:space-y-6 lg:p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg lg:text-2xl font-bold">ダッシュボード</h1>
+        <h1 className="heading-page text-lg lg:text-2xl">ダッシュボード</h1>
         <div className="flex gap-1 rounded-lg border p-1">
           <button
             onClick={() => setKpiPeriod('monthly')}
@@ -481,7 +469,7 @@ export default function DashboardPage() {
               <div className="space-y-2 sm:space-y-3">
                 {alerts.map((a, idx) => (
                   <div key={`${a.id}-${a.alert_type}-${idx}`} className="flex items-start gap-2 sm:gap-3 rounded-md border p-2 sm:p-3">
-                    <Badge color={alertTypeColor[a.alert_type] || "#6b7280"}>
+                    <Badge style={{ backgroundColor: alertTypeColor[a.alert_type] || "#6b7280", color: '#fff' }}>
                       {alertTypeLabel[a.alert_type] || a.alert_type}
                     </Badge>
                     <div className="flex-1 min-w-0">
@@ -509,7 +497,7 @@ export default function DashboardPage() {
                   <div
                     key={p.id}
                     className="flex cursor-pointer items-center justify-between gap-2 rounded-md border p-2 sm:p-3 transition-colors hover:bg-muted/50"
-                    onClick={() => navigate(`/projects/${p.id}`)}
+                    onClick={() => navigate(`/sales/projects/${p.id}`)}
                   >
                     <div className="min-w-0 flex-1">
                       <p className="text-xs sm:text-sm font-medium truncate">{p.gls_number} {p.name}</p>
@@ -528,31 +516,6 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Quick Links */}
-      <div>
-        <h2 className="mb-2 lg:mb-4 text-base lg:text-lg font-semibold">クイックリンク</h2>
-        <StaggerList className="grid grid-cols-3 gap-2 sm:grid-cols-3 lg:grid-cols-6 lg:gap-4">
-          {quickLinks.map((link) => (
-            <StaggerItem key={link.to}>
-              <LiftCard
-                className="cursor-pointer rounded-lg border bg-card text-card-foreground shadow-sm"
-                onClick={() => {
-                  if ('external' in link && link.external) {
-                    window.open(link.to, '_blank');
-                  } else {
-                    navigate(link.to);
-                  }
-                }}
-              >
-                <CardContent className="flex flex-col items-center gap-1 p-3 lg:gap-2 lg:p-6">
-                  <link.icon className="h-6 w-6 lg:h-8 lg:w-8 text-primary" />
-                  <p className="text-xs lg:text-sm font-medium">{link.label}</p>
-                </CardContent>
-              </LiftCard>
-            </StaggerItem>
-          ))}
-        </StaggerList>
-      </div>
     </div>
     </PageTransition>
   );

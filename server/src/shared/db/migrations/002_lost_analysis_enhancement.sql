@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS lost_reason_categories (
   id         TEXT PRIMARY KEY,
   name       TEXT NOT NULL UNIQUE,
   sort_order INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT (NOW())
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 -- デフォルト失注理由カテゴリ

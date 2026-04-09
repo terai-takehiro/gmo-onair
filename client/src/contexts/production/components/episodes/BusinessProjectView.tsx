@@ -391,7 +391,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
           className="gap-1 text-muted-foreground"
           onClick={() =>
             isEstimateMode
-              ? navigate(`/projects/${projectId}`)
+              ? navigate(`/sales/projects/${projectId}`)
               : navigate(
                   isCategoryA
                     ? "/projects/confirmed/studio"
@@ -484,6 +484,27 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
           </CardContent>
         </Card>
       </div>
+
+      {/* Qsheet link */}
+      {project.gls_number && (
+        <Card>
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-rose-500" />
+              <div>
+                <span className="text-sm font-medium">Qシート</span>
+                <span className="text-xs text-muted-foreground ml-2">放送進行表</span>
+              </div>
+            </div>
+            <Button size="sm" variant="outline" className="gap-1" asChild>
+              <a href={`/qsheet?project=${projectId}`}>
+                <FileText className="h-3.5 w-3.5" />
+                Qシート管理
+              </a>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Revenue List = 見積/売上明細 */}
       <div className="space-y-3">

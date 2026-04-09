@@ -12,15 +12,24 @@ import {
 } from "lucide-react";
 
 export default function DashboardPage() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["equipment-stats"],
     queryFn: async () => (await api.get("/equipment/stats")).data.data,
+    retry: false,
   });
 
   if (isLoading) {
     return (
       <div className="flex justify-center py-24">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex justify-center py-24">
+        <p className="text-sm text-muted-foreground">データを取得できませんでした。サーバー接続を確認してください。</p>
       </div>
     );
   }
@@ -65,7 +74,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6 p-4 lg:p-6">
       <div>
-        <h1 className="text-xl lg:text-2xl font-bold">ダッシュボード</h1>
+        <h1 className="heading-page text-xl lg:text-2xl">ダッシュボード</h1>
         <p className="text-sm text-muted-foreground">機材管理の概況</p>
       </div>
 

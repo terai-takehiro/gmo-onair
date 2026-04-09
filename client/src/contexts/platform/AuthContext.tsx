@@ -9,34 +9,133 @@ interface User {
   role: string;
 }
 
+/** モジュール別パーミッション: module名 → access_level */
+type Permissions = Record<string, string>;
+
+/** ブロックアプリ定義 */
+export interface BlockApp {
+  id: string;
+  label: string;
+  description: string;
+  icon: string;       // lucide icon name (resolved in UI)
+  color: string;      // tailwind color class
+  status: "active" | "coming_soon";
+  basePath: string;
+  /** 外部URLの場合（別タブで開く）。Phase NOW で Qsheet/EventStamp に使用 */
+  externalUrl?: string;
+}
+
+export const BLOCK_APPS: BlockApp[] = [
+  { id: "sales",       label: "案件管理",           description: "案件パイプライン・顧客・見積",     icon: "FolderKanban", color: "bg-blue-500",    status: "active",      basePath: "/sales" },
+  { id: "budget",      label: "予算管理",           description: "売上・仕入・販管費・損益",         icon: "PiggyBank",    color: "bg-emerald-500", status: "active",      basePath: "/budget" },
+  { id: "studio",      label: "スタジオ予約",       description: "スタジオカレンダー・ブッキング",   icon: "Calendar",     color: "bg-violet-500",  status: "active",      basePath: "/studio" },
+  { id: "qsheet",      label: "Qシート",            description: "Qシート作成・OnAir・ランダウン",   icon: "FileText",     color: "bg-rose-500",    status: "active",      basePath: "/qsheet" },
+  { id: "equipment",   label: "機材管理",           description: "機材台帳・貸出・メンテナンス",     icon: "Package",      color: "bg-amber-500",   status: "active",      basePath: "/equipment" },
+  { id: "interactive", label: "インタラクティブ演出", description: "スタンプ・リアルタイム演出支援",   icon: "Sparkles",     color: "bg-pink-500",    status: "active",      basePath: "/interactive" },
+  { id: "techsheet",   label: "技術資料",           description: "カメラ・映像・音声技術仕様書",     icon: "BookOpen",     color: "bg-cyan-500",    status: "active",      basePath: "/techsheet" },
+  { id: "assign",      label: "制作支援",           description: "スケジュール・スタッフ配置",       icon: "Users",        color: "bg-orange-500",  status: "coming_soon", basePath: "/prodsheet" },
+  { id: "delivery",    label: "素材納品",           description: "VTR/素材の納品管理",               icon: "Truck",        color: "bg-teal-500",    status: "coming_soon", basePath: "/delivery" },
+];
+
+/** モジュール定義（日本語ラベル付き）— パーミッションキーとして使用 */
+export const MODULE_LABELS: Record<string, string> = {
+  sales: "案件管理",
+  budget: "予算管理",
+  studio: "スタジオ予約",
+  equipment: "機材管理",
+  qsheet: "Qシート",
+  techsheet: "技術資料",
+  assign: "制作支援",
+  delivery: "素材納品",
+  interactive: "インタラクティブ演出",
+  admin: "システム管理",
+};
+
+/** アクセスレベル定義（BOX風 5段階） */
+export const ACCESS_LEVEL_LABELS: Record<string, string> = {
+  reader: "リーダー",
+  exporter: "エクスポーター",
+  editor: "エディター",
+  manager: "マネージャー",
+  owner: "オーナー",
+};
+
 interface AuthContextType {
   currentUser: User | null;
   isAuthenticated: boolean;
   login: (userId: string) => Promise<void>;
+  /** OAuth callback: JWT tokenでログイン */
+  loginWithToken: (token: string) => Promise<void>;
   logout: () => void;
   loading: boolean;
+  /** パーミッション取得が完了したか（PermissionRouteの表示制御に使用） */
+  permissionsLoaded: boolean;
+  permissions: Permissions;
+  /** モジュールへのアクセス権があるかチェック */
+  hasPermission: (module: string, minLevel?: "reader" | "exporter" | "editor" | "manager" | "owner") => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+const LEVEL_ORDER: Record<string, number> = { reader: 1, exporter: 2, editor: 3, manager: 4, owner: 5 };
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [permissions, setPermissions] = useState<Permissions>({});
   const [loading, setLoading] = useState(true);
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const setCurrentUserId = useUiStore((s) => s.setCurrentUserId);
 
-  useEffect(() => {
-    const stored = localStorage.getItem("gmo_onair_user");
-    if (stored) {
-      try {
-        const user = JSON.parse(stored);
-        setCurrentUser(user);
-        setCurrentUserId(user.id);
-      } catch {
-        localStorage.removeItem("gmo_onair_user");
-      }
+  const fetchPermissions = useCallback(async () => {
+    try {
+      const res = await api.get("/users/me/permissions");
+      setPermissions(res.data.data || {});
+    } catch {
+      setPermissions({});
+    } finally {
+      setPermissionsLoaded(true);
     }
-    setLoading(false);
-  }, [setCurrentUserId]);
+  }, []);
+
+  useEffect(() => {
+    const init = async () => {
+      // If we have a JWT token, validate via /auth/me
+      const token = localStorage.getItem("gmo_onair_token");
+      if (token) {
+        try {
+          const res = await api.get("/auth/me");
+          const user = res.data.data;
+          setCurrentUser(user);
+          setCurrentUserId(user.id);
+          localStorage.setItem("gmo_onair_user", JSON.stringify(user));
+          await fetchPermissions();
+          setLoading(false);
+          return;
+        } catch {
+          localStorage.removeItem("gmo_onair_token");
+          localStorage.removeItem("gmo_onair_user");
+        }
+      }
+
+      // Fallback: mock mode — restore from localStorage
+      const stored = localStorage.getItem("gmo_onair_user");
+      if (stored) {
+        try {
+          const user = JSON.parse(stored);
+          setCurrentUser(user);
+          setCurrentUserId(user.id);
+          fetchPermissions();
+        } catch {
+          localStorage.removeItem("gmo_onair_user");
+          setPermissionsLoaded(true);
+        }
+      } else {
+        setPermissionsLoaded(true);
+      }
+      setLoading(false);
+    };
+    init();
+  }, [setCurrentUserId, fetchPermissions]);
 
   const login = useCallback(
     async (userId: string) => {
@@ -46,15 +145,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setCurrentUser(user);
       setCurrentUserId(user.id);
       localStorage.setItem("gmo_onair_user", JSON.stringify(user));
+      await fetchPermissions();
     },
-    [setCurrentUserId]
+    [setCurrentUserId, fetchPermissions]
+  );
+
+  /** OAuth callback login: store token and fetch user from /auth/me */
+  const loginWithToken = useCallback(
+    async (token: string) => {
+      localStorage.setItem("gmo_onair_token", token);
+      const res = await api.get("/auth/me");
+      const user = res.data.data;
+      setCurrentUser(user);
+      setCurrentUserId(user.id);
+      localStorage.setItem("gmo_onair_user", JSON.stringify(user));
+      await fetchPermissions();
+    },
+    [setCurrentUserId, fetchPermissions]
   );
 
   const logout = useCallback(() => {
     setCurrentUser(null);
+    setPermissions({});
+    setPermissionsLoaded(false);
     setCurrentUserId(null);
     localStorage.removeItem("gmo_onair_user");
+    localStorage.removeItem("gmo_onair_token");
+    api.post("/auth/logout").catch(() => {});
   }, [setCurrentUserId]);
+
+  const hasPermission = useCallback(
+    (module: string, minLevel: "reader" | "exporter" | "editor" | "manager" | "owner" = "reader") => {
+      if (!currentUser) return false;
+      // system_admin は全権限
+      if (currentUser.role === "system_admin") return true;
+      // _all は全モジュールアクセス（サーバー側で返す場合）
+      if (permissions._all) return (LEVEL_ORDER[permissions._all] || 0) >= LEVEL_ORDER[minLevel];
+      const userLevel = permissions[module];
+      if (!userLevel) return false;
+      return (LEVEL_ORDER[userLevel] || 0) >= LEVEL_ORDER[minLevel];
+    },
+    [currentUser, permissions]
+  );
 
   return (
     <AuthContext.Provider
@@ -62,8 +194,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         currentUser,
         isAuthenticated: !!currentUser,
         login,
+        loginWithToken,
         logout,
         loading,
+        permissionsLoaded,
+        permissions,
+        hasPermission,
       }}
     >
       {children}

@@ -138,7 +138,7 @@ export default function ProjectFormPage() {
       if (isEdit) {
         qc.invalidateQueries({ queryKey: ["project", id] });
       }
-      navigate(`/projects/${result.id}`);
+      navigate(`/sales/projects/${result.id}`);
     },
   });
 
@@ -222,7 +222,7 @@ export default function ProjectFormPage() {
     <PageTransition>
     <div className="mx-auto max-w-3xl space-y-4 lg:space-y-6 p-3 lg:p-6">
       <div className="flex items-center gap-4 flex-wrap">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/projects")}>
+        <Button variant="ghost" size="icon" onClick={() => navigate("/sales/projects")}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-xl lg:text-2xl font-bold">{isEdit ? "案件編集" : "新規案件作成"}</h1>
@@ -326,7 +326,7 @@ export default function ProjectFormPage() {
                 <p className="text-xs text-orange-600">提案用の概算見積を作成できます。GLS発番時に確定売上へ自動変換されます。</p>
               </div>
             </div>
-            <Button size="sm" variant="outline" className="border-orange-300 text-orange-700 hover:bg-orange-100" onClick={() => navigate(`/projects/${id}/estimates`)}>
+            <Button size="sm" variant="outline" className="border-orange-300 text-orange-700 hover:bg-orange-100" onClick={() => navigate(`/sales/projects/${id}/estimates`)}>
               <ExternalLink className="mr-2 h-4 w-4" />
               概算見積作成
             </Button>
@@ -346,7 +346,7 @@ export default function ProjectFormPage() {
                 {currentStage === 's_completed' && ' (S 案件終了)'}
               </span>
             </div>
-            <Button size="sm" onClick={() => navigate(`/projects/${id}/episodes`)}>
+            <Button size="sm" onClick={() => navigate(`/sales/projects/${id}/episodes`)}>
               <ExternalLink className="mr-2 h-4 w-4" />
               見積・売上管理
             </Button>
@@ -497,7 +497,7 @@ export default function ProjectFormPage() {
         </Card>
 
         <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={() => navigate("/projects")}>キャンセル</Button>
+          <Button type="button" variant="outline" onClick={() => navigate("/sales/projects")}>キャンセル</Button>
           <Button type="submit" disabled={saveMutation.isPending}>
             {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             <Save className="mr-2 h-4 w-4" />
@@ -648,7 +648,7 @@ export default function ProjectFormPage() {
               <Button variant="outline" onClick={() => { setGlsResult(null); }}>
                 閉じる
               </Button>
-              <Button onClick={() => { setGlsResult(null); navigate(`/projects/${id}/episodes`); }}>
+              <Button onClick={() => { setGlsResult(null); navigate(`/sales/projects/${id}/episodes`); }}>
                   <ExternalLink className="mr-2 h-4 w-4" />
                   見積・売上管理へ
               </Button>
