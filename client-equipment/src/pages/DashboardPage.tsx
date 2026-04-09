@@ -74,7 +74,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6 p-4 lg:p-6">
       <div>
-        <h1 className="text-xl lg:text-2xl font-bold">ダッシュボード</h1>
+        <h1 className="heading-page text-xl lg:text-2xl">ダッシュボード</h1>
         <p className="text-sm text-muted-foreground">機材管理の概況</p>
       </div>
 

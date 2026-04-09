@@ -93,7 +93,7 @@ export default function DashboardPage() {
     }
   }, [projectFilter]);
 
-  const { data: documents, isLoading } = useQuery({
+  const { data: documents, isLoading, isError } = useQuery({
     queryKey: ["qsheet-documents", search, projectFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -102,6 +102,7 @@ export default function DashboardPage() {
       const res = await api.get(`/qsheet/documents?${params}`);
       return res.data.data as QsheetDocument[];
     },
+    retry: false,
   });
 
   // GLS project list for selector
@@ -260,6 +261,10 @@ export default function DashboardPage() {
       {isLoading ? (
         <div className="flex justify-center py-24">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : isError ? (
+        <div className="flex justify-center py-24">
+          <p className="text-sm text-muted-foreground">データを取得できませんでした。サーバー接続を確認してください。</p>
         </div>
       ) : documents && documents.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

@@ -87,9 +87,16 @@ interface QsheetDocument {
 // ============================================================
 // Helpers
 // ============================================================
+const genId = () => {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    try { return crypto.randomUUID(); } catch { /* insecure context fallback */ }
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+};
+
 const emptyRow = (blocks: Block[]): CueRow => {
   const row: CueRow = {
-    id: crypto.randomUUID(),
+    id: genId(),
     label: "",
     duration: 30,
   };
@@ -98,7 +105,7 @@ const emptyRow = (blocks: Block[]): CueRow => {
 };
 
 const emptySection = (blocks: Block[]): Section => ({
-  id: crypto.randomUUID(),
+  id: genId(),
   label: "新規セクション",
   rows: [emptyRow(blocks)],
 });
