@@ -1,28 +1,30 @@
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   Plus,
-  Trash2,
-  GripVertical,
-  Columns,
-  Users,
-  Video,
-  Music,
-  Type,
-  Search,
-  FileText,
-  Link2,
   X,
+  GripVertical,
+  ChevronDown,
+  ChevronRight,
+  User,
+  Video,
+  Type,
+  Mic,
+  Layout,
+  FileText,
+  Image,
+  Download,
+  Upload,
+  FileSpreadsheet,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 
+// ─── Types ──────────────────────────────────────────────
 interface Block {
   id: string;
   type: string;
   label: string;
-  width: number;
+  width: string | number;
 }
 
 interface Masters {
@@ -30,14 +32,6 @@ interface Masters {
   video: string[];
   audio: string[];
   telop: string[];
-}
-
-interface Episode {
-  id: string;
-  episode_code: string;
-  title: string;
-  broadcast_date: string | null;
-  project_name: string | null;
 }
 
 interface Props {
@@ -48,336 +42,356 @@ interface Props {
     draft: string;
     startTime?: string;
     broadcastDate?: string;
+    rehearsalDate?: string;
     location?: string;
     author?: string;
   };
+  stageTemplates?: any[];
   episodeId: string | null;
   onBlocksChange: (blocks: Block[]) => void;
   onMastersChange: (masters: Masters) => void;
   onMetaChange: (meta: Props["meta"]) => void;
   onEpisodeChange: (episodeId: string | null, episodeCode: string | null) => void;
+  onShowImport?: () => void;
+  onExportExcel?: () => void;
+  onEditStageTemplate?: (idx: number) => void;
 }
 
+// ─── Block type config ──────────────────────────────────
 const BLOCK_TYPES = [
-  { type: "scenario", label: "台本", icon: FileText, color: "text-slate-700" },
-  { type: "video", label: "映像", icon: Video, color: "text-blue-600" },
-  { type: "audio", label: "音声", icon: Music, color: "text-green-600" },
-  { type: "telop", label: "テロップ", icon: Type, color: "text-purple-600" },
-  { type: "item", label: "小道具", icon: Columns, color: "text-green-700" },
-  { type: "remarks", label: "備考", icon: FileText, color: "text-gray-500" },
+  { type: "scenario", label: "シナリオ", Icon: User, color: "bg-blue-600" },
+  { type: "video", label: "映像", Icon: Video, color: "bg-indigo-600" },
+  { type: "slide", label: "スライド", Icon: Image, color: "bg-cyan-600" },
+  { type: "telop", label: "テロップ", Icon: Type, color: "bg-purple-600" },
+  { type: "audio", label: "オーディオ", Icon: Mic, color: "bg-rose-600" },
+  { type: "stage_diagram", label: "立ち位置図", Icon: Layout, color: "bg-amber-600" },
+  { type: "remarks", label: "備考", Icon: FileText, color: "bg-zinc-500" },
+  { type: "item", label: "小道具", Icon: FileText, color: "bg-green-600" },
 ];
 
+const MASTER_SECTIONS = [
+  { key: "persons" as const, label: "人物", color: "bg-slate-700 text-white" },
+  { key: "video" as const, label: "映像", color: "bg-blue-700 text-white" },
+  { key: "audio" as const, label: "音声", color: "bg-rose-700 text-white" },
+  { key: "telop" as const, label: "テロップ", color: "bg-purple-700 text-white" },
+];
+
+// ─── CollapsibleSection ─────────────────────────────────
+function CollapsibleSection({
+  title,
+  defaultOpen = true,
+  action,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border-b border-zinc-100 dark:border-zinc-800/60">
+      <div className="flex items-center px-4 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
+        <div
+          onClick={() => setOpen(!open)}
+          className="flex items-center gap-1.5 flex-1 cursor-pointer text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider select-none"
+        >
+          {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          <span>{title}</span>
+        </div>
+        {action}
+      </div>
+      {open && <div className="px-4 pb-3 animate-in">{children}</div>}
+    </div>
+  );
+}
+
+// ─── MasterSection ──────────────────────────────────────
+function MasterSection({
+  label,
+  color,
+  items,
+  onAdd,
+  onRemove,
+}: {
+  label: string;
+  color: string;
+  items: string[];
+  onAdd: (val: string) => void;
+  onRemove: (idx: number) => void;
+}) {
+  const [input, setInput] = useState("");
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && input.trim()) {
+      onAdd(input.trim());
+      setInput("");
+    }
+  };
+  return (
+    <div className="mb-3 last:mb-0">
+      <div className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">{label}</div>
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        {items.map((item, i) => (
+          <span key={i} className={`group inline-flex items-center gap-1 px-2.5 py-1 ${color} rounded-md text-[11px] font-bold tracking-wide transition-all hover:opacity-80`}>
+            <span className="font-mono">{item}</span>
+            <button onClick={() => onRemove(i)} className="opacity-0 group-hover:opacity-100 -mr-0.5 hover:text-red-300 transition-all">
+              <X size={10} />
+            </button>
+          </span>
+        ))}
+        {items.length === 0 && <span className="text-[11px] text-zinc-300 dark:text-zinc-600 italic">未登録</span>}
+      </div>
+      <input
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder={`${label}を追加 (Enter)`}
+        className="w-full px-2.5 py-1.5 text-[12px] bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-md outline-none focus:border-blue-400 focus:bg-white dark:focus:bg-zinc-800 dark:focus:border-blue-600 placeholder:text-zinc-300 dark:placeholder:text-zinc-600 transition-all"
+      />
+    </div>
+  );
+}
+
+// ─── EditorSidebar ──────────────────────────────────────
 export default function EditorSidebar({
   blocks,
   masters,
   meta,
-  episodeId,
+  stageTemplates,
   onBlocksChange,
   onMastersChange,
   onMetaChange,
-  onEpisodeChange,
+  onShowImport,
+  onExportExcel,
+  onEditStageTemplate,
 }: Props) {
-  const [activeTab, setActiveTab] = useState<"blocks" | "masters" | "meta" | "link">("blocks");
-  const [episodeSearch, setEpisodeSearch] = useState("");
-  const [episodeResults, setEpisodeResults] = useState<Episode[]>([]);
-  const [newMasterValue, setNewMasterValue] = useState("");
+  const [showBlockPicker, setShowBlockPicker] = useState(false);
+  const [draggedBlkId, setDraggedBlkId] = useState<string | null>(null);
+  const [dropTargetBlkId, setDropTargetBlkId] = useState<string | null>(null);
 
   const addBlock = (type: string) => {
-    const bt = BLOCK_TYPES.find((b) => b.type === type);
+    const info = BLOCK_TYPES.find((b) => b.type === type);
     onBlocksChange([
       ...blocks,
-      { id: `${type}_${Date.now()}`, type, label: bt?.label || type, width: 150 },
+      { id: `blk_${Date.now()}`, type, label: info?.label || type, width: type === "scenario" ? "L" : "M" },
     ]);
+    setShowBlockPicker(false);
   };
 
-  const removeBlock = (id: string) => {
-    onBlocksChange(blocks.filter((b) => b.id !== id));
-  };
-
-  const moveBlock = (idx: number, direction: -1 | 1) => {
+  const removeBlock = (idx: number) => {
+    if (!confirm("この列を削除しますか？")) return;
     const newBlocks = [...blocks];
-    const target = idx + direction;
-    if (target < 0 || target >= newBlocks.length) return;
-    [newBlocks[idx], newBlocks[target]] = [newBlocks[target], newBlocks[idx]];
+    newBlocks.splice(idx, 1);
     onBlocksChange(newBlocks);
   };
 
-  const addMaster = (category: keyof Masters) => {
-    if (!newMasterValue.trim()) return;
-    if (masters[category].includes(newMasterValue.trim())) return;
+  const addMasterItem = (key: keyof Masters, val: string) => {
+    if (masters[key]?.includes(val)) return;
     onMastersChange({
       ...masters,
-      [category]: [...masters[category], newMasterValue.trim()],
-    });
-    setNewMasterValue("");
-  };
-
-  const removeMaster = (category: keyof Masters, value: string) => {
-    onMastersChange({
-      ...masters,
-      [category]: masters[category].filter((v) => v !== value),
+      [key]: [...(masters[key] || []), val],
     });
   };
 
-  const searchEpisodes = async () => {
-    if (!episodeSearch.trim()) return;
-    try {
-      const res = await fetch(`/api/v1/internal/qsheet/episodes?search=${encodeURIComponent(episodeSearch)}`);
-      const json = await res.json();
-      setEpisodeResults(json.data || []);
-    } catch {
-      setEpisodeResults([]);
-    }
+  const removeMasterItem = (key: keyof Masters, idx: number) => {
+    onMastersChange({
+      ...masters,
+      [key]: masters[key].filter((_, i) => i !== idx),
+    });
   };
-
-  const tabs = [
-    { key: "blocks" as const, label: "ブロック", icon: Columns },
-    { key: "masters" as const, label: "マスター", icon: Users },
-    { key: "meta" as const, label: "情報", icon: FileText },
-    { key: "link" as const, label: "連携", icon: Link2 },
-  ];
 
   return (
-    <div className="w-72 border-l bg-white flex flex-col overflow-hidden">
-      {/* Tabs */}
-      <div className="flex border-b">
-        {tabs.map((tab) => (
+    <aside className="w-60 flex-none border-r border-zinc-200/60 dark:border-zinc-800/60 bg-white/50 dark:bg-zinc-900/50 overflow-y-auto backdrop-blur-sm">
+      {/* Columns */}
+      <CollapsibleSection
+        title="列"
+        action={
           <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex-1 flex flex-col items-center gap-0.5 py-2 text-xs font-medium transition-colors ${
-              activeTab === tab.key
-                ? "text-primary border-b-2 border-primary"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
+            onClick={() => setShowBlockPicker(!showBlockPicker)}
+            className="w-5 h-5 rounded-md flex items-center justify-center text-zinc-400 hover:bg-blue-100 hover:text-blue-600 dark:hover:bg-blue-950/40 dark:hover:text-blue-400 transition-colors"
           >
-            <tab.icon className="h-3.5 w-3.5" />
-            {tab.label}
+            <Plus size={12} />
           </button>
-        ))}
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-3 space-y-4">
-        {/* Blocks tab */}
-        {activeTab === "blocks" && (
-          <>
-            <div className="space-y-1">
-              {blocks.map((block, idx) => (
-                <div key={block.id} className="flex items-center gap-1 bg-slate-50 rounded px-2 py-1.5">
-                  <GripVertical className="h-3 w-3 text-muted-foreground/50 cursor-grab shrink-0" />
-                  <span className="text-xs flex-1 truncate">{block.label}</span>
-                  <button
-                    className="text-muted-foreground hover:text-foreground p-0.5"
-                    onClick={() => moveBlock(idx, -1)}
-                    disabled={idx === 0}
-                  >
-                    <span className="text-[10px]">▲</span>
-                  </button>
-                  <button
-                    className="text-muted-foreground hover:text-foreground p-0.5"
-                    onClick={() => moveBlock(idx, 1)}
-                    disabled={idx === blocks.length - 1}
-                  >
-                    <span className="text-[10px]">▼</span>
-                  </button>
-                  <button
-                    className="text-muted-foreground hover:text-destructive p-0.5"
-                    onClick={() => removeBlock(block.id)}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground mb-2">ブロック追加:</p>
-              <div className="flex flex-wrap gap-1">
-                {BLOCK_TYPES.map((bt) => (
-                  <Button
-                    key={bt.type}
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs gap-1"
-                    onClick={() => addBlock(bt.type)}
-                  >
-                    <Plus className="h-3 w-3" />
-                    {bt.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          </>
+        }
+      >
+        {showBlockPicker && (
+          <div className="mb-2 p-1.5 bg-zinc-50 dark:bg-zinc-800/80 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm animate-scale-in">
+            {BLOCK_TYPES.map((bt) => (
+              <button
+                key={bt.type}
+                onClick={() => addBlock(bt.type)}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] rounded-md hover:bg-white dark:hover:bg-zinc-700 transition-colors text-left"
+              >
+                <span className={`w-5 h-5 rounded flex items-center justify-center text-white ${bt.color}`}>
+                  <bt.Icon size={12} />
+                </span>
+                <span className="font-medium">{bt.label}</span>
+              </button>
+            ))}
+          </div>
         )}
 
-        {/* Masters tab */}
-        {activeTab === "masters" && (
-          <>
-            {(["persons", "video", "audio", "telop"] as const).map((cat) => {
-              const labels = { persons: "出演者", video: "映像素材", audio: "音声素材", telop: "テロップ" };
-              const icons = { persons: Users, video: Video, audio: Music, telop: Type };
-              const Icon = icons[cat];
-              return (
-                <div key={cat}>
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-xs font-medium">{labels[cat]}</span>
-                    <Badge variant="secondary" className="text-[10px] ml-auto">
-                      {masters[cat].length}
-                    </Badge>
-                  </div>
-                  <div className="flex flex-wrap gap-1 mb-2">
-                    {masters[cat].map((val) => (
-                      <span
-                        key={val}
-                        className="inline-flex items-center gap-1 bg-slate-100 rounded px-2 py-0.5 text-xs"
-                      >
-                        {val}
-                        <button
-                          className="text-muted-foreground hover:text-destructive"
-                          onClick={() => removeMaster(cat, val)}
-                        >
-                          <X className="h-2.5 w-2.5" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                  <div className="flex gap-1">
-                    <Input
-                      className="h-7 text-xs flex-1"
-                      placeholder="追加..."
-                      value={newMasterValue}
-                      onChange={(e) => setNewMasterValue(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && addMaster(cat)}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      onClick={() => addMaster(cat)}
-                    >
-                      <Plus className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-          </>
-        )}
-
-        {/* Meta tab */}
-        {activeTab === "meta" && (
-          <>
-            <div>
-              <Label className="text-xs">稿の種類</Label>
-              <Input
-                className="h-8 text-xs mt-1"
-                value={meta.draft}
-                onChange={(e) => onMetaChange({ ...meta, draft: e.target.value })}
-                placeholder="準備稿 / 決定稿"
-              />
-            </div>
-            <div>
-              <Label className="text-xs">放送開始時刻</Label>
-              <Input
-                className="h-8 text-xs mt-1"
-                value={meta.startTime || ""}
-                onChange={(e) => onMetaChange({ ...meta, startTime: e.target.value })}
-                placeholder="19:00:00"
-              />
-            </div>
-            <div>
-              <Label className="text-xs">放送日</Label>
-              <Input
-                className="h-8 text-xs mt-1"
-                type="date"
-                value={meta.broadcastDate || ""}
-                onChange={(e) => onMetaChange({ ...meta, broadcastDate: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label className="text-xs">収録場所</Label>
-              <Input
-                className="h-8 text-xs mt-1"
-                value={meta.location || ""}
-                onChange={(e) => onMetaChange({ ...meta, location: e.target.value })}
-                placeholder="スタジオA"
-              />
-            </div>
-            <div>
-              <Label className="text-xs">作成者</Label>
-              <Input
-                className="h-8 text-xs mt-1"
-                value={meta.author || ""}
-                onChange={(e) => onMetaChange({ ...meta, author: e.target.value })}
-              />
-            </div>
-          </>
-        )}
-
-        {/* Link tab (episode linking) */}
-        {activeTab === "link" && (
-          <>
-            <div>
-              <Label className="text-xs">ONAiR エピソード連携</Label>
-              {episodeId ? (
-                <div className="mt-2 p-2 bg-primary/5 rounded border border-primary/20">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-primary">連携中</span>
-                    <button
-                      className="text-muted-foreground hover:text-destructive"
-                      onClick={() => onEpisodeChange(null, null)}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">ID: {episodeId}</p>
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground mt-1">未連携</p>
-              )}
-            </div>
-            <div>
-              <div className="flex gap-1">
-                <Input
-                  className="h-8 text-xs flex-1"
-                  placeholder="エピソード検索..."
-                  value={episodeSearch}
-                  onChange={(e) => setEpisodeSearch(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && searchEpisodes()}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={searchEpisodes}
+        <div className="space-y-0.5">
+          {blocks.map((blk, idx) => {
+            const bt = BLOCK_TYPES.find((b) => b.type === blk.type);
+            const isDragTarget = dropTargetBlkId === blk.id && draggedBlkId && draggedBlkId !== blk.id;
+            return (
+              <div
+                key={blk.id}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData("text/x-block-id", blk.id);
+                  e.dataTransfer.effectAllowed = "move";
+                  setDraggedBlkId(blk.id);
+                }}
+                onDragOver={(e) => {
+                  if (!e.dataTransfer.types.includes("text/x-block-id")) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  setDropTargetBlkId(blk.id);
+                }}
+                onDragLeave={() => setDropTargetBlkId(null)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const fromId = e.dataTransfer.getData("text/x-block-id");
+                  if (!fromId || fromId === blk.id) return;
+                  const newBlocks = [...blocks];
+                  const fromIdx = newBlocks.findIndex((b) => b.id === fromId);
+                  const toIdx = newBlocks.findIndex((b) => b.id === blk.id);
+                  if (fromIdx < 0 || toIdx < 0) return;
+                  const [moved] = newBlocks.splice(fromIdx, 1);
+                  newBlocks.splice(toIdx, 0, moved);
+                  onBlocksChange(newBlocks);
+                  setDraggedBlkId(null);
+                  setDropTargetBlkId(null);
+                }}
+                onDragEnd={() => { setDraggedBlkId(null); setDropTargetBlkId(null); }}
+                className={`group flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors cursor-grab select-none ${
+                  draggedBlkId === blk.id ? "opacity-40" : ""
+                } ${isDragTarget ? "border-t-2 border-blue-500" : ""}`}
+              >
+                <GripVertical size={11} className="text-zinc-300 dark:text-zinc-700 flex-none" />
+                <span className={`w-4 h-4 rounded flex items-center justify-center text-white flex-none ${bt?.color || "bg-zinc-400"}`}>
+                  {bt?.Icon ? <bt.Icon size={10} /> : null}
+                </span>
+                <span className="flex-1 text-[13px] truncate font-medium">{blk.label}</span>
+                <button
+                  onClick={() => removeBlock(idx)}
+                  className="opacity-0 group-hover:opacity-100 text-zinc-300 hover:text-red-500 transition-all flex-none"
                 >
-                  <Search className="h-3.5 w-3.5" />
-                </Button>
+                  <X size={11} />
+                </button>
               </div>
-              {episodeResults.length > 0 && (
-                <div className="mt-2 space-y-1 max-h-60 overflow-y-auto">
-                  {episodeResults.map((ep) => (
-                    <button
-                      key={ep.id}
-                      className="w-full text-left p-2 bg-slate-50 rounded hover:bg-slate-100 transition-colors"
-                      onClick={() => {
-                        onEpisodeChange(ep.id, ep.episode_code);
-                        setEpisodeResults([]);
-                        setEpisodeSearch("");
-                      }}
-                    >
-                      <div className="text-xs font-medium">{ep.title}</div>
-                      <div className="text-[10px] text-muted-foreground">
-                        {ep.episode_code} {ep.project_name && `| ${ep.project_name}`}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </>
+            );
+          })}
+        </div>
+      </CollapsibleSection>
+
+      {/* Master Data */}
+      <CollapsibleSection title="マスタデータ" defaultOpen={false}>
+        {MASTER_SECTIONS.map((ms) => (
+          <MasterSection
+            key={ms.key}
+            label={ms.label}
+            color={ms.color}
+            items={masters?.[ms.key] || []}
+            onAdd={(val) => addMasterItem(ms.key, val)}
+            onRemove={(idx) => removeMasterItem(ms.key, idx)}
+          />
+        ))}
+      </CollapsibleSection>
+
+      {/* Stage Templates */}
+      <CollapsibleSection
+        title="立ち位置図"
+        defaultOpen={false}
+        action={
+          <button
+            onClick={() => onEditStageTemplate?.(-1)}
+            className="w-5 h-5 rounded-md flex items-center justify-center text-zinc-400 hover:bg-amber-100 hover:text-amber-600 dark:hover:bg-amber-950/40 dark:hover:text-amber-400 transition-colors"
+          >
+            <Plus size={12} />
+          </button>
+        }
+      >
+        {(stageTemplates || []).length === 0 ? (
+          <p className="text-[12px] text-zinc-400 italic">テンプレートなし</p>
+        ) : (
+          <div className="space-y-0.5">
+            {(stageTemplates || []).map((t: any, i: number) => (
+              <div key={i} className="group flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors">
+                <span className="text-sm flex-none">🎭</span>
+                <span className="flex-1 truncate font-medium cursor-pointer" onClick={() => onEditStageTemplate?.(i)}>{t.name}</span>
+                <button onClick={() => onEditStageTemplate?.(i)} className="opacity-0 group-hover:opacity-100 text-zinc-300 hover:text-blue-500 transition-all flex-none">
+                  <Pencil size={11} />
+                </button>
+                <button
+                  onClick={() => {
+                    if (!confirm("この立ち位置図を削除しますか？")) return;
+                    // Handled by parent
+                  }}
+                  className="opacity-0 group-hover:opacity-100 text-zinc-300 hover:text-red-500 transition-all flex-none"
+                >
+                  <Trash2 size={11} />
+                </button>
+              </div>
+            ))}
+          </div>
         )}
-      </div>
-    </div>
+      </CollapsibleSection>
+
+      {/* Meta / Details */}
+      <CollapsibleSection title="詳細" defaultOpen={false}>
+        <div className="space-y-2.5">
+          <label className="block">
+            <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">リハーサル日</span>
+            <input
+              type="date"
+              value={meta?.rehearsalDate || ""}
+              onChange={(e) => onMetaChange({ ...meta, rehearsalDate: e.target.value })}
+              className="mt-1 w-full px-2.5 py-1.5 text-[13px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
+            />
+          </label>
+          <label className="block">
+            <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">撮影場所</span>
+            <input
+              type="text"
+              value={meta?.location || ""}
+              onChange={(e) => onMetaChange({ ...meta, location: e.target.value })}
+              className="mt-1 w-full px-2.5 py-1.5 text-[13px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
+            />
+          </label>
+          <label className="block">
+            <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">作成者</span>
+            <input
+              type="text"
+              value={meta?.author || ""}
+              onChange={(e) => onMetaChange({ ...meta, author: e.target.value })}
+              className="mt-1 w-full px-2.5 py-1.5 text-[13px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
+            />
+          </label>
+        </div>
+      </CollapsibleSection>
+
+      {/* Excel I/O */}
+      <CollapsibleSection title="Excel入出力" defaultOpen={false}>
+        <div className="space-y-1.5">
+          <button
+            onClick={onExportExcel}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] rounded-lg hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors text-left"
+          >
+            <FileSpreadsheet size={14} className="text-blue-600 flex-none" />
+            <span className="font-medium">現在の台本をExcel出力</span>
+          </button>
+          <button
+            onClick={onShowImport}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] rounded-lg hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors text-left"
+          >
+            <Upload size={14} className="text-amber-600 flex-none" />
+            <span className="font-medium">Excelから読み込み</span>
+          </button>
+        </div>
+      </CollapsibleSection>
+    </aside>
   );
 }

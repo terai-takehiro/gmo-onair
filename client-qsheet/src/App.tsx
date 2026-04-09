@@ -1,6 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import AppShell from "@/components/layout/AppShell";
 import LoginPage from "@/pages/LoginPage";
 import DashboardPage from "@/pages/DashboardPage";
 import EditorPage from "@/pages/EditorPage";
@@ -29,44 +28,13 @@ export default function App() {
         path="/qsheet/login"
         element={isAuthenticated ? <Navigate to="/qsheet" replace /> : <LoginPage />}
       />
-      {/* ON AIR page: full screen, no sidebar */}
-      <Route
-        path="/qsheet/onair/:id"
-        element={
-          <ProtectedRoute>
-            <OnAirPage />
-          </ProtectedRoute>
-        }
-      />
-      {/* Rundown page: full screen, no sidebar */}
-      <Route
-        path="/qsheet/rundown/:id"
-        element={
-          <ProtectedRoute>
-            <RundownPage />
-          </ProtectedRoute>
-        }
-      />
-      {/* Prompter page: full screen teleprompter */}
-      <Route
-        path="/qsheet/prompter/:id"
-        element={
-          <ProtectedRoute>
-            <PrompterPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        element={
-          <ProtectedRoute>
-            <AppShell />
-          </ProtectedRoute>
-        }
-      >
-        <Route path="/qsheet" element={<DashboardPage />} />
-        <Route path="/qsheet/editor" element={<DashboardPage />} />
-        <Route path="/qsheet/editor/:id" element={<EditorPage />} />
-      </Route>
+      {/* All pages render directly — no AppShell wrapper (matches original) */}
+      <Route path="/qsheet" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+      <Route path="/qsheet/editor" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+      <Route path="/qsheet/editor/:id" element={<ProtectedRoute><EditorPage /></ProtectedRoute>} />
+      <Route path="/qsheet/onair/:id" element={<ProtectedRoute><OnAirPage /></ProtectedRoute>} />
+      <Route path="/qsheet/rundown/:id" element={<ProtectedRoute><RundownPage /></ProtectedRoute>} />
+      <Route path="/qsheet/prompter/:id" element={<ProtectedRoute><PrompterPage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/qsheet" replace />} />
     </Routes>
   );
