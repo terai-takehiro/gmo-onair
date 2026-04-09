@@ -35,6 +35,7 @@ export function AppShell() {
               <LayoutDashboard className="h-3 w-3" />
               ONAiR
             </a>
+            <span className="hidden sm:inline text-[10px] text-muted-foreground/50">v0.7.0</span>
             <span className="text-sm text-muted-foreground">{user?.name}</span>
             <Button variant="ghost" size="icon" onClick={handleLogout} title="ログアウト">
               <LogOut className="h-4 w-4" />
