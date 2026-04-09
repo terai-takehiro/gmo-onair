@@ -14,7 +14,7 @@ const config: Config = {
     },
     extend: {
       fontFamily: {
-        sans: ['"Noto Sans JP"', 'sans-serif'],
+        sans: ['"Oswald"', '"Noto Sans JP"', '-apple-system', 'sans-serif'],
         serif: ['"Noto Serif JP"', 'Georgia', 'serif'],
         mono: ['"Oswald"', 'sans-serif'],
         number: ['"Oswald"', 'sans-serif'],
