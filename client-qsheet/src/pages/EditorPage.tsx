@@ -450,29 +450,29 @@ export default function EditorPage() {
                 }
 
                 return (
-                  <div key={section.id} className="border rounded-lg overflow-hidden">
-                    {/* Section header */}
-                    <div className="flex items-center gap-1 bg-slate-50 px-3 py-1.5 border-b">
+                  <div key={section.id} className="border border-blue-200 rounded-lg overflow-hidden shadow-sm">
+                    {/* Section header — blue gradient */}
+                    <div className="flex items-center gap-1 bg-gradient-to-r from-blue-600 to-blue-500 px-3 py-1.5">
                       <div className="flex flex-col">
-                        <button className="text-muted-foreground/50 hover:text-muted-foreground leading-none" onClick={() => moveSection(sIdx, -1)}>
+                        <button className="text-blue-200/60 hover:text-white leading-none" onClick={() => moveSection(sIdx, -1)}>
                           <ChevronUp className="h-3 w-3" />
                         </button>
-                        <button className="text-muted-foreground/50 hover:text-muted-foreground leading-none" onClick={() => moveSection(sIdx, 1)}>
+                        <button className="text-blue-200/60 hover:text-white leading-none" onClick={() => moveSection(sIdx, 1)}>
                           <ChevronDown className="h-3 w-3" />
                         </button>
                       </div>
                       <button onClick={() => toggleSection(section.id)} className="p-0.5">
-                        <GripVertical className="h-4 w-4 text-muted-foreground/50" />
+                        <GripVertical className="h-4 w-4 text-blue-200/60" />
                       </button>
                       <Input
-                        className="h-7 max-w-[180px] text-sm font-semibold border-none shadow-none bg-transparent focus-visible:ring-0 px-1"
+                        className="h-7 max-w-[180px] text-sm font-semibold border-none shadow-none bg-transparent focus-visible:ring-0 px-1 text-white placeholder:text-blue-200"
                         value={section.label}
                         onChange={(e) => updateSectionLabel(section.id, e.target.value)}
                       />
-                      <span className="text-xs text-muted-foreground font-number ml-auto">
+                      <span className="text-xs text-blue-100/70 font-number ml-auto">
                         {section.rows.length} キュー
                       </span>
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive" onClick={() => deleteSection(section.id)}>
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-blue-200/60 hover:text-white hover:bg-blue-700/50" onClick={() => deleteSection(section.id)}>
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
