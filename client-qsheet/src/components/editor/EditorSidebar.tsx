@@ -63,6 +63,7 @@ const BLOCK_TYPES = [
   { type: "video", label: "映像", icon: Video, color: "text-blue-600" },
   { type: "audio", label: "音声", icon: Music, color: "text-green-600" },
   { type: "telop", label: "テロップ", icon: Type, color: "text-purple-600" },
+  { type: "item", label: "小道具", icon: Columns, color: "text-green-700" },
   { type: "remarks", label: "備考", icon: FileText, color: "text-gray-500" },
 ];
 

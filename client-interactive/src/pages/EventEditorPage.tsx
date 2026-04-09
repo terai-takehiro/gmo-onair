@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, GripVertical, Radio, Eye, QrCode, Copy, Check, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, Trash2, GripVertical, Radio, Eye, QrCode, Copy, Check, ArrowUp, ArrowDown, Youtube, MessageSquare, Image } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,11 +12,18 @@ const ANIMATIONS = ['bounce', 'fade', 'slide', 'shake', 'pop', 'none'] as const;
 const PRESET_COLORS = ['#e11d48', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#6366f1', '#a855f7', '#ec4899'];
 const PRESET_EMOJI = ['👏', '❤️', '🎉', '😂', '👍', '🔥', '⭐', '🎵', '💪', '🙌', '😍', '🤩'];
 
+function getYoutubeEmbedId(url: string): string | null {
+  if (!url) return null;
+  const m = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
 export default function EventEditorPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [showQr, setShowQr] = useState(false);
 
   const { data: eventData, isLoading } = useQuery({
     queryKey: ['interactive-event', id],
@@ -58,11 +65,12 @@ export default function EventEditorPage() {
   const stamps = eventData.stamps || [];
   const audienceUrl = `${window.location.origin}/interactive/audience/${id}`;
   const overlayUrl = `${window.location.origin}/interactive/overlay/${id}`;
+  const qrUrl = `/api/v1/internal/interactive/events/${id}/qr`;
 
-  const handleCopyUrl = (url: string) => {
+  const handleCopy = (url: string, key: string) => {
     navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopied(key);
+    setTimeout(() => setCopied(null), 2000);
   };
 
   const moveStamp = (index: number, dir: -1 | 1) => {
@@ -75,43 +83,124 @@ export default function EventEditorPage() {
     });
   };
 
+  const embedId = getYoutubeEmbedId(eventData.youtube_url || '');
+
   return (
-    <div className="max-w-4xl mx-auto p-4 space-y-6">
-      {/* Event Info */}
+    <div className="max-w-4xl mx-auto p-4 space-y-6 pb-12">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold">{eventData.title}</h1>
+          <Badge variant={eventData.status === 'live' ? 'default' : 'secondary'} className="mt-1">
+            {eventData.status === 'draft' ? '下書き' : eventData.status === 'live' ? 'LIVE' : eventData.status === 'ended' ? '終了' : 'アーカイブ'}
+          </Badge>
+        </div>
+        <div className="flex gap-2">
+          {eventData.status === 'live' && (
+            <Button onClick={() => navigate(`/live/${id}`)}>
+              <Radio className="h-4 w-4 mr-1" />ライブ管理
+            </Button>
+          )}
+          {eventData.status === 'draft' && stamps.length > 0 && (
+            <Button onClick={() => startEvent.mutate()} disabled={startEvent.isPending}>
+              <Radio className="h-4 w-4 mr-1" />ライブ開始
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Basic Info */}
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>イベント設定</CardTitle>
-            <Badge variant={eventData.status === 'live' ? 'default' : 'secondary'}>
-              {eventData.status === 'draft' ? '下書き' : eventData.status === 'live' ? 'LIVE' : eventData.status}
-            </Badge>
-          </div>
-        </CardHeader>
+        <CardHeader><CardTitle>基本設定</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <label className="text-sm font-medium text-foreground">タイトル</label>
+            <label className="text-sm font-medium">タイトル</label>
             <Input
+              className="mt-1"
               defaultValue={eventData.title}
               onBlur={e => { if (e.target.value !== eventData.title) updateEvent.mutate({ title: e.target.value }); }}
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-foreground">説明</label>
+            <label className="text-sm font-medium">説明</label>
             <textarea
-              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[80px]"
+              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[72px]"
               defaultValue={eventData.description || ''}
               onBlur={e => updateEvent.mutate({ description: e.target.value })}
               placeholder="イベントの説明（任意）"
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-foreground">最大接続数</label>
+            <label className="text-sm font-medium">最大接続数</label>
             <Input
               type="number"
+              className="mt-1 max-w-[160px]"
               defaultValue={eventData.max_connections}
               onBlur={e => updateEvent.mutate({ max_connections: parseInt(e.target.value) })}
-              min={1}
-              max={10000}
+              min={1} max={10000}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Channel / Media Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Youtube className="h-5 w-5 text-red-500" />
+            配信設定（チャンネル情報）
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* YouTube URL */}
+          <div>
+            <label className="text-sm font-medium flex items-center gap-1">
+              <Youtube className="h-3.5 w-3.5 text-red-500" />YouTube URL
+            </label>
+            <Input
+              className="mt-1"
+              placeholder="https://www.youtube.com/watch?v=..."
+              defaultValue={eventData.youtube_url || ''}
+              onBlur={e => updateEvent.mutate({ youtube_url: e.target.value || null })}
+            />
+            {embedId && (
+              <div className="mt-2 aspect-video w-full max-w-sm rounded-lg overflow-hidden border">
+                <iframe
+                  src={`https://www.youtube.com/embed/${embedId}`}
+                  className="w-full h-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Banner URL */}
+          <div>
+            <label className="text-sm font-medium flex items-center gap-1">
+              <Image className="h-3.5 w-3.5" />バナー画像URL
+            </label>
+            <Input
+              className="mt-1"
+              placeholder="https://..."
+              defaultValue={eventData.banner_url || ''}
+              onBlur={e => updateEvent.mutate({ banner_url: e.target.value || null })}
+            />
+            {eventData.banner_url && (
+              <img src={eventData.banner_url} alt="バナー" className="mt-2 rounded-lg max-h-32 object-cover border" />
+            )}
+          </div>
+
+          {/* Admin Comment */}
+          <div>
+            <label className="text-sm font-medium flex items-center gap-1">
+              <MessageSquare className="h-3.5 w-3.5" />管理者コメント（視聴者ページに表示）
+            </label>
+            <textarea
+              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[72px]"
+              defaultValue={eventData.admin_comment || ''}
+              onBlur={e => updateEvent.mutate({ admin_comment: e.target.value || null })}
+              placeholder="視聴者へのメッセージ、注意事項など"
             />
           </div>
         </CardContent>
@@ -138,41 +227,41 @@ export default function EventEditorPage() {
         </CardHeader>
         <CardContent>
           {stamps.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">スタンプを追加してください</p>
+            <p className="text-sm text-muted-foreground text-center py-6">スタンプを追加してください</p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {stamps.map((stamp: any, i: number) => (
-                <div key={stamp.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                  <GripVertical className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                <div key={stamp.id} className="flex items-center gap-3 p-3 bg-muted/40 rounded-xl border">
+                  <GripVertical className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />
 
                   {/* Emoji picker */}
                   <div className="relative group">
                     <button
-                      className="text-2xl w-10 h-10 flex items-center justify-center rounded-lg border hover:bg-white transition"
-                      style={{ borderColor: stamp.color }}
+                      className="text-2xl w-10 h-10 flex items-center justify-center rounded-xl border-2 hover:bg-background transition"
+                      style={{ borderColor: stamp.color + '66' }}
                     >
                       {stamp.emoji || '👏'}
                     </button>
-                    <div className="absolute top-full left-0 mt-1 bg-white border rounded-lg shadow-lg p-2 grid grid-cols-6 gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition z-10">
+                    <div className="absolute top-full left-0 mt-1 bg-background border rounded-xl shadow-lg p-2 grid grid-cols-6 gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition z-10 min-w-max">
                       {PRESET_EMOJI.map(e => (
-                        <button key={e} className="text-xl p-1 hover:bg-gray-100 rounded" onClick={() => updateStamp.mutate({ stampId: stamp.id, data: { emoji: e } })}>{e}</button>
+                        <button key={e} className="text-xl p-1 hover:bg-muted rounded-lg" onClick={() => updateStamp.mutate({ stampId: stamp.id, data: { emoji: e } })}>{e}</button>
                       ))}
                     </div>
                   </div>
 
                   {/* Label */}
                   <Input
-                    className="flex-1 max-w-[180px]"
+                    className="flex-1 max-w-[160px] h-8 text-sm"
                     defaultValue={stamp.label}
                     onBlur={e => { if (e.target.value !== stamp.label) updateStamp.mutate({ stampId: stamp.id, data: { label: e.target.value } }); }}
                   />
 
-                  {/* Color */}
+                  {/* Color swatches */}
                   <div className="flex gap-1">
-                    {PRESET_COLORS.slice(0, 4).map(c => (
+                    {PRESET_COLORS.map(c => (
                       <button
                         key={c}
-                        className={`w-6 h-6 rounded-full border-2 transition ${stamp.color === c ? 'border-gray-900 scale-110' : 'border-transparent'}`}
+                        className={`w-5 h-5 rounded-full border-2 transition-transform ${stamp.color === c ? 'border-foreground scale-125' : 'border-transparent'}`}
                         style={{ background: c }}
                         onClick={() => updateStamp.mutate({ stampId: stamp.id, data: { color: c } })}
                       />
@@ -181,7 +270,7 @@ export default function EventEditorPage() {
 
                   {/* Animation */}
                   <select
-                    className="text-xs border rounded px-2 py-1"
+                    className="text-xs border border-input rounded-lg px-2 py-1 bg-background"
                     value={stamp.animation}
                     onChange={e => updateStamp.mutate({ stampId: stamp.id, data: { animation: e.target.value } })}
                   >
@@ -189,17 +278,17 @@ export default function EventEditorPage() {
                   </select>
 
                   {/* Reorder */}
-                  <div className="flex flex-col">
-                    <button className="p-0.5 hover:bg-gray-200 rounded disabled:opacity-30" disabled={i === 0} onClick={() => moveStamp(i, -1)}>
+                  <div className="flex flex-col gap-0.5">
+                    <button className="p-0.5 hover:bg-muted rounded disabled:opacity-30" disabled={i === 0} onClick={() => moveStamp(i, -1)}>
                       <ArrowUp className="h-3 w-3" />
                     </button>
-                    <button className="p-0.5 hover:bg-gray-200 rounded disabled:opacity-30" disabled={i === stamps.length - 1} onClick={() => moveStamp(i, 1)}>
+                    <button className="p-0.5 hover:bg-muted rounded disabled:opacity-30" disabled={i === stamps.length - 1} onClick={() => moveStamp(i, 1)}>
                       <ArrowDown className="h-3 w-3" />
                     </button>
                   </div>
 
                   {/* Delete */}
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => deleteStamp.mutate(stamp.id)}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deleteStamp.mutate(stamp.id)}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
@@ -209,48 +298,56 @@ export default function EventEditorPage() {
         </CardContent>
       </Card>
 
-      {/* URLs */}
+      {/* URLs & QR */}
       <Card>
-        <CardHeader><CardTitle>共有リンク</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <QrCode className="h-5 w-5" />共有リンク
+            </CardTitle>
+            <Button variant="outline" size="sm" onClick={() => setShowQr(!showQr)}>
+              <QrCode className="h-4 w-4 mr-1" />QRコード
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {showQr && (
+            <div className="flex flex-col items-center gap-3 p-4 bg-white border rounded-2xl">
+              <p className="text-sm font-medium text-muted-foreground">視聴者用QRコード</p>
+              <img src={qrUrl} alt="QR Code" className="w-48 h-48" />
+              <p className="text-xs text-muted-foreground break-all text-center max-w-xs">{audienceUrl}</p>
+            </div>
+          )}
+
           <div>
-            <label className="text-sm font-medium text-foreground flex items-center gap-1">
-              <QrCode className="h-3.5 w-3.5" /> 視聴者URL
-            </label>
+            <label className="text-sm font-medium text-muted-foreground">視聴者URL（スタンプ入力）</label>
             <div className="flex gap-2 mt-1">
-              <Input readOnly value={audienceUrl} className="text-xs" />
-              <Button variant="outline" size="sm" onClick={() => handleCopyUrl(audienceUrl)}>
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              <Input readOnly value={audienceUrl} className="text-xs font-mono" />
+              <Button variant="outline" size="sm" onClick={() => handleCopy(audienceUrl, 'audience')}>
+                {copied === 'audience' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>
           </div>
           <div>
-            <label className="text-sm font-medium text-foreground flex items-center gap-1">
-              <Eye className="h-3.5 w-3.5" /> オーバーレイURL (OBS)
+            <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+              <Eye className="h-3.5 w-3.5" />オーバーレイURL（OBS用）
             </label>
             <div className="flex gap-2 mt-1">
-              <Input readOnly value={overlayUrl} className="text-xs" />
-              <Button variant="outline" size="sm" onClick={() => handleCopyUrl(overlayUrl)}>
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              <Input readOnly value={overlayUrl} className="text-xs font-mono" />
+              <Button variant="outline" size="sm" onClick={() => handleCopy(overlayUrl, 'overlay')}>
+                {copied === 'overlay' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => window.open(overlayUrl, '_blank', 'noopener,noreferrer')}>
+                <Eye className="h-4 w-4" />
               </Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Actions */}
-      <div className="flex justify-between">
+      {/* Footer actions */}
+      <div className="flex justify-between pt-2">
         <Button variant="outline" onClick={() => navigate('/')}>戻る</Button>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => window.open(overlayUrl, '_blank', 'noopener,noreferrer')}>
-            <Eye className="h-4 w-4 mr-1" />プレビュー
-          </Button>
-          {eventData.status === 'draft' && stamps.length > 0 && (
-            <Button onClick={() => startEvent.mutate()} disabled={startEvent.isPending}>
-              <Radio className="h-4 w-4 mr-1" />ライブ開始
-            </Button>
-          )}
-        </div>
       </div>
     </div>
   );
