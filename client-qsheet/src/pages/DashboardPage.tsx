@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
@@ -12,13 +12,10 @@ import {
   Moon,
   X,
   Radio,
-  Pencil,
   MapPin,
   Calendar,
   Play,
   ChevronRight,
-  Check,
-  Loader2,
   Link2,
 } from "lucide-react";
 

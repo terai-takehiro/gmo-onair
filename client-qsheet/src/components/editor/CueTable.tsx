@@ -1,6 +1,5 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import {
-  Plus,
   ChevronDown,
   ChevronRight,
   GripVertical,
@@ -12,7 +11,6 @@ import {
   Layout,
   Image,
   FileText,
-  MoreHorizontal,
 } from "lucide-react";
 import SectionMenu from "./SectionMenu";
 
@@ -105,9 +103,6 @@ const SPEAKER_COLORS = [
 export default function CueTable({
   blocks,
   sections,
-  masters,
-  stageTemplates,
-  sectionTemplates,
   meta,
   collapsedBlocks,
   collapsedSections,
@@ -115,8 +110,8 @@ export default function CueTable({
   onToggleSectionCollapse,
   updateState,
 }: Props) {
-  const [draggedSectionIdx, setDraggedSectionIdx] = useState<number | null>(null);
-  const [dropTargetSectionIdx, setDropTargetSectionIdx] = useState<number | null>(null);
+  const draggedSectionIdx: number | null = null;
+  const dropTargetSectionIdx: number | null = null;
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
   const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
 
@@ -208,18 +203,6 @@ export default function CueTable({
     updateState((s: any) => {
       const secs = [...s.sections];
       secs[si] = { ...secs[si], rows: secs[si].rows.filter((_: any, i: number) => i !== ri) };
-      return { ...s, sections: secs };
-    });
-  };
-
-  const moveRow = (si: number, ri: number, dir: number) => {
-    updateState((s: any) => {
-      const secs = [...s.sections];
-      const rows = [...secs[si].rows];
-      const ni = ri + dir;
-      if (ni < 0 || ni >= rows.length) return s;
-      [rows[ri], rows[ni]] = [rows[ni], rows[ri]];
-      secs[si] = { ...secs[si], rows };
       return { ...s, sections: secs };
     });
   };

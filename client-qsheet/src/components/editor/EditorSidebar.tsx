@@ -12,7 +12,6 @@ import {
   Layout,
   FileText,
   Image,
-  Download,
   Upload,
   FileSpreadsheet,
   Pencil,
