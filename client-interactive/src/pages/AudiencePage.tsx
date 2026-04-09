@@ -10,7 +10,7 @@ interface Stamp {
   emoji: string;
   color: string;
   animation: string;
-  image_path?: string;
+  image_url?: string;
 }
 
 interface EventData {
@@ -25,7 +25,7 @@ interface EventData {
 interface MiniStamp {
   id: number;
   emoji: string;
-  image_path?: string;
+  image_url?: string;
   x: number;
   y: number;
   offsetX: number;
@@ -242,8 +242,8 @@ export default function AudiencePage() {
               onClick={(e) => handleStamp(stamp, e)}
               disabled={event.status !== 'live'}
             >
-              {stamp.image_path ? (
-                <img src={stamp.image_path} alt={stamp.label} className="stamp-img" />
+              {stamp.image_url ? (
+                <img src={stamp.image_url} alt={stamp.label} className="stamp-img" />
               ) : (
                 <span className="stamp-emoji">{stamp.emoji}</span>
               )}

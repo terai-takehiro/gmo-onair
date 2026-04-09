@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, GripVertical, Radio, Eye, QrCode, Copy, Check, ArrowUp, ArrowDown, Youtube, MessageSquare, Image } from 'lucide-react';
+import { Plus, Trash2, GripVertical, Radio, Eye, QrCode, Copy, Check, ArrowUp, ArrowDown, Youtube, MessageSquare, Image, X } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +24,7 @@ export default function EventEditorPage() {
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const { data: eventData, isLoading } = useQuery({
     queryKey: ['interactive-event', id],
@@ -81,6 +82,15 @@ export default function EventEditorPage() {
     api.put(`/interactive/stamps/event/${id}/reorder`, { order: newOrder }).then(() => {
       queryClient.invalidateQueries({ queryKey: ['interactive-event', id] });
     });
+  };
+
+  const handleImageUpload = (stampId: string, file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      updateStamp.mutate({ stampId, data: { image_url: dataUrl } });
+    };
+    reader.readAsDataURL(file);
   };
 
   const embedId = getYoutubeEmbedId(eventData.youtube_url || '');
@@ -231,22 +241,59 @@ export default function EventEditorPage() {
           ) : (
             <div className="space-y-2">
               {stamps.map((stamp: any, i: number) => (
-                <div key={stamp.id} className="flex items-center gap-3 p-3 bg-muted/40 rounded-xl border">
+                <div key={stamp.id} className="flex flex-col gap-2 p-3 bg-muted/40 rounded-xl border">
+                  <div className="flex items-center gap-3">
                   <GripVertical className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />
 
-                  {/* Emoji picker */}
-                  <div className="relative group">
+                  {/* Image or Emoji picker */}
+                  <div className="relative group flex-shrink-0">
+                    {stamp.image_url ? (
+                      <div className="relative">
+                        <img src={stamp.image_url} alt={stamp.label} className="w-10 h-10 rounded-xl object-cover border-2" style={{ borderColor: stamp.color + '66' }} />
+                        <button
+                          className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center hover:opacity-80"
+                          onClick={() => updateStamp.mutate({ stampId: stamp.id, data: { image_url: null } })}
+                        >
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          className="text-2xl w-10 h-10 flex items-center justify-center rounded-xl border-2 hover:bg-background transition"
+                          style={{ borderColor: stamp.color + '66' }}
+                        >
+                          {stamp.emoji || '👏'}
+                        </button>
+                        <div className="absolute top-full left-0 mt-1 bg-background border rounded-xl shadow-lg p-2 grid grid-cols-6 gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition z-10 min-w-max">
+                          {PRESET_EMOJI.map(e => (
+                            <button key={e} className="text-xl p-1 hover:bg-muted rounded-lg" onClick={() => updateStamp.mutate({ stampId: stamp.id, data: { emoji: e } })}>{e}</button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Image upload button */}
+                  <div className="flex-shrink-0">
+                    <input
+                      ref={el => { fileInputRefs.current[stamp.id] = el; }}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (file) handleImageUpload(stamp.id, file);
+                        e.target.value = '';
+                      }}
+                    />
                     <button
-                      className="text-2xl w-10 h-10 flex items-center justify-center rounded-xl border-2 hover:bg-background transition"
-                      style={{ borderColor: stamp.color + '66' }}
+                      className="flex items-center gap-1 px-2 py-1 text-xs border rounded-lg hover:bg-muted transition text-muted-foreground"
+                      onClick={() => fileInputRefs.current[stamp.id]?.click()}
+                      title="画像をアップロード"
                     >
-                      {stamp.emoji || '👏'}
+                      <Image className="h-3 w-3" />画像
                     </button>
-                    <div className="absolute top-full left-0 mt-1 bg-background border rounded-xl shadow-lg p-2 grid grid-cols-6 gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition z-10 min-w-max">
-                      {PRESET_EMOJI.map(e => (
-                        <button key={e} className="text-xl p-1 hover:bg-muted rounded-lg" onClick={() => updateStamp.mutate({ stampId: stamp.id, data: { emoji: e } })}>{e}</button>
-                      ))}
-                    </div>
                   </div>
 
                   {/* Label */}
@@ -291,7 +338,8 @@ export default function EventEditorPage() {
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deleteStamp.mutate(stamp.id)}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
-                </div>
+                  </div>{/* end flex items-center */}
+                </div>{/* end flex-col stamp row */}
               ))}
             </div>
           )}

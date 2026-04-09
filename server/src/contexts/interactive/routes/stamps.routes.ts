@@ -18,7 +18,7 @@ router.get('/event/:eventId', async (req, res) => {
 
 // スタンプ作成
 router.post('/', requirePermission('interactive', 'editor'), async (req, res) => {
-  const { event_id, label, emoji, color, animation, sort_order } = req.body;
+  const { event_id, label, emoji, color, animation, sort_order, image_url } = req.body;
   if (!event_id || !label) throw new AppError(400, 'VALIDATION_ERROR', 'event_idとlabelは必須です');
 
   const event = await queryOne('SELECT id FROM interactive_events WHERE id = ? AND deleted_at IS NULL', [event_id]);
@@ -33,10 +33,12 @@ router.post('/', requirePermission('interactive', 'editor'), async (req, res) =>
   const safeEmoji = emoji ? String(emoji).slice(0, 20) : '';
   const safeColor = color ? String(color).slice(0, 20) : '#e11d48';
   const safeAnimation = animation && ['bounce', 'fade', 'slide', 'shake', 'pop', 'none'].includes(animation) ? animation : 'bounce';
+  // image_url: base64 data URL or https URL (max 2MB base64 ≈ 2.7M chars — capped at 3M)
+  const safeImageUrl = image_url ? String(image_url).slice(0, 3_000_000) : null;
 
   await execute(
-    `INSERT INTO interactive_stamps (id, event_id, label, emoji, color, animation, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [id, event_id, safeLabel, safeEmoji, safeColor, safeAnimation, sort_order || 0]
+    `INSERT INTO interactive_stamps (id, event_id, label, emoji, color, animation, sort_order, image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, event_id, safeLabel, safeEmoji, safeColor, safeAnimation, sort_order || 0, safeImageUrl]
   );
 
   const row = await queryOne('SELECT * FROM interactive_stamps WHERE id = ?', [id]);
@@ -48,10 +50,10 @@ router.put('/:id', requirePermission('interactive', 'editor'), async (req, res) 
   const existing = await queryOne('SELECT * FROM interactive_stamps WHERE id = ?', [req.params.id]) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'スタンプが見つかりません');
 
-  const { label, emoji, color, animation, sort_order, is_active } = req.body;
+  const { label, emoji, color, animation, sort_order, is_active, image_url } = req.body;
 
   await execute(
-    `UPDATE interactive_stamps SET label=?, emoji=?, color=?, animation=?, sort_order=?, is_active=? WHERE id=?`,
+    `UPDATE interactive_stamps SET label=?, emoji=?, color=?, animation=?, sort_order=?, is_active=?, image_url=? WHERE id=?`,
     [
       label ? String(label).slice(0, 100) : existing.label,
       emoji !== undefined ? String(emoji).slice(0, 20) : existing.emoji,
@@ -59,6 +61,7 @@ router.put('/:id', requirePermission('interactive', 'editor'), async (req, res) 
       animation && ['bounce', 'fade', 'slide', 'shake', 'pop', 'none'].includes(animation) ? animation : existing.animation,
       sort_order !== undefined ? sort_order : existing.sort_order,
       is_active !== undefined ? is_active : existing.is_active,
+      image_url !== undefined ? (image_url ? String(image_url).slice(0, 3_000_000) : null) : existing.image_url,
       req.params.id,
     ]
   );
