@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    /* GMO ONAiR Warm Design System (admin UI) */
+    /* GMO ONAiR Interactive Design System */
     --background: 40 20% 96%;
     --foreground: 60 6% 11%;
     --card: 40 25% 99%;
@@ -25,6 +25,22 @@
     --input: 43 15% 88%;
     --ring: 209 100% 34%;
     --radius: 0.5rem;
+
+    /* EventStamp audience page variables (original) */
+    --es-accent: #005bac;
+    --es-accent-hover: #0070d4;
+    --es-accent-glow: rgba(0, 91, 172, 0.3);
+    --es-accent-subtle: rgba(0, 91, 172, 0.08);
+    --text-primary: #1a2332;
+    --text-secondary: #4a5568;
+    --text-muted: #8899a6;
+    --glass-border: rgba(0, 91, 172, 0.12);
+    --glass-border-hover: rgba(0, 91, 172, 0.25);
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --transition-fast: 0.15s ease;
+    --transition-base: 0.2s ease;
+    --space-sm: 8px;
   }
 
   * { @apply border-border; }
@@ -35,76 +51,234 @@
   }
 }
 
-/* ── Audience page dark background ─── */
-.audience-bg {
-  background: radial-gradient(ellipse at top, #0f1a2e 0%, #080c14 50%, #060810 100%);
-  min-height: 100dvh;
-}
-
-.audience-comment-card {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  backdrop-filter: blur(8px);
-}
-
-/* ── Stamp animations ─── */
-@keyframes stamp-bounce {
-  0% { transform: scale(1); }
-  30% { transform: scale(1.35); }
-  60% { transform: scale(0.92); }
-  80% { transform: scale(1.08); }
-  100% { transform: scale(1); }
-}
-@keyframes stamp-pop {
-  0% { transform: scale(0.8); }
-  40% { transform: scale(1.3); }
-  70% { transform: scale(0.95); }
-  100% { transform: scale(1); }
-}
-@keyframes stamp-shake {
-  0%, 100% { transform: translateX(0) scale(1); }
-  20% { transform: translateX(-5px) scale(1.05); }
-  40% { transform: translateX(5px) scale(1.05); }
-  60% { transform: translateX(-3px); }
-  80% { transform: translateX(3px); }
-}
-@keyframes stamp-fade {
-  0% { opacity: 0.5; transform: scale(0.95); }
-  50% { opacity: 1; transform: scale(1.05); }
-  100% { opacity: 1; transform: scale(1); }
-}
-@keyframes stamp-slide {
-  0% { transform: translateY(6px) scale(0.97); }
-  60% { transform: translateY(-3px) scale(1.02); }
-  100% { transform: translateY(0) scale(1); }
-}
-
-.stamp-bounce { animation: stamp-bounce 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
-.stamp-pop    { animation: stamp-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
-.stamp-shake  { animation: stamp-shake 0.35s ease-out; }
-.stamp-fade   { animation: stamp-fade 0.3s ease-out; }
-.stamp-slide  { animation: stamp-slide 0.3s ease-out; }
-.stamp-none   { animation: stamp-pop 0.2s ease-out; }
-
-/* Floating emoji */
-@keyframes float-up {
-  0%   { transform: translateY(0) scale(1); opacity: 1; }
-  100% { transform: translateY(-160px) scale(0.4); opacity: 0; }
-}
-.float-up { animation: float-up 1.8s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
-
-/* Stamp button base */
-.stamp-btn {
-  -webkit-tap-highlight-color: transparent;
+/* ── Audience page — LIGHT theme (original) ─── */
+.user-page {
+  background: linear-gradient(180deg, #e8f1fb 0%, #f5f7fa 100%);
+  color: var(--text-primary);
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  -webkit-user-select: none;
   user-select: none;
 }
 
-/* Overlay transparent (OBS) */
-.overlay-transparent {
-  background: transparent !important;
+/* Stamp grid — 5 columns (original) */
+#stamp-grid,
+.stamp-grid {
+  display: grid;
+  gap: var(--space-sm);
+  flex: 1;
+  align-content: center;
+  padding: 8px 12px 12px;
+  transition: opacity var(--transition-base);
+  grid-template-columns: repeat(5, 1fr);
 }
 
-/* ── Glassmorphism (admin login) ─── */
+@media (max-width: 360px) {
+  #stamp-grid, .stamp-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+    padding: 6px 6px 8px;
+  }
+}
+
+@media (min-width: 361px) and (max-width: 480px) {
+  #stamp-grid, .stamp-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+  #stamp-grid, .stamp-grid {
+    grid-template-columns: repeat(auto-fit, minmax(85px, 110px));
+    justify-content: center;
+    gap: 10px;
+    padding: 12px 20px;
+    max-width: 550px;
+    margin: 0 auto;
+  }
+}
+
+@media (min-width: 769px) {
+  #stamp-grid, .stamp-grid {
+    grid-template-columns: repeat(auto-fit, minmax(90px, 110px));
+    justify-content: center;
+    gap: 12px;
+    padding: 20px 32px;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+}
+
+/* Stamp button — glass card (original) */
+.stamp-button {
+  background: rgba(255, 255, 255, 0.8);
+  border: 2px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 12px 8px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  color: var(--text-primary);
+  font-family: inherit;
+  position: relative;
+  overflow: hidden;
+  transition: border-color var(--transition-fast);
+  aspect-ratio: 1 / 1;
+  min-height: 0;
+  box-shadow: 0 2px 8px rgba(0, 40, 80, 0.06);
+}
+
+.stamp-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.stamp-button .stamp-emoji {
+  font-size: 2rem;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.stamp-button .stamp-img {
+  width: 60%;
+  height: 60%;
+  object-fit: contain;
+  pointer-events: none;
+  transition: transform 0.1s;
+}
+
+.stamp-label {
+  font-size: 12px;
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Stamp press animation (original) */
+.stamp-button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(0, 91, 172, 0.15) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  border-radius: inherit;
+}
+
+.stamp-button:active::after,
+.stamp-button.stamp-pop::after {
+  opacity: 1;
+}
+
+.stamp-button:active {
+  border-color: var(--glass-border-hover);
+}
+
+@keyframes stampPop {
+  0%   { transform: scale(1); }
+  20%  { transform: scale(0.82); }
+  50%  { transform: scale(1.08); }
+  75%  { transform: scale(0.97); }
+  100% { transform: scale(1); }
+}
+
+.stamp-pop { animation: stampPop 0.25s ease-out; }
+.stamp-pop .stamp-img { transform: scale(1.1); }
+
+/* Mini stamp fly animation (original) */
+@keyframes miniStampFly {
+  0% {
+    transform: translateY(0) translateX(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-80px) translateX(var(--fly-x, 0px)) scale(0.3);
+    opacity: 0;
+  }
+}
+
+.mini-stamp-effect {
+  position: fixed;
+  width: 32px;
+  height: 32px;
+  pointer-events: none;
+  z-index: 9999;
+  animation: miniStampFly 0.5s ease-out forwards;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* YouTube wrapper */
+.youtube-wrapper {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #000;
+}
+
+.youtube-wrapper iframe {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  border: none;
+}
+
+/* Comment box — glass (original) */
+.comment-box {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: break-word;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Tap counter */
+.tap-counter {
+  position: fixed;
+  bottom: 60px;
+  right: 16px;
+  background: rgba(0, 91, 172, 0.12);
+  border: 1px solid rgba(0, 91, 172, 0.2);
+  border-radius: 20px;
+  padding: 4px 14px;
+  backdrop-filter: blur(8px);
+  z-index: 100;
+  animation: fadeInUp 0.2s ease-out;
+}
+
+.tap-count {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--es-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Admin login & glassmorphism ─── */
 .glass-card {
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(20px);
@@ -149,3 +323,8 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 .animate-slide-up { animation: slide-up-in 0.5s ease-out both; }
+
+/* Overlay transparent (OBS) */
+.overlay-transparent {
+  background: transparent !important;
+}

@@ -10,6 +10,7 @@ interface Stamp {
   emoji: string;
   color: string;
   animation: string;
+  image_path?: string;
 }
 
 interface EventData {
@@ -21,11 +22,13 @@ interface EventData {
   admin_comment?: string;
 }
 
-interface FloatingEmoji {
+interface MiniStamp {
   id: number;
   emoji: string;
+  image_path?: string;
   x: number;
-  scale: number;
+  y: number;
+  offsetX: number;
 }
 
 function getYoutubeEmbedId(url: string): string | null {
@@ -41,8 +44,11 @@ export default function AudiencePage() {
   const [error, setError] = useState('');
   const [stampCounts, setStampCounts] = useState<Record<string, number>>({});
   const [pressAnimations, setPressAnimations] = useState<Record<string, boolean>>({});
-  const [floatingEmojis, setFloatingEmojis] = useState<FloatingEmoji[]>([]);
-  const floatIdRef = useRef(0);
+  const [miniStamps, setMiniStamps] = useState<MiniStamp[]>([]);
+  const [tapCount, setTapCount] = useState(0);
+  const [showTapCounter, setShowTapCounter] = useState(false);
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const miniIdRef = useRef(0);
 
   // Load event & join
   useEffect(() => {
@@ -66,9 +72,7 @@ export default function AudiencePage() {
       setError(msg);
     });
 
-    return () => {
-      disconnectSocket();
-    };
+    return () => { disconnectSocket(); };
   }, [eventId]);
 
   // Socket.IO
@@ -77,10 +81,7 @@ export default function AudiencePage() {
     const socket = getSocket(eventId, { sessionToken });
 
     socket.on('stamp:update', (data: { stampId: string; count: number }) => {
-      setStampCounts(prev => ({
-        ...prev,
-        [data.stampId]: (prev[data.stampId] || 0) + data.count,
-      }));
+      setStampCounts(prev => ({ ...prev, [data.stampId]: (prev[data.stampId] || 0) + data.count }));
     });
 
     socket.on('event:status', (data: { status: string }) => {
@@ -90,38 +91,48 @@ export default function AudiencePage() {
     return () => { disconnectSocket(); };
   }, [eventId, sessionToken]);
 
-  const addFloatingEmoji = useCallback((emoji: string) => {
-    const id = floatIdRef.current++;
-    const newEmoji: FloatingEmoji = {
+  // Mini stamp fly animation (from button position)
+  const spawnMiniStamp = useCallback((stamp: Stamp, btnEl: HTMLElement) => {
+    const rect = btnEl.getBoundingClientRect();
+    const id = miniIdRef.current++;
+    const mini: MiniStamp = {
       id,
-      emoji,
-      x: 15 + Math.random() * 70,
-      scale: 0.8 + Math.random() * 0.7,
+      emoji: stamp.emoji,
+      image_path: stamp.image_path,
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+      offsetX: -20 + Math.random() * 40,
     };
-    setFloatingEmojis(prev => [...prev, newEmoji].slice(-40));
+    setMiniStamps(prev => [...prev, mini].slice(-30));
     setTimeout(() => {
-      setFloatingEmojis(prev => prev.filter(f => f.id !== id));
-    }, 1800);
+      setMiniStamps(prev => prev.filter(m => m.id !== id));
+    }, 500);
   }, []);
 
-  const handleStamp = useCallback((stamp: Stamp) => {
+  const handleStamp = useCallback((stamp: Stamp, e: React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>) => {
     if (!sessionToken || event?.status !== 'live') return;
 
     const socket = getSocket(eventId!, { sessionToken });
     socket.emit('stamp', { stampId: stamp.id, count: 1 });
 
     setPressAnimations(prev => ({ ...prev, [stamp.id]: true }));
-    setTimeout(() => setPressAnimations(prev => ({ ...prev, [stamp.id]: false })), 350);
+    setTimeout(() => setPressAnimations(prev => ({ ...prev, [stamp.id]: false })), 250);
 
-    addFloatingEmoji(stamp.emoji);
-  }, [sessionToken, event?.status, eventId, addFloatingEmoji]);
+    spawnMiniStamp(stamp, e.currentTarget);
+
+    // Tap counter
+    setTapCount(prev => prev + 1);
+    setShowTapCounter(true);
+    clearTimeout(tapTimerRef.current);
+    tapTimerRef.current = setTimeout(() => setShowTapCounter(false), 2000);
+  }, [sessionToken, event?.status, eventId, spawnMiniStamp]);
 
   if (error) {
     return (
-      <div className="min-h-screen audience-bg flex items-center justify-center p-4">
-        <div className="text-center text-white">
-          <Sparkles className="h-12 w-12 mx-auto mb-4 opacity-40" />
-          <p className="text-lg">{error}</p>
+      <div className="user-page flex items-center justify-center p-4">
+        <div className="text-center">
+          <p className="text-lg text-[var(--text-primary)]">{error}</p>
+          <p className="text-sm text-[var(--text-muted)] mt-2">QRコードを再度読み取ってください</p>
         </div>
       </div>
     );
@@ -129,20 +140,20 @@ export default function AudiencePage() {
 
   if (!event) {
     return (
-      <div className="min-h-screen audience-bg flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+      <div className="user-page flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[var(--accent)]/30 border-t-[var(--accent)] rounded-full animate-spin" />
       </div>
     );
   }
 
   if (event.status === 'ended') {
     return (
-      <div className="min-h-screen audience-bg flex items-center justify-center p-4">
-        <div className="text-center text-white">
-          <Sparkles className="h-12 w-12 mx-auto mb-4 opacity-30" />
-          <h1 className="text-xl font-bold mb-2">{event.title}</h1>
-          <p className="text-white/60">このイベントは終了しました</p>
-          <p className="text-white/40 text-sm mt-4">ご参加ありがとうございました！</p>
+      <div className="user-page flex items-center justify-center p-4">
+        <div className="text-center">
+          <Sparkles className="h-12 w-12 mx-auto mb-4 text-[var(--accent)] opacity-40" />
+          <h1 className="text-xl font-bold text-[var(--text-primary)] mb-2">{event.title}</h1>
+          <p className="text-[var(--text-secondary)]">このイベントは終了しました</p>
+          <p className="text-[var(--text-muted)] text-sm mt-4">ご参加ありがとうございました！</p>
         </div>
       </div>
     );
@@ -152,115 +163,105 @@ export default function AudiencePage() {
   const stamps = event.stamps || [];
 
   return (
-    <div className="min-h-screen audience-bg text-white flex flex-col relative overflow-hidden">
-      {/* Floating emojis */}
-      {floatingEmojis.map(f => (
+    <div className="user-page">
+      {/* Mini stamp fly animations */}
+      {miniStamps.map(m => (
         <div
-          key={f.id}
-          className="absolute float-up pointer-events-none select-none"
+          key={m.id}
+          className="mini-stamp-effect"
           style={{
-            left: `${f.x}%`,
-            bottom: '40%',
-            fontSize: `${f.scale * 2.2}rem`,
-            zIndex: 50,
+            left: m.x - 16,
+            top: m.y - 16,
+            ['--fly-x' as any]: `${m.offsetX}px`,
           }}
         >
-          {f.emoji}
+          {m.emoji}
         </div>
       ))}
 
-      {/* Header */}
-      <div className="text-center pt-6 pb-3 px-4">
-        <div className="flex items-center justify-center gap-1.5 text-white/40 mb-2">
-          <Sparkles className="h-4 w-4" />
-          <span className="text-xs font-medium tracking-wider uppercase">EventStamp</span>
-        </div>
-        <h1 className="text-base font-bold text-white">{event.title}</h1>
-        {event.status === 'draft' && (
-          <p className="text-sm text-white/50 mt-2">イベント開始を待っています...</p>
-        )}
+      {/* Status bar */}
+      <header className="flex items-center gap-2 px-4 py-2.5 flex-shrink-0">
+        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+          event.status === 'live' ? 'bg-green-500' : 'bg-zinc-300'
+        }`} />
+        <span className="text-sm font-medium text-[var(--text-primary)] truncate">{event.title}</span>
         {event.status === 'live' && (
-          <div className="flex items-center justify-center gap-1.5 mt-2">
-            <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-            <span className="text-xs text-red-400 font-semibold tracking-widest">LIVE</span>
-          </div>
+          <span className="text-[10px] font-bold text-red-500 tracking-wider ml-auto">LIVE</span>
         )}
-      </div>
+      </header>
 
-      {/* YouTube embed */}
-      {embedId && (
-        <div className="px-4 pb-3">
-          <div className="max-w-lg mx-auto rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-black/40">
-              <Youtube className="h-3.5 w-3.5 text-red-400" />
-              <span className="text-xs text-white/50">ライブ配信中</span>
-            </div>
-            <div className="aspect-video">
+      {/* Main content */}
+      <main className="flex-1 flex flex-col min-h-0">
+        {/* YouTube embed */}
+        {embedId && (
+          <div className="flex-shrink-0 px-3 pb-2" style={{ maxWidth: 640, margin: '0 auto', width: '100%' }}>
+            <div className="youtube-wrapper">
               <iframe
-                src={`https://www.youtube.com/embed/${embedId}?autoplay=0`}
-                className="w-full h-full"
+                src={`https://www.youtube.com/embed/${embedId}?autoplay=1&mute=1`}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
               />
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Banner image (shown only if no YouTube) */}
-      {!embedId && event.banner_url && (
-        <div className="px-4 pb-3">
-          <div className="max-w-lg mx-auto rounded-2xl overflow-hidden border border-white/10 shadow-xl">
-            <img src={event.banner_url} alt="バナー" className="w-full object-cover max-h-48" />
+        {/* Banner (if no YouTube) */}
+        {!embedId && event.banner_url && (
+          <div className="flex-shrink-0 px-3 pb-2" style={{ maxWidth: 640, margin: '0 auto', width: '100%' }}>
+            <img src={event.banner_url} alt="バナー" className="w-full max-h-[200px] object-cover rounded-xl" />
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Admin comment */}
-      {event.admin_comment && (
-        <div className="px-4 pb-3">
-          <div className="max-w-lg mx-auto audience-comment-card rounded-xl px-4 py-3">
-            <p className="text-sm text-white/80 leading-relaxed whitespace-pre-wrap">{event.admin_comment}</p>
+        {/* Admin comment */}
+        {event.admin_comment && (
+          <div className="flex-shrink-0 px-4 pb-2" style={{ maxWidth: 640, margin: '0 auto', width: '100%' }}>
+            <div className="comment-box">
+              <p className="whitespace-pre-wrap">{event.admin_comment}</p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Stamp buttons */}
-      <div className="flex-1 flex items-center justify-center px-4 pb-8 pt-2">
-        <div className={`grid gap-3 w-full max-w-sm ${stamps.length <= 2 ? 'grid-cols-2' : stamps.length <= 4 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+        {/* Instruction */}
+        {event.status === 'live' && (
+          <p className="text-center text-xs text-[var(--text-muted)] py-1.5">スタンプをタップして送信しよう!</p>
+        )}
+        {event.status === 'draft' && (
+          <div className="text-center py-6">
+            <div className="text-3xl mb-2">⏳</div>
+            <p className="text-sm text-[var(--text-secondary)]">まもなく開始します</p>
+            <p className="text-xs text-[var(--text-muted)]">スタンプの受付開始までお待ちください</p>
+          </div>
+        )}
+
+        {/* Stamp grid — 5 columns (original) */}
+        <div className="stamp-grid flex-1">
           {stamps.map(stamp => (
             <button
               key={stamp.id}
-              className={`stamp-btn relative flex flex-col items-center justify-center rounded-2xl p-5 transition-all select-none touch-manipulation ${
-                event.status === 'live'
-                  ? 'cursor-pointer active:scale-90'
-                  : 'opacity-40 cursor-not-allowed'
-              } ${pressAnimations[stamp.id] ? `stamp-${stamp.animation}` : ''}`}
-              style={{
-                background: `linear-gradient(135deg, ${stamp.color}18, ${stamp.color}30)`,
-                border: `1.5px solid ${stamp.color}50`,
-                boxShadow: pressAnimations[stamp.id]
-                  ? `0 0 24px ${stamp.color}60, inset 0 0 16px ${stamp.color}20`
-                  : `0 2px 12px ${stamp.color}20, inset 0 1px 0 ${stamp.color}20`,
-              }}
-              onClick={() => handleStamp(stamp)}
+              className={`stamp-button glass-card ${pressAnimations[stamp.id] ? 'stamp-pop' : ''}`}
+              onClick={(e) => handleStamp(stamp, e)}
               disabled={event.status !== 'live'}
             >
-              <span className="text-4xl mb-1.5 leading-none">{stamp.emoji}</span>
-              <span className="text-[11px] font-medium text-white/60 leading-tight">{stamp.label}</span>
-              <span
-                className="text-base font-bold mt-1 tabular-nums leading-none"
-                style={{ color: stamp.color }}
-              >
-                {(stampCounts[stamp.id] || 0).toLocaleString()}
-              </span>
+              {stamp.image_path ? (
+                <img src={stamp.image_path} alt={stamp.label} className="stamp-img" />
+              ) : (
+                <span className="stamp-emoji">{stamp.emoji}</span>
+              )}
+              <span className="stamp-label">{stamp.label}</span>
             </button>
           ))}
         </div>
-      </div>
+      </main>
+
+      {/* Tap counter */}
+      {showTapCounter && (
+        <div className="tap-counter">
+          <span className="tap-count">{tapCount}</span>
+        </div>
+      )}
 
       {/* Footer */}
-      <div className="text-center pb-5 pt-2 text-[10px] text-white/20 tracking-wider">
+      <div className="text-center pb-4 pt-2 text-[10px] text-[var(--text-muted)] tracking-wider flex-shrink-0">
         Powered by GMO EventStamp
       </div>
     </div>
