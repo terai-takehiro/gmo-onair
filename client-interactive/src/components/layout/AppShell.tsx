@@ -20,7 +20,9 @@ export function AppShell() {
       <header className="sticky top-0 z-40 bg-card border-b">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <AppSwitcher currentApp="interactive" />
+            <div className="hidden lg:block">
+              <AppSwitcher currentApp="interactive" />
+            </div>
             <Link to="/" className="flex items-center gap-2 font-sans font-bold text-primary">
               <Sparkles className="h-5 w-5" />
               <span>EventStamp</span>

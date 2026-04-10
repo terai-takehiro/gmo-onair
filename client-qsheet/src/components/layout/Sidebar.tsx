@@ -85,15 +85,26 @@ export default function Sidebar() {
           })}
         </nav>
 
-        {/* Footer */}
-        <div className="border-t p-3 space-y-1">
-          <a
-            href="/"
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          >
-            GMO ONAiR 本体へ
-          </a>
-          <p className="px-3 text-[10px] text-muted-foreground/50">v0.7.0</p>
+        {/* Footer — App shortcuts */}
+        <div className="border-t p-3 space-y-2">
+          <div className="flex items-center justify-center gap-1">
+            {[
+              { emoji: "🏠", path: "/", label: "ホーム" },
+              { emoji: "📦", path: "/equipment", label: "機材" },
+              { emoji: "✨", path: "/interactive", label: "ｲﾝﾀﾗ" },
+              { emoji: "🔧", path: "/techsheet", label: "技術" },
+            ].map((app) => (
+              <a
+                key={app.path}
+                href={app.path}
+                className="flex flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                <span className="text-base">{app.emoji}</span>
+                <span>{app.label}</span>
+              </a>
+            ))}
+          </div>
+          <p className="text-center text-[10px] text-muted-foreground/50">v0.7.4</p>
         </div>
       </aside>
     </>

@@ -510,37 +510,43 @@ router.put('/inventory-checks/:id/status', async (req: Request, res: Response) =
 // ============================================================
 router.get('/stats', async (_req: Request, res: Response) => {
   try {
-  const toInt = (v: any) => parseInt(v?.count ?? v ?? '0', 10) || 0;
+  const toInt = (v: any) => parseInt(v?.count ?? v?.c ?? v ?? '0', 10) || 0;
 
-  const totalItems = await queryOne("SELECT COUNT(*) as count FROM equipment_items WHERE deleted_at IS NULL") as any;
-  const activeItems = await queryOne("SELECT COUNT(*) as count FROM equipment_items WHERE deleted_at IS NULL AND status='active'") as any;
-  const inRepair = await queryOne("SELECT COUNT(*) as count FROM equipment_items WHERE deleted_at IS NULL AND status='in_repair'") as any;
-  const lentOut = await queryOne("SELECT COUNT(*) as count FROM equipment_lendings WHERE status='lent'") as any;
-  const overdue = await queryOne("SELECT COUNT(*) as count FROM equipment_lendings WHERE status='lent' AND due_date < NOW()") as any;
-  const totalAssetValue = await queryOne("SELECT COALESCE(SUM(acquisition_cost), 0) as total FROM equipment_items WHERE deleted_at IS NULL AND asset_class='fixed_asset'") as any;
-  const openMaintenance = await queryOne("SELECT COUNT(*) as count FROM maintenance_records WHERE status IN ('reported', 'in_progress')") as any;
+  const totalItems = await queryOne("SELECT COUNT(*)::int as c FROM equipment_items WHERE deleted_at IS NULL");
+  const activeItems = await queryOne("SELECT COUNT(*)::int as c FROM equipment_items WHERE deleted_at IS NULL AND status='active'");
+  const inRepair = await queryOne("SELECT COUNT(*)::int as c FROM equipment_items WHERE deleted_at IS NULL AND status='in_repair'");
+  const lentOut = await queryOne("SELECT COUNT(*)::int as c FROM equipment_lendings WHERE status='lent'");
+  const overdue = await queryOne("SELECT COUNT(*)::int as c FROM equipment_lendings WHERE status='lent' AND due_date IS NOT NULL AND due_date < CURRENT_DATE::text");
+  const totalAssetValue = await queryOne("SELECT COALESCE(SUM(acquisition_cost), 0)::int as total FROM equipment_items WHERE deleted_at IS NULL AND asset_class='fixed_asset'");
+  const openMaintenance = await queryOne("SELECT COUNT(*)::int as c FROM maintenance_records WHERE status IN ('reported', 'in_progress')");
 
   // Recent active lendings for dashboard
-  const recentLendings = await queryAll(
-    `SELECT el.id, el.borrower_name, el.due_date, el.lent_at,
-            ei.name as equipment_name, ei.unit_number,
-            p.name as project_name, p.gls_number
-     FROM equipment_lendings el
-     JOIN equipment_items ei ON ei.id = el.equipment_id
-     LEFT JOIN projects p ON p.id = el.project_id
-     WHERE el.status = 'lent'
-     ORDER BY el.lent_at DESC LIMIT 5`
-  );
+  let recentLendings: any[] = [];
+  try {
+    recentLendings = await queryAll(
+      `SELECT el.id, el.borrower_name, el.due_date, el.lent_at,
+              ei.name as equipment_name, ei.unit_number,
+              p.name as project_name, p.gls_number
+       FROM equipment_lendings el
+       JOIN equipment_items ei ON ei.id = el.equipment_id
+       LEFT JOIN projects p ON p.id = el.project_id
+       WHERE el.status = 'lent'
+       ORDER BY el.lent_at DESC LIMIT 5`
+    );
+  } catch { /* ignore join errors */ }
 
   // Recent maintenance (open)
-  const recentMaintenance = await queryAll(
-    `SELECT mr.id, mr.title, mr.record_type, mr.status, mr.created_at,
-            ei.name as equipment_name
-     FROM maintenance_records mr
-     JOIN equipment_items ei ON ei.id = mr.equipment_id
-     WHERE mr.status IN ('reported', 'in_progress')
-     ORDER BY mr.created_at DESC LIMIT 5`
-  );
+  let recentMaintenance: any[] = [];
+  try {
+    recentMaintenance = await queryAll(
+      `SELECT mr.id, mr.title, mr.record_type, mr.status, mr.created_at,
+              ei.name as equipment_name
+       FROM maintenance_records mr
+       JOIN equipment_items ei ON ei.id = mr.equipment_id
+       WHERE mr.status IN ('reported', 'in_progress')
+       ORDER BY mr.created_at DESC LIMIT 5`
+    );
+  } catch { /* ignore join errors */ }
 
   res.json({
     success: true,

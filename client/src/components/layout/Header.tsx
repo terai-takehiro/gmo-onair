@@ -116,16 +116,18 @@ export default function Header({ title }: { title?: string }) {
 
   return (
     <header className="flex h-16 items-center justify-between border-b bg-card px-3 sm:px-4 lg:px-6 gap-2">
-      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-        <AppSwitcher currentApp="sales" />
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <Button
           variant="ghost"
           size="icon"
-          className="lg:hidden shrink-0 h-8 w-8"
+          className="lg:hidden shrink-0 h-9 w-9 -ml-1"
           onClick={toggleSidebar}
         >
           <Menu className="h-5 w-5" />
         </Button>
+        <div className="hidden lg:block">
+          <AppSwitcher currentApp="sales" />
+        </div>
         <span
           className="cursor-pointer text-base font-sans font-bold text-primary hover:opacity-80 transition-opacity shrink-0"
           onClick={() => navigate("/")}
