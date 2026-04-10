@@ -16,49 +16,49 @@
   }
 
   :root {
-    /* Qsheet Design System — Original Blue (#2563eb) + Zinc Neutrals */
-    --background: 0 0% 98%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 217 91% 60%;
+    /* Qsheet Design System — GMO Blue (#005bac) 統一 + Warm Neutrals */
+    --background: 40 20% 96%;
+    --foreground: 60 6% 11%;
+    --card: 40 25% 99%;
+    --card-foreground: 60 6% 11%;
+    --popover: 40 25% 99%;
+    --popover-foreground: 60 6% 11%;
+    --primary: 209 100% 34%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 220 9% 46%;
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
-    --accent: 220 14% 96%;
-    --accent-foreground: 220 9% 46%;
+    --secondary: 43 15% 88%;
+    --secondary-foreground: 48 4% 28%;
+    --muted: 43 15% 88%;
+    --muted-foreground: 48 4% 40%;
+    --accent: 43 15% 88%;
+    --accent-foreground: 48 4% 28%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 217 91% 60%;
+    --border: 40 10% 88%;
+    --input: 40 10% 88%;
+    --ring: 209 100% 34%;
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 224 71% 4%;
-    --foreground: 220 14% 96%;
-    --card: 222 47% 11%;
-    --card-foreground: 220 14% 96%;
-    --popover: 222 47% 11%;
-    --popover-foreground: 220 14% 96%;
-    --primary: 217 91% 60%;
+    --background: 60 3% 10%;
+    --foreground: 40 10% 73%;
+    --card: 60 3% 14%;
+    --card-foreground: 40 10% 73%;
+    --popover: 60 3% 14%;
+    --popover-foreground: 40 10% 73%;
+    --primary: 209 100% 55%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 222 47% 11%;
-    --secondary-foreground: 220 14% 80%;
-    --muted: 222 47% 11%;
-    --muted-foreground: 220 9% 46%;
-    --accent: 222 47% 11%;
-    --accent-foreground: 220 14% 80%;
+    --secondary: 60 3% 18%;
+    --secondary-foreground: 40 10% 60%;
+    --muted: 60 3% 18%;
+    --muted-foreground: 40 5% 50%;
+    --accent: 60 3% 18%;
+    --accent-foreground: 40 10% 60%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 222 47% 11%;
-    --input: 222 47% 11%;
-    --ring: 217 91% 60%;
+    --border: 60 3% 18%;
+    --input: 60 3% 18%;
+    --ring: 209 100% 55%;
   }
 }
 
@@ -67,12 +67,16 @@
     @apply border-border;
   }
   html {
-    font-family: 'OswaldLatin', -apple-system, BlinkMacSystemFont, 'Noto Sans JP', 'Segoe UI', 'Hiragino Sans', sans-serif;
+    font-family: 'Noto Sans JP', -apple-system, 'Hiragino Sans', sans-serif;
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'OswaldLatin', -apple-system, BlinkMacSystemFont, 'Noto Sans JP', 'Segoe UI', 'Hiragino Sans', sans-serif;
-    line-height: 1.60;
+    font-family: 'Noto Sans JP', -apple-system, 'Hiragino Sans', sans-serif;
+    font-size: 15px;
+    line-height: 1.75;
+    letter-spacing: 0.02em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     margin: 0;
   }
 
@@ -171,6 +175,29 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 .animate-slide-up { animation: slide-up-in 0.5s ease-out both; }
+
+/* ── AppSwitcher animation ─────────────────────── */
+@keyframes switcher-in {
+  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-switcher-in { animation: switcher-in 0.2s ease-out both; }
+
+/* ── Page enter animation ──────────────────────── */
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.page-enter { animation: page-enter 0.3s ease-out both; }
+
+/* ── Card hover lift ───────────────────────────── */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+}
 
 /* ── font-number utility ────────────────────────── */
 .font-number {

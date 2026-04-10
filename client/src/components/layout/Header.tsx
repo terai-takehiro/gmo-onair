@@ -15,6 +15,7 @@ import {
 import { Menu, LogOut, ChevronDown, Search, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
+import AppSwitcher from "@gmo-onair/shared/src/client/AppSwitcher";
 
 const roleLabelMap: Record<string, string> = {
   system_admin: "システム管理者",
@@ -116,6 +117,7 @@ export default function Header({ title }: { title?: string }) {
   return (
     <header className="flex h-14 items-center justify-between border-b bg-card px-4 lg:px-6">
       <div className="flex items-center gap-2">
+        <AppSwitcher currentApp="sales" />
         <Button
           variant="ghost"
           size="icon"

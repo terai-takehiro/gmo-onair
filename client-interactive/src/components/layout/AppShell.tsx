@@ -1,7 +1,8 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Sparkles, LayoutDashboard, ArrowLeft, LogOut } from 'lucide-react';
+import { Sparkles, ArrowLeft, LogOut } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
+import AppSwitcher from '@gmo-onair/shared/src/client/AppSwitcher';
 
 export function AppShell() {
   const location = useLocation();
@@ -19,6 +20,7 @@ export function AppShell() {
       <header className="sticky top-0 z-40 bg-card border-b">
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
+            <AppSwitcher currentApp="interactive" />
             <Link to="/" className="flex items-center gap-2 font-sans font-bold text-primary">
               <Sparkles className="h-5 w-5" />
               <span>EventStamp</span>
@@ -31,11 +33,6 @@ export function AppShell() {
             )}
           </div>
           <div className="flex items-center gap-3">
-            <a href="/" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
-              <LayoutDashboard className="h-3 w-3" />
-              ONAiR
-            </a>
-            <span className="hidden sm:inline text-[10px] text-muted-foreground/50">v0.7.0</span>
             <span className="text-sm text-muted-foreground">{user?.name}</span>
             <Button variant="ghost" size="icon" onClick={handleLogout} title="ログアウト">
               <LogOut className="h-4 w-4" />

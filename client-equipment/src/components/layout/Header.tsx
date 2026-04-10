@@ -1,6 +1,7 @@
 import { Menu, LogOut, User } from "lucide-react";
 import { useUiStore } from "@/stores/uiStore";
 import { Button } from "@/components/ui/button";
+import AppSwitcher from "@gmo-onair/shared/src/client/AppSwitcher";
 
 interface Props {
   userName?: string;
@@ -12,14 +13,15 @@ export default function Header({ userName, onLogout }: Props) {
 
   return (
     <header className="flex h-14 items-center justify-between border-b bg-card px-4">
-      <button
-        className="lg:hidden p-2 rounded-md hover:bg-muted"
-        onClick={toggleSidebar}
-      >
-        <Menu className="h-5 w-5" />
-      </button>
-
-      <div className="hidden lg:block" />
+      <div className="flex items-center gap-2">
+        <AppSwitcher currentApp="equipment" />
+        <button
+          className="lg:hidden p-2 rounded-md hover:bg-muted"
+          onClick={toggleSidebar}
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+      </div>
 
       <div className="flex items-center gap-3">
         {userName && (

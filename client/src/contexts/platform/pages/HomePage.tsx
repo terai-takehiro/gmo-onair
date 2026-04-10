@@ -56,21 +56,21 @@ function AppCard({ app, onClick, disabled: forceDisabled }: { app: BlockApp; onC
     >
       <div
         className={cn(
-          "flex h-12 w-12 items-center justify-center rounded-xl text-white transition-transform",
+          "flex h-14 w-14 items-center justify-center rounded-xl text-white transition-transform",
           isDisabled ? "bg-muted-foreground/30" : app.color,
           !isDisabled && "group-hover:scale-110"
         )}
       >
-        <Icon className="h-5 w-5" />
+        <Icon className="h-6 w-6" />
       </div>
       <div className="flex-1 flex flex-col justify-center">
-        <h3 className="text-sm font-semibold">{app.label}</h3>
-        <p className="mt-0.5 text-[10px] text-muted-foreground leading-relaxed">
+        <h3 className="text-base font-semibold">{app.label}</h3>
+        <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
           {app.description}
         </p>
       </div>
       {isComingSoon && (
-        <Badge variant="secondary" className="absolute top-2 right-2 text-[9px]">
+        <Badge variant="secondary" className="absolute top-2 right-2 text-[11px]">
           準備中
         </Badge>
       )}

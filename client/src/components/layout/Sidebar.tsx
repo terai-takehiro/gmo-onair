@@ -224,8 +224,26 @@ export default function Sidebar() {
           </nav>
         </ScrollArea>
 
-        {/* Home button at bottom */}
-        <div className="border-t p-3">
+        {/* App shortcuts + Home */}
+        <div className="border-t p-3 space-y-2">
+          <div className="flex items-center justify-center gap-1">
+            {[
+              { emoji: "📋", path: "/qsheet", label: "Qシート" },
+              { emoji: "📦", path: "/equipment", label: "機材" },
+              { emoji: "✨", path: "/interactive", label: "ｲﾝﾀﾗ" },
+              { emoji: "🔧", path: "/techsheet", label: "技術" },
+            ].map((app) => (
+              <a
+                key={app.path}
+                href={app.path}
+                title={app.label}
+                className="flex flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 text-[10px] text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
+              >
+                <span className="text-base">{app.emoji}</span>
+                <span>{app.label}</span>
+              </a>
+            ))}
+          </div>
           <button
             onClick={() => { navigate("/"); setSidebarOpen(false); }}
             className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
@@ -233,6 +251,7 @@ export default function Sidebar() {
             <Home className="h-4 w-4" />
             ホームに戻る
           </button>
+          <p className="text-center text-[10px] text-muted-foreground/50">v0.7.3</p>
         </div>
       </aside>
     </>

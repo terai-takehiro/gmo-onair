@@ -47,8 +47,11 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Noto Sans JP', sans-serif;
-    line-height: 1.60;
+    font-family: 'Noto Sans JP', -apple-system, 'Hiragino Sans', sans-serif;
+    font-size: 15px;
+    line-height: 1.75;
+    letter-spacing: 0.02em;
+    -webkit-font-smoothing: antialiased;
   }
   .heading-page { font-family: 'Noto Sans JP', sans-serif; font-weight: 700; line-height: 1.20; letter-spacing: 0.01em; }
   .heading-section { font-family: 'Noto Sans JP', sans-serif; font-weight: 600; line-height: 1.25; }
@@ -114,3 +117,18 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 .animate-slide-up { animation: slide-up-in 0.5s ease-out both; }
+
+@keyframes switcher-in {
+  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-switcher-in { animation: switcher-in 0.2s ease-out both; }
+
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.page-enter { animation: page-enter 0.3s ease-out both; }
+
+.card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
