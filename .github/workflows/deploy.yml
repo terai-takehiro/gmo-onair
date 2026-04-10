@@ -20,5 +20,9 @@ jobs:
             set -e
             cd /opt/gmo-onair
             git pull origin main
+            docker compose down -v
             docker compose up -d --build
-            echo "✅ Deploy completed at $(date)"
+            echo "Waiting for seed to complete..."
+            sleep 30
+            docker compose logs --tail=50 app
+            echo "✅ Deploy with DB reset completed at $(date)"
