@@ -25,8 +25,9 @@ import {
 interface CueRow {
   id: string;
   label: string;
-  duration: number;
-  [key: string]: string | number | null | undefined;
+  duration: string | number;
+  cells?: Record<string, any>;
+  [key: string]: any;
 }
 
 interface Section {
@@ -68,6 +69,41 @@ const formatTime = (seconds: number): string => {
   const sign = seconds < 0 ? "-" : "";
   return `${sign}${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 };
+
+function parseDur(s: string | number | undefined): number {
+  if (!s) return 0;
+  if (typeof s === "number") return s;
+  const t = s.trim();
+  let m = t.match(/^(\d+)[°:](\d+)[':"](\d+)["'""]?$/);
+  if (m) return parseInt(m[1]) * 3600 + parseInt(m[2]) * 60 + parseInt(m[3]);
+  m = t.match(/^(\d+)[':.](\d+)["'""]?$/);
+  if (m) return parseInt(m[1]) * 60 + parseInt(m[2]);
+  m = t.match(/^(\d+)$/);
+  if (m) return parseInt(m[1]);
+  return 0;
+}
+
+function extractCellText(row: CueRow, block: Block): string {
+  const cell = row.cells?.[block.id];
+  if (cell) {
+    if (block.type === "scenario" && Array.isArray(cell.entries)) {
+      return cell.entries
+        .map((e: any) => `${e.name ? `【${e.name}】` : ""}${(e.html || "").replace(/<[^>]*>/g, "")}`)
+        .filter((s: string) => s)
+        .join("\n");
+    }
+    if (["video", "audio", "telop"].includes(block.type) && Array.isArray(cell.entries)) {
+      return cell.entries
+        .map((e: any) => `${e.label || ""}${e.memo ? " " + e.memo : ""}`)
+        .filter((s: string) => s.trim())
+        .join("\n");
+    }
+    if (typeof cell === "string") return cell;
+    if (cell.value) return String(cell.value);
+  }
+  const val = row[block.id] || "";
+  return typeof val === "string" ? val : String(val || "");
+}
 
 const STORAGE_KEY_COLUMNS = "rundown-visible-columns";
 const STORAGE_KEY_THEME = "rundown-theme";
@@ -128,9 +164,10 @@ export default function RundownPage() {
     let time = 0;
     let idx = 0;
     doc.data.sections.forEach((section, sIdx) => {
+      if ((section as any)._break || (section as any)._pageBreak) return;
       for (const row of section.rows) {
         cues.push({ sectionLabel: section.label, sectionIdx: sIdx, row, startTime: time, globalIndex: idx });
-        time += row.duration || 0;
+        time += parseDur(row.duration);
         idx++;
       }
     });
@@ -138,7 +175,7 @@ export default function RundownPage() {
   }, [doc]);
 
   const totalDuration = useMemo(
-    () => flatCues.reduce((acc, c) => acc + (c.row.duration || 0), 0),
+    () => flatCues.reduce((acc, c) => acc + parseDur(c.row.duration), 0),
     [flatCues]
   );
 
@@ -510,12 +547,12 @@ export default function RundownPage() {
                         </div>
                         {/* 尺 */}
                         <div className="w-14 px-2 py-2 text-center text-xs font-number shrink-0">
-                          {cue.row.duration}s
+                          {(() => { const d = parseDur(cue.row.duration); const m = Math.floor(d / 60); const s = d % 60; return m > 0 ? `${m}分${s > 0 ? `${s}秒` : ''}` : `${s}秒`; })()}
                         </div>
                         {/* 実尺 */}
                         <div className="w-20 px-2 py-2 text-center text-xs font-number shrink-0">
                           {actualElapsed !== null && actualElapsed >= 0
-                            ? `${Math.floor(actualElapsed)}s`
+                            ? `${Math.floor(actualElapsed)}秒`
                             : "--"
                           }
                         </div>
@@ -528,7 +565,7 @@ export default function RundownPage() {
                               block.type === "scenario" ? "whitespace-pre-wrap" : "truncate"
                             )}
                           >
-                            {(cue.row[block.id] as string) || ""}
+                            {extractCellText(cue.row, block)}
                           </div>
                         ))}
                       </button>

@@ -30,10 +30,20 @@ interface FlatCue {
 function getScenarioText(row: CueRow, blocks: { id: string; type: string }[]): string {
   const scenarioBlock = blocks.find(b => b.type === 'scenario');
   if (scenarioBlock) {
+    // New data model: row.cells[blockId].entries
+    const cell = (row as any).cells?.[scenarioBlock.id];
+    if (cell?.entries && Array.isArray(cell.entries)) {
+      return cell.entries
+        .map((e: any) => `${e.name ? `【${e.name}】` : ''}${(e.html || '').replace(/<[^>]*>/g, '')}`)
+        .filter((s: string) => s)
+        .join('\n');
+    }
+    if (typeof cell === 'string') return cell;
+    if (cell?.value) return String(cell.value);
+    // Old data model fallback
     const val = row[scenarioBlock.id];
     if (typeof val === 'string') return val;
   }
-  if (typeof row.scenario === 'string') return row.scenario;
   return '';
 }
 
