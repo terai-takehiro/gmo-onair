@@ -351,8 +351,8 @@ export default function EditorPage() {
           </div>
         </div>
 
-        {/* Row 2: Info bar — draft selector + dates + location */}
-        <div className="flex items-center gap-3 px-4 pb-2 text-[11px] text-zinc-500 dark:text-zinc-400 flex-wrap">
+        {/* Row 2: Info bar — draft selector + dates + location (hidden on mobile) */}
+        <div className="hidden sm:flex items-center gap-3 px-4 pb-2 text-[11px] text-zinc-500 dark:text-zinc-400 flex-wrap">
           {/* Draft selector */}
           <div className="flex items-center gap-1">
             <span className="font-bold text-blue-600 dark:text-blue-400 text-xs bg-blue-50 dark:bg-blue-950/30 px-2 py-0.5 rounded" style={{ fontFamily: "'Oswald',sans-serif" }}>

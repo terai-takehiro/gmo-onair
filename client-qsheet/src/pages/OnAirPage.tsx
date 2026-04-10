@@ -366,7 +366,7 @@ export default function OnAirPage() {
           )}
           {paused && <span className="ml-2 text-sm font-black tracking-wider text-amber-400">PAUSE</span>}
         </div>
-        <div className="text-sm font-bold text-[#bbb] flex gap-6">
+        <div className="text-sm font-bold text-[#bbb] hidden md:flex gap-6">
           <span>SPACE 次へ</span>
           <span>P 一時停止</span>
           <span>↑↓ ±1分</span>
@@ -374,9 +374,9 @@ export default function OnAirPage() {
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
         {/* ===== LEFT: RUNDOWN LIST ===== */}
-        <div className="w-[500px] flex-shrink-0 flex flex-col bg-[#0a0a0a] border-r-2 border-[#222]">
+        <div className="w-full md:w-[500px] h-[40vh] md:h-auto flex-shrink-0 flex flex-col bg-[#0a0a0a] border-b-2 md:border-b-0 md:border-r-2 border-[#222]">
           {/* Column headers */}
           <div className="flex-none flex items-center h-10 px-2 bg-[#151515] border-b-2 border-[#222]">
             <div className="w-[120px] text-center text-sm font-black text-[#eee] tracking-[0.15em]" style={{ fontFamily: "'Oswald',sans-serif" }}>TIME</div>

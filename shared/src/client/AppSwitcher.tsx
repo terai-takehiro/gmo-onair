@@ -80,7 +80,7 @@ export default function AppSwitcher({ currentApp }: AppSwitcherProps) {
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute left-0 top-full mt-2 z-[200] w-[340px] rounded-2xl border border-border bg-card shadow-2xl shadow-black/10 animate-switcher-in">
+        <div className="absolute left-0 top-full mt-2 z-[200] w-[calc(100vw-2rem)] sm:w-[340px] max-w-[340px] rounded-2xl border border-border bg-card shadow-2xl shadow-black/10 animate-switcher-in">
           {/* Header */}
           <div className="px-4 pt-4 pb-2">
             <p className="text-[13px] font-bold text-foreground tracking-wide">GMO ONAiR</p>
