@@ -23,6 +23,6 @@ jobs:
             docker compose down -v
             docker compose up -d --build
             echo "Waiting for seed to complete..."
-            sleep 30
-            docker compose logs --tail=50 app
+            sleep 40
+            docker compose logs --tail=80 app
             echo "✅ Deploy with DB reset completed at $(date)"

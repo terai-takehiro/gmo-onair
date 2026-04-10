@@ -203,7 +203,7 @@ async function seedSubApps() {
     // ── Doc 1: GH春季IR説明会 ─────────────────────────────
     if (PA001 && EA001) {
       await ins(qSql, [
-        uuidv4(), 'GH春季IR説明会 Qシート', EA001, PA001, '2026-03-28', 'confirmed',
+        uuidv4(), 'GH春季IR説明会 Qシート', EA001, PA001, '2026-03-28', 'on_air',
         JSON.stringify({
           _version: 1,
           meta: {
@@ -368,7 +368,7 @@ async function seedSubApps() {
     // ── Doc 3: ネットLIVE配信 #001 ────────────────────────
     if (PA003 && EA003) {
       await ins(qSql, [
-        uuidv4(), 'ネットLIVE配信 #001 Qシート', EA003, PA003, '2026-04-05', 'confirmed',
+        uuidv4(), 'ネットLIVE配信 #001 Qシート', EA003, PA003, '2026-04-05', 'on_air',
         JSON.stringify({
           _version: 1,
           meta: {
