@@ -30,11 +30,16 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **リアルタイム**: Socket.IO (`/qsheet` ネームスペース: OnAir↔ランダウン同期, `/interactive`: スタンプ)
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
-## 現在のバージョン: v0.7.1
+## 現在のバージョン: v0.7.2
 
 ## ブランチ運用
 - **デプロイ**: 常に `main` ブランチにプッシュ（masterではない）
 - **バージョン管理**: インクリメンタル（v0.2.1, v0.2.2...）、大きくジャンプしない
+- **バージョン更新ルール**: mainにデプロイする際は必ずパッチバージョンを上げる（例: v0.7.1 → v0.7.2）。以下の全箇所を同時に更新すること:
+  1. `CLAUDE.md` の「現在のバージョン」
+  2. ルート `package.json` の `"version"`
+  3. 各ワークスペース `package.json` の `"version"` (`client/`, `client-qsheet/`, `client-equipment/`, `client-interactive/`, `client-techsheet/`)
+  4. コミットメッセージに `v0.x.x` を明記
 
 ## セキュリティポリシー
 
