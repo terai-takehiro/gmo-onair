@@ -6,9 +6,17 @@ import path from 'path';
 // pdfmake server-side printer
 const PdfPrinter = require('pdfmake/src/printer');
 
-// Font paths — use Roboto bundled with pdfmake
+// Font paths — Noto Sans JP for Japanese, Roboto as fallback
+const NOTO_DIR = path.join(__dirname, '../../../../fonts');
 const ROBOTO_DIR = path.join(require.resolve('pdfmake/package.json'), '..', 'build', 'fonts', 'Roboto');
+
 const fonts = {
+  NotoSansJP: {
+    normal: path.join(NOTO_DIR, 'NotoSansJP-Regular.ttf'),
+    bold: path.join(NOTO_DIR, 'NotoSansJP-Bold.ttf'),
+    italics: path.join(NOTO_DIR, 'NotoSansJP-Regular.ttf'),
+    bolditalics: path.join(NOTO_DIR, 'NotoSansJP-Bold.ttf'),
+  },
   Roboto: {
     normal: path.join(ROBOTO_DIR, 'Roboto-Regular.ttf'),
     bold: path.join(ROBOTO_DIR, 'Roboto-Medium.ttf'),
@@ -335,7 +343,7 @@ router.post('/export-pdf', async (req: Request, res: Response) => {
         footerText: { fontSize: 6, color: '#94a3b8' },
       },
       defaultStyle: {
-        font: 'Roboto',
+        font: 'NotoSansJP',
       },
     };
 

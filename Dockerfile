@@ -46,6 +46,9 @@ RUN cd server && npm install --omit=dev
 COPY --from=builder /app/server/dist server/dist
 COPY server/src/shared/db/migrations server/dist/shared/db/migrations
 
+# Copy Japanese fonts for PDF export
+COPY server/fonts server/fonts
+
 # Copy built clients to serve as static files
 COPY --from=builder /app/client/dist client/dist
 COPY --from=builder /app/client-equipment/dist client-equipment/dist
