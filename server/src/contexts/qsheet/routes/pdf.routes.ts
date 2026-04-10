@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { queryOne } from '../../../shared/db/connection';
-import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
+import { requireAuth } from '../../../shared/middleware/auth';
 import path from 'path';
 
 // pdfmake server-side printer
@@ -29,7 +29,7 @@ const printer = new PdfPrinter(fonts);
 
 const router = Router();
 
-router.use(requireAuth, requirePermission('qsheet', 'exporter'));
+router.use(requireAuth);
 
 // ============================================================
 // Time helpers
@@ -358,8 +358,10 @@ router.post('/export-pdf', async (req: Request, res: Response) => {
     pdfDoc.pipe(res);
     pdfDoc.end();
   } catch (err: unknown) {
-    console.error('PDF export error:', err);
-    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: 'PDF生成中にエラーが発生しました' } });
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const errStack = err instanceof Error ? err.stack : '';
+    console.error('PDF export error:', errMsg, errStack);
+    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: `PDF生成エラー: ${errMsg}` } });
   }
 });
 
