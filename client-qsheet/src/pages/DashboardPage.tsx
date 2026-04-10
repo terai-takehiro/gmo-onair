@@ -1,25 +1,44 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
-import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
-  Plus,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   FileText,
-  Trash2,
-  Clock,
-  Sun,
-  Moon,
-  X,
+  Plus,
+  Search,
+  Loader2,
   Radio,
-  MapPin,
+  Pencil,
+  Trash2,
   Calendar,
+  Clock,
   Play,
   ChevronRight,
+  MapPin,
+  FolderKanban,
+  X,
   Link2,
 } from "lucide-react";
 
-// ─── Types ──────────────────────────────────────────────
+// ============================================================
+// Types
+// ============================================================
 interface QsheetDocument {
   id: string;
   title: string;
@@ -32,33 +51,25 @@ interface QsheetDocument {
   creator_name: string | null;
   created_at: string;
   updated_at: string;
-  data?: DocumentData;
-}
-
-interface DocumentData {
-  meta?: DocumentMeta;
-  blocks?: any[];
-  sections?: any[];
-  masters?: any;
-}
-
-interface DocumentMeta {
-  title?: string;
-  draftNumber?: number;
-  draftType?: string;
-  broadcastDate?: string;
-  broadcastStartTime?: string;
-  recordingDate?: string;
-  rehearsalDate?: string;
-  location?: string;
-  author?: string;
-  updatedAt?: string;
+  data?: {
+    meta?: {
+      title?: string;
+      location?: string;
+      broadcastDate?: string;
+      broadcastStartTime?: string;
+      recordingDate?: string;
+      rehearsalDate?: string;
+      draftType?: string;
+      draftNumber?: number;
+    };
+  };
 }
 
 interface GlsProject {
   id: string;
   gls_number: string;
   name: string;
+  customer_name: string | null;
 }
 
 interface EpisodeOption {
@@ -66,30 +77,43 @@ interface EpisodeOption {
   episode_code: string;
   episode_number: number;
   broadcast_date: string | null;
+  recording_date: string | null;
 }
 
-// ─── Helpers ────────────────────────────────────────────
-function fmtDate(d: string | null) {
+// ============================================================
+// Helpers
+// ============================================================
+function fmtDate(d: string | null | undefined): string {
   if (!d) return "—";
-  const dt = new Date(d + "T00:00:00");
-  return dt.toLocaleDateString("ja-JP", { year: "numeric", month: "short", day: "numeric", weekday: "short" });
+  try {
+    const dt = new Date(d.includes("T") ? d : d + "T00:00:00");
+    return dt.toLocaleDateString("ja-JP", { year: "numeric", month: "short", day: "numeric", weekday: "short" });
+  } catch {
+    return d;
+  }
 }
 
-function getDraftLabel(meta?: DocumentMeta) {
+type DocMeta = NonNullable<NonNullable<QsheetDocument["data"]>["meta"]>;
+
+function getDraftLabel(meta?: DocMeta): string {
   if (!meta) return "第1稿";
   if (meta.draftType === "準備稿") return "準備稿";
   if (meta.draftType === "決定稿") return "決定稿";
   return `第${meta.draftNumber || 1}稿`;
 }
 
-function getDraftColor(meta?: DocumentMeta) {
+function getDraftColor(meta?: DocMeta): string {
   if (!meta) return "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400";
-  if (meta.draftType === "決定稿") return "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 ring-1 ring-emerald-200 dark:ring-emerald-800";
-  if (meta.draftType === "準備稿") return "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 ring-1 ring-amber-200 dark:ring-amber-800";
+  if (meta.draftType === "決定稿")
+    return "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 ring-1 ring-emerald-200 dark:ring-emerald-800";
+  if (meta.draftType === "準備稿")
+    return "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 ring-1 ring-amber-200 dark:ring-amber-800";
   return "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 ring-1 ring-blue-200 dark:ring-blue-800";
 }
 
-// ─── DocCard ────────────────────────────────────────────
+// ============================================================
+// DocCard — original style single-column card
+// ============================================================
 function DocCard({
   doc,
   onNavigate,
@@ -108,7 +132,7 @@ function DocCard({
       className="group p-5 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60 transition-all hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-lg hover:shadow-blue-600/5 cursor-pointer"
       onClick={() => onNavigate(doc.id)}
     >
-      {/* Top: title + badge + actions */}
+      {/* Top row: title + badge + actions */}
       <div className="flex items-start justify-between mb-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2.5 mb-1">
@@ -117,31 +141,40 @@ function DocCard({
               {getDraftLabel(meta)}
             </span>
           </div>
+          {/* GLS/Episode info */}
+          {(doc.gls_number || doc.episode_code) && (
+            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+              {doc.gls_number && <span className="font-medium">{doc.gls_number}</span>}
+              {doc.gls_number && doc.project_name && <span> {doc.project_name}</span>}
+              {doc.episode_code && <span>{doc.gls_number ? " / " : ""}{doc.episode_code}</span>}
+            </p>
+          )}
           {meta?.location && (
-            <div className="flex items-center gap-1 text-xs text-zinc-400">
+            <div className="flex items-center gap-1 text-xs text-zinc-400 mt-0.5">
               <MapPin size={11} />
               <span>{meta.location}</span>
-            </div>
-          )}
-          {(doc.gls_number || doc.episode_code) && (
-            <div className="flex items-center gap-1 text-xs text-zinc-400 mt-0.5">
-              <Link2 size={11} />
-              {doc.gls_number && <span className="font-medium">{doc.gls_number}</span>}
-              {doc.project_name && <span>{doc.project_name}</span>}
-              {doc.episode_code && <span>{doc.gls_number ? " / " : ""}{doc.episode_code}</span>}
             </div>
           )}
         </div>
         <div className="flex items-center gap-1 flex-shrink-0 ml-3 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
+            onClick={(e) => { e.stopPropagation(); onNavigate(doc.id); }}
+            className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-blue-500 transition-all"
+            title="編集"
+          >
+            <Pencil size={13} />
+          </button>
+          <button
             onClick={(e) => { e.stopPropagation(); onOnAir(doc.id); }}
             className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold rounded-lg bg-red-600 text-white hover:bg-red-500 transition-all"
           >
-            <Radio size={10} />ONAIR
+            <Radio size={10} />
+            ONAIR
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(doc.id); }}
             className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-zinc-400 hover:text-red-500 transition-all"
+            title="削除"
           >
             <Trash2 size={13} />
           </button>
@@ -149,7 +182,7 @@ function DocCard({
       </div>
 
       {/* Info grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1.5 text-[11px]">
+      <div className="grid grid-cols-4 gap-x-4 gap-y-1.5 text-[11px]">
         {(meta?.broadcastDate || doc.broadcast_date) && (
           <div className="flex items-center gap-1.5">
             <Calendar size={10} className="text-zinc-400 flex-shrink-0" />
@@ -198,169 +231,35 @@ function DocCard({
   );
 }
 
-// ─── NewDocModal ────────────────────────────────────────
-function NewDocModal({
-  onClose,
-  onCreated,
-}: {
-  onClose: () => void;
-  onCreated: (doc: QsheetDocument) => void;
-}) {
-  const [title, setTitle] = useState("");
-  const [location, setLocation] = useState("");
-  const [broadcastDate, setBroadcastDate] = useState("");
-  const [broadcastStartTime, setBroadcastStartTime] = useState("");
+// ============================================================
+// DashboardPage
+// ============================================================
+export default function DashboardPage() {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newLocation, setNewLocation] = useState("");
+  const [newBroadcastDate, setNewBroadcastDate] = useState("");
+  const [newBroadcastStartTime, setNewBroadcastStartTime] = useState("");
   const [hasRecording, setHasRecording] = useState(true);
-  const [recordingDate, setRecordingDate] = useState("");
+  const [newRecordingDate, setNewRecordingDate] = useState("");
   const [hasRehearsal, setHasRehearsal] = useState(false);
-  const [rehearsalDate, setRehearsalDate] = useState("");
+  const [newRehearsalDate, setNewRehearsalDate] = useState("");
   const [linkToProject, setLinkToProject] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [selectedEpisodeId, setSelectedEpisodeId] = useState("");
-  const [creating, setCreating] = useState(false);
-
-  const canSubmit = title.trim() && location.trim() && broadcastDate;
-
-  const { data: glsProjects } = useQuery({
-    queryKey: ["gls-options"],
-    queryFn: async () => (await api.get("/lookup/gls-options")).data.data as GlsProject[],
-    enabled: linkToProject,
-  });
-
-  const { data: episodes } = useQuery({
-    queryKey: ["episode-options", selectedProjectId],
-    queryFn: async () => (await api.get(`/lookup/${selectedProjectId}/episodes-options`)).data.data as EpisodeOption[],
-    enabled: !!selectedProjectId,
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!canSubmit || creating) return;
-    setCreating(true);
-    try {
-      const selectedEpisode = episodes?.find((ep) => ep.id === selectedEpisodeId);
-      const res = await api.post("/qsheet/documents", {
-        title: title.trim(),
-        broadcast_date: broadcastDate || null,
-        project_id: linkToProject && selectedProjectId ? selectedProjectId : null,
-        episode_id: linkToProject && selectedEpisodeId ? selectedEpisodeId : null,
-        episode_code: linkToProject && selectedEpisode ? selectedEpisode.episode_code : null,
-        data: {
-          _version: 4,
-          meta: {
-            title: title.trim(),
-            draftNumber: 1,
-            draftType: "numbered",
-            updatedAt: new Date().toISOString(),
-            broadcastStartTime,
-            broadcastDate,
-            rehearsalDate: hasRehearsal ? rehearsalDate : "",
-            recordingDate: hasRecording ? recordingDate : "",
-            location: location.trim(),
-          },
-          blocks: [
-            { id: "blk_s1", type: "scenario", label: "シナリオ", width: "L" },
-            { id: "blk_v1", type: "video", label: "映像", width: "M" },
-            { id: "blk_sl1", type: "slide", label: "スライド", width: "M" },
-            { id: "blk_t1", type: "telop", label: "テロップ", width: "S" },
-            { id: "blk_a1", type: "audio", label: "オーディオ", width: "S" },
-          ],
-          sections: [{ label: "【ロール1】", rows: [] }],
-          masters: { persons: [], video: [], audio: [], telop: [] },
-          stageTemplates: [],
-          sectionTemplates: [],
-        },
-      });
-      onCreated(res.data.data);
-    } catch {
-      setCreating(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-scale-in">
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="text-lg font-bold">新規台本作成</h3>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400"><X size={18} /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-zinc-500 mb-1">番組名 <span className="text-red-500">*</span></label>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/30 transition-all" placeholder="例：サンプル情報バラエティ" autoFocus />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-zinc-500 mb-1">撮影場所 <span className="text-red-500">*</span></label>
-            <input value={location} onChange={(e) => setLocation(e.target.value)} className="w-full px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/30 transition-all" placeholder="例：GMOグローバルスタジオ" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-zinc-500 mb-1">放送日 <span className="text-red-500">*</span></label>
-              <input type="date" value={broadcastDate} onChange={(e) => setBroadcastDate(e.target.value)} className="w-full px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 outline-none focus:border-blue-400 transition-all" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-500 mb-1">放送開始時刻</label>
-              <input type="time" value={broadcastStartTime} onChange={(e) => setBroadcastStartTime(e.target.value)} className="w-full px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 outline-none focus:border-blue-400 transition-all" />
-            </div>
-          </div>
-          <div>
-            <label className="flex items-center gap-2 text-xs font-medium text-zinc-500 mb-1 cursor-pointer">
-              <input type="checkbox" checked={hasRecording} onChange={() => setHasRecording(!hasRecording)} className="accent-blue-600 w-3.5 h-3.5" />
-              収録日を設定（生放送の場合はOFF）
-            </label>
-            {hasRecording && <input type="date" value={recordingDate} onChange={(e) => setRecordingDate(e.target.value)} className="w-full px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 outline-none focus:border-blue-400 transition-all" />}
-          </div>
-          <div>
-            <label className="flex items-center gap-2 text-xs font-medium text-zinc-500 mb-1 cursor-pointer">
-              <input type="checkbox" checked={hasRehearsal} onChange={() => setHasRehearsal(!hasRehearsal)} className="accent-blue-600 w-3.5 h-3.5" />
-              リハーサル日を設定
-            </label>
-            {hasRehearsal && <input type="date" value={rehearsalDate} onChange={(e) => setRehearsalDate(e.target.value)} className="w-full px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 outline-none focus:border-blue-400 transition-all" />}
-          </div>
-
-          {/* GLS linking */}
-          <div className="border-t border-zinc-100 dark:border-zinc-800 pt-4">
-            <label className="flex items-center gap-2 text-xs font-medium text-zinc-500 mb-1 cursor-pointer">
-              <input type="checkbox" checked={linkToProject} onChange={(e) => setLinkToProject(e.target.checked)} className="accent-blue-600 w-3.5 h-3.5" />
-              <Link2 size={12} />
-              GLS案件に紐付ける
-            </label>
-            {linkToProject && (
-              <div className="mt-2 space-y-2 pl-6">
-                <select value={selectedProjectId} onChange={(e) => { setSelectedProjectId(e.target.value); setSelectedEpisodeId(""); }} className="w-full px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 outline-none focus:border-blue-400 transition-all">
-                  <option value="">案件を選択...</option>
-                  {glsProjects?.map((p) => <option key={p.id} value={p.id}>{p.gls_number} — {p.name}</option>)}
-                </select>
-                {selectedProjectId && episodes && episodes.length > 0 && (
-                  <select value={selectedEpisodeId} onChange={(e) => setSelectedEpisodeId(e.target.value)} className="w-full px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 outline-none focus:border-blue-400 transition-all">
-                    <option value="">エピソード（任意）...</option>
-                    {episodes.map((ep) => <option key={ep.id} value={ep.id}>{ep.episode_code}{ep.broadcast_date && ` — ${ep.broadcast_date}`}</option>)}
-                  </select>
-                )}
-              </div>
-            )}
-          </div>
-
-          <button type="submit" disabled={!canSubmit || creating} className="w-full py-2.5 text-sm font-semibold rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shadow-blue-600/25 transition-all">
-            {creating ? "作成中..." : "台本を作成"}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-// ─── Dashboard ──────────────────────────────────────────
-export default function DashboardPage() {
-  const navigate = useNavigate();
-  const { currentUser, logout } = useAuth();
-  const queryClient = useQueryClient();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [search, setSearch] = useState("");
-  const [showNewModal, setShowNewModal] = useState(false);
-  const [dark, setDark] = useState(false);
 
   const projectFilter = searchParams.get("project");
+
+  useEffect(() => {
+    if (projectFilter) {
+      setLinkToProject(true);
+      setSelectedProjectId(projectFilter);
+    }
+  }, [projectFilter]);
 
   const { data: documents, isLoading, isError } = useQuery({
     queryKey: ["qsheet-documents", search, projectFilter],
@@ -374,14 +273,99 @@ export default function DashboardPage() {
     retry: false,
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => { await api.delete(`/qsheet/documents/${id}`); },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["qsheet-documents"] }); },
+  const { data: glsProjects } = useQuery({
+    queryKey: ["gls-options"],
+    queryFn: async () => {
+      const res = await api.get("/lookup/gls-options");
+      return res.data.data as GlsProject[];
+    },
+    enabled: linkToProject,
   });
 
-  const toggleDark = () => {
-    setDark(!dark);
-    document.documentElement.classList.toggle("dark");
+  const { data: episodes } = useQuery({
+    queryKey: ["episode-options", selectedProjectId],
+    queryFn: async () => {
+      const res = await api.get(`/lookup/${selectedProjectId}/episodes-options`);
+      return res.data.data as EpisodeOption[];
+    },
+    enabled: !!selectedProjectId,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const selectedEpisode = episodes?.find((e) => e.id === selectedEpisodeId);
+      const res = await api.post("/qsheet/documents", {
+        title: newTitle || "無題のQシート",
+        broadcast_date: newBroadcastDate || selectedEpisode?.broadcast_date || null,
+        project_id: linkToProject && selectedProjectId ? selectedProjectId : null,
+        episode_id: linkToProject && selectedEpisodeId ? selectedEpisodeId : null,
+        episode_code: linkToProject && selectedEpisode ? selectedEpisode.episode_code : null,
+        data: {
+          meta: {
+            title: newTitle || "無題のQシート",
+            draftNumber: 1,
+            draftType: "numbered",
+            location: newLocation,
+            broadcastDate: newBroadcastDate,
+            broadcastStartTime: newBroadcastStartTime,
+            recordingDate: hasRecording ? newRecordingDate : "",
+            rehearsalDate: hasRehearsal ? newRehearsalDate : "",
+          },
+          blocks: [
+            { id: "scenario", type: "scenario", label: "台本", width: 300 },
+            { id: "video", type: "video", label: "映像", width: 150 },
+            { id: "audio", type: "audio", label: "音声", width: 150 },
+          ],
+          sections: [],
+          masters: { persons: [], video: [], audio: [], telop: [] },
+        },
+      });
+      return res.data.data;
+    },
+    onSuccess: (doc) => {
+      queryClient.invalidateQueries({ queryKey: ["qsheet-documents"] });
+      setShowCreate(false);
+      resetCreateForm();
+      navigate(`/qsheet/editor/${doc.id}`);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/qsheet/documents/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["qsheet-documents"] });
+    },
+  });
+
+  const resetCreateForm = () => {
+    setNewTitle("");
+    setNewLocation("");
+    setNewBroadcastDate("");
+    setNewBroadcastStartTime("");
+    setHasRecording(true);
+    setNewRecordingDate("");
+    setHasRehearsal(false);
+    setNewRehearsalDate("");
+    if (!projectFilter) {
+      setLinkToProject(false);
+      setSelectedProjectId("");
+    }
+    setSelectedEpisodeId("");
+  };
+
+  const handleProjectChange = (value: string) => {
+    setSelectedProjectId(value);
+    setSelectedEpisodeId("");
+  };
+
+  const handleEpisodeChange = (value: string) => {
+    setSelectedEpisodeId(value);
+    if (!newBroadcastDate && value) {
+      const ep = episodes?.find((e) => e.id === value);
+      if (ep?.broadcast_date) setNewBroadcastDate(ep.broadcast_date);
+    }
   };
 
   const handleDelete = (id: string) => {
@@ -390,77 +374,64 @@ export default function DashboardPage() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
-      {/* Sticky header */}
-      <header className="sticky top-0 z-50 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border-b border-zinc-200/60 dark:border-zinc-800/60">
-        <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-blue-600" />
-            <h1 className="text-sm font-semibold tracking-tight">Cue Sheet</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-zinc-500">{currentUser?.name}</span>
-            <button onClick={toggleDark} className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 transition-colors">
-              {dark ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-            <button onClick={logout} className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors">ログアウト</button>
-          </div>
-        </div>
-      </header>
-
+    <div className="min-h-full bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
       <main className="max-w-5xl mx-auto px-6 py-10">
-        {/* Title + New button */}
+        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-2xl font-bold tracking-tight">ドキュメント</h2>
-            <p className="text-sm text-zinc-500 mt-1">{documents?.length ?? 0} 件の台本</p>
+            <p className="text-sm text-zinc-500 mt-1">{documents?.length || 0} 件の台本</p>
           </div>
-          <button onClick={() => setShowNewModal(true)} className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 shadow-sm shadow-blue-600/25 transition-all hover:shadow-md hover:shadow-blue-600/30 active:scale-[0.98]">
-            <Plus size={16} />新規作成
+          <button
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 shadow-sm shadow-blue-600/25 transition-all hover:shadow-md hover:shadow-blue-600/30 active:scale-[0.98]"
+          >
+            <Plus size={16} />
+            新規作成
           </button>
         </div>
 
         {/* Project filter banner */}
         {projectFilter && documents && documents.length > 0 && documents[0].project_name && (
-          <div className="flex items-center gap-2 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20 px-4 py-2.5 mb-6">
-            <Link2 className="h-4 w-4 text-blue-500 shrink-0" />
+          <div className="flex items-center gap-2 rounded-lg border bg-primary/5 px-4 py-2.5 mb-6">
+            <FolderKanban className="h-4 w-4 text-primary shrink-0" />
             <span className="text-sm">
               <span className="font-medium">{documents[0].gls_number}</span>
-              <span className="text-zinc-500 ml-1">{documents[0].project_name}</span>
+              <span className="text-muted-foreground ml-1">{documents[0].project_name}</span>
               のQシート
             </span>
-            <button className="ml-auto p-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900/40 text-zinc-400" onClick={() => setSearchParams({})}>
-              <X size={14} />
-            </button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 ml-auto shrink-0"
+              onClick={() => setSearchParams({})}
+              title="フィルタ解除"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
           </div>
         )}
 
         {/* Search */}
-        {documents && documents.length > 3 && (
-          <div className="relative max-w-sm mb-6">
-            <input
-              placeholder="タイトルで検索..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/30 transition-all pl-9"
-            />
-            <FileText size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-          </div>
-        )}
+        <div className="relative max-w-md mb-8">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="タイトルで検索..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
+        </div>
 
-        {/* Document list */}
-        {isError ? (
-          <div className="text-center py-20">
-            <p className="text-sm text-zinc-400">データを取得できませんでした</p>
+        {/* Document list — single column */}
+        {isLoading ? (
+          <div className="flex justify-center py-24">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          </div>
+        ) : isError ? (
+          <div className="flex justify-center py-24">
+            <p className="text-sm text-muted-foreground">データを取得できませんでした。サーバー接続を確認してください。</p>
           </div>
         ) : documents && documents.length > 0 ? (
           <div className="grid gap-4">
@@ -477,22 +448,145 @@ export default function DashboardPage() {
         ) : (
           <div className="text-center py-20">
             <FileText size={48} className="mx-auto text-zinc-300 dark:text-zinc-700 mb-4" />
-            <p className="text-zinc-400 text-sm">まだドキュメントがありません</p>
+            <p className="text-zinc-400 text-sm mb-4">まだドキュメントがありません</p>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 shadow-sm shadow-blue-600/25 transition-all"
+            >
+              <Plus size={16} />
+              最初のQシートを作成
+            </button>
           </div>
         )}
       </main>
 
-      {/* Footer link */}
-      <div className="max-w-5xl mx-auto px-6 pb-8">
-        <a href="/" className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors">← GMO ONAiR 本体へ</a>
-      </div>
+      {/* ===== Create dialog ===== */}
+      <Dialog open={showCreate} onOpenChange={(open) => { setShowCreate(open); if (!open) resetCreateForm(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>新規台本作成</DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-4 pt-2"
+            onSubmit={(e) => { e.preventDefault(); createMutation.mutate(); }}
+          >
+            <div>
+              <Label className="text-xs text-zinc-500">番組名 <span className="text-red-500">*</span></Label>
+              <Input
+                className="mt-1"
+                placeholder="例：サンプル情報バラエティ"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-zinc-500">撮影場所 <span className="text-red-500">*</span></Label>
+              <Input
+                className="mt-1"
+                placeholder="例：GMOグローバルスタジオ"
+                value={newLocation}
+                onChange={(e) => setNewLocation(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-zinc-500">放送日 <span className="text-red-500">*</span></Label>
+                <Input className="mt-1" type="date" value={newBroadcastDate} onChange={(e) => setNewBroadcastDate(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs text-zinc-500">放送開始時刻</Label>
+                <Input className="mt-1" type="time" value={newBroadcastStartTime} onChange={(e) => setNewBroadcastStartTime(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <label className="flex items-center gap-2 text-xs font-medium text-zinc-500 mb-1 cursor-pointer">
+                <input type="checkbox" checked={hasRecording} onChange={() => setHasRecording(!hasRecording)} className="accent-blue-600 w-3.5 h-3.5" />
+                収録日を設定（生放送の場合はOFF）
+              </label>
+              {hasRecording && (
+                <Input type="date" value={newRecordingDate} onChange={(e) => setNewRecordingDate(e.target.value)} />
+              )}
+            </div>
+            <div>
+              <label className="flex items-center gap-2 text-xs font-medium text-zinc-500 mb-1 cursor-pointer">
+                <input type="checkbox" checked={hasRehearsal} onChange={() => setHasRehearsal(!hasRehearsal)} className="accent-blue-600 w-3.5 h-3.5" />
+                リハーサル日を設定
+              </label>
+              {hasRehearsal && (
+                <Input type="date" value={newRehearsalDate} onChange={(e) => setNewRehearsalDate(e.target.value)} />
+              )}
+            </div>
 
-      {showNewModal && (
-        <NewDocModal
-          onClose={() => setShowNewModal(false)}
-          onCreated={(doc) => navigate(`/qsheet/editor/${doc.id}`)}
-        />
-      )}
+            {/* GLS Project Linking */}
+            <div className="border-t pt-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={linkToProject}
+                  onChange={(e) => {
+                    setLinkToProject(e.target.checked);
+                    if (!e.target.checked) {
+                      if (!projectFilter) setSelectedProjectId("");
+                      setSelectedEpisodeId("");
+                    }
+                  }}
+                  className="rounded border-input"
+                />
+                <Link2 className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">GLS案件に紐付ける</span>
+              </label>
+
+              {linkToProject && (
+                <div className="mt-3 space-y-3 pl-6">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">GLS案件</Label>
+                    <Select value={selectedProjectId} onValueChange={handleProjectChange}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="案件を選択..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {glsProjects?.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.gls_number} — {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {selectedProjectId && episodes && episodes.length > 0 && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">エピソード（任意）</Label>
+                      <Select value={selectedEpisodeId} onValueChange={handleEpisodeChange}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="エピソードを選択..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {episodes.map((ep) => (
+                            <SelectItem key={ep.id} value={ep.id}>
+                              {ep.episode_code}
+                              {ep.broadcast_date && ` — ${ep.broadcast_date}`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={!newTitle.trim() || !newLocation.trim() || !newBroadcastDate || createMutation.isPending}
+              className="w-full py-2.5 text-sm font-semibold rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shadow-blue-600/25 transition-all"
+            >
+              {createMutation.isPending ? "作成中..." : "台本を作成"}
+            </button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

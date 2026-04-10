@@ -4,61 +4,151 @@ import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
 import {
-  Loader2, ArrowLeft, Play, Pause, Square, SkipForward, SkipBack, Radio,
+  ChevronLeft,
+  Play,
+  Pause,
+  Square,
+  SkipForward,
+  SkipBack,
+  Minus,
+  Plus,
+  Loader2,
 } from "lucide-react";
 
-// ── Helpers ──────────────────────────────────────────────
-const pad = (n: number) => String(n).padStart(2, "0");
-const fmt = (s: number) => `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
-const fmtOffset = (s: number) => {
-  const a = Math.abs(s);
-  return `${pad(Math.floor(a / 60))}:${pad(a % 60)}`;
+// ============================================================
+// Types
+// ============================================================
+interface CueRow {
+  id: string;
+  label: string;
+  duration: number;
+  scenario: string;
+  video: string;
+  audio: string;
+  remarks: string;
+  [key: string]: string | number | null | undefined;
+}
+
+interface Section {
+  id: string;
+  label: string;
+  rows: CueRow[];
+  _break?: boolean;
+  _pageBreak?: boolean;
+  duration?: string;
+}
+
+interface FlatCue {
+  type: "cue" | "cm";
+  label: string;
+  duration: number;
+  start: number;
+  oa: number;
+  row?: CueRow;
+}
+
+// ============================================================
+// Helpers
+// ============================================================
+const mm = (s: number): string => {
+  const a = Math.abs(Math.floor(s || 0));
+  const m = Math.floor(a / 60);
+  return `${s < 0 ? "-" : ""}${String(m).padStart(2, "0")}:${String(a % 60).padStart(2, "0")}`;
 };
 
-function parseDur(str: string): number {
-  if (!str?.trim()) return 0;
-  const t = str.trim();
-  let m = t.match(/^(\d+)[:°](\d+)[:'""]?(\d+)?/);
-  if (m && m[3]) return +m[1] * 3600 + +m[2] * 60 + +m[3];
-  if (m) return +m[1] * 60 + +m[2];
-  m = t.match(/^(\d+)$/);
-  return m ? +m[1] : 0;
+const hms = (s: number): string => {
+  const a = Math.abs(Math.floor(s || 0));
+  return `${String(Math.floor(a / 3600)).padStart(2, "0")}:${String(Math.floor((a % 3600) / 60)).padStart(2, "0")}:${String(a % 60).padStart(2, "0")}`;
+};
+
+const oaFmt = (s: number): string =>
+  `${String(Math.floor(s / 3600)).padStart(2, "0")}:${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
+const parseDuration = (d: string | number | undefined): number => {
+  if (!d) return 0;
+  if (typeof d === "number") return d;
+  const p = d.split(":");
+  return p.length === 2 ? +p[0] * 60 + +p[1] : +p[0] * 60;
+};
+
+function buildCues(data: { sections?: Section[]; meta?: { broadcastStartTime?: string } }): FlatCue[] {
+  if (!data?.sections) return [];
+  const cues: FlatCue[] = [];
+  const bst = data.meta?.broadcastStartTime || "19:00";
+  const bp = bst.split(":");
+  const base = (+bp[0] || 19) * 3600 + (+bp[1] || 0) * 60;
+  let acc = 0;
+
+  for (const s of data.sections) {
+    if ((s as Section & { _pageBreak?: boolean })._pageBreak) continue;
+    if ((s as Section & { _break?: boolean })._break) {
+      const d = parseDuration((s as Section & { duration?: string }).duration);
+      cues.push({ type: "cm", label: s.label || "CM", duration: d, start: acc, oa: base + acc });
+      acc += d;
+    } else {
+      for (const row of s.rows) {
+        const d = row.duration || 0;
+        cues.push({ type: "cue", label: s.label || row.label || "", duration: d, start: acc, oa: base + acc, row });
+        acc += d;
+      }
+    }
+  }
+  return cues;
 }
 
-function cellText(cell: any): string {
-  if (!cell) return "";
-  if (typeof cell === "string") return cell;
-  if (typeof cell?.value === "string") return cell.value;
-  if (Array.isArray(cell?.entries)) return cell.entries.map((e: any) => `${e.name ? `【${e.name}】` : ""}${e.html || ""}`).join(" ");
-  return "";
+// Oswald number display component
+function F({
+  children,
+  size,
+  weight = 700,
+  color = "#fff",
+  className = "",
+  style = {},
+}: {
+  children: React.ReactNode;
+  size: number;
+  weight?: number;
+  color?: string;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <span
+      className={`tabular-nums ${className}`}
+      style={{
+        fontFamily: "'Oswald','Arial Narrow',sans-serif",
+        fontSize: size,
+        fontWeight: weight,
+        color,
+        letterSpacing: "0.02em",
+        ...style,
+      }}
+    >
+      {children}
+    </span>
+  );
 }
 
-// ── Types ────────────────────────────────────────────────
-interface FlatItem {
-  type: "section" | "cm" | "pagebreak" | "row";
-  si: number;
-  ri?: number;
-  cueIdx?: number;
-  label: string;
-  durSec: number;
-  startSec: number;
-  sectionLabel?: string;
-  text?: string;
-}
-
-// ── OnAirPage ────────────────────────────────────────────
+// ============================================================
+// OnAirPage
+// ============================================================
 export default function OnAirPage() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [started, setStarted] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentCue, setCurrentCue] = useState(0);
-  const [elapsed, setElapsed] = useState(0);
+  // State — pre-show: cur=-1, running=false
+  const [running, setRunning] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [cur, setCur] = useState(-1);
+  const [showEl, setShowEl] = useState(0);
+  const [cueEl, setCueEl] = useState(0);
   const [offset, setOffset] = useState(0);
-  const [wallTime, setWallTime] = useState(new Date());
-  const intervalRef = useRef<ReturnType<typeof setInterval>>();
-  const socketRef = useRef<ReturnType<typeof getQsheetSocket> | null>(null);
+  const [clock, setClock] = useState(new Date());
+
+  const showStart = useRef<number | null>(null);
+  const cueStart = useRef<number | null>(null);
+  const pauseAt = useRef<number | null>(null);
+  const activeRef = useRef<HTMLDivElement | null>(null);
 
   const { data: doc, isLoading } = useQuery({
     queryKey: ["qsheet-document", id],
@@ -72,171 +162,186 @@ export default function OnAirPage() {
     refetchOnWindowFocus: false,
   });
 
-  // Wall clock (1s)
+  const cues = doc?.data ? buildCues(doc.data) : [];
+  const total = cues.reduce((s, c) => s + c.duration, 0);
+
+  // 100ms timer for smooth updates
   useEffect(() => {
-    const t = setInterval(() => setWallTime(new Date()), 1000);
-    return () => clearInterval(t);
+    const iv = setInterval(() => {
+      setClock(new Date());
+      if (running && !paused) {
+        const t = Date.now();
+        if (showStart.current) setShowEl((t - showStart.current) / 1000 + offset);
+        if (cueStart.current) setCueEl((t - cueStart.current) / 1000);
+      }
+    }, 100);
+    return () => clearInterval(iv);
+  }, [running, paused, offset]);
+
+  // Auto-advance for CM cues
+  useEffect(() => {
+    if (!running || paused || cur < 0) return;
+    const c = cues[cur];
+    if (c?.type === "cm" && c.duration > 0 && cueEl >= c.duration && cur < cues.length - 1) {
+      setCur((p) => p + 1);
+      cueStart.current = Date.now();
+      setCueEl(0);
+    }
+  }, [running, paused, cur, cueEl, cues]);
+
+  // Scroll to current cue
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [cur]);
+
+  // Controls
+  const go = useCallback(() => {
+    const t = Date.now();
+    showStart.current = t;
+    cueStart.current = t;
+    setRunning(true);
+    setPaused(false);
+    setCur(0);
+    setShowEl(0);
+    setCueEl(0);
+    setOffset(0);
   }, []);
 
-  // Build flat display list from doc sections
-  const flatList: FlatItem[] = [];
-  if (doc?.data?.sections) {
-    let abs = 0;
-    let ci = 0;
-    const blocks: any[] = doc.data.blocks || [];
-    const sections: any[] = doc.data.sections;
-    for (let si = 0; si < sections.length; si++) {
-      const sec = sections[si];
-      if (sec._pageBreak) {
-        flatList.push({ type: "pagebreak", si, label: "", durSec: 0, startSec: abs });
-        continue;
-      }
-      if (sec._break) {
-        const d = parseDur(sec.duration || "");
-        flatList.push({ type: "cm", si, label: sec.label || "CM", durSec: d, startSec: abs });
-        abs += d;
-        continue;
-      }
-      // Normal section header
-      flatList.push({ type: "section", si, label: sec.label || "", durSec: parseDur(sec.duration || ""), startSec: abs });
-      for (let ri = 0; ri < (sec.rows || []).length; ri++) {
-        const row = sec.rows[ri];
-        const d = parseDur(row.duration || "");
-        let text = "";
-        for (const blk of blocks) {
-          if (blk.type === "scenario") {
-            text = cellText(row.cells?.[blk.id]);
-            if (text) break;
-          }
-        }
-        flatList.push({
-          type: "row",
-          si, ri,
-          cueIdx: ci,
-          label: `${sec.label || ""}`,
-          durSec: d,
-          startSec: abs,
-          sectionLabel: sec.label,
-          text,
-        });
-        abs += d;
-        ci++;
-      }
-    }
-  }
-
-  const flatRows = flatList.filter(i => i.type === "row");
-  const totalDuration = flatRows.reduce((s, i) => s + i.durSec, 0);
-
-  const current = flatRows[currentCue];
-  const next = flatRows[currentCue + 1];
-  const cueElapsed = current ? Math.max(elapsed - current.startSec, 0) : 0;
-  const cueRemaining = current ? Math.max(current.durSec - cueElapsed, 0) : 0;
-  const cueProgress = current && current.durSec > 0 ? Math.min(cueElapsed / current.durSec, 1) : 0;
-  const totalProgress = totalDuration > 0 ? Math.min(elapsed / totalDuration, 1) : 0;
-  const progressBarColor = cueProgress >= 0.9 ? "bg-red-500" : cueProgress >= 0.7 ? "bg-amber-400" : "bg-emerald-500";
-  const progressTextColor = cueProgress >= 0.9 ? "text-red-400" : cueProgress >= 0.7 ? "text-amber-400" : "text-emerald-400";
-
-  // Timer
-  useEffect(() => {
-    if (isPlaying) {
-      intervalRef.current = setInterval(() => setElapsed(p => p + 1), 1000);
+  const next = useCallback(() => {
+    if (cur < cues.length - 1) {
+      setCur((p) => p + 1);
+      cueStart.current = Date.now();
+      setCueEl(0);
     } else {
-      clearInterval(intervalRef.current);
+      setRunning(false);
+      setPaused(false);
     }
-    return () => clearInterval(intervalRef.current);
-  }, [isPlaying]);
+  }, [cur, cues.length]);
 
-  // Auto-advance cue
-  useEffect(() => {
-    if (!isPlaying || !current || current.durSec <= 0) return;
-    if (elapsed >= current.startSec + current.durSec && currentCue < flatRows.length - 1) {
-      setCurrentCue(p => p + 1);
+  const prev = useCallback(() => {
+    if (cur > 0) {
+      setCur((p) => p - 1);
+      cueStart.current = Date.now();
+      setCueEl(0);
     }
-  }, [elapsed, isPlaying, current, currentCue, flatRows.length]);
+  }, [cur]);
 
-  // Scroll to current cue in the left list
-  useEffect(() => {
-    document.getElementById(`cue-${currentCue}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [currentCue]);
+  const tog = useCallback(() => {
+    if (paused) {
+      const d = Date.now() - (pauseAt.current || Date.now());
+      if (showStart.current) showStart.current += d;
+      if (cueStart.current) cueStart.current += d;
+      setPaused(false);
+    } else {
+      pauseAt.current = Date.now();
+      setPaused(true);
+    }
+  }, [paused]);
+
+  const stop = useCallback(() => {
+    setRunning(false);
+    setPaused(false);
+    setCur(-1);
+    setShowEl(0);
+    setCueEl(0);
+    setOffset(0);
+    showStart.current = null;
+    cueStart.current = null;
+  }, []);
 
   // Keyboard shortcuts
-  const handleKey = useCallback((e: KeyboardEvent) => {
-    if ((e.target as HTMLElement).tagName === "INPUT" || (e.target as HTMLElement).tagName === "TEXTAREA") return;
-    if (e.key === " " || e.key === "Spacebar") {
-      e.preventDefault();
-      if (!started) { setStarted(true); setIsPlaying(true); return; }
-      setCurrentCue(p => Math.min(p + 1, flatRows.length - 1));
-    } else if (e.key === "p" || e.key === "P") {
-      setIsPlaying(p => !p);
-      setStarted(true);
-    } else if (e.key === "Escape") {
-      setIsPlaying(false); setCurrentCue(0); setElapsed(0); setStarted(false); setOffset(0);
-    } else if (e.key === "ArrowDown" || e.key === "ArrowRight") {
-      e.preventDefault();
-      setCurrentCue(p => Math.min(p + 1, flatRows.length - 1));
-    } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
-      e.preventDefault();
-      setCurrentCue(p => Math.max(p - 1, 0));
-    }
-  }, [flatRows.length, started]);
-
   useEffect(() => {
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [handleKey]);
+    const h = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement).tagName === "INPUT" || (e.target as HTMLElement).tagName === "TEXTAREA") return;
+      switch (e.code) {
+        case "Space":
+          e.preventDefault();
+          !running ? go() : next();
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          running && next();
+          break;
+        case "ArrowLeft":
+          e.preventDefault();
+          running && prev();
+          break;
+        case "KeyP":
+          e.preventDefault();
+          running && tog();
+          break;
+        case "Escape":
+          e.preventDefault();
+          stop();
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          setOffset((p) => p + 60);
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          setOffset((p) => p - 60);
+          break;
+      }
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [running, go, next, prev, tog, stop]);
 
   // Socket.IO
+  const socketRef = useRef<ReturnType<typeof getQsheetSocket> | null>(null);
   useEffect(() => {
     if (!id) return;
     const socket = getQsheetSocket(id);
     socketRef.current = socket;
-    socket.on("cue:next", () => setCurrentCue(p => Math.min(p + 1, flatRows.length - 1)));
-    socket.on("cue:prev", () => setCurrentCue(p => Math.max(p - 1, 0)));
+    socket.on("cue:next", () => next());
+    socket.on("cue:prev", () => prev());
     socket.on("cue:jump", (data: { cueIndex: number }) => {
-      setCurrentCue(data.cueIndex);
-      if (flatRows[data.cueIndex]) setElapsed(flatRows[data.cueIndex].startSec);
+      setCur(data.cueIndex);
+      cueStart.current = Date.now();
+      setCueEl(0);
     });
-    socket.on("cue:play", () => { setIsPlaying(true); setStarted(true); });
-    socket.on("cue:pause", () => setIsPlaying(false));
-    socket.on("cue:reset", () => { setIsPlaying(false); setCurrentCue(0); setElapsed(0); setStarted(false); setOffset(0); });
-    return () => { disconnectQsheetSocket(); socketRef.current = null; };
-  }, [id, flatRows.length]);
+    socket.on("cue:play", () => { if (!running) go(); });
+    socket.on("cue:pause", () => tog());
+    socket.on("cue:reset", () => stop());
+    return () => {
+      disconnectQsheetSocket();
+      socketRef.current = null;
+    };
+  }, [id, running, go, next, prev, tog, stop]);
 
   useEffect(() => {
-    socketRef.current?.emit("cue:update", { currentCue, elapsed, isPlaying });
-  }, [currentCue, elapsed, isPlaying]);
+    if (!socketRef.current) return;
+    socketRef.current.emit("cue:update", { currentCue: cur, elapsed: showEl, isPlaying: running && !paused });
+  }, [cur, showEl, running, paused]);
 
-  // Transport actions
-  const goNext = () => {
-    const n = Math.min(currentCue + 1, flatRows.length - 1);
-    setCurrentCue(n);
-    if (flatRows[n]) setElapsed(flatRows[n].startSec);
-  };
-  const goPrev = () => {
-    const p = Math.max(currentCue - 1, 0);
-    setCurrentCue(p);
-    if (flatRows[p]) setElapsed(flatRows[p].startSec);
-  };
-  const doStart = () => { setStarted(true); setIsPlaying(true); };
-  const doStop = () => { setIsPlaying(false); setCurrentCue(0); setElapsed(0); setStarted(false); setOffset(0); };
+  // Derived values
+  const ov = cur >= 0 ? showEl - cues.slice(0, cur + 1).reduce((s, c) => s + c.duration, 0) : 0;
+  const cc = cur >= 0 ? cues[cur] : null;
+  const nc = cur + 1 < cues.length ? cues[cur + 1] : null;
+  const cDur = cc?.duration || 0;
+  const cRem = cDur - cueEl;
+  const prog = cDur > 0 ? Math.min(cueEl / cDur, 1) : 0;
+  const clk = clock.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
 
-  // ── Loading ──────────────────────────────────────────────
+  // ============================================================
+  // Render
+  // ============================================================
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-black">
-        <Loader2 className="h-8 w-8 animate-spin text-red-500" />
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-red-500" />
       </div>
     );
   }
 
-  if (!doc || flatRows.length === 0) {
+  if (!doc || cues.length === 0) {
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-black text-white gap-4">
         <p className="text-zinc-500">キューデータがありません</p>
         <button
           onClick={() => navigate(`/qsheet/editor/${id}`)}
-          className="px-4 py-2 border border-zinc-700 rounded text-sm hover:bg-zinc-900 transition-colors"
+          className="px-4 py-2 border border-zinc-700 rounded text-sm hover:bg-zinc-900"
         >
           エディターに戻る
         </button>
@@ -244,264 +349,293 @@ export default function OnAirPage() {
     );
   }
 
-  // ── Render ───────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-screen bg-black text-white select-none overflow-hidden" style={{ fontFamily: "'Oswald', 'Arial Narrow', sans-serif" }}>
-
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-2 bg-zinc-950 border-b border-zinc-800 flex-none">
-        <button onClick={() => navigate(`/qsheet/editor/${id}`)} className="text-zinc-500 hover:text-white p-1 transition-colors">
-          <ArrowLeft size={16} />
-        </button>
-        <span className="text-sm text-zinc-300 tracking-wider truncate flex-1 max-w-xs">
-          {doc?.data?.meta?.title || doc?.title || "ON AIR"}
-        </span>
-        <div className={`flex items-center gap-2 px-3 py-1 rounded text-xs font-bold tracking-widest uppercase transition-all ${
-          isPlaying
-            ? "bg-red-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.6)]"
-            : "bg-zinc-900 text-zinc-600 border border-zinc-800"
-        }`}>
-          <span className={`w-2 h-2 rounded-full ${isPlaying ? "bg-white animate-pulse" : "bg-zinc-700"}`} />
-          ON AIR
-        </div>
-        <div className="text-xs text-zinc-600 tabular-nums font-mono">
-          {fmt(elapsed)} / {fmt(totalDuration)}
-        </div>
-      </div>
-
-      {/* Total progress bar */}
-      <div className="h-0.5 bg-zinc-900 flex-none">
-        <div className="h-full bg-zinc-600 transition-all duration-1000" style={{ width: `${totalProgress * 100}%` }} />
-      </div>
-
-      {/* Body: left list + right panel */}
-      <div className="flex flex-1 overflow-hidden">
-
-        {/* ── Left: Rundown list ── */}
-        <div className="w-[420px] shrink-0 bg-[#0a0a0a] border-r border-zinc-900 overflow-y-auto flex flex-col">
-          {flatList.map((item, idx) => {
-            if (item.type === "pagebreak") return (
-              <div key={idx} className="flex items-center gap-2 px-3 py-1 opacity-30">
-                <div className="flex-1 border-t border-dashed border-zinc-600" />
-                <span className="text-[10px] text-zinc-500">改ページ</span>
-                <div className="flex-1 border-t border-dashed border-zinc-600" />
-              </div>
-            );
-
-            if (item.type === "cm") return (
-              <div key={idx} className="flex items-center gap-2 px-4 py-2 bg-zinc-800">
-                <span className="text-[11px] text-zinc-400 font-mono tabular-nums">{fmt(item.startSec)}</span>
-                <span className="text-[12px] font-bold text-zinc-200 tracking-wider flex-1">{item.label}</span>
-                {item.durSec > 0 && <span className="text-[11px] text-zinc-500 font-mono">{fmt(item.durSec)}</span>}
-              </div>
-            );
-
-            if (item.type === "section") return (
-              <div key={idx} className="flex items-center gap-2 px-3 py-1.5 bg-blue-900/30 border-b border-blue-900/20 sticky top-0">
-                <span className="text-[11px] text-blue-400 font-mono tabular-nums shrink-0">{fmt(item.startSec)}</span>
-                <span className="text-[12px] font-bold text-blue-200 tracking-wide flex-1 truncate">{item.label}</span>
-              </div>
-            );
-
-            // Row
-            const isCurrent = item.cueIdx === currentCue;
-            const isNext = item.cueIdx === currentCue + 1;
-            const isPast = (item.cueIdx ?? 0) < currentCue;
-            return (
-              <button
-                key={idx}
-                id={`cue-${item.cueIdx}`}
-                onClick={() => {
-                  setCurrentCue(item.cueIdx!);
-                  if (flatRows[item.cueIdx!]) setElapsed(flatRows[item.cueIdx!].startSec);
-                }}
-                className={`w-full flex items-start gap-2 px-4 py-2 text-left border-b transition-colors text-xs ${
-                  isCurrent
-                    ? "bg-red-950/80 border-l-2 border-l-red-500 border-b-red-900/20"
-                    : isNext
-                    ? "bg-blue-950/50 border-l-2 border-l-blue-500 border-b-blue-900/20"
-                    : isPast
-                    ? "opacity-30 border-b-zinc-900 hover:opacity-50"
-                    : "hover:bg-zinc-900/80 border-b-zinc-900"
-                }`}
-              >
-                <span className="font-mono text-zinc-600 w-5 text-right shrink-0">{(item.cueIdx ?? 0) + 1}</span>
-                <span className={`font-mono tabular-nums w-16 shrink-0 ${
-                  isCurrent ? "text-red-400" : isNext ? "text-blue-400" : "text-zinc-600"
-                }`}>
-                  {fmt(item.startSec)}
-                </span>
-                <span className={`flex-1 truncate ${
-                  isCurrent ? "text-white" : isNext ? "text-zinc-300" : "text-zinc-500"
-                }`}>
-                  {item.text?.slice(0, 50) || item.sectionLabel || "---"}
-                </span>
-                {item.durSec > 0 && (
-                  <span className="font-mono text-zinc-700 shrink-0">{fmt(item.durSec)}</span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* ── Right: Clock + Controls ── */}
-        <div className="flex-1 flex flex-col items-center justify-between p-6 lg:p-10 overflow-auto">
-
-          {/* Wall clock */}
-          <div className="text-center">
-            <div className="text-[10px] text-zinc-600 tracking-[0.3em] uppercase mb-2">CURRENT TIME</div>
-            <div className="font-mono text-6xl lg:text-8xl font-light tabular-nums tracking-tight text-white">
-              {pad(wallTime.getHours())}:{pad(wallTime.getMinutes())}:{pad(wallTime.getSeconds())}
-            </div>
-          </div>
-
-          {/* Current cue info */}
-          {current && (
-            <div className="w-full max-w-lg space-y-4">
-              <div className="text-center">
-                <div className="text-[10px] text-zinc-600 tracking-widest uppercase mb-1">
-                  {current.sectionLabel} — CUE {currentCue + 1} / {flatRows.length}
-                </div>
-                {current.text && (
-                  <p className="text-sm text-zinc-300 line-clamp-2 mt-1">{current.text}</p>
-                )}
-              </div>
-
-              {/* 3 counters: 経過 / 残り / 尺 */}
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <div className="text-[10px] text-zinc-600 tracking-widest uppercase mb-1">経過</div>
-                  <div className="font-mono text-2xl text-zinc-400 tabular-nums">{fmt(cueElapsed)}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-zinc-600 tracking-widest uppercase mb-1">残り</div>
-                  <div className={`font-mono text-3xl tabular-nums font-medium ${progressTextColor}`}>
-                    {fmt(cueRemaining)}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-zinc-600 tracking-widest uppercase mb-1">尺</div>
-                  <div className="font-mono text-2xl text-zinc-400 tabular-nums">{fmt(current.durSec)}</div>
-                </div>
-              </div>
-
-              {/* Progress bar */}
-              <div className="h-2 bg-zinc-900 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all duration-1000 ${progressBarColor}`}
-                  style={{ width: `${cueProgress * 100}%` }}
-                />
-              </div>
-
-              {/* Push/Pull display */}
-              {offset !== 0 && (
-                <div className={`text-center text-sm font-mono font-bold ${offset > 0 ? "text-red-400" : "text-emerald-400"}`}>
-                  {offset > 0 ? `▲ 押し +${fmtOffset(offset)}` : `▼ 巻き -${fmtOffset(Math.abs(offset))}`}
-                </div>
-              )}
-
-              {/* NEXT */}
-              {next && (
-                <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-3">
-                  <div className="text-[10px] text-zinc-600 tracking-widest uppercase mb-1.5">NEXT → CUE {currentCue + 2}</div>
-                  <div className="flex items-baseline gap-2 flex-wrap">
-                    <span className="font-mono text-blue-400 tabular-nums text-sm">{fmt(next.startSec)}</span>
-                    {next.durSec > 0 && <span className="text-xs text-zinc-600">{fmt(next.durSec)}</span>}
-                    <span className="text-sm text-zinc-400 truncate">{next.text?.slice(0, 40) || next.sectionLabel || "---"}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Controls */}
-          <div className="space-y-3 w-full max-w-xs">
-            {/* ±1m offset */}
-            <div className="flex items-center justify-center gap-3">
-              <button
-                onClick={() => setOffset(p => p - 60)}
-                className="px-4 py-1.5 rounded-lg bg-emerald-900/40 text-emerald-400 text-xs font-bold hover:bg-emerald-900/70 transition-colors border border-emerald-900/50"
-              >
-                巻き −1m
-              </button>
-              {offset !== 0 && (
-                <button onClick={() => setOffset(0)} className="px-2 py-1 rounded text-zinc-600 text-xs hover:text-zinc-400 transition-colors">
-                  0
-                </button>
-              )}
-              <button
-                onClick={() => setOffset(p => p + 60)}
-                className="px-4 py-1.5 rounded-lg bg-red-900/40 text-red-400 text-xs font-bold hover:bg-red-900/70 transition-colors border border-red-900/50"
-              >
-                押し +1m
-              </button>
-            </div>
-
-            {/* Transport */}
-            <div className="flex items-center justify-center gap-3">
-              <button
-                onClick={doStop}
-                className="p-2 rounded-lg text-zinc-600 hover:text-white hover:bg-zinc-800 transition-colors"
-                title="リセット (ESC)"
-              >
-                <Square size={16} />
-              </button>
-              <button
-                onClick={goPrev}
-                className="p-2 rounded-lg text-zinc-600 hover:text-white hover:bg-zinc-800 transition-colors"
-                title="前へ (←)"
-              >
-                <SkipBack size={16} />
-              </button>
-              <button
-                onClick={() => { setIsPlaying(p => !p); setStarted(true); }}
-                className={`w-16 h-16 rounded-full flex items-center justify-center font-bold transition-all ${
-                  isPlaying
-                    ? "bg-amber-500 hover:bg-amber-400 text-black shadow-[0_0_24px_rgba(245,158,11,0.5)]"
-                    : "bg-emerald-500 hover:bg-emerald-400 text-black shadow-[0_0_24px_rgba(16,185,129,0.5)]"
-                }`}
-                title="再生/停止 (P)"
-              >
-                {isPlaying ? <Pause size={20} /> : <Play size={20} className="ml-0.5" />}
-              </button>
-              <button
-                onClick={goNext}
-                className="p-2 rounded-lg text-zinc-600 hover:text-white hover:bg-zinc-800 transition-colors"
-                title="次へ (Space / →)"
-              >
-                <SkipForward size={16} />
-              </button>
-              <div className="w-8" />
-            </div>
-
-            <div className="text-center text-[10px] text-zinc-700 tracking-wider">
-              SPACE: 次へ &nbsp;/&nbsp; P: 再生停止 &nbsp;/&nbsp; ESC: リセット
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* START overlay */}
-      {!started && flatRows.length > 0 && (
-        <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center gap-6 z-50">
-          <div className="text-[11px] text-zinc-500 tracking-[0.3em] uppercase">
-            {doc?.data?.meta?.title || "ON AIR"}
-          </div>
-          <div className="font-mono text-5xl text-zinc-200 tabular-nums">
-            {pad(wallTime.getHours())}:{pad(wallTime.getMinutes())}:{pad(wallTime.getSeconds())}
-          </div>
-          <button
-            onClick={doStart}
-            className="mt-4 w-40 h-40 rounded-full bg-red-600 hover:bg-red-500 text-white font-bold tracking-widest uppercase transition-all shadow-[0_0_60px_rgba(220,38,38,0.6)] hover:shadow-[0_0_80px_rgba(220,38,38,0.9)] flex flex-col items-center justify-center gap-2"
-          >
-            <Radio size={32} className="animate-pulse" />
-            <span className="text-sm">START</span>
+    <div className="h-screen flex flex-col bg-black text-white overflow-hidden select-none">
+      {/* ===== HEADER ===== */}
+      <header className="flex-none h-10 flex items-center justify-between px-5 bg-[#111] border-b border-[#222]">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(`/qsheet/editor/${id}`)} className="text-[#eee] hover:text-white">
+            <ChevronLeft size={18} />
           </button>
-          <div className="text-xs text-zinc-600">
-            {flatRows.length} キュー &nbsp;/&nbsp; 合計 {fmt(totalDuration)}
+          <span className="text-base font-bold text-[#eee]">{doc.data?.meta?.title || doc.title}</span>
+          {running && !paused && (
+            <span className="ml-2 text-sm font-black tracking-[0.2em] text-red-500 flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+              ON AIR
+            </span>
+          )}
+          {paused && <span className="ml-2 text-sm font-black tracking-wider text-amber-400">PAUSE</span>}
+        </div>
+        <div className="text-sm font-bold text-[#bbb] flex gap-6">
+          <span>SPACE 次へ</span>
+          <span>P 一時停止</span>
+          <span>↑↓ ±1分</span>
+          <span>ESC 終了</span>
+        </div>
+      </header>
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* ===== LEFT: RUNDOWN LIST ===== */}
+        <div className="w-[500px] flex-shrink-0 flex flex-col bg-[#0a0a0a] border-r-2 border-[#222]">
+          {/* Column headers */}
+          <div className="flex-none flex items-center h-10 px-2 bg-[#151515] border-b-2 border-[#222]">
+            <div className="w-[120px] text-center text-sm font-black text-[#eee] tracking-[0.15em]" style={{ fontFamily: "'Oswald',sans-serif" }}>TIME</div>
+            <div className="flex-1 text-sm font-black text-[#eee] tracking-[0.15em]" style={{ fontFamily: "'Oswald',sans-serif" }}>CUE</div>
+            <div className="w-[90px] text-right pr-4 text-sm font-black text-[#eee] tracking-[0.15em]" style={{ fontFamily: "'Oswald',sans-serif" }}>DUR</div>
+          </div>
+
+          {/* Cue list */}
+          <div className="flex-1 overflow-y-auto">
+            {cues.map((c, i) => {
+              const isCur = i === cur;
+              const isNxt = i === cur + 1;
+              const past = i < cur;
+              const cm = c.type === "cm";
+              return (
+                <div
+                  key={i}
+                  ref={isCur ? activeRef : null}
+                  onClick={() => {
+                    if (running) {
+                      setCur(i);
+                      cueStart.current = Date.now();
+                      setCueEl(0);
+                    }
+                  }}
+                  className={`relative flex items-center cursor-pointer transition-all border-b-2 ${
+                    isCur
+                      ? "bg-[#300000] border-[#500]"
+                      : isNxt
+                      ? "bg-[#000020] border-[#003]"
+                      : past
+                      ? "opacity-20 border-[#181818]"
+                      : "border-[#181818] hover:bg-[#111]"
+                  }`}
+                >
+                  {isCur && <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500" />}
+                  {isNxt && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500" />}
+
+                  <div className="w-[120px] flex-shrink-0 text-center py-4">
+                    <F size={isCur ? 28 : 24} weight={700} color={isCur ? "#fff" : past ? "#333" : "#999"}>
+                      {oaFmt(c.oa)}
+                    </F>
+                  </div>
+
+                  <div className="flex-1 py-4 min-w-0">
+                    <div className="flex items-center gap-3">
+                      {isCur && (
+                        <span className="text-sm font-black px-3 py-1 rounded bg-red-600 text-white tracking-wider animate-[pulse_1.5s_infinite] flex-shrink-0">
+                          現在
+                        </span>
+                      )}
+                      {isNxt && (
+                        <span className="text-sm font-black px-3 py-1 rounded bg-blue-600 text-white tracking-wider flex-shrink-0">
+                          NEXT
+                        </span>
+                      )}
+                      <span className={`text-xl font-black truncate ${cm ? "text-amber-400" : isCur ? "text-white" : "text-white"}`}>
+                        {c.label}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="w-[90px] flex-shrink-0 text-right pr-4 py-4">
+                    <F size={isCur ? 28 : 24} weight={700} color={isCur ? "#fff" : cm ? "#fbbf24" : "#777"}>
+                      {mm(c.duration)}
+                    </F>
+                  </div>
+
+                  {/* Progress bar on current cue */}
+                  {isCur && cDur > 0 && (
+                    <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#222]">
+                      <div
+                        className={`h-full ${prog >= 1 ? "bg-red-500" : "bg-emerald-500"}`}
+                        style={{ width: `${prog * 100}%`, transition: "width 0.1s linear" }}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Footer */}
+          <div className="flex-none h-10 flex items-center justify-between px-4 bg-[#151515] border-t-2 border-[#222]">
+            <span className="text-sm font-bold text-[#eee]">{cues.length} CUE</span>
+            <F size={18} weight={700} color="#ddd">
+              合計 {mm(total)}
+            </F>
           </div>
         </div>
-      )}
+
+        {/* ===== RIGHT: MAIN DISPLAY ===== */}
+        <div className="flex-1 flex flex-col">
+          {/* Clock */}
+          <div className="flex-none h-16 flex items-center justify-center bg-[#0a0a0a] border-b-2 border-[#222]">
+            <F size={44} weight={400} color="#ddd" style={{ letterSpacing: "0.1em" }}>
+              {clk}
+            </F>
+          </div>
+
+          <div className="flex-1 flex flex-col items-center justify-center p-6 gap-6">
+            {/* ===== PRE-SHOW ===== */}
+            {!running && cur === -1 && (
+              <div className="text-center">
+                <div className="text-2xl font-black text-white mb-2">{doc.data?.meta?.title || doc.title}</div>
+                <div className="text-lg font-bold text-[#bbb] mb-10">
+                  {cues.length} CUE · {mm(total)}
+                </div>
+                <button
+                  onClick={go}
+                  className="px-14 py-5 bg-red-600 hover:bg-red-500 text-white text-2xl font-black rounded-xl transition-all active:scale-95"
+                  style={{ boxShadow: "0 0 60px rgba(220,38,38,0.5)" }}
+                >
+                  <span className="flex items-center gap-3">
+                    <Play size={28} />
+                    ON AIR
+                  </span>
+                </button>
+              </div>
+            )}
+
+            {/* ===== RUNNING ===== */}
+            {running && (
+              <>
+                {/* Program elapsed */}
+                <div className="text-center">
+                  <div className="text-lg font-black text-[#eee] tracking-[0.3em] mb-2">番組経過</div>
+                  <F size={100} weight={700} color="#fff" style={{ lineHeight: 1 }}>
+                    {hms(showEl)}
+                  </F>
+                </div>
+
+                {/* Current cue card */}
+                {cc && (
+                  <div className="w-full max-w-3xl rounded-lg overflow-hidden bg-[#111] border-2 border-[#333]">
+                    {/* Card header */}
+                    <div className="flex items-center justify-between px-6 py-3 bg-[#1a0000] border-b-2 border-[#333]">
+                      <div className="flex items-center gap-3">
+                        <span className="text-base font-black px-3 py-1 rounded bg-red-600 text-white tracking-wider animate-[pulse_1.5s_infinite]">
+                          現在
+                        </span>
+                        <span className="text-2xl font-black text-white">{cc.label}</span>
+                      </div>
+                      <F size={20} weight={700} color="#ddd">
+                        {oaFmt(cc.oa)}
+                      </F>
+                    </div>
+
+                    {/* 3-column timing */}
+                    <div className="grid grid-cols-3">
+                      <div className="py-6 text-center border-r-2 border-[#222]">
+                        <div className="text-base font-black text-[#eee] tracking-[0.2em] mb-3">経過</div>
+                        <F size={56} weight={700} color="#34d399">
+                          {mm(cueEl)}
+                        </F>
+                      </div>
+                      <div className="py-6 text-center border-r-2 border-[#222]">
+                        <div className="text-base font-black text-[#eee] tracking-[0.2em] mb-3">残り</div>
+                        <F
+                          size={56}
+                          weight={700}
+                          color={cRem < 0 ? "#f87171" : cRem < 30 ? "#fbbf24" : "#e5e5e5"}
+                          style={cRem < 0 ? { animation: "pulse 1s infinite" } : {}}
+                        >
+                          {mm(cRem)}
+                        </F>
+                      </div>
+                      <div className="py-6 text-center">
+                        <div className="text-base font-black text-[#eee] tracking-[0.2em] mb-3">予定尺</div>
+                        <F size={56} weight={700} color="#bbb">
+                          {mm(cDur)}
+                        </F>
+                      </div>
+                    </div>
+
+                    {/* Cue progress bar */}
+                    <div className="h-1.5 bg-[#222]">
+                      <div
+                        className={`h-full ${prog >= 1 ? "bg-red-500" : prog > 0.8 ? "bg-amber-500" : "bg-emerald-500"}`}
+                        style={{ width: `${Math.min(prog * 100, 100)}%`, transition: "width 0.1s linear" }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Push/Pull + Next */}
+                <div className="w-full max-w-3xl flex gap-4">
+                  <div className="flex-1 rounded-lg p-5 text-center bg-[#111] border-2 border-[#333]">
+                    <div className="text-base font-black text-[#eee] tracking-[0.2em] mb-2">押し / 巻き</div>
+                    <F size={48} weight={700} color={ov > 30 ? "#f87171" : ov < -30 ? "#34d399" : "#777"}>
+                      {ov > 0 ? "+" : ""}
+                      {mm(ov)}
+                    </F>
+                  </div>
+                  {nc && (
+                    <div className="flex-1 rounded-lg p-5 bg-[#0a0a18] border-2 border-[#224]">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-sm font-black px-2.5 py-0.5 rounded bg-blue-600 text-white tracking-wider">NEXT</span>
+                        <F size={16} weight={700} color="#ccc">
+                          {oaFmt(nc.oa)}
+                        </F>
+                      </div>
+                      <div className={`text-xl font-black ${nc.type === "cm" ? "text-amber-400" : "text-[#eee]"}`}>{nc.label}</div>
+                      <F size={18} weight={700} color="#ccc" className="mt-1 block">
+                        {mm(nc.duration)}
+                      </F>
+                    </div>
+                  )}
+                </div>
+
+                {/* Transport controls */}
+                <div className="flex items-center gap-3">
+                  <button onClick={prev} className="p-3 rounded-lg bg-[#222] hover:bg-[#333] text-[#eee] font-bold transition-all active:scale-90">
+                    <SkipBack size={22} />
+                  </button>
+                  <button
+                    onClick={tog}
+                    className={`p-4 rounded-lg transition-all active:scale-90 text-white font-bold ${paused ? "bg-emerald-600 hover:bg-emerald-500" : "bg-amber-600 hover:bg-amber-500"}`}
+                  >
+                    {paused ? <Play size={26} /> : <Pause size={26} />}
+                  </button>
+                  <button
+                    onClick={next}
+                    className="p-4 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold transition-all active:scale-90"
+                    style={{ boxShadow: "0 0 30px rgba(220,38,38,0.4)" }}
+                  >
+                    <SkipForward size={26} />
+                  </button>
+                  <button onClick={stop} className="p-3 rounded-lg bg-[#222] hover:bg-[#333] text-[#eee] font-bold transition-all active:scale-90">
+                    <Square size={22} />
+                  </button>
+                  <div className="w-px h-8 bg-[#333] mx-2" />
+                  <button
+                    onClick={() => setOffset((p) => p - 60)}
+                    className="p-2.5 rounded bg-[#222] hover:bg-[#333] text-white font-bold transition-all active:scale-90"
+                  >
+                    <Minus size={16} />
+                  </button>
+                  <span className="text-sm font-black text-[#bbb] w-8 text-center">±1m</span>
+                  <button
+                    onClick={() => setOffset((p) => p + 60)}
+                    className="p-2.5 rounded bg-[#222] hover:bg-[#333] text-white font-bold transition-all active:scale-90"
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+
+                {/* Program progress bar */}
+                <div className="w-full max-w-3xl h-1.5 bg-[#222] rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-red-600 rounded-full"
+                    style={{ width: `${Math.min((showEl / total) * 100, 100)}%`, transition: "width 0.1s linear" }}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
