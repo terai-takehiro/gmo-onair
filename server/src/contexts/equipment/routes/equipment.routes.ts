@@ -509,6 +509,7 @@ router.put('/inventory-checks/:id/status', async (req: Request, res: Response) =
 // ダッシュボード統計
 // ============================================================
 router.get('/stats', async (_req: Request, res: Response) => {
+  try {
   const toInt = (v: any) => parseInt(v?.count ?? v ?? '0', 10) || 0;
 
   const totalItems = await queryOne("SELECT COUNT(*) as count FROM equipment_items WHERE deleted_at IS NULL") as any;
@@ -555,6 +556,10 @@ router.get('/stats', async (_req: Request, res: Response) => {
       recent_maintenance: recentMaintenance,
     },
   });
+  } catch (err: any) {
+    console.error('[equipment/stats] error:', err?.message, err?.stack);
+    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: err?.message || 'Stats query failed' } });
+  }
 });
 
 // ============================================================

@@ -115,40 +115,41 @@ export default function Header({ title }: { title?: string }) {
       searchResults.vendors.length > 0);
 
   return (
-    <header className="flex h-14 items-center justify-between border-b bg-card px-4 lg:px-6">
-      <div className="flex items-center gap-2">
+    <header className="flex h-16 items-center justify-between border-b bg-card px-3 sm:px-4 lg:px-6 gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
         <AppSwitcher currentApp="sales" />
         <Button
           variant="ghost"
           size="icon"
-          className="lg:hidden shrink-0"
+          className="lg:hidden shrink-0 h-8 w-8"
           onClick={toggleSidebar}
         >
           <Menu className="h-5 w-5" />
         </Button>
         <span
-          className="cursor-pointer text-sm font-sans font-bold text-primary hover:opacity-80 transition-opacity shrink-0"
+          className="cursor-pointer text-base font-sans font-bold text-primary hover:opacity-80 transition-opacity shrink-0"
           onClick={() => navigate("/")}
         >
           ONAiR
         </span>
+        <span className="hidden sm:inline text-[10px] text-muted-foreground/40">v0.7.4</span>
         {title && (
           <>
-            <span className="text-muted-foreground/50 hidden sm:inline">/</span>
-            <h1 className="text-sm font-medium text-muted-foreground hidden sm:block truncate">{title}</h1>
+            <span className="text-muted-foreground/40 hidden md:inline">/</span>
+            <h1 className="text-sm font-medium text-muted-foreground hidden md:block truncate max-w-[200px]">{title}</h1>
           </>
         )}
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         {/* Global Search */}
         <div ref={searchRef} className="relative hidden sm:block">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="検索..."
-              className="w-64 pl-9 pr-8 h-9"
+              placeholder="請求KEY・案件名で検索..."
+              className="w-40 sm:w-56 lg:w-64 pl-9 pr-8 h-9 text-sm"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => {
