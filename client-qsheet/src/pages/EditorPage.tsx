@@ -47,7 +47,7 @@ interface Block {
   id: string;
   type: string;
   label: string;
-  width: number;
+  width: string | number;
 }
 
 interface Masters {
