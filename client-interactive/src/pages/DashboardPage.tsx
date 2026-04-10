@@ -73,7 +73,7 @@ export default function DashboardPage() {
       project_id: linkToProject && selectedProjectId ? selectedProjectId : null,
       episode_id: linkToProject && selectedEpisodeId ? selectedEpisodeId : null,
     }),
-    onSuccess: (res) => {
+    onSuccess: (res: { data: { data: { id: string } } }) => {
       queryClient.invalidateQueries({ queryKey: ['interactive-events'] });
       setCreateOpen(false);
       resetCreateForm();

@@ -35,7 +35,7 @@ export default function InventoryPage() {
 
   const createMutation = useMutation({
     mutationFn: (payload: any) => api.post("/equipment/inventory-checks", payload),
-    onSuccess: (res) => {
+    onSuccess: (res: { data: { data: { id: string } } }) => {
       qc.invalidateQueries({ queryKey: ["inventory-checks"] });
       setDialogOpen(false);
       setSelectedCheck(res.data.data.id);

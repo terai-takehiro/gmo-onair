@@ -98,7 +98,7 @@ export default function AudiencePage() {
     const mini: MiniStamp = {
       id,
       emoji: stamp.emoji,
-      image_path: stamp.image_path,
+      image_url: stamp.image_url,
       x: rect.left + rect.width / 2,
       y: rect.top + rect.height / 2,
       offsetX: -20 + Math.random() * 40,
