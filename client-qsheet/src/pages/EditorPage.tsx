@@ -3,24 +3,17 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import EditorSidebar from "@/components/editor/EditorSidebar";
-import ImageDropZone from "@/components/editor/ImageDropZone";
+import CueTable from "@/components/editor/CueTable";
 import {
   Loader2,
   Save,
-  Plus,
-  Trash2,
-  GripVertical,
   Radio,
   List,
   Clock,
   Download,
-  Upload,
   PanelRightOpen,
   PanelRightClose,
-  ChevronUp,
-  ChevronDown,
   ChevronLeft,
   MonitorPlay,
   Eye,
@@ -30,17 +23,18 @@ import {
 // Types
 // ============================================================
 interface CueRow {
-  id: string;
-  label: string;
-  duration: number;
-  [key: string]: string | number | null | undefined;
+  duration: string;
+  cells: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 interface Section {
-  id: string;
   label: string;
   rows: CueRow[];
-  collapsed?: boolean;
+  duration?: string;
+  _break?: boolean;
+  _pageBreak?: boolean;
+  [key: string]: unknown;
 }
 
 interface Block {
@@ -93,29 +87,6 @@ interface QsheetDocument {
 // ============================================================
 // Helpers
 // ============================================================
-const genId = () => {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    try { return crypto.randomUUID(); } catch { /* insecure context fallback */ }
-  }
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-};
-
-const emptyRow = (blocks: Block[]): CueRow => {
-  const row: CueRow = {
-    id: genId(),
-    label: "",
-    duration: 30,
-  };
-  blocks.forEach((b) => { row[b.id] = ""; });
-  return row;
-};
-
-const emptySection = (blocks: Block[]): Section => ({
-  id: genId(),
-  label: "新規セクション",
-  rows: [emptyRow(blocks)],
-});
-
 const formatTime = (seconds: number): string => {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
@@ -128,28 +99,30 @@ const formatTime = (seconds: number): string => {
 // ============================================================
 function exportCsv(doc: QsheetDocument) {
   const { sections, blocks, meta } = doc.data;
-  const headers = ["#", "セクション", "時刻", "尺(秒)", ...blocks.map((b) => b.label)];
-  const rows: string[][] = [headers];
-  let cum = 0;
+  const headers = ["#", "セクション", "尺", ...blocks.map((b) => b.label)];
+  const csvRows: string[][] = [headers];
   let num = 1;
 
   sections.forEach((sec) => {
+    if (sec._break || sec._pageBreak) return;
     sec.rows.forEach((row) => {
-      const time = formatTime(cum);
-      const cells = [
+      const rowCells: Record<string, unknown> = (row.cells as Record<string, unknown>) || {};
+      csvRows.push([
         String(num++),
-        sec.label,
-        time,
-        String(row.duration || 0),
-        ...blocks.map((b) => String(row[b.id] || "")),
-      ];
-      rows.push(cells);
-      cum += row.duration || 0;
+        String(sec.label || ""),
+        String(row.duration || ""),
+        ...blocks.map((b) => {
+          const cell = rowCells[b.id];
+          if (typeof cell === "string") return cell;
+          if (cell && typeof cell === "object" && "value" in (cell as Record<string, unknown>)) return String((cell as Record<string, unknown>).value || "");
+          return "";
+        }),
+      ]);
     });
   });
 
   const bom = "\uFEFF";
-  const csv = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
+  const csv = csvRows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
   const blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -157,42 +130,6 @@ function exportCsv(doc: QsheetDocument) {
   a.download = `${meta.title || "cuesheet"}.csv`;
   a.click();
   URL.revokeObjectURL(url);
-}
-
-function importCsv(file: File, blocks: Block[]): Promise<Section[]> {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const text = reader.result as string;
-      const lines = text.split("\n").filter((l) => l.trim());
-      if (lines.length < 2) { resolve([]); return; }
-
-      // Skip header
-      const dataLines = lines.slice(1);
-      const sectionMap = new Map<string, CueRow[]>();
-
-      dataLines.forEach((line) => {
-        const cells = line.split(",").map((c) => c.replace(/^"|"$/g, "").replace(/""/g, '"'));
-        const sectionLabel = cells[1] || "インポート";
-        const duration = parseInt(cells[3]) || 30;
-
-        const row: CueRow = { id: crypto.randomUUID(), label: "", duration };
-        blocks.forEach((b, i) => {
-          row[b.id] = cells[4 + i] || "";
-        });
-
-        if (!sectionMap.has(sectionLabel)) sectionMap.set(sectionLabel, []);
-        sectionMap.get(sectionLabel)!.push(row);
-      });
-
-      const sections: Section[] = [];
-      sectionMap.forEach((rows, label) => {
-        sections.push({ id: crypto.randomUUID(), label, rows });
-      });
-      resolve(sections);
-    };
-    reader.readAsText(file);
-  });
 }
 
 // ============================================================
@@ -207,8 +144,25 @@ export default function EditorPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error" | "unsaved">("saved");
   const [saveFlash, setSaveFlash] = useState(false);
+  const [collapsedBlocks, setCollapsedBlocks] = useState<Set<string>>(new Set());
+  const [collapsedSections, setCollapsedSections] = useState<Set<number>>(new Set());
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const toggleBlockCollapse = useCallback((id: string) => {
+    setCollapsedBlocks((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleSectionCollapse = useCallback((si: number) => {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      next.has(si) ? next.delete(si) : next.add(si);
+      return next;
+    });
+  }, []);
 
   const { data: queryData, isLoading } = useQuery({
     queryKey: ["qsheet-document", id],
@@ -277,65 +231,7 @@ export default function EditorPage() {
     return () => clearTimeout(autoSaveTimer.current);
   }, [dirty, doc]);
 
-  // Section/row CRUD
-  const addSection = () => updateData((d) => ({
-    ...d, sections: [...d.sections, emptySection(d.blocks)],
-  }));
-
-  const deleteSection = (sid: string) => updateData((d) => ({
-    ...d, sections: d.sections.filter((s) => s.id !== sid),
-  }));
-
-  const toggleSection = (sid: string) => updateData((d) => ({
-    ...d, sections: d.sections.map((s) => s.id === sid ? { ...s, collapsed: !s.collapsed } : s),
-  }));
-
-  const moveSection = (idx: number, dir: -1 | 1) => updateData((d) => {
-    const arr = [...d.sections];
-    const t = idx + dir;
-    if (t < 0 || t >= arr.length) return d;
-    [arr[idx], arr[t]] = [arr[t], arr[idx]];
-    return { ...d, sections: arr };
-  });
-
-  const addRow = (sid: string) => updateData((d) => ({
-    ...d,
-    sections: d.sections.map((s) =>
-      s.id === sid ? { ...s, rows: [...s.rows, emptyRow(d.blocks)] } : s
-    ),
-  }));
-
-  const deleteRow = (sid: string, rid: string) => updateData((d) => ({
-    ...d,
-    sections: d.sections.map((s) =>
-      s.id === sid ? { ...s, rows: s.rows.filter((r) => r.id !== rid) } : s
-    ),
-  }));
-
-  const moveRow = (sid: string, idx: number, dir: -1 | 1) => updateData((d) => ({
-    ...d,
-    sections: d.sections.map((s) => {
-      if (s.id !== sid) return s;
-      const arr = [...s.rows];
-      const t = idx + dir;
-      if (t < 0 || t >= arr.length) return s;
-      [arr[idx], arr[t]] = [arr[t], arr[idx]];
-      return { ...s, rows: arr };
-    }),
-  }));
-
-  const updateRow = (sid: string, rid: string, field: string, value: string | number) => updateData((d) => ({
-    ...d,
-    sections: d.sections.map((s) =>
-      s.id === sid
-        ? { ...s, rows: s.rows.map((r) => r.id === rid ? { ...r, [field]: value } : r) }
-        : s
-    ),
-  }));
-
-  const updateSectionLabel = (sid: string, label: string) => updateData((d) => ({
-    ...d, sections: d.sections.map((s) => s.id === sid ? { ...s, label } : s),
-  }));
+  // Note: Section/row CRUD is handled by CueTable component
 
   // PDF export
   const exportPdf = async () => {
@@ -353,16 +249,6 @@ export default function EditorPage() {
     }
   };
 
-  // CSV import
-  const handleCsvImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !doc) return;
-    const sections = await importCsv(file, doc.data.blocks);
-    if (sections.length > 0) {
-      updateData((d) => ({ ...d, sections: [...d.sections, ...sections] }));
-    }
-    e.target.value = "";
-  };
 
   // Manual save — increments draftNumber if numbered mode
   const handleManualSave = useCallback(() => {
@@ -386,8 +272,18 @@ export default function EditorPage() {
     return `第${meta.draftNumber || 1}稿`;
   };
 
+  const parseDur = (s: string | number | undefined): number => {
+    if (!s) return 0;
+    if (typeof s === "number") return s;
+    const t = s.trim();
+    let m = t.match(/^(\d+)[:'."](\d+)["'""]?$/);
+    if (m) return parseInt(m[1]) * 60 + parseInt(m[2]);
+    m = t.match(/^(\d+)$/);
+    if (m) return parseInt(m[1]);
+    return 0;
+  };
   const totalDuration = doc?.data.sections.reduce(
-    (acc, section) => acc + section.rows.reduce((a, r) => a + (r.duration || 0), 0), 0
+    (acc, section) => acc + (parseDur(section.duration) || section.rows.reduce((a, r) => a + parseDur(r.duration), 0)), 0
   ) || 0;
 
   if (isLoading || !doc) {
@@ -440,12 +336,6 @@ export default function EditorPage() {
               <Download className="h-3.5 w-3.5" />
               <span className="hidden lg:inline">CSV</span>
             </Button>
-            {/* CSV import */}
-            <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs" onClick={() => fileInputRef.current?.click()}>
-              <Upload className="h-3.5 w-3.5" />
-              <span className="hidden lg:inline">読込</span>
-            </Button>
-            <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleCsvImport} />
             {/* PDF export */}
             <button onClick={exportPdf} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
               <Eye size={13} />
@@ -515,190 +405,17 @@ export default function EditorPage() {
 
       {/* Editor body + sidebar */}
       <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 overflow-auto p-4 lg:p-6 bg-zinc-50 dark:bg-zinc-950">
-          <div className="space-y-4 max-w-6xl mx-auto">
-            {doc.data.sections.length === 0 ? (
-              <div className="text-center py-16">
-                <p className="text-muted-foreground mb-4">セクションがありません</p>
-                <Button onClick={addSection} className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  最初のセクションを追加
-                </Button>
-              </div>
-            ) : (
-              doc.data.sections.map((section, sIdx) => {
-                let cumulativeTime = 0;
-                for (let i = 0; i < sIdx; i++) {
-                  cumulativeTime += doc.data.sections[i].rows.reduce((a, r) => a + (r.duration || 0), 0);
-                }
-
-                return (
-                  <div key={section.id} className="border border-blue-200 rounded-lg overflow-hidden shadow-sm">
-                    {/* Section header — blue gradient */}
-                    <div className="flex items-center gap-1 bg-gradient-to-r from-blue-600 to-blue-500 px-3 py-1.5">
-                      <div className="flex flex-col">
-                        <button className="text-blue-200/60 hover:text-white leading-none" onClick={() => moveSection(sIdx, -1)}>
-                          <ChevronUp className="h-3 w-3" />
-                        </button>
-                        <button className="text-blue-200/60 hover:text-white leading-none" onClick={() => moveSection(sIdx, 1)}>
-                          <ChevronDown className="h-3 w-3" />
-                        </button>
-                      </div>
-                      <button onClick={() => toggleSection(section.id)} className="p-0.5">
-                        <GripVertical className="h-4 w-4 text-blue-200/60" />
-                      </button>
-                      <Input
-                        className="h-7 max-w-[180px] text-sm font-semibold border-none shadow-none bg-transparent focus-visible:ring-0 px-1 text-white placeholder:text-blue-200"
-                        value={section.label}
-                        onChange={(e) => updateSectionLabel(section.id, e.target.value)}
-                      />
-                      <span className="text-xs text-blue-100/70 font-number ml-auto">
-                        {section.rows.length} キュー
-                      </span>
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-blue-200/60 hover:text-white hover:bg-blue-700/50" onClick={() => deleteSection(section.id)}>
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-
-                    {/* Cue table (collapsible) */}
-                    {!section.collapsed && (
-                      <>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="border-b bg-slate-50/50">
-                                <th className="w-8 px-1 py-1.5 text-center text-xs font-medium text-muted-foreground"></th>
-                                <th className="w-8 px-1 py-1.5 text-center text-xs font-medium text-muted-foreground">#</th>
-                                <th className="w-16 px-1 py-1.5 text-left text-xs font-medium text-muted-foreground">時刻</th>
-                                <th className="w-14 px-1 py-1.5 text-center text-xs font-medium text-muted-foreground">尺</th>
-                                {doc.data.blocks.map((block) => (
-                                  <th key={block.id} className="px-2 py-1.5 text-left text-xs font-medium text-muted-foreground min-w-[120px]">
-                                    {block.label}
-                                  </th>
-                                ))}
-                                <th className="w-8"></th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {section.rows.map((row, rIdx) => {
-                                const time = formatTime(cumulativeTime);
-                                cumulativeTime += row.duration || 0;
-
-                                return (
-                                  <tr key={row.id} className="border-b last:border-b-0 hover:bg-slate-50/30 group">
-                                    <td className="px-1 py-1">
-                                      <div className="flex flex-col items-center">
-                                        <button className="text-muted-foreground/30 group-hover:text-muted-foreground leading-none" onClick={() => moveRow(section.id, rIdx, -1)}>
-                                          <ChevronUp className="h-2.5 w-2.5" />
-                                        </button>
-                                        <button className="text-muted-foreground/30 group-hover:text-muted-foreground leading-none" onClick={() => moveRow(section.id, rIdx, 1)}>
-                                          <ChevronDown className="h-2.5 w-2.5" />
-                                        </button>
-                                      </div>
-                                    </td>
-                                    <td className="px-1 py-1 text-xs text-muted-foreground font-number text-center">
-                                      {rIdx + 1}
-                                    </td>
-                                    <td className="px-1 py-1">
-                                      <span className="text-[11px] font-number text-muted-foreground">{time}</span>
-                                    </td>
-                                    <td className="px-1 py-1">
-                                      <Input
-                                        className="h-7 w-12 text-xs text-center font-number p-0.5"
-                                        type="number"
-                                        min={0}
-                                        value={row.duration}
-                                        onChange={(e) => updateRow(section.id, row.id, "duration", parseInt(e.target.value) || 0)}
-                                      />
-                                    </td>
-                                    {doc.data.blocks.map((block) => (
-                                      <td key={block.id} className="px-2 py-1">
-                                        {block.type === "scenario" ? (
-                                          <textarea
-                                            className="w-full min-h-[2rem] rounded border border-input bg-background px-2 py-1 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                                            value={(row[block.id] as string) || ""}
-                                            onChange={(e) => updateRow(section.id, row.id, block.id, e.target.value)}
-                                            placeholder="【話者名】台本内容..."
-                                            rows={2}
-                                          />
-                                        ) : block.type === "remarks" ? (
-                                          <textarea
-                                            className="w-full min-h-[2rem] rounded border border-input bg-amber-50/50 px-2 py-1 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-amber-800"
-                                            value={(row[block.id] as string) || ""}
-                                            onChange={(e) => updateRow(section.id, row.id, block.id, e.target.value)}
-                                            placeholder="備考・注意事項..."
-                                            rows={2}
-                                          />
-                                        ) : block.type === "telop" ? (
-                                          <textarea
-                                            className="w-full min-h-[2rem] rounded border border-input bg-blue-50/50 px-2 py-1 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono"
-                                            value={(row[block.id] as string) || ""}
-                                            onChange={(e) => updateRow(section.id, row.id, block.id, e.target.value)}
-                                            placeholder="テロップ内容..."
-                                            rows={2}
-                                          />
-                                        ) : block.type === "item" ? (
-                                          <textarea
-                                            className="w-full min-h-[2rem] rounded border border-input bg-green-50/50 px-2 py-1 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                                            value={(row[block.id] as string) || ""}
-                                            onChange={(e) => updateRow(section.id, row.id, block.id, e.target.value)}
-                                            placeholder="アイテム・小道具..."
-                                            rows={2}
-                                          />
-                                        ) : block.type === "slide" || block.type === "image" ? (
-                                          <ImageDropZone
-                                            imageUrl={(row[block.id] as string) || null}
-                                            onImageChange={(url) => updateRow(section.id, row.id, block.id, url || "")}
-                                          />
-                                        ) : (
-                                          <Input
-                                            className="h-7 text-xs"
-                                            value={(row[block.id] as string) || ""}
-                                            onChange={(e) => updateRow(section.id, row.id, block.id, e.target.value)}
-                                            placeholder={block.label}
-                                          />
-                                        )}
-                                      </td>
-                                    ))}
-                                    <td className="px-1 py-1">
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-6 w-6 p-0 text-muted-foreground/30 group-hover:text-muted-foreground hover:!text-destructive"
-                                        onClick={() => deleteRow(section.id, row.id)}
-                                      >
-                                        <Trash2 className="h-3 w-3" />
-                                      </Button>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                        <div className="px-3 py-1.5 border-t">
-                          <Button variant="ghost" size="sm" className="h-6 gap-1 text-xs text-muted-foreground" onClick={() => addRow(section.id)}>
-                            <Plus className="h-3 w-3" />
-                            キュー追加
-                          </Button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                );
-              })
-            )}
-
-            {doc.data.sections.length > 0 && (
-              <div className="flex justify-center">
-                <Button variant="outline" size="sm" onClick={addSection} className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  セクション追加
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
+        <CueTable
+          blocks={doc.data.blocks}
+          sections={doc.data.sections}
+          masters={doc.data.masters}
+          meta={doc.data.meta}
+          collapsedBlocks={collapsedBlocks}
+          collapsedSections={collapsedSections}
+          onToggleCollapse={toggleBlockCollapse}
+          onToggleSectionCollapse={toggleSectionCollapse}
+          updateState={(updater) => updateData(updater)}
+        />
 
         {/* Sidebar */}
         {sidebarOpen && (
