@@ -20,5 +20,6 @@ jobs:
             set -e
             cd /opt/gmo-onair
             git pull origin main
+            docker compose down -v
             docker compose up -d --build
-            echo "✅ Deploy completed at $(date)"
+            echo "✅ Deploy with DB reset completed at $(date)"
