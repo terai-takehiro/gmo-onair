@@ -2,9 +2,22 @@ import { Router, Request, Response } from 'express';
 import { queryOne } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import path from 'path';
-import fs from 'fs';
 
-const router = Router();
+// pdfmake server-side printer
+const PdfPrinter = require('pdfmake/src/printer');
+
+// Font paths — use Roboto bundled with pdfmake
+const ROBOTO_DIR = path.join(require.resolve('pdfmake/package.json'), '..', 'build', 'fonts', 'Roboto');
+const fonts = {
+  Roboto: {
+    normal: path.join(ROBOTO_DIR, 'Roboto-Regular.ttf'),
+    bold: path.join(ROBOTO_DIR, 'Roboto-Medium.ttf'),
+    italics: path.join(ROBOTO_DIR, 'Roboto-Italic.ttf'),
+    bolditalics: path.join(ROBOTO_DIR, 'Roboto-MediumItalic.ttf'),
+  },
+};
+
+const printer = new PdfPrinter(fonts);
 
 router.use(requireAuth, requirePermission('qsheet', 'exporter'));
 
@@ -324,48 +337,6 @@ router.post('/export-pdf', async (req: Request, res: Response) => {
       },
     };
 
-    // pdfmake font setup — use built-in Roboto (Japanese text may be limited)
-    // Try to locate Noto Sans JP if available, otherwise fall back to Roboto
-    let fonts: any;
-    const notoPath = path.join(__dirname, '../../../../fonts/NotoSansJP-Regular.ttf');
-    const notoBoldPath = path.join(__dirname, '../../../../fonts/NotoSansJP-Bold.ttf');
-
-    if (fs.existsSync(notoPath)) {
-      fonts = {
-        NotoSansJP: {
-          normal: notoPath,
-          bold: fs.existsSync(notoBoldPath) ? notoBoldPath : notoPath,
-          italics: notoPath,
-          bolditalics: fs.existsSync(notoBoldPath) ? notoBoldPath : notoPath,
-        },
-      };
-      docDefinition.defaultStyle.font = 'NotoSansJP';
-    } else {
-      // Use pdfmake's built-in virtual file system (Roboto)
-      const PdfPrinter = require('pdfmake');
-      const pdfFonts = require('pdfmake/build/vfs_fonts');
-      const printer = new PdfPrinter({
-        Roboto: {
-          normal: Buffer.from(pdfFonts.pdfMake.vfs['Roboto-Regular.ttf'], 'base64'),
-          bold: Buffer.from(pdfFonts.pdfMake.vfs['Roboto-Medium.ttf'], 'base64'),
-          italics: Buffer.from(pdfFonts.pdfMake.vfs['Roboto-Italic.ttf'], 'base64'),
-          bolditalics: Buffer.from(pdfFonts.pdfMake.vfs['Roboto-MediumItalic.ttf'], 'base64'),
-        },
-      });
-
-      const pdfDoc = printer.createPdfKitDocument(docDefinition);
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename*=UTF-8''${encodeURIComponent((meta.title || 'cuesheet') + '.pdf')}`
-      );
-      pdfDoc.pipe(res);
-      pdfDoc.end();
-      return;
-    }
-
-    const PdfPrinter = require('pdfmake');
-    const printer = new PdfPrinter(fonts);
     const pdfDoc = printer.createPdfKitDocument(docDefinition);
 
     res.setHeader('Content-Type', 'application/pdf');
