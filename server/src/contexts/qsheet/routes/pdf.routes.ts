@@ -2,30 +2,7 @@ import { Router, Request, Response } from 'express';
 import { queryOne } from '../../../shared/db/connection';
 import { requireAuth } from '../../../shared/middleware/auth';
 import path from 'path';
-
-// pdfmake server-side printer
-const PdfPrinter = require('pdfmake/src/printer');
-
-// Font paths — Noto Sans JP for Japanese, Roboto as fallback
-const NOTO_DIR = path.join(__dirname, '../../../../fonts');
-const ROBOTO_DIR = path.join(require.resolve('pdfmake/package.json'), '..', 'build', 'fonts', 'Roboto');
-
-const fonts = {
-  NotoSansJP: {
-    normal: path.join(NOTO_DIR, 'NotoSansJP-Regular.ttf'),
-    bold: path.join(NOTO_DIR, 'NotoSansJP-Bold.ttf'),
-    italics: path.join(NOTO_DIR, 'NotoSansJP-Regular.ttf'),
-    bolditalics: path.join(NOTO_DIR, 'NotoSansJP-Bold.ttf'),
-  },
-  Roboto: {
-    normal: path.join(ROBOTO_DIR, 'Roboto-Regular.ttf'),
-    bold: path.join(ROBOTO_DIR, 'Roboto-Medium.ttf'),
-    italics: path.join(ROBOTO_DIR, 'Roboto-Italic.ttf'),
-    bolditalics: path.join(ROBOTO_DIR, 'Roboto-MediumItalic.ttf'),
-  },
-};
-
-const printer = new PdfPrinter(fonts);
+import fs from 'fs';
 
 const router = Router();
 
@@ -347,6 +324,39 @@ router.post('/export-pdf', async (req: Request, res: Response) => {
       },
     };
 
+    // Lazy-init pdfmake printer with font detection
+    const PdfPrinter = require('pdfmake/src/printer');
+    const fontsDir = path.join(__dirname, '../../../../fonts');
+    const notoRegular = path.join(fontsDir, 'NotoSansJP-Regular.ttf');
+    const notoBold = path.join(fontsDir, 'NotoSansJP-Bold.ttf');
+    const hasNoto = fs.existsSync(notoRegular);
+
+    let pdfFonts: Record<string, any>;
+    if (hasNoto) {
+      pdfFonts = {
+        NotoSansJP: {
+          normal: notoRegular,
+          bold: fs.existsSync(notoBold) ? notoBold : notoRegular,
+          italics: notoRegular,
+          bolditalics: fs.existsSync(notoBold) ? notoBold : notoRegular,
+        },
+      };
+      docDefinition.defaultStyle.font = 'NotoSansJP';
+    } else {
+      // Fallback to Roboto
+      const robotoDir = path.join(require.resolve('pdfmake/package.json'), '..', 'build', 'fonts', 'Roboto');
+      pdfFonts = {
+        Roboto: {
+          normal: path.join(robotoDir, 'Roboto-Regular.ttf'),
+          bold: path.join(robotoDir, 'Roboto-Medium.ttf'),
+          italics: path.join(robotoDir, 'Roboto-Italic.ttf'),
+          bolditalics: path.join(robotoDir, 'Roboto-MediumItalic.ttf'),
+        },
+      };
+      docDefinition.defaultStyle.font = 'Roboto';
+    }
+
+    const printer = new PdfPrinter(pdfFonts);
     const pdfDoc = printer.createPdfKitDocument(docDefinition);
 
     res.setHeader('Content-Type', 'application/pdf');
