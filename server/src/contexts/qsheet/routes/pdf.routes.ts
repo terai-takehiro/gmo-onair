@@ -19,6 +19,8 @@ const fonts = {
 
 const printer = new PdfPrinter(fonts);
 
+const router = Router();
+
 router.use(requireAuth, requirePermission('qsheet', 'exporter'));
 
 // ============================================================
