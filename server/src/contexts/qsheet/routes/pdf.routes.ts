@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { queryOne } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
-
-const PdfPrinter = require('pdfmake');
+import path from 'path';
+import fs from 'fs';
 
 const router = Router();
 
@@ -14,13 +14,10 @@ router.use(requireAuth, requirePermission('qsheet', 'exporter'));
 function parseDuration(str: string): number {
   if (!str || !str.trim()) return 0;
   const s = str.trim();
-  // HH:MM:SS
   let m = s.match(/^(\d+)[°:](\d+)[':"](\d+)[""']?$/);
   if (m) return parseInt(m[1]) * 3600 + parseInt(m[2]) * 60 + parseInt(m[3]);
-  // MM:SS
   m = s.match(/^(\d+)[':.](\d+)[""']?$/);
   if (m) return parseInt(m[1]) * 60 + parseInt(m[2]);
-  // seconds
   m = s.match(/^(\d+)$/);
   if (m) return parseInt(m[1]);
   return 0;
@@ -40,10 +37,42 @@ function fmtAbs(sec: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-function fmtLap(sec: number): string {
+function fmtDur(sec: number): string {
   const m = Math.floor(sec / 60);
   const s = sec % 60;
-  return `(${String(m).padStart(2, '0')}'${String(s).padStart(2, '0')}")`;
+  if (m === 0) return `${s}秒`;
+  return s > 0 ? `${m}'${String(s).padStart(2, '0')}"` : `${m}'00"`;
+}
+
+// ============================================================
+// Cell text extraction — supports both old flat and new cells model
+// ============================================================
+function extractCellText(row: any, block: any): string {
+  // New data model: row.cells[block.id]
+  const cell = row.cells?.[block.id];
+  if (cell) {
+    // Scenario with entries array
+    if (block.type === 'scenario' && cell.entries && Array.isArray(cell.entries)) {
+      return cell.entries
+        .map((e: any) => `${e.name ? `【${e.name}】` : ''}${(e.html || '').replace(/<[^>]*>/g, '')}`)
+        .filter((s: string) => s)
+        .join('\n');
+    }
+    // Paired cell (video/audio/telop) with entries
+    if (['video', 'audio', 'telop'].includes(block.type) && cell.entries && Array.isArray(cell.entries)) {
+      return cell.entries
+        .map((e: any) => `${e.label || ''}${e.memo ? ' ' + e.memo : ''}`)
+        .filter((s: string) => s.trim())
+        .join('\n');
+    }
+    // Simple string value
+    if (typeof cell === 'string') return cell;
+    if (cell.value) return String(cell.value);
+    return '';
+  }
+  // Old data model fallback: row[block.id] or row[block.type]
+  const val = row[block.id] || row[block.type] || '';
+  return typeof val === 'string' ? val : String(val || '');
 }
 
 // ============================================================
@@ -83,7 +112,7 @@ router.post('/export-pdf', async (req: Request, res: Response) => {
     const sections: any[] = data.sections || [];
     const blocks: any[] = data.blocks || [];
 
-    // DoS protection: limit document complexity
+    // DoS protection
     if (sections.length > 500) {
       res.status(400).json({ success: false, error: { code: 'BAD_REQUEST', message: 'セクション数が多すぎます (上限500)' } });
       return;
@@ -98,18 +127,31 @@ router.post('/export-pdf', async (req: Request, res: Response) => {
     const excludeSet = new Set(options.excludeBlocks || []);
     const visibleBlocks = blocks.filter((b: any) => !excludeSet.has(b.id));
 
-    // Build speaker color map
+    // Build speaker color map from entries
     const speakerMap: Record<string, string> = {};
     let speakerIdx = 0;
     sections.forEach((sec: any) => {
       (sec.rows || []).forEach((row: any) => {
-        if (row.scenario) {
-          const speakerMatch = row.scenario.match(/^【(.+?)】/);
-          if (speakerMatch && !speakerMap[speakerMatch[1]]) {
-            speakerMap[speakerMatch[1]] = SPEAKER_COLORS[speakerIdx % SPEAKER_COLORS.length];
-            speakerIdx++;
+        blocks.filter((b: any) => b.type === 'scenario').forEach((blk: any) => {
+          const cell = row.cells?.[blk.id];
+          if (cell?.entries) {
+            cell.entries.forEach((en: any) => {
+              if (en?.name && !speakerMap[en.name]) {
+                speakerMap[en.name] = SPEAKER_COLORS[speakerIdx % SPEAKER_COLORS.length];
+                speakerIdx++;
+              }
+            });
           }
-        }
+          // Also check old flat model
+          const flat = row[blk.id] || row.scenario || '';
+          if (typeof flat === 'string') {
+            const match = flat.match(/^【(.+?)】/);
+            if (match && !speakerMap[match[1]]) {
+              speakerMap[match[1]] = SPEAKER_COLORS[speakerIdx % SPEAKER_COLORS.length];
+              speakerIdx++;
+            }
+          }
+        });
       });
     });
 
@@ -118,11 +160,17 @@ router.post('/export-pdf', async (req: Request, res: Response) => {
     let cum = 0;
     let rowNum = 1;
     sections.forEach((sec: any) => {
+      if (sec._break) {
+        const d = parseDuration(sec.duration || '');
+        sec._absSec = startSec + cum;
+        cum += d;
+        return;
+      }
+      if (sec._pageBreak) return;
       (sec.rows || []).forEach((row: any) => {
         row._num = rowNum++;
         const dur = typeof row.duration === 'number' ? row.duration : parseDuration(String(row.duration || ''));
         row._absSec = startSec + cum;
-        row._lapSec = cum;
         cum += dur;
       });
     });
@@ -132,12 +180,12 @@ router.post('/export-pdf', async (req: Request, res: Response) => {
     const pageSize = options.paperSize === 'A3' ? 'A3' : 'A4';
 
     // Build column headers
-    const headerColumns = [
-      { text: '#', style: 'thNum', width: 25 },
-      { text: '時刻', style: 'th', width: 55 },
-      { text: '尺', style: 'th', width: 30 },
+    const headerColumns: any[] = [
+      { text: '#', style: 'thNum', width: 22 },
+      { text: '時刻', style: 'th', width: 48 },
+      { text: '尺', style: 'th', width: 28 },
     ];
-    const bodyWidths: (number | string)[] = [25, 55, 30];
+    const bodyWidths: (number | string)[] = [22, 48, 28];
 
     for (const block of visibleBlocks) {
       headerColumns.push({ text: block.label || block.type, style: 'th', width: '*' as any });
@@ -148,13 +196,31 @@ router.post('/export-pdf', async (req: Request, res: Response) => {
     const tableBody: any[][] = [headerColumns];
 
     sections.forEach((sec: any) => {
+      if (sec._pageBreak) return;
+
+      if (sec._break) {
+        // CM break row
+        const d = parseDuration(sec.duration || '');
+        const breakRow = [
+          {
+            text: `${sec.label || 'CM'}  ${fmtAbs(sec._absSec || 0)}  ${d > 0 ? fmtDur(d) : ''}`,
+            style: 'breakRow',
+            colSpan: headerColumns.length,
+            fillColor: '#334155',
+          },
+        ];
+        for (let i = 1; i < headerColumns.length; i++) breakRow.push({} as any);
+        tableBody.push(breakRow);
+        return;
+      }
+
       // Section header row
       const sectionRow = [
         {
           text: sec.label || '',
           style: 'sectionHeader',
           colSpan: headerColumns.length,
-          fillColor: '#f1f5f9',
+          fillColor: '#dbeafe',
         },
       ];
       for (let i = 1; i < headerColumns.length; i++) sectionRow.push({} as any);
@@ -165,34 +231,32 @@ router.post('/export-pdf', async (req: Request, res: Response) => {
         const dur = typeof row.duration === 'number' ? row.duration : parseDuration(String(row.duration || ''));
         const cells: any[] = [
           { text: String(row._num || ''), style: 'cellNum' },
-          {
-            stack: [
-              { text: fmtAbs(row._absSec || 0), style: 'cellTime', bold: true },
-              { text: fmtLap(row._lapSec || 0), style: 'cellTimeLap' },
-            ],
-          },
-          { text: String(dur || ''), style: 'cellDur', alignment: 'center' },
+          { text: fmtAbs(row._absSec || 0), style: 'cellTime' },
+          { text: dur > 0 ? fmtDur(dur) : '', style: 'cellDur', alignment: 'center' },
         ];
 
         for (const block of visibleBlocks) {
-          const val = row[block.id] || row[block.type] || '';
+          const text = extractCellText(row, block);
           if (block.type === 'scenario') {
-            // Parse speaker name
-            const speakerMatch = (val as string).match(/^【(.+?)】/);
-            if (speakerMatch) {
-              const speaker = speakerMatch[1];
-              const rest = (val as string).slice(speakerMatch[0].length).trim();
-              cells.push({
-                stack: [
-                  { text: speaker, style: 'speaker', color: speakerMap[speaker] || '#333' },
-                  { text: rest, style: 'cellText' },
-                ],
+            // Parse entries or speaker names for colored output
+            const cell = row.cells?.[block.id];
+            if (cell?.entries && Array.isArray(cell.entries) && cell.entries.length > 0) {
+              const stack: any[] = [];
+              cell.entries.forEach((en: any) => {
+                if (en.name) {
+                  stack.push({ text: en.name, style: 'speaker', color: speakerMap[en.name] || '#333' });
+                }
+                const html = (en.html || '').replace(/<[^>]*>/g, '');
+                if (html) {
+                  stack.push({ text: html, style: 'cellText' });
+                }
               });
+              cells.push({ stack: stack.length > 0 ? stack : [{ text: '', style: 'cellText' }] });
             } else {
-              cells.push({ text: val, style: 'cellText' });
+              cells.push({ text, style: 'cellText' });
             }
           } else {
-            cells.push({ text: val, style: 'cellText' });
+            cells.push({ text, style: 'cellText' });
           }
         }
 
@@ -200,7 +264,7 @@ router.post('/export-pdf', async (req: Request, res: Response) => {
       });
     });
 
-    const docDefinition = {
+    const docDefinition: any = {
       pageSize,
       pageOrientation: 'landscape' as const,
       pageMargins: pageSize === 'A3' ? [36, 50, 36, 40] : [28, 50, 28, 40],
@@ -208,7 +272,7 @@ router.post('/export-pdf', async (req: Request, res: Response) => {
         columns: [
           { text: meta.title || 'キューシート', style: 'headerTitle', margin: [28, 15, 0, 0] },
           {
-            text: `${meta.draft || ''} | 総尺: ${fmtAbs(totalDuration)}`,
+            text: `${meta.draftType || meta.draft || ''} | 総尺: ${fmtAbs(totalDuration)}`,
             style: 'headerMeta',
             alignment: 'right',
             margin: [0, 18, 28, 0],
@@ -246,35 +310,61 @@ router.post('/export-pdf', async (req: Request, res: Response) => {
         headerMeta: { fontSize: 8, color: '#64748b' },
         th: { fontSize: 7, bold: true, color: '#475569', fillColor: '#f8fafc', margin: [0, 2, 0, 2] },
         thNum: { fontSize: 7, bold: true, color: '#475569', fillColor: '#f8fafc', alignment: 'center', margin: [0, 2, 0, 2] },
-        sectionHeader: { fontSize: 8, bold: true, color: '#1e293b', margin: [4, 2, 0, 2] },
+        sectionHeader: { fontSize: 8, bold: true, color: '#1e40af', margin: [4, 2, 0, 2] },
+        breakRow: { fontSize: 7, bold: true, color: '#ffffff', margin: [4, 2, 0, 2] },
         cellNum: { fontSize: 9, bold: true, color: '#3b82f6', alignment: 'center' },
         cellTime: { fontSize: 7, color: '#1e293b' },
-        cellTimeLap: { fontSize: 6, color: '#94a3b8' },
         cellDur: { fontSize: 8, color: '#475569' },
         cellText: { fontSize: 7, color: '#334155' },
         speaker: { fontSize: 7, bold: true, margin: [0, 0, 0, 1] },
         footerText: { fontSize: 6, color: '#94a3b8' },
       },
       defaultStyle: {
-        font: 'NotoSansJP',
+        font: 'Roboto',
       },
     };
 
-    // Create PDF with pdfmake
-    const fonts = {
-      NotoSansJP: {
-        normal: require.resolve('pdfmake/build/vfs_fonts'),
-        bold: require.resolve('pdfmake/build/vfs_fonts'),
-      },
-      Roboto: {
-        normal: require.resolve('pdfmake/build/vfs_fonts'),
-        bold: require.resolve('pdfmake/build/vfs_fonts'),
-      },
-    };
+    // pdfmake font setup — use built-in Roboto (Japanese text may be limited)
+    // Try to locate Noto Sans JP if available, otherwise fall back to Roboto
+    let fonts: any;
+    const notoPath = path.join(__dirname, '../../../../fonts/NotoSansJP-Regular.ttf');
+    const notoBoldPath = path.join(__dirname, '../../../../fonts/NotoSansJP-Bold.ttf');
 
-    // Use pdfmake's built-in fonts (Roboto) as fallback
-    docDefinition.defaultStyle.font = 'Roboto';
+    if (fs.existsSync(notoPath)) {
+      fonts = {
+        NotoSansJP: {
+          normal: notoPath,
+          bold: fs.existsSync(notoBoldPath) ? notoBoldPath : notoPath,
+          italics: notoPath,
+          bolditalics: fs.existsSync(notoBoldPath) ? notoBoldPath : notoPath,
+        },
+      };
+      docDefinition.defaultStyle.font = 'NotoSansJP';
+    } else {
+      // Use pdfmake's built-in virtual file system (Roboto)
+      const PdfPrinter = require('pdfmake');
+      const pdfFonts = require('pdfmake/build/vfs_fonts');
+      const printer = new PdfPrinter({
+        Roboto: {
+          normal: Buffer.from(pdfFonts.pdfMake.vfs['Roboto-Regular.ttf'], 'base64'),
+          bold: Buffer.from(pdfFonts.pdfMake.vfs['Roboto-Medium.ttf'], 'base64'),
+          italics: Buffer.from(pdfFonts.pdfMake.vfs['Roboto-Italic.ttf'], 'base64'),
+          bolditalics: Buffer.from(pdfFonts.pdfMake.vfs['Roboto-MediumItalic.ttf'], 'base64'),
+        },
+      });
 
+      const pdfDoc = printer.createPdfKitDocument(docDefinition);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename*=UTF-8''${encodeURIComponent((meta.title || 'cuesheet') + '.pdf')}`
+      );
+      pdfDoc.pipe(res);
+      pdfDoc.end();
+      return;
+    }
+
+    const PdfPrinter = require('pdfmake');
     const printer = new PdfPrinter(fonts);
     const pdfDoc = printer.createPdfKitDocument(docDefinition);
 

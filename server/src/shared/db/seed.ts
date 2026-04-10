@@ -939,7 +939,7 @@ export async function seed() {
   const qsheetSql = `INSERT INTO qsheet_documents (id, title, episode_id, project_id, broadcast_date, status, data, created_by, updated_by) VALUES (?,?,?,?,?,?,?,?,?)`;
 
   await ins(qsheetSql, [
-    uuidv4(), 'GH春季IR説明会 Qシート', EPISODES['GLS-A001-001'], PROJECTS['GLS-A001'], '2026-03-28', 'confirmed',
+    uuidv4(), 'GH春季IR説明会 Qシート', EPISODES['GLS-A001-001'], PROJECTS['GLS-A001'], '2026-03-28', 'on_air',
     JSON.stringify({
       rows: [
         { id: '1', time: '13:00', duration: '5', item: 'OA', content: 'オープニングアニメーション', cast: '', notes: 'CG再生' },
@@ -970,7 +970,7 @@ export async function seed() {
   ]);
 
   await ins(qsheetSql, [
-    uuidv4(), 'ネットLIVE配信 #001 Qシート', EPISODES['GLS-A003-001'], PROJECTS['GLS-A003'], '2026-04-05', 'confirmed',
+    uuidv4(), 'ネットLIVE配信 #001 Qシート', EPISODES['GLS-A003-001'], PROJECTS['GLS-A003'], '2026-04-05', 'on_air',
     JSON.stringify({
       rows: [
         { id: '1', time: '19:00', duration: '5', item: 'OP', content: 'オープニング・配信開始', cast: 'MC', notes: 'YouTube Live開始' },
