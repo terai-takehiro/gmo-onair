@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import EditorSidebar from "@/components/editor/EditorSidebar";
 import CueTable from "@/components/editor/CueTable";
 import PreviewModal from "@/components/editor/PreviewModal";
+import StageEditor from "@/components/editor/StageEditor";
 import {
   Loader2,
   Save,
@@ -148,6 +149,7 @@ export default function EditorPage() {
   const [collapsedBlocks, setCollapsedBlocks] = useState<Set<string>>(new Set());
   const [collapsedSections, setCollapsedSections] = useState<Set<number>>(new Set());
   const [showPreview, setShowPreview] = useState(false);
+  const [editingStageIdx, setEditingStageIdx] = useState<number | null>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const toggleBlockCollapse = useCallback((id: string) => {
@@ -396,6 +398,7 @@ export default function EditorPage() {
           blocks={doc.data.blocks}
           sections={doc.data.sections}
           masters={doc.data.masters}
+          stageTemplates={(doc.data as any).stageTemplates}
           meta={doc.data.meta}
           collapsedBlocks={collapsedBlocks}
           collapsedSections={collapsedSections}
@@ -410,10 +413,12 @@ export default function EditorPage() {
             blocks={doc.data.blocks}
             masters={doc.data.masters}
             meta={doc.data.meta}
+            stageTemplates={(doc.data as any).stageTemplates}
             episodeId={doc.episode_id}
             onBlocksChange={(blocks) => updateData((d) => ({ ...d, blocks }))}
             onMastersChange={(masters) => updateData((d) => ({ ...d, masters }))}
             onMetaChange={(meta) => updateData((d) => ({ ...d, meta }))}
+            onEditStageTemplate={(idx) => setEditingStageIdx(idx)}
             onEpisodeChange={(episodeId, episodeCode) => {
               setDoc((prev) => prev ? { ...prev, episode_id: episodeId, episode_code: episodeCode } : prev);
               setDirty(true);
@@ -427,6 +432,26 @@ export default function EditorPage() {
         <PreviewModal
           state={doc.data}
           onClose={() => setShowPreview(false)}
+        />
+      )}
+
+      {/* Stage Editor Modal */}
+      {editingStageIdx !== null && (
+        <StageEditor
+          template={editingStageIdx >= 0 ? ((doc.data as any).stageTemplates || [])[editingStageIdx] : null}
+          onSave={(data) => {
+            updateData((d) => {
+              const templates = [...((d as any).stageTemplates || [])];
+              if (editingStageIdx >= 0 && editingStageIdx < templates.length) {
+                templates[editingStageIdx] = data;
+              } else {
+                templates.push(data);
+              }
+              return { ...d, stageTemplates: templates } as any;
+            });
+            setEditingStageIdx(null);
+          }}
+          onClose={() => setEditingStageIdx(null)}
         />
       )}
     </div>
