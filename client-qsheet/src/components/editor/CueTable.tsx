@@ -105,6 +105,7 @@ export default function CueTable({
   blocks,
   sections,
   masters,
+  stageTemplates,
   meta,
   collapsedBlocks,
   collapsedSections,
@@ -470,6 +471,7 @@ export default function CueTable({
                             row={row}
                             blocks={blocks}
                             masters={masters}
+                            stageTemplates={stageTemplates}
                             collapsedBlocks={collapsedBlocks}
                             speakerColorMap={speakerColorMap}
                             onChange={(updater) => updateRow(si, ri, updater)}

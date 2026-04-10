@@ -1,5 +1,6 @@
 import { useState, useRef, useId } from "react";
-import { ChevronUp, ChevronDown, Copy, Trash2 } from "lucide-react";
+import { ChevronUp, ChevronDown, Copy, Trash2, ImageIcon } from "lucide-react";
+import StageDiagramCell from "./StageDiagramCell";
 
 // ─── Types ──────────────────────────────────────────────
 interface Block {
@@ -20,6 +21,7 @@ interface CueRowProps {
   row: CueRowData;
   blocks: Block[];
   masters: any;
+  stageTemplates?: any[];
   collapsedBlocks?: Set<string>;
   speakerColorMap: Record<string, string>;
   onChange: (updater: (r: CueRowData) => CueRowData) => void;
@@ -116,6 +118,7 @@ export default function CueRow({
   row,
   blocks,
   masters,
+  stageTemplates,
   collapsedBlocks,
   speakerColorMap,
   onChange,
@@ -258,6 +261,35 @@ export default function CueRow({
                       placeholder="メモ..."
                     />
                   </div>
+                </td>
+              );
+            }
+
+            // ── Stage diagram cell ──
+            if (blk.type === "stage_diagram") {
+              return (
+                <td key={blk.id} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 align-top">
+                  {ei === 0 && (
+                    <StageDiagramCell
+                      cell={row.cells?.[blk.id]}
+                      stageTemplates={stageTemplates}
+                      onChange={(val) => updateCell(blk.id, val)}
+                    />
+                  )}
+                </td>
+              );
+            }
+
+            // ── Slide cell (image drop zone) ──
+            if (blk.type === "slide") {
+              return (
+                <td key={blk.id} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden align-top">
+                  {ei === 0 && (
+                    <div className="flex items-center justify-center h-16 border border-dashed border-zinc-200 dark:border-zinc-700 rounded text-zinc-300 dark:text-zinc-600 text-[10px]">
+                      <ImageIcon size={14} className="mr-1" />
+                      スライド
+                    </div>
+                  )}
                 </td>
               );
             }
