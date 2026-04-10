@@ -5,6 +5,7 @@ import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import EditorSidebar from "@/components/editor/EditorSidebar";
 import CueTable from "@/components/editor/CueTable";
+import PreviewModal from "@/components/editor/PreviewModal";
 import {
   Loader2,
   Save,
@@ -146,6 +147,7 @@ export default function EditorPage() {
   const [saveFlash, setSaveFlash] = useState(false);
   const [collapsedBlocks, setCollapsedBlocks] = useState<Set<string>>(new Set());
   const [collapsedSections, setCollapsedSections] = useState<Set<number>>(new Set());
+  const [showPreview, setShowPreview] = useState(false);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const toggleBlockCollapse = useCallback((id: string) => {
@@ -233,21 +235,6 @@ export default function EditorPage() {
 
   // Note: Section/row CRUD is handled by CueTable component
 
-  // PDF export
-  const exportPdf = async () => {
-    if (!doc) return;
-    try {
-      const res = await api.post("/qsheet/export-pdf", { documentId: doc.id }, { responseType: "blob" });
-      const url = URL.createObjectURL(res.data);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${doc.data.meta.title || "cuesheet"}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      alert("PDF出力に失敗しました");
-    }
-  };
 
 
   // Manual save — increments draftNumber if numbered mode
@@ -337,7 +324,7 @@ export default function EditorPage() {
               <span className="hidden lg:inline">CSV</span>
             </Button>
             {/* PDF export */}
-            <button onClick={exportPdf} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+            <button onClick={() => setShowPreview(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
               <Eye size={13} />
               印刷 / PDF
             </button>
@@ -434,6 +421,14 @@ export default function EditorPage() {
           />
         )}
       </div>
+
+      {/* Preview Modal */}
+      {showPreview && (
+        <PreviewModal
+          state={doc.data}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
     </div>
   );
 }
