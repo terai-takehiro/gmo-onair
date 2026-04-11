@@ -6,6 +6,8 @@ import { queryClient } from '@/lib/queryClient';
 import App from '@/App';
 import '@/index.css';
 
+console.log('[GMO ONAiR Qsheet] v0.9.0 loaded at', new Date().toISOString());
+
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { hasError: boolean; error: Error | null }
