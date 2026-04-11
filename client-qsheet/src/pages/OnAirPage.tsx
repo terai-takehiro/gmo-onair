@@ -487,12 +487,12 @@ export default function OnAirPage() {
         <div className="flex-1 flex flex-col">
           {/* Clock */}
           <div className="flex-none h-16 flex items-center justify-center bg-[#0a0a0a] border-b-2 border-[#222]">
-            <F size={44} weight={400} color="#ddd" style={{ letterSpacing: "0.1em" }}>
+            <F size={32} weight={400} color="#ddd" style={{ letterSpacing: "0.1em" }}>
               {clk}
             </F>
           </div>
 
-          <div className="flex-1 flex flex-col items-center justify-center p-6 gap-6">
+          <div className="flex-1 flex flex-col items-center justify-center p-3 sm:p-6 gap-3 sm:gap-6 overflow-y-auto">
             {/* ===== PRE-SHOW ===== */}
             {!running && cur === -1 && (
               <div className="text-center">
@@ -519,7 +519,7 @@ export default function OnAirPage() {
                 {/* Program elapsed */}
                 <div className="text-center">
                   <div className="text-lg font-black text-[#eee] tracking-[0.3em] mb-2">番組経過</div>
-                  <F size={100} weight={700} color="#fff" style={{ lineHeight: 1 }}>
+                  <F size={60} weight={700} color="#fff" style={{ lineHeight: 1 }}>
                     {hms(showEl)}
                   </F>
                 </div>
@@ -542,16 +542,16 @@ export default function OnAirPage() {
 
                     {/* 3-column timing */}
                     <div className="grid grid-cols-3">
-                      <div className="py-6 text-center border-r-2 border-[#222]">
-                        <div className="text-base font-black text-[#eee] tracking-[0.2em] mb-3">経過</div>
-                        <F size={56} weight={700} color="#34d399">
+                      <div className="py-3 sm:py-6 text-center border-r-2 border-[#222]">
+                        <div className="text-xs sm:text-base font-black text-[#eee] tracking-[0.2em] mb-1 sm:mb-3">経過</div>
+                        <F size={36} weight={700} color="#34d399">
                           {mm(cueEl)}
                         </F>
                       </div>
-                      <div className="py-6 text-center border-r-2 border-[#222]">
-                        <div className="text-base font-black text-[#eee] tracking-[0.2em] mb-3">残り</div>
+                      <div className="py-3 sm:py-6 text-center border-r-2 border-[#222]">
+                        <div className="text-xs sm:text-base font-black text-[#eee] tracking-[0.2em] mb-1 sm:mb-3">残り</div>
                         <F
-                          size={56}
+                          size={36}
                           weight={700}
                           color={cRem < 0 ? "#f87171" : cRem < 30 ? "#fbbf24" : "#e5e5e5"}
                           style={cRem < 0 ? { animation: "pulse 1s infinite" } : {}}
@@ -559,9 +559,9 @@ export default function OnAirPage() {
                           {mm(cRem)}
                         </F>
                       </div>
-                      <div className="py-6 text-center">
-                        <div className="text-base font-black text-[#eee] tracking-[0.2em] mb-3">予定尺</div>
-                        <F size={56} weight={700} color="#bbb">
+                      <div className="py-3 sm:py-6 text-center">
+                        <div className="text-xs sm:text-base font-black text-[#eee] tracking-[0.2em] mb-1 sm:mb-3">予定尺</div>
+                        <F size={36} weight={700} color="#bbb">
                           {mm(cDur)}
                         </F>
                       </div>
@@ -578,16 +578,16 @@ export default function OnAirPage() {
                 )}
 
                 {/* Push/Pull + Next */}
-                <div className="w-full max-w-3xl flex gap-4">
-                  <div className="flex-1 rounded-lg p-5 text-center bg-[#111] border-2 border-[#333]">
-                    <div className="text-base font-black text-[#eee] tracking-[0.2em] mb-2">押し / 巻き</div>
-                    <F size={48} weight={700} color={ov > 30 ? "#f87171" : ov < -30 ? "#34d399" : "#777"}>
+                <div className="w-full max-w-3xl flex gap-2 sm:gap-4">
+                  <div className="flex-1 rounded-lg p-3 sm:p-5 text-center bg-[#111] border-2 border-[#333]">
+                    <div className="text-xs sm:text-base font-black text-[#eee] tracking-[0.2em] mb-1 sm:mb-2">押し / 巻き</div>
+                    <F size={32} weight={700} color={ov > 30 ? "#f87171" : ov < -30 ? "#34d399" : "#777"}>
                       {ov > 0 ? "+" : ""}
                       {mm(ov)}
                     </F>
                   </div>
                   {nc && (
-                    <div className="flex-1 rounded-lg p-5 bg-[#0a0a18] border-2 border-[#224]">
+                    <div className="flex-1 rounded-lg p-3 sm:p-5 bg-[#0a0a18] border-2 border-[#224]">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-sm font-black px-2.5 py-0.5 rounded bg-blue-600 text-white tracking-wider">NEXT</span>
                         <F size={16} weight={700} color="#ccc">

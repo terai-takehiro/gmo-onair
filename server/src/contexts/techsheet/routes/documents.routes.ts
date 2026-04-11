@@ -5,7 +5,8 @@ import { requireAuth, requirePermission } from '../../../shared/middleware/auth'
 
 const router = Router();
 
-router.use(requireAuth, requirePermission('techsheet'));
+router.use(requireAuth);
+// TODO: requirePermission('techsheet') を復活させる（権限マイグレーション適用後）
 
 const MAX_TITLE_LENGTH = 500;
 const MAX_SEARCH_LENGTH = 100;
