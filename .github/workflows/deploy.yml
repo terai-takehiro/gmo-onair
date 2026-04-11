@@ -20,14 +20,5 @@ jobs:
             set -e
             cd /opt/gmo-onair
             git pull origin main
-            echo "=== HEAD ==="
-            git log --oneline -1
-            echo "=== Qsheet Header.tsx first 3 lines ==="
-            head -3 client-qsheet/src/components/layout/Header.tsx
-            echo "=== Force rebuild ==="
-            docker compose down
-            docker rmi gmo-onair-app:latest 2>/dev/null || true
             docker compose up -d --build
-            sleep 10
-            docker compose logs --tail=5 app
             echo "✅ Deploy completed at $(date)"
