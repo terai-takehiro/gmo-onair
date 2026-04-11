@@ -83,8 +83,17 @@ export function createApp(): express.Express {
 
     const serveApp = (prefix: string, distPath: string) => {
       app.use(prefix, express.static(distPath, staticOptions));
+      // SPA fallback: both /prefix and /prefix/* return index.html
+      app.get(prefix, (_req, res) => {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
       app.get(`${prefix}/*`, (_req, res) => {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
         res.sendFile(path.join(distPath, 'index.html'));
       });
     };
