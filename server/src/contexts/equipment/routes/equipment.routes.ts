@@ -556,7 +556,7 @@ router.get('/stats', async (_req: Request, res: Response) => {
       in_repair: toInt(inRepair),
       lent_out: toInt(lentOut),
       overdue: toInt(overdue),
-      total_asset_value: parseFloat(totalAssetValue?.total ?? '0') || 0,
+      total_asset_value: parseFloat((totalAssetValue as any)?.total ?? '0') || 0,
       open_maintenance: toInt(openMaintenance),
       recent_lendings: recentLendings,
       recent_maintenance: recentMaintenance,
