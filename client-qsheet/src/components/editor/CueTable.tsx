@@ -330,7 +330,7 @@ export default function CueTable({
               } ${isSectionDragTarget ? "ring-2 ring-blue-500 ring-offset-2" : ""}`}
             >
               {/* Section header */}
-              <div className={`flex items-center gap-2 px-4 py-2 cursor-grab select-none ${
+              <div className={`flex items-center gap-2 px-3 sm:px-4 py-2 cursor-grab select-none flex-wrap ${
                 isSectionCollapsed
                   ? "bg-gradient-to-r from-blue-800 to-blue-700 dark:from-blue-900 dark:to-blue-800"
                   : "bg-gradient-to-r from-blue-600 to-blue-500 dark:from-blue-700 dark:to-blue-600"

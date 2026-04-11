@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   Wrench,
   X,
+  ChevronLeft,
 } from "lucide-react";
 
 const navItems = [
@@ -31,33 +32,33 @@ export default function Sidebar() {
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="flex h-16 items-center justify-between border-b px-4">
-          <div
-            className="flex items-center gap-2 cursor-pointer"
-            onClick={() => navigate("/techsheet")}
+        {/* App Header — unified */}
+        <div className="flex h-14 items-center gap-3 border-b px-3">
+          <a
+            href="/"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-muted"
+            title="ONAiR ホームへ"
           >
-            <Wrench className="h-6 w-6 text-primary" />
-            <div>
-              <span className="text-lg font-sans font-bold text-primary">技術資料</span>
-              <span className="block text-xs text-muted-foreground leading-none">
-                GMO ONAiR TechSheet
-              </span>
+            <ChevronLeft className="h-4 w-4" />
+          </a>
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-cyan-600 text-white">
+              <Wrench className="h-4 w-4" />
             </div>
+            <span className="truncate text-sm font-bold">技術資料</span>
           </div>
           <button
-            className="lg:hidden p-1 rounded hover:bg-muted"
+            className="ml-auto lg:hidden p-1 rounded hover:bg-muted"
             onClick={() => setSidebarOpen(false)}
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
+        {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
           {navItems.map((item) => {
-            const isActive =
-              item.path === "/techsheet"
-                ? location.pathname === "/techsheet"
-                : location.pathname.startsWith(item.path);
+            const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + "/");
             return (
               <button
                 key={item.path}
@@ -79,7 +80,7 @@ export default function Sidebar() {
           })}
         </nav>
 
-        {/* Footer — App shortcuts */}
+        {/* Footer */}
         <div className="border-t p-3 space-y-2">
           <div className="flex items-center justify-center gap-2">
             {[
@@ -98,7 +99,7 @@ export default function Sidebar() {
               </a>
             ))}
           </div>
-          <p className="text-center text-xs text-muted-foreground/50">v0.8.2</p>
+          <p className="text-center text-xs text-muted-foreground/50">v0.8.4</p>
         </div>
       </aside>
     </>
