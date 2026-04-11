@@ -39,7 +39,7 @@ export default function Sidebar() {
             <Wrench className="h-6 w-6 text-primary" />
             <div>
               <span className="text-lg font-sans font-bold text-primary">技術資料</span>
-              <span className="block text-[10px] text-muted-foreground leading-none">
+              <span className="block text-xs text-muted-foreground leading-none">
                 GMO ONAiR TechSheet
               </span>
             </div>
@@ -98,7 +98,7 @@ export default function Sidebar() {
               </a>
             ))}
           </div>
-          <p className="text-center text-[10px] text-muted-foreground/50">v0.8.2</p>
+          <p className="text-center text-xs text-muted-foreground/50">v0.8.2</p>
         </div>
       </aside>
     </>

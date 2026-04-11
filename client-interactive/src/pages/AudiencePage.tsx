@@ -186,7 +186,7 @@ export default function AudiencePage() {
         }`} />
         <span className="text-sm font-medium text-[var(--text-primary)] truncate">{event.title}</span>
         {event.status === 'live' && (
-          <span className="text-[10px] font-bold text-red-500 tracking-wider ml-auto">LIVE</span>
+          <span className="text-xs font-bold text-red-500 tracking-wider ml-auto">LIVE</span>
         )}
       </header>
 
@@ -261,7 +261,7 @@ export default function AudiencePage() {
       )}
 
       {/* Footer */}
-      <div className="text-center pb-4 pt-2 text-[10px] text-[var(--text-muted)] tracking-wider flex-shrink-0">
+      <div className="text-center pb-4 pt-2 text-xs text-[var(--text-muted)] tracking-wider flex-shrink-0">
         Powered by GMO EventStamp
       </div>
     </div>

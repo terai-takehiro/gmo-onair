@@ -190,7 +190,7 @@ export default function Header({ title }: { title?: string }) {
                       >
                         <span className="text-muted-foreground text-xs shrink-0">{proj.gls_number || proj.code}</span>
                         <span className="truncate flex-1">{proj.name}</span>
-                        <Badge variant="outline" className="text-[10px] shrink-0">
+                        <Badge variant="outline" className="text-xs shrink-0">
                           {stageLabelMap[proj.stage] || proj.stage}
                         </Badge>
                       </button>

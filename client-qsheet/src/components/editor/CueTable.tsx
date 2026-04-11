@@ -439,7 +439,7 @@ export default function CueTable({
                                     <button onClick={() => onToggleCollapse?.(blk.id)} className="p-0.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded transition-colors">
                                       <ChevronRight size={10} />
                                     </button>
-                                    <span className="text-[10px] whitespace-nowrap" style={{ writingMode: "vertical-rl" }}>{blk.label}</span>
+                                    <span className="text-xs whitespace-nowrap" style={{ writingMode: "vertical-rl" }}>{blk.label}</span>
                                   </div>
                                 ) : (
                                   <span className="inline-flex items-center gap-1.5 whitespace-nowrap">

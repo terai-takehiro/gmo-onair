@@ -128,7 +128,7 @@ function MasterSection({
   };
   return (
     <div className="mb-3 last:mb-0">
-      <div className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">{label}</div>
+      <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">{label}</div>
       <div className="flex flex-wrap gap-1.5 mb-2">
         {items.map((item, i) => (
           <span key={i} className={`group inline-flex items-center gap-1 px-2.5 py-1 ${color} rounded-md text-[11px] font-bold tracking-wide transition-all hover:opacity-80`}>
@@ -343,7 +343,7 @@ export default function EditorSidebar({
       <CollapsibleSection title="詳細" defaultOpen={false}>
         <div className="space-y-2.5">
           <label className="block">
-            <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">リハーサル日</span>
+            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">リハーサル日</span>
             <input
               type="date"
               value={meta?.rehearsalDate || ""}
@@ -352,7 +352,7 @@ export default function EditorSidebar({
             />
           </label>
           <label className="block">
-            <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">撮影場所</span>
+            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">撮影場所</span>
             <input
               type="text"
               value={meta?.location || ""}
@@ -361,7 +361,7 @@ export default function EditorSidebar({
             />
           </label>
           <label className="block">
-            <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">作成者</span>
+            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">作成者</span>
             <input
               type="text"
               value={meta?.author || ""}

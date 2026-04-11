@@ -269,7 +269,7 @@ export default function DashboardPage() {
                       <p className={`text-xs font-number ${overdue ? "text-amber-700 font-semibold" : "text-muted-foreground"}`}>
                         返却 {fmtDate(l.due_date)}
                       </p>
-                      {overdue && <Badge variant="outline" className="text-[10px] px-1 py-0 border-amber-400 text-amber-700">遅延</Badge>}
+                      {overdue && <Badge variant="outline" className="text-xs px-1 py-0 border-amber-400 text-amber-700">遅延</Badge>}
                     </div>
                   </div>
                 );
@@ -306,10 +306,10 @@ export default function DashboardPage() {
                     <p className="text-xs text-muted-foreground truncate">{m.equipment_name}</p>
                   </div>
                   <div className="text-right shrink-0 space-y-1">
-                    <Badge className={`text-[10px] px-1.5 py-0 ${maintenanceStatusColor[m.status] ?? "bg-gray-100 text-gray-700"}`}>
+                    <Badge className={`text-xs px-1.5 py-0 ${maintenanceStatusColor[m.status] ?? "bg-gray-100 text-gray-700"}`}>
                       {maintenanceStatusLabel[m.status] ?? m.status}
                     </Badge>
-                    <p className="text-[10px] text-muted-foreground">{maintenanceTypeLabel[m.record_type] ?? m.record_type}</p>
+                    <p className="text-xs text-muted-foreground">{maintenanceTypeLabel[m.record_type] ?? m.record_type}</p>
                   </div>
                 </div>
               ))}

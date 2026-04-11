@@ -135,7 +135,7 @@ export default function EquipmentDetailPage() {
               <ArrowRightLeft className="h-4 w-4" />
               貸出履歴
               {item.is_lendable ? (
-                <Badge variant="outline" className="text-[10px]">貸出可</Badge>
+                <Badge variant="outline" className="text-xs">貸出可</Badge>
               ) : null}
             </CardTitle>
           </CardHeader>
@@ -182,10 +182,10 @@ export default function EquipmentDetailPage() {
                     <div className="flex items-center justify-between">
                       <span className="font-medium">{m.title}</span>
                       <div className="flex items-center gap-1">
-                        <Badge variant="outline" className="text-[10px]">
+                        <Badge variant="outline" className="text-xs">
                           {maintenanceTypeLabels[m.record_type]}
                         </Badge>
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
                           {maintenanceStatusLabels[m.status]}
                         </span>
                       </div>

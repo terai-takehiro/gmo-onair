@@ -277,7 +277,7 @@ export default function StageEditor({ template, onSave, onClose }: StageEditorPr
 
             {/* Element list */}
             <div>
-              <div className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">要素一覧</div>
+              <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">要素一覧</div>
               {elements.length === 0 && <p className="text-[12px] text-zinc-400 italic">要素なし</p>}
               <div className="space-y-1">
                 {elements.map((el, i) => (
@@ -295,7 +295,7 @@ export default function StageEditor({ template, onSave, onClose }: StageEditorPr
             {/* Properties */}
             {sel && (
               <div className="border-t border-zinc-200 dark:border-zinc-800 pt-3 space-y-2">
-                <div className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">プロパティ</div>
+                <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">プロパティ</div>
                 <label className="block">
                   <span className="text-[11px] text-zinc-500">ラベル</span>
                   <input value={sel.label} onChange={(e) => updateElement(selectedIdx!, { label: e.target.value })} className="mt-0.5 w-full px-2 py-1 text-[12px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-blue-400" />

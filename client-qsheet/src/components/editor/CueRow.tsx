@@ -194,7 +194,7 @@ export default function CueRow({
                   <div className="flex items-start gap-1.5 min-w-0">
                     <button
                       onClick={() => updateEntry(blk, ei, "isQWord", !en?.isQWord)}
-                      className={`flex-shrink-0 w-5 h-5 rounded text-[9px] font-bold leading-none flex items-center justify-center transition-all mt-[1px] ${
+                      className={`flex-shrink-0 w-5 h-5 rounded text-[11px] font-bold leading-none flex items-center justify-center transition-all mt-[1px] ${
                         en?.isQWord
                           ? "bg-red-500 text-white shadow-sm"
                           : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700"
@@ -282,7 +282,7 @@ export default function CueRow({
               return (
                 <td key={blk.id} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden align-top">
                   {ei === 0 && (
-                    <div className="flex items-center justify-center h-16 border border-dashed border-zinc-200 dark:border-zinc-700 rounded text-zinc-300 dark:text-zinc-600 text-[10px]">
+                    <div className="flex items-center justify-center h-16 border border-dashed border-zinc-200 dark:border-zinc-700 rounded text-zinc-300 dark:text-zinc-600 text-xs">
                       <ImageIcon size={14} className="mr-1" />
                       スライド
                     </div>

@@ -203,7 +203,7 @@ export default function PurchaseListPage() {
                           <span className="font-mono text-xs">{(p.gls_number as string) || "-"}</span>
                           <SettlementBadge number={p.settlement_number as string | null} />
                           {(p.group_name as string) && (
-                            <Badge variant="outline" className="text-[10px]">按分</Badge>
+                            <Badge variant="outline" className="text-xs">按分</Badge>
                           )}
                         </div>
                         <div className="text-sm mt-1 truncate">{(p.description as string) || (p.project_name as string) || "-"}</div>
@@ -252,7 +252,7 @@ export default function PurchaseListPage() {
                             <span className="font-mono text-sm">{(p.gls_number as string) || "-"}</span>
                           )}
                           {(p.group_name as string) && (
-                            <Badge variant="outline" className="text-[10px]">按分</Badge>
+                            <Badge variant="outline" className="text-xs">按分</Badge>
                           )}
                         </div>
                       </TableCell>

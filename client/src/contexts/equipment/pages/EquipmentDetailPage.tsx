@@ -406,7 +406,7 @@ export default function EquipmentDetailPage() {
                           <span className="font-mono text-xs">{child.eq_code}</span>
                           <span>{child.name}</span>
                         </Link>
-                        <Badge className={`text-[10px] ${statusColors[child.status] || "bg-gray-100 text-gray-600"}`}>
+                        <Badge className={`text-xs ${statusColors[child.status] || "bg-gray-100 text-gray-600"}`}>
                           {statusLabels[child.status] || child.status}
                         </Badge>
                       </div>
@@ -448,7 +448,7 @@ export default function EquipmentDetailPage() {
                         <TableCell className="text-sm">{formatDate(l.due_date)}</TableCell>
                         <TableCell className="text-sm">{formatDate(l.returned_date)}</TableCell>
                         <TableCell>
-                          <Badge className={`text-[10px] ${lendingStatusColors[l.status] || "bg-gray-100 text-gray-600"}`}>
+                          <Badge className={`text-xs ${lendingStatusColors[l.status] || "bg-gray-100 text-gray-600"}`}>
                             {lendingStatusLabels[l.status] || l.status}
                           </Badge>
                         </TableCell>
@@ -487,7 +487,7 @@ export default function EquipmentDetailPage() {
                         <TableCell className="text-sm">{m.maintenance_type}</TableCell>
                         <TableCell className="text-sm">{m.title}</TableCell>
                         <TableCell>
-                          <Badge className={`text-[10px] ${maintenanceStatusColors[m.status] || "bg-gray-100 text-gray-600"}`}>
+                          <Badge className={`text-xs ${maintenanceStatusColors[m.status] || "bg-gray-100 text-gray-600"}`}>
                             {maintenanceStatusLabels[m.status] || m.status}
                           </Badge>
                         </TableCell>

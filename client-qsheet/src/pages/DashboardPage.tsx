@@ -137,7 +137,7 @@ function DocCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2.5 mb-1">
             <h3 className="text-base font-bold truncate">{meta?.title || doc.title || "無題"}</h3>
-            <span className={`flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${getDraftColor(meta)}`}>
+            <span className={`flex-shrink-0 text-xs font-bold px-2 py-0.5 rounded-full ${getDraftColor(meta)}`}>
               {getDraftLabel(meta)}
             </span>
           </div>
@@ -215,7 +215,7 @@ function DocCard({
 
       {/* Footer */}
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/60">
-        <div className="flex items-center gap-3 text-[10px] text-zinc-400">
+        <div className="flex items-center gap-3 text-xs text-zinc-400">
           <span>{doc.creator_name || "不明"}</span>
           <span className="inline-flex items-center gap-0.5">
             <Clock size={9} />

@@ -236,14 +236,14 @@ export default function EquipmentListPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant="outline" className="text-[10px]">
+                      <Badge variant="outline" className="text-xs">
                         {typeLabels[item.item_type] || item.item_type}
                       </Badge>
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[item.status] || ""}`}>
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[item.status] || ""}`}>
                         {statusLabels[item.status] || item.status}
                       </span>
                       {item.category_name && (
-                        <span className="text-[10px] text-muted-foreground">{item.category_name}</span>
+                        <span className="text-xs text-muted-foreground">{item.category_name}</span>
                       )}
                     </div>
                     <h3 className="font-semibold mt-1 truncate">

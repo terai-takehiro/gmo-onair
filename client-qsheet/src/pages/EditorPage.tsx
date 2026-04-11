@@ -302,7 +302,7 @@ export default function EditorPage() {
           </div>
           <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
             {/* Save status badge */}
-            <span className={`hidden sm:inline text-[10px] font-medium px-2 py-0.5 rounded-full transition-all ${
+            <span className={`hidden sm:inline text-xs font-medium px-2 py-0.5 rounded-full transition-all ${
               saveStatus === "saved" ? "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30" :
               saveStatus === "saving" ? "text-blue-600 bg-blue-50 dark:bg-blue-950/30" :
               saveStatus === "error" ? "text-red-600 bg-red-50 dark:bg-red-950/30" :
