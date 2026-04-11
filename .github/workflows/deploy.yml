@@ -20,6 +20,11 @@ jobs:
             set -e
             cd /opt/gmo-onair
             git pull origin main
-            docker compose build --no-cache
+            echo "HEAD: $(git log --oneline -1)"
+            echo "Qsheet Header check:"
+            head -5 client-qsheet/src/components/layout/Header.tsx
+            echo "---"
+            docker compose build --no-cache 2>&1 | tail -10
             docker compose up -d
-            echo "✅ Deploy v0.8.0 completed at $(date)"
+            sleep 5
+            echo "✅ Deploy completed at $(date)"
