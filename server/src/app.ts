@@ -70,6 +70,25 @@ export function createApp(): express.Express {
 
   // In production, serve React client build
   if (process.env.NODE_ENV === 'production') {
+    const fs = require('fs');
+
+    // Debug endpoint — verify file paths
+    app.get('/api/debug/paths', (_req, res) => {
+      const qsheetDist = path.join(__dirname, '../../client-qsheet/dist');
+      const qsheetIndex = path.join(qsheetDist, 'index.html');
+      let indexContent = '';
+      try { indexContent = fs.readFileSync(qsheetIndex, 'utf8').slice(0, 300); } catch (e: any) { indexContent = `ERROR: ${e.message}`; }
+
+      res.json({
+        __dirname,
+        qsheetDist,
+        qsheetExists: fs.existsSync(qsheetDist),
+        qsheetIndexExists: fs.existsSync(qsheetIndex),
+        qsheetIndexStart: indexContent,
+        qsheetFiles: fs.existsSync(qsheetDist) ? fs.readdirSync(qsheetDist) : [],
+        assetsFiles: fs.existsSync(path.join(qsheetDist, 'assets')) ? fs.readdirSync(path.join(qsheetDist, 'assets')) : [],
+      });
+    });
     // Static file options: no-cache for HTML, immutable cache for hashed assets
     const staticOptions: Parameters<typeof express.static>[1] = {
       setHeaders(res, filePath) {
