@@ -50,25 +50,40 @@ interface FlatCue {
 // ============================================================
 // Helpers
 // ============================================================
+const safe = (n: number) => (isNaN(n) || !isFinite(n)) ? 0 : Math.floor(n);
+
 const mm = (s: number): string => {
-  const a = Math.abs(Math.floor(s || 0));
+  const v = safe(s);
+  const a = Math.abs(v);
   const m = Math.floor(a / 60);
-  return `${s < 0 ? "-" : ""}${String(m).padStart(2, "0")}:${String(a % 60).padStart(2, "0")}`;
+  return `${v < 0 ? "-" : ""}${String(m).padStart(2, "0")}:${String(a % 60).padStart(2, "0")}`;
 };
 
 const hms = (s: number): string => {
-  const a = Math.abs(Math.floor(s || 0));
+  const a = Math.abs(safe(s));
   return `${String(Math.floor(a / 3600)).padStart(2, "0")}:${String(Math.floor((a % 3600) / 60)).padStart(2, "0")}:${String(a % 60).padStart(2, "0")}`;
 };
 
-const oaFmt = (s: number): string =>
-  `${String(Math.floor(s / 3600)).padStart(2, "0")}:${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+const oaFmt = (s: number): string => {
+  const v = safe(s);
+  return `${String(Math.floor(v / 3600)).padStart(2, "0")}:${String(Math.floor((v % 3600) / 60)).padStart(2, "0")}:${String(v % 60).padStart(2, "0")}`;
+};
 
 const parseDuration = (d: string | number | undefined): number => {
   if (!d) return 0;
-  if (typeof d === "number") return d;
-  const p = d.split(":");
-  return p.length === 2 ? +p[0] * 60 + +p[1] : +p[0] * 60;
+  if (typeof d === "number") return isNaN(d) ? 0 : d;
+  const s = String(d).trim();
+  if (!s) return 0;
+  // HH:MM:SS
+  let m = s.match(/^(\d+)[°:](\d+)[':"](\d+)/);
+  if (m) return (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0);
+  // MM:SS or M:SS
+  m = s.match(/^(\d+)[':.](\d+)/);
+  if (m) return (+m[1] || 0) * 60 + (+m[2] || 0);
+  // seconds only
+  m = s.match(/^(\d+)$/);
+  if (m) return +m[1] || 0;
+  return 0;
 };
 
 function buildCues(data: { sections?: Section[]; meta?: { broadcastStartTime?: string } }): FlatCue[] {
@@ -87,7 +102,7 @@ function buildCues(data: { sections?: Section[]; meta?: { broadcastStartTime?: s
       acc += d;
     } else {
       for (const row of s.rows) {
-        const d = row.duration || 0;
+        const d = parseDuration(row.duration);
         cues.push({ type: "cue", label: s.label || row.label || "", duration: d, start: acc, oa: base + acc, row });
         acc += d;
       }
