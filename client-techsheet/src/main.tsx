@@ -9,22 +9,26 @@ console.log('[GMO ONAiR] v0.9.0 loaded at', new Date().toISOString());
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
-  { hasError: boolean }
+  { hasError: boolean; errorMsg: string }
 > {
   constructor(props: { children: React.ReactNode }) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, errorMsg: '' };
   }
-  static getDerivedStateFromError() { return { hasError: true }; }
+  static getDerivedStateFromError(error: Error) { return { hasError: true, errorMsg: error?.message || '不明なエラー' }; }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error('[techsheet] React error:', error, info.componentStack);
+  }
   render() {
     if (this.state.hasError) {
       return (
         <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
-          <p className="text-lg font-semibold text-destructive">エラーが発生しました</p>
-          <p className="text-sm text-muted-foreground">ページを再読み込みしてください</p>
+          <p className="text-lg font-semibold" style={{ color: '#b91c1c' }}>エラーが発生しました</p>
+          <p className="text-sm" style={{ color: '#6b7280' }}>ページを再読み込みしてください</p>
+          <p className="text-xs" style={{ color: '#9ca3af', maxWidth: 400, wordBreak: 'break-all' }}>{this.state.errorMsg}</p>
           <button
             onClick={() => window.location.reload()}
-            className="rounded-md bg-primary px-4 py-2 text-sm text-white hover:bg-primary/90"
+            style={{ backgroundColor: '#005bac', color: '#fff', padding: '8px 16px', borderRadius: 6, border: 'none', cursor: 'pointer' }}
           >
             再読み込み
           </button>
