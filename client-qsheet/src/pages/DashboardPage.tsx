@@ -182,7 +182,7 @@ function DocCard({
       </div>
 
       {/* Info grid */}
-      <div className="grid grid-cols-4 gap-x-4 gap-y-1.5 text-[11px]">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1.5 text-[11px]">
         {(meta?.broadcastDate || doc.broadcast_date) && (
           <div className="flex items-center gap-1.5">
             <Calendar size={10} className="text-zinc-400 flex-shrink-0" />

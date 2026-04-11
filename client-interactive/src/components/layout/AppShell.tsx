@@ -16,27 +16,32 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
+      {/* Header — unified pattern */}
       <header className="sticky top-0 z-40 bg-card border-b">
         <div className="max-w-7xl mx-auto px-3 sm:px-5 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="hidden lg:block">
               <AppSwitcher currentApp="interactive" />
             </div>
-            <Link to="/" className="flex items-center gap-2 font-sans font-bold text-primary">
-              <Sparkles className="h-5 w-5" />
-              <span>EventStamp</span>
+            <a href="/" className="hidden sm:inline text-base font-bold text-primary hover:opacity-80 transition-opacity shrink-0">
+              ONAiR
+            </a>
+            <Link to="/interactive" className="flex items-center gap-1.5 text-sm font-semibold text-foreground truncate">
+              <Sparkles className="h-4 w-4 text-pink-500 shrink-0" />
+              インタラクティブ
             </Link>
             {location.pathname !== '/' && location.pathname !== '/interactive' && (
-              <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+              <Button variant="ghost" size="sm" className="hidden sm:flex" onClick={() => navigate('/')}>
                 <ArrowLeft className="h-4 w-4 mr-1" />
-                ダッシュボード
+                戻る
               </Button>
             )}
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">{user?.name}</span>
-            <Button variant="ghost" size="icon" onClick={handleLogout} title="ログアウト">
+            {user?.name && (
+              <span className="text-sm text-muted-foreground hidden sm:inline">{user.name}</span>
+            )}
+            <Button variant="ghost" size="icon" onClick={handleLogout} title="ログアウト" className="h-9 w-9">
               <LogOut className="h-4 w-4" />
             </Button>
           </div>

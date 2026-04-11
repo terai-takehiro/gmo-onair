@@ -13,18 +13,22 @@ export default function Header({ userName, onLogout }: Props) {
 
   return (
     <header className="flex h-14 items-center justify-between border-b bg-card px-3 sm:px-5">
-      <div className="flex items-center gap-3">
-        {/* Mobile: hamburger only / Desktop: AppSwitcher only */}
-        <button
-          className="lg:hidden p-2 rounded-md hover:bg-muted -ml-1"
+      <div className="flex items-center gap-3 min-w-0">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="lg:hidden shrink-0 h-9 w-9 -ml-1"
           onClick={toggleSidebar}
         >
           <Menu className="h-5 w-5" />
-        </button>
+        </Button>
         <div className="hidden lg:block">
           <AppSwitcher currentApp="equipment" />
         </div>
-        <span className="text-sm font-bold text-primary">機材管理</span>
+        <a href="/" className="hidden sm:inline text-base font-bold text-primary hover:opacity-80 transition-opacity shrink-0">
+          ONAiR
+        </a>
+        <span className="text-sm font-semibold text-foreground truncate">機材管理</span>
       </div>
 
       <div className="flex items-center gap-3">

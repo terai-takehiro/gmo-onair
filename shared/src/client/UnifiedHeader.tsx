@@ -4,11 +4,18 @@ import { Button } from "@/components/ui/button";
 import AppSwitcher from "@gmo-onair/shared/src/client/AppSwitcher";
 
 interface Props {
+  appId: string;
+  appName: string;
   userName?: string;
   onLogout: () => void;
 }
 
-export default function Header({ userName, onLogout }: Props) {
+/**
+ * 統一ヘッダー — 全ブロックアプリ共通パターン
+ * モバイル: [≡ ハンバーガー] [アプリ名]     [ログアウト]
+ * デスクトップ: [:::AppSwitcher] [ONAiR] [アプリ名] [ユーザー名] [ログアウト]
+ */
+export default function Header({ appId, appName, userName, onLogout }: Props) {
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
 
   return (
@@ -23,12 +30,12 @@ export default function Header({ userName, onLogout }: Props) {
           <Menu className="h-5 w-5" />
         </Button>
         <div className="hidden lg:block">
-          <AppSwitcher currentApp="techsheet" />
+          <AppSwitcher currentApp={appId} />
         </div>
         <a href="/" className="hidden sm:inline text-base font-bold text-primary hover:opacity-80 transition-opacity shrink-0">
           ONAiR
         </a>
-        <span className="text-sm font-semibold text-foreground truncate">技術資料</span>
+        <span className="text-sm font-semibold text-foreground truncate">{appName}</span>
       </div>
 
       <div className="flex items-center gap-3">
