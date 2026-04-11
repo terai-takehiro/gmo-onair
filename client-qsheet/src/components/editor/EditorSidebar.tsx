@@ -200,7 +200,7 @@ export default function EditorSidebar({
   };
 
   return (
-    <aside className="w-60 flex-none border-r border-zinc-200/60 dark:border-zinc-800/60 bg-white/50 dark:bg-zinc-900/50 overflow-y-auto backdrop-blur-sm">
+    <aside className="hidden lg:block w-60 flex-none border-r border-zinc-200/60 dark:border-zinc-800/60 bg-white/50 dark:bg-zinc-900/50 overflow-y-auto backdrop-blur-sm">
       {/* Columns */}
       <CollapsibleSection
         title="列"

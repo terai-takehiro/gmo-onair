@@ -127,7 +127,6 @@ export default function CueRow({
   onMoveDown,
   onDuplicate,
 }: CueRowProps) {
-  const [hovered, setHovered] = useState(false);
   const rowUid = useId();
 
   const updateCell = (blockId: string, newCell: any) => {
@@ -180,8 +179,6 @@ export default function CueRow({
           className={`group transition-colors duration-150 hover:bg-blue-50/40 dark:hover:bg-blue-950/10 ${
             ei === entryCount - 1 ? "border-b border-zinc-100/80 dark:border-zinc-800/60" : ""
           }`}
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
         >
           {blocks.map((blk) => {
             if (collapsedBlocks?.has(blk.id)) {
@@ -310,25 +307,21 @@ export default function CueRow({
             );
           })}
 
-          {/* 操作ボタン — 最初のサブ行のみ */}
+          {/* 操作ボタン — 最初のサブ行のみ (モバイル常時表示) */}
           {ei === 0 && (
-            <td rowSpan={entryCount} className="px-1 align-top w-7 border-b border-zinc-100/80 dark:border-zinc-800/60">
-              <div
-                className={`flex flex-col items-center gap-0.5 pt-1 transition-all duration-200 ${
-                  hovered ? "opacity-100 translate-x-0" : "opacity-0 translate-x-1"
-                }`}
-              >
-                <button onClick={onMoveUp} className="p-0.5 text-zinc-300 hover:text-zinc-600 transition-colors">
-                  <ChevronUp size={12} />
+            <td rowSpan={entryCount} className="px-0.5 align-top w-9 border-b border-zinc-100/80 dark:border-zinc-800/60">
+              <div className="flex flex-col items-center gap-0.5 pt-1 opacity-40 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200">
+                <button onClick={onMoveUp} className="p-1.5 text-zinc-400 hover:text-zinc-600 active:text-zinc-800 transition-colors">
+                  <ChevronUp size={14} />
                 </button>
-                <button onClick={onMoveDown} className="p-0.5 text-zinc-300 hover:text-zinc-600 transition-colors">
-                  <ChevronDown size={12} />
+                <button onClick={onMoveDown} className="p-1.5 text-zinc-400 hover:text-zinc-600 active:text-zinc-800 transition-colors">
+                  <ChevronDown size={14} />
                 </button>
-                <button onClick={onDuplicate} className="p-0.5 text-zinc-300 hover:text-zinc-600 transition-colors">
-                  <Copy size={10} />
+                <button onClick={onDuplicate} className="p-1.5 text-zinc-400 hover:text-zinc-600 active:text-zinc-800 transition-colors">
+                  <Copy size={12} />
                 </button>
-                <button onClick={onDelete} className="p-0.5 text-zinc-300 hover:text-red-400 transition-colors">
-                  <Trash2 size={10} />
+                <button onClick={onDelete} className="p-1.5 text-zinc-400 hover:text-red-400 active:text-red-600 transition-colors">
+                  <Trash2 size={12} />
                 </button>
               </div>
             </td>

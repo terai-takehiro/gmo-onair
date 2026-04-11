@@ -156,27 +156,27 @@ function DocCard({
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1 flex-shrink-0 ml-3 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center gap-1 flex-shrink-0 ml-3 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
           <button
             onClick={(e) => { e.stopPropagation(); onNavigate(doc.id); }}
-            className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-blue-500 transition-all"
+            className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-blue-500 transition-all"
             title="編集"
           >
-            <Pencil size={13} />
+            <Pencil size={16} />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onOnAir(doc.id); }}
-            className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold rounded-lg bg-red-600 text-white hover:bg-red-500 transition-all"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-bold rounded-lg bg-red-600 text-white hover:bg-red-500 transition-all"
           >
             <Radio size={10} />
             ONAIR
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(doc.id); }}
-            className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-zinc-400 hover:text-red-500 transition-all"
+            className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-zinc-400 hover:text-red-500 transition-all"
             title="削除"
           >
-            <Trash2 size={13} />
+            <Trash2 size={16} />
           </button>
         </div>
       </div>
@@ -223,8 +223,8 @@ function DocCard({
             {new Date(doc.updated_at).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}
           </span>
         </div>
-        <div className="flex items-center gap-1 text-[10px] text-blue-500 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-          台本を開く <ChevronRight size={12} />
+        <div className="flex items-center gap-1 text-xs text-blue-500 font-medium sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+          台本を開く <ChevronRight size={14} />
         </div>
       </div>
     </div>

@@ -300,43 +300,44 @@ export default function EditorPage() {
               placeholder="無題のドキュメント"
             />
           </div>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
             {/* Save status badge */}
-            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full transition-all ${
+            <span className={`hidden sm:inline text-[10px] font-medium px-2 py-0.5 rounded-full transition-all ${
               saveStatus === "saved" ? "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30" :
               saveStatus === "saving" ? "text-blue-600 bg-blue-50 dark:bg-blue-950/30" :
               saveStatus === "error" ? "text-red-600 bg-red-50 dark:bg-red-950/30" :
               "text-amber-600 bg-amber-50 dark:bg-amber-950/30"
             }`}>
-              {saveStatus === "saved" ? "自動保存済み" : saveStatus === "saving" ? "保存中..." : saveStatus === "error" ? "エラー" : "未保存"}
+              {saveStatus === "saved" ? "保存済み" : saveStatus === "saving" ? "保存中..." : saveStatus === "error" ? "エラー" : "未保存"}
             </span>
             {/* Manual save button */}
             <button
               onClick={handleManualSave}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
                 saveFlash ? "bg-emerald-500 text-white scale-105" : "bg-blue-600 text-white hover:bg-blue-700"
               } shadow-sm`}
             >
-              <Save size={13} />
-              {saveFlash ? "保存しました" : "保存"}
+              <Save size={14} />
+              <span className="hidden sm:inline">{saveFlash ? "保存しました" : "保存"}</span>
             </button>
-            {/* CSV export */}
-            <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs" onClick={() => exportCsv(doc)}>
+            {/* CSV export — desktop only */}
+            <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1 text-xs" onClick={() => exportCsv(doc)}>
               <Download className="h-3.5 w-3.5" />
               <span className="hidden lg:inline">CSV</span>
             </Button>
             {/* PDF export */}
-            <button onClick={() => setShowPreview(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+            <button onClick={() => setShowPreview(true)} className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
               <Eye size={13} />
-              印刷 / PDF
+              <span className="hidden md:inline">印刷 / PDF</span>
             </button>
-            <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => navigate(`/qsheet/rundown/${doc.id}`)}>
+            {/* Navigation buttons — tablet+ */}
+            <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1" onClick={() => navigate(`/qsheet/rundown/${doc.id}`)}>
               <List className="h-4 w-4" />
-              <span className="hidden sm:inline text-xs">ランダウン</span>
+              <span className="hidden lg:inline text-xs">ランダウン</span>
             </Button>
-            <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => navigate(`/qsheet/prompter/${doc.id}`)}>
+            <Button variant="ghost" size="sm" className="hidden lg:flex h-8 gap-1" onClick={() => navigate(`/qsheet/prompter/${doc.id}`)}>
               <MonitorPlay className="h-4 w-4" />
-              <span className="hidden sm:inline text-xs">プロンプター</span>
+              <span className="hidden xl:inline text-xs">プロンプター</span>
             </Button>
             <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => navigate(`/qsheet/onair/${doc.id}`)}>
               <Radio className="h-4 w-4" />
