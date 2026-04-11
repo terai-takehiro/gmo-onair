@@ -3,16 +3,25 @@ import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/uiStore";
 import {
   LayoutDashboard,
+  FilePlus,
   FileText,
-  Radio,
+  Package,
+  Sparkles,
+  Wrench,
+  Home,
   X,
   ChevronLeft,
 } from "lucide-react";
 
 const navItems = [
-  { label: "ダッシュボード", path: "/qsheet", icon: LayoutDashboard },
-  { label: "エディター", path: "/qsheet/editor", icon: FileText },
-  { label: "ON AIR", path: "/qsheet/onair", icon: Radio },
+  { label: "ドキュメント一覧", path: "/qsheet", icon: LayoutDashboard },
+];
+
+const appShortcuts = [
+  { path: "/", icon: Home, label: "ホーム" },
+  { path: "/equipment", icon: Package, label: "機材管理" },
+  { path: "/interactive", icon: Sparkles, label: "インタラクティブ" },
+  { path: "/techsheet", icon: Wrench, label: "技術資料" },
 ];
 
 export default function Sidebar() {
@@ -35,7 +44,7 @@ export default function Sidebar() {
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        {/* App Header — unified pattern */}
+        {/* App Header */}
         <div className="flex h-14 items-center gap-3 border-b px-3">
           <a
             href="/"
@@ -59,11 +68,11 @@ export default function Sidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-2">
           {navItems.map((item) => {
             const isActive =
               item.path === "/qsheet"
-                ? location.pathname === "/qsheet"
+                ? location.pathname === "/qsheet" || location.pathname === "/qsheet/editor"
                 : location.pathname.startsWith(item.path);
             return (
               <button
@@ -84,28 +93,39 @@ export default function Sidebar() {
               </button>
             );
           })}
+
+          {/* New document button */}
+          <button
+            onClick={() => {
+              navigate("/qsheet");
+              setSidebarOpen(false);
+              // DashboardPage will handle the create dialog
+              setTimeout(() => {
+                const btn = document.querySelector('[data-create-btn]') as HTMLButtonElement;
+                btn?.click();
+              }, 100);
+            }}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-primary border border-primary/20 hover:bg-primary/5 transition-colors"
+          >
+            <FilePlus className="h-4 w-4 shrink-0" />
+            新規作成
+          </button>
         </nav>
 
         {/* Footer — app shortcuts */}
-        <div className="border-t p-3 space-y-2">
-          <div className="flex items-center justify-center gap-2">
-            {[
-              { path: "/", label: "ホーム" },
-              { path: "/equipment", label: "機材" },
-              { path: "/interactive", label: "ｲﾝﾀﾗ" },
-              { path: "/techsheet", label: "技術" },
-            ].map((app) => (
-              <a
-                key={app.path}
-                href={app.path}
-                className="flex items-center justify-center rounded-lg w-9 h-9 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                title={app.label}
-              >
-                <span className="text-xs">{app.label.slice(0, 2)}</span>
-              </a>
-            ))}
-          </div>
-          <p className="text-center text-xs text-muted-foreground/50">v0.8.4</p>
+        <div className="border-t p-3 space-y-1">
+          <p className="px-3 mb-1 text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">他のアプリ</p>
+          {appShortcuts.map((app) => (
+            <a
+              key={app.path}
+              href={app.path}
+              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            >
+              <app.icon className="h-4 w-4 shrink-0" />
+              {app.label}
+            </a>
+          ))}
+          <p className="text-center text-xs text-muted-foreground/40 pt-2">v0.9.3</p>
         </div>
       </aside>
     </>

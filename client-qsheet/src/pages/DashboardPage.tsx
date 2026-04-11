@@ -385,6 +385,7 @@ export default function DashboardPage() {
           </div>
           <button
             onClick={() => setShowCreate(true)}
+            data-create-btn
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 shadow-sm shadow-blue-600/25 transition-all hover:shadow-md hover:shadow-blue-600/30 active:scale-[0.98]"
           >
             <Plus size={16} />

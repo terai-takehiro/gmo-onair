@@ -225,24 +225,23 @@ export default function Sidebar() {
         </ScrollArea>
 
         {/* App shortcuts + Home */}
-        <div className="border-t p-3 space-y-2">
-          <div className="flex items-center justify-center gap-2">
-            {[
-              { path: "/qsheet", label: "Qシート" },
-              { path: "/equipment", label: "機材" },
-              { path: "/interactive", label: "ｲﾝﾀﾗ" },
-              { path: "/techsheet", label: "技術" },
-            ].map((app) => (
-              <a
-                key={app.path}
-                href={app.path}
-                title={app.label}
-                className="flex items-center justify-center rounded-lg w-9 h-9 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
-              >
-                <span className="text-xs">{app.label.slice(0, 2)}</span>
-              </a>
-            ))}
-          </div>
+        <div className="border-t p-3 space-y-1">
+          <p className="px-3 mb-1 text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">他のアプリ</p>
+          {[
+            { path: "/qsheet", label: "Qシート", Icon: FileText },
+            { path: "/equipment", label: "機材管理", Icon: Package },
+            { path: "/interactive", label: "インタラクティブ", Icon: Sparkles },
+            { path: "/techsheet", label: "技術資料", Icon: BookOpen },
+          ].map((app) => (
+            <a
+              key={app.path}
+              href={app.path}
+              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
+            >
+              <app.Icon className="h-4 w-4 shrink-0" />
+              {app.label}
+            </a>
+          ))}
           <button
             onClick={() => { navigate("/"); setSidebarOpen(false); }}
             className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
