@@ -23,4 +23,4 @@ jobs:
             docker compose down
             docker compose build --no-cache
             docker compose up -d
-            echo "✅ Deploy v0.8.1 completed at $(date)"
+            echo "✅ Deploy v0.8.2 completed at $(date)"

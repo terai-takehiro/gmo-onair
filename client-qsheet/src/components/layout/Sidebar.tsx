@@ -87,24 +87,24 @@ export default function Sidebar() {
 
         {/* Footer — App shortcuts */}
         <div className="border-t p-3 space-y-2">
-          <div className="flex items-center justify-center gap-1">
+          <div className="flex items-center justify-center gap-2">
             {[
-              { emoji: "🏠", path: "/", label: "ホーム" },
-              { emoji: "📦", path: "/equipment", label: "機材" },
-              { emoji: "✨", path: "/interactive", label: "ｲﾝﾀﾗ" },
-              { emoji: "🔧", path: "/techsheet", label: "技術" },
+              { path: "/", label: "ホーム" },
+              { path: "/equipment", label: "機材" },
+              { path: "/interactive", label: "ｲﾝﾀﾗ" },
+              { path: "/techsheet", label: "技術" },
             ].map((app) => (
               <a
                 key={app.path}
                 href={app.path}
-                className="flex flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                className="flex items-center justify-center rounded-lg w-9 h-9 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                title={app.label}
               >
-                <span className="text-base">{app.emoji}</span>
-                <span>{app.label}</span>
+                <span className="text-xs">{app.label.slice(0, 2)}</span>
               </a>
             ))}
           </div>
-          <p className="text-center text-[10px] text-muted-foreground/50">v0.8.1</p>
+          <p className="text-center text-[10px] text-muted-foreground/50">v0.8.2</p>
         </div>
       </aside>
     </>

@@ -1,34 +1,44 @@
 /**
- * AppSwitcher — グローバルアプリ切り替えメニュー（Googleワッフル風）
+ * AppSwitcher — グローバルアプリ切り替えメニュー（フラットデザイン）
  * 全ブロックアプリのヘッダーに組み込み、どの画面からでも直接他アプリに遷移可能にする。
  */
 import { useState, useRef, useEffect } from "react";
+import {
+  Home,
+  FolderKanban,
+  PiggyBank,
+  Calendar,
+  FileText,
+  Package,
+  Sparkles,
+  Wrench,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 
 /** アプリ定義 */
 interface AppDef {
   id: string;
   label: string;
-  description: string;
-  emoji: string;
-  color: string; // Tailwind bg class
+  icon: LucideIcon;
+  color: string;
   basePath: string;
   status: "active" | "coming_soon";
 }
 
 export const ONAIR_APPS: AppDef[] = [
-  { id: "home",        label: "ホーム",             description: "ダッシュボード",                emoji: "🏠", color: "bg-slate-600",   basePath: "/",              status: "active" },
-  { id: "sales",       label: "案件管理",           description: "案件・顧客・見積",              emoji: "📁", color: "bg-blue-600",    basePath: "/sales",         status: "active" },
-  { id: "budget",      label: "予算管理",           description: "売上・仕入・損益",              emoji: "💰", color: "bg-emerald-600", basePath: "/budget",        status: "active" },
-  { id: "studio",      label: "スタジオ予約",       description: "カレンダー・ブッキング",        emoji: "🎬", color: "bg-violet-600",  basePath: "/studio",        status: "active" },
-  { id: "qsheet",      label: "Qシート",            description: "台本・OnAir・ランダウン",       emoji: "📋", color: "bg-rose-600",    basePath: "/qsheet",        status: "active" },
-  { id: "equipment",   label: "機材管理",           description: "機材台帳・貸出・メンテ",        emoji: "📦", color: "bg-amber-600",   basePath: "/equipment",     status: "active" },
-  { id: "interactive", label: "インタラクティブ",   description: "スタンプ・リアルタイム演出",    emoji: "✨", color: "bg-pink-600",    basePath: "/interactive",   status: "active" },
-  { id: "techsheet",   label: "技術資料",           description: "カメラ・映像・音声仕様書",      emoji: "🔧", color: "bg-cyan-600",    basePath: "/techsheet",     status: "active" },
-  { id: "assign",      label: "制作支援",           description: "スケジュール・スタッフ配置",    emoji: "👥", color: "bg-orange-500",  basePath: "/prodsheet",     status: "coming_soon" },
+  { id: "home",        label: "ホーム",           icon: Home,          color: "#475569", basePath: "/",            status: "active" },
+  { id: "sales",       label: "案件管理",         icon: FolderKanban,  color: "#2563eb", basePath: "/sales",       status: "active" },
+  { id: "budget",      label: "予算管理",         icon: PiggyBank,     color: "#059669", basePath: "/budget",      status: "active" },
+  { id: "studio",      label: "スタジオ",         icon: Calendar,      color: "#7c3aed", basePath: "/studio",      status: "active" },
+  { id: "qsheet",      label: "Qシート",          icon: FileText,      color: "#e11d48", basePath: "/qsheet",      status: "active" },
+  { id: "equipment",   label: "機材管理",         icon: Package,       color: "#d97706", basePath: "/equipment",   status: "active" },
+  { id: "interactive", label: "インタラクティブ", icon: Sparkles,      color: "#db2777", basePath: "/interactive", status: "active" },
+  { id: "techsheet",   label: "技術資料",         icon: Wrench,        color: "#0891b2", basePath: "/techsheet",   status: "active" },
+  { id: "assign",      label: "制作支援",         icon: Users,         color: "#ea580c", basePath: "/prodsheet",   status: "coming_soon" },
 ];
 
 interface AppSwitcherProps {
-  /** 現在のアプリID（ハイライト用） */
   currentApp?: string;
 }
 
@@ -36,7 +46,6 @@ export default function AppSwitcher({ currentApp }: AppSwitcherProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Click outside to close
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
@@ -46,7 +55,6 @@ export default function AppSwitcher({ currentApp }: AppSwitcherProps) {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  // Escape to close
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
@@ -58,40 +66,37 @@ export default function AppSwitcher({ currentApp }: AppSwitcherProps) {
 
   return (
     <div ref={ref} className="relative">
-      {/* Waffle button */}
       <button
         onClick={() => setOpen(!open)}
-        className="flex h-9 w-9 items-center justify-center rounded-lg transition-all hover:bg-black/5 dark:hover:bg-white/10 active:scale-95"
+        className="flex h-10 w-10 items-center justify-center rounded-lg transition-all hover:bg-black/5 dark:hover:bg-white/10 active:scale-95"
         title="アプリ切替"
         aria-label="アプリ切替メニュー"
       >
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor" className="opacity-60">
-          <circle cx="3" cy="3" r="2" />
-          <circle cx="9" cy="3" r="2" />
-          <circle cx="15" cy="3" r="2" />
-          <circle cx="3" cy="9" r="2" />
-          <circle cx="9" cy="9" r="2" />
-          <circle cx="15" cy="9" r="2" />
-          <circle cx="3" cy="15" r="2" />
-          <circle cx="9" cy="15" r="2" />
-          <circle cx="15" cy="15" r="2" />
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" className="opacity-50">
+          <rect x="1" y="1" width="5" height="5" rx="1.5" />
+          <rect x="7.5" y="1" width="5" height="5" rx="1.5" />
+          <rect x="14" y="1" width="5" height="5" rx="1.5" />
+          <rect x="1" y="7.5" width="5" height="5" rx="1.5" />
+          <rect x="7.5" y="7.5" width="5" height="5" rx="1.5" />
+          <rect x="14" y="7.5" width="5" height="5" rx="1.5" />
+          <rect x="1" y="14" width="5" height="5" rx="1.5" />
+          <rect x="7.5" y="14" width="5" height="5" rx="1.5" />
+          <rect x="14" y="14" width="5" height="5" rx="1.5" />
         </svg>
       </button>
 
-      {/* Dropdown */}
       {open && (
-        <div className="absolute left-0 top-full mt-2 z-[200] w-[calc(100vw-2rem)] sm:w-[340px] max-w-[340px] rounded-2xl border border-border bg-card shadow-2xl shadow-black/10 animate-switcher-in">
-          {/* Header */}
+        <div className="absolute left-0 top-full mt-2 z-[200] w-[calc(100vw-2rem)] sm:w-[360px] max-w-[360px] rounded-2xl border border-border bg-card shadow-2xl shadow-black/10 animate-switcher-in">
           <div className="px-4 pt-4 pb-2">
-            <p className="text-[13px] font-bold text-foreground tracking-wide">GMO ONAiR</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">アプリを切り替え</p>
+            <p className="text-sm font-bold text-foreground">GMO ONAiR</p>
+            <p className="text-xs text-muted-foreground mt-0.5">アプリを切り替え</p>
           </div>
 
-          {/* Grid */}
           <div className="grid grid-cols-3 gap-1 px-3 pb-3">
-            {ONAIR_APPS.map((app, i) => {
+            {ONAIR_APPS.map((app) => {
               const isCurrent = app.id === currentApp;
               const isDisabled = app.status === "coming_soon";
+              const Icon = app.icon;
 
               return (
                 <a
@@ -102,18 +107,22 @@ export default function AppSwitcher({ currentApp }: AppSwitcherProps) {
                     setOpen(false);
                   }}
                   className={`
-                    flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-center transition-all
+                    flex flex-col items-center gap-2 rounded-xl px-2 py-3.5 text-center transition-all
                     ${isDisabled
-                      ? "cursor-default opacity-40"
+                      ? "cursor-default opacity-30"
                       : isCurrent
-                        ? "bg-primary/10 ring-1 ring-primary/20"
+                        ? "bg-primary/8 ring-1 ring-primary/20"
                         : "hover:bg-muted active:scale-95 cursor-pointer"
                     }
                   `}
-                  style={{ animationDelay: `${i * 30}ms` }}
                 >
-                  <span className="text-2xl leading-none">{app.emoji}</span>
-                  <span className={`text-[11px] font-semibold leading-tight ${isCurrent ? "text-primary" : "text-foreground"}`}>
+                  <div
+                    className="flex h-10 w-10 items-center justify-center rounded-xl transition-transform"
+                    style={{ backgroundColor: `${app.color}14` }}
+                  >
+                    <Icon size={20} style={{ color: app.color }} strokeWidth={1.8} />
+                  </div>
+                  <span className={`text-[11px] font-medium leading-tight ${isCurrent ? "text-primary font-semibold" : "text-foreground"}`}>
                     {app.label}
                   </span>
                 </a>
