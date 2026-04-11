@@ -104,7 +104,7 @@ export default function Sidebar() {
               </a>
             ))}
           </div>
-          <p className="text-center text-[10px] text-muted-foreground/50">v0.8.0</p>
+          <p className="text-center text-[10px] text-muted-foreground/50">v0.8.1</p>
         </div>
       </aside>
     </>

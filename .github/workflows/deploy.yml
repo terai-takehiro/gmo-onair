@@ -20,5 +20,7 @@ jobs:
             set -e
             cd /opt/gmo-onair
             git pull origin main
-            docker compose up -d --build
-            echo "✅ Deploy completed at $(date)"
+            docker compose down
+            docker compose build --no-cache
+            docker compose up -d
+            echo "✅ Deploy v0.8.1 completed at $(date)"

@@ -251,7 +251,7 @@ export default function Sidebar() {
             <Home className="h-4 w-4" />
             ホームに戻る
           </button>
-          <p className="text-center text-[10px] text-muted-foreground/50">v0.8.0</p>
+          <p className="text-center text-[10px] text-muted-foreground/50">v0.8.1</p>
         </div>
       </aside>
     </>
