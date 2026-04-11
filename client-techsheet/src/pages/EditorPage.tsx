@@ -166,6 +166,11 @@ export default function EditorPage() {
       setDirty(false);
       queryClient.invalidateQueries({ queryKey: ["techsheet-documents"] });
     },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.error?.message || err?.message || "保存に失敗しました";
+      console.error("[techsheet] save error:", msg);
+      alert(`保存エラー: ${msg}`);
+    },
   });
 
   const updateData = useCallback((updater: (data: DocumentData) => DocumentData) => {

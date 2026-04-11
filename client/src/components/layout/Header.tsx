@@ -40,12 +40,22 @@ interface SearchResults {
   vendors: Array<{ id: string; name: string; vendor_type: string }>;
 }
 
+const APP_LABELS: Record<string, string> = {
+  "/sales": "案件管理",
+  "/budget": "予算管理",
+  "/studio": "スタジオ予約",
+  "/admin": "システム管理",
+};
+
 export default function Header({ title }: { title?: string }) {
   const { currentUser, logout } = useAuth();
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const isHome = pathname === "/" || pathname === "";
+
+  // Auto-detect app name from path
+  const autoTitle = title || Object.entries(APP_LABELS).find(([prefix]) => pathname.startsWith(prefix))?.[1] || "";
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
@@ -121,7 +131,7 @@ export default function Header({ title }: { title?: string }) {
       <div className="flex items-center gap-3 min-w-0">
         {/* Home: always show AppSwitcher / SubPages: hamburger on mobile, AppSwitcher on desktop */}
         {isHome ? (
-          <AppSwitcher currentApp="home" />
+          <AppSwitcher currentApp={pathname.startsWith("/sales") ? "sales" : pathname.startsWith("/budget") ? "budget" : pathname.startsWith("/studio") ? "studio" : "home"} />
         ) : (
           <>
             <Button
@@ -133,16 +143,16 @@ export default function Header({ title }: { title?: string }) {
               <Menu className="h-5 w-5" />
             </Button>
             <div className="hidden lg:block">
-              <AppSwitcher currentApp="sales" />
+              <AppSwitcher currentApp={pathname.startsWith("/sales") ? "sales" : pathname.startsWith("/budget") ? "budget" : pathname.startsWith("/studio") ? "studio" : pathname.startsWith("/admin") ? "home" : "home"} />
             </div>
           </>
         )}
         <div className="flex items-center gap-1.5 min-w-0">
           <a href="/" className="text-sm font-bold text-primary hover:opacity-80 transition-opacity shrink-0">ONAiR</a>
-          {title && (
+          {autoTitle && (
             <>
               <span className="text-muted-foreground/40 shrink-0">/</span>
-              <span className="text-sm font-semibold text-foreground truncate max-w-[200px]">{title}</span>
+              <span className="text-sm font-semibold text-foreground truncate max-w-[200px]">{autoTitle}</span>
             </>
           )}
         </div>
