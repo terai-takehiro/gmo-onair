@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Menu, LogOut, ChevronDown, Search, Loader2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import api from "@/lib/api";
 import AppSwitcher from "@gmo-onair/shared/src/client/AppSwitcher";
 
@@ -44,6 +44,8 @@ export default function Header({ title }: { title?: string }) {
   const { currentUser, logout } = useAuth();
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const isHome = pathname === "/" || pathname === "";
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
@@ -117,17 +119,24 @@ export default function Header({ title }: { title?: string }) {
   return (
     <header className="flex h-14 items-center justify-between border-b bg-card px-3 sm:px-5">
       <div className="flex items-center gap-3 min-w-0">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="lg:hidden shrink-0 h-9 w-9 -ml-1"
-          onClick={toggleSidebar}
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
-        <div className="hidden lg:block">
-          <AppSwitcher currentApp="sales" />
-        </div>
+        {/* Home: always show AppSwitcher / SubPages: hamburger on mobile, AppSwitcher on desktop */}
+        {isHome ? (
+          <AppSwitcher currentApp="home" />
+        ) : (
+          <>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden shrink-0 h-9 w-9 -ml-1"
+              onClick={toggleSidebar}
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+            <div className="hidden lg:block">
+              <AppSwitcher currentApp="sales" />
+            </div>
+          </>
+        )}
         <span
           className="cursor-pointer text-base font-sans font-bold text-primary hover:opacity-80 transition-opacity shrink-0"
           onClick={() => navigate("/")}
