@@ -153,7 +153,7 @@ router.get('/documents/:id', async (req: Request, res: Response) => {
 // ============================================================
 // 作成
 // ============================================================
-router.post('/documents', requirePermission('techsheet', 'editor'), async (req: Request, res: Response) => {
+router.post('/documents', async (req: Request, res: Response) => {
   try {
     const id = uuid();
     const { title, project_id, episode_id, production_date, venue, data } = req.body;
@@ -178,7 +178,7 @@ router.post('/documents', requirePermission('techsheet', 'editor'), async (req: 
 // ============================================================
 // 更新
 // ============================================================
-router.put('/documents/:id', requirePermission('techsheet', 'editor'), async (req: Request, res: Response) => {
+router.put('/documents/:id', async (req: Request, res: Response) => {
   try {
     const existing = await queryOne('SELECT id FROM techsheet_documents WHERE id = $1', [req.params.id]);
     if (!existing) {
@@ -212,7 +212,7 @@ router.put('/documents/:id', requirePermission('techsheet', 'editor'), async (re
 // ============================================================
 // 削除
 // ============================================================
-router.delete('/documents/:id', requirePermission('techsheet', 'manager'), async (req: Request, res: Response) => {
+router.delete('/documents/:id', async (req: Request, res: Response) => {
   try {
     const existing = await queryOne('SELECT id FROM techsheet_documents WHERE id = $1', [req.params.id]);
     if (!existing) {
