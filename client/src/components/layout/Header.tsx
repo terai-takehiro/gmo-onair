@@ -115,8 +115,8 @@ export default function Header({ title }: { title?: string }) {
       searchResults.vendors.length > 0);
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-card px-3 sm:px-4 lg:px-6 gap-2">
-      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+    <header className="flex h-14 items-center justify-between border-b bg-card px-3 sm:px-5">
+      <div className="flex items-center gap-3 min-w-0">
         <Button
           variant="ghost"
           size="icon"
@@ -134,12 +134,8 @@ export default function Header({ title }: { title?: string }) {
         >
           ONAiR
         </span>
-        <span className="hidden sm:inline text-[10px] text-muted-foreground/40">v0.7.4</span>
         {title && (
-          <>
-            <span className="text-muted-foreground/40 hidden md:inline">/</span>
-            <h1 className="text-sm font-medium text-muted-foreground hidden md:block truncate max-w-[200px]">{title}</h1>
-          </>
+          <h1 className="text-sm font-medium text-muted-foreground hidden md:block truncate max-w-[200px]">{title}</h1>
         )}
       </div>
 
@@ -237,16 +233,16 @@ export default function Header({ title }: { title?: string }) {
           )}
         </div>
 
-        <span className="text-xs text-muted-foreground">v{__APP_VERSION__}</span>
+        <span className="hidden lg:inline text-xs text-muted-foreground/50">v{__APP_VERSION__}</span>
         {currentUser && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-2">
-                <span className="text-sm font-medium">{currentUser.name}</span>
-                <Badge variant="secondary" className="text-xs">
+              <Button variant="ghost" size="sm" className="flex items-center gap-1.5 px-2">
+                <span className="hidden sm:inline text-sm font-medium">{currentUser.name}</span>
+                <Badge variant="secondary" className="hidden md:inline text-xs">
                   {roleLabelMap[currentUser.role] || currentUser.role}
                 </Badge>
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
