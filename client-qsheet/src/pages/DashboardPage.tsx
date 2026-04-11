@@ -129,15 +129,15 @@ function DocCard({
 
   return (
     <div
-      className="group p-5 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60 transition-all hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-lg hover:shadow-blue-600/5 cursor-pointer"
+      className="group p-3 sm:p-5 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60 transition-all hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-lg hover:shadow-blue-600/5 cursor-pointer overflow-hidden"
       onClick={() => onNavigate(doc.id)}
     >
       {/* Top row: title + badge + actions */}
       <div className="flex items-start justify-between mb-3">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2.5 mb-1">
-            <h3 className="text-base font-bold truncate">{meta?.title || doc.title || "無題"}</h3>
-            <span className={`flex-shrink-0 text-xs font-bold px-2 py-0.5 rounded-full ${getDraftColor(meta)}`}>
+          <div className="flex items-center gap-1.5 sm:gap-2.5 mb-1 flex-wrap">
+            <h3 className="text-sm sm:text-base font-bold truncate max-w-[60vw] sm:max-w-none">{meta?.title || doc.title || "無題"}</h3>
+            <span className={`flex-shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full ${getDraftColor(meta)}`}>
               {getDraftLabel(meta)}
             </span>
           </div>
@@ -156,27 +156,27 @@ function DocCard({
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1 flex-shrink-0 ml-3 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center gap-0.5 flex-shrink-0 ml-1 sm:ml-3 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
           <button
             onClick={(e) => { e.stopPropagation(); onNavigate(doc.id); }}
-            className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-blue-500 transition-all"
+            className="p-1.5 sm:p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-blue-500 transition-all"
             title="編集"
           >
-            <Pencil size={16} />
+            <Pencil size={14} />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onOnAir(doc.id); }}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-bold rounded-lg bg-red-600 text-white hover:bg-red-500 transition-all"
+            className="inline-flex items-center gap-0.5 px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-[11px] font-bold rounded-lg bg-red-600 text-white hover:bg-red-500 transition-all"
           >
             <Radio size={10} />
-            ONAIR
+            <span className="hidden sm:inline">ONAIR</span>
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(doc.id); }}
-            className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-zinc-400 hover:text-red-500 transition-all"
+            className="p-1.5 sm:p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-zinc-400 hover:text-red-500 transition-all"
             title="削除"
           >
-            <Trash2 size={16} />
+            <Trash2 size={14} />
           </button>
         </div>
       </div>
@@ -376,7 +376,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-full bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
-      <main className="max-w-5xl mx-auto px-6 py-10">
+      <main className="max-w-5xl mx-auto px-3 sm:px-6 py-6 sm:py-10">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
