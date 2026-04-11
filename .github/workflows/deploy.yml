@@ -26,17 +26,17 @@ jobs:
             cd /opt/gmo-onair
             git fetch origin main
             git reset --hard origin/main
-            echo "=== HEAD ==="
-            git log --oneline -1
-            echo "=== Building (no-cache) ==="
+            echo "=== VPS HEAD ==="
+            git log --oneline -3
+            echo "=== Qsheet index.html (source) line 19-22 ==="
+            sed -n '19,22p' client-qsheet/index.html
+            echo "=== Rebuilding ==="
             docker compose down
-            docker compose build --no-cache 2>&1 | grep -E "ERROR|error|DONE|built in|✓" | tail -20
-            echo "=== Starting ==="
+            docker compose build --no-cache 2>&1 | tail -5
             docker compose up -d
             sleep 8
-            echo "=== Server logs ==="
-            docker compose logs --tail=10 app
-            echo "=== Verify qsheet dist ==="
-            docker compose exec -T app ls -la /app/client-qsheet/dist/ 2>/dev/null || echo "QSHEET DIST NOT FOUND"
-            docker compose exec -T app head -1 /app/client-qsheet/dist/index.html 2>/dev/null || echo "NO INDEX.HTML"
-            echo "✅ Deploy v0.8.5 completed at $(date)"
+            echo "=== Qsheet dist index.html line 1-5 ==="
+            docker compose exec -T app head -5 /app/client-qsheet/dist/index.html
+            echo "=== Done ==="
+            docker compose logs --tail=3 app
+            echo "✅ Deploy v0.8.8 at $(date)"
