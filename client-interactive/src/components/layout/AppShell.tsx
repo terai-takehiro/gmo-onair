@@ -23,13 +23,11 @@ export function AppShell() {
             <div className="hidden lg:block">
               <AppSwitcher currentApp="interactive" />
             </div>
-            <a href="/" className="hidden sm:inline text-base font-bold text-primary hover:opacity-80 transition-opacity shrink-0">
-              ONAiR
-            </a>
-            <Link to="/interactive" className="flex items-center gap-1.5 text-sm font-semibold text-foreground truncate">
-              <Sparkles className="h-4 w-4 text-pink-500 shrink-0" />
-              インタラクティブ
-            </Link>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <a href="/" className="text-sm font-bold text-primary hover:opacity-80 transition-opacity shrink-0">ONAiR</a>
+              <span className="text-muted-foreground/40 shrink-0">/</span>
+              <span className="text-sm font-semibold text-foreground truncate">インタラクティブ</span>
+            </div>
             {location.pathname !== '/' && location.pathname !== '/interactive' && (
               <Button variant="ghost" size="sm" className="hidden sm:flex" onClick={() => navigate('/')}>
                 <ArrowLeft className="h-4 w-4 mr-1" />

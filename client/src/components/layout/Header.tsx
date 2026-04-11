@@ -137,15 +137,15 @@ export default function Header({ title }: { title?: string }) {
             </div>
           </>
         )}
-        <span
-          className="cursor-pointer text-base font-sans font-bold text-primary hover:opacity-80 transition-opacity shrink-0"
-          onClick={() => navigate("/")}
-        >
-          ONAiR
-        </span>
-        {title && (
-          <h1 className="text-sm font-medium text-muted-foreground hidden md:block truncate max-w-[200px]">{title}</h1>
-        )}
+        <div className="flex items-center gap-1.5 min-w-0">
+          <a href="/" className="text-sm font-bold text-primary hover:opacity-80 transition-opacity shrink-0">ONAiR</a>
+          {title && (
+            <>
+              <span className="text-muted-foreground/40 shrink-0">/</span>
+              <span className="text-sm font-semibold text-foreground truncate max-w-[200px]">{title}</span>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">
