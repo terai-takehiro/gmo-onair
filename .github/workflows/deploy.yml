@@ -20,10 +20,6 @@ jobs:
             set -e
             cd /opt/gmo-onair
             git pull origin main
-            echo "Building..."
-            docker compose up -d --build 2>&1 | tail -30
-            echo "Checking container status..."
-            docker compose ps
-            sleep 10
-            docker compose logs --tail=20 app
+            docker compose build --no-cache
+            docker compose up -d
             echo "✅ Deploy v0.8.0 completed at $(date)"
