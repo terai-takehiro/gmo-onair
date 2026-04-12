@@ -58,10 +58,15 @@ router.delete('/questions/:id', requireAuth, requirePermission('interactive'), w
 }));
 
 router.post('/questions/:id/activate', requireAuth, requirePermission('interactive'), wrap(async (req, res) => {
-  const q = await queryOne('SELECT event_id FROM interactive_questions WHERE id = ?', [req.params.id]) as any;
+  const q = await queryOne('SELECT event_id, status FROM interactive_questions WHERE id = ?', [req.params.id]) as any;
   if (!q) throw new AppError(404, 'NOT_FOUND', '問題が見つかりません');
 
+  // 他のactiveな問題をcloseする
   await execute(`UPDATE interactive_questions SET status = 'closed', closed_at = NOW() WHERE event_id = ? AND status = 'active'`, [q.event_id]);
+  // 再出題の場合、前回の回答をクリアして再度受付可能にする
+  if (q.status === 'closed') {
+    await execute('DELETE FROM interactive_answers WHERE question_id = ?', [req.params.id]);
+  }
   await execute(`UPDATE interactive_questions SET status = 'active', activated_at = NOW() WHERE id = ?`, [req.params.id]);
 
   const io = (req as any).app?.get('io');
