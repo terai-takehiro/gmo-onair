@@ -57,6 +57,22 @@ export default function LiveControlPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['interactive-event', id] }),
   });
 
+  const goLive = useMutation({
+    mutationFn: () => api.post(`/interactive/events/${id}/start`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['interactive-event', id] }),
+  });
+
+  const resetRehearsal = useMutation({
+    mutationFn: () => api.post(`/interactive/events/${id}/rehearsal-reset`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['interactive-event', id] });
+      queryClient.invalidateQueries({ queryKey: ['interactive-stats', id] });
+      queryClient.invalidateQueries({ queryKey: ['quiz-questions', id] });
+      setStampCounts({});
+      navigate(`/event/${id}`);
+    },
+  });
+
   const activateQ = useMutation({
     mutationFn: (qId: string) => api.post(`/interactive/questions/${qId}/activate`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['quiz-questions', id] }),
@@ -142,19 +158,37 @@ export default function LiveControlPage() {
       {/* ════ ステータスバー ════ */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3 min-w-0">
-          <Badge variant="default" className="text-base px-3 py-1 shrink-0">
-            <Radio className="h-4 w-4 mr-1 animate-pulse" />LIVE
-          </Badge>
+          {eventData.status === 'rehearsal' ? (
+            <Badge variant="secondary" className="text-base px-3 py-1 shrink-0 bg-amber-100 text-amber-800">
+              🎬 リハーサル
+            </Badge>
+          ) : (
+            <Badge variant="default" className="text-base px-3 py-1 shrink-0">
+              <Radio className="h-4 w-4 mr-1 animate-pulse" />LIVE
+            </Badge>
+          )}
           <h1 className="text-lg sm:text-xl font-semibold truncate">{eventData.title}</h1>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <div className="flex items-center gap-1 text-xs">
             <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-            <span className="hidden sm:inline">{isConnected ? 'Socket接続中' : '切断'}</span>
+            <span className="hidden sm:inline">{isConnected ? '接続中' : '切断'}</span>
           </div>
-          <Button variant="destructive" size="sm" onClick={handleStop}>
-            <Square className="h-4 w-4 mr-1" />配信終了
-          </Button>
+          {eventData.status === 'rehearsal' && (
+            <>
+              <Button variant="outline" size="sm" onClick={() => { if (confirm('リハーサルデータをリセットして下書きに戻しますか？')) resetRehearsal.mutate(); }}>
+                リセット
+              </Button>
+              <Button size="sm" onClick={() => { if (confirm('本番配信を開始しますか？（リハーサルデータはクリアされます）')) goLive.mutate(); }}>
+                <Radio className="h-4 w-4 mr-1" />本番開始
+              </Button>
+            </>
+          )}
+          {eventData.status === 'live' && (
+            <Button variant="destructive" size="sm" onClick={handleStop}>
+              <Square className="h-4 w-4 mr-1" />配信終了
+            </Button>
+          )}
         </div>
       </div>
 

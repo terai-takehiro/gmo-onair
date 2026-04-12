@@ -26,7 +26,7 @@ router.get('/', wrap(async (req, res) => {
     params.push(`%${search}%`);
     where += ` AND e.title ILIKE ?`;
   }
-  if (['draft', 'live', 'ended', 'archived'].includes(status)) {
+  if (['draft', 'rehearsal', 'live', 'ended', 'archived'].includes(status)) {
     params.push(status);
     where += ' AND e.status = ?';
   }
@@ -149,18 +149,65 @@ router.put('/:id', wrap(async (req, res) => {
 }));
 
 // ──────────────────────────────────────────────
-// イベント開始 (draft → live)
+// リハーサル開始 (draft → rehearsal)
+// スタンプ・クイズが動作するが、本番データとして扱わない
 // ──────────────────────────────────────────────
-router.post('/:id/start', wrap(async (req, res) => {
+router.post('/:id/rehearsal', wrap(async (req, res) => {
   await execute(
-    `UPDATE interactive_events SET status = 'live', accepting = true, started_at = NOW(), updated_at = NOW() WHERE id = ? AND deleted_at IS NULL`,
+    `UPDATE interactive_events SET status = 'rehearsal', accepting = true, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL`,
     [req.params.id]
   );
   res.json({ success: true });
 }));
 
 // ──────────────────────────────────────────────
-// イベント終了 (live → ended)
+// リハーサルリセット (rehearsal → draft, 統計クリア)
+// ──────────────────────────────────────────────
+router.post('/:id/rehearsal-reset', wrap(async (req, res) => {
+  const eventId = req.params.id;
+  // スタンプ集計をクリア
+  await execute('DELETE FROM interactive_stamp_counts WHERE event_id = ?', [eventId]);
+  // セッションをクリア
+  await execute('DELETE FROM interactive_sessions WHERE event_id = ?', [eventId]);
+  // クイズ回答をクリア + 問題をdraftに戻す
+  const qs = await queryAll('SELECT id FROM interactive_questions WHERE event_id = ?', [eventId]);
+  for (const q of qs) {
+    await execute('DELETE FROM interactive_answers WHERE question_id = ?', [q.id]);
+    await execute(`UPDATE interactive_questions SET status = 'draft', activated_at = NULL, closed_at = NULL WHERE id = ?`, [q.id]);
+  }
+  // イベントをdraftに戻す
+  await execute(
+    `UPDATE interactive_events SET status = 'draft', accepting = false, started_at = NULL, ended_at = NULL, updated_at = NOW() WHERE id = ?`,
+    [eventId]
+  );
+  res.json({ success: true, message: 'リハーサルデータをリセットしました' });
+}));
+
+// ──────────────────────────────────────────────
+// 本番開始 (draft/rehearsal → live)
+// ──────────────────────────────────────────────
+router.post('/:id/start', wrap(async (req, res) => {
+  const eventId = req.params.id;
+  // リハーサルからの場合、統計をクリアしてから開始
+  const ev = await queryOne('SELECT status FROM interactive_events WHERE id = ? AND deleted_at IS NULL', [eventId]) as any;
+  if (ev?.status === 'rehearsal') {
+    await execute('DELETE FROM interactive_stamp_counts WHERE event_id = ?', [eventId]);
+    await execute('DELETE FROM interactive_sessions WHERE event_id = ?', [eventId]);
+    const qs = await queryAll('SELECT id FROM interactive_questions WHERE event_id = ?', [eventId]);
+    for (const q of qs) {
+      await execute('DELETE FROM interactive_answers WHERE question_id = ?', [q.id]);
+      await execute(`UPDATE interactive_questions SET status = 'draft', activated_at = NULL, closed_at = NULL WHERE id = ?`, [q.id]);
+    }
+  }
+  await execute(
+    `UPDATE interactive_events SET status = 'live', accepting = true, started_at = NOW(), updated_at = NOW() WHERE id = ? AND deleted_at IS NULL`,
+    [eventId]
+  );
+  res.json({ success: true });
+}));
+
+// ──────────────────────────────────────────────
+// 配信終了 (live → ended)
 // ──────────────────────────────────────────────
 router.post('/:id/stop', wrap(async (req, res) => {
   await execute(

@@ -70,6 +70,19 @@ export default function EventEditorPage() {
     },
   });
 
+  const startRehearsal = useMutation({
+    mutationFn: () => api.post(`/interactive/events/${id}/rehearsal`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['interactive-event', id] });
+      navigate(`/live/${id}`);
+    },
+  });
+
+  const resetRehearsal = useMutation({
+    mutationFn: () => api.post(`/interactive/events/${id}/rehearsal-reset`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['interactive-event', id] }),
+  });
+
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">読み込み中...</div>;
   if (!eventData) return <div className="p-8 text-center text-muted-foreground">イベントが見つかりません</div>;
 
@@ -127,21 +140,31 @@ export default function EventEditorPage() {
         <div className="min-w-0">
           <h1 className="text-lg sm:text-xl font-semibold truncate">{eventData.title}</h1>
           <div className="flex items-center gap-2 mt-0.5">
-            <Badge variant={eventData.status === 'live' ? 'default' : 'secondary'} className="text-xs">
-              {eventData.status === 'draft' ? '下書き' : eventData.status === 'live' ? 'LIVE' : eventData.status === 'ended' ? '終了' : 'アーカイブ'}
+            <Badge variant={eventData.status === 'live' ? 'default' : eventData.status === 'rehearsal' ? 'warning' : 'secondary'} className="text-xs">
+              {eventData.status === 'draft' ? '下書き' : eventData.status === 'rehearsal' ? 'リハーサル' : eventData.status === 'live' ? 'LIVE' : eventData.status === 'ended' ? '終了' : 'アーカイブ'}
             </Badge>
             {eventData.accepting && <span className="text-[10px] text-green-600 font-medium">受付中</span>}
           </div>
         </div>
         <div className="flex gap-2 shrink-0">
-          {eventData.status === 'live' && (
+          {(eventData.status === 'live' || eventData.status === 'rehearsal') && (
             <Button size="sm" onClick={() => navigate(`/live/${id}`)}>
-              <Radio className="h-4 w-4 mr-1" />ライブ管理
+              <Radio className="h-4 w-4 mr-1" />管理画面
             </Button>
           )}
           {eventData.status === 'draft' && stamps.length > 0 && (
-            <Button size="sm" onClick={() => startEvent.mutate()} disabled={startEvent.isPending}>
-              <Radio className="h-4 w-4 mr-1" />ライブ開始
+            <>
+              <Button size="sm" variant="outline" onClick={() => startRehearsal.mutate()} disabled={startRehearsal.isPending}>
+                リハーサル
+              </Button>
+              <Button size="sm" onClick={() => startEvent.mutate()} disabled={startEvent.isPending}>
+                <Radio className="h-4 w-4 mr-1" />本番開始
+              </Button>
+            </>
+          )}
+          {eventData.status === 'rehearsal' && (
+            <Button size="sm" variant="outline" onClick={() => { if (confirm('リハーサルデータをリセットして下書きに戻しますか？')) resetRehearsal.mutate(); }}>
+              リセット
             </Button>
           )}
         </div>

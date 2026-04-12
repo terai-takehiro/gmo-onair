@@ -215,7 +215,7 @@ export default function AudiencePage() {
 
   const embedId = getYoutubeEmbedId(event.youtube_url || '');
   const stamps = event.stamps || [];
-  const isLive = event.status === 'live';
+  const isLive = event.status === 'live' || event.status === 'rehearsal';
   const canStamp = isLive && event.accepting;
 
   return (

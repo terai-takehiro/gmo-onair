@@ -26,8 +26,9 @@ interface EpisodeOption {
 
 const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'success' | 'secondary' | 'warning' }> = {
   draft: { label: '下書き', variant: 'secondary' },
+  rehearsal: { label: 'リハーサル', variant: 'warning' },
   live: { label: 'LIVE', variant: 'default' },
-  ended: { label: '終了', variant: 'warning' },
+  ended: { label: '終了', variant: 'secondary' },
   archived: { label: 'アーカイブ', variant: 'secondary' },
 };
 
@@ -245,7 +246,7 @@ export default function DashboardPage() {
                   )}
                   <div className="flex items-center gap-3 text-xs text-muted-foreground mt-3">
                     <span>スタンプ: {event.stamp_count || 0}</span>
-                    {event.status === 'live' && (
+                    {event.status === 'live' || event.status === 'rehearsal' && (
                       <span className="text-primary font-medium flex items-center gap-1">
                         <Radio className="h-3 w-3 animate-pulse" />
                         {event.active_connections || 0}人接続中
@@ -253,7 +254,7 @@ export default function DashboardPage() {
                     )}
                   </div>
                   <div className="flex gap-2 mt-4">
-                    {event.status === 'live' ? (
+                    {event.status === 'live' || event.status === 'rehearsal' ? (
                       <Button size="sm" className="flex-1" onClick={() => navigate(`/live/${event.id}`)}>
                         <Radio className="h-3.5 w-3.5 mr-1" />ライブ管理
                       </Button>
