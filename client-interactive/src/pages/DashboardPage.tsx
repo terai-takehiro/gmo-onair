@@ -189,14 +189,14 @@ export default function DashboardPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-3 items-center">
-        <div className="relative flex-1 max-w-md">
+      <div className="flex gap-3 items-center flex-wrap sm:flex-nowrap">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input className="pl-9" placeholder="イベントを検索..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <div className="flex gap-1">
+        <div className="flex gap-1 overflow-x-auto shrink-0" style={{ scrollbarWidth: 'none' }}>
           {['', 'draft', 'live', 'ended'].map(s => (
-            <Button key={s} variant={statusFilter === s ? 'default' : 'outline'} size="sm" onClick={() => setStatusFilter(s)}>
+            <Button key={s} variant={statusFilter === s ? 'default' : 'outline'} size="sm" className="shrink-0" onClick={() => setStatusFilter(s)}>
               {s === '' ? '全て' : STATUS_MAP[s]?.label || s}
             </Button>
           ))}
@@ -221,7 +221,7 @@ export default function DashboardPage() {
                 <CardContent className="p-5">
                   <div className="flex items-start justify-between mb-3">
                     <Badge variant={st.variant}>{st.label}</Badge>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex gap-1">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/event/${event.id}`)} title="編集">
                         <Settings className="h-3.5 w-3.5" />
                       </Button>
