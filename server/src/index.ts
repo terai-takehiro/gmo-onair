@@ -26,6 +26,7 @@ async function main() {
   // Socket.IO for interactive events + qsheet sync
   const io = initSocketIO(httpServer);
   initQsheetSocketIO(io);
+  app.set('io', io);  // quiz.routes.ts等からSocket.IOにアクセスするため
 
   httpServer.listen(config.port, () => {
     console.log(`GMO ONAiR API running on http://localhost:${config.port}`);
