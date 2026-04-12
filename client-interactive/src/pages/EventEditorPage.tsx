@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, GripVertical, Radio, Eye, QrCode, Copy, Check, ArrowUp, ArrowDown, Youtube, MessageSquare, Image, X } from 'lucide-react';
+import { Plus, Trash2, GripVertical, Radio, Eye, QrCode, Copy, Check, ArrowUp, ArrowDown, Youtube, MessageSquare, Image, X, BarChart3, ChevronRight } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -420,6 +420,25 @@ export default function EventEditorPage() {
               ))}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Quiz / Survey */}
+      <Card className="card-hover">
+        <CardContent className="p-4">
+          <button
+            onClick={() => navigate(`/event/${id}/quiz`)}
+            className="flex items-center gap-3 w-full text-left"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
+              <BarChart3 className="h-5 w-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">クイズ / アンケート</p>
+              <p className="text-xs text-muted-foreground">択一式クイズ・アンケートの作成・管理・集計</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+          </button>
         </CardContent>
       </Card>
 

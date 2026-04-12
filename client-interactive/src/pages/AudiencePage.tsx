@@ -44,6 +44,11 @@ export default function AudiencePage() {
   const [event, setEvent] = useState<EventData | null>(null);
   const [sessionToken, setSessionToken] = useState('');
   const [error, setError] = useState('');
+  // Quiz state
+  const [activeQuestion, setActiveQuestion] = useState<{ questionId: string; questionText: string; choices: string[]; type: string } | null>(null);
+  const [answered, setAnswered] = useState(false);
+  const [selectedChoice, setSelectedChoice] = useState<number | null>(null);
+  const [questionResult, setQuestionResult] = useState<{ correctIndex?: number } | null>(null);
   const [stampCounts, setStampCounts] = useState<Record<string, number>>({});
   const [pressAnimations, setPressAnimations] = useState<Record<string, boolean>>({});
   const [miniStamps, setMiniStamps] = useState<MiniStamp[]>([]);
@@ -93,8 +98,37 @@ export default function AudiencePage() {
       setEvent(prev => prev ? { ...prev, status: data.status } : prev);
     });
 
+    // Quiz events
+    socket.on('question:active', (data: { questionId: string; texts: any[] }) => {
+      const chParam = new URLSearchParams(window.location.search).get('ch');
+      const lang = chParam ? 'ja' : 'ja'; // TODO: detect from channel
+      const t = data.texts?.find((t: any) => t.language_code === lang) || data.texts?.[0];
+      const choices = typeof t?.choices === 'string' ? JSON.parse(t.choices) : (t?.choices || []);
+      setActiveQuestion({ questionId: data.questionId, questionText: t?.question_text || '', choices, type: 'quiz' });
+      setAnswered(false);
+      setSelectedChoice(null);
+      setQuestionResult(null);
+    });
+
+    socket.on('question:closed', (data: { questionId: string; correctIndex?: number }) => {
+      setQuestionResult({ correctIndex: data.correctIndex });
+    });
+
     return () => { disconnectSocket(); };
   }, [eventId, sessionToken]);
+
+  // Quiz answer handler
+  const handleAnswer = async (choiceIndex: number) => {
+    if (answered || !activeQuestion) return;
+    setSelectedChoice(choiceIndex);
+    setAnswered(true);
+    try {
+      await audienceApi.post(`/audience/questions/${activeQuestion.questionId}/answer`, {
+        choice_index: choiceIndex,
+        session_token: sessionToken,
+      });
+    } catch { /* already answered or closed */ }
+  };
 
   // Mini stamp fly animation (from button position)
   const spawnMiniStamp = useCallback((stamp: Stamp, btnEl: HTMLElement) => {
@@ -248,6 +282,51 @@ export default function AudiencePage() {
             <div className="text-3xl mb-2">🎬</div>
             <p className="text-sm text-[var(--text-secondary)]">イベントは終了しました</p>
             <p className="text-xs text-[var(--text-muted)]">ご参加ありがとうございました</p>
+          </div>
+        )}
+
+        {/* Active Quiz/Survey Question */}
+        {activeQuestion && (
+          <div className="flex-shrink-0 px-4 pb-3" style={{ maxWidth: 640, margin: '0 auto', width: '100%' }}>
+            <div className="rounded-2xl border-2 border-primary/30 bg-white/90 p-4 space-y-3 shadow-lg">
+              <p className="text-sm font-bold text-center">{activeQuestion.questionText}</p>
+              <div className="space-y-2">
+                {activeQuestion.choices.map((choice, ci) => {
+                  const isSelected = selectedChoice === ci;
+                  const isCorrect = questionResult && questionResult.correctIndex === ci;
+                  const isWrong = questionResult && isSelected && questionResult.correctIndex !== ci;
+                  return (
+                    <button
+                      key={ci}
+                      onClick={() => handleAnswer(ci)}
+                      disabled={answered}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 text-left text-sm font-medium transition-all ${
+                        isCorrect ? 'border-green-500 bg-green-50 text-green-800' :
+                        isWrong ? 'border-red-400 bg-red-50 text-red-700' :
+                        isSelected ? 'border-primary bg-primary/10 text-primary' :
+                        'border-zinc-200 hover:border-primary/40 active:scale-[0.98]'
+                      }`}
+                    >
+                      <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                        isCorrect ? 'bg-green-500 text-white' :
+                        isWrong ? 'bg-red-400 text-white' :
+                        isSelected ? 'bg-primary text-white' :
+                        'bg-zinc-100'
+                      }`}>
+                        {String.fromCharCode(65 + ci)}
+                      </span>
+                      <span className="flex-1">{choice}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {answered && !questionResult && (
+                <p className="text-center text-xs text-muted-foreground">回答済み — 結果をお待ちください</p>
+              )}
+              {questionResult && (
+                <p className="text-center text-xs font-bold text-green-600">集計が終了しました</p>
+              )}
+            </div>
           </div>
         )}
 
