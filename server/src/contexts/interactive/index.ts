@@ -9,12 +9,17 @@ import audienceRoutes from './routes/audience.routes';
 
 export function createInteractiveRoutes(): Router {
   const router = Router();
+
+  // ★ audience を最初に登録（認証不要 — 広域マッチより先に処理）
+  router.use('/interactive/audience', audienceRoutes);
+
+  // 管理者API（認証必須）
   router.use('/interactive/events', eventRoutes);
   router.use('/interactive/stamps', stampRoutes);
-  router.use('/interactive', channelRoutes);
-  router.use('/interactive', quizRoutes);
+  router.use('/interactive', channelRoutes);  // /interactive/events/:id/channels, /interactive/channels/:id
+  router.use('/interactive', quizRoutes);     // /interactive/events/:id/questions, /interactive/questions/:id/*
   router.use('/interactive/scaling', scalingRoutes);
   router.use('/interactive/overlays', overlayRoutes);
-  router.use('/interactive/audience', audienceRoutes);
+
   return router;
 }
