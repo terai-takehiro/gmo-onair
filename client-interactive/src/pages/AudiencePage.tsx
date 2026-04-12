@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams } from 'react-router-dom';
-import { Sparkles, Youtube } from 'lucide-react';
+import { useParams, useSearchParams } from 'react-router-dom';
+import { Sparkles, Youtube, ExternalLink } from 'lucide-react';
 import { audienceApi } from '@/lib/api';
 import { getSocket, disconnectSocket } from '@/lib/socket';
 
@@ -16,10 +16,12 @@ interface Stamp {
 interface EventData {
   title: string;
   status: string;
+  accepting?: boolean;
   stamps: Stamp[];
   youtube_url?: string;
   banner_url?: string;
   admin_comment?: string;
+  survey_url?: string;
 }
 
 interface MiniStamp {
@@ -53,18 +55,21 @@ export default function AudiencePage() {
   // Load event & join
   useEffect(() => {
     if (!eventId) return;
+    const chParam = new URLSearchParams(window.location.search).get('ch');
 
-    audienceApi.get(`/events/${eventId}`).then(r => {
+    audienceApi.get(`/events/${eventId}`, { params: chParam ? { ch: chParam } : {} }).then(r => {
       const data = r.data.data;
       setEvent({
         title: data.title,
         status: data.status,
+        accepting: data.accepting,
         stamps: data.stamps || [],
         youtube_url: data.youtube_url,
         banner_url: data.banner_url,
         admin_comment: data.admin_comment,
+        survey_url: data.survey_url,
       });
-      return audienceApi.post(`/events/${eventId}/join`, {});
+      return audienceApi.post(`/events/${eventId}/join`, { channel_id: chParam || undefined });
     }).then(r => {
       setSessionToken(r.data.data.session_token);
     }).catch(err => {
@@ -221,15 +226,28 @@ export default function AudiencePage() {
           </div>
         )}
 
-        {/* Instruction */}
-        {event.status === 'live' && (
+        {/* Instruction / Status */}
+        {event.status === 'live' && event.accepting && (
           <p className="text-center text-xs text-[var(--text-muted)] py-1.5">スタンプをタップして送信しよう!</p>
+        )}
+        {event.status === 'live' && !event.accepting && (
+          <div className="text-center py-4">
+            <div className="text-2xl mb-1">⏸</div>
+            <p className="text-sm text-[var(--text-secondary)]">スタンプ受付を一時停止中</p>
+          </div>
         )}
         {event.status === 'draft' && (
           <div className="text-center py-6">
             <div className="text-3xl mb-2">⏳</div>
             <p className="text-sm text-[var(--text-secondary)]">まもなく開始します</p>
             <p className="text-xs text-[var(--text-muted)]">スタンプの受付開始までお待ちください</p>
+          </div>
+        )}
+        {event.status === 'ended' && (
+          <div className="text-center py-6">
+            <div className="text-3xl mb-2">🎬</div>
+            <p className="text-sm text-[var(--text-secondary)]">イベントは終了しました</p>
+            <p className="text-xs text-[var(--text-muted)]">ご参加ありがとうございました</p>
           </div>
         )}
 
@@ -240,7 +258,7 @@ export default function AudiencePage() {
               key={stamp.id}
               className={`stamp-button glass-card ${pressAnimations[stamp.id] ? 'stamp-pop' : ''}`}
               onClick={(e) => handleStamp(stamp, e)}
-              disabled={event.status !== 'live'}
+              disabled={event.status !== 'live' || !event.accepting}
             >
               {stamp.image_url ? (
                 <img src={stamp.image_url} alt={stamp.label} className="stamp-img" />
@@ -251,6 +269,22 @@ export default function AudiencePage() {
             </button>
           ))}
         </div>
+
+        {/* Survey link */}
+        {event.survey_url && (
+          <div className="flex-shrink-0 px-4 pb-3" style={{ maxWidth: 640, margin: '0 auto', width: '100%' }}>
+            <a
+              href={event.survey_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all"
+              style={{ backgroundColor: 'var(--es-accent)', color: '#fff' }}
+            >
+              <ExternalLink className="h-4 w-4" />
+              アンケートに回答する
+            </a>
+          </div>
+        )}
       </main>
 
       {/* Tap counter */}

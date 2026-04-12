@@ -63,7 +63,6 @@ export default function EventEditorPage() {
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">読み込み中...</div>;
   if (!eventData) return <div className="p-8 text-center text-muted-foreground">イベントが見つかりません</div>;
 
-  const stamps = eventData.stamps || [];
   const audienceUrl = `${window.location.origin}/interactive/audience/${id}`;
   const overlayUrl = `${window.location.origin}/interactive/overlay/${id}`;
   const qrUrl = `/api/v1/internal/interactive/events/${id}/qr`;
@@ -93,10 +92,12 @@ export default function EventEditorPage() {
     reader.readAsDataURL(file);
   };
 
-  const embedId = getYoutubeEmbedId(eventData.youtube_url || '');
+
+  const stamps = eventData.stamps || [];
+  const channels = eventData.channels || [];
 
   return (
-    <div className="max-w-4xl mx-auto p-4 space-y-6 pb-12">
+    <div className="max-w-4xl mx-auto px-3 sm:p-4 py-4 space-y-6 pb-12">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -150,69 +151,121 @@ export default function EventEditorPage() {
               min={1} max={10000}
             />
           </div>
+
+          {/* 受付ON/OFF スイッチ */}
+          <div className="flex items-center justify-between py-2">
+            <div>
+              <label className="text-sm font-medium">スタンプ受付</label>
+              <p className="text-xs text-muted-foreground">ONにすると視聴者がスタンプを送信できます</p>
+            </div>
+            <button
+              onClick={() => updateEvent.mutate({ accepting: !eventData.accepting })}
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+                eventData.accepting ? 'bg-primary' : 'bg-muted'
+              }`}
+            >
+              <span className={`inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                eventData.accepting ? 'translate-x-6' : 'translate-x-1'
+              }`} />
+            </button>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Channel / Media Settings */}
+      {/* Channel Settings (多言語チャンネル) */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Youtube className="h-5 w-5 text-red-500" />
-            配信設定（チャンネル情報）
+          <CardTitle className="flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <Youtube className="h-5 w-5 text-red-500" />
+              チャンネル設定
+            </span>
+            <Button size="sm" variant="outline" onClick={() => {
+              api.post(`/interactive/events/${id}/channels`, { name: `チャンネル${(channels?.length || 0) + 1}` })
+                .then(() => queryClient.invalidateQueries({ queryKey: ['interactive-event', id] }));
+            }}>
+              <Plus className="h-4 w-4 mr-1" />追加
+            </Button>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* YouTube URL */}
-          <div>
-            <label className="text-sm font-medium flex items-center gap-1">
-              <Youtube className="h-3.5 w-3.5 text-red-500" />YouTube URL
-            </label>
-            <Input
-              className="mt-1"
-              placeholder="https://www.youtube.com/watch?v=..."
-              defaultValue={eventData.youtube_url || ''}
-              onBlur={e => updateEvent.mutate({ youtube_url: e.target.value || null })}
-            />
-            {embedId && (
-              <div className="mt-2 aspect-video w-full max-w-sm rounded-lg overflow-hidden border">
-                <iframe
-                  src={`https://www.youtube.com/embed/${embedId}`}
-                  className="w-full h-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
+          {(!channels || channels.length === 0) && (
+            <p className="text-sm text-muted-foreground text-center py-4">チャンネルがありません</p>
+          )}
+          {channels?.map((ch: any) => (
+            <div key={ch.id} className="border rounded-xl p-3 sm:p-4 space-y-3 bg-muted/20">
+              <div className="flex items-center gap-2">
+                <Input
+                  className="flex-1 h-8 text-sm font-semibold"
+                  defaultValue={ch.name}
+                  onBlur={e => {
+                    if (e.target.value !== ch.name)
+                      api.put(`/interactive/channels/${ch.id}`, { name: e.target.value })
+                        .then(() => queryClient.invalidateQueries({ queryKey: ['interactive-event', id] }));
+                  }}
+                  placeholder="チャンネル名 (例: 日本語)"
+                />
+                <Input
+                  className="w-16 h-8 text-xs"
+                  defaultValue={ch.language_code || ''}
+                  onBlur={e => api.put(`/interactive/channels/${ch.id}`, { language_code: e.target.value })
+                    .then(() => queryClient.invalidateQueries({ queryKey: ['interactive-event', id] }))}
+                  placeholder="ja"
+                />
+                {channels.length > 1 && (
+                  <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive"
+                    onClick={() => {
+                      if (confirm('このチャンネルを削除しますか？'))
+                        api.delete(`/interactive/channels/${ch.id}`)
+                          .then(() => queryClient.invalidateQueries({ queryKey: ['interactive-event', id] }));
+                    }}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">YouTube URL</label>
+                <Input className="mt-1 h-8 text-sm" placeholder="https://youtube.com/watch?v=..."
+                  defaultValue={ch.youtube_url || ''}
+                  onBlur={e => api.put(`/interactive/channels/${ch.id}`, { youtube_url: e.target.value || null })
+                    .then(() => queryClient.invalidateQueries({ queryKey: ['interactive-event', id] }))} />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">バナー画像URL</label>
+                <Input className="mt-1 h-8 text-sm" placeholder="https://..."
+                  defaultValue={ch.banner_url || ''}
+                  onBlur={e => api.put(`/interactive/channels/${ch.id}`, { banner_url: e.target.value || null })
+                    .then(() => queryClient.invalidateQueries({ queryKey: ['interactive-event', id] }))} />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">管理者コメント</label>
+                <textarea
+                  className="flex w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm mt-1 min-h-[48px]"
+                  defaultValue={ch.admin_comment || ''}
+                  onBlur={e => api.put(`/interactive/channels/${ch.id}`, { admin_comment: e.target.value || null })
+                    .then(() => queryClient.invalidateQueries({ queryKey: ['interactive-event', id] }))}
+                  placeholder="視聴者へのメッセージ"
                 />
               </div>
-            )}
-          </div>
 
-          {/* Banner URL */}
-          <div>
-            <label className="text-sm font-medium flex items-center gap-1">
-              <Image className="h-3.5 w-3.5" />バナー画像URL
-            </label>
-            <Input
-              className="mt-1"
-              placeholder="https://..."
-              defaultValue={eventData.banner_url || ''}
-              onBlur={e => updateEvent.mutate({ banner_url: e.target.value || null })}
-            />
-            {eventData.banner_url && (
-              <img src={eventData.banner_url} alt="バナー" className="mt-2 rounded-lg max-h-32 object-cover border" />
-            )}
-          </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">アンケートURL</label>
+                <Input className="mt-1 h-8 text-sm" placeholder="https://forms.google.com/..."
+                  defaultValue={ch.survey_url || ''}
+                  onBlur={e => api.put(`/interactive/channels/${ch.id}`, { survey_url: e.target.value || null })
+                    .then(() => queryClient.invalidateQueries({ queryKey: ['interactive-event', id] }))} />
+              </div>
 
-          {/* Admin Comment */}
-          <div>
-            <label className="text-sm font-medium flex items-center gap-1">
-              <MessageSquare className="h-3.5 w-3.5" />管理者コメント（視聴者ページに表示）
-            </label>
-            <textarea
-              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[72px]"
-              defaultValue={eventData.admin_comment || ''}
-              onBlur={e => updateEvent.mutate({ admin_comment: e.target.value || null })}
-              placeholder="視聴者へのメッセージ、注意事項など"
-            />
-          </div>
+              <div className="pt-1 text-xs text-muted-foreground">
+                参加者URL: <code className="bg-muted px-1 py-0.5 rounded text-[11px] break-all">
+                  {`${window.location.origin}/interactive/audience/${id}?ch=${ch.id}`}
+                </code>
+              </div>
+            </div>
+          ))}
         </CardContent>
       </Card>
 
