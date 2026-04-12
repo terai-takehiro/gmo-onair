@@ -42,9 +42,10 @@ export default function DashboardPage() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedEpisodeId, setSelectedEpisodeId] = useState('');
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ['interactive-events', search, statusFilter],
     queryFn: () => api.get('/interactive/events', { params: { search, status: statusFilter || undefined } }).then(r => r.data),
+    retry: 2,
   });
 
   // GLS project list for selector
@@ -204,7 +205,13 @@ export default function DashboardPage() {
       </div>
 
       {/* Event Grid */}
-      {isLoading ? (
+      {isError ? (
+        <div className="text-center py-12">
+          <p className="text-destructive font-medium">読み込みに失敗しました</p>
+          <p className="text-sm text-muted-foreground mt-1">{(error as any)?.response?.data?.message || (error as any)?.message || 'サーバーに接続できません'}</p>
+          <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>再読み込み</Button>
+        </div>
+      ) : isLoading ? (
         <div className="text-center py-12 text-muted-foreground">読み込み中...</div>
       ) : events.length === 0 ? (
         <div className="text-center py-12">
