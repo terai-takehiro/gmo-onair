@@ -157,7 +157,8 @@ export default function AudiencePage() {
   }, []);
 
   const handleStamp = useCallback((stamp: Stamp, e: React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>) => {
-    if (!sessionToken || event?.status !== 'live') return;
+    if (!sessionToken || !event?.accepting) return;
+    if (event.status !== 'live' && event.status !== 'rehearsal') return;
 
     const socket = getSocket(eventId!, { sessionToken });
     socket.emit('stamp', { stampId: stamp.id, count: 1 });

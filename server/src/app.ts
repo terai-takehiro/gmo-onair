@@ -43,11 +43,13 @@ export function createApp(): express.Express {
     'http://localhost:5177',
     'http://localhost:3000',
   ];
-  const allowedOrigins = [
+  const configuredOrigins = [
     ...devOrigins,
     ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : []),
   ];
-  app.use(cors({ origin: allowedOrigins, credentials: true }));
+  // If no origins configured in production, allow all (same-origin requests work via Nginx)
+  const corsOrigin = configuredOrigins.length > 0 ? configuredOrigins : true;
+  app.use(cors({ origin: corsOrigin, credentials: true }));
   app.use(express.json({ limit: '10mb' }));
   app.use(cookieParser());
   app.use(morgan('dev'));

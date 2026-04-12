@@ -21,7 +21,7 @@ export function initSocketIO(httpServer: HttpServer): Server {
   const io = new Server(httpServer, {
     path: '/socket.io/',
     cors: {
-      origin: allowedOrigins,
+      origin: true,  // Allow all origins (audience page is public)
       methods: ['GET', 'POST'],
       credentials: true,
     },
