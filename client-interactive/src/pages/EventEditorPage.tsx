@@ -306,7 +306,7 @@ export default function EventEditorPage() {
                   <label className="text-xs font-medium text-muted-foreground">YouTube URL（視聴者画面に埋め込み表示）</label>
                   <Input className="mt-1 h-8 text-sm" placeholder="https://www.youtube.com/watch?v=... or /live/..."
                     defaultValue={ch.youtube_url || ''}
-                    onBlur={e => api.put(`/interactive/channels/${ch.id}`, { youtube_url: e.target.value || null })
+                    onBlur={e => api.put(`/interactive/channels/${ch.id}`, { youtube_url: e.target.value })
                       .then(() => queryClient.invalidateQueries({ queryKey: ['interactive-event', id] }))} />
                 </div>
 
@@ -314,7 +314,7 @@ export default function EventEditorPage() {
                   <label className="text-xs font-medium text-muted-foreground">バナー画像URL</label>
                   <Input className="mt-1 h-8 text-sm" placeholder="https://..."
                     defaultValue={ch.banner_url || ''}
-                    onBlur={e => api.put(`/interactive/channels/${ch.id}`, { banner_url: e.target.value || null })
+                    onBlur={e => api.put(`/interactive/channels/${ch.id}`, { banner_url: e.target.value })
                       .then(() => queryClient.invalidateQueries({ queryKey: ['interactive-event', id] }))} />
                 </div>
 
@@ -323,7 +323,7 @@ export default function EventEditorPage() {
                   <textarea
                     className="flex w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm mt-1 min-h-[48px]"
                     defaultValue={ch.admin_comment || ''}
-                    onBlur={e => api.put(`/interactive/channels/${ch.id}`, { admin_comment: e.target.value || null })
+                    onBlur={e => api.put(`/interactive/channels/${ch.id}`, { admin_comment: e.target.value })
                       .then(() => queryClient.invalidateQueries({ queryKey: ['interactive-event', id] }))}
                     placeholder="視聴者へのメッセージ"
                   />
@@ -333,7 +333,7 @@ export default function EventEditorPage() {
                   <label className="text-xs font-medium text-muted-foreground">アンケートURL</label>
                   <Input className="mt-1 h-8 text-sm" placeholder="https://forms.google.com/..."
                     defaultValue={ch.survey_url || ''}
-                    onBlur={e => api.put(`/interactive/channels/${ch.id}`, { survey_url: e.target.value || null })
+                    onBlur={e => api.put(`/interactive/channels/${ch.id}`, { survey_url: e.target.value })
                       .then(() => queryClient.invalidateQueries({ queryKey: ['interactive-event', id] }))} />
                 </div>
 

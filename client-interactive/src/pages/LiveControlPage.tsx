@@ -131,7 +131,7 @@ export default function LiveControlPage() {
   };
 
   const handleCommentSave = () => {
-    updateEvent.mutate({ admin_comment: comment || null });
+    updateEvent.mutate({ admin_comment: comment });
     setCommentSaved(true);
     setTimeout(() => setCommentSaved(false), 2000);
   };

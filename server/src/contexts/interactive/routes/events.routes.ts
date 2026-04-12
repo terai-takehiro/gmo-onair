@@ -116,30 +116,31 @@ router.put('/:id', wrap(async (req, res) => {
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
 
   const b = req.body;
+  // undefinedのフィールドは既存値を保持、空文字列はNULLとして扱う
+  const val = (key: string, fallback: any) => {
+    if (b[key] === undefined) return fallback;
+    if (b[key] === '' || b[key] === null) return null;
+    return b[key];
+  };
+
   await execute(
     `UPDATE interactive_events SET
-       title = COALESCE(?, title),
-       description = COALESCE(?, description),
-       project_id = COALESCE(?, project_id),
-       episode_id = COALESCE(?, episode_id),
-       max_connections = COALESCE(?, max_connections),
-       youtube_url = COALESCE(?, youtube_url),
-       banner_url = COALESCE(?, banner_url),
-       admin_comment = COALESCE(?, admin_comment),
-       survey_url = COALESCE(?, survey_url),
-       accepting = COALESCE(?, accepting),
+       title = ?, description = ?, project_id = ?, episode_id = ?,
+       max_connections = ?, youtube_url = ?, banner_url = ?,
+       admin_comment = ?, survey_url = ?, accepting = ?,
        updated_by = ?, updated_at = NOW()
      WHERE id = ?`,
     [
-      b.title || null, b.description !== undefined ? b.description : null,
-      b.project_id !== undefined ? b.project_id : null,
-      b.episode_id !== undefined ? b.episode_id : null,
-      b.max_connections ? Number(b.max_connections) : null,
-      b.youtube_url !== undefined ? b.youtube_url : null,
-      b.banner_url !== undefined ? b.banner_url : null,
-      b.admin_comment !== undefined ? b.admin_comment : null,
-      b.survey_url !== undefined ? b.survey_url : null,
-      b.accepting !== undefined ? b.accepting : null,
+      b.title || existing.title,
+      val('description', existing.description),
+      val('project_id', existing.project_id),
+      val('episode_id', existing.episode_id),
+      b.max_connections ? Number(b.max_connections) : existing.max_connections,
+      val('youtube_url', existing.youtube_url),
+      val('banner_url', existing.banner_url),
+      val('admin_comment', existing.admin_comment),
+      val('survey_url', existing.survey_url),
+      b.accepting !== undefined ? b.accepting : existing.accepting,
       req.user!.id, req.params.id,
     ]
   );
