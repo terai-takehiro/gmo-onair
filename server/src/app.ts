@@ -63,9 +63,33 @@ export function createApp(): express.Express {
   // Routes
   app.use('/api/v1/internal', createRoutes());
 
-  // Health check
-  app.get('/health', (_req, res) => {
-    res.json({ status: 'ok', name: 'GMO ONAiR API' });
+  // Health check + debug
+  app.get('/health', async (_req, res) => {
+    try {
+      const { queryAll, queryOne } = require('./shared/db/connection');
+      const tables = await queryAll("SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename LIKE 'interactive%' ORDER BY tablename");
+      const eventCount = await queryOne('SELECT COUNT(*)::int as c FROM interactive_events');
+      const userCount = await queryOne('SELECT COUNT(*)::int as c FROM users');
+      const migrations = await queryAll('SELECT name FROM _migrations ORDER BY name');
+
+      // Check if youtube_url column exists
+      const cols = await queryAll("SELECT column_name FROM information_schema.columns WHERE table_name='interactive_events' AND column_name IN ('youtube_url','banner_url','admin_comment','accepting','survey_url')");
+
+      res.json({
+        status: 'ok',
+        name: 'GMO ONAiR API',
+        db: {
+          tables: tables.map((t: any) => t.tablename),
+          event_columns: cols.map((c: any) => c.column_name),
+          event_count: eventCount?.c,
+          user_count: userCount?.c,
+          migrations_count: migrations.length,
+          last_migration: migrations[migrations.length - 1]?.name,
+        },
+      });
+    } catch (err: any) {
+      res.json({ status: 'error', error: err.message });
+    }
   });
 
   // In production, serve React client build

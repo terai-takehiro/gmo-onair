@@ -11,11 +11,23 @@ const router = Router();
 router.get('/events/:id', async (req, res) => {
   const channelId = req.query.ch as string | undefined;
 
-  const row = await queryOne(
-    `SELECT id, title, description, status, config, accepting, youtube_url, banner_url, admin_comment
-     FROM interactive_events WHERE id = ? AND deleted_at IS NULL`,
-    [req.params.id]
-  ) as any;
+  // Base event data (columns that definitely exist in 013 migration)
+  let row: any = null;
+  try {
+    row = await queryOne(
+      `SELECT id, title, description, status, config, accepting, youtube_url, banner_url, admin_comment, survey_url
+       FROM interactive_events WHERE id = ? AND deleted_at IS NULL`,
+      [req.params.id]
+    );
+  } catch {
+    // Fallback if youtube_url etc columns don't exist yet (migration 022 not applied)
+    row = await queryOne(
+      `SELECT id, title, description, status, config,
+       CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='interactive_events' AND column_name='accepting') THEN accepting ELSE false END as accepting
+       FROM interactive_events WHERE id = ? AND deleted_at IS NULL`,
+      [req.params.id]
+    );
+  }
   if (!row) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
   if (row.status === 'archived') {
     throw new AppError(403, 'EVENT_ARCHIVED', 'このイベントはアーカイブされています');
