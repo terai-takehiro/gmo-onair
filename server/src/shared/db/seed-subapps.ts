@@ -539,7 +539,7 @@ async function seedSubApps() {
   }
 
   // ============================================================
-  // 技術資料ドキュメント
+  // 技術資料ドキュメント（新DocumentData構造）
   // ============================================================
   if (!hasTechsheet) {
     console.log('Seeding techsheet_documents...');
@@ -547,28 +547,81 @@ async function seedSubApps() {
       (id, title, project_id, episode_id, production_date, venue, status, data, created_by)
       VALUES (?,?,?,?,?,?,?,?,?)`;
 
+    const tsGenId = () => `ts-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
+
     if (PA001 && EA001) {
       await ins(tSql, [
         uuidv4(), 'GH春季IR説明会 技術仕様書', PA001, EA001,
         '2026-03-28', '用賀 WORLD STUDIO', 'confirmed',
         JSON.stringify({
-          cameras: [
-            { position: 'CAM1', model: 'Sony PXW-FX9',  lens: '24-70mm',   operator: '鈴木一郎', notes: '演台メインカメラ' },
-            { position: 'CAM2', model: 'Sony PXW-FX9',  lens: '70-200mm',  operator: '高橋美咲', notes: '会場全景' },
-            { position: 'CAM3', model: 'Sony PXW-FX6',  lens: '16-35mm',   operator: '',         notes: 'ロボカメ（リモート操作）' },
+          header: {
+            programName: 'GH春季IR説明会 2026',
+            broadcastType: 'YouTube Live配信 + 会場スクリーン',
+            productionFormat: '4K/59.94p / ステレオ',
+            studio: '用賀 WORLD STUDIO',
+            circuits: 'YouTube Live (RTMP) / 会場PA出し',
+            vtr: 'HyperDeck Studio 4K Pro x2 (収録バックアップ)',
+            performers: 'CEO 橋本、CFO 村田、MC 田中',
+          },
+          staff: {
+            td: '佐藤 太郎', sw: '鈴木 一郎', d: ['高橋 美咲'], p: '山田 次郎', ve: '田中 三郎',
+            cam: ['鈴木 一郎 (CAM1)', '高橋 美咲 (CAM2)', 'リモート (CAM3)'],
+            mix: '渡辺 四郎', aa: ['中村 五郎'], ca: ['小林 六郎'], vtrOp: '加藤 七郎',
+            aux: '', ld: '伊藤 八郎', cg: '山本 九郎',
+          },
+          sheets: [
+            {
+              id: tsGenId(), type: 'camera', label: 'カメラプラン', enabled: true,
+              rows: [
+                { id: tsGenId(), number: 'CAM1', model: 'Sony PXW-FX9', lens: 'Sony 24-70mm f/2.8 GM', operator: '鈴木 一郎', position: '演台正面 (センター)', cable: 'SDI 50m → パッチ盤A' },
+                { id: tsGenId(), number: 'CAM2', model: 'Sony PXW-FX9', lens: 'Sony 70-200mm f/2.8 GM', operator: '高橋 美咲', position: '客席後方 (全景)', cable: 'SDI 80m → パッチ盤B' },
+                { id: tsGenId(), number: 'CAM3', model: 'Sony PXW-FX6', lens: 'Sony 16-35mm f/2.8 GM', operator: 'リモート操作', position: 'ステージ上手 (ロボカメ)', cable: 'SDI 30m → パッチ盤C' },
+                { id: tsGenId(), number: 'CAM4', model: 'Sony α7S III', lens: 'Sony 35mm f/1.4 GM', operator: '', position: 'スライド資料キャプチャ (HDMI)', cable: 'HDMI → SDI変換 → SW' },
+              ],
+            },
+            {
+              id: tsGenId(), type: 'video', label: '映像系統', enabled: true,
+              sections: [{
+                id: tsGenId(), label: '映像機器',
+                rows: [
+                  { id: tsGenId(), item: 'スイッチャー', detail: 'Blackmagic ATEM 4 M/E Constellation 4K', notes: 'M/E1: プログラム / M/E2: 配信用エンコード' },
+                  { id: tsGenId(), item: '収録', detail: 'HyperDeck Studio 4K Pro x2 (メイン+バックアップ)', notes: 'ProRes 422 HQ / SSD 2TB' },
+                  { id: tsGenId(), item: '配信エンコーダー', detail: 'Blackmagic Web Presenter 4K', notes: 'YouTube Live RTMP (1080p/8Mbps)' },
+                  { id: tsGenId(), item: 'モニター', detail: 'Sony BVM-HX3110 x1 / SmallHD Cine 13 x3', notes: 'PGM/PVW/CAM1/CAM2' },
+                  { id: tsGenId(), item: 'スクリーン投影', detail: 'Panasonic PT-RZ120J (12000lm)', notes: '会場メインスクリーン 200インチ' },
+                ],
+              }],
+            },
+            {
+              id: tsGenId(), type: 'audio', label: '音声系統', enabled: true,
+              sections: [{
+                id: tsGenId(), label: '音声機器',
+                rows: [
+                  { id: tsGenId(), item: 'ミキサー', detail: 'Yamaha DM7 (48ch)', notes: 'Dante接続' },
+                  { id: tsGenId(), item: 'ワイヤレスピンマイク', detail: 'Sennheiser EW-DX x3', notes: 'CEO/CFO/MC用' },
+                  { id: tsGenId(), item: '演台マイク', detail: 'Audio-Technica AT4053b グースネック x1', notes: '予備マイク' },
+                  { id: tsGenId(), item: '会場ハンドマイク', detail: 'Shure ULXD2/SM58 x2', notes: 'Q&A用巡回' },
+                  { id: tsGenId(), item: 'モニタリング', detail: 'Sennheiser IEM G4 x2', notes: 'MC/ディレクター用' },
+                  { id: tsGenId(), item: 'PA', detail: '会場常設 JBL VRX932LA x4', notes: '会場PA出し (AES/EBU)' },
+                ],
+              }],
+            },
+            {
+              id: tsGenId(), type: 'comms', label: '通信系統', enabled: true,
+              sections: [{
+                id: tsGenId(), label: '通信機器',
+                rows: [
+                  { id: tsGenId(), item: 'インカムシステム', detail: 'RTS ADAM-M フレーム', notes: '4ワイヤー' },
+                  { id: tsGenId(), item: 'CAMチャンネル', detail: 'Ch.1 — 全カメラ + SW', notes: '' },
+                  { id: tsGenId(), item: 'Audioチャンネル', detail: 'Ch.2 — 音声 + PA', notes: '' },
+                  { id: tsGenId(), item: 'Lightingチャンネル', detail: 'Ch.3 — 照明', notes: '' },
+                  { id: tsGenId(), item: 'Directorチャンネル', detail: 'Ch.4 — ディレクター + TD', notes: '最優先' },
+                  { id: tsGenId(), item: 'IFB (タレント返し)', detail: 'Sennheiser IEM G4 x2', notes: 'MC/CEO' },
+                ],
+              }],
+            },
           ],
-          video: {
-            switcher: 'ATEM 4 M/E Constellation 4K',
-            format: '4K/59.94p',
-            recording: 'HyperDeck Studio 4K Pro',
-            streaming: 'YouTube Live (1080p)',
-          },
-          audio: {
-            mixer: 'Yamaha DM7',
-            mics: ['ワイヤレスピンマイク x3', '演台グースネック x1', '会場ハンドマイク x2'],
-            monitoring: 'IEM x2',
-          },
-          comms: { system: 'RTS ADAM-M', channels: ['CAM', 'Audio', 'Lighting', 'Director'] },
+          notes: 'リハーサル: 3/27 13:00-17:00\n本番: 3/28 13:00-15:00\n撤収: 3/28 15:00-18:00\n\n注意事項:\n・YouTube Live配信は12:50からスタンバイ\n・CEOマイクは予備含め2本準備\n・スクリーン投影PCとスイッチャーの切替はSW担当',
         }),
         staff2Id,
       ]);
@@ -579,51 +632,70 @@ async function seedSubApps() {
         uuidv4(), 'サイエンス・フロンティア 収録 技術仕様書', PA002, EA002,
         '2026-04-07', '用賀 SKY STUDIO', 'draft',
         JSON.stringify({
-          cameras: [
-            { position: 'CAM1', model: 'Blackmagic URSA Mini Pro 12K', lens: 'Canon CN-E 50mm', operator: '鈴木一郎', notes: 'メインカメラ' },
-            { position: 'CAM2', model: 'Sony PXW-FX6', lens: '24-70mm',   operator: '高橋美咲', notes: 'ゲスト寄り' },
-            { position: 'CAM3', model: 'Sony PXW-FX6', lens: '16-35mm',   operator: '',         notes: 'セット全景（固定）' },
+          header: {
+            programName: 'サイエンス・フロンティア #001',
+            broadcastType: '東都TV (地上波) / TVer同時配信',
+            productionFormat: '4K/29.97p / 5.1ch サラウンド',
+            studio: '用賀 SKY STUDIO',
+            circuits: '東都TV回線 (SDI) / TVer (HLS)',
+            vtr: 'ATEM ISO Recording + 外付SSD',
+            performers: 'MC 佐藤、ゲスト: 東京大学 山田教授',
+          },
+          staff: {
+            td: '佐藤 太郎', sw: '鈴木 一郎', d: ['高橋 美咲', '山田 次郎'], p: '田中 三郎', ve: '渡辺 四郎',
+            cam: ['鈴木 一郎 (CAM1)', '高橋 美咲 (CAM2)', '固定 (CAM3)'],
+            mix: '中村 五郎', aa: ['小林 六郎', '加藤 七郎'], ca: ['伊藤 八郎'], vtrOp: '山本 九郎',
+            aux: '松田 十郎', ld: '井上 十一', cg: '木村 十二',
+          },
+          sheets: [
+            {
+              id: tsGenId(), type: 'camera', label: 'カメラプラン', enabled: true,
+              rows: [
+                { id: tsGenId(), number: 'CAM1', model: 'Blackmagic URSA Mini Pro 12K', lens: 'Canon CN-E 50mm T1.3', operator: '鈴木 一郎', position: 'MCバスト (センター)', cable: 'SDI 12G → SW IN1' },
+                { id: tsGenId(), number: 'CAM2', model: 'Sony PXW-FX6', lens: 'Sony 24-70mm f/2.8 GM', operator: '高橋 美咲', position: 'ゲスト寄り (下手)', cable: 'SDI 6G → SW IN2' },
+                { id: tsGenId(), number: 'CAM3', model: 'Sony PXW-FX6', lens: 'Sony 16-35mm f/2.8 GM', operator: '固定', position: 'セット全景 (上手奥)', cable: 'SDI 6G → SW IN3' },
+              ],
+            },
+            {
+              id: tsGenId(), type: 'video', label: '映像系統', enabled: true,
+              sections: [{
+                id: tsGenId(), label: '映像機器',
+                rows: [
+                  { id: tsGenId(), item: 'スイッチャー', detail: 'ATEM Mini Extreme ISO', notes: '8入力 / ISO収録対応' },
+                  { id: tsGenId(), item: '収録', detail: 'ATEM ISO Recording + Samsung T7 2TB x2', notes: 'ProRes 422 / 全カメラISO + PGM' },
+                  { id: tsGenId(), item: 'CG', detail: 'CasparCG Server + カスタムテンプレート', notes: 'テロップ送出: NDI → SW AUX' },
+                  { id: tsGenId(), item: 'モニター', detail: 'SmallHD Cine 13 x2 / LILLIPUT 7" x3', notes: 'PGM/PVW + CAM各' },
+                ],
+              }],
+            },
+            {
+              id: tsGenId(), type: 'audio', label: '音声系統', enabled: true,
+              sections: [{
+                id: tsGenId(), label: '音声機器',
+                rows: [
+                  { id: tsGenId(), item: 'ミキサー', detail: 'Yamaha DM7', notes: 'Dante IN/OUT' },
+                  { id: tsGenId(), item: 'ラベリアマイク', detail: 'DPA 4060 x2 + Wisycom MCR54', notes: 'MC/ゲスト' },
+                  { id: tsGenId(), item: 'ブームマイク', detail: 'Sennheiser MKH416 + ブームポール', notes: '演出効果音拾い' },
+                  { id: tsGenId(), item: 'BGM再生', detail: 'QLab 5 (Mac mini)', notes: 'Dante出力' },
+                ],
+              }],
+            },
+            {
+              id: tsGenId(), type: 'comms', label: '通信系統', enabled: true,
+              sections: [{
+                id: tsGenId(), label: '通信機器',
+                rows: [
+                  { id: tsGenId(), item: 'インカム', detail: 'Hollyland Solidcom C1 Pro (4ch, 8台)', notes: 'ワイヤレス' },
+                  { id: tsGenId(), item: 'Director ch', detail: 'Ch.1 — D/TD/SW', notes: '' },
+                  { id: tsGenId(), item: 'Camera ch', detail: 'Ch.2 — 全カメラ', notes: '' },
+                  { id: tsGenId(), item: 'Audio ch', detail: 'Ch.3 — 音声', notes: '' },
+                ],
+              }],
+            },
           ],
-          video: {
-            switcher: 'ATEM Mini Extreme ISO',
-            format: '4K/29.97p',
-            recording: 'ATEM ISO Recording + SSD',
-            streaming: '',
-          },
-          audio: {
-            mixer: 'Yamaha DM7',
-            mics: ['ラベリアマイク x2', 'ブームマイク x1', 'ガンマイク MKH416 x1'],
-            monitoring: '',
-          },
-          comms: { system: 'インカム 4ch', channels: ['Director', 'Camera', 'Audio'] },
+          notes: 'リハーサル: 4/6 14:00-18:00\n本番収録: 4/7 10:00-12:00\n\n特記:\n・12K収録はCAM1のみ (後処理でクロップ)\n・CG送出はNDI経由、遅延注意\n・ゲスト到着は9:30予定、メイク室はB棟2F',
         }),
         staff2Id,
-      ]);
-    }
-
-    if (PA003 && EA003) {
-      await ins(tSql, [
-        uuidv4(), 'ネットLIVE配信 #001 技術仕様書', PA003, EA003,
-        '2026-04-05', '用賀 LOUNGE STUDIO', 'confirmed',
-        JSON.stringify({
-          cameras: [
-            { position: 'CAM1', model: 'Sony PXW-FX6', lens: '24-70mm', operator: '佐藤花子', notes: 'MC正面' },
-            { position: 'CAM2', model: 'Sony PXW-FX6', lens: '35mm',    operator: '',         notes: 'ゲスト用（固定）' },
-          ],
-          video: {
-            switcher: 'ATEM Mini Pro ISO',
-            format: 'FHD/59.94p',
-            recording: 'ATEM Disk Recording',
-            streaming: 'YouTube Live 1080p / 配信エンコーダー: OBS',
-          },
-          audio: {
-            mixer: 'TASCAM Model 24',
-            mics: ['ラベリアマイク x2', 'ブームマイク x1'],
-            monitoring: 'モニタースピーカー x2',
-          },
-          comms: { system: 'インカム 2ch', channels: ['Director', 'Camera'] },
-        }),
-        staff3Id,
       ]);
     }
 

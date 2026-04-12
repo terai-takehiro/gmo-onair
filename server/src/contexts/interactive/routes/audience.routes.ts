@@ -7,19 +7,21 @@ const router = Router();
 
 // 注意: 視聴者APIは認証不要（QRコードからアクセス）
 
-// イベント情報取得 (視聴者向け・限定情報のみ)
+// イベント情報取得 (視聴者向け)
 router.get('/events/:id', async (req, res) => {
   const row = await queryOne(
-    `SELECT id, title, description, status, config FROM interactive_events WHERE id = ? AND deleted_at IS NULL`,
+    `SELECT id, title, description, status, config, youtube_url, banner_url, admin_comment
+     FROM interactive_events WHERE id = ? AND deleted_at IS NULL`,
     [req.params.id]
   ) as any;
   if (!row) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
-  if (row.status !== 'live' && row.status !== 'draft') {
-    throw new AppError(403, 'EVENT_ENDED', 'このイベントは終了しました');
+  // ended events: allow view but mark as ended (don't block)
+  if (row.status === 'archived') {
+    throw new AppError(403, 'EVENT_ARCHIVED', 'このイベントはアーカイブされています');
   }
 
   const stamps = await queryAll(
-    'SELECT id, label, emoji, color, animation, sort_order FROM interactive_stamps WHERE event_id = ? AND is_active = true ORDER BY sort_order',
+    'SELECT id, label, emoji, color, animation, sort_order, image_url FROM interactive_stamps WHERE event_id = ? AND is_active = true ORDER BY sort_order',
     [req.params.id]
   );
 

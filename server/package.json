@@ -1,6 +1,6 @@
 {
   "name": "@gmo-onair/server",
-  "version": "0.9.11",
+  "version": "0.9.12",
   "private": true,
   "scripts": {
     "dev": "tsx watch src/index.ts",
