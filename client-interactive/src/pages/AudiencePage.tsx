@@ -63,25 +63,33 @@ export default function AudiencePage() {
     if (!eventId) return;
     const chParam = new URLSearchParams(window.location.search).get('ch');
 
-    audienceApi.get(`/events/${eventId}`, { params: chParam ? { ch: chParam } : {} }).then(r => {
-      const data = r.data.data;
-      setEvent({
-        title: data.title,
-        status: data.status,
-        accepting: data.accepting,
-        stamps: data.stamps || [],
-        youtube_url: data.youtube_url,
-        banner_url: data.banner_url,
-        admin_comment: data.admin_comment,
-        survey_url: data.survey_url,
+    // Step 1: イベント情報取得
+    audienceApi.get(`/events/${eventId}`, { params: chParam ? { ch: chParam } : {} })
+      .then(r => {
+        const data = r.data.data;
+        setEvent({
+          title: data.title,
+          status: data.status,
+          accepting: data.accepting,
+          stamps: data.stamps || [],
+          youtube_url: data.youtube_url,
+          banner_url: data.banner_url,
+          admin_comment: data.admin_comment,
+          survey_url: data.survey_url,
+        });
+        // Step 2: セッション作成
+        return audienceApi.post(`/events/${eventId}/join`, { channel_id: chParam || undefined });
+      })
+      .then(r => {
+        setSessionToken(r.data.data.session_token);
+      })
+      .catch(err => {
+        console.error('[audience] API error:', err.response?.status, err.response?.data, err.message);
+        const msg = err.response?.data?.error?.message
+          || err.response?.data?.message
+          || `接続エラー (${err.response?.status || err.message || 'unknown'})`;
+        setError(msg);
       });
-      return audienceApi.post(`/events/${eventId}/join`, { channel_id: chParam || undefined });
-    }).then(r => {
-      setSessionToken(r.data.data.session_token);
-    }).catch(err => {
-      const msg = err.response?.data?.message || 'イベントに接続できません';
-      setError(msg);
-    });
 
     return () => { disconnectSocket(); };
   }, [eventId]);

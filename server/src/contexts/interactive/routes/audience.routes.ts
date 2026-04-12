@@ -14,6 +14,7 @@ const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<v
 // イベント情報取得 (視聴者向け)
 // ──────────────────────────────────────────────
 router.get('/events/:id', wrap(async (req, res) => {
+  console.log('[audience] GET /events/' + req.params.id);
   const channelId = req.query.ch as string | undefined;
 
   const row = await queryOne(
@@ -65,6 +66,7 @@ router.get('/events/:id', wrap(async (req, res) => {
 // セッション作成
 // ──────────────────────────────────────────────
 router.post('/events/:id/join', wrap(async (req, res) => {
+  console.log('[audience] POST /events/' + req.params.id + '/join');
   const event = await queryOne(
     'SELECT id, status, max_connections FROM interactive_events WHERE id = ? AND deleted_at IS NULL',
     [req.params.id]
