@@ -259,10 +259,23 @@ export default function EventEditorPage() {
                     .then(() => queryClient.invalidateQueries({ queryKey: ['interactive-event', id] }))} />
               </div>
 
-              <div className="pt-1 text-xs text-muted-foreground">
-                参加者URL: <code className="bg-muted px-1 py-0.5 rounded text-[11px] break-all">
+              <div className="pt-1 flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-muted-foreground">参加者URL:</span>
+                <code className="bg-muted px-1 py-0.5 rounded text-[11px] break-all flex-1 min-w-0">
                   {`${window.location.origin}/interactive/audience/${id}?ch=${ch.id}`}
                 </code>
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1 shrink-0"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/interactive/audience/${id}?ch=${ch.id}`);
+                    setCopied(ch.id); setTimeout(() => setCopied(null), 2000);
+                  }}>
+                  {copied === ch.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  {copied === ch.id ? 'コピー済' : 'コピー'}
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1 shrink-0"
+                  onClick={() => window.open(`/api/v1/internal/interactive/events/${id}/channels/${ch.id}/qr`, '_blank')}>
+                  <QrCode className="h-3 w-3" />QR
+                </Button>
               </div>
             </div>
           ))}

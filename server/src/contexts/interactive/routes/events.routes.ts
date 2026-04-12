@@ -183,6 +183,19 @@ router.get('/:id/qr', async (req, res) => {
   res.send(svg);
 });
 
+// チャンネル別QRコード
+router.get('/:id/channels/:channelId/qr', async (req, res) => {
+  const event = await queryOne('SELECT id FROM interactive_events WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+  if (!event) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
+
+  const clientUrl = process.env.CLIENT_URL || `${req.protocol}://${req.get('host')}`;
+  const audienceUrl = `${clientUrl}/interactive/audience/${req.params.id}?ch=${req.params.channelId}`;
+  const svg = await QRCode.toString(audienceUrl, { type: 'svg', margin: 1, color: { dark: '#1a2332', light: '#ffffff' } });
+
+  res.setHeader('Content-Type', 'image/svg+xml');
+  res.send(svg);
+});
+
 // イベント削除
 router.delete('/:id', requirePermission('interactive', 'manager'), async (req, res) => {
   await execute(

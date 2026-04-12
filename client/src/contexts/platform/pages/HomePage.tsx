@@ -48,7 +48,7 @@ function AppCard({ app, onClick, disabled: forceDisabled }: { app: BlockApp; onC
       onClick={isDisabled ? undefined : onClick}
       disabled={isDisabled}
       className={cn(
-        "group relative flex flex-col items-center gap-2 rounded-2xl border-2 p-5 text-center transition-all h-full",
+        "group relative flex flex-col items-center gap-2 rounded-2xl border-2 p-5 text-center transition-all h-full card-hover",
         isDisabled
           ? "cursor-default border-dashed border-muted bg-muted/30 opacity-60"
           : "border-transparent bg-card shadow-sm hover:shadow-md hover:-translate-y-1 hover:border-primary/20 active:scale-[0.98]"

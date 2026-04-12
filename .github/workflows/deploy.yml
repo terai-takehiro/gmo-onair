@@ -26,14 +26,9 @@ jobs:
             cd /opt/gmo-onair
             git fetch origin main
             git reset --hard origin/main
-            echo "=== VPS HEAD: $(git log --oneline -1) ==="
-            echo "=== Full rebuild ==="
-            docker compose down
-            docker compose build --no-cache 2>&1 | grep -E "client-qsheet|ERROR|error TS|DONE|built in" | head -20
+            docker compose down -v
+            docker compose build --no-cache
             docker compose up -d
-            sleep 8
-            echo "=== Dist check ==="
-            docker compose exec -T app cat /app/client-qsheet/dist/index.html
-            echo "=== Server ==="
-            docker compose logs --tail=3 app
-            echo "✅ v0.8.9 at $(date)"
+            sleep 10
+            docker compose logs --tail=5 app
+            echo "✅ Deploy v1.0.0 (DB reset) at $(date)"

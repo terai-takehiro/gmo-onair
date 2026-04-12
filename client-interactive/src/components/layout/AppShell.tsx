@@ -49,6 +49,9 @@ export function AppShell() {
       {/* Content */}
       <main>
         <Outlet />
+        <footer className="py-3 px-4 text-center text-xs text-muted-foreground/40 border-t mt-8">
+          © 2026 GMO Global Studio &middot; ONAiR v1.0.0
+        </footer>
       </main>
     </div>
   );
