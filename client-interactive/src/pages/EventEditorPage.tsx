@@ -298,13 +298,13 @@ export default function EventEditorPage() {
 
                   {/* Label */}
                   <Input
-                    className="flex-1 max-w-[160px] h-8 text-sm"
+                    className="flex-1 max-w-[120px] sm:max-w-[160px] h-8 text-sm"
                     defaultValue={stamp.label}
                     onBlur={e => { if (e.target.value !== stamp.label) updateStamp.mutate({ stampId: stamp.id, data: { label: e.target.value } }); }}
                   />
 
-                  {/* Color swatches */}
-                  <div className="flex gap-1">
+                  {/* Color swatches — hidden on small screens */}
+                  <div className="hidden sm:flex gap-1">
                     {PRESET_COLORS.map(c => (
                       <button
                         key={c}
