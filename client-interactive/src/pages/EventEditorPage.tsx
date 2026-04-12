@@ -67,8 +67,22 @@ export default function EventEditorPage() {
   const overlayUrl = `${window.location.origin}/interactive/overlay/${id}`;
   const qrUrl = `/api/v1/internal/interactive/events/${id}/qr`;
 
-  const handleCopy = (url: string, key: string) => {
-    navigator.clipboard.writeText(url);
+  const handleCopy = async (url: string, key: string) => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        // HTTP fallback
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+    } catch { /* ignore */ }
     setCopied(key);
     setTimeout(() => setCopied(null), 2000);
   };
@@ -265,10 +279,7 @@ export default function EventEditorPage() {
                   {`${window.location.origin}/interactive/audience/${id}?ch=${ch.id}`}
                 </code>
                 <Button size="sm" variant="outline" className="h-7 text-xs gap-1 shrink-0"
-                  onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/interactive/audience/${id}?ch=${ch.id}`);
-                    setCopied(ch.id); setTimeout(() => setCopied(null), 2000);
-                  }}>
+                  onClick={() => handleCopy(`${window.location.origin}/interactive/audience/${id}?ch=${ch.id}`, ch.id)}>
                   {copied === ch.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                   {copied === ch.id ? 'コピー済' : 'コピー'}
                 </Button>
