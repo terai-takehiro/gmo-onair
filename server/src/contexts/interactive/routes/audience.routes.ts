@@ -116,7 +116,7 @@ router.post('/events/:id/stamp', async (req, res) => {
   await execute(
     `INSERT INTO interactive_stamp_counts (id, stamp_id, event_id, count, bucket_at)
      VALUES (gen_random_uuid(), ?, ?, 1, ?)
-     ON CONFLICT ON CONSTRAINT interactive_stamp_counts_bucket_unique
+     ON CONFLICT (stamp_id, bucket_at)
      DO UPDATE SET count = interactive_stamp_counts.count + 1`,
     [stamp_id, req.params.id, bucketAt.toISOString()]
   );

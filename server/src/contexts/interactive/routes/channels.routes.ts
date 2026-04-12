@@ -5,7 +5,7 @@ import { requireAuth, requirePermission } from '../../../shared/middleware/auth'
 
 const router = Router();
 
-router.use(requireAuth);
+router.use(requireAuth, requirePermission('interactive'));
 
 // チャンネル一覧
 router.get('/events/:eventId/channels', async (req: Request, res: Response) => {
