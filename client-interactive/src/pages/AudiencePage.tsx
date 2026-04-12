@@ -35,7 +35,8 @@ interface MiniStamp {
 
 function getYoutubeEmbedId(url: string): string | null {
   if (!url) return null;
-  const m = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  // Supports: youtube.com/watch?v=XXX, youtu.be/XXX, youtube.com/live/XXX, youtube.com/embed/XXX
+  const m = url.match(/(?:v=|youtu\.be\/|\/live\/|\/embed\/)([A-Za-z0-9_-]{11})/);
   return m ? m[1] : null;
 }
 

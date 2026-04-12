@@ -222,53 +222,6 @@ export default function EventEditorPage() {
               />
             </div>
 
-            {/* YouTube URL */}
-            <div>
-              <label className="text-sm font-medium">YouTube URL</label>
-              <p className="text-xs text-muted-foreground">視聴者画面に埋め込み表示されます</p>
-              <Input
-                className="mt-1"
-                placeholder="https://www.youtube.com/watch?v=..."
-                defaultValue={eventData.youtube_url || ''}
-                onBlur={e => updateEvent.mutate({ youtube_url: e.target.value || null })}
-              />
-            </div>
-
-            {/* バナー画像URL */}
-            <div>
-              <label className="text-sm font-medium">バナー画像URL</label>
-              <p className="text-xs text-muted-foreground">YouTube未設定時に表示（任意）</p>
-              <Input
-                className="mt-1"
-                placeholder="https://..."
-                defaultValue={eventData.banner_url || ''}
-                onBlur={e => updateEvent.mutate({ banner_url: e.target.value || null })}
-              />
-            </div>
-
-            {/* 運営コメント */}
-            <div>
-              <label className="text-sm font-medium">運営コメント</label>
-              <p className="text-xs text-muted-foreground">視聴者画面に表示されるメッセージ</p>
-              <textarea
-                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[60px]"
-                defaultValue={eventData.admin_comment || ''}
-                onBlur={e => updateEvent.mutate({ admin_comment: e.target.value || null })}
-                placeholder="視聴者へのメッセージ（任意）"
-              />
-            </div>
-
-            {/* アンケートURL */}
-            <div>
-              <label className="text-sm font-medium">アンケートURL</label>
-              <Input
-                className="mt-1"
-                placeholder="https://forms.google.com/..."
-                defaultValue={eventData.survey_url || ''}
-                onBlur={e => updateEvent.mutate({ survey_url: e.target.value || null })}
-              />
-            </div>
-
             {/* 受付ON/OFF スイッチ */}
             <div className="flex items-center justify-between py-2">
               <div>
@@ -305,12 +258,13 @@ export default function EventEditorPage() {
         </button>
         {isOpen('channels') && (
           <CardContent className="pt-0 pb-4 px-4 space-y-4 accordion-content border-t">
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">チャンネルごとにYouTube・バナー・コメントを設定できます</p>
               <Button size="sm" variant="outline" onClick={() => {
                 api.post(`/interactive/events/${id}/channels`, { name: `チャンネル${(channels?.length || 0) + 1}` })
                   .then(() => queryClient.invalidateQueries({ queryKey: ['interactive-event', id] }));
               }}>
-                <Plus className="h-4 w-4 mr-1" />チャンネル追加
+                <Plus className="h-4 w-4 mr-1" />追加
               </Button>
             </div>
             {(!channels || channels.length === 0) && (
@@ -349,8 +303,8 @@ export default function EventEditorPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">YouTube URL</label>
-                  <Input className="mt-1 h-8 text-sm" placeholder="https://youtube.com/watch?v=..."
+                  <label className="text-xs font-medium text-muted-foreground">YouTube URL（視聴者画面に埋め込み表示）</label>
+                  <Input className="mt-1 h-8 text-sm" placeholder="https://www.youtube.com/watch?v=... or /live/..."
                     defaultValue={ch.youtube_url || ''}
                     onBlur={e => api.put(`/interactive/channels/${ch.id}`, { youtube_url: e.target.value || null })
                       .then(() => queryClient.invalidateQueries({ queryKey: ['interactive-event', id] }))} />
@@ -383,20 +337,28 @@ export default function EventEditorPage() {
                       .then(() => queryClient.invalidateQueries({ queryKey: ['interactive-event', id] }))} />
                 </div>
 
-                <div className="pt-1 flex items-center gap-2 flex-wrap">
-                  <span className="text-xs text-muted-foreground shrink-0">URL:</span>
-                  <code className="bg-muted px-1 py-0.5 rounded text-[10px] break-all flex-1 min-w-0">
-                    {`${window.location.origin}/interactive/audience/${id}?ch=${ch.id}`}
-                  </code>
-                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1 shrink-0"
-                    onClick={() => handleCopy(`${window.location.origin}/interactive/audience/${id}?ch=${ch.id}`, ch.id)}>
-                    {copied === ch.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                    {copied === ch.id ? 'コピー済' : 'コピー'}
-                  </Button>
-                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1 shrink-0"
-                    onClick={() => window.open(`/api/v1/internal/interactive/audience/events/${id}/channels/${ch.id}/qr`, '_blank')}>
-                    <QrCode className="h-3 w-3" />QR
-                  </Button>
+                <div className="pt-2 border-t space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-muted-foreground shrink-0">視聴者URL:</span>
+                    <code className="bg-muted px-1 py-0.5 rounded text-[10px] break-all flex-1 min-w-0">
+                      {`${window.location.origin}/interactive/audience/${id}?ch=${ch.id}`}
+                    </code>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
+                      onClick={() => handleCopy(`${window.location.origin}/interactive/audience/${id}?ch=${ch.id}`, ch.id)}>
+                      {copied === ch.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                      {copied === ch.id ? 'コピー済' : 'URLコピー'}
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
+                      onClick={() => window.open(`/api/v1/internal/interactive/audience/events/${id}/channels/${ch.id}/qr`, '_blank')}>
+                      <QrCode className="h-3 w-3" />QR
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
+                      onClick={() => window.open(`/interactive/audience/${id}?ch=${ch.id}`, '_blank', 'noopener,noreferrer')}>
+                      <Eye className="h-3 w-3" />プレビュー
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}
