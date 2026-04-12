@@ -25,9 +25,8 @@ jobs:
             cd /opt/gmo-onair
             git fetch origin main
             git reset --hard origin/main
-            docker compose down -v
-            docker compose build --no-cache
-            docker compose up -d
-            sleep 20
-            docker compose logs --tail=80 app
-            echo "Deploy with DB reset at $(date)"
+            docker compose build
+            docker compose up -d --force-recreate
+            sleep 15
+            docker compose logs --tail=30 app
+            echo "Deploy at $(date)"
