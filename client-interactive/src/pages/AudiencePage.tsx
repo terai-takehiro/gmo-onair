@@ -50,6 +50,7 @@ export default function AudiencePage() {
   const [answered, setAnswered] = useState(false);
   const [selectedChoice, setSelectedChoice] = useState<number | null>(null);
   const [questionResult, setQuestionResult] = useState<{ correctIndex?: number } | null>(null);
+  const [questionResults, setQuestionResults] = useState<{ total: number; choices: { index: number; count: number; percent: number }[]; displayMode: string } | null>(null);
   // UI state
   const [pressAnimations, setPressAnimations] = useState<Record<string, boolean>>({});
   const [miniStamps, setMiniStamps] = useState<MiniStamp[]>([]);
@@ -117,9 +118,21 @@ export default function AudiencePage() {
       setAnswered(false);
       setSelectedChoice(null);
       setQuestionResult(null);
+      setQuestionResults(null);
     });
 
-    socket.on('question:closed', (data: { questionId: string; correctIndex?: number }) => {
+    // 締切（回答受付終了）
+    socket.on('question:closed', () => {
+      // 回答受付終了のみ — 結果はまだ表示しない
+    });
+
+    // アンサーチェック / 集計結果（各選択肢の投票数）
+    socket.on('question:results', (data: { results: any; displayMode: string }) => {
+      setQuestionResults({ ...data.results, displayMode: data.displayMode });
+    });
+
+    // 正解発表（クイズのみ）
+    socket.on('question:reveal', (data: { correctIndex: number }) => {
       setQuestionResult({ correctIndex: data.correctIndex });
     });
 
@@ -320,75 +333,98 @@ export default function AudiencePage() {
 
       {/* ── Quiz bottom sheet ── */}
       {activeQuestion && (
-        <div className={`quiz-bottom-sheet ${answered && questionResult ? '' : ''}`}>
+        <div className="quiz-bottom-sheet">
           <div className="quiz-drag-handle" />
+          <div className="space-y-3 pb-2">
+            <p className="text-sm font-bold text-center">{activeQuestion.questionText}</p>
 
-          {/* If answered and result received, show compact result */}
-          {answered && questionResult ? (
-            <div className="space-y-3 pb-2">
-              <p className="text-sm font-bold text-center">{activeQuestion.questionText}</p>
-              <div className="space-y-1.5">
-                {activeQuestion.choices.map((choice, ci) => {
-                  const isSelected = selectedChoice === ci;
-                  const isCorrect = questionResult.correctIndex === ci;
-                  const isWrong = isSelected && questionResult.correctIndex !== ci;
+            <div className="space-y-2">
+              {activeQuestion.choices.map((choice, ci) => {
+                const isSelected = selectedChoice === ci;
+                const isCorrect = questionResult?.correctIndex === ci;
+                const isWrong = questionResult && isSelected && questionResult.correctIndex !== ci;
+                const resultData = questionResults?.choices?.find((c: any) => c.index === ci);
+
+                // 正解発表済み
+                if (questionResult) {
                   return (
-                    <div
-                      key={ci}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 text-sm ${
-                        isCorrect ? 'border-green-500 bg-green-50 text-green-800' :
-                        isWrong ? 'border-red-400 bg-red-50 text-red-700' :
-                        isSelected ? 'border-primary bg-primary/10' :
-                        'border-zinc-100 text-zinc-400'
-                      }`}
-                    >
+                    <div key={ci} className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 text-sm transition-all ${
+                      isCorrect ? 'border-green-500 bg-green-50 text-green-800' :
+                      isWrong ? 'border-red-400 bg-red-50 text-red-700' :
+                      'border-zinc-100 text-zinc-400'
+                    }`}>
                       <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                        isCorrect ? 'bg-green-500 text-white' :
-                        isWrong ? 'bg-red-400 text-white' :
-                        isSelected ? 'bg-primary text-white' :
-                        'bg-zinc-100'
+                        isCorrect ? 'bg-green-500 text-white' : isWrong ? 'bg-red-400 text-white' : 'bg-zinc-100'
                       }`}>
                         {isCorrect ? <Check className="h-3 w-3" /> : String.fromCharCode(65 + ci)}
                       </span>
                       <span className="flex-1">{choice}</span>
+                      {resultData && (
+                        <span className="text-xs font-bold tabular-nums">
+                          {questionResults?.displayMode === 'count' ? `${resultData.count}票` : `${resultData.percent}%`}
+                        </span>
+                      )}
                     </div>
                   );
-                })}
-              </div>
-              <p className="text-center text-xs font-bold text-green-600">集計が終了しました</p>
-            </div>
-          ) : (
-            /* Active question — answering phase */
-            <div className="space-y-3 pb-2">
-              <p className="text-sm font-bold text-center">{activeQuestion.questionText}</p>
-              <div className="space-y-2">
-                {activeQuestion.choices.map((choice, ci) => {
-                  const isSelected = selectedChoice === ci;
+                }
+
+                // 集計結果表示（正解未発表）
+                if (questionResults) {
+                  const maxCount = Math.max(...(questionResults.choices?.map((c: any) => c.count) || [1]), 1);
+                  const barPct = resultData ? Math.round((resultData.count / maxCount) * 100) : 0;
                   return (
-                    <button
-                      key={ci}
-                      onClick={() => handleAnswer(ci)}
-                      disabled={answered}
-                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl border-2 text-left text-sm font-medium transition-all ${
-                        isSelected ? 'border-primary bg-primary/10 text-primary' :
-                        'border-zinc-200 hover:border-primary/40 active:scale-[0.98]'
-                      }`}
-                    >
-                      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                    <div key={ci} className={`relative flex items-center gap-2 px-3 py-2 rounded-xl border-2 text-sm overflow-hidden ${
+                      isSelected ? 'border-primary' : 'border-zinc-200'
+                    }`}>
+                      <div className="absolute inset-y-0 left-0 bg-primary/10 transition-all duration-700" style={{ width: `${barPct}%` }} />
+                      <span className={`relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
                         isSelected ? 'bg-primary text-white' : 'bg-zinc-100'
                       }`}>
                         {String.fromCharCode(65 + ci)}
                       </span>
-                      <span className="flex-1">{choice}</span>
-                    </button>
+                      <span className="relative flex-1">{choice}</span>
+                      <span className="relative text-xs font-bold tabular-nums">
+                        {questionResults.displayMode === 'count' ? `${resultData?.count || 0}票` : `${resultData?.percent || 0}%`}
+                      </span>
+                    </div>
                   );
-                })}
-              </div>
-              {answered && !questionResult && (
-                <p className="text-center text-xs text-[var(--text-muted)]">回答済み — 結果をお待ちください</p>
-              )}
+                }
+
+                // 回答フェーズ
+                return (
+                  <button
+                    key={ci}
+                    onClick={() => handleAnswer(ci)}
+                    disabled={answered}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl border-2 text-left text-sm font-medium transition-all ${
+                      isSelected ? 'border-primary bg-primary/10 text-primary' :
+                      'border-zinc-200 hover:border-primary/40 active:scale-[0.98]'
+                    }`}
+                  >
+                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                      isSelected ? 'bg-primary text-white' : 'bg-zinc-100'
+                    }`}>
+                      {String.fromCharCode(65 + ci)}
+                    </span>
+                    <span className="flex-1">{choice}</span>
+                  </button>
+                );
+              })}
             </div>
-          )}
+
+            {/* ステータスメッセージ */}
+            {answered && !questionResults && !questionResult && (
+              <p className="text-center text-xs text-[var(--text-muted)]">回答済み — 結果をお待ちください</p>
+            )}
+            {questionResult && (
+              <p className="text-center text-xs font-bold text-green-600">
+                {selectedChoice === questionResult.correctIndex ? '🎉 正解！' : '😢 不正解...'}
+              </p>
+            )}
+            {questionResults && !questionResult && (
+              <p className="text-center text-xs font-semibold text-primary">集計結果</p>
+            )}
+          </div>
         </div>
       )}
 

@@ -61,9 +61,7 @@ router.post('/questions/:id/activate', requireAuth, requirePermission('interacti
   const q = await queryOne('SELECT event_id, status FROM interactive_questions WHERE id = ?', [req.params.id]) as any;
   if (!q) throw new AppError(404, 'NOT_FOUND', '問題が見つかりません');
 
-  // 他のactiveな問題をcloseする
   await execute(`UPDATE interactive_questions SET status = 'closed', closed_at = NOW() WHERE event_id = ? AND status = 'active'`, [q.event_id]);
-  // 再出題の場合、前回の回答をクリアして再度受付可能にする
   if (q.status === 'closed') {
     await execute('DELETE FROM interactive_answers WHERE question_id = ?', [req.params.id]);
   }
@@ -77,15 +75,50 @@ router.post('/questions/:id/activate', requireAuth, requirePermission('interacti
   res.json({ success: true });
 }));
 
+// 締切（回答受付終了のみ — 結果はまだ非公開）
 router.post('/questions/:id/close', requireAuth, requirePermission('interactive'), wrap(async (req, res) => {
-  const q = await queryOne('SELECT event_id, correct_index FROM interactive_questions WHERE id = ?', [req.params.id]) as any;
+  const q = await queryOne('SELECT event_id FROM interactive_questions WHERE id = ?', [req.params.id]) as any;
   if (!q) throw new AppError(404, 'NOT_FOUND', '問題が見つかりません');
 
   await execute(`UPDATE interactive_questions SET status = 'closed', closed_at = NOW() WHERE id = ?`, [req.params.id]);
 
   const io = (req as any).app?.get('io');
   if (io) {
-    io.of('/interactive').to(`event:${q.event_id}`).emit('question:closed', { questionId: req.params.id, correctIndex: q.correct_index });
+    io.of('/interactive').to(`event:${q.event_id}`).emit('question:closed', { questionId: req.params.id });
+  }
+  res.json({ success: true });
+}));
+
+// アンサーチェック / 集計結果発表（各選択肢の投票数を視聴者に表示）
+router.post('/questions/:id/show-results', requireAuth, requirePermission('interactive'), wrap(async (req, res) => {
+  const q = await queryOne('SELECT event_id, type FROM interactive_questions WHERE id = ?', [req.params.id]) as any;
+  if (!q) throw new AppError(404, 'NOT_FOUND', '問題が見つかりません');
+
+  const { display_mode } = req.body; // 'percent' | 'count'
+  const results = await getResults(String(req.params.id));
+
+  const io = (req as any).app?.get('io');
+  if (io) {
+    io.of('/interactive').to(`event:${q.event_id}`).emit('question:results', {
+      questionId: req.params.id,
+      results,
+      displayMode: display_mode || 'percent',
+    });
+  }
+  res.json({ success: true, data: results });
+}));
+
+// 正解発表（クイズのみ — 正解インデックスを視聴者に送信）
+router.post('/questions/:id/reveal', requireAuth, requirePermission('interactive'), wrap(async (req, res) => {
+  const q = await queryOne('SELECT event_id, correct_index FROM interactive_questions WHERE id = ?', [req.params.id]) as any;
+  if (!q) throw new AppError(404, 'NOT_FOUND', '問題が見つかりません');
+
+  const io = (req as any).app?.get('io');
+  if (io) {
+    io.of('/interactive').to(`event:${q.event_id}`).emit('question:reveal', {
+      questionId: req.params.id,
+      correctIndex: q.correct_index,
+    });
   }
   res.json({ success: true });
 }));
