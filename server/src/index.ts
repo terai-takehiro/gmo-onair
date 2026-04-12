@@ -10,8 +10,11 @@ import { initQsheetSocketIO } from './contexts/qsheet/socket';
 
 async function main() {
   await initDb();
+  console.log('[startup] DB connected');
   await runMigrations();
+  console.log('[startup] Migrations complete');
   await seed();
+  console.log('[startup] Seed complete');
   await seedSubApps().catch((err) => {
     console.warn('[seed-subapps] warn:', err?.message ?? err);
     if (err?.stack) console.warn('[seed-subapps] stack:', err.stack);

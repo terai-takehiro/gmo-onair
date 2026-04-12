@@ -69,7 +69,7 @@ router.post('/events/:id/join', async (req, res) => {
 
   // 同時接続数チェック
   const activeCount = ((await queryOne(
-    'SELECT COUNT(*) as c FROM interactive_sessions WHERE event_id = ? AND disconnected_at IS NULL',
+    'SELECT COUNT(*)::int as c FROM interactive_sessions WHERE event_id = ? AND disconnected_at IS NULL',
     [eventId]
   )) as any).c;
   if (activeCount >= event.max_connections) {

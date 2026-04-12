@@ -17,6 +17,7 @@ function sanitizeSearch(s: string): string {
 
 // イベント一覧
 router.get('/', async (req, res) => {
+  console.log('[interactive/events] GET / — user:', req.user?.id, 'role:', req.user?.role, 'permissions:', JSON.stringify(req.user?.permissions));
   const { page, limit, offset, search } = extractPagination(req);
   let where = 'WHERE deleted_at IS NULL';
   const params: unknown[] = [];
@@ -33,11 +34,11 @@ router.get('/', async (req, res) => {
     params.push(status);
   }
 
-  const total = ((await queryOne(`SELECT COUNT(*) as c FROM interactive_events ${where}`, params)) as any).c;
+  const total = Number(((await queryOne(`SELECT COUNT(*)::int as c FROM interactive_events ${where}`, params)) as any)?.c || 0);
   const rows = await queryAll(
     `SELECT e.*, p.name as project_name, p.gls_number, ep.episode_code,
-     (SELECT COUNT(*) FROM interactive_stamps WHERE event_id = e.id) as stamp_count,
-     (SELECT COUNT(*) FROM interactive_sessions WHERE event_id = e.id AND disconnected_at IS NULL) as active_connections
+     (SELECT COUNT(*)::int FROM interactive_stamps WHERE event_id = e.id) as stamp_count,
+     (SELECT COUNT(*)::int FROM interactive_sessions WHERE event_id = e.id AND disconnected_at IS NULL) as active_connections
      FROM interactive_events e
      LEFT JOIN projects p ON p.id = e.project_id
      LEFT JOIN episodes ep ON ep.id = e.episode_id
@@ -234,7 +235,7 @@ router.get('/:id/stats', async (req, res) => {
 
   // 接続数
   const sessionCount = await queryOne(
-    `SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE disconnected_at IS NULL) as active
+    `SELECT COUNT(*)::int as total, COUNT(*)::int FILTER (WHERE disconnected_at IS NULL) as active
      FROM interactive_sessions WHERE event_id = ?`,
     [eventId]
   ) as any;

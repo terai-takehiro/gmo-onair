@@ -25,7 +25,7 @@ router.post('/', requirePermission('interactive', 'editor'), async (req, res) =>
   if (!event) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
 
   // 最大20スタンプ/イベント
-  const countRow = await queryOne('SELECT COUNT(*) as c FROM interactive_stamps WHERE event_id = ?', [event_id]) as any;
+  const countRow = await queryOne('SELECT COUNT(*)::int as c FROM interactive_stamps WHERE event_id = ?', [event_id]) as any;
   if (countRow.c >= 20) throw new AppError(400, 'LIMIT_EXCEEDED', 'スタンプは最大20個です');
 
   const id = uuidv4();
