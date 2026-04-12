@@ -83,6 +83,11 @@ export default function EventEditorPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['interactive-event', id] }),
   });
 
+  const reuseEvent = useMutation({
+    mutationFn: () => api.post(`/interactive/events/${id}/reuse`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['interactive-event', id] }),
+  });
+
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">読み込み中...</div>;
   if (!eventData) return <div className="p-8 text-center text-muted-foreground">イベントが見つかりません</div>;
 
@@ -165,6 +170,11 @@ export default function EventEditorPage() {
           {eventData.status === 'rehearsal' && (
             <Button size="sm" variant="outline" onClick={() => { if (confirm('リハーサルデータをリセットして下書きに戻しますか？')) resetRehearsal.mutate(); }}>
               リセット
+            </Button>
+          )}
+          {eventData.status === 'ended' && (
+            <Button size="sm" variant="outline" onClick={() => { if (confirm('統計をリセットして再利用しますか？スタンプ数・参加者・クイズ回答は全てクリアされます。')) reuseEvent.mutate(); }}>
+              再利用
             </Button>
           )}
         </div>

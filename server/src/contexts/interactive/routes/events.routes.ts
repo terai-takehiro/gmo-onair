@@ -218,6 +218,28 @@ router.post('/:id/stop', wrap(async (req, res) => {
 }));
 
 // ──────────────────────────────────────────────
+// 再利用 (ended → draft, 統計リセット)
+// ──────────────────────────────────────────────
+router.post('/:id/reuse', wrap(async (req, res) => {
+  const eventId = req.params.id;
+  // 統計クリア
+  await execute('DELETE FROM interactive_stamp_counts WHERE event_id = ?', [eventId]);
+  await execute('DELETE FROM interactive_sessions WHERE event_id = ?', [eventId]);
+  // クイズ回答クリア + 問題をdraftに戻す
+  const qs = await queryAll('SELECT id FROM interactive_questions WHERE event_id = ?', [eventId]);
+  for (const q of qs) {
+    await execute('DELETE FROM interactive_answers WHERE question_id = ?', [q.id]);
+    await execute(`UPDATE interactive_questions SET status = 'draft', activated_at = NULL, closed_at = NULL WHERE id = ?`, [q.id]);
+  }
+  // イベントをdraftに戻す
+  await execute(
+    `UPDATE interactive_events SET status = 'draft', accepting = false, started_at = NULL, ended_at = NULL, updated_at = NOW() WHERE id = ?`,
+    [eventId]
+  );
+  res.json({ success: true, message: 'イベントを再利用可能にしました' });
+}));
+
+// ──────────────────────────────────────────────
 // イベント削除 (soft delete)
 // ──────────────────────────────────────────────
 router.delete('/:id', wrap(async (req, res) => {
