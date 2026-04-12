@@ -211,6 +211,54 @@ export default function EventEditorPage() {
                 min={1} max={10000}
               />
             </div>
+
+            {/* YouTube URL */}
+            <div>
+              <label className="text-sm font-medium">YouTube URL</label>
+              <p className="text-xs text-muted-foreground">視聴者画面に埋め込み表示されます</p>
+              <Input
+                className="mt-1"
+                placeholder="https://www.youtube.com/watch?v=..."
+                defaultValue={eventData.youtube_url || ''}
+                onBlur={e => updateEvent.mutate({ youtube_url: e.target.value || null })}
+              />
+            </div>
+
+            {/* バナー画像URL */}
+            <div>
+              <label className="text-sm font-medium">バナー画像URL</label>
+              <p className="text-xs text-muted-foreground">YouTube未設定時に表示（任意）</p>
+              <Input
+                className="mt-1"
+                placeholder="https://..."
+                defaultValue={eventData.banner_url || ''}
+                onBlur={e => updateEvent.mutate({ banner_url: e.target.value || null })}
+              />
+            </div>
+
+            {/* 運営コメント */}
+            <div>
+              <label className="text-sm font-medium">運営コメント</label>
+              <p className="text-xs text-muted-foreground">視聴者画面に表示されるメッセージ</p>
+              <textarea
+                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[60px]"
+                defaultValue={eventData.admin_comment || ''}
+                onBlur={e => updateEvent.mutate({ admin_comment: e.target.value || null })}
+                placeholder="視聴者へのメッセージ（任意）"
+              />
+            </div>
+
+            {/* アンケートURL */}
+            <div>
+              <label className="text-sm font-medium">アンケートURL</label>
+              <Input
+                className="mt-1"
+                placeholder="https://forms.google.com/..."
+                defaultValue={eventData.survey_url || ''}
+                onBlur={e => updateEvent.mutate({ survey_url: e.target.value || null })}
+              />
+            </div>
+
             {/* 受付ON/OFF スイッチ */}
             <div className="flex items-center justify-between py-2">
               <div>
