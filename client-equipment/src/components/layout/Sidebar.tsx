@@ -1,12 +1,18 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/uiStore";
+import { useAuth } from "@/hooks/useAuth";
+import { getAccessibleApps } from "@gmo-onair/shared/src/client/appNav";
 import {
   BarChart3, Package, ClipboardList, Wrench, ClipboardCheck,
   QrCode, FolderOpen, MapPin,
-  Home, FileText, Sparkles,
+  Home, FileText, Sparkles, Briefcase,
   X, ChevronLeft,
 } from "lucide-react";
+
+const ICON_MAP: Record<string, React.ElementType> = {
+  Home, Briefcase, FileText, Package, Sparkles, Wrench,
+};
 
 const navItems = [
   { label: "ダッシュボード", path: "/equipment", icon: BarChart3 },
@@ -19,17 +25,13 @@ const navItems = [
   { label: "保管場所管理", path: "/equipment/locations", icon: MapPin },
 ];
 
-const appShortcuts = [
-  { path: "/", icon: Home, label: "ホーム" },
-  { path: "/qsheet", icon: FileText, label: "Qシート" },
-  { path: "/interactive", icon: Sparkles, label: "インタラクティブ" },
-  { path: "/techsheet", icon: Wrench, label: "技術資料" },
-];
-
 export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { sidebarOpen, setSidebarOpen } = useUiStore();
+  const { currentUser } = useAuth();
+
+  const otherApps = getAccessibleApps('equipment', currentUser?.role, currentUser?.permissions);
 
   return (
     <>
@@ -72,17 +74,21 @@ export default function Sidebar() {
           })}
         </nav>
 
-        <div className="border-t p-3 space-y-1">
-          <p className="px-3 mb-1 text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">他のアプリ</p>
-          {appShortcuts.map((app) => (
-            <a key={app.path} href={app.path}
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
-              <app.icon className="h-4 w-4 shrink-0" />
-              {app.label}
-            </a>
-          ))}
-          <p className="text-center text-xs text-muted-foreground/40 pt-2">v0.9.3</p>
-        </div>
+        {otherApps.length > 0 && (
+          <div className="border-t p-3 space-y-1">
+            <p className="px-3 mb-1 text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">他のアプリ</p>
+            {otherApps.map((app) => {
+              const Icon = ICON_MAP[app.icon] || Package;
+              return (
+                <a key={app.key} href={app.path}
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {app.label}
+                </a>
+              );
+            })}
+          </div>
+        )}
       </aside>
     </>
   );

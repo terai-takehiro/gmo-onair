@@ -8,6 +8,7 @@ interface User {
   name: string;
   email: string;
   role: string;
+  permissions?: Record<string, string>; // module -> access_level
 }
 
 export interface AuthHookConfig {

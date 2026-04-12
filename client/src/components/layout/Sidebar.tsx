@@ -228,10 +228,10 @@ export default function Sidebar() {
         <div className="border-t p-3 space-y-1">
           <p className="px-3 mb-1 text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">他のアプリ</p>
           {[
-            { path: "/qsheet", label: "Qシート", Icon: FileText },
-            { path: "/equipment", label: "機材管理", Icon: Package },
-            { path: "/interactive", label: "インタラクティブ", Icon: Sparkles },
-            { path: "/techsheet", label: "技術資料", Icon: BookOpen },
+            { path: "/qsheet", label: "Qシート", Icon: FileText, module: "qsheet" },
+            { path: "/equipment", label: "機材管理", Icon: Package, module: "equipment" },
+            { path: "/interactive", label: "インタラクティブ", Icon: Sparkles, module: "interactive" },
+            { path: "/techsheet", label: "技術資料", Icon: BookOpen, module: "techsheet" },
           ].map((app) => (
             <a
               key={app.path}
@@ -249,7 +249,6 @@ export default function Sidebar() {
             <Home className="h-4 w-4" />
             ホームに戻る
           </button>
-          <p className="text-center text-xs text-muted-foreground/50">v0.8.2</p>
         </div>
       </aside>
     </>
