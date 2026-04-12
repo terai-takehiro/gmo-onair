@@ -7,25 +7,55 @@ const router = Router();
 
 // 注意: 視聴者APIは認証不要（QRコードからアクセス）
 
-// イベント情報取得 (視聴者向け)
+// イベント情報取得 (視聴者向け — チャンネル対応)
 router.get('/events/:id', async (req, res) => {
+  const channelId = req.query.ch as string | undefined;
+
   const row = await queryOne(
-    `SELECT id, title, description, status, config, youtube_url, banner_url, admin_comment
+    `SELECT id, title, description, status, config, accepting, youtube_url, banner_url, admin_comment
      FROM interactive_events WHERE id = ? AND deleted_at IS NULL`,
     [req.params.id]
   ) as any;
   if (!row) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
-  // ended events: allow view but mark as ended (don't block)
   if (row.status === 'archived') {
     throw new AppError(403, 'EVENT_ARCHIVED', 'このイベントはアーカイブされています');
   }
+
+  // チャンネル取得 (指定 or デフォルト)
+  let channel: any = null;
+  try {
+    if (channelId) {
+      channel = await queryOne(
+        'SELECT * FROM interactive_channels WHERE id = ? AND event_id = ? AND is_active = true',
+        [channelId, req.params.id]
+      );
+    }
+    if (!channel) {
+      channel = await queryOne(
+        'SELECT * FROM interactive_channels WHERE event_id = ? AND is_active = true ORDER BY sort_order LIMIT 1',
+        [req.params.id]
+      );
+    }
+  } catch { /* channels table may not exist yet */ }
 
   const stamps = await queryAll(
     'SELECT id, label, emoji, color, animation, sort_order, image_url FROM interactive_stamps WHERE event_id = ? AND is_active = true ORDER BY sort_order',
     [req.params.id]
   );
 
-  res.json({ success: true, data: { ...row, stamps } });
+  res.json({
+    success: true,
+    data: {
+      ...row,
+      // チャンネルがあればチャンネルの値を優先
+      youtube_url: channel?.youtube_url || row.youtube_url || null,
+      banner_url: channel?.banner_url || row.banner_url || null,
+      admin_comment: channel?.admin_comment || row.admin_comment || null,
+      survey_url: channel?.survey_url || null,
+      channel: channel ? { id: channel.id, name: channel.name, language_code: channel.language_code } : null,
+      stamps,
+    },
+  });
 });
 
 // セッション作成 (視聴者が接続)

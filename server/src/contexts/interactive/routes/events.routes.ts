@@ -67,6 +67,15 @@ router.get('/:id', async (req, res) => {
   );
   row.stamps = stamps;
 
+  // チャンネル一覧を付与
+  try {
+    const channels = await queryAll(
+      'SELECT * FROM interactive_channels WHERE event_id = ? ORDER BY sort_order, created_at',
+      [req.params.id]
+    );
+    row.channels = channels;
+  } catch { row.channels = []; }
+
   res.json({ success: true, data: row });
 });
 
@@ -87,6 +96,12 @@ router.post('/', requirePermission('interactive', 'editor'), async (req, res) =>
     [id, safeTitle, description || null, project_id || null, episode_id || null, JSON.stringify(config || {}), safeMaxConn, req.user!.id]
   );
 
+  // Auto-create default channel
+  await execute(
+    `INSERT INTO interactive_channels (id, event_id, name, language_code, sort_order) VALUES (?, ?, 'メイン', 'ja', 0)`,
+    [uuidv4(), id]
+  ).catch(() => { /* channel table may not exist yet */ });
+
   const row = await queryOne('SELECT * FROM interactive_events WHERE id = ?', [id]);
   res.status(201).json({ success: true, data: row });
 });
@@ -96,14 +111,15 @@ router.put('/:id', requirePermission('interactive', 'editor'), async (req, res) 
   const existing = await queryOne('SELECT * FROM interactive_events WHERE id = ? AND deleted_at IS NULL', [req.params.id]) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
 
-  const { title, description, project_id, episode_id, config, max_connections, status, youtube_url, banner_url, admin_comment } = req.body;
+  const { title, description, project_id, episode_id, config, max_connections, status, youtube_url, banner_url, admin_comment, accepting } = req.body;
 
   const safeTitle = title ? String(title).slice(0, 500) : existing.title;
   const safeStatus = status && VALID_STATUSES.includes(status) ? status : existing.status;
   const safeMaxConn = max_connections ? Math.min(Math.max(Number(max_connections), 1), 10000) : existing.max_connections;
+  const safeAccepting = accepting !== undefined ? !!accepting : existing.accepting;
 
   await execute(
-    `UPDATE interactive_events SET title=?, description=?, project_id=?, episode_id=?, config=?, max_connections=?, status=?, youtube_url=?, banner_url=?, admin_comment=?, updated_by=?, updated_at=NOW() WHERE id=?`,
+    `UPDATE interactive_events SET title=?, description=?, project_id=?, episode_id=?, config=?, max_connections=?, status=?, youtube_url=?, banner_url=?, admin_comment=?, accepting=?, updated_by=?, updated_at=NOW() WHERE id=?`,
     [
       safeTitle,
       description !== undefined ? description : existing.description,
@@ -115,6 +131,7 @@ router.put('/:id', requirePermission('interactive', 'editor'), async (req, res) 
       youtube_url !== undefined ? (youtube_url || null) : existing.youtube_url,
       banner_url !== undefined ? (banner_url || null) : existing.banner_url,
       admin_comment !== undefined ? (admin_comment || null) : existing.admin_comment,
+      safeAccepting,
       req.user!.id,
       req.params.id,
     ]
