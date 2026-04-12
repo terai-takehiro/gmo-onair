@@ -22,6 +22,7 @@ export default function QuizManagerPage() {
   const [newChoices, setNewChoices] = useState(['', '', '', '']);
   const [newCorrect, setNewCorrect] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'quiz' | 'survey'>('quiz');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { data: questions, isLoading } = useQuery({
@@ -92,6 +93,27 @@ export default function QuizManagerPage() {
     e.target.value = '';
   };
 
+  const downloadTemplate = () => {
+    const csv = [
+      'type,question,choice1,choice2,choice3,choice4,correct_index',
+      'quiz,日本の首都は？,東京,大阪,京都,名古屋,0',
+      'quiz,1+1=？,1,2,3,4,1',
+      'survey,今日の調子は？,とても良い,良い,普通,悪い,',
+    ].join('\n');
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'quiz_template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const quizQuestions = questions?.filter((q: any) => q.type === 'quiz') || [];
+  const surveyQuestions = questions?.filter((q: any) => q.type === 'survey') || [];
+  const filteredQuestions = activeTab === 'quiz' ? quizQuestions : surveyQuestions;
+
   return (
     <div className="max-w-4xl mx-auto px-3 sm:p-4 py-4 space-y-4 sm:space-y-6 pb-12">
       {/* Header */}
@@ -104,6 +126,9 @@ export default function QuizManagerPage() {
           <p className="text-sm text-muted-foreground">{questions?.length || 0}問</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={downloadTemplate} title="CSVテンプレート">
+            <Download className="h-4 w-4 mr-1" />テンプレ
+          </Button>
           <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
             <Upload className="h-4 w-4 mr-1" />CSV
           </Button>
@@ -112,6 +137,26 @@ export default function QuizManagerPage() {
             <Plus className="h-4 w-4 mr-1" />追加
           </Button>
         </div>
+      </div>
+
+      {/* タブ: クイズ / アンケート */}
+      <div className="flex gap-1 border-b">
+        <button
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'quiz' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+          onClick={() => setActiveTab('quiz')}
+        >
+          クイズ ({quizQuestions.length})
+        </button>
+        <button
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'survey' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+          onClick={() => setActiveTab('survey')}
+        >
+          アンケート ({surveyQuestions.length})
+        </button>
       </div>
 
       {/* Create form */}
@@ -161,18 +206,18 @@ export default function QuizManagerPage() {
         </Card>
       )}
 
-      {/* Question list */}
+      {/* Question list (filtered by tab) */}
       {isLoading ? (
         <div className="text-center py-12 text-muted-foreground">読み込み中...</div>
-      ) : questions?.length === 0 ? (
+      ) : filteredQuestions.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <BarChart3 className="h-12 w-12 mx-auto mb-3 opacity-30" />
-          <p>問題がありません</p>
-          <p className="text-xs mt-1">「追加」または「CSV」から問題を登録してください</p>
+          <p>{activeTab === 'quiz' ? 'クイズ' : 'アンケート'}がありません</p>
+          <p className="text-xs mt-1">「追加」または「CSV」から登録してください</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {questions?.map((q: any, idx: number) => {
+          {filteredQuestions.map((q: any, idx: number) => {
             const texts = q.texts || [];
             const jaText = texts.find((t: any) => t.language_code === 'ja') || texts[0];
             const choices = typeof jaText?.choices === 'string' ? JSON.parse(jaText.choices) : (jaText?.choices || []);
