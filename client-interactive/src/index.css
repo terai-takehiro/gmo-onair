@@ -585,9 +585,46 @@
 }
 .animate-slide-up { animation: slide-up-in 0.5s ease-out both; }
 
-/* Overlay transparent (OBS) */
+/* ══════════════════════════════════════════
+   OBS Overlay — floating stamp animations
+   ══════════════════════════════════════════ */
+
 .overlay-transparent {
   background: transparent !important;
+}
+
+/* Rising stamp with wobble */
+.overlay-float {
+  position: absolute;
+  bottom: -10%;
+  animation: overlayRise linear forwards;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+@keyframes overlayRise {
+  0% {
+    transform: translateY(0) translateX(0) scale(0.5) rotate(0deg);
+    opacity: 0;
+  }
+  5% {
+    opacity: 1;
+    transform: translateY(-5vh) translateX(0) scale(1) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-25vh) translateX(calc(var(--wobble-amp, 20px) * 1)) scale(1) rotate(5deg);
+  }
+  50% {
+    transform: translateY(-50vh) translateX(calc(var(--wobble-amp, 20px) * -0.7)) scale(0.95) rotate(-3deg);
+  }
+  75% {
+    transform: translateY(-75vh) translateX(calc(var(--wobble-amp, 20px) * 0.5)) scale(0.85) rotate(2deg);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(-110vh) translateX(calc(var(--wobble-amp, 20px) * -0.3)) scale(0.6) rotate(-1deg);
+    opacity: 0;
+  }
 }
 
 @keyframes switcher-in {
