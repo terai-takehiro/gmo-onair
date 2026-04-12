@@ -75,7 +75,7 @@ export default function EventEditorPage() {
 
   const audienceUrl = `${window.location.origin}/interactive/audience/${id}`;
   const overlayUrl = `${window.location.origin}/interactive/overlay/${id}`;
-  const qrUrl = `/api/v1/internal/interactive/events/${id}/qr`;
+  const qrUrl = `/api/v1/internal/interactive/audience/events/${id}/qr`;
 
   const handleCopy = async (url: string, key: string) => {
     try {
@@ -313,7 +313,7 @@ export default function EventEditorPage() {
                     {copied === ch.id ? 'コピー済' : 'コピー'}
                   </Button>
                   <Button size="sm" variant="outline" className="h-7 text-xs gap-1 shrink-0"
-                    onClick={() => window.open(`/api/v1/internal/interactive/events/${id}/channels/${ch.id}/qr`, '_blank')}>
+                    onClick={() => window.open(`/api/v1/internal/interactive/audience/events/${id}/channels/${ch.id}/qr`, '_blank')}>
                     <QrCode className="h-3 w-3" />QR
                   </Button>
                 </div>

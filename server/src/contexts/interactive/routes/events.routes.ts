@@ -1,6 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import QRCode from 'qrcode';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
@@ -203,25 +202,6 @@ router.get('/:id/stats', wrap(async (req, res) => {
   ) as any;
 
   res.json({ success: true, data: { stamps, sessions: sessions || { total: 0, active: 0 } } });
-}));
-
-// ──────────────────────────────────────────────
-// QRコード
-// ──────────────────────────────────────────────
-router.get('/:id/qr', wrap(async (req, res) => {
-  const clientUrl = process.env.CLIENT_URL || `${req.protocol}://${req.get('host')}`;
-  const url = `${clientUrl}/interactive/audience/${req.params.id}`;
-  const svg = await QRCode.toString(url, { type: 'svg', margin: 1 });
-  res.setHeader('Content-Type', 'image/svg+xml');
-  res.send(svg);
-}));
-
-router.get('/:id/channels/:channelId/qr', wrap(async (req, res) => {
-  const clientUrl = process.env.CLIENT_URL || `${req.protocol}://${req.get('host')}`;
-  const url = `${clientUrl}/interactive/audience/${req.params.id}?ch=${req.params.channelId}`;
-  const svg = await QRCode.toString(url, { type: 'svg', margin: 1 });
-  res.setHeader('Content-Type', 'image/svg+xml');
-  res.send(svg);
 }));
 
 export default router;

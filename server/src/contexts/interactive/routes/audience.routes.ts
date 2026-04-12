@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
+import QRCode from 'qrcode';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 
@@ -99,6 +100,27 @@ router.post('/events/:id/stamp', wrap(async (req, res) => {
   );
 
   res.json({ success: true });
+}));
+
+// ──────────────────────────────────────────────
+// QRコード (認証不要 — imgタグで直接表示)
+// ──────────────────────────────────────────────
+router.get('/events/:id/qr', wrap(async (req, res) => {
+  const clientUrl = process.env.CLIENT_URL || `${req.protocol}://${req.get('host')}`;
+  const url = `${clientUrl}/interactive/audience/${req.params.id}`;
+  const svg = await QRCode.toString(url, { type: 'svg', margin: 1 });
+  res.setHeader('Content-Type', 'image/svg+xml');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.send(svg);
+}));
+
+router.get('/events/:id/channels/:channelId/qr', wrap(async (req, res) => {
+  const clientUrl = process.env.CLIENT_URL || `${req.protocol}://${req.get('host')}`;
+  const url = `${clientUrl}/interactive/audience/${req.params.id}?ch=${req.params.channelId}`;
+  const svg = await QRCode.toString(url, { type: 'svg', margin: 1 });
+  res.setHeader('Content-Type', 'image/svg+xml');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.send(svg);
 }));
 
 export default router;
