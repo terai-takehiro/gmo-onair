@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
-import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
+import { requireAuth, requirePermission, requireRole } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 
 const router = Router();
@@ -29,8 +29,11 @@ router.get('/locations', async (_req, res) => {
   res.json({ success: true, data: result });
 });
 
+// ロケーション・部屋の追加/更新/削除は system_admin 専用
+const adminOnly = requireRole('system_admin');
+
 // POST /studios/locations — ロケーション追加
-router.post('/locations', requirePermission('studio', 'editor'), async (req, res) => {
+router.post('/locations', adminOnly, async (req, res) => {
   const { name, sort_order } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', '名前は必須です');
   const id = uuidv4();
@@ -39,8 +42,25 @@ router.post('/locations', requirePermission('studio', 'editor'), async (req, res
   res.status(201).json({ success: true, data: row });
 });
 
+// PUT /studios/locations/:id
+router.put('/locations/:id', adminOnly, async (req, res) => {
+  const { name, sort_order } = req.body;
+  if (!name) throw new AppError(400, 'VALIDATION_ERROR', '名前は必須です');
+  await execute(`UPDATE studio_locations SET name = ?, sort_order = ? WHERE id = ? AND deleted_at IS NULL`,
+    [name, sort_order ?? 0, req.params.id]);
+  const row = await queryOne('SELECT * FROM studio_locations WHERE id = ?', [req.params.id]);
+  res.json({ success: true, data: row });
+});
+
+// DELETE /studios/locations/:id — 論理削除
+router.delete('/locations/:id', adminOnly, async (req, res) => {
+  await execute(`UPDATE studio_locations SET deleted_at = NOW() WHERE id = ?`, [req.params.id]);
+  await execute(`UPDATE studio_rooms SET deleted_at = NOW() WHERE location_id = ? AND deleted_at IS NULL`, [req.params.id]);
+  res.json({ success: true });
+});
+
 // POST /studios/rooms — 部屋追加
-router.post('/rooms', requirePermission('studio', 'editor'), async (req, res) => {
+router.post('/rooms', adminOnly, async (req, res) => {
   const { location_id, name, room_type, color, sort_order } = req.body;
   if (!location_id || !name) throw new AppError(400, 'VALIDATION_ERROR', 'ロケーションと名前は必須です');
   const id = uuidv4();
@@ -48,6 +68,24 @@ router.post('/rooms', requirePermission('studio', 'editor'), async (req, res) =>
     [id, location_id, name, room_type || 'studio', color || '#3b82f6', sort_order ?? 0]);
   const row = await queryOne('SELECT * FROM studio_rooms WHERE id = ?', [id]);
   res.status(201).json({ success: true, data: row });
+});
+
+// PUT /studios/rooms/:id
+router.put('/rooms/:id', adminOnly, async (req, res) => {
+  const { name, room_type, color, sort_order } = req.body;
+  if (!name) throw new AppError(400, 'VALIDATION_ERROR', '名前は必須です');
+  await execute(
+    `UPDATE studio_rooms SET name = ?, room_type = ?, color = ?, sort_order = ? WHERE id = ? AND deleted_at IS NULL`,
+    [name, room_type || 'studio', color || '#3b82f6', sort_order ?? 0, req.params.id]
+  );
+  const row = await queryOne('SELECT * FROM studio_rooms WHERE id = ?', [req.params.id]);
+  res.json({ success: true, data: row });
+});
+
+// DELETE /studios/rooms/:id — 論理削除
+router.delete('/rooms/:id', adminOnly, async (req, res) => {
+  await execute(`UPDATE studio_rooms SET deleted_at = NOW() WHERE id = ?`, [req.params.id]);
+  res.json({ success: true });
 });
 
 // ============================================================

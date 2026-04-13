@@ -678,13 +678,13 @@ export async function seed() {
     ['WORLD STUDIO', 'studio', '#2563eb', 1],
     ['SKY STUDIO', 'studio', '#7c3aed', 2],
     ['LOUNGE STUDIO', 'studio', '#0891b2', 3],
-    ['MEETING ROOM', 'greenroom', '#6b7280', 4],
-    ['ROOM A', 'greenroom', '#059669', 5],
-    ['ROOM B', 'greenroom', '#d97706', 6],
-    ['ROOM C', 'greenroom', '#dc2626', 7],
-    ['VIP LOUNGE', 'greenroom', '#9333ea', 8],
-    ['第1調整室', 'control', '#4f46e5', 9],
-    ['第2調整室', 'control', '#0284c7', 10],
+    ['第1調整室', 'control', '#4f46e5', 4],
+    ['第2調整室', 'control', '#0284c7', 5],
+    ['MEETING ROOM', 'greenroom', '#6b7280', 6],
+    ['ROOM A', 'greenroom', '#059669', 7],
+    ['ROOM B', 'greenroom', '#d97706', 8],
+    ['ROOM C', 'greenroom', '#dc2626', 9],
+    ['VIP LOUNGE', 'greenroom', '#9333ea', 10],
   ];
   for (const [name, roomType, color, order] of yogaRooms) {
     const id = uuidv4();

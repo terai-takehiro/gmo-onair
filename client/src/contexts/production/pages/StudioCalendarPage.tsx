@@ -16,6 +16,9 @@ import type { DatesSetArg, EventClickArg, DateSelectArg } from "@fullcalendar/co
 import StudioBookingDialog from "../components/studio/StudioBookingDialog";
 import StudioBookingDetailDialog from "../components/studio/StudioBookingDetailDialog";
 import KoubanView from "../components/studio/KoubanView";
+import StudioRoomsManagerDialog from "../components/studio/StudioRoomsManagerDialog";
+import { useAuth } from "@/contexts/platform/AuthContext";
+import { Settings } from "lucide-react";
 
 interface StudioRoom {
   id: string;
@@ -23,6 +26,7 @@ interface StudioRoom {
   name: string;
   color: string;
   sort_order: number;
+  room_type: string;
 }
 
 interface StudioLocation {
@@ -128,6 +132,9 @@ export default function StudioCalendarPage() {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [presetDate, setPresetDate] = useState<{ start: string; end: string; allDay: boolean } | null>(null);
   const [presetRoomIds, setPresetRoomIds] = useState<string[]>([]);
+  const [roomsManagerOpen, setRoomsManagerOpen] = useState(false);
+  const { currentUser } = useAuth();
+  const isAdmin = currentUser?.role === "system_admin";
 
   // Fetch locations & rooms
   const { data: locationsData } = useQuery({
@@ -343,12 +350,27 @@ export default function StudioCalendarPage() {
               </Badge>
             )}
           </Button>
+          {isAdmin && (
+            <Button variant="outline" size="sm" onClick={() => setRoomsManagerOpen(true)} className="gap-1">
+              <Settings className="h-4 w-4" />
+              部屋管理
+            </Button>
+          )}
           <Button size="sm" onClick={handleNewBooking}>
             <Plus className="h-4 w-4 mr-1" />
             予約追加
           </Button>
         </div>
       </div>
+
+      {/* Rooms admin dialog (system_admin only) */}
+      {isAdmin && (
+        <StudioRoomsManagerDialog
+          open={roomsManagerOpen}
+          onOpenChange={setRoomsManagerOpen}
+          locations={locations}
+        />
+      )}
 
       {/* Room filter panel */}
       {filterOpen && (
