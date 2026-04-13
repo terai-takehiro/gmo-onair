@@ -23,7 +23,7 @@ export default function LiveControlPage() {
   const [connectionCount, setConnectionCount] = useState(0);
   const [stampCounts, setStampCounts] = useState<StampCount>({});
   const [isConnected, setIsConnected] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<string | false>(false);
   const [comment, setComment] = useState('');
   const [commentSaved, setCommentSaved] = useState(false);
   const stampCountsRef = useRef(stampCounts);
@@ -132,8 +132,7 @@ export default function LiveControlPage() {
     navigate(`/event/${id}`);
   };
 
-  const handleCopy = async () => {
-    const url = `${window.location.origin}/interactive/audience/${id}`;
+  const handleCopy = async (url: string, key: string) => {
     try {
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(url);
@@ -143,7 +142,7 @@ export default function LiveControlPage() {
         document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
       }
     } catch { /* */ }
-    setCopied(true);
+    setCopied(key);
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -418,19 +417,59 @@ export default function LiveControlPage() {
         </CardContent>
       </Card>
 
-      {/* ════ クイックリンク ════ */}
-      <div className="flex gap-2 flex-wrap">
-        <Button variant="outline" size="sm" onClick={handleCopy}>
-          {copied ? <Check className="h-3.5 w-3.5 mr-1 text-green-500" /> : <><QrCode className="h-3.5 w-3.5 mr-1" /><Copy className="h-3 w-3 mr-1" /></>}
-          {copied ? 'コピー済' : '視聴者URL'}
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => window.open(`/interactive/overlay/${id}`, '_blank', 'noopener,noreferrer')}>
-          <Eye className="h-3.5 w-3.5 mr-1" />オーバーレイ
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => window.open(`/interactive/audience/${id}`, '_blank', 'noopener,noreferrer')}>
-          視聴者プレビュー
-        </Button>
-      </div>
+      {/* ════ リンク & プレビュー ════ */}
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm">リンク & プレビュー</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {/* チャンネル別URL */}
+          {(eventData.channels || []).map((ch: any) => {
+            const chUrl = `${window.location.origin}/interactive/audience/${id}?ch=${ch.id}`;
+            const copyKey = `ch-${ch.id}`;
+            return (
+              <div key={ch.id} className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-medium shrink-0 min-w-[60px]">{ch.name}</span>
+                <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded break-all flex-1 min-w-0">{chUrl}</code>
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1 shrink-0"
+                  onClick={() => handleCopy(chUrl, copyKey)}>
+                  {copied === copyKey ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                </Button>
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1 shrink-0"
+                  onClick={() => window.open(`/interactive/audience/${id}?ch=${ch.id}`, '_blank', 'noopener,noreferrer')}>
+                  <Eye className="h-3 w-3" />
+                </Button>
+              </div>
+            );
+          })}
+          {/* チャンネルがない場合のフォールバック */}
+          {(!eventData.channels || eventData.channels.length === 0) && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-medium shrink-0">視聴者</span>
+              <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded break-all flex-1 min-w-0">{`${window.location.origin}/interactive/audience/${id}`}</code>
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1 shrink-0"
+                onClick={() => handleCopy(`${window.location.origin}/interactive/audience/${id}`, 'audience')}>
+                {copied === 'audience' ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+              </Button>
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1 shrink-0"
+                onClick={() => window.open(`/interactive/audience/${id}`, '_blank', 'noopener,noreferrer')}>
+                <Eye className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
+          {/* オーバーレイ */}
+          <div className="flex items-center gap-2 flex-wrap border-t pt-3">
+            <span className="text-xs font-medium shrink-0 min-w-[60px]">オーバーレイ</span>
+            <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded break-all flex-1 min-w-0">{`${window.location.origin}/interactive/overlay/${id}`}</code>
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1 shrink-0"
+              onClick={() => handleCopy(`${window.location.origin}/interactive/overlay/${id}`, 'overlay')}>
+              {copied === 'overlay' ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+            </Button>
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1 shrink-0"
+              onClick={() => window.open(`/interactive/overlay/${id}`, '_blank', 'noopener,noreferrer')}>
+              <Eye className="h-3 w-3" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
