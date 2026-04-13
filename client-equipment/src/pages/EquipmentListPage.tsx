@@ -14,8 +14,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Loader2, Plus, Search, Package, Pencil, Trash2,
+  Loader2, Plus, Search, Package, Pencil, Trash2, Upload, Download,
 } from "lucide-react";
+import ExcelImportDialog from "@/components/ExcelImportDialog";
 
 const statusLabels: Record<string, string> = {
   active: "稼働中",
@@ -53,6 +54,18 @@ export default function EquipmentListPage() {
   const [filterStatus, setFilterStatus] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+
+  const downloadExcel = async () => {
+    const res = await api.get('/equipment/items/export-xlsx', { responseType: 'blob' });
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement('a');
+    a.href = url;
+    const today = new Date().toISOString().slice(0, 10);
+    a.download = `機材リスト_${today}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   // Form state
   const [form, setForm] = useState({
@@ -172,11 +185,23 @@ export default function EquipmentListPage() {
     <div className="space-y-4 p-4 lg:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="heading-page text-xl lg:text-2xl">機材一覧</h1>
-        <Button size="sm" onClick={openNew}>
-          <Plus className="h-4 w-4 mr-1" />
-          機材登録
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4 mr-1" />
+            Excelインポート
+          </Button>
+          <Button size="sm" variant="outline" onClick={downloadExcel}>
+            <Download className="h-4 w-4 mr-1" />
+            Excel出力
+          </Button>
+          <Button size="sm" onClick={openNew}>
+            <Plus className="h-4 w-4 mr-1" />
+            機材登録
+          </Button>
+        </div>
       </div>
+
+      <ExcelImportDialog open={importOpen} onOpenChange={setImportOpen} />
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2">

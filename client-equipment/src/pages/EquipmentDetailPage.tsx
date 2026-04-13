@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  ArrowLeft, Copy, Loader2, Wrench, ArrowRightLeft, Package, QrCode,
+  ArrowLeft, Copy, Loader2, Wrench, ArrowRightLeft, Package, QrCode, Printer,
 } from "lucide-react";
+import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const statusLabels: Record<string, string> = {
   active: "稼働中", in_repair: "修理中", retired: "引退", disposed: "廃棄", lost: "紛失",
@@ -32,6 +34,7 @@ const maintenanceStatusLabels: Record<string, string> = {
 export default function EquipmentDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [qrOpen, setQrOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["equipment-item", id],
@@ -90,7 +93,33 @@ export default function EquipmentDetailPage() {
             <Copy className="h-2.5 w-2.5 opacity-40" />
           </button>
         </div>
+        <Button variant="outline" size="sm" onClick={() => setQrOpen(true)}>
+          <Printer className="h-4 w-4 mr-1" />
+          QRコード
+        </Button>
       </div>
+
+      {/* QRコード表示・印刷ダイアログ */}
+      <Dialog open={qrOpen} onOpenChange={setQrOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>QRコード — {item.name}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-3 py-4">
+            <img
+              src={`/api/v1/internal/equipment/items/${id}/qr`}
+              alt="QRコード"
+              className="w-56 h-56 border rounded bg-white p-2"
+            />
+            <p className="font-mono text-sm">{item.eq_code}</p>
+            <p className="text-xs text-muted-foreground text-center">{item.name}</p>
+            <Button onClick={() => window.print()} className="w-full">
+              <Printer className="h-4 w-4 mr-1" />
+              印刷
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Basic info */}
