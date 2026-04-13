@@ -317,7 +317,7 @@ export default function LiveControlPage() {
       <Card>
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm">クイズ / アンケート操作</CardTitle>
+            <CardTitle className="text-sm">クイズ / アンケート</CardTitle>
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-muted-foreground">結果表示:</span>
               <select
@@ -325,95 +325,100 @@ export default function LiveControlPage() {
                 onChange={e => setResultDisplayMode(e.target.value as 'percent' | 'count')}
                 className="text-xs border rounded px-1.5 py-0.5 bg-background"
               >
-                <option value="percent">パーセント</option>
+                <option value="percent">%</option>
                 <option value="count">実数</option>
               </select>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-1">
           {(!questions || questions.length === 0) && (
-            <p className="text-sm text-muted-foreground text-center py-2">クイズ/アンケートは未登録です</p>
+            <p className="text-sm text-muted-foreground text-center py-4">未登録</p>
           )}
 
-          {/* 実施中の問題 — 段階的操作 */}
-          {activeQuestion && (
-            <div className="p-3 bg-green-50 border border-green-200 rounded-xl space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <Badge className="bg-green-500 text-white text-[10px]">回答受付中</Badge>
-                    <Badge variant="outline" className="text-[10px]">{activeQuestion.type === 'quiz' ? 'クイズ' : 'アンケート'}</Badge>
-                    <span className="text-xs text-muted-foreground">{activeQuestion.answer_count || 0}回答</span>
-                  </div>
-                  <p className="text-sm font-medium">{getQuestionText(activeQuestion)}</p>
-                </div>
-              </div>
-              {/* 操作ボタン: クイズ = 締切→アンサーチェック→正解発表, アンケート = 集計終了→結果発表 */}
-              <div className="flex gap-2 flex-wrap">
-                <Button size="sm" variant="destructive" className="gap-1" onClick={() => closeQ.mutate(activeQuestion.id)}>
-                  <Square className="h-3 w-3" />
-                  {activeQuestion.type === 'quiz' ? '回答締切' : '集計終了'}
-                </Button>
-              </div>
-            </div>
-          )}
+          {questions?.map((q: any, idx: number) => {
+            const isActive = q.status === 'active';
+            const isClosed = q.status === 'closed';
+            const isDraft = q.status === 'draft';
+            const isQuiz = q.type === 'quiz';
 
-          {/* 締切済みの問題 — 結果発表/正解発表の操作 */}
-          {questions?.filter((q: any) => q.status === 'closed').map((q: any) => (
-            <div key={q.id} className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <Badge className="bg-amber-500 text-white text-[10px]">締切済</Badge>
-                    <Badge variant="outline" className="text-[10px]">{q.type === 'quiz' ? 'クイズ' : 'アンケート'}</Badge>
-                    <span className="text-xs text-muted-foreground">{q.answer_count || 0}回答</span>
-                  </div>
-                  <p className="text-sm font-medium">{getQuestionText(q)}</p>
-                </div>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {/* アンサーチェック / 集計結果発表 */}
-                <Button size="sm" variant="outline" className="gap-1"
-                  onClick={() => showResultsQ.mutate({ qId: q.id, mode: resultDisplayMode })}>
-                  <PieChart className="h-3 w-3" />
-                  {q.type === 'quiz' ? 'アンサーチェック' : '結果発表'}
-                </Button>
-                {/* 正解発表（クイズのみ） */}
-                {q.type === 'quiz' && (
-                  <Button size="sm" className="gap-1 bg-amber-600 hover:bg-amber-700"
-                    onClick={() => revealQ.mutate(q.id)}>
-                    <Award className="h-3 w-3" />正解発表
-                  </Button>
-                )}
-                {/* 画面から消す */}
-                <Button size="sm" variant="ghost" className="gap-1 text-xs text-muted-foreground"
-                  onClick={() => dismissQ.mutate(q.id)}>
-                  <X className="h-3 w-3" />画面から消す
-                </Button>
-                {/* 再出題 */}
-                <Button size="sm" variant="ghost" className="gap-1 text-xs"
-                  onClick={() => activateQ.mutate(q.id)}>
-                  <Play className="h-3 w-3" />再出題
-                </Button>
-              </div>
-            </div>
-          ))}
+            return (
+              <div key={q.id} className={`rounded-lg border-2 transition-all ${
+                isActive ? 'border-red-500 bg-red-50 shadow-md' :
+                isClosed ? 'border-amber-300 bg-amber-50/50' :
+                'border-transparent bg-muted/30'
+              }`}>
+                {/* 問題ヘッダー行 */}
+                <div className="flex items-center gap-2 px-3 py-2">
+                  {/* 番号 */}
+                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                    isActive ? 'bg-red-500 text-white' :
+                    isClosed ? 'bg-amber-400 text-white' :
+                    'bg-muted text-muted-foreground'
+                  }`}>
+                    {idx + 1}
+                  </span>
 
-          {/* 未実施の問題一覧 */}
-          {questions?.filter((q: any) => q.status === 'draft').map((q: any) => (
-            <div key={q.id} className="flex items-center gap-3 p-3 bg-muted/40 border rounded-xl">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <Badge variant="outline" className="text-[10px]">{q.type === 'quiz' ? 'クイズ' : 'アンケート'}</Badge>
+                  {/* ON AIR バッジ */}
+                  {isActive && (
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold tracking-wider animate-pulse">
+                      <Radio className="h-2.5 w-2.5" />ON AIR
+                    </span>
+                  )}
+                  {isClosed && <Badge variant="secondary" className="text-[10px]">済</Badge>}
+
+                  {/* 種別 */}
+                  <Badge variant="outline" className="text-[10px]">{isQuiz ? 'クイズ' : 'アンケート'}</Badge>
+
+                  {/* 回答数 */}
+                  {(isActive || isClosed) && (
+                    <span className="text-[10px] text-muted-foreground ml-auto tabular-nums">{q.answer_count || 0}票</span>
+                  )}
                 </div>
-                <p className="text-sm font-medium truncate">{getQuestionText(q)}</p>
+
+                {/* 問題文 */}
+                <p className={`px-3 pb-2 text-sm truncate ${isActive ? 'font-bold' : 'font-medium'}`}>
+                  {getQuestionText(q)}
+                </p>
+
+                {/* 操作ボタン */}
+                <div className="flex gap-1.5 px-3 pb-2 flex-wrap">
+                  {isDraft && (
+                    <Button size="sm" className="h-7 text-xs gap-1" onClick={() => activateQ.mutate(q.id)}>
+                      <Play className="h-3 w-3" />出題
+                    </Button>
+                  )}
+                  {isActive && (
+                    <Button size="sm" variant="destructive" className="h-7 text-xs gap-1" onClick={() => closeQ.mutate(q.id)}>
+                      <Square className="h-3 w-3" />{isQuiz ? '回答締切' : '集計終了'}
+                    </Button>
+                  )}
+                  {isClosed && (
+                    <>
+                      <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
+                        onClick={() => showResultsQ.mutate({ qId: q.id, mode: resultDisplayMode })}>
+                        <PieChart className="h-3 w-3" />{isQuiz ? 'アンサーチェック' : '結果発表'}
+                      </Button>
+                      {isQuiz && (
+                        <Button size="sm" className="h-7 text-xs gap-1 bg-amber-600 hover:bg-amber-700"
+                          onClick={() => revealQ.mutate(q.id)}>
+                          <Award className="h-3 w-3" />正解発表
+                        </Button>
+                      )}
+                      <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-muted-foreground"
+                        onClick={() => dismissQ.mutate(q.id)}>
+                        <X className="h-3 w-3" />消す
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 text-xs gap-1"
+                        onClick={() => activateQ.mutate(q.id)}>
+                        <Play className="h-3 w-3" />再出題
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
-              <Button size="sm" className="shrink-0 gap-1" onClick={() => activateQ.mutate(q.id)}>
-                <Play className="h-3 w-3" />出題
-              </Button>
-            </div>
-          ))}
+            );
+          })}
         </CardContent>
       </Card>
 
