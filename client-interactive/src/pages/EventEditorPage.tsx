@@ -538,30 +538,61 @@ export default function EventEditorPage() {
         </button>
         {isOpen('links') && (
           <CardContent className="pt-0 pb-4 px-4 space-y-4 accordion-content border-t">
-            {/* QR Code */}
-            <div className="flex justify-end">
-              <Button variant="outline" size="sm" onClick={() => setShowQr(!showQr)}>
-                <QrCode className="h-4 w-4 mr-1" />{showQr ? 'QRを閉じる' : 'QRコード表示'}
-              </Button>
-            </div>
-            {showQr && (
-              <div className="flex flex-col items-center gap-3 p-4 bg-white border rounded-2xl">
-                <p className="text-sm font-medium text-muted-foreground">視聴者用QRコード</p>
-                <img src={qrUrl} alt="QR Code" className="w-48 h-48" />
-                <p className="text-xs text-muted-foreground break-all text-center max-w-xs">{audienceUrl}</p>
+            {/* チャンネル別 視聴者URL */}
+            {channels.length > 0 ? (
+              <div className="space-y-3">
+                {channels.map((ch: any) => {
+                  const chUrl = `${window.location.origin}/interactive/audience/${id}?ch=${ch.id}`;
+                  const chQrUrl = `/api/v1/internal/interactive/audience/events/${id}/channels/${ch.id}/qr`;
+                  return (
+                    <div key={ch.id} className="border rounded-xl p-3 space-y-2 bg-muted/20">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold">{ch.name}</span>
+                        {ch.language_code && <Badge variant="outline" className="text-[10px]">{ch.language_code}</Badge>}
+                      </div>
+                      {showQr && (
+                        <div className="flex flex-col items-center gap-2 p-3 bg-white border rounded-xl">
+                          <img src={chQrUrl} alt={`QR ${ch.name}`} className="w-40 h-40" />
+                          <p className="text-[10px] text-muted-foreground break-all text-center">{chUrl}</p>
+                        </div>
+                      )}
+                      <div className="flex gap-2 mt-1">
+                        <Input readOnly value={chUrl} className="text-[10px] font-mono flex-1" />
+                        <Button variant="outline" size="sm" onClick={() => handleCopy(chUrl, `ch-${ch.id}`)}>
+                          {copied === `ch-${ch.id}` ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => window.open(`/interactive/audience/${id}?ch=${ch.id}`, '_blank', 'noopener,noreferrer')}>
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">視聴者URL</label>
+                <div className="flex gap-2 mt-1">
+                  <Input readOnly value={audienceUrl} className="text-xs font-mono" />
+                  <Button variant="outline" size="sm" onClick={() => handleCopy(audienceUrl, 'audience')}>
+                    {copied === 'audience' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => window.open(audienceUrl, '_blank', 'noopener,noreferrer')}>
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             )}
 
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">視聴者URL（スタンプ入力）</label>
-              <div className="flex gap-2 mt-1">
-                <Input readOnly value={audienceUrl} className="text-xs font-mono" />
-                <Button variant="outline" size="sm" onClick={() => handleCopy(audienceUrl, 'audience')}>
-                  {copied === 'audience' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                </Button>
-              </div>
+            {/* QR表示トグル */}
+            <div className="flex justify-center">
+              <Button variant="outline" size="sm" onClick={() => setShowQr(!showQr)}>
+                <QrCode className="h-4 w-4 mr-1" />{showQr ? 'QRを非表示' : 'QRコード表示'}
+              </Button>
             </div>
-            <div>
+
+            {/* オーバーレイURL */}
+            <div className="border-t pt-3">
               <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                 <Eye className="h-3.5 w-3.5" />オーバーレイURL（OBS用）
               </label>
