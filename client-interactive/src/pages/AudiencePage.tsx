@@ -22,6 +22,8 @@ interface EventData {
   banner_url?: string;
   admin_comment?: string;
   survey_url?: string;
+  waiting_message?: string;
+  ended_message?: string;
 }
 
 interface MiniStamp {
@@ -78,6 +80,8 @@ export default function AudiencePage() {
           banner_url: data.banner_url,
           admin_comment: data.admin_comment,
           survey_url: data.survey_url,
+          waiting_message: data.waiting_message,
+          ended_message: data.ended_message,
         });
         // Step 2: セッション作成
         return audienceApi.post(`/events/${eventId}/join`, { channel_id: chParam || undefined });
@@ -223,11 +227,12 @@ export default function AudiencePage() {
   if (event.status === 'ended') {
     return (
       <div className="user-page flex items-center justify-center p-4">
-        <div className="text-center">
-          <Sparkles className="h-12 w-12 mx-auto mb-4 text-[var(--accent)] opacity-40" />
-          <h1 className="text-xl font-bold text-[var(--text-primary)] mb-2">{event.title}</h1>
-          <p className="text-[var(--text-secondary)]">このイベントは終了しました</p>
-          <p className="text-[var(--text-muted)] text-sm mt-4">ご参加ありがとうございました！</p>
+        <div className="text-center max-w-sm">
+          <Sparkles className="h-12 w-12 mx-auto mb-4 text-[var(--es-accent)] opacity-40" />
+          <h1 className="text-xl font-bold text-[var(--text-primary)] mb-3">{event.title}</h1>
+          <p className="text-[var(--text-secondary)] text-base whitespace-pre-wrap">
+            {event.ended_message || 'ご視聴ありがとうございました。'}
+          </p>
           {event.survey_url && (
             <a
               href={event.survey_url}
@@ -282,8 +287,8 @@ export default function AudiencePage() {
         )}
       </header>
 
-      {/* ── YouTube embed — main content ── */}
-      {embedId && (
+      {/* ── YouTube embed — main content (hide in draft) ── */}
+      {embedId && isLive && (
         <div className="audience-youtube">
           <div className="youtube-wrapper">
             <iframe
@@ -296,7 +301,7 @@ export default function AudiencePage() {
       )}
 
       {/* ── Banner (if no YouTube) ── */}
-      {!embedId && event.banner_url && (
+      {!embedId && event.banner_url && isLive && (
         <div className="audience-youtube">
           <img src={event.banner_url} alt="バナー" className="w-full max-h-[240px] object-cover" style={{ borderRadius: 'inherit' }} />
         </div>
@@ -327,10 +332,13 @@ export default function AudiencePage() {
           </div>
         )}
         {event.status === 'draft' && (
-          <div className="text-center py-8">
-            <div className="text-3xl mb-2">⏳</div>
-            <p className="text-sm text-[var(--text-secondary)]">まもなく開始します</p>
-            <p className="text-xs text-[var(--text-muted)] mt-1">スタンプの受付開始までお待ちください</p>
+          <div className="flex-1 flex items-center justify-center py-8">
+            <div className="text-center max-w-sm">
+              <div className="text-4xl mb-3">⏳</div>
+              <p className="text-base text-[var(--text-secondary)] whitespace-pre-wrap">
+                {event.waiting_message || 'まもなく配信を開始します。\nしばらくお待ちください。'}
+              </p>
+            </div>
           </div>
         )}
 

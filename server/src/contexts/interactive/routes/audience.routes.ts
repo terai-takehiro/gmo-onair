@@ -19,7 +19,8 @@ router.get('/events/:id', wrap(async (req, res) => {
 
   const row = await queryOne(
     `SELECT id, title, description, status, accepting,
-            youtube_url, banner_url, admin_comment, survey_url
+            youtube_url, banner_url, admin_comment, survey_url,
+            waiting_message, ended_message
      FROM interactive_events WHERE id = ? AND deleted_at IS NULL`,
     [req.params.id]
   ) as any;
@@ -57,6 +58,8 @@ router.get('/events/:id', wrap(async (req, res) => {
       banner_url: channel?.banner_url || row.banner_url || null,
       admin_comment: channel?.admin_comment || row.admin_comment || null,
       survey_url: channel?.survey_url || row.survey_url || null,
+      waiting_message: row.waiting_message || null,
+      ended_message: row.ended_message || null,
       stamps,
     },
   });

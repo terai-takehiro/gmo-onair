@@ -128,6 +128,7 @@ router.put('/:id', wrap(async (req, res) => {
        title = ?, description = ?, project_id = ?, episode_id = ?,
        max_connections = ?, youtube_url = ?, banner_url = ?,
        admin_comment = ?, survey_url = ?, accepting = ?,
+       waiting_message = ?, ended_message = ?,
        updated_by = ?, updated_at = NOW()
      WHERE id = ?`,
     [
@@ -141,6 +142,8 @@ router.put('/:id', wrap(async (req, res) => {
       val('admin_comment', existing.admin_comment),
       val('survey_url', existing.survey_url),
       b.accepting !== undefined ? b.accepting : existing.accepting,
+      val('waiting_message', existing.waiting_message),
+      val('ended_message', existing.ended_message),
       req.user!.id, req.params.id,
     ]
   );

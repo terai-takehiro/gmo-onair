@@ -222,6 +222,30 @@ export default function EventEditorPage() {
               />
             </div>
 
+            {/* 待機画面メッセージ */}
+            <div>
+              <label className="text-sm font-medium">配信開始前メッセージ</label>
+              <p className="text-xs text-muted-foreground">配信前に視聴者に表示されるテキスト</p>
+              <Input
+                className="mt-1"
+                placeholder="まもなく配信を開始します。しばらくお待ちください。"
+                defaultValue={eventData.waiting_message || ''}
+                onBlur={e => updateEvent.mutate({ waiting_message: e.target.value })}
+              />
+            </div>
+
+            {/* 終了画面メッセージ */}
+            <div>
+              <label className="text-sm font-medium">配信終了時メッセージ</label>
+              <p className="text-xs text-muted-foreground">配信終了後に表示されるテキスト</p>
+              <Input
+                className="mt-1"
+                placeholder="ご視聴ありがとうございました。"
+                defaultValue={eventData.ended_message || ''}
+                onBlur={e => updateEvent.mutate({ ended_message: e.target.value })}
+              />
+            </div>
+
             {/* 受付ON/OFF スイッチ */}
             <div className="flex items-center justify-between py-2">
               <div>
