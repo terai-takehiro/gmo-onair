@@ -158,7 +158,7 @@ export default function AudiencePage() {
     setSelectedChoice(choiceIndex);
     setAnswered(true);
     try {
-      await audienceApi.post(`/audience/questions/${activeQuestion.questionId}/answer`, {
+      await audienceApi.post(`/questions/${activeQuestion.questionId}/answer`, {
         choice_index: choiceIndex,
         session_token: sessionToken,
       });
