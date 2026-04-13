@@ -127,7 +127,7 @@ export default function AudiencePage() {
 
     // 締切（回答受付終了）
     socket.on('question:closed', () => {
-      // 回答受付終了のみ — 結果はまだ表示しない
+      setAnswered(true); // 回答不可にする
     });
 
     // アンサーチェック / 集計結果（各選択肢の投票数）

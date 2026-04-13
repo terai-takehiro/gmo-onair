@@ -37,7 +37,6 @@ const RATE_WINDOW_MS = 3000;      // レート計測ウィンドウ
 export default function OverlayPage() {
   const { eventId } = useParams();
   const [stamps, setStamps] = useState<Stamp[]>([]);
-  const [stampCounts, setStampCounts] = useState<Record<string, number>>({});
   const [floats, setFloats] = useState<FloatingStamp[]>([]);
   const [eventStatus, setEventStatus] = useState<string>('');
 
@@ -112,11 +111,6 @@ export default function OverlayPage() {
     const socket = getSocket(eventId);
 
     socket.on('stamp:update', (data: { stampId: string; count: number }) => {
-      setStampCounts(prev => ({
-        ...prev,
-        [data.stampId]: (prev[data.stampId] || 0) + data.count,
-      }));
-
       const stamp = stampsRef.current.find(s => s.id === data.stampId);
       if (stamp) {
         spawnFloats(stamp, data.count);
@@ -156,30 +150,6 @@ export default function OverlayPage() {
           )}
         </div>
       ))}
-
-      {/* Bottom counter bar */}
-      {stamps.length > 0 && isLive && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-4 bg-black/40 backdrop-blur-sm rounded-full px-6 py-3">
-          {stamps.map(stamp => (
-            <div key={stamp.id} className="flex items-center gap-2 text-white">
-              {stamp.image_url ? (
-                <img src={stamp.image_url} alt="" className="w-7 h-7 object-contain" />
-              ) : (
-                <span className="text-2xl">{stamp.emoji}</span>
-              )}
-              <span className="text-lg font-bold tabular-nums" style={{ color: stamp.color }}>
-                {(stampCounts[stamp.id] || 0).toLocaleString()}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {eventStatus === 'ended' && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white text-xl bg-black/50 px-6 py-3 rounded-lg">
-          イベント終了
-        </div>
-      )}
     </div>
   );
 }
