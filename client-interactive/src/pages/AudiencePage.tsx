@@ -136,6 +136,15 @@ export default function AudiencePage() {
       setQuestionResult({ correctIndex: data.correctIndex });
     });
 
+    // 画面から消す
+    socket.on('question:dismiss', () => {
+      setActiveQuestion(null);
+      setAnswered(false);
+      setSelectedChoice(null);
+      setQuestionResult(null);
+      setQuestionResults(null);
+    });
+
     return () => { disconnectSocket(); };
   }, [eventId, sessionToken]);
 

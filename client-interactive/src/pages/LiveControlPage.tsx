@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Radio, Square, Users, Eye, QrCode, Copy, BarChart3, Play, Check,
+  Radio, Square, Users, Eye, QrCode, Copy, BarChart3, Play, Check, X,
   MessageSquare, Send, Award, PieChart,
 } from 'lucide-react';
 import api from '@/lib/api';
@@ -81,6 +81,10 @@ export default function LiveControlPage() {
   const closeQ = useMutation({
     mutationFn: (qId: string) => api.post(`/interactive/questions/${qId}/close`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['quiz-questions', id] }),
+  });
+
+  const dismissQ = useMutation({
+    mutationFn: (qId: string) => api.post(`/interactive/questions/${qId}/dismiss`),
   });
 
   const showResultsQ = useMutation({
@@ -383,6 +387,11 @@ export default function LiveControlPage() {
                     <Award className="h-3 w-3" />正解発表
                   </Button>
                 )}
+                {/* 画面から消す */}
+                <Button size="sm" variant="ghost" className="gap-1 text-xs text-muted-foreground"
+                  onClick={() => dismissQ.mutate(q.id)}>
+                  <X className="h-3 w-3" />画面から消す
+                </Button>
                 {/* 再出題 */}
                 <Button size="sm" variant="ghost" className="gap-1 text-xs"
                   onClick={() => activateQ.mutate(q.id)}>

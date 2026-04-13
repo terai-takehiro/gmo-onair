@@ -123,6 +123,18 @@ router.post('/questions/:id/reveal', requireAuth, requirePermission('interactive
   res.json({ success: true });
 }));
 
+// 画面から消す（視聴者画面のクイズ/アンケートを非表示にする）
+router.post('/questions/:id/dismiss', requireAuth, requirePermission('interactive'), wrap(async (req, res) => {
+  const q = await queryOne('SELECT event_id FROM interactive_questions WHERE id = ?', [req.params.id]) as any;
+  if (!q) throw new AppError(404, 'NOT_FOUND', '問題が見つかりません');
+
+  const io = (req as any).app?.get('io');
+  if (io) {
+    io.of('/interactive').to(`event:${q.event_id}`).emit('question:dismiss', { questionId: req.params.id });
+  }
+  res.json({ success: true });
+}));
+
 router.get('/questions/:id/results/json', requireAuth, wrap(async (req, res) => {
   const q = await queryOne('SELECT * FROM interactive_questions WHERE id = ?', [req.params.id]) as any;
   const texts = await queryAll('SELECT * FROM interactive_question_texts WHERE question_id = ?', [req.params.id]);
