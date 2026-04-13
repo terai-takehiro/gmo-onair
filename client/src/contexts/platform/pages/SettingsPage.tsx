@@ -1,9 +1,26 @@
 import { PageTransition } from "@/components/ui/motion";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BLOCK_APPS } from "@/contexts/platform/AuthContext";
+import { Button } from "@/components/ui/button";
+import { BLOCK_APPS, useAuth } from "@/contexts/platform/AuthContext";
+import { Database, Download } from "lucide-react";
+import api from "@/lib/api";
 
 export default function SettingsPage() {
+  const { currentUser } = useAuth();
+  const isAdmin = currentUser?.role === "system_admin";
+
+  const downloadBackup = async () => {
+    const res = await api.get("/admin/backup.xlsx", { responseType: "blob" });
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement("a");
+    a.href = url;
+    const today = new Date().toISOString().slice(0, 10);
+    a.download = `gmo-onair_backup_${today}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <PageTransition>
       <div className="space-y-4 p-3 lg:space-y-6 lg:p-6">
@@ -19,10 +36,33 @@ export default function SettingsPage() {
               <dt className="text-muted-foreground">アプリ名</dt>
               <dd className="font-medium">GMO ONAiR</dd>
               <dt className="text-muted-foreground">バージョン</dt>
-              <dd className="font-medium">v0.7.0</dd>
+              <dd className="font-medium">v1.0.11</dd>
             </dl>
           </CardContent>
         </Card>
+
+        {/* 管理者専用: 全データバックアップ */}
+        {isAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base lg:text-lg flex items-center gap-2">
+                <Database className="h-4 w-4" />
+                全データバックアップ
+                <Badge variant="secondary" className="text-[10px]">管理者専用</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                ユーザー・顧客・案件・売上・仕入・販管費・機材・スタジオ予約等、主要13テーブルを
+                日本語ヘッダー付きの単一xlsxファイルとして出力します（バックアップ・監査用）。
+              </p>
+              <Button onClick={downloadBackup}>
+                <Download className="h-4 w-4 mr-1" />
+                バックアップを取得
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* ブロックアプリ一覧 */}
         <Card>

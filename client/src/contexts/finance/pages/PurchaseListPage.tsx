@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Search, Loader2, Plus } from "lucide-react";
+import ExcelToolbar from "@/components/ExcelToolbar";
 
 function SettlementBadge({ number }: { number: string | null | undefined }) {
   const isApplied = !!number && number !== "pending";
@@ -154,7 +155,8 @@ export default function PurchaseListPage() {
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       <div className="flex flex-wrap gap-2 items-center justify-between">
         <h1 className="text-xl lg:text-2xl font-bold">仕入一覧</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <ExcelToolbar resource="/purchases" name="仕入" queryKey={["purchases"]} hasDuplicateKey={false} />
           <Button variant="outline" onClick={() => navigate("/project-groups")}>
             按分グループ
           </Button>

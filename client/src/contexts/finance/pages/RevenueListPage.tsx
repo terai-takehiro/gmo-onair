@@ -31,6 +31,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Search, Loader2, Plus, Trash2, Download } from "lucide-react";
+import ExcelToolbar from "@/components/ExcelToolbar";
 
 interface ProjectOption {
   id: string;
@@ -253,10 +254,13 @@ export default function RevenueListPage() {
             </div>
           )}
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus className="mr-1 h-4 w-4" />
-          新規売上
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <ExcelToolbar resource="/revenues" name="売上" queryKey={["revenues"]} hasDuplicateKey={false} />
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="mr-1 h-4 w-4" />
+            新規売上
+          </Button>
+        </div>
       </div>
 
       <div className="relative max-w-sm">
