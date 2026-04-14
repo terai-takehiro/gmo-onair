@@ -2,31 +2,22 @@ name: Deploy to CoNoHa VPS
 
 on:
   push:
-    branches:
-      - main
-
-concurrency:
-  group: deploy
-  cancel-in-progress: false
+    branches: [main]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            set -e
-            cd /opt/gmo-onair
-            git fetch origin main
-            git reset --hard origin/main
-            docker compose build
-            docker compose up -d --force-recreate
-            sleep 15
-            docker compose logs --tail=30 app
-            echo "Deploy at $(date)"
+            cd /root/gmo-onair
+            git pull origin main
+            docker compose up -d --build
+            echo "Deploy complete: $(date)"
