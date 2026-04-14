@@ -77,6 +77,56 @@ router.get('/rooms/:roomId/calendar.ics', async (req, res) => {
   res.send(ical);
 });
 
+// サイネージ用データ (認証不要 — トークンで保護)
+router.get('/rooms/:roomId/signage', async (req, res) => {
+  const token = req.query.token as string;
+  if (token !== FEED_TOKEN) {
+    res.status(403).json({ success: false, error: { message: 'Invalid token' } });
+    return;
+  }
+
+  const room = await queryOne(
+    `SELECT r.id, r.name, r.room_type, l.name as location_name
+     FROM studio_rooms r LEFT JOIN studio_locations l ON l.id = r.location_id
+     WHERE r.id = ? AND r.deleted_at IS NULL`,
+    [req.params.roomId],
+  ) as any;
+  if (!room) { res.status(404).json({ success: false, error: { message: 'Room not found' } }); return; }
+
+  const now = new Date().toISOString();
+  const todayStart = now.slice(0, 10) + 'T00:00:00';
+  const todayEnd = now.slice(0, 10) + 'T23:59:59';
+
+  // 現在使用中の予約
+  const current = await queryOne(
+    `SELECT b.title, b.start_time, b.end_time, br.occupant, br.usage_note
+     FROM studio_bookings b
+     JOIN studio_booking_rooms br ON br.booking_id = b.id AND br.room_id = ?
+     WHERE b.deleted_at IS NULL AND b.start_time <= ? AND b.end_time >= ?
+     ORDER BY b.start_time LIMIT 1`,
+    [req.params.roomId, now, now],
+  ) as any;
+
+  // 本日の残りの予約
+  const upcoming = await queryAll(
+    `SELECT b.title, b.start_time, b.end_time, br.occupant, br.usage_note
+     FROM studio_bookings b
+     JOIN studio_booking_rooms br ON br.booking_id = b.id AND br.room_id = ?
+     WHERE b.deleted_at IS NULL AND b.start_time > ? AND b.start_time <= ?
+     ORDER BY b.start_time`,
+    [req.params.roomId, now, todayEnd],
+  ) as any[];
+
+  res.json({
+    success: true,
+    data: {
+      room: { name: room.name, location_name: room.location_name, room_type: room.room_type },
+      current: current || null,
+      upcoming,
+    },
+  });
+});
+
 // 全部屋のフィードURL一覧 (認証必要 — 管理画面で表示用)
 router.get('/rooms/feeds', requireAuth, requirePermission('studio'), async (_req, res) => {
   const rooms = await queryAll(

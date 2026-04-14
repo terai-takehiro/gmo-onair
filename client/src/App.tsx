@@ -27,6 +27,7 @@ import ProjectGroupListPage from "@/contexts/sales/pages/ProjectGroupListPage";
 // Production (スタジオ予約)
 import EpisodeListPage from "@/contexts/production/pages/EpisodeListPage";
 import StudioCalendarPage from "@/contexts/production/pages/StudioCalendarPage";
+import SignagePage from "@/contexts/production/pages/SignagePage";
 import VendorReportPage from "@/contexts/production/pages/VendorReportPage";
 
 // Finance (予算管理)
@@ -82,6 +83,7 @@ function AppRoutes() {
       />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
       <Route path="/auth/accept-invitation" element={<AcceptInvitationPage />} />
+      <Route path="/signage/:roomId" element={<SignagePage />} />
 
       <Route
         element={
