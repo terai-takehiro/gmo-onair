@@ -32,7 +32,7 @@ export async function seed() {
   // Users
   // ============================================================
   const userSql = `INSERT INTO users (id, name, email, role) VALUES (?, ?, ?, ?)`;
-  await ins(userSql, [USERS.admin, '山田 太郎', 'yamada@globalstudio.example.com', 'system_admin']);
+  await ins(userSql, [USERS.admin, 'システム管理者', 'account@gmo-globalstudio.com', 'system_admin']);
   await ins(userSql, [USERS.staff1, '佐藤 花子', 'sato@globalstudio.example.com', 'staff']);
   await ins(userSql, [USERS.staff2, '鈴木 一郎', 'suzuki@globalstudio.example.com', 'staff']);
   await ins(userSql, [USERS.staff3, '高橋 美咲', 'takahashi@globalstudio.example.com', 'staff']);
