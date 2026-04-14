@@ -18,7 +18,7 @@ import StudioBookingDetailDialog from "../components/studio/StudioBookingDetailD
 import KoubanView from "../components/studio/KoubanView";
 import StudioRoomsManagerDialog from "../components/studio/StudioRoomsManagerDialog";
 import { useAuth } from "@/contexts/platform/AuthContext";
-import { Settings } from "lucide-react";
+import { Settings, CalendarSync } from "lucide-react";
 
 interface StudioRoom {
   id: string;
@@ -133,6 +133,7 @@ export default function StudioCalendarPage() {
   const [presetDate, setPresetDate] = useState<{ start: string; end: string; allDay: boolean } | null>(null);
   const [presetRoomIds, setPresetRoomIds] = useState<string[]>([]);
   const [roomsManagerOpen, setRoomsManagerOpen] = useState(false);
+  const [feedsOpen, setFeedsOpen] = useState(false);
   const { currentUser } = useAuth();
   const isAdmin = currentUser?.role === "system_admin";
 
@@ -350,6 +351,10 @@ export default function StudioCalendarPage() {
               </Badge>
             )}
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setFeedsOpen(true)} className="gap-1">
+            <CalendarSync className="h-4 w-4" />
+            カレンダー連携
+          </Button>
           {isAdmin && (
             <Button variant="outline" size="sm" onClick={() => setRoomsManagerOpen(true)} className="gap-1">
               <Settings className="h-4 w-4" />
@@ -371,6 +376,9 @@ export default function StudioCalendarPage() {
           locations={locations}
         />
       )}
+
+      {/* Calendar feeds dialog */}
+      <CalendarFeedsDialog open={feedsOpen} onOpenChange={setFeedsOpen} />
 
       {/* Room filter panel */}
       {filterOpen && (
@@ -580,5 +588,78 @@ export default function StudioCalendarPage() {
       />
     </div>
     </PageTransition>
+  );
+}
+
+// ============================================================
+// カレンダー連携ダイアログ
+// ============================================================
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Copy, CheckCircle2 } from "lucide-react";
+
+function CalendarFeedsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const { data } = useQuery({
+    queryKey: ["studio-feeds"],
+    queryFn: async () => (await api.get("/studios/rooms/feeds")).data.data as { room_id: string; room_name: string; location_name: string; room_type: string; feed_url: string }[],
+    enabled: open,
+  });
+
+  const [copied, setCopied] = useState<string | null>(null);
+  const copyUrl = (url: string, id: string) => {
+    navigator.clipboard.writeText(url);
+    setCopied(id);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CalendarSync className="h-5 w-5" />
+            カレンダー連携
+          </DialogTitle>
+        </DialogHeader>
+
+        <p className="text-sm text-muted-foreground mb-4">
+          各部屋のフィードURLをGoogle Calendar / Outlook に追加すると、予約が自動同期されます。
+        </p>
+
+        <div className="space-y-2">
+          {(data ?? []).map((feed) => (
+            <div key={feed.room_id} className="flex items-center gap-3 p-3 border rounded-lg">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">{feed.location_name} — {feed.room_name}</p>
+                <p className="text-xs text-muted-foreground font-mono truncate mt-0.5">{feed.feed_url}</p>
+              </div>
+              <Button
+                size="sm"
+                variant={copied === feed.room_id ? "default" : "outline"}
+                onClick={() => copyUrl(feed.feed_url, feed.room_id)}
+                className="shrink-0"
+              >
+                {copied === feed.room_id ? <CheckCircle2 className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
+                {copied === feed.room_id ? "コピー済" : "URLコピー"}
+              </Button>
+            </div>
+          ))}
+        </div>
+
+        <div className="border-t pt-4 mt-4 space-y-3">
+          <p className="text-sm font-semibold">追加方法</p>
+          <div className="text-xs text-muted-foreground space-y-2">
+            <div>
+              <p className="font-medium text-foreground">Google Calendar</p>
+              <p>設定 → 「他のカレンダー」の＋ → 「URLで追加」→ コピーしたURLを貼り付け</p>
+            </div>
+            <div>
+              <p className="font-medium text-foreground">Outlook</p>
+              <p>予定表 → 「予定表を追加」→ 「Webから」→ コピーしたURLを貼り付け</p>
+            </div>
+            <p className="text-amber-600">※ 同期間隔はカレンダーアプリ側の設定に依存します（通常数時間〜24時間）</p>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

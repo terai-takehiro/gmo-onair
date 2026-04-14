@@ -1,12 +1,121 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission, requireRole } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { generateICalFeed, ICalEvent } from '../../../shared/utils/ical';
 
 const router = Router();
 
-// Apply auth + permission middleware to all routes
+// ============================================================
+// iCal フィード (認証不要 — URLのtokenで認証)
+// Google Calendar / Outlook から定期取得される
+// ============================================================
+
+// フィードトークン検証
+const FEED_TOKEN = process.env.ICAL_FEED_TOKEN || 'default-feed-token-change-me';
+
+router.get('/rooms/:roomId/calendar.ics', async (req, res) => {
+  const token = req.query.token as string;
+  if (token !== FEED_TOKEN) {
+    res.status(403).send('Invalid feed token');
+    return;
+  }
+
+  const room = await queryOne(
+    `SELECT r.id, r.name, r.color, r.room_type, l.name as location_name
+     FROM studio_rooms r
+     LEFT JOIN studio_locations l ON l.id = r.location_id
+     WHERE r.id = ? AND r.deleted_at IS NULL`,
+    [req.params.roomId],
+  ) as any;
+  if (!room) { res.status(404).send('Room not found'); return; }
+
+  // この部屋が含まれる予約を取得 (過去3ヶ月〜未来1年)
+  const bookings = await queryAll(
+    `SELECT b.id, b.title, b.booking_type, b.start_time, b.end_time, b.all_day,
+            b.location_note, b.notes, b.created_at, b.updated_at,
+            p.name as project_name, p.gls_number,
+            br.occupant, br.usage_note
+     FROM studio_bookings b
+     JOIN studio_booking_rooms br ON br.booking_id = b.id AND br.room_id = ?
+     LEFT JOIN projects p ON p.id = b.project_id
+     WHERE b.deleted_at IS NULL
+       AND b.end_time >= (NOW() - interval '3 months')
+       AND b.start_time <= (NOW() + interval '1 year')
+     ORDER BY b.start_time`,
+    [req.params.roomId],
+  ) as any[];
+
+  const events: ICalEvent[] = bookings.map((b) => {
+    const parts: string[] = [];
+    if (b.project_name) parts.push(b.gls_number ? `[${b.gls_number}] ${b.project_name}` : b.project_name);
+    if (b.occupant) parts.push(`使用者: ${b.occupant}`);
+    if (b.usage_note) parts.push(b.usage_note);
+    if (b.notes) parts.push(b.notes);
+
+    return {
+      uid: `booking-${b.id}-${room.id}@gmo-onair.jp`,
+      summary: b.title,
+      description: parts.join('\n') || undefined,
+      location: room.location_name ? `${room.location_name} - ${room.name}` : room.name,
+      dtstart: b.start_time,
+      dtend: b.end_time,
+      allDay: !!b.all_day,
+      created: b.created_at,
+      lastModified: b.updated_at,
+    };
+  });
+
+  const calName = room.location_name ? `${room.location_name} ${room.name}` : room.name;
+  const ical = generateICalFeed(calName, events);
+
+  res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+  res.setHeader('Content-Disposition', `inline; filename="${room.name}.ics"`);
+  res.setHeader('Cache-Control', 'public, max-age=300'); // 5分キャッシュ
+  res.send(ical);
+});
+
+// 全部屋のフィードURL一覧 (認証必要 — 管理画面で表示用)
+router.get('/rooms/feeds', requireAuth, requirePermission('studio'), async (_req, res) => {
+  const rooms = await queryAll(
+    `SELECT r.id, r.name, r.room_type, l.name as location_name
+     FROM studio_rooms r
+     LEFT JOIN studio_locations l ON l.id = r.location_id
+     WHERE r.deleted_at IS NULL
+     ORDER BY l.sort_order, r.sort_order`,
+  ) as any[];
+
+  const baseUrl = process.env.CLIENT_URL || 'https://gmo-onair.jp';
+  const feeds = rooms.map((r) => ({
+    room_id: r.id,
+    room_name: r.name,
+    location_name: r.location_name,
+    room_type: r.room_type,
+    feed_url: `${baseUrl}/api/v1/internal/studios/rooms/${r.id}/calendar.ics?token=${FEED_TOKEN}`,
+  }));
+
+  res.json({ success: true, data: feeds });
+});
+
+// フィードトークン再生成
+router.post('/rooms/feeds/regenerate-token', requireAuth, requireRole('system_admin'), async (_req, res) => {
+  const newToken = crypto.randomBytes(24).toString('hex');
+  // 実際にはDBに保存すべきだが、簡易的に環境変数で管理
+  // ここではレスポンスで新トークンを返し、.envに手動設定してもらう
+  res.json({
+    success: true,
+    message: '新しいフィードトークンを生成しました。.env の ICAL_FEED_TOKEN に設定してください。',
+    data: { token: newToken },
+  });
+});
+
+// ============================================================
+// 以下、認証必須のAPI
+// ============================================================
+
+// Apply auth + permission middleware to all routes below
 router.use(requireAuth, requirePermission('studio'));
 
 // ============================================================
