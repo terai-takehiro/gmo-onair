@@ -5,7 +5,7 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requireRole } from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
-import { sendMail } from '../../../shared/auth/email';
+import { sendMail, sendMailAsync } from '../../../shared/auth/email';
 import { config } from '../../../config';
 
 const router = Router();
@@ -58,10 +58,10 @@ router.post('/', requireRole('system_admin'), async (req, res) => {
     );
   }
 
-  // 招待メール送信
+  // 招待メール送信 (非同期 — API応答をブロックしない)
   const clientUrl = process.env.CLIENT_URL || config.clientUrl;
   const inviteUrl = `${clientUrl}/auth/accept-invitation?token=${token}`;
-  const sent = await sendMail({
+  sendMailAsync({
     to: email,
     subject: 'GMO ONAiR — アカウント招待',
     html: `<h2>GMO ONAiR へようこそ</h2><p><strong>${name}</strong> 様</p><p>GMO ONAiR へ招待されました。下記のリンクからパスワードを設定してください。</p><p><a href="${inviteUrl}" style="display:inline-block;padding:12px 24px;background:#005bac;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;">アカウントを有効化</a></p><p style="color:#666;font-size:12px;">このリンクは7日間有効です。</p>`,
@@ -71,7 +71,7 @@ router.post('/', requireRole('system_admin'), async (req, res) => {
   res.status(201).json({
     success: true,
     data: row,
-    message: sent ? `${email} に招待メールを送信しました` : `ユーザーを作成しました（メール送信はSMTP未設定のためスキップ）`,
+    message: `ユーザーを作成しました`,
     inviteUrl,
   });
 });

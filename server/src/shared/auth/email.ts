@@ -15,6 +15,9 @@ function getTransporter(): nodemailer.Transporter | null {
       user: process.env.SMTP_USER || '',
       pass: process.env.SMTP_PASS || '',
     },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
   });
   return transporter;
 }
@@ -39,9 +42,18 @@ export async function sendMail(opts: SendMailOpts): Promise<boolean> {
 
   try {
     await tp.sendMail({ from, to: opts.to, subject: opts.subject, html: opts.html });
+    console.log(`[EMAIL] Sent to: ${opts.to}`);
     return true;
   } catch (err) {
-    console.error('[EMAIL] Send failed:', err);
+    console.error('[EMAIL] Send failed:', err instanceof Error ? err.message : err);
     return false;
   }
+}
+
+/**
+ * メール送信を非同期で行う (API応答をブロックしない)
+ * 結果はログにのみ出力
+ */
+export function sendMailAsync(opts: SendMailOpts): void {
+  sendMail(opts).catch(() => {});
 }
