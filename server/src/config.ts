@@ -7,20 +7,16 @@ if (isProduction && !process.env.JWT_SECRET) {
   process.exit(1);
 }
 
-// Warn if mock auth is active in production
-if (isProduction && !(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)) {
-  console.warn('WARNING: GOOGLE_CLIENT_ID/SECRET not set — running with mockAuth in production.');
-  console.warn('Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET for Google OAuth.');
-}
-
 export const config = {
   port: parseInt(process.env.PORT || '3001', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
   isProduction,
   databaseUrl: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/onair_db',
 
-  // Auth mode: 'oauth' when Google credentials are set, 'mock' otherwise
-  authMode: (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) ? 'oauth' as const : 'mock' as const,
+  // Auth mode:
+  //   'password' — 本番 (Email/Password + SMS 2FA)
+  //   'mock'     — 開発 (ユーザーカード選択 + Email/Password)
+  authMode: isProduction ? 'password' as const : 'mock' as const,
 
   // Google OAuth 2.0
   googleClientId: process.env.GOOGLE_CLIENT_ID || '',

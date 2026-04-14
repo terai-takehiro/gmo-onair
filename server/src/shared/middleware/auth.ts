@@ -88,7 +88,7 @@ export async function jwtAuth(req: Request, _res: Response, next: NextFunction):
  * 認証ミドルウェア自動選択: GOOGLE_CLIENT_ID が設定されていれば JWT、なければ mockAuth
  */
 export function createAuthMiddleware() {
-  if (config.authMode === 'oauth') {
+  if (config.authMode === 'password') {
     return jwtAuth;
   }
   return mockAuth;

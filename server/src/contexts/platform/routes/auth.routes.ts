@@ -260,7 +260,7 @@ router.post('/resend-otp', authLimiter, wrap(async (req, res) => {
 // Mock Login (開発用 — authMode === 'mock' 時のみ)
 // ============================================================
 router.post('/mock-login', wrap(async (req, res) => {
-  if (config.authMode === 'oauth') throw new AppError(400, 'NOT_AVAILABLE', '開発用ログインは本番環境で無効です');
+  if (config.authMode === 'password') throw new AppError(400, 'NOT_AVAILABLE', '開発用ログインは本番環境で無効です');
   const { userId } = req.body;
   if (!userId) throw new AppError(400, 'VALIDATION_ERROR', 'userId is required');
   const user = await queryOne('SELECT id, name, email, role FROM users WHERE id = ? AND deleted_at IS NULL', [userId]);
@@ -269,7 +269,7 @@ router.post('/mock-login', wrap(async (req, res) => {
 }));
 
 router.get('/users', wrap(async (_req, res) => {
-  if (config.authMode === 'oauth') throw new AppError(400, 'NOT_AVAILABLE', '開発用ユーザー一覧は本番環境で無効です');
+  if (config.authMode === 'password') throw new AppError(400, 'NOT_AVAILABLE', '開発用ユーザー一覧は本番環境で無効です');
   const users = await queryAll('SELECT id, name, email, role FROM users WHERE deleted_at IS NULL ORDER BY name');
   res.json({ success: true, data: users });
 }));

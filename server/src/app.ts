@@ -54,8 +54,8 @@ export function createApp(): express.Express {
   app.use(cookieParser());
   app.use(morgan('dev'));
 
-  // Passport initialization (required for Google OAuth strategy)
-  if (config.authMode === 'oauth') {
+  // Passport initialization (Google OAuth — 将来用、現在はEmail/Password)
+  if ((config.authMode as string) === 'oauth') {
     app.use(passport.initialize());
   }
 
