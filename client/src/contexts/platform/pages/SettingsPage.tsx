@@ -2,9 +2,12 @@ import { PageTransition } from "@/components/ui/motion";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { BLOCK_APPS, useAuth } from "@/contexts/platform/AuthContext";
-import { Database, Download } from "lucide-react";
+import { Database, Download, Lock, CheckCircle2, AlertCircle } from "lucide-react";
 import api from "@/lib/api";
+import { useState } from "react";
 
 export default function SettingsPage() {
   const { currentUser } = useAuth();
@@ -64,6 +67,9 @@ export default function SettingsPage() {
           </Card>
         )}
 
+        {/* パスワード変更 */}
+        <ChangePasswordCard />
+
         {/* ブロックアプリ一覧 */}
         <Card>
           <CardHeader>
@@ -101,18 +107,66 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* 将来の設定項目 */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base lg:text-lg">将来の設定項目</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              通知設定、メール配信、バックアップ等の設定は今後追加予定です
-            </p>
-          </CardContent>
-        </Card>
       </div>
     </PageTransition>
+  );
+}
+
+function ChangePasswordCard() {
+  const [currentPw, setCurrentPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMsg(null);
+    if (newPw.length < 8) { setMsg({ type: "err", text: "新しいパスワードは8文字以上です" }); return; }
+    if (newPw !== confirmPw) { setMsg({ type: "err", text: "パスワードが一致しません" }); return; }
+    setLoading(true);
+    try {
+      await api.post("/auth/change-password", { current_password: currentPw, new_password: newPw });
+      setMsg({ type: "ok", text: "パスワードを変更しました" });
+      setCurrentPw(""); setNewPw(""); setConfirmPw("");
+    } catch (err: any) {
+      setMsg({ type: "err", text: err.response?.data?.error?.message || "変更に失敗しました" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base lg:text-lg flex items-center gap-2">
+          <Lock className="h-4 w-4" />
+          パスワード変更
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-3 max-w-sm">
+          <div>
+            <Label htmlFor="cur-pw">現在のパスワード</Label>
+            <Input id="cur-pw" type="password" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} required autoComplete="current-password" />
+          </div>
+          <div>
+            <Label htmlFor="new-pw">新しいパスワード (8文字以上)</Label>
+            <Input id="new-pw" type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} required minLength={8} autoComplete="new-password" />
+          </div>
+          <div>
+            <Label htmlFor="cfm-pw">新しいパスワード (確認)</Label>
+            <Input id="cfm-pw" type="password" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} required autoComplete="new-password" />
+          </div>
+          {msg && (
+            <div className={`flex items-center gap-2 text-sm ${msg.type === "ok" ? "text-green-600" : "text-destructive"}`}>
+              {msg.type === "ok" ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+              {msg.text}
+            </div>
+          )}
+          <Button type="submit" disabled={loading}>{loading ? "変更中..." : "パスワードを変更"}</Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

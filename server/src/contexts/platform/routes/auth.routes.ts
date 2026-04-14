@@ -275,6 +275,60 @@ router.get('/users', wrap(async (_req, res) => {
 }));
 
 // ============================================================
+// パスワード変更 (自分自身)
+// ============================================================
+router.post('/change-password', requireAuth, wrap(async (req, res) => {
+  const { current_password, new_password } = req.body;
+  if (!current_password || !new_password) throw new AppError(400, 'VALIDATION_ERROR', '現在のパスワードと新しいパスワードは必須です');
+  if (new_password.length < 8) throw new AppError(400, 'VALIDATION_ERROR', '新しいパスワードは8文字以上です');
+
+  const user = await queryOne('SELECT id, password_hash FROM users WHERE id = ? AND deleted_at IS NULL', [(req.user as any).id]) as any;
+  if (!user?.password_hash) throw new AppError(400, 'NO_PASSWORD', 'パスワードが設定されていません');
+
+  const valid = await verifyPassword(current_password, user.password_hash);
+  if (!valid) throw new AppError(401, 'INVALID_PASSWORD', '現在のパスワードが正しくありません');
+
+  const hash = await hashPassword(new_password);
+  await execute('UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?', [hash, user.id]);
+  res.json({ success: true, message: 'パスワードを変更しました' });
+}));
+
+// ============================================================
+// 管理者: ユーザーのパスワードリセット (再招待)
+// ============================================================
+router.post('/reset-password', requireAuth, requireRole('system_admin'), wrap(async (req, res) => {
+  const { user_id, new_password } = req.body;
+  if (!user_id) throw new AppError(400, 'VALIDATION_ERROR', 'user_idは必須です');
+
+  const target = await queryOne('SELECT id, email FROM users WHERE id = ? AND deleted_at IS NULL', [user_id]) as any;
+  if (!target) throw new AppError(404, 'NOT_FOUND', 'ユーザーが見つかりません');
+
+  if (new_password) {
+    // 直接パスワード設定
+    if (new_password.length < 8) throw new AppError(400, 'VALIDATION_ERROR', 'パスワードは8文字以上です');
+    const hash = await hashPassword(new_password);
+    await execute('UPDATE users SET password_hash = ?, status = ?, updated_at = NOW() WHERE id = ?', [hash, 'active', user_id]);
+    res.json({ success: true, message: `${target.email} のパスワードをリセットしました` });
+  } else {
+    // 招待メール再送
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await execute(
+      `UPDATE users SET invitation_token = ?, invitation_expires_at = ?, status = 'invited', password_hash = NULL, updated_at = NOW() WHERE id = ?`,
+      [token, expiresAt.toISOString(), user_id],
+    );
+    const clientUrl = process.env.CLIENT_URL || config.clientUrl;
+    const inviteUrl = `${clientUrl}/auth/accept-invitation?token=${token}`;
+    await sendMail({
+      to: target.email,
+      subject: 'GMO ONAiR — パスワードリセット',
+      html: `<h2>パスワードリセット</h2><p>下記のリンクから新しいパスワードを設定してください。</p><p><a href="${inviteUrl}" style="display:inline-block;padding:12px 24px;background:#005bac;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;">パスワードを再設定</a></p><p style="color:#666;font-size:12px;">7日間有効です。</p>`,
+    });
+    res.json({ success: true, message: `${target.email} にリセットメールを送信しました`, data: { inviteUrl } });
+  }
+}));
+
+// ============================================================
 // 共通
 // ============================================================
 router.post('/logout', (_req, res) => {
