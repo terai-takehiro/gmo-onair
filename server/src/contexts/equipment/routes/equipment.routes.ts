@@ -10,36 +10,32 @@ const router = Router();
 router.use(requireAuth, requirePermission('equipment'));
 
 // ============================================================
-// EQコード発番
+// EQコード発番 (Y-V-00001 形式)
 // ============================================================
-async function generateEqCode(): Promise<string> {
-  // 英数字 (紛らわしい文字除外: 0,O,I,1,L)
+async function generateEqCode(locationCode?: string, typeCode?: string): Promise<string> {
+  // 新形式: location_code + type_code が指定されていれば Y-V-00001
+  if (locationCode && typeCode) {
+    const prefix = `${locationCode}-${typeCode}`;
+    await execute(
+      `INSERT INTO equipment_id_sequences (prefix, counter) VALUES ($1, 1)
+       ON CONFLICT (prefix) DO UPDATE SET counter = equipment_id_sequences.counter + 1`,
+      [prefix],
+    );
+    const seq = await queryOne('SELECT counter FROM equipment_id_sequences WHERE prefix = $1', [prefix]) as any;
+    return `${prefix}-${String(seq?.counter || 1).padStart(5, '0')}`;
+  }
+  // 旧形式フォールバック
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-
-  // Increment sequence counter
   await execute("UPDATE sequences SET counter = counter + 1 WHERE seq_name = 'eq_code'");
   const seq = await queryOne("SELECT counter FROM sequences WHERE seq_name = 'eq_code'") as any;
   const counter = seq?.counter || Date.now();
-
-  // Generate deterministic-ish but random-looking code
   let code = '';
   let seed = counter;
   for (let i = 0; i < 10; i++) {
-    // Mix counter with position for uniqueness
     const idx = (seed * 31 + i * 7 + counter) % chars.length;
     code += chars[Math.abs(idx) % chars.length];
     seed = Math.floor(seed / chars.length) + counter + i;
   }
-
-  // Fallback: if collision, use random
-  const existing = await queryOne("SELECT id FROM equipment_items WHERE eq_code = $1", [`EQ-${code}`]);
-  if (existing) {
-    code = '';
-    for (let i = 0; i < 10; i++) {
-      code += chars[Math.floor(Math.random() * chars.length)];
-    }
-  }
-
   return `EQ-${code}`;
 }
 
@@ -138,11 +134,18 @@ router.delete('/categories/:id', requirePermission('equipment', 'owner'), async 
 // 機材アイテム CRUD
 // ============================================================
 router.get('/items', async (req: Request, res: Response) => {
-  const { item_type, category_id, status, search, is_lendable, limit, offset } = req.query;
+  const { item_type, category_id, status, search, is_lendable, limit, offset, equipment_section } = req.query;
   let sql = `
-    SELECT ei.*, ec.name as category_name
+    SELECT ei.*, ec.name as category_name,
+           em.name as manufacturer_name,
+           el.name as location_name,
+           CASE WHEN ei.purchased_at IS NOT NULL AND ei.warranty_years > 0
+                THEN (ei.purchased_at + (ei.warranty_years || ' years')::interval)::date
+                ELSE NULL END as warranty_end
     FROM equipment_items ei
     LEFT JOIN equipment_categories ec ON ec.id = ei.category_id AND ec.deleted_at IS NULL
+    LEFT JOIN equipment_manufacturers em ON em.id = ei.manufacturer_id
+    LEFT JOIN equipment_locations el ON el.id = ei.location_id AND el.deleted_at IS NULL
     WHERE ei.deleted_at IS NULL
   `;
   const params: any[] = [];
@@ -152,6 +155,7 @@ router.get('/items', async (req: Request, res: Response) => {
   if (category_id) { sql += ` AND ei.category_id = $${paramIndex++}`; params.push(category_id); }
   if (status) { sql += ` AND ei.status = $${paramIndex++}`; params.push(status); }
   if (is_lendable) { sql += ' AND ei.is_lendable = 1'; }
+  if (equipment_section) { sql += ` AND ei.equipment_section = $${paramIndex++}`; params.push(equipment_section); }
   if (search) {
     sql += ` AND (ei.name ILIKE $${paramIndex} OR ei.eq_code ILIKE $${paramIndex + 1} OR ei.manufacturer ILIKE $${paramIndex + 2} OR ei.model_number ILIKE $${paramIndex + 3} OR ei.serial_number ILIKE $${paramIndex + 4})`;
     const s = `%${search}%`;
@@ -160,7 +164,7 @@ router.get('/items', async (req: Request, res: Response) => {
   }
 
   // Count
-  const countSql = sql.replace(/SELECT ei\.\*, ec\.name as category_name/, 'SELECT COUNT(*) as total');
+  const countSql = sql.replace(/SELECT ei\.\*.*?WHERE ei\.deleted_at IS NULL/s, 'SELECT COUNT(*) as total FROM equipment_items ei WHERE ei.deleted_at IS NULL');
   const countRow = await queryOne(countSql, params) as any;
 
   sql += ' ORDER BY ec.sort_order, ec.name, ei.name, ei.unit_number';
@@ -199,9 +203,16 @@ router.get('/items/export', requirePermission('equipment', 'exporter'), async (_
 
 router.get('/items/:id', async (req: Request, res: Response) => {
   const item = await queryOne(`
-    SELECT ei.*, ec.name as category_name
+    SELECT ei.*, ec.name as category_name,
+           em.name as manufacturer_name,
+           el.name as location_name,
+           CASE WHEN ei.purchased_at IS NOT NULL AND ei.warranty_years > 0
+                THEN (ei.purchased_at + (ei.warranty_years || ' years')::interval)::date
+                ELSE NULL END as warranty_end
     FROM equipment_items ei
     LEFT JOIN equipment_categories ec ON ec.id = ei.category_id
+    LEFT JOIN equipment_manufacturers em ON em.id = ei.manufacturer_id
+    LEFT JOIN equipment_locations el ON el.id = ei.location_id AND el.deleted_at IS NULL
     WHERE ei.id = $1 AND ei.deleted_at IS NULL
   `, [req.params.id]);
 
@@ -260,30 +271,41 @@ router.get('/items/:id', async (req: Request, res: Response) => {
 
 router.post('/items', async (req: Request, res: Response) => {
   const id = uuid();
-  const eq_code = await generateEqCode();
   const {
     name, category_id, item_type, unit_number, parent_id,
-    manufacturer, model_number, serial_number, description, image_url,
+    manufacturer, manufacturer_id, model_number, serial_number, description, image_url,
     asset_number, acquisition_date, acquisition_cost, depreciation_method, useful_life, book_value, asset_class,
     status, condition, location_id, location_detail, notes,
     is_lendable, lending_rules,
+    // 新フィールド
+    branch_code, fixed_asset_code, depreciation_years,
+    equipment_section, equipment_type_code, location_code,
+    purchased_at, warranty_years,
   } = req.body;
+
+  const eq_code = await generateEqCode(location_code, equipment_type_code);
 
   await execute(`
     INSERT INTO equipment_items (
       id, eq_code, name, category_id, item_type, unit_number, parent_id,
-      manufacturer, model_number, serial_number, description, image_url,
+      manufacturer, manufacturer_id, model_number, serial_number, description, image_url,
       asset_number, acquisition_date, acquisition_cost, depreciation_method, useful_life, book_value, asset_class,
       status, condition, location_id, location_detail, notes,
       is_lendable, lending_rules,
+      branch_code, fixed_asset_code, depreciation_years,
+      equipment_section, equipment_type_code, location_code,
+      purchased_at, warranty_years,
       created_by, updated_by
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7, $8,$9,$10,$11,$12, $13,$14,$15,$16,$17,$18,$19, $20,$21,$22,$23,$24, $25,$26, $27,$28)
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7, $8,$9,$10,$11,$12,$13, $14,$15,$16,$17,$18,$19,$20, $21,$22,$23,$24,$25, $26,$27, $28,$29,$30,$31,$32,$33,$34,$35, $36,$37)
   `, [
     id, eq_code, name, category_id || null, item_type || 'facility', unit_number || null, parent_id || null,
-    manufacturer || null, model_number || null, serial_number || null, description || null, image_url || null,
+    manufacturer || null, manufacturer_id || null, model_number || null, serial_number || null, description || null, image_url || null,
     asset_number || null, acquisition_date || null, acquisition_cost || null, depreciation_method || null, useful_life || null, book_value || null, asset_class || 'fixed_asset',
     status || 'active', condition || 'good', location_id || null, location_detail || null, notes || null,
     is_lendable ? 1 : 0, lending_rules || null,
+    branch_code || null, fixed_asset_code || null, depreciation_years ?? null,
+    equipment_section || null, equipment_type_code || null, location_code || null,
+    purchased_at || null, warranty_years ?? null,
     (req as any).user?.id || null, (req as any).user?.id || null,
   ]);
   res.status(201).json({ success: true, data: { id, eq_code } });
@@ -292,27 +314,36 @@ router.post('/items', async (req: Request, res: Response) => {
 router.put('/items/:id', async (req: Request, res: Response) => {
   const {
     name, category_id, item_type, unit_number, parent_id,
-    manufacturer, model_number, serial_number, description, image_url,
+    manufacturer, manufacturer_id, model_number, serial_number, description, image_url,
     asset_number, acquisition_date, acquisition_cost, depreciation_method, useful_life, book_value, asset_class,
     status, condition, location_id, location_detail, notes,
     is_lendable, lending_rules,
+    branch_code, fixed_asset_code, depreciation_years,
+    equipment_section, equipment_type_code, location_code,
+    purchased_at, warranty_years,
   } = req.body;
 
   await execute(`
     UPDATE equipment_items SET
       name=$1, category_id=$2, item_type=$3, unit_number=$4, parent_id=$5,
-      manufacturer=$6, model_number=$7, serial_number=$8, description=$9, image_url=$10,
-      asset_number=$11, acquisition_date=$12, acquisition_cost=$13, depreciation_method=$14, useful_life=$15, book_value=$16, asset_class=$17,
-      status=$18, condition=$19, location_id=$20, location_detail=$21, notes=$22,
-      is_lendable=$23, lending_rules=$24,
-      updated_by=$25, updated_at=NOW()
-    WHERE id=$26 AND deleted_at IS NULL
+      manufacturer=$6, manufacturer_id=$7, model_number=$8, serial_number=$9, description=$10, image_url=$11,
+      asset_number=$12, acquisition_date=$13, acquisition_cost=$14, depreciation_method=$15, useful_life=$16, book_value=$17, asset_class=$18,
+      status=$19, condition=$20, location_id=$21, location_detail=$22, notes=$23,
+      is_lendable=$24, lending_rules=$25,
+      branch_code=$26, fixed_asset_code=$27, depreciation_years=$28,
+      equipment_section=$29, equipment_type_code=$30, location_code=$31,
+      purchased_at=$32, warranty_years=$33,
+      updated_by=$34, updated_at=NOW()
+    WHERE id=$35 AND deleted_at IS NULL
   `, [
     name, category_id || null, item_type, unit_number || null, parent_id !== undefined ? (parent_id || null) : undefined,
-    manufacturer || null, model_number || null, serial_number || null, description || null, image_url || null,
+    manufacturer || null, manufacturer_id || null, model_number || null, serial_number || null, description || null, image_url || null,
     asset_number || null, acquisition_date || null, acquisition_cost || null, depreciation_method || null, useful_life || null, book_value || null, asset_class || 'fixed_asset',
     status || 'active', condition || 'good', location_id || null, location_detail || null, notes || null,
     is_lendable ? 1 : 0, lending_rules || null,
+    branch_code || null, fixed_asset_code || null, depreciation_years ?? null,
+    equipment_section || null, equipment_type_code || null, location_code || null,
+    purchased_at || null, warranty_years ?? null,
     (req as any).user?.id || null, req.params.id,
   ]);
   res.json({ success: true });

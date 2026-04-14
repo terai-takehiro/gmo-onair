@@ -21,15 +21,18 @@ const statusColors: Record<string, string> = {
 const conditionLabels: Record<string, string> = {
   excellent: "優良", good: "良好", fair: "可", poor: "不良",
 };
-const assetClassLabels: Record<string, string> = {
-  fixed_asset: "固定資産", consumable: "消耗品", low_value: "少額資産",
-};
 const maintenanceTypeLabels: Record<string, string> = {
   breakdown: "故障", repair: "修理", maintenance: "メンテナンス", inspection: "点検",
 };
 const maintenanceStatusLabels: Record<string, string> = {
   reported: "報告済", in_progress: "対応中", completed: "完了", cancelled: "キャンセル",
 };
+
+const TYPE_LABELS: Record<string, string> = { V: '映像', C: 'カメラ', A: '音声', IC: 'インカム', NW: 'ネットワーク', L: '照明', XR: 'LED/XR', E: '設備' };
+const SECTION_LABELS: Record<string, string> = { system: 'システム', general: '汎用', facility: '設備' };
+function sectionLabel(typeCode: string | null, section: string | null) {
+  return `${TYPE_LABELS[typeCode || ''] || ''}${SECTION_LABELS[section || ''] || ''}` || '-';
+}
 
 export default function EquipmentDetailPage() {
   const { id } = useParams();
@@ -122,7 +125,7 @@ export default function EquipmentDetailPage() {
       </Dialog>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Basic info */}
+        {/* 基本情報 */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -131,14 +134,14 @@ export default function EquipmentDetailPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <InfoRow label="メーカー" value={item.manufacturer} />
-            <InfoRow label="型番" value={item.model_number} />
+            {item.branch_code && <InfoRow label="販社" value={item.branch_code} />}
+            <InfoRow label="機材セクション" value={sectionLabel(item.equipment_type_code, item.equipment_section)} />
+            <InfoRow label="メーカー" value={item.manufacturer_name || item.manufacturer} />
+            <InfoRow label="機材名 (型番)" value={item.model_number} />
             <InfoRow label="シリアルNo" value={item.serial_number} />
-            <InfoRow label="カテゴリ" value={item.category_name} />
+            <InfoRow label="設置場所" value={item.location_name || item.location_detail} />
             <InfoRow label="コンディション" value={conditionLabels[item.condition]} />
-            <InfoRow label="保管場所" value={item.location_detail} />
-            {item.description && <InfoRow label="説明" value={item.description} />}
-            {item.notes && <InfoRow label="メモ" value={item.notes} />}
+            {item.notes && <InfoRow label="備考" value={item.notes} />}
           </CardContent>
         </Card>
 
@@ -148,11 +151,13 @@ export default function EquipmentDetailPage() {
             <CardTitle className="text-base">資産情報</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <InfoRow label="資産区分" value={assetClassLabels[item.asset_class]} />
-            <InfoRow label="管理番号" value={item.asset_number} />
-            <InfoRow label="取得日" value={item.acquisition_date} />
-            <InfoRow label="取得価額" value={item.acquisition_cost ? `¥${item.acquisition_cost.toLocaleString()}` : null} />
-            <InfoRow label="耐用年数" value={item.useful_life ? `${item.useful_life}年` : null} />
+            <InfoRow label="固定資産コード" value={item.fixed_asset_code || '(消耗品)'} />
+            <InfoRow label="償却年数" value={item.depreciation_years != null ? `${item.depreciation_years}年` : null} />
+            <InfoRow label="購入年月" value={item.purchased_at?.slice(0, 10)} />
+            <InfoRow label="保証期間" value={item.warranty_years ? `${item.warranty_years}年` : null} />
+            <InfoRow label="保証終了" value={item.warranty_end?.slice(0, 10)} />
+            {item.asset_number && <InfoRow label="管理番号" value={item.asset_number} />}
+            {item.acquisition_cost && <InfoRow label="取得価額" value={`¥${item.acquisition_cost.toLocaleString()}`} />}
           </CardContent>
         </Card>
 
