@@ -37,9 +37,15 @@ router.post('/', requireRole('system_admin'), async (req, res) => {
   const { name, email, role, phone } = req.body;
   if (!name || !email || !role) throw new AppError(400, 'VALIDATION_ERROR', '名前、メール、ロールは必須です');
 
-  // 既存チェック
-  const existing = await queryOne('SELECT id, status FROM users WHERE email = ? AND deleted_at IS NULL', [email]) as any;
-  if (existing && existing.status !== 'invited') throw new AppError(409, 'ALREADY_EXISTS', 'このメールアドレスは既に登録されています');
+  // 既存チェック (ソフト削除済みも含む)
+  const existing = await queryOne('SELECT id, status, deleted_at FROM users WHERE email = ?', [email]) as any;
+  if (existing && !existing.deleted_at && existing.status !== 'invited') {
+    throw new AppError(409, 'ALREADY_EXISTS', 'このメールアドレスは既に登録されています');
+  }
+  // ソフト削除済みなら復活させる
+  if (existing?.deleted_at) {
+    await execute('UPDATE users SET deleted_at = NULL, status = ?, updated_at = NOW() WHERE id = ?', ['invited', existing.id]);
+  }
 
   const id = existing?.id || uuidv4();
   const token = crypto.randomBytes(32).toString('hex');
