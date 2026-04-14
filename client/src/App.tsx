@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react";
 // Platform
 import LoginPage from "@/contexts/platform/pages/LoginPage";
 import AuthCallbackPage from "@/contexts/platform/pages/AuthCallbackPage";
+import AcceptInvitationPage from "@/contexts/platform/pages/AcceptInvitationPage";
 import HomePage from "@/contexts/platform/pages/HomePage";
 import UserListPage from "@/contexts/platform/pages/UserListPage";
 import DataViewerPage from "@/contexts/platform/pages/DataViewerPage";
@@ -80,6 +81,7 @@ function AppRoutes() {
         element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />}
       />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
+      <Route path="/auth/accept-invitation" element={<AcceptInvitationPage />} />
 
       <Route
         element={

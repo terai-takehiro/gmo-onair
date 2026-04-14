@@ -140,7 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (userId: string) => {
       setCurrentUserId(userId);
-      const res = await api.post("/auth/login", { userId });
+      const res = await api.post("/auth/mock-login", { userId });
       const user = res.data.data;
       setCurrentUser(user);
       setCurrentUserId(user.id);

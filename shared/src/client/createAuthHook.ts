@@ -60,7 +60,7 @@ export function createAuthHook(config: AuthHookConfig) {
     const login = useCallback(
       async (userId: string) => {
         setCurrentUserId(userId);
-        const res = await config.api.post('/auth/login', { userId });
+        const res = await config.api.post('/auth/mock-login', { userId });
         const user = res.data.data;
         setCurrentUser(user);
         setCurrentUserId(user.id);
