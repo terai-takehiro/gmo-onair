@@ -645,8 +645,39 @@ function CalendarFeedsDialog({ open, onOpenChange }: { open: boolean; onOpenChan
           ))}
         </div>
 
+        {/* サイネージURL一覧 */}
+        <div className="border-t pt-4 mt-4">
+          <p className="text-sm font-semibold mb-3">サイネージURL（楽屋/会議室入口用）</p>
+          <p className="text-xs text-muted-foreground mb-2">タブレットやモニターのブラウザで全画面表示</p>
+          <div className="space-y-2">
+            {(data ?? []).map((feed) => {
+              const baseUrl = new URL(feed.feed_url).origin;
+              const roomId = feed.room_id;
+              const token = new URL(feed.feed_url).searchParams.get('token') || '';
+              const sUrl = `${baseUrl}/signage/${roomId}?token=${token}`;
+              return (
+                <div key={`signage-${feed.room_id}`} className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{feed.location_name} — {feed.room_name}</p>
+                    <p className="text-xs text-muted-foreground font-mono truncate mt-0.5">{sUrl}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant={copied === `s-${feed.room_id}` ? "default" : "outline"}
+                    onClick={() => copyUrl(sUrl, `s-${feed.room_id}`)}
+                    className="shrink-0"
+                  >
+                    {copied === `s-${feed.room_id}` ? <CheckCircle2 className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
+                    {copied === `s-${feed.room_id}` ? "コピー済" : "URLコピー"}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="border-t pt-4 mt-4 space-y-3">
-          <p className="text-sm font-semibold">追加方法</p>
+          <p className="text-sm font-semibold">カレンダー追加方法</p>
           <div className="text-xs text-muted-foreground space-y-2">
             <div>
               <p className="font-medium text-foreground">Google Calendar</p>

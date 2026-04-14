@@ -89,7 +89,7 @@ export default function SignagePage() {
         {hasCurrent ? (
           <>
             <div className="signage-label">ご利用中</div>
-            <div className="signage-title">{data.current!.title}</div>
+            <div className="signage-title">{data.current!.title.replace(/^GLS-?\w+\s*/i, '')}</div>
             {data.current!.occupant && (
               <div className="signage-occupant">{data.current!.occupant}</div>
             )}
@@ -106,7 +106,7 @@ export default function SignagePage() {
             {data.upcoming.length > 0 ? (
               <div className="signage-upcoming">
                 <div className="signage-upcoming-label">次のご利用</div>
-                <div className="signage-title">{data.upcoming[0].title}</div>
+                <div className="signage-title">{data.upcoming[0].title.replace(/^GLS-?\w+\s*/i, '')}</div>
                 {data.upcoming[0].occupant && (
                   <div className="signage-occupant">{data.upcoming[0].occupant}</div>
                 )}
