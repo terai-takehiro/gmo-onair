@@ -1,9 +1,12 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requireRole } from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { sendMail } from '../../../shared/auth/email';
+import { config } from '../../../config';
 
 const router = Router();
 
@@ -20,23 +23,57 @@ router.get('/', async (req, res) => {
     params.push(`%${safeSearch}%`, `%${safeSearch}%`);
   }
   const total = ((await queryOne(`SELECT COUNT(*) as c FROM users ${where}`, params)) as any).c;
-  const rows = await queryAll(`SELECT id, name, email, role, created_at FROM users ${where} ORDER BY name LIMIT ? OFFSET ?`, [...params, limit, offset]);
+  const rows = await queryAll(`SELECT id, name, email, role, status, phone, created_at FROM users ${where} ORDER BY name LIMIT ? OFFSET ?`, [...params, limit, offset]);
   res.json(paginatedResponse(rows, total, page, limit));
 });
 
 router.get('/:id', async (req, res) => {
-  const row = await queryOne('SELECT id, name, email, role, created_at FROM users WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+  const row = await queryOne('SELECT id, name, email, role, status, phone, created_at FROM users WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!row) throw new AppError(404, 'NOT_FOUND', 'ユーザーが見つかりません');
   res.json({ success: true, data: row });
 });
 
 router.post('/', requireRole('system_admin'), async (req, res) => {
-  const { name, email, role } = req.body;
+  const { name, email, role, phone } = req.body;
   if (!name || !email || !role) throw new AppError(400, 'VALIDATION_ERROR', '名前、メール、ロールは必須です');
-  const id = uuidv4();
-  await execute('INSERT INTO users (id, name, email, role, created_by) VALUES (?, ?, ?, ?, ?)', [id, name, email, role, req.user!.id]);
-  const row = await queryOne('SELECT id, name, email, role FROM users WHERE id = ?', [id]);
-  res.status(201).json({ success: true, data: row });
+
+  // 既存チェック
+  const existing = await queryOne('SELECT id, status FROM users WHERE email = ? AND deleted_at IS NULL', [email]) as any;
+  if (existing && existing.status !== 'invited') throw new AppError(409, 'ALREADY_EXISTS', 'このメールアドレスは既に登録されています');
+
+  const id = existing?.id || uuidv4();
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+  if (existing) {
+    await execute(
+      `UPDATE users SET name=?, role=?, phone=?, invitation_token=?, invitation_expires_at=?, status='invited', updated_at=NOW() WHERE id=?`,
+      [name, role, phone || null, token, expiresAt.toISOString(), id],
+    );
+  } else {
+    await execute(
+      `INSERT INTO users (id, name, email, role, phone, status, invitation_token, invitation_expires_at, created_by)
+       VALUES (?, ?, ?, ?, ?, 'invited', ?, ?, ?)`,
+      [id, name, email, role, phone || null, token, expiresAt.toISOString(), req.user!.id],
+    );
+  }
+
+  // 招待メール送信
+  const clientUrl = process.env.CLIENT_URL || config.clientUrl;
+  const inviteUrl = `${clientUrl}/auth/accept-invitation?token=${token}`;
+  const sent = await sendMail({
+    to: email,
+    subject: 'GMO ONAiR — アカウント招待',
+    html: `<h2>GMO ONAiR へようこそ</h2><p><strong>${name}</strong> 様</p><p>GMO ONAiR へ招待されました。下記のリンクからパスワードを設定してください。</p><p><a href="${inviteUrl}" style="display:inline-block;padding:12px 24px;background:#005bac;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;">アカウントを有効化</a></p><p style="color:#666;font-size:12px;">このリンクは7日間有効です。</p>`,
+  });
+
+  const row = await queryOne('SELECT id, name, email, role, status FROM users WHERE id = ?', [id]);
+  res.status(201).json({
+    success: true,
+    data: row,
+    message: sent ? `${email} に招待メールを送信しました` : `ユーザーを作成しました（メール送信はSMTP未設定のためスキップ）`,
+    inviteUrl,
+  });
 });
 
 router.put('/:id', requireRole('system_admin'), async (req, res) => {
