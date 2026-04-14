@@ -48,6 +48,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-noreply@gmo-onair.jp}
+      SKIP_SEED: "true"
     depends_on:
       db:
         condition: service_healthy

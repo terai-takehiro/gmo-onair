@@ -13,12 +13,21 @@ async function main() {
   console.log('[startup] DB connected');
   await runMigrations();
   console.log('[startup] Migrations complete');
-  await seed();
-  console.log('[startup] Seed complete');
-  await seedSubApps().catch((err) => {
-    console.warn('[seed-subapps] warn:', err?.message ?? err);
-    if (err?.stack) console.warn('[seed-subapps] stack:', err.stack);
-  });
+
+  // SKIP_SEED=true で本番環境のダミーデータ投入をスキップ
+  if (process.env.SKIP_SEED !== 'true') {
+    await seed();
+    console.log('[startup] Seed complete');
+    await seedSubApps().catch((err) => {
+      console.warn('[seed-subapps] warn:', err?.message ?? err);
+      if (err?.stack) console.warn('[seed-subapps] stack:', err.stack);
+    });
+  } else {
+    // 本番: マスター管理者だけは必ず作成
+    const { ensureAdminUser } = await import('./shared/db/seed-admin');
+    await ensureAdminUser();
+    console.log('[startup] Seed skipped (SKIP_SEED=true) — admin user ensured');
+  }
 
   const app = createApp();
   const httpServer = http.createServer(app);
