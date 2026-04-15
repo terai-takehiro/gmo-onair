@@ -14,6 +14,9 @@ export function createApp(): express.Express {
   const isProduction = process.env.NODE_ENV === 'production';
   const hasHttps = !!process.env.HTTPS_ENABLED || isProduction;
 
+  // Nginx経由のリクエストでクライアントIPを正しく取得
+  app.set('trust proxy', 1);
+
   // Security headers
   app.use(helmet({
     contentSecurityPolicy: {
