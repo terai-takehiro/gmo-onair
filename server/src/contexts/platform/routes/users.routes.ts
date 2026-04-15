@@ -103,6 +103,20 @@ router.delete('/:id', requireRole('system_admin'), wrap(async (req, res) => {
 // パーミッション管理
 // ============================================================
 
+// ★ /me/permissions は /:id/permissions より先に定義（Express ルート優先順位）
+router.get('/me/permissions', wrap(async (req, res) => {
+  if (req.user!.role === 'system_admin') {
+    res.json({ success: true, data: { _all: 'full' } });
+    return;
+  }
+  const perms = await queryAll('SELECT module, access_level FROM user_permissions WHERE user_id = ?', [req.user!.id]);
+  const permMap: Record<string, string> = {};
+  for (const p of perms) {
+    permMap[p.module as string] = p.access_level as string;
+  }
+  res.json({ success: true, data: permMap });
+}));
+
 // ユーザーのパーミッション一覧
 router.get('/:id/permissions', wrap(async (req, res) => {
   const perms = await queryAll('SELECT module, access_level FROM user_permissions WHERE user_id = ?', [req.params.id]);
@@ -133,21 +147,6 @@ router.put('/:id/permissions', requireRole('system_admin'), wrap(async (req, res
 
   const perms = await queryAll('SELECT module, access_level FROM user_permissions WHERE user_id = ?', [req.params.id]);
   res.json({ success: true, data: perms });
-}));
-
-// 現在ログインユーザーのパーミッション（クライアント用）
-router.get('/me/permissions', wrap(async (req, res) => {
-  if (req.user!.role === 'system_admin') {
-    // system_admin は全モジュールfull
-    res.json({ success: true, data: { _all: 'full' } });
-    return;
-  }
-  const perms = await queryAll('SELECT module, access_level FROM user_permissions WHERE user_id = ?', [req.user!.id]);
-  const permMap: Record<string, string> = {};
-  for (const p of perms) {
-    permMap[p.module as string] = p.access_level as string;
-  }
-  res.json({ success: true, data: permMap });
 }));
 
 export default router;
