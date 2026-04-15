@@ -88,6 +88,7 @@ function PermissionDialog({
     }
   }, [open, user?.id]);
 
+  const qc = useQueryClient();
   const saveMutation = useMutation({
     mutationFn: async () => {
       const permissions: Record<string, string | null> = {};
@@ -97,6 +98,7 @@ function PermissionDialog({
       await api.put(`/users/${user!.id}/permissions`, { permissions });
     },
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["user-permissions", user?.id] });
       onOpenChange(false);
     },
   });

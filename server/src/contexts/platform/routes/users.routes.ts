@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
@@ -8,12 +8,15 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { sendMail, sendMailAsync } from '../../../shared/auth/email';
 import { config } from '../../../config';
 
+const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
+  (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
+
 const router = Router();
 
 // Apply auth to all user routes
 router.use(requireAuth);
 
-router.get('/', async (req, res) => {
+router.get('/', wrap(async (req, res) => {
   const { page, limit, offset, search } = extractPagination(req);
   let where = 'WHERE deleted_at IS NULL';
   const params: unknown[] = [];
@@ -25,15 +28,15 @@ router.get('/', async (req, res) => {
   const total = ((await queryOne(`SELECT COUNT(*) as c FROM users ${where}`, params)) as any).c;
   const rows = await queryAll(`SELECT id, name, email, role, status, phone, created_at FROM users ${where} ORDER BY name LIMIT ? OFFSET ?`, [...params, limit, offset]);
   res.json(paginatedResponse(rows, total, page, limit));
-});
+}));
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', wrap(async (req, res) => {
   const row = await queryOne('SELECT id, name, email, role, status, phone, created_at FROM users WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!row) throw new AppError(404, 'NOT_FOUND', 'ユーザーが見つかりません');
   res.json({ success: true, data: row });
-});
+}));
 
-router.post('/', requireRole('system_admin'), async (req, res) => {
+router.post('/', requireRole('system_admin'), wrap(async (req, res) => {
   const { name, email, role, phone } = req.body;
   if (!name || !email || !role) throw new AppError(400, 'VALIDATION_ERROR', '名前、メール、ロールは必須です');
 
@@ -80,34 +83,34 @@ router.post('/', requireRole('system_admin'), async (req, res) => {
     message: `ユーザーを作成しました`,
     inviteUrl,
   });
-});
+}));
 
-router.put('/:id', requireRole('system_admin'), async (req, res) => {
+router.put('/:id', requireRole('system_admin'), wrap(async (req, res) => {
   const existing = await queryOne('SELECT id FROM users WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'ユーザーが見つかりません');
   const { name, email, role } = req.body;
   await execute(`UPDATE users SET name=?, email=?, role=?, updated_at=NOW(), updated_by=? WHERE id=?`, [name, email, role, req.user!.id, req.params.id]);
   const row = await queryOne('SELECT id, name, email, role FROM users WHERE id = ?', [req.params.id]);
   res.json({ success: true, data: row });
-});
+}));
 
-router.delete('/:id', requireRole('system_admin'), async (req, res) => {
+router.delete('/:id', requireRole('system_admin'), wrap(async (req, res) => {
   await execute(`UPDATE users SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`, [req.user!.id, req.params.id]);
   res.json({ success: true, message: '削除しました' });
-});
+}));
 
 // ============================================================
 // パーミッション管理
 // ============================================================
 
 // ユーザーのパーミッション一覧
-router.get('/:id/permissions', async (req, res) => {
+router.get('/:id/permissions', wrap(async (req, res) => {
   const perms = await queryAll('SELECT module, access_level FROM user_permissions WHERE user_id = ?', [req.params.id]);
   res.json({ success: true, data: perms });
-});
+}));
 
 // ユーザーのパーミッション一括更新
-router.put('/:id/permissions', requireRole('system_admin'), async (req, res) => {
+router.put('/:id/permissions', requireRole('system_admin'), wrap(async (req, res) => {
   const { permissions } = req.body; // { module: access_level } or { module: null } to remove
   if (!permissions || typeof permissions !== 'object') throw new AppError(400, 'VALIDATION_ERROR', 'permissions オブジェクトが必要です');
 
@@ -130,10 +133,10 @@ router.put('/:id/permissions', requireRole('system_admin'), async (req, res) => 
 
   const perms = await queryAll('SELECT module, access_level FROM user_permissions WHERE user_id = ?', [req.params.id]);
   res.json({ success: true, data: perms });
-});
+}));
 
 // 現在ログインユーザーのパーミッション（クライアント用）
-router.get('/me/permissions', async (req, res) => {
+router.get('/me/permissions', wrap(async (req, res) => {
   if (req.user!.role === 'system_admin') {
     // system_admin は全モジュールfull
     res.json({ success: true, data: { _all: 'full' } });
@@ -145,6 +148,6 @@ router.get('/me/permissions', async (req, res) => {
     permMap[p.module as string] = p.access_level as string;
   }
   res.json({ success: true, data: permMap });
-});
+}));
 
 export default router;
