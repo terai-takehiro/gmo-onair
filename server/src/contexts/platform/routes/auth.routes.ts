@@ -16,11 +16,26 @@ const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<u
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: 10,
   message: { success: false, error: { code: 'RATE_LIMIT', message: 'リクエスト回数が上限に達しました。しばらく待ってください。' } },
+  skipSuccessfulRequests: true,
+});
+
+const otpLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 5,
+  message: { success: false, error: { code: 'RATE_LIMIT', message: '認証コードの入力回数が上限に達しました。' } },
 });
 
 const OTP_EXPIRES_MINUTES = 5;
+
+// パスワード強度チェック
+function validatePassword(pw: string): string | null {
+  if (pw.length < 8) return 'パスワードは8文字以上です';
+  if (!/[a-zA-Z]/.test(pw)) return 'パスワードに英字を含めてください';
+  if (!/[0-9]/.test(pw)) return 'パスワードに数字を含めてください';
+  return null;
+}
 
 // ============================================================
 // 認証モード情報
@@ -114,7 +129,8 @@ router.get('/invitation', wrap(async (req, res) => {
 router.post('/accept-invitation', authLimiter, wrap(async (req, res) => {
   const { token, password } = req.body;
   if (!token || !password) throw new AppError(400, 'VALIDATION_ERROR', 'トークンとパスワードは必須です');
-  if (password.length < 8) throw new AppError(400, 'VALIDATION_ERROR', 'パスワードは8文字以上です');
+  const pwErr = validatePassword(password);
+  if (pwErr) throw new AppError(400, 'VALIDATION_ERROR', pwErr);
 
   const user = await queryOne(
     `SELECT id, email, status, invitation_expires_at FROM users
@@ -205,7 +221,7 @@ router.post('/login', authLimiter, wrap(async (req, res) => {
 // ============================================================
 // ログイン Step 2: SMS OTP検証 → JWT発行
 // ============================================================
-router.post('/verify-2fa', authLimiter, wrap(async (req, res) => {
+router.post('/verify-2fa', otpLimiter, wrap(async (req, res) => {
   const { user_id, code } = req.body;
   if (!user_id || !code) throw new AppError(400, 'VALIDATION_ERROR', 'ユーザーIDと認証コードは必須です');
 
@@ -280,7 +296,8 @@ router.get('/users', wrap(async (_req, res) => {
 router.post('/change-password', requireAuth, wrap(async (req, res) => {
   const { current_password, new_password } = req.body;
   if (!current_password || !new_password) throw new AppError(400, 'VALIDATION_ERROR', '現在のパスワードと新しいパスワードは必須です');
-  if (new_password.length < 8) throw new AppError(400, 'VALIDATION_ERROR', '新しいパスワードは8文字以上です');
+  const npErr = validatePassword(new_password);
+  if (npErr) throw new AppError(400, 'VALIDATION_ERROR', npErr);
 
   const user = await queryOne('SELECT id, password_hash FROM users WHERE id = ? AND deleted_at IS NULL', [(req.user as any).id]) as any;
   if (!user?.password_hash) throw new AppError(400, 'NO_PASSWORD', 'パスワードが設定されていません');

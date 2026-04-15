@@ -32,12 +32,13 @@ services:
     ports:
       - "127.0.0.1:3000:3000"
     environment:
-      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-postgres}@db:5432/onair_prod
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@db:5432/onair_prod
       NODE_ENV: production
       PORT: 3000
       JWT_SECRET: ${JWT_SECRET}
       CLIENT_URL: https://gmo-onair.jp
       ALLOWED_ORIGINS: https://gmo-onair.jp,https://www.gmo-onair.jp
+      ICAL_FEED_TOKEN: ${ICAL_FEED_TOKEN:-}
       # SMS (Twilio)
       TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
@@ -62,7 +63,7 @@ services:
     ports:
       - "127.0.0.1:3001:3000"
     environment:
-      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-postgres}@db:5432/onair_dev
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@db:5432/onair_dev
       NODE_ENV: development
       PORT: 3000
       JWT_SECRET: ${JWT_SECRET_DEV:-dev-jwt-secret-do-not-use-in-production}

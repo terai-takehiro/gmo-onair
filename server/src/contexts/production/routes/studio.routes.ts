@@ -13,12 +13,15 @@ const router = Router();
 // Google Calendar / Outlook から定期取得される
 // ============================================================
 
-// フィードトークン検証
-const FEED_TOKEN = process.env.ICAL_FEED_TOKEN || 'default-feed-token-change-me';
+// フィードトークン (本番では必ず .env に設定)
+const FEED_TOKEN = process.env.ICAL_FEED_TOKEN;
+if (!FEED_TOKEN && process.env.NODE_ENV === 'production') {
+  console.error('WARNING: ICAL_FEED_TOKEN not set. Calendar feeds and signage will be disabled.');
+}
 
 router.get('/rooms/:roomId/calendar.ics', async (req, res) => {
   const token = req.query.token as string;
-  if (token !== FEED_TOKEN) {
+  if (!FEED_TOKEN || token !== FEED_TOKEN) {
     res.status(403).send('Invalid feed token');
     return;
   }
@@ -80,7 +83,7 @@ router.get('/rooms/:roomId/calendar.ics', async (req, res) => {
 // サイネージ用データ (認証不要 — トークンで保護)
 router.get('/rooms/:roomId/signage', async (req, res) => {
   const token = req.query.token as string;
-  if (token !== FEED_TOKEN) {
+  if (!FEED_TOKEN || token !== FEED_TOKEN) {
     res.status(403).json({ success: false, error: { message: 'Invalid token' } });
     return;
   }
