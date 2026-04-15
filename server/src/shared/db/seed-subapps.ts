@@ -125,35 +125,45 @@ async function seedSubApps() {
       );
     }
 
-    // Equipment items
+    // Equipment manufacturers マスタ
+    const mfgSql = `INSERT INTO equipment_manufacturers (id, name, sort_order) VALUES (?,?,?) ON CONFLICT (name) DO NOTHING`;
+    const mfgMap: Record<string, string> = {};
+    for (const [i, name] of ['Sony', 'Canon', 'Blackmagic', 'SmallHD', 'ARRI', 'Aputure', 'Sennheiser', 'Yamaha', 'Dell', 'VIDEOTRON', 'CANARE'].entries()) {
+      const id = uuidv4();
+      await ins(mfgSql, [id, name, i + 1]);
+      // 既存があった場合は再取得
+      const existing = await queryOne('SELECT id FROM equipment_manufacturers WHERE name = ?', [name]) as any;
+      mfgMap[name] = existing?.id || id;
+    }
+
+    // Equipment items — 新スキーマ対応 (Y-V-00001形式)
     const eqSql = `INSERT INTO equipment_items
       (id, eq_code, name, category_id, item_type, unit_number,
-       manufacturer, model_number, serial_number,
+       manufacturer, manufacturer_id, model_number, serial_number,
        acquisition_cost, useful_life, asset_class,
-       status, condition, location_detail, is_lendable, created_by, updated_by)
-      VALUES (?,?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?,?,?,?)
+       status, condition, location_detail, is_lendable,
+       branch_code, fixed_asset_code, depreciation_years,
+       equipment_section, equipment_type_code, location_code,
+       purchased_at, warranty_years,
+       created_by, updated_by)
+      VALUES (?,?,?,?,?,?, ?,?,?,?, ?,?,?, ?,?,?,?, ?,?,?, ?,?,?, ?,?, ?,?)
       ON CONFLICT DO NOTHING`;
 
     const items = [
-      { k:'cam1',    code:'EQ-CAM-001', name:'Sony PXW-FX9',                   cat:'camera',   t:'facility', u:1, mfr:'Sony',        mdl:'PXW-FX9',                    sn:'FX9-2024-001', cost:1980000, life:5, loc:'A棟 3F カメラ庫',     lend:false },
-      { k:'cam1b',   code:'EQ-CAM-002', name:'Sony PXW-FX9',                   cat:'camera',   t:'facility', u:2, mfr:'Sony',        mdl:'PXW-FX9',                    sn:'FX9-2024-002', cost:1980000, life:5, loc:'ワールドスタジオ',   lend:false },
-      { k:'cam2',    code:'EQ-CAM-003', name:'Sony PXW-FX6',                   cat:'camera',   t:'rental',   u:1, mfr:'Sony',        mdl:'PXW-FX6',                    sn:'FX6-2024-001', cost:650000,  life:5, loc:'A棟 3F カメラ庫',     lend:true  },
-      { k:'cam2b',   code:'EQ-CAM-004', name:'Sony PXW-FX6',                   cat:'camera',   t:'rental',   u:2, mfr:'Sony',        mdl:'PXW-FX6',                    sn:'FX6-2024-002', cost:650000,  life:5, loc:'A棟 3F カメラ庫',     lend:true  },
-      { k:'cam2c',   code:'EQ-CAM-005', name:'Sony PXW-FX6',                   cat:'camera',   t:'rental',   u:3, mfr:'Sony',        mdl:'PXW-FX6',                    sn:'FX6-2024-003', cost:650000,  life:5, loc:'A棟 3F カメラ庫',     lend:true  },
-      { k:'sw1',     code:'EQ-SW-001',  name:'Blackmagic ATEM 4 M/E',          cat:'switcher', t:'facility', u:1, mfr:'Blackmagic',  mdl:'ATEM 4 M/E Constellation 4K',sn:'ATEM4ME-001',  cost:4500000, life:7, loc:'サブコントロール',   lend:false },
-      { k:'sw2',     code:'EQ-SW-002',  name:'Blackmagic ATEM Mini Extreme ISO',cat:'switcher', t:'rental',   u:1, mfr:'Blackmagic',  mdl:'ATEM Mini Extreme ISO',      sn:'AMEI-001',     cost:180000,  life:5, loc:'A棟 3F 機材庫',       lend:true  },
-      { k:'sw2b',    code:'EQ-SW-003',  name:'Blackmagic ATEM Mini Extreme ISO',cat:'switcher', t:'rental',   u:2, mfr:'Blackmagic',  mdl:'ATEM Mini Extreme ISO',      sn:'AMEI-002',     cost:180000,  life:5, loc:'A棟 3F 機材庫',       lend:true  },
-      { k:'mon1',    code:'EQ-MON-001', name:'Sony BVM-HX3110',                cat:'monitor',  t:'facility', u:1, mfr:'Sony',        mdl:'BVM-HX3110',                 sn:'HX3110-001',   cost:3200000, life:7, loc:'ワールドスタジオ サブ',lend:false },
-      { k:'mon2',    code:'EQ-MON-002', name:'SmallHD Cine 13',               cat:'monitor',  t:'rental',   u:1, mfr:'SmallHD',     mdl:'Cine 13',                    sn:'SHD-C13-001',  cost:480000,  life:5, loc:'A棟 3F 機材庫',       lend:true  },
-      { k:'mon2b',   code:'EQ-MON-003', name:'SmallHD Cine 13',               cat:'monitor',  t:'rental',   u:2, mfr:'SmallHD',     mdl:'Cine 13',                    sn:'SHD-C13-002',  cost:480000,  life:5, loc:'A棟 3F 機材庫',       lend:true  },
-      { k:'light1',  code:'EQ-LT-001',  name:'ARRI SkyPanel S60-C',            cat:'lighting', t:'facility', u:1, mfr:'ARRI',        mdl:'SkyPanel S60-C',             sn:'ARRI-S60-001', cost:750000,  life:7, loc:'ワールドスタジオ',   lend:false },
-      { k:'light2',  code:'EQ-LT-002',  name:'Aputure 600d Pro',              cat:'lighting', t:'rental',   u:1, mfr:'Aputure',     mdl:'600d Pro',                   sn:'APT-600D-001', cost:280000,  life:5, loc:'A棟 3F 照明庫',       lend:true  },
-      { k:'light2b', code:'EQ-LT-003',  name:'Aputure 600d Pro',              cat:'lighting', t:'rental',   u:2, mfr:'Aputure',     mdl:'600d Pro',                   sn:'APT-600D-002', cost:280000,  life:5, loc:'A棟 3F 照明庫',       lend:true  },
-      { k:'mic1',    code:'EQ-AU-001',  name:'Sennheiser MKH416',              cat:'audio',    t:'rental',   u:1, mfr:'Sennheiser',  mdl:'MKH416',                     sn:'MKH416-001',   cost:120000,  life:7, loc:'A棟 3F 音響庫',       lend:true  },
-      { k:'mic1b',   code:'EQ-AU-002',  name:'Sennheiser MKH416',              cat:'audio',    t:'rental',   u:2, mfr:'Sennheiser',  mdl:'MKH416',                     sn:'MKH416-002',   cost:120000,  life:7, loc:'A棟 3F 音響庫',       lend:true  },
-      { k:'mixer1',  code:'EQ-AU-003',  name:'Yamaha DM7',                     cat:'audio',    t:'facility', u:1, mfr:'Yamaha',      mdl:'DM7',                        sn:'DM7-001',      cost:3800000, life:10,loc:'ワールドスタジオ サブ',lend:false },
-      { k:'srv1',    code:'EQ-PC-001',  name:'Dell PowerEdge R760',            cat:'pc',       t:'facility', u:1, mfr:'Dell',        mdl:'PowerEdge R760',             sn:'SRV-R760-001', cost:1200000, life:5, loc:'サーバールーム',     lend:false },
-      { k:'lens1',   code:'EQ-LN-001',  name:'Canon CN-E 50mm T1.3',           cat:'lens',     t:'rental',   u:1, mfr:'Canon',       mdl:'CN-E 50mm T1.3 L F',        sn:'CNE50-001',    cost:450000,  life:7, loc:'A棟 3F カメラ庫',     lend:true  },
+      { k:'cam1',    code:'Y-C-00001', name:'Sony PXW-FX9',                   cat:'camera',   t:'facility', u:1, mfr:'Sony',        mdl:'PXW-FX9',                    sn:'FX9-2024-001', cost:1980000, life:5, loc:'A棟 3F カメラ庫',     lend:false, sec:'system',  typeCode:'C',  locCode:'Y', fac:'052312-001', dep:5, purchased:'2024-04-01', warr:2 },
+      { k:'cam1b',   code:'Y-C-00002', name:'Sony PXW-FX9',                   cat:'camera',   t:'facility', u:2, mfr:'Sony',        mdl:'PXW-FX9',                    sn:'FX9-2024-002', cost:1980000, life:5, loc:'ワールドスタジオ',   lend:false, sec:'system',  typeCode:'C',  locCode:'Y', fac:'052312-002', dep:5, purchased:'2024-04-01', warr:2 },
+      { k:'cam2',    code:'Y-C-00003', name:'Sony PXW-FX6',                   cat:'camera',   t:'rental',   u:1, mfr:'Sony',        mdl:'PXW-FX6',                    sn:'FX6-2024-001', cost:650000,  life:5, loc:'A棟 3F カメラ庫',     lend:true,  sec:'general', typeCode:'C',  locCode:'Y', fac:'052312-003', dep:5, purchased:'2024-04-01', warr:2 },
+      { k:'cam2b',   code:'Y-C-00004', name:'Sony PXW-FX6',                   cat:'camera',   t:'rental',   u:2, mfr:'Sony',        mdl:'PXW-FX6',                    sn:'FX6-2024-002', cost:650000,  life:5, loc:'A棟 3F カメラ庫',     lend:true,  sec:'general', typeCode:'C',  locCode:'Y', fac:'052312-004', dep:5, purchased:'2024-04-01', warr:2 },
+      { k:'cam2c',   code:'Y-C-00005', name:'Sony PXW-FX6',                   cat:'camera',   t:'rental',   u:3, mfr:'Sony',        mdl:'PXW-FX6',                    sn:'FX6-2024-003', cost:650000,  life:5, loc:'A棟 3F カメラ庫',     lend:true,  sec:'general', typeCode:'C',  locCode:'Y', fac:'052312-005', dep:5, purchased:'2024-04-01', warr:2 },
+      { k:'sw1',     code:'Y-V-00001', name:'Blackmagic ATEM 4 M/E',          cat:'switcher', t:'facility', u:1, mfr:'Blackmagic',  mdl:'ATEM 4 M/E Constellation 4K',sn:'ATEM4ME-001',  cost:4500000, life:7, loc:'サブコントロール',   lend:false, sec:'system',  typeCode:'V',  locCode:'Y', fac:'052312-101', dep:7, purchased:'2023-10-01', warr:3 },
+      { k:'sw2',     code:'Y-V-00002', name:'Blackmagic ATEM Mini Extreme ISO',cat:'switcher', t:'rental',   u:1, mfr:'Blackmagic',  mdl:'ATEM Mini Extreme ISO',      sn:'AMEI-001',     cost:180000,  life:5, loc:'A棟 3F 機材庫',       lend:true,  sec:'general', typeCode:'V',  locCode:'Y', fac:'',           dep:0, purchased:'2024-04-01', warr:1 },
+      { k:'mon1',    code:'Y-V-00003', name:'Sony BVM-HX3110',                cat:'monitor',  t:'facility', u:1, mfr:'Sony',        mdl:'BVM-HX3110',                 sn:'HX3110-001',   cost:3200000, life:7, loc:'ワールドスタジオ サブ',lend:false, sec:'system',  typeCode:'V',  locCode:'Y', fac:'052312-102', dep:7, purchased:'2023-10-01', warr:3 },
+      { k:'light1',  code:'Y-L-00001', name:'ARRI SkyPanel S60-C',            cat:'lighting', t:'facility', u:1, mfr:'ARRI',        mdl:'SkyPanel S60-C',             sn:'ARRI-S60-001', cost:750000,  life:7, loc:'ワールドスタジオ',   lend:false, sec:'system',  typeCode:'L',  locCode:'Y', fac:'052312-201', dep:7, purchased:'2024-04-01', warr:2 },
+      { k:'light2',  code:'Y-L-00002', name:'Aputure 600d Pro',              cat:'lighting', t:'rental',   u:1, mfr:'Aputure',     mdl:'600d Pro',                   sn:'APT-600D-001', cost:280000,  life:5, loc:'A棟 3F 照明庫',       lend:true,  sec:'general', typeCode:'L',  locCode:'Y', fac:'052312-202', dep:5, purchased:'2024-04-01', warr:2 },
+      { k:'mic1',    code:'Y-A-00001', name:'Sennheiser MKH416',              cat:'audio',    t:'rental',   u:1, mfr:'Sennheiser',  mdl:'MKH416',                     sn:'MKH416-001',   cost:120000,  life:7, loc:'A棟 3F 音響庫',       lend:true,  sec:'general', typeCode:'A',  locCode:'Y', fac:'052312-301', dep:7, purchased:'2024-04-01', warr:2 },
+      { k:'mixer1',  code:'Y-A-00002', name:'Yamaha DM7',                     cat:'audio',    t:'facility', u:1, mfr:'Yamaha',      mdl:'DM7',                        sn:'DM7-001',      cost:3800000, life:10,loc:'ワールドスタジオ サブ',lend:false, sec:'system',  typeCode:'A',  locCode:'Y', fac:'052312-302', dep:10,purchased:'2023-10-01', warr:3 },
+      { k:'srv1',    code:'Y-NW-0001', name:'Dell PowerEdge R760',            cat:'pc',       t:'facility', u:1, mfr:'Dell',        mdl:'PowerEdge R760',             sn:'SRV-R760-001', cost:1200000, life:5, loc:'サーバールーム',     lend:false, sec:'system',  typeCode:'NW', locCode:'Y', fac:'052312-401', dep:5, purchased:'2024-04-01', warr:3 },
+      { k:'cable1',  code:'Y-V-00004', name:'HDMIケーブル 3m',                cat:'switcher', t:'rental',   u:1, mfr:'CANARE',      mdl:'HDM03',                      sn:'',             cost:3500,    life:0, loc:'A棟 3F 機材庫',       lend:true,  sec:'general', typeCode:'V',  locCode:'Y', fac:'',           dep:0, purchased:'2024-04-01', warr:0 },
     ];
 
     const eqIds: Record<string, string> = {};
@@ -161,13 +171,17 @@ async function seedSubApps() {
       eqIds[i.k] = uuidv4();
       await ins(eqSql, [
         eqIds[i.k], i.code, i.name, catIds[i.cat], i.t, i.u,
-        i.mfr, i.mdl, i.sn,
+        i.mfr, mfgMap[i.mfr] || null, i.mdl, i.sn,
         i.cost, i.life, 'fixed_asset',
-        'active', 'good', i.loc, i.lend ? 1 : 0, adminId, adminId,
+        'active', 'good', i.loc, i.lend ? 1 : 0,
+        'GMO-IG', i.fac, i.dep,
+        i.sec, i.typeCode, i.locCode,
+        i.purchased, i.warr,
+        adminId, adminId,
       ]);
     }
 
-    console.log('  equipment_items: OK');
+    console.log('  equipment_items: OK (新スキーマ対応)');
   }
 
   // ============================================================
