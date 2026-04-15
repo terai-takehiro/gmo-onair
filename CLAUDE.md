@@ -30,7 +30,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **リアルタイム**: Socket.IO (`/qsheet` ネームスペース: OnAir↔ランダウン同期, `/interactive`: スタンプ)
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
-## 現在のバージョン: v1.0.32
+## 現在のバージョン: v1.0.33
 
 ## ブランチ運用
 - **デプロイ**: 常に `main` ブランチにプッシュ（masterではない）
@@ -40,6 +40,21 @@ GLS番号を中核として全アプリのデータが紐づく。
   2. ルート `package.json` の `"version"`
   3. 各ワークスペース `package.json` の `"version"` (`client/`, `client-qsheet/`, `client-equipment/`, `client-interactive/`, `client-techsheet/`)
   4. コミットメッセージに `v0.x.x` を明記
+
+## UI/UX ポリシー
+
+### レスポンシブデザイン必須
+- **全ての画面はスマホ対応を前提**で設計・実装する（モバイルファースト）
+- 新規UI追加・既存UI修正時は、375px幅（iPhone SE相当）でも破綻しないこと
+- 具体的には以下を遵守:
+  - Tailwind のブレイクポイント `sm:` `md:` `lg:` を適切に使用
+  - 横スクロールが発生しうるテーブルは `overflow-x-auto` で囲む
+  - フォームは1カラム縦積みを基本、広い画面で `sm:grid-cols-2` 等に展開
+  - ボタン・タップ領域は最低 44px（iOS HIG基準）を確保
+  - ダイアログ/モーダルは `max-h-[90vh] overflow-y-auto` で画面外はみ出し回避
+  - 固定ヘッダー/フッターは `position: fixed` + `safe-area-inset` を考慮
+- 実装後は DevTools のモバイルエミュレーションで動作確認
+- 既存画面もレスポンシブ不備を見つけたら随時修正すること
 
 ## セキュリティポリシー
 

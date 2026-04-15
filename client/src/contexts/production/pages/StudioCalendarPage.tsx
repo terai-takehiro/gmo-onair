@@ -332,11 +332,11 @@ export default function StudioCalendarPage() {
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-xl lg:text-2xl font-bold">スタジオ予約</h1>
           <p className="hidden sm:block text-sm text-muted-foreground">カレンダーをタップして予約を追加</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-1.5 sm:gap-2">
           <Button
             variant={filterOpen ? "default" : "outline"}
             size="sm"
@@ -344,7 +344,7 @@ export default function StudioCalendarPage() {
             className="gap-1"
           >
             <Filter className="h-4 w-4" />
-            部屋
+            <span className="hidden sm:inline">部屋</span>
             {selectedRoomIds.size > 0 && (
               <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
                 {selectedRoomIds.size}
@@ -353,17 +353,17 @@ export default function StudioCalendarPage() {
           </Button>
           <Button variant="outline" size="sm" onClick={() => setFeedsOpen(true)} className="gap-1">
             <CalendarSync className="h-4 w-4" />
-            カレンダー連携
+            <span className="hidden sm:inline">カレンダー連携</span>
           </Button>
           {isAdmin && (
             <Button variant="outline" size="sm" onClick={() => setRoomsManagerOpen(true)} className="gap-1">
               <Settings className="h-4 w-4" />
-              部屋管理
+              <span className="hidden sm:inline">部屋管理</span>
             </Button>
           )}
           <Button size="sm" onClick={handleNewBooking}>
-            <Plus className="h-4 w-4 mr-1" />
-            予約追加
+            <Plus className="h-4 w-4 sm:mr-1" />
+            <span className="hidden sm:inline">予約追加</span>
           </Button>
         </div>
       </div>
