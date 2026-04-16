@@ -90,6 +90,29 @@ export default function ProjectFormPage() {
   const [rehearsalStart, setRehearsalStart] = useState("");
   const [rehearsalEnd, setRehearsalEnd] = useState("");
   const [rehearsalMultiDay, setRehearsalMultiDay] = useState(false);
+  const [locationNote, setLocationNote] = useState("");
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+  const locationSuggestionsRef = useRef<HTMLDivElement>(null);
+  const LOCATION_NOTE_KEY = "studio_location_note_history";
+  const getLocationHistory = (): string[] => {
+    try { return JSON.parse(localStorage.getItem(LOCATION_NOTE_KEY) || "[]"); } catch { return []; }
+  };
+  const saveLocationNote = (note: string) => {
+    const history = getLocationHistory().filter(h => h !== note).slice(0, 14);
+    localStorage.setItem(LOCATION_NOTE_KEY, JSON.stringify([note, ...history]));
+  };
+  const locationHistory = getLocationHistory().filter(h =>
+    locationNote ? h.toLowerCase().includes(locationNote.toLowerCase()) : true
+  ).slice(0, 6);
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (locationSuggestionsRef.current && !locationSuggestionsRef.current.contains(e.target as Node)) {
+        setShowLocationSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const { data: studioLocationsData } = useQuery({
     queryKey: ["studio-locations"],
@@ -227,7 +250,8 @@ export default function ProjectFormPage() {
       onSuccess: async (res) => {
         const savedProjectId = res?.data?.data?.id || id;
         // スタジオ予約を同時作成 (部屋・日程が指定されている場合)
-        if (scheduleRoomIds.length > 0 && productionStart) {
+        if ((scheduleRoomIds.length > 0 || locationNote.trim()) && productionStart) {
+          if (locationNote.trim()) saveLocationNote(locationNote.trim());
           try {
             // 本番予約
             await api.post("/studios/bookings", {
@@ -238,6 +262,7 @@ export default function ProjectFormPage() {
               start_time: productionStart,
               end_time: prodEnd || productionStart,
               room_ids: scheduleRoomIds,
+              location_note: locationNote.trim() || null,
             });
             // リハーサル予約
             if (hasRehearsal && rehearsalStart) {
@@ -250,6 +275,7 @@ export default function ProjectFormPage() {
                 start_time: rehearsalStart,
                 end_time: rehEnd || rehearsalStart,
                 room_ids: scheduleRoomIds,
+                location_note: locationNote.trim() || null,
               });
             }
           } catch { /* 予約失敗しても案件保存は成功 */ }
@@ -504,39 +530,69 @@ export default function ProjectFormPage() {
               <div className="space-y-2">
                 {studioLocations.map((loc) => (
                   <div key={loc.id}>
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="text-xs font-semibold text-muted-foreground">{loc.name}</p>
-                      <label className="flex items-center gap-1 text-xs cursor-pointer text-muted-foreground">
-                        <Checkbox
-                          checked={loc.rooms.every(r => scheduleRoomIds.includes(r.id))}
-                          onCheckedChange={(checked) => {
-                            const roomIds = loc.rooms.map(r => r.id);
-                            setScheduleRoomIds(prev =>
-                              checked
-                                ? [...new Set([...prev, ...roomIds])]
-                                : prev.filter(id => !roomIds.includes(id))
-                            );
-                          }}
+                    <p className="text-xs font-semibold text-muted-foreground mb-1">{loc.name}</p>
+                    {loc.rooms.length === 0 ? (
+                      /* 外現場: 自由記述 + 履歴サジェスト */
+                      <div className="relative" ref={locationSuggestionsRef}>
+                        <Input
+                          placeholder="場所を入力（例: 東京国際フォーラム）"
+                          value={locationNote}
+                          onChange={(e) => setLocationNote(e.target.value)}
+                          onFocus={() => setShowLocationSuggestions(true)}
+                          className="text-sm"
                         />
-                        全て選択
-                      </label>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {loc.rooms.map((room) => (
-                        <label key={room.id} className="flex items-center gap-1.5 text-sm cursor-pointer">
-                          <Checkbox
-                            checked={scheduleRoomIds.includes(room.id)}
-                            onCheckedChange={(checked) => {
-                              setScheduleRoomIds(prev =>
-                                checked ? [...prev, room.id] : prev.filter(id => id !== room.id)
-                              );
-                            }}
-                          />
-                          <span className="inline-block w-2 h-2 rounded-full" style={{ background: room.color }} />
-                          {room.name}
-                        </label>
-                      ))}
-                    </div>
+                        {showLocationSuggestions && locationHistory.length > 0 && (
+                          <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md">
+                            {locationHistory.map((h) => (
+                              <button
+                                key={h}
+                                type="button"
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+                                onMouseDown={(e) => { e.preventDefault(); setLocationNote(h); setShowLocationSuggestions(false); }}
+                              >
+                                {h}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between mb-1">
+                          <span />
+                          <label className="flex items-center gap-1 text-xs cursor-pointer text-muted-foreground">
+                            <Checkbox
+                              checked={loc.rooms.every(r => scheduleRoomIds.includes(r.id))}
+                              onCheckedChange={(checked) => {
+                                const roomIds = loc.rooms.map(r => r.id);
+                                setScheduleRoomIds(prev =>
+                                  checked
+                                    ? [...new Set([...prev, ...roomIds])]
+                                    : prev.filter(id => !roomIds.includes(id))
+                                );
+                              }}
+                            />
+                            全て選択
+                          </label>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {loc.rooms.map((room) => (
+                            <label key={room.id} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                              <Checkbox
+                                checked={scheduleRoomIds.includes(room.id)}
+                                onCheckedChange={(checked) => {
+                                  setScheduleRoomIds(prev =>
+                                    checked ? [...prev, room.id] : prev.filter(id => id !== room.id)
+                                  );
+                                }}
+                              />
+                              <span className="inline-block w-2 h-2 rounded-full" style={{ background: room.color }} />
+                              {room.name}
+                            </label>
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
