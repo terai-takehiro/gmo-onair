@@ -504,7 +504,23 @@ export default function ProjectFormPage() {
               <div className="space-y-2">
                 {studioLocations.map((loc) => (
                   <div key={loc.id}>
-                    <p className="text-xs font-semibold text-muted-foreground mb-1">{loc.name}</p>
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-xs font-semibold text-muted-foreground">{loc.name}</p>
+                      <label className="flex items-center gap-1 text-xs cursor-pointer text-muted-foreground">
+                        <Checkbox
+                          checked={loc.rooms.every(r => scheduleRoomIds.includes(r.id))}
+                          onCheckedChange={(checked) => {
+                            const roomIds = loc.rooms.map(r => r.id);
+                            setScheduleRoomIds(prev =>
+                              checked
+                                ? [...new Set([...prev, ...roomIds])]
+                                : prev.filter(id => !roomIds.includes(id))
+                            );
+                          }}
+                        />
+                        全て選択
+                      </label>
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       {loc.rooms.map((room) => (
                         <label key={room.id} className="flex items-center gap-1.5 text-sm cursor-pointer">
