@@ -111,7 +111,13 @@ export default function ProjectListPage() {
                     <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
                       <span className="font-number text-sm font-medium text-foreground">{formatCurrency(p.expected_amount as number)}</span>
                       <span>{ProjectTypeLabels[p.project_type as keyof typeof ProjectTypeLabels] || (p.project_type as string) || "-"}</span>
-                      {(p.event_start as string) && <span>{formatDate(p.event_start as string)}</span>}
+                      {(p.event_start as string) && (
+                        <span>
+                          {p.event_end && p.event_end !== p.event_start
+                            ? `${formatDate(p.event_start as string)} 〜 ${formatDate(p.event_end as string)}`
+                            : formatDate(p.event_start as string)}
+                        </span>
+                      )}
                       {(p.assigned_to_name as string) && <span>{p.assigned_to_name as string}</span>}
                     </div>
                   </div>
@@ -154,7 +160,13 @@ export default function ProjectListPage() {
                           {ProjectTypeLabels[p.project_type as keyof typeof ProjectTypeLabels] || (p.project_type as string) || "-"}
                         </TableCell>
                         <TableCell className="text-right font-number">{formatCurrency(p.expected_amount as number)}</TableCell>
-                        <TableCell>{formatDate(p.event_start as string)}</TableCell>
+                        <TableCell className="text-xs whitespace-nowrap">
+                          {p.event_start
+                            ? p.event_end && p.event_end !== p.event_start
+                              ? `${formatDate(p.event_start as string)} 〜 ${formatDate(p.event_end as string)}`
+                              : formatDate(p.event_start as string)
+                            : "-"}
+                        </TableCell>
                         <TableCell>{(p.assigned_to_name as string) || "-"}</TableCell>
                       </TableRow>
                     ))}
