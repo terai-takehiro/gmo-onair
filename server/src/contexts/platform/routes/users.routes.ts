@@ -99,6 +99,21 @@ router.delete('/:id', requireRole('system_admin'), wrap(async (req, res) => {
   res.json({ success: true, message: '削除しました' });
 }));
 
+// 特定モジュールへのアクセス権を持つユーザー一覧 (プルダウン用)
+router.get('/by-module/:module', wrap(async (req, res) => {
+  const mod = req.params.module;
+  const rows = await queryAll(
+    `SELECT DISTINCT u.id, u.name, u.email
+     FROM users u
+     LEFT JOIN user_permissions p ON p.user_id = u.id AND p.module = ?
+     WHERE u.deleted_at IS NULL AND u.status = 'active'
+       AND (u.role = 'system_admin' OR p.access_level IS NOT NULL)
+     ORDER BY u.name`,
+    [mod],
+  );
+  res.json({ success: true, data: rows });
+}));
+
 // ============================================================
 // パーミッション管理
 // ============================================================

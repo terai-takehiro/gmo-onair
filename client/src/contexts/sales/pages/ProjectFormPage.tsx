@@ -18,7 +18,8 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator, AlertTriangle, Info, CalendarDays, FileText } from "lucide-react";
+import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator, AlertTriangle, Info, CalendarDays, FileText, Calendar } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   ProjectStageLabels, ProjectStageColors,
   ProjectTypeLabels, BroadcastTypeLabels, MediaPlatformLabels,
@@ -80,6 +81,20 @@ export default function ProjectFormPage() {
   const lostReasonCategories: { id: string; name: string }[] = lostReasonsData?.data ?? [];
   const [holdPromptOpen, setHoldPromptOpen] = useState(false);
 
+  // スタジオスケジュール
+  const [scheduleRoomIds, setScheduleRoomIds] = useState<string[]>([]);
+  const [hasRehearsal, setHasRehearsal] = useState(false);
+  const [rehearsalStart, setRehearsalStart] = useState("");
+  const [rehearsalEnd, setRehearsalEnd] = useState("");
+  const [productionStart, setProductionStart] = useState("");
+  const [productionEnd, setProductionEnd] = useState("");
+
+  const { data: studioLocationsData } = useQuery({
+    queryKey: ["studio-locations"],
+    queryFn: async () => (await api.get("/studios/locations")).data.data,
+  });
+  const studioLocations: { id: string; name: string; rooms: { id: string; name: string; color: string }[] }[] = studioLocationsData ?? [];
+
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<FormValues>({
     defaultValues: {
       name: "", customer_id: "", project_type: "", project_type_other: "",
@@ -101,8 +116,8 @@ export default function ProjectFormPage() {
   const customers = customersData?.data ?? [];
 
   const { data: usersData } = useQuery({
-    queryKey: ["users-select"],
-    queryFn: async () => (await api.get("/auth/users")).data.data,
+    queryKey: ["users-by-module-sales"],
+    queryFn: async () => (await api.get("/users/by-module/sales")).data.data,
   });
   const users = usersData ?? [];
 
@@ -199,7 +214,40 @@ export default function ProjectFormPage() {
     }
   };
 
-  const onSubmit = (values: FormValues) => saveMutation.mutate(values);
+  const onSubmit = async (values: FormValues) => {
+    saveMutation.mutate(values, {
+      onSuccess: async (res) => {
+        const savedProjectId = res?.data?.data?.id || id;
+        // スタジオ予約を同時作成 (部屋・日程が指定されている場合)
+        if (scheduleRoomIds.length > 0 && productionStart) {
+          try {
+            // 本番予約
+            await api.post("/studios/bookings", {
+              title: `${values.name} 本番`,
+              booking_type: "project",
+              project_id: savedProjectId,
+              all_day: true,
+              start_time: productionStart,
+              end_time: productionEnd || productionStart,
+              room_ids: scheduleRoomIds,
+            });
+            // リハーサル予約
+            if (hasRehearsal && rehearsalStart) {
+              await api.post("/studios/bookings", {
+                title: `${values.name} リハーサル`,
+                booking_type: "project",
+                project_id: savedProjectId,
+                all_day: true,
+                start_time: rehearsalStart,
+                end_time: rehearsalEnd || rehearsalStart,
+                room_ids: scheduleRoomIds,
+              });
+            }
+          } catch { /* 予約失敗しても案件保存は成功 */ }
+        }
+      },
+    });
+  };
 
   const currentStage = (project?.stage || "neta") as ProjectStage;
   const projectType = watch("project_type");
@@ -450,6 +498,77 @@ export default function ProjectFormPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* スタジオスケジュール */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              スタジオスケジュール
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* 部屋選択 */}
+            <div>
+              <Label className="mb-2 block">使用する部屋・空間</Label>
+              <div className="space-y-2">
+                {studioLocations.map((loc) => (
+                  <div key={loc.id}>
+                    <p className="text-xs font-semibold text-muted-foreground mb-1">{loc.name}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {loc.rooms.map((room) => (
+                        <label key={room.id} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                          <Checkbox
+                            checked={scheduleRoomIds.includes(room.id)}
+                            onCheckedChange={(checked) => {
+                              setScheduleRoomIds(prev =>
+                                checked ? [...prev, room.id] : prev.filter(id => id !== room.id)
+                              );
+                            }}
+                          />
+                          <span className="inline-block w-2 h-2 rounded-full" style={{ background: room.color }} />
+                          {room.name}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 本番日程 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label>本番 開始日</Label>
+                <Input type="date" value={productionStart} onChange={(e) => setProductionStart(e.target.value)} />
+              </div>
+              <div>
+                <Label>本番 終了日</Label>
+                <Input type="date" value={productionEnd} onChange={(e) => setProductionEnd(e.target.value)} />
+              </div>
+            </div>
+
+            {/* リハーサル */}
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox checked={hasRehearsal} onCheckedChange={(v) => setHasRehearsal(!!v)} />
+                リハーサルあり
+              </label>
+              {hasRehearsal && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-6">
+                  <div>
+                    <Label>リハーサル 開始日</Label>
+                    <Input type="date" value={rehearsalStart} onChange={(e) => setRehearsalStart(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>リハーサル 終了日</Label>
+                    <Input type="date" value={rehearsalEnd} onChange={(e) => setRehearsalEnd(e.target.value)} />
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* 番組情報 (A系 + GLS発番後のみ表示) */}
         {hasGls && isCategoryA && (
