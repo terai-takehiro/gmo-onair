@@ -88,7 +88,7 @@ export async function jwtAuth(req: Request, _res: Response, next: NextFunction):
  * 認証ミドルウェア自動選択: GOOGLE_CLIENT_ID が設定されていれば JWT、なければ mockAuth
  */
 export function createAuthMiddleware() {
-  if (config.authMode === 'oauth') {
+  if (config.authMode === 'password') {
     return jwtAuth;
   }
   return mockAuth;
@@ -96,6 +96,7 @@ export function createAuthMiddleware() {
 
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   if (!req.user) {
+    console.log('[auth] requireAuth FAIL — path:', req.path, 'x-user-id:', req.headers['x-user-id'], 'auth:', req.headers.authorization?.slice(0, 20));
     res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: '認証が必要です' } });
     return;
   }

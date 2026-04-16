@@ -188,7 +188,7 @@ export default function LendingListPage() {
                         </Badge>
                         <span className="text-sm">{l.borrower_name}</span>
                         {l.gls_number && (
-                          <Badge variant="outline" className="text-[10px]">
+                          <Badge variant="outline" className="text-xs">
                             {l.gls_number} {l.project_name}
                           </Badge>
                         )}

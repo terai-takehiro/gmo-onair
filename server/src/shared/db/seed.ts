@@ -32,7 +32,7 @@ export async function seed() {
   // Users
   // ============================================================
   const userSql = `INSERT INTO users (id, name, email, role) VALUES (?, ?, ?, ?)`;
-  await ins(userSql, [USERS.admin, '山田 太郎', 'yamada@globalstudio.example.com', 'system_admin']);
+  await ins(userSql, [USERS.admin, 'システム管理者', 'account@gmo-globalstudio.com', 'system_admin']);
   await ins(userSql, [USERS.staff1, '佐藤 花子', 'sato@globalstudio.example.com', 'staff']);
   await ins(userSql, [USERS.staff2, '鈴木 一郎', 'suzuki@globalstudio.example.com', 'staff']);
   await ins(userSql, [USERS.staff3, '高橋 美咲', 'takahashi@globalstudio.example.com', 'staff']);
@@ -53,6 +53,7 @@ export async function seed() {
     [USERS.staff1, 'equipment', 'exporter'],   // 機材は閲覧+出力のみ
     [USERS.staff1, 'qsheet',    'editor'],     // Qシート編集可
     [USERS.staff1, 'interactive', 'editor'],  // インタラクティブ編集可
+    [USERS.staff1, 'techsheet', 'editor'],    // 技術資料編集可
 
     // staff2 — 鈴木（制作マネージャー寄り）
     [USERS.staff2, 'sales',     'editor'],     // 営業は編集まで
@@ -61,6 +62,7 @@ export async function seed() {
     [USERS.staff2, 'equipment', 'manager'],    // 機材は削除可
     [USERS.staff2, 'qsheet',    'owner'],      // Qシートの責任者
     [USERS.staff2, 'interactive', 'owner'],   // インタラクティブ責任者
+    [USERS.staff2, 'techsheet', 'owner'],     // 技術資料の責任者
 
     // staff3 — 高橋（制作スタッフ）
     [USERS.staff3, 'sales',     'reader'],     // 営業は閲覧のみ
@@ -68,6 +70,7 @@ export async function seed() {
     [USERS.staff3, 'equipment', 'editor'],     // 機材も編集可
     [USERS.staff3, 'qsheet',    'editor'],     // Qシート編集可
     [USERS.staff3, 'interactive', 'editor'],  // インタラクティブ編集可
+    [USERS.staff3, 'techsheet', 'editor'],    // 技術資料編集可
     // budget: アクセスなし
 
     // viewer — 田中（経営層・閲覧用）
@@ -76,11 +79,13 @@ export async function seed() {
     [USERS.viewer, 'studio',    'reader'],     // スタジオは閲覧のみ
     [USERS.viewer, 'qsheet',    'reader'],     // Qシート閲覧のみ
     [USERS.viewer, 'interactive', 'reader'],  // インタラクティブ閲覧
+    [USERS.viewer, 'techsheet', 'reader'],    // 技術資料閲覧
     // equipment: アクセスなし
 
     // external — 山田（外部クライアント）
     [USERS.external, 'studio',  'reader'],     // カレンダー閲覧のみ
     [USERS.external, 'qsheet',  'reader'],     // Qシート閲覧のみ
+    [USERS.external, 'techsheet', 'reader'],   // 技術資料閲覧のみ
   ];
 
   for (const [userId, mod, level] of perms) {
@@ -673,13 +678,13 @@ export async function seed() {
     ['WORLD STUDIO', 'studio', '#2563eb', 1],
     ['SKY STUDIO', 'studio', '#7c3aed', 2],
     ['LOUNGE STUDIO', 'studio', '#0891b2', 3],
-    ['MEETING ROOM', 'greenroom', '#6b7280', 4],
-    ['ROOM A', 'greenroom', '#059669', 5],
-    ['ROOM B', 'greenroom', '#d97706', 6],
-    ['ROOM C', 'greenroom', '#dc2626', 7],
-    ['VIP LOUNGE', 'greenroom', '#9333ea', 8],
-    ['第1調整室', 'control', '#4f46e5', 9],
-    ['第2調整室', 'control', '#0284c7', 10],
+    ['第1調整室', 'control', '#4f46e5', 4],
+    ['第2調整室', 'control', '#0284c7', 5],
+    ['MEETING ROOM', 'greenroom', '#6b7280', 6],
+    ['ROOM A', 'greenroom', '#059669', 7],
+    ['ROOM B', 'greenroom', '#d97706', 8],
+    ['ROOM C', 'greenroom', '#dc2626', 9],
+    ['VIP LOUNGE', 'greenroom', '#9333ea', 10],
   ];
   for (const [name, roomType, color, order] of yogaRooms) {
     const id = uuidv4();
@@ -933,123 +938,8 @@ export async function seed() {
   await ins("INSERT INTO equipment_accessories (id, parent_id, child_id, note) VALUES (?,?,?,?)",
     [acc1, eqItemIds['cam1'], eqItemIds['lens1'], '標準レンズキット']);
 
-  // ============================================================
-  // Qsheet Documents (Qシート)
-  // ============================================================
-  const qsheetSql = `INSERT INTO qsheet_documents (id, title, episode_id, project_id, broadcast_date, status, data, created_by, updated_by) VALUES (?,?,?,?,?,?,?,?,?)`;
-
-  await ins(qsheetSql, [
-    uuidv4(), 'GH春季IR説明会 Qシート', EPISODES['GLS-A001-001'], PROJECTS['GLS-A001'], '2026-03-28', 'confirmed',
-    JSON.stringify({
-      rows: [
-        { id: '1', time: '13:00', duration: '5', item: 'OA', content: 'オープニングアニメーション', cast: '', notes: 'CG再生' },
-        { id: '2', time: '13:05', duration: '3', item: '挨拶', content: '代表取締役ご挨拶', cast: '代表取締役', notes: '演台マイク' },
-        { id: '3', time: '13:08', duration: '25', item: '説明', content: '2025年度決算報告', cast: 'CFO 田村氏', notes: 'スライド投影' },
-        { id: '4', time: '13:33', duration: '20', item: '説明', content: '2026年度事業計画', cast: 'CEO', notes: 'スライド+動画' },
-        { id: '5', time: '13:53', duration: '2', item: '休憩', content: '休憩', cast: '', notes: '' },
-        { id: '6', time: '13:55', duration: '20', item: 'Q&A', content: '質疑応答', cast: '登壇者全員', notes: '会場マイク巡回' },
-        { id: '7', time: '14:15', duration: '5', item: 'ED', content: 'エンディング・閉会挨拶', cast: '司会', notes: '' },
-      ],
-    }),
-    USERS.staff1, USERS.staff1,
-  ]);
-
-  await ins(qsheetSql, [
-    uuidv4(), 'サイエンス・フロンティア #001 Qシート', EPISODES['GLS-A002-001'], PROJECTS['GLS-A002'], '2026-04-07', 'draft',
-    JSON.stringify({
-      rows: [
-        { id: '1', time: '10:00', duration: '3', item: 'OP', content: 'オープニングタイトル', cast: '', notes: 'CG' },
-        { id: '2', time: '10:03', duration: '5', item: 'VTR', content: '前回のあらすじ', cast: 'ナレーション', notes: 'VTR再生' },
-        { id: '3', time: '10:08', duration: '15', item: 'トーク', content: '今回のテーマ紹介「量子コンピュータの現在」', cast: 'MC 高橋・ゲスト教授', notes: '' },
-        { id: '4', time: '10:23', duration: '12', item: 'VTR', content: '取材VTR：量子研究所訪問', cast: '', notes: 'VTR再生' },
-        { id: '5', time: '10:35', duration: '10', item: 'トーク', content: 'ゲスト解説・実験コーナー', cast: 'MC・教授', notes: '実験セットあり' },
-        { id: '6', time: '10:45', duration: '3', item: 'ED', content: 'エンディング・次回予告', cast: 'MC', notes: '' },
-      ],
-    }),
-    USERS.staff2, USERS.staff2,
-  ]);
-
-  await ins(qsheetSql, [
-    uuidv4(), 'ネットLIVE配信 #001 Qシート', EPISODES['GLS-A003-001'], PROJECTS['GLS-A003'], '2026-04-05', 'confirmed',
-    JSON.stringify({
-      rows: [
-        { id: '1', time: '19:00', duration: '5', item: 'OP', content: 'オープニング・配信開始', cast: 'MC', notes: 'YouTube Live開始' },
-        { id: '2', time: '19:05', duration: '20', item: 'コーナー1', content: '今週のテックニュース', cast: 'MC・コメンテーター', notes: '' },
-        { id: '3', time: '19:25', duration: '15', item: 'コーナー2', content: 'ゲストインタビュー', cast: 'ゲスト', notes: 'リモート出演' },
-        { id: '4', time: '19:40', duration: '10', item: 'コーナー3', content: 'チャットQ&A', cast: 'MC', notes: 'チャット読み上げ' },
-        { id: '5', time: '19:50', duration: '5', item: 'ED', content: '次回予告・配信終了', cast: 'MC', notes: '' },
-      ],
-    }),
-    USERS.staff3, USERS.staff3,
-  ]);
-
-  // ============================================================
-  // TechSheet Documents (技術資料)
-  // ============================================================
-  const techsheetSql = `INSERT INTO techsheet_documents (id, title, project_id, episode_id, production_date, venue, status, data, created_by) VALUES (?,?,?,?,?,?,?,?,?)`;
-
-  await ins(techsheetSql, [
-    uuidv4(), 'GH春季IR説明会 技術仕様書', PROJECTS['GLS-A001'], EPISODES['GLS-A001-001'],
-    '2026-03-28', '用賀 WORLD STUDIO', 'confirmed',
-    JSON.stringify({
-      cameras: [
-        { position: 'CAM1', model: 'Sony PXW-FX9', lens: '24-70mm', operator: '鈴木一郎', notes: '演台メインカメラ' },
-        { position: 'CAM2', model: 'Sony PXW-FX9', lens: '70-200mm', operator: '高橋美咲', notes: '会場全景' },
-        { position: 'CAM3', model: 'Sony PXW-FX6', lens: '16-35mm', operator: '', notes: 'ロボカメ（リモート操作）' },
-      ],
-      video: { switcher: 'ATEM 4 M/E Constellation 4K', format: '4K/59.94p', recording: 'HyperDeck Studio 4K Pro', streaming: 'YouTube Live (1080p)' },
-      audio: { mixer: 'Yamaha DM7', mics: ['ワイヤレスピンマイク x3', '演台グースネック x1', '会場ハンドマイク x2'], monitoring: 'IEM x2' },
-      comms: { system: 'RTS ADAM-M', channels: ['CAM', 'Audio', 'Lighting', 'Director'] },
-    }),
-    USERS.staff2,
-  ]);
-
-  await ins(techsheetSql, [
-    uuidv4(), 'サイエンス・フロンティア 収録 技術仕様書', PROJECTS['GLS-A002'], EPISODES['GLS-A002-001'],
-    '2026-04-07', '用賀 SKY STUDIO', 'draft',
-    JSON.stringify({
-      cameras: [
-        { position: 'CAM1', model: 'Blackmagic URSA Mini Pro 12K', lens: 'Canon CN-E 50mm', operator: '鈴木一郎', notes: 'メインカメラ' },
-        { position: 'CAM2', model: 'Sony PXW-FX6', lens: '24-70mm', operator: '高橋美咲', notes: 'ゲスト寄り' },
-        { position: 'CAM3', model: 'Sony PXW-FX6', lens: '16-35mm', operator: '', notes: 'セット全景（固定）' },
-      ],
-      video: { switcher: 'ATEM Mini Extreme ISO', format: '4K/29.97p', recording: 'ATEM ISO Recording + SSD', streaming: '' },
-      audio: { mixer: 'Yamaha DM7', mics: ['ラベリアマイク x2', 'ブームマイク x1', 'ガンマイク MKH416 x1'], monitoring: '' },
-      comms: { system: 'インカム 4ch', channels: ['Director', 'Camera', 'Audio'] },
-    }),
-    USERS.staff2,
-  ]);
-
-  // ============================================================
-  // Interactive Events & Stamps (インタラクティブ演出)
-  // ============================================================
-  const eventSql = `INSERT INTO interactive_events (id, title, description, status, project_id, episode_id, config, max_connections, created_by) VALUES (?,?,?,?,?,?,?,?,?)`;
-  const stampSql = `INSERT INTO interactive_stamps (id, event_id, label, emoji, color, animation, sort_order, is_active) VALUES (?,?,?,?,?,?,?,?)`;
-
-  const ev1Id = uuidv4();
-  await ins(eventSql, [
-    ev1Id, 'GH春季IR説明会 リアクション', 'IR説明会のリアルタイムリアクション収集',
-    'draft', PROJECTS['GLS-A001'], EPISODES['GLS-A001-001'],
-    JSON.stringify({ theme: 'corporate', showCount: true }),
-    500, USERS.staff1,
-  ]);
-  await ins(stampSql, [uuidv4(), ev1Id, 'なるほど', '💡', '#3b82f6', 'bounce', 1, true]);
-  await ins(stampSql, [uuidv4(), ev1Id, 'いいね', '👍', '#22c55e', 'bounce', 2, true]);
-  await ins(stampSql, [uuidv4(), ev1Id, '質問', '❓', '#f59e0b', 'pop', 3, true]);
-  await ins(stampSql, [uuidv4(), ev1Id, 'すごい', '🎉', '#ec4899', 'shake', 4, true]);
-
-  const ev2Id = uuidv4();
-  await ins(eventSql, [
-    ev2Id, 'ネットLIVE配信 #001 スタンプ', '視聴者参加型リアクションスタンプ',
-    'draft', PROJECTS['GLS-A003'], EPISODES['GLS-A003-001'],
-    JSON.stringify({ theme: 'fun', showCount: true, allowAnonymous: true }),
-    2000, USERS.staff3,
-  ]);
-  await ins(stampSql, [uuidv4(), ev2Id, '笑', '😂', '#f59e0b', 'shake', 1, true]);
-  await ins(stampSql, [uuidv4(), ev2Id, '拍手', '👏', '#22c55e', 'bounce', 2, true]);
-  await ins(stampSql, [uuidv4(), ev2Id, 'ハート', '❤️', '#ef4444', 'pop', 3, true]);
-  await ins(stampSql, [uuidv4(), ev2Id, '驚き', '😮', '#8b5cf6', 'bounce', 4, true]);
-  await ins(stampSql, [uuidv4(), ev2Id, '炎', '🔥', '#f97316', 'shake', 5, true]);
+  // サブアプリデータ (Qシート/技術資料/インタラクティブ) は
+  // seedSubApps() で投入する（重複防止）
 
   saveDb();
   console.log('Seed data inserted successfully.');

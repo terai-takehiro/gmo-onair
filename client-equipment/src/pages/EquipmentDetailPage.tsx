@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  ArrowLeft, Copy, Loader2, Wrench, ArrowRightLeft, Package, QrCode,
+  ArrowLeft, Copy, Loader2, Wrench, ArrowRightLeft, Package, QrCode, Printer,
 } from "lucide-react";
+import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const statusLabels: Record<string, string> = {
   active: "稼働中", in_repair: "修理中", retired: "引退", disposed: "廃棄", lost: "紛失",
@@ -19,9 +21,6 @@ const statusColors: Record<string, string> = {
 const conditionLabels: Record<string, string> = {
   excellent: "優良", good: "良好", fair: "可", poor: "不良",
 };
-const assetClassLabels: Record<string, string> = {
-  fixed_asset: "固定資産", consumable: "消耗品", low_value: "少額資産",
-};
 const maintenanceTypeLabels: Record<string, string> = {
   breakdown: "故障", repair: "修理", maintenance: "メンテナンス", inspection: "点検",
 };
@@ -29,9 +28,16 @@ const maintenanceStatusLabels: Record<string, string> = {
   reported: "報告済", in_progress: "対応中", completed: "完了", cancelled: "キャンセル",
 };
 
+const TYPE_LABELS: Record<string, string> = { V: '映像', C: 'カメラ', A: '音声', IC: 'インカム', NW: 'ネットワーク', L: '照明', XR: 'LED/XR', E: '設備' };
+const SECTION_LABELS: Record<string, string> = { system: 'システム', general: '汎用', facility: '設備' };
+function sectionLabel(typeCode: string | null, section: string | null) {
+  return `${TYPE_LABELS[typeCode || ''] || ''}${SECTION_LABELS[section || ''] || ''}` || '-';
+}
+
 export default function EquipmentDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [qrOpen, setQrOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["equipment-item", id],
@@ -90,10 +96,36 @@ export default function EquipmentDetailPage() {
             <Copy className="h-2.5 w-2.5 opacity-40" />
           </button>
         </div>
+        <Button variant="outline" size="sm" onClick={() => setQrOpen(true)}>
+          <Printer className="h-4 w-4 mr-1" />
+          QRコード
+        </Button>
       </div>
 
+      {/* QRコード表示・印刷ダイアログ */}
+      <Dialog open={qrOpen} onOpenChange={setQrOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>QRコード — {item.name}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-3 py-4">
+            <img
+              src={`/api/v1/internal/equipment/items/${id}/qr`}
+              alt="QRコード"
+              className="w-56 h-56 border rounded bg-white p-2"
+            />
+            <p className="font-mono text-sm">{item.eq_code}</p>
+            <p className="text-xs text-muted-foreground text-center">{item.name}</p>
+            <Button onClick={() => window.print()} className="w-full">
+              <Printer className="h-4 w-4 mr-1" />
+              印刷
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Basic info */}
+        {/* 基本情報 */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -102,14 +134,14 @@ export default function EquipmentDetailPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <InfoRow label="メーカー" value={item.manufacturer} />
-            <InfoRow label="型番" value={item.model_number} />
+            {item.branch_code && <InfoRow label="販社" value={item.branch_code} />}
+            <InfoRow label="機材セクション" value={sectionLabel(item.equipment_type_code, item.equipment_section)} />
+            <InfoRow label="メーカー" value={item.manufacturer_name || item.manufacturer} />
+            <InfoRow label="機材名 (型番)" value={item.model_number} />
             <InfoRow label="シリアルNo" value={item.serial_number} />
-            <InfoRow label="カテゴリ" value={item.category_name} />
+            <InfoRow label="設置場所" value={item.location_name || item.location_detail} />
             <InfoRow label="コンディション" value={conditionLabels[item.condition]} />
-            <InfoRow label="保管場所" value={item.location_detail} />
-            {item.description && <InfoRow label="説明" value={item.description} />}
-            {item.notes && <InfoRow label="メモ" value={item.notes} />}
+            {item.notes && <InfoRow label="備考" value={item.notes} />}
           </CardContent>
         </Card>
 
@@ -119,11 +151,13 @@ export default function EquipmentDetailPage() {
             <CardTitle className="text-base">資産情報</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <InfoRow label="資産区分" value={assetClassLabels[item.asset_class]} />
-            <InfoRow label="管理番号" value={item.asset_number} />
-            <InfoRow label="取得日" value={item.acquisition_date} />
-            <InfoRow label="取得価額" value={item.acquisition_cost ? `¥${item.acquisition_cost.toLocaleString()}` : null} />
-            <InfoRow label="耐用年数" value={item.useful_life ? `${item.useful_life}年` : null} />
+            <InfoRow label="固定資産コード" value={item.fixed_asset_code || '(消耗品)'} />
+            <InfoRow label="償却年数" value={item.depreciation_years != null ? `${item.depreciation_years}年` : null} />
+            <InfoRow label="購入年月" value={item.purchased_at?.slice(0, 10)} />
+            <InfoRow label="保証期間" value={item.warranty_years ? `${item.warranty_years}年` : null} />
+            <InfoRow label="保証終了" value={item.warranty_end?.slice(0, 10)} />
+            {item.asset_number && <InfoRow label="管理番号" value={item.asset_number} />}
+            {item.acquisition_cost && <InfoRow label="取得価額" value={`¥${item.acquisition_cost.toLocaleString()}`} />}
           </CardContent>
         </Card>
 
@@ -135,7 +169,7 @@ export default function EquipmentDetailPage() {
               <ArrowRightLeft className="h-4 w-4" />
               貸出履歴
               {item.is_lendable ? (
-                <Badge variant="outline" className="text-[10px]">貸出可</Badge>
+                <Badge variant="outline" className="text-xs">貸出可</Badge>
               ) : null}
             </CardTitle>
           </CardHeader>
@@ -182,10 +216,10 @@ export default function EquipmentDetailPage() {
                     <div className="flex items-center justify-between">
                       <span className="font-medium">{m.title}</span>
                       <div className="flex items-center gap-1">
-                        <Badge variant="outline" className="text-[10px]">
+                        <Badge variant="outline" className="text-xs">
                           {maintenanceTypeLabels[m.record_type]}
                         </Badge>
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
                           {maintenanceStatusLabels[m.status]}
                         </span>
                       </div>

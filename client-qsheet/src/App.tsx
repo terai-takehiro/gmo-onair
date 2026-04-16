@@ -29,44 +29,19 @@ export default function App() {
         path="/qsheet/login"
         element={isAuthenticated ? <Navigate to="/qsheet" replace /> : <LoginPage />}
       />
-      {/* ON AIR page: full screen, no sidebar */}
-      <Route
-        path="/qsheet/onair/:id"
-        element={
-          <ProtectedRoute>
-            <OnAirPage />
-          </ProtectedRoute>
-        }
-      />
-      {/* Rundown page: full screen, no sidebar */}
-      <Route
-        path="/qsheet/rundown/:id"
-        element={
-          <ProtectedRoute>
-            <RundownPage />
-          </ProtectedRoute>
-        }
-      />
-      {/* Prompter page: full screen teleprompter */}
-      <Route
-        path="/qsheet/prompter/:id"
-        element={
-          <ProtectedRoute>
-            <PrompterPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        element={
-          <ProtectedRoute>
-            <AppShell />
-          </ProtectedRoute>
-        }
-      >
+
+      {/* Pages with AppShell (Header + Sidebar) */}
+      <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
         <Route path="/qsheet" element={<DashboardPage />} />
         <Route path="/qsheet/editor" element={<DashboardPage />} />
         <Route path="/qsheet/editor/:id" element={<EditorPage />} />
       </Route>
+
+      {/* Full-screen pages without AppShell */}
+      <Route path="/qsheet/onair/:id" element={<ProtectedRoute><OnAirPage /></ProtectedRoute>} />
+      <Route path="/qsheet/rundown/:id" element={<ProtectedRoute><RundownPage /></ProtectedRoute>} />
+      <Route path="/qsheet/prompter/:id" element={<ProtectedRoute><PrompterPage /></ProtectedRoute>} />
+
       <Route path="*" element={<Navigate to="/qsheet" replace />} />
     </Routes>
   );

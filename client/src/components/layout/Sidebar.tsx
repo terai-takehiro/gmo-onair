@@ -1,5 +1,5 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { BLOCK_APPS } from "@/contexts/platform/AuthContext";
+import { BLOCK_APPS, useAuth } from "@/contexts/platform/AuthContext";
 import { useUiStore } from "@/stores/uiStore";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -142,6 +142,8 @@ export default function Sidebar() {
   const { sidebarOpen, setSidebarOpen } = useUiStore();
   const navigate = useNavigate();
   const activeAppId = useActiveApp();
+  const { currentUser, hasPermission } = useAuth();
+  const isAdmin = currentUser?.role === "system_admin";
 
   // ホーム画面ではサイドバー非表示
   if (!activeAppId) return null;
@@ -164,7 +166,7 @@ export default function Sidebar() {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r bg-sidebar text-sidebar-foreground transition-transform lg:static lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex w-[72vw] sm:w-64 flex-col border-r bg-sidebar text-sidebar-foreground transition-transform lg:static lg:translate-x-0",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -224,8 +226,26 @@ export default function Sidebar() {
           </nav>
         </ScrollArea>
 
-        {/* Home button at bottom */}
-        <div className="border-t p-3">
+        {/* App shortcuts + Home — アクセス可能なアプリのみ表示 */}
+        <div className="border-t p-3 space-y-1">
+          <p className="px-3 mb-1 text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">他のアプリ</p>
+          {[
+            { path: "/qsheet", label: "Qシート", Icon: FileText, module: "qsheet" },
+            { path: "/equipment", label: "機材管理", Icon: Package, module: "equipment" },
+            { path: "/interactive", label: "インタラクティブ", Icon: Sparkles, module: "interactive" },
+            { path: "/techsheet", label: "技術資料", Icon: BookOpen, module: "techsheet" },
+          ]
+            .filter((app) => isAdmin || hasPermission(app.module))
+            .map((app) => (
+              <a
+                key={app.path}
+                href={app.path}
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
+              >
+                <app.Icon className="h-4 w-4 shrink-0" />
+                {app.label}
+              </a>
+            ))}
           <button
             onClick={() => { navigate("/"); setSidebarOpen(false); }}
             className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"

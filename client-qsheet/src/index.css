@@ -1,3 +1,5 @@
+@import '@gmo-onair/shared/src/client/design-tokens.css';
+/* v0.9.0 cache bust — 2026-04-11 */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -11,51 +13,53 @@
   }
   html {
     touch-action: pan-y;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   :root {
-    /* Qsheet Design System — Zinc Neutral (original style) */
-    --background: 0 0% 100%;
-    --foreground: 220 15% 15%;
-    --card: 0 0% 100%;
-    --card-foreground: 220 15% 15%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 15% 15%;
+    /* Qsheet Design System — GMO Blue (#005bac) 統一 + Warm Neutrals */
+    --background: 40 20% 96%;
+    --foreground: 60 6% 11%;
+    --card: 40 25% 99%;
+    --card-foreground: 60 6% 11%;
+    --popover: 40 25% 99%;
+    --popover-foreground: 60 6% 11%;
     --primary: 209 100% 34%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 14% 93%;
-    --secondary-foreground: 220 9% 28%;
-    --muted: 210 14% 93%;
-    --muted-foreground: 215 10% 42%;
-    --accent: 210 14% 93%;
-    --accent-foreground: 220 9% 28%;
+    --secondary: 43 15% 88%;
+    --secondary-foreground: 48 4% 28%;
+    --muted: 43 15% 88%;
+    --muted-foreground: 48 4% 40%;
+    --accent: 43 15% 88%;
+    --accent-foreground: 48 4% 28%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 214 14% 89%;
-    --input: 214 14% 89%;
+    --border: 40 10% 88%;
+    --input: 40 10% 88%;
     --ring: 209 100% 34%;
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 220 16% 12%;
-    --foreground: 210 14% 93%;
-    --card: 220 14% 16%;
-    --card-foreground: 210 14% 93%;
-    --popover: 220 14% 16%;
-    --popover-foreground: 210 14% 93%;
+    --background: 60 3% 10%;
+    --foreground: 40 10% 73%;
+    --card: 60 3% 14%;
+    --card-foreground: 40 10% 73%;
+    --popover: 60 3% 14%;
+    --popover-foreground: 40 10% 73%;
     --primary: 209 100% 55%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 12% 22%;
-    --secondary-foreground: 210 14% 80%;
-    --muted: 220 12% 22%;
-    --muted-foreground: 215 10% 55%;
-    --accent: 220 12% 22%;
-    --accent-foreground: 210 14% 80%;
+    --secondary: 60 3% 18%;
+    --secondary-foreground: 40 10% 60%;
+    --muted: 60 3% 18%;
+    --muted-foreground: 40 5% 50%;
+    --accent: 60 3% 18%;
+    --accent-foreground: 40 10% 60%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 12% 22%;
-    --input: 220 12% 22%;
+    --border: 60 3% 18%;
+    --input: 60 3% 18%;
     --ring: 209 100% 55%;
   }
 }
@@ -65,17 +69,18 @@
     @apply border-border;
   }
   html {
-    /* Oswald for Latin/numbers, Noto Sans JP for Japanese — matches OswaldLatin in original */
-    font-family: 'Oswald', -apple-system, BlinkMacSystemFont, 'Noto Sans JP', 'Segoe UI', sans-serif;
+    font-family: 'Noto Sans JP', -apple-system, 'Hiragino Sans', sans-serif;
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Oswald', -apple-system, BlinkMacSystemFont, 'Noto Sans JP', 'Segoe UI', sans-serif;
-    line-height: 1.60;
+    font-family: 'Noto Sans JP', -apple-system, 'Hiragino Sans', sans-serif;
+    font-size: 15px;
+    line-height: 1.75;
+    letter-spacing: 0.02em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    margin: 0;
   }
-  .heading-page    { font-family: 'Oswald', 'Noto Sans JP', sans-serif; font-weight: 600; line-height: 1.20; letter-spacing: 0.02em; }
-  .heading-section { font-family: 'Oswald', 'Noto Sans JP', sans-serif; font-weight: 500; line-height: 1.25; }
-  .heading-card    { font-family: 'Oswald', 'Noto Sans JP', sans-serif; font-weight: 500; line-height: 1.30; }
 
   input[type="date"],
   input[type="time"],
@@ -88,14 +93,51 @@
   }
 }
 
-/* ── Glassmorphism utilities ─────────────────────── */
+/* Oswald font for explicit number/time display */
+.font-oswald {
+  font-family: 'Oswald', sans-serif;
+}
+
+/* Tabular numbers for time display */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Animations ───────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.animate-in      { animation: fadeIn 0.2s ease-out; }
+.animate-slide-in { animation: slideIn 0.2s ease-out; }
+.animate-scale-in { animation: scaleIn 0.15s ease-out; }
+
+/* ── Scrollbar ────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
+
+.dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
+.dark ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+/* ── Glassmorphism utilities ─────────────────── */
 .glass-card {
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(0, 91, 172, 0.12);
+  border: 1px solid rgba(37, 99, 235, 0.12);
   border-radius: 24px;
-  box-shadow: 0 8px 32px rgba(0, 91, 172, 0.08), 0 1px 2px rgba(0,0,0,0.04);
+  box-shadow: 0 8px 32px rgba(37, 99, 235, 0.08), 0 1px 2px rgba(0,0,0,0.04);
 }
 
 /* Login page background */
@@ -112,13 +154,13 @@
 }
 .login-orb-1 {
   width: 420px; height: 420px;
-  background: radial-gradient(circle, rgba(0,91,172,0.35), transparent 70%);
+  background: radial-gradient(circle, rgba(37,99,235,0.35), transparent 70%);
   top: -120px; right: -120px;
   animation: orb-float 20s ease-in-out infinite;
 }
 .login-orb-2 {
   width: 320px; height: 320px;
-  background: radial-gradient(circle, rgba(0,116,217,0.25), transparent 70%);
+  background: radial-gradient(circle, rgba(37,99,235,0.25), transparent 70%);
   bottom: -80px; left: -80px;
   animation: orb-float 20s ease-in-out infinite reverse;
   animation-delay: -10s;
@@ -130,9 +172,37 @@
   66% { transform: translate(-30px, 30px); }
 }
 
-/* Slide-up entry */
 @keyframes slide-up-in {
   from { opacity: 0; transform: translateY(24px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 .animate-slide-up { animation: slide-up-in 0.5s ease-out both; }
+
+/* ── AppSwitcher animation ─────────────────────── */
+@keyframes switcher-in {
+  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-switcher-in { animation: switcher-in 0.2s ease-out both; }
+
+/* ── Page enter animation ──────────────────────── */
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.page-enter { animation: page-enter 0.3s ease-out both; }
+
+/* ── Card hover lift ───────────────────────────── */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+}
+
+/* ── font-number utility ────────────────────────── */
+.font-number {
+  font-family: 'Oswald', 'Arial Narrow', sans-serif;
+  font-variant-numeric: tabular-nums;
+}

@@ -278,11 +278,11 @@ export default function EquipmentListPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-mono text-xs">{item.eq_code}</span>
-                        <Badge className={`text-[10px] ${statusColors[item.status] || "bg-gray-100 text-gray-600"}`}>
+                        <Badge className={`text-xs ${statusColors[item.status] || "bg-gray-100 text-gray-600"}`}>
                           {statusLabels[item.status] || item.status}
                         </Badge>
                         {item.child_count && item.child_count > 0 && (
-                          <Badge variant="outline" className="text-[10px]">{item.child_count}点</Badge>
+                          <Badge variant="outline" className="text-xs">{item.child_count}点</Badge>
                         )}
                       </div>
                       <div className="text-sm mt-1 font-medium truncate">{item.name}</div>
@@ -321,7 +321,7 @@ export default function EquipmentListPage() {
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{item.name}</span>
                           {item.child_count && item.child_count > 0 && (
-                            <Badge variant="outline" className="text-[10px]">{item.child_count}点</Badge>
+                            <Badge variant="outline" className="text-xs">{item.child_count}点</Badge>
                           )}
                         </div>
                       </TableCell>

@@ -18,7 +18,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Loader2, ShieldAlert, KeyRound } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, ShieldAlert, KeyRound, Copy, CheckCircle2 } from "lucide-react";
 
 const roleLabelMap: Record<string, string> = {
   system_admin: "システム管理者",
@@ -39,8 +39,12 @@ interface User {
   name: string;
   email: string;
   role: string;
+  status?: string;
+  phone?: string;
   created_at?: string;
 }
+
+// statusは将来の一覧表示で使用予定
 
 interface UserForm {
   name: string;
@@ -84,6 +88,7 @@ function PermissionDialog({
     }
   }, [open, user?.id]);
 
+  const qc = useQueryClient();
   const saveMutation = useMutation({
     mutationFn: async () => {
       const permissions: Record<string, string | null> = {};
@@ -93,6 +98,7 @@ function PermissionDialog({
       await api.put(`/users/${user!.id}/permissions`, { permissions });
     },
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["user-permissions", user?.id] });
       onOpenChange(false);
     },
   });
@@ -194,16 +200,25 @@ export default function UserListPage() {
 
   const { data: users, isLoading } = useQuery<User[]>({
     queryKey: ["users"],
-    queryFn: async () => (await api.get("/auth/users")).data.data,
+    queryFn: async () => (await api.get("/users")).data.data,
     enabled: isAdmin,
   });
+
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
 
   const saveMutation = useMutation({
     mutationFn: async (values: UserForm) => {
       if (editingId) return (await api.put(`/users/${editingId}`, values)).data;
       return (await api.post("/users", values)).data;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["users"] }); closeDialog(); },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["users"] });
+      if (!editingId && data?.inviteUrl) {
+        setInviteUrl(data.inviteUrl);
+      } else {
+        closeDialog();
+      }
+    },
   });
 
   const deleteMutation = useMutation({
@@ -324,34 +339,64 @@ export default function UserListPage() {
         </>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(v) => { if (!v) { setInviteUrl(null); closeDialog(); } setDialogOpen(v); }}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingId ? "ユーザー編集" : "ユーザー追加"}</DialogTitle>
-            <DialogDescription>{editingId ? "ユーザー情報を編集します" : "新しいユーザーを追加します"}</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={form.handleSubmit((v) => saveMutation.mutate(v))} className="space-y-4">
-            <div><Label>名前 *</Label><Input {...form.register("name", { required: true })} /></div>
-            <div><Label>メール *</Label><Input type="email" {...form.register("email", { required: true })} /></div>
-            <div>
-              <Label>ロール *</Label>
-              <Select value={form.watch("role")} onValueChange={(v) => form.setValue("role", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="system_admin">システム管理者</SelectItem>
-                  <SelectItem value="staff">スタッフ</SelectItem>
-                  <SelectItem value="viewer">閲覧者</SelectItem>
-                  <SelectItem value="external_client">外部クライアント</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog}>キャンセル</Button>
-              <Button type="submit" disabled={saveMutation.isPending}>
-                {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}保存
-              </Button>
-            </DialogFooter>
-          </form>
+          {inviteUrl ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>招待リンク</DialogTitle>
+                <DialogDescription>このURLをユーザーに共有してください（Slack、LINE等）</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-green-600 text-sm">
+                  <CheckCircle2 className="h-4 w-4" />ユーザーを作成しました
+                </div>
+                <div className="bg-muted rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground mb-1">招待URL（7日間有効）</p>
+                  <p className="text-xs font-mono break-all select-all">{inviteUrl}</p>
+                </div>
+                <Button className="w-full" onClick={() => { navigator.clipboard.writeText(inviteUrl); }}>
+                  <Copy className="h-4 w-4 mr-1" />URLをコピー
+                </Button>
+                <p className="text-xs text-muted-foreground text-center">
+                  ユーザーがこのリンクを開くとパスワード設定画面が表示されます
+                </p>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => { setInviteUrl(null); closeDialog(); }}>閉じる</Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>{editingId ? "ユーザー編集" : "ユーザー招待"}</DialogTitle>
+                <DialogDescription>{editingId ? "ユーザー情報を編集します" : "招待メール（またはURL）でユーザーを追加します"}</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={form.handleSubmit((v) => saveMutation.mutate(v))} className="space-y-4">
+                <div><Label>名前 *</Label><Input {...form.register("name", { required: true })} /></div>
+                <div><Label>メール *</Label><Input type="email" {...form.register("email", { required: true })} /></div>
+                <div>
+                  <Label>ロール *</Label>
+                  <Select value={form.watch("role")} onValueChange={(v) => form.setValue("role", v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="system_admin">システム管理者</SelectItem>
+                      <SelectItem value="staff">スタッフ</SelectItem>
+                      <SelectItem value="viewer">閲覧者</SelectItem>
+                      <SelectItem value="external_client">外部クライアント</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={closeDialog}>キャンセル</Button>
+                  <Button type="submit" disabled={saveMutation.isPending}>
+                    {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {editingId ? "保存" : "招待する"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 

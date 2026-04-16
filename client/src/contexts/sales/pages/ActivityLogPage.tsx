@@ -238,7 +238,7 @@ export default function ActivityLogPage() {
                               <Clock className="h-3 w-3 shrink-0" />
                               <span className="truncate">{log.next_action}</span>
                               {log.next_action_date && (
-                                <Badge variant={isOverdue(log.next_action_date) ? "destructive" : "outline"} className="text-[10px] ml-1 shrink-0">
+                                <Badge variant={isOverdue(log.next_action_date) ? "destructive" : "outline"} className="text-xs ml-1 shrink-0">
                                   {formatDate(log.next_action_date)}
                                 </Badge>
                               )}
@@ -299,7 +299,7 @@ export default function ActivityLogPage() {
                               <Clock className="h-3 w-3" />
                               {log.next_action}
                               {log.next_action_date && (
-                                <Badge variant={isOverdue(log.next_action_date) ? "destructive" : "outline"} className="text-[10px] ml-1">
+                                <Badge variant={isOverdue(log.next_action_date) ? "destructive" : "outline"} className="text-xs ml-1">
                                   {formatDate(log.next_action_date)}
                                 </Badge>
                               )}

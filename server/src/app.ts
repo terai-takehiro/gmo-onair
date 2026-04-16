@@ -3,108 +3,119 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
-import passport from 'passport';
 import path from 'path';
 import { createAuthMiddleware } from './shared/middleware/auth';
 import { errorHandler } from './shared/middleware/errorHandler';
 import { createRoutes } from './routes';
-import { config } from './config';
 
 export function createApp(): express.Express {
   const app = express();
 
-  // Middleware
   const isProduction = process.env.NODE_ENV === 'production';
-  const hasHttps = !!process.env.HTTPS_ENABLED;
+  const hasHttps = !!process.env.HTTPS_ENABLED || isProduction;
+
+  // Nginx経由のリクエストでクライアントIPを正しく取得
+  app.set('trust proxy', 1);
+
+  // Security headers
   app.use(helmet({
-    contentSecurityPolicy: isProduction ? {
+    contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "https://accounts.google.com", "https://apis.google.com"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://accounts.google.com", "https://fonts.googleapis.com"],
-        imgSrc: ["'self'", "data:", "blob:", "https://*.googleusercontent.com"],
-        connectSrc: ["'self'", "ws:", "wss:", "https://accounts.google.com"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        imgSrc: ["'self'", "data:", "blob:", "https://*.ytimg.com"],
+        connectSrc: ["'self'", "ws:", "wss:"],
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"],
-        frameSrc: ["https://accounts.google.com"],
+        frameSrc: ["https://www.youtube.com", "https://youtube.com"],
         upgradeInsecureRequests: hasHttps ? [] : null,
       },
-    } : false,
+    },
     hsts: hasHttps,
     crossOriginOpenerPolicy: hasHttps,
     originAgentCluster: hasHttps,
   }));
+
+  // CORS — 本番では ALLOWED_ORIGINS 必須 (config.ts で検証済み)
   const devOrigins = isProduction ? [] : [
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://localhost:5175',
-    'http://localhost:5176',
-    'http://localhost:5177',
-    'http://localhost:3000',
+    'http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175',
+    'http://localhost:5176', 'http://localhost:5177', 'http://localhost:3000',
   ];
-  const allowedOrigins = [
+  const configuredOrigins = [
     ...devOrigins,
-    ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : []),
+    ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean) : []),
   ];
-  app.use(cors({ origin: allowedOrigins, credentials: true }));
+  app.use(cors({
+    origin: configuredOrigins.length > 0 ? configuredOrigins : false,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id'],
+  }));
+
   app.use(express.json({ limit: '10mb' }));
   app.use(cookieParser());
-  app.use(morgan('dev'));
+  if (!isProduction) app.use(morgan('dev'));
 
-  // Passport initialization (required for Google OAuth strategy)
-  if (config.authMode === 'oauth') {
-    app.use(passport.initialize());
-  }
-
-  // Auto-select auth middleware: jwtAuth (OAuth mode) or mockAuth (dev mode)
+  // Auth middleware
   app.use(createAuthMiddleware());
 
   // Routes
   app.use('/api/v1/internal', createRoutes());
 
-  // Health check
-  app.get('/health', (_req, res) => {
-    res.json({ status: 'ok', name: 'GMO ONAiR API' });
+  // Health check — 最小限の情報のみ返す
+  app.get('/health', async (_req, res) => {
+    try {
+      const { queryOne } = require('./shared/db/connection');
+      await queryOne('SELECT 1');
+      res.json({ status: 'ok' });
+    } catch {
+      res.status(503).json({ status: 'error' });
+    }
   });
 
-  // In production, serve React client build
-  if (process.env.NODE_ENV === 'production') {
-    // Static file options: no-cache for HTML, immutable cache for hashed assets
-    const staticOptions: Parameters<typeof express.static>[1] = {
-      setHeaders(res, filePath) {
-        if (filePath.endsWith('.html')) {
-          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        } else {
-          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-        }
-      },
-    };
-
-    const serveApp = (prefix: string, distPath: string) => {
-      app.use(prefix, express.static(distPath, staticOptions));
-      app.get(`${prefix}/*`, (_req, res) => {
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        res.sendFile(path.join(distPath, 'index.html'));
-      });
-    };
-
-    serveApp('/equipment', path.join(__dirname, '../../client-equipment/dist'));
-    serveApp('/qsheet', path.join(__dirname, '../../client-qsheet/dist'));
-    serveApp('/interactive', path.join(__dirname, '../../client-interactive/dist'));
-    serveApp('/techsheet', path.join(__dirname, '../../client-techsheet/dist'));
-
-    // Main ONAiR client at /*
+  // Static file serving — dist が存在すれば常に配信 (本番・検証共通)
+  {
+    const fs = require('fs');
     const clientDistPath = path.join(__dirname, '../../client/dist');
-    app.use(express.static(clientDistPath, staticOptions));
-    app.get('*', (_req, res) => {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      res.sendFile(path.join(clientDistPath, 'index.html'));
-    });
+
+    if (fs.existsSync(clientDistPath)) {
+      const staticOptions: Parameters<typeof express.static>[1] = {
+        setHeaders(res, filePath) {
+          if (filePath.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          } else {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          }
+        },
+      };
+
+      const serveApp = (prefix: string, distPath: string) => {
+        app.use(prefix, express.static(distPath, staticOptions));
+        app.get(prefix, (_req, res) => {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          res.sendFile(path.join(distPath, 'index.html'));
+        });
+        app.get(`${prefix}/*`, (_req, res) => {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          res.sendFile(path.join(distPath, 'index.html'));
+        });
+      };
+
+      serveApp('/equipment', path.join(__dirname, '../../client-equipment/dist'));
+      serveApp('/qsheet', path.join(__dirname, '../../client-qsheet/dist'));
+      serveApp('/interactive', path.join(__dirname, '../../client-interactive/dist'));
+      serveApp('/techsheet', path.join(__dirname, '../../client-techsheet/dist'));
+
+      app.use(express.static(clientDistPath, staticOptions));
+      app.get('*', (_req, res) => {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.sendFile(path.join(clientDistPath, 'index.html'));
+      });
+    }
   }
 
-  // Error handler
   app.use(errorHandler);
-
   return app;
 }

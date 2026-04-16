@@ -543,11 +543,11 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                         {rev.subtitle && (
                           <span className="text-sm font-medium">{rev.subtitle}</span>
                         )}
-                        <Badge variant="outline" className="text-[10px]">
+                        <Badge variant="outline" className="text-xs">
                           {taxLabels[rev.tax_category] || rev.tax_category}
                         </Badge>
                         {rev.group_name && (
-                          <Badge variant="secondary" className="text-[10px]">按分: {rev.group_name}</Badge>
+                          <Badge variant="secondary" className="text-xs">按分: {rev.group_name}</Badge>
                         )}
                       </div>
                       <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
@@ -573,7 +573,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                           {formatCurrency(rev.allocated_amount != null ? rev.allocated_amount : rev.amount)}
                         </span>
                         {rev.allocated_amount != null && rev.allocated_amount !== rev.amount && (
-                          <div className="text-[10px] text-muted-foreground font-number">
+                          <div className="text-xs text-muted-foreground font-number">
                             全体 {formatCurrency(rev.amount)}
                           </div>
                         )}
@@ -682,7 +682,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                         {pu.recognition_date && ` / ${formatDate(pu.recognition_date)}`}
                       </div>
                       {pu.group_name && (
-                        <Badge variant="outline" className="mt-1 text-[10px]">
+                        <Badge variant="outline" className="mt-1 text-xs">
                           按分: {pu.group_name}
                         </Badge>
                       )}
@@ -692,7 +692,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                         {pu.allocated_amount != null && pu.allocated_amount !== pu.amount ? (
                           <>
                             <span className="font-number text-lg font-bold">{formatCurrency(pu.allocated_amount)}</span>
-                            <div className="text-[10px] text-muted-foreground">
+                            <div className="text-xs text-muted-foreground">
                               全体 {formatCurrency(pu.amount)}
                             </div>
                           </>
@@ -742,7 +742,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                   value={subtitle}
                   onChange={(e) => setSubtitle(e.target.value)}
                 />
-                <p className="text-[10px] text-muted-foreground mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   この番号が何を表すかのラベル（番組名・イベント年度など）
                 </p>
               </div>
@@ -781,7 +781,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                     />
                     <div className="grid grid-cols-3 gap-2">
                       <div>
-                        <Label className="text-[10px]">数量</Label>
+                        <Label className="text-xs">数量</Label>
                         <Input
                           type="number"
                           min={1}
@@ -796,7 +796,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                         />
                       </div>
                       <div>
-                        <Label className="text-[10px]">単価</Label>
+                        <Label className="text-xs">単価</Label>
                         <CurrencyInput
                           value={item.unit_price}
                           onChange={(v) =>
@@ -805,7 +805,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                         />
                       </div>
                       <div>
-                        <Label className="text-[10px]">金額</Label>
+                        <Label className="text-xs">金額</Label>
                         <p className="h-9 flex items-center font-number font-medium text-sm">
                           {formatCurrency(item.amount)}
                         </p>

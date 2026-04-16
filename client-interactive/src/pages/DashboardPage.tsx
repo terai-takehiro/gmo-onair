@@ -26,8 +26,9 @@ interface EpisodeOption {
 
 const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'success' | 'secondary' | 'warning' }> = {
   draft: { label: '下書き', variant: 'secondary' },
+  rehearsal: { label: 'リハーサル', variant: 'warning' },
   live: { label: 'LIVE', variant: 'default' },
-  ended: { label: '終了', variant: 'warning' },
+  ended: { label: '終了', variant: 'secondary' },
   archived: { label: 'アーカイブ', variant: 'secondary' },
 };
 
@@ -42,9 +43,10 @@ export default function DashboardPage() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedEpisodeId, setSelectedEpisodeId] = useState('');
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ['interactive-events', search, statusFilter],
     queryFn: () => api.get('/interactive/events', { params: { search, status: statusFilter || undefined } }).then(r => r.data),
+    retry: 2,
   });
 
   // GLS project list for selector
@@ -73,7 +75,7 @@ export default function DashboardPage() {
       project_id: linkToProject && selectedProjectId ? selectedProjectId : null,
       episode_id: linkToProject && selectedEpisodeId ? selectedEpisodeId : null,
     }),
-    onSuccess: (res) => {
+    onSuccess: (res: { data: { data: { id: string } } }) => {
       queryClient.invalidateQueries({ queryKey: ['interactive-events'] });
       setCreateOpen(false);
       resetCreateForm();
@@ -101,7 +103,7 @@ export default function DashboardPage() {
   const events = data?.data || [];
 
   return (
-    <div className="max-w-7xl mx-auto p-4 space-y-6">
+    <div className="max-w-7xl mx-auto px-3 sm:p-4 py-4 space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -189,14 +191,14 @@ export default function DashboardPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-3 items-center">
-        <div className="relative flex-1 max-w-md">
+      <div className="flex gap-3 items-center flex-wrap sm:flex-nowrap">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input className="pl-9" placeholder="イベントを検索..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <div className="flex gap-1">
+        <div className="flex gap-1 overflow-x-auto shrink-0" style={{ scrollbarWidth: 'none' }}>
           {['', 'draft', 'live', 'ended'].map(s => (
-            <Button key={s} variant={statusFilter === s ? 'default' : 'outline'} size="sm" onClick={() => setStatusFilter(s)}>
+            <Button key={s} variant={statusFilter === s ? 'default' : 'outline'} size="sm" className="shrink-0" onClick={() => setStatusFilter(s)}>
               {s === '' ? '全て' : STATUS_MAP[s]?.label || s}
             </Button>
           ))}
@@ -204,7 +206,13 @@ export default function DashboardPage() {
       </div>
 
       {/* Event Grid */}
-      {isLoading ? (
+      {isError ? (
+        <div className="text-center py-12">
+          <p className="text-destructive font-medium">読み込みに失敗しました</p>
+          <p className="text-sm text-muted-foreground mt-1">{(error as any)?.response?.data?.message || (error as any)?.message || 'サーバーに接続できません'}</p>
+          <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>再読み込み</Button>
+        </div>
+      ) : isLoading ? (
         <div className="text-center py-12 text-muted-foreground">読み込み中...</div>
       ) : events.length === 0 ? (
         <div className="text-center py-12">
@@ -221,7 +229,7 @@ export default function DashboardPage() {
                 <CardContent className="p-5">
                   <div className="flex items-start justify-between mb-3">
                     <Badge variant={st.variant}>{st.label}</Badge>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex gap-1">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/event/${event.id}`)} title="編集">
                         <Settings className="h-3.5 w-3.5" />
                       </Button>
@@ -238,7 +246,7 @@ export default function DashboardPage() {
                   )}
                   <div className="flex items-center gap-3 text-xs text-muted-foreground mt-3">
                     <span>スタンプ: {event.stamp_count || 0}</span>
-                    {event.status === 'live' && (
+                    {event.status === 'live' || event.status === 'rehearsal' && (
                       <span className="text-primary font-medium flex items-center gap-1">
                         <Radio className="h-3 w-3 animate-pulse" />
                         {event.active_connections || 0}人接続中
@@ -246,7 +254,7 @@ export default function DashboardPage() {
                     )}
                   </div>
                   <div className="flex gap-2 mt-4">
-                    {event.status === 'live' ? (
+                    {event.status === 'live' || event.status === 'rehearsal' ? (
                       <Button size="sm" className="flex-1" onClick={() => navigate(`/live/${event.id}`)}>
                         <Radio className="h-3.5 w-3.5 mr-1" />ライブ管理
                       </Button>

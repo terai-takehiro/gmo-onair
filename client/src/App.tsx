@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react";
 // Platform
 import LoginPage from "@/contexts/platform/pages/LoginPage";
 import AuthCallbackPage from "@/contexts/platform/pages/AuthCallbackPage";
+import AcceptInvitationPage from "@/contexts/platform/pages/AcceptInvitationPage";
 import HomePage from "@/contexts/platform/pages/HomePage";
 import UserListPage from "@/contexts/platform/pages/UserListPage";
 import DataViewerPage from "@/contexts/platform/pages/DataViewerPage";
@@ -26,6 +27,7 @@ import ProjectGroupListPage from "@/contexts/sales/pages/ProjectGroupListPage";
 // Production (スタジオ予約)
 import EpisodeListPage from "@/contexts/production/pages/EpisodeListPage";
 import StudioCalendarPage from "@/contexts/production/pages/StudioCalendarPage";
+import SignagePage from "@/contexts/production/pages/SignagePage";
 import VendorReportPage from "@/contexts/production/pages/VendorReportPage";
 
 // Finance (予算管理)
@@ -80,6 +82,8 @@ function AppRoutes() {
         element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />}
       />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
+      <Route path="/auth/accept-invitation" element={<AcceptInvitationPage />} />
+      <Route path="/signage/:roomId" element={<SignagePage />} />
 
       <Route
         element={

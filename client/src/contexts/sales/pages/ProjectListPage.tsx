@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Search, Loader2 } from "lucide-react";
+import ExcelToolbar from "@/components/ExcelToolbar";
 
 type TabFilter = 'all' | 'yomi' | 'active' | 'completed' | 'lost';
 
@@ -48,10 +49,13 @@ export default function ProjectListPage() {
     <div className="space-y-4 p-3 lg:p-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-xl lg:text-2xl font-bold">案件管理</h1>
-        <Button onClick={() => navigate("/sales/projects/new")}>
-          <Plus className="mr-2 h-4 w-4" />
-          新規作成
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <ExcelToolbar resource="/projects" name="案件" queryKey={["projects"]} />
+          <Button onClick={() => navigate("/sales/projects/new")}>
+            <Plus className="mr-2 h-4 w-4" />
+            新規作成
+          </Button>
+        </div>
       </div>
 
       {/* Tab filter */}

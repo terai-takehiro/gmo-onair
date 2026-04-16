@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Loader2, Plus, Pencil, Trash2 } from "lucide-react";
+import ExcelToolbar from "@/components/ExcelToolbar";
 
 import SgaDialog, {
   type SgaFormData,
@@ -173,10 +174,13 @@ export default function SgaListPage() {
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       <div className="flex flex-wrap gap-2 items-center justify-between">
         <h1 className="text-xl lg:text-2xl font-bold">販管費一覧</h1>
-        <Button onClick={handleOpenCreate}>
-          <Plus className="mr-1 h-4 w-4" />
-          新規登録
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <ExcelToolbar resource="/sga-expenses" name="販管費" queryKey={["sga-expenses"]} hasDuplicateKey={false} />
+          <Button onClick={handleOpenCreate}>
+            <Plus className="mr-1 h-4 w-4" />
+            新規登録
+          </Button>
+        </div>
       </div>
 
       {/* Source Filter Tabs */}

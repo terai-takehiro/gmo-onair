@@ -1,16 +1,17 @@
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Fail fast: require JWT_SECRET in production
-if (isProduction && !process.env.JWT_SECRET) {
-  console.error('FATAL: JWT_SECRET environment variable is required in production.');
-  console.error('Generate one with: openssl rand -hex 32');
-  process.exit(1);
-}
-
-// Warn if mock auth is active in production
-if (isProduction && !(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)) {
-  console.warn('WARNING: GOOGLE_CLIENT_ID/SECRET not set — running with mockAuth in production.');
-  console.warn('Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET for Google OAuth.');
+// Fail fast: 本番環境で必須の環境変数
+if (isProduction) {
+  const required = ['JWT_SECRET', 'DATABASE_URL', 'ALLOWED_ORIGINS'];
+  const missing = required.filter(k => !process.env[k]);
+  if (missing.length > 0) {
+    console.error(`FATAL: Missing required environment variables: ${missing.join(', ')}`);
+    process.exit(1);
+  }
+  if ((process.env.JWT_SECRET || '').length < 32) {
+    console.error('FATAL: JWT_SECRET must be at least 32 characters. Generate with: openssl rand -hex 32');
+    process.exit(1);
+  }
 }
 
 export const config = {
@@ -19,18 +20,13 @@ export const config = {
   isProduction,
   databaseUrl: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/onair_db',
 
-  // Auth mode: 'oauth' when Google credentials are set, 'mock' otherwise
-  authMode: (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) ? 'oauth' as const : 'mock' as const,
+  // Auth mode: 'password' (本番) / 'mock' (開発)
+  authMode: isProduction ? 'password' as const : 'mock' as const,
 
-  // Google OAuth 2.0
-  googleClientId: process.env.GOOGLE_CLIENT_ID || '',
-  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-  oauthCallbackUrl: process.env.OAUTH_CALLBACK_URL || 'http://localhost:3000/api/v1/auth/google/callback',
-
-  // JWT
+  // JWT — 本番ではフォールバックなし（上で検証済み）
   jwtSecret: process.env.JWT_SECRET || 'dev-jwt-secret-do-not-use-in-production',
   jwtExpiresIn: '7d',
 
-  // Client URL (for OAuth redirect after login)
+  // Client URL
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
 };

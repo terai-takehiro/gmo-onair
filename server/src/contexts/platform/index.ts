@@ -5,6 +5,7 @@ import dashboardRoutes from './routes/dashboard.routes';
 import searchRoutes from './routes/search.routes';
 import dataViewerRoutes from './routes/data-viewer.routes';
 import lookupRoutes from './routes/lookup.routes';
+import backupRoutes from './routes/backup.routes';
 
 export function createPlatformRoutes(): Router {
   const router = Router();
@@ -15,6 +16,7 @@ export function createPlatformRoutes(): Router {
   router.use('/search', searchRoutes);
   router.use('/data-viewer', dataViewerRoutes);
   router.use('/lookup', lookupRoutes);
+  router.use(backupRoutes); // /admin/backup.xlsx
 
   return router;
 }

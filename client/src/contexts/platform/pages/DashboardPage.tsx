@@ -193,28 +193,28 @@ export default function DashboardPage() {
               <div className="bg-blue-600 text-white p-3 flex items-center gap-2">
                 <DollarSign className="h-5 w-5 shrink-0 opacity-80" />
                 <div className="min-w-0">
-                  <p className="text-[10px] opacity-80">売上</p>
+                  <p className="text-xs opacity-80">売上</p>
                   <AnimatedCurrency value={kpi.monthly_revenue} className="text-base font-bold font-number truncate" />
                 </div>
               </div>
               <div className="bg-orange-500 text-white p-3 flex items-center gap-2">
                 <ShoppingCart className="h-5 w-5 shrink-0 opacity-80" />
                 <div className="min-w-0">
-                  <p className="text-[10px] opacity-80">変動原価</p>
+                  <p className="text-xs opacity-80">変動原価</p>
                   <AnimatedCurrency value={kpi.monthly_purchase} className="text-base font-bold font-number truncate" />
                 </div>
               </div>
               <div className="bg-emerald-600 text-white p-3 flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 shrink-0 opacity-80" />
                 <div className="min-w-0">
-                  <p className="text-[10px] opacity-80">粗利 <span className="font-semibold">{formatPercent(kpi.monthly_gross_margin)}</span></p>
+                  <p className="text-xs opacity-80">粗利 <span className="font-semibold">{formatPercent(kpi.monthly_gross_margin)}</span></p>
                   <AnimatedCurrency value={kpi.gross_profit} className="text-base font-bold font-number truncate" />
                 </div>
               </div>
               <div className="bg-red-500 text-white p-3 flex items-center gap-2">
                 <Receipt className="h-5 w-5 shrink-0 opacity-80" />
                 <div className="min-w-0">
-                  <p className="text-[10px] opacity-80">販管費</p>
+                  <p className="text-xs opacity-80">販管費</p>
                   <AnimatedCurrency value={kpi.monthly_sga} className="text-base font-bold font-number truncate" />
                 </div>
               </div>
@@ -223,7 +223,7 @@ export default function DashboardPage() {
               } text-white`}>
                 <BarChart3 className="h-5 w-5 shrink-0 opacity-80" />
                 <div className="flex items-baseline gap-2">
-                  <p className="text-[10px] opacity-80">営業利益</p>
+                  <p className="text-xs opacity-80">営業利益</p>
                   <AnimatedCurrency value={kpi.operating_profit} className="text-lg font-bold font-number" />
                   <p className="text-sm font-semibold opacity-90">{formatPercent(kpi.operating_margin)}</p>
                 </div>
@@ -277,19 +277,19 @@ export default function DashboardPage() {
             {/* Sub KPIs */}
             <div className="grid grid-cols-4 border-t">
               <div className="p-2 lg:p-4 text-center border-r">
-                <p className="text-[10px] lg:text-xs text-muted-foreground">進行中案件</p>
+                <p className="text-xs lg:text-xs text-muted-foreground">進行中案件</p>
                 <p className="text-lg lg:text-2xl font-bold text-primary">{kpi.active_projects}</p>
               </div>
               <div className="p-2 lg:p-4 text-center border-r">
-                <p className="text-[10px] lg:text-xs text-muted-foreground">ヨミ</p>
+                <p className="text-xs lg:text-xs text-muted-foreground">ヨミ</p>
                 <p className="text-lg lg:text-2xl font-bold text-orange-600">{kpi.active_yomi}</p>
               </div>
               <div className="p-2 lg:p-4 text-center border-r">
-                <p className="text-[10px] lg:text-xs text-muted-foreground">粗利率</p>
+                <p className="text-xs lg:text-xs text-muted-foreground">粗利率</p>
                 <p className="text-lg lg:text-2xl font-bold text-emerald-600">{formatPercent(kpi.monthly_gross_margin)}</p>
               </div>
               <div className="p-2 lg:p-4 text-center">
-                <p className="text-[10px] lg:text-xs text-muted-foreground">営業利益率</p>
+                <p className="text-xs lg:text-xs text-muted-foreground">営業利益率</p>
                 <p className={`text-lg lg:text-2xl font-bold ${kpi.operating_profit >= 0 ? 'text-green-700' : 'text-red-600'}`}>{formatPercent(kpi.operating_margin)}</p>
               </div>
             </div>
@@ -319,15 +319,15 @@ export default function DashboardPage() {
                     </div>
                     <div className="space-y-0.5">
                       {day.events.slice(0, 3).map((ev, i) => (
-                        <div key={i} className={`rounded px-1 py-0.5 text-white text-[10px] leading-tight truncate ${typeColors[ev.type] || 'bg-gray-400'}`}>
+                        <div key={i} className={`rounded px-1 py-0.5 text-white text-xs leading-tight truncate ${typeColors[ev.type] || 'bg-gray-400'}`}>
                           {typeLabels[ev.type]}: {ev.gls_number || ev.episode_code}
                         </div>
                       ))}
                       {day.events.length > 3 && (
-                        <div className="text-[10px] text-muted-foreground text-center">+{day.events.length - 3}件</div>
+                        <div className="text-xs text-muted-foreground text-center">+{day.events.length - 3}件</div>
                       )}
                       {day.events.length === 0 && (
-                        <div className="text-[10px] text-muted-foreground text-center mt-2">-</div>
+                        <div className="text-xs text-muted-foreground text-center mt-2">-</div>
                       )}
                     </div>
                   </div>
@@ -346,15 +346,15 @@ export default function DashboardPage() {
                     </div>
                     <div className="space-y-1">
                       {day.events.slice(0, 4).map((ev, i) => (
-                        <div key={i} className={`rounded px-1.5 py-0.5 text-white text-[10px] leading-tight truncate ${typeColors[ev.type] || 'bg-gray-400'}`} title={`${typeLabels[ev.type] || ev.type}: ${ev.name || ev.project_name || ev.episode_code}`}>
+                        <div key={i} className={`rounded px-1.5 py-0.5 text-white text-xs leading-tight truncate ${typeColors[ev.type] || 'bg-gray-400'}`} title={`${typeLabels[ev.type] || ev.type}: ${ev.name || ev.project_name || ev.episode_code}`}>
                           {typeLabels[ev.type]}: {ev.gls_number || ev.episode_code}
                         </div>
                       ))}
                       {day.events.length > 4 && (
-                        <div className="text-[10px] text-muted-foreground text-center">+{day.events.length - 4}件</div>
+                        <div className="text-xs text-muted-foreground text-center">+{day.events.length - 4}件</div>
                       )}
                       {day.events.length === 0 && (
-                        <div className="text-[10px] text-muted-foreground text-center mt-4">予定なし</div>
+                        <div className="text-xs text-muted-foreground text-center mt-4">予定なし</div>
                       )}
                     </div>
                   </div>
@@ -365,7 +365,7 @@ export default function DashboardPage() {
               {Object.entries(typeLabels).map(([key, label]) => (
                 <div key={key} className="flex items-center gap-1">
                   <div className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-sm ${typeColors[key]}`} />
-                  <span className="text-[10px] sm:text-xs text-muted-foreground">{label}</span>
+                  <span className="text-xs sm:text-xs text-muted-foreground">{label}</span>
                 </div>
               ))}
             </div>
@@ -474,7 +474,7 @@ export default function DashboardPage() {
                     </Badge>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs sm:text-sm font-medium truncate">{a.name}</p>
-                      <p className="text-[10px] sm:text-xs text-muted-foreground">{a.message}</p>
+                      <p className="text-xs sm:text-xs text-muted-foreground">{a.message}</p>
                     </div>
                   </div>
                 ))}
@@ -502,10 +502,10 @@ export default function DashboardPage() {
                     <div className="min-w-0 flex-1">
                       <p className="text-xs sm:text-sm font-medium truncate">{p.gls_number} {p.name}</p>
                       {p.customer_name && (
-                        <p className="text-[10px] sm:text-xs text-muted-foreground">{p.customer_name}</p>
+                        <p className="text-xs sm:text-xs text-muted-foreground">{p.customer_name}</p>
                       )}
                     </div>
-                    <Badge className="shrink-0 text-[10px] sm:text-xs" style={{ backgroundColor: projectStageColor[p.stage], color: '#fff' }}>
+                    <Badge className="shrink-0 text-xs sm:text-xs" style={{ backgroundColor: projectStageColor[p.stage], color: '#fff' }}>
                       {projectStageLabel[p.stage] || p.stage}
                     </Badge>
                   </div>

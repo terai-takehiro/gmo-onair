@@ -1,12 +1,20 @@
+# =============================================
+# GMO ONAiR — 本番 + 開発 2環境構成
+# gmo-onair.jp (本番) / dev.gmo-onair.jp (開発)
+# =============================================
+
 services:
+  # ──────────────────────────────────────
+  # PostgreSQL (共有インスタンス、DB名で分離)
+  # ──────────────────────────────────────
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: onair_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./deploy/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
     ports:
       - "127.0.0.1:5432:5432"
     restart: unless-stopped
@@ -16,23 +24,71 @@ services:
       timeout: 5s
       retries: 5
 
-  app:
+  # ──────────────────────────────────────
+  # 本番アプリ (gmo-onair.jp)
+  # ──────────────────────────────────────
+  app-prod:
     build: .
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
-      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-postgres}@db:5432/onair_db
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@db:5432/onair_prod
       NODE_ENV: production
       PORT: 3000
       JWT_SECRET: ${JWT_SECRET}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      OAUTH_CALLBACK_URL: ${OAUTH_CALLBACK_URL:-}
-      CLIENT_URL: ${CLIENT_URL:-}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      CLIENT_URL: https://gmo-onair.jp
+      ALLOWED_ORIGINS: https://gmo-onair.jp,https://www.gmo-onair.jp
+      ICAL_FEED_TOKEN: ${ICAL_FEED_TOKEN:-}
+      # SMS (Twilio)
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_PHONE_NUMBER: ${TWILIO_PHONE_NUMBER:-}
+      # Email (SMTP)
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@gmo-onair.jp}
+      SKIP_SEED: "true"
     depends_on:
       db:
         condition: service_healthy
+    restart: unless-stopped
+
+  # ──────────────────────────────────────
+  # 開発アプリ (dev.gmo-onair.jp)
+  # ──────────────────────────────────────
+  app-dev:
+    build: .
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@db:5432/onair_dev
+      NODE_ENV: development
+      PORT: 3000
+      JWT_SECRET: ${JWT_SECRET_DEV:-dev-jwt-secret-do-not-use-in-production}
+      CLIENT_URL: https://dev.gmo-onair.jp
+      ALLOWED_ORIGINS: https://dev.gmo-onair.jp
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ──────────────────────────────────────
+  # Nginx (SSL + リバースプロキシ)
+  # ──────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/gmo-onair.conf:/etc/nginx/conf.d/default.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
+    depends_on:
+      - app-prod
+      - app-dev
     restart: unless-stopped
 
 volumes:

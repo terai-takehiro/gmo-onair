@@ -30,11 +30,66 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **リアルタイム**: Socket.IO (`/qsheet` ネームスペース: OnAir↔ランダウン同期, `/interactive`: スタンプ)
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
-## 現在のバージョン: v0.6.1
+## 現在のバージョン: v1.0.37
 
 ## ブランチ運用
 - **デプロイ**: 常に `main` ブランチにプッシュ（masterではない）
 - **バージョン管理**: インクリメンタル（v0.2.1, v0.2.2...）、大きくジャンプしない
+- **バージョン更新ルール**: mainにデプロイする際は必ずパッチバージョンを上げる（例: v0.7.1 → v0.7.2）。以下の全箇所を同時に更新すること:
+  1. `CLAUDE.md` の「現在のバージョン」
+  2. ルート `package.json` の `"version"`
+  3. 各ワークスペース `package.json` の `"version"` (`client/`, `client-qsheet/`, `client-equipment/`, `client-interactive/`, `client-techsheet/`)
+  4. コミットメッセージに `v0.x.x` を明記
+
+## 環境分離ポリシー (最重要)
+
+### 本番環境と検証環境は絶対に干渉させない
+- **本番**: `https://gmo-onair.jp`
+  - コンテナ: `app-prod`
+  - DB: `onair_prod`
+  - 認証: Email/Password + SMS 2FA
+  - `SKIP_SEED=true` (シードデータ投入しない)
+  - マスター管理者のみ自動作成
+- **検証**: `https://dev.gmo-onair.jp`
+  - コンテナ: `app-dev`
+  - DB: `onair_dev`
+  - 認証: mockAuth (ユーザーカード選択式)
+  - シードデータ投入あり (全テーブル網羅のダミーデータ)
+  - 自由に壊せる環境
+
+### 絶対厳守
+- 本番DBと検証DBは**完全分離**。相互参照・相互コピー禁止
+- 本番DBに対する直接SQL操作は**最小限**（管理者パスワードリセット等の緊急時のみ）
+- 検証環境のデータが本番に流れ込まないこと
+- 本番環境の秘密情報（JWT_SECRET等）を検証環境で使わないこと
+
+### デプロイワークフロー
+1. **開発 → 検証**: `main` へpush → GitHub Actions が検証環境 (`dev.gmo-onair.jp`) に自動デプロイ
+2. **検証で動作確認**: 検証環境で全機能テスト → OKなら次へ
+3. **本番リリース**: バージョンタグ作成 (`git tag v1.0.xx && git push --tags`) → GitHub Actions が本番環境 (`gmo-onair.jp`) にデプロイ
+4. **緊急ロールバック**: 以前のタグに戻してpush → 本番が旧バージョンに戻る
+
+### バージョン確認コマンド (VPS)
+```bash
+cd /root/gmo-onair && git log --oneline -1                    # 現在のコード
+curl -sk https://dev.gmo-onair.jp/health                       # 検証稼働確認
+curl -sk https://gmo-onair.jp/health                            # 本番稼働確認
+```
+
+## UI/UX ポリシー
+
+### レスポンシブデザイン必須
+- **全ての画面はスマホ対応を前提**で設計・実装する（モバイルファースト）
+- 新規UI追加・既存UI修正時は、375px幅（iPhone SE相当）でも破綻しないこと
+- 具体的には以下を遵守:
+  - Tailwind のブレイクポイント `sm:` `md:` `lg:` を適切に使用
+  - 横スクロールが発生しうるテーブルは `overflow-x-auto` で囲む
+  - フォームは1カラム縦積みを基本、広い画面で `sm:grid-cols-2` 等に展開
+  - ボタン・タップ領域は最低 44px（iOS HIG基準）を確保
+  - ダイアログ/モーダルは `max-h-[90vh] overflow-y-auto` で画面外はみ出し回避
+  - 固定ヘッダー/フッターは `position: fixed` + `safe-area-inset` を考慮
+- 実装後は DevTools のモバイルエミュレーションで動作確認
+- 既存画面もレスポンシブ不備を見つけたら随時修正すること
 
 ## デプロイフロー（必須手順）
 1. **検証環境 (dev.gmo-onair.jp)** — `dev` ブランチにプッシュ → 自動デプロイ

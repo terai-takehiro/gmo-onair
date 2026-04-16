@@ -13,8 +13,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Menu, LogOut, ChevronDown, Search, Loader2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import api from "@/lib/api";
+import AppSwitcher from "@gmo-onair/shared/src/client/AppSwitcher";
 
 const roleLabelMap: Record<string, string> = {
   system_admin: "システム管理者",
@@ -39,10 +40,22 @@ interface SearchResults {
   vendors: Array<{ id: string; name: string; vendor_type: string }>;
 }
 
+const APP_LABELS: Record<string, string> = {
+  "/sales": "案件管理",
+  "/budget": "予算管理",
+  "/studio": "スタジオ予約",
+  "/admin": "システム管理",
+};
+
 export default function Header({ title }: { title?: string }) {
   const { currentUser, logout } = useAuth();
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const isHome = pathname === "/" || pathname === "";
+
+  // Auto-detect app name from path
+  const autoTitle = title || Object.entries(APP_LABELS).find(([prefix]) => pathname.startsWith(prefix))?.[1] || "";
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
@@ -114,39 +127,46 @@ export default function Header({ title }: { title?: string }) {
       searchResults.vendors.length > 0);
 
   return (
-    <header className="flex h-14 items-center justify-between border-b bg-card px-4 lg:px-6">
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="lg:hidden shrink-0"
-          onClick={toggleSidebar}
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
-        <span
-          className="cursor-pointer text-sm font-sans font-bold text-primary hover:opacity-80 transition-opacity shrink-0"
-          onClick={() => navigate("/")}
-        >
-          ONAiR
-        </span>
-        {title && (
+    <header className="flex h-14 items-center justify-between border-b bg-card px-3 sm:px-5">
+      <div className="flex items-center gap-3 min-w-0">
+        {/* Home: always show AppSwitcher / SubPages: hamburger on mobile, AppSwitcher on desktop */}
+        {isHome ? (
+          <AppSwitcher currentApp={pathname.startsWith("/sales") ? "sales" : pathname.startsWith("/budget") ? "budget" : pathname.startsWith("/studio") ? "studio" : "home"} />
+        ) : (
           <>
-            <span className="text-muted-foreground/50 hidden sm:inline">/</span>
-            <h1 className="text-sm font-medium text-muted-foreground hidden sm:block truncate">{title}</h1>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden shrink-0 h-9 w-9 -ml-1"
+              onClick={toggleSidebar}
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+            <div className="hidden lg:block">
+              <AppSwitcher currentApp={pathname.startsWith("/sales") ? "sales" : pathname.startsWith("/budget") ? "budget" : pathname.startsWith("/studio") ? "studio" : pathname.startsWith("/admin") ? "home" : "home"} />
+            </div>
           </>
         )}
+        <div className="flex items-center gap-1.5 min-w-0">
+          <a href="/" className="text-sm font-bold text-primary hover:opacity-80 transition-opacity shrink-0">ONAiR</a>
+          {autoTitle && (
+            <>
+              <span className="text-muted-foreground/40 shrink-0">/</span>
+              <span className="text-sm font-semibold text-foreground truncate max-w-[200px]">{autoTitle}</span>
+            </>
+          )}
+        </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         {/* Global Search */}
         <div ref={searchRef} className="relative hidden sm:block">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="検索..."
-              className="w-64 pl-9 pr-8 h-9"
+              placeholder="請求KEY・案件名で検索..."
+              className="w-40 sm:w-56 lg:w-64 pl-9 pr-8 h-9 text-sm"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => {
@@ -180,7 +200,7 @@ export default function Header({ title }: { title?: string }) {
                       >
                         <span className="text-muted-foreground text-xs shrink-0">{proj.gls_number || proj.code}</span>
                         <span className="truncate flex-1">{proj.name}</span>
-                        <Badge variant="outline" className="text-[10px] shrink-0">
+                        <Badge variant="outline" className="text-xs shrink-0">
                           {stageLabelMap[proj.stage] || proj.stage}
                         </Badge>
                       </button>
@@ -232,16 +252,16 @@ export default function Header({ title }: { title?: string }) {
           )}
         </div>
 
-        <span className="text-xs text-muted-foreground">v{__APP_VERSION__}</span>
+        <span className="hidden lg:inline text-xs text-muted-foreground/50">v{__APP_VERSION__}</span>
         {currentUser && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-2">
-                <span className="text-sm font-medium">{currentUser.name}</span>
-                <Badge variant="secondary" className="text-xs">
+              <Button variant="ghost" size="sm" className="flex items-center gap-1.5 px-2">
+                <span className="hidden sm:inline text-sm font-medium">{currentUser.name}</span>
+                <Badge variant="secondary" className="hidden md:inline text-xs">
                   {roleLabelMap[currentUser.role] || currentUser.role}
                 </Badge>
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">

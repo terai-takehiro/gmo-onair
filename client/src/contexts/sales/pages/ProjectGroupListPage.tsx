@@ -580,7 +580,7 @@ export default function ProjectGroupListPage() {
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-mono text-sm font-semibold">{rev.billing_key}</span>
                               {rev.subtitle && <span className="text-sm">{rev.subtitle}</span>}
-                              <Badge variant="outline" className="text-[10px]">
+                              <Badge variant="outline" className="text-xs">
                                 {rev.status === "estimate" ? "見積" : "確定"}
                               </Badge>
                             </div>

@@ -13,6 +13,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import { Plus, Search, Pencil, Trash2, Loader2 } from "lucide-react";
+import ExcelToolbar from "@/components/ExcelToolbar";
 
 interface Customer {
   id: string;
@@ -104,10 +105,13 @@ export default function CustomerListPage() {
     <div className="space-y-4 p-3 lg:p-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-xl lg:text-2xl font-bold">顧客マスター</h1>
-        <Button onClick={openAdd}>
-          <Plus className="mr-2 h-4 w-4" />
-          新規追加
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <ExcelToolbar resource="/customers" name="顧客" queryKey={["customers"]} />
+          <Button onClick={openAdd}>
+            <Plus className="mr-2 h-4 w-4" />
+            新規追加
+          </Button>
+        </div>
       </div>
 
       <div className="relative max-w-sm">

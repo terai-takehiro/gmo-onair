@@ -1,9 +1,29 @@
 import { PageTransition } from "@/components/ui/motion";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BLOCK_APPS } from "@/contexts/platform/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { BLOCK_APPS, useAuth } from "@/contexts/platform/AuthContext";
+import { Database, Download, Lock, CheckCircle2, AlertCircle } from "lucide-react";
+import api from "@/lib/api";
+import { useState } from "react";
 
 export default function SettingsPage() {
+  const { currentUser } = useAuth();
+  const isAdmin = currentUser?.role === "system_admin";
+
+  const downloadBackup = async () => {
+    const res = await api.get("/admin/backup.xlsx", { responseType: "blob" });
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement("a");
+    a.href = url;
+    const today = new Date().toISOString().slice(0, 10);
+    a.download = `gmo-onair_backup_${today}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <PageTransition>
       <div className="space-y-4 p-3 lg:space-y-6 lg:p-6">
@@ -19,10 +39,36 @@ export default function SettingsPage() {
               <dt className="text-muted-foreground">アプリ名</dt>
               <dd className="font-medium">GMO ONAiR</dd>
               <dt className="text-muted-foreground">バージョン</dt>
-              <dd className="font-medium">v0.7.0</dd>
+              <dd className="font-medium">v1.0.11</dd>
             </dl>
           </CardContent>
         </Card>
+
+        {/* 管理者専用: 全データバックアップ */}
+        {isAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base lg:text-lg flex items-center gap-2">
+                <Database className="h-4 w-4" />
+                全データバックアップ
+                <Badge variant="secondary" className="text-[10px]">管理者専用</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                ユーザー・顧客・案件・売上・仕入・販管費・機材・スタジオ予約等、主要13テーブルを
+                日本語ヘッダー付きの単一xlsxファイルとして出力します（バックアップ・監査用）。
+              </p>
+              <Button onClick={downloadBackup}>
+                <Download className="h-4 w-4 mr-1" />
+                バックアップを取得
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* パスワード変更 */}
+        <ChangePasswordCard />
 
         {/* ブロックアプリ一覧 */}
         <Card>
@@ -61,18 +107,66 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* 将来の設定項目 */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base lg:text-lg">将来の設定項目</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              通知設定、メール配信、バックアップ等の設定は今後追加予定です
-            </p>
-          </CardContent>
-        </Card>
       </div>
     </PageTransition>
+  );
+}
+
+function ChangePasswordCard() {
+  const [currentPw, setCurrentPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMsg(null);
+    if (newPw.length < 8) { setMsg({ type: "err", text: "新しいパスワードは8文字以上です" }); return; }
+    if (newPw !== confirmPw) { setMsg({ type: "err", text: "パスワードが一致しません" }); return; }
+    setLoading(true);
+    try {
+      await api.post("/auth/change-password", { current_password: currentPw, new_password: newPw });
+      setMsg({ type: "ok", text: "パスワードを変更しました" });
+      setCurrentPw(""); setNewPw(""); setConfirmPw("");
+    } catch (err: any) {
+      setMsg({ type: "err", text: err.response?.data?.error?.message || "変更に失敗しました" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base lg:text-lg flex items-center gap-2">
+          <Lock className="h-4 w-4" />
+          パスワード変更
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-3 max-w-sm">
+          <div>
+            <Label htmlFor="cur-pw">現在のパスワード</Label>
+            <Input id="cur-pw" type="password" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} required autoComplete="current-password" />
+          </div>
+          <div>
+            <Label htmlFor="new-pw">新しいパスワード (8文字以上)</Label>
+            <Input id="new-pw" type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} required minLength={8} autoComplete="new-password" />
+          </div>
+          <div>
+            <Label htmlFor="cfm-pw">新しいパスワード (確認)</Label>
+            <Input id="cfm-pw" type="password" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} required autoComplete="new-password" />
+          </div>
+          {msg && (
+            <div className={`flex items-center gap-2 text-sm ${msg.type === "ok" ? "text-green-600" : "text-destructive"}`}>
+              {msg.type === "ok" ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+              {msg.text}
+            </div>
+          )}
+          <Button type="submit" disabled={loading}>{loading ? "変更中..." : "パスワードを変更"}</Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

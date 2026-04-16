@@ -3,6 +3,7 @@ import { useAuth } from './hooks/useAuth';
 import { AppShell } from './components/layout/AppShell';
 import DashboardPage from './pages/DashboardPage';
 import EventEditorPage from './pages/EventEditorPage';
+import QuizManagerPage from './pages/QuizManagerPage';
 import LiveControlPage from './pages/LiveControlPage';
 import OverlayPage from './pages/OverlayPage';
 import AudiencePage from './pages/AudiencePage';
@@ -28,6 +29,7 @@ export default function App() {
           <Route element={<AppShell />}>
             <Route index element={<DashboardPage />} />
             <Route path="/event/:id" element={<EventEditorPage />} />
+            <Route path="/event/:id/quiz" element={<QuizManagerPage />} />
             <Route path="/live/:id" element={<LiveControlPage />} />
           </Route>
         ) : (

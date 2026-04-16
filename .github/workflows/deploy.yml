@@ -1,27 +1,68 @@
-name: Deploy to Production (gmo-onair.jp)
+name: Deploy
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Deploy target'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
 
 jobs:
-  deploy:
+  # ============================================
+  # 検証環境 (dev.gmo-onair.jp) — main push で自動
+  # ============================================
+  deploy-dev:
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.target == 'dev')
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
-      - name: Deploy app-prod via SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Deploy to dev environment
+        uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            set -e
-
             cd /root/gmo-onair
             git pull origin main
-            docker compose build app-prod
-            docker compose up -d app-prod
+            # app_dev のみ再ビルド＆再起動 (本番には触れない)
+            docker compose up -d --build app_dev
+            echo "✓ Dev deploy complete: $(date) — $(git log --oneline -1)"
 
-            echo "✅ Production deploy completed at $(date)"
+  # ============================================
+  # 本番環境 (gmo-onair.jp) — タグ push で自動
+  # ============================================
+  deploy-prod:
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.target == 'prod')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Deploy to production
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /root/gmo-onair
+            # タグ指定ならそのタグをcheckout、無ければmain最新
+            if [ -n "${{ github.ref_name }}" ] && [ "${{ github.ref_type }}" = "tag" ]; then
+              git fetch --tags
+              git checkout ${{ github.ref_name }}
+            else
+              git checkout main
+              git pull origin main
+            fi
+            # app_prod のみ再ビルド＆再起動 (検証には触れない)
+            docker compose up -d --build app_prod
+            echo "✓ Prod deploy complete: $(date) — $(git log --oneline -1)"

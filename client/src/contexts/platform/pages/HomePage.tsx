@@ -48,7 +48,7 @@ function AppCard({ app, onClick, disabled: forceDisabled }: { app: BlockApp; onC
       onClick={isDisabled ? undefined : onClick}
       disabled={isDisabled}
       className={cn(
-        "group relative flex flex-col items-center gap-2 rounded-2xl border-2 p-5 text-center transition-all h-full",
+        "group relative flex flex-col items-center gap-2 rounded-2xl border-2 p-5 text-center transition-all h-full card-hover",
         isDisabled
           ? "cursor-default border-dashed border-muted bg-muted/30 opacity-60"
           : "border-transparent bg-card shadow-sm hover:shadow-md hover:-translate-y-1 hover:border-primary/20 active:scale-[0.98]"
@@ -56,21 +56,21 @@ function AppCard({ app, onClick, disabled: forceDisabled }: { app: BlockApp; onC
     >
       <div
         className={cn(
-          "flex h-12 w-12 items-center justify-center rounded-xl text-white transition-transform",
+          "flex h-14 w-14 items-center justify-center rounded-xl text-white transition-transform",
           isDisabled ? "bg-muted-foreground/30" : app.color,
           !isDisabled && "group-hover:scale-110"
         )}
       >
-        <Icon className="h-5 w-5" />
+        <Icon className="h-6 w-6" />
       </div>
       <div className="flex-1 flex flex-col justify-center">
-        <h3 className="text-sm font-semibold">{app.label}</h3>
-        <p className="mt-0.5 text-[10px] text-muted-foreground leading-relaxed">
+        <h3 className="text-base font-semibold">{app.label}</h3>
+        <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
           {app.description}
         </p>
       </div>
       {isComingSoon && (
-        <Badge variant="secondary" className="absolute top-2 right-2 text-[9px]">
+        <Badge variant="secondary" className="absolute top-2 right-2 text-[11px]">
           準備中
         </Badge>
       )}
@@ -179,19 +179,19 @@ function KpiWidget() {
       <CardContent className="px-4 pb-4">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="rounded-lg bg-blue-50 p-3 dark:bg-blue-950/30">
-            <p className="text-[10px] text-blue-600 dark:text-blue-400">売上</p>
+            <p className="text-xs text-blue-600 dark:text-blue-400">売上</p>
             <AnimatedCurrency value={kpi.monthly_revenue} className="text-sm font-bold text-blue-700 dark:text-blue-300" />
           </div>
           <div className="rounded-lg bg-orange-50 p-3 dark:bg-orange-950/30">
-            <p className="text-[10px] text-orange-600 dark:text-orange-400">仕入</p>
+            <p className="text-xs text-orange-600 dark:text-orange-400">仕入</p>
             <AnimatedCurrency value={kpi.monthly_purchase} className="text-sm font-bold text-orange-700 dark:text-orange-300" />
           </div>
           <div className="rounded-lg bg-emerald-50 p-3 dark:bg-emerald-950/30">
-            <p className="text-[10px] text-emerald-600 dark:text-emerald-400">粗利 {formatPercent(kpi.monthly_gross_margin)}</p>
+            <p className="text-xs text-emerald-600 dark:text-emerald-400">粗利 {formatPercent(kpi.monthly_gross_margin)}</p>
             <AnimatedCurrency value={kpi.gross_profit} className="text-sm font-bold text-emerald-700 dark:text-emerald-300" />
           </div>
           <div className={cn("rounded-lg p-3", kpi.operating_profit >= 0 ? "bg-green-50 dark:bg-green-950/30" : "bg-red-50 dark:bg-red-950/30")}>
-            <p className={cn("text-[10px]", kpi.operating_profit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
+            <p className={cn("text-xs", kpi.operating_profit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
               営業利益 {formatPercent(kpi.operating_margin)}
             </p>
             <AnimatedCurrency
@@ -242,23 +242,23 @@ function ScheduleWidget() {
                 )}
               >
                 <div className={cn("text-center mb-1", isToday && "font-bold text-primary")}>
-                  <span className="text-[10px] text-muted-foreground">{day.dayLabel}</span>
-                  <span className="text-[10px] ml-0.5">{day.date.split("-")[2]}日</span>
+                  <span className="text-xs text-muted-foreground">{day.dayLabel}</span>
+                  <span className="text-xs ml-0.5">{day.date.split("-")[2]}日</span>
                 </div>
                 <div className="space-y-0.5">
                   {day.events.slice(0, 3).map((ev, i) => (
                     <div
                       key={i}
-                      className={cn("rounded px-1 py-0.5 text-white text-[9px] leading-tight truncate", typeColors[ev.type] || "bg-gray-400")}
+                      className={cn("rounded px-1 py-0.5 text-white text-[11px] leading-tight truncate", typeColors[ev.type] || "bg-gray-400")}
                     >
                       {typeLabels[ev.type]}: {ev.gls_number || ev.episode_code}
                     </div>
                   ))}
                   {day.events.length > 3 && (
-                    <div className="text-[9px] text-muted-foreground text-center">+{day.events.length - 3}</div>
+                    <div className="text-[11px] text-muted-foreground text-center">+{day.events.length - 3}</div>
                   )}
                   {day.events.length === 0 && (
-                    <div className="text-[9px] text-muted-foreground text-center mt-1">-</div>
+                    <div className="text-[11px] text-muted-foreground text-center mt-1">-</div>
                   )}
                 </div>
               </div>
@@ -269,7 +269,7 @@ function ScheduleWidget() {
           {Object.entries(typeLabels).map(([key, label]) => (
             <div key={key} className="flex items-center gap-1">
               <div className={cn("w-2 h-2 rounded-sm", typeColors[key])} />
-              <span className="text-[10px] text-muted-foreground">{label}</span>
+              <span className="text-xs text-muted-foreground">{label}</span>
             </div>
           ))}
         </div>
@@ -296,19 +296,19 @@ function AlertsWidget() {
             <AlertTriangle className="h-4 w-4 text-yellow-500" />
             アラート
           </span>
-          <Badge variant="secondary" className="text-[10px]">{alerts.length}件</Badge>
+          <Badge variant="secondary" className="text-xs">{alerts.length}件</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="px-4 pb-4">
         <div className="space-y-1.5">
           {alerts.slice(0, 4).map((a, idx) => (
             <div key={`${a.id}-${idx}`} className="flex items-center gap-2 rounded-md border p-2">
-              <Badge className="text-[9px] shrink-0" style={{ backgroundColor: alertTypeColor[a.alert_type], color: "#fff" }}>
+              <Badge className="text-[11px] shrink-0" style={{ backgroundColor: alertTypeColor[a.alert_type], color: "#fff" }}>
                 {alertTypeLabel[a.alert_type] || a.alert_type}
               </Badge>
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium truncate">{a.name}</p>
-                <p className="text-[10px] text-muted-foreground truncate">{a.message}</p>
+                <p className="text-xs text-muted-foreground truncate">{a.message}</p>
               </div>
             </div>
           ))}
@@ -366,10 +366,10 @@ function RecentProjectsWidget() {
                   {p.name}
                 </p>
                 {p.customer_name && (
-                  <p className="text-[10px] text-muted-foreground">{p.customer_name}</p>
+                  <p className="text-xs text-muted-foreground">{p.customer_name}</p>
                 )}
               </div>
-              <Badge className="shrink-0 text-[9px]" style={{ backgroundColor: stageColor[p.stage], color: "#fff" }}>
+              <Badge className="shrink-0 text-[11px]" style={{ backgroundColor: stageColor[p.stage], color: "#fff" }}>
                 {stageLabel[p.stage] || p.stage}
               </Badge>
             </div>
@@ -405,7 +405,7 @@ export default function HomePage() {
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {greeting}、{currentUser?.name} さん
-            <Badge variant="outline" className="ml-2 text-[10px]">
+            <Badge variant="outline" className="ml-2 text-xs">
               {roleLabelMap[currentUser?.role || ""] || currentUser?.role}
             </Badge>
           </p>
@@ -478,7 +478,7 @@ export default function HomePage() {
         )}
 
         {/* Version */}
-        <p className="mt-10 text-center text-[10px] text-muted-foreground/40">
+        <p className="mt-10 text-center text-xs text-muted-foreground/40">
           GMO ONAiR Platform v{__APP_VERSION__}
         </p>
       </div>
