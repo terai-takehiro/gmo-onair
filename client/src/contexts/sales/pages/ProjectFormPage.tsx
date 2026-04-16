@@ -83,11 +83,13 @@ export default function ProjectFormPage() {
 
   // スタジオスケジュール
   const [scheduleRoomIds, setScheduleRoomIds] = useState<string[]>([]);
+  const [productionStart, setProductionStart] = useState("");
+  const [productionEnd, setProductionEnd] = useState("");
+  const [productionMultiDay, setProductionMultiDay] = useState(false);
   const [hasRehearsal, setHasRehearsal] = useState(false);
   const [rehearsalStart, setRehearsalStart] = useState("");
   const [rehearsalEnd, setRehearsalEnd] = useState("");
-  const [productionStart, setProductionStart] = useState("");
-  const [productionEnd, setProductionEnd] = useState("");
+  const [rehearsalMultiDay, setRehearsalMultiDay] = useState(false);
 
   const { data: studioLocationsData } = useQuery({
     queryKey: ["studio-locations"],
@@ -215,6 +217,12 @@ export default function ProjectFormPage() {
   };
 
   const onSubmit = async (values: FormValues) => {
+    // event_start/event_end をスタジオ日程から自動設定
+    const prodEnd = productionMultiDay ? productionEnd : productionStart;
+    if (productionStart) {
+      values.event_start = (hasRehearsal && rehearsalStart) ? rehearsalStart : productionStart;
+      values.event_end = prodEnd || productionStart;
+    }
     saveMutation.mutate(values, {
       onSuccess: async (res) => {
         const savedProjectId = res?.data?.data?.id || id;
@@ -224,22 +232,23 @@ export default function ProjectFormPage() {
             // 本番予約
             await api.post("/studios/bookings", {
               title: `${values.name} 本番`,
-              booking_type: "project",
+              booking_type: "performance",
               project_id: savedProjectId,
               all_day: true,
               start_time: productionStart,
-              end_time: productionEnd || productionStart,
+              end_time: prodEnd || productionStart,
               room_ids: scheduleRoomIds,
             });
             // リハーサル予約
             if (hasRehearsal && rehearsalStart) {
+              const rehEnd = rehearsalMultiDay ? rehearsalEnd : rehearsalStart;
               await api.post("/studios/bookings", {
                 title: `${values.name} リハーサル`,
-                booking_type: "project",
+                booking_type: "rehearsal",
                 project_id: savedProjectId,
                 all_day: true,
                 start_time: rehearsalStart,
-                end_time: rehearsalEnd || rehearsalStart,
+                end_time: rehEnd || rehearsalStart,
                 room_ids: scheduleRoomIds,
               });
             }
@@ -480,25 +489,6 @@ export default function ProjectFormPage() {
           </CardContent>
         </Card>
 
-        {/* イベント日程 (A系のみ) */}
-        {isCategoryA && (
-          <Card>
-            <CardHeader><CardTitle className="text-base">日程</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <Label>イベント開始日</Label>
-                  <Input type="date" {...register("event_start")} />
-                </div>
-                <div>
-                  <Label>イベント終了日</Label>
-                  <Input type="date" {...register("event_end")} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {/* スタジオスケジュール */}
         <Card>
           <CardHeader>
@@ -536,34 +526,65 @@ export default function ProjectFormPage() {
               </div>
             </div>
 
-            {/* 本番日程 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <Label>本番 開始日</Label>
-                <Input type="date" value={productionStart} onChange={(e) => setProductionStart(e.target.value)} />
+            {/* 本番日 */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <Label>本番日</Label>
+                  <Input type="date" value={productionStart} onChange={(e) => setProductionStart(e.target.value)} />
+                </div>
+                {productionMultiDay && (
+                  <div className="flex-1">
+                    <Label>本番 終了日</Label>
+                    <Input type="date" value={productionEnd} onChange={(e) => setProductionEnd(e.target.value)} />
+                  </div>
+                )}
               </div>
-              <div>
-                <Label>本番 終了日</Label>
-                <Input type="date" value={productionEnd} onChange={(e) => setProductionEnd(e.target.value)} />
-              </div>
+              <label className="flex items-center gap-2 text-sm cursor-pointer text-muted-foreground">
+                <Checkbox
+                  checked={productionMultiDay}
+                  onCheckedChange={(v) => {
+                    setProductionMultiDay(!!v);
+                    if (!v) setProductionEnd("");
+                  }}
+                />
+                複数日程
+              </label>
             </div>
 
             {/* リハーサル */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Checkbox checked={hasRehearsal} onCheckedChange={(v) => setHasRehearsal(!!v)} />
+                <Checkbox checked={hasRehearsal} onCheckedChange={(v) => {
+                  setHasRehearsal(!!v);
+                  if (!v) { setRehearsalStart(""); setRehearsalEnd(""); setRehearsalMultiDay(false); }
+                }} />
                 リハーサルあり
               </label>
               {hasRehearsal && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-6">
-                  <div>
-                    <Label>リハーサル 開始日</Label>
-                    <Input type="date" value={rehearsalStart} onChange={(e) => setRehearsalStart(e.target.value)} />
+                <div className="pl-6 space-y-2">
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <Label>リハーサル日</Label>
+                      <Input type="date" value={rehearsalStart} onChange={(e) => setRehearsalStart(e.target.value)} />
+                    </div>
+                    {rehearsalMultiDay && (
+                      <div className="flex-1">
+                        <Label>リハーサル 終了日</Label>
+                        <Input type="date" value={rehearsalEnd} onChange={(e) => setRehearsalEnd(e.target.value)} />
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <Label>リハーサル 終了日</Label>
-                    <Input type="date" value={rehearsalEnd} onChange={(e) => setRehearsalEnd(e.target.value)} />
-                  </div>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer text-muted-foreground">
+                    <Checkbox
+                      checked={rehearsalMultiDay}
+                      onCheckedChange={(v) => {
+                        setRehearsalMultiDay(!!v);
+                        if (!v) setRehearsalEnd("");
+                      }}
+                    />
+                    複数日程
+                  </label>
                 </div>
               )}
             </div>
