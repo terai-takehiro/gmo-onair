@@ -22,7 +22,7 @@ export default function ScanPage() {
   // EQコード抽出: スキャン結果から eq_code を取り出す
   //   - URL形式 (例: https://onair/equipment/items/<uuid>) → 末尾の id
   //   - URL形式 (...?eq=Y-C-00001) → eq_code
-  //   - "Y-C-00001" 直接 (新形式: location-type-連番5桁)
+  //   - "Y-C-00001" 直接 (location-type-連番5桁)
   // ------------------------------------------------------------------
   const extractCode = (raw: string): { type: 'id' | 'eq_code'; value: string } | null => {
     const text = raw.trim();
@@ -35,8 +35,8 @@ export default function ScanPage() {
       const eq = u.searchParams.get('eq');
       if (eq) return { type: 'eq_code', value: eq };
     } catch { /* not a URL */ }
-    // EQコード直接入力 (新形式: Y-C-00001 / 旧形式: EQ-XXXXXXXXXX)
-    if (/^[A-Z]+-[A-Z0-9]+-[0-9]{5}$/i.test(text) || /^EQ-[A-Z0-9]{6,}$/i.test(text)) {
+    // EQコード直接入力 (新形式: Y-C-00001)
+    if (/^[A-Z]+-[A-Z0-9]+-[0-9]{5}$/i.test(text)) {
       return { type: 'eq_code', value: text.toUpperCase() };
     }
     // UUID直接

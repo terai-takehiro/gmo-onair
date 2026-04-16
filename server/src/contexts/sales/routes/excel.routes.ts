@@ -234,11 +234,16 @@ const PROJECTS_CONFIG: ResourceConfig = {
     { key: 'notes',                header: '備考',           width: 30 },
   ],
   templateRows: [
-    { code: 'PRJ-2026-001', gls_number: '', name: 'サンプル案件',
+    { code: 'PRJ-2026-001', gls_number: '', name: 'サンプル案件（新規ヨミ）',
       customer_name: '株式会社サンプル', stage: 'c_proposal', project_type: 'event',
       expected_amount: 1000000, event_start: '2026-06-01', event_end: '2026-06-02',
       broadcast_type: 'live', media_platform: 'YouTube',
       assigned_to_email: 'admin@example.com', tags: '配信,IR', notes: '' },
+    { code: 'PRJ-LEGACY-001', gls_number: 'GLS001', name: '旧案件サンプル（過去データ取り込み例）',
+      customer_name: '株式会社サンプル', stage: 's_completed', project_type: 'recording',
+      expected_amount: 3000000, event_start: '2024-03-01', event_end: '2024-03-01',
+      broadcast_type: '', media_platform: '',
+      assigned_to_email: 'admin@example.com', tags: '', notes: '旧システムからの移行データ' },
   ],
   guideSheet: {
     name: '入力ガイド',
@@ -248,7 +253,7 @@ const PROJECTS_CONFIG: ResourceConfig = {
     ],
     rows: [
       { col: 'コード', desc: '【必須】案件固有コード (重複検出キー)。例: PRJ-2026-001' },
-      { col: 'GLS番号', desc: '受注後に発番。空欄ならヨミ段階扱い' },
+      { col: 'GLS番号', desc: '受注後に発番。空欄ならヨミ段階扱い。過去データ取り込み時は旧形式 (GLS001 等) もそのまま入力可' },
       { col: '案件名', desc: '【必須】' },
       { col: '顧客名', desc: '【必須】事前に登録済みの顧客名と完全一致' },
       { col: 'ステージ', desc: 'neta/d_hold/c_proposal/b_verbal/a_won/s_completed/e_lost (日本語OK: ネタ/保留/提案中/口頭内示/受注/完了/失注)' },
