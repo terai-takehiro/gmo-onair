@@ -75,41 +75,45 @@ export function createApp(): express.Express {
     }
   });
 
-  // Static file serving (production)
-  if (isProduction) {
-    const staticOptions: Parameters<typeof express.static>[1] = {
-      setHeaders(res, filePath) {
-        if (filePath.endsWith('.html')) {
-          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        } else {
-          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-        }
-      },
-    };
-
-    const serveApp = (prefix: string, distPath: string) => {
-      app.use(prefix, express.static(distPath, staticOptions));
-      app.get(prefix, (_req, res) => {
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        res.sendFile(path.join(distPath, 'index.html'));
-      });
-      app.get(`${prefix}/*`, (_req, res) => {
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        res.sendFile(path.join(distPath, 'index.html'));
-      });
-    };
-
-    serveApp('/equipment', path.join(__dirname, '../../client-equipment/dist'));
-    serveApp('/qsheet', path.join(__dirname, '../../client-qsheet/dist'));
-    serveApp('/interactive', path.join(__dirname, '../../client-interactive/dist'));
-    serveApp('/techsheet', path.join(__dirname, '../../client-techsheet/dist'));
-
+  // Static file serving — dist が存在すれば常に配信 (本番・検証共通)
+  {
+    const fs = require('fs');
     const clientDistPath = path.join(__dirname, '../../client/dist');
-    app.use(express.static(clientDistPath, staticOptions));
-    app.get('*', (_req, res) => {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      res.sendFile(path.join(clientDistPath, 'index.html'));
-    });
+
+    if (fs.existsSync(clientDistPath)) {
+      const staticOptions: Parameters<typeof express.static>[1] = {
+        setHeaders(res, filePath) {
+          if (filePath.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          } else {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          }
+        },
+      };
+
+      const serveApp = (prefix: string, distPath: string) => {
+        app.use(prefix, express.static(distPath, staticOptions));
+        app.get(prefix, (_req, res) => {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          res.sendFile(path.join(distPath, 'index.html'));
+        });
+        app.get(`${prefix}/*`, (_req, res) => {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          res.sendFile(path.join(distPath, 'index.html'));
+        });
+      };
+
+      serveApp('/equipment', path.join(__dirname, '../../client-equipment/dist'));
+      serveApp('/qsheet', path.join(__dirname, '../../client-qsheet/dist'));
+      serveApp('/interactive', path.join(__dirname, '../../client-interactive/dist'));
+      serveApp('/techsheet', path.join(__dirname, '../../client-techsheet/dist'));
+
+      app.use(express.static(clientDistPath, staticOptions));
+      app.get('*', (_req, res) => {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.sendFile(path.join(clientDistPath, 'index.html'));
+      });
+    }
   }
 
   app.use(errorHandler);
