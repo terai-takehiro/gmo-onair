@@ -878,7 +878,7 @@ export async function seed() {
   // Create a "カメラセット A" parent item, then assign camera + lens children
   const camSetAId = uuidv4();
   eqCounter++;
-  const camSetACode = `EQ-CAMSET-A`;
+  const camSetACode = `Y-C-SET01`;
   await ins(`INSERT INTO equipment_items (
     id, eq_code, name, category_id, item_type, unit_number,
     manufacturer, model_number, serial_number,
@@ -900,7 +900,7 @@ export async function seed() {
   // Create a "照明セット A" parent item for lighting equipment
   const lightSetAId = uuidv4();
   eqCounter++;
-  const lightSetACode = `EQ-LTSET-A`;
+  const lightSetACode = `Y-L-SET01`;
   await ins(`INSERT INTO equipment_items (
     id, eq_code, name, category_id, item_type, unit_number,
     manufacturer, model_number, serial_number,
