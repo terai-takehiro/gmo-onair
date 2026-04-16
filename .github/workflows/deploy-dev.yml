@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy to Dev VPS via SSH
+      - name: Deploy app-dev via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -19,28 +19,14 @@ jobs:
           script: |
             set -e
 
-            DEV_DIR="/opt/gmo-onair-dev"
-
-            # 初回: ディレクトリがなければ clone
-            if [ ! -d "$DEV_DIR/.git" ]; then
-              mkdir -p "$DEV_DIR"
-              git clone https://github.com/terai-takehiro/gmo-onair.git "$DEV_DIR"
-            fi
-
-            cd "$DEV_DIR"
-            git fetch origin
-            git checkout dev
+            # 1. devブランチのworktreeを最新に更新
+            cd /root/gmo-onair-dev
+            git fetch origin dev
             git pull origin dev
 
-            # .env がなければ本番の .env をベースにコピー
-            if [ ! -f "$DEV_DIR/.env" ]; then
-              cp /opt/gmo-onair/.env "$DEV_DIR/.env"
-              echo "" >> "$DEV_DIR/.env"
-              echo "# --- Dev overrides ---" >> "$DEV_DIR/.env"
-              echo "OAUTH_CALLBACK_URL_DEV=http://dev.gmo-onair.jp/api/v1/internal/auth/callback" >> "$DEV_DIR/.env"
-              echo "CLIENT_URL_DEV=http://dev.gmo-onair.jp" >> "$DEV_DIR/.env"
-              echo "ALLOWED_ORIGINS_DEV=http://dev.gmo-onair.jp" >> "$DEV_DIR/.env"
-            fi
+            # 2. app-dev だけリビルド・再起動
+            cd /root/gmo-onair
+            docker compose build app-dev
+            docker compose up -d app-dev
 
-            docker compose -f docker-compose.dev.yml up -d --build
             echo "✅ Dev deploy completed at $(date)"

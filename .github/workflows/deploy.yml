@@ -1,4 +1,4 @@
-name: Deploy to CoNoHa VPS
+name: Deploy to Production (gmo-onair.jp)
 
 on:
   push:
@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy via SSH
+      - name: Deploy app-prod via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -18,7 +18,10 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             set -e
-            cd /opt/gmo-onair
+
+            cd /root/gmo-onair
             git pull origin main
-            docker compose up -d --build
-            echo "✅ Deploy completed at $(date)"
+            docker compose build app-prod
+            docker compose up -d app-prod
+
+            echo "✅ Production deploy completed at $(date)"
