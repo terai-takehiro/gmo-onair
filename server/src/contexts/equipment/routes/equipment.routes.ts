@@ -124,6 +124,7 @@ router.get('/items', async (req: Request, res: Response) => {
     SELECT ei.*, ec.name as category_name,
            em.name as manufacturer_name,
            el.name as location_name,
+           p.eq_code as parent_eq_code, p.name as parent_name,
            CASE WHEN ei.purchased_at IS NOT NULL AND ei.warranty_years > 0
                 THEN (ei.purchased_at + (ei.warranty_years || ' years')::interval)::date
                 ELSE NULL END as warranty_end
@@ -131,6 +132,7 @@ router.get('/items', async (req: Request, res: Response) => {
     LEFT JOIN equipment_categories ec ON ec.id = ei.category_id AND ec.deleted_at IS NULL
     LEFT JOIN equipment_manufacturers em ON em.id = ei.manufacturer_id
     LEFT JOIN equipment_locations el ON el.id = ei.location_id AND el.deleted_at IS NULL
+    LEFT JOIN equipment_items p ON p.id = ei.parent_id AND p.deleted_at IS NULL
     WHERE ei.deleted_at IS NULL
   `;
   const params: any[] = [];

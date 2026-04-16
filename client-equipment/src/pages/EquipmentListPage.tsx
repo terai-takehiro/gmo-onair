@@ -49,6 +49,7 @@ const defaultForm = {
   equipment_section: "system", equipment_type_code: "V", location_code: "Y",
   manufacturer_id: "", purchased_at: "", warranty_years: "",
   location_id: "", status: "active", condition: "good", notes: "",
+  parent_id: "",
   // 旧フィールド (互換用)
   category_id: "", item_type: "facility", manufacturer: "",
 };
@@ -126,6 +127,7 @@ export default function EquipmentListPage() {
       warranty_years: item.warranty_years?.toString() || "0",
       location_id: item.location_id || "", status: item.status || "active",
       condition: item.condition || "good", notes: item.notes || "",
+      parent_id: item.parent_id || "",
       category_id: item.category_id || "", item_type: item.item_type || "facility",
       manufacturer: item.manufacturer || "",
     });
@@ -143,6 +145,7 @@ export default function EquipmentListPage() {
       manufacturer_id: form.manufacturer_id || null,
       location_id: form.location_id || null,
       category_id: form.category_id || null,
+      parent_id: form.parent_id || null,
     });
   };
 
@@ -336,6 +339,29 @@ export default function EquipmentListPage() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+            </div>
+
+            {/* 親機材 */}
+            <div className="border-t pt-4">
+              <div className="space-y-1">
+                <Label>親機材（付属先）</Label>
+                <Select
+                  value={form.parent_id || "none"}
+                  onValueChange={(v) => setForm({ ...form, parent_id: v === "none" ? "" : v })}
+                >
+                  <SelectTrigger><SelectValue placeholder="選択なし（単体）" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">選択なし（単体）</SelectItem>
+                    {items
+                      .filter((it: any) => it.id !== editingId)
+                      .map((it: any) => (
+                        <SelectItem key={it.id} value={it.id}>
+                          {it.eq_code} — {it.name}{it.unit_number ? ` No.${it.unit_number}` : ""}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

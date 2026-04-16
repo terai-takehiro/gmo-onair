@@ -1,11 +1,12 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  ArrowLeft, Copy, Loader2, Wrench, ArrowRightLeft, Package, QrCode, Printer,
+  ArrowLeft, Copy, Loader2, Wrench, ArrowRightLeft, Package, QrCode, Printer, Link2, X,
 } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -37,12 +38,37 @@ function sectionLabel(typeCode: string | null, section: string | null) {
 export default function EquipmentDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const [qrOpen, setQrOpen] = useState(false);
+  const [selectedChildId, setSelectedChildId] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["equipment-item", id],
     queryFn: async () => (await api.get(`/equipment/items/${id}`)).data.data,
     enabled: !!id,
+  });
+
+  const { data: allItemsData } = useQuery({
+    queryKey: ["equipment-items-all"],
+    queryFn: async () => (await api.get("/equipment/items")).data.data,
+  });
+  const allItems: any[] = allItemsData ?? [];
+
+  const attachMutation = useMutation({
+    mutationFn: (childId: string) => api.put(`/equipment/items/${childId}`, { parent_id: id }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["equipment-item", id] });
+      qc.invalidateQueries({ queryKey: ["equipment-items-all"] });
+      setSelectedChildId("");
+    },
+  });
+
+  const detachMutation = useMutation({
+    mutationFn: (childId: string) => api.put(`/equipment/items/${childId}`, { parent_id: null }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["equipment-item", id] });
+      qc.invalidateQueries({ queryKey: ["equipment-items-all"] });
+    },
   });
 
   if (isLoading) {
@@ -235,28 +261,88 @@ export default function EquipmentDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Accessories */}
-        {(item.accessories?.length > 0 || item.parent_of?.length > 0) && (
-          <Card className="lg:col-span-2">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">付属品・セット</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {item.accessories?.map((a: any) => (
-                  <Badge key={a.id} variant="secondary">
-                    {a.child_name} ({a.child_eq_code})
-                  </Badge>
-                ))}
-                {item.parent_of?.map((p: any) => (
-                  <Badge key={p.id} variant="outline">
-                    ← {p.parent_name} ({p.parent_eq_code}) の付属品
-                  </Badge>
-                ))}
+        {/* 関連機材 / オプション品 */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Link2 className="h-4 w-4" />
+              関連機材 / オプション品
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* 付属品リスト（children） */}
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground mb-2">付属品 / オプション品（この機材に紐付いているもの）</p>
+              {(item.children ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground">なし</p>
+              ) : (
+                <div className="space-y-1">
+                  {item.children.map((c: any) => (
+                    <div key={c.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                      <button
+                        className="flex items-center gap-2 hover:underline text-left"
+                        onClick={() => navigate(`/equipment/items/${c.id}`)}
+                      >
+                        <span className="font-mono text-xs text-muted-foreground">{c.eq_code}</span>
+                        <span>{c.name}</span>
+                      </button>
+                      <Button
+                        variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        title="取り外す"
+                        onClick={() => detachMutation.mutate(c.id)}
+                        disabled={detachMutation.isPending}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 機材追加コンボボックス */}
+              <div className="flex gap-2 mt-3">
+                <Select value={selectedChildId || "none"} onValueChange={(v) => setSelectedChildId(v === "none" ? "" : v)}>
+                  <SelectTrigger className="flex-1 text-sm">
+                    <SelectValue placeholder="機材を選択して追加..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— 機材を選択 —</SelectItem>
+                    {allItems
+                      .filter((it: any) => it.id !== id && it.parent_id !== id && it.id !== item.parent_id)
+                      .map((it: any) => (
+                        <SelectItem key={it.id} value={it.id}>
+                          {it.eq_code} — {it.name}{it.unit_number ? ` No.${it.unit_number}` : ""}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  disabled={!selectedChildId || attachMutation.isPending}
+                  onClick={() => attachMutation.mutate(selectedChildId)}
+                >
+                  追加
+                </Button>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+
+            {/* 親機材表示 */}
+            <div className="border-t pt-3">
+              <p className="text-xs font-semibold text-muted-foreground mb-2">親機材（この機材が付属している先）</p>
+              {item.parent ? (
+                <button
+                  className="flex items-center gap-2 text-sm hover:underline"
+                  onClick={() => navigate(`/equipment/items/${item.parent.id}`)}
+                >
+                  <span className="font-mono text-xs text-muted-foreground">{item.parent.eq_code}</span>
+                  <span>{item.parent.name}</span>
+                </button>
+              ) : (
+                <p className="text-sm text-muted-foreground">なし</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
