@@ -60,15 +60,19 @@ interface StudioBooking {
 }
 
 const bookingTypeColors: Record<string, string> = {
+  performance: "#e11d48",
+  rehearsal: "#f59e0b",
   project: "#3b82f6",
   maintenance: "#ef4444",
   tour: "#8b5cf6",
-  internal: "#f59e0b",
+  internal: "#0891b2",
   other: "#6b7280",
 };
 
 const bookingTypeLabels: Record<string, string> = {
-  project: "案件",
+  performance: "本番",
+  rehearsal: "リハーサル",
+  project: "案件利用",
   maintenance: "メンテナンス",
   tour: "内覧",
   internal: "社内利用",
@@ -134,7 +138,16 @@ export default function StudioCalendarPage() {
     queryKey: ["studio-locations"],
     queryFn: async () => (await api.get("/studios/locations")).data,
   });
-  const locations: StudioLocation[] = locationsData?.data ?? [];
+  // Deduplicate locations by name (guard against seed-duplicated DB entries)
+  const locations: StudioLocation[] = (() => {
+    const raw: StudioLocation[] = locationsData?.data ?? [];
+    const seen = new Set<string>();
+    return raw.filter((loc) => {
+      if (seen.has(loc.name)) return false;
+      seen.add(loc.name);
+      return true;
+    });
+  })();
   // Fetch bookings
   const { data: bookingsData, isLoading: bookingsLoading } = useQuery({
     queryKey: ["studio-bookings", dateRange.from, dateRange.to],
@@ -174,10 +187,7 @@ export default function StudioCalendarPage() {
 
     // Studio bookings — 部屋ごとに1イベントとして表示
     for (const b of bookings) {
-      const typeColor = b.booking_type === "maintenance" ? "#ef4444"
-        : b.booking_type === "tour" ? "#8b5cf6"
-        : b.booking_type === "internal" ? "#f59e0b"
-        : bookingTypeColors[b.booking_type] || "#6b7280";
+      const typeColor = bookingTypeColors[b.booking_type] || "#6b7280";
 
       // 終日イベントを時間軸上に展開（06:00〜24:00）
       const toTimedRange = (startStr: string, endStr: string, isAllDay: boolean) => {
@@ -187,13 +197,15 @@ export default function StudioCalendarPage() {
       };
       const { start: evStart, end: evEnd } = toTimedRange(b.start_time, b.end_time, !!b.all_day);
 
+      // Types that override room color with the type color
+      const useTypeColor = ["performance", "rehearsal", "maintenance", "tour"].includes(b.booking_type);
+
       if (b.rooms.length > 0) {
         // 部屋ごとに個別イベント
         for (const room of b.rooms) {
           if (selectedRoomIds.size > 0 && !selectedRoomIds.has(room.room_id)) continue;
 
-          const color = b.booking_type === "maintenance" || b.booking_type === "tour"
-            ? typeColor : room.room_color;
+          const color = useTypeColor ? typeColor : room.room_color;
 
           events.push({
             id: `booking-${b.id}-${room.room_id}`,

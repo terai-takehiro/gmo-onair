@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import {
@@ -69,12 +69,39 @@ interface Props {
 }
 
 const bookingTypeOptions = [
+  { value: "performance", label: "本番" },
+  { value: "rehearsal", label: "リハーサル" },
   { value: "project", label: "案件利用" },
   { value: "maintenance", label: "メンテナンス" },
   { value: "tour", label: "内覧" },
   { value: "internal", label: "社内利用" },
   { value: "other", label: "その他" },
 ];
+
+// Types where we default to single-date (本番/リハーサル)
+const SINGLE_DATE_TYPES = new Set(["performance", "rehearsal"]);
+
+const LOCATION_NOTE_HISTORY_KEY = "studio_location_note_history";
+
+function loadLocationHistory(): string[] {
+  try {
+    const raw = localStorage.getItem(LOCATION_NOTE_HISTORY_KEY);
+    return raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocationHistory(value: string) {
+  if (!value.trim()) return;
+  const prev = loadLocationHistory();
+  const updated = [value, ...prev.filter((h) => h !== value)].slice(0, 15);
+  try {
+    localStorage.setItem(LOCATION_NOTE_HISTORY_KEY, JSON.stringify(updated));
+  } catch {
+    // ignore
+  }
+}
 
 export default function StudioBookingDialog({
   open,
@@ -88,7 +115,7 @@ export default function StudioBookingDialog({
 
   // Form state
   const [title, setTitle] = useState("");
-  const [bookingType, setBookingType] = useState("project");
+  const [bookingType, setBookingType] = useState("performance");
   const [projectId, setProjectId] = useState("");
   const [episodeId, setEpisodeId] = useState("");
   const [allDay, setAllDay] = useState(true);
@@ -96,10 +123,34 @@ export default function StudioBookingDialog({
   const [endDate, setEndDate] = useState("");
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("18:00");
+  const [multiDay, setMultiDay] = useState(false);
   const [selectedRoomIds, setSelectedRoomIds] = useState<Set<string>>(new Set());
   const [roomDetails, setRoomDetails] = useState<Record<string, { occupant: string; usage_note: string }>>({});
   const [locationNote, setLocationNote] = useState("");
   const [notes, setNotes] = useState("");
+
+  // External location autocomplete
+  const [locationHistory] = useState<string[]>(() => loadLocationHistory());
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+  const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
+  const locationInputRef = useRef<HTMLInputElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+
+  const isSingleDateType = SINGLE_DATE_TYPES.has(bookingType);
+
+  // Deduplicate locations by name and filter out "外現場"-type locations (no rooms) from room grid
+  const roomLocations = (() => {
+    const seen = new Set<string>();
+    const deduped: StudioLocation[] = [];
+    for (const loc of locations) {
+      if (!seen.has(loc.name)) {
+        seen.add(loc.name);
+        deduped.push(loc);
+      }
+    }
+    // Only show locations that actually have rooms in the room selection grid
+    return deduped.filter((loc) => loc.rooms.length > 0);
+  })();
 
   // Projects list
   const { data: projectsData } = useQuery({
@@ -140,8 +191,11 @@ export default function StudioBookingDialog({
       setRoomDetails(details);
 
       if (b.all_day) {
-        setStartDate(b.start_time.split("T")[0]);
-        setEndDate(b.end_time.split("T")[0]);
+        const sd = b.start_time.split("T")[0];
+        const ed = b.end_time.split("T")[0];
+        setStartDate(sd);
+        setEndDate(ed);
+        setMultiDay(sd !== ed);
         setStartTime("09:00");
         setEndTime("18:00");
       } else {
@@ -149,18 +203,20 @@ export default function StudioBookingDialog({
         const [ed, et] = b.end_time.split("T");
         setStartDate(sd);
         setEndDate(ed);
+        setMultiDay(sd !== ed);
         setStartTime(st?.slice(0, 5) || "09:00");
         setEndTime(et?.slice(0, 5) || "18:00");
       }
     } else {
       setTitle("");
-      setBookingType("project");
+      setBookingType("performance");
       setProjectId("");
       setEpisodeId("");
       setLocationNote("");
       setNotes("");
       setSelectedRoomIds(presetRoomIds ? new Set(presetRoomIds) : new Set());
       setRoomDetails({});
+      setMultiDay(false);
 
       if (presetDate) {
         setAllDay(presetDate.allDay);
@@ -172,12 +228,17 @@ export default function StudioBookingDialog({
           // FullCalendar's end date is exclusive for allDay
           const endD = new Date(endStr);
           endD.setDate(endD.getDate() - 1);
-          setEndDate(endD.toISOString().split("T")[0]);
+          const ed = endD.toISOString().split("T")[0];
+          setEndDate(ed);
+          setMultiDay(startStr !== ed);
           setStartTime("09:00");
           setEndTime("18:00");
         } else {
-          setStartDate(startStr.split("T")[0]);
-          setEndDate(endStr.split("T")[0]);
+          const sd = startStr.split("T")[0];
+          const ed = endStr.split("T")[0];
+          setStartDate(sd);
+          setEndDate(ed);
+          setMultiDay(sd !== ed);
           setStartTime(startStr.split("T")[1]?.slice(0, 5) || "09:00");
           setEndTime(endStr.split("T")[1]?.slice(0, 5) || "18:00");
         }
@@ -191,6 +252,13 @@ export default function StudioBookingDialog({
       }
     }
   }, [open, editingBooking, presetDate, presetRoomIds]);
+
+  // When switching to single-date type without multiDay, sync end = start
+  useEffect(() => {
+    if (isSingleDateType && !multiDay) {
+      setEndDate(startDate);
+    }
+  }, [isSingleDateType, multiDay, startDate]);
 
   // Auto-set title based on project
   useEffect(() => {
@@ -207,6 +275,22 @@ export default function StudioBookingDialog({
     }
   }, [projectId, episodeId, bookingType, projects, episodes, editingBooking]);
 
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (
+        locationInputRef.current &&
+        !locationInputRef.current.contains(e.target as Node) &&
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(e.target as Node)
+      ) {
+        setShowLocationSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
   const toggleRoom = (roomId: string) => {
     setSelectedRoomIds((prev) => {
       const next = new Set(prev);
@@ -214,6 +298,38 @@ export default function StudioBookingDialog({
       else next.add(roomId);
       return next;
     });
+  };
+
+  const handleLocationNoteChange = (value: string) => {
+    setLocationNote(value);
+    if (value.trim()) {
+      const filtered = locationHistory.filter((h) =>
+        h.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredSuggestions(filtered);
+      setShowLocationSuggestions(filtered.length > 0);
+    } else {
+      setFilteredSuggestions(locationHistory);
+      setShowLocationSuggestions(locationHistory.length > 0);
+    }
+  };
+
+  const handleLocationNoteFocus = () => {
+    if (locationNote.trim()) {
+      const filtered = locationHistory.filter((h) =>
+        h.toLowerCase().includes(locationNote.toLowerCase())
+      );
+      setFilteredSuggestions(filtered);
+      setShowLocationSuggestions(filtered.length > 0);
+    } else {
+      setFilteredSuggestions(locationHistory);
+      setShowLocationSuggestions(locationHistory.length > 0);
+    }
+  };
+
+  const selectLocationSuggestion = (value: string) => {
+    setLocationNote(value);
+    setShowLocationSuggestions(false);
   };
 
   const createMutation = useMutation({
@@ -228,7 +344,15 @@ export default function StudioBookingDialog({
   });
 
   const handleSubmit = () => {
-    if (!title || !startDate || !endDate) return;
+    if (!title || !startDate) return;
+
+    const effectiveEndDate = (isSingleDateType && !multiDay) ? startDate : endDate;
+    if (!effectiveEndDate) return;
+
+    // Save location note to history
+    if (locationNote.trim()) {
+      saveLocationHistory(locationNote.trim());
+    }
 
     const room_details_arr = Array.from(selectedRoomIds).map((rid) => ({
       room_id: rid,
@@ -243,7 +367,7 @@ export default function StudioBookingDialog({
       episode_id: episodeId || null,
       all_day: allDay,
       start_time: allDay ? startDate : `${startDate}T${startTime}`,
-      end_time: allDay ? endDate : `${endDate}T${endTime}`,
+      end_time: allDay ? effectiveEndDate : `${effectiveEndDate}T${endTime}`,
       room_details: room_details_arr,
       location_note: locationNote || null,
       notes: notes || null,
@@ -251,6 +375,10 @@ export default function StudioBookingDialog({
 
     createMutation.mutate(payload);
   };
+
+  const dateLabel = isSingleDateType
+    ? (bookingType === "performance" ? "本番日" : "リハーサル日")
+    : "日時";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -334,7 +462,7 @@ export default function StudioBookingDialog({
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-muted-foreground" />
-              <Label className="mb-0">日時</Label>
+              <Label className="mb-0">{dateLabel}</Label>
             </div>
 
             {/* All-day toggle */}
@@ -349,28 +477,77 @@ export default function StudioBookingDialog({
               </label>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">開始日</Label>
-                <Input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => {
-                    setStartDate(e.target.value);
-                    if (endDate < e.target.value) setEndDate(e.target.value);
-                  }}
-                />
+            {/* Single-date types: show one date + 複数日 checkbox */}
+            {isSingleDateType ? (
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">
+                    {bookingType === "performance" ? "本番日" : "リハーサル日"}
+                  </Label>
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => {
+                      setStartDate(e.target.value);
+                      if (!multiDay) setEndDate(e.target.value);
+                      else if (endDate < e.target.value) setEndDate(e.target.value);
+                    }}
+                  />
+                </div>
+
+                {/* 複数日 checkbox */}
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="multiDay"
+                    checked={multiDay}
+                    onCheckedChange={(c) => {
+                      const checked = !!c;
+                      setMultiDay(checked);
+                      if (!checked) setEndDate(startDate);
+                    }}
+                  />
+                  <label htmlFor="multiDay" className="text-sm cursor-pointer">
+                    複数日
+                  </label>
+                </div>
+
+                {multiDay && (
+                  <div className="space-y-1 pl-6">
+                    <Label className="text-xs text-muted-foreground">終了日</Label>
+                    <Input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      min={startDate}
+                    />
+                  </div>
+                )}
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">終了日</Label>
-                <Input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  min={startDate}
-                />
+            ) : (
+              /* Other types: show start + end date */
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">開始日</Label>
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => {
+                      setStartDate(e.target.value);
+                      if (endDate < e.target.value) setEndDate(e.target.value);
+                    }}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">終了日</Label>
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    min={startDate}
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             {!allDay && (
               <div className="grid grid-cols-2 gap-3">
@@ -404,7 +581,8 @@ export default function StudioBookingDialog({
           <div className="space-y-2">
             <Label>使用スタジオ・部屋 (複数選択可)</Label>
             <div className="space-y-3 rounded-lg border p-3">
-              {locations.map((loc) => (
+              {/* Room locations (deduplicated, only those with rooms) */}
+              {roomLocations.map((loc) => (
                 <div key={loc.id}>
                   <p className="text-xs font-semibold text-muted-foreground mb-1.5">
                     {loc.name}
@@ -437,27 +615,50 @@ export default function StudioBookingDialog({
                 </div>
               ))}
 
-              {/* External location */}
+              {/* External location — free-text with history dropdown */}
               <div>
                 <div className="flex items-center gap-1 mb-1.5">
                   <MapPin className="h-3 w-3 text-muted-foreground" />
                   <p className="text-xs font-semibold text-muted-foreground">
-                    外現場（部屋未選択の場合）
+                    外現場
                   </p>
                 </div>
-                <Input
-                  value={locationNote}
-                  onChange={(e) => setLocationNote(e.target.value)}
-                  placeholder="場所を入力（例：富士山麓ロケーション）"
-                  className="text-sm"
-                />
+                <div className="relative">
+                  <Input
+                    ref={locationInputRef}
+                    value={locationNote}
+                    onChange={(e) => handleLocationNoteChange(e.target.value)}
+                    onFocus={handleLocationNoteFocus}
+                    placeholder="場所を入力（例：富士山麓ロケーション）"
+                    className="text-sm"
+                    autoComplete="off"
+                  />
+                  {showLocationSuggestions && filteredSuggestions.length > 0 && (
+                    <div
+                      ref={suggestionsRef}
+                      className="absolute z-50 top-full left-0 right-0 mt-1 rounded-lg border bg-popover shadow-md overflow-hidden"
+                    >
+                      {filteredSuggestions.map((suggestion, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors truncate"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => selectLocationSuggestion(suggestion)}
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
           {/* Greenroom occupant details */}
           {(() => {
-            const allRooms = locations.flatMap((l) => l.rooms);
+            const allRooms = roomLocations.flatMap((l) => l.rooms);
             const greenrooms = allRooms.filter(
               (r) => selectedRoomIds.has(r.id) && r.room_type === "greenroom"
             );
@@ -529,7 +730,7 @@ export default function StudioBookingDialog({
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={!title || !startDate || !endDate || createMutation.isPending}
+              disabled={!title || !startDate || createMutation.isPending}
             >
               {createMutation.isPending && (
                 <Loader2 className="mr-1 h-4 w-4 animate-spin" />
