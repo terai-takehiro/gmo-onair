@@ -39,6 +39,8 @@ jobs:
             # app_dev のみ再ビルド＆再起動 (本番には触れない)
             cd /root/gmo-onair
             docker compose build app_dev
+            docker compose stop app_dev || true
+            docker compose rm -f app_dev || true
             docker compose up -d app_dev
             echo "✓ Dev deploy complete: $(date) — $(cd /root/gmo-onair-dev && git log --oneline -1)"
 
@@ -63,5 +65,7 @@ jobs:
             git pull origin main
             # app_prod のみ再ビルド＆再起動 (検証には触れない)
             docker compose build app_prod
+            docker compose stop app_prod || true
+            docker compose rm -f app_prod || true
             docker compose up -d app_prod
             echo "✓ Prod deploy complete: $(date) — $(git log --oneline -1)"
