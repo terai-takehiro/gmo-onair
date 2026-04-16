@@ -12,31 +12,16 @@ router.use(requireAuth, requirePermission('equipment'));
 // ============================================================
 // EQコード発番 (Y-V-00001 形式)
 // ============================================================
-async function generateEqCode(locationCode?: string, typeCode?: string): Promise<string> {
-  // 新形式: location_code + type_code が指定されていれば Y-V-00001
-  if (locationCode && typeCode) {
-    const prefix = `${locationCode}-${typeCode}`;
-    await execute(
-      `INSERT INTO equipment_id_sequences (prefix, counter) VALUES ($1, 1)
-       ON CONFLICT (prefix) DO UPDATE SET counter = equipment_id_sequences.counter + 1`,
-      [prefix],
-    );
-    const seq = await queryOne('SELECT counter FROM equipment_id_sequences WHERE prefix = $1', [prefix]) as any;
-    return `${prefix}-${String(seq?.counter || 1).padStart(5, '0')}`;
-  }
-  // 旧形式フォールバック
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-  await execute("UPDATE sequences SET counter = counter + 1 WHERE seq_name = 'eq_code'");
-  const seq = await queryOne("SELECT counter FROM sequences WHERE seq_name = 'eq_code'") as any;
-  const counter = seq?.counter || Date.now();
-  let code = '';
-  let seed = counter;
-  for (let i = 0; i < 10; i++) {
-    const idx = (seed * 31 + i * 7 + counter) % chars.length;
-    code += chars[Math.abs(idx) % chars.length];
-    seed = Math.floor(seed / chars.length) + counter + i;
-  }
-  return `EQ-${code}`;
+async function generateEqCode(locationCode: string, typeCode: string): Promise<string> {
+  if (!locationCode || !typeCode) throw new Error('拠点コードと種別コードは必須です');
+  const prefix = `${locationCode}-${typeCode}`;
+  await execute(
+    `INSERT INTO equipment_id_sequences (prefix, counter) VALUES ($1, 1)
+     ON CONFLICT (prefix) DO UPDATE SET counter = equipment_id_sequences.counter + 1`,
+    [prefix],
+  );
+  const seq = await queryOne('SELECT counter FROM equipment_id_sequences WHERE prefix = $1', [prefix]) as any;
+  return `${prefix}-${String(seq?.counter || 1).padStart(5, '0')}`;
 }
 
 // ============================================================
@@ -283,6 +268,10 @@ router.post('/items', async (req: Request, res: Response) => {
     purchased_at, warranty_years,
   } = req.body;
 
+  if (!location_code || !equipment_type_code) {
+    res.status(400).json({ success: false, error: { message: '拠点コード(location_code)と種別コード(equipment_type_code)は必須です' } });
+    return;
+  }
   const eq_code = await generateEqCode(location_code, equipment_type_code);
 
   await execute(`

@@ -836,60 +836,65 @@ export async function seed() {
     { key: 'net1',   name: 'Cisco Catalyst 9300', cat: 'network', type: 'facility', mfr: 'Cisco', model: 'Catalyst 9300-24T', serial: 'C9300-001', cost: 650000, life: 7, loc: 'サーバールーム ラックB-2', lendable: false, unit: 1 },
   ];
 
-  // Update EQ code sequence
-  await execute("UPDATE sequences SET counter = 0 WHERE seq_name = 'eq_code'", []);
-
-  const eqChars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-  let eqCounter = 0;
-  function nextEqCode(): string {
-    eqCounter++;
-    let code = '';
-    let seed = eqCounter;
-    for (let i = 0; i < 10; i++) {
-      const idx = (seed * 31 + i * 7 + eqCounter) % eqChars.length;
-      code += eqChars[Math.abs(idx) % eqChars.length];
-      seed = Math.floor(seed / eqChars.length) + eqCounter + i;
-    }
-    return `EQ-${code}`;
+  // EQコード発番: カテゴリ → 種別コード (Y-C-00001 形式)
+  const CAT_TYPE_CODE: Record<string, string> = {
+    camera: 'C', lens: 'C', lighting: 'L', audio: 'A',
+    monitor: 'V', switcher: 'V', pc: 'E', network: 'NW', other: 'E',
+  };
+  const eqCodeCounters: Record<string, number> = {};
+  function nextEqCode(cat: string): string {
+    const typeCode = CAT_TYPE_CODE[cat] ?? 'E';
+    const prefix = `Y-${typeCode}`;
+    eqCodeCounters[prefix] = (eqCodeCounters[prefix] ?? 0) + 1;
+    return `${prefix}-${String(eqCodeCounters[prefix]).padStart(5, '0')}`;
   }
 
   for (const eq of eqItems) {
     eqItemIds[eq.key] = uuidv4();
-    const eqCode = nextEqCode();
+    const typeCode = CAT_TYPE_CODE[eq.cat] ?? 'E';
+    const eqCode = nextEqCode(eq.cat);
     await ins(`INSERT INTO equipment_items (
       id, eq_code, name, category_id, item_type, unit_number,
       manufacturer, model_number, serial_number,
       acquisition_cost, useful_life, asset_class, depreciation_method,
       status, condition, location_detail,
+      location_code, equipment_type_code,
       is_lendable, acquisition_date, created_by
-    ) VALUES (?,?,?,?,?,?, ?,?,?, ?,?,?,?, ?,?,?, ?,?,?)`, [
+    ) VALUES (?,?,?,?,?,?, ?,?,?, ?,?,?,?, ?,?,?, ?,?, ?,?,?)`, [
       eqItemIds[eq.key], eqCode, eq.name, eqCatIds[eq.cat], eq.type, eq.unit,
       eq.mfr, eq.model, eq.serial,
       eq.cost, eq.life, 'fixed_asset', 'straight_line',
       'active', 'good', eq.loc,
+      'Y', typeCode,
       eq.lendable ? 1 : 0, '2024-04-01', USERS.admin,
     ]);
   }
 
-  // Update sequence counter
-  await execute(`UPDATE sequences SET counter = ? WHERE seq_name = 'eq_code'`, [eqCounter]);
+  // equipment_id_sequences にシードのカウンターを反映
+  for (const [prefix, count] of Object.entries(eqCodeCounters)) {
+    await execute(
+      `INSERT INTO equipment_id_sequences (prefix, counter) VALUES (?, ?) ON CONFLICT (prefix) DO UPDATE SET counter = ?`,
+      [prefix, count, count],
+    );
+  }
 
   // Parent-child relationships (equipment sets)
   // Create a "カメラセット A" parent item, then assign camera + lens children
   const camSetAId = uuidv4();
-  eqCounter++;
   const camSetACode = `Y-C-SET01`;
   await ins(`INSERT INTO equipment_items (
     id, eq_code, name, category_id, item_type, unit_number,
     manufacturer, model_number, serial_number,
     acquisition_cost, useful_life, asset_class, depreciation_method,
     status, condition, location_detail,
+    location_code, equipment_type_code,
     is_lendable, acquisition_date, created_by
-  ) VALUES (?,?,?,?,?,?, ?,?,?, ?,?,?,?, ?,?,?, ?,?,?)`, [
+  ) VALUES (?,?,?,?,?,?, ?,?,?, ?,?,?,?, ?,?,?, ?,?, ?,?,?)`, [
     camSetAId, camSetACode, 'カメラセット A (FX9 + CN-E 50mm)', eqCatIds['camera'], 'facility', 1,
     null, null, null,
     0, 5, 'fixed_asset', 'straight_line',
     'active', 'good', 'A棟 3F カメラ庫',
+    'Y', 'C',
     0, '2024-04-01', USERS.admin,
   ]);
 
@@ -899,19 +904,20 @@ export async function seed() {
 
   // Create a "照明セット A" parent item for lighting equipment
   const lightSetAId = uuidv4();
-  eqCounter++;
   const lightSetACode = `Y-L-SET01`;
   await ins(`INSERT INTO equipment_items (
     id, eq_code, name, category_id, item_type, unit_number,
     manufacturer, model_number, serial_number,
     acquisition_cost, useful_life, asset_class, depreciation_method,
     status, condition, location_detail,
+    location_code, equipment_type_code,
     is_lendable, acquisition_date, created_by
-  ) VALUES (?,?,?,?,?,?, ?,?,?, ?,?,?,?, ?,?,?, ?,?,?)`, [
+  ) VALUES (?,?,?,?,?,?, ?,?,?, ?,?,?,?, ?,?,?, ?,?, ?,?,?)`, [
     lightSetAId, lightSetACode, '照明セット A (Aputure 600d Pro x2)', eqCatIds['lighting'], 'rental', 1,
     null, null, null,
     0, 5, 'fixed_asset', 'straight_line',
     'active', 'good', 'A棟 3F 照明庫',
+    'Y', 'L',
     1, '2024-04-01', USERS.admin,
   ]);
 
