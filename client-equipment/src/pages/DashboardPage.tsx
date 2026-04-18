@@ -10,13 +10,13 @@ import {
   Wrench,
   AlertTriangle,
   Loader2,
-  DollarSign,
   Plus,
   RefreshCw,
   ChevronRight,
   Clock,
   CalendarDays,
   CheckCircle2,
+  ClipboardCheck,
 } from "lucide-react";
 
 function fmtDate(dateStr: string | null) {
@@ -107,13 +107,13 @@ export default function DashboardPage() {
       href: "/equipment/maintenance",
     },
     {
-      title: "固定資産総額",
-      value: `¥${(stats.total_asset_value ?? 0).toLocaleString()}`,
-      sub: "取得価額合計",
-      icon: DollarSign,
+      title: "棚卸し",
+      value: stats.pending_inventory ?? 0,
+      sub: "未完了の棚卸し",
+      icon: ClipboardCheck,
       color: "text-purple-600",
       bg: "bg-purple-50",
-      href: null,
+      href: "/equipment/inventory",
     },
   ];
 

@@ -194,32 +194,36 @@ const SHEETS: SheetDef[] = [
   // ============ 機材 ============
   {
     name: '機材',
-    query: `SELECT ei.eq_code, ei.name, ec.name as category_name, ei.item_type,
-                   ei.manufacturer, ei.model_number, ei.serial_number, ei.unit_number,
-                   ei.asset_number, ei.acquisition_date, ei.acquisition_cost,
+    query: `SELECT ei.eq_code, ei.name, ei.equipment_type_code, ei.equipment_section,
+                   em.name as manufacturer, ei.model_number, ei.serial_number, ei.unit_number,
+                   ei.branch_code, ei.asset_class, ei.fixed_asset_code,
+                   ei.depreciation_years, ei.purchased_at, ei.warranty_years,
                    ei.status, ei.condition, el.name as location_name, ei.location_detail,
-                   ei.is_lendable, ei.notes
+                   ei.notes
             FROM equipment_items ei
-            LEFT JOIN equipment_categories ec ON ec.id = ei.category_id
+            LEFT JOIN equipment_manufacturers em ON em.id = ei.manufacturer_id
             LEFT JOIN equipment_locations el ON el.id = ei.location_id
-            WHERE ei.deleted_at IS NULL ORDER BY ec.sort_order, ei.name`,
+            WHERE ei.deleted_at IS NULL
+            ORDER BY ei.equipment_type_code, ei.name, ei.unit_number`,
     columns: [
       { key: 'eq_code', header: 'ID', width: 16 },
       { key: 'name', header: '機材名', width: 30 },
-      { key: 'category_name', header: 'カテゴリ', width: 18 },
-      { key: 'item_type', header: '種別', width: 10 },
+      { key: 'equipment_type_code', header: '種別', width: 8 },
+      { key: 'equipment_section', header: '設備/貸出', width: 10 },
       { key: 'manufacturer', header: 'メーカー', width: 16 },
       { key: 'model_number', header: '型番', width: 16 },
       { key: 'serial_number', header: 'シリアル番号', width: 18 },
-      { key: 'unit_number', header: '台数番号', width: 10 },
-      { key: 'asset_number', header: '資産番号', width: 14 },
-      { key: 'acquisition_date', header: '取得日', width: 12 },
-      { key: 'acquisition_cost', header: '取得価額', width: 12 },
+      { key: 'unit_number', header: 'No', width: 6 },
+      { key: 'branch_code', header: '所管', width: 14 },
+      { key: 'asset_class', header: '資産管理', width: 10 },
+      { key: 'fixed_asset_code', header: '資産コード', width: 16 },
+      { key: 'depreciation_years', header: '償却', width: 6 },
+      { key: 'purchased_at', header: '購入年月', width: 12 },
+      { key: 'warranty_years', header: '保証期間', width: 8 },
       { key: 'status', header: 'ステータス', width: 12 },
       { key: 'condition', header: 'コンディション', width: 12 },
       { key: 'location_name', header: '保管場所', width: 18 },
       { key: 'location_detail', header: '保管場所詳細', width: 18 },
-      { key: 'is_lendable', header: '貸出可', width: 8 },
       { key: 'notes', header: '備考', width: 30 },
     ],
   },

@@ -59,7 +59,6 @@ const defaultForm = {
   manufacturer_id: "", purchased_at: "", warranty_years: "",
   location_id: "", status: "active", condition: "good", notes: "",
   parent_id: "",
-  category_id: "", item_type: "facility", manufacturer: "",
 };
 
 type BulkField = 'branch_code' | 'asset_class' | 'equipment_section' | 'equipment_type_code' | 'location_id' | 'purchased_at' | 'warranty_years' | 'depreciation_years' | 'status' | 'notes';
@@ -212,8 +211,6 @@ export default function EquipmentListPage() {
       location_id: item.location_id || "", status: item.status || "active",
       condition: item.condition || "good", notes: item.notes || "",
       parent_id: item.parent_id || "",
-      category_id: item.category_id || "", item_type: item.item_type || "facility",
-      manufacturer: item.manufacturer || "",
     });
     setEditingId(item.id);
     setDialogOpen(true);
@@ -228,7 +225,6 @@ export default function EquipmentListPage() {
       warranty_years: form.warranty_years ? Number(form.warranty_years) : 0,
       manufacturer_id: form.manufacturer_id || null,
       location_id: form.location_id || null,
-      category_id: form.category_id || null,
       parent_id: form.parent_id || null,
     });
   };
@@ -349,7 +345,7 @@ export default function EquipmentListPage() {
                   <td className="px-2 py-1.5 text-xs text-right tabular-nums whitespace-nowrap">{item.depreciation_years ?? '-'}</td>
                   <td className="px-2 py-1.5 text-xs whitespace-nowrap">{sectionDisplay(item.equipment_type_code, item.equipment_section)}</td>
                   <td className="px-2 py-1.5 font-medium">{item.name}</td>
-                  <td className="px-2 py-1.5 text-xs whitespace-nowrap">{item.manufacturer_name || item.manufacturer || '-'}</td>
+                  <td className="px-2 py-1.5 text-xs whitespace-nowrap">{item.manufacturer_name || '-'}</td>
                   <td className="px-2 py-1.5 text-xs whitespace-nowrap">{item.model_number || '-'}</td>
                   <td className="px-2 py-1.5 text-xs text-right tabular-nums whitespace-nowrap">{item.unit_number || '-'}</td>
                   <td className="px-2 py-1.5 text-xs font-mono whitespace-nowrap">{item.serial_number || '-'}</td>

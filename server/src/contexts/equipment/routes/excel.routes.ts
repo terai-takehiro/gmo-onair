@@ -296,7 +296,6 @@ router.post('/items/import', requirePermission('equipment', 'editor'), upload.si
     }
 
     // 機材ID チェック (事前ロード済みMapで照合)
-    const eqCode = String(r.eq_code ?? '').trim();
     let existingId: string | undefined;
     let action: 'insert'|'update'|'skip' = 'insert';
     if (eqCode) {

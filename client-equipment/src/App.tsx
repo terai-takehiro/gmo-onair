@@ -8,7 +8,6 @@ import EquipmentDetailPage from "@/pages/EquipmentDetailPage";
 import LendingListPage from "@/pages/LendingListPage";
 import MaintenancePage from "@/pages/MaintenancePage";
 import InventoryPage from "@/pages/InventoryPage";
-import CategoryPage from "@/pages/CategoryPage";
 import ScanPage from "@/pages/ScanPage";
 import LocationPage from "@/pages/LocationPage";
 import { Loader2 } from "lucide-react";
@@ -46,7 +45,6 @@ export default function App() {
         <Route path="/equipment/lendings" element={<LendingListPage />} />
         <Route path="/equipment/maintenance" element={<MaintenancePage />} />
         <Route path="/equipment/inventory" element={<InventoryPage />} />
-        <Route path="/equipment/categories" element={<CategoryPage />} />
         <Route path="/equipment/scan" element={<ScanPage />} />
         <Route path="/equipment/locations" element={<LocationPage />} />
       </Route>

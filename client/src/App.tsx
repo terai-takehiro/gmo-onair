@@ -37,13 +37,7 @@ import SgaListPage from "@/contexts/finance/pages/SgaListPage";
 import VendorListPage from "@/contexts/finance/pages/VendorListPage";
 import PartnerListPage from "@/contexts/finance/pages/PartnerListPage";
 
-// Equipment (機材管理)
-import EquipmentDashboard from "@/contexts/equipment/pages/EquipmentDashboard";
-import EquipmentListPage from "@/contexts/equipment/pages/EquipmentListPage";
-import EquipmentDetailPage from "@/contexts/equipment/pages/EquipmentDetailPage";
-import LendingListPage from "@/contexts/equipment/pages/LendingListPage";
-import MaintenancePage from "@/contexts/equipment/pages/MaintenancePage";
-import InventoryPage from "@/contexts/equipment/pages/InventoryPage";
+// 機材管理は client-equipment/ が /equipment 配下で配信 (案件管理アプリ側では扱わない)
 import SettingsPage from "@/contexts/platform/pages/SettingsPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -120,13 +114,7 @@ function AppRoutes() {
         {/* ===== スタジオ予約 (studio) ===== */}
         <Route path="/studio/calendar" element={<PermissionRoute module="studio"><StudioCalendarPage /></PermissionRoute>} />
 
-        {/* ===== 機材管理 (equipment) ===== */}
-        <Route path="/equipment" element={<PermissionRoute module="equipment"><EquipmentDashboard /></PermissionRoute>} />
-        <Route path="/equipment/items" element={<PermissionRoute module="equipment"><EquipmentListPage /></PermissionRoute>} />
-        <Route path="/equipment/items/:id" element={<PermissionRoute module="equipment"><EquipmentDetailPage /></PermissionRoute>} />
-        <Route path="/equipment/lending" element={<PermissionRoute module="equipment"><LendingListPage /></PermissionRoute>} />
-        <Route path="/equipment/maintenance" element={<PermissionRoute module="equipment"><MaintenancePage /></PermissionRoute>} />
-        <Route path="/equipment/inventory" element={<PermissionRoute module="equipment"><InventoryPage /></PermissionRoute>} />
+        {/* 機材管理 (/equipment/*) は client-equipment/ が Nginx 経由で配信 */}
 
         {/* ===== システム管理 (admin) ===== */}
         <Route path="/admin/users" element={<PermissionRoute module="admin"><UserListPage /></PermissionRoute>} />

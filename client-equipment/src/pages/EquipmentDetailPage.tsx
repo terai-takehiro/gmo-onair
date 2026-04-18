@@ -107,9 +107,6 @@ export default function EquipmentDetailPage() {
               {statusLabels[item.status]}
             </span>
             <Badge variant="outline">{item.equipment_section === "rental" ? "貸出" : "設備"}</Badge>
-            {item.category_name && (
-              <span className="text-xs text-muted-foreground">{item.category_name}</span>
-            )}
           </div>
           <h1 className="heading-page text-xl mt-1">
             {item.name}
@@ -166,7 +163,7 @@ export default function EquipmentDetailPage() {
             {item.branch_code && <InfoRow label="所管" value={item.branch_code} />}
             <InfoRow label="資産管理" value={ASSET_CLASS_LABELS[item.asset_class] || item.asset_class} />
             <InfoRow label="設備/貸出" value={sectionLabel(item.equipment_type_code, item.equipment_section)} />
-            <InfoRow label="メーカー" value={item.manufacturer_name || item.manufacturer} />
+            <InfoRow label="メーカー" value={item.manufacturer_name} />
             <InfoRow label="機材名 (型番)" value={item.model_number} />
             <InfoRow label="シリアルNo" value={item.serial_number} />
             <InfoRow label="設置場所" value={item.location_name || item.location_detail} />
@@ -186,8 +183,6 @@ export default function EquipmentDetailPage() {
             <InfoRow label="購入年月" value={item.purchased_at?.slice(0, 10)} />
             <InfoRow label="保証期間" value={item.warranty_years ? `${item.warranty_years}年` : null} />
             <InfoRow label="保証終了" value={item.warranty_end?.slice(0, 10)} />
-            {item.asset_number && <InfoRow label="管理番号" value={item.asset_number} />}
-            {item.acquisition_cost && <InfoRow label="取得価額" value={`¥${item.acquisition_cost.toLocaleString()}`} />}
           </CardContent>
         </Card>
 
@@ -198,9 +193,7 @@ export default function EquipmentDetailPage() {
             <CardTitle className="text-base flex items-center gap-2">
               <ArrowRightLeft className="h-4 w-4" />
               貸出履歴
-              {item.is_lendable ? (
-                <Badge variant="outline" className="text-xs">貸出可</Badge>
-              ) : null}
+              <Badge variant="outline" className="text-xs">貸出可</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>

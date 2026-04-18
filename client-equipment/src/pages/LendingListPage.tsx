@@ -29,7 +29,7 @@ export default function LendingListPage() {
     due_date: "", condition_out: "good", notes: "", project_id: "",
   });
   const [lendingType, setLendingType] = useState<"standalone" | "program">("standalone");
-  const [filterCategoryId, setFilterCategoryId] = useState("");
+  const [filterTypeCode, setFilterTypeCode] = useState("");
   const [selectedEquipmentName, setSelectedEquipmentName] = useState("");
   const [projectSearch, setProjectSearch] = useState("");
 
@@ -43,20 +43,12 @@ export default function LendingListPage() {
   });
   const lendings: any[] = lendingsData ?? [];
 
-  // Lendable items (rental + is_lendable + active)
+  // 貸出可能機材 (equipment_section='rental' + active)
   const { data: lendableItems } = useQuery({
     queryKey: ["equipment-lendable"],
-    queryFn: async () => (await api.get("/equipment/items", { params: { is_lendable: "1", status: "active" } })).data.data,
+    queryFn: async () => (await api.get("/equipment/items", { params: { equipment_section: "rental", status: "active" } })).data.data,
     enabled: dialogOpen,
   });
-
-  // Categories for filter
-  const { data: categoriesData } = useQuery({
-    queryKey: ["equipment-categories"],
-    queryFn: async () => (await api.get("/equipment/categories")).data.data,
-    enabled: dialogOpen,
-  });
-  const categories: any[] = categoriesData ?? [];
 
   // GLS projects search
   const { data: projectsData } = useQuery({
@@ -66,12 +58,12 @@ export default function LendingListPage() {
   });
   const projects: any[] = projectsData ?? [];
 
-  // Filter lendable items by category
+  // 種別コードで絞り込み
   const filteredLendableItems = useMemo(() => {
     if (!lendableItems) return [];
-    if (!filterCategoryId) return lendableItems;
-    return lendableItems.filter((item: any) => item.category_id === filterCategoryId);
-  }, [lendableItems, filterCategoryId]);
+    if (!filterTypeCode) return lendableItems;
+    return lendableItems.filter((item: any) => item.equipment_type_code === filterTypeCode);
+  }, [lendableItems, filterTypeCode]);
 
   // Unique equipment names for step 1
   const equipmentNames = useMemo(() => {
@@ -314,20 +306,25 @@ export default function LendingListPage() {
               </div>
             )}
 
-            {/* Category filter */}
+            {/* 種別絞り込み */}
             <div className="space-y-1">
-              <Label>カテゴリ絞り込み</Label>
-              <Select value={filterCategoryId} onValueChange={(v) => {
-                setFilterCategoryId(v === "all" ? "" : v);
+              <Label>種別絞り込み</Label>
+              <Select value={filterTypeCode} onValueChange={(v) => {
+                setFilterTypeCode(v === "all" ? "" : v);
                 setSelectedEquipmentName("");
                 setForm({ ...form, equipment_id: "" });
               }}>
-                <SelectTrigger><SelectValue placeholder="すべてのカテゴリ" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="すべての種別" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">すべてのカテゴリ</SelectItem>
-                  {categories.filter((c: any) => c.item_type !== "facility").map((c: any) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
+                  <SelectItem value="all">すべての種別</SelectItem>
+                  <SelectItem value="V">映像</SelectItem>
+                  <SelectItem value="C">カメラ</SelectItem>
+                  <SelectItem value="A">音声</SelectItem>
+                  <SelectItem value="IC">インカム</SelectItem>
+                  <SelectItem value="NW">ネットワーク</SelectItem>
+                  <SelectItem value="L">照明</SelectItem>
+                  <SelectItem value="XR">LED/XR</SelectItem>
+                  <SelectItem value="E">設備/その他</SelectItem>
                 </SelectContent>
               </Select>
             </div>
