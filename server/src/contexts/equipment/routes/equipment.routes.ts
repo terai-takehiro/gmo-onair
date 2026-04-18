@@ -372,6 +372,16 @@ router.patch('/items/:id', async (req: Request, res: Response) => {
     `UPDATE equipment_items SET ${setClauses.join(', ')} WHERE id=$${i} AND deleted_at IS NULL`,
     [...params, req.params.id]
   );
+  // 設置場所が含まれる場合は子機材にも伝播
+  if ('location_id' in req.body || 'location_detail' in req.body) {
+    const loc = await queryOne(`SELECT location_id, location_detail FROM equipment_items WHERE id=$1`, [req.params.id]) as any;
+    if (loc) {
+      await execute(
+        `UPDATE equipment_items SET location_id=$1, location_detail=$2, updated_at=NOW(), updated_by=$3 WHERE parent_id=$4 AND deleted_at IS NULL`,
+        [loc.location_id, loc.location_detail, (req as any).user?.id || null, req.params.id]
+      );
+    }
+  }
   res.json({ success: true });
 });
 

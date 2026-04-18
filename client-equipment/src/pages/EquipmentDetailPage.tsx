@@ -92,7 +92,7 @@ export default function EquipmentDetailPage() {
   const manufacturers: any[] = manufacturersData ?? [];
 
   const saveMutation = useMutation({
-    mutationFn: (payload: any) => api.put(`/equipment/items/${id}`, payload),
+    mutationFn: (payload: any) => api.patch(`/equipment/items/${id}`, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["equipment-item", id] });
       setEditOpen(false);
