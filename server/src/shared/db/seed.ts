@@ -846,7 +846,7 @@ export async function seed() {
     const typeCode = CAT_TYPE_CODE[cat] ?? 'E';
     const prefix = `Y-${typeCode}`;
     eqCodeCounters[prefix] = (eqCodeCounters[prefix] ?? 0) + 1;
-    return `${prefix}-${String(eqCodeCounters[prefix]).padStart(5, '0')}`;
+    return `${prefix}-${String(eqCodeCounters[prefix]).padStart(6, '0')}`;
   }
 
   for (const eq of eqItems) {

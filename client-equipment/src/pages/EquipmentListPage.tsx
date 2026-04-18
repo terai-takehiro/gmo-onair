@@ -27,6 +27,15 @@ const TYPE_CODES = [
   { code: "XR", label: "LED/XR" },
   { code: "E", label: "設備/その他" },
 ];
+const ASSET_CLASS_OPTIONS = [
+  { value: "fixed_asset", label: "固定資産" },
+  { value: "consumable",  label: "消耗品" },
+  { value: "leased",      label: "リース" },
+  { value: "transferred", label: "譲渡" },
+];
+const ASSET_CLASS_LABELS: Record<string, string> = {
+  fixed_asset: "固定資産", consumable: "消耗品", leased: "リース", transferred: "譲渡",
+};
 const SECTIONS = [
   { value: "system", label: "システム" },
   { value: "general", label: "汎用" },
@@ -45,12 +54,11 @@ const sectionDisplay = (typeCode: string | null, section: string | null) => {
 
 const defaultForm = {
   name: "", model_number: "", unit_number: "", serial_number: "",
-  branch_code: "GMO-IG", fixed_asset_code: "", depreciation_years: "",
+  branch_code: "GMO-IG", asset_class: "fixed_asset", fixed_asset_code: "", depreciation_years: "",
   equipment_section: "system", equipment_type_code: "V", location_code: "Y",
   manufacturer_id: "", purchased_at: "", warranty_years: "",
   location_id: "", status: "active", condition: "good", notes: "",
   parent_id: "",
-  // 旧フィールド (互換用)
   category_id: "", item_type: "facility", manufacturer: "",
 };
 
@@ -58,7 +66,7 @@ export default function EquipmentListPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
-  const [filterSection, setFilterSection] = useState<string>("");
+  const [filterBlock, setFilterBlock] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
@@ -74,13 +82,12 @@ export default function EquipmentListPage() {
     URL.revokeObjectURL(url);
   };
 
-  // Queries
   const { data: itemsData, isLoading } = useQuery({
-    queryKey: ["equipment-items", search, filterSection],
+    queryKey: ["equipment-items", search, filterBlock],
     queryFn: async () => {
       const params: Record<string, string> = {};
       if (search) params.search = search;
-      if (filterSection) params.equipment_section = filterSection;
+      if (filterBlock) params.equipment_type_code = filterBlock;
       return (await api.get("/equipment/items", { params })).data;
     },
   });
@@ -97,7 +104,6 @@ export default function EquipmentListPage() {
   const locations: any[] = locationsData ?? [];
   const manufacturers: any[] = manufacturersData ?? [];
 
-  // Mutations
   const saveMutation = useMutation({
     mutationFn: (payload: any) =>
       editingId ? api.put(`/equipment/items/${editingId}`, payload) : api.post("/equipment/items", payload),
@@ -117,7 +123,8 @@ export default function EquipmentListPage() {
     setForm({
       name: item.name || "", model_number: item.model_number || "",
       unit_number: item.unit_number?.toString() || "", serial_number: item.serial_number || "",
-      branch_code: item.branch_code || "GMO-IG", fixed_asset_code: item.fixed_asset_code || "",
+      branch_code: item.branch_code || "GMO-IG", asset_class: item.asset_class || "fixed_asset",
+      fixed_asset_code: item.fixed_asset_code || "",
       depreciation_years: item.depreciation_years?.toString() || "0",
       equipment_section: item.equipment_section || "system",
       equipment_type_code: item.equipment_type_code || "V",
@@ -168,22 +175,29 @@ export default function EquipmentListPage() {
 
       <ExcelImportDialog open={importOpen} onOpenChange={setImportOpen} />
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input className="pl-9" placeholder="名前・ID・型番で検索..." value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
-        <Select value={filterSection || "all"} onValueChange={(v) => setFilterSection(v === "all" ? "" : v)}>
-          <SelectTrigger className="w-[140px]"><SelectValue placeholder="セクション" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">すべて</SelectItem>
-            {SECTIONS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
+      {/* 機材ブロックタブ（最優先フィルター） */}
+      <div className="flex flex-wrap gap-1.5">
+        {[{ code: "", label: "全て" }, ...TYPE_CODES].map((t) => (
+          <button
+            key={t.code}
+            onClick={() => setFilterBlock(t.code)}
+            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+              filterBlock === t.code
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      {/* Items — テーブル表示 (ユーザーExcel列順準拠) */}
+      {/* 検索 */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input className="pl-9" placeholder="名前・ID・型番で検索..." value={search} onChange={(e) => setSearch(e.target.value)} />
+      </div>
+
       {isLoading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
       ) : items.length === 0 ? (
@@ -196,13 +210,14 @@ export default function EquipmentListPage() {
             <thead className="bg-muted text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">ID</th>
-                <th className="px-3 py-2 text-left font-medium">販社</th>
+                <th className="px-3 py-2 text-left font-medium">所管</th>
+                <th className="px-3 py-2 text-left font-medium">資産管理</th>
                 <th className="px-3 py-2 text-left font-medium">固定資産コード</th>
                 <th className="px-3 py-2 text-left font-medium">償却</th>
-                <th className="px-3 py-2 text-left font-medium">セクション</th>
-                <th className="px-3 py-2 text-left font-medium">機材種類</th>
+                <th className="px-3 py-2 text-left font-medium">機材セクション</th>
+                <th className="px-3 py-2 text-left font-medium">商品名</th>
                 <th className="px-3 py-2 text-left font-medium">メーカー</th>
-                <th className="px-3 py-2 text-left font-medium">機材名</th>
+                <th className="px-3 py-2 text-left font-medium">型名</th>
                 <th className="px-3 py-2 text-left font-medium">no</th>
                 <th className="px-3 py-2 text-left font-medium">serial</th>
                 <th className="px-3 py-2 text-left font-medium">設置場所</th>
@@ -216,6 +231,7 @@ export default function EquipmentListPage() {
                 <tr key={item.id} className="border-t hover:bg-muted/50 cursor-pointer" onClick={() => navigate(`/equipment/items/${item.id}`)}>
                   <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">{item.eq_code}</td>
                   <td className="px-3 py-2 text-xs">{item.branch_code || '-'}</td>
+                  <td className="px-3 py-2 text-xs">{ASSET_CLASS_LABELS[item.asset_class] || item.asset_class || '-'}</td>
                   <td className="px-3 py-2 text-xs font-mono">{item.fixed_asset_code || '-'}</td>
                   <td className="px-3 py-2 text-xs">{item.depreciation_years ?? '-'}</td>
                   <td className="px-3 py-2 text-xs whitespace-nowrap">{sectionDisplay(item.equipment_type_code, item.equipment_section)}</td>
@@ -240,12 +256,10 @@ export default function EquipmentListPage() {
         </div>
       )}
 
-      {/* Create/Edit Dialog — ユーザーExcel列順 */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editingId ? "機材編集" : "機材登録"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            {/* 基本 */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
                 <Label>拠点 *</Label>
@@ -278,7 +292,7 @@ export default function EquipmentListPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1 sm:col-span-2">
-                <Label>機材種類 (名前) *</Label>
+                <Label>商品名 *</Label>
                 <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="ユニバーサルフレーム" />
               </div>
               <div className="space-y-1">
@@ -292,7 +306,7 @@ export default function EquipmentListPage() {
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label>機材名 (型番)</Label>
+                <Label>型名</Label>
                 <Input value={form.model_number} onChange={(e) => setForm({ ...form, model_number: e.target.value })} placeholder="Vbus-70V2" />
               </div>
               <div className="space-y-1">
@@ -305,13 +319,21 @@ export default function EquipmentListPage() {
               </div>
             </div>
 
-            {/* 資産・保証 */}
             <div className="border-t pt-4">
               <p className="text-sm font-semibold mb-3">資産・保証</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
-                  <Label>販社</Label>
+                  <Label>所管</Label>
                   <Input value={form.branch_code} onChange={(e) => setForm({ ...form, branch_code: e.target.value })} placeholder="GMO-IG" />
+                </div>
+                <div className="space-y-1">
+                  <Label>資産管理</Label>
+                  <Select value={form.asset_class} onValueChange={(v) => setForm({ ...form, asset_class: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {ASSET_CLASS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1">
                   <Label>固定資産コード</Label>
@@ -342,7 +364,6 @@ export default function EquipmentListPage() {
               </div>
             </div>
 
-            {/* 親機材 */}
             <div className="border-t pt-4">
               <div className="space-y-1">
                 <Label>親機材（付属先）</Label>
@@ -365,7 +386,6 @@ export default function EquipmentListPage() {
               </div>
             </div>
 
-            {/* 備考 */}
             <div className="space-y-1">
               <Label>備考</Label>
               <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />

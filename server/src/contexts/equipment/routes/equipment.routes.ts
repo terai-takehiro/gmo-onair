@@ -21,7 +21,7 @@ async function generateEqCode(locationCode: string, typeCode: string): Promise<s
     [prefix],
   );
   const seq = await queryOne('SELECT counter FROM equipment_id_sequences WHERE prefix = $1', [prefix]) as any;
-  return `${prefix}-${String(seq?.counter || 1).padStart(5, '0')}`;
+  return `${prefix}-${String(seq?.counter || 1).padStart(6, '0')}`;
 }
 
 // ============================================================
@@ -119,7 +119,7 @@ router.delete('/categories/:id', requirePermission('equipment', 'owner'), async 
 // 機材アイテム CRUD
 // ============================================================
 router.get('/items', async (req: Request, res: Response) => {
-  const { item_type, category_id, status, search, is_lendable, limit, offset, equipment_section } = req.query;
+  const { item_type, category_id, status, search, is_lendable, limit, offset, equipment_section, equipment_type_code } = req.query;
   let sql = `
     SELECT ei.*, ec.name as category_name,
            em.name as manufacturer_name,
@@ -143,6 +143,7 @@ router.get('/items', async (req: Request, res: Response) => {
   if (status) { sql += ` AND ei.status = $${paramIndex++}`; params.push(status); }
   if (is_lendable) { sql += ' AND ei.is_lendable = 1'; }
   if (equipment_section) { sql += ` AND ei.equipment_section = $${paramIndex++}`; params.push(equipment_section); }
+  if (equipment_type_code) { sql += ` AND ei.equipment_type_code = $${paramIndex++}`; params.push(equipment_type_code); }
   if (search) {
     sql += ` AND (ei.name ILIKE $${paramIndex} OR ei.eq_code ILIKE $${paramIndex + 1} OR ei.manufacturer ILIKE $${paramIndex + 2} OR ei.model_number ILIKE $${paramIndex + 3} OR ei.serial_number ILIKE $${paramIndex + 4})`;
     const s = `%${search}%`;

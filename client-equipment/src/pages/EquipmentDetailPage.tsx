@@ -30,6 +30,9 @@ const maintenanceStatusLabels: Record<string, string> = {
 };
 
 const TYPE_LABELS: Record<string, string> = { V: '映像', C: 'カメラ', A: '音声', IC: 'インカム', NW: 'ネットワーク', L: '照明', XR: 'LED/XR', E: '設備' };
+const ASSET_CLASS_LABELS: Record<string, string> = {
+  fixed_asset: '固定資産', consumable: '消耗品', leased: 'リース', transferred: '譲渡',
+};
 const SECTION_LABELS: Record<string, string> = { system: 'システム', general: '汎用', facility: '設備' };
 function sectionLabel(typeCode: string | null, section: string | null) {
   return `${TYPE_LABELS[typeCode || ''] || ''}${SECTION_LABELS[section || ''] || ''}` || '-';
@@ -160,7 +163,8 @@ export default function EquipmentDetailPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            {item.branch_code && <InfoRow label="販社" value={item.branch_code} />}
+            {item.branch_code && <InfoRow label="所管" value={item.branch_code} />}
+            <InfoRow label="資産管理" value={ASSET_CLASS_LABELS[item.asset_class] || item.asset_class} />
             <InfoRow label="機材セクション" value={sectionLabel(item.equipment_type_code, item.equipment_section)} />
             <InfoRow label="メーカー" value={item.manufacturer_name || item.manufacturer} />
             <InfoRow label="機材名 (型番)" value={item.model_number} />
