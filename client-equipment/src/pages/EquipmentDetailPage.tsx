@@ -163,12 +163,17 @@ export default function EquipmentDetailPage() {
 
   const [newChildOpen, setNewChildOpen] = useState(false);
   const [newChildForm, setNewChildForm] = useState<Record<string, string>>({});
+  const [createChildError, setCreateChildError] = useState<string | null>(null);
   const createChildMutation = useMutation({
     mutationFn: (payload: any) => api.post('/equipment/items', payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["equipment-item", id] });
       qc.invalidateQueries({ queryKey: ["equipment-items-all"] });
+      setCreateChildError(null);
       setNewChildOpen(false);
+    },
+    onError: (err: any) => {
+      setCreateChildError(err?.response?.data?.error?.message || err?.message || '登録に失敗しました');
     },
   });
   const openNewChild = () => {
@@ -195,10 +200,12 @@ export default function EquipmentDetailPage() {
       ...newChildForm,
       parent_id: id,
       unit_number: newChildForm.unit_number ? Number(newChildForm.unit_number) : null,
-      depreciation_years: newChildForm.depreciation_years ? Number(newChildForm.depreciation_years) : 0,
-      warranty_years: newChildForm.warranty_years ? Number(newChildForm.warranty_years) : 0,
+      depreciation_years: newChildForm.depreciation_years ? Number(newChildForm.depreciation_years) : null,
+      warranty_years: newChildForm.warranty_years ? Number(newChildForm.warranty_years) : null,
       manufacturer_id: newChildForm.manufacturer_id || null,
       location_id: newChildForm.location_id || null,
+      purchased_at: newChildForm.purchased_at || null,
+      fixed_asset_code: newChildForm.fixed_asset_code || null,
     });
   };
 
@@ -501,8 +508,11 @@ export default function EquipmentDetailPage() {
               <Label>備考</Label>
               <Input value={newChildForm.notes} onChange={(e) => setNewChildForm({ ...newChildForm, notes: e.target.value })} />
             </div>
+            {createChildError && (
+              <p className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">{createChildError}</p>
+            )}
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setNewChildOpen(false)}>キャンセル</Button>
+              <Button variant="outline" onClick={() => { setNewChildOpen(false); setCreateChildError(null); }}>キャンセル</Button>
               <Button onClick={handleCreateChild} disabled={createChildMutation.isPending || !newChildForm.name}>
                 {createChildMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
                 登録

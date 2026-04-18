@@ -253,57 +253,62 @@ router.get('/items/:id', async (req: Request, res: Response) => {
   });
 });
 
-router.post('/items', async (req: Request, res: Response) => {
-  const id = uuid();
-  const {
-    name, unit_number, parent_id,
-    manufacturer_id, model_number, serial_number, asset_class,
-    status, condition, location_id, location_detail, notes,
-    branch_code, fixed_asset_code, depreciation_years,
-    equipment_section, equipment_type_code, location_code,
-    purchased_at, warranty_years,
-  } = req.body;
-
-  if (!location_code || !equipment_type_code) {
-    res.status(400).json({ success: false, error: { message: '拠点コード(location_code)と種別コード(equipment_type_code)は必須です' } });
-    return;
-  }
-  const eq_code = await generateEqCode(location_code, equipment_type_code);
-
-  // 親機材がある場合、設置場所は親から継承
-  let effectiveLocationId = location_id || null;
-  let effectiveLocationDetail = location_detail || null;
-  if (parent_id) {
-    const parentItem = await queryOne(
-      'SELECT location_id, location_detail FROM equipment_items WHERE id = $1 AND deleted_at IS NULL',
-      [parent_id]
-    ) as any;
-    if (parentItem) {
-      effectiveLocationId = parentItem.location_id;
-      effectiveLocationDetail = parentItem.location_detail;
-    }
-  }
-
-  await execute(`
-    INSERT INTO equipment_items (
-      id, eq_code, name, unit_number, parent_id,
+router.post('/items', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = uuid();
+    const {
+      name, unit_number, parent_id,
       manufacturer_id, model_number, serial_number, asset_class,
       status, condition, location_id, location_detail, notes,
       branch_code, fixed_asset_code, depreciation_years,
       equipment_section, equipment_type_code, location_code,
       purchased_at, warranty_years,
-      created_by, updated_by
-    ) VALUES ($1,$2,$3,$4,$5, $6,$7,$8,$9, $10,$11,$12,$13,$14, $15,$16,$17, $18,$19,$20, $21,$22, $23,$24)
-  `, [
-    id, eq_code, name, unit_number || null, parent_id || null,
-    manufacturer_id || null, model_number || null, serial_number || null, asset_class || 'fixed_asset',
-    status || 'active', condition || 'good', effectiveLocationId, effectiveLocationDetail, notes || null,
-    branch_code || null, fixed_asset_code || null, depreciation_years ?? null,
-    equipment_section || null, equipment_type_code || null, location_code || null,
-    purchased_at || null, warranty_years ?? null,
-    (req as any).user?.id || null, (req as any).user?.id || null,
-  ]);
-  res.status(201).json({ success: true, data: { id, eq_code } });
+    } = req.body;
+
+    if (!location_code || !equipment_type_code) {
+      res.status(400).json({ success: false, error: { message: '拠点コード(location_code)と種別コード(equipment_type_code)は必須です' } });
+      return;
+    }
+    const eq_code = await generateEqCode(location_code, equipment_type_code);
+
+    // 親機材がある場合、設置場所は親から継承
+    let effectiveLocationId = location_id || null;
+    let effectiveLocationDetail = location_detail || null;
+    if (parent_id) {
+      const parentItem = await queryOne(
+        'SELECT location_id, location_detail FROM equipment_items WHERE id = $1 AND deleted_at IS NULL',
+        [parent_id]
+      ) as any;
+      if (parentItem) {
+        effectiveLocationId = parentItem.location_id;
+        effectiveLocationDetail = parentItem.location_detail;
+      }
+    }
+
+    await execute(`
+      INSERT INTO equipment_items (
+        id, eq_code, name, unit_number, parent_id,
+        manufacturer_id, model_number, serial_number, asset_class,
+        status, condition, location_id, location_detail, notes,
+        branch_code, fixed_asset_code, depreciation_years,
+        equipment_section, equipment_type_code, location_code,
+        purchased_at, warranty_years,
+        created_by, updated_by
+      ) VALUES ($1,$2,$3,$4,$5, $6,$7,$8,$9, $10,$11,$12,$13,$14, $15,$16,$17, $18,$19,$20, $21,$22, $23,$24)
+    `, [
+      id, eq_code, name, unit_number || null, parent_id || null,
+      manufacturer_id || null, model_number || null, serial_number || null, asset_class || 'fixed_asset',
+      status || 'active', condition || 'good', effectiveLocationId, effectiveLocationDetail, notes || null,
+      branch_code || null, fixed_asset_code || null, depreciation_years || null,
+      equipment_section || null, equipment_type_code || null, location_code || null,
+      purchased_at || null, warranty_years || null,
+      (req as any).user?.id || null, (req as any).user?.id || null,
+    ]);
+    res.status(201).json({ success: true, data: { id, eq_code } });
+  } catch (err: any) {
+    console.error('[POST /items]', err?.message, err?.detail);
+    next(err);
+  }
 });
 
 router.put('/items/:id', async (req: Request, res: Response) => {
