@@ -45,6 +45,7 @@ export default function LoginPage() {
   };
 
   const isOAuth = authMode?.mode === "oauth";
+  const isPassword = authMode?.mode === "password";
 
   return (
     <div className="login-bg relative flex min-h-screen items-center justify-center overflow-hidden p-4">
@@ -71,7 +72,20 @@ export default function LoginPage() {
           </div>
         )}
 
-        {isOAuth ? (
+        {!authMode ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : isPassword ? (
+          <div className="flex flex-col items-center gap-4">
+            <p className="text-sm text-muted-foreground text-center">
+              GMO ONAiR メインアプリからログインしてください
+            </p>
+            <Button size="lg" className="px-8" onClick={() => { window.location.href = '/login?returnUrl=' + encodeURIComponent(window.location.href); }}>
+              メインアプリでログイン
+            </Button>
+          </div>
+        ) : isOAuth ? (
           <div className="flex flex-col items-center gap-6">
             <Button
               size="lg"

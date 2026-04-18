@@ -26,31 +26,18 @@ export function createAuthHook(config: AuthHookConfig) {
 
     useEffect(() => {
       const init = async () => {
-        const token = localStorage.getItem('gmo_onair_token');
-        if (token) {
-          try {
-            const res = await config.api.get('/auth/me');
-            const user = res.data.data;
-            setCurrentUser(user);
-            setCurrentUserId(user.id);
-            localStorage.setItem(config.storageKey, JSON.stringify(user));
-            setLoading(false);
-            return;
-          } catch {
-            localStorage.removeItem('gmo_onair_token');
-            localStorage.removeItem(config.storageKey);
-          }
-        }
-
-        const stored = localStorage.getItem(config.storageKey);
-        if (stored) {
-          try {
-            const user = JSON.parse(stored);
-            setCurrentUser(user);
-            setCurrentUserId(user.id);
-          } catch {
-            localStorage.removeItem(config.storageKey);
-          }
+        // cookie (withCredentials) または Bearer トークンで認証を試みる
+        try {
+          const res = await config.api.get('/auth/me');
+          const user = res.data.data;
+          setCurrentUser(user);
+          setCurrentUserId(user.id);
+          localStorage.setItem(config.storageKey, JSON.stringify(user));
+          setLoading(false);
+          return;
+        } catch {
+          localStorage.removeItem('gmo_onair_token');
+          localStorage.removeItem(config.storageKey);
         }
         setLoading(false);
       };
