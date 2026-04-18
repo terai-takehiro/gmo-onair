@@ -298,7 +298,7 @@ export default function EquipmentListPage() {
         </CardContent></Card>
       ) : (
         <div className="overflow-x-auto border rounded-lg">
-          <table className="w-full text-sm">
+          <table className="text-sm" style={{ tableLayout: 'auto' }}>
             <thead className="bg-muted text-muted-foreground">
               <tr>
                 {canBulkEdit && (
@@ -321,12 +321,12 @@ export default function EquipmentListPage() {
                 <SortableTh label="商品名" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <SortableTh label="メーカー" sortKey="manufacturer_name" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <SortableTh label="型名" sortKey="model_number" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
-                <SortableTh label="no" sortKey="unit_number" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
-                <SortableTh label="serial" sortKey="serial_number" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
+                <SortableTh label="No" sortKey="unit_number" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
+                <SortableTh label="シリアル" sortKey="serial_number" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <SortableTh label="設置場所" sortKey="location_name" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <SortableTh label="購入年月" sortKey="purchased_at" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <SortableTh label="保証" sortKey="warranty_years" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
-                <th className="px-3 py-2 text-right font-medium">操作</th>
+                <th className="px-2 py-2 text-right font-medium whitespace-nowrap">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -342,22 +342,22 @@ export default function EquipmentListPage() {
                       />
                     </td>
                   )}
-                  <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">{item.eq_code}</td>
-                  <td className="px-3 py-2 text-xs">{item.branch_code || '-'}</td>
-                  <td className="px-3 py-2 text-xs">{ASSET_CLASS_LABELS[item.asset_class] || item.asset_class || '-'}</td>
-                  <td className="px-3 py-2 text-xs font-mono">{item.fixed_asset_code || '-'}</td>
-                  <td className="px-3 py-2 text-xs">{item.depreciation_years ?? '-'}</td>
-                  <td className="px-3 py-2 text-xs whitespace-nowrap">{sectionDisplay(item.equipment_type_code, item.equipment_section)}</td>
-                  <td className="px-3 py-2 font-medium">{item.name}</td>
-                  <td className="px-3 py-2 text-xs">{item.manufacturer_name || item.manufacturer || '-'}</td>
-                  <td className="px-3 py-2 text-xs">{item.model_number || '-'}</td>
-                  <td className="px-3 py-2 text-xs">{item.unit_number || '-'}</td>
-                  <td className="px-3 py-2 text-xs font-mono">{item.serial_number || '-'}</td>
-                  <td className="px-3 py-2 text-xs">{item.location_name || '-'}</td>
-                  <td className="px-3 py-2 text-xs whitespace-nowrap">{item.purchased_at?.slice(0, 10) || '-'}</td>
-                  <td className="px-3 py-2 text-xs">{item.warranty_years ? `${item.warranty_years}年` : '-'}</td>
-                  <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex gap-1 justify-end">
+                  <td className="px-2 py-1.5 font-mono text-xs whitespace-nowrap">{item.eq_code}</td>
+                  <td className="px-2 py-1.5 text-xs whitespace-nowrap">{item.branch_code || '-'}</td>
+                  <td className="px-2 py-1.5 text-xs whitespace-nowrap">{ASSET_CLASS_LABELS[item.asset_class] || item.asset_class || '-'}</td>
+                  <td className="px-2 py-1.5 text-xs font-mono whitespace-nowrap">{item.fixed_asset_code || '-'}</td>
+                  <td className="px-2 py-1.5 text-xs text-right tabular-nums whitespace-nowrap">{item.depreciation_years ?? '-'}</td>
+                  <td className="px-2 py-1.5 text-xs whitespace-nowrap">{sectionDisplay(item.equipment_type_code, item.equipment_section)}</td>
+                  <td className="px-2 py-1.5 font-medium">{item.name}</td>
+                  <td className="px-2 py-1.5 text-xs whitespace-nowrap">{item.manufacturer_name || item.manufacturer || '-'}</td>
+                  <td className="px-2 py-1.5 text-xs whitespace-nowrap">{item.model_number || '-'}</td>
+                  <td className="px-2 py-1.5 text-xs text-right tabular-nums whitespace-nowrap">{item.unit_number || '-'}</td>
+                  <td className="px-2 py-1.5 text-xs font-mono whitespace-nowrap">{item.serial_number || '-'}</td>
+                  <td className="px-2 py-1.5 text-xs whitespace-nowrap">{item.location_name || '-'}</td>
+                  <td className="px-2 py-1.5 text-xs whitespace-nowrap">{item.purchased_at?.slice(0, 10) || '-'}</td>
+                  <td className="px-2 py-1.5 text-xs text-right tabular-nums whitespace-nowrap">{item.warranty_years ? `${item.warranty_years}年` : '-'}</td>
+                  <td className="px-2 py-1.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex gap-0.5 justify-end">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(item)}><Pencil className="h-3.5 w-3.5" /></Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => { if (confirm(`「${item.name}」を削除？`)) deleteMutation.mutate(item.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
@@ -610,7 +610,7 @@ function SortableTh({ label, sortKey, currentKey, currentDir, onSort }: {
   const active = currentKey === sortKey;
   const arrow = active ? (currentDir === 'asc' ? ' ▲' : ' ▼') : '';
   return (
-    <th className="px-3 py-2 text-left font-medium select-none">
+    <th className="px-2 py-2 text-left font-medium select-none whitespace-nowrap">
       <button
         className={`inline-flex items-center gap-0.5 hover:text-foreground transition-colors ${active ? 'text-foreground' : ''}`}
         onClick={() => onSort(sortKey)}
