@@ -69,7 +69,7 @@ export function createApp(): express.Express {
     try {
       const { queryOne } = require('./shared/db/connection');
       await queryOne('SELECT 1');
-      res.json({ status: 'ok' });
+      res.json({ status: 'ok', version: '1.0.47' });
     } catch {
       res.status(503).json({ status: 'error' });
     }

@@ -63,7 +63,6 @@ export function parseExcelBuffer(
     cellHTML: false,
     cellNF: false,
     sheetStubs: false,
-    sheets: 0,
   });
   const wsName = wb.SheetNames[0];
   if (!wsName) return { rows: [], warnings: ['シートが見つかりません'] };
