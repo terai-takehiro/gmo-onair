@@ -390,7 +390,8 @@ router.patch('/items/:id', async (req: Request, res: Response, next: NextFunctio
       }
     }
     res.json({ success: true });
-  } catch (err) {
+  } catch (err: any) {
+    console.error('[PATCH /items/:id]', err?.message, err?.detail, JSON.stringify(req.body).slice(0, 200));
     next(err);
   }
 });

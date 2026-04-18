@@ -21,10 +21,11 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
     return;
   }
 
-  console.error('Unhandled error:', _req.method, _req.path, err.message, err.stack?.split('\n')[1]);
-  const isProd = process.env.NODE_ENV === 'production';
+  const dbDetail = (err as any).detail || (err as any).constraint || '';
+  console.error('Unhandled error:', _req.method, _req.path, err.message, dbDetail, err.stack?.split('\n')[1]);
+  const hint = dbDetail ? ` [${dbDetail}]` : '';
   res.status(500).json({
     success: false,
-    error: { code: 'INTERNAL_ERROR', message: isProd ? 'サーバー内部エラーが発生しました' : `[DEV] ${err.message}` },
+    error: { code: 'INTERNAL_ERROR', message: `サーバー内部エラーが発生しました${hint}` },
   });
 }
