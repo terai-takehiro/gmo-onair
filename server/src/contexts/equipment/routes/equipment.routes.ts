@@ -155,7 +155,17 @@ router.get('/items', async (req: Request, res: Response) => {
   const countSql = sql.replace(/SELECT ei\.\*.*?WHERE ei\.deleted_at IS NULL/s, 'SELECT COUNT(*) as total FROM equipment_items ei WHERE ei.deleted_at IS NULL');
   const countRow = await queryOne(countSql, params) as any;
 
-  sql += ' ORDER BY ec.sort_order, ec.name, ei.name, ei.unit_number';
+  // 並び順: 機材ブロック(種別) → 設置場所 → 商品名 → no
+  sql += `
+    ORDER BY
+      CASE ei.equipment_type_code
+        WHEN 'V' THEN 1 WHEN 'C' THEN 2 WHEN 'A' THEN 3 WHEN 'IC' THEN 4
+        WHEN 'NW' THEN 5 WHEN 'L' THEN 6 WHEN 'XR' THEN 7 WHEN 'E' THEN 8
+        ELSE 99
+      END,
+      COALESCE(el.sort_order, 9999), COALESCE(el.name, ei.location_detail, ''),
+      ei.name, ei.unit_number
+  `;
   if (limit) { sql += ` LIMIT $${paramIndex++}`; params.push(Number(limit)); }
   if (offset) { sql += ` OFFSET $${paramIndex++}`; params.push(Number(offset)); }
 
@@ -187,6 +197,50 @@ router.get('/items/export', requirePermission('equipment', 'exporter'), async (_
   `) as Record<string, unknown>[];
   const columns = ['eq_code', 'name', 'category_name', 'item_type', 'manufacturer', 'model_number', 'serial_number', 'status', 'condition', 'location'];
   csvResponse(res, 'equipment_items.csv', generateCsv(rows, columns));
+});
+
+// 一括更新 (管理者専用) — /items/:id ルートより前に定義する必要あり
+router.put('/items/bulk-update', requirePermission('equipment', 'manager'), async (req: Request, res: Response) => {
+  const { ids, fields } = req.body as { ids?: unknown; fields?: Record<string, unknown> };
+  if (!Array.isArray(ids) || ids.length === 0) {
+    res.status(400).json({ success: false, error: { message: 'ids は空でない配列を指定してください' } });
+    return;
+  }
+  if (!fields || typeof fields !== 'object' || Object.keys(fields).length === 0) {
+    res.status(400).json({ success: false, error: { message: 'fields が空です' } });
+    return;
+  }
+
+  const ALLOWED_FIELDS = new Set([
+    'branch_code', 'asset_class', 'fixed_asset_code', 'depreciation_years',
+    'equipment_section', 'equipment_type_code', 'location_code',
+    'manufacturer_id', 'location_id', 'purchased_at', 'warranty_years',
+    'status', 'condition', 'notes', 'parent_id',
+  ]);
+
+  const setClauses: string[] = [];
+  const params: unknown[] = [];
+  let i = 1;
+  for (const [key, value] of Object.entries(fields)) {
+    if (!ALLOWED_FIELDS.has(key)) continue;
+    setClauses.push(`${key}=$${i++}`);
+    params.push(value === '' ? null : value);
+  }
+  if (setClauses.length === 0) {
+    res.status(400).json({ success: false, error: { message: '更新可能なフィールドが指定されていません' } });
+    return;
+  }
+
+  setClauses.push(`updated_by=$${i++}`);
+  params.push((req as any).user?.id || null);
+  setClauses.push('updated_at=NOW()');
+
+  const idPlaceholders = ids.map((_, idx) => `$${i + idx}`).join(',');
+  params.push(...ids);
+
+  const sql = `UPDATE equipment_items SET ${setClauses.join(', ')} WHERE id IN (${idPlaceholders}) AND deleted_at IS NULL`;
+  await execute(sql, params);
+  res.json({ success: true, data: { updated: ids.length } });
 });
 
 router.get('/items/:id', async (req: Request, res: Response) => {

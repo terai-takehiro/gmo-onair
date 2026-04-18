@@ -37,7 +37,7 @@ export default function ScanPage() {
       <div>
         <h1 className="text-xl lg:text-2xl font-bold">QRスキャン</h1>
         <p className="text-sm text-muted-foreground">
-          EQコードを入力して機材を検索
+          IDを入力して機材を検索
         </p>
       </div>
 
@@ -46,7 +46,7 @@ export default function ScanPage() {
         <CardContent className="p-6">
           <div className="flex items-center gap-2 mb-4">
             <QrCode className="h-5 w-5 text-primary" />
-            <span className="font-medium">EQコード入力</span>
+            <span className="font-medium">ID入力</span>
           </div>
           <div className="flex gap-2">
             <Input
@@ -100,7 +100,7 @@ export default function ScanPage() {
           <ol className="text-left space-y-1 max-w-sm mx-auto">
             <li>1. テプラで印刷したQRラベルを機材に貼付</li>
             <li>2. スマホのカメラでQRコードを読み取り</li>
-            <li>3. EQコードが表示されるので、上の入力欄に入力</li>
+            <li>3. IDが表示されるので、上の入力欄に入力</li>
             <li>4. 機材の詳細・貸出・故障報告が可能</li>
           </ol>
         </CardContent>

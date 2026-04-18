@@ -6,7 +6,7 @@ import QRCode from 'qrcode';
 import { queryAll, queryOne, getDb } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
-import { buildExcelWorkbook, excelResponse, parseExcelBuffer, parseExcelHeaders, normalizeHeader, SheetSpec } from '../../../shared/utils/excel';
+import { buildExcelWorkbook, excelResponse, parseExcelBuffer, parseExcelHeaders, normalizeHeader } from '../../../shared/utils/excel';
 
 const router = Router();
 const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
@@ -30,7 +30,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 30 
 // カラム定義 — 実運用Excel列構造準拠
 // ============================================================
 const ITEM_COLUMNS = [
-  { key: 'eq_code',            header: 'ID',             width: 16 },
+  { key: 'eq_code',            header: 'ID',             width: 16 }, // 必須
   { key: 'branch_code',        header: '所管',           width: 14 },
   { key: 'asset_class',        header: '資産管理',       width: 10 },
   { key: 'fixed_asset_code',   header: '固定資産コード', width: 16 },
@@ -60,17 +60,12 @@ function normAssetClass(v: unknown): string {
   return ASSET_CLASS_VALUES[s] || 'fixed_asset';
 }
 
-// 種別コード
+// 種別コード (EQコード Y-XR-000001 の2セグメント目に使用)
 const TYPE_CODES = ['V','C','A','IC','NW','L','XR','E'];
 const TYPE_LABELS: Record<string, string> = {
   V: '映像', C: 'カメラ', A: '音声', IC: 'インカム', NW: 'ネットワーク', L: '照明', XR: 'LED/XR', E: '設備',
 };
-// セクション
-const SECTION_MAP: Record<string, string> = {
-  system: 'system', 'システム': 'system',
-  general: 'general', '汎用': 'general',
-  facility: 'facility', '設備': 'facility',
-};
+
 function normDate(v: unknown): string | null {
   if (v == null || v === '') return null;
   if (typeof v === 'number') return new Date(Math.round((v - 25569) * 86400 * 1000)).toISOString().slice(0, 10);
@@ -83,37 +78,25 @@ function normInt(v: unknown): number | null {
   return Number.isFinite(n) ? Math.round(n) : null;
 }
 
-// 機材セクション表示文字列 → (typeCode, section) をパース
-// 例: "映像システム" → typeCode='V', section='system'
-function parseSectionDisplay(raw: string): { typeCode: string | null; section: string | null } {
+// 機材セクション = 設備 / 貸出 のサフィックスのみ判定
+// 「〇〇システム」→ equipment、「〇〇汎用」→ rental
+function parseSectionSuffix(raw: string): 'equipment' | 'rental' | null {
   const s = String(raw ?? '').normalize('NFKC').replace(/\s+/g, '').trim();
-  if (!s) return { typeCode: null, section: null };
-  if (s === '設備') return { typeCode: 'E', section: 'facility' };
-  for (const [code, label] of Object.entries(TYPE_LABELS)) {
-    if (s.startsWith(label)) {
-      const rest = s.slice(label.length);
-      const sec = SECTION_MAP[rest] || null;
-      return { typeCode: code, section: sec || 'system' };
-    }
-  }
-  const m2 = s.match(/^([A-Z]{1,2})[-_]?(system|general|facility)$/i);
-  if (m2 && TYPE_CODES.includes(m2[1].toUpperCase())) {
-    return { typeCode: m2[1].toUpperCase(), section: m2[2].toLowerCase() };
-  }
-  return { typeCode: null, section: null };
+  if (!s) return null;
+  if (/汎用$|汎用貸出$|貸出$|rental$/i.test(s)) return 'rental';
+  if (/システム$|設備$|system$|equipment$/i.test(s)) return 'equipment';
+  // サフィックスが無い場合のフォールバック: 全体一致
+  if (s === '汎用' || s === '貸出') return 'rental';
+  if (s === 'システム' || s === '設備') return 'equipment';
+  return null;
 }
 
-// 機材ID採番
-async function generateNewEqCode(client: any, locationCode: string, typeCode: string): Promise<string> {
-  const prefix = `${locationCode}-${typeCode}`;
-  await client.query(
-    `INSERT INTO equipment_id_sequences (prefix, counter) VALUES ($1, 1)
-     ON CONFLICT (prefix) DO UPDATE SET counter = equipment_id_sequences.counter + 1`,
-    [prefix],
-  );
-  const seq = await client.query('SELECT counter FROM equipment_id_sequences WHERE prefix = $1', [prefix]);
-  const num = seq.rows[0]?.counter || 1;
-  return `${prefix}-${String(num).padStart(6, '0')}`;
+// EQコード Y-XR-000001 から種別コード (XR) を抽出
+function extractTypeCodeFromEqCode(eqCode: string): string | null {
+  const m = String(eqCode ?? '').trim().match(/^[YS]-([A-Z]{1,2})-\d+$/i);
+  if (!m) return null;
+  const code = m[1].toUpperCase();
+  return TYPE_CODES.includes(code) ? code : null;
 }
 
 // ============================================================
@@ -125,14 +108,14 @@ router.get('/items/template', requirePermission('equipment', 'reader'), wrap(asy
       name: '機材リスト',
       columns: ITEM_COLUMNS,
       rows: [{
-        eq_code: '', branch_code: 'GMO-IG', asset_class: '固定資産',
+        eq_code: 'Y-V-000001', branch_code: 'GMO-IG', asset_class: '固定資産',
         fixed_asset_code: '052312-390', depreciation_years: 8,
         section_display: '映像システム', name: 'ユニバーサルフレーム',
         manufacturer_name: 'VIDEOTRON', model_number: 'Vbus-70V2',
         unit_number: 1, serial_number: '', location_display: 'サブ1',
         purchased_at: '2023/6/30', warranty_years: 1, notes: '',
       }, {
-        eq_code: '', branch_code: 'GMO-IG', asset_class: '消耗品',
+        eq_code: 'Y-C-000001', branch_code: 'GMO-IG', asset_class: '消耗品',
         fixed_asset_code: '', depreciation_years: 0,
         section_display: 'カメラ汎用', name: 'HDMIケーブル 3m',
         manufacturer_name: 'CANARE', model_number: 'HDM03',
@@ -144,12 +127,12 @@ router.get('/items/template', requirePermission('equipment', 'reader'), wrap(asy
       name: '入力ガイド',
       columns: [{ key: 'col', header: '項目', width: 20 }, { key: 'desc', header: '説明', width: 80 }],
       rows: [
-        { col: 'ID', desc: '空欄→機材セクションから自動採番(Y-V-000001形式)。既存IDで更新モードも可' },
+        { col: 'ID', desc: '必須。Y-V-000001 形式 (Y=用賀/S=昭和、V/C/A/IC/NW/L/XR/E=種別、6桁連番)。既存IDは更新モード' },
         { col: '所管', desc: '例: GMO-IG / GMO-GLS / 昭和リース / SFI' },
         { col: '資産管理', desc: '固定資産 / 消耗品 / リース / 譲渡' },
         { col: '固定資産コード', desc: '固定資産の場合は必須。消耗品は空欄' },
         { col: '償却', desc: '償却年数(整数)。消耗品の場合は0' },
-        { col: '機材セクション', desc: '映像システム/映像汎用/カメラシステム/カメラ汎用/音声システム/音声汎用/設備 等' },
+        { col: '機材セクション', desc: 'サフィックス「システム」→設備、「汎用」→貸出。接頭辞(LED/XR/映像等)は表示用で分類にはIDを使用' },
         { col: '商品名', desc: '機材の商品名・名称' },
         { col: 'メーカー', desc: 'メーカー名。未登録の場合は自動作成' },
         { col: '型名', desc: '型番・モデル名' },
@@ -191,7 +174,7 @@ router.get('/items/export-xlsx', requirePermission('equipment', 'exporter'), wra
 
   const rows = items.map((r) => {
     const typeLabel = TYPE_LABELS[r.equipment_type_code as string] || '';
-    const secLabel = r.equipment_section === 'system' ? 'システム' : r.equipment_section === 'general' ? '汎用' : r.equipment_section === 'facility' ? '設備' : '';
+    const secLabel = r.equipment_section === 'equipment' ? 'システム' : r.equipment_section === 'rental' ? '汎用' : '';
     return {
       ...r,
       section_display: `${typeLabel}${secLabel}`,
@@ -290,9 +273,16 @@ router.post('/items/import', requirePermission('equipment', 'editor'), upload.si
     const name = String(r.name ?? '').trim();
     if (!name) errors.push('商品名は必須');
 
-    // 機材セクション → typeCode + section
-    const { typeCode, section } = parseSectionDisplay(String(r.section_display ?? ''));
-    if (!typeCode) errors.push('機材セクションを認識できません (例: 映像システム, カメラ汎用, 設備)');
+    const eqCode = String(r.eq_code ?? '').trim();
+    if (!eqCode) errors.push('IDは必須です (例: Y-V-000001)');
+
+    // ID から種別コード抽出 (Y-XR-000001 → XR)
+    const typeCode = extractTypeCodeFromEqCode(eqCode);
+    if (eqCode && !typeCode) errors.push(`IDの形式が不正です: "${eqCode}" (例: Y-V-000001)`);
+
+    // 機材セクション → equipment / rental (サフィックスのみ判定)
+    const section = parseSectionSuffix(String(r.section_display ?? ''));
+    if (!section) errors.push('機材セクションは「〇〇システム」(設備) または「〇〇汎用」(貸出) で指定してください');
 
     const assetClass = normAssetClass(r.asset_class);
     const fixedAssetCode = String(r.fixed_asset_code ?? '').trim() || null;
@@ -416,7 +406,7 @@ router.post('/items/import', requirePermission('equipment', 'editor'), upload.si
         updated.push({ eq_code: String(d.eq_code), name: String(d.name) });
       } else {
         const id = uuid();
-        const eq_code = (d.eq_code as string) || await generateNewEqCode(client, d.location_code as string || 'Y', d.equipment_type_code as string || 'E');
+        const eq_code = d.eq_code as string; // バリデーションで必須チェック済み
         await client.query(
           `INSERT INTO equipment_items (
             id, eq_code, name, model_number, branch_code, asset_class,

@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,7 +14,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Loader2, Plus, Search, Package, Pencil, Trash2, Upload, Download,
+  Loader2, Plus, Search, Package, Pencil, Trash2, Upload, Download, Edit3, X,
 } from "lucide-react";
 import ExcelImportDialog from "@/components/ExcelImportDialog";
 
@@ -37,9 +38,8 @@ const ASSET_CLASS_LABELS: Record<string, string> = {
   fixed_asset: "固定資産", consumable: "消耗品", leased: "リース", transferred: "譲渡",
 };
 const SECTIONS = [
-  { value: "system", label: "システム" },
-  { value: "general", label: "汎用" },
-  { value: "facility", label: "設備" },
+  { value: "equipment", label: "設備" },
+  { value: "rental", label: "貸出" },
 ];
 const LOC_CODES = [
   { value: "Y", label: "用賀" },
@@ -55,22 +55,35 @@ const sectionDisplay = (typeCode: string | null, section: string | null) => {
 const defaultForm = {
   name: "", model_number: "", unit_number: "", serial_number: "",
   branch_code: "GMO-IG", asset_class: "fixed_asset", fixed_asset_code: "", depreciation_years: "",
-  equipment_section: "system", equipment_type_code: "V", location_code: "Y",
+  equipment_section: "equipment", equipment_type_code: "V", location_code: "Y",
   manufacturer_id: "", purchased_at: "", warranty_years: "",
   location_id: "", status: "active", condition: "good", notes: "",
   parent_id: "",
   category_id: "", item_type: "facility", manufacturer: "",
 };
 
+type BulkField = 'branch_code' | 'asset_class' | 'equipment_section' | 'equipment_type_code' | 'location_id' | 'purchased_at' | 'warranty_years' | 'depreciation_years' | 'status' | 'notes';
+
 export default function EquipmentListPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { currentUser } = useAuth();
+  const canBulkEdit = useMemo(() => {
+    if (!currentUser) return false;
+    if (currentUser.role === 'system_admin') return true;
+    const lvl = currentUser.permissions?.equipment;
+    return lvl === 'manager' || lvl === 'owner';
+  }, [currentUser]);
   const [search, setSearch] = useState("");
   const [filterBlock, setFilterBlock] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [form, setForm] = useState({ ...defaultForm });
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkField, setBulkField] = useState<BulkField>('branch_code');
+  const [bulkValue, setBulkValue] = useState<string>('');
 
   const downloadExcel = async () => {
     const res = await api.get('/equipment/items/export-xlsx', { responseType: 'blob' });
@@ -118,6 +131,41 @@ export default function EquipmentListPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["equipment-items"] }),
   });
 
+  const bulkUpdateMutation = useMutation({
+    mutationFn: (payload: { ids: string[]; fields: Record<string, unknown> }) =>
+      api.put('/equipment/items/bulk-update', payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['equipment-items'] });
+      setBulkOpen(false);
+      setSelectedIds(new Set());
+      setBulkValue('');
+    },
+  });
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const toggleSelectAll = () => {
+    if (selectedIds.size === items.length && items.length > 0) setSelectedIds(new Set());
+    else setSelectedIds(new Set(items.map((it: any) => it.id)));
+  };
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const submitBulk = () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0 || !bulkField) return;
+    let v: unknown = bulkValue;
+    if (bulkField === 'warranty_years' || bulkField === 'depreciation_years') {
+      v = bulkValue === '' ? null : Number(bulkValue);
+    }
+    if (bulkField === 'location_id' && bulkValue === 'none') v = null;
+    bulkUpdateMutation.mutate({ ids, fields: { [bulkField]: v } });
+  };
+
   const openNew = () => { setForm({ ...defaultForm }); setEditingId(null); setDialogOpen(true); };
   const openEdit = (item: any) => {
     setForm({
@@ -126,7 +174,7 @@ export default function EquipmentListPage() {
       branch_code: item.branch_code || "GMO-IG", asset_class: item.asset_class || "fixed_asset",
       fixed_asset_code: item.fixed_asset_code || "",
       depreciation_years: item.depreciation_years?.toString() || "0",
-      equipment_section: item.equipment_section || "system",
+      equipment_section: item.equipment_section || "equipment",
       equipment_type_code: item.equipment_type_code || "V",
       location_code: item.location_code || "Y",
       manufacturer_id: item.manufacturer_id || "",
@@ -198,6 +246,21 @@ export default function EquipmentListPage() {
         <Input className="pl-9" placeholder="名前・ID・型番で検索..." value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
+      {/* 一括編集バー (管理者のみ表示、選択中にのみ浮上) */}
+      {canBulkEdit && selectedIds.size > 0 && (
+        <div className="sticky top-0 z-10 bg-primary text-primary-foreground rounded-lg px-4 py-2 flex items-center justify-between shadow-md">
+          <span className="text-sm font-medium">{selectedIds.size} 件選択中</span>
+          <div className="flex gap-2">
+            <Button size="sm" variant="secondary" onClick={() => setBulkOpen(true)}>
+              <Edit3 className="h-4 w-4 mr-1" />一括編集
+            </Button>
+            <Button size="sm" variant="ghost" className="text-primary-foreground hover:bg-primary-foreground/10" onClick={clearSelection}>
+              <X className="h-4 w-4 mr-1" />選択解除
+            </Button>
+          </div>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
       ) : items.length === 0 ? (
@@ -209,6 +272,17 @@ export default function EquipmentListPage() {
           <table className="w-full text-sm">
             <thead className="bg-muted text-muted-foreground">
               <tr>
+                {canBulkEdit && (
+                  <th className="px-2 py-2 w-8">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={items.length > 0 && selectedIds.size === items.length}
+                      ref={(el) => { if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < items.length; }}
+                      onChange={toggleSelectAll}
+                    />
+                  </th>
+                )}
                 <th className="px-3 py-2 text-left font-medium">ID</th>
                 <th className="px-3 py-2 text-left font-medium">所管</th>
                 <th className="px-3 py-2 text-left font-medium">資産管理</th>
@@ -228,7 +302,17 @@ export default function EquipmentListPage() {
             </thead>
             <tbody>
               {items.map((item: any) => (
-                <tr key={item.id} className="border-t hover:bg-muted/50 cursor-pointer" onClick={() => navigate(`/equipment/items/${item.id}`)}>
+                <tr key={item.id} className={`border-t hover:bg-muted/50 cursor-pointer ${selectedIds.has(item.id) ? 'bg-primary/5' : ''}`} onClick={() => navigate(`/equipment/items/${item.id}`)}>
+                  {canBulkEdit && (
+                    <td className="px-2 py-2 w-8" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4"
+                        checked={selectedIds.has(item.id)}
+                        onChange={() => toggleSelect(item.id)}
+                      />
+                    </td>
+                  )}
                   <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">{item.eq_code}</td>
                   <td className="px-3 py-2 text-xs">{item.branch_code || '-'}</td>
                   <td className="px-3 py-2 text-xs">{ASSET_CLASS_LABELS[item.asset_class] || item.asset_class || '-'}</td>
@@ -396,6 +480,92 @@ export default function EquipmentListPage() {
               <Button onClick={handleSubmit} disabled={saveMutation.isPending || !form.name}>
                 {saveMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
                 {editingId ? "更新" : "登録"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 一括編集ダイアログ */}
+      <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>一括編集 ({selectedIds.size} 件)</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label>編集するフィールド</Label>
+              <Select value={bulkField} onValueChange={(v) => { setBulkField(v as BulkField); setBulkValue(''); }}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="branch_code">所管</SelectItem>
+                  <SelectItem value="asset_class">資産管理</SelectItem>
+                  <SelectItem value="equipment_section">セクション (設備/貸出)</SelectItem>
+                  <SelectItem value="equipment_type_code">種別コード</SelectItem>
+                  <SelectItem value="location_id">設置場所</SelectItem>
+                  <SelectItem value="purchased_at">購入年月</SelectItem>
+                  <SelectItem value="warranty_years">保証期間 (年)</SelectItem>
+                  <SelectItem value="depreciation_years">償却年数</SelectItem>
+                  <SelectItem value="status">ステータス</SelectItem>
+                  <SelectItem value="notes">備考</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label>新しい値</Label>
+              {bulkField === 'asset_class' ? (
+                <Select value={bulkValue} onValueChange={setBulkValue}>
+                  <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
+                  <SelectContent>{ASSET_CLASS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                </Select>
+              ) : bulkField === 'equipment_section' ? (
+                <Select value={bulkValue} onValueChange={setBulkValue}>
+                  <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
+                  <SelectContent>{SECTIONS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
+                </Select>
+              ) : bulkField === 'equipment_type_code' ? (
+                <Select value={bulkValue} onValueChange={setBulkValue}>
+                  <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
+                  <SelectContent>{TYPE_CODES.map((t) => <SelectItem key={t.code} value={t.code}>{t.code} - {t.label}</SelectItem>)}</SelectContent>
+                </Select>
+              ) : bulkField === 'location_id' ? (
+                <Select value={bulkValue} onValueChange={setBulkValue}>
+                  <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">(なし)</SelectItem>
+                    {locations.map((loc: any) => <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              ) : bulkField === 'status' ? (
+                <Select value={bulkValue} onValueChange={setBulkValue}>
+                  <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">稼働中</SelectItem>
+                    <SelectItem value="in_repair">修理中</SelectItem>
+                    <SelectItem value="retired">引退</SelectItem>
+                    <SelectItem value="disposed">廃棄</SelectItem>
+                    <SelectItem value="lost">紛失</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : bulkField === 'purchased_at' ? (
+                <Input type="date" value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} />
+              ) : bulkField === 'warranty_years' || bulkField === 'depreciation_years' ? (
+                <Input type="number" min="0" value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} placeholder="0" />
+              ) : (
+                <Input value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} placeholder={bulkField === 'branch_code' ? 'GMO-IG' : ''} />
+              )}
+            </div>
+
+            {bulkUpdateMutation.error ? (
+              <p className="text-sm text-destructive">
+                {(bulkUpdateMutation.error as any)?.response?.data?.error?.message || (bulkUpdateMutation.error as Error).message}
+              </p>
+            ) : null}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setBulkOpen(false)}>キャンセル</Button>
+              <Button onClick={submitBulk} disabled={bulkUpdateMutation.isPending || bulkValue === ''}>
+                {bulkUpdateMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                {selectedIds.size} 件に適用
               </Button>
             </div>
           </div>

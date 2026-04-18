@@ -204,7 +204,7 @@ const SHEETS: SheetDef[] = [
             LEFT JOIN equipment_locations el ON el.id = ei.location_id
             WHERE ei.deleted_at IS NULL ORDER BY ec.sort_order, ei.name`,
     columns: [
-      { key: 'eq_code', header: 'EQコード', width: 16 },
+      { key: 'eq_code', header: 'ID', width: 16 },
       { key: 'name', header: '機材名', width: 30 },
       { key: 'category_name', header: 'カテゴリ', width: 18 },
       { key: 'item_type', header: '種別', width: 10 },
@@ -234,7 +234,7 @@ const SHEETS: SheetDef[] = [
             ORDER BY el.lent_at DESC`,
     columns: [
       { key: 'lent_at', header: '貸出日', width: 16 },
-      { key: 'eq_code', header: 'EQコード', width: 16 },
+      { key: 'eq_code', header: 'ID', width: 16 },
       { key: 'equipment_name', header: '機材名', width: 28 },
       { key: 'gls_number', header: 'GLS番号', width: 14 },
       { key: 'borrower_name', header: '借用者', width: 16 },

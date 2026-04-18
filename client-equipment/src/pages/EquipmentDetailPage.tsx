@@ -33,7 +33,7 @@ const TYPE_LABELS: Record<string, string> = { V: '映像', C: 'カメラ', A: '�
 const ASSET_CLASS_LABELS: Record<string, string> = {
   fixed_asset: '固定資産', consumable: '消耗品', leased: 'リース', transferred: '譲渡',
 };
-const SECTION_LABELS: Record<string, string> = { system: 'システム', general: '汎用', facility: '設備' };
+const SECTION_LABELS: Record<string, string> = { equipment: '設備', rental: '貸出' };
 function sectionLabel(typeCode: string | null, section: string | null) {
   return `${TYPE_LABELS[typeCode || ''] || ''}${SECTION_LABELS[section || ''] || ''}` || '-';
 }
@@ -106,7 +106,7 @@ export default function EquipmentDetailPage() {
             <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[item.status] || ""}`}>
               {statusLabels[item.status]}
             </span>
-            <Badge variant="outline">{item.item_type === "rental" ? "貸出系" : "設備系"}</Badge>
+            <Badge variant="outline">{item.equipment_section === "rental" ? "貸出" : "設備"}</Badge>
             {item.category_name && (
               <span className="text-xs text-muted-foreground">{item.category_name}</span>
             )}
@@ -118,7 +118,7 @@ export default function EquipmentDetailPage() {
           <button
             onClick={copyEqCode}
             className="flex items-center gap-1 font-mono text-[11px] text-muted-foreground hover:text-foreground mt-1 transition-colors"
-            title="EQコードをコピー"
+            title="IDをコピー"
           >
             <QrCode className="h-3 w-3" />
             {item.eq_code}
@@ -192,7 +192,7 @@ export default function EquipmentDetailPage() {
         </Card>
 
         {/* Lending history (rental only) */}
-        {item.item_type === "rental" && (
+        {item.equipment_section === "rental" && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">

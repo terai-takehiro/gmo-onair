@@ -19,7 +19,7 @@ export default function ScanPage() {
   const scannerRef = useRef<Html5Qrcode | null>(null);
 
   // ------------------------------------------------------------------
-  // EQコード抽出: スキャン結果から eq_code を取り出す
+  // ID抽出: スキャン結果から eq_code を取り出す
   //   - URL形式 (例: https://onair/equipment/items/<uuid>) → 末尾の id
   //   - URL形式 (...?eq=Y-C-00001) → eq_code
   //   - "Y-C-00001" 直接 (location-type-連番5桁)
@@ -35,7 +35,7 @@ export default function ScanPage() {
       const eq = u.searchParams.get('eq');
       if (eq) return { type: 'eq_code', value: eq };
     } catch { /* not a URL */ }
-    // EQコード直接入力 (新形式: Y-C-00001)
+    // ID直接入力 (新形式: Y-C-00001)
     if (/^[A-Z]+-[A-Z0-9]+-[0-9]{5}$/i.test(text)) {
       return { type: 'eq_code', value: text.toUpperCase() };
     }
@@ -70,7 +70,7 @@ export default function ScanPage() {
         setScanResult(item);
         navigate(`/equipment/items/${item.id}`);
       } else {
-        setError(`EQコード "${parsed.value}" の機材が見つかりません`);
+        setError(`ID "${parsed.value}" の機材が見つかりません`);
       }
     } catch (err) {
       const msg = (err as { response?: { data?: { error?: { message?: string } } } })
@@ -130,7 +130,7 @@ export default function ScanPage() {
       <div>
         <h1 className="heading-page text-xl lg:text-2xl">QRスキャン</h1>
         <p className="text-sm text-muted-foreground">
-          カメラでQRコードを読み取るか、EQコードを直接入力
+          カメラでQRコードを読み取るか、IDを直接入力
         </p>
       </div>
 
@@ -172,7 +172,7 @@ export default function ScanPage() {
         <CardContent className="p-4">
           <div className="flex items-center gap-2 mb-3">
             <QrCode className="h-5 w-5 text-primary" />
-            <span className="font-medium">EQコード入力</span>
+            <span className="font-medium">ID入力</span>
           </div>
           <div className="flex gap-2">
             <Input
@@ -223,7 +223,7 @@ export default function ScanPage() {
           <ol className="space-y-1 list-decimal list-inside">
             <li>機材詳細ページから「QRコード印刷」でQRシールを生成・貼付</li>
             <li>本ページで「スキャン開始」→ カメラでQRを読み取り → 自動で機材詳細へ</li>
-            <li>QRが読めない場合は手動でEQコードを入力</li>
+            <li>QRが読めない場合は手動でIDを入力</li>
           </ol>
         </CardContent>
       </Card>

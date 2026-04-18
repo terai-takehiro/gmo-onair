@@ -280,7 +280,7 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div>
-                    <label className="block text-xs text-muted-foreground mb-1">EQコード重複時の動作</label>
+                    <label className="block text-xs text-muted-foreground mb-1">ID重複時の動作</label>
                     <Select value={duplicateMode} onValueChange={(v) => setDuplicateMode(v as 'skip' | 'update' | 'error')}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -340,7 +340,7 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
                     <thead className="bg-muted sticky top-0">
                       <tr>
                         <th className="px-2 py-1 text-left">行</th>
-                        <th className="px-2 py-1 text-left">EQコード</th>
+                        <th className="px-2 py-1 text-left">ID</th>
                         <th className="px-2 py-1 text-left">機材名</th>
                         <th className="px-2 py-1 text-left">動作</th>
                         <th className="px-2 py-1 text-left">エラー</th>
