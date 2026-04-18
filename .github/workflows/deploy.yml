@@ -24,13 +24,16 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
       - name: Deploy to dev environment
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          script: |
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} bash -s << 'ENDSSH'
             set -e
             # dev worktree を最新に更新
             cd /root/gmo-onair-dev
@@ -45,6 +48,7 @@ jobs:
             # nginx を再作成 (volume マウント変更を反映)
             docker compose up -d --force-recreate --no-deps nginx
             echo "✓ Dev deploy complete: $(date) — $(cd /root/gmo-onair-dev && git log --oneline -1)"
+          ENDSSH
 
   # ============================================
   # 本番環境 (gmo-onair.jp) — main push で自動
@@ -55,13 +59,16 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
       - name: Deploy to production
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          script: |
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} bash -s << 'ENDSSH'
             set -e
             cd /root/gmo-onair
             git fetch origin main
@@ -70,3 +77,4 @@ jobs:
             docker compose build app_prod
             docker compose up -d --force-recreate --no-deps app_prod
             echo "✓ Prod deploy complete: $(date) — $(git log --oneline -1)"
+          ENDSSH
