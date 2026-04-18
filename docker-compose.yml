@@ -27,7 +27,7 @@ services:
   # ──────────────────────────────────────
   # 本番アプリ (gmo-onair.jp)
   # ──────────────────────────────────────
-  app-prod:
+  app_prod:
     build: .
     ports:
       - "127.0.0.1:3000:3000"
@@ -58,8 +58,9 @@ services:
   # ──────────────────────────────────────
   # 開発アプリ (dev.gmo-onair.jp)
   # ──────────────────────────────────────
-  app-dev:
-    build: .
+  app_dev:
+    build:
+      context: /root/gmo-onair-dev
     ports:
       - "127.0.0.1:3001:3000"
     environment:
@@ -88,8 +89,8 @@ services:
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - /var/www/certbot:/var/www/certbot:ro
     depends_on:
-      - app-prod
-      - app-dev
+      - app_prod
+      - app_dev
     restart: unless-stopped
 
 volumes:
