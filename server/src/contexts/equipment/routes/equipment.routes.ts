@@ -176,9 +176,10 @@ router.put('/items/bulk-update', requirePermission('equipment', 'manager'), asyn
   }
 
   const ALLOWED_FIELDS = new Set([
+    'name', 'model_number', 'manufacturer_id',
     'branch_code', 'asset_class', 'fixed_asset_code', 'depreciation_years',
     'equipment_section', 'equipment_type_code', 'location_code',
-    'manufacturer_id', 'location_id', 'purchased_at', 'warranty_years',
+    'location_id', 'purchased_at', 'warranty_years',
     'status', 'condition', 'notes', 'parent_id',
   ]);
 
