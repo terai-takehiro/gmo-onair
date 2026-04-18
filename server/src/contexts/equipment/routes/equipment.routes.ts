@@ -114,8 +114,8 @@ router.get('/items', async (req: Request, res: Response) => {
     paramIndex += 5;
   }
 
-  // Count
-  const countSql = sql.replace(/SELECT ei\.\*.*?WHERE ei\.deleted_at IS NULL/s, 'SELECT COUNT(*) as total FROM equipment_items ei WHERE ei.deleted_at IS NULL');
+  // Count (wrap full query to preserve all JOINs/WHERE conditions)
+  const countSql = `SELECT COUNT(*) as total FROM (${sql}) _cnt`;
   const countRow = await queryOne(countSql, params) as any;
 
   // 並び順: 機材ブロック(種別) → 設置場所 → 商品名 → 型名 → no

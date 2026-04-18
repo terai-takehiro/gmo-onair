@@ -616,7 +616,8 @@ export default function EquipmentDetailPage() {
                         onClick={() => navigate(`/equipment/items/${c.id}`)}
                       >
                         <span className="font-mono text-xs text-muted-foreground">{c.eq_code}</span>
-                        <span>{c.name}</span>
+                        <span>{c.name}{c.model_number ? ` (${c.model_number})` : ""}{c.unit_number ? ` No.${c.unit_number}` : ""}</span>
+                        {c.notes && <span className="text-xs text-muted-foreground truncate max-w-[160px]">{c.notes}</span>}
                       </button>
                       <Button
                         variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
@@ -643,7 +644,7 @@ export default function EquipmentDetailPage() {
                       .filter((it: any) => it.id !== id && it.parent_id == null && it.id !== item.parent_id)
                       .map((it: any) => ({
                         id: it.id,
-                        label: `${it.eq_code} — ${it.name}${it.model_number ? ` (${it.model_number})` : ""}${it.unit_number ? ` No.${it.unit_number}` : ""}`,
+                        label: `${it.eq_code} — ${it.name}${it.model_number ? ` (${it.model_number})` : ""}${it.unit_number ? ` No.${it.unit_number}` : ""}${it.notes ? ` — ${it.notes}` : ""}`,
                       }))}
                   />
                   <Button
