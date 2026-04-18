@@ -48,14 +48,11 @@ export function excelResponse(res: Response, filename: string, buffer: Buffer): 
   res.send(buffer);
 }
 
-/**
- * BufferからExcelをパースして1シート目の行をオブジェクト配列で返す
- * 1行目を日本語ヘッダーとし、columnsで定義した key にマッピング
- */
-export function parseExcelBuffer(
-  buffer: Buffer,
-  columns: { key: string; header: string }[],
-): { rows: Record<string, unknown>[]; warnings: string[] } {
+// ヘッダー正規化 (NFKC: 半角カナ→全角カナ、全角英数→半角等) + 空白除去
+export const normalizeHeader = (v: unknown): string =>
+  String(v ?? '').normalize('NFKC').replace(/\s+/g, '').trim();
+
+function readWorkbookFirstSheet(buffer: Buffer): { data: unknown[][]; warnings: string[] } {
   const wb = XLSX.read(buffer, {
     type: 'buffer',
     cellFormula: false,
@@ -65,33 +62,69 @@ export function parseExcelBuffer(
     sheetStubs: false,
   });
   const wsName = wb.SheetNames[0];
-  if (!wsName) return { rows: [], warnings: ['シートが見つかりません'] };
+  if (!wsName) return { data: [], warnings: ['シートが見つかりません'] };
   const ws = wb.Sheets[wsName];
-  // used rangeを実データ範囲に制限（Ctrl+End誤操作等で巨大rangeになるのを防ぐ）
   const rawRef = ws['!ref'];
   let limitedRange: XLSX.Range | undefined;
   if (rawRef) {
     const r = XLSX.utils.decode_range(rawRef);
-    r.e.r = Math.min(r.e.r, 9999);  // 最大10000行
-    r.e.c = Math.min(r.e.c, 49);    // 最大50列
+    r.e.r = Math.min(r.e.r, 9999);
+    r.e.c = Math.min(r.e.c, 49);
     limitedRange = r;
   }
   const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', range: limitedRange }) as unknown[][];
+  return { data, warnings: [] };
+}
+
+/**
+ * Excelの1行目(ヘッダー行)だけを取得する (マッピングUI用)
+ */
+export function parseExcelHeaders(buffer: Buffer): string[] {
+  const { data } = readWorkbookFirstSheet(buffer);
+  if (!data[0]) return [];
+  return (data[0] as unknown[]).map((h) => String(h ?? '').trim()).filter((h) => h !== '');
+}
+
+/**
+ * BufferからExcelをパースして1シート目の行をオブジェクト配列で返す
+ * 1行目を日本語ヘッダーとし、columnsで定義した key にマッピング
+ *
+ * mapping が指定された場合は自動マッチを上書き:
+ *   { [columnKey]: excelHeaderName | null }
+ *   null を指定すると明示的にスキップ
+ */
+export function parseExcelBuffer(
+  buffer: Buffer,
+  columns: { key: string; header: string }[],
+  mapping?: Record<string, string | null>,
+): { rows: Record<string, unknown>[]; warnings: string[] } {
+  const { data, warnings: readWarnings } = readWorkbookFirstSheet(buffer);
+  if (readWarnings.length) return { rows: [], warnings: readWarnings };
   if (data.length < 2) return { rows: [], warnings: ['データ行がありません'] };
 
-  // ヘッダー正規化 (NFKC: 半角カナ→全角カナ、全角英数→半角等) + 空白除去
-  const normalizeHeader = (v: unknown): string =>
-    String(v ?? '').normalize('NFKC').replace(/\s+/g, '').trim();
-
-  const headerRow = (data[0] || []).map(normalizeHeader);
+  const rawHeaderRow = (data[0] || []).map((h) => String(h ?? '').trim());
+  const normHeaderRow = rawHeaderRow.map(normalizeHeader);
   const warnings: string[] = [];
 
-  // 日本語ヘッダーから key へのマッピング (正規化後に一致するかで照合)
+  // 期待される列 → Excelの列インデックス へマッピング
   const headerToKey = new Map<number, string>();
   const trackedIndexes: number[] = [];
   for (const col of columns) {
-    const normalizedTarget = normalizeHeader(col.header);
-    const idx = headerRow.indexOf(normalizedTarget);
+    let idx = -1;
+    if (mapping && col.key in mapping) {
+      const explicit = mapping[col.key];
+      if (explicit === null || explicit === '') continue; // 明示的スキップ
+      // 明示指定されたExcelヘッダー名で検索 (生値で完全一致)
+      idx = rawHeaderRow.indexOf(explicit);
+      if (idx === -1) {
+        // 正規化してフォールバック
+        const n = normalizeHeader(explicit);
+        idx = normHeaderRow.indexOf(n);
+      }
+    } else {
+      // 自動マッチ (正規化後に一致)
+      idx = normHeaderRow.indexOf(normalizeHeader(col.header));
+    }
     if (idx === -1) {
       warnings.push(`列 "${col.header}" が見つかりません — スキップします`);
       continue;
@@ -103,7 +136,6 @@ export function parseExcelBuffer(
   const rows: Record<string, unknown>[] = [];
   for (let r = 1; r < data.length; r++) {
     const row = data[r] || [];
-    // 追跡対象列がすべて空なら空行としてスキップ
     const allTrackedEmpty = trackedIndexes.every((i) => {
       const v = row[i];
       return v === '' || v == null;

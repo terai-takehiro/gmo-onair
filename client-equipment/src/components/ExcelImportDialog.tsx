@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -36,16 +36,29 @@ interface CommitResult {
   updated: { eq_code: string; name: string }[];
 }
 
+interface PreviewResult {
+  detectedHeaders: string[];
+  expectedColumns: { key: string; header: string }[];
+  autoMapping: Record<string, string | null>;
+  unmatchedKeys: string[];
+}
+
+const NONE_VALUE = '__none__';
+
 export default function ExcelImportDialog({ open, onOpenChange }: Props) {
   const qc = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
   const [duplicateMode, setDuplicateMode] = useState<'skip' | 'update' | 'error'>('skip');
+  const [preview, setPreview] = useState<PreviewResult | null>(null);
+  const [mapping, setMapping] = useState<Record<string, string | null>>({});
   const [dryRun, setDryRun] = useState<DryRunResult | null>(null);
   const [committed, setCommitted] = useState<CommitResult | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
     setFile(null);
+    setPreview(null);
+    setMapping({});
     setDryRun(null);
     setCommitted(null);
     if (inputRef.current) inputRef.current.value = '';
@@ -66,11 +79,42 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
     return ae?.response?.data?.error?.message || ae?.message || String(e);
   };
 
+  const previewMutation = useMutation<PreviewResult, Error, void>({
+    mutationFn: async () => {
+      if (!file) throw new Error('ファイルが選択されていません');
+      const fd = new FormData();
+      fd.append('file', file);
+      try {
+        const res = await api.post('/equipment/items/import-preview', fd, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return res.data.data;
+      } catch (e: unknown) {
+        throw new Error(extractErrorMsg(e));
+      }
+    },
+    onSuccess: (data) => {
+      setPreview(data);
+      setMapping(data.autoMapping);
+      setDryRun(null);
+      setCommitted(null);
+    },
+  });
+
+  // ファイル選択時に自動でヘッダープレビューを取得
+  useEffect(() => {
+    if (file && !preview && !previewMutation.isPending) {
+      previewMutation.mutate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file]);
+
   const validateMutation = useMutation<DryRunResult, Error, void>({
     mutationFn: async () => {
       if (!file) throw new Error('ファイルが選択されていません');
       const fd = new FormData();
       fd.append('file', file);
+      fd.append('mapping', JSON.stringify(mapping));
       try {
         const res = await api.post('/equipment/items/import', fd, {
           params: { mode: 'dry_run', duplicate: duplicateMode },
@@ -89,6 +133,7 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
       if (!file) throw new Error('ファイルが選択されていません');
       const fd = new FormData();
       fd.append('file', file);
+      fd.append('mapping', JSON.stringify(mapping));
       try {
         const res = await api.post('/equipment/items/import', fd, {
           params: { mode: 'commit', duplicate: duplicateMode },
@@ -111,8 +156,27 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
     onOpenChange(next);
   };
 
+  const handleFileChange = (f: File | null) => {
+    setFile(f);
+    setPreview(null);
+    setMapping({});
+    setDryRun(null);
+    setCommitted(null);
+  };
+
+  const updateMapping = (key: string, excelHeader: string) => {
+    setMapping((prev) => ({
+      ...prev,
+      [key]: excelHeader === NONE_VALUE ? null : excelHeader,
+    }));
+    setDryRun(null); // マッピング変更時は検証結果をリセット
+  };
+
   const errorCount = dryRun?.summary.error ?? 0;
   const canCommit = dryRun && (dryRun.summary.insert + dryRun.summary.update > 0);
+  const unmatchedCount = preview
+    ? preview.expectedColumns.filter((c) => !mapping[c.key]).length
+    : 0;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -144,42 +208,109 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
                 ref={inputRef}
                 type="file"
                 accept=".xlsx,.xls"
-                onChange={(e) => { setFile(e.target.files?.[0] || null); setDryRun(null); setCommitted(null); }}
+                onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
                 className="block w-full text-sm file:mr-3 file:px-3 file:py-1.5 file:rounded file:border file:bg-muted file:text-foreground hover:file:bg-muted/70"
               />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                <div>
-                  <label className="block text-xs text-muted-foreground mb-1">EQコード重複時の動作</label>
-                  <Select value={duplicateMode} onValueChange={(v) => setDuplicateMode(v as 'skip' | 'update' | 'error')}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="skip">スキップ (既存はそのまま)</SelectItem>
-                      <SelectItem value="update">上書き更新</SelectItem>
-                      <SelectItem value="error">エラーにする</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-end">
-                  <Button
-                    onClick={() => validateMutation.mutate()}
-                    disabled={!file || validateMutation.isPending}
-                    className="w-full"
-                  >
-                    <Upload className="h-4 w-4 mr-1" />
-                    {validateMutation.isPending ? '検証中...' : '検証する'}
-                  </Button>
-                </div>
-              </div>
-
-              {validateMutation.error && (
+              {previewMutation.error && (
                 <p className="text-sm text-destructive flex items-center gap-1">
                   <AlertCircle className="h-4 w-4" />
-                  {(validateMutation.error as Error).message}
+                  {(previewMutation.error as Error).message}
                 </p>
+              )}
+              {previewMutation.isPending && (
+                <p className="text-xs text-muted-foreground">列を読み取り中...</p>
               )}
             </CardContent>
           </Card>
+
+          {/* 列マッピング UI */}
+          {preview && !committed && (
+            <Card className={unmatchedCount > 0 ? "border-amber-400/60" : "border-green-500/40"}>
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold">列の対応付け</h3>
+                  <span className="text-xs text-muted-foreground">
+                    検出列: {preview.detectedHeaders.length} / 未対応: {unmatchedCount}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  自動判定できなかった列は、Excelのどの列に該当するかを選択してください（使わない場合は「使用しない」）
+                </p>
+
+                <div className="border rounded max-h-80 overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted sticky top-0">
+                      <tr>
+                        <th className="px-2 py-1.5 text-left w-1/3">期待される列</th>
+                        <th className="px-2 py-1.5 text-left">Excel列</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {preview.expectedColumns.map((col) => {
+                        const current = mapping[col.key];
+                        const isUnmatched = !current;
+                        return (
+                          <tr key={col.key} className={isUnmatched ? 'bg-amber-50' : ''}>
+                            <td className="px-2 py-1.5 font-medium">{col.header}</td>
+                            <td className="px-2 py-1">
+                              <Select
+                                value={current || NONE_VALUE}
+                                onValueChange={(v) => updateMapping(col.key, v)}
+                              >
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue placeholder="(未選択)" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value={NONE_VALUE}>
+                                    <span className="text-muted-foreground">(使用しない)</span>
+                                  </SelectItem>
+                                  {preview.detectedHeaders.map((h) => (
+                                    <SelectItem key={h} value={h}>{h}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1">EQコード重複時の動作</label>
+                    <Select value={duplicateMode} onValueChange={(v) => setDuplicateMode(v as 'skip' | 'update' | 'error')}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="skip">スキップ (既存はそのまま)</SelectItem>
+                        <SelectItem value="update">上書き更新</SelectItem>
+                        <SelectItem value="error">エラーにする</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-end">
+                    <Button
+                      onClick={() => validateMutation.mutate()}
+                      disabled={!file || validateMutation.isPending}
+                      className="w-full"
+                    >
+                      <Upload className="h-4 w-4 mr-1" />
+                      {validateMutation.isPending ? '検証中...' : '検証する'}
+                    </Button>
+                  </div>
+                </div>
+
+                {validateMutation.error && (
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-4 w-4" />
+                    {(validateMutation.error as Error).message}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* dry_run結果 */}
           {dryRun && !committed && (

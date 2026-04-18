@@ -6,7 +6,7 @@ import QRCode from 'qrcode';
 import { queryAll, queryOne, getDb } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
-import { buildExcelWorkbook, excelResponse, parseExcelBuffer, SheetSpec } from '../../../shared/utils/excel';
+import { buildExcelWorkbook, excelResponse, parseExcelBuffer, parseExcelHeaders, normalizeHeader, SheetSpec } from '../../../shared/utils/excel';
 
 const router = Router();
 const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
@@ -205,6 +205,39 @@ router.get('/items/export-xlsx', requirePermission('equipment', 'exporter'), wra
 }));
 
 // ============================================================
+// Excelインポート前プレビュー (列対応付けUI用)
+// ============================================================
+router.post('/items/import-preview', requirePermission('equipment', 'editor'), upload.single('file'), wrap(async (req, res) => {
+  if (!req.file) throw new AppError(400, 'NO_FILE', 'Excelファイルが必要です');
+  let detectedHeaders: string[];
+  try {
+    detectedHeaders = parseExcelHeaders(req.file.buffer);
+  } catch (e: any) {
+    throw new AppError(400, 'PARSE_ERROR', `Excelの読み込みに失敗しました: ${e?.message || e}`);
+  }
+  // 自動マッチ判定
+  const normDetected = detectedHeaders.map(normalizeHeader);
+  const autoMapping: Record<string, string | null> = {};
+  const unmatchedKeys: string[] = [];
+  for (const col of ITEM_COLUMNS) {
+    const target = normalizeHeader(col.header);
+    const idx = normDetected.indexOf(target);
+    if (idx >= 0) {
+      autoMapping[col.key] = detectedHeaders[idx];
+    } else {
+      autoMapping[col.key] = null;
+      unmatchedKeys.push(col.key);
+    }
+  }
+  res.json({ success: true, data: {
+    detectedHeaders,
+    expectedColumns: ITEM_COLUMNS.map((c) => ({ key: c.key, header: c.header })),
+    autoMapping,
+    unmatchedKeys,
+  }});
+}));
+
+// ============================================================
 // Excelインポート
 // ============================================================
 router.post('/items/import', requirePermission('equipment', 'editor'), upload.single('file'), wrap(async (req, res) => {
@@ -213,10 +246,21 @@ router.post('/items/import', requirePermission('equipment', 'editor'), upload.si
   const mode = pickFirst(req.query.mode) || 'dry_run';
   const duplicateMode = pickFirst(req.query.duplicate) || 'skip';
 
+  // 手動マッピング (FormDataのフィールド "mapping" にJSON文字列で)
+  let mapping: Record<string, string | null> | undefined;
+  const mappingStr = (req.body && typeof req.body.mapping === 'string') ? req.body.mapping as string : undefined;
+  if (mappingStr) {
+    try {
+      mapping = JSON.parse(mappingStr);
+    } catch (e: any) {
+      throw new AppError(400, 'BAD_MAPPING', `mapping JSONの解析に失敗: ${e?.message || e}`);
+    }
+  }
+
   let rows: Record<string, unknown>[];
   let warnings: string[];
   try {
-    ({ rows, warnings } = parseExcelBuffer(req.file.buffer, ITEM_COLUMNS));
+    ({ rows, warnings } = parseExcelBuffer(req.file.buffer, ITEM_COLUMNS, mapping));
   } catch (e: any) {
     throw new AppError(400, 'PARSE_ERROR', `Excelの読み込みに失敗しました: ${e?.message || e}`);
   }
