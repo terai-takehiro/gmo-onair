@@ -115,7 +115,7 @@ export default function LendingListPage() {
       due_date: "", condition_out: "good", notes: "", project_id: "",
     });
     setLendingType("standalone");
-    setFilterCategoryId("");
+    setFilterTypeCode("");
     setSelectedEquipmentName("");
     setProjectSearch("");
     setDialogOpen(true);
