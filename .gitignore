@@ -6,6 +6,9 @@ dist/
 *.log
 .vite/
 
+# Dev Basic Auth (VPS上でのみ作成)
+deploy/dev-htpasswd
+
 # Environment & secrets - NEVER commit these
 .env
 .mcp.json
