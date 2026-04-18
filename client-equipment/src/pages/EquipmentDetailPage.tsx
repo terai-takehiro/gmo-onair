@@ -94,11 +94,16 @@ export default function EquipmentDetailPage() {
   const locations: any[] = locationsData ?? [];
   const manufacturers: any[] = manufacturersData ?? [];
 
+  const [saveError, setSaveError] = useState<string | null>(null);
   const saveMutation = useMutation({
     mutationFn: (payload: any) => api.patch(`/equipment/items/${id}`, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["equipment-item", id] });
+      setSaveError(null);
       setEditOpen(false);
+    },
+    onError: (err: any) => {
+      setSaveError(err?.response?.data?.error?.message || err?.message || '更新に失敗しました');
     },
   });
 
@@ -405,8 +410,11 @@ export default function EquipmentDetailPage() {
               <Label>備考</Label>
               <Input value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
             </div>
+            {saveError && (
+              <p className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">{saveError}</p>
+            )}
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setEditOpen(false)}>キャンセル</Button>
+              <Button variant="outline" onClick={() => { setEditOpen(false); setSaveError(null); }}>キャンセル</Button>
               <Button onClick={handleEditSubmit} disabled={saveMutation.isPending || !editForm.name}>
                 {saveMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
                 更新
