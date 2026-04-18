@@ -24,7 +24,7 @@ router.get('/items/:id/qr', wrap(async (req, res) => {
 }));
 
 router.use(requireAuth);
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 30 * 1024 * 1024 } });
 
 // ============================================================
 // カラム定義 — 実運用Excel列構造準拠
