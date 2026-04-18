@@ -79,27 +79,39 @@ export function parseExcelBuffer(
   const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', range: limitedRange }) as unknown[][];
   if (data.length < 2) return { rows: [], warnings: ['データ行がありません'] };
 
-  const headerRow = (data[0] || []).map((h) => String(h ?? '').trim());
+  // ヘッダー正規化 (NFKC: 半角カナ→全角カナ、全角英数→半角等) + 空白除去
+  const normalizeHeader = (v: unknown): string =>
+    String(v ?? '').normalize('NFKC').replace(/\s+/g, '').trim();
+
+  const headerRow = (data[0] || []).map(normalizeHeader);
   const warnings: string[] = [];
 
-  // 日本語ヘッダーから key へのマッピング
-  const headerToKey = new Map<string, string>();
+  // 日本語ヘッダーから key へのマッピング (正規化後に一致するかで照合)
+  const headerToKey = new Map<number, string>();
+  const trackedIndexes: number[] = [];
   for (const col of columns) {
-    const idx = headerRow.indexOf(col.header);
+    const normalizedTarget = normalizeHeader(col.header);
+    const idx = headerRow.indexOf(normalizedTarget);
     if (idx === -1) {
       warnings.push(`列 "${col.header}" が見つかりません — スキップします`);
       continue;
     }
-    headerToKey.set(String(idx), col.key);
+    headerToKey.set(idx, col.key);
+    trackedIndexes.push(idx);
   }
 
   const rows: Record<string, unknown>[] = [];
   for (let r = 1; r < data.length; r++) {
     const row = data[r] || [];
-    if (row.every((v) => v === '' || v == null)) continue; // 空行スキップ
+    // 追跡対象列がすべて空なら空行としてスキップ
+    const allTrackedEmpty = trackedIndexes.every((i) => {
+      const v = row[i];
+      return v === '' || v == null;
+    });
+    if (allTrackedEmpty) continue;
     const obj: Record<string, unknown> = {};
-    for (const [idxStr, key] of headerToKey.entries()) {
-      const v = row[Number(idxStr)];
+    for (const [idx, key] of headerToKey.entries()) {
+      const v = row[idx];
       obj[key] = v === '' ? null : v;
     }
     rows.push(obj);

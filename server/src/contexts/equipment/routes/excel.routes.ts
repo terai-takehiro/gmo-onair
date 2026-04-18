@@ -56,7 +56,7 @@ const ASSET_CLASS_VALUES: Record<string, string> = {
   fixed_asset: 'fixed_asset', consumable: 'consumable', leased: 'leased', transferred: 'transferred',
 };
 function normAssetClass(v: unknown): string {
-  const s = String(v ?? '').trim();
+  const s = String(v ?? '').normalize('NFKC').replace(/\s+/g, '').trim();
   return ASSET_CLASS_VALUES[s] || 'fixed_asset';
 }
 
@@ -86,7 +86,7 @@ function normInt(v: unknown): number | null {
 // 機材セクション表示文字列 → (typeCode, section) をパース
 // 例: "映像システム" → typeCode='V', section='system'
 function parseSectionDisplay(raw: string): { typeCode: string | null; section: string | null } {
-  const s = String(raw ?? '').trim();
+  const s = String(raw ?? '').normalize('NFKC').replace(/\s+/g, '').trim();
   if (!s) return { typeCode: null, section: null };
   if (s === '設備') return { typeCode: 'E', section: 'facility' };
   for (const [code, label] of Object.entries(TYPE_LABELS)) {
