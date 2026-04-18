@@ -349,8 +349,13 @@ router.put('/items/:id', async (req: Request, res: Response) => {
 // 部分更新 (親子付け替え等で全フィールド送らなくてよい)
 router.patch('/items/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    // eq_code の変更は system_admin のみ
+    if ('eq_code' in req.body && (req as any).user?.role !== 'system_admin') {
+      res.status(403).json({ success: false, error: { message: '機材IDの変更は管理者のみ可能です' } });
+      return;
+    }
     const PATCHABLE = new Set([
-      'name', 'unit_number', 'parent_id', 'manufacturer_id', 'model_number',
+      'eq_code', 'name', 'unit_number', 'parent_id', 'manufacturer_id', 'model_number',
       'serial_number', 'asset_class', 'status', 'condition', 'location_id', 'location_detail',
       'notes', 'branch_code', 'fixed_asset_code', 'depreciation_years',
       'equipment_section', 'equipment_type_code', 'location_code', 'purchased_at', 'warranty_years',

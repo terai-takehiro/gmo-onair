@@ -1,4 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,8 @@ export default function EquipmentDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { currentUser } = useAuth();
+  const isAdmin = currentUser?.role === 'system_admin';
   const [qrOpen, setQrOpen] = useState(false);
   const [selectedChildId, setSelectedChildId] = useState("");
   const [editOpen, setEditOpen] = useState(false);
@@ -102,6 +105,7 @@ export default function EquipmentDetailPage() {
   const openEdit = () => {
     if (!data) return;
     setEditForm({
+      eq_code: data.eq_code || "",
       name: data.name || "", model_number: data.model_number || "",
       unit_number: data.unit_number?.toString() || "", serial_number: data.serial_number || "",
       branch_code: data.branch_code || "GMO-IG", asset_class: data.asset_class || "fixed_asset",
@@ -121,7 +125,7 @@ export default function EquipmentDetailPage() {
 
   const handleEditSubmit = () => {
     if (!editForm.name) return;
-    saveMutation.mutate({
+    const payload: Record<string, unknown> = {
       ...editForm,
       unit_number: editForm.unit_number ? Number(editForm.unit_number) : null,
       depreciation_years: editForm.depreciation_years ? Number(editForm.depreciation_years) : null,
@@ -130,7 +134,9 @@ export default function EquipmentDetailPage() {
       location_id: editForm.location_id || null,
       purchased_at: editForm.purchased_at || null,
       fixed_asset_code: editForm.fixed_asset_code || null,
-    });
+    };
+    if (!isAdmin) delete payload.eq_code;
+    saveMutation.mutate(payload);
   };
 
   const attachMutation = useMutation({
@@ -277,6 +283,17 @@ export default function EquipmentDetailPage() {
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>機材編集</DialogTitle></DialogHeader>
           <div className="space-y-4">
+            {isAdmin && (
+              <div className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <Label className="text-amber-800 font-semibold">機材ID (管理者のみ変更可)</Label>
+                <Input
+                  value={editForm.eq_code || ""}
+                  onChange={(e) => setEditForm({ ...editForm, eq_code: e.target.value })}
+                  className="font-mono"
+                  placeholder="Y-V-000001"
+                />
+              </div>
+            )}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
                 <Label>拠点 *</Label>
