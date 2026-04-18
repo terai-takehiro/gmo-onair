@@ -72,7 +72,7 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
       const fd = new FormData();
       fd.append('file', file);
       try {
-        const res = await api.post('/equipment/items/import?mode=dry_run', fd, {
+        const res = await api.post('/equipment/items/import', fd, {
           params: { mode: 'dry_run', duplicate: duplicateMode },
           headers: { 'Content-Type': 'multipart/form-data' },
         });

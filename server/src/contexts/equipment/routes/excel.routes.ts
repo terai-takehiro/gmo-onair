@@ -209,8 +209,9 @@ router.get('/items/export-xlsx', requirePermission('equipment', 'exporter'), wra
 // ============================================================
 router.post('/items/import', requirePermission('equipment', 'editor'), upload.single('file'), wrap(async (req, res) => {
   if (!req.file) throw new AppError(400, 'NO_FILE', 'Excelファイルが必要です');
-  const mode = (req.query.mode as string) || 'dry_run';
-  const duplicateMode = (req.query.duplicate as string) || 'skip';
+  const pickFirst = (v: unknown): string => Array.isArray(v) ? String(v[0] ?? '') : String(v ?? '');
+  const mode = pickFirst(req.query.mode) || 'dry_run';
+  const duplicateMode = pickFirst(req.query.duplicate) || 'skip';
 
   let rows: Record<string, unknown>[];
   let warnings: string[];
