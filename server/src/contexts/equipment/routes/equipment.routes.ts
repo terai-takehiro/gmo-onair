@@ -236,7 +236,7 @@ router.get('/items/:id', async (req: Request, res: Response) => {
 
   // 子機材 (parent_id ベース)
   const children = await queryAll(`
-    SELECT id, eq_code, name, status, condition, unit_number
+    SELECT id, eq_code, name, status, condition, unit_number, model_number, notes
     FROM equipment_items
     WHERE parent_id = $1 AND deleted_at IS NULL
     ORDER BY name, unit_number
