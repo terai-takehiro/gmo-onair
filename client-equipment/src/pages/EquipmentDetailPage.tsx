@@ -4,8 +4,11 @@ import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  ArrowLeft, Copy, Loader2, Wrench, ArrowRightLeft, Package, QrCode, Printer, Link2, X, ChevronDown, Search,
+  ArrowLeft, Copy, Loader2, Wrench, ArrowRightLeft, Package, QrCode, Printer, Link2, X, ChevronDown, Search, Pencil,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -28,6 +31,26 @@ const maintenanceStatusLabels: Record<string, string> = {
   reported: "報告済", in_progress: "対応中", completed: "完了", cancelled: "キャンセル",
 };
 
+const TYPE_CODES = [
+  { code: "V", label: "映像" }, { code: "C", label: "カメラ" }, { code: "A", label: "音声" },
+  { code: "IC", label: "インカム" }, { code: "NW", label: "ネットワーク" }, { code: "L", label: "照明" },
+  { code: "XR", label: "LED/XR" }, { code: "E", label: "設備/その他" },
+];
+const ASSET_CLASS_OPTIONS = [
+  { value: "fixed_asset", label: "固定資産" }, { value: "consumable", label: "消耗品" },
+  { value: "leased", label: "リース" }, { value: "transferred", label: "譲渡" },
+];
+const SECTIONS = [{ value: "equipment", label: "設備" }, { value: "rental", label: "貸出" }];
+const LOC_CODES = [{ value: "Y", label: "用賀" }, { value: "S", label: "渋谷" }];
+const STATUS_OPTIONS = [
+  { value: "active", label: "稼働中" }, { value: "in_repair", label: "修理中" },
+  { value: "retired", label: "引退" }, { value: "disposed", label: "廃棄" }, { value: "lost", label: "紛失" },
+];
+const CONDITION_OPTIONS = [
+  { value: "excellent", label: "優良" }, { value: "good", label: "良好" },
+  { value: "fair", label: "可" }, { value: "poor", label: "不良" },
+];
+
 const TYPE_LABELS: Record<string, string> = { V: '映像', C: 'カメラ', A: '音声', IC: 'インカム', NW: 'ネットワーク', L: '照明', XR: 'LED/XR', E: '設備' };
 const ASSET_CLASS_LABELS: Record<string, string> = {
   fixed_asset: '固定資産', consumable: '消耗品', leased: 'リース', transferred: '譲渡',
@@ -43,6 +66,8 @@ export default function EquipmentDetailPage() {
   const qc = useQueryClient();
   const [qrOpen, setQrOpen] = useState(false);
   const [selectedChildId, setSelectedChildId] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState<Record<string, string>>({});
 
   const { data, isLoading } = useQuery({
     queryKey: ["equipment-item", id],
@@ -54,7 +79,57 @@ export default function EquipmentDetailPage() {
     queryKey: ["equipment-items-all"],
     queryFn: async () => (await api.get("/equipment/items")).data.data,
   });
+  const { data: locationsData } = useQuery({
+    queryKey: ["equipment-locations"],
+    queryFn: async () => (await api.get("/equipment/locations")).data.data,
+  });
+  const { data: manufacturersData } = useQuery({
+    queryKey: ["equipment-manufacturers"],
+    queryFn: async () => (await api.get("/equipment/manufacturers")).data.data,
+  });
   const allItems: any[] = allItemsData ?? [];
+  const locations: any[] = locationsData ?? [];
+  const manufacturers: any[] = manufacturersData ?? [];
+
+  const saveMutation = useMutation({
+    mutationFn: (payload: any) => api.put(`/equipment/items/${id}`, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["equipment-item", id] });
+      setEditOpen(false);
+    },
+  });
+
+  const openEdit = () => {
+    if (!data) return;
+    setEditForm({
+      name: data.name || "", model_number: data.model_number || "",
+      unit_number: data.unit_number?.toString() || "", serial_number: data.serial_number || "",
+      branch_code: data.branch_code || "GMO-IG", asset_class: data.asset_class || "fixed_asset",
+      fixed_asset_code: data.fixed_asset_code || "",
+      depreciation_years: data.depreciation_years?.toString() || "0",
+      equipment_section: data.equipment_section || "equipment",
+      equipment_type_code: data.equipment_type_code || "V",
+      location_code: data.location_code || "Y",
+      manufacturer_id: data.manufacturer_id || "",
+      purchased_at: data.purchased_at?.slice(0, 10) || "",
+      warranty_years: data.warranty_years?.toString() || "0",
+      location_id: data.location_id || "",
+      status: data.status || "active", condition: data.condition || "good", notes: data.notes || "",
+    });
+    setEditOpen(true);
+  };
+
+  const handleEditSubmit = () => {
+    if (!editForm.name) return;
+    saveMutation.mutate({
+      ...editForm,
+      unit_number: editForm.unit_number ? Number(editForm.unit_number) : null,
+      depreciation_years: editForm.depreciation_years ? Number(editForm.depreciation_years) : 0,
+      warranty_years: editForm.warranty_years ? Number(editForm.warranty_years) : 0,
+      manufacturer_id: editForm.manufacturer_id || null,
+      location_id: editForm.location_id || null,
+    });
+  };
 
   const attachMutation = useMutation({
     mutationFn: (childId: string) => api.put(`/equipment/items/${childId}`, { parent_id: id }),
@@ -122,6 +197,10 @@ export default function EquipmentDetailPage() {
             <Copy className="h-2.5 w-2.5 opacity-40" />
           </button>
         </div>
+        <Button variant="outline" size="sm" onClick={openEdit}>
+          <Pencil className="h-4 w-4 mr-1" />
+          編集
+        </Button>
         <Button variant="outline" size="sm" onClick={() => setQrOpen(true)}>
           <Printer className="h-4 w-4 mr-1" />
           QRコード
@@ -146,6 +225,133 @@ export default function EquipmentDetailPage() {
               <Printer className="h-4 w-4 mr-1" />
               印刷
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 編集ダイアログ */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>機材編集</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label>拠点 *</Label>
+                <Select value={editForm.location_code} onValueChange={(v) => setEditForm({ ...editForm, location_code: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{LOC_CODES.map((l) => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>種別コード *</Label>
+                <Select value={editForm.equipment_type_code} onValueChange={(v) => setEditForm({ ...editForm, equipment_type_code: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{TYPE_CODES.map((t) => <SelectItem key={t.code} value={t.code}>{t.code} - {t.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>設備/貸出 *</Label>
+                <Select value={editForm.equipment_section} onValueChange={(v) => setEditForm({ ...editForm, equipment_section: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{SECTIONS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1 sm:col-span-2">
+                <Label>商品名 *</Label>
+                <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label>メーカー</Label>
+                <Select value={editForm.manufacturer_id || "none"} onValueChange={(v) => setEditForm({ ...editForm, manufacturer_id: v === "none" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">なし</SelectItem>
+                    {manufacturers.map((m: any) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>型名</Label>
+                <Input value={editForm.model_number} onChange={(e) => setEditForm({ ...editForm, model_number: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label>No (個体番号)</Label>
+                <Input type="number" min="1" value={editForm.unit_number} onChange={(e) => setEditForm({ ...editForm, unit_number: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label>シリアル</Label>
+                <Input value={editForm.serial_number} onChange={(e) => setEditForm({ ...editForm, serial_number: e.target.value })} />
+              </div>
+            </div>
+            <div className="border-t pt-4">
+              <p className="text-sm font-semibold mb-3">資産・保証</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label>所管</Label>
+                  <Input value={editForm.branch_code} onChange={(e) => setEditForm({ ...editForm, branch_code: e.target.value })} placeholder="GMO-IG" />
+                </div>
+                <div className="space-y-1">
+                  <Label>資産管理</Label>
+                  <Select value={editForm.asset_class} onValueChange={(v) => setEditForm({ ...editForm, asset_class: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{ASSET_CLASS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>資産コード</Label>
+                  <Input value={editForm.fixed_asset_code} onChange={(e) => setEditForm({ ...editForm, fixed_asset_code: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <Label>償却年数</Label>
+                  <Input type="number" min="0" value={editForm.depreciation_years} onChange={(e) => setEditForm({ ...editForm, depreciation_years: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <Label>購入年月</Label>
+                  <Input type="date" value={editForm.purchased_at} onChange={(e) => setEditForm({ ...editForm, purchased_at: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <Label>保証期間 (年)</Label>
+                  <Input type="number" min="0" value={editForm.warranty_years} onChange={(e) => setEditForm({ ...editForm, warranty_years: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <Label>設置場所</Label>
+                  <Select value={editForm.location_id || "none"} onValueChange={(v) => setEditForm({ ...editForm, location_id: v === "none" ? "" : v })}>
+                    <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">なし</SelectItem>
+                      {locations.map((loc: any) => <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>ステータス</Label>
+                  <Select value={editForm.status} onValueChange={(v) => setEditForm({ ...editForm, status: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>コンディション</Label>
+                  <Select value={editForm.condition} onValueChange={(v) => setEditForm({ ...editForm, condition: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{CONDITION_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>備考</Label>
+              <Input value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setEditOpen(false)}>キャンセル</Button>
+              <Button onClick={handleEditSubmit} disabled={saveMutation.isPending || !editForm.name}>
+                {saveMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                更新
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

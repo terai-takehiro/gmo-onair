@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
@@ -74,8 +74,14 @@ export default function EquipmentListPage() {
     return lvl === 'manager' || lvl === 'owner';
   }, [currentUser]);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterBlock, setFilterBlock] = useState<string>("");
   const [includeChildren, setIncludeChildren] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
@@ -97,10 +103,10 @@ export default function EquipmentListPage() {
   };
 
   const { data: itemsData, isLoading } = useQuery({
-    queryKey: ["equipment-items", search, filterBlock, includeChildren],
+    queryKey: ["equipment-items", debouncedSearch, filterBlock, includeChildren],
     queryFn: async () => {
       const params: Record<string, string> = {};
-      if (search) params.search = search;
+      if (debouncedSearch) params.search = debouncedSearch;
       if (filterBlock) params.equipment_type_code = filterBlock;
       if (includeChildren) params.include_children = '1';
       return (await api.get("/equipment/items", { params })).data;
