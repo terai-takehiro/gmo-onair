@@ -221,7 +221,12 @@ router.post('/items/import', requirePermission('equipment', 'editor'), upload.si
   }
 
   // マスタ事前ロード
-  const manufacturers = await queryAll('SELECT id, name FROM equipment_manufacturers WHERE deleted_at IS NULL') as { id: string; name: string }[];
+  let manufacturers: { id: string; name: string }[];
+  try {
+    manufacturers = await queryAll('SELECT id, name FROM equipment_manufacturers WHERE deleted_at IS NULL') as { id: string; name: string }[];
+  } catch (e: any) {
+    throw new AppError(500, 'DB_ERROR', `メーカーマスタ読み込みエラー: ${e?.message || e}`);
+  }
   const mfgMap = new Map(manufacturers.map((m) => [m.name, m.id]));
 
   type VRow = { rowNumber: number; data: Record<string, unknown>; errors: string[]; action: 'insert'|'update'|'skip'; existingId?: string };
@@ -255,7 +260,12 @@ router.post('/items/import', requirePermission('equipment', 'editor'), upload.si
     let existingId: string | undefined;
     let action: 'insert'|'update'|'skip' = 'insert';
     if (eqCode) {
-      const existing = await queryOne('SELECT id FROM equipment_items WHERE eq_code = $1 AND deleted_at IS NULL', [eqCode]) as any;
+      let existing: any;
+      try {
+        existing = await queryOne('SELECT id FROM equipment_items WHERE eq_code = $1 AND deleted_at IS NULL', [eqCode]) as any;
+      } catch (e: any) {
+        throw new AppError(500, 'DB_ERROR', `機材ID検索エラー (行${rowNumber}): ${e?.message || e}`);
+      }
       if (existing) {
         existingId = existing.id;
         if (duplicateMode === 'error') errors.push(`機材ID "${eqCode}" は既に存在します`);
