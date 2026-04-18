@@ -313,7 +313,7 @@ router.post('/items/import', requirePermission('equipment', 'editor'), upload.si
     error: errorCount,
   };
 
-  if (mode === 'dry_run' || errorCount > 0) {
+  if (mode === 'dry_run') {
     return res.json({ success: true, data: {
       mode: 'dry_run', summary, warnings,
       rows: validated.map((v) => ({ rowNumber: v.rowNumber, name: v.data.name, eq_code: v.data.eq_code, action: v.action, errors: v.errors })),

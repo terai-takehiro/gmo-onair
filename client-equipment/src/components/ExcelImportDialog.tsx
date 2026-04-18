@@ -112,7 +112,7 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
   };
 
   const errorCount = dryRun?.summary.error ?? 0;
-  const canCommit = dryRun && errorCount === 0 && (dryRun.summary.insert + dryRun.summary.update > 0);
+  const canCommit = dryRun && (dryRun.summary.insert + dryRun.summary.update > 0);
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
