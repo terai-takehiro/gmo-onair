@@ -308,7 +308,7 @@ export default function EquipmentDetailPage() {
                       .filter((it: any) => it.id !== id && it.parent_id !== id && it.id !== item.parent_id)
                       .map((it: any) => (
                         <SelectItem key={it.id} value={it.id}>
-                          {it.eq_code} — {it.name}{it.unit_number ? ` No.${it.unit_number}` : ""}
+                          {it.eq_code} — {it.name}{it.model_number ? ` (${it.model_number})` : ""}{it.unit_number ? ` No.${it.unit_number}` : ""}
                         </SelectItem>
                       ))}
                   </SelectContent>
