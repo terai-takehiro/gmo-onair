@@ -268,6 +268,20 @@ router.post('/items', async (req: Request, res: Response) => {
   }
   const eq_code = await generateEqCode(location_code, equipment_type_code);
 
+  // 親機材がある場合、設置場所は親から継承
+  let effectiveLocationId = location_id || null;
+  let effectiveLocationDetail = location_detail || null;
+  if (parent_id) {
+    const parentItem = await queryOne(
+      'SELECT location_id, location_detail FROM equipment_items WHERE id = $1 AND deleted_at IS NULL',
+      [parent_id]
+    ) as any;
+    if (parentItem) {
+      effectiveLocationId = parentItem.location_id;
+      effectiveLocationDetail = parentItem.location_detail;
+    }
+  }
+
   await execute(`
     INSERT INTO equipment_items (
       id, eq_code, name, unit_number, parent_id,
@@ -281,7 +295,7 @@ router.post('/items', async (req: Request, res: Response) => {
   `, [
     id, eq_code, name, unit_number || null, parent_id || null,
     manufacturer_id || null, model_number || null, serial_number || null, asset_class || 'fixed_asset',
-    status || 'active', condition || 'good', location_id || null, location_detail || null, notes || null,
+    status || 'active', condition || 'good', effectiveLocationId, effectiveLocationDetail, notes || null,
     branch_code || null, fixed_asset_code || null, depreciation_years ?? null,
     equipment_section || null, equipment_type_code || null, location_code || null,
     purchased_at || null, warranty_years ?? null,
@@ -319,6 +333,14 @@ router.put('/items/:id', async (req: Request, res: Response) => {
     purchased_at || null, warranty_years ?? null,
     (req as any).user?.id || null, req.params.id,
   ]);
+
+  // 子機材の設置場所を親に合わせて一括上書き
+  await execute(
+    `UPDATE equipment_items SET location_id=$1, location_detail=$2, updated_at=NOW(), updated_by=$3
+     WHERE parent_id=$4 AND deleted_at IS NULL`,
+    [location_id || null, location_detail || null, (req as any).user?.id || null, req.params.id]
+  );
+
   res.json({ success: true });
 });
 
