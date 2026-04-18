@@ -56,7 +56,15 @@ export function parseExcelBuffer(
   buffer: Buffer,
   columns: { key: string; header: string }[],
 ): { rows: Record<string, unknown>[]; warnings: string[] } {
-  const wb = XLSX.read(buffer, { type: 'buffer' });
+  const wb = XLSX.read(buffer, {
+    type: 'buffer',
+    cellFormula: false,
+    cellStyles: false,
+    cellHTML: false,
+    cellNF: false,
+    sheetStubs: false,
+    sheets: 0,
+  });
   const wsName = wb.SheetNames[0];
   if (!wsName) return { rows: [], warnings: ['シートが見つかりません'] };
   const ws = wb.Sheets[wsName];
