@@ -335,6 +335,7 @@ export default function EquipmentListPage() {
                 <SortableTh label="設置場所" sortKey="location_name" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <SortableTh label="購入年月" sortKey="purchased_at" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <SortableTh label="保証" sortKey="warranty_years" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
+                <SortableTh label="備考" sortKey="notes" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <th className="px-2 py-2 text-right font-medium whitespace-nowrap">操作</th>
               </tr>
             </thead>
@@ -366,6 +367,7 @@ export default function EquipmentListPage() {
                   <td className="px-2 py-1.5 text-xs whitespace-nowrap">{item.location_name || '-'}</td>
                   <td className="px-2 py-1.5 text-xs whitespace-nowrap">{item.purchased_at?.slice(0, 10) || '-'}</td>
                   <td className="px-2 py-1.5 text-xs text-right tabular-nums whitespace-nowrap">{item.warranty_years ? `${item.warranty_years}年` : '-'}</td>
+                  <td className="px-2 py-1.5 text-xs max-w-[12rem] truncate" title={item.notes || ''}>{item.notes || '-'}</td>
                   <td className="px-2 py-1.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                     <div className="flex gap-0.5 justify-end">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(item)}><Pencil className="h-3.5 w-3.5" /></Button>
