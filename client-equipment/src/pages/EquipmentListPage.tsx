@@ -75,6 +75,7 @@ export default function EquipmentListPage() {
   }, [currentUser]);
   const [search, setSearch] = useState("");
   const [filterBlock, setFilterBlock] = useState<string>("");
+  const [includeChildren, setIncludeChildren] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
@@ -96,11 +97,12 @@ export default function EquipmentListPage() {
   };
 
   const { data: itemsData, isLoading } = useQuery({
-    queryKey: ["equipment-items", search, filterBlock],
+    queryKey: ["equipment-items", search, filterBlock, includeChildren],
     queryFn: async () => {
       const params: Record<string, string> = {};
       if (search) params.search = search;
       if (filterBlock) params.equipment_type_code = filterBlock;
+      if (includeChildren) params.include_children = '1';
       return (await api.get("/equipment/items", { params })).data;
     },
   });
@@ -278,10 +280,21 @@ export default function EquipmentListPage() {
         ))}
       </div>
 
-      {/* 検索 */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input className="pl-9" placeholder="名前・ID・型番で検索..." value={search} onChange={(e) => setSearch(e.target.value)} />
+      {/* 検索 + 子機材表示切替 */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input className="pl-9" placeholder="名前・ID・型番で検索..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+        <label className="flex items-center gap-1.5 text-sm text-muted-foreground cursor-pointer whitespace-nowrap select-none">
+          <input
+            type="checkbox"
+            className="h-4 w-4"
+            checked={includeChildren}
+            onChange={(e) => setIncludeChildren(e.target.checked)}
+          />
+          子機材も表示
+        </label>
       </div>
 
       {/* 一括編集バー (管理者のみ表示、選択中にのみ浮上) */}

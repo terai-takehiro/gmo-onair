@@ -85,7 +85,7 @@ router.delete('/locations/:id', requirePermission('equipment', 'owner'), async (
 // 機材アイテム CRUD
 // ============================================================
 router.get('/items', async (req: Request, res: Response) => {
-  const { status, search, limit, offset, equipment_section, equipment_type_code } = req.query;
+  const { status, search, limit, offset, equipment_section, equipment_type_code, include_children } = req.query;
   let sql = `
     SELECT ei.*,
            em.name as manufacturer_name,
@@ -103,6 +103,7 @@ router.get('/items', async (req: Request, res: Response) => {
   const params: any[] = [];
   let paramIndex = 1;
 
+  if (include_children !== '1') { sql += ` AND ei.parent_id IS NULL`; }
   if (status) { sql += ` AND ei.status = $${paramIndex++}`; params.push(status); }
   if (equipment_section) { sql += ` AND ei.equipment_section = $${paramIndex++}`; params.push(equipment_section); }
   if (equipment_type_code) { sql += ` AND ei.equipment_type_code = $${paramIndex++}`; params.push(equipment_type_code); }
