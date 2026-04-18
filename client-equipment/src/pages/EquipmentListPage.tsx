@@ -113,9 +113,38 @@ export default function EquipmentListPage() {
     queryFn: async () => (await api.get("/equipment/manufacturers")).data.data,
   });
 
-  const items: any[] = itemsData?.data ?? [];
+  const rawItems: any[] = itemsData?.data ?? [];
   const locations: any[] = locationsData ?? [];
   const manufacturers: any[] = manufacturersData ?? [];
+
+  // カラムソート (リロードでリセット、null ならサーバー既定順)
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const onSort = (key: string) => {
+    if (sortKey !== key) { setSortKey(key); setSortDir('asc'); return; }
+    if (sortDir === 'asc') { setSortDir('desc'); return; }
+    setSortKey(null); // 3クリック目で既定に戻す
+  };
+  const items = useMemo(() => {
+    if (!sortKey) return rawItems;
+    const copy = [...rawItems];
+    copy.sort((a, b) => {
+      const av = a?.[sortKey];
+      const bv = b?.[sortKey];
+      const aNull = av == null || av === '';
+      const bNull = bv == null || bv === '';
+      if (aNull && bNull) return 0;
+      if (aNull) return 1;
+      if (bNull) return -1;
+      if (typeof av === 'number' && typeof bv === 'number') {
+        return sortDir === 'asc' ? av - bv : bv - av;
+      }
+      const as = String(av); const bs = String(bv);
+      const cmp = as.localeCompare(bs, 'ja');
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return copy;
+  }, [rawItems, sortKey, sortDir]);
 
   const saveMutation = useMutation({
     mutationFn: (payload: any) =>
@@ -283,20 +312,20 @@ export default function EquipmentListPage() {
                     />
                   </th>
                 )}
-                <th className="px-3 py-2 text-left font-medium">ID</th>
-                <th className="px-3 py-2 text-left font-medium">所管</th>
-                <th className="px-3 py-2 text-left font-medium">資産管理</th>
-                <th className="px-3 py-2 text-left font-medium">固定資産コード</th>
-                <th className="px-3 py-2 text-left font-medium">償却</th>
-                <th className="px-3 py-2 text-left font-medium">機材セクション</th>
-                <th className="px-3 py-2 text-left font-medium">商品名</th>
-                <th className="px-3 py-2 text-left font-medium">メーカー</th>
-                <th className="px-3 py-2 text-left font-medium">型名</th>
-                <th className="px-3 py-2 text-left font-medium">no</th>
-                <th className="px-3 py-2 text-left font-medium">serial</th>
-                <th className="px-3 py-2 text-left font-medium">設置場所</th>
-                <th className="px-3 py-2 text-left font-medium">購入年月</th>
-                <th className="px-3 py-2 text-left font-medium">保証</th>
+                <SortableTh label="ID" sortKey="eq_code" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
+                <SortableTh label="所管" sortKey="branch_code" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
+                <SortableTh label="資産管理" sortKey="asset_class" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
+                <SortableTh label="固定資産コード" sortKey="fixed_asset_code" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
+                <SortableTh label="償却" sortKey="depreciation_years" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
+                <SortableTh label="機材セクション" sortKey="equipment_type_code" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
+                <SortableTh label="商品名" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
+                <SortableTh label="メーカー" sortKey="manufacturer_name" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
+                <SortableTh label="型名" sortKey="model_number" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
+                <SortableTh label="no" sortKey="unit_number" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
+                <SortableTh label="serial" sortKey="serial_number" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
+                <SortableTh label="設置場所" sortKey="location_name" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
+                <SortableTh label="購入年月" sortKey="purchased_at" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
+                <SortableTh label="保証" sortKey="warranty_years" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <th className="px-3 py-2 text-right font-medium">操作</th>
               </tr>
             </thead>
@@ -572,5 +601,22 @@ export default function EquipmentListPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function SortableTh({ label, sortKey, currentKey, currentDir, onSort }: {
+  label: string; sortKey: string; currentKey: string | null; currentDir: 'asc' | 'desc'; onSort: (k: string) => void;
+}) {
+  const active = currentKey === sortKey;
+  const arrow = active ? (currentDir === 'asc' ? ' ▲' : ' ▼') : '';
+  return (
+    <th className="px-3 py-2 text-left font-medium select-none">
+      <button
+        className={`inline-flex items-center gap-0.5 hover:text-foreground transition-colors ${active ? 'text-foreground' : ''}`}
+        onClick={() => onSort(sortKey)}
+      >
+        {label}{arrow}
+      </button>
+    </th>
   );
 }
