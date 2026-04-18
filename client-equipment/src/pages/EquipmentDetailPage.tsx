@@ -124,10 +124,12 @@ export default function EquipmentDetailPage() {
     saveMutation.mutate({
       ...editForm,
       unit_number: editForm.unit_number ? Number(editForm.unit_number) : null,
-      depreciation_years: editForm.depreciation_years ? Number(editForm.depreciation_years) : 0,
-      warranty_years: editForm.warranty_years ? Number(editForm.warranty_years) : 0,
+      depreciation_years: editForm.depreciation_years ? Number(editForm.depreciation_years) : null,
+      warranty_years: editForm.warranty_years ? Number(editForm.warranty_years) : null,
       manufacturer_id: editForm.manufacturer_id || null,
       location_id: editForm.location_id || null,
+      purchased_at: editForm.purchased_at || null,
+      fixed_asset_code: editForm.fixed_asset_code || null,
     });
   };
 
