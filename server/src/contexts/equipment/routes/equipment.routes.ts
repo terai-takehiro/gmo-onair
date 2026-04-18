@@ -346,6 +346,35 @@ router.put('/items/:id', async (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
+// 部分更新 (親子付け替え等で全フィールド送らなくてよい)
+router.patch('/items/:id', async (req: Request, res: Response) => {
+  const PATCHABLE = new Set([
+    'name', 'unit_number', 'parent_id', 'manufacturer_id', 'model_number',
+    'serial_number', 'asset_class', 'status', 'condition', 'location_id', 'location_detail',
+    'notes', 'branch_code', 'fixed_asset_code', 'depreciation_years',
+    'equipment_section', 'equipment_type_code', 'location_code', 'purchased_at', 'warranty_years',
+  ]);
+  const setClauses: string[] = [];
+  const params: unknown[] = [];
+  let i = 1;
+  for (const [key, value] of Object.entries(req.body)) {
+    if (!PATCHABLE.has(key)) continue;
+    setClauses.push(`${key}=$${i++}`);
+    params.push(value === undefined ? null : value);
+  }
+  if (setClauses.length === 0) {
+    res.status(400).json({ success: false, error: { message: '更新フィールドがありません' } });
+    return;
+  }
+  setClauses.push(`updated_by=$${i++}`, 'updated_at=NOW()');
+  params.push((req as any).user?.id || null);
+  await execute(
+    `UPDATE equipment_items SET ${setClauses.join(', ')} WHERE id=$${i} AND deleted_at IS NULL`,
+    [...params, req.params.id]
+  );
+  res.json({ success: true });
+});
+
 router.delete('/items/:id', async (req: Request, res: Response) => {
   await execute("UPDATE equipment_items SET deleted_at=NOW(), updated_by=$1 WHERE id=$2",
     [(req as any).user?.id || null, req.params.id]);

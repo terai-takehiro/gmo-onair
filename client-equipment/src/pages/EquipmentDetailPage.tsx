@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  ArrowLeft, Copy, Loader2, Wrench, ArrowRightLeft, Package, QrCode, Printer, Link2, X, ChevronDown, Search, Pencil,
+  ArrowLeft, Copy, Loader2, Wrench, ArrowRightLeft, Package, QrCode, Printer, Link2, X, ChevronDown, Search, Pencil, Plus,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -132,7 +132,7 @@ export default function EquipmentDetailPage() {
   };
 
   const attachMutation = useMutation({
-    mutationFn: (childId: string) => api.put(`/equipment/items/${childId}`, { parent_id: id }),
+    mutationFn: (childId: string) => api.patch(`/equipment/items/${childId}`, { parent_id: id }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["equipment-item", id] });
       qc.invalidateQueries({ queryKey: ["equipment-items-all"] });
@@ -141,12 +141,53 @@ export default function EquipmentDetailPage() {
   });
 
   const detachMutation = useMutation({
-    mutationFn: (childId: string) => api.put(`/equipment/items/${childId}`, { parent_id: null }),
+    mutationFn: (childId: string) => api.patch(`/equipment/items/${childId}`, { parent_id: null }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["equipment-item", id] });
       qc.invalidateQueries({ queryKey: ["equipment-items-all"] });
     },
   });
+
+  const [newChildOpen, setNewChildOpen] = useState(false);
+  const [newChildForm, setNewChildForm] = useState<Record<string, string>>({});
+  const createChildMutation = useMutation({
+    mutationFn: (payload: any) => api.post('/equipment/items', payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["equipment-item", id] });
+      qc.invalidateQueries({ queryKey: ["equipment-items-all"] });
+      setNewChildOpen(false);
+    },
+  });
+  const openNewChild = () => {
+    if (!data) return;
+    setNewChildForm({
+      name: "", model_number: "", unit_number: "", serial_number: "",
+      branch_code: data.branch_code || "GMO-IG",
+      asset_class: data.asset_class || "fixed_asset",
+      fixed_asset_code: "",
+      depreciation_years: "0",
+      equipment_section: data.equipment_section || "equipment",
+      equipment_type_code: data.equipment_type_code || "V",
+      location_code: data.location_code || "Y",
+      manufacturer_id: data.manufacturer_id || "",
+      purchased_at: "", warranty_years: "0",
+      location_id: data.location_id || "",
+      status: "active", condition: "good", notes: "",
+    });
+    setNewChildOpen(true);
+  };
+  const handleCreateChild = () => {
+    if (!newChildForm.name) return;
+    createChildMutation.mutate({
+      ...newChildForm,
+      parent_id: id,
+      unit_number: newChildForm.unit_number ? Number(newChildForm.unit_number) : null,
+      depreciation_years: newChildForm.depreciation_years ? Number(newChildForm.depreciation_years) : 0,
+      warranty_years: newChildForm.warranty_years ? Number(newChildForm.warranty_years) : 0,
+      manufacturer_id: newChildForm.manufacturer_id || null,
+      location_id: newChildForm.location_id || null,
+    });
+  };
 
   if (isLoading) {
     return (
@@ -356,6 +397,94 @@ export default function EquipmentDetailPage() {
         </DialogContent>
       </Dialog>
 
+      {/* 新規子機材登録ダイアログ */}
+      <Dialog open={newChildOpen} onOpenChange={setNewChildOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>子機材を新規登録</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label>拠点 *</Label>
+                <Select value={newChildForm.location_code} onValueChange={(v) => setNewChildForm({ ...newChildForm, location_code: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{LOC_CODES.map((l) => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>種別コード *</Label>
+                <Select value={newChildForm.equipment_type_code} onValueChange={(v) => setNewChildForm({ ...newChildForm, equipment_type_code: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{TYPE_CODES.map((t) => <SelectItem key={t.code} value={t.code}>{t.code} - {t.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>設備/貸出 *</Label>
+                <Select value={newChildForm.equipment_section} onValueChange={(v) => setNewChildForm({ ...newChildForm, equipment_section: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{SECTIONS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1 sm:col-span-2">
+                <Label>商品名 *</Label>
+                <Input value={newChildForm.name} onChange={(e) => setNewChildForm({ ...newChildForm, name: e.target.value })} placeholder="ケーブル等" />
+              </div>
+              <div className="space-y-1">
+                <Label>メーカー</Label>
+                <Select value={newChildForm.manufacturer_id || "none"} onValueChange={(v) => setNewChildForm({ ...newChildForm, manufacturer_id: v === "none" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">なし</SelectItem>
+                    {manufacturers.map((m: any) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>型名</Label>
+                <Input value={newChildForm.model_number} onChange={(e) => setNewChildForm({ ...newChildForm, model_number: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label>No (個体番号)</Label>
+                <Input type="number" min="1" value={newChildForm.unit_number} onChange={(e) => setNewChildForm({ ...newChildForm, unit_number: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label>シリアル</Label>
+                <Input value={newChildForm.serial_number} onChange={(e) => setNewChildForm({ ...newChildForm, serial_number: e.target.value })} />
+              </div>
+            </div>
+            <div className="border-t pt-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label>所管</Label>
+                <Input value={newChildForm.branch_code} onChange={(e) => setNewChildForm({ ...newChildForm, branch_code: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label>資産管理</Label>
+                <Select value={newChildForm.asset_class} onValueChange={(v) => setNewChildForm({ ...newChildForm, asset_class: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{ASSET_CLASS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>購入年月</Label>
+                <Input type="date" value={newChildForm.purchased_at} onChange={(e) => setNewChildForm({ ...newChildForm, purchased_at: e.target.value })} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>備考</Label>
+              <Input value={newChildForm.notes} onChange={(e) => setNewChildForm({ ...newChildForm, notes: e.target.value })} />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setNewChildOpen(false)}>キャンセル</Button>
+              <Button onClick={handleCreateChild} disabled={createChildMutation.isPending || !newChildForm.name}>
+                {createChildMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                登録
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* 基本情報 */}
         <Card>
@@ -502,25 +631,31 @@ export default function EquipmentDetailPage() {
                 </div>
               )}
 
-              {/* 機材追加コンボボックス */}
-              <div className="flex gap-2 mt-3">
-                <SearchableSelect
-                  value={selectedChildId}
-                  onChange={setSelectedChildId}
-                  placeholder="機材を選択して追加..."
-                  items={allItems
-                    .filter((it: any) => it.id !== id && it.parent_id !== id && it.id !== item.parent_id)
-                    .map((it: any) => ({
-                      id: it.id,
-                      label: `${it.eq_code} — ${it.name}${it.model_number ? ` (${it.model_number})` : ""}${it.unit_number ? ` No.${it.unit_number}` : ""}`,
-                    }))}
-                />
-                <Button
-                  size="sm"
-                  disabled={!selectedChildId || attachMutation.isPending}
-                  onClick={() => attachMutation.mutate(selectedChildId)}
-                >
-                  追加
+              {/* 機材追加 */}
+              <div className="mt-3 space-y-2">
+                <p className="text-xs text-muted-foreground font-medium">既存の機材を紐付ける</p>
+                <div className="flex gap-2">
+                  <SearchableSelect
+                    value={selectedChildId}
+                    onChange={setSelectedChildId}
+                    placeholder="機材を検索して選択..."
+                    items={allItems
+                      .filter((it: any) => it.id !== id && it.parent_id == null && it.id !== item.parent_id)
+                      .map((it: any) => ({
+                        id: it.id,
+                        label: `${it.eq_code} — ${it.name}${it.model_number ? ` (${it.model_number})` : ""}${it.unit_number ? ` No.${it.unit_number}` : ""}`,
+                      }))}
+                  />
+                  <Button
+                    size="sm"
+                    disabled={!selectedChildId || attachMutation.isPending}
+                    onClick={() => attachMutation.mutate(selectedChildId)}
+                  >
+                    紐付け
+                  </Button>
+                </div>
+                <Button size="sm" variant="outline" className="w-full" onClick={openNewChild}>
+                  <Plus className="h-3.5 w-3.5 mr-1" />新規子機材を登録
                 </Button>
               </div>
             </div>
