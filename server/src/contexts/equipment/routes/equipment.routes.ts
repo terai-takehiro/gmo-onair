@@ -557,11 +557,14 @@ router.get('/inventory-checks/:id', async (req: Request, res: Response) => {
   if (!check) return res.status(404).json({ success: false, error: { message: '棚卸しが見つかりません' } });
 
   const items = await queryAll(`
-    SELECT ici.*, ei.name as equipment_name, ei.eq_code, ei.location_detail
+    SELECT ici.*, ei.name as equipment_name, ei.eq_code, ei.unit_number,
+           ei.location_detail, el.name as location_name,
+           COALESCE(el.sort_order, 9999) as location_sort
     FROM inventory_check_items ici
     JOIN equipment_items ei ON ei.id = ici.equipment_id
+    LEFT JOIN equipment_locations el ON el.id = ei.location_id AND el.deleted_at IS NULL
     WHERE ici.check_id = $1
-    ORDER BY ei.name
+    ORDER BY location_sort, el.name NULLS LAST, ei.location_detail NULLS LAST, ei.name, ei.unit_number
   `, [req.params.id]);
 
   res.json({ success: true, data: { ...(check as any), items } });

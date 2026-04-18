@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -9,10 +9,25 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, Plus, ClipboardCheck, Check, X, HelpCircle } from "lucide-react";
+import { Loader2, Plus, ClipboardCheck, Check, X, HelpCircle, Save, Undo2, MapPin } from "lucide-react";
 
 const statusLabels: Record<string, string> = {
   draft: "下書き", in_progress: "実施中", completed: "完了",
+};
+
+type CheckItem = {
+  id: string;
+  equipment_id: string;
+  eq_code: string;
+  equipment_name: string;
+  unit_number: number | null;
+  expected_location: string | null;
+  actual_location: string | null;
+  location_name: string | null;
+  location_detail: string | null;
+  found: number;
+  condition: string | null;
+  note: string | null;
 };
 
 export default function InventoryPage() {
@@ -20,6 +35,7 @@ export default function InventoryPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedCheck, setSelectedCheck] = useState<string | null>(null);
   const [form, setForm] = useState({ title: "", check_date: new Date().toISOString().split("T")[0], notes: "" });
+  const [locationFilter, setLocationFilter] = useState<string>("");
 
   const { data: checksData, isLoading } = useQuery({
     queryKey: ["inventory-checks"],
@@ -56,15 +72,41 @@ export default function InventoryPage() {
     },
   });
 
+  const items: CheckItem[] = checkDetail?.items || [];
+
+  // 保管場所でグルーピング (表示用の location key)
+  const locKey = (i: CheckItem) => i.location_name || i.location_detail || "(場所未設定)";
+  const groupedItems = useMemo(() => {
+    const filtered = locationFilter ? items.filter((i) => locKey(i) === locationFilter) : items;
+    const map = new Map<string, CheckItem[]>();
+    for (const i of filtered) {
+      const k = locKey(i);
+      if (!map.has(k)) map.set(k, []);
+      map.get(k)!.push(i);
+    }
+    return Array.from(map.entries());
+  }, [items, locationFilter]);
+
+  const locations = useMemo(() => Array.from(new Set(items.map(locKey))), [items]);
+
   if (selectedCheck && checkDetail) {
     const detail = checkDetail;
-    const items: any[] = detail.items || [];
-    const checked = items.filter((i: any) => i.found > 0).length;
+    const isCompleted = detail.status === "completed";
+    const isDraft = detail.status === "draft";
+    const checked = items.filter((i) => i.found > 0).length;
     const total = items.length;
+
+    const mark = (item: CheckItem, found: number) => {
+      if (isCompleted) return; // 完了後は編集不可
+      updateItemMutation.mutate({
+        checkId: detail.id, itemId: item.id, found,
+        actual_location: item.actual_location, condition: item.condition, note: item.note,
+      });
+    };
 
     return (
       <div className="space-y-4 p-4 lg:p-6">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <Button variant="ghost" size="sm" onClick={() => setSelectedCheck(null)} className="mb-1">
               ← 一覧に戻る
@@ -74,53 +116,107 @@ export default function InventoryPage() {
               {detail.check_date} / {statusLabels[detail.status]} / {checked}/{total} 確認済
             </p>
           </div>
-          {detail.status !== "completed" && (
-            <div className="flex gap-2">
-              {detail.status === "draft" && (
-                <Button size="sm" onClick={() => updateStatusMutation.mutate({ id: detail.id, status: "in_progress" })}>
-                  開始
-                </Button>
-              )}
-              {detail.status === "in_progress" && (
-                <Button size="sm" onClick={() => updateStatusMutation.mutate({ id: detail.id, status: "completed" })}>
-                  完了
-                </Button>
-              )}
-            </div>
-          )}
+          <div className="flex flex-wrap gap-2">
+            {/* 一時保存: 自動保存されているので実質「戻る」 */}
+            {!isCompleted && (
+              <Button size="sm" variant="outline" onClick={() => setSelectedCheck(null)}>
+                <Save className="h-4 w-4 mr-1" />一時保存
+              </Button>
+            )}
+            {isDraft && (
+              <Button size="sm" onClick={() => updateStatusMutation.mutate({ id: detail.id, status: "in_progress" })}>
+                開始
+              </Button>
+            )}
+            {detail.status === "in_progress" && (
+              <Button size="sm" onClick={() => updateStatusMutation.mutate({ id: detail.id, status: "completed" })}>
+                完了
+              </Button>
+            )}
+            {isCompleted && (
+              <Button size="sm" variant="outline" onClick={() => updateStatusMutation.mutate({ id: detail.id, status: "in_progress" })}>
+                <Undo2 className="h-4 w-4 mr-1" />差し戻し
+              </Button>
+            )}
+          </div>
         </div>
 
-        <div className="space-y-1">
-          {items.map((item: any) => (
-            <div key={item.id} className="flex items-center gap-3 rounded-lg border p-3">
-              <div className="flex gap-1">
+        {/* 保管場所フィルター */}
+        {locations.length > 1 && (
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={() => setLocationFilter("")}
+              className={`px-3 py-1 rounded-full text-xs font-medium ${locationFilter === "" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
+            >
+              全て ({items.length})
+            </button>
+            {locations.map((loc) => {
+              const count = items.filter((i) => locKey(i) === loc).length;
+              return (
                 <button
-                  className={`h-8 w-8 rounded flex items-center justify-center text-sm transition-colors ${item.found === 1 ? "bg-green-500 text-white" : "bg-muted hover:bg-green-100"}`}
-                  onClick={() => updateItemMutation.mutate({ checkId: detail.id, itemId: item.id, found: 1, actual_location: item.actual_location, condition: item.condition, note: item.note })}
+                  key={loc}
+                  onClick={() => setLocationFilter(loc)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium ${locationFilter === loc ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
                 >
-                  <Check className="h-4 w-4" />
+                  {loc} ({count})
                 </button>
-                <button
-                  className={`h-8 w-8 rounded flex items-center justify-center text-sm transition-colors ${item.found === 2 ? "bg-red-500 text-white" : "bg-muted hover:bg-red-100"}`}
-                  onClick={() => updateItemMutation.mutate({ checkId: detail.id, itemId: item.id, found: 2, actual_location: item.actual_location, condition: item.condition, note: item.note })}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs text-primary">{item.eq_code}</span>
-                  <span className="text-sm font-medium truncate">{item.equipment_name}</span>
+              );
+            })}
+          </div>
+        )}
+
+        {/* 保管場所ごとにグルーピング */}
+        <div className="space-y-4">
+          {groupedItems.map(([loc, group]) => {
+            const locChecked = group.filter((i) => i.found > 0).length;
+            return (
+              <div key={loc} className="space-y-1">
+                <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground border-b pb-1">
+                  <MapPin className="h-4 w-4" />
+                  <span>{loc}</span>
+                  <span className="text-xs font-normal">{locChecked}/{group.length}</span>
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  想定: {item.expected_location || "未設定"}
-                </div>
+                {group.map((item) => (
+                  <div key={item.id} className={`flex items-center gap-3 rounded-lg border p-3 ${isCompleted ? "opacity-70" : ""}`}>
+                    <div className="flex gap-1">
+                      <button
+                        disabled={isCompleted}
+                        className={`h-8 w-8 rounded flex items-center justify-center text-sm transition-colors ${
+                          item.found === 1 ? "bg-green-500 text-white" : "bg-muted hover:bg-green-100 disabled:hover:bg-muted"
+                        } disabled:cursor-not-allowed`}
+                        onClick={() => mark(item, 1)}
+                      >
+                        <Check className="h-4 w-4" />
+                      </button>
+                      <button
+                        disabled={isCompleted}
+                        className={`h-8 w-8 rounded flex items-center justify-center text-sm transition-colors ${
+                          item.found === 2 ? "bg-red-500 text-white" : "bg-muted hover:bg-red-100 disabled:hover:bg-muted"
+                        } disabled:cursor-not-allowed`}
+                        onClick={() => mark(item, 2)}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs text-primary">{item.eq_code}</span>
+                        <span className="text-sm font-medium truncate">
+                          {item.equipment_name}{item.unit_number ? ` No.${item.unit_number}` : ""}
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        想定: {item.expected_location || "未設定"}
+                      </div>
+                    </div>
+                    {item.found === 0 && (
+                      <HelpCircle className="h-4 w-4 text-muted-foreground/50 shrink-0" />
+                    )}
+                  </div>
+                ))}
               </div>
-              {item.found === 0 && (
-                <HelpCircle className="h-4 w-4 text-muted-foreground/50 shrink-0" />
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
