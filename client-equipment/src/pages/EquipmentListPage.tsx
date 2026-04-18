@@ -91,6 +91,7 @@ export default function EquipmentListPage() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkField, setBulkField] = useState<BulkField>('branch_code');
   const [bulkValue, setBulkValue] = useState<string>('');
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const downloadExcel = async () => {
     const res = await api.get('/equipment/items/export-xlsx', { responseType: 'blob' });
@@ -160,6 +161,11 @@ export default function EquipmentListPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["equipment-items"] });
       setDialogOpen(false);
+      setSaveError(null);
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.error?.message || err?.message || 'サーバー内部エラーが発生しました';
+      setSaveError(msg);
     },
   });
 
@@ -215,8 +221,8 @@ export default function EquipmentListPage() {
     bulkUpdateMutation.mutate({ ids, fields: { [bulkField]: v } });
   };
 
-  const openNew = () => { setForm({ ...defaultForm }); setEditingId(null); setDialogOpen(true); };
-  const openEdit = (item: any) => {
+  const openNew = () => { setForm({ ...defaultForm }); setEditingId(null); setSaveError(null); setDialogOpen(true); };
+  const openEdit = (item: any) => { setSaveError(null);
     setForm({
       name: item.name || "", model_number: item.model_number || "",
       unit_number: item.unit_number?.toString() || "", serial_number: item.serial_number || "",
@@ -535,6 +541,9 @@ export default function EquipmentListPage() {
               <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </div>
 
+            {saveError && (
+              <p className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">{saveError}</p>
+            )}
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>キャンセル</Button>
               <Button onClick={handleSubmit} disabled={saveMutation.isPending || !form.name}>

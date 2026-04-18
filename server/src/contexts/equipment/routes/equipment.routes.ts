@@ -15,12 +15,22 @@ router.use(requireAuth, requirePermission('equipment'));
 async function generateEqCode(locationCode: string, typeCode: string): Promise<string> {
   if (!locationCode || !typeCode) throw new Error('拠点コードと種別コードは必須です');
   const prefix = `${locationCode}-${typeCode}`;
-  await execute(
-    `INSERT INTO equipment_id_sequences (prefix, counter) VALUES ($1, 1)
-     ON CONFLICT (prefix) DO UPDATE SET counter = equipment_id_sequences.counter + 1`,
-    [prefix],
-  );
-  const seq = await queryOne('SELECT counter FROM equipment_id_sequences WHERE prefix = $1', [prefix]) as any;
+  const startPos = prefix.length + 2; // e.g. "Y-A-000006" → SUBSTRING from position 5
+  // GREATEST ensures the counter never goes below the actual max in equipment_items,
+  // which prevents collisions when the sequence table gets out of sync with real data.
+  const seq = await queryOne(`
+    INSERT INTO equipment_id_sequences (prefix, counter)
+    SELECT $1,
+      COALESCE((SELECT MAX(CAST(SUBSTRING(eq_code, $2) AS INTEGER))
+                FROM equipment_items WHERE eq_code LIKE $3), 0) + 1
+    ON CONFLICT (prefix) DO UPDATE
+      SET counter = GREATEST(
+        equipment_id_sequences.counter + 1,
+        (SELECT COALESCE(MAX(CAST(SUBSTRING(eq_code, $2) AS INTEGER)), 0)
+         FROM equipment_items WHERE eq_code LIKE $3) + 1
+      )
+    RETURNING counter
+  `, [prefix, startPos, `${prefix}-%`]) as any;
   return `${prefix}-${String(seq?.counter || 1).padStart(6, '0')}`;
 }
 
@@ -311,44 +321,49 @@ router.post('/items', async (req: Request, res: Response, next: NextFunction) =>
   }
 });
 
-router.put('/items/:id', async (req: Request, res: Response) => {
-  const {
-    name, unit_number, parent_id,
-    manufacturer_id, model_number, serial_number, asset_class,
-    status, condition, location_id, location_detail, notes,
-    branch_code, fixed_asset_code, depreciation_years,
-    equipment_section, equipment_type_code, location_code,
-    purchased_at, warranty_years,
-  } = req.body;
+router.put('/items/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const {
+      name, unit_number, parent_id,
+      manufacturer_id, model_number, serial_number, asset_class,
+      status, condition, location_id, location_detail, notes,
+      branch_code, fixed_asset_code, depreciation_years,
+      equipment_section, equipment_type_code, location_code,
+      purchased_at, warranty_years,
+    } = req.body;
 
-  await execute(`
-    UPDATE equipment_items SET
-      name=$1, unit_number=$2, parent_id=$3,
-      manufacturer_id=$4, model_number=$5, serial_number=$6, asset_class=$7,
-      status=$8, condition=$9, location_id=$10, location_detail=$11, notes=$12,
-      branch_code=$13, fixed_asset_code=$14, depreciation_years=$15,
-      equipment_section=$16, equipment_type_code=$17, location_code=$18,
-      purchased_at=$19, warranty_years=$20,
-      updated_by=$21, updated_at=NOW()
-    WHERE id=$22 AND deleted_at IS NULL
-  `, [
-    name, unit_number || null, parent_id !== undefined ? (parent_id || null) : null,
-    manufacturer_id || null, model_number || null, serial_number || null, asset_class || 'fixed_asset',
-    status || 'active', condition || 'good', location_id || null, location_detail || null, notes || null,
-    branch_code || null, fixed_asset_code || null, depreciation_years ?? null,
-    equipment_section || null, equipment_type_code || null, location_code || null,
-    purchased_at || null, warranty_years ?? null,
-    (req as any).user?.id || null, req.params.id,
-  ]);
+    await execute(`
+      UPDATE equipment_items SET
+        name=$1, unit_number=$2, parent_id=$3,
+        manufacturer_id=$4, model_number=$5, serial_number=$6, asset_class=$7,
+        status=$8, condition=$9, location_id=$10, location_detail=$11, notes=$12,
+        branch_code=$13, fixed_asset_code=$14, depreciation_years=$15,
+        equipment_section=$16, equipment_type_code=$17, location_code=$18,
+        purchased_at=$19, warranty_years=$20,
+        updated_by=$21, updated_at=NOW()
+      WHERE id=$22 AND deleted_at IS NULL
+    `, [
+      name, unit_number || null, parent_id !== undefined ? (parent_id || null) : null,
+      manufacturer_id || null, model_number || null, serial_number || null, asset_class || 'fixed_asset',
+      status || 'active', condition || 'good', location_id || null, location_detail || null, notes || null,
+      branch_code || null, fixed_asset_code || null, depreciation_years ?? null,
+      equipment_section || null, equipment_type_code || null, location_code || null,
+      purchased_at || null, warranty_years ?? null,
+      (req as any).user?.id || null, req.params.id,
+    ]);
 
-  // 子機材の設置場所を親に合わせて一括上書き
-  await execute(
-    `UPDATE equipment_items SET location_id=$1, location_detail=$2, updated_at=NOW(), updated_by=$3
-     WHERE parent_id=$4 AND deleted_at IS NULL`,
-    [location_id || null, location_detail || null, (req as any).user?.id || null, req.params.id]
-  );
+    // 子機材の設置場所を親に合わせて一括上書き
+    await execute(
+      `UPDATE equipment_items SET location_id=$1, location_detail=$2, updated_at=NOW(), updated_by=$3
+       WHERE parent_id=$4 AND deleted_at IS NULL`,
+      [location_id || null, location_detail || null, (req as any).user?.id || null, req.params.id]
+    );
 
-  res.json({ success: true });
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error('[PUT /items/:id]', err?.message, err?.detail);
+    next(err);
+  }
 });
 
 // 部分更新 (親子付け替え等で全フィールド送らなくてよい)
