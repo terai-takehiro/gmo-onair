@@ -212,7 +212,13 @@ router.post('/items/import', requirePermission('equipment', 'editor'), upload.si
   const mode = (req.query.mode as string) || 'dry_run';
   const duplicateMode = (req.query.duplicate as string) || 'skip';
 
-  const { rows, warnings } = parseExcelBuffer(req.file.buffer, ITEM_COLUMNS);
+  let rows: Record<string, unknown>[];
+  let warnings: string[];
+  try {
+    ({ rows, warnings } = parseExcelBuffer(req.file.buffer, ITEM_COLUMNS));
+  } catch (e: any) {
+    throw new AppError(400, 'PARSE_ERROR', `Excelの読み込みに失敗しました: ${e?.message || e}`);
+  }
 
   // マスタ事前ロード
   const manufacturers = await queryAll('SELECT id, name FROM equipment_manufacturers WHERE deleted_at IS NULL') as { id: string; name: string }[];
@@ -380,9 +386,10 @@ router.post('/items/import', requirePermission('equipment', 'editor'), upload.si
 
     await client.query('COMMIT');
     res.json({ success: true, data: { mode: 'commit', summary, inserted, updated, warnings } });
-  } catch (err) {
+  } catch (err: any) {
     await client.query('ROLLBACK');
-    throw err;
+    const msg = err?.message || String(err);
+    throw new AppError(500, 'DB_ERROR', `インポート中にエラーが発生しました: ${msg}`);
   } finally {
     client.release();
   }

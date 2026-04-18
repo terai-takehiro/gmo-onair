@@ -61,16 +61,25 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
     URL.revokeObjectURL(url);
   };
 
+  const extractErrorMsg = (e: unknown): string => {
+    const ae = e as any;
+    return ae?.response?.data?.error?.message || ae?.message || String(e);
+  };
+
   const validateMutation = useMutation<DryRunResult, Error, void>({
     mutationFn: async () => {
       if (!file) throw new Error('ファイルが選択されていません');
       const fd = new FormData();
       fd.append('file', file);
-      const res = await api.post('/equipment/items/import?mode=dry_run', fd, {
-        params: { mode: 'dry_run', duplicate: duplicateMode },
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      return res.data.data;
+      try {
+        const res = await api.post('/equipment/items/import?mode=dry_run', fd, {
+          params: { mode: 'dry_run', duplicate: duplicateMode },
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return res.data.data;
+      } catch (e: unknown) {
+        throw new Error(extractErrorMsg(e));
+      }
     },
     onSuccess: (data) => { setDryRun(data); setCommitted(null); },
   });
@@ -80,11 +89,15 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
       if (!file) throw new Error('ファイルが選択されていません');
       const fd = new FormData();
       fd.append('file', file);
-      const res = await api.post('/equipment/items/import', fd, {
-        params: { mode: 'commit', duplicate: duplicateMode },
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      return res.data.data;
+      try {
+        const res = await api.post('/equipment/items/import', fd, {
+          params: { mode: 'commit', duplicate: duplicateMode },
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return res.data.data;
+      } catch (e: unknown) {
+        throw new Error(extractErrorMsg(e));
+      }
     },
     onSuccess: (data) => {
       setCommitted(data);
@@ -225,6 +238,13 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
                     </tbody>
                   </table>
                 </div>
+
+                {commitMutation.error && (
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-4 w-4" />
+                    {(commitMutation.error as Error).message}
+                  </p>
+                )}
 
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={reset}>キャンセル</Button>
