@@ -165,7 +165,7 @@ export default function EquipmentDetailPage() {
           <CardContent className="space-y-2 text-sm">
             {item.branch_code && <InfoRow label="所管" value={item.branch_code} />}
             <InfoRow label="資産管理" value={ASSET_CLASS_LABELS[item.asset_class] || item.asset_class} />
-            <InfoRow label="機材セクション" value={sectionLabel(item.equipment_type_code, item.equipment_section)} />
+            <InfoRow label="設備/貸出" value={sectionLabel(item.equipment_type_code, item.equipment_section)} />
             <InfoRow label="メーカー" value={item.manufacturer_name || item.manufacturer} />
             <InfoRow label="機材名 (型番)" value={item.model_number} />
             <InfoRow label="シリアルNo" value={item.serial_number} />
@@ -181,7 +181,7 @@ export default function EquipmentDetailPage() {
             <CardTitle className="text-base">資産情報</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <InfoRow label="固定資産コード" value={item.fixed_asset_code || '(消耗品)'} />
+            <InfoRow label="資産コード" value={item.fixed_asset_code || '(消耗品)'} />
             <InfoRow label="償却年数" value={item.depreciation_years != null ? `${item.depreciation_years}年` : null} />
             <InfoRow label="購入年月" value={item.purchased_at?.slice(0, 10)} />
             <InfoRow label="保証期間" value={item.warranty_years ? `${item.warranty_years}年` : null} />

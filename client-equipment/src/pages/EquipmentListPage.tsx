@@ -315,9 +315,9 @@ export default function EquipmentListPage() {
                 <SortableTh label="ID" sortKey="eq_code" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <SortableTh label="所管" sortKey="branch_code" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <SortableTh label="資産管理" sortKey="asset_class" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
-                <SortableTh label="固定資産コード" sortKey="fixed_asset_code" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
+                <SortableTh label="資産コード" sortKey="fixed_asset_code" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <SortableTh label="償却" sortKey="depreciation_years" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
-                <SortableTh label="機材セクション" sortKey="equipment_type_code" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
+                <SortableTh label="設備/貸出" sortKey="equipment_type_code" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <SortableTh label="商品名" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <SortableTh label="メーカー" sortKey="manufacturer_name" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <SortableTh label="型名" sortKey="model_number" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
@@ -393,7 +393,7 @@ export default function EquipmentListPage() {
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label>セクション *</Label>
+                <Label>設備/貸出 *</Label>
                 <Select value={form.equipment_section} onValueChange={(v) => setForm({ ...form, equipment_section: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -449,7 +449,7 @@ export default function EquipmentListPage() {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label>固定資産コード</Label>
+                  <Label>資産コード</Label>
                   <Input value={form.fixed_asset_code} onChange={(e) => setForm({ ...form, fixed_asset_code: e.target.value })} placeholder="消耗品は空欄" />
                 </div>
                 <div className="space-y-1">
@@ -527,7 +527,7 @@ export default function EquipmentListPage() {
                 <SelectContent>
                   <SelectItem value="branch_code">所管</SelectItem>
                   <SelectItem value="asset_class">資産管理</SelectItem>
-                  <SelectItem value="equipment_section">セクション (設備/貸出)</SelectItem>
+                  <SelectItem value="equipment_section">設備/貸出</SelectItem>
                   <SelectItem value="equipment_type_code">種別コード</SelectItem>
                   <SelectItem value="location_id">設置場所</SelectItem>
                   <SelectItem value="purchased_at">購入年月</SelectItem>
