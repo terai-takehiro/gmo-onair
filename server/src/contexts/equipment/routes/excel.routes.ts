@@ -222,12 +222,17 @@ router.post('/items/import', requirePermission('equipment', 'editor'), upload.si
 
   // マスタ事前ロード
   let manufacturers: { id: string; name: string }[];
+  let existingItems: { id: string; eq_code: string }[];
   try {
-    manufacturers = await queryAll('SELECT id, name FROM equipment_manufacturers WHERE deleted_at IS NULL') as { id: string; name: string }[];
+    [manufacturers, existingItems] = await Promise.all([
+      queryAll('SELECT id, name FROM equipment_manufacturers WHERE deleted_at IS NULL') as Promise<{ id: string; name: string }[]>,
+      queryAll('SELECT id, eq_code FROM equipment_items WHERE deleted_at IS NULL') as Promise<{ id: string; eq_code: string }[]>,
+    ]);
   } catch (e: any) {
-    throw new AppError(500, 'DB_ERROR', `メーカーマスタ読み込みエラー: ${e?.message || e}`);
+    throw new AppError(500, 'DB_ERROR', `マスタ読み込みエラー: ${e?.message || e}`);
   }
   const mfgMap = new Map(manufacturers.map((m) => [m.name, m.id]));
+  const eqCodeMap = new Map(existingItems.map((r) => [r.eq_code, r.id]));
 
   type VRow = { rowNumber: number; data: Record<string, unknown>; errors: string[]; action: 'insert'|'update'|'skip'; existingId?: string };
   const validated: VRow[] = [];
@@ -255,19 +260,14 @@ router.post('/items/import', requirePermission('equipment', 'editor'), upload.si
       manufacturerId = mfgMap.get(mfgName) || null;
     }
 
-    // 機材ID チェック
+    // 機材ID チェック (事前ロード済みMapで照合)
     const eqCode = String(r.eq_code ?? '').trim();
     let existingId: string | undefined;
     let action: 'insert'|'update'|'skip' = 'insert';
     if (eqCode) {
-      let existing: any;
-      try {
-        existing = await queryOne('SELECT id FROM equipment_items WHERE eq_code = $1 AND deleted_at IS NULL', [eqCode]) as any;
-      } catch (e: any) {
-        throw new AppError(500, 'DB_ERROR', `機材ID検索エラー (行${rowNumber}): ${e?.message || e}`);
-      }
-      if (existing) {
-        existingId = existing.id;
+      const existingItemId = eqCodeMap.get(eqCode);
+      if (existingItemId) {
+        existingId = existingItemId;
         if (duplicateMode === 'error') errors.push(`機材ID "${eqCode}" は既に存在します`);
         else if (duplicateMode === 'update') action = 'update';
         else action = 'skip';
