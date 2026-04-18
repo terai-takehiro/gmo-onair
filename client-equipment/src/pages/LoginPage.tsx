@@ -22,7 +22,7 @@ export default function LoginPage() {
     queryKey: ["auth-mode"],
     queryFn: async () => {
       const res = await api.get("/auth/mode");
-      return res.data.data as { mode: "oauth" | "mock"; googleClientId: string | null };
+      return res.data.data as { mode: "oauth" | "mock" | "password"; googleClientId: string | null };
     },
   });
 
