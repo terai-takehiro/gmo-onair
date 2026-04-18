@@ -286,7 +286,7 @@ export default function EquipmentListPage() {
 
       {/* 一括編集バー (管理者のみ表示、選択中にのみ浮上) */}
       {canBulkEdit && selectedIds.size > 0 && (
-        <div className="sticky top-0 z-10 bg-primary text-primary-foreground rounded-lg px-4 py-2 flex items-center justify-between shadow-md">
+        <div className="sticky top-0 z-20 bg-primary text-primary-foreground rounded-lg px-4 py-2 flex items-center justify-between shadow-md">
           <span className="text-sm font-medium">{selectedIds.size} 件選択中</span>
           <div className="flex gap-2">
             <Button size="sm" variant="secondary" onClick={() => setBulkOpen(true)}>
@@ -308,7 +308,7 @@ export default function EquipmentListPage() {
       ) : (
         <div className="overflow-x-auto border rounded-lg">
           <table className="text-sm" style={{ tableLayout: 'auto' }}>
-            <thead className="bg-muted text-muted-foreground">
+            <thead className="bg-muted text-muted-foreground sticky top-0 z-10">
               <tr>
                 {canBulkEdit && (
                   <th className="px-2 py-2 w-8">
