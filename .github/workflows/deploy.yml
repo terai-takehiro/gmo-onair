@@ -35,13 +35,19 @@ jobs:
             # dev worktree を最新に更新
             cd /root/gmo-onair-dev
             git fetch origin dev
-            git pull origin dev
+            git reset --hard origin/dev
             # app_dev のみ再ビルド＆再起動 (本番には触れない)
             cd /root/gmo-onair
+            git fetch origin main
+            git reset --hard origin/main
             docker compose build app_dev
             docker compose stop app_dev || true
             docker compose rm -f app_dev || true
             docker compose up -d app_dev
+            # nginx を再作成 (volume マウント変更を反映)
+            docker compose stop nginx || true
+            docker compose rm -f nginx || true
+            docker compose up -d nginx
             echo "✓ Dev deploy complete: $(date) — $(cd /root/gmo-onair-dev && git log --oneline -1)"
 
   # ============================================
@@ -62,7 +68,8 @@ jobs:
           script: |
             set -e
             cd /root/gmo-onair
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
             # app_prod のみ再ビルド＆再起動 (検証には触れない)
             docker compose build app_prod
             docker compose stop app_prod || true
