@@ -61,7 +61,7 @@ const defaultForm = {
   parent_id: "",
 };
 
-type BulkField = 'branch_code' | 'asset_class' | 'equipment_section' | 'equipment_type_code' | 'location_id' | 'purchased_at' | 'warranty_years' | 'depreciation_years' | 'status' | 'notes';
+type BulkField = 'branch_code' | 'asset_class' | 'equipment_section' | 'equipment_type_code' | 'location_id' | 'purchased_at' | 'warranty_years' | 'depreciation_years' | 'status' | 'notes' | 'name' | 'manufacturer_id' | 'model_number';
 
 export default function EquipmentListPage() {
   const navigate = useNavigate();
@@ -80,6 +80,7 @@ export default function EquipmentListPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [form, setForm] = useState({ ...defaultForm });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkField, setBulkField] = useState<BulkField>('branch_code');
   const [bulkValue, setBulkValue] = useState<string>('');
@@ -170,18 +171,30 @@ export default function EquipmentListPage() {
     },
   });
 
-  const toggleSelect = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
+  const handleCheckboxClick = (id: string, index: number, shiftKey: boolean) => {
+    if (shiftKey && lastSelectedIndex !== null) {
+      const start = Math.min(lastSelectedIndex, index);
+      const end = Math.max(lastSelectedIndex, index);
+      const rangeIds = items.slice(start, end + 1).map((it: any) => it.id);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        rangeIds.forEach((rid: string) => next.add(rid));
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id); else next.add(id);
+        return next;
+      });
+      setLastSelectedIndex(index);
+    }
   };
   const toggleSelectAll = () => {
     if (selectedIds.size === items.length && items.length > 0) setSelectedIds(new Set());
     else setSelectedIds(new Set(items.map((it: any) => it.id)));
   };
-  const clearSelection = () => setSelectedIds(new Set());
+  const clearSelection = () => { setSelectedIds(new Set()); setLastSelectedIndex(null); };
 
   const submitBulk = () => {
     const ids = Array.from(selectedIds);
@@ -190,7 +203,7 @@ export default function EquipmentListPage() {
     if (bulkField === 'warranty_years' || bulkField === 'depreciation_years') {
       v = bulkValue === '' ? null : Number(bulkValue);
     }
-    if (bulkField === 'location_id' && bulkValue === 'none') v = null;
+    if ((bulkField === 'location_id' || bulkField === 'manufacturer_id') && bulkValue === 'none') v = null;
     bulkUpdateMutation.mutate({ ids, fields: { [bulkField]: v } });
   };
 
@@ -326,15 +339,16 @@ export default function EquipmentListPage() {
               </tr>
             </thead>
             <tbody>
-              {items.map((item: any) => (
+              {items.map((item: any, idx: number) => (
                 <tr key={item.id} className={`border-t hover:bg-muted/50 cursor-pointer ${selectedIds.has(item.id) ? 'bg-primary/5' : ''}`} onClick={() => navigate(`/equipment/items/${item.id}`)}>
                   {canBulkEdit && (
                     <td className="px-2 py-2 w-8" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
-                        className="h-4 w-4"
+                        className="h-4 w-4 cursor-pointer"
                         checked={selectedIds.has(item.id)}
-                        onChange={() => toggleSelect(item.id)}
+                        onChange={() => {}}
+                        onClick={(e) => handleCheckboxClick(item.id, idx, e.shiftKey)}
                       />
                     </td>
                   )}
@@ -521,6 +535,9 @@ export default function EquipmentListPage() {
               <Select value={bulkField} onValueChange={(v) => { setBulkField(v as BulkField); setBulkValue(''); }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="name">商品名</SelectItem>
+                  <SelectItem value="manufacturer_id">メーカー</SelectItem>
+                  <SelectItem value="model_number">型名</SelectItem>
                   <SelectItem value="branch_code">所管</SelectItem>
                   <SelectItem value="asset_class">資産管理</SelectItem>
                   <SelectItem value="equipment_section">設備/貸出</SelectItem>
@@ -537,7 +554,17 @@ export default function EquipmentListPage() {
 
             <div className="space-y-1">
               <Label>新しい値</Label>
-              {bulkField === 'asset_class' ? (
+              {bulkField === 'name' || bulkField === 'model_number' ? (
+                <Input value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} placeholder={bulkField === 'name' ? '商品名' : '型名'} />
+              ) : bulkField === 'manufacturer_id' ? (
+                <Select value={bulkValue} onValueChange={setBulkValue}>
+                  <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">(なし)</SelectItem>
+                    {manufacturers.map((m: any) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              ) : bulkField === 'asset_class' ? (
                 <Select value={bulkValue} onValueChange={setBulkValue}>
                   <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
                   <SelectContent>{ASSET_CLASS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>

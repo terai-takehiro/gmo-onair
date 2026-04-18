@@ -117,7 +117,7 @@ router.get('/items', async (req: Request, res: Response) => {
   const countSql = sql.replace(/SELECT ei\.\*.*?WHERE ei\.deleted_at IS NULL/s, 'SELECT COUNT(*) as total FROM equipment_items ei WHERE ei.deleted_at IS NULL');
   const countRow = await queryOne(countSql, params) as any;
 
-  // 並び順: 機材ブロック(種別) → 設置場所 → 商品名 → no
+  // 並び順: 機材ブロック(種別) → 設置場所 → 商品名 → 型名 → no
   sql += `
     ORDER BY
       CASE ei.equipment_type_code
@@ -126,7 +126,7 @@ router.get('/items', async (req: Request, res: Response) => {
         ELSE 99
       END,
       COALESCE(el.sort_order, 9999), COALESCE(el.name, ei.location_detail, ''),
-      ei.name, ei.unit_number
+      ei.name, COALESCE(ei.model_number, ''), ei.unit_number
   `;
   if (limit) { sql += ` LIMIT $${paramIndex++}`; params.push(Number(limit)); }
   if (offset) { sql += ` OFFSET $${paramIndex++}`; params.push(Number(offset)); }
