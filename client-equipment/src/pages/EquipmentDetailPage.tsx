@@ -6,9 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  ArrowLeft, Copy, Loader2, Wrench, ArrowRightLeft, Package, QrCode, Printer, Link2, X,
+  ArrowLeft, Copy, Loader2, Wrench, ArrowRightLeft, Package, QrCode, Printer, Link2, X, ChevronDown, Search,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const statusLabels: Record<string, string> = {
@@ -298,21 +298,17 @@ export default function EquipmentDetailPage() {
 
               {/* 機材追加コンボボックス */}
               <div className="flex gap-2 mt-3">
-                <Select value={selectedChildId || "none"} onValueChange={(v) => setSelectedChildId(v === "none" ? "" : v)}>
-                  <SelectTrigger className="flex-1 text-sm">
-                    <SelectValue placeholder="機材を選択して追加..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">— 機材を選択 —</SelectItem>
-                    {allItems
-                      .filter((it: any) => it.id !== id && it.parent_id !== id && it.id !== item.parent_id)
-                      .map((it: any) => (
-                        <SelectItem key={it.id} value={it.id}>
-                          {it.eq_code} — {it.name}{it.model_number ? ` (${it.model_number})` : ""}{it.unit_number ? ` No.${it.unit_number}` : ""}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={selectedChildId}
+                  onChange={setSelectedChildId}
+                  placeholder="機材を選択して追加..."
+                  items={allItems
+                    .filter((it: any) => it.id !== id && it.parent_id !== id && it.id !== item.parent_id)
+                    .map((it: any) => ({
+                      id: it.id,
+                      label: `${it.eq_code} — ${it.name}${it.model_number ? ` (${it.model_number})` : ""}${it.unit_number ? ` No.${it.unit_number}` : ""}`,
+                    }))}
+                />
                 <Button
                   size="sm"
                   disabled={!selectedChildId || attachMutation.isPending}
@@ -351,6 +347,83 @@ function InfoRow({ label, value }: { label: string; value: string | null | undef
     <div className="flex justify-between">
       <span className="text-muted-foreground">{label}</span>
       <span className="font-medium text-right">{value}</span>
+    </div>
+  );
+}
+
+function SearchableSelect({ value, onChange, items, placeholder }: {
+  value: string;
+  onChange: (v: string) => void;
+  items: { id: string; label: string }[];
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setSearch("");
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const selected = items.find((it) => it.id === value);
+  const filtered = search
+    ? items.filter((it) => it.label.toLowerCase().includes(search.toLowerCase()))
+    : items;
+
+  return (
+    <div ref={ref} className="relative flex-1">
+      <button
+        type="button"
+        className="w-full flex items-center justify-between px-3 py-2 text-sm border rounded-md bg-background hover:bg-muted/50 transition-colors"
+        onClick={() => {
+          setOpen((o) => !o);
+          if (!open) setTimeout(() => inputRef.current?.focus(), 50);
+        }}
+      >
+        <span className={selected ? "truncate" : "text-muted-foreground truncate"}>
+          {selected ? selected.label : (placeholder || "選択...")}
+        </span>
+        <ChevronDown className="h-4 w-4 opacity-50 shrink-0 ml-1" />
+      </button>
+      {open && (
+        <div className="absolute top-full mt-1 left-0 right-0 z-50 bg-popover border rounded-md shadow-lg">
+          <div className="flex items-center gap-1.5 px-2 py-1.5 border-b">
+            <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <input
+              ref={inputRef}
+              type="text"
+              className="flex-1 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
+              placeholder="名前・型番・IDで検索..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="max-h-52 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <div className="px-3 py-2 text-sm text-muted-foreground">見つかりません</div>
+            ) : (
+              filtered.map((it) => (
+                <button
+                  key={it.id}
+                  type="button"
+                  className={`w-full text-left px-3 py-1.5 text-sm hover:bg-muted transition-colors truncate block ${value === it.id ? "bg-primary/10 font-medium" : ""}`}
+                  onClick={() => { onChange(it.id); setOpen(false); setSearch(""); }}
+                >
+                  {it.label}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
