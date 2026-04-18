@@ -22,8 +22,9 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
   }
 
   console.error('Unhandled error:', _req.method, _req.path, err.message, err.stack?.split('\n')[1]);
+  const isProd = process.env.NODE_ENV === 'production';
   res.status(500).json({
     success: false,
-    error: { code: 'INTERNAL_ERROR', message: 'サーバー内部エラーが発生しました' },
+    error: { code: 'INTERNAL_ERROR', message: isProd ? 'サーバー内部エラーが発生しました' : `[DEV] ${err.message}` },
   });
 }
