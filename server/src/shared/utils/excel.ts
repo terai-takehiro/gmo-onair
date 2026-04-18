@@ -67,7 +67,16 @@ export function parseExcelBuffer(
   const wsName = wb.SheetNames[0];
   if (!wsName) return { rows: [], warnings: ['シートが見つかりません'] };
   const ws = wb.Sheets[wsName];
-  const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }) as unknown[][];
+  // used rangeを実データ範囲に制限（Ctrl+End誤操作等で巨大rangeになるのを防ぐ）
+  const rawRef = ws['!ref'];
+  let limitedRange: XLSX.Range | undefined;
+  if (rawRef) {
+    const r = XLSX.utils.decode_range(rawRef);
+    r.e.r = Math.min(r.e.r, 9999);  // 最大10000行
+    r.e.c = Math.min(r.e.c, 49);    // 最大50列
+    limitedRange = r;
+  }
+  const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', range: limitedRange }) as unknown[][];
   if (data.length < 2) return { rows: [], warnings: ['データ行がありません'] };
 
   const headerRow = (data[0] || []).map((h) => String(h ?? '').trim());
