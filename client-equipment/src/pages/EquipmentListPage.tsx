@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -65,6 +65,7 @@ type BulkField = 'branch_code' | 'asset_class' | 'equipment_section' | 'equipmen
 
 export default function EquipmentListPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const qc = useQueryClient();
   const { currentUser } = useAuth();
   const canBulkEdit = useMemo(() => {
@@ -73,15 +74,38 @@ export default function EquipmentListPage() {
     const lvl = currentUser.permissions?.equipment;
     return lvl === 'manager' || lvl === 'owner';
   }, [currentUser]);
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [filterBlock, setFilterBlock] = useState<string>("");
-  const [includeChildren, setIncludeChildren] = useState(false);
 
+  // タブ・ソート・検索は URL params で管理（詳細ページから戻ったとき状態を維持するため）
+  const filterBlock = searchParams.get('tab') ?? '';
+  const sortKey: string | null = searchParams.get('sort') || null;
+  const sortDir: 'asc' | 'desc' = (searchParams.get('dir') as 'asc' | 'desc') || 'asc';
+  const includeChildren = searchParams.get('children') === '1';
+  const urlSearch = searchParams.get('q') ?? '';
+
+  // 検索入力はローカルで持ち、400ms デバウンス後に URL に反映
+  const [search, setSearch] = useState(urlSearch);
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search), 400);
+    const t = setTimeout(() => {
+      setSearchParams(p => {
+        const n = new URLSearchParams(p);
+        if (search) n.set('q', search); else n.delete('q');
+        return n;
+      }, { replace: true });
+    }, 400);
     return () => clearTimeout(t);
   }, [search]);
+
+  const setFilterBlock = (val: string) => setSearchParams(p => {
+    const n = new URLSearchParams(p);
+    if (val) n.set('tab', val); else n.delete('tab');
+    return n;
+  }, { replace: true });
+
+  const setIncludeChildren = (val: boolean) => setSearchParams(p => {
+    const n = new URLSearchParams(p);
+    if (val) n.set('children', '1'); else n.delete('children');
+    return n;
+  }, { replace: true });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
@@ -104,10 +128,10 @@ export default function EquipmentListPage() {
   };
 
   const { data: itemsData, isLoading } = useQuery({
-    queryKey: ["equipment-items", debouncedSearch, filterBlock, includeChildren],
+    queryKey: ["equipment-items", urlSearch, filterBlock, includeChildren],
     queryFn: async () => {
       const params: Record<string, string> = {};
-      if (debouncedSearch) params.search = debouncedSearch;
+      if (urlSearch) params.search = urlSearch;
       if (filterBlock) params.equipment_type_code = filterBlock;
       if (includeChildren) params.include_children = '1';
       return (await api.get("/equipment/items", { params })).data;
@@ -126,13 +150,15 @@ export default function EquipmentListPage() {
   const locations: any[] = locationsData ?? [];
   const manufacturers: any[] = manufacturersData ?? [];
 
-  // カラムソート (リロードでリセット、null ならサーバー既定順)
-  const [sortKey, setSortKey] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  // カラムソート — URL params で管理（詳細→戻るでリセットされない）
   const onSort = (key: string) => {
-    if (sortKey !== key) { setSortKey(key); setSortDir('asc'); return; }
-    if (sortDir === 'asc') { setSortDir('desc'); return; }
-    setSortKey(null); // 3クリック目で既定に戻す
+    setSearchParams(p => {
+      const n = new URLSearchParams(p);
+      if (sortKey !== key) { n.set('sort', key); n.set('dir', 'asc'); }
+      else if (sortDir === 'asc') { n.set('dir', 'desc'); }
+      else { n.delete('sort'); n.delete('dir'); } // 3クリック目で既定に戻す
+      return n;
+    }, { replace: true });
   };
   const items = useMemo(() => {
     if (!sortKey) return rawItems;
