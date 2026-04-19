@@ -43,6 +43,14 @@ const ASSET_CLASS_OPTIONS = [
 ];
 const SECTIONS = [{ value: "equipment", label: "設備" }, { value: "rental", label: "貸出" }];
 const LOC_CODES = [{ value: "Y", label: "用賀" }, { value: "S", label: "渋谷" }];
+const RACK_SLOT_OPTIONS = [
+  { value: "full",      label: "全幅" },
+  { value: "left-1_2",  label: "左1/2" },
+  { value: "right-1_2", label: "右1/2" },
+  { value: "left-1_3",  label: "左1/3" },
+  { value: "mid-1_3",   label: "中央1/3" },
+  { value: "right-1_3", label: "右1/3" },
+];
 const STATUS_OPTIONS = [
   { value: "active", label: "稼働中" }, { value: "in_repair", label: "修理中" },
   { value: "retired", label: "引退" }, { value: "disposed", label: "廃棄" }, { value: "lost", label: "紛失" },
@@ -90,9 +98,14 @@ export default function EquipmentDetailPage() {
     queryKey: ["equipment-manufacturers"],
     queryFn: async () => (await api.get("/equipment/manufacturers")).data.data,
   });
+  const { data: colorsData } = useQuery({
+    queryKey: ["equipment-colors"],
+    queryFn: async () => (await api.get("/equipment/colors")).data.data,
+  });
   const allItems: any[] = allItemsData ?? [];
   const locations: any[] = locationsData ?? [];
   const manufacturers: any[] = manufacturersData ?? [];
+  const colors: any[] = colorsData ?? [];
 
   const [saveError, setSaveError] = useState<string | null>(null);
   const saveMutation = useMutation({
@@ -124,12 +137,18 @@ export default function EquipmentDetailPage() {
       warranty_years: data.warranty_years?.toString() || "0",
       location_id: data.location_id || "",
       status: data.status || "active", condition: data.condition || "good", notes: data.notes || "",
+      color_id: data.color_id || "",
+      rack_position: data.rack_position?.toString() || "",
+      rack_height: data.rack_height?.toString() || "1",
+      rack_slot: data.rack_slot || "full",
+      rack_side: data.rack_side || "front",
     });
     setEditOpen(true);
   };
 
   const handleEditSubmit = () => {
     if (!editForm.name) return;
+    const selLoc = locations.find((l: any) => l.id === editForm.location_id);
     const payload: Record<string, unknown> = {
       ...editForm,
       unit_number: editForm.unit_number ? Number(editForm.unit_number) : null,
@@ -139,6 +158,11 @@ export default function EquipmentDetailPage() {
       location_id: editForm.location_id || null,
       purchased_at: editForm.purchased_at || null,
       fixed_asset_code: editForm.fixed_asset_code || null,
+      color_id: editForm.color_id || null,
+      rack_position: selLoc?.is_rack && editForm.rack_position ? Number(editForm.rack_position) : null,
+      rack_height: selLoc?.is_rack ? (Number(editForm.rack_height) || 1) : 1,
+      rack_slot: selLoc?.is_rack ? (editForm.rack_slot || 'full') : 'full',
+      rack_side: selLoc?.is_rack ? (editForm.rack_side || 'front') : 'front',
     };
     if (!isAdmin) delete payload.eq_code;
     saveMutation.mutate(payload);
@@ -413,6 +437,74 @@ export default function EquipmentDetailPage() {
                 </div>
               </div>
             </div>
+            {/* 色選択 */}
+            <div className="border-t pt-4">
+              <p className="text-sm font-semibold mb-3">機材色</p>
+              <Select value={editForm.color_id || "none"} onValueChange={(v) => setEditForm({ ...editForm, color_id: v === "none" ? "" : v })}>
+                <SelectTrigger><SelectValue placeholder="なし（種別色）" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">なし（種別色）</SelectItem>
+                  {colors.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      <span className="flex items-center gap-2">
+                        <span className="inline-block w-3 h-3 rounded-full border border-border/40" style={{ background: c.color_hex }} />
+                        {c.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* ラック実装フィールド */}
+            {(() => {
+              const selLoc = locations.find((l: any) => l.id === editForm.location_id);
+              if (!selLoc?.is_rack) return null;
+              return (
+                <div className="border-t pt-4">
+                  <p className="text-sm font-semibold mb-3">ラック実装</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="space-y-1">
+                      <Label>U位置 (下端)</Label>
+                      <Input
+                        type="number" min={1} max={selLoc.rack_units || 99}
+                        value={editForm.rack_position || ""}
+                        onChange={(e) => setEditForm({ ...editForm, rack_position: e.target.value })}
+                        placeholder="1〜"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>高さ (U)</Label>
+                      <Input
+                        type="number" min={1}
+                        value={editForm.rack_height || "1"}
+                        onChange={(e) => setEditForm({ ...editForm, rack_height: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>横位置</Label>
+                      <Select value={editForm.rack_slot || "full"} onValueChange={(v) => setEditForm({ ...editForm, rack_slot: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {RACK_SLOT_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label>面</Label>
+                      <Select value={editForm.rack_side || "front"} onValueChange={(v) => setEditForm({ ...editForm, rack_side: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="front">前面</SelectItem>
+                          <SelectItem value="back">背面</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="space-y-1">
               <Label>備考</Label>
               <Input value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />

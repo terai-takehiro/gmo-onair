@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { getAccessibleApps } from "@gmo-onair/shared/src/client/appNav";
 import {
   BarChart3, Package, ClipboardList, Wrench, ClipboardCheck,
-  QrCode, MapPin, Building2,
+  QrCode, MapPin, Building2, Palette, Server,
   Home, FileText, Sparkles, Briefcase,
   X, ChevronLeft,
 } from "lucide-react";
@@ -21,8 +21,10 @@ const navItems = [
   { label: "メンテナンス", path: "/equipment/maintenance", icon: Wrench },
   { label: "棚卸し", path: "/equipment/inventory", icon: ClipboardCheck },
   { label: "QRスキャン", path: "/equipment/scan", icon: QrCode },
+  { label: "ラック実装", path: "/equipment/racks", icon: Server },
   { label: "保管場所管理", path: "/equipment/locations", icon: MapPin },
   { label: "メーカー管理", path: "/equipment/manufacturers", icon: Building2 },
+  { label: "機材色", path: "/equipment/colors", icon: Palette },
 ];
 
 export default function Sidebar() {

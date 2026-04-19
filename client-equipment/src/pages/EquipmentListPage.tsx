@@ -52,6 +52,15 @@ const sectionDisplay = (typeCode: string | null, section: string | null) => {
   return `${t}${s}`.trim() || "-";
 };
 
+const RACK_SLOT_OPTIONS = [
+  { value: "full",      label: "全幅" },
+  { value: "left-1_2",  label: "左1/2" },
+  { value: "right-1_2", label: "右1/2" },
+  { value: "left-1_3",  label: "左1/3" },
+  { value: "mid-1_3",   label: "中央1/3" },
+  { value: "right-1_3", label: "右1/3" },
+];
+
 const defaultForm = {
   name: "", model_number: "", unit_number: "", serial_number: "",
   branch_code: "GMO-IG", asset_class: "fixed_asset", fixed_asset_code: "", depreciation_years: "",
@@ -59,6 +68,8 @@ const defaultForm = {
   manufacturer_id: "", purchased_at: "", warranty_years: "",
   location_id: "", status: "active", condition: "good", notes: "",
   parent_id: "",
+  color_id: "",
+  rack_position: "", rack_height: "1", rack_slot: "full", rack_side: "front",
 };
 
 type BulkField = 'branch_code' | 'asset_class' | 'equipment_section' | 'equipment_type_code' | 'location_id' | 'purchased_at' | 'warranty_years' | 'depreciation_years' | 'status' | 'notes' | 'name' | 'manufacturer_id' | 'model_number';
@@ -183,6 +194,7 @@ export default function EquipmentListPage() {
     'location_code', 'equipment_type_code', 'equipment_section',
     'branch_code', 'location_id', 'manufacturer_id', 'asset_class',
     'purchased_at', 'warranty_years', 'depreciation_years',
+    'rack_side', 'color_id',
   ] as const;
 
   const downloadExcel = async () => {
@@ -213,10 +225,15 @@ export default function EquipmentListPage() {
     queryKey: ["equipment-manufacturers"],
     queryFn: async () => (await api.get("/equipment/manufacturers")).data.data,
   });
+  const { data: colorsData } = useQuery({
+    queryKey: ["equipment-colors"],
+    queryFn: async () => (await api.get("/equipment/colors")).data.data,
+  });
 
   const rawItems: any[] = itemsData?.data ?? [];
   const locations: any[] = locationsData ?? [];
   const manufacturers: any[] = manufacturersData ?? [];
+  const colors: any[] = colorsData ?? [];
 
   // カラムソート — URL params で管理（詳細→戻るでリセットされない）
   const onSort = (key: string) => {
@@ -343,6 +360,11 @@ export default function EquipmentListPage() {
       location_id: item.location_id || "", status: item.status || "active",
       condition: item.condition || "good", notes: item.notes || "",
       parent_id: item.parent_id || "",
+      color_id: item.color_id || "",
+      rack_position: item.rack_position?.toString() || "",
+      rack_height: item.rack_height?.toString() || "1",
+      rack_slot: item.rack_slot || "full",
+      rack_side: item.rack_side || "front",
     });
     setEditingId(item.id);
     setDialogOpen(true);
@@ -350,6 +372,7 @@ export default function EquipmentListPage() {
 
   const handleSubmit = () => {
     if (!form.name) return;
+    const selectedLocation = locations.find((l: any) => l.id === form.location_id);
     saveMutation.mutate({
       ...form,
       unit_number: form.unit_number ? Number(form.unit_number) : null,
@@ -358,6 +381,11 @@ export default function EquipmentListPage() {
       manufacturer_id: form.manufacturer_id || null,
       location_id: form.location_id || null,
       parent_id: form.parent_id || null,
+      color_id: form.color_id || null,
+      rack_position: selectedLocation?.is_rack && form.rack_position ? Number(form.rack_position) : null,
+      rack_height: selectedLocation?.is_rack ? (Number(form.rack_height) || 1) : 1,
+      rack_slot: selectedLocation?.is_rack ? (form.rack_slot || 'full') : 'full',
+      rack_side: selectedLocation?.is_rack ? (form.rack_side || 'front') : 'front',
     });
   };
 
@@ -716,6 +744,82 @@ export default function EquipmentListPage() {
                 </div>
               </div>
             </div>
+
+            {/* 色選択 (常に表示) */}
+            <div className="border-t pt-4">
+              <p className="text-sm font-semibold mb-3">機材色</p>
+              <div className="space-y-1">
+                <Label>色</Label>
+                <Select value={form.color_id || "none"} onValueChange={(v) => setForm({ ...form, color_id: v === "none" ? "" : v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="なし（種別色）" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">なし（種別色）</SelectItem>
+                    {colors.map((c: any) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        <span className="flex items-center gap-2">
+                          <span className="inline-block w-3 h-3 rounded-full border border-border/40" style={{ background: c.color_hex }} />
+                          {c.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* ラック実装フィールド（is_rack場所選択時のみ） */}
+            {(() => {
+              const selLoc = locations.find((l: any) => l.id === form.location_id);
+              if (!selLoc?.is_rack) return null;
+              return (
+                <div className="border-t pt-4">
+                  <p className="text-sm font-semibold mb-3">ラック実装</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="space-y-1">
+                      <Label>U位置 (下端)</Label>
+                      <Input
+                        type="number" min={1} max={selLoc.rack_units || 99}
+                        value={form.rack_position}
+                        onChange={(e) => setForm({ ...form, rack_position: e.target.value })}
+                        placeholder="1〜"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>高さ (U)</Label>
+                      <Input
+                        type="number" min={1}
+                        value={form.rack_height}
+                        onChange={(e) => setForm({ ...form, rack_height: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>横位置</Label>
+                      <Select value={form.rack_slot} onValueChange={(v) => setForm({ ...form, rack_slot: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {RACK_SLOT_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label>面</Label>
+                      <Select value={form.rack_side} onValueChange={(v) => setForm({ ...form, rack_side: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="front">前面</SelectItem>
+                          <SelectItem value="back">背面</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  {form.rack_position && selLoc.rack_units && (Number(form.rack_position) + Number(form.rack_height) - 1 > selLoc.rack_units) && (
+                    <p className="text-xs text-destructive mt-2">⚠ U位置 + 高さがラック総U数({selLoc.rack_units}U)を超えています</p>
+                  )}
+                </div>
+              );
+            })()}
 
             <div className="border-t pt-4">
               <div className="space-y-1">

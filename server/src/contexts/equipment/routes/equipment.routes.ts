@@ -71,20 +71,26 @@ router.get('/locations', async (_req: Request, res: Response) => {
 });
 
 router.post('/locations', requirePermission('equipment', 'owner'), async (req: Request, res: Response) => {
-  const { name, description, building, floor, area, sort_order } = req.body;
+  const { name, description, building, floor, area, sort_order, is_rack, rack_units, rack_sort_order } = req.body;
   const id = uuid();
   await execute(
-    "INSERT INTO equipment_locations (id, name, description, building, floor, area, sort_order) VALUES ($1,$2,$3,$4,$5,$6,$7)",
-    [id, name, description || null, building || null, floor || null, area || null, sort_order || 0]
+    `INSERT INTO equipment_locations (id, name, description, building, floor, area, sort_order, is_rack, rack_units, rack_sort_order)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+    [id, name, description || null, building || null, floor || null, area || null, sort_order || 0,
+     is_rack ?? false, is_rack ? (rack_units || null) : null, rack_sort_order || 0]
   );
   res.status(201).json({ success: true, data: { id } });
 });
 
 router.put('/locations/:id', requirePermission('equipment', 'owner'), async (req: Request, res: Response) => {
-  const { name, description, building, floor, area, sort_order } = req.body;
+  const { name, description, building, floor, area, sort_order, is_rack, rack_units, rack_sort_order } = req.body;
   await execute(
-    "UPDATE equipment_locations SET name=$1, description=$2, building=$3, floor=$4, area=$5, sort_order=$6, updated_at=NOW() WHERE id=$7",
-    [name, description || null, building || null, floor || null, area || null, sort_order || 0, req.params.id]
+    `UPDATE equipment_locations
+     SET name=$1, description=$2, building=$3, floor=$4, area=$5, sort_order=$6,
+         is_rack=$7, rack_units=$8, rack_sort_order=$9, updated_at=NOW()
+     WHERE id=$10`,
+    [name, description || null, building || null, floor || null, area || null, sort_order || 0,
+     is_rack ?? false, is_rack ? (rack_units || null) : null, rack_sort_order || 0, req.params.id]
   );
   res.json({ success: true });
 });
@@ -103,7 +109,9 @@ router.get('/items', async (req: Request, res: Response) => {
     SELECT ei.*,
            em.name as manufacturer_name,
            el.name as location_name,
+           el.is_rack as location_is_rack, el.rack_units as location_rack_units,
            p.eq_code as parent_eq_code, p.name as parent_name,
+           ec.color_hex, ec.name as color_name,
            CASE WHEN ei.purchased_at IS NOT NULL AND ei.warranty_years > 0
                 THEN (ei.purchased_at + (ei.warranty_years || ' years')::interval)::date
                 ELSE NULL END as warranty_end,
@@ -112,6 +120,7 @@ router.get('/items', async (req: Request, res: Response) => {
     LEFT JOIN equipment_manufacturers em ON em.id = ei.manufacturer_id
     LEFT JOIN equipment_locations el ON el.id = ei.location_id AND el.deleted_at IS NULL
     LEFT JOIN equipment_items p ON p.id = ei.parent_id AND p.deleted_at IS NULL
+    LEFT JOIN equipment_colors ec ON ec.id = ei.color_id AND ec.deleted_at IS NULL
     WHERE ei.deleted_at IS NULL
   `;
   const params: any[] = [];
@@ -201,6 +210,7 @@ router.put('/items/bulk-update', requirePermission('equipment', 'manager'), asyn
     'equipment_section', 'equipment_type_code', 'location_code',
     'location_id', 'purchased_at', 'warranty_years',
     'status', 'condition', 'notes', 'parent_id',
+    'rack_position', 'rack_height', 'rack_slot', 'rack_side', 'color_id',
   ]);
 
   const setClauses: string[] = [];
@@ -233,12 +243,15 @@ router.get('/items/:id', async (req: Request, res: Response) => {
     SELECT ei.*,
            em.name as manufacturer_name,
            el.name as location_name,
+           el.is_rack as location_is_rack, el.rack_units as location_rack_units,
+           ec.color_hex, ec.name as color_name,
            CASE WHEN ei.purchased_at IS NOT NULL AND ei.warranty_years > 0
                 THEN (ei.purchased_at + (ei.warranty_years || ' years')::interval)::date
                 ELSE NULL END as warranty_end
     FROM equipment_items ei
     LEFT JOIN equipment_manufacturers em ON em.id = ei.manufacturer_id
     LEFT JOIN equipment_locations el ON el.id = ei.location_id AND el.deleted_at IS NULL
+    LEFT JOIN equipment_colors ec ON ec.id = ei.color_id AND ec.deleted_at IS NULL
     WHERE ei.id = $1 AND ei.deleted_at IS NULL
   `, [req.params.id]);
 
@@ -282,6 +295,7 @@ router.post('/items', async (req: Request, res: Response, next: NextFunction) =>
       branch_code, fixed_asset_code, depreciation_years,
       equipment_section, equipment_type_code, location_code,
       purchased_at, warranty_years,
+      rack_position, rack_height, rack_slot, rack_side, color_id,
     } = req.body;
 
     if (!location_code || !equipment_type_code) {
@@ -312,8 +326,9 @@ router.post('/items', async (req: Request, res: Response, next: NextFunction) =>
         branch_code, fixed_asset_code, depreciation_years,
         equipment_section, equipment_type_code, location_code,
         purchased_at, warranty_years,
+        rack_position, rack_height, rack_slot, rack_side, color_id,
         created_by, updated_by
-      ) VALUES ($1,$2,$3,$4,$5, $6,$7,$8,$9, $10,$11,$12,$13,$14, $15,$16,$17, $18,$19,$20, $21,$22, $23,$24)
+      ) VALUES ($1,$2,$3,$4,$5, $6,$7,$8,$9, $10,$11,$12,$13,$14, $15,$16,$17, $18,$19,$20, $21,$22, $23,$24,$25,$26,$27, $28,$29)
     `, [
       id, eq_code, name, unit_number || null, parent_id || null,
       manufacturer_id || null, model_number || null, serial_number || null, asset_class || 'fixed_asset',
@@ -321,6 +336,7 @@ router.post('/items', async (req: Request, res: Response, next: NextFunction) =>
       branch_code || null, fixed_asset_code || null, depreciation_years || null,
       equipment_section || null, equipment_type_code || null, location_code || null,
       purchased_at || null, warranty_years || null,
+      rack_position || null, rack_height || 1, rack_slot || 'full', rack_side || 'front', color_id || null,
       (req as any).user?.id || null, (req as any).user?.id || null,
     ]);
     res.status(201).json({ success: true, data: { id, eq_code } });
@@ -339,6 +355,7 @@ router.put('/items/:id', async (req: Request, res: Response, next: NextFunction)
       branch_code, fixed_asset_code, depreciation_years,
       equipment_section, equipment_type_code, location_code,
       purchased_at, warranty_years,
+      rack_position, rack_height, rack_slot, rack_side, color_id,
     } = req.body;
 
     await execute(`
@@ -349,8 +366,9 @@ router.put('/items/:id', async (req: Request, res: Response, next: NextFunction)
         branch_code=$13, fixed_asset_code=$14, depreciation_years=$15,
         equipment_section=$16, equipment_type_code=$17, location_code=$18,
         purchased_at=$19, warranty_years=$20,
-        updated_by=$21, updated_at=NOW()
-      WHERE id=$22 AND deleted_at IS NULL
+        rack_position=$21, rack_height=$22, rack_slot=$23, rack_side=$24, color_id=$25,
+        updated_by=$26, updated_at=NOW()
+      WHERE id=$27 AND deleted_at IS NULL
     `, [
       name, unit_number || null, parent_id !== undefined ? (parent_id || null) : null,
       manufacturer_id || null, model_number || null, serial_number || null, asset_class || 'fixed_asset',
@@ -358,6 +376,7 @@ router.put('/items/:id', async (req: Request, res: Response, next: NextFunction)
       branch_code || null, fixed_asset_code || null, depreciation_years ?? null,
       equipment_section || null, equipment_type_code || null, location_code || null,
       purchased_at || null, warranty_years ?? null,
+      rack_position || null, rack_height || 1, rack_slot || 'full', rack_side || 'front', color_id || null,
       (req as any).user?.id || null, req.params.id,
     ]);
 
@@ -388,6 +407,7 @@ router.patch('/items/:id', async (req: Request, res: Response, next: NextFunctio
       'serial_number', 'asset_class', 'status', 'condition', 'location_id', 'location_detail',
       'notes', 'branch_code', 'fixed_asset_code', 'depreciation_years',
       'equipment_section', 'equipment_type_code', 'location_code', 'purchased_at', 'warranty_years',
+      'rack_position', 'rack_height', 'rack_slot', 'rack_side', 'color_id',
     ]);
     const setClauses: string[] = [];
     const params: unknown[] = [];
@@ -638,6 +658,36 @@ router.put('/inventory-checks/:id/status', async (req: Request, res: Response) =
   const { status } = req.body;
   await execute("UPDATE inventory_checks SET status=$1, updated_at=NOW() WHERE id=$2", [status, req.params.id]);
   res.json({ success: true });
+});
+
+// ============================================================
+// ラック実装ビュー
+// ============================================================
+router.get('/racks', async (_req: Request, res: Response) => {
+  const racks = await queryAll(`
+    SELECT id, name, rack_units, rack_sort_order, location_code, building, floor, area
+    FROM equipment_locations
+    WHERE is_rack = true AND deleted_at IS NULL
+    ORDER BY rack_sort_order, name
+  `) as any[];
+
+  const result = [];
+  for (const rack of racks) {
+    const items = await queryAll(`
+      SELECT ei.id, ei.eq_code, ei.name, ei.model_number, ei.unit_number,
+             ei.equipment_type_code, ei.rack_position, ei.rack_height,
+             ei.rack_slot, ei.rack_side, ei.color_id,
+             ec.color_hex, ec.name as color_name
+      FROM equipment_items ei
+      LEFT JOIN equipment_colors ec ON ec.id = ei.color_id AND ec.deleted_at IS NULL
+      WHERE ei.location_id = $1
+        AND ei.rack_position IS NOT NULL
+        AND ei.deleted_at IS NULL
+      ORDER BY ei.rack_position
+    `, [rack.id]);
+    result.push({ location: rack, items });
+  }
+  res.json({ success: true, data: result });
 });
 
 // ============================================================

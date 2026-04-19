@@ -11,6 +11,8 @@ import InventoryPage from "@/pages/InventoryPage";
 import ScanPage from "@/pages/ScanPage";
 import LocationPage from "@/pages/LocationPage";
 import ManufacturerPage from "@/pages/ManufacturerPage";
+import ColorPage from "@/pages/ColorPage";
+import RackLayoutPage from "@/pages/RackLayoutPage";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -49,6 +51,8 @@ export default function App() {
         <Route path="/equipment/scan" element={<ScanPage />} />
         <Route path="/equipment/locations" element={<LocationPage />} />
         <Route path="/equipment/manufacturers" element={<ManufacturerPage />} />
+        <Route path="/equipment/colors" element={<ColorPage />} />
+        <Route path="/equipment/racks" element={<RackLayoutPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/equipment" replace />} />
     </Routes>

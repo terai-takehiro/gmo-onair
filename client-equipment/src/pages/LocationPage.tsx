@@ -8,15 +8,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, Plus, MapPin, Pencil, Trash2 } from "lucide-react";
+import { Loader2, Plus, MapPin, Pencil, Trash2, Server } from "lucide-react";
+
+const EMPTY_FORM = {
+  name: "", building: "", floor: "", area: "", description: "", sort_order: "0",
+  is_rack: false, rack_units: "", rack_sort_order: "0",
+};
 
 export default function LocationPage() {
   const qc = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    name: "", building: "", floor: "", area: "", description: "", sort_order: "0",
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
 
   const { data, isLoading } = useQuery({
     queryKey: ["equipment-locations"],
@@ -41,7 +44,7 @@ export default function LocationPage() {
   });
 
   const openNew = () => {
-    setForm({ name: "", building: "", floor: "", area: "", description: "", sort_order: "0" });
+    setForm(EMPTY_FORM);
     setEditingId(null);
     setDialogOpen(true);
   };
@@ -54,9 +57,26 @@ export default function LocationPage() {
       area: loc.area || "",
       description: loc.description || "",
       sort_order: loc.sort_order?.toString() || "0",
+      is_rack: loc.is_rack ?? false,
+      rack_units: loc.rack_units?.toString() || "",
+      rack_sort_order: loc.rack_sort_order?.toString() || "0",
     });
     setEditingId(loc.id);
     setDialogOpen(true);
+  };
+
+  const handleSave = () => {
+    saveMutation.mutate({
+      name: form.name,
+      building: form.building || null,
+      floor: form.floor || null,
+      area: form.area || null,
+      description: form.description || null,
+      sort_order: Number(form.sort_order) || 0,
+      is_rack: form.is_rack,
+      rack_units: form.is_rack ? (Number(form.rack_units) || null) : null,
+      rack_sort_order: Number(form.rack_sort_order) || 0,
+    });
   };
 
   return (
@@ -88,8 +108,15 @@ export default function LocationPage() {
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-primary shrink-0" />
+                      {loc.is_rack
+                        ? <Server className="h-4 w-4 text-amber-500 shrink-0" />
+                        : <MapPin className="h-4 w-4 text-primary shrink-0" />}
                       <h3 className="font-medium">{loc.name}</h3>
+                      {loc.is_rack && (
+                        <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-mono">
+                          🗄 ラック {loc.rack_units}U
+                        </span>
+                      )}
                     </div>
                     <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground mt-1 ml-6">
                       {loc.building && <span>{loc.building}</span>}
@@ -122,7 +149,7 @@ export default function LocationPage() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingId ? "場所編集" : "場所追加"}</DialogTitle>
           </DialogHeader>
@@ -153,11 +180,49 @@ export default function LocationPage() {
               <Label>表示順</Label>
               <Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} />
             </div>
+
+            {/* ラック設定 */}
+            <div className="border rounded-lg p-3 space-y-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.is_rack}
+                  onChange={(e) => setForm({ ...form, is_rack: e.target.checked })}
+                  className="h-4 w-4 rounded"
+                />
+                <span className="text-sm font-medium flex items-center gap-1.5">
+                  <Server className="h-4 w-4 text-amber-500" />
+                  ラックとして扱う
+                </span>
+              </label>
+              {form.is_rack && (
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div className="space-y-1">
+                    <Label>Uサイズ *</Label>
+                    <Input
+                      type="number" min={1} max={60}
+                      value={form.rack_units}
+                      onChange={(e) => setForm({ ...form, rack_units: e.target.value })}
+                      placeholder="45"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>ラック表示順</Label>
+                    <Input
+                      type="number"
+                      value={form.rack_sort_order}
+                      onChange={(e) => setForm({ ...form, rack_sort_order: e.target.value })}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>キャンセル</Button>
               <Button
-                onClick={() => saveMutation.mutate({ ...form, sort_order: Number(form.sort_order) || 0 })}
-                disabled={!form.name || saveMutation.isPending}
+                onClick={handleSave}
+                disabled={!form.name || (form.is_rack && !form.rack_units) || saveMutation.isPending}
               >
                 {saveMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                 {editingId ? "更新" : "追加"}
