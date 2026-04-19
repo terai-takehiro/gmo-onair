@@ -15,23 +15,26 @@ router.use(requireAuth, requirePermission('equipment'));
 async function generateEqCode(locationCode: string, typeCode: string): Promise<string> {
   if (!locationCode || !typeCode) throw new Error('拠点コードと種別コードは必須です');
   const prefix = `${locationCode}-${typeCode}`;
-  const startPos = prefix.length + 2; // e.g. "Y-A-000006" → SUBSTRING from position 5
-  // GREATEST ensures the counter never goes below the actual max in equipment_items,
-  // which prevents collisions when the sequence table gets out of sync with real data.
+  // numStart is inlined as a literal integer (safe: computed from .length, never from user string content)
+  const numStart = prefix.length + 2; // "Y-A-000006" → SUBSTRING FROM 5 = "000006"
+
+  // Step 1: find the actual max counter across ALL equipment_items (incl. soft-deleted)
+  const maxRow = await queryOne(
+    `SELECT COALESCE(MAX(CAST(SUBSTRING(eq_code FROM ${numStart}) AS INTEGER)), 0) AS maxn
+     FROM equipment_items WHERE eq_code LIKE $1`,
+    [`${prefix}-%`]
+  ) as any;
+  const maxFromItems: number = maxRow?.maxn ?? 0;
+
+  // Step 2: upsert sequence — ensure counter >= maxFromItems, then increment atomically
   const seq = await queryOne(`
-    INSERT INTO equipment_id_sequences (prefix, counter)
-    SELECT $1,
-      COALESCE((SELECT MAX(CAST(SUBSTRING(eq_code, $2) AS INTEGER))
-                FROM equipment_items WHERE eq_code LIKE $3), 0) + 1
+    INSERT INTO equipment_id_sequences (prefix, counter) VALUES ($1, $2 + 1)
     ON CONFLICT (prefix) DO UPDATE
-      SET counter = GREATEST(
-        equipment_id_sequences.counter + 1,
-        (SELECT COALESCE(MAX(CAST(SUBSTRING(eq_code, $2) AS INTEGER)), 0)
-         FROM equipment_items WHERE eq_code LIKE $3) + 1
-      )
+      SET counter = GREATEST(equipment_id_sequences.counter, $2) + 1
     RETURNING counter
-  `, [prefix, startPos, `${prefix}-%`]) as any;
-  return `${prefix}-${String(seq?.counter || 1).padStart(6, '0')}`;
+  `, [prefix, maxFromItems]) as any;
+
+  return `${prefix}-${String(seq?.counter ?? 1).padStart(6, '0')}`;
 }
 
 // ============================================================
