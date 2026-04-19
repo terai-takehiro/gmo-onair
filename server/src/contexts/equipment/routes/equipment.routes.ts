@@ -71,28 +71,106 @@ router.get('/locations', async (_req: Request, res: Response) => {
 });
 
 router.post('/locations', requirePermission('equipment', 'owner'), async (req: Request, res: Response) => {
-  const { name, description, building, floor, area, sort_order, is_rack, rack_units, rack_sort_order } = req.body;
+  const { name, description, building, floor, area, sort_order, rack_units, rack_sort_order, branch_id, rack_type_id } = req.body;
   const id = uuid();
+  const isRack = !!rack_type_id;
   await execute(
-    `INSERT INTO equipment_locations (id, name, description, building, floor, area, sort_order, is_rack, rack_units, rack_sort_order)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+    `INSERT INTO equipment_locations (id, name, description, building, floor, area, sort_order, is_rack, rack_units, rack_sort_order, branch_id, rack_type_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
     [id, name, description || null, building || null, floor || null, area || null, sort_order || 0,
-     is_rack ?? false, is_rack ? (rack_units || null) : null, rack_sort_order || 0]
+     isRack, isRack ? (rack_units || null) : null, rack_sort_order || 0,
+     branch_id || null, rack_type_id || null]
   );
   res.status(201).json({ success: true, data: { id } });
 });
 
 router.put('/locations/:id', requirePermission('equipment', 'owner'), async (req: Request, res: Response) => {
-  const { name, description, building, floor, area, sort_order, is_rack, rack_units, rack_sort_order } = req.body;
+  const { name, description, building, floor, area, sort_order, rack_units, rack_sort_order, branch_id, rack_type_id } = req.body;
+  const isRack = !!rack_type_id;
   await execute(
     `UPDATE equipment_locations
      SET name=$1, description=$2, building=$3, floor=$4, area=$5, sort_order=$6,
-         is_rack=$7, rack_units=$8, rack_sort_order=$9, updated_at=NOW()
-     WHERE id=$10`,
+         is_rack=$7, rack_units=$8, rack_sort_order=$9, branch_id=$10, rack_type_id=$11, updated_at=NOW()
+     WHERE id=$12`,
     [name, description || null, building || null, floor || null, area || null, sort_order || 0,
-     is_rack ?? false, is_rack ? (rack_units || null) : null, rack_sort_order || 0, req.params.id]
+     isRack, isRack ? (rack_units || null) : null, rack_sort_order || 0,
+     branch_id || null, rack_type_id || null, req.params.id]
   );
   res.json({ success: true });
+});
+
+// ============================================================
+// 拠点マスタ CRUD
+// ============================================================
+router.get('/branches', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const rows = await queryAll('SELECT * FROM equipment_branches ORDER BY sort_order, name');
+    res.json({ success: true, data: rows });
+  } catch (err) { next(err); }
+});
+
+router.post('/branches', requirePermission('equipment', 'owner'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { name, sort_order } = req.body;
+    if (!name) return res.status(400).json({ success: false, error: '名前は必須です' });
+    const id = uuid();
+    await execute('INSERT INTO equipment_branches (id, name, sort_order) VALUES ($1,$2,$3)',
+      [id, name, sort_order || 0]);
+    res.status(201).json({ success: true, data: { id } });
+  } catch (err) { next(err); }
+});
+
+router.put('/branches/:id', requirePermission('equipment', 'owner'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { name, sort_order } = req.body;
+    await execute('UPDATE equipment_branches SET name=$1, sort_order=$2 WHERE id=$3',
+      [name, sort_order || 0, req.params.id]);
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
+router.delete('/branches/:id', requirePermission('equipment', 'owner'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await execute('DELETE FROM equipment_branches WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
+// ============================================================
+// ラック種別マスタ CRUD
+// ============================================================
+router.get('/rack-types', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const rows = await queryAll('SELECT * FROM equipment_rack_types ORDER BY sort_order, name');
+    res.json({ success: true, data: rows });
+  } catch (err) { next(err); }
+});
+
+router.post('/rack-types', requirePermission('equipment', 'owner'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { name, sort_order } = req.body;
+    if (!name) return res.status(400).json({ success: false, error: '名前は必須です' });
+    const id = uuid();
+    await execute('INSERT INTO equipment_rack_types (id, name, sort_order) VALUES ($1,$2,$3)',
+      [id, name, sort_order || 0]);
+    res.status(201).json({ success: true, data: { id } });
+  } catch (err) { next(err); }
+});
+
+router.put('/rack-types/:id', requirePermission('equipment', 'owner'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { name, sort_order } = req.body;
+    await execute('UPDATE equipment_rack_types SET name=$1, sort_order=$2 WHERE id=$3',
+      [name, sort_order || 0, req.params.id]);
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
+router.delete('/rack-types/:id', requirePermission('equipment', 'owner'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await execute('DELETE FROM equipment_rack_types WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) { next(err); }
 });
 
 router.delete('/locations/:id', requirePermission('equipment', 'owner'), async (req: Request, res: Response) => {
@@ -674,10 +752,15 @@ router.put('/inventory-checks/:id/status', async (req: Request, res: Response, n
 router.get('/racks', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const racks = await queryAll(`
-      SELECT id, name, rack_units, rack_sort_order, building, floor, area
-      FROM equipment_locations
-      WHERE is_rack = true AND deleted_at IS NULL
-      ORDER BY rack_sort_order, name
+      SELECT el.id, el.name, el.rack_units, el.rack_sort_order, el.building, el.floor, el.area,
+             el.branch_id, el.rack_type_id,
+             eb.name as branch_name,
+             ert.name as rack_type_name
+      FROM equipment_locations el
+      LEFT JOIN equipment_branches eb ON eb.id = el.branch_id
+      LEFT JOIN equipment_rack_types ert ON ert.id = el.rack_type_id
+      WHERE el.rack_type_id IS NOT NULL AND el.deleted_at IS NULL
+      ORDER BY el.rack_sort_order, el.name
     `) as any[];
 
     const result = [];

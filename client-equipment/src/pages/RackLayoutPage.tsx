@@ -69,6 +69,7 @@ export default function RackLayoutPage() {
   const [inventoryMode, setInventoryMode] = useState(false);
   const [selectedCheckId, setSelectedCheckId] = useState<string>("");
   const [branchFilter, setBranchFilter] = useState<string>("all");
+  const [rackTypeFilter, setRackTypeFilter] = useState<string>("all");
 
   // Display edit mode
   const [displayEditMode, setDisplayEditMode] = useState(false);
@@ -90,6 +91,16 @@ export default function RackLayoutPage() {
     queryFn: async () => (await api.get("/equipment/colors")).data.data,
   });
 
+  const { data: branchesData } = useQuery({
+    queryKey: ["equipment-branches"],
+    queryFn: async () => (await api.get("/equipment/branches")).data.data,
+  });
+
+  const { data: rackTypesData } = useQuery({
+    queryKey: ["equipment-rack-types"],
+    queryFn: async () => (await api.get("/equipment/rack-types")).data.data,
+  });
+
   const { data: inventoryChecksData } = useQuery({
     queryKey: ["equipment-inventory-checks"],
     queryFn: async () => (await api.get("/equipment/inventory-checks")).data.data,
@@ -103,6 +114,8 @@ export default function RackLayoutPage() {
 
   const racks: any[] = racksData ?? [];
   const colors: any[] = colorsData ?? [];
+  const branches: any[] = branchesData ?? [];
+  const rackTypes: any[] = rackTypesData ?? [];
   const inventoryChecks: any[] = (inventoryChecksData ?? []).filter(
     (c: any) => c.status === "draft" || c.status === "in_progress"
   );
@@ -190,11 +203,12 @@ export default function RackLayoutPage() {
   };
 
   const filteredRacks = useMemo(() => {
-    if (branchFilter === "all") return racks;
-    return racks.filter((r: any) =>
-      r.location.building?.includes(branchFilter) || r.location.name?.includes(branchFilter)
-    );
-  }, [racks, branchFilter]);
+    return racks.filter((r: any) => {
+      if (branchFilter !== "all" && r.location.branch_id !== branchFilter) return false;
+      if (rackTypeFilter !== "all" && r.location.rack_type_id !== rackTypeFilter) return false;
+      return true;
+    });
+  }, [racks, branchFilter, rackTypeFilter]);
 
   if (racksLoading) {
     return (
@@ -223,14 +237,25 @@ export default function RackLayoutPage() {
           ラック実装ビュー
         </h1>
         <div className="flex flex-wrap items-center gap-2">
-          <Select value={branchFilter} onValueChange={setBranchFilter}>
-            <SelectTrigger className="w-28 h-8 text-sm"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全て</SelectItem>
-              <SelectItem value="Y">用賀</SelectItem>
-              <SelectItem value="S">渋谷</SelectItem>
-            </SelectContent>
-          </Select>
+          {branches.length > 0 && (
+            <Select value={branchFilter} onValueChange={setBranchFilter}>
+              <SelectTrigger className="w-28 h-8 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全拠点</SelectItem>
+                {branches.map((b: any) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+
+          {rackTypes.length > 0 && (
+            <Select value={rackTypeFilter} onValueChange={setRackTypeFilter}>
+              <SelectTrigger className="w-32 h-8 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全種別</SelectItem>
+                {rackTypes.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
 
           <div className="flex rounded-lg overflow-hidden border">
             <button
@@ -595,9 +620,11 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
   return (
     <div className="shrink-0">
       <div className="text-center text-sm font-bold mb-1 px-2">{location.name}</div>
-      {location.building && (
-        <div className="text-center text-xs text-muted-foreground mb-2">{location.building}{location.floor ? ` ${location.floor}` : ""}</div>
-      )}
+      <div className="text-center text-xs text-muted-foreground mb-2 space-x-1">
+        {location.branch_name && <span>{location.branch_name}</span>}
+        {location.rack_type_name && <span className="text-amber-600">{location.rack_type_name}</span>}
+        {location.building && <span>{location.building}{location.floor ? ` ${location.floor}` : ""}</span>}
+      </div>
 
       <div className="flex gap-1">
         {/* U numbers (left) */}
