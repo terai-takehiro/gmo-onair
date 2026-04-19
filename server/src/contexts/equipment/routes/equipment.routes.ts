@@ -593,9 +593,11 @@ router.put('/maintenance/:id', async (req: Request, res: Response, next: NextFun
 // ============================================================
 // 棚卸し
 // ============================================================
-router.get('/inventory-checks', async (_req: Request, res: Response) => {
-  const rows = await queryAll("SELECT * FROM inventory_checks ORDER BY check_date DESC");
-  res.json({ success: true, data: rows });
+router.get('/inventory-checks', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const rows = await queryAll("SELECT * FROM inventory_checks ORDER BY check_date DESC");
+    res.json({ success: true, data: rows });
+  } catch (err) { next(err); }
 });
 
 router.post('/inventory-checks', async (req: Request, res: Response, next: NextFunction) => {
@@ -627,67 +629,77 @@ router.post('/inventory-checks', async (req: Request, res: Response, next: NextF
   }
 });
 
-router.get('/inventory-checks/:id', async (req: Request, res: Response) => {
-  const check = await queryOne("SELECT * FROM inventory_checks WHERE id=$1", [req.params.id]);
-  if (!check) return res.status(404).json({ success: false, error: { message: '棚卸しが見つかりません' } });
+router.get('/inventory-checks/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const check = await queryOne("SELECT * FROM inventory_checks WHERE id=$1", [req.params.id]);
+    if (!check) return res.status(404).json({ success: false, error: { message: '棚卸しが見つかりません' } });
 
-  const items = await queryAll(`
-    SELECT ici.*, ei.name as equipment_name, ei.eq_code, ei.unit_number,
-           ei.location_detail, el.name as location_name,
-           COALESCE(el.sort_order, 9999) as location_sort
-    FROM inventory_check_items ici
-    JOIN equipment_items ei ON ei.id = ici.equipment_id
-    LEFT JOIN equipment_locations el ON el.id = ei.location_id AND el.deleted_at IS NULL
-    WHERE ici.check_id = $1
-    ORDER BY location_sort, el.name NULLS LAST, ei.location_detail NULLS LAST, ei.name, ei.unit_number
-  `, [req.params.id]);
+    const items = await queryAll(`
+      SELECT ici.*, ei.name as equipment_name, ei.eq_code, ei.unit_number,
+             ei.location_detail, el.name as location_name,
+             COALESCE(el.sort_order, 9999) as location_sort
+      FROM inventory_check_items ici
+      JOIN equipment_items ei ON ei.id = ici.equipment_id
+      LEFT JOIN equipment_locations el ON el.id = ei.location_id AND el.deleted_at IS NULL
+      WHERE ici.check_id = $1
+      ORDER BY location_sort, el.name NULLS LAST, ei.location_detail NULLS LAST, ei.name, ei.unit_number
+    `, [req.params.id]);
 
-  res.json({ success: true, data: { ...(check as any), items } });
+    res.json({ success: true, data: { ...(check as any), items } });
+  } catch (err) { next(err); }
 });
 
-router.put('/inventory-checks/:id/items/:itemId', async (req: Request, res: Response) => {
-  const { found, actual_location, condition, note } = req.body;
-  await execute(`
-    UPDATE inventory_check_items SET found=$1, actual_location=$2, condition=$3, note=$4, checked_at=NOW()
-    WHERE id=$5 AND check_id=$6
-  `, [found, actual_location || null, condition || null, note || null, req.params.itemId, req.params.id]);
-  res.json({ success: true });
+router.put('/inventory-checks/:id/items/:itemId', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { found, actual_location, condition, note } = req.body;
+    await execute(`
+      UPDATE inventory_check_items SET found=$1, actual_location=$2, condition=$3, note=$4, checked_at=NOW()
+      WHERE id=$5 AND check_id=$6
+    `, [found, actual_location || null, condition || null, note || null, req.params.itemId, req.params.id]);
+    res.json({ success: true });
+  } catch (err) { next(err); }
 });
 
-router.put('/inventory-checks/:id/status', async (req: Request, res: Response) => {
-  const { status } = req.body;
-  await execute("UPDATE inventory_checks SET status=$1, updated_at=NOW() WHERE id=$2", [status, req.params.id]);
-  res.json({ success: true });
+router.put('/inventory-checks/:id/status', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { status } = req.body;
+    await execute("UPDATE inventory_checks SET status=$1, updated_at=NOW() WHERE id=$2", [status, req.params.id]);
+    res.json({ success: true });
+  } catch (err) { next(err); }
 });
 
 // ============================================================
 // ラック実装ビュー
 // ============================================================
-router.get('/racks', async (_req: Request, res: Response) => {
-  const racks = await queryAll(`
-    SELECT id, name, rack_units, rack_sort_order, location_code, building, floor, area
-    FROM equipment_locations
-    WHERE is_rack = true AND deleted_at IS NULL
-    ORDER BY rack_sort_order, name
-  `) as any[];
+router.get('/racks', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const racks = await queryAll(`
+      SELECT id, name, rack_units, rack_sort_order, location_code, building, floor, area
+      FROM equipment_locations
+      WHERE is_rack = true AND deleted_at IS NULL
+      ORDER BY rack_sort_order, name
+    `) as any[];
 
-  const result = [];
-  for (const rack of racks) {
-    const items = await queryAll(`
-      SELECT ei.id, ei.eq_code, ei.name, ei.model_number, ei.unit_number,
-             ei.equipment_type_code, ei.rack_position, ei.rack_height,
-             ei.rack_slot, ei.rack_side, ei.color_id,
-             ec.color_hex, ec.name as color_name
-      FROM equipment_items ei
-      LEFT JOIN equipment_colors ec ON ec.id = ei.color_id AND ec.deleted_at IS NULL
-      WHERE ei.location_id = $1
-        AND ei.rack_position IS NOT NULL
-        AND ei.deleted_at IS NULL
-      ORDER BY ei.rack_position
-    `, [rack.id]);
-    result.push({ location: rack, items });
+    const result = [];
+    for (const rack of racks) {
+      const items = await queryAll(`
+        SELECT ei.id, ei.eq_code, ei.name, ei.model_number, ei.unit_number,
+               ei.equipment_type_code, ei.rack_position, ei.rack_height,
+               ei.rack_slot, ei.rack_side, ei.color_id,
+               ec.color_hex, ec.name as color_name
+        FROM equipment_items ei
+        LEFT JOIN equipment_colors ec ON ec.id = ei.color_id AND ec.deleted_at IS NULL
+        WHERE ei.location_id = $1
+          AND ei.rack_position IS NOT NULL
+          AND ei.deleted_at IS NULL
+        ORDER BY ei.rack_position
+      `, [rack.id]);
+      result.push({ location: rack, items });
+    }
+    res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
   }
-  res.json({ success: true, data: result });
 });
 
 // ============================================================

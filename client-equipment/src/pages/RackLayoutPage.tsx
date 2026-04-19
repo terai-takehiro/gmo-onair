@@ -36,7 +36,7 @@ export default function RackLayoutPage() {
   const [branchFilter, setBranchFilter] = useState<string>("all");
 
   // Fetch racks
-  const { data: racksData, isLoading: racksLoading } = useQuery({
+  const { data: racksData, isLoading: racksLoading, isError: racksError } = useQuery({
     queryKey: ["equipment-racks"],
     queryFn: async () => (await api.get("/equipment/racks")).data.data,
   });
@@ -113,6 +113,16 @@ export default function RackLayoutPage() {
     return (
       <div className="flex justify-center py-24">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (racksError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-muted-foreground gap-3">
+        <Server className="h-12 w-12 opacity-20" />
+        <p className="text-sm">ラックデータの取得に失敗しました</p>
+        <p className="text-xs">サーバーエラーが発生しました。しばらく待ってから再試行してください。</p>
       </div>
     );
   }
