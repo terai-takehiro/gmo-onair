@@ -88,16 +88,17 @@ export default function RackLayoutPage() {
   const qc = useQueryClient();
 
   // URL search params でビュー状態を管理（戻るボタンで復元される）
+  // デフォルト: GMOグローバルスタジオ (br-gls) + マシンラック (rt-rack)
   const side = (sp.get("side") as "front" | "back") ?? "front";
-  const branchFilter = sp.get("branch") ?? "all";
-  const rackTypeFilter = sp.get("rackType") ?? "all";
+  const branchFilter = sp.get("branch") ?? "br-gls";
+  const rackTypeFilter = sp.get("rackType") ?? "rt-rack";
 
   const setSide = (v: "front" | "back") =>
     setSp(prev => { const n = new URLSearchParams(prev); n.set("side", v); return n; }, { replace: true });
   const setBranchFilter = (v: string) =>
-    setSp(prev => { const n = new URLSearchParams(prev); v === "all" ? n.delete("branch") : n.set("branch", v); return n; }, { replace: true });
+    setSp(prev => { const n = new URLSearchParams(prev); n.set("branch", v); return n; }, { replace: true });
   const setRackTypeFilter = (v: string) =>
-    setSp(prev => { const n = new URLSearchParams(prev); v === "all" ? n.delete("rackType") : n.set("rackType", v); return n; }, { replace: true });
+    setSp(prev => { const n = new URLSearchParams(prev); n.set("rackType", v); return n; }, { replace: true });
 
   const [inventoryMode, setInventoryMode] = useState(false);
   const [selectedCheckId, setSelectedCheckId] = useState<string>("");
@@ -115,8 +116,10 @@ export default function RackLayoutPage() {
 
   const handleItemHover = useCallback((item: any, e: React.MouseEvent) => {
     if (tooltipTimeout.current) clearTimeout(tooltipTimeout.current);
+    // currentTarget は React の synthetic event 後に null になるので先にキャプチャ
+    const el = e.currentTarget as HTMLElement;
     tooltipTimeout.current = setTimeout(() => {
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const rect = el.getBoundingClientRect();
       setTooltip({ item, x: rect.right + 8, y: rect.top });
     }, 300);
   }, []);
@@ -335,7 +338,7 @@ export default function RackLayoutPage() {
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           {branches.length > 0 && (
             <Select value={branchFilter} onValueChange={setBranchFilter}>
-              <SelectTrigger className="w-[110px] sm:w-28 h-9 text-xs sm:text-sm"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="min-w-[120px] max-w-[200px] h-9 text-xs sm:text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">全拠点</SelectItem>
                 {branches.map((b: any) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
@@ -345,7 +348,7 @@ export default function RackLayoutPage() {
 
           {rackTypes.length > 0 && (
             <Select value={rackTypeFilter} onValueChange={setRackTypeFilter}>
-              <SelectTrigger className="w-[110px] sm:w-32 h-9 text-xs sm:text-sm"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="min-w-[120px] max-w-[200px] h-9 text-xs sm:text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">全種別</SelectItem>
                 {rackTypes.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
@@ -833,6 +836,17 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
     rackConfig?.subtitleMode === "custom"  ? (rackConfig.subtitleText || null) :
     autoSubtitle || null;
 
+  // 背面機材が占有するU位置セット（右U列のハイライト用）
+  const oppositeUSet = useMemo(() => {
+    const s = new Set<number>();
+    for (const it of oppositeItems) {
+      const pos = it.rack_position ?? 0;
+      const h = it.rack_height ?? 1;
+      for (let u = pos; u < pos + h; u++) s.add(u);
+    }
+    return s;
+  }, [oppositeItems]);
+
   const posSlotCount: Record<string, number> = {};
   for (const it of sideItems) {
     const key = `${it.rack_position}:${it.rack_slot}`;
@@ -869,12 +883,6 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
         >
           {subtitle ?? (displayEditMode ? <span className="opacity-40">（サブタイトルなし）</span> : <span>&nbsp;</span>)}
         </div>
-        {oppositeItems.length > 0 && (
-          <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-700 text-[10px] font-semibold">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
-            {side === "front" ? "背面" : "前面"} {oppositeItems.length}件
-          </div>
-        )}
       </div>
 
       <div className="flex gap-0.5">
@@ -902,25 +910,6 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
             />
           ))}
 
-          {/* Opposite-side indicator stripes (右端) */}
-          {oppositeItems.map((it: any) => {
-            const h = (it.rack_height ?? 1) * CELL_H;
-            const top = (rackUnits - it.rack_position - (it.rack_height ?? 1) + 1) * CELL_H;
-            return (
-              <div
-                key={`op-${it.id}`}
-                className="absolute right-0 bg-amber-400 pointer-events-none z-[1] flex items-center justify-center overflow-hidden"
-                style={{ top, height: h, width: 10 }}
-                title={`${side === "front" ? "背面" : "前面"}: ${it.name}${it.model_number ? ` / ${it.model_number}` : ""}`}
-              >
-                {h >= CELL_H * 2 && (
-                  <span className="text-amber-900 font-black leading-none select-none" style={{ fontSize: 7, writingMode: "vertical-rl" }}>
-                    {side === "front" ? "背" : "前"}
-                  </span>
-                )}
-              </div>
-            );
-          })}
 
           {/* Blank panels & 通線口 */}
           {sideBlanks.map((b: any) => {
@@ -1028,13 +1017,23 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
           )}
         </div>
 
-        {/* U numbers (right) */}
-        <div className="flex flex-col shrink-0" style={{ width: 22 }}>
-          {Array.from({ length: rackUnits }, (_, i) => rackUnits - i).map((u) => (
-            <div key={u} style={{ height: CELL_H, fontSize: 9 }} className="flex items-center pl-1.5 text-zinc-500 tabular-nums leading-none font-semibold">
-              {u}
-            </div>
-          ))}
+        {/* U numbers (right) — 背面機材があるU位置をアンバーでハイライト */}
+        <div className="flex flex-col shrink-0" style={{ width: 24 }}>
+          {Array.from({ length: rackUnits }, (_, i) => rackUnits - i).map((u) => {
+            const hasBack = oppositeUSet.has(u);
+            return (
+              <div
+                key={u}
+                style={{ height: CELL_H, fontSize: 9 }}
+                className={`relative flex items-center pl-1.5 tabular-nums leading-none font-semibold ${hasBack ? "text-amber-500" : "text-zinc-500"}`}
+              >
+                {hasBack && (
+                  <span className="absolute left-0 inset-y-0 w-[3px] bg-amber-500 rounded-r-sm" />
+                )}
+                <span className="pl-1">{u}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
