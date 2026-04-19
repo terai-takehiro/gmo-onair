@@ -133,6 +133,15 @@ export default function EquipmentListPage() {
   const [bulkField, setBulkField] = useState<BulkField>('branch_code');
   const [bulkValue, setBulkValue] = useState<string>('');
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [continuousMode, setContinuousMode] = useState(false);
+
+  // 連続登録時に引き継ぐフィールド
+  const CARRY_OVER_KEYS = [
+    'location_code', 'equipment_type_code', 'equipment_section',
+    'branch_code', 'location_id', 'manufacturer_id', 'asset_class',
+    'purchased_at', 'warranty_years', 'depreciation_years',
+  ] as const;
 
   const downloadExcel = async () => {
     const res = await api.get('/equipment/items/export-xlsx', { responseType: 'blob' });
@@ -203,8 +212,19 @@ export default function EquipmentListPage() {
       editingId ? api.put(`/equipment/items/${editingId}`, payload) : api.post("/equipment/items", payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["equipment-items"] });
-      setDialogOpen(false);
       setSaveError(null);
+      if (!editingId && continuousMode) {
+        // 連続登録モード: 共通フィールドを引き継いで per-item フィールドだけリセット
+        setForm(prev => ({
+          ...defaultForm,
+          ...Object.fromEntries(CARRY_OVER_KEYS.map(k => [k, prev[k]])),
+        }));
+        setSuggestItems([]);
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 2500);
+      } else {
+        setDialogOpen(false);
+      }
     },
     onError: (err: any) => {
       const msg = err?.response?.data?.error?.message || err?.message || 'サーバー内部エラーが発生しました';
@@ -264,8 +284,8 @@ export default function EquipmentListPage() {
     bulkUpdateMutation.mutate({ ids, fields: { [bulkField]: v } });
   };
 
-  const openNew = () => { setForm({ ...defaultForm }); setEditingId(null); setSaveError(null); setSuggestItems([]); setDialogOpen(true); };
-  const openEdit = (item: any) => { setSaveError(null); setSuggestItems([]);
+  const openNew = () => { setForm({ ...defaultForm }); setEditingId(null); setSaveError(null); setSaveSuccess(false); setSuggestItems([]); setDialogOpen(true); };
+  const openEdit = (item: any) => { setSaveError(null); setSaveSuccess(false); setSuggestItems([]);
     setForm({
       name: item.name || "", model_number: item.model_number || "",
       unit_number: item.unit_number?.toString() || "", serial_number: item.serial_number || "",
@@ -451,7 +471,22 @@ export default function EquipmentListPage() {
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{editingId ? "機材編集" : "機材登録"}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              {editingId ? "機材編集" : "機材登録"}
+              {!editingId && (
+                <label className="flex items-center gap-1.5 text-sm font-normal text-muted-foreground cursor-pointer ml-auto pr-6">
+                  <input type="checkbox" checked={continuousMode} onChange={e => { setContinuousMode(e.target.checked); setSaveSuccess(false); }} className="h-4 w-4" />
+                  連続登録
+                </label>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          {saveSuccess && (
+            <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
+              ✓ 登録しました。続けて次の機材を入力してください。
+            </div>
+          )}
           <div className="space-y-4">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
@@ -515,6 +550,7 @@ export default function EquipmentListPage() {
                                 ...f,
                                 name: item.name,
                                 model_number: item.model_number || f.model_number,
+                                manufacturer_id: item.manufacturer_id || f.manufacturer_id,
                                 unit_number: String(maxUnit + 1),
                               }));
                               setSuggestItems([]);
