@@ -258,26 +258,48 @@ export default function EquipmentListPage() {
     }, { replace: true });
   };
   const items = useMemo(() => {
-    let base = rawItems;
-    if (!sortKey) return base;
-    const copy = [...base];
-    copy.sort((a, b) => {
-      const av = a?.[sortKey];
-      const bv = b?.[sortKey];
-      const aNull = av == null || av === '';
-      const bNull = bv == null || bv === '';
-      if (aNull && bNull) return 0;
-      if (aNull) return 1;
-      if (bNull) return -1;
-      if (typeof av === 'number' && typeof bv === 'number') {
-        return sortDir === 'asc' ? av - bv : bv - av;
-      }
-      const as = String(av); const bs = String(bv);
-      const cmp = as.localeCompare(bs, 'ja');
+    const sortFn = (a: any, b: any) => {
+      if (!sortKey) return 0;
+      const av = a?.[sortKey]; const bv = b?.[sortKey];
+      const aNull = av == null || av === ''; const bNull = bv == null || bv === '';
+      if (aNull && bNull) return 0; if (aNull) return 1; if (bNull) return -1;
+      if (typeof av === 'number' && typeof bv === 'number') return sortDir === 'asc' ? av - bv : bv - av;
+      const cmp = String(av).localeCompare(String(bv), 'ja');
       return sortDir === 'asc' ? cmp : -cmp;
-    });
-    return copy;
-  }, [rawItems, sortKey, sortDir]);
+    };
+
+    if (!includeChildren) {
+      const copy = [...rawItems];
+      if (sortKey) copy.sort(sortFn);
+      return copy;
+    }
+
+    // 子機材も表示ON: 親の直下に子をグループ表示
+    const parents = rawItems.filter((item: any) => item.parent_id == null);
+    const childrenByParent: Record<string, any[]> = {};
+    const orphans: any[] = [];
+    for (const item of rawItems) {
+      if (item.parent_id != null) {
+        if (!childrenByParent[item.parent_id]) childrenByParent[item.parent_id] = [];
+        childrenByParent[item.parent_id].push(item);
+      }
+    }
+    if (sortKey) parents.sort(sortFn);
+    const grouped: any[] = [];
+    const parentIds = new Set(parents.map((p: any) => p.id));
+    for (const parent of parents) {
+      grouped.push(parent);
+      const kids = childrenByParent[parent.id] ?? [];
+      if (sortKey) kids.sort(sortFn);
+      grouped.push(...kids);
+    }
+    // 親がリストにない孤立子（orphan）は末尾に追加
+    for (const item of rawItems) {
+      if (item.parent_id != null && !parentIds.has(item.parent_id)) orphans.push(item);
+    }
+    if (sortKey) orphans.sort(sortFn);
+    return [...grouped, ...orphans];
+  }, [rawItems, sortKey, sortDir, includeChildren]);
 
   const saveMutation = useMutation({
     mutationFn: (payload: any) =>
