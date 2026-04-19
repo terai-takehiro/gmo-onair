@@ -11,8 +11,30 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, Server, ClipboardCheck } from "lucide-react";
+import { Loader2, Server, ClipboardCheck, Pencil } from "lucide-react";
 
+// ── Cell display config ───────────────────────────────────────────────────────
+type CellConfig = {
+  primary: "model" | "name" | "custom";
+  showName: boolean;
+  showModel: boolean;
+  showNo: boolean;
+  showCustom: boolean;
+  customText: string;
+};
+
+const CELL_CONFIG_LS_KEY = "rack-cell-configs-v1";
+
+function loadCellConfigs(): Record<string, CellConfig> {
+  try { return JSON.parse(localStorage.getItem(CELL_CONFIG_LS_KEY) ?? "{}"); }
+  catch { return {}; }
+}
+
+function saveCellConfigs(configs: Record<string, CellConfig>) {
+  localStorage.setItem(CELL_CONFIG_LS_KEY, JSON.stringify(configs));
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function slotToColumn(slot: string): { start: number; span: number } {
   switch (slot) {
     case "left-1_2":  return { start: 1, span: 3 };
@@ -38,6 +60,7 @@ const RACK_SLOT_OPTIONS = [
   { value: "right-1_3", label: "右1/3" },
 ];
 
+// ── Page ──────────────────────────────────────────────────────────────────────
 export default function RackLayoutPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -46,6 +69,11 @@ export default function RackLayoutPage() {
   const [inventoryMode, setInventoryMode] = useState(false);
   const [selectedCheckId, setSelectedCheckId] = useState<string>("");
   const [branchFilter, setBranchFilter] = useState<string>("all");
+
+  // Display edit mode
+  const [displayEditMode, setDisplayEditMode] = useState(false);
+  const [cellConfigs, setCellConfigs] = useState<Record<string, CellConfig>>(loadCellConfigs);
+  const [configTarget, setConfigTarget] = useState<any>(null);
 
   // Blank panel dialog state
   const [blankDialog, setBlankDialog] = useState<{ locationId: string; uPos: number } | null>(null);
@@ -101,8 +129,8 @@ export default function RackLayoutPage() {
   });
 
   const addBlankMutation = useMutation({
-    mutationFn: async ({ locationId, rack_position, rack_height, rack_slot, rack_side }: any) =>
-      api.post(`/equipment/racks/${locationId}/blanks`, { rack_position, rack_height, rack_slot, rack_side }),
+    mutationFn: async ({ locationId, rack_position, rack_height, rack_slot, rack_side, panel_type }: any) =>
+      api.post(`/equipment/racks/${locationId}/blanks`, { rack_position, rack_height, rack_slot, rack_side, panel_type }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["equipment-racks"] });
       setBlankDialog(null);
@@ -118,6 +146,10 @@ export default function RackLayoutPage() {
   });
 
   const handleCellClick = (item: any) => {
+    if (displayEditMode) {
+      setConfigTarget(item);
+      return;
+    }
     if (inventoryMode && selectedCheckId) {
       const mapEntry = inventoryMap[item.id];
       if (!mapEntry) return;
@@ -132,14 +164,29 @@ export default function RackLayoutPage() {
   };
 
   const handleEmptySlotClick = (locationId: string, uPos: number) => {
-    if (inventoryMode) return;
+    if (inventoryMode || displayEditMode) return;
     setBlankForm({ rack_height: "1", rack_slot: "full", panel_type: "blank" });
     setBlankDialog({ locationId, uPos });
   };
 
   const handleDeleteBlank = (id: string) => {
-    if (inventoryMode) return;
+    if (inventoryMode || displayEditMode) return;
     setConfirmDeleteBlankId(id);
+  };
+
+  const handleSaveCellConfig = (itemId: string, config: CellConfig) => {
+    const next = { ...cellConfigs, [itemId]: config };
+    setCellConfigs(next);
+    saveCellConfigs(next);
+    setConfigTarget(null);
+  };
+
+  const handleResetCellConfig = (itemId: string) => {
+    const next = { ...cellConfigs };
+    delete next[itemId];
+    setCellConfigs(next);
+    saveCellConfigs(next);
+    setConfigTarget(null);
   };
 
   const filteredRacks = useMemo(() => {
@@ -202,14 +249,29 @@ export default function RackLayoutPage() {
 
           <Button
             size="sm"
+            variant={displayEditMode ? "default" : "outline"}
+            onClick={() => { setDisplayEditMode((v) => !v); if (inventoryMode) setInventoryMode(false); }}
+          >
+            <Pencil className="h-4 w-4 mr-1" />
+            表示変更
+          </Button>
+
+          <Button
+            size="sm"
             variant={inventoryMode ? "default" : "outline"}
-            onClick={() => { setInventoryMode((v) => !v); }}
+            onClick={() => { setInventoryMode((v) => !v); if (displayEditMode) setDisplayEditMode(false); }}
           >
             <ClipboardCheck className="h-4 w-4 mr-1" />
             棚卸し
           </Button>
         </div>
       </div>
+
+      {displayEditMode && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+          <strong>表示変更モード：</strong>機材ブロックをクリックして表示項目をカスタマイズします。空きスペースのクリックは無効です。
+        </div>
+      )}
 
       {inventoryMode && (
         <div className="rounded-lg border bg-muted/30 p-3 flex flex-wrap items-center gap-3">
@@ -254,6 +316,8 @@ export default function RackLayoutPage() {
                   side={side}
                   inventoryMode={inventoryMode && !!selectedCheckId}
                   inventoryMap={inventoryMap}
+                  displayEditMode={displayEditMode}
+                  cellConfigs={cellConfigs}
                   onCellClick={handleCellClick}
                   onEmptySlotClick={handleEmptySlotClick}
                   onDeleteBlank={handleDeleteBlank}
@@ -371,15 +435,132 @@ export default function RackLayoutPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* セル表示設定ダイアログ */}
+      {configTarget && (
+        <CellConfigDialog
+          item={configTarget}
+          config={cellConfigs[configTarget.id]}
+          onSave={(cfg) => handleSaveCellConfig(configTarget.id, cfg)}
+          onReset={() => handleResetCellConfig(configTarget.id)}
+          onClose={() => setConfigTarget(null)}
+        />
+      )}
     </div>
   );
 }
 
-function RackDisplay({ rackData, side, inventoryMode, inventoryMap, onCellClick, onEmptySlotClick, onDeleteBlank }: {
+// ── CellConfigDialog ──────────────────────────────────────────────────────────
+function CellConfigDialog({
+  item, config, onSave, onReset, onClose,
+}: {
+  item: any;
+  config?: CellConfig;
+  onSave: (c: CellConfig) => void;
+  onReset: () => void;
+  onClose: () => void;
+}) {
+  const defaultCfg: CellConfig = {
+    primary: "model",
+    showName: false,
+    showModel: true,
+    showNo: true,
+    showCustom: false,
+    customText: "",
+  };
+  const [form, setForm] = useState<CellConfig>(config ?? defaultCfg);
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>表示設定 — {item.name}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 pt-1">
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold uppercase text-muted-foreground">優先表示</Label>
+            <div className="flex flex-col gap-1.5">
+              {[
+                { value: "model", label: "型名を優先" },
+                { value: "name",  label: "機材名を優先" },
+                { value: "custom", label: "任意文字列" },
+              ].map((opt) => (
+                <label key={opt.value} className="flex items-center gap-2 cursor-pointer text-sm">
+                  <input
+                    type="radio"
+                    name="primary"
+                    value={opt.value}
+                    checked={form.primary === opt.value}
+                    onChange={() => setForm(f => ({ ...f, primary: opt.value as CellConfig["primary"] }))}
+                    className="h-3.5 w-3.5 accent-primary"
+                  />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+            {form.primary === "custom" && (
+              <Input
+                placeholder="表示するテキスト"
+                value={form.customText}
+                onChange={(e) => setForm(f => ({ ...f, customText: e.target.value }))}
+                className="mt-1"
+              />
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold uppercase text-muted-foreground">追加表示項目</Label>
+            <div className="flex flex-col gap-1.5">
+              {[
+                { key: "showName",   label: "機材名" },
+                { key: "showModel",  label: "型名" },
+                { key: "showNo",     label: "No." },
+                { key: "showCustom", label: "任意文字列" },
+              ].map(({ key, label }) => (
+                <label key={key} className="flex items-center gap-2 cursor-pointer text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form[key as keyof CellConfig] as boolean}
+                    onChange={(e) => setForm(f => ({ ...f, [key]: e.target.checked }))}
+                    className="h-3.5 w-3.5 accent-primary"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            {form.showCustom && form.primary !== "custom" && (
+              <Input
+                placeholder="追加表示するテキスト"
+                value={form.customText}
+                onChange={(e) => setForm(f => ({ ...f, customText: e.target.value }))}
+                className="mt-1"
+              />
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-between gap-2 pt-2">
+          <Button variant="ghost" size="sm" onClick={onReset} className="text-muted-foreground text-xs">
+            デフォルトに戻す
+          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={onClose}>キャンセル</Button>
+            <Button size="sm" onClick={() => onSave(form)}>保存</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── RackDisplay ───────────────────────────────────────────────────────────────
+function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditMode, cellConfigs, onCellClick, onEmptySlotClick, onDeleteBlank }: {
   rackData: { location: any; items: any[]; blanks?: any[] };
   side: "front" | "back";
   inventoryMode: boolean;
   inventoryMap: Record<string, { id: string; found: boolean | null }>;
+  displayEditMode: boolean;
+  cellConfigs: Record<string, CellConfig>;
   onCellClick: (item: any) => void;
   onEmptySlotClick: (locationId: string, uPos: number) => void;
   onDeleteBlank: (id: string) => void;
@@ -430,7 +611,7 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, onCellClick,
 
         {/* Rack body */}
         <div
-          className="relative border-2 border-border bg-zinc-100 rounded-sm cursor-crosshair"
+          className={`relative border-2 border-border bg-zinc-100 rounded-sm ${displayEditMode ? "cursor-default" : "cursor-crosshair"}`}
           style={{ width: RACK_W, height: rackUnits * CELL_H }}
           onClick={handleRackBodyClick}
         >
@@ -486,52 +667,31 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, onCellClick,
             const isOverlap = posSlotCount[`${it.rack_position}:${it.rack_slot}`] > 1;
             const mapEntry = inventoryMap[it.id];
             const found = mapEntry?.found;
+            const cfg = cellConfigs[it.id];
 
             return (
               <button
                 key={it.id}
-                className="absolute border border-white/60 rounded-[2px] overflow-hidden text-left hover:brightness-90 transition-all focus:outline-none focus:ring-1 focus:ring-primary z-[2]"
+                className={`absolute border border-white/60 rounded-[2px] overflow-hidden text-left transition-all focus:outline-none focus:ring-1 focus:ring-primary z-[2] ${
+                  displayEditMode
+                    ? "hover:ring-2 hover:ring-amber-400 hover:brightness-95 cursor-pointer"
+                    : "hover:brightness-90"
+                }`}
                 style={{ top, left, width, height, background: bg }}
                 onClick={() => onCellClick(it)}
                 title={`${it.name}${it.model_number ? ` / ${it.model_number}` : ""}${it.unit_number ? ` No.${it.unit_number}` : ""}`}
               >
-                {height <= CELL_H ? (
-                  /* 1U: 型名 + 丸バッジ番号 を1行 */
-                  <div className="flex items-center h-full px-1.5 gap-1 min-w-0">
-                    <span className="font-mono font-bold truncate leading-none" style={{ fontSize: 10 }}>
-                      {it.model_number || it.name}
-                    </span>
-                    {it.unit_number && <UnitBadge n={it.unit_number} size="sm" />}
-                  </div>
-                ) : height <= CELL_H * 2 ? (
-                  /* 2U: 型名 + バッジ を上段、機材名を下段 */
-                  <div className="flex flex-col justify-center h-full px-1.5 py-0.5 gap-0.5">
-                    <div className="flex items-center gap-1 min-w-0">
-                      <span className="font-mono font-bold truncate leading-tight" style={{ fontSize: 11 }}>
-                        {it.model_number || it.name}
-                      </span>
-                      {it.unit_number && <UnitBadge n={it.unit_number} size="md" />}
-                    </div>
-                    <span className="truncate leading-tight opacity-60" style={{ fontSize: 9 }}>
-                      {it.name}
-                    </span>
-                  </div>
-                ) : (
-                  /* 3U+: 機材名 → 型名 + バッジ */
-                  <div className="flex flex-col justify-center h-full px-1.5 py-1 gap-0.5">
-                    <span className="font-medium truncate leading-tight" style={{ fontSize: 11 }}>
-                      {it.name}
-                    </span>
-                    <div className="flex items-center gap-1 min-w-0">
-                      <span className="font-mono font-bold truncate leading-tight" style={{ fontSize: 11 }}>
-                        {it.model_number}
-                      </span>
-                      {it.unit_number && <UnitBadge n={it.unit_number} size="md" />}
-                    </div>
-                  </div>
-                )}
+                {cfg
+                  ? <ConfiguredCellContent it={it} cfg={cfg} height={height} />
+                  : <DefaultCellContent it={it} height={height} />
+                }
                 {isOverlap && (
                   <span className="absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-destructive border border-white" title="重複" />
+                )}
+                {displayEditMode && (
+                  <span className="absolute bottom-0.5 right-0.5 opacity-60">
+                    <Pencil className="h-2.5 w-2.5 text-gray-600" />
+                  </span>
                 )}
                 {inventoryMode && mapEntry && (
                   <span
@@ -568,6 +728,93 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, onCellClick,
   );
 }
 
+// ── Default cell rendering ────────────────────────────────────────────────────
+function DefaultCellContent({ it, height }: { it: any; height: number }) {
+  const CELL_H = 28;
+  if (height <= CELL_H) {
+    return (
+      <div className="flex items-center h-full px-1.5 gap-1 min-w-0">
+        <span className="font-mono font-bold truncate leading-none" style={{ fontSize: 10 }}>
+          {it.model_number || it.name}
+        </span>
+        {it.unit_number && <UnitBadge n={it.unit_number} size="sm" />}
+      </div>
+    );
+  }
+  if (height <= CELL_H * 2) {
+    return (
+      <div className="flex flex-col justify-center h-full px-1.5 py-0.5 gap-0.5">
+        <div className="flex items-center gap-1 min-w-0">
+          <span className="font-mono font-bold truncate leading-tight" style={{ fontSize: 11 }}>
+            {it.model_number || it.name}
+          </span>
+          {it.unit_number && <UnitBadge n={it.unit_number} size="md" />}
+        </div>
+        <span className="truncate leading-tight opacity-60" style={{ fontSize: 9 }}>
+          {it.name}
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col justify-center h-full px-1.5 py-1 gap-0.5">
+      <span className="font-medium truncate leading-tight" style={{ fontSize: 11 }}>
+        {it.name}
+      </span>
+      <div className="flex items-center gap-1 min-w-0">
+        <span className="font-mono font-bold truncate leading-tight" style={{ fontSize: 11 }}>
+          {it.model_number}
+        </span>
+        {it.unit_number && <UnitBadge n={it.unit_number} size="md" />}
+      </div>
+    </div>
+  );
+}
+
+// ── Configured cell rendering ─────────────────────────────────────────────────
+function ConfiguredCellContent({ it, cfg, height }: { it: any; cfg: CellConfig; height: number }) {
+  const CELL_H = 28;
+  const is1U = height <= CELL_H;
+
+  const primaryText =
+    cfg.primary === "model" ? (it.model_number || it.name) :
+    cfg.primary === "name"  ? it.name :
+    cfg.customText || "—";
+
+  const extras: { text: string; mono?: boolean }[] = [];
+  if (cfg.showName  && cfg.primary !== "name"   && it.name)         extras.push({ text: it.name });
+  if (cfg.showModel && cfg.primary !== "model"  && it.model_number) extras.push({ text: it.model_number, mono: true });
+  if (cfg.showCustom && cfg.primary !== "custom" && cfg.customText)  extras.push({ text: cfg.customText });
+
+  if (is1U) {
+    return (
+      <div className="flex items-center h-full px-1.5 gap-1 min-w-0">
+        <span className={`truncate leading-none ${cfg.primary === "model" ? "font-mono font-bold" : "font-medium"}`} style={{ fontSize: 10 }}>
+          {primaryText}
+        </span>
+        {cfg.showNo && it.unit_number && <UnitBadge n={it.unit_number} size="sm" />}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col justify-center h-full px-1.5 py-0.5 gap-0.5">
+      <div className="flex items-center gap-1 min-w-0">
+        <span className={`truncate leading-tight ${cfg.primary === "model" ? "font-mono font-bold" : "font-medium"}`} style={{ fontSize: 11 }}>
+          {primaryText}
+        </span>
+        {cfg.showNo && it.unit_number && <UnitBadge n={it.unit_number} size="md" />}
+      </div>
+      {extras.map((ex, i) => (
+        <span key={i} className={`truncate leading-tight opacity-70 ${ex.mono ? "font-mono" : ""}`} style={{ fontSize: 9 }}>
+          {ex.text}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// ── UnitBadge ─────────────────────────────────────────────────────────────────
 function UnitBadge({ n, size }: { n: number | string; size: "sm" | "md" }) {
   const dim = size === "sm" ? "h-3.5 px-1 text-[8px]" : "h-4 px-1 text-[9px]";
   return (
