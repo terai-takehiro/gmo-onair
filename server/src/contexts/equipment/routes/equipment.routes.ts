@@ -694,12 +694,38 @@ router.get('/racks', async (_req: Request, res: Response, next: NextFunction) =>
           AND ei.deleted_at IS NULL
         ORDER BY ei.rack_position
       `, [rack.id]);
-      result.push({ location: rack, items });
+      const blanks = await queryAll(`
+        SELECT id, rack_position, rack_height, rack_slot, rack_side
+        FROM rack_blank_panels
+        WHERE location_id = $1
+        ORDER BY rack_position
+      `, [rack.id]);
+      result.push({ location: rack, items, blanks });
     }
     res.json({ success: true, data: result });
   } catch (err) {
     next(err);
   }
+});
+
+router.post('/racks/:locationId/blanks', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { rack_position, rack_height, rack_slot, rack_side } = req.body;
+    const id = uuid();
+    await execute(
+      `INSERT INTO rack_blank_panels (id, location_id, rack_position, rack_height, rack_slot, rack_side)
+       VALUES ($1,$2,$3,$4,$5,$6)`,
+      [id, req.params.locationId, rack_position, rack_height || 1, rack_slot || 'full', rack_side || 'front']
+    );
+    res.status(201).json({ success: true, data: { id } });
+  } catch (err) { next(err); }
+});
+
+router.delete('/racks/blanks/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await execute('DELETE FROM rack_blank_panels WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) { next(err); }
 });
 
 // ============================================================

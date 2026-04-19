@@ -3,12 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import { Loader2, Server, ClipboardCheck } from "lucide-react";
 
-// rack_slot → CSS grid-column
 function slotToColumn(slot: string): { start: number; span: number } {
   switch (slot) {
     case "left-1_2":  return { start: 1, span: 3 };
@@ -16,15 +20,23 @@ function slotToColumn(slot: string): { start: number; span: number } {
     case "left-1_3":  return { start: 1, span: 2 };
     case "mid-1_3":   return { start: 3, span: 2 };
     case "right-1_3": return { start: 5, span: 2 };
-    default:          return { start: 1, span: 6 }; // full
+    default:          return { start: 1, span: 6 };
   }
 }
 
-// equipment_type_code → fallback bg color
 const TYPE_BG: Record<string, string> = {
   V: "#ede9fe", C: "#e0f2fe", A: "#fef9c3", IC: "#ccfbf1",
   NW: "#cffafe", L: "#fefce8", XR: "#fce7f3", E: "#f3f4f6",
 };
+
+const RACK_SLOT_OPTIONS = [
+  { value: "full",      label: "全幅" },
+  { value: "left-1_2",  label: "左1/2" },
+  { value: "right-1_2", label: "右1/2" },
+  { value: "left-1_3",  label: "左1/3" },
+  { value: "mid-1_3",   label: "中央1/3" },
+  { value: "right-1_3", label: "右1/3" },
+];
 
 export default function RackLayoutPage() {
   const navigate = useNavigate();
@@ -35,25 +47,26 @@ export default function RackLayoutPage() {
   const [selectedCheckId, setSelectedCheckId] = useState<string>("");
   const [branchFilter, setBranchFilter] = useState<string>("all");
 
-  // Fetch racks
+  // Blank panel dialog state
+  const [blankDialog, setBlankDialog] = useState<{ locationId: string; uPos: number } | null>(null);
+  const [blankForm, setBlankForm] = useState({ rack_height: "1", rack_slot: "full" });
+  const [confirmDeleteBlankId, setConfirmDeleteBlankId] = useState<string | null>(null);
+
   const { data: racksData, isLoading: racksLoading, isError: racksError } = useQuery({
     queryKey: ["equipment-racks"],
     queryFn: async () => (await api.get("/equipment/racks")).data.data,
   });
 
-  // Fetch colors for legend
   const { data: colorsData } = useQuery({
     queryKey: ["equipment-colors"],
     queryFn: async () => (await api.get("/equipment/colors")).data.data,
   });
 
-  // Fetch inventory checks (for mode)
   const { data: inventoryChecksData } = useQuery({
     queryKey: ["equipment-inventory-checks"],
     queryFn: async () => (await api.get("/equipment/inventory-checks")).data.data,
   });
 
-  // Fetch selected inventory check details (items list)
   const { data: inventoryDetail } = useQuery({
     queryKey: ["equipment-inventory-check-detail", selectedCheckId],
     queryFn: async () => (await api.get(`/equipment/inventory-checks/${selectedCheckId}`)).data.data,
@@ -66,7 +79,6 @@ export default function RackLayoutPage() {
     (c: any) => c.status === "draft" || c.status === "in_progress"
   );
 
-  // Map: equipment_id → { checkItemId, found }
   const inventoryMap = useMemo(() => {
     if (!inventoryDetail?.items) return {};
     const m: Record<string, { id: string; found: boolean | null }> = {};
@@ -76,7 +88,6 @@ export default function RackLayoutPage() {
     return m;
   }, [inventoryDetail]);
 
-  // Progress
   const totalChecked = useMemo(() => Object.values(inventoryMap).filter((v) => v.found === true).length, [inventoryMap]);
   const totalItems = Object.keys(inventoryMap).length;
 
@@ -86,6 +97,23 @@ export default function RackLayoutPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["equipment-inventory-check-detail", selectedCheckId] });
+    },
+  });
+
+  const addBlankMutation = useMutation({
+    mutationFn: async ({ locationId, rack_position, rack_height, rack_slot, rack_side }: any) =>
+      api.post(`/equipment/racks/${locationId}/blanks`, { rack_position, rack_height, rack_slot, rack_side }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["equipment-racks"] });
+      setBlankDialog(null);
+    },
+  });
+
+  const deleteBlankMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/equipment/racks/blanks/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["equipment-racks"] });
+      setConfirmDeleteBlankId(null);
     },
   });
 
@@ -103,7 +131,17 @@ export default function RackLayoutPage() {
     }
   };
 
-  // Filter racks by branch
+  const handleEmptySlotClick = (locationId: string, uPos: number) => {
+    if (inventoryMode) return;
+    setBlankForm({ rack_height: "1", rack_slot: "full" });
+    setBlankDialog({ locationId, uPos });
+  };
+
+  const handleDeleteBlank = (id: string) => {
+    if (inventoryMode) return;
+    setConfirmDeleteBlankId(id);
+  };
+
   const filteredRacks = useMemo(() => {
     if (branchFilter === "all") return racks;
     return racks.filter((r: any) =>
@@ -138,7 +176,6 @@ export default function RackLayoutPage() {
           ラック実装ビュー
         </h1>
         <div className="flex flex-wrap items-center gap-2">
-          {/* Branch filter */}
           <Select value={branchFilter} onValueChange={setBranchFilter}>
             <SelectTrigger className="w-28 h-8 text-sm"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -148,7 +185,6 @@ export default function RackLayoutPage() {
             </SelectContent>
           </Select>
 
-          {/* Front/Back tab */}
           <div className="flex rounded-lg overflow-hidden border">
             <button
               className={`px-3 py-1.5 text-sm font-medium transition-colors ${side === "front" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}
@@ -164,7 +200,6 @@ export default function RackLayoutPage() {
             </button>
           </div>
 
-          {/* Inventory mode toggle */}
           <Button
             size="sm"
             variant={inventoryMode ? "default" : "outline"}
@@ -176,7 +211,6 @@ export default function RackLayoutPage() {
         </div>
       </div>
 
-      {/* Inventory mode controls */}
       {inventoryMode && (
         <div className="rounded-lg border bg-muted/30 p-3 flex flex-wrap items-center gap-3">
           <span className="text-sm font-medium">棚卸し選択:</span>
@@ -211,7 +245,6 @@ export default function RackLayoutPage() {
         </div>
       ) : (
         <>
-          {/* Racks horizontal scroll area */}
           <div className="overflow-x-auto pb-4">
             <div className="flex gap-6 min-w-max items-start">
               {filteredRacks.map((rackData: any) => (
@@ -222,12 +255,13 @@ export default function RackLayoutPage() {
                   inventoryMode={inventoryMode && !!selectedCheckId}
                   inventoryMap={inventoryMap}
                   onCellClick={handleCellClick}
+                  onEmptySlotClick={handleEmptySlotClick}
+                  onDeleteBlank={handleDeleteBlank}
                 />
               ))}
             </div>
           </div>
 
-          {/* Legend */}
           {colors.length > 0 && (
             <div className="border rounded-lg p-3">
               <p className="text-xs font-semibold text-muted-foreground mb-2">凡例</p>
@@ -244,36 +278,125 @@ export default function RackLayoutPage() {
           )}
         </>
       )}
+
+      {/* ブランクパネル追加ダイアログ */}
+      <Dialog open={!!blankDialog} onOpenChange={(o) => { if (!o) setBlankDialog(null); }}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>ブランクパネルを追加</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            <div className="space-y-1">
+              <Label>U位置 (下端)</Label>
+              <Input
+                type="number" min="1"
+                value={blankDialog?.uPos ?? ""}
+                onChange={(e) => setBlankDialog(d => d ? { ...d, uPos: Number(e.target.value) } : d)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>高さ (U)</Label>
+              <Input
+                type="number" min="1"
+                value={blankForm.rack_height}
+                onChange={(e) => setBlankForm(f => ({ ...f, rack_height: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>横位置</Label>
+              <Select value={blankForm.rack_slot} onValueChange={(v) => setBlankForm(f => ({ ...f, rack_slot: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {RACK_SLOT_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="outline" size="sm" onClick={() => setBlankDialog(null)}>キャンセル</Button>
+              <Button
+                size="sm"
+                disabled={addBlankMutation.isPending || !blankDialog?.uPos}
+                onClick={() => {
+                  if (!blankDialog) return;
+                  addBlankMutation.mutate({
+                    locationId: blankDialog.locationId,
+                    rack_position: blankDialog.uPos,
+                    rack_height: Number(blankForm.rack_height) || 1,
+                    rack_slot: blankForm.rack_slot,
+                    rack_side: side,
+                  });
+                }}
+              >
+                {addBlankMutation.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
+                追加
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ブランクパネル削除確認 */}
+      <Dialog open={!!confirmDeleteBlankId} onOpenChange={(o) => { if (!o) setConfirmDeleteBlankId(null); }}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>ブランクパネルを削除</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground py-2">このブランクパネルを削除しますか？</p>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => setConfirmDeleteBlankId(null)}>キャンセル</Button>
+            <Button
+              variant="destructive" size="sm"
+              disabled={deleteBlankMutation.isPending}
+              onClick={() => { if (confirmDeleteBlankId) deleteBlankMutation.mutate(confirmDeleteBlankId); }}
+            >
+              {deleteBlankMutation.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
+              削除
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function RackDisplay({ rackData, side, inventoryMode, inventoryMap, onCellClick }: {
-  rackData: { location: any; items: any[] };
+function RackDisplay({ rackData, side, inventoryMode, inventoryMap, onCellClick, onEmptySlotClick, onDeleteBlank }: {
+  rackData: { location: any; items: any[]; blanks?: any[] };
   side: "front" | "back";
   inventoryMode: boolean;
   inventoryMap: Record<string, { id: string; found: boolean | null }>;
   onCellClick: (item: any) => void;
+  onEmptySlotClick: (locationId: string, uPos: number) => void;
+  onDeleteBlank: (id: string) => void;
 }) {
-  const { location, items } = rackData;
+  const { location, items, blanks = [] } = rackData;
   const rackUnits: number = location.rack_units ?? 20;
 
-  // Filter by side
   const sideItems = items.filter((it: any) => it.rack_side === side);
+  const sideBlanks = blanks.filter((b: any) => b.rack_side === side);
 
-  // Detect overlaps: same (rack_position, rack_slot) pair
   const posSlotCount: Record<string, number> = {};
   for (const it of sideItems) {
     const key = `${it.rack_position}:${it.rack_slot}`;
     posSlotCount[key] = (posSlotCount[key] ?? 0) + 1;
   }
 
-  const CELL_H = 28; // px per U
-  const RACK_W = 240; // px total width
+  const CELL_H = 28;
+  const RACK_W = 240;
+
+  const handleRackBodyClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    let el: HTMLElement | null = e.target as HTMLElement;
+    while (el && el !== e.currentTarget) {
+      if (el.tagName === "BUTTON") return;
+      el = el.parentElement;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const rowFromTop = Math.floor((e.clientY - rect.top) / CELL_H);
+    const uPos = rackUnits - rowFromTop;
+    if (uPos >= 1 && uPos <= rackUnits) onEmptySlotClick(location.id, uPos);
+  };
 
   return (
     <div className="shrink-0">
-      {/* Rack name */}
       <div className="text-center text-sm font-bold mb-1 px-2">{location.name}</div>
       {location.building && (
         <div className="text-center text-xs text-muted-foreground mb-2">{location.building}{location.floor ? ` ${location.floor}` : ""}</div>
@@ -291,17 +414,43 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, onCellClick 
 
         {/* Rack body */}
         <div
-          className="relative border-2 border-border bg-zinc-100 rounded-sm"
+          className="relative border-2 border-border bg-zinc-100 rounded-sm cursor-crosshair"
           style={{ width: RACK_W, height: rackUnits * CELL_H }}
+          onClick={handleRackBodyClick}
         >
           {/* Grid lines */}
           {Array.from({ length: rackUnits }, (_, i) => (
             <div
               key={i}
-              className="absolute left-0 right-0 border-b border-zinc-200/60"
+              className="absolute left-0 right-0 border-b border-zinc-200/60 pointer-events-none"
               style={{ top: i * CELL_H, height: CELL_H }}
             />
           ))}
+
+          {/* Blank panels */}
+          {sideBlanks.map((b: any) => {
+            const { start, span } = slotToColumn(b.rack_slot);
+            const height = (b.rack_height ?? 1) * CELL_H;
+            const top = (rackUnits - b.rack_position - (b.rack_height ?? 1) + 1) * CELL_H;
+            const left = ((start - 1) / 6) * RACK_W;
+            const width = (span / 6) * RACK_W;
+            return (
+              <button
+                key={b.id}
+                className="absolute border border-zinc-300 rounded-[2px] overflow-hidden bg-zinc-300 hover:bg-zinc-400 transition-colors z-[2]"
+                style={{ top, left, width, height }}
+                onClick={() => onDeleteBlank(b.id)}
+                title="クリックで削除"
+              >
+                <span
+                  className="flex items-center justify-center h-full font-mono text-zinc-500 tracking-widest select-none"
+                  style={{ fontSize: height <= CELL_H ? 8 : 10 }}
+                >
+                  BLANK
+                </span>
+              </button>
+            );
+          })}
 
           {/* Items */}
           {sideItems.map((it: any) => {
@@ -318,40 +467,29 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, onCellClick 
             return (
               <button
                 key={it.id}
-                className="absolute border border-white/60 rounded-[2px] overflow-hidden text-left hover:brightness-90 transition-all focus:outline-none focus:ring-1 focus:ring-primary"
+                className="absolute border border-white/60 rounded-[2px] overflow-hidden text-left hover:brightness-90 transition-all focus:outline-none focus:ring-1 focus:ring-primary z-[2]"
                 style={{ top, left, width, height, background: bg }}
                 onClick={() => onCellClick(it)}
                 title={`${it.name}${it.model_number ? ` / ${it.model_number}` : ""}${it.unit_number ? ` No.${it.unit_number}` : ""}`}
               >
                 <div className={`flex flex-col justify-center h-full px-1 ${height <= CELL_H ? "py-0" : "py-0.5"}`}>
-                  <span
-                    className="font-medium leading-tight block truncate"
-                    style={{ fontSize: height <= CELL_H ? 9 : 11 }}
-                  >
+                  <span className="font-medium leading-tight block truncate" style={{ fontSize: height <= CELL_H ? 9 : 11 }}>
                     {it.name}
                   </span>
                   {it.model_number && (
-                    <span
-                      className="font-mono leading-tight block truncate opacity-80"
-                      style={{ fontSize: height <= CELL_H ? 8 : 10 }}
-                    >
+                    <span className="font-mono leading-tight block truncate opacity-80" style={{ fontSize: height <= CELL_H ? 8 : 10 }}>
                       {it.model_number}
                     </span>
                   )}
                   {it.unit_number && (
-                    <span
-                      className="leading-tight opacity-70"
-                      style={{ fontSize: height <= CELL_H ? 8 : 9 }}
-                    >
+                    <span className="leading-tight opacity-70" style={{ fontSize: height <= CELL_H ? 8 : 9 }}>
                       No.{it.unit_number}
                     </span>
                   )}
                 </div>
-                {/* Overlap warning */}
                 {isOverlap && (
                   <span className="absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-destructive border border-white" title="重複" />
                 )}
-                {/* Inventory status indicator */}
                 {inventoryMode && mapEntry && (
                   <span
                     className={`absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white flex items-center justify-center text-[8px] font-bold ${
@@ -365,10 +503,9 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, onCellClick 
             );
           })}
 
-          {/* Empty placeholder when no items */}
-          {sideItems.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground/50">
-              機材なし
+          {sideItems.length === 0 && sideBlanks.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground/50 pointer-events-none">
+              クリックでブランクパネルを追加
             </div>
           )}
         </div>
@@ -383,7 +520,6 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, onCellClick 
         </div>
       </div>
 
-      {/* Rack unit count */}
       <div className="text-center text-[10px] text-muted-foreground mt-1">{rackUnits}U</div>
     </div>
   );

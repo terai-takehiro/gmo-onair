@@ -79,6 +79,38 @@ export default function EquipmentDetailPage() {
   const [selectedChildId, setSelectedChildId] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
+  const [suggestItems, setSuggestItems] = useState<any[]>([]);
+  const [suggestTimer, setSuggestTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleNameChange = (val: string) => {
+    setEditForm(f => ({ ...f, name: val }));
+    if (suggestTimer) clearTimeout(suggestTimer);
+    if (!val.trim()) { setSuggestItems([]); return; }
+    const t = setTimeout(async () => {
+      try {
+        const res = await api.get('/equipment/items', { params: { search: val, include_children: '1' } });
+        const found: any[] = res.data.data ?? [];
+        const exact = found.filter((i: any) => i.name.toLowerCase() === val.toLowerCase());
+        if (exact.length > 0) {
+          const models = [...new Set(exact.map((i: any) => i.model_number ?? ''))];
+          if (models.length === 1) {
+            setEditForm(f => ({
+              ...f,
+              name: val,
+              model_number: f.model_number || exact[0].model_number || '',
+              manufacturer_id: f.manufacturer_id || exact[0].manufacturer_id || '',
+            }));
+            setSuggestItems([]);
+          } else {
+            setSuggestItems(exact);
+          }
+        } else {
+          setSuggestItems([]);
+        }
+      } catch { setSuggestItems([]); }
+    }, 400);
+    setSuggestTimer(t);
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ["equipment-item", id],
@@ -356,7 +388,38 @@ export default function EquipmentDetailPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1 sm:col-span-2">
                 <Label>商品名 *</Label>
-                <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+                <div className="relative">
+                  <Input
+                    value={editForm.name || ""}
+                    onChange={(e) => handleNameChange(e.target.value)}
+                    onBlur={() => setTimeout(() => setSuggestItems([]), 200)}
+                    autoComplete="off"
+                  />
+                  {suggestItems.length > 0 && (
+                    <div className="absolute z-50 top-full left-0 right-0 bg-card border rounded-md shadow-lg mt-0.5">
+                      <p className="px-3 py-1.5 text-xs text-muted-foreground border-b">同名の型名が複数あります。選択してください</p>
+                      {Array.from(
+                        new Map(suggestItems.map((i: any) => [i.model_number ?? '', i])).values()
+                      ).map((item: any) => (
+                        <button
+                          key={item.model_number ?? 'none'}
+                          type="button"
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2"
+                          onMouseDown={() => {
+                            setEditForm(f => ({
+                              ...f,
+                              model_number: item.model_number || f.model_number,
+                              manufacturer_id: item.manufacturer_id || f.manufacturer_id,
+                            }));
+                            setSuggestItems([]);
+                          }}
+                        >
+                          <span className="font-medium">{item.model_number || '（型名なし）'}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="space-y-1">
                 <Label>メーカー</Label>
