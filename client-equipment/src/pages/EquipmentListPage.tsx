@@ -270,7 +270,9 @@ export default function EquipmentListPage() {
       base = base.filter(item =>
         item.parent_id == null &&
         (item.children_count ?? 0) === 0 &&
-        !item.location_id
+        !item.location_id &&
+        item.status !== 'disposed' &&
+        item.status !== 'lost'
       );
     }
     if (!sortKey) return base;
@@ -291,7 +293,7 @@ export default function EquipmentListPage() {
       return sortDir === 'asc' ? cmp : -cmp;
     });
     return copy;
-  }, [rawItems, sortKey, sortDir]);
+  }, [rawItems, sortKey, sortDir, showOrphans]);
 
   const saveMutation = useMutation({
     mutationFn: (payload: any) =>
@@ -792,7 +794,7 @@ export default function EquipmentListPage() {
                     {isExpanded && children.map((child: any) => (
                       <tr
                         key={child.id}
-                        className={`bg-muted/20 transition-colors ${tableEditMode ? 'cursor-default hover:bg-amber-50/50' : 'cursor-pointer hover:bg-muted/40'} ${tableEdits[child.id] ? 'outline outline-1 outline-amber-400/60' : ''}`}
+                        className={`group bg-muted/20 transition-colors ${tableEditMode ? 'cursor-default hover:bg-amber-50/50' : 'cursor-pointer hover:bg-muted/40'} ${tableEdits[child.id] ? 'outline outline-1 outline-amber-400/60' : ''}`}
                         onClick={tableEditMode ? undefined : () => navigateToDetail(child.id)}
                       >
                         <td className="pl-6 pr-1 py-1.5 text-muted-foreground/40 text-xs">└</td>
@@ -856,9 +858,10 @@ export default function EquipmentListPage() {
                           ) : child.notes || '–'}
                         </td>
                         <td className="px-2 py-1.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex gap-0.5 justify-end">
+                          <div className="flex gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" title="コピーして新規登録" onClick={(e) => openCopy(child, e)}><Copy className="h-3 w-3" /></Button>
                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); openEdit(child); }}><Pencil className="h-3 w-3" /></Button>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); if (confirm(`「${child.name}」を削除？`)) { deleteMutation.mutate(child.id, { onSuccess: () => { setChildrenCache(prev => ({ ...prev, [item.id]: (prev[item.id] ?? []).filter((c: any) => c.id !== child.id) })); } }); } }}><Trash2 className="h-3 w-3" /></Button>
                           </div>
                         </td>
                       </tr>
