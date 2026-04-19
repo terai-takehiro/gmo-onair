@@ -257,6 +257,11 @@ export default function RackLayoutPage() {
     });
   }, [racks, branchFilter, rackTypeFilter]);
 
+  const oppositeSideHasContent = useMemo(() => {
+    const opposite = side === "front" ? "back" : "front";
+    return filteredRacks.some((r: any) => r.items?.some((it: any) => it.rack_side === opposite));
+  }, [filteredRacks, side]);
+
   if (racksLoading) {
     return (
       <div className="flex justify-center py-24">
@@ -288,16 +293,22 @@ export default function RackLayoutPage() {
           {/* 前面/背面 (モバイルでも常時表示) */}
           <div className="flex rounded-lg overflow-hidden border border-border shadow-sm shrink-0">
             <button
-              className={`px-3 sm:px-4 h-9 text-sm font-semibold transition-colors ${side === "front" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}
+              className={`relative px-3 sm:px-4 h-9 text-sm font-semibold transition-colors ${side === "front" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}
               onClick={() => setSide("front")}
             >
               前面
+              {side === "back" && oppositeSideHasContent && (
+                <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-amber-500 shadow-[0_0_0_2px_white]" />
+              )}
             </button>
             <button
-              className={`px-3 sm:px-4 h-9 text-sm font-semibold transition-colors ${side === "back" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}
+              className={`relative px-3 sm:px-4 h-9 text-sm font-semibold transition-colors ${side === "back" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}
               onClick={() => setSide("back")}
             >
               背面
+              {side === "front" && oppositeSideHasContent && (
+                <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-amber-500 shadow-[0_0_0_2px_white]" />
+              )}
             </button>
           </div>
         </div>
@@ -724,6 +735,8 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
 
   const sideItems = items.filter((it: any) => it.rack_side === side);
   const sideBlanks = blanks.filter((b: any) => b.rack_side === side);
+  const oppositeItems = items.filter((it: any) => it.rack_side !== side);
+  const hasOpposite = oppositeItems.length > 0;
 
   // Compute subtitle text
   const autoSubtitle = [location.branch_name, location.rack_type_name, location.building, location.floor]
@@ -795,6 +808,20 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
               style={{ top: i * CELL_H, height: CELL_H }}
             />
           ))}
+
+          {/* Opposite-side indicator stripes (右端) */}
+          {oppositeItems.map((it: any) => {
+            const h = (it.rack_height ?? 1) * CELL_H;
+            const top = (rackUnits - it.rack_position - (it.rack_height ?? 1) + 1) * CELL_H;
+            return (
+              <div
+                key={`op-${it.id}`}
+                className="absolute right-0 bg-amber-400/80 pointer-events-none z-[1] shadow-[inset_1px_0_0_rgba(255,255,255,0.3)]"
+                style={{ top, height: h, width: 4 }}
+                title={`${side === "front" ? "背面" : "前面"}: ${it.name}${it.model_number ? ` / ${it.model_number}` : ""}`}
+              />
+            );
+          })}
 
           {/* Blank panels & 通線口 */}
           {sideBlanks.map((b: any) => {
@@ -921,8 +948,8 @@ function DefaultCellContent({ it, height }: { it: any; height: number }) {
   if (height <= CELL_H) {
     // 1U: 型名 + No.バッジ
     return (
-      <div className="flex items-center h-full px-1.5 gap-1.5 min-w-0">
-        <span className="font-mono font-bold truncate leading-none" style={{ fontSize: 11 }}>
+      <div className="flex items-center h-full px-2 gap-1.5 min-w-0">
+        <span className="font-mono font-bold truncate leading-none" style={{ fontSize: 12 }}>
           {it.model_number || it.name}
         </span>
         {it.unit_number && <UnitBadge n={it.unit_number} size="sm" />}
@@ -932,14 +959,14 @@ function DefaultCellContent({ it, height }: { it: any; height: number }) {
   if (height <= CELL_H * 2) {
     // 2U: 型名+バッジ上段、機材名下段
     return (
-      <div className="flex flex-col justify-center h-full px-1.5 py-0.5 gap-0.5">
+      <div className="flex flex-col justify-center h-full px-2 py-1 gap-0.5">
         <div className="flex items-center gap-1.5 min-w-0">
-          <span className="font-mono font-bold truncate leading-tight" style={{ fontSize: 12 }}>
+          <span className="font-mono font-bold truncate leading-tight" style={{ fontSize: 13 }}>
             {it.model_number || it.name}
           </span>
           {it.unit_number && <UnitBadge n={it.unit_number} size="md" />}
         </div>
-        <span className="font-bold truncate leading-tight opacity-55" style={{ fontSize: 10 }}>
+        <span className="font-bold truncate leading-tight opacity-60" style={{ fontSize: 11 }}>
           {it.name}
         </span>
       </div>
@@ -947,12 +974,12 @@ function DefaultCellContent({ it, height }: { it: any; height: number }) {
   }
   // 3U+: 機材名上段、型名+バッジ下段
   return (
-    <div className="flex flex-col justify-center h-full px-1.5 py-1 gap-0.5">
-      <span className="font-bold truncate leading-tight" style={{ fontSize: 12 }}>
+    <div className="flex flex-col justify-center h-full px-2 py-1 gap-0.5">
+      <span className="font-bold truncate leading-tight" style={{ fontSize: 13 }}>
         {it.name}
       </span>
       <div className="flex items-center gap-1.5 min-w-0">
-        <span className="font-mono font-bold truncate leading-tight opacity-80" style={{ fontSize: 11 }}>
+        <span className="font-mono font-bold truncate leading-tight opacity-80" style={{ fontSize: 12 }}>
           {it.model_number}
         </span>
         {it.unit_number && <UnitBadge n={it.unit_number} size="md" />}
@@ -979,8 +1006,8 @@ function ConfiguredCellContent({ it, cfg, height }: { it: any; cfg: CellConfig; 
 
   if (is1U) {
     return (
-      <div className="flex items-center h-full px-1.5 gap-1.5 min-w-0">
-        <span className={`truncate leading-none ${primaryCls}`} style={{ fontSize: 11 }}>
+      <div className="flex items-center h-full px-2 gap-1.5 min-w-0">
+        <span className={`truncate leading-none ${primaryCls}`} style={{ fontSize: 12 }}>
           {primaryText}
         </span>
         {cfg.showNo && it.unit_number && <UnitBadge n={it.unit_number} size="sm" />}
@@ -989,15 +1016,15 @@ function ConfiguredCellContent({ it, cfg, height }: { it: any; cfg: CellConfig; 
   }
 
   return (
-    <div className="flex flex-col justify-center h-full px-1.5 py-0.5 gap-0.5">
+    <div className="flex flex-col justify-center h-full px-2 py-1 gap-0.5">
       <div className="flex items-center gap-1.5 min-w-0">
-        <span className={`truncate leading-tight ${primaryCls}`} style={{ fontSize: 12 }}>
+        <span className={`truncate leading-tight ${primaryCls}`} style={{ fontSize: 13 }}>
           {primaryText}
         </span>
         {cfg.showNo && it.unit_number && <UnitBadge n={it.unit_number} size="md" />}
       </div>
       {extras.map((ex, i) => (
-        <span key={i} className={`truncate leading-tight font-bold opacity-55 ${ex.mono ? "font-mono" : ""}`} style={{ fontSize: 10 }}>
+        <span key={i} className={`truncate leading-tight font-bold opacity-60 ${ex.mono ? "font-mono" : ""}`} style={{ fontSize: 11 }}>
           {ex.text}
         </span>
       ))}
@@ -1007,7 +1034,7 @@ function ConfiguredCellContent({ it, cfg, height }: { it: any; cfg: CellConfig; 
 
 // ── UnitBadge ─────────────────────────────────────────────────────────────────
 function UnitBadge({ n, size }: { n: number | string; size: "sm" | "md" }) {
-  const dim = size === "sm" ? "h-4 px-1.5 text-[9px]" : "h-[18px] px-1.5 text-[10px]";
+  const dim = size === "sm" ? "h-[18px] px-1.5 text-[10px]" : "h-5 px-1.5 text-[11px]";
   return (
     <span
       className={`shrink-0 inline-flex items-center justify-center rounded-sm bg-slate-600 text-white font-bold leading-none tabular-nums ${dim}`}
