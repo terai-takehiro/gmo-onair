@@ -487,7 +487,7 @@ export default function EquipmentListPage() {
               return n;
             }, { replace: true })}
             className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-              filterBlock === t.code && !showOrphans
+              filterBlock === t.code
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-muted-foreground hover:bg-muted/80"
             }`}
