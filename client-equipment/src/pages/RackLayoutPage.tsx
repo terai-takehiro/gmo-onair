@@ -80,6 +80,7 @@ export default function RackLayoutPage() {
   const [selectedCheckId, setSelectedCheckId] = useState<string>("");
   const [inventoryNotice, setInventoryNotice] = useState<string>("");
   const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevCheckIdRef = useRef<string>("");
 
   // Display edit mode
   const [displayEditMode, setDisplayEditMode] = useState(false);
@@ -266,6 +267,15 @@ export default function RackLayoutPage() {
     if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
     noticeTimerRef.current = setTimeout(() => setInventoryNotice(""), 3500);
   }, []);
+
+  // 棚卸しを選択したら自動同期（ラック内の全機材をチェックリストに追加）
+  useEffect(() => {
+    if (selectedCheckId && inventoryMode && selectedCheckId !== prevCheckIdRef.current) {
+      prevCheckIdRef.current = selectedCheckId;
+      syncInventoryMutation.mutate(selectedCheckId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCheckId, inventoryMode]);
 
   const handleCellClick = (item: any, overlapItems?: any[]) => {
     if (displayEditMode) {
@@ -768,43 +778,43 @@ function ItemTooltip({ item, x, y }: { item: any; x: number; y: number }) {
       className="fixed z-50 pointer-events-none"
       style={{ left, top: y, maxWidth: TOOLTIP_W }}
     >
-      <div className="bg-zinc-900 text-zinc-100 rounded-lg shadow-2xl border border-zinc-700 p-3 space-y-1.5" style={{ width: TOOLTIP_W }}>
+      <div className="bg-card text-foreground rounded-lg shadow-xl border border-border p-3 space-y-1.5" style={{ width: TOOLTIP_W }}>
         <div className="font-bold text-sm leading-tight">{item.name}</div>
         {item.model_number && (
-          <div className="text-xs text-zinc-300 leading-tight tracking-tight">{item.model_number}</div>
+          <div className="text-xs text-muted-foreground leading-tight tracking-tight font-mono">{item.model_number}</div>
         )}
         {item.manufacturer_name && (
-          <div className="text-[11px] text-zinc-400">{item.manufacturer_name}</div>
+          <div className="text-[11px] text-muted-foreground">{item.manufacturer_name}</div>
         )}
-        <div className="border-t border-zinc-700 pt-1.5 space-y-1">
+        <div className="border-t border-border pt-1.5 space-y-1">
           {item.serial_number && (
             <div className="flex gap-1.5 text-[11px]">
-              <span className="text-zinc-500 shrink-0">S/N</span>
-              <span className="text-zinc-300 font-semibold tracking-tight">{item.serial_number}</span>
+              <span className="text-muted-foreground shrink-0">S/N</span>
+              <span className="font-semibold tracking-tight font-mono">{item.serial_number}</span>
             </div>
           )}
           {(item.status || item.condition) && (
             <div className="flex gap-2 text-[11px]">
               {item.status && (
-                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${item.status === "active" ? "bg-emerald-700/60 text-emerald-200" : item.status === "repair" ? "bg-amber-700/60 text-amber-200" : item.status === "retired" ? "bg-red-800/60 text-red-200" : "bg-zinc-700 text-zinc-300"}`}>
+                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${item.status === "active" ? "bg-emerald-100 text-emerald-800" : item.status === "repair" ? "bg-amber-100 text-amber-800" : item.status === "retired" ? "bg-red-100 text-red-800" : "bg-muted text-muted-foreground"}`}>
                   {STATUS_LABEL[item.status] ?? item.status}
                 </span>
               )}
               {item.condition && item.condition !== "good" && (
-                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${item.condition === "poor" ? "bg-amber-700/60 text-amber-200" : item.condition === "broken" ? "bg-red-800/60 text-red-200" : "bg-zinc-700 text-zinc-300"}`}>
+                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${item.condition === "poor" ? "bg-amber-100 text-amber-800" : item.condition === "broken" ? "bg-red-100 text-red-800" : "bg-muted text-muted-foreground"}`}>
                   {CONDITION_LABEL[item.condition] ?? item.condition}
                 </span>
               )}
             </div>
           )}
           {item.notes && (
-            <div className="text-[11px] text-zinc-300 leading-snug border-t border-zinc-700 pt-1 mt-1">
-              <span className="text-zinc-500 text-[10px]">備考　</span>{item.notes}
+            <div className="text-[11px] text-muted-foreground leading-snug border-t border-border pt-1 mt-1">
+              <span className="text-muted-foreground/60 text-[10px]">備考　</span>{item.notes}
             </div>
           )}
         </div>
         {item.eq_code && (
-          <div className="text-[10px] text-zinc-600 pt-0.5">{item.eq_code}</div>
+          <div className="text-[10px] text-muted-foreground/60 pt-0.5">{item.eq_code}</div>
         )}
       </div>
     </div>

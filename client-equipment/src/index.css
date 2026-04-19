@@ -177,6 +177,8 @@
   #eq-print-area td.check-col,
   #eq-print-area th.check-col { width: 20px; text-align: center; vertical-align: middle; }
   #eq-print-area td.check-col { vertical-align: middle; }
+  #eq-print-area td.col-id,
+  #eq-print-area th.col-id { white-space: nowrap; }
   #eq-print-area thead { display: table-header-group; }
   #eq-print-area tr { page-break-inside: avoid; }
   #eq-print-area tr.child-row { background: #f8f8f8; }
