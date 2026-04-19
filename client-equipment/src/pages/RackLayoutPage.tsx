@@ -13,6 +13,10 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Server, ClipboardCheck, Pencil } from "lucide-react";
 
+// ── Constants ─────────────────────────────────────────────────────────────────
+const CELL_H = 32;
+const RACK_W = 240;
+
 // ── Cell display config ───────────────────────────────────────────────────────
 type CellConfig = {
   primary: "model" | "name" | "custom";
@@ -32,6 +36,23 @@ function loadCellConfigs(): Record<string, CellConfig> {
 
 function saveCellConfigs(configs: Record<string, CellConfig>) {
   localStorage.setItem(CELL_CONFIG_LS_KEY, JSON.stringify(configs));
+}
+
+// ── Rack subtitle config ──────────────────────────────────────────────────────
+type RackConfig = {
+  subtitleMode: "auto" | "hidden" | "custom";
+  subtitleText: string;
+};
+
+const RACK_CONFIG_LS_KEY = "rack-header-configs-v1";
+
+function loadRackConfigs(): Record<string, RackConfig> {
+  try { return JSON.parse(localStorage.getItem(RACK_CONFIG_LS_KEY) ?? "{}"); }
+  catch { return {}; }
+}
+
+function saveRackConfigs(configs: Record<string, RackConfig>) {
+  localStorage.setItem(RACK_CONFIG_LS_KEY, JSON.stringify(configs));
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -75,6 +96,8 @@ export default function RackLayoutPage() {
   const [displayEditMode, setDisplayEditMode] = useState(false);
   const [cellConfigs, setCellConfigs] = useState<Record<string, CellConfig>>(loadCellConfigs);
   const [configTarget, setConfigTarget] = useState<any>(null);
+  const [rackConfigs, setRackConfigs] = useState<Record<string, RackConfig>>(loadRackConfigs);
+  const [rackSubtitleTarget, setRackSubtitleTarget] = useState<{ locationId: string; config: RackConfig } | null>(null);
 
   // Blank panel dialog state
   const [blankDialog, setBlankDialog] = useState<{ locationId: string; uPos: number } | null>(null);
@@ -192,6 +215,20 @@ export default function RackLayoutPage() {
     setCellConfigs(next);
     saveCellConfigs(next);
     setConfigTarget(null);
+  };
+
+  const handleEditRackSubtitle = (locationId: string) => {
+    setRackSubtitleTarget({
+      locationId,
+      config: rackConfigs[locationId] ?? { subtitleMode: "auto", subtitleText: "" },
+    });
+  };
+
+  const handleSaveRackConfig = (locationId: string, config: RackConfig) => {
+    const next = { ...rackConfigs, [locationId]: config };
+    setRackConfigs(next);
+    saveRackConfigs(next);
+    setRackSubtitleTarget(null);
   };
 
   const handleResetCellConfig = (itemId: string) => {
@@ -343,9 +380,11 @@ export default function RackLayoutPage() {
                   inventoryMap={inventoryMap}
                   displayEditMode={displayEditMode}
                   cellConfigs={cellConfigs}
+                  rackConfig={rackConfigs[rackData.location.id]}
                   onCellClick={handleCellClick}
                   onEmptySlotClick={handleEmptySlotClick}
                   onDeleteBlank={handleDeleteBlank}
+                  onEditRackSubtitle={handleEditRackSubtitle}
                 />
               ))}
             </div>
@@ -461,6 +500,15 @@ export default function RackLayoutPage() {
         </DialogContent>
       </Dialog>
 
+      {/* ラックサブタイトル設定ダイアログ */}
+      {rackSubtitleTarget && (
+        <RackSubtitleDialog
+          config={rackSubtitleTarget.config}
+          onSave={(cfg) => handleSaveRackConfig(rackSubtitleTarget.locationId, cfg)}
+          onClose={() => setRackSubtitleTarget(null)}
+        />
+      )}
+
       {/* セル表示設定ダイアログ */}
       {configTarget && (
         <CellConfigDialog
@@ -472,6 +520,52 @@ export default function RackLayoutPage() {
         />
       )}
     </div>
+  );
+}
+
+// ── RackSubtitleDialog ────────────────────────────────────────────────────────
+function RackSubtitleDialog({ config, onSave, onClose }: {
+  config: RackConfig;
+  onSave: (c: RackConfig) => void;
+  onClose: () => void;
+}) {
+  const [form, setForm] = useState<RackConfig>(config);
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="sm:max-w-xs">
+        <DialogHeader>
+          <DialogTitle>ラック名下テキスト設定</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 pt-1">
+          {[
+            { value: "auto",   label: "自動（拠点・種別・建物情報）" },
+            { value: "hidden", label: "非表示" },
+            { value: "custom", label: "カスタム文字列" },
+          ].map((opt) => (
+            <label key={opt.value} className="flex items-center gap-2 cursor-pointer text-sm">
+              <input
+                type="radio" name="subtitleMode" value={opt.value}
+                checked={form.subtitleMode === opt.value}
+                onChange={() => setForm(f => ({ ...f, subtitleMode: opt.value as RackConfig["subtitleMode"] }))}
+                className="h-3.5 w-3.5 accent-primary"
+              />
+              {opt.label}
+            </label>
+          ))}
+          {form.subtitleMode === "custom" && (
+            <Input
+              placeholder="表示するテキスト"
+              value={form.subtitleText}
+              onChange={(e) => setForm(f => ({ ...f, subtitleText: e.target.value }))}
+            />
+          )}
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" size="sm" onClick={onClose}>キャンセル</Button>
+          <Button size="sm" onClick={() => onSave(form)}>保存</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -579,16 +673,18 @@ function CellConfigDialog({
 }
 
 // ── RackDisplay ───────────────────────────────────────────────────────────────
-function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditMode, cellConfigs, onCellClick, onEmptySlotClick, onDeleteBlank }: {
+function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditMode, cellConfigs, rackConfig, onCellClick, onEmptySlotClick, onDeleteBlank, onEditRackSubtitle }: {
   rackData: { location: any; items: any[]; blanks?: any[] };
   side: "front" | "back";
   inventoryMode: boolean;
   inventoryMap: Record<string, { id: string; found: boolean | null }>;
   displayEditMode: boolean;
   cellConfigs: Record<string, CellConfig>;
+  rackConfig?: RackConfig;
   onCellClick: (item: any) => void;
   onEmptySlotClick: (locationId: string, uPos: number) => void;
   onDeleteBlank: (id: string) => void;
+  onEditRackSubtitle: (locationId: string) => void;
 }) {
   const { location, items, blanks = [] } = rackData;
   const rackUnits: number = location.rack_units ?? 20;
@@ -596,14 +692,19 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
   const sideItems = items.filter((it: any) => it.rack_side === side);
   const sideBlanks = blanks.filter((b: any) => b.rack_side === side);
 
+  // Compute subtitle text
+  const autoSubtitle = [location.branch_name, location.rack_type_name, location.building, location.floor]
+    .filter(Boolean).join(" ");
+  const subtitle =
+    rackConfig?.subtitleMode === "hidden" ? null :
+    rackConfig?.subtitleMode === "custom"  ? (rackConfig.subtitleText || null) :
+    autoSubtitle || null;
+
   const posSlotCount: Record<string, number> = {};
   for (const it of sideItems) {
     const key = `${it.rack_position}:${it.rack_slot}`;
     posSlotCount[key] = (posSlotCount[key] ?? 0) + 1;
   }
-
-  const CELL_H = 28;
-  const RACK_W = 240;
 
   const handleRackBodyClick = (e: React.MouseEvent<HTMLDivElement>) => {
     let el: HTMLElement | null = e.target as HTMLElement;
@@ -619,11 +720,17 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
 
   return (
     <div className="shrink-0">
-      <div className="text-center text-sm font-bold mb-1 px-2">{location.name}</div>
-      <div className="text-center text-xs text-muted-foreground mb-2 space-x-1">
-        {location.branch_name && <span>{location.branch_name}</span>}
-        {location.rack_type_name && <span className="text-amber-600">{location.rack_type_name}</span>}
-        {location.building && <span>{location.building}{location.floor ? ` ${location.floor}` : ""}</span>}
+      <div className="text-center text-sm font-bold mb-0.5 px-2">{location.name}</div>
+      <div
+        className={`text-center text-xs mb-2 min-h-[16px] ${
+          displayEditMode
+            ? "cursor-pointer text-amber-600 hover:underline"
+            : "text-muted-foreground"
+        }`}
+        onClick={displayEditMode ? () => onEditRackSubtitle(location.id) : undefined}
+        title={displayEditMode ? "クリックでサブタイトルを変更" : undefined}
+      >
+        {subtitle ?? (displayEditMode ? <span className="opacity-40">（サブタイトルなし）</span> : "")}
       </div>
 
       <div className="flex gap-1">
@@ -770,11 +877,11 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
 
 // ── Default cell rendering ────────────────────────────────────────────────────
 function DefaultCellContent({ it, height }: { it: any; height: number }) {
-  const CELL_H = 28;
   if (height <= CELL_H) {
+    // 1U: 型名 + No.バッジ
     return (
-      <div className="flex items-center h-full px-1.5 gap-1 min-w-0">
-        <span className="font-mono font-bold truncate leading-none" style={{ fontSize: 10 }}>
+      <div className="flex items-center h-full px-1.5 gap-1.5 min-w-0">
+        <span className="font-mono font-bold truncate leading-none" style={{ fontSize: 11 }}>
           {it.model_number || it.name}
         </span>
         {it.unit_number && <UnitBadge n={it.unit_number} size="sm" />}
@@ -782,27 +889,29 @@ function DefaultCellContent({ it, height }: { it: any; height: number }) {
     );
   }
   if (height <= CELL_H * 2) {
+    // 2U: 型名+バッジ上段、機材名下段
     return (
       <div className="flex flex-col justify-center h-full px-1.5 py-0.5 gap-0.5">
-        <div className="flex items-center gap-1 min-w-0">
-          <span className="font-mono font-bold truncate leading-tight" style={{ fontSize: 11 }}>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="font-mono font-bold truncate leading-tight" style={{ fontSize: 12 }}>
             {it.model_number || it.name}
           </span>
           {it.unit_number && <UnitBadge n={it.unit_number} size="md" />}
         </div>
-        <span className="truncate leading-tight opacity-60" style={{ fontSize: 9 }}>
+        <span className="font-bold truncate leading-tight opacity-55" style={{ fontSize: 10 }}>
           {it.name}
         </span>
       </div>
     );
   }
+  // 3U+: 機材名上段、型名+バッジ下段
   return (
     <div className="flex flex-col justify-center h-full px-1.5 py-1 gap-0.5">
-      <span className="font-medium truncate leading-tight" style={{ fontSize: 11 }}>
+      <span className="font-bold truncate leading-tight" style={{ fontSize: 12 }}>
         {it.name}
       </span>
-      <div className="flex items-center gap-1 min-w-0">
-        <span className="font-mono font-bold truncate leading-tight" style={{ fontSize: 11 }}>
+      <div className="flex items-center gap-1.5 min-w-0">
+        <span className="font-mono font-bold truncate leading-tight opacity-80" style={{ fontSize: 11 }}>
           {it.model_number}
         </span>
         {it.unit_number && <UnitBadge n={it.unit_number} size="md" />}
@@ -813,7 +922,6 @@ function DefaultCellContent({ it, height }: { it: any; height: number }) {
 
 // ── Configured cell rendering ─────────────────────────────────────────────────
 function ConfiguredCellContent({ it, cfg, height }: { it: any; cfg: CellConfig; height: number }) {
-  const CELL_H = 28;
   const is1U = height <= CELL_H;
 
   const primaryText =
@@ -826,10 +934,12 @@ function ConfiguredCellContent({ it, cfg, height }: { it: any; cfg: CellConfig; 
   if (cfg.showModel && cfg.primary !== "model"  && it.model_number) extras.push({ text: it.model_number, mono: true });
   if (cfg.showCustom && cfg.primary !== "custom" && cfg.customText)  extras.push({ text: cfg.customText });
 
+  const primaryCls = cfg.primary === "model" ? "font-mono font-bold" : "font-bold";
+
   if (is1U) {
     return (
-      <div className="flex items-center h-full px-1.5 gap-1 min-w-0">
-        <span className={`truncate leading-none ${cfg.primary === "model" ? "font-mono font-bold" : "font-medium"}`} style={{ fontSize: 10 }}>
+      <div className="flex items-center h-full px-1.5 gap-1.5 min-w-0">
+        <span className={`truncate leading-none ${primaryCls}`} style={{ fontSize: 11 }}>
           {primaryText}
         </span>
         {cfg.showNo && it.unit_number && <UnitBadge n={it.unit_number} size="sm" />}
@@ -839,14 +949,14 @@ function ConfiguredCellContent({ it, cfg, height }: { it: any; cfg: CellConfig; 
 
   return (
     <div className="flex flex-col justify-center h-full px-1.5 py-0.5 gap-0.5">
-      <div className="flex items-center gap-1 min-w-0">
-        <span className={`truncate leading-tight ${cfg.primary === "model" ? "font-mono font-bold" : "font-medium"}`} style={{ fontSize: 11 }}>
+      <div className="flex items-center gap-1.5 min-w-0">
+        <span className={`truncate leading-tight ${primaryCls}`} style={{ fontSize: 12 }}>
           {primaryText}
         </span>
         {cfg.showNo && it.unit_number && <UnitBadge n={it.unit_number} size="md" />}
       </div>
       {extras.map((ex, i) => (
-        <span key={i} className={`truncate leading-tight opacity-70 ${ex.mono ? "font-mono" : ""}`} style={{ fontSize: 9 }}>
+        <span key={i} className={`truncate leading-tight font-bold opacity-55 ${ex.mono ? "font-mono" : ""}`} style={{ fontSize: 10 }}>
           {ex.text}
         </span>
       ))}
@@ -856,10 +966,10 @@ function ConfiguredCellContent({ it, cfg, height }: { it: any; cfg: CellConfig; 
 
 // ── UnitBadge ─────────────────────────────────────────────────────────────────
 function UnitBadge({ n, size }: { n: number | string; size: "sm" | "md" }) {
-  const dim = size === "sm" ? "h-3.5 px-1 text-[8px]" : "h-4 px-1 text-[9px]";
+  const dim = size === "sm" ? "h-4 px-1.5 text-[9px]" : "h-[18px] px-1.5 text-[10px]";
   return (
     <span
-      className={`shrink-0 inline-flex items-center justify-center rounded-sm bg-black/25 text-white font-bold leading-none tabular-nums ${dim}`}
+      className={`shrink-0 inline-flex items-center justify-center rounded-sm bg-slate-600 text-white font-bold leading-none tabular-nums ${dim}`}
     >
       {n}
     </span>
