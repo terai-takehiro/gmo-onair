@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -84,13 +84,23 @@ const RACK_SLOT_OPTIONS = [
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function RackLayoutPage() {
   const navigate = useNavigate();
+  const [sp, setSp] = useSearchParams();
   const qc = useQueryClient();
 
-  const [side, setSide] = useState<"front" | "back">("front");
+  // URL search params でビュー状態を管理（戻るボタンで復元される）
+  const side = (sp.get("side") as "front" | "back") ?? "front";
+  const branchFilter = sp.get("branch") ?? "all";
+  const rackTypeFilter = sp.get("rackType") ?? "all";
+
+  const setSide = (v: "front" | "back") =>
+    setSp(prev => { const n = new URLSearchParams(prev); n.set("side", v); return n; }, { replace: true });
+  const setBranchFilter = (v: string) =>
+    setSp(prev => { const n = new URLSearchParams(prev); v === "all" ? n.delete("branch") : n.set("branch", v); return n; }, { replace: true });
+  const setRackTypeFilter = (v: string) =>
+    setSp(prev => { const n = new URLSearchParams(prev); v === "all" ? n.delete("rackType") : n.set("rackType", v); return n; }, { replace: true });
+
   const [inventoryMode, setInventoryMode] = useState(false);
   const [selectedCheckId, setSelectedCheckId] = useState<string>("");
-  const [branchFilter, setBranchFilter] = useState<string>("all");
-  const [rackTypeFilter, setRackTypeFilter] = useState<string>("all");
 
   // Display edit mode
   const [displayEditMode, setDisplayEditMode] = useState(false);
