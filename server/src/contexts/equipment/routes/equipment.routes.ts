@@ -766,12 +766,15 @@ router.get('/racks', async (_req: Request, res: Response, next: NextFunction) =>
     const result = [];
     for (const rack of racks) {
       const items = await queryAll(`
-        SELECT ei.id, ei.eq_code, ei.name, ei.model_number, ei.unit_number,
+        SELECT ei.id, ei.eq_code, ei.name, ei.model_number, ei.serial_number, ei.unit_number,
                ei.equipment_type_code, ei.rack_position, ei.rack_height,
-               ei.rack_slot, ei.rack_side, ei.color_id,
-               ec.color_hex, ec.name as color_name
+               ei.rack_slot, ei.rack_side, ei.color_id, ei.notes,
+               ei.status, ei.condition,
+               ec.color_hex, ec.name as color_name,
+               em.name as manufacturer_name
         FROM equipment_items ei
         LEFT JOIN equipment_colors ec ON ec.id = ei.color_id AND ec.deleted_at IS NULL
+        LEFT JOIN equipment_manufacturers em ON em.id = ei.manufacturer_id
         WHERE ei.location_id = $1
           AND ei.rack_position IS NOT NULL
           AND ei.deleted_at IS NULL

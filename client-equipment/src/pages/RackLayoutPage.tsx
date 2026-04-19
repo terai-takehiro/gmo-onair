@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
@@ -108,6 +108,25 @@ export default function RackLayoutPage() {
   const [configTarget, setConfigTarget] = useState<any>(null);
   const [rackConfigs, setRackConfigs] = useState<Record<string, RackConfig>>(loadRackConfigs);
   const [rackSubtitleTarget, setRackSubtitleTarget] = useState<{ locationId: string; config: RackConfig } | null>(null);
+
+  // Hover tooltip state
+  const [tooltip, setTooltip] = useState<{ item: any; x: number; y: number } | null>(null);
+  const tooltipTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleItemHover = useCallback((item: any, e: React.MouseEvent) => {
+    if (tooltipTimeout.current) clearTimeout(tooltipTimeout.current);
+    tooltipTimeout.current = setTimeout(() => {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      setTooltip({ item, x: rect.right + 8, y: rect.top });
+    }, 300);
+  }, []);
+
+  const handleItemLeave = useCallback(() => {
+    if (tooltipTimeout.current) clearTimeout(tooltipTimeout.current);
+    setTooltip(null);
+  }, []);
+
+  useEffect(() => () => { if (tooltipTimeout.current) clearTimeout(tooltipTimeout.current); }, []);
 
   // Blank panel dialog state
   const [blankDialog, setBlankDialog] = useState<{ locationId: string; uPos: number } | null>(null);
@@ -412,6 +431,8 @@ export default function RackLayoutPage() {
                   onEmptySlotClick={handleEmptySlotClick}
                   onDeleteBlank={handleDeleteBlank}
                   onEditRackSubtitle={handleEditRackSubtitle}
+                  onItemHover={handleItemHover}
+                  onItemLeave={handleItemLeave}
                 />
               ))}
             </div>
@@ -563,6 +584,9 @@ export default function RackLayoutPage() {
           onClose={() => setConfigTarget(null)}
         />
       )}
+
+      {/* ホバーツールチップ */}
+      {tooltip && <ItemTooltip item={tooltip.item} x={tooltip.x} y={tooltip.y} />}
     </div>
   );
 }
@@ -610,6 +634,68 @@ function RackSubtitleDialog({ config, onSave, onClose }: {
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ── ItemTooltip ───────────────────────────────────────────────────────────────
+function ItemTooltip({ item, x, y }: { item: any; x: number; y: number }) {
+  const STATUS_LABEL: Record<string, string> = {
+    active: "稼働中", spare: "予備", repair: "修理中", retired: "廃棄", lent: "貸出中",
+  };
+  const CONDITION_LABEL: Record<string, string> = {
+    good: "良好", fair: "普通", poor: "要注意", broken: "故障",
+  };
+
+  // Clamp tooltip so it doesn't overflow viewport
+  const TOOLTIP_W = 224;
+  const vpW = typeof window !== "undefined" ? window.innerWidth : 800;
+  const left = x + TOOLTIP_W > vpW ? x - TOOLTIP_W - 16 : x;
+
+  return (
+    <div
+      className="fixed z-50 pointer-events-none"
+      style={{ left, top: y, maxWidth: TOOLTIP_W }}
+    >
+      <div className="bg-zinc-900 text-zinc-100 rounded-lg shadow-2xl border border-zinc-700 p-3 space-y-1.5" style={{ width: TOOLTIP_W }}>
+        <div className="font-bold text-sm leading-tight">{item.name}</div>
+        {item.model_number && (
+          <div className="text-xs text-zinc-300 leading-tight tracking-tight">{item.model_number}</div>
+        )}
+        {item.manufacturer_name && (
+          <div className="text-[11px] text-zinc-400">{item.manufacturer_name}</div>
+        )}
+        <div className="border-t border-zinc-700 pt-1.5 space-y-1">
+          {item.serial_number && (
+            <div className="flex gap-1.5 text-[11px]">
+              <span className="text-zinc-500 shrink-0">S/N</span>
+              <span className="text-zinc-300 font-semibold tracking-tight">{item.serial_number}</span>
+            </div>
+          )}
+          {(item.status || item.condition) && (
+            <div className="flex gap-2 text-[11px]">
+              {item.status && (
+                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${item.status === "active" ? "bg-emerald-700/60 text-emerald-200" : item.status === "repair" ? "bg-amber-700/60 text-amber-200" : item.status === "retired" ? "bg-red-800/60 text-red-200" : "bg-zinc-700 text-zinc-300"}`}>
+                  {STATUS_LABEL[item.status] ?? item.status}
+                </span>
+              )}
+              {item.condition && item.condition !== "good" && (
+                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${item.condition === "poor" ? "bg-amber-700/60 text-amber-200" : item.condition === "broken" ? "bg-red-800/60 text-red-200" : "bg-zinc-700 text-zinc-300"}`}>
+                  {CONDITION_LABEL[item.condition] ?? item.condition}
+                </span>
+              )}
+            </div>
+          )}
+          {item.notes && (
+            <div className="text-[11px] text-zinc-300 leading-snug border-t border-zinc-700 pt-1 mt-1">
+              <span className="text-zinc-500 text-[10px]">備考　</span>{item.notes}
+            </div>
+          )}
+        </div>
+        {item.eq_code && (
+          <div className="text-[10px] text-zinc-600 pt-0.5">{item.eq_code}</div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -717,7 +803,7 @@ function CellConfigDialog({
 }
 
 // ── RackDisplay ───────────────────────────────────────────────────────────────
-function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditMode, cellConfigs, rackConfig, onCellClick, onEmptySlotClick, onDeleteBlank, onEditRackSubtitle }: {
+function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditMode, cellConfigs, rackConfig, onCellClick, onEmptySlotClick, onDeleteBlank, onEditRackSubtitle, onItemHover, onItemLeave }: {
   rackData: { location: any; items: any[]; blanks?: any[] };
   side: "front" | "back";
   inventoryMode: boolean;
@@ -729,6 +815,8 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
   onEmptySlotClick: (locationId: string, uPos: number) => void;
   onDeleteBlank: (id: string) => void;
   onEditRackSubtitle: (locationId: string) => void;
+  onItemHover: (item: any, e: React.MouseEvent) => void;
+  onItemLeave: () => void;
 }) {
   const { location, items, blanks = [] } = rackData;
   const rackUnits: number = location.rack_units ?? 20;
@@ -781,6 +869,12 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
         >
           {subtitle ?? (displayEditMode ? <span className="opacity-40">（サブタイトルなし）</span> : <span>&nbsp;</span>)}
         </div>
+        {oppositeItems.length > 0 && (
+          <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-700 text-[10px] font-semibold">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+            {side === "front" ? "背面" : "前面"} {oppositeItems.length}件
+          </div>
+        )}
       </div>
 
       <div className="flex gap-0.5">
@@ -815,10 +909,16 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
             return (
               <div
                 key={`op-${it.id}`}
-                className="absolute right-0 bg-amber-400/80 pointer-events-none z-[1] shadow-[inset_1px_0_0_rgba(255,255,255,0.3)]"
-                style={{ top, height: h, width: 4 }}
+                className="absolute right-0 bg-amber-400 pointer-events-none z-[1] flex items-center justify-center overflow-hidden"
+                style={{ top, height: h, width: 10 }}
                 title={`${side === "front" ? "背面" : "前面"}: ${it.name}${it.model_number ? ` / ${it.model_number}` : ""}`}
-              />
+              >
+                {h >= CELL_H * 2 && (
+                  <span className="text-amber-900 font-black leading-none select-none" style={{ fontSize: 7, writingMode: "vertical-rl" }}>
+                    {side === "front" ? "背" : "前"}
+                  </span>
+                )}
+              </div>
             );
           })}
 
@@ -893,7 +993,8 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
                 }`}
                 style={{ top, left, width, height, background: bg }}
                 onClick={() => onCellClick(it)}
-                title={`${it.name}${it.model_number ? ` / ${it.model_number}` : ""}${it.unit_number ? ` No.${it.unit_number}` : ""}`}
+                onMouseEnter={(e) => onItemHover(it, e)}
+                onMouseLeave={onItemLeave}
               >
                 {cfg
                   ? <ConfiguredCellContent it={it} cfg={cfg} height={height} />
