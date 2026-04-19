@@ -347,13 +347,13 @@ export default function RackLayoutPage() {
       <Dialog open={!!blankDialog} onOpenChange={(o) => { if (!o) setBlankDialog(null); }}>
         <DialogContent className="sm:max-w-xs">
           <DialogHeader>
-            <DialogTitle>{blankForm.panel_type === "cable" ? "通線口" : "ブランクパネル"}を追加</DialogTitle>
+            <DialogTitle>{{ blank: "ブランクパネル", cable: "通線口", drawer: "引き出し" }[blankForm.panel_type] ?? "ブランクパネル"}を追加</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 pt-1">
             <div className="space-y-1">
               <Label>種別</Label>
               <div className="flex gap-2">
-                {[{ value: "blank", label: "ブランクパネル" }, { value: "cable", label: "通線口" }].map((opt) => (
+                {[{ value: "blank", label: "ブランクパネル" }, { value: "cable", label: "通線口" }, { value: "drawer", label: "引き出し" }].map((opt) => (
                   <button
                     key={opt.value}
                     type="button"
@@ -631,26 +631,39 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
             const top = (rackUnits - b.rack_position - (b.rack_height ?? 1) + 1) * CELL_H;
             const left = ((start - 1) / 6) * RACK_W;
             const width = (span / 6) * RACK_W;
-            const isCable = b.panel_type === "cable";
+            const panelType = b.panel_type ?? "blank";
+            const panelStyle =
+              panelType === "cable"  ? "border border-dashed border-zinc-400 bg-white/60 hover:bg-zinc-100/80" :
+              panelType === "drawer" ? "border border-zinc-500 bg-zinc-400 hover:bg-zinc-500" :
+                                       "border border-zinc-300 bg-zinc-300 hover:bg-zinc-400";
+            const panelTextColor =
+              panelType === "cable"  ? "text-zinc-400" :
+              panelType === "drawer" ? "text-zinc-700" :
+                                       "text-zinc-500";
+            const panelLabel =
+              panelType === "cable"  ? "通線口" :
+              panelType === "drawer" ? "引き出し" :
+                                       "BLANK";
             return (
               <button
                 key={b.id}
-                className={`absolute rounded-[2px] overflow-hidden z-[2] transition-colors ${
-                  isCable
-                    ? "border border-dashed border-zinc-400 bg-white/60 hover:bg-zinc-100/80"
-                    : "border border-zinc-300 bg-zinc-300 hover:bg-zinc-400"
-                }`}
+                className={`absolute rounded-[2px] overflow-hidden z-[2] transition-colors ${panelStyle}`}
                 style={{ top, left, width, height }}
                 onClick={() => onDeleteBlank(b.id)}
                 title="クリックで削除"
               >
+                {panelType === "drawer" && (
+                  <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 flex flex-col gap-[3px] pointer-events-none">
+                    {Array.from({ length: Math.min(3, Math.floor(height / CELL_H)) }).map((_, i) => (
+                      <div key={i} className="h-[2px] bg-zinc-600/50 rounded-full" />
+                    ))}
+                  </div>
+                )}
                 <span
-                  className={`flex items-center justify-center h-full font-mono tracking-widest select-none ${
-                    isCable ? "text-zinc-400" : "text-zinc-500"
-                  }`}
+                  className={`flex items-center justify-center h-full font-mono tracking-widest select-none ${panelTextColor}`}
                   style={{ fontSize: height <= CELL_H ? 8 : 10 }}
                 >
-                  {isCable ? "通線口" : "BLANK"}
+                  {panelLabel}
                 </span>
               </button>
             );
