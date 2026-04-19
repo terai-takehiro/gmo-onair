@@ -72,7 +72,7 @@ const defaultForm = {
   rack_position: "", rack_height: "1", rack_slot: "full", rack_side: "front",
 };
 
-type BulkField = 'branch_code' | 'asset_class' | 'equipment_section' | 'equipment_type_code' | 'location_id' | 'purchased_at' | 'warranty_years' | 'depreciation_years' | 'status' | 'notes' | 'name' | 'manufacturer_id' | 'model_number';
+type BulkField = 'branch_code' | 'asset_class' | 'equipment_section' | 'equipment_type_code' | 'location_id' | 'purchased_at' | 'warranty_years' | 'depreciation_years' | 'status' | 'notes' | 'name' | 'manufacturer_id' | 'model_number' | 'serial_number' | 'unit_number' | 'fixed_asset_code' | 'condition' | 'color_id' | 'location_detail' | 'rack_position' | 'rack_height' | 'rack_slot' | 'rack_side';
 
 export default function EquipmentListPage() {
   const navigate = useNavigate();
@@ -380,10 +380,10 @@ export default function EquipmentListPage() {
     const ids = Array.from(selectedIds);
     if (ids.length === 0 || !bulkField) return;
     let v: unknown = bulkValue;
-    if (bulkField === 'warranty_years' || bulkField === 'depreciation_years') {
+    if (bulkField === 'warranty_years' || bulkField === 'depreciation_years' || bulkField === 'unit_number' || bulkField === 'rack_position' || bulkField === 'rack_height') {
       v = bulkValue === '' ? null : Number(bulkValue);
     }
-    if ((bulkField === 'location_id' || bulkField === 'manufacturer_id') && bulkValue === 'none') v = null;
+    if ((bulkField === 'location_id' || bulkField === 'manufacturer_id' || bulkField === 'color_id') && bulkValue === 'none') v = null;
     bulkUpdateMutation.mutate({ ids, fields: { [bulkField]: v } });
   };
 
@@ -1173,15 +1173,25 @@ export default function EquipmentListPage() {
                   <SelectItem value="name">商品名</SelectItem>
                   <SelectItem value="manufacturer_id">メーカー</SelectItem>
                   <SelectItem value="model_number">型名</SelectItem>
+                  <SelectItem value="serial_number">シリアル番号</SelectItem>
+                  <SelectItem value="unit_number">管理番号</SelectItem>
+                  <SelectItem value="fixed_asset_code">資産コード</SelectItem>
                   <SelectItem value="branch_code">所管</SelectItem>
                   <SelectItem value="asset_class">資産管理</SelectItem>
                   <SelectItem value="equipment_section">設備/貸出</SelectItem>
                   <SelectItem value="equipment_type_code">種別コード</SelectItem>
+                  <SelectItem value="condition">コンディション</SelectItem>
+                  <SelectItem value="color_id">機材色</SelectItem>
                   <SelectItem value="location_id">設置場所</SelectItem>
+                  <SelectItem value="location_detail">場所詳細</SelectItem>
                   <SelectItem value="purchased_at">購入年月</SelectItem>
                   <SelectItem value="warranty_years">保証期間 (年)</SelectItem>
                   <SelectItem value="depreciation_years">償却年数</SelectItem>
                   <SelectItem value="status">ステータス</SelectItem>
+                  <SelectItem value="rack_position">U位置 (下端)</SelectItem>
+                  <SelectItem value="rack_height">高さ (U)</SelectItem>
+                  <SelectItem value="rack_slot">横位置</SelectItem>
+                  <SelectItem value="rack_side">前面/背面</SelectItem>
                   <SelectItem value="notes">備考</SelectItem>
                 </SelectContent>
               </Select>
@@ -1189,8 +1199,10 @@ export default function EquipmentListPage() {
 
             <div className="space-y-1">
               <Label>新しい値</Label>
-              {bulkField === 'name' || bulkField === 'model_number' ? (
-                <Input value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} placeholder={bulkField === 'name' ? '商品名' : '型名'} />
+              {bulkField === 'name' || bulkField === 'model_number' || bulkField === 'serial_number' || bulkField === 'fixed_asset_code' || bulkField === 'location_detail' ? (
+                <Input value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} placeholder={bulkField === 'name' ? '商品名' : bulkField === 'model_number' ? '型名' : bulkField === 'serial_number' ? 'シリアル番号' : bulkField === 'fixed_asset_code' ? '資産コード' : '場所詳細'} />
+              ) : bulkField === 'unit_number' || bulkField === 'rack_position' || bulkField === 'rack_height' ? (
+                <Input type="number" min={bulkField === 'rack_height' ? 1 : 0} value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} placeholder={bulkField === 'rack_height' ? '1' : '0'} />
               ) : bulkField === 'manufacturer_id' ? (
                 <Select value={bulkValue} onValueChange={setBulkValue}>
                   <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
@@ -1214,6 +1226,31 @@ export default function EquipmentListPage() {
                   <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
                   <SelectContent>{TYPE_CODES.map((t) => <SelectItem key={t.code} value={t.code}>{t.code} - {t.label}</SelectItem>)}</SelectContent>
                 </Select>
+              ) : bulkField === 'condition' ? (
+                <Select value={bulkValue} onValueChange={setBulkValue}>
+                  <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="excellent">新品同様</SelectItem>
+                    <SelectItem value="good">良好</SelectItem>
+                    <SelectItem value="fair">普通</SelectItem>
+                    <SelectItem value="poor">要注意</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : bulkField === 'color_id' ? (
+                <Select value={bulkValue} onValueChange={setBulkValue}>
+                  <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">なし（種別色）</SelectItem>
+                    {colors.map((c: any) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        <span className="flex items-center gap-2">
+                          <span className="inline-block w-3 h-3 rounded-full border border-border/40" style={{ background: c.color_hex }} />
+                          {c.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               ) : bulkField === 'location_id' ? (
                 <Select value={bulkValue} onValueChange={setBulkValue}>
                   <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
@@ -1233,6 +1270,21 @@ export default function EquipmentListPage() {
                     <SelectItem value="lost">紛失</SelectItem>
                   </SelectContent>
                 </Select>
+              ) : bulkField === 'rack_slot' ? (
+                <Select value={bulkValue} onValueChange={setBulkValue}>
+                  <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
+                  <SelectContent>
+                    {RACK_SLOT_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              ) : bulkField === 'rack_side' ? (
+                <Select value={bulkValue} onValueChange={setBulkValue}>
+                  <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="front">前面</SelectItem>
+                    <SelectItem value="back">背面</SelectItem>
+                  </SelectContent>
+                </Select>
               ) : bulkField === 'purchased_at' ? (
                 <Input type="date" value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} />
               ) : bulkField === 'warranty_years' || bulkField === 'depreciation_years' ? (
@@ -1250,7 +1302,7 @@ export default function EquipmentListPage() {
 
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setBulkOpen(false)}>キャンセル</Button>
-              <Button onClick={submitBulk} disabled={bulkUpdateMutation.isPending || bulkValue === ''}>
+              <Button onClick={submitBulk} disabled={bulkUpdateMutation.isPending || (!bulkField) || (bulkValue === '' && !['notes', 'location_detail', 'serial_number', 'fixed_asset_code'].includes(bulkField))}>
                 {bulkUpdateMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
                 {selectedIds.size} 件に適用
               </Button>
