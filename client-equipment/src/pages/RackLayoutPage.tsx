@@ -246,7 +246,7 @@ export default function RackLayoutPage() {
       ) : (
         <>
           <div className="overflow-x-auto pb-4">
-            <div className="flex gap-6 min-w-max items-start">
+            <div className="flex gap-6 min-w-max items-end">
               {filteredRacks.map((rackData: any) => (
                 <RackDisplay
                   key={rackData.location.id}
@@ -569,10 +569,10 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, onCellClick,
 }
 
 function UnitBadge({ n, size }: { n: number | string; size: "sm" | "md" }) {
-  const dim = size === "sm" ? "h-3.5 w-3.5 text-[8px]" : "h-4 w-4 text-[9px]";
+  const dim = size === "sm" ? "h-3.5 px-1 text-[8px]" : "h-4 px-1 text-[9px]";
   return (
     <span
-      className={`shrink-0 inline-flex items-center justify-center rounded-full bg-black/25 text-white font-bold leading-none tabular-nums ${dim}`}
+      className={`shrink-0 inline-flex items-center justify-center rounded-sm bg-black/25 text-white font-bold leading-none tabular-nums ${dim}`}
     >
       {n}
     </span>
