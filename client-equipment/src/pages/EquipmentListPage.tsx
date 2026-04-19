@@ -91,6 +91,7 @@ export default function EquipmentListPage() {
   const sortKey: string | null = searchParams.get('sort') || null;
   const sortDir: 'asc' | 'desc' = (searchParams.get('dir') as 'asc' | 'desc') || 'asc';
   const includeChildren = searchParams.get('children') === '1';
+  const showOrphans = searchParams.get('orphans') === '1';
   const urlSearch = searchParams.get('q') ?? '';
 
   // 検索入力はローカルで持ち、400ms デバウンス後に URL に反映
@@ -264,8 +265,16 @@ export default function EquipmentListPage() {
     }, { replace: true });
   };
   const items = useMemo(() => {
-    if (!sortKey) return rawItems;
-    const copy = [...rawItems];
+    let base = rawItems;
+    if (showOrphans) {
+      base = base.filter(item =>
+        item.parent_id == null &&
+        (item.children_count ?? 0) === 0 &&
+        !item.location_id
+      );
+    }
+    if (!sortKey) return base;
+    const copy = [...base];
     copy.sort((a, b) => {
       const av = a?.[sortKey];
       const bv = b?.[sortKey];
@@ -481,13 +490,13 @@ export default function EquipmentListPage() {
       <ExcelImportDialog open={importOpen} onOpenChange={setImportOpen} />
 
       {/* 機材ブロックタブ（最優先フィルター） */}
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-1.5 items-center">
         {[{ code: "", label: "全て" }, ...TYPE_CODES].map((t) => (
           <button
             key={t.code}
-            onClick={() => setFilterBlock(t.code)}
+            onClick={() => { setFilterBlock(t.code); setSearchParams(p => { const n = new URLSearchParams(p); n.delete('orphans'); return n; }, { replace: true }); }}
             className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-              filterBlock === t.code
+              filterBlock === t.code && !showOrphans
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-muted-foreground hover:bg-muted/80"
             }`}
@@ -495,12 +504,42 @@ export default function EquipmentListPage() {
             {t.label}
           </button>
         ))}
+        <button
+          onClick={() => setSearchParams(p => {
+            const n = new URLSearchParams(p);
+            if (showOrphans) n.delete('orphans'); else { n.set('orphans', '1'); n.delete('tab'); }
+            return n;
+          }, { replace: true })}
+          className={`px-3 py-1 rounded-full text-sm font-medium transition-colors border ${
+            showOrphans
+              ? "bg-destructive/10 text-destructive border-destructive/30"
+              : "bg-muted text-muted-foreground border-transparent hover:bg-muted/80"
+          }`}
+          title="親なし・子なし・場所未設定の機材（削除候補の可能性）"
+        >
+          🗑 削除候補確認
+        </button>
       </div>
 
-      {/* 検索 */}
-      <div className="relative flex-1 max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input className="pl-9" placeholder="名前・ID・型番で検索..." value={search} onChange={(e) => setSearch(e.target.value)} />
+      {/* 検索 + 子機材トグル */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="relative max-w-sm flex-1 min-w-[180px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input className="pl-9" placeholder="名前・ID・型番で検索..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+        <label className="flex items-center gap-1.5 text-sm cursor-pointer text-muted-foreground whitespace-nowrap select-none">
+          <input
+            type="checkbox"
+            className="h-4 w-4"
+            checked={includeChildren}
+            onChange={(e) => setSearchParams(p => {
+              const n = new URLSearchParams(p);
+              if (e.target.checked) n.set('children', '1'); else n.delete('children');
+              return n;
+            }, { replace: true })}
+          />
+          子機材も表示
+        </label>
       </div>
 
       {/* 一括編集バー (管理者のみ表示、選択中にのみ浮上) */}
@@ -559,11 +598,96 @@ export default function EquipmentListPage() {
             </thead>
             <tbody className="divide-y divide-border/30">
               {items.map((item: any, idx: number) => {
+                const isChildItem = item.parent_id != null;
                 const hasChildren = (item.children_count ?? 0) > 0;
                 const isExpanded = expandedIds.has(item.id);
                 const children: any[] = childrenCache[item.id] ?? [];
                 const isLoadingChild = loadingChildren.has(item.id);
                 const isSelected = selectedIds.has(item.id);
+
+                // フラットリストの子機材行（子機材も表示ONで検索ヒットした子）
+                if (isChildItem) {
+                  return (
+                    <tr
+                      key={item.id}
+                      className={`bg-muted/20 transition-colors ${tableEditMode ? 'cursor-default hover:bg-amber-50/50' : 'cursor-pointer hover:bg-muted/40'} ${tableEdits[item.id] ? 'outline outline-1 outline-amber-400/60' : ''}`}
+                      onClick={tableEditMode ? undefined : () => navigateToDetail(item.id)}
+                    >
+                      <td className="pl-5 pr-1 py-2 text-muted-foreground/40 text-xs">└</td>
+                      {canBulkEdit && <td />}
+                      <td className="px-3 py-2 font-mono text-xs text-muted-foreground/70 whitespace-nowrap">{item.eq_code}</td>
+                      <td colSpan={4} />
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        <SectionBadge typeCode={item.equipment_type_code} section={item.equipment_section} />
+                      </td>
+                      <td className="px-3 py-2 font-medium whitespace-nowrap">
+                        {tableEditMode ? (
+                          <input
+                            className="w-full min-w-[120px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-sm font-medium"
+                            value={tableEdits[item.id]?.name ?? item.name ?? ""}
+                            onChange={(e) => handleInlineChange(item.id, "name", e.target.value)}
+                            onBlur={() => saveInlineRow(item.id)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          <span>
+                            {item.name}
+                            {item.parent_name && <span className="ml-1.5 text-[10px] text-muted-foreground/60 bg-muted rounded px-1 py-0.5">← {item.parent_name}</span>}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{item.manufacturer_name || '–'}</td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
+                        {tableEditMode ? (
+                          <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs font-mono"
+                            value={tableEdits[item.id]?.model_number ?? item.model_number ?? ""}
+                            onChange={(e) => handleInlineChange(item.id, "model_number", e.target.value)}
+                            onBlur={() => saveInlineRow(item.id)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : item.model_number || '–'}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-right tabular-nums text-muted-foreground whitespace-nowrap">
+                        {tableEditMode ? (
+                          <input type="number" className="w-12 bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs text-right"
+                            value={tableEdits[item.id]?.unit_number ?? item.unit_number ?? ""}
+                            onChange={(e) => handleInlineChange(item.id, "unit_number", e.target.value)}
+                            onBlur={() => saveInlineRow(item.id)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : item.unit_number || '–'}
+                      </td>
+                      <td className="px-3 py-2 text-xs font-mono text-muted-foreground whitespace-nowrap">
+                        {tableEditMode ? (
+                          <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs font-mono"
+                            value={tableEdits[item.id]?.serial_number ?? item.serial_number ?? ""}
+                            onChange={(e) => handleInlineChange(item.id, "serial_number", e.target.value)}
+                            onBlur={() => saveInlineRow(item.id)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : item.serial_number || '–'}
+                      </td>
+                      <td colSpan={3} />
+                      <td className="px-3 py-2 text-xs text-muted-foreground max-w-[10rem] truncate">
+                        {tableEditMode ? (
+                          <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs"
+                            value={tableEdits[item.id]?.notes ?? item.notes ?? ""}
+                            onChange={(e) => handleInlineChange(item.id, "notes", e.target.value)}
+                            onBlur={() => saveInlineRow(item.id)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : item.notes || '–'}
+                      </td>
+                      <td className="px-2 py-2 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex gap-0.5 justify-end">
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" title="コピーして新規登録" onClick={(e) => openCopy(item, e)}><Copy className="h-3 w-3" /></Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); openEdit(item); }}><Pencil className="h-3 w-3" /></Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }
+
                 return (
                   <>
                     <tr
@@ -668,8 +792,8 @@ export default function EquipmentListPage() {
                     {isExpanded && children.map((child: any) => (
                       <tr
                         key={child.id}
-                        className="bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors"
-                        onClick={() => navigateToDetail(child.id)}
+                        className={`bg-muted/20 transition-colors ${tableEditMode ? 'cursor-default hover:bg-amber-50/50' : 'cursor-pointer hover:bg-muted/40'} ${tableEdits[child.id] ? 'outline outline-1 outline-amber-400/60' : ''}`}
+                        onClick={tableEditMode ? undefined : () => navigateToDetail(child.id)}
                       >
                         <td className="pl-6 pr-1 py-1.5 text-muted-foreground/40 text-xs">└</td>
                         {canBulkEdit && <td />}
@@ -678,12 +802,59 @@ export default function EquipmentListPage() {
                         <td className="px-3 py-1.5 whitespace-nowrap">
                           <SectionBadge typeCode={child.equipment_type_code} section={child.equipment_section} />
                         </td>
-                        <td className="px-3 py-1.5 text-sm">{child.name}</td>
+                        <td className="px-3 py-1.5">
+                          {tableEditMode ? (
+                            <input
+                              className="w-full min-w-[120px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-sm"
+                              value={tableEdits[child.id]?.name ?? child.name ?? ""}
+                              onChange={(e) => handleInlineChange(child.id, "name", e.target.value)}
+                              onBlur={() => saveInlineRow(child.id)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : child.name}
+                        </td>
                         <td className="px-3 py-1.5 text-xs text-muted-foreground whitespace-nowrap">{child.manufacturer_name || '–'}</td>
-                        <td className="px-3 py-1.5 text-xs text-muted-foreground whitespace-nowrap">{child.model_number || '–'}</td>
-                        <td className="px-3 py-1.5 text-xs text-right tabular-nums text-muted-foreground whitespace-nowrap">{child.unit_number || '–'}</td>
-                        <td className="px-3 py-1.5 text-xs font-mono text-muted-foreground whitespace-nowrap">{child.serial_number || '–'}</td>
-                        <td colSpan={4} />
+                        <td className="px-3 py-1.5 text-xs text-muted-foreground whitespace-nowrap">
+                          {tableEditMode ? (
+                            <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs font-mono"
+                              value={tableEdits[child.id]?.model_number ?? child.model_number ?? ""}
+                              onChange={(e) => handleInlineChange(child.id, "model_number", e.target.value)}
+                              onBlur={() => saveInlineRow(child.id)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : child.model_number || '–'}
+                        </td>
+                        <td className="px-3 py-1.5 text-xs text-right tabular-nums text-muted-foreground whitespace-nowrap">
+                          {tableEditMode ? (
+                            <input type="number" className="w-12 bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs text-right"
+                              value={tableEdits[child.id]?.unit_number ?? child.unit_number ?? ""}
+                              onChange={(e) => handleInlineChange(child.id, "unit_number", e.target.value)}
+                              onBlur={() => saveInlineRow(child.id)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : child.unit_number || '–'}
+                        </td>
+                        <td className="px-3 py-1.5 text-xs font-mono text-muted-foreground whitespace-nowrap">
+                          {tableEditMode ? (
+                            <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs font-mono"
+                              value={tableEdits[child.id]?.serial_number ?? child.serial_number ?? ""}
+                              onChange={(e) => handleInlineChange(child.id, "serial_number", e.target.value)}
+                              onBlur={() => saveInlineRow(child.id)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : child.serial_number || '–'}
+                        </td>
+                        <td colSpan={3} />
+                        <td className="px-3 py-1.5 text-xs text-muted-foreground max-w-[10rem] truncate">
+                          {tableEditMode ? (
+                            <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs"
+                              value={tableEdits[child.id]?.notes ?? child.notes ?? ""}
+                              onChange={(e) => handleInlineChange(child.id, "notes", e.target.value)}
+                              onBlur={() => saveInlineRow(child.id)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : child.notes || '–'}
+                        </td>
                         <td className="px-2 py-1.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-0.5 justify-end">
                             <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" title="コピーして新規登録" onClick={(e) => openCopy(child, e)}><Copy className="h-3 w-3" /></Button>
