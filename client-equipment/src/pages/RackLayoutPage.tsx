@@ -27,17 +27,6 @@ type CellConfig = {
   customText: string;
 };
 
-const CELL_CONFIG_LS_KEY = "rack-cell-configs-v1";
-
-function loadCellConfigs(): Record<string, CellConfig> {
-  try { return JSON.parse(localStorage.getItem(CELL_CONFIG_LS_KEY) ?? "{}"); }
-  catch { return {}; }
-}
-
-function saveCellConfigs(configs: Record<string, CellConfig>) {
-  localStorage.setItem(CELL_CONFIG_LS_KEY, JSON.stringify(configs));
-}
-
 // ── Rack subtitle config ──────────────────────────────────────────────────────
 type RackConfig = {
   subtitleMode: "auto" | "hidden" | "custom";
@@ -105,7 +94,6 @@ export default function RackLayoutPage() {
 
   // Display edit mode
   const [displayEditMode, setDisplayEditMode] = useState(false);
-  const [cellConfigs, setCellConfigs] = useState<Record<string, CellConfig>>(loadCellConfigs);
   const [configTarget, setConfigTarget] = useState<any>(null);
   const [rackConfigs, setRackConfigs] = useState<Record<string, RackConfig>>(loadRackConfigs);
   const [rackSubtitleTarget, setRackSubtitleTarget] = useState<{ locationId: string; config: RackConfig } | null>(null);
@@ -213,6 +201,29 @@ export default function RackLayoutPage() {
     },
   });
 
+  const saveDisplayConfigMutation = useMutation({
+    mutationFn: ({ itemId, config }: { itemId: string; config: CellConfig | null }) =>
+      api.patch(`/equipment/items/${itemId}`, { display_config: config }),
+    onMutate: async ({ itemId, config }) => {
+      await qc.cancelQueries({ queryKey: ["equipment-racks"] });
+      const previous = qc.getQueryData(["equipment-racks"]);
+      qc.setQueryData(["equipment-racks"], (old: any) => {
+        if (!Array.isArray(old)) return old;
+        return old.map((rack: any) => ({
+          ...rack,
+          items: rack.items.map((it: any) =>
+            it.id === itemId ? { ...it, display_config: config } : it
+          ),
+        }));
+      });
+      return { previous };
+    },
+    onError: (_err: unknown, _vars: unknown, context: any) => {
+      if (context?.previous) qc.setQueryData(["equipment-racks"], context.previous);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["equipment-racks"] }),
+  });
+
   const handleCellClick = (item: any) => {
     if (displayEditMode) {
       setConfigTarget(item);
@@ -243,9 +254,7 @@ export default function RackLayoutPage() {
   };
 
   const handleSaveCellConfig = (itemId: string, config: CellConfig) => {
-    const next = { ...cellConfigs, [itemId]: config };
-    setCellConfigs(next);
-    saveCellConfigs(next);
+    saveDisplayConfigMutation.mutate({ itemId, config });
     setConfigTarget(null);
   };
 
@@ -264,10 +273,7 @@ export default function RackLayoutPage() {
   };
 
   const handleResetCellConfig = (itemId: string) => {
-    const next = { ...cellConfigs };
-    delete next[itemId];
-    setCellConfigs(next);
-    saveCellConfigs(next);
+    saveDisplayConfigMutation.mutate({ itemId, config: null });
     setConfigTarget(null);
   };
 
@@ -428,7 +434,6 @@ export default function RackLayoutPage() {
                   inventoryMode={inventoryMode && !!selectedCheckId}
                   inventoryMap={inventoryMap}
                   displayEditMode={displayEditMode}
-                  cellConfigs={cellConfigs}
                   rackConfig={rackConfigs[rackData.location.id]}
                   onCellClick={handleCellClick}
                   onEmptySlotClick={handleEmptySlotClick}
@@ -460,7 +465,7 @@ export default function RackLayoutPage() {
 
       {/* ブランクパネル追加ダイアログ */}
       <Dialog open={!!blankDialog} onOpenChange={(o) => { if (!o) setBlankDialog(null); }}>
-        <DialogContent className="sm:max-w-xs">
+        <DialogContent className="sm:max-w-xs max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>パネルを追加</DialogTitle>
           </DialogHeader>
@@ -492,7 +497,6 @@ export default function RackLayoutPage() {
                   placeholder="例: スイッチングハブ"
                   value={blankForm.label}
                   onChange={(e) => setBlankForm(f => ({ ...f, label: e.target.value }))}
-                  autoFocus
                 />
               </div>
             )}
@@ -525,7 +529,7 @@ export default function RackLayoutPage() {
               <Button variant="outline" size="sm" onClick={() => setBlankDialog(null)}>キャンセル</Button>
               <Button
                 size="sm"
-                disabled={addBlankMutation.isPending || !blankDialog?.uPos}
+                disabled={addBlankMutation.isPending || !blankDialog?.uPos || (blankForm.panel_type === "custom" && !blankForm.label.trim())}
                 onClick={() => {
                   if (!blankDialog) return;
                   addBlankMutation.mutate({
@@ -581,7 +585,7 @@ export default function RackLayoutPage() {
       {configTarget && (
         <CellConfigDialog
           item={configTarget}
-          config={cellConfigs[configTarget.id]}
+          config={configTarget.display_config ?? undefined}
           onSave={(cfg) => handleSaveCellConfig(configTarget.id, cfg)}
           onReset={() => handleResetCellConfig(configTarget.id)}
           onClose={() => setConfigTarget(null)}
@@ -724,7 +728,7 @@ function CellConfigDialog({
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className="sm:max-w-sm max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>表示設定 — {item.name}</DialogTitle>
         </DialogHeader>
@@ -806,13 +810,12 @@ function CellConfigDialog({
 }
 
 // ── RackDisplay ───────────────────────────────────────────────────────────────
-function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditMode, cellConfigs, rackConfig, onCellClick, onEmptySlotClick, onDeleteBlank, onEditRackSubtitle, onItemHover, onItemLeave }: {
+function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditMode, rackConfig, onCellClick, onEmptySlotClick, onDeleteBlank, onEditRackSubtitle, onItemHover, onItemLeave }: {
   rackData: { location: any; items: any[]; blanks?: any[] };
   side: "front" | "back";
   inventoryMode: boolean;
   inventoryMap: Record<string, { id: string; found: boolean | null }>;
   displayEditMode: boolean;
-  cellConfigs: Record<string, CellConfig>;
   rackConfig?: RackConfig;
   onCellClick: (item: any) => void;
   onEmptySlotClick: (locationId: string, uPos: number) => void;
@@ -970,7 +973,7 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
             const isOverlap = posSlotCount[`${it.rack_position}:${it.rack_slot}`] > 1;
             const mapEntry = inventoryMap[it.id];
             const found = mapEntry?.found;
-            const cfg = cellConfigs[it.id];
+            const cfg: CellConfig | undefined = it.display_config ?? undefined;
 
             return (
               <button

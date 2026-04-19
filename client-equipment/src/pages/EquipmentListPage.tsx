@@ -195,6 +195,8 @@ export default function EquipmentListPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [continuousMode, setContinuousMode] = useState(false);
+  const [tableEditMode, setTableEditMode] = useState(false);
+  const [tableEdits, setTableEdits] = useState<Record<string, Record<string, string>>>({});
 
   // 連続登録時に引き継ぐフィールド
   const CARRY_OVER_KEYS = [
@@ -311,6 +313,23 @@ export default function EquipmentListPage() {
     mutationFn: (id: string) => api.delete(`/equipment/items/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["equipment-items"] }),
   });
+
+  const inlineEditMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Record<string, string> }) =>
+      api.patch(`/equipment/items/${id}`, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["equipment-items"] }),
+  });
+
+  const handleInlineChange = (id: string, field: string, value: string) => {
+    setTableEdits(prev => ({ ...prev, [id]: { ...(prev[id] ?? {}), [field]: value } }));
+  };
+
+  const saveInlineRow = (id: string) => {
+    const edits = tableEdits[id];
+    if (!edits || Object.keys(edits).length === 0) return;
+    inlineEditMutation.mutate({ id, data: edits });
+    setTableEdits(prev => { const n = { ...prev }; delete n[id]; return n; });
+  };
 
   const bulkUpdateMutation = useMutation({
     mutationFn: (payload: { ids: string[]; fields: Record<string, unknown> }) =>
@@ -446,6 +465,13 @@ export default function EquipmentListPage() {
           <Button size="sm" variant="outline" onClick={downloadExcel}>
             <Download className="h-4 w-4 mr-1" />Excel出力
           </Button>
+          <Button
+            size="sm"
+            variant={tableEditMode ? "default" : "outline"}
+            onClick={() => { setTableEditMode(v => !v); setTableEdits({}); }}
+          >
+            <Edit3 className="h-4 w-4 mr-1" />{tableEditMode ? "編集完了" : "表編集"}
+          </Button>
           <Button size="sm" onClick={openNew}>
             <Plus className="h-4 w-4 mr-1" />機材登録
           </Button>
@@ -542,8 +568,8 @@ export default function EquipmentListPage() {
                   <>
                     <tr
                       key={item.id}
-                      className={`group cursor-pointer transition-colors ${isSelected ? 'bg-primary/6' : 'hover:bg-accent/30'}`}
-                      onClick={() => navigateToDetail(item.id)}
+                      className={`group transition-colors ${tableEditMode ? 'cursor-default' : 'cursor-pointer'} ${isSelected ? 'bg-primary/6' : tableEditMode ? 'hover:bg-amber-50/50 dark:hover:bg-amber-900/10' : 'hover:bg-accent/30'} ${tableEdits[item.id] ? 'outline outline-1 outline-amber-400/60' : ''}`}
+                      onClick={tableEditMode ? undefined : () => navigateToDetail(item.id)}
                     >
                       {/* 展開ボタン */}
                       <td className="px-2 py-2 w-8" onClick={(e) => { if (hasChildren) toggleExpand(item, e); else e.stopPropagation(); }}>
@@ -568,15 +594,68 @@ export default function EquipmentListPage() {
                       <td className="px-3 py-2 whitespace-nowrap">
                         <SectionBadge typeCode={item.equipment_type_code} section={item.equipment_section} />
                       </td>
-                      <td className="px-3 py-2 font-medium whitespace-nowrap">{item.name}{hasChildren && <span className="ml-1.5 text-[10px] font-normal text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">{item.children_count}</span>}</td>
+                      <td className="px-3 py-2 font-medium whitespace-nowrap">
+                        {tableEditMode ? (
+                          <input
+                            className="w-full min-w-[120px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-sm font-medium"
+                            value={tableEdits[item.id]?.name ?? item.name ?? ""}
+                            onChange={(e) => handleInlineChange(item.id, "name", e.target.value)}
+                            onBlur={() => saveInlineRow(item.id)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          <>{item.name}{hasChildren && <span className="ml-1.5 text-[10px] font-normal text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">{item.children_count}</span>}</>
+                        )}
+                      </td>
                       <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{item.manufacturer_name || '–'}</td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{item.model_number || '–'}</td>
-                      <td className="px-3 py-2 text-xs text-right tabular-nums text-muted-foreground whitespace-nowrap">{item.unit_number || '–'}</td>
-                      <td className="px-3 py-2 text-xs font-mono text-muted-foreground whitespace-nowrap">{item.serial_number || '–'}</td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
+                        {tableEditMode ? (
+                          <input
+                            className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs font-mono"
+                            value={tableEdits[item.id]?.model_number ?? item.model_number ?? ""}
+                            onChange={(e) => handleInlineChange(item.id, "model_number", e.target.value)}
+                            onBlur={() => saveInlineRow(item.id)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : item.model_number || '–'}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-right tabular-nums text-muted-foreground whitespace-nowrap">
+                        {tableEditMode ? (
+                          <input
+                            type="number"
+                            className="w-12 bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs text-right"
+                            value={tableEdits[item.id]?.unit_number ?? item.unit_number ?? ""}
+                            onChange={(e) => handleInlineChange(item.id, "unit_number", e.target.value)}
+                            onBlur={() => saveInlineRow(item.id)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : item.unit_number || '–'}
+                      </td>
+                      <td className="px-3 py-2 text-xs font-mono text-muted-foreground whitespace-nowrap">
+                        {tableEditMode ? (
+                          <input
+                            className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs font-mono"
+                            value={tableEdits[item.id]?.serial_number ?? item.serial_number ?? ""}
+                            onChange={(e) => handleInlineChange(item.id, "serial_number", e.target.value)}
+                            onBlur={() => saveInlineRow(item.id)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : item.serial_number || '–'}
+                      </td>
                       <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{item.location_name || item.location_detail || '–'}</td>
                       <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{item.purchased_at?.slice(0, 7) || '–'}</td>
                       <td className="px-3 py-2 text-xs text-right tabular-nums text-muted-foreground whitespace-nowrap">{item.warranty_years ? `${item.warranty_years}年` : '–'}</td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground max-w-[10rem] truncate" title={item.notes || ''}>{item.notes || '–'}</td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground max-w-[10rem] truncate" title={item.notes || ''}>
+                        {tableEditMode ? (
+                          <input
+                            className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs"
+                            value={tableEdits[item.id]?.notes ?? item.notes ?? ""}
+                            onChange={(e) => handleInlineChange(item.id, "notes", e.target.value)}
+                            onBlur={() => saveInlineRow(item.id)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : item.notes || '–'}
+                      </td>
                       <td className="px-2 py-2 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <div className="flex gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" title="コピーして新規登録" onClick={(e) => openCopy(item, e)}><Copy className="h-3.5 w-3.5" /></Button>

@@ -1,9 +1,10 @@
 /**
  * AppSwitcher — グローバルアプリ切り替えメニュー（フラットデザイン）
  * 全ブロックアプリのヘッダーに組み込み、どの画面からでも直接他アプリに遷移可能にする。
- * ドロップダウンは fixed 配置（AppShell の overflow-hidden に clip されないようにするため）
+ * createPortal で document.body 直下にレンダリング → 親の overflow/transform/z-index 影響を完全回避
  */
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Home,
   FolderKanban,
@@ -78,6 +79,57 @@ export default function AppSwitcher({ currentApp }: AppSwitcherProps) {
     return () => document.removeEventListener("keydown", handler);
   }, [open]);
 
+  const dropdown = open ? (
+    <div
+      ref={dropdownRef}
+      className="fixed z-[99999] w-[360px] max-w-[calc(100vw-16px)] rounded-2xl border border-border bg-card shadow-2xl shadow-black/10 animate-switcher-in"
+      style={{ top: pos.top, left: pos.left }}
+    >
+      <div className="px-4 pt-4 pb-2">
+        <p className="text-sm font-bold text-foreground">GMO ONAiR</p>
+        <p className="text-xs text-muted-foreground mt-0.5">アプリを切り替え</p>
+      </div>
+
+      <div className="grid grid-cols-3 gap-1 px-3 pb-3">
+        {ONAIR_APPS.map((app) => {
+          const isCurrent = app.id === currentApp;
+          const isDisabled = app.status === "coming_soon";
+          const Icon = app.icon;
+
+          return (
+            <a
+              key={app.id}
+              href={isDisabled ? undefined : app.basePath}
+              onClick={(e) => {
+                if (isDisabled) { e.preventDefault(); return; }
+                setOpen(false);
+              }}
+              className={`
+                flex flex-col items-center gap-2 rounded-xl px-2 py-3.5 text-center transition-all
+                ${isDisabled
+                  ? "cursor-default opacity-30"
+                  : isCurrent
+                    ? "bg-primary/8 ring-1 ring-primary/20"
+                    : "hover:bg-muted active:scale-95 cursor-pointer"
+                }
+              `}
+            >
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-xl transition-transform"
+                style={{ backgroundColor: `${app.color}14` }}
+              >
+                <Icon size={20} style={{ color: app.color }} strokeWidth={1.8} />
+              </div>
+              <span className={`text-[11px] font-medium leading-tight ${isCurrent ? "text-primary font-semibold" : "text-foreground"}`}>
+                {app.label}
+              </span>
+            </a>
+          );
+        })}
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div className="relative">
       <button
@@ -100,56 +152,7 @@ export default function AppSwitcher({ currentApp }: AppSwitcherProps) {
         </svg>
       </button>
 
-      {open && (
-        <div
-          ref={dropdownRef}
-          className="fixed z-[9999] w-[360px] max-w-[calc(100vw-16px)] rounded-2xl border border-border bg-card shadow-2xl shadow-black/10 animate-switcher-in"
-          style={{ top: pos.top, left: pos.left }}
-        >
-          <div className="px-4 pt-4 pb-2">
-            <p className="text-sm font-bold text-foreground">GMO ONAiR</p>
-            <p className="text-xs text-muted-foreground mt-0.5">アプリを切り替え</p>
-          </div>
-
-          <div className="grid grid-cols-3 gap-1 px-3 pb-3">
-            {ONAIR_APPS.map((app) => {
-              const isCurrent = app.id === currentApp;
-              const isDisabled = app.status === "coming_soon";
-              const Icon = app.icon;
-
-              return (
-                <a
-                  key={app.id}
-                  href={isDisabled ? undefined : app.basePath}
-                  onClick={(e) => {
-                    if (isDisabled) { e.preventDefault(); return; }
-                    setOpen(false);
-                  }}
-                  className={`
-                    flex flex-col items-center gap-2 rounded-xl px-2 py-3.5 text-center transition-all
-                    ${isDisabled
-                      ? "cursor-default opacity-30"
-                      : isCurrent
-                        ? "bg-primary/8 ring-1 ring-primary/20"
-                        : "hover:bg-muted active:scale-95 cursor-pointer"
-                    }
-                  `}
-                >
-                  <div
-                    className="flex h-10 w-10 items-center justify-center rounded-xl transition-transform"
-                    style={{ backgroundColor: `${app.color}14` }}
-                  >
-                    <Icon size={20} style={{ color: app.color }} strokeWidth={1.8} />
-                  </div>
-                  <span className={`text-[11px] font-medium leading-tight ${isCurrent ? "text-primary font-semibold" : "text-foreground"}`}>
-                    {app.label}
-                  </span>
-                </a>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {typeof document !== "undefined" && createPortal(dropdown, document.body)}
     </div>
   );
 }

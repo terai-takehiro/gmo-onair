@@ -232,22 +232,51 @@ export default function EquipmentDetailPage() {
       setCreateChildError(err?.response?.data?.error?.message || err?.message || '登録に失敗しました');
     },
   });
-  const openNewChild = () => {
+  const openNewChild = (copyFrom?: any) => {
     if (!data) return;
-    setNewChildForm({
-      name: "", model_number: "", unit_number: "", serial_number: "",
-      branch_code: data.branch_code || "GMO-IG",
-      asset_class: data.asset_class || "fixed_asset",
-      fixed_asset_code: "",
-      depreciation_years: "0",
-      equipment_section: data.equipment_section || "equipment",
-      equipment_type_code: data.equipment_type_code || "V",
-      location_code: data.location_code || "Y",
-      manufacturer_id: data.manufacturer_id || "",
-      purchased_at: "", warranty_years: "0",
-      location_id: data.location_id || "",
-      status: "active", condition: "good", notes: "",
-    });
+    if (copyFrom) {
+      // 同名・同型のうち最大 unit_number を探して +1
+      const siblings: any[] = data.children ?? [];
+      const sameModel = siblings.filter(
+        (s: any) => s.name === copyFrom.name && (s.model_number ?? "") === (copyFrom.model_number ?? "")
+      );
+      const maxNo = sameModel.reduce((m: number, s: any) => Math.max(m, Number(s.unit_number) || 0), Number(copyFrom.unit_number) || 0);
+      setNewChildForm({
+        name: copyFrom.name || "",
+        model_number: copyFrom.model_number || "",
+        unit_number: String(maxNo + 1),
+        serial_number: "",  // S/N は個体固有なのでクリア
+        branch_code: copyFrom.branch_code || data.branch_code || "GMO-IG",
+        asset_class: copyFrom.asset_class || data.asset_class || "fixed_asset",
+        fixed_asset_code: "",  // 資産コードも個体固有
+        depreciation_years: copyFrom.depreciation_years?.toString() || "0",
+        equipment_section: copyFrom.equipment_section || data.equipment_section || "equipment",
+        equipment_type_code: copyFrom.equipment_type_code || data.equipment_type_code || "V",
+        location_code: copyFrom.location_code || data.location_code || "Y",
+        manufacturer_id: copyFrom.manufacturer_id || data.manufacturer_id || "",
+        purchased_at: copyFrom.purchased_at?.slice(0, 10) || "",
+        warranty_years: copyFrom.warranty_years?.toString() || "0",
+        location_id: copyFrom.location_id || data.location_id || "",
+        status: copyFrom.status || "active",
+        condition: copyFrom.condition || "good",
+        notes: copyFrom.notes || "",
+      });
+    } else {
+      setNewChildForm({
+        name: "", model_number: "", unit_number: "", serial_number: "",
+        branch_code: data.branch_code || "GMO-IG",
+        asset_class: data.asset_class || "fixed_asset",
+        fixed_asset_code: "",
+        depreciation_years: "0",
+        equipment_section: data.equipment_section || "equipment",
+        equipment_type_code: data.equipment_type_code || "V",
+        location_code: data.location_code || "Y",
+        manufacturer_id: data.manufacturer_id || "",
+        purchased_at: "", warranty_years: "0",
+        location_id: data.location_id || "",
+        status: "active", condition: "good", notes: "",
+      });
+    }
     setNewChildOpen(true);
   };
   const handleCreateChild = () => {
@@ -811,14 +840,23 @@ export default function EquipmentDetailPage() {
                         <span>{c.name}{c.model_number ? ` (${c.model_number})` : ""}{c.unit_number ? ` No.${c.unit_number}` : ""}</span>
                         {c.notes && <span className="text-xs text-muted-foreground truncate max-w-[160px]">{c.notes}</span>}
                       </button>
-                      <Button
-                        variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                        title="取り外す"
-                        onClick={() => detachMutation.mutate(c.id)}
-                        disabled={detachMutation.isPending}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
+                      <div className="flex items-center gap-0.5">
+                        <Button
+                          variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground"
+                          title="コピーして新規登録（No.自動採番）"
+                          onClick={() => openNewChild(c)}
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          title="取り外す"
+                          onClick={() => detachMutation.mutate(c.id)}
+                          disabled={detachMutation.isPending}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>

@@ -289,6 +289,7 @@ router.put('/items/bulk-update', requirePermission('equipment', 'manager'), asyn
     'location_id', 'purchased_at', 'warranty_years',
     'status', 'condition', 'notes', 'parent_id',
     'rack_position', 'rack_height', 'rack_slot', 'rack_side', 'color_id',
+    'display_config',
   ]);
 
   const setClauses: string[] = [];
@@ -486,6 +487,7 @@ router.patch('/items/:id', async (req: Request, res: Response, next: NextFunctio
       'notes', 'branch_code', 'fixed_asset_code', 'depreciation_years',
       'equipment_section', 'equipment_type_code', 'location_code', 'purchased_at', 'warranty_years',
       'rack_position', 'rack_height', 'rack_slot', 'rack_side', 'color_id',
+      'display_config',
     ]);
     const setClauses: string[] = [];
     const params: unknown[] = [];
@@ -769,7 +771,7 @@ router.get('/racks', async (_req: Request, res: Response, next: NextFunction) =>
         SELECT ei.id, ei.eq_code, ei.name, ei.model_number, ei.serial_number, ei.unit_number,
                ei.equipment_type_code, ei.rack_position, ei.rack_height,
                ei.rack_slot, ei.rack_side, ei.color_id, ei.notes,
-               ei.status, ei.condition,
+               ei.status, ei.condition, ei.display_config,
                ec.color_hex, ec.name as color_name,
                em.name as manufacturer_name
         FROM equipment_items ei
