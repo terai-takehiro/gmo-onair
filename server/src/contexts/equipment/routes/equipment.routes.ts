@@ -98,7 +98,7 @@ router.delete('/locations/:id', requirePermission('equipment', 'owner'), async (
 // 機材アイテム CRUD
 // ============================================================
 router.get('/items', async (req: Request, res: Response) => {
-  const { status, search, limit, offset, equipment_section, equipment_type_code, include_children } = req.query;
+  const { status, search, limit, offset, equipment_section, equipment_type_code, include_children, parent_id } = req.query;
   let sql = `
     SELECT ei.*,
            em.name as manufacturer_name,
@@ -106,7 +106,8 @@ router.get('/items', async (req: Request, res: Response) => {
            p.eq_code as parent_eq_code, p.name as parent_name,
            CASE WHEN ei.purchased_at IS NOT NULL AND ei.warranty_years > 0
                 THEN (ei.purchased_at + (ei.warranty_years || ' years')::interval)::date
-                ELSE NULL END as warranty_end
+                ELSE NULL END as warranty_end,
+           (SELECT COUNT(*)::int FROM equipment_items c WHERE c.parent_id = ei.id AND c.deleted_at IS NULL) AS children_count
     FROM equipment_items ei
     LEFT JOIN equipment_manufacturers em ON em.id = ei.manufacturer_id
     LEFT JOIN equipment_locations el ON el.id = ei.location_id AND el.deleted_at IS NULL
@@ -116,7 +117,12 @@ router.get('/items', async (req: Request, res: Response) => {
   const params: any[] = [];
   let paramIndex = 1;
 
-  if (include_children !== '1') { sql += ` AND ei.parent_id IS NULL`; }
+  if (parent_id) {
+    sql += ` AND ei.parent_id = $${paramIndex++}`;
+    params.push(parent_id);
+  } else if (include_children !== '1') {
+    sql += ` AND ei.parent_id IS NULL`;
+  }
   if (status) { sql += ` AND ei.status = $${paramIndex++}`; params.push(status); }
   if (equipment_section) { sql += ` AND ei.equipment_section = $${paramIndex++}`; params.push(equipment_section); }
   if (equipment_type_code) { sql += ` AND ei.equipment_type_code = $${paramIndex++}`; params.push(equipment_type_code); }

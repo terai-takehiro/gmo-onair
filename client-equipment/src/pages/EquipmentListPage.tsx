@@ -5,7 +5,6 @@ import api from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -15,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import {
   Loader2, Plus, Search, Package, Pencil, Trash2, Upload, Download, Edit3, X,
+  ChevronRight, ChevronDown, ChevronsUpDown, ArrowUp, ArrowDown,
 } from "lucide-react";
 import ExcelImportDialog from "@/components/ExcelImportDialog";
 
@@ -106,6 +106,31 @@ export default function EquipmentListPage() {
     if (val) n.set('children', '1'); else n.delete('children');
     return n;
   }, { replace: true });
+  // 子機材展開
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [childrenCache, setChildrenCache] = useState<Record<string, any[]>>({});
+  const [loadingChildren, setLoadingChildren] = useState<Set<string>>(new Set());
+
+  const toggleExpand = async (item: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const id: string = item.id;
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); return next; }
+      next.add(id);
+      return next;
+    });
+    if (!childrenCache[id]) {
+      setLoadingChildren(prev => new Set(prev).add(id));
+      try {
+        const res = await api.get('/equipment/items', { params: { parent_id: id } });
+        setChildrenCache(prev => ({ ...prev, [id]: res.data.data ?? [] }));
+      } finally {
+        setLoadingChildren(prev => { const n = new Set(prev); n.delete(id); return n; });
+      }
+    }
+  };
+
   // 商品名オートコンプリート用
   const [suggestItems, setSuggestItems] = useState<any[]>([]);
   const [suggestTimer, setSuggestTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
@@ -355,21 +380,10 @@ export default function EquipmentListPage() {
         ))}
       </div>
 
-      {/* 検索 + 子機材表示切替 */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input className="pl-9" placeholder="名前・ID・型番で検索..." value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
-        <label className="flex items-center gap-1.5 text-sm text-muted-foreground cursor-pointer whitespace-nowrap select-none">
-          <input
-            type="checkbox"
-            className="h-4 w-4"
-            checked={includeChildren}
-            onChange={(e) => setIncludeChildren(e.target.checked)}
-          />
-          子機材も表示
-        </label>
+      {/* 検索 */}
+      <div className="relative flex-1 max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input className="pl-9" placeholder="名前・ID・型番で検索..." value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
       {/* 一括編集バー (管理者のみ表示、選択中にのみ浮上) */}
@@ -390,19 +404,18 @@ export default function EquipmentListPage() {
       {isLoading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
       ) : items.length === 0 ? (
-        <Card><CardContent className="p-8 text-center text-muted-foreground">
-          <Package className="h-12 w-12 mx-auto mb-3 opacity-30" /><p>機材が登録されていません</p>
-        </CardContent></Card>
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
+          <Package className="h-12 w-12 opacity-20" /><p>機材が登録されていません</p>
+        </div>
       ) : (
-        <div className="overflow-x-auto border rounded-lg">
-          <table className="text-sm" style={{ tableLayout: 'auto' }}>
-            <thead className="bg-muted text-muted-foreground sticky top-0 z-10">
-              <tr>
+        <div className="overflow-x-auto rounded-xl ring-1 ring-border/60 shadow-sm bg-card">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="border-b border-border/60 bg-muted/40">
+                <th className="w-8 px-2 py-2.5" />
                 {canBulkEdit && (
-                  <th className="px-2 py-2 w-8">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4"
+                  <th className="w-8 px-2 py-2.5">
+                    <input type="checkbox" className="h-4 w-4"
                       checked={items.length > 0 && selectedIds.size === items.length}
                       ref={(el) => { if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < items.length; }}
                       onChange={toggleSelectAll}
@@ -419,51 +432,104 @@ export default function EquipmentListPage() {
                 <SortableTh label="メーカー" sortKey="manufacturer_name" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <SortableTh label="型名" sortKey="model_number" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <SortableTh label="No" sortKey="unit_number" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
-                <SortableTh label="シリアル" sortKey="serial_number" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
+                <SortableTh label="serial" sortKey="serial_number" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <SortableTh label="設置場所" sortKey="location_name" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <SortableTh label="購入年月" sortKey="purchased_at" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <SortableTh label="保証" sortKey="warranty_years" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <SortableTh label="備考" sortKey="notes" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
-                <th className="px-2 py-2 text-right font-medium whitespace-nowrap">操作</th>
+                <th className="px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap">操作</th>
               </tr>
             </thead>
-            <tbody>
-              {items.map((item: any, idx: number) => (
-                <tr key={item.id} className={`border-t hover:bg-muted/50 cursor-pointer ${selectedIds.has(item.id) ? 'bg-primary/5' : ''}`} onClick={() => navigate(`/equipment/items/${item.id}`)}>
-                  {canBulkEdit && (
-                    <td className="px-2 py-2 w-8" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 cursor-pointer"
-                        checked={selectedIds.has(item.id)}
-                        onChange={() => {}}
-                        onClick={(e) => handleCheckboxClick(item.id, idx, e.shiftKey)}
-                      />
-                    </td>
-                  )}
-                  <td className="px-2 py-1.5 font-mono text-xs whitespace-nowrap">{item.eq_code}</td>
-                  <td className="px-2 py-1.5 text-xs whitespace-nowrap">{item.branch_code || '-'}</td>
-                  <td className="px-2 py-1.5 text-xs whitespace-nowrap">{ASSET_CLASS_LABELS[item.asset_class] || item.asset_class || '-'}</td>
-                  <td className="px-2 py-1.5 text-xs font-mono whitespace-nowrap">{item.fixed_asset_code || '-'}</td>
-                  <td className="px-2 py-1.5 text-xs text-right tabular-nums whitespace-nowrap">{item.depreciation_years ?? '-'}</td>
-                  <td className="px-2 py-1.5 text-xs whitespace-nowrap">{sectionDisplay(item.equipment_type_code, item.equipment_section)}</td>
-                  <td className="px-2 py-1.5 font-medium">{item.name}</td>
-                  <td className="px-2 py-1.5 text-xs whitespace-nowrap">{item.manufacturer_name || '-'}</td>
-                  <td className="px-2 py-1.5 text-xs whitespace-nowrap">{item.model_number || '-'}</td>
-                  <td className="px-2 py-1.5 text-xs text-right tabular-nums whitespace-nowrap">{item.unit_number || '-'}</td>
-                  <td className="px-2 py-1.5 text-xs font-mono whitespace-nowrap">{item.serial_number || '-'}</td>
-                  <td className="px-2 py-1.5 text-xs whitespace-nowrap">{item.location_name || '-'}</td>
-                  <td className="px-2 py-1.5 text-xs whitespace-nowrap">{item.purchased_at?.slice(0, 10) || '-'}</td>
-                  <td className="px-2 py-1.5 text-xs text-right tabular-nums whitespace-nowrap">{item.warranty_years ? `${item.warranty_years}年` : '-'}</td>
-                  <td className="px-2 py-1.5 text-xs max-w-[12rem] truncate" title={item.notes || ''}>{item.notes || '-'}</td>
-                  <td className="px-2 py-1.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex gap-0.5 justify-end">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(item)}><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => { if (confirm(`「${item.name}」を削除？`)) deleteMutation.mutate(item.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+            <tbody className="divide-y divide-border/30">
+              {items.map((item: any, idx: number) => {
+                const hasChildren = (item.children_count ?? 0) > 0;
+                const isExpanded = expandedIds.has(item.id);
+                const children: any[] = childrenCache[item.id] ?? [];
+                const isLoadingChild = loadingChildren.has(item.id);
+                const isSelected = selectedIds.has(item.id);
+                return (
+                  <>
+                    <tr
+                      key={item.id}
+                      className={`group cursor-pointer transition-colors ${isSelected ? 'bg-primary/6' : 'hover:bg-accent/30'}`}
+                      onClick={() => navigate(`/equipment/items/${item.id}`)}
+                    >
+                      {/* 展開ボタン */}
+                      <td className="px-2 py-2 w-8" onClick={(e) => { if (hasChildren) toggleExpand(item, e); else e.stopPropagation(); }}>
+                        {hasChildren ? (
+                          <button className="flex items-center justify-center h-6 w-6 rounded hover:bg-muted text-muted-foreground transition-colors" onClick={(e) => toggleExpand(item, e)}>
+                            {isLoadingChild ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                          </button>
+                        ) : null}
+                      </td>
+                      {canBulkEdit && (
+                        <td className="px-2 py-2 w-8" onClick={(e) => e.stopPropagation()}>
+                          <input type="checkbox" className="h-4 w-4 cursor-pointer" checked={isSelected} onChange={() => {}} onClick={(e) => handleCheckboxClick(item.id, idx, e.shiftKey)} />
+                        </td>
+                      )}
+                      <td className="px-3 py-2 font-mono text-xs text-muted-foreground whitespace-nowrap">{item.eq_code}</td>
+                      <td className="px-3 py-2 text-xs whitespace-nowrap text-muted-foreground">{item.branch_code || '–'}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {item.asset_class ? <AssetBadge v={item.asset_class} /> : <span className="text-muted-foreground text-xs">–</span>}
+                      </td>
+                      <td className="px-3 py-2 text-xs font-mono text-muted-foreground whitespace-nowrap">{item.fixed_asset_code || '–'}</td>
+                      <td className="px-3 py-2 text-xs text-right tabular-nums text-muted-foreground whitespace-nowrap">{item.depreciation_years != null ? `${item.depreciation_years}年` : '–'}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        <SectionBadge typeCode={item.equipment_type_code} section={item.equipment_section} />
+                      </td>
+                      <td className="px-3 py-2 font-medium whitespace-nowrap">{item.name}{hasChildren && <span className="ml-1.5 text-[10px] font-normal text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">{item.children_count}</span>}</td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{item.manufacturer_name || '–'}</td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{item.model_number || '–'}</td>
+                      <td className="px-3 py-2 text-xs text-right tabular-nums text-muted-foreground whitespace-nowrap">{item.unit_number || '–'}</td>
+                      <td className="px-3 py-2 text-xs font-mono text-muted-foreground whitespace-nowrap">{item.serial_number || '–'}</td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{item.location_name || item.location_detail || '–'}</td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{item.purchased_at?.slice(0, 7) || '–'}</td>
+                      <td className="px-3 py-2 text-xs text-right tabular-nums text-muted-foreground whitespace-nowrap">{item.warranty_years ? `${item.warranty_years}年` : '–'}</td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground max-w-[10rem] truncate" title={item.notes || ''}>{item.notes || '–'}</td>
+                      <td className="px-2 py-2 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(item)}><Pencil className="h-3.5 w-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => { if (confirm(`「${item.name}」を削除？`)) deleteMutation.mutate(item.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                        </div>
+                      </td>
+                    </tr>
+                    {/* 子機材インライン表示 */}
+                    {isExpanded && children.map((child: any) => (
+                      <tr
+                        key={child.id}
+                        className="bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors"
+                        onClick={() => navigate(`/equipment/items/${child.id}`)}
+                      >
+                        <td className="pl-6 pr-1 py-1.5 text-muted-foreground/40 text-xs">└</td>
+                        {canBulkEdit && <td />}
+                        <td className="px-3 py-1.5 font-mono text-xs text-muted-foreground/70 whitespace-nowrap">{child.eq_code}</td>
+                        <td colSpan={4} />
+                        <td className="px-3 py-1.5 whitespace-nowrap">
+                          <SectionBadge typeCode={child.equipment_type_code} section={child.equipment_section} />
+                        </td>
+                        <td className="px-3 py-1.5 text-sm">{child.name}</td>
+                        <td className="px-3 py-1.5 text-xs text-muted-foreground whitespace-nowrap">{child.manufacturer_name || '–'}</td>
+                        <td className="px-3 py-1.5 text-xs text-muted-foreground whitespace-nowrap">{child.model_number || '–'}</td>
+                        <td className="px-3 py-1.5 text-xs text-right tabular-nums text-muted-foreground whitespace-nowrap">{child.unit_number || '–'}</td>
+                        <td className="px-3 py-1.5 text-xs font-mono text-muted-foreground whitespace-nowrap">{child.serial_number || '–'}</td>
+                        <td colSpan={4} />
+                        <td className="px-2 py-1.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex gap-0.5 justify-end">
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEdit(child)}><Pencil className="h-3 w-3" /></Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {isExpanded && isLoadingChild && (
+                      <tr key={`${item.id}-loading`} className="bg-muted/10">
+                        <td colSpan={99} className="px-6 py-2 text-xs text-muted-foreground">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin inline mr-1.5" />読み込み中...
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -782,15 +848,47 @@ function SortableTh({ label, sortKey, currentKey, currentDir, onSort }: {
   label: string; sortKey: string; currentKey: string | null; currentDir: 'asc' | 'desc'; onSort: (k: string) => void;
 }) {
   const active = currentKey === sortKey;
-  const arrow = active ? (currentDir === 'asc' ? ' ▲' : ' ▼') : '';
   return (
-    <th className="px-2 py-2 text-left font-medium select-none whitespace-nowrap">
+    <th className="px-3 py-2.5 text-left select-none whitespace-nowrap">
       <button
-        className={`inline-flex items-center gap-0.5 hover:text-foreground transition-colors ${active ? 'text-foreground' : ''}`}
+        className={`inline-flex items-center gap-0.5 text-xs font-semibold uppercase tracking-wide transition-colors hover:text-foreground ${active ? 'text-foreground' : 'text-muted-foreground'}`}
         onClick={() => onSort(sortKey)}
       >
-        {label}{arrow}
+        {label}
+        {active
+          ? currentDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+          : <ChevronsUpDown className="h-3 w-3 opacity-30" />}
       </button>
     </th>
+  );
+}
+
+const ASSET_BADGE: Record<string, string> = {
+  fixed_asset: 'bg-blue-50 text-blue-700 ring-blue-200',
+  consumable:  'bg-green-50 text-green-700 ring-green-200',
+  leased:      'bg-orange-50 text-orange-700 ring-orange-200',
+  transferred: 'bg-gray-100 text-gray-600 ring-gray-200',
+};
+function AssetBadge({ v }: { v: string }) {
+  return (
+    <span className={`inline-flex px-1.5 py-0.5 rounded text-[11px] font-medium ring-1 ring-inset whitespace-nowrap ${ASSET_BADGE[v] ?? 'bg-muted text-muted-foreground ring-border'}`}>
+      {ASSET_CLASS_LABELS[v] ?? v}
+    </span>
+  );
+}
+
+const TYPE_BADGE: Record<string, string> = {
+  V: 'bg-violet-50 text-violet-700', C: 'bg-sky-50 text-sky-700',
+  A: 'bg-amber-50 text-amber-700', IC: 'bg-teal-50 text-teal-700',
+  NW: 'bg-cyan-50 text-cyan-700', L: 'bg-yellow-50 text-yellow-700',
+  XR: 'bg-pink-50 text-pink-700', E: 'bg-gray-100 text-gray-600',
+};
+function SectionBadge({ typeCode, section }: { typeCode: string | null; section: string | null }) {
+  const label = sectionDisplay(typeCode, section);
+  if (!label || label === '-') return <span className="text-muted-foreground text-xs">–</span>;
+  return (
+    <span className={`inline-flex px-1.5 py-0.5 rounded text-[11px] font-medium whitespace-nowrap ${TYPE_BADGE[typeCode ?? ''] ?? 'bg-muted text-muted-foreground'}`}>
+      {label}
+    </span>
   );
 }
