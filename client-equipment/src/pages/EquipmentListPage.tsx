@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import {
   Loader2, Plus, Search, Package, Pencil, Trash2, Upload, Download, Edit3, X,
-  ChevronRight, ChevronDown, ChevronsUpDown, ArrowUp, ArrowDown, Copy,
+  ChevronRight, ChevronDown, ChevronsUpDown, ArrowUp, ArrowDown, Copy, Printer,
 } from "lucide-react";
 import ExcelImportDialog from "@/components/ExcelImportDialog";
 
@@ -60,6 +60,30 @@ const RACK_SLOT_OPTIONS = [
   { value: "mid-1_3",   label: "中央1/3" },
   { value: "right-1_3", label: "右1/3" },
 ];
+
+const TYPE_BORDER_COLOR: Record<string, string> = {
+  V: '#7c3aed', C: '#0284c7', A: '#d97706', IC: '#0d9488',
+  NW: '#0891b2', L: '#ca8a04', XR: '#db2777', E: '#6b7280',
+};
+
+const CONDITION_LABELS: Record<string, string> = {
+  excellent: "新品同様", good: "良好", fair: "普通", poor: "要注意",
+};
+
+const PRINT_COLS = [
+  { key: 'eq_code',           label: 'ID'        },
+  { key: 'equipment_type',    label: '種別'       },
+  { key: 'name',              label: '商品名'     },
+  { key: 'manufacturer_name', label: 'メーカー'   },
+  { key: 'model_number',      label: '型名'       },
+  { key: 'unit_number',       label: 'No.'        },
+  { key: 'serial_number',     label: 'serial'     },
+  { key: 'location',          label: '設置場所'   },
+  { key: 'fixed_asset_code',  label: '資産コード' },
+  { key: 'purchased_at',      label: '購入年月'   },
+  { key: 'warranty_years',    label: '保証'       },
+  { key: 'notes',             label: '備考'       },
+] as const;
 
 const defaultForm = {
   name: "", model_number: "", unit_number: "", serial_number: "",
@@ -191,6 +215,20 @@ export default function EquipmentListPage() {
   const [continuousMode, setContinuousMode] = useState(false);
   const [tableEditMode, setTableEditMode] = useState(false);
   const [tableEdits, setTableEdits] = useState<Record<string, Record<string, string>>>({});
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [printCols, setPrintCols] = useState<Set<string>>(
+    new Set(['eq_code', 'equipment_type', 'name', 'manufacturer_name', 'model_number', 'unit_number', 'location', 'notes'])
+  );
+  const [printCheckbox, setPrintCheckbox] = useState(true);
+  const [printTitle, setPrintTitle] = useState('機材一覧');
+  const [printLandscape, setPrintLandscape] = useState(false);
+
+  const handlePrint = () => {
+    if (printLandscape) document.body.classList.add('print-landscape');
+    else document.body.classList.remove('print-landscape');
+    setPrintDialogOpen(false);
+    setTimeout(() => window.print(), 150);
+  };
 
   // 連続登録時に引き継ぐフィールド
   const CARRY_OVER_KEYS = [
@@ -471,6 +509,11 @@ export default function EquipmentListPage() {
     });
   };
 
+  const filterLabel = [
+    filterBlock ? TYPE_CODES.find(t => t.code === filterBlock)?.label : '',
+    urlSearch ? `"${urlSearch}"` : '',
+  ].filter(Boolean).join(' / ');
+
   return (
     <div className="space-y-4 p-4 lg:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -481,6 +524,9 @@ export default function EquipmentListPage() {
           </Button>
           <Button size="sm" variant="outline" onClick={downloadExcel}>
             <Download className="h-4 w-4 mr-1" />Excel出力
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setPrintDialogOpen(true)}>
+            <Printer className="h-4 w-4 mr-1" />印刷
           </Button>
           <Button
             size="sm"
@@ -562,6 +608,59 @@ export default function EquipmentListPage() {
           <Package className="h-12 w-12 opacity-20" /><p>機材が登録されていません</p>
         </div>
       ) : (
+        <>
+          {/* ── モバイル カードビュー (md未満) ── */}
+          <div className="md:hidden space-y-2 pb-4">
+            {items.map((item: any) => {
+              const isChild = item.parent_id != null;
+              const borderColor = TYPE_BORDER_COLOR[item.equipment_type_code ?? ''] ?? '#6b7280';
+              return (
+                <div
+                  key={item.id}
+                  className={`bg-card rounded-lg border border-border/60 shadow-sm cursor-pointer active:bg-muted/30 transition-colors overflow-hidden ${isChild ? 'ml-4' : ''}`}
+                  style={{ borderLeft: `3px solid ${borderColor}` }}
+                  onClick={() => navigateToDetail(item.id)}
+                >
+                  <div className="px-3 py-2.5">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                        <SectionBadge typeCode={item.equipment_type_code} section={item.equipment_section} />
+                        <span className="font-mono text-xs text-muted-foreground">{item.eq_code}</span>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+                    </div>
+                    <p className="font-semibold text-sm leading-tight mb-0.5 truncate">
+                      {item.name}
+                      {(item.children_count ?? 0) > 0 && <span className="ml-1.5 text-[10px] font-normal text-muted-foreground bg-muted rounded-full px-1.5">{item.children_count}</span>}
+                      {item.parent_name && <span className="ml-1.5 text-[10px] font-normal text-muted-foreground bg-muted rounded px-1">← {item.parent_name}</span>}
+                    </p>
+                    <p className="font-mono text-xs text-muted-foreground truncate">
+                      {item.model_number || '–'}{item.unit_number != null ? ` / No.${item.unit_number}` : ''}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground flex-wrap">
+                      {item.manufacturer_name && <span>{item.manufacturer_name}</span>}
+                      {item.manufacturer_name && (item.location_name || item.location_detail) && <span className="opacity-30">|</span>}
+                      {(item.location_name || item.location_detail) && <span className="truncate">{item.location_name || item.location_detail}</span>}
+                    </div>
+                    {(item.asset_class || (item.condition && item.condition !== 'good')) && (
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        {item.asset_class && <AssetBadge v={item.asset_class} />}
+                        {item.condition && item.condition !== 'good' && (
+                          <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ring-1 ring-inset ${
+                            item.condition === 'excellent' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' :
+                            item.condition === 'fair' ? 'bg-yellow-50 text-yellow-700 ring-yellow-200' :
+                            'bg-red-50 text-red-700 ring-red-200'
+                          }`}>{CONDITION_LABELS[item.condition] ?? item.condition}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {/* ── PC テーブルビュー (md以上) ── */}
+          <div className="hidden md:block">
         <div className="overflow-x-auto rounded-xl ring-1 ring-border/60 shadow-sm bg-card">
           <table className="w-full text-sm border-collapse">
             <thead>
@@ -876,6 +975,8 @@ export default function EquipmentListPage() {
             </tbody>
           </table>
         </div>
+          </div>
+        </>
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -1310,6 +1411,76 @@ export default function EquipmentListPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* 印刷設定ダイアログ */}
+      <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>印刷設定</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label>タイトル</Label>
+              <Input value={printTitle} onChange={(e) => setPrintTitle(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>印刷する列</Label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {PRINT_COLS.map((col) => (
+                  <label key={col.key} className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={printCols.has(col.key)}
+                      onChange={(e) => {
+                        setPrintCols(prev => {
+                          const next = new Set(prev);
+                          if (e.target.checked) next.add(col.key); else next.delete(col.key);
+                          return next;
+                        });
+                      }}
+                    />
+                    {col.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input type="checkbox" className="h-4 w-4" checked={printCheckbox} onChange={(e) => setPrintCheckbox(e.target.checked)} />
+              チェック欄を追加（棚卸し用手書き）
+            </label>
+            <div className="space-y-1.5">
+              <Label>用紙方向</Label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                  <input type="radio" name="print-orient" checked={!printLandscape} onChange={() => setPrintLandscape(false)} />
+                  縦 (A4 Portrait)
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                  <input type="radio" name="print-orient" checked={printLandscape} onChange={() => setPrintLandscape(true)} />
+                  横 (Landscape)
+                </label>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">※ 現在の絞り込み結果 {items.length} 件を印刷</p>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setPrintDialogOpen(false)}>キャンセル</Button>
+              <Button onClick={handlePrint}>
+                <Printer className="h-4 w-4 mr-1" />印刷実行
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 印刷エリア（スクリーンでは非表示、@media print で表示） */}
+      <div id="eq-print-area-wrapper">
+        <PrintTable
+          items={items}
+          printCols={printCols}
+          printCheckbox={printCheckbox}
+          printTitle={printTitle}
+          filterLabel={filterLabel}
+        />
+      </div>
     </div>
   );
 }
@@ -1360,5 +1531,70 @@ function SectionBadge({ typeCode, section }: { typeCode: string | null; section:
     <span className={`inline-flex px-1.5 py-0.5 rounded text-[11px] font-medium whitespace-nowrap ${TYPE_BADGE[typeCode ?? ''] ?? 'bg-muted text-muted-foreground'}`}>
       {label}
     </span>
+  );
+}
+
+function PrintTable({ items, printCols, printCheckbox, printTitle, filterLabel }: {
+  items: any[];
+  printCols: Set<string>;
+  printCheckbox: boolean;
+  printTitle: string;
+  filterLabel: string;
+}) {
+  const today = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  const getCellValue = (item: any, key: string): string => {
+    switch (key) {
+      case 'eq_code':           return item.eq_code || '–';
+      case 'equipment_type':    return sectionDisplay(item.equipment_type_code, item.equipment_section) || '–';
+      case 'name':              return item.name || '–';
+      case 'manufacturer_name': return item.manufacturer_name || '–';
+      case 'model_number':      return item.model_number || '–';
+      case 'unit_number':       return item.unit_number != null ? String(item.unit_number) : '–';
+      case 'serial_number':     return item.serial_number || '–';
+      case 'location':          return item.location_name || item.location_detail || '–';
+      case 'fixed_asset_code':  return item.fixed_asset_code || '–';
+      case 'purchased_at':      return item.purchased_at?.slice(0, 7) || '–';
+      case 'warranty_years':    return item.warranty_years ? `${item.warranty_years}年` : '–';
+      case 'notes':             return item.notes || '–';
+      default:                  return '–';
+    }
+  };
+
+  const visibleCols = PRINT_COLS.filter(c => printCols.has(c.key));
+
+  return (
+    <div id="eq-print-area">
+      <div className="print-title">{printTitle}</div>
+      <div className="print-meta">
+        {today}　全 {items.length} 件{filterLabel ? `　フィルター: ${filterLabel}` : ''}
+      </div>
+      <table>
+        <thead>
+          <tr>
+            {printCheckbox && <th className="check-col">✓</th>}
+            {visibleCols.map(c => (
+              <th key={c.key}>{c.label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item: any) => (
+            <tr key={item.id} className={item.parent_id ? 'child-row' : ''}>
+              {printCheckbox && (
+                <td className="check-col">
+                  <span style={{ display: 'inline-block', width: 13, height: 13, border: '1px solid #000', verticalAlign: 'middle' }} />
+                </td>
+              )}
+              {visibleCols.map(c => (
+                <td key={c.key} className={c.key === 'notes' ? 'col-notes' : ''} style={c.key === 'name' && item.parent_id ? { paddingLeft: '1.2em' } : {}}>
+                  {getCellValue(item, c.key)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

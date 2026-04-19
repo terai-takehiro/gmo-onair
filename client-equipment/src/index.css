@@ -133,3 +133,50 @@
 
 .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
 .card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+
+/* ── 印刷スタイル (機材一覧) ─────────────── */
+#eq-print-area-wrapper { display: none; }
+
+@media print {
+  body * { visibility: hidden; }
+  #eq-print-area-wrapper,
+  #eq-print-area-wrapper * { visibility: visible; }
+  #eq-print-area-wrapper {
+    position: absolute;
+    left: 0; top: 0;
+    width: 100%;
+    padding: 0;
+  }
+  @page { margin: 12mm 10mm; }
+  body.print-landscape { }
+  body.print-landscape #eq-print-area-wrapper { }
+  #eq-print-area .print-title {
+    font-size: 13pt; font-weight: bold; margin-bottom: 3px;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+  #eq-print-area .print-meta {
+    font-size: 8pt; color: #444; margin-bottom: 8px;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+  #eq-print-area table {
+    border-collapse: collapse; width: 100%;
+    font-size: 8.5pt; font-family: 'Noto Sans JP', sans-serif;
+  }
+  #eq-print-area th {
+    border: 1px solid #000; padding: 3px 5px;
+    background: #f0f0f0; font-weight: bold;
+    text-align: left; white-space: nowrap;
+  }
+  #eq-print-area td {
+    border: 1px solid #555; padding: 2px 5px;
+    text-align: left; max-width: 200px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  #eq-print-area td.check-col,
+  #eq-print-area th.check-col { width: 22px; text-align: center; }
+  #eq-print-area td.col-notes { max-width: 300px; }
+  #eq-print-area thead { display: table-header-group; }
+  #eq-print-area tr { page-break-inside: avoid; }
+  #eq-print-area tr.child-row { background: #f8f8f8; }
+  #eq-print-area tr.child-row td:first-child { padding-left: 12px; }
+}
