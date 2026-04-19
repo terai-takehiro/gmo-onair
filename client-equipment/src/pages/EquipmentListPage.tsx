@@ -1542,7 +1542,7 @@ function PrintTable({ items, printCols, printCheckbox, printTitle, filterLabel }
             <tr key={item.id} className={item.parent_id ? 'child-row' : ''}>
               {printCheckbox && (
                 <td className="check-col">
-                  <span style={{ display: 'inline-block', width: 13, height: 13, border: '1px solid #000', verticalAlign: 'middle' }} />
+                  <span style={{ display: 'block', width: 13, height: 13, border: '1px solid #000', margin: '0 auto' }} />
                 </td>
               )}
               {visibleCols.map(c => (
