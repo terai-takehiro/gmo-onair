@@ -175,8 +175,8 @@ export default function RackLayoutPage() {
   });
 
   const addBlankMutation = useMutation({
-    mutationFn: async ({ locationId, rack_position, rack_height, rack_slot, rack_side, panel_type }: any) =>
-      api.post(`/equipment/racks/${locationId}/blanks`, { rack_position, rack_height, rack_slot, rack_side, panel_type }),
+    mutationFn: async ({ locationId, rack_position, rack_height, rack_slot, rack_side, panel_type, label }: any) =>
+      api.post(`/equipment/racks/${locationId}/blanks`, { rack_position, rack_height, rack_slot, rack_side, panel_type, label }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["equipment-racks"] });
       setBlankDialog(null);
