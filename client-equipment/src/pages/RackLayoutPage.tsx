@@ -111,7 +111,7 @@ export default function RackLayoutPage() {
 
   // Blank panel dialog state
   const [blankDialog, setBlankDialog] = useState<{ locationId: string; uPos: number } | null>(null);
-  const [blankForm, setBlankForm] = useState({ rack_height: "1", rack_slot: "full", panel_type: "blank" });
+  const [blankForm, setBlankForm] = useState({ rack_height: "1", rack_slot: "full", panel_type: "blank", label: "" });
   const [confirmDeleteBlankId, setConfirmDeleteBlankId] = useState<string | null>(null);
 
   const { data: racksData, isLoading: racksLoading, isError: racksError } = useQuery({
@@ -211,7 +211,7 @@ export default function RackLayoutPage() {
 
   const handleEmptySlotClick = (locationId: string, uPos: number) => {
     if (inventoryMode || displayEditMode) return;
-    setBlankForm({ rack_height: "1", rack_slot: "full", panel_type: "blank" });
+    setBlankForm({ rack_height: "1", rack_slot: "full", panel_type: "blank", label: "" });
     setBlankDialog({ locationId, uPos });
   };
 
@@ -421,17 +421,22 @@ export default function RackLayoutPage() {
       <Dialog open={!!blankDialog} onOpenChange={(o) => { if (!o) setBlankDialog(null); }}>
         <DialogContent className="sm:max-w-xs">
           <DialogHeader>
-            <DialogTitle>{{ blank: "ブランクパネル", cable: "通線口", drawer: "引き出し" }[blankForm.panel_type] ?? "ブランクパネル"}を追加</DialogTitle>
+            <DialogTitle>パネルを追加</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 pt-1">
             <div className="space-y-1">
               <Label>種別</Label>
-              <div className="flex gap-2">
-                {[{ value: "blank", label: "ブランクパネル" }, { value: "cable", label: "通線口" }, { value: "drawer", label: "引き出し" }].map((opt) => (
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { value: "blank",  label: "ブランクパネル" },
+                  { value: "cable",  label: "通線口" },
+                  { value: "drawer", label: "引き出し" },
+                  { value: "custom", label: "自由記述" },
+                ].map((opt) => (
                   <button
                     key={opt.value}
                     type="button"
-                    className={`flex-1 py-1.5 text-sm rounded border transition-colors ${blankForm.panel_type === opt.value ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:bg-muted"}`}
+                    className={`py-1.5 text-sm rounded border transition-colors ${blankForm.panel_type === opt.value ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:bg-muted"}`}
                     onClick={() => setBlankForm(f => ({ ...f, panel_type: opt.value }))}
                   >
                     {opt.label}
@@ -439,6 +444,17 @@ export default function RackLayoutPage() {
                 ))}
               </div>
             </div>
+            {blankForm.panel_type === "custom" && (
+              <div className="space-y-1">
+                <Label>表示テキスト</Label>
+                <Input
+                  placeholder="例: スイッチングハブ"
+                  value={blankForm.label}
+                  onChange={(e) => setBlankForm(f => ({ ...f, label: e.target.value }))}
+                  autoFocus
+                />
+              </div>
+            )}
             <div className="space-y-1">
               <Label>U位置 (下端)</Label>
               <Input
@@ -478,6 +494,7 @@ export default function RackLayoutPage() {
                     rack_slot: blankForm.rack_slot,
                     rack_side: side,
                     panel_type: blankForm.panel_type,
+                    label: blankForm.panel_type === "custom" ? blankForm.label : null,
                   });
                 }}
               >
@@ -777,17 +794,20 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
             const width = (span / 6) * RACK_W;
             const panelType = b.panel_type ?? "blank";
             const panelStyle =
-              panelType === "cable"  ? "border border-dashed border-zinc-400 bg-white/60 hover:bg-zinc-100/80" :
-              panelType === "drawer" ? "border border-zinc-500 bg-zinc-400 hover:bg-zinc-500" :
-                                       "border border-zinc-300 bg-zinc-300 hover:bg-zinc-400";
+              panelType === "cable"   ? "border border-dashed border-zinc-400 bg-white/60 hover:bg-zinc-100/80" :
+              panelType === "drawer"  ? "border border-zinc-500 bg-zinc-400 hover:bg-zinc-500" :
+              panelType === "custom"  ? "border border-slate-400 bg-slate-100 hover:bg-slate-200" :
+                                        "border border-zinc-300 bg-zinc-300 hover:bg-zinc-400";
             const panelTextColor =
-              panelType === "cable"  ? "text-zinc-400" :
-              panelType === "drawer" ? "text-zinc-700" :
-                                       "text-zinc-500";
+              panelType === "cable"   ? "text-zinc-400" :
+              panelType === "drawer"  ? "text-zinc-700" :
+              panelType === "custom"  ? "text-slate-700 font-bold" :
+                                        "text-zinc-500";
             const panelLabel =
-              panelType === "cable"  ? "通線口" :
-              panelType === "drawer" ? "引き出し" :
-                                       "BLANK";
+              panelType === "cable"   ? "通線口" :
+              panelType === "drawer"  ? "引き出し" :
+              panelType === "custom"  ? (b.label || "—") :
+                                        "BLANK";
             return (
               <button
                 key={b.id}
