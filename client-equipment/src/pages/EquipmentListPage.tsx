@@ -1523,6 +1523,21 @@ function PrintTable({ items, printCols, printCheckbox, printTitle, filterLabel }
 
   const visibleCols = PRINT_COLS.filter(c => printCols.has(c.key));
 
+  // 各アイテムの深さを計算（idMap から親を辿る）
+  const idMap = new Map<string, any>(items.map((i: any) => [i.id, i]));
+  const getDepth = (item: any): number => {
+    let depth = 0;
+    let pid = item.parent_id;
+    while (pid && idMap.has(pid)) {
+      depth++;
+      pid = idMap.get(pid)?.parent_id;
+    }
+    return depth;
+  };
+
+  // インデント記号（深さ → プレフィックス文字列）
+  const INDENT_PREFIX = ['', '└ ', '　└ ', '　　└ '];
+
   return (
     <div id="eq-print-area">
       <div className="print-title">{printTitle}</div>
@@ -1539,20 +1554,34 @@ function PrintTable({ items, printCols, printCheckbox, printTitle, filterLabel }
           </tr>
         </thead>
         <tbody>
-          {items.map((item: any) => (
-            <tr key={item.id} className={item.parent_id ? 'child-row' : ''}>
-              {printCheckbox && (
-                <td className="check-col">
-                  <span style={{ display: 'block', width: 13, height: 13, border: '1px solid #000', margin: '0 auto' }} />
-                </td>
-              )}
-              {visibleCols.map(c => (
-                <td key={c.key} className={c.key === 'notes' ? 'col-notes' : c.key === 'eq_code' ? 'col-id' : ''} style={c.key === 'name' && item.parent_id ? { paddingLeft: '1.2em' } : {}}>
-                  {getCellValue(item, c.key)}
-                </td>
-              ))}
-            </tr>
-          ))}
+          {items.map((item: any) => {
+            const depth = getDepth(item);
+            const depthClass = `depth-${Math.min(depth, 3)}`;
+            return (
+              <tr key={item.id} className={depthClass}>
+                {printCheckbox && (
+                  <td className="check-col">
+                    <span style={{ display: 'block', width: 13, height: 13, border: '1px solid #000', margin: '0 auto' }} />
+                  </td>
+                )}
+                {visibleCols.map(c => {
+                  const isName = c.key === 'name';
+                  const tdClass = [
+                    c.key === 'eq_code' ? 'col-id' : '',
+                    c.key === 'notes' ? 'col-notes' : '',
+                    isName ? 'col-name' : '',
+                  ].filter(Boolean).join(' ');
+                  const value = getCellValue(item, c.key);
+                  return (
+                    <td key={c.key} className={tdClass}
+                      style={isName && depth > 0 ? { paddingLeft: `${depth * 10 + 5}px` } : {}}>
+                      {isName && depth > 0 ? `${INDENT_PREFIX[Math.min(depth, 3)]}${value}` : value}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
