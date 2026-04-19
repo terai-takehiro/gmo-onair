@@ -276,17 +276,36 @@ export default function RackLayoutPage() {
   }
 
   return (
-    <div className="space-y-4 p-4 lg:p-6">
+    <div className="space-y-3 p-3 sm:p-4 lg:p-6">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="heading-page text-xl lg:text-2xl flex items-center gap-2">
-          <Server className="h-5 w-5 text-amber-500" />
-          ラック実装ビュー
-        </h1>
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="heading-page text-lg sm:text-xl lg:text-2xl flex items-center gap-2">
+            <Server className="h-5 w-5 text-amber-500" />
+            ラック実装ビュー
+          </h1>
+
+          {/* 前面/背面 (モバイルでも常時表示) */}
+          <div className="flex rounded-lg overflow-hidden border border-border shadow-sm shrink-0">
+            <button
+              className={`px-3 sm:px-4 h-9 text-sm font-semibold transition-colors ${side === "front" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}
+              onClick={() => setSide("front")}
+            >
+              前面
+            </button>
+            <button
+              className={`px-3 sm:px-4 h-9 text-sm font-semibold transition-colors ${side === "back" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}
+              onClick={() => setSide("back")}
+            >
+              背面
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           {branches.length > 0 && (
             <Select value={branchFilter} onValueChange={setBranchFilter}>
-              <SelectTrigger className="w-28 h-8 text-sm"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-[110px] sm:w-28 h-9 text-xs sm:text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">全拠点</SelectItem>
                 {branches.map((b: any) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
@@ -296,7 +315,7 @@ export default function RackLayoutPage() {
 
           {rackTypes.length > 0 && (
             <Select value={rackTypeFilter} onValueChange={setRackTypeFilter}>
-              <SelectTrigger className="w-32 h-8 text-sm"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-[110px] sm:w-32 h-9 text-xs sm:text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">全種別</SelectItem>
                 {rackTypes.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
@@ -304,38 +323,25 @@ export default function RackLayoutPage() {
             </Select>
           )}
 
-          <div className="flex rounded-lg overflow-hidden border">
-            <button
-              className={`px-3 py-1.5 text-sm font-medium transition-colors ${side === "front" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}
-              onClick={() => setSide("front")}
+          <div className="ml-auto flex gap-1.5 sm:gap-2">
+            <Button
+              size="sm" className="h-9 px-2.5 sm:px-3"
+              variant={displayEditMode ? "default" : "outline"}
+              onClick={() => { setDisplayEditMode((v) => !v); if (inventoryMode) setInventoryMode(false); }}
             >
-              前面
-            </button>
-            <button
-              className={`px-3 py-1.5 text-sm font-medium transition-colors ${side === "back" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}
-              onClick={() => setSide("back")}
+              <Pencil className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">表示変更</span>
+            </Button>
+
+            <Button
+              size="sm" className="h-9 px-2.5 sm:px-3"
+              variant={inventoryMode ? "default" : "outline"}
+              onClick={() => { setInventoryMode((v) => !v); if (displayEditMode) setDisplayEditMode(false); }}
             >
-              背面
-            </button>
+              <ClipboardCheck className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">棚卸し</span>
+            </Button>
           </div>
-
-          <Button
-            size="sm"
-            variant={displayEditMode ? "default" : "outline"}
-            onClick={() => { setDisplayEditMode((v) => !v); if (inventoryMode) setInventoryMode(false); }}
-          >
-            <Pencil className="h-4 w-4 mr-1" />
-            表示変更
-          </Button>
-
-          <Button
-            size="sm"
-            variant={inventoryMode ? "default" : "outline"}
-            onClick={() => { setInventoryMode((v) => !v); if (displayEditMode) setDisplayEditMode(false); }}
-          >
-            <ClipboardCheck className="h-4 w-4 mr-1" />
-            棚卸し
-          </Button>
         </div>
       </div>
 
@@ -379,8 +385,8 @@ export default function RackLayoutPage() {
         </div>
       ) : (
         <>
-          <div className="overflow-x-auto pb-4">
-            <div className="flex gap-6 min-w-max items-end">
+          <div className="overflow-x-auto pb-4 -mx-3 sm:-mx-0 px-3 sm:px-0">
+            <div className="flex gap-3 sm:gap-5 lg:gap-6 min-w-max items-end">
               {filteredRacks.map((rackData: any) => (
                 <RackDisplay
                   key={rackData.location.id}
@@ -747,24 +753,29 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
 
   return (
     <div className="shrink-0">
-      <div className="text-center text-sm font-bold mb-0.5 px-2">{location.name}</div>
-      <div
-        className={`text-center text-xs mb-2 min-h-[16px] ${
-          displayEditMode
-            ? "cursor-pointer text-amber-600 hover:underline"
-            : "text-muted-foreground"
-        }`}
-        onClick={displayEditMode ? () => onEditRackSubtitle(location.id) : undefined}
-        title={displayEditMode ? "クリックでサブタイトルを変更" : undefined}
-      >
-        {subtitle ?? (displayEditMode ? <span className="opacity-40">（サブタイトルなし）</span> : "")}
+      <div className="text-center mb-2 px-2">
+        <div className="inline-flex items-center gap-1.5 justify-center text-sm font-bold tracking-wide">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+          {location.name}
+        </div>
+        <div
+          className={`text-[10px] mt-0.5 min-h-[14px] tracking-wide ${
+            displayEditMode
+              ? "cursor-pointer text-amber-600 hover:underline"
+              : "text-muted-foreground/80"
+          }`}
+          onClick={displayEditMode ? () => onEditRackSubtitle(location.id) : undefined}
+          title={displayEditMode ? "クリックでサブタイトルを変更" : undefined}
+        >
+          {subtitle ?? (displayEditMode ? <span className="opacity-40">（サブタイトルなし）</span> : <span>&nbsp;</span>)}
+        </div>
       </div>
 
-      <div className="flex gap-1">
+      <div className="flex gap-0.5">
         {/* U numbers (left) */}
-        <div className="flex flex-col shrink-0 pt-0.5" style={{ width: 24 }}>
+        <div className="flex flex-col shrink-0" style={{ width: 22 }}>
           {Array.from({ length: rackUnits }, (_, i) => rackUnits - i).map((u) => (
-            <div key={u} style={{ height: CELL_H, fontSize: 9 }} className="flex items-center justify-end pr-1 text-muted-foreground tabular-nums leading-none">
+            <div key={u} style={{ height: CELL_H, fontSize: 9 }} className="flex items-center justify-end pr-1.5 text-zinc-500 tabular-nums leading-none font-semibold">
               {u}
             </div>
           ))}
@@ -772,15 +783,15 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
 
         {/* Rack body */}
         <div
-          className={`relative border-2 border-border bg-zinc-100 rounded-sm ${displayEditMode ? "cursor-default" : "cursor-crosshair"}`}
+          className={`relative border border-zinc-950/80 bg-gradient-to-br from-zinc-800 to-zinc-900 rounded-md shadow-[inset_0_2px_8px_rgba(0,0,0,0.5),0_2px_6px_rgba(0,0,0,0.15)] ${displayEditMode ? "cursor-default" : "cursor-crosshair"}`}
           style={{ width: RACK_W, height: rackUnits * CELL_H }}
           onClick={handleRackBodyClick}
         >
-          {/* Grid lines */}
+          {/* Grid lines (rack rails) */}
           {Array.from({ length: rackUnits }, (_, i) => (
             <div
               key={i}
-              className="absolute left-0 right-0 border-b border-zinc-200/60 pointer-events-none"
+              className="absolute left-0 right-0 border-b border-zinc-700/40 pointer-events-none"
               style={{ top: i * CELL_H, height: CELL_H }}
             />
           ))}
@@ -794,15 +805,15 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
             const width = (span / 6) * RACK_W;
             const panelType = b.panel_type ?? "blank";
             const panelStyle =
-              panelType === "cable"   ? "border border-dashed border-zinc-400 bg-white/60 hover:bg-zinc-100/80" :
-              panelType === "drawer"  ? "border border-zinc-500 bg-zinc-400 hover:bg-zinc-500" :
-              panelType === "custom"  ? "border border-slate-400 bg-slate-100 hover:bg-slate-200" :
-                                        "border border-zinc-300 bg-zinc-300 hover:bg-zinc-400";
+              panelType === "cable"   ? "border border-dashed border-zinc-500/80 bg-zinc-900/40 hover:bg-zinc-900/60" :
+              panelType === "drawer"  ? "border border-zinc-900 bg-gradient-to-b from-zinc-500 to-zinc-600 hover:from-zinc-400 hover:to-zinc-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]" :
+              panelType === "custom"  ? "border border-slate-500 bg-gradient-to-b from-slate-300 to-slate-400 hover:from-slate-200 hover:to-slate-300" :
+                                        "border border-zinc-900 bg-gradient-to-b from-zinc-600 to-zinc-700 hover:from-zinc-500 hover:to-zinc-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]";
             const panelTextColor =
               panelType === "cable"   ? "text-zinc-400" :
-              panelType === "drawer"  ? "text-zinc-700" :
-              panelType === "custom"  ? "text-slate-700 font-bold" :
-                                        "text-zinc-500";
+              panelType === "drawer"  ? "text-zinc-100" :
+              panelType === "custom"  ? "text-slate-900 font-bold" :
+                                        "text-zinc-300";
             const panelLabel =
               panelType === "cable"   ? "通線口" :
               panelType === "drawer"  ? "引き出し" :
@@ -811,7 +822,7 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
             return (
               <button
                 key={b.id}
-                className={`absolute rounded-[2px] overflow-hidden z-[2] transition-colors ${panelStyle}`}
+                className={`absolute rounded-sm overflow-hidden z-[2] transition-all ${panelStyle}`}
                 style={{ top, left, width, height }}
                 onClick={() => onDeleteBlank(b.id)}
                 title="クリックで削除"
@@ -819,13 +830,13 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
                 {panelType === "drawer" && (
                   <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 flex flex-col gap-[3px] pointer-events-none">
                     {Array.from({ length: Math.min(3, Math.floor(height / CELL_H)) }).map((_, i) => (
-                      <div key={i} className="h-[2px] bg-zinc-600/50 rounded-full" />
+                      <div key={i} className="h-[2px] bg-zinc-300/40 rounded-full" />
                     ))}
                   </div>
                 )}
                 <span
                   className={`flex items-center justify-center h-full font-mono tracking-widest select-none ${panelTextColor}`}
-                  style={{ fontSize: height <= CELL_H ? 8 : 10 }}
+                  style={{ fontSize: height <= CELL_H ? 9 : 10 }}
                 >
                   {panelLabel}
                 </span>
@@ -849,10 +860,10 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
             return (
               <button
                 key={it.id}
-                className={`absolute border border-white/60 rounded-[2px] overflow-hidden text-left transition-all focus:outline-none focus:ring-1 focus:ring-primary z-[2] ${
+                className={`absolute border border-zinc-950/60 rounded-sm overflow-hidden text-left transition-all focus:outline-none focus:ring-2 focus:ring-primary z-[2] shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.2)] ${
                   displayEditMode
                     ? "hover:ring-2 hover:ring-amber-400 hover:brightness-95 cursor-pointer"
-                    : "hover:brightness-90"
+                    : "hover:brightness-95 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_2px_4px_rgba(0,0,0,0.3)]"
                 }`}
                 style={{ top, left, width, height, background: bg }}
                 onClick={() => onCellClick(it)}
@@ -891,16 +902,16 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
         </div>
 
         {/* U numbers (right) */}
-        <div className="flex flex-col shrink-0 pt-0.5" style={{ width: 24 }}>
+        <div className="flex flex-col shrink-0" style={{ width: 22 }}>
           {Array.from({ length: rackUnits }, (_, i) => rackUnits - i).map((u) => (
-            <div key={u} style={{ height: CELL_H, fontSize: 9 }} className="flex items-center pl-1 text-muted-foreground tabular-nums leading-none">
+            <div key={u} style={{ height: CELL_H, fontSize: 9 }} className="flex items-center pl-1.5 text-zinc-500 tabular-nums leading-none font-semibold">
               {u}
             </div>
           ))}
         </div>
       </div>
 
-      <div className="text-center text-[10px] text-muted-foreground mt-1">{rackUnits}U</div>
+      <div className="text-center text-[10px] text-zinc-500 font-semibold tracking-widest mt-1.5 uppercase">{rackUnits}U</div>
     </div>
   );
 }
