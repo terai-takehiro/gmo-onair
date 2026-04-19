@@ -446,36 +446,46 @@ router.get('/lendings', async (req: Request, res: Response) => {
   res.json({ success: true, data: rows });
 });
 
-router.post('/lendings', async (req: Request, res: Response) => {
-  const id = uuid();
-  const { equipment_id, project_id, borrower_name, purpose, lent_at, due_date, condition_out, notes } = req.body;
+router.post('/lendings', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = uuid();
+    const { equipment_id, project_id, borrower_name, purpose, lent_at, due_date, condition_out, notes } = req.body;
 
-  // 機材存在確認 (貸出可否は equipment_section で判定、ここでは二重貸出のみチェック)
-  const item = await queryOne("SELECT id, name FROM equipment_items WHERE id = $1 AND deleted_at IS NULL", [equipment_id]) as any;
-  if (!item) return res.status(404).json({ success: false, error: { message: '機材が見つかりません' } });
+    // 機材存在確認 (貸出可否は equipment_section で判定、ここでは二重貸出のみチェック)
+    const item = await queryOne("SELECT id, name FROM equipment_items WHERE id = $1 AND deleted_at IS NULL", [equipment_id]) as any;
+    if (!item) return res.status(404).json({ success: false, error: { message: '機材が見つかりません' } });
 
-  const activeLending = await queryOne(
-    "SELECT id FROM equipment_lendings WHERE equipment_id = $1 AND status = 'lent'",
-    [equipment_id]
-  );
-  if (activeLending) return res.status(400).json({ success: false, error: { message: 'この機材は貸出中です' } });
+    const activeLending = await queryOne(
+      "SELECT id FROM equipment_lendings WHERE equipment_id = $1 AND status = 'lent'",
+      [equipment_id]
+    );
+    if (activeLending) return res.status(400).json({ success: false, error: { message: 'この機材は貸出中です' } });
 
-  await execute(`
-    INSERT INTO equipment_lendings (id, equipment_id, project_id, borrower_name, purpose, lent_at, due_date, condition_out, notes, status, lent_by)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-  `, [id, equipment_id, project_id || null, borrower_name, purpose || null, lent_at, due_date || null, condition_out || null, notes || null, 'lent', (req as any).user?.id || null]);
-  res.status(201).json({ success: true, data: { id } });
+    await execute(`
+      INSERT INTO equipment_lendings (id, equipment_id, project_id, borrower_name, purpose, lent_at, due_date, condition_out, notes, status, lent_by)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+    `, [id, equipment_id, project_id || null, borrower_name, purpose || null, lent_at, due_date || null, condition_out || null, notes || null, 'lent', (req as any).user?.id || null]);
+    res.status(201).json({ success: true, data: { id } });
+  } catch (err: any) {
+    console.error('[POST /lendings]', err?.message);
+    next(err);
+  }
 });
 
-router.put('/lendings/:id/return', async (req: Request, res: Response) => {
-  const { condition_in, notes } = req.body;
-  await execute(`
-    UPDATE equipment_lendings SET
-      status='returned', returned_at=NOW(), condition_in=$1, notes=COALESCE($2, notes),
-      returned_by=$3, updated_at=NOW()
-    WHERE id=$4 AND status='lent'
-  `, [condition_in || null, notes || null, (req as any).user?.id || null, req.params.id]);
-  res.json({ success: true });
+router.put('/lendings/:id/return', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { condition_in, notes } = req.body;
+    await execute(`
+      UPDATE equipment_lendings SET
+        status='returned', returned_at=NOW(), condition_in=$1, notes=COALESCE($2, notes),
+        returned_by=$3, updated_at=NOW()
+      WHERE id=$4 AND status='lent'
+    `, [condition_in || null, notes || null, (req as any).user?.id || null, req.params.id]);
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error('[PUT /lendings/:id/return]', err?.message);
+    next(err);
+  }
 });
 
 router.delete('/lendings/:id', async (req: Request, res: Response) => {
@@ -505,40 +515,50 @@ router.get('/maintenance', async (req: Request, res: Response) => {
   res.json({ success: true, data: rows });
 });
 
-router.post('/maintenance', async (req: Request, res: Response) => {
-  const id = uuid();
-  const { equipment_id, record_type, title, description, assigned_to, vendor_name, repair_cost } = req.body;
+router.post('/maintenance', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = uuid();
+    const { equipment_id, record_type, title, description, assigned_to, vendor_name, repair_cost } = req.body;
 
-  await execute(`
-    INSERT INTO maintenance_records (id, equipment_id, record_type, title, description, reported_by, assigned_to, vendor_name, repair_cost, status)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-  `, [id, equipment_id, record_type, title, description || null, (req as any).user?.id || null, assigned_to || null, vendor_name || null, repair_cost || null, 'reported']);
+    await execute(`
+      INSERT INTO maintenance_records (id, equipment_id, record_type, title, description, reported_by, assigned_to, vendor_name, repair_cost, status)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+    `, [id, equipment_id, record_type, title, description || null, (req as any).user?.id || null, assigned_to || null, vendor_name || null, repair_cost || null, 'reported']);
 
-  // If breakdown, update equipment status
-  if (record_type === 'breakdown') {
-    await execute("UPDATE equipment_items SET status='in_repair', updated_at=NOW() WHERE id=$1", [equipment_id]);
+    // If breakdown, update equipment status
+    if (record_type === 'breakdown') {
+      await execute("UPDATE equipment_items SET status='in_repair', updated_at=NOW() WHERE id=$1", [equipment_id]);
+    }
+    res.status(201).json({ success: true, data: { id } });
+  } catch (err: any) {
+    console.error('[POST /maintenance]', err?.message);
+    next(err);
   }
-  res.status(201).json({ success: true, data: { id } });
 });
 
-router.put('/maintenance/:id', async (req: Request, res: Response) => {
-  const { title, description, assigned_to, vendor_name, repair_cost, status, result, started_at, completed_at } = req.body;
+router.put('/maintenance/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { title, description, assigned_to, vendor_name, repair_cost, status, result, started_at, completed_at } = req.body;
 
-  await execute(`
-    UPDATE maintenance_records SET
-      title=$1, description=$2, assigned_to=$3, vendor_name=$4, repair_cost=$5,
-      status=$6, result=$7, started_at=$8, completed_at=$9, updated_at=NOW()
-    WHERE id=$10
-  `, [title, description || null, assigned_to || null, vendor_name || null, repair_cost || null, status, result || null, started_at || null, completed_at || null, req.params.id]);
+    await execute(`
+      UPDATE maintenance_records SET
+        title=$1, description=$2, assigned_to=$3, vendor_name=$4, repair_cost=$5,
+        status=$6, result=$7, started_at=$8, completed_at=$9, updated_at=NOW()
+      WHERE id=$10
+    `, [title, description || null, assigned_to || null, vendor_name || null, repair_cost || null, status, result || null, started_at || null, completed_at || null, req.params.id]);
 
-  // If completed, restore equipment to active
-  if (status === 'completed') {
-    const record = await queryOne("SELECT equipment_id FROM maintenance_records WHERE id=$1", [req.params.id]) as any;
-    if (record) {
-      await execute("UPDATE equipment_items SET status='active', updated_at=NOW() WHERE id=$1 AND status='in_repair'", [record.equipment_id]);
+    // If completed, restore equipment to active
+    if (status === 'completed') {
+      const record = await queryOne("SELECT equipment_id FROM maintenance_records WHERE id=$1", [req.params.id]) as any;
+      if (record) {
+        await execute("UPDATE equipment_items SET status='active', updated_at=NOW() WHERE id=$1 AND status='in_repair'", [record.equipment_id]);
+      }
     }
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error('[PUT /maintenance/:id]', err?.message);
+    next(err);
   }
-  res.json({ success: true });
 });
 
 // ============================================================
@@ -549,28 +569,33 @@ router.get('/inventory-checks', async (_req: Request, res: Response) => {
   res.json({ success: true, data: rows });
 });
 
-router.post('/inventory-checks', async (req: Request, res: Response) => {
-  const id = uuid();
-  const { title, check_date, notes } = req.body;
+router.post('/inventory-checks', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = uuid();
+    const { title, check_date, notes } = req.body;
 
-  await execute(
-    "INSERT INTO inventory_checks (id, title, check_date, status, checked_by, notes) VALUES ($1,$2,$3,$4,$5,$6)",
-    [id, title, check_date, 'draft', (req as any).user?.id || null, notes || null]
-  );
-
-  // Auto-populate check items from active equipment
-  const items = await queryAll(
-    "SELECT id, location_id, location_detail FROM equipment_items WHERE deleted_at IS NULL AND status != 'disposed'"
-  );
-  for (const item of items as any[]) {
-    const ciId = uuid();
-    const expectedLoc = [item.location_id, item.location_detail].filter(Boolean).join(' / ') || null;
     await execute(
-      "INSERT INTO inventory_check_items (id, check_id, equipment_id, expected_location) VALUES ($1,$2,$3,$4)",
-      [ciId, id, item.id, expectedLoc]
+      "INSERT INTO inventory_checks (id, title, check_date, status, checked_by, notes) VALUES ($1,$2,$3,$4,$5,$6)",
+      [id, title, check_date, 'draft', (req as any).user?.id || null, notes || null]
     );
+
+    // Auto-populate check items from active equipment
+    const items = await queryAll(
+      "SELECT id, location_id, location_detail FROM equipment_items WHERE deleted_at IS NULL AND status != 'disposed'"
+    );
+    for (const item of items as any[]) {
+      const ciId = uuid();
+      const expectedLoc = [item.location_id, item.location_detail].filter(Boolean).join(' / ') || null;
+      await execute(
+        "INSERT INTO inventory_check_items (id, check_id, equipment_id, expected_location) VALUES ($1,$2,$3,$4)",
+        [ciId, id, item.id, expectedLoc]
+      );
+    }
+    res.status(201).json({ success: true, data: { id } });
+  } catch (err: any) {
+    console.error('[POST /inventory-checks]', err?.message);
+    next(err);
   }
-  res.status(201).json({ success: true, data: { id } });
 });
 
 router.get('/inventory-checks/:id', async (req: Request, res: Response) => {
@@ -617,7 +642,7 @@ router.get('/stats', async (_req: Request, res: Response) => {
   const activeItems = await queryOne("SELECT COUNT(*)::int as c FROM equipment_items WHERE deleted_at IS NULL AND status='active'");
   const inRepair = await queryOne("SELECT COUNT(*)::int as c FROM equipment_items WHERE deleted_at IS NULL AND status='in_repair'");
   const lentOut = await queryOne("SELECT COUNT(*)::int as c FROM equipment_lendings WHERE status='lent'");
-  const overdue = await queryOne("SELECT COUNT(*)::int as c FROM equipment_lendings WHERE status='lent' AND due_date IS NOT NULL AND due_date < CURRENT_DATE::text");
+  const overdue = await queryOne("SELECT COUNT(*)::int as c FROM equipment_lendings WHERE status='lent' AND due_date IS NOT NULL AND due_date < CURRENT_DATE");
   const openMaintenance = await queryOne("SELECT COUNT(*)::int as c FROM maintenance_records WHERE status IN ('reported', 'in_progress')");
   const pendingInventory = await queryOne("SELECT COUNT(*)::int as c FROM inventory_checks WHERE status IN ('draft', 'in_progress')");
 
