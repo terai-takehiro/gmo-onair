@@ -586,7 +586,7 @@ export default function EquipmentListPage() {
                   return (
                     <tr
                       key={item.id}
-                      className={`bg-muted/20 transition-colors ${tableEditMode ? 'cursor-default hover:bg-amber-50/50' : 'cursor-pointer hover:bg-muted/40'} ${tableEdits[item.id] ? 'outline outline-1 outline-amber-400/60' : ''}`}
+                      className={`group bg-muted/20 transition-colors ${tableEditMode ? 'cursor-default hover:bg-amber-50/50' : 'cursor-pointer hover:bg-muted/40'} ${tableEdits[item.id] ? 'outline outline-1 outline-amber-400/60' : ''}`}
                       onClick={tableEditMode ? undefined : () => navigateToDetail(item.id)}
                     >
                       <td className="pl-5 pr-1 py-2 text-muted-foreground/40 text-xs">└</td>
@@ -655,9 +655,10 @@ export default function EquipmentListPage() {
                         ) : item.notes || '–'}
                       </td>
                       <td className="px-2 py-2 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex gap-0.5 justify-end">
+                        <div className="flex gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                           <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" title="コピーして新規登録" onClick={(e) => openCopy(item, e)}><Copy className="h-3 w-3" /></Button>
                           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); openEdit(item); }}><Pencil className="h-3 w-3" /></Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); if (confirm(`「${item.name}」を削除？`)) deleteMutation.mutate(item.id); }}><Trash2 className="h-3 w-3" /></Button>
                         </div>
                       </td>
                     </tr>
