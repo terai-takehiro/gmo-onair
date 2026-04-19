@@ -77,9 +77,8 @@ export default function RackLayoutPage() {
   const qc = useQueryClient();
 
   // URL search params でビュー状態を管理（戻るボタンで復元される）
-  // デフォルト: GMOグローバルスタジオ (br-gls) + マシンラック (rt-rack)
   const side = (sp.get("side") as "front" | "back") ?? "front";
-  const branchFilter = sp.get("branch") ?? "br-gls";
+  const branchFilter = sp.get("branch") ?? "all";
   const rackTypeFilter = sp.get("rackType") ?? "rt-rack";
 
   const setSide = (v: "front" | "back") =>
@@ -159,15 +158,27 @@ export default function RackLayoutPage() {
   const colors: any[] = colorsData ?? [];
   const branches: any[] = branchesData ?? [];
   const rackTypes: any[] = rackTypesData ?? [];
+
+  // ブランチデータロード後に「GMOグローバルスタジオ」を自動選択（URLパラメータ未設定時のみ）
+  const branchDefaultApplied = useRef(false);
+  useEffect(() => {
+    if (branchDefaultApplied.current || sp.get("branch") || branches.length === 0) return;
+    const gls = branches.find((b: any) => /GMO|グローバル|GLS/i.test(b.name));
+    const defaultId = gls?.id ?? branches[0]?.id;
+    if (defaultId) {
+      branchDefaultApplied.current = true;
+      setSp(prev => { const n = new URLSearchParams(prev); n.set("branch", defaultId); return n; }, { replace: true });
+    }
+  }, [branches]);
   const inventoryChecks: any[] = (inventoryChecksData ?? []).filter(
     (c: any) => c.status === "draft" || c.status === "in_progress"
   );
 
   const inventoryMap = useMemo(() => {
     if (!inventoryDetail?.items) return {};
-    const m: Record<string, { id: string; found: boolean | null }> = {};
+    const m: Record<string, { id: string; found: boolean }> = {};
     for (const item of inventoryDetail.items) {
-      m[item.equipment_id] = { id: item.id, found: item.found };
+      m[item.equipment_id] = { id: item.id, found: item.found === 1 };
     }
     return m;
   }, [inventoryDetail]);
@@ -817,7 +828,7 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
   rackData: { location: any; items: any[]; blanks?: any[] };
   side: "front" | "back";
   inventoryMode: boolean;
-  inventoryMap: Record<string, { id: string; found: boolean | null }>;
+  inventoryMap: Record<string, { id: string; found: boolean }>;
   displayEditMode: boolean;
   rackConfig?: RackConfig;
   onCellClick: (item: any) => void;

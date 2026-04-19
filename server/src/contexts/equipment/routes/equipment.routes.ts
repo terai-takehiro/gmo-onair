@@ -690,13 +690,16 @@ router.post('/inventory-checks', async (req: Request, res: Response, next: NextF
       [id, title, check_date, 'draft', (req as any).user?.id || null, notes || null]
     );
 
-    // Auto-populate check items from active equipment
-    const items = await queryAll(
-      "SELECT id, location_id, location_detail FROM equipment_items WHERE deleted_at IS NULL AND status != 'disposed'"
-    );
+    // Auto-populate check items from active equipment (location_name resolved from FK)
+    const items = await queryAll(`
+      SELECT ei.id, el.name as location_name, ei.location_detail
+      FROM equipment_items ei
+      LEFT JOIN equipment_locations el ON el.id = ei.location_id AND el.deleted_at IS NULL
+      WHERE ei.deleted_at IS NULL AND ei.status != 'disposed'
+    `);
     for (const item of items as any[]) {
       const ciId = uuid();
-      const expectedLoc = [item.location_id, item.location_detail].filter(Boolean).join(' / ') || null;
+      const expectedLoc = item.location_name || item.location_detail || null;
       await execute(
         "INSERT INTO inventory_check_items (id, check_id, equipment_id, expected_location) VALUES ($1,$2,$3,$4)",
         [ciId, id, item.id, expectedLoc]
@@ -746,6 +749,44 @@ router.put('/inventory-checks/:id/status', async (req: Request, res: Response, n
     await execute("UPDATE inventory_checks SET status=$1, updated_at=NOW() WHERE id=$2", [status, req.params.id]);
     res.json({ success: true });
   } catch (err) { next(err); }
+});
+
+// 棚卸し機材同期（新たに追加された機材をチェックに追加）
+router.post('/inventory-checks/:id/sync', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const check = await queryOne("SELECT id FROM inventory_checks WHERE id=$1", [req.params.id]);
+    if (!check) return res.status(404).json({ success: false, error: { message: '棚卸しが見つかりません' } });
+
+    const existing = await queryAll(
+      "SELECT equipment_id FROM inventory_check_items WHERE check_id=$1",
+      [req.params.id]
+    ) as any[];
+    const existingIds = new Set(existing.map((e: any) => e.equipment_id));
+
+    const allItems = await queryAll(`
+      SELECT ei.id, el.name as location_name, ei.location_detail
+      FROM equipment_items ei
+      LEFT JOIN equipment_locations el ON el.id = ei.location_id AND el.deleted_at IS NULL
+      WHERE ei.deleted_at IS NULL AND ei.status != 'disposed'
+    `);
+
+    let added = 0;
+    for (const item of allItems as any[]) {
+      if (existingIds.has((item as any).id)) continue;
+      const ciId = uuid();
+      const expectedLoc = (item as any).location_name || (item as any).location_detail || null;
+      await execute(
+        "INSERT INTO inventory_check_items (id, check_id, equipment_id, expected_location) VALUES ($1,$2,$3,$4)",
+        [ciId, req.params.id, (item as any).id, expectedLoc]
+      );
+      added++;
+    }
+
+    res.json({ success: true, data: { added } });
+  } catch (err: any) {
+    console.error('[POST /inventory-checks/:id/sync]', err?.message);
+    next(err);
+  }
 });
 
 // ============================================================

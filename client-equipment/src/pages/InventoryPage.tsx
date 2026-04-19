@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, Plus, ClipboardCheck, Check, X, HelpCircle, Save, Undo2, MapPin } from "lucide-react";
+import { Loader2, Plus, ClipboardCheck, Check, X, HelpCircle, Save, Undo2, MapPin, RefreshCw } from "lucide-react";
 
 const statusLabels: Record<string, string> = {
   draft: "下書き", in_progress: "実施中", completed: "完了",
@@ -72,6 +72,15 @@ export default function InventoryPage() {
     },
   });
 
+  const syncMutation = useMutation({
+    mutationFn: (checkId: string) => api.post(`/equipment/inventory-checks/${checkId}/sync`, {}),
+    onSuccess: (res: any) => {
+      qc.invalidateQueries({ queryKey: ["inventory-check", selectedCheck] });
+      const added = res?.data?.data?.added ?? 0;
+      if (added > 0) alert(`${added}件の機材を追加しました`);
+    },
+  });
+
   const items: CheckItem[] = checkDetail?.items || [];
 
   // 保管場所でグルーピング (表示用の location key)
@@ -121,6 +130,19 @@ export default function InventoryPage() {
             {!isCompleted && (
               <Button size="sm" variant="outline" onClick={() => setSelectedCheck(null)}>
                 <Save className="h-4 w-4 mr-1" />一時保存
+              </Button>
+            )}
+            {!isCompleted && (
+              <Button
+                size="sm" variant="outline"
+                onClick={() => syncMutation.mutate(detail.id)}
+                disabled={syncMutation.isPending}
+                title="棚卸し作成後に追加された機材をチェックリストに同期"
+              >
+                {syncMutation.isPending
+                  ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  : <RefreshCw className="h-4 w-4 mr-1" />}
+                機材同期
               </Button>
             )}
             {isDraft && (

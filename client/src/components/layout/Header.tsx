@@ -127,25 +127,18 @@ export default function Header({ title }: { title?: string }) {
       searchResults.vendors.length > 0);
 
   return (
-    <header className="flex h-14 items-center justify-between border-b bg-card px-3 sm:px-5">
+    <header className="flex h-14 items-center justify-between border-b bg-card px-3 sm:px-5 relative z-30">
       <div className="flex items-center gap-3 min-w-0">
-        {/* Home: always show AppSwitcher / SubPages: hamburger on mobile, AppSwitcher on desktop */}
-        {isHome ? (
-          <AppSwitcher currentApp={pathname.startsWith("/sales") ? "sales" : pathname.startsWith("/budget") ? "budget" : pathname.startsWith("/studio") ? "studio" : "home"} />
-        ) : (
-          <>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="lg:hidden shrink-0 h-9 w-9 -ml-1"
-              onClick={toggleSidebar}
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-            <div className="hidden lg:block">
-              <AppSwitcher currentApp={pathname.startsWith("/sales") ? "sales" : pathname.startsWith("/budget") ? "budget" : pathname.startsWith("/studio") ? "studio" : pathname.startsWith("/admin") ? "home" : "home"} />
-            </div>
-          </>
+        <AppSwitcher currentApp={pathname.startsWith("/sales") ? "sales" : pathname.startsWith("/budget") ? "budget" : pathname.startsWith("/studio") ? "studio" : "home"} />
+        {!isHome && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden shrink-0 h-9 w-9"
+            onClick={toggleSidebar}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
         )}
         <div className="flex items-center gap-1.5 min-w-0">
           <a href="/" className="text-sm font-bold text-primary hover:opacity-80 transition-opacity shrink-0">ONAiR</a>
