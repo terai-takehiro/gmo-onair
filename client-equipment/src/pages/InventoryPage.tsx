@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, Plus, ClipboardCheck, Check, X, HelpCircle, Save, Undo2, MapPin, RefreshCw } from "lucide-react";
+import { Loader2, Plus, ClipboardCheck, Check, X, HelpCircle, Save, Undo2, MapPin, RefreshCw, Trash2 } from "lucide-react";
 
 const statusLabels: Record<string, string> = {
   draft: "下書き", in_progress: "実施中", completed: "完了",
@@ -69,6 +69,14 @@ export default function InventoryPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["inventory-checks"] });
       qc.invalidateQueries({ queryKey: ["inventory-check", selectedCheck] });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/equipment/inventory-checks/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["inventory-checks"] });
+      setSelectedCheck(null);
     },
   });
 
@@ -160,6 +168,15 @@ export default function InventoryPage() {
                 <Undo2 className="h-4 w-4 mr-1" />差し戻し
               </Button>
             )}
+            <Button
+              size="sm" variant="outline"
+              className="text-destructive border-destructive/30 hover:bg-destructive/10"
+              disabled={deleteMutation.isPending}
+              onClick={() => { if (confirm(`「${detail.title}」を削除しますか？\n※この操作は取り消せません`)) deleteMutation.mutate(detail.id); }}
+            >
+              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 mr-1" />}
+              削除
+            </Button>
           </div>
         </div>
 
@@ -273,14 +290,24 @@ export default function InventoryPage() {
           {checks.map((c: any) => (
             <Card key={c.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedCheck(c.id)}>
               <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium">{c.title}</h3>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <h3 className="font-medium truncate">{c.title}</h3>
                     <p className="text-sm text-muted-foreground">{c.check_date}</p>
                   </div>
-                  <Badge variant={c.status === "completed" ? "secondary" : "default"}>
-                    {statusLabels[c.status]}
-                  </Badge>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant={c.status === "completed" ? "secondary" : "default"}>
+                      {statusLabels[c.status]}
+                    </Badge>
+                    <Button
+                      size="icon" variant="ghost"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      disabled={deleteMutation.isPending}
+                      onClick={(e) => { e.stopPropagation(); if (confirm(`「${c.title}」を削除しますか？`)) deleteMutation.mutate(c.id); }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

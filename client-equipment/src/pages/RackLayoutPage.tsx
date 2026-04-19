@@ -11,7 +11,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, Server, ClipboardCheck, Pencil } from "lucide-react";
+import { Loader2, Server, ClipboardCheck, Pencil, RefreshCw, AlertCircle } from "lucide-react";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const CELL_H = 32;
@@ -90,6 +90,8 @@ export default function RackLayoutPage() {
 
   const [inventoryMode, setInventoryMode] = useState(false);
   const [selectedCheckId, setSelectedCheckId] = useState<string>("");
+  const [inventoryNotice, setInventoryNotice] = useState<string>("");
+  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Display edit mode
   const [displayEditMode, setDisplayEditMode] = useState(false);
@@ -219,6 +221,15 @@ export default function RackLayoutPage() {
     },
   });
 
+  const syncInventoryMutation = useMutation({
+    mutationFn: (checkId: string) => api.post(`/equipment/inventory-checks/${checkId}/sync`),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ["equipment-inventory-check-detail", selectedCheckId] });
+      const added = res.data?.data?.added ?? 0;
+      showNotice(added > 0 ? `${added}件の機材をチェックリストに追加しました` : "同期完了（追加なし）");
+    },
+  });
+
   const addBlankMutation = useMutation({
     mutationFn: async ({ locationId, rack_position, rack_height, rack_slot, rack_side, panel_type, label }: any) =>
       api.post(`/equipment/racks/${locationId}/blanks`, { rack_position, rack_height, rack_slot, rack_side, panel_type, label }),
@@ -262,6 +273,12 @@ export default function RackLayoutPage() {
     onSettled: () => qc.invalidateQueries({ queryKey: ["equipment-racks"] }),
   });
 
+  const showNotice = useCallback((msg: string) => {
+    setInventoryNotice(msg);
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    noticeTimerRef.current = setTimeout(() => setInventoryNotice(""), 3500);
+  }, []);
+
   const handleCellClick = (item: any, overlapItems?: any[]) => {
     if (displayEditMode) {
       setConfigTarget(item);
@@ -273,12 +290,17 @@ export default function RackLayoutPage() {
     }
     if (inventoryMode && selectedCheckId) {
       const mapEntry = inventoryMap[item.id];
-      if (!mapEntry) return;
+      if (!mapEntry) {
+        showNotice("この機材はチェックリストに未登録です。「同期」ボタンで追加できます");
+        return;
+      }
       toggleFoundMutation.mutate({
         checkId: selectedCheckId,
         itemId: mapEntry.id,
         found: !mapEntry.found,
       });
+    } else if (inventoryMode && !selectedCheckId) {
+      showNotice("棚卸しを選択してください");
     } else {
       navigate(`/equipment/items/${item.id}`);
     }
@@ -433,26 +455,46 @@ export default function RackLayoutPage() {
       )}
 
       {inventoryMode && (
-        <div className="rounded-lg border bg-muted/30 p-3 flex flex-wrap items-center gap-3">
-          <span className="text-sm font-medium">棚卸し選択:</span>
-          <Select value={selectedCheckId || "none"} onValueChange={(v) => setSelectedCheckId(v === "none" ? "" : v)}>
-            <SelectTrigger className="w-56 h-8 text-sm"><SelectValue placeholder="棚卸しを選択..." /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">選択なし</SelectItem>
-              {inventoryChecks.map((c: any) => (
-                <SelectItem key={c.id} value={c.id}>{c.title} ({c.check_date})</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {selectedCheckId && (
-            <div className="flex items-center gap-2 ml-auto">
-              <div className="h-2 w-40 rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full bg-emerald-500 transition-all"
-                  style={{ width: totalItems > 0 ? `${(totalChecked / totalItems) * 100}%` : "0%" }}
-                />
-              </div>
-              <span className="text-xs text-muted-foreground">{totalChecked}/{totalItems}</span>
+        <div className="rounded-lg border bg-muted/30 p-3 flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm font-medium">棚卸し選択:</span>
+            <Select value={selectedCheckId || "none"} onValueChange={(v) => setSelectedCheckId(v === "none" ? "" : v)}>
+              <SelectTrigger className="w-56 h-8 text-sm"><SelectValue placeholder="棚卸しを選択..." /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">選択なし</SelectItem>
+                {inventoryChecks.map((c: any) => (
+                  <SelectItem key={c.id} value={c.id}>{c.title} ({c.check_date})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedCheckId && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1"
+                  disabled={syncInventoryMutation.isPending}
+                  onClick={() => syncInventoryMutation.mutate(selectedCheckId)}
+                >
+                  {syncInventoryMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                  同期
+                </Button>
+                <div className="flex items-center gap-2 ml-auto">
+                  <div className="h-2 w-40 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-500 transition-all"
+                      style={{ width: totalItems > 0 ? `${(totalChecked / totalItems) * 100}%` : "0%" }}
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground">{totalChecked}/{totalItems}</span>
+                </div>
+              </>
+            )}
+          </div>
+          {inventoryNotice && (
+            <div className="flex items-center gap-1.5 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {inventoryNotice}
             </div>
           )}
         </div>

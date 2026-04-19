@@ -748,6 +748,16 @@ router.put('/inventory-checks/:id/status', async (req: Request, res: Response, n
   } catch (err) { next(err); }
 });
 
+router.delete('/inventory-checks/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const check = await queryOne("SELECT id FROM inventory_checks WHERE id=$1", [req.params.id]);
+    if (!check) return res.status(404).json({ success: false, error: { message: '棚卸しが見つかりません' } });
+    await execute("DELETE FROM inventory_check_items WHERE check_id=$1", [req.params.id]);
+    await execute("DELETE FROM inventory_checks WHERE id=$1", [req.params.id]);
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
 // 棚卸し機材同期（新たに追加された機材をチェックに追加）
 router.post('/inventory-checks/:id/sync', async (req: Request, res: Response, next: NextFunction) => {
   try {
