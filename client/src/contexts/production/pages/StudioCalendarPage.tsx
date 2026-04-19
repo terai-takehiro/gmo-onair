@@ -192,44 +192,55 @@ export default function StudioCalendarPage() {
   // Calendar events
   const calendarEvents = useMemo(() => {
     const events: any[] = [];
+    const isMonthView = currentView === "dayGridMonth";
 
-    // Studio bookings — 部屋ごとに1イベントとして表示
+    // Studio bookings
     for (const b of bookings) {
       const typeColor = bookingTypeColors[b.booking_type] || "#6b7280";
 
-      // 終日イベントを時間軸上に展開（06:00〜24:00）
       const toTimedRange = (startStr: string, endStr: string, isAllDay: boolean) => {
         if (!isAllDay) return { start: startStr, end: endStr };
-        // 終日 → 各日を00:00〜24:00の時間帯イベントに変換
         return { start: `${startStr}T00:00:00`, end: `${endStr}T23:59:00` };
       };
       const { start: evStart, end: evEnd } = toTimedRange(b.start_time, b.end_time, !!b.all_day);
-
-      // Types that override room color with the type color
       const useTypeColor = ["performance", "rehearsal", "maintenance", "tour"].includes(b.booking_type);
 
       if (b.rooms.length > 0) {
-        // 部屋ごとに個別イベント
-        for (const room of b.rooms) {
-          if (selectedRoomIds.size > 0 && !selectedRoomIds.has(room.room_id)) continue;
+        // 月間ビュー: 案件単位で1イベントにまとめる
+        const filteredRooms = selectedRoomIds.size > 0
+          ? b.rooms.filter((r) => selectedRoomIds.has(r.room_id))
+          : b.rooms;
+        if (filteredRooms.length === 0) continue;
 
-          const color = useTypeColor ? typeColor : room.room_color;
-
+        if (isMonthView) {
+          const color = useTypeColor ? typeColor : filteredRooms[0].room_color;
           events.push({
-            id: `booking-${b.id}-${room.room_id}`,
-            title: `${room.room_name} | ${b.title}`,
+            id: `booking-${b.id}`,
+            title: b.title,
             start: evStart,
             end: evEnd,
             allDay: false,
             backgroundColor: color,
             borderColor: color,
             textColor: "#ffffff",
-            extendedProps: {
-              kind: "booking",
-              bookingId: b.id,
-              bookingType: b.booking_type,
-            },
+            extendedProps: { kind: "booking", bookingId: b.id, bookingType: b.booking_type },
           });
+        } else {
+          // 週/日ビュー: 部屋ごとに個別表示
+          for (const room of filteredRooms) {
+            const color = useTypeColor ? typeColor : room.room_color;
+            events.push({
+              id: `booking-${b.id}-${room.room_id}`,
+              title: `${room.room_name} | ${b.title}`,
+              start: evStart,
+              end: evEnd,
+              allDay: false,
+              backgroundColor: color,
+              borderColor: color,
+              textColor: "#ffffff",
+              extendedProps: { kind: "booking", bookingId: b.id, bookingType: b.booking_type },
+            });
+          }
         }
       } else {
         // 外現場など部屋なし
@@ -242,11 +253,7 @@ export default function StudioCalendarPage() {
           backgroundColor: typeColor,
           borderColor: typeColor,
           textColor: "#ffffff",
-          extendedProps: {
-            kind: "booking",
-            bookingId: b.id,
-            bookingType: b.booking_type,
-          },
+          extendedProps: { kind: "booking", bookingId: b.id, bookingType: b.booking_type },
         });
       }
     }
@@ -274,7 +281,7 @@ export default function StudioCalendarPage() {
     }
 
     return events;
-  }, [bookings, projectEventsData, selectedRoomIds]);
+  }, [bookings, projectEventsData, selectedRoomIds, currentView]);
 
   const handleDatesSet = useCallback((arg: DatesSetArg) => {
     setDateRange({

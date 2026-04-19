@@ -224,16 +224,13 @@ router.get('/items', async (req: Request, res: Response) => {
   const countSql = `SELECT COUNT(*) as total FROM (${sql}) _cnt`;
   const countRow = await queryOne(countSql, params) as any;
 
-  // 並び順: 機材ブロック(種別) → 設置場所 → 商品名 → 型名 → no
+  // 並び順: 設置場所の表示順 → 設置場所名 → 機材名(五十音) → 型名 → no
   sql += `
     ORDER BY
-      CASE ei.equipment_type_code
-        WHEN 'V' THEN 1 WHEN 'C' THEN 2 WHEN 'A' THEN 3 WHEN 'IC' THEN 4
-        WHEN 'NW' THEN 5 WHEN 'L' THEN 6 WHEN 'XR' THEN 7 WHEN 'E' THEN 8
-        ELSE 99
-      END,
-      COALESCE(el.sort_order, 9999), COALESCE(el.name, ei.location_detail, ''),
-      ei.name, COALESCE(ei.model_number, ''), ei.unit_number
+      COALESCE(el.sort_order, 9999),
+      COALESCE(el.name, ei.location_detail, ''),
+      ei.name,
+      COALESCE(ei.model_number, ''), ei.unit_number
   `;
   if (limit) { sql += ` LIMIT $${paramIndex++}`; params.push(Number(limit)); }
   if (offset) { sql += ` OFFSET $${paramIndex++}`; params.push(Number(offset)); }

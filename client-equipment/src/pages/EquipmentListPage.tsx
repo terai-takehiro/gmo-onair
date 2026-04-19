@@ -91,7 +91,6 @@ export default function EquipmentListPage() {
   const sortKey: string | null = searchParams.get('sort') || null;
   const sortDir: 'asc' | 'desc' = (searchParams.get('dir') as 'asc' | 'desc') || 'asc';
   const includeChildren = searchParams.get('children') === '1';
-  const showOrphans = searchParams.get('orphans') === '1';
   const urlSearch = searchParams.get('q') ?? '';
 
   // 検索入力はローカルで持ち、400ms デバウンス後に URL に反映
@@ -106,12 +105,6 @@ export default function EquipmentListPage() {
     }, 400);
     return () => clearTimeout(t);
   }, [search]);
-
-  const setFilterBlock = (val: string) => setSearchParams(p => {
-    const n = new URLSearchParams(p);
-    if (val) n.set('tab', val); else n.delete('tab');
-    return n;
-  }, { replace: true });
 
   // 詳細ページ遷移前にスクロール位置を保存
   const navigateToDetail = (id: string) => {
@@ -266,15 +259,6 @@ export default function EquipmentListPage() {
   };
   const items = useMemo(() => {
     let base = rawItems;
-    if (showOrphans) {
-      base = base.filter(item =>
-        item.parent_id == null &&
-        (item.children_count ?? 0) === 0 &&
-        !item.location_id &&
-        item.status !== 'disposed' &&
-        item.status !== 'lost'
-      );
-    }
     if (!sortKey) return base;
     const copy = [...base];
     copy.sort((a, b) => {
@@ -293,7 +277,7 @@ export default function EquipmentListPage() {
       return sortDir === 'asc' ? cmp : -cmp;
     });
     return copy;
-  }, [rawItems, sortKey, sortDir, showOrphans]);
+  }, [rawItems, sortKey, sortDir]);
 
   const saveMutation = useMutation({
     mutationFn: (payload: any) =>
@@ -496,7 +480,12 @@ export default function EquipmentListPage() {
         {[{ code: "", label: "全て" }, ...TYPE_CODES].map((t) => (
           <button
             key={t.code}
-            onClick={() => { setFilterBlock(t.code); setSearchParams(p => { const n = new URLSearchParams(p); n.delete('orphans'); return n; }, { replace: true }); }}
+            onClick={() => setSearchParams(p => {
+              const n = new URLSearchParams(p);
+              if (t.code) n.set('tab', t.code); else n.delete('tab');
+              n.delete('orphans');
+              return n;
+            }, { replace: true })}
             className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
               filterBlock === t.code && !showOrphans
                 ? "bg-primary text-primary-foreground"
@@ -506,21 +495,6 @@ export default function EquipmentListPage() {
             {t.label}
           </button>
         ))}
-        <button
-          onClick={() => setSearchParams(p => {
-            const n = new URLSearchParams(p);
-            if (showOrphans) n.delete('orphans'); else { n.set('orphans', '1'); n.delete('tab'); }
-            return n;
-          }, { replace: true })}
-          className={`px-3 py-1 rounded-full text-sm font-medium transition-colors border ${
-            showOrphans
-              ? "bg-destructive/10 text-destructive border-destructive/30"
-              : "bg-muted text-muted-foreground border-transparent hover:bg-muted/80"
-          }`}
-          title="親なし・子なし・場所未設定の機材（削除候補の可能性）"
-        >
-          🗑 削除候補確認
-        </button>
       </div>
 
       {/* 検索 + 子機材トグル */}

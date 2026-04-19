@@ -133,6 +133,12 @@
   }
 }
 
+/* FullCalendar — stacking context isolation (AppSwitcher z-99999 must paint above) */
+.studio-calendar {
+  isolation: isolate;
+  position: relative;
+}
+
 /* FullCalendar responsive overrides */
 .studio-calendar .fc .fc-toolbar {
   flex-wrap: wrap;
