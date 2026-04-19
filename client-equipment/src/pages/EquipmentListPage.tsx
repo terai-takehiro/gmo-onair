@@ -17,34 +17,10 @@ import {
   ChevronRight, ChevronDown, ChevronsUpDown, ArrowUp, ArrowDown, Copy, Printer,
 } from "lucide-react";
 import ExcelImportDialog from "@/components/ExcelImportDialog";
-
-const TYPE_CODES = [
-  { code: "V", label: "映像" },
-  { code: "C", label: "カメラ" },
-  { code: "A", label: "音声" },
-  { code: "IC", label: "インカム" },
-  { code: "NW", label: "ネットワーク" },
-  { code: "L", label: "照明" },
-  { code: "XR", label: "LED/XR" },
-  { code: "E", label: "設備/その他" },
-];
-const ASSET_CLASS_OPTIONS = [
-  { value: "fixed_asset", label: "固定資産" },
-  { value: "consumable",  label: "消耗品" },
-  { value: "leased",      label: "リース" },
-  { value: "transferred", label: "譲渡" },
-];
-const ASSET_CLASS_LABELS: Record<string, string> = {
-  fixed_asset: "固定資産", consumable: "消耗品", leased: "リース", transferred: "譲渡",
-};
-const SECTIONS = [
-  { value: "equipment", label: "設備" },
-  { value: "rental", label: "貸出" },
-];
-const LOC_CODES = [
-  { value: "Y", label: "用賀" },
-  { value: "S", label: "渋谷" },
-];
+import {
+  TYPE_CODES, ASSET_CLASS_OPTIONS, ASSET_CLASS_LABELS, SECTIONS, LOC_CODES,
+  RACK_SLOT_OPTIONS, TYPE_BORDER_COLOR, CONDITION_LABELS,
+} from "@/lib/constants";
 
 const sectionDisplay = (typeCode: string | null, section: string | null) => {
   const t = TYPE_CODES.find((c) => c.code === typeCode)?.label || "";
@@ -52,23 +28,6 @@ const sectionDisplay = (typeCode: string | null, section: string | null) => {
   return `${t}${s}`.trim() || "-";
 };
 
-const RACK_SLOT_OPTIONS = [
-  { value: "full",      label: "全幅" },
-  { value: "left-1_2",  label: "左1/2" },
-  { value: "right-1_2", label: "右1/2" },
-  { value: "left-1_3",  label: "左1/3" },
-  { value: "mid-1_3",   label: "中央1/3" },
-  { value: "right-1_3", label: "右1/3" },
-];
-
-const TYPE_BORDER_COLOR: Record<string, string> = {
-  V: '#7c3aed', C: '#0284c7', A: '#d97706', IC: '#0d9488',
-  NW: '#0891b2', L: '#ca8a04', XR: '#db2777', E: '#6b7280',
-};
-
-const CONDITION_LABELS: Record<string, string> = {
-  excellent: "新品同様", good: "良好", fair: "普通", poor: "要注意",
-};
 
 const PRINT_COLS = [
   { key: 'eq_code',           label: 'ID'        },

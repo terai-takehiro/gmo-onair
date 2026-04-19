@@ -12,6 +12,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Loader2, Server, ClipboardCheck, Pencil, RefreshCw, AlertCircle } from "lucide-react";
+import { RACK_SLOT_OPTIONS, TYPE_BG } from "@/lib/constants";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const CELL_H = 32;
@@ -56,19 +57,6 @@ function slotToColumn(slot: string): { start: number; span: number } {
   }
 }
 
-const TYPE_BG: Record<string, string> = {
-  V: "#ede9fe", C: "#e0f2fe", A: "#fef9c3", IC: "#ccfbf1",
-  NW: "#cffafe", L: "#fefce8", XR: "#fce7f3", E: "#f3f4f6",
-};
-
-const RACK_SLOT_OPTIONS = [
-  { value: "full",      label: "全幅" },
-  { value: "left-1_2",  label: "左1/2" },
-  { value: "right-1_2", label: "右1/2" },
-  { value: "left-1_3",  label: "左1/3" },
-  { value: "mid-1_3",   label: "中央1/3" },
-  { value: "right-1_3", label: "右1/3" },
-];
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function RackLayoutPage() {

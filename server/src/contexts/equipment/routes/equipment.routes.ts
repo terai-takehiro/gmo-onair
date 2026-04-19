@@ -104,7 +104,7 @@ router.put('/locations/:id', requirePermission('equipment', 'owner'), async (req
 // ============================================================
 router.get('/branches', async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const rows = await queryAll('SELECT * FROM equipment_branches ORDER BY sort_order, name');
+    const rows = await queryAll('SELECT * FROM equipment_branches WHERE deleted_at IS NULL ORDER BY sort_order, name');
     res.json({ success: true, data: rows });
   } catch (err) { next(err); }
 });
@@ -131,7 +131,7 @@ router.put('/branches/:id', requirePermission('equipment', 'owner'), async (req:
 
 router.delete('/branches/:id', requirePermission('equipment', 'owner'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    await execute('DELETE FROM equipment_branches WHERE id=$1', [req.params.id]);
+    await execute('UPDATE equipment_branches SET deleted_at=NOW() WHERE id=$1', [req.params.id]);
     res.json({ success: true });
   } catch (err) { next(err); }
 });
@@ -141,7 +141,7 @@ router.delete('/branches/:id', requirePermission('equipment', 'owner'), async (r
 // ============================================================
 router.get('/rack-types', async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const rows = await queryAll('SELECT * FROM equipment_rack_types ORDER BY sort_order, name');
+    const rows = await queryAll('SELECT * FROM equipment_rack_types WHERE deleted_at IS NULL ORDER BY sort_order, name');
     res.json({ success: true, data: rows });
   } catch (err) { next(err); }
 });
@@ -168,7 +168,7 @@ router.put('/rack-types/:id', requirePermission('equipment', 'owner'), async (re
 
 router.delete('/rack-types/:id', requirePermission('equipment', 'owner'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    await execute('DELETE FROM equipment_rack_types WHERE id=$1', [req.params.id]);
+    await execute('UPDATE equipment_rack_types SET deleted_at=NOW() WHERE id=$1', [req.params.id]);
     res.json({ success: true });
   } catch (err) { next(err); }
 });
@@ -237,14 +237,21 @@ router.get('/items', async (req: Request, res: Response) => {
 
   const rows = await queryAll(sql, params);
 
-  // 貸出中機材の貸出情報を付加 (equipment_section='rental' のみ)
-  for (const row of rows as any[]) {
-    if (row.equipment_section === 'rental') {
-      const lending = await queryOne(
-        "SELECT id, borrower_name, project_id, lent_at, due_date FROM equipment_lendings WHERE equipment_id = $1 AND status = 'lent' ORDER BY lent_at DESC LIMIT 1",
-        [row.id]
-      );
-      (row as any).current_lending = lending || null;
+  // 貸出中機材の貸出情報を付加 (equipment_section='rental' のみ) — バッチで1クエリ
+  const rentalIds = (rows as any[]).filter(r => r.equipment_section === 'rental').map(r => r.id);
+  if (rentalIds.length > 0) {
+    const lendingRows = await queryAll(`
+      SELECT DISTINCT ON (equipment_id)
+        id, equipment_id, borrower_name, project_id, lent_at, due_date
+      FROM equipment_lendings
+      WHERE equipment_id = ANY($1::text[]) AND status = 'lent'
+      ORDER BY equipment_id, lent_at DESC
+    `, [rentalIds]) as any[];
+    const lendingMap = new Map(lendingRows.map(l => [l.equipment_id, l]));
+    for (const row of rows as any[]) {
+      if (row.equipment_section === 'rental') {
+        (row as any).current_lending = lendingMap.get(row.id) || null;
+      }
     }
   }
 
@@ -288,6 +295,25 @@ router.put('/items/bulk-update', requirePermission('equipment', 'manager'), asyn
     'rack_position', 'rack_height', 'rack_slot', 'rack_side', 'color_id',
     'display_config',
   ]);
+
+  // サーバー側 enum バリデーション
+  const ENUM_RULES: Record<string, string[]> = {
+    status:             ['active', 'in_repair', 'retired', 'disposed', 'lost'],
+    condition:          ['excellent', 'good', 'fair', 'poor'],
+    asset_class:        ['fixed_asset', 'consumable', 'leased', 'transferred'],
+    equipment_section:  ['equipment', 'rental'],
+    equipment_type_code:['V', 'C', 'A', 'IC', 'NW', 'L', 'XR', 'E'],
+    rack_slot:          ['full', 'left-1_2', 'right-1_2', 'left-1_3', 'mid-1_3', 'right-1_3'],
+    rack_side:          ['front', 'back'],
+  };
+  for (const [key, allowed] of Object.entries(ENUM_RULES)) {
+    if (key in fields && fields[key] !== null && fields[key] !== '') {
+      if (!allowed.includes(fields[key] as string)) {
+        res.status(400).json({ success: false, error: { message: `${key} の値が不正です: ${fields[key]}` } });
+        return;
+      }
+    }
+  }
 
   const setClauses: string[] = [];
   const params: unknown[] = [];
@@ -687,19 +713,24 @@ router.post('/inventory-checks', async (req: Request, res: Response, next: NextF
       [id, title, check_date, 'draft', (req as any).user?.id || null, notes || null]
     );
 
-    // Auto-populate check items from active equipment (location_name resolved from FK)
+    // Auto-populate check items from active equipment — バッチINSERTで1クエリ
     const items = await queryAll(`
       SELECT ei.id, el.name as location_name, ei.location_detail
       FROM equipment_items ei
       LEFT JOIN equipment_locations el ON el.id = ei.location_id AND el.deleted_at IS NULL
       WHERE ei.deleted_at IS NULL AND ei.status != 'disposed'
-    `);
-    for (const item of items as any[]) {
-      const ciId = uuid();
-      const expectedLoc = item.location_name || item.location_detail || null;
+    `) as any[];
+    if (items.length > 0) {
+      const vals: string[] = [];
+      const prms: any[] = [];
+      items.forEach((item, idx) => {
+        const base = idx * 4;
+        vals.push(`($${base+1},$${base+2},$${base+3},$${base+4})`);
+        prms.push(uuid(), id, item.id, item.location_name || item.location_detail || null);
+      });
       await execute(
-        "INSERT INTO inventory_check_items (id, check_id, equipment_id, expected_location) VALUES ($1,$2,$3,$4)",
-        [ciId, id, item.id, expectedLoc]
+        `INSERT INTO inventory_check_items (id, check_id, equipment_id, expected_location) VALUES ${vals.join(',')}`,
+        prms
       );
     }
     res.status(201).json({ success: true, data: { id } });
@@ -729,7 +760,7 @@ router.get('/inventory-checks/:id', async (req: Request, res: Response, next: Ne
   } catch (err) { next(err); }
 });
 
-router.put('/inventory-checks/:id/items/:itemId', async (req: Request, res: Response, next: NextFunction) => {
+router.put('/inventory-checks/:id/items/:itemId', requirePermission('equipment', 'editor'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { found, actual_location, condition, note } = req.body;
     await execute(`
@@ -740,15 +771,19 @@ router.put('/inventory-checks/:id/items/:itemId', async (req: Request, res: Resp
   } catch (err) { next(err); }
 });
 
-router.put('/inventory-checks/:id/status', async (req: Request, res: Response, next: NextFunction) => {
+router.put('/inventory-checks/:id/status', requirePermission('equipment', 'editor'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { status } = req.body;
+    const VALID_STATUSES = ['draft', 'in_progress', 'completed'];
+    if (!VALID_STATUSES.includes(status)) {
+      return res.status(400).json({ success: false, error: { message: 'status の値が不正です' } });
+    }
     await execute("UPDATE inventory_checks SET status=$1, updated_at=NOW() WHERE id=$2", [status, req.params.id]);
     res.json({ success: true });
   } catch (err) { next(err); }
 });
 
-router.delete('/inventory-checks/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.delete('/inventory-checks/:id', requirePermission('equipment', 'manager'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const check = await queryOne("SELECT id FROM inventory_checks WHERE id=$1", [req.params.id]);
     if (!check) return res.status(404).json({ success: false, error: { message: '棚卸しが見つかりません' } });
@@ -777,19 +812,22 @@ router.post('/inventory-checks/:id/sync', async (req: Request, res: Response, ne
       WHERE ei.deleted_at IS NULL AND ei.status != 'disposed'
     `);
 
-    let added = 0;
-    for (const item of allItems as any[]) {
-      if (existingIds.has((item as any).id)) continue;
-      const ciId = uuid();
-      const expectedLoc = (item as any).location_name || (item as any).location_detail || null;
+    const toInsert = (allItems as any[]).filter(item => !existingIds.has(item.id));
+    if (toInsert.length > 0) {
+      const vals: string[] = [];
+      const prms: any[] = [];
+      toInsert.forEach((item, idx) => {
+        const base = idx * 4;
+        vals.push(`($${base+1},$${base+2},$${base+3},$${base+4})`);
+        prms.push(uuid(), req.params.id, item.id, item.location_name || item.location_detail || null);
+      });
       await execute(
-        "INSERT INTO inventory_check_items (id, check_id, equipment_id, expected_location) VALUES ($1,$2,$3,$4)",
-        [ciId, req.params.id, (item as any).id, expectedLoc]
+        `INSERT INTO inventory_check_items (id, check_id, equipment_id, expected_location) VALUES ${vals.join(',')}`,
+        prms
       );
-      added++;
     }
 
-    res.json({ success: true, data: { added } });
+    res.json({ success: true, data: { added: toInsert.length } });
   } catch (err: any) {
     console.error('[POST /inventory-checks/:id/sync]', err?.message);
     next(err);
@@ -813,31 +851,50 @@ router.get('/racks', async (_req: Request, res: Response, next: NextFunction) =>
       ORDER BY el.rack_sort_order, el.name
     `) as any[];
 
-    const result = [];
-    for (const rack of racks) {
-      const items = await queryAll(`
+    // バッチ取得: ラック数に関係なく2クエリで完結
+    const rackIds = racks.map((r: any) => r.id);
+    const [allItems, allBlanks] = rackIds.length > 0 ? await Promise.all([
+      queryAll(`
         SELECT ei.id, ei.eq_code, ei.name, ei.model_number, ei.serial_number, ei.unit_number,
                ei.equipment_type_code, ei.rack_position, ei.rack_height,
                ei.rack_slot, ei.rack_side, ei.color_id, ei.notes,
                ei.status, ei.condition, ei.display_config,
+               ei.location_id,
                ec.color_hex, ec.name as color_name,
                em.name as manufacturer_name
         FROM equipment_items ei
         LEFT JOIN equipment_colors ec ON ec.id = ei.color_id AND ec.deleted_at IS NULL
         LEFT JOIN equipment_manufacturers em ON em.id = ei.manufacturer_id
-        WHERE ei.location_id = $1
+        WHERE ei.location_id = ANY($1::text[])
           AND ei.rack_position IS NOT NULL
           AND ei.deleted_at IS NULL
-        ORDER BY ei.rack_position
-      `, [rack.id]);
-      const blanks = await queryAll(`
-        SELECT id, rack_position, rack_height, rack_slot, rack_side, panel_type, label
+        ORDER BY ei.location_id, ei.rack_position
+      `, [rackIds]),
+      queryAll(`
+        SELECT id, location_id, rack_position, rack_height, rack_slot, rack_side, panel_type, label
         FROM rack_blank_panels
-        WHERE location_id = $1
-        ORDER BY rack_position
-      `, [rack.id]);
-      result.push({ location: rack, items, blanks });
+        WHERE location_id = ANY($1::text[])
+        ORDER BY location_id, rack_position
+      `, [rackIds]),
+    ]) : [[], []];
+
+    // メモリ上でラック別にグループ化
+    const itemsByRack = new Map<string, any[]>();
+    const blanksByRack = new Map<string, any[]>();
+    for (const item of allItems as any[]) {
+      if (!itemsByRack.has(item.location_id)) itemsByRack.set(item.location_id, []);
+      itemsByRack.get(item.location_id)!.push(item);
     }
+    for (const blank of allBlanks as any[]) {
+      if (!blanksByRack.has(blank.location_id)) blanksByRack.set(blank.location_id, []);
+      blanksByRack.get(blank.location_id)!.push(blank);
+    }
+
+    const result = racks.map((rack: any) => ({
+      location: rack,
+      items: itemsByRack.get(rack.id) ?? [],
+      blanks: blanksByRack.get(rack.id) ?? [],
+    }));
     res.json({ success: true, data: result });
   } catch (err) {
     next(err);

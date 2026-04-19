@@ -13,6 +13,10 @@ import {
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  TYPE_CODES, ASSET_CLASS_OPTIONS, ASSET_CLASS_LABELS, SECTIONS, LOC_CODES,
+  RACK_SLOT_OPTIONS, STATUS_OPTIONS, CONDITION_OPTIONS, TYPE_LABELS, SECTION_LABELS,
+} from "@/lib/constants";
 
 const statusLabels: Record<string, string> = {
   active: "稼働中", in_repair: "修理中", retired: "引退", disposed: "廃棄", lost: "紛失",
@@ -32,39 +36,6 @@ const maintenanceStatusLabels: Record<string, string> = {
   reported: "報告済", in_progress: "対応中", completed: "完了", cancelled: "キャンセル",
 };
 
-const TYPE_CODES = [
-  { code: "V", label: "映像" }, { code: "C", label: "カメラ" }, { code: "A", label: "音声" },
-  { code: "IC", label: "インカム" }, { code: "NW", label: "ネットワーク" }, { code: "L", label: "照明" },
-  { code: "XR", label: "LED/XR" }, { code: "E", label: "設備/その他" },
-];
-const ASSET_CLASS_OPTIONS = [
-  { value: "fixed_asset", label: "固定資産" }, { value: "consumable", label: "消耗品" },
-  { value: "leased", label: "リース" }, { value: "transferred", label: "譲渡" },
-];
-const SECTIONS = [{ value: "equipment", label: "設備" }, { value: "rental", label: "貸出" }];
-const LOC_CODES = [{ value: "Y", label: "用賀" }, { value: "S", label: "渋谷" }];
-const RACK_SLOT_OPTIONS = [
-  { value: "full",      label: "全幅" },
-  { value: "left-1_2",  label: "左1/2" },
-  { value: "right-1_2", label: "右1/2" },
-  { value: "left-1_3",  label: "左1/3" },
-  { value: "mid-1_3",   label: "中央1/3" },
-  { value: "right-1_3", label: "右1/3" },
-];
-const STATUS_OPTIONS = [
-  { value: "active", label: "稼働中" }, { value: "in_repair", label: "修理中" },
-  { value: "retired", label: "引退" }, { value: "disposed", label: "廃棄" }, { value: "lost", label: "紛失" },
-];
-const CONDITION_OPTIONS = [
-  { value: "excellent", label: "優良" }, { value: "good", label: "良好" },
-  { value: "fair", label: "可" }, { value: "poor", label: "不良" },
-];
-
-const TYPE_LABELS: Record<string, string> = { V: '映像', C: 'カメラ', A: '音声', IC: 'インカム', NW: 'ネットワーク', L: '照明', XR: 'LED/XR', E: '設備' };
-const ASSET_CLASS_LABELS: Record<string, string> = {
-  fixed_asset: '固定資産', consumable: '消耗品', leased: 'リース', transferred: '譲渡',
-};
-const SECTION_LABELS: Record<string, string> = { equipment: '設備', rental: '貸出' };
 function sectionLabel(typeCode: string | null, section: string | null) {
   return `${TYPE_LABELS[typeCode || ''] || ''}${SECTION_LABELS[section || ''] || ''}` || '-';
 }
