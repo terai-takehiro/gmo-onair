@@ -112,6 +112,12 @@ export default function EquipmentListPage() {
     return n;
   }, { replace: true });
 
+  // 詳細ページ遷移前にスクロール位置を保存
+  const navigateToDetail = (id: string) => {
+    sessionStorage.setItem('eq-list-scroll', String(window.scrollY));
+    navigate(`/equipment/items/${id}`);
+  };
+
   // 子機材展開
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [childrenCache, setChildrenCache] = useState<Record<string, any[]>>({});
@@ -234,6 +240,15 @@ export default function EquipmentListPage() {
   const locations: any[] = locationsData ?? [];
   const manufacturers: any[] = manufacturersData ?? [];
   const colors: any[] = colorsData ?? [];
+
+  // データ読み込み完了後にスクロール位置を復元
+  useEffect(() => {
+    if (isLoading) return;
+    const saved = sessionStorage.getItem('eq-list-scroll');
+    if (!saved) return;
+    sessionStorage.removeItem('eq-list-scroll');
+    requestAnimationFrame(() => window.scrollTo({ top: +saved, behavior: 'instant' as ScrollBehavior }));
+  }, [isLoading]);
 
   // カラムソート — URL params で管理（詳細→戻るでリセットされない）
   const onSort = (key: string) => {
@@ -497,7 +512,7 @@ export default function EquipmentListPage() {
                     <tr
                       key={item.id}
                       className={`group cursor-pointer transition-colors ${isSelected ? 'bg-primary/6' : 'hover:bg-accent/30'}`}
-                      onClick={() => navigate(`/equipment/items/${item.id}`)}
+                      onClick={() => navigateToDetail(item.id)}
                     >
                       {/* 展開ボタン */}
                       <td className="px-2 py-2 w-8" onClick={(e) => { if (hasChildren) toggleExpand(item, e); else e.stopPropagation(); }}>
@@ -543,7 +558,7 @@ export default function EquipmentListPage() {
                       <tr
                         key={child.id}
                         className="bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors"
-                        onClick={() => navigate(`/equipment/items/${child.id}`)}
+                        onClick={() => navigateToDetail(child.id)}
                       >
                         <td className="pl-6 pr-1 py-1.5 text-muted-foreground/40 text-xs">└</td>
                         {canBulkEdit && <td />}

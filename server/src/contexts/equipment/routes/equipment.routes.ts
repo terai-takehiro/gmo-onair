@@ -674,7 +674,7 @@ router.put('/inventory-checks/:id/status', async (req: Request, res: Response, n
 router.get('/racks', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const racks = await queryAll(`
-      SELECT id, name, rack_units, rack_sort_order, location_code, building, floor, area
+      SELECT id, name, rack_units, rack_sort_order, building, floor, area
       FROM equipment_locations
       WHERE is_rack = true AND deleted_at IS NULL
       ORDER BY rack_sort_order, name

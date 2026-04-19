@@ -106,7 +106,9 @@ export default function RackLayoutPage() {
   // Filter racks by branch
   const filteredRacks = useMemo(() => {
     if (branchFilter === "all") return racks;
-    return racks.filter((r: any) => r.location.location_code === branchFilter || r.location.building?.includes(branchFilter));
+    return racks.filter((r: any) =>
+      r.location.building?.includes(branchFilter) || r.location.name?.includes(branchFilter)
+    );
   }, [racks, branchFilter]);
 
   if (racksLoading) {
