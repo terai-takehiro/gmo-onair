@@ -724,8 +724,8 @@ export default function EquipmentListPage() {
                 )}
                 <SortableTh label="ID" sortKey="eq_code" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <SortableTh label="種別" sortKey="equipment_type_code" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
-                <SortableTh label="商品名" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <SortableTh label="設置場所" sortKey="location_name" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
+                <SortableTh label="商品名" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <SortableTh label="型名" sortKey="model_number" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <SortableTh label="No" sortKey="unit_number" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
                 <SortableTh label="備考" sortKey="notes" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
@@ -757,6 +757,7 @@ export default function EquipmentListPage() {
                       <td className="px-3 py-2 whitespace-nowrap">
                         <SectionBadge typeCode={item.equipment_type_code} section={item.equipment_section} />
                       </td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{item.location_name || item.location_detail || '–'}</td>
                       <td className="px-3 py-2 font-medium whitespace-nowrap">
                         {tableEditMode ? (
                           <input
@@ -773,7 +774,6 @@ export default function EquipmentListPage() {
                           </span>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{item.location_name || item.location_detail || '–'}</td>
                       <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
                         {tableEditMode ? (
                           <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs font-mono"
@@ -839,6 +839,7 @@ export default function EquipmentListPage() {
                       <td className="px-3 py-2 whitespace-nowrap">
                         <SectionBadge typeCode={item.equipment_type_code} section={item.equipment_section} />
                       </td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{item.location_name || item.location_detail || '–'}</td>
                       <td className="px-3 py-2 font-medium whitespace-nowrap">
                         {tableEditMode ? (
                           <input
@@ -852,7 +853,6 @@ export default function EquipmentListPage() {
                           <>{item.name}{hasChildren && <span className="ml-1.5 text-[10px] font-normal text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">{item.children_count}</span>}</>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{item.location_name || item.location_detail || '–'}</td>
                       <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
                         {tableEditMode ? (
                           <input
@@ -908,8 +908,8 @@ export default function EquipmentListPage() {
                         <td className="px-3 py-1.5 whitespace-nowrap">
                           <SectionBadge typeCode={child.equipment_type_code} section={child.equipment_section} />
                         </td>
-                        <td className="px-3 py-1.5 font-medium">{child.name}</td>
                         <td className="px-3 py-1.5 text-xs text-muted-foreground whitespace-nowrap">{child.location_name || child.location_detail || '–'}</td>
+                        <td className="px-3 py-1.5 font-medium">{child.name}</td>
                         <td className="px-3 py-1.5 text-xs text-muted-foreground whitespace-nowrap">{child.model_number || '–'}</td>
                         <td className="px-3 py-1.5 text-xs text-right tabular-nums text-muted-foreground whitespace-nowrap">{child.unit_number || '–'}</td>
                         <td className="px-3 py-1.5 text-xs text-muted-foreground max-w-[10rem] truncate">{child.notes || '–'}</td>
