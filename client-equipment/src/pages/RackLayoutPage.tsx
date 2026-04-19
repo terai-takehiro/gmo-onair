@@ -736,7 +736,6 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
   const sideItems = items.filter((it: any) => it.rack_side === side);
   const sideBlanks = blanks.filter((b: any) => b.rack_side === side);
   const oppositeItems = items.filter((it: any) => it.rack_side !== side);
-  const hasOpposite = oppositeItems.length > 0;
 
   // Compute subtitle text
   const autoSubtitle = [location.branch_name, location.rack_type_name, location.building, location.floor]
@@ -862,8 +861,8 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
                   </div>
                 )}
                 <span
-                  className={`flex items-center justify-center h-full font-mono tracking-widest select-none ${panelTextColor}`}
-                  style={{ fontSize: height <= CELL_H ? 9 : 10 }}
+                  className={`flex items-center justify-center h-full font-bold tracking-widest select-none ${panelTextColor}`}
+                  style={{ fontSize: height <= CELL_H ? 10 : 11 }}
                 >
                   {panelLabel}
                 </span>
@@ -949,7 +948,7 @@ function DefaultCellContent({ it, height }: { it: any; height: number }) {
     // 1U: 型名 + No.バッジ
     return (
       <div className="flex items-center h-full px-2 gap-1.5 min-w-0">
-        <span className="font-mono font-bold truncate leading-none" style={{ fontSize: 12 }}>
+        <span className="font-bold truncate leading-none tracking-tight" style={{ fontSize: 12 }}>
           {it.model_number || it.name}
         </span>
         {it.unit_number && <UnitBadge n={it.unit_number} size="sm" />}
@@ -961,12 +960,12 @@ function DefaultCellContent({ it, height }: { it: any; height: number }) {
     return (
       <div className="flex flex-col justify-center h-full px-2 py-1 gap-0.5">
         <div className="flex items-center gap-1.5 min-w-0">
-          <span className="font-mono font-bold truncate leading-tight" style={{ fontSize: 13 }}>
+          <span className="font-bold truncate leading-tight tracking-tight" style={{ fontSize: 13 }}>
             {it.model_number || it.name}
           </span>
           {it.unit_number && <UnitBadge n={it.unit_number} size="md" />}
         </div>
-        <span className="font-bold truncate leading-tight opacity-60" style={{ fontSize: 11 }}>
+        <span className="font-semibold truncate leading-tight opacity-60" style={{ fontSize: 11 }}>
           {it.name}
         </span>
       </div>
@@ -979,7 +978,7 @@ function DefaultCellContent({ it, height }: { it: any; height: number }) {
         {it.name}
       </span>
       <div className="flex items-center gap-1.5 min-w-0">
-        <span className="font-mono font-bold truncate leading-tight opacity-80" style={{ fontSize: 12 }}>
+        <span className="font-semibold truncate leading-tight opacity-80 tracking-tight" style={{ fontSize: 12 }}>
           {it.model_number}
         </span>
         {it.unit_number && <UnitBadge n={it.unit_number} size="md" />}
@@ -1002,12 +1001,10 @@ function ConfiguredCellContent({ it, cfg, height }: { it: any; cfg: CellConfig; 
   if (cfg.showModel && cfg.primary !== "model"  && it.model_number) extras.push({ text: it.model_number, mono: true });
   if (cfg.showCustom && cfg.primary !== "custom" && cfg.customText)  extras.push({ text: cfg.customText });
 
-  const primaryCls = cfg.primary === "model" ? "font-mono font-bold" : "font-bold";
-
   if (is1U) {
     return (
       <div className="flex items-center h-full px-2 gap-1.5 min-w-0">
-        <span className={`truncate leading-none ${primaryCls}`} style={{ fontSize: 12 }}>
+        <span className="truncate leading-none font-bold tracking-tight" style={{ fontSize: 12 }}>
           {primaryText}
         </span>
         {cfg.showNo && it.unit_number && <UnitBadge n={it.unit_number} size="sm" />}
@@ -1018,13 +1015,13 @@ function ConfiguredCellContent({ it, cfg, height }: { it: any; cfg: CellConfig; 
   return (
     <div className="flex flex-col justify-center h-full px-2 py-1 gap-0.5">
       <div className="flex items-center gap-1.5 min-w-0">
-        <span className={`truncate leading-tight ${primaryCls}`} style={{ fontSize: 13 }}>
+        <span className="truncate leading-tight font-bold tracking-tight" style={{ fontSize: 13 }}>
           {primaryText}
         </span>
         {cfg.showNo && it.unit_number && <UnitBadge n={it.unit_number} size="md" />}
       </div>
       {extras.map((ex, i) => (
-        <span key={i} className={`truncate leading-tight font-bold opacity-60 ${ex.mono ? "font-mono" : ""}`} style={{ fontSize: 11 }}>
+        <span key={i} className="truncate leading-tight font-semibold opacity-60" style={{ fontSize: 11 }}>
           {ex.text}
         </span>
       ))}
