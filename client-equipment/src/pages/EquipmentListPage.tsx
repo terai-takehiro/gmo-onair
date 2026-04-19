@@ -106,6 +106,23 @@ export default function EquipmentListPage() {
     if (val) n.set('children', '1'); else n.delete('children');
     return n;
   }, { replace: true });
+  // 商品名オートコンプリート用
+  const [suggestItems, setSuggestItems] = useState<any[]>([]);
+  const [suggestTimer, setSuggestTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleNameChange = (val: string) => {
+    setForm(f => ({ ...f, name: val }));
+    if (suggestTimer) clearTimeout(suggestTimer);
+    if (val.length < 2) { setSuggestItems([]); return; }
+    const t = setTimeout(async () => {
+      try {
+        const res = await api.get('/equipment/items', { params: { search: val, include_children: '1' } });
+        setSuggestItems(res.data.data ?? []);
+      } catch { setSuggestItems([]); }
+    }, 300);
+    setSuggestTimer(t);
+  };
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
@@ -247,8 +264,8 @@ export default function EquipmentListPage() {
     bulkUpdateMutation.mutate({ ids, fields: { [bulkField]: v } });
   };
 
-  const openNew = () => { setForm({ ...defaultForm }); setEditingId(null); setSaveError(null); setDialogOpen(true); };
-  const openEdit = (item: any) => { setSaveError(null);
+  const openNew = () => { setForm({ ...defaultForm }); setEditingId(null); setSaveError(null); setSuggestItems([]); setDialogOpen(true); };
+  const openEdit = (item: any) => { setSaveError(null); setSuggestItems([]);
     setForm({
       name: item.name || "", model_number: item.model_number || "",
       unit_number: item.unit_number?.toString() || "", serial_number: item.serial_number || "",
@@ -469,7 +486,49 @@ export default function EquipmentListPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1 sm:col-span-2">
                 <Label>商品名 *</Label>
-                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="ユニバーサルフレーム" />
+                <div className="relative">
+                  <Input
+                    value={form.name}
+                    onChange={(e) => handleNameChange(e.target.value)}
+                    onBlur={() => setTimeout(() => setSuggestItems([]), 200)}
+                    placeholder="ユニバーサルフレーム"
+                    autoComplete="off"
+                  />
+                  {suggestItems.length > 0 && (
+                    <div className="absolute z-50 top-full left-0 right-0 bg-card border rounded-md shadow-lg max-h-48 overflow-y-auto mt-0.5">
+                      {Array.from(
+                        new Map(suggestItems.map((i: any) => [`${i.name}||${i.model_number ?? ''}`, i])).values()
+                      ).slice(0, 8).map((item: any) => {
+                        const maxUnit = Math.max(
+                          0,
+                          ...suggestItems
+                            .filter((i: any) => i.name === item.name && (i.model_number ?? '') === (item.model_number ?? ''))
+                            .map((i: any) => Number(i.unit_number) || 0)
+                        );
+                        return (
+                          <button
+                            key={`${item.name}||${item.model_number}`}
+                            type="button"
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2"
+                            onMouseDown={() => {
+                              setForm(f => ({
+                                ...f,
+                                name: item.name,
+                                model_number: item.model_number || f.model_number,
+                                unit_number: String(maxUnit + 1),
+                              }));
+                              setSuggestItems([]);
+                            }}
+                          >
+                            <span className="font-medium truncate">{item.name}</span>
+                            {item.model_number && <span className="text-muted-foreground text-xs shrink-0">{item.model_number}</span>}
+                            <span className="text-primary text-xs shrink-0 ml-auto">→ No.{maxUnit + 1}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="space-y-1">
                 <Label>メーカー</Label>
