@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import {
   Loader2, Plus, Search, Package, Pencil, Trash2, Upload, Download, Edit3, X,
-  ChevronRight, ChevronDown, ChevronsUpDown, ArrowUp, ArrowDown,
+  ChevronRight, ChevronDown, ChevronsUpDown, ArrowUp, ArrowDown, Copy,
 } from "lucide-react";
 import ExcelImportDialog from "@/components/ExcelImportDialog";
 
@@ -184,6 +184,7 @@ export default function EquipmentListPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isCopyMode, setIsCopyMode] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [form, setForm] = useState({ ...defaultForm });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -358,8 +359,38 @@ export default function EquipmentListPage() {
     bulkUpdateMutation.mutate({ ids, fields: { [bulkField]: v } });
   };
 
-  const openNew = () => { setForm({ ...defaultForm }); setEditingId(null); setSaveError(null); setSaveSuccess(false); setSuggestItems([]); setDialogOpen(true); };
-  const openEdit = (item: any) => { setSaveError(null); setSaveSuccess(false); setSuggestItems([]);
+  const openNew = () => { setForm({ ...defaultForm }); setEditingId(null); setIsCopyMode(false); setSaveError(null); setSaveSuccess(false); setSuggestItems([]); setDialogOpen(true); };
+
+  const openCopy = (item: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSaveError(null); setSaveSuccess(false); setSuggestItems([]);
+    setForm({
+      name: item.name || "", model_number: item.model_number || "",
+      unit_number: "", serial_number: "",  // No. と serial は個体固有なのでクリア
+      branch_code: item.branch_code || "GMO-IG", asset_class: item.asset_class || "fixed_asset",
+      fixed_asset_code: "",  // 資産コードも個体固有
+      depreciation_years: item.depreciation_years?.toString() || "0",
+      equipment_section: item.equipment_section || "equipment",
+      equipment_type_code: item.equipment_type_code || "V",
+      location_code: item.location_code || "Y",
+      manufacturer_id: item.manufacturer_id || "",
+      purchased_at: item.purchased_at?.slice(0, 10) || "",
+      warranty_years: item.warranty_years?.toString() || "0",
+      location_id: item.location_id || "", status: item.status || "active",
+      condition: item.condition || "good", notes: item.notes || "",
+      parent_id: item.parent_id || "",
+      color_id: item.color_id || "",
+      rack_position: "",  // ラック位置も個体ごとに設定
+      rack_height: item.rack_height?.toString() || "1",
+      rack_slot: item.rack_slot || "full",
+      rack_side: item.rack_side || "front",
+    });
+    setEditingId(null);
+    setIsCopyMode(true);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (item: any) => { setSaveError(null); setSaveSuccess(false); setSuggestItems([]); setIsCopyMode(false);
     setForm({
       name: item.name || "", model_number: item.model_number || "",
       unit_number: item.unit_number?.toString() || "", serial_number: item.serial_number || "",
@@ -548,8 +579,9 @@ export default function EquipmentListPage() {
                       <td className="px-3 py-2 text-xs text-muted-foreground max-w-[10rem] truncate" title={item.notes || ''}>{item.notes || '–'}</td>
                       <td className="px-2 py-2 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <div className="flex gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(item)}><Pencil className="h-3.5 w-3.5" /></Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => { if (confirm(`「${item.name}」を削除？`)) deleteMutation.mutate(item.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" title="コピーして新規登録" onClick={(e) => openCopy(item, e)}><Copy className="h-3.5 w-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(item); }}><Pencil className="h-3.5 w-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={(e) => { e.stopPropagation(); if (confirm(`「${item.name}」を削除？`)) deleteMutation.mutate(item.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                         </div>
                       </td>
                     </tr>
@@ -575,7 +607,8 @@ export default function EquipmentListPage() {
                         <td colSpan={4} />
                         <td className="px-2 py-1.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-0.5 justify-end">
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEdit(child)}><Pencil className="h-3 w-3" /></Button>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" title="コピーして新規登録" onClick={(e) => openCopy(child, e)}><Copy className="h-3 w-3" /></Button>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); openEdit(child); }}><Pencil className="h-3 w-3" /></Button>
                           </div>
                         </td>
                       </tr>
@@ -599,7 +632,7 @@ export default function EquipmentListPage() {
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
-              {editingId ? "機材編集" : "機材登録"}
+              {editingId ? "機材編集" : isCopyMode ? "機材コピー登録" : "機材登録"}
               {!editingId && (
                 <label className="flex items-center gap-1.5 text-sm font-normal text-muted-foreground cursor-pointer ml-auto pr-6">
                   <input type="checkbox" checked={continuousMode} onChange={e => { setContinuousMode(e.target.checked); setSaveSuccess(false); }} className="h-4 w-4" />
