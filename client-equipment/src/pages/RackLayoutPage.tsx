@@ -496,48 +496,38 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, onCellClick,
                 title={`${it.name}${it.model_number ? ` / ${it.model_number}` : ""}${it.unit_number ? ` No.${it.unit_number}` : ""}`}
               >
                 {height <= CELL_H ? (
-                  /* 1U: 型名+No を1行で、機材名はtitleのみ */
+                  /* 1U: 型名 + 丸バッジ番号 を1行 */
                   <div className="flex items-center h-full px-1.5 gap-1 min-w-0">
                     <span className="font-mono font-bold truncate leading-none" style={{ fontSize: 10 }}>
                       {it.model_number || it.name}
                     </span>
-                    {it.unit_number && (
-                      <span className="shrink-0 font-bold leading-none" style={{ fontSize: 10 }}>
-                        No.{it.unit_number}
-                      </span>
-                    )}
+                    {it.unit_number && <UnitBadge n={it.unit_number} size="sm" />}
                   </div>
                 ) : height <= CELL_H * 2 ? (
-                  /* 2U: 型名+No を上段、機材名を下段小さく */
+                  /* 2U: 型名 + バッジ を上段、機材名を下段 */
                   <div className="flex flex-col justify-center h-full px-1.5 py-0.5 gap-0.5">
-                    <div className="flex items-baseline gap-1 min-w-0">
+                    <div className="flex items-center gap-1 min-w-0">
                       <span className="font-mono font-bold truncate leading-tight" style={{ fontSize: 11 }}>
                         {it.model_number || it.name}
                       </span>
-                      {it.unit_number && (
-                        <span className="shrink-0 font-bold leading-tight" style={{ fontSize: 11 }}>
-                          No.{it.unit_number}
-                        </span>
-                      )}
+                      {it.unit_number && <UnitBadge n={it.unit_number} size="md" />}
                     </div>
                     <span className="truncate leading-tight opacity-60" style={{ fontSize: 9 }}>
                       {it.name}
                     </span>
                   </div>
                 ) : (
-                  /* 3U+: 機材名→型名→No の3段 */
+                  /* 3U+: 機材名 → 型名 + バッジ */
                   <div className="flex flex-col justify-center h-full px-1.5 py-1 gap-0.5">
                     <span className="font-medium truncate leading-tight" style={{ fontSize: 11 }}>
                       {it.name}
                     </span>
-                    <span className="font-mono font-bold truncate leading-tight" style={{ fontSize: 11 }}>
-                      {it.model_number}
-                    </span>
-                    {it.unit_number && (
-                      <span className="font-bold leading-tight" style={{ fontSize: 11 }}>
-                        No.{it.unit_number}
+                    <div className="flex items-center gap-1 min-w-0">
+                      <span className="font-mono font-bold truncate leading-tight" style={{ fontSize: 11 }}>
+                        {it.model_number}
                       </span>
-                    )}
+                      {it.unit_number && <UnitBadge n={it.unit_number} size="md" />}
+                    </div>
                   </div>
                 )}
                 {isOverlap && (
@@ -575,5 +565,16 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, onCellClick,
 
       <div className="text-center text-[10px] text-muted-foreground mt-1">{rackUnits}U</div>
     </div>
+  );
+}
+
+function UnitBadge({ n, size }: { n: number | string; size: "sm" | "md" }) {
+  const dim = size === "sm" ? "h-3.5 w-3.5 text-[8px]" : "h-4 w-4 text-[9px]";
+  return (
+    <span
+      className={`shrink-0 inline-flex items-center justify-center rounded-full bg-black/25 text-white font-bold leading-none tabular-nums ${dim}`}
+    >
+      {n}
+    </span>
   );
 }
