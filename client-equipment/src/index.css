@@ -135,7 +135,10 @@
 .card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
 
 /* ── 印刷スタイル (機材一覧) ─────────────── */
-#eq-print-area-wrapper { display: none; }
+/* スクリーン表示時のみ非表示（printでは display:none を解除するため @media screen を使う） */
+@media screen {
+  #eq-print-area-wrapper { display: none; }
+}
 
 @media print {
   body * { visibility: hidden; }
@@ -148,8 +151,6 @@
     padding: 0;
   }
   @page { margin: 12mm 10mm; }
-  body.print-landscape { }
-  body.print-landscape #eq-print-area-wrapper { }
   #eq-print-area .print-title {
     font-size: 13pt; font-weight: bold; margin-bottom: 3px;
     font-family: 'Noto Sans JP', sans-serif;
