@@ -1,6 +1,7 @@
 /**
  * AppSwitcher — グローバルアプリ切り替えメニュー（フラットデザイン）
  * 全ブロックアプリのヘッダーに組み込み、どの画面からでも直接他アプリに遷移可能にする。
+ * ドロップダウンは fixed 配置（AppShell の overflow-hidden に clip されないようにするため）
  */
 import { useState, useRef, useEffect } from "react";
 import {
@@ -44,12 +45,27 @@ interface AppSwitcherProps {
 
 export default function AppSwitcher({ currentApp }: AppSwitcherProps) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const handleToggle = () => {
+    if (!open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const left = Math.max(8, Math.min(rect.left, window.innerWidth - 376));
+      setPos({ top: rect.bottom + 8, left });
+    }
+    setOpen((v) => !v);
+  };
 
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (
+        !buttonRef.current?.contains(t) &&
+        !dropdownRef.current?.contains(t)
+      ) setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -57,17 +73,16 @@ export default function AppSwitcher({ currentApp }: AppSwitcherProps) {
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [open]);
 
   return (
-    <div ref={ref} className="relative">
+    <div className="relative">
       <button
-        onClick={() => setOpen(!open)}
+        ref={buttonRef}
+        onClick={handleToggle}
         className="flex h-10 w-10 items-center justify-center rounded-lg transition-all hover:bg-black/5 dark:hover:bg-white/10 active:scale-95"
         title="アプリ切替"
         aria-label="アプリ切替メニュー"
@@ -86,7 +101,11 @@ export default function AppSwitcher({ currentApp }: AppSwitcherProps) {
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-2 z-[200] w-[calc(100vw-2rem)] sm:w-[360px] max-w-[360px] rounded-2xl border border-border bg-card shadow-2xl shadow-black/10 animate-switcher-in">
+        <div
+          ref={dropdownRef}
+          className="fixed z-[9999] w-[360px] max-w-[calc(100vw-16px)] rounded-2xl border border-border bg-card shadow-2xl shadow-black/10 animate-switcher-in"
+          style={{ top: pos.top, left: pos.left }}
+        >
           <div className="px-4 pt-4 pb-2">
             <p className="text-sm font-bold text-foreground">GMO ONAiR</p>
             <p className="text-xs text-muted-foreground mt-0.5">アプリを切り替え</p>
