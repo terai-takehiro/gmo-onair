@@ -101,11 +101,6 @@ export default function EquipmentListPage() {
     return n;
   }, { replace: true });
 
-  const setIncludeChildren = (val: boolean) => setSearchParams(p => {
-    const n = new URLSearchParams(p);
-    if (val) n.set('children', '1'); else n.delete('children');
-    return n;
-  }, { replace: true });
   // 子機材展開
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [childrenCache, setChildrenCache] = useState<Record<string, any[]>>({});
