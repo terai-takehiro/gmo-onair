@@ -179,7 +179,7 @@ export default function EquipmentDetailPage() {
   const openNewChild = () => {
     if (!data) return;
     setNewChildForm({
-      name: "", model_number: data.model_number || "", unit_number: "", serial_number: "",
+      name: "", model_number: "", unit_number: "", serial_number: "",
       branch_code: data.branch_code || "GMO-IG",
       asset_class: data.asset_class || "fixed_asset",
       fixed_asset_code: "",

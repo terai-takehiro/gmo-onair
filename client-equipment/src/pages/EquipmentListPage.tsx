@@ -133,13 +133,35 @@ export default function EquipmentListPage() {
   const handleNameChange = (val: string) => {
     setForm(f => ({ ...f, name: val }));
     if (suggestTimer) clearTimeout(suggestTimer);
-    if (val.length < 2) { setSuggestItems([]); return; }
+    if (!val.trim()) { setSuggestItems([]); return; }
     const t = setTimeout(async () => {
       try {
         const res = await api.get('/equipment/items', { params: { search: val, include_children: '1' } });
-        setSuggestItems(res.data.data ?? []);
+        const found: any[] = res.data.data ?? [];
+        // 完全一致する商品名があれば自動入力
+        const exact = found.filter((i: any) => i.name.toLowerCase() === val.toLowerCase());
+        if (exact.length > 0) {
+          const maxUnit = Math.max(0, ...exact.map((i: any) => Number(i.unit_number) || 0));
+          // 型名が複数ある場合はドロップダウンで選ばせる、1種類なら即時自動入力
+          const models = [...new Set(exact.map((i: any) => i.model_number ?? ''))];
+          if (models.length === 1) {
+            setForm(f => ({
+              ...f,
+              name: val,
+              model_number: exact[0].model_number || f.model_number,
+              manufacturer_id: exact[0].manufacturer_id || f.manufacturer_id,
+              unit_number: String(maxUnit + 1),
+            }));
+            setSuggestItems([]);
+          } else {
+            // 同名で型名が複数 → 選択肢を出す
+            setSuggestItems(exact);
+          }
+        } else {
+          setSuggestItems([]);
+        }
       } catch { setSuggestItems([]); }
-    }, 300);
+    }, 400);
     setSuggestTimer(t);
   };
 
@@ -591,25 +613,25 @@ export default function EquipmentListPage() {
                     autoComplete="off"
                   />
                   {suggestItems.length > 0 && (
-                    <div className="absolute z-50 top-full left-0 right-0 bg-card border rounded-md shadow-lg max-h-48 overflow-y-auto mt-0.5">
+                    <div className="absolute z-50 top-full left-0 right-0 bg-card border rounded-md shadow-lg mt-0.5">
+                      <p className="px-3 py-1.5 text-xs text-muted-foreground border-b">同名の型名が複数あります。選択してください</p>
                       {Array.from(
-                        new Map(suggestItems.map((i: any) => [`${i.name}||${i.model_number ?? ''}`, i])).values()
-                      ).slice(0, 8).map((item: any) => {
+                        new Map(suggestItems.map((i: any) => [i.model_number ?? '', i])).values()
+                      ).map((item: any) => {
                         const maxUnit = Math.max(
                           0,
                           ...suggestItems
-                            .filter((i: any) => i.name === item.name && (i.model_number ?? '') === (item.model_number ?? ''))
+                            .filter((i: any) => (i.model_number ?? '') === (item.model_number ?? ''))
                             .map((i: any) => Number(i.unit_number) || 0)
                         );
                         return (
                           <button
-                            key={`${item.name}||${item.model_number}`}
+                            key={item.model_number ?? 'none'}
                             type="button"
                             className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2"
                             onMouseDown={() => {
                               setForm(f => ({
                                 ...f,
-                                name: item.name,
                                 model_number: item.model_number || f.model_number,
                                 manufacturer_id: item.manufacturer_id || f.manufacturer_id,
                                 unit_number: String(maxUnit + 1),
@@ -617,9 +639,8 @@ export default function EquipmentListPage() {
                               setSuggestItems([]);
                             }}
                           >
-                            <span className="font-medium truncate">{item.name}</span>
-                            {item.model_number && <span className="text-muted-foreground text-xs shrink-0">{item.model_number}</span>}
-                            <span className="text-primary text-xs shrink-0 ml-auto">→ No.{maxUnit + 1}</span>
+                            <span className="font-medium">{item.model_number || '（型名なし）'}</span>
+                            <span className="text-primary text-xs ml-auto">→ No.{maxUnit + 1}</span>
                           </button>
                         );
                       })}
