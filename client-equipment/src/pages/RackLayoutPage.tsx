@@ -201,10 +201,13 @@ export default function RackLayoutPage() {
     },
   });
 
-  const saveDisplayConfigMutation = useMutation({
-    mutationFn: ({ itemId, config }: { itemId: string; config: CellConfig | null }) =>
+  type DisplayConfigVars = { itemId: string; config: CellConfig | null };
+  type DisplayConfigCtx = { previous: unknown };
+
+  const saveDisplayConfigMutation = useMutation<unknown, unknown, DisplayConfigVars, DisplayConfigCtx>({
+    mutationFn: ({ itemId, config }: DisplayConfigVars) =>
       api.patch(`/equipment/items/${itemId}`, { display_config: config }),
-    onMutate: async ({ itemId, config }) => {
+    onMutate: async ({ itemId, config }: DisplayConfigVars): Promise<DisplayConfigCtx> => {
       await qc.cancelQueries({ queryKey: ["equipment-racks"] });
       const previous = qc.getQueryData(["equipment-racks"]);
       qc.setQueryData(["equipment-racks"], (old: any) => {
@@ -218,7 +221,7 @@ export default function RackLayoutPage() {
       });
       return { previous };
     },
-    onError: (_err: unknown, _vars: unknown, context: any) => {
+    onError: (_err: unknown, _vars: DisplayConfigVars, context: DisplayConfigCtx | undefined) => {
       if (context?.previous) qc.setQueryData(["equipment-racks"], context.previous);
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ["equipment-racks"] }),
