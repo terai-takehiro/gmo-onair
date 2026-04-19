@@ -642,7 +642,7 @@ router.get('/stats', async (_req: Request, res: Response) => {
   const activeItems = await queryOne("SELECT COUNT(*)::int as c FROM equipment_items WHERE deleted_at IS NULL AND status='active'");
   const inRepair = await queryOne("SELECT COUNT(*)::int as c FROM equipment_items WHERE deleted_at IS NULL AND status='in_repair'");
   const lentOut = await queryOne("SELECT COUNT(*)::int as c FROM equipment_lendings WHERE status='lent'");
-  const overdue = await queryOne("SELECT COUNT(*)::int as c FROM equipment_lendings WHERE status='lent' AND due_date IS NOT NULL AND due_date < CURRENT_DATE");
+  const overdue = await queryOne("SELECT COUNT(*)::int as c FROM equipment_lendings WHERE status='lent' AND due_date IS NOT NULL AND due_date < CURRENT_DATE::text");
   const openMaintenance = await queryOne("SELECT COUNT(*)::int as c FROM maintenance_records WHERE status IN ('reported', 'in_progress')");
   const pendingInventory = await queryOne("SELECT COUNT(*)::int as c FROM inventory_checks WHERE status IN ('draft', 'in_progress')");
 
