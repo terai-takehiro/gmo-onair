@@ -97,6 +97,9 @@ export default function RackLayoutPage() {
   const [rackConfigs, setRackConfigs] = useState<Record<string, RackConfig>>(loadRackConfigs);
   const [rackSubtitleTarget, setRackSubtitleTarget] = useState<{ locationId: string; config: RackConfig } | null>(null);
 
+  // Overlap conflict dialog
+  const [overlapDialog, setOverlapDialog] = useState<{ items: any[]; pos: number; slot: string } | null>(null);
+
   // Hover tooltip state
   const [tooltip, setTooltip] = useState<{ item: any; x: number; y: number } | null>(null);
   const tooltipTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -170,6 +173,27 @@ export default function RackLayoutPage() {
       setSp(prev => { const n = new URLSearchParams(prev); n.set("branch", defaultId); return n; }, { replace: true });
     }
   }, [branches]);
+
+  // localStorage → サーバー移行（v1.1.18以前の cell display configs を一回だけ移行）
+  const lsMigrationDone = useRef(false);
+  useEffect(() => {
+    if (lsMigrationDone.current || !racksData) return;
+    lsMigrationDone.current = true;
+    const lsRaw = localStorage.getItem("rack-cell-configs-v1");
+    if (!lsRaw) return;
+    let oldConfigs: Record<string, CellConfig> = {};
+    try { oldConfigs = JSON.parse(lsRaw); } catch { return; }
+    if (Object.keys(oldConfigs).length === 0) { localStorage.removeItem("rack-cell-configs-v1"); return; }
+    const allItems: any[] = racksData.flatMap((r: any) => r.items ?? []);
+    const toMigrate = allItems.filter((it: any) => it.display_config == null && oldConfigs[it.id]);
+    if (toMigrate.length === 0) { localStorage.removeItem("rack-cell-configs-v1"); return; }
+    Promise.all(
+      toMigrate.map((it: any) => api.patch(`/equipment/items/${it.id}`, { display_config: oldConfigs[it.id] }))
+    ).then(() => {
+      localStorage.removeItem("rack-cell-configs-v1");
+      qc.invalidateQueries({ queryKey: ["equipment-racks"] });
+    }).catch(() => { lsMigrationDone.current = false; });
+  }, [racksData]);
   const inventoryChecks: any[] = (inventoryChecksData ?? []).filter(
     (c: any) => c.status === "draft" || c.status === "in_progress"
   );
@@ -238,9 +262,13 @@ export default function RackLayoutPage() {
     onSettled: () => qc.invalidateQueries({ queryKey: ["equipment-racks"] }),
   });
 
-  const handleCellClick = (item: any) => {
+  const handleCellClick = (item: any, overlapItems?: any[]) => {
     if (displayEditMode) {
       setConfigTarget(item);
+      return;
+    }
+    if (overlapItems && overlapItems.length > 1 && !inventoryMode) {
+      setOverlapDialog({ items: overlapItems, pos: item.rack_position, slot: item.rack_slot });
       return;
     }
     if (inventoryMode && selectedCheckId) {
@@ -565,6 +593,39 @@ export default function RackLayoutPage() {
         </DialogContent>
       </Dialog>
 
+      {/* 重複機材ダイアログ */}
+      <Dialog open={!!overlapDialog} onOpenChange={(o) => { if (!o) setOverlapDialog(null); }}>
+        <DialogContent className="sm:max-w-sm max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <span className="h-2.5 w-2.5 rounded-full bg-destructive shrink-0" />
+              重複機材 — U{overlapDialog?.pos}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">同一U位置・同一スロットに複数の機材が登録されています。機材の詳細ページからU位置またはスロットを変更してください。</p>
+          <div className="space-y-2 pt-1">
+            {overlapDialog?.items.map((it: any) => (
+              <div key={it.id} className="flex items-center gap-3 rounded-lg border p-3">
+                <div
+                  className="h-8 w-2 rounded-full shrink-0"
+                  style={{ background: it.color_hex ?? TYPE_BG[it.equipment_type_code] ?? "#e5e7eb" }}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm truncate">{it.name}{it.unit_number != null ? ` No.${it.unit_number}` : ""}</div>
+                  <div className="text-xs text-muted-foreground truncate">{it.model_number || "—"}</div>
+                </div>
+                <Button
+                  size="sm" variant="outline"
+                  onClick={() => { setOverlapDialog(null); navigate(`/equipment/items/${it.id}`); }}
+                >
+                  編集
+                </Button>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* ブランクパネル削除確認 */}
       <Dialog open={!!confirmDeleteBlankId} onOpenChange={(o) => { if (!o) setConfirmDeleteBlankId(null); }}>
         <DialogContent className="sm:max-w-xs">
@@ -831,7 +892,7 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
   inventoryMap: Record<string, { id: string; found: boolean }>;
   displayEditMode: boolean;
   rackConfig?: RackConfig;
-  onCellClick: (item: any) => void;
+  onCellClick: (item: any, overlapItems?: any[]) => void;
   onEmptySlotClick: (locationId: string, uPos: number) => void;
   onDeleteBlank: (id: string) => void;
   onEditRackSubtitle: (locationId: string) => void;
@@ -864,11 +925,15 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
     return s;
   }, [oppositeItems]);
 
-  const posSlotCount: Record<string, number> = {};
+  const posSlotItems: Record<string, any[]> = {};
   for (const it of sideItems) {
     const key = `${it.rack_position}:${it.rack_slot}`;
-    posSlotCount[key] = (posSlotCount[key] ?? 0) + 1;
+    if (!posSlotItems[key]) posSlotItems[key] = [];
+    posSlotItems[key].push(it);
   }
+  const posSlotCount: Record<string, number> = Object.fromEntries(
+    Object.entries(posSlotItems).map(([k, v]) => [k, v.length])
+  );
 
   const handleRackBodyClick = (e: React.MouseEvent<HTMLDivElement>) => {
     let el: HTMLElement | null = e.target as HTMLElement;
@@ -998,7 +1063,7 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
                     : "hover:brightness-95 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_2px_4px_rgba(0,0,0,0.3)]"
                 }`}
                 style={{ top, left, width, height, background: bg }}
-                onClick={() => onCellClick(it)}
+                onClick={() => onCellClick(it, isOverlap ? posSlotItems[`${it.rack_position}:${it.rack_slot}`] : undefined)}
                 onMouseEnter={(e) => onItemHover(it, e)}
                 onMouseLeave={onItemLeave}
               >
