@@ -49,7 +49,7 @@ export default function RackLayoutPage() {
 
   // Blank panel dialog state
   const [blankDialog, setBlankDialog] = useState<{ locationId: string; uPos: number } | null>(null);
-  const [blankForm, setBlankForm] = useState({ rack_height: "1", rack_slot: "full" });
+  const [blankForm, setBlankForm] = useState({ rack_height: "1", rack_slot: "full", panel_type: "blank" });
   const [confirmDeleteBlankId, setConfirmDeleteBlankId] = useState<string | null>(null);
 
   const { data: racksData, isLoading: racksLoading, isError: racksError } = useQuery({
@@ -133,7 +133,7 @@ export default function RackLayoutPage() {
 
   const handleEmptySlotClick = (locationId: string, uPos: number) => {
     if (inventoryMode) return;
-    setBlankForm({ rack_height: "1", rack_slot: "full" });
+    setBlankForm({ rack_height: "1", rack_slot: "full", panel_type: "blank" });
     setBlankDialog({ locationId, uPos });
   };
 
@@ -283,9 +283,24 @@ export default function RackLayoutPage() {
       <Dialog open={!!blankDialog} onOpenChange={(o) => { if (!o) setBlankDialog(null); }}>
         <DialogContent className="sm:max-w-xs">
           <DialogHeader>
-            <DialogTitle>ブランクパネルを追加</DialogTitle>
+            <DialogTitle>{blankForm.panel_type === "cable" ? "通線口" : "ブランクパネル"}を追加</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 pt-1">
+            <div className="space-y-1">
+              <Label>種別</Label>
+              <div className="flex gap-2">
+                {[{ value: "blank", label: "ブランクパネル" }, { value: "cable", label: "通線口" }].map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    className={`flex-1 py-1.5 text-sm rounded border transition-colors ${blankForm.panel_type === opt.value ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:bg-muted"}`}
+                    onClick={() => setBlankForm(f => ({ ...f, panel_type: opt.value }))}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="space-y-1">
               <Label>U位置 (下端)</Label>
               <Input
@@ -324,6 +339,7 @@ export default function RackLayoutPage() {
                     rack_height: Number(blankForm.rack_height) || 1,
                     rack_slot: blankForm.rack_slot,
                     rack_side: side,
+                    panel_type: blankForm.panel_type,
                   });
                 }}
               >
@@ -427,26 +443,33 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, onCellClick,
             />
           ))}
 
-          {/* Blank panels */}
+          {/* Blank panels & 通線口 */}
           {sideBlanks.map((b: any) => {
             const { start, span } = slotToColumn(b.rack_slot);
             const height = (b.rack_height ?? 1) * CELL_H;
             const top = (rackUnits - b.rack_position - (b.rack_height ?? 1) + 1) * CELL_H;
             const left = ((start - 1) / 6) * RACK_W;
             const width = (span / 6) * RACK_W;
+            const isCable = b.panel_type === "cable";
             return (
               <button
                 key={b.id}
-                className="absolute border border-zinc-300 rounded-[2px] overflow-hidden bg-zinc-300 hover:bg-zinc-400 transition-colors z-[2]"
+                className={`absolute rounded-[2px] overflow-hidden z-[2] transition-colors ${
+                  isCable
+                    ? "border border-dashed border-zinc-400 bg-white/60 hover:bg-zinc-100/80"
+                    : "border border-zinc-300 bg-zinc-300 hover:bg-zinc-400"
+                }`}
                 style={{ top, left, width, height }}
                 onClick={() => onDeleteBlank(b.id)}
                 title="クリックで削除"
               >
                 <span
-                  className="flex items-center justify-center h-full font-mono text-zinc-500 tracking-widest select-none"
+                  className={`flex items-center justify-center h-full font-mono tracking-widest select-none ${
+                    isCable ? "text-zinc-400" : "text-zinc-500"
+                  }`}
                   style={{ fontSize: height <= CELL_H ? 8 : 10 }}
                 >
-                  BLANK
+                  {isCable ? "通線口" : "BLANK"}
                 </span>
               </button>
             );

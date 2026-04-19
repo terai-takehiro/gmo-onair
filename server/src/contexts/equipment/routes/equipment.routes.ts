@@ -695,7 +695,7 @@ router.get('/racks', async (_req: Request, res: Response, next: NextFunction) =>
         ORDER BY ei.rack_position
       `, [rack.id]);
       const blanks = await queryAll(`
-        SELECT id, rack_position, rack_height, rack_slot, rack_side
+        SELECT id, rack_position, rack_height, rack_slot, rack_side, panel_type
         FROM rack_blank_panels
         WHERE location_id = $1
         ORDER BY rack_position
@@ -710,12 +710,12 @@ router.get('/racks', async (_req: Request, res: Response, next: NextFunction) =>
 
 router.post('/racks/:locationId/blanks', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { rack_position, rack_height, rack_slot, rack_side } = req.body;
+    const { rack_position, rack_height, rack_slot, rack_side, panel_type } = req.body;
     const id = uuid();
     await execute(
-      `INSERT INTO rack_blank_panels (id, location_id, rack_position, rack_height, rack_slot, rack_side)
-       VALUES ($1,$2,$3,$4,$5,$6)`,
-      [id, req.params.locationId, rack_position, rack_height || 1, rack_slot || 'full', rack_side || 'front']
+      `INSERT INTO rack_blank_panels (id, location_id, rack_position, rack_height, rack_slot, rack_side, panel_type)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [id, req.params.locationId, rack_position, rack_height || 1, rack_slot || 'full', rack_side || 'front', panel_type || 'blank']
     );
     res.status(201).json({ success: true, data: { id } });
   } catch (err) { next(err); }
