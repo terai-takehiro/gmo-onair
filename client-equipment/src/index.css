@@ -149,6 +149,7 @@
     left: 0; top: 0;
     width: 100%;
     padding: 0;
+    font-family: 'Noto Sans JP', -apple-system, 'Hiragino Sans', sans-serif;
   }
   @page { margin: 12mm 10mm; }
   #eq-print-area .print-title {
