@@ -62,15 +62,8 @@ export default function Header({ title }: { title?: string }) {
   const searchRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
-
-  const handleSwitchUser = () => {
-    logout();
-    navigate("/login");
-  };
+  const handleLogout = () => { logout(); };
+  const handleSwitchUser = () => { logout(); };
 
   const doSearch = useCallback(async (q: string) => {
     if (!q || q.length < 1) {

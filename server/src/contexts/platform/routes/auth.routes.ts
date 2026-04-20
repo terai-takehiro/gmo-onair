@@ -349,7 +349,12 @@ router.post('/reset-password', requireAuth, requireRole('system_admin'), wrap(as
 // 共通
 // ============================================================
 router.post('/logout', (_req, res) => {
-  res.clearCookie('gmo_onair_token');
+  res.clearCookie('gmo_onair_token', {
+    httpOnly: true,
+    secure: config.nodeEnv === 'production',
+    sameSite: 'lax',
+    path: '/',
+  });
   res.json({ success: true, message: 'Logged out' });
 });
 

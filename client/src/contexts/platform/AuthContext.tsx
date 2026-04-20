@@ -188,14 +188,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [setCurrentUserId, fetchPermissions]
   );
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
     setCurrentUser(null);
     setPermissions({});
-    setPermissionsLoaded(false);
+    setPermissionsLoaded(true);
     setCurrentUserId(null);
     localStorage.removeItem("gmo_onair_user");
     localStorage.removeItem("gmo_onair_token");
-    api.post("/auth/logout").catch(() => {});
+    try { await api.post("/auth/logout"); } catch { /* ignore */ }
+    // フルリロードでReact stateを完全リセット
+    window.location.href = "/login";
   }, [setCurrentUserId]);
 
   const hasPermission = useCallback(
