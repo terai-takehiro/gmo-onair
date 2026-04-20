@@ -496,6 +496,7 @@ export default function HomePage() {
 // 権限診断パネル
 // ──────────────────────────────────────
 function PermDiagPanel() {
+  const { permissions: ctxPerms, hasPermission, permissionsLoaded } = useAuth();
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<any>(null);
   const [apiPerms, setApiPerms] = useState<any>(null);
@@ -528,6 +529,8 @@ function PermDiagPanel() {
   const reqUserPerms: Record<string, string> = data?.userFromJwt?.permissions ?? {};
   const reqUserPermCount = Object.keys(reqUserPerms).length;
   const apiPermCount = apiPerms && !apiPerms._error ? Object.keys(apiPerms).length : 0;
+  const ctxPermCount = Object.keys(ctxPerms).length;
+  const testModules = ["sales", "budget", "studio", "equipment", "qsheet", "techsheet", "interactive"];
 
   return (
     <div className="mt-6 border rounded-lg overflow-hidden text-xs">
@@ -566,7 +569,51 @@ function PermDiagPanel() {
                 <span className={apiPermCount > 0 ? "text-green-600 font-bold" : "text-red-600 font-bold"}>
                   {apiPerms?._error ? `エラー: ${apiPerms._error}` : `${apiPermCount} モジュール`}
                 </span>
+                <span className="text-muted-foreground">権限数 (AuthContext)</span>
+                <span className={ctxPermCount > 0 ? "text-green-600 font-bold" : "text-red-600 font-bold"}>
+                  {ctxPermCount} モジュール {permissionsLoaded ? "(loaded)" : "(loading...)"}
+                </span>
               </div>
+
+              <details className="text-muted-foreground">
+                <summary className="cursor-pointer font-medium">hasPermission() 判定結果</summary>
+                <div className="bg-muted/30 rounded p-2 mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5">
+                  {testModules.map((m) => {
+                    const lvl = ctxPerms[m];
+                    const canReader = hasPermission(m, "reader");
+                    return (
+                      <div key={m} className="flex justify-between">
+                        <span>{m}</span>
+                        <span className={canReader ? "text-green-600" : "text-red-600"}>
+                          {canReader ? "✓" : "✗"} {lvl ?? "(なし)"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </details>
+
+              {ctxPermCount > 0 && (
+                <details className="text-muted-foreground">
+                  <summary className="cursor-pointer font-medium">AuthContext permissions 詳細</summary>
+                  <div className="bg-muted/30 rounded p-2 mt-1 space-y-0.5">
+                    {Object.entries(ctxPerms).map(([mod, lvl]) => (
+                      <div key={mod} className="flex justify-between">
+                        <span>{mod}</span>
+                        <span className="font-medium text-foreground">{lvl}</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+
+              {apiPermCount > 0 && ctxPermCount === 0 && (
+                <div className="bg-red-50 border border-red-200 rounded p-2 text-red-700">
+                  ⚠ APIは正しく権限を返していますが、AuthContext state が空です。
+                  React stateの同期問題か、初期化時のエラーが考えられます。
+                  ページを強制リロード (Ctrl+Shift+R) を試してください。
+                </div>
+              )}
 
               {permCount > 0 && (
                 <details className="text-muted-foreground">
