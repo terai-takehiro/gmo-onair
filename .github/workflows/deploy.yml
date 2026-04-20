@@ -87,9 +87,14 @@ jobs:
             docker compose stop app_prod || true
             docker compose rm -f app_prod || true
             docker compose up -d --no-deps app_prod
-            # サーバー起動を待ってヘルスチェック
-            echo "Waiting for server to start..."
-            sleep 15
-            curl -sf http://localhost:3000/health && echo "✓ Health check passed" || echo "⚠ Health check failed — check docker logs app_prod"
+            # サーバー起動ログを確認
+            echo "=== Container logs (first 10s) ==="
+            sleep 10
+            docker logs --tail=50 gmo-onair-app_prod-1 2>&1 || docker logs --tail=50 $(docker ps -aq -f name=app_prod | head -1) 2>&1 || true
+            echo "=== Health check ==="
+            sleep 10
+            curl -sf http://localhost:3000/health && echo "✓ Health check passed" || echo "⚠ Health check failed"
+            echo "=== Container status ==="
+            docker ps -a | grep app_prod || true
             echo "✓ Prod deploy complete: $(date) — $(git log --oneline -1)"
           ENDSSH
