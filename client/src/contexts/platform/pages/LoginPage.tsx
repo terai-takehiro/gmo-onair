@@ -21,6 +21,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const error = searchParams.get("error");
+  const redirectPath = searchParams.get("redirect");
 
   // Auth mode
   const { data: authMode } = useQuery({
@@ -58,7 +59,8 @@ export default function LoginPage() {
         setPhoneMasked(data.phone_masked);
       } else {
         await loginWithToken(data.token);
-        navigate("/", { replace: true });
+        if (redirectPath && redirectPath.startsWith('/')) { window.location.href = redirectPath; }
+        else { navigate("/", { replace: true }); }
       }
     } catch (err: any) {
       setFormError(err.response?.data?.error?.message || "ログインに失敗しました");
@@ -74,7 +76,8 @@ export default function LoginPage() {
     try {
       const res = await api.post("/auth/verify-2fa", { user_id: userId, code: otpCode });
       await loginWithToken(res.data.data.token);
-      navigate("/", { replace: true });
+      if (redirectPath && redirectPath.startsWith('/')) { window.location.href = redirectPath; }
+      else { navigate("/", { replace: true }); }
     } catch (err: any) {
       setFormError(err.response?.data?.error?.message || "認証コードが正しくありません");
     } finally {
@@ -91,7 +94,8 @@ export default function LoginPage() {
 
   const handleMockLogin = async (uid: string) => {
     await login(uid);
-    navigate("/", { replace: true });
+    if (redirectPath && redirectPath.startsWith('/')) { window.location.href = redirectPath; }
+    else { navigate("/", { replace: true }); }
   };
 
   const isMock = authMode?.mode === "mock";
