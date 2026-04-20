@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useParams } from 'react-router-dom';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -6,6 +6,7 @@ import { ShieldOff } from 'lucide-react';
 
 export default function AppShell() {
   const { canView, permissionsLoading } = usePermissions();
+  const { projectId } = useParams<{ projectId?: string }>();
 
   if (!permissionsLoading && !canView) {
     return (
@@ -25,9 +26,9 @@ export default function AppShell() {
 
   return (
     <div className="flex h-screen overflow-x-hidden">
-      <Sidebar />
+      <Sidebar projectId={projectId} />
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-        <Header />
+        <Header projectId={projectId} />
         <main className="flex-1 overflow-y-auto overflow-x-hidden">
           <Outlet />
         </main>

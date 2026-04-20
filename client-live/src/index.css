@@ -5,48 +5,27 @@
 
 @layer base {
   :root {
-    --background: 40 20% 96%;
-    --foreground: 60 6% 11%;
-    --card: 40 25% 99%;
-    --card-foreground: 60 6% 11%;
-    --popover: 40 25% 99%;
-    --popover-foreground: 60 6% 11%;
-    --primary: 209 100% 34%;
+    /* ── Broadcast Dark Theme (always dark) ── */
+    --background: 222 28% 7%;
+    --foreground: 210 20% 90%;
+    --card: 220 24% 10%;
+    --card-foreground: 210 20% 90%;
+    --popover: 220 26% 12%;
+    --popover-foreground: 210 20% 90%;
+    --primary: 0 72% 51%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 43 15% 88%;
-    --secondary-foreground: 48 4% 28%;
-    --muted: 43 15% 88%;
-    --muted-foreground: 48 3% 35%;
-    --accent: 43 15% 88%;
-    --accent-foreground: 48 4% 28%;
-    --destructive: 0 55% 46%;
+    --secondary: 220 20% 15%;
+    --secondary-foreground: 210 15% 72%;
+    --muted: 220 20% 13%;
+    --muted-foreground: 215 16% 48%;
+    --accent: 220 20% 16%;
+    --accent-foreground: 210 20% 90%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 40 18% 91%;
-    --input: 43 15% 88%;
-    --ring: 209 100% 34%;
-    --radius: 0.5rem;
-  }
-
-  .dark {
-    --background: 222 47% 8%;
-    --foreground: 210 20% 98%;
-    --card: 220 39% 12%;
-    --card-foreground: 210 20% 98%;
-    --popover: 220 39% 12%;
-    --popover-foreground: 210 20% 98%;
-    --primary: 209 100% 56%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 217 32% 17%;
-    --secondary-foreground: 210 20% 98%;
-    --muted: 217 32% 17%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 217 32% 17%;
-    --accent-foreground: 210 20% 98%;
-    --destructive: 0 62% 50%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 217 32% 17%;
-    --input: 217 32% 17%;
-    --ring: 209 100% 56%;
+    --border: 220 22% 16%;
+    --input: 220 20% 14%;
+    --ring: 0 72% 51%;
+    --radius: 0.375rem;
   }
 }
 
@@ -54,32 +33,47 @@
   * { @apply border-border; }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', 'Noto Sans JP', sans-serif;
+    font-family: 'Inter', 'Noto Sans JP', system-ui, sans-serif;
   }
 }
 
-/* ---- Timer display phases ---- */
-.phase-idle    { background-color: #1a1a2e; color: #ffffff; }
-.phase-countdown { background-color: #1a1a2e; color: #ffffff; }
-.phase-yellow  { background-color: #f39c12; color: #1a1a2e; }
-.phase-red     { background-color: #e74c3c; color: #ffffff; animation: pulse-red 1s ease-in-out infinite; }
+/* ── Timer Phase Colors ── */
+.phase-idle      { color: hsl(210 20% 90%); }
+.phase-countdown { color: hsl(210 20% 90%); }
+.phase-yellow    { color: #f59e0b; }
+.phase-red       { color: #ef4444; animation: pulse-text 0.8s ease-in-out infinite; }
 
-@keyframes pulse-red {
-  0%, 100% { background-color: #e74c3c; }
-  50%       { background-color: #c0392b; }
+@keyframes pulse-text {
+  0%, 100% { color: #ef4444; }
+  50%       { color: #fca5a5; }
 }
 
 .timer-display-font {
-  font-size: clamp(3rem, 25vw, 14rem);
+  font-size: clamp(3.5rem, 20vw, 13rem);
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
+  font-feature-settings: "tnum";
 }
 
 .timer-status-font {
-  font-size: clamp(1rem, 3vw, 2.5rem);
-  font-weight: 500;
-  letter-spacing: 0.15em;
+  font-size: clamp(0.65rem, 1.8vw, 1.25rem);
+  font-weight: 700;
+  letter-spacing: 0.25em;
   text-transform: uppercase;
+  opacity: 0.55;
+}
+
+/* ── Live indicator ── */
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: live-blink 1.2s ease-in-out infinite;
+}
+@keyframes live-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
 }

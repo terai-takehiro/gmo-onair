@@ -9,13 +9,16 @@ const canWrite = [requireAuth, requirePermission('liveops', 'manager')] as const
 
 router.get('/', ...canRead, async (req, res) => {
   try {
+    const { project_id } = req.query;
+    const params: string[] = [];
+    const filter = project_id ? (params.push(String(project_id)), `AND t.project_id = $${params.length}`) : '';
     const rows = await query(
       `SELECT t.*, p.name AS project_name, p.gls_number
        FROM liveops_timers t
        LEFT JOIN projects p ON t.project_id = p.id
-       WHERE t.deleted_at IS NULL
+       WHERE t.deleted_at IS NULL ${filter}
        ORDER BY t.updated_at DESC`,
-      []
+      params
     );
     res.json({ success: true, data: rows });
   } catch {

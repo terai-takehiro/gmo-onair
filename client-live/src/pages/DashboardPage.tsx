@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
 import api from '@/lib/api';
 import { useTimer } from '@/hooks/useTimer';
 import { useViewer } from '@/hooks/useViewer';
@@ -9,26 +9,27 @@ import TimerControls from '@/components/timer/TimerControls';
 import ViewerCard from '@/components/viewer/ViewerCard';
 import ViewerChart from '@/components/viewer/ViewerChart';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Play, Square, RotateCcw, ExternalLink, AlertCircle } from 'lucide-react';
+import { Play, Square, ExternalLink, AlertCircle, Timer, Tv2 } from 'lucide-react';
 
-interface Timer { id: string; name: string; phase: string }
+interface TimerData { id: string; name: string; phase: string }
 interface Program { id: string; name: string }
 interface Snapshot { captured_at: string; youtube_count: number; jstream_count: number; total_count: number }
 
 export default function DashboardPage() {
-  const [selectedTimerId, setSelectedTimerId] = useState<string | null>(null);
-  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
+  const { projectId } = useParams<{ projectId: string }>();
   const [singularSending, setSingularSending] = useState<string | null>(null);
 
-  const { data: timersData } = useQuery({
-    queryKey: ['timers'],
-    queryFn: () => api.get('/liveops/timers').then(r => r.data.data as Timer[]),
+  const { data: timersData = [] } = useQuery({
+    queryKey: ['timers', projectId],
+    queryFn: () => api.get(`/liveops/timers?project_id=${projectId}`).then(r => r.data.data as TimerData[]),
+    enabled: !!projectId,
   });
 
-  const { data: programsData } = useQuery({
-    queryKey: ['programs'],
-    queryFn: () => api.get('/liveops/programs').then(r => r.data.data as Program[]),
+  const { data: programsData = [] } = useQuery({
+    queryKey: ['programs', projectId],
+    queryFn: () => api.get(`/liveops/programs?project_id=${projectId}`).then(r => r.data.data as Program[]),
+    enabled: !!projectId,
+    staleTime: 30_000,
   });
 
   const { data: settingsData } = useQuery({
@@ -36,25 +37,18 @@ export default function DashboardPage() {
     queryFn: () => api.get('/liveops/settings').then(r => r.data.data),
   });
 
-  const { data: snapshotsData, refetch: refetchSnapshots } = useQuery({
+  const selectedTimerId = timersData[0]?.id ?? null;
+  const selectedProgramId = programsData[0]?.id ?? null;
+
+  const { data: snapshotsData } = useQuery({
     queryKey: ['snapshots', selectedProgramId],
-    queryFn: () => selectedProgramId
-      ? api.get(`/liveops/snapshots/${selectedProgramId}`).then(r => r.data.data as Snapshot[])
-      : Promise.resolve([]),
+    queryFn: () => api.get(`/liveops/snapshots/${selectedProgramId}`).then(r => r.data.data as Snapshot[]),
     enabled: !!selectedProgramId,
-    refetchInterval: 15000,
+    refetchInterval: 15_000,
   });
 
   const timer = useTimer(selectedTimerId);
   const viewer = useViewer(selectedProgramId, settingsData?.pollingIntervalSec ?? 10);
-
-  // Auto-select first timer & program
-  useEffect(() => {
-    if (timersData?.length && !selectedTimerId) setSelectedTimerId(timersData[0].id);
-  }, [timersData]);
-  useEffect(() => {
-    if (programsData?.length && !selectedProgramId) setSelectedProgramId(programsData[0].id);
-  }, [programsData]);
 
   const handleTake = async (target: 'youtube' | 'jstream' | 'total') => {
     if (!selectedProgramId) return;
@@ -71,56 +65,65 @@ export default function DashboardPage() {
     }
   };
 
+  const noTimers = timersData.length === 0;
+  const noPrograms = programsData.length === 0;
+
   return (
     <div className="flex h-full flex-col">
-      {/* Header bar */}
-      <div className="flex items-center justify-between border-b bg-card px-4 py-2">
+      <div className="flex items-center justify-between border-b border-border bg-card px-4 py-2">
         <h1 className="text-sm font-bold">ダッシュボード</h1>
-        <div className="flex items-center gap-2">
-          {selectedTimerId && (
-            <a
-              href={`/live/display/${selectedTimerId}`}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-            >
-              <ExternalLink className="h-3 w-3" />
-              表示画面
-            </a>
-          )}
-        </div>
+        {selectedTimerId && (
+          <a
+            href={`/live/display/${selectedTimerId}`}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          >
+            <ExternalLink className="h-3 w-3" />
+            表示画面
+          </a>
+        )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {/* Row 1: Timer + Viewer side-by-side on large screens */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Timer panel */}
-          <div className="rounded-xl border bg-card overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-2 border-b">
-              <span className="text-sm font-semibold">タイマー</span>
-              <div className="flex items-center gap-2">
-                <Select
-                  value={selectedTimerId ?? ''}
-                  onValueChange={v => setSelectedTimerId(v)}
-                >
-                  <SelectTrigger className="h-7 w-40 text-xs">
-                    <SelectValue placeholder="タイマー選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(timersData || []).map(t => (
-                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Link to="/timer">
-                  <Button variant="outline" size="sm" className="h-7 text-xs">管理</Button>
-                </Link>
-              </div>
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4">
+
+        {/* Empty state */}
+        {noTimers && noPrograms && (
+          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground space-y-4">
+            <p className="text-sm">この案件にタイマーと番組がありません</p>
+            <div className="flex gap-3">
+              <Link to={`/p/${projectId}/timer`}>
+                <Button size="sm" variant="outline">
+                  <Timer className="h-4 w-4 mr-1.5" />タイマーを追加
+                </Button>
+              </Link>
+              <Link to={`/p/${projectId}/programs`}>
+                <Button size="sm" variant="outline">
+                  <Tv2 className="h-4 w-4 mr-1.5" />番組を追加
+                </Button>
+              </Link>
             </div>
-            <div className="h-40">
+          </div>
+        )}
+
+        {/* Timer panel */}
+        {!noTimers && (
+          <div className="rounded-xl border border-border bg-card overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Timer</span>
+                {timersData.length > 1 && (
+                  <span className="text-xs text-muted-foreground">— {timersData[0].name}</span>
+                )}
+              </div>
+              <Link to={`/p/${projectId}/timer`}>
+                <Button variant="ghost" size="sm" className="h-6 text-xs text-muted-foreground hover:text-foreground">管理</Button>
+              </Link>
+            </div>
+            <div className="h-44 sm:h-52">
               <TimerDisplay state={timer.state} compact={false} />
             </div>
-            <div className="p-4 border-t">
+            <div className="p-3 sm:p-4 border-t border-border">
               <TimerControls
                 state={timer.state}
                 onSet={timer.setTime}
@@ -131,46 +134,45 @@ export default function DashboardPage() {
               />
             </div>
           </div>
+        )}
 
-          {/* Viewer panel */}
-          <div className="rounded-xl border bg-card overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-2 border-b">
-              <span className="text-sm font-semibold">視聴者カウンター</span>
+        {/* Viewer panel */}
+        {!noPrograms && (
+          <div className="rounded-xl border border-border bg-card overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
               <div className="flex items-center gap-2">
-                <Select
-                  value={selectedProgramId ?? ''}
-                  onValueChange={v => setSelectedProgramId(v)}
-                >
-                  <SelectTrigger className="h-7 w-40 text-xs">
-                    <SelectValue placeholder="番組選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(programsData || []).map(p => (
-                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Viewers</span>
+                {programsData.length > 1 && (
+                  <span className="text-xs text-muted-foreground">— {programsData[0].name}</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {viewer.counts.lastUpdated && (
+                  <span className="text-xs text-muted-foreground hidden sm:inline">
+                    {viewer.counts.lastUpdated.toLocaleTimeString('ja-JP')}
+                  </span>
+                )}
                 <Button
                   variant={viewer.running ? 'destructive' : 'default'}
                   size="sm"
                   className="h-7 text-xs"
                   onClick={viewer.running ? viewer.stopPolling : viewer.startPolling}
-                  disabled={!selectedProgramId}
                 >
-                  {viewer.running ? <Square className="h-3 w-3 mr-1" /> : <Play className="h-3 w-3 mr-1" />}
-                  {viewer.running ? '停止' : '開始'}
+                  {viewer.running
+                    ? <><Square className="h-3 w-3 mr-1" />停止</>
+                    : <><Play className="h-3 w-3 mr-1" />開始</>}
                 </Button>
               </div>
             </div>
 
             {!settingsData?.hasYoutubeKey && !settingsData?.hasJstreamToken && (
-              <div className="mx-4 mt-3 flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 p-2 text-xs text-amber-800">
-                <AlertCircle className="h-3 w-3" />
+              <div className="mx-4 mt-3 flex items-center gap-2 rounded-lg bg-amber-500/10 border border-amber-500/30 p-2.5 text-xs text-amber-400">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                 <Link to="/settings" className="underline">設定</Link>でAPIキーを登録してください
               </div>
             )}
 
-            <div className="p-4 grid grid-cols-1 gap-3">
+            <div className="p-3 sm:p-4 space-y-2">
               <ViewerCard
                 label="YouTube"
                 count={viewer.counts.youtube}
@@ -179,7 +181,7 @@ export default function DashboardPage() {
                 onTake={() => handleTake('youtube')}
                 taking={singularSending === 'youtube'}
               />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <ViewerCard
                   label="Jstream"
                   count={viewer.counts.jstream}
@@ -195,38 +197,34 @@ export default function DashboardPage() {
                   taking={singularSending === 'total'}
                 />
               </div>
-              {viewer.counts.lastUpdated && (
-                <p className="text-xs text-muted-foreground text-right">
-                  最終更新: {viewer.counts.lastUpdated.toLocaleTimeString('ja-JP')}
-                </p>
-              )}
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Row 2: Chart */}
+        {/* Chart */}
         {selectedProgramId && (
-          <div className="rounded-xl border bg-card p-4">
-            <h2 className="text-sm font-semibold mb-3">視聴者数推移</h2>
+          <div className="rounded-xl border border-border bg-card p-4">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">視聴者数推移</h2>
             <ViewerChart snapshots={snapshotsData || []} />
           </div>
         )}
 
-        {/* Row 3: Log */}
-        <div className="rounded-xl border bg-card p-4">
-          <h2 className="text-sm font-semibold mb-2">ログ</h2>
-          <div className="h-32 overflow-y-auto space-y-0.5 font-mono text-xs">
-            {viewer.logs.length === 0 && (
-              <p className="text-muted-foreground">ログなし</p>
-            )}
-            {viewer.logs.map((log, i) => (
-              <div key={i} className={`${log.type === 'error' ? 'text-destructive' : log.type === 'success' ? 'text-green-600' : 'text-muted-foreground'}`}>
-                <span className="text-muted-foreground/60">{log.time.toLocaleTimeString('ja-JP')} </span>
-                {log.message}
-              </div>
-            ))}
+        {/* Log */}
+        {!noPrograms && (
+          <div className="rounded-xl border border-border bg-card p-4">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">ログ</h2>
+            <div className="h-28 overflow-y-auto space-y-0.5 font-mono text-xs">
+              {viewer.logs.length === 0 ? (
+                <p className="text-muted-foreground">ログなし</p>
+              ) : viewer.logs.map((log, i) => (
+                <div key={i} className={log.type === 'error' ? 'text-destructive' : log.type === 'success' ? 'text-green-400' : 'text-muted-foreground'}>
+                  <span className="text-muted-foreground/60">{log.time.toLocaleTimeString('ja-JP')} </span>
+                  {log.message}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
