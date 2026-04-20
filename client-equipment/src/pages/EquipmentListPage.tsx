@@ -15,6 +15,7 @@ import {
 import {
   Loader2, Plus, Search, Package, Pencil, Trash2, Upload, Download, Edit3, X,
   ChevronRight, ChevronDown, ChevronsUpDown, ArrowUp, ArrowDown, Copy, Printer, MapPin,
+  SlidersHorizontal,
 } from "lucide-react";
 import ExcelImportDialog from "@/components/ExcelImportDialog";
 import {
@@ -28,6 +29,21 @@ const sectionDisplay = (typeCode: string | null, section: string | null) => {
   return `${t}${s}`.trim() || "-";
 };
 
+
+const COL_DEFS = [
+  { key: 'eq_code',          label: 'ID',        sortKey: 'eq_code',             default: true  },
+  { key: 'equipment_type',   label: '種別',       sortKey: 'equipment_type_code', default: true  },
+  { key: 'location',         label: '設置場所',   sortKey: 'location_name',       default: true  },
+  { key: 'name',             label: '商品名',     sortKey: 'name',                default: true  },
+  { key: 'manufacturer',     label: 'メーカー',   sortKey: 'manufacturer_name',   default: false },
+  { key: 'model_number',     label: '型名',       sortKey: 'model_number',        default: true  },
+  { key: 'serial_number',    label: 'シリアル',   sortKey: 'serial_number',       default: false },
+  { key: 'unit_number',      label: 'No',         sortKey: 'unit_number',         default: true  },
+  { key: 'condition',        label: '状態',       sortKey: 'condition',           default: false },
+  { key: 'fixed_asset_code', label: '資産コード', sortKey: 'fixed_asset_code',    default: false },
+  { key: 'notes',            label: '備考',       sortKey: 'notes',               default: true  },
+] as const;
+type ColKey = typeof COL_DEFS[number]['key'];
 
 const PRINT_COLS = [
   { key: 'eq_code',           label: 'ID'        },
@@ -177,6 +193,26 @@ export default function EquipmentListPage() {
   const [continuousMode, setContinuousMode] = useState(false);
   const [tableEditMode, setTableEditMode] = useState(false);
   const [tableEdits, setTableEdits] = useState<Record<string, Record<string, string>>>({});
+  const [colPickerOpen, setColPickerOpen] = useState(false);
+  useEffect(() => {
+    if (!colPickerOpen) return;
+    const close = () => setColPickerOpen(false);
+    window.addEventListener('click', close);
+    return () => window.removeEventListener('click', close);
+  }, [colPickerOpen]);
+  const [visibleCols, setVisibleCols] = useState<Set<ColKey>>(() => {
+    try {
+      const saved = localStorage.getItem('eq-visible-cols');
+      if (saved) return new Set(JSON.parse(saved)) as Set<ColKey>;
+    } catch {}
+    return new Set(COL_DEFS.filter(c => c.default).map(c => c.key)) as Set<ColKey>;
+  });
+  const toggleCol = (key: ColKey) => setVisibleCols(prev => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    localStorage.setItem('eq-visible-cols', JSON.stringify([...next]));
+    return next;
+  });
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [printCols, setPrintCols] = useState<Set<string>>(
     new Set(['eq_code', 'equipment_type', 'name', 'manufacturer_name', 'model_number', 'unit_number', 'location', 'notes'])
@@ -500,6 +536,102 @@ export default function EquipmentListPage() {
     urlSearch ? `"${urlSearch}"` : '',
   ].filter(Boolean).join(' / ');
 
+  const renderTableCells = (item: any, { py, nameSuffix }: { py: string; nameSuffix?: React.ReactNode }) =>
+    COL_DEFS.filter(c => visibleCols.has(c.key)).map(col => {
+      switch (col.key) {
+        case 'eq_code':
+          return <td key="eq_code" className={`px-3 ${py} font-mono text-xs text-muted-foreground whitespace-nowrap`}>{item.eq_code}</td>;
+        case 'equipment_type':
+          return <td key="equipment_type" className={`px-3 ${py} whitespace-nowrap`}><SectionBadge typeCode={item.equipment_type_code} section={item.equipment_section} /></td>;
+        case 'location':
+          return <td key="location" className={`px-3 ${py} text-xs text-muted-foreground whitespace-nowrap`}>{item.location_name || item.location_detail || '–'}</td>;
+        case 'name':
+          return (
+            <td key="name" className={`px-3 ${py} font-medium whitespace-nowrap`}>
+              {tableEditMode
+                ? <input className="w-full min-w-[120px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-sm font-medium"
+                    value={tableEdits[item.id]?.name ?? item.name ?? ''}
+                    onChange={e => handleInlineChange(item.id, 'name', e.target.value)}
+                    onBlur={() => saveInlineRow(item.id)}
+                    onClick={e => e.stopPropagation()}
+                  />
+                : <>{item.name}{nameSuffix}</>
+              }
+            </td>
+          );
+        case 'manufacturer':
+          return <td key="manufacturer" className={`px-3 ${py} text-xs text-muted-foreground whitespace-nowrap`}>{item.manufacturer_name || '–'}</td>;
+        case 'model_number':
+          return (
+            <td key="model_number" className={`px-3 ${py} text-xs text-muted-foreground whitespace-nowrap`}>
+              {tableEditMode
+                ? <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs font-mono"
+                    value={tableEdits[item.id]?.model_number ?? item.model_number ?? ''}
+                    onChange={e => handleInlineChange(item.id, 'model_number', e.target.value)}
+                    onBlur={() => saveInlineRow(item.id)}
+                    onClick={e => e.stopPropagation()}
+                  />
+                : item.model_number || '–'}
+            </td>
+          );
+        case 'serial_number':
+          return (
+            <td key="serial_number" className={`px-3 ${py} text-xs text-muted-foreground font-mono whitespace-nowrap`}>
+              {tableEditMode
+                ? <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs font-mono"
+                    value={tableEdits[item.id]?.serial_number ?? item.serial_number ?? ''}
+                    onChange={e => handleInlineChange(item.id, 'serial_number', e.target.value)}
+                    onBlur={() => saveInlineRow(item.id)}
+                    onClick={e => e.stopPropagation()}
+                  />
+                : item.serial_number || '–'}
+            </td>
+          );
+        case 'unit_number':
+          return (
+            <td key="unit_number" className={`px-3 ${py} text-xs text-right tabular-nums text-muted-foreground whitespace-nowrap`}>
+              {tableEditMode
+                ? <input type="number" className="w-12 bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs text-right"
+                    value={tableEdits[item.id]?.unit_number ?? item.unit_number ?? ''}
+                    onChange={e => handleInlineChange(item.id, 'unit_number', e.target.value)}
+                    onBlur={() => saveInlineRow(item.id)}
+                    onClick={e => e.stopPropagation()}
+                  />
+                : item.unit_number ?? '–'}
+            </td>
+          );
+        case 'condition':
+          return <td key="condition" className={`px-3 ${py} text-xs text-muted-foreground whitespace-nowrap`}>{CONDITION_LABELS[item.condition] || '–'}</td>;
+        case 'fixed_asset_code':
+          return (
+            <td key="fixed_asset_code" className={`px-3 ${py} text-xs text-muted-foreground font-mono whitespace-nowrap`}>
+              {tableEditMode
+                ? <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs font-mono"
+                    value={tableEdits[item.id]?.fixed_asset_code ?? item.fixed_asset_code ?? ''}
+                    onChange={e => handleInlineChange(item.id, 'fixed_asset_code', e.target.value)}
+                    onBlur={() => saveInlineRow(item.id)}
+                    onClick={e => e.stopPropagation()}
+                  />
+                : item.fixed_asset_code || '–'}
+            </td>
+          );
+        case 'notes':
+          return (
+            <td key="notes" className={`px-3 ${py} text-xs text-muted-foreground max-w-[10rem] truncate`} title={item.notes || ''}>
+              {tableEditMode
+                ? <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs"
+                    value={tableEdits[item.id]?.notes ?? item.notes ?? ''}
+                    onChange={e => handleInlineChange(item.id, 'notes', e.target.value)}
+                    onBlur={() => saveInlineRow(item.id)}
+                    onClick={e => e.stopPropagation()}
+                  />
+                : item.notes || '–'}
+            </td>
+          );
+        default: return null;
+      }
+    });
+
   return (
     <div className="space-y-4 p-4 lg:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -514,6 +646,23 @@ export default function EquipmentListPage() {
           <Button size="sm" variant="outline" onClick={() => setPrintDialogOpen(true)}>
             <Printer className="h-4 w-4 mr-1" />印刷
           </Button>
+          {/* 列表示ピッカー */}
+          <div className="relative">
+            <Button size="sm" variant={colPickerOpen ? 'default' : 'outline'} onClick={() => setColPickerOpen(v => !v)}>
+              <SlidersHorizontal className="h-4 w-4 mr-1" />列
+            </Button>
+            {colPickerOpen && (
+              <div className="absolute right-0 top-full mt-1 z-30 bg-card border border-border rounded-lg shadow-lg p-2 w-44 animate-slide-up" onClick={e => e.stopPropagation()}>
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-1 pb-1.5">表示列</p>
+                {COL_DEFS.map(col => (
+                  <label key={col.key} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/60 cursor-pointer text-sm select-none">
+                    <input type="checkbox" className="h-3.5 w-3.5" checked={visibleCols.has(col.key)} onChange={() => toggleCol(col.key)} />
+                    {col.label}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
           <Button
             size="sm"
             variant={tableEditMode ? "default" : "outline"}
@@ -722,13 +871,9 @@ export default function EquipmentListPage() {
                     />
                   </th>
                 )}
-                <SortableTh label="ID" sortKey="eq_code" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
-                <SortableTh label="種別" sortKey="equipment_type_code" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
-                <SortableTh label="設置場所" sortKey="location_name" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
-                <SortableTh label="商品名" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
-                <SortableTh label="型名" sortKey="model_number" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
-                <SortableTh label="No" sortKey="unit_number" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
-                <SortableTh label="備考" sortKey="notes" currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
+                {COL_DEFS.filter(c => visibleCols.has(c.key)).map(col => (
+                  <SortableTh key={col.key} label={col.label} sortKey={col.sortKey} currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
+                ))}
                 <th className="px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap">操作</th>
               </tr>
             </thead>
@@ -753,57 +898,12 @@ export default function EquipmentListPage() {
                     >
                       <td className="pr-1 py-2 text-muted-foreground/40 text-xs" style={{ paddingLeft: `${(depth + 1) * 16 + 4}px` }}>└</td>
                       {canBulkEdit && <td />}
-                      <td className="px-3 py-2 font-mono text-xs text-muted-foreground/70 whitespace-nowrap">{item.eq_code}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        <SectionBadge typeCode={item.equipment_type_code} section={item.equipment_section} />
-                      </td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{item.location_name || item.location_detail || '–'}</td>
-                      <td className="px-3 py-2 font-medium whitespace-nowrap">
-                        {tableEditMode ? (
-                          <input
-                            className="w-full min-w-[120px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-sm font-medium"
-                            value={tableEdits[item.id]?.name ?? item.name ?? ""}
-                            onChange={(e) => handleInlineChange(item.id, "name", e.target.value)}
-                            onBlur={() => saveInlineRow(item.id)}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        ) : (
-                          <span>
-                            {item.name}
-                            {item.parent_name && <span className="ml-1.5 text-[10px] text-muted-foreground/60 bg-muted rounded px-1 py-0.5">← {item.parent_name}</span>}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
-                        {tableEditMode ? (
-                          <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs font-mono"
-                            value={tableEdits[item.id]?.model_number ?? item.model_number ?? ""}
-                            onChange={(e) => handleInlineChange(item.id, "model_number", e.target.value)}
-                            onBlur={() => saveInlineRow(item.id)}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        ) : item.model_number || '–'}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-right tabular-nums text-muted-foreground whitespace-nowrap">
-                        {tableEditMode ? (
-                          <input type="number" className="w-12 bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs text-right"
-                            value={tableEdits[item.id]?.unit_number ?? item.unit_number ?? ""}
-                            onChange={(e) => handleInlineChange(item.id, "unit_number", e.target.value)}
-                            onBlur={() => saveInlineRow(item.id)}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        ) : item.unit_number || '–'}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground max-w-[10rem] truncate">
-                        {tableEditMode ? (
-                          <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs"
-                            value={tableEdits[item.id]?.notes ?? item.notes ?? ""}
-                            onChange={(e) => handleInlineChange(item.id, "notes", e.target.value)}
-                            onBlur={() => saveInlineRow(item.id)}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        ) : item.notes || '–'}
-                      </td>
+                      {renderTableCells(item, {
+                        py: 'py-2',
+                        nameSuffix: item.parent_name
+                          ? <span className="ml-1.5 text-[10px] text-muted-foreground/60 bg-muted rounded px-1 py-0.5">← {item.parent_name}</span>
+                          : undefined,
+                      })}
                       <td className="px-2 py-2 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <div className="flex gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                           <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" title="コピーして新規登録" onClick={(e) => openCopy(item, e)}><Copy className="h-3 w-3" /></Button>
@@ -835,58 +935,12 @@ export default function EquipmentListPage() {
                           <input type="checkbox" className="h-4 w-4 cursor-pointer" checked={isSelected} onChange={() => {}} onClick={(e) => handleCheckboxClick(item.id, idx, e.shiftKey)} />
                         </td>
                       )}
-                      <td className="px-3 py-2 font-mono text-xs text-muted-foreground whitespace-nowrap">{item.eq_code}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        <SectionBadge typeCode={item.equipment_type_code} section={item.equipment_section} />
-                      </td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{item.location_name || item.location_detail || '–'}</td>
-                      <td className="px-3 py-2 font-medium whitespace-nowrap">
-                        {tableEditMode ? (
-                          <input
-                            className="w-full min-w-[120px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-sm font-medium"
-                            value={tableEdits[item.id]?.name ?? item.name ?? ""}
-                            onChange={(e) => handleInlineChange(item.id, "name", e.target.value)}
-                            onBlur={() => saveInlineRow(item.id)}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        ) : (
-                          <>{item.name}{hasChildren && <span className="ml-1.5 text-[10px] font-normal text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">{item.children_count}</span>}</>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
-                        {tableEditMode ? (
-                          <input
-                            className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs font-mono"
-                            value={tableEdits[item.id]?.model_number ?? item.model_number ?? ""}
-                            onChange={(e) => handleInlineChange(item.id, "model_number", e.target.value)}
-                            onBlur={() => saveInlineRow(item.id)}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        ) : item.model_number || '–'}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-right tabular-nums text-muted-foreground whitespace-nowrap">
-                        {tableEditMode ? (
-                          <input
-                            type="number"
-                            className="w-12 bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs text-right"
-                            value={tableEdits[item.id]?.unit_number ?? item.unit_number ?? ""}
-                            onChange={(e) => handleInlineChange(item.id, "unit_number", e.target.value)}
-                            onBlur={() => saveInlineRow(item.id)}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        ) : item.unit_number || '–'}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground max-w-[10rem] truncate" title={item.notes || ''}>
-                        {tableEditMode ? (
-                          <input
-                            className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs"
-                            value={tableEdits[item.id]?.notes ?? item.notes ?? ""}
-                            onChange={(e) => handleInlineChange(item.id, "notes", e.target.value)}
-                            onBlur={() => saveInlineRow(item.id)}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        ) : item.notes || '–'}
-                      </td>
+                      {renderTableCells(item, {
+                        py: 'py-2',
+                        nameSuffix: hasChildren
+                          ? <span className="ml-1.5 text-[10px] font-normal text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">{item.children_count}</span>
+                          : undefined,
+                      })}
                       <td className="px-2 py-2 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <div className="flex gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" title="コピーして新規登録" onClick={(e) => openCopy(item, e)}><Copy className="h-3.5 w-3.5" /></Button>
@@ -904,15 +958,7 @@ export default function EquipmentListPage() {
                       >
                         <td className="pl-8 pr-1 py-1.5 text-muted-foreground/40 text-xs">└</td>
                         {canBulkEdit && <td />}
-                        <td className="px-3 py-1.5 font-mono text-xs text-muted-foreground/70 whitespace-nowrap">{child.eq_code}</td>
-                        <td className="px-3 py-1.5 whitespace-nowrap">
-                          <SectionBadge typeCode={child.equipment_type_code} section={child.equipment_section} />
-                        </td>
-                        <td className="px-3 py-1.5 text-xs text-muted-foreground whitespace-nowrap">{child.location_name || child.location_detail || '–'}</td>
-                        <td className="px-3 py-1.5 font-medium">{child.name}</td>
-                        <td className="px-3 py-1.5 text-xs text-muted-foreground whitespace-nowrap">{child.model_number || '–'}</td>
-                        <td className="px-3 py-1.5 text-xs text-right tabular-nums text-muted-foreground whitespace-nowrap">{child.unit_number || '–'}</td>
-                        <td className="px-3 py-1.5 text-xs text-muted-foreground max-w-[10rem] truncate">{child.notes || '–'}</td>
+                        {renderTableCells(child, { py: 'py-1.5' })}
                         <td className="px-2 py-1.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" title="コピーして新規登録" onClick={(e) => openCopy(child, e)}><Copy className="h-3 w-3" /></Button>
