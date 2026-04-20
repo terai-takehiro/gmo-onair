@@ -98,12 +98,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const setCurrentUserId = useUiStore((s) => s.setCurrentUserId);
 
-  const fetchPermissions = useCallback(async () => {
+  const fetchPermissions = useCallback(async (seed?: Permissions) => {
+    // If a seed is provided (from /auth/me response), use it immediately
+    if (seed && Object.keys(seed).length > 0) {
+      setPermissions(seed);
+      setPermissionsLoaded(true);
+    }
     try {
       const res = await api.get("/users/me/permissions");
-      setPermissions(res.data.data || {});
+      const data: Permissions = res.data.data || {};
+      // Only update if we got real data, or if seed was also empty
+      if (Object.keys(data).length > 0 || !seed) {
+        setPermissions(data);
+      }
     } catch {
-      setPermissions({});
+      // Don't clear permissions on network error if we already have data from seed
+      if (!seed) setPermissions({});
     } finally {
       setPermissionsLoaded(true);
     }
@@ -120,7 +130,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setCurrentUser(user);
           setCurrentUserId(user.id);
           localStorage.setItem("gmo_onair_user", JSON.stringify(user));
-          await fetchPermissions();
+          // Use permissions embedded in /auth/me (req.user.permissions) as seed,
+          // then fetch /users/me/permissions to confirm/refresh
+          await fetchPermissions(user.permissions as Permissions | undefined);
           setLoading(false);
           return;
         } catch {
@@ -171,7 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setCurrentUser(user);
       setCurrentUserId(user.id);
       localStorage.setItem("gmo_onair_user", JSON.stringify(user));
-      await fetchPermissions();
+      await fetchPermissions(user.permissions as Permissions | undefined);
     },
     [setCurrentUserId, fetchPermissions]
   );
