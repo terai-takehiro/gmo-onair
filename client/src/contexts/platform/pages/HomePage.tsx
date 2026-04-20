@@ -444,7 +444,7 @@ export default function HomePage() {
                 onClick={() => {
                   if (app.externalUrl) {
                     window.open(app.externalUrl, "_blank", "noopener,noreferrer");
-                  } else if (["equipment", "qsheet", "interactive", "techsheet"].includes(app.id)) {
+                  } else if (["equipment", "qsheet", "interactive", "techsheet", "liveops"].includes(app.id)) {
                     window.location.href = app.basePath;
                   } else {
                     navigate(app.basePath);
