@@ -13,9 +13,10 @@ interface Props {
   onStop: () => void;
   onReset: () => void;
   onAdjust: (delta: number) => void;
+  readOnly?: boolean;
 }
 
-export default function TimerControls({ state, onSet, onStart, onStop, onReset, onAdjust }: Props) {
+export default function TimerControls({ state, onSet, onStart, onStop, onReset, onAdjust, readOnly = false }: Props) {
   const [customMin, setCustomMin] = useState('');
   const [customSec, setCustomSec] = useState('');
 
@@ -27,6 +28,14 @@ export default function TimerControls({ state, onSet, onStart, onStop, onReset, 
 
   const running = state?.running ?? false;
   const phase = state?.phase ?? 'idle';
+
+  if (readOnly) {
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+        タイマー操作は管理者権限が必要です
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

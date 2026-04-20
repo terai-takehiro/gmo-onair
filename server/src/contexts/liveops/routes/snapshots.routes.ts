@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import { queryAll as query, execute } from '../../../shared/db/connection';
+import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
+const canRead = [requireAuth, requirePermission('liveops', 'reader')] as const;
 
-router.post('/', async (req, res) => {
+router.post('/', ...canRead, async (req, res) => {
   try {
     const { programId, youtubeCount, jstreamCount, details } = req.body;
     if (!programId) return res.status(400).json({ success: false, message: 'programId required' });
@@ -20,7 +22,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.get('/:programId', async (req, res) => {
+router.get('/:programId', ...canRead, async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 60, 300);
     const rows = await query(

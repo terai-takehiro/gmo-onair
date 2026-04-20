@@ -1,38 +1,47 @@
 import { Router } from 'express';
 import { queryOne, execute } from '../../../shared/db/connection';
+import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { encrypt, decrypt, mask } from '../crypto';
 
 const router = Router();
+const canRead  = [requireAuth, requirePermission('liveops', 'reader')] as const;
+const canWrite = [requireAuth, requirePermission('liveops', 'manager')] as const;
 
-router.get('/', async (req, res) => {
+router.get('/', ...canRead, async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
-    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
-
+    const userId = (req as any).user!.id;
     const row = await queryOne(
       'SELECT youtube_api_key_enc, jstream_token_enc, polling_interval_sec FROM liveops_settings WHERE user_id = $1',
       [userId]
     );
+    // Check if any user has configured keys (org-level fallback)
+    const anyYt = !row?.youtube_api_key_enc
+      ? await queryOne('SELECT youtube_api_key_enc FROM liveops_settings WHERE youtube_api_key_enc IS NOT NULL LIMIT 1', [])
+      : null;
+    const anyJs = !row?.jstream_token_enc
+      ? await queryOne('SELECT jstream_token_enc FROM liveops_settings WHERE jstream_token_enc IS NOT NULL LIMIT 1', [])
+      : null;
+
     res.json({
       success: true,
       data: {
         youtubeApiKeyMasked: mask(row ? decrypt((row as any).youtube_api_key_enc) : null),
         jstreamTokenMasked: mask(row ? decrypt((row as any).jstream_token_enc) : null),
         pollingIntervalSec: (row as any)?.polling_interval_sec ?? 10,
-        hasYoutubeKey: !!(row as any)?.youtube_api_key_enc,
-        hasJstreamToken: !!(row as any)?.jstream_token_enc,
+        hasYoutubeKey: !!(row as any)?.youtube_api_key_enc || !!anyYt,
+        hasJstreamToken: !!(row as any)?.jstream_token_enc || !!anyJs,
+        hasOwnYoutubeKey: !!(row as any)?.youtube_api_key_enc,
+        hasOwnJstreamToken: !!(row as any)?.jstream_token_enc,
       },
     });
-  } catch (err) {
+  } catch {
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
 
-router.put('/', async (req, res) => {
+router.put('/', ...canWrite, async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
-    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
-
+    const userId = (req as any).user!.id;
     const { youtubeApiKey, jstreamToken, pollingIntervalSec } = req.body;
 
     const existing = await queryOne(
@@ -69,7 +78,7 @@ router.put('/', async (req, res) => {
     }
 
     res.json({ success: true });
-  } catch (err) {
+  } catch {
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });

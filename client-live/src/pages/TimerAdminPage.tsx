@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useTimer } from '@/hooks/useTimer';
+import { usePermissions } from '@/hooks/usePermissions';
 import TimerDisplay from '@/components/timer/TimerDisplay';
 import TimerControls from '@/components/timer/TimerControls';
 import { Button } from '@/components/ui/button';
@@ -11,19 +12,33 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, QrCode, ExternalLink, Trash2 } from 'lucide-react';
 
-interface Timer { id: string; name: string; phase: string; project_name?: string }
+interface Timer { id: string; name: string; phase: string; project_id?: string | null; project_name?: string }
+interface Project { id: string; name: string; gls_number?: string | null }
 
 export default function TimerAdminPage() {
   const qc = useQueryClient();
+  const { canManage } = usePermissions();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState('');
+  const [newProjectId, setNewProjectId] = useState<string>('');
   const [qrOpen, setQrOpen] = useState(false);
   const [qrUrl, setQrUrl] = useState('');
 
   const { data: timers = [] } = useQuery({
     queryKey: ['timers'],
     queryFn: () => api.get('/liveops/timers').then(r => r.data.data as Timer[]),
+  });
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects-list'],
+    queryFn: async () => {
+      const r = await api.get('/projects?limit=200');
+      const raw = r.data.data;
+      const items = Array.isArray(raw) ? raw : (raw?.items ?? []);
+      return items as Project[];
+    },
+    staleTime: 2 * 60 * 1000,
   });
 
   useEffect(() => {
@@ -33,12 +48,13 @@ export default function TimerAdminPage() {
   const timer = useTimer(selectedId);
 
   const createMutation = useMutation({
-    mutationFn: (name: string) => api.post('/liveops/timers', { name }),
+    mutationFn: () => api.post('/liveops/timers', { name: newName, projectId: newProjectId || null }),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['timers'] });
       setSelectedId(res.data.data.id);
       setCreateOpen(false);
       setNewName('');
+      setNewProjectId('');
     },
   });
 
@@ -52,8 +68,7 @@ export default function TimerAdminPage() {
 
   const openQr = () => {
     if (!selectedId) return;
-    const base = window.location.origin;
-    const url = `${base}/live/display/${selectedId}`;
+    const url = `${window.location.origin}/live/display/${selectedId}`;
     setQrUrl(url);
     setQrOpen(true);
   };
@@ -62,9 +77,11 @@ export default function TimerAdminPage() {
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b bg-card px-4 py-2">
         <h1 className="text-sm font-bold">タイマー管理</h1>
-        <Button size="sm" className="h-7 text-xs" onClick={() => setCreateOpen(true)}>
-          <Plus className="h-3 w-3 mr-1" /> 新規
-        </Button>
+        {canManage && (
+          <Button size="sm" className="h-7 text-xs" onClick={() => setCreateOpen(true)}>
+            <Plus className="h-3 w-3 mr-1" /> 新規
+          </Button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -77,7 +94,7 @@ export default function TimerAdminPage() {
             <SelectContent>
               {timers.map(t => (
                 <SelectItem key={t.id} value={t.id}>
-                  {t.name}{t.project_name ? ` (${t.project_name})` : ''}
+                  {t.name}{t.project_name ? ` — ${t.project_name}` : ''}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -87,15 +104,12 @@ export default function TimerAdminPage() {
           </Button>
           {selectedId && (
             <a href={`/live/display/${selectedId}`} target="_blank" rel="noreferrer">
-              <Button variant="outline" size="sm">
-                <ExternalLink className="h-4 w-4" />
-              </Button>
+              <Button variant="outline" size="sm"><ExternalLink className="h-4 w-4" /></Button>
             </a>
           )}
-          {selectedId && (
+          {canManage && selectedId && (
             <Button
-              variant="ghost"
-              size="sm"
+              variant="ghost" size="sm"
               className="text-destructive hover:text-destructive"
               onClick={() => { if (confirm('削除しますか？')) deleteMutation.mutate(selectedId); }}
             >
@@ -106,11 +120,9 @@ export default function TimerAdminPage() {
 
         {selectedId ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Display */}
             <div className="h-56 rounded-xl overflow-hidden">
               <TimerDisplay state={timer.state} compact={false} />
             </div>
-            {/* Controls */}
             <div className="rounded-xl border bg-card p-4">
               <TimerControls
                 state={timer.state}
@@ -119,15 +131,18 @@ export default function TimerAdminPage() {
                 onStop={timer.stop}
                 onReset={timer.reset}
                 onAdjust={timer.adjust}
+                readOnly={!canManage}
               />
             </div>
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
             <p className="text-sm">タイマーがありません</p>
-            <Button className="mt-3" size="sm" onClick={() => setCreateOpen(true)}>
-              <Plus className="h-4 w-4 mr-1" /> 作成
-            </Button>
+            {canManage && (
+              <Button className="mt-3" size="sm" onClick={() => setCreateOpen(true)}>
+                <Plus className="h-4 w-4 mr-1" /> 作成
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -143,12 +158,28 @@ export default function TimerAdminPage() {
                 placeholder="本番尺、休憩など"
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && newName) createMutation.mutate(newName); }}
+                onKeyDown={e => { if (e.key === 'Enter' && newName) createMutation.mutate(); }}
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label>案件 (任意)</Label>
+              <Select value={newProjectId} onValueChange={setNewProjectId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="案件に紐づける場合は選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">紐づけない</SelectItem>
+                  {projects.map(p => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.gls_number ? `[${p.gls_number}] ` : ''}{p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setCreateOpen(false)}>キャンセル</Button>
-              <Button onClick={() => createMutation.mutate(newName)} disabled={!newName || createMutation.isPending}>
+              <Button onClick={() => createMutation.mutate()} disabled={!newName || createMutation.isPending}>
                 作成
               </Button>
             </div>

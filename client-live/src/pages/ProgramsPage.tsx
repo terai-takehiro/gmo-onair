@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, Youtube, ChevronDown, ChevronUp, Globe } from 'lucide-react';
 
@@ -12,13 +14,18 @@ interface YoutubeUrl { label: string; url: string }
 interface Program {
   id: string; name: string; jstream_lpid: string | null;
   youtube_urls: YoutubeUrl[]; hasSingularToken: boolean;
-  project_name?: string; gls_number?: string;
+  project_id?: string | null; project_name?: string; gls_number?: string;
 }
+interface Project { id: string; name: string; gls_number?: string | null }
 
-const emptyForm = { name: '', jstreamLpid: '', singularAppToken: '', youtubeUrls: [{ label: '', url: '' }] as YoutubeUrl[] };
+const emptyForm = {
+  name: '', projectId: '', jstreamLpid: '', singularAppToken: '',
+  youtubeUrls: [{ label: '', url: '' }] as YoutubeUrl[],
+};
 
 export default function ProgramsPage() {
   const qc = useQueryClient();
+  const { canManage } = usePermissions();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Program | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -29,11 +36,23 @@ export default function ProgramsPage() {
     queryFn: () => api.get('/liveops/programs').then(r => r.data.data as Program[]),
   });
 
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects-list'],
+    queryFn: async () => {
+      const r = await api.get('/projects?limit=200');
+      const raw = r.data.data;
+      const items = Array.isArray(raw) ? raw : (raw?.items ?? []);
+      return items as Project[];
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+
   const openCreate = () => { setEditing(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (p: Program) => {
     setEditing(p);
     setForm({
       name: p.name,
+      projectId: p.project_id ?? '',
       jstreamLpid: p.jstream_lpid ?? '',
       singularAppToken: '',
       youtubeUrls: p.youtube_urls.length > 0 ? p.youtube_urls : [{ label: '', url: '' }],
@@ -45,6 +64,7 @@ export default function ProgramsPage() {
     mutationFn: async () => {
       const body = {
         name: form.name,
+        projectId: form.projectId || null,
         jstreamLpid: form.jstreamLpid || null,
         singularAppToken: form.singularAppToken || undefined,
         youtubeUrls: form.youtubeUrls.filter(u => u.url.trim()),
@@ -69,16 +89,22 @@ export default function ProgramsPage() {
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b bg-card px-4 py-2">
         <h1 className="text-sm font-bold">番組管理</h1>
-        <Button size="sm" className="h-7 text-xs" onClick={openCreate}>
-          <Plus className="h-3 w-3 mr-1" /> 新規
-        </Button>
+        {canManage && (
+          <Button size="sm" className="h-7 text-xs" onClick={openCreate}>
+            <Plus className="h-3 w-3 mr-1" /> 新規
+          </Button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-2">
         {programs.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
             <p className="text-sm">番組がありません</p>
-            <Button className="mt-3" size="sm" onClick={openCreate}><Plus className="h-4 w-4 mr-1" />作成</Button>
+            {canManage && (
+              <Button className="mt-3" size="sm" onClick={openCreate}>
+                <Plus className="h-4 w-4 mr-1" />作成
+              </Button>
+            )}
           </div>
         )}
 
@@ -90,7 +116,9 @@ export default function ProgramsPage() {
                   className="flex items-center gap-2 min-w-0"
                   onClick={() => setExpanded(expanded === p.id ? null : p.id)}
                 >
-                  {expanded === p.id ? <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                  {expanded === p.id
+                    ? <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    : <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />}
                   <span className="font-medium text-sm truncate">{p.name}</span>
                 </button>
                 <div className="flex flex-wrap gap-1">
@@ -104,26 +132,31 @@ export default function ProgramsPage() {
                       <Globe className="h-3 w-3 text-cyan-500" />JS
                     </Badge>
                   )}
-                  {p.hasSingularToken && (
-                    <Badge variant="secondary" className="text-xs">SL</Badge>
-                  )}
+                  {p.hasSingularToken && <Badge variant="secondary" className="text-xs">SL</Badge>}
                 </div>
               </div>
-              <div className="flex items-center gap-1">
-                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openEdit(p)}>
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                  onClick={() => { if (confirm('削除しますか？')) deleteMutation.mutate(p.id); }}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
+              {canManage && (
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openEdit(p)}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                    onClick={() => { if (confirm('削除しますか？')) deleteMutation.mutate(p.id); }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
             </div>
 
             {expanded === p.id && (
               <div className="border-t px-4 py-3 space-y-1.5 text-xs text-muted-foreground">
+                {p.project_name && (
+                  <div className="font-medium text-foreground text-xs">
+                    案件: {p.gls_number ? `[${p.gls_number}] ` : ''}{p.project_name}
+                  </div>
+                )}
                 {p.youtube_urls.map((u, i) => (
                   <div key={i} className="flex items-center gap-2">
                     <Youtube className="h-3 w-3 text-red-500 shrink-0" />
@@ -138,9 +171,6 @@ export default function ProgramsPage() {
                     <span>{p.jstream_lpid}</span>
                   </div>
                 )}
-                {p.project_name && (
-                  <div>案件: {p.gls_number ? `[${p.gls_number}] ` : ''}{p.project_name}</div>
-                )}
               </div>
             )}
           </div>
@@ -153,7 +183,28 @@ export default function ProgramsPage() {
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label>番組名</Label>
-              <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="ライブ配信番組名" />
+              <Input
+                value={form.name}
+                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="ライブ配信番組名"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>案件 (任意)</Label>
+              <Select value={form.projectId} onValueChange={v => setForm(f => ({ ...f, projectId: v }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="案件に紐づける場合は選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">紐づけない</SelectItem>
+                  {projects.map(p => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.gls_number ? `[${p.gls_number}] ` : ''}{p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">

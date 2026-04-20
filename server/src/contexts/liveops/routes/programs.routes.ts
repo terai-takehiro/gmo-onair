@@ -1,11 +1,14 @@
 import { Router } from 'express';
 import { queryAll as query, queryOne, execute } from '../../../shared/db/connection';
+import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { encrypt, decrypt, mask } from '../crypto';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
+const canRead  = [requireAuth, requirePermission('liveops', 'reader')] as const;
+const canWrite = [requireAuth, requirePermission('liveops', 'manager')] as const;
 
-router.get('/', async (req, res) => {
+router.get('/', ...canRead, async (req, res) => {
   try {
     const rows = await query(
       `SELECT p.id, p.name, p.project_id, p.youtube_urls, p.jstream_lpid,
@@ -28,7 +31,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', ...canRead, async (req, res) => {
   try {
     const row = await queryOne(
       `SELECT p.*, pr.name AS project_name, pr.gls_number
@@ -51,7 +54,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', ...canWrite, async (req, res) => {
   try {
     const userId = (req as any).user?.id;
     const { name, projectId, youtubeUrls = [], jstreamLpid, singularAppToken } = req.body;
@@ -76,7 +79,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', ...canWrite, async (req, res) => {
   try {
     const { name, projectId, youtubeUrls, jstreamLpid, singularAppToken, singularMappings } = req.body;
     const existing = await queryOne(
@@ -115,7 +118,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', ...canWrite, async (req, res) => {
   try {
     await execute(
       'UPDATE liveops_programs SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL',

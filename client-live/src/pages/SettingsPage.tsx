@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Eye, EyeOff, CheckCircle, Download, Upload } from 'lucide-react';
+import { Eye, EyeOff, CheckCircle, Download, Upload, ShieldOff } from 'lucide-react';
 
 export default function SettingsPage() {
+  const { canManage } = usePermissions();
   const [youtubeApiKey, setYoutubeApiKey] = useState('');
   const [jstreamToken, setJstreamToken] = useState('');
   const [pollingInterval, setPollingInterval] = useState('10');
@@ -71,6 +73,20 @@ export default function SettingsPage() {
     input.click();
   };
 
+  if (!canManage) {
+    return (
+      <div className="flex h-full flex-col">
+        <div className="border-b bg-card px-4 py-2">
+          <h1 className="text-sm font-bold">設定</h1>
+        </div>
+        <div className="flex flex-1 items-center justify-center text-muted-foreground gap-2">
+          <ShieldOff className="h-5 w-5" />
+          <span className="text-sm">設定の変更は管理者権限が必要です</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full flex-col">
       <div className="border-b bg-card px-4 py-2">
@@ -100,8 +116,11 @@ export default function SettingsPage() {
                   {showYt ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
               </div>
-              {settings?.hasYoutubeKey && (
+              {settings?.hasOwnYoutubeKey && (
                 <p className="text-xs text-green-600">設定済み ({settings.youtubeApiKeyMasked})</p>
+              )}
+              {!settings?.hasOwnYoutubeKey && settings?.hasYoutubeKey && (
+                <p className="text-xs text-amber-600">他ユーザーのキーを共有利用中 (自分のキーを設定すると優先されます)</p>
               )}
             </div>
 
@@ -119,8 +138,11 @@ export default function SettingsPage() {
                   {showJs ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
               </div>
-              {settings?.hasJstreamToken && (
+              {settings?.hasOwnJstreamToken && (
                 <p className="text-xs text-green-600">設定済み ({settings.jstreamTokenMasked})</p>
+              )}
+              {!settings?.hasOwnJstreamToken && settings?.hasJstreamToken && (
+                <p className="text-xs text-amber-600">他ユーザーのトークンを共有利用中 (自分のトークンを設定すると優先されます)</p>
               )}
             </div>
           </section>

@@ -1,10 +1,13 @@
 import { Router } from 'express';
 import { queryAll as query, queryOne, execute } from '../../../shared/db/connection';
+import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
+const canRead  = [requireAuth, requirePermission('liveops', 'reader')] as const;
+const canWrite = [requireAuth, requirePermission('liveops', 'manager')] as const;
 
-router.get('/', async (req, res) => {
+router.get('/', ...canRead, async (req, res) => {
   try {
     const rows = await query(
       `SELECT t.*, p.name AS project_name, p.gls_number
@@ -20,7 +23,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', ...canRead, async (req, res) => {
   try {
     const row = await queryOne(
       `SELECT t.*, p.name AS project_name, p.gls_number
@@ -36,7 +39,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', ...canWrite, async (req, res) => {
   try {
     const userId = (req as any).user?.id;
     const { name, projectId, warningThresholdSec = 60, viewerOverlayProgramId } = req.body;
@@ -55,7 +58,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', ...canWrite, async (req, res) => {
   try {
     const { name, projectId, warningThresholdSec, viewerOverlayProgramId } = req.body;
     await execute(
@@ -76,7 +79,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', ...canWrite, async (req, res) => {
   try {
     await execute(
       'UPDATE liveops_timers SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL',
@@ -90,14 +93,10 @@ router.delete('/:id', async (req, res) => {
 
 function computeClientState(row: any) {
   if (!row.running) {
-    return {
-      ...row,
-      remainingMs: Number(row.paused_remaining_ms ?? row.remaining_ms),
-    };
+    return { ...row, remainingMs: Number(row.paused_remaining_ms ?? row.remaining_ms) };
   }
   const elapsed = row.started_at ? Date.now() - new Date(row.started_at).getTime() : 0;
-  const remainingMs = Number(row.paused_remaining_ms) - elapsed;
-  return { ...row, remaining_ms: remainingMs };
+  return { ...row, remaining_ms: Number(row.paused_remaining_ms) - elapsed };
 }
 
 export default router;

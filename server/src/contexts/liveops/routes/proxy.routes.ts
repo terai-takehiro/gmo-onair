@@ -1,20 +1,37 @@
-import { Router, Request, Response } from 'express';
+import { Router } from 'express';
 import axios from 'axios';
 import { queryOne } from '../../../shared/db/connection';
+import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { decrypt } from '../crypto';
 
 const router = Router();
+const canRead  = [requireAuth, requirePermission('liveops', 'reader')] as const;
+const canWrite = [requireAuth, requirePermission('liveops', 'manager')] as const;
 
-/** YouTube Data API v3 proxy — CORS workaround */
-router.get('/youtube', async (req, res) => {
+/** APIキーを取得: 自分のキーを優先し、なければ他ユーザーのキーにフォールバック */
+async function resolveKey(userId: string, column: 'youtube_api_key_enc' | 'jstream_token_enc'): Promise<string | null> {
+  const own = await queryOne(
+    `SELECT ${column} FROM liveops_settings WHERE user_id = $1`,
+    [userId]
+  );
+  const enc = (own as any)?.[column] || null;
+  if (enc) return decrypt(enc);
+
+  // org-level fallback: use any configured key
+  const fallback = await queryOne(
+    `SELECT ${column} FROM liveops_settings WHERE ${column} IS NOT NULL ORDER BY updated_at DESC LIMIT 1`,
+    []
+  );
+  const fallbackEnc = (fallback as any)?.[column] || null;
+  return fallbackEnc ? decrypt(fallbackEnc) : null;
+}
+
+/** YouTube Data API v3 proxy */
+router.get('/youtube', ...canRead, async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
-    const settings = userId
-      ? await queryOne('SELECT youtube_api_key_enc FROM liveops_settings WHERE user_id = $1', [userId])
-      : null;
-
-    const apiKey = (settings as any)?.youtube_api_key_enc ? decrypt((settings as any).youtube_api_key_enc) : null;
-    if (!apiKey) return res.status(400).json({ success: false, message: 'YouTube API key not configured' });
+    const userId = (req as any).user!.id;
+    const apiKey = await resolveKey(userId, 'youtube_api_key_enc');
+    if (!apiKey) return res.status(400).json({ success: false, message: 'YouTube APIキーが設定されていません。設定ページでAPIキーを登録してください。' });
 
     const { videoIds } = req.query as { videoIds?: string };
     if (!videoIds) return res.status(400).json({ success: false, message: 'videoIds required' });
@@ -37,16 +54,12 @@ router.get('/youtube', async (req, res) => {
   }
 });
 
-/** Jstream Equipmedia proxy — CORS workaround */
-router.get('/jstream', async (req, res) => {
+/** Jstream Equipmedia proxy */
+router.get('/jstream', ...canRead, async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
-    const settings = userId
-      ? await queryOne('SELECT jstream_token_enc FROM liveops_settings WHERE user_id = $1', [userId])
-      : null;
-
-    const token = (settings as any)?.jstream_token_enc ? decrypt((settings as any).jstream_token_enc) : null;
-    if (!token) return res.status(400).json({ success: false, message: 'Jstream token not configured' });
+    const userId = (req as any).user!.id;
+    const token = await resolveKey(userId, 'jstream_token_enc');
+    if (!token) return res.status(400).json({ success: false, message: 'Jstreamトークンが設定されていません。設定ページでトークンを登録してください。' });
 
     const { lpid } = req.query as { lpid?: string };
     if (!lpid) return res.status(400).json({ success: false, message: 'lpid required' });
@@ -63,13 +76,13 @@ router.get('/jstream', async (req, res) => {
     const parts = last.split(',');
     const count = parseInt(parts[parts.length - 1], 10);
     res.json({ success: true, data: { count: isNaN(count) ? 0 : count } });
-  } catch (err: any) {
+  } catch {
     res.status(500).json({ success: false, message: 'Jstream API error' });
   }
 });
 
-/** Singular Live Control App — get model */
-router.get('/singular/model/:programId', async (req, res) => {
+/** Singular Live — get model */
+router.get('/singular/model/:programId', ...canRead, async (req, res) => {
   try {
     const program = await queryOne(
       'SELECT singular_app_token_enc FROM liveops_programs WHERE id = $1 AND deleted_at IS NULL',
@@ -85,19 +98,18 @@ router.get('/singular/model/:programId', async (req, res) => {
       `https://app.singular.live/apiv2/controlapps/${token}/model`,
       { timeout: 10000 }
     );
-    // Cache model in DB
     await queryOne(
       'UPDATE liveops_programs SET singular_model_cache = $2, updated_at = NOW() WHERE id = $1',
       [req.params.programId, JSON.stringify(singRes.data)]
     );
     res.json({ success: true, data: singRes.data });
-  } catch (err: any) {
+  } catch {
     res.status(500).json({ success: false, message: 'Singular API error' });
   }
 });
 
-/** Singular Live Control App — send values */
-router.post('/singular/control/:programId', async (req, res) => {
+/** Singular Live — send values */
+router.post('/singular/control/:programId', ...canWrite, async (req, res) => {
   try {
     const program = await queryOne(
       'SELECT singular_app_token_enc FROM liveops_programs WHERE id = $1 AND deleted_at IS NULL',
@@ -116,7 +128,7 @@ router.post('/singular/control/:programId', async (req, res) => {
       { timeout: 10000 }
     );
     res.json({ success: true, data: singRes.data });
-  } catch (err: any) {
+  } catch {
     res.status(500).json({ success: false, message: 'Singular API error' });
   }
 });

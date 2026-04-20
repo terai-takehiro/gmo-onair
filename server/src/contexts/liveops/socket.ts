@@ -1,5 +1,7 @@
 import { Server as IOServer, Namespace } from 'socket.io';
-import { queryOne, execute } from '../../shared/db/connection';
+import { queryOne, queryAll, execute } from '../../shared/db/connection';
+import { verifyToken } from '../../shared/auth/jwt';
+import { config } from '../../config';
 
 interface TimerState {
   id: string;
@@ -12,9 +14,7 @@ interface TimerState {
   warningThresholdSec: number;
 }
 
-// In-memory states keyed by timerId
 const states = new Map<string, TimerState>();
-// Tick interval keyed by timerId
 const ticks = new Map<string, ReturnType<typeof setInterval>>();
 
 function computePhase(remainingMs: number, totalSeconds: number, warningThresholdSec: number): TimerState['phase'] {
@@ -89,14 +89,52 @@ function stopTick(timerId: string) {
   if (t) { clearInterval(t); ticks.delete(timerId); }
 }
 
+/** cookieヘッダーから gmo_onair_token を取り出す */
+function extractCookieToken(cookieHeader?: string): string | null {
+  if (!cookieHeader) return null;
+  const match = cookieHeader.match(/gmo_onair_token=([^;]+)/);
+  return match ? match[1] : null;
+}
+
 export function initLiveopsSocketIO(io: IOServer) {
   const ns = io.of('/liveops');
+
+  // 本番モードのみ認証を強制 (開発はmockAuthのためスキップ)
+  if (config.authMode === 'password') {
+    ns.use(async (socket, next) => {
+      try {
+        const token = (socket.handshake.auth as any)?.token as string | undefined
+          || extractCookieToken(socket.handshake.headers.cookie as string | undefined);
+
+        if (!token) return next(new Error('Unauthorized'));
+        const payload = verifyToken(token);
+        if (!payload) return next(new Error('Unauthorized'));
+
+        const user = await queryOne(
+          'SELECT id, role FROM users WHERE id = $1 AND deleted_at IS NULL',
+          [payload.userId]
+        );
+        if (!user) return next(new Error('Unauthorized'));
+
+        if ((user as any).role !== 'system_admin') {
+          const perm = await queryOne(
+            'SELECT access_level FROM user_permissions WHERE user_id = $1 AND module = $2',
+            [(user as any).id, 'liveops']
+          );
+          if (!perm) return next(new Error('Forbidden: liveops permission required'));
+        }
+
+        (socket as any).userId = (user as any).id;
+        next();
+      } catch (err) {
+        next(new Error('Auth error'));
+      }
+    });
+  }
 
   ns.on('connection', (socket) => {
     socket.on('timer:join', async ({ timerId }: { timerId: string }) => {
       await socket.join(`timer:${timerId}`);
-
-      // Load or reuse in-memory state
       if (!states.has(timerId)) {
         const s = await loadTimer(timerId);
         if (s) states.set(timerId, s);
@@ -157,13 +195,9 @@ export function initLiveopsSocketIO(io: IOServer) {
     socket.on('timer:adjust', async ({ timerId, deltaSeconds }: { timerId: string; deltaSeconds: number }) => {
       const s = states.get(timerId);
       if (!s) return;
-      const current = s.running && s.startedAt
-        ? s.pausedRemaining - (Date.now() - s.startedAt)
-        : s.pausedRemaining;
-      const newRemaining = current + deltaSeconds * 1000;
       const updated: TimerState = {
         ...s,
-        pausedRemaining: s.running ? s.pausedRemaining + deltaSeconds * 1000 : newRemaining,
+        pausedRemaining: s.running ? s.pausedRemaining + deltaSeconds * 1000 : s.pausedRemaining + deltaSeconds * 1000,
         startedAt: s.running ? s.startedAt : null,
       };
       states.set(timerId, updated);
