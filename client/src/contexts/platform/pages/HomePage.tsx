@@ -501,6 +501,7 @@ function PermDiagPanel() {
   const [data, setData] = useState<any>(null);
   const [apiPerms, setApiPerms] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [endpointTests, setEndpointTests] = useState<Record<string, { status: number | string; ok: boolean; msg?: string }>>({});
 
   const run = async () => {
     setLoading(true);
@@ -522,6 +523,31 @@ function PermDiagPanel() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const runEndpointTests = async () => {
+    const endpoints: Array<[string, string]> = [
+      ["sales", "/sales/projects?limit=1"],
+      ["budget", "/budget/revenues?limit=1"],
+      ["studio", "/studios/rooms"],
+      ["equipment", "/equipment/stats"],
+      ["qsheet", "/qsheet/documents?limit=1"],
+      ["techsheet", "/techsheet/documents?limit=1"],
+    ];
+    const results: Record<string, { status: number | string; ok: boolean; msg?: string }> = {};
+    await Promise.all(endpoints.map(async ([name, path]) => {
+      try {
+        const res = await api.get(path);
+        results[name] = { status: res.status, ok: true };
+      } catch (e: any) {
+        results[name] = {
+          status: e?.response?.status ?? "err",
+          ok: false,
+          msg: e?.response?.data?.error?.message ?? e?.message,
+        };
+      }
+    }));
+    setEndpointTests(results);
   };
 
   const permCount = data?.permissionsInDb?.length ?? 0;
@@ -676,7 +702,24 @@ function PermDiagPanel() {
               )}
             </>
           )}
-          <button onClick={run} className="text-primary underline text-xs">{loading ? "..." : "再診断"}</button>
+          <div className="flex gap-3">
+            <button onClick={run} className="text-primary underline text-xs">{loading ? "..." : "再診断"}</button>
+            <button onClick={runEndpointTests} className="text-primary underline text-xs">実エンドポイントテスト</button>
+          </div>
+
+          {Object.keys(endpointTests).length > 0 && (
+            <div className="bg-muted/30 rounded p-2 space-y-0.5">
+              <div className="font-medium mb-1">エンドポイントテスト結果:</div>
+              {Object.entries(endpointTests).map(([name, r]) => (
+                <div key={name} className="flex justify-between">
+                  <span className="text-muted-foreground">{name}</span>
+                  <span className={r.ok ? "text-green-600" : "text-red-600"}>
+                    {r.ok ? `✓ ${r.status}` : `✗ ${r.status}${r.msg ? ` — ${r.msg}` : ""}`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
