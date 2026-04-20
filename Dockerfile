@@ -13,6 +13,7 @@ COPY client-equipment/package.json client-equipment/
 COPY client-qsheet/package.json client-qsheet/
 COPY client-interactive/package.json client-interactive/
 COPY client-techsheet/package.json client-techsheet/
+COPY client-live/package.json client-live/
 COPY server/package.json server/
 COPY shared/package.json shared/
 RUN npm install --workspaces --include-workspace-root
@@ -24,6 +25,7 @@ COPY client-equipment/ client-equipment/
 COPY client-qsheet/ client-qsheet/
 COPY client-interactive/ client-interactive/
 COPY client-techsheet/ client-techsheet/
+COPY client-live/ client-live/
 COPY server/ server/
 
 # 3. Build in order
@@ -33,6 +35,7 @@ RUN npm run build --workspace=client-equipment
 RUN npm run build --workspace=client-qsheet
 RUN npm run build --workspace=client-interactive
 RUN npm run build --workspace=client-techsheet
+RUN npm run build --workspace=client-live
 RUN npm run build --workspace=server
 
 # ── Stage 2: Production ──────────────────────
@@ -56,6 +59,7 @@ COPY --from=builder /app/client-equipment/dist client-equipment/dist
 COPY --from=builder /app/client-qsheet/dist client-qsheet/dist
 COPY --from=builder /app/client-interactive/dist client-interactive/dist
 COPY --from=builder /app/client-techsheet/dist client-techsheet/dist
+COPY --from=builder /app/client-live/dist client-live/dist
 
 # Runtime
 RUN mkdir -p /app/uploads/qsheet
