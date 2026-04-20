@@ -16,11 +16,13 @@ ALTER TABLE studio_bookings ADD CONSTRAINT studio_bookings_status_check
   CHECK (status IN ('confirmed', 'tentative')) NOT VALID;
 
 -- 2. 予約種別の再整理
+-- CHECK 制約を先に DROP してから UPDATE (旧制約に 'performance' が含まれない場合の違反を防ぐ)
+ALTER TABLE studio_bookings DROP CONSTRAINT IF EXISTS studio_bookings_booking_type_check;
+
 -- 既存データ: project → performance にマージ
 UPDATE studio_bookings SET booking_type = 'performance' WHERE booking_type = 'project';
 
--- CHECK 制約を差し替え
-ALTER TABLE studio_bookings DROP CONSTRAINT IF EXISTS studio_bookings_booking_type_check;
+-- 新しい CHECK 制約を追加
 ALTER TABLE studio_bookings ADD CONSTRAINT studio_bookings_booking_type_check
   CHECK (booking_type IN (
     'performance', 'rehearsal', 'hold', 'tour',
