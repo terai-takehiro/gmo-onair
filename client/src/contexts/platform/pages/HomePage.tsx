@@ -498,15 +498,26 @@ export default function HomePage() {
 function PermDiagPanel() {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<any>(null);
+  const [apiPerms, setApiPerms] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
   const run = async () => {
     setLoading(true);
     try {
-      const res = await api.get("/auth/debug");
-      setData(res.data.data);
-    } catch (e: any) {
-      setData({ error: e?.response?.data?.error?.message ?? String(e) });
+      const [debugRes, permsRes] = await Promise.allSettled([
+        api.get("/auth/debug"),
+        api.get("/users/me/permissions"),
+      ]);
+      setData(
+        debugRes.status === "fulfilled"
+          ? debugRes.value.data.data
+          : { error: (debugRes.reason as any)?.response?.data?.error?.message ?? String(debugRes.reason) }
+      );
+      setApiPerms(
+        permsRes.status === "fulfilled"
+          ? permsRes.value.data.data
+          : { _error: (permsRes.reason as any)?.response?.data?.error?.message ?? String(permsRes.reason) }
+      );
     } finally {
       setLoading(false);
     }
@@ -514,6 +525,9 @@ function PermDiagPanel() {
 
   const permCount = data?.permissionsInDb?.length ?? 0;
   const hasPerms = permCount > 0;
+  const reqUserPerms: Record<string, string> = data?.userFromJwt?.permissions ?? {};
+  const reqUserPermCount = Object.keys(reqUserPerms).length;
+  const apiPermCount = apiPerms && !apiPerms._error ? Object.keys(apiPerms).length : 0;
 
   return (
     <div className="mt-6 border rounded-lg overflow-hidden text-xs">
@@ -534,9 +548,7 @@ function PermDiagPanel() {
       {open && (
         <div className="px-4 py-3 space-y-3">
           {loading && <p className="text-muted-foreground">読み込み中...</p>}
-          {data?.error && (
-            <p className="text-destructive">エラー: {data.error}</p>
-          )}
+          {data?.error && <p className="text-destructive">エラー: {data.error}</p>}
           {data && !data.error && (
             <>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1">
@@ -546,24 +558,73 @@ function PermDiagPanel() {
                 <span className="font-medium">{data.userInDb?.role}</span>
                 <span className="text-muted-foreground">ステータス</span>
                 <span>{data.userInDb?.status}</span>
-                <span className="text-muted-foreground">権限数 (DB)</span>
-                <span className={hasPerms ? "text-green-600 font-bold" : "text-amber-600 font-bold"}>
-                  {permCount} モジュール
+                <span className="text-muted-foreground">権限数 (DB table)</span>
+                <span className={hasPerms ? "text-green-600 font-bold" : "text-amber-600 font-bold"}>{permCount} モジュール</span>
+                <span className="text-muted-foreground">権限数 (req.user)</span>
+                <span className={reqUserPermCount > 0 ? "text-green-600 font-bold" : "text-red-600 font-bold"}>{reqUserPermCount} モジュール</span>
+                <span className="text-muted-foreground">権限数 (API応答)</span>
+                <span className={apiPermCount > 0 ? "text-green-600 font-bold" : "text-red-600 font-bold"}>
+                  {apiPerms?._error ? `エラー: ${apiPerms._error}` : `${apiPermCount} モジュール`}
                 </span>
               </div>
+
               {permCount > 0 && (
-                <div className="bg-muted/30 rounded p-2 space-y-0.5">
-                  {data.permissionsInDb.map((p: any) => (
-                    <div key={p.module} className="flex justify-between">
-                      <span className="text-muted-foreground">{p.module}</span>
-                      <span className="font-medium">{p.access_level}</span>
-                    </div>
-                  ))}
-                </div>
+                <details className="text-muted-foreground">
+                  <summary className="cursor-pointer font-medium">DB table 詳細</summary>
+                  <div className="bg-muted/30 rounded p-2 mt-1 space-y-0.5">
+                    {data.permissionsInDb.map((p: any) => (
+                      <div key={p.module} className="flex justify-between">
+                        <span>{p.module}</span>
+                        <span className="font-medium text-foreground">{p.access_level}</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
               )}
+
+              {reqUserPermCount > 0 && (
+                <details className="text-muted-foreground">
+                  <summary className="cursor-pointer font-medium">req.user.permissions 詳細</summary>
+                  <div className="bg-muted/30 rounded p-2 mt-1 space-y-0.5">
+                    {Object.entries(reqUserPerms).map(([mod, lvl]) => (
+                      <div key={mod} className="flex justify-between">
+                        <span>{mod}</span>
+                        <span className="font-medium text-foreground">{lvl}</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+
+              {apiPermCount > 0 && (
+                <details className="text-muted-foreground">
+                  <summary className="cursor-pointer font-medium">API応答 詳細</summary>
+                  <div className="bg-muted/30 rounded p-2 mt-1 space-y-0.5">
+                    {Object.entries(apiPerms as Record<string, string>).map(([mod, lvl]) => (
+                      <div key={mod} className="flex justify-between">
+                        <span>{mod}</span>
+                        <span className="font-medium text-foreground">{lvl}</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+
               {permCount === 0 && (
                 <div className="bg-amber-50 border border-amber-200 rounded p-2 text-amber-700">
                   権限がDBに登録されていません。管理者に「権限修復」の実行を依頼してください。
+                </div>
+              )}
+
+              {permCount > 0 && reqUserPermCount === 0 && (
+                <div className="bg-red-50 border border-red-200 rounded p-2 text-red-700">
+                  ⚠ DBには権限がありますが req.user.permissions が空です。loadUserWithPermissions に問題があります。
+                </div>
+              )}
+
+              {permCount > 0 && apiPermCount === 0 && !apiPerms?._error && (
+                <div className="bg-red-50 border border-red-200 rounded p-2 text-red-700">
+                  ⚠ DBには権限がありますが API応答が空です。/users/me/permissions のクエリに問題があります。
                 </div>
               )}
             </>
