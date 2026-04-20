@@ -8,7 +8,7 @@ type Level = keyof typeof LEVEL;
 export function usePermissions() {
   const { currentUser } = useAuth();
 
-  const { data: permissions = [], isLoading } = useQuery({
+  const { data: permissions = [], isPending } = useQuery({
     queryKey: ['me-permissions'],
     queryFn: async () => {
       const r = await api.get('/users/me/permissions');
@@ -27,5 +27,6 @@ export function usePermissions() {
   const canView   = hasPermission('liveops', 'reader');
   const canManage = hasPermission('liveops', 'manager');
 
-  return { hasPermission, canView, canManage, permissionsLoading: isLoading };
+  // isPending is true while no data (including when query is disabled / currentUser not yet loaded)
+  return { hasPermission, canView, canManage, permissionsLoading: isPending };
 }

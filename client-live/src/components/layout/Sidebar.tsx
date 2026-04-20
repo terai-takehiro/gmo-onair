@@ -1,7 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
-import { usePermissions } from '@/hooks/usePermissions';
 import { useUiStore } from '@/stores/uiStore';
 import { getAccessibleApps } from '@gmo-onair/shared/src/client/appNav';
 import {
@@ -22,20 +21,12 @@ const navItems = [
 
 export default function Sidebar() {
   const { currentUser } = useAuth();
-  const { canManage, hasPermission, permissionsLoading } = usePermissions();
   const { sidebarOpen, setSidebarOpen } = useUiStore();
 
-  // permissions を Record<string,string> に変換して getAccessibleApps へ渡す
-  const permsRecord: Record<string, string> = {};
-  if (currentUser?.role === 'system_admin') {
-    // system_admin は getAccessibleApps 内で全許可
-  } else if (!permissionsLoading) {
-    ['sales','budget','studio','qsheet','equipment','interactive','techsheet','liveops'].forEach(m => {
-      if (hasPermission(m)) permsRecord[m] = 'reader';
-    });
-  }
+  const canManage = currentUser?.role === 'system_admin' ||
+    !!(currentUser?.permissions?.['liveops'] && ['manager', 'owner'].includes(currentUser.permissions['liveops']));
 
-  const otherApps = getAccessibleApps('liveops', currentUser?.role, permsRecord);
+  const otherApps = getAccessibleApps('liveops', currentUser?.role, currentUser?.permissions as Record<string, string> | undefined);
 
   return (
     <>
