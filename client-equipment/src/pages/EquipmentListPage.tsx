@@ -257,7 +257,7 @@ export default function EquipmentListPage() {
     URL.revokeObjectURL(url);
   };
 
-  const { data: itemsData, isLoading } = useQuery({
+  const { data: itemsData, isLoading, error: itemsError } = useQuery({
     queryKey: ["equipment-items", urlSearch, filterBlock, includeChildren],
     queryFn: async () => {
       const params: Record<string, string> = {};
@@ -799,6 +799,15 @@ export default function EquipmentListPage() {
 
       {isLoading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+      ) : itemsError ? (
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
+          <Package className="h-12 w-12 opacity-20" />
+          <p className="font-medium text-destructive">
+            {(itemsError as any)?.response?.status === 403
+              ? '機材管理へのアクセス権限がありません。管理者に権限付与を依頼してください。'
+              : 'データの取得に失敗しました。ページを再読み込みしてください。'}
+          </p>
+        </div>
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
           <Package className="h-12 w-12 opacity-20" /><p>機材が登録されていません</p>
