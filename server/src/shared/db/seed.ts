@@ -7,8 +7,8 @@ const USERS = {
   staff1: '00000000-0000-0000-0000-000000000002',
   staff2: '00000000-0000-0000-0000-000000000003',
   staff3: '00000000-0000-0000-0000-000000000004',
-  viewer: '00000000-0000-0000-0000-000000000005',
-  external: '00000000-0000-0000-0000-000000000006',
+  staff4: '00000000-0000-0000-0000-000000000005',
+  staff5: '00000000-0000-0000-0000-000000000006',
 };
 
 const CUSTOMERS: Record<string, string> = {};
@@ -36,56 +36,53 @@ export async function seed() {
   await ins(userSql, [USERS.staff1, '佐藤 花子', 'sato@globalstudio.example.com', 'staff']);
   await ins(userSql, [USERS.staff2, '鈴木 一郎', 'suzuki@globalstudio.example.com', 'staff']);
   await ins(userSql, [USERS.staff3, '高橋 美咲', 'takahashi@globalstudio.example.com', 'staff']);
-  await ins(userSql, [USERS.viewer, '田中 健二', 'tanaka@globalstudio.example.com', 'viewer']);
-  await ins(userSql, [USERS.external, '外部 クライアント', 'client@example.com', 'external_client']);
+  await ins(userSql, [USERS.staff4, '田中 健二', 'tanaka@globalstudio.example.com', 'staff']);
+  await ins(userSql, [USERS.staff5, '山田 太郎', 'yamada@globalstudio.example.com', 'staff']);
 
   // ============================================================
   // User Permissions (system_admin bypasses checks, so only non-admin users)
   // ============================================================
   const permSql = `INSERT INTO user_permissions (id, user_id, module, access_level) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING`;
-  // ブロックアプリごとに個別設定
+  // 3段階: reader(閲覧) / editor(編集) / manager(管理)
   const perms: [string, string, string][] = [
     // staff1 — 佐藤（営業マネージャー寄り）
-    //        営業管理    予算管理      スタジオ     機材管理     Qシート
-    [USERS.staff1, 'sales',     'owner'],      // 営業の責任者
-    [USERS.staff1, 'budget',    'manager'],    // 予算も削除可
-    [USERS.staff1, 'studio',    'editor'],     // スタジオ予約は編集まで
-    [USERS.staff1, 'equipment', 'exporter'],   // 機材は閲覧+出力のみ
-    [USERS.staff1, 'qsheet',    'editor'],     // Qシート編集可
-    [USERS.staff1, 'interactive', 'editor'],  // インタラクティブ編集可
-    [USERS.staff1, 'techsheet', 'editor'],    // 技術資料編集可
+    [USERS.staff1, 'sales',       'manager'],
+    [USERS.staff1, 'budget',      'manager'],
+    [USERS.staff1, 'studio',      'editor'],
+    [USERS.staff1, 'equipment',   'reader'],
+    [USERS.staff1, 'qsheet',      'editor'],
+    [USERS.staff1, 'interactive', 'editor'],
+    [USERS.staff1, 'techsheet',   'editor'],
 
     // staff2 — 鈴木（制作マネージャー寄り）
-    [USERS.staff2, 'sales',     'editor'],     // 営業は編集まで
-    [USERS.staff2, 'budget',    'exporter'],   // 予算は出力まで
-    [USERS.staff2, 'studio',    'owner'],      // スタジオの責任者
-    [USERS.staff2, 'equipment', 'manager'],    // 機材は削除可
-    [USERS.staff2, 'qsheet',    'owner'],      // Qシートの責任者
-    [USERS.staff2, 'interactive', 'owner'],   // インタラクティブ責任者
-    [USERS.staff2, 'techsheet', 'owner'],     // 技術資料の責任者
+    [USERS.staff2, 'sales',       'editor'],
+    [USERS.staff2, 'budget',      'reader'],
+    [USERS.staff2, 'studio',      'manager'],
+    [USERS.staff2, 'equipment',   'manager'],
+    [USERS.staff2, 'qsheet',      'manager'],
+    [USERS.staff2, 'interactive', 'manager'],
+    [USERS.staff2, 'techsheet',   'manager'],
 
     // staff3 — 高橋（制作スタッフ）
-    [USERS.staff3, 'sales',     'reader'],     // 営業は閲覧のみ
-    [USERS.staff3, 'studio',    'editor'],     // スタジオ予約は編集可
-    [USERS.staff3, 'equipment', 'editor'],     // 機材も編集可
-    [USERS.staff3, 'qsheet',    'editor'],     // Qシート編集可
-    [USERS.staff3, 'interactive', 'editor'],  // インタラクティブ編集可
-    [USERS.staff3, 'techsheet', 'editor'],    // 技術資料編集可
-    // budget: アクセスなし
+    [USERS.staff3, 'sales',       'reader'],
+    [USERS.staff3, 'studio',      'editor'],
+    [USERS.staff3, 'equipment',   'editor'],
+    [USERS.staff3, 'qsheet',      'editor'],
+    [USERS.staff3, 'interactive', 'editor'],
+    [USERS.staff3, 'techsheet',   'editor'],
 
-    // viewer — 田中（経営層・閲覧用）
-    [USERS.viewer, 'sales',     'exporter'],   // 営業レポート出力
-    [USERS.viewer, 'budget',    'exporter'],   // 予算レポート出力
-    [USERS.viewer, 'studio',    'reader'],     // スタジオは閲覧のみ
-    [USERS.viewer, 'qsheet',    'reader'],     // Qシート閲覧のみ
-    [USERS.viewer, 'interactive', 'reader'],  // インタラクティブ閲覧
-    [USERS.viewer, 'techsheet', 'reader'],    // 技術資料閲覧
-    // equipment: アクセスなし
+    // staff4 — 田中（経営層・主に閲覧）
+    [USERS.staff4, 'sales',       'reader'],
+    [USERS.staff4, 'budget',      'reader'],
+    [USERS.staff4, 'studio',      'reader'],
+    [USERS.staff4, 'qsheet',      'reader'],
+    [USERS.staff4, 'interactive', 'reader'],
+    [USERS.staff4, 'techsheet',   'reader'],
 
-    // external — 山田（外部クライアント）
-    [USERS.external, 'studio',  'reader'],     // カレンダー閲覧のみ
-    [USERS.external, 'qsheet',  'reader'],     // Qシート閲覧のみ
-    [USERS.external, 'techsheet', 'reader'],   // 技術資料閲覧のみ
+    // staff5 — 山田（限定アクセス）
+    [USERS.staff5, 'studio',      'reader'],
+    [USERS.staff5, 'qsheet',      'reader'],
+    [USERS.staff5, 'techsheet',   'reader'],
   ];
 
   for (const [userId, mod, level] of perms) {

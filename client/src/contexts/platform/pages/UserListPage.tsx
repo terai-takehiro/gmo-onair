@@ -30,14 +30,20 @@ const roleColorMap: Record<string, string> = {
   staff: "#005bac",
 };
 
-// アクセスレベルの色
+// アクセスレベルの色（3段階）
 const LEVEL_COLORS: Record<string, string> = {
-  reader:   "bg-sky-100 text-sky-800",
-  exporter: "bg-teal-100 text-teal-800",
-  editor:   "bg-violet-100 text-violet-800",
-  manager:  "bg-amber-100 text-amber-800",
-  owner:    "bg-red-100 text-red-800",
-  none:     "bg-muted text-muted-foreground",
+  reader:  "bg-sky-100 text-sky-800",
+  editor:  "bg-violet-100 text-violet-800",
+  manager: "bg-amber-100 text-amber-800",
+  none:    "bg-muted text-muted-foreground",
+};
+
+// DB に残る旧レベルを新レベルに正規化（表示・保存用）
+const normalizeLevel = (level: string | undefined): string | undefined => {
+  if (!level) return level;
+  if (level === "exporter") return "reader";
+  if (level === "owner") return "manager";
+  return level;
 };
 
 // 権限ダイアログで表示するモジュール（順序付き）
@@ -85,7 +91,10 @@ function PermissionDialog({
   useEffect(() => {
     if (permsData) {
       const map: Record<string, string> = {};
-      for (const p of permsData) map[p.module] = p.access_level;
+      for (const p of permsData) {
+        const normalized = normalizeLevel(p.access_level);
+        if (normalized) map[p.module] = normalized;
+      }
       setLocalPerms(map);
     }
   }, [permsData]);

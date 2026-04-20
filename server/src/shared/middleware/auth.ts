@@ -118,7 +118,8 @@ export function requireRole(...roles: string[]) {
  * system_admin は常にアクセス可能
  */
 export function requirePermission(module: string, minLevel: 'reader' | 'exporter' | 'editor' | 'manager' | 'owner' = 'reader') {
-  const levelOrder = { reader: 1, exporter: 2, editor: 3, manager: 4, owner: 5 };
+  // 3段階に集約: 閲覧(reader+exporter) / 編集(editor) / 管理(manager+owner)
+  const levelOrder = { reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3 };
 
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {

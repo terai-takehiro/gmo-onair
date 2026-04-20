@@ -77,7 +77,9 @@ export default function EquipmentListPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const qc = useQueryClient();
-  const { currentUser } = useAuth();
+  const { currentUser, hasPermission } = useAuth();
+  const canEdit   = hasPermission('equipment', 'editor');
+  const canDelete = hasPermission('equipment', 'manager');
   const canBulkEdit = useMemo(() => {
     if (!currentUser) return false;
     if (currentUser.role === 'system_admin') return true;
@@ -663,16 +665,18 @@ export default function EquipmentListPage() {
               </div>
             )}
           </div>
-          <Button
-            size="sm"
-            variant={tableEditMode ? "default" : "outline"}
-            onClick={() => { setTableEditMode(v => !v); setTableEdits({}); }}
-          >
-            <Edit3 className="h-4 w-4 mr-1" />{tableEditMode ? "編集完了" : "表編集"}
-          </Button>
-          <Button size="sm" onClick={openNew}>
+          {canEdit && (
+            <Button
+              size="sm"
+              variant={tableEditMode ? "default" : "outline"}
+              onClick={() => { setTableEditMode(v => !v); setTableEdits({}); }}
+            >
+              <Edit3 className="h-4 w-4 mr-1" />{tableEditMode ? "編集完了" : "表編集"}
+            </Button>
+          )}
+          {canEdit && <Button size="sm" onClick={openNew}>
             <Plus className="h-4 w-4 mr-1" />機材登録
-          </Button>
+          </Button>}
         </div>
       </div>
 
@@ -915,9 +919,9 @@ export default function EquipmentListPage() {
                       })}
                       <td className="px-2 py-2 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <div className="flex gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" title="コピーして新規登録" onClick={(e) => openCopy(item, e)}><Copy className="h-3 w-3" /></Button>
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); openEdit(item); }}><Pencil className="h-3 w-3" /></Button>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); if (confirm(`「${item.name}」を削除？`)) deleteMutation.mutate(item.id); }}><Trash2 className="h-3 w-3" /></Button>
+                          {canEdit && <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" title="コピーして新規登録" onClick={(e) => openCopy(item, e)}><Copy className="h-3 w-3" /></Button>}
+                          {canEdit && <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); openEdit(item); }}><Pencil className="h-3 w-3" /></Button>}
+                          {canDelete && <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); if (confirm(`「${item.name}」を削除？`)) deleteMutation.mutate(item.id); }}><Trash2 className="h-3 w-3" /></Button>}
                         </div>
                       </td>
                     </tr>
@@ -952,9 +956,9 @@ export default function EquipmentListPage() {
                       })}
                       <td className="px-2 py-2 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <div className="flex gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" title="コピーして新規登録" onClick={(e) => openCopy(item, e)}><Copy className="h-3.5 w-3.5" /></Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(item); }}><Pencil className="h-3.5 w-3.5" /></Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={(e) => { e.stopPropagation(); if (confirm(`「${item.name}」を削除？`)) deleteMutation.mutate(item.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                          {canEdit && <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" title="コピーして新規登録" onClick={(e) => openCopy(item, e)}><Copy className="h-3.5 w-3.5" /></Button>}
+                          {canEdit && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(item); }}><Pencil className="h-3.5 w-3.5" /></Button>}
+                          {canDelete && <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={(e) => { e.stopPropagation(); if (confirm(`「${item.name}」を削除？`)) deleteMutation.mutate(item.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>}
                         </div>
                       </td>
                     </tr>
@@ -970,9 +974,9 @@ export default function EquipmentListPage() {
                         {renderTableCells(child, { py: 'py-1.5' })}
                         <td className="px-2 py-1.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" title="コピーして新規登録" onClick={(e) => openCopy(child, e)}><Copy className="h-3 w-3" /></Button>
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); openEdit(child); }}><Pencil className="h-3 w-3" /></Button>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); if (confirm(`「${child.name}」を削除？`)) { deleteMutation.mutate(child.id, { onSuccess: () => { setChildrenCache(prev => ({ ...prev, [item.id]: (prev[item.id] ?? []).filter((c: any) => c.id !== child.id) })); } }); } }}><Trash2 className="h-3 w-3" /></Button>
+                            {canEdit && <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" title="コピーして新規登録" onClick={(e) => openCopy(child, e)}><Copy className="h-3 w-3" /></Button>}
+                            {canEdit && <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); openEdit(child); }}><Pencil className="h-3 w-3" /></Button>}
+                            {canDelete && <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); if (confirm(`「${child.name}」を削除？`)) { deleteMutation.mutate(child.id, { onSuccess: () => { setChildrenCache(prev => ({ ...prev, [item.id]: (prev[item.id] ?? []).filter((c: any) => c.id !== child.id) })); } }); } }}><Trash2 className="h-3 w-3" /></Button>}
                           </div>
                         </td>
                       </tr>

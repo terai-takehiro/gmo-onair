@@ -51,22 +51,24 @@ export const MODULE_LABELS: Record<string, string> = {
   admin: "システム管理",
 };
 
-/** アクセスレベル定義 */
+/** アクセスレベル定義（3段階） */
 export const ACCESS_LEVEL_LABELS: Record<string, string> = {
-  reader: "閲覧のみ",
-  exporter: "閲覧・出力",
-  editor: "編集可",
-  manager: "管理者",
-  owner: "オーナー",
+  reader: "閲覧",
+  editor: "編集",
+  manager: "管理",
 };
 
 /** アクセスレベルの説明 */
 export const ACCESS_LEVEL_DESCRIPTIONS: Record<string, string> = {
-  reader: "データの参照のみ",
-  exporter: "参照・CSV出力",
+  reader: "参照・CSV出力",
   editor: "追加・編集",
-  manager: "追加・編集・削除・設定変更",
-  owner: "すべての操作",
+  manager: "追加・編集・削除・設定",
+};
+
+/** 旧レベルの互換ラベル（DBに古い値が残っている場合の表示用） */
+export const LEGACY_LEVEL_LABELS: Record<string, string> = {
+  exporter: "閲覧",
+  owner:    "管理",
 };
 
 interface AuthContextType {
@@ -86,7 +88,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const LEVEL_ORDER: Record<string, number> = { reader: 1, exporter: 2, editor: 3, manager: 4, owner: 5 };
+// 3段階化: exporter=reader, owner=manager として扱う
+const LEVEL_ORDER: Record<string, number> = { reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
