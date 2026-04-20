@@ -9,8 +9,6 @@ const router = Router();
 const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
   (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
 
-router.use(requireAuth, requireRole('system_admin'));
-
 interface SheetDef {
   name: string;
   query: string;
@@ -272,7 +270,7 @@ const SHEETS: SheetDef[] = [
   },
 ];
 
-router.get('/admin/backup.xlsx', wrap(async (_req, res) => {
+router.get('/admin/backup.xlsx', requireAuth, requireRole('system_admin'), wrap(async (_req, res) => {
   const sheets: SheetSpec[] = [];
   for (const def of SHEETS) {
     try {
