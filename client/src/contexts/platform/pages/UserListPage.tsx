@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import api from "@/lib/api";
-import { useAuth, MODULE_LABELS, ACCESS_LEVEL_LABELS } from "@/contexts/platform/AuthContext";
+import { useAuth, MODULE_LABELS, ACCESS_LEVEL_LABELS, ACCESS_LEVEL_DESCRIPTIONS } from "@/contexts/platform/AuthContext";
 import { formatDate } from "@/lib/format";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
@@ -18,21 +18,37 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Loader2, ShieldAlert, KeyRound, Copy, CheckCircle2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, ShieldAlert, KeyRound, Copy, CheckCircle2, Info } from "lucide-react";
 
 const roleLabelMap: Record<string, string> = {
   system_admin: "システム管理者",
   staff: "スタッフ",
-  viewer: "閲覧者",
-  external_client: "外部クライアント",
+  // 旧ロール表示用 (移行期間)
+  viewer: "スタッフ",
+  external_client: "スタッフ",
 };
 
 const roleColorMap: Record<string, string> = {
   system_admin: "#dc2626",
   staff: "#005bac",
-  viewer: "#059669",
-  external_client: "#7c3aed",
+  viewer: "#005bac",
+  external_client: "#005bac",
 };
+
+// アクセスレベルの色
+const LEVEL_COLORS: Record<string, string> = {
+  reader:   "bg-sky-100 text-sky-800",
+  exporter: "bg-teal-100 text-teal-800",
+  editor:   "bg-violet-100 text-violet-800",
+  manager:  "bg-amber-100 text-amber-800",
+  owner:    "bg-red-100 text-red-800",
+  none:     "bg-muted text-muted-foreground",
+};
+
+// 権限ダイアログで表示するモジュール（順序付き）
+const PERM_MODULES = [
+  "sales", "budget", "studio", "equipment", "qsheet", "techsheet", "interactive",
+];
 
 interface User {
   id: string;
@@ -43,8 +59,6 @@ interface User {
   phone?: string;
   created_at?: string;
 }
-
-// statusは将来の一覧表示で使用予定
 
 interface UserForm {
   name: string;
@@ -63,6 +77,7 @@ function PermissionDialog({
   onOpenChange: (v: boolean) => void;
 }) {
   const [localPerms, setLocalPerms] = useState<Record<string, string>>({});
+  const [showHelp, setShowHelp] = useState(false);
 
   const isTargetAdmin = user?.role === "system_admin";
 
@@ -75,24 +90,20 @@ function PermissionDialog({
   useEffect(() => {
     if (permsData) {
       const map: Record<string, string> = {};
-      for (const p of permsData) {
-        map[p.module] = p.access_level;
-      }
+      for (const p of permsData) map[p.module] = p.access_level;
       setLocalPerms(map);
     }
   }, [permsData]);
 
   useEffect(() => {
-    if (!open) {
-      setLocalPerms({});
-    }
+    if (!open) { setLocalPerms({}); setShowHelp(false); }
   }, [open, user?.id]);
 
   const qc = useQueryClient();
   const saveMutation = useMutation({
     mutationFn: async () => {
       const permissions: Record<string, string | null> = {};
-      for (const mod of Object.keys(MODULE_LABELS)) {
+      for (const mod of PERM_MODULES) {
         permissions[mod] = localPerms[mod] || null;
       }
       await api.put(`/users/${user!.id}/permissions`, { permissions });
@@ -106,35 +117,37 @@ function PermissionDialog({
   const setModuleLevel = (mod: string, level: string) => {
     setLocalPerms((prev) => {
       const next = { ...prev };
-      if (level === "none") {
-        delete next[mod];
-      } else {
-        next[mod] = level;
-      }
+      if (level === "none") delete next[mod];
+      else next[mod] = level;
       return next;
     });
   };
 
+  const accessCount = PERM_MODULES.filter(m => localPerms[m]).length;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>権限設定 — {user?.name}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            権限設定
+            <span className="text-muted-foreground font-normal">— {user?.name}</span>
+          </DialogTitle>
           <DialogDescription>
-            各モジュールのアクセスレベルを設定します
+            各アプリへのアクセス権限を設定します
           </DialogDescription>
         </DialogHeader>
 
         {isTargetAdmin ? (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground bg-muted rounded-md p-3">
-              管理者は全権限を持ちます
-            </p>
-            <div className="space-y-2">
-              {Object.entries(MODULE_LABELS).map(([mod, label]) => (
-                <div key={mod} className="flex items-center justify-between py-1.5 px-1">
-                  <span className="text-sm font-medium">{label}</span>
-                  <Badge className="bg-primary/10 text-primary">フルアクセス</Badge>
+          <div className="space-y-3">
+            <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-sm text-primary">
+              システム管理者はすべてのアプリにフルアクセスできます
+            </div>
+            <div className="space-y-1.5">
+              {PERM_MODULES.map((mod) => (
+                <div key={mod} className="flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-muted/40">
+                  <span className="text-sm font-medium">{MODULE_LABELS[mod]}</span>
+                  <Badge className="bg-primary/10 text-primary text-xs">フルアクセス</Badge>
                 </div>
               ))}
             </div>
@@ -148,27 +161,77 @@ function PermissionDialog({
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="space-y-2">
-              {Object.entries(MODULE_LABELS).map(([mod, label]) => (
-                <div key={mod} className="flex items-center justify-between gap-4 py-1">
-                  <span className="text-sm font-medium whitespace-nowrap">{label}</span>
-                  <Select
-                    value={localPerms[mod] || "none"}
-                    onValueChange={(v) => setModuleLevel(mod, v)}
-                  >
-                    <SelectTrigger className="w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">アクセスなし</SelectItem>
-                      {Object.entries(ACCESS_LEVEL_LABELS).map(([level, levelLabel]) => (
-                        <SelectItem key={level} value={level}>{levelLabel}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              ))}
+            {/* サマリー */}
+            <div className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2">
+              <span className="text-sm text-muted-foreground">
+                {accessCount} / {PERM_MODULES.length} アプリにアクセス可
+              </span>
+              <button
+                type="button"
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => setShowHelp((v) => !v)}
+              >
+                <Info className="h-3.5 w-3.5" />
+                レベル説明
+              </button>
             </div>
+
+            {/* レベル説明（展開可） */}
+            {showHelp && (
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5 text-xs">
+                <p className="font-semibold text-xs text-muted-foreground mb-2">アクセスレベルの説明</p>
+                {Object.entries(ACCESS_LEVEL_LABELS).map(([level, label]) => (
+                  <div key={level} className="flex items-baseline gap-2">
+                    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0 ${LEVEL_COLORS[level]}`}>
+                      {label}
+                    </span>
+                    <span className="text-muted-foreground">{ACCESS_LEVEL_DESCRIPTIONS[level]}</span>
+                  </div>
+                ))}
+                <div className="flex items-baseline gap-2">
+                  <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0 ${LEVEL_COLORS.none}`}>
+                    アクセスなし
+                  </span>
+                  <span className="text-muted-foreground">このアプリを使用できません</span>
+                </div>
+              </div>
+            )}
+
+            {/* モジュール別設定 */}
+            <div className="space-y-1">
+              {PERM_MODULES.map((mod) => {
+                const level = localPerms[mod] || "none";
+                return (
+                  <div key={mod} className="flex items-center gap-3 py-1.5 px-1 rounded-md hover:bg-muted/40">
+                    <span className="text-sm font-medium flex-1 min-w-0 truncate">
+                      {MODULE_LABELS[mod]}
+                    </span>
+                    <span className={`hidden sm:inline-block text-xs px-2 py-0.5 rounded shrink-0 ${LEVEL_COLORS[level]}`}>
+                      {level === "none" ? "なし" : ACCESS_LEVEL_LABELS[level]}
+                    </span>
+                    <Select value={level} onValueChange={(v) => setModuleLevel(mod, v)}>
+                      <SelectTrigger className="w-36 h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">
+                          <span className="text-muted-foreground">アクセスなし</span>
+                        </SelectItem>
+                        {Object.entries(ACCESS_LEVEL_LABELS).map(([lv, lbl]) => (
+                          <SelectItem key={lv} value={lv}>
+                            <div className="flex flex-col">
+                              <span>{lbl}</span>
+                              <span className="text-[10px] text-muted-foreground">{ACCESS_LEVEL_DESCRIPTIONS[lv]}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              })}
+            </div>
+
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
               <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
@@ -234,7 +297,7 @@ export default function UserListPage() {
 
   const openEdit = (u: User) => {
     setEditingId(u.id);
-    form.reset({ name: u.name, email: u.email, role: u.role });
+    form.reset({ name: u.name, email: u.email, role: u.role === "system_admin" ? "system_admin" : "staff" });
     setDialogOpen(true);
   };
 
@@ -254,7 +317,12 @@ export default function UserListPage() {
     <PageTransition>
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       <div className="flex flex-wrap gap-2 items-center justify-between">
-        <h1 className="text-xl lg:text-2xl font-bold">ユーザー管理</h1>
+        <div>
+          <h1 className="text-xl lg:text-2xl font-bold">ユーザー管理</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            ロールは「管理者」または「スタッフ」の2種類。アプリ別の権限は🔑ボタンで設定します。
+          </p>
+        </div>
         <Button onClick={openAdd}><Plus className="mr-2 h-4 w-4" />新規追加</Button>
       </div>
 
@@ -272,11 +340,14 @@ export default function UserListPage() {
                   <div key={u.id} className="rounded-lg border p-3 transition-colors hover:bg-muted/50">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium truncate">{u.name}</span>
                           <Badge color={roleColorMap[u.role]}>
                             {roleLabelMap[u.role] || u.role}
                           </Badge>
+                          {u.status === "invited" && (
+                            <Badge variant="outline" className="text-xs text-amber-600 border-amber-400">招待中</Badge>
+                          )}
                         </div>
                         <div className="text-sm text-muted-foreground mt-1 truncate">{u.email}</div>
                         {u.created_at && (
@@ -307,8 +378,9 @@ export default function UserListPage() {
                     <TableHead>名前</TableHead>
                     <TableHead>メール</TableHead>
                     <TableHead>ロール</TableHead>
+                    <TableHead>ステータス</TableHead>
                     <TableHead>作成日</TableHead>
-                    <TableHead className="w-32"></TableHead>
+                    <TableHead className="w-36"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -320,6 +392,15 @@ export default function UserListPage() {
                         <Badge color={roleColorMap[u.role]}>
                           {roleLabelMap[u.role] || u.role}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {u.status === "invited" ? (
+                          <Badge variant="outline" className="text-xs text-amber-600 border-amber-400">招待中</Badge>
+                        ) : u.status === "active" ? (
+                          <Badge variant="outline" className="text-xs text-green-600 border-green-400">有効</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">{u.status}</span>
+                        )}
                       </TableCell>
                       <TableCell>{formatDate(u.created_at)}</TableCell>
                       <TableCell>
@@ -380,12 +461,23 @@ export default function UserListPage() {
                   <Select value={form.watch("role")} onValueChange={(v) => form.setValue("role", v)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="system_admin">システム管理者</SelectItem>
-                      <SelectItem value="staff">スタッフ</SelectItem>
-                      <SelectItem value="viewer">閲覧者</SelectItem>
-                      <SelectItem value="external_client">外部クライアント</SelectItem>
+                      <SelectItem value="system_admin">
+                        <div className="flex flex-col">
+                          <span>システム管理者</span>
+                          <span className="text-xs text-muted-foreground">全権限・ユーザー管理</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="staff">
+                        <div className="flex flex-col">
+                          <span>スタッフ</span>
+                          <span className="text-xs text-muted-foreground">アプリ別に権限を設定</span>
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    スタッフは招待後に🔑権限設定でアプリ別のアクセス権を調整できます
+                  </p>
                 </div>
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={closeDialog}>キャンセル</Button>

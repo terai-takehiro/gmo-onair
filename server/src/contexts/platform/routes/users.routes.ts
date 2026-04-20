@@ -39,6 +39,7 @@ router.get('/:id', wrap(async (req, res) => {
 router.post('/', requireRole('system_admin'), wrap(async (req, res) => {
   const { name, email, role, phone } = req.body;
   if (!name || !email || !role) throw new AppError(400, 'VALIDATION_ERROR', '名前、メール、ロールは必須です');
+  if (!['system_admin', 'staff'].includes(role)) throw new AppError(400, 'VALIDATION_ERROR', '無効なロールです');
 
   // 既存チェック (ソフト削除済みも含む)
   const existing = await queryOne('SELECT id, status, deleted_at FROM users WHERE email = ?', [email]) as any;
@@ -82,9 +83,6 @@ router.post('/', requireRole('system_admin'), wrap(async (req, res) => {
       staff: {
         sales: 'reader', budget: 'reader', studio: 'editor',
         equipment: 'reader', qsheet: 'editor', techsheet: 'editor', interactive: 'editor',
-      },
-      viewer: {
-        sales: 'reader', equipment: 'reader', qsheet: 'reader', techsheet: 'reader',
       },
     };
     const permsForRole = defaultPerms[role as string] ?? {};

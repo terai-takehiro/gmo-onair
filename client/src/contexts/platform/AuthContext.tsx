@@ -51,13 +51,22 @@ export const MODULE_LABELS: Record<string, string> = {
   admin: "システム管理",
 };
 
-/** アクセスレベル定義（BOX風 5段階） */
+/** アクセスレベル定義 */
 export const ACCESS_LEVEL_LABELS: Record<string, string> = {
-  reader: "リーダー",
-  exporter: "エクスポーター",
-  editor: "エディター",
-  manager: "マネージャー",
+  reader: "閲覧のみ",
+  exporter: "閲覧・出力",
+  editor: "編集可",
+  manager: "管理者",
   owner: "オーナー",
+};
+
+/** アクセスレベルの説明 */
+export const ACCESS_LEVEL_DESCRIPTIONS: Record<string, string> = {
+  reader: "データの参照のみ",
+  exporter: "参照・CSV出力",
+  editor: "追加・編集",
+  manager: "追加・編集・削除・設定変更",
+  owner: "すべての操作",
 };
 
 interface AuthContextType {
