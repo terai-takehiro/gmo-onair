@@ -75,6 +75,7 @@ export async function seed() {
     [USERS.staff4, 'sales',       'reader'],
     [USERS.staff4, 'budget',      'reader'],
     [USERS.staff4, 'studio',      'reader'],
+    [USERS.staff4, 'equipment',   'reader'],
     [USERS.staff4, 'qsheet',      'reader'],
     [USERS.staff4, 'interactive', 'reader'],
     [USERS.staff4, 'techsheet',   'reader'],

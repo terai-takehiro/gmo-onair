@@ -77,16 +77,13 @@ router.post('/', requireRole('system_admin'), wrap(async (req, res) => {
     html: `<h2>GMO ONAiR へようこそ</h2><p><strong>${name}</strong> 様</p><p>GMO ONAiR へ招待されました。下記のリンクからパスワードを設定してください。</p><p><a href="${inviteUrl}" style="display:inline-block;padding:12px 24px;background:#005bac;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;">アカウントを有効化</a></p><p style="color:#666;font-size:12px;">このリンクは7日間有効です。</p>`,
   });
 
-  // ロール別デフォルトパーミッション付与（新規ユーザーのみ、既存ユーザーの再招待は変更しない）
-  if (!existing) {
-    const defaultPerms: Record<string, Record<string, string>> = {
-      staff: {
-        sales: 'reader', budget: 'reader', studio: 'editor',
-        equipment: 'reader', qsheet: 'editor', techsheet: 'editor', interactive: 'editor',
-      },
+  // ロール別デフォルトパーミッション付与（新規 + 再招待の両方。既存設定は DO NOTHING で保持）
+  if (role === 'staff') {
+    const defaultPerms: Record<string, string> = {
+      sales: 'reader', budget: 'reader', studio: 'editor',
+      equipment: 'reader', qsheet: 'editor', techsheet: 'editor', interactive: 'editor',
     };
-    const permsForRole = defaultPerms[role as string] ?? {};
-    for (const [mod, level] of Object.entries(permsForRole)) {
+    for (const [mod, level] of Object.entries(defaultPerms)) {
       await execute(
         `INSERT INTO user_permissions (id, user_id, module, access_level) VALUES (?, ?, ?, ?) ON CONFLICT (user_id, module) DO NOTHING`,
         [uuidv4(), id, mod, level],
@@ -104,10 +101,26 @@ router.post('/', requireRole('system_admin'), wrap(async (req, res) => {
 }));
 
 router.put('/:id', requireRole('system_admin'), wrap(async (req, res) => {
-  const existing = await queryOne('SELECT id FROM users WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+  const existing = await queryOne('SELECT id, role FROM users WHERE id = ? AND deleted_at IS NULL', [req.params.id]) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'ユーザーが見つかりません');
   const { name, email, role } = req.body;
+  if (!['system_admin', 'staff'].includes(role)) throw new AppError(400, 'VALIDATION_ERROR', '無効なロールです');
   await execute(`UPDATE users SET name=?, email=?, role=?, updated_at=NOW(), updated_by=? WHERE id=?`, [name, email, role, req.user!.id, req.params.id]);
+
+  // ロールが staff になった場合、デフォルト権限を追加（既存設定は変更しない）
+  if (role === 'staff') {
+    const defaultPerms: Record<string, string> = {
+      sales: 'reader', budget: 'reader', studio: 'editor',
+      equipment: 'reader', qsheet: 'editor', techsheet: 'editor', interactive: 'editor',
+    };
+    for (const [mod, level] of Object.entries(defaultPerms)) {
+      await execute(
+        `INSERT INTO user_permissions (id, user_id, module, access_level) VALUES (?, ?, ?, ?) ON CONFLICT (user_id, module) DO NOTHING`,
+        [uuidv4(), req.params.id, mod, level],
+      );
+    }
+  }
+
   const row = await queryOne('SELECT id, name, email, role FROM users WHERE id = ?', [req.params.id]);
   res.json({ success: true, data: row });
 }));
