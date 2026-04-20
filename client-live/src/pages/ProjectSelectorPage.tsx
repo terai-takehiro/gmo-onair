@@ -6,8 +6,8 @@ import { Link } from 'react-router-dom';
 import { Radio, Timer, Tv2, Search, Settings, ChevronRight, FolderOpen } from 'lucide-react';
 
 interface Project { id: string; name: string; gls_number?: string | null }
-interface Timer  { id: string; project_id?: string | null }
-interface Program { id: string; project_id?: string | null }
+interface TimerItem  { id: string; project_id?: string | null }
+interface ProgramItem { id: string; project_id?: string | null }
 
 export default function ProjectSelectorPage() {
   const navigate = useNavigate();
@@ -25,13 +25,13 @@ export default function ProjectSelectorPage() {
 
   const { data: timers = [] } = useQuery({
     queryKey: ['timers'],
-    queryFn: () => api.get('/liveops/timers').then(r => r.data.data as Timer[]),
+    queryFn: () => api.get('/liveops/timers').then(r => r.data.data as TimerItem[]),
     staleTime: 30_000,
   });
 
   const { data: programs = [] } = useQuery({
     queryKey: ['programs'],
-    queryFn: () => api.get('/liveops/programs').then(r => r.data.data as Program[]),
+    queryFn: () => api.get('/liveops/programs').then(r => r.data.data as ProgramItem[]),
     staleTime: 30_000,
   });
 

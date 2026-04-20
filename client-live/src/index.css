@@ -3,49 +3,15 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    /* ── Broadcast Dark Theme (always dark) ── */
-    --background: 222 28% 7%;
-    --foreground: 210 20% 90%;
-    --card: 220 24% 10%;
-    --card-foreground: 210 20% 90%;
-    --popover: 220 26% 12%;
-    --popover-foreground: 210 20% 90%;
-    --primary: 0 72% 51%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 220 20% 15%;
-    --secondary-foreground: 210 15% 72%;
-    --muted: 220 20% 13%;
-    --muted-foreground: 215 16% 48%;
-    --accent: 220 20% 16%;
-    --accent-foreground: 210 20% 90%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 220 22% 16%;
-    --input: 220 20% 14%;
-    --ring: 0 72% 51%;
-    --radius: 0.375rem;
-  }
-}
-
-@layer base {
-  * { @apply border-border; }
-  body {
-    @apply bg-background text-foreground;
-    font-family: 'Inter', 'Noto Sans JP', system-ui, sans-serif;
-  }
-}
-
 /* ── Timer Phase Colors ── */
-.phase-idle      { color: hsl(210 20% 90%); }
-.phase-countdown { color: hsl(210 20% 90%); }
-.phase-yellow    { color: #f59e0b; }
-.phase-red       { color: #ef4444; animation: pulse-text 0.8s ease-in-out infinite; }
+.phase-idle      { color: hsl(var(--foreground)); }
+.phase-countdown { color: hsl(var(--foreground)); }
+.phase-yellow    { color: #d97706; }
+.phase-red       { color: #dc2626; animation: pulse-text 0.8s ease-in-out infinite; }
 
 @keyframes pulse-text {
-  0%, 100% { color: #ef4444; }
-  50%       { color: #fca5a5; }
+  0%, 100% { color: #dc2626; }
+  50%       { color: #f87171; }
 }
 
 .timer-display-font {
@@ -62,7 +28,7 @@
   font-weight: 700;
   letter-spacing: 0.25em;
   text-transform: uppercase;
-  opacity: 0.55;
+  opacity: 0.45;
 }
 
 /* ── Live indicator ── */
@@ -70,7 +36,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #ef4444;
+  background: #dc2626;
   animation: live-blink 1.2s ease-in-out infinite;
 }
 @keyframes live-blink {
