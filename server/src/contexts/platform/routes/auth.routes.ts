@@ -357,4 +357,27 @@ router.get('/me', requireAuth, (req, res) => {
   res.json({ success: true, data: req.user });
 });
 
+// 権限診断: 認証済みユーザーなら誰でも呼べる (staff が自分の状態を確認するために使用)
+router.get('/debug', requireAuth, async (req, res) => {
+  const userId = req.user!.id;
+  const userInDb = await queryOne(
+    'SELECT id, name, email, role, status, deleted_at FROM users WHERE id = ?',
+    [userId],
+  );
+  const permissionsInDb = await queryAll(
+    'SELECT module, access_level FROM user_permissions WHERE user_id = ? ORDER BY module',
+    [userId],
+  );
+  res.json({
+    success: true,
+    data: {
+      userFromJwt: req.user,
+      userInDb,
+      permissionsInDb,
+      permissionsLoaded: req.user!.permissions ?? {},
+      version: process.env.npm_package_version || 'unknown',
+    },
+  });
+});
+
 export default router;

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth, BLOCK_APPS, type BlockApp } from "@/contexts/platform/AuthContext";
@@ -27,6 +28,10 @@ import {
   Wrench,
   Activity,
   ArrowRight,
+  ShieldCheck,
+  ShieldAlert,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -475,11 +480,97 @@ export default function HomePage() {
           </div>
         )}
 
+        {/* 権限診断パネル (スタッフ向け) */}
+        {!isAdmin && <PermDiagPanel />}
+
         {/* Version */}
         <p className="mt-10 text-center text-xs text-muted-foreground/40">
           GMO ONAiR Platform v{__APP_VERSION__}
         </p>
       </div>
     </PageTransition>
+  );
+}
+
+// ──────────────────────────────────────
+// 権限診断パネル
+// ──────────────────────────────────────
+function PermDiagPanel() {
+  const [open, setOpen] = useState(false);
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  const run = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get("/auth/debug");
+      setData(res.data.data);
+    } catch (e: any) {
+      setData({ error: e?.response?.data?.error?.message ?? String(e) });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const permCount = data?.permissionsInDb?.length ?? 0;
+  const hasPerms = permCount > 0;
+
+  return (
+    <div className="mt-6 border rounded-lg overflow-hidden text-xs">
+      <button
+        className="w-full flex items-center justify-between px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors"
+        onClick={() => { setOpen((v) => !v); if (!open && !data) run(); }}
+      >
+        <span className="flex items-center gap-2 font-medium text-muted-foreground">
+          {hasPerms
+            ? <ShieldCheck className="h-4 w-4 text-green-500" />
+            : data
+            ? <ShieldAlert className="h-4 w-4 text-amber-500" />
+            : <ShieldCheck className="h-4 w-4 text-muted-foreground" />}
+          権限診断
+        </span>
+        {open ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+      </button>
+      {open && (
+        <div className="px-4 py-3 space-y-3">
+          {loading && <p className="text-muted-foreground">読み込み中...</p>}
+          {data?.error && (
+            <p className="text-destructive">エラー: {data.error}</p>
+          )}
+          {data && !data.error && (
+            <>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                <span className="text-muted-foreground">ユーザーID</span>
+                <span className="font-mono truncate">{data.userInDb?.id}</span>
+                <span className="text-muted-foreground">ロール (DB)</span>
+                <span className="font-medium">{data.userInDb?.role}</span>
+                <span className="text-muted-foreground">ステータス</span>
+                <span>{data.userInDb?.status}</span>
+                <span className="text-muted-foreground">権限数 (DB)</span>
+                <span className={hasPerms ? "text-green-600 font-bold" : "text-amber-600 font-bold"}>
+                  {permCount} モジュール
+                </span>
+              </div>
+              {permCount > 0 && (
+                <div className="bg-muted/30 rounded p-2 space-y-0.5">
+                  {data.permissionsInDb.map((p: any) => (
+                    <div key={p.module} className="flex justify-between">
+                      <span className="text-muted-foreground">{p.module}</span>
+                      <span className="font-medium">{p.access_level}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {permCount === 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded p-2 text-amber-700">
+                  権限がDBに登録されていません。管理者に「権限修復」の実行を依頼してください。
+                </div>
+              )}
+            </>
+          )}
+          <button onClick={run} className="text-primary underline text-xs">{loading ? "..." : "再診断"}</button>
+        </div>
+      )}
+    </div>
   );
 }

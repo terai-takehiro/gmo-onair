@@ -30,7 +30,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **リアルタイム**: Socket.IO (`/qsheet` ネームスペース: OnAir↔ランダウン同期, `/interactive`: スタンプ)
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
-## 現在のバージョン: v1.1.37
+## 現在のバージョン: v1.1.38
 
 ## ブランチ運用
 - **デプロイ**: 常に `main` ブランチにプッシュ（masterではない）
