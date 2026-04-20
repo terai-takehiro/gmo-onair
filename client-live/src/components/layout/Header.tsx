@@ -6,22 +6,23 @@ import { Button } from '@/components/ui/button';
 import AppSwitcher from '@gmo-onair/shared/src/client/AppSwitcher';
 import api from '@/lib/api';
 
-interface Props { projectId?: string }
+interface Props { programId?: string }
 
-export default function Header({ projectId }: Props) {
+interface LiveProgram {
+  id: string;
+  name: string;
+  gls_number?: string | null;
+  project_name?: string;
+}
+
+export default function Header({ programId }: Props) {
   const { currentUser, logout } = useAuth();
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
 
-  const { data: project } = useQuery({
-    queryKey: ['project', projectId],
-    queryFn: async () => {
-      const r = await api.get('/projects?limit=200');
-      const raw = r.data.data;
-      const items: Array<{ id: string; name: string; gls_number?: string | null }> =
-        Array.isArray(raw) ? raw : (raw?.items ?? []);
-      return items.find(p => p.id === projectId) ?? null;
-    },
-    enabled: !!projectId,
+  const { data: program } = useQuery({
+    queryKey: ['program', programId],
+    queryFn: () => api.get(`/liveops/programs/${programId}`).then(r => r.data.data as LiveProgram),
+    enabled: !!programId,
     staleTime: 60_000,
   });
 
@@ -36,13 +37,13 @@ export default function Header({ projectId }: Props) {
           <a href="/" className="font-bold text-primary hover:opacity-80 transition-opacity shrink-0">ONAiR</a>
           <span className="text-muted-foreground/30 shrink-0">/</span>
           <span className="font-semibold text-foreground shrink-0">計時LIVE</span>
-          {project && (
+          {program && (
             <>
               <span className="text-muted-foreground/30 shrink-0 hidden sm:inline">/</span>
               <span className="text-muted-foreground truncate hidden sm:inline">
-                {project.gls_number
-                  ? <><span className="font-mono text-primary/80 mr-1">{project.gls_number}</span>{project.name}</>
-                  : project.name}
+                {program.gls_number
+                  ? <><span className="font-mono text-primary/80 mr-1">{program.gls_number}</span>{program.name}</>
+                  : program.name}
               </span>
             </>
           )}

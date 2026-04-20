@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import AppShell from './components/layout/AppShell';
 import LoginPage from './pages/LoginPage';
-import ProjectSelectorPage from './pages/ProjectSelectorPage';
+import SessionHomePage from './pages/SessionHomePage';
 import DashboardPage from './pages/DashboardPage';
 import TimerAdminPage from './pages/TimerAdminPage';
 import TimerDisplayPage from './pages/TimerDisplayPage';
@@ -15,7 +15,7 @@ export default function App() {
   return (
     <BrowserRouter basename="/live">
       <Routes>
-        {/* Public display screen */}
+        {/* Public display screen — no auth required */}
         <Route path="/display/:timerId" element={<TimerDisplayPage />} />
         <Route path="/login" element={<LoginPage />} />
 
@@ -27,14 +27,12 @@ export default function App() {
           } />
         ) : user ? (
           <Route element={<AppShell />}>
-            {/* Global: project selector */}
-            <Route index element={<ProjectSelectorPage />} />
+            <Route index element={<SessionHomePage />} />
             <Route path="/settings" element={<SettingsPage />} />
-            {/* Per-project scope */}
-            <Route path="/p/:projectId">
+            <Route path="/program/:programId">
               <Route index element={<DashboardPage />} />
-              <Route path="timer" element={<TimerAdminPage />} />
-              <Route path="programs" element={<ProgramsPage />} />
+              <Route path="timers" element={<TimerAdminPage />} />
+              <Route path="settings" element={<ProgramsPage />} />
             </Route>
           </Route>
         ) : (

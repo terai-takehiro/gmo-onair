@@ -9,14 +9,17 @@ const canWrite = [requireAuth, requirePermission('liveops', 'manager')] as const
 
 router.get('/', ...canRead, async (req, res) => {
   try {
-    const { project_id } = req.query;
+    const { project_id, program_id } = req.query;
     const params: string[] = [];
-    const filter = project_id ? (params.push(String(project_id)), `AND t.project_id = $${params.length}`) : '';
+    const filters: string[] = [];
+    if (program_id) { params.push(String(program_id)); filters.push(`t.program_id = $${params.length}`); }
+    if (project_id) { params.push(String(project_id)); filters.push(`t.project_id = $${params.length}`); }
+    const where = filters.length ? `AND (${filters.join(' OR ')})` : '';
     const rows = await query(
       `SELECT t.*, p.name AS project_name, p.gls_number
        FROM liveops_timers t
        LEFT JOIN projects p ON t.project_id = p.id
-       WHERE t.deleted_at IS NULL ${filter}
+       WHERE t.deleted_at IS NULL ${where}
        ORDER BY t.updated_at DESC`,
       params
     );
@@ -45,14 +48,15 @@ router.get('/:id', ...canRead, async (req, res) => {
 router.post('/', ...canWrite, async (req, res) => {
   try {
     const userId = (req as any).user?.id;
-    const { name, projectId, warningThresholdSec = 60, viewerOverlayProgramId } = req.body;
+    const { name, projectId, programId, warningThresholdSec = 60, viewerOverlayProgramId } = req.body;
     if (!name) return res.status(400).json({ success: false, message: 'name required' });
 
     const id = uuidv4();
     await execute(
-      `INSERT INTO liveops_timers (id, name, project_id, warning_threshold_sec, viewer_overlay_program_id, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6)`,
-      [id, name, projectId || null, warningThresholdSec, viewerOverlayProgramId || null, userId]
+      `INSERT INTO liveops_timers
+         (id, name, project_id, program_id, warning_threshold_sec, viewer_overlay_program_id, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [id, name, projectId || null, programId || null, warningThresholdSec, viewerOverlayProgramId || null, userId]
     );
     const row = await queryOne('SELECT * FROM liveops_timers WHERE id = $1', [id]);
     res.status(201).json({ success: true, data: row });
@@ -63,16 +67,17 @@ router.post('/', ...canWrite, async (req, res) => {
 
 router.put('/:id', ...canWrite, async (req, res) => {
   try {
-    const { name, projectId, warningThresholdSec, viewerOverlayProgramId } = req.body;
+    const { name, projectId, programId, warningThresholdSec, viewerOverlayProgramId } = req.body;
     await execute(
       `UPDATE liveops_timers SET
          name = COALESCE($2, name),
          project_id = $3,
-         warning_threshold_sec = COALESCE($4, warning_threshold_sec),
-         viewer_overlay_program_id = $5,
+         program_id = $4,
+         warning_threshold_sec = COALESCE($5, warning_threshold_sec),
+         viewer_overlay_program_id = $6,
          updated_at = NOW()
        WHERE id = $1 AND deleted_at IS NULL`,
-      [req.params.id, name ?? null, projectId ?? null, warningThresholdSec ?? null, viewerOverlayProgramId ?? null]
+      [req.params.id, name ?? null, projectId ?? null, programId ?? null, warningThresholdSec ?? null, viewerOverlayProgramId ?? null]
     );
     const row = await queryOne('SELECT * FROM liveops_timers WHERE id = $1', [req.params.id]);
     if (!row) return res.status(404).json({ success: false, message: 'Not found' });

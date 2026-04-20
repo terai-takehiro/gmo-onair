@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
@@ -6,237 +6,183 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, Youtube, ChevronDown, ChevronUp, Globe } from 'lucide-react';
+import { Plus, Trash2, Save } from 'lucide-react';
 
 interface YoutubeUrl { label: string; url: string }
-interface Program {
-  id: string; name: string; jstream_lpid: string | null;
-  youtube_urls: YoutubeUrl[]; hasSingularToken: boolean;
-  project_id?: string | null;
+interface LiveProgram {
+  id: string;
+  name: string;
+  jstream_lpid: string | null;
+  youtube_urls: YoutubeUrl[];
+  hasSingularToken: boolean;
+  project_id: string | null;
+  project_name?: string;
+  gls_number?: string | null;
 }
 
-const emptyForm = {
-  name: '', jstreamLpid: '', singularAppToken: '',
-  youtubeUrls: [{ label: '', url: '' }] as YoutubeUrl[],
-};
-
 export default function ProgramsPage() {
-  const { projectId } = useParams<{ projectId: string }>();
+  const { programId } = useParams<{ programId: string }>();
   const qc = useQueryClient();
   const { canManage } = usePermissions();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<Program | null>(null);
-  const [form, setForm] = useState(emptyForm);
-  const [expanded, setExpanded] = useState<string | null>(null);
 
-  const { data: programs = [] } = useQuery({
-    queryKey: ['programs', projectId],
-    queryFn: () => api.get(`/liveops/programs?project_id=${projectId}`).then(r => r.data.data as Program[]),
-    enabled: !!projectId,
+  const [name, setName] = useState('');
+  const [jstreamLpid, setJstreamLpid] = useState('');
+  const [singularAppToken, setSingularAppToken] = useState('');
+  const [youtubeUrls, setYoutubeUrls] = useState<YoutubeUrl[]>([{ label: '', url: '' }]);
+  const [saved, setSaved] = useState(false);
+
+  const { data: program, isLoading } = useQuery({
+    queryKey: ['program', programId],
+    queryFn: () => api.get(`/liveops/programs/${programId}`).then(r => r.data.data as LiveProgram),
+    enabled: !!programId,
     staleTime: 30_000,
   });
 
-  const openCreate = () => { setEditing(null); setForm(emptyForm); setDialogOpen(true); };
-  const openEdit = (p: Program) => {
-    setEditing(p);
-    setForm({
-      name: p.name,
-      jstreamLpid: p.jstream_lpid ?? '',
-      singularAppToken: '',
-      youtubeUrls: p.youtube_urls.length > 0 ? p.youtube_urls : [{ label: '', url: '' }],
-    });
-    setDialogOpen(true);
-  };
+  // Populate form when data loads
+  useEffect(() => {
+    if (!program) return;
+    setName(program.name);
+    setJstreamLpid(program.jstream_lpid ?? '');
+    setYoutubeUrls(program.youtube_urls.length > 0 ? program.youtube_urls : [{ label: '', url: '' }]);
+  }, [program]);
 
   const saveMutation = useMutation({
-    mutationFn: async () => {
-      const body = {
-        name: form.name,
-        projectId: projectId || null,
-        jstreamLpid: form.jstreamLpid || null,
-        singularAppToken: form.singularAppToken || undefined,
-        youtubeUrls: form.youtubeUrls.filter(u => u.url.trim()),
-      };
-      if (editing) return api.put(`/liveops/programs/${editing.id}`, body);
-      return api.post('/liveops/programs', body);
-    },
+    mutationFn: () => api.put(`/liveops/programs/${programId}`, {
+      name,
+      jstreamLpid: jstreamLpid || null,
+      singularAppToken: singularAppToken || undefined,
+      youtubeUrls: youtubeUrls.filter(u => u.url.trim()),
+    }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['programs', projectId] });
-      setDialogOpen(false);
+      qc.invalidateQueries({ queryKey: ['program', programId] });
+      qc.invalidateQueries({ queryKey: ['programs-all'] });
+      setSingularAppToken('');
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
     },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/liveops/programs/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['programs', projectId] }),
-  });
-
-  const addYtUrl = () => setForm(f => ({ ...f, youtubeUrls: [...f.youtubeUrls, { label: '', url: '' }] }));
-  const removeYtUrl = (i: number) => setForm(f => ({ ...f, youtubeUrls: f.youtubeUrls.filter((_, idx) => idx !== i) }));
+  const addYtUrl = () => setYoutubeUrls(prev => [...prev, { label: '', url: '' }]);
+  const removeYtUrl = (i: number) => setYoutubeUrls(prev => prev.filter((_, idx) => idx !== i));
   const updateYtUrl = (i: number, key: 'label' | 'url', v: string) =>
-    setForm(f => ({ ...f, youtubeUrls: f.youtubeUrls.map((u, idx) => idx === i ? { ...u, [key]: v } : u) }));
+    setYoutubeUrls(prev => prev.map((u, idx) => idx === i ? { ...u, [key]: v } : u));
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="h-6 w-6 animate-spin rounded-full border-3 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-border bg-card px-4 py-2">
         <h1 className="text-sm font-bold">番組設定</h1>
         {canManage && (
-          <Button size="sm" className="h-7 text-xs" onClick={openCreate}>
-            <Plus className="h-3 w-3 mr-1" />新規
+          <Button
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => saveMutation.mutate()}
+            disabled={!name.trim() || saveMutation.isPending}
+          >
+            {saved ? '保存済み ✓' : <><Save className="h-3 w-3 mr-1" />保存</>}
           </Button>
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2">
-        {programs.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-            <p className="text-sm">番組がありません</p>
-            {canManage && (
-              <Button className="mt-3" size="sm" onClick={openCreate}>
-                <Plus className="h-4 w-4 mr-1" />作成
-              </Button>
-            )}
-          </div>
-        )}
-
-        {programs.map(p => (
-          <div key={p.id} className="rounded-xl border border-border bg-card">
-            <div className="flex items-center justify-between px-4 py-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <button
-                  className="flex items-center gap-2 min-w-0"
-                  onClick={() => setExpanded(expanded === p.id ? null : p.id)}
-                >
-                  {expanded === p.id
-                    ? <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    : <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />}
-                  <span className="font-medium text-sm truncate">{p.name}</span>
-                </button>
-                <div className="flex flex-wrap gap-1">
-                  {p.youtube_urls.length > 0 && (
-                    <Badge variant="outline" className="text-xs gap-1">
-                      <Youtube className="h-3 w-3 text-red-500" />{p.youtube_urls.length}
-                    </Badge>
-                  )}
-                  {p.jstream_lpid && (
-                    <Badge variant="outline" className="text-xs gap-1">
-                      <Globe className="h-3 w-3 text-cyan-500" />JS
-                    </Badge>
-                  )}
-                  {p.hasSingularToken && <Badge variant="secondary" className="text-xs">SL</Badge>}
-                </div>
-              </div>
-              {canManage && (
-                <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openEdit(p)}>
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                    onClick={() => { if (confirm('削除しますか？')) deleteMutation.mutate(p.id); }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="max-w-lg space-y-5">
+          {/* GLS link info (read-only) */}
+          {program?.project_name && (
+            <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
+              <span className="text-muted-foreground text-xs">紐づき案件: </span>
+              {program.gls_number && (
+                <span className="font-mono text-primary text-xs mr-2">{program.gls_number}</span>
               )}
+              <span className="font-medium">{program.project_name}</span>
             </div>
+          )}
 
-            {expanded === p.id && (
-              <div className="border-t border-border px-4 py-3 space-y-1.5 text-xs text-muted-foreground">
-                {p.youtube_urls.map((u, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <Youtube className="h-3 w-3 text-red-500 shrink-0" />
-                    <span className="font-medium">{u.label || `URL ${i + 1}`}:</span>
-                    <span className="truncate">{u.url}</span>
-                  </div>
-                ))}
-                {p.jstream_lpid && (
-                  <div className="flex items-center gap-2">
-                    <Globe className="h-3 w-3 text-cyan-500 shrink-0" />
-                    <span className="font-medium">Jstream LPID:</span>
-                    <span>{p.jstream_lpid}</span>
-                  </div>
-                )}
-              </div>
-            )}
+          <div className="space-y-1.5">
+            <Label>番組名</Label>
+            <Input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="番組名"
+              disabled={!canManage}
+            />
           </div>
-        ))}
-      </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{editing ? '番組を編集' : '番組を作成'}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>番組名</Label>
-              <Input
-                value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="ライブ配信番組名"
-                autoFocus
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>YouTube URL</Label>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>YouTube URL</Label>
+              {canManage && (
                 <Button type="button" variant="ghost" size="sm" className="h-6 text-xs" onClick={addYtUrl}>
                   <Plus className="h-3 w-3 mr-1" />追加
                 </Button>
+              )}
+            </div>
+            {youtubeUrls.map((u, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Input
+                  placeholder="ラベル"
+                  value={u.label}
+                  onChange={e => updateYtUrl(i, 'label', e.target.value)}
+                  className="w-24 shrink-0"
+                  disabled={!canManage}
+                />
+                <Input
+                  placeholder="https://youtube.com/watch?v=..."
+                  value={u.url}
+                  onChange={e => updateYtUrl(i, 'url', e.target.value)}
+                  className="flex-1"
+                  disabled={!canManage}
+                />
+                {canManage && youtubeUrls.length > 1 && (
+                  <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 shrink-0" onClick={() => removeYtUrl(i)}>
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  </Button>
+                )}
               </div>
-              {form.youtubeUrls.map((u, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <Input
-                    placeholder="ラベル"
-                    value={u.label}
-                    onChange={e => updateYtUrl(i, 'label', e.target.value)}
-                    className="w-24 shrink-0"
-                  />
-                  <Input
-                    placeholder="https://youtube.com/watch?v=..."
-                    value={u.url}
-                    onChange={e => updateYtUrl(i, 'url', e.target.value)}
-                    className="flex-1"
-                  />
-                  {form.youtubeUrls.length > 1 && (
-                    <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 shrink-0" onClick={() => removeYtUrl(i)}>
-                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Jstream LPID</Label>
-              <Input
-                value={form.jstreamLpid}
-                onChange={e => setForm(f => ({ ...f, jstreamLpid: e.target.value }))}
-                placeholder="例: 123456"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Singular Live App Token{editing?.hasSingularToken ? ' (変更する場合のみ入力)' : ''}</Label>
-              <Input
-                type="password"
-                value={form.singularAppToken}
-                onChange={e => setForm(f => ({ ...f, singularAppToken: e.target.value }))}
-                placeholder={editing?.hasSingularToken ? '変更する場合のみ入力' : 'App Token'}
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>キャンセル</Button>
-              <Button onClick={() => saveMutation.mutate()} disabled={!form.name || saveMutation.isPending}>
-                {editing ? '保存' : '作成'}
-              </Button>
-            </div>
+            ))}
           </div>
-        </DialogContent>
-      </Dialog>
+
+          <div className="space-y-1.5">
+            <Label>Jstream LPID</Label>
+            <Input
+              value={jstreamLpid}
+              onChange={e => setJstreamLpid(e.target.value)}
+              placeholder="例: 123456"
+              disabled={!canManage}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>
+              Singular Live App Token
+              {program?.hasSingularToken && <span className="ml-2 text-xs text-muted-foreground">(登録済み・変更する場合のみ入力)</span>}
+            </Label>
+            <Input
+              type="password"
+              value={singularAppToken}
+              onChange={e => setSingularAppToken(e.target.value)}
+              placeholder={program?.hasSingularToken ? '変更する場合のみ入力' : 'App Token'}
+              disabled={!canManage}
+            />
+          </div>
+
+          {canManage && (
+            <Button
+              onClick={() => saveMutation.mutate()}
+              disabled={!name.trim() || saveMutation.isPending}
+              className="w-full sm:w-auto"
+            >
+              {saved ? '保存済み ✓' : '設定を保存'}
+            </Button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

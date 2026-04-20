@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getAccessibleApps } from '@gmo-onair/shared/src/client/appNav';
 import api from '@/lib/api';
 import {
-  Radio, LayoutDashboard, Timer, Tv2, Settings, ChevronLeft, X,
+  Radio, LayoutDashboard, Timer, Settings, ChevronLeft, X,
   Home, FileText, Package, Sparkles, Wrench, ArrowLeft,
 } from 'lucide-react';
 
@@ -14,22 +14,24 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Home, FileText, Package, Sparkles, Wrench, Radio,
 };
 
-interface Props { projectId?: string }
+interface Props { programId?: string }
 
-export default function Sidebar({ projectId }: Props) {
+interface LiveProgram {
+  id: string;
+  name: string;
+  project_id: string | null;
+  project_name?: string;
+  gls_number?: string | null;
+}
+
+export default function Sidebar({ programId }: Props) {
   const { currentUser } = useAuth();
   const { sidebarOpen, setSidebarOpen } = useUiStore();
 
-  const { data: project } = useQuery({
-    queryKey: ['project', projectId],
-    queryFn: async () => {
-      const r = await api.get('/projects?limit=200');
-      const raw = r.data.data;
-      const items: Array<{ id: string; name: string; gls_number?: string | null }> =
-        Array.isArray(raw) ? raw : (raw?.items ?? []);
-      return items.find(p => p.id === projectId) ?? null;
-    },
-    enabled: !!projectId,
+  const { data: program } = useQuery({
+    queryKey: ['program', programId],
+    queryFn: () => api.get(`/liveops/programs/${programId}`).then(r => r.data.data as LiveProgram),
+    enabled: !!programId,
     staleTime: 60_000,
   });
 
@@ -66,25 +68,28 @@ export default function Sidebar({ projectId }: Props) {
           </button>
         </div>
 
-        {/* Project context */}
-        {projectId && project && (
+        {/* Program context panel */}
+        {programId && program && (
           <div className="border-b border-border px-3 py-2.5">
             <div className="rounded-md bg-primary/10 px-2.5 py-2">
-              {project.gls_number && (
-                <p className="text-[10px] font-mono font-bold text-primary leading-none mb-0.5">{project.gls_number}</p>
+              {program.gls_number && (
+                <p className="text-[10px] font-mono font-bold text-primary leading-none mb-0.5">{program.gls_number}</p>
               )}
-              <p className="text-xs font-medium truncate">{project.name}</p>
+              <p className="text-xs font-medium truncate">{program.name}</p>
+              {program.project_name && !program.gls_number && (
+                <p className="text-[10px] text-muted-foreground truncate mt-0.5">{program.project_name}</p>
+              )}
             </div>
           </div>
         )}
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-          {projectId ? (
+          {programId ? (
             <>
-              <SidebarLink to={`/p/${projectId}`} icon={LayoutDashboard} end onClick={close}>ダッシュボード</SidebarLink>
-              <SidebarLink to={`/p/${projectId}/timer`} icon={Timer} onClick={close}>タイマー管理</SidebarLink>
-              <SidebarLink to={`/p/${projectId}/programs`} icon={Tv2} onClick={close}>番組設定</SidebarLink>
+              <SidebarLink to={`/program/${programId}`} icon={LayoutDashboard} end onClick={close}>ダッシュボード</SidebarLink>
+              <SidebarLink to={`/program/${programId}/timers`} icon={Timer} onClick={close}>タイマー管理</SidebarLink>
+              <SidebarLink to={`/program/${programId}/settings`} icon={Settings} onClick={close}>番組設定</SidebarLink>
               <div className="pt-2 mt-2 border-t border-border">
                 <Link
                   to="/"
@@ -92,15 +97,15 @@ export default function Sidebar({ projectId }: Props) {
                   className="flex items-center gap-2.5 rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                 >
                   <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
-                  案件選択へ戻る
+                  セッション一覧へ
                 </Link>
               </div>
             </>
           ) : (
-            <SidebarLink to="/" icon={Radio} end onClick={close}>案件選択</SidebarLink>
+            <SidebarLink to="/" icon={Radio} end onClick={close}>セッション一覧</SidebarLink>
           )}
 
-          <div className={cn('pt-1', projectId ? '' : 'mt-1')}>
+          <div className={cn('pt-1', programId ? '' : 'mt-1')}>
             <SidebarLink to="/settings" icon={Settings} onClick={close}>設定</SidebarLink>
           </div>
         </nav>

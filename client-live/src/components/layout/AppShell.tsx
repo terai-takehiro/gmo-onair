@@ -6,7 +6,7 @@ import { ShieldOff } from 'lucide-react';
 
 export default function AppShell() {
   const { canView, permissionsLoading } = usePermissions();
-  const { projectId } = useParams<{ projectId?: string }>();
+  const { programId } = useParams<{ programId?: string }>();
 
   if (!permissionsLoading && !canView) {
     return (
@@ -26,9 +26,9 @@ export default function AppShell() {
 
   return (
     <div className="flex h-screen overflow-x-hidden">
-      <Sidebar projectId={projectId} />
+      <Sidebar programId={programId} />
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-        <Header projectId={projectId} />
+        <Header programId={programId} />
         <main className="flex-1 overflow-y-auto overflow-x-hidden">
           <Outlet />
         </main>

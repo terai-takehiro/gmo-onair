@@ -12,10 +12,10 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, QrCode, ExternalLink, Trash2, ChevronRight } from 'lucide-react';
 
-interface TimerData { id: string; name: string; phase: string; project_id?: string | null }
+interface TimerData { id: string; name: string; phase: string }
 
 export default function TimerAdminPage() {
-  const { projectId } = useParams<{ projectId: string }>();
+  const { programId } = useParams<{ programId: string }>();
   const qc = useQueryClient();
   const { canManage } = usePermissions();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -25,9 +25,9 @@ export default function TimerAdminPage() {
   const [qrUrl, setQrUrl] = useState('');
 
   const { data: timers = [] } = useQuery({
-    queryKey: ['timers', projectId],
-    queryFn: () => api.get(`/liveops/timers?project_id=${projectId}`).then(r => r.data.data as TimerData[]),
-    enabled: !!projectId,
+    queryKey: ['timers', programId],
+    queryFn: () => api.get(`/liveops/timers?program_id=${programId}`).then(r => r.data.data as TimerData[]),
+    enabled: !!programId,
   });
 
   useEffect(() => {
@@ -37,9 +37,9 @@ export default function TimerAdminPage() {
   const timer = useTimer(selectedId);
 
   const createMutation = useMutation({
-    mutationFn: () => api.post('/liveops/timers', { name: newName, projectId: projectId || null }),
+    mutationFn: () => api.post('/liveops/timers', { name: newName, programId }),
     onSuccess: (res) => {
-      qc.invalidateQueries({ queryKey: ['timers', projectId] });
+      qc.invalidateQueries({ queryKey: ['timers', programId] });
       setSelectedId(res.data.data.id);
       setCreateOpen(false);
       setNewName('');
@@ -49,7 +49,7 @@ export default function TimerAdminPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/liveops/timers/${id}`),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['timers', projectId] });
+      qc.invalidateQueries({ queryKey: ['timers', programId] });
       setSelectedId(null);
     },
   });
@@ -106,7 +106,7 @@ export default function TimerAdminPage() {
         {/* Timer detail */}
         <div className="flex-1 overflow-y-auto">
           {selectedId ? (
-            <div className="space-y-0">
+            <>
               <div className="h-44 sm:h-52">
                 <TimerDisplay state={timer.state} compact={false} />
               </div>
@@ -140,7 +140,7 @@ export default function TimerAdminPage() {
                   </Button>
                 )}
               </div>
-            </div>
+            </>
           ) : (
             <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
               タイマーを選択
@@ -181,9 +181,6 @@ export default function TimerAdminPage() {
             <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(qrUrl)}>
               URLをコピー
             </Button>
-            <p className="text-xs text-muted-foreground">
-              このURLをブラウザで開くと全画面タイマーが表示されます
-            </p>
           </div>
         </DialogContent>
       </Dialog>
