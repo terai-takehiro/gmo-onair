@@ -8,6 +8,7 @@ import { seedSubApps } from './shared/db/seed-subapps';
 import { ensureStaffPermissions } from './shared/db/ensure-permissions';
 import { initSocketIO, shutdownSocketIO } from './contexts/interactive/socket';
 import { initQsheetSocketIO } from './contexts/qsheet/socket';
+import { initLiveopsSocketIO } from './contexts/liveops';
 
 async function main() {
   await initDb();
@@ -36,15 +37,16 @@ async function main() {
   const app = createApp();
   const httpServer = http.createServer(app);
 
-  // Socket.IO for interactive events + qsheet sync
+  // Socket.IO for interactive events + qsheet sync + liveops timer
   const io = initSocketIO(httpServer);
   initQsheetSocketIO(io);
+  initLiveopsSocketIO(io);
   app.set('io', io);  // quiz.routes.ts等からSocket.IOにアクセスするため
 
   httpServer.listen(config.port, () => {
     console.log(`GMO ONAiR API running on http://localhost:${config.port}`);
     console.log(`  Environment: ${config.nodeEnv}`);
-    console.log(`  Socket.IO: enabled (interactive events, qsheet sync)`);
+    console.log(`  Socket.IO: enabled (interactive events, qsheet sync, liveops timer)`);
   });
 
   // Graceful shutdown
