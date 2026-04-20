@@ -811,6 +811,11 @@ export default function EquipmentListPage() {
               ? '機材管理へのアクセス権限がありません。管理者に権限付与を依頼してください。'
               : 'データの取得に失敗しました。ページを再読み込みしてください。'}
           </p>
+          {(itemsError as any)?.response?.data?.error?.debug && (
+            <pre className="text-xs bg-muted/50 rounded p-3 max-w-xl overflow-auto">
+              {JSON.stringify((itemsError as any).response.data.error.debug, null, 2)}
+            </pre>
+          )}
         </div>
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
