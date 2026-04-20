@@ -500,15 +500,17 @@ function PermDiagPanel() {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<any>(null);
   const [apiPerms, setApiPerms] = useState<any>(null);
+  const [permTest, setPermTest] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [endpointTests, setEndpointTests] = useState<Record<string, { status: number | string; ok: boolean; msg?: string }>>({});
 
   const run = async () => {
     setLoading(true);
     try {
-      const [debugRes, permsRes] = await Promise.allSettled([
+      const [debugRes, permsRes, permTestRes] = await Promise.allSettled([
         api.get("/auth/debug"),
         api.get("/users/me/permissions"),
+        api.get("/auth/permission-test"),
       ]);
       setData(
         debugRes.status === "fulfilled"
@@ -520,6 +522,11 @@ function PermDiagPanel() {
           ? permsRes.value.data.data
           : { _error: (permsRes.reason as any)?.response?.data?.error?.message ?? String(permsRes.reason) }
       );
+      setPermTest(
+        permTestRes.status === "fulfilled"
+          ? permTestRes.value.data.data
+          : { _error: (permTestRes.reason as any)?.response?.data?.error?.message ?? String(permTestRes.reason) }
+      );
     } finally {
       setLoading(false);
     }
@@ -527,9 +534,9 @@ function PermDiagPanel() {
 
   const runEndpointTests = async () => {
     const endpoints: Array<[string, string]> = [
-      ["sales", "/sales/projects?limit=1"],
-      ["budget", "/budget/revenues?limit=1"],
-      ["studio", "/studios/rooms"],
+      ["sales", "/projects?limit=1"],
+      ["budget", "/revenues?limit=1"],
+      ["studio", "/studios/locations"],
       ["equipment", "/equipment/stats"],
       ["qsheet", "/qsheet/documents?limit=1"],
       ["techsheet", "/techsheet/documents?limit=1"],
@@ -702,6 +709,32 @@ function PermDiagPanel() {
               )}
             </>
           )}
+          {/* requirePermission シミュレーション結果 */}
+          {permTest && !permTest._error && (
+            <div className="bg-muted/30 rounded p-2 space-y-1">
+              <div className="font-medium mb-1 text-xs">
+                サーバー側 requirePermission シミュレーション:
+                <span className={permTest.all_pass ? " text-green-600" : " text-red-600"}>
+                  {permTest.all_pass ? " 全モジュールOK" : " 失敗あり"}
+                </span>
+              </div>
+              {(permTest.module_tests ?? []).map((t: any) => (
+                <div key={t.module} className="grid grid-cols-3 gap-1 text-xs">
+                  <span className="text-muted-foreground">{t.module}</span>
+                  <span className={t.req_level ? "text-foreground" : "text-red-500"}>
+                    req:{t.req_level ?? "null"}({t.req_numeric})
+                  </span>
+                  <span className={t.would_pass_from_req ? "text-green-600" : "text-red-600 font-bold"}>
+                    {t.would_pass_from_req ? "✓ pass" : "✗ FAIL"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          {permTest?._error && (
+            <div className="text-red-600 text-xs">permission-test エラー: {permTest._error}</div>
+          )}
+
           <div className="flex gap-3">
             <button onClick={run} className="text-primary underline text-xs">{loading ? "..." : "再診断"}</button>
             <button onClick={runEndpointTests} className="text-primary underline text-xs">実エンドポイントテスト</button>
@@ -709,7 +742,7 @@ function PermDiagPanel() {
 
           {Object.keys(endpointTests).length > 0 && (
             <div className="bg-muted/30 rounded p-2 space-y-0.5">
-              <div className="font-medium mb-1">エンドポイントテスト結果:</div>
+              <div className="font-medium mb-1">エンドポイントテスト結果 (修正済みパス):</div>
               {Object.entries(endpointTests).map(([name, r]) => (
                 <div key={name} className="flex justify-between">
                   <span className="text-muted-foreground">{name}</span>

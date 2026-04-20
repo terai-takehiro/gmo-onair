@@ -380,4 +380,53 @@ router.get('/debug', requireAuth, async (req, res) => {
   });
 });
 
+// requirePermissionロジックを直接シミュレートして全モジュールの判定結果を返す
+router.get('/permission-test', requireAuth, wrap(async (req, res) => {
+  const LEVEL_ORDER: Record<string, number> = { reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3 };
+  const MODULES = ['sales', 'budget', 'studio', 'equipment', 'qsheet', 'techsheet', 'interactive'];
+
+  // DB から直接クエリして最新値を取得
+  const dbRows = await queryAll(
+    'SELECT module, access_level FROM user_permissions WHERE user_id = ? ORDER BY module',
+    [req.user!.id],
+  );
+  const dbPerms: Record<string, string> = {};
+  for (const r of dbRows) { dbPerms[r.module as string] = r.access_level as string; }
+
+  const reqPerms = req.user!.permissions ?? {};
+  const isAdmin = req.user!.role === 'system_admin';
+
+  const tests = MODULES.map((mod) => {
+    const reqLevel = reqPerms[mod];
+    const dbLevel = dbPerms[mod];
+    const reqNum = LEVEL_ORDER[reqLevel] ?? 0;
+    const dbNum = LEVEL_ORDER[dbLevel] ?? 0;
+    const minNum = LEVEL_ORDER['reader'];
+    return {
+      module: mod,
+      req_level: reqLevel ?? null,
+      db_level: dbLevel ?? null,
+      req_numeric: reqNum,
+      db_numeric: dbNum,
+      min_required: 'reader',
+      would_pass_from_req: isAdmin || !(!reqLevel || reqNum < minNum),
+      would_pass_from_db: isAdmin || !(!dbLevel || dbNum < minNum),
+    };
+  });
+
+  res.json({
+    success: true,
+    data: {
+      user: { id: req.user!.id, role: req.user!.role },
+      is_admin: isAdmin,
+      req_permissions: reqPerms,
+      req_perm_count: Object.keys(reqPerms).length,
+      db_permissions: dbPerms,
+      db_perm_count: Object.keys(dbPerms).length,
+      module_tests: tests,
+      all_pass: tests.every((t) => t.would_pass_from_req),
+    },
+  });
+}));
+
 export default router;
