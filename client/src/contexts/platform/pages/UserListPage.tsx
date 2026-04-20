@@ -18,7 +18,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Loader2, ShieldAlert, KeyRound, Copy, CheckCircle2, Info } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, ShieldAlert, KeyRound, Copy, CheckCircle2, Info, Wrench } from "lucide-react";
 
 const roleLabelMap: Record<string, string> = {
   system_admin: "システム管理者",
@@ -258,6 +258,17 @@ export default function UserListPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [permUser, setPermUser] = useState<User | null>(null);
   const [permDialogOpen, setPermDialogOpen] = useState(false);
+  const [repairResult, setRepairResult] = useState<null | { staffCount: number; permissionsInserted: number; rolesFixed: {role:string;c:number}[] }>(null);
+  const [repairDialogOpen, setRepairDialogOpen] = useState(false);
+
+  const repairMutation = useMutation({
+    mutationFn: async () => (await api.post("/users/admin/repair-permissions")).data.data,
+    onSuccess: (data) => {
+      setRepairResult(data);
+      setRepairDialogOpen(true);
+      qc.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
 
   const form = useForm<UserForm>({
     defaultValues: { name: "", email: "", role: "staff" },
@@ -327,7 +338,13 @@ export default function UserListPage() {
             ロールは「管理者」または「スタッフ」の2種類。アプリ別の権限は🔑ボタンで設定します。
           </p>
         </div>
-        <Button onClick={openAdd}><Plus className="mr-2 h-4 w-4" />新規追加</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => repairMutation.mutate()} disabled={repairMutation.isPending} title="全スタッフに不足している権限を一括付与します">
+            {repairMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wrench className="mr-2 h-4 w-4" />}
+            権限修復
+          </Button>
+          <Button onClick={openAdd}><Plus className="mr-2 h-4 w-4" />新規追加</Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -497,6 +514,40 @@ export default function UserListPage() {
       </Dialog>
 
       <PermissionDialog user={permUser} open={permDialogOpen} onOpenChange={setPermDialogOpen} />
+
+      {/* 権限修復 結果ダイアログ */}
+      <Dialog open={repairDialogOpen} onOpenChange={setRepairDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-green-600" />権限修復完了
+            </DialogTitle>
+          </DialogHeader>
+          {repairResult && (
+            <div className="space-y-3 text-sm">
+              {repairResult.rolesFixed.length > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <p className="font-medium text-amber-800 mb-1">旧ロールを修正しました</p>
+                  {repairResult.rolesFixed.map((r) => (
+                    <p key={r.role} className="text-amber-700">・{r.role}: {r.c}件 → staff に変換</p>
+                  ))}
+                </div>
+              )}
+              <div className="bg-muted rounded-lg p-3 space-y-1">
+                <p>対象スタッフ数: <strong>{repairResult.staffCount}名</strong></p>
+                <p>付与した権限数: <strong>{repairResult.permissionsInserted}件</strong></p>
+                {repairResult.permissionsInserted === 0 && (
+                  <p className="text-muted-foreground text-xs mt-1">全員の権限は既に設定済みでした</p>
+                )}
+              </div>
+              <p className="text-muted-foreground text-xs">スタッフはログインし直すと権限が反映されます</p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setRepairDialogOpen(false)}>閉じる</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
     </PageTransition>
   );
