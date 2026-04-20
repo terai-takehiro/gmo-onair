@@ -769,7 +769,7 @@ export default function StudioBookingDialog({
             </div>
             <Switch
               checked={status === "confirmed"}
-              onCheckedChange={(v) => {
+              onCheckedChange={(v: boolean) => {
                 if (bookingType !== "hold" && bookingType !== "consultation") {
                   setStatus(v ? "confirmed" : "tentative");
                 }
