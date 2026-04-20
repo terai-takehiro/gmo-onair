@@ -11,12 +11,14 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, Server, ClipboardCheck, Pencil, RefreshCw, AlertCircle } from "lucide-react";
+import { Loader2, Server, ClipboardCheck, Pencil, RefreshCw, AlertCircle, Printer } from "lucide-react";
 import { RACK_SLOT_OPTIONS, TYPE_BG } from "@/lib/constants";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const CELL_H = 32;
 const RACK_W = 240;
+const PRINT_U_H = 18;  // px per U for print (45U ≈ 810px ≈ 214mm, fits A4 portrait)
+const PRINT_RACK_W = 290; // px for rack body in print (2 racks fit A4 portrait)
 
 // ── Cell display config ───────────────────────────────────────────────────────
 type CellConfig = {
@@ -268,6 +270,20 @@ export default function RackLayoutPage() {
     noticeTimerRef.current = setTimeout(() => setInventoryNotice(""), 3500);
   }, []);
 
+  const handlePrint = useCallback(() => {
+    document.body.classList.add("print-rack");
+    window.print();
+  }, []);
+
+  useEffect(() => {
+    const cleanup = () => document.body.classList.remove("print-rack");
+    window.addEventListener("afterprint", cleanup);
+    return () => {
+      window.removeEventListener("afterprint", cleanup);
+      document.body.classList.remove("print-rack");
+    };
+  }, []);
+
   // 棚卸しを選択したら自動同期（ラック内の全機材をチェックリストに追加）
   useEffect(() => {
     if (selectedCheckId && inventoryMode && selectedCheckId !== prevCheckIdRef.current) {
@@ -425,6 +441,17 @@ export default function RackLayoutPage() {
           )}
 
           <div className="ml-auto flex gap-1.5 sm:gap-2">
+            <Button
+              size="sm" className="h-9 px-2.5 sm:px-3"
+              variant="outline"
+              onClick={handlePrint}
+              disabled={filteredRacks.length === 0}
+              title="ラック実装図を印刷"
+            >
+              <Printer className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">印刷</span>
+            </Button>
+
             <Button
               size="sm" className="h-9 px-2.5 sm:px-3"
               variant={displayEditMode ? "default" : "outline"}
@@ -709,6 +736,14 @@ export default function RackLayoutPage() {
 
       {/* ホバーツールチップ */}
       {tooltip && <ItemTooltip item={tooltip.item} x={tooltip.x} y={tooltip.y} />}
+
+      {/* 印刷用ラック実装図（スクリーンでは非表示） */}
+      <PrintRackArea
+        racks={filteredRacks}
+        side={side}
+        rackConfigs={rackConfigs}
+        colors={colors}
+      />
     </div>
   );
 }
@@ -1260,5 +1295,160 @@ function UnitBadge({ n, size }: { n: number | string; size: "sm" | "md" }) {
     >
       {n}
     </span>
+  );
+}
+
+// ── PrintRackArea (hidden on screen, visible in print) ────────────────────────
+function PrintRackArea({ racks, side, rackConfigs, colors }: {
+  racks: any[];
+  side: "front" | "back";
+  rackConfigs: Record<string, RackConfig>;
+  colors: any[];
+}) {
+  const today = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
+  return (
+    <div id="rack-print-area-wrapper">
+      <div className="rack-print-title">
+        ラック実装ビュー — {side === "front" ? "前面" : "背面"}
+      </div>
+      <div className="rack-print-meta">
+        {today} ／ {racks.length} ラック
+      </div>
+      <div className="rack-print-grid">
+        {racks.map((rackData: any) => (
+          <PrintRackDisplay
+            key={rackData.location.id}
+            rackData={rackData}
+            side={side}
+            rackConfig={rackConfigs[rackData.location.id]}
+          />
+        ))}
+      </div>
+      {colors.length > 0 && (
+        <div className="rack-print-legend">
+          <div className="rack-print-legend-title">凡例</div>
+          <div className="rack-print-legend-row">
+            {colors.map((c: any) => (
+              <div key={c.id} className="rack-print-legend-item">
+                <span className="rack-print-legend-swatch" style={{ background: c.color_hex }} />
+                <span>{c.name}</span>
+                {c.description && <span style={{ opacity: 0.65 }}>（{c.description}）</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PrintRackDisplay({ rackData, side, rackConfig }: {
+  rackData: { location: any; items: any[]; blanks?: any[] };
+  side: "front" | "back";
+  rackConfig?: RackConfig;
+}) {
+  const { location, items, blanks = [] } = rackData;
+  const rackUnits: number = location.rack_units ?? 20;
+  const sideItems = items.filter((it: any) => it.rack_side === side);
+  const sideBlanks = blanks.filter((b: any) => b.rack_side === side);
+
+  const autoSubtitle = [location.branch_name, location.rack_type_name, location.building, location.floor]
+    .filter(Boolean).join(" ");
+  const subtitle =
+    rackConfig?.subtitleMode === "hidden" ? null :
+    rackConfig?.subtitleMode === "custom" ? (rackConfig.subtitleText || null) :
+    autoSubtitle || null;
+
+  return (
+    <div className="rack-print-item">
+      <div className="rack-print-rack-header">{location.name}</div>
+      {subtitle && <div className="rack-print-rack-subtitle">{subtitle}</div>}
+      <div className="rack-print-body-row">
+        {/* Left U numbers (every 5 + U1) */}
+        <div className="rack-print-u-col">
+          {Array.from({ length: rackUnits }, (_, i) => rackUnits - i).map((u) => (
+            <div key={u} className="rack-print-u-cell" style={{ height: PRINT_U_H }}>
+              {(u % 5 === 0 || u === 1) ? u : ""}
+            </div>
+          ))}
+        </div>
+
+        {/* Rack body */}
+        <div
+          className="rack-print-body"
+          style={{ width: PRINT_RACK_W, height: rackUnits * PRINT_U_H }}
+        >
+          {Array.from({ length: rackUnits }, (_, i) => (
+            <div
+              key={i}
+              className="rack-print-gridline"
+              style={{ top: i * PRINT_U_H, height: PRINT_U_H }}
+            />
+          ))}
+
+          {sideBlanks.map((b: any) => {
+            const { start, span } = slotToColumn(b.rack_slot);
+            const height = (b.rack_height ?? 1) * PRINT_U_H;
+            const top = (rackUnits - b.rack_position - (b.rack_height ?? 1) + 1) * PRINT_U_H;
+            const left = ((start - 1) / 6) * PRINT_RACK_W;
+            const width = (span / 6) * PRINT_RACK_W;
+            const label =
+              b.panel_type === "cable"  ? "通線口" :
+              b.panel_type === "drawer" ? "引出" :
+              b.panel_type === "custom" ? (b.label || "—") : "";
+            return (
+              <div key={b.id} className="rack-print-blank-item" style={{ top, left, width, height }}>
+                {label}
+              </div>
+            );
+          })}
+
+          {sideItems.map((it: any) => {
+            const { start, span } = slotToColumn(it.rack_slot);
+            const height = (it.rack_height ?? 1) * PRINT_U_H;
+            const top = (rackUnits - it.rack_position - (it.rack_height ?? 1) + 1) * PRINT_U_H;
+            const left = ((start - 1) / 6) * PRINT_RACK_W;
+            const width = (span / 6) * PRINT_RACK_W;
+            const bg = it.color_hex ?? TYPE_BG[it.equipment_type_code] ?? "#e5e7eb";
+            const cfg: CellConfig | undefined = it.display_config ?? undefined;
+
+            const primary =
+              cfg?.primary === "model"  ? (it.model_number || it.name) :
+              cfg?.primary === "name"   ? it.name :
+              cfg?.primary === "custom" ? (cfg.customText || "—") :
+              (it.model_number || it.name);
+
+            const secondary = !cfg || cfg.primary === "model" ? it.name :
+              cfg.primary === "name" ? it.model_number : null;
+
+            return (
+              <div
+                key={it.id}
+                className="rack-print-cell-item"
+                style={{ top, left, width, height, background: bg }}
+              >
+                <div className="rack-print-cell-primary">{primary}</div>
+                {height > PRINT_U_H && secondary && (
+                  <div className="rack-print-cell-secondary">{secondary}</div>
+                )}
+                {it.unit_number != null && (
+                  <div className="rack-print-cell-no">No.{it.unit_number}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Right U numbers */}
+        <div className="rack-print-u-col">
+          {Array.from({ length: rackUnits }, (_, i) => rackUnits - i).map((u) => (
+            <div key={u} className="rack-print-u-cell-r" style={{ height: PRINT_U_H }}>
+              {(u % 5 === 0 || u === 1) ? u : ""}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="rack-print-u-footer">{rackUnits}U</div>
+    </div>
   );
 }
