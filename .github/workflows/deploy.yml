@@ -14,6 +14,11 @@ on:
           - dev
           - prod
 
+# 同じブランチへの複数プッシュが重なった場合、最新のみ実行
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   # ============================================
   # 検証環境 (dev.gmo-onair.jp) — dev push で自動
@@ -21,7 +26,7 @@ jobs:
   deploy-dev:
     if: github.ref == 'refs/heads/dev' || (github.event_name == 'workflow_dispatch' && inputs.target == 'dev')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Setup SSH key
@@ -60,7 +65,7 @@ jobs:
   deploy-prod:
     if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.target == 'prod')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Setup SSH key
@@ -82,5 +87,9 @@ jobs:
             docker compose stop app_prod || true
             docker compose rm -f app_prod || true
             docker compose up -d --no-deps app_prod
+            # サーバー起動を待ってヘルスチェック
+            echo "Waiting for server to start..."
+            sleep 15
+            curl -sf http://localhost:3000/health && echo "✓ Health check passed" || echo "⚠ Health check failed — check docker logs app_prod"
             echo "✓ Prod deploy complete: $(date) — $(git log --oneline -1)"
           ENDSSH
