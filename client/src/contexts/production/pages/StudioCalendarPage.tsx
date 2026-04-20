@@ -60,13 +60,15 @@ interface StudioBooking {
   project_name: string | null;
   gls_number: string | null;
   episode_code: string | null;
+  status?: string;
   rooms: BookingRoom[];
 }
 
 const bookingTypeColors: Record<string, string> = {
   performance: "#e11d48",
   rehearsal: "#f59e0b",
-  project: "#3b82f6",
+  hold: "#3b82f6",
+  consultation: "#10b981",
   maintenance: "#ef4444",
   tour: "#8b5cf6",
   internal: "#0891b2",
@@ -76,7 +78,8 @@ const bookingTypeColors: Record<string, string> = {
 const bookingTypeLabels: Record<string, string> = {
   performance: "本番",
   rehearsal: "リハーサル",
-  project: "案件利用",
+  hold: "仮押さえ",
+  consultation: "相談",
   maintenance: "メンテナンス",
   tour: "内覧",
   internal: "社内利用",
@@ -138,8 +141,10 @@ export default function StudioCalendarPage() {
   const [presetRoomIds, setPresetRoomIds] = useState<string[]>([]);
   const [roomsManagerOpen, setRoomsManagerOpen] = useState(false);
   const [feedsOpen, setFeedsOpen] = useState(false);
-  const { currentUser } = useAuth();
+  const { currentUser, hasPermission } = useAuth();
   const isAdmin = currentUser?.role === "system_admin";
+  const canEdit = hasPermission("studio", "editor");
+  const canManage = hasPermission("studio", "manager");
 
   // Fetch locations & rooms
   const { data: locationsData } = useQuery({
@@ -197,12 +202,15 @@ export default function StudioCalendarPage() {
     // Studio bookings
     for (const b of bookings) {
       const typeColor = bookingTypeColors[b.booking_type] || "#6b7280";
+      const isTentative = b.status === "tentative";
+      const tentativeClass = isTentative ? ["tentative-booking"] : [];
 
       const toTimedRange = (startStr: string, endStr: string, isAllDay: boolean) => {
-        if (!isAllDay) return { start: startStr, end: endStr };
-        return { start: `${startStr}T00:00:00`, end: `${endStr}T23:59:00` };
+        if (!isAllDay) return { start: startStr, end: endStr, allDay: false };
+        // 終日イベントはFullCalendarのallDay=trueで表示
+        return { start: startStr.split("T")[0], end: startStr.split("T")[0] === (endStr.split("T")[0]) ? undefined : endStr.split("T")[0], allDay: true };
       };
-      const { start: evStart, end: evEnd } = toTimedRange(b.start_time, b.end_time, !!b.all_day);
+      const { start: evStart, end: evEnd, allDay: evAllDay } = toTimedRange(b.start_time, b.end_time, !!b.all_day);
       const useTypeColor = ["performance", "rehearsal", "maintenance", "tour"].includes(b.booking_type);
 
       if (b.rooms.length > 0) {
@@ -219,10 +227,11 @@ export default function StudioCalendarPage() {
             title: b.title,
             start: evStart,
             end: evEnd,
-            allDay: false,
+            allDay: evAllDay,
             backgroundColor: color,
             borderColor: color,
             textColor: "#ffffff",
+            classNames: tentativeClass,
             extendedProps: { kind: "booking", bookingId: b.id, bookingType: b.booking_type },
           });
         } else {
@@ -234,10 +243,11 @@ export default function StudioCalendarPage() {
               title: `${room.room_name} | ${b.title}`,
               start: evStart,
               end: evEnd,
-              allDay: false,
+              allDay: evAllDay,
               backgroundColor: color,
               borderColor: color,
               textColor: "#ffffff",
+              classNames: tentativeClass,
               extendedProps: { kind: "booking", bookingId: b.id, bookingType: b.booking_type },
             });
           }
@@ -249,10 +259,11 @@ export default function StudioCalendarPage() {
           title: `📍 ${b.title}${b.location_note ? ` (${b.location_note})` : ""}`,
           start: evStart,
           end: evEnd,
-          allDay: false,
+          allDay: evAllDay,
           backgroundColor: typeColor,
           borderColor: typeColor,
           textColor: "#ffffff",
+          classNames: tentativeClass,
           extendedProps: { kind: "booking", bookingId: b.id, bookingType: b.booking_type },
         });
       }
@@ -380,10 +391,12 @@ export default function StudioCalendarPage() {
               <span className="hidden sm:inline">部屋管理</span>
             </Button>
           )}
-          <Button size="sm" onClick={handleNewBooking}>
-            <Plus className="h-4 w-4 sm:mr-1" />
-            <span className="hidden sm:inline">予約追加</span>
-          </Button>
+          {canEdit && (
+            <Button size="sm" onClick={handleNewBooking}>
+              <Plus className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">予約追加</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -569,7 +582,7 @@ export default function StudioCalendarPage() {
               slotMinTime="00:00:00"
               slotMaxTime="24:00:00"
               slotDuration={isMobile ? "01:00:00" : "00:30:00"}
-              allDaySlot={false}
+              allDaySlot={true}
               nowIndicator={true}
               expandRows={!isMobile}
               stickyHeaderDates={true}
@@ -601,6 +614,8 @@ export default function StudioCalendarPage() {
         onOpenChange={setDetailDialogOpen}
         booking={detailBooking}
         onEdit={handleEditBooking}
+        canEdit={canEdit}
+        canDelete={canManage}
         onDelete={(id) => {
           if (confirm("この予約を削除しますか？")) deleteMutation.mutate(id);
         }}

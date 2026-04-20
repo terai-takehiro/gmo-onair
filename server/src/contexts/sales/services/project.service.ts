@@ -83,15 +83,16 @@ export class ProjectService {
    * 新規作成（ヨミ段階: 最低限の入力でOK）
    */
   async create(data: Record<string, unknown>, userId: string) {
-    const { name, customer_id, expected_amount, assigned_to, project_type, notes } = data;
+    const { name, customer_id, expected_amount, assigned_to, project_type, notes, customer_type } = data;
     if (!name || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名と顧客は必須です');
 
     const id = uuidv4();
     const code = await generateSequenceNumber('opp_code', 'OPP');
+    const cType = ['internal', 'external'].includes(customer_type as string) ? customer_type : 'external';
     await execute(
-      `INSERT INTO projects (id, code, name, customer_id, stage, project_type, expected_amount, assigned_to, notes, created_by)
-       VALUES (?, ?, ?, ?, 'neta', ?, ?, ?, ?, ?)`,
-      [id, code, name, customer_id, project_type || 'other', expected_amount || 0, assigned_to || userId, notes || null, userId]
+      `INSERT INTO projects (id, code, name, customer_id, stage, project_type, expected_amount, assigned_to, notes, customer_type, created_by)
+       VALUES (?, ?, ?, ?, 'neta', ?, ?, ?, ?, ?, ?)`,
+      [id, code, name, customer_id, project_type || 'other', expected_amount || 0, assigned_to || userId, notes || null, cType, userId]
     );
     return this.getById(id);
   }
@@ -105,18 +106,19 @@ export class ProjectService {
 
     const { name, customer_id, expected_amount, assigned_to, project_type, project_type_other,
             event_start, event_end, broadcast_type, media_platform, tags,
-            application_form, logo_permission, notes } = data;
+            application_form, logo_permission, notes, customer_type } = data;
+    const cType = ['internal', 'external'].includes(customer_type as string) ? customer_type : 'external';
     await execute(
       `UPDATE projects SET name=?, customer_id=?, expected_amount=?, assigned_to=?,
        project_type=?, project_type_other=?, event_start=?, event_end=?,
        broadcast_type=?, media_platform=?, tags=?,
-       application_form=?, logo_permission=?, notes=?,
+       application_form=?, logo_permission=?, notes=?, customer_type=?,
        updated_at=NOW(), updated_by=? WHERE id=?`,
       [name, customer_id, expected_amount || 0, assigned_to,
        project_type || 'other', project_type_other || null,
        event_start || null, event_end || null,
        broadcast_type || null, media_platform || null, tags || '',
-       application_form ? 1 : 0, logo_permission ? 1 : 0, notes || null,
+       application_form ? 1 : 0, logo_permission ? 1 : 0, notes || null, cType,
        userId, id]
     );
     return this.getById(id);
@@ -142,6 +144,24 @@ export class ProjectService {
         [stage, userId, id]
       );
     }
+
+    // d_hold 遷移時、案件に日程が入っていれば仮押さえ予約を自動生成
+    if (stage === 'd_hold' && project.event_start) {
+      const existing = await queryOne(
+        `SELECT id FROM studio_bookings WHERE project_id = ? AND booking_type = 'hold' AND deleted_at IS NULL`,
+        [id]
+      );
+      if (!existing) {
+        const bookingId = uuidv4();
+        const eventEnd = project.event_end || project.event_start;
+        await execute(
+          `INSERT INTO studio_bookings (id, title, booking_type, project_id, all_day, start_time, end_time, status, notes, created_by)
+           VALUES (?, ?, 'hold', ?, 1, ?, ?, 'tentative', '案件ステージ移行で自動生成', ?)`,
+          [bookingId, `${project.name} 仮押さえ`, id, project.event_start, eventEnd, userId]
+        );
+      }
+    }
+
     return this.getById(id);
   }
 

@@ -19,7 +19,8 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { Loader2, Calendar, Clock, MapPin, User } from "lucide-react";
+import { Loader2, Calendar, Clock, MapPin, User, CheckSquare } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 interface StudioRoom {
   id: string;
@@ -56,6 +57,7 @@ interface StudioBooking {
   end_time: string;
   location_note: string | null;
   notes: string | null;
+  status?: string;
   rooms: BookingRoom[];
 }
 
@@ -71,9 +73,10 @@ interface Props {
 const bookingTypeOptions = [
   { value: "performance", label: "本番" },
   { value: "rehearsal", label: "リハーサル" },
-  { value: "project", label: "案件利用" },
-  { value: "maintenance", label: "メンテナンス" },
+  { value: "hold", label: "仮押さえ" },
   { value: "tour", label: "内覧" },
+  { value: "consultation", label: "相談" },
+  { value: "maintenance", label: "メンテナンス" },
   { value: "internal", label: "社内利用" },
   { value: "other", label: "その他" },
 ];
@@ -116,6 +119,7 @@ export default function StudioBookingDialog({
   // Form state
   const [title, setTitle] = useState("");
   const [bookingType, setBookingType] = useState("performance");
+  const [status, setStatus] = useState<"confirmed" | "tentative">("tentative");
   const [projectId, setProjectId] = useState("");
   const [episodeId, setEpisodeId] = useState("");
   const [allDay, setAllDay] = useState(true);
@@ -176,6 +180,7 @@ export default function StudioBookingDialog({
       const b = editingBooking;
       setTitle(b.title);
       setBookingType(b.booking_type);
+      setStatus((b.status as "confirmed" | "tentative") || "tentative");
       setProjectId(b.project_id || "");
       setEpisodeId(b.episode_id || "");
       setAllDay(!!b.all_day);
@@ -210,6 +215,7 @@ export default function StudioBookingDialog({
     } else {
       setTitle("");
       setBookingType("performance");
+      setStatus("tentative");
       setProjectId("");
       setEpisodeId("");
       setLocationNote("");
@@ -260,16 +266,24 @@ export default function StudioBookingDialog({
     }
   }, [isSingleDateType, multiDay, startDate]);
 
-  // Auto-set title based on project
+  // hold/consultation は常に未確定
   useEffect(() => {
-    if (bookingType === "project" && projectId && !editingBooking) {
+    if (bookingType === "hold" || bookingType === "consultation") {
+      setStatus("tentative");
+    }
+  }, [bookingType]);
+
+  // Auto-set title based on project (for performance/rehearsal/hold types)
+  useEffect(() => {
+    if (projectId && !editingBooking) {
       const proj = projects.find((p: any) => p.id === projectId);
-      if (proj) {
+      if (proj && (bookingType === "performance" || bookingType === "rehearsal" || bookingType === "hold")) {
         const ep = episodes.find((e: any) => e.id === episodeId);
+        const typeLabel = bookingType === "hold" ? " 仮押さえ" : bookingType === "rehearsal" ? " リハーサル" : "";
         setTitle(
           ep
-            ? `${proj.gls_number} ${ep.episode_code} ${proj.name}`
-            : `${proj.gls_number} ${proj.name}`
+            ? `${proj.gls_number || proj.code} ${ep.episode_code} ${proj.name}${typeLabel}`
+            : `${proj.gls_number || proj.code} ${proj.name}${typeLabel}`
         );
       }
     }
@@ -363,6 +377,7 @@ export default function StudioBookingDialog({
     const payload = {
       title,
       booking_type: bookingType,
+      status,
       project_id: projectId || null,
       episode_id: episodeId || null,
       all_day: allDay,
@@ -411,42 +426,40 @@ export default function StudioBookingDialog({
             </div>
           </div>
 
-          {/* Project link (only for project type) */}
-          {bookingType === "project" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>案件</Label>
-                <SearchableSelect
-                  options={projects.map((p: any) => ({
-                    value: p.id,
-                    label: `${p.gls_number || p.code} ${p.name}`,
-                    subLabel: p.customer_name || "",
-                  }))}
-                  value={projectId}
-                  onChange={(v) => { setProjectId(v); setEpisodeId(""); }}
-                  placeholder="案件を検索..."
-                />
-              </div>
-              {projectId && episodes.length > 0 && (
-                <div className="space-y-1">
-                  <Label>話数 (任意)</Label>
-                  <Select value={episodeId} onValueChange={setEpisodeId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="選択..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">なし</SelectItem>
-                      {episodes.map((ep: any) => (
-                        <SelectItem key={ep.id} value={ep.id}>
-                          {ep.episode_code}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+          {/* Project link (available for all types) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label>案件 (任意)</Label>
+              <SearchableSelect
+                options={projects.map((p: any) => ({
+                  value: p.id,
+                  label: `${p.gls_number || p.code} ${p.name}`,
+                  subLabel: p.customer_name || "",
+                }))}
+                value={projectId}
+                onChange={(v) => { setProjectId(v); setEpisodeId(""); }}
+                placeholder="案件を検索..."
+              />
             </div>
-          )}
+            {projectId && episodes.length > 0 && (
+              <div className="space-y-1">
+                <Label>話数 (任意)</Label>
+                <Select value={episodeId} onValueChange={setEpisodeId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="選択..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">なし</SelectItem>
+                    {episodes.map((ep: any) => (
+                      <SelectItem key={ep.id} value={ep.id}>
+                        {ep.episode_code}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
 
           {/* Title */}
           <div className="space-y-1">
@@ -579,7 +592,29 @@ export default function StudioBookingDialog({
 
           {/* Room selection */}
           <div className="space-y-2">
-            <Label>使用スタジオ・部屋 (複数選択可)</Label>
+            <div className="flex items-center justify-between">
+              <Label>使用スタジオ・部屋 (複数選択可)</Label>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  className="text-xs text-primary hover:underline"
+                  onClick={() => {
+                    const all = new Set(roomLocations.flatMap((l) => l.rooms.map((r) => r.id)));
+                    setSelectedRoomIds(all);
+                  }}
+                >
+                  <CheckSquare className="inline h-3 w-3 mr-0.5" />全部屋
+                </button>
+                <span className="text-xs text-muted-foreground">|</span>
+                <button
+                  type="button"
+                  className="text-xs text-muted-foreground hover:underline"
+                  onClick={() => setSelectedRoomIds(new Set())}
+                >
+                  全解除
+                </button>
+              </div>
+            </div>
             <div className="space-y-3 rounded-lg border p-3">
               {/* Room locations (deduplicated, only those with rooms) */}
               {roomLocations.map((loc) => (
@@ -720,6 +755,26 @@ export default function StudioBookingDialog({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="備考"
+            />
+          </div>
+
+          {/* Status toggle */}
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <p className="text-sm font-medium">予約状態</p>
+              <p className="text-xs text-muted-foreground">
+                {status === "confirmed" ? "確定" : "未確定（仮押さえ）"}
+                {(bookingType === "hold" || bookingType === "consultation") && " — この種別は常に未確定"}
+              </p>
+            </div>
+            <Switch
+              checked={status === "confirmed"}
+              onCheckedChange={(v) => {
+                if (bookingType !== "hold" && bookingType !== "consultation") {
+                  setStatus(v ? "confirmed" : "tentative");
+                }
+              }}
+              disabled={bookingType === "hold" || bookingType === "consultation"}
             />
           </div>
 

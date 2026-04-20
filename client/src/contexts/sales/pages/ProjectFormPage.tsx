@@ -27,6 +27,7 @@ import {
   getProjectCategory,
 } from "@/types";
 import SimulationDialog from "../components/SimulationDialog";
+import CustomerDialog from "../components/CustomerDialog";
 
 interface LostDialogState {
   open: boolean;
@@ -38,6 +39,7 @@ interface LostDialogState {
 interface FormValues {
   name: string;
   customer_id: string;
+  customer_type: string;
   project_type: string;
   project_type_other: string;
   event_start: string;
@@ -80,6 +82,9 @@ export default function ProjectFormPage() {
   });
   const lostReasonCategories: { id: string; name: string }[] = lostReasonsData?.data ?? [];
   const [holdPromptOpen, setHoldPromptOpen] = useState(false);
+  const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
+  const [stageSelectValue, setStageSelectValue] = useState("");
+  const [stageConfirmOpen, setStageConfirmOpen] = useState(false);
 
   // スタジオスケジュール
   const [scheduleRoomIds, setScheduleRoomIds] = useState<string[]>([]);
@@ -122,7 +127,7 @@ export default function ProjectFormPage() {
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<FormValues>({
     defaultValues: {
-      name: "", customer_id: "", project_type: "", project_type_other: "",
+      name: "", customer_id: "", customer_type: "external", project_type: "", project_type_other: "",
       event_start: "", event_end: "", expected_amount: 0, assigned_to: "",
       broadcast_type: "", media_platform: "", tags: "", notes: "",
     },
@@ -151,6 +156,7 @@ export default function ProjectFormPage() {
       reset({
         name: project.name || "",
         customer_id: project.customer_id || "",
+        customer_type: project.customer_type || "external",
         project_type: project.project_type || "other",
         project_type_other: project.project_type_other || "",
         event_start: project.event_start || "",
@@ -336,25 +342,61 @@ export default function ProjectFormPage() {
       )}
 
       {/* Stage change actions */}
-      {isEdit && project && !isTerminal && (
+      {isEdit && project && (
         <Card>
           <CardHeader><CardTitle className="text-base">ステージ変更</CardTitle></CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            {/* ヨミ段階の遷移 */}
-            {currentStage === 'neta' && (
-              <Button variant="outline" size="sm" onClick={() => stageMutation.mutate({ stage: "d_hold" })} disabled={stageMutation.isPending}>
-                D 仮押さえへ
+          <CardContent className="space-y-3">
+            <div className="flex items-end gap-2 flex-wrap">
+              <div className="flex-1 min-w-[160px]">
+                <Label className="text-xs text-muted-foreground mb-1 block">変更先ステージ</Label>
+                <Select value={stageSelectValue} onValueChange={setStageSelectValue} disabled={stageMutation.isPending}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="ステージを選択..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.entries(ProjectStageLabels) as [string, string][])
+                      .filter(([val]) => val !== currentStage)
+                      .map(([val, label]) => (
+                        <SelectItem key={val} value={val}>{label}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!stageSelectValue || stageMutation.isPending}
+                onClick={() => {
+                  if (!stageSelectValue) return;
+                  if (stageSelectValue === 'e_lost') {
+                    setLostDialog({ open: true, lost_reason: '', lost_reason_note: '', lessons_learned: '' });
+                    setStageSelectValue("");
+                  } else {
+                    setStageConfirmOpen(true);
+                  }
+                }}
+              >
+                {stageMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "変更"}
               </Button>
-            )}
-            {(currentStage === 'neta' || currentStage === 'd_hold') && (
-              <Button variant="outline" size="sm" onClick={() => stageMutation.mutate({ stage: "c_proposal" })} disabled={stageMutation.isPending}>
-                C 見積提案済へ
-              </Button>
-            )}
+
+              {/* GLS発番 */}
+              {isYomi && (
+                <Button
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700"
+                  onClick={() => setGlsDialog({ ...glsDialog, open: true })}
+                  disabled={glsMutation.isPending}
+                >
+                  <Trophy className="mr-2 h-4 w-4" />
+                  GLS発番
+                </Button>
+              )}
+            </div>
 
             {/* 仮押さえ中 + A系：スタジオ予約ショートカット */}
             {currentStage === 'd_hold' && isCategoryA && (
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 className="border-blue-300 text-blue-700 hover:bg-blue-50"
@@ -364,36 +406,6 @@ export default function ProjectFormPage() {
                 スタジオ予約
               </Button>
             )}
-
-            {/* GLS発番ボタン (ヨミ段階のみ) */}
-            {isYomi && (
-              <Button
-                size="sm"
-                className="bg-green-600 hover:bg-green-700"
-                onClick={() => setGlsDialog({ ...glsDialog, open: true })}
-                disabled={glsMutation.isPending}
-              >
-                <Trophy className="mr-2 h-4 w-4" />
-                GLS発番
-              </Button>
-            )}
-
-            {/* GLS発番済みの遷移 */}
-            {hasGls && currentStage === 'b_verbal' && (
-              <Button
-                size="sm"
-                className="bg-green-600 hover:bg-green-700"
-                onClick={() => stageMutation.mutate({ stage: "a_won" })}
-                disabled={stageMutation.isPending}
-              >
-                A 受注済へ
-              </Button>
-            )}
-
-            {/* 失注 */}
-            <Button variant="destructive" size="sm" onClick={() => setLostDialog({ open: true, lost_reason: '', lost_reason_note: '', lessons_learned: '' })} disabled={stageMutation.isPending}>
-              E 失注
-            </Button>
           </CardContent>
         </Card>
       )}
@@ -450,7 +462,16 @@ export default function ProjectFormPage() {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <Label>顧客 *</Label>
+                <div className="flex items-center justify-between mb-1">
+                  <Label>顧客 *</Label>
+                  <button
+                    type="button"
+                    className="text-xs text-primary hover:underline"
+                    onClick={() => setCustomerDialogOpen(true)}
+                  >
+                    + 新規顧客
+                  </button>
+                </div>
                 <SearchableSelect
                   options={customers.map((c: { id: string; name: string; short_name?: string }) => ({ value: c.id, label: c.name, subLabel: c.short_name || '' }))}
                   value={watch("customer_id")}
@@ -505,6 +526,19 @@ export default function ProjectFormPage() {
                   onChange={(v) => setValue("assigned_to", v)}
                   placeholder="担当者を検索..."
                 />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <Label>グループ区分</Label>
+                <Select value={watch("customer_type") || "external"} onValueChange={(v) => setValue("customer_type", v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="external">グループ外</SelectItem>
+                    <SelectItem value="internal">グループ内</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -717,6 +751,45 @@ export default function ProjectFormPage() {
           </Button>
         </div>
       </form>
+
+      {/* 新規顧客ダイアログ */}
+      <CustomerDialog
+        open={customerDialogOpen}
+        onOpenChange={setCustomerDialogOpen}
+        onCreated={(customer) => setValue("customer_id", customer.id)}
+      />
+
+      {/* ステージ変更確認ダイアログ */}
+      <Dialog open={stageConfirmOpen} onOpenChange={setStageConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              ステージ変更の確認
+            </DialogTitle>
+            <DialogDescription>
+              {(currentStage === 's_completed' || currentStage === 'e_lost') && (
+                <span className="font-semibold text-red-600">終了済みステージから復帰します。意図的な操作か確認してください。</span>
+              )}
+              {currentStage !== 's_completed' && currentStage !== 'e_lost' && (
+                <span>「{ProjectStageLabels[currentStage]}」から「{stageSelectValue ? ProjectStageLabels[stageSelectValue as ProjectStage] : ''}」に変更します。</span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setStageConfirmOpen(false); setStageSelectValue(""); }}>キャンセル</Button>
+            <Button
+              onClick={() => {
+                setStageConfirmOpen(false);
+                stageMutation.mutate({ stage: stageSelectValue });
+                setStageSelectValue("");
+              }}
+            >
+              変更する
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* 料金シミュレーションダイアログ */}
       <SimulationDialog

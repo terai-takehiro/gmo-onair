@@ -326,15 +326,16 @@ router.get('/bookings/:id', async (req, res) => {
 
 // POST /studios/bookings — 予約作成
 router.post('/bookings', requirePermission('studio', 'editor'), async (req, res) => {
-  const { title, booking_type, project_id, episode_id, all_day, start_time, end_time, room_ids, room_details, location_note, notes } = req.body;
+  const { title, booking_type, project_id, episode_id, all_day, start_time, end_time, room_ids, room_details, location_note, notes, status } = req.body;
   if (!title || !start_time || !end_time) throw new AppError(400, 'VALIDATION_ERROR', 'タイトル・開始・終了は必須です');
 
+  const bookingStatus = ['confirmed', 'tentative'].includes(status) ? status : 'tentative';
   const id = uuidv4();
   await execute(
-    `INSERT INTO studio_bookings (id, title, booking_type, project_id, episode_id, all_day, start_time, end_time, location_note, notes, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO studio_bookings (id, title, booking_type, project_id, episode_id, all_day, start_time, end_time, location_note, notes, status, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, title, booking_type || 'other', project_id || null, episode_id || null,
-     all_day ? 1 : 0, start_time, end_time, location_note || null, notes || null, req.user!.id]
+     all_day ? 1 : 0, start_time, end_time, location_note || null, notes || null, bookingStatus, req.user!.id]
   );
 
   // Insert room associations (with optional occupant/usage_note)
@@ -358,12 +359,17 @@ router.put('/bookings/:id', requirePermission('studio', 'editor'), async (req, r
   const existing = await queryOne('SELECT id FROM studio_bookings WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!existing) throw new AppError(404, 'NOT_FOUND', '予約が見つかりません');
 
-  const { title, booking_type, project_id, episode_id, all_day, start_time, end_time, room_ids, room_details, location_note, notes } = req.body;
+  const { title, booking_type, project_id, episode_id, all_day, start_time, end_time, room_ids, room_details, location_note, notes, status } = req.body;
+  const bookingStatus = ['confirmed', 'tentative'].includes(status) ? status : undefined;
   await execute(
     `UPDATE studio_bookings SET title=?, booking_type=?, project_id=?, episode_id=?, all_day=?,
-     start_time=?, end_time=?, location_note=?, notes=?, updated_at=NOW(), updated_by=? WHERE id=?`,
-    [title, booking_type || 'other', project_id || null, episode_id || null,
-     all_day ? 1 : 0, start_time, end_time, location_note || null, notes || null, req.user!.id, req.params.id]
+     start_time=?, end_time=?, location_note=?, notes=?,
+     ${bookingStatus ? 'status=?,' : ''} updated_at=NOW(), updated_by=? WHERE id=?`,
+    bookingStatus
+      ? [title, booking_type || 'other', project_id || null, episode_id || null,
+         all_day ? 1 : 0, start_time, end_time, location_note || null, notes || null, bookingStatus, req.user!.id, req.params.id]
+      : [title, booking_type || 'other', project_id || null, episode_id || null,
+         all_day ? 1 : 0, start_time, end_time, location_note || null, notes || null, req.user!.id, req.params.id]
   );
 
   // Replace room associations
