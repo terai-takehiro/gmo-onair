@@ -16,7 +16,7 @@ export default function LoginPage() {
   const error = searchParams.get('error');
   const token = searchParams.get('token');
   const [users, setUsers] = useState<UserOption[]>([]);
-  const [authMode, setAuthMode] = useState<'oauth' | 'mock' | null>(null);
+  const [authMode, setAuthMode] = useState<'oauth' | 'mock' | 'password' | null>(null);
 
   useEffect(() => {
     if (user && !token) { navigate('/', { replace: true }); return; }
@@ -57,6 +57,20 @@ export default function LoginPage() {
           <Button className="w-full" onClick={() => { window.location.href = '/api/v1/internal/auth/google'; }}>
             Google でログイン
           </Button>
+        )}
+
+        {authMode === 'password' && (
+          <div className="space-y-3 text-center">
+            <p className="text-sm text-muted-foreground">
+              計時LIVEはメインアプリの認証情報を共有しています。<br />
+              メインアプリにログインしてから、このページに戻ってください。
+            </p>
+            <Button className="w-full" onClick={() => {
+              window.location.href = '/login?redirect=' + encodeURIComponent('/live');
+            }}>
+              ログインページへ
+            </Button>
+          </div>
         )}
 
         {authMode === 'mock' && users.length > 0 && (
