@@ -87,8 +87,6 @@ function AppCard({ app, onClick, disabled: forceDisabled }: { app: BlockApp; onC
 const roleLabelMap: Record<string, string> = {
   system_admin: "システム管理者",
   staff: "スタッフ",
-  viewer: "閲覧者",
-  external_client: "外部クライアント",
 };
 
 // ──────────────────────────────────────

@@ -23,16 +23,11 @@ import { Plus, Pencil, Trash2, Loader2, ShieldAlert, KeyRound, Copy, CheckCircle
 const roleLabelMap: Record<string, string> = {
   system_admin: "システム管理者",
   staff: "スタッフ",
-  // 旧ロール表示用 (移行期間)
-  viewer: "スタッフ",
-  external_client: "スタッフ",
 };
 
 const roleColorMap: Record<string, string> = {
   system_admin: "#dc2626",
   staff: "#005bac",
-  viewer: "#005bac",
-  external_client: "#005bac",
 };
 
 // アクセスレベルの色

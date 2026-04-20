@@ -20,8 +20,6 @@ import AppSwitcher from "@gmo-onair/shared/src/client/AppSwitcher";
 const roleLabelMap: Record<string, string> = {
   system_admin: "システム管理者",
   staff: "スタッフ",
-  viewer: "閲覧者",
-  external_client: "外部クライアント",
 };
 
 const stageLabelMap: Record<string, string> = {
