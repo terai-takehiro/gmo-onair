@@ -33,6 +33,7 @@ export const BLOCK_APPS: BlockApp[] = [
   { id: "equipment",   label: "機材管理",           description: "機材台帳・貸出・メンテナンス",     icon: "Package",      color: "bg-amber-500",   status: "active",      basePath: "/equipment" },
   { id: "interactive", label: "インタラクティブ演出", description: "スタンプ・リアルタイム演出支援",   icon: "Sparkles",     color: "bg-pink-500",    status: "active",      basePath: "/interactive" },
   { id: "techsheet",   label: "技術資料",           description: "カメラ・映像・音声技術仕様書",     icon: "BookOpen",     color: "bg-cyan-500",    status: "active",      basePath: "/techsheet" },
+  { id: "liveops",     label: "計時LIVE",           description: "カウントダウン・視聴者カウンター", icon: "Radio",        color: "bg-red-500",     status: "active",      basePath: "/live" },
   { id: "assign",      label: "制作支援",           description: "スケジュール・スタッフ配置",       icon: "Users",        color: "bg-orange-500",  status: "coming_soon", basePath: "/prodsheet" },
   { id: "delivery",    label: "素材納品",           description: "VTR/素材の納品管理",               icon: "Truck",        color: "bg-teal-500",    status: "coming_soon", basePath: "/delivery" },
 ];
@@ -45,6 +46,7 @@ export const MODULE_LABELS: Record<string, string> = {
   equipment: "機材管理",
   qsheet: "Qシート",
   techsheet: "技術資料",
+  liveops: "計時LIVE",
   assign: "制作支援",
   delivery: "素材納品",
   interactive: "インタラクティブ演出",
