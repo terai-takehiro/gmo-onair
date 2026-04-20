@@ -146,6 +146,90 @@ router.get('/by-module/:module', wrap(async (req, res) => {
 }));
 
 // ============================================================
+// 診断 & 修復 (system_admin only)
+// ============================================================
+
+// 権限システムの状態確認
+router.get('/admin/diagnostics', requireRole('system_admin'), wrap(async (_req, res) => {
+  const migrations = await queryAll('SELECT name FROM _migrations ORDER BY name');
+  const roleCounts = await queryAll(
+    "SELECT role, COUNT(*)::int as count, COUNT(*) FILTER (WHERE deleted_at IS NULL)::int as active FROM users GROUP BY role"
+  );
+  const staffUsers = await queryAll(
+    `SELECT u.id, u.name, u.email, u.role,
+            COUNT(p.module)::int as perm_count,
+            ARRAY_AGG(p.module || ':' || p.access_level) FILTER (WHERE p.module IS NOT NULL) as perms
+     FROM users u
+     LEFT JOIN user_permissions p ON p.user_id = u.id
+     WHERE u.deleted_at IS NULL AND u.role = 'staff'
+     GROUP BY u.id, u.name, u.email, u.role
+     ORDER BY u.name`
+  );
+  const totalPerms = ((await queryOne('SELECT COUNT(*)::int as c FROM user_permissions')) as any).c;
+  res.json({
+    success: true,
+    data: {
+      migrations: migrations.map(m => m.name),
+      roleCounts,
+      staffUsers,
+      totalPermissions: totalPerms,
+    },
+  });
+}));
+
+// 全スタッフユーザーに欠けているデフォルト権限を一括付与
+router.post('/admin/repair-permissions', requireRole('system_admin'), wrap(async (_req, res) => {
+  // 1. 旧ロール → staff に強制移行 (soft-deleted 含む)
+  const rolesBefore = await queryAll(
+    `SELECT role, COUNT(*)::int as c FROM users WHERE role NOT IN ('system_admin', 'staff') GROUP BY role`
+  );
+  await execute(
+    `UPDATE users SET role = 'staff', updated_at = NOW() WHERE role NOT IN ('system_admin', 'staff')`
+  );
+
+  // 2. CHECK 制約を NOT VALID で再作成 (古い制約が残っていた場合に備える)
+  await execute(`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`);
+  await execute(`ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('system_admin', 'staff')) NOT VALID`);
+
+  // 3. access_level 正規化
+  await execute(`UPDATE user_permissions SET access_level = 'reader', updated_at = NOW() WHERE access_level = 'exporter'`);
+  await execute(`UPDATE user_permissions SET access_level = 'manager', updated_at = NOW() WHERE access_level = 'owner'`);
+  await execute(`ALTER TABLE user_permissions DROP CONSTRAINT IF EXISTS user_permissions_access_level_check`);
+  await execute(`ALTER TABLE user_permissions ADD CONSTRAINT user_permissions_access_level_check CHECK (access_level IN ('reader', 'editor', 'manager')) NOT VALID`);
+
+  // 4. 全 staff ユーザーに欠けている権限を付与
+  const defaultPerms: Record<string, string> = {
+    sales: 'reader', budget: 'reader', studio: 'editor',
+    equipment: 'reader', qsheet: 'editor', techsheet: 'editor', interactive: 'editor',
+  };
+  const staffUsers = await queryAll(
+    `SELECT id FROM users WHERE role = 'staff' AND deleted_at IS NULL`
+  );
+  const beforeCount = ((await queryOne(`SELECT COUNT(*)::int as c FROM user_permissions`)) as any).c;
+  for (const u of staffUsers) {
+    for (const [mod, level] of Object.entries(defaultPerms)) {
+      await execute(
+        `INSERT INTO user_permissions (id, user_id, module, access_level) VALUES (?, ?, ?, ?) ON CONFLICT (user_id, module) DO NOTHING`,
+        [uuidv4(), u.id as string, mod, level]
+      );
+    }
+  }
+  const afterCount = ((await queryOne(`SELECT COUNT(*)::int as c FROM user_permissions`)) as any).c;
+
+  res.json({
+    success: true,
+    data: {
+      rolesFixed: rolesBefore,
+      staffCount: staffUsers.length,
+      permissionsBefore: beforeCount,
+      permissionsAfter: afterCount,
+      permissionsInserted: afterCount - beforeCount,
+    },
+    message: '権限を修復しました',
+  });
+}));
+
+// ============================================================
 // パーミッション管理
 // ============================================================
 
