@@ -21,6 +21,7 @@ export const ALL_APPS: AppNavItem[] = [
   { key: 'equipment',   path: '/equipment',          label: '機材管理',            icon: 'Package' },
   { key: 'interactive', path: '/interactive',        label: 'インタラクティブ',    icon: 'Sparkles' },
   { key: 'techsheet',   path: '/techsheet',          label: '技術資料',            icon: 'Wrench' },
+  { key: 'liveops',    path: '/live',               label: '計時LIVE',            icon: 'Radio' },
 ];
 
 /**
