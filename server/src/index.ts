@@ -5,6 +5,7 @@ import { initDb } from './shared/db/connection';
 import { runMigrations } from './shared/db/migrate';
 import { seed } from './shared/db/seed';
 import { seedSubApps } from './shared/db/seed-subapps';
+import { ensureStaffPermissions } from './shared/db/ensure-permissions';
 import { initSocketIO, shutdownSocketIO } from './contexts/interactive/socket';
 import { initQsheetSocketIO } from './contexts/qsheet/socket';
 
@@ -13,6 +14,9 @@ async function main() {
   console.log('[startup] DB connected');
   await runMigrations();
   console.log('[startup] Migrations complete');
+
+  // 毎回起動時に権限を保全 (idempotent)
+  await ensureStaffPermissions();
 
   // SKIP_SEED=true で本番環境のダミーデータ投入をスキップ
   if (process.env.SKIP_SEED !== 'true') {
