@@ -2,7 +2,7 @@
 -- scope: 'personal' = 作成者のみ表示, 'shared' = 全員表示
 
 CREATE TABLE equipment_custom_columns (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   name TEXT NOT NULL,
   col_type TEXT NOT NULL DEFAULT 'text', -- text | checkbox | number
   scope TEXT NOT NULL DEFAULT 'personal', -- personal | shared
@@ -13,8 +13,8 @@ CREATE TABLE equipment_custom_columns (
 );
 
 CREATE TABLE equipment_custom_values (
-  equipment_id UUID NOT NULL REFERENCES equipment_items(id) ON DELETE CASCADE,
-  column_id UUID NOT NULL REFERENCES equipment_custom_columns(id) ON DELETE CASCADE,
+  equipment_id TEXT NOT NULL REFERENCES equipment_items(id) ON DELETE CASCADE,
+  column_id TEXT NOT NULL REFERENCES equipment_custom_columns(id) ON DELETE CASCADE,
   value TEXT,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (equipment_id, column_id)
