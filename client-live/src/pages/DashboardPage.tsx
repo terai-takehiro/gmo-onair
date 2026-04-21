@@ -1,6 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
 import api from '@/lib/api';
 import { useTimer } from '@/hooks/useTimer';
 import { useViewer } from '@/hooks/useViewer';
@@ -16,7 +15,6 @@ interface Snapshot { captured_at: string; youtube_count: number; jstream_count: 
 
 export default function DashboardPage() {
   const { programId } = useParams<{ programId: string }>();
-  const [singularSending, setSingularSending] = useState<string | null>(null);
 
   const { data: settingsData } = useQuery({
     queryKey: ['settings'],
@@ -40,21 +38,6 @@ export default function DashboardPage() {
   const activeTimerId = timers[0]?.id ?? null;
   const timer = useTimer(activeTimerId);
   const viewer = useViewer(programId ?? null, settingsData?.pollingIntervalSec ?? 10);
-
-  const handleTake = async (target: 'youtube' | 'jstream' | 'total') => {
-    if (!programId) return;
-    setSingularSending(target);
-    try {
-      const v = target === 'youtube' ? viewer.counts.youtube
-        : target === 'jstream' ? viewer.counts.jstream
-        : viewer.counts.total;
-      await api.post(`/liveops/proxy/singular/control/${programId}`, {
-        payload: [{ target, value: String(v) }],
-      });
-    } catch { /* ignore */ } finally {
-      setSingularSending(null);
-    }
-  };
 
   return (
     <div className="flex h-full flex-col">
@@ -149,23 +132,17 @@ export default function DashboardPage() {
               count={viewer.counts.youtube}
               color="#ff0000"
               sublabel={viewer.counts.ytDetails.map((d: any) => `${d.label}: ${d.count ?? '-'}`).join(' / ')}
-              onTake={() => handleTake('youtube')}
-              taking={singularSending === 'youtube'}
             />
             <div className="grid grid-cols-2 gap-2">
               <ViewerCard
                 label="Jstream"
                 count={viewer.counts.jstream}
                 color="#00b4d8"
-                onTake={() => handleTake('jstream')}
-                taking={singularSending === 'jstream'}
               />
               <ViewerCard
                 label="合計"
                 count={viewer.counts.total}
                 color="#a855f7"
-                onTake={() => handleTake('total')}
-                taking={singularSending === 'total'}
               />
             </div>
           </div>

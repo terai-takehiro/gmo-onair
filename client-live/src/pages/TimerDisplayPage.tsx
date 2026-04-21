@@ -14,9 +14,14 @@ const phaseLabels: Record<TimerPhase, string> = {
 };
 
 interface Counts { youtube: number; jstream: number; total: number }
-interface Toggles { youtube: boolean; jstream: boolean; total: boolean }
+interface Toggles {
+  youtube: boolean;
+  jstream: boolean;
+  total: boolean;
+  showTimer: boolean;
+}
 
-const TOGGLE_ITEMS: { key: keyof Toggles; label: string; color: string }[] = [
+const VIEWER_ITEMS: { key: 'youtube' | 'jstream' | 'total'; label: string; color: string }[] = [
   { key: 'youtube', label: 'YouTube', color: '#ef4444' },
   { key: 'jstream', label: 'Jstream', color: '#06b6d4' },
   { key: 'total',   label: '合計',    color: '#a855f7' },
@@ -26,18 +31,18 @@ export default function TimerDisplayPage() {
   const { timerId } = useParams<{ timerId: string }>();
   const [searchParams] = useSearchParams();
 
-  // Toggles persisted in localStorage per timer
   const storageKey = `lv_display_${timerId}`;
   const [toggles, setToggles] = useState<Toggles>(() => {
     try {
       const s = JSON.parse(localStorage.getItem(storageKey) ?? '{}');
       return {
-        youtube: s.youtube ?? false,
-        jstream: s.jstream ?? false,
-        total:   s.total   ?? false,
+        youtube:   s.youtube   ?? false,
+        jstream:   s.jstream   ?? false,
+        total:     s.total     ?? false,
+        showTimer: s.showTimer ?? true,
       };
     } catch {
-      return { youtube: false, jstream: false, total: false };
+      return { youtube: false, jstream: false, total: false, showTimer: true };
     }
   });
 
@@ -50,10 +55,6 @@ export default function TimerDisplayPage() {
   const remainingMs = state?.remainingMs ?? 0;
   const display = state ? formatTimer(remainingMs) : '--:--';
 
-  // Resolve which program to poll for viewer counts:
-  // 1. URL ?programId= (backward compat)
-  // 2. timer.viewer_overlay_program_id
-  // 3. timer.program_id
   useEffect(() => {
     const urlProgram = searchParams.get('programId');
     if (urlProgram) { setProgramId(urlProgram); return; }
@@ -66,7 +67,6 @@ export default function TimerDisplayPage() {
       .catch(() => {});
   }, [timerId, searchParams]);
 
-  // Poll viewer counts every 15 s
   useEffect(() => {
     if (!programId) return;
     const poll = async () => {
@@ -87,41 +87,61 @@ export default function TimerDisplayPage() {
     localStorage.setItem(storageKey, JSON.stringify(next));
   };
 
-  const visibleItems = TOGGLE_ITEMS.filter(item => toggles[item.key]);
+  const visibleItems = VIEWER_ITEMS.filter(item => toggles[item.key]);
   const showOverlay = !!programId && visibleItems.length > 0;
+  const viewerOnly = !toggles.showTimer;
 
   return (
     <div
       className="relative flex h-screen w-screen flex-col items-center justify-center select-none bg-black overflow-hidden"
       onClick={() => settingsOpen && setSettingsOpen(false)}
     >
-      {/* Timer number */}
-      <div className={`timer-display-font ${timerColor(phase)}`}>
-        {display}
-      </div>
-      <div className={`timer-status-font mt-4 ${statusColor(phase)}`}>
-        {phaseLabels[phase]}
-      </div>
+      {/* Timer (hidden in viewer-only mode) */}
+      {!viewerOnly && (
+        <>
+          <div className={`timer-display-font ${timerColor(phase)}`}>
+            {display}
+          </div>
+          <div className={`timer-status-font mt-4 ${statusColor(phase)}`}>
+            {phaseLabels[phase]}
+          </div>
+        </>
+      )}
 
-      {/* Viewer count overlay bar */}
+      {/* Viewer count display */}
       {showOverlay && (
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-8 rounded-2xl bg-black/50 backdrop-blur-md px-8 py-3 border border-white/10">
-          {visibleItems.map(({ key, label, color }) => (
-            <div key={key} className="text-center text-white">
-              <div className="text-xs font-semibold mb-0.5" style={{ color }}>{label}</div>
-              <div className="text-3xl font-bold tabular-nums leading-none">
-                {formatCount(counts[key])}
+        viewerOnly ? (
+          /* Viewer-only: large centered counts */
+          <div className="flex items-center gap-12">
+            {visibleItems.map(({ key, label, color }) => (
+              <div key={key} className="text-center text-white">
+                <div className="text-sm font-semibold mb-2" style={{ color }}>{label}</div>
+                <div className="text-7xl font-bold tabular-nums leading-none">
+                  {formatCount(counts[key])}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          /* Timer + viewer: bar at bottom */
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-8 rounded-2xl bg-black/50 backdrop-blur-md px-8 py-3 border border-white/10">
+            {visibleItems.map(({ key, label, color }) => (
+              <div key={key} className="text-center text-white">
+                <div className="text-xs font-semibold mb-0.5" style={{ color }}>{label}</div>
+                <div className="text-3xl font-bold tabular-nums leading-none">
+                  {formatCount(counts[key])}
+                </div>
+              </div>
+            ))}
+          </div>
+        )
       )}
 
       {/* Settings toggle button */}
       <button
         onClick={e => { e.stopPropagation(); setSettingsOpen(v => !v); }}
         className="absolute bottom-4 right-4 p-2 rounded-full text-white/30 hover:text-white/70 hover:bg-white/10 transition-all"
-        title="視聴者カウント設定"
+        title="表示設定"
       >
         {settingsOpen ? <X className="h-4 w-4" /> : <Settings className="h-4 w-4" />}
       </button>
@@ -132,11 +152,28 @@ export default function TimerDisplayPage() {
           className="absolute bottom-14 right-4 bg-neutral-900/95 backdrop-blur-sm border border-white/10 rounded-2xl p-4 text-white shadow-2xl min-w-[200px]"
           onClick={e => e.stopPropagation()}
         >
+          {/* Timer visibility */}
           <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3">
-            視聴者カウント表示
+            タイマー表示
+          </p>
+          <button
+            onClick={() => setToggle('showTimer', !toggles.showTimer)}
+            className="flex items-center justify-between w-full py-1.5 px-1 rounded-lg hover:bg-white/5 transition-colors mb-4"
+          >
+            <span className={`text-sm ${toggles.showTimer ? 'text-white' : 'text-white/40'}`}>
+              タイマーを表示
+            </span>
+            <div className={`relative w-9 h-5 rounded-full transition-colors ${toggles.showTimer ? 'bg-primary' : 'bg-white/20'}`}>
+              <div className={`absolute top-1 w-3 h-3 rounded-full bg-white shadow transition-transform ${toggles.showTimer ? 'translate-x-5' : 'translate-x-1'}`} />
+            </div>
+          </button>
+
+          {/* Viewer count toggles */}
+          <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3">
+            視聴者カウント
           </p>
           <div className="space-y-2">
-            {TOGGLE_ITEMS.map(({ key, label, color }) => (
+            {VIEWER_ITEMS.map(({ key, label, color }) => (
               <button
                 key={key}
                 onClick={() => setToggle(key, !toggles[key])}
@@ -148,7 +185,6 @@ export default function TimerDisplayPage() {
                     {label}
                   </span>
                 </div>
-                {/* Toggle switch */}
                 <div className={`relative w-9 h-5 rounded-full transition-colors ${toggles[key] ? 'bg-primary' : 'bg-white/20'}`}>
                   <div className={`absolute top-1 w-3 h-3 rounded-full bg-white shadow transition-transform ${toggles[key] ? 'translate-x-5' : 'translate-x-1'}`} />
                 </div>

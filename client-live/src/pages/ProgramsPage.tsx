@@ -14,7 +14,6 @@ interface LiveProgram {
   name: string;
   jstream_lpid: string | null;
   youtube_urls: YoutubeUrl[];
-  hasSingularToken: boolean;
   project_id: string | null;
   project_name?: string;
   gls_number?: string | null;
@@ -27,7 +26,6 @@ export default function ProgramsPage() {
 
   const [name, setName] = useState('');
   const [jstreamLpid, setJstreamLpid] = useState('');
-  const [singularAppToken, setSingularAppToken] = useState('');
   const [youtubeUrls, setYoutubeUrls] = useState<YoutubeUrl[]>([{ label: '', url: '' }]);
   const [saved, setSaved] = useState(false);
 
@@ -50,13 +48,11 @@ export default function ProgramsPage() {
     mutationFn: () => api.put(`/liveops/programs/${programId}`, {
       name,
       jstreamLpid: jstreamLpid || null,
-      singularAppToken: singularAppToken || undefined,
       youtubeUrls: youtubeUrls.filter(u => u.url.trim()),
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['program', programId] });
       qc.invalidateQueries({ queryKey: ['programs-all'] });
-      setSingularAppToken('');
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     },
@@ -154,20 +150,6 @@ export default function ProgramsPage() {
               value={jstreamLpid}
               onChange={e => setJstreamLpid(e.target.value)}
               placeholder="例: 123456"
-              disabled={!canManage}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>
-              Singular Live App Token
-              {program?.hasSingularToken && <span className="ml-2 text-xs text-muted-foreground">(登録済み・変更する場合のみ入力)</span>}
-            </Label>
-            <Input
-              type="password"
-              value={singularAppToken}
-              onChange={e => setSingularAppToken(e.target.value)}
-              placeholder={program?.hasSingularToken ? '変更する場合のみ入力' : 'App Token'}
               disabled={!canManage}
             />
           </div>
