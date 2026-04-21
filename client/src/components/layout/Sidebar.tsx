@@ -32,6 +32,7 @@ import {
   BookOpen,
   Settings,
   Timer,
+  Layers,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -113,6 +114,7 @@ const APP_NAV: Record<string, NavSection[]> = {
       items: [
         { label: "ダッシュボード", to: "/equipment", icon: BarChart3 },
         { label: "機材一覧", to: "/equipment/items", icon: Package },
+        { label: "型番別一覧", to: "/equipment/model-groups", icon: Layers },
         { label: "貸出管理", to: "/equipment/lending", icon: ClipboardList },
         { label: "メンテナンス", to: "/equipment/maintenance", icon: Wrench },
         { label: "棚卸し", to: "/equipment/inventory", icon: ClipboardCheck },
