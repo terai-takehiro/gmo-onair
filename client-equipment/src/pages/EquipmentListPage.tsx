@@ -936,7 +936,7 @@ export default function EquipmentListPage() {
           <button
             type="button"
             onClick={() => setLocFilterOpen(v => !v)}
-            className={`relative z-50 flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
+            className={`relative flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
               filterLocs.size > 0 ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted text-muted-foreground border-transparent hover:bg-muted/80'
             }`}
           >
