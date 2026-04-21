@@ -83,7 +83,7 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             # app_prod のみ再ビルド＆再起動 (検証には触れない)
-            docker compose build app_prod
+            docker compose build --no-cache app_prod
             docker compose stop app_prod || true
             docker compose rm -f app_prod || true
             docker compose up -d --no-deps app_prod
