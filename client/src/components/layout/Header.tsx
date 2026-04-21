@@ -22,7 +22,7 @@ interface SearchResults {
 const APP_LABELS: Record<string, string> = {
   "/sales": "案件管理",
   "/budget": "予算管理",
-  "/studio": "スタジオ予約",
+  "/studio": "カレンダー",
   "/admin": "システム管理",
 };
 

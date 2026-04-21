@@ -33,7 +33,7 @@ export const ONAIR_APPS: AppDef[] = [
   { id: "home",        label: "ホーム",           icon: Home,          color: "#475569", basePath: "/",            status: "active" },
   { id: "sales",       label: "案件管理",         icon: FolderKanban,  color: "#2563eb", basePath: "/sales",       status: "active" },
   { id: "budget",      label: "予算管理",         icon: PiggyBank,     color: "#059669", basePath: "/budget",      status: "active" },
-  { id: "studio",      label: "スタジオ",         icon: Calendar,      color: "#7c3aed", basePath: "/studio",      status: "active" },
+  { id: "studio",      label: "カレンダー",       icon: Calendar,      color: "#7c3aed", basePath: "/studio",      status: "active" },
   { id: "qsheet",      label: "Qシート",          icon: FileText,      color: "#e11d48", basePath: "/qsheet",      status: "active" },
   { id: "equipment",   label: "機材管理",         icon: Package,       color: "#d97706", basePath: "/equipment",   status: "active" },
   { id: "interactive", label: "インタラクティブ", icon: Sparkles,      color: "#db2777", basePath: "/interactive", status: "active" },
