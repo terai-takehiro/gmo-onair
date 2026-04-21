@@ -2,34 +2,15 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { useUiStore } from "@/stores/uiStore";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Menu, LogOut, ChevronDown, Search, Loader2 } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import api from "@/lib/api";
-import AppSwitcher from "@gmo-onair/shared/src/client/AppSwitcher";
-
-const roleLabelMap: Record<string, string> = {
-  system_admin: "システム管理者",
-  staff: "スタッフ",
-};
+import SharedHeader from "@gmo-onair/shared/src/client/SharedHeader";
 
 const stageLabelMap: Record<string, string> = {
-  neta: "ネタ",
-  d_hold: "D保留",
-  c_proposal: "C提案",
-  b_verbal: "B内示",
-  a_won: "A受注",
-  s_completed: "S完了",
-  e_lost: "E失注",
+  neta: "ネタ", d_hold: "D保留", c_proposal: "C提案",
+  b_verbal: "B内示", a_won: "A受注", s_completed: "S完了", e_lost: "E失注",
 };
 
 interface SearchResults {
@@ -52,9 +33,13 @@ export default function Header({ title }: { title?: string }) {
   const { pathname } = useLocation();
   const isHome = pathname === "/" || pathname === "";
 
-  // Auto-detect app name from path
-  const autoTitle = title || Object.entries(APP_LABELS).find(([prefix]) => pathname.startsWith(prefix))?.[1] || "";
+  const appLabel = title ?? Object.entries(APP_LABELS).find(([p]) => pathname.startsWith(p))?.[1] ?? "";
+  const currentApp = pathname.startsWith("/sales") ? "sales"
+    : pathname.startsWith("/budget") ? "budget"
+    : pathname.startsWith("/studio") ? "studio"
+    : "home";
 
+  // ─── グローバル検索 ──────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
   const [searching, setSearching] = useState(false);
@@ -62,15 +47,8 @@ export default function Header({ title }: { title?: string }) {
   const searchRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleLogout = () => { logout(); };
-  const handleSwitchUser = () => { logout(); };
-
   const doSearch = useCallback(async (q: string) => {
-    if (!q || q.length < 1) {
-      setSearchResults(null);
-      setShowDropdown(false);
-      return;
-    }
+    if (!q) { setSearchResults(null); setShowDropdown(false); return; }
     setSearching(true);
     try {
       const res = await api.get("/search", { params: { q } });
@@ -85,183 +63,102 @@ export default function Header({ title }: { title?: string }) {
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      doSearch(searchQuery);
-    }, 300);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
+    debounceRef.current = setTimeout(() => doSearch(searchQuery), 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [searchQuery, doSearch]);
 
-  // Close dropdown on outside click
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setShowDropdown(false);
-      }
+    const h = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setShowDropdown(false);
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
   }, []);
 
   const handleResultClick = (path: string) => {
-    navigate(path);
-    setShowDropdown(false);
-    setSearchQuery("");
-    setSearchResults(null);
+    navigate(path); setShowDropdown(false); setSearchQuery(""); setSearchResults(null);
   };
 
-  const hasResults =
-    searchResults &&
-    (searchResults.projects.length > 0 ||
-      searchResults.customers.length > 0 ||
-      searchResults.vendors.length > 0);
+  const hasResults = searchResults && (
+    searchResults.projects.length > 0 || searchResults.customers.length > 0 || searchResults.vendors.length > 0
+  );
 
-  return (
-    <header className="flex h-14 items-center justify-between border-b bg-card px-3 sm:px-5 relative z-30">
-      <div className="flex items-center gap-3 min-w-0">
-        <AppSwitcher currentApp={pathname.startsWith("/sales") ? "sales" : pathname.startsWith("/budget") ? "budget" : pathname.startsWith("/studio") ? "studio" : "home"} />
-        {!isHome && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden shrink-0 h-9 w-9"
-            onClick={toggleSidebar}
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
+  // ─── 検索ボックス（centerContent スロット用） ─────────────────────────────
+  const searchBox = (
+    <div ref={searchRef} className="relative hidden sm:block shrink-0">
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+        <Input
+          type="text"
+          placeholder="案件・顧客・仕入先..."
+          className="w-40 lg:w-56 pl-9 pr-8 h-9 text-sm"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onFocus={() => { if (searchResults) setShowDropdown(true); }}
+        />
+        {searching && (
+          <Loader2 className="absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
         )}
-        <div className="flex items-center gap-1.5 min-w-0">
-          <a href="/" className="text-sm font-bold text-primary hover:opacity-80 transition-opacity shrink-0">ONAiR</a>
-          {autoTitle && (
-            <>
-              <span className="text-muted-foreground/40 shrink-0">/</span>
-              <span className="text-sm font-semibold text-foreground truncate max-w-[200px]">{autoTitle}</span>
-            </>
-          )}
-        </div>
       </div>
 
-      <div className="flex items-center gap-2 sm:gap-3">
-        {/* Global Search */}
-        <div ref={searchRef} className="relative hidden sm:block">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="請求KEY・案件名で検索..."
-              className="w-40 sm:w-56 lg:w-64 pl-9 pr-8 h-9 text-sm"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => {
-                if (searchResults) setShowDropdown(true);
-              }}
-            />
-            {searching && (
-              <Loader2 className="absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+      {showDropdown && searchResults && (
+        <div className="absolute right-0 top-full z-50 mt-1 w-80 rounded-xl border border-border bg-card shadow-lg">
+          <div className="max-h-72 overflow-y-auto p-1">
+            {!hasResults && (
+              <p className="px-3 py-4 text-center text-sm text-muted-foreground">該当なし</p>
+            )}
+            {searchResults.projects.length > 0 && (
+              <div>
+                <p className="px-3 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">案件</p>
+                {searchResults.projects.map((proj) => (
+                  <button key={proj.id} onClick={() => handleResultClick(`/projects/${proj.id}`)}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-accent text-left transition-colors">
+                    <span className="text-muted-foreground text-xs shrink-0 font-mono">{proj.gls_number || proj.code}</span>
+                    <span className="truncate flex-1">{proj.name}</span>
+                    <Badge variant="outline" className="text-[10px] shrink-0">{stageLabelMap[proj.stage] || proj.stage}</Badge>
+                  </button>
+                ))}
+              </div>
+            )}
+            {searchResults.customers.length > 0 && (
+              <div>
+                <p className="px-3 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">顧客</p>
+                {searchResults.customers.map((c) => (
+                  <button key={c.id} onClick={() => handleResultClick("/masters/customers")}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-accent text-left transition-colors">
+                    <span className="truncate flex-1">{c.name}</span>
+                    {c.short_name && <span className="text-xs text-muted-foreground shrink-0">({c.short_name})</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+            {searchResults.vendors.length > 0 && (
+              <div>
+                <p className="px-3 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">仕入先</p>
+                {searchResults.vendors.map((v) => (
+                  <button key={v.id} onClick={() => handleResultClick("/masters/vendors")}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-accent text-left transition-colors">
+                    <span className="truncate flex-1">{v.name}</span>
+                    {v.vendor_type && <span className="text-xs text-muted-foreground shrink-0">{v.vendor_type}</span>}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
-
-          {showDropdown && searchResults && (
-            <div className="absolute right-0 top-full z-50 mt-1 w-80 rounded-md border bg-popover shadow-lg">
-              <div className="max-h-80 overflow-y-auto p-1">
-                {!hasResults && (
-                  <div className="px-3 py-4 text-center text-sm text-muted-foreground">
-                    該当する結果がありません
-                  </div>
-                )}
-
-                {searchResults.projects.length > 0 && (
-                  <div>
-                    <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground">
-                      案件
-                    </div>
-                    {searchResults.projects.map((proj) => (
-                      <button
-                        key={proj.id}
-                        className="flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-sm hover:bg-accent text-left"
-                        onClick={() => handleResultClick(`/projects/${proj.id}`)}
-                      >
-                        <span className="text-muted-foreground text-xs shrink-0">{proj.gls_number || proj.code}</span>
-                        <span className="truncate flex-1">{proj.name}</span>
-                        <Badge variant="outline" className="text-xs shrink-0">
-                          {stageLabelMap[proj.stage] || proj.stage}
-                        </Badge>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {searchResults.customers.length > 0 && (
-                  <div>
-                    <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground">
-                      顧客
-                    </div>
-                    {searchResults.customers.map((cust) => (
-                      <button
-                        key={cust.id}
-                        className="flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-sm hover:bg-accent text-left"
-                        onClick={() => handleResultClick("/masters/customers")}
-                      >
-                        <span className="truncate flex-1">{cust.name}</span>
-                        {cust.short_name && (
-                          <span className="text-xs text-muted-foreground shrink-0">({cust.short_name})</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {searchResults.vendors.length > 0 && (
-                  <div>
-                    <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground">
-                      仕入先
-                    </div>
-                    {searchResults.vendors.map((v) => (
-                      <button
-                        key={v.id}
-                        className="flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-sm hover:bg-accent text-left"
-                        onClick={() => handleResultClick("/masters/vendors")}
-                      >
-                        <span className="truncate flex-1">{v.name}</span>
-                        {v.vendor_type && (
-                          <span className="text-xs text-muted-foreground shrink-0">{v.vendor_type}</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </div>
+      )}
+    </div>
+  );
 
-        <span className="hidden lg:inline text-xs text-muted-foreground/50">v{__APP_VERSION__}</span>
-        {currentUser && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="flex items-center gap-1.5 px-2">
-                <span className="hidden sm:inline text-sm font-medium">{currentUser.name}</span>
-                <Badge variant="secondary" className="hidden md:inline text-xs">
-                  {roleLabelMap[currentUser.role] || currentUser.role}
-                </Badge>
-                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel>{currentUser.email}</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSwitchUser}>
-                ユーザー切替
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                ログアウト
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
-    </header>
+  return (
+    <SharedHeader
+      currentApp={currentApp}
+      appLabel={appLabel}
+      currentUser={currentUser}
+      onLogout={logout}
+      onSwitchUser={logout}
+      onToggleSidebar={isHome ? undefined : toggleSidebar}
+      centerContent={searchBox}
+    />
   );
 }

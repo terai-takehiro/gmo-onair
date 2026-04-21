@@ -90,3 +90,10 @@
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.3; }
 }
+
+/* ── AppSwitcher animation ─────────────────────── */
+@keyframes switcher-in {
+  from { opacity: 0; transform: scale(.95) translateY(-6px); }
+  to   { opacity: 1; transform: scale(1)   translateY(0);    }
+}
+.animate-switcher-in { animation: switcher-in .15s ease-out; }
