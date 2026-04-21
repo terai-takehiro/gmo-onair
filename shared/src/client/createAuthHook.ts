@@ -25,66 +25,83 @@ export interface AuthHookConfig {
   api: AxiosInstance;
 }
 
+function readStoredUser(storageKey: string): User | null {
+  try {
+    const s = localStorage.getItem(storageKey);
+    return s ? (JSON.parse(s) as User) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function createAuthHook(config: AuthHookConfig) {
   return function useAuth() {
-    const [currentUser, setCurrentUser] = useState<User | null>(null);
+    // Initialize synchronously from localStorage → no loading flash, buttons active immediately
+    const [currentUser, setCurrentUser] = useState<User | null>(() => readStoredUser(config.storageKey));
     const [permissions, setPermissions] = useState<Record<string, string>>({});
-    const [loading, setLoading] = useState(true);
+    // loading = false when we have cached user (still verifies in background)
+    const [loading, setLoading] = useState(() => readStoredUser(config.storageKey) === null);
     const setCurrentUserId = useUiStore((s) => s.setCurrentUserId);
-
-    const fetchPermissions = useCallback(async () => {
-      try {
-        const res = await config.api.get('/users/me/permissions');
-        setPermissions(res.data.data || {});
-      } catch {
-        setPermissions({});
-      }
-    }, []);
 
     useEffect(() => {
       const init = async () => {
         try {
-          const res = await config.api.get('/auth/me');
-          const user = res.data.data;
+          // Fetch auth + permissions in parallel
+          const [meRes, permRes] = await Promise.all([
+            config.api.get('/auth/me'),
+            config.api.get('/users/me/permissions').catch(() => ({ data: { data: {} } })),
+          ]);
+          const user = meRes.data.data;
           setCurrentUser(user);
           setCurrentUserId(user.id);
           localStorage.setItem(config.storageKey, JSON.stringify(user));
-          await fetchPermissions();
-          setLoading(false);
-          return;
+          setPermissions(permRes.data.data || {});
         } catch {
+          // Token expired or invalid — clear cached state
+          setCurrentUser(null);
+          setPermissions({});
           localStorage.removeItem('gmo_onair_token');
           localStorage.removeItem(config.storageKey);
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
       };
       init();
-    }, [setCurrentUserId, fetchPermissions]);
+    }, [setCurrentUserId]);
 
     const login = useCallback(
       async (userId: string) => {
         setCurrentUserId(userId);
-        const res = await config.api.post('/auth/mock-login', { userId });
-        const user = res.data.data;
+        const [loginRes, permRes] = await Promise.all([
+          config.api.post('/auth/mock-login', { userId }),
+          // permissions fetched after login token is set
+          Promise.resolve(null),
+        ]);
+        const user = loginRes.data.data;
         setCurrentUser(user);
         setCurrentUserId(user.id);
         localStorage.setItem(config.storageKey, JSON.stringify(user));
-        await fetchPermissions();
+        // Fetch permissions now that we're logged in
+        const pRes = await config.api.get('/users/me/permissions').catch(() => ({ data: { data: {} } }));
+        setPermissions(pRes.data.data || {});
       },
-      [setCurrentUserId, fetchPermissions]
+      [setCurrentUserId]
     );
 
     const loginWithToken = useCallback(
       async (token: string) => {
         localStorage.setItem('gmo_onair_token', token);
-        const res = await config.api.get('/auth/me');
-        const user = res.data.data;
+        const [meRes, permRes] = await Promise.all([
+          config.api.get('/auth/me'),
+          config.api.get('/users/me/permissions').catch(() => ({ data: { data: {} } })),
+        ]);
+        const user = meRes.data.data;
         setCurrentUser(user);
         setCurrentUserId(user.id);
         localStorage.setItem(config.storageKey, JSON.stringify(user));
-        await fetchPermissions();
+        setPermissions(permRes.data.data || {});
       },
-      [setCurrentUserId, fetchPermissions]
+      [setCurrentUserId]
     );
 
     const logout = useCallback(() => {

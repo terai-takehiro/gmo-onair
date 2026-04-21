@@ -4,11 +4,19 @@
 @tailwind utilities;
 
 @layer base {
-  html, body {
+  html, body, #root {
     overflow-x: hidden;
     overscroll-behavior-x: none;
-    touch-action: pan-y;
     -webkit-text-size-adjust: 100%;
+    max-width: 100vw;
+  }
+  html {
+    touch-action: pan-y;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, a, [role="button"], label[for], summary {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 
   :root {

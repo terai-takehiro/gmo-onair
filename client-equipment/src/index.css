@@ -12,6 +12,11 @@
   }
   html {
     touch-action: pan-y;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, a, [role="button"], label[for], summary {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 
   :root {
