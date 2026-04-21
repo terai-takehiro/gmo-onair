@@ -83,16 +83,16 @@ export class ProjectService {
    * 新規作成（ヨミ段階: 最低限の入力でOK）
    */
   async create(data: Record<string, unknown>, userId: string) {
-    const { name, customer_id, expected_amount, assigned_to, project_type, notes, customer_type } = data;
+    const { name, customer_id, expected_amount, assigned_to, project_type, notes, customer_type, box_url_internal, box_url_external } = data;
     if (!name || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名と顧客は必須です');
 
     const id = uuidv4();
     const code = await generateSequenceNumber('opp_code', 'OPP');
     const cType = ['internal', 'external'].includes(customer_type as string) ? customer_type : 'external';
     await execute(
-      `INSERT INTO projects (id, code, name, customer_id, stage, project_type, expected_amount, assigned_to, notes, customer_type, created_by)
-       VALUES (?, ?, ?, ?, 'neta', ?, ?, ?, ?, ?, ?)`,
-      [id, code, name, customer_id, project_type || 'other', expected_amount || 0, assigned_to || userId, notes || null, cType, userId]
+      `INSERT INTO projects (id, code, name, customer_id, stage, project_type, expected_amount, assigned_to, notes, customer_type, box_url_internal, box_url_external, created_by)
+       VALUES (?, ?, ?, ?, 'neta', ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, code, name, customer_id, project_type || 'other', expected_amount || 0, assigned_to || userId, notes || null, cType, box_url_internal || null, box_url_external || null, userId]
     );
     return this.getById(id);
   }
@@ -106,19 +106,21 @@ export class ProjectService {
 
     const { name, customer_id, expected_amount, assigned_to, project_type, project_type_other,
             event_start, event_end, broadcast_type, media_platform, tags,
-            application_form, logo_permission, notes, customer_type } = data;
+            application_form, logo_permission, notes, customer_type, box_url_internal, box_url_external } = data;
     const cType = ['internal', 'external'].includes(customer_type as string) ? customer_type : 'external';
     await execute(
       `UPDATE projects SET name=?, customer_id=?, expected_amount=?, assigned_to=?,
        project_type=?, project_type_other=?, event_start=?, event_end=?,
        broadcast_type=?, media_platform=?, tags=?,
        application_form=?, logo_permission=?, notes=?, customer_type=?,
+       box_url_internal=?, box_url_external=?,
        updated_at=NOW(), updated_by=? WHERE id=?`,
       [name, customer_id, expected_amount || 0, assigned_to,
        project_type || 'other', project_type_other || null,
        event_start || null, event_end || null,
        broadcast_type || null, media_platform || null, tags || '',
        application_form ? 1 : 0, logo_permission ? 1 : 0, notes || null, cType,
+       box_url_internal || null, box_url_external || null,
        userId, id]
     );
     return this.getById(id);

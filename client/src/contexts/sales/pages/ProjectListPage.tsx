@@ -12,7 +12,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, Loader2 } from "lucide-react";
+import { Plus, Search, Loader2, ExternalLink } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
 
 type TabFilter = 'all' | 'yomi' | 'active' | 'completed' | 'lost';
@@ -120,6 +120,22 @@ export default function ProjectListPage() {
                       )}
                       {(p.assigned_to_name as string) && <span>{p.assigned_to_name as string}</span>}
                     </div>
+                    {((p.box_url_internal as string) || (p.box_url_external as string)) && (
+                      <div className="mt-2 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        {(p.box_url_internal as string) && (
+                          <a href={p.box_url_internal as string} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                            <ExternalLink className="h-3 w-3" />社内Box
+                          </a>
+                        )}
+                        {(p.box_url_external as string) && (
+                          <a href={p.box_url_external as string} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                            <ExternalLink className="h-3 w-3" />外部共有Box
+                          </a>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -137,6 +153,7 @@ export default function ProjectListPage() {
                       <TableHead className="text-right">想定金額</TableHead>
                       <TableHead>イベント日</TableHead>
                       <TableHead>担当者</TableHead>
+                      <TableHead>Box</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -168,6 +185,24 @@ export default function ProjectListPage() {
                             : "-"}
                         </TableCell>
                         <TableCell>{(p.assigned_to_name as string) || "-"}</TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-2">
+                            {(p.box_url_internal as string) && (
+                              <a href={p.box_url_internal as string} target="_blank" rel="noopener noreferrer"
+                                className="text-xs text-blue-600 hover:underline flex items-center gap-0.5"
+                                title="社内限Box">
+                                <ExternalLink className="h-3 w-3" />社内
+                              </a>
+                            )}
+                            {(p.box_url_external as string) && (
+                              <a href={p.box_url_external as string} target="_blank" rel="noopener noreferrer"
+                                className="text-xs text-blue-600 hover:underline flex items-center gap-0.5"
+                                title="外部共有Box">
+                                <ExternalLink className="h-3 w-3" />外部
+                              </a>
+                            )}
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

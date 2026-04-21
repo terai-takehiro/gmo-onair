@@ -65,13 +65,14 @@ interface StudioBooking {
 }
 
 const bookingTypeColors: Record<string, string> = {
-  performance: "#e11d48",
+  performance: "#dc2626",   // 本番: 最も目立つ鮮やかな赤
   rehearsal: "#f59e0b",
   hold: "#3b82f6",
   consultation: "#10b981",
-  maintenance: "#ef4444",
+  maintenance: "#64748b",   // メンテ: 落ち着いたグレー（本番と区別）
   tour: "#8b5cf6",
   internal: "#0891b2",
+  setup: "#d97706",         // 設営/準備: オレンジ
   other: "#6b7280",
 };
 
@@ -83,8 +84,21 @@ const bookingTypeLabels: Record<string, string> = {
   maintenance: "メンテナンス",
   tour: "内覧",
   internal: "社内利用",
+  setup: "設営/準備",
   other: "その他",
 };
+
+// 日本の祝日 (2025–2026)
+const JP_HOLIDAYS = new Set([
+  "2025-01-01","2025-01-13","2025-02-11","2025-02-23","2025-02-24",
+  "2025-03-20","2025-04-29","2025-05-03","2025-05-04","2025-05-05",
+  "2025-05-06","2025-07-21","2025-08-11","2025-09-15","2025-09-21",
+  "2025-09-22","2025-09-23","2025-10-13","2025-11-03","2025-11-23",
+  "2025-11-24","2026-01-01","2026-01-12","2026-02-11","2026-02-23",
+  "2026-03-20","2026-04-29","2026-05-03","2026-05-04","2026-05-05",
+  "2026-05-06","2026-07-20","2026-08-11","2026-09-21","2026-09-22",
+  "2026-09-23","2026-10-12","2026-11-03","2026-11-23",
+]);
 
 function useIsMobile(breakpoint = 640) {
   const [isMobile, setIsMobile] = useState(
@@ -207,11 +221,15 @@ export default function StudioCalendarPage() {
 
       const toTimedRange = (startStr: string, endStr: string, isAllDay: boolean) => {
         if (!isAllDay) return { start: startStr, end: endStr, allDay: false };
-        // 終日イベントはFullCalendarのallDay=trueで表示
-        return { start: startStr.split("T")[0], end: startStr.split("T")[0] === (endStr.split("T")[0]) ? undefined : endStr.split("T")[0], allDay: true };
+        // FullCalendarのend日付はexclusive（表示上は end-1 が最終日）
+        // 終了日を+1日してDBの終了日当日まで表示されるようにする
+        const endDay = new Date(endStr.split("T")[0] + "T00:00:00");
+        endDay.setDate(endDay.getDate() + 1);
+        const exclusiveEnd = endDay.toISOString().split("T")[0];
+        return { start: startStr.split("T")[0], end: exclusiveEnd, allDay: true };
       };
       const { start: evStart, end: evEnd, allDay: evAllDay } = toTimedRange(b.start_time, b.end_time, !!b.all_day);
-      const useTypeColor = ["performance", "rehearsal", "maintenance", "tour"].includes(b.booking_type);
+      const useTypeColor = ["performance", "rehearsal", "maintenance", "tour", "setup"].includes(b.booking_type);
 
       if (b.rooms.length > 0) {
         // 月間ビュー: 案件単位で1イベントにまとめる
@@ -467,14 +485,7 @@ export default function StudioCalendarPage() {
             {label}
           </div>
         ))}
-        <div className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded" style={{ backgroundColor: "#8b5cf6", opacity: 0.3 }} />
-          収録日(背景)
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded" style={{ backgroundColor: "#06b6d4", opacity: 0.3 }} />
-          放送日(背景)
-        </div>
+        <span className="ml-2 italic opacity-70">※ 斜体・薄色は未確定の予約</span>
       </div>
 
       {/* 香盤 View (PC day view) */}
@@ -593,6 +604,17 @@ export default function StudioCalendarPage() {
                 hour12: false,
               }}
               titleFormat={isMobile ? { month: "short", day: "numeric" } : undefined}
+              dayCellDidMount={(arg) => {
+                const d = arg.date;
+                const pad = (n: number) => String(n).padStart(2, "0");
+                const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+                const dow = d.getDay();
+                if (JP_HOLIDAYS.has(dateStr) || dow === 0) {
+                  arg.el.style.backgroundColor = "rgba(239,68,68,0.08)";
+                } else if (dow === 6) {
+                  arg.el.style.backgroundColor = "rgba(59,130,246,0.08)";
+                }
+              }}
             />
           </div>
         </CardContent>
