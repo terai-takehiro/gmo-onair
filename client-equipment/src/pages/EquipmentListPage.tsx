@@ -15,9 +15,10 @@ import {
 import {
   Loader2, Plus, Search, Package, Pencil, Trash2, Upload, Download, Edit3, X,
   ChevronRight, ChevronDown, ChevronsUpDown, ArrowUp, ArrowDown, Copy, Printer, MapPin,
-  SlidersHorizontal,
+  SlidersHorizontal, Settings2, RotateCcw,
 } from "lucide-react";
 import ExcelImportDialog from "@/components/ExcelImportDialog";
+import CustomColumnDialog, { type CustomColumn } from "@/components/CustomColumnDialog";
 import BranchCodeInput from "@/components/ui/BranchCodeInput";
 import {
   TYPE_CODES, ASSET_CLASS_OPTIONS, ASSET_CLASS_LABELS, SECTIONS, LOC_CODES,
@@ -216,6 +217,59 @@ export default function EquipmentListPage() {
     localStorage.setItem('eq-visible-cols', JSON.stringify([...next]));
     return next;
   });
+
+  // 列の表示順 (localStorage で永続化)
+  const DEFAULT_COL_ORDER = COL_DEFS.map(c => c.key) as ColKey[];
+  const [colOrder, setColOrder] = useState<ColKey[]>(() => {
+    try {
+      const saved = localStorage.getItem('eq-col-order');
+      if (saved) {
+        const parsed: ColKey[] = JSON.parse(saved);
+        // 新しい列が追加されていれば末尾に追加して保持
+        const allKeys = COL_DEFS.map(c => c.key) as ColKey[];
+        const merged = [...parsed.filter(k => allKeys.includes(k)), ...allKeys.filter(k => !parsed.includes(k))];
+        return merged;
+      }
+    } catch {}
+    return DEFAULT_COL_ORDER;
+  });
+  const moveCol = (key: ColKey, dir: 'up' | 'down') => {
+    setColOrder(prev => {
+      const idx = prev.indexOf(key);
+      if (idx < 0) return prev;
+      const next = [...prev];
+      if (dir === 'up' && idx > 0) [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+      if (dir === 'down' && idx < next.length - 1) [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+      localStorage.setItem('eq-col-order', JSON.stringify(next));
+      return next;
+    });
+  };
+  const resetColSettings = () => {
+    localStorage.removeItem('eq-col-order');
+    localStorage.removeItem('eq-visible-cols');
+    localStorage.removeItem('eq-visible-custom-cols');
+    setColOrder(DEFAULT_COL_ORDER);
+    setVisibleCols(new Set(COL_DEFS.filter(c => c.default).map(c => c.key)) as Set<ColKey>);
+    setVisibleCustomCols(new Set<string>());
+  };
+
+  // カスタム列の表示/非表示
+  const [visibleCustomCols, setVisibleCustomCols] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('eq-visible-custom-cols');
+      if (saved) return new Set(JSON.parse(saved));
+    } catch {}
+    return new Set<string>();
+  });
+  const toggleCustomCol = (id: string) => setVisibleCustomCols(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    localStorage.setItem('eq-visible-custom-cols', JSON.stringify([...next]));
+    return next;
+  });
+
+  const [customColDialogOpen, setCustomColDialogOpen] = useState(false);
+  const [editingCustomCell, setEditingCustomCell] = useState<{ equipmentId: string; columnId: string } | null>(null);
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [printCols, setPrintCols] = useState<Set<string>>(
     new Set(['eq_code', 'equipment_type', 'name', 'manufacturer_name', 'model_number', 'unit_number', 'location', 'notes'])
@@ -282,11 +336,72 @@ export default function EquipmentListPage() {
     queryKey: ["equipment-colors"],
     queryFn: async () => (await api.get("/equipment/colors")).data.data,
   });
+  const { data: customColumnsData } = useQuery<CustomColumn[]>({
+    queryKey: ["equipment-custom-columns"],
+    queryFn: async () => (await api.get("/equipment/custom-columns")).data.data,
+  });
 
   const rawItems: any[] = itemsData?.data ?? [];
   const locations: any[] = locationsData ?? [];
   const manufacturers: any[] = manufacturersData ?? [];
   const colors: any[] = colorsData ?? [];
+  const customColumns: CustomColumn[] = customColumnsData ?? [];
+
+  // カスタム値をまとめてフェッチ (表示中アイテムのIDで)
+  const visibleItemIds = useMemo(() => rawItems.map((i: any) => i.id), [rawItems]);
+  const { data: customValuesData } = useQuery({
+    queryKey: ["equipment-custom-values", visibleItemIds.join(',')],
+    queryFn: async () => {
+      if (visibleItemIds.length === 0) return [];
+      return (await api.get('/equipment/custom-values', { params: { equipment_ids: visibleItemIds.join(',') } })).data.data;
+    },
+    enabled: visibleItemIds.length > 0 && customColumns.length > 0,
+  });
+  // customValues: equipmentId → columnId → value
+  const customValues = useMemo(() => {
+    const map: Record<string, Record<string, string>> = {};
+    for (const row of (customValuesData ?? [])) {
+      if (!map[row.equipment_id]) map[row.equipment_id] = {};
+      map[row.equipment_id][row.column_id] = row.value ?? '';
+    }
+    return map;
+  }, [customValuesData]);
+
+  const customValueMutation = useMutation({
+    mutationFn: ({ equipmentId, columnId, value }: { equipmentId: string; columnId: string; value: string }) =>
+      api.put(`/equipment/custom-values/${columnId}/${equipmentId}`, { value }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['equipment-custom-values'] }),
+  });
+
+  // 新規カスタム列が追加されたら自動で表示ONにする
+  useEffect(() => {
+    if (customColumns.length === 0) return;
+    const newIds = customColumns.map(c => c.id).filter(id => !visibleCustomCols.has(id));
+    // ローカルストレージに保存済みのものだけ非表示にし、初めて見る列は自動で表示
+    const savedRaw = localStorage.getItem('eq-visible-custom-cols');
+    if (savedRaw === null && newIds.length > 0) {
+      // 初回: 全列を表示
+      const allIds = new Set(customColumns.map(c => c.id));
+      setVisibleCustomCols(allIds);
+      localStorage.setItem('eq-visible-custom-cols', JSON.stringify([...allIds]));
+    } else if (savedRaw !== null) {
+      // 保存済みにない新列は自動ON
+      try {
+        const saved: string[] = JSON.parse(savedRaw);
+        const knownIds = new Set(saved);
+        const brandNew = customColumns.filter(c => !knownIds.has(c.id) && !saved.includes(c.id));
+        if (brandNew.length > 0) {
+          setVisibleCustomCols(prev => {
+            const next = new Set(prev);
+            brandNew.forEach(c => next.add(c.id));
+            localStorage.setItem('eq-visible-custom-cols', JSON.stringify([...next]));
+            return next;
+          });
+        }
+      } catch {}
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customColumns.length]);
 
   // データ読み込み完了後にスクロール位置を復元
   useEffect(() => {
@@ -539,8 +654,60 @@ export default function EquipmentListPage() {
     urlSearch ? `"${urlSearch}"` : '',
   ].filter(Boolean).join(' / ');
 
+  const renderCustomCells = (item: any, py: string) =>
+    customColumns.filter(c => visibleCustomCols.has(c.id)).map(col => {
+      const val = customValues[item.id]?.[col.id] ?? '';
+      const isEditing = editingCustomCell?.equipmentId === item.id && editingCustomCell?.columnId === col.id;
+      const startEdit = (e: React.MouseEvent) => { e.stopPropagation(); setEditingCustomCell({ equipmentId: item.id, columnId: col.id }); };
+      const commitEdit = (newVal: string) => {
+        setEditingCustomCell(null);
+        if (newVal !== val) customValueMutation.mutate({ equipmentId: item.id, columnId: col.id, value: newVal });
+      };
+
+      if (col.col_type === 'checkbox') {
+        const checked = val === 'true' || val === '1';
+        return (
+          <td key={col.id} className={`px-3 ${py} text-center`} onClick={e => e.stopPropagation()}>
+            <input
+              type="checkbox"
+              className="h-4 w-4 cursor-pointer"
+              checked={checked}
+              onChange={e => customValueMutation.mutate({ equipmentId: item.id, columnId: col.id, value: e.target.checked ? 'true' : 'false' })}
+            />
+          </td>
+        );
+      }
+      if (isEditing) {
+        return (
+          <td key={col.id} className={`px-3 ${py}`} onClick={e => e.stopPropagation()}>
+            <input
+              type={col.col_type === 'number' ? 'number' : 'text'}
+              className="w-full min-w-[80px] bg-transparent border-b border-primary/60 focus:border-primary focus:outline-none text-xs"
+              defaultValue={val}
+              autoFocus
+              onBlur={e => commitEdit(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setEditingCustomCell(null); }}
+              onClick={e => e.stopPropagation()}
+            />
+          </td>
+        );
+      }
+      return (
+        <td
+          key={col.id}
+          className={`px-3 ${py} text-xs text-muted-foreground cursor-text hover:bg-primary/5 max-w-[8rem] truncate`}
+          title={val || '（クリックして入力）'}
+          onClick={startEdit}
+        >
+          {val || <span className="opacity-30">—</span>}
+        </td>
+      );
+    });
+
   const renderTableCells = (item: any, { py, nameSuffix }: { py: string; nameSuffix?: React.ReactNode }) =>
-    COL_DEFS.filter(c => visibleCols.has(c.key)).map(col => {
+    colOrder.filter(k => visibleCols.has(k)).map(key => {
+      const col = COL_DEFS.find(c => c.key === key)!;
+      if (!col) return null;
       switch (col.key) {
         case 'eq_code':
           return <td key="eq_code" className={`px-3 ${py} font-mono text-xs text-muted-foreground whitespace-nowrap`}>{item.eq_code}</td>;
@@ -633,7 +800,7 @@ export default function EquipmentListPage() {
           );
         default: return null;
       }
-    });
+    }).concat(renderCustomCells(item, py));
 
   return (
     <div className="space-y-4 p-4 lg:p-6">
@@ -655,14 +822,53 @@ export default function EquipmentListPage() {
               <SlidersHorizontal className="h-4 w-4 mr-1" />列
             </Button>
             {colPickerOpen && (
-              <div className="absolute right-0 top-full mt-1 z-30 bg-card border border-border rounded-lg shadow-lg p-2 w-44 animate-slide-up" onClick={e => e.stopPropagation()}>
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-1 pb-1.5">表示列</p>
-                {COL_DEFS.map(col => (
-                  <label key={col.key} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/60 cursor-pointer text-sm select-none">
-                    <input type="checkbox" className="h-3.5 w-3.5" checked={visibleCols.has(col.key)} onChange={() => toggleCol(col.key)} />
-                    {col.label}
-                  </label>
-                ))}
+              <div className="absolute right-0 top-full mt-1 z-30 bg-card border border-border rounded-lg shadow-lg p-2 w-56 animate-slide-up" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between px-1 pb-1.5">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">表示列</p>
+                  <button className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5" onClick={resetColSettings}>
+                    <RotateCcw className="h-2.5 w-2.5" />デフォルトに戻す
+                  </button>
+                </div>
+                {colOrder.map((key, idx) => {
+                  const col = COL_DEFS.find(c => c.key === key);
+                  if (!col) return null;
+                  return (
+                    <div key={col.key} className="flex items-center gap-1 px-1 py-0.5 rounded hover:bg-muted/60 group">
+                      <label className="flex items-center gap-2 flex-1 cursor-pointer text-sm select-none py-1">
+                        <input type="checkbox" className="h-3.5 w-3.5 shrink-0" checked={visibleCols.has(col.key)} onChange={() => toggleCol(col.key)} />
+                        {col.label}
+                      </label>
+                      <div className="flex gap-0.5 opacity-0 group-hover:opacity-100">
+                        <button className="p-0.5 rounded hover:bg-muted text-muted-foreground disabled:opacity-20" disabled={idx === 0} onClick={() => moveCol(key, 'up')}><ArrowUp className="h-3 w-3" /></button>
+                        <button className="p-0.5 rounded hover:bg-muted text-muted-foreground disabled:opacity-20" disabled={idx === colOrder.length - 1} onClick={() => moveCol(key, 'down')}><ArrowDown className="h-3 w-3" /></button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {/* カスタム列 */}
+                {customColumns.length > 0 && (
+                  <>
+                    <div className="border-t my-1.5" />
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-1 pb-1">カスタム列</p>
+                    {customColumns.map(col => (
+                      <label key={col.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/60 cursor-pointer text-sm select-none">
+                        <input type="checkbox" className="h-3.5 w-3.5" checked={visibleCustomCols.has(col.id)} onChange={() => toggleCustomCol(col.id)} />
+                        <span className="flex-1 truncate">{col.name}</span>
+                        <span className="text-[10px] text-muted-foreground/60 shrink-0">
+                          {col.scope === 'shared' ? '共' : '個'}
+                        </span>
+                      </label>
+                    ))}
+                  </>
+                )}
+                <div className="border-t mt-1.5 pt-1.5">
+                  <button
+                    className="flex w-full items-center gap-1.5 px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded"
+                    onClick={() => { setColPickerOpen(false); setCustomColDialogOpen(true); }}
+                  >
+                    <Settings2 className="h-3.5 w-3.5" />カスタム列を管理...
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -682,6 +888,7 @@ export default function EquipmentListPage() {
       </div>
 
       <ExcelImportDialog open={importOpen} onOpenChange={setImportOpen} />
+      <CustomColumnDialog open={customColDialogOpen} onOpenChange={setCustomColDialogOpen} />
 
       {/* 機材ブロックタブ（最優先フィルター） */}
       <div className="flex flex-wrap gap-1.5 items-center">
@@ -890,8 +1097,16 @@ export default function EquipmentListPage() {
                     />
                   </th>
                 )}
-                {COL_DEFS.filter(c => visibleCols.has(c.key)).map(col => (
-                  <SortableTh key={col.key} label={col.label} sortKey={col.sortKey} currentKey={sortKey} currentDir={sortDir} onSort={onSort} />
+                {colOrder.filter(k => visibleCols.has(k)).map(key => {
+                  const col = COL_DEFS.find(c => c.key === key);
+                  if (!col) return null;
+                  return <SortableTh key={col.key} label={col.label} sortKey={col.sortKey} currentKey={sortKey} currentDir={sortDir} onSort={onSort} />;
+                })}
+                {customColumns.filter(c => visibleCustomCols.has(c.id)).map(col => (
+                  <th key={col.id} className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap">
+                    {col.name}
+                    <span className="ml-1 text-[9px] opacity-40">{col.scope === 'shared' ? '共' : '個'}</span>
+                  </th>
                 ))}
                 <th className="px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap">操作</th>
               </tr>

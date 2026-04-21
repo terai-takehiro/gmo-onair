@@ -1051,4 +1051,134 @@ router.get('/model-groups', async (req: Request, res: Response) => {
   res.json({ success: true, data: rows });
 });
 
+// ============================================================
+// カスタム列定義 CRUD
+// ============================================================
+
+// GET /equipment/custom-columns — 自分が使える列を返す (shared全件 + 自分のpersonal)
+router.get('/custom-columns', async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    const rows = await queryAll(
+      `SELECT id, name, col_type, scope, created_by, sort_order, created_at
+       FROM equipment_custom_columns
+       WHERE scope = 'shared' OR created_by = $1
+       ORDER BY scope DESC, sort_order ASC, created_at ASC`,
+      [userId]
+    );
+    res.json({ success: true, data: rows });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: { message: err.message } });
+  }
+});
+
+// POST /equipment/custom-columns — 新規列作成
+router.post('/custom-columns', async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    const { name, col_type = 'text', scope = 'personal', sort_order = 0 } = req.body;
+    if (!name) return res.status(400).json({ success: false, error: { message: '列名は必須です' } });
+    if (!['text', 'checkbox', 'number'].includes(col_type)) return res.status(400).json({ success: false, error: { message: '無効な列タイプです' } });
+    if (!['personal', 'shared'].includes(scope)) return res.status(400).json({ success: false, error: { message: '無効なスコープです' } });
+
+    const row = await queryOne(
+      `INSERT INTO equipment_custom_columns (name, col_type, scope, created_by, sort_order)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, name, col_type, scope, created_by, sort_order, created_at`,
+      [name, col_type, scope, userId, sort_order]
+    );
+    res.status(201).json({ success: true, data: row });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: { message: err.message } });
+  }
+});
+
+// PUT /equipment/custom-columns/:id — 列定義更新
+router.put('/custom-columns/:id', async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    const { id } = req.params;
+    const { name, col_type, scope, sort_order } = req.body;
+
+    const existing = await queryOne('SELECT * FROM equipment_custom_columns WHERE id = $1', [id]) as any;
+    if (!existing) return res.status(404).json({ success: false, error: { message: '列が見つかりません' } });
+    // 自分のpersonal列、またはshared列（管理者に限らず作成者が変更可）
+    if (existing.created_by !== userId && existing.scope === 'personal') {
+      return res.status(403).json({ success: false, error: { message: '他人のpersonal列は変更できません' } });
+    }
+
+    const updated = await queryOne(
+      `UPDATE equipment_custom_columns
+       SET name = COALESCE($1, name),
+           col_type = COALESCE($2, col_type),
+           scope = COALESCE($3, scope),
+           sort_order = COALESCE($4, sort_order),
+           updated_at = NOW()
+       WHERE id = $5
+       RETURNING id, name, col_type, scope, created_by, sort_order`,
+      [name ?? null, col_type ?? null, scope ?? null, sort_order ?? null, id]
+    );
+    res.json({ success: true, data: updated });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: { message: err.message } });
+  }
+});
+
+// DELETE /equipment/custom-columns/:id — 列削除（値も cascade 削除）
+router.delete('/custom-columns/:id', async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    const { id } = req.params;
+    const existing = await queryOne('SELECT * FROM equipment_custom_columns WHERE id = $1', [id]) as any;
+    if (!existing) return res.status(404).json({ success: false, error: { message: '列が見つかりません' } });
+    if (existing.created_by !== userId) {
+      return res.status(403).json({ success: false, error: { message: '作成者のみ削除できます' } });
+    }
+    await execute('DELETE FROM equipment_custom_columns WHERE id = $1', [id]);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: { message: err.message } });
+  }
+});
+
+// ============================================================
+// カスタム列の値 読み書き
+// ============================================================
+
+// GET /equipment/custom-values?equipment_ids=id1,id2
+router.get('/custom-values', async (req: Request, res: Response) => {
+  try {
+    const rawIds = String(req.query.equipment_ids ?? '');
+    if (!rawIds) return res.json({ success: true, data: [] });
+    const ids = rawIds.split(',').filter(Boolean);
+    if (ids.length === 0) return res.json({ success: true, data: [] });
+    // parameterized IN clause
+    const placeholders = ids.map((_, i) => `$${i + 1}`).join(',');
+    const rows = await queryAll(
+      `SELECT equipment_id, column_id, value FROM equipment_custom_values WHERE equipment_id IN (${placeholders})`,
+      ids
+    );
+    res.json({ success: true, data: rows });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: { message: err.message } });
+  }
+});
+
+// PUT /equipment/custom-values/:columnId/:equipmentId — upsert 単一値
+router.put('/custom-values/:columnId/:equipmentId', async (req: Request, res: Response) => {
+  try {
+    const { columnId, equipmentId } = req.params;
+    const { value } = req.body;
+    await execute(
+      `INSERT INTO equipment_custom_values (equipment_id, column_id, value, updated_at)
+       VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (equipment_id, column_id) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+      [equipmentId, columnId, value ?? null]
+    );
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: { message: err.message } });
+  }
+});
+
 export default router;
