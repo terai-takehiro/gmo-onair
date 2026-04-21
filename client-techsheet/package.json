@@ -1,5 +1,6 @@
 {
   "name": "@gmo-onair/client-techsheet",
+  "version": "1.1.73",
   "private": true,
   "type": "module",
   "scripts": {
