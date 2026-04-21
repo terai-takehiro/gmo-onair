@@ -18,6 +18,7 @@ const DEFAULT_PERMS: Record<string, string> = {
   equipment: 'reader',
   qsheet: 'editor',
   techsheet: 'editor',
+  liveops: 'reader',
   interactive: 'editor',
 };
 

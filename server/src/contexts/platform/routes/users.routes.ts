@@ -81,7 +81,7 @@ router.post('/', requireRole('system_admin'), wrap(async (req, res) => {
   if (role === 'staff') {
     const defaultPerms: Record<string, string> = {
       sales: 'reader', budget: 'reader', studio: 'editor',
-      equipment: 'reader', qsheet: 'editor', techsheet: 'editor', interactive: 'editor',
+      equipment: 'reader', qsheet: 'editor', techsheet: 'editor', liveops: 'reader', interactive: 'editor',
     };
     for (const [mod, level] of Object.entries(defaultPerms)) {
       await execute(
@@ -111,7 +111,7 @@ router.put('/:id', requireRole('system_admin'), wrap(async (req, res) => {
   if (role === 'staff') {
     const defaultPerms: Record<string, string> = {
       sales: 'reader', budget: 'reader', studio: 'editor',
-      equipment: 'reader', qsheet: 'editor', techsheet: 'editor', interactive: 'editor',
+      equipment: 'reader', qsheet: 'editor', techsheet: 'editor', liveops: 'reader', interactive: 'editor',
     };
     for (const [mod, level] of Object.entries(defaultPerms)) {
       await execute(

@@ -48,7 +48,7 @@ const normalizeLevel = (level: string | undefined): string | undefined => {
 
 // 権限ダイアログで表示するモジュール（順序付き）
 const PERM_MODULES = [
-  "sales", "budget", "studio", "equipment", "qsheet", "techsheet", "interactive",
+  "sales", "budget", "studio", "equipment", "qsheet", "techsheet", "liveops", "interactive",
 ];
 
 interface User {
@@ -88,7 +88,14 @@ function PermissionDialog({
     enabled: open && !!user && !isTargetAdmin,
   });
 
+  // open または permsData が変わるたびに localPerms を再初期化
+  // ※ 依存配列に両方入れることでキャッシュ済みデータ(同一参照)でも正しく動作する
   useEffect(() => {
+    if (!open) {
+      setLocalPerms({});
+      setShowHelp(false);
+      return;
+    }
     if (permsData) {
       const map: Record<string, string> = {};
       for (const p of permsData) {
@@ -97,11 +104,7 @@ function PermissionDialog({
       }
       setLocalPerms(map);
     }
-  }, [permsData]);
-
-  useEffect(() => {
-    if (!open) { setLocalPerms({}); setShowHelp(false); }
-  }, [open, user?.id]);
+  }, [open, permsData]);
 
   const qc = useQueryClient();
   const saveMutation = useMutation({
