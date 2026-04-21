@@ -10,7 +10,21 @@ export interface ProjectFilter {
   tab?: 'all' | 'yomi' | 'active' | 'completed' | 'lost';
   tag?: string;
   glsCategory?: 'A' | 'B';
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
 }
+
+const SORT_COLUMN_MAP: Record<string, string> = {
+  code: 'p.gls_number',
+  name: 'p.name',
+  customer: 'c.name',
+  stage: 'p.stage',
+  project_type: 'p.project_type',
+  expected_amount: 'p.expected_amount',
+  event_start: 'p.event_start',
+  assigned_to: 'u.name',
+  created_at: 'p.created_at',
+};
 
 export class ProjectService {
   /**
@@ -54,13 +68,16 @@ export class ProjectService {
       where += ` AND p.gls_number IS NOT NULL AND p.gls_number LIKE 'GLS-B%'`;
     }
 
+    const sortCol = (filter.sortBy && SORT_COLUMN_MAP[filter.sortBy]) || 'p.created_at';
+    const sortDir = filter.sortDir === 'asc' ? 'ASC' : 'DESC';
+
     const total = ((await queryOne(`SELECT COUNT(*) as c FROM projects p LEFT JOIN customers c ON c.id = p.customer_id ${where}`, params)) as any).c;
     const rows = await queryAll(
       `SELECT p.*, c.name as customer_name, c.short_name as customer_short_name, u.name as assigned_to_name
        FROM projects p
        LEFT JOIN customers c ON c.id = p.customer_id
        LEFT JOIN users u ON u.id = p.assigned_to
-       ${where} ORDER BY p.created_at DESC LIMIT ? OFFSET ?`,
+       ${where} ORDER BY ${sortCol} ${sortDir} LIMIT ? OFFSET ?`,
       [...params, limit, offset]
     );
     return { rows, total, page, limit };

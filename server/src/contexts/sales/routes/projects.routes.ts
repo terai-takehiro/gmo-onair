@@ -20,6 +20,8 @@ router.get('/', async (req, res) => {
     tab: (req.query.tab as ProjectFilter['tab']) || 'all',
     tag: req.query.tag as string,
     glsCategory: req.query.gls_category as ProjectFilter['glsCategory'],
+    sortBy: req.query.sort_by as string,
+    sortDir: (req.query.sort_dir as 'asc' | 'desc') || 'desc',
   };
   const { rows, total } = await projectService.list(filter, page, limit, offset);
   res.json(paginatedResponse(rows, total, page, limit));
