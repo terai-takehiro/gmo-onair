@@ -811,8 +811,8 @@ export default function EquipmentDetailPage() {
           </CardContent>
         </Card>
 
-        {/* 共有カスタム列 */}
-        {sharedColumns.length > 0 && (
+        {/* 共有カスタム列（値が入力済みのもののみ表示） */}
+        {sharedColumns.some(c => customValueMap[c.id] !== undefined && customValueMap[c.id] !== '') && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
@@ -821,7 +821,7 @@ export default function EquipmentDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
-              {sharedColumns.map(col => {
+              {sharedColumns.filter(col => customValueMap[col.id] !== undefined && customValueMap[col.id] !== '').map(col => {
                 const val = customValueMap[col.id] ?? '';
                 const isEditing = editingCustomCell === col.id;
                 if (col.col_type === 'checkbox') {
