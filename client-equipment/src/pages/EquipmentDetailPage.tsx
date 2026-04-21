@@ -9,10 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  ArrowLeft, Copy, Loader2, Wrench, ArrowRightLeft, Package, QrCode, Printer, Link2, X, ChevronDown, Search, Pencil, Plus,
+  ArrowLeft, Copy, Loader2, Wrench, ArrowRightLeft, Package, QrCode, Printer, Link2, X, ChevronDown, Search, Pencil, Plus, LayoutList,
 } from "lucide-react";
 import BranchCodeInput from "@/components/ui/BranchCodeInput";
 import { useState, useRef, useEffect } from "react";
+import { type CustomColumn } from "@/components/CustomColumnDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   TYPE_CODES, ASSET_CLASS_OPTIONS, ASSET_CLASS_LABELS, SECTIONS, LOC_CODES,
@@ -110,6 +111,30 @@ export default function EquipmentDetailPage() {
   const locations: any[] = locationsData ?? [];
   const manufacturers: any[] = manufacturersData ?? [];
   const colors: any[] = colorsData ?? [];
+
+  // 共有カスタム列
+  const { data: customColumnsData } = useQuery<CustomColumn[]>({
+    queryKey: ["equipment-custom-columns"],
+    queryFn: async () => (await api.get("/equipment/custom-columns")).data.data,
+  });
+  const sharedColumns: CustomColumn[] = (customColumnsData ?? []).filter(c => c.scope === 'shared');
+
+  const { data: customValuesData } = useQuery({
+    queryKey: ["equipment-custom-values", id],
+    queryFn: async () => (await api.get('/equipment/custom-values', { params: { equipment_ids: id } })).data.data,
+    enabled: !!id && sharedColumns.length > 0,
+  });
+  const customValueMap: Record<string, string> = {};
+  for (const row of (customValuesData ?? [])) {
+    customValueMap[row.column_id] = row.value ?? '';
+  }
+
+  const [editingCustomCell, setEditingCustomCell] = useState<string | null>(null); // columnId
+  const customValueMutation = useMutation({
+    mutationFn: ({ columnId, value }: { columnId: string; value: string }) =>
+      api.put(`/equipment/custom-values/${columnId}/${id}`, { value }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['equipment-custom-values', id] }),
+  });
 
   const [saveError, setSaveError] = useState<string | null>(null);
   const saveMutation = useMutation({
@@ -785,6 +810,61 @@ export default function EquipmentDetailPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* 共有カスタム列（値が入力済みのもののみ表示） */}
+        {sharedColumns.some(c => customValueMap[c.id] !== undefined && customValueMap[c.id] !== '') && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <LayoutList className="h-4 w-4" />
+                カスタム情報
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {sharedColumns.filter(col => customValueMap[col.id] !== undefined && customValueMap[col.id] !== '').map(col => {
+                const val = customValueMap[col.id] ?? '';
+                const isEditing = editingCustomCell === col.id;
+                if (col.col_type === 'checkbox') {
+                  const checked = val === 'true' || val === '1';
+                  return (
+                    <div key={col.id} className="flex justify-between items-center">
+                      <span className="text-muted-foreground">{col.name}</span>
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 cursor-pointer"
+                        checked={checked}
+                        onChange={e => customValueMutation.mutate({ columnId: col.id, value: e.target.checked ? 'true' : 'false' })}
+                      />
+                    </div>
+                  );
+                }
+                return (
+                  <div key={col.id} className="flex justify-between items-center gap-4">
+                    <span className="text-muted-foreground shrink-0">{col.name}</span>
+                    {isEditing ? (
+                      <input
+                        type={col.col_type === 'number' ? 'number' : 'text'}
+                        className="flex-1 text-right bg-transparent border-b border-primary/60 focus:border-primary focus:outline-none text-sm font-medium"
+                        defaultValue={val}
+                        autoFocus
+                        onBlur={e => { setEditingCustomCell(null); customValueMutation.mutate({ columnId: col.id, value: e.target.value }); }}
+                        onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setEditingCustomCell(null); }}
+                      />
+                    ) : (
+                      <span
+                        className="font-medium text-right cursor-text hover:text-primary transition-colors"
+                        onClick={() => setEditingCustomCell(col.id)}
+                        title="クリックして編集"
+                      >
+                        {val || <span className="text-muted-foreground/40 font-normal">—</span>}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        )}
 
         {/* 関連機材 / オプション品 */}
         <Card className="lg:col-span-2">
