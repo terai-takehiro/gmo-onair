@@ -21,7 +21,7 @@ interface Props {
 export default function ViewerChart({ snapshots }: Props) {
   if (snapshots.length === 0) {
     return (
-      <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
+      <div className="flex h-36 items-center justify-center text-sm text-muted-foreground">
         データがありません
       </div>
     );
@@ -34,29 +34,31 @@ export default function ViewerChart({ snapshots }: Props) {
       {
         label: 'YouTube',
         data: snapshots.map(s => s.youtube_count),
-        borderColor: '#ff0000',
-        backgroundColor: 'rgba(255,0,0,0.08)',
+        borderColor: '#ef4444',
+        backgroundColor: 'rgba(239,68,68,0.08)',
         fill: true,
         tension: 0.3,
-        pointRadius: 2,
+        pointRadius: 1,
+        borderWidth: 1.5,
       },
       {
         label: 'Jstream',
         data: snapshots.map(s => s.jstream_count),
-        borderColor: '#00b4d8',
-        backgroundColor: 'rgba(0,180,216,0.08)',
+        borderColor: '#06b6d4',
+        backgroundColor: 'rgba(6,182,212,0.08)',
         fill: true,
         tension: 0.3,
-        pointRadius: 2,
+        pointRadius: 1,
+        borderWidth: 1.5,
       },
       {
         label: '合計',
         data: snapshots.map(s => s.total_count),
         borderColor: '#a855f7',
-        backgroundColor: 'rgba(168,85,247,0.08)',
+        backgroundColor: 'rgba(168,85,247,0.06)',
         fill: false,
         tension: 0.3,
-        pointRadius: 2,
+        pointRadius: 1,
         borderWidth: 2,
         borderDash: [4, 2],
       },
@@ -64,18 +66,42 @@ export default function ViewerChart({ snapshots }: Props) {
   };
 
   return (
-    <Line
-      data={data}
-      options={{
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 11 } } }, title: { display: false } },
-        scales: {
-          y: { beginAtZero: true, grid: { color: 'rgba(128,128,128,0.1)' } },
-          x: { grid: { display: false }, ticks: { font: { size: 10 }, maxTicksLimit: 8 } },
-        },
-      }}
-      style={{ height: '200px' }}
-    />
+    <div className="w-full h-36 sm:h-52">
+      <Line
+        data={data}
+        options={{
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'top',
+              labels: {
+                boxWidth: 8,
+                boxHeight: 8,
+                font: { size: 10 },
+                padding: 8,
+              },
+            },
+            title: { display: false },
+            tooltip: {
+              bodyFont: { size: 11 },
+              titleFont: { size: 11 },
+              padding: 8,
+            },
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: { color: 'rgba(128,128,128,0.1)' },
+              ticks: { font: { size: 9 }, maxTicksLimit: 4 },
+            },
+            x: {
+              grid: { display: false },
+              ticks: { font: { size: 9 }, maxTicksLimit: 5, maxRotation: 0 },
+            },
+          },
+        }}
+      />
+    </div>
   );
 }
