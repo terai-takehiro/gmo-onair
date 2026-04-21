@@ -17,7 +17,7 @@ import { RACK_SLOT_OPTIONS, TYPE_BG } from "@/lib/constants";
 // ── Constants ─────────────────────────────────────────────────────────────────
 const CELL_H = 32;
 const RACK_W = 240;
-const PRINT_U_H = 18;  // px per U for print (45U ≈ 810px ≈ 214mm, fits A4 portrait)
+const PRINT_U_H = 20;  // px per U for print (45U ≈ 900px, fits A4 portrait)
 const PRINT_RACK_W = 290; // px for rack body in print (2 racks fit A4 portrait)
 
 // ── Cell display config ───────────────────────────────────────────────────────

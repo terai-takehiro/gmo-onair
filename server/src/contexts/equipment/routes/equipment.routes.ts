@@ -994,4 +994,61 @@ router.get('/stats', async (_req: Request, res: Response) => {
   }
 });
 
+// ============================================================
+// 型番別グループ一覧
+// ============================================================
+router.get('/model-groups', async (req: Request, res: Response) => {
+  const { q, type, section } = req.query;
+  const params: any[] = [];
+  let paramIndex = 1;
+
+  let where = 'WHERE ei.deleted_at IS NULL';
+
+  if (q) {
+    const s = `%${q}%`;
+    where += ` AND (ei.name ILIKE $${paramIndex} OR ei.model_number ILIKE $${paramIndex + 1} OR em.name ILIKE $${paramIndex + 2})`;
+    params.push(s, s, s);
+    paramIndex += 3;
+  }
+  if (section) {
+    where += ` AND ei.equipment_section = $${paramIndex}`;
+    params.push(section);
+    paramIndex++;
+  }
+  if (type) {
+    where += ` AND ei.equipment_type_code = $${paramIndex}`;
+    params.push(type);
+    paramIndex++;
+  }
+
+  const rows = await queryAll(`
+    SELECT
+      ei.name,
+      COALESCE(ei.model_number, '') AS model_number,
+      em.name AS manufacturer_name,
+      ei.equipment_type_code,
+      COUNT(*)::int AS total_count,
+      json_agg(
+        json_build_object(
+          'id', ei.id,
+          'eq_code', ei.eq_code,
+          'unit_number', ei.unit_number,
+          'serial_number', ei.serial_number,
+          'status', ei.status,
+          'condition', ei.condition,
+          'location_name', el.name,
+          'location_detail', ei.location_detail
+        ) ORDER BY ei.unit_number NULLS LAST, ei.eq_code
+      ) AS units
+    FROM equipment_items ei
+    LEFT JOIN equipment_manufacturers em ON em.id = ei.manufacturer_id
+    LEFT JOIN equipment_locations el ON el.id = ei.location_id
+    ${where}
+    GROUP BY ei.name, ei.model_number, em.name, ei.equipment_type_code
+    ORDER BY ei.name, COALESCE(ei.model_number, '')
+  `, params);
+
+  res.json({ success: true, data: rows });
+});
+
 export default router;
