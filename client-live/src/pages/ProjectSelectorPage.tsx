@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { Link } from 'react-router-dom';
-import { Radio, Timer, Tv2, Search, Settings, ChevronRight, FolderOpen } from 'lucide-react';
+import { Timer, Tv2, Search, Settings, ChevronRight, FolderOpen } from 'lucide-react';
 
 interface Project { id: string; name: string; gls_number?: string | null }
 interface TimerItem  { id: string; project_id?: string | null }
@@ -65,7 +65,7 @@ export default function ProjectSelectorPage() {
         <div className="flex items-center justify-between max-w-4xl mx-auto">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15">
-              <Radio className="h-5 w-5 text-primary" />
+              <Timer className="h-5 w-5 text-primary" />
             </div>
             <div>
               <h1 className="text-base font-bold">計時LIVE</h1>

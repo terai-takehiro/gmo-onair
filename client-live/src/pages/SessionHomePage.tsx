@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
-  Radio, Plus, ChevronRight, Settings, Search, FolderOpen,
+  Timer, Plus, ChevronRight, Settings, Search, FolderOpen,
   Youtube, Globe, Link2, Unlink, Trash2,
 } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -108,7 +108,7 @@ export default function SessionHomePage() {
         <div className="flex items-center justify-between max-w-3xl mx-auto">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15">
-              <Radio className="h-5 w-5 text-primary" />
+              <Timer className="h-5 w-5 text-primary" />
             </div>
             <div>
               <h1 className="text-base font-bold">計時LIVE</h1>

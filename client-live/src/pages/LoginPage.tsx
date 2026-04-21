@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Radio, AlertCircle, User } from 'lucide-react';
+import { Timer, AlertCircle, User } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import api from '@/lib/api';
@@ -40,7 +40,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-500 text-white">
-            <Radio className="h-7 w-7" />
+            <Timer className="h-7 w-7" />
           </div>
           <h1 className="text-2xl font-bold">計時LIVE</h1>
           <p className="text-sm text-muted-foreground mt-1">タイマー・視聴者カウンター</p>

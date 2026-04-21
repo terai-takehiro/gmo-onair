@@ -6,12 +6,12 @@ import { useQuery } from '@tanstack/react-query';
 import { getAccessibleApps } from '@gmo-onair/shared/src/client/appNav';
 import api from '@/lib/api';
 import {
-  Radio, LayoutDashboard, Timer, Settings, ChevronLeft, X,
+  Timer, LayoutDashboard, Settings, ChevronLeft, X,
   Home, FileText, Package, Sparkles, Wrench, ArrowLeft,
 } from 'lucide-react';
 
 const ICON_MAP: Record<string, React.ElementType> = {
-  Home, FileText, Package, Sparkles, Wrench, Radio,
+  Home, FileText, Package, Sparkles, Wrench, Timer,
 };
 
 interface Props { programId?: string }
@@ -59,7 +59,7 @@ export default function Sidebar({ programId }: Props) {
           </a>
           <div className="flex items-center gap-2 min-w-0">
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <Radio className="h-3.5 w-3.5" />
+              <Timer className="h-3.5 w-3.5" />
             </div>
             <span className="truncate text-sm font-bold">計時LIVE</span>
           </div>
@@ -102,7 +102,7 @@ export default function Sidebar({ programId }: Props) {
               </div>
             </>
           ) : (
-            <SidebarLink to="/" icon={Radio} end onClick={close}>セッション一覧</SidebarLink>
+            <SidebarLink to="/" icon={Timer} end onClick={close}>セッション一覧</SidebarLink>
           )}
 
           <div className={cn('pt-1', programId ? '' : 'mt-1')}>
