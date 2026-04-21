@@ -248,19 +248,19 @@ router.get('/items', async (req: Request, res: Response) => {
 
   const rows = await queryAll(sql, params);
 
-  // 貸出中機材の貸出情報を付加 (equipment_section='rental' のみ) — バッチで1クエリ
-  const rentalIds = (rows as any[]).filter(r => r.equipment_section === 'rental').map(r => r.id);
-  if (rentalIds.length > 0) {
+  // 貸出中機材の貸出情報を付加 (is_rental_listed=true の機材) — バッチで1クエリ
+  const lendableIds = (rows as any[]).filter(r => r.is_rental_listed).map(r => r.id);
+  if (lendableIds.length > 0) {
     const lendingRows = await queryAll(`
       SELECT DISTINCT ON (equipment_id)
         id, equipment_id, borrower_name, project_id, lent_at, due_date
       FROM equipment_lendings
       WHERE equipment_id = ANY($1::text[]) AND status = 'lent'
       ORDER BY equipment_id, lent_at DESC
-    `, [rentalIds]) as any[];
+    `, [lendableIds]) as any[];
     const lendingMap = new Map(lendingRows.map(l => [l.equipment_id, l]));
     for (const row of rows as any[]) {
-      if (row.equipment_section === 'rental') {
+      if ((row as any).is_rental_listed) {
         (row as any).current_lending = lendingMap.get(row.id) || null;
       }
     }
@@ -611,6 +611,44 @@ router.post('/lendings', async (req: Request, res: Response, next: NextFunction)
     res.status(201).json({ success: true, data: { id } });
   } catch (err: any) {
     console.error('[POST /lendings]', err?.message);
+    next(err);
+  }
+});
+
+router.post('/lendings/batch', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { equipment_ids, project_id, borrower_name, purpose, lent_at, due_date, condition_out, notes } = req.body;
+    if (!Array.isArray(equipment_ids) || equipment_ids.length === 0) {
+      return res.status(400).json({ success: false, error: { message: '機材を1台以上選択してください' } });
+    }
+    if (!borrower_name) {
+      return res.status(400).json({ success: false, error: { message: '借用者名は必須です' } });
+    }
+    const errors: string[] = [];
+    const createdIds: string[] = [];
+    for (const equipment_id of equipment_ids) {
+      const item = await queryOne(
+        "SELECT id, name FROM equipment_items WHERE id = $1 AND deleted_at IS NULL", [equipment_id]
+      ) as any;
+      if (!item) { errors.push(`ID:${equipment_id} が見つかりません`); continue; }
+      const activeLending = await queryOne(
+        "SELECT id FROM equipment_lendings WHERE equipment_id = $1 AND status = 'lent'", [equipment_id]
+      );
+      if (activeLending) { errors.push(`${item.name} は既に貸出中です`); continue; }
+      const id = uuid();
+      await execute(`
+        INSERT INTO equipment_lendings (id, equipment_id, project_id, borrower_name, purpose, lent_at, due_date, condition_out, notes, status, lent_by)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      `, [id, equipment_id, project_id || null, borrower_name, purpose || null, lent_at,
+          due_date || null, condition_out || null, notes || null, 'lent', (req as any).user?.id || null]);
+      createdIds.push(id);
+    }
+    if (createdIds.length === 0) {
+      return res.status(400).json({ success: false, error: { message: errors.join('、') } });
+    }
+    res.status(201).json({ success: true, data: { created_count: createdIds.length, errors: errors.length > 0 ? errors : undefined } });
+  } catch (err: any) {
+    console.error('[POST /lendings/batch]', err?.message);
     next(err);
   }
 });
