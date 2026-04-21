@@ -72,11 +72,7 @@ export function createAuthHook(config: AuthHookConfig) {
     const login = useCallback(
       async (userId: string) => {
         setCurrentUserId(userId);
-        const [loginRes, permRes] = await Promise.all([
-          config.api.post('/auth/mock-login', { userId }),
-          // permissions fetched after login token is set
-          Promise.resolve(null),
-        ]);
+        const loginRes = await config.api.post('/auth/mock-login', { userId });
         const user = loginRes.data.data;
         setCurrentUser(user);
         setCurrentUserId(user.id);
