@@ -18,6 +18,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import ExcelImportDialog from "@/components/ExcelImportDialog";
+import BranchCodeInput from "@/components/ui/BranchCodeInput";
 import {
   TYPE_CODES, ASSET_CLASS_OPTIONS, ASSET_CLASS_LABELS, SECTIONS, LOC_CODES,
   RACK_SLOT_OPTIONS, TYPE_BORDER_COLOR, CONDITION_LABELS,
@@ -1128,7 +1129,7 @@ export default function EquipmentListPage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <Label>所管</Label>
-                  <Input value={form.branch_code} onChange={(e) => setForm({ ...form, branch_code: e.target.value })} placeholder="GMO-IG" />
+                  <BranchCodeInput value={form.branch_code} onChange={(v) => setForm({ ...form, branch_code: v })} />
                 </div>
                 <div className="space-y-1">
                   <Label>資産管理</Label>

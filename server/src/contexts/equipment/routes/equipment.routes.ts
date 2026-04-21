@@ -178,6 +178,16 @@ router.delete('/locations/:id', requirePermission('equipment', 'owner'), async (
   res.json({ success: true });
 });
 
+// 所管コード一覧（distinct）
+router.get('/branch-codes', async (_req: Request, res: Response) => {
+  const rows = await queryAll(
+    `SELECT DISTINCT branch_code FROM equipment_items
+     WHERE branch_code IS NOT NULL AND branch_code != '' AND deleted_at IS NULL
+     ORDER BY branch_code`
+  );
+  res.json({ success: true, data: rows.map((r: any) => r.branch_code as string) });
+});
+
 // ============================================================
 // 機材アイテム CRUD
 // ============================================================

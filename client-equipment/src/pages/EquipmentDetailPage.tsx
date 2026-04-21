@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   ArrowLeft, Copy, Loader2, Wrench, ArrowRightLeft, Package, QrCode, Printer, Link2, X, ChevronDown, Search, Pencil, Plus,
 } from "lucide-react";
+import BranchCodeInput from "@/components/ui/BranchCodeInput";
 import { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -449,7 +450,7 @@ export default function EquipmentDetailPage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <Label>所管</Label>
-                  <Input value={editForm.branch_code} onChange={(e) => setEditForm({ ...editForm, branch_code: e.target.value })} placeholder="GMO-IG" />
+                  <BranchCodeInput value={editForm.branch_code} onChange={(v) => setEditForm({ ...editForm, branch_code: v })} />
                 </div>
                 <div className="space-y-1">
                   <Label>資産管理</Label>
@@ -645,7 +646,7 @@ export default function EquipmentDetailPage() {
             <div className="border-t pt-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
                 <Label>所管</Label>
-                <Input value={newChildForm.branch_code} onChange={(e) => setNewChildForm({ ...newChildForm, branch_code: e.target.value })} />
+                <BranchCodeInput value={newChildForm.branch_code} onChange={(v) => setNewChildForm({ ...newChildForm, branch_code: v })} />
               </div>
               <div className="space-y-1">
                 <Label>資産管理</Label>
