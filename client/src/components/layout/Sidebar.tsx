@@ -31,11 +31,12 @@ import {
   FileText,
   BookOpen,
   Settings,
+  Timer,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   FolderKanban, PiggyBank, Calendar, Package, FileText,
-  BookOpen, Users, Truck, Sparkles, Wrench,
+  BookOpen, Users, Truck, Sparkles, Wrench, Timer,
 };
 
 interface NavItem {
