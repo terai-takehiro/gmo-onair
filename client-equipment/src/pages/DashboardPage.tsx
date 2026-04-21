@@ -17,6 +17,7 @@ import {
   CalendarDays,
   CheckCircle2,
   ClipboardCheck,
+  Server,
 } from "lucide-react";
 
 function fmtDate(dateStr: string | null) {
@@ -193,6 +194,14 @@ export default function DashboardPage() {
         >
           <ArrowRightLeft className="h-4 w-4 text-green-600 shrink-0" />
           <span className="text-sm">QRスキャン</span>
+        </Button>
+        <Button
+          variant="outline"
+          className="h-12 gap-2 justify-start px-4"
+          onClick={() => navigate("/equipment/racks")}
+        >
+          <Server className="h-4 w-4 text-slate-600 shrink-0" />
+          <span className="text-sm">ラック実装</span>
         </Button>
       </div>
 
