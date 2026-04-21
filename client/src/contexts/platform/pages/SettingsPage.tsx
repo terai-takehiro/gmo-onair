@@ -8,6 +8,7 @@ import { BLOCK_APPS, useAuth } from "@/contexts/platform/AuthContext";
 import { Database, Download, Lock, CheckCircle2, AlertCircle } from "lucide-react";
 import api from "@/lib/api";
 import { useState } from "react";
+import pkg from "../../../../package.json";
 
 export default function SettingsPage() {
   const { currentUser } = useAuth();
@@ -39,7 +40,7 @@ export default function SettingsPage() {
               <dt className="text-muted-foreground">アプリ名</dt>
               <dd className="font-medium">GMO ONAiR</dd>
               <dt className="text-muted-foreground">バージョン</dt>
-              <dd className="font-medium">v1.0.11</dd>
+              <dd className="font-medium">v{pkg.version}</dd>
             </dl>
           </CardContent>
         </Card>
