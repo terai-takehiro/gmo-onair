@@ -8,8 +8,9 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Radio, Plus, ChevronRight, Settings, Search, FolderOpen,
-  Youtube, Globe, Link2, Unlink,
+  Youtube, Globe, Link2, Unlink, Trash2,
 } from 'lucide-react';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface LiveProgram {
   id: string;
@@ -28,6 +29,7 @@ type CreateMode = 'gls' | 'standalone';
 export default function SessionHomePage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { canManage } = usePermissions();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [mode, setMode] = useState<CreateMode>('gls');
@@ -52,6 +54,17 @@ export default function SessionHomePage() {
     enabled: dialogOpen && mode === 'gls',
     staleTime: 60_000,
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/liveops/programs/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['programs-all'] }),
+  });
+
+  const handleDelete = (e: React.MouseEvent, id: string, name: string) => {
+    e.stopPropagation();
+    if (!confirm(`「${name}」を削除しますか？\nタイマーのデータは残りますが、このセッションには戻れません。`)) return;
+    deleteMutation.mutate(id);
+  };
 
   const createMutation = useMutation({
     mutationFn: () => api.post('/liveops/programs', {
@@ -181,7 +194,19 @@ export default function SessionHomePage() {
                     </div>
                   </div>
 
-                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
+                  <div className="flex items-center gap-1 shrink-0">
+                    {canManage && (
+                      <button
+                        onClick={e => handleDelete(e, p.id, p.name)}
+                        disabled={deleteMutation.isPending}
+                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
+                        title="削除"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
                 </button>
               ))}
             </div>
