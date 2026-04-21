@@ -359,13 +359,6 @@ export default function ProjectFormPage() {
         )}
       </div>
 
-      {/* 保存成功バナー */}
-      {saveSuccess && (
-        <div className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-800">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          保存しました
-        </div>
-      )}
 
       {/* バリデーションエラー */}
       {submitErrors.length > 0 && (
@@ -832,12 +825,23 @@ export default function ProjectFormPage() {
           </CardContent>
         </Card>
 
-        <div className="flex justify-end gap-3">
+        <div className="flex items-center justify-end gap-3">
+          {saveSuccess && (
+            <span className="flex items-center gap-1.5 text-sm text-green-700">
+              <CheckCircle2 className="h-4 w-4" />
+              保存しました
+            </span>
+          )}
           <Button type="button" variant="outline" onClick={() => navigate("/sales/projects")}>キャンセル</Button>
-          <Button type="submit" disabled={saveMutation.isPending}>
-            {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            <Save className="mr-2 h-4 w-4" />
-            保存
+          <Button type="submit" disabled={saveMutation.isPending} className={saveSuccess ? "bg-green-600 hover:bg-green-700" : ""}>
+            {saveMutation.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : saveSuccess ? (
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            {saveSuccess ? "保存しました" : "保存"}
           </Button>
         </div>
       </form>
