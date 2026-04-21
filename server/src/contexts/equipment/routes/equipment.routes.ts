@@ -192,7 +192,7 @@ router.get('/branch-codes', async (_req: Request, res: Response) => {
 // 機材アイテム CRUD
 // ============================================================
 router.get('/items', async (req: Request, res: Response) => {
-  const { status, search, limit, offset, equipment_section, equipment_type_code, include_children, parent_id } = req.query;
+  const { status, search, limit, offset, equipment_section, equipment_type_code, include_children, parent_id, is_rental_listed } = req.query;
   let sql = `
     SELECT ei.*,
            em.name as manufacturer_name,
@@ -223,6 +223,7 @@ router.get('/items', async (req: Request, res: Response) => {
   if (status) { sql += ` AND ei.status = $${paramIndex++}`; params.push(status); }
   if (equipment_section) { sql += ` AND ei.equipment_section = $${paramIndex++}`; params.push(equipment_section); }
   if (equipment_type_code) { sql += ` AND ei.equipment_type_code = $${paramIndex++}`; params.push(equipment_type_code); }
+  if (is_rental_listed === 'true') { sql += ` AND ei.is_rental_listed = true`; }
   if (search) {
     sql += ` AND (ei.name ILIKE $${paramIndex} OR ei.eq_code ILIKE $${paramIndex + 1} OR em.name ILIKE $${paramIndex + 2} OR ei.model_number ILIKE $${paramIndex + 3} OR ei.serial_number ILIKE $${paramIndex + 4})`;
     const s = `%${search}%`;
@@ -1179,6 +1180,93 @@ router.put('/custom-values/:columnId/:equipmentId', async (req: Request, res: Re
   } catch (err: any) {
     res.status(500).json({ success: false, error: { message: err.message } });
   }
+});
+
+// ============================================================
+// 貸出機材一覧 (is_rental_listed=true の機材を型番別にグループ化)
+// ============================================================
+router.get('/model-groups', async (req: Request, res: Response) => {
+  const { q, type } = req.query;
+  const params: any[] = [];
+  let paramIndex = 1;
+  let where = 'WHERE ei.deleted_at IS NULL AND ei.is_rental_listed = true';
+  if (q) {
+    where += ` AND (ei.name ILIKE $${paramIndex} OR ei.model_number ILIKE $${paramIndex + 1} OR em.name ILIKE $${paramIndex + 2})`;
+    const s = `%${q}%`;
+    params.push(s, s, s);
+    paramIndex += 3;
+  }
+  if (type) {
+    where += ` AND ei.equipment_type_code = $${paramIndex++}`;
+    params.push(type);
+  }
+  const rows = await queryAll(`
+    SELECT
+      ei.name,
+      COALESCE(ei.model_number, '') AS model_number,
+      em.name AS manufacturer_name,
+      ei.equipment_type_code,
+      COUNT(*) AS total_count,
+      json_agg(
+        json_build_object(
+          'id', ei.id,
+          'eq_code', ei.eq_code,
+          'unit_number', ei.unit_number,
+          'serial_number', ei.serial_number,
+          'status', ei.status,
+          'condition', ei.condition,
+          'location_name', el.name,
+          'location_detail', ei.location_detail
+        ) ORDER BY ei.unit_number NULLS LAST, ei.eq_code
+      ) AS units
+    FROM equipment_items ei
+    LEFT JOIN equipment_manufacturers em ON em.id = ei.manufacturer_id
+    LEFT JOIN equipment_locations el ON el.id = ei.location_id AND el.deleted_at IS NULL
+    ${where}
+    GROUP BY ei.name, ei.model_number, em.name, ei.equipment_type_code
+    ORDER BY ei.name, ei.model_number
+  `, params);
+  res.json({ success: true, data: rows });
+});
+
+// ============================================================
+// 貸出機材設定 (is_rental_listed フラグ管理)
+// ============================================================
+router.get('/rental-settings', async (req: Request, res: Response) => {
+  const { q, type } = req.query;
+  const params: any[] = [];
+  let paramIndex = 1;
+  let where = 'WHERE ei.deleted_at IS NULL AND ei.parent_id IS NULL';
+  if (q) {
+    where += ` AND (ei.name ILIKE $${paramIndex} OR ei.model_number ILIKE $${paramIndex + 1} OR em.name ILIKE $${paramIndex + 2})`;
+    const s = `%${q}%`;
+    params.push(s, s, s);
+    paramIndex += 3;
+  }
+  if (type) {
+    where += ` AND ei.equipment_type_code = $${paramIndex++}`;
+    params.push(type);
+  }
+  const rows = await queryAll(`
+    SELECT ei.id, ei.name, ei.model_number, ei.unit_number, ei.eq_code,
+           ei.equipment_type_code, ei.equipment_section, ei.status, ei.is_rental_listed,
+           em.name AS manufacturer_name, el.name AS location_name
+    FROM equipment_items ei
+    LEFT JOIN equipment_manufacturers em ON em.id = ei.manufacturer_id
+    LEFT JOIN equipment_locations el ON el.id = ei.location_id AND el.deleted_at IS NULL
+    ${where}
+    ORDER BY ei.name, COALESCE(ei.model_number,''), ei.unit_number NULLS LAST, ei.eq_code
+  `, params);
+  res.json({ success: true, data: rows });
+});
+
+router.put('/rental-settings/:id', requirePermission('equipment', 'owner'), async (req: Request, res: Response) => {
+  const { is_rental_listed } = req.body;
+  await execute(
+    'UPDATE equipment_items SET is_rental_listed=$1, updated_at=NOW() WHERE id=$2',
+    [!!is_rental_listed, req.params.id]
+  );
+  res.json({ success: true });
 });
 
 export default router;

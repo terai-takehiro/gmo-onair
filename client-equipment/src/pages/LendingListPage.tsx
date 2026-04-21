@@ -43,10 +43,10 @@ export default function LendingListPage() {
   });
   const lendings: any[] = lendingsData ?? [];
 
-  // 貸出可能機材 (equipment_section='rental' + active)
+  // 貸出可能機材 (is_rental_listed=true + active)
   const { data: lendableItems } = useQuery({
     queryKey: ["equipment-lendable"],
-    queryFn: async () => (await api.get("/equipment/items", { params: { equipment_section: "rental", status: "active" } })).data.data,
+    queryFn: async () => (await api.get("/equipment/items", { params: { is_rental_listed: "true", status: "active" } })).data.data,
     enabled: dialogOpen,
   });
 
