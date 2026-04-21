@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -76,6 +77,7 @@ const bookingTypeOptions = [
   { value: "hold", label: "仮押さえ" },
   { value: "tour", label: "内覧" },
   { value: "consultation", label: "相談" },
+  { value: "setup", label: "設営/準備" },
   { value: "maintenance", label: "メンテナンス" },
   { value: "internal", label: "社内利用" },
   { value: "other", label: "その他" },
@@ -751,10 +753,12 @@ export default function StudioBookingDialog({
           {/* Notes */}
           <div className="space-y-1">
             <Label>メモ</Label>
-            <Input
+            <Textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="備考"
+              placeholder="備考（改行可）"
+              rows={3}
+              className="resize-none"
             />
           </div>
 

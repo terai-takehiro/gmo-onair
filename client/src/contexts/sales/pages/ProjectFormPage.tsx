@@ -50,6 +50,8 @@ interface FormValues {
   media_platform: string;
   tags: string;
   notes: string;
+  box_url_internal: string;
+  box_url_external: string;
 }
 
 interface GlsDialogState {
@@ -130,6 +132,7 @@ export default function ProjectFormPage() {
       name: "", customer_id: "", customer_type: "external", project_type: "", project_type_other: "",
       event_start: "", event_end: "", expected_amount: 0, assigned_to: "",
       broadcast_type: "", media_platform: "", tags: "", notes: "",
+      box_url_internal: "", box_url_external: "",
     },
   });
 
@@ -167,6 +170,8 @@ export default function ProjectFormPage() {
         media_platform: project.media_platform || "",
         tags: project.tags || "",
         notes: project.notes || "",
+        box_url_internal: project.box_url_internal || "",
+        box_url_external: project.box_url_external || "",
       });
     }
   }, [project, reset]);
@@ -539,6 +544,33 @@ export default function ProjectFormPage() {
                     <SelectItem value="internal">グループ内</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <Label>社内限Box URL</Label>
+                <div className="flex gap-2">
+                  <Input {...register("box_url_internal")} type="url" placeholder="https://gmo.box.com/..." className="flex-1" />
+                  {watch("box_url_internal") && (
+                    <a href={watch("box_url_internal")} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-input bg-background hover:bg-accent text-muted-foreground">
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  )}
+                </div>
+              </div>
+              <div>
+                <Label>外部共有Box URL</Label>
+                <div className="flex gap-2">
+                  <Input {...register("box_url_external")} type="url" placeholder="https://gmo.box.com/..." className="flex-1" />
+                  {watch("box_url_external") && (
+                    <a href={watch("box_url_external")} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-input bg-background hover:bg-accent text-muted-foreground">
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  )}
+                </div>
               </div>
             </div>
 

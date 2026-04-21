@@ -1,26 +1,14 @@
 /**
  * Idempotent permission bootstrap — runs on every server startup.
  *
- * 保険として毎回起動時に以下を実行:
+ * 毎回起動時に以下を実行:
  * 1. 旧ロール (viewer/external_client/editor/manager 等) を staff に統一
  * 2. CHECK 制約を NOT VALID で再作成 (既存制約が古い場合に備える)
- * 3. 全アクティブ staff ユーザーに欠けているデフォルト権限を付与
+ * 3. アクセスレベル正規化 (exporter→reader, owner→manager)
  *
- * ON CONFLICT DO NOTHING で既存設定は保持。
+ * 権限行の追加・補完は行わない。管理者が設定した権限をそのまま保持する。
  */
-import { v4 as uuidv4 } from 'uuid';
-import { queryAll, execute } from './connection';
-
-const DEFAULT_PERMS: Record<string, string> = {
-  sales: 'reader',
-  budget: 'reader',
-  studio: 'editor',
-  equipment: 'reader',
-  qsheet: 'editor',
-  techsheet: 'editor',
-  liveops: 'reader',
-  interactive: 'editor',
-};
+import { execute } from './connection';
 
 export async function ensureStaffPermissions(): Promise<void> {
   try {
@@ -49,32 +37,9 @@ export async function ensureStaffPermissions(): Promise<void> {
       `ALTER TABLE user_permissions ADD CONSTRAINT user_permissions_access_level_check CHECK (access_level IN ('reader', 'editor', 'manager')) NOT VALID`,
     );
 
-    // 4. 欠けている権限を付与
-    const staff = await queryAll(
-      `SELECT id FROM users WHERE role = 'staff' AND deleted_at IS NULL`,
-    );
-    let inserted = 0;
-    for (const u of staff) {
-      for (const [mod, level] of Object.entries(DEFAULT_PERMS)) {
-        const before = await queryAll(
-          `SELECT 1 FROM user_permissions WHERE user_id = ? AND module = ?`,
-          [u.id as string, mod],
-        );
-        if (before.length === 0) {
-          await execute(
-            `INSERT INTO user_permissions (id, user_id, module, access_level) VALUES (?, ?, ?, ?) ON CONFLICT (user_id, module) DO NOTHING`,
-            [uuidv4(), u.id as string, mod, level],
-          );
-          inserted++;
-        }
-      }
-    }
-
-    console.log(
-      `[ensure-permissions] staff users: ${staff.length}, permissions inserted: ${inserted}`,
-    );
+    console.log(`[ensure-permissions] role/level normalization complete`);
   } catch (err) {
     console.error('[ensure-permissions] failed:', err);
-    // サーバー起動は止めない — 権限修復は UI からもリトライ可能
+    // サーバー起動は止めない
   }
 }
