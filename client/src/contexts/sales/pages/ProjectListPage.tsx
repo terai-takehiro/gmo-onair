@@ -12,8 +12,11 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, Loader2, ExternalLink } from "lucide-react";
+import { Plus, Search, Loader2, ExternalLink, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
+
+type SortKey = 'code' | 'name' | 'customer' | 'stage' | 'project_type' | 'expected_amount' | 'event_start' | 'assigned_to';
+type SortDir = 'asc' | 'desc';
 
 type TabFilter = 'all' | 'yomi' | 'active' | 'completed' | 'lost';
 
@@ -25,18 +28,38 @@ const tabs: { value: TabFilter; label: string }[] = [
   { value: 'lost', label: '失注' },
 ];
 
+function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey | null; sortDir: SortDir }) {
+  if (sortKey !== col) return <ChevronsUpDown className="inline h-3 w-3 ml-0.5 opacity-40" />;
+  return sortDir === 'asc'
+    ? <ChevronUp className="inline h-3 w-3 ml-0.5" />
+    : <ChevronDown className="inline h-3 w-3 ml-0.5" />;
+}
+
 export default function ProjectListPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<TabFilter>("all");
   const [page, setPage] = useState(1);
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('desc');
+    }
+    setPage(1);
+  };
 
   const { data, isLoading } = useQuery({
-    queryKey: ["projects", page, search, tab],
+    queryKey: ["projects", page, search, tab, sortKey, sortDir],
     queryFn: async () => {
       const params: Record<string, string | number> = { page, limit: 20 };
       if (search) params.search = search;
       if (tab !== 'all') params.tab = tab;
+      if (sortKey) { params.sort_by = sortKey; params.sort_dir = sortDir; }
       return (await api.get("/projects", { params })).data;
     },
   });
@@ -109,7 +132,7 @@ export default function ProjectListPage() {
                       </Badge>
                     </div>
                     <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
-                      <span className="font-number text-sm font-medium text-foreground">{formatCurrency(p.expected_amount as number)}</span>
+                      <span className="font-number text-sm font-medium text-foreground" title="税別">{formatCurrency(p.expected_amount as number)}<span className="text-xs text-muted-foreground ml-0.5">（税別）</span></span>
                       <span>{ProjectTypeLabels[p.project_type as keyof typeof ProjectTypeLabels] || (p.project_type as string) || "-"}</span>
                       {(p.event_start as string) && (
                         <span>
@@ -145,14 +168,25 @@ export default function ProjectListPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>コード</TableHead>
-                      <TableHead>案件名</TableHead>
-                      <TableHead>顧客</TableHead>
-                      <TableHead>ステージ</TableHead>
-                      <TableHead>案件種類</TableHead>
-                      <TableHead className="text-right">想定金額</TableHead>
-                      <TableHead>イベント日</TableHead>
-                      <TableHead>担当者</TableHead>
+                      {([
+                        { key: 'code' as SortKey, label: 'コード' },
+                        { key: 'name' as SortKey, label: '案件名' },
+                        { key: 'customer' as SortKey, label: '顧客' },
+                        { key: 'stage' as SortKey, label: 'ステージ' },
+                        { key: 'project_type' as SortKey, label: '案件種類' },
+                        { key: 'expected_amount' as SortKey, label: '想定金額（税別）', align: 'right' },
+                        { key: 'event_start' as SortKey, label: 'イベント日' },
+                        { key: 'assigned_to' as SortKey, label: '担当者' },
+                      ] as { key: SortKey; label: string; align?: string }[]).map(({ key, label, align }) => (
+                        <TableHead
+                          key={key}
+                          className={`cursor-pointer select-none hover:bg-muted/50 whitespace-nowrap${align === 'right' ? ' text-right' : ''}`}
+                          onClick={() => handleSort(key)}
+                        >
+                          {label}
+                          <SortIcon col={key} sortKey={sortKey} sortDir={sortDir} />
+                        </TableHead>
+                      ))}
                       <TableHead>Box</TableHead>
                     </TableRow>
                   </TableHeader>

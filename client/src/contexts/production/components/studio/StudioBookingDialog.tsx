@@ -69,6 +69,7 @@ interface Props {
   editingBooking: StudioBooking | null;
   presetDate: { start: string; end: string; allDay: boolean } | null;
   presetRoomIds?: string[];
+  presetProjectId?: string;
 }
 
 const bookingTypeOptions = [
@@ -115,6 +116,7 @@ export default function StudioBookingDialog({
   editingBooking,
   presetDate,
   presetRoomIds,
+  presetProjectId,
 }: Props) {
   const qc = useQueryClient();
 
@@ -218,7 +220,7 @@ export default function StudioBookingDialog({
       setTitle("");
       setBookingType("performance");
       setStatus("tentative");
-      setProjectId("");
+      setProjectId(presetProjectId || "");
       setEpisodeId("");
       setLocationNote("");
       setNotes("");
@@ -259,7 +261,7 @@ export default function StudioBookingDialog({
         setEndTime("18:00");
       }
     }
-  }, [open, editingBooking, presetDate, presetRoomIds]);
+  }, [open, editingBooking, presetDate, presetRoomIds, presetProjectId]);
 
   // When switching to single-date type without multiDay, sync end = start
   useEffect(() => {
@@ -548,7 +550,7 @@ export default function StudioBookingDialog({
                     value={startDate}
                     onChange={(e) => {
                       setStartDate(e.target.value);
-                      if (endDate < e.target.value) setEndDate(e.target.value);
+                      setEndDate(e.target.value);
                     }}
                   />
                 </div>

@@ -69,6 +69,8 @@ export default function ProjectFormPage() {
   const qc = useQueryClient();
 
   const [simOpen, setSimOpen] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [submitErrors, setSubmitErrors] = useState<string[]>([]);
   const [glsDialog, setGlsDialog] = useState<GlsDialogState>({
     open: false, mode: 'new', broadcast_type: "recording", media_platform: "other", target_project_id: "",
   });
@@ -136,10 +138,11 @@ export default function ProjectFormPage() {
     },
   });
 
-  const { data: project, isLoading: projectLoading } = useQuery({
+  const { data: project, isLoading: projectLoading, isError: projectLoadError } = useQuery({
     queryKey: ["project", id],
     queryFn: async () => (await api.get(`/projects/${id}`)).data.data,
     enabled: isEdit,
+    retry: 1,
   });
 
   const { data: customersData } = useQuery({
@@ -188,8 +191,11 @@ export default function ProjectFormPage() {
       qc.invalidateQueries({ queryKey: ["projects"] });
       if (isEdit) {
         qc.invalidateQueries({ queryKey: ["project", id] });
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        navigate(`/sales/projects/${result.id}`);
       }
-      navigate(`/sales/projects/${result.id}`);
     },
   });
 
@@ -251,6 +257,17 @@ export default function ProjectFormPage() {
   };
 
   const onSubmit = async (values: FormValues) => {
+    // バリデーション
+    const errs: string[] = [];
+    if (!values.customer_id) errs.push("顧客を選択してください");
+    if (!values.project_type) errs.push("案件種類を選択してください");
+    if (errs.length > 0) {
+      setSubmitErrors(errs);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    setSubmitErrors([]);
+
     // event_start/event_end をスタジオ日程から自動設定
     const prodEnd = productionMultiDay ? productionEnd : productionStart;
     if (productionStart) {
@@ -259,7 +276,7 @@ export default function ProjectFormPage() {
     }
     saveMutation.mutate(values, {
       onSuccess: async (res) => {
-        const savedProjectId = res?.data?.data?.id || id;
+        const savedProjectId = (res as any)?.id || id;
         // スタジオ予約を同時作成 (部屋・日程が指定されている場合)
         if ((scheduleRoomIds.length > 0 || locationNote.trim()) && productionStart) {
           if (locationNote.trim()) saveLocationNote(locationNote.trim());
@@ -312,6 +329,18 @@ export default function ProjectFormPage() {
     );
   }
 
+  if (isEdit && projectLoadError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 gap-4 p-6">
+        <p className="text-destructive">案件データの取得に失敗しました</p>
+        <Button variant="outline" onClick={() => navigate("/sales/projects")}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          一覧に戻る
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <PageTransition>
     <div className="mx-auto max-w-3xl space-y-4 lg:space-y-6 p-3 lg:p-6">
@@ -329,6 +358,27 @@ export default function ProjectFormPage() {
           <span className="text-sm font-mono text-muted-foreground">{project.gls_number || project.code}</span>
         )}
       </div>
+
+      {/* 保存成功バナー */}
+      {saveSuccess && (
+        <div className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-800">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          保存しました
+        </div>
+      )}
+
+      {/* バリデーションエラー */}
+      {submitErrors.length > 0 && (
+        <div className="rounded-lg bg-red-50 border border-red-200 p-3">
+          <div className="flex items-center gap-2 mb-1 text-sm font-medium text-red-800">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            以下の項目を確認してください
+          </div>
+          <ul className="list-disc list-inside text-sm text-red-700 space-y-0.5">
+            {submitErrors.map((e) => <li key={e}>{e}</li>)}
+          </ul>
+        </div>
+      )}
 
       {/* Stage guide */}
       {isEdit && project && !isTerminal && (
@@ -405,7 +455,15 @@ export default function ProjectFormPage() {
                 variant="outline"
                 size="sm"
                 className="border-blue-300 text-blue-700 hover:bg-blue-50"
-                onClick={() => navigate("/studio")}
+                onClick={() => navigate("/studio/calendar", {
+                  state: {
+                    presetRoomIds: scheduleRoomIds,
+                    presetDate: (productionStart || project?.event_start)
+                      ? { start: productionStart || project.event_start, end: productionEnd || productionStart || project?.event_end || project?.event_start, allDay: true }
+                      : null,
+                    presetProjectId: id,
+                  },
+                })}
               >
                 <CalendarDays className="mr-1 h-4 w-4" />
                 スタジオ予約
@@ -505,7 +563,7 @@ export default function ProjectFormPage() {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <Label>想定金額</Label>
+                <Label>想定金額（税別）</Label>
                 <CurrencyInput
                   value={watch("expected_amount")}
                   onChange={(v) => setValue("expected_amount", v)}
@@ -597,7 +655,7 @@ export default function ProjectFormPage() {
                 {studioLocations.map((loc) => (
                   <div key={loc.id}>
                     <p className="text-xs font-semibold text-muted-foreground mb-1">{loc.name}</p>
-                    {loc.rooms.length === 0 ? (
+                    {(loc.rooms ?? []).length === 0 ? (
                       /* 外現場: 自由記述 + 履歴サジェスト */
                       <div className="relative" ref={locationSuggestionsRef}>
                         <Input
@@ -628,9 +686,9 @@ export default function ProjectFormPage() {
                           <span />
                           <label className="flex items-center gap-1 text-xs cursor-pointer text-muted-foreground">
                             <Checkbox
-                              checked={loc.rooms.every(r => scheduleRoomIds.includes(r.id))}
+                              checked={(loc.rooms ?? []).every(r => scheduleRoomIds.includes(r.id))}
                               onCheckedChange={(checked) => {
-                                const roomIds = loc.rooms.map(r => r.id);
+                                const roomIds = (loc.rooms ?? []).map(r => r.id);
                                 setScheduleRoomIds(prev =>
                                   checked
                                     ? [...new Set([...prev, ...roomIds])]
@@ -642,7 +700,7 @@ export default function ProjectFormPage() {
                           </label>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {loc.rooms.map((room) => (
+                          {(loc.rooms ?? []).map((room) => (
                             <label key={room.id} className="flex items-center gap-1.5 text-sm cursor-pointer">
                               <Checkbox
                                 checked={scheduleRoomIds.includes(room.id)}
@@ -1081,7 +1139,15 @@ export default function ProjectFormPage() {
               className="bg-blue-600 hover:bg-blue-700"
               onClick={() => {
                 setHoldPromptOpen(false);
-                navigate("/studio");
+                navigate("/studio/calendar", {
+                  state: {
+                    presetRoomIds: scheduleRoomIds,
+                    presetDate: (productionStart || project?.event_start)
+                      ? { start: productionStart || project.event_start, end: productionEnd || productionStart || project?.event_end || project?.event_start, allDay: true }
+                      : null,
+                    presetProjectId: id,
+                  },
+                });
               }}
             >
               <CalendarDays className="mr-2 h-4 w-4" />

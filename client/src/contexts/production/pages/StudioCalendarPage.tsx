@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -116,6 +116,7 @@ function useIsMobile(breakpoint = 640) {
 
 export default function StudioCalendarPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const qc = useQueryClient();
   const isMobile = useIsMobile();
   const calendarRef = useRef<any>(null);
@@ -153,6 +154,7 @@ export default function StudioCalendarPage() {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [presetDate, setPresetDate] = useState<{ start: string; end: string; allDay: boolean } | null>(null);
   const [presetRoomIds, setPresetRoomIds] = useState<string[]>([]);
+  const [presetProjectId, setPresetProjectId] = useState<string>("");
   const [roomsManagerOpen, setRoomsManagerOpen] = useState(false);
   const [feedsOpen, setFeedsOpen] = useState(false);
   const { currentUser, hasPermission } = useAuth();
@@ -222,10 +224,11 @@ export default function StudioCalendarPage() {
       const toTimedRange = (startStr: string, endStr: string, isAllDay: boolean) => {
         if (!isAllDay) return { start: startStr, end: endStr, allDay: false };
         // FullCalendarのend日付はexclusive（表示上は end-1 が最終日）
-        // 終了日を+1日してDBの終了日当日まで表示されるようにする
-        const endDay = new Date(endStr.split("T")[0] + "T00:00:00");
-        endDay.setDate(endDay.getDate() + 1);
-        const exclusiveEnd = endDay.toISOString().split("T")[0];
+        // ローカル日付演算で+1日（toISOString()のUTC変換によるズレを防ぐ）
+        const [ey, em, ed] = endStr.split("T")[0].split("-").map(Number);
+        const next = new Date(ey, em - 1, ed + 1);
+        const pad2 = (n: number) => String(n).padStart(2, "0");
+        const exclusiveEnd = `${next.getFullYear()}-${pad2(next.getMonth() + 1)}-${pad2(next.getDate())}`;
         return { start: startStr.split("T")[0], end: exclusiveEnd, allDay: true };
       };
       const { start: evStart, end: evEnd, allDay: evAllDay } = toTimedRange(b.start_time, b.end_time, !!b.all_day);
@@ -311,6 +314,24 @@ export default function StudioCalendarPage() {
 
     return events;
   }, [bookings, projectEventsData, selectedRoomIds, currentView]);
+
+  // 案件編集ページからのナビゲーション state を受け取って予約ダイアログを開く
+  useEffect(() => {
+    const state = location.state as {
+      presetRoomIds?: string[];
+      presetDate?: { start: string; end: string; allDay: boolean };
+      presetProjectId?: string;
+    } | null;
+    if (state?.presetDate || (state?.presetRoomIds && state.presetRoomIds.length > 0)) {
+      setPresetRoomIds(state.presetRoomIds ?? []);
+      setPresetDate(state.presetDate ?? null);
+      setPresetProjectId(state.presetProjectId ?? "");
+      setEditingBooking(null);
+      setBookingDialogOpen(true);
+      window.history.replaceState({}, document.title);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleDatesSet = useCallback((arg: DatesSetArg) => {
     setDateRange({
@@ -628,6 +649,7 @@ export default function StudioCalendarPage() {
         editingBooking={editingBooking}
         presetDate={presetDate}
         presetRoomIds={presetRoomIds}
+        presetProjectId={presetProjectId}
       />
 
       {/* Detail Dialog */}

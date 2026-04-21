@@ -46,6 +46,7 @@ const bookingTypeLabels: Record<string, string> = {
   maintenance: "メンテナンス",
   tour: "内覧",
   internal: "社内利用",
+  setup: "設営/準備",
   other: "その他",
 };
 
@@ -54,9 +55,10 @@ const bookingTypeColors: Record<string, string> = {
   rehearsal: "bg-amber-100 text-amber-700",
   hold: "bg-blue-100 text-blue-700",
   consultation: "bg-emerald-100 text-emerald-700",
-  maintenance: "bg-red-100 text-red-700",
+  maintenance: "bg-slate-100 text-slate-700",
   tour: "bg-purple-100 text-purple-700",
   internal: "bg-cyan-100 text-cyan-700",
+  setup: "bg-amber-100 text-amber-800",
   other: "bg-gray-100 text-gray-700",
 };
 
@@ -216,7 +218,7 @@ export default function StudioBookingDetailDialog({
           {booking.notes && (
             <div>
               <p className="text-xs text-muted-foreground mb-1">メモ</p>
-              <p className="text-sm">{booking.notes}</p>
+              <p className="text-sm whitespace-pre-wrap">{booking.notes}</p>
             </div>
           )}
 
