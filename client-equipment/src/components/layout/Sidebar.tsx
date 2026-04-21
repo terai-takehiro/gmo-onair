@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { getAccessibleApps } from "@gmo-onair/shared/src/client/appNav";
 import {
   BarChart3, Package, ClipboardList, Wrench, ClipboardCheck,
-  QrCode, MapPin, Building2, Palette, Server, Layers,
+  QrCode, MapPin, Building2, Palette, Server, Layers, Settings,
   Home, FileText, Sparkles, Briefcase,
   X, ChevronLeft,
 } from "lucide-react";
@@ -17,8 +17,9 @@ const ICON_MAP: Record<string, React.ElementType> = {
 const navItems = [
   { label: "ダッシュボード", path: "/equipment", icon: BarChart3 },
   { label: "機材一覧", path: "/equipment/items", icon: Package },
-  { label: "型番別一覧", path: "/equipment/model-groups", icon: Layers },
+  { label: "貸出機材一覧", path: "/equipment/model-groups", icon: Layers },
   { label: "貸出管理", path: "/equipment/lendings", icon: ClipboardList },
+  { label: "貸出機材設定", path: "/equipment/rental-settings", icon: Settings },
   { label: "メンテナンス", path: "/equipment/maintenance", icon: Wrench },
   { label: "棚卸し", path: "/equipment/inventory", icon: ClipboardCheck },
   { label: "QRスキャン", path: "/equipment/scan", icon: QrCode },

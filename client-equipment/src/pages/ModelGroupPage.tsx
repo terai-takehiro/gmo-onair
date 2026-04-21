@@ -22,12 +22,6 @@ const STATUS_COLORS: Record<string, string> = {
   lost: "bg-red-100 text-red-700",
 };
 
-const SECTION_OPTIONS = [
-  { value: "rental", label: "貸出機材" },
-  { value: "equipment", label: "設備機材" },
-  { value: "", label: "全て" },
-];
-
 interface Unit {
   id: string;
   eq_code: string;
@@ -52,16 +46,14 @@ export default function ModelGroupPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
-  const [section, setSection] = useState("rental");
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
 
   const { data, isLoading } = useQuery({
-    queryKey: ["model-groups", search, typeFilter, section],
+    queryKey: ["model-groups", search, typeFilter],
     queryFn: async () => {
       const params: Record<string, string> = {};
       if (search) params.q = search;
       if (typeFilter) params.type = typeFilter;
-      if (section) params.section = section;
       return (await api.get("/equipment/model-groups", { params })).data;
     },
     staleTime: 30_000,
@@ -83,8 +75,7 @@ export default function ModelGroupPage() {
     });
   };
 
-  // フィルタ変更時に展開状態リセット
-  useEffect(() => { setExpandedKeys(new Set()); }, [search, typeFilter, section]);
+  useEffect(() => { setExpandedKeys(new Set()); }, [search, typeFilter]);
 
   const isAllExpanded = groups.length > 0 && groups.every(g => expandedKeys.has(groupKey(g)));
 
@@ -98,7 +89,6 @@ export default function ModelGroupPage() {
 
   const typeLabel = (code: string) => TYPE_CODES.find(t => t.code === code)?.label ?? code;
 
-  // Count stats
   const totalUnits = useMemo(() => groups.reduce((s, g) => s + g.total_count, 0), [groups]);
   const inRepairCount = useMemo(() =>
     groups.reduce((s, g) => s + g.units.filter(u => u.status === "in_repair").length, 0), [groups]);
@@ -107,7 +97,7 @@ export default function ModelGroupPage() {
     <div className="space-y-4 p-3 lg:p-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-xl lg:text-2xl font-bold">型番別一覧</h1>
+        <h1 className="text-xl lg:text-2xl font-bold">貸出機材一覧</h1>
         {!isLoading && (
           <p className="text-sm text-muted-foreground">
             {groups.length} 型番 / {totalUnits} 台
@@ -120,19 +110,6 @@ export default function ModelGroupPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
-        {/* Section tabs */}
-        <div className="flex rounded-md border overflow-hidden text-sm">
-          {SECTION_OPTIONS.map(opt => (
-            <button
-              key={opt.value}
-              className={`px-3 py-1.5 transition-colors ${section === opt.value ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-              onClick={() => setSection(opt.value)}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-
         {/* Search */}
         <div className="relative flex-1 min-w-[180px] max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
