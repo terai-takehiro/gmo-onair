@@ -70,27 +70,46 @@ export default function LendingListPage() {
   const projects: any[] = projectsData ?? [];
 
   // ─── Computed ─────────────────────────────────────────────
-  const availableTypes = useMemo(() => {
-    const codes = new Set(lendableItems.map(i => i.equipment_type_code));
-    return TYPE_CODES.filter(t => codes.has(t.code));
+  const childrenMap = useMemo(() => {
+    const map = new Map<string, any[]>();
+    for (const item of lendableItems) {
+      if (item.parent_id) {
+        if (!map.has(item.parent_id)) map.set(item.parent_id, []);
+        map.get(item.parent_id)!.push(item);
+      }
+    }
+    return map;
   }, [lendableItems]);
 
+  const parentItems = useMemo(() => lendableItems.filter(i => !i.parent_id), [lendableItems]);
+
+  const availableTypes = useMemo(() => {
+    const codes = new Set(parentItems.map(i => i.equipment_type_code));
+    return TYPE_CODES.filter(t => codes.has(t.code));
+  }, [parentItems]);
+
   const filteredItems = useMemo(() => {
-    if (!typeTab) return lendableItems;
-    return lendableItems.filter(i => i.equipment_type_code === typeTab);
-  }, [lendableItems, typeTab]);
+    if (!typeTab) return parentItems;
+    return parentItems.filter(i => i.equipment_type_code === typeTab);
+  }, [parentItems, typeTab]);
 
   const selectedItems = useMemo(() => {
-    return lendableItems.filter(i => selectedIds.has(i.id));
-  }, [lendableItems, selectedIds]);
+    return parentItems.filter(i => selectedIds.has(i.id));
+  }, [parentItems, selectedIds]);
 
   // ─── Helpers ──────────────────────────────────────────────
   const toggleItem = (item: any) => {
     if (item.current_lending) return;
+    const children = childrenMap.get(item.id) ?? [];
     setSelectedIds(prev => {
       const next = new Set(prev);
-      if (next.has(item.id)) next.delete(item.id);
-      else next.add(item.id);
+      if (next.has(item.id)) {
+        next.delete(item.id);
+        children.forEach(c => next.delete(c.id));
+      } else {
+        next.add(item.id);
+        children.filter(c => !c.current_lending).forEach(c => next.add(c.id));
+      }
       return next;
     });
   };
@@ -314,11 +333,13 @@ export default function LendingListPage() {
                           <div className="mt-1 text-xs text-muted-foreground">
                             {item.unit_number != null ? `No.${item.unit_number}` : item.eq_code}
                           </div>
-                          {item.parent_name && (
-                            <div className="mt-0.5 text-xs text-muted-foreground/60 truncate">↳ {item.parent_name}</div>
-                          )}
                           {item.location_name && (
                             <div className="mt-0.5 text-xs text-muted-foreground truncate">{item.location_name}</div>
+                          )}
+                          {(childrenMap.get(item.id)?.length ?? 0) > 0 && (
+                            <div className="mt-1 text-xs text-primary/70 font-medium">
+                              付属品 {childrenMap.get(item.id)!.length}点含む
+                            </div>
                           )}
                           {isLent && (
                             <div className="mt-1 text-xs font-medium text-amber-600">貸出中</div>
@@ -349,14 +370,14 @@ export default function LendingListPage() {
                 )}
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">
-                    {selectedIds.size > 0 ? `${selectedIds.size} 台選択中` : "機材をタップして選択"}
+                    {selectedItems.length > 0 ? `${selectedItems.length} 台選択中` : "機材をタップして選択"}
                   </span>
                   <Button
                     size="sm"
-                    disabled={selectedIds.size === 0}
+                    disabled={selectedItems.length === 0}
                     onClick={() => setStep("form")}
                   >
-                    次へ: {selectedIds.size} 台を貸出
+                    次へ: {selectedItems.length} 台を貸出
                     <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 </div>
