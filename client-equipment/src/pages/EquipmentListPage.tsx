@@ -253,9 +253,11 @@ export default function EquipmentListPage() {
     localStorage.removeItem('eq-col-order');
     localStorage.removeItem('eq-visible-cols');
     localStorage.removeItem('eq-visible-custom-cols');
+    localStorage.removeItem('eq-custom-col-order');
     setColOrder(DEFAULT_COL_ORDER);
     setVisibleCols(new Set(COL_DEFS.filter(c => c.default).map(c => c.key)) as Set<ColKey>);
     setVisibleCustomCols(new Set<string>());
+    setCustomColOrder([]);
   };
 
   // カスタム列の表示/非表示
@@ -272,6 +274,27 @@ export default function EquipmentListPage() {
     localStorage.setItem('eq-visible-custom-cols', JSON.stringify([...next]));
     return next;
   });
+
+  // カスタム列の表示順
+  const [customColOrder, setCustomColOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('eq-custom-col-order');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
+  const moveCustomCol = (id: string, dir: 'up' | 'down', allIds: string[]) => {
+    setCustomColOrder(prev => {
+      const current = [...prev.filter(i => allIds.includes(i)), ...allIds.filter(i => !prev.includes(i))];
+      const idx = current.indexOf(id);
+      if (idx < 0) return prev;
+      const next = [...current];
+      if (dir === 'up' && idx > 0) [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+      if (dir === 'down' && idx < next.length - 1) [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+      localStorage.setItem('eq-custom-col-order', JSON.stringify(next));
+      return next;
+    });
+  };
 
   const [customColDialogOpen, setCustomColDialogOpen] = useState(false);
   const [editingCustomCell, setEditingCustomCell] = useState<{ equipmentId: string; columnId: string } | null>(null);
@@ -351,6 +374,14 @@ export default function EquipmentListPage() {
   const manufacturers: any[] = manufacturersData ?? [];
   const colors: any[] = colorsData ?? [];
   const customColumns: CustomColumn[] = customColumnsData ?? [];
+
+  // カスタム列を保存済み順で並べる (新列は末尾に追加)
+  const orderedCustomCols = useMemo(() => {
+    const colMap = new Map(customColumns.map(c => [c.id, c]));
+    const ordered = customColOrder.filter(id => colMap.has(id)).map(id => colMap.get(id)!);
+    const newOnes = customColumns.filter(c => !customColOrder.includes(c.id));
+    return [...ordered, ...newOnes];
+  }, [customColumns, customColOrder]);
 
   // カスタム値をまとめてフェッチ (表示中アイテムのIDで)
   const visibleItemIds = useMemo(() => rawItems.map((i: any) => i.id), [rawItems]);
@@ -660,7 +691,7 @@ export default function EquipmentListPage() {
   ].filter(Boolean).join(' / ');
 
   const renderCustomCells = (item: any, py: string) =>
-    customColumns.filter(c => visibleCustomCols.has(c.id)).map(col => {
+    orderedCustomCols.filter(c => visibleCustomCols.has(c.id)).map(col => {
       const val = customValues[item.id]?.[col.id] ?? '';
       const isEditing = editingCustomCell?.equipmentId === item.id && editingCustomCell?.columnId === col.id;
       const startEdit = (e: React.MouseEvent) => { e.stopPropagation(); setEditingCustomCell({ equipmentId: item.id, columnId: col.id }); };
@@ -718,8 +749,10 @@ export default function EquipmentListPage() {
           return <td key="eq_code" className={`px-3 ${py} font-mono text-xs text-muted-foreground whitespace-nowrap`}>{item.eq_code}</td>;
         case 'equipment_type':
           return <td key="equipment_type" className={`px-3 ${py} whitespace-nowrap`}><SectionBadge typeCode={item.equipment_type_code} section={item.equipment_section} /></td>;
-        case 'location':
-          return <td key="location" className={`px-3 ${py} text-xs text-muted-foreground whitespace-nowrap`}>{item.location_name || item.location_detail || '–'}</td>;
+        case 'location': {
+          const locText = item.location_name || item.location_detail || '–';
+          return <td key="location" className={`px-3 ${py} text-xs text-muted-foreground`}><div className="max-w-[7rem] truncate" title={locText}>{locText}</div></td>;
+        }
         case 'name':
           return (
             <td key="name" className={`px-3 ${py} font-medium`}>
@@ -792,7 +825,7 @@ export default function EquipmentListPage() {
           );
         case 'notes':
           return (
-            <td key="notes" className={`px-3 ${py} text-xs text-muted-foreground max-w-[10rem] truncate`} title={item.notes || ''}>
+            <td key="notes" className={`px-3 ${py} text-xs text-muted-foreground`}>
               {tableEditMode
                 ? <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs"
                     value={tableEdits[item.id]?.notes ?? item.notes ?? ''}
@@ -800,7 +833,7 @@ export default function EquipmentListPage() {
                     onBlur={() => saveInlineRow(item.id)}
                     onClick={e => e.stopPropagation()}
                   />
-                : item.notes || '–'}
+                : <div className="max-w-[12rem] line-clamp-2 break-words leading-snug">{item.notes || '–'}</div>}
             </td>
           );
         default: return null;
@@ -851,19 +884,28 @@ export default function EquipmentListPage() {
                   );
                 })}
                 {/* カスタム列 */}
-                {customColumns.length > 0 && (
+                {orderedCustomCols.length > 0 && (
                   <>
                     <div className="border-t my-1.5" />
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-1 pb-1">カスタム列</p>
-                    {customColumns.map(col => (
-                      <label key={col.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/60 cursor-pointer text-sm select-none">
-                        <input type="checkbox" className="h-3.5 w-3.5" checked={visibleCustomCols.has(col.id)} onChange={() => toggleCustomCol(col.id)} />
-                        <span className="flex-1 truncate">{col.name}</span>
-                        <span className="text-[10px] text-muted-foreground/60 shrink-0">
-                          {col.scope === 'shared' ? '共' : '個'}
-                        </span>
-                      </label>
-                    ))}
+                    {orderedCustomCols.map((col, idx) => {
+                      const allCustomIds = orderedCustomCols.map(c => c.id);
+                      return (
+                        <div key={col.id} className="flex items-center gap-1 px-1 py-0.5 rounded hover:bg-muted/60">
+                          <label className="flex items-center gap-2 flex-1 cursor-pointer text-sm select-none py-1 min-w-0">
+                            <input type="checkbox" className="h-3.5 w-3.5 shrink-0" checked={visibleCustomCols.has(col.id)} onChange={() => toggleCustomCol(col.id)} />
+                            <span className="flex-1 truncate">{col.name}</span>
+                            <span className="text-[10px] text-muted-foreground/60 shrink-0">
+                              {col.scope === 'shared' ? '共' : '個'}
+                            </span>
+                          </label>
+                          <div className="flex gap-0.5 shrink-0">
+                            <button className="p-0.5 rounded hover:bg-muted text-muted-foreground disabled:opacity-20" disabled={idx === 0} onClick={() => moveCustomCol(col.id, 'up', allCustomIds)}><ArrowUp className="h-3 w-3" /></button>
+                            <button className="p-0.5 rounded hover:bg-muted text-muted-foreground disabled:opacity-20" disabled={idx === orderedCustomCols.length - 1} onClick={() => moveCustomCol(col.id, 'down', allCustomIds)}><ArrowDown className="h-3 w-3" /></button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </>
                 )}
                 <div className="border-t mt-1.5 pt-1.5">
@@ -1107,7 +1149,7 @@ export default function EquipmentListPage() {
                   if (!col) return null;
                   return <SortableTh key={col.key} label={col.label} sortKey={col.sortKey} currentKey={sortKey} currentDir={sortDir} onSort={onSort} />;
                 })}
-                {customColumns.filter(c => visibleCustomCols.has(c.id)).map(col => (
+                {orderedCustomCols.filter(c => visibleCustomCols.has(c.id)).map(col => (
                   <th key={col.id} className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap">
                     {col.name}
                     <span className="ml-1 text-[9px] opacity-40">{col.scope === 'shared' ? '共' : '個'}</span>
