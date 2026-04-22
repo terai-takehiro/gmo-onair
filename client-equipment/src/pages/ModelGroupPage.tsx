@@ -29,6 +29,14 @@ const STATUS_COLORS: Record<string, string> = {
   lost: "bg-red-100 text-red-700",
 };
 
+interface ChildItem {
+  id: string;
+  eq_code: string;
+  name: string;
+  unit_number: number | null;
+  status: string;
+}
+
 interface Unit {
   id: string;
   eq_code: string;
@@ -39,6 +47,7 @@ interface Unit {
   location_name: string | null;
   location_detail: string | null;
   rental_display_name: string | null;
+  children: ChildItem[];
 }
 
 interface ModelGroup {
@@ -495,6 +504,7 @@ export default function ModelGroupPage() {
                               </thead>
                               <tbody>
                                 {g.units.map((u, i) => (
+                                  <>
                                   <tr
                                     key={u.id}
                                     className="border-t cursor-pointer hover:bg-muted/50 transition-colors"
@@ -519,6 +529,20 @@ export default function ModelGroupPage() {
                                       {u.serial_number || "—"}
                                     </td>
                                   </tr>
+                                  {u.children?.length > 0 && (
+                                    <tr key={`${u.id}-children`} className="bg-muted/30">
+                                      <td colSpan={6} className="px-6 py-1.5">
+                                        <div className="flex flex-wrap gap-x-4 gap-y-0.5">
+                                          {u.children.map(c => (
+                                            <span key={c.id} className="text-xs text-muted-foreground cursor-pointer hover:text-foreground" onClick={(e) => { e.stopPropagation(); navigate(`/equipment/items/${c.id}`); }}>
+                                              ↳ {c.name}{c.unit_number != null ? ` No.${c.unit_number}` : ""}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )}
+                                  </>
                                 ))}
                               </tbody>
                             </table>
@@ -543,6 +567,15 @@ export default function ModelGroupPage() {
                                 <p className="mt-0.5 text-xs text-muted-foreground">
                                   {[u.location_name, u.location_detail].filter(Boolean).join(" / ") || "—"}
                                 </p>
+                                {u.children?.length > 0 && (
+                                  <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                                    {u.children.map(c => (
+                                      <span key={c.id} className="text-xs text-muted-foreground/70">
+                                        ↳ {c.name}{c.unit_number != null ? ` No.${c.unit_number}` : ""}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>
