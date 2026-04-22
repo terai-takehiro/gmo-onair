@@ -287,6 +287,25 @@ router.get('/items/export', requirePermission('equipment', 'exporter'), async (_
   csvResponse(res, 'equipment_items.csv', generateCsv(rows, columns));
 });
 
+// 貸出設定一括更新 (グループ単位) — /items/:id ルートより前に定義
+router.put('/items/batch-rental', async (req: Request, res: Response) => {
+  const { ids, rental_category_id, rental_display_name } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    res.status(400).json({ success: false, error: { message: 'ids は空でない配列を指定してください' } });
+    return;
+  }
+  const placeholders = ids.map((_: unknown, i: number) => `$${i + 1}`).join(', ');
+  await execute(
+    `UPDATE equipment_items SET
+       rental_category_id = $${ids.length + 1},
+       rental_display_name = $${ids.length + 2},
+       updated_at = NOW(), updated_by = $${ids.length + 3}
+     WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
+    [...ids, rental_category_id || null, rental_display_name || null, (req as any).user?.id || null]
+  );
+  res.json({ success: true });
+});
+
 // 一括更新 (管理者専用) — /items/:id ルートより前に定義する必要あり
 router.put('/items/bulk-update', requirePermission('equipment', 'manager'), async (req: Request, res: Response) => {
   const { ids, fields } = req.body as { ids?: unknown; fields?: Record<string, unknown> };
