@@ -1,0 +1,3 @@
+-- 058: 予算管理改善 (前金フラグ、仮フラグ)
+ALTER TABLE revenues ADD COLUMN IF NOT EXISTS is_advance_payment BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE purchases ADD COLUMN IF NOT EXISTS is_provisional BOOLEAN NOT NULL DEFAULT FALSE;

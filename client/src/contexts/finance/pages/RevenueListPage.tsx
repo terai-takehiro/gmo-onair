@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
@@ -6,9 +6,11 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import { PageTransition } from "@/components/ui/motion";
 import { getProjectCategory } from "@/types";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -40,6 +42,8 @@ interface ProjectOption {
   customer_id: string;
   customer_name?: string;
   project_type?: string;
+  expected_amount?: number;
+  event_end?: string;
 }
 
 interface EpisodeOption {
@@ -77,6 +81,7 @@ export default function RevenueListPage() {
   const [paymentDueDate, setPaymentDueDate] = useState("");
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<RevenueItem[]>([]);
+  const [isAdvancePayment, setIsAdvancePayment] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["revenues-all", page, search, filterProjectId],
@@ -127,6 +132,22 @@ export default function RevenueListPage() {
   });
   const simulationItems = simData?.data ?? [];
 
+  // 案件選択時: 想定金額・日付を自動入力
+  useEffect(() => {
+    if (!selectedProject) return;
+    if (selectedProject.expected_amount) {
+      setAmount(selectedProject.expected_amount);
+    }
+    if (selectedProject.event_end) {
+      const d = new Date(selectedProject.event_end);
+      const lastOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split("T")[0];
+      const nextMonthLast = new Date(d.getFullYear(), d.getMonth() + 2, 0).toISOString().split("T")[0];
+      setRecognitionDate(lastOfMonth);
+      setBillingDate(lastOfMonth);
+      setPaymentDueDate(nextMonthLast);
+    }
+  }, [selectedProjectId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Billing key preview
   const billingKeyPreview = useMemo(() => {
     if (selectedEpisodeId) {
@@ -170,6 +191,7 @@ export default function RevenueListPage() {
     setPaymentDueDate("");
     setNotes("");
     setItems([]);
+    setIsAdvancePayment(false);
   };
 
   const handleCreateSubmit = () => {
@@ -188,6 +210,7 @@ export default function RevenueListPage() {
       payment_due_date: paymentDueDate || null,
       notes: notes || null,
       items: items.length > 0 ? items : undefined,
+      is_advance_payment: isAdvancePayment,
     });
   };
 
@@ -733,13 +756,24 @@ export default function RevenueListPage() {
               </div>
             </div>
 
+            {/* 前金チェックボックス */}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="is-advance-payment"
+                checked={isAdvancePayment}
+                onCheckedChange={(v) => setIsAdvancePayment(!!v)}
+              />
+              <Label htmlFor="is-advance-payment" className="cursor-pointer">前金</Label>
+            </div>
+
             {/* Notes */}
             <div className="space-y-1">
               <Label>備考</Label>
-              <Input
+              <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="備考"
+                rows={3}
               />
             </div>
 

@@ -46,8 +46,8 @@ router.get('/tags', async (_req, res) => {
 });
 
 // GLS番号付き案件一覧（リンク先選択用）
-router.get('/gls-projects', (_req, res) => {
-  res.json({ success: true, data: projectService.getGlsProjects() });
+router.get('/gls-projects', async (_req, res) => {
+  res.json({ success: true, data: await projectService.getGlsProjects() });
 });
 
 // 詳細

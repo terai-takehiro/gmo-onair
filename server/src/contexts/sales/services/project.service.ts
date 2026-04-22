@@ -140,6 +140,20 @@ export class ProjectService {
        box_url_internal || null, box_url_external || null,
        userId, id]
     );
+
+    // 想定金額が変わった場合、確定売上の代表レコードにも反映
+    if (expected_amount !== undefined && Number(expected_amount) > 0) {
+      await execute(
+        `UPDATE revenues SET amount = ?, updated_at = NOW()
+         WHERE id = (
+           SELECT id FROM revenues
+           WHERE project_id = ? AND status = 'confirmed' AND group_id IS NULL AND deleted_at IS NULL
+           ORDER BY created_at ASC LIMIT 1
+         )`,
+        [expected_amount, id]
+      );
+    }
+
     return this.getById(id);
   }
 
