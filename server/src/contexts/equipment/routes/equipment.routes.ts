@@ -1113,7 +1113,15 @@ router.get('/model-groups', async (req: Request, res: Response) => {
           'condition', ei.condition,
           'location_name', el.name,
           'location_detail', ei.location_detail,
-          'rental_display_name', ei.rental_display_name
+          'rental_display_name', ei.rental_display_name,
+          'children', (
+            SELECT COALESCE(json_agg(json_build_object(
+              'id', c.id, 'eq_code', c.eq_code, 'name', c.name,
+              'unit_number', c.unit_number, 'status', c.status
+            ) ORDER BY c.name, c.unit_number NULLS LAST), '[]'::json)
+            FROM equipment_items c
+            WHERE c.parent_id = ei.id AND c.deleted_at IS NULL
+          )
         ) ORDER BY ei.unit_number NULLS LAST, ei.eq_code
       ) AS units
     FROM equipment_items ei
