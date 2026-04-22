@@ -33,6 +33,7 @@ import {
   Settings,
   Timer,
   Layers,
+  Tag,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -118,6 +119,7 @@ const APP_NAV: Record<string, NavSection[]> = {
         { label: "貸出管理", to: "/equipment/lending", icon: ClipboardList },
         { label: "メンテナンス", to: "/equipment/maintenance", icon: Wrench },
         { label: "棚卸し", to: "/equipment/inventory", icon: ClipboardCheck },
+        { label: "貸出カテゴリ", to: "/equipment/rental-categories", icon: Tag },
       ],
     },
   ],
