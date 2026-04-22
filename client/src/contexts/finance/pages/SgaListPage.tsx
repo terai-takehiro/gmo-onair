@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatDate, formatMonth } from "@/lib/format";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { PageTransition } from "@/components/ui/motion";
 import {
@@ -38,6 +38,26 @@ export default function SgaListPage() {
   const [search, setSearch] = useState("");
   const [sourceFilter, setSourceFilter] = useState<string>("");
   const [page, setPage] = useState(1);
+  const [colWidths, setColWidths] = useState<Record<string, number>>({});
+  const resizeRef = useRef<{ col: string; startX: number; startW: number } | null>(null);
+
+  const startResize = useCallback((col: string, e: React.MouseEvent, currentWidth: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeRef.current = { col, startX: e.clientX, startW: currentWidth };
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!resizeRef.current) return;
+      const newW = Math.max(50, resizeRef.current.startW + ev.clientX - resizeRef.current.startX);
+      setColWidths((prev) => ({ ...prev, [resizeRef.current!.col]: newW }));
+    };
+    const onMouseUp = () => {
+      resizeRef.current = null;
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }, []);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<SgaFormData>(initialFormData);
@@ -281,21 +301,39 @@ export default function SgaListPage() {
 
               {/* Desktop table */}
               <div className="hidden lg:block overflow-x-auto">
-              <Table>
+              <Table className={Object.keys(colWidths).length > 0 ? "table-fixed" : ""}>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>請求KEY</TableHead>
-                    <TableHead>支払先</TableHead>
-                    <TableHead>詳細</TableHead>
-                    <TableHead>発生年月</TableHead>
-                    <TableHead>支払期日</TableHead>
-                    <TableHead>税区分</TableHead>
-                    <TableHead className="text-right">金額</TableHead>
-                    <TableHead>精算方法</TableHead>
-                    <TableHead>精算状況</TableHead>
-                    <TableHead>種別</TableHead>
-                    <TableHead>処理元</TableHead>
-                    <TableHead className="w-20">操作</TableHead>
+                    {([
+                      { key: "bkey", label: "請求KEY", defaultW: 120 },
+                      { key: "vendor", label: "支払先", defaultW: 130 },
+                      { key: "desc", label: "詳細", defaultW: 180 },
+                      { key: "rec", label: "発生年月", defaultW: 90 },
+                      { key: "due", label: "支払期日", defaultW: 90 },
+                      { key: "tax", label: "税区分", defaultW: 70 },
+                      { key: "amount", label: "金額", defaultW: 100, align: "right" },
+                      { key: "method", label: "精算方法", defaultW: 90 },
+                      { key: "status", label: "精算状況", defaultW: 90 },
+                      { key: "type", label: "種別", defaultW: 70 },
+                      { key: "source", label: "処理元", defaultW: 70 },
+                      { key: "ops", label: "操作", defaultW: 70 },
+                    ] as { key: string; label: string; defaultW: number; align?: string }[]).map(({ key, label, defaultW, align }) => {
+                      const w = colWidths[key] ?? (Object.keys(colWidths).length > 0 ? defaultW : undefined);
+                      return (
+                        <TableHead
+                          key={key}
+                          style={w ? { width: w, minWidth: 40 } : undefined}
+                          className={`select-none whitespace-nowrap relative${align === "right" ? " text-right" : ""}`}
+                        >
+                          {label}
+                          <span
+                            className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize opacity-0 hover:opacity-100 hover:bg-primary/40 select-none"
+                            onMouseDown={(e) => startResize(key, e, colWidths[key] ?? defaultW)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </TableHead>
+                      );
+                    })}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -309,7 +347,7 @@ export default function SgaListPage() {
                         {item.description || "-"}
                       </TableCell>
                       <TableCell>
-                        {formatDate(item.recognition_date)}
+                        {formatMonth(item.recognition_date)}
                       </TableCell>
                       <TableCell>
                         {formatDate(item.payment_due_date)}

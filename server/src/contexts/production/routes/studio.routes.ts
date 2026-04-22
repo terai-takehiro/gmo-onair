@@ -266,7 +266,7 @@ router.get('/bookings', async (req, res) => {
   if (to) { where += ' AND b.start_time <= ?'; params.push(to); }
 
   const bookings = await queryAll(
-    `SELECT b.*, p.name as project_name, p.gls_number, e.episode_code
+    `SELECT b.*, p.name as project_name, p.gls_number, p.event_end as project_event_end, e.episode_code
      FROM studio_bookings b
      LEFT JOIN projects p ON p.id = b.project_id
      LEFT JOIN episodes e ON e.id = b.episode_id

@@ -7,6 +7,7 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
 import api from "@/lib/api";
+import { formatShortDate } from "@/lib/format";
 import { PageTransition } from "@/components/ui/motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,7 @@ interface StudioBooking {
   project_name: string | null;
   gls_number: string | null;
   episode_code: string | null;
+  project_event_end?: string | null;
   status?: string;
   rooms: BookingRoom[];
 }
@@ -234,6 +236,8 @@ export default function StudioCalendarPage() {
       const { start: evStart, end: evEnd, allDay: evAllDay } = toTimedRange(b.start_time, b.end_time, !!b.all_day);
       const useTypeColor = ["performance", "rehearsal", "maintenance", "tour", "setup"].includes(b.booking_type);
 
+      const dateSuffix = b.project_event_end ? ` (${formatShortDate(b.project_event_end)})` : "";
+
       if (b.rooms.length > 0) {
         // 月間ビュー: 案件単位で1イベントにまとめる
         const filteredRooms = selectedRoomIds.size > 0
@@ -245,7 +249,7 @@ export default function StudioCalendarPage() {
           const color = useTypeColor ? typeColor : filteredRooms[0].room_color;
           events.push({
             id: `booking-${b.id}`,
-            title: b.title,
+            title: `${b.title}${dateSuffix}`,
             start: evStart,
             end: evEnd,
             allDay: evAllDay,
@@ -261,7 +265,7 @@ export default function StudioCalendarPage() {
             const color = useTypeColor ? typeColor : room.room_color;
             events.push({
               id: `booking-${b.id}-${room.room_id}`,
-              title: `${room.room_name} | ${b.title}`,
+              title: `${room.room_name} | ${b.title}${dateSuffix}`,
               start: evStart,
               end: evEnd,
               allDay: evAllDay,
@@ -277,7 +281,7 @@ export default function StudioCalendarPage() {
         // 外現場など部屋なし
         events.push({
           id: `booking-${b.id}`,
-          title: `📍 ${b.title}${b.location_note ? ` (${b.location_note})` : ""}`,
+          title: `📍 ${b.title}${b.location_note ? ` (${b.location_note})` : ""}${dateSuffix}`,
           start: evStart,
           end: evEnd,
           allDay: evAllDay,

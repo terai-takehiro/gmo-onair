@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatMonth, localDateStr } from "@/lib/format";
 import { PageTransition } from "@/components/ui/motion";
 import {
   Vendor,
@@ -74,6 +74,8 @@ export default function PurchaseListPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [colWidths, setColWidths] = useState<Record<string, number>>({});
+  const resizeRef = useRef<{ col: string; startX: number; startW: number } | null>(null);
 
   // Dialog form state
   const [selectedProjectId, setSelectedProjectId] = useState("");
@@ -85,9 +87,27 @@ export default function PurchaseListPage() {
   const [amount, setAmount] = useState<number>(0);
   const [description, setDescription] = useState("");
   const [serviceCompletedDate, setServiceCompletedDate] = useState("");
-  const [recognitionDate, setRecognitionDate] = useState("");
+  const [recognitionMonth, setRecognitionMonth] = useState(""); // "YYYY-MM"
   const [paymentDueDate, setPaymentDueDate] = useState("");
   const [isProvisional, setIsProvisional] = useState(false);
+
+  const startResize = useCallback((col: string, e: React.MouseEvent, currentWidth: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeRef.current = { col, startX: e.clientX, startW: currentWidth };
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!resizeRef.current) return;
+      const newW = Math.max(60, resizeRef.current.startW + ev.clientX - resizeRef.current.startX);
+      setColWidths((prev) => ({ ...prev, [resizeRef.current!.col]: newW }));
+    };
+    const onMouseUp = () => {
+      resizeRef.current = null;
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }, []);
 
   const { data, isLoading } = useQuery({
     queryKey: ["purchases-all", page, search],
@@ -117,15 +137,6 @@ export default function PurchaseListPage() {
   });
   const vendors: Vendor[] = vendorsData?.data ?? [];
 
-  // 役務提供完了日 → 計上日（当月末）・支払予定日（翌月末）を自動計算
-  useEffect(() => {
-    if (!serviceCompletedDate) return;
-    const d = new Date(serviceCompletedDate);
-    const lastOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split("T")[0];
-    const nextMonthLast = new Date(d.getFullYear(), d.getMonth() + 2, 0).toISOString().split("T")[0];
-    setRecognitionDate(lastOfMonth);
-    setPaymentDueDate(nextMonthLast);
-  }, [serviceCompletedDate]);
 
   // Create mutation
   const createMutation = useMutation({
@@ -148,7 +159,7 @@ export default function PurchaseListPage() {
     setAmount(0);
     setDescription("");
     setServiceCompletedDate("");
-    setRecognitionDate("");
+    setRecognitionMonth("");
     setPaymentDueDate("");
     setIsProvisional(false);
   };
@@ -165,7 +176,7 @@ export default function PurchaseListPage() {
       amount,
       description: description || null,
       service_completed_date: serviceCompletedDate || null,
-      recognition_date: recognitionDate || null,
+      recognition_date: recognitionMonth ? `${recognitionMonth}-01` : null,
       payment_due_date: paymentDueDate || null,
       is_provisional: isProvisional,
     });
@@ -217,7 +228,7 @@ export default function PurchaseListPage() {
                   <div
                     key={p.id as string}
                     className="rounded-lg border p-3 transition-colors hover:bg-muted/50"
-                    onClick={() => p.project_id && navigate(`/sales/projects/${p.project_id}/episodes`)}
+                    onClick={() => p.project_id && navigate(`/sales/projects/${p.project_id}`)}
                     role={p.project_id ? "button" : undefined}
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -232,7 +243,7 @@ export default function PurchaseListPage() {
                         <div className="text-sm mt-1 truncate">{(p.description as string) || (p.project_name as string) || "-"}</div>
                         <div className="text-xs text-muted-foreground mt-0.5">
                           {(p.vendor_name as string) || "-"}
-                          {(p.recognition_date as string) && ` / ${formatDate(p.recognition_date as string)}`}
+                          {(p.recognition_date as string) && ` / ${formatMonth(p.recognition_date as string)}`}
                         </div>
                       </div>
                       <div className="text-right shrink-0">
@@ -245,18 +256,36 @@ export default function PurchaseListPage() {
 
               {/* Desktop table */}
               <div className="hidden lg:block overflow-x-auto">
-              <Table>
+              <Table className={Object.keys(colWidths).length > 0 ? "table-fixed" : ""}>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>GLS番号</TableHead>
-                    <TableHead>案件名</TableHead>
-                    <TableHead>仕入先</TableHead>
-                    <TableHead>説明</TableHead>
-                    <TableHead>精算</TableHead>
-                    <TableHead>税区分</TableHead>
-                    <TableHead className="text-right">金額</TableHead>
-                    <TableHead>計上日</TableHead>
-                    <TableHead>適格</TableHead>
+                    {([
+                      { key: "gls", label: "GLS番号", defaultW: 100 },
+                      { key: "project", label: "案件名", defaultW: 180 },
+                      { key: "vendor", label: "仕入先", defaultW: 130 },
+                      { key: "desc", label: "説明", defaultW: 180 },
+                      { key: "settlement", label: "精算", defaultW: 90 },
+                      { key: "tax", label: "税区分", defaultW: 80 },
+                      { key: "amount", label: "金額", defaultW: 100, align: "right" },
+                      { key: "recognition", label: "計上月", defaultW: 90 },
+                      { key: "invoice", label: "適格", defaultW: 50 },
+                    ] as { key: string; label: string; defaultW: number; align?: string }[]).map(({ key, label, defaultW, align }) => {
+                      const w = colWidths[key] ?? (Object.keys(colWidths).length > 0 ? defaultW : undefined);
+                      return (
+                        <TableHead
+                          key={key}
+                          style={w ? { width: w, minWidth: 40 } : undefined}
+                          className={`select-none whitespace-nowrap relative${align === "right" ? " text-right" : ""}`}
+                        >
+                          {label}
+                          <span
+                            className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize opacity-0 hover:opacity-100 hover:bg-primary/40 select-none"
+                            onMouseDown={(e) => startResize(key, e, colWidths[key] ?? defaultW)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </TableHead>
+                      );
+                    })}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -264,16 +293,7 @@ export default function PurchaseListPage() {
                     <TableRow key={p.id as string}>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          {p.project_id ? (
-                            <button
-                              className="font-mono text-sm font-medium text-primary hover:underline"
-                              onClick={() => navigate(`/sales/projects/${p.project_id}/episodes`)}
-                            >
-                              {(p.gls_number as string) || "-"}
-                            </button>
-                          ) : (
-                            <span className="font-mono text-sm">{(p.gls_number as string) || "-"}</span>
-                          )}
+                          <span className="font-mono text-sm">{(p.gls_number as string) || "-"}</span>
                           {(p.group_name as string) && (
                             <Badge variant="outline" className="text-xs">按分</Badge>
                           )}
@@ -300,7 +320,7 @@ export default function PurchaseListPage() {
                       <TableCell className="text-right font-medium font-number">
                         {formatCurrency(p.amount as number)}
                       </TableCell>
-                      <TableCell>{formatDate(p.recognition_date as string)}</TableCell>
+                      <TableCell>{formatMonth(p.recognition_date as string)}</TableCell>
                       <TableCell>{p.invoice_qualified ? "○" : "×"}</TableCell>
                     </TableRow>
                   ))}
@@ -419,21 +439,35 @@ export default function PurchaseListPage() {
               </div>
             </div>
 
-            {/* 役務提供完了日 → 計上日・支払予定日を自動入力 */}
+            {/* 役務提供完了日 → 計上月・支払予定日を自動入力 */}
             <div className="space-y-3 rounded-md border p-3">
               <div>
                 <Label>役務提供完了日</Label>
                 <Input
                   type="date"
                   value={serviceCompletedDate}
-                  onChange={(e) => setServiceCompletedDate(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setServiceCompletedDate(val);
+                    if (val) {
+                      const [y, m] = val.split("-").map(Number);
+                      // m is 1-based (e.g., June=6)
+                      setRecognitionMonth(`${y}-${String(m).padStart(2, "0")}`);
+                      // next month last day: new Date(y, m+1, 0) → July 31 when m=6
+                      setPaymentDueDate(localDateStr(new Date(y, m + 1, 0)));
+                    }
+                  }}
                 />
-                <p className="text-xs text-muted-foreground mt-0.5">入力すると計上日（当月末）・支払予定日（翌月末）を自動入力します</p>
+                <p className="text-xs text-muted-foreground mt-0.5">入力すると計上月（当月）・支払予定日（翌月末）を自動入力します</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>計上日</Label>
-                  <Input type="date" value={recognitionDate} onChange={(e) => setRecognitionDate(e.target.value)} />
+                  <Label>計上月</Label>
+                  <Input
+                    type="month"
+                    value={recognitionMonth}
+                    onChange={(e) => setRecognitionMonth(e.target.value)}
+                  />
                 </div>
                 <div>
                   <Label>支払予定日</Label>

@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatDate, formatShortDate } from "@/lib/format";
 import { ProjectStageLabels, ProjectStageColors, ProjectTypeLabels, type ProjectStage } from "@/types";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
@@ -142,7 +142,10 @@ export default function ProjectListPage() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium leading-tight">{p.name as string}</p>
+                        <p className="font-medium leading-tight">
+                      {p.name as string}
+                      {(p.event_end as string) && <span className="text-xs text-muted-foreground ml-1">({formatShortDate(p.event_end as string)})</span>}
+                    </p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
                           {(p.gls_number as string) || (p.code as string)} / {(p.customer_name as string) || "-"}
                         </p>
@@ -152,7 +155,12 @@ export default function ProjectListPage() {
                       </Badge>
                     </div>
                     <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                      <span className="font-number text-sm font-medium text-foreground" title="税別">{formatCurrency(p.expected_amount as number)}<span className="text-xs text-muted-foreground ml-0.5">（税別）</span></span>
+                      {Number(p.total_revenue) > 0
+                        ? <span className="font-number text-sm font-medium text-foreground">{formatCurrency(p.total_revenue as number)}</span>
+                        : Number(p.expected_amount) > 0
+                          ? <span className="font-number text-sm font-medium text-foreground">{formatCurrency(p.expected_amount as number)}<span className="text-xs text-muted-foreground ml-0.5">(想定)</span></span>
+                          : null
+                      }
                       {(Number(p.total_revenue) > 0 || Number(p.total_purchase) > 0) && (
                         <span className="flex items-center gap-1.5 text-xs">
                           <span title="売上">売{formatCurrency(p.total_revenue as number)}</span>
@@ -203,7 +211,7 @@ export default function ProjectListPage() {
                         { key: 'customer' as SortKey, label: '顧客', defaultW: 120 },
                         { key: 'stage' as SortKey, label: 'ステージ', defaultW: 100 },
                         { key: 'project_type' as SortKey, label: '案件種類', defaultW: 100 },
-                        { key: 'expected_amount' as SortKey, label: '想定金額', align: 'right', defaultW: 110 },
+                        { key: 'expected_amount' as SortKey, label: '金額', align: 'right', defaultW: 110 },
                         { key: 'event_start' as SortKey, label: 'イベント日', defaultW: 130 },
                         { key: 'assigned_to' as SortKey, label: '担当者', defaultW: 80 },
                       ] as { key: SortKey; label: string; align?: string; defaultW: number }[]).map(({ key, label, align, defaultW }) => {
@@ -262,7 +270,10 @@ export default function ProjectListPage() {
                         <TableCell className="font-mono text-xs">
                           {(p.gls_number as string) || (p.code as string) || "-"}
                         </TableCell>
-                        <TableCell className="font-medium">{p.name as string}</TableCell>
+                        <TableCell className="font-medium">
+                          {p.name as string}
+                          {(p.event_end as string) && <span className="text-xs text-muted-foreground ml-1">({formatShortDate(p.event_end as string)})</span>}
+                        </TableCell>
                         <TableCell>{(p.customer_name as string) || "-"}</TableCell>
                         <TableCell>
                           <Badge style={{ backgroundColor: ProjectStageColors[p.stage as ProjectStage], color: '#fff' }}>
@@ -272,7 +283,13 @@ export default function ProjectListPage() {
                         <TableCell className="text-xs">
                           {ProjectTypeLabels[p.project_type as keyof typeof ProjectTypeLabels] || (p.project_type as string) || "-"}
                         </TableCell>
-                        <TableCell className="text-right font-number">{formatCurrency(p.expected_amount as number)}</TableCell>
+                        <TableCell className="text-right font-number">
+                          {Number(p.total_revenue) > 0
+                            ? formatCurrency(p.total_revenue as number)
+                            : Number(p.expected_amount) > 0
+                              ? <>{formatCurrency(p.expected_amount as number)}<span className="text-xs text-muted-foreground ml-0.5">(想定)</span></>
+                              : "-"}
+                        </TableCell>
                         <TableCell className="text-xs whitespace-nowrap">
                           {p.event_start
                             ? p.event_end && p.event_end !== p.event_start
