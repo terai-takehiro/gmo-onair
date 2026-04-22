@@ -1,17 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import * as DP from "@radix-ui/react-dialog";
 import api from "@/lib/api";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectTrigger,
@@ -20,8 +12,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { Loader2, Calendar, Clock, MapPin, User, CheckSquare } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
+import { Loader2, MapPin, User } from "lucide-react";
 
 interface StudioRoom {
   id: string;
@@ -84,9 +75,7 @@ const bookingTypeOptions = [
   { value: "other", label: "その他" },
 ];
 
-// Types where we default to single-date (本番/リハーサル)
 const SINGLE_DATE_TYPES = new Set(["performance", "rehearsal"]);
-
 const LOCATION_NOTE_HISTORY_KEY = "studio_location_note_history";
 
 function loadLocationHistory(): string[] {
@@ -102,11 +91,7 @@ function saveLocationHistory(value: string) {
   if (!value.trim()) return;
   const prev = loadLocationHistory();
   const updated = [value, ...prev.filter((h) => h !== value)].slice(0, 15);
-  try {
-    localStorage.setItem(LOCATION_NOTE_HISTORY_KEY, JSON.stringify(updated));
-  } catch {
-    // ignore
-  }
+  try { localStorage.setItem(LOCATION_NOTE_HISTORY_KEY, JSON.stringify(updated)); } catch {}
 }
 
 export default function StudioBookingDialog({
@@ -120,7 +105,6 @@ export default function StudioBookingDialog({
 }: Props) {
   const qc = useQueryClient();
 
-  // Form state
   const [title, setTitle] = useState("");
   const [bookingType, setBookingType] = useState("performance");
   const [status, setStatus] = useState<"confirmed" | "tentative">("tentative");
@@ -137,7 +121,6 @@ export default function StudioBookingDialog({
   const [locationNote, setLocationNote] = useState("");
   const [notes, setNotes] = useState("");
 
-  // External location autocomplete
   const [locationHistory] = useState<string[]>(() => loadLocationHistory());
   const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
@@ -146,21 +129,15 @@ export default function StudioBookingDialog({
 
   const isSingleDateType = SINGLE_DATE_TYPES.has(bookingType);
 
-  // Deduplicate locations by name and filter out "外現場"-type locations (no rooms) from room grid
   const roomLocations = (() => {
     const seen = new Set<string>();
     const deduped: StudioLocation[] = [];
     for (const loc of locations) {
-      if (!seen.has(loc.name)) {
-        seen.add(loc.name);
-        deduped.push(loc);
-      }
+      if (!seen.has(loc.name)) { seen.add(loc.name); deduped.push(loc); }
     }
-    // Only show locations that actually have rooms in the room selection grid
     return deduped.filter((loc) => loc.rooms.length > 0);
   })();
 
-  // Projects list
   const { data: projectsData } = useQuery({
     queryKey: ["projects-all"],
     queryFn: async () => (await api.get("/projects?limit=200")).data,
@@ -168,7 +145,6 @@ export default function StudioBookingDialog({
   });
   const projects: any[] = projectsData?.data ?? [];
 
-  // Episodes for selected project
   const { data: episodesData } = useQuery({
     queryKey: ["episodes", projectId],
     queryFn: async () => (await api.get(`/projects/${projectId}/episodes`)).data,
@@ -176,10 +152,8 @@ export default function StudioBookingDialog({
   });
   const episodes: any[] = episodesData?.data ?? [];
 
-  // Initialize form
   useEffect(() => {
     if (!open) return;
-
     if (editingBooking) {
       const b = editingBooking;
       setTitle(b.title);
@@ -198,112 +172,77 @@ export default function StudioBookingDialog({
         }
       }
       setRoomDetails(details);
-
       if (b.all_day) {
         const sd = b.start_time.split("T")[0];
         const ed = b.end_time.split("T")[0];
-        setStartDate(sd);
-        setEndDate(ed);
-        setMultiDay(sd !== ed);
-        setStartTime("09:00");
-        setEndTime("18:00");
+        setStartDate(sd); setEndDate(ed); setMultiDay(sd !== ed);
+        setStartTime("09:00"); setEndTime("18:00");
       } else {
         const [sd, st] = b.start_time.split("T");
         const [ed, et] = b.end_time.split("T");
-        setStartDate(sd);
-        setEndDate(ed);
-        setMultiDay(sd !== ed);
+        setStartDate(sd); setEndDate(ed); setMultiDay(sd !== ed);
         setStartTime(st?.slice(0, 5) || "09:00");
         setEndTime(et?.slice(0, 5) || "18:00");
       }
     } else {
-      setTitle("");
-      setBookingType("performance");
-      setStatus("tentative");
-      setProjectId(presetProjectId || "");
-      setEpisodeId("");
-      setLocationNote("");
-      setNotes("");
+      setTitle(""); setBookingType("performance"); setStatus("tentative");
+      setProjectId(presetProjectId || ""); setEpisodeId("");
+      setLocationNote(""); setNotes("");
       setSelectedRoomIds(presetRoomIds ? new Set(presetRoomIds) : new Set());
-      setRoomDetails({});
-      setMultiDay(false);
-
+      setRoomDetails({}); setMultiDay(false);
       if (presetDate) {
         setAllDay(presetDate.allDay);
-        const startStr = presetDate.start;
-        const endStr = presetDate.end;
-
         if (presetDate.allDay) {
-          setStartDate(startStr);
-          // FullCalendar's end date is exclusive for allDay
-          const endD = new Date(endStr);
+          setStartDate(presetDate.start);
+          const endD = new Date(presetDate.end);
           endD.setDate(endD.getDate() - 1);
           const ed = endD.toISOString().split("T")[0];
-          setEndDate(ed);
-          setMultiDay(startStr !== ed);
-          setStartTime("09:00");
-          setEndTime("18:00");
+          setEndDate(ed); setMultiDay(presetDate.start !== ed);
+          setStartTime("09:00"); setEndTime("18:00");
         } else {
-          const sd = startStr.split("T")[0];
-          const ed = endStr.split("T")[0];
-          setStartDate(sd);
-          setEndDate(ed);
-          setMultiDay(sd !== ed);
-          setStartTime(startStr.split("T")[1]?.slice(0, 5) || "09:00");
-          setEndTime(endStr.split("T")[1]?.slice(0, 5) || "18:00");
+          const sd = presetDate.start.split("T")[0];
+          const ed = presetDate.end.split("T")[0];
+          setStartDate(sd); setEndDate(ed); setMultiDay(sd !== ed);
+          setStartTime(presetDate.start.split("T")[1]?.slice(0, 5) || "09:00");
+          setEndTime(presetDate.end.split("T")[1]?.slice(0, 5) || "18:00");
         }
       } else {
         setAllDay(true);
         const today = new Date().toISOString().split("T")[0];
-        setStartDate(today);
-        setEndDate(today);
-        setStartTime("09:00");
-        setEndTime("18:00");
+        setStartDate(today); setEndDate(today);
+        setStartTime("09:00"); setEndTime("18:00");
       }
     }
   }, [open, editingBooking, presetDate, presetRoomIds, presetProjectId]);
 
-  // When switching to single-date type without multiDay, sync end = start
   useEffect(() => {
-    if (isSingleDateType && !multiDay) {
-      setEndDate(startDate);
-    }
+    if (isSingleDateType && !multiDay) setEndDate(startDate);
   }, [isSingleDateType, multiDay, startDate]);
 
-  // hold/consultation は常に未確定
   useEffect(() => {
-    if (bookingType === "hold" || bookingType === "consultation") {
-      setStatus("tentative");
-    }
+    if (bookingType === "hold" || bookingType === "consultation") setStatus("tentative");
   }, [bookingType]);
 
-  // Auto-set title based on project (for performance/rehearsal/hold types)
   useEffect(() => {
     if (projectId && !editingBooking) {
       const proj = projects.find((p: any) => p.id === projectId);
       if (proj && (bookingType === "performance" || bookingType === "rehearsal" || bookingType === "hold")) {
         const ep = episodes.find((e: any) => e.id === episodeId);
         const typeLabel = bookingType === "hold" ? " 仮押さえ" : bookingType === "rehearsal" ? " リハーサル" : "";
-        setTitle(
-          ep
-            ? `${proj.gls_number || proj.code} ${ep.episode_code} ${proj.name}${typeLabel}`
-            : `${proj.gls_number || proj.code} ${proj.name}${typeLabel}`
+        setTitle(ep
+          ? `${proj.gls_number || proj.code} ${ep.episode_code} ${proj.name}${typeLabel}`
+          : `${proj.gls_number || proj.code} ${proj.name}${typeLabel}`
         );
       }
     }
   }, [projectId, episodeId, bookingType, projects, episodes, editingBooking]);
 
-  // Close suggestions when clicking outside
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (
-        locationInputRef.current &&
-        !locationInputRef.current.contains(e.target as Node) &&
-        suggestionsRef.current &&
-        !suggestionsRef.current.contains(e.target as Node)
-      ) {
-        setShowLocationSuggestions(false);
-      }
+        locationInputRef.current && !locationInputRef.current.contains(e.target as Node) &&
+        suggestionsRef.current && !suggestionsRef.current.contains(e.target as Node)
+      ) setShowLocationSuggestions(false);
     };
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -312,42 +251,26 @@ export default function StudioBookingDialog({
   const toggleRoom = (roomId: string) => {
     setSelectedRoomIds((prev) => {
       const next = new Set(prev);
-      if (next.has(roomId)) next.delete(roomId);
-      else next.add(roomId);
+      if (next.has(roomId)) next.delete(roomId); else next.add(roomId);
       return next;
     });
   };
 
   const handleLocationNoteChange = (value: string) => {
     setLocationNote(value);
-    if (value.trim()) {
-      const filtered = locationHistory.filter((h) =>
-        h.toLowerCase().includes(value.toLowerCase())
-      );
-      setFilteredSuggestions(filtered);
-      setShowLocationSuggestions(filtered.length > 0);
-    } else {
-      setFilteredSuggestions(locationHistory);
-      setShowLocationSuggestions(locationHistory.length > 0);
-    }
+    const filtered = value.trim()
+      ? locationHistory.filter((h) => h.toLowerCase().includes(value.toLowerCase()))
+      : locationHistory;
+    setFilteredSuggestions(filtered);
+    setShowLocationSuggestions(filtered.length > 0);
   };
 
   const handleLocationNoteFocus = () => {
-    if (locationNote.trim()) {
-      const filtered = locationHistory.filter((h) =>
-        h.toLowerCase().includes(locationNote.toLowerCase())
-      );
-      setFilteredSuggestions(filtered);
-      setShowLocationSuggestions(filtered.length > 0);
-    } else {
-      setFilteredSuggestions(locationHistory);
-      setShowLocationSuggestions(locationHistory.length > 0);
-    }
-  };
-
-  const selectLocationSuggestion = (value: string) => {
-    setLocationNote(value);
-    setShowLocationSuggestions(false);
+    const filtered = locationNote.trim()
+      ? locationHistory.filter((h) => h.toLowerCase().includes(locationNote.toLowerCase()))
+      : locationHistory;
+    setFilteredSuggestions(filtered);
+    setShowLocationSuggestions(filtered.length > 0);
   };
 
   const createMutation = useMutation({
@@ -355,452 +278,404 @@ export default function StudioBookingDialog({
       editingBooking
         ? api.put(`/studios/bookings/${editingBooking.id}`, payload)
         : api.post("/studios/bookings", payload),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["studio-bookings"] });
-      onOpenChange(false);
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["studio-bookings"] }); onOpenChange(false); },
   });
 
   const handleSubmit = () => {
     if (!title || !startDate) return;
-
     const effectiveEndDate = (isSingleDateType && !multiDay) ? startDate : endDate;
     if (!effectiveEndDate) return;
-
-    // Save location note to history
-    if (locationNote.trim()) {
-      saveLocationHistory(locationNote.trim());
-    }
-
-    const room_details_arr = Array.from(selectedRoomIds).map((rid) => ({
-      room_id: rid,
-      occupant: roomDetails[rid]?.occupant || null,
-      usage_note: roomDetails[rid]?.usage_note || null,
-    }));
-
-    const payload = {
-      title,
-      booking_type: bookingType,
-      status,
-      project_id: projectId || null,
-      episode_id: episodeId || null,
+    if (locationNote.trim()) saveLocationHistory(locationNote.trim());
+    createMutation.mutate({
+      title, booking_type: bookingType, status,
+      project_id: projectId || null, episode_id: episodeId || null,
       all_day: allDay,
       start_time: allDay ? startDate : `${startDate}T${startTime}`,
       end_time: allDay ? effectiveEndDate : `${effectiveEndDate}T${endTime}`,
-      room_details: room_details_arr,
+      room_details: Array.from(selectedRoomIds).map((rid) => ({
+        room_id: rid,
+        occupant: roomDetails[rid]?.occupant || null,
+        usage_note: roomDetails[rid]?.usage_note || null,
+      })),
       location_note: locationNote || null,
       notes: notes || null,
-    };
-
-    createMutation.mutate(payload);
+    });
   };
 
-  const dateLabel = isSingleDateType
-    ? (bookingType === "performance" ? "本番日" : "リハーサル日")
-    : "日時";
+  const inputCls = "text-[15px] text-primary bg-transparent border-none outline-none cursor-pointer";
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {editingBooking ? "予約を編集" : "スタジオ予約"}
-          </DialogTitle>
-        </DialogHeader>
+    <DP.Root open={open} onOpenChange={onOpenChange}>
+      <DP.Portal>
+        <DP.Overlay className="fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0" />
+        <DP.Content
+          className={cn(
+            // Mobile: bottom sheet
+            "fixed inset-x-0 bottom-0 z-50 bg-background outline-none",
+            "rounded-t-[20px] border-t border-x",
+            "data-[state=open]:animate-in data-[state=closed]:animate-out",
+            "data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom",
+            "duration-300 ease-out",
+            // Desktop: centered dialog
+            "sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2",
+            "sm:w-[min(calc(100vw-2rem),32rem)]",
+            "sm:rounded-xl sm:border sm:shadow-xl",
+            "sm:data-[state=open]:slide-in-from-left-1/2 sm:data-[state=open]:slide-in-from-top-[48%]",
+            "sm:data-[state=closed]:slide-out-to-left-1/2 sm:data-[state=closed]:slide-out-to-top-[48%]",
+          )}
+        >
+          <DP.Description className="sr-only">スタジオ予約フォーム</DP.Description>
 
-        <div className="space-y-4">
-          {/* Booking type */}
-          <div className="space-y-1">
-            <Label>予約種別</Label>
-            <div className="flex flex-wrap gap-1.5">
-              {bookingTypeOptions.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setBookingType(opt.value)}
-                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition-all border ${
-                    bookingType === opt.value
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "border-border hover:bg-muted"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+          {/* Drag handle — mobile only */}
+          <div className="sm:hidden flex justify-center pt-2.5 pb-1">
+            <div className="h-1 w-10 rounded-full bg-foreground/20" />
           </div>
 
-          {/* Project link (available for all types) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>案件 (任意)</Label>
-              <SearchableSelect
-                options={projects.map((p: any) => ({
-                  value: p.id,
-                  label: `${p.gls_number || p.code} ${p.name}`,
-                  subLabel: p.customer_name || "",
-                }))}
-                value={projectId}
-                onChange={(v) => { setProjectId(v); setEpisodeId(""); }}
-                placeholder="案件を検索..."
-              />
-            </div>
-            {projectId && episodes.length > 0 && (
-              <div className="space-y-1">
-                <Label>話数 (任意)</Label>
-                <Select value={episodeId} onValueChange={setEpisodeId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="選択..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">なし</SelectItem>
-                    {episodes.map((ep: any) => (
-                      <SelectItem key={ep.id} value={ep.id}>
-                        {ep.episode_code}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          {/* iOS-style header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b">
+            <DP.Close asChild>
+              <button className="min-w-[72px] text-[15px] text-primary">キャンセル</button>
+            </DP.Close>
+            <DP.Title className="text-[15px] font-semibold">
+              {editingBooking ? "予約を編集" : "スタジオ予約"}
+            </DP.Title>
+            <button
+              onClick={handleSubmit}
+              disabled={!title || !startDate || createMutation.isPending}
+              className="min-w-[72px] text-right text-[15px] font-semibold text-primary disabled:opacity-40 flex items-center justify-end gap-1"
+            >
+              {createMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {editingBooking ? "更新" : "予約する"}
+            </button>
+          </div>
+
+          {/* Scrollable body */}
+          <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: "calc(92dvh - 56px)" }}>
+            <div className="px-4 py-4 space-y-5" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
+
+              {/* ① タイトル */}
+              <div className="rounded-xl border bg-muted/30">
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="タイトル"
+                  className="w-full px-4 py-3.5 bg-transparent outline-none placeholder:text-muted-foreground/40"
+                  style={{ fontSize: "16px" }}
+                />
               </div>
-            )}
-          </div>
 
-          {/* Title */}
-          <div className="space-y-1">
-            <Label>タイトル *</Label>
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="予約のタイトル"
-            />
-          </div>
-
-          {/* Date & Time */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <Label className="mb-0">{dateLabel}</Label>
-            </div>
-
-            {/* All-day toggle */}
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="allDay"
-                checked={allDay}
-                onCheckedChange={(c) => setAllDay(!!c)}
-              />
-              <label htmlFor="allDay" className="text-sm cursor-pointer">
-                終日
-              </label>
-            </div>
-
-            {/* Single-date types: show one date + 複数日 checkbox */}
-            {isSingleDateType ? (
-              <div className="space-y-2">
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">
-                    {bookingType === "performance" ? "本番日" : "リハーサル日"}
-                  </Label>
-                  <Input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => {
-                      setStartDate(e.target.value);
-                      if (!multiDay) setEndDate(e.target.value);
-                      else if (endDate < e.target.value) setEndDate(e.target.value);
-                    }}
-                  />
+              {/* ② 予約種別 */}
+              <div>
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">予約種別</p>
+                <div className="flex gap-2 overflow-x-auto pb-0.5 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
+                  {bookingTypeOptions.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setBookingType(opt.value)}
+                      className={cn(
+                        "flex-none rounded-full px-4 py-2 text-[13px] font-medium border transition-all whitespace-nowrap",
+                        bookingType === opt.value
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "border-border bg-background"
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
+              </div>
 
-                {/* 複数日 checkbox */}
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="multiDay"
-                    checked={multiDay}
-                    onCheckedChange={(c) => {
-                      const checked = !!c;
-                      setMultiDay(checked);
-                      if (!checked) setEndDate(startDate);
-                    }}
-                  />
-                  <label htmlFor="multiDay" className="text-sm cursor-pointer">
-                    複数日
-                  </label>
-                </div>
-
-                {multiDay && (
-                  <div className="space-y-1 pl-6">
-                    <Label className="text-xs text-muted-foreground">終了日</Label>
-                    <Input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      min={startDate}
+              {/* ③ 案件 */}
+              <div>
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">案件</p>
+                <div className="rounded-xl border bg-muted/30 divide-y overflow-hidden">
+                  <div className="px-3 py-1.5">
+                    <SearchableSelect
+                      options={projects.map((p: any) => ({
+                        value: p.id,
+                        label: `${p.gls_number || p.code} ${p.name}`,
+                        subLabel: p.customer_name || "",
+                      }))}
+                      value={projectId}
+                      onChange={(v) => { setProjectId(v); setEpisodeId(""); }}
+                      placeholder="案件を検索..."
                     />
                   </div>
-                )}
-              </div>
-            ) : (
-              /* Other types: show start + end date */
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">開始日</Label>
-                  <Input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => {
-                      setStartDate(e.target.value);
-                      setEndDate(e.target.value);
-                    }}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">終了日</Label>
-                  <Input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    min={startDate}
-                  />
-                </div>
-              </div>
-            )}
-
-            {!allDay && (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3 w-3 text-muted-foreground" />
-                    <Label className="text-xs text-muted-foreground">開始時刻</Label>
-                  </div>
-                  <Input
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3 w-3 text-muted-foreground" />
-                    <Label className="text-xs text-muted-foreground">終了時刻</Label>
-                  </div>
-                  <Input
-                    type="time"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Room selection */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>使用スタジオ・部屋 (複数選択可)</Label>
-              <div className="flex gap-1.5">
-                <button
-                  type="button"
-                  className="text-xs text-primary hover:underline"
-                  onClick={() => {
-                    const all = new Set(roomLocations.flatMap((l) => l.rooms.map((r) => r.id)));
-                    setSelectedRoomIds(all);
-                  }}
-                >
-                  <CheckSquare className="inline h-3 w-3 mr-0.5" />全部屋
-                </button>
-                <span className="text-xs text-muted-foreground">|</span>
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground hover:underline"
-                  onClick={() => setSelectedRoomIds(new Set())}
-                >
-                  全解除
-                </button>
-              </div>
-            </div>
-            <div className="space-y-3 rounded-lg border p-3">
-              {/* Room locations (deduplicated, only those with rooms) */}
-              {roomLocations.map((loc) => (
-                <div key={loc.id}>
-                  <p className="text-xs font-semibold text-muted-foreground mb-1.5">
-                    {loc.name}
-                  </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                    {loc.rooms.map((room) => (
-                      <button
-                        key={room.id}
-                        type="button"
-                        onClick={() => toggleRoom(room.id)}
-                        className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all border text-left ${
-                          selectedRoomIds.has(room.id)
-                            ? "border-transparent text-white shadow-sm"
-                            : "border-border bg-background hover:bg-muted"
-                        }`}
-                        style={
-                          selectedRoomIds.has(room.id)
-                            ? { backgroundColor: room.color }
-                            : undefined
-                        }
-                      >
-                        <span
-                          className="h-3 w-3 rounded-full shrink-0 border border-white/30"
-                          style={{ backgroundColor: room.color }}
-                        />
-                        <span className="truncate">{room.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-
-              {/* External location — free-text with history dropdown */}
-              <div>
-                <div className="flex items-center gap-1 mb-1.5">
-                  <MapPin className="h-3 w-3 text-muted-foreground" />
-                  <p className="text-xs font-semibold text-muted-foreground">
-                    外現場
-                  </p>
-                </div>
-                <div className="relative">
-                  <Input
-                    ref={locationInputRef}
-                    value={locationNote}
-                    onChange={(e) => handleLocationNoteChange(e.target.value)}
-                    onFocus={handleLocationNoteFocus}
-                    placeholder="場所を入力（例：富士山麓ロケーション）"
-                    className="text-sm"
-                    autoComplete="off"
-                  />
-                  {showLocationSuggestions && filteredSuggestions.length > 0 && (
-                    <div
-                      ref={suggestionsRef}
-                      className="absolute z-50 top-full left-0 right-0 mt-1 rounded-lg border bg-popover shadow-md overflow-hidden"
-                    >
-                      {filteredSuggestions.map((suggestion, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors truncate"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => selectLocationSuggestion(suggestion)}
-                        >
-                          {suggestion}
-                        </button>
-                      ))}
+                  {projectId && episodes.length > 0 && (
+                    <div className="px-3">
+                      <Select value={episodeId} onValueChange={setEpisodeId}>
+                        <SelectTrigger className="border-0 bg-transparent px-1 h-10 shadow-none focus:ring-0">
+                          <SelectValue placeholder="話数（任意）" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">なし</SelectItem>
+                          {episodes.map((ep: any) => (
+                            <SelectItem key={ep.id} value={ep.id}>{ep.episode_code}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   )}
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* Greenroom occupant details */}
-          {(() => {
-            const allRooms = roomLocations.flatMap((l) => l.rooms);
-            const greenrooms = allRooms.filter(
-              (r) => selectedRoomIds.has(r.id) && r.room_type === "greenroom"
-            );
-            if (greenrooms.length === 0) return null;
-            return (
-              <div className="space-y-2">
-                <div className="flex items-center gap-1">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <Label className="mb-0">控室の利用者・用途</Label>
-                </div>
-                <div className="space-y-2 rounded-lg border p-3">
-                  {greenrooms.map((room) => {
-                    const detail = roomDetails[room.id] || { occupant: "", usage_note: "" };
-                    return (
-                      <div key={room.id} className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="h-2.5 w-2.5 rounded-full shrink-0"
-                            style={{ backgroundColor: room.color }}
+              {/* ④ 日時 */}
+              <div>
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">日時</p>
+                <div className="rounded-xl border bg-muted/30 divide-y overflow-hidden">
+                  {/* 終日 toggle */}
+                  <div className="flex items-center justify-between px-4 py-3.5">
+                    <span className="text-[15px]">終日</span>
+                    <Switch checked={allDay} onCheckedChange={setAllDay} />
+                  </div>
+
+                  {/* 開始 */}
+                  <div className="flex items-center px-4 py-3.5 gap-2">
+                    <span className="text-[15px] w-8 shrink-0">開始</span>
+                    <div className="flex flex-1 justify-end items-center gap-3">
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => {
+                          setStartDate(e.target.value);
+                          if (isSingleDateType && !multiDay) setEndDate(e.target.value);
+                          else if (endDate < e.target.value) setEndDate(e.target.value);
+                        }}
+                        className={inputCls}
+                        style={{ fontSize: "16px", colorScheme: "light" }}
+                      />
+                      {!allDay && (
+                        <input
+                          type="time"
+                          value={startTime}
+                          onChange={(e) => setStartTime(e.target.value)}
+                          className={inputCls}
+                          style={{ fontSize: "16px" }}
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 終了 */}
+                  {(!isSingleDateType || multiDay) && (
+                    <div className="flex items-center px-4 py-3.5 gap-2">
+                      <span className="text-[15px] w-8 shrink-0">終了</span>
+                      <div className="flex flex-1 justify-end items-center gap-3">
+                        <input
+                          type="date"
+                          value={endDate}
+                          onChange={(e) => setEndDate(e.target.value)}
+                          min={startDate}
+                          className={inputCls}
+                          style={{ fontSize: "16px", colorScheme: "light" }}
+                        />
+                        {!allDay && (
+                          <input
+                            type="time"
+                            value={endTime}
+                            onChange={(e) => setEndTime(e.target.value)}
+                            className={inputCls}
+                            style={{ fontSize: "16px" }}
                           />
-                          <span className="text-sm font-medium">{room.name}</span>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-5">
-                          <Input
-                            value={detail.occupant}
-                            onChange={(e) =>
-                              setRoomDetails((prev) => ({
-                                ...prev,
-                                [room.id]: { ...prev[room.id] || { occupant: "", usage_note: "" }, occupant: e.target.value },
-                              }))
-                            }
-                            placeholder="利用者（例：出演者A様）"
-                            className="text-sm h-8"
-                          />
-                          <Input
-                            value={detail.usage_note}
-                            onChange={(e) =>
-                              setRoomDetails((prev) => ({
-                                ...prev,
-                                [room.id]: { ...prev[room.id] || { occupant: "", usage_note: "" }, usage_note: e.target.value },
-                              }))
-                            }
-                            placeholder="用途（例：楽屋）"
-                            className="text-sm h-8"
-                          />
-                        </div>
+                        )}
                       </div>
-                    );
-                  })}
+                    </div>
+                  )}
+
+                  {/* 複数日 toggle (本番/リハーサルのみ) */}
+                  {isSingleDateType && (
+                    <div className="flex items-center justify-between px-4 py-3.5">
+                      <span className="text-[15px]">複数日</span>
+                      <Switch
+                        checked={multiDay}
+                        onCheckedChange={(c) => { setMultiDay(c); if (!c) setEndDate(startDate); }}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
-            );
-          })()}
 
-          {/* Notes */}
-          <div className="space-y-1">
-            <Label>メモ</Label>
-            <Textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="備考（改行可）"
-              rows={3}
-              className="resize-none"
-            />
-          </div>
+              {/* ⑤ スタジオ・部屋 */}
+              <div>
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">スタジオ・部屋</p>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      className="text-[12px] text-primary"
+                      onClick={() => setSelectedRoomIds(new Set(roomLocations.flatMap((l) => l.rooms.map((r) => r.id))))}
+                    >
+                      全選択
+                    </button>
+                    <button
+                      type="button"
+                      className="text-[12px] text-muted-foreground"
+                      onClick={() => setSelectedRoomIds(new Set())}
+                    >
+                      全解除
+                    </button>
+                  </div>
+                </div>
+                <div className="rounded-xl border bg-muted/30 p-3 space-y-3">
+                  {roomLocations.map((loc) => (
+                    <div key={loc.id}>
+                      <p className="text-[11px] font-medium text-muted-foreground mb-2">{loc.name}</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {loc.rooms.map((room) => (
+                          <button
+                            key={room.id}
+                            type="button"
+                            onClick={() => toggleRoom(room.id)}
+                            className={cn(
+                              "flex items-center gap-2 rounded-xl px-3 py-2.5 text-[14px] font-medium transition-all text-left",
+                              selectedRoomIds.has(room.id)
+                                ? "text-white shadow-sm"
+                                : "bg-background/80 border border-border"
+                            )}
+                            style={selectedRoomIds.has(room.id) ? { backgroundColor: room.color } : undefined}
+                          >
+                            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: room.color }} />
+                            <span className="truncate">{room.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
 
-          {/* Status toggle */}
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <div>
-              <p className="text-sm font-medium">予約状態</p>
-              <p className="text-xs text-muted-foreground">
-                {status === "confirmed" ? "確定" : "未確定（仮押さえ）"}
-                {(bookingType === "hold" || bookingType === "consultation") && " — この種別は常に未確定"}
-              </p>
+                  {/* 外現場 */}
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <MapPin className="h-3 w-3 text-muted-foreground" />
+                      <p className="text-[11px] font-medium text-muted-foreground">外現場</p>
+                    </div>
+                    <div className="relative">
+                      <input
+                        ref={locationInputRef}
+                        type="text"
+                        value={locationNote}
+                        onChange={(e) => handleLocationNoteChange(e.target.value)}
+                        onFocus={handleLocationNoteFocus}
+                        placeholder="場所を入力（例：富士山麓ロケーション）"
+                        autoComplete="off"
+                        className="w-full px-3 py-2.5 rounded-lg border bg-background/80 outline-none placeholder:text-muted-foreground/40"
+                        style={{ fontSize: "16px" }}
+                      />
+                      {showLocationSuggestions && filteredSuggestions.length > 0 && (
+                        <div
+                          ref={suggestionsRef}
+                          className="absolute z-50 top-full left-0 right-0 mt-1 rounded-xl border bg-popover shadow-lg overflow-hidden"
+                        >
+                          {filteredSuggestions.map((s, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              className="w-full text-left px-3 py-2.5 text-sm hover:bg-muted transition-colors"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => { setLocationNote(s); setShowLocationSuggestions(false); }}
+                            >
+                              {s}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ⑥ 控室利用者 */}
+              {(() => {
+                const allRooms = roomLocations.flatMap((l) => l.rooms);
+                const greenrooms = allRooms.filter((r) => selectedRoomIds.has(r.id) && r.room_type === "greenroom");
+                if (greenrooms.length === 0) return null;
+                return (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2 px-1">
+                      <User className="h-3.5 w-3.5 text-muted-foreground" />
+                      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">控室の利用者・用途</p>
+                    </div>
+                    <div className="rounded-xl border bg-muted/30 divide-y overflow-hidden">
+                      {greenrooms.map((room) => {
+                        const detail = roomDetails[room.id] || { occupant: "", usage_note: "" };
+                        return (
+                          <div key={room.id} className="px-4 py-3 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: room.color }} />
+                              <span className="text-[14px] font-medium">{room.name}</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <input
+                                type="text"
+                                value={detail.occupant}
+                                onChange={(e) => setRoomDetails((prev) => ({
+                                  ...prev,
+                                  [room.id]: { ...prev[room.id] || { occupant: "", usage_note: "" }, occupant: e.target.value },
+                                }))}
+                                placeholder="利用者"
+                                className="text-[14px] px-3 py-2 rounded-lg border bg-background/80 outline-none placeholder:text-muted-foreground/40"
+                                style={{ fontSize: "16px" }}
+                              />
+                              <input
+                                type="text"
+                                value={detail.usage_note}
+                                onChange={(e) => setRoomDetails((prev) => ({
+                                  ...prev,
+                                  [room.id]: { ...prev[room.id] || { occupant: "", usage_note: "" }, usage_note: e.target.value },
+                                }))}
+                                placeholder="用途"
+                                className="text-[14px] px-3 py-2 rounded-lg border bg-background/80 outline-none placeholder:text-muted-foreground/40"
+                                style={{ fontSize: "16px" }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ⑦ メモ */}
+              <div>
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">メモ</p>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="備考を入力"
+                  rows={3}
+                  className="w-full rounded-xl border bg-muted/30 px-4 py-3 resize-none outline-none placeholder:text-muted-foreground/40"
+                  style={{ fontSize: "16px" }}
+                />
+              </div>
+
+              {/* ⑧ 予約状態 */}
+              <div className="rounded-xl border bg-muted/30">
+                <div className="flex items-center justify-between px-4 py-3.5">
+                  <div>
+                    <p className="text-[15px] font-medium">確定済み</p>
+                    <p className="text-[12px] text-muted-foreground mt-0.5">
+                      {status === "confirmed" ? "予約確定" : "仮押さえ・未確定"}
+                      {(bookingType === "hold" || bookingType === "consultation") && " — この種別は常に未確定"}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={status === "confirmed"}
+                    onCheckedChange={(v) => {
+                      if (bookingType !== "hold" && bookingType !== "consultation") {
+                        setStatus(v ? "confirmed" : "tentative");
+                      }
+                    }}
+                    disabled={bookingType === "hold" || bookingType === "consultation"}
+                  />
+                </div>
+              </div>
+
             </div>
-            <Switch
-              checked={status === "confirmed"}
-              onCheckedChange={(v: boolean) => {
-                if (bookingType !== "hold" && bookingType !== "consultation") {
-                  setStatus(v ? "confirmed" : "tentative");
-                }
-              }}
-              disabled={bookingType === "hold" || bookingType === "consultation"}
-            />
           </div>
-
-          {/* Submit */}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              キャンセル
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={!title || !startDate || createMutation.isPending}
-            >
-              {createMutation.isPending && (
-                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-              )}
-              {editingBooking ? "更新" : "予約する"}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DP.Content>
+      </DP.Portal>
+    </DP.Root>
   );
 }
