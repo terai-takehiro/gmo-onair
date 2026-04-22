@@ -31,6 +31,7 @@ interface Unit {
   condition: string;
   location_name: string | null;
   location_detail: string | null;
+  rental_display_name: string | null;
 }
 
 interface ModelGroup {
@@ -38,22 +39,48 @@ interface ModelGroup {
   model_number: string;
   manufacturer_name: string | null;
   equipment_type_code: string;
+  rental_category_id: string | null;
+  rental_category_name: string | null;
+  rental_category_sort_order: number | null;
+  rental_display_name: string | null;
   total_count: number;
   units: Unit[];
+}
+
+interface RentalCategory {
+  id: string;
+  name: string;
+  sort_order: number;
+}
+
+interface CategorySection {
+  id: string | null;
+  name: string;
+  sort_order: number;
+  groups: ModelGroup[];
 }
 
 export default function ModelGroupPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
 
+  const { data: categoriesData } = useQuery<RentalCategory[]>({
+    queryKey: ["rental-categories"],
+    queryFn: async () => (await api.get("/equipment/rental-categories")).data.data,
+    staleTime: 60_000,
+  });
+  const allCategories: RentalCategory[] = categoriesData ?? [];
+
   const { data, isLoading } = useQuery({
-    queryKey: ["model-groups", search, typeFilter],
+    queryKey: ["model-groups", search, typeFilter, categoryFilter],
     queryFn: async () => {
       const params: Record<string, string> = {};
       if (search) params.q = search;
       if (typeFilter) params.type = typeFilter;
+      if (categoryFilter) params.category = categoryFilter;
       return (await api.get("/equipment/model-groups", { params })).data;
     },
     staleTime: 30_000,
@@ -75,16 +102,13 @@ export default function ModelGroupPage() {
     });
   };
 
-  useEffect(() => { setExpandedKeys(new Set()); }, [search, typeFilter]);
+  useEffect(() => { setExpandedKeys(new Set()); }, [search, typeFilter, categoryFilter]);
 
+  const allGroupKeys = useMemo(() => groups.map(groupKey), [groups]);
   const isAllExpanded = groups.length > 0 && groups.every(g => expandedKeys.has(groupKey(g)));
-
   const toggleAll = () => {
-    if (isAllExpanded) {
-      setExpandedKeys(new Set());
-    } else {
-      setExpandedKeys(new Set(groups.map(groupKey)));
-    }
+    if (isAllExpanded) setExpandedKeys(new Set());
+    else setExpandedKeys(new Set(allGroupKeys));
   };
 
   const typeLabel = (code: string) => TYPE_CODES.find(t => t.code === code)?.label ?? code;
@@ -92,6 +116,34 @@ export default function ModelGroupPage() {
   const totalUnits = useMemo(() => groups.reduce((s, g) => s + g.total_count, 0), [groups]);
   const inRepairCount = useMemo(() =>
     groups.reduce((s, g) => s + g.units.filter(u => u.status === "in_repair").length, 0), [groups]);
+
+  // カテゴリセクションに分割（フィルタなし・カテゴリ情報がある場合のみ表示）
+  const sections = useMemo<CategorySection[]>(() => {
+    if (categoryFilter) {
+      // フィルタ中はセクション分割しない
+      const secName = categoryFilter === "_none"
+        ? "カテゴリなし"
+        : (allCategories.find(c => c.id === categoryFilter)?.name ?? "");
+      return [{ id: categoryFilter === "_none" ? null : categoryFilter, name: secName, sort_order: 0, groups }];
+    }
+
+    const map = new Map<string, CategorySection>();
+    for (const g of groups) {
+      const key = g.rental_category_id ?? "_none";
+      if (!map.has(key)) {
+        map.set(key, {
+          id: g.rental_category_id,
+          name: g.rental_category_name ?? "カテゴリなし",
+          sort_order: g.rental_category_sort_order ?? 9999,
+          groups: [],
+        });
+      }
+      map.get(key)!.groups.push(g);
+    }
+    return Array.from(map.values()).sort((a, b) => a.sort_order - b.sort_order);
+  }, [groups, categoryFilter, allCategories]);
+
+  const showSectionHeaders = !categoryFilter && sections.length > 1;
 
   return (
     <div className="space-y-4 p-3 lg:p-6">
@@ -110,7 +162,6 @@ export default function ModelGroupPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
-        {/* Search */}
         <div className="relative flex-1 min-w-[180px] max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -120,6 +171,22 @@ export default function ModelGroupPage() {
             className="pl-9"
           />
         </div>
+
+        {/* Category filter */}
+        {allCategories.length > 0 && (
+          <Select value={categoryFilter || "_all"} onValueChange={v => setCategoryFilter(v === "_all" ? "" : v)}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="全カテゴリ" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">全カテゴリ</SelectItem>
+              {allCategories.map(c => (
+                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              ))}
+              <SelectItem value="_none">カテゴリなし</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
 
         {/* Type filter */}
         <Select value={typeFilter || "_all"} onValueChange={v => setTypeFilter(v === "_all" ? "" : v)}>
@@ -134,7 +201,6 @@ export default function ModelGroupPage() {
           </SelectContent>
         </Select>
 
-        {/* Expand all toggle */}
         {groups.length > 0 && (
           <Button variant="outline" size="sm" onClick={toggleAll}>
             {isAllExpanded ? "全て折りたたむ" : "全て展開"}
@@ -153,122 +219,148 @@ export default function ModelGroupPage() {
           <p>条件に一致する機材がありません</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {groups.map(g => {
-            const key = groupKey(g);
-            const expanded = isExpanded(g);
-            const activeCount = g.units.filter(u => u.status === "active").length;
-            const repairCount = g.units.filter(u => u.status === "in_repair").length;
+        <div className="space-y-4">
+          {sections.map(section => (
+            <div key={section.id ?? "_none"}>
+              {showSectionHeaders && (
+                <div className="flex items-center gap-3 py-1 mb-2">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap px-1">
+                    {section.name}
+                  </span>
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {section.groups.length} 型番 / {section.groups.reduce((s, g) => s + g.total_count, 0)} 台
+                  </span>
+                </div>
+              )}
 
-            return (
-              <div key={key} className="rounded-lg border bg-card overflow-hidden">
-                {/* Group header */}
-                <button
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left"
-                  onClick={() => toggleGroup(g)}
-                >
-                  {expanded
-                    ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  }
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold">{g.name}</span>
-                      {g.model_number && (
-                        <span className="text-sm font-mono text-muted-foreground">{g.model_number}</span>
+              <div className="space-y-2">
+                {section.groups.map(g => {
+                  const key = groupKey(g);
+                  const expanded = isExpanded(g);
+                  const activeCount = g.units.filter(u => u.status === "active").length;
+                  const repairCount = g.units.filter(u => u.status === "in_repair").length;
+                  const displayName = g.rental_display_name || g.name;
+                  const hasCustomName = !!g.rental_display_name && g.rental_display_name !== g.name;
+
+                  return (
+                    <div key={key} className="rounded-lg border bg-card overflow-hidden">
+                      {/* Group header */}
+                      <button
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                        onClick={() => toggleGroup(g)}
+                      >
+                        {expanded
+                          ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        }
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold">{displayName}</span>
+                            {hasCustomName && (
+                              <span className="text-xs text-muted-foreground">({g.name})</span>
+                            )}
+                            {g.model_number && (
+                              <span className="text-sm font-mono text-muted-foreground">{g.model_number}</span>
+                            )}
+                          </div>
+                          {g.manufacturer_name && (
+                            <p className="text-xs text-muted-foreground mt-0.5">{g.manufacturer_name}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {!showSectionHeaders && g.rental_category_name && (
+                            <Badge variant="secondary" className="text-xs">{g.rental_category_name}</Badge>
+                          )}
+                          <Badge variant="outline" className="text-xs">{typeLabel(g.equipment_type_code)}</Badge>
+                          <span className="text-sm font-medium">{g.total_count} 台</span>
+                          {repairCount > 0 && (
+                            <Badge className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300">修理中 {repairCount}</Badge>
+                          )}
+                          {activeCount === g.total_count && g.total_count > 0 && (
+                            <Badge className="text-xs bg-green-100 text-green-800 border-green-300">全台稼働</Badge>
+                          )}
+                        </div>
+                      </button>
+
+                      {/* Unit rows */}
+                      {expanded && (
+                        <div className="border-t">
+                          {/* Desktop table */}
+                          <div className="hidden sm:block overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead className="bg-muted/50">
+                                <tr>
+                                  <th className="px-4 py-2 text-left font-medium text-xs text-muted-foreground w-14">No.</th>
+                                  <th className="px-4 py-2 text-left font-medium text-xs text-muted-foreground">ID</th>
+                                  <th className="px-4 py-2 text-left font-medium text-xs text-muted-foreground w-24">ステータス</th>
+                                  <th className="px-4 py-2 text-left font-medium text-xs text-muted-foreground w-24">状態</th>
+                                  <th className="px-4 py-2 text-left font-medium text-xs text-muted-foreground">設置場所</th>
+                                  <th className="px-4 py-2 text-left font-medium text-xs text-muted-foreground w-32">シリアル番号</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {g.units.map((u, i) => (
+                                  <tr
+                                    key={u.id}
+                                    className="border-t cursor-pointer hover:bg-muted/50 transition-colors"
+                                    onClick={() => navigate(`/equipment/items/${u.id}`)}
+                                  >
+                                    <td className="px-4 py-2.5 font-mono text-sm">
+                                      {u.unit_number != null ? `No.${u.unit_number}` : `#${i + 1}`}
+                                    </td>
+                                    <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{u.eq_code}</td>
+                                    <td className="px-4 py-2.5">
+                                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[u.status] ?? "bg-gray-100 text-gray-700"}`}>
+                                        {STATUS_LABELS[u.status] ?? u.status}
+                                      </span>
+                                    </td>
+                                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                                      {CONDITION_LABELS[u.condition] ?? u.condition ?? "—"}
+                                    </td>
+                                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                                      {[u.location_name, u.location_detail].filter(Boolean).join(" / ") || "—"}
+                                    </td>
+                                    <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                                      {u.serial_number || "—"}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {/* Mobile card list */}
+                          <div className="sm:hidden divide-y">
+                            {g.units.map((u, i) => (
+                              <div
+                                key={u.id}
+                                className="px-4 py-3 cursor-pointer hover:bg-muted/50 active:bg-muted transition-colors"
+                                onClick={() => navigate(`/equipment/items/${u.id}`)}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="font-mono text-sm font-medium">
+                                    {u.unit_number != null ? `No.${u.unit_number}` : `#${i + 1}`}
+                                  </span>
+                                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[u.status] ?? "bg-gray-100 text-gray-700"}`}>
+                                    {STATUS_LABELS[u.status] ?? u.status}
+                                  </span>
+                                </div>
+                                <p className="mt-1 text-xs text-muted-foreground font-mono">{u.eq_code}</p>
+                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                  {[u.location_name, u.location_detail].filter(Boolean).join(" / ") || "—"}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
-                    {g.manufacturer_name && (
-                      <p className="text-xs text-muted-foreground mt-0.5">{g.manufacturer_name}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Badge variant="outline" className="text-xs">{typeLabel(g.equipment_type_code)}</Badge>
-                    <span className="text-sm font-medium">{g.total_count} 台</span>
-                    {repairCount > 0 && (
-                      <Badge className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300">修理中 {repairCount}</Badge>
-                    )}
-                    {activeCount === g.total_count && g.total_count > 0 && (
-                      <Badge className="text-xs bg-green-100 text-green-800 border-green-300">全台稼働</Badge>
-                    )}
-                  </div>
-                </button>
-
-                {/* Unit rows */}
-                {expanded && (
-                  <div className="border-t">
-                    {/* Desktop table */}
-                    <div className="hidden sm:block overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead className="bg-muted/50">
-                          <tr>
-                            <th className="px-4 py-2 text-left font-medium text-xs text-muted-foreground w-14">No.</th>
-                            <th className="px-4 py-2 text-left font-medium text-xs text-muted-foreground">ID</th>
-                            <th className="px-4 py-2 text-left font-medium text-xs text-muted-foreground w-24">ステータス</th>
-                            <th className="px-4 py-2 text-left font-medium text-xs text-muted-foreground w-24">状態</th>
-                            <th className="px-4 py-2 text-left font-medium text-xs text-muted-foreground">設置場所</th>
-                            <th className="px-4 py-2 text-left font-medium text-xs text-muted-foreground w-32">シリアル番号</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {g.units.map((u, i) => (
-                            <tr
-                              key={u.id}
-                              className="border-t cursor-pointer hover:bg-muted/50 transition-colors"
-                              onClick={() => navigate(`/equipment/items/${u.id}`)}
-                            >
-                              <td className="px-4 py-2.5 font-mono text-sm">
-                                {u.unit_number != null ? `No.${u.unit_number}` : `#${i + 1}`}
-                              </td>
-                              <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{u.eq_code}</td>
-                              <td className="px-4 py-2.5">
-                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[u.status] ?? "bg-gray-100 text-gray-700"}`}>
-                                  {STATUS_LABELS[u.status] ?? u.status}
-                                </span>
-                              </td>
-                              <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                                {CONDITION_LABELS[u.condition] ?? u.condition ?? "—"}
-                              </td>
-                              <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                                {[u.location_name, u.location_detail].filter(Boolean).join(" / ") || "—"}
-                              </td>
-                              <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
-                                {u.serial_number || "—"}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Mobile card list */}
-                    <div className="sm:hidden divide-y">
-                      {g.units.map((u, i) => (
-                        <div
-                          key={u.id}
-                          className="px-4 py-3 cursor-pointer hover:bg-muted/50 active:bg-muted transition-colors"
-                          onClick={() => navigate(`/equipment/items/${u.id}`)}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-mono text-sm font-medium">
-                              {u.unit_number != null ? `No.${u.unit_number}` : `#${i + 1}`}
-                            </span>
-                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[u.status] ?? "bg-gray-100 text-gray-700"}`}>
-                              {STATUS_LABELS[u.status] ?? u.status}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-xs text-muted-foreground font-mono">{u.eq_code}</p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            {[u.location_name, u.location_detail].filter(Boolean).join(" / ") || "—"}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
     </div>

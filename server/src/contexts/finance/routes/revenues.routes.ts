@@ -130,7 +130,7 @@ router.get('/:id/pdf', async (req, res, next) => {
 
 // 新規売上（明細行対応、episode_id任意）
 router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
-  const { project_id, customer_id, episode_id, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, items, subtitle, status: reqStatus } = req.body;
+  const { project_id, customer_id, episode_id, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, items, subtitle, status: reqStatus, is_advance_payment } = req.body;
   if (!project_id || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件と顧客は必須です');
 
   const revenueStatus = reqStatus === 'estimate' ? 'estimate' : 'confirmed';
@@ -161,8 +161,10 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
     ? items.reduce((sum: number, it: any) => sum + (it.amount || 0), 0)
     : (amount || 0);
 
-  await execute(`INSERT INTO revenues (id, billing_key, project_id, customer_id, episode_id, assigned_to, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, subtitle, status, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, billing_key, project_id, customer_id, episode_id || null, req.user!.id, tax_category || 'tax10', finalAmount, recognition_date || null, billing_date || null, payment_due_date || null, notes || null, subtitle || null, revenueStatus, req.user!.id]);
+  const isAdvancePayment = is_advance_payment ? true : false;
+
+  await execute(`INSERT INTO revenues (id, billing_key, project_id, customer_id, episode_id, assigned_to, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, subtitle, status, is_advance_payment, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, billing_key, project_id, customer_id, episode_id || null, req.user!.id, tax_category || 'tax10', finalAmount, recognition_date || null, billing_date || null, payment_due_date || null, notes || null, subtitle || null, revenueStatus, isAdvancePayment, req.user!.id]);
 
   // 明細行を保存
   if (Array.isArray(items)) {
@@ -173,6 +175,11 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
     }
   }
 
+  // 確定売上登録時: 案件の想定金額を同期
+  if (revenueStatus === 'confirmed' && finalAmount > 0) {
+    await execute(`UPDATE projects SET expected_amount = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL`, [finalAmount, project_id]);
+  }
+
   const row = await queryOne('SELECT * FROM revenues WHERE id = ?', [id]);
   res.status(201).json({ success: true, data: row });
 });
@@ -181,7 +188,7 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
 router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
   const existing = await queryOne('SELECT * FROM revenues WHERE id = ? AND deleted_at IS NULL', [req.params.id]) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '売上が見つかりません');
-  const { billing_key, project_id, customer_id, episode_id, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, items, subtitle } = req.body;
+  const { billing_key, project_id, customer_id, episode_id, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, items, subtitle, is_advance_payment } = req.body;
 
   // 税区分変更時はbilling_keyの末尾税枝番を更新
   let finalBillingKey = existing.billing_key;
@@ -196,8 +203,10 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
     ? items.reduce((sum: number, it: any) => sum + (it.amount || 0), 0)
     : (amount !== undefined ? amount : existing.amount);
 
-  await execute(`UPDATE revenues SET billing_key=?, project_id=?, customer_id=?, episode_id=?, tax_category=?, amount=?, recognition_date=?, billing_date=?, payment_due_date=?, notes=?, subtitle=?, updated_at=NOW(), updated_by=? WHERE id=?`,
-    [finalBillingKey || null, project_id || existing.project_id, customer_id || existing.customer_id, episode_id !== undefined ? (episode_id || null) : existing.episode_id, tax_category || existing.tax_category, finalAmount, recognition_date || null, billing_date || null, payment_due_date || null, notes || null, subtitle !== undefined ? (subtitle || null) : existing.subtitle, req.user!.id, req.params.id]);
+  const isAdvancePayment = is_advance_payment !== undefined ? (is_advance_payment ? true : false) : existing.is_advance_payment;
+
+  await execute(`UPDATE revenues SET billing_key=?, project_id=?, customer_id=?, episode_id=?, tax_category=?, amount=?, recognition_date=?, billing_date=?, payment_due_date=?, notes=?, subtitle=?, is_advance_payment=?, updated_at=NOW(), updated_by=? WHERE id=?`,
+    [finalBillingKey || null, project_id || existing.project_id, customer_id || existing.customer_id, episode_id !== undefined ? (episode_id || null) : existing.episode_id, tax_category || existing.tax_category, finalAmount, recognition_date || null, billing_date || null, payment_due_date || null, notes || null, subtitle !== undefined ? (subtitle || null) : existing.subtitle, isAdvancePayment, req.user!.id, req.params.id]);
 
   // 明細行を置換
   if (Array.isArray(items)) {
@@ -207,6 +216,13 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
       await execute(`INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount, pricing_item_id, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [uuidv4(), req.params.id, it.description || '', it.quantity || 1, it.unit_price || 0, it.amount || 0, it.pricing_item_id || null, i + 1]);
     }
+  }
+
+  // 確定売上の金額変更時: 案件の想定金額を同期
+  const finalProjectId = project_id || existing.project_id;
+  const finalStatus = existing.status;
+  if (finalStatus === 'confirmed' && finalAmount > 0) {
+    await execute(`UPDATE projects SET expected_amount = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL`, [finalAmount, finalProjectId]);
   }
 
   const row = await queryOne('SELECT * FROM revenues WHERE id = ?', [req.params.id]);

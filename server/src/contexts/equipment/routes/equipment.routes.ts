@@ -360,6 +360,7 @@ router.get('/items/:id', async (req: Request, res: Response) => {
            el.name as location_name,
            el.is_rack as location_is_rack, el.rack_units as location_rack_units,
            ec.color_hex, ec.name as color_name,
+           erc.name as rental_category_name,
            CASE WHEN ei.purchased_at IS NOT NULL AND ei.warranty_years > 0
                 THEN (ei.purchased_at + (ei.warranty_years || ' years')::interval)::date
                 ELSE NULL END as warranty_end
@@ -367,6 +368,7 @@ router.get('/items/:id', async (req: Request, res: Response) => {
     LEFT JOIN equipment_manufacturers em ON em.id = ei.manufacturer_id
     LEFT JOIN equipment_locations el ON el.id = ei.location_id AND el.deleted_at IS NULL
     LEFT JOIN equipment_colors ec ON ec.id = ei.color_id AND ec.deleted_at IS NULL
+    LEFT JOIN equipment_rental_categories erc ON erc.id = ei.rental_category_id
     WHERE ei.id = $1 AND ei.deleted_at IS NULL
   `, [req.params.id]);
 
@@ -523,7 +525,7 @@ router.patch('/items/:id', async (req: Request, res: Response, next: NextFunctio
       'notes', 'branch_code', 'fixed_asset_code', 'depreciation_years',
       'equipment_section', 'equipment_type_code', 'location_code', 'purchased_at', 'warranty_years',
       'rack_position', 'rack_height', 'rack_slot', 'rack_side', 'color_id',
-      'display_config',
+      'display_config', 'rental_category_id', 'rental_display_name',
     ]);
     const setClauses: string[] = [];
     const params: unknown[] = [];
@@ -1039,11 +1041,10 @@ router.get('/stats', async (_req: Request, res: Response) => {
 // 型番別グループ一覧 / 貸出機材一覧
 // ============================================================
 router.get('/model-groups', async (req: Request, res: Response) => {
-  const { q, type, section } = req.query;
+  const { q, type, section, category } = req.query;
   const params: any[] = [];
   let paramIndex = 1;
 
-  // is_rental_listed は親から継承: COALESCE(parent.is_rental_listed, ei.is_rental_listed)
   let where = 'WHERE ei.deleted_at IS NULL AND COALESCE(parent_ei.is_rental_listed, ei.is_rental_listed) = true';
 
   if (q) {
@@ -1062,13 +1063,24 @@ router.get('/model-groups', async (req: Request, res: Response) => {
     params.push(type);
     paramIndex++;
   }
+  if (category === '_none') {
+    where += ` AND ei.rental_category_id IS NULL`;
+  } else if (category) {
+    where += ` AND ei.rental_category_id = $${paramIndex}`;
+    params.push(category);
+    paramIndex++;
+  }
 
   const rows = await queryAll(`
     SELECT
       ei.name,
       COALESCE(ei.model_number, '') AS model_number,
-      em.name AS manufacturer_name,
+      MIN(em.name) AS manufacturer_name,
       ei.equipment_type_code,
+      MIN(ei.rental_category_id) AS rental_category_id,
+      MIN(erc.name) AS rental_category_name,
+      MIN(erc.sort_order) AS rental_category_sort_order,
+      MIN(NULLIF(ei.rental_display_name, '')) AS rental_display_name,
       COUNT(*)::int AS total_count,
       json_agg(
         json_build_object(
@@ -1079,19 +1091,64 @@ router.get('/model-groups', async (req: Request, res: Response) => {
           'status', ei.status,
           'condition', ei.condition,
           'location_name', el.name,
-          'location_detail', ei.location_detail
+          'location_detail', ei.location_detail,
+          'rental_display_name', ei.rental_display_name
         ) ORDER BY ei.unit_number NULLS LAST, ei.eq_code
       ) AS units
     FROM equipment_items ei
     LEFT JOIN equipment_manufacturers em ON em.id = ei.manufacturer_id
     LEFT JOIN equipment_locations el ON el.id = ei.location_id
+    LEFT JOIN equipment_rental_categories erc ON erc.id = ei.rental_category_id
     LEFT JOIN equipment_items parent_ei ON parent_ei.id = ei.parent_id AND parent_ei.deleted_at IS NULL
     ${where}
-    GROUP BY ei.name, ei.model_number, em.name, ei.equipment_type_code
-    ORDER BY ei.name, COALESCE(ei.model_number, '')
+    GROUP BY ei.name, COALESCE(ei.model_number, ''), ei.equipment_type_code
+    ORDER BY MIN(erc.sort_order) NULLS LAST, ei.name, COALESCE(ei.model_number, '')
   `, params);
 
   res.json({ success: true, data: rows });
+});
+
+// ============================================================
+// 貸出カテゴリ CRUD
+// ============================================================
+
+router.get('/rental-categories', async (_req: Request, res: Response) => {
+  const rows = await queryAll(`SELECT * FROM equipment_rental_categories ORDER BY sort_order ASC, created_at ASC`);
+  res.json({ success: true, data: rows });
+});
+
+router.post('/rental-categories', async (req: Request, res: Response) => {
+  const { name } = req.body;
+  if (!name) { res.status(400).json({ success: false, error: { message: 'カテゴリ名は必須です' } }); return; }
+  const maxRow = await queryOne(`SELECT COALESCE(MAX(sort_order), -1) AS m FROM equipment_rental_categories`) as any;
+  const sortOrder = (maxRow?.m ?? -1) + 1;
+  const id = (await queryOne(`INSERT INTO equipment_rental_categories (name, sort_order) VALUES ($1, $2) RETURNING id`, [name, sortOrder])) as any;
+  const row = await queryOne(`SELECT * FROM equipment_rental_categories WHERE id = $1`, [id.id]);
+  res.status(201).json({ success: true, data: row });
+});
+
+router.put('/rental-categories/reorder', async (req: Request, res: Response) => {
+  const { order } = req.body;
+  if (!Array.isArray(order)) { res.status(400).json({ success: false, error: { message: 'orderは配列で指定してください' } }); return; }
+  for (const item of order) {
+    await execute(`UPDATE equipment_rental_categories SET sort_order=$1, updated_at=NOW() WHERE id=$2`, [item.sort_order, item.id]);
+  }
+  res.json({ success: true });
+});
+
+router.put('/rental-categories/:id', async (req: Request, res: Response) => {
+  const { name } = req.body;
+  if (!name) { res.status(400).json({ success: false, error: { message: 'カテゴリ名は必須です' } }); return; }
+  await execute(`UPDATE equipment_rental_categories SET name=$1, updated_at=NOW() WHERE id=$2`, [name, req.params.id]);
+  const row = await queryOne(`SELECT * FROM equipment_rental_categories WHERE id = $1`, [req.params.id]);
+  res.json({ success: true, data: row });
+});
+
+router.delete('/rental-categories/:id', async (req: Request, res: Response) => {
+  // このカテゴリを使っている機材のrental_category_idをNULLに
+  await execute(`UPDATE equipment_items SET rental_category_id=NULL WHERE rental_category_id=$1`, [req.params.id]);
+  await execute(`DELETE FROM equipment_rental_categories WHERE id=$1`, [req.params.id]);
+  res.json({ success: true });
 });
 
 // ============================================================

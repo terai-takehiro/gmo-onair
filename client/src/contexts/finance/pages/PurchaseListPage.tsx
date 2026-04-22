@@ -12,10 +12,12 @@ import {
   TaxCategoryLabels,
 } from "@/types";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -83,6 +85,7 @@ export default function PurchaseListPage() {
   const [amount, setAmount] = useState<number>(0);
   const [description, setDescription] = useState("");
   const [recognitionDate, setRecognitionDate] = useState("");
+  const [isProvisional, setIsProvisional] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["purchases-all", page, search],
@@ -133,6 +136,7 @@ export default function PurchaseListPage() {
     setAmount(0);
     setDescription("");
     setRecognitionDate("");
+    setIsProvisional(false);
   };
 
   const handleCreateSubmit = () => {
@@ -147,6 +151,7 @@ export default function PurchaseListPage() {
       amount,
       description: description || null,
       recognition_date: recognitionDate || null,
+      is_provisional: isProvisional,
     });
   };
 
@@ -354,11 +359,22 @@ export default function PurchaseListPage() {
             {/* Description */}
             <div>
               <Label>説明</Label>
-              <Input
+              <Textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="仕入の説明"
+                rows={3}
               />
+            </div>
+
+            {/* 仮チェックボックス */}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="is-provisional"
+                checked={isProvisional}
+                onCheckedChange={(v) => setIsProvisional(!!v)}
+              />
+              <Label htmlFor="is-provisional" className="cursor-pointer">仮（確定前の見込み仕入）</Label>
             </div>
 
             {/* Tax + Settlement */}

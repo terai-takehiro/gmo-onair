@@ -107,10 +107,16 @@ export default function EquipmentDetailPage() {
     queryKey: ["equipment-colors"],
     queryFn: async () => (await api.get("/equipment/colors")).data.data,
   });
+  const { data: rentalCategoriesData } = useQuery({
+    queryKey: ["rental-categories"],
+    queryFn: async () => (await api.get("/equipment/rental-categories")).data.data,
+    enabled: editOpen,
+  });
   const allItems: any[] = allItemsData ?? [];
   const locations: any[] = locationsData ?? [];
   const manufacturers: any[] = manufacturersData ?? [];
   const colors: any[] = colorsData ?? [];
+  const rentalCategories: any[] = rentalCategoriesData ?? [];
 
   // 共有カスタム列
   const { data: customColumnsData } = useQuery<CustomColumn[]>({
@@ -171,6 +177,8 @@ export default function EquipmentDetailPage() {
       rack_height: data.rack_height?.toString() || "1",
       rack_slot: data.rack_slot || "full",
       rack_side: data.rack_side || "front",
+      rental_category_id: data.rental_category_id || "",
+      rental_display_name: data.rental_display_name || "",
     });
     setEditOpen(true);
   };
@@ -324,9 +332,15 @@ export default function EquipmentDetailPage() {
               {statusLabels[item.status]}
             </span>
             <Badge variant="outline">{item.equipment_section === "rental" ? "貸出" : "設備"}</Badge>
+            {item.rental_category_name && (
+              <Badge variant="secondary" className="text-xs">{item.rental_category_name}</Badge>
+            )}
           </div>
           <h1 className="heading-page text-xl mt-1">
-            {item.name}
+            {item.rental_display_name || item.name}
+            {item.rental_display_name && item.rental_display_name !== item.name && (
+              <span className="text-sm text-muted-foreground font-normal ml-1">({item.name})</span>
+            )}
             {item.model_number && <span className="text-muted-foreground font-normal ml-2">({item.model_number})</span>}
             {item.unit_number && <span className="text-primary ml-2">No.{item.unit_number}</span>}
           </h1>
@@ -598,6 +612,37 @@ export default function EquipmentDetailPage() {
               <Label>備考</Label>
               <Input value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
             </div>
+
+            {/* 貸出設定 */}
+            <div className="border-t pt-4">
+              <p className="text-sm font-semibold mb-3">貸出一覧設定</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>貸出カテゴリ</Label>
+                  <Select
+                    value={editForm.rental_category_id || "none"}
+                    onValueChange={(v) => setEditForm({ ...editForm, rental_category_id: v === "none" ? "" : v })}
+                  >
+                    <SelectTrigger><SelectValue placeholder="なし" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">なし</SelectItem>
+                      {rentalCategories.map((c: any) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>貸出表示名</Label>
+                  <Input
+                    value={editForm.rental_display_name}
+                    onChange={(e) => setEditForm({ ...editForm, rental_display_name: e.target.value })}
+                    placeholder={editForm.name || "商品名と同じ場合は空欄"}
+                  />
+                </div>
+              </div>
+            </div>
+
             {saveError && (
               <p className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">{saveError}</p>
             )}
