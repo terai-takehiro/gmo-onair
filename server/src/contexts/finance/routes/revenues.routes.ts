@@ -29,6 +29,11 @@ router.get('/', async (req, res) => {
     where += ` AND ((r.project_id = ? AND r.group_id IS NULL) OR r.id IN (SELECT revenue_id FROM revenue_allocations WHERE project_id = ?))`;
     params.push(projectId, projectId);
   }
+  const recognitionMonth = req.query.recognition_month as string;
+  if (recognitionMonth) {
+    where += ` AND TO_CHAR(r.recognition_date, 'YYYY-MM') = ?`;
+    params.push(recognitionMonth);
+  }
   const status = req.query.status as string;
   if (status) { where += ` AND r.status = ?`; params.push(status); }
   else if (!projectId) { where += ` AND r.status = 'confirmed'`; }
@@ -43,7 +48,7 @@ router.get('/', async (req, res) => {
   const allocCol = projectId ? ', ra.allocated_amount, pg.name as group_name' : '';
 
   const rows = await queryAll(
-    `SELECT r.*, p.name as project_name, p.gls_number, p.project_type, c.name as customer_name, e.episode_code${allocCol}
+    `SELECT r.*, p.name as project_name, p.gls_number, p.project_type, p.event_end, c.name as customer_name, e.episode_code${allocCol}
      FROM revenues r
      LEFT JOIN projects p ON p.id = r.project_id
      LEFT JOIN customers c ON c.id = r.customer_id
@@ -79,7 +84,7 @@ router.get('/export', requirePermission('budget', 'exporter'), async (_req, res)
 
 // 売上詳細（明細行つき）
 router.get('/:id', async (req, res) => {
-  const row = await queryOne(`SELECT r.*, p.name as project_name, p.gls_number, p.project_type, c.name as customer_name, e.episode_code FROM revenues r LEFT JOIN projects p ON p.id = r.project_id LEFT JOIN customers c ON c.id = r.customer_id LEFT JOIN episodes e ON e.id = r.episode_id WHERE r.id = ? AND r.deleted_at IS NULL`, [req.params.id]) as any;
+  const row = await queryOne(`SELECT r.*, p.name as project_name, p.gls_number, p.project_type, p.event_end, c.name as customer_name, e.episode_code FROM revenues r LEFT JOIN projects p ON p.id = r.project_id LEFT JOIN customers c ON c.id = r.customer_id LEFT JOIN episodes e ON e.id = r.episode_id WHERE r.id = ? AND r.deleted_at IS NULL`, [req.params.id]) as any;
   if (!row) throw new AppError(404, 'NOT_FOUND', '売上が見つかりません');
 
   const items = await queryAll('SELECT * FROM revenue_items WHERE revenue_id = ? ORDER BY sort_order', [req.params.id]);

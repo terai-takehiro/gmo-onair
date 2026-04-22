@@ -37,6 +37,8 @@ import PurchaseListPage from "@/contexts/finance/pages/PurchaseListPage";
 import SgaListPage from "@/contexts/finance/pages/SgaListPage";
 import VendorListPage from "@/contexts/finance/pages/VendorListPage";
 import PartnerListPage from "@/contexts/finance/pages/PartnerListPage";
+import BudgetDetailPage from "@/contexts/finance/pages/BudgetDetailPage";
+import BudgetDashboardPage from "@/contexts/finance/pages/BudgetDashboardPage";
 
 // 機材管理は client-equipment/ が /equipment 配下で配信 (案件管理アプリ側では扱わない)
 import SettingsPage from "@/contexts/platform/pages/SettingsPage";
@@ -112,6 +114,8 @@ function AppRoutes() {
         <Route path="/budget/vendors" element={<PermissionRoute module="budget"><VendorListPage /></PermissionRoute>} />
         <Route path="/budget/partners" element={<PermissionRoute module="budget"><PartnerListPage /></PermissionRoute>} />
         <Route path="/budget/reports/vendors" element={<PermissionRoute module="budget"><VendorReportPage /></PermissionRoute>} />
+        <Route path="/budget/detail" element={<PermissionRoute module="budget"><BudgetDetailPage /></PermissionRoute>} />
+        <Route path="/budget/dashboard" element={<PermissionRoute module="budget"><BudgetDashboardPage /></PermissionRoute>} />
 
         {/* ===== スタジオ予約 (studio) ===== */}
         <Route path="/studio/calendar" element={<PermissionRoute module="studio"><StudioCalendarPage /></PermissionRoute>} />

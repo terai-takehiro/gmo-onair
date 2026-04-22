@@ -7,12 +7,33 @@ export function formatCurrency(amount: number | string | null | undefined): stri
 
 export function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "-";
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return "-";
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}/${m}/${day}`;
+  const m = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return "-";
+  return `${m[1]}/${m[2]}/${m[3]}`;
+}
+
+// "YYYY年MM月" — for recognition_date month-only display
+export function formatMonth(dateStr: string | null | undefined): string {
+  if (!dateStr) return "-";
+  const m = dateStr.match(/^(\d{4})-(\d{2})/);
+  if (!m) return "-";
+  return `${m[1]}年${m[2]}月`;
+}
+
+// "YY/MM/DD" — compact date for project name suffixes
+export function formatShortDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "";
+  const m = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return "";
+  return `${m[1].slice(2)}/${m[2]}/${m[3]}`;
+}
+
+// Timezone-safe "YYYY-MM-DD" from a local Date object
+export function localDateStr(date: Date): string {
+  const y = date.getFullYear();
+  const mo = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${mo}-${d}`;
 }
 
 export function formatPercent(value: number | string | null | undefined): string {

@@ -25,6 +25,11 @@ router.get('/', async (req, res) => {
     params.push(projectId, projectId);
   }
   if (groupId) { where += ` AND pu.group_id = ?`; params.push(groupId); }
+  const recognitionMonth = req.query.recognition_month as string;
+  if (recognitionMonth) {
+    where += ` AND TO_CHAR(pu.recognition_date, 'YYYY-MM') = ?`;
+    params.push(recognitionMonth);
+  }
 
   const allocJoin = projectId
     ? `LEFT JOIN purchase_allocations pa ON pa.purchase_id = pu.id AND pa.project_id = ?`

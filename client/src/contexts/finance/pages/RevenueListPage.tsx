@@ -1,8 +1,9 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatMonth, formatShortDate, localDateStr } from "@/lib/format";
+import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { PageTransition } from "@/components/ui/motion";
 import { getProjectCategory } from "@/types";
 import { Input } from "@/components/ui/input";
@@ -33,6 +34,14 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Search, Loader2, Plus, Trash2, Download } from "lucide-react";
+
+type SortKey = "billing_key" | "project_name" | "amount" | "recognition_date";
+type SortDir = "asc" | "desc";
+
+function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey | null; sortDir: SortDir }) {
+  if (sortKey !== col) return <ChevronsUpDown className="inline h-3 w-3 ml-0.5 opacity-40" />;
+  return sortDir === "asc" ? <ChevronUp className="inline h-3 w-3 ml-0.5" /> : <ChevronDown className="inline h-3 w-3 ml-0.5" />;
+}
 import ExcelToolbar from "@/components/ExcelToolbar";
 
 interface ProjectOption {
@@ -69,6 +78,10 @@ export default function RevenueListPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [colWidths, setColWidths] = useState<Record<string, number>>({});
+  const resizeRef = useRef<{ col: string; startX: number; startW: number } | null>(null);
 
   // Dialog form state
   const [projectSearch, setProjectSearch] = useState("");
@@ -76,13 +89,36 @@ export default function RevenueListPage() {
   const [selectedEpisodeId, setSelectedEpisodeId] = useState("");
   const [taxCategory, setTaxCategory] = useState("tax10");
   const [amount, setAmount] = useState<number>(0);
-  const [recognitionDate, setRecognitionDate] = useState("");
+  const [recognitionMonth, setRecognitionMonth] = useState(""); // YYYY-MM
   const [billingDate, setBillingDate] = useState("");
   const [paymentDueDate, setPaymentDueDate] = useState("");
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<RevenueItem[]>([]);
   const [isAdvancePayment, setIsAdvancePayment] = useState(false);
   const [existingRevenueId, setExistingRevenueId] = useState("");
+
+  const startResize = useCallback((col: string, e: React.MouseEvent, currentWidth: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeRef.current = { col, startX: e.clientX, startW: currentWidth };
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!resizeRef.current) return;
+      const newW = Math.max(60, resizeRef.current.startW + ev.clientX - resizeRef.current.startX);
+      setColWidths((prev) => ({ ...prev, [resizeRef.current!.col]: newW }));
+    };
+    const onMouseUp = () => {
+      resizeRef.current = null;
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }, []);
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("asc"); }
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ["revenues-all", page, search, filterProjectId],
@@ -94,8 +130,20 @@ export default function RevenueListPage() {
     },
   });
 
-  const revenues = data?.data ?? [];
+  const revenuesRaw: Record<string, unknown>[] = data?.data ?? [];
   const pagination = data?.pagination;
+
+  const revenues = useMemo(() => {
+    if (!sortKey) return revenuesRaw;
+    return [...revenuesRaw].sort((a, b) => {
+      const av = (a[sortKey] ?? "") as string | number;
+      const bv = (b[sortKey] ?? "") as string | number;
+      const cmp = typeof av === "number" && typeof bv === "number"
+        ? av - bv
+        : String(av).localeCompare(String(bv), "ja");
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [revenuesRaw, sortKey, sortDir]);
 
   // Search projects for dialog
   const { data: projectsData } = useQuery({
@@ -149,12 +197,11 @@ export default function RevenueListPage() {
     setExistingRevenueId("");
     if (selectedProject.expected_amount) setAmount(selectedProject.expected_amount);
     if (selectedProject.event_end) {
-      const d = new Date(selectedProject.event_end);
-      const lastOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split("T")[0];
-      const nextMonthLast = new Date(d.getFullYear(), d.getMonth() + 2, 0).toISOString().split("T")[0];
-      setRecognitionDate(lastOfMonth);
-      setBillingDate(lastOfMonth);
-      setPaymentDueDate(nextMonthLast);
+      const dateStr = selectedProject.event_end as string;
+      const [ey, em] = dateStr.split("-").map(Number);
+      setRecognitionMonth(`${ey}-${String(em).padStart(2, "0")}`);
+      setBillingDate(localDateStr(new Date(ey, em, 0)));       // event_end月末
+      setPaymentDueDate(localDateStr(new Date(ey, em + 1, 0))); // 翌月末
     }
   }, [selectedProjectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -164,9 +211,9 @@ export default function RevenueListPage() {
     setExistingRevenueId(primaryRevenue.id);
     setAmount(primaryRevenue.amount || 0);
     setTaxCategory(primaryRevenue.tax_category || "tax10");
-    setRecognitionDate(primaryRevenue.recognition_date ? primaryRevenue.recognition_date.split("T")[0] : "");
-    setBillingDate(primaryRevenue.billing_date ? primaryRevenue.billing_date.split("T")[0] : "");
-    setPaymentDueDate(primaryRevenue.payment_due_date ? primaryRevenue.payment_due_date.split("T")[0] : "");
+    setRecognitionMonth(primaryRevenue.recognition_date ? primaryRevenue.recognition_date.slice(0, 7) : "");
+    setBillingDate(primaryRevenue.billing_date ? primaryRevenue.billing_date.slice(0, 10) : "");
+    setPaymentDueDate(primaryRevenue.payment_due_date ? primaryRevenue.payment_due_date.slice(0, 10) : "");
     setNotes(primaryRevenue.notes || "");
     setIsAdvancePayment(!!primaryRevenue.is_advance_payment);
     if (Array.isArray(primaryRevenue.items) && primaryRevenue.items.length > 0) {
@@ -221,7 +268,7 @@ export default function RevenueListPage() {
     setSelectedEpisodeId("");
     setTaxCategory("tax10");
     setAmount(0);
-    setRecognitionDate("");
+    setRecognitionMonth("");
     setBillingDate("");
     setPaymentDueDate("");
     setNotes("");
@@ -230,10 +277,26 @@ export default function RevenueListPage() {
     setExistingRevenueId("");
   };
 
+  const handleEditRevenue = (r: Record<string, unknown>) => {
+    setExistingRevenueId(r.id as string);
+    setSelectedProjectId(r.project_id as string);
+    setProjectSearch((r.project_name as string) || "");
+    setAmount(Number(r.amount) || 0);
+    setTaxCategory((r.tax_category as string) || "tax10");
+    setRecognitionMonth(r.recognition_date ? (r.recognition_date as string).slice(0, 7) : "");
+    setBillingDate(r.billing_date ? (r.billing_date as string).slice(0, 10) : "");
+    setPaymentDueDate(r.payment_due_date ? (r.payment_due_date as string).slice(0, 10) : "");
+    setNotes((r.notes as string) || "");
+    setIsAdvancePayment(!!(r.is_advance_payment));
+    setSelectedEpisodeId("");
+    setItems([]);
+    setDialogOpen(true);
+  };
+
   const handleCreateSubmit = () => {
     if (!selectedProjectId) return;
     // A系はepisode必須、B系は不要
-    if (!isProjectCategoryB && !selectedEpisodeId) return;
+    if (!isProjectCategoryB && !selectedEpisodeId && !existingRevenueId) return;
 
     createMutation.mutate({
       revenueId: existingRevenueId,
@@ -243,7 +306,7 @@ export default function RevenueListPage() {
         customer_id: selectedProject?.customer_id ?? null,
         tax_category: taxCategory,
         amount: items.length > 0 ? itemsTotal : amount,
-        recognition_date: recognitionDate || null,
+        recognition_date: recognitionMonth ? `${recognitionMonth}-01` : null,
         billing_date: billingDate || null,
         payment_due_date: paymentDueDate || null,
         notes: notes || null,
@@ -296,7 +359,7 @@ export default function RevenueListPage() {
 
   const canSubmit =
     selectedProjectId &&
-    (isProjectCategoryB || selectedEpisodeId) &&
+    (isProjectCategoryB || selectedEpisodeId || !!existingRevenueId) &&
     !createMutation.isPending;
 
   return (
@@ -352,31 +415,31 @@ export default function RevenueListPage() {
             <>
               {/* Mobile cards */}
               <div className="space-y-2 lg:hidden">
-                {revenues.map((r: Record<string, unknown>) => (
+                {revenues.map((r) => (
                   <div
                     key={r.id as string}
-                    className="rounded-lg border p-3 transition-colors hover:bg-muted/50"
-                    onClick={() =>
-                      r.project_id &&
-                      navigate(`/sales/projects/${r.project_id}`)
-                    }
-                    role={r.project_id ? "button" : undefined}
+                    className="rounded-lg border p-3 transition-colors hover:bg-muted/50 cursor-pointer"
+                    onClick={() => handleEditRevenue(r)}
+                    role="button"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-mono text-xs text-muted-foreground">
                             {(r.billing_key as string) || "-"}
                           </span>
-                          <span className="font-mono text-sm font-medium text-primary">
+                          <span className="font-mono text-xs font-medium text-primary">
                             {(r.gls_number as string) || "-"}
                           </span>
                         </div>
-                        <div className="text-sm text-muted-foreground mt-1 truncate">
-                          {(r.customer_name as string) || "-"}
-                          {(r.project_name as string) && (
-                            <span> / {r.project_name as string}</span>
+                        <div className="text-sm mt-0.5 font-medium truncate">
+                          {(r.project_name as string) || "-"}
+                          {(r.event_end as string) && (
+                            <span className="text-xs text-muted-foreground ml-1">({formatShortDate(r.event_end as string)})</span>
                           )}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                          {(r.customer_name as string) || "-"}
                         </div>
                       </div>
                       <div className="text-right shrink-0">
@@ -384,7 +447,7 @@ export default function RevenueListPage() {
                           {formatCurrency(r.amount as number)}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {formatDate(r.recognition_date as string)}
+                          {formatMonth(r.recognition_date as string)}
                         </div>
                       </div>
                     </div>
@@ -394,60 +457,71 @@ export default function RevenueListPage() {
 
               {/* Desktop table */}
               <div className="hidden lg:block overflow-x-auto">
-                <Table>
+                <Table className={Object.keys(colWidths).length > 0 ? "table-fixed" : ""}>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>請求KEY</TableHead>
-                      <TableHead>GLS番号</TableHead>
-                      <TableHead>案件名</TableHead>
-                      <TableHead>顧客</TableHead>
-                      <TableHead>税区分</TableHead>
-                      <TableHead className="text-right">金額</TableHead>
-                      <TableHead>計上日</TableHead>
+                      {([
+                        { key: "billing_key" as SortKey, label: "請求KEY", defaultW: 130 },
+                        { key: "billing_key" as SortKey, label: "GLS番号", colId: "gls", defaultW: 110, noSort: true },
+                        { key: "project_name" as SortKey, label: "案件名", defaultW: 180 },
+                        { key: "billing_key" as SortKey, label: "顧客", colId: "customer", defaultW: 120, noSort: true },
+                        { key: "billing_key" as SortKey, label: "税区分", colId: "tax", defaultW: 70, noSort: true },
+                        { key: "amount" as SortKey, label: "金額", defaultW: 100, align: "right" },
+                        { key: "recognition_date" as SortKey, label: "計上月", defaultW: 90 },
+                      ] as { key: SortKey; label: string; colId?: string; defaultW: number; align?: string; noSort?: boolean }[]).map(({ key, label, colId, defaultW, align, noSort }) => {
+                        const id = colId ?? key;
+                        const w = colWidths[id] ?? (Object.keys(colWidths).length > 0 ? defaultW : undefined);
+                        return (
+                          <TableHead
+                            key={id}
+                            style={w ? { width: w, minWidth: 40 } : undefined}
+                            className={`select-none whitespace-nowrap relative${align === "right" ? " text-right" : ""}${!noSort ? " cursor-pointer hover:bg-muted/50" : ""}`}
+                            onClick={noSort ? undefined : () => handleSort(key)}
+                          >
+                            {label}
+                            {!noSort && <SortIcon col={key} sortKey={sortKey} sortDir={sortDir} />}
+                            <span
+                              className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize opacity-0 hover:opacity-100 hover:bg-primary/40 select-none"
+                              onMouseDown={(e) => startResize(id, e, colWidths[id] ?? defaultW)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </TableHead>
+                        );
+                      })}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {revenues.map((r: Record<string, unknown>) => (
-                      <TableRow key={r.id as string}>
+                    {revenues.map((r) => (
+                      <TableRow
+                        key={r.id as string}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => handleEditRevenue(r)}
+                      >
                         <TableCell className="font-mono text-xs">
                           {(r.billing_key as string) || "-"}
                         </TableCell>
-                        <TableCell>
-                          {r.project_id ? (
-                            <button
-                              className="font-mono text-sm font-medium text-primary hover:underline"
-                              onClick={() =>
-                                navigate(
-                                  `/sales/projects/${r.project_id}`
-                                )
-                              }
-                            >
-                              {(r.gls_number as string) || "-"}
-                            </button>
-                          ) : (
-                            <span className="text-primary">
-                              {(r.gls_number as string) || "-"}
-                            </span>
-                          )}
+                        <TableCell className="font-mono text-xs font-medium text-primary">
+                          {(r.gls_number as string) || "-"}
                         </TableCell>
-                        <TableCell>
-                          {(r.project_name as string) || "-"}
+                        <TableCell className="max-w-[200px]">
+                          <span className="block truncate">
+                            {(r.project_name as string) || "-"}
+                            {(r.event_end as string) && (
+                              <span className="text-xs text-muted-foreground ml-1">({formatShortDate(r.event_end as string)})</span>
+                            )}
+                          </span>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="truncate max-w-[120px]">
                           {(r.customer_name as string) || "-"}
                         </TableCell>
-                        <TableCell>
-                          {r.tax_category === "tax10"
-                            ? "10%"
-                            : r.tax_category === "tax8"
-                            ? "8%"
-                            : "非課税"}
+                        <TableCell className="text-xs">
+                          {r.tax_category === "tax10" ? "10%" : r.tax_category === "tax8" ? "8%" : "非課税"}
                         </TableCell>
                         <TableCell className="text-right font-medium font-number">
                           {formatCurrency(r.amount as number)}
                         </TableCell>
-                        <TableCell>
-                          {formatDate(r.recognition_date as string)}
+                        <TableCell className="text-xs">
+                          {formatMonth(r.recognition_date as string)}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -775,11 +849,17 @@ export default function RevenueListPage() {
             {/* Dates */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div className="space-y-1">
-                <Label>計上年月</Label>
+                <Label>計上月</Label>
                 <Input
-                  type="date"
-                  value={recognitionDate}
-                  onChange={(e) => setRecognitionDate(e.target.value)}
+                  type="month"
+                  value={recognitionMonth}
+                  onChange={(e) => {
+                    setRecognitionMonth(e.target.value);
+                    if (e.target.value) {
+                      const [y, m] = e.target.value.split("-").map(Number);
+                      setPaymentDueDate(localDateStr(new Date(y, m, 0)));
+                    }
+                  }}
                 />
               </div>
               <div className="space-y-1">
