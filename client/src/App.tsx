@@ -17,6 +17,7 @@ import DashboardPage from "@/contexts/platform/pages/DashboardPage";
 import ProjectListPage from "@/contexts/sales/pages/ProjectListPage";
 import ProjectFormPage from "@/contexts/sales/pages/ProjectFormPage";
 import CustomerListPage from "@/contexts/sales/pages/CustomerListPage";
+import CompanyListPage from "@/contexts/sales/pages/CompanyListPage";
 import PricingListPage from "@/contexts/sales/pages/PricingListPage";
 import ActivityLogPage from "@/contexts/sales/pages/ActivityLogPage";
 import SalesReviewPage from "@/contexts/sales/pages/SalesReviewPage";
@@ -101,6 +102,7 @@ function AppRoutes() {
         <Route path="/sales/activity-logs" element={<PermissionRoute module="sales"><ActivityLogPage /></PermissionRoute>} />
         <Route path="/sales/review" element={<PermissionRoute module="sales"><SalesReviewPage /></PermissionRoute>} />
         <Route path="/sales/customers" element={<PermissionRoute module="sales"><CustomerListPage /></PermissionRoute>} />
+        <Route path="/sales/companies" element={<PermissionRoute module="sales"><CompanyListPage /></PermissionRoute>} />
         <Route path="/sales/pricing" element={<PermissionRoute module="sales"><PricingListPage /></PermissionRoute>} />
 
         {/* ===== 予算管理 (budget) ===== */}
