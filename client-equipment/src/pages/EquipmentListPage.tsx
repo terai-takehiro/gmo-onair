@@ -722,7 +722,7 @@ export default function EquipmentListPage() {
           return <td key="location" className={`px-3 ${py} text-xs text-muted-foreground whitespace-nowrap`}>{item.location_name || item.location_detail || '–'}</td>;
         case 'name':
           return (
-            <td key="name" className={`px-3 ${py} font-medium whitespace-nowrap`}>
+            <td key="name" className={`px-3 ${py} font-medium`}>
               {tableEditMode
                 ? <input className="w-full min-w-[120px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-sm font-medium"
                     value={tableEdits[item.id]?.name ?? item.name ?? ''}
@@ -730,7 +730,7 @@ export default function EquipmentListPage() {
                     onBlur={() => saveInlineRow(item.id)}
                     onClick={e => e.stopPropagation()}
                   />
-                : <>{item.name}{nameSuffix}</>
+                : <div className="max-w-[10rem] line-clamp-2 break-words leading-snug">{item.name}{nameSuffix}</div>
               }
             </td>
           );
@@ -738,7 +738,7 @@ export default function EquipmentListPage() {
           return <td key="manufacturer" className={`px-3 ${py} text-xs text-muted-foreground whitespace-nowrap`}>{item.manufacturer_name || '–'}</td>;
         case 'model_number':
           return (
-            <td key="model_number" className={`px-3 ${py} text-xs text-muted-foreground whitespace-nowrap`}>
+            <td key="model_number" className={`px-3 ${py} text-xs text-muted-foreground`}>
               {tableEditMode
                 ? <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs font-mono"
                     value={tableEdits[item.id]?.model_number ?? item.model_number ?? ''}
@@ -746,7 +746,7 @@ export default function EquipmentListPage() {
                     onBlur={() => saveInlineRow(item.id)}
                     onClick={e => e.stopPropagation()}
                   />
-                : item.model_number || '–'}
+                : <div className="max-w-[8rem] line-clamp-2 break-all font-mono leading-snug">{item.model_number || '–'}</div>}
             </td>
           );
         case 'serial_number':
