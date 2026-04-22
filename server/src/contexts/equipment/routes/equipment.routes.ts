@@ -1064,7 +1064,9 @@ router.get('/model-groups', async (req: Request, res: Response) => {
   const params: any[] = [];
   let paramIndex = 1;
 
-  let where = 'WHERE ei.deleted_at IS NULL AND COALESCE(parent_ei.is_rental_listed, ei.is_rental_listed) = true';
+  let where = `WHERE ei.deleted_at IS NULL
+    AND COALESCE(parent_ei.is_rental_listed, ei.is_rental_listed) = true
+    AND COALESCE(parent_ei.equipment_section, ei.equipment_section) = 'rental'`;
 
   if (q) {
     const s = `%${q}%`;
