@@ -619,6 +619,7 @@ export default function StudioCalendarPage() {
               slotMaxTime="24:00:00"
               slotDuration={isMobile ? "01:00:00" : "00:30:00"}
               allDaySlot={true}
+              allDayText="終日"
               nowIndicator={true}
               expandRows={!isMobile}
               stickyHeaderDates={true}
