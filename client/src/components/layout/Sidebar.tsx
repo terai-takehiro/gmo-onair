@@ -34,6 +34,7 @@ import {
   Timer,
   Layers,
   Tag,
+  Store,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -75,6 +76,7 @@ const APP_NAV: Record<string, NavSection[]> = {
     {
       title: "マスター",
       items: [
+        { label: "取引先マスター", to: "/sales/companies", icon: Store },
         { label: "顧客", to: "/sales/customers", icon: Building2 },
         { label: "料金表", to: "/sales/pricing", icon: DollarSign },
       ],
@@ -92,6 +94,7 @@ const APP_NAV: Record<string, NavSection[]> = {
     {
       title: "マスター",
       items: [
+        { label: "取引先マスター", to: "/sales/companies", icon: Store },
         { label: "仕入先", to: "/budget/vendors", icon: Truck },
         { label: "パートナー", to: "/budget/partners", icon: Users },
       ],
