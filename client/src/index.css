@@ -5,8 +5,9 @@
 
 @layer base {
   html, body, #root {
-    overflow-x: hidden;
-    overscroll-behavior-x: none;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
     -webkit-text-size-adjust: 100%;
     max-width: 100vw;
   }
