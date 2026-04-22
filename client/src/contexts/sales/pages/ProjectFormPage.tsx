@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import api from "@/lib/api";
+import { formatCurrency } from "@/lib/format";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -386,6 +387,26 @@ export default function ProjectFormPage() {
             {currentStage === 'b_verbal' && 'GLS発番済みです。正式受注が確定したら「A 受注済へ」に進み、見積・売上管理で制作準備を始めましょう。'}
             {currentStage === 'a_won' && '受注済みです。見積・売上管理から明細を登録しましょう。'}
           </span>
+        </div>
+      )}
+
+      {/* 財務サマリー */}
+      {isEdit && project && (Number(project.total_revenue) > 0 || Number(project.total_purchase) > 0) && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-lg border bg-card p-3 text-center">
+            <p className="text-xs text-muted-foreground mb-1">売上（確定）</p>
+            <p className="text-base font-bold font-number">{formatCurrency(Number(project.total_revenue))}</p>
+          </div>
+          <div className="rounded-lg border bg-card p-3 text-center">
+            <p className="text-xs text-muted-foreground mb-1">仕入</p>
+            <p className="text-base font-bold font-number">{formatCurrency(Number(project.total_purchase))}</p>
+          </div>
+          <div className={`rounded-lg border p-3 text-center ${Number(project.total_revenue) - Number(project.total_purchase) >= 0 ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
+            <p className="text-xs text-muted-foreground mb-1">粗利</p>
+            <p className={`text-base font-bold font-number ${Number(project.total_revenue) - Number(project.total_purchase) >= 0 ? "text-green-700" : "text-red-700"}`}>
+              {formatCurrency(Number(project.total_revenue) - Number(project.total_purchase))}
+            </p>
+          </div>
         </div>
       )}
 

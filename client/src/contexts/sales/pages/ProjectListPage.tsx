@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
@@ -42,6 +42,8 @@ export default function ProjectListPage() {
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [colWidths, setColWidths] = useState<Record<string, number>>({});
+  const resizeRef = useRef<{ col: string; startX: number; startW: number } | null>(null);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -52,6 +54,24 @@ export default function ProjectListPage() {
     }
     setPage(1);
   };
+
+  const startResize = useCallback((col: string, e: React.MouseEvent, currentWidth: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeRef.current = { col, startX: e.clientX, startW: currentWidth };
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!resizeRef.current) return;
+      const newW = Math.max(60, resizeRef.current.startW + ev.clientX - resizeRef.current.startX);
+      setColWidths((prev) => ({ ...prev, [resizeRef.current!.col]: newW }));
+    };
+    const onMouseUp = () => {
+      resizeRef.current = null;
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }, []);
 
   const { data, isLoading } = useQuery({
     queryKey: ["projects", page, search, tab, sortKey, sortDir],
@@ -131,8 +151,17 @@ export default function ProjectListPage() {
                         {ProjectStageLabels[p.stage as ProjectStage] || (p.stage as string)}
                       </Badge>
                     </div>
-                    <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+                    <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                       <span className="font-number text-sm font-medium text-foreground" title="税別">{formatCurrency(p.expected_amount as number)}<span className="text-xs text-muted-foreground ml-0.5">（税別）</span></span>
+                      {(Number(p.total_revenue) > 0 || Number(p.total_purchase) > 0) && (
+                        <span className="flex items-center gap-1.5 text-xs">
+                          <span title="売上">売{formatCurrency(p.total_revenue as number)}</span>
+                          <span title="仕入">仕{formatCurrency(p.total_purchase as number)}</span>
+                          <span className={`font-medium ${Number(p.total_revenue) - Number(p.total_purchase) >= 0 ? "text-green-600" : "text-red-600"}`} title="粗利">
+                            粗{formatCurrency(Number(p.total_revenue) - Number(p.total_purchase))}
+                          </span>
+                        </span>
+                      )}
                       <span>{ProjectTypeLabels[p.project_type as keyof typeof ProjectTypeLabels] || (p.project_type as string) || "-"}</span>
                       {(p.event_start as string) && (
                         <span>
@@ -165,29 +194,62 @@ export default function ProjectListPage() {
 
               {/* Desktop: Table layout */}
               <div className="hidden lg:block overflow-x-auto">
-                <Table>
+                <Table className={Object.keys(colWidths).length > 0 ? "table-fixed" : ""}>
                   <TableHeader>
                     <TableRow>
                       {([
-                        { key: 'code' as SortKey, label: 'コード' },
-                        { key: 'name' as SortKey, label: '案件名' },
-                        { key: 'customer' as SortKey, label: '顧客' },
-                        { key: 'stage' as SortKey, label: 'ステージ' },
-                        { key: 'project_type' as SortKey, label: '案件種類' },
-                        { key: 'expected_amount' as SortKey, label: '想定金額（税別）', align: 'right' },
-                        { key: 'event_start' as SortKey, label: 'イベント日' },
-                        { key: 'assigned_to' as SortKey, label: '担当者' },
-                      ] as { key: SortKey; label: string; align?: string }[]).map(({ key, label, align }) => (
-                        <TableHead
-                          key={key}
-                          className={`cursor-pointer select-none hover:bg-muted/50 whitespace-nowrap${align === 'right' ? ' text-right' : ''}`}
-                          onClick={() => handleSort(key)}
-                        >
-                          {label}
-                          <SortIcon col={key} sortKey={sortKey} sortDir={sortDir} />
-                        </TableHead>
-                      ))}
-                      <TableHead>Box</TableHead>
+                        { key: 'code' as SortKey, label: 'コード', defaultW: 110 },
+                        { key: 'name' as SortKey, label: '案件名', defaultW: 200 },
+                        { key: 'customer' as SortKey, label: '顧客', defaultW: 120 },
+                        { key: 'stage' as SortKey, label: 'ステージ', defaultW: 100 },
+                        { key: 'project_type' as SortKey, label: '案件種類', defaultW: 100 },
+                        { key: 'expected_amount' as SortKey, label: '想定金額', align: 'right', defaultW: 110 },
+                        { key: 'event_start' as SortKey, label: 'イベント日', defaultW: 130 },
+                        { key: 'assigned_to' as SortKey, label: '担当者', defaultW: 80 },
+                      ] as { key: SortKey; label: string; align?: string; defaultW: number }[]).map(({ key, label, align, defaultW }) => {
+                        const w = colWidths[key] ?? (Object.keys(colWidths).length > 0 ? defaultW : undefined);
+                        return (
+                          <TableHead
+                            key={key}
+                            style={w ? { width: w, minWidth: 60 } : undefined}
+                            className={`select-none whitespace-nowrap relative${align === 'right' ? ' text-right' : ''}`}
+                            onClick={() => handleSort(key)}
+                          >
+                            <span className="cursor-pointer hover:text-foreground">
+                              {label}
+                              <SortIcon col={key} sortKey={sortKey} sortDir={sortDir} />
+                            </span>
+                            <span
+                              className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize opacity-0 hover:opacity-100 hover:bg-primary/40 select-none"
+                              onMouseDown={(e) => startResize(key, e, colWidths[key] ?? defaultW)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </TableHead>
+                        );
+                      })}
+                      {(['total_revenue', 'total_purchase', 'gross_profit'] as const).map((col, i) => {
+                        const labels = ['売上', '仕入', '粗利'];
+                        const defaultW = 90;
+                        const w = colWidths[col] ?? (Object.keys(colWidths).length > 0 ? defaultW : undefined);
+                        return (
+                          <TableHead key={col} style={w ? { width: w, minWidth: 60 } : undefined} className="text-right whitespace-nowrap relative">
+                            {labels[i]}
+                            <span
+                              className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize opacity-0 hover:opacity-100 hover:bg-primary/40 select-none"
+                              onMouseDown={(e) => startResize(col, e, colWidths[col] ?? defaultW)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </TableHead>
+                        );
+                      })}
+                      <TableHead style={colWidths['box'] ? { width: colWidths['box'] } : undefined} className="relative">
+                        Box
+                        <span
+                          className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize opacity-0 hover:opacity-100 hover:bg-primary/40 select-none"
+                          onMouseDown={(e) => startResize('box', e, colWidths['box'] ?? 80)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -219,6 +281,21 @@ export default function ProjectListPage() {
                             : "-"}
                         </TableCell>
                         <TableCell>{(p.assigned_to_name as string) || "-"}</TableCell>
+                        <TableCell className="text-right font-number text-xs">
+                          {Number(p.total_revenue) > 0 ? formatCurrency(p.total_revenue as number) : "-"}
+                        </TableCell>
+                        <TableCell className="text-right font-number text-xs">
+                          {Number(p.total_purchase) > 0 ? formatCurrency(p.total_purchase as number) : "-"}
+                        </TableCell>
+                        <TableCell className={`text-right font-number text-xs font-medium ${
+                          Number(p.total_revenue) > 0 || Number(p.total_purchase) > 0
+                            ? Number(p.total_revenue) - Number(p.total_purchase) >= 0 ? "text-green-600" : "text-red-600"
+                            : ""
+                        }`}>
+                          {(Number(p.total_revenue) > 0 || Number(p.total_purchase) > 0)
+                            ? formatCurrency(Number(p.total_revenue) - Number(p.total_purchase))
+                            : "-"}
+                        </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-2">
                             {(p.box_url_internal as string) && (
