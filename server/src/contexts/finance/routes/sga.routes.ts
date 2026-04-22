@@ -17,6 +17,7 @@ router.get('/', async (req, res) => {
   const dateFrom = req.query.date_from as string;
   const dateTo = req.query.date_to as string;
   const source = req.query.source as string;
+  const recognitionMonth = req.query.recognition_month as string;
 
   let where = 'WHERE s.deleted_at IS NULL';
   const params: unknown[] = [];
@@ -36,6 +37,10 @@ router.get('/', async (req, res) => {
   if (dateTo) {
     where += ` AND s.recognition_date <= ?`;
     params.push(dateTo);
+  }
+  if (recognitionMonth) {
+    where += ` AND TO_CHAR(s.recognition_date, 'YYYY-MM') = ?`;
+    params.push(recognitionMonth);
   }
 
   const total = ((await queryOne(`SELECT COUNT(*) as c FROM sga_expenses s ${where}`, params)) as any).c;
