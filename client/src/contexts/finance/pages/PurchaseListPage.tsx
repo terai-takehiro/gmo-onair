@@ -62,6 +62,28 @@ function formatSettlementNo(method: string, number: string): string {
   return number;
 }
 
+interface PurchaseRow {
+  id: string;
+  billing_key: string | null;
+  project_id: string | null;
+  project_name: string | null;
+  gls_number: string | null;
+  vendor_id: string | null;
+  vendor_name: string | null;
+  description: string | null;
+  amount: number;
+  tax_category: string;
+  recognition_date: string | null;
+  payment_due_date: string | null;
+  notes: string | null;
+  group_id: string | null;
+  group_name: string | null;
+  settlement_method: string | null;
+  settlement_number: string | null;
+  is_provisional: boolean;
+  invoice_qualified: number | boolean | null;
+}
+
 interface ProjectOption {
   id: string;
   gls_number: string;
@@ -118,7 +140,7 @@ export default function PurchaseListPage() {
     },
   });
 
-  const purchases = data?.data ?? [];
+  const purchases: PurchaseRow[] = data?.data ?? [];
   const pagination = data?.pagination;
 
   // GLS案件一覧（ダイアログ用）
@@ -224,9 +246,9 @@ export default function PurchaseListPage() {
             <>
               {/* Mobile cards */}
               <div className="space-y-2 lg:hidden">
-                {purchases.map((p: Record<string, unknown>) => (
+                {purchases.map((p) => (
                   <div
-                    key={p.id as string}
+                    key={p.id}
                     className="rounded-lg border p-3 transition-colors hover:bg-muted/50"
                     onClick={() => p.project_id && navigate(`/sales/projects/${p.project_id}`)}
                     role={p.project_id ? "button" : undefined}
@@ -234,20 +256,20 @@ export default function PurchaseListPage() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-xs">{(p.gls_number as string) || "-"}</span>
-                          <SettlementBadge number={p.settlement_number as string | null} />
-                          {(p.group_name as string) && (
+                          <span className="font-mono text-xs">{p.gls_number || "-"}</span>
+                          <SettlementBadge number={p.settlement_number} />
+                          {p.group_name && (
                             <Badge variant="outline" className="text-xs">按分</Badge>
                           )}
                         </div>
-                        <div className="text-sm mt-1 truncate">{(p.description as string) || (p.project_name as string) || "-"}</div>
+                        <div className="text-sm mt-1 truncate">{p.description || p.project_name || "-"}</div>
                         <div className="text-xs text-muted-foreground mt-0.5">
-                          {(p.vendor_name as string) || "-"}
-                          {(p.recognition_date as string) && ` / ${formatMonth(p.recognition_date as string)}`}
+                          {p.vendor_name || "-"}
+                          {p.recognition_date && ` / ${formatMonth(p.recognition_date)}`}
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <div className="font-medium font-number">{formatCurrency(p.amount as number)}</div>
+                        <div className="font-medium font-number">{formatCurrency(p.amount)}</div>
                       </div>
                     </div>
                   </div>
@@ -289,38 +311,38 @@ export default function PurchaseListPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {purchases.map((p: Record<string, unknown>) => (
-                    <TableRow key={p.id as string}>
+                  {purchases.map((p) => (
+                    <TableRow key={p.id}>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          <span className="font-mono text-sm">{(p.gls_number as string) || "-"}</span>
-                          {(p.group_name as string) && (
+                          <span className="font-mono text-sm">{p.gls_number || "-"}</span>
+                          {p.group_name && (
                             <Badge variant="outline" className="text-xs">按分</Badge>
                           )}
                         </div>
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate">
-                        {(p.project_name as string) || "-"}
+                        {p.project_name || "-"}
                       </TableCell>
-                      <TableCell>{(p.vendor_name as string) || "-"}</TableCell>
+                      <TableCell>{p.vendor_name || "-"}</TableCell>
                       <TableCell className="max-w-[200px] truncate">
-                        {(p.description as string) || "-"}
+                        {p.description || "-"}
                       </TableCell>
                       <TableCell>
-                        <SettlementBadge number={p.settlement_number as string | null} />
-                        {(p.settlement_number as string) && (p.settlement_number as string) !== "pending" && (
+                        <SettlementBadge number={p.settlement_number} />
+                        {p.settlement_number && p.settlement_number !== "pending" && (
                           <span className="ml-1 font-mono text-xs text-muted-foreground">
-                            {formatSettlementNo((p.settlement_method as string) ?? "", (p.settlement_number as string) ?? "")}
+                            {formatSettlementNo(p.settlement_method ?? "", p.settlement_number ?? "")}
                           </span>
                         )}
                       </TableCell>
                       <TableCell>
-                        {TaxCategoryLabels[p.tax_category as TaxCategory] ?? (p.tax_category as string)}
+                        {TaxCategoryLabels[p.tax_category as TaxCategory] ?? p.tax_category}
                       </TableCell>
                       <TableCell className="text-right font-medium font-number">
-                        {formatCurrency(p.amount as number)}
+                        {formatCurrency(p.amount)}
                       </TableCell>
-                      <TableCell>{formatMonth(p.recognition_date as string)}</TableCell>
+                      <TableCell>{formatMonth(p.recognition_date)}</TableCell>
                       <TableCell>{p.invoice_qualified ? "○" : "×"}</TableCell>
                     </TableRow>
                   ))}
