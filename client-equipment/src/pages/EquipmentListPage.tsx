@@ -838,12 +838,12 @@ export default function EquipmentListPage() {
                   const col = COL_DEFS.find(c => c.key === key);
                   if (!col) return null;
                   return (
-                    <div key={col.key} className="flex items-center gap-1 px-1 py-0.5 rounded hover:bg-muted/60 group">
+                    <div key={col.key} className="flex items-center gap-1 px-1 py-0.5 rounded hover:bg-muted/60">
                       <label className="flex items-center gap-2 flex-1 cursor-pointer text-sm select-none py-1">
                         <input type="checkbox" className="h-3.5 w-3.5 shrink-0" checked={visibleCols.has(col.key)} onChange={() => toggleCol(col.key)} />
                         {col.label}
                       </label>
-                      <div className="flex gap-0.5 opacity-0 group-hover:opacity-100">
+                      <div className="flex gap-0.5">
                         <button className="p-0.5 rounded hover:bg-muted text-muted-foreground disabled:opacity-20" disabled={idx === 0} onClick={() => moveCol(key, 'up')}><ArrowUp className="h-3 w-3" /></button>
                         <button className="p-0.5 rounded hover:bg-muted text-muted-foreground disabled:opacity-20" disabled={idx === colOrder.length - 1} onClick={() => moveCol(key, 'down')}><ArrowDown className="h-3 w-3" /></button>
                       </div>
