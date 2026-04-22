@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
@@ -198,11 +198,16 @@ export default function EquipmentListPage() {
   const [tableEditMode, setTableEditMode] = useState(false);
   const [tableEdits, setTableEdits] = useState<Record<string, Record<string, string>>>({});
   const [colPickerOpen, setColPickerOpen] = useState(false);
+  const colPickerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!colPickerOpen) return;
-    const close = () => setColPickerOpen(false);
-    window.addEventListener('click', close);
-    return () => window.removeEventListener('click', close);
+    const handler = (e: MouseEvent) => {
+      if (colPickerRef.current && !colPickerRef.current.contains(e.target as Node)) {
+        setColPickerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, [colPickerOpen]);
   const [visibleCols, setVisibleCols] = useState<Set<ColKey>>(() => {
     try {
@@ -817,12 +822,12 @@ export default function EquipmentListPage() {
             <Printer className="h-4 w-4 mr-1" />印刷
           </Button>
           {/* 列表示ピッカー */}
-          <div className="relative">
+          <div className="relative" ref={colPickerRef}>
             <Button size="sm" variant={colPickerOpen ? 'default' : 'outline'} onClick={() => setColPickerOpen(v => !v)}>
-              <SlidersHorizontal className="h-4 w-4 mr-1" />列
+              <SlidersHorizontal className="h-4 w-4 mr-1" />表示列
             </Button>
             {colPickerOpen && (
-              <div className="absolute right-0 top-full mt-1 z-30 bg-card border border-border rounded-lg shadow-lg p-2 w-56 animate-slide-up" onClick={e => e.stopPropagation()}>
+              <div className="absolute right-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-lg p-2 w-56 animate-slide-up">
                 <div className="flex items-center justify-between px-1 pb-1.5">
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">表示列</p>
                   <button className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5" onClick={resetColSettings}>
