@@ -55,7 +55,7 @@ export default function LendingListPage() {
   const { data: lendableData, isLoading: lendableLoading } = useQuery({
     queryKey: ["equipment-lendable"],
     queryFn: async () => (await api.get("/equipment/items", {
-      params: { is_rental_listed: "true", status: "active" },
+      params: { is_rental_listed: "true", status: "active", include_children: "1" },
     })).data.data,
     enabled: dialogOpen,
     staleTime: 30_000,
@@ -314,6 +314,9 @@ export default function LendingListPage() {
                           <div className="mt-1 text-xs text-muted-foreground">
                             {item.unit_number != null ? `No.${item.unit_number}` : item.eq_code}
                           </div>
+                          {item.parent_name && (
+                            <div className="mt-0.5 text-xs text-muted-foreground/60 truncate">↳ {item.parent_name}</div>
+                          )}
                           {item.location_name && (
                             <div className="mt-0.5 text-xs text-muted-foreground truncate">{item.location_name}</div>
                           )}
