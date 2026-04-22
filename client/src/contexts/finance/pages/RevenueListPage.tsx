@@ -44,6 +44,26 @@ function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey | 
 }
 import ExcelToolbar from "@/components/ExcelToolbar";
 
+interface RevenueRow {
+  id: string;
+  billing_key: string | null;
+  project_id: string;
+  project_name: string | null;
+  gls_number: string | null;
+  customer_name: string | null;
+  event_end: string | null;
+  amount: number;
+  tax_category: string;
+  recognition_date: string | null;
+  billing_date: string | null;
+  payment_due_date: string | null;
+  notes: string | null;
+  is_advance_payment: boolean;
+  group_id: string | null;
+  status: string;
+  items?: RevenueItem[];
+}
+
 interface ProjectOption {
   id: string;
   gls_number: string;
@@ -130,7 +150,7 @@ export default function RevenueListPage() {
     },
   });
 
-  const revenuesRaw: Record<string, unknown>[] = data?.data ?? [];
+  const revenuesRaw: RevenueRow[] = data?.data ?? [];
   const pagination = data?.pagination;
 
   const revenues = useMemo(() => {
@@ -174,8 +194,8 @@ export default function RevenueListPage() {
       (await api.get("/revenues", { params: { project_id: selectedProjectId, status: "confirmed" } })).data,
     enabled: dialogOpen && !!selectedProjectId,
   });
-  const existingProjectRevenues: any[] = existingRevenuesData?.data ?? [];
-  const primaryRevenue = existingProjectRevenues.find((r: any) => !r.group_id);
+  const existingProjectRevenues: RevenueRow[] = existingRevenuesData?.data ?? [];
+  const primaryRevenue = existingProjectRevenues.find((r) => !r.group_id);
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
   const isProjectCategoryB = selectedProject?.project_type
@@ -277,17 +297,17 @@ export default function RevenueListPage() {
     setExistingRevenueId("");
   };
 
-  const handleEditRevenue = (r: Record<string, unknown>) => {
-    setExistingRevenueId(r.id as string);
-    setSelectedProjectId(r.project_id as string);
-    setProjectSearch((r.project_name as string) || "");
+  const handleEditRevenue = (r: RevenueRow) => {
+    setExistingRevenueId(r.id);
+    setSelectedProjectId(r.project_id);
+    setProjectSearch(r.project_name || "");
     setAmount(Number(r.amount) || 0);
-    setTaxCategory((r.tax_category as string) || "tax10");
-    setRecognitionMonth(r.recognition_date ? (r.recognition_date as string).slice(0, 7) : "");
-    setBillingDate(r.billing_date ? (r.billing_date as string).slice(0, 10) : "");
-    setPaymentDueDate(r.payment_due_date ? (r.payment_due_date as string).slice(0, 10) : "");
-    setNotes((r.notes as string) || "");
-    setIsAdvancePayment(!!(r.is_advance_payment));
+    setTaxCategory(r.tax_category || "tax10");
+    setRecognitionMonth(r.recognition_date ? r.recognition_date.slice(0, 7) : "");
+    setBillingDate(r.billing_date ? r.billing_date.slice(0, 10) : "");
+    setPaymentDueDate(r.payment_due_date ? r.payment_due_date.slice(0, 10) : "");
+    setNotes(r.notes || "");
+    setIsAdvancePayment(!!r.is_advance_payment);
     setSelectedEpisodeId("");
     setItems([]);
     setDialogOpen(true);
@@ -417,7 +437,7 @@ export default function RevenueListPage() {
               <div className="space-y-2 lg:hidden">
                 {revenues.map((r) => (
                   <div
-                    key={r.id as string}
+                    key={r.id}
                     className="rounded-lg border p-3 transition-colors hover:bg-muted/50 cursor-pointer"
                     onClick={() => handleEditRevenue(r)}
                     role="button"
@@ -426,28 +446,28 @@ export default function RevenueListPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-mono text-xs text-muted-foreground">
-                            {(r.billing_key as string) || "-"}
+                            {r.billing_key || "-"}
                           </span>
                           <span className="font-mono text-xs font-medium text-primary">
-                            {(r.gls_number as string) || "-"}
+                            {r.gls_number || "-"}
                           </span>
                         </div>
                         <div className="text-sm mt-0.5 font-medium truncate">
-                          {(r.project_name as string) || "-"}
-                          {(r.event_end as string) && (
-                            <span className="text-xs text-muted-foreground ml-1">({formatShortDate(r.event_end as string)})</span>
+                          {r.project_name || "-"}
+                          {r.event_end && (
+                            <span className="text-xs text-muted-foreground ml-1">({formatShortDate(r.event_end)})</span>
                           )}
                         </div>
                         <div className="text-xs text-muted-foreground mt-0.5 truncate">
-                          {(r.customer_name as string) || "-"}
+                          {r.customer_name || "-"}
                         </div>
                       </div>
                       <div className="text-right shrink-0">
                         <div className="font-medium font-number">
-                          {formatCurrency(r.amount as number)}
+                          {formatCurrency(r.amount)}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {formatMonth(r.recognition_date as string)}
+                          {formatMonth(r.recognition_date)}
                         </div>
                       </div>
                     </div>
@@ -461,14 +481,14 @@ export default function RevenueListPage() {
                   <TableHeader>
                     <TableRow>
                       {([
-                        { key: "billing_key" as SortKey, label: "請求KEY", defaultW: 130 },
-                        { key: "billing_key" as SortKey, label: "GLS番号", colId: "gls", defaultW: 110, noSort: true },
-                        { key: "project_name" as SortKey, label: "案件名", defaultW: 180 },
-                        { key: "billing_key" as SortKey, label: "顧客", colId: "customer", defaultW: 120, noSort: true },
-                        { key: "billing_key" as SortKey, label: "税区分", colId: "tax", defaultW: 70, noSort: true },
-                        { key: "amount" as SortKey, label: "金額", defaultW: 100, align: "right" },
-                        { key: "recognition_date" as SortKey, label: "計上月", defaultW: 90 },
-                      ] as { key: SortKey; label: string; colId?: string; defaultW: number; align?: string; noSort?: boolean }[]).map(({ key, label, colId, defaultW, align, noSort }) => {
+                        { key: "billing_key", label: "請求KEY", defaultW: 130 },
+                        { key: "gls_number", label: "GLS番号", colId: "gls", defaultW: 110, noSort: true },
+                        { key: "project_name", label: "案件名", defaultW: 180 },
+                        { key: "customer_name", label: "顧客", colId: "customer", defaultW: 120, noSort: true },
+                        { key: "tax_category", label: "税区分", colId: "tax", defaultW: 70, noSort: true },
+                        { key: "amount", label: "金額", defaultW: 100, align: "right" },
+                        { key: "recognition_date", label: "計上月", defaultW: 90 },
+                      ] as { key: string; label: string; colId?: string; defaultW: number; align?: string; noSort?: boolean }[]).map(({ key, label, colId, defaultW, align, noSort }) => {
                         const id = colId ?? key;
                         const w = colWidths[id] ?? (Object.keys(colWidths).length > 0 ? defaultW : undefined);
                         return (
@@ -476,10 +496,10 @@ export default function RevenueListPage() {
                             key={id}
                             style={w ? { width: w, minWidth: 40 } : undefined}
                             className={`select-none whitespace-nowrap relative${align === "right" ? " text-right" : ""}${!noSort ? " cursor-pointer hover:bg-muted/50" : ""}`}
-                            onClick={noSort ? undefined : () => handleSort(key)}
+                            onClick={noSort ? undefined : () => handleSort(key as SortKey)}
                           >
                             {label}
-                            {!noSort && <SortIcon col={key} sortKey={sortKey} sortDir={sortDir} />}
+                            {!noSort && <SortIcon col={key as SortKey} sortKey={sortKey} sortDir={sortDir} />}
                             <span
                               className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize opacity-0 hover:opacity-100 hover:bg-primary/40 select-none"
                               onMouseDown={(e) => startResize(id, e, colWidths[id] ?? defaultW)}
@@ -493,35 +513,35 @@ export default function RevenueListPage() {
                   <TableBody>
                     {revenues.map((r) => (
                       <TableRow
-                        key={r.id as string}
+                        key={r.id}
                         className="cursor-pointer hover:bg-muted/50"
                         onClick={() => handleEditRevenue(r)}
                       >
                         <TableCell className="font-mono text-xs">
-                          {(r.billing_key as string) || "-"}
+                          {r.billing_key || "-"}
                         </TableCell>
                         <TableCell className="font-mono text-xs font-medium text-primary">
-                          {(r.gls_number as string) || "-"}
+                          {r.gls_number || "-"}
                         </TableCell>
                         <TableCell className="max-w-[200px]">
                           <span className="block truncate">
-                            {(r.project_name as string) || "-"}
-                            {(r.event_end as string) && (
-                              <span className="text-xs text-muted-foreground ml-1">({formatShortDate(r.event_end as string)})</span>
+                            {r.project_name || "-"}
+                            {r.event_end && (
+                              <span className="text-xs text-muted-foreground ml-1">({formatShortDate(r.event_end)})</span>
                             )}
                           </span>
                         </TableCell>
                         <TableCell className="truncate max-w-[120px]">
-                          {(r.customer_name as string) || "-"}
+                          {r.customer_name || "-"}
                         </TableCell>
                         <TableCell className="text-xs">
                           {r.tax_category === "tax10" ? "10%" : r.tax_category === "tax8" ? "8%" : "非課税"}
                         </TableCell>
                         <TableCell className="text-right font-medium font-number">
-                          {formatCurrency(r.amount as number)}
+                          {formatCurrency(r.amount)}
                         </TableCell>
                         <TableCell className="text-xs">
-                          {formatMonth(r.recognition_date as string)}
+                          {formatMonth(r.recognition_date)}
                         </TableCell>
                       </TableRow>
                     ))}

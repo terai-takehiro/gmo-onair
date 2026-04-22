@@ -529,13 +529,13 @@ export default function ModelGroupPage() {
                                       {u.serial_number || "—"}
                                     </td>
                                   </tr>
-                                  {u.children?.length > 0 && (
+                                  {(u.children?.length ?? 0) > 0 && (
                                     <tr key={`${u.id}-children`} className="bg-muted/30">
                                       <td colSpan={6} className="px-6 py-1.5">
                                         <div className="flex flex-wrap gap-x-4 gap-y-0.5">
-                                          {u.children.map(c => (
+                                          {u.children.map(c => c?.id && (
                                             <span key={c.id} className="text-xs text-muted-foreground cursor-pointer hover:text-foreground" onClick={(e) => { e.stopPropagation(); navigate(`/equipment/items/${c.id}`); }}>
-                                              ↳ {c.name}{c.unit_number != null ? ` No.${c.unit_number}` : ""}
+                                              ↳ {c.name ?? "?"}{c.unit_number != null ? ` No.${c.unit_number}` : ""}
                                             </span>
                                           ))}
                                         </div>
@@ -567,11 +567,11 @@ export default function ModelGroupPage() {
                                 <p className="mt-0.5 text-xs text-muted-foreground">
                                   {[u.location_name, u.location_detail].filter(Boolean).join(" / ") || "—"}
                                 </p>
-                                {u.children?.length > 0 && (
+                                {(u.children?.length ?? 0) > 0 && (
                                   <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
-                                    {u.children.map(c => (
+                                    {u.children.map(c => c?.id && (
                                       <span key={c.id} className="text-xs text-muted-foreground/70">
-                                        ↳ {c.name}{c.unit_number != null ? ` No.${c.unit_number}` : ""}
+                                        ↳ {c.name ?? "?"}{c.unit_number != null ? ` No.${c.unit_number}` : ""}
                                       </span>
                                     ))}
                                   </div>
