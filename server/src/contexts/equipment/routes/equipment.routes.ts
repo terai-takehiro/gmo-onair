@@ -203,7 +203,8 @@ router.get('/items', async (req: Request, res: Response) => {
            CASE WHEN ei.purchased_at IS NOT NULL AND ei.warranty_years > 0
                 THEN (ei.purchased_at + (ei.warranty_years || ' years')::interval)::date
                 ELSE NULL END as warranty_end,
-           (SELECT COUNT(*)::int FROM equipment_items c WHERE c.parent_id = ei.id AND c.deleted_at IS NULL) AS children_count
+           (SELECT COUNT(*)::int FROM equipment_items c WHERE c.parent_id = ei.id AND c.deleted_at IS NULL) AS children_count,
+           COALESCE(p.is_rental_listed, ei.is_rental_listed) AS effective_rental_listed
     FROM equipment_items ei
     LEFT JOIN equipment_manufacturers em ON em.id = ei.manufacturer_id
     LEFT JOIN equipment_locations el ON el.id = ei.location_id AND el.deleted_at IS NULL
@@ -223,7 +224,7 @@ router.get('/items', async (req: Request, res: Response) => {
   if (status) { sql += ` AND ei.status = $${paramIndex++}`; params.push(status); }
   if (equipment_section) { sql += ` AND ei.equipment_section = $${paramIndex++}`; params.push(equipment_section); }
   if (equipment_type_code) { sql += ` AND ei.equipment_type_code = $${paramIndex++}`; params.push(equipment_type_code); }
-  if (is_rental_listed === 'true') { sql += ` AND ei.is_rental_listed = true`; }
+  if (is_rental_listed === 'true') { sql += ` AND COALESCE(p.is_rental_listed, ei.is_rental_listed) = true`; }
   if (search) {
     sql += ` AND (ei.name ILIKE $${paramIndex} OR ei.eq_code ILIKE $${paramIndex + 1} OR em.name ILIKE $${paramIndex + 2} OR ei.model_number ILIKE $${paramIndex + 3} OR ei.serial_number ILIKE $${paramIndex + 4})`;
     const s = `%${search}%`;
@@ -248,8 +249,9 @@ router.get('/items', async (req: Request, res: Response) => {
 
   const rows = await queryAll(sql, params);
 
-  // 貸出中機材の貸出情報を付加 (is_rental_listed=true の機材) — バッチで1クエリ
-  const lendableIds = (rows as any[]).filter(r => r.is_rental_listed).map(r => r.id);
+  // 貸出中機材の貸出情報を付加 (effective_rental_listed=true の機材) — バッチで1クエリ
+  // 子機材は親の is_rental_listed を継承するため effective_rental_listed を使用
+  const lendableIds = (rows as any[]).filter(r => r.effective_rental_listed).map(r => r.id);
   if (lendableIds.length > 0) {
     const lendingRows = await queryAll(`
       SELECT DISTINCT ON (equipment_id)
@@ -260,7 +262,7 @@ router.get('/items', async (req: Request, res: Response) => {
     `, [lendableIds]) as any[];
     const lendingMap = new Map(lendingRows.map(l => [l.equipment_id, l]));
     for (const row of rows as any[]) {
-      if ((row as any).is_rental_listed) {
+      if ((row as any).effective_rental_listed) {
         (row as any).current_lending = lendingMap.get(row.id) || null;
       }
     }
@@ -1227,7 +1229,7 @@ router.get('/model-groups', async (req: Request, res: Response) => {
   const { q, type } = req.query;
   const params: any[] = [];
   let paramIndex = 1;
-  let where = 'WHERE ei.deleted_at IS NULL AND ei.is_rental_listed = true';
+  let where = 'WHERE ei.deleted_at IS NULL AND COALESCE(parent_ei.is_rental_listed, ei.is_rental_listed) = true';
   if (q) {
     where += ` AND (ei.name ILIKE $${paramIndex} OR ei.model_number ILIKE $${paramIndex + 1} OR em.name ILIKE $${paramIndex + 2})`;
     const s = `%${q}%`;
@@ -1260,6 +1262,7 @@ router.get('/model-groups', async (req: Request, res: Response) => {
     FROM equipment_items ei
     LEFT JOIN equipment_manufacturers em ON em.id = ei.manufacturer_id
     LEFT JOIN equipment_locations el ON el.id = ei.location_id AND el.deleted_at IS NULL
+    LEFT JOIN equipment_items parent_ei ON parent_ei.id = ei.parent_id AND parent_ei.deleted_at IS NULL
     ${where}
     GROUP BY ei.name, ei.model_number, em.name, ei.equipment_type_code
     ORDER BY ei.name, ei.model_number
