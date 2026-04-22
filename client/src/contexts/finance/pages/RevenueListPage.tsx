@@ -82,6 +82,7 @@ export default function RevenueListPage() {
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<RevenueItem[]>([]);
   const [isAdvancePayment, setIsAdvancePayment] = useState(false);
+  const [existingRevenueId, setExistingRevenueId] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["revenues-all", page, search, filterProjectId],
@@ -118,6 +119,16 @@ export default function RevenueListPage() {
   });
   const episodes: EpisodeOption[] = episodesData?.data ?? [];
 
+  // Fetch existing confirmed revenues for selected project (for pre-fill / update mode)
+  const { data: existingRevenuesData } = useQuery({
+    queryKey: ["revenues-for-project", selectedProjectId],
+    queryFn: async () =>
+      (await api.get("/revenues", { params: { project_id: selectedProjectId, status: "confirmed" } })).data,
+    enabled: dialogOpen && !!selectedProjectId,
+  });
+  const existingProjectRevenues: any[] = existingRevenuesData?.data ?? [];
+  const primaryRevenue = existingProjectRevenues.find((r: any) => !r.group_id);
+
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
   const isProjectCategoryB = selectedProject?.project_type
     ? getProjectCategory(selectedProject.project_type) === "B"
@@ -132,12 +143,11 @@ export default function RevenueListPage() {
   });
   const simulationItems = simData?.data ?? [];
 
-  // 案件選択時: 想定金額・日付を自動入力
+  // 案件選択時: まず案件のデフォルト値を入力（既存売上ロード前の仮入力）
   useEffect(() => {
     if (!selectedProject) return;
-    if (selectedProject.expected_amount) {
-      setAmount(selectedProject.expected_amount);
-    }
+    setExistingRevenueId("");
+    if (selectedProject.expected_amount) setAmount(selectedProject.expected_amount);
     if (selectedProject.event_end) {
       const d = new Date(selectedProject.event_end);
       const lastOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split("T")[0];
@@ -147,6 +157,28 @@ export default function RevenueListPage() {
       setPaymentDueDate(nextMonthLast);
     }
   }, [selectedProjectId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 既存売上が見つかった場合: 既存データで上書き（更新モードに切り替え）
+  useEffect(() => {
+    if (!primaryRevenue) return;
+    setExistingRevenueId(primaryRevenue.id);
+    setAmount(primaryRevenue.amount || 0);
+    setTaxCategory(primaryRevenue.tax_category || "tax10");
+    setRecognitionDate(primaryRevenue.recognition_date ? primaryRevenue.recognition_date.split("T")[0] : "");
+    setBillingDate(primaryRevenue.billing_date ? primaryRevenue.billing_date.split("T")[0] : "");
+    setPaymentDueDate(primaryRevenue.payment_due_date ? primaryRevenue.payment_due_date.split("T")[0] : "");
+    setNotes(primaryRevenue.notes || "");
+    setIsAdvancePayment(!!primaryRevenue.is_advance_payment);
+    if (Array.isArray(primaryRevenue.items) && primaryRevenue.items.length > 0) {
+      setItems(primaryRevenue.items.map((it: any) => ({
+        description: it.description || "",
+        quantity: it.quantity || 1,
+        unit_price: it.unit_price || 0,
+        amount: it.amount || 0,
+        pricing_item_id: it.pricing_item_id,
+      })));
+    }
+  }, [primaryRevenue?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Billing key preview
   const billingKeyPreview = useMemo(() => {
@@ -169,12 +201,15 @@ export default function RevenueListPage() {
     [items]
   );
 
-  // Create mutation
+  // Create / Update mutation
   const createMutation = useMutation({
-    mutationFn: (payload: Record<string, unknown>) =>
-      api.post("/revenues", payload),
+    mutationFn: ({ payload, revenueId }: { payload: Record<string, unknown>; revenueId: string }) =>
+      revenueId
+        ? api.put(`/revenues/${revenueId}`, payload)
+        : api.post("/revenues", payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["revenues-all"] });
+      qc.invalidateQueries({ queryKey: ["revenues-for-project", selectedProjectId] });
       handleCloseDialog();
     },
   });
@@ -192,6 +227,7 @@ export default function RevenueListPage() {
     setNotes("");
     setItems([]);
     setIsAdvancePayment(false);
+    setExistingRevenueId("");
   };
 
   const handleCreateSubmit = () => {
@@ -200,17 +236,20 @@ export default function RevenueListPage() {
     if (!isProjectCategoryB && !selectedEpisodeId) return;
 
     createMutation.mutate({
-      project_id: selectedProjectId,
-      episode_id: selectedEpisodeId || null,
-      customer_id: selectedProject?.customer_id ?? null,
-      tax_category: taxCategory,
-      amount: items.length > 0 ? itemsTotal : amount,
-      recognition_date: recognitionDate || null,
-      billing_date: billingDate || null,
-      payment_due_date: paymentDueDate || null,
-      notes: notes || null,
-      items: items.length > 0 ? items : undefined,
-      is_advance_payment: isAdvancePayment,
+      revenueId: existingRevenueId,
+      payload: {
+        project_id: selectedProjectId,
+        episode_id: selectedEpisodeId || null,
+        customer_id: selectedProject?.customer_id ?? null,
+        tax_category: taxCategory,
+        amount: items.length > 0 ? itemsTotal : amount,
+        recognition_date: recognitionDate || null,
+        billing_date: billingDate || null,
+        payment_due_date: paymentDueDate || null,
+        notes: notes || null,
+        items: items.length > 0 ? items : undefined,
+        is_advance_payment: isAdvancePayment,
+      },
     });
   };
 
@@ -319,7 +358,7 @@ export default function RevenueListPage() {
                     className="rounded-lg border p-3 transition-colors hover:bg-muted/50"
                     onClick={() =>
                       r.project_id &&
-                      navigate(`/sales/projects/${r.project_id}/episodes`)
+                      navigate(`/sales/projects/${r.project_id}`)
                     }
                     role={r.project_id ? "button" : undefined}
                   >
@@ -379,7 +418,7 @@ export default function RevenueListPage() {
                               className="font-mono text-sm font-medium text-primary hover:underline"
                               onClick={() =>
                                 navigate(
-                                  `/projects/${r.project_id}/episodes`
+                                  `/sales/projects/${r.project_id}`
                                 )
                               }
                             >
@@ -456,8 +495,13 @@ export default function RevenueListPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>新規売上登録</DialogTitle>
+            <DialogTitle>{existingRevenueId ? "売上を更新" : "新規売上登録"}</DialogTitle>
           </DialogHeader>
+          {existingRevenueId && (
+            <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
+              この案件にはすでに売上が登録されています。内容を編集すると上書き保存されます。
+            </div>
+          )}
 
           <div className="space-y-4">
             {/* Project search */}
@@ -786,7 +830,7 @@ export default function RevenueListPage() {
                 {createMutation.isPending && (
                   <Loader2 className="mr-1 h-4 w-4 animate-spin" />
                 )}
-                登録
+                {existingRevenueId ? "更新" : "登録"}
               </Button>
             </div>
           </div>

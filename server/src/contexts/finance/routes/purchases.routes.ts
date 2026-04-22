@@ -73,7 +73,8 @@ router.get('/:id', async (req, res) => {
 router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
   const { project_id, episode_id, vendor_id, settlement_method, settlement_number,
           tax_category, invoice_qualified, amount, description,
-          recognition_date, inspection_date, payment_due_date, notes, is_provisional } = req.body;
+          recognition_date, inspection_date, payment_due_date, notes, is_provisional,
+          service_completed_date } = req.body;
   if (!project_id || !vendor_id) throw new AppError(400, 'VALIDATION_ERROR', '案件と仕入先は必須です');
 
   let billing_key: string | null = null;
@@ -84,13 +85,14 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
 
   const id = uuidv4();
   await execute(
-    `INSERT INTO purchases (id, billing_key, project_id, episode_id, vendor_id, assigned_to, settlement_method, settlement_number, tax_category, invoice_qualified, amount, description, recognition_date, inspection_date, payment_due_date, notes, is_provisional, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO purchases (id, billing_key, project_id, episode_id, vendor_id, assigned_to, settlement_method, settlement_number, tax_category, invoice_qualified, amount, description, recognition_date, inspection_date, payment_due_date, notes, is_provisional, service_completed_date, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, billing_key, project_id, episode_id || null, vendor_id, req.user!.id,
      settlement_method || null, settlement_number || null, tax_category || 'tax10',
      invoice_qualified !== undefined ? (invoice_qualified ? 1 : 0) : 1,
      amount || 0, description || null, recognition_date || null,
-     inspection_date || null, payment_due_date || null, notes || null, is_provisional ? true : false, req.user!.id]
+     inspection_date || null, payment_due_date || null, notes || null, is_provisional ? true : false,
+     service_completed_date || null, req.user!.id]
   );
   const row = await queryOne('SELECT * FROM purchases WHERE id = ?', [id]);
   res.status(201).json({ success: true, data: row });
@@ -102,16 +104,17 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
 
   const { project_id, episode_id, vendor_id, settlement_method, settlement_number,
           tax_category, invoice_qualified, amount, description,
-          recognition_date, inspection_date, payment_due_date, notes } = req.body;
+          recognition_date, inspection_date, payment_due_date, notes,
+          service_completed_date } = req.body;
   await execute(
     `UPDATE purchases SET project_id=?, episode_id=?, vendor_id=?, settlement_method=?, settlement_number=?,
      tax_category=?, invoice_qualified=?, amount=?, description=?,
-     recognition_date=?, inspection_date=?, payment_due_date=?, notes=?,
+     recognition_date=?, inspection_date=?, payment_due_date=?, notes=?, service_completed_date=?,
      updated_at=NOW(), updated_by=? WHERE id=?`,
     [project_id, episode_id || null, vendor_id, settlement_method || null, settlement_number || null,
      tax_category, invoice_qualified ? 1 : 0, amount, description || null,
      recognition_date || null, inspection_date || null, payment_due_date || null, notes || null,
-     req.user!.id, req.params.id]
+     service_completed_date || null, req.user!.id, req.params.id]
   );
   const row = await queryOne('SELECT * FROM purchases WHERE id = ?', [req.params.id]);
   res.json({ success: true, data: row });

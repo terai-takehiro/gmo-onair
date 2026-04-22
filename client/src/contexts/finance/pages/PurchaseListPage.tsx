@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
@@ -84,7 +84,9 @@ export default function PurchaseListPage() {
   const [invoiceQualified, setInvoiceQualified] = useState("qualified");
   const [amount, setAmount] = useState<number>(0);
   const [description, setDescription] = useState("");
+  const [serviceCompletedDate, setServiceCompletedDate] = useState("");
   const [recognitionDate, setRecognitionDate] = useState("");
+  const [paymentDueDate, setPaymentDueDate] = useState("");
   const [isProvisional, setIsProvisional] = useState(false);
 
   const { data, isLoading } = useQuery({
@@ -115,6 +117,16 @@ export default function PurchaseListPage() {
   });
   const vendors: Vendor[] = vendorsData?.data ?? [];
 
+  // 役務提供完了日 → 計上日（当月末）・支払予定日（翌月末）を自動計算
+  useEffect(() => {
+    if (!serviceCompletedDate) return;
+    const d = new Date(serviceCompletedDate);
+    const lastOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split("T")[0];
+    const nextMonthLast = new Date(d.getFullYear(), d.getMonth() + 2, 0).toISOString().split("T")[0];
+    setRecognitionDate(lastOfMonth);
+    setPaymentDueDate(nextMonthLast);
+  }, [serviceCompletedDate]);
+
   // Create mutation
   const createMutation = useMutation({
     mutationFn: (payload: Record<string, unknown>) =>
@@ -135,7 +147,9 @@ export default function PurchaseListPage() {
     setInvoiceQualified("qualified");
     setAmount(0);
     setDescription("");
+    setServiceCompletedDate("");
     setRecognitionDate("");
+    setPaymentDueDate("");
     setIsProvisional(false);
   };
 
@@ -150,7 +164,9 @@ export default function PurchaseListPage() {
       invoice_qualified: invoiceQualified === "qualified" ? 1 : 0,
       amount,
       description: description || null,
+      service_completed_date: serviceCompletedDate || null,
       recognition_date: recognitionDate || null,
+      payment_due_date: paymentDueDate || null,
       is_provisional: isProvisional,
     });
   };
@@ -403,14 +419,33 @@ export default function PurchaseListPage() {
               </div>
             </div>
 
+            {/* 役務提供完了日 → 計上日・支払予定日を自動入力 */}
+            <div className="space-y-3 rounded-md border p-3">
+              <div>
+                <Label>役務提供完了日</Label>
+                <Input
+                  type="date"
+                  value={serviceCompletedDate}
+                  onChange={(e) => setServiceCompletedDate(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground mt-0.5">入力すると計上日（当月末）・支払予定日（翌月末）を自動入力します</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>計上日</Label>
+                  <Input type="date" value={recognitionDate} onChange={(e) => setRecognitionDate(e.target.value)} />
+                </div>
+                <div>
+                  <Label>支払予定日</Label>
+                  <Input type="date" value={paymentDueDate} onChange={(e) => setPaymentDueDate(e.target.value)} />
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label>精算番号</Label>
                 <Input value={settlementNumber} onChange={(e) => setSettlementNumber(e.target.value)} placeholder="任意" />
-              </div>
-              <div>
-                <Label>計上日</Label>
-                <Input type="date" value={recognitionDate} onChange={(e) => setRecognitionDate(e.target.value)} />
               </div>
             </div>
 
