@@ -620,7 +620,7 @@ export default function StudioCalendarPage() {
               slotMinTime="00:00:00"
               slotMaxTime="24:00:00"
               slotDuration={isMobile ? "01:00:00" : "00:30:00"}
-              firstDay={1}
+              firstDay={0}
               allDaySlot={true}
               allDayText="終日"
               nowIndicator={true}

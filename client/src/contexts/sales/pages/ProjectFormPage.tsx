@@ -58,8 +58,8 @@ interface FormValues {
 interface GlsDialogState {
   open: boolean;
   mode: 'new' | 'link';
-  broadcast_type: string;
-  media_platform: string;
+  broadcast_types: string[];
+  media_platforms: string[];
   target_project_id: string;
 }
 
@@ -73,7 +73,7 @@ export default function ProjectFormPage() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [submitErrors, setSubmitErrors] = useState<string[]>([]);
   const [glsDialog, setGlsDialog] = useState<GlsDialogState>({
-    open: false, mode: 'new', broadcast_type: "recording", media_platform: "other", target_project_id: "",
+    open: false, mode: 'new', broadcast_types: ["recording"], media_platforms: ["other"], target_project_id: "",
   });
   const [glsResult, setGlsResult] = useState<{ open: boolean; glsNumber: string } | null>(null);
   const [lostDialog, setLostDialog] = useState<LostDialogState>({
@@ -223,7 +223,7 @@ export default function ProjectFormPage() {
   const glsProjects: { id: string; gls_number: string; name: string; customer_name: string }[] = glsProjectsData?.data ?? [];
 
   const glsMutation = useMutation({
-    mutationFn: async (params: { broadcast_type: string; media_platform: string }) => {
+    mutationFn: async (params: { broadcast_type: string | null; media_platform: string | null }) => {
       return (await api.post(`/projects/${id}/issue-gls`, params)).data;
     },
     onSuccess: (data) => {
@@ -251,8 +251,8 @@ export default function ProjectFormPage() {
       linkGlsMutation.mutate(glsDialog.target_project_id);
     } else {
       glsMutation.mutate({
-        broadcast_type: glsDialog.broadcast_type,
-        media_platform: glsDialog.media_platform,
+        broadcast_type: glsDialog.broadcast_types.length > 0 ? glsDialog.broadcast_types.join(',') : null,
+        media_platform: glsDialog.media_platforms.length > 0 ? glsDialog.media_platforms.join(',') : null,
       });
     }
   };
@@ -808,26 +808,60 @@ export default function ProjectFormPage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <Label>番組種別</Label>
-                  <Select value={watch("broadcast_type") || ""} onValueChange={(v) => setValue("broadcast_type", v)}>
-                    <SelectTrigger><SelectValue placeholder="選択してください" /></SelectTrigger>
-                    <SelectContent>
-                      {(Object.entries(BroadcastTypeLabels) as [string, string][]).map(([val, label]) => (
-                        <SelectItem key={val} value={val}>{label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label>番組種別 <span className="text-xs text-muted-foreground">(複数選択可)</span></Label>
+                  {(() => {
+                    const selected = (watch("broadcast_type") || "").split(",").map((s) => s.trim()).filter(Boolean);
+                    return (
+                      <div className="mt-2 flex flex-wrap gap-4">
+                        {(Object.entries(BroadcastTypeLabels) as [string, string][]).map(([val, label]) => {
+                          const checked = selected.includes(val);
+                          return (
+                            <label key={val} className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox" checked={checked}
+                                onChange={(e) => {
+                                  const next = e.target.checked
+                                    ? [...selected, val]
+                                    : selected.filter((v) => v !== val);
+                                  setValue("broadcast_type", next.join(","));
+                                }}
+                                className="accent-primary"
+                              />
+                              <span className="text-sm">{label}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div>
-                  <Label>配信媒体</Label>
-                  <Select value={watch("media_platform") || ""} onValueChange={(v) => setValue("media_platform", v)}>
-                    <SelectTrigger><SelectValue placeholder="選択してください" /></SelectTrigger>
-                    <SelectContent>
-                      {(Object.entries(MediaPlatformLabels) as [string, string][]).map(([val, label]) => (
-                        <SelectItem key={val} value={val}>{label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label>配信媒体 <span className="text-xs text-muted-foreground">(複数選択可)</span></Label>
+                  {(() => {
+                    const selected = (watch("media_platform") || "").split(",").map((s) => s.trim()).filter(Boolean);
+                    return (
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        {(Object.entries(MediaPlatformLabels) as [string, string][]).map(([val, label]) => {
+                          const checked = selected.includes(val);
+                          return (
+                            <label key={val} className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox" checked={checked}
+                                onChange={(e) => {
+                                  const next = e.target.checked
+                                    ? [...selected, val]
+                                    : selected.filter((v) => v !== val);
+                                  setValue("media_platform", next.join(","));
+                                }}
+                                className="accent-primary"
+                              />
+                              <span className="text-sm">{label}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </CardContent>
@@ -952,35 +986,54 @@ export default function ProjectFormPage() {
               <Input value={project?.name || ""} disabled className="bg-muted" />
             </div>
 
-            {/* 新規モード: A系の場合は番組種別と配信媒体 */}
+            {/* 新規モード: A系の場合は番組種別と配信媒体（複数選択可） */}
             {glsDialog.mode === 'new' && isCategoryA && (
               <>
                 <div>
-                  <Label>番組種別 *</Label>
-                  <div className="mt-2 flex gap-4">
-                    {(Object.entries(BroadcastTypeLabels) as [string, string][]).map(([val, label]) => (
-                      <label key={val} className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio" name="broadcast_type" value={val}
-                          checked={glsDialog.broadcast_type === val}
-                          onChange={(e) => setGlsDialog({ ...glsDialog, broadcast_type: e.target.value })}
-                          className="accent-primary"
-                        />
-                        <span className="text-sm">{label}</span>
-                      </label>
-                    ))}
+                  <Label>番組種別 * <span className="text-xs text-muted-foreground">(複数選択可)</span></Label>
+                  <div className="mt-2 flex flex-wrap gap-4">
+                    {(Object.entries(BroadcastTypeLabels) as [string, string][]).map(([val, label]) => {
+                      const checked = glsDialog.broadcast_types.includes(val);
+                      return (
+                        <label key={val} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox" value={val} checked={checked}
+                            onChange={(e) => {
+                              const next = e.target.checked
+                                ? [...glsDialog.broadcast_types, val]
+                                : glsDialog.broadcast_types.filter((v) => v !== val);
+                              setGlsDialog({ ...glsDialog, broadcast_types: next });
+                            }}
+                            className="accent-primary"
+                          />
+                          <span className="text-sm">{label}</span>
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
                 <div>
-                  <Label>配信媒体 *</Label>
-                  <Select value={glsDialog.media_platform} onValueChange={(v) => setGlsDialog({ ...glsDialog, media_platform: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {(Object.entries(MediaPlatformLabels) as [string, string][]).map(([val, label]) => (
-                        <SelectItem key={val} value={val}>{label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label>配信媒体 * <span className="text-xs text-muted-foreground">(複数選択可)</span></Label>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {(Object.entries(MediaPlatformLabels) as [string, string][]).map(([val, label]) => {
+                      const checked = glsDialog.media_platforms.includes(val);
+                      return (
+                        <label key={val} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox" value={val} checked={checked}
+                            onChange={(e) => {
+                              const next = e.target.checked
+                                ? [...glsDialog.media_platforms, val]
+                                : glsDialog.media_platforms.filter((v) => v !== val);
+                              setGlsDialog({ ...glsDialog, media_platforms: next });
+                            }}
+                            className="accent-primary"
+                          />
+                          <span className="text-sm">{label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
               </>
             )}
@@ -1012,7 +1065,9 @@ export default function ProjectFormPage() {
               onClick={handleGlsConfirm}
               disabled={
                 glsMutation.isPending || linkGlsMutation.isPending ||
-                (glsDialog.mode === 'link' && !glsDialog.target_project_id)
+                (glsDialog.mode === 'link' && !glsDialog.target_project_id) ||
+                (glsDialog.mode === 'new' && isCategoryA &&
+                  (glsDialog.broadcast_types.length === 0 || glsDialog.media_platforms.length === 0))
               }
             >
               {(glsMutation.isPending || linkGlsMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

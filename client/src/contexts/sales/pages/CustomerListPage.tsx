@@ -6,9 +6,7 @@ import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
@@ -162,40 +160,30 @@ export default function CustomerListPage() {
               </div>
 
               {/* Desktop table */}
-              <div className="hidden lg:block overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>顧客名</TableHead>
-                    <TableHead>担当者</TableHead>
-                    <TableHead>メール</TableHead>
-                    <TableHead>電話</TableHead>
-                    <TableHead>住所</TableHead>
-                    <TableHead className="w-24"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {customers.map((c) => (
-                    <TableRow key={c.id}>
-                      <TableCell className="font-medium">{c.name}</TableCell>
-                      <TableCell>{c.contact_name || "-"}</TableCell>
-                      <TableCell>{c.email || "-"}</TableCell>
-                      <TableCell>{c.phone || "-"}</TableCell>
-                      <TableCell>{c.address || "-"}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(c.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <div className="hidden lg:block">
+                <DataTable<Customer>
+                  data={customers}
+                  rowKey={(c) => c.id}
+                  storageKey="customers"
+                  columns={[
+                    { key: "name", header: "顧客名", defaultWidth: 240, className: "font-medium", cell: (c) => c.name },
+                    { key: "contact_name", header: "担当者", defaultWidth: 160, cell: (c) => c.contact_name || "-" },
+                    { key: "email", header: "メール", defaultWidth: 220, cell: (c) => c.email || "-" },
+                    { key: "phone", header: "電話", defaultWidth: 140, cell: (c) => c.phone || "-" },
+                    { key: "address", header: "住所", defaultWidth: 240, cell: (c) => c.address || "-" },
+                  ] as DataTableColumn<Customer>[]}
+                  actionsWidth={96}
+                  actions={(c) => (
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(c.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                />
               </div>
             </>
           )}
