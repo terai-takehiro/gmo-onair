@@ -407,7 +407,29 @@ export default function EquipmentListPage() {
   const customValueMutation = useMutation({
     mutationFn: ({ equipmentId, columnId, value }: { equipmentId: string; columnId: string; value: string }) =>
       api.put(`/equipment/custom-values/${columnId}/${equipmentId}`, { value }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['equipment-custom-values'] }),
+    // Optimistic update: 即座にUI反映してから確定するため、クリック→反応なしを回避
+    onMutate: async ({ equipmentId, columnId, value }) => {
+      await qc.cancelQueries({ queryKey: ['equipment-custom-values'] });
+      const entries = qc.getQueriesData<any[]>({ queryKey: ['equipment-custom-values'] });
+      const snapshots: Array<[readonly unknown[], any]> = [];
+      for (const [key, data] of entries) {
+        if (!Array.isArray(data)) continue;
+        snapshots.push([key, data]);
+        const existingIdx = data.findIndex(r => r.equipment_id === equipmentId && r.column_id === columnId);
+        const nextData = existingIdx >= 0
+          ? data.map((r, i) => i === existingIdx ? { ...r, value } : r)
+          : [...data, { equipment_id: equipmentId, column_id: columnId, value }];
+        qc.setQueryData(key, nextData);
+      }
+      return { snapshots };
+    },
+    onError: (_err, _vars, context) => {
+      if (!context?.snapshots) return;
+      for (const [key, data] of context.snapshots) {
+        qc.setQueryData(key, data);
+      }
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['equipment-custom-values'] }),
   });
 
   // 新規カスタム列が追加されたら自動で表示ONにする
