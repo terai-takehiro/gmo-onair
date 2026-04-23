@@ -155,7 +155,8 @@ export default function SharedHeader({
 
   // ─── ヘッダー本体 ────────────────────────────────────────────────────────
   return (
-    <header className="flex h-14 shrink-0 items-center gap-1 sm:gap-1.5 border-b border-border bg-card px-2 sm:px-4 relative z-30">
+    <header className="shrink-0 border-b border-border bg-card relative z-30" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+    <div className="flex h-14 items-center gap-1 sm:gap-1.5 px-2 sm:px-4">
 
       {/* AppSwitcher */}
       <AppSwitcher currentApp={currentApp} />
@@ -219,6 +220,7 @@ export default function SharedHeader({
       )}
 
       {typeof document !== "undefined" && createPortal(dropdown, document.body)}
+    </div>
     </header>
   );
 }

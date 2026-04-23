@@ -230,8 +230,8 @@ export default function StudioBookingDialog({
         const ep = episodes.find((e: any) => e.id === episodeId);
         const typeLabel = bookingType === "hold" ? " 仮押さえ" : bookingType === "rehearsal" ? " リハーサル" : "";
         setTitle(ep
-          ? `${proj.gls_number || proj.code} ${ep.episode_code} ${proj.name}${typeLabel}`
-          : `${proj.gls_number || proj.code} ${proj.name}${typeLabel}`
+          ? `${proj.name} ${ep.episode_code}${typeLabel}`
+          : `${proj.name}${typeLabel}`
         );
       }
     }
