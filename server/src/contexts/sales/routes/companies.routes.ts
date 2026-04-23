@@ -24,7 +24,9 @@ router.get('/', requirePermission('sales'), async (req, res) => {
   }
   if (role === 'customer') { where += ' AND co.is_customer = TRUE'; }
   else if (role === 'vendor') { where += ' AND co.is_vendor = TRUE'; }
+  else if (role === 'sga_payee') { where += ' AND co.is_sga_payee = TRUE'; }
   else if (role === 'both') { where += ' AND co.is_customer = TRUE AND co.is_vendor = TRUE'; }
+  else if (role === 'other') { where += ' AND co.is_customer = FALSE AND co.is_vendor = FALSE AND co.is_sga_payee = FALSE'; }
 
   const total = ((await queryOne(`SELECT COUNT(*) as c FROM companies co ${where}`, params)) as any).c;
   const rows = await queryAll(
@@ -58,23 +60,77 @@ router.get('/:id', requirePermission('sales'), async (req, res) => {
   res.json({ success: true, data: row });
 });
 
+// ─── 取引先別 収支サマリー ─────────────────────────────────────────────────────
+// 売上 (customer_id 経由)、仕入 (vendor_id 経由)、販管費 (vendor_id 経由) の合計を返す
+router.get('/:id/summary', requirePermission('sales'), async (req, res) => {
+  const company = await queryOne(
+    `SELECT co.id,
+       cu.id as customer_id,
+       v.id  as vendor_id
+     FROM companies co
+     LEFT JOIN customers cu ON cu.company_id = co.id AND cu.deleted_at IS NULL
+     LEFT JOIN vendors   v  ON v.company_id  = co.id AND v.deleted_at  IS NULL
+     WHERE co.id = ? AND co.deleted_at IS NULL`,
+    [req.params.id]
+  ) as any;
+  if (!company) throw new AppError(404, 'NOT_FOUND', '取引先が見つかりません');
+
+  const [revRow, purRow, sgaRow] = await Promise.all([
+    company.customer_id
+      ? queryOne(
+          `SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as count
+           FROM revenues
+           WHERE customer_id = ? AND deleted_at IS NULL AND status = 'confirmed'`,
+          [company.customer_id]
+        ) as Promise<any>
+      : Promise.resolve({ total: 0, count: 0 }),
+    company.vendor_id
+      ? queryOne(
+          `SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as count
+           FROM purchases
+           WHERE vendor_id = ? AND deleted_at IS NULL`,
+          [company.vendor_id]
+        ) as Promise<any>
+      : Promise.resolve({ total: 0, count: 0 }),
+    company.vendor_id
+      ? queryOne(
+          `SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as count
+           FROM sga_expenses
+           WHERE vendor_id = ? AND deleted_at IS NULL`,
+          [company.vendor_id]
+        ) as Promise<any>
+      : Promise.resolve({ total: 0, count: 0 }),
+  ]);
+
+  res.json({
+    success: true,
+    data: {
+      company_id: req.params.id,
+      revenue: { total: Number(revRow?.total ?? 0), count: Number(revRow?.count ?? 0) },
+      purchase: { total: Number(purRow?.total ?? 0), count: Number(purRow?.count ?? 0) },
+      sga: { total: Number(sgaRow?.total ?? 0), count: Number(sgaRow?.count ?? 0) },
+    },
+  });
+});
+
 // ─── 新規作成 ─────────────────────────────────────────────────────────────────
 // is_customer=true の場合 customers レコードも自動生成
 // is_vendor=true   の場合 vendors   レコードも自動生成
 router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
   const {
     name, short_name, contact_name, email, phone, address,
-    is_customer, is_vendor, vendor_type, invoice_registration_number, notes,
+    is_customer, is_vendor, is_sga_payee, vendor_type, invoice_registration_number, notes,
   } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', '取引先名は必須です');
 
   const id = uuidv4();
   await execute(
     `INSERT INTO companies (id, name, short_name, contact_name, email, phone, address,
-       is_customer, is_vendor, vendor_type, invoice_registration_number, notes, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       is_customer, is_vendor, is_sga_payee, vendor_type, invoice_registration_number, notes, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, name, short_name || null, contact_name || null, email || null, phone || null,
      address || null, is_customer ? true : false, is_vendor ? true : false,
+     is_sga_payee ? true : false,
      vendor_type || null, invoice_registration_number || null, notes || null, req.user!.id]
   );
 
@@ -122,15 +178,16 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
 
   const {
     name, short_name, contact_name, email, phone, address,
-    is_customer, is_vendor, vendor_type, invoice_registration_number, notes,
+    is_customer, is_vendor, is_sga_payee, vendor_type, invoice_registration_number, notes,
   } = req.body;
 
   await execute(
     `UPDATE companies SET name=?, short_name=?, contact_name=?, email=?, phone=?, address=?,
-       is_customer=?, is_vendor=?, vendor_type=?, invoice_registration_number=?, notes=?,
+       is_customer=?, is_vendor=?, is_sga_payee=?, vendor_type=?, invoice_registration_number=?, notes=?,
        updated_at=NOW(), updated_by=? WHERE id=?`,
     [name, short_name || null, contact_name || null, email || null, phone || null,
      address || null, is_customer ? true : false, is_vendor ? true : false,
+     is_sga_payee ? true : false,
      vendor_type || null, invoice_registration_number || null, notes || null,
      req.user!.id, req.params.id]
   );

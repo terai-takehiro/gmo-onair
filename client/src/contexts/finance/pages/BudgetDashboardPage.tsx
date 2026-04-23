@@ -6,6 +6,7 @@ import { PageTransition } from "@/components/ui/motion";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Loader2, TrendingUp, TrendingDown, Minus, AlertCircle, RefreshCw } from "lucide-react";
 
 interface MonthlySummary {
@@ -44,11 +45,23 @@ const EMPTY_SUMMARY: MonthlySummary = {
 export default function BudgetDashboardPage() {
   const now = new Date();
   const [month, setMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
+  const [projectId, setProjectId] = useState<string>("");
+
+  // 案件一覧取得（絞り込み用）
+  const { data: projectsData } = useQuery({
+    queryKey: ["projects-for-budget-dashboard"],
+    queryFn: async () => (await api.get("/projects?limit=500")).data,
+    staleTime: 120000,
+  });
+  const projects: Array<{ id: string; gls_number: string | null; name: string; customer_name?: string }> =
+    projectsData?.data ?? [];
 
   const { data, isFetching, isError, error, refetch } = useQuery({
-    queryKey: ["budget-monthly-summary", month],
+    queryKey: ["budget-monthly-summary", month, projectId],
     queryFn: async () => {
-      const res = await api.get("/monthly-summary", { params: { month }, timeout: 15000 });
+      const params: Record<string, string> = { month };
+      if (projectId) params.project_id = projectId;
+      const res = await api.get("/monthly-summary", { params, timeout: 15000 });
       return res.data;
     },
     enabled: !!month,
@@ -73,14 +86,35 @@ export default function BudgetDashboardPage() {
         </Button>
       </div>
 
-      <div className="flex items-end gap-3">
+      <div className="flex flex-wrap items-end gap-3">
         <div>
           <Label>年月</Label>
           <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-36" />
         </div>
-        {month && <span className="text-sm text-muted-foreground pb-1">{formatMonth(month + "-01")}</span>}
-        {isFetching && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground pb-1" />}
+        <div className="flex-1 min-w-[240px] max-w-md">
+          <Label>案件（任意）</Label>
+          <SearchableSelect
+            options={[
+              { value: "", label: "— 全案件（販管費含む） —" },
+              ...projects.map((p) => ({
+                value: p.id,
+                label: `${p.gls_number || p.name}`,
+                subLabel: p.customer_name || "",
+              })),
+            ]}
+            value={projectId}
+            onChange={(v) => setProjectId(v)}
+            placeholder="GLS番号・案件名で絞り込み..."
+          />
+        </div>
+        {month && <span className="text-sm text-muted-foreground pb-2">{formatMonth(month + "-01")}</span>}
+        {isFetching && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground pb-2" />}
       </div>
+      {projectId && (
+        <p className="text-xs text-muted-foreground -mt-3">
+          ※ 案件絞り込み時は販管費は集計に含まれません（販管費は案件紐付きなし）
+        </p>
+      )}
 
       {isError && (
         <div className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
