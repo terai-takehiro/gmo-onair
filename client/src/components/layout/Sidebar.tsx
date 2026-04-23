@@ -84,13 +84,17 @@ const APP_NAV: Record<string, NavSection[]> = {
   ],
   budget: [
     {
+      items: [
+        { label: "予算ダッシュボード", to: "/budget/dashboard", icon: BarChart3 },
+      ],
+    },
+    {
       title: "収支",
       items: [
         { label: "売上管理", to: "/budget/revenues", icon: Receipt },
         { label: "仕入管理", to: "/budget/purchases", icon: ShoppingCart },
         { label: "販管費", to: "/budget/sga", icon: Receipt },
         { label: "案件月別詳細", to: "/budget/detail", icon: FolderKanban },
-        { label: "ダッシュボード", to: "/budget/dashboard", icon: BarChart3 },
       ],
     },
     {

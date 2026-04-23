@@ -129,7 +129,7 @@ function AppRoutes() {
 
         {/* ブロックアプリ インデックスリダイレクト（BLOCK_APPS.basePath対応） */}
         <Route path="/sales" element={<Navigate to="/sales/projects" replace />} />
-        <Route path="/budget" element={<Navigate to="/budget/revenues" replace />} />
+        <Route path="/budget" element={<Navigate to="/budget/dashboard" replace />} />
         <Route path="/studio" element={<Navigate to="/studio/calendar" replace />} />
 
         {/* 旧URLリダイレクト */}
