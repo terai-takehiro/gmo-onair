@@ -404,9 +404,11 @@ export default function HomePage() {
       <div className="mx-auto max-w-6xl px-4 py-6 lg:py-10">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="heading-page text-2xl tracking-tight lg:text-3xl">
-            GMO ON<span className="text-primary">Ai</span>R
-          </h1>
+          <img
+            src="/logo-onair.svg"
+            alt="GMO ONAiR"
+            className="h-8 w-auto lg:h-10"
+          />
           <p className="mt-1 text-sm text-muted-foreground">
             {greeting}、{currentUser?.name} さん
             <Badge variant="outline" className="ml-2 text-xs">

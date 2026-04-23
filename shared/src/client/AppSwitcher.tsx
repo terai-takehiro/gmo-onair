@@ -88,7 +88,7 @@ export default function AppSwitcher({ currentApp }: AppSwitcherProps) {
       style={{ top: pos.top, left: pos.left }}
     >
       <div className="px-4 pt-4 pb-2">
-        <p className="text-sm font-bold text-foreground">GMO ONAiR</p>
+        <img src="/logo-onair.svg" alt="GMO ONAiR" className="h-5 w-auto mb-0.5" />
         <p className="text-xs text-muted-foreground mt-0.5">アプリを切り替え</p>
       </div>
 

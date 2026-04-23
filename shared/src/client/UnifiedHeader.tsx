@@ -32,8 +32,8 @@ export default function Header({ appId, appName, userName, onLogout }: Props) {
         <div className="hidden lg:block">
           <AppSwitcher currentApp={appId} />
         </div>
-        <a href="/" className="hidden sm:inline text-base font-bold text-primary hover:opacity-80 transition-opacity shrink-0">
-          ONAiR
+        <a href="/" className="hidden sm:flex items-center hover:opacity-80 transition-opacity shrink-0" aria-label="GMO ONAiR ホーム">
+          <img src="/logo-onair.svg" alt="GMO ONAiR" className="h-5 w-auto" />
         </a>
         <span className="text-sm font-semibold text-foreground truncate">{appName}</span>
       </div>

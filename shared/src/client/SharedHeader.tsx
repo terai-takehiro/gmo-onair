@@ -177,10 +177,11 @@ export default function SharedHeader({
       <nav className="flex items-center gap-1 min-w-0 flex-1 text-sm overflow-hidden">
         <a
           href="/"
-          className="font-bold text-primary hover:opacity-80 active:opacity-60 transition-opacity shrink-0"
+          className="hover:opacity-80 active:opacity-60 transition-opacity shrink-0 flex items-center"
           style={{ touchAction: "manipulation" }}
+          aria-label="GMO ONAiR ホーム"
         >
-          ONAiR
+          <img src="/logo-onair.svg" alt="GMO ONAiR" className="h-5 w-auto" />
         </a>
         <span className="text-muted-foreground/30 shrink-0 select-none">/</span>
         <span className="font-semibold text-foreground truncate shrink-1">{appLabel}</span>
