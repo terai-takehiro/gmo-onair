@@ -254,6 +254,7 @@ export default function EquipmentListPage() {
     localStorage.removeItem('eq-visible-cols');
     localStorage.removeItem('eq-visible-custom-cols');
     localStorage.removeItem('eq-custom-col-order');
+    localStorage.removeItem('eq-seen-custom-cols');
     setColOrder(DEFAULT_COL_ORDER);
     setVisibleCols(new Set(COL_DEFS.filter(c => c.default).map(c => c.key)) as Set<ColKey>);
     setVisibleCustomCols(new Set<string>());
@@ -410,31 +411,48 @@ export default function EquipmentListPage() {
   });
 
   // 新規カスタム列が追加されたら自動で表示ONにする
+  // 「ユーザーが明示的に非表示にした列」と「まだ見たことがない新列」を区別するため、
+  // 既知の列IDは別キーで追跡する
   useEffect(() => {
     if (customColumns.length === 0) return;
-    const newIds = customColumns.map(c => c.id).filter(id => !visibleCustomCols.has(id));
-    // ローカルストレージに保存済みのものだけ非表示にし、初めて見る列は自動で表示
-    const savedRaw = localStorage.getItem('eq-visible-custom-cols');
-    if (savedRaw === null && newIds.length > 0) {
-      // 初回: 全列を表示
-      const allIds = new Set(customColumns.map(c => c.id));
-      setVisibleCustomCols(allIds);
-      localStorage.setItem('eq-visible-custom-cols', JSON.stringify([...allIds]));
-    } else if (savedRaw !== null) {
-      // 保存済みにない新列は自動ON
-      try {
-        const saved: string[] = JSON.parse(savedRaw);
-        const knownIds = new Set(saved);
-        const brandNew = customColumns.filter(c => !knownIds.has(c.id) && !saved.includes(c.id));
-        if (brandNew.length > 0) {
-          setVisibleCustomCols(prev => {
-            const next = new Set(prev);
-            brandNew.forEach(c => next.add(c.id));
-            localStorage.setItem('eq-visible-custom-cols', JSON.stringify([...next]));
-            return next;
-          });
-        }
-      } catch {}
+    const allIds = customColumns.map(c => c.id);
+    const seenKey = 'eq-seen-custom-cols';
+    const visKey = 'eq-visible-custom-cols';
+
+    const savedSeen = localStorage.getItem(seenKey);
+    const savedVis = localStorage.getItem(visKey);
+
+    // 初回: 全列を表示＋既知として記録
+    if (savedSeen === null && savedVis === null) {
+      const idSet = new Set(allIds);
+      setVisibleCustomCols(idSet);
+      localStorage.setItem(visKey, JSON.stringify(allIds));
+      localStorage.setItem(seenKey, JSON.stringify(allIds));
+      return;
+    }
+
+    // 移行: 既知リストが未作成の場合、現在の可視リストを既知として記録
+    // (ユーザーが以前に非表示にした列を"新列"として誤検出しないため)
+    let seen: string[] = [];
+    try {
+      seen = savedSeen ? JSON.parse(savedSeen) : (savedVis ? JSON.parse(savedVis) : []);
+    } catch { seen = []; }
+    if (savedSeen === null) {
+      localStorage.setItem(seenKey, JSON.stringify(seen));
+    }
+
+    // 既知リストに無い列だけが"新列"
+    const seenSet = new Set(seen);
+    const brandNewIds = allIds.filter(id => !seenSet.has(id));
+    if (brandNewIds.length > 0) {
+      setVisibleCustomCols(prev => {
+        const next = new Set(prev);
+        brandNewIds.forEach(id => next.add(id));
+        localStorage.setItem(visKey, JSON.stringify([...next]));
+        return next;
+      });
+      const nextSeen = [...seen, ...brandNewIds];
+      localStorage.setItem(seenKey, JSON.stringify(nextSeen));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customColumns.length]);
