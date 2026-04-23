@@ -31,8 +31,9 @@ router.get('/', async (req, res) => {
   }
   const recognitionMonth = req.query.recognition_month as string;
   if (recognitionMonth) {
-    where += ` AND TO_CHAR(r.recognition_date, 'YYYY-MM') = ?`;
-    params.push(recognitionMonth);
+    // recognition_date は TEXT (YYYY-MM-DD) のため前方一致
+    where += ` AND r.recognition_date LIKE ?`;
+    params.push(`${recognitionMonth}-%`);
   }
   const status = req.query.status as string;
   if (status) { where += ` AND r.status = ?`; params.push(status); }

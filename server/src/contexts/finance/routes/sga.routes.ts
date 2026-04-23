@@ -39,8 +39,9 @@ router.get('/', async (req, res) => {
     params.push(dateTo);
   }
   if (recognitionMonth) {
-    where += ` AND TO_CHAR(s.recognition_date, 'YYYY-MM') = ?`;
-    params.push(recognitionMonth);
+    // recognition_date は TEXT (YYYY-MM-DD) のため前方一致
+    where += ` AND s.recognition_date LIKE ?`;
+    params.push(`${recognitionMonth}-%`);
   }
 
   const total = ((await queryOne(`SELECT COUNT(*) as c FROM sga_expenses s ${where}`, params)) as any).c;
