@@ -13,6 +13,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 | 機材管理 | `client-equipment/` | `/equipment/` | 5175 | 機材台帳・貸出管理 |
 | インタラクティブ | `client-interactive/` | `/interactive/` | 5176 | EventStamp・リアルタイム演出 |
 | 技術資料 | `client-techsheet/` | `/techsheet/` | 5177 | カメラ・映像・音声技術仕様書 |
+| ライブ運用 | `client-live/` | `/live/` | 5178 | 本番オペ・進行管理 |
 
 ### 共有ライブラリ (`shared/`)
 全ブロックアプリの共通コードを集約。各アプリは設定値のみ渡すラッパーファイルで利用。
@@ -26,18 +27,21 @@ GLS番号を中核として全アプリのデータが紐づく。
 ## 技術構成
 - **フロントエンド**: React 19 + Vite 8 + TailwindCSS 4 + shadcn/ui
 - **バックエンド**: Express + PostgreSQL (pg)
-- **モノレポ**: npm workspaces (client, client-qsheet, client-equipment, client-interactive, client-techsheet, server, shared)
+- **モノレポ**: npm workspaces (client, client-qsheet, client-equipment, client-interactive, client-techsheet, client-live, server, shared)
 - **リアルタイム**: Socket.IO (`/qsheet` ネームスペース: OnAir↔ランダウン同期, `/interactive`: スタンプ)
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
+## 現在のバージョン
+v1.1.94
 
 ## ブランチ運用
-- **デプロイ**: 常に `main` ブランチにプッシュ（masterではない）
-- **バージョン管理**: インクリメンタル（v0.2.1, v0.2.2...）、大きくジャンプしない
-- **バージョン更新ルール**: プッシュする際は必ずパッチバージョンを上げる（例: v0.7.1 → v0.7.2）。以下の全箇所を同時に更新すること:
+- **本番デプロイ**: `main` ブランチへの push で auto-deploy webhook が発火
+- **master ブランチ**: `main` の内容を定期的に同期するミラーブランチ（`master ← main` の PR で同期）
+- **バージョン管理**: インクリメンタル（v1.1.93, v1.1.94...）、大きくジャンプしない
+- **バージョン更新ルール**: プッシュする際は必ずパッチバージョンを上げる（例: v1.1.94 → v1.1.95）。以下の全箇所を同時に更新すること:
   1. `CLAUDE.md` の「現在のバージョン」
   2. ルート `package.json` の `"version"`
-  3. 各ワークスペース `package.json` の `"version"` (`client/`, `client-qsheet/`, `client-equipment/`, `client-interactive/`, `client-techsheet/`)
+  3. 各ワークスペース `package.json` の `"version"` (`client/`, `client-qsheet/`, `client-equipment/`, `client-interactive/`, `client-techsheet/`, `client-live/`, `server/`)
   4. コミットメッセージに `vX.X.X` を明記
   5. **プッシュ完了後、チャットでバージョン番号とデプロイ先（dev/main）をユーザーに必ず報告すること**
 
