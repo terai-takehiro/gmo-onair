@@ -104,7 +104,11 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-slate-100">
       <div className="w-full max-w-md px-4">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-primary sm:text-4xl">GMO ONAiR</h1>
+          <img
+            src="/logo-onair.svg"
+            alt="GMO ONAiR"
+            className="mx-auto h-12 w-auto sm:h-16"
+          />
           <p className="mt-2 text-base text-muted-foreground">統合業務管理システム</p>
         </div>
 
