@@ -18,18 +18,20 @@ export function createFinanceRoutes(): Router {
       res.status(400).json({ success: false, error: { message: 'month parameter required (YYYY-MM)' } });
       return;
     }
+    // recognition_date は TEXT (YYYY-MM-DD) で保存されているため前方一致で月をフィルタ
+    const monthPrefix = `${month}-%`;
     const [revRow, purRow, sgaRow] = await Promise.all([
       queryOne(
-        `SELECT COALESCE(SUM(amount), 0) AS total FROM revenues WHERE deleted_at IS NULL AND status = 'confirmed' AND group_id IS NULL AND TO_CHAR(recognition_date, 'YYYY-MM') = ?`,
-        [month]
+        `SELECT COALESCE(SUM(amount), 0) AS total FROM revenues WHERE deleted_at IS NULL AND status = 'confirmed' AND group_id IS NULL AND recognition_date LIKE ?`,
+        [monthPrefix]
       ) as Promise<any>,
       queryOne(
-        `SELECT COALESCE(SUM(amount), 0) AS total FROM purchases WHERE deleted_at IS NULL AND group_id IS NULL AND TO_CHAR(recognition_date, 'YYYY-MM') = ?`,
-        [month]
+        `SELECT COALESCE(SUM(amount), 0) AS total FROM purchases WHERE deleted_at IS NULL AND group_id IS NULL AND recognition_date LIKE ?`,
+        [monthPrefix]
       ) as Promise<any>,
       queryOne(
-        `SELECT COALESCE(SUM(amount), 0) AS total FROM sga_expenses WHERE deleted_at IS NULL AND TO_CHAR(recognition_date, 'YYYY-MM') = ?`,
-        [month]
+        `SELECT COALESCE(SUM(amount), 0) AS total FROM sga_expenses WHERE deleted_at IS NULL AND recognition_date LIKE ?`,
+        [monthPrefix]
       ) as Promise<any>,
     ]);
     const revenue_total = Number((revRow as any)?.total ?? 0);

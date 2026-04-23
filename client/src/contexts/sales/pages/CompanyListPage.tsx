@@ -10,9 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
@@ -238,79 +236,86 @@ export default function CompanyListPage() {
           </div>
 
           {/* Desktop table */}
-          <div className="hidden lg:block overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>取引先名</TableHead>
-                  <TableHead>役割</TableHead>
-                  <TableHead>担当者</TableHead>
-                  <TableHead>メール</TableHead>
-                  <TableHead>電話</TableHead>
-                  <TableHead>インボイス番号</TableHead>
-                  <TableHead>連携</TableHead>
-                  <TableHead className="w-20"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {companies.map((c) => (
-                  <TableRow key={c.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{c.name}</p>
-                        {c.short_name && <p className="text-xs text-muted-foreground">{c.short_name}</p>}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1 flex-wrap">
-                        {c.is_customer && <Badge variant="secondary" className="text-xs">顧客</Badge>}
-                        {c.is_vendor && (
-                          <Badge variant="outline" className="text-xs">{c.vendor_type || "仕入先"}</Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm">{c.contact_name || "-"}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground max-w-[160px] truncate">
-                      {c.email || "-"}
-                    </TableCell>
-                    <TableCell className="text-sm">{c.phone || "-"}</TableCell>
-                    <TableCell className="text-xs font-mono text-muted-foreground">
-                      {c.invoice_registration_number || "-"}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        {c.customer_id && (
-                          <button
-                            className="text-xs text-primary hover:underline flex items-center gap-0.5 whitespace-nowrap"
-                            onClick={() => navigate("/sales/customers")}
-                          >
-                            <ExternalLink className="h-3 w-3" />顧客
-                          </button>
-                        )}
-                        {c.vendor_id && (
-                          <button
-                            className="text-xs text-primary hover:underline flex items-center gap-0.5 whitespace-nowrap"
-                            onClick={() => navigate("/budget/vendors")}
-                          >
-                            <ExternalLink className="h-3 w-3" />仕入先
-                          </button>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1 justify-end">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(c)}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDeleteTarget(c)}>
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          <div className="hidden lg:block">
+            <DataTable<Company>
+              data={companies}
+              rowKey={(c) => c.id}
+              storageKey="companies"
+              columns={[
+                {
+                  key: "name",
+                  header: "取引先名",
+                  defaultWidth: 220,
+                  cell: (c) => (
+                    <div>
+                      <p className="font-medium truncate">{c.name}</p>
+                      {c.short_name && <p className="text-xs text-muted-foreground truncate">{c.short_name}</p>}
+                    </div>
+                  ),
+                },
+                {
+                  key: "role",
+                  header: "役割",
+                  defaultWidth: 120,
+                  sortValue: (c) => `${c.is_customer ? "顧客" : ""}${c.is_vendor ? (c.vendor_type || "仕入先") : ""}`,
+                  cell: (c) => (
+                    <div className="flex gap-1 flex-wrap">
+                      {c.is_customer && <Badge variant="secondary" className="text-xs">顧客</Badge>}
+                      {c.is_vendor && (
+                        <Badge variant="outline" className="text-xs">{c.vendor_type || "仕入先"}</Badge>
+                      )}
+                    </div>
+                  ),
+                },
+                { key: "contact_name", header: "担当者", defaultWidth: 140, className: "text-sm", cell: (c) => c.contact_name || "-" },
+                { key: "email", header: "メール", defaultWidth: 200, className: "text-sm text-muted-foreground", cell: (c) => c.email || "-" },
+                { key: "phone", header: "電話", defaultWidth: 130, className: "text-sm", cell: (c) => c.phone || "-" },
+                {
+                  key: "invoice_registration_number",
+                  header: "インボイス番号",
+                  defaultWidth: 160,
+                  className: "text-xs font-mono text-muted-foreground",
+                  cell: (c) => c.invoice_registration_number || "-",
+                },
+                {
+                  key: "linked",
+                  header: "連携",
+                  defaultWidth: 140,
+                  sortable: false,
+                  cell: (c) => (
+                    <div className="flex gap-2">
+                      {c.customer_id && (
+                        <button
+                          className="text-xs text-primary hover:underline flex items-center gap-0.5 whitespace-nowrap"
+                          onClick={(e) => { e.stopPropagation(); navigate("/sales/customers"); }}
+                        >
+                          <ExternalLink className="h-3 w-3" />顧客
+                        </button>
+                      )}
+                      {c.vendor_id && (
+                        <button
+                          className="text-xs text-primary hover:underline flex items-center gap-0.5 whitespace-nowrap"
+                          onClick={(e) => { e.stopPropagation(); navigate("/budget/vendors"); }}
+                        >
+                          <ExternalLink className="h-3 w-3" />仕入先
+                        </button>
+                      )}
+                    </div>
+                  ),
+                },
+              ] as DataTableColumn<Company>[]}
+              actionsWidth={80}
+              actions={(c) => (
+                <div className="flex gap-1 justify-end">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(c)}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDeleteTarget(c)}>
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  </Button>
+                </div>
+              )}
+            />
           </div>
 
           {pagination && pagination.totalPages > 1 && (

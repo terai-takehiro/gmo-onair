@@ -140,10 +140,25 @@ export default function StudioBookingDialog({
 
   const { data: projectsData } = useQuery({
     queryKey: ["projects-all"],
-    queryFn: async () => (await api.get("/projects?limit=200")).data,
+    queryFn: async () => (await api.get("/projects?limit=500")).data,
     enabled: open,
   });
   const projects: any[] = projectsData?.data ?? [];
+
+  // 選択中の案件が一覧に無い場合は単体で取得して候補に追加
+  const { data: selectedProjectSingle } = useQuery({
+    queryKey: ["project-single", projectId],
+    queryFn: async () => (await api.get(`/projects/${projectId}`)).data.data,
+    enabled: open && !!projectId && !projects.some((p) => p.id === projectId),
+  });
+
+  const projectOptions: any[] = (() => {
+    const all = [...projects];
+    if (selectedProjectSingle && !all.some((p) => p.id === selectedProjectSingle.id)) {
+      all.unshift(selectedProjectSingle);
+    }
+    return all;
+  })();
 
   const { data: episodesData } = useQuery({
     queryKey: ["episodes", projectId],
@@ -225,7 +240,7 @@ export default function StudioBookingDialog({
 
   useEffect(() => {
     if (projectId && !editingBooking) {
-      const proj = projects.find((p: any) => p.id === projectId);
+      const proj = projectOptions.find((p: any) => p.id === projectId);
       if (proj && (bookingType === "performance" || bookingType === "rehearsal" || bookingType === "hold")) {
         const ep = episodes.find((e: any) => e.id === episodeId);
         const typeLabel = bookingType === "hold" ? " 仮押さえ" : bookingType === "rehearsal" ? " リハーサル" : "";
@@ -393,14 +408,14 @@ export default function StudioBookingDialog({
                 <div className="rounded-xl border bg-muted/30 divide-y overflow-hidden">
                   <div className="px-3 py-1.5">
                     <SearchableSelect
-                      options={projects.map((p: any) => ({
+                      options={projectOptions.map((p: any) => ({
                         value: p.id,
-                        label: `${p.gls_number || p.code} ${p.name}`,
+                        label: `${p.gls_number || p.code || ""} ${p.name}`.trim(),
                         subLabel: p.customer_name || "",
                       }))}
                       value={projectId}
                       onChange={(v) => { setProjectId(v); setEpisodeId(""); }}
-                      placeholder="案件を検索..."
+                      placeholder="GLS番号・案件名・顧客名で検索..."
                     />
                   </div>
                   {projectId && episodes.length > 0 && (
@@ -519,30 +534,57 @@ export default function StudioBookingDialog({
                   </div>
                 </div>
                 <div className="rounded-xl border bg-muted/30 p-3 space-y-3">
-                  {roomLocations.map((loc) => (
-                    <div key={loc.id}>
-                      <p className="text-[11px] font-medium text-muted-foreground mb-2">{loc.name}</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {loc.rooms.map((room) => (
-                          <button
-                            key={room.id}
-                            type="button"
-                            onClick={() => toggleRoom(room.id)}
-                            className={cn(
-                              "flex items-center gap-2 rounded-xl px-3 py-2.5 text-[14px] font-medium transition-all text-left",
-                              selectedRoomIds.has(room.id)
-                                ? "text-white shadow-sm"
-                                : "bg-background/80 border border-border"
-                            )}
-                            style={selectedRoomIds.has(room.id) ? { backgroundColor: room.color } : undefined}
-                          >
-                            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: room.color }} />
-                            <span className="truncate">{room.name}</span>
-                          </button>
-                        ))}
+                  {roomLocations.map((loc) => {
+                    const locRoomIds = loc.rooms.map((r) => r.id);
+                    const allInLocationSelected =
+                      locRoomIds.length > 0 && locRoomIds.every((id) => selectedRoomIds.has(id));
+                    const toggleAllInLocation = () => {
+                      setSelectedRoomIds((prev) => {
+                        const next = new Set(prev);
+                        if (allInLocationSelected) {
+                          locRoomIds.forEach((id) => next.delete(id));
+                        } else {
+                          locRoomIds.forEach((id) => next.add(id));
+                        }
+                        return next;
+                      });
+                    };
+                    return (
+                      <div key={loc.id}>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-[11px] font-medium text-muted-foreground">{loc.name}</p>
+                          {locRoomIds.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={toggleAllInLocation}
+                              className="text-[11px] text-primary hover:underline"
+                            >
+                              {allInLocationSelected ? "全解除" : "全選択"}
+                            </button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {loc.rooms.map((room) => (
+                            <button
+                              key={room.id}
+                              type="button"
+                              onClick={() => toggleRoom(room.id)}
+                              className={cn(
+                                "flex items-center gap-2 rounded-xl px-3 py-2.5 text-[14px] font-medium transition-all text-left",
+                                selectedRoomIds.has(room.id)
+                                  ? "text-white shadow-sm"
+                                  : "bg-background/80 border border-border"
+                              )}
+                              style={selectedRoomIds.has(room.id) ? { backgroundColor: room.color } : undefined}
+                            >
+                              <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: room.color }} />
+                              <span className="truncate">{room.name}</span>
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
 
                   {/* 外現場 */}
                   <div>
