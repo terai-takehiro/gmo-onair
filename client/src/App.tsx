@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react";
 // Platform
 import LoginPage from "@/contexts/platform/pages/LoginPage";
 import AuthCallbackPage from "@/contexts/platform/pages/AuthCallbackPage";
+import AcceptInvitationPage from "@/contexts/platform/pages/AcceptInvitationPage";
 import HomePage from "@/contexts/platform/pages/HomePage";
 import UserListPage from "@/contexts/platform/pages/UserListPage";
 import DataViewerPage from "@/contexts/platform/pages/DataViewerPage";
@@ -16,6 +17,7 @@ import DashboardPage from "@/contexts/platform/pages/DashboardPage";
 import ProjectListPage from "@/contexts/sales/pages/ProjectListPage";
 import ProjectFormPage from "@/contexts/sales/pages/ProjectFormPage";
 import CustomerListPage from "@/contexts/sales/pages/CustomerListPage";
+import CompanyListPage from "@/contexts/sales/pages/CompanyListPage";
 import PricingListPage from "@/contexts/sales/pages/PricingListPage";
 import ActivityLogPage from "@/contexts/sales/pages/ActivityLogPage";
 import SalesReviewPage from "@/contexts/sales/pages/SalesReviewPage";
@@ -26,6 +28,7 @@ import ProjectGroupListPage from "@/contexts/sales/pages/ProjectGroupListPage";
 // Production (スタジオ予約)
 import EpisodeListPage from "@/contexts/production/pages/EpisodeListPage";
 import StudioCalendarPage from "@/contexts/production/pages/StudioCalendarPage";
+import SignagePage from "@/contexts/production/pages/SignagePage";
 import VendorReportPage from "@/contexts/production/pages/VendorReportPage";
 
 // Finance (予算管理)
@@ -34,14 +37,10 @@ import PurchaseListPage from "@/contexts/finance/pages/PurchaseListPage";
 import SgaListPage from "@/contexts/finance/pages/SgaListPage";
 import VendorListPage from "@/contexts/finance/pages/VendorListPage";
 import PartnerListPage from "@/contexts/finance/pages/PartnerListPage";
+import BudgetDetailPage from "@/contexts/finance/pages/BudgetDetailPage";
+import BudgetDashboardPage from "@/contexts/finance/pages/BudgetDashboardPage";
 
-// Equipment (機材管理)
-import EquipmentDashboard from "@/contexts/equipment/pages/EquipmentDashboard";
-import EquipmentListPage from "@/contexts/equipment/pages/EquipmentListPage";
-import EquipmentDetailPage from "@/contexts/equipment/pages/EquipmentDetailPage";
-import LendingListPage from "@/contexts/equipment/pages/LendingListPage";
-import MaintenancePage from "@/contexts/equipment/pages/MaintenancePage";
-import InventoryPage from "@/contexts/equipment/pages/InventoryPage";
+// 機材管理は client-equipment/ が /equipment 配下で配信 (案件管理アプリ側では扱わない)
 import SettingsPage from "@/contexts/platform/pages/SettingsPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -80,6 +79,8 @@ function AppRoutes() {
         element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />}
       />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
+      <Route path="/auth/accept-invitation" element={<AcceptInvitationPage />} />
+      <Route path="/signage/:roomId" element={<SignagePage />} />
 
       <Route
         element={
@@ -103,6 +104,7 @@ function AppRoutes() {
         <Route path="/sales/activity-logs" element={<PermissionRoute module="sales"><ActivityLogPage /></PermissionRoute>} />
         <Route path="/sales/review" element={<PermissionRoute module="sales"><SalesReviewPage /></PermissionRoute>} />
         <Route path="/sales/customers" element={<PermissionRoute module="sales"><CustomerListPage /></PermissionRoute>} />
+        <Route path="/sales/companies" element={<PermissionRoute module="sales"><CompanyListPage /></PermissionRoute>} />
         <Route path="/sales/pricing" element={<PermissionRoute module="sales"><PricingListPage /></PermissionRoute>} />
 
         {/* ===== 予算管理 (budget) ===== */}
@@ -112,17 +114,13 @@ function AppRoutes() {
         <Route path="/budget/vendors" element={<PermissionRoute module="budget"><VendorListPage /></PermissionRoute>} />
         <Route path="/budget/partners" element={<PermissionRoute module="budget"><PartnerListPage /></PermissionRoute>} />
         <Route path="/budget/reports/vendors" element={<PermissionRoute module="budget"><VendorReportPage /></PermissionRoute>} />
+        <Route path="/budget/detail" element={<PermissionRoute module="budget"><BudgetDetailPage /></PermissionRoute>} />
+        <Route path="/budget/dashboard" element={<PermissionRoute module="budget"><BudgetDashboardPage /></PermissionRoute>} />
 
         {/* ===== スタジオ予約 (studio) ===== */}
         <Route path="/studio/calendar" element={<PermissionRoute module="studio"><StudioCalendarPage /></PermissionRoute>} />
 
-        {/* ===== 機材管理 (equipment) ===== */}
-        <Route path="/equipment" element={<PermissionRoute module="equipment"><EquipmentDashboard /></PermissionRoute>} />
-        <Route path="/equipment/items" element={<PermissionRoute module="equipment"><EquipmentListPage /></PermissionRoute>} />
-        <Route path="/equipment/items/:id" element={<PermissionRoute module="equipment"><EquipmentDetailPage /></PermissionRoute>} />
-        <Route path="/equipment/lending" element={<PermissionRoute module="equipment"><LendingListPage /></PermissionRoute>} />
-        <Route path="/equipment/maintenance" element={<PermissionRoute module="equipment"><MaintenancePage /></PermissionRoute>} />
-        <Route path="/equipment/inventory" element={<PermissionRoute module="equipment"><InventoryPage /></PermissionRoute>} />
+        {/* 機材管理 (/equipment/*) は client-equipment/ が Nginx 経由で配信 */}
 
         {/* ===== システム管理 (admin) ===== */}
         <Route path="/admin/users" element={<PermissionRoute module="admin"><UserListPage /></PermissionRoute>} />

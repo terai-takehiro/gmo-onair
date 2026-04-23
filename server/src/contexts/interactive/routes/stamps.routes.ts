@@ -1,94 +1,78 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 
 const router = Router();
+const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) =>
+  (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
+
 router.use(requireAuth, requirePermission('interactive'));
 
-// スタンプ一覧 (イベント別)
-router.get('/event/:eventId', async (req, res) => {
-  const rows = await queryAll(
-    'SELECT * FROM interactive_stamps WHERE event_id = ? ORDER BY sort_order',
-    [req.params.eventId]
-  );
-  res.json({ success: true, data: rows });
-});
-
 // スタンプ作成
-router.post('/', requirePermission('interactive', 'editor'), async (req, res) => {
-  const { event_id, label, emoji, color, animation, sort_order } = req.body;
+router.post('/', wrap(async (req, res) => {
+  const { event_id, label, emoji, color, animation, sort_order, image_url } = req.body;
   if (!event_id || !label) throw new AppError(400, 'VALIDATION_ERROR', 'event_idとlabelは必須です');
 
-  const event = await queryOne('SELECT id FROM interactive_events WHERE id = ? AND deleted_at IS NULL', [event_id]);
-  if (!event) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
-
-  // 最大20スタンプ/イベント
-  const countRow = await queryOne('SELECT COUNT(*) as c FROM interactive_stamps WHERE event_id = ?', [event_id]) as any;
-  if (countRow.c >= 20) throw new AppError(400, 'LIMIT_EXCEEDED', 'スタンプは最大20個です');
+  const count = (await queryOne('SELECT COUNT(*)::int as c FROM interactive_stamps WHERE event_id = ?', [event_id]) as any)?.c || 0;
+  if (count >= 20) throw new AppError(400, 'LIMIT_EXCEEDED', 'スタンプは最大20個です');
 
   const id = uuidv4();
-  const safeLabel = String(label).slice(0, 100);
-  const safeEmoji = emoji ? String(emoji).slice(0, 20) : '';
-  const safeColor = color ? String(color).slice(0, 20) : '#e11d48';
-  const safeAnimation = animation && ['bounce', 'fade', 'slide', 'shake', 'pop', 'none'].includes(animation) ? animation : 'bounce';
-
   await execute(
-    `INSERT INTO interactive_stamps (id, event_id, label, emoji, color, animation, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [id, event_id, safeLabel, safeEmoji, safeColor, safeAnimation, sort_order || 0]
+    `INSERT INTO interactive_stamps (id, event_id, label, emoji, color, animation, sort_order, image_url)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, event_id, String(label).slice(0, 100), emoji || '', color || '#e11d48',
+     animation || 'bounce', sort_order || 0, image_url || null]
   );
 
   const row = await queryOne('SELECT * FROM interactive_stamps WHERE id = ?', [id]);
   res.status(201).json({ success: true, data: row });
-});
+}));
 
 // スタンプ更新
-router.put('/:id', requirePermission('interactive', 'editor'), async (req, res) => {
+router.put('/:id', wrap(async (req, res) => {
   const existing = await queryOne('SELECT * FROM interactive_stamps WHERE id = ?', [req.params.id]) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'スタンプが見つかりません');
 
-  const { label, emoji, color, animation, sort_order, is_active } = req.body;
-
+  const b = req.body;
   await execute(
-    `UPDATE interactive_stamps SET label=?, emoji=?, color=?, animation=?, sort_order=?, is_active=? WHERE id=?`,
-    [
-      label ? String(label).slice(0, 100) : existing.label,
-      emoji !== undefined ? String(emoji).slice(0, 20) : existing.emoji,
-      color ? String(color).slice(0, 20) : existing.color,
-      animation && ['bounce', 'fade', 'slide', 'shake', 'pop', 'none'].includes(animation) ? animation : existing.animation,
-      sort_order !== undefined ? sort_order : existing.sort_order,
-      is_active !== undefined ? is_active : existing.is_active,
-      req.params.id,
-    ]
+    `UPDATE interactive_stamps SET
+       label = COALESCE(?, label), emoji = COALESCE(?, emoji), color = COALESCE(?, color),
+       animation = COALESCE(?, animation), sort_order = COALESCE(?, sort_order),
+       is_active = COALESCE(?, is_active), image_url = COALESCE(?, image_url)
+     WHERE id = ?`,
+    [b.label || null, b.emoji !== undefined ? b.emoji : null, b.color || null,
+     b.animation || null, b.sort_order !== undefined ? b.sort_order : null,
+     b.is_active !== undefined ? b.is_active : null,
+     b.image_url !== undefined ? (b.image_url || null) : null,
+     req.params.id]
   );
 
   const row = await queryOne('SELECT * FROM interactive_stamps WHERE id = ?', [req.params.id]);
   res.json({ success: true, data: row });
-});
+}));
 
 // スタンプ削除
-router.delete('/:id', requirePermission('interactive', 'editor'), async (req, res) => {
+router.delete('/:id', wrap(async (req, res) => {
   await execute('DELETE FROM interactive_stamps WHERE id = ?', [req.params.id]);
-  res.json({ success: true, message: '削除しました' });
-});
+  res.json({ success: true });
+}));
 
-// スタンプ並び替え (一括)
-router.put('/event/:eventId/reorder', requirePermission('interactive', 'editor'), async (req, res) => {
-  const { order } = req.body; // [{ id, sort_order }]
+// 並び替え
+router.put('/event/:eventId/reorder', wrap(async (req, res) => {
+  const { order } = req.body;
   if (!Array.isArray(order)) throw new AppError(400, 'VALIDATION_ERROR', 'orderは配列で指定してください');
 
   for (const item of order.slice(0, 20)) {
     if (item.id && typeof item.sort_order === 'number') {
-      await execute('UPDATE interactive_stamps SET sort_order = ? WHERE id = ? AND event_id = ?', [item.sort_order, item.id, req.params.eventId]);
+      await execute('UPDATE interactive_stamps SET sort_order = ? WHERE id = ? AND event_id = ?',
+        [item.sort_order, item.id, req.params.eventId]);
     }
   }
 
-  const rows = await queryAll(
-    'SELECT * FROM interactive_stamps WHERE event_id = ? ORDER BY sort_order',
-    [req.params.eventId]
-  );
+  const rows = await queryAll('SELECT * FROM interactive_stamps WHERE event_id = ? ORDER BY sort_order', [req.params.eventId]);
   res.json({ success: true, data: rows });
-});
+}));
 
 export default router;

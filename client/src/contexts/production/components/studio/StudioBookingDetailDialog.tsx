@@ -34,22 +34,31 @@ interface StudioBooking {
   project_name: string | null;
   gls_number: string | null;
   episode_code: string | null;
+  status?: string;
   rooms: BookingRoom[];
 }
 
 const bookingTypeLabels: Record<string, string> = {
-  project: "案件",
+  performance: "本番",
+  rehearsal: "リハーサル",
+  hold: "仮押さえ",
+  consultation: "相談",
   maintenance: "メンテナンス",
   tour: "内覧",
   internal: "社内利用",
+  setup: "設営/準備",
   other: "その他",
 };
 
 const bookingTypeColors: Record<string, string> = {
-  project: "bg-blue-100 text-blue-700",
-  maintenance: "bg-red-100 text-red-700",
+  performance: "bg-rose-100 text-rose-700",
+  rehearsal: "bg-amber-100 text-amber-700",
+  hold: "bg-blue-100 text-blue-700",
+  consultation: "bg-emerald-100 text-emerald-700",
+  maintenance: "bg-slate-100 text-slate-700",
   tour: "bg-purple-100 text-purple-700",
-  internal: "bg-yellow-100 text-yellow-700",
+  internal: "bg-cyan-100 text-cyan-700",
+  setup: "bg-amber-100 text-amber-800",
   other: "bg-gray-100 text-gray-700",
 };
 
@@ -59,6 +68,8 @@ interface Props {
   booking: StudioBooking | null;
   onEdit: (booking: StudioBooking) => void;
   onDelete: (id: string) => void;
+  canEdit?: boolean;
+  canDelete?: boolean;
 }
 
 function formatTimeRange(booking: StudioBooking): string {
@@ -85,6 +96,8 @@ export default function StudioBookingDetailDialog({
   booking,
   onEdit,
   onDelete,
+  canEdit = true,
+  canDelete = true,
 }: Props) {
   const navigate = useNavigate();
 
@@ -102,11 +115,16 @@ export default function StudioBookingDetailDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Type badge */}
-          <div>
-            <Badge className={bookingTypeColors[booking.booking_type]}>
-              {bookingTypeLabels[booking.booking_type]}
+          {/* Type and status badges */}
+          <div className="flex flex-wrap gap-1.5">
+            <Badge className={bookingTypeColors[booking.booking_type] || "bg-gray-100 text-gray-700"}>
+              {bookingTypeLabels[booking.booking_type] || booking.booking_type}
             </Badge>
+            {booking.status === "tentative" ? (
+              <Badge className="bg-gray-100 text-gray-500 italic">未確定</Badge>
+            ) : (
+              <Badge className="bg-blue-100 text-blue-700">確定</Badge>
+            )}
           </div>
 
           {/* Date & Time */}
@@ -200,28 +218,34 @@ export default function StudioBookingDetailDialog({
           {booking.notes && (
             <div>
               <p className="text-xs text-muted-foreground mb-1">メモ</p>
-              <p className="text-sm">{booking.notes}</p>
+              <p className="text-sm whitespace-pre-wrap">{booking.notes}</p>
             </div>
           )}
 
           {/* Actions */}
-          <div className="flex justify-between pt-2 border-t">
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => onDelete(booking.id)}
-            >
-              <Trash2 className="h-4 w-4 mr-1" />
-              削除
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => onEdit(booking)}
-            >
-              <Pencil className="h-4 w-4 mr-1" />
-              編集
-            </Button>
-          </div>
+          {(canEdit || canDelete) && (
+            <div className="flex justify-between pt-2 border-t">
+              {canDelete ? (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => onDelete(booking.id)}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  削除
+                </Button>
+              ) : <span />}
+              {canEdit && (
+                <Button
+                  size="sm"
+                  onClick={() => onEdit(booking)}
+                >
+                  <Pencil className="h-4 w-4 mr-1" />
+                  編集
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

@@ -113,7 +113,7 @@ export default function MaintenancePage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${typeColors[r.record_type] || ""}`}>
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${typeColors[r.record_type] || ""}`}>
                         {typeLabels[r.record_type]}
                       </span>
                       <span className="font-mono text-xs text-primary">{r.eq_code}</span>
@@ -128,7 +128,7 @@ export default function MaintenancePage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <Badge variant="outline" className="text-[10px]">
+                    <Badge variant="outline" className="text-xs">
                       {statusLabels[r.status]}
                     </Badge>
                     {r.status !== "completed" && r.status !== "cancelled" && (

@@ -8,9 +8,14 @@ import EquipmentDetailPage from "@/pages/EquipmentDetailPage";
 import LendingListPage from "@/pages/LendingListPage";
 import MaintenancePage from "@/pages/MaintenancePage";
 import InventoryPage from "@/pages/InventoryPage";
-import CategoryPage from "@/pages/CategoryPage";
 import ScanPage from "@/pages/ScanPage";
 import LocationPage from "@/pages/LocationPage";
+import ManufacturerPage from "@/pages/ManufacturerPage";
+import ColorPage from "@/pages/ColorPage";
+import RackLayoutPage from "@/pages/RackLayoutPage";
+import ModelGroupPage from "@/pages/ModelGroupPage";
+import RentalSettingsPage from "@/pages/RentalSettingsPage";
+import RentalCategoryPage from "@/pages/RentalCategoryPage";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -46,9 +51,14 @@ export default function App() {
         <Route path="/equipment/lendings" element={<LendingListPage />} />
         <Route path="/equipment/maintenance" element={<MaintenancePage />} />
         <Route path="/equipment/inventory" element={<InventoryPage />} />
-        <Route path="/equipment/categories" element={<CategoryPage />} />
         <Route path="/equipment/scan" element={<ScanPage />} />
         <Route path="/equipment/locations" element={<LocationPage />} />
+        <Route path="/equipment/manufacturers" element={<ManufacturerPage />} />
+        <Route path="/equipment/colors" element={<ColorPage />} />
+        <Route path="/equipment/racks" element={<RackLayoutPage />} />
+        <Route path="/equipment/model-groups" element={<ModelGroupPage />} />
+        <Route path="/equipment/rental-settings" element={<RentalSettingsPage />} />
+        <Route path="/equipment/rental-categories" element={<RentalCategoryPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/equipment" replace />} />
     </Routes>

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
@@ -5,136 +6,209 @@ import { useAuth } from "../AuthContext";
 import { StaggerList, StaggerItem, LiftCard } from "@/components/ui/motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CardContent } from "@/components/ui/card";
-import { Loader2, User, AlertCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
+import { Loader2, User, AlertCircle, Lock, Mail, Smartphone } from "lucide-react";
 
 const roleLabelMap: Record<string, string> = {
   system_admin: "システム管理者",
   staff: "スタッフ",
-  viewer: "閲覧者",
-  external_client: "外部クライアント",
-};
-
-const roleColorMap: Record<string, string> = {
-  system_admin: "#dc2626",
-  staff: "#005bac",
-  viewer: "#059669",
-  external_client: "#7c3aed",
 };
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, loginWithToken } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const error = searchParams.get("error");
+  const redirectPath = searchParams.get("redirect");
 
-  // Detect auth mode from server
+  // Auth mode
   const { data: authMode } = useQuery({
     queryKey: ["auth-mode"],
-    queryFn: async () => {
-      const res = await api.get("/auth/mode");
-      return res.data.data as { mode: "oauth" | "mock"; googleClientId: string | null };
-    },
+    queryFn: async () => (await api.get("/auth/mode")).data.data as { mode: string },
   });
 
-  // Mock mode: fetch user list
-  const { data: users, isLoading } = useQuery({
+  // Mock mode users
+  const { data: users, isLoading: usersLoading } = useQuery({
     queryKey: ["auth-users"],
-    queryFn: async () => {
-      const res = await api.get("/auth/users");
-      return res.data.data as Array<{ id: string; name: string; email: string; role: string }>;
-    },
+    queryFn: async () => (await api.get("/auth/users")).data.data as Array<{ id: string; name: string; email: string; role: string }>,
     enabled: authMode?.mode === "mock",
   });
 
-  const handleLogin = async (userId: string) => {
-    await login(userId);
-    navigate("/", { replace: true });
+  // Login form state
+  const [step, setStep] = useState<"login" | "2fa">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [userId, setUserId] = useState("");
+  const [phoneMasked, setPhoneMasked] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState("");
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError("");
+    setLoading(true);
+    try {
+      const res = await api.post("/auth/login", { email, password });
+      const data = res.data.data;
+      if (data.requires_2fa) {
+        setStep("2fa");
+        setUserId(data.user_id);
+        setPhoneMasked(data.phone_masked);
+      } else {
+        await loginWithToken(data.token);
+        if (redirectPath && redirectPath.startsWith('/')) { window.location.href = redirectPath; }
+        else { navigate("/", { replace: true }); }
+      }
+    } catch (err: any) {
+      setFormError(err.response?.data?.error?.message || "ログインに失敗しました");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleGoogleLogin = () => {
-    window.location.href = "/api/v1/internal/auth/google";
+  const handleVerify2fa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError("");
+    setLoading(true);
+    try {
+      const res = await api.post("/auth/verify-2fa", { user_id: userId, code: otpCode });
+      await loginWithToken(res.data.data.token);
+      if (redirectPath && redirectPath.startsWith('/')) { window.location.href = redirectPath; }
+      else { navigate("/", { replace: true }); }
+    } catch (err: any) {
+      setFormError(err.response?.data?.error?.message || "認証コードが正しくありません");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const isOAuth = authMode?.mode === "oauth";
+  const handleResendOtp = async () => {
+    try {
+      await api.post("/auth/resend-otp", { user_id: userId });
+      setFormError("");
+    } catch { /* ignore */ }
+  };
+
+  const handleMockLogin = async (uid: string) => {
+    await login(uid);
+    if (redirectPath && redirectPath.startsWith('/')) { window.location.href = redirectPath; }
+    else { navigate("/", { replace: true }); }
+  };
+
+  const isMock = authMode?.mode === "mock";
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-slate-100">
-      <div className="w-full max-w-2xl px-4">
+      <div className="w-full max-w-md px-4">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-primary sm:text-4xl">GMO ONAiR</h1>
-          <p className="mt-2 text-base text-muted-foreground sm:text-lg">
-            統合業務管理システム
-          </p>
+          <img
+            src="/logo-onair.svg"
+            alt="GMO ONAiR"
+            className="mx-auto h-12 w-auto sm:h-16"
+          />
+          <p className="mt-2 text-base text-muted-foreground">統合業務管理システム</p>
         </div>
 
-        {error && (
-          <div className="mb-6 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-            <AlertCircle className="h-4 w-4 flex-shrink-0" />
-            <span>
-              {error === "auth_failed" ? "認証に失敗しました。管理者にお問い合わせください。" :
-               error === "no_token" ? "認証トークンが見つかりませんでした。" :
-               "ログインエラーが発生しました。"}
-            </span>
+        {(error || formError) && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{formError || (error === "auth_failed" ? "認証に失敗しました" : "ログインエラー")}</span>
           </div>
         )}
 
-        {isOAuth ? (
-          <div className="flex flex-col items-center gap-6">
-            <Button
-              size="lg"
-              className="flex items-center gap-3 px-8 py-6 text-base"
-              onClick={handleGoogleLogin}
-            >
-              <svg className="h-5 w-5" viewBox="0 0 24 24">
-                <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
-                <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-              </svg>
-              Googleアカウントでログイン
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              登録済みのGoogleアカウントでログインしてください
-            </p>
-          </div>
-        ) : isLoading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        ) : (
+        {/* Mock mode — dev user cards */}
+        {isMock && (
           <>
-            <StaggerList className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {users?.map((user) => (
-                <StaggerItem key={user.id}>
-                  <LiftCard
-                    className="cursor-pointer rounded-lg border bg-card text-card-foreground shadow-sm"
-                    onClick={() => handleLogin(user.id)}
-                  >
-                    <CardContent className="flex items-center gap-4 p-6">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                        <User className="h-6 w-6 text-primary" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-semibold">{user.name}</p>
-                        <p className="text-sm text-muted-foreground">{user.email}</p>
-                        <Badge
-                          className="mt-1"
-                          color={roleColorMap[user.role]}
-                        >
-                          {roleLabelMap[user.role] || user.role}
-                        </Badge>
-                      </div>
-                    </CardContent>
-                  </LiftCard>
-                </StaggerItem>
-              ))}
-            </StaggerList>
-
-            <p className="mt-8 text-center text-xs text-muted-foreground">
-              開発モード — ユーザーカードをクリックしてログイン
-            </p>
+            {usersLoading ? (
+              <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+            ) : (
+              <StaggerList className="grid grid-cols-1 gap-3 sm:grid-cols-2 mb-6">
+                {users?.map((u) => (
+                  <StaggerItem key={u.id}>
+                    <LiftCard className="cursor-pointer rounded-lg border bg-card shadow-sm" onClick={() => handleMockLogin(u.id)}>
+                      <CardContent className="flex items-center gap-3 p-4">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                          <User className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm truncate">{u.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                          <Badge className="mt-0.5 text-[10px]">{roleLabelMap[u.role] || u.role}</Badge>
+                        </div>
+                      </CardContent>
+                    </LiftCard>
+                  </StaggerItem>
+                ))}
+              </StaggerList>
+            )}
+            <div className="relative my-4"><hr /><span className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gradient-to-br from-blue-50 to-slate-100 px-3 text-xs text-muted-foreground">または</span></div>
           </>
+        )}
+
+        {/* Email/Password login */}
+        {step === "login" && (
+          <Card>
+            <CardContent className="p-6">
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div>
+                  <Label htmlFor="email" className="flex items-center gap-1.5 mb-1.5">
+                    <Mail className="h-3.5 w-3.5" />メールアドレス
+                  </Label>
+                  <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com" required autoComplete="email" />
+                </div>
+                <div>
+                  <Label htmlFor="password" className="flex items-center gap-1.5 mb-1.5">
+                    <Lock className="h-3.5 w-3.5" />パスワード
+                  </Label>
+                  <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••" required autoComplete="current-password" />
+                </div>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                  ログイン
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 2FA step */}
+        {step === "2fa" && (
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-center mb-4">
+                <Smartphone className="h-10 w-10 mx-auto text-primary mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  <strong>{phoneMasked}</strong> に認証コードを送信しました
+                </p>
+              </div>
+              <form onSubmit={handleVerify2fa} className="space-y-4">
+                <div>
+                  <Label htmlFor="otp">認証コード (6桁)</Label>
+                  <Input id="otp" type="text" inputMode="numeric" maxLength={6}
+                    value={otpCode} onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="000000" required autoComplete="one-time-code"
+                    className="text-center text-2xl tracking-[0.5em] font-mono" />
+                </div>
+                <Button type="submit" className="w-full" disabled={loading || otpCode.length !== 6}>
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                  認証する
+                </Button>
+                <div className="flex justify-between text-xs">
+                  <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => { setStep("login"); setFormError(""); }}>
+                    戻る
+                  </button>
+                  <button type="button" className="text-primary hover:underline" onClick={handleResendOtp}>
+                    コードを再送信
+                  </button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>

@@ -10,13 +10,14 @@ import {
   Wrench,
   AlertTriangle,
   Loader2,
-  DollarSign,
   Plus,
   RefreshCw,
   ChevronRight,
   Clock,
   CalendarDays,
   CheckCircle2,
+  ClipboardCheck,
+  Server,
 } from "lucide-react";
 
 function fmtDate(dateStr: string | null) {
@@ -107,13 +108,13 @@ export default function DashboardPage() {
       href: "/equipment/maintenance",
     },
     {
-      title: "固定資産総額",
-      value: `¥${(stats.total_asset_value ?? 0).toLocaleString()}`,
-      sub: "取得価額合計",
-      icon: DollarSign,
+      title: "棚卸し",
+      value: stats.pending_inventory ?? 0,
+      sub: "未完了の棚卸し",
+      icon: ClipboardCheck,
       color: "text-purple-600",
       bg: "bg-purple-50",
-      href: null,
+      href: "/equipment/inventory",
     },
   ];
 
@@ -194,6 +195,14 @@ export default function DashboardPage() {
           <ArrowRightLeft className="h-4 w-4 text-green-600 shrink-0" />
           <span className="text-sm">QRスキャン</span>
         </Button>
+        <Button
+          variant="outline"
+          className="h-12 gap-2 justify-start px-4"
+          onClick={() => navigate("/equipment/racks")}
+        >
+          <Server className="h-4 w-4 text-slate-600 shrink-0" />
+          <span className="text-sm">ラック実装</span>
+        </Button>
       </div>
 
       {/* Alerts */}
@@ -269,7 +278,7 @@ export default function DashboardPage() {
                       <p className={`text-xs font-number ${overdue ? "text-amber-700 font-semibold" : "text-muted-foreground"}`}>
                         返却 {fmtDate(l.due_date)}
                       </p>
-                      {overdue && <Badge variant="outline" className="text-[10px] px-1 py-0 border-amber-400 text-amber-700">遅延</Badge>}
+                      {overdue && <Badge variant="outline" className="text-xs px-1 py-0 border-amber-400 text-amber-700">遅延</Badge>}
                     </div>
                   </div>
                 );
@@ -306,10 +315,10 @@ export default function DashboardPage() {
                     <p className="text-xs text-muted-foreground truncate">{m.equipment_name}</p>
                   </div>
                   <div className="text-right shrink-0 space-y-1">
-                    <Badge className={`text-[10px] px-1.5 py-0 ${maintenanceStatusColor[m.status] ?? "bg-gray-100 text-gray-700"}`}>
+                    <Badge className={`text-xs px-1.5 py-0 ${maintenanceStatusColor[m.status] ?? "bg-gray-100 text-gray-700"}`}>
                       {maintenanceStatusLabel[m.status] ?? m.status}
                     </Badge>
-                    <p className="text-[10px] text-muted-foreground">{maintenanceTypeLabel[m.record_type] ?? m.record_type}</p>
+                    <p className="text-xs text-muted-foreground">{maintenanceTypeLabel[m.record_type] ?? m.record_type}</p>
                   </div>
                 </div>
               ))}

@@ -1,5 +1,5 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { BLOCK_APPS } from "@/contexts/platform/AuthContext";
+import { BLOCK_APPS, useAuth } from "@/contexts/platform/AuthContext";
 import { useUiStore } from "@/stores/uiStore";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -31,11 +31,15 @@ import {
   FileText,
   BookOpen,
   Settings,
+  Timer,
+  Layers,
+  Tag,
+  Store,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   FolderKanban, PiggyBank, Calendar, Package, FileText,
-  BookOpen, Users, Truck, Sparkles, Wrench,
+  BookOpen, Users, Truck, Sparkles, Wrench, Timer,
 };
 
 interface NavItem {
@@ -72,6 +76,7 @@ const APP_NAV: Record<string, NavSection[]> = {
     {
       title: "マスター",
       items: [
+        { label: "取引先マスター", to: "/sales/companies", icon: Store },
         { label: "顧客", to: "/sales/customers", icon: Building2 },
         { label: "料金表", to: "/sales/pricing", icon: DollarSign },
       ],
@@ -84,11 +89,14 @@ const APP_NAV: Record<string, NavSection[]> = {
         { label: "売上管理", to: "/budget/revenues", icon: Receipt },
         { label: "仕入管理", to: "/budget/purchases", icon: ShoppingCart },
         { label: "販管費", to: "/budget/sga", icon: Receipt },
+        { label: "案件月別詳細", to: "/budget/detail", icon: FolderKanban },
+        { label: "ダッシュボード", to: "/budget/dashboard", icon: BarChart3 },
       ],
     },
     {
       title: "マスター",
       items: [
+        { label: "取引先マスター", to: "/sales/companies", icon: Store },
         { label: "仕入先", to: "/budget/vendors", icon: Truck },
         { label: "パートナー", to: "/budget/partners", icon: Users },
       ],
@@ -112,9 +120,11 @@ const APP_NAV: Record<string, NavSection[]> = {
       items: [
         { label: "ダッシュボード", to: "/equipment", icon: BarChart3 },
         { label: "機材一覧", to: "/equipment/items", icon: Package },
+        { label: "型番別一覧", to: "/equipment/model-groups", icon: Layers },
         { label: "貸出管理", to: "/equipment/lending", icon: ClipboardList },
         { label: "メンテナンス", to: "/equipment/maintenance", icon: Wrench },
         { label: "棚卸し", to: "/equipment/inventory", icon: ClipboardCheck },
+        { label: "貸出カテゴリ", to: "/equipment/rental-categories", icon: Tag },
       ],
     },
   ],
@@ -142,6 +152,8 @@ export default function Sidebar() {
   const { sidebarOpen, setSidebarOpen } = useUiStore();
   const navigate = useNavigate();
   const activeAppId = useActiveApp();
+  const { currentUser, hasPermission } = useAuth();
+  const isAdmin = currentUser?.role === "system_admin";
 
   // ホーム画面ではサイドバー非表示
   if (!activeAppId) return null;
@@ -164,7 +176,7 @@ export default function Sidebar() {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r bg-sidebar text-sidebar-foreground transition-transform lg:static lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex w-[72vw] sm:w-64 flex-col border-r bg-sidebar text-sidebar-foreground transition-transform lg:static lg:translate-x-0",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -224,8 +236,26 @@ export default function Sidebar() {
           </nav>
         </ScrollArea>
 
-        {/* Home button at bottom */}
-        <div className="border-t p-3">
+        {/* App shortcuts + Home — アクセス可能なアプリのみ表示 */}
+        <div className="border-t p-3 space-y-1">
+          <p className="px-3 mb-1 text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">他のアプリ</p>
+          {[
+            { path: "/qsheet", label: "Qシート", Icon: FileText, module: "qsheet" },
+            { path: "/equipment", label: "機材管理", Icon: Package, module: "equipment" },
+            { path: "/interactive", label: "インタラクティブ", Icon: Sparkles, module: "interactive" },
+            { path: "/techsheet", label: "技術資料", Icon: BookOpen, module: "techsheet" },
+          ]
+            .filter((app) => isAdmin || hasPermission(app.module))
+            .map((app) => (
+              <a
+                key={app.path}
+                href={app.path}
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
+              >
+                <app.Icon className="h-4 w-4 shrink-0" />
+                {app.label}
+              </a>
+            ))}
           <button
             onClick={() => { navigate("/"); setSidebarOpen(false); }}
             className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"

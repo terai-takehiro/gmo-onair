@@ -88,7 +88,7 @@ export default function ImageDropZone({ imageUrl, onImageChange }: Props) {
       ) : (
         <>
           <ImagePlus className="h-4 w-4 text-muted-foreground" />
-          <span className="text-[10px] text-muted-foreground mt-0.5">画像</span>
+          <span className="text-xs text-muted-foreground mt-0.5">画像</span>
         </>
       )}
       <input

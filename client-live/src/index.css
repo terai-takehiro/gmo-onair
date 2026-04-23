@@ -1,0 +1,99 @@
+@import '@gmo-onair/shared/src/client/design-tokens.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+    -webkit-text-size-adjust: 100%;
+    max-width: 100vw;
+  }
+  html {
+    touch-action: pan-y;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, a, [role="button"], label[for], summary {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  :root {
+    --background: 40 20% 96%;
+    --foreground: 60 6% 11%;
+    --card: 40 25% 99%;
+    --card-foreground: 60 6% 11%;
+    --popover: 40 25% 99%;
+    --popover-foreground: 60 6% 11%;
+    --primary: 209 100% 34%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 43 15% 88%;
+    --secondary-foreground: 48 4% 28%;
+    --muted: 43 15% 88%;
+    --muted-foreground: 48 3% 35%;
+    --accent: 43 15% 88%;
+    --accent-foreground: 48 4% 28%;
+    --destructive: 0 55% 46%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 40 18% 91%;
+    --input: 43 15% 88%;
+    --ring: 209 100% 34%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Noto Sans JP', -apple-system, 'Hiragino Sans', sans-serif;
+  }
+}
+
+/* ── Timer Phase Colors ── */
+.phase-idle      { color: hsl(var(--foreground)); }
+.phase-countdown { color: hsl(var(--foreground)); }
+.phase-yellow    { color: #d97706; }
+.phase-red       { color: #dc2626; animation: pulse-text 0.8s ease-in-out infinite; }
+
+@keyframes pulse-text {
+  0%, 100% { color: #dc2626; }
+  50%       { color: #f87171; }
+}
+
+.timer-display-font {
+  font-size: clamp(3.5rem, 20vw, 13rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-feature-settings: "tnum";
+}
+
+.timer-status-font {
+  font-size: clamp(0.65rem, 1.8vw, 1.25rem);
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  opacity: 0.45;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #dc2626;
+  animation: live-blink 1.2s ease-in-out infinite;
+}
+@keyframes live-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+/* ── AppSwitcher animation ─────────────────────── */
+@keyframes switcher-in {
+  from { opacity: 0; transform: scale(.95) translateY(-6px); }
+  to   { opacity: 1; transform: scale(1)   translateY(0);    }
+}
+.animate-switcher-in { animation: switcher-in .15s ease-out; }

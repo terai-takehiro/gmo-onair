@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import api from "@/lib/api";
+import { formatCurrency } from "@/lib/format";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +19,8 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator, AlertTriangle, Info, CalendarDays, FileText } from "lucide-react";
+import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator, AlertTriangle, Info, CalendarDays, FileText, Calendar } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   ProjectStageLabels, ProjectStageColors,
   ProjectTypeLabels, BroadcastTypeLabels, MediaPlatformLabels,
@@ -26,6 +28,7 @@ import {
   getProjectCategory,
 } from "@/types";
 import SimulationDialog from "../components/SimulationDialog";
+import CustomerDialog from "../components/CustomerDialog";
 
 interface LostDialogState {
   open: boolean;
@@ -37,6 +40,7 @@ interface LostDialogState {
 interface FormValues {
   name: string;
   customer_id: string;
+  customer_type: string;
   project_type: string;
   project_type_other: string;
   event_start: string;
@@ -47,6 +51,8 @@ interface FormValues {
   media_platform: string;
   tags: string;
   notes: string;
+  box_url_internal: string;
+  box_url_external: string;
 }
 
 interface GlsDialogState {
@@ -64,6 +70,8 @@ export default function ProjectFormPage() {
   const qc = useQueryClient();
 
   const [simOpen, setSimOpen] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [submitErrors, setSubmitErrors] = useState<string[]>([]);
   const [glsDialog, setGlsDialog] = useState<GlsDialogState>({
     open: false, mode: 'new', broadcast_type: "recording", media_platform: "other", target_project_id: "",
   });
@@ -79,19 +87,63 @@ export default function ProjectFormPage() {
   });
   const lostReasonCategories: { id: string; name: string }[] = lostReasonsData?.data ?? [];
   const [holdPromptOpen, setHoldPromptOpen] = useState(false);
+  const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
+  const [stageSelectValue, setStageSelectValue] = useState("");
+  const [stageConfirmOpen, setStageConfirmOpen] = useState(false);
+
+  // スタジオスケジュール
+  const [scheduleRoomIds, setScheduleRoomIds] = useState<string[]>([]);
+  const [productionStart, setProductionStart] = useState("");
+  const [productionEnd, setProductionEnd] = useState("");
+  const [productionMultiDay, setProductionMultiDay] = useState(false);
+  const [hasRehearsal, setHasRehearsal] = useState(false);
+  const [rehearsalStart, setRehearsalStart] = useState("");
+  const [rehearsalEnd, setRehearsalEnd] = useState("");
+  const [rehearsalMultiDay, setRehearsalMultiDay] = useState(false);
+  const [locationNote, setLocationNote] = useState("");
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+  const locationSuggestionsRef = useRef<HTMLDivElement>(null);
+  const LOCATION_NOTE_KEY = "studio_location_note_history";
+  const getLocationHistory = (): string[] => {
+    try { return JSON.parse(localStorage.getItem(LOCATION_NOTE_KEY) || "[]"); } catch { return []; }
+  };
+  const saveLocationNote = (note: string) => {
+    const history = getLocationHistory().filter(h => h !== note).slice(0, 14);
+    localStorage.setItem(LOCATION_NOTE_KEY, JSON.stringify([note, ...history]));
+  };
+  const locationHistory = getLocationHistory().filter(h =>
+    locationNote ? h.toLowerCase().includes(locationNote.toLowerCase()) : true
+  ).slice(0, 6);
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (locationSuggestionsRef.current && !locationSuggestionsRef.current.contains(e.target as Node)) {
+        setShowLocationSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const { data: studioLocationsData } = useQuery({
+    queryKey: ["studio-locations"],
+    queryFn: async () => (await api.get("/studios/locations")).data.data,
+  });
+  const studioLocations: { id: string; name: string; rooms: { id: string; name: string; color: string }[] }[] = studioLocationsData ?? [];
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<FormValues>({
     defaultValues: {
-      name: "", customer_id: "", project_type: "", project_type_other: "",
+      name: "", customer_id: "", customer_type: "external", project_type: "", project_type_other: "",
       event_start: "", event_end: "", expected_amount: 0, assigned_to: "",
       broadcast_type: "", media_platform: "", tags: "", notes: "",
+      box_url_internal: "", box_url_external: "",
     },
   });
 
-  const { data: project, isLoading: projectLoading } = useQuery({
+  const { data: project, isLoading: projectLoading, isError: projectLoadError } = useQuery({
     queryKey: ["project", id],
     queryFn: async () => (await api.get(`/projects/${id}`)).data.data,
     enabled: isEdit,
+    retry: 1,
   });
 
   const { data: customersData } = useQuery({
@@ -101,8 +153,8 @@ export default function ProjectFormPage() {
   const customers = customersData?.data ?? [];
 
   const { data: usersData } = useQuery({
-    queryKey: ["users-select"],
-    queryFn: async () => (await api.get("/auth/users")).data.data,
+    queryKey: ["users-by-module-sales"],
+    queryFn: async () => (await api.get("/users/by-module/sales")).data.data,
   });
   const users = usersData ?? [];
 
@@ -111,6 +163,7 @@ export default function ProjectFormPage() {
       reset({
         name: project.name || "",
         customer_id: project.customer_id || "",
+        customer_type: project.customer_type || "external",
         project_type: project.project_type || "other",
         project_type_other: project.project_type_other || "",
         event_start: project.event_start || "",
@@ -121,6 +174,8 @@ export default function ProjectFormPage() {
         media_platform: project.media_platform || "",
         tags: project.tags || "",
         notes: project.notes || "",
+        box_url_internal: project.box_url_internal || "",
+        box_url_external: project.box_url_external || "",
       });
     }
   }, [project, reset]);
@@ -137,8 +192,11 @@ export default function ProjectFormPage() {
       qc.invalidateQueries({ queryKey: ["projects"] });
       if (isEdit) {
         qc.invalidateQueries({ queryKey: ["project", id] });
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        navigate(`/sales/projects/${result.id}`);
       }
-      navigate(`/sales/projects/${result.id}`);
     },
   });
 
@@ -199,7 +257,61 @@ export default function ProjectFormPage() {
     }
   };
 
-  const onSubmit = (values: FormValues) => saveMutation.mutate(values);
+  const onSubmit = async (values: FormValues) => {
+    // バリデーション
+    const errs: string[] = [];
+    if (!values.customer_id) errs.push("顧客を選択してください");
+    if (!values.project_type) errs.push("案件種類を選択してください");
+    if (errs.length > 0) {
+      setSubmitErrors(errs);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    setSubmitErrors([]);
+
+    // event_start/event_end をスタジオ日程から自動設定
+    const prodEnd = productionMultiDay ? productionEnd : productionStart;
+    if (productionStart) {
+      values.event_start = (hasRehearsal && rehearsalStart) ? rehearsalStart : productionStart;
+      values.event_end = prodEnd || productionStart;
+    }
+    saveMutation.mutate(values, {
+      onSuccess: async (res) => {
+        const savedProjectId = (res as any)?.id || id;
+        // スタジオ予約を同時作成 (部屋・日程が指定されている場合)
+        if ((scheduleRoomIds.length > 0 || locationNote.trim()) && productionStart) {
+          if (locationNote.trim()) saveLocationNote(locationNote.trim());
+          try {
+            // 本番予約
+            await api.post("/studios/bookings", {
+              title: `${values.name} 本番`,
+              booking_type: "performance",
+              project_id: savedProjectId,
+              all_day: true,
+              start_time: productionStart,
+              end_time: prodEnd || productionStart,
+              room_ids: scheduleRoomIds,
+              location_note: locationNote.trim() || null,
+            });
+            // リハーサル予約
+            if (hasRehearsal && rehearsalStart) {
+              const rehEnd = rehearsalMultiDay ? rehearsalEnd : rehearsalStart;
+              await api.post("/studios/bookings", {
+                title: `${values.name} リハーサル`,
+                booking_type: "rehearsal",
+                project_id: savedProjectId,
+                all_day: true,
+                start_time: rehearsalStart,
+                end_time: rehEnd || rehearsalStart,
+                room_ids: scheduleRoomIds,
+                location_note: locationNote.trim() || null,
+              });
+            }
+          } catch { /* 予約失敗しても案件保存は成功 */ }
+        }
+      },
+    });
+  };
 
   const currentStage = (project?.stage || "neta") as ProjectStage;
   const projectType = watch("project_type");
@@ -214,6 +326,18 @@ export default function ProjectFormPage() {
     return (
       <div className="flex justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (isEdit && projectLoadError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 gap-4 p-6">
+        <p className="text-destructive">案件データの取得に失敗しました</p>
+        <Button variant="outline" onClick={() => navigate("/sales/projects")}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          一覧に戻る
+        </Button>
       </div>
     );
   }
@@ -236,6 +360,20 @@ export default function ProjectFormPage() {
         )}
       </div>
 
+
+      {/* バリデーションエラー */}
+      {submitErrors.length > 0 && (
+        <div className="rounded-lg bg-red-50 border border-red-200 p-3">
+          <div className="flex items-center gap-2 mb-1 text-sm font-medium text-red-800">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            以下の項目を確認してください
+          </div>
+          <ul className="list-disc list-inside text-sm text-red-700 space-y-0.5">
+            {submitErrors.map((e) => <li key={e}>{e}</li>)}
+          </ul>
+        </div>
+      )}
+
       {/* Stage guide */}
       {isEdit && project && !isTerminal && (
         <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
@@ -252,65 +390,99 @@ export default function ProjectFormPage() {
         </div>
       )}
 
+      {/* 財務サマリー */}
+      {isEdit && project && (Number(project.total_revenue) > 0 || Number(project.total_purchase) > 0) && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-lg border bg-card p-3 text-center">
+            <p className="text-xs text-muted-foreground mb-1">売上（確定）</p>
+            <p className="text-base font-bold font-number">{formatCurrency(Number(project.total_revenue))}</p>
+          </div>
+          <div className="rounded-lg border bg-card p-3 text-center">
+            <p className="text-xs text-muted-foreground mb-1">仕入</p>
+            <p className="text-base font-bold font-number">{formatCurrency(Number(project.total_purchase))}</p>
+          </div>
+          <div className={`rounded-lg border p-3 text-center ${Number(project.total_revenue) - Number(project.total_purchase) >= 0 ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
+            <p className="text-xs text-muted-foreground mb-1">粗利</p>
+            <p className={`text-base font-bold font-number ${Number(project.total_revenue) - Number(project.total_purchase) >= 0 ? "text-green-700" : "text-red-700"}`}>
+              {formatCurrency(Number(project.total_revenue) - Number(project.total_purchase))}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Stage change actions */}
-      {isEdit && project && !isTerminal && (
+      {isEdit && project && (
         <Card>
           <CardHeader><CardTitle className="text-base">ステージ変更</CardTitle></CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            {/* ヨミ段階の遷移 */}
-            {currentStage === 'neta' && (
-              <Button variant="outline" size="sm" onClick={() => stageMutation.mutate({ stage: "d_hold" })} disabled={stageMutation.isPending}>
-                D 仮押さえへ
+          <CardContent className="space-y-3">
+            <div className="flex items-end gap-2 flex-wrap">
+              <div className="flex-1 min-w-[160px]">
+                <Label className="text-xs text-muted-foreground mb-1 block">変更先ステージ</Label>
+                <Select value={stageSelectValue} onValueChange={setStageSelectValue} disabled={stageMutation.isPending}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="ステージを選択..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.entries(ProjectStageLabels) as [string, string][])
+                      .filter(([val]) => val !== currentStage)
+                      .map(([val, label]) => (
+                        <SelectItem key={val} value={val}>{label}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!stageSelectValue || stageMutation.isPending}
+                onClick={() => {
+                  if (!stageSelectValue) return;
+                  if (stageSelectValue === 'e_lost') {
+                    setLostDialog({ open: true, lost_reason: '', lost_reason_note: '', lessons_learned: '' });
+                    setStageSelectValue("");
+                  } else {
+                    setStageConfirmOpen(true);
+                  }
+                }}
+              >
+                {stageMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "変更"}
               </Button>
-            )}
-            {(currentStage === 'neta' || currentStage === 'd_hold') && (
-              <Button variant="outline" size="sm" onClick={() => stageMutation.mutate({ stage: "c_proposal" })} disabled={stageMutation.isPending}>
-                C 見積提案済へ
-              </Button>
-            )}
+
+              {/* GLS発番 */}
+              {isYomi && (
+                <Button
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700"
+                  onClick={() => setGlsDialog({ ...glsDialog, open: true })}
+                  disabled={glsMutation.isPending}
+                >
+                  <Trophy className="mr-2 h-4 w-4" />
+                  GLS発番
+                </Button>
+              )}
+            </div>
 
             {/* 仮押さえ中 + A系：スタジオ予約ショートカット */}
             {currentStage === 'd_hold' && isCategoryA && (
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 className="border-blue-300 text-blue-700 hover:bg-blue-50"
-                onClick={() => navigate("/studio")}
+                onClick={() => navigate("/studio/calendar", {
+                  state: {
+                    presetRoomIds: scheduleRoomIds,
+                    presetDate: (productionStart || project?.event_start)
+                      ? { start: productionStart || project.event_start, end: productionEnd || productionStart || project?.event_end || project?.event_start, allDay: true }
+                      : null,
+                    presetProjectId: id,
+                  },
+                })}
               >
                 <CalendarDays className="mr-1 h-4 w-4" />
                 スタジオ予約
               </Button>
             )}
-
-            {/* GLS発番ボタン (ヨミ段階のみ) */}
-            {isYomi && (
-              <Button
-                size="sm"
-                className="bg-green-600 hover:bg-green-700"
-                onClick={() => setGlsDialog({ ...glsDialog, open: true })}
-                disabled={glsMutation.isPending}
-              >
-                <Trophy className="mr-2 h-4 w-4" />
-                GLS発番
-              </Button>
-            )}
-
-            {/* GLS発番済みの遷移 */}
-            {hasGls && currentStage === 'b_verbal' && (
-              <Button
-                size="sm"
-                className="bg-green-600 hover:bg-green-700"
-                onClick={() => stageMutation.mutate({ stage: "a_won" })}
-                disabled={stageMutation.isPending}
-              >
-                A 受注済へ
-              </Button>
-            )}
-
-            {/* 失注 */}
-            <Button variant="destructive" size="sm" onClick={() => setLostDialog({ open: true, lost_reason: '', lost_reason_note: '', lessons_learned: '' })} disabled={stageMutation.isPending}>
-              E 失注
-            </Button>
           </CardContent>
         </Card>
       )}
@@ -367,7 +539,16 @@ export default function ProjectFormPage() {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <Label>顧客 *</Label>
+                <div className="flex items-center justify-between mb-1">
+                  <Label>顧客 *</Label>
+                  <button
+                    type="button"
+                    className="text-xs text-primary hover:underline"
+                    onClick={() => setCustomerDialogOpen(true)}
+                  >
+                    + 新規顧客
+                  </button>
+                </div>
                 <SearchableSelect
                   options={customers.map((c: { id: string; name: string; short_name?: string }) => ({ value: c.id, label: c.name, subLabel: c.short_name || '' }))}
                   value={watch("customer_id")}
@@ -396,7 +577,7 @@ export default function ProjectFormPage() {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <Label>想定金額</Label>
+                <Label>想定金額（税別）</Label>
                 <CurrencyInput
                   value={watch("expected_amount")}
                   onChange={(v) => setValue("expected_amount", v)}
@@ -425,6 +606,46 @@ export default function ProjectFormPage() {
               </div>
             </div>
 
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <Label>グループ区分</Label>
+                <Select value={watch("customer_type") || "external"} onValueChange={(v) => setValue("customer_type", v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="external">グループ外</SelectItem>
+                    <SelectItem value="internal">グループ内</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <Label>社内限Box URL</Label>
+                <div className="flex gap-2">
+                  <Input {...register("box_url_internal")} type="url" placeholder="https://gmo.box.com/..." className="flex-1" />
+                  {watch("box_url_internal") && (
+                    <a href={watch("box_url_internal")} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-input bg-background hover:bg-accent text-muted-foreground">
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  )}
+                </div>
+              </div>
+              <div>
+                <Label>外部共有Box URL</Label>
+                <div className="flex gap-2">
+                  <Input {...register("box_url_external")} type="url" placeholder="https://gmo.box.com/..." className="flex-1" />
+                  {watch("box_url_external") && (
+                    <a href={watch("box_url_external")} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-input bg-background hover:bg-accent text-muted-foreground">
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div>
               <Label>メモ</Label>
               <Textarea {...register("notes")} rows={3} />
@@ -432,24 +653,153 @@ export default function ProjectFormPage() {
           </CardContent>
         </Card>
 
-        {/* イベント日程 (A系のみ) */}
-        {isCategoryA && (
-          <Card>
-            <CardHeader><CardTitle className="text-base">日程</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <Label>イベント開始日</Label>
-                  <Input type="date" {...register("event_start")} />
-                </div>
-                <div>
-                  <Label>イベント終了日</Label>
-                  <Input type="date" {...register("event_end")} />
-                </div>
+        {/* スタジオスケジュール */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              スタジオスケジュール
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* 部屋選択 */}
+            <div>
+              <Label className="mb-2 block">使用する部屋・空間</Label>
+              <div className="space-y-2">
+                {studioLocations.map((loc) => (
+                  <div key={loc.id}>
+                    <p className="text-xs font-semibold text-muted-foreground mb-1">{loc.name}</p>
+                    {(loc.rooms ?? []).length === 0 ? (
+                      /* 外現場: 自由記述 + 履歴サジェスト */
+                      <div className="relative" ref={locationSuggestionsRef}>
+                        <Input
+                          placeholder="場所を入力（例: 東京国際フォーラム）"
+                          value={locationNote}
+                          onChange={(e) => setLocationNote(e.target.value)}
+                          onFocus={() => setShowLocationSuggestions(true)}
+                          className="text-sm"
+                        />
+                        {showLocationSuggestions && locationHistory.length > 0 && (
+                          <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md">
+                            {locationHistory.map((h) => (
+                              <button
+                                key={h}
+                                type="button"
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+                                onMouseDown={(e) => { e.preventDefault(); setLocationNote(h); setShowLocationSuggestions(false); }}
+                              >
+                                {h}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between mb-1">
+                          <span />
+                          <label className="flex items-center gap-1 text-xs cursor-pointer text-muted-foreground">
+                            <Checkbox
+                              checked={(loc.rooms ?? []).every(r => scheduleRoomIds.includes(r.id))}
+                              onCheckedChange={(checked) => {
+                                const roomIds = (loc.rooms ?? []).map(r => r.id);
+                                setScheduleRoomIds(prev =>
+                                  checked
+                                    ? [...new Set([...prev, ...roomIds])]
+                                    : prev.filter(id => !roomIds.includes(id))
+                                );
+                              }}
+                            />
+                            全て選択
+                          </label>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {(loc.rooms ?? []).map((room) => (
+                            <label key={room.id} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                              <Checkbox
+                                checked={scheduleRoomIds.includes(room.id)}
+                                onCheckedChange={(checked) => {
+                                  setScheduleRoomIds(prev =>
+                                    checked ? [...prev, room.id] : prev.filter(id => id !== room.id)
+                                  );
+                                }}
+                              />
+                              <span className="inline-block w-2 h-2 rounded-full" style={{ background: room.color }} />
+                              {room.name}
+                            </label>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
               </div>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+
+            {/* 本番日 */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <Label>本番日</Label>
+                  <Input type="date" value={productionStart} onChange={(e) => setProductionStart(e.target.value)} />
+                </div>
+                {productionMultiDay && (
+                  <div className="flex-1">
+                    <Label>本番 終了日</Label>
+                    <Input type="date" value={productionEnd} onChange={(e) => setProductionEnd(e.target.value)} />
+                  </div>
+                )}
+              </div>
+              <label className="flex items-center gap-2 text-sm cursor-pointer text-muted-foreground">
+                <Checkbox
+                  checked={productionMultiDay}
+                  onCheckedChange={(v) => {
+                    setProductionMultiDay(!!v);
+                    if (!v) setProductionEnd("");
+                  }}
+                />
+                複数日程
+              </label>
+            </div>
+
+            {/* リハーサル */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox checked={hasRehearsal} onCheckedChange={(v) => {
+                  setHasRehearsal(!!v);
+                  if (!v) { setRehearsalStart(""); setRehearsalEnd(""); setRehearsalMultiDay(false); }
+                }} />
+                リハーサルあり
+              </label>
+              {hasRehearsal && (
+                <div className="pl-6 space-y-2">
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <Label>リハーサル日</Label>
+                      <Input type="date" value={rehearsalStart} onChange={(e) => setRehearsalStart(e.target.value)} />
+                    </div>
+                    {rehearsalMultiDay && (
+                      <div className="flex-1">
+                        <Label>リハーサル 終了日</Label>
+                        <Input type="date" value={rehearsalEnd} onChange={(e) => setRehearsalEnd(e.target.value)} />
+                      </div>
+                    )}
+                  </div>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer text-muted-foreground">
+                    <Checkbox
+                      checked={rehearsalMultiDay}
+                      onCheckedChange={(v) => {
+                        setRehearsalMultiDay(!!v);
+                        if (!v) setRehearsalEnd("");
+                      }}
+                    />
+                    複数日程
+                  </label>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* 番組情報 (A系 + GLS発番後のみ表示) */}
         {hasGls && isCategoryA && (
@@ -496,15 +846,65 @@ export default function ProjectFormPage() {
           </CardContent>
         </Card>
 
-        <div className="flex justify-end gap-3">
+        <div className="flex items-center justify-end gap-3">
+          {saveSuccess && (
+            <span className="flex items-center gap-1.5 text-sm text-green-700">
+              <CheckCircle2 className="h-4 w-4" />
+              保存しました
+            </span>
+          )}
           <Button type="button" variant="outline" onClick={() => navigate("/sales/projects")}>キャンセル</Button>
-          <Button type="submit" disabled={saveMutation.isPending}>
-            {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            <Save className="mr-2 h-4 w-4" />
-            保存
+          <Button type="submit" disabled={saveMutation.isPending} className={saveSuccess ? "bg-green-600 hover:bg-green-700" : ""}>
+            {saveMutation.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : saveSuccess ? (
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            {saveSuccess ? "保存しました" : "保存"}
           </Button>
         </div>
       </form>
+
+      {/* 新規顧客ダイアログ */}
+      <CustomerDialog
+        open={customerDialogOpen}
+        onOpenChange={setCustomerDialogOpen}
+        onCreated={(customer) => setValue("customer_id", customer.id)}
+      />
+
+      {/* ステージ変更確認ダイアログ */}
+      <Dialog open={stageConfirmOpen} onOpenChange={setStageConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              ステージ変更の確認
+            </DialogTitle>
+            <DialogDescription>
+              {(currentStage === 's_completed' || currentStage === 'e_lost') && (
+                <span className="font-semibold text-red-600">終了済みステージから復帰します。意図的な操作か確認してください。</span>
+              )}
+              {currentStage !== 's_completed' && currentStage !== 'e_lost' && (
+                <span>「{ProjectStageLabels[currentStage]}」から「{stageSelectValue ? ProjectStageLabels[stageSelectValue as ProjectStage] : ''}」に変更します。</span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setStageConfirmOpen(false); setStageSelectValue(""); }}>キャンセル</Button>
+            <Button
+              onClick={() => {
+                setStageConfirmOpen(false);
+                stageMutation.mutate({ stage: stageSelectValue });
+                setStageSelectValue("");
+              }}
+            >
+              変更する
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* 料金シミュレーションダイアログ */}
       <SimulationDialog
@@ -764,7 +1164,15 @@ export default function ProjectFormPage() {
               className="bg-blue-600 hover:bg-blue-700"
               onClick={() => {
                 setHoldPromptOpen(false);
-                navigate("/studio");
+                navigate("/studio/calendar", {
+                  state: {
+                    presetRoomIds: scheduleRoomIds,
+                    presetDate: (productionStart || project?.event_start)
+                      ? { start: productionStart || project.event_start, end: productionEnd || productionStart || project?.event_end || project?.event_start, allDay: true }
+                      : null,
+                    presetProjectId: id,
+                  },
+                });
               }}
             >
               <CalendarDays className="mr-2 h-4 w-4" />

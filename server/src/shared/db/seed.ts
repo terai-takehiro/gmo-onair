@@ -7,8 +7,8 @@ const USERS = {
   staff1: '00000000-0000-0000-0000-000000000002',
   staff2: '00000000-0000-0000-0000-000000000003',
   staff3: '00000000-0000-0000-0000-000000000004',
-  viewer: '00000000-0000-0000-0000-000000000005',
-  external: '00000000-0000-0000-0000-000000000006',
+  staff4: '00000000-0000-0000-0000-000000000005',
+  staff5: '00000000-0000-0000-0000-000000000006',
 };
 
 const CUSTOMERS: Record<string, string> = {};
@@ -32,55 +32,58 @@ export async function seed() {
   // Users
   // ============================================================
   const userSql = `INSERT INTO users (id, name, email, role) VALUES (?, ?, ?, ?)`;
-  await ins(userSql, [USERS.admin, '山田 太郎', 'yamada@globalstudio.example.com', 'system_admin']);
+  await ins(userSql, [USERS.admin, 'システム管理者', 'account@gmo-globalstudio.com', 'system_admin']);
   await ins(userSql, [USERS.staff1, '佐藤 花子', 'sato@globalstudio.example.com', 'staff']);
   await ins(userSql, [USERS.staff2, '鈴木 一郎', 'suzuki@globalstudio.example.com', 'staff']);
   await ins(userSql, [USERS.staff3, '高橋 美咲', 'takahashi@globalstudio.example.com', 'staff']);
-  await ins(userSql, [USERS.viewer, '田中 健二', 'tanaka@globalstudio.example.com', 'viewer']);
-  await ins(userSql, [USERS.external, '外部 クライアント', 'client@example.com', 'external_client']);
+  await ins(userSql, [USERS.staff4, '田中 健二', 'tanaka@globalstudio.example.com', 'staff']);
+  await ins(userSql, [USERS.staff5, '山田 太郎', 'yamada@globalstudio.example.com', 'staff']);
 
   // ============================================================
   // User Permissions (system_admin bypasses checks, so only non-admin users)
   // ============================================================
   const permSql = `INSERT INTO user_permissions (id, user_id, module, access_level) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING`;
-  // ブロックアプリごとに個別設定
+  // 3段階: reader(閲覧) / editor(編集) / manager(管理)
   const perms: [string, string, string][] = [
     // staff1 — 佐藤（営業マネージャー寄り）
-    //        営業管理    予算管理      スタジオ     機材管理     Qシート
-    [USERS.staff1, 'sales',     'owner'],      // 営業の責任者
-    [USERS.staff1, 'budget',    'manager'],    // 予算も削除可
-    [USERS.staff1, 'studio',    'editor'],     // スタジオ予約は編集まで
-    [USERS.staff1, 'equipment', 'exporter'],   // 機材は閲覧+出力のみ
-    [USERS.staff1, 'qsheet',    'editor'],     // Qシート編集可
-    [USERS.staff1, 'interactive', 'editor'],  // インタラクティブ編集可
+    [USERS.staff1, 'sales',       'manager'],
+    [USERS.staff1, 'budget',      'manager'],
+    [USERS.staff1, 'studio',      'editor'],
+    [USERS.staff1, 'equipment',   'reader'],
+    [USERS.staff1, 'qsheet',      'editor'],
+    [USERS.staff1, 'interactive', 'editor'],
+    [USERS.staff1, 'techsheet',   'editor'],
 
     // staff2 — 鈴木（制作マネージャー寄り）
-    [USERS.staff2, 'sales',     'editor'],     // 営業は編集まで
-    [USERS.staff2, 'budget',    'exporter'],   // 予算は出力まで
-    [USERS.staff2, 'studio',    'owner'],      // スタジオの責任者
-    [USERS.staff2, 'equipment', 'manager'],    // 機材は削除可
-    [USERS.staff2, 'qsheet',    'owner'],      // Qシートの責任者
-    [USERS.staff2, 'interactive', 'owner'],   // インタラクティブ責任者
+    [USERS.staff2, 'sales',       'editor'],
+    [USERS.staff2, 'budget',      'reader'],
+    [USERS.staff2, 'studio',      'manager'],
+    [USERS.staff2, 'equipment',   'manager'],
+    [USERS.staff2, 'qsheet',      'manager'],
+    [USERS.staff2, 'interactive', 'manager'],
+    [USERS.staff2, 'techsheet',   'manager'],
 
     // staff3 — 高橋（制作スタッフ）
-    [USERS.staff3, 'sales',     'reader'],     // 営業は閲覧のみ
-    [USERS.staff3, 'studio',    'editor'],     // スタジオ予約は編集可
-    [USERS.staff3, 'equipment', 'editor'],     // 機材も編集可
-    [USERS.staff3, 'qsheet',    'editor'],     // Qシート編集可
-    [USERS.staff3, 'interactive', 'editor'],  // インタラクティブ編集可
-    // budget: アクセスなし
+    [USERS.staff3, 'sales',       'reader'],
+    [USERS.staff3, 'studio',      'editor'],
+    [USERS.staff3, 'equipment',   'editor'],
+    [USERS.staff3, 'qsheet',      'editor'],
+    [USERS.staff3, 'interactive', 'editor'],
+    [USERS.staff3, 'techsheet',   'editor'],
 
-    // viewer — 田中（経営層・閲覧用）
-    [USERS.viewer, 'sales',     'exporter'],   // 営業レポート出力
-    [USERS.viewer, 'budget',    'exporter'],   // 予算レポート出力
-    [USERS.viewer, 'studio',    'reader'],     // スタジオは閲覧のみ
-    [USERS.viewer, 'qsheet',    'reader'],     // Qシート閲覧のみ
-    [USERS.viewer, 'interactive', 'reader'],  // インタラクティブ閲覧
-    // equipment: アクセスなし
+    // staff4 — 田中（経営層・主に閲覧）
+    [USERS.staff4, 'sales',       'reader'],
+    [USERS.staff4, 'budget',      'reader'],
+    [USERS.staff4, 'studio',      'reader'],
+    [USERS.staff4, 'equipment',   'reader'],
+    [USERS.staff4, 'qsheet',      'reader'],
+    [USERS.staff4, 'interactive', 'reader'],
+    [USERS.staff4, 'techsheet',   'reader'],
 
-    // external — 山田（外部クライアント）
-    [USERS.external, 'studio',  'reader'],     // カレンダー閲覧のみ
-    [USERS.external, 'qsheet',  'reader'],     // Qシート閲覧のみ
+    // staff5 — 山田（限定アクセス）
+    [USERS.staff5, 'studio',      'reader'],
+    [USERS.staff5, 'qsheet',      'reader'],
+    [USERS.staff5, 'techsheet',   'reader'],
   ];
 
   for (const [userId, mod, level] of perms) {
@@ -673,13 +676,13 @@ export async function seed() {
     ['WORLD STUDIO', 'studio', '#2563eb', 1],
     ['SKY STUDIO', 'studio', '#7c3aed', 2],
     ['LOUNGE STUDIO', 'studio', '#0891b2', 3],
-    ['MEETING ROOM', 'greenroom', '#6b7280', 4],
-    ['ROOM A', 'greenroom', '#059669', 5],
-    ['ROOM B', 'greenroom', '#d97706', 6],
-    ['ROOM C', 'greenroom', '#dc2626', 7],
-    ['VIP LOUNGE', 'greenroom', '#9333ea', 8],
-    ['第1調整室', 'control', '#4f46e5', 9],
-    ['第2調整室', 'control', '#0284c7', 10],
+    ['第1調整室', 'control', '#4f46e5', 4],
+    ['第2調整室', 'control', '#0284c7', 5],
+    ['MEETING ROOM', 'greenroom', '#6b7280', 6],
+    ['ROOM A', 'greenroom', '#059669', 7],
+    ['ROOM B', 'greenroom', '#d97706', 8],
+    ['ROOM C', 'greenroom', '#dc2626', 9],
+    ['VIP LOUNGE', 'greenroom', '#9333ea', 10],
   ];
   for (const [name, roomType, color, order] of yogaRooms) {
     const id = uuidv4();
@@ -778,141 +781,88 @@ export async function seed() {
       [eqLocIds[loc.key], loc.name, loc.building, loc.floor, loc.area, loc.order]);
   }
 
-  // Categories
-  const eqCatIds: Record<string, string> = {};
-  const eqCats = [
-    { key: 'camera', name: 'カメラ', type: 'both', order: 1 },
-    { key: 'lens', name: 'レンズ', type: 'rental', order: 2 },
-    { key: 'lighting', name: '照明', type: 'both', order: 3 },
-    { key: 'audio', name: '音響', type: 'both', order: 4 },
-    { key: 'monitor', name: 'モニター', type: 'both', order: 5 },
-    { key: 'switcher', name: 'スイッチャー', type: 'facility', order: 6 },
-    { key: 'pc', name: 'PC・サーバー', type: 'facility', order: 7 },
-    { key: 'network', name: 'ネットワーク', type: 'facility', order: 8 },
-    { key: 'other', name: 'その他', type: 'both', order: 99 },
-  ];
-  for (const c of eqCats) {
-    eqCatIds[c.key] = uuidv4();
-    await ins("INSERT INTO equipment_categories (id, name, item_type, sort_order) VALUES (?,?,?,?)",
-      [eqCatIds[c.key], c.name, c.type, c.order]);
+  // メーカーマスタ
+  const mfrIds: Record<string, string> = {};
+  const mfrs = ['Sony', 'Blackmagic', 'SmallHD', 'ARRI', 'Aputure', 'Sennheiser', 'Yamaha', 'Dell', 'Canon', 'Cisco'];
+  for (const name of mfrs) {
+    const id = uuidv4();
+    mfrIds[name] = id;
+    await ins("INSERT INTO equipment_manufacturers (id, name) VALUES (?,?) ON CONFLICT (name) DO NOTHING", [id, name]);
   }
 
-  // Equipment items
+  // Equipment items (設備/貸出 セクションで分類、種別コードで機材ブロック管理)
   const eqItemIds: Record<string, string> = {};
-  const eqItems = [
-    // カメラ (複数台あり)
-    { key: 'cam1',   name: 'Sony PXW-FX9', cat: 'camera', type: 'facility', mfr: 'Sony', model: 'PXW-FX9', serial: 'FX9-2024-001', cost: 1980000, life: 5, loc: 'A棟 3F カメラ庫', lendable: false, unit: 1 },
-    { key: 'cam1b',  name: 'Sony PXW-FX9', cat: 'camera', type: 'facility', mfr: 'Sony', model: 'PXW-FX9', serial: 'FX9-2024-002', cost: 1980000, life: 5, loc: 'ワールドスタジオ', lendable: false, unit: 2 },
-    { key: 'cam2',   name: 'Sony PXW-FX6', cat: 'camera', type: 'rental', mfr: 'Sony', model: 'PXW-FX6', serial: 'FX6-2024-001', cost: 650000, life: 5, loc: 'A棟 3F カメラ庫', lendable: true, unit: 1 },
-    { key: 'cam2b',  name: 'Sony PXW-FX6', cat: 'camera', type: 'rental', mfr: 'Sony', model: 'PXW-FX6', serial: 'FX6-2024-002', cost: 650000, life: 5, loc: 'A棟 3F カメラ庫', lendable: true, unit: 2 },
-    { key: 'cam2c',  name: 'Sony PXW-FX6', cat: 'camera', type: 'rental', mfr: 'Sony', model: 'PXW-FX6', serial: 'FX6-2024-003', cost: 650000, life: 5, loc: 'A棟 3F カメラ庫', lendable: true, unit: 3 },
-    { key: 'cam3',   name: 'Blackmagic URSA Mini Pro 12K', cat: 'camera', type: 'facility', mfr: 'Blackmagic', model: 'URSA Mini Pro 12K', serial: 'BM-12K-001', cost: 980000, life: 5, loc: 'ワールドスタジオ', lendable: false, unit: 1 },
-    // スイッチャー
-    { key: 'sw1',    name: 'Blackmagic ATEM 4 M/E', cat: 'switcher', type: 'facility', mfr: 'Blackmagic', model: 'ATEM 4 M/E Constellation 4K', serial: 'ATEM4ME-001', cost: 4500000, life: 7, loc: 'サブ1', lendable: false, unit: 1 },
-    { key: 'sw2',    name: 'Blackmagic ATEM Mini Extreme ISO', cat: 'switcher', type: 'rental', mfr: 'Blackmagic', model: 'ATEM Mini Extreme ISO', serial: 'AMEI-001', cost: 180000, life: 5, loc: 'A棟 3F 機材庫', lendable: true, unit: 1 },
-    { key: 'sw2b',   name: 'Blackmagic ATEM Mini Extreme ISO', cat: 'switcher', type: 'rental', mfr: 'Blackmagic', model: 'ATEM Mini Extreme ISO', serial: 'AMEI-002', cost: 180000, life: 5, loc: 'A棟 3F 機材庫', lendable: true, unit: 2 },
-    // モニター
-    { key: 'mon1',   name: 'Sony BVM-HX3110', cat: 'monitor', type: 'facility', mfr: 'Sony', model: 'BVM-HX3110', serial: 'HX3110-001', cost: 3200000, life: 7, loc: 'ワールドスタジオ サブ', lendable: false, unit: 1 },
-    { key: 'mon2',   name: 'SmallHD Cine 13', cat: 'monitor', type: 'rental', mfr: 'SmallHD', model: 'Cine 13', serial: 'SHD-C13-001', cost: 480000, life: 5, loc: 'A棟 3F 機材庫', lendable: true, unit: 1 },
-    { key: 'mon2b',  name: 'SmallHD Cine 13', cat: 'monitor', type: 'rental', mfr: 'SmallHD', model: 'Cine 13', serial: 'SHD-C13-002', cost: 480000, life: 5, loc: 'A棟 3F 機材庫', lendable: true, unit: 2 },
-    // 照明
-    { key: 'light1', name: 'ARRI SkyPanel S60-C', cat: 'lighting', type: 'facility', mfr: 'ARRI', model: 'SkyPanel S60-C', serial: 'ARRI-S60-001', cost: 750000, life: 7, loc: 'ワールドスタジオ 照明バトン', lendable: false, unit: 1 },
-    { key: 'light2', name: 'Aputure 600d Pro', cat: 'lighting', type: 'rental', mfr: 'Aputure', model: '600d Pro', serial: 'APT-600D-001', cost: 280000, life: 5, loc: 'A棟 3F 照明庫', lendable: true, unit: 1 },
-    { key: 'light2b',name: 'Aputure 600d Pro', cat: 'lighting', type: 'rental', mfr: 'Aputure', model: '600d Pro', serial: 'APT-600D-002', cost: 280000, life: 5, loc: 'A棟 3F 照明庫', lendable: true, unit: 2 },
-    // 音響
-    { key: 'mic1',   name: 'Sennheiser MKH416', cat: 'audio', type: 'rental', mfr: 'Sennheiser', model: 'MKH416', serial: 'MKH416-001', cost: 120000, life: 7, loc: 'A棟 3F 音響庫', lendable: true, unit: 1 },
-    { key: 'mic1b',  name: 'Sennheiser MKH416', cat: 'audio', type: 'rental', mfr: 'Sennheiser', model: 'MKH416', serial: 'MKH416-002', cost: 120000, life: 7, loc: 'A棟 3F 音響庫', lendable: true, unit: 2 },
-    { key: 'mixer1', name: 'Yamaha DM7', cat: 'audio', type: 'facility', mfr: 'Yamaha', model: 'DM7', serial: 'DM7-001', cost: 3800000, life: 10, loc: 'ワールドスタジオ サブ', lendable: false, unit: 1 },
-    // PC・サーバー
-    { key: 'srv1',   name: 'Dell PowerEdge R760', cat: 'pc', type: 'facility', mfr: 'Dell', model: 'PowerEdge R760', serial: 'SRV-R760-001', cost: 1200000, life: 5, loc: 'サーバールーム ラックA-1', lendable: false, unit: 1 },
-    // レンズ
-    { key: 'lens1',  name: 'Canon CN-E 50mm T1.3', cat: 'lens', type: 'rental', mfr: 'Canon', model: 'CN-E 50mm T1.3 L F', serial: 'CNE50-001', cost: 450000, life: 7, loc: 'A棟 3F カメラ庫', lendable: true, unit: 1 },
-    // ネットワーク
-    { key: 'net1',   name: 'Cisco Catalyst 9300', cat: 'network', type: 'facility', mfr: 'Cisco', model: 'Catalyst 9300-24T', serial: 'C9300-001', cost: 650000, life: 7, loc: 'サーバールーム ラックB-2', lendable: false, unit: 1 },
+  type EqSeed = { key: string; name: string; tc: string; sec: 'equipment'|'rental'; mfr: string; model: string; serial: string; dep: number; loc: string; unit: number };
+  const eqItems: EqSeed[] = [
+    { key: 'cam1',   name: 'Sony PXW-FX9', tc: 'C', sec: 'equipment', mfr: 'Sony', model: 'PXW-FX9', serial: 'FX9-2024-001', dep: 5, loc: 'A棟 3F カメラ庫', unit: 1 },
+    { key: 'cam1b',  name: 'Sony PXW-FX9', tc: 'C', sec: 'equipment', mfr: 'Sony', model: 'PXW-FX9', serial: 'FX9-2024-002', dep: 5, loc: 'ワールドスタジオ', unit: 2 },
+    { key: 'cam2',   name: 'Sony PXW-FX6', tc: 'C', sec: 'rental',    mfr: 'Sony', model: 'PXW-FX6', serial: 'FX6-2024-001', dep: 5, loc: 'A棟 3F カメラ庫', unit: 1 },
+    { key: 'cam2b',  name: 'Sony PXW-FX6', tc: 'C', sec: 'rental',    mfr: 'Sony', model: 'PXW-FX6', serial: 'FX6-2024-002', dep: 5, loc: 'A棟 3F カメラ庫', unit: 2 },
+    { key: 'cam3',   name: 'Blackmagic URSA Mini Pro 12K', tc: 'C', sec: 'equipment', mfr: 'Blackmagic', model: 'URSA Mini Pro 12K', serial: 'BM-12K-001', dep: 5, loc: 'ワールドスタジオ', unit: 1 },
+    { key: 'sw1',    name: 'Blackmagic ATEM 4 M/E', tc: 'V', sec: 'equipment', mfr: 'Blackmagic', model: 'ATEM 4 M/E Constellation 4K', serial: 'ATEM4ME-001', dep: 7, loc: 'サブ1', unit: 1 },
+    { key: 'sw2',    name: 'Blackmagic ATEM Mini Extreme ISO', tc: 'V', sec: 'rental', mfr: 'Blackmagic', model: 'ATEM Mini Extreme ISO', serial: 'AMEI-001', dep: 5, loc: 'A棟 3F 機材庫', unit: 1 },
+    { key: 'mon1',   name: 'Sony BVM-HX3110', tc: 'V', sec: 'equipment', mfr: 'Sony', model: 'BVM-HX3110', serial: 'HX3110-001', dep: 7, loc: 'ワールドスタジオ サブ', unit: 1 },
+    { key: 'mon2',   name: 'SmallHD Cine 13', tc: 'V', sec: 'rental', mfr: 'SmallHD', model: 'Cine 13', serial: 'SHD-C13-001', dep: 5, loc: 'A棟 3F 機材庫', unit: 1 },
+    { key: 'light1', name: 'ARRI SkyPanel S60-C', tc: 'L', sec: 'equipment', mfr: 'ARRI', model: 'SkyPanel S60-C', serial: 'ARRI-S60-001', dep: 7, loc: 'ワールドスタジオ 照明バトン', unit: 1 },
+    { key: 'light2', name: 'Aputure 600d Pro', tc: 'L', sec: 'rental', mfr: 'Aputure', model: '600d Pro', serial: 'APT-600D-001', dep: 5, loc: 'A棟 3F 照明庫', unit: 1 },
+    { key: 'mic1',   name: 'Sennheiser MKH416', tc: 'A', sec: 'rental', mfr: 'Sennheiser', model: 'MKH416', serial: 'MKH416-001', dep: 7, loc: 'A棟 3F 音響庫', unit: 1 },
+    { key: 'mixer1', name: 'Yamaha DM7', tc: 'A', sec: 'equipment', mfr: 'Yamaha', model: 'DM7', serial: 'DM7-001', dep: 10, loc: 'ワールドスタジオ サブ', unit: 1 },
+    { key: 'srv1',   name: 'Dell PowerEdge R760', tc: 'E', sec: 'equipment', mfr: 'Dell', model: 'PowerEdge R760', serial: 'SRV-R760-001', dep: 5, loc: 'サーバールーム ラックA-1', unit: 1 },
+    { key: 'lens1',  name: 'Canon CN-E 50mm T1.3', tc: 'C', sec: 'rental', mfr: 'Canon', model: 'CN-E 50mm T1.3 L F', serial: 'CNE50-001', dep: 7, loc: 'A棟 3F カメラ庫', unit: 1 },
+    { key: 'net1',   name: 'Cisco Catalyst 9300', tc: 'NW', sec: 'equipment', mfr: 'Cisco', model: 'Catalyst 9300-24T', serial: 'C9300-001', dep: 7, loc: 'サーバールーム ラックB-2', unit: 1 },
   ];
 
-  // Update EQ code sequence
-  await execute("UPDATE sequences SET counter = 0 WHERE seq_name = 'eq_code'", []);
-
-  const eqChars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-  let eqCounter = 0;
-  function nextEqCode(): string {
-    eqCounter++;
-    let code = '';
-    let seed = eqCounter;
-    for (let i = 0; i < 10; i++) {
-      const idx = (seed * 31 + i * 7 + eqCounter) % eqChars.length;
-      code += eqChars[Math.abs(idx) % eqChars.length];
-      seed = Math.floor(seed / eqChars.length) + eqCounter + i;
-    }
-    return `EQ-${code}`;
+  const eqCodeCounters: Record<string, number> = {};
+  function nextEqCode(tc: string): string {
+    const prefix = `Y-${tc}`;
+    eqCodeCounters[prefix] = (eqCodeCounters[prefix] ?? 0) + 1;
+    return `${prefix}-${String(eqCodeCounters[prefix]).padStart(6, '0')}`;
   }
 
   for (const eq of eqItems) {
     eqItemIds[eq.key] = uuidv4();
-    const eqCode = nextEqCode();
+    const eqCode = nextEqCode(eq.tc);
     await ins(`INSERT INTO equipment_items (
-      id, eq_code, name, category_id, item_type, unit_number,
-      manufacturer, model_number, serial_number,
-      acquisition_cost, useful_life, asset_class, depreciation_method,
+      id, eq_code, name, unit_number,
+      manufacturer_id, model_number, serial_number,
+      depreciation_years, asset_class,
       status, condition, location_detail,
-      is_lendable, acquisition_date, created_by
-    ) VALUES (?,?,?,?,?,?, ?,?,?, ?,?,?,?, ?,?,?, ?,?,?)`, [
-      eqItemIds[eq.key], eqCode, eq.name, eqCatIds[eq.cat], eq.type, eq.unit,
-      eq.mfr, eq.model, eq.serial,
-      eq.cost, eq.life, 'fixed_asset', 'straight_line',
+      location_code, equipment_type_code, equipment_section,
+      purchased_at, created_by
+    ) VALUES (?,?,?,?, ?,?,?, ?,?, ?,?,?, ?,?,?, ?,?)`, [
+      eqItemIds[eq.key], eqCode, eq.name, eq.unit,
+      mfrIds[eq.mfr], eq.model, eq.serial,
+      eq.dep, 'fixed_asset',
       'active', 'good', eq.loc,
-      eq.lendable ? 1 : 0, '2024-04-01', USERS.admin,
+      'Y', eq.tc, eq.sec,
+      '2024-04-01', USERS.admin,
     ]);
   }
 
-  // Update sequence counter
-  await execute(`UPDATE sequences SET counter = ? WHERE seq_name = 'eq_code'`, [eqCounter]);
+  for (const [prefix, count] of Object.entries(eqCodeCounters)) {
+    await execute(
+      `INSERT INTO equipment_id_sequences (prefix, counter) VALUES (?, ?) ON CONFLICT (prefix) DO UPDATE SET counter = ?`,
+      [prefix, count, count],
+    );
+  }
 
-  // Parent-child relationships (equipment sets)
-  // Create a "カメラセット A" parent item, then assign camera + lens children
+  // 親子関係: カメラセット A (cam1 + lens1)
   const camSetAId = uuidv4();
-  eqCounter++;
-  const camSetACode = `EQ-CAMSET-A`;
   await ins(`INSERT INTO equipment_items (
-    id, eq_code, name, category_id, item_type, unit_number,
-    manufacturer, model_number, serial_number,
-    acquisition_cost, useful_life, asset_class, depreciation_method,
+    id, eq_code, name, unit_number,
+    depreciation_years, asset_class,
     status, condition, location_detail,
-    is_lendable, acquisition_date, created_by
-  ) VALUES (?,?,?,?,?,?, ?,?,?, ?,?,?,?, ?,?,?, ?,?,?)`, [
-    camSetAId, camSetACode, 'カメラセット A (FX9 + CN-E 50mm)', eqCatIds['camera'], 'facility', 1,
-    null, null, null,
-    0, 5, 'fixed_asset', 'straight_line',
+    location_code, equipment_type_code, equipment_section,
+    purchased_at, created_by
+  ) VALUES (?,?,?,?, ?,?, ?,?,?, ?,?,?, ?,?)`, [
+    camSetAId, 'Y-C-SET01', 'カメラセット A (FX9 + CN-E 50mm)', 1,
+    5, 'fixed_asset',
     'active', 'good', 'A棟 3F カメラ庫',
-    0, '2024-04-01', USERS.admin,
+    'Y', 'C', 'equipment',
+    '2024-04-01', USERS.admin,
   ]);
-
-  // Set cam1 (Sony PXW-FX9 #1) and lens1 (Canon CN-E 50mm) as children of カメラセット A
   await execute(`UPDATE equipment_items SET parent_id = ? WHERE id = ?`, [camSetAId, eqItemIds['cam1']]);
   await execute(`UPDATE equipment_items SET parent_id = ? WHERE id = ?`, [camSetAId, eqItemIds['lens1']]);
-
-  // Create a "照明セット A" parent item for lighting equipment
-  const lightSetAId = uuidv4();
-  eqCounter++;
-  const lightSetACode = `EQ-LTSET-A`;
-  await ins(`INSERT INTO equipment_items (
-    id, eq_code, name, category_id, item_type, unit_number,
-    manufacturer, model_number, serial_number,
-    acquisition_cost, useful_life, asset_class, depreciation_method,
-    status, condition, location_detail,
-    is_lendable, acquisition_date, created_by
-  ) VALUES (?,?,?,?,?,?, ?,?,?, ?,?,?,?, ?,?,?, ?,?,?)`, [
-    lightSetAId, lightSetACode, '照明セット A (Aputure 600d Pro x2)', eqCatIds['lighting'], 'rental', 1,
-    null, null, null,
-    0, 5, 'fixed_asset', 'straight_line',
-    'active', 'good', 'A棟 3F 照明庫',
-    1, '2024-04-01', USERS.admin,
-  ]);
-
-  // Set light2 and light2b (Aputure 600d Pro #1 & #2) as children of 照明セット A
-  await execute(`UPDATE equipment_items SET parent_id = ? WHERE id = ?`, [lightSetAId, eqItemIds['light2']]);
-  await execute(`UPDATE equipment_items SET parent_id = ? WHERE id = ?`, [lightSetAId, eqItemIds['light2b']]);
 
   // Sample lendings
   const lend1 = uuidv4();
@@ -928,128 +878,8 @@ export async function seed() {
   await ins(`INSERT INTO maintenance_records (id, equipment_id, record_type, title, description, reported_by, status, vendor_name, repair_cost) VALUES (?,?,?,?,?,?,?,?,?)`,
     [maint1, eqItemIds['light2'], 'maintenance', '定期点検 2026年3月', 'ファンの異音確認 → 清掃で改善', USERS.staff3, 'completed', null, null]);
 
-  // Accessories
-  const acc1 = uuidv4();
-  await ins("INSERT INTO equipment_accessories (id, parent_id, child_id, note) VALUES (?,?,?,?)",
-    [acc1, eqItemIds['cam1'], eqItemIds['lens1'], '標準レンズキット']);
-
-  // ============================================================
-  // Qsheet Documents (Qシート)
-  // ============================================================
-  const qsheetSql = `INSERT INTO qsheet_documents (id, title, episode_id, project_id, broadcast_date, status, data, created_by, updated_by) VALUES (?,?,?,?,?,?,?,?,?)`;
-
-  await ins(qsheetSql, [
-    uuidv4(), 'GH春季IR説明会 Qシート', EPISODES['GLS-A001-001'], PROJECTS['GLS-A001'], '2026-03-28', 'confirmed',
-    JSON.stringify({
-      rows: [
-        { id: '1', time: '13:00', duration: '5', item: 'OA', content: 'オープニングアニメーション', cast: '', notes: 'CG再生' },
-        { id: '2', time: '13:05', duration: '3', item: '挨拶', content: '代表取締役ご挨拶', cast: '代表取締役', notes: '演台マイク' },
-        { id: '3', time: '13:08', duration: '25', item: '説明', content: '2025年度決算報告', cast: 'CFO 田村氏', notes: 'スライド投影' },
-        { id: '4', time: '13:33', duration: '20', item: '説明', content: '2026年度事業計画', cast: 'CEO', notes: 'スライド+動画' },
-        { id: '5', time: '13:53', duration: '2', item: '休憩', content: '休憩', cast: '', notes: '' },
-        { id: '6', time: '13:55', duration: '20', item: 'Q&A', content: '質疑応答', cast: '登壇者全員', notes: '会場マイク巡回' },
-        { id: '7', time: '14:15', duration: '5', item: 'ED', content: 'エンディング・閉会挨拶', cast: '司会', notes: '' },
-      ],
-    }),
-    USERS.staff1, USERS.staff1,
-  ]);
-
-  await ins(qsheetSql, [
-    uuidv4(), 'サイエンス・フロンティア #001 Qシート', EPISODES['GLS-A002-001'], PROJECTS['GLS-A002'], '2026-04-07', 'draft',
-    JSON.stringify({
-      rows: [
-        { id: '1', time: '10:00', duration: '3', item: 'OP', content: 'オープニングタイトル', cast: '', notes: 'CG' },
-        { id: '2', time: '10:03', duration: '5', item: 'VTR', content: '前回のあらすじ', cast: 'ナレーション', notes: 'VTR再生' },
-        { id: '3', time: '10:08', duration: '15', item: 'トーク', content: '今回のテーマ紹介「量子コンピュータの現在」', cast: 'MC 高橋・ゲスト教授', notes: '' },
-        { id: '4', time: '10:23', duration: '12', item: 'VTR', content: '取材VTR：量子研究所訪問', cast: '', notes: 'VTR再生' },
-        { id: '5', time: '10:35', duration: '10', item: 'トーク', content: 'ゲスト解説・実験コーナー', cast: 'MC・教授', notes: '実験セットあり' },
-        { id: '6', time: '10:45', duration: '3', item: 'ED', content: 'エンディング・次回予告', cast: 'MC', notes: '' },
-      ],
-    }),
-    USERS.staff2, USERS.staff2,
-  ]);
-
-  await ins(qsheetSql, [
-    uuidv4(), 'ネットLIVE配信 #001 Qシート', EPISODES['GLS-A003-001'], PROJECTS['GLS-A003'], '2026-04-05', 'confirmed',
-    JSON.stringify({
-      rows: [
-        { id: '1', time: '19:00', duration: '5', item: 'OP', content: 'オープニング・配信開始', cast: 'MC', notes: 'YouTube Live開始' },
-        { id: '2', time: '19:05', duration: '20', item: 'コーナー1', content: '今週のテックニュース', cast: 'MC・コメンテーター', notes: '' },
-        { id: '3', time: '19:25', duration: '15', item: 'コーナー2', content: 'ゲストインタビュー', cast: 'ゲスト', notes: 'リモート出演' },
-        { id: '4', time: '19:40', duration: '10', item: 'コーナー3', content: 'チャットQ&A', cast: 'MC', notes: 'チャット読み上げ' },
-        { id: '5', time: '19:50', duration: '5', item: 'ED', content: '次回予告・配信終了', cast: 'MC', notes: '' },
-      ],
-    }),
-    USERS.staff3, USERS.staff3,
-  ]);
-
-  // ============================================================
-  // TechSheet Documents (技術資料)
-  // ============================================================
-  const techsheetSql = `INSERT INTO techsheet_documents (id, title, project_id, episode_id, production_date, venue, status, data, created_by) VALUES (?,?,?,?,?,?,?,?,?)`;
-
-  await ins(techsheetSql, [
-    uuidv4(), 'GH春季IR説明会 技術仕様書', PROJECTS['GLS-A001'], EPISODES['GLS-A001-001'],
-    '2026-03-28', '用賀 WORLD STUDIO', 'confirmed',
-    JSON.stringify({
-      cameras: [
-        { position: 'CAM1', model: 'Sony PXW-FX9', lens: '24-70mm', operator: '鈴木一郎', notes: '演台メインカメラ' },
-        { position: 'CAM2', model: 'Sony PXW-FX9', lens: '70-200mm', operator: '高橋美咲', notes: '会場全景' },
-        { position: 'CAM3', model: 'Sony PXW-FX6', lens: '16-35mm', operator: '', notes: 'ロボカメ（リモート操作）' },
-      ],
-      video: { switcher: 'ATEM 4 M/E Constellation 4K', format: '4K/59.94p', recording: 'HyperDeck Studio 4K Pro', streaming: 'YouTube Live (1080p)' },
-      audio: { mixer: 'Yamaha DM7', mics: ['ワイヤレスピンマイク x3', '演台グースネック x1', '会場ハンドマイク x2'], monitoring: 'IEM x2' },
-      comms: { system: 'RTS ADAM-M', channels: ['CAM', 'Audio', 'Lighting', 'Director'] },
-    }),
-    USERS.staff2,
-  ]);
-
-  await ins(techsheetSql, [
-    uuidv4(), 'サイエンス・フロンティア 収録 技術仕様書', PROJECTS['GLS-A002'], EPISODES['GLS-A002-001'],
-    '2026-04-07', '用賀 SKY STUDIO', 'draft',
-    JSON.stringify({
-      cameras: [
-        { position: 'CAM1', model: 'Blackmagic URSA Mini Pro 12K', lens: 'Canon CN-E 50mm', operator: '鈴木一郎', notes: 'メインカメラ' },
-        { position: 'CAM2', model: 'Sony PXW-FX6', lens: '24-70mm', operator: '高橋美咲', notes: 'ゲスト寄り' },
-        { position: 'CAM3', model: 'Sony PXW-FX6', lens: '16-35mm', operator: '', notes: 'セット全景（固定）' },
-      ],
-      video: { switcher: 'ATEM Mini Extreme ISO', format: '4K/29.97p', recording: 'ATEM ISO Recording + SSD', streaming: '' },
-      audio: { mixer: 'Yamaha DM7', mics: ['ラベリアマイク x2', 'ブームマイク x1', 'ガンマイク MKH416 x1'], monitoring: '' },
-      comms: { system: 'インカム 4ch', channels: ['Director', 'Camera', 'Audio'] },
-    }),
-    USERS.staff2,
-  ]);
-
-  // ============================================================
-  // Interactive Events & Stamps (インタラクティブ演出)
-  // ============================================================
-  const eventSql = `INSERT INTO interactive_events (id, title, description, status, project_id, episode_id, config, max_connections, created_by) VALUES (?,?,?,?,?,?,?,?,?)`;
-  const stampSql = `INSERT INTO interactive_stamps (id, event_id, label, emoji, color, animation, sort_order, is_active) VALUES (?,?,?,?,?,?,?,?)`;
-
-  const ev1Id = uuidv4();
-  await ins(eventSql, [
-    ev1Id, 'GH春季IR説明会 リアクション', 'IR説明会のリアルタイムリアクション収集',
-    'draft', PROJECTS['GLS-A001'], EPISODES['GLS-A001-001'],
-    JSON.stringify({ theme: 'corporate', showCount: true }),
-    500, USERS.staff1,
-  ]);
-  await ins(stampSql, [uuidv4(), ev1Id, 'なるほど', '💡', '#3b82f6', 'bounce', 1, true]);
-  await ins(stampSql, [uuidv4(), ev1Id, 'いいね', '👍', '#22c55e', 'bounce', 2, true]);
-  await ins(stampSql, [uuidv4(), ev1Id, '質問', '❓', '#f59e0b', 'pop', 3, true]);
-  await ins(stampSql, [uuidv4(), ev1Id, 'すごい', '🎉', '#ec4899', 'shake', 4, true]);
-
-  const ev2Id = uuidv4();
-  await ins(eventSql, [
-    ev2Id, 'ネットLIVE配信 #001 スタンプ', '視聴者参加型リアクションスタンプ',
-    'draft', PROJECTS['GLS-A003'], EPISODES['GLS-A003-001'],
-    JSON.stringify({ theme: 'fun', showCount: true, allowAnonymous: true }),
-    2000, USERS.staff3,
-  ]);
-  await ins(stampSql, [uuidv4(), ev2Id, '笑', '😂', '#f59e0b', 'shake', 1, true]);
-  await ins(stampSql, [uuidv4(), ev2Id, '拍手', '👏', '#22c55e', 'bounce', 2, true]);
-  await ins(stampSql, [uuidv4(), ev2Id, 'ハート', '❤️', '#ef4444', 'pop', 3, true]);
-  await ins(stampSql, [uuidv4(), ev2Id, '驚き', '😮', '#8b5cf6', 'bounce', 4, true]);
-  await ins(stampSql, [uuidv4(), ev2Id, '炎', '🔥', '#f97316', 'shake', 5, true]);
+  // サブアプリデータ (Qシート/技術資料/インタラクティブ) は
+  // seedSubApps() で投入する（重複防止）
 
   saveDb();
   console.log('Seed data inserted successfully.');

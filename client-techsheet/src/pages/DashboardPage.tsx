@@ -275,7 +275,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0 ml-2">
                       {doc.version && (
-                        <span className="text-[10px] text-muted-foreground">{doc.version}</span>
+                        <span className="text-xs text-muted-foreground">{doc.version}</span>
                       )}
                       <Badge className={status.color}>
                         {status.label}

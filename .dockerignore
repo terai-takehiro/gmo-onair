@@ -1,0 +1,13 @@
+node_modules
+*/node_modules
+*/dist
+*/.tsbuildinfo
+*.tsbuildinfo
+.git
+.github
+.devcontainer
+docs
+scripts
+nginx
+*.md
+!shared/package.json

@@ -103,16 +103,23 @@ interface TechsheetDoc {
 // ============================================================
 // Helpers
 // ============================================================
+const genId = (): string => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    try { return crypto.randomUUID(); } catch { /* fallback */ }
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
 const newCameraRow = (): CameraRow => ({
-  id: crypto.randomUUID(), number: "", model: "", lens: "", operator: "", position: "", cable: "",
+  id: genId(), number: "", model: "", lens: "", operator: "", position: "", cable: "",
 });
 
 const newAudioRow = (): AudioRow => ({
-  id: crypto.randomUUID(), item: "", detail: "", notes: "",
+  id: genId(), item: "", detail: "", notes: "",
 });
 
 const newVideoRow = (): VideoRow => ({
-  id: crypto.randomUUID(), item: "", detail: "", notes: "",
+  id: genId(), item: "", detail: "", notes: "",
 });
 
 const TAB_ICONS: Record<string, typeof Camera> = {
@@ -140,6 +147,21 @@ export default function EditorPage() {
       const res = await api.get(`/techsheet/documents/${id}`);
       const d = res.data.data;
       if (typeof d.data === "string") d.data = JSON.parse(d.data);
+      // Ensure data has the expected structure (migrate old format)
+      if (!d.data || !d.data.sheets) {
+        const old = d.data || {};
+        d.data = {
+          header: old.header || { programName: d.title || "", broadcastType: "", productionFormat: "", studio: d.venue || "", circuits: "", vtr: "", performers: "" },
+          staff: old.staff || { td: "", sw: "", d: [], p: "", ve: "", cam: [], mix: "", aa: [], ca: [], vtrOp: "", aux: "", ld: "", cg: "" },
+          sheets: old.sheets || [
+            { id: genId(), type: "camera", label: "カメラ", enabled: true, rows: (old.cameras || []).map((c: any) => ({ id: genId(), number: c.position || "", model: c.model || "", lens: c.lens || "", operator: c.operator || "", position: "", cable: c.notes || "" })) },
+            { id: genId(), type: "video", label: "映像", enabled: true, sections: [{ id: genId(), label: "映像系統", rows: Object.entries(old.video || {}).map(([k, v]) => ({ id: genId(), item: k, detail: String(v || ""), notes: "" })) }] },
+            { id: genId(), type: "audio", label: "音声", enabled: true, sections: [{ id: genId(), label: "音声系統", rows: Array.isArray(old.audio?.mics) ? old.audio.mics.map((m: string) => ({ id: genId(), item: m, detail: "", notes: "" })) : Object.entries(old.audio || {}).map(([k, v]) => ({ id: genId(), item: k, detail: String(v || ""), notes: "" })) }] },
+            { id: genId(), type: "comms", label: "通信", enabled: true, sections: [{ id: genId(), label: "通信系統", rows: Object.entries(old.comms || {}).map(([k, v]) => ({ id: genId(), item: k, detail: Array.isArray(v) ? v.join(", ") : String(v || ""), notes: "" })) }] },
+          ],
+          notes: old.notes || "",
+        };
+      }
       return d as TechsheetDoc;
     },
     enabled: !!id,
@@ -165,6 +187,11 @@ export default function EditorPage() {
     onSuccess: () => {
       setDirty(false);
       queryClient.invalidateQueries({ queryKey: ["techsheet-documents"] });
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.error?.message || err?.message || "保存に失敗しました";
+      console.error("[techsheet] save error:", msg);
+      alert(`保存エラー: ${msg}`);
     },
   });
 

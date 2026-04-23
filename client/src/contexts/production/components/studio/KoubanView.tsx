@@ -369,12 +369,12 @@ export default function KoubanView({
                             {entry.booking.title}
                           </div>
                           {height >= SLOT_HEIGHT && (
-                            <div className="text-[10px] leading-tight opacity-80 truncate">
+                            <div className="text-xs leading-tight opacity-80 truncate">
                               {entry.booking.start_time.split("T")[1]?.slice(0, 5)} - {entry.booking.end_time.split("T")[1]?.slice(0, 5)}
                             </div>
                           )}
                           {height >= SLOT_HEIGHT * 2 && entry.booking.gls_number && (
-                            <div className="text-[10px] leading-tight opacity-70 truncate mt-0.5">
+                            <div className="text-xs leading-tight opacity-70 truncate mt-0.5">
                               {entry.booking.gls_number}
                             </div>
                           )}

@@ -9,8 +9,11 @@ export interface UiState {
   setCurrentUserId: (userId: string | null) => void;
 }
 
+// Mobile (< 1024px): sidebar closed by default
+const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 1024;
+
 export const useUiStore = create<UiState>((set) => ({
-  sidebarOpen: true,
+  sidebarOpen: isDesktop,
   currentUserId: null,
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),

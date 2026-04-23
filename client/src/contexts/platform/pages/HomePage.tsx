@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth, BLOCK_APPS, type BlockApp } from "@/contexts/platform/AuthContext";
@@ -27,11 +28,16 @@ import {
   Wrench,
   Activity,
   ArrowRight,
+  ShieldCheck,
+  ShieldAlert,
+  ChevronDown,
+  ChevronUp,
+  Timer,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   FolderKanban, PiggyBank, Calendar, Package, FileText,
-  BookOpen, Users, Truck, Sparkles, Wrench,
+  BookOpen, Users, Truck, Sparkles, Wrench, Timer,
 };
 
 // ──────────────────────────────────────
@@ -48,7 +54,7 @@ function AppCard({ app, onClick, disabled: forceDisabled }: { app: BlockApp; onC
       onClick={isDisabled ? undefined : onClick}
       disabled={isDisabled}
       className={cn(
-        "group relative flex flex-col items-center gap-2 rounded-2xl border-2 p-5 text-center transition-all h-full",
+        "group relative flex flex-col items-center gap-2 rounded-2xl border-2 p-5 text-center transition-all h-full card-hover",
         isDisabled
           ? "cursor-default border-dashed border-muted bg-muted/30 opacity-60"
           : "border-transparent bg-card shadow-sm hover:shadow-md hover:-translate-y-1 hover:border-primary/20 active:scale-[0.98]"
@@ -56,21 +62,21 @@ function AppCard({ app, onClick, disabled: forceDisabled }: { app: BlockApp; onC
     >
       <div
         className={cn(
-          "flex h-12 w-12 items-center justify-center rounded-xl text-white transition-transform",
+          "flex h-14 w-14 items-center justify-center rounded-xl text-white transition-transform",
           isDisabled ? "bg-muted-foreground/30" : app.color,
           !isDisabled && "group-hover:scale-110"
         )}
       >
-        <Icon className="h-5 w-5" />
+        <Icon className="h-6 w-6" />
       </div>
       <div className="flex-1 flex flex-col justify-center">
-        <h3 className="text-sm font-semibold">{app.label}</h3>
-        <p className="mt-0.5 text-[10px] text-muted-foreground leading-relaxed">
+        <h3 className="text-base font-semibold">{app.label}</h3>
+        <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
           {app.description}
         </p>
       </div>
       {isComingSoon && (
-        <Badge variant="secondary" className="absolute top-2 right-2 text-[9px]">
+        <Badge variant="secondary" className="absolute top-2 right-2 text-[11px]">
           準備中
         </Badge>
       )}
@@ -87,8 +93,6 @@ function AppCard({ app, onClick, disabled: forceDisabled }: { app: BlockApp; onC
 const roleLabelMap: Record<string, string> = {
   system_admin: "システム管理者",
   staff: "スタッフ",
-  viewer: "閲覧者",
-  external_client: "外部クライアント",
 };
 
 // ──────────────────────────────────────
@@ -179,19 +183,19 @@ function KpiWidget() {
       <CardContent className="px-4 pb-4">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="rounded-lg bg-blue-50 p-3 dark:bg-blue-950/30">
-            <p className="text-[10px] text-blue-600 dark:text-blue-400">売上</p>
+            <p className="text-xs text-blue-600 dark:text-blue-400">売上</p>
             <AnimatedCurrency value={kpi.monthly_revenue} className="text-sm font-bold text-blue-700 dark:text-blue-300" />
           </div>
           <div className="rounded-lg bg-orange-50 p-3 dark:bg-orange-950/30">
-            <p className="text-[10px] text-orange-600 dark:text-orange-400">仕入</p>
+            <p className="text-xs text-orange-600 dark:text-orange-400">仕入</p>
             <AnimatedCurrency value={kpi.monthly_purchase} className="text-sm font-bold text-orange-700 dark:text-orange-300" />
           </div>
           <div className="rounded-lg bg-emerald-50 p-3 dark:bg-emerald-950/30">
-            <p className="text-[10px] text-emerald-600 dark:text-emerald-400">粗利 {formatPercent(kpi.monthly_gross_margin)}</p>
+            <p className="text-xs text-emerald-600 dark:text-emerald-400">粗利 {formatPercent(kpi.monthly_gross_margin)}</p>
             <AnimatedCurrency value={kpi.gross_profit} className="text-sm font-bold text-emerald-700 dark:text-emerald-300" />
           </div>
           <div className={cn("rounded-lg p-3", kpi.operating_profit >= 0 ? "bg-green-50 dark:bg-green-950/30" : "bg-red-50 dark:bg-red-950/30")}>
-            <p className={cn("text-[10px]", kpi.operating_profit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
+            <p className={cn("text-xs", kpi.operating_profit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
               営業利益 {formatPercent(kpi.operating_margin)}
             </p>
             <AnimatedCurrency
@@ -242,23 +246,23 @@ function ScheduleWidget() {
                 )}
               >
                 <div className={cn("text-center mb-1", isToday && "font-bold text-primary")}>
-                  <span className="text-[10px] text-muted-foreground">{day.dayLabel}</span>
-                  <span className="text-[10px] ml-0.5">{day.date.split("-")[2]}日</span>
+                  <span className="text-xs text-muted-foreground">{day.dayLabel}</span>
+                  <span className="text-xs ml-0.5">{day.date.split("-")[2]}日</span>
                 </div>
                 <div className="space-y-0.5">
                   {day.events.slice(0, 3).map((ev, i) => (
                     <div
                       key={i}
-                      className={cn("rounded px-1 py-0.5 text-white text-[9px] leading-tight truncate", typeColors[ev.type] || "bg-gray-400")}
+                      className={cn("rounded px-1 py-0.5 text-white text-[11px] leading-tight truncate", typeColors[ev.type] || "bg-gray-400")}
                     >
                       {typeLabels[ev.type]}: {ev.gls_number || ev.episode_code}
                     </div>
                   ))}
                   {day.events.length > 3 && (
-                    <div className="text-[9px] text-muted-foreground text-center">+{day.events.length - 3}</div>
+                    <div className="text-[11px] text-muted-foreground text-center">+{day.events.length - 3}</div>
                   )}
                   {day.events.length === 0 && (
-                    <div className="text-[9px] text-muted-foreground text-center mt-1">-</div>
+                    <div className="text-[11px] text-muted-foreground text-center mt-1">-</div>
                   )}
                 </div>
               </div>
@@ -269,7 +273,7 @@ function ScheduleWidget() {
           {Object.entries(typeLabels).map(([key, label]) => (
             <div key={key} className="flex items-center gap-1">
               <div className={cn("w-2 h-2 rounded-sm", typeColors[key])} />
-              <span className="text-[10px] text-muted-foreground">{label}</span>
+              <span className="text-xs text-muted-foreground">{label}</span>
             </div>
           ))}
         </div>
@@ -296,19 +300,19 @@ function AlertsWidget() {
             <AlertTriangle className="h-4 w-4 text-yellow-500" />
             アラート
           </span>
-          <Badge variant="secondary" className="text-[10px]">{alerts.length}件</Badge>
+          <Badge variant="secondary" className="text-xs">{alerts.length}件</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="px-4 pb-4">
         <div className="space-y-1.5">
           {alerts.slice(0, 4).map((a, idx) => (
             <div key={`${a.id}-${idx}`} className="flex items-center gap-2 rounded-md border p-2">
-              <Badge className="text-[9px] shrink-0" style={{ backgroundColor: alertTypeColor[a.alert_type], color: "#fff" }}>
+              <Badge className="text-[11px] shrink-0" style={{ backgroundColor: alertTypeColor[a.alert_type], color: "#fff" }}>
                 {alertTypeLabel[a.alert_type] || a.alert_type}
               </Badge>
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium truncate">{a.name}</p>
-                <p className="text-[10px] text-muted-foreground truncate">{a.message}</p>
+                <p className="text-xs text-muted-foreground truncate">{a.message}</p>
               </div>
             </div>
           ))}
@@ -366,10 +370,10 @@ function RecentProjectsWidget() {
                   {p.name}
                 </p>
                 {p.customer_name && (
-                  <p className="text-[10px] text-muted-foreground">{p.customer_name}</p>
+                  <p className="text-xs text-muted-foreground">{p.customer_name}</p>
                 )}
               </div>
-              <Badge className="shrink-0 text-[9px]" style={{ backgroundColor: stageColor[p.stage], color: "#fff" }}>
+              <Badge className="shrink-0 text-[11px]" style={{ backgroundColor: stageColor[p.stage], color: "#fff" }}>
                 {stageLabel[p.stage] || p.stage}
               </Badge>
             </div>
@@ -405,7 +409,7 @@ export default function HomePage() {
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {greeting}、{currentUser?.name} さん
-            <Badge variant="outline" className="ml-2 text-[10px]">
+            <Badge variant="outline" className="ml-2 text-xs">
               {roleLabelMap[currentUser?.role || ""] || currentUser?.role}
             </Badge>
           </p>
@@ -441,7 +445,7 @@ export default function HomePage() {
                 onClick={() => {
                   if (app.externalUrl) {
                     window.open(app.externalUrl, "_blank", "noopener,noreferrer");
-                  } else if (["equipment", "qsheet", "interactive", "techsheet"].includes(app.id)) {
+                  } else if (["equipment", "qsheet", "interactive", "techsheet", "liveops"].includes(app.id)) {
                     window.location.href = app.basePath;
                   } else {
                     navigate(app.basePath);
@@ -477,11 +481,281 @@ export default function HomePage() {
           </div>
         )}
 
+        {/* 権限診断パネル (スタッフ向け) */}
+        {!isAdmin && <PermDiagPanel />}
+
         {/* Version */}
-        <p className="mt-10 text-center text-[10px] text-muted-foreground/40">
+        <p className="mt-10 text-center text-xs text-muted-foreground/40">
           GMO ONAiR Platform v{__APP_VERSION__}
         </p>
       </div>
     </PageTransition>
+  );
+}
+
+// ──────────────────────────────────────
+// 権限診断パネル
+// ──────────────────────────────────────
+function PermDiagPanel() {
+  const { permissions: ctxPerms, hasPermission, permissionsLoaded } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [data, setData] = useState<any>(null);
+  const [apiPerms, setApiPerms] = useState<any>(null);
+  const [permTest, setPermTest] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [endpointTests, setEndpointTests] = useState<Record<string, { status: number | string; ok: boolean; msg?: string }>>({});
+
+  const run = async () => {
+    setLoading(true);
+    try {
+      const [debugRes, permsRes, permTestRes] = await Promise.allSettled([
+        api.get("/auth/debug"),
+        api.get("/users/me/permissions"),
+        api.get("/auth/permission-test"),
+      ]);
+      setData(
+        debugRes.status === "fulfilled"
+          ? debugRes.value.data.data
+          : { error: (debugRes.reason as any)?.response?.data?.error?.message ?? String(debugRes.reason) }
+      );
+      setApiPerms(
+        permsRes.status === "fulfilled"
+          ? permsRes.value.data.data
+          : { _error: (permsRes.reason as any)?.response?.data?.error?.message ?? String(permsRes.reason) }
+      );
+      setPermTest(
+        permTestRes.status === "fulfilled"
+          ? permTestRes.value.data.data
+          : { _error: (permTestRes.reason as any)?.response?.data?.error?.message ?? String(permTestRes.reason) }
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const runEndpointTests = async () => {
+    const endpoints: Array<[string, string]> = [
+      ["sales", "/projects?limit=1"],
+      ["budget", "/revenues?limit=1"],
+      ["studio", "/studios/locations"],
+      ["equipment", "/equipment/stats"],
+      ["qsheet", "/qsheet/documents?limit=1"],
+      ["techsheet", "/techsheet/documents?limit=1"],
+    ];
+    const results: Record<string, { status: number | string; ok: boolean; msg?: string }> = {};
+    await Promise.all(endpoints.map(async ([name, path]) => {
+      try {
+        const res = await api.get(path);
+        results[name] = { status: res.status, ok: true };
+      } catch (e: any) {
+        results[name] = {
+          status: e?.response?.status ?? "err",
+          ok: false,
+          msg: e?.response?.data?.error?.message ?? e?.message,
+        };
+      }
+    }));
+    setEndpointTests(results);
+  };
+
+  const permCount = data?.permissionsInDb?.length ?? 0;
+  const hasPerms = permCount > 0;
+  const reqUserPerms: Record<string, string> = data?.userFromJwt?.permissions ?? {};
+  const reqUserPermCount = Object.keys(reqUserPerms).length;
+  const apiPermCount = apiPerms && !apiPerms._error ? Object.keys(apiPerms).length : 0;
+  const ctxPermCount = Object.keys(ctxPerms).length;
+  const testModules = ["sales", "budget", "studio", "equipment", "qsheet", "techsheet", "interactive"];
+
+  return (
+    <div className="mt-6 border rounded-lg overflow-hidden text-xs">
+      <button
+        className="w-full flex items-center justify-between px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors"
+        onClick={() => { setOpen((v) => !v); if (!open && !data) run(); }}
+      >
+        <span className="flex items-center gap-2 font-medium text-muted-foreground">
+          {hasPerms
+            ? <ShieldCheck className="h-4 w-4 text-green-500" />
+            : data
+            ? <ShieldAlert className="h-4 w-4 text-amber-500" />
+            : <ShieldCheck className="h-4 w-4 text-muted-foreground" />}
+          権限診断
+        </span>
+        {open ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+      </button>
+      {open && (
+        <div className="px-4 py-3 space-y-3">
+          {loading && <p className="text-muted-foreground">読み込み中...</p>}
+          {data?.error && <p className="text-destructive">エラー: {data.error}</p>}
+          {data && !data.error && (
+            <>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                <span className="text-muted-foreground">ユーザーID</span>
+                <span className="font-mono truncate">{data.userInDb?.id}</span>
+                <span className="text-muted-foreground">ロール (DB)</span>
+                <span className="font-medium">{data.userInDb?.role}</span>
+                <span className="text-muted-foreground">ステータス</span>
+                <span>{data.userInDb?.status}</span>
+                <span className="text-muted-foreground">権限数 (DB table)</span>
+                <span className={hasPerms ? "text-green-600 font-bold" : "text-amber-600 font-bold"}>{permCount} モジュール</span>
+                <span className="text-muted-foreground">権限数 (req.user)</span>
+                <span className={reqUserPermCount > 0 ? "text-green-600 font-bold" : "text-red-600 font-bold"}>{reqUserPermCount} モジュール</span>
+                <span className="text-muted-foreground">権限数 (API応答)</span>
+                <span className={apiPermCount > 0 ? "text-green-600 font-bold" : "text-red-600 font-bold"}>
+                  {apiPerms?._error ? `エラー: ${apiPerms._error}` : `${apiPermCount} モジュール`}
+                </span>
+                <span className="text-muted-foreground">権限数 (AuthContext)</span>
+                <span className={ctxPermCount > 0 ? "text-green-600 font-bold" : "text-red-600 font-bold"}>
+                  {ctxPermCount} モジュール {permissionsLoaded ? "(loaded)" : "(loading...)"}
+                </span>
+              </div>
+
+              <details className="text-muted-foreground">
+                <summary className="cursor-pointer font-medium">hasPermission() 判定結果</summary>
+                <div className="bg-muted/30 rounded p-2 mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5">
+                  {testModules.map((m) => {
+                    const lvl = ctxPerms[m];
+                    const canReader = hasPermission(m, "reader");
+                    return (
+                      <div key={m} className="flex justify-between">
+                        <span>{m}</span>
+                        <span className={canReader ? "text-green-600" : "text-red-600"}>
+                          {canReader ? "✓" : "✗"} {lvl ?? "(なし)"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </details>
+
+              {ctxPermCount > 0 && (
+                <details className="text-muted-foreground">
+                  <summary className="cursor-pointer font-medium">AuthContext permissions 詳細</summary>
+                  <div className="bg-muted/30 rounded p-2 mt-1 space-y-0.5">
+                    {Object.entries(ctxPerms).map(([mod, lvl]) => (
+                      <div key={mod} className="flex justify-between">
+                        <span>{mod}</span>
+                        <span className="font-medium text-foreground">{lvl}</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+
+              {apiPermCount > 0 && ctxPermCount === 0 && (
+                <div className="bg-red-50 border border-red-200 rounded p-2 text-red-700">
+                  ⚠ APIは正しく権限を返していますが、AuthContext state が空です。
+                  React stateの同期問題か、初期化時のエラーが考えられます。
+                  ページを強制リロード (Ctrl+Shift+R) を試してください。
+                </div>
+              )}
+
+              {permCount > 0 && (
+                <details className="text-muted-foreground">
+                  <summary className="cursor-pointer font-medium">DB table 詳細</summary>
+                  <div className="bg-muted/30 rounded p-2 mt-1 space-y-0.5">
+                    {data.permissionsInDb.map((p: any) => (
+                      <div key={p.module} className="flex justify-between">
+                        <span>{p.module}</span>
+                        <span className="font-medium text-foreground">{p.access_level}</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+
+              {reqUserPermCount > 0 && (
+                <details className="text-muted-foreground">
+                  <summary className="cursor-pointer font-medium">req.user.permissions 詳細</summary>
+                  <div className="bg-muted/30 rounded p-2 mt-1 space-y-0.5">
+                    {Object.entries(reqUserPerms).map(([mod, lvl]) => (
+                      <div key={mod} className="flex justify-between">
+                        <span>{mod}</span>
+                        <span className="font-medium text-foreground">{lvl}</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+
+              {apiPermCount > 0 && (
+                <details className="text-muted-foreground">
+                  <summary className="cursor-pointer font-medium">API応答 詳細</summary>
+                  <div className="bg-muted/30 rounded p-2 mt-1 space-y-0.5">
+                    {Object.entries(apiPerms as Record<string, string>).map(([mod, lvl]) => (
+                      <div key={mod} className="flex justify-between">
+                        <span>{mod}</span>
+                        <span className="font-medium text-foreground">{lvl}</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+
+              {permCount === 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded p-2 text-amber-700">
+                  権限がDBに登録されていません。管理者に「権限修復」の実行を依頼してください。
+                </div>
+              )}
+
+              {permCount > 0 && reqUserPermCount === 0 && (
+                <div className="bg-red-50 border border-red-200 rounded p-2 text-red-700">
+                  ⚠ DBには権限がありますが req.user.permissions が空です。loadUserWithPermissions に問題があります。
+                </div>
+              )}
+
+              {permCount > 0 && apiPermCount === 0 && !apiPerms?._error && (
+                <div className="bg-red-50 border border-red-200 rounded p-2 text-red-700">
+                  ⚠ DBには権限がありますが API応答が空です。/users/me/permissions のクエリに問題があります。
+                </div>
+              )}
+            </>
+          )}
+          {/* requirePermission シミュレーション結果 */}
+          {permTest && !permTest._error && (
+            <div className="bg-muted/30 rounded p-2 space-y-1">
+              <div className="font-medium mb-1 text-xs">
+                サーバー側 requirePermission シミュレーション:
+                <span className={permTest.all_pass ? " text-green-600" : " text-red-600"}>
+                  {permTest.all_pass ? " 全モジュールOK" : " 失敗あり"}
+                </span>
+              </div>
+              {(permTest.module_tests ?? []).map((t: any) => (
+                <div key={t.module} className="grid grid-cols-3 gap-1 text-xs">
+                  <span className="text-muted-foreground">{t.module}</span>
+                  <span className={t.req_level ? "text-foreground" : "text-red-500"}>
+                    req:{t.req_level ?? "null"}({t.req_numeric})
+                  </span>
+                  <span className={t.would_pass_from_req ? "text-green-600" : "text-red-600 font-bold"}>
+                    {t.would_pass_from_req ? "✓ pass" : "✗ FAIL"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          {permTest?._error && (
+            <div className="text-red-600 text-xs">permission-test エラー: {permTest._error}</div>
+          )}
+
+          <div className="flex gap-3">
+            <button onClick={run} className="text-primary underline text-xs">{loading ? "..." : "再診断"}</button>
+            <button onClick={runEndpointTests} className="text-primary underline text-xs">実エンドポイントテスト</button>
+          </div>
+
+          {Object.keys(endpointTests).length > 0 && (
+            <div className="bg-muted/30 rounded p-2 space-y-0.5">
+              <div className="font-medium mb-1">エンドポイントテスト結果 (修正済みパス):</div>
+              {Object.entries(endpointTests).map(([name, r]) => (
+                <div key={name} className="flex justify-between">
+                  <span className="text-muted-foreground">{name}</span>
+                  <span className={r.ok ? "text-green-600" : "text-red-600"}>
+                    {r.ok ? `✓ ${r.status}` : `✗ ${r.status}${r.msg ? ` — ${r.msg}` : ""}`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

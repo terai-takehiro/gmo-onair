@@ -88,7 +88,7 @@ export async function jwtAuth(req: Request, _res: Response, next: NextFunction):
  * 認証ミドルウェア自動選択: GOOGLE_CLIENT_ID が設定されていれば JWT、なければ mockAuth
  */
 export function createAuthMiddleware() {
-  if (config.authMode === 'oauth') {
+  if (config.authMode === 'password') {
     return jwtAuth;
   }
   return mockAuth;
@@ -96,6 +96,7 @@ export function createAuthMiddleware() {
 
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   if (!req.user) {
+    console.log('[auth] requireAuth FAIL — path:', req.path, 'x-user-id:', req.headers['x-user-id'], 'auth:', req.headers.authorization?.slice(0, 20));
     res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: '認証が必要です' } });
     return;
   }
@@ -115,11 +116,13 @@ export function requireRole(...roles: string[]) {
 /**
  * モジュール別パーミッションチェック
  * system_admin は常にアクセス可能
+ * req.user.permissions が空の場合は DB を直接クエリしてフォールバック
  */
 export function requirePermission(module: string, minLevel: 'reader' | 'exporter' | 'editor' | 'manager' | 'owner' = 'reader') {
-  const levelOrder = { reader: 1, exporter: 2, editor: 3, manager: 4, owner: 5 };
+  // 3段階に集約: 閲覧(reader+exporter) / 編集(editor) / 管理(manager+owner)
+  const levelOrder = { reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3 };
 
-  return (req: Request, res: Response, next: NextFunction): void => {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     if (!req.user) {
       res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: '認証が必要です' } });
       return;
@@ -130,9 +133,39 @@ export function requirePermission(module: string, minLevel: 'reader' | 'exporter
       return;
     }
 
-    const userLevel = req.user.permissions?.[module];
-    if (!userLevel || levelOrder[userLevel as keyof typeof levelOrder] < levelOrder[minLevel]) {
-      res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'このモジュールへのアクセス権限がありません' } });
+    let userLevel = req.user.permissions?.[module];
+
+    // Failsafe: if permissions cache is empty, re-query DB directly
+    if (!userLevel && req.user.permissions && Object.keys(req.user.permissions).length === 0) {
+      try {
+        const rows = await queryAll(
+          'SELECT access_level FROM user_permissions WHERE user_id = ? AND module = ?',
+          [req.user.id, module]
+        );
+        if (rows.length > 0) {
+          userLevel = rows[0].access_level as string;
+          console.log(`[auth] permissions cache miss for user=${req.user.id} module=${module}, DB fallback: ${userLevel}`);
+        }
+      } catch { /* ignore DB errors */ }
+    }
+
+    if (!userLevel || (levelOrder[userLevel as keyof typeof levelOrder] ?? 0) < levelOrder[minLevel]) {
+      // 診断情報: 403 を返す時に、サーバーが認識している権限情報を含める
+      console.log(`[auth] 403 user=${req.user.id} role=${req.user.role} module=${module} userLevel=${userLevel} perms=${JSON.stringify(req.user.permissions)}`);
+      res.status(403).json({
+        success: false,
+        error: {
+          code: 'FORBIDDEN',
+          message: 'このモジュールへのアクセス権限がありません',
+          debug: {
+            requiredModule: module,
+            requiredMinLevel: minLevel,
+            userRole: req.user.role,
+            userLevel: userLevel ?? null,
+            allPermissions: req.user.permissions ?? {},
+          },
+        },
+      });
       return;
     }
     next();

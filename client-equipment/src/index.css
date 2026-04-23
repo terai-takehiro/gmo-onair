@@ -1,3 +1,4 @@
+@import '@gmo-onair/shared/src/client/design-tokens.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -9,8 +10,14 @@
     -webkit-text-size-adjust: 100%;
     max-width: 100vw;
   }
-  html {
+  html, body {
     touch-action: pan-y;
+    -webkit-font-smoothing: antialiased;
+    background-color: hsl(var(--card)); /* safe-area inset = header color */
+  }
+  button, a, [role="button"], label[for], summary {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 
   :root {
@@ -47,8 +54,11 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Noto Sans JP', sans-serif;
-    line-height: 1.60;
+    font-family: 'Noto Sans JP', -apple-system, 'Hiragino Sans', sans-serif;
+    font-size: 15px;
+    line-height: 1.75;
+    letter-spacing: 0.02em;
+    -webkit-font-smoothing: antialiased;
   }
   .heading-page { font-family: 'Noto Sans JP', sans-serif; font-weight: 700; line-height: 1.20; letter-spacing: 0.01em; }
   .heading-section { font-family: 'Noto Sans JP', sans-serif; font-weight: 600; line-height: 1.25; }
@@ -114,3 +124,178 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 .animate-slide-up { animation: slide-up-in 0.5s ease-out both; }
+
+@keyframes switcher-in {
+  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-switcher-in { animation: switcher-in 0.2s ease-out both; }
+
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.page-enter { animation: page-enter 0.3s ease-out both; }
+
+.card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+
+/* ── 印刷スタイル (機材一覧) ─────────────── */
+/* スクリーン表示時のみ非表示（printでは display:none を解除するため @media screen を使う） */
+@media screen {
+  #eq-print-area-wrapper { display: none; }
+}
+
+@media print {
+  body * { visibility: hidden; }
+  #eq-print-area-wrapper,
+  #eq-print-area-wrapper * { visibility: visible; }
+  #eq-print-area-wrapper {
+    position: absolute;
+    left: 0; top: 0;
+    width: 100%;
+    padding: 0;
+    font-family: 'Noto Sans JP', -apple-system, 'Hiragino Sans', sans-serif;
+  }
+  @page { margin: 12mm 10mm; }
+  #eq-print-area .print-title {
+    font-size: 13pt; font-weight: bold; margin-bottom: 3px;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+  #eq-print-area .print-meta {
+    font-size: 8pt; color: #444; margin-bottom: 8px;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+  #eq-print-area table {
+    border-collapse: collapse; width: 100%;
+    font-size: 8.5pt; font-family: 'Noto Sans JP', sans-serif;
+  }
+  #eq-print-area th {
+    border: 1px solid #000; padding: 3px 5px;
+    background: #f0f0f0; font-weight: bold;
+    text-align: left; white-space: nowrap;
+  }
+  #eq-print-area td {
+    border: 1px solid #555; padding: 2px 5px;
+    text-align: left; word-break: break-all;
+    vertical-align: top;
+  }
+  #eq-print-area td.check-col,
+  #eq-print-area th.check-col { width: 20px; text-align: center; vertical-align: middle; }
+  #eq-print-area td.check-col { vertical-align: middle; }
+  #eq-print-area td.col-id,
+  #eq-print-area th.col-id { white-space: nowrap; }
+  #eq-print-area thead { display: table-header-group; }
+  #eq-print-area tr { page-break-inside: avoid; }
+  /* 深さ別スタイル */
+  #eq-print-area tr.depth-0 td { background: #fff; }
+  #eq-print-area tr.depth-0 td.col-name { font-weight: bold; }
+  #eq-print-area tr.depth-1 td { background: #f5f5f5; }
+  #eq-print-area tr.depth-1 td.col-name { border-left: 3px solid #999 !important; }
+  #eq-print-area tr.depth-2 td { background: #eaeaea; }
+  #eq-print-area tr.depth-2 td.col-name { border-left: 3px solid #bbb !important; }
+  #eq-print-area tr.depth-3 td { background: #e0e0e0; }
+  #eq-print-area tr.depth-3 td.col-name { border-left: 3px solid #ccc !important; }
+}
+
+/* ── 印刷スタイル (ラック実装ビュー) ─────────────── */
+@media screen {
+  #rack-print-area-wrapper { display: none; }
+}
+
+@media print {
+  body.print-rack #rack-print-area-wrapper,
+  body.print-rack #rack-print-area-wrapper * { visibility: visible; }
+  body.print-rack #rack-print-area-wrapper {
+    position: absolute;
+    left: 0; top: 0; width: 100%;
+    font-family: 'Noto Sans JP', -apple-system, 'Hiragino Sans', sans-serif;
+  }
+  .rack-print-title {
+    font-size: 12pt; font-weight: bold;
+    border-bottom: 1.5px solid #333;
+    padding-bottom: 3pt; margin-bottom: 3pt;
+  }
+  .rack-print-meta { font-size: 7.5pt; color: #555; margin-bottom: 8pt; }
+  .rack-print-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 8mm;
+    row-gap: 10mm;
+    align-items: start;
+  }
+  .rack-print-item { break-inside: avoid; page-break-inside: avoid; }
+  .rack-print-rack-header {
+    font-size: 9pt; font-weight: bold; text-align: center;
+    background: #333; color: #fff;
+    padding: 2pt 6pt; margin-bottom: 2pt;
+  }
+  .rack-print-rack-subtitle {
+    font-size: 6.5pt; color: #555; text-align: center; margin-bottom: 3pt;
+  }
+  .rack-print-body-row { display: flex; align-items: flex-start; gap: 2px; }
+  .rack-print-u-col {
+    display: flex; flex-direction: column;
+    width: 14px; flex-shrink: 0;
+  }
+  .rack-print-u-cell {
+    display: flex; align-items: center;
+    justify-content: flex-end; padding-right: 2px;
+    font-size: 5.5pt; color: #666; font-family: monospace; line-height: 1;
+  }
+  .rack-print-u-cell-r {
+    display: flex; align-items: center;
+    justify-content: flex-start; padding-left: 2px;
+    font-size: 5.5pt; color: #666; font-family: monospace; line-height: 1;
+  }
+  .rack-print-body {
+    position: relative;
+    border: 1.5px solid #444;
+    background: #f7f7f7;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color-adjust: exact;
+  }
+  .rack-print-gridline {
+    position: absolute; left: 0; right: 0;
+    border-bottom: 1px solid #ddd; pointer-events: none;
+  }
+  .rack-print-cell-item {
+    position: absolute;
+    border: 1px solid rgba(0,0,0,0.3);
+    overflow: hidden;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 0 3px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color-adjust: exact;
+  }
+  .rack-print-cell-primary {
+    font-size: 6.5pt; font-weight: bold; line-height: 1.1;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .rack-print-cell-secondary {
+    font-size: 5.5pt; opacity: 0.75; line-height: 1.1;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .rack-print-cell-no { font-size: 5.5pt; opacity: 0.65; line-height: 1.0; }
+  .rack-print-blank-item {
+    position: absolute;
+    border: 1px solid #bbb;
+    background: #e0e0e0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 5.5pt; color: #777; font-weight: bold; letter-spacing: 1px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color-adjust: exact;
+  }
+  .rack-print-u-footer { text-align: center; font-size: 6.5pt; color: #666; margin-top: 2pt; }
+  .rack-print-legend { margin-top: 8pt; border-top: 1px solid #bbb; padding-top: 4pt; }
+  .rack-print-legend-title { font-size: 7pt; font-weight: bold; margin-bottom: 3pt; }
+  .rack-print-legend-row { display: flex; flex-wrap: wrap; gap: 4pt 10pt; }
+  .rack-print-legend-item { display: flex; align-items: center; gap: 3pt; font-size: 6.5pt; }
+  .rack-print-legend-swatch {
+    display: inline-block; width: 8pt; height: 8pt; border: 0.5px solid #999;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact;
+  }
+}

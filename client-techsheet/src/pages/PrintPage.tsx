@@ -122,7 +122,7 @@ export default function PrintPage() {
               )}
             </div>
             {doc.version && (
-              <div className="text-right text-[10px] text-gray-500">{doc.version}</div>
+              <div className="text-right text-xs text-gray-500">{doc.version}</div>
             )}
           </div>
         </div>
@@ -133,7 +133,7 @@ export default function PrintPage() {
           <div className="grid grid-cols-4 gap-px bg-gray-300 text-xs">
             {staffPairs.map(([label, value]) => (
               <div key={label} className="bg-white px-2 py-1.5">
-                <span className="font-bold text-[10px] text-gray-500 block">{label}</span>
+                <span className="font-bold text-xs text-gray-500 block">{label}</span>
                 <span>{value}</span>
               </div>
             ))}
@@ -142,7 +142,7 @@ export default function PrintPage() {
             <div className="border-t border-gray-300 text-xs">
               {staffArrays.map(([label, arr]) => (
                 <div key={label as string} className="flex items-center gap-2 px-2 py-1 border-b border-gray-200 last:border-b-0">
-                  <span className="font-bold text-[10px] text-gray-500 w-12 shrink-0">{label}</span>
+                  <span className="font-bold text-xs text-gray-500 w-12 shrink-0">{label}</span>
                   <span>{(arr as string[]).filter(Boolean).join("、")}</span>
                 </div>
               ))}
@@ -157,14 +157,14 @@ export default function PrintPage() {
           ["出演者", h.performers],
         ].filter(([, v]) => v).map(([label, value]) => (
           <div key={label} className="border border-gray-300 mb-2 text-xs">
-            <div className="bg-slate-100 px-2 py-0.5 font-bold text-[10px]">{label}</div>
+            <div className="bg-slate-100 px-2 py-0.5 font-bold text-xs">{label}</div>
             <div className="px-2 py-1 whitespace-pre-wrap">{value}</div>
           </div>
         ))}
 
         {notes && (
           <div className="border border-gray-300 mt-4 text-xs">
-            <div className="bg-yellow-50 px-2 py-0.5 font-bold text-[10px]">備考</div>
+            <div className="bg-yellow-50 px-2 py-0.5 font-bold text-xs">備考</div>
             <div className="px-2 py-1 whitespace-pre-wrap">{notes}</div>
           </div>
         )}
@@ -177,7 +177,7 @@ export default function PrintPage() {
             <div className="bg-black text-white px-3 py-1.5 text-base font-bold">
               {sheet.label}
             </div>
-            <div className="text-right px-2 py-0.5 text-[10px] text-gray-400">
+            <div className="text-right px-2 py-0.5 text-xs text-gray-400">
               {h.programName || doc.title} {doc.version && `— ${doc.version}`}
             </div>
           </div>

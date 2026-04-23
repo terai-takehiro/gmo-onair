@@ -20,6 +20,8 @@ router.get('/', async (req, res) => {
     tab: (req.query.tab as ProjectFilter['tab']) || 'all',
     tag: req.query.tag as string,
     glsCategory: req.query.gls_category as ProjectFilter['glsCategory'],
+    sortBy: req.query.sort_by as string,
+    sortDir: (req.query.sort_dir as 'asc' | 'desc') || 'desc',
   };
   const { rows, total } = await projectService.list(filter, page, limit, offset);
   res.json(paginatedResponse(rows, total, page, limit));
@@ -44,8 +46,8 @@ router.get('/tags', async (_req, res) => {
 });
 
 // GLS番号付き案件一覧（リンク先選択用）
-router.get('/gls-projects', (_req, res) => {
-  res.json({ success: true, data: projectService.getGlsProjects() });
+router.get('/gls-projects', async (_req, res) => {
+  res.json({ success: true, data: await projectService.getGlsProjects() });
 });
 
 // 詳細

@@ -1,24 +1,100 @@
-name: Deploy to CoNoHa VPS
+name: Deploy
 
 on:
   push:
-    branches:
-      - main
+    branches: [dev, main]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Deploy target'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
+
+# 同じブランチへの複数プッシュが重なった場合、最新のみ実行
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
-  deploy:
+  # ============================================
+  # 検証環境 (dev.gmo-onair.jp) — dev push で自動
+  # ============================================
+  deploy-dev:
+    if: github.ref == 'refs/heads/dev' || (github.event_name == 'workflow_dispatch' && inputs.target == 'dev')
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          script: |
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Deploy to dev environment
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} bash -s << 'ENDSSH'
             set -e
-            cd /opt/gmo-onair
-            git pull origin main
-            docker compose up -d --build
-            echo "✅ Deploy completed at $(date)"
+            # dev worktree を最新に更新
+            cd /root/gmo-onair-dev
+            git fetch origin dev
+            git reset --hard origin/dev
+            # app_dev のみ再ビルド＆再起動 (本番には触れない)
+            cd /root/gmo-onair
+            git fetch origin main
+            git reset --hard origin/main
+            docker compose build app_dev
+            docker compose stop app_dev || true
+            docker compose rm -f app_dev || true
+            docker compose up -d --no-deps app_dev
+            # nginx を再作成 (volume マウント変更を反映)
+            docker compose stop nginx || true
+            docker compose rm -f nginx || true
+            docker compose up -d --no-deps nginx
+            echo "✓ Dev deploy complete: $(date) — $(cd /root/gmo-onair-dev && git log --oneline -1)"
+          ENDSSH
+
+  # ============================================
+  # 本番環境 (gmo-onair.jp) — main push で自動
+  # ============================================
+  deploy-prod:
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.target == 'prod')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Deploy to production
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} bash -s << 'ENDSSH'
+            set -e
+            cd /root/gmo-onair
+            git fetch origin main
+            git reset --hard origin/main
+            # app_prod のみ再ビルド＆再起動 (検証には触れない)
+            docker compose build --no-cache app_prod
+            docker compose stop app_prod || true
+            docker compose rm -f app_prod || true
+            docker compose up -d --no-deps app_prod
+            # サーバー起動ログを確認
+            echo "=== Container logs (first 10s) ==="
+            sleep 10
+            docker logs --tail=50 gmo-onair-app_prod-1 2>&1 || docker logs --tail=50 $(docker ps -aq -f name=app_prod | head -1) 2>&1 || true
+            echo "=== Health check ==="
+            sleep 10
+            curl -sf http://localhost:3000/health && echo "✓ Health check passed" || echo "⚠ Health check failed"
+            echo "=== Container status ==="
+            docker ps -a | grep app_prod || true
+            echo "✓ Prod deploy complete: $(date) — $(git log --oneline -1)"
+          ENDSSH

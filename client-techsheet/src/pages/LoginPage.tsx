@@ -8,8 +8,6 @@ import { Loader2, User, Wrench, AlertCircle } from "lucide-react";
 const roleLabelMap: Record<string, string> = {
   system_admin: "システム管理者",
   staff: "スタッフ",
-  viewer: "閲覧者",
-  external_client: "外部",
 };
 
 export default function LoginPage() {
@@ -22,7 +20,7 @@ export default function LoginPage() {
     queryKey: ["auth-mode"],
     queryFn: async () => {
       const res = await api.get("/auth/mode");
-      return res.data.data as { mode: "oauth" | "mock"; googleClientId: string | null };
+      return res.data.data as { mode: "oauth" | "mock" | "password"; googleClientId: string | null };
     },
   });
 
@@ -45,6 +43,7 @@ export default function LoginPage() {
   };
 
   const isOAuth = authMode?.mode === "oauth";
+  const isPassword = authMode?.mode === "password";
 
   return (
     <div className="login-bg relative flex min-h-screen items-center justify-center overflow-hidden p-4">
@@ -53,6 +52,11 @@ export default function LoginPage() {
 
       <div className="glass-card animate-slide-up relative z-10 w-full max-w-2xl px-8 py-10">
         <div className="mb-8 text-center">
+          <img
+            src="/techsheet/logo-onair.svg"
+            alt="GMO ONAiR"
+            className="mx-auto mb-4 h-8 w-auto"
+          />
           <div className="inline-flex items-center justify-center gap-3 mb-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
               <Wrench className="h-6 w-6 text-primary" />
@@ -60,7 +64,7 @@ export default function LoginPage() {
             <h1 className="text-3xl font-bold text-primary sm:text-4xl">技術資料</h1>
           </div>
           <p className="text-base text-muted-foreground">
-            GMO ONAiR TechSheet
+            TechSheet
           </p>
         </div>
 
@@ -71,7 +75,20 @@ export default function LoginPage() {
           </div>
         )}
 
-        {isOAuth ? (
+        {!authMode ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : isPassword ? (
+          <div className="flex flex-col items-center gap-4">
+            <p className="text-sm text-muted-foreground text-center">
+              GMO ONAiR メインアプリからログインしてください
+            </p>
+            <Button size="lg" className="px-8" onClick={() => { window.location.href = '/login?returnUrl=' + encodeURIComponent(window.location.href); }}>
+              メインアプリでログイン
+            </Button>
+          </div>
+        ) : isOAuth ? (
           <div className="flex flex-col items-center gap-6">
             <Button
               size="lg"

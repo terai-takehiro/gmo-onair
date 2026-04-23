@@ -1,14 +1,17 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatMonth, formatShortDate, localDateStr } from "@/lib/format";
+import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { PageTransition } from "@/components/ui/motion";
 import { getProjectCategory } from "@/types";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -32,6 +35,35 @@ import {
 } from "@/components/ui/select";
 import { Search, Loader2, Plus, Trash2, Download } from "lucide-react";
 
+type SortKey = "billing_key" | "project_name" | "amount" | "recognition_date";
+type SortDir = "asc" | "desc";
+
+function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey | null; sortDir: SortDir }) {
+  if (sortKey !== col) return <ChevronsUpDown className="inline h-3 w-3 ml-0.5 opacity-40" />;
+  return sortDir === "asc" ? <ChevronUp className="inline h-3 w-3 ml-0.5" /> : <ChevronDown className="inline h-3 w-3 ml-0.5" />;
+}
+import ExcelToolbar from "@/components/ExcelToolbar";
+
+interface RevenueRow {
+  id: string;
+  billing_key: string | null;
+  project_id: string;
+  project_name: string | null;
+  gls_number: string | null;
+  customer_name: string | null;
+  event_end: string | null;
+  amount: number;
+  tax_category: string;
+  recognition_date: string | null;
+  billing_date: string | null;
+  payment_due_date: string | null;
+  notes: string | null;
+  is_advance_payment: boolean;
+  group_id: string | null;
+  status: string;
+  items?: RevenueItem[];
+}
+
 interface ProjectOption {
   id: string;
   gls_number: string;
@@ -39,6 +71,8 @@ interface ProjectOption {
   customer_id: string;
   customer_name?: string;
   project_type?: string;
+  expected_amount?: number;
+  event_end?: string;
 }
 
 interface EpisodeOption {
@@ -64,6 +98,10 @@ export default function RevenueListPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [colWidths, setColWidths] = useState<Record<string, number>>({});
+  const resizeRef = useRef<{ col: string; startX: number; startW: number } | null>(null);
 
   // Dialog form state
   const [projectSearch, setProjectSearch] = useState("");
@@ -71,11 +109,36 @@ export default function RevenueListPage() {
   const [selectedEpisodeId, setSelectedEpisodeId] = useState("");
   const [taxCategory, setTaxCategory] = useState("tax10");
   const [amount, setAmount] = useState<number>(0);
-  const [recognitionDate, setRecognitionDate] = useState("");
+  const [recognitionMonth, setRecognitionMonth] = useState(""); // YYYY-MM
   const [billingDate, setBillingDate] = useState("");
   const [paymentDueDate, setPaymentDueDate] = useState("");
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<RevenueItem[]>([]);
+  const [isAdvancePayment, setIsAdvancePayment] = useState(false);
+  const [existingRevenueId, setExistingRevenueId] = useState("");
+
+  const startResize = useCallback((col: string, e: React.MouseEvent, currentWidth: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeRef.current = { col, startX: e.clientX, startW: currentWidth };
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!resizeRef.current) return;
+      const newW = Math.max(60, resizeRef.current.startW + ev.clientX - resizeRef.current.startX);
+      setColWidths((prev) => ({ ...prev, [resizeRef.current!.col]: newW }));
+    };
+    const onMouseUp = () => {
+      resizeRef.current = null;
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }, []);
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("asc"); }
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ["revenues-all", page, search, filterProjectId],
@@ -87,8 +150,20 @@ export default function RevenueListPage() {
     },
   });
 
-  const revenues = data?.data ?? [];
+  const revenuesRaw: RevenueRow[] = data?.data ?? [];
   const pagination = data?.pagination;
+
+  const revenues = useMemo(() => {
+    if (!sortKey) return revenuesRaw;
+    return [...revenuesRaw].sort((a, b) => {
+      const av = (a[sortKey] ?? "") as string | number;
+      const bv = (b[sortKey] ?? "") as string | number;
+      const cmp = typeof av === "number" && typeof bv === "number"
+        ? av - bv
+        : String(av).localeCompare(String(bv), "ja");
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [revenuesRaw, sortKey, sortDir]);
 
   // Search projects for dialog
   const { data: projectsData } = useQuery({
@@ -112,6 +187,16 @@ export default function RevenueListPage() {
   });
   const episodes: EpisodeOption[] = episodesData?.data ?? [];
 
+  // Fetch existing confirmed revenues for selected project (for pre-fill / update mode)
+  const { data: existingRevenuesData } = useQuery({
+    queryKey: ["revenues-for-project", selectedProjectId],
+    queryFn: async () =>
+      (await api.get("/revenues", { params: { project_id: selectedProjectId, status: "confirmed" } })).data,
+    enabled: dialogOpen && !!selectedProjectId,
+  });
+  const existingProjectRevenues: RevenueRow[] = existingRevenuesData?.data ?? [];
+  const primaryRevenue = existingProjectRevenues.find((r) => !r.group_id);
+
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
   const isProjectCategoryB = selectedProject?.project_type
     ? getProjectCategory(selectedProject.project_type) === "B"
@@ -125,6 +210,42 @@ export default function RevenueListPage() {
     enabled: dialogOpen && !!selectedProjectId && !isProjectCategoryB,
   });
   const simulationItems = simData?.data ?? [];
+
+  // 案件選択時: まず案件のデフォルト値を入力（既存売上ロード前の仮入力）
+  useEffect(() => {
+    if (!selectedProject) return;
+    setExistingRevenueId("");
+    if (selectedProject.expected_amount) setAmount(selectedProject.expected_amount);
+    if (selectedProject.event_end) {
+      const dateStr = selectedProject.event_end as string;
+      const [ey, em] = dateStr.split("-").map(Number);
+      setRecognitionMonth(`${ey}-${String(em).padStart(2, "0")}`);
+      setBillingDate(localDateStr(new Date(ey, em, 0)));       // event_end月末
+      setPaymentDueDate(localDateStr(new Date(ey, em + 1, 0))); // 翌月末
+    }
+  }, [selectedProjectId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 既存売上が見つかった場合: 既存データで上書き（更新モードに切り替え）
+  useEffect(() => {
+    if (!primaryRevenue) return;
+    setExistingRevenueId(primaryRevenue.id);
+    setAmount(primaryRevenue.amount || 0);
+    setTaxCategory(primaryRevenue.tax_category || "tax10");
+    setRecognitionMonth(primaryRevenue.recognition_date ? primaryRevenue.recognition_date.slice(0, 7) : "");
+    setBillingDate(primaryRevenue.billing_date ? primaryRevenue.billing_date.slice(0, 10) : "");
+    setPaymentDueDate(primaryRevenue.payment_due_date ? primaryRevenue.payment_due_date.slice(0, 10) : "");
+    setNotes(primaryRevenue.notes || "");
+    setIsAdvancePayment(!!primaryRevenue.is_advance_payment);
+    if (Array.isArray(primaryRevenue.items) && primaryRevenue.items.length > 0) {
+      setItems(primaryRevenue.items.map((it: any) => ({
+        description: it.description || "",
+        quantity: it.quantity || 1,
+        unit_price: it.unit_price || 0,
+        amount: it.amount || 0,
+        pricing_item_id: it.pricing_item_id,
+      })));
+    }
+  }, [primaryRevenue?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Billing key preview
   const billingKeyPreview = useMemo(() => {
@@ -147,12 +268,15 @@ export default function RevenueListPage() {
     [items]
   );
 
-  // Create mutation
+  // Create / Update mutation
   const createMutation = useMutation({
-    mutationFn: (payload: Record<string, unknown>) =>
-      api.post("/revenues", payload),
+    mutationFn: ({ payload, revenueId }: { payload: Record<string, unknown>; revenueId: string }) =>
+      revenueId
+        ? api.put(`/revenues/${revenueId}`, payload)
+        : api.post("/revenues", payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["revenues-all"] });
+      qc.invalidateQueries({ queryKey: ["revenues-for-project", selectedProjectId] });
       handleCloseDialog();
     },
   });
@@ -164,29 +288,51 @@ export default function RevenueListPage() {
     setSelectedEpisodeId("");
     setTaxCategory("tax10");
     setAmount(0);
-    setRecognitionDate("");
+    setRecognitionMonth("");
     setBillingDate("");
     setPaymentDueDate("");
     setNotes("");
     setItems([]);
+    setIsAdvancePayment(false);
+    setExistingRevenueId("");
+  };
+
+  const handleEditRevenue = (r: RevenueRow) => {
+    setExistingRevenueId(r.id);
+    setSelectedProjectId(r.project_id);
+    setProjectSearch(r.project_name || "");
+    setAmount(Number(r.amount) || 0);
+    setTaxCategory(r.tax_category || "tax10");
+    setRecognitionMonth(r.recognition_date ? r.recognition_date.slice(0, 7) : "");
+    setBillingDate(r.billing_date ? r.billing_date.slice(0, 10) : "");
+    setPaymentDueDate(r.payment_due_date ? r.payment_due_date.slice(0, 10) : "");
+    setNotes(r.notes || "");
+    setIsAdvancePayment(!!r.is_advance_payment);
+    setSelectedEpisodeId("");
+    setItems([]);
+    setDialogOpen(true);
   };
 
   const handleCreateSubmit = () => {
     if (!selectedProjectId) return;
     // A系はepisode必須、B系は不要
-    if (!isProjectCategoryB && !selectedEpisodeId) return;
+    if (!isProjectCategoryB && !selectedEpisodeId && !existingRevenueId) return;
 
     createMutation.mutate({
-      project_id: selectedProjectId,
-      episode_id: selectedEpisodeId || null,
-      customer_id: selectedProject?.customer_id ?? null,
-      tax_category: taxCategory,
-      amount: items.length > 0 ? itemsTotal : amount,
-      recognition_date: recognitionDate || null,
-      billing_date: billingDate || null,
-      payment_due_date: paymentDueDate || null,
-      notes: notes || null,
-      items: items.length > 0 ? items : undefined,
+      revenueId: existingRevenueId,
+      payload: {
+        project_id: selectedProjectId,
+        episode_id: selectedEpisodeId || null,
+        customer_id: selectedProject?.customer_id ?? null,
+        tax_category: taxCategory,
+        amount: items.length > 0 ? itemsTotal : amount,
+        recognition_date: recognitionMonth ? `${recognitionMonth}-01` : null,
+        billing_date: billingDate || null,
+        payment_due_date: paymentDueDate || null,
+        notes: notes || null,
+        items: items.length > 0 ? items : undefined,
+        is_advance_payment: isAdvancePayment,
+      },
     });
   };
 
@@ -233,7 +379,7 @@ export default function RevenueListPage() {
 
   const canSubmit =
     selectedProjectId &&
-    (isProjectCategoryB || selectedEpisodeId) &&
+    (isProjectCategoryB || selectedEpisodeId || !!existingRevenueId) &&
     !createMutation.isPending;
 
   return (
@@ -253,10 +399,13 @@ export default function RevenueListPage() {
             </div>
           )}
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus className="mr-1 h-4 w-4" />
-          新規売上
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <ExcelToolbar resource="/revenues" name="売上" queryKey={["revenues"]} hasDuplicateKey={false} />
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="mr-1 h-4 w-4" />
+            新規売上
+          </Button>
+        </div>
       </div>
 
       <div className="relative max-w-sm">
@@ -286,39 +435,39 @@ export default function RevenueListPage() {
             <>
               {/* Mobile cards */}
               <div className="space-y-2 lg:hidden">
-                {revenues.map((r: Record<string, unknown>) => (
+                {revenues.map((r) => (
                   <div
-                    key={r.id as string}
-                    className="rounded-lg border p-3 transition-colors hover:bg-muted/50"
-                    onClick={() =>
-                      r.project_id &&
-                      navigate(`/sales/projects/${r.project_id}/episodes`)
-                    }
-                    role={r.project_id ? "button" : undefined}
+                    key={r.id}
+                    className="rounded-lg border p-3 transition-colors hover:bg-muted/50 cursor-pointer"
+                    onClick={() => handleEditRevenue(r)}
+                    role="button"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-mono text-xs text-muted-foreground">
-                            {(r.billing_key as string) || "-"}
+                            {r.billing_key || "-"}
                           </span>
-                          <span className="font-mono text-sm font-medium text-primary">
-                            {(r.gls_number as string) || "-"}
+                          <span className="font-mono text-xs font-medium text-primary">
+                            {r.gls_number || "-"}
                           </span>
                         </div>
-                        <div className="text-sm text-muted-foreground mt-1 truncate">
-                          {(r.customer_name as string) || "-"}
-                          {(r.project_name as string) && (
-                            <span> / {r.project_name as string}</span>
+                        <div className="text-sm mt-0.5 font-medium truncate">
+                          {r.project_name || "-"}
+                          {r.event_end && (
+                            <span className="text-xs text-muted-foreground ml-1">({formatShortDate(r.event_end)})</span>
                           )}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                          {r.customer_name || "-"}
                         </div>
                       </div>
                       <div className="text-right shrink-0">
                         <div className="font-medium font-number">
-                          {formatCurrency(r.amount as number)}
+                          {formatCurrency(r.amount)}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {formatDate(r.recognition_date as string)}
+                          {formatMonth(r.recognition_date)}
                         </div>
                       </div>
                     </div>
@@ -328,60 +477,71 @@ export default function RevenueListPage() {
 
               {/* Desktop table */}
               <div className="hidden lg:block overflow-x-auto">
-                <Table>
+                <Table className={Object.keys(colWidths).length > 0 ? "table-fixed" : ""}>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>請求KEY</TableHead>
-                      <TableHead>GLS番号</TableHead>
-                      <TableHead>案件名</TableHead>
-                      <TableHead>顧客</TableHead>
-                      <TableHead>税区分</TableHead>
-                      <TableHead className="text-right">金額</TableHead>
-                      <TableHead>計上日</TableHead>
+                      {([
+                        { key: "billing_key", label: "請求KEY", defaultW: 130 },
+                        { key: "gls_number", label: "GLS番号", colId: "gls", defaultW: 110, noSort: true },
+                        { key: "project_name", label: "案件名", defaultW: 180 },
+                        { key: "customer_name", label: "顧客", colId: "customer", defaultW: 120, noSort: true },
+                        { key: "tax_category", label: "税区分", colId: "tax", defaultW: 70, noSort: true },
+                        { key: "amount", label: "金額", defaultW: 100, align: "right" },
+                        { key: "recognition_date", label: "計上月", defaultW: 90 },
+                      ] as { key: string; label: string; colId?: string; defaultW: number; align?: string; noSort?: boolean }[]).map(({ key, label, colId, defaultW, align, noSort }) => {
+                        const id = colId ?? key;
+                        const w = colWidths[id] ?? (Object.keys(colWidths).length > 0 ? defaultW : undefined);
+                        return (
+                          <TableHead
+                            key={id}
+                            style={w ? { width: w, minWidth: 40 } : undefined}
+                            className={`select-none whitespace-nowrap relative${align === "right" ? " text-right" : ""}${!noSort ? " cursor-pointer hover:bg-muted/50" : ""}`}
+                            onClick={noSort ? undefined : () => handleSort(key as SortKey)}
+                          >
+                            {label}
+                            {!noSort && <SortIcon col={key as SortKey} sortKey={sortKey} sortDir={sortDir} />}
+                            <span
+                              className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize opacity-0 hover:opacity-100 hover:bg-primary/40 select-none"
+                              onMouseDown={(e) => startResize(id, e, colWidths[id] ?? defaultW)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </TableHead>
+                        );
+                      })}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {revenues.map((r: Record<string, unknown>) => (
-                      <TableRow key={r.id as string}>
+                    {revenues.map((r) => (
+                      <TableRow
+                        key={r.id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => handleEditRevenue(r)}
+                      >
                         <TableCell className="font-mono text-xs">
-                          {(r.billing_key as string) || "-"}
+                          {r.billing_key || "-"}
                         </TableCell>
-                        <TableCell>
-                          {r.project_id ? (
-                            <button
-                              className="font-mono text-sm font-medium text-primary hover:underline"
-                              onClick={() =>
-                                navigate(
-                                  `/projects/${r.project_id}/episodes`
-                                )
-                              }
-                            >
-                              {(r.gls_number as string) || "-"}
-                            </button>
-                          ) : (
-                            <span className="text-primary">
-                              {(r.gls_number as string) || "-"}
-                            </span>
-                          )}
+                        <TableCell className="font-mono text-xs font-medium text-primary">
+                          {r.gls_number || "-"}
                         </TableCell>
-                        <TableCell>
-                          {(r.project_name as string) || "-"}
+                        <TableCell className="max-w-[200px]">
+                          <span className="block truncate">
+                            {r.project_name || "-"}
+                            {r.event_end && (
+                              <span className="text-xs text-muted-foreground ml-1">({formatShortDate(r.event_end)})</span>
+                            )}
+                          </span>
                         </TableCell>
-                        <TableCell>
-                          {(r.customer_name as string) || "-"}
+                        <TableCell className="truncate max-w-[120px]">
+                          {r.customer_name || "-"}
                         </TableCell>
-                        <TableCell>
-                          {r.tax_category === "tax10"
-                            ? "10%"
-                            : r.tax_category === "tax8"
-                            ? "8%"
-                            : "非課税"}
+                        <TableCell className="text-xs">
+                          {r.tax_category === "tax10" ? "10%" : r.tax_category === "tax8" ? "8%" : "非課税"}
                         </TableCell>
                         <TableCell className="text-right font-medium font-number">
-                          {formatCurrency(r.amount as number)}
+                          {formatCurrency(r.amount)}
                         </TableCell>
-                        <TableCell>
-                          {formatDate(r.recognition_date as string)}
+                        <TableCell className="text-xs">
+                          {formatMonth(r.recognition_date)}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -429,8 +589,13 @@ export default function RevenueListPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>新規売上登録</DialogTitle>
+            <DialogTitle>{existingRevenueId ? "売上を更新" : "新規売上登録"}</DialogTitle>
           </DialogHeader>
+          {existingRevenueId && (
+            <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
+              この案件にはすでに売上が登録されています。内容を編集すると上書き保存されます。
+            </div>
+          )}
 
           <div className="space-y-4">
             {/* Project search */}
@@ -704,11 +869,17 @@ export default function RevenueListPage() {
             {/* Dates */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div className="space-y-1">
-                <Label>計上年月</Label>
+                <Label>計上月</Label>
                 <Input
-                  type="date"
-                  value={recognitionDate}
-                  onChange={(e) => setRecognitionDate(e.target.value)}
+                  type="month"
+                  value={recognitionMonth}
+                  onChange={(e) => {
+                    setRecognitionMonth(e.target.value);
+                    if (e.target.value) {
+                      const [y, m] = e.target.value.split("-").map(Number);
+                      setPaymentDueDate(localDateStr(new Date(y, m, 0)));
+                    }
+                  }}
                 />
               </div>
               <div className="space-y-1">
@@ -729,13 +900,24 @@ export default function RevenueListPage() {
               </div>
             </div>
 
+            {/* 前金チェックボックス */}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="is-advance-payment"
+                checked={isAdvancePayment}
+                onCheckedChange={(v) => setIsAdvancePayment(!!v)}
+              />
+              <Label htmlFor="is-advance-payment" className="cursor-pointer">前金</Label>
+            </div>
+
             {/* Notes */}
             <div className="space-y-1">
               <Label>備考</Label>
-              <Input
+              <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="備考"
+                rows={3}
               />
             </div>
 
@@ -748,7 +930,7 @@ export default function RevenueListPage() {
                 {createMutation.isPending && (
                   <Loader2 className="mr-1 h-4 w-4 animate-spin" />
                 )}
-                登録
+                {existingRevenueId ? "更新" : "登録"}
               </Button>
             </div>
           </div>

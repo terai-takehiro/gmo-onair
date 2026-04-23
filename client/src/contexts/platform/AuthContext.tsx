@@ -28,11 +28,12 @@ export interface BlockApp {
 export const BLOCK_APPS: BlockApp[] = [
   { id: "sales",       label: "案件管理",           description: "案件パイプライン・顧客・見積",     icon: "FolderKanban", color: "bg-blue-500",    status: "active",      basePath: "/sales" },
   { id: "budget",      label: "予算管理",           description: "売上・仕入・販管費・損益",         icon: "PiggyBank",    color: "bg-emerald-500", status: "active",      basePath: "/budget" },
-  { id: "studio",      label: "スタジオ予約",       description: "スタジオカレンダー・ブッキング",   icon: "Calendar",     color: "bg-violet-500",  status: "active",      basePath: "/studio" },
+  { id: "studio",      label: "カレンダー",         description: "スタジオカレンダー・ブッキング",   icon: "Calendar",     color: "bg-violet-500",  status: "active",      basePath: "/studio" },
   { id: "qsheet",      label: "Qシート",            description: "Qシート作成・OnAir・ランダウン",   icon: "FileText",     color: "bg-rose-500",    status: "active",      basePath: "/qsheet" },
   { id: "equipment",   label: "機材管理",           description: "機材台帳・貸出・メンテナンス",     icon: "Package",      color: "bg-amber-500",   status: "active",      basePath: "/equipment" },
   { id: "interactive", label: "インタラクティブ演出", description: "スタンプ・リアルタイム演出支援",   icon: "Sparkles",     color: "bg-pink-500",    status: "active",      basePath: "/interactive" },
   { id: "techsheet",   label: "技術資料",           description: "カメラ・映像・音声技術仕様書",     icon: "BookOpen",     color: "bg-cyan-500",    status: "active",      basePath: "/techsheet" },
+  { id: "liveops",     label: "計時LIVE",           description: "カウントダウン・視聴者カウンター", icon: "Timer",        color: "bg-red-500",     status: "active",      basePath: "/live" },
   { id: "assign",      label: "制作支援",           description: "スケジュール・スタッフ配置",       icon: "Users",        color: "bg-orange-500",  status: "coming_soon", basePath: "/prodsheet" },
   { id: "delivery",    label: "素材納品",           description: "VTR/素材の納品管理",               icon: "Truck",        color: "bg-teal-500",    status: "coming_soon", basePath: "/delivery" },
 ];
@@ -41,23 +42,35 @@ export const BLOCK_APPS: BlockApp[] = [
 export const MODULE_LABELS: Record<string, string> = {
   sales: "案件管理",
   budget: "予算管理",
-  studio: "スタジオ予約",
+  studio: "カレンダー",
   equipment: "機材管理",
   qsheet: "Qシート",
   techsheet: "技術資料",
+  liveops: "計時LIVE",
   assign: "制作支援",
   delivery: "素材納品",
   interactive: "インタラクティブ演出",
   admin: "システム管理",
 };
 
-/** アクセスレベル定義（BOX風 5段階） */
+/** アクセスレベル定義（3段階） */
 export const ACCESS_LEVEL_LABELS: Record<string, string> = {
-  reader: "リーダー",
-  exporter: "エクスポーター",
-  editor: "エディター",
-  manager: "マネージャー",
-  owner: "オーナー",
+  reader: "閲覧",
+  editor: "編集",
+  manager: "管理",
+};
+
+/** アクセスレベルの説明 */
+export const ACCESS_LEVEL_DESCRIPTIONS: Record<string, string> = {
+  reader: "参照・CSV出力",
+  editor: "追加・編集",
+  manager: "追加・編集・削除・設定",
+};
+
+/** 旧レベルの互換ラベル（DBに古い値が残っている場合の表示用） */
+export const LEGACY_LEVEL_LABELS: Record<string, string> = {
+  exporter: "閲覧",
+  owner:    "管理",
 };
 
 interface AuthContextType {
@@ -77,7 +90,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const LEVEL_ORDER: Record<string, number> = { reader: 1, exporter: 2, editor: 3, manager: 4, owner: 5 };
+// 3段階化: exporter=reader, owner=manager として扱う
+const LEVEL_ORDER: Record<string, number> = { reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -86,12 +100,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const setCurrentUserId = useUiStore((s) => s.setCurrentUserId);
 
-  const fetchPermissions = useCallback(async () => {
+  const fetchPermissions = useCallback(async (seed?: Permissions) => {
+    // If a seed is provided (from /auth/me response), use it immediately
+    if (seed && Object.keys(seed).length > 0) {
+      setPermissions(seed);
+      setPermissionsLoaded(true);
+    }
     try {
       const res = await api.get("/users/me/permissions");
-      setPermissions(res.data.data || {});
+      const data: Permissions = res.data.data || {};
+      // Only update if we got real data, or if seed was also empty
+      if (Object.keys(data).length > 0 || !seed) {
+        setPermissions(data);
+      }
     } catch {
-      setPermissions({});
+      // Don't clear permissions on network error if we already have data from seed
+      if (!seed) setPermissions({});
     } finally {
       setPermissionsLoaded(true);
     }
@@ -108,7 +132,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setCurrentUser(user);
           setCurrentUserId(user.id);
           localStorage.setItem("gmo_onair_user", JSON.stringify(user));
-          await fetchPermissions();
+          // Use permissions embedded in /auth/me (req.user.permissions) as seed,
+          // then fetch /users/me/permissions to confirm/refresh
+          await fetchPermissions(user.permissions as Permissions | undefined);
           setLoading(false);
           return;
         } catch {
@@ -140,7 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (userId: string) => {
       setCurrentUserId(userId);
-      const res = await api.post("/auth/login", { userId });
+      const res = await api.post("/auth/mock-login", { userId });
       const user = res.data.data;
       setCurrentUser(user);
       setCurrentUserId(user.id);
@@ -159,19 +185,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setCurrentUser(user);
       setCurrentUserId(user.id);
       localStorage.setItem("gmo_onair_user", JSON.stringify(user));
-      await fetchPermissions();
+      await fetchPermissions(user.permissions as Permissions | undefined);
     },
     [setCurrentUserId, fetchPermissions]
   );
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
     setCurrentUser(null);
     setPermissions({});
-    setPermissionsLoaded(false);
+    setPermissionsLoaded(true);
     setCurrentUserId(null);
     localStorage.removeItem("gmo_onair_user");
     localStorage.removeItem("gmo_onair_token");
-    api.post("/auth/logout").catch(() => {});
+    try { await api.post("/auth/logout"); } catch { /* ignore */ }
+    // フルリロードでReact stateを完全リセット
+    window.location.href = "/login";
   }, [setCurrentUserId]);
 
   const hasPermission = useCallback(
