@@ -120,7 +120,7 @@ export default function StudioCalendarPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const qc = useQueryClient();
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile(1024);
   const calendarRef = useRef<any>(null);
 
   const [dateRange, setDateRange] = useState<{ from: string; to: string }>({
@@ -134,14 +134,14 @@ export default function StudioCalendarPage() {
     if (!api) return;
     const currentView = api.view.type;
     if (isMobile && currentView === "dayGridMonth") {
-      api.changeView("timeGridDay");
-    } else if (!isMobile && currentView === "listWeek") {
+      api.changeView("listMonth");
+    } else if (!isMobile && (currentView === "listWeek" || currentView === "listMonth")) {
       api.changeView("dayGridMonth");
     }
   }, [isMobile]);
 
   // Track current FullCalendar view to prevent resets
-  const [currentView, setCurrentView] = useState<string>(isMobile ? "timeGridDay" : "dayGridMonth");
+  const [currentView, setCurrentView] = useState<string>(isMobile ? "listMonth" : "dayGridMonth");
   // Track current date for 香盤 view
   const [koubanDate, setKoubanDate] = useState<Date>(new Date());
 
@@ -237,6 +237,8 @@ export default function StudioCalendarPage() {
       const useTypeColor = ["performance", "rehearsal", "maintenance", "tour", "setup"].includes(b.booking_type);
 
       const dateSuffix = b.project_event_end ? ` (${formatShortDate(b.project_event_end)})` : "";
+      // Strip leading GLS number (e.g. "GLS-A005 番組名" → "番組名")
+      const displayTitle = b.title.replace(/^GLS[-A-Z0-9]*\s+/i, "").trim() || b.title;
 
       if (b.rooms.length > 0) {
         // 月間ビュー: 案件単位で1イベントにまとめる
@@ -249,7 +251,7 @@ export default function StudioCalendarPage() {
           const color = useTypeColor ? typeColor : filteredRooms[0].room_color;
           events.push({
             id: `booking-${b.id}`,
-            title: `${b.title}${dateSuffix}`,
+            title: `${displayTitle}${dateSuffix}`,
             start: evStart,
             end: evEnd,
             allDay: evAllDay,
@@ -281,7 +283,7 @@ export default function StudioCalendarPage() {
         // 外現場など部屋なし
         events.push({
           id: `booking-${b.id}`,
-          title: `📍 ${b.title}${b.location_note ? ` (${b.location_note})` : ""}${dateSuffix}`,
+          title: `📍 ${displayTitle}${b.location_note ? ` (${b.location_note})` : ""}${dateSuffix}`,
           start: evStart,
           end: evEnd,
           allDay: evAllDay,
@@ -584,12 +586,12 @@ export default function StudioCalendarPage() {
             <FullCalendar
               ref={calendarRef}
               plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-              initialView={isMobile ? "timeGridDay" : "dayGridMonth"}
+              initialView={isMobile ? "listMonth" : "dayGridMonth"}
               locale="ja"
               headerToolbar={isMobile ? {
                 left: "prev,next",
                 center: "title",
-                right: "timeGridDay,listWeek,dayGridMonth",
+                right: "listMonth,timeGridDay",
               } : {
                 left: "prev,next today",
                 center: "title",
@@ -604,6 +606,7 @@ export default function StudioCalendarPage() {
                 day: "日",
                 list: "一覧",
               }}
+              noEventsText="この期間に予定はありません"
               buttonIcons={false}
               events={calendarEvents}
               datesSet={handleDatesSet}

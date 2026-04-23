@@ -8,7 +8,7 @@ export default function AppShell() {
       <Sidebar />
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
           <Outlet />
         </main>
       </div>
