@@ -217,28 +217,34 @@ export default function RevenueListPage() {
   const simulationItems = simData?.data ?? [];
 
   // 案件選択時: まず案件のデフォルト値を入力（既存売上ロード前の仮入力）
+  // 計上月 = 案件終了日が含まれる月
+  // 請求予定日 = 計上月末日
+  // 入金予定日 = 請求予定日の翌月末日
   useEffect(() => {
     if (!selectedProject) return;
     setExistingRevenueId("");
     if (selectedProject.expected_amount) setAmount(selectedProject.expected_amount);
-    if (selectedProject.event_end) {
-      const dateStr = selectedProject.event_end as string;
-      const [ey, em] = dateStr.split("-").map(Number);
-      setRecognitionMonth(`${ey}-${String(em).padStart(2, "0")}`);
-      setBillingDate(localDateStr(new Date(ey, em, 0)));       // event_end月末
-      setPaymentDueDate(localDateStr(new Date(ey, em + 1, 0))); // 翌月末
+    const endDate = (selectedProject.event_end as string | undefined) || undefined;
+    if (endDate) {
+      const [ey, em] = endDate.split("-").map(Number);
+      if (ey && em) {
+        setRecognitionMonth(`${ey}-${String(em).padStart(2, "0")}`);
+        setBillingDate(localDateStr(new Date(ey, em, 0)));       // 計上月末
+        setPaymentDueDate(localDateStr(new Date(ey, em + 1, 0))); // 翌月末
+      }
     }
-  }, [selectedProjectId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedProjectId, selectedProject?.event_end]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 既存売上が見つかった場合: 既存データで上書き（更新モードに切り替え）
+  // 既存値が空のフィールドは案件ベースの自動入力を残す
   useEffect(() => {
     if (!primaryRevenue) return;
     setExistingRevenueId(primaryRevenue.id);
     setAmount(primaryRevenue.amount || 0);
     setTaxCategory(primaryRevenue.tax_category || "tax10");
-    setRecognitionMonth(primaryRevenue.recognition_date ? primaryRevenue.recognition_date.slice(0, 7) : "");
-    setBillingDate(primaryRevenue.billing_date ? primaryRevenue.billing_date.slice(0, 10) : "");
-    setPaymentDueDate(primaryRevenue.payment_due_date ? primaryRevenue.payment_due_date.slice(0, 10) : "");
+    if (primaryRevenue.recognition_date) setRecognitionMonth(primaryRevenue.recognition_date.slice(0, 7));
+    if (primaryRevenue.billing_date) setBillingDate(primaryRevenue.billing_date.slice(0, 10));
+    if (primaryRevenue.payment_due_date) setPaymentDueDate(primaryRevenue.payment_due_date.slice(0, 10));
     setNotes(primaryRevenue.notes || "");
     setIsAdvancePayment(!!primaryRevenue.is_advance_payment);
     if (Array.isArray(primaryRevenue.items) && primaryRevenue.items.length > 0) {
@@ -330,8 +336,6 @@ export default function RevenueListPage() {
 
   const handleCreateSubmit = () => {
     if (!selectedProjectId) return;
-    // A系はepisode必須、B系は不要
-    if (!isProjectCategoryB && !selectedEpisodeId && !existingRevenueId) return;
 
     createMutation.mutate({
       revenueId: existingRevenueId,
@@ -393,9 +397,8 @@ export default function RevenueListPage() {
   }, [simulationItems]);
 
   const canSubmit =
-    selectedProjectId &&
+    !!selectedProjectId &&
     !!selectedProject?.customer_id &&
-    (isProjectCategoryB || selectedEpisodeId || !!existingRevenueId) &&
     !createMutation.isPending;
 
   return (
@@ -690,19 +693,19 @@ export default function RevenueListPage() {
               )}
             </div>
 
-            {/* Episode select (A系のみ) */}
-            {selectedProjectId && !isProjectCategoryB && (
+            {/* Episode select (A系のみ・任意) */}
+            {selectedProjectId && !isProjectCategoryB && episodes.length > 0 && (
               <div className="space-y-1">
-                <Label>話数</Label>
+                <Label>話数（任意）</Label>
                 <Select
                   value={selectedEpisodeId}
-                  onValueChange={setSelectedEpisodeId}
-                  disabled={!selectedProjectId}
+                  onValueChange={(v) => setSelectedEpisodeId(v === "__none__" ? "" : v)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="話数を選択" />
+                    <SelectValue placeholder="話数を選択（任意）" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="__none__">なし</SelectItem>
                     {episodes.map((ep) => (
                       <SelectItem key={ep.id} value={ep.id}>
                         {ep.episode_code} (第{ep.episode_number}話)

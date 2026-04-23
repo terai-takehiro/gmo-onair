@@ -53,6 +53,7 @@ export default function BudgetDetailPage() {
   });
   const revResize = useResizable();
   const purResize = useResizable();
+  const sgaResize = useResizable();
 
   const { data: glsData } = useQuery({
     queryKey: ["gls-projects-budget"],
@@ -60,24 +61,43 @@ export default function BudgetDetailPage() {
   });
   const glsProjects: ProjectOption[] = glsData?.data ?? [];
 
-  const canFetch = !!projectId && !!month;
+  // 月のみ選択でも一覧表示。案件が選ばれていればその案件で絞り込む
+  const canFetch = !!month;
 
   const { data: revData, isLoading: revLoading } = useQuery({
     queryKey: ["budget-detail-revenues", projectId, month],
-    queryFn: async () => (await api.get("/revenues", { params: { project_id: projectId, recognition_month: month, limit: 100 } })).data,
+    queryFn: async () => {
+      const params: Record<string, string | number> = { recognition_month: month, limit: 200 };
+      if (projectId) params.project_id = projectId;
+      return (await api.get("/revenues", { params })).data;
+    },
     enabled: canFetch,
   });
   const revenues: Record<string, unknown>[] = revData?.data ?? [];
 
   const { data: purData, isLoading: purLoading } = useQuery({
     queryKey: ["budget-detail-purchases", projectId, month],
-    queryFn: async () => (await api.get("/purchases", { params: { project_id: projectId, recognition_month: month, limit: 100 } })).data,
+    queryFn: async () => {
+      const params: Record<string, string | number> = { recognition_month: month, limit: 200 };
+      if (projectId) params.project_id = projectId;
+      return (await api.get("/purchases", { params })).data;
+    },
     enabled: canFetch,
   });
   const purchases: Record<string, unknown>[] = purData?.data ?? [];
 
+  // 販管費は案件横断のため、案件絞り込みなしのときのみ表示
+  const { data: sgaData, isLoading: sgaLoading } = useQuery({
+    queryKey: ["budget-detail-sga", month],
+    queryFn: async () =>
+      (await api.get("/sga", { params: { recognition_month: month, limit: 200 } })).data,
+    enabled: canFetch && !projectId,
+  });
+  const sgaExpenses: Record<string, unknown>[] = sgaData?.data ?? [];
+
   const totalRevenue = revenues.reduce((s, r) => s + (Number(r.amount) || 0), 0);
   const totalPurchase = purchases.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+  const totalSga = sgaExpenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
   const grossProfit = totalRevenue - totalPurchase;
 
   const selectedProject = glsProjects.find((p) => p.id === projectId);
@@ -104,15 +124,20 @@ export default function BudgetDetailPage() {
         </div>
       </div>
 
-      {selectedProject && (
+      {selectedProject ? (
         <div className="text-sm text-muted-foreground">
           {selectedProject.gls_number} — {selectedProject.name}
           {month && <span className="ml-2 font-medium text-foreground">{formatMonth(month + "-01")}</span>}
         </div>
-      )}
+      ) : month ? (
+        <div className="text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">{formatMonth(month + "-01")}</span>
+          <span className="ml-2">全案件の売上・仕入・販管費</span>
+        </div>
+      ) : null}
 
       {!canFetch ? (
-        <p className="text-center text-muted-foreground py-12">案件と年月を選択してください</p>
+        <p className="text-center text-muted-foreground py-12">年月を選択してください</p>
       ) : (
         <>
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -125,6 +150,7 @@ export default function BudgetDetailPage() {
                     <TableHeader>
                       <TableRow>
                         <ResizableHead colId="r_key" label="請求KEY" defaultW={120} colWidths={revResize.colWidths} startResize={revResize.startResize} />
+                        {!projectId && <ResizableHead colId="r_proj" label="案件" defaultW={180} colWidths={revResize.colWidths} startResize={revResize.startResize} />}
                         <ResizableHead colId="r_tax" label="税区分" defaultW={70} colWidths={revResize.colWidths} startResize={revResize.startResize} />
                         <ResizableHead colId="r_month" label="計上月" defaultW={90} colWidths={revResize.colWidths} startResize={revResize.startResize} />
                         <ResizableHead colId="r_amt" label="金額" defaultW={100} colWidths={revResize.colWidths} startResize={revResize.startResize} align="right" />
@@ -132,10 +158,16 @@ export default function BudgetDetailPage() {
                     </TableHeader>
                     <TableBody>
                       {revenues.length === 0 ? (
-                        <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">データなし</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={projectId ? 4 : 5} className="text-center text-muted-foreground">データなし</TableCell></TableRow>
                       ) : revenues.map((r) => (
                         <TableRow key={r.id as string}>
                           <TableCell className="font-mono text-xs">{(r.billing_key as string) || "-"}</TableCell>
+                          {!projectId && (
+                            <TableCell className="text-xs truncate max-w-[200px]">
+                              <span className="font-mono text-primary mr-1">{(r.gls_number as string) || "-"}</span>
+                              <span>{(r.project_name as string) || "-"}</span>
+                            </TableCell>
+                          )}
                           <TableCell className="text-xs">{r.tax_category === "tax10" ? "10%" : r.tax_category === "tax8" ? "8%" : "非課税"}</TableCell>
                           <TableCell className="text-xs">{formatMonth(r.recognition_date as string)}</TableCell>
                           <TableCell className="text-right font-number font-medium">{formatCurrency(r.amount as number)}</TableCell>
@@ -160,6 +192,7 @@ export default function BudgetDetailPage() {
                     <TableHeader>
                       <TableRow>
                         <ResizableHead colId="p_vendor" label="仕入先" defaultW={130} colWidths={purResize.colWidths} startResize={purResize.startResize} />
+                        {!projectId && <ResizableHead colId="p_proj" label="案件" defaultW={160} colWidths={purResize.colWidths} startResize={purResize.startResize} />}
                         <ResizableHead colId="p_desc" label="説明" defaultW={160} colWidths={purResize.colWidths} startResize={purResize.startResize} />
                         <ResizableHead colId="p_due" label="支払予定日" defaultW={100} colWidths={purResize.colWidths} startResize={purResize.startResize} />
                         <ResizableHead colId="p_amt" label="金額" defaultW={100} colWidths={purResize.colWidths} startResize={purResize.startResize} align="right" />
@@ -167,10 +200,16 @@ export default function BudgetDetailPage() {
                     </TableHeader>
                     <TableBody>
                       {purchases.length === 0 ? (
-                        <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">データなし</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={projectId ? 4 : 5} className="text-center text-muted-foreground">データなし</TableCell></TableRow>
                       ) : purchases.map((p) => (
                         <TableRow key={p.id as string}>
                           <TableCell className="truncate max-w-[130px]">{(p.vendor_name as string) || "-"}</TableCell>
+                          {!projectId && (
+                            <TableCell className="text-xs truncate max-w-[200px]">
+                              <span className="font-mono text-primary mr-1">{(p.gls_number as string) || "-"}</span>
+                              <span>{(p.project_name as string) || "-"}</span>
+                            </TableCell>
+                          )}
                           <TableCell className="truncate max-w-[160px] text-xs">{(p.description as string) || "-"}</TableCell>
                           <TableCell className="text-xs">{formatDate(p.payment_due_date as string)}</TableCell>
                           <TableCell className="text-right font-number font-medium">{formatCurrency(p.amount as number)}</TableCell>
@@ -185,11 +224,52 @@ export default function BudgetDetailPage() {
                 </div>
               )}
             </div>
+
+            {/* 販管費テーブル (案件絞り込みなしの時のみ) */}
+            {!projectId && (
+              <div className="space-y-2 xl:col-span-2">
+                <h2 className="text-base font-semibold">販管費</h2>
+                {sgaLoading ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : (
+                  <div className="overflow-x-auto rounded border">
+                    <Table className={Object.keys(sgaResize.colWidths).length > 0 ? "table-fixed" : ""}>
+                      <TableHeader>
+                        <TableRow>
+                          <ResizableHead colId="s_key" label="請求KEY" defaultW={120} colWidths={sgaResize.colWidths} startResize={sgaResize.startResize} />
+                          <ResizableHead colId="s_vendor" label="取引先" defaultW={130} colWidths={sgaResize.colWidths} startResize={sgaResize.startResize} />
+                          <ResizableHead colId="s_desc" label="説明" defaultW={180} colWidths={sgaResize.colWidths} startResize={sgaResize.startResize} />
+                          <ResizableHead colId="s_type" label="区分" defaultW={80} colWidths={sgaResize.colWidths} startResize={sgaResize.startResize} />
+                          <ResizableHead colId="s_date" label="計上日" defaultW={100} colWidths={sgaResize.colWidths} startResize={sgaResize.startResize} />
+                          <ResizableHead colId="s_amt" label="金額" defaultW={100} colWidths={sgaResize.colWidths} startResize={sgaResize.startResize} align="right" />
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {sgaExpenses.length === 0 ? (
+                          <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">データなし</TableCell></TableRow>
+                        ) : sgaExpenses.map((e) => (
+                          <TableRow key={e.id as string}>
+                            <TableCell className="font-mono text-xs">{(e.billing_key as string) || "-"}</TableCell>
+                            <TableCell className="truncate max-w-[130px]">{(e.vendor_name as string) || "-"}</TableCell>
+                            <TableCell className="truncate max-w-[180px] text-xs">{(e.description as string) || "-"}</TableCell>
+                            <TableCell className="text-xs">{e.expense_type === "fixed" ? "固定" : "スポット"}</TableCell>
+                            <TableCell className="text-xs">{formatDate(e.recognition_date as string)}</TableCell>
+                            <TableCell className="text-right font-number font-medium">{formatCurrency(e.amount as number)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    <div className="flex justify-between items-center px-4 py-2 bg-muted/50 border-t">
+                      <span className="text-sm font-medium">販管費合計</span>
+                      <span className="font-bold font-number">{formatCurrency(totalSga)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* 粗利サマリー */}
-          {(canFetch && !revLoading && !purLoading) && (
-            <div className="grid grid-cols-3 gap-3 max-w-lg">
+          {/* サマリー */}
+          {(canFetch && !revLoading && !purLoading && (projectId || !sgaLoading)) && (
+            <div className={`grid gap-3 ${projectId ? "grid-cols-3 max-w-lg" : "grid-cols-2 sm:grid-cols-4 max-w-3xl"}`}>
               <div className="rounded-lg border bg-card p-3 text-center">
                 <p className="text-xs text-muted-foreground">売上</p>
                 <p className="font-bold font-number mt-1">{formatCurrency(totalRevenue)}</p>
@@ -202,6 +282,12 @@ export default function BudgetDetailPage() {
                 <p className="text-xs text-muted-foreground">粗利</p>
                 <p className={`font-bold font-number mt-1 ${grossProfit >= 0 ? "text-green-700" : "text-red-700"}`}>{formatCurrency(grossProfit)}</p>
               </div>
+              {!projectId && (
+                <div className="rounded-lg border bg-card p-3 text-center">
+                  <p className="text-xs text-muted-foreground">販管費</p>
+                  <p className="font-bold font-number mt-1">{formatCurrency(totalSga)}</p>
+                </div>
+              )}
             </div>
           )}
         </>

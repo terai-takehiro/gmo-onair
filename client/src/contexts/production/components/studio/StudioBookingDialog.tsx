@@ -138,9 +138,11 @@ export default function StudioBookingDialog({
     return deduped.filter((loc) => loc.rooms.length > 0);
   })();
 
+  const [projectSearchQuery, setProjectSearchQuery] = useState("");
   const { data: projectsData } = useQuery({
-    queryKey: ["projects-all"],
-    queryFn: async () => (await api.get("/projects?limit=500")).data,
+    queryKey: ["projects-booking-search", projectSearchQuery],
+    queryFn: async () =>
+      (await api.get("/projects", { params: { search: projectSearchQuery, limit: 100 } })).data,
     enabled: open,
   });
   const projects: any[] = projectsData?.data ?? [];
@@ -386,14 +388,14 @@ export default function StudioBookingDialog({
               {/* ② 予約種別 */}
               <div>
                 <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">予約種別</p>
-                <div className="flex gap-2 overflow-x-auto pb-0.5 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
+                <div className="flex flex-wrap gap-2 pb-0.5 -mx-1 px-1">
                   {bookingTypeOptions.map((opt) => (
                     <button
                       key={opt.value}
                       type="button"
                       onClick={() => setBookingType(opt.value)}
                       className={cn(
-                        "flex-none rounded-full px-4 py-2 text-[13px] font-medium border transition-all whitespace-nowrap",
+                        "rounded-full px-4 py-2 text-[13px] font-medium border transition-all whitespace-nowrap",
                         bookingType === opt.value
                           ? "bg-primary text-primary-foreground border-primary"
                           : "border-border bg-background"
@@ -418,6 +420,7 @@ export default function StudioBookingDialog({
                       }))}
                       value={projectId}
                       onChange={(v) => { setProjectId(v); setEpisodeId(""); }}
+                      onSearchChange={setProjectSearchQuery}
                       placeholder="GLS番号・案件名・顧客名で検索..."
                     />
                   </div>

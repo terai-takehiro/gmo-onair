@@ -12,6 +12,7 @@ interface SearchableSelectProps {
   options: Option[];
   value: string;
   onChange: (value: string) => void;
+  onSearchChange?: (search: string) => void;
   placeholder?: string;
   disabled?: boolean;
   className?: string;
@@ -21,6 +22,7 @@ export function SearchableSelect({
   options,
   value,
   onChange,
+  onSearchChange,
   placeholder = "検索...",
   disabled = false,
   className = "",
@@ -32,13 +34,16 @@ export function SearchableSelect({
 
   const selected = options.find((o) => o.value === value);
 
-  const filtered = search
-    ? options.filter(
-        (o) =>
-          o.label.toLowerCase().includes(search.toLowerCase()) ||
-          (o.subLabel && o.subLabel.toLowerCase().includes(search.toLowerCase()))
-      )
-    : options;
+  // When parent handles search server-side via onSearchChange, skip client filter
+  const filtered = onSearchChange
+    ? options
+    : search
+      ? options.filter(
+          (o) =>
+            o.label.toLowerCase().includes(search.toLowerCase()) ||
+            (o.subLabel && o.subLabel.toLowerCase().includes(search.toLowerCase()))
+        )
+      : options;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -55,6 +60,12 @@ export function SearchableSelect({
       inputRef.current.focus();
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!onSearchChange) return;
+    const timer = setTimeout(() => onSearchChange(search), 200);
+    return () => clearTimeout(timer);
+  }, [search, onSearchChange]);
 
   return (
     <div ref={ref} className={`relative ${className}`}>
