@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
+import { parseDur, fmtAbs } from "@/lib/time";
 import {
   ChevronLeft,
   Play,
@@ -60,31 +61,11 @@ const mm = (s: number): string => {
 };
 
 const hms = (s: number): string => {
-  const a = Math.abs(safe(s));
-  return `${String(Math.floor(a / 3600)).padStart(2, "0")}:${String(Math.floor((a % 3600) / 60)).padStart(2, "0")}:${String(a % 60).padStart(2, "0")}`;
+  const sign = s < 0 ? "-" : "";
+  return `${sign}${fmtAbs(Math.abs(s))}`;
 };
 
-const oaFmt = (s: number): string => {
-  const v = safe(s);
-  return `${String(Math.floor(v / 3600)).padStart(2, "0")}:${String(Math.floor((v % 3600) / 60)).padStart(2, "0")}:${String(v % 60).padStart(2, "0")}`;
-};
-
-const parseDuration = (d: string | number | undefined): number => {
-  if (!d) return 0;
-  if (typeof d === "number") return isNaN(d) ? 0 : d;
-  const s = String(d).trim();
-  if (!s) return 0;
-  // HH:MM:SS
-  let m = s.match(/^(\d+)[°:](\d+)[':"](\d+)/);
-  if (m) return (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0);
-  // MM:SS or M:SS
-  m = s.match(/^(\d+)[':.](\d+)/);
-  if (m) return (+m[1] || 0) * 60 + (+m[2] || 0);
-  // seconds only
-  m = s.match(/^(\d+)$/);
-  if (m) return +m[1] || 0;
-  return 0;
-};
+const oaFmt = (s: number): string => fmtAbs(s);
 
 function buildCues(data: { sections?: Section[]; meta?: { broadcastStartTime?: string } }): FlatCue[] {
   if (!data?.sections) return [];
@@ -97,12 +78,20 @@ function buildCues(data: { sections?: Section[]; meta?: { broadcastStartTime?: s
   for (const s of data.sections) {
     if ((s as Section & { _pageBreak?: boolean })._pageBreak) continue;
     if ((s as Section & { _break?: boolean })._break) {
-      const d = parseDuration((s as Section & { duration?: string }).duration);
+      const d = parseDur((s as Section & { duration?: string }).duration);
       cues.push({ type: "cm", label: s.label || "CM", duration: d, start: acc, oa: base + acc });
       acc += d;
     } else {
+      // ロール全体の尺設定がありつつ行の尺合計が 0 なら、ロール自体を 1 キューとして扱う
+      const rowSum = s.rows.reduce((a, r) => a + parseDur(r.duration), 0);
+      const secDur = parseDur((s as Section & { duration?: string }).duration);
+      if (rowSum === 0 && secDur > 0) {
+        cues.push({ type: "cue", label: s.label || "", duration: secDur, start: acc, oa: base + acc });
+        acc += secDur;
+        continue;
+      }
       for (const row of s.rows) {
-        const d = parseDuration(row.duration);
+        const d = parseDur(row.duration);
         cues.push({ type: "cue", label: s.label || row.label || "", duration: d, start: acc, oa: base + acc, row });
         acc += d;
       }
@@ -288,6 +277,7 @@ export default function OnAirPage() {
         case "Escape":
           e.preventDefault();
           stop();
+          if (id) navigate(`/qsheet/editor/${id}`);
           break;
         case "ArrowUp":
           e.preventDefault();

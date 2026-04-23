@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
+import { parseDur as parseDurShared } from "@/lib/time";
 import { Button } from "@/components/ui/button";
 import EditorSidebar from "@/components/editor/EditorSidebar";
 import CueTable from "@/components/editor/CueTable";
@@ -261,16 +262,7 @@ export default function EditorPage() {
     return `第${meta.draftNumber || 1}稿`;
   };
 
-  const parseDur = (s: string | number | undefined): number => {
-    if (!s) return 0;
-    if (typeof s === "number") return s;
-    const t = s.trim();
-    let m = t.match(/^(\d+)[:'."](\d+)["'""]?$/);
-    if (m) return parseInt(m[1]) * 60 + parseInt(m[2]);
-    m = t.match(/^(\d+)$/);
-    if (m) return parseInt(m[1]);
-    return 0;
-  };
+  const parseDur = parseDurShared;
   const totalDuration = doc?.data.sections.reduce(
     (acc, section) => acc + (parseDur(section.duration) || section.rows.reduce((a, r) => a + parseDur(r.duration), 0)), 0
   ) || 0;
@@ -364,7 +356,7 @@ export default function EditorPage() {
               onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, draftType: e.target.value } }))}
               className="bg-transparent border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-0.5 text-[11px] outline-none cursor-pointer"
             >
-              <option value="numbered">第N稿（自動）</option>
+              <option value="numbered">稿番号を自動設定</option>
               <option value="準備稿">準備稿</option>
               <option value="決定稿">決定稿</option>
             </select>
@@ -433,6 +425,9 @@ export default function EditorPage() {
         <PreviewModal
           state={doc.data}
           onClose={() => setShowPreview(false)}
+          docUpdatedAt={(doc as any).updated_at}
+          docCreatedAt={(doc as any).created_at}
+          docTitle={doc.title}
         />
       )}
 

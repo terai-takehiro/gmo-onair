@@ -506,7 +506,7 @@ export default function DashboardPage() {
                 収録日を設定（生放送の場合はOFF）
               </label>
               {hasRecording && (
-                <Input type="date" value={newRecordingDate} onChange={(e) => setNewRecordingDate(e.target.value)} />
+                <Input type="date" value={newRecordingDate} onChange={(e) => setNewRecordingDate(e.target.value)} required />
               )}
             </div>
             <div>
@@ -580,7 +580,7 @@ export default function DashboardPage() {
 
             <button
               type="submit"
-              disabled={!newTitle.trim() || !newLocation.trim() || !newBroadcastDate || createMutation.isPending}
+              disabled={!newTitle.trim() || !newLocation.trim() || !newBroadcastDate || (hasRecording && !newRecordingDate) || createMutation.isPending}
               className="w-full py-2.5 text-sm font-semibold rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shadow-blue-600/25 transition-all"
             >
               {createMutation.isPending ? "作成中..." : "台本を作成"}

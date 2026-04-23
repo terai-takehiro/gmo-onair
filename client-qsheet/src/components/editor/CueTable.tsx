@@ -13,6 +13,7 @@ import {
   FileText,
 } from "lucide-react";
 import SectionMenu from "./SectionMenu";
+import { parseDur as parseDurShared, fmtAbs as fmtAbsShared, normalizeDur } from "@/lib/time";
 import CueRow from "./CueRow";
 
 // ─── Types ──────────────────────────────────────────────
@@ -74,25 +75,9 @@ function defaultBlockWidth(blk: Block): number {
   return blk.type === "scenario" ? 400 : 140;
 }
 
-// ─── Time helpers ───────────────────────────────────────
-function parseDur(s: string): number {
-  if (!s || !s.trim()) return 0;
-  s = s.trim();
-  let m = s.match(/^(\d+)[:°](\d+)[:'""](\d+)["'""]?$/);
-  if (m) return parseInt(m[1]) * 3600 + parseInt(m[2]) * 60 + parseInt(m[3]);
-  m = s.match(/^(\d+)[:'."](\d+)["'""]?$/);
-  if (m) return parseInt(m[1]) * 60 + parseInt(m[2]);
-  m = s.match(/^(\d+)$/);
-  if (m) return parseInt(m[1]);
-  return 0;
-}
-
-function fmtAbs(sec: number): string {
-  const h = Math.floor(sec / 3600) % 24;
-  const m = Math.floor((sec % 3600) / 60);
-  const s = sec % 60;
-  return `${String(h).padStart(2, "0")}°${String(m).padStart(2, "0")}'${String(s).padStart(2, "0")}"`;
-}
+// ─── Time helpers (共通 lib/time.ts に集約) ───────────
+const parseDur = parseDurShared;
+const fmtAbs = fmtAbsShared;
 
 // ─── SPEAKER_COLORS ─────────────────────────────────────
 const SPEAKER_COLORS = [
@@ -304,8 +289,17 @@ export default function CueTable({
                   <input
                     value={section.duration || ""}
                     onChange={(e) => updateSection(si, "duration", e.target.value)}
-                    className="w-10 text-center text-[11px] bg-zinc-700 dark:bg-zinc-600 text-zinc-400 border-none outline-none rounded py-0.5 tabular-nums placeholder:text-zinc-500 focus:text-white transition-colors"
-                    placeholder="尺"
+                    onBlur={(e) => {
+                      const n = normalizeDur(e.target.value);
+                      if (n !== e.target.value) updateSection(si, "duration", n);
+                    }}
+                    className={`w-12 text-center text-[11px] border-none outline-none rounded py-0.5 tabular-nums placeholder:text-zinc-500 focus:text-white transition-colors ${
+                      parseDur(section.duration || "") === 0
+                        ? "bg-amber-500/30 text-amber-100 ring-1 ring-amber-400/70"
+                        : "bg-zinc-700 dark:bg-zinc-600 text-zinc-400"
+                    }`}
+                    placeholder="0:00"
+                    title={parseDur(section.duration || "") === 0 ? "尺が未入力です" : undefined}
                   />
                   <button onClick={() => deleteSection(si)} className="text-zinc-500 hover:text-red-400 transition-colors p-1">
                     <Trash2 size={13} />
@@ -348,8 +342,17 @@ export default function CueTable({
                 <input
                   value={section.duration || ""}
                   onChange={(e) => updateSection(si, "duration", e.target.value)}
-                  className="w-14 text-center text-[13px] font-medium bg-white/15 text-white border-none outline-none rounded-md py-1 tabular-nums placeholder:text-white/30 focus:bg-white/25 transition-colors font-oswald"
-                  placeholder="尺"
+                  onBlur={(e) => {
+                    const n = normalizeDur(e.target.value);
+                    if (n !== e.target.value) updateSection(si, "duration", n);
+                  }}
+                  className={`w-14 text-center text-[13px] font-medium border-none outline-none rounded-md py-1 tabular-nums focus:bg-white/25 transition-colors font-oswald ${
+                    parseDur(section.duration || "") === 0
+                      ? "bg-amber-400/30 text-amber-50 ring-1 ring-amber-300/80 placeholder:text-amber-100/70"
+                      : "bg-white/15 text-white placeholder:text-white/30"
+                  }`}
+                  placeholder="0:00"
+                  title={parseDur(section.duration || "") === 0 ? "尺が未入力です" : undefined}
                 />
                 <div className="w-px h-4 bg-white/20" />
                 <input

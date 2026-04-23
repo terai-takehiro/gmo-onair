@@ -5,6 +5,7 @@ import api from "@/lib/api";
 import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { parseDur, fmtAbs } from "@/lib/time";
 import {
   Loader2,
   ArrowLeft,
@@ -34,6 +35,9 @@ interface Section {
   id: string;
   label: string;
   rows: CueRow[];
+  duration?: string | number;
+  _break?: boolean;
+  _pageBreak?: boolean;
 }
 
 interface Block {
@@ -62,26 +66,9 @@ interface FlatCue {
 // Helpers
 // ============================================================
 const formatTime = (seconds: number): string => {
-  const abs = Math.abs(Math.floor(seconds));
-  const h = Math.floor(abs / 3600);
-  const m = Math.floor((abs % 3600) / 60);
-  const s = abs % 60;
   const sign = seconds < 0 ? "-" : "";
-  return `${sign}${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  return `${sign}${fmtAbs(Math.abs(seconds))}`;
 };
-
-function parseDur(s: string | number | undefined): number {
-  if (!s) return 0;
-  if (typeof s === "number") return s;
-  const t = s.trim();
-  let m = t.match(/^(\d+)[°:](\d+)[':"](\d+)["'""]?$/);
-  if (m) return parseInt(m[1]) * 3600 + parseInt(m[2]) * 60 + parseInt(m[3]);
-  m = t.match(/^(\d+)[':.](\d+)["'""]?$/);
-  if (m) return parseInt(m[1]) * 60 + parseInt(m[2]);
-  m = t.match(/^(\d+)$/);
-  if (m) return parseInt(m[1]);
-  return 0;
-}
 
 function extractCellText(row: CueRow, block: Block): string {
   const cell = row.cells?.[block.id];
@@ -164,7 +151,26 @@ export default function RundownPage() {
     let time = 0;
     let idx = 0;
     doc.data.sections.forEach((section, sIdx) => {
-      if ((section as any)._break || (section as any)._pageBreak) return;
+      if (section._pageBreak) return;
+      // CM (break) は section 自体を1キューとして尺を積む
+      if (section._break) {
+        const dur = parseDur(section.duration);
+        const cmRow: CueRow = { id: `cm-${sIdx}`, label: section.label || "CM", duration: dur };
+        cues.push({ sectionLabel: section.label || "CM", sectionIdx: sIdx, row: cmRow, startTime: time, globalIndex: idx });
+        time += dur;
+        idx++;
+        return;
+      }
+      // 通常ロール: 行ごとの duration 合計が 0 かつ section.duration が設定されていれば、ロール全体を 1 キューとする
+      const rowSum = section.rows.reduce((a, r) => a + parseDur(r.duration), 0);
+      const secDur = parseDur(section.duration);
+      if (rowSum === 0 && secDur > 0) {
+        const secRow: CueRow = { id: `sec-${sIdx}`, label: section.label || "", duration: secDur };
+        cues.push({ sectionLabel: section.label, sectionIdx: sIdx, row: secRow, startTime: time, globalIndex: idx });
+        time += secDur;
+        idx++;
+        return;
+      }
       for (const row of section.rows) {
         cues.push({ sectionLabel: section.label, sectionIdx: sIdx, row, startTime: time, globalIndex: idx });
         time += parseDur(row.duration);
