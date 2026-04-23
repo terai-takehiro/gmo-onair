@@ -1,33 +1,15 @@
 import { useState, useMemo, useRef } from "react";
-import { X, FileDown } from "lucide-react";
+import { X, Download, Printer } from "lucide-react";
+import { parseDur as parseDurShared, fmtAbs as fmtAbsShared, fmtMinSec as fmtMinSecShared } from "@/lib/time";
 
 // ─── Constants ──────────────────────────────────────────
 const SPEAKER_COLORS = ["#1e3a5f", "#0f766e", "#7e22ce", "#be185d", "#b45309", "#15803d", "#1d4ed8", "#9f1239", "#4338ca", "#a16207"];
 const PILL_COLORS: Record<string, string> = { video: "#1e40af", telop: "#7e22ce", audio: "#b91c1c" };
 
 // ─── Helpers ────────────────────────────────────────────
-function parseDur(str: string | number | undefined): number {
-  if (!str) return 0;
-  if (typeof str === "number") return str;
-  const s = str.trim();
-  let m = s.match(/^(\d+)[°:](\d+)[':"](\d+)[""']?$/);
-  if (m) return parseInt(m[1]) * 3600 + parseInt(m[2]) * 60 + parseInt(m[3]);
-  m = s.match(/^(\d+)[':.](\d+)[""']?$/);
-  if (m) return parseInt(m[1]) * 60 + parseInt(m[2]);
-  m = s.match(/^(\d+)$/);
-  if (m) return parseInt(m[1]);
-  return 0;
-}
-
-function fmtAbs(sec: number): string {
-  const h = Math.floor(sec / 3600) % 24, m = Math.floor((sec % 3600) / 60), s = sec % 60;
-  return `${String(h).padStart(2, "0")}'${String(m).padStart(2, "0")}'${String(s).padStart(2, "0")}"`;
-}
-
-function fmtMinSec(sec: number): string {
-  const m = Math.floor(sec / 60), s = sec % 60;
-  return `${m}分${String(s).padStart(2, "0")}秒`;
-}
+const parseDur = parseDurShared;
+const fmtAbs = fmtAbsShared;
+const fmtMinSec = fmtMinSecShared;
 
 function fmtJpDate(str: string | undefined): string {
   if (!str) return "";
@@ -67,10 +49,13 @@ interface PreviewModalProps {
     stageTemplates?: any[];
   };
   onClose: () => void;
+  docUpdatedAt?: string;
+  docCreatedAt?: string;
+  docTitle?: string;
 }
 
 // ─── PreviewModal ───────────────────────────────────────
-export default function PreviewModal({ state, onClose }: PreviewModalProps) {
+export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedAt, docTitle }: PreviewModalProps) {
   const [paperSize, setPaperSize] = useState("A4P");
   const [fontSize, setFontSize] = useState(10.5);
   const [margin, setMargin] = useState(30);
@@ -125,6 +110,59 @@ export default function PreviewModal({ state, onClose }: PreviewModalProps) {
     if (m) absSec = parseInt(m[1]) * 3600 + parseInt(m[2]) * 60 + (parseInt(m[3]) || 0);
   }
   let rowNum = 0;
+
+  const handleCsvDownload = () => {
+    const blocks = (state.blocks || []) as Array<{ id: string; label: string; type: string }>;
+    const headers = ["#", "セクション", "尺", ...blocks.map((b) => b.label)];
+    const rows: string[][] = [headers];
+    let num = 1;
+    (state.sections || []).forEach((sec: any) => {
+      if (sec._pageBreak) return;
+      if (sec._break) {
+        rows.push([String(num++), String(sec.label || "CM"), String(sec.duration || ""), ...blocks.map(() => "")]);
+        return;
+      }
+      const secRows = Array.isArray(sec.rows) ? sec.rows : [];
+      if (secRows.length === 0) {
+        rows.push([String(num++), String(sec.label || ""), String(sec.duration || ""), ...blocks.map(() => "")]);
+        return;
+      }
+      secRows.forEach((row: any) => {
+        const cells = (row.cells || {}) as Record<string, any>;
+        rows.push([
+          String(num++),
+          String(sec.label || ""),
+          String(row.duration || ""),
+          ...blocks.map((b) => {
+            const cell = cells[b.id];
+            if (typeof cell === "string") return cell;
+            if (cell && typeof cell === "object") {
+              if (Array.isArray(cell.entries)) {
+                return cell.entries
+                  .map((e: any) => {
+                    if (e.html) return String(e.html).replace(/<[^>]*>/g, "");
+                    return `${e.label || ""}${e.memo ? " " + e.memo : ""}`;
+                  })
+                  .filter((s: string) => s.trim())
+                  .join(" / ");
+              }
+              if ("value" in cell) return String(cell.value || "");
+            }
+            return "";
+          }),
+        ]);
+      });
+    });
+    const bom = "﻿";
+    const csv = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${docTitle || state.meta?.title || "cuesheet"}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const handlePDF = () => {
     if (!pageRef.current) return;
@@ -209,8 +247,12 @@ export default function PreviewModal({ state, onClose }: PreviewModalProps) {
             ))}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            <button onClick={handleCsvDownload} title="CSVダウンロード" className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-50 transition-all">
+              <Download size={14} />
+              CSV
+            </button>
             <button onClick={handlePDF} className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow-sm shadow-blue-600/25 transition-all">
-              <FileDown size={14} />
+              <Printer size={14} />
               PDF / 印刷
             </button>
             <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-400 transition-colors">
@@ -246,7 +288,7 @@ export default function PreviewModal({ state, onClose }: PreviewModalProps) {
                         })()}
                       </div>
                       <div style={{ textAlign: "right", fontSize: fontSize - 2 + "pt", color: "#9ca3af", marginTop: 4 }}>
-                        更新：{fmtJpDate(state.meta?.updatedAt)}
+                        更新：{fmtJpDate(state.meta?.updatedAt || docUpdatedAt || docCreatedAt)}
                       </div>
                     </div>
                   )}
@@ -275,7 +317,7 @@ export default function PreviewModal({ state, onClose }: PreviewModalProps) {
                         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 10px", borderLeft: mono ? "4px solid #374151" : "4px solid #2563eb", background: lightBg, borderBottom: `1px solid ${borderColor}` }}>
                           <span style={{ fontFamily: "'Oswald',sans-serif", fontSize: fontSize + 3 + "pt", color: "#d1d5db", width: 18, textAlign: "center", flexShrink: 0, fontWeight: 700 }}>{rowNum}</span>
                           <span style={{ fontFamily: "'Oswald',sans-serif", fontSize: fontSize + "pt", color: "#6b7280", whiteSpace: "nowrap" }}>{fmtAbs(roleAbs)}</span>
-                          {roleDur > 0 && <span style={{ fontSize: fontSize - 0.5 + "pt", color: "#9ca3af", border: "1px solid #d1d5db", padding: "0 6px", borderRadius: 3 }}>RAP {fmtMinSec(roleDur)}</span>}
+                          {roleDur > 0 && <span style={{ fontSize: fontSize - 0.5 + "pt", color: "#9ca3af", border: "1px solid #d1d5db", padding: "0 6px", borderRadius: 3 }}>ロール尺 {fmtMinSec(roleDur)}</span>}
                           <span style={{ fontWeight: 700, fontSize: fontSize + 0.5 + "pt", color: "#111827", letterSpacing: "0.03em" }}>{sec.label}</span>
                         </div>
                         <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: fontSize + "pt" }}>
@@ -298,7 +340,7 @@ export default function PreviewModal({ state, onClose }: PreviewModalProps) {
                                 <tr key={`${ri}-${ei}`} style={{ borderBottom: ei === entryCount - 1 ? `1px solid ${borderColor}` : "none" }}>
                                   {visibleBlocks.map((blk) => {
                                     const cell = row.cells?.[blk.id] || {};
-                                    const tdStyle: React.CSSProperties = { padding: "3px 6px", verticalAlign: "top", borderRight: "1px solid #e5e7eb", lineHeight: 1.6 };
+                                    const tdStyle: React.CSSProperties = { padding: "3px 6px", verticalAlign: "top", borderRight: "1px solid #e5e7eb", lineHeight: 1.6, height: "1.8em", minHeight: "1.8em" };
                                     if (blk.type === "scenario") {
                                       const en = (cell.entries || [])[ei];
                                       const col = en?.name ? (spkMap[en.name] || SPEAKER_COLORS[0]) : "#94a3b8";
@@ -323,9 +365,9 @@ export default function PreviewModal({ state, onClose }: PreviewModalProps) {
                                           {en?.image ? (
                                             <img src={en.image} alt="" style={{ maxWidth: "100%", maxHeight: 120, objectFit: "contain" }} />
                                           ) : en?.label ? (
-                                            <div style={{ display: "flex", alignItems: "flex-start", gap: 4 }}>
+                                            <div style={{ display: "flex", alignItems: "flex-start", gap: 4, minWidth: 0 }}>
                                               <Pill text={en.label} color={col} mono={mono} />
-                                              <span style={{ color: "#4b5563" }}>{en.memo || ""}</span>
+                                              <span style={{ color: "#4b5563", flex: 1, minWidth: 0, wordBreak: "break-word", overflowWrap: "anywhere", whiteSpace: "normal" }}>{en.memo || ""}</span>
                                             </div>
                                           ) : null}
                                         </td>
