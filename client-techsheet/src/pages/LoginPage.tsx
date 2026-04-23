@@ -52,6 +52,11 @@ export default function LoginPage() {
 
       <div className="glass-card animate-slide-up relative z-10 w-full max-w-2xl px-8 py-10">
         <div className="mb-8 text-center">
+          <img
+            src="/techsheet/logo-onair.svg"
+            alt="GMO ONAiR"
+            className="mx-auto mb-4 h-8 w-auto"
+          />
           <div className="inline-flex items-center justify-center gap-3 mb-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
               <Wrench className="h-6 w-6 text-primary" />
@@ -59,7 +64,7 @@ export default function LoginPage() {
             <h1 className="text-3xl font-bold text-primary sm:text-4xl">技術資料</h1>
           </div>
           <p className="text-base text-muted-foreground">
-            GMO ONAiR TechSheet
+            TechSheet
           </p>
         </div>
 
