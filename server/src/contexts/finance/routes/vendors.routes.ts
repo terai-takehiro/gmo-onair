@@ -12,11 +12,19 @@ router.use(requireAuth, requirePermission('budget'));
 
 router.get('/', async (req, res) => {
   const { page, limit, offset, search } = extractPagination(req);
-  let where = 'WHERE deleted_at IS NULL';
+  const sgaPayeeOnly = req.query.sga_payee_only === 'true';
+  let where = 'WHERE v.deleted_at IS NULL';
   const params: unknown[] = [];
-  if (search) { where += ` AND (name ILIKE ? OR vendor_type ILIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
-  const total = ((await queryOne(`SELECT COUNT(*) as c FROM vendors ${where}`, params)) as any).c;
-  const rows = await queryAll(`SELECT * FROM vendors ${where} ORDER BY name LIMIT ? OFFSET ?`, [...params, limit, offset]);
+  if (search) { where += ` AND (v.name ILIKE ? OR v.vendor_type ILIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
+  // 販管費支払先のみフィルタ (companies.is_sga_payee=TRUE に紐付いた vendor のみ)
+  const extraJoin = sgaPayeeOnly
+    ? ` INNER JOIN companies c ON c.id = v.company_id AND c.is_sga_payee = TRUE AND c.deleted_at IS NULL`
+    : '';
+  const total = ((await queryOne(`SELECT COUNT(*) as c FROM vendors v ${extraJoin} ${where}`, params)) as any).c;
+  const rows = await queryAll(
+    `SELECT v.* FROM vendors v ${extraJoin} ${where} ORDER BY v.name LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  );
   res.json(paginatedResponse(rows, total, page, limit));
 });
 

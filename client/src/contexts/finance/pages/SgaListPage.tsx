@@ -75,10 +75,10 @@ export default function SgaListPage() {
   const sgaList: SgaExpense[] = data?.data ?? [];
   const pagination = data?.pagination;
 
-  // Fetch vendors for dropdown
+  // Fetch vendors for dropdown (販管費支払先フラグが立っている取引先のみ)
   const { data: vendorsData } = useQuery({
-    queryKey: ["vendors-list"],
-    queryFn: async () => (await api.get("/vendors?limit=200")).data,
+    queryKey: ["vendors-list-sga"],
+    queryFn: async () => (await api.get("/vendors?limit=200&sga_payee_only=true")).data,
     enabled: dialogOpen,
   });
   const vendors: Vendor[] = vendorsData?.data ?? [];

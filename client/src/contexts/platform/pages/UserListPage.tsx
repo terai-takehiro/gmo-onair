@@ -500,7 +500,8 @@ export default function UserListPage() {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1.5">
-                    スタッフは招待後に🔑権限設定でアプリ別のアクセス権を調整できます
+                    スタッフは<strong>アプリ権限ゼロの状態で招待</strong>され、
+                    招待承諾後に管理者が🔑権限設定から必要なアプリを付与します
                   </p>
                 </div>
                 <DialogFooter>
