@@ -158,7 +158,7 @@ export default function ProjectListPage() {
                       {Number(p.total_revenue) > 0
                         ? <span className="font-number text-sm font-medium text-foreground">{formatCurrency(p.total_revenue as number)}</span>
                         : Number(p.expected_amount) > 0
-                          ? <span className="font-number text-sm font-medium text-foreground">{formatCurrency(p.expected_amount as number)}<span className="text-xs text-muted-foreground ml-0.5">(想定)</span></span>
+                          ? <span className="text-sm font-medium text-foreground"><span className="text-xs text-muted-foreground mr-0.5">(想定)</span><span className="font-number">{formatCurrency(p.expected_amount as number)}</span></span>
                           : null
                       }
                       {(Number(p.total_revenue) > 0 || Number(p.total_purchase) > 0) && (
@@ -287,7 +287,7 @@ export default function ProjectListPage() {
                           {Number(p.total_revenue) > 0
                             ? formatCurrency(p.total_revenue as number)
                             : Number(p.expected_amount) > 0
-                              ? <>{formatCurrency(p.expected_amount as number)}<span className="text-xs text-muted-foreground ml-0.5">(想定)</span></>
+                              ? <><span className="text-xs text-muted-foreground mr-0.5">(想定)</span>{formatCurrency(p.expected_amount as number)}</>
                               : "-"}
                         </TableCell>
                         <TableCell className="text-xs whitespace-nowrap">

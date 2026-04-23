@@ -665,8 +665,8 @@ export async function seed() {
   const LOC_YOGA = uuidv4();
   const LOC_SHIBUYA = uuidv4();
   const LOC_EXTERNAL = uuidv4();
-  await ins(locSql, [LOC_YOGA, '用賀スタジオ', 1]);
-  await ins(locSql, [LOC_SHIBUYA, '渋谷スタジオ', 2]);
+  await ins(locSql, [LOC_YOGA, 'GMOグローバルスタジオ', 1]);
+  await ins(locSql, [LOC_SHIBUYA, 'GMOサムライコンテンツスタジオ渋谷', 2]);
   await ins(locSql, [LOC_EXTERNAL, '外現場', 3]);
 
   const roomSql = `INSERT INTO studio_rooms (id, location_id, name, room_type, color, sort_order) VALUES (?, ?, ?, ?, ?, ?)`;

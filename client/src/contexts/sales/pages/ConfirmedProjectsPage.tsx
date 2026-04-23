@@ -172,8 +172,9 @@ export default function ConfirmedProjectsPage() {
                     </Badge>
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                    <span className="font-number text-sm font-medium text-foreground">
-                      {formatCurrency(p.expected_amount as number)}
+                    <span className="text-sm font-medium text-foreground">
+                      <span className="text-xs text-muted-foreground mr-0.5">(想定)</span>
+                      <span className="font-number">{formatCurrency(p.expected_amount as number)}</span>
                     </span>
                     <span>
                       {ProjectTypeLabels[
@@ -246,8 +247,9 @@ export default function ConfirmedProjectsPage() {
                         (p.project_type as string) ||
                         "-"}
                     </TableCell>
-                    <TableCell className="text-right font-number">
-                      {formatCurrency(p.expected_amount as number)}
+                    <TableCell className="text-right">
+                      <span className="text-xs text-muted-foreground mr-0.5">(想定)</span>
+                      <span className="font-number">{formatCurrency(p.expected_amount as number)}</span>
                     </TableCell>
                     {isStudio && (
                       <TableCell>
