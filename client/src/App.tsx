@@ -106,6 +106,7 @@ function AppRoutes() {
         <Route path="/sales/pricing" element={<PermissionRoute module="sales"><PricingListPage /></PermissionRoute>} />
 
         {/* ===== 予算管理 (budget) ===== */}
+        <Route path="/budget/dashboard" element={<PermissionRoute module="budget"><DashboardPage /></PermissionRoute>} />
         <Route path="/budget/revenues" element={<PermissionRoute module="budget"><RevenueListPage /></PermissionRoute>} />
         <Route path="/budget/purchases" element={<PermissionRoute module="budget"><PurchaseListPage /></PermissionRoute>} />
         <Route path="/budget/sga" element={<PermissionRoute module="budget"><SgaListPage /></PermissionRoute>} />

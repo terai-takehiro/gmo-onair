@@ -138,3 +138,34 @@ export function requirePermission(module: string, minLevel: 'reader' | 'exporter
     next();
   };
 }
+
+/**
+ * 複数モジュールのいずれかのパーミッションチェック
+ * system_admin は常にアクセス可能
+ */
+export function requireAnyPermission(modules: string[], minLevel: 'reader' | 'exporter' | 'editor' | 'manager' | 'owner' = 'reader') {
+  const levelOrder = { reader: 1, exporter: 2, editor: 3, manager: 4, owner: 5 };
+
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: '認証が必要です' } });
+      return;
+    }
+
+    if (req.user.role === 'system_admin') {
+      next();
+      return;
+    }
+
+    const required = levelOrder[minLevel];
+    const ok = modules.some((m) => {
+      const lvl = req.user!.permissions?.[m];
+      return !!lvl && levelOrder[lvl as keyof typeof levelOrder] >= required;
+    });
+    if (!ok) {
+      res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'このモジュールへのアクセス権限がありません' } });
+      return;
+    }
+    next();
+  };
+}

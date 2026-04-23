@@ -62,8 +62,8 @@ const TOTAL_SLOTS = (SLOT_END - SLOT_START) * SLOTS_PER_HOUR;
 type LocationTab = "yoga" | "shibuya" | "other";
 
 function getLocationTab(locationName: string): LocationTab {
-  if (locationName.includes("用賀")) return "yoga";
-  if (locationName.includes("渋谷")) return "shibuya";
+  if (locationName.includes("用賀") || locationName.includes("グローバル")) return "yoga";
+  if (locationName.includes("渋谷") || locationName.includes("サムライ")) return "shibuya";
   return "other";
 }
 
@@ -181,8 +181,8 @@ export default function KoubanView({
 
   // Location tabs with counts
   const tabConfig: { key: LocationTab; label: string }[] = [
-    { key: "yoga", label: "用賀" },
-    { key: "shibuya", label: "渋谷" },
+    { key: "yoga", label: "GMOグローバルスタジオ" },
+    { key: "shibuya", label: "GMOサムライコンテンツスタジオ渋谷" },
     { key: "other", label: "その他" },
   ];
 

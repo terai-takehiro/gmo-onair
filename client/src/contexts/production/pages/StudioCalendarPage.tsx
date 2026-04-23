@@ -488,6 +488,7 @@ export default function StudioCalendarPage() {
               plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
               initialView={isMobile ? "timeGridDay" : "dayGridMonth"}
               locale="ja"
+              firstDay={0}
               headerToolbar={isMobile ? {
                 left: "prev,next",
                 center: "title",

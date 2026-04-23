@@ -105,7 +105,10 @@ export default function ProjectListPage() {
                       </Badge>
                     </div>
                     <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
-                      <span className="font-number text-sm font-medium text-foreground">{formatCurrency(p.expected_amount as number)}</span>
+                      <span className="text-sm font-medium text-foreground">
+                        <span className="text-xs text-muted-foreground mr-1">(想定)</span>
+                        <span className="font-number">{formatCurrency(p.expected_amount as number)}</span>
+                      </span>
                       <span>{ProjectTypeLabels[p.project_type as keyof typeof ProjectTypeLabels] || (p.project_type as string) || "-"}</span>
                       {(p.event_start as string) && <span>{formatDate(p.event_start as string)}</span>}
                       {(p.assigned_to_name as string) && <span>{p.assigned_to_name as string}</span>}
@@ -124,7 +127,7 @@ export default function ProjectListPage() {
                       <TableHead>顧客</TableHead>
                       <TableHead>ステージ</TableHead>
                       <TableHead>案件種類</TableHead>
-                      <TableHead className="text-right">想定金額</TableHead>
+                      <TableHead className="text-right">金額</TableHead>
                       <TableHead>イベント日</TableHead>
                       <TableHead>担当者</TableHead>
                     </TableRow>
@@ -149,7 +152,10 @@ export default function ProjectListPage() {
                         <TableCell className="text-xs">
                           {ProjectTypeLabels[p.project_type as keyof typeof ProjectTypeLabels] || (p.project_type as string) || "-"}
                         </TableCell>
-                        <TableCell className="text-right font-number">{formatCurrency(p.expected_amount as number)}</TableCell>
+                        <TableCell className="text-right">
+                          <span className="text-xs text-muted-foreground mr-1">(想定)</span>
+                          <span className="font-number">{formatCurrency(p.expected_amount as number)}</span>
+                        </TableCell>
                         <TableCell>{formatDate(p.event_start as string)}</TableCell>
                         <TableCell>{(p.assigned_to_name as string) || "-"}</TableCell>
                       </TableRow>

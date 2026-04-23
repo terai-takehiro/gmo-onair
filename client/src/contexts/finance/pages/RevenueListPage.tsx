@@ -30,7 +30,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { Search, Loader2, Plus, Trash2, Download } from "lucide-react";
+import { Search, Loader2, Plus, Trash2, Download, ExternalLink, AlertCircle } from "lucide-react";
 
 interface ProjectOption {
   id: string;
@@ -67,7 +67,8 @@ export default function RevenueListPage() {
 
   // Dialog form state
   const [projectSearch, setProjectSearch] = useState("");
-  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [selectedProject, setSelectedProject] = useState<ProjectOption | null>(null);
+  const selectedProjectId = selectedProject?.id ?? "";
   const [selectedEpisodeId, setSelectedEpisodeId] = useState("");
   const [taxCategory, setTaxCategory] = useState("tax10");
   const [amount, setAmount] = useState<number>(0);
@@ -90,7 +91,7 @@ export default function RevenueListPage() {
   const revenues = data?.data ?? [];
   const pagination = data?.pagination;
 
-  // Search projects for dialog
+  // Search projects for dialog (only when no project selected yet)
   const { data: projectsData } = useQuery({
     queryKey: ["projects-search", projectSearch],
     queryFn: async () =>
@@ -99,7 +100,7 @@ export default function RevenueListPage() {
           params: { search: projectSearch, limit: 20 },
         })
       ).data,
-    enabled: dialogOpen && projectSearch.length > 0,
+    enabled: dialogOpen && projectSearch.length > 0 && !selectedProject,
   });
   const projects: ProjectOption[] = projectsData?.data ?? [];
 
@@ -112,7 +113,6 @@ export default function RevenueListPage() {
   });
   const episodes: EpisodeOption[] = episodesData?.data ?? [];
 
-  const selectedProject = projects.find((p) => p.id === selectedProjectId);
   const isProjectCategoryB = selectedProject?.project_type
     ? getProjectCategory(selectedProject.project_type) === "B"
     : false;
@@ -157,10 +157,19 @@ export default function RevenueListPage() {
     },
   });
 
+  const submitError = createMutation.error as
+    | { response?: { data?: { error?: { message?: string } } }; message?: string }
+    | null;
+  const submitErrorMessage = submitError
+    ? submitError.response?.data?.error?.message ||
+      submitError.message ||
+      "登録に失敗しました"
+    : "";
+
   const handleCloseDialog = () => {
     setDialogOpen(false);
     setProjectSearch("");
-    setSelectedProjectId("");
+    setSelectedProject(null);
     setSelectedEpisodeId("");
     setTaxCategory("tax10");
     setAmount(0);
@@ -169,17 +178,19 @@ export default function RevenueListPage() {
     setPaymentDueDate("");
     setNotes("");
     setItems([]);
+    createMutation.reset();
   };
 
   const handleCreateSubmit = () => {
-    if (!selectedProjectId) return;
+    if (!selectedProject) return;
     // A系はepisode必須、B系は不要
     if (!isProjectCategoryB && !selectedEpisodeId) return;
+    if (!selectedProject.customer_id) return;
 
     createMutation.mutate({
-      project_id: selectedProjectId,
+      project_id: selectedProject.id,
       episode_id: selectedEpisodeId || null,
-      customer_id: selectedProject?.customer_id ?? null,
+      customer_id: selectedProject.customer_id,
       tax_category: taxCategory,
       amount: items.length > 0 ? itemsTotal : amount,
       recognition_date: recognitionDate || null,
@@ -290,11 +301,6 @@ export default function RevenueListPage() {
                   <div
                     key={r.id as string}
                     className="rounded-lg border p-3 transition-colors hover:bg-muted/50"
-                    onClick={() =>
-                      r.project_id &&
-                      navigate(`/sales/projects/${r.project_id}/episodes`)
-                    }
-                    role={r.project_id ? "button" : undefined}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
@@ -313,13 +319,26 @@ export default function RevenueListPage() {
                           )}
                         </div>
                       </div>
-                      <div className="text-right shrink-0">
+                      <div className="flex flex-col items-end gap-1 shrink-0">
                         <div className="font-medium font-number">
                           {formatCurrency(r.amount as number)}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {formatDate(r.recognition_date as string)}
                         </div>
+                        {r.project_id ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs"
+                            onClick={() =>
+                              navigate(`/sales/projects/${r.project_id}`)
+                            }
+                          >
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            案件
+                          </Button>
+                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -338,6 +357,7 @@ export default function RevenueListPage() {
                       <TableHead>税区分</TableHead>
                       <TableHead className="text-right">金額</TableHead>
                       <TableHead>計上日</TableHead>
+                      <TableHead className="w-12"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -352,7 +372,7 @@ export default function RevenueListPage() {
                               className="font-mono text-sm font-medium text-primary hover:underline"
                               onClick={() =>
                                 navigate(
-                                  `/projects/${r.project_id}/episodes`
+                                  `/sales/projects/${r.project_id}`
                                 )
                               }
                             >
@@ -382,6 +402,21 @@ export default function RevenueListPage() {
                         </TableCell>
                         <TableCell>
                           {formatDate(r.recognition_date as string)}
+                        </TableCell>
+                        <TableCell>
+                          {r.project_id ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="案件管理画面を開く"
+                              onClick={() =>
+                                navigate(`/sales/projects/${r.project_id}`)
+                              }
+                            >
+                              <ExternalLink className="h-4 w-4 text-primary" />
+                            </Button>
+                          ) : null}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -436,17 +471,41 @@ export default function RevenueListPage() {
             {/* Project search */}
             <div className="space-y-1">
               <Label>案件</Label>
-              <Input
-                placeholder="案件名・GLS番号で検索..."
-                value={projectSearch}
-                onChange={(e) => {
-                  setProjectSearch(e.target.value);
-                  setSelectedProjectId("");
-                  setSelectedEpisodeId("");
-                  setItems([]);
-                }}
-              />
-              {projectSearch && projects.length > 0 && !selectedProjectId && (
+              {selectedProject ? (
+                <div className="flex items-center gap-2 rounded border bg-muted/40 px-3 py-2">
+                  <span className="font-mono text-xs text-primary shrink-0">
+                    {selectedProject.gls_number || "GLS未発番"}
+                  </span>
+                  <span className="truncate flex-1 text-sm">
+                    {selectedProject.name}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => {
+                      setSelectedProject(null);
+                      setProjectSearch("");
+                      setSelectedEpisodeId("");
+                      setItems([]);
+                    }}
+                  >
+                    変更
+                  </Button>
+                </div>
+              ) : (
+                <Input
+                  placeholder="案件名・GLS番号で検索..."
+                  value={projectSearch}
+                  onChange={(e) => {
+                    setProjectSearch(e.target.value);
+                    setSelectedEpisodeId("");
+                    setItems([]);
+                  }}
+                />
+              )}
+              {!selectedProject && projectSearch && projects.length > 0 && (
                 <div className="max-h-40 overflow-y-auto rounded border bg-popover">
                   {projects.map((p) => (
                     <button
@@ -454,8 +513,8 @@ export default function RevenueListPage() {
                       type="button"
                       className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
                       onClick={() => {
-                        setSelectedProjectId(p.id);
-                        setProjectSearch(p.name);
+                        setSelectedProject(p);
+                        setProjectSearch("");
                       }}
                     >
                       <span className="font-mono text-xs text-primary">
@@ -468,8 +527,7 @@ export default function RevenueListPage() {
               )}
               {selectedProject && (
                 <p className="text-xs text-muted-foreground">
-                  {selectedProject.gls_number || "GLS未発番"} / 顧客:{" "}
-                  {selectedProject.customer_name ?? "-"}
+                  顧客: {selectedProject.customer_name ?? "-"}
                   {isProjectCategoryB && (
                     <span className="ml-2 text-blue-600 font-medium">
                       B系（エピソードなし）
@@ -738,6 +796,14 @@ export default function RevenueListPage() {
                 placeholder="備考"
               />
             </div>
+
+            {/* Error */}
+            {submitErrorMessage && (
+              <div className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-2 text-xs text-destructive">
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>{submitErrorMessage}</span>
+              </div>
+            )}
 
             {/* Actions */}
             <div className="flex justify-end gap-2 pt-2">

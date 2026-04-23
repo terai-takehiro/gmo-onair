@@ -6,9 +6,7 @@ import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
@@ -156,26 +154,22 @@ export default function PartnerListPage() {
               </div>
 
               {/* Desktop table */}
-              <div className="hidden lg:block overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>パートナー名</TableHead>
-                    <TableHead>役職</TableHead>
-                    <TableHead>メール</TableHead>
-                    <TableHead>電話</TableHead>
-                    <TableHead>専門分野</TableHead>
-                    <TableHead className="w-24"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {partners.map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell className="font-medium">{p.name}</TableCell>
-                      <TableCell>{p.role_title || "-"}</TableCell>
-                      <TableCell>{p.email || "-"}</TableCell>
-                      <TableCell>{p.phone || "-"}</TableCell>
-                      <TableCell>
+              <div className="hidden lg:block">
+                <DataTable<Partner>
+                  data={partners}
+                  rowKey={(p) => p.id}
+                  storageKey="partners"
+                  columns={[
+                    { key: "name", header: "パートナー名", defaultWidth: 220, className: "font-medium", cell: (p) => p.name },
+                    { key: "role_title", header: "役職", defaultWidth: 160, cell: (p) => p.role_title || "-" },
+                    { key: "email", header: "メール", defaultWidth: 220, cell: (p) => p.email || "-" },
+                    { key: "phone", header: "電話", defaultWidth: 140, cell: (p) => p.phone || "-" },
+                    {
+                      key: "specialties",
+                      header: "専門分野",
+                      defaultWidth: 240,
+                      sortValue: (p) => (Array.isArray(p.specialties) ? p.specialties.join(", ") : ""),
+                      cell: (p) => (
                         <div className="flex flex-wrap gap-1">
                           {Array.isArray(p.specialties) && p.specialties.length > 0
                             ? p.specialties.map((s: string, i: number) => (
@@ -185,17 +179,17 @@ export default function PartnerListPage() {
                               ))
                             : "-"}
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(p.id)}><Trash2 className="h-4 w-4" /></Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      ),
+                    },
+                  ] as DataTableColumn<Partner>[]}
+                  actionsWidth={96}
+                  actions={(p) => (
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(p.id)}><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                  )}
+                />
               </div>
             </>
           )}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import {
@@ -101,13 +101,28 @@ export default function StudioBookingDialog({
   const [locationNote, setLocationNote] = useState("");
   const [notes, setNotes] = useState("");
 
-  // Projects list
+  // Projects list — 最新案件 + 選択中案件を確実に含める
   const { data: projectsData } = useQuery({
     queryKey: ["projects-all"],
-    queryFn: async () => (await api.get("/projects?limit=200")).data,
+    queryFn: async () => (await api.get("/projects?limit=500")).data,
     enabled: open,
   });
   const projects: any[] = projectsData?.data ?? [];
+
+  // 選択中の案件が projects に含まれていない場合、個別にフェッチ
+  const { data: selectedProjectData } = useQuery({
+    queryKey: ["project-single", projectId],
+    queryFn: async () => (await api.get(`/projects/${projectId}`)).data.data,
+    enabled: open && !!projectId && !projects.some((p) => p.id === projectId),
+  });
+
+  const projectOptions = useMemo(() => {
+    const all = [...projects];
+    if (selectedProjectData && !all.some((p) => p.id === selectedProjectData.id)) {
+      all.unshift(selectedProjectData);
+    }
+    return all;
+  }, [projects, selectedProjectData]);
 
   // Episodes for selected project
   const { data: episodesData } = useQuery({
@@ -195,17 +210,18 @@ export default function StudioBookingDialog({
   // Auto-set title based on project
   useEffect(() => {
     if (bookingType === "project" && projectId && !editingBooking) {
-      const proj = projects.find((p: any) => p.id === projectId);
+      const proj = projectOptions.find((p: any) => p.id === projectId);
       if (proj) {
         const ep = episodes.find((e: any) => e.id === episodeId);
+        const code = proj.gls_number || proj.code || "";
         setTitle(
           ep
-            ? `${proj.gls_number} ${ep.episode_code} ${proj.name}`
-            : `${proj.gls_number} ${proj.name}`
+            ? `${code} ${ep.episode_code} ${proj.name}`.trim()
+            : `${code} ${proj.name}`.trim()
         );
       }
     }
-  }, [projectId, episodeId, bookingType, projects, episodes, editingBooking]);
+  }, [projectId, episodeId, bookingType, projectOptions, episodes, editingBooking]);
 
   const toggleRoom = (roomId: string) => {
     setSelectedRoomIds((prev) => {
@@ -289,14 +305,14 @@ export default function StudioBookingDialog({
               <div className="space-y-1">
                 <Label>案件</Label>
                 <SearchableSelect
-                  options={projects.map((p: any) => ({
+                  options={projectOptions.map((p: any) => ({
                     value: p.id,
-                    label: `${p.gls_number || p.code} ${p.name}`,
+                    label: `${p.gls_number || p.code || ""} ${p.name}`.trim(),
                     subLabel: p.customer_name || "",
                   }))}
                   value={projectId}
                   onChange={(v) => { setProjectId(v); setEpisodeId(""); }}
-                  placeholder="案件を検索..."
+                  placeholder="GLS番号・案件名・顧客名で検索..."
                 />
               </div>
               {projectId && episodes.length > 0 && (
@@ -404,38 +420,66 @@ export default function StudioBookingDialog({
           <div className="space-y-2">
             <Label>使用スタジオ・部屋 (複数選択可)</Label>
             <div className="space-y-3 rounded-lg border p-3">
-              {locations.map((loc) => (
-                <div key={loc.id}>
-                  <p className="text-xs font-semibold text-muted-foreground mb-1.5">
-                    {loc.name}
-                  </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                    {loc.rooms.map((room) => (
-                      <button
-                        key={room.id}
-                        type="button"
-                        onClick={() => toggleRoom(room.id)}
-                        className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all border text-left ${
-                          selectedRoomIds.has(room.id)
-                            ? "border-transparent text-white shadow-sm"
-                            : "border-border bg-background hover:bg-muted"
-                        }`}
-                        style={
-                          selectedRoomIds.has(room.id)
-                            ? { backgroundColor: room.color }
-                            : undefined
-                        }
-                      >
-                        <span
-                          className="h-3 w-3 rounded-full shrink-0 border border-white/30"
-                          style={{ backgroundColor: room.color }}
-                        />
-                        <span className="truncate">{room.name}</span>
-                      </button>
-                    ))}
+              {locations.map((loc) => {
+                const locRoomIds = loc.rooms.map((r) => r.id);
+                const allSelected =
+                  locRoomIds.length > 0 &&
+                  locRoomIds.every((id) => selectedRoomIds.has(id));
+                const toggleAllInLocation = () => {
+                  setSelectedRoomIds((prev) => {
+                    const next = new Set(prev);
+                    if (allSelected) {
+                      locRoomIds.forEach((id) => next.delete(id));
+                    } else {
+                      locRoomIds.forEach((id) => next.add(id));
+                    }
+                    return next;
+                  });
+                };
+                return (
+                  <div key={loc.id}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-xs font-semibold text-muted-foreground">
+                        {loc.name}
+                      </p>
+                      {locRoomIds.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={toggleAllInLocation}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          {allSelected ? "全解除" : "全選択"}
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                      {loc.rooms.map((room) => (
+                        <button
+                          key={room.id}
+                          type="button"
+                          onClick={() => toggleRoom(room.id)}
+                          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all border text-left ${
+                            selectedRoomIds.has(room.id)
+                              ? "border-transparent text-white shadow-sm"
+                              : "border-border bg-background hover:bg-muted"
+                          }`}
+                          style={
+                            selectedRoomIds.has(room.id)
+                              ? { backgroundColor: room.color }
+                              : undefined
+                          }
+                        >
+                          <span
+                            className="h-3 w-3 rounded-full shrink-0 border border-white/30"
+                            style={{ backgroundColor: room.color }}
+                          />
+                          <span className="truncate">{room.name}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
               {/* External location */}
               <div>

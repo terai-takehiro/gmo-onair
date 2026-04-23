@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
-import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
+import { requireAuth, requireAnyPermission } from '../../../shared/middleware/auth';
 
 const router = Router();
 
 // Apply auth + permission middleware to all routes
-router.use(requireAuth, requirePermission('sales'));
+// ダッシュボードは sales または budget のいずれかの権限でアクセス可能
+router.use(requireAuth, requireAnyPermission(['sales', 'budget']));
 
 function countMonths(start: string, end: string): number {
   const [sy, sm] = start.split('-').map(Number);
@@ -130,15 +131,13 @@ router.get('/recent-projects', async (_req, res) => {
 
 router.get('/weekly-schedule', async (_req, res) => {
   const now = new Date();
-  const dayOfWeek = now.getDay();
+  const dayOfWeek = now.getDay(); // 0 = 日曜日
   const days: Array<{ date: string; dayLabel: string; events: unknown[] }> = [];
   const dayLabels = ['日', '月', '火', '水', '木', '金', '土'];
 
+  // 日曜始まりの週
   for (let i = 0; i < 7; i++) {
-    const targetDay = ((1 + i) % 7);
-    let daysToAdd = targetDay - dayOfWeek;
-    if (daysToAdd <= 0) daysToAdd += 7;
-    if (targetDay === dayOfWeek) daysToAdd = 0;
+    const daysToAdd = i - dayOfWeek;
 
     const d = new Date(now);
     d.setDate(d.getDate() + daysToAdd);
