@@ -134,14 +134,14 @@ export default function StudioCalendarPage() {
     if (!api) return;
     const currentView = api.view.type;
     if (isMobile && currentView === "dayGridMonth") {
-      api.changeView("timeGridDay");
-    } else if (!isMobile && currentView === "listWeek") {
+      api.changeView("listWeek");
+    } else if (!isMobile && (currentView === "listWeek" || currentView === "listMonth")) {
       api.changeView("dayGridMonth");
     }
   }, [isMobile]);
 
   // Track current FullCalendar view to prevent resets
-  const [currentView, setCurrentView] = useState<string>(isMobile ? "timeGridDay" : "dayGridMonth");
+  const [currentView, setCurrentView] = useState<string>(isMobile ? "listWeek" : "dayGridMonth");
   // Track current date for 香盤 view
   const [koubanDate, setKoubanDate] = useState<Date>(new Date());
 
@@ -584,12 +584,12 @@ export default function StudioCalendarPage() {
             <FullCalendar
               ref={calendarRef}
               plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-              initialView={isMobile ? "timeGridDay" : "dayGridMonth"}
+              initialView={isMobile ? "listWeek" : "dayGridMonth"}
               locale="ja"
               headerToolbar={isMobile ? {
                 left: "prev,next",
                 center: "title",
-                right: "timeGridDay,listWeek,dayGridMonth",
+                right: "listWeek,listMonth,timeGridDay",
               } : {
                 left: "prev,next today",
                 center: "title",
@@ -603,6 +603,11 @@ export default function StudioCalendarPage() {
                 week: "週",
                 day: "日",
                 list: "一覧",
+              }}
+              views={{
+                listWeek: { buttonText: "週一覧" },
+                listMonth: { buttonText: "月一覧" },
+                timeGridDay: { buttonText: "日" },
               }}
               buttonIcons={false}
               events={calendarEvents}
