@@ -331,12 +331,15 @@ export default function StudioBookingDialog({
             "data-[state=open]:animate-in data-[state=closed]:animate-out",
             "data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom",
             "duration-300 ease-out",
-            // Desktop: centered dialog
+            // Desktop (sm): centered dialog
             "sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2",
             "sm:w-[min(calc(100vw-2rem),32rem)]",
             "sm:rounded-xl sm:border sm:shadow-xl",
             "sm:data-[state=open]:slide-in-from-left-1/2 sm:data-[state=open]:slide-in-from-top-[48%]",
             "sm:data-[state=closed]:slide-out-to-left-1/2 sm:data-[state=closed]:slide-out-to-top-[48%]",
+            // Large desktop (lg): 2-column wider dialog
+            "lg:w-[min(calc(100vw-4rem),56rem)]",
+            "xl:w-[min(calc(100vw-8rem),64rem)]",
           )}
         >
           <DP.Description className="sr-only">スタジオ予約フォーム</DP.Description>
@@ -366,7 +369,7 @@ export default function StudioBookingDialog({
 
           {/* Scrollable body */}
           <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: "calc(92dvh - 56px)" }}>
-            <div className="px-4 py-4 space-y-5" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
+            <div className="px-4 py-4 space-y-5 lg:px-6 lg:py-5 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-x-6 lg:gap-y-5" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
 
               {/* ① タイトル */}
               <div className="rounded-xl border bg-muted/30">
@@ -513,7 +516,7 @@ export default function StudioBookingDialog({
               </div>
 
               {/* ⑤ スタジオ・部屋 */}
-              <div>
+              <div className="lg:col-span-2">
                 <div className="flex items-center justify-between mb-2 px-1">
                   <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">スタジオ・部屋</p>
                   <div className="flex gap-3">
@@ -563,7 +566,7 @@ export default function StudioBookingDialog({
                             </button>
                           )}
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
                           {loc.rooms.map((room) => (
                             <button
                               key={room.id}
@@ -633,7 +636,7 @@ export default function StudioBookingDialog({
                 const greenrooms = allRooms.filter((r) => selectedRoomIds.has(r.id) && r.room_type === "greenroom");
                 if (greenrooms.length === 0) return null;
                 return (
-                  <div>
+                  <div className="lg:col-span-2">
                     <div className="flex items-center gap-1.5 mb-2 px-1">
                       <User className="h-3.5 w-3.5 text-muted-foreground" />
                       <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">控室の利用者・用途</p>
@@ -680,7 +683,7 @@ export default function StudioBookingDialog({
               })()}
 
               {/* ⑦ メモ */}
-              <div>
+              <div className="lg:col-span-2">
                 <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">メモ</p>
                 <textarea
                   value={notes}
@@ -693,7 +696,7 @@ export default function StudioBookingDialog({
               </div>
 
               {/* ⑧ 予約状態 */}
-              <div className="rounded-xl border bg-muted/30">
+              <div className="rounded-xl border bg-muted/30 lg:col-span-2">
                 <div className="flex items-center justify-between px-4 py-3.5">
                   <div>
                     <p className="text-[15px] font-medium">確定済み</p>

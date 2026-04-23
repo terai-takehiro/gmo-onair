@@ -923,7 +923,9 @@ export default function RevenueListPage() {
                     setRecognitionMonth(e.target.value);
                     if (e.target.value) {
                       const [y, m] = e.target.value.split("-").map(Number);
-                      setPaymentDueDate(localDateStr(new Date(y, m, 0)));
+                      // 請求予定日 = 計上月末、入金予定日 = 翌月末
+                      setBillingDate(localDateStr(new Date(y, m, 0)));
+                      setPaymentDueDate(localDateStr(new Date(y, m + 1, 0)));
                     }
                   }}
                 />

@@ -193,7 +193,8 @@ export default function ProjectFormPage() {
       if (isEdit) {
         qc.invalidateQueries({ queryKey: ["project", id] });
         setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 3000);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        setTimeout(() => setSaveSuccess(false), 4000);
       } else {
         navigate(`/sales/projects/${result.id}`);
       }
@@ -360,6 +361,16 @@ export default function ProjectFormPage() {
         )}
       </div>
 
+
+      {/* 保存完了バナー（画面上部・幅広） */}
+      {saveSuccess && (
+        <div className="sticky top-2 z-40 rounded-lg bg-green-100 border border-green-300 p-3 shadow-sm animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-2 text-sm font-medium text-green-800">
+            <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" />
+            保存しました
+          </div>
+        </div>
+      )}
 
       {/* バリデーションエラー */}
       {submitErrors.length > 0 && (

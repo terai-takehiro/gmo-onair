@@ -27,8 +27,9 @@ router.get('/', async (req, res) => {
   if (groupId) { where += ` AND pu.group_id = ?`; params.push(groupId); }
   const recognitionMonth = req.query.recognition_month as string;
   if (recognitionMonth) {
-    where += ` AND TO_CHAR(pu.recognition_date, 'YYYY-MM') = ?`;
-    params.push(recognitionMonth);
+    // recognition_date は TEXT (YYYY-MM-DD) のため前方一致
+    where += ` AND pu.recognition_date LIKE ?`;
+    params.push(`${recognitionMonth}-%`);
   }
 
   const allocJoin = projectId

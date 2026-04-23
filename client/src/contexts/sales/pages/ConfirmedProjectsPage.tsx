@@ -205,7 +205,7 @@ export default function ConfirmedProjectsPage() {
                   <TableHead>顧客</TableHead>
                   <TableHead>ステージ</TableHead>
                   <TableHead>案件種類</TableHead>
-                  <TableHead className="text-right">想定金額</TableHead>
+                  <TableHead className="text-right">金額（税別）</TableHead>
                   {isStudio && <TableHead>イベント日</TableHead>}
                   <TableHead>担当者</TableHead>
                 </TableRow>

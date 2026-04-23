@@ -211,7 +211,7 @@ export default function ProjectListPage() {
                         { key: 'customer' as SortKey, label: '顧客', defaultW: 120 },
                         { key: 'stage' as SortKey, label: 'ステージ', defaultW: 100 },
                         { key: 'project_type' as SortKey, label: '案件種類', defaultW: 100 },
-                        { key: 'expected_amount' as SortKey, label: '金額', align: 'right', defaultW: 110 },
+                        { key: 'expected_amount' as SortKey, label: '金額（税別）', align: 'right', defaultW: 120 },
                         { key: 'event_start' as SortKey, label: 'イベント日', defaultW: 130 },
                         { key: 'assigned_to' as SortKey, label: '担当者', defaultW: 80 },
                       ] as { key: SortKey; label: string; align?: string; defaultW: number }[]).map(({ key, label, align, defaultW }) => {
