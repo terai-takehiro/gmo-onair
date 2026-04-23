@@ -120,7 +120,7 @@ export default function StudioCalendarPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const qc = useQueryClient();
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile(1024);
   const calendarRef = useRef<any>(null);
 
   const [dateRange, setDateRange] = useState<{ from: string; to: string }>({
