@@ -14,6 +14,7 @@
   html {
     touch-action: pan-y;
     -webkit-font-smoothing: antialiased;
+    background-color: hsl(var(--card)); /* safe-area inset top = header color */
   }
   button, a, [role="button"], label[for], summary {
     touch-action: manipulation;

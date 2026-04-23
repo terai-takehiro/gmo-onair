@@ -237,6 +237,8 @@ export default function StudioCalendarPage() {
       const useTypeColor = ["performance", "rehearsal", "maintenance", "tour", "setup"].includes(b.booking_type);
 
       const dateSuffix = b.project_event_end ? ` (${formatShortDate(b.project_event_end)})` : "";
+      // Strip leading GLS number (e.g. "GLS-A005 番組名" → "番組名")
+      const displayTitle = b.title.replace(/^GLS[-A-Z0-9]*\s+/i, "").trim() || b.title;
 
       if (b.rooms.length > 0) {
         // 月間ビュー: 案件単位で1イベントにまとめる
@@ -249,7 +251,7 @@ export default function StudioCalendarPage() {
           const color = useTypeColor ? typeColor : filteredRooms[0].room_color;
           events.push({
             id: `booking-${b.id}`,
-            title: `${b.title}${dateSuffix}`,
+            title: `${displayTitle}${dateSuffix}`,
             start: evStart,
             end: evEnd,
             allDay: evAllDay,
@@ -281,7 +283,7 @@ export default function StudioCalendarPage() {
         // 外現場など部屋なし
         events.push({
           id: `booking-${b.id}`,
-          title: `📍 ${b.title}${b.location_note ? ` (${b.location_note})` : ""}${dateSuffix}`,
+          title: `📍 ${displayTitle}${b.location_note ? ` (${b.location_note})` : ""}${dateSuffix}`,
           start: evStart,
           end: evEnd,
           allDay: evAllDay,
