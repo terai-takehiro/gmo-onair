@@ -262,22 +262,21 @@ export default function StudioCalendarPage() {
             extendedProps: { kind: "booking", bookingId: b.id, bookingType: b.booking_type },
           });
         } else {
-          // 週/日ビュー: 部屋ごとに個別表示
-          for (const room of filteredRooms) {
-            const color = useTypeColor ? typeColor : room.room_color;
-            events.push({
-              id: `booking-${b.id}-${room.room_id}`,
-              title: `${room.room_name} | ${b.title}${dateSuffix}`,
-              start: evStart,
-              end: evEnd,
-              allDay: evAllDay,
-              backgroundColor: color,
-              borderColor: color,
-              textColor: "#ffffff",
-              classNames: tentativeClass,
-              extendedProps: { kind: "booking", bookingId: b.id, bookingType: b.booking_type },
-            });
-          }
+          // 週/日ビュー: 案件単位でひとつ（部屋名をタイトルに列挙）
+          const color = useTypeColor ? typeColor : filteredRooms[0].room_color;
+          const roomsLabel = filteredRooms.map((r) => r.room_name).join("・");
+          events.push({
+            id: `booking-${b.id}`,
+            title: `${roomsLabel} | ${displayTitle}${dateSuffix}`,
+            start: evStart,
+            end: evEnd,
+            allDay: evAllDay,
+            backgroundColor: color,
+            borderColor: color,
+            textColor: "#ffffff",
+            classNames: tentativeClass,
+            extendedProps: { kind: "booking", bookingId: b.id, bookingType: b.booking_type },
+          });
         }
       } else {
         // 外現場など部屋なし
