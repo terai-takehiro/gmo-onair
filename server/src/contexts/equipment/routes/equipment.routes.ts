@@ -1296,9 +1296,9 @@ router.get('/custom-values', async (req: Request, res: Response) => {
 
 // PUT /equipment/custom-values/:columnId/:equipmentId — upsert 単一値
 router.put('/custom-values/:columnId/:equipmentId', async (req: Request, res: Response) => {
+  const { columnId, equipmentId } = req.params;
+  const { value } = req.body;
   try {
-    const { columnId, equipmentId } = req.params;
-    const { value } = req.body;
     await execute(
       `INSERT INTO equipment_custom_values (equipment_id, column_id, value, updated_at)
        VALUES ($1, $2, $3, NOW())
@@ -1307,7 +1307,17 @@ router.put('/custom-values/:columnId/:equipmentId', async (req: Request, res: Re
     );
     res.json({ success: true });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: { message: err.message } });
+    // eslint-disable-next-line no-console
+    console.error('[custom-values PUT failed]', { columnId, equipmentId, value, code: err?.code, detail: err?.detail, message: err?.message });
+    res.status(500).json({
+      success: false,
+      error: {
+        message: err.message,
+        code: err.code,
+        detail: err.detail,
+        constraint: err.constraint,
+      },
+    });
   }
 });
 

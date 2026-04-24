@@ -394,8 +394,8 @@ export default function EquipmentListPage() {
     },
     enabled: visibleItemIds.length > 0 && customColumns.length > 0,
   });
-  // customValues: equipmentId → columnId → value
-  const customValues = useMemo(() => {
+  // customValues: equipmentId → columnId → value（サーバー応答のキャッシュ集約用・読み取り専用）
+  const serverCustomValues = useMemo(() => {
     const map: Record<string, Record<string, string>> = {};
     for (const row of (customValuesData ?? [])) {
       if (!map[row.equipment_id]) map[row.equipment_id] = {};
@@ -404,52 +404,72 @@ export default function EquipmentListPage() {
     return map;
   }, [customValuesData]);
 
-  // ローカル pending state: クリック直後に即時UI反映するためのバッファ
-  // サーバー往復 + React Query invalidate を待つと反応が遅れて見えるため、
-  // mutation が settled するまでこの値を優先表示する
-  const [pendingValues, setPendingValues] = useState<Record<string, string>>({});
+  // ローカル state をカスタム列セル表示の「単一の真実の源」にする。
+  // これで React Query のキャッシュ更新/refetch に関わらず UI は安定する。
+  const [localValues, setLocalValues] = useState<Record<string, Record<string, string>>>({});
+  // 書き込み中のキー (eq::col) を追跡。サーバーからの refetch が来ても上書きしない。
+  const pendingKeysRef = useRef<Set<string>>(new Set());
+  // カスタム列セルの保存失敗を残り続けるバナーとして表示するためのエラー一覧
+  const [saveErrors, setSaveErrors] = useState<Array<{ id: number; msg: string }>>([]);
+  const errorIdRef = useRef(0);
   const pendingKey = (equipmentId: string, columnId: string) => `${equipmentId}::${columnId}`;
+
+  // サーバーから新しいデータが届いたらローカルにマージ。ただし書き込み中のセルは上書きしない。
+  useEffect(() => {
+    setLocalValues(prev => {
+      const next: Record<string, Record<string, string>> = {};
+      // サーバー値を基礎にセット
+      for (const [eqId, colMap] of Object.entries(serverCustomValues)) {
+        next[eqId] = { ...colMap };
+      }
+      // 書き込み中のキー（=ローカル値）で上書き
+      for (const pk of pendingKeysRef.current) {
+        const [eqId, colId] = pk.split('::');
+        if (!next[eqId]) next[eqId] = {};
+        const localVal = prev[eqId]?.[colId];
+        if (localVal !== undefined) next[eqId][colId] = localVal;
+      }
+      return next;
+    });
+  }, [serverCustomValues]);
+
+  // UIから参照する値: ローカル優先
+  const customValues = localValues;
 
   const customValueMutation = useMutation({
     mutationFn: ({ equipmentId, columnId, value }: { equipmentId: string; columnId: string; value: string }) =>
       api.put(`/equipment/custom-values/${columnId}/${equipmentId}`, { value }),
-    // 成功: 保存した値で React Query キャッシュを直接書き換える（refetch は走らせない）
-    // これにより "invalidate → refetch 中に一瞬キャッシュの古い値に戻る" のちらつきを回避
-    onSuccess: (_data, vars) => {
-      qc.setQueriesData<any[]>({ queryKey: ['equipment-custom-values'] }, (old) => {
-        if (!Array.isArray(old)) return old;
-        const idx = old.findIndex(r => r.equipment_id === vars.equipmentId && r.column_id === vars.columnId);
-        if (idx >= 0) {
-          return old.map((r, i) => i === idx ? { ...r, value: vars.value } : r);
-        }
-        return [...old, { equipment_id: vars.equipmentId, column_id: vars.columnId, value: vars.value }];
-      });
-    },
     onError: (err: any, vars) => {
-      // 保存失敗時はユーザーに通知。pending の削除は onSettled で行うので、
-      // キャッシュの旧値に自動的に戻る（ロールバック相当）
       // eslint-disable-next-line no-console
       console.error('[custom-value] save failed', err, vars);
-      const msg = err?.response?.data?.error?.message || err?.message || 'サーバーへの保存に失敗しました';
-      alert(`カスタム列の保存に失敗しました: ${msg}`);
-    },
-    onSettled: (_data, _err, vars) => {
-      // onSuccess/onError がキャッシュを更新したあとに pending を削除する
-      // → UI は更新済みキャッシュを参照し続けるため、ちらつきなし
-      setPendingValues(prev => {
-        const key = pendingKey(vars.equipmentId, vars.columnId);
-        if (!(key in prev)) return prev;
+      // ローカル state をサーバー値に戻す
+      setLocalValues(prev => {
         const next = { ...prev };
-        delete next[key];
+        const serverVal = serverCustomValues[vars.equipmentId]?.[vars.columnId] ?? '';
+        if (!next[vars.equipmentId]) next[vars.equipmentId] = {};
+        next[vars.equipmentId] = { ...next[vars.equipmentId], [vars.columnId]: serverVal };
         return next;
       });
+      const msg = err?.response?.data?.error?.message || err?.message || 'サーバーへの保存に失敗しました';
+      const id = ++errorIdRef.current;
+      setSaveErrors(prev => [...prev, { id, msg }]);
+      // 15秒後に自動消去
+      setTimeout(() => setSaveErrors(prev => prev.filter(e => e.id !== id)), 15000);
+    },
+    onSettled: (_data, _err, vars) => {
+      const pk = pendingKey(vars.equipmentId, vars.columnId);
+      pendingKeysRef.current.delete(pk);
     },
   });
 
   const writeCustomValue = (equipmentId: string, columnId: string, value: string) => {
-    // 1. 即座にローカル state を更新して UI を反映
-    setPendingValues(prev => ({ ...prev, [pendingKey(equipmentId, columnId)]: value }));
-    // 2. 裏でサーバーに保存
+    const pk = pendingKey(equipmentId, columnId);
+    pendingKeysRef.current.add(pk);
+    // ローカルを即座に更新（これが表示の真実の源）
+    setLocalValues(prev => ({
+      ...prev,
+      [equipmentId]: { ...(prev[equipmentId] || {}), [columnId]: value },
+    }));
     customValueMutation.mutate({ equipmentId, columnId, value });
   };
 
@@ -753,9 +773,7 @@ export default function EquipmentListPage() {
 
   const renderCustomCells = (item: any, py: string) =>
     orderedCustomCols.filter(c => visibleCustomCols.has(c.id)).map(col => {
-      // ローカル pending を最優先 → サーバー値 → 空
-      const pk = pendingKey(item.id, col.id);
-      const val = pendingValues[pk] ?? customValues[item.id]?.[col.id] ?? '';
+      const val = customValues[item.id]?.[col.id] ?? '';
       const isEditing = editingCustomCell?.equipmentId === item.id && editingCustomCell?.columnId === col.id;
       const startEdit = (e: React.MouseEvent) => { e.stopPropagation(); setEditingCustomCell({ equipmentId: item.id, columnId: col.id }); };
       const commitEdit = (newVal: string) => {
@@ -905,6 +923,17 @@ export default function EquipmentListPage() {
 
   return (
     <div className="space-y-4 p-4 lg:p-6">
+      {/* カスタム列セルの保存失敗バナー（15秒で自動消去、手動で×ボタン） */}
+      {saveErrors.length > 0 && (
+        <div className="space-y-1">
+          {saveErrors.map(e => (
+            <div key={e.id} className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <span className="flex-1">カスタム列の保存に失敗: {e.msg}</span>
+              <button onClick={() => setSaveErrors(prev => prev.filter(x => x.id !== e.id))} className="text-destructive/60 hover:text-destructive shrink-0">×</button>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="heading-page text-xl lg:text-2xl">機材一覧</h1>
         <div className="flex flex-wrap gap-2">
