@@ -55,7 +55,8 @@ export interface PricingItem extends BaseEntity {
   category_id: string;
   name: string;
   sub_label: string | null;
-  unit_price: number;
+  unit_price: number | null;
+  group_price: number | null;
   calc_type: CalcType;
   sort_order: number;
 }

@@ -40,6 +40,7 @@ function calcSubtotal(calcType: CalcType, state: ItemState): number {
     case "days_qty": return state.quantity * state.days * state.unitPrice;
     case "days_people": return state.quantity * state.days * state.unitPrice;
     case "toggle": return state.unitPrice;
+    case "qty": return state.quantity * state.unitPrice;
     default: return 0;
   }
 }
@@ -51,6 +52,7 @@ const calcTypeUnit: Record<string, { qtyLabel?: string; daysLabel: string }> = {
   days_qty: { qtyLabel: "台", daysLabel: "日" },
   days_people: { qtyLabel: "人", daysLabel: "日" },
   toggle: { daysLabel: "" },
+  qty: { qtyLabel: "数", daysLabel: "" },
 };
 
 export default function SimulationDialog({ open, onOpenChange, projectId: propProjectId, opportunityId, onApply }: SimulationDialogProps) {
@@ -69,8 +71,27 @@ export default function SimulationDialog({ open, onOpenChange, projectId: propPr
     enabled: open && !!projectId,
   });
 
+  const { data: projectData } = useQuery({
+    queryKey: ["project", projectId],
+    queryFn: async () => (await api.get(`/projects/${projectId}`)).data,
+    enabled: open && !!projectId,
+  });
+
+  const customerType: "internal" | "external" =
+    projectData?.data?.customer_type === "internal" ? "internal" : "external";
+
   const categories: PricingCategory[] = categoriesData?.data ?? [];
   const savedItems: SimulationItem[] = simulationData?.data ?? [];
+
+  const pickInitialPrice = useCallback(
+    (item: { unit_price: number | null; group_price: number | null }): number => {
+      if (customerType === "internal") {
+        return item.group_price ?? item.unit_price ?? 0;
+      }
+      return item.unit_price ?? item.group_price ?? 0;
+    },
+    [customerType]
+  );
 
   useEffect(() => {
     if (!open || categories.length === 0) return;
@@ -82,11 +103,11 @@ export default function SimulationDialog({ open, onOpenChange, projectId: propPr
         const saved = savedMap.get(item.id);
         states[item.id] = saved
           ? { checked: true, quantity: saved.quantity, days: saved.days, unitPrice: saved.unit_price }
-          : { checked: false, quantity: 1, days: 1, unitPrice: item.unit_price };
+          : { checked: false, quantity: 1, days: 1, unitPrice: pickInitialPrice(item) };
       });
     });
     setItemStates(states);
-  }, [open, categories.length, savedItems.length]);
+  }, [open, categories.length, savedItems.length, customerType, pickInitialPrice]);
 
   const updateItem = useCallback((itemId: string, patch: Partial<ItemState>) => {
     setItemStates((prev) => ({ ...prev, [itemId]: { ...prev[itemId], ...patch } }));
@@ -143,9 +164,16 @@ export default function SimulationDialog({ open, onOpenChange, projectId: propPr
           <DialogTitle className="flex items-center gap-2">
             <Calculator className="h-5 w-5 text-primary" />
             料金シミュレーション
+            {projectId && (
+              <Badge variant={customerType === "internal" ? "default" : "secondary"} className="ml-2">
+                {customerType === "internal" ? "グループ内案件" : "グループ外案件"}
+              </Badge>
+            )}
           </DialogTitle>
           <DialogDescription>
-            項目を選択して数量・日数を入力すると見積金額を自動算出します
+            項目を選択して数量・日数を入力すると見積金額を自動算出します。単価は
+            {customerType === "internal" ? "「グループ内価格」" : "「定価」"}
+            を初期値として反映しますが、明細ごとに上書き可能です。
           </DialogDescription>
         </DialogHeader>
 
@@ -176,7 +204,7 @@ export default function SimulationDialog({ open, onOpenChange, projectId: propPr
                       if (!state) return null;
                       const subtotal = calcSubtotal(item.calc_type, state);
                       const units = calcTypeUnit[item.calc_type] || {};
-                      const showQty = item.calc_type === 'days_qty' || item.calc_type === 'days_people';
+                      const showQty = item.calc_type === 'days_qty' || item.calc_type === 'days_people' || item.calc_type === 'qty';
                       const showDays = item.calc_type === 'days' || item.calc_type === 'hours' || item.calc_type === 'days_qty' || item.calc_type === 'days_people';
 
                       return (
@@ -247,7 +275,7 @@ export default function SimulationDialog({ open, onOpenChange, projectId: propPr
                         if (!state) return null;
                         const subtotal = calcSubtotal(item.calc_type, state);
                         const units = calcTypeUnit[item.calc_type] || {};
-                        const showQty = item.calc_type === 'days_qty' || item.calc_type === 'days_people';
+                        const showQty = item.calc_type === 'days_qty' || item.calc_type === 'days_people' || item.calc_type === 'qty';
                         const showDays = item.calc_type === 'days' || item.calc_type === 'hours' || item.calc_type === 'days_qty' || item.calc_type === 'days_people';
 
                         return (

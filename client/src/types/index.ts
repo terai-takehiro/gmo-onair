@@ -100,6 +100,7 @@ export const CalcType = {
   DAYS_QTY: 'days_qty',
   DAYS_PEOPLE: 'days_people',
   TOGGLE: 'toggle',
+  QTY: 'qty',
 } as const;
 export type CalcType = (typeof CalcType)[keyof typeof CalcType];
 
@@ -110,6 +111,7 @@ export const CalcTypeLabels: Record<CalcType, string> = {
   days_qty: '台数×日数×単価',
   days_people: '人数×日数×単価',
   toggle: '有無×単価',
+  qty: '数量×単価',
 };
 
 export const TaxCategory = {
@@ -249,7 +251,8 @@ export interface PricingItem extends BaseEntity {
   category_id: string;
   name: string;
   sub_label: string | null;
-  unit_price: number;
+  unit_price: number | null;
+  group_price: number | null;
   calc_type: CalcType;
   sort_order: number;
 }

@@ -43,6 +43,7 @@ export const CalcType = {
   DAYS_QTY: 'days_qty',
   DAYS_PEOPLE: 'days_people',
   TOGGLE: 'toggle',
+  QTY: 'qty',
 } as const;
 export type CalcType = (typeof CalcType)[keyof typeof CalcType];
 
@@ -53,6 +54,7 @@ export const CalcTypeLabels: Record<CalcType, string> = {
   days_qty: '台数×日数×単価',
   days_people: '人数×日数×単価',
   toggle: '有無×単価',
+  qty: '数量×単価',
 };
 
 // 案件ステータス

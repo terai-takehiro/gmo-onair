@@ -16,7 +16,7 @@ router.get('/categories', async (req, res) => {
   ) as any[];
 
   const items = await queryAll(
-    `SELECT id, category_id, name, sub_label, unit_price, calc_type, sort_order, created_at, updated_at FROM pricing_items WHERE deleted_at IS NULL ORDER BY sort_order, created_at`
+    `SELECT id, category_id, name, sub_label, unit_price, group_price, calc_type, sort_order, created_at, updated_at FROM pricing_items WHERE deleted_at IS NULL ORDER BY sort_order, created_at`
   ) as any[];
 
   const itemsByCategory: Record<string, any[]> = {};
@@ -72,16 +72,16 @@ router.delete('/categories/:id', requirePermission('sales', 'owner'), async (req
 
 // POST /pricing/items - Create item
 router.post('/items', requirePermission('sales', 'editor'), async (req, res) => {
-  const { category_id, name, sub_label, unit_price, calc_type, sort_order } = req.body;
-  if (!category_id || !name || unit_price == null || !calc_type) {
-    throw new AppError(400, 'VALIDATION_ERROR', 'カテゴリID、名前、単価、計算タイプは必須です');
+  const { category_id, name, sub_label, unit_price, group_price, calc_type, sort_order } = req.body;
+  if (!category_id || !name || !calc_type) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'カテゴリID、名前、計算タイプは必須です');
   }
   const category = await queryOne('SELECT id FROM pricing_categories WHERE id = ? AND deleted_at IS NULL', [category_id]);
   if (!category) throw new AppError(404, 'NOT_FOUND', 'カテゴリが見つかりません');
   const id = uuidv4();
   await execute(
-    `INSERT INTO pricing_items (id, category_id, name, sub_label, unit_price, calc_type, sort_order, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, category_id, name, sub_label || null, unit_price, calc_type, sort_order ?? 0, req.user!.id]
+    `INSERT INTO pricing_items (id, category_id, name, sub_label, unit_price, group_price, calc_type, sort_order, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, category_id, name, sub_label || null, unit_price ?? null, group_price ?? null, calc_type, sort_order ?? 0, req.user!.id]
   );
   const row = await queryOne('SELECT * FROM pricing_items WHERE id = ?', [id]);
   res.status(201).json({ success: true, data: row });
@@ -91,10 +91,10 @@ router.post('/items', requirePermission('sales', 'editor'), async (req, res) => 
 router.put('/items/:id', requirePermission('sales', 'editor'), async (req, res) => {
   const existing = await queryOne('SELECT id FROM pricing_items WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!existing) throw new AppError(404, 'NOT_FOUND', '料金項目が見つかりません');
-  const { name, sub_label, unit_price, calc_type, sort_order } = req.body;
+  const { name, sub_label, unit_price, group_price, calc_type, sort_order } = req.body;
   await execute(
-    `UPDATE pricing_items SET name=?, sub_label=?, unit_price=?, calc_type=?, sort_order=?, updated_at=NOW(), updated_by=? WHERE id=?`,
-    [name, sub_label || null, unit_price, calc_type, sort_order ?? 0, req.user!.id, req.params.id]
+    `UPDATE pricing_items SET name=?, sub_label=?, unit_price=?, group_price=?, calc_type=?, sort_order=?, updated_at=NOW(), updated_by=? WHERE id=?`,
+    [name, sub_label || null, unit_price ?? null, group_price ?? null, calc_type, sort_order ?? 0, req.user!.id, req.params.id]
   );
   const row = await queryOne('SELECT * FROM pricing_items WHERE id = ?', [req.params.id]);
   res.json({ success: true, data: row });

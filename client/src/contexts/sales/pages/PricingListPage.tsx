@@ -132,6 +132,9 @@ interface ItemFormValues {
   name: string;
   sub_label: string;
   unit_price: number;
+  unit_price_unset: boolean;
+  group_price: number;
+  group_price_unset: boolean;
   calc_type: CalcType;
   sort_order: number;
 }
@@ -153,7 +156,10 @@ function ItemDialog({
       ? {
           name: editingItem.name,
           sub_label: editingItem.sub_label || "",
-          unit_price: editingItem.unit_price,
+          unit_price: editingItem.unit_price ?? 0,
+          unit_price_unset: editingItem.unit_price == null,
+          group_price: editingItem.group_price ?? 0,
+          group_price_unset: editingItem.group_price == null,
           calc_type: editingItem.calc_type,
           sort_order: editingItem.sort_order,
         }
@@ -161,6 +167,9 @@ function ItemDialog({
           name: "",
           sub_label: "",
           unit_price: 0,
+          unit_price_unset: false,
+          group_price: 0,
+          group_price_unset: false,
           calc_type: "fixed" as CalcType,
           sort_order: 0,
         },
@@ -168,7 +177,15 @@ function ItemDialog({
 
   const mutation = useMutation({
     mutationFn: async (values: ItemFormValues) => {
-      const payload = { ...values, category_id: categoryId };
+      const payload = {
+        category_id: categoryId,
+        name: values.name,
+        sub_label: values.sub_label,
+        unit_price: values.unit_price_unset ? null : values.unit_price,
+        group_price: values.group_price_unset ? null : values.group_price,
+        calc_type: values.calc_type,
+        sort_order: values.sort_order,
+      };
       if (editingItem) {
         return (await api.put(`/pricing/items/${editingItem.id}`, payload)).data;
       }
@@ -180,9 +197,12 @@ function ItemDialog({
     },
   });
 
+  const unitUnset = form.watch("unit_price_unset");
+  const groupUnset = form.watch("group_price_unset");
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {editingItem ? "項目編集" : "項目追加"}
@@ -200,15 +220,42 @@ function ItemDialog({
             <Input {...form.register("name", { required: true })} />
           </div>
           <div>
-            <Label>サブラベル</Label>
+            <Label>内容 / サブラベル</Label>
             <Input {...form.register("sub_label")} />
           </div>
-          <div>
-            <Label>単価 *</Label>
-            <CurrencyInput
-              value={form.watch("unit_price")}
-              onChange={(v) => form.setValue("unit_price", v, { shouldValidate: true })}
-            />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label>定価（外販）</Label>
+              <CurrencyInput
+                value={form.watch("unit_price")}
+                onChange={(v) => form.setValue("unit_price", v, { shouldValidate: true })}
+                disabled={unitUnset}
+              />
+              <label className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={unitUnset}
+                  onChange={(e) => form.setValue("unit_price_unset", e.target.checked)}
+                />
+                設定なし（外販では提供しない）
+              </label>
+            </div>
+            <div>
+              <Label>グループ内単価</Label>
+              <CurrencyInput
+                value={form.watch("group_price")}
+                onChange={(v) => form.setValue("group_price", v, { shouldValidate: true })}
+                disabled={groupUnset}
+              />
+              <label className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={groupUnset}
+                  onChange={(e) => form.setValue("group_price_unset", e.target.checked)}
+                />
+                設定なし（グループ内では提供しない）
+              </label>
+            </div>
           </div>
           <div>
             <Label>計算タイプ *</Label>
@@ -386,8 +433,15 @@ export default function PricingListPage() {
                             </Button>
                           </div>
                         </div>
-                        <div className="mt-1 flex items-center gap-3 text-sm">
-                          <span className="font-number font-medium">{formatCurrency(item.unit_price)}</span>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                          <span className="font-number">
+                            <span className="text-xs text-muted-foreground">定価</span>{" "}
+                            <span className="font-medium">{item.unit_price == null ? "—" : formatCurrency(item.unit_price)}</span>
+                          </span>
+                          <span className="font-number">
+                            <span className="text-xs text-muted-foreground">グループ内</span>{" "}
+                            <span className="font-medium">{item.group_price == null ? "—" : formatCurrency(item.group_price)}</span>
+                          </span>
                           <span className="text-xs text-muted-foreground">{CalcTypeLabels[item.calc_type]}</span>
                         </div>
                       </div>
@@ -400,8 +454,9 @@ export default function PricingListPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>項目名</TableHead>
-                        <TableHead>サブラベル</TableHead>
-                        <TableHead className="text-right">単価</TableHead>
+                        <TableHead>内容 / サブラベル</TableHead>
+                        <TableHead className="text-right">定価</TableHead>
+                        <TableHead className="text-right">グループ内</TableHead>
                         <TableHead>計算タイプ</TableHead>
                         <TableHead className="w-24"></TableHead>
                       </TableRow>
@@ -410,8 +465,13 @@ export default function PricingListPage() {
                       {(cat.items ?? []).map((item) => (
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">{item.name}</TableCell>
-                          <TableCell>{item.sub_label || "-"}</TableCell>
-                          <TableCell className="text-right font-number">{formatCurrency(item.unit_price)}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{item.sub_label || "-"}</TableCell>
+                          <TableCell className="text-right font-number">
+                            {item.unit_price == null ? <span className="text-muted-foreground">—</span> : formatCurrency(item.unit_price)}
+                          </TableCell>
+                          <TableCell className="text-right font-number">
+                            {item.group_price == null ? <span className="text-muted-foreground">—</span> : formatCurrency(item.group_price)}
+                          </TableCell>
                           <TableCell>{CalcTypeLabels[item.calc_type]}</TableCell>
                           <TableCell>
                             <div className="flex gap-1">
