@@ -413,9 +413,29 @@ export default function EquipmentListPage() {
   const customValueMutation = useMutation({
     mutationFn: ({ equipmentId, columnId, value }: { equipmentId: string; columnId: string; value: string }) =>
       api.put(`/equipment/custom-values/${columnId}/${equipmentId}`, { value }),
+    // 成功: 保存した値で React Query キャッシュを直接書き換える（refetch は走らせない）
+    // これにより "invalidate → refetch 中に一瞬キャッシュの古い値に戻る" のちらつきを回避
+    onSuccess: (_data, vars) => {
+      qc.setQueriesData<any[]>({ queryKey: ['equipment-custom-values'] }, (old) => {
+        if (!Array.isArray(old)) return old;
+        const idx = old.findIndex(r => r.equipment_id === vars.equipmentId && r.column_id === vars.columnId);
+        if (idx >= 0) {
+          return old.map((r, i) => i === idx ? { ...r, value: vars.value } : r);
+        }
+        return [...old, { equipment_id: vars.equipmentId, column_id: vars.columnId, value: vars.value }];
+      });
+    },
+    onError: (err: any, vars) => {
+      // 保存失敗時はユーザーに通知。pending の削除は onSettled で行うので、
+      // キャッシュの旧値に自動的に戻る（ロールバック相当）
+      // eslint-disable-next-line no-console
+      console.error('[custom-value] save failed', err, vars);
+      const msg = err?.response?.data?.error?.message || err?.message || 'サーバーへの保存に失敗しました';
+      alert(`カスタム列の保存に失敗しました: ${msg}`);
+    },
     onSettled: (_data, _err, vars) => {
-      qc.invalidateQueries({ queryKey: ['equipment-custom-values'] });
-      // サーバー同期後にローカル pending を削除 → サーバー値で表示される
+      // onSuccess/onError がキャッシュを更新したあとに pending を削除する
+      // → UI は更新済みキャッシュを参照し続けるため、ちらつきなし
       setPendingValues(prev => {
         const key = pendingKey(vars.equipmentId, vars.columnId);
         if (!(key in prev)) return prev;
