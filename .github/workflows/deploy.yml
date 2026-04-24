@@ -48,7 +48,7 @@ jobs:
             cd /root/gmo-onair
             git fetch origin main
             git reset --hard origin/main
-            docker compose build app_dev
+            docker compose build --no-cache app_dev
             docker compose stop app_dev || true
             docker compose rm -f app_dev || true
             docker compose up -d --no-deps app_dev

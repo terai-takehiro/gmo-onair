@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.2.0 — 全アプリ SSO 化 + dev Basic 認証の重複ダイアログ抑制
+**現在のバージョン**: v2.2.1 — dev デプロイの Docker キャッシュ問題を修正
 
 ---
 
@@ -383,6 +383,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.2.1** | dev デプロイの Docker ビルドが `--no-cache` 無しのためソース変更が反映されないケースがあった (本番側は v1.x で `--no-cache` 化済み)。dev も `--no-cache` を追加し、毎回フルビルドするように。これにより v2.1.2 (replaceState ループ修正) と v2.2.0 (SSO) がようやく dev に正しく反映される |
 | **v2.2.0** | **全アプリ SSO 化**: 5 つのサブアプリ (Qシート/機材/インタラクティブ/技術資料/計時LIVE) が個別の localStorage キー (`qs_user`, `eq_user`, `is_user`, `ts_user`, `lv_user`) を保持していたため、メインアプリでログインしてもサブアプリで再ログインを要求されていた。全アプリの `storageKey` を `gmo_onair_user` に統一し、JWT (`gmo_onair_token`) と合わせてシングルサインオン化。`createAuthHook` に `legacyStorageKeys` オプションを追加し、初回起動時に旧キーから新キーへワンショット移行。**dev Basic 認証**: `dev.gmo-onair.jp` の `/api/` と `/socket.io/` から `auth_basic off` を設定し、XHR/WebSocket 経由の Basic 認証ダイアログ暴発を抑止 (JWT で保護されているため安全)。HTML/静的アセットの Basic 認証は維持 |
 | **v2.1.2** | 計時LIVE / インタラクティブの LoginPage、AuthCallback、TimerDisplay で `useEffect` が `useSearchParams()` の不安定な参照に依存しており、`navigate(..., { replace: true })` が高頻度で呼ばれて Firefox/Safari の `SecurityError: history.replaceState() more than 100 times per 10 seconds` を発生させていた。`useRef` ガード + 文字列値ベースの依存配列に変更し、各効果が一度だけ走るように |
 | **v2.1.1** | v2.1.0 のビルド不具合修正: `SectionCard` / `EmptyState` の `title` が `HTMLAttributes.title` (string) と衝突する TypeScript エラーを `Omit<..., "title">` で解消し、Docker build (`tsc -b && vite build`) が通るように |

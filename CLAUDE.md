@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.2.0 — 全アプリ SSO 化 (`gmo_onair_user` 共通) + dev `/api/` `/socket.io/` の Basic 認証除外
+v2.2.1 — dev デプロイの Docker キャッシュ問題を修正 (`--no-cache` 追加)
 
 ## ブランチ運用
 - **本番デプロイ**: `main` ブランチへの push で auto-deploy webhook が発火
