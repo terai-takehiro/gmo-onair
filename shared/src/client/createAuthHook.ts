@@ -19,10 +19,30 @@ const LEVEL_ORDER: Record<string, number> = {
 };
 
 export interface AuthHookConfig {
-  /** localStorage key for user data, e.g. 'qs_user', 'ts_user' */
+  /** localStorage key for user data, e.g. 'gmo_onair_user' */
   storageKey: string;
   /** Axios instance created by createApi */
   api: AxiosInstance;
+  /** Legacy keys to migrate from (one-shot copy → storageKey then delete). v2.2.0+ */
+  legacyStorageKeys?: string[];
+}
+
+/**
+ * One-time migration: 旧キー (例 qs_user/eq_user) のデータがあり、
+ * 新キーが空の場合だけ新キーへコピーし、旧キーは削除する。
+ * v2.2.0 で全アプリ共通の `gmo_onair_user` に統一するための互換層。
+ */
+function migrateLegacyKeys(targetKey: string, legacyKeys: string[]) {
+  if (typeof localStorage === 'undefined') return;
+  if (localStorage.getItem(targetKey)) return;
+  for (const k of legacyKeys) {
+    const v = localStorage.getItem(k);
+    if (v) {
+      localStorage.setItem(targetKey, v);
+      localStorage.removeItem(k);
+      return;
+    }
+  }
 }
 
 function readStoredUser(storageKey: string): User | null {
@@ -35,6 +55,10 @@ function readStoredUser(storageKey: string): User | null {
 }
 
 export function createAuthHook(config: AuthHookConfig) {
+  // モジュールロード時に旧キーから新キーへ一度だけ移行する
+  if (config.legacyStorageKeys?.length) {
+    migrateLegacyKeys(config.storageKey, config.legacyStorageKeys);
+  }
   return function useAuth() {
     // Initialize synchronously from localStorage → no loading flash, buttons active immediately
     const [currentUser, setCurrentUser] = useState<User | null>(() => readStoredUser(config.storageKey));

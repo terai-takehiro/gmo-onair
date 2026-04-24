@@ -1,7 +1,7 @@
 import { createApi } from '@gmo-onair/shared/src/client/createApi';
 
 const api = createApi({
-  storageKey: 'qs_user',
+  storageKey: 'gmo_onair_user',
   loginPath: '/qsheet/login',
 });
 

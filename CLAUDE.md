@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.1.2 — LoginPage / AuthCallback / TimerDisplay の useEffect 暴走 (replaceState ループ) を修正
+v2.2.0 — 全アプリ SSO 化 (`gmo_onair_user` 共通) + dev `/api/` `/socket.io/` の Basic 認証除外
 
 ## ブランチ運用
 - **本番デプロイ**: `main` ブランチへの push で auto-deploy webhook が発火
