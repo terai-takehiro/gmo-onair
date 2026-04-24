@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v1.2.13
+**現在のバージョン**: v2.0.0 — デジタル庁デザインシステム (DADS v2.13) ベースへ全面リニューアル
 
 ---
 
@@ -383,6 +383,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.0.0** | **デジタル庁デザインシステム (DADS v2.13) ベースへ全面リニューアル**。`@digital-go-jp/design-tokens` + `@digital-go-jp/tailwind-theme-plugin` (MIT) を導入。`shared/src/client/tokens.css` に DADS プリミティブ + GMO Blue (#005bac) セマンティック層を統合。UI プリミティブ 12 種 (Button/Input/Label/Card/Badge/Dialog/Select/Checkbox/Switch/Tabs/Textarea/Separator) を `shared/src/client/ui/` に集約し 6 アプリを再エクスポート化。WCAG 2.2 AA 準拠のフォーカスリング・44px タップ領域・セマンティックトークンで統一。client-qsheet の primary 上書き (#2563eb) を撤廃。ファビコン / GMO ONAiR ロゴは継続利用 |
 | v1.2.13 | 連携強化フェーズ3（予算管理拡充パック）: 売上に `invoice_issued` BOOLEAN カラム追加（migration 066）— ダイアログから請求書発行済チェック可能・月別詳細で✓バッジ表示／案件月別詳細のサマリーをテーブル上部に移動し「営業利益」を追加（案件絞込時は販管費が案件別按分なしのため営業利益＝粗利と注記、全体表示時は営業利益＝粗利−販管費）／仕入・販管費の月別詳細に申請 ID 列を追加（X-xxxxx / 楽-xxxxx 形式）／販管費テーブルを案件絞込時も表示（全社注記付き） |
 | v1.2.12 | 連携強化フェーズ2（連携強化パック）: 共通 `ProjectQuickLinks` 追加で案件詳細／売上／仕入／カレンダーを同一案件で直接行き来可能に。仕入一覧・カレンダーに `?project_id=` フィルタ対応（サーバ `/studios/bookings` も対応）／案件詳細のスタジオスケジュールを `studio_bookings` 単一ソースに統一（編集時は一覧表示＋StudioBookingDialog で CRUD、重複予約の根絶）／販管費・売上の行クリックで編集ダイアログを起動する UX を統一 |
 | v1.2.11 | Qシート 6件の機能追加/バグ修正: ①LED/XR・照明列追加 ②エントリ単位の削除 ③ゴミ箱UI（ロール/行/エントリ復元） ④フキダシ初回1文字入力消失を修正（IME対応） ⑤VTR挿入 ⑥エントリ単位の画像添付 |
