@@ -120,6 +120,7 @@ export default function RevenueListPage() {
   const [isAdvancePayment, setIsAdvancePayment] = useState(false);
   const [existingRevenueId, setExistingRevenueId] = useState("");
   const [pricingPickerOpen, setPricingPickerOpen] = useState(false);
+  const [flashRowIdx, setFlashRowIdx] = useState<number | null>(null);
 
   const startResize = useCallback((col: string, e: React.MouseEvent, currentWidth: number) => {
     e.preventDefault();
@@ -295,6 +296,22 @@ export default function RevenueListPage() {
     },
   });
 
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => api.delete(`/revenues/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["revenues-all"] });
+      qc.invalidateQueries({ queryKey: ["revenues-for-project", selectedProjectId] });
+      handleCloseDialog();
+    },
+  });
+
+  const handleDeleteRevenue = () => {
+    if (!existingRevenueId) return;
+    if (!window.confirm("この売上を削除しますか？この操作は元に戻せません。")) return;
+    deleteMutation.mutate(existingRevenueId);
+  };
+
   const submitError = createMutation.error as
     | { response?: { data?: { error?: { message?: string } } }; message?: string }
     | null;
@@ -404,16 +421,22 @@ export default function RevenueListPage() {
     const description = picked.sub_label
       ? `${picked.name} (${picked.sub_label})`
       : picked.name;
-    setItems((prev) => [
-      ...prev,
-      {
-        description,
-        quantity: 1,
-        unit_price: picked.unit_price,
-        amount: picked.unit_price,
-        pricing_item_id: picked.pricing_item_id,
-      },
-    ]);
+    setItems((prev) => {
+      const next = [
+        ...prev,
+        {
+          description,
+          quantity: 1,
+          unit_price: picked.unit_price,
+          amount: picked.unit_price,
+          pricing_item_id: picked.pricing_item_id,
+        },
+      ];
+      const newIdx = next.length - 1;
+      setFlashRowIdx(newIdx);
+      setTimeout(() => setFlashRowIdx((cur) => (cur === newIdx ? null : cur)), 1200);
+      return next;
+    });
   }, []);
 
   const canSubmit =
@@ -809,7 +832,10 @@ export default function RevenueListPage() {
                       </TableHeader>
                       <TableBody>
                         {items.map((item, idx) => (
-                          <TableRow key={idx}>
+                          <TableRow
+                            key={idx}
+                            className={flashRowIdx === idx ? "bg-emerald-50 transition-colors" : undefined}
+                          >
                             <TableCell className="p-1">
                               <div className="relative">
                                 <Input
@@ -876,7 +902,10 @@ export default function RevenueListPage() {
                   {/* Mobile cards */}
                   <div className="sm:hidden divide-y">
                     {items.map((item, idx) => (
-                      <div key={idx} className="p-3 space-y-2">
+                      <div
+                        key={idx}
+                        className={`p-3 space-y-2 ${flashRowIdx === idx ? "bg-emerald-50 transition-colors" : ""}`}
+                      >
                         <div className="flex items-start gap-2">
                           <Input
                             value={item.description}
@@ -1021,16 +1050,34 @@ export default function RevenueListPage() {
             )}
 
             {/* Actions */}
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={handleCloseDialog}>
-                キャンセル
-              </Button>
-              <Button disabled={!canSubmit} onClick={handleCreateSubmit}>
-                {createMutation.isPending && (
-                  <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+            <div className="flex sm:justify-between gap-2 pt-2 flex-wrap">
+              <div>
+                {existingRevenueId && (
+                  <Button
+                    variant="destructive"
+                    onClick={handleDeleteRevenue}
+                    disabled={deleteMutation.isPending}
+                  >
+                    {deleteMutation.isPending ? (
+                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="mr-1 h-4 w-4" />
+                    )}
+                    削除
+                  </Button>
                 )}
-                {existingRevenueId ? "更新" : "登録"}
-              </Button>
+              </div>
+              <div className="flex gap-2 ml-auto">
+                <Button variant="outline" onClick={handleCloseDialog}>
+                  キャンセル
+                </Button>
+                <Button disabled={!canSubmit} onClick={handleCreateSubmit}>
+                  {createMutation.isPending && (
+                    <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                  )}
+                  {existingRevenueId ? "更新" : "登録"}
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>

@@ -34,16 +34,16 @@ export function SearchableSelect({
 
   const selected = options.find((o) => o.value === value);
 
-  // When parent handles search server-side via onSearchChange, skip client filter
-  const filtered = onSearchChange
-    ? options
-    : search
-      ? options.filter(
-          (o) =>
-            o.label.toLowerCase().includes(search.toLowerCase()) ||
-            (o.subLabel && o.subLabel.toLowerCase().includes(search.toLowerCase()))
-        )
-      : options;
+  // サーバ検索 (onSearchChange 指定) が有効な場合も、デバウンス中の即時ユーザフィードバック
+  // のためクライアント側フィルタを併用する。サーバ側で絞り込まれた結果が返ったあとも
+  // 同じ条件でさらにローカル絞り込みされるため表示は一貫する。
+  const filtered = search
+    ? options.filter(
+        (o) =>
+          o.label.toLowerCase().includes(search.toLowerCase()) ||
+          (o.subLabel && o.subLabel.toLowerCase().includes(search.toLowerCase()))
+      )
+    : options;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {

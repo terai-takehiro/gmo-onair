@@ -721,8 +721,8 @@ function CalendarFeedsDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 
         <div className="space-y-2">
           {(data ?? []).map((feed) => (
-            <div key={feed.room_id} className="flex items-center gap-3 p-3 border rounded-lg">
-              <div className="flex-1 min-w-0">
+            <div key={feed.room_id} className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 p-3 border rounded-lg">
+              <div className="w-full sm:flex-1 min-w-0">
                 <p className="text-sm font-medium">{feed.location_name} — {feed.room_name}</p>
                 <p className="text-xs text-muted-foreground font-mono truncate mt-0.5">{feed.feed_url}</p>
               </div>
@@ -730,7 +730,7 @@ function CalendarFeedsDialog({ open, onOpenChange }: { open: boolean; onOpenChan
                 size="sm"
                 variant={copied === feed.room_id ? "default" : "outline"}
                 onClick={() => copyUrl(feed.feed_url, feed.room_id)}
-                className="shrink-0"
+                className="shrink-0 w-full sm:w-auto"
               >
                 {copied === feed.room_id ? <CheckCircle2 className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
                 {copied === feed.room_id ? "コピー済" : "URLコピー"}
@@ -750,8 +750,8 @@ function CalendarFeedsDialog({ open, onOpenChange }: { open: boolean; onOpenChan
               const token = new URL(feed.feed_url).searchParams.get('token') || '';
               const sUrl = `${baseUrl}/signage/${roomId}?token=${token}`;
               return (
-                <div key={`signage-${feed.room_id}`} className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30">
-                  <div className="flex-1 min-w-0">
+                <div key={`signage-${feed.room_id}`} className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 p-3 border rounded-lg bg-muted/30">
+                  <div className="w-full sm:flex-1 min-w-0">
                     <p className="text-sm font-medium">{feed.location_name} — {feed.room_name}</p>
                     <p className="text-xs text-muted-foreground font-mono truncate mt-0.5">{sUrl}</p>
                   </div>
@@ -759,7 +759,7 @@ function CalendarFeedsDialog({ open, onOpenChange }: { open: boolean; onOpenChan
                     size="sm"
                     variant={copied === `s-${feed.room_id}` ? "default" : "outline"}
                     onClick={() => copyUrl(sUrl, `s-${feed.room_id}`)}
-                    className="shrink-0"
+                    className="shrink-0 w-full sm:w-auto"
                   >
                     {copied === `s-${feed.room_id}` ? <CheckCircle2 className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
                     {copied === `s-${feed.room_id}` ? "コピー済" : "URLコピー"}

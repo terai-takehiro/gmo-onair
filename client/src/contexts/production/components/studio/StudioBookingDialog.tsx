@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Loader2, MapPin, User } from "lucide-react";
+import { formatShortDate } from "@/lib/format";
 
 interface StudioRoom {
   id: string;
@@ -144,6 +145,7 @@ export default function StudioBookingDialog({
     queryFn: async () =>
       (await api.get("/projects", { params: { search: projectSearchQuery, limit: 100 } })).data,
     enabled: open,
+    placeholderData: (prev) => prev, // デバウンス中に以前の結果を保持しフリッカー防止
   });
   const projects: any[] = projectsData?.data ?? [];
 
@@ -244,15 +246,13 @@ export default function StudioBookingDialog({
     if (projectId && !editingBooking) {
       const proj = projectOptions.find((p: any) => p.id === projectId);
       if (proj && (bookingType === "performance" || bookingType === "rehearsal" || bookingType === "hold")) {
-        const ep = episodes.find((e: any) => e.id === episodeId);
-        const typeLabel = bookingType === "hold" ? " 仮押さえ" : bookingType === "rehearsal" ? " リハーサル" : "";
-        setTitle(ep
-          ? `${proj.name} ${ep.episode_code}${typeLabel}`
-          : `${proj.name}${typeLabel}`
-        );
+        // タイトルは「案件名 (YY/MM/DD)」に統一。種別は色で区分するため表記不要
+        const datePart = formatShortDate(startDate);
+        const suffix = datePart ? ` (${datePart})` : "";
+        setTitle(`${proj.name}${suffix}`);
       }
     }
-  }, [projectId, episodeId, bookingType, projects, episodes, editingBooking]);
+  }, [projectId, bookingType, startDate, projects, episodes, editingBooking]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {

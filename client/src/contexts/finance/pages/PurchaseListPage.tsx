@@ -41,7 +41,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { Search, Loader2, Plus } from "lucide-react";
+import { Search, Loader2, Plus, Trash2 } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
 
 function SettlementBadge({ number }: { number: string | null | undefined }) {
@@ -100,6 +100,7 @@ export default function PurchaseListPage() {
   const resizeRef = useRef<{ col: string; startX: number; startW: number } | null>(null);
 
   // Dialog form state
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [vendorId, setVendorId] = useState("");
   const [taxCategory, setTaxCategory] = useState("tax10");
@@ -108,6 +109,7 @@ export default function PurchaseListPage() {
   const [invoiceQualified, setInvoiceQualified] = useState("qualified");
   const [amount, setAmount] = useState<number>(0);
   const [description, setDescription] = useState("");
+  const [notes, setNotes] = useState("");
   const [serviceCompletedDate, setServiceCompletedDate] = useState("");
   const [recognitionMonth, setRecognitionMonth] = useState(""); // "YYYY-MM"
   const [paymentDueDate, setPaymentDueDate] = useState("");
@@ -160,18 +162,29 @@ export default function PurchaseListPage() {
   const vendors: Vendor[] = vendorsData?.data ?? [];
 
 
-  // Create mutation
-  const createMutation = useMutation({
-    mutationFn: (payload: Record<string, unknown>) =>
-      api.post("/purchases", payload),
+  // Create / Update mutation
+  const saveMutation = useMutation({
+    mutationFn: async (payload: Record<string, unknown>) => {
+      if (editingId) return api.put(`/purchases/${editingId}`, payload);
+      return api.post("/purchases", payload);
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["purchases-all"] });
       handleCloseDialog();
     },
   });
 
-  const handleCloseDialog = () => {
-    setDialogOpen(false);
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => api.delete(`/purchases/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["purchases-all"] });
+      handleCloseDialog();
+    },
+  });
+
+  const resetForm = () => {
+    setEditingId(null);
     setSelectedProjectId("");
     setVendorId("");
     setTaxCategory("tax10");
@@ -180,15 +193,50 @@ export default function PurchaseListPage() {
     setInvoiceQualified("qualified");
     setAmount(0);
     setDescription("");
+    setNotes("");
     setServiceCompletedDate("");
     setRecognitionMonth("");
     setPaymentDueDate("");
     setIsProvisional(false);
   };
 
-  const handleCreateSubmit = () => {
+  const handleCloseDialog = () => {
+    setDialogOpen(false);
+    resetForm();
+  };
+
+  const handleOpenNew = () => {
+    resetForm();
+    setDialogOpen(true);
+  };
+
+  const handleOpenEdit = (p: PurchaseRow) => {
+    setEditingId(p.id);
+    setSelectedProjectId(p.project_id || "");
+    setVendorId(p.vendor_id || "");
+    setTaxCategory(p.tax_category || "tax10");
+    setSettlementMethod(p.settlement_method || "rakuraku");
+    setSettlementNumber(p.settlement_number && p.settlement_number !== "pending" ? p.settlement_number : "");
+    setInvoiceQualified(p.invoice_qualified ? "qualified" : "unqualified");
+    setAmount(p.amount || 0);
+    setDescription(p.description || "");
+    setNotes(p.notes || "");
+    setServiceCompletedDate("");
+    setRecognitionMonth(p.recognition_date ? p.recognition_date.slice(0, 7) : "");
+    setPaymentDueDate(p.payment_due_date ? p.payment_due_date.slice(0, 10) : "");
+    setIsProvisional(!!p.is_provisional);
+    setDialogOpen(true);
+  };
+
+  const handleDelete = () => {
+    if (!editingId) return;
+    if (!window.confirm("この仕入を削除しますか？この操作は元に戻せません。")) return;
+    deleteMutation.mutate(editingId);
+  };
+
+  const handleSubmit = () => {
     if (!selectedProjectId || !vendorId) return;
-    createMutation.mutate({
+    saveMutation.mutate({
       project_id: selectedProjectId,
       vendor_id: vendorId,
       tax_category: taxCategory,
@@ -197,6 +245,7 @@ export default function PurchaseListPage() {
       invoice_qualified: invoiceQualified === "qualified" ? 1 : 0,
       amount,
       description: description || null,
+      notes: notes || null,
       service_completed_date: serviceCompletedDate || null,
       recognition_date: recognitionMonth ? `${recognitionMonth}-01` : null,
       payment_due_date: paymentDueDate || null,
@@ -214,7 +263,7 @@ export default function PurchaseListPage() {
           <Button variant="outline" onClick={() => navigate("/project-groups")}>
             按分グループ
           </Button>
-          <Button onClick={() => setDialogOpen(true)}>
+          <Button onClick={handleOpenNew}>
             <Plus className="mr-1 h-4 w-4" />
             新規仕入
           </Button>
@@ -249,9 +298,9 @@ export default function PurchaseListPage() {
                 {purchases.map((p) => (
                   <div
                     key={p.id}
-                    className="rounded-lg border p-3 transition-colors hover:bg-muted/50"
-                    onClick={() => p.project_id && navigate(`/sales/projects/${p.project_id}`)}
-                    role={p.project_id ? "button" : undefined}
+                    className="rounded-lg border p-3 transition-colors hover:bg-muted/50 cursor-pointer"
+                    onClick={() => handleOpenEdit(p)}
+                    role="button"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
@@ -312,7 +361,11 @@ export default function PurchaseListPage() {
                 </TableHeader>
                 <TableBody>
                   {purchases.map((p) => (
-                    <TableRow key={p.id}>
+                    <TableRow
+                      key={p.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleOpenEdit(p)}
+                    >
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <span className="font-mono text-sm">{p.gls_number || "-"}</span>
@@ -372,11 +425,11 @@ export default function PurchaseListPage() {
         </>
       )}
 
-      {/* New Purchase Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {/* Purchase Dialog (新規 / 編集兼用) */}
+      <Dialog open={dialogOpen} onOpenChange={(v) => { if (!v) handleCloseDialog(); else setDialogOpen(v); }}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>新規仕入登録</DialogTitle>
+            <DialogTitle>{editingId ? "仕入編集" : "新規仕入登録"}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -515,17 +568,46 @@ export default function PurchaseListPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* 備考 */}
+            <div>
+              <Label>備考</Label>
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="任意"
+                rows={2}
+              />
+            </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={handleCloseDialog}>キャンセル</Button>
-            <Button
-              disabled={!selectedProjectId || !vendorId || createMutation.isPending}
-              onClick={handleCreateSubmit}
-            >
-              {createMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-              登録
-            </Button>
+          <DialogFooter className="flex sm:justify-between gap-2">
+            <div>
+              {editingId && (
+                <Button
+                  variant="destructive"
+                  onClick={handleDelete}
+                  disabled={deleteMutation.isPending}
+                >
+                  {deleteMutation.isPending ? (
+                    <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="mr-1 h-4 w-4" />
+                  )}
+                  削除
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleCloseDialog}>キャンセル</Button>
+              <Button
+                disabled={!selectedProjectId || !vendorId || saveMutation.isPending}
+                onClick={handleSubmit}
+              >
+                {saveMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                {editingId ? "更新" : "登録"}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

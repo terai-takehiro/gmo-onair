@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import api from "@/lib/api";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatShortDate } from "@/lib/format";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -283,9 +283,10 @@ export default function ProjectFormPage() {
         if ((scheduleRoomIds.length > 0 || locationNote.trim()) && productionStart) {
           if (locationNote.trim()) saveLocationNote(locationNote.trim());
           try {
+            // 予約タイトルは「案件名 (YY/MM/DD)」に統一。種別は色で区分するため表記しない
             // 本番予約
             await api.post("/studios/bookings", {
-              title: `${values.name} 本番`,
+              title: `${values.name} (${formatShortDate(productionStart)})`,
               booking_type: "performance",
               project_id: savedProjectId,
               all_day: true,
@@ -298,7 +299,7 @@ export default function ProjectFormPage() {
             if (hasRehearsal && rehearsalStart) {
               const rehEnd = rehearsalMultiDay ? rehearsalEnd : rehearsalStart;
               await api.post("/studios/bookings", {
-                title: `${values.name} リハーサル`,
+                title: `${values.name} (${formatShortDate(rehearsalStart)})`,
                 booking_type: "rehearsal",
                 project_id: savedProjectId,
                 all_day: true,
