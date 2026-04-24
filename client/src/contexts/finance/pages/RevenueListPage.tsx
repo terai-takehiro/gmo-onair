@@ -33,7 +33,8 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { Search, Loader2, Plus, Trash2, Download, ExternalLink } from "lucide-react";
+import { Search, Loader2, Plus, Trash2, Download, ExternalLink, Link2 } from "lucide-react";
+import PricingItemPicker, { type PickedPricingItem } from "../components/PricingItemPicker";
 
 type SortKey = "billing_key" | "project_name" | "amount" | "recognition_date";
 type SortDir = "asc" | "desc";
@@ -71,6 +72,7 @@ interface ProjectOption {
   customer_id: string;
   customer_name?: string;
   project_type?: string;
+  customer_type?: string;
   expected_amount?: number;
   event_end?: string;
 }
@@ -117,6 +119,7 @@ export default function RevenueListPage() {
   const [items, setItems] = useState<RevenueItem[]>([]);
   const [isAdvancePayment, setIsAdvancePayment] = useState(false);
   const [existingRevenueId, setExistingRevenueId] = useState("");
+  const [pricingPickerOpen, setPricingPickerOpen] = useState(false);
 
   const startResize = useCallback((col: string, e: React.MouseEvent, currentWidth: number) => {
     e.preventDefault();
@@ -395,6 +398,23 @@ export default function RevenueListPage() {
     }));
     setItems(imported);
   }, [simulationItems]);
+
+  // Append a row linked to a pricing-master item
+  const handlePickPricingItem = useCallback((picked: PickedPricingItem) => {
+    const description = picked.sub_label
+      ? `${picked.name} (${picked.sub_label})`
+      : picked.name;
+    setItems((prev) => [
+      ...prev,
+      {
+        description,
+        quantity: 1,
+        unit_price: picked.unit_price,
+        amount: picked.unit_price,
+        pricing_item_id: picked.pricing_item_id,
+      },
+    ]);
+  }, []);
 
   const canSubmit =
     !!selectedProjectId &&
@@ -740,7 +760,7 @@ export default function RevenueListPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>明細行</Label>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {/* Import from simulation (A系のみ) */}
                   {selectedProjectId &&
                     !isProjectCategoryB &&
@@ -755,6 +775,17 @@ export default function RevenueListPage() {
                         シミュレーション引用
                       </Button>
                     )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPricingPickerOpen(true)}
+                    disabled={!selectedProjectId}
+                    title={!selectedProjectId ? "案件を選択してください" : undefined}
+                  >
+                    <Link2 className="mr-1 h-3 w-3" />
+                    料金表から追加
+                  </Button>
                   <Button type="button" variant="outline" size="sm" onClick={addItem}>
                     <Plus className="mr-1 h-3 w-3" />
                     行追加
@@ -780,14 +811,24 @@ export default function RevenueListPage() {
                         {items.map((item, idx) => (
                           <TableRow key={idx}>
                             <TableCell className="p-1">
-                              <Input
-                                value={item.description}
-                                onChange={(e) =>
-                                  updateItem(idx, "description", e.target.value)
-                                }
-                                placeholder="項目名"
-                                className="h-8 text-sm"
-                              />
+                              <div className="relative">
+                                <Input
+                                  value={item.description}
+                                  onChange={(e) =>
+                                    updateItem(idx, "description", e.target.value)
+                                  }
+                                  placeholder="項目名"
+                                  className={`h-8 text-sm ${item.pricing_item_id ? "pr-8" : ""}`}
+                                />
+                                {item.pricing_item_id && (
+                                  <span
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-primary"
+                                    title="料金表に紐付け済"
+                                  >
+                                    <Link2 className="h-3.5 w-3.5" />
+                                  </span>
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell className="p-1">
                               <Input
@@ -994,6 +1035,13 @@ export default function RevenueListPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <PricingItemPicker
+        open={pricingPickerOpen}
+        onOpenChange={setPricingPickerOpen}
+        customerType={selectedProject?.customer_type === "internal" ? "internal" : "external"}
+        onSelect={handlePickPricingItem}
+      />
     </div>
     </PageTransition>
   );
