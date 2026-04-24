@@ -61,6 +61,7 @@ interface RevenueRow {
   payment_due_date: string | null;
   notes: string | null;
   is_advance_payment: boolean;
+  invoice_issued?: boolean;
   group_id: string | null;
   status: string;
   items?: RevenueItem[];
@@ -119,6 +120,7 @@ export default function RevenueListPage() {
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<RevenueItem[]>([]);
   const [isAdvancePayment, setIsAdvancePayment] = useState(false);
+  const [invoiceIssued, setInvoiceIssued] = useState(false);
   const [existingRevenueId, setExistingRevenueId] = useState("");
   const [pricingPickerOpen, setPricingPickerOpen] = useState(false);
   const [flashRowIdx, setFlashRowIdx] = useState<number | null>(null);
@@ -252,6 +254,7 @@ export default function RevenueListPage() {
     if (primaryRevenue.payment_due_date) setPaymentDueDate(primaryRevenue.payment_due_date.slice(0, 10));
     setNotes(primaryRevenue.notes || "");
     setIsAdvancePayment(!!primaryRevenue.is_advance_payment);
+    setInvoiceIssued(!!primaryRevenue.invoice_issued);
     if (Array.isArray(primaryRevenue.items) && primaryRevenue.items.length > 0) {
       setItems(primaryRevenue.items.map((it: any) => ({
         description: it.description || "",
@@ -334,6 +337,7 @@ export default function RevenueListPage() {
     setNotes("");
     setItems([]);
     setIsAdvancePayment(false);
+    setInvoiceIssued(false);
     setExistingRevenueId("");
     createMutation.reset();
   };
@@ -350,6 +354,7 @@ export default function RevenueListPage() {
     setPaymentDueDate(r.payment_due_date ? r.payment_due_date.slice(0, 10) : "");
     setNotes(r.notes || "");
     setIsAdvancePayment(!!r.is_advance_payment);
+    setInvoiceIssued(!!r.invoice_issued);
     setSelectedEpisodeId("");
     setItems([]);
     setDialogOpen(true);
@@ -372,6 +377,7 @@ export default function RevenueListPage() {
         notes: notes || null,
         items: items.length > 0 ? items : undefined,
         is_advance_payment: isAdvancePayment,
+        invoice_issued: invoiceIssued,
       },
     });
   };
@@ -1037,6 +1043,16 @@ export default function RevenueListPage() {
                 onCheckedChange={(v) => setIsAdvancePayment(!!v)}
               />
               <Label htmlFor="is-advance-payment" className="cursor-pointer">前金</Label>
+            </div>
+
+            {/* 請求書発行済フラグ */}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="invoice-issued"
+                checked={invoiceIssued}
+                onCheckedChange={(v) => setInvoiceIssued(!!v)}
+              />
+              <Label htmlFor="invoice-issued" className="cursor-pointer">請求書発行済</Label>
             </div>
 
             {/* Notes */}
