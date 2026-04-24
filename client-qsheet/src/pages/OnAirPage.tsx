@@ -36,11 +36,12 @@ interface Section {
   rows: CueRow[];
   _break?: boolean;
   _pageBreak?: boolean;
+  _vtr?: boolean;
   duration?: string;
 }
 
 interface FlatCue {
-  type: "cue" | "cm";
+  type: "cue" | "cm" | "vtr";
   label: string;
   duration: number;
   start: number;
@@ -77,9 +78,13 @@ function buildCues(data: { sections?: Section[]; meta?: { broadcastStartTime?: s
 
   for (const s of data.sections) {
     if ((s as Section & { _pageBreak?: boolean })._pageBreak) continue;
-    if ((s as Section & { _break?: boolean })._break) {
-      const d = parseDur((s as Section & { duration?: string }).duration);
+    if ((s as Section)._break) {
+      const d = parseDur((s as Section).duration);
       cues.push({ type: "cm", label: s.label || "CM", duration: d, start: acc, oa: base + acc });
+      acc += d;
+    } else if ((s as Section)._vtr) {
+      const d = parseDur((s as Section).duration);
+      cues.push({ type: "vtr", label: s.label || "VTR", duration: d, start: acc, oa: base + acc });
       acc += d;
     } else {
       // ロール全体の尺設定がありつつ行の尺合計が 0 なら、ロール自体を 1 キューとして扱う

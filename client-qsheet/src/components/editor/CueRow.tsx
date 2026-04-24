@@ -1,5 +1,6 @@
 import { useState, useRef, useId } from "react";
-import { ChevronUp, ChevronDown, Copy, Trash2, ImageIcon } from "lucide-react";
+import { ChevronUp, ChevronDown, Copy, Trash2, ImageIcon, ImagePlus, Loader2 } from "lucide-react";
+import api from "@/lib/api";
 import StageDiagramCell from "./StageDiagramCell";
 
 // ─── Types ──────────────────────────────────────────────
@@ -29,6 +30,90 @@ interface CueRowProps {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onDuplicate: () => void;
+  // v1.2.9: エントリ単位の削除（ゴミ箱経由）を親 (CueTable→EditorPage) で処理するためのコールバック
+  onDeleteEntry?: (blockId: string, entryIdx: number, payload: any, meta: { sectionLabel?: string; rowLabel?: string }) => void;
+}
+
+// ─── EntryImageButton ───────────────────────────────────
+// エントリごとの画像添付ボタン（小さいサムネ + アップロード UI）
+function EntryImageButton({
+  imageUrl,
+  onChange,
+}: {
+  imageUrl?: string;
+  onChange: (url: string | null) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const uploadFile = async (file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert("ファイルサイズが5MBを超えています");
+      return;
+    }
+    setUploading(true);
+    try {
+      const dataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+      const res = await api.post("/qsheet/upload-image", {
+        data: dataUrl,
+        filename: file.name,
+        mimeType: file.type,
+      });
+      onChange(res.data.data.url);
+    } catch {
+      alert("画像のアップロードに失敗しました");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  if (imageUrl) {
+    return (
+      <div className="relative flex-shrink-0 group/img" title="画像">
+        <img
+          src={imageUrl}
+          alt=""
+          className="h-6 w-6 rounded object-cover border border-zinc-200 dark:border-zinc-700"
+        />
+        <button
+          onClick={() => onChange(null)}
+          className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-white border border-zinc-300 text-zinc-500 hover:text-red-500 text-[10px] leading-none flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
+          title="画像を削除"
+        >
+          ×
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => inputRef.current?.click()}
+        className="flex-shrink-0 w-5 h-5 rounded text-zinc-300 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors opacity-0 group-hover:opacity-100 mt-[1px] flex items-center justify-center"
+        title="画像を添付"
+        disabled={uploading}
+      >
+        {uploading ? <Loader2 size={12} className="animate-spin" /> : <ImagePlus size={12} />}
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) uploadFile(file);
+          e.target.value = ""; // 同ファイルの再選択を許可
+        }}
+      />
+    </>
+  );
 }
 
 // ─── EditablePill ───────────────────────────────────────
@@ -50,36 +135,58 @@ function EditablePill({
 }) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
+  // IME composition 中かどうか追跡（日本語入力の最中に onChange が早まるのを防ぐ）
+  const composingRef = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const len = (value || "").length;
   const scale = len <= 3 ? 1 : Math.max(0.5, 3 / len);
 
   const startEditing = () => {
-    setEditValue("");
+    // 編集開始時、現在の値を editValue にコピー（空なら空文字）
+    // v1.2.8 までは setEditValue("") + 2 つの input 分岐で
+    // 初回 1 文字が欠損する既知バグがあったため、ここで統一。
+    setEditValue(value || "");
     setEditing(true);
-    setTimeout(() => inputRef.current?.focus(), 0);
+    setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }, 0);
   };
 
-  const handleBlur = () => {
-    if (editValue !== "") {
-      onChange(editValue);
-    }
+  const commit = () => {
+    // IME composition 中の commit は禁止（Enter/blur で確定前の値が拾われるのを避ける）
+    if (composingRef.current) return;
+    if (editValue !== value) onChange(editValue);
     setEditing(false);
   };
 
-  if (editing || !value) {
+  if (editing) {
     return (
       <>
         <input
           ref={inputRef}
           list={datalistId}
-          value={editing ? editValue : value || ""}
-          onChange={editing ? (e) => setEditValue(e.target.value) : (e) => onChange(e.target.value)}
-          onBlur={handleBlur}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
-          autoFocus={editing}
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onCompositionStart={() => { composingRef.current = true; }}
+          onCompositionEnd={(e) => {
+            composingRef.current = false;
+            // composition 確定時に値を取り込む
+            setEditValue((e.target as HTMLInputElement).value);
+          }}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              (e.target as HTMLInputElement).blur();
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              setEditing(false);
+            }
+          }}
+          autoFocus
           className="w-14 h-5 flex-none text-[11px] font-bold text-center rounded-full outline-none bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 placeholder:text-zinc-400 transition-all"
-          placeholder={value || placeholder}
+          placeholder={placeholder}
         />
         <datalist id={datalistId}>
           {(datalistOptions || []).map((p, i) => (
@@ -87,6 +194,19 @@ function EditablePill({
           ))}
         </datalist>
       </>
+    );
+  }
+
+  // 非編集時: 値の有無にかかわらず常にクリック可能な pill
+  if (!value) {
+    return (
+      <span
+        onClick={startEditing}
+        className="w-14 h-5 flex-none rounded-full border border-dashed border-zinc-300 dark:border-zinc-600 bg-transparent cursor-text hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center justify-center text-[10px] text-zinc-400 dark:text-zinc-500"
+        title="クリックで編集"
+      >
+        {placeholder}
+      </span>
     );
   }
 
@@ -126,6 +246,7 @@ export default function CueRow({
   onMoveUp,
   onMoveDown,
   onDuplicate,
+  onDeleteEntry,
 }: CueRowProps) {
   const rowUid = useId();
 
@@ -153,6 +274,26 @@ export default function CueRow({
     }
     cell.entries[ei] = { ...cell.entries[ei], [field]: value };
     updateCell(blk.id, cell);
+  };
+
+  // エントリ単位の削除（ゴミ箱経由）
+  // 親コンポーネント (EditorPage) が doc.data.trash に退避する
+  const deleteEntry = (blk: Block, ei: number, sectionLabel?: string) => {
+    const cell = row.cells?.[blk.id] || {};
+    const entry = (cell.entries || [])[ei];
+    if (!entry) return;
+    // 親コールバックでゴミ箱へ退避（未指定なら退避せず単に削除のみ）
+    if (onDeleteEntry) {
+      onDeleteEntry(blk.id, ei, entry, { sectionLabel, rowLabel: row.label });
+    }
+    // 行ローカルでも entries から除去
+    onChange((r) => {
+      const cells = { ...(r.cells || {}) };
+      const c = { ...(cells[blk.id] || {}) };
+      c.entries = (c.entries || []).filter((_: any, i: number) => i !== ei);
+      cells[blk.id] = c;
+      return { ...r, cells };
+    });
   };
 
   // 全列に同時にエントリを追加
@@ -231,6 +372,19 @@ export default function CueRow({
                         }
                       }}
                     />
+                    <EntryImageButton
+                      imageUrl={en?.image}
+                      onChange={(url) => updateEntry(blk, ei, "image", url || undefined)}
+                    />
+                    {en && (scenarioEntries.length > 1) && (
+                      <button
+                        onClick={() => deleteEntry(blk, ei)}
+                        className="flex-shrink-0 w-4 h-4 rounded-full text-zinc-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors opacity-0 group-hover:opacity-100 mt-[2px] text-[10px] leading-none flex items-center justify-center"
+                        title="このエントリを削除（ゴミ箱へ）"
+                      >
+                        ×
+                      </button>
+                    )}
                   </div>
                 </td>
               );
@@ -257,6 +411,19 @@ export default function CueRow({
                       style={{ flex: "1 1 0", lineHeight: "20px" }}
                       placeholder="メモ..."
                     />
+                    <EntryImageButton
+                      imageUrl={en?.image}
+                      onChange={(url) => updateEntry(blk, ei, "image", url || undefined)}
+                    />
+                    {en && (en.label || en.memo || en.image) && (
+                      <button
+                        onClick={() => deleteEntry(blk, ei)}
+                        className="flex-shrink-0 w-4 h-4 rounded-full text-zinc-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors opacity-0 group-hover:opacity-100 mt-[2px] text-[10px] leading-none flex items-center justify-center"
+                        title="このエントリを削除（ゴミ箱へ）"
+                      >
+                        ×
+                      </button>
+                    )}
                   </div>
                 </td>
               );

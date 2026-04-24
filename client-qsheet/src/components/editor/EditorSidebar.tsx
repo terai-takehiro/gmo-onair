@@ -16,6 +16,8 @@ import {
   FileSpreadsheet,
   Pencil,
   Trash2,
+  Monitor,
+  Lightbulb,
 } from "lucide-react";
 
 // ─── Types ──────────────────────────────────────────────
@@ -63,6 +65,8 @@ const BLOCK_TYPES = [
   { type: "slide", label: "スライド", Icon: Image, color: "bg-cyan-600" },
   { type: "telop", label: "テロップ", Icon: Type, color: "bg-purple-600" },
   { type: "audio", label: "オーディオ", Icon: Mic, color: "bg-rose-600" },
+  { type: "led_xr", label: "LED/XR", Icon: Monitor, color: "bg-violet-600" },
+  { type: "lighting", label: "照明", Icon: Lightbulb, color: "bg-yellow-600" },
   { type: "stage_diagram", label: "立ち位置図", Icon: Layout, color: "bg-amber-600" },
   { type: "remarks", label: "備考", Icon: FileText, color: "bg-zinc-500" },
   { type: "item", label: "小道具", Icon: FileText, color: "bg-green-600" },

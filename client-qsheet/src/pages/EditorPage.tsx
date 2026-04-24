@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import EditorSidebar from "@/components/editor/EditorSidebar";
 import CueTable from "@/components/editor/CueTable";
 import PreviewModal from "@/components/editor/PreviewModal";
+import TrashDrawer from "@/components/editor/TrashDrawer";
+import { getTrash } from "@/lib/trash";
 import StageEditor from "@/components/editor/StageEditor";
 import {
   Loader2,
@@ -20,6 +22,7 @@ import {
   ChevronLeft,
   MonitorPlay,
   Eye,
+  Trash2,
 } from "lucide-react";
 
 // ============================================================
@@ -150,6 +153,7 @@ export default function EditorPage() {
   const [collapsedBlocks, setCollapsedBlocks] = useState<Set<string>>(new Set());
   const [collapsedSections, setCollapsedSections] = useState<Set<number>>(new Set());
   const [showPreview, setShowPreview] = useState(false);
+  const [showTrash, setShowTrash] = useState(false);
   const [editingStageIdx, setEditingStageIdx] = useState<number | null>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
 
@@ -312,6 +316,25 @@ export default function EditorPage() {
               <Save size={14} />
               <span className="hidden sm:inline">{saveFlash ? "保存しました" : "保存"}</span>
             </button>
+            {/* ゴミ箱 — ロール/行/エントリの復元用 */}
+            {(() => {
+              const trashCount = getTrash(doc.data).length;
+              return (
+                <button
+                  onClick={() => setShowTrash(true)}
+                  className="relative hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                  title="ゴミ箱（削除したロール/行/エントリを復元）"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span className="hidden md:inline">ゴミ箱</span>
+                  {trashCount > 0 && (
+                    <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold min-w-[18px] text-center">
+                      {trashCount}
+                    </span>
+                  )}
+                </button>
+              );
+            })()}
             {/* CSV export — desktop only */}
             <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1 text-xs" onClick={() => exportCsv(doc)}>
               <Download className="h-3.5 w-3.5" />
@@ -428,6 +451,15 @@ export default function EditorPage() {
           docUpdatedAt={(doc as any).updated_at}
           docCreatedAt={(doc as any).created_at}
           docTitle={doc.title}
+        />
+      )}
+
+      {/* ゴミ箱 Drawer */}
+      {showTrash && (
+        <TrashDrawer
+          data={doc.data}
+          onChange={(updater) => updateData(updater)}
+          onClose={() => setShowTrash(false)}
         />
       )}
 

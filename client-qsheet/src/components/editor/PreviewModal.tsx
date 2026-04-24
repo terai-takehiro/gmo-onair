@@ -122,6 +122,10 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
         rows.push([String(num++), String(sec.label || "CM"), String(sec.duration || ""), ...blocks.map(() => "")]);
         return;
       }
+      if (sec._vtr) {
+        rows.push([String(num++), `VTR: ${sec.label || ""}`.trim(), String(sec.duration || ""), ...blocks.map(() => "")]);
+        return;
+      }
       const secRows = Array.isArray(sec.rows) ? sec.rows : [];
       if (secRows.length === 0) {
         rows.push([String(num++), String(sec.label || ""), String(sec.duration || ""), ...blocks.map(() => "")]);
@@ -304,6 +308,19 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                           <span style={{ fontFamily: "'Oswald',sans-serif", fontSize: fontSize - 0.5 + "pt", color: "#9ca3af", whiteSpace: "nowrap", width: 70, textAlign: "right", flexShrink: 0 }}>{fmtAbs(breakAbs)}</span>
                           <span style={{ fontSize: fontSize + "pt", fontWeight: 700, color: "#374151" }}>{sec.label || "CM"}</span>
                           <span style={{ fontSize: fontSize + "pt", fontWeight: 600, color: "#6b7280", marginLeft: "auto" }}>{dur > 0 ? fmtMinSec(dur) : ""}</span>
+                        </div>
+                      );
+                    }
+                    if (sec._vtr) {
+                      const dur = parseDur(sec.duration);
+                      const vtrAbs = absSec;
+                      absSec += dur;
+                      return (
+                        <div key={si} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", margin: "4px 0", borderTop: "2px solid #4338ca", borderBottom: "2px solid #4338ca", background: "#eef2ff" }}>
+                          <span style={{ fontFamily: "'Oswald',sans-serif", fontSize: fontSize - 0.5 + "pt", color: "#4338ca", whiteSpace: "nowrap", width: 70, textAlign: "right", flexShrink: 0 }}>{fmtAbs(vtrAbs)}</span>
+                          <span style={{ fontSize: fontSize - 0.5 + "pt", fontWeight: 800, color: "#4338ca", background: "#c7d2fe", padding: "0 6px", borderRadius: 3, letterSpacing: "0.05em" }}>VTR</span>
+                          <span style={{ fontSize: fontSize + "pt", fontWeight: 700, color: "#312e81" }}>{sec.label || ""}</span>
+                          <span style={{ fontSize: fontSize + "pt", fontWeight: 600, color: "#4338ca", marginLeft: "auto" }}>{dur > 0 ? fmtMinSec(dur) : ""}</span>
                         </div>
                       );
                     }

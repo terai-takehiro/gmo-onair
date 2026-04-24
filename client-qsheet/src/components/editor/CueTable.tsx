@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import SectionMenu from "./SectionMenu";
 import { parseDur as parseDurShared, fmtAbs as fmtAbsShared, normalizeDur } from "@/lib/time";
+import { makeTrashItem, pushToTrash } from "@/lib/trash";
 import CueRow from "./CueRow";
 
 // ─── Types ──────────────────────────────────────────────
@@ -39,6 +40,7 @@ interface Section {
   duration?: string;
   _break?: boolean;
   _pageBreak?: boolean;
+  _vtr?: boolean;
 }
 
 interface Props {
@@ -156,9 +158,27 @@ export default function CueTable({
     });
   };
 
+  const addVtr = (afterIndex?: number) => {
+    const idx = afterIndex !== undefined ? afterIndex + 1 : sections.length;
+    updateState((s: any) => {
+      const secs = [...s.sections];
+      secs.splice(idx, 0, { _vtr: true, label: "VTR", duration: "0:30", rows: [] });
+      return { ...s, sections: secs };
+    });
+  };
+
   const deleteSection = (si: number) => {
-    if (!confirm("このロールを削除しますか？")) return;
-    updateState((s: any) => ({ ...s, sections: s.sections.filter((_: any, i: number) => i !== si) }));
+    if (!confirm("このロールを削除しますか？（ゴミ箱から復元可能です）")) return;
+    updateState((s: any) => {
+      const section = s.sections[si];
+      if (!section) return s;
+      const trashItem = makeTrashItem('section', section, {
+        sectionIdx: si,
+        sectionLabel: section.label,
+      });
+      const nextState = pushToTrash(s, trashItem);
+      return { ...nextState, sections: s.sections.filter((_: any, i: number) => i !== si) };
+    });
   };
 
   const updateSection = (si: number, field: string, value: string) => {
@@ -189,9 +209,19 @@ export default function CueTable({
 
   const deleteRow = (si: number, ri: number) => {
     updateState((s: any) => {
+      const section = s.sections[si];
+      const row = section?.rows?.[ri];
+      if (!row) return s;
+      const trashItem = makeTrashItem('row', row, {
+        sectionIdx: si,
+        rowIdx: ri,
+        sectionLabel: section.label,
+        rowLabel: row.label,
+      });
+      const nextState = pushToTrash(s, trashItem);
       const secs = [...s.sections];
       secs[si] = { ...secs[si], rows: secs[si].rows.filter((_: any, i: number) => i !== ri) };
-      return { ...s, sections: secs };
+      return { ...nextState, sections: secs };
     });
   };
 
@@ -309,6 +339,51 @@ export default function CueTable({
             );
           }
 
+          // VTR section
+          if (section._vtr) {
+            const vtrDur = parseDur(section.duration || "");
+            const vtrAbsSec = absSec;
+            absSec += vtrDur;
+            return (
+              <div key={si} className={`animate-in ${isSectionDragged ? "opacity-40" : ""}`}>
+                <div className="flex items-center gap-3 px-4 py-1.5 bg-gradient-to-r from-indigo-800 to-indigo-700 dark:from-indigo-900 dark:to-indigo-800 rounded-lg cursor-grab select-none">
+                  <GripVertical size={13} className="text-indigo-300 flex-none" />
+                  <span className="text-[11px] font-bold text-indigo-200 bg-indigo-950/50 rounded px-1.5 py-0.5 tracking-wider">VTR</span>
+                  <span className="text-[13px] text-indigo-200 tabular-nums whitespace-nowrap font-oswald" style={{ letterSpacing: "0.05em" }}>
+                    {fmtAbs(vtrAbsSec)}
+                  </span>
+                  <input
+                    value={section.label || ""}
+                    onChange={(e) => updateSection(si, "label", e.target.value)}
+                    className="bg-transparent text-white text-[13px] font-bold border-none outline-none placeholder:text-indigo-300 tracking-wide flex-1"
+                    placeholder="VTR タイトル"
+                  />
+                  <span className="text-[15px] font-bold text-white whitespace-nowrap ml-auto font-oswald">
+                    {(() => { const d = vtrDur; const m = Math.floor(d / 60); const s = d % 60; return d > 0 ? `${m}分${String(s).padStart(2, "0")}秒` : ""; })()}
+                  </span>
+                  <input
+                    value={section.duration || ""}
+                    onChange={(e) => updateSection(si, "duration", e.target.value)}
+                    onBlur={(e) => {
+                      const n = normalizeDur(e.target.value);
+                      if (n !== e.target.value) updateSection(si, "duration", n);
+                    }}
+                    className={`w-12 text-center text-[11px] border-none outline-none rounded py-0.5 tabular-nums placeholder:text-indigo-300 focus:text-white transition-colors ${
+                      vtrDur === 0
+                        ? "bg-amber-500/30 text-amber-100 ring-1 ring-amber-400/70"
+                        : "bg-indigo-950/50 text-indigo-100"
+                    }`}
+                    placeholder="0:00"
+                    title={vtrDur === 0 ? "尺が未入力です" : undefined}
+                  />
+                  <button onClick={() => deleteSection(si)} className="text-indigo-300 hover:text-red-300 transition-colors p-1">
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
           // Normal section (ロール)
           const roleAbsSec = absSec;
           const roleDur = parseDur(section.duration || "");
@@ -371,6 +446,7 @@ export default function CueTable({
                   onDelete={() => deleteSection(si)}
                   onAddBreakAfter={() => addBreak(si)}
                   onAddPageBreakAfter={() => addPageBreak(si)}
+                  onAddVtrAfter={() => addVtr(si)}
                   onSaveTemplate={() => {
                     const name = prompt("テンプレート名:", section.label);
                     if (!name) return;
@@ -482,6 +558,17 @@ export default function CueTable({
                             onMoveUp={() => moveRow(si, ri, -1)}
                             onMoveDown={() => moveRow(si, ri, 1)}
                             onDuplicate={() => duplicateRow(si, ri)}
+                            onDeleteEntry={(blockId, entryIdx, payload, meta) => {
+                              // エントリ削除: ゴミ箱に退避する（state 変更自体は CueRow 側で完了している）
+                              updateState((s: any) => pushToTrash(s, makeTrashItem('entry', payload, {
+                                sectionIdx: si,
+                                rowIdx: ri,
+                                blockId,
+                                entryIdx,
+                                sectionLabel: meta.sectionLabel ?? section.label,
+                                rowLabel: meta.rowLabel,
+                              })));
+                            }}
                           />
                         ))}
                       </tbody>
@@ -502,18 +589,24 @@ export default function CueTable({
         })}
 
         {/* Add section buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={addSection}
-            className="flex-1 py-3 text-sm text-zinc-400 hover:text-blue-600 border-2 border-dashed border-zinc-200 dark:border-zinc-800 hover:border-blue-300 dark:hover:border-blue-700 rounded-xl transition-all"
+            className="flex-1 min-w-[160px] py-3 text-sm text-zinc-400 hover:text-blue-600 border-2 border-dashed border-zinc-200 dark:border-zinc-800 hover:border-blue-300 dark:hover:border-blue-700 rounded-xl transition-all"
           >
             ＋ ロールを追加
           </button>
           <button
             onClick={() => addBreak()}
-            className="py-3 px-6 text-sm text-zinc-400 hover:text-amber-600 border-2 border-dashed border-zinc-200 dark:border-zinc-800 hover:border-amber-300 dark:hover:border-amber-700 rounded-xl transition-all"
+            className="py-3 px-5 text-sm text-zinc-400 hover:text-amber-600 border-2 border-dashed border-zinc-200 dark:border-zinc-800 hover:border-amber-300 dark:hover:border-amber-700 rounded-xl transition-all"
           >
             ＋ CMなど
+          </button>
+          <button
+            onClick={() => addVtr()}
+            className="py-3 px-5 text-sm text-zinc-400 hover:text-indigo-600 border-2 border-dashed border-zinc-200 dark:border-zinc-800 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-xl transition-all"
+          >
+            ＋ VTR
           </button>
         </div>
       </div>

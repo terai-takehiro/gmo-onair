@@ -1,14 +1,15 @@
 import { useState, useRef, useEffect } from "react";
-import { MoreHorizontal, Trash2, Plus, FileText, Scissors } from "lucide-react";
+import { MoreHorizontal, Trash2, Plus, FileText, Scissors, Film } from "lucide-react";
 
 interface Props {
   onDelete: () => void;
   onAddBreakAfter: () => void;
   onAddPageBreakAfter: () => void;
+  onAddVtrAfter?: () => void;
   onSaveTemplate?: () => void;
 }
 
-export default function SectionMenu({ onDelete, onAddBreakAfter, onAddPageBreakAfter, onSaveTemplate }: Props) {
+export default function SectionMenu({ onDelete, onAddBreakAfter, onAddPageBreakAfter, onAddVtrAfter, onSaveTemplate }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -45,6 +46,15 @@ export default function SectionMenu({ onDelete, onAddBreakAfter, onAddPageBreakA
             <Scissors size={12} className="text-zinc-400" />
             <span>改ページを追加</span>
           </button>
+          {onAddVtrAfter && (
+            <button
+              onClick={() => { onAddVtrAfter(); setOpen(false); }}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-zinc-50 dark:hover:bg-zinc-700 text-left transition-colors"
+            >
+              <Film size={12} className="text-indigo-500" />
+              <span>VTR を追加</span>
+            </button>
+          )}
           {onSaveTemplate && (
             <button
               onClick={() => { onSaveTemplate(); setOpen(false); }}

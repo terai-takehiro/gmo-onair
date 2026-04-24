@@ -38,6 +38,7 @@ interface Section {
   duration?: string | number;
   _break?: boolean;
   _pageBreak?: boolean;
+  _vtr?: boolean;
 }
 
 interface Block {
@@ -157,6 +158,15 @@ export default function RundownPage() {
         const dur = parseDur(section.duration);
         const cmRow: CueRow = { id: `cm-${sIdx}`, label: section.label || "CM", duration: dur };
         cues.push({ sectionLabel: section.label || "CM", sectionIdx: sIdx, row: cmRow, startTime: time, globalIndex: idx });
+        time += dur;
+        idx++;
+        return;
+      }
+      // VTR も section 自体を1キューとして尺を積む
+      if (section._vtr) {
+        const dur = parseDur(section.duration);
+        const vtrRow: CueRow = { id: `vtr-${sIdx}`, label: section.label || "VTR", duration: dur };
+        cues.push({ sectionLabel: `VTR: ${section.label || ""}`.trim(), sectionIdx: sIdx, row: vtrRow, startTime: time, globalIndex: idx });
         time += dur;
         idx++;
         return;
