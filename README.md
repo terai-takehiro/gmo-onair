@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.1.0 — 全アプリダッシュボードをデジタル庁ダッシュボードガイドブック準拠にリニューアル
+**現在のバージョン**: v2.1.1 — 全アプリダッシュボードをデジタル庁ダッシュボードガイドブック準拠にリニューアル
 
 ---
 
@@ -383,6 +383,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.1.1** | v2.1.0 のビルド不具合修正: `SectionCard` / `EmptyState` の `title` が `HTMLAttributes.title` (string) と衝突する TypeScript エラーを `Omit<..., "title">` で解消し、Docker build (`tsc -b && vite build`) が通るように |
 | **v2.1.0** | **全アプリダッシュボードをデジタル庁ダッシュボードガイドブック準拠に刷新**。ガイドブックの 4 原則 (目的に則する / 違いに気づける / 分解できる / 鮮度が高い) に沿い、共通パターンライブラリ `shared/src/client/dashboard/` を新設 (DashboardHeader / KpiCard / SectionCard / EmptyState / chartColors)。9 ダッシュボード (案件管理 Platform/Budget/SalesReview、Qシート、機材、インタラクティブ、TechSheet、ライブ Session/Dashboard) を再構成し、情報階層 (全体→部分)・コントラスト比 3:1 以上・WCAG 2.2 AA focus ring・aria-role を徹底 |
 | **v2.0.0** | **デジタル庁デザインシステム (DADS v2.13) ベースへ全面リニューアル**。`@digital-go-jp/design-tokens` + `@digital-go-jp/tailwind-theme-plugin` (MIT) を導入。`shared/src/client/tokens.css` に DADS プリミティブ + GMO Blue (#005bac) セマンティック層を統合。UI プリミティブ 12 種 (Button/Input/Label/Card/Badge/Dialog/Select/Checkbox/Switch/Tabs/Textarea/Separator) を `shared/src/client/ui/` に集約し 6 アプリを再エクスポート化。WCAG 2.2 AA 準拠のフォーカスリング・44px タップ領域・セマンティックトークンで統一。client-qsheet の primary 上書き (#2563eb) を撤廃。ファビコン / GMO ONAiR ロゴは継続利用 |
 | v1.2.13 | 連携強化フェーズ3（予算管理拡充パック）: 売上に `invoice_issued` BOOLEAN カラム追加（migration 066）— ダイアログから請求書発行済チェック可能・月別詳細で✓バッジ表示／案件月別詳細のサマリーをテーブル上部に移動し「営業利益」を追加（案件絞込時は販管費が案件別按分なしのため営業利益＝粗利と注記、全体表示時は営業利益＝粗利−販管費）／仕入・販管費の月別詳細に申請 ID 列を追加（X-xxxxx / 楽-xxxxx 形式）／販管費テーブルを案件絞込時も表示（全社注記付き） |

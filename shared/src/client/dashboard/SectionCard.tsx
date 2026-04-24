@@ -14,7 +14,7 @@ import { cn } from "../utils";
  *   - footnote     : 下部の脚注 (データソース等)
  *   - padding      : default | none | compact
  */
-export interface SectionCardProps extends React.HTMLAttributes<HTMLElement> {
+export interface SectionCardProps extends Omit<React.HTMLAttributes<HTMLElement>, "title"> {
   title: React.ReactNode;
   description?: React.ReactNode;
   icon?: React.ReactNode;

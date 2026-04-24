@@ -7,7 +7,7 @@ import { cn } from "../utils";
  * デジタル庁ダッシュボードガイドブック: 空の状態でも情報の意味を伝え、
  * 利用者が次に取るべきアクションを示す。
  */
-export interface EmptyStateProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface EmptyStateProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "title"> {
   icon?: React.ReactNode;
   title?: React.ReactNode;
   description?: React.ReactNode;
