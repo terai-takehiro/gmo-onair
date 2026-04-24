@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { DashboardHeader, EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import {
   FileText,
   Plus,
@@ -375,28 +376,23 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-full bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
-      <main className="max-w-5xl mx-auto px-3 sm:px-6 py-6 sm:py-10">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight">ドキュメント</h2>
-            <p className="text-sm text-zinc-500 mt-1">{documents?.length || 0} 件の台本</p>
-          </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            data-create-btn
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 shadow-sm shadow-blue-600/25 transition-all hover:shadow-md hover:shadow-blue-600/30 active:scale-[0.98]"
-          >
-            <Plus size={16} />
-            新規作成
-          </button>
-        </div>
+    <div className="min-h-full bg-background text-foreground">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-5 sm:py-8 space-y-5">
+        <DashboardHeader
+          title="Qシート"
+          description={`${documents?.length || 0} 件のドキュメント。タイトルで検索、新規作成、OnAir/ランダウン起動。`}
+          controls={
+            <Button onClick={() => setShowCreate(true)} data-create-btn>
+              <Plus className="h-4 w-4 mr-1" aria-hidden="true" />
+              新規作成
+            </Button>
+          }
+        />
 
         {/* Project filter banner */}
         {projectFilter && documents && documents.length > 0 && documents[0].project_name && (
-          <div className="flex items-center gap-2 rounded-lg border bg-primary/5 px-4 py-2.5 mb-6">
-            <FolderKanban className="h-4 w-4 text-primary shrink-0" />
+          <div className="flex items-center gap-2 rounded-md border border-border bg-primary/5 px-4 py-2.5" role="status">
+            <FolderKanban className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
             <span className="text-sm">
               <span className="font-medium">{documents[0].gls_number}</span>
               <span className="text-muted-foreground ml-1">{documents[0].project_name}</span>
@@ -404,38 +400,40 @@ export default function DashboardPage() {
             </span>
             <Button
               variant="ghost"
-              size="icon"
-              className="h-6 w-6 ml-auto shrink-0"
+              size="icon-sm"
+              className="ml-auto shrink-0"
               onClick={() => setSearchParams({})}
-              title="フィルタ解除"
+              aria-label="フィルタ解除"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-3.5 w-3.5" aria-hidden="true" />
             </Button>
           </div>
         )}
 
         {/* Search */}
-        <div className="relative max-w-md mb-8">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
           <Input
             placeholder="タイトルで検索..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
+            aria-label="Qシート検索"
           />
         </div>
 
         {/* Document list — single column */}
         {isLoading ? (
-          <div className="flex justify-center py-24">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" aria-label="読み込み中" />
           </div>
         ) : isError ? (
-          <div className="flex justify-center py-24">
-            <p className="text-sm text-muted-foreground">データを取得できませんでした。サーバー接続を確認してください。</p>
-          </div>
+          <EmptyState
+            title="データを取得できませんでした"
+            description="サーバー接続を確認してから再試行してください。"
+          />
         ) : documents && documents.length > 0 ? (
-          <div className="grid gap-4">
+          <div className="grid gap-3">
             {documents.map((doc) => (
               <DocCard
                 key={doc.id}
@@ -447,17 +445,17 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-20">
-            <FileText size={48} className="mx-auto text-zinc-300 dark:text-zinc-700 mb-4" />
-            <p className="text-zinc-400 text-sm mb-4">まだドキュメントがありません</p>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 shadow-sm shadow-blue-600/25 transition-all"
-            >
-              <Plus size={16} />
-              最初のQシートを作成
-            </button>
-          </div>
+          <EmptyState
+            icon={<FileText />}
+            title="まだドキュメントがありません"
+            description="「新規作成」から最初のQシートを作成しましょう。"
+            action={
+              <Button onClick={() => setShowCreate(true)}>
+                <Plus className="h-4 w-4 mr-1" aria-hidden="true" />
+                最初のQシートを作成
+              </Button>
+            }
+          />
         )}
       </main>
 

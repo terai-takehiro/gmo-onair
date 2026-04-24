@@ -9,6 +9,7 @@ import ViewerCard from '@/components/viewer/ViewerCard';
 import ViewerChart from '@/components/viewer/ViewerChart';
 import { Button } from '@/components/ui/button';
 import { Play, Square, ExternalLink, AlertCircle, Timer } from 'lucide-react';
+import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
 
 interface TimerData { id: string; name: string; phase: string }
 interface Snapshot { captured_at: string; youtube_count: number; jstream_count: number; total_count: number }
@@ -59,16 +60,20 @@ export default function DashboardPage() {
 
         {/* Timer panel */}
         {timers.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground space-y-3">
-            <p className="text-sm">タイマーがありません</p>
-            <Link to={`/program/${programId}/timers`}>
-              <Button size="sm" variant="outline">
-                <Timer className="h-4 w-4 mr-1.5" />タイマーを追加
-              </Button>
-            </Link>
-          </div>
+          <EmptyState
+            icon={<Timer />}
+            title="タイマーがありません"
+            description="本番進行用のタイマーを登録しましょう。"
+            action={
+              <Link to={`/program/${programId}/timers`}>
+                <Button size="sm" variant="outline">
+                  <Timer className="h-4 w-4 mr-1.5" aria-hidden="true" />タイマーを追加
+                </Button>
+              </Link>
+            }
+          />
         ) : (
-          <div className="rounded-xl border border-border bg-card overflow-hidden">
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Timer</span>
@@ -97,7 +102,7 @@ export default function DashboardPage() {
         )}
 
         {/* Viewer panel */}
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Viewers</span>
@@ -120,8 +125,8 @@ export default function DashboardPage() {
           </div>
 
           {!settingsData?.hasYoutubeKey && !settingsData?.hasJstreamToken && (
-            <div className="mx-4 mt-3 flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 p-2.5 text-xs text-amber-800">
-              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+            <div className="mx-4 mt-3 flex items-center gap-2 rounded-md bg-warning/10 border border-warning/30 p-2.5 text-xs text-warning" role="alert">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               <Link to="/settings" className="underline">設定</Link>でAPIキーを登録してください
             </div>
           )}
@@ -150,20 +155,20 @@ export default function DashboardPage() {
 
         {/* Chart */}
         {snapshots.length > 0 && (
-          <div className="rounded-xl border border-border bg-card p-4">
+          <div className="rounded-lg border border-border bg-card p-4">
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">視聴者数推移</h2>
             <ViewerChart snapshots={snapshots} />
           </div>
         )}
 
         {/* Log */}
-        <div className="rounded-xl border border-border bg-card p-4">
+        <div className="rounded-lg border border-border bg-card p-4">
           <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">ログ</h2>
           <div className="h-28 overflow-y-auto space-y-0.5 font-mono text-xs">
             {viewer.logs.length === 0 ? (
               <p className="text-muted-foreground">ログなし</p>
             ) : viewer.logs.map((log: any, i: number) => (
-              <div key={i} className={log.type === 'error' ? 'text-destructive' : log.type === 'success' ? 'text-green-600' : 'text-muted-foreground'}>
+              <div key={i} className={log.type === 'error' ? 'text-destructive' : log.type === 'success' ? 'text-success' : 'text-muted-foreground'}>
                 <span className="text-muted-foreground/60">{log.time.toLocaleTimeString('ja-JP')} </span>
                 {log.message}
               </div>

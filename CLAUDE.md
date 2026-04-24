@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.0.0 — デジタル庁デザインシステム (DADS v2.13) ベースへ全面リニューアル
+v2.1.0 — 全アプリダッシュボードをデジタル庁ダッシュボードガイドブック準拠にリニューアル
 
 ## ブランチ運用
 - **本番デプロイ**: `main` ブランチへの push で auto-deploy webhook が発火
@@ -201,6 +201,20 @@ EventStampをReact化してONAiRに統合。
 - [x] shared/src/client/ にファクトリ関数集約
 - [x] 4クライアントアプリのリファクタリング (576行削減)
 - [x] 全アプリ型チェック通過
+
+### DONE: v2.1.0 — 全アプリダッシュボードをデジタル庁ダッシュボードガイドブック準拠に刷新
+「ダッシュボードデザインの実践ガイドブック」の4原則(目的に則する / 違いに気づける / 分解できる / 鮮度が高い)に沿い、全 9 ダッシュボードを再設計。
+- [x] 共通パターンライブラリ `shared/src/client/dashboard/` を新設
+  - `DashboardHeader` (タイトル + 期間 + 最終更新 + コントロール)
+  - `KpiCard` (大きな数字 + 単位 + トレンド記号 + emphasis: default/success/warning/negative/info)
+  - `SectionCard` (アイコン + タイトル + 説明 + actions + footnote)
+  - `EmptyState` (icon + title + description + action)
+  - `chartColors` / `chartDefaults` — DADS 準拠のニュートラル中心パレット (brand/positive/negative/warning/info/neutral + categorical 8色)
+- [x] 9 ダッシュボード刷新:
+  - 案件管理 (platform Dashboard, BudgetDashboard, SalesReview)
+  - Qシート / 機材 / インタラクティブ / 技術資料 / ライブ (Session + Dashboard)
+- [x] コントラスト比 3:1 以上・WCAG 2.2 AA focus ring・aria-*/role 強化
+- [x] 全 6 client + server ビルド通過
 
 ### DONE: v2.0.0 — デジタル庁デザインシステム (DADS) 全面リニューアル
 GMO ONAiR 全アプリを DADS v2.13 相当の設計思想・トークン・アクセシビリティ水準 (WCAG 2.2 AA) に統合。

@@ -1,9 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  DashboardHeader,
+  KpiCard,
+  SectionCard,
+  EmptyState,
+} from "@gmo-onair/shared/src/client/dashboard";
 import {
   Package,
   ArrowRightLeft,
@@ -18,6 +23,7 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Server,
+  QrCode,
 } from "lucide-react";
 
 function fmtDate(dateStr: string | null) {
@@ -41,9 +47,9 @@ const maintenanceStatusLabel: Record<string, string> = {
   reported: "報告済",
   in_progress: "対応中",
 };
-const maintenanceStatusColor: Record<string, string> = {
-  reported: "bg-amber-100 text-amber-800",
-  in_progress: "bg-red-100 text-red-800",
+const maintenanceStatusVariant: Record<string, "warning" | "destructive" | "secondary"> = {
+  reported: "warning",
+  in_progress: "destructive",
 };
 
 export default function DashboardPage() {
@@ -56,21 +62,39 @@ export default function DashboardPage() {
     staleTime: 60 * 1000,
   });
 
+  const refreshButton = (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={() => refetch()}
+      disabled={isFetching}
+      aria-label="データ更新"
+    >
+      <RefreshCw className={`h-4 w-4 mr-1 ${isFetching ? "animate-spin" : ""}`} />
+      更新
+    </Button>
+  );
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="読み込み中" />
       </div>
     );
   }
 
   if (isError) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 gap-4">
-        <p className="text-sm text-muted-foreground">データを取得できませんでした</p>
-        <Button variant="outline" size="sm" onClick={() => refetch()}>
-          <RefreshCw className="h-4 w-4 mr-2" />再試行
-        </Button>
+      <div className="p-4 sm:p-6">
+        <EmptyState
+          title="データを取得できませんでした"
+          description="ネットワーク接続を確認し、再試行してください。"
+          action={
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              <RefreshCw className="h-4 w-4 mr-2" />再試行
+            </Button>
+          }
+        />
       </div>
     );
   }
@@ -79,268 +103,234 @@ export default function DashboardPage() {
   const recentLendings: any[] = stats.recent_lendings || [];
   const recentMaintenance: any[] = stats.recent_maintenance || [];
 
-  const statCards = [
-    {
-      title: "総機材数",
-      value: stats.total_items ?? 0,
-      sub: `稼働中: ${stats.active_items ?? 0}`,
-      icon: Package,
-      color: "text-primary",
-      bg: "bg-primary/10",
-      href: "/equipment/items",
-    },
-    {
-      title: "貸出中",
-      value: stats.lent_out ?? 0,
-      sub: (stats.overdue ?? 0) > 0 ? `遅延: ${stats.overdue}件` : "遅延なし",
-      icon: ArrowRightLeft,
-      color: (stats.overdue ?? 0) > 0 ? "text-amber-600" : "text-blue-600",
-      bg: (stats.overdue ?? 0) > 0 ? "bg-amber-50" : "bg-blue-50",
-      href: "/equipment/lendings",
-    },
-    {
-      title: "修理・メンテ中",
-      value: stats.in_repair ?? 0,
-      sub: `未対応: ${stats.open_maintenance ?? 0}件`,
-      icon: Wrench,
-      color: (stats.open_maintenance ?? 0) > 0 ? "text-red-600" : "text-green-600",
-      bg: (stats.open_maintenance ?? 0) > 0 ? "bg-red-50" : "bg-green-50",
-      href: "/equipment/maintenance",
-    },
-    {
-      title: "棚卸し",
-      value: stats.pending_inventory ?? 0,
-      sub: "未完了の棚卸し",
-      icon: ClipboardCheck,
-      color: "text-purple-600",
-      bg: "bg-purple-50",
-      href: "/equipment/inventory",
-    },
-  ];
-
   return (
-    <div className="space-y-6 p-4 lg:p-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="heading-page text-xl lg:text-2xl">ダッシュボード</h1>
-          <p className="text-sm text-muted-foreground">機材管理の概況</p>
+    <div className="space-y-5 p-4 sm:space-y-6 sm:p-6">
+      <DashboardHeader
+        title="機材ダッシュボード"
+        description="機材台帳・貸出・メンテナンスの状況を一望できます。"
+        controls={refreshButton}
+      />
+
+      {/* 主要指標 */}
+      <section aria-labelledby="equipment-kpi-heading">
+        <h2 id="equipment-kpi-heading" className="sr-only">機材の主要指標</h2>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <KpiCard
+            label="総機材数"
+            icon={<Package />}
+            value={stats.total_items ?? 0}
+            unit="件"
+            footnote={`稼働中 ${stats.active_items ?? 0} 件`}
+            onClick={() => navigate("/equipment/items")}
+          />
+          <KpiCard
+            label="貸出中"
+            icon={<ArrowRightLeft />}
+            value={stats.lent_out ?? 0}
+            unit="件"
+            emphasis={(stats.overdue ?? 0) > 0 ? "warning" : "info"}
+            footnote={(stats.overdue ?? 0) > 0 ? `遅延 ${stats.overdue} 件` : "遅延なし"}
+            onClick={() => navigate("/equipment/lendings")}
+          />
+          <KpiCard
+            label="修理・メンテ中"
+            icon={<Wrench />}
+            value={stats.in_repair ?? 0}
+            unit="件"
+            emphasis={(stats.open_maintenance ?? 0) > 0 ? "negative" : "success"}
+            footnote={`未対応 ${stats.open_maintenance ?? 0} 件`}
+            onClick={() => navigate("/equipment/maintenance")}
+          />
+          <KpiCard
+            label="棚卸し"
+            icon={<ClipboardCheck />}
+            value={stats.pending_inventory ?? 0}
+            unit="件"
+            emphasis="info"
+            footnote="未完了の棚卸し"
+            onClick={() => navigate("/equipment/inventory")}
+          />
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-muted-foreground"
-          onClick={() => refetch()}
-          disabled={isFetching}
-        >
-          <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
-        </Button>
-      </div>
+      </section>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
-        {statCards.map((c) => (
-          <Card
-            key={c.title}
-            className={c.href ? "cursor-pointer hover:shadow-md transition-shadow" : ""}
-            onClick={c.href ? () => navigate(c.href!) : undefined}
-          >
-            <CardContent className="p-4 lg:p-5">
-              <div className="flex items-start justify-between">
-                <div className="min-w-0">
-                  <p className="text-xs lg:text-sm font-medium text-muted-foreground truncate">{c.title}</p>
-                  <p className="text-xl lg:text-2xl font-bold font-number mt-1">{c.value}</p>
-                  <p className="text-xs text-muted-foreground mt-1 truncate">{c.sub}</p>
-                </div>
-                <div className={`p-2 lg:p-2.5 rounded-lg ${c.bg} shrink-0 ml-2`}>
-                  <c.icon className={`h-4 w-4 lg:h-5 lg:w-5 ${c.color}`} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* クイックアクション */}
+      <SectionCard title="クイックアクション" description="よく使う操作を1タップで。" padding="compact">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <Button variant="outline" className="h-12 gap-2 justify-start px-4" onClick={() => navigate("/equipment/lendings")}>
+            <Plus className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+            <span className="text-sm">貸出登録</span>
+          </Button>
+          <Button variant="outline" className="h-12 gap-2 justify-start px-4" onClick={() => navigate("/equipment/maintenance")}>
+            <Plus className="h-4 w-4 text-warning shrink-0" aria-hidden="true" />
+            <span className="text-sm">メンテ記録</span>
+          </Button>
+          <Button variant="outline" className="h-12 gap-2 justify-start px-4" onClick={() => navigate("/equipment/items")}>
+            <Package className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+            <span className="text-sm">機材一覧</span>
+          </Button>
+          <Button variant="outline" className="h-12 gap-2 justify-start px-4" onClick={() => navigate("/equipment/scan")}>
+            <QrCode className="h-4 w-4 text-success shrink-0" aria-hidden="true" />
+            <span className="text-sm">QRスキャン</span>
+          </Button>
+          <Button variant="outline" className="h-12 gap-2 justify-start px-4" onClick={() => navigate("/equipment/racks")}>
+            <Server className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
+            <span className="text-sm">ラック実装</span>
+          </Button>
+        </div>
+      </SectionCard>
 
-      {/* Quick actions */}
-      <div className="grid grid-cols-2 gap-3">
-        <Button
-          variant="outline"
-          className="h-12 gap-2 justify-start px-4"
-          onClick={() => navigate("/equipment/lendings")}
-        >
-          <Plus className="h-4 w-4 text-blue-600 shrink-0" />
-          <span className="text-sm">貸出登録</span>
-        </Button>
-        <Button
-          variant="outline"
-          className="h-12 gap-2 justify-start px-4"
-          onClick={() => navigate("/equipment/maintenance")}
-        >
-          <Plus className="h-4 w-4 text-amber-600 shrink-0" />
-          <span className="text-sm">メンテ記録</span>
-        </Button>
-        <Button
-          variant="outline"
-          className="h-12 gap-2 justify-start px-4"
-          onClick={() => navigate("/equipment/items")}
-        >
-          <Package className="h-4 w-4 text-primary shrink-0" />
-          <span className="text-sm">機材一覧</span>
-        </Button>
-        <Button
-          variant="outline"
-          className="h-12 gap-2 justify-start px-4"
-          onClick={() => navigate("/equipment/scan")}
-        >
-          <ArrowRightLeft className="h-4 w-4 text-green-600 shrink-0" />
-          <span className="text-sm">QRスキャン</span>
-        </Button>
-        <Button
-          variant="outline"
-          className="h-12 gap-2 justify-start px-4"
-          onClick={() => navigate("/equipment/racks")}
-        >
-          <Server className="h-4 w-4 text-slate-600 shrink-0" />
-          <span className="text-sm">ラック実装</span>
-        </Button>
-      </div>
-
-      {/* Alerts */}
+      {/* アラート (要注意) */}
       {((stats.overdue ?? 0) > 0 || (stats.open_maintenance ?? 0) > 0) && (
-        <Card>
-          <CardHeader className="pb-3 pt-4">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
-              要注意
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 pb-4">
+        <SectionCard
+          title="要注意"
+          description="対応が必要な項目です。タップで該当一覧へ。"
+          icon={<AlertTriangle />}
+          padding="compact"
+        >
+          <div className="space-y-2">
             {(stats.overdue ?? 0) > 0 && (
               <button
-                className="w-full flex items-center gap-2 text-sm text-amber-700 bg-amber-50 rounded-lg p-3 hover:bg-amber-100 transition-colors"
+                type="button"
+                className="w-full flex items-center gap-2 text-sm text-warning bg-warning/10 rounded-md p-3 hover:bg-warning/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 onClick={() => navigate("/equipment/lendings")}
               >
-                <Clock className="h-4 w-4 shrink-0" />
-                <span className="flex-1 text-left">返却期限超過が {stats.overdue}件 あります</span>
-                <ChevronRight className="h-4 w-4 shrink-0" />
+                <Clock className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="flex-1 text-left">返却期限超過が {stats.overdue} 件あります</span>
+                <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
               </button>
             )}
             {(stats.open_maintenance ?? 0) > 0 && (
               <button
-                className="w-full flex items-center gap-2 text-sm text-red-700 bg-red-50 rounded-lg p-3 hover:bg-red-100 transition-colors"
+                type="button"
+                className="w-full flex items-center gap-2 text-sm text-destructive bg-destructive/10 rounded-md p-3 hover:bg-destructive/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 onClick={() => navigate("/equipment/maintenance")}
               >
-                <Wrench className="h-4 w-4 shrink-0" />
-                <span className="flex-1 text-left">未対応のメンテナンスが {stats.open_maintenance}件 あります</span>
-                <ChevronRight className="h-4 w-4 shrink-0" />
+                <Wrench className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="flex-1 text-left">未対応のメンテナンスが {stats.open_maintenance} 件あります</span>
+                <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
               </button>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </SectionCard>
       )}
 
-      {/* Recent lendings */}
+      {/* 最近の貸出 */}
       {recentLendings.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2 pt-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <ArrowRightLeft className="h-4 w-4 text-blue-600" />
-                貸出中 ({stats.lent_out ?? 0}件)
-              </CardTitle>
-              <button
-                className="text-xs text-primary hover:underline"
-                onClick={() => navigate("/equipment/lendings")}
-              >
-                すべて表示
-              </button>
-            </div>
-          </CardHeader>
-          <CardContent className="pb-3">
-            <div className="space-y-2">
-              {recentLendings.map((l: any) => {
-                const overdue = isOverdue(l.due_date);
-                return (
-                  <div
-                    key={l.id}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm ${
-                      overdue ? "bg-amber-50" : "bg-muted/40"
-                    }`}
-                  >
-                    <CalendarDays className={`h-4 w-4 shrink-0 ${overdue ? "text-amber-600" : "text-muted-foreground"}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{l.equipment_name}{l.unit_number ? ` #${l.unit_number}` : ""}</p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {l.borrower_name}{l.project_name ? ` · ${l.project_name}` : ""}
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className={`text-xs font-number ${overdue ? "text-amber-700 font-semibold" : "text-muted-foreground"}`}>
-                        返却 {fmtDate(l.due_date)}
-                      </p>
-                      {overdue && <Badge variant="outline" className="text-xs px-1 py-0 border-amber-400 text-amber-700">遅延</Badge>}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Recent maintenance */}
-      {recentMaintenance.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2 pt-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Wrench className="h-4 w-4 text-red-600" />
-                未対応メンテナンス ({stats.open_maintenance ?? 0}件)
-              </CardTitle>
-              <button
-                className="text-xs text-primary hover:underline"
-                onClick={() => navigate("/equipment/maintenance")}
-              >
-                すべて表示
-              </button>
-            </div>
-          </CardHeader>
-          <CardContent className="pb-3">
-            <div className="space-y-2">
-              {recentMaintenance.map((m: any) => (
-                <div key={m.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/40 text-sm">
-                  <Wrench className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <SectionCard
+          title={`貸出中 (${stats.lent_out ?? 0} 件)`}
+          icon={<ArrowRightLeft />}
+          actions={
+            <button
+              type="button"
+              className="text-xs text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
+              onClick={() => navigate("/equipment/lendings")}
+            >
+              すべて表示
+            </button>
+          }
+          padding="compact"
+        >
+          <ul className="space-y-2">
+            {recentLendings.map((l: any) => {
+              const overdue = isOverdue(l.due_date);
+              return (
+                <li
+                  key={l.id}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm border ${
+                    overdue ? "bg-warning/10 border-warning/30" : "bg-muted/40 border-border"
+                  }`}
+                >
+                  <CalendarDays
+                    className={`h-4 w-4 shrink-0 ${overdue ? "text-warning" : "text-muted-foreground"}`}
+                    aria-hidden="true"
+                  />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{m.title}</p>
-                    <p className="text-xs text-muted-foreground truncate">{m.equipment_name}</p>
+                    <p className="font-medium text-foreground truncate">
+                      {l.equipment_name}
+                      {l.unit_number ? ` #${l.unit_number}` : ""}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {l.borrower_name}
+                      {l.project_name ? ` · ${l.project_name}` : ""}
+                    </p>
                   </div>
-                  <div className="text-right shrink-0 space-y-1">
-                    <Badge className={`text-xs px-1.5 py-0 ${maintenanceStatusColor[m.status] ?? "bg-gray-100 text-gray-700"}`}>
-                      {maintenanceStatusLabel[m.status] ?? m.status}
-                    </Badge>
-                    <p className="text-xs text-muted-foreground">{maintenanceTypeLabel[m.record_type] ?? m.record_type}</p>
+                  <div className="text-right shrink-0">
+                    <p
+                      className={`text-xs font-number tabular-nums ${
+                        overdue ? "text-warning font-semibold" : "text-muted-foreground"
+                      }`}
+                    >
+                      返却 {fmtDate(l.due_date)}
+                    </p>
+                    {overdue && (
+                      <Badge variant="warning" className="text-xs mt-1">
+                        遅延
+                      </Badge>
+                    )}
                   </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                </li>
+              );
+            })}
+          </ul>
+        </SectionCard>
       )}
 
-      {/* Empty state */}
+      {/* 最近のメンテナンス */}
+      {recentMaintenance.length > 0 && (
+        <SectionCard
+          title={`未対応メンテナンス (${stats.open_maintenance ?? 0} 件)`}
+          icon={<Wrench />}
+          actions={
+            <button
+              type="button"
+              className="text-xs text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
+              onClick={() => navigate("/equipment/maintenance")}
+            >
+              すべて表示
+            </button>
+          }
+          padding="compact"
+        >
+          <ul className="space-y-2">
+            {recentMaintenance.map((m: any) => (
+              <li
+                key={m.id}
+                className="flex items-center gap-3 px-3 py-2 rounded-md border border-border bg-muted/40 text-sm"
+              >
+                <Wrench className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-foreground truncate">{m.title}</p>
+                  <p className="text-xs text-muted-foreground truncate">{m.equipment_name}</p>
+                </div>
+                <div className="text-right shrink-0 space-y-1">
+                  <Badge variant={maintenanceStatusVariant[m.status] ?? "secondary"} className="text-xs">
+                    {maintenanceStatusLabel[m.status] ?? m.status}
+                  </Badge>
+                  <p className="text-xs text-muted-foreground">
+                    {maintenanceTypeLabel[m.record_type] ?? m.record_type}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </SectionCard>
+      )}
+
+      {/* 空状態 */}
       {(stats.total_items ?? 0) === 0 && (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <CheckCircle2 className="h-12 w-12 text-primary/30 mx-auto mb-4" />
-            <h3 className="text-base font-semibold mb-2">機材を登録しましょう</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              機材を登録すると、ここに統計情報が表示されます。
-            </p>
-            <Button size="sm" onClick={() => navigate("/equipment/items")}>
-              <Plus className="h-4 w-4 mr-1" />機材を追加
-            </Button>
-          </CardContent>
-        </Card>
+        <SectionCard title="機材を登録しましょう">
+          <EmptyState
+            icon={<CheckCircle2 />}
+            title="まだ機材が登録されていません"
+            description="機材を登録すると、ここに統計情報と貸出・メンテ一覧が表示されます。"
+            action={
+              <Button size="sm" onClick={() => navigate("/equipment/items")}>
+                <Plus className="h-4 w-4 mr-1" aria-hidden="true" />
+                機材を追加
+              </Button>
+            }
+          />
+        </SectionCard>
       )}
     </div>
   );

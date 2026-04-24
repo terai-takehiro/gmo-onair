@@ -3,10 +3,16 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { formatPercent } from "@/lib/format";
-import { AnimatedCurrency } from "@/components/ui/animated-number";
 import { PageTransition } from "@/components/ui/motion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  DashboardHeader,
+  KpiCard,
+  SectionCard,
+  EmptyState,
+  chartColors,
+  chartDefaults,
+} from "@gmo-onair/shared/src/client/dashboard";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, Line, ComposedChart, Cell,
@@ -20,6 +26,7 @@ import {
   BarChart3,
   AlertTriangle,
   Loader2,
+  ClipboardList,
 } from "lucide-react";
 
 interface KPI {
@@ -70,19 +77,25 @@ const stageLabels: Record<string, string> = {
   neta: 'ネタ', d_hold: 'D 仮押さえ', c_proposal: 'C 見積提案',
   b_verbal: 'B 口頭決定', a_won: 'A 受注済',
 };
-const stageColors: Record<string, string> = {
-  neta: '#94a3b8', d_hold: '#a78bfa', c_proposal: '#3b82f6',
-  b_verbal: '#f59e0b', a_won: '#22c55e',
+
+/* パイプラインステージを DADS categorical で分類 */
+const pipelineStageColors: Record<string, string> = {
+  neta: chartColors.neutral,
+  d_hold: chartColors.categorical[6],    /* purple */
+  c_proposal: chartColors.brand,
+  b_verbal: chartColors.warning,
+  a_won: chartColors.positive,
 };
 
-const formatYen = (value: number) => `\u00a5${(value / 10000).toLocaleString()}万`;
+const formatYen = (value: number) => `¥${(value / 10000).toLocaleString()}万`;
+const formatYenShort = (value: number) => `¥${(value / 10000).toFixed(0)}万`;
 
-const alertTypeColor: Record<string, string> = {
-  warning: "#f59e0b",
-  danger: "#ef4444",
-  info: "#3b82f6",
-  application_form: "#ef4444",
-  upcoming_event: "#f59e0b",
+const alertTypeVariant: Record<string, "destructive" | "warning" | "info"> = {
+  warning: "warning",
+  danger: "destructive",
+  info: "info",
+  application_form: "destructive",
+  upcoming_event: "warning",
 };
 
 const alertTypeLabel: Record<string, string> = {
@@ -98,9 +111,26 @@ const projectStageLabel: Record<string, string> = {
   b_verbal: 'B 口頭決定', a_won: 'A 受注済', s_completed: 'S 完了', e_lost: 'E 失注',
 };
 
-const projectStageColor: Record<string, string> = {
-  neta: '#94a3b8', d_hold: '#a78bfa', c_proposal: '#3b82f6',
-  b_verbal: '#f59e0b', a_won: '#22c55e', s_completed: '#6b7280', e_lost: '#ef4444',
+const projectStageVariant: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "info"> = {
+  neta: 'secondary',
+  d_hold: 'info',
+  c_proposal: 'default',
+  b_verbal: 'warning',
+  a_won: 'success',
+  s_completed: 'secondary',
+  e_lost: 'destructive',
+};
+
+/* 週次スケジュールのイベントタイプ — ニュートラル+brand軸で分類 */
+const typeColors: Record<string, string> = {
+  event: 'bg-primary',
+  recording: 'bg-info',
+  broadcast: 'bg-cyan-700',
+};
+const typeLabels: Record<string, string> = {
+  event: '本番',
+  recording: '収録',
+  broadcast: '放送',
 };
 
 export default function DashboardPage() {
@@ -122,11 +152,10 @@ export default function DashboardPage() {
     queryFn: async () => (await api.get("/dashboard/recent-projects")).data.data,
   });
 
-  // Auto-check completed projects on dashboard load
   useQuery({
     queryKey: ['check-completed'],
     queryFn: async () => (await api.get('/dashboard/check-completed')).data,
-    staleTime: 60000, // only check once per minute
+    staleTime: 60000,
   });
 
   const { data: chartData } = useQuery<MonthlyChart[]>({
@@ -144,379 +173,340 @@ export default function DashboardPage() {
     queryFn: async () => (await api.get('/dashboard/weekly-schedule')).data.data,
   });
 
-  const typeColors: Record<string, string> = {
-    event: 'bg-blue-500',
-    recording: 'bg-purple-500',
-    broadcast: 'bg-cyan-500',
-  };
-  const typeLabels: Record<string, string> = {
-    event: '本番',
-    recording: '収録',
-    broadcast: '放送',
-  };
+  const lastUpdated = new Date().toLocaleString('ja-JP', {
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+  });
 
+  const periodToggle = (
+    <div
+      className="inline-flex gap-1 rounded-md border border-border bg-card p-1"
+      role="tablist"
+      aria-label="集計期間の切替"
+    >
+      {([
+        ['monthly', '今月'],
+        ['yearly', '年間'],
+      ] as const).map(([value, label]) => (
+        <button
+          key={value}
+          type="button"
+          role="tab"
+          aria-selected={kpiPeriod === value}
+          onClick={() => setKpiPeriod(value)}
+          className={`rounded-sm px-3 py-1.5 text-xs sm:text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+            kpiPeriod === value ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted'
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <PageTransition>
-    <div className="space-y-4 p-3 lg:space-y-6 lg:p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="heading-page text-lg lg:text-2xl">ダッシュボード</h1>
-        <div className="flex gap-1 rounded-lg border p-1">
-          <button
-            onClick={() => setKpiPeriod('monthly')}
-            className={`rounded-md px-3 py-1 text-xs sm:px-4 sm:py-1.5 sm:text-sm font-medium transition-colors ${kpiPeriod === 'monthly' ? 'bg-primary text-white' : 'hover:bg-muted'}`}
+      <div className="space-y-5 p-4 sm:space-y-6 sm:p-6">
+        <DashboardHeader
+          title="ダッシュボード"
+          description="全社の主要指標・進行中案件・週次スケジュールをここで把握します。"
+          period={kpi?.period_label}
+          lastUpdated={`最終更新 ${lastUpdated}`}
+          controls={periodToggle}
+        />
+
+        {/* 主要指標 (KPI Grid) — 情報階層「全体」 */}
+        <section aria-labelledby="kpi-summary-heading">
+          <h2 id="kpi-summary-heading" className="sr-only">主要指標</h2>
+          {kpiLoading ? (
+            <div className="flex justify-center rounded-lg border border-border bg-card py-10">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" aria-label="読み込み中" />
+            </div>
+          ) : kpi ? (
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+              <KpiCard
+                label="売上"
+                icon={<DollarSign />}
+                value={formatYen(kpi.monthly_revenue)}
+                footnote={kpi.period_label}
+              />
+              <KpiCard
+                label="変動原価 (仕入)"
+                icon={<ShoppingCart />}
+                value={formatYen(kpi.monthly_purchase)}
+              />
+              <KpiCard
+                label="粗利"
+                icon={<TrendingUp />}
+                value={formatYen(kpi.gross_profit)}
+                unit={formatPercent(kpi.monthly_gross_margin)}
+                emphasis={kpi.gross_profit >= 0 ? 'success' : 'negative'}
+              />
+              <KpiCard
+                label="販管費"
+                icon={<Receipt />}
+                value={formatYen(kpi.monthly_sga)}
+              />
+              <KpiCard
+                label="営業利益"
+                icon={<BarChart3 />}
+                value={formatYen(kpi.operating_profit)}
+                unit={formatPercent(kpi.operating_margin)}
+                emphasis={kpi.operating_profit >= 0 ? 'success' : 'negative'}
+                size="lg"
+                className="col-span-2 md:col-span-3 lg:col-span-1"
+              />
+            </div>
+          ) : null}
+
+          {kpi ? (
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <KpiCard
+                label="進行中案件"
+                value={kpi.active_projects}
+                unit="件"
+                size="sm"
+                emphasis="info"
+                onClick={() => navigate('/sales/projects')}
+              />
+              <KpiCard
+                label="ヨミ"
+                value={kpi.active_yomi}
+                unit="件"
+                size="sm"
+                emphasis="warning"
+                onClick={() => navigate('/sales/projects?stage=yomi')}
+              />
+              <KpiCard
+                label="粗利率"
+                value={formatPercent(kpi.monthly_gross_margin)}
+                size="sm"
+                emphasis={kpi.gross_profit >= 0 ? 'success' : 'negative'}
+              />
+              <KpiCard
+                label="営業利益率"
+                value={formatPercent(kpi.operating_margin)}
+                size="sm"
+                emphasis={kpi.operating_profit >= 0 ? 'success' : 'negative'}
+              />
+            </div>
+          ) : null}
+        </section>
+
+        {/* 今週のスケジュール */}
+        {weeklyData ? (
+          <SectionCard
+            title="今週のスケジュール"
+            description="本番・収録・放送予定を週単位で確認できます。"
+            icon={<Calendar />}
           >
-            今月
-          </button>
-          <button
-            onClick={() => setKpiPeriod('yearly')}
-            className={`rounded-md px-3 py-1 text-xs sm:px-4 sm:py-1.5 sm:text-sm font-medium transition-colors ${kpiPeriod === 'yearly' ? 'bg-primary text-white' : 'hover:bg-muted'}`}
+            {(weeklyData as Array<any>).length === 0 ? (
+              <EmptyState title="今週の予定はありません" />
+            ) : (
+              <>
+                {/* Mobile: Compact horizontal scroll */}
+                <div className="flex gap-2 overflow-x-auto pb-2 lg:hidden snap-x snap-mandatory">
+                  {(weeklyData as Array<{ date: string; dayLabel: string; events: Array<{ gls_number?: string; name?: string; project_name?: string; episode_code?: string; type: string }> }>).map((day) => {
+                    const isToday = day.date === new Date().toISOString().split('T')[0];
+                    return (
+                      <div key={day.date} className={`min-w-[120px] snap-start shrink-0 rounded-md border p-2 ${isToday ? 'border-primary bg-primary/5' : 'border-border bg-muted/30'}`}>
+                        <div className={`text-center mb-1 ${isToday ? 'font-bold text-primary' : 'text-foreground'}`}>
+                          <span className="text-xs text-muted-foreground">{day.dayLabel}</span>
+                          <span className="text-xs ml-1">{day.date.split('-')[2]}日</span>
+                        </div>
+                        <div className="space-y-0.5">
+                          {day.events.slice(0, 3).map((ev, i) => (
+                            <div key={i} className={`rounded px-1 py-0.5 text-primary-foreground text-xs leading-tight truncate ${typeColors[ev.type] || 'bg-muted-foreground'}`}>
+                              {typeLabels[ev.type]}: {ev.gls_number || ev.episode_code}
+                            </div>
+                          ))}
+                          {day.events.length > 3 && (
+                            <div className="text-xs text-muted-foreground text-center">+{day.events.length - 3}件</div>
+                          )}
+                          {day.events.length === 0 && (
+                            <div className="text-xs text-muted-foreground text-center mt-2" aria-hidden="true">-</div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Desktop: 7-column grid */}
+                <div className="hidden lg:grid grid-cols-7 gap-2">
+                  {(weeklyData as Array<{ date: string; dayLabel: string; events: Array<{ gls_number?: string; name?: string; project_name?: string; episode_code?: string; type: string }> }>).map((day) => {
+                    const isToday = day.date === new Date().toISOString().split('T')[0];
+                    return (
+                      <div key={day.date} className={`min-h-[120px] rounded-md border p-2 ${isToday ? 'border-primary bg-primary/5' : 'border-border bg-muted/30'}`}>
+                        <div className={`text-center mb-2 ${isToday ? 'font-bold text-primary' : 'text-foreground'}`}>
+                          <div className="text-xs text-muted-foreground">{day.dayLabel}</div>
+                          <div className="text-sm">{day.date.split('-')[2]}</div>
+                        </div>
+                        <div className="space-y-1">
+                          {day.events.slice(0, 4).map((ev, i) => (
+                            <div key={i} className={`rounded px-1.5 py-0.5 text-primary-foreground text-xs leading-tight truncate ${typeColors[ev.type] || 'bg-muted-foreground'}`} title={`${typeLabels[ev.type] || ev.type}: ${ev.name || ev.project_name || ev.episode_code}`}>
+                              {typeLabels[ev.type]}: {ev.gls_number || ev.episode_code}
+                            </div>
+                          ))}
+                          {day.events.length > 4 && (
+                            <div className="text-xs text-muted-foreground text-center">+{day.events.length - 4}件</div>
+                          )}
+                          {day.events.length === 0 && (
+                            <div className="text-xs text-muted-foreground text-center mt-4">予定なし</div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex gap-3 mt-3 justify-center" aria-label="凡例">
+                  {Object.entries(typeLabels).map(([key, label]) => (
+                    <div key={key} className="flex items-center gap-1">
+                      <div className={`w-2.5 h-2.5 rounded-sm ${typeColors[key]}`} aria-hidden="true" />
+                      <span className="text-xs text-muted-foreground">{label}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </SectionCard>
+        ) : null}
+
+        {/* チャート群 — 情報階層「部分」 */}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6">
+          <SectionCard
+            title="月次推移"
+            description="売上・仕入・販管費の棒グラフと粗利/営業利益の折れ線グラフ。"
+            icon={<BarChart3 />}
+            padding="compact"
           >
-            年間
-          </button>
-        </div>
-      </div>
-
-      {/* P&L Infographic */}
-      {kpiLoading ? (
-        <div className="flex justify-center py-6">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        </div>
-      ) : kpi ? (
-        <Card className="overflow-hidden">
-          <div className="bg-muted/50 px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium text-muted-foreground border-b">
-            {kpi.period_label || (kpiPeriod === 'yearly' ? '年間' : '今月')} 損益サマリー
-          </div>
-          <CardContent className="p-0">
-            {/* Mobile: Compact grid */}
-            <div className="grid grid-cols-2 gap-px bg-border lg:hidden">
-              <div className="bg-blue-600 text-white p-3 flex items-center gap-2">
-                <DollarSign className="h-5 w-5 shrink-0 opacity-80" />
-                <div className="min-w-0">
-                  <p className="text-xs opacity-80">売上</p>
-                  <AnimatedCurrency value={kpi.monthly_revenue} className="text-base font-bold font-number truncate" />
-                </div>
-              </div>
-              <div className="bg-orange-500 text-white p-3 flex items-center gap-2">
-                <ShoppingCart className="h-5 w-5 shrink-0 opacity-80" />
-                <div className="min-w-0">
-                  <p className="text-xs opacity-80">変動原価</p>
-                  <AnimatedCurrency value={kpi.monthly_purchase} className="text-base font-bold font-number truncate" />
-                </div>
-              </div>
-              <div className="bg-emerald-600 text-white p-3 flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 shrink-0 opacity-80" />
-                <div className="min-w-0">
-                  <p className="text-xs opacity-80">粗利 <span className="font-semibold">{formatPercent(kpi.monthly_gross_margin)}</span></p>
-                  <AnimatedCurrency value={kpi.gross_profit} className="text-base font-bold font-number truncate" />
-                </div>
-              </div>
-              <div className="bg-red-500 text-white p-3 flex items-center gap-2">
-                <Receipt className="h-5 w-5 shrink-0 opacity-80" />
-                <div className="min-w-0">
-                  <p className="text-xs opacity-80">販管費</p>
-                  <AnimatedCurrency value={kpi.monthly_sga} className="text-base font-bold font-number truncate" />
-                </div>
-              </div>
-              <div className={`col-span-2 p-3 flex items-center justify-center gap-3 ${
-                kpi.operating_profit >= 0 ? 'bg-gradient-to-r from-green-700 to-emerald-800' : 'bg-gradient-to-r from-red-700 to-red-800'
-              } text-white`}>
-                <BarChart3 className="h-5 w-5 shrink-0 opacity-80" />
-                <div className="flex items-baseline gap-2">
-                  <p className="text-xs opacity-80">営業利益</p>
-                  <AnimatedCurrency value={kpi.operating_profit} className="text-lg font-bold font-number" />
-                  <p className="text-sm font-semibold opacity-90">{formatPercent(kpi.operating_margin)}</p>
-                </div>
-              </div>
-            </div>
-            {/* Desktop: Horizontal flow */}
-            <div className="hidden lg:flex flex-row items-stretch">
-              <div className="flex-1 bg-blue-600 text-white p-6 flex flex-col justify-center items-center relative animate-[fadeIn_0.5s_ease-out]">
-                <DollarSign className="h-8 w-8 mb-2 opacity-80" />
-                <p className="text-sm font-medium opacity-80">売上</p>
-                <AnimatedCurrency value={kpi.monthly_revenue} className="text-3xl font-bold font-number" />
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 bg-white rounded-full p-1 shadow">
-                  <span className="text-gray-400 text-lg font-bold">-</span>
-                </div>
-              </div>
-              <div className="flex-1 bg-orange-500 text-white p-6 flex flex-col justify-center items-center relative animate-[fadeIn_0.7s_ease-out]">
-                <ShoppingCart className="h-8 w-8 mb-2 opacity-80" />
-                <p className="text-sm font-medium opacity-80">変動原価(仕入)</p>
-                <AnimatedCurrency value={kpi.monthly_purchase} className="text-3xl font-bold font-number" />
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 bg-white rounded-full p-1 shadow">
-                  <span className="text-gray-400 text-lg font-bold">=</span>
-                </div>
-              </div>
-              <div className="flex-1 bg-emerald-600 text-white p-6 flex flex-col justify-center items-center relative animate-[fadeIn_0.9s_ease-out]">
-                <TrendingUp className="h-8 w-8 mb-2 opacity-80" />
-                <p className="text-sm font-medium opacity-80">粗利</p>
-                <AnimatedCurrency value={kpi.gross_profit} className="text-3xl font-bold font-number" />
-                <p className="text-lg font-semibold opacity-90">{formatPercent(kpi.monthly_gross_margin)}</p>
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 bg-white rounded-full p-1 shadow">
-                  <span className="text-gray-400 text-lg font-bold">-</span>
-                </div>
-              </div>
-              <div className="flex-1 bg-red-500 text-white p-6 flex flex-col justify-center items-center relative animate-[fadeIn_1.1s_ease-out]">
-                <Receipt className="h-8 w-8 mb-2 opacity-80" />
-                <p className="text-sm font-medium opacity-80">販管費</p>
-                <AnimatedCurrency value={kpi.monthly_sga} className="text-3xl font-bold font-number" />
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 bg-white rounded-full p-1 shadow">
-                  <span className="text-gray-400 text-lg font-bold">=</span>
-                </div>
-              </div>
-              <div className={`flex-1 p-6 flex flex-col justify-center items-center animate-[fadeIn_1.3s_ease-out] ${
-                kpi.operating_profit >= 0 ? 'bg-gradient-to-br from-green-700 to-emerald-800' : 'bg-gradient-to-br from-red-700 to-red-800'
-              } text-white`}>
-                <BarChart3 className="h-8 w-8 mb-2 opacity-80" />
-                <p className="text-sm font-medium opacity-80">営業利益</p>
-                <AnimatedCurrency value={kpi.operating_profit} className="text-3xl font-bold font-number" />
-                <p className="text-lg font-semibold opacity-90">{formatPercent(kpi.operating_margin)}</p>
-              </div>
-            </div>
-
-            {/* Sub KPIs */}
-            <div className="grid grid-cols-4 border-t">
-              <div className="p-2 lg:p-4 text-center border-r">
-                <p className="text-xs lg:text-xs text-muted-foreground">進行中案件</p>
-                <p className="text-lg lg:text-2xl font-bold text-primary">{kpi.active_projects}</p>
-              </div>
-              <div className="p-2 lg:p-4 text-center border-r">
-                <p className="text-xs lg:text-xs text-muted-foreground">ヨミ</p>
-                <p className="text-lg lg:text-2xl font-bold text-orange-600">{kpi.active_yomi}</p>
-              </div>
-              <div className="p-2 lg:p-4 text-center border-r">
-                <p className="text-xs lg:text-xs text-muted-foreground">粗利率</p>
-                <p className="text-lg lg:text-2xl font-bold text-emerald-600">{formatPercent(kpi.monthly_gross_margin)}</p>
-              </div>
-              <div className="p-2 lg:p-4 text-center">
-                <p className="text-xs lg:text-xs text-muted-foreground">営業利益率</p>
-                <p className={`text-lg lg:text-2xl font-bold ${kpi.operating_profit >= 0 ? 'text-green-700' : 'text-red-600'}`}>{formatPercent(kpi.operating_margin)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {/* Weekly Schedule */}
-      {weeklyData && (
-        <Card>
-          <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6">
-            <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
-              <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-              今週のスケジュール
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {/* Mobile: Compact horizontal scroll */}
-            <div className="flex gap-2 overflow-x-auto pb-2 lg:hidden snap-x snap-mandatory">
-              {(weeklyData as Array<{ date: string; dayLabel: string; events: Array<{ gls_number?: string; name?: string; project_name?: string; episode_code?: string; type: string }> }>).map((day) => {
-                const isToday = day.date === new Date().toISOString().split('T')[0];
-                return (
-                  <div key={day.date} className={`min-w-[120px] snap-start shrink-0 rounded-lg border p-2 ${isToday ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'bg-muted/30'}`}>
-                    <div className={`text-center mb-1 ${isToday ? 'font-bold text-primary' : ''}`}>
-                      <span className="text-xs text-muted-foreground">{day.dayLabel}</span>
-                      <span className="text-xs ml-1">{day.date.split('-')[2]}日</span>
-                    </div>
-                    <div className="space-y-0.5">
-                      {day.events.slice(0, 3).map((ev, i) => (
-                        <div key={i} className={`rounded px-1 py-0.5 text-white text-xs leading-tight truncate ${typeColors[ev.type] || 'bg-gray-400'}`}>
-                          {typeLabels[ev.type]}: {ev.gls_number || ev.episode_code}
-                        </div>
-                      ))}
-                      {day.events.length > 3 && (
-                        <div className="text-xs text-muted-foreground text-center">+{day.events.length - 3}件</div>
-                      )}
-                      {day.events.length === 0 && (
-                        <div className="text-xs text-muted-foreground text-center mt-2">-</div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            {/* Desktop: 7-column grid */}
-            <div className="hidden lg:grid grid-cols-7 gap-1">
-              {(weeklyData as Array<{ date: string; dayLabel: string; events: Array<{ gls_number?: string; name?: string; project_name?: string; episode_code?: string; type: string }> }>).map((day) => {
-                const isToday = day.date === new Date().toISOString().split('T')[0];
-                return (
-                  <div key={day.date} className={`min-h-[120px] rounded-lg border p-2 ${isToday ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'bg-muted/30'}`}>
-                    <div className={`text-center mb-2 ${isToday ? 'font-bold text-primary' : ''}`}>
-                      <div className="text-xs text-muted-foreground">{day.dayLabel}</div>
-                      <div className="text-sm">{day.date.split('-')[2]}</div>
-                    </div>
-                    <div className="space-y-1">
-                      {day.events.slice(0, 4).map((ev, i) => (
-                        <div key={i} className={`rounded px-1.5 py-0.5 text-white text-xs leading-tight truncate ${typeColors[ev.type] || 'bg-gray-400'}`} title={`${typeLabels[ev.type] || ev.type}: ${ev.name || ev.project_name || ev.episode_code}`}>
-                          {typeLabels[ev.type]}: {ev.gls_number || ev.episode_code}
-                        </div>
-                      ))}
-                      {day.events.length > 4 && (
-                        <div className="text-xs text-muted-foreground text-center">+{day.events.length - 4}件</div>
-                      )}
-                      {day.events.length === 0 && (
-                        <div className="text-xs text-muted-foreground text-center mt-4">予定なし</div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex gap-3 mt-2 lg:mt-3 justify-center">
-              {Object.entries(typeLabels).map(([key, label]) => (
-                <div key={key} className="flex items-center gap-1">
-                  <div className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-sm ${typeColors[key]}`} />
-                  <span className="text-xs sm:text-xs text-muted-foreground">{label}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 gap-4 lg:gap-6 lg:grid-cols-2">
-        {/* Monthly Revenue/Purchase/Profit Chart */}
-        <Card>
-          <CardHeader className="pb-2 lg:pb-6">
-            <CardTitle className="text-base lg:text-lg">月次推移</CardTitle>
-          </CardHeader>
-          <CardContent className="px-2 lg:px-6">
             {chartData && chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={260}>
                 <ComposedChart data={chartData} margin={{ left: 0, right: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
+                  <CartesianGrid {...chartDefaults.cartesian} />
                   <XAxis
                     dataKey="month"
                     tickFormatter={(v: string) => `${parseInt(v.split('-')[1])}月`}
-                    tick={{ fontSize: 12 }}
+                    {...chartDefaults.axis}
                   />
                   <YAxis
                     tickFormatter={(v: number) => `${(v / 1000000).toFixed(0)}M`}
-                    tick={{ fontSize: 12 }}
                     width={45}
+                    {...chartDefaults.axis}
                   />
                   <Tooltip
-                    formatter={(value) => [formatYen(Number(value)), '']}
+                    formatter={(value) => [formatYenShort(Number(value)), '']}
                     labelFormatter={(label) => `${parseInt(String(label).split('-')[1])}月`}
                     wrapperStyle={{ zIndex: 10 }}
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="revenue" fill="#005bac" name="売上" />
-                  <Bar dataKey="purchase" fill="#f59e0b" name="仕入" />
-                  <Bar dataKey="sga" fill="#ef4444" name="販管費" />
-                  <Line type="monotone" dataKey="gross_profit" stroke="#22c55e" name="粗利" strokeWidth={2} dot={{ r: 3 }} />
-                  <Line type="monotone" dataKey="operating_profit" stroke="#7c3aed" name="営業利益" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 3 }} />
+                  <Bar dataKey="revenue" fill={chartColors.brand} name="売上" />
+                  <Bar dataKey="purchase" fill={chartColors.warning} name="仕入" />
+                  <Bar dataKey="sga" fill={chartColors.negative} name="販管費" />
+                  <Line type="monotone" dataKey="gross_profit" stroke={chartColors.positive} name="粗利" strokeWidth={2} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="operating_profit" stroke={chartColors.info} name="営業利益" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 3 }} />
                 </ComposedChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-sm text-muted-foreground py-8 text-center">データがありません</p>
+              <EmptyState title="月次データがありません" />
             )}
-          </CardContent>
-        </Card>
+          </SectionCard>
 
-        {/* Pipeline Chart */}
-        <Card>
-          <CardHeader className="pb-2 lg:pb-6">
-            <CardTitle className="text-base lg:text-lg">ヨミパイプライン</CardTitle>
-          </CardHeader>
-          <CardContent className="px-2 lg:px-6">
+          <SectionCard
+            title="ヨミパイプライン"
+            description="段階別の案件数と見込金額。"
+            icon={<TrendingUp />}
+            padding="compact"
+          >
             {pipelineData && pipelineData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={260}>
                 <BarChart
                   data={pipelineData.map((s) => ({
                     ...s,
                     label: stageLabels[s.stage] || s.stage,
                   }))}
                   layout="vertical"
-                  margin={{ left: 10, right: 40 }}
+                  margin={{ left: 10, right: 48 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" tickFormatter={(v: number) => `${(v / 1000000).toFixed(0)}M`} />
-                  <YAxis type="category" dataKey="label" width={80} tick={{ fontSize: 12 }} />
+                  <CartesianGrid {...chartDefaults.cartesian} />
+                  <XAxis type="number" tickFormatter={(v: number) => `${(v / 1000000).toFixed(0)}M`} {...chartDefaults.axis} />
+                  <YAxis type="category" dataKey="label" width={80} {...chartDefaults.axis} />
                   <Tooltip
-                    formatter={(value) => [formatYen(Number(value)), '金額']}
+                    formatter={(value) => [formatYenShort(Number(value)), '金額']}
                   />
                   <Bar dataKey="total_amount" name="金額" label={{ position: 'right', fontSize: 11, formatter: (v: unknown) => {
                     const item = pipelineData.find((s) => s.total_amount === Number(v));
                     return item ? `${item.count}件` : '';
                   } }}>
                     {pipelineData.map((s, idx) => (
-                      <Cell key={idx} fill={stageColors[s.stage] || '#94a3b8'} />
+                      <Cell key={idx} fill={pipelineStageColors[s.stage] || chartColors.neutral} />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-sm text-muted-foreground py-8 text-center">データがありません</p>
+              <EmptyState title="パイプラインデータがありません" />
             )}
-          </CardContent>
-        </Card>
-      </div>
+          </SectionCard>
+        </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:gap-6 lg:grid-cols-2">
-        {/* Alerts */}
-        <Card>
-          <CardHeader className="pb-2 lg:pb-6">
-            <CardTitle className="flex items-center gap-2 text-base lg:text-lg">
-              <AlertTriangle className="h-4 w-4 lg:h-5 lg:w-5 text-yellow-500" />
-              アラート
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-3 sm:px-6">
+        {/* アラート + 最近の案件 — 情報階層「詳細」 */}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6">
+          <SectionCard
+            title="アラート"
+            description="対応が必要な申込書未提出・イベント直前など。"
+            icon={<AlertTriangle />}
+          >
             {!alerts || alerts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">アラートはありません</p>
+              <EmptyState title="アラートはありません" description="現在対応が必要な案件はありません。" />
             ) : (
-              <div className="space-y-2 sm:space-y-3">
+              <ul className="space-y-2 sm:space-y-3">
                 {alerts.map((a, idx) => (
-                  <div key={`${a.id}-${a.alert_type}-${idx}`} className="flex items-start gap-2 sm:gap-3 rounded-md border p-2 sm:p-3">
-                    <Badge style={{ backgroundColor: alertTypeColor[a.alert_type] || "#6b7280", color: '#fff' }}>
+                  <li key={`${a.id}-${a.alert_type}-${idx}`} className="flex items-start gap-2 sm:gap-3 rounded-md border border-border p-2 sm:p-3">
+                    <Badge variant={alertTypeVariant[a.alert_type] || "secondary"}>
                       {alertTypeLabel[a.alert_type] || a.alert_type}
                     </Badge>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs sm:text-sm font-medium truncate">{a.name}</p>
-                      <p className="text-xs sm:text-xs text-muted-foreground">{a.message}</p>
+                      <p className="text-xs sm:text-sm font-medium text-foreground truncate">{a.name}</p>
+                      <p className="text-xs text-muted-foreground">{a.message}</p>
                     </div>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             )}
-          </CardContent>
-        </Card>
+          </SectionCard>
 
-        {/* Recent Projects */}
-        <Card>
-          <CardHeader className="pb-2 lg:pb-6">
-            <CardTitle className="text-base lg:text-lg">最近の案件</CardTitle>
-          </CardHeader>
-          <CardContent className="px-3 sm:px-6">
+          <SectionCard
+            title="最近の案件"
+            description="直近で作成/更新された案件 5 件。"
+            icon={<ClipboardList />}
+          >
             {!recentProjects || recentProjects.length === 0 ? (
-              <p className="text-sm text-muted-foreground">案件がありません</p>
+              <EmptyState title="案件がありません" description="まずは新規案件を作成してください。" />
             ) : (
-              <div className="space-y-2 sm:space-y-3">
+              <ul className="space-y-2 sm:space-y-3">
                 {recentProjects.slice(0, 5).map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex cursor-pointer items-center justify-between gap-2 rounded-md border p-2 sm:p-3 transition-colors hover:bg-muted/50"
-                    onClick={() => navigate(`/sales/projects/${p.id}`)}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs sm:text-sm font-medium truncate">{p.gls_number} {p.name}</p>
-                      {p.customer_name && (
-                        <p className="text-xs sm:text-xs text-muted-foreground">{p.customer_name}</p>
-                      )}
-                    </div>
-                    <Badge className="shrink-0 text-xs sm:text-xs" style={{ backgroundColor: projectStageColor[p.stage], color: '#fff' }}>
-                      {projectStageLabel[p.stage] || p.stage}
-                    </Badge>
-                  </div>
+                  <li key={p.id}>
+                    <button
+                      type="button"
+                      className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-md border border-border p-2 sm:p-3 text-left transition-colors hover:border-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      onClick={() => navigate(`/sales/projects/${p.id}`)}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs sm:text-sm font-medium text-foreground truncate">{p.gls_number} {p.name}</p>
+                        {p.customer_name && (
+                          <p className="text-xs text-muted-foreground">{p.customer_name}</p>
+                        )}
+                      </div>
+                      <Badge variant={projectStageVariant[p.stage] || "secondary"} className="shrink-0">
+                        {projectStageLabel[p.stage] || p.stage}
+                      </Badge>
+                    </button>
+                  </li>
                 ))}
-              </div>
+              </ul>
             )}
-          </CardContent>
-        </Card>
+          </SectionCard>
+        </div>
       </div>
-
-    </div>
     </PageTransition>
   );
 }

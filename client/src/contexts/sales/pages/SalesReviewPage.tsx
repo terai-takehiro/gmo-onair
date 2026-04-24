@@ -25,6 +25,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DashboardHeader, KpiCard, EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import {
   Table,
   TableBody,
@@ -158,51 +159,36 @@ export default function SalesReviewPage() {
 
   return (
     <PageTransition>
-    <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div>
-          <h1 className="text-xl lg:text-2xl font-bold">営業レビュー</h1>
-          <p className="text-sm text-muted-foreground">
-            ファネル分析・失注分析・営業評価
-          </p>
-        </div>
-        <div className="flex gap-2 items-center">
-          <Select
-            value={String(year)}
-            onValueChange={(v) => setYear(Number(v))}
-          >
-            <SelectTrigger className="w-[100px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {[currentYear - 1, currentYear, currentYear + 1].map((y) => (
-                <SelectItem key={y} value={String(y)}>
-                  {y}年
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={month ? String(month) : "all"}
-            onValueChange={(v) =>
-              setMonth(v === "all" ? undefined : Number(v))
-            }
-          >
-            <SelectTrigger className="w-[100px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">通年</SelectItem>
-              {MONTHS.map((m) => (
-                <SelectItem key={m} value={String(m)}>
-                  {m}月
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+    <div className="space-y-5 p-4 sm:space-y-6 sm:p-6">
+      <DashboardHeader
+        title="営業レビュー"
+        description="ファネル分析・失注分析・営業評価を横断で確認します。"
+        period={`${year}年${month ? ` ${month}月` : ' 通年'}`}
+        controls={
+          <div className="flex gap-2 items-center">
+            <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+              <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {[currentYear - 1, currentYear, currentYear + 1].map((y) => (
+                  <SelectItem key={y} value={String(y)}>{y}年</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={month ? String(month) : "all"}
+              onValueChange={(v) => setMonth(v === "all" ? undefined : Number(v))}
+            >
+              <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">通年</SelectItem>
+                {MONTHS.map((m) => (
+                  <SelectItem key={m} value={String(m)}>{m}月</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        }
+      />
 
       <Tabs defaultValue="funnel" className="space-y-4">
         <TabsList className="flex-wrap h-auto gap-1">
@@ -224,58 +210,30 @@ export default function SalesReviewPage() {
         <TabsContent value="funnel" className="space-y-4">
           {/* KPI カード */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Card>
-              <CardContent className="pt-4 pb-3">
-                <div className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5 text-blue-500 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">ヨミ総数</p>
-                    <p className="text-2xl font-bold font-number">
-                      <AnimatedNumber value={funnel?.total_count ?? 0} />
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4 pb-3">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-green-500 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">受注率</p>
-                    <p className="text-2xl font-bold font-number">
-                      <AnimatedNumber value={funnel?.win_rate ?? 0} suffix="%" />
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4 pb-3">
-                <div className="flex items-center gap-2">
-                  <TrendingDown className="h-5 w-5 text-red-500 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">失注率</p>
-                    <p className="text-2xl font-bold font-number">
-                      <AnimatedNumber value={funnel?.loss_rate ?? 0} suffix="%" />
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4 pb-3">
-                <div className="flex items-center gap-2">
-                  <Target className="h-5 w-5 text-orange-500 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">平均滞留</p>
-                    <p className="text-2xl font-bold font-number">
-                      <AnimatedNumber value={funnel?.avg_dwell_days ?? 0} suffix="日" />
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <KpiCard
+              label="ヨミ総数"
+              icon={<BarChart3 />}
+              value={<AnimatedNumber value={funnel?.total_count ?? 0} />}
+              unit="件"
+            />
+            <KpiCard
+              label="受注率"
+              icon={<TrendingUp />}
+              value={<AnimatedNumber value={funnel?.win_rate ?? 0} suffix="%" />}
+              emphasis="success"
+            />
+            <KpiCard
+              label="失注率"
+              icon={<TrendingDown />}
+              value={<AnimatedNumber value={funnel?.loss_rate ?? 0} suffix="%" />}
+              emphasis="negative"
+            />
+            <KpiCard
+              label="平均滞留"
+              icon={<Target />}
+              value={<AnimatedNumber value={funnel?.avg_dwell_days ?? 0} suffix="日" />}
+              emphasis="warning"
+            />
           </div>
 
           {/* ファネルバー + コンバージョン率 */}
@@ -476,9 +434,7 @@ export default function SalesReviewPage() {
               </CardHeader>
               <CardContent>
                 {lostAnalysis?.total_lost === 0 ? (
-                  <p className="text-sm text-muted-foreground py-8 text-center">
-                    失注データがありません
-                  </p>
+                  <EmptyState title="失注データがありません" description="選択中の期間に失注案件がありません。" />
                 ) : (
                   <div className="space-y-3">
                     {lostAnalysis?.reasons?.map((r: any, i: number) => {
@@ -525,9 +481,7 @@ export default function SalesReviewPage() {
               <CardContent>
                 {!lostAnalysis?.monthly_trend ||
                 lostAnalysis.monthly_trend.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-8 text-center">
-                    データがありません
-                  </p>
+                  <EmptyState title="月別の推移データがありません" />
                 ) : (
                   <div className="space-y-2">
                     {MONTHS.map((m) => {
@@ -651,9 +605,10 @@ export default function SalesReviewPage() {
             </CardHeader>
             <CardContent>
               {performance.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-8 text-center">
-                  データがありません。目標を設定するか、ヨミを登録してください。
-                </p>
+                <EmptyState
+                  title="担当者別データがありません"
+                  description="目標を設定するか、ヨミを登録してください。"
+                />
               ) : (
                 <>
                   {/* Mobile cards */}
