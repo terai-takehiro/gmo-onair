@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Timer, AlertCircle, User } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -18,22 +18,43 @@ export default function LoginPage() {
   const [users, setUsers] = useState<UserOption[]>([]);
   const [authMode, setAuthMode] = useState<'oauth' | 'mock' | 'password' | null>(null);
 
+  // 既ログインなら一度だけ /live トップに飛ばす
+  const redirectedRef = useRef(false);
   useEffect(() => {
-    if (user && !token) { navigate('/', { replace: true }); return; }
-    if (token) {
-      loginWithToken(token)
-        .then(() => navigate('/', { replace: true }))
-        .catch(() => navigate('/login?error=auth_failed', { replace: true }));
-      return;
+    if (redirectedRef.current) return;
+    if (user && !token) {
+      redirectedRef.current = true;
+      navigate('/', { replace: true });
     }
+  }, [user, token, navigate]);
+
+  // SSO トークンのコンスーム — 一度だけ
+  const tokenConsumedRef = useRef(false);
+  useEffect(() => {
+    if (!token || tokenConsumedRef.current) return;
+    tokenConsumedRef.current = true;
+    loginWithToken(token)
+      .then(() => navigate('/', { replace: true }))
+      .catch(() => navigate('/login?error=auth_failed', { replace: true }));
+  }, [token, loginWithToken, navigate]);
+
+  // 認証モード判定 — 一度だけ
+  const modeFetchedRef = useRef(false);
+  useEffect(() => {
+    if (modeFetchedRef.current || token || user) return;
+    modeFetchedRef.current = true;
     api.get('/auth/mode')
-      .then(r => {
+      .then((r) => {
         const mode = r.data.data.mode;
         setAuthMode(mode);
-        if (mode === 'mock') api.get('/auth/users').then(r2 => setUsers(r2.data.data || [])).catch(() => {});
+        if (mode === 'mock') {
+          api.get('/auth/users')
+            .then((r2) => setUsers(r2.data.data || []))
+            .catch(() => {});
+        }
       })
       .catch(() => setAuthMode('mock'));
-  }, [user, navigate, token, loginWithToken]);
+  }, [token, user]);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">

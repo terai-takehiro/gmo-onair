@@ -65,7 +65,9 @@ export default function TimerDisplayPage() {
         setProgramId(t.viewer_overlay_program_id ?? t.program_id ?? null);
       })
       .catch(() => {});
-  }, [timerId, searchParams]);
+    // searchParams object 参照は毎回変わるため、文字列値だけを deps にして無限ループを防ぐ
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timerId, searchParams.get('programId')]);
 
   useEffect(() => {
     if (!programId) return;

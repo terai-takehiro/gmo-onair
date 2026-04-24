@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.1.1 — 全アプリダッシュボードをデジタル庁ダッシュボードガイドブック準拠にリニューアル（typecheck 修正）
+v2.1.2 — LoginPage / AuthCallback / TimerDisplay の useEffect 暴走 (replaceState ループ) を修正
 
 ## ブランチ運用
 - **本番デプロイ**: `main` ブランチへの push で auto-deploy webhook が発火
