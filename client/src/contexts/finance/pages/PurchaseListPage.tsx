@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
 import api from "@/lib/api";
 import { formatCurrency, formatMonth, localDateStr } from "@/lib/format";
 import { PageTransition } from "@/components/ui/motion";
@@ -92,6 +93,9 @@ interface ProjectOption {
 
 export default function PurchaseListPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const filterProjectId = searchParams.get("project_id") || "";
+  const filterProjectName = searchParams.get("project_name") || "";
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -134,10 +138,11 @@ export default function PurchaseListPage() {
   }, []);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["purchases-all", page, search],
+    queryKey: ["purchases-all", page, search, filterProjectId],
     queryFn: async () => {
       const params: Record<string, string | number> = { page, limit: 20 };
       if (search) params.search = search;
+      if (filterProjectId) params.project_id = filterProjectId;
       return (await api.get("/purchases", { params })).data;
     },
   });
@@ -257,7 +262,19 @@ export default function PurchaseListPage() {
     <PageTransition>
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       <div className="flex flex-wrap gap-2 items-center justify-between">
-        <h1 className="text-xl lg:text-2xl font-bold">仕入一覧</h1>
+        <div>
+          <h1 className="text-xl lg:text-2xl font-bold">仕入一覧</h1>
+          {filterProjectId && filterProjectName && (
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-sm text-muted-foreground">
+                絞り込み: <span className="font-medium text-foreground">{filterProjectName}</span>
+              </span>
+              <Button variant="ghost" size="sm" className="h-5 px-1.5 text-xs" onClick={() => navigate("/budget/purchases")}>
+                解除
+              </Button>
+            </div>
+          )}
+        </div>
         <div className="flex flex-wrap gap-2">
           <ExcelToolbar resource="/purchases" name="仕入" queryKey={["purchases"]} hasDuplicateKey={false} />
           <Button variant="outline" onClick={() => navigate("/project-groups")}>
@@ -269,6 +286,13 @@ export default function PurchaseListPage() {
           </Button>
         </div>
       </div>
+      {filterProjectId && (
+        <ProjectQuickLinks
+          projectId={filterProjectId}
+          projectName={filterProjectName}
+          currentPage="purchases"
+        />
+      )}
 
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

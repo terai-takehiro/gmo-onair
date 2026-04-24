@@ -10,6 +10,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
 
 interface ProjectOption { id: string; gls_number: string; name: string; }
 
@@ -105,7 +106,16 @@ export default function BudgetDetailPage() {
   return (
     <PageTransition>
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
-      <h1 className="text-xl lg:text-2xl font-bold">案件月別詳細</h1>
+      <div className="flex flex-wrap items-center gap-3 justify-between">
+        <h1 className="text-xl lg:text-2xl font-bold">案件月別詳細</h1>
+        {projectId && selectedProject && (
+          <ProjectQuickLinks
+            projectId={projectId}
+            projectName={selectedProject.name}
+            currentPage="revenues"
+          />
+        )}
+      </div>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-end">

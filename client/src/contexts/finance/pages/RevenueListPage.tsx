@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/select";
 import { Search, Loader2, Plus, Trash2, Download, ExternalLink, Link2 } from "lucide-react";
 import PricingItemPicker, { type PickedPricingItem } from "../components/PricingItemPicker";
+import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
 
 type SortKey = "billing_key" | "project_name" | "amount" | "recognition_date";
 type SortDir = "asc" | "desc";
@@ -469,6 +470,13 @@ export default function RevenueListPage() {
           </Button>
         </div>
       </div>
+      {filterProjectId && (
+        <ProjectQuickLinks
+          projectId={filterProjectId}
+          projectName={filterProjectName}
+          currentPage="revenues"
+        />
+      )}
 
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -627,7 +635,7 @@ export default function RevenueListPage() {
                               size="icon"
                               className="h-8 w-8"
                               title="案件管理画面を開く"
-                              onClick={() => navigate(`/sales/projects/${r.project_id}`)}
+                              onClick={(e) => { e.stopPropagation(); navigate(`/sales/projects/${r.project_id}`); }}
                             >
                               <ExternalLink className="h-4 w-4 text-primary" />
                             </Button>

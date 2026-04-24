@@ -338,7 +338,11 @@ export default function SgaListPage() {
                 </TableHeader>
                 <TableBody>
                   {sgaList.map((item) => (
-                    <TableRow key={item.id}>
+                    <TableRow
+                      key={item.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleOpenEdit(item)}
+                    >
                       <TableCell className="font-mono text-xs">
                         {item.billing_key || "-"}
                       </TableCell>
@@ -396,7 +400,7 @@ export default function SgaListPage() {
                           {item.source === 'accounting' ? '経理' : 'スタッフ'}
                         </span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         <div className="flex gap-1">
                           <Button
                             variant="ghost"

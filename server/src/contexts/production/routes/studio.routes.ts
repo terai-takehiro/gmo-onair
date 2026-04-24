@@ -259,11 +259,13 @@ router.get('/bookings', async (req, res) => {
   const from = req.query.from as string;
   const to = req.query.to as string;
   const roomId = req.query.room_id as string;
+  const projectId = req.query.project_id as string;
 
   let where = 'WHERE b.deleted_at IS NULL';
   const params: unknown[] = [];
   if (from) { where += ' AND b.end_time >= ?'; params.push(from); }
   if (to) { where += ' AND b.start_time <= ?'; params.push(to); }
+  if (projectId) { where += ' AND b.project_id = ?'; params.push(projectId); }
 
   const bookings = await queryAll(
     `SELECT b.*, p.name as project_name, p.gls_number, p.event_end as project_event_end, e.episode_code

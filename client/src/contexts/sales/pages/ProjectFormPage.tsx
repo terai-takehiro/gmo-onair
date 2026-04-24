@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import api from "@/lib/api";
 import { formatCurrency, formatShortDate } from "@/lib/format";
+import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +20,8 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator, AlertTriangle, Info, CalendarDays, FileText, Calendar } from "lucide-react";
+import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator, AlertTriangle, Info, CalendarDays, FileText, Calendar, Plus, Pencil, Trash2 } from "lucide-react";
+import StudioBookingDialog from "@/contexts/production/components/studio/StudioBookingDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   ProjectStageLabels, ProjectStageColors,
@@ -129,6 +131,28 @@ export default function ProjectFormPage() {
     queryFn: async () => (await api.get("/studios/locations")).data.data,
   });
   const studioLocations: { id: string; name: string; rooms: { id: string; name: string; color: string }[] }[] = studioLocationsData ?? [];
+
+  // 編集モード: この案件に紐づくスタジオ予約を取得（単一ソース）
+  const { data: projectBookingsData } = useQuery({
+    queryKey: ["project-studio-bookings", id],
+    queryFn: async () => (await api.get(`/studios/bookings`, { params: { project_id: id } })).data.data,
+    enabled: isEdit && !!id,
+  });
+  const projectBookings: any[] = projectBookingsData ?? [];
+
+  // StudioBookingDialog の制御
+  const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
+  const [editingBooking, setEditingBooking] = useState<any | null>(null);
+  const handleAddBooking = () => { setEditingBooking(null); setBookingDialogOpen(true); };
+  const handleEditBooking = (b: any) => { setEditingBooking(b); setBookingDialogOpen(true); };
+  const handleDeleteBooking = async (b: any) => {
+    if (!window.confirm("この予約を削除しますか？")) return;
+    try {
+      await api.delete(`/studios/bookings/${b.id}`);
+      qc.invalidateQueries({ queryKey: ["project-studio-bookings", id] });
+      qc.invalidateQueries({ queryKey: ["studio-bookings"] });
+    } catch (e) { console.error(e); }
+  };
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<FormValues>({
     defaultValues: {
@@ -279,12 +303,11 @@ export default function ProjectFormPage() {
     saveMutation.mutate(values, {
       onSuccess: async (res) => {
         const savedProjectId = (res as any)?.id || id;
-        // スタジオ予約を同時作成 (部屋・日程が指定されている場合)
-        if ((scheduleRoomIds.length > 0 || locationNote.trim()) && productionStart) {
+        // 新規案件作成時のみ、入力されたスケジュールから予約を一度だけ作成する。
+        // 編集時はこのフォームから作成しない（案件詳細のスケジュール一覧＋StudioBookingDialogで CRUD）
+        if (!isEdit && (scheduleRoomIds.length > 0 || locationNote.trim()) && productionStart) {
           if (locationNote.trim()) saveLocationNote(locationNote.trim());
           try {
-            // 予約タイトルは「案件名 (YY/MM/DD)」に統一。種別は色で区分するため表記しない
-            // 本番予約
             await api.post("/studios/bookings", {
               title: `${values.name} (${formatShortDate(productionStart)})`,
               booking_type: "performance",
@@ -295,7 +318,6 @@ export default function ProjectFormPage() {
               room_ids: scheduleRoomIds,
               location_note: locationNote.trim() || null,
             });
-            // リハーサル予約
             if (hasRehearsal && rehearsalStart) {
               const rehEnd = rehearsalMultiDay ? rehearsalEnd : rehearsalStart;
               await api.post("/studios/bookings", {
@@ -359,6 +381,14 @@ export default function ProjectFormPage() {
         )}
         {isEdit && project?.code && (
           <span className="text-sm font-mono text-muted-foreground">{project.gls_number || project.code}</span>
+        )}
+        {isEdit && id && (
+          <ProjectQuickLinks
+            projectId={id}
+            projectName={watch("name") || project?.name}
+            currentPage="project"
+            className="ml-auto"
+          />
         )}
       </div>
 
@@ -674,6 +704,62 @@ export default function ProjectFormPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* 編集モード: 既存の studio_bookings を一覧表示 (単一ソース) */}
+            {isEdit && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm">登録済みの予約</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={handleAddBooking}>
+                    <Plus className="mr-1 h-3 w-3" />
+                    予約を追加
+                  </Button>
+                </div>
+                {projectBookings.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-2">
+                    この案件に紐づく予約はまだありません
+                  </p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {projectBookings.map((b: any) => {
+                      const typeLabel = b.booking_type === 'performance' ? '本番'
+                        : b.booking_type === 'rehearsal' ? 'リハーサル'
+                        : b.booking_type === 'hold' ? '仮押さえ'
+                        : b.booking_type;
+                      const dateDisp = formatShortDate(b.start_time);
+                      const roomNames = (b.rooms ?? []).map((r: any) => r.room_name).join(' / ');
+                      return (
+                        <div
+                          key={b.id}
+                          className="flex items-center gap-2 rounded border p-2 hover:bg-accent/50 cursor-pointer"
+                          onClick={() => handleEditBooking(b)}
+                        >
+                          <Badge variant="outline" className="shrink-0">{typeLabel}</Badge>
+                          <div className="flex-1 min-w-0 text-sm truncate">
+                            <span className="font-medium">{dateDisp}</span>
+                            {roomNames && <span className="ml-2 text-muted-foreground">{roomNames}</span>}
+                            {b.location_note && <span className="ml-2 text-muted-foreground">{b.location_note}</span>}
+                          </div>
+                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); handleEditBooking(b); }}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteBooking(b); }}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  以下の入力欄は新規作成時に使用します。編集時は上の「予約を追加」からスタジオ予約を直接管理してください
+                </p>
+              </div>
+            )}
+            {!isEdit && (
+              <p className="text-xs text-muted-foreground">
+                以下を入力すると、案件登録時にスタジオ予約も同時に作成されます（後から個別に編集・追加可能）
+              </p>
+            )}
             {/* 部屋選択 */}
             <div>
               <Label className="mb-2 block">使用する部屋・空間</Label>
@@ -1248,6 +1334,21 @@ export default function ProjectFormPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* スタジオ予約ダイアログ (編集モード) */}
+      {isEdit && id && (
+        <StudioBookingDialog
+          open={bookingDialogOpen}
+          onOpenChange={(v) => {
+            setBookingDialogOpen(v);
+            if (!v) setEditingBooking(null);
+          }}
+          locations={studioLocations as any}
+          editingBooking={editingBooking}
+          presetDate={null}
+          presetProjectId={id}
+        />
+      )}
     </div>
     </PageTransition>
   );

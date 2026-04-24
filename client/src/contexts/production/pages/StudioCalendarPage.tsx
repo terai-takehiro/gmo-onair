@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
+import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -127,6 +128,9 @@ function useIsMobile(breakpoint = 640) {
 export default function StudioCalendarPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const filterProjectId = searchParams.get("project_id") || "";
+  const filterProjectName = searchParams.get("project_name") || "";
   const qc = useQueryClient();
   const isMobile = useIsMobile(1024);
   const calendarRef = useRef<any>(null);
@@ -189,11 +193,11 @@ export default function StudioCalendarPage() {
   })();
   // Fetch bookings
   const { data: bookingsData, isLoading: bookingsLoading } = useQuery({
-    queryKey: ["studio-bookings", dateRange.from, dateRange.to],
+    queryKey: ["studio-bookings", dateRange.from, dateRange.to, filterProjectId],
     queryFn: async () => {
-      const res = await api.get("/studios/bookings", {
-        params: { from: dateRange.from, to: dateRange.to },
-      });
+      const params: Record<string, string> = { from: dateRange.from, to: dateRange.to };
+      if (filterProjectId) params.project_id = filterProjectId;
+      const res = await api.get("/studios/bookings", { params });
       return res.data.data;
     },
   });
@@ -416,8 +420,26 @@ export default function StudioCalendarPage() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <h1 className="text-xl lg:text-2xl font-bold">スタジオ予約</h1>
-          <p className="hidden sm:block text-sm text-muted-foreground">カレンダーをタップして予約を追加</p>
+          {filterProjectId && filterProjectName ? (
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-sm text-muted-foreground">
+                絞り込み: <span className="font-medium text-foreground">{filterProjectName}</span>
+              </span>
+              <Button variant="ghost" size="sm" className="h-5 px-1.5 text-xs" onClick={() => navigate("/studio/calendar")}>
+                解除
+              </Button>
+            </div>
+          ) : (
+            <p className="hidden sm:block text-sm text-muted-foreground">カレンダーをタップして予約を追加</p>
+          )}
         </div>
+        {filterProjectId && (
+          <ProjectQuickLinks
+            projectId={filterProjectId}
+            projectName={filterProjectName}
+            currentPage="calendar"
+          />
+        )}
         <div className="flex flex-wrap gap-1.5 sm:gap-2">
           <Button
             variant={filterOpen ? "default" : "outline"}
