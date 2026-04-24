@@ -404,33 +404,34 @@ export default function EquipmentListPage() {
     return map;
   }, [customValuesData]);
 
+  // ローカル pending state: クリック直後に即時UI反映するためのバッファ
+  // サーバー往復 + React Query invalidate を待つと反応が遅れて見えるため、
+  // mutation が settled するまでこの値を優先表示する
+  const [pendingValues, setPendingValues] = useState<Record<string, string>>({});
+  const pendingKey = (equipmentId: string, columnId: string) => `${equipmentId}::${columnId}`;
+
   const customValueMutation = useMutation({
     mutationFn: ({ equipmentId, columnId, value }: { equipmentId: string; columnId: string; value: string }) =>
       api.put(`/equipment/custom-values/${columnId}/${equipmentId}`, { value }),
-    // Optimistic update: 即座にUI反映してから確定するため、クリック→反応なしを回避
-    onMutate: async ({ equipmentId, columnId, value }) => {
-      await qc.cancelQueries({ queryKey: ['equipment-custom-values'] });
-      const entries = qc.getQueriesData<any[]>({ queryKey: ['equipment-custom-values'] });
-      const snapshots: Array<[readonly unknown[], any]> = [];
-      for (const [key, data] of entries) {
-        if (!Array.isArray(data)) continue;
-        snapshots.push([key, data]);
-        const existingIdx = data.findIndex(r => r.equipment_id === equipmentId && r.column_id === columnId);
-        const nextData = existingIdx >= 0
-          ? data.map((r, i) => i === existingIdx ? { ...r, value } : r)
-          : [...data, { equipment_id: equipmentId, column_id: columnId, value }];
-        qc.setQueryData(key, nextData);
-      }
-      return { snapshots };
+    onSettled: (_data, _err, vars) => {
+      qc.invalidateQueries({ queryKey: ['equipment-custom-values'] });
+      // サーバー同期後にローカル pending を削除 → サーバー値で表示される
+      setPendingValues(prev => {
+        const key = pendingKey(vars.equipmentId, vars.columnId);
+        if (!(key in prev)) return prev;
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
     },
-    onError: (_err, _vars, context) => {
-      if (!context?.snapshots) return;
-      for (const [key, data] of context.snapshots) {
-        qc.setQueryData(key, data);
-      }
-    },
-    onSettled: () => qc.invalidateQueries({ queryKey: ['equipment-custom-values'] }),
   });
+
+  const writeCustomValue = (equipmentId: string, columnId: string, value: string) => {
+    // 1. 即座にローカル state を更新して UI を反映
+    setPendingValues(prev => ({ ...prev, [pendingKey(equipmentId, columnId)]: value }));
+    // 2. 裏でサーバーに保存
+    customValueMutation.mutate({ equipmentId, columnId, value });
+  };
 
   // 新規カスタム列が追加されたら自動で表示ONにする
   // 「ユーザーが明示的に非表示にした列」と「まだ見たことがない新列」を区別するため、
@@ -732,12 +733,14 @@ export default function EquipmentListPage() {
 
   const renderCustomCells = (item: any, py: string) =>
     orderedCustomCols.filter(c => visibleCustomCols.has(c.id)).map(col => {
-      const val = customValues[item.id]?.[col.id] ?? '';
+      // ローカル pending を最優先 → サーバー値 → 空
+      const pk = pendingKey(item.id, col.id);
+      const val = pendingValues[pk] ?? customValues[item.id]?.[col.id] ?? '';
       const isEditing = editingCustomCell?.equipmentId === item.id && editingCustomCell?.columnId === col.id;
       const startEdit = (e: React.MouseEvent) => { e.stopPropagation(); setEditingCustomCell({ equipmentId: item.id, columnId: col.id }); };
       const commitEdit = (newVal: string) => {
         setEditingCustomCell(null);
-        if (newVal !== val) customValueMutation.mutate({ equipmentId: item.id, columnId: col.id, value: newVal });
+        if (newVal !== val) writeCustomValue(item.id, col.id, newVal);
       };
 
       if (col.col_type === 'checkbox') {
@@ -748,7 +751,7 @@ export default function EquipmentListPage() {
               type="checkbox"
               className="h-4 w-4 cursor-pointer"
               checked={checked}
-              onChange={e => customValueMutation.mutate({ equipmentId: item.id, columnId: col.id, value: e.target.checked ? 'true' : 'false' })}
+              onChange={e => writeCustomValue(item.id, col.id, e.target.checked ? 'true' : 'false')}
             />
           </td>
         );
