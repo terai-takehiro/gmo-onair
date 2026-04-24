@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/platform/AuthContext";
+import { RedirectOnce } from "@gmo-onair/shared/src/client/RedirectOnce";
 import AppShell from "@/components/layout/AppShell";
 import PermissionRoute from "@/components/layout/PermissionRoute";
 import { Loader2 } from "lucide-react";
@@ -55,7 +56,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <RedirectOnce to="/login" />;
   }
 
   return <>{children}</>;
@@ -76,7 +77,7 @@ function AppRoutes() {
     <Routes>
       <Route
         path="/login"
-        element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />}
+        element={isAuthenticated ? <RedirectOnce to="/" /> : <LoginPage />}
       />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
       <Route path="/auth/accept-invitation" element={<AcceptInvitationPage />} />

@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.3.0 — HomePage を「今日対応すべきこと」ファーストの IA に再設計
+v2.3.1 — `<Navigate replace />` を `<RedirectOnce />` に置換し replaceState 暴走を根本解決
 
 ## ブランチ運用
 - **本番デプロイ**: `main` ブランチへの push で auto-deploy webhook が発火

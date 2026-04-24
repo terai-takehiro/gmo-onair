@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.3.0 — HomePage を IA レベルでデジタル庁ガイドラインに沿って再設計
+**現在のバージョン**: v2.3.1 — replaceState 暴走の根本解決
 
 ---
 
@@ -383,6 +383,8 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.3.1** | 計時LIVE・インタラクティブで再発していた `SecurityError: history.replaceState() more than 100 times per 10 seconds` の**根本原因を特定・解決**。react-router v6 の `<Navigate replace />` は内部 useEffect の依存配列に `navigate` を含み、`useNavigate()` が返す関数参照は `locationPathname` 等を依存に持つため、replaceState で URL が変わる → `navigate` 参照更新 → useEffect 再発火 → replaceState…の無限ループになっていた。v2.1.2 の LoginPage 側の useEffect 修正だけでは不十分で、`<Navigate>` コンポーネント自体も同じ問題を抱えていた。`useRef` ガード付き `shared/src/client/RedirectOnce.tsx` を新設し、全6アプリの App ルーター (ProtectedRoute 未認証リダイレクト・ログイン済み時の / リダイレクト・wildcard) の `<Navigate replace />` を置換 |
+| **v2.3.0** | **HomePage を IA レベルで再設計**。デジタル庁ダッシュボードガイドブックの 4 原則に沿い、トップページを「アプリランチャー中心」から「今日対応すべきこと→主要指標(前月比付き)→スケジュール→アプリ起動」という情報階層に変更。KpiCard に前月比トレンドを `monthly-chart` API から計算して付与、各 KPI からドリルダウンリンク、最終更新表示、全項目に aria-label / role を付与 |
 | **v2.2.1** | dev デプロイの Docker ビルドが `--no-cache` 無しのためソース変更が反映されないケースがあった (本番側は v1.x で `--no-cache` 化済み)。dev も `--no-cache` を追加し、毎回フルビルドするように。これにより v2.1.2 (replaceState ループ修正) と v2.2.0 (SSO) がようやく dev に正しく反映される |
 | **v2.2.0** | **全アプリ SSO 化**: 5 つのサブアプリ (Qシート/機材/インタラクティブ/技術資料/計時LIVE) が個別の localStorage キー (`qs_user`, `eq_user`, `is_user`, `ts_user`, `lv_user`) を保持していたため、メインアプリでログインしてもサブアプリで再ログインを要求されていた。全アプリの `storageKey` を `gmo_onair_user` に統一し、JWT (`gmo_onair_token`) と合わせてシングルサインオン化。`createAuthHook` に `legacyStorageKeys` オプションを追加し、初回起動時に旧キーから新キーへワンショット移行。**dev Basic 認証**: `dev.gmo-onair.jp` の `/api/` と `/socket.io/` から `auth_basic off` を設定し、XHR/WebSocket 経由の Basic 認証ダイアログ暴発を抑止 (JWT で保護されているため安全)。HTML/静的アセットの Basic 認証は維持 |
 | **v2.1.2** | 計時LIVE / インタラクティブの LoginPage、AuthCallback、TimerDisplay で `useEffect` が `useSearchParams()` の不安定な参照に依存しており、`navigate(..., { replace: true })` が高頻度で呼ばれて Firefox/Safari の `SecurityError: history.replaceState() more than 100 times per 10 seconds` を発生させていた。`useRef` ガード + 文字列値ベースの依存配列に変更し、各効果が一度だけ走るように |
