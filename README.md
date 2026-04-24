@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v1.2.11
+**現在のバージョン**: v2.0.0 — デジタル庁デザインシステム (DADS v2.13) ベースへ全面リニューアル
 
 ---
 
@@ -383,6 +383,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.0.0** | **デジタル庁デザインシステム (DADS v2.13) ベースへ全面リニューアル**。`@digital-go-jp/design-tokens` + `@digital-go-jp/tailwind-theme-plugin` (MIT) を導入。`shared/src/client/tokens.css` に DADS プリミティブ + GMO Blue (#005bac) セマンティック層を統合。UI プリミティブ 12 種 (Button/Input/Label/Card/Badge/Dialog/Select/Checkbox/Switch/Tabs/Textarea/Separator) を `shared/src/client/ui/` に集約し 6 アプリを再エクスポート化。WCAG 2.2 AA 準拠のフォーカスリング・44px タップ領域・セマンティックトークンで統一。client-qsheet の primary 上書き (#2563eb) を撤廃。ファビコン / GMO ONAiR ロゴは継続利用 |
 | v1.2.11 | Qシート 6件の機能追加/バグ修正: ①LED/XR・照明列追加 ②エントリ単位の削除 ③ゴミ箱UI（ロール/行/エントリ復元） ④フキダシ初回1文字入力消失を修正（IME対応） ⑤VTR挿入 ⑥エントリ単位の画像添付 |
 | v1.2.10 | 連携強化フェーズ1（バグ修正パック）: スタジオ予約タイトルを「案件名 (YY/MM/DD)」に統一／案件検索にクライアント側フィルタ併用＋keepPreviousDataでちらつき抑制／カレンダー連携コピーボタンを flex-wrap でモバイル枠外防止／料金表Pickerを連続選択モードに改修／仕入に編集・削除UI／売上ダイアログに削除ボタン |
 | v1.2.9 | 売上明細ダイアログに「料金表から追加」ボタンを追加し、明細行を料金表マスター項目に直接紐付け可能に（案件の `customer_type` に応じて定価／グループ内価格を自動適用） |

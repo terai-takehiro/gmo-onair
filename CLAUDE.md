@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v1.2.11
+v2.0.0 — デジタル庁デザインシステム (DADS v2.13) ベースへ全面リニューアル
 
 ## ブランチ運用
 - **本番デプロイ**: `main` ブランチへの push で auto-deploy webhook が発火
@@ -201,6 +201,17 @@ EventStampをReact化してONAiRに統合。
 - [x] shared/src/client/ にファクトリ関数集約
 - [x] 4クライアントアプリのリファクタリング (576行削減)
 - [x] 全アプリ型チェック通過
+
+### DONE: v2.0.0 — デジタル庁デザインシステム (DADS) 全面リニューアル
+GMO ONAiR 全アプリを DADS v2.13 相当の設計思想・トークン・アクセシビリティ水準 (WCAG 2.2 AA) に統合。
+- [x] `@digital-go-jp/design-tokens` + `@digital-go-jp/tailwind-theme-plugin` (MIT) を導入
+- [x] `shared/src/client/tokens.css` を新設。DADS プリミティブ + GMO Blue (#005bac) セマンティック層
+- [x] `shared/tailwind.preset.ts` に共通プリセット。全 6 アプリが継承
+- [x] `shared/src/client/ui/` に UI プリミティブ 12 種を集約 (Button/Input/Label/Card/Badge/Dialog/Select/Checkbox/Switch/Tabs/Textarea/Separator)
+- [x] 6 アプリの `components/ui/` を shared 再エクスポートに置換
+- [x] `client-qsheet` の primary 上書き (#2563eb) を撤廃
+- [x] ファビコン / GMO ONAiR ロゴは継続利用 (ブランド資産は保持)
+- [x] 全アプリ型チェック & ビルド通過
 
 ### LATER: 制作支援アプリ (ProdSheet) — 未着手
 スケジュール・スタッフ配置・ケータリング・連絡先等の制作進行支援。TechSheetと連携。

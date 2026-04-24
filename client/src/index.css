@@ -1,4 +1,5 @@
-@import '@gmo-onair/shared/src/client/design-tokens.css';
+/* GMO ONAiR 案件管理 v2.0 — DADS-based tokens from shared */
+@import '@gmo-onair/shared/src/client/tokens.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -21,116 +22,22 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  :root {
-    /* GMO ONAiR Warm Design System — GMO Blue + Warm Neutrals */
-    --background: 40 20% 96%;        /* #f7f6f3 Warm Ivory */
-    --foreground: 60 6% 11%;         /* #1c1c1a Warm Near Black */
-
-    --card: 40 25% 99%;              /* #fdfcfa Soft Ivory */
-    --card-foreground: 60 6% 11%;
-
-    --popover: 40 25% 99%;
-    --popover-foreground: 60 6% 11%;
-
-    --primary: 209 100% 34%;         /* #005bac GMO Blue */
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 43 15% 88%;         /* #e8e6de Warm Sand */
-    --secondary-foreground: 48 4% 28%; /* #4a4945 Warm Charcoal */
-
-    --muted: 43 15% 88%;
-    --muted-foreground: 48 3% 35%;   /* #5c5b57 Warm Olive */
-
-    --accent: 43 15% 88%;
-    --accent-foreground: 48 4% 28%;
-
-    --destructive: 0 55% 46%;        /* #b53333 Deep Red */
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 40 18% 91%;            /* #edebe5 Warm Border */
-    --input: 43 15% 88%;
-    --ring: 209 100% 34%;
-
-    --radius: 0.5rem;
-
-    --chart-1: 209 100% 34%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-
-    --sidebar-background: 40 25% 99%;
-    --sidebar-foreground: 48 3% 35%;
-    --sidebar-primary: 209 100% 34%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 43 15% 88%;
-    --sidebar-accent-foreground: 48 4% 28%;
-    --sidebar-border: 40 18% 91%;
-    --sidebar-ring: 209 100% 34%;
-  }
-
-  .dark {
-    --background: 60 6% 11%;         /* #1c1c1a Warm Dark */
-    --foreground: 43 7% 69%;         /* #b5b3ab Warm Silver */
-
-    --card: 60 4% 18%;               /* #2e2e2c Dark Card */
-    --card-foreground: 43 7% 69%;
-
-    --popover: 60 4% 18%;
-    --popover-foreground: 43 7% 69%;
-
-    --primary: 209 100% 44%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 60 4% 18%;
-    --secondary-foreground: 43 7% 69%;
-
-    --muted: 60 4% 18%;
-    --muted-foreground: 44 3% 53%;   /* #8a8983 Stone */
-
-    --accent: 60 4% 18%;
-    --accent-foreground: 43 7% 69%;
-
-    --destructive: 0 55% 40%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 60 4% 18%;
-    --input: 60 4% 18%;
-    --ring: 209 100% 44%;
-
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-
-    --sidebar-background: 60 6% 11%;
-    --sidebar-foreground: 43 7% 69%;
-    --sidebar-primary: 209 100% 44%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 60 4% 18%;
-    --sidebar-accent-foreground: 43 7% 69%;
-    --sidebar-border: 60 4% 18%;
-    --sidebar-ring: 209 100% 44%;
-  }
-}
-
-@layer base {
   * {
     @apply border-border;
   }
   html {
-    font-family: 'Noto Sans JP', sans-serif;
+    font-family: var(--font-sans);
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Noto Sans JP', -apple-system, 'Hiragino Sans', sans-serif;
-    font-size: 15px;
-    line-height: 1.75;
-    letter-spacing: 0.02em;
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--line-height-jp);
+    letter-spacing: var(--letter-spacing-jp);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
   /* 日付入力のモバイル表示修正 */
   input[type="date"],
   input[type="time"],
@@ -138,18 +45,19 @@
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
-    min-height: 2.5rem;
+    min-height: 2.75rem;
     line-height: 1.5;
   }
 }
 
-/* FullCalendar — stacking context isolation (AppSwitcher z-99999 must paint above) */
+/* ==========================================================================
+ * FullCalendar — stacking isolation + responsive overrides
+ * ========================================================================== */
 .studio-calendar {
   isolation: isolate;
   position: relative;
 }
 
-/* FullCalendar responsive overrides */
 .studio-calendar .fc .fc-toolbar {
   flex-wrap: wrap;
   gap: 0.5rem;
@@ -195,7 +103,6 @@
   .studio-calendar .fc .fc-button-group .fc-button {
     padding: 0.3rem 0.45rem;
   }
-  /* 月表示 — コンパクト */
   .studio-calendar .fc .fc-daygrid-event {
     font-size: 0.625rem;
     padding: 1px 3px;
@@ -218,7 +125,6 @@
     font-size: 0.75rem;
     padding: 2px 4px;
   }
-  /* 日表示 — 見やすく */
   .studio-calendar .fc .fc-timegrid-slot {
     height: 2.5rem;
   }
@@ -237,7 +143,6 @@
     font-size: 0.625rem;
     opacity: 0.85;
   }
-  /* 一覧表示 — タップしやすく */
   .studio-calendar .fc .fc-list-event {
     font-size: 0.8125rem;
   }
@@ -250,70 +155,27 @@
   }
 }
 
-/* Warm Design System — Typography utilities */
-.heading-page {
-  font-family: 'Noto Sans JP', sans-serif;
-  font-weight: 700;
-  line-height: 1.20;
-  letter-spacing: 0.01em;
-}
-.heading-section {
-  font-family: 'Noto Sans JP', sans-serif;
-  font-weight: 600;
-  line-height: 1.25;
-}
-.heading-card {
-  font-family: 'Noto Sans JP', sans-serif;
-  font-weight: 600;
-  line-height: 1.30;
-}
-
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
-
 @keyframes slideInRight {
   from { opacity: 0; transform: translateX(-20px); }
   to { opacity: 1; transform: translateX(0); }
 }
-
 @keyframes countUp {
   from { opacity: 0; transform: scale(0.8); }
   to { opacity: 1; transform: scale(1); }
 }
 
-/* ── AppSwitcher animation ─────────────────────── */
-@keyframes switcher-in {
-  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
-}
-.animate-switcher-in { animation: switcher-in 0.2s ease-out both; }
-
-/* ── Page enter animation ──────────────────────── */
-@keyframes page-enter {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.page-enter { animation: page-enter 0.3s ease-out both; }
-
-/* ── Card hover lift ───────────────────────────── */
-.card-hover {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-}
-
-/* ============================================================
+/* ==========================================================================
  * デジタルサイネージ (楽屋/会議室入口)
- * ============================================================ */
+ * ========================================================================== */
 .signage-container {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  font-family: 'Noto Sans JP', sans-serif;
+  font-family: var(--font-sans);
   color: #fff;
   padding: 3vw;
   justify-content: center;
@@ -412,7 +274,7 @@
   margin-top: 3vh;
 }
 
-/* Tentative (未確定) studio booking style */
+/* Tentative (未確定) studio booking */
 .tentative-booking .fc-event-main,
 .tentative-booking {
   font-style: italic;
