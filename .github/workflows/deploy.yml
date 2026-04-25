@@ -52,7 +52,13 @@ jobs:
             docker compose stop app_dev || true
             docker compose rm -f app_dev || true
             docker compose up -d --no-deps app_dev
-            # nginx を再作成 (volume マウント変更を反映)
+            # v2.5.0: dev ブランチの nginx config / docker-compose.yml の変更を main worktree に反映してから
+            # nginx を再起動する。dev branch を /root/gmo-onair (main worktree) にコピーすることで、
+            # nginx の volume マウント (相対パス ./nginx/gmo-onair.conf) が dev 版の設定を読む。
+            # 次回 prod デプロイ時の git reset --hard origin/main で自動的に main 側に戻る。
+            cp /root/gmo-onair-dev/nginx/gmo-onair.conf /root/gmo-onair/nginx/gmo-onair.conf
+            cp /root/gmo-onair-dev/docker-compose.yml /root/gmo-onair/docker-compose.yml
+            # nginx を再作成 (volume マウント変更 / config 変更を反映)
             docker compose stop nginx || true
             docker compose rm -f nginx || true
             docker compose up -d --no-deps nginx

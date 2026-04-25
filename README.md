@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.5.0 — dev で Basic 認証廃止 + 本番同様 email/password 認証
+**現在のバージョン**: v2.5.1 — deploy ワークフロー修正 (dev branch の nginx config を反映)
 
 ---
 
@@ -383,6 +383,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.5.1** | v2.5.0 で dev nginx の `auth_basic` 撤去を入れたが Basic 認証が出続けた件を修正。原因は `.github/workflows/deploy.yml` の dev デプロイ手順が `cd /root/gmo-onair-dev → reset to dev` の後に `cd /root/gmo-onair → reset to main` してから `docker compose ... nginx` を走らせており、相対パスのボリュームマウント `./nginx/gmo-onair.conf` が **main branch の nginx config** を読んでいたため、dev branch の nginx 変更が永遠に反映されない構造だった。**修正**: nginx restart 直前に `cp /root/gmo-onair-dev/nginx/gmo-onair.conf /root/gmo-onair/nginx/gmo-onair.conf` と `cp .../docker-compose.yml ...` を追加。次回 prod デプロイ時の `git reset --hard origin/main` で自動的に main 側に戻る。これで v2.5.0 の Basic 認証撤去 + AUTH_MODE=password が初めて反映される |
 | **v2.5.0** | **dev で Basic 認証を廃止し、本番同様の email/password 認証に統一**。`server/src/config.ts` に `AUTH_MODE` 環境変数オーバーライドを追加 (NODE_ENV ベースのデフォルトを上書き可能)。`docker-compose.yml` の `app_dev` に `AUTH_MODE: password` を設定し、nginx の dev サーバーブロックから `auth_basic` ディレクティブと htpasswd マウントを撤去。`server/src/shared/db/seed.ts` で dev seed ユーザー (admin + staff1〜5) に password_hash + status='active' を付与 (パスワード "dev1234"、電話番号無しで 2FA をスキップ)。既存 dev DB 向けに `migration 067_dev_passwords.sql` を追加し、password_hash NULL の seed ユーザーをワンショット backfill。dev は `https://dev.gmo-onair.jp/login` から本番と同じメール/パスワード画面でログイン可能に。検索エンジン除けは X-Robots-Tag + robots.txt + noindex meta で継続 |
 | **v2.4.2** | **replaceState 暴走の真の根本原因を解決**。ユーザーがブラウザで再現調査を行い (Chromium で /live ログイン画面 → 「システム管理者」をクリック → タブが反応しなくなり 503 連発)、historyDiagnostic の発火パターンとネットワークログ (/auth/me 401, /users/me/permissions 401, /auth/mode 200, /auth/users 200) から「保護ルートのガード ↔ /login の auto-redirect が同一 tick で逆向きに replace し合うリダイレクトループ」が確定。**真の原因①**: `client-live` / `client-interactive` の LoginPage の `handleLogin` が `login()` を **await せずに** `hardReplace` するため、in-flight の `/auth/mock-login` が abort されて cookie が立たない → 新ページで /auth/me 401 → ループ。**真の原因②**: `createAuthHook` が `loading` の初期値を `(localStorage に user があるなら) false` にしていたため、stale な localStorage の user で「ログイン済み」と即断し、LoginPage の `useEffect (user truthy)` が即 `/` に hardReplace → /auth/me 401 → /login に戻る…が高速ループしていた。**修正**: ① `loading` 初期値を常に `true` にし、`/auth/me` が確定するまで保留 (createAuthHook); ② `LoginPage` の auto-redirect は `loading=false` 完了まで待機 (live/interactive); ③ `handleLogin` を `async` 化して `login()` を `await` (live/interactive); ④ 全 6 アプリの LoginPage の `navigate(..., { replace: true })` を `window.location.replace()` に統一 (replaceState を一切経由しない) |
 | **v2.4.1** | v2.3.1 (`<Navigate replace />` → `<RedirectOnce />`) でも dev で再現していた `SecurityError: history.replaceState() more than 100 times per 10 seconds` の**根本対処**: ① `shared/src/client/historyDiagnostic.ts` を新設し全6アプリの `main.tsx` 最上部で `installHistoryDiagnostic()` を実行 — `history.replaceState` を monkey-patch し、10秒で30回呼ばれたら警告+スタックトレースをコンソールに出力、80回でハード上限阻止 (ブラウザ SecurityError を未然に防ぐ); ② `RedirectOnce` を強化 — モジュールレベル WeakMap で「同一 URL への 500ms 以内の連発」を抑制 + 200ms 経っても URL が変わらない場合 `window.location.replace` にフォールバック; ③ 計時LIVE / インタラクティブの LoginPage の post-login ナビゲーションを全て `window.location.replace()` (hard navigation) に切替 — react-router の navigate(replace) を回避 |
