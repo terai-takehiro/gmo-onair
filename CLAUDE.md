@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.4.2 — replaceState 暴走の真の根本原因を解決 (login() await + loading guard)
+v2.5.0 — dev で Basic 認証廃止 + 本番同様 email/password 認証に統一
 
 ## ブランチ運用
 - **本番デプロイ**: `main` ブランチへの push で auto-deploy webhook が発火

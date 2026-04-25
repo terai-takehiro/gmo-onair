@@ -14,14 +14,23 @@ if (isProduction) {
   }
 }
 
+// Auth mode: env override > NODE_ENV-based default
+// v2.5.0: dev でも本番同様の email/password 認証を使えるよう AUTH_MODE 環境変数で上書き可能に。
+const explicitAuthMode = (process.env.AUTH_MODE || '').toLowerCase();
+const authMode: 'password' | 'mock' =
+  explicitAuthMode === 'password' ? 'password'
+  : explicitAuthMode === 'mock' ? 'mock'
+  : isProduction ? 'password'
+  : 'mock';
+
 export const config = {
   port: parseInt(process.env.PORT || '3001', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
   isProduction,
   databaseUrl: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/onair_db',
 
-  // Auth mode: 'password' (本番) / 'mock' (開発)
-  authMode: isProduction ? 'password' as const : 'mock' as const,
+  // Auth mode: 'password' (本番) / 'mock' (開発デフォルト) — AUTH_MODE で上書き可能
+  authMode,
 
   // JWT — 本番ではフォールバックなし（上で検証済み）
   jwtSecret: process.env.JWT_SECRET || 'dev-jwt-secret-do-not-use-in-production',

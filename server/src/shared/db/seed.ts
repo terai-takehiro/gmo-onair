@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { initDb, saveDb, closeDb, queryOne, execute } from './connection';
 import { runMigrations } from './migrate';
+import { hashPassword } from '../auth/password';
 
 const USERS = {
   admin: '00000000-0000-0000-0000-000000000001',
@@ -29,15 +30,18 @@ export async function seed() {
   const staffIds = [USERS.staff1, USERS.staff2, USERS.staff3];
 
   // ============================================================
-  // Users
+  // Users — v2.5.0: dev でも password 認証で使えるよう password_hash + status='active' を付与
+  // 共通 dev パスワード: "dev1234" (ログイン用)
+  // 電話番号は付与しない (SMS 2FA 不要)。
   // ============================================================
-  const userSql = `INSERT INTO users (id, name, email, role) VALUES (?, ?, ?, ?)`;
-  await ins(userSql, [USERS.admin, 'システム管理者', 'account@gmo-globalstudio.com', 'system_admin']);
-  await ins(userSql, [USERS.staff1, '佐藤 花子', 'sato@globalstudio.example.com', 'staff']);
-  await ins(userSql, [USERS.staff2, '鈴木 一郎', 'suzuki@globalstudio.example.com', 'staff']);
-  await ins(userSql, [USERS.staff3, '高橋 美咲', 'takahashi@globalstudio.example.com', 'staff']);
-  await ins(userSql, [USERS.staff4, '田中 健二', 'tanaka@globalstudio.example.com', 'staff']);
-  await ins(userSql, [USERS.staff5, '山田 太郎', 'yamada@globalstudio.example.com', 'staff']);
+  const devPasswordHash = await hashPassword('dev1234');
+  const userSql = `INSERT INTO users (id, name, email, role, password_hash, status) VALUES (?, ?, ?, ?, ?, 'active')`;
+  await ins(userSql, [USERS.admin, 'システム管理者', 'account@gmo-globalstudio.com', 'system_admin', devPasswordHash]);
+  await ins(userSql, [USERS.staff1, '佐藤 花子', 'sato@globalstudio.example.com', 'staff', devPasswordHash]);
+  await ins(userSql, [USERS.staff2, '鈴木 一郎', 'suzuki@globalstudio.example.com', 'staff', devPasswordHash]);
+  await ins(userSql, [USERS.staff3, '高橋 美咲', 'takahashi@globalstudio.example.com', 'staff', devPasswordHash]);
+  await ins(userSql, [USERS.staff4, '田中 健二', 'tanaka@globalstudio.example.com', 'staff', devPasswordHash]);
+  await ins(userSql, [USERS.staff5, '山田 太郎', 'yamada@globalstudio.example.com', 'staff', devPasswordHash]);
 
   // ============================================================
   // User Permissions (system_admin bypasses checks, so only non-admin users)
