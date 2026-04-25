@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { generateSequenceNumber, generateGlsNumber } from '../../../shared/services/sequence.service';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { createProjectFolderTree } from './box-folder.service';
 
 export interface ProjectFilter {
   search?: string;
@@ -222,6 +223,20 @@ export class ProjectService {
 
     // 概算見積を確定売上に変換
     await this.migrateEstimates(id, glsNumber);
+
+    // BOX フォルダを自動作成して URL を案件に保存 (失敗しても GLS 発番自体はブロックしない)
+    try {
+      const folder = await createProjectFolderTree(glsNumber, project.name as string);
+      if (folder) {
+        const urlColumn = project.customer_type === 'internal' ? 'box_url_internal' : 'box_url_external';
+        await execute(
+          `UPDATE projects SET ${urlColumn}=?, updated_at=NOW() WHERE id=?`,
+          [folder.folderUrl, id],
+        );
+      }
+    } catch (err) {
+      console.warn('[issueGls] BOX folder creation failed:', (err as Error).message);
+    }
 
     return this.getById(id);
   }

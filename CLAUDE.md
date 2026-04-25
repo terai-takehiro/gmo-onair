@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.6.12 — Phase 2 完了: CrudFormDialog primitive 導入 + EquipmentListPage 非移行を文書化
+v2.7.0 — Phase 4 着手: BOX SDK 導入 + GLS 発番時に案件フォルダを自動作成
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)
