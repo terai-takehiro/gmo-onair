@@ -32,11 +32,12 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.5.2 — workflow 順序修正 + サブアプリ LoginPage を SSO redirect-only に統一
+v2.5.3 — ブランチ運用を main + dev の 2 本に簡素化 (master / claude/* / *-reference 廃止)
 
 ## ブランチ運用
-- **本番デプロイ**: `main` ブランチへの push で auto-deploy webhook が発火
-- **master ブランチ**: `main` の内容を定期的に同期するミラーブランチ（`master ← main` の PR で同期）
+- **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)
+- **本番デプロイ**: `main` ブランチへの push で GitHub Actions が auto-deploy
+- **検証デプロイ**: `dev` ブランチへの push で GitHub Actions が auto-deploy
 - **バージョン管理**: インクリメンタル（v1.1.93, v1.1.94...）、大きくジャンプしない
 - **バージョン更新ルール**: プッシュする際は必ずパッチバージョンを上げる（例: v1.1.94 → v1.1.95）。以下の全箇所を同時に更新すること:
   1. `CLAUDE.md` の「現在のバージョン」

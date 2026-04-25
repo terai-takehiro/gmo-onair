@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.5.2 — サブアプリ LoginPage を SSO redirect-only に統一
+**現在のバージョン**: v2.5.3 — ブランチ運用を main + dev の 2 本に簡素化
 
 ---
 
@@ -383,6 +383,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.5.3** | GitHub のブランチを `main` (本番) と `dev` (検証) の 2 本だけに簡素化。これまで `master` (CLAUDE.md でミラーとされていたが運用されていなかった) / `eventstamp-reference` / `qsheet-reference` (旧アプリのソース、dev に merge 済み) / 過去セッションの `claude/*` 16 本 (12 マージ済み + 4 古い WIP) が累積していたのを全廃止。CLAUDE.md のブランチ運用節を「main + dev の 2 本のみ」と簡潔化。実際のリモート削除と GitHub default branch の `master` → `main` 切替えはユーザーが GitHub UI / git CLI 側で実施 (sandbox 環境からは git proxy が `--delete` を 403 拒否するため不可能だった) |
 | **v2.5.2** | v2.5.1 でも「サブアプリ単位でユーザー選択(モック)が出続ける」「インタラクティブ・計時LIVE のダッシュボードに辿り着けない」と報告。原因は 3 重: ① deploy workflow の `cp docker-compose.yml` が `app_dev` 再起動の **後** だったため `AUTH_MODE=password` が app_dev に反映されず `/auth/mode` が 'mock' を返していた。② 5 サブアプリの LoginPage に mock UI のカード描画ロジックが dead code として残置。③ `liveops/socket.ts` のコメントが mock 前提のミスリード。**修正**: ① workflow 順序: `cp` を `docker compose build app_dev` の **前** に移動。② 5 サブアプリ (live/interactive/qsheet/equipment/techsheet) の `LoginPage.tsx` を `shared/SubAppLoginRedirect.tsx` を呼ぶだけの redirect-only コンポーネントに書き換え (既ログイン → `/<app>/` ; 未ログイン → `/login?redirect=/<app>/`)。これで mock UI / OAuth UI / `/auth/users` 取得 / `/auth/mock-login` などが完全に消滅。③ `liveops/socket.ts` のコメントを修正 (dev も `password` 認証に統一されたため) |
 | **v2.5.1** | v2.5.0 で dev nginx の `auth_basic` 撤去を入れたが Basic 認証が出続けた件を修正。原因は `.github/workflows/deploy.yml` の dev デプロイ手順が `cd /root/gmo-onair-dev → reset to dev` の後に `cd /root/gmo-onair → reset to main` してから `docker compose ... nginx` を走らせており、相対パスのボリュームマウント `./nginx/gmo-onair.conf` が **main branch の nginx config** を読んでいたため、dev branch の nginx 変更が永遠に反映されない構造だった。**修正**: nginx restart 直前に `cp /root/gmo-onair-dev/nginx/gmo-onair.conf /root/gmo-onair/nginx/gmo-onair.conf` と `cp .../docker-compose.yml ...` を追加。次回 prod デプロイ時の `git reset --hard origin/main` で自動的に main 側に戻る。これで v2.5.0 の Basic 認証撤去 + AUTH_MODE=password が初めて反映される |
 | **v2.5.0** | **dev で Basic 認証を廃止し、本番同様の email/password 認証に統一**。`server/src/config.ts` に `AUTH_MODE` 環境変数オーバーライドを追加 (NODE_ENV ベースのデフォルトを上書き可能)。`docker-compose.yml` の `app_dev` に `AUTH_MODE: password` を設定し、nginx の dev サーバーブロックから `auth_basic` ディレクティブと htpasswd マウントを撤去。`server/src/shared/db/seed.ts` で dev seed ユーザー (admin + staff1〜5) に password_hash + status='active' を付与 (パスワード "dev1234"、電話番号無しで 2FA をスキップ)。既存 dev DB 向けに `migration 067_dev_passwords.sql` を追加し、password_hash NULL の seed ユーザーをワンショット backfill。dev は `https://dev.gmo-onair.jp/login` から本番と同じメール/パスワード画面でログイン可能に。検索エンジン除けは X-Robots-Tag + robots.txt + noindex meta で継続 |
