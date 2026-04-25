@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { queryAll, queryOne } from '../../../shared/db/connection';
 import { requireAuth, requireRole, requirePermission } from '../../../shared/middleware/auth';
+import { paginatedResponse } from '../../../shared/services/pagination';
 
 const router = Router();
 
@@ -81,12 +82,8 @@ router.get('/tables/:name', requireRole('system_admin'), async (req, res) => {
   const total = (totalRow?.c as number) || 0;
   const rows = await queryAll(`SELECT * FROM ${quotedTable} ${where} ORDER BY ${quoteIdent(safeSort)} ${order} LIMIT ? OFFSET ?`, [...params, limit, offset]);
 
-  res.json({
-    success: true,
-    data: rows,
-    columns: validColumns,
-    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-  });
+  // columns は data-viewer 固有の追加情報。pagination は paginatedResponse() で標準化
+  res.json({ ...paginatedResponse(rows, total, page, limit), columns: validColumns });
 });
 
 // GET /data-viewer/tables/:name/export - CSV export

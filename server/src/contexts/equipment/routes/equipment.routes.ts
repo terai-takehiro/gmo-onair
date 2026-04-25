@@ -3,6 +3,11 @@ import { v4 as uuid } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
+import { paginatedResponse } from '../../../shared/services/pagination';
+import {
+  EQUIPMENT_LENDING_STATUS, EQUIPMENT_STATUS,
+  MAINTENANCE_STATUS, INVENTORY_STATUS,
+} from '../../../shared/constants/statuses';
 
 const router = Router();
 
@@ -257,7 +262,7 @@ router.get('/items', async (req: Request, res: Response) => {
       SELECT DISTINCT ON (equipment_id)
         id, equipment_id, borrower_name, project_id, lent_at, due_date
       FROM equipment_lendings
-      WHERE equipment_id = ANY($1::text[]) AND status = 'lent'
+      WHERE equipment_id = ANY($1::text[]) AND status = '${EQUIPMENT_LENDING_STATUS.LENT}'
       ORDER BY equipment_id, lent_at DESC
     `, [lendableIds]) as any[];
     const lendingMap = new Map(lendingRows.map(l => [l.equipment_id, l]));
@@ -268,7 +273,13 @@ router.get('/items', async (req: Request, res: Response) => {
     }
   }
 
-  res.json({ success: true, data: rows, meta: { total: countRow?.total || 0 } });
+  // Phase 3 (v2.6.6): {data, meta:{total}} → paginatedResponse() に正規化
+  // limit/offset から page を逆算する (このエンドポイントは page ではなく limit/offset を直接受ける旧 API)
+  const limitNum = limit ? Number(limit) : 0;
+  const offsetNum = offset ? Number(offset) : 0;
+  const pageNum = limitNum > 0 ? Math.floor(offsetNum / limitNum) + 1 : 1;
+  const totalNum = Number(countRow?.total ?? 0);
+  res.json(paginatedResponse(rows, totalNum, pageNum, limitNum || totalNum || 1));
 });
 
 // CSV Export (must be before /items/:id to avoid route conflict)
@@ -622,7 +633,7 @@ router.post('/lendings', async (req: Request, res: Response, next: NextFunction)
     if (!item) return res.status(404).json({ success: false, error: { message: '機材が見つかりません' } });
 
     const activeLending = await queryOne(
-      "SELECT id FROM equipment_lendings WHERE equipment_id = $1 AND status = 'lent'",
+      `SELECT id FROM equipment_lendings WHERE equipment_id = $1 AND status = '${EQUIPMENT_LENDING_STATUS.LENT}'`,
       [equipment_id]
     );
     if (activeLending) return res.status(400).json({ success: false, error: { message: 'この機材は貸出中です' } });
@@ -630,7 +641,7 @@ router.post('/lendings', async (req: Request, res: Response, next: NextFunction)
     await execute(`
       INSERT INTO equipment_lendings (id, equipment_id, project_id, borrower_name, purpose, lent_at, due_date, condition_out, notes, status, lent_by)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-    `, [id, equipment_id, project_id || null, borrower_name, purpose || null, lent_at, due_date || null, condition_out || null, notes || null, 'lent', (req as any).user?.id || null]);
+    `, [id, equipment_id, project_id || null, borrower_name, purpose || null, lent_at, due_date || null, condition_out || null, notes || null, EQUIPMENT_LENDING_STATUS.LENT, (req as any).user?.id || null]);
     res.status(201).json({ success: true, data: { id } });
   } catch (err: any) {
     console.error('[POST /lendings]', err?.message);
@@ -655,7 +666,7 @@ router.post('/lendings/batch', async (req: Request, res: Response, next: NextFun
       ) as any;
       if (!item) { errors.push(`ID:${equipment_id} が見つかりません`); continue; }
       const activeLending = await queryOne(
-        "SELECT id FROM equipment_lendings WHERE equipment_id = $1 AND status = 'lent'", [equipment_id]
+        `SELECT id FROM equipment_lendings WHERE equipment_id = $1 AND status = '${EQUIPMENT_LENDING_STATUS.LENT}'`, [equipment_id]
       );
       if (activeLending) { errors.push(`${item.name} は既に貸出中です`); continue; }
       const id = uuid();
@@ -663,7 +674,7 @@ router.post('/lendings/batch', async (req: Request, res: Response, next: NextFun
         INSERT INTO equipment_lendings (id, equipment_id, project_id, borrower_name, purpose, lent_at, due_date, condition_out, notes, status, lent_by)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
       `, [id, equipment_id, project_id || null, borrower_name, purpose || null, lent_at,
-          due_date || null, condition_out || null, notes || null, 'lent', (req as any).user?.id || null]);
+          due_date || null, condition_out || null, notes || null, EQUIPMENT_LENDING_STATUS.LENT, (req as any).user?.id || null]);
       createdIds.push(id);
     }
     if (createdIds.length === 0) {
@@ -681,9 +692,9 @@ router.put('/lendings/:id/return', async (req: Request, res: Response, next: Nex
     const { condition_in, notes } = req.body;
     await execute(`
       UPDATE equipment_lendings SET
-        status='returned', returned_at=NOW(), condition_in=$1, notes=COALESCE($2, notes),
+        status='${EQUIPMENT_LENDING_STATUS.RETURNED}', returned_at=NOW(), condition_in=$1, notes=COALESCE($2, notes),
         returned_by=$3, updated_at=NOW()
-      WHERE id=$4 AND status='lent'
+      WHERE id=$4 AND status='${EQUIPMENT_LENDING_STATUS.LENT}'
     `, [condition_in || null, notes || null, (req as any).user?.id || null, req.params.id]);
     res.json({ success: true });
   } catch (err: any) {
@@ -1001,12 +1012,12 @@ router.get('/stats', async (_req: Request, res: Response) => {
   const toInt = (v: any) => parseInt(v?.count ?? v?.c ?? v ?? '0', 10) || 0;
 
   const totalItems = await queryOne("SELECT COUNT(*)::int as c FROM equipment_items WHERE deleted_at IS NULL");
-  const activeItems = await queryOne("SELECT COUNT(*)::int as c FROM equipment_items WHERE deleted_at IS NULL AND status='active'");
-  const inRepair = await queryOne("SELECT COUNT(*)::int as c FROM equipment_items WHERE deleted_at IS NULL AND status='in_repair'");
-  const lentOut = await queryOne("SELECT COUNT(*)::int as c FROM equipment_lendings WHERE status='lent'");
-  const overdue = await queryOne("SELECT COUNT(*)::int as c FROM equipment_lendings WHERE status='lent' AND due_date IS NOT NULL AND due_date < CURRENT_DATE::text");
-  const openMaintenance = await queryOne("SELECT COUNT(*)::int as c FROM maintenance_records WHERE status IN ('reported', 'in_progress')");
-  const pendingInventory = await queryOne("SELECT COUNT(*)::int as c FROM inventory_checks WHERE status IN ('draft', 'in_progress')");
+  const activeItems = await queryOne(`SELECT COUNT(*)::int as c FROM equipment_items WHERE deleted_at IS NULL AND status='${EQUIPMENT_STATUS.ACTIVE}'`);
+  const inRepair = await queryOne(`SELECT COUNT(*)::int as c FROM equipment_items WHERE deleted_at IS NULL AND status='${EQUIPMENT_STATUS.IN_REPAIR}'`);
+  const lentOut = await queryOne(`SELECT COUNT(*)::int as c FROM equipment_lendings WHERE status='${EQUIPMENT_LENDING_STATUS.LENT}'`);
+  const overdue = await queryOne(`SELECT COUNT(*)::int as c FROM equipment_lendings WHERE status='${EQUIPMENT_LENDING_STATUS.LENT}' AND due_date IS NOT NULL AND due_date < CURRENT_DATE::text`);
+  const openMaintenance = await queryOne(`SELECT COUNT(*)::int as c FROM maintenance_records WHERE status IN ('${MAINTENANCE_STATUS.REPORTED}', '${MAINTENANCE_STATUS.IN_PROGRESS}')`);
+  const pendingInventory = await queryOne(`SELECT COUNT(*)::int as c FROM inventory_checks WHERE status IN ('${INVENTORY_STATUS.DRAFT}', '${INVENTORY_STATUS.IN_PROGRESS}')`);
 
   // Recent active lendings for dashboard
   let recentLendings: any[] = [];
@@ -1018,7 +1029,7 @@ router.get('/stats', async (_req: Request, res: Response) => {
        FROM equipment_lendings el
        JOIN equipment_items ei ON ei.id = el.equipment_id
        LEFT JOIN projects p ON p.id = el.project_id
-       WHERE el.status = 'lent'
+       WHERE el.status = '${EQUIPMENT_LENDING_STATUS.LENT}'
        ORDER BY el.lent_at DESC LIMIT 5`
     );
   } catch { /* ignore join errors */ }
