@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.6.7 — Phase 3 続き: 3 箇所の VALID_STATUSES 配列を shared constants に統合
+v2.6.8 — Phase 3 続き: interactive/events.routes.ts を service 層に分離 (sales 方式に揃える)
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)
