@@ -1,10 +1,18 @@
+/**
+ * PurchaseListPage — Phase 2A 移行 (v2.6.4)
+ * useCrudPage / FilterBar / Pagination の shared プリミティブを使用。
+ * 列リサイズ + ダイアログ内の多数の useState フィールドは既存のまま維持。
+ */
 import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
-import { useState, useRef, useCallback } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { FilterBar } from "@gmo-onair/shared/src/client/ui/filter-bar";
+import { Pagination } from "@gmo-onair/shared/src/client/ui/pagination";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
 import api from "@/lib/api";
 import { formatCurrency, formatMonth, localDateStr } from "@/lib/format";
+import { useCrudPage } from "@/hooks/useCrudPage";
 import { PageTransition } from "@/components/ui/motion";
 import {
   Vendor,
@@ -43,16 +51,18 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { Search, Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
 
 function SettlementBadge({ number }: { number: string | null | undefined }) {
   const isApplied = !!number && number !== "pending";
   return (
-    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-      isApplied ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-    }`}>
-      {isApplied ? '申請済' : '未申請'}
+    <span
+      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+        isApplied ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+      }`}
+    >
+      {isApplied ? "申請済" : "未申請"}
     </span>
   );
 }
@@ -97,15 +107,16 @@ export default function PurchaseListPage() {
   const [searchParams] = useSearchParams();
   const filterProjectId = searchParams.get("project_id") || "";
   const filterProjectName = searchParams.get("project_name") || "";
-  const qc = useQueryClient();
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [colWidths, setColWidths] = useState<Record<string, number>>({});
   const resizeRef = useRef<{ col: string; startX: number; startW: number } | null>(null);
 
-  // Dialog form state
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const crud = useCrudPage<PurchaseRow>({
+    endpoint: "/purchases",
+    queryKey: ["purchases-all"],
+    extraParams: { project_id: filterProjectId || undefined },
+  });
+
+  // Dialog form state — フィールドが多く form ライブラリ未使用なので個別 useState を維持
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [vendorId, setVendorId] = useState("");
   const [taxCategory, setTaxCategory] = useState("tax10");
@@ -116,9 +127,45 @@ export default function PurchaseListPage() {
   const [description, setDescription] = useState("");
   const [notes, setNotes] = useState("");
   const [serviceCompletedDate, setServiceCompletedDate] = useState("");
-  const [recognitionMonth, setRecognitionMonth] = useState(""); // "YYYY-MM"
+  const [recognitionMonth, setRecognitionMonth] = useState("");
   const [paymentDueDate, setPaymentDueDate] = useState("");
   const [isProvisional, setIsProvisional] = useState(false);
+
+  // editingItem 同期
+  useEffect(() => {
+    if (crud.editingItem) {
+      const p = crud.editingItem;
+      setSelectedProjectId(p.project_id || "");
+      setVendorId(p.vendor_id || "");
+      setTaxCategory(p.tax_category || "tax10");
+      setSettlementMethod(p.settlement_method || "rakuraku");
+      setSettlementNumber(
+        p.settlement_number && p.settlement_number !== "pending" ? p.settlement_number : "",
+      );
+      setInvoiceQualified(p.invoice_qualified ? "qualified" : "unqualified");
+      setAmount(p.amount || 0);
+      setDescription(p.description || "");
+      setNotes(p.notes || "");
+      setServiceCompletedDate("");
+      setRecognitionMonth(p.recognition_date ? p.recognition_date.slice(0, 7) : "");
+      setPaymentDueDate(p.payment_due_date ? p.payment_due_date.slice(0, 10) : "");
+      setIsProvisional(!!p.is_provisional);
+    } else {
+      setSelectedProjectId("");
+      setVendorId("");
+      setTaxCategory("tax10");
+      setSettlementMethod("rakuraku");
+      setSettlementNumber("");
+      setInvoiceQualified("qualified");
+      setAmount(0);
+      setDescription("");
+      setNotes("");
+      setServiceCompletedDate("");
+      setRecognitionMonth("");
+      setPaymentDueDate("");
+      setIsProvisional(false);
+    }
+  }, [crud.editingItem]);
 
   const startResize = useCallback((col: string, e: React.MouseEvent, currentWidth: number) => {
     e.preventDefault();
@@ -138,111 +185,31 @@ export default function PurchaseListPage() {
     document.addEventListener("mouseup", onMouseUp);
   }, []);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["purchases-all", page, search, filterProjectId],
-    queryFn: async () => {
-      const params: Record<string, string | number> = { page, limit: 20 };
-      if (search) params.search = search;
-      if (filterProjectId) params.project_id = filterProjectId;
-      return (await api.get("/purchases", { params })).data;
-    },
-  });
-
-  const purchases: PurchaseRow[] = data?.data ?? [];
-  const pagination = data?.pagination;
-
-  // GLS案件一覧（ダイアログ用）
   const { data: glsProjectsData } = useQuery({
     queryKey: ["gls-projects-for-purchase"],
     queryFn: async () => (await api.get("/projects/gls-projects")).data,
-    enabled: dialogOpen,
+    enabled: crud.dialogOpen,
   });
   const glsProjects: ProjectOption[] = glsProjectsData?.data ?? [];
 
-  // Fetch vendors
   const { data: vendorsData } = useQuery({
     queryKey: ["vendors-list"],
     queryFn: async () => (await api.get("/vendors?limit=200")).data,
-    enabled: dialogOpen,
+    enabled: crud.dialogOpen,
   });
   const vendors: Vendor[] = vendorsData?.data ?? [];
 
-
-  // Create / Update mutation
-  const saveMutation = useMutation({
-    mutationFn: async (payload: Record<string, unknown>) => {
-      if (editingId) return api.put(`/purchases/${editingId}`, payload);
-      return api.post("/purchases", payload);
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["purchases-all"] });
-      handleCloseDialog();
-    },
-  });
-
-  // Delete mutation
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => api.delete(`/purchases/${id}`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["purchases-all"] });
-      handleCloseDialog();
-    },
-  });
-
-  const resetForm = () => {
-    setEditingId(null);
-    setSelectedProjectId("");
-    setVendorId("");
-    setTaxCategory("tax10");
-    setSettlementMethod("rakuraku");
-    setSettlementNumber("");
-    setInvoiceQualified("qualified");
-    setAmount(0);
-    setDescription("");
-    setNotes("");
-    setServiceCompletedDate("");
-    setRecognitionMonth("");
-    setPaymentDueDate("");
-    setIsProvisional(false);
-  };
-
-  const handleCloseDialog = () => {
-    setDialogOpen(false);
-    resetForm();
-  };
-
-  const handleOpenNew = () => {
-    resetForm();
-    setDialogOpen(true);
-  };
-
-  const handleOpenEdit = (p: PurchaseRow) => {
-    setEditingId(p.id);
-    setSelectedProjectId(p.project_id || "");
-    setVendorId(p.vendor_id || "");
-    setTaxCategory(p.tax_category || "tax10");
-    setSettlementMethod(p.settlement_method || "rakuraku");
-    setSettlementNumber(p.settlement_number && p.settlement_number !== "pending" ? p.settlement_number : "");
-    setInvoiceQualified(p.invoice_qualified ? "qualified" : "unqualified");
-    setAmount(p.amount || 0);
-    setDescription(p.description || "");
-    setNotes(p.notes || "");
-    setServiceCompletedDate("");
-    setRecognitionMonth(p.recognition_date ? p.recognition_date.slice(0, 7) : "");
-    setPaymentDueDate(p.payment_due_date ? p.payment_due_date.slice(0, 10) : "");
-    setIsProvisional(!!p.is_provisional);
-    setDialogOpen(true);
-  };
-
   const handleDelete = () => {
-    if (!editingId) return;
+    if (!crud.editingItem) return;
     if (!window.confirm("この仕入を削除しますか？この操作は元に戻せません。")) return;
-    deleteMutation.mutate(editingId);
+    crud.remove.mutate(crud.editingItem.id, {
+      onSuccess: () => crud.closeDialog(),
+    });
   };
 
   const handleSubmit = () => {
     if (!selectedProjectId || !vendorId) return;
-    saveMutation.mutate({
+    crud.save.mutate({
       project_id: selectedProjectId,
       vendor_id: vendorId,
       tax_category: taxCategory,
@@ -261,122 +228,137 @@ export default function PurchaseListPage() {
 
   return (
     <PageTransition>
-    <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
-      <div className="flex flex-wrap gap-2 items-center justify-between">
-        <div>
-          <h1 className="text-xl lg:text-2xl font-bold">仕入一覧</h1>
-          {filterProjectId && filterProjectName && (
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-sm text-muted-foreground">
-                絞り込み: <span className="font-medium text-foreground">{filterProjectName}</span>
-              </span>
-              <Button variant="ghost" size="sm" className="h-5 px-1.5 text-xs" onClick={() => navigate("/budget/purchases")}>
-                解除
-              </Button>
-            </div>
-          )}
+      <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
+        <div className="flex flex-wrap gap-2 items-center justify-between">
+          <div>
+            <h1 className="text-xl lg:text-2xl font-bold">仕入一覧</h1>
+            {filterProjectId && filterProjectName && (
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-sm text-muted-foreground">
+                  絞り込み:{" "}
+                  <span className="font-medium text-foreground">{filterProjectName}</span>
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 px-1.5 text-xs"
+                  onClick={() => navigate("/budget/purchases")}
+                >
+                  解除
+                </Button>
+              </div>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <ExcelToolbar
+              resource="/purchases"
+              name="仕入"
+              queryKey={["purchases"]}
+              hasDuplicateKey={false}
+            />
+            <Button variant="outline" onClick={() => navigate("/project-groups")}>
+              按分グループ
+            </Button>
+            <Button onClick={crud.openAdd}>
+              <Plus className="mr-1 h-4 w-4" />
+              新規仕入
+            </Button>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <ExcelToolbar resource="/purchases" name="仕入" queryKey={["purchases"]} hasDuplicateKey={false} />
-          <Button variant="outline" onClick={() => navigate("/project-groups")}>
-            按分グループ
-          </Button>
-          <Button onClick={handleOpenNew}>
-            <Plus className="mr-1 h-4 w-4" />
-            新規仕入
-          </Button>
-        </div>
-      </div>
-      {filterProjectId && (
-        <ProjectQuickLinks
-          projectId={filterProjectId}
-          projectName={filterProjectName}
-          currentPage="purchases"
-        />
-      )}
+        {filterProjectId && (
+          <ProjectQuickLinks
+            projectId={filterProjectId}
+            projectName={filterProjectName}
+            currentPage="purchases"
+          />
+        )}
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="GLS番号・案件名・仕入先で検索..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-          className="pl-9"
+        <FilterBar
+          search={crud.search}
+          onSearchChange={crud.setSearch}
+          searchPlaceholder="GLS番号・案件名・仕入先で検索..."
+          layout="inline"
         />
-      </div>
 
-      {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : (
-        <>
-          {purchases.length === 0 ? (
-            <EmptyState title="データがありません" />
-          ) : (
-            <>
-              {/* Mobile cards */}
-              <div className="space-y-2 lg:hidden">
-                {purchases.map((p) => (
-                  <div
-                    key={p.id}
-                    className="rounded-lg border p-3 transition-colors hover:bg-muted/50 cursor-pointer"
-                    onClick={() => handleOpenEdit(p)}
-                    role="button"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-xs">{p.gls_number || "-"}</span>
-                          <SettlementBadge number={p.settlement_number} />
-                          {p.group_name && (
-                            <Badge variant="outline" className="text-xs">按分</Badge>
-                          )}
-                        </div>
-                        <div className="text-sm mt-1 truncate">{p.description || p.project_name || "-"}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                          {p.vendor_name || "-"}
-                          {p.recognition_date && ` / ${formatMonth(p.recognition_date)}`}
-                        </div>
+        {crud.isLoading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="読み込み中" />
+          </div>
+        ) : crud.items.length === 0 ? (
+          <EmptyState title="データがありません" />
+        ) : (
+          <>
+            {/* Mobile cards */}
+            <div className="space-y-2 lg:hidden">
+              {crud.items.map((p) => (
+                <div
+                  key={p.id}
+                  className="rounded-lg border p-3 transition-colors hover:bg-muted/50 cursor-pointer"
+                  onClick={() => crud.openEdit(p)}
+                  role="button"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-xs">{p.gls_number || "-"}</span>
+                        <SettlementBadge number={p.settlement_number} />
+                        {p.group_name && (
+                          <Badge variant="outline" className="text-xs">
+                            按分
+                          </Badge>
+                        )}
                       </div>
-                      <div className="text-right shrink-0">
-                        <div className="font-medium font-number">{formatCurrency(p.amount)}</div>
+                      <div className="text-sm mt-1 truncate">
+                        {p.description || p.project_name || "-"}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {p.vendor_name || "-"}
+                        {p.recognition_date && ` / ${formatMonth(p.recognition_date)}`}
                       </div>
                     </div>
+                    <div className="text-right shrink-0">
+                      <div className="font-medium font-number">{formatCurrency(p.amount)}</div>
+                    </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
+            </div>
 
-              {/* Desktop table */}
-              <div className="hidden lg:block overflow-x-auto">
+            {/* Desktop table */}
+            <div className="hidden lg:block overflow-x-auto">
               <Table className={Object.keys(colWidths).length > 0 ? "table-fixed" : ""}>
                 <TableHeader>
                   <TableRow>
-                    {([
-                      { key: "gls", label: "GLS番号", defaultW: 100 },
-                      { key: "project", label: "案件名", defaultW: 180 },
-                      { key: "vendor", label: "仕入先", defaultW: 130 },
-                      { key: "desc", label: "説明", defaultW: 180 },
-                      { key: "settlement", label: "精算", defaultW: 90 },
-                      { key: "tax", label: "税区分", defaultW: 80 },
-                      { key: "amount", label: "金額", defaultW: 100, align: "right" },
-                      { key: "recognition", label: "計上月", defaultW: 90 },
-                      { key: "invoice", label: "適格", defaultW: 50 },
-                    ] as { key: string; label: string; defaultW: number; align?: string }[]).map(({ key, label, defaultW, align }) => {
-                      const w = colWidths[key] ?? (Object.keys(colWidths).length > 0 ? defaultW : undefined);
+                    {(
+                      [
+                        { key: "gls", label: "GLS番号", defaultW: 100 },
+                        { key: "project", label: "案件名", defaultW: 180 },
+                        { key: "vendor", label: "仕入先", defaultW: 130 },
+                        { key: "desc", label: "説明", defaultW: 180 },
+                        { key: "settlement", label: "精算", defaultW: 90 },
+                        { key: "tax", label: "税区分", defaultW: 80 },
+                        { key: "amount", label: "金額", defaultW: 100, align: "right" },
+                        { key: "recognition", label: "計上月", defaultW: 90 },
+                        { key: "invoice", label: "適格", defaultW: 50 },
+                      ] as { key: string; label: string; defaultW: number; align?: string }[]
+                    ).map(({ key, label, defaultW, align }) => {
+                      const w =
+                        colWidths[key] ??
+                        (Object.keys(colWidths).length > 0 ? defaultW : undefined);
                       return (
                         <TableHead
                           key={key}
                           style={w ? { width: w, minWidth: 40 } : undefined}
-                          className={`select-none whitespace-nowrap relative${align === "right" ? " text-right" : ""}`}
+                          className={`select-none whitespace-nowrap relative${
+                            align === "right" ? " text-right" : ""
+                          }`}
                         >
                           {label}
                           <span
                             className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize opacity-0 hover:opacity-100 hover:bg-primary/40 select-none"
-                            onMouseDown={(e) => startResize(key, e, colWidths[key] ?? defaultW)}
+                            onMouseDown={(e) =>
+                              startResize(key, e, colWidths[key] ?? defaultW)
+                            }
                             onClick={(e) => e.stopPropagation()}
                           />
                         </TableHead>
@@ -385,17 +367,19 @@ export default function PurchaseListPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {purchases.map((p) => (
+                  {crud.items.map((p) => (
                     <TableRow
                       key={p.id}
                       className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => handleOpenEdit(p)}
+                      onClick={() => crud.openEdit(p)}
                     >
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <span className="font-mono text-sm">{p.gls_number || "-"}</span>
                           {p.group_name && (
-                            <Badge variant="outline" className="text-xs">按分</Badge>
+                            <Badge variant="outline" className="text-xs">
+                              按分
+                            </Badge>
                           )}
                         </div>
                       </TableCell>
@@ -410,7 +394,10 @@ export default function PurchaseListPage() {
                         <SettlementBadge number={p.settlement_number} />
                         {p.settlement_number && p.settlement_number !== "pending" && (
                           <span className="ml-1 font-mono text-xs text-muted-foreground">
-                            {formatSettlementNo(p.settlement_method ?? "", p.settlement_number ?? "")}
+                            {formatSettlementNo(
+                              p.settlement_method ?? "",
+                              p.settlement_number ?? "",
+                            )}
                           </span>
                         )}
                       </TableCell>
@@ -426,217 +413,231 @@ export default function PurchaseListPage() {
                   ))}
                 </TableBody>
               </Table>
-              </div>
-            </>
-          )}
-
-          {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                全{pagination.total}件中{" "}
-                {(pagination.page - 1) * pagination.limit + 1}-
-                {Math.min(pagination.page * pagination.limit, pagination.total)}件
-              </p>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                  前へ
-                </Button>
-                <Button variant="outline" size="sm" disabled={page >= pagination.totalPages} onClick={() => setPage((p) => p + 1)}>
-                  次へ
-                </Button>
-              </div>
             </div>
-          )}
-        </>
-      )}
+          </>
+        )}
 
-      {/* Purchase Dialog (新規 / 編集兼用) */}
-      <Dialog open={dialogOpen} onOpenChange={(v) => { if (!v) handleCloseDialog(); else setDialogOpen(v); }}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingId ? "仕入編集" : "新規仕入登録"}</DialogTitle>
-          </DialogHeader>
+        <Pagination
+          page={crud.page}
+          totalPages={crud.pagination?.totalPages ?? 1}
+          total={crud.pagination?.total ?? 0}
+          onChange={crud.setPage}
+          disabled={crud.isLoading}
+        />
 
-          <div className="space-y-4">
-            {/* 案件選択 */}
-            <div>
-              <Label>案件 *</Label>
-              <SearchableSelect
-                options={glsProjects.map((p) => ({
-                  value: p.id,
-                  label: `${p.gls_number} ${p.name}`,
-                }))}
-                value={selectedProjectId}
-                onChange={setSelectedProjectId}
-                placeholder="GLS番号で検索..."
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                複数案件への按分は「按分グループ」から登録してください
-              </p>
-            </div>
+        {/* Purchase Dialog (新規 / 編集兼用) */}
+        <Dialog
+          open={crud.dialogOpen}
+          onOpenChange={(v) => {
+            if (!v) crud.closeDialog();
+            else crud.setDialogOpen(v);
+          }}
+        >
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{crud.isEditing ? "仕入編集" : "新規仕入登録"}</DialogTitle>
+            </DialogHeader>
 
-            {/* Vendor */}
-            <div>
-              <Label>仕入先 *</Label>
-              <SearchableSelect
-                options={vendors.map((v) => ({ value: v.id, label: v.name, subLabel: v.vendor_type || '' }))}
-                value={vendorId}
-                onChange={setVendorId}
-                placeholder="仕入先を検索..."
-              />
-            </div>
-
-            {/* Amount */}
-            <div>
-              <Label>金額</Label>
-              <CurrencyInput value={amount} onChange={setAmount} />
-            </div>
-
-            {/* Description */}
-            <div>
-              <Label>説明</Label>
-              <Textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="仕入の説明"
-                rows={3}
-              />
-            </div>
-
-            {/* 仮チェックボックス */}
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="is-provisional"
-                checked={isProvisional}
-                onCheckedChange={(v) => setIsProvisional(!!v)}
-              />
-              <Label htmlFor="is-provisional" className="cursor-pointer">仮（確定前の見込み仕入）</Label>
-            </div>
-
-            {/* Tax + Settlement */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-4">
               <div>
-                <Label>税区分</Label>
-                <Select value={taxCategory} onValueChange={setTaxCategory}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(TaxCategoryLabels) as TaxCategory[]).map((key) => (
-                      <SelectItem key={key} value={key}>{TaxCategoryLabels[key]}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>精算方法</Label>
-                <Select value={settlementMethod} onValueChange={setSettlementMethod}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(SettlementMethodLabels) as SettlementMethod[]).map((key) => (
-                      <SelectItem key={key} value={key}>{SettlementMethodLabels[key]}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* 役務提供完了日 → 計上月・支払予定日を自動入力 */}
-            <div className="space-y-3 rounded-md border p-3">
-              <div>
-                <Label>役務提供完了日</Label>
-                <Input
-                  type="date"
-                  value={serviceCompletedDate}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setServiceCompletedDate(val);
-                    if (val) {
-                      const [y, m] = val.split("-").map(Number);
-                      // m is 1-based (e.g., June=6)
-                      setRecognitionMonth(`${y}-${String(m).padStart(2, "0")}`);
-                      // next month last day: new Date(y, m+1, 0) → July 31 when m=6
-                      setPaymentDueDate(localDateStr(new Date(y, m + 1, 0)));
-                    }
-                  }}
+                <Label>案件 *</Label>
+                <SearchableSelect
+                  options={glsProjects.map((p) => ({
+                    value: p.id,
+                    label: `${p.gls_number} ${p.name}`,
+                  }))}
+                  value={selectedProjectId}
+                  onChange={setSelectedProjectId}
+                  placeholder="GLS番号で検索..."
                 />
-                <p className="text-xs text-muted-foreground mt-0.5">入力すると計上月（当月）・支払予定日（翌月末）を自動入力します</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  複数案件への按分は「按分グループ」から登録してください
+                </p>
               </div>
+
+              <div>
+                <Label>仕入先 *</Label>
+                <SearchableSelect
+                  options={vendors.map((v) => ({
+                    value: v.id,
+                    label: v.name,
+                    subLabel: v.vendor_type || "",
+                  }))}
+                  value={vendorId}
+                  onChange={setVendorId}
+                  placeholder="仕入先を検索..."
+                />
+              </div>
+
+              <div>
+                <Label>金額</Label>
+                <CurrencyInput value={amount} onChange={setAmount} />
+              </div>
+
+              <div>
+                <Label>説明</Label>
+                <Textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="仕入の説明"
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="is-provisional"
+                  checked={isProvisional}
+                  onCheckedChange={(v) => setIsProvisional(!!v)}
+                />
+                <Label htmlFor="is-provisional" className="cursor-pointer">
+                  仮（確定前の見込み仕入）
+                </Label>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>計上月</Label>
-                  <Input
-                    type="month"
-                    value={recognitionMonth}
-                    onChange={(e) => setRecognitionMonth(e.target.value)}
-                  />
+                  <Label>税区分</Label>
+                  <Select value={taxCategory} onValueChange={setTaxCategory}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(TaxCategoryLabels) as TaxCategory[]).map((key) => (
+                        <SelectItem key={key} value={key}>
+                          {TaxCategoryLabels[key]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
-                  <Label>支払予定日</Label>
-                  <Input type="date" value={paymentDueDate} onChange={(e) => setPaymentDueDate(e.target.value)} />
+                  <Label>精算方法</Label>
+                  <Select value={settlementMethod} onValueChange={setSettlementMethod}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(SettlementMethodLabels) as SettlementMethod[]).map(
+                        (key) => (
+                          <SelectItem key={key} value={key}>
+                            {SettlementMethodLabels[key]}
+                          </SelectItem>
+                        ),
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-3 rounded-md border p-3">
+                <div>
+                  <Label>役務提供完了日</Label>
+                  <Input
+                    type="date"
+                    value={serviceCompletedDate}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setServiceCompletedDate(val);
+                      if (val) {
+                        const [y, m] = val.split("-").map(Number);
+                        setRecognitionMonth(`${y}-${String(m).padStart(2, "0")}`);
+                        setPaymentDueDate(localDateStr(new Date(y, m + 1, 0)));
+                      }
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    入力すると計上月（当月）・支払予定日（翌月末）を自動入力します
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>計上月</Label>
+                    <Input
+                      type="month"
+                      value={recognitionMonth}
+                      onChange={(e) => setRecognitionMonth(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label>支払予定日</Label>
+                    <Input
+                      type="date"
+                      value={paymentDueDate}
+                      onChange={(e) => setPaymentDueDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label>精算番号</Label>
+                  <Input
+                    value={settlementNumber}
+                    onChange={(e) => setSettlementNumber(e.target.value)}
+                    placeholder="任意"
+                  />
+                </div>
+              </div>
+
               <div>
-                <Label>精算番号</Label>
-                <Input value={settlementNumber} onChange={(e) => setSettlementNumber(e.target.value)} placeholder="任意" />
+                <Label>インボイス</Label>
+                <Select value={invoiceQualified} onValueChange={setInvoiceQualified}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="qualified">適格事業者</SelectItem>
+                    <SelectItem value="unqualified">非適格事業者</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>備考</Label>
+                <Textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="任意"
+                  rows={2}
+                />
               </div>
             </div>
 
-            <div>
-              <Label>インボイス</Label>
-              <Select value={invoiceQualified} onValueChange={setInvoiceQualified}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="qualified">適格事業者</SelectItem>
-                  <SelectItem value="unqualified">非適格事業者</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* 備考 */}
-            <div>
-              <Label>備考</Label>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="任意"
-                rows={2}
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="flex sm:justify-between gap-2">
-            <div>
-              {editingId && (
-                <Button
-                  variant="destructive"
-                  onClick={handleDelete}
-                  disabled={deleteMutation.isPending}
-                >
-                  {deleteMutation.isPending ? (
-                    <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="mr-1 h-4 w-4" />
-                  )}
-                  削除
+            <DialogFooter className="flex sm:justify-between gap-2">
+              <div>
+                {crud.isEditing && (
+                  <Button
+                    variant="destructive"
+                    onClick={handleDelete}
+                    disabled={crud.remove.isPending}
+                  >
+                    {crud.remove.isPending ? (
+                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="mr-1 h-4 w-4" />
+                    )}
+                    削除
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={crud.closeDialog}>
+                  キャンセル
                 </Button>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={handleCloseDialog}>キャンセル</Button>
-              <Button
-                disabled={!selectedProjectId || !vendorId || saveMutation.isPending}
-                onClick={handleSubmit}
-              >
-                {saveMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-                {editingId ? "更新" : "登録"}
-              </Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+                <Button
+                  disabled={!selectedProjectId || !vendorId || crud.save.isPending}
+                  onClick={handleSubmit}
+                >
+                  {crud.save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                  {crud.isEditing ? "更新" : "登録"}
+                </Button>
+              </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </PageTransition>
   );
 }

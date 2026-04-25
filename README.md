@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.6.3 — dev デプロイ 502 の真因解決 (--env-file 明示)
+**現在のバージョン**: v2.6.4 — Phase 2A 完了: useCrudPage / FilterBar / Pagination で 6 CRUD ページを共通化
 
 ---
 
@@ -383,6 +383,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.6.4** | **Phase 2A 完了: 6 CRUD ページを useCrudPage / FilterBar / Pagination に移行**。v2.6.0 で導入した shared プリミティブをパイロットの VendorListPage 以外にも展開: `PartnerListPage` (パートナーマスター) / `CustomerListPage` (顧客マスター) / `SgaListPage` (販管費一覧, source タブ + 列リサイズは保持) / `PurchaseListPage` (仕入一覧, project_id URL フィルタを extraParams で吸収) / `CompanyListPage` (取引先マスター, role タブを FilterBar に統合 + pageSize=30) を `useCrudPage<T>` ベースに書き換え。`RevenueListPage` は「同一案件の primary revenue を検出して自動で update モードに切替」という独自フローのため `FilterBar` + `Pagination` + `EmptyState` のみ採用しダイアログは従来構造を維持。`UserListPage` は pagination/search が無く invite URL を別ダイアログで表示する特殊フローのため対象外。各ページで page/search/dialogOpen/editingId/saveMutation/deleteMutation/openAdd/openEdit/closeDialog の重複ロジックが削除され、検索/ページネーション/空状態の見た目が全アプリで統一。全 6 client workspace で `tsc -b --force` 通過、`vite build` 成功 |
 | **v2.6.3** | v2.6.0 〜 v2.6.2 で続いていた dev 502 Bad Gateway の **真因を特定・解決**。v2.6.2 の診断ログから以下が判明: ① コンテナ 4 つ (db / app_dev / nginx / app_prod) は全て `gmo-onair_default` ネットワーク (172.18.0.0/16) に居て疎通可能、② nginx の Docker 内部 DNS で `app_dev` も正しく `172.18.0.4` に解決される、③ しかし app_dev コンテナ内部からも `localhost:3000` に Connection refused = **app_dev が listen していない**、④ app_dev のログを見ると `Error: SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string` で起動失敗、⑤ deploy ログ最上部に `warning msg="The DB_PASSWORD variable is not set. Defaulting to a blank string."` が出ていた。**真因**: v2.5.4 の `cd /root/gmo-onair-dev` + `-f /root/gmo-onair-dev/docker-compose.yml` だと docker compose が `pwd` (= dev worktree) の `.env` を探すが、dev worktree には `.env` 無し (`.gitignore` 管理外)。secrets は main worktree の `/root/gmo-onair/.env` にだけ存在するため `${DB_PASSWORD}` / `${JWT_SECRET}` が blank に展開され、app_dev が PostgreSQL に空パスワードで接続 → SASL 認証エラー → 起動失敗 → port 3000 listen せず → nginx 502。**修正**: `COMPOSE_DEV` に `--env-file /root/gmo-onair/.env` を明示追加 |
 | **v2.6.2** | v2.6.1 で追加した診断ステップに **bash 構文エラー** が含まれており `bash: line 38: syntax error near unexpected token '('` で abort していた。原因は `<<'ENDSSH'` (single-quoted heredoc) 内で `\$(...)` と書いたこと: 単一引用 heredoc は変数展開を抑止するので、リモート bash は `\$` を escape として解釈して literal `$` に変換、その後の `(` が subshell 開始と解釈されて構文エラーになる。`$(...)` (`\` 無し) に統一。ついでに診断項目を拡充: ① `docker network inspect` の format 改善、② nginx コンテナ内から `getent hosts app_dev` で DNS 解決テスト、③ app_dev コンテナ内から localhost:3000/health 直叩き、④ nginx コンテナ内から app_dev:3000/health 接続テスト、⑤ external https health check。これで「app_dev は Up だが 502」状態の真因(DNS / 内部リスニング / network 所属) を切り分けられる |
 | **v2.6.1** | v2.6.0 デプロイ後に dev で 502 Bad Gateway が発生した原因を特定するため、`.github/workflows/deploy.yml` の dev ジョブに診断ステップを追加: 起動 15s 後に `docker compose ps` / `docker logs gmo-onair-app_dev-* (last 80)` / `docker logs gmo-onair-nginx-* (last 30)` / `docker network inspect gmo-onair_default` を出力。これで GitHub Actions のログだけで「app_dev が起動失敗 / migration エラー / network 切断 / nginx config 不正」のいずれが原因かが分かるように |

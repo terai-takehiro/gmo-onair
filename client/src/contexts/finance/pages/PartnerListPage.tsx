@@ -1,8 +1,12 @@
-import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+/**
+ * PartnerListPage — Phase 2A 移行 (v2.6.4)
+ * useCrudPage / FilterBar / Pagination の shared プリミティブを使用。
+ */
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import api from "@/lib/api";
+import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+import { FilterBar } from "@gmo-onair/shared/src/client/ui/filter-bar";
+import { Pagination } from "@gmo-onair/shared/src/client/ui/pagination";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,8 +15,9 @@ import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
-import { Plus, Search, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
+import { useCrudPage } from "@/hooks/useCrudPage";
 
 interface Partner {
   id: string;
@@ -31,208 +36,201 @@ interface PartnerForm {
   specialties: string;
 }
 
+const EMPTY_FORM: PartnerForm = {
+  name: "",
+  role_title: "",
+  email: "",
+  phone: "",
+  specialties: "",
+};
+
 export default function PartnerListPage() {
-  const qc = useQueryClient();
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-
-  const form = useForm<PartnerForm>({
-    defaultValues: { name: "", role_title: "", email: "", phone: "", specialties: "" },
+  const crud = useCrudPage<Partner>({
+    endpoint: "/partners",
+    queryKey: ["partners"],
   });
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["partners", page, search],
-    queryFn: async () => {
-      const params: Record<string, string | number> = { page, limit: 20 };
-      if (search) params.search = search;
-      return (await api.get("/partners", { params })).data;
-    },
-  });
+  const form = useForm<PartnerForm>({ defaultValues: EMPTY_FORM });
 
-  const partners: Partner[] = data?.data ?? [];
-  const pagination = data?.pagination;
+  // editingItem 同期
+  useEffect(() => {
+    if (crud.editingItem) {
+      form.reset({
+        name: crud.editingItem.name || "",
+        role_title: crud.editingItem.role_title || "",
+        email: crud.editingItem.email || "",
+        phone: crud.editingItem.phone || "",
+        specialties: Array.isArray(crud.editingItem.specialties)
+          ? crud.editingItem.specialties.join(", ")
+          : "",
+      });
+    } else {
+      form.reset(EMPTY_FORM);
+    }
+  }, [crud.editingItem, form]);
 
-  const saveMutation = useMutation({
-    mutationFn: async (values: PartnerForm) => {
-      const payload = {
-        name: values.name,
-        role_title: values.role_title,
-        email: values.email,
-        phone: values.phone,
-        specialties: values.specialties ? values.specialties.split(",").map(s => s.trim()).filter(Boolean) : [],
-      };
-      if (editingId) return (await api.put(`/partners/${editingId}`, payload)).data;
-      return (await api.post("/partners", payload)).data;
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["partners"] }); closeDialog(); },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => { await api.delete(`/partners/${id}`); },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["partners"] }); },
-  });
-
-  const openAdd = () => {
-    setEditingId(null);
-    form.reset({ name: "", role_title: "", email: "", phone: "", specialties: "" });
-    setDialogOpen(true);
-  };
-
-  const openEdit = (p: Partner) => {
-    setEditingId(p.id);
-    form.reset({
-      name: p.name || "",
-      role_title: p.role_title || "",
-      email: p.email || "",
-      phone: p.phone || "",
-      specialties: Array.isArray(p.specialties) ? p.specialties.join(", ") : "",
+  const onSubmit = (values: PartnerForm) => {
+    crud.save.mutate({
+      name: values.name,
+      role_title: values.role_title,
+      email: values.email,
+      phone: values.phone,
+      specialties: values.specialties
+        ? values.specialties.split(",").map((s) => s.trim()).filter(Boolean)
+        : [],
     });
-    setDialogOpen(true);
   };
 
-  const closeDialog = () => { setDialogOpen(false); setEditingId(null); };
+  const handleDelete = (p: Partner) => {
+    if (!confirm(`「${p.name}」を削除しますか？`)) return;
+    crud.remove.mutate(p.id);
+  };
 
   return (
     <PageTransition>
-    <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
-      <div className="flex flex-wrap gap-2 items-center justify-between">
-        <h1 className="text-xl lg:text-2xl font-bold">パートナーマスター</h1>
-        <div className="flex flex-wrap gap-2">
-          <ExcelToolbar resource="/partners" name="パートナー" queryKey={["partners"]} />
-          <Button onClick={openAdd}><Plus className="mr-2 h-4 w-4" />新規追加</Button>
+      <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h1 className="text-xl lg:text-2xl font-bold">パートナーマスター</h1>
+          <div className="flex flex-wrap gap-2">
+            <ExcelToolbar resource="/partners" name="パートナー" queryKey={["partners"]} />
+            <Button onClick={crud.openAdd}>
+              <Plus className="mr-2 h-4 w-4" />新規追加
+            </Button>
+          </div>
         </div>
-      </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input placeholder="パートナー名で検索..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="pl-9" />
-      </div>
+        <FilterBar
+          search={crud.search}
+          onSearchChange={crud.setSearch}
+          searchPlaceholder="パートナー名で検索..."
+          layout="inline"
+        />
 
-      {isLoading ? (
-        <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-      ) : (
-        <>
-          {partners.length === 0 ? (
-            <EmptyState title="データがありません" />
-          ) : (
-            <>
-              {/* Mobile cards */}
-              <div className="space-y-2 lg:hidden">
-                {partners.map((p) => (
-                  <div key={p.id} className="rounded-lg border p-3 transition-colors hover:bg-muted/50">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium truncate">{p.name}</span>
-                          {p.role_title && (
-                            <span className="text-xs text-muted-foreground shrink-0">{p.role_title}</span>
-                          )}
+        {crud.isLoading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="読み込み中" />
+          </div>
+        ) : crud.items.length === 0 ? (
+          <EmptyState title="該当するパートナーがありません" description="検索条件を変えるか、新規追加してください。" />
+        ) : (
+          <>
+            {/* Mobile cards */}
+            <div className="space-y-2 lg:hidden">
+              {crud.items.map((p) => (
+                <div key={p.id} className="rounded-lg border p-3 transition-colors hover:bg-muted/50">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium truncate">{p.name}</span>
+                        {p.role_title && (
+                          <span className="text-xs text-muted-foreground shrink-0">{p.role_title}</span>
+                        )}
+                      </div>
+                      {Array.isArray(p.specialties) && p.specialties.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {p.specialties.map((s: string, i: number) => (
+                            <span key={i} className="inline-block rounded-full bg-muted px-2 py-0.5 text-xs">
+                              {s.trim()}
+                            </span>
+                          ))}
                         </div>
-                        {Array.isArray(p.specialties) && p.specialties.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {p.specialties.map((s: string, i: number) => (
+                      )}
+                      <div className="text-sm text-muted-foreground mt-1 truncate">
+                        {p.email && <span>{p.email}</span>}
+                        {p.phone && <span>{p.email ? " / " : ""}{p.phone}</span>}
+                        {!p.email && !p.phone && "-"}
+                      </div>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => crud.openEdit(p)} aria-label="編集">
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(p)} aria-label="削除">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden lg:block">
+              <DataTable<Partner>
+                data={crud.items}
+                rowKey={(p) => p.id}
+                storageKey="partners"
+                columns={[
+                  { key: "name", header: "パートナー名", defaultWidth: 220, className: "font-medium", cell: (p) => p.name },
+                  { key: "role_title", header: "役職", defaultWidth: 160, cell: (p) => p.role_title || "-" },
+                  { key: "email", header: "メール", defaultWidth: 220, cell: (p) => p.email || "-" },
+                  { key: "phone", header: "電話", defaultWidth: 140, cell: (p) => p.phone || "-" },
+                  {
+                    key: "specialties",
+                    header: "専門分野",
+                    defaultWidth: 240,
+                    sortValue: (p) => (Array.isArray(p.specialties) ? p.specialties.join(", ") : ""),
+                    cell: (p) => (
+                      <div className="flex flex-wrap gap-1">
+                        {Array.isArray(p.specialties) && p.specialties.length > 0
+                          ? p.specialties.map((s: string, i: number) => (
                               <span key={i} className="inline-block rounded-full bg-muted px-2 py-0.5 text-xs">
                                 {s.trim()}
                               </span>
-                            ))}
-                          </div>
-                        )}
-                        <div className="text-sm text-muted-foreground mt-1 truncate">
-                          {p.email && <span>{p.email}</span>}
-                          {p.phone && <span>{p.email ? " / " : ""}{p.phone}</span>}
-                          {!p.email && !p.phone && "-"}
-                        </div>
+                            ))
+                          : "-"}
                       </div>
-                      <div className="flex gap-1 shrink-0">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(p.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
+                    ),
+                  },
+                ] as DataTableColumn<Partner>[]}
+                actionsWidth={96}
+                actions={(p) => (
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => crud.openEdit(p)} aria-label="編集">
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(p)} aria-label="削除">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
-                ))}
-              </div>
-
-              {/* Desktop table */}
-              <div className="hidden lg:block">
-                <DataTable<Partner>
-                  data={partners}
-                  rowKey={(p) => p.id}
-                  storageKey="partners"
-                  columns={[
-                    { key: "name", header: "パートナー名", defaultWidth: 220, className: "font-medium", cell: (p) => p.name },
-                    { key: "role_title", header: "役職", defaultWidth: 160, cell: (p) => p.role_title || "-" },
-                    { key: "email", header: "メール", defaultWidth: 220, cell: (p) => p.email || "-" },
-                    { key: "phone", header: "電話", defaultWidth: 140, cell: (p) => p.phone || "-" },
-                    {
-                      key: "specialties",
-                      header: "専門分野",
-                      defaultWidth: 240,
-                      sortValue: (p) => (Array.isArray(p.specialties) ? p.specialties.join(", ") : ""),
-                      cell: (p) => (
-                        <div className="flex flex-wrap gap-1">
-                          {Array.isArray(p.specialties) && p.specialties.length > 0
-                            ? p.specialties.map((s: string, i: number) => (
-                                <span key={i} className="inline-block rounded-full bg-muted px-2 py-0.5 text-xs">
-                                  {s.trim()}
-                                </span>
-                              ))
-                            : "-"}
-                        </div>
-                      ),
-                    },
-                  ] as DataTableColumn<Partner>[]}
-                  actionsWidth={96}
-                  actions={(p) => (
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(p.id)}><Trash2 className="h-4 w-4" /></Button>
-                    </div>
-                  )}
-                />
-              </div>
-            </>
-          )}
-
-          {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">全{pagination.total}件</p>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>前へ</Button>
-                <Button variant="outline" size="sm" disabled={page >= pagination.totalPages} onClick={() => setPage((p) => p + 1)}>次へ</Button>
-              </div>
+                )}
+              />
             </div>
-          )}
-        </>
-      )}
+          </>
+        )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingId ? "パートナー編集" : "パートナー追加"}</DialogTitle>
-            <DialogDescription>{editingId ? "パートナー情報を編集します" : "新しいパートナーを追加します"}</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={form.handleSubmit((v) => saveMutation.mutate(v))} className="space-y-4">
-            <div><Label>パートナー名 *</Label><Input {...form.register("name", { required: true })} /></div>
-            <div><Label>役職</Label><Input {...form.register("role_title")} /></div>
-            <div><Label>メール</Label><Input type="email" {...form.register("email")} /></div>
-            <div><Label>電話</Label><Input {...form.register("phone")} /></div>
-            <div><Label>専門分野 (カンマ区切り)</Label><Input {...form.register("specialties")} placeholder="映像,音響,照明" /></div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog}>キャンセル</Button>
-              <Button type="submit" disabled={saveMutation.isPending}>
-                {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}保存
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </div>
+        <Pagination
+          page={crud.page}
+          totalPages={crud.pagination?.totalPages ?? 1}
+          total={crud.pagination?.total ?? 0}
+          onChange={crud.setPage}
+          disabled={crud.isLoading}
+        />
+
+        <Dialog open={crud.dialogOpen} onOpenChange={crud.setDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{crud.isEditing ? "パートナー編集" : "パートナー追加"}</DialogTitle>
+              <DialogDescription>
+                {crud.isEditing ? "パートナー情報を編集します" : "新しいパートナーを追加します"}
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <div><Label>パートナー名 *</Label><Input {...form.register("name", { required: true })} /></div>
+              <div><Label>役職</Label><Input {...form.register("role_title")} /></div>
+              <div><Label>メール</Label><Input type="email" {...form.register("email")} /></div>
+              <div><Label>電話</Label><Input {...form.register("phone")} /></div>
+              <div><Label>専門分野 (カンマ区切り)</Label><Input {...form.register("specialties")} placeholder="映像,音響,照明" /></div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={crud.closeDialog}>キャンセル</Button>
+                <Button type="submit" disabled={crud.save.isPending}>
+                  {crud.save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}保存
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
     </PageTransition>
   );
 }
