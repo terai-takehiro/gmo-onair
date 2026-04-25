@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,6 @@ const roleLabelMap: Record<string, string> = {
 
 export default function LoginPage() {
   const { login } = useAuth();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const error = searchParams.get("error");
 
@@ -34,8 +33,13 @@ export default function LoginPage() {
   });
 
   const handleLogin = async (userId: string) => {
-    await login(userId);
-    navigate("/qsheet", { replace: true });
+    // v2.4.2: replaceState を経由しない hard navigation に統一
+    try {
+      await login(userId);
+      window.location.replace("/qsheet");
+    } catch {
+      window.location.replace("/qsheet/login?error=login_failed");
+    }
   };
 
   const handleGoogleLogin = () => {

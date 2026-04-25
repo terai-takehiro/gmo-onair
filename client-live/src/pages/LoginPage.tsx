@@ -13,7 +13,7 @@ interface UserOption { id: string; name: string; email: string; role: string }
 const roleLabel: Record<string, string> = { system_admin: 'システム管理者', staff: 'スタッフ' };
 
 export default function LoginPage() {
-  const { currentUser: user, login, loginWithToken } = useAuth();
+  const { currentUser: user, loading, login, loginWithToken } = useAuth();
   const [searchParams] = useSearchParams();
   const error = searchParams.get('error');
   const token = searchParams.get('token');
@@ -21,14 +21,17 @@ export default function LoginPage() {
   const [authMode, setAuthMode] = useState<'oauth' | 'mock' | 'password' | null>(null);
 
   // 既ログインなら一度だけ /live トップに飛ばす (hard navigation で replaceState を回避)
+  // v2.4.2: /auth/me で auth が確定するまで (loading=false) 待機。stale localStorage で
+  // 即リダイレクトしてループになるのを防ぐ。
   const redirectedRef = useRef(false);
   useEffect(() => {
     if (redirectedRef.current) return;
+    if (loading) return;
     if (user && !token) {
       redirectedRef.current = true;
       hardReplace('/live/');
     }
-  }, [user, token]);
+  }, [user, token, loading]);
 
   // SSO トークンのコンスーム — 一度だけ
   const tokenConsumedRef = useRef(false);
@@ -103,7 +106,18 @@ export default function LoginPage() {
               <button
                 key={u.id}
                 className="flex w-full items-center gap-3 rounded-lg border p-3 text-left hover:bg-accent transition-colors"
-                onClick={() => { login(u.id); hardReplace('/live/'); }}
+                onClick={async () => {
+                  // v2.4.2: login() を必ず await して cookie / localStorage を確定させてから遷移。
+                  // 旧実装 (fire-and-forget) では hardReplace が先に走り、in-flight の
+                  // /auth/mock-login が abort されて cookie が立たず、新ページで /auth/me 401
+                  // → リダイレクトループ、という連鎖を起こしていた。
+                  try {
+                    await login(u.id);
+                    hardReplace('/live/');
+                  } catch {
+                    hardReplace('/live/login?error=login_failed');
+                  }
+                }}
               >
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
                   <User className="h-4 w-4" />

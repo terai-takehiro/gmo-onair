@@ -60,11 +60,14 @@ export function createAuthHook(config: AuthHookConfig) {
     migrateLegacyKeys(config.storageKey, config.legacyStorageKeys);
   }
   return function useAuth() {
-    // Initialize synchronously from localStorage → no loading flash, buttons active immediately
+    // localStorage の user は表示用の初期値としてのみ使う (UI フラッシュ抑制)。
+    // **正当性は /auth/me で確認するまで保留** — v2.4.2 で loading 初期値を常に true にした。
+    // 旧実装 (loading = (readStoredUser === null)) では「localStorage に stale user が残っていて
+    // cookie が失効」の場合、loading=false で即「ログイン済み」と誤判定し、LoginPage がルートへ
+    // hard redirect → ルートで 401 → /login に戻る、というリダイレクトループを誘発していた。
     const [currentUser, setCurrentUser] = useState<User | null>(() => readStoredUser(config.storageKey));
     const [permissions, setPermissions] = useState<Record<string, string>>({});
-    // loading = false when we have cached user (still verifies in background)
-    const [loading, setLoading] = useState(() => readStoredUser(config.storageKey) === null);
+    const [loading, setLoading] = useState(true);
     const setCurrentUserId = useUiStore((s) => s.setCurrentUserId);
 
     useEffect(() => {

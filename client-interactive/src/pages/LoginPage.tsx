@@ -21,7 +21,7 @@ const roleLabelMap: Record<string, string> = {
 };
 
 export default function LoginPage() {
-  const { currentUser: user, login, loginWithToken } = useAuth();
+  const { currentUser: user, loading, login, loginWithToken } = useAuth();
   const [searchParams] = useSearchParams();
   const error = searchParams.get('error');
   const token = searchParams.get('token');
@@ -29,14 +29,16 @@ export default function LoginPage() {
   const [authMode, setAuthMode] = useState<'oauth' | 'mock' | null>(null);
 
   // 既ログインなら一度だけ /interactive トップに飛ばす (hard navigation で replaceState 回避)
+  // v2.4.2: /auth/me で auth 確定 (loading=false) を待つ。stale localStorage 即リダイレクト防止。
   const redirectedRef = useRef(false);
   useEffect(() => {
     if (redirectedRef.current) return;
+    if (loading) return;
     if (user && !token) {
       redirectedRef.current = true;
       hardReplace('/interactive/');
     }
-  }, [user, token]);
+  }, [user, token, loading]);
 
   // SSO トークンのコンスーム — 一度だけ
   const tokenConsumedRef = useRef(false);
@@ -66,9 +68,16 @@ export default function LoginPage() {
       .catch(() => setAuthMode('mock'));
   }, [token, user]);
 
-  const handleLogin = (u: UserOption) => {
-    login(u.id);
-    hardReplace('/interactive/');
+  // v2.4.2: login() を必ず await して cookie / localStorage 確定後に遷移。
+  // fire-and-forget は in-flight の /auth/mock-login が abort され cookie が立たず
+  // ループの遠因になっていた。
+  const handleLogin = async (u: UserOption) => {
+    try {
+      await login(u.id);
+      hardReplace('/interactive/');
+    } catch {
+      hardReplace('/interactive/login?error=login_failed');
+    }
   };
 
   const handleGoogleLogin = () => {

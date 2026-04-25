@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "../AuthContext";
 import { StaggerList, StaggerItem, LiftCard } from "@/components/ui/motion";
@@ -18,7 +18,6 @@ const roleLabelMap: Record<string, string> = {
 
 export default function LoginPage() {
   const { login, loginWithToken } = useAuth();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const error = searchParams.get("error");
   const redirectPath = searchParams.get("redirect");
@@ -60,7 +59,7 @@ export default function LoginPage() {
       } else {
         await loginWithToken(data.token);
         if (redirectPath && redirectPath.startsWith('/')) { window.location.href = redirectPath; }
-        else { navigate("/", { replace: true }); }
+        else { window.location.replace("/"); }
       }
     } catch (err: any) {
       setFormError(err.response?.data?.error?.message || "ログインに失敗しました");
@@ -77,7 +76,7 @@ export default function LoginPage() {
       const res = await api.post("/auth/verify-2fa", { user_id: userId, code: otpCode });
       await loginWithToken(res.data.data.token);
       if (redirectPath && redirectPath.startsWith('/')) { window.location.href = redirectPath; }
-      else { navigate("/", { replace: true }); }
+      else { window.location.replace("/"); }
     } catch (err: any) {
       setFormError(err.response?.data?.error?.message || "認証コードが正しくありません");
     } finally {
@@ -95,7 +94,7 @@ export default function LoginPage() {
   const handleMockLogin = async (uid: string) => {
     await login(uid);
     if (redirectPath && redirectPath.startsWith('/')) { window.location.href = redirectPath; }
-    else { navigate("/", { replace: true }); }
+    else { window.location.replace("/"); }
   };
 
   const isMock = authMode?.mode === "mock";
