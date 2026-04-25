@@ -11,39 +11,13 @@ import {
 import { lendingService } from '../services/lending.service';
 import { maintenanceService } from '../services/maintenance.service';
 import { inventoryService } from '../services/inventory.service';
+import { itemService } from '../services/item.service';
+import { statsService } from '../services/stats.service';
 
 const router = Router();
 
 // Apply auth + permission middleware to all routes
 router.use(requireAuth, requirePermission('equipment'));
-
-// ============================================================
-// EQコード発番 (Y-V-00001 形式)
-// ============================================================
-async function generateEqCode(locationCode: string, typeCode: string): Promise<string> {
-  if (!locationCode || !typeCode) throw new Error('拠点コードと種別コードは必須です');
-  const prefix = `${locationCode}-${typeCode}`;
-  // numStart is inlined as a literal integer (safe: computed from .length, never from user string content)
-  const numStart = prefix.length + 2; // "Y-A-000006" → SUBSTRING FROM 5 = "000006"
-
-  // Step 1: find the actual max counter across ALL equipment_items (incl. soft-deleted)
-  const maxRow = await queryOne(
-    `SELECT COALESCE(MAX(CAST(SUBSTRING(eq_code FROM ${numStart}) AS INTEGER)), 0) AS maxn
-     FROM equipment_items WHERE eq_code LIKE $1`,
-    [`${prefix}-%`]
-  ) as any;
-  const maxFromItems: number = maxRow?.maxn ?? 0;
-
-  // Step 2: upsert sequence — ensure counter >= maxFromItems, then increment atomically
-  const seq = await queryOne(`
-    INSERT INTO equipment_id_sequences (prefix, counter) VALUES ($1, $2 + 1)
-    ON CONFLICT (prefix) DO UPDATE
-      SET counter = GREATEST(equipment_id_sequences.counter, $2) + 1
-    RETURNING counter
-  `, [prefix, maxFromItems]) as any;
-
-  return `${prefix}-${String(seq?.counter ?? 1).padStart(6, '0')}`;
-}
 
 // ============================================================
 // GLS案件検索 (貸出時に紐づけるため)
@@ -197,409 +171,97 @@ router.get('/branch-codes', async (_req: Request, res: Response) => {
 });
 
 // ============================================================
-// 機材アイテム CRUD
+// 機材アイテム CRUD (itemService に集約)
 // ============================================================
-router.get('/items', async (req: Request, res: Response) => {
-  const { status, search, limit, offset, equipment_section, equipment_type_code, include_children, parent_id, is_rental_listed } = req.query;
-  let sql = `
-    SELECT ei.*,
-           em.name as manufacturer_name,
-           el.name as location_name,
-           el.is_rack as location_is_rack, el.rack_units as location_rack_units,
-           p.eq_code as parent_eq_code, p.name as parent_name,
-           ec.color_hex, ec.name as color_name,
-           CASE WHEN ei.purchased_at IS NOT NULL AND ei.warranty_years > 0
-                THEN (ei.purchased_at + (ei.warranty_years || ' years')::interval)::date
-                ELSE NULL END as warranty_end,
-           (SELECT COUNT(*)::int FROM equipment_items c WHERE c.parent_id = ei.id AND c.deleted_at IS NULL) AS children_count,
-           COALESCE(p.is_rental_listed, ei.is_rental_listed) AS effective_rental_listed
-    FROM equipment_items ei
-    LEFT JOIN equipment_manufacturers em ON em.id = ei.manufacturer_id
-    LEFT JOIN equipment_locations el ON el.id = ei.location_id AND el.deleted_at IS NULL
-    LEFT JOIN equipment_items p ON p.id = ei.parent_id AND p.deleted_at IS NULL
-    LEFT JOIN equipment_colors ec ON ec.id = ei.color_id AND ec.deleted_at IS NULL
-    WHERE ei.deleted_at IS NULL
-  `;
-  const params: any[] = [];
-  let paramIndex = 1;
-
-  if (parent_id) {
-    sql += ` AND ei.parent_id = $${paramIndex++}`;
-    params.push(parent_id);
-  } else if (include_children !== '1') {
-    sql += ` AND ei.parent_id IS NULL`;
-  }
-  if (status) { sql += ` AND ei.status = $${paramIndex++}`; params.push(status); }
-  if (equipment_section) { sql += ` AND ei.equipment_section = $${paramIndex++}`; params.push(equipment_section); }
-  if (equipment_type_code) { sql += ` AND ei.equipment_type_code = $${paramIndex++}`; params.push(equipment_type_code); }
-  if (is_rental_listed === 'true') { sql += ` AND COALESCE(p.is_rental_listed, ei.is_rental_listed) = true`; }
-  if (search) {
-    sql += ` AND (ei.name ILIKE $${paramIndex} OR ei.eq_code ILIKE $${paramIndex + 1} OR em.name ILIKE $${paramIndex + 2} OR ei.model_number ILIKE $${paramIndex + 3} OR ei.serial_number ILIKE $${paramIndex + 4})`;
-    const s = `%${search}%`;
-    params.push(s, s, s, s, s);
-    paramIndex += 5;
-  }
-
-  // Count (wrap full query to preserve all JOINs/WHERE conditions)
-  const countSql = `SELECT COUNT(*) as total FROM (${sql}) _cnt`;
-  const countRow = await queryOne(countSql, params) as any;
-
-  // 並び順: 設置場所の表示順 → 設置場所名 → 機材名(五十音) → 型名 → no
-  sql += `
-    ORDER BY
-      COALESCE(el.sort_order, 9999),
-      COALESCE(el.name, ei.location_detail, ''),
-      ei.name,
-      COALESCE(ei.model_number, ''), ei.unit_number
-  `;
-  if (limit) { sql += ` LIMIT $${paramIndex++}`; params.push(Number(limit)); }
-  if (offset) { sql += ` OFFSET $${paramIndex++}`; params.push(Number(offset)); }
-
-  const rows = await queryAll(sql, params);
-
-  // 貸出中機材の貸出情報を付加 (effective_rental_listed=true の機材) — バッチで1クエリ
-  // 子機材は親の is_rental_listed を継承するため effective_rental_listed を使用
-  const lendableIds = (rows as any[]).filter(r => r.effective_rental_listed).map(r => r.id);
-  if (lendableIds.length > 0) {
-    const lendingRows = await queryAll(`
-      SELECT DISTINCT ON (equipment_id)
-        id, equipment_id, borrower_name, project_id, lent_at, due_date
-      FROM equipment_lendings
-      WHERE equipment_id = ANY($1::text[]) AND status = '${EQUIPMENT_LENDING_STATUS.LENT}'
-      ORDER BY equipment_id, lent_at DESC
-    `, [lendableIds]) as any[];
-    const lendingMap = new Map(lendingRows.map(l => [l.equipment_id, l]));
-    for (const row of rows as any[]) {
-      if ((row as any).effective_rental_listed) {
-        (row as any).current_lending = lendingMap.get(row.id) || null;
-      }
-    }
-  }
-
-  // Phase 3 (v2.6.6): {data, meta:{total}} → paginatedResponse() に正規化
-  // limit/offset から page を逆算する (このエンドポイントは page ではなく limit/offset を直接受ける旧 API)
-  const limitNum = limit ? Number(limit) : 0;
-  const offsetNum = offset ? Number(offset) : 0;
-  const pageNum = limitNum > 0 ? Math.floor(offsetNum / limitNum) + 1 : 1;
-  const totalNum = Number(countRow?.total ?? 0);
-  res.json(paginatedResponse(rows, totalNum, pageNum, limitNum || totalNum || 1));
+router.get('/items', async (req, res, next) => {
+  try {
+    const { rows, total } = await itemService.list({
+      status: req.query.status as string | undefined,
+      search: req.query.search as string | undefined,
+      limit: req.query.limit ? Number(req.query.limit) : undefined,
+      offset: req.query.offset ? Number(req.query.offset) : undefined,
+      equipment_section: req.query.equipment_section as string | undefined,
+      equipment_type_code: req.query.equipment_type_code as string | undefined,
+      include_children: req.query.include_children as string | undefined,
+      parent_id: req.query.parent_id as string | undefined,
+      is_rental_listed: req.query.is_rental_listed as string | undefined,
+    });
+    // limit/offset から page を逆算 (この旧 API は page を直接受けない)
+    const limitNum = req.query.limit ? Number(req.query.limit) : 0;
+    const offsetNum = req.query.offset ? Number(req.query.offset) : 0;
+    const pageNum = limitNum > 0 ? Math.floor(offsetNum / limitNum) + 1 : 1;
+    res.json(paginatedResponse(rows, total, pageNum, limitNum || total || 1));
+  } catch (err) { next(err); }
 });
 
 // CSV Export (must be before /items/:id to avoid route conflict)
-router.get('/items/export', requirePermission('equipment', 'exporter'), async (_req: Request, res: Response) => {
-  const rows = await queryAll(`
-    SELECT ei.eq_code, ei.name, ei.equipment_type_code, ei.equipment_section,
-           em.name as manufacturer, ei.model_number, ei.serial_number, ei.status, ei.condition,
-           COALESCE(el.name, ei.location_detail) as location
-    FROM equipment_items ei
-    LEFT JOIN equipment_manufacturers em ON em.id = ei.manufacturer_id
-    LEFT JOIN equipment_locations el ON el.id = ei.location_id AND el.deleted_at IS NULL
-    WHERE ei.deleted_at IS NULL
-    ORDER BY ei.equipment_type_code, ei.name, ei.unit_number
-  `) as Record<string, unknown>[];
-  const columns = ['eq_code', 'name', 'equipment_type_code', 'equipment_section', 'manufacturer', 'model_number', 'serial_number', 'status', 'condition', 'location'];
-  csvResponse(res, 'equipment_items.csv', generateCsv(rows, columns));
+router.get('/items/export', requirePermission('equipment', 'exporter'), async (_req, res, next) => {
+  try {
+    const rows = await itemService.listForExport();
+    const columns = ['eq_code', 'name', 'equipment_type_code', 'equipment_section', 'manufacturer', 'model_number', 'serial_number', 'status', 'condition', 'location'];
+    csvResponse(res, 'equipment_items.csv', generateCsv(rows, columns));
+  } catch (err) { next(err); }
 });
 
 // 貸出設定一括更新 (グループ単位) — /items/:id ルートより前に定義
-router.put('/items/batch-rental', async (req: Request, res: Response) => {
-  const { ids, rental_category_id, rental_display_name } = req.body;
-  if (!Array.isArray(ids) || ids.length === 0) {
-    res.status(400).json({ success: false, error: { message: 'ids は空でない配列を指定してください' } });
-    return;
-  }
-  const placeholders = ids.map((_: unknown, i: number) => `$${i + 1}`).join(', ');
-  await execute(
-    `UPDATE equipment_items SET
-       rental_category_id = $${ids.length + 1},
-       rental_display_name = $${ids.length + 2},
-       updated_at = NOW(), updated_by = $${ids.length + 3}
-     WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
-    [...ids, rental_category_id || null, rental_display_name || null, (req as any).user?.id || null]
-  );
-  res.json({ success: true });
+router.put('/items/batch-rental', async (req, res, next) => {
+  try {
+    await itemService.batchRental(
+      req.body?.ids,
+      req.body?.rental_category_id ?? null,
+      req.body?.rental_display_name ?? null,
+      req.user?.id ?? null,
+    );
+    res.json({ success: true });
+  } catch (err) { next(err); }
 });
 
 // 一括更新 (管理者専用) — /items/:id ルートより前に定義する必要あり
-router.put('/items/bulk-update', requirePermission('equipment', 'manager'), async (req: Request, res: Response) => {
-  const { ids, fields } = req.body as { ids?: unknown; fields?: Record<string, unknown> };
-  if (!Array.isArray(ids) || ids.length === 0) {
-    res.status(400).json({ success: false, error: { message: 'ids は空でない配列を指定してください' } });
-    return;
-  }
-  if (!fields || typeof fields !== 'object' || Object.keys(fields).length === 0) {
-    res.status(400).json({ success: false, error: { message: 'fields が空です' } });
-    return;
-  }
-
-  const ALLOWED_FIELDS = new Set([
-    'name', 'model_number', 'manufacturer_id',
-    'branch_code', 'asset_class', 'fixed_asset_code', 'depreciation_years',
-    'equipment_section', 'equipment_type_code', 'location_code',
-    'location_id', 'purchased_at', 'warranty_years',
-    'status', 'condition', 'notes', 'parent_id',
-    'rack_position', 'rack_height', 'rack_slot', 'rack_side', 'color_id',
-    'display_config',
-  ]);
-
-  // サーバー側 enum バリデーション
-  const ENUM_RULES: Record<string, string[]> = {
-    status:             ['active', 'in_repair', 'retired', 'disposed', 'lost'],
-    condition:          ['excellent', 'good', 'fair', 'poor'],
-    asset_class:        ['fixed_asset', 'consumable', 'leased', 'transferred'],
-    equipment_section:  ['equipment', 'rental'],
-    equipment_type_code:['V', 'C', 'A', 'IC', 'NW', 'L', 'XR', 'E'],
-    rack_slot:          ['full', 'left-1_2', 'right-1_2', 'left-1_3', 'mid-1_3', 'right-1_3'],
-    rack_side:          ['front', 'back'],
-  };
-  for (const [key, allowed] of Object.entries(ENUM_RULES)) {
-    if (key in fields && fields[key] !== null && fields[key] !== '') {
-      if (!allowed.includes(fields[key] as string)) {
-        res.status(400).json({ success: false, error: { message: `${key} の値が不正です: ${fields[key]}` } });
-        return;
-      }
-    }
-  }
-
-  const setClauses: string[] = [];
-  const params: unknown[] = [];
-  let i = 1;
-  for (const [key, value] of Object.entries(fields)) {
-    if (!ALLOWED_FIELDS.has(key)) continue;
-    setClauses.push(`${key}=$${i++}`);
-    params.push(value === '' ? null : value);
-  }
-  if (setClauses.length === 0) {
-    res.status(400).json({ success: false, error: { message: '更新可能なフィールドが指定されていません' } });
-    return;
-  }
-
-  setClauses.push(`updated_by=$${i++}`);
-  params.push((req as any).user?.id || null);
-  setClauses.push('updated_at=NOW()');
-
-  const idPlaceholders = ids.map((_, idx) => `$${i + idx}`).join(',');
-  params.push(...ids);
-
-  const sql = `UPDATE equipment_items SET ${setClauses.join(', ')} WHERE id IN (${idPlaceholders}) AND deleted_at IS NULL`;
-  await execute(sql, params);
-  res.json({ success: true, data: { updated: ids.length } });
-});
-
-router.get('/items/:id', async (req: Request, res: Response) => {
-  const item = await queryOne(`
-    SELECT ei.*,
-           em.name as manufacturer_name,
-           el.name as location_name,
-           el.is_rack as location_is_rack, el.rack_units as location_rack_units,
-           ec.color_hex, ec.name as color_name,
-           erc.name as rental_category_name,
-           CASE WHEN ei.purchased_at IS NOT NULL AND ei.warranty_years > 0
-                THEN (ei.purchased_at + (ei.warranty_years || ' years')::interval)::date
-                ELSE NULL END as warranty_end
-    FROM equipment_items ei
-    LEFT JOIN equipment_manufacturers em ON em.id = ei.manufacturer_id
-    LEFT JOIN equipment_locations el ON el.id = ei.location_id AND el.deleted_at IS NULL
-    LEFT JOIN equipment_colors ec ON ec.id = ei.color_id AND ec.deleted_at IS NULL
-    LEFT JOIN equipment_rental_categories erc ON erc.id = ei.rental_category_id
-    WHERE ei.id = $1 AND ei.deleted_at IS NULL
-  `, [req.params.id]);
-
-  if (!item) return res.status(404).json({ success: false, error: { message: '機材が見つかりません' } });
-
-  const lendings = await queryAll(
-    "SELECT * FROM equipment_lendings WHERE equipment_id = $1 ORDER BY lent_at DESC LIMIT 20",
-    [req.params.id]
-  );
-  const maintenance = await queryAll(
-    "SELECT * FROM maintenance_records WHERE equipment_id = $1 ORDER BY reported_at DESC LIMIT 20",
-    [req.params.id]
-  );
-
-  // 子機材 (parent_id ベース)
-  const children = await queryAll(`
-    SELECT id, eq_code, name, status, condition, unit_number, model_number, notes
-    FROM equipment_items
-    WHERE parent_id = $1 AND deleted_at IS NULL
-    ORDER BY name, unit_number
-  `, [req.params.id]);
-
-  // 親機材
-  const parent = (item as any).parent_id
-    ? await queryOne(`SELECT id, eq_code, name FROM equipment_items WHERE id = $1 AND deleted_at IS NULL`, [(item as any).parent_id])
-    : null;
-
-  res.json({
-    success: true,
-    data: { ...(item as any), lendings, maintenance, children, parent },
-  });
-});
-
-router.post('/items', async (req: Request, res: Response, next: NextFunction) => {
+router.put('/items/bulk-update', requirePermission('equipment', 'manager'), async (req, res, next) => {
   try {
-    const id = uuid();
-    const {
-      name, unit_number, parent_id,
-      manufacturer_id, model_number, serial_number, asset_class,
-      status, condition, location_id, location_detail, notes,
-      branch_code, fixed_asset_code, depreciation_years,
-      equipment_section, equipment_type_code, location_code,
-      purchased_at, warranty_years,
-      rack_position, rack_height, rack_slot, rack_side, color_id,
-    } = req.body;
-
-    if (!location_code || !equipment_type_code) {
-      res.status(400).json({ success: false, error: { message: '拠点コード(location_code)と種別コード(equipment_type_code)は必須です' } });
-      return;
-    }
-    const eq_code = await generateEqCode(location_code, equipment_type_code);
-
-    // 親機材がある場合、設置場所は親から継承
-    let effectiveLocationId = location_id || null;
-    let effectiveLocationDetail = location_detail || null;
-    if (parent_id) {
-      const parentItem = await queryOne(
-        'SELECT location_id, location_detail FROM equipment_items WHERE id = $1 AND deleted_at IS NULL',
-        [parent_id]
-      ) as any;
-      if (parentItem) {
-        effectiveLocationId = parentItem.location_id;
-        effectiveLocationDetail = parentItem.location_detail;
-      }
-    }
-
-    await execute(`
-      INSERT INTO equipment_items (
-        id, eq_code, name, unit_number, parent_id,
-        manufacturer_id, model_number, serial_number, asset_class,
-        status, condition, location_id, location_detail, notes,
-        branch_code, fixed_asset_code, depreciation_years,
-        equipment_section, equipment_type_code, location_code,
-        purchased_at, warranty_years,
-        rack_position, rack_height, rack_slot, rack_side, color_id,
-        created_by, updated_by
-      ) VALUES ($1,$2,$3,$4,$5, $6,$7,$8,$9, $10,$11,$12,$13,$14, $15,$16,$17, $18,$19,$20, $21,$22, $23,$24,$25,$26,$27, $28,$29)
-    `, [
-      id, eq_code, name, unit_number || null, parent_id || null,
-      manufacturer_id || null, model_number || null, serial_number || null, asset_class || 'fixed_asset',
-      status || 'active', condition || 'good', effectiveLocationId, effectiveLocationDetail, notes || null,
-      branch_code || null, fixed_asset_code || null, depreciation_years || null,
-      equipment_section || null, equipment_type_code || null, location_code || null,
-      purchased_at || null, warranty_years || null,
-      rack_position || null, rack_height || 1, rack_slot || 'full', rack_side || 'front', color_id || null,
-      (req as any).user?.id || null, (req as any).user?.id || null,
-    ]);
-    res.status(201).json({ success: true, data: { id, eq_code } });
-  } catch (err: any) {
-    console.error('[POST /items]', err?.message, err?.detail);
-    next(err);
-  }
+    const result = await itemService.bulkUpdate(req.body?.ids, req.body?.fields, req.user?.id ?? null);
+    res.json({ success: true, data: result });
+  } catch (err) { next(err); }
 });
 
-router.put('/items/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/items/:id', async (req, res, next) => {
   try {
-    const {
-      name, unit_number, parent_id,
-      manufacturer_id, model_number, serial_number, asset_class,
-      status, condition, location_id, location_detail, notes,
-      branch_code, fixed_asset_code, depreciation_years,
-      equipment_section, equipment_type_code, location_code,
-      purchased_at, warranty_years,
-      rack_position, rack_height, rack_slot, rack_side, color_id,
-    } = req.body;
+    res.json({ success: true, data: await itemService.getById(req.params.id as string) });
+  } catch (err) { next(err); }
+});
 
-    await execute(`
-      UPDATE equipment_items SET
-        name=$1, unit_number=$2, parent_id=$3,
-        manufacturer_id=$4, model_number=$5, serial_number=$6, asset_class=$7,
-        status=$8, condition=$9, location_id=$10, location_detail=$11, notes=$12,
-        branch_code=$13, fixed_asset_code=$14, depreciation_years=$15,
-        equipment_section=$16, equipment_type_code=$17, location_code=$18,
-        purchased_at=$19, warranty_years=$20,
-        rack_position=$21, rack_height=$22, rack_slot=$23, rack_side=$24, color_id=$25,
-        updated_by=$26, updated_at=NOW()
-      WHERE id=$27 AND deleted_at IS NULL
-    `, [
-      name, unit_number || null, parent_id !== undefined ? (parent_id || null) : null,
-      manufacturer_id || null, model_number || null, serial_number || null, asset_class || 'fixed_asset',
-      status || 'active', condition || 'good', location_id || null, location_detail || null, notes || null,
-      branch_code || null, fixed_asset_code || null, depreciation_years ?? null,
-      equipment_section || null, equipment_type_code || null, location_code || null,
-      purchased_at || null, warranty_years ?? null,
-      rack_position || null, rack_height || 1, rack_slot || 'full', rack_side || 'front', color_id || null,
-      (req as any).user?.id || null, req.params.id,
-    ]);
+router.post('/items', async (req, res, next) => {
+  try {
+    const result = await itemService.create(req.body, req.user?.id ?? null);
+    res.status(201).json({ success: true, data: result });
+  } catch (err) { next(err); }
+});
 
-    // 子機材の設置場所を親に合わせて一括上書き
-    await execute(
-      `UPDATE equipment_items SET location_id=$1, location_detail=$2, updated_at=NOW(), updated_by=$3
-       WHERE parent_id=$4 AND deleted_at IS NULL`,
-      [location_id || null, location_detail || null, (req as any).user?.id || null, req.params.id]
-    );
-
+router.put('/items/:id', async (req, res, next) => {
+  try {
+    await itemService.update(req.params.id as string, req.body, req.user?.id ?? null);
     res.json({ success: true });
-  } catch (err: any) {
-    console.error('[PUT /items/:id]', err?.message, err?.detail);
-    next(err);
-  }
+  } catch (err) { next(err); }
 });
 
 // 部分更新 (親子付け替え等で全フィールド送らなくてよい)
-router.patch('/items/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.patch('/items/:id', async (req, res, next) => {
   try {
-    // eq_code の変更は system_admin のみ
-    if ('eq_code' in req.body && (req as any).user?.role !== 'system_admin') {
-      res.status(403).json({ success: false, error: { message: '機材IDの変更は管理者のみ可能です' } });
-      return;
-    }
-    const PATCHABLE = new Set([
-      'eq_code', 'name', 'unit_number', 'parent_id', 'manufacturer_id', 'model_number',
-      'serial_number', 'asset_class', 'status', 'condition', 'location_id', 'location_detail',
-      'notes', 'branch_code', 'fixed_asset_code', 'depreciation_years',
-      'equipment_section', 'equipment_type_code', 'location_code', 'purchased_at', 'warranty_years',
-      'rack_position', 'rack_height', 'rack_slot', 'rack_side', 'color_id',
-      'display_config', 'rental_category_id', 'rental_display_name',
-    ]);
-    const setClauses: string[] = [];
-    const params: unknown[] = [];
-    let i = 1;
-    for (const [key, value] of Object.entries(req.body)) {
-      if (!PATCHABLE.has(key)) continue;
-      setClauses.push(`${key}=$${i++}`);
-      // 空文字は null に変換 (date/numeric カラムで DB エラーを防ぐ)
-      params.push(value === '' || value === undefined ? null : value);
-    }
-    if (setClauses.length === 0) {
-      res.status(400).json({ success: false, error: { message: '更新フィールドがありません' } });
-      return;
-    }
-    setClauses.push(`updated_by=$${i++}`, 'updated_at=NOW()');
-    params.push((req as any).user?.id || null);
-    await execute(
-      `UPDATE equipment_items SET ${setClauses.join(', ')} WHERE id=$${i} AND deleted_at IS NULL`,
-      [...params, req.params.id]
+    await itemService.patch(
+      req.params.id as string,
+      req.body,
+      req.user?.id ?? null,
+      req.user?.role,
     );
-    // 設置場所が含まれる場合は子機材にも伝播
-    if ('location_id' in req.body || 'location_detail' in req.body) {
-      const loc = await queryOne(`SELECT location_id, location_detail FROM equipment_items WHERE id=$1`, [req.params.id]) as any;
-      if (loc) {
-        await execute(
-          `UPDATE equipment_items SET location_id=$1, location_detail=$2, updated_at=NOW(), updated_by=$3 WHERE parent_id=$4 AND deleted_at IS NULL`,
-          [loc.location_id, loc.location_detail, (req as any).user?.id || null, req.params.id]
-        );
-      }
-    }
     res.json({ success: true });
-  } catch (err: any) {
-    console.error('[PATCH /items/:id]', err?.message, err?.detail, JSON.stringify(req.body).slice(0, 200));
-    next(err);
-  }
+  } catch (err) { next(err); }
 });
 
-router.delete('/items/:id', async (req: Request, res: Response) => {
-  await execute("UPDATE equipment_items SET deleted_at=NOW(), updated_by=$1 WHERE id=$2",
-    [(req as any).user?.id || null, req.params.id]);
-  res.json({ success: true });
+router.delete('/items/:id', async (req, res, next) => {
+  try {
+    await itemService.delete(req.params.id as string, req.user?.id ?? null);
+    res.json({ success: true });
+  } catch (err) { next(err); }
 });
 
 // ============================================================
@@ -812,64 +474,10 @@ router.delete('/racks/blanks/:id', async (req: Request, res: Response, next: Nex
 // ============================================================
 // ダッシュボード統計
 // ============================================================
-router.get('/stats', async (_req: Request, res: Response) => {
+router.get('/stats', async (_req, res, next) => {
   try {
-  const toInt = (v: any) => parseInt(v?.count ?? v?.c ?? v ?? '0', 10) || 0;
-
-  const totalItems = await queryOne("SELECT COUNT(*)::int as c FROM equipment_items WHERE deleted_at IS NULL");
-  const activeItems = await queryOne(`SELECT COUNT(*)::int as c FROM equipment_items WHERE deleted_at IS NULL AND status='${EQUIPMENT_STATUS.ACTIVE}'`);
-  const inRepair = await queryOne(`SELECT COUNT(*)::int as c FROM equipment_items WHERE deleted_at IS NULL AND status='${EQUIPMENT_STATUS.IN_REPAIR}'`);
-  const lentOut = await queryOne(`SELECT COUNT(*)::int as c FROM equipment_lendings WHERE status='${EQUIPMENT_LENDING_STATUS.LENT}'`);
-  const overdue = await queryOne(`SELECT COUNT(*)::int as c FROM equipment_lendings WHERE status='${EQUIPMENT_LENDING_STATUS.LENT}' AND due_date IS NOT NULL AND due_date < CURRENT_DATE::text`);
-  const openMaintenance = await queryOne(`SELECT COUNT(*)::int as c FROM maintenance_records WHERE status IN ('${MAINTENANCE_STATUS.REPORTED}', '${MAINTENANCE_STATUS.IN_PROGRESS}')`);
-  const pendingInventory = await queryOne(`SELECT COUNT(*)::int as c FROM inventory_checks WHERE status IN ('${INVENTORY_STATUS.DRAFT}', '${INVENTORY_STATUS.IN_PROGRESS}')`);
-
-  // Recent active lendings for dashboard
-  let recentLendings: any[] = [];
-  try {
-    recentLendings = await queryAll(
-      `SELECT el.id, el.borrower_name, el.due_date, el.lent_at,
-              ei.name as equipment_name, ei.unit_number,
-              p.name as project_name, p.gls_number
-       FROM equipment_lendings el
-       JOIN equipment_items ei ON ei.id = el.equipment_id
-       LEFT JOIN projects p ON p.id = el.project_id
-       WHERE el.status = '${EQUIPMENT_LENDING_STATUS.LENT}'
-       ORDER BY el.lent_at DESC LIMIT 5`
-    );
-  } catch { /* ignore join errors */ }
-
-  // Recent maintenance (open)
-  let recentMaintenance: any[] = [];
-  try {
-    recentMaintenance = await queryAll(
-      `SELECT mr.id, mr.title, mr.record_type, mr.status, mr.created_at,
-              ei.name as equipment_name
-       FROM maintenance_records mr
-       JOIN equipment_items ei ON ei.id = mr.equipment_id
-       WHERE mr.status IN ('reported', 'in_progress')
-       ORDER BY mr.created_at DESC LIMIT 5`
-    );
-  } catch { /* ignore join errors */ }
-
-  res.json({
-    success: true,
-    data: {
-      total_items: toInt(totalItems),
-      active_items: toInt(activeItems),
-      in_repair: toInt(inRepair),
-      lent_out: toInt(lentOut),
-      overdue: toInt(overdue),
-      open_maintenance: toInt(openMaintenance),
-      pending_inventory: toInt(pendingInventory),
-      recent_lendings: recentLendings,
-      recent_maintenance: recentMaintenance,
-    },
-  });
-  } catch (err: any) {
-    console.error('[equipment/stats] error:', err?.message, err?.stack);
-    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: err?.message || 'Stats query failed' } });
-  }
+    res.json({ success: true, data: await statsService.getDashboardStats() });
+  } catch (err) { next(err); }
 });
 
 // ============================================================
