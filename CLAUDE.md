@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.5.1 — deploy ワークフロー修正 (dev branch の nginx config を反映)
+v2.5.2 — workflow 順序修正 + サブアプリ LoginPage を SSO redirect-only に統一
 
 ## ブランチ運用
 - **本番デプロイ**: `main` ブランチへの push で auto-deploy webhook が発火

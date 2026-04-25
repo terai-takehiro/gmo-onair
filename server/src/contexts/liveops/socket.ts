@@ -99,7 +99,8 @@ function extractCookieToken(cookieHeader?: string): string | null {
 export function initLiveopsSocketIO(io: IOServer) {
   const ns = io.of('/liveops');
 
-  // 本番モードのみ認証を強制 (開発はmockAuthのためスキップ)
+  // password mode (dev / 本番ともに) で JWT / cookie 認証を要求。
+  // v2.5.0+ で dev も AUTH_MODE=password に統一されたため、dev でもこの分岐に入る。
   if (config.authMode === 'password') {
     ns.use(async (socket, next) => {
       try {
