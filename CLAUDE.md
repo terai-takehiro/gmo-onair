@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.4.0 — Phase 1 共通化 (status / format / DataTable / DashboardHeader / EmptyState / queryKeys)
+v2.4.1 — replaceState 暴走の根本対処 (history monkey-patch ガード + hard navigation 切替)
 
 ## ブランチ運用
 - **本番デプロイ**: `main` ブランチへの push で auto-deploy webhook が発火

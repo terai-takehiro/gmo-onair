@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.4.0 — Phase 1 共通化リファクタ (status / format / DataTable / DashboardHeader / EmptyState / queryKeys)
+**現在のバージョン**: v2.4.1 — replaceState 暴走の根本対処
 
 ---
 
@@ -383,6 +383,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.4.1** | v2.3.1 (`<Navigate replace />` → `<RedirectOnce />`) でも dev で再現していた `SecurityError: history.replaceState() more than 100 times per 10 seconds` の**根本対処**: ① `shared/src/client/historyDiagnostic.ts` を新設し全6アプリの `main.tsx` 最上部で `installHistoryDiagnostic()` を実行 — `history.replaceState` を monkey-patch し、10秒で30回呼ばれたら警告+スタックトレースをコンソールに出力、80回でハード上限阻止 (ブラウザ SecurityError を未然に防ぐ); ② `RedirectOnce` を強化 — モジュールレベル WeakMap で「同一 URL への 500ms 以内の連発」を抑制 + 200ms 経っても URL が変わらない場合 `window.location.replace` にフォールバック; ③ 計時LIVE / インタラクティブの LoginPage の post-login ナビゲーションを全て `window.location.replace()` (hard navigation) に切替 — react-router の navigate(replace) を回避 |
 | **v2.4.0** | **Phase 1 共通化リファクタ**: 統一化ロードマップの第一段階。3 本の監査結果 (ページIA / コード / DBスキーマ) を踏まえ、以下を一括実装。**1.1 ステータス定義の一元化** — `shared/src/constants/statuses.ts` を新設し、PROJECT_STAGE / MAINTENANCE_STATUS / MAINTENANCE_TYPE / EQUIPMENT_STATUS / EQUIPMENT_CONDITION / INVENTORY_STATUS / INTERACTIVE_EVENT_STATUS / TECHSHEET_STATUS / ALERT_TYPE を集約。各ページ (10+) の独立定義を削除し `statusOf(domain, key)` ヘルパーで参照。**1.2 format ユーティリティを shared 化** — `shared/src/client/format.ts` 新設、`client/src/lib/format.ts` は re-export 層に。**1.3 client api → createApi 移行** — メインアプリも他5アプリと同じ createApi に。**1.4 DataTable を shared 化** — `shared/src/client/ui/data-table.tsx` に移動、Phase 2 の `useCrudPage` 基盤に。**1.5 DashboardHeader を全6ダッシュボード統一** — qsheet/interactive/techsheet で lastUpdated を追加。**1.6 EmptyState 採用の徹底** — finance/sales/admin の8ページの「データがありません」プレーンテキストを `<EmptyState />` に。**1.7 React Query キー一元管理** — `shared/src/client/hooks/queryKeys.ts` を新設、dashboard/projects 系の主要キーを置換 |
 | **v2.3.1** | 計時LIVE・インタラクティブで再発していた `SecurityError: history.replaceState() more than 100 times per 10 seconds` の**根本原因を特定・解決**。react-router v6 の `<Navigate replace />` は内部 useEffect の依存配列に `navigate` を含み、`useNavigate()` が返す関数参照は `locationPathname` 等を依存に持つため、replaceState で URL が変わる → `navigate` 参照更新 → useEffect 再発火 → replaceState…の無限ループになっていた。v2.1.2 の LoginPage 側の useEffect 修正だけでは不十分で、`<Navigate>` コンポーネント自体も同じ問題を抱えていた。`useRef` ガード付き `shared/src/client/RedirectOnce.tsx` を新設し、全6アプリの App ルーター (ProtectedRoute 未認証リダイレクト・ログイン済み時の / リダイレクト・wildcard) の `<Navigate replace />` を置換 |
 | **v2.3.0** | **HomePage を IA レベルで再設計**。デジタル庁ダッシュボードガイドブックの 4 原則に沿い、トップページを「アプリランチャー中心」から「今日対応すべきこと→主要指標(前月比付き)→スケジュール→アプリ起動」という情報階層に変更。KpiCard に前月比トレンドを `monthly-chart` API から計算して付与、各 KPI からドリルダウンリンク、最終更新表示、全項目に aria-label / role を付与 |

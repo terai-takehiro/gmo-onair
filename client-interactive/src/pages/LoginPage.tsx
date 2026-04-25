@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Sparkles, AlertCircle, User } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import api from '@/lib/api';
+
+/** SPA navigate ではなくハード遷移 (replaceState を経由しない) */
+const hardReplace = (path: string) => window.location.replace(path);
 
 interface UserOption {
   id: string;
@@ -19,22 +22,21 @@ const roleLabelMap: Record<string, string> = {
 
 export default function LoginPage() {
   const { currentUser: user, login, loginWithToken } = useAuth();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const error = searchParams.get('error');
   const token = searchParams.get('token');
   const [users, setUsers] = useState<UserOption[]>([]);
   const [authMode, setAuthMode] = useState<'oauth' | 'mock' | null>(null);
 
-  // 既ログインなら一度だけ /interactive トップに飛ばす
+  // 既ログインなら一度だけ /interactive トップに飛ばす (hard navigation で replaceState 回避)
   const redirectedRef = useRef(false);
   useEffect(() => {
     if (redirectedRef.current) return;
     if (user && !token) {
       redirectedRef.current = true;
-      navigate('/', { replace: true });
+      hardReplace('/interactive/');
     }
-  }, [user, token, navigate]);
+  }, [user, token]);
 
   // SSO トークンのコンスーム — 一度だけ
   const tokenConsumedRef = useRef(false);
@@ -42,9 +44,9 @@ export default function LoginPage() {
     if (!token || tokenConsumedRef.current) return;
     tokenConsumedRef.current = true;
     loginWithToken(token)
-      .then(() => navigate('/', { replace: true }))
-      .catch(() => navigate('/login?error=auth_failed', { replace: true }));
-  }, [token, loginWithToken, navigate]);
+      .then(() => hardReplace('/interactive/'))
+      .catch(() => hardReplace('/interactive/login?error=auth_failed'));
+  }, [token, loginWithToken]);
 
   // 認証モード判定 — 一度だけ
   const modeFetchedRef = useRef(false);
@@ -66,7 +68,7 @@ export default function LoginPage() {
 
   const handleLogin = (u: UserOption) => {
     login(u.id);
-    navigate('/', { replace: true });
+    hardReplace('/interactive/');
   };
 
   const handleGoogleLogin = () => {

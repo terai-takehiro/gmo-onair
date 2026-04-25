@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Timer, AlertCircle, User } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import api from '@/lib/api';
+
+/** SPA navigate ではなくハード遷移 (replaceState を経由しない) */
+const hardReplace = (path: string) => window.location.replace(path);
 
 interface UserOption { id: string; name: string; email: string; role: string }
 
@@ -11,22 +14,21 @@ const roleLabel: Record<string, string> = { system_admin: 'システム管理者
 
 export default function LoginPage() {
   const { currentUser: user, login, loginWithToken } = useAuth();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const error = searchParams.get('error');
   const token = searchParams.get('token');
   const [users, setUsers] = useState<UserOption[]>([]);
   const [authMode, setAuthMode] = useState<'oauth' | 'mock' | 'password' | null>(null);
 
-  // 既ログインなら一度だけ /live トップに飛ばす
+  // 既ログインなら一度だけ /live トップに飛ばす (hard navigation で replaceState を回避)
   const redirectedRef = useRef(false);
   useEffect(() => {
     if (redirectedRef.current) return;
     if (user && !token) {
       redirectedRef.current = true;
-      navigate('/', { replace: true });
+      hardReplace('/live/');
     }
-  }, [user, token, navigate]);
+  }, [user, token]);
 
   // SSO トークンのコンスーム — 一度だけ
   const tokenConsumedRef = useRef(false);
@@ -34,9 +36,9 @@ export default function LoginPage() {
     if (!token || tokenConsumedRef.current) return;
     tokenConsumedRef.current = true;
     loginWithToken(token)
-      .then(() => navigate('/', { replace: true }))
-      .catch(() => navigate('/login?error=auth_failed', { replace: true }));
-  }, [token, loginWithToken, navigate]);
+      .then(() => hardReplace('/live/'))
+      .catch(() => hardReplace('/live/login?error=auth_failed'));
+  }, [token, loginWithToken]);
 
   // 認証モード判定 — 一度だけ
   const modeFetchedRef = useRef(false);
@@ -101,7 +103,7 @@ export default function LoginPage() {
               <button
                 key={u.id}
                 className="flex w-full items-center gap-3 rounded-lg border p-3 text-left hover:bg-accent transition-colors"
-                onClick={() => { login(u.id); navigate('/', { replace: true }); }}
+                onClick={() => { login(u.id); hardReplace('/live/'); }}
               >
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
                   <User className="h-4 w-4" />
