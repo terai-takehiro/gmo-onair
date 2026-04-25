@@ -1,6 +1,11 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import api from "@/lib/api";
+/**
+ * ColorPage — Phase 2B 移行 (v2.6.5)
+ * useCrudPage / EmptyState の shared プリミティブを使用。
+ * pagination/search なし (マスター全件表示) のため Pagination/FilterBar は省略。
+ */
+import { useEffect, useState } from "react";
+import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+import { useCrudPage } from "@/hooks/useCrudPage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,58 +15,64 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Plus, Palette, Pencil, Trash2 } from "lucide-react";
 
-const EMPTY_FORM = { name: "", color_hex: "#4A90E2", description: "", sort_order: "0" };
+interface Color {
+  id: string;
+  name: string;
+  color_hex: string;
+  description?: string;
+  sort_order?: number;
+}
+
+interface ColorForm {
+  name: string;
+  color_hex: string;
+  description: string;
+  sort_order: string;
+}
+
+const EMPTY_FORM: ColorForm = { name: "", color_hex: "#4A90E2", description: "", sort_order: "0" };
 
 export default function ColorPage() {
-  const qc = useQueryClient();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState(EMPTY_FORM);
-
-  const { data, isLoading } = useQuery({
+  const crud = useCrudPage<Color>({
+    endpoint: "/equipment/colors",
     queryKey: ["equipment-colors"],
-    queryFn: async () => (await api.get("/equipment/colors")).data.data,
-  });
-  const colors: any[] = data ?? [];
-
-  const saveMutation = useMutation({
-    mutationFn: (payload: any) =>
-      editingId
-        ? api.put(`/equipment/colors/${editingId}`, payload)
-        : api.post("/equipment/colors", payload),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["equipment-colors"] });
-      setDialogOpen(false);
-    },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/equipment/colors/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["equipment-colors"] }),
-  });
+  const [form, setForm] = useState<ColorForm>(EMPTY_FORM);
 
-  const openNew = () => {
-    setForm(EMPTY_FORM);
-    setEditingId(null);
-    setDialogOpen(true);
+  useEffect(() => {
+    if (crud.editingItem) {
+      const c = crud.editingItem;
+      setForm({
+        name: c.name || "",
+        color_hex: c.color_hex || "#4A90E2",
+        description: c.description || "",
+        sort_order: c.sort_order?.toString() || "0",
+      });
+    } else {
+      setForm(EMPTY_FORM);
+    }
+  }, [crud.editingItem]);
+
+  const handleSave = () => {
+    crud.save.mutate({
+      name: form.name,
+      color_hex: form.color_hex,
+      description: form.description || null,
+      sort_order: Number(form.sort_order) || 0,
+    });
   };
 
-  const openEdit = (color: any) => {
-    setForm({
-      name: color.name || "",
-      color_hex: color.color_hex || "#4A90E2",
-      description: color.description || "",
-      sort_order: color.sort_order?.toString() || "0",
-    });
-    setEditingId(color.id);
-    setDialogOpen(true);
+  const handleDelete = (c: Color) => {
+    if (!confirm(`「${c.name}」を削除しますか？`)) return;
+    crud.remove.mutate(c.id);
   };
 
   return (
     <div className="space-y-4 p-4 lg:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="heading-page text-xl lg:text-2xl">機材色マスタ</h1>
-        <Button size="sm" onClick={openNew}>
+        <Button size="sm" onClick={crud.openAdd}>
           <Plus className="h-4 w-4 mr-1" />
           色追加
         </Button>
@@ -71,20 +82,19 @@ export default function ColorPage() {
         機材に色を設定することで、ラック実装ビューで視覚的に種別を区別できます。
       </p>
 
-      {isLoading ? (
+      {crud.isLoading ? (
         <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="読み込み中" />
         </div>
-      ) : colors.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center text-muted-foreground">
-            <Palette className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p>色マスタが登録されていません</p>
-          </CardContent>
-        </Card>
+      ) : crud.items.length === 0 ? (
+        <EmptyState
+          icon={<Palette className="h-12 w-12 opacity-30" />}
+          title="色マスタが登録されていません"
+          description="ラック実装ビューで機材を視覚的に区別するための色を追加してください。"
+        />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {colors.map((color: any) => (
+          {crud.items.map((color) => (
             <Card key={color.id}>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between gap-3">
@@ -102,15 +112,14 @@ export default function ColorPage() {
                     </div>
                   </div>
                   <div className="flex gap-1 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(color)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => crud.openEdit(color)} aria-label="編集">
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
                     <Button
                       variant="ghost" size="icon"
                       className="h-8 w-8 text-destructive"
-                      onClick={() => {
-                        if (confirm(`「${color.name}」を削除しますか？`)) deleteMutation.mutate(color.id);
-                      }}
+                      onClick={() => handleDelete(color)}
+                      aria-label="削除"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -122,10 +131,10 @@ export default function ColorPage() {
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={crud.dialogOpen} onOpenChange={crud.setDialogOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>{editingId ? "色編集" : "色追加"}</DialogTitle>
+            <DialogTitle>{crud.isEditing ? "色編集" : "色追加"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1">
@@ -170,18 +179,13 @@ export default function ColorPage() {
               />
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>キャンセル</Button>
+              <Button variant="outline" onClick={crud.closeDialog}>キャンセル</Button>
               <Button
-                onClick={() => saveMutation.mutate({
-                  name: form.name,
-                  color_hex: form.color_hex,
-                  description: form.description || null,
-                  sort_order: Number(form.sort_order) || 0,
-                })}
-                disabled={!form.name || !form.color_hex || saveMutation.isPending}
+                onClick={handleSave}
+                disabled={!form.name || !form.color_hex || crud.save.isPending}
               >
-                {saveMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-                {editingId ? "更新" : "追加"}
+                {crud.save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                {crud.isEditing ? "更新" : "追加"}
               </Button>
             </div>
           </div>

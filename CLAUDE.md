@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.6.4 — Phase 2A 完了: useCrudPage / FilterBar / Pagination で 6 CRUD ページを共通化
+v2.6.5 — Phase 2B 着手: client-equipment の 3 マスター (Color/Manufacturer/Location) を useCrudPage に移行
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)

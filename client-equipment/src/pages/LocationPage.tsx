@@ -1,5 +1,12 @@
-import { useState } from "react";
+/**
+ * LocationPage — Phase 2B 移行 (v2.6.5)
+ * 主要 CRUD は useCrudPage で共通化。MasterDialog (拠点/種別マスタ管理) は
+ * 独自フローのためそのまま維持。
+ */
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+import { useCrudPage } from "@/hooks/useCrudPage";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,23 +20,48 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Plus, MapPin, Pencil, Trash2, Server, Settings } from "lucide-react";
 
-const EMPTY_FORM = {
+interface Location {
+  id: string;
+  name: string;
+  building?: string;
+  floor?: string;
+  area?: string;
+  description?: string;
+  sort_order?: number;
+  rack_units?: number;
+  rack_sort_order?: number;
+  branch_id?: string;
+  rack_type_id?: string;
+}
+
+interface LocationForm {
+  name: string;
+  building: string;
+  floor: string;
+  area: string;
+  description: string;
+  sort_order: string;
+  rack_units: string;
+  rack_sort_order: string;
+  branch_id: string;
+  rack_type_id: string;
+}
+
+const EMPTY_FORM: LocationForm = {
   name: "", building: "", floor: "", area: "", description: "",
   sort_order: "0", rack_units: "", rack_sort_order: "0",
   branch_id: "", rack_type_id: "",
 };
 
 export default function LocationPage() {
-  const qc = useQueryClient();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState<LocationForm>(EMPTY_FORM);
   const [masterOpen, setMasterOpen] = useState(false);
 
-  const { data: locData, isLoading } = useQuery({
+  const crud = useCrudPage<Location>({
+    endpoint: "/equipment/locations",
     queryKey: ["equipment-locations"],
-    queryFn: async () => (await api.get("/equipment/locations")).data.data,
   });
+
   const { data: branchData } = useQuery({
     queryKey: ["equipment-branches"],
     queryFn: async () => (await api.get("/equipment/branches")).data.data,
@@ -38,53 +70,32 @@ export default function LocationPage() {
     queryKey: ["equipment-rack-types"],
     queryFn: async () => (await api.get("/equipment/rack-types")).data.data,
   });
+  const branches: { id: string; name: string }[] = branchData ?? [];
+  const rackTypes: { id: string; name: string }[] = rackTypeData ?? [];
 
-  const locations: any[] = locData ?? [];
-  const branches: any[] = branchData ?? [];
-  const rackTypes: any[] = rackTypeData ?? [];
-
-  const saveMutation = useMutation({
-    mutationFn: (payload: any) =>
-      editingId
-        ? api.put(`/equipment/locations/${editingId}`, payload)
-        : api.post("/equipment/locations", payload),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["equipment-locations"] });
-      setDialogOpen(false);
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/equipment/locations/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["equipment-locations"] }),
-  });
-
-  const openNew = () => {
-    setForm(EMPTY_FORM);
-    setEditingId(null);
-    setDialogOpen(true);
-  };
-
-  const openEdit = (loc: any) => {
-    setForm({
-      name: loc.name || "",
-      building: loc.building || "",
-      floor: loc.floor || "",
-      area: loc.area || "",
-      description: loc.description || "",
-      sort_order: loc.sort_order?.toString() || "0",
-      rack_units: loc.rack_units?.toString() || "",
-      rack_sort_order: loc.rack_sort_order?.toString() || "0",
-      branch_id: loc.branch_id || "",
-      rack_type_id: loc.rack_type_id || "",
-    });
-    setEditingId(loc.id);
-    setDialogOpen(true);
-  };
+  useEffect(() => {
+    if (crud.editingItem) {
+      const loc = crud.editingItem;
+      setForm({
+        name: loc.name || "",
+        building: loc.building || "",
+        floor: loc.floor || "",
+        area: loc.area || "",
+        description: loc.description || "",
+        sort_order: loc.sort_order?.toString() || "0",
+        rack_units: loc.rack_units?.toString() || "",
+        rack_sort_order: loc.rack_sort_order?.toString() || "0",
+        branch_id: loc.branch_id || "",
+        rack_type_id: loc.rack_type_id || "",
+      });
+    } else {
+      setForm(EMPTY_FORM);
+    }
+  }, [crud.editingItem]);
 
   const handleSave = () => {
     const isRack = !!form.rack_type_id;
-    saveMutation.mutate({
+    crud.save.mutate({
       name: form.name,
       building: form.building || null,
       floor: form.floor || null,
@@ -98,9 +109,13 @@ export default function LocationPage() {
     });
   };
 
-  const branchMap = Object.fromEntries(branches.map((b: any) => [b.id, b.name]));
-  const rackTypeMap = Object.fromEntries(rackTypes.map((t: any) => [t.id, t.name]));
+  const handleDelete = (loc: Location) => {
+    if (!confirm(`「${loc.name}」を削除しますか？`)) return;
+    crud.remove.mutate(loc.id);
+  };
 
+  const branchMap = Object.fromEntries(branches.map((b) => [b.id, b.name]));
+  const rackTypeMap = Object.fromEntries(rackTypes.map((t) => [t.id, t.name]));
   const isRackForm = !!form.rack_type_id;
   const canSave = !!form.name && (!isRackForm || !!form.rack_units);
 
@@ -113,30 +128,28 @@ export default function LocationPage() {
             <Settings className="h-4 w-4 mr-1" />
             マスタ設定
           </Button>
-          <Button size="sm" onClick={openNew}>
+          <Button size="sm" onClick={crud.openAdd}>
             <Plus className="h-4 w-4 mr-1" />
             場所追加
           </Button>
         </div>
       </div>
 
-      {isLoading ? (
+      {crud.isLoading ? (
         <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="読み込み中" />
         </div>
-      ) : locations.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center text-muted-foreground">
-            <MapPin className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p>保管場所が登録されていません</p>
-          </CardContent>
-        </Card>
+      ) : crud.items.length === 0 ? (
+        <EmptyState
+          icon={<MapPin className="h-12 w-12 opacity-30" />}
+          title="保管場所が登録されていません"
+        />
       ) : (
         <div className="space-y-2">
-          {locations.map((loc: any) => {
+          {crud.items.map((loc) => {
             const isRack = !!loc.rack_type_id;
-            const rtName = rackTypeMap[loc.rack_type_id] ?? loc.rack_type_id;
-            const brName = branchMap[loc.branch_id] ?? loc.branch_id;
+            const rtName = loc.rack_type_id ? (rackTypeMap[loc.rack_type_id] ?? loc.rack_type_id) : "";
+            const brName = loc.branch_id ? (branchMap[loc.branch_id] ?? loc.branch_id) : "";
             return (
               <Card key={loc.id}>
                 <CardContent className="p-4">
@@ -168,15 +181,14 @@ export default function LocationPage() {
                       )}
                     </div>
                     <div className="flex gap-1 shrink-0">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(loc)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => crud.openEdit(loc)} aria-label="編集">
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
                       <Button
                         variant="ghost" size="icon"
                         className="h-8 w-8 text-destructive"
-                        onClick={() => {
-                          if (confirm(`「${loc.name}」を削除しますか？`)) deleteMutation.mutate(loc.id);
-                        }}
+                        onClick={() => handleDelete(loc)}
+                        aria-label="削除"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -190,10 +202,10 @@ export default function LocationPage() {
       )}
 
       {/* 場所追加/編集ダイアログ */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={crud.dialogOpen} onOpenChange={crud.setDialogOpen}>
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingId ? "場所編集" : "場所追加"}</DialogTitle>
+            <DialogTitle>{crud.isEditing ? "場所編集" : "場所追加"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1">
@@ -207,7 +219,7 @@ export default function LocationPage() {
                 <SelectTrigger><SelectValue placeholder="拠点を選択..." /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">なし</SelectItem>
-                  {branches.map((b: any) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                  {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
                 </SelectContent>
               </Select>
               {branches.length === 0 && (
@@ -221,7 +233,7 @@ export default function LocationPage() {
                 <SelectTrigger><SelectValue placeholder="種別を選択..." /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">なし（通常の保管場所）</SelectItem>
-                  {rackTypes.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                  {rackTypes.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                 </SelectContent>
               </Select>
               {rackTypes.length === 0 && (
@@ -275,10 +287,10 @@ export default function LocationPage() {
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>キャンセル</Button>
-              <Button onClick={handleSave} disabled={!canSave || saveMutation.isPending}>
-                {saveMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-                {editingId ? "更新" : "追加"}
+              <Button variant="outline" onClick={crud.closeDialog}>キャンセル</Button>
+              <Button onClick={handleSave} disabled={!canSave || crud.save.isPending}>
+                {crud.save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                {crud.isEditing ? "更新" : "追加"}
               </Button>
             </div>
           </div>
@@ -333,7 +345,7 @@ function MasterSection({ title, apiPath, queryKey, placeholder }: {
     queryKey: [queryKey],
     queryFn: async () => (await api.get(apiPath)).data.data,
   });
-  const items: any[] = data ?? [];
+  const items: { id: string; name: string }[] = data ?? [];
 
   const addMutation = useMutation({
     mutationFn: (name: string) => api.post(apiPath, { name, sort_order: items.length }),
@@ -357,7 +369,7 @@ function MasterSection({ title, apiPath, queryKey, placeholder }: {
         {items.length === 0 && (
           <div className="px-3 py-2 text-xs text-muted-foreground">未登録</div>
         )}
-        {items.map((item: any) => (
+        {items.map((item) => (
           <div key={item.id} className="flex items-center gap-2 px-3 py-2">
             {editingId === item.id ? (
               <>
