@@ -19,8 +19,14 @@ async function main() {
   // 毎回起動時に権限を保全 (idempotent)
   await ensureStaffPermissions();
 
-  // SKIP_SEED=true で本番環境のダミーデータ投入をスキップ
-  if (process.env.SKIP_SEED !== 'true') {
+  // 本番はデフォルトで seed しない。RUN_SEED_ON_STARTUP=true の時のみ明示実行。
+  // 開発/検証は従来どおりデフォルト seed 実行（SKIP_SEED=true でスキップ可能）。
+  const isProduction = config.nodeEnv === 'production';
+  const shouldRunSeed = isProduction
+    ? process.env.RUN_SEED_ON_STARTUP === 'true'
+    : process.env.SKIP_SEED !== 'true';
+
+  if (shouldRunSeed) {
     await seed();
     console.log('[startup] Seed complete');
     await seedSubApps().catch((err) => {
@@ -28,10 +34,10 @@ async function main() {
       if (err?.stack) console.warn('[seed-subapps] stack:', err.stack);
     });
   } else {
-    // 本番: マスター管理者だけは必ず作成
+    // seed を行わない場合でも、マスター管理者だけは必ず作成
     const { ensureAdminUser } = await import('./shared/db/seed-admin');
     await ensureAdminUser();
-    console.log('[startup] Seed skipped (SKIP_SEED=true) — admin user ensured');
+    console.log('[startup] Seed skipped — admin user ensured');
   }
 
   const app = createApp();

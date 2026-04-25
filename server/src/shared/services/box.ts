@@ -13,7 +13,9 @@
  */
 import BoxSDK from 'box-node-sdk';
 
-let cachedClient: ReturnType<InstanceType<typeof BoxSDK>['getAppAuthClient']> | null = null;
+type BoxClient = ReturnType<ReturnType<typeof BoxSDK.getPreconfiguredInstance>['getAppAuthClient']>;
+
+let cachedClient: BoxClient | null = null;
 let initAttempted = false;
 
 interface BoxConfigJson {
