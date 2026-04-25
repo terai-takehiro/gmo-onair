@@ -16,13 +16,15 @@ const ANIMATIONS = ['bounce', 'fade', 'slide', 'shake', 'pop', 'none'] as const;
 const PRESET_COLORS = ['#e11d48', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#6366f1', '#a855f7', '#ec4899'];
 const PRESET_EMOJI = ['👏', '❤️', '🎉', '😂', '👍', '🔥', '⭐', '🎵', '💪', '🙌', '😍', '🤩'];
 
-// CoNoHa VPS スケーリングプリセット (server: scaling.service.ts と同期)
+// 想定同時接続数プリセット (社内利用想定: 最大 8,000 人)
+// 備考: VPS の実リサイズは案件管理など他アプリへの影響を避けるため当面行わず、
+// このボタンは「想定接続数」の保存のみ。VPS 分離後に再度配線予定。
 const SCALING_PRESETS = [
-  { id: 'minimum', label: '最小',   maxConnections: 100,    memory: '1GB',  vcpu: 2  },
-  { id: 'small',   label: '小規模', maxConnections: 1000,   memory: '2GB',  vcpu: 3  },
-  { id: 'medium',  label: '中規模', maxConnections: 10000,  memory: '8GB',  vcpu: 6  },
-  { id: 'large',   label: '大規模', maxConnections: 50000,  memory: '32GB', vcpu: 12 },
-  { id: 'xlarge',  label: '最大',   maxConnections: 100000, memory: '64GB', vcpu: 24 },
+  { id: 'minimum', label: '最小',   maxConnections: 100  },
+  { id: 'small',   label: '小規模', maxConnections: 500  },
+  { id: 'medium',  label: '中規模', maxConnections: 2000 },
+  { id: 'large',   label: '大規模', maxConnections: 5000 },
+  { id: 'xlarge',  label: '最大',   maxConnections: 8000 },
 ] as const;
 type ScalingPreset = typeof SCALING_PRESETS[number];
 
@@ -104,31 +106,9 @@ export default function EventEditorPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['interactive-event', id] }),
   });
 
-  const resizeVps = useMutation({
-    mutationFn: (planId: string) =>
-      api.post('/interactive/scaling/resize', { planId }).then(r => r.data),
-  });
-
   const handleSelectScaling = (plan: ScalingPreset) => {
     if (eventData?.max_connections === plan.maxConnections) return;
-    const ok = window.confirm(
-      `想定同時接続数を「${plan.label}（〜${plan.maxConnections.toLocaleString()}人 / ${plan.memory}）」に変更し、CoNoHa VPSを自動リサイズします。\nよろしいですか？`,
-    );
-    if (!ok) return;
     updateEvent.mutate({ max_connections: plan.maxConnections });
-    resizeVps.mutate(plan.id, {
-      onSuccess: (data: any) => {
-        window.alert(data?.message || 'VPSリサイズを開始しました');
-      },
-      onError: (err: any) => {
-        const msg =
-          err?.response?.data?.error?.message ||
-          err?.response?.data?.message ||
-          err?.message ||
-          '不明なエラー';
-        window.alert(`設定は保存しましたが、VPSリサイズには失敗しました:\n${msg}`);
-      },
-    });
   };
 
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">読み込み中...</div>;
@@ -255,22 +235,21 @@ export default function EventEditorPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">想定同時接続数 / VPSサイズ</label>
+              <label className="text-sm font-medium">想定同時接続数</label>
               <p className="text-xs text-muted-foreground mt-0.5">
-                ボタンを押すと、CoNoHa VPS が選択したサイズへ自動リサイズされます。
+                想定する最大同時接続数を選択してください（社内利用想定: 最大 8,000 人）。
               </p>
               <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
                 {SCALING_PRESETS.map(p => {
                   const selected = findSelectedPreset(eventData.max_connections).id === p.id;
-                  const busy = resizeVps.isPending || updateEvent.isPending;
                   return (
                     <button
                       key={p.id}
                       type="button"
                       onClick={() => handleSelectScaling(p)}
-                      disabled={busy}
+                      disabled={updateEvent.isPending}
                       aria-pressed={selected}
-                      className={`flex min-h-[76px] flex-col items-start gap-0.5 rounded-xl border-2 px-3 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                      className={`flex min-h-[64px] flex-col items-start gap-0.5 rounded-xl border-2 px-3 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
                         selected
                           ? 'border-primary bg-primary/10'
                           : 'border-input hover:border-primary/40 hover:bg-muted/30'
@@ -280,16 +259,10 @@ export default function EventEditorPage() {
                       <span className="text-[11px] text-muted-foreground">
                         〜{p.maxConnections.toLocaleString()}人
                       </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {p.memory} / {p.vcpu} vCPU
-                      </span>
                     </button>
                   );
                 })}
               </div>
-              {resizeVps.isPending && (
-                <p className="mt-1 text-xs text-muted-foreground">VPSリサイズを実行中...</p>
-              )}
             </div>
 
             {/* 待機画面メッセージ */}

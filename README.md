@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.7.3 — インタラクティブ: CoNoHa スケーリングの環境変数を docker-compose に配線 + .env.example に手順記載
+**現在のバージョン**: v2.7.4 — インタラクティブ: 5 段階プリセットを実 VPS リサイズから切り離し設定保存のみに格下げ（社内利用想定で最大 8,000 人にスケール調整）
 
 ---
 
@@ -383,6 +383,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.7.4** | **インタラクティブ: 5 段階プリセットを実 VPS リサイズから切り離し、設定保存のみに格下げ**。検討の結果、現状のメイン VPS は案件管理・Qシート・機材・技術資料・ライブ・PostgreSQL を同居しており、インタラクティブ配信のために実リサイズすると全社業務が 10 分前後停止するため、業務影響を避ける判断で実 VPS リサイズは封印 (将来インタラクティブ専用 VPS 分離後に再配線予定)。①`EventEditorPage.tsx`: 5 ボタンを「想定接続数の保存」のみに変更 (confirm 廃止 + `/interactive/scaling/resize` 呼び出し撤去 + memory/vCPU 表示削除)。社内利用想定スケール (最大 8,000 人) に合わせ、プリセット値を `100 / 500 / 2,000 / 5,000 / 8,000` に再設計。②`scaling.service.ts`: `SCALING_PLANS` を新スケールに同期 (1GB / 1GB / 2GB / 4GB / 8GB)。resize 実装と CoNoHa /flavors 自動解決ロジックは VPS 分離後の再利用を前提に維持。③`event.service.ts`: `max_connections` 上限クランプを 100,000 → 10,000 に戻す。④`docker-compose.yml` の CoNoHa 環境変数配線 (v2.7.3) は無害なため残置 |
 | **v2.7.3** | **インタラクティブ: CoNoHa スケーリングの環境変数を本番/dev コンテナに配線**。v2.7.1〜v2.7.2 でコード側はサーバ側 `process.env.CONOHA_*` を参照する設計だったが、`docker-compose.yml` の `environment:` セクションに対応エントリが無く、ホスト `.env` に値を書いてもコンテナ内に届かない状態だった。①`app_prod` / `app_dev` 双方の environment に `CONOHA_API_USERNAME` / `CONOHA_API_PASSWORD` / `CONOHA_TENANT_ID` / `CONOHA_SERVER_ID` / `CONOHA_IDENTITY_ENDPOINT` / `CONOHA_COMPUTE_ENDPOINT` の 6 変数を追加 (未設定時は空文字列にフォールバック → resize 実行時に 503 NOT_CONFIGURED で弾かれる安全側設計を維持)。②`.env.example` に CoNoHa コントロールパネルでの取得手順をコメント付きで追記 (API ユーザー作成 / テナント ID / サーバー UUID の取得場所)。これで `/root/gmo-onair/.env` に上記 4 変数を貼り付けて `docker compose up -d --force-recreate app_prod app_dev` するだけで 5 段階プリセットボタンが実 VPS をリサイズ可能になる |
 | **v2.7.2** | **インタラクティブ: VPS リサイズ時の flavor UUID 自動解決**。v2.7.1 で導入した 5 段階プリセットは各プランに `flavorRef`(CoNoHa の plan UUID) を埋める必要があったが、運用者が UUID を手で調べる前提は実用的でなかった。`scaling.service.ts` の `resize()` を改修し、リサイズ実行時に CoNoHa の `GET /flavors/detail` を呼んで「`ram` (MB) と `vcpus` が一致する flavor」を自動で見つけて UUID を採用する方式に変更。プラン定義に `ramMB` (1024 / 2048 / 8192 / 32768 / 65536) を追加し、突合キーとして利用。明示指定したい場合は ① プラン定義の `flavorRef` 直書き、② 環境変数 `CONOHA_FLAVOR_<PLAN_ID>` (例: `CONOHA_FLAVOR_MINIMUM`) でオーバーライド可能。これで CoNoHa 側の認証情報 (`CONOHA_API_USERNAME` 等) さえ環境変数に入れれば、UUID 設定無しで 5 ボタンが動作する |
 | **v2.7.1** | **インタラクティブ: CoNoHa VPS スケーリングを 5 段階プリセットボタン化**。`EventEditorPage` 基本設定の「最大接続数」数値入力を、`最小 / 小規模 / 中規模 / 大規模 / 最大` の 5 つのトグル風カードボタンに置換 (`〜100人`〜`〜100,000人`、`1GB/2vCPU`〜`64GB/24vCPU`)。クリックで confirm → ① イベントの `max_connections` を該当プランに更新 ② `/interactive/scaling/resize` を呼び出して CoNoHa VPS を該当 flavor へ自動リサイズ、を 1 アクションで実行。pending 中は全ボタン disabled。サーバ側 `scaling.service.ts` の SCALING_PLANS を旧 6 段階 (test/small/medium/large/xlarge/max, 50〜20,000 人) から 5 段階 (minimum/small/medium/large/xlarge, 100〜100,000 人) に再設計し default の `currentPlan` も `minimum` に。`event.service.ts` の `max_connections` 上限クランプを 10,000 → 100,000、デフォルト 1,000 → 100 に緩和 (DB スキーマ側は `INT DEFAULT 1000` のままで CHECK 制約無しのため移行不要、既存イベントは「m 以上を満たす最小プラン」ロジックで近接プランがハイライト) |

@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.7.3 — インタラクティブ: CoNoHa スケーリングの環境変数を docker-compose に配線 + .env.example に手順記載
+v2.7.4 — インタラクティブ: 5 段階プリセットを実 VPS リサイズから切り離し設定保存のみに格下げ（社内利用想定で最大 8,000 人にスケール調整）
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)

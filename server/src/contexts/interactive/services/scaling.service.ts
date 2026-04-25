@@ -14,15 +14,17 @@ export interface ScalingPlan {
   flavorRef: string;    // 明示指定したい場合のフォールバック (通常は空 = ramMB から自動解決)
 }
 
-// 5 段階プリセット (最小=デフォルト 〜 最大=10万人クラス)。
+// 5 段階プリセット (社内利用想定: 最大 8,000 人)。
+// 注: v2.7.4 以降、フロント側は実 VPS リサイズを呼ばず max_connections 値の保存のみ。
+// インタラクティブ専用 VPS 分離後に resize() を再度配線する想定で SCALING_PLANS は維持。
 // flavorRef は空のままで OK: resize 実行時に CoNoHa の GET /flavors を呼んで
 // ramMB が一致する flavor の UUID を自動採用する。
 export const SCALING_PLANS: ScalingPlan[] = [
-  { id: 'minimum', label: '最小',   maxConnections: 100,    memory: '1GB',  vcpu: 2,  ramMB: 1024,  flavorRef: '' },
-  { id: 'small',   label: '小規模', maxConnections: 1000,   memory: '2GB',  vcpu: 3,  ramMB: 2048,  flavorRef: '' },
-  { id: 'medium',  label: '中規模', maxConnections: 10000,  memory: '8GB',  vcpu: 6,  ramMB: 8192,  flavorRef: '' },
-  { id: 'large',   label: '大規模', maxConnections: 50000,  memory: '32GB', vcpu: 12, ramMB: 32768, flavorRef: '' },
-  { id: 'xlarge',  label: '最大',   maxConnections: 100000, memory: '64GB', vcpu: 24, ramMB: 65536, flavorRef: '' },
+  { id: 'minimum', label: '最小',   maxConnections: 100,  memory: '1GB', vcpu: 2, ramMB: 1024, flavorRef: '' },
+  { id: 'small',   label: '小規模', maxConnections: 500,  memory: '1GB', vcpu: 2, ramMB: 1024, flavorRef: '' },
+  { id: 'medium',  label: '中規模', maxConnections: 2000, memory: '2GB', vcpu: 3, ramMB: 2048, flavorRef: '' },
+  { id: 'large',   label: '大規模', maxConnections: 5000, memory: '4GB', vcpu: 4, ramMB: 4096, flavorRef: '' },
+  { id: 'xlarge',  label: '最大',   maxConnections: 8000, memory: '8GB', vcpu: 6, ramMB: 8192, flavorRef: '' },
 ];
 
 function isConfigured(): boolean {
