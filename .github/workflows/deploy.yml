@@ -87,31 +87,51 @@ jobs:
 
             # 5) 診断: app_dev / nginx の起動状況を deploy ログに必ず吐く。
             #    502 Bad Gateway 等のトラブル時にここが原因特定の唯一の窓口になる。
+            #
+            # NOTE: 単一引用 heredoc 内では \$(...) と書くと remote bash が
+            # \\$ を literal $ と解釈して後続の ( で構文エラーになる。
+            # heredoc が変数展開を抑止しているので、リモート側で実行したい
+            # コマンド置換は素直に $(...) と書く。
             sleep 15
             echo "=== docker compose ps ==="
             $COMPOSE_DEV ps app_dev nginx db || true
 
             echo "=== app_dev container logs (last 80 lines) ==="
-            APP_DEV_CID=\$(docker ps -aq -f "name=gmo-onair-app_dev" | head -1)
-            if [ -n "\$APP_DEV_CID" ]; then
-              docker logs --tail=80 "\$APP_DEV_CID" 2>&1 || true
+            APP_DEV_CID=$(docker ps -aq -f name=gmo-onair-app_dev | head -1)
+            if [ -n "$APP_DEV_CID" ]; then
+              docker logs --tail=80 "$APP_DEV_CID" 2>&1 || true
             else
               echo "⚠ app_dev container not found"
             fi
 
-            echo "=== nginx container logs (last 30 lines) ==="
-            NGINX_CID=\$(docker ps -aq -f "name=gmo-onair-nginx" | head -1)
-            if [ -n "\$NGINX_CID" ]; then
-              docker logs --tail=30 "\$NGINX_CID" 2>&1 || true
+            echo "=== nginx container logs (last 40 lines) ==="
+            NGINX_CID=$(docker ps -aq -f name=gmo-onair-nginx | head -1)
+            if [ -n "$NGINX_CID" ]; then
+              docker logs --tail=40 "$NGINX_CID" 2>&1 || true
             else
               echo "⚠ nginx container not found"
             fi
 
-            echo "=== docker network inspection ==="
-            docker network inspect gmo-onair_default --format '{{range .Containers}}{{.Name}} ({{.IPv4Address}}) {{end}}' 2>&1 || true
+            echo "=== docker network inspection (gmo-onair_default) ==="
+            docker network inspect gmo-onair_default --format '{{range .Containers}}{{.Name}} {{.IPv4Address}}{{println}}{{end}}' 2>&1 || true
 
-            echo "=== Health check ==="
-            curl -sfk https://dev.gmo-onair.jp/health && echo "✓ dev health OK" || echo "⚠ dev health check failed (上記 logs を確認)"
+            echo "=== nginx → app_dev 名前解決テスト (内部 DNS) ==="
+            if [ -n "$NGINX_CID" ]; then
+              docker exec "$NGINX_CID" sh -c 'getent hosts app_dev || nslookup app_dev || echo "name resolution failed"' 2>&1 || true
+            fi
+
+            echo "=== app_dev /health (コンテナ内部から直接叩く) ==="
+            if [ -n "$APP_DEV_CID" ]; then
+              docker exec "$APP_DEV_CID" sh -c 'wget -qO- http://localhost:3000/health || curl -sf http://localhost:3000/health || echo "app_dev not responding internally"' 2>&1 || true
+            fi
+
+            echo "=== nginx → app_dev:3000 接続テスト ==="
+            if [ -n "$NGINX_CID" ]; then
+              docker exec "$NGINX_CID" sh -c 'wget -qO- http://app_dev:3000/health 2>&1 || curl -sf http://app_dev:3000/health 2>&1 || echo "nginx cannot reach app_dev:3000"' 2>&1 || true
+            fi
+
+            echo "=== External health check ==="
+            curl -sfk https://dev.gmo-onair.jp/health && echo "✓ dev health OK" || echo "⚠ external health check failed (上記 logs を確認)"
 
             echo "✓ Dev deploy complete (logs above)"
           ENDSSH
@@ -157,7 +177,12 @@ jobs:
             # 4) サーバー起動ログ + ヘルスチェック
             echo "=== Container logs (first 10s) ==="
             sleep 10
-            docker logs --tail=50 gmo-onair-app_prod-1 2>&1 || docker logs --tail=50 \$(docker ps -aq -f name=app_prod | head -1) 2>&1 || true
+            APP_PROD_CID=$(docker ps -aq -f name=gmo-onair-app_prod | head -1)
+            if [ -n "$APP_PROD_CID" ]; then
+              docker logs --tail=50 "$APP_PROD_CID" 2>&1 || true
+            else
+              echo "⚠ app_prod container not found"
+            fi
 
             echo "=== Health check ==="
             sleep 10
@@ -165,5 +190,5 @@ jobs:
 
             echo "=== Container status ==="
             $COMPOSE_PROD ps app_prod
-            echo "✓ Prod deploy complete: \$(date) — \$(git log --oneline -1)"
+            echo "✓ Prod deploy complete"
           ENDSSH
