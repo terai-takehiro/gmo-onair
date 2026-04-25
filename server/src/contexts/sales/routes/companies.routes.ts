@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
@@ -9,10 +9,34 @@ const router = Router();
 
 router.use(requireAuth);
 
+const permissionOrder = { reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3 } as const;
+
+async function hasPermission(
+  req: Request,
+  module: string,
+  minLevel: keyof typeof permissionOrder = 'reader'
+): Promise<boolean> {
+  if (!req.user) return false;
+  if (req.user.role === 'system_admin') return true;
+
+  let userLevel = req.user.permissions?.[module];
+
+  if (!userLevel && req.user.permissions && Object.keys(req.user.permissions).length === 0) {
+    const row = await queryOne(
+      'SELECT access_level FROM user_permissions WHERE user_id = ? AND module = ?',
+      [req.user.id, module]
+    ) as { access_level?: string } | undefined;
+    userLevel = row?.access_level;
+  }
+
+  return (permissionOrder[userLevel as keyof typeof permissionOrder] ?? 0) >= permissionOrder[minLevel];
+}
+
 // ─── 一覧 ────────────────────────────────────────────────────────────────────
 router.get('/', requirePermission('sales'), async (req, res) => {
   const { page, limit, offset, search } = extractPagination(req);
   const role = req.query.role as string; // 'customer' | 'vendor' | 'both'
+  const canReadBudget = await hasPermission(req, 'budget', 'reader');
 
   let where = 'WHERE co.deleted_at IS NULL';
   const params: unknown[] = [];
@@ -23,9 +47,15 @@ router.get('/', requirePermission('sales'), async (req, res) => {
     params.push(`%${s}%`, `%${s}%`, `%${s}%`);
   }
   if (role === 'customer') { where += ' AND co.is_customer = TRUE'; }
-  else if (role === 'vendor') { where += ' AND co.is_vendor = TRUE'; }
+  else if (role === 'vendor') {
+    if (!canReadBudget) throw new AppError(403, 'FORBIDDEN', '仕入先情報を表示する権限がありません');
+    where += ' AND co.is_vendor = TRUE';
+  }
   else if (role === 'sga_payee') { where += ' AND co.is_sga_payee = TRUE'; }
-  else if (role === 'both') { where += ' AND co.is_customer = TRUE AND co.is_vendor = TRUE'; }
+  else if (role === 'both') {
+    if (!canReadBudget) throw new AppError(403, 'FORBIDDEN', '仕入先情報を表示する権限がありません');
+    where += ' AND co.is_customer = TRUE AND co.is_vendor = TRUE';
+  }
   else if (role === 'other') { where += ' AND co.is_customer = FALSE AND co.is_vendor = FALSE AND co.is_sga_payee = FALSE'; }
 
   const total = ((await queryOne(`SELECT COUNT(*) as c FROM companies co ${where}`, params)) as any).c;
@@ -41,11 +71,16 @@ router.get('/', requirePermission('sales'), async (req, res) => {
      LIMIT ? OFFSET ?`,
     [...params, limit, offset]
   );
-  res.json(paginatedResponse(rows, total, page, limit));
+  const responseRows = canReadBudget
+    ? rows
+    : rows.map((row: any) => ({ ...row, vendor_id: null }));
+
+  res.json(paginatedResponse(responseRows, total, page, limit));
 });
 
 // ─── 詳細 ────────────────────────────────────────────────────────────────────
 router.get('/:id', requirePermission('sales'), async (req, res) => {
+  const canReadBudget = await hasPermission(req, 'budget', 'reader');
   const row = await queryOne(
     `SELECT co.*,
        cu.id as customer_id,
@@ -57,6 +92,7 @@ router.get('/:id', requirePermission('sales'), async (req, res) => {
     [req.params.id]
   ) as any;
   if (!row) throw new AppError(404, 'NOT_FOUND', '取引先が見つかりません');
+  if (!canReadBudget) row.vendor_id = null;
   res.json({ success: true, data: row });
 });
 
@@ -122,6 +158,10 @@ router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
     is_customer, is_vendor, is_sga_payee, vendor_type, invoice_registration_number, notes,
   } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', '取引先名は必須です');
+  const canEditBudget = await hasPermission(req, 'budget', 'editor');
+  if (is_vendor && !canEditBudget) {
+    throw new AppError(403, 'FORBIDDEN', '仕入先情報を登録する権限がありません');
+  }
 
   const id = uuidv4();
   await execute(
@@ -180,6 +220,10 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
     name, short_name, contact_name, email, phone, address,
     is_customer, is_vendor, is_sga_payee, vendor_type, invoice_registration_number, notes,
   } = req.body;
+  const canEditBudget = await hasPermission(req, 'budget', 'editor');
+  if (!canEditBudget && (existing.is_vendor || is_vendor || vendor_type !== undefined || invoice_registration_number !== undefined)) {
+    throw new AppError(403, 'FORBIDDEN', '仕入先情報を更新する権限がありません');
+  }
 
   await execute(
     `UPDATE companies SET name=?, short_name=?, contact_name=?, email=?, phone=?, address=?,
@@ -199,14 +243,16 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
     [name, short_name || null, contact_name || null, email || null, phone || null,
      address || null, notes || null, req.user!.id, req.params.id]
   );
-  await execute(
-    `UPDATE vendors SET name=?, contact_name=?, email=?, phone=?, address=?, vendor_type=?,
-       invoice_registration_number=?, notes=?, updated_at=NOW(), updated_by=?
-       WHERE company_id=? AND deleted_at IS NULL`,
-    [name, contact_name || null, email || null, phone || null, address || null,
-     vendor_type || null, invoice_registration_number || null, notes || null,
-     req.user!.id, req.params.id]
-  );
+  if (canEditBudget) {
+    await execute(
+      `UPDATE vendors SET name=?, contact_name=?, email=?, phone=?, address=?, vendor_type=?,
+         invoice_registration_number=?, notes=?, updated_at=NOW(), updated_by=?
+         WHERE company_id=? AND deleted_at IS NULL`,
+      [name, contact_name || null, email || null, phone || null, address || null,
+       vendor_type || null, invoice_registration_number || null, notes || null,
+       req.user!.id, req.params.id]
+    );
+  }
 
   // ロール追加時: 対応する子レコードがなければ生成
   if (is_customer) {
@@ -223,7 +269,7 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
       );
     }
   }
-  if (is_vendor) {
+  if (is_vendor && canEditBudget) {
     const linked = await queryOne(
       'SELECT id FROM vendors WHERE company_id=? AND deleted_at IS NULL', [req.params.id]
     );
