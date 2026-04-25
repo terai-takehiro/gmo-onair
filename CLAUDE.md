@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.7.2 — インタラクティブ: VPS リサイズの flavor UUID を CoNoHa /flavors API から自動解決（手動設定不要に）
+v2.7.3 — インタラクティブ: CoNoHa スケーリングの環境変数を docker-compose に配線 + .env.example に手順記載
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)
