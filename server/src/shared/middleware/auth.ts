@@ -96,7 +96,7 @@ export function createAuthMiddleware() {
 
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   if (!req.user) {
-    console.log('[auth] requireAuth FAIL — path:', req.path, 'x-user-id:', req.headers['x-user-id'], 'auth:', req.headers.authorization?.slice(0, 20));
+    console.log('[auth] requireAuth FAIL — path:', req.path);
     res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: '認証が必要です' } });
     return;
   }
@@ -150,22 +150,22 @@ export function requirePermission(module: string, minLevel: 'reader' | 'exporter
     }
 
     if (!userLevel || (levelOrder[userLevel as keyof typeof levelOrder] ?? 0) < levelOrder[minLevel]) {
-      // 診断情報: 403 を返す時に、サーバーが認識している権限情報を含める
-      console.log(`[auth] 403 user=${req.user.id} role=${req.user.role} module=${module} userLevel=${userLevel} perms=${JSON.stringify(req.user.permissions)}`);
-      res.status(403).json({
-        success: false,
-        error: {
-          code: 'FORBIDDEN',
-          message: 'このモジュールへのアクセス権限がありません',
-          debug: {
-            requiredModule: module,
-            requiredMinLevel: minLevel,
-            userRole: req.user.role,
-            userLevel: userLevel ?? null,
-            allPermissions: req.user.permissions ?? {},
-          },
-        },
-      });
+      const isProduction = process.env.NODE_ENV === 'production';
+      console.log(`[auth] 403 user=${req.user.id} role=${req.user.role} module=${module} userLevel=${userLevel}`);
+      const error = isProduction
+        ? { code: 'FORBIDDEN', message: 'このモジュールへのアクセス権限がありません' }
+        : {
+            code: 'FORBIDDEN',
+            message: 'このモジュールへのアクセス権限がありません',
+            debug: {
+              requiredModule: module,
+              requiredMinLevel: minLevel,
+              userRole: req.user.role,
+              userLevel: userLevel ?? null,
+              allPermissions: req.user.permissions ?? {},
+            },
+          };
+      res.status(403).json({ success: false, error });
       return;
     }
     next();
