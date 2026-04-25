@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.5.3 — ブランチ運用を main + dev の 2 本に簡素化 (master / claude/* / *-reference 廃止)
+v2.5.4 — deploy ワークフロー再設計 (cp 廃止 + worktree 分離)
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)

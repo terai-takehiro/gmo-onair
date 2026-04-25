@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.5.3 — ブランチ運用を main + dev の 2 本に簡素化
+**現在のバージョン**: v2.5.4 — deploy ワークフロー再設計 (cp 廃止 + worktree 分離)
 
 ---
 
@@ -383,6 +383,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.5.4** | **deploy ワークフローを構造的に再設計** (前回 PR `deploy: build app_dev after copying dev docker-compose and nginx config` の inline comments 反映)。旧設計の問題点: ① `cp /root/gmo-onair-dev/{nginx,docker-compose.yml}` で main worktree (`/root/gmo-onair`) を上書きしていた; ② `cd /root/gmo-onair && git reset --hard origin/main` を dev デプロイ内で実行 (dev デプロイなのに main 側を巻き込む); ③ 「次回 prod デプロイで `git reset --hard` が dev 側変更を消すはず」という暗黙リセット依存; ④ 副作用境界が曖昧 (dev デプロイが main worktree を巻き込み、prod デプロイが将来的に dev 設定を上書きする可能性)。**新設計**: dev デプロイは `docker compose -p gmo-onair -f /root/gmo-onair-dev/docker-compose.yml` で **dev worktree から直接** dev の compose を読む (cp 不要 / main worktree に一切触らない)。prod デプロイは `docker compose -p gmo-onair -f /root/gmo-onair/docker-compose.yml` で main worktree のみ参照し、**nginx は再起動しない** (nginx は dev デプロイの責務に統一)。`-p gmo-onair` で project 名共有により app_prod / app_dev / nginx / db のネットワーク・ボリューム・DB は同居。`--no-deps + --force-recreate` でデプロイ対象外サービスへの影響を最小化。`set -euo pipefail` 化 + 各ステップに「Why」コメント明示。Phase 2A 着手は v2.6.0 で予定 |
 | **v2.5.3** | GitHub のブランチを `main` (本番) と `dev` (検証) の 2 本だけに簡素化。これまで `master` (CLAUDE.md でミラーとされていたが運用されていなかった) / `eventstamp-reference` / `qsheet-reference` (旧アプリのソース、dev に merge 済み) / 過去セッションの `claude/*` 16 本 (12 マージ済み + 4 古い WIP) が累積していたのを全廃止。CLAUDE.md のブランチ運用節を「main + dev の 2 本のみ」と簡潔化。実際のリモート削除と GitHub default branch の `master` → `main` 切替えはユーザーが GitHub UI / git CLI 側で実施 (sandbox 環境からは git proxy が `--delete` を 403 拒否するため不可能だった) |
 | **v2.5.2** | v2.5.1 でも「サブアプリ単位でユーザー選択(モック)が出続ける」「インタラクティブ・計時LIVE のダッシュボードに辿り着けない」と報告。原因は 3 重: ① deploy workflow の `cp docker-compose.yml` が `app_dev` 再起動の **後** だったため `AUTH_MODE=password` が app_dev に反映されず `/auth/mode` が 'mock' を返していた。② 5 サブアプリの LoginPage に mock UI のカード描画ロジックが dead code として残置。③ `liveops/socket.ts` のコメントが mock 前提のミスリード。**修正**: ① workflow 順序: `cp` を `docker compose build app_dev` の **前** に移動。② 5 サブアプリ (live/interactive/qsheet/equipment/techsheet) の `LoginPage.tsx` を `shared/SubAppLoginRedirect.tsx` を呼ぶだけの redirect-only コンポーネントに書き換え (既ログイン → `/<app>/` ; 未ログイン → `/login?redirect=/<app>/`)。これで mock UI / OAuth UI / `/auth/users` 取得 / `/auth/mock-login` などが完全に消滅。③ `liveops/socket.ts` のコメントを修正 (dev も `password` 認証に統一されたため) |
 | **v2.5.1** | v2.5.0 で dev nginx の `auth_basic` 撤去を入れたが Basic 認証が出続けた件を修正。原因は `.github/workflows/deploy.yml` の dev デプロイ手順が `cd /root/gmo-onair-dev → reset to dev` の後に `cd /root/gmo-onair → reset to main` してから `docker compose ... nginx` を走らせており、相対パスのボリュームマウント `./nginx/gmo-onair.conf` が **main branch の nginx config** を読んでいたため、dev branch の nginx 変更が永遠に反映されない構造だった。**修正**: nginx restart 直前に `cp /root/gmo-onair-dev/nginx/gmo-onair.conf /root/gmo-onair/nginx/gmo-onair.conf` と `cp .../docker-compose.yml ...` を追加。次回 prod デプロイ時の `git reset --hard origin/main` で自動的に main 側に戻る。これで v2.5.0 の Basic 認証撤去 + AUTH_MODE=password が初めて反映される |

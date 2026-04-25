@@ -19,6 +19,22 @@ concurrency:
   group: deploy-${{ github.ref_name }}
   cancel-in-progress: true
 
+# ─────────────────────────────────────────────────────────────────────
+# VPS 上のレイアウト (デプロイ前提):
+#   /root/gmo-onair      ← main ブランチの worktree (prod 専用)
+#   /root/gmo-onair-dev  ← dev ブランチの worktree (dev 専用)
+#
+# どちらの worktree にもリポジトリ全体 (docker-compose.yml + nginx/) が含まれる。
+# 両 worktree で `docker compose -p gmo-onair` という project 名を共有することで
+# app_prod / app_dev / nginx / db のネットワーク・ボリューム・DB を 1 セットで動かす。
+#
+# 設計原則:
+#   - dev デプロイは /root/gmo-onair-dev だけを参照 (main worktree を一切触らない)
+#   - prod デプロイは /root/gmo-onair だけを参照 (dev worktree を一切触らない)
+#   - 「次回デプロイで戻る」等の暗黙リセットには依存しない
+#   - --no-deps + --force-recreate でデプロイ対象外サービスへの影響を最小化
+# ─────────────────────────────────────────────────────────────────────
+
 jobs:
   # ============================================
   # 検証環境 (dev.gmo-onair.jp) — dev push で自動
@@ -39,31 +55,42 @@ jobs:
       - name: Deploy to dev environment
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} bash -s << 'ENDSSH'
-            set -e
-            # dev worktree を最新に更新
+            set -euo pipefail
+
+            # 1) dev worktree を最新に更新
+            #    Why: 以降のすべての操作 (compose build / volume マウント / nginx config) が
+            #         この worktree のファイルを直接参照するため、最初に同期する。
             cd /root/gmo-onair-dev
             git fetch origin dev
             git reset --hard origin/dev
-            # app_dev のみ再ビルド＆再起動 (本番には触れない)
-            cd /root/gmo-onair
-            git fetch origin main
-            git reset --hard origin/main
-            # v2.5.0: dev ブランチの nginx config / docker-compose.yml の変更を main worktree に反映してから
-            # app_dev / nginx を起動する。dev branch を /root/gmo-onair (main worktree) にコピーすることで、
-            # 相対パスの volume マウント (./nginx/gmo-onair.conf) と環境変数 (AUTH_MODE 等) が dev 版を読む。
-            # 次回 prod デプロイ時の git reset --hard origin/main で自動的に main 側に戻る。
-            # v2.5.2: cp の位置を app_dev 起動 *前* に移動 (順序バグ修正)
-            cp /root/gmo-onair-dev/nginx/gmo-onair.conf /root/gmo-onair/nginx/gmo-onair.conf
-            cp /root/gmo-onair-dev/docker-compose.yml /root/gmo-onair/docker-compose.yml
-            docker compose build --no-cache app_dev
-            docker compose stop app_dev || true
-            docker compose rm -f app_dev || true
-            docker compose up -d --no-deps app_dev
-            # nginx を再作成 (volume マウント変更 / config 変更を反映)
-            docker compose stop nginx || true
-            docker compose rm -f nginx || true
-            docker compose up -d --no-deps nginx
-            echo "✓ Dev deploy complete: $(date) — $(cd /root/gmo-onair-dev && git log --oneline -1)"
+
+            # 2) dev worktree の docker-compose.yml を明示的に指定して dev 操作を行う。
+            #    Why -f: cp で main worktree (/root/gmo-onair) を汚さない。
+            #            dev branch の compose / nginx 設定変更が確実に反映される。
+            #    Why -p gmo-onair: prod デプロイと同じ project 名にすることで、
+            #            app_prod / db / nginx を共有 (別プロジェクトとして並走しない)。
+            COMPOSE_DEV="docker compose -p gmo-onair -f /root/gmo-onair-dev/docker-compose.yml"
+
+            # 3) app_dev のみ再ビルド & 再作成。
+            #    Why --no-cache: dev branch のソース変更を確実に bundle に反映するため
+            #                    (Docker レイヤーキャッシュ由来の古い JS 事故を防止)。
+            #    Why --no-deps:  app_prod / db / nginx を巻き込まない。
+            #    Why --force-recreate: 既存コンテナを停止せず一気に新コンテナへ置換。
+            $COMPOSE_DEV build --no-cache app_dev
+            $COMPOSE_DEV up -d --no-deps --force-recreate app_dev
+
+            # 4) nginx を dev の compose + dev の nginx config で再作成。
+            #    Why dev 側で管理: 1 つの nginx コンテナが prod / dev 両方の server_name を捌くので、
+            #         「最新のニーズに沿った設定」を保持しているのは常に dev branch (main は dev から merge を受ける運用)。
+            #         prod デプロイ側は nginx に触れない (下記 deploy-prod 参照)。
+            $COMPOSE_DEV up -d --no-deps --force-recreate nginx
+
+            # 5) ヘルスチェック (失敗は警告のみ。デプロイは成功扱い)
+            sleep 5
+            $COMPOSE_DEV ps app_dev nginx
+            curl -sfk https://dev.gmo-onair.jp/health > /dev/null && echo "✓ dev health OK" || echo "⚠ dev health check failed (まだ起動中かも)"
+
+            echo "✓ Dev deploy complete: \$(date) — \$(cd /root/gmo-onair-dev && git log --oneline -1)"
           ENDSSH
 
   # ============================================
@@ -85,23 +112,35 @@ jobs:
       - name: Deploy to production
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} bash -s << 'ENDSSH'
-            set -e
+            set -euo pipefail
+
+            # 1) main worktree を最新に更新。dev worktree (/root/gmo-onair-dev) は一切触らない。
             cd /root/gmo-onair
             git fetch origin main
             git reset --hard origin/main
-            # app_prod のみ再ビルド＆再起動 (検証には触れない)
-            docker compose build --no-cache app_prod
-            docker compose stop app_prod || true
-            docker compose rm -f app_prod || true
-            docker compose up -d --no-deps app_prod
-            # サーバー起動ログを確認
+
+            # 2) main の docker-compose.yml を明示。-p で project 名を共有。
+            COMPOSE_PROD="docker compose -p gmo-onair -f /root/gmo-onair/docker-compose.yml"
+
+            # 3) app_prod のみ再ビルド & 再作成。
+            #    Why nginx に触れない: nginx は dev デプロイで最新化済み。prod 側で
+            #         main の nginx config を強制すると、dev branch にしかない設定変更
+            #         (例: dev block の Basic 認証撤去) が消えてしまう。
+            #         nginx 設定を本番に反映したい場合は、まず dev → main を merge してから
+            #         dev デプロイ → prod デプロイの順で実施する (dev 側で nginx 再起動が走る)。
+            $COMPOSE_PROD build --no-cache app_prod
+            $COMPOSE_PROD up -d --no-deps --force-recreate app_prod
+
+            # 4) サーバー起動ログ + ヘルスチェック
             echo "=== Container logs (first 10s) ==="
             sleep 10
-            docker logs --tail=50 gmo-onair-app_prod-1 2>&1 || docker logs --tail=50 $(docker ps -aq -f name=app_prod | head -1) 2>&1 || true
+            docker logs --tail=50 gmo-onair-app_prod-1 2>&1 || docker logs --tail=50 \$(docker ps -aq -f name=app_prod | head -1) 2>&1 || true
+
             echo "=== Health check ==="
             sleep 10
             curl -sf http://localhost:3000/health && echo "✓ Health check passed" || echo "⚠ Health check failed"
+
             echo "=== Container status ==="
-            docker ps -a | grep app_prod || true
-            echo "✓ Prod deploy complete: $(date) — $(git log --oneline -1)"
+            $COMPOSE_PROD ps app_prod
+            echo "✓ Prod deploy complete: \$(date) — \$(git log --oneline -1)"
           ENDSSH
