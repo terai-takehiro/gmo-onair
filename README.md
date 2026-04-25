@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.6.0 — Phase 2A: CRUD ページ共通化基盤 + VendorListPage パイロット
+**現在のバージョン**: v2.6.1 — dev デプロイに診断ログ追加 (502 原因特定用)
 
 ---
 
@@ -383,6 +383,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.6.1** | v2.6.0 デプロイ後に dev で 502 Bad Gateway が発生した原因を特定するため、`.github/workflows/deploy.yml` の dev ジョブに診断ステップを追加: 起動 15s 後に `docker compose ps` / `docker logs gmo-onair-app_dev-* (last 80)` / `docker logs gmo-onair-nginx-* (last 30)` / `docker network inspect gmo-onair_default` を出力。これで GitHub Actions のログだけで「app_dev が起動失敗 / migration エラー / network 切断 / nginx config 不正」のいずれが原因かが分かるように |
 | **v2.6.0** | **Phase 2A: CRUD ページ共通化の基盤導入 + VendorListPage パイロット**。Phase 2 ロードマップの第一段階として、8+ ページで重複していた「検索 + ページネーション + Create/Update Dialog + Delete」のテンプレを 3 つの shared プリミティブに集約: ① **`shared/src/client/hooks/useCrudPage.ts`** — `createUseCrudPage(api)` factory で各アプリの api インスタンスにバインド。`{ search, page, items, pagination, dialogOpen, editingItem, save, remove, openAdd, openEdit, closeDialog }` を返す統一フック。pagination response envelope (`{ data, pagination }`) を前提。② **`shared/src/client/ui/filter-bar.tsx`** — `FilterBar` (タブ + 検索 + 任意アクション) を統一。`stacked` / `inline` レイアウト切替対応。③ **`shared/src/client/ui/pagination.tsx`** — `Pagination` (前へ/次へ + 件数・ページ表示)。totalPages ≤ 1 で自動非表示。④ **パイロット**: `client/src/contexts/finance/pages/VendorListPage.tsx` (213 → 219 行) を新プリミティブに移行。state/mutation の boilerplate が大幅削減 (page/search/dialogOpen/editingId/saveMutation/deleteMutation/openAdd/openEdit/closeDialog の重複ロジックが全て `useCrudPage` 内に移動)。次の v2.6.x で残り 7+ ページ (PurchaseListPage / PartnerListPage / SgaListPage / RevenueListPage / CustomerListPage / CompanyListPage / UserListPage) に展開予定 |
 | **v2.5.4** | **deploy ワークフローを構造的に再設計** (前回 PR `deploy: build app_dev after copying dev docker-compose and nginx config` の inline comments 反映)。旧設計の問題点: ① `cp /root/gmo-onair-dev/{nginx,docker-compose.yml}` で main worktree (`/root/gmo-onair`) を上書きしていた; ② `cd /root/gmo-onair && git reset --hard origin/main` を dev デプロイ内で実行 (dev デプロイなのに main 側を巻き込む); ③ 「次回 prod デプロイで `git reset --hard` が dev 側変更を消すはず」という暗黙リセット依存; ④ 副作用境界が曖昧 (dev デプロイが main worktree を巻き込み、prod デプロイが将来的に dev 設定を上書きする可能性)。**新設計**: dev デプロイは `docker compose -p gmo-onair -f /root/gmo-onair-dev/docker-compose.yml` で **dev worktree から直接** dev の compose を読む (cp 不要 / main worktree に一切触らない)。prod デプロイは `docker compose -p gmo-onair -f /root/gmo-onair/docker-compose.yml` で main worktree のみ参照し、**nginx は再起動しない** (nginx は dev デプロイの責務に統一)。`-p gmo-onair` で project 名共有により app_prod / app_dev / nginx / db のネットワーク・ボリューム・DB は同居。`--no-deps + --force-recreate` でデプロイ対象外サービスへの影響を最小化。`set -euo pipefail` 化 + 各ステップに「Why」コメント明示。Phase 2A 着手は v2.6.0 で予定 |
 | **v2.5.3** | GitHub のブランチを `main` (本番) と `dev` (検証) の 2 本だけに簡素化。これまで `master` (CLAUDE.md でミラーとされていたが運用されていなかった) / `eventstamp-reference` / `qsheet-reference` (旧アプリのソース、dev に merge 済み) / 過去セッションの `claude/*` 16 本 (12 マージ済み + 4 古い WIP) が累積していたのを全廃止。CLAUDE.md のブランチ運用節を「main + dev の 2 本のみ」と簡潔化。実際のリモート削除と GitHub default branch の `master` → `main` 切替えはユーザーが GitHub UI / git CLI 側で実施 (sandbox 環境からは git proxy が `--delete` を 403 拒否するため不可能だった) |

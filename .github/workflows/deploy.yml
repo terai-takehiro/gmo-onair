@@ -85,12 +85,35 @@ jobs:
             #         prod デプロイ側は nginx に触れない (下記 deploy-prod 参照)。
             $COMPOSE_DEV up -d --no-deps --force-recreate nginx
 
-            # 5) ヘルスチェック (失敗は警告のみ。デプロイは成功扱い)
-            sleep 5
-            $COMPOSE_DEV ps app_dev nginx
-            curl -sfk https://dev.gmo-onair.jp/health > /dev/null && echo "✓ dev health OK" || echo "⚠ dev health check failed (まだ起動中かも)"
+            # 5) 診断: app_dev / nginx の起動状況を deploy ログに必ず吐く。
+            #    502 Bad Gateway 等のトラブル時にここが原因特定の唯一の窓口になる。
+            sleep 15
+            echo "=== docker compose ps ==="
+            $COMPOSE_DEV ps app_dev nginx db || true
 
-            echo "✓ Dev deploy complete: \$(date) — \$(cd /root/gmo-onair-dev && git log --oneline -1)"
+            echo "=== app_dev container logs (last 80 lines) ==="
+            APP_DEV_CID=\$(docker ps -aq -f "name=gmo-onair-app_dev" | head -1)
+            if [ -n "\$APP_DEV_CID" ]; then
+              docker logs --tail=80 "\$APP_DEV_CID" 2>&1 || true
+            else
+              echo "⚠ app_dev container not found"
+            fi
+
+            echo "=== nginx container logs (last 30 lines) ==="
+            NGINX_CID=\$(docker ps -aq -f "name=gmo-onair-nginx" | head -1)
+            if [ -n "\$NGINX_CID" ]; then
+              docker logs --tail=30 "\$NGINX_CID" 2>&1 || true
+            else
+              echo "⚠ nginx container not found"
+            fi
+
+            echo "=== docker network inspection ==="
+            docker network inspect gmo-onair_default --format '{{range .Containers}}{{.Name}} ({{.IPv4Address}}) {{end}}' 2>&1 || true
+
+            echo "=== Health check ==="
+            curl -sfk https://dev.gmo-onair.jp/health && echo "✓ dev health OK" || echo "⚠ dev health check failed (上記 logs を確認)"
+
+            echo "✓ Dev deploy complete (logs above)"
           ENDSSH
 
   # ============================================

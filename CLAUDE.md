@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.6.0 — Phase 2A: useCrudPage / FilterBar / Pagination 共通化 + VendorListPage パイロット
+v2.6.1 — dev デプロイに診断ログ追加 (502 Bad Gateway 原因特定用)
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)
