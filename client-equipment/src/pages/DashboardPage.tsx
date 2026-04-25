@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { MAINTENANCE_STATUS, MAINTENANCE_TYPE, statusOf } from "@gmo-onair/shared/src/constants/statuses";
 import {
   DashboardHeader,
   KpiCard,
@@ -37,20 +38,7 @@ function isOverdue(dueDateStr: string | null) {
   return new Date(dueDateStr) < new Date();
 }
 
-const maintenanceTypeLabel: Record<string, string> = {
-  breakdown: "故障",
-  repair: "修理",
-  maintenance: "メンテ",
-  inspection: "点検",
-};
-const maintenanceStatusLabel: Record<string, string> = {
-  reported: "報告済",
-  in_progress: "対応中",
-};
-const maintenanceStatusVariant: Record<string, "warning" | "destructive" | "secondary"> = {
-  reported: "warning",
-  in_progress: "destructive",
-};
+// ステータス定義は shared/src/constants/statuses.ts に一元化済み (v2.4.0)
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -303,11 +291,11 @@ export default function DashboardPage() {
                   <p className="text-xs text-muted-foreground truncate">{m.equipment_name}</p>
                 </div>
                 <div className="text-right shrink-0 space-y-1">
-                  <Badge variant={maintenanceStatusVariant[m.status] ?? "secondary"} className="text-xs">
-                    {maintenanceStatusLabel[m.status] ?? m.status}
+                  <Badge variant={statusOf(MAINTENANCE_STATUS, m.status).variant} className="text-xs">
+                    {statusOf(MAINTENANCE_STATUS, m.status).label}
                   </Badge>
                   <p className="text-xs text-muted-foreground">
-                    {maintenanceTypeLabel[m.record_type] ?? m.record_type}
+                    {statusOf(MAINTENANCE_TYPE, m.record_type).label}
                   </p>
                 </div>
               </li>

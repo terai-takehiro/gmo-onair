@@ -7,11 +7,7 @@ import { Search, Loader2 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import api from "@/lib/api";
 import SharedHeader from "@gmo-onair/shared/src/client/SharedHeader";
-
-const stageLabelMap: Record<string, string> = {
-  neta: "ネタ", d_hold: "D保留", c_proposal: "C提案",
-  b_verbal: "B内示", a_won: "A受注", s_completed: "S完了", e_lost: "E失注",
-};
+import { PROJECT_STAGE, statusOf } from "@gmo-onair/shared/src/constants/statuses";
 
 interface SearchResults {
   projects: Array<{ id: string; code: string; gls_number: string | null; name: string; stage: string }>;
@@ -115,7 +111,7 @@ export default function Header({ title }: { title?: string }) {
                     className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-accent text-left transition-colors">
                     <span className="text-muted-foreground text-xs shrink-0 font-mono">{proj.gls_number || proj.code}</span>
                     <span className="truncate flex-1">{proj.name}</span>
-                    <Badge variant="outline" className="text-[10px] shrink-0">{stageLabelMap[proj.stage] || proj.stage}</Badge>
+                    <Badge variant="outline" className="text-[10px] shrink-0">{statusOf(PROJECT_STAGE, proj.stage).label}</Badge>
                   </button>
                 ))}
               </div>

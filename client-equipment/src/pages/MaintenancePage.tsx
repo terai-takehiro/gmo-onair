@@ -13,17 +13,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Loader2, Plus, Wrench } from "lucide-react";
-
-const typeLabels: Record<string, string> = {
-  breakdown: "故障", repair: "修理", maintenance: "メンテナンス", inspection: "点検",
-};
-const typeColors: Record<string, string> = {
-  breakdown: "bg-red-100 text-red-800", repair: "bg-amber-100 text-amber-800",
-  maintenance: "bg-blue-100 text-blue-800", inspection: "bg-green-100 text-green-800",
-};
-const statusLabels: Record<string, string> = {
-  reported: "報告済", in_progress: "対応中", completed: "完了", cancelled: "キャンセル",
-};
+import { MAINTENANCE_TYPE, MAINTENANCE_STATUS, statusOf } from "@gmo-onair/shared/src/constants/statuses";
 
 export default function MaintenancePage() {
   const qc = useQueryClient();
@@ -113,9 +103,9 @@ export default function MaintenancePage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${typeColors[r.record_type] || ""}`}>
-                        {typeLabels[r.record_type]}
-                      </span>
+                      <Badge variant={statusOf(MAINTENANCE_TYPE, r.record_type).variant} className="text-xs">
+                        {statusOf(MAINTENANCE_TYPE, r.record_type).label}
+                      </Badge>
                       <span className="font-mono text-xs text-primary">{r.eq_code}</span>
                       <span className="text-sm text-muted-foreground">{r.equipment_name}</span>
                     </div>
@@ -128,8 +118,8 @@ export default function MaintenancePage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <Badge variant="outline" className="text-xs">
-                      {statusLabels[r.status]}
+                    <Badge variant={statusOf(MAINTENANCE_STATUS, r.status).variant} className="text-xs">
+                      {statusOf(MAINTENANCE_STATUS, r.status).label}
                     </Badge>
                     {r.status !== "completed" && r.status !== "cancelled" && (
                       <Select
@@ -185,8 +175,8 @@ export default function MaintenancePage() {
               <Select value={form.record_type} onValueChange={(v) => setForm({ ...form, record_type: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {Object.entries(typeLabels).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v}</SelectItem>
+                  {Object.entries(MAINTENANCE_TYPE).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

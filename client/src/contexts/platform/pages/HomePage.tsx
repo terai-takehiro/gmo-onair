@@ -14,6 +14,13 @@ import {
 } from "@gmo-onair/shared/src/client/dashboard";
 import api from "@/lib/api";
 import {
+  PROJECT_STAGE,
+  ALERT_TYPE,
+  ALERT_PRIORITY,
+  statusOf,
+} from "@gmo-onair/shared/src/constants/statuses";
+import { queryKeys } from "@gmo-onair/shared/src/client/hooks/queryKeys";
+import {
   FolderKanban,
   PiggyBank,
   Calendar,
@@ -95,37 +102,7 @@ interface Project {
   event_start?: string;
 }
 
-const stageLabel: Record<string, string> = {
-  neta: "ネタ", d_hold: "D保留", c_proposal: "C提案",
-  b_verbal: "B内示", a_won: "A受注", s_completed: "S完了", e_lost: "E失注",
-};
-
-const stageVariant: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "info"> = {
-  neta: 'secondary',
-  d_hold: 'info',
-  c_proposal: 'default',
-  b_verbal: 'warning',
-  a_won: 'success',
-  s_completed: 'secondary',
-  e_lost: 'destructive',
-};
-
-const alertTypeLabel: Record<string, string> = {
-  application_form: "申込書未提出", upcoming_event: "イベント直前",
-  warning: "警告", danger: "緊急", info: "情報",
-};
-
-const alertTypeVariant: Record<string, "destructive" | "warning" | "info" | "secondary"> = {
-  application_form: "destructive",
-  upcoming_event: "warning",
-  warning: "warning",
-  danger: "destructive",
-  info: "info",
-};
-
-const alertTypePriority: Record<string, number> = {
-  danger: 0, application_form: 1, upcoming_event: 2, warning: 3, info: 4,
-};
+// ステータス定義は shared/src/constants/statuses.ts に一元化済み (v2.4.0)
 
 // 円表示
 const formatYen = (v: number) => `¥${(v / 10000).toLocaleString()}万`;
@@ -270,14 +247,14 @@ export default function HomePage() {
 // ══════════════════════════════════════════════════════════
 function ActionItemsSection({ navigate }: { navigate: (to: string) => void }) {
   const { data: alerts, isLoading } = useQuery<Alert[]>({
-    queryKey: ["home-alerts"],
+    queryKey: queryKeys.dashboard.alerts(),
     queryFn: async () => (await api.get("/dashboard/alerts")).data.data,
     staleTime: 60_000,
   });
 
   const sorted = (alerts ?? []).slice().sort((a, b) => {
-    const pa = alertTypePriority[a.alert_type] ?? 99;
-    const pb = alertTypePriority[b.alert_type] ?? 99;
+    const pa = ALERT_PRIORITY[a.alert_type as keyof typeof ALERT_PRIORITY] ?? 99;
+    const pb = ALERT_PRIORITY[b.alert_type as keyof typeof ALERT_PRIORITY] ?? 99;
     return pa - pb;
   });
   const top = sorted.slice(0, 5);
@@ -326,8 +303,8 @@ function ActionItemsSection({ navigate }: { navigate: (to: string) => void }) {
               className="flex w-full items-start gap-3 px-2 py-2.5 text-left transition-colors hover:bg-accent rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               onClick={() => a.id && navigate(`/sales/projects/${a.id}`)}
             >
-              <Badge variant={alertTypeVariant[a.alert_type] || "secondary"} className="shrink-0 mt-0.5">
-                {alertTypeLabel[a.alert_type] || a.alert_type}
+              <Badge variant={statusOf(ALERT_TYPE, a.alert_type).variant} className="shrink-0 mt-0.5">
+                {statusOf(ALERT_TYPE, a.alert_type).label}
               </Badge>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-foreground truncate">
@@ -351,13 +328,13 @@ function ActionItemsSection({ navigate }: { navigate: (to: string) => void }) {
 // ══════════════════════════════════════════════════════════
 function KpiSection({ navigate }: { navigate: (to: string) => void }) {
   const { data: kpi, isLoading } = useQuery<KPI>({
-    queryKey: ["home-kpi"],
+    queryKey: queryKeys.dashboard.kpi("monthly"),
     queryFn: async () => (await api.get("/dashboard/kpi", { params: { period: "monthly" } })).data.data,
     staleTime: 120_000,
   });
 
   const { data: chart } = useQuery<MonthlyChart[]>({
-    queryKey: ["home-monthly-chart"],
+    queryKey: queryKeys.dashboard.monthlyChart(),
     queryFn: async () => (await api.get("/dashboard/monthly-chart")).data.data,
     staleTime: 120_000,
   });
@@ -442,7 +419,7 @@ function KpiSection({ navigate }: { navigate: (to: string) => void }) {
 // ══════════════════════════════════════════════════════════
 function ScheduleSection() {
   const { data: weeklyData, isLoading } = useQuery<Array<{ date: string; dayLabel: string; events: Array<{ type: string }> }>>({
-    queryKey: ["home-weekly"],
+    queryKey: queryKeys.dashboard.weeklySchedule(),
     queryFn: async () => (await api.get("/dashboard/weekly-schedule")).data.data,
     staleTime: 120_000,
   });
@@ -499,7 +476,7 @@ function ScheduleSection() {
 // ══════════════════════════════════════════════════════════
 function RecentProjectsSection({ navigate }: { navigate: (to: string) => void }) {
   const { data: projects, isLoading } = useQuery<Project[]>({
-    queryKey: ["home-recent-projects"],
+    queryKey: queryKeys.dashboard.recentProjects(),
     queryFn: async () => (await api.get("/dashboard/recent-projects")).data.data,
     staleTime: 60_000,
   });
@@ -545,8 +522,8 @@ function RecentProjectsSection({ navigate }: { navigate: (to: string) => void })
                     <p className="text-xs text-muted-foreground truncate">{p.customer_name}</p>
                   ) : null}
                 </div>
-                <Badge variant={stageVariant[p.stage] || "secondary"} className="shrink-0">
-                  {stageLabel[p.stage] || p.stage}
+                <Badge variant={statusOf(PROJECT_STAGE, p.stage).variant} className="shrink-0">
+                  {statusOf(PROJECT_STAGE, p.stage).label}
                 </Badge>
               </button>
             </li>

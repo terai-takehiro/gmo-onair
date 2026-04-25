@@ -381,6 +381,7 @@ export default function DashboardPage() {
         <DashboardHeader
           title="Qシート"
           description={`${documents?.length || 0} 件のドキュメント。タイトルで検索、新規作成、OnAir/ランダウン起動。`}
+          lastUpdated={`最終更新 ${new Date().toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
           controls={
             <Button onClick={() => setShowCreate(true)} data-create-btn>
               <Plus className="h-4 w-4 mr-1" aria-hidden="true" />

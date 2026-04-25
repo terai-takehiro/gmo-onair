@@ -1,3 +1,4 @@
+import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -107,7 +108,7 @@ export default function VendorListPage() {
       ) : (
         <>
           {vendors.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">データがありません</p>
+            <EmptyState title="データがありません" />
           ) : (
             <>
               {/* Mobile cards */}

@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DashboardHeader, EmptyState } from '@gmo-onair/shared/src/client/dashboard';
+import { INTERACTIVE_EVENT_STATUS, statusOf } from '@gmo-onair/shared/src/constants/statuses';
 
 interface GlsProject {
   id: string;
@@ -25,13 +26,7 @@ interface EpisodeOption {
   broadcast_date: string | null;
 }
 
-const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'success' | 'secondary' | 'warning' }> = {
-  draft: { label: '下書き', variant: 'secondary' },
-  rehearsal: { label: 'リハーサル', variant: 'warning' },
-  live: { label: 'LIVE', variant: 'default' },
-  ended: { label: '終了', variant: 'secondary' },
-  archived: { label: 'アーカイブ', variant: 'secondary' },
-};
+// ステータス定義は shared/src/constants/statuses.ts (INTERACTIVE_EVENT_STATUS) を参照
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -179,6 +174,7 @@ export default function DashboardPage() {
       <DashboardHeader
         title="イベント一覧"
         description="インタラクティブ演出イベントの作成・管理"
+        lastUpdated={`最終更新 ${new Date().toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
         controls={createDialog}
       />
 
@@ -205,7 +201,7 @@ export default function DashboardPage() {
               role="tab"
               aria-selected={statusFilter === s}
             >
-              {s === '' ? '全て' : STATUS_MAP[s]?.label || s}
+              {s === '' ? '全て' : statusOf(INTERACTIVE_EVENT_STATUS, s).label}
             </Button>
           ))}
         </div>
@@ -236,7 +232,7 @@ export default function DashboardPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {events.map((event: any) => {
-            const st = STATUS_MAP[event.status] || STATUS_MAP.draft;
+            const st = statusOf(INTERACTIVE_EVENT_STATUS, event.status);
             return (
               <Card key={event.id} className="group transition-colors hover:border-primary">
                 <CardContent className="p-5">

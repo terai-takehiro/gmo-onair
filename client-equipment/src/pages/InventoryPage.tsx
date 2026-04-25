@@ -10,10 +10,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Loader2, Plus, ClipboardCheck, Check, X, HelpCircle, Save, Undo2, MapPin, RefreshCw, Trash2 } from "lucide-react";
-
-const statusLabels: Record<string, string> = {
-  draft: "下書き", in_progress: "実施中", completed: "完了",
-};
+import { INVENTORY_STATUS, statusOf } from "@gmo-onair/shared/src/constants/statuses";
 
 type CheckItem = {
   id: string;
@@ -130,7 +127,7 @@ export default function InventoryPage() {
             </Button>
             <h1 className="text-xl font-bold">{detail.title}</h1>
             <p className="text-sm text-muted-foreground">
-              {detail.check_date} / {statusLabels[detail.status]} / {checked}/{total} 確認済
+              {detail.check_date} / {statusOf(INVENTORY_STATUS, detail.status).label} / {checked}/{total} 確認済
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -297,7 +294,7 @@ export default function InventoryPage() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <Badge variant={c.status === "completed" ? "secondary" : "default"}>
-                      {statusLabels[c.status]}
+                      {statusOf(INVENTORY_STATUS, c.status).label}
                     </Badge>
                     <Button
                       size="icon" variant="ghost"

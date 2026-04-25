@@ -35,6 +35,7 @@ import {
   Printer,
 } from "lucide-react";
 import { DashboardHeader, EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+import { TECHSHEET_STATUS, statusOf } from "@gmo-onair/shared/src/constants/statuses";
 
 interface TechsheetDocument {
   id: string;
@@ -66,16 +67,7 @@ interface EpisodeOption {
   recording_date: string | null;
 }
 
-const statusVariant: Record<string, "secondary" | "success" | "outline"> = {
-  draft: "secondary",
-  confirmed: "success",
-  archived: "outline",
-};
-const statusLabel: Record<string, string> = {
-  draft: "下書き",
-  confirmed: "確定",
-  archived: "アーカイブ",
-};
+// ステータス定義は shared/src/constants/statuses.ts (TECHSHEET_STATUS) を参照
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -207,6 +199,7 @@ export default function DashboardPage() {
       <DashboardHeader
         title="技術資料一覧"
         description="番組・イベントの映像・音声・通信の技術資料を作成・管理します。"
+        lastUpdated={`最終更新 ${new Date().toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
         controls={
           <Button onClick={() => setShowCreate(true)} className="gap-2">
             <Plus className="h-4 w-4" aria-hidden="true" />
@@ -257,8 +250,9 @@ export default function DashboardPage() {
       ) : documents && documents.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {documents.map((doc) => {
-            const label = statusLabel[doc.status] || "下書き";
-            const variant = statusVariant[doc.status] || "secondary";
+            const spec = statusOf(TECHSHEET_STATUS, doc.status);
+            const label = spec.label;
+            const variant = spec.variant;
             return (
               <Card
                 key={doc.id}

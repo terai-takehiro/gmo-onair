@@ -1,3 +1,4 @@
+import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { useState, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -314,7 +315,7 @@ export default function PurchaseListPage() {
       ) : (
         <>
           {purchases.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">データがありません</p>
+            <EmptyState title="データがありません" />
           ) : (
             <>
               {/* Mobile cards */}

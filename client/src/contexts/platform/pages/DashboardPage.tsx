@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { formatPercent } from "@/lib/format";
+import { PROJECT_STAGE, ALERT_TYPE, statusOf } from "@gmo-onair/shared/src/constants/statuses";
+import { queryKeys } from "@gmo-onair/shared/src/client/hooks/queryKeys";
 import { PageTransition } from "@/components/ui/motion";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -73,11 +75,6 @@ interface PipelineStage {
   total_amount: number;
 }
 
-const stageLabels: Record<string, string> = {
-  neta: 'ネタ', d_hold: 'D 仮押さえ', c_proposal: 'C 見積提案',
-  b_verbal: 'B 口頭決定', a_won: 'A 受注済',
-};
-
 /* パイプラインステージを DADS categorical で分類 */
 const pipelineStageColors: Record<string, string> = {
   neta: chartColors.neutral,
@@ -89,37 +86,6 @@ const pipelineStageColors: Record<string, string> = {
 
 const formatYen = (value: number) => `¥${(value / 10000).toLocaleString()}万`;
 const formatYenShort = (value: number) => `¥${(value / 10000).toFixed(0)}万`;
-
-const alertTypeVariant: Record<string, "destructive" | "warning" | "info"> = {
-  warning: "warning",
-  danger: "destructive",
-  info: "info",
-  application_form: "destructive",
-  upcoming_event: "warning",
-};
-
-const alertTypeLabel: Record<string, string> = {
-  application_form: "申込書未提出",
-  upcoming_event: "イベント直前",
-  warning: "警告",
-  danger: "緊急",
-  info: "情報",
-};
-
-const projectStageLabel: Record<string, string> = {
-  neta: 'ネタ', d_hold: 'D 仮押さえ', c_proposal: 'C 見積提案',
-  b_verbal: 'B 口頭決定', a_won: 'A 受注済', s_completed: 'S 完了', e_lost: 'E 失注',
-};
-
-const projectStageVariant: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "info"> = {
-  neta: 'secondary',
-  d_hold: 'info',
-  c_proposal: 'default',
-  b_verbal: 'warning',
-  a_won: 'success',
-  s_completed: 'secondary',
-  e_lost: 'destructive',
-};
 
 /* 週次スケジュールのイベントタイプ — ニュートラル+brand軸で分類 */
 const typeColors: Record<string, string> = {
@@ -138,38 +104,38 @@ export default function DashboardPage() {
   const [kpiPeriod, setKpiPeriod] = useState<'monthly' | 'yearly'>('monthly');
 
   const { data: kpi, isLoading: kpiLoading } = useQuery<KPI>({
-    queryKey: ["dashboard-kpi", kpiPeriod],
+    queryKey: queryKeys.dashboard.kpi(kpiPeriod),
     queryFn: async () => (await api.get("/dashboard/kpi", { params: { period: kpiPeriod } })).data.data,
   });
 
   const { data: alerts } = useQuery<Alert[]>({
-    queryKey: ["dashboard-alerts"],
+    queryKey: queryKeys.dashboard.alerts(),
     queryFn: async () => (await api.get("/dashboard/alerts")).data.data,
   });
 
   const { data: recentProjects } = useQuery<Project[]>({
-    queryKey: ["dashboard-recent-projects"],
+    queryKey: queryKeys.dashboard.recentProjects(),
     queryFn: async () => (await api.get("/dashboard/recent-projects")).data.data,
   });
 
   useQuery({
-    queryKey: ['check-completed'],
+    queryKey: queryKeys.dashboard.checkCompleted(),
     queryFn: async () => (await api.get('/dashboard/check-completed')).data,
     staleTime: 60000,
   });
 
   const { data: chartData } = useQuery<MonthlyChart[]>({
-    queryKey: ['dashboard-chart'],
+    queryKey: queryKeys.dashboard.monthlyChart(),
     queryFn: async () => (await api.get('/dashboard/monthly-chart')).data.data,
   });
 
   const { data: pipelineData } = useQuery<PipelineStage[]>({
-    queryKey: ['dashboard-pipeline'],
+    queryKey: queryKeys.dashboard.pipeline(),
     queryFn: async () => (await api.get('/dashboard/pipeline')).data.data,
   });
 
   const { data: weeklyData } = useQuery({
-    queryKey: ['dashboard-weekly'],
+    queryKey: queryKeys.dashboard.weeklySchedule(),
     queryFn: async () => (await api.get('/dashboard/weekly-schedule')).data.data,
   });
 
@@ -421,7 +387,7 @@ export default function DashboardPage() {
                 <BarChart
                   data={pipelineData.map((s) => ({
                     ...s,
-                    label: stageLabels[s.stage] || s.stage,
+                    label: statusOf(PROJECT_STAGE, s.stage).label,
                   }))}
                   layout="vertical"
                   margin={{ left: 10, right: 48 }}
@@ -461,8 +427,8 @@ export default function DashboardPage() {
               <ul className="space-y-2 sm:space-y-3">
                 {alerts.map((a, idx) => (
                   <li key={`${a.id}-${a.alert_type}-${idx}`} className="flex items-start gap-2 sm:gap-3 rounded-md border border-border p-2 sm:p-3">
-                    <Badge variant={alertTypeVariant[a.alert_type] || "secondary"}>
-                      {alertTypeLabel[a.alert_type] || a.alert_type}
+                    <Badge variant={statusOf(ALERT_TYPE, a.alert_type).variant}>
+                      {statusOf(ALERT_TYPE, a.alert_type).label}
                     </Badge>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs sm:text-sm font-medium text-foreground truncate">{a.name}</p>
@@ -496,8 +462,8 @@ export default function DashboardPage() {
                           <p className="text-xs text-muted-foreground">{p.customer_name}</p>
                         )}
                       </div>
-                      <Badge variant={projectStageVariant[p.stage] || "secondary"} className="shrink-0">
-                        {projectStageLabel[p.stage] || p.stage}
+                      <Badge variant={statusOf(PROJECT_STAGE, p.stage).variant} className="shrink-0">
+                        {statusOf(PROJECT_STAGE, p.stage).label}
                       </Badge>
                     </button>
                   </li>

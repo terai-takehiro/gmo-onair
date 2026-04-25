@@ -8,6 +8,7 @@ import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -129,7 +130,7 @@ export default function ProjectListPage() {
       ) : (
         <>
           {projects.length === 0 ? (
-            <p className="py-12 text-center text-muted-foreground">データがありません</p>
+            <EmptyState title="該当する案件がありません" description="検索条件を変えるか、新しい案件を作成してください。" />
           ) : (
             <>
               {/* Mobile: Card layout */}
