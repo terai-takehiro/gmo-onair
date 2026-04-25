@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.6.2 — deploy.yml の bash 構文エラー修正 + 診断項目拡充 (DNS / 内部 health / nginx → app_dev 接続)
+v2.6.3 — dev デプロイ 502 の真因解決 (DB_PASSWORD 空文字 → --env-file 明示)
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)

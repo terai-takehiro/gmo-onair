@@ -69,7 +69,13 @@ jobs:
             #            dev branch の compose / nginx 設定変更が確実に反映される。
             #    Why -p gmo-onair: prod デプロイと同じ project 名にすることで、
             #            app_prod / db / nginx を共有 (別プロジェクトとして並走しない)。
-            COMPOSE_DEV="docker compose -p gmo-onair -f /root/gmo-onair-dev/docker-compose.yml"
+            #    Why --env-file: docker compose は pwd の .env を読むが、cwd は dev worktree で
+            #            そこには .env が無い (gitignore)。secrets (DB_PASSWORD / JWT_SECRET 等) は
+            #            main worktree の /root/gmo-onair/.env にだけ置かれているので明示参照。
+            #            この修正がないと DATABASE_URL の ${DB_PASSWORD} が空文字になり、
+            #            app_dev が PostgreSQL に空パスワードで接続しようとして SASL エラーで起動失敗、
+            #            結果的に nginx → app_dev のプロキシで 502 が返る (v2.6.0〜v2.6.2 の症状)。
+            COMPOSE_DEV="docker compose -p gmo-onair --env-file /root/gmo-onair/.env -f /root/gmo-onair-dev/docker-compose.yml"
 
             # 3) app_dev のみ再ビルド & 再作成。
             #    Why --no-cache: dev branch のソース変更を確実に bundle に反映するため
