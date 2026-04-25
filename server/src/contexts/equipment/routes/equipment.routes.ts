@@ -8,6 +8,9 @@ import {
   EQUIPMENT_LENDING_STATUS, EQUIPMENT_STATUS,
   MAINTENANCE_STATUS, INVENTORY_STATUS,
 } from '../../../shared/constants/statuses';
+import { lendingService } from '../services/lending.service';
+import { maintenanceService } from '../services/maintenance.service';
+import { inventoryService } from '../services/inventory.service';
 
 const router = Router();
 
@@ -600,322 +603,123 @@ router.delete('/items/:id', async (req: Request, res: Response) => {
 });
 
 // ============================================================
-// 貸出管理
+// 貸出管理 (lendingService に集約)
 // ============================================================
-router.get('/lendings', async (req: Request, res: Response) => {
-  const { status, equipment_id, project_id } = req.query;
-  let sql = `
-    SELECT el.*, ei.name as equipment_name, ei.eq_code, ei.unit_number,
-           p.name as project_name, p.gls_number
-    FROM equipment_lendings el
-    JOIN equipment_items ei ON ei.id = el.equipment_id
-    LEFT JOIN projects p ON p.id = el.project_id
-    WHERE 1=1
-  `;
-  const params: any[] = [];
-  let paramIndex = 1;
-  if (status) { sql += ` AND el.status = $${paramIndex++}`; params.push(status); }
-  if (equipment_id) { sql += ` AND el.equipment_id = $${paramIndex++}`; params.push(equipment_id); }
-  if (project_id) { sql += ` AND el.project_id = $${paramIndex++}`; params.push(project_id); }
-  sql += ' ORDER BY el.lent_at DESC';
-
-  const rows = await queryAll(sql, params);
-  res.json({ success: true, data: rows });
-});
-
-router.post('/lendings', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/lendings', async (req, res, next) => {
   try {
-    const id = uuid();
-    const { equipment_id, project_id, borrower_name, purpose, lent_at, due_date, condition_out, notes } = req.body;
-
-    // 機材存在確認 (貸出可否は equipment_section で判定、ここでは二重貸出のみチェック)
-    const item = await queryOne("SELECT id, name FROM equipment_items WHERE id = $1 AND deleted_at IS NULL", [equipment_id]) as any;
-    if (!item) return res.status(404).json({ success: false, error: { message: '機材が見つかりません' } });
-
-    const activeLending = await queryOne(
-      `SELECT id FROM equipment_lendings WHERE equipment_id = $1 AND status = '${EQUIPMENT_LENDING_STATUS.LENT}'`,
-      [equipment_id]
-    );
-    if (activeLending) return res.status(400).json({ success: false, error: { message: 'この機材は貸出中です' } });
-
-    await execute(`
-      INSERT INTO equipment_lendings (id, equipment_id, project_id, borrower_name, purpose, lent_at, due_date, condition_out, notes, status, lent_by)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-    `, [id, equipment_id, project_id || null, borrower_name, purpose || null, lent_at, due_date || null, condition_out || null, notes || null, EQUIPMENT_LENDING_STATUS.LENT, (req as any).user?.id || null]);
-    res.status(201).json({ success: true, data: { id } });
-  } catch (err: any) {
-    console.error('[POST /lendings]', err?.message);
-    next(err);
-  }
-});
-
-router.post('/lendings/batch', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { equipment_ids, project_id, borrower_name, purpose, lent_at, due_date, condition_out, notes } = req.body;
-    if (!Array.isArray(equipment_ids) || equipment_ids.length === 0) {
-      return res.status(400).json({ success: false, error: { message: '機材を1台以上選択してください' } });
-    }
-    if (!borrower_name) {
-      return res.status(400).json({ success: false, error: { message: '借用者名は必須です' } });
-    }
-    const errors: string[] = [];
-    const createdIds: string[] = [];
-    for (const equipment_id of equipment_ids) {
-      const item = await queryOne(
-        "SELECT id, name FROM equipment_items WHERE id = $1 AND deleted_at IS NULL", [equipment_id]
-      ) as any;
-      if (!item) { errors.push(`ID:${equipment_id} が見つかりません`); continue; }
-      const activeLending = await queryOne(
-        `SELECT id FROM equipment_lendings WHERE equipment_id = $1 AND status = '${EQUIPMENT_LENDING_STATUS.LENT}'`, [equipment_id]
-      );
-      if (activeLending) { errors.push(`${item.name} は既に貸出中です`); continue; }
-      const id = uuid();
-      await execute(`
-        INSERT INTO equipment_lendings (id, equipment_id, project_id, borrower_name, purpose, lent_at, due_date, condition_out, notes, status, lent_by)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-      `, [id, equipment_id, project_id || null, borrower_name, purpose || null, lent_at,
-          due_date || null, condition_out || null, notes || null, EQUIPMENT_LENDING_STATUS.LENT, (req as any).user?.id || null]);
-      createdIds.push(id);
-    }
-    if (createdIds.length === 0) {
-      return res.status(400).json({ success: false, error: { message: errors.join('、') } });
-    }
-    res.status(201).json({ success: true, data: { created_count: createdIds.length, errors: errors.length > 0 ? errors : undefined } });
-  } catch (err: any) {
-    console.error('[POST /lendings/batch]', err?.message);
-    next(err);
-  }
-});
-
-router.put('/lendings/:id/return', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { condition_in, notes } = req.body;
-    await execute(`
-      UPDATE equipment_lendings SET
-        status='${EQUIPMENT_LENDING_STATUS.RETURNED}', returned_at=NOW(), condition_in=$1, notes=COALESCE($2, notes),
-        returned_by=$3, updated_at=NOW()
-      WHERE id=$4 AND status='${EQUIPMENT_LENDING_STATUS.LENT}'
-    `, [condition_in || null, notes || null, (req as any).user?.id || null, req.params.id]);
-    res.json({ success: true });
-  } catch (err: any) {
-    console.error('[PUT /lendings/:id/return]', err?.message);
-    next(err);
-  }
-});
-
-router.delete('/lendings/:id', async (req: Request, res: Response) => {
-  await execute("DELETE FROM equipment_lendings WHERE id=$1", [req.params.id]);
-  res.json({ success: true });
-});
-
-// ============================================================
-// メンテナンス記録
-// ============================================================
-router.get('/maintenance', async (req: Request, res: Response) => {
-  const { equipment_id, status, record_type } = req.query;
-  let sql = `
-    SELECT mr.*, ei.name as equipment_name, ei.eq_code
-    FROM maintenance_records mr
-    JOIN equipment_items ei ON ei.id = mr.equipment_id
-    WHERE 1=1
-  `;
-  const params: any[] = [];
-  let paramIndex = 1;
-  if (equipment_id) { sql += ` AND mr.equipment_id = $${paramIndex++}`; params.push(equipment_id); }
-  if (status) { sql += ` AND mr.status = $${paramIndex++}`; params.push(status); }
-  if (record_type) { sql += ` AND mr.record_type = $${paramIndex++}`; params.push(record_type); }
-  sql += ' ORDER BY mr.reported_at DESC';
-
-  const rows = await queryAll(sql, params);
-  res.json({ success: true, data: rows });
-});
-
-router.post('/maintenance', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const id = uuid();
-    const { equipment_id, record_type, title, description, assigned_to, vendor_name, repair_cost } = req.body;
-
-    await execute(`
-      INSERT INTO maintenance_records (id, equipment_id, record_type, title, description, reported_by, assigned_to, vendor_name, repair_cost, status)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-    `, [id, equipment_id, record_type, title, description || null, (req as any).user?.id || null, assigned_to || null, vendor_name || null, repair_cost || null, 'reported']);
-
-    // If breakdown, update equipment status
-    if (record_type === 'breakdown') {
-      await execute("UPDATE equipment_items SET status='in_repair', updated_at=NOW() WHERE id=$1", [equipment_id]);
-    }
-    res.status(201).json({ success: true, data: { id } });
-  } catch (err: any) {
-    console.error('[POST /maintenance]', err?.message);
-    next(err);
-  }
-});
-
-router.put('/maintenance/:id', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { title, description, assigned_to, vendor_name, repair_cost, status, result, started_at, completed_at } = req.body;
-
-    await execute(`
-      UPDATE maintenance_records SET
-        title=$1, description=$2, assigned_to=$3, vendor_name=$4, repair_cost=$5,
-        status=$6, result=$7, started_at=$8, completed_at=$9, updated_at=NOW()
-      WHERE id=$10
-    `, [title, description || null, assigned_to || null, vendor_name || null, repair_cost || null, status, result || null, started_at || null, completed_at || null, req.params.id]);
-
-    // If completed, restore equipment to active
-    if (status === 'completed') {
-      const record = await queryOne("SELECT equipment_id FROM maintenance_records WHERE id=$1", [req.params.id]) as any;
-      if (record) {
-        await execute("UPDATE equipment_items SET status='active', updated_at=NOW() WHERE id=$1 AND status='in_repair'", [record.equipment_id]);
-      }
-    }
-    res.json({ success: true });
-  } catch (err: any) {
-    console.error('[PUT /maintenance/:id]', err?.message);
-    next(err);
-  }
-});
-
-// ============================================================
-// 棚卸し
-// ============================================================
-router.get('/inventory-checks', async (_req: Request, res: Response, next: NextFunction) => {
-  try {
-    const rows = await queryAll("SELECT * FROM inventory_checks ORDER BY check_date DESC");
+    const rows = await lendingService.list({
+      status: req.query.status as string | undefined,
+      equipment_id: req.query.equipment_id as string | undefined,
+      project_id: req.query.project_id as string | undefined,
+    });
     res.json({ success: true, data: rows });
   } catch (err) { next(err); }
 });
 
-router.post('/inventory-checks', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/lendings', async (req, res, next) => {
   try {
-    const id = uuid();
-    const { title, check_date, notes } = req.body;
-
-    await execute(
-      "INSERT INTO inventory_checks (id, title, check_date, status, checked_by, notes) VALUES ($1,$2,$3,$4,$5,$6)",
-      [id, title, check_date, 'draft', (req as any).user?.id || null, notes || null]
-    );
-
-    // Auto-populate check items from active equipment — バッチINSERTで1クエリ
-    const items = await queryAll(`
-      SELECT ei.id, el.name as location_name, ei.location_detail
-      FROM equipment_items ei
-      LEFT JOIN equipment_locations el ON el.id = ei.location_id AND el.deleted_at IS NULL
-      WHERE ei.deleted_at IS NULL AND ei.status != 'disposed'
-    `) as any[];
-    if (items.length > 0) {
-      const vals: string[] = [];
-      const prms: any[] = [];
-      items.forEach((item, idx) => {
-        const base = idx * 4;
-        vals.push(`($${base+1},$${base+2},$${base+3},$${base+4})`);
-        prms.push(uuid(), id, item.id, item.location_name || item.location_detail || null);
-      });
-      await execute(
-        `INSERT INTO inventory_check_items (id, check_id, equipment_id, expected_location) VALUES ${vals.join(',')}`,
-        prms
-      );
-    }
-    res.status(201).json({ success: true, data: { id } });
-  } catch (err: any) {
-    console.error('[POST /inventory-checks]', err?.message);
-    next(err);
-  }
-});
-
-router.get('/inventory-checks/:id', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const check = await queryOne("SELECT * FROM inventory_checks WHERE id=$1", [req.params.id]);
-    if (!check) return res.status(404).json({ success: false, error: { message: '棚卸しが見つかりません' } });
-
-    const items = await queryAll(`
-      SELECT ici.*, ei.name as equipment_name, ei.eq_code, ei.unit_number,
-             ei.location_detail, el.name as location_name,
-             COALESCE(el.sort_order, 9999) as location_sort
-      FROM inventory_check_items ici
-      JOIN equipment_items ei ON ei.id = ici.equipment_id
-      LEFT JOIN equipment_locations el ON el.id = ei.location_id AND el.deleted_at IS NULL
-      WHERE ici.check_id = $1
-      ORDER BY location_sort, el.name NULLS LAST, ei.location_detail NULLS LAST, ei.name, ei.unit_number
-    `, [req.params.id]);
-
-    res.json({ success: true, data: { ...(check as any), items } });
+    const result = await lendingService.create(req.body, req.user?.id ?? null);
+    res.status(201).json({ success: true, data: result });
   } catch (err) { next(err); }
 });
 
-router.put('/inventory-checks/:id/items/:itemId', requirePermission('equipment', 'editor'), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/lendings/batch', async (req, res, next) => {
   try {
-    const { found, actual_location, condition, note } = req.body;
-    await execute(`
-      UPDATE inventory_check_items SET found=$1, actual_location=$2, condition=$3, note=$4, checked_at=NOW()
-      WHERE id=$5 AND check_id=$6
-    `, [found, actual_location || null, condition || null, note || null, req.params.itemId, req.params.id]);
+    const result = await lendingService.createBatch(req.body, req.user?.id ?? null);
+    res.status(201).json({ success: true, data: result });
+  } catch (err) { next(err); }
+});
+
+router.put('/lendings/:id/return', async (req, res, next) => {
+  try {
+    await lendingService.returnLending(req.params.id as string, req.body, req.user?.id ?? null);
     res.json({ success: true });
   } catch (err) { next(err); }
 });
 
-router.put('/inventory-checks/:id/status', requirePermission('equipment', 'editor'), async (req: Request, res: Response, next: NextFunction) => {
+router.delete('/lendings/:id', async (req, res, next) => {
   try {
-    const { status } = req.body;
-    // 値は migration 007_equipment.sql の inventory_checks CHECK 制約と完全一致
-    const VALID_STATUSES: string[] = Object.values(INVENTORY_STATUS);
-    if (!VALID_STATUSES.includes(status)) {
-      return res.status(400).json({ success: false, error: { message: 'status の値が不正です' } });
-    }
-    await execute("UPDATE inventory_checks SET status=$1, updated_at=NOW() WHERE id=$2", [status, req.params.id]);
+    await lendingService.delete(req.params.id as string);
     res.json({ success: true });
   } catch (err) { next(err); }
 });
 
-router.delete('/inventory-checks/:id', requirePermission('equipment', 'manager'), async (req: Request, res: Response, next: NextFunction) => {
+// ============================================================
+// メンテナンス記録 (maintenanceService に集約)
+// ============================================================
+router.get('/maintenance', async (req, res, next) => {
   try {
-    const check = await queryOne("SELECT id FROM inventory_checks WHERE id=$1", [req.params.id]);
-    if (!check) return res.status(404).json({ success: false, error: { message: '棚卸しが見つかりません' } });
-    await execute("DELETE FROM inventory_check_items WHERE check_id=$1", [req.params.id]);
-    await execute("DELETE FROM inventory_checks WHERE id=$1", [req.params.id]);
+    const rows = await maintenanceService.list({
+      equipment_id: req.query.equipment_id as string | undefined,
+      status: req.query.status as string | undefined,
+      record_type: req.query.record_type as string | undefined,
+    });
+    res.json({ success: true, data: rows });
+  } catch (err) { next(err); }
+});
+
+router.post('/maintenance', async (req, res, next) => {
+  try {
+    const result = await maintenanceService.create(req.body, req.user?.id ?? null);
+    res.status(201).json({ success: true, data: result });
+  } catch (err) { next(err); }
+});
+
+router.put('/maintenance/:id', async (req, res, next) => {
+  try {
+    await maintenanceService.update(req.params.id as string, req.body);
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
+// ============================================================
+// 棚卸し (inventoryService に集約)
+// ============================================================
+router.get('/inventory-checks', async (_req, res, next) => {
+  try {
+    res.json({ success: true, data: await inventoryService.list() });
+  } catch (err) { next(err); }
+});
+
+router.post('/inventory-checks', async (req, res, next) => {
+  try {
+    const result = await inventoryService.create(req.body, req.user?.id ?? null);
+    res.status(201).json({ success: true, data: result });
+  } catch (err) { next(err); }
+});
+
+router.get('/inventory-checks/:id', async (req, res, next) => {
+  try {
+    res.json({ success: true, data: await inventoryService.getById(req.params.id as string) });
+  } catch (err) { next(err); }
+});
+
+router.put('/inventory-checks/:id/items/:itemId', requirePermission('equipment', 'editor'), async (req, res, next) => {
+  try {
+    await inventoryService.updateItem(req.params.id as string, req.params.itemId as string, req.body);
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
+router.put('/inventory-checks/:id/status', requirePermission('equipment', 'editor'), async (req, res, next) => {
+  try {
+    await inventoryService.updateStatus(req.params.id as string, req.body?.status);
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
+router.delete('/inventory-checks/:id', requirePermission('equipment', 'manager'), async (req, res, next) => {
+  try {
+    await inventoryService.delete(req.params.id as string);
     res.json({ success: true });
   } catch (err) { next(err); }
 });
 
 // 棚卸し機材同期（新たに追加された機材をチェックに追加）
-router.post('/inventory-checks/:id/sync', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/inventory-checks/:id/sync', async (req, res, next) => {
   try {
-    const check = await queryOne("SELECT id FROM inventory_checks WHERE id=$1", [req.params.id]);
-    if (!check) return res.status(404).json({ success: false, error: { message: '棚卸しが見つかりません' } });
-
-    const existing = await queryAll(
-      "SELECT equipment_id FROM inventory_check_items WHERE check_id=$1",
-      [req.params.id]
-    ) as any[];
-    const existingIds = new Set(existing.map((e: any) => e.equipment_id));
-
-    const allItems = await queryAll(`
-      SELECT ei.id, el.name as location_name, ei.location_detail
-      FROM equipment_items ei
-      LEFT JOIN equipment_locations el ON el.id = ei.location_id AND el.deleted_at IS NULL
-      WHERE ei.deleted_at IS NULL AND ei.status != 'disposed'
-    `);
-
-    const toInsert = (allItems as any[]).filter(item => !existingIds.has(item.id));
-    if (toInsert.length > 0) {
-      const vals: string[] = [];
-      const prms: any[] = [];
-      toInsert.forEach((item, idx) => {
-        const base = idx * 4;
-        vals.push(`($${base+1},$${base+2},$${base+3},$${base+4})`);
-        prms.push(uuid(), req.params.id, item.id, item.location_name || item.location_detail || null);
-      });
-      await execute(
-        `INSERT INTO inventory_check_items (id, check_id, equipment_id, expected_location) VALUES ${vals.join(',')}`,
-        prms
-      );
-    }
-
-    res.json({ success: true, data: { added: toInsert.length } });
-  } catch (err: any) {
-    console.error('[POST /inventory-checks/:id/sync]', err?.message);
-    next(err);
-  }
+    res.json({ success: true, data: await inventoryService.sync(req.params.id as string) });
+  } catch (err) { next(err); }
 });
 
 // ============================================================
