@@ -21,7 +21,15 @@ export async function initDb(): Promise<Pool> {
 
   const connectionString = process.env.DATABASE_URL || DEFAULT_DATABASE_URL;
 
-  pool = new Pool({ connectionString });
+  pool = new Pool({ connectionString, client_encoding: 'UTF8' });
+
+  // Force UTF-8 on every new physical connection so Japanese text is never
+  // mojibaked even if the cluster was initialised with a non-UTF8 default.
+  pool.on('connect', (client) => {
+    client.query("SET client_encoding TO 'UTF8'").catch(() => {
+      /* ignore: server may already be UTF8 */
+    });
+  });
 
   // Verify the connection works
   const client = await pool.connect();
