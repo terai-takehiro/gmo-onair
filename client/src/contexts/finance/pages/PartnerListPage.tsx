@@ -7,14 +7,12 @@ import { useForm } from "react-hook-form";
 import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { FilterBar } from "@gmo-onair/shared/src/client/ui/filter-bar";
 import { Pagination } from "@gmo-onair/shared/src/client/ui/pagination";
+import { CrudFormDialog } from "@gmo-onair/shared/src/client/ui/crud-form-dialog";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
-} from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
 import { useCrudPage } from "@/hooks/useCrudPage";
@@ -207,29 +205,19 @@ export default function PartnerListPage() {
           disabled={crud.isLoading}
         />
 
-        <Dialog open={crud.dialogOpen} onOpenChange={crud.setDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{crud.isEditing ? "パートナー編集" : "パートナー追加"}</DialogTitle>
-              <DialogDescription>
-                {crud.isEditing ? "パートナー情報を編集します" : "新しいパートナーを追加します"}
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <div><Label>パートナー名 *</Label><Input {...form.register("name", { required: true })} /></div>
-              <div><Label>役職</Label><Input {...form.register("role_title")} /></div>
-              <div><Label>メール</Label><Input type="email" {...form.register("email")} /></div>
-              <div><Label>電話</Label><Input {...form.register("phone")} /></div>
-              <div><Label>専門分野 (カンマ区切り)</Label><Input {...form.register("specialties")} placeholder="映像,音響,照明" /></div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={crud.closeDialog}>キャンセル</Button>
-                <Button type="submit" disabled={crud.save.isPending}>
-                  {crud.save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}保存
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <CrudFormDialog
+          crud={crud}
+          title={{ create: "パートナー追加", edit: "パートナー編集" }}
+          description={{ create: "新しいパートナーを追加します", edit: "パートナー情報を編集します" }}
+          submitLabel="保存"
+          onSubmit={form.handleSubmit(onSubmit)}
+        >
+          <div><Label>パートナー名 *</Label><Input {...form.register("name", { required: true })} /></div>
+          <div><Label>役職</Label><Input {...form.register("role_title")} /></div>
+          <div><Label>メール</Label><Input type="email" {...form.register("email")} /></div>
+          <div><Label>電話</Label><Input {...form.register("phone")} /></div>
+          <div><Label>専門分野 (カンマ区切り)</Label><Input {...form.register("specialties")} placeholder="映像,音響,照明" /></div>
+        </CrudFormDialog>
       </div>
     </PageTransition>
   );

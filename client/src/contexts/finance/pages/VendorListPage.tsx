@@ -15,9 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
-} from "@/components/ui/dialog";
+import { CrudFormDialog } from "@gmo-onair/shared/src/client/ui/crud-form-dialog";
 import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
 import { useCrudPage } from "@/hooks/useCrudPage";
@@ -176,45 +174,34 @@ export default function VendorListPage() {
           disabled={crud.isLoading}
         />
 
-        <Dialog open={crud.dialogOpen} onOpenChange={crud.setDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{crud.isEditing ? "仕入先編集" : "仕入先追加"}</DialogTitle>
-              <DialogDescription>
-                {crud.isEditing ? "仕入先情報を編集します" : "新しい仕入先を追加します"}
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={form.handleSubmit((v) => crud.save.mutate(v))} className="space-y-4">
-              <div>
-                <Label>仕入先名 *</Label>
-                <Input {...form.register("name", { required: true })} />
-              </div>
-              <div>
-                <Label>担当者名</Label>
-                <Input {...form.register("contact_name")} />
-              </div>
-              <div>
-                <Label>メール</Label>
-                <Input type="email" {...form.register("email")} />
-              </div>
-              <div>
-                <Label>電話</Label>
-                <Input {...form.register("phone")} />
-              </div>
-              <div>
-                <Label>適格請求書番号</Label>
-                <Input {...form.register("invoice_registration_number")} placeholder="T1234567890123" />
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={crud.closeDialog}>キャンセル</Button>
-                <Button type="submit" disabled={crud.save.isPending}>
-                  {crud.save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  保存
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <CrudFormDialog
+          crud={crud}
+          title={{ create: "仕入先追加", edit: "仕入先編集" }}
+          description={{ create: "新しい仕入先を追加します", edit: "仕入先情報を編集します" }}
+          submitLabel="保存"
+          onSubmit={form.handleSubmit((v) => crud.save.mutate(v))}
+        >
+          <div>
+            <Label>仕入先名 *</Label>
+            <Input {...form.register("name", { required: true })} />
+          </div>
+          <div>
+            <Label>担当者名</Label>
+            <Input {...form.register("contact_name")} />
+          </div>
+          <div>
+            <Label>メール</Label>
+            <Input type="email" {...form.register("email")} />
+          </div>
+          <div>
+            <Label>電話</Label>
+            <Input {...form.register("phone")} />
+          </div>
+          <div>
+            <Label>適格請求書番号</Label>
+            <Input {...form.register("invoice_registration_number")} placeholder="T1234567890123" />
+          </div>
+        </CrudFormDialog>
       </div>
     </PageTransition>
   );

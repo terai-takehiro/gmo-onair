@@ -7,14 +7,12 @@ import { useForm } from "react-hook-form";
 import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { FilterBar } from "@gmo-onair/shared/src/client/ui/filter-bar";
 import { Pagination } from "@gmo-onair/shared/src/client/ui/pagination";
+import { CrudFormDialog } from "@gmo-onair/shared/src/client/ui/crud-form-dialog";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
-} from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
 import { useCrudPage } from "@/hooks/useCrudPage";
@@ -165,29 +163,19 @@ export default function CustomerListPage() {
           disabled={crud.isLoading}
         />
 
-        <Dialog open={crud.dialogOpen} onOpenChange={crud.setDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{crud.isEditing ? "顧客編集" : "顧客追加"}</DialogTitle>
-              <DialogDescription>
-                {crud.isEditing ? "顧客情報を編集します" : "新しい顧客を追加します"}
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={form.handleSubmit((v) => crud.save.mutate(v))} className="space-y-4">
-              <div><Label>顧客名 *</Label><Input {...form.register("name", { required: true })} /></div>
-              <div><Label>担当者名</Label><Input {...form.register("contact_name")} /></div>
-              <div><Label>メール</Label><Input type="email" {...form.register("email")} /></div>
-              <div><Label>電話</Label><Input {...form.register("phone")} /></div>
-              <div><Label>住所</Label><Input {...form.register("address")} /></div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={crud.closeDialog}>キャンセル</Button>
-                <Button type="submit" disabled={crud.save.isPending}>
-                  {crud.save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}保存
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <CrudFormDialog
+          crud={crud}
+          title={{ create: "顧客追加", edit: "顧客編集" }}
+          description={{ create: "新しい顧客を追加します", edit: "顧客情報を編集します" }}
+          submitLabel="保存"
+          onSubmit={form.handleSubmit((v) => crud.save.mutate(v))}
+        >
+          <div><Label>顧客名 *</Label><Input {...form.register("name", { required: true })} /></div>
+          <div><Label>担当者名</Label><Input {...form.register("contact_name")} /></div>
+          <div><Label>メール</Label><Input type="email" {...form.register("email")} /></div>
+          <div><Label>電話</Label><Input {...form.register("phone")} /></div>
+          <div><Label>住所</Label><Input {...form.register("address")} /></div>
+        </CrudFormDialog>
       </div>
     </PageTransition>
   );

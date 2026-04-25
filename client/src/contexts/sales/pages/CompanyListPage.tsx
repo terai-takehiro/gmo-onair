@@ -10,6 +10,7 @@ import { useForm } from "react-hook-form";
 import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { FilterBar } from "@gmo-onair/shared/src/client/ui/filter-bar";
 import { Pagination } from "@gmo-onair/shared/src/client/ui/pagination";
+import { CrudFormDialog } from "@gmo-onair/shared/src/client/ui/crud-form-dialog";
 import api from "@/lib/api";
 import { useCrudPage } from "@/hooks/useCrudPage";
 import { PageTransition } from "@/components/ui/motion";
@@ -371,16 +372,14 @@ export default function CompanyListPage() {
         />
 
         {/* Create / Edit Dialog */}
-        <Dialog open={crud.dialogOpen} onOpenChange={crud.setDialogOpen}>
-          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{crud.isEditing ? "取引先を編集" : "新規取引先登録"}</DialogTitle>
-              <DialogDescription>
-                役割を選択すると、顧客マスター・仕入先マスターにも自動で追加されます。
-              </DialogDescription>
-            </DialogHeader>
-
-            <form onSubmit={handleSave} className="space-y-4">
+        <CrudFormDialog
+          crud={crud}
+          size="lg"
+          title={{ create: "新規取引先登録", edit: "取引先を編集" }}
+          description="役割を選択すると、顧客マスター・仕入先マスターにも自動で追加されます。"
+          submitLabel={{ create: "登録", edit: "更新" }}
+          onSubmit={handleSave}
+        >
               <div className="space-y-2">
                 <Label>役割（複数選択可 / すべて未選択の場合は「その他」扱い）</Label>
                 <div className="flex gap-4 flex-wrap">
@@ -460,16 +459,7 @@ export default function CompanyListPage() {
                 <Textarea id="notes" {...form.register("notes")} rows={2} />
               </div>
 
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={crud.closeDialog}>キャンセル</Button>
-                <Button type="submit" disabled={crud.save.isPending}>
-                  {crud.save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-                  {crud.isEditing ? "更新" : "登録"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        </CrudFormDialog>
 
         <CompanySummaryDialog
           open={!!summaryTarget}
