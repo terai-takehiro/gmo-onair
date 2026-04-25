@@ -857,7 +857,8 @@ router.put('/inventory-checks/:id/items/:itemId', requirePermission('equipment',
 router.put('/inventory-checks/:id/status', requirePermission('equipment', 'editor'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { status } = req.body;
-    const VALID_STATUSES = ['draft', 'in_progress', 'completed'];
+    // 値は migration 007_equipment.sql の inventory_checks CHECK 制約と完全一致
+    const VALID_STATUSES: string[] = Object.values(INVENTORY_STATUS);
     if (!VALID_STATUSES.includes(status)) {
       return res.status(400).json({ success: false, error: { message: 'status の値が不正です' } });
     }

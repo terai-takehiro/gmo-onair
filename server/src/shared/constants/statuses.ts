@@ -9,6 +9,23 @@
  *   import { EQUIPMENT_LENDING_STATUS } from '../../../shared/constants/statuses';
  *   if (status === EQUIPMENT_LENDING_STATUS.LENT) { ... }
  *   const allowed = Object.values(INTERACTIVE_EVENT_STATUS);
+ *
+ * ──────────────────────────────────────────────────────────────────
+ * DB CHECK 制約との対応 (Phase 3 v2.6.7 で確認済み — drift 無し):
+ *   EQUIPMENT_STATUS         → migrations/007_equipment.sql:42
+ *   INVENTORY_STATUS         → migrations/007_equipment.sql:69
+ *   MAINTENANCE_STATUS       → migrations/007_equipment.sql:103
+ *   EQUIPMENT_LENDING_STATUS → migrations/007_equipment.sql:122
+ *   QSHEET_STATUS            → migrations/012_qsheet_schema.sql:19
+ *   INTERACTIVE_EVENT_STATUS → migrations/013_interactive_schema.sql:8
+ *                            → migrations/024_rehearsal_status.sql:4 (rehearsal 追加)
+ *   TECHSHEET_STATUS         → migrations/014_techsheet_schema.sql:12
+ *   INTERACTIVE_QUESTION_STATUS → migrations/021_interactive_quiz.sql:11
+ *                              → migrations/023_interactive_complete.sql:46
+ *   PROJECT_STAGE            → projects テーブル (CHECK 無し、コード側で enforce)
+ *
+ * ここの const と migration の値が乖離した場合: 必ず両方を同時に更新する。
+ * ──────────────────────────────────────────────────────────────────
  */
 
 // ══════════════════════════════════════════════════════════════════
