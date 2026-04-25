@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.7.0 — Phase 4 着手: BOX SDK 導入 + GLS 発番時に案件フォルダを自動作成
+v2.7.1 — インタラクティブ: CoNoHa VPS スケーリングを 5 段階プリセットボタン化（最小100人〜最大10万人）
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)

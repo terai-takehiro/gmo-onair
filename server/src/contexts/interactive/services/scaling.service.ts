@@ -13,13 +13,14 @@ export interface ScalingPlan {
   flavorRef: string;
 }
 
+// 5 段階プリセット (最小=デフォルト 〜 最大=10万人クラス)。
+// flavorRef は CoNoHa の各プラン UUID を環境変数から流し込む運用 (空なら resize 時に設定不備として弾く)。
 export const SCALING_PLANS: ScalingPlan[] = [
-  { id: 'test',    label: 'テスト',           maxConnections: 50,    memory: '512MB', vcpu: 1, flavorRef: '' },
-  { id: 'small',   label: 'スモール',         maxConnections: 500,   memory: '1GB',   vcpu: 2, flavorRef: '' },
-  { id: 'medium',  label: 'ミディアム',       maxConnections: 2000,  memory: '2GB',   vcpu: 3, flavorRef: '' },
-  { id: 'large',   label: 'ラージ',           maxConnections: 5000,  memory: '4GB',   vcpu: 4, flavorRef: '' },
-  { id: 'xlarge',  label: 'エクストララージ', maxConnections: 10000, memory: '8GB',   vcpu: 6, flavorRef: '' },
-  { id: 'max',     label: 'マキシマム',       maxConnections: 20000, memory: '16GB',  vcpu: 8, flavorRef: '' },
+  { id: 'minimum', label: '最小',   maxConnections: 100,    memory: '1GB',  vcpu: 2,  flavorRef: '' },
+  { id: 'small',   label: '小規模', maxConnections: 1000,   memory: '2GB',  vcpu: 3,  flavorRef: '' },
+  { id: 'medium',  label: '中規模', maxConnections: 10000,  memory: '8GB',  vcpu: 6,  flavorRef: '' },
+  { id: 'large',   label: '大規模', maxConnections: 50000,  memory: '32GB', vcpu: 12, flavorRef: '' },
+  { id: 'xlarge',  label: '最大',   maxConnections: 100000, memory: '64GB', vcpu: 24, flavorRef: '' },
 ];
 
 function isConfigured(): boolean {
@@ -30,7 +31,7 @@ export const scalingService = {
   listPlans() {
     return {
       configured: isConfigured(),
-      currentPlan: 'medium', // TODO: 実際のサーバースペックから判定
+      currentPlan: 'minimum', // TODO: 実際のサーバースペックから判定
       plans: SCALING_PLANS.map((p) => ({
         id: p.id,
         label: p.label,

@@ -132,7 +132,7 @@ export const eventService = {
         input.description ?? null,
         input.project_id ?? null,
         input.episode_id ?? null,
-        Math.min(Math.max(Number(input.max_connections) || 1000, 1), 10000),
+        Math.min(Math.max(Number(input.max_connections) || 100, 1), 100000),
         userId,
       ],
     );
