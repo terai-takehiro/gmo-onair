@@ -223,22 +223,26 @@ router.delete('/locations/:id', adminOnly, async (req, res) => {
 
 // POST /studios/rooms — 部屋追加
 router.post('/rooms', adminOnly, async (req, res) => {
-  const { location_id, name, room_type, color, sort_order } = req.body;
+  const { location_id, name, abbreviation, room_type, color, sort_order } = req.body;
   if (!location_id || !name) throw new AppError(400, 'VALIDATION_ERROR', 'ロケーションと名前は必須です');
   const id = uuidv4();
-  await execute(`INSERT INTO studio_rooms (id, location_id, name, room_type, color, sort_order) VALUES (?, ?, ?, ?, ?, ?)`,
-    [id, location_id, name, room_type || 'studio', color || '#3b82f6', sort_order ?? 0]);
+  await execute(
+    `INSERT INTO studio_rooms (id, location_id, name, abbreviation, room_type, color, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [id, location_id, name, abbreviation?.trim() || null, room_type || 'studio', color || '#3b82f6', sort_order ?? 0],
+  );
   const row = await queryOne('SELECT * FROM studio_rooms WHERE id = ?', [id]);
   res.status(201).json({ success: true, data: row });
 });
 
 // PUT /studios/rooms/:id
 router.put('/rooms/:id', adminOnly, async (req, res) => {
-  const { name, room_type, color, sort_order } = req.body;
+  const { name, abbreviation, room_type, color, sort_order } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', '名前は必須です');
   await execute(
-    `UPDATE studio_rooms SET name = ?, room_type = ?, color = ?, sort_order = ? WHERE id = ? AND deleted_at IS NULL`,
-    [name, room_type || 'studio', color || '#3b82f6', sort_order ?? 0, req.params.id]
+    `UPDATE studio_rooms SET name = ?, abbreviation = ?, room_type = ?, color = ?, sort_order = ?
+     WHERE id = ? AND deleted_at IS NULL`,
+    [name, abbreviation?.trim() || null, room_type || 'studio', color || '#3b82f6', sort_order ?? 0, req.params.id],
   );
   const row = await queryOne('SELECT * FROM studio_rooms WHERE id = ?', [req.params.id]);
   res.json({ success: true, data: row });
@@ -280,7 +284,8 @@ router.get('/bookings', async (req, res) => {
   // Attach rooms (with occupant info) to each booking
   const allBookingRooms = await queryAll(
     `SELECT br.booking_id, br.room_id, br.occupant, br.usage_note,
-            r.name as room_name, r.color as room_color, r.room_type, r.location_id
+            r.name as room_name, r.abbreviation as room_abbreviation,
+            r.color as room_color, r.room_type, r.location_id
      FROM studio_booking_rooms br
      JOIN studio_rooms r ON r.id = br.room_id`
   ) as any[];
@@ -317,7 +322,8 @@ router.get('/bookings/:id', async (req, res) => {
 
   const rooms = await queryAll(
     `SELECT br.room_id, br.occupant, br.usage_note,
-            r.name as room_name, r.color as room_color, r.room_type, r.location_id
+            r.name as room_name, r.abbreviation as room_abbreviation,
+            r.color as room_color, r.room_type, r.location_id
      FROM studio_booking_rooms br
      JOIN studio_rooms r ON r.id = br.room_id
      WHERE br.booking_id = ?`, [req.params.id]

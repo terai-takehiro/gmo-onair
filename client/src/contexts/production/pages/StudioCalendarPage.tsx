@@ -41,11 +41,26 @@ interface StudioLocation {
 interface BookingRoom {
   room_id: string;
   room_name: string;
+  room_abbreviation?: string | null;
   room_color: string;
   room_type?: string;
   location_id: string;
   occupant?: string;
   usage_note?: string;
+}
+
+// 部屋の略称取得 — abbreviation 未設定なら部屋名から先頭2文字をフォールバック
+function roomShortLabel(r: BookingRoom): string {
+  const abbr = r.room_abbreviation?.trim();
+  if (abbr) return abbr;
+  return r.room_name.slice(0, 2);
+}
+
+// 部屋略称チェイン — 4 部屋以上は省略
+function buildRoomChain(rooms: BookingRoom[]): string {
+  const labels = rooms.map(roomShortLabel);
+  if (labels.length <= 3) return labels.join('・');
+  return `${labels.slice(0, 3).join('・')} +${labels.length - 3}`;
 }
 
 interface StudioBooking {
@@ -259,8 +274,10 @@ export default function StudioCalendarPage() {
           : b.rooms;
         if (filteredRooms.length === 0) continue;
 
+        const color = useTypeColor ? typeColor : filteredRooms[0].room_color;
+        const roomsChain = buildRoomChain(filteredRooms);
         if (isMonthView) {
-          const color = useTypeColor ? typeColor : filteredRooms[0].room_color;
+          // 月間ビュー: 案件名のみで簡潔に（多イベント時の視認性優先）
           events.push({
             id: `booking-${b.id}`,
             title: `${displayTitle}${dateSuffix}`,
@@ -271,15 +288,19 @@ export default function StudioCalendarPage() {
             borderColor: color,
             textColor: "#ffffff",
             classNames: tentativeClass,
-            extendedProps: { kind: "booking", bookingId: b.id, bookingType: b.booking_type },
+            extendedProps: {
+              kind: "booking",
+              bookingId: b.id,
+              bookingType: b.booking_type,
+              projectLine: `${displayTitle}${dateSuffix}`,
+              roomsLine: roomsChain,
+            },
           });
         } else {
-          // 週/日ビュー: 案件単位でひとつ（部屋名をタイトルに列挙）
-          const color = useTypeColor ? typeColor : filteredRooms[0].room_color;
-          const roomsLabel = filteredRooms.map((r) => r.room_name).join("・");
+          // 週/日ビュー: 案件名を主役に + 部屋は略称チェイン (eventContent で 2 行表示)
           events.push({
             id: `booking-${b.id}`,
-            title: `${roomsLabel} | ${displayTitle}${dateSuffix}`,
+            title: `${displayTitle}${dateSuffix}`,
             start: evStart,
             end: evEnd,
             allDay: evAllDay,
@@ -287,7 +308,13 @@ export default function StudioCalendarPage() {
             borderColor: color,
             textColor: "#ffffff",
             classNames: tentativeClass,
-            extendedProps: { kind: "booking", bookingId: b.id, bookingType: b.booking_type },
+            extendedProps: {
+              kind: "booking",
+              bookingId: b.id,
+              bookingType: b.booking_type,
+              projectLine: `${displayTitle}${dateSuffix}`,
+              roomsLine: roomsChain,
+            },
           });
         }
       } else {
@@ -640,6 +667,20 @@ export default function StudioCalendarPage() {
               events={calendarEvents}
               datesSet={handleDatesSet}
               eventClick={handleEventClick}
+              eventContent={(arg) => {
+                const ext = arg.event.extendedProps as { projectLine?: string; roomsLine?: string; kind?: string };
+                if (ext?.kind !== 'booking') return undefined; // default rendering
+                const projectLine = ext.projectLine || arg.event.title;
+                const roomsLine = ext.roomsLine || '';
+                const timeText = arg.timeText;
+                return (
+                  <div className="overflow-hidden leading-tight px-1 py-0.5 text-[11px]">
+                    {timeText && <div className="opacity-90 font-medium">{timeText}</div>}
+                    <div className="font-semibold truncate">{projectLine}</div>
+                    {roomsLine && <div className="opacity-90 truncate text-[10px]">{roomsLine}</div>}
+                  </div>
+                );
+              }}
               select={handleDateSelect}
               selectable={true}
               selectMirror={true}
