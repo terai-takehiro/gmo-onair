@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Switch } from '@gmo-onair/shared/src/client/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DashboardHeader, EmptyState } from '@gmo-onair/shared/src/client/dashboard';
 import { INTERACTIVE_EVENT_STATUS, statusOf } from '@gmo-onair/shared/src/constants/statuses';
@@ -106,22 +107,22 @@ export default function DashboardPage() {
         <div className="space-y-4 mt-4">
           <Input placeholder="イベントタイトル" value={newTitle} onChange={e => setNewTitle(e.target.value)} autoFocus />
           <div className="border-t border-border pt-4">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Link2 className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                <span className="text-sm font-medium">GLS案件に紐付ける</span>
+              </div>
+              <Switch
                 checked={linkToProject}
-                onChange={(e) => {
-                  setLinkToProject(e.target.checked);
-                  if (!e.target.checked) {
+                onCheckedChange={(v) => {
+                  setLinkToProject(!!v);
+                  if (!v) {
                     setSelectedProjectId('');
                     setSelectedEpisodeId('');
                   }
                 }}
-                className="rounded border-input"
               />
-              <Link2 className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-              <span className="text-sm font-medium">GLS案件に紐付ける</span>
-            </label>
+            </div>
             {linkToProject && (
               <div className="mt-3 space-y-3 pl-6">
                 <div>

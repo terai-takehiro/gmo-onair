@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Card,
   CardHeader,
@@ -231,14 +232,13 @@ function ItemDialog({
                 onChange={(v) => form.setValue("unit_price", v, { shouldValidate: true })}
                 disabled={unitUnset}
               />
-              <label className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                <input
-                  type="checkbox"
+              <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span>設定なし（外販では提供しない）</span>
+                <Switch
                   checked={unitUnset}
-                  onChange={(e) => form.setValue("unit_price_unset", e.target.checked)}
+                  onCheckedChange={(v) => form.setValue("unit_price_unset", !!v)}
                 />
-                設定なし（外販では提供しない）
-              </label>
+              </div>
             </div>
             <div>
               <Label>グループ内単価</Label>
@@ -247,14 +247,13 @@ function ItemDialog({
                 onChange={(v) => form.setValue("group_price", v, { shouldValidate: true })}
                 disabled={groupUnset}
               />
-              <label className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                <input
-                  type="checkbox"
+              <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span>設定なし（グループ内では提供しない）</span>
+                <Switch
                   checked={groupUnset}
-                  onChange={(e) => form.setValue("group_price_unset", e.target.checked)}
+                  onCheckedChange={(v) => form.setValue("group_price_unset", !!v)}
                 />
-                設定なし（グループ内では提供しない）
-              </label>
+              </div>
             </div>
           </div>
           <div>

@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.7.5 — Codex セキュリティ強化 + スタジオカレンダー UX 全面改修（部屋略称導入 / モダンボタン UI / グリーンルーム→ゲストルーム）
+v2.7.6 — 全 6 アプリの全チェックボックス UI を一斉モダン化（Switch / ToggleButtonGroup / EnhancedCheckbox に統一）
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)

@@ -6,6 +6,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@gmo-onair/shared/src/client/ui/switch";
+import { EnhancedCheckbox } from "@gmo-onair/shared/src/client/ui/enhanced-checkbox";
+import { ToggleButtonGroup } from "@gmo-onair/shared/src/client/ui/toggle-button-group";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -785,11 +788,9 @@ export default function EquipmentListPage() {
         const checked = val === 'true' || val === '1';
         return (
           <td key={col.id} className={`px-3 ${py} text-center`} onClick={e => e.stopPropagation()}>
-            <input
-              type="checkbox"
-              className="h-4 w-4 cursor-pointer"
+            <EnhancedCheckbox
               checked={checked}
-              onChange={e => writeCustomValue(item.id, col.id, e.target.checked ? 'true' : 'false')}
+              onCheckedChange={(v) => writeCustomValue(item.id, col.id, v ? 'true' : 'false')}
             />
           </td>
         );
@@ -963,9 +964,13 @@ export default function EquipmentListPage() {
                   const col = COL_DEFS.find(c => c.key === key);
                   if (!col) return null;
                   return (
-                    <div key={col.key} className="flex items-center gap-1 px-1 py-0.5 rounded hover:bg-muted/60">
-                      <label className="flex items-center gap-2 flex-1 cursor-pointer text-sm select-none py-1">
-                        <input type="checkbox" className="h-3.5 w-3.5 shrink-0" checked={visibleCols.has(col.key)} onChange={() => toggleCol(col.key)} />
+                    <div key={col.key} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-muted/60">
+                      <EnhancedCheckbox
+                        checked={visibleCols.has(col.key)}
+                        onCheckedChange={() => toggleCol(col.key)}
+                        id={`col-${col.key}`}
+                      />
+                      <label htmlFor={`col-${col.key}`} className="flex-1 cursor-pointer text-sm select-none">
                         {col.label}
                       </label>
                       <div className="flex gap-0.5">
@@ -983,9 +988,13 @@ export default function EquipmentListPage() {
                     {orderedCustomCols.map((col, idx) => {
                       const allCustomIds = orderedCustomCols.map(c => c.id);
                       return (
-                        <div key={col.id} className="flex items-center gap-1 px-1 py-0.5 rounded hover:bg-muted/60">
-                          <label className="flex items-center gap-2 flex-1 cursor-pointer text-sm select-none py-1 min-w-0">
-                            <input type="checkbox" className="h-3.5 w-3.5 shrink-0" checked={visibleCustomCols.has(col.id)} onChange={() => toggleCustomCol(col.id)} />
+                        <div key={col.id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-muted/60">
+                          <EnhancedCheckbox
+                            checked={visibleCustomCols.has(col.id)}
+                            onCheckedChange={() => toggleCustomCol(col.id)}
+                            id={`custom-col-${col.id}`}
+                          />
+                          <label htmlFor={`custom-col-${col.id}`} className="flex items-center gap-2 flex-1 cursor-pointer text-sm select-none min-w-0">
                             <span className="flex-1 truncate">{col.name}</span>
                             <span className="text-[10px] text-muted-foreground/60 shrink-0">
                               {col.scope === 'shared' ? '共' : '個'}
@@ -1094,7 +1103,7 @@ export default function EquipmentListPage() {
               )}
               {locations.map((loc: any) => (
                 <label key={loc.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/60 cursor-pointer text-sm">
-                  <input type="checkbox" className="h-3.5 w-3.5" checked={filterLocs.has(loc.id)} onChange={() => toggleLocFilter(loc.id)} />
+                  <EnhancedCheckbox checked={filterLocs.has(loc.id)} onCheckedChange={() => toggleLocFilter(loc.id)} />
                   <span className="truncate">{loc.name || loc.location_detail}</span>
                 </label>
               ))}
@@ -1118,19 +1127,17 @@ export default function EquipmentListPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input className="pl-9" placeholder="名前・ID・型番で検索..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        <label className="flex items-center gap-1.5 text-sm cursor-pointer text-muted-foreground whitespace-nowrap select-none">
-          <input
-            type="checkbox"
-            className="h-4 w-4"
+        <div className="flex items-center gap-2 text-sm text-muted-foreground whitespace-nowrap">
+          <Switch
             checked={includeChildren}
-            onChange={(e) => setSearchParams(p => {
+            onCheckedChange={(v) => setSearchParams(p => {
               const n = new URLSearchParams(p);
-              if (e.target.checked) n.set('children', '1'); else n.delete('children');
+              if (v) n.set('children', '1'); else n.delete('children');
               return n;
             }, { replace: true })}
           />
-          子機材も表示
-        </label>
+          <span>子機材も表示</span>
+        </div>
       </div>
 
       {/* 一括編集バー (管理者のみ表示、選択中にのみ浮上) */}
@@ -1229,10 +1236,15 @@ export default function EquipmentListPage() {
                 <th className="w-8 px-2 py-2.5" />
                 {canBulkEdit && (
                   <th className="w-8 px-2 py-2.5">
-                    <input type="checkbox" className="h-4 w-4"
-                      checked={items.length > 0 && selectedIds.size === items.length}
-                      ref={(el) => { if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < items.length; }}
-                      onChange={toggleSelectAll}
+                    <EnhancedCheckbox
+                      checked={
+                        items.length > 0 && selectedIds.size === items.length
+                          ? true
+                          : selectedIds.size > 0
+                            ? 'indeterminate'
+                            : false
+                      }
+                      onCheckedChange={() => toggleSelectAll()}
                     />
                   </th>
                 )}
@@ -1305,7 +1317,11 @@ export default function EquipmentListPage() {
                       </td>
                       {canBulkEdit && (
                         <td className="px-2 py-2 w-8" onClick={(e) => e.stopPropagation()}>
-                          <input type="checkbox" className="h-4 w-4 cursor-pointer" checked={isSelected} onChange={() => {}} onClick={(e) => handleCheckboxClick(item.id, idx, e.shiftKey)} />
+                          <EnhancedCheckbox
+                            checked={isSelected}
+                            onCheckedChange={() => { /* shift+click は onClick で処理するので no-op */ }}
+                            onClick={(e) => handleCheckboxClick(item.id, idx, (e as React.MouseEvent).shiftKey)}
+                          />
                         </td>
                       )}
                       {renderTableCells(item, {
@@ -1364,10 +1380,13 @@ export default function EquipmentListPage() {
             <DialogTitle className="flex items-center gap-3">
               {editingId ? "機材編集" : isCopyMode ? "機材コピー登録" : "機材登録"}
               {!editingId && (
-                <label className="flex items-center gap-1.5 text-sm font-normal text-muted-foreground cursor-pointer ml-auto pr-6">
-                  <input type="checkbox" checked={continuousMode} onChange={e => { setContinuousMode(e.target.checked); setSaveSuccess(false); }} className="h-4 w-4" />
-                  連続登録
-                </label>
+                <div className="flex items-center gap-2 text-sm font-normal text-muted-foreground ml-auto pr-6">
+                  <Switch
+                    checked={continuousMode}
+                    onCheckedChange={(v) => { setContinuousMode(!!v); setSaveSuccess(false); }}
+                  />
+                  <span>連続登録</span>
+                </div>
               )}
             </DialogTitle>
           </DialogHeader>
@@ -1802,30 +1821,20 @@ export default function EquipmentListPage() {
             </div>
             <div className="space-y-2">
               <Label>印刷する列</Label>
-              <div className="grid grid-cols-2 gap-1.5">
-                {PRINT_COLS.map((col) => (
-                  <label key={col.key} className="flex items-center gap-2 text-sm cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4"
-                      checked={printCols.has(col.key)}
-                      onChange={(e) => {
-                        setPrintCols(prev => {
-                          const next = new Set(prev);
-                          if (e.target.checked) next.add(col.key); else next.delete(col.key);
-                          return next;
-                        });
-                      }}
-                    />
-                    {col.label}
-                  </label>
-                ))}
-              </div>
+              <ToggleButtonGroup
+                options={PRINT_COLS.map(c => ({ value: c.key, label: c.label }))}
+                value={Array.from(printCols)}
+                onChange={(next) => setPrintCols(new Set(next))}
+                multi
+                cols={{ base: 2, sm: 3 }}
+                size="sm"
+                showSelectAll
+              />
             </div>
-            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-              <input type="checkbox" className="h-4 w-4" checked={printCheckbox} onChange={(e) => setPrintCheckbox(e.target.checked)} />
-              チェック欄を追加（棚卸し用手書き）
-            </label>
+            <div className="flex items-center justify-between gap-2 text-sm">
+              <span>チェック欄を追加（棚卸し用手書き）</span>
+              <Switch checked={printCheckbox} onCheckedChange={(v) => setPrintCheckbox(!!v)} />
+            </div>
             <div className="space-y-1.5">
               <Label>用紙方向</Label>
               <div className="flex gap-4">

@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@gmo-onair/shared/src/client/ui/switch";
 import {
   Select,
   SelectContent,
@@ -500,19 +501,19 @@ export default function DashboardPage() {
               </div>
             </div>
             <div>
-              <label className="flex items-center gap-2 text-xs font-medium text-zinc-500 mb-1 cursor-pointer">
-                <input type="checkbox" checked={hasRecording} onChange={() => setHasRecording(!hasRecording)} className="accent-blue-600 w-3.5 h-3.5" />
-                収録日を設定（生放送の場合はOFF）
-              </label>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-xs font-medium text-zinc-500">収録日を設定（生放送の場合はOFF）</span>
+                <Switch checked={hasRecording} onCheckedChange={(v) => setHasRecording(!!v)} />
+              </div>
               {hasRecording && (
                 <Input type="date" value={newRecordingDate} onChange={(e) => setNewRecordingDate(e.target.value)} required />
               )}
             </div>
             <div>
-              <label className="flex items-center gap-2 text-xs font-medium text-zinc-500 mb-1 cursor-pointer">
-                <input type="checkbox" checked={hasRehearsal} onChange={() => setHasRehearsal(!hasRehearsal)} className="accent-blue-600 w-3.5 h-3.5" />
-                リハーサル日を設定
-              </label>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-xs font-medium text-zinc-500">リハーサル日を設定</span>
+                <Switch checked={hasRehearsal} onCheckedChange={(v) => setHasRehearsal(!!v)} />
+              </div>
               {hasRehearsal && (
                 <Input type="date" value={newRehearsalDate} onChange={(e) => setNewRehearsalDate(e.target.value)} />
               )}
@@ -520,22 +521,22 @@ export default function DashboardPage() {
 
             {/* GLS Project Linking */}
             <div className="border-t pt-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Link2 className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">GLS案件に紐付ける</span>
+                </div>
+                <Switch
                   checked={linkToProject}
-                  onChange={(e) => {
-                    setLinkToProject(e.target.checked);
-                    if (!e.target.checked) {
+                  onCheckedChange={(v) => {
+                    setLinkToProject(!!v);
+                    if (!v) {
                       if (!projectFilter) setSelectedProjectId("");
                       setSelectedEpisodeId("");
                     }
                   }}
-                  className="rounded border-input"
                 />
-                <Link2 className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">GLS案件に紐付ける</span>
-              </label>
+              </div>
 
               {linkToProject && (
                 <div className="mt-3 space-y-3 pl-6">

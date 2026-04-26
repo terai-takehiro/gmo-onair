@@ -12,6 +12,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Loader2, Server, ClipboardCheck, Pencil, RefreshCw, AlertCircle, Printer } from "lucide-react";
+import { ToggleButtonGroup } from "@gmo-onair/shared/src/client/ui/toggle-button-group";
 import { RACK_SLOT_OPTIONS, TYPE_BG } from "@/lib/constants";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -916,23 +917,26 @@ function CellConfigDialog({
 
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase text-muted-foreground">追加表示項目</Label>
-            <div className="flex flex-col gap-1.5">
-              {[
-                { key: "showName",   label: "機材名" },
-                { key: "showModel",  label: "型名" },
-                { key: "showNo",     label: "No." },
-                { key: "showCustom", label: "任意文字列" },
-              ].map(({ key, label }) => (
-                <label key={key} className="flex items-center gap-2 cursor-pointer text-sm">
-                  <input
-                    type="checkbox"
-                    checked={form[key as keyof CellConfig] as boolean}
-                    onChange={(e) => setForm(f => ({ ...f, [key]: e.target.checked }))}
-                    className="h-3.5 w-3.5 accent-primary"
-                  />
-                  {label}
-                </label>
-              ))}
+            <div>
+              <ToggleButtonGroup
+                options={[
+                  { value: 'showName',   label: '機材名' },
+                  { value: 'showModel',  label: '型名' },
+                  { value: 'showNo',     label: 'No.' },
+                  { value: 'showCustom', label: '任意文字列' },
+                ]}
+                value={(['showName','showModel','showNo','showCustom'] as const).filter(k => form[k as keyof CellConfig])}
+                onChange={(next) => setForm(f => ({
+                  ...f,
+                  showName:   next.includes('showName'),
+                  showModel:  next.includes('showModel'),
+                  showNo:     next.includes('showNo'),
+                  showCustom: next.includes('showCustom'),
+                }))}
+                multi
+                cols={{ base: 2 }}
+                size="sm"
+              />
             </div>
             {form.showCustom && form.primary !== "custom" && (
               <Input

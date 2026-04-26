@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Search, Settings } from "lucide-react";
 import { TYPE_CODES } from "@/lib/constants";
+import { Switch } from "@gmo-onair/shared/src/client/ui/switch";
 
 interface RentalItem {
   id: string;
@@ -149,11 +150,9 @@ export default function RentalSettingsPage() {
                 {items.map(item => (
                   <tr key={item.id} className="hover:bg-muted/30 transition-colors">
                     <td className="px-4 py-2.5 text-center">
-                      <input
-                        type="checkbox"
+                      <Switch
                         checked={item.is_rental_listed}
-                        onChange={e => toggleMutation.mutate({ id: item.id, is_rental_listed: e.target.checked })}
-                        className="h-4 w-4 rounded accent-primary cursor-pointer"
+                        onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, is_rental_listed: !!v })}
                         disabled={toggleMutation.isPending}
                       />
                     </td>
@@ -188,12 +187,11 @@ export default function RentalSettingsPage() {
                 key={item.id}
                 className="rounded-lg border bg-card p-3 flex items-start gap-3"
               >
-                <input
-                  type="checkbox"
+                <Switch
                   checked={item.is_rental_listed}
-                  onChange={e => toggleMutation.mutate({ id: item.id, is_rental_listed: e.target.checked })}
-                  className="mt-0.5 h-5 w-5 rounded accent-primary cursor-pointer shrink-0"
+                  onCheckedChange={(v) => toggleMutation.mutate({ id: item.id, is_rental_listed: !!v })}
                   disabled={toggleMutation.isPending}
+                  className="mt-0.5 shrink-0"
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">

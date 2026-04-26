@@ -5,7 +5,7 @@ import { formatCurrency } from "@/lib/format";
 import type { PricingCategory, SimulationItem, CalcType } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
+import { EnhancedCheckbox } from "@gmo-onair/shared/src/client/ui/enhanced-checkbox";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -210,7 +210,7 @@ export default function SimulationDialog({ open, onOpenChange, projectId: propPr
                       return (
                         <div key={item.id} className={`p-3 ${state.checked ? 'bg-primary/5' : 'opacity-60'}`}>
                           <div className="flex items-center gap-2">
-                            <Checkbox
+                            <EnhancedCheckbox
                               checked={state.checked}
                               onCheckedChange={(checked) => updateItem(item.id, { checked: !!checked })}
                             />
@@ -281,7 +281,7 @@ export default function SimulationDialog({ open, onOpenChange, projectId: propPr
                         return (
                           <TableRow key={item.id} className={state.checked ? "bg-primary/5" : "opacity-60"}>
                             <TableCell className="pr-0">
-                              <Checkbox
+                              <EnhancedCheckbox
                                 checked={state.checked}
                                 onCheckedChange={(checked) => updateItem(item.id, { checked: !!checked })}
                               />
