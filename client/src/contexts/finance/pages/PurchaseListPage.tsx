@@ -27,7 +27,7 @@ import { CurrencyInput } from "@/components/ui/currency-input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -484,15 +484,15 @@ export default function PurchaseListPage() {
                 />
               </div>
 
-              <div className="flex items-center gap-2">
-                <Checkbox
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="is-provisional" className="cursor-pointer">
+                  仮（確定前の見込み仕入）
+                </Label>
+                <Switch
                   id="is-provisional"
                   checked={isProvisional}
                   onCheckedChange={(v) => setIsProvisional(!!v)}
                 />
-                <Label htmlFor="is-provisional" className="cursor-pointer">
-                  仮（確定前の見込み仕入）
-                </Label>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

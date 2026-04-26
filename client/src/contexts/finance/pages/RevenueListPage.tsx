@@ -21,7 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -1016,24 +1016,24 @@ export default function RevenueListPage() {
               </div>
             </div>
 
-            {/* 前金チェックボックス */}
-            <div className="flex items-center gap-2">
-              <Checkbox
+            {/* 前金トグル */}
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="is-advance-payment" className="cursor-pointer">前金</Label>
+              <Switch
                 id="is-advance-payment"
                 checked={isAdvancePayment}
                 onCheckedChange={(v) => setIsAdvancePayment(!!v)}
               />
-              <Label htmlFor="is-advance-payment" className="cursor-pointer">前金</Label>
             </div>
 
             {/* 請求書発行済フラグ */}
-            <div className="flex items-center gap-2">
-              <Checkbox
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="invoice-issued" className="cursor-pointer">請求書発行済</Label>
+              <Switch
                 id="invoice-issued"
                 checked={invoiceIssued}
                 onCheckedChange={(v) => setInvoiceIssued(!!v)}
               />
-              <Label htmlFor="invoice-issued" className="cursor-pointer">請求書発行済</Label>
             </div>
 
             {/* Notes */}

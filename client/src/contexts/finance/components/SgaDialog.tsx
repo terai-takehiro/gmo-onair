@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectTrigger,
@@ -321,8 +321,9 @@ export default function SgaDialog({
 
             {form.expense_type === "spot" && (
               <div className="ml-2 space-y-2 border-l-2 border-muted pl-4">
-                <div className="flex items-center gap-2">
-                  <Checkbox
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm">月按分する</span>
+                  <Switch
                     checked={form.amortize_enabled}
                     onCheckedChange={(checked) =>
                       setForm((f) => ({
@@ -333,7 +334,6 @@ export default function SgaDialog({
                       }))
                     }
                   />
-                  <span className="text-sm">月按分する</span>
                 </div>
                 {form.amortize_enabled && (
                   <div className="space-y-2">

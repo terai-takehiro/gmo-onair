@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
+import { ToggleButtonGroup } from "@gmo-onair/shared/src/client/ui/toggle-button-group";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
@@ -382,32 +382,25 @@ export default function CompanyListPage() {
         >
               <div className="space-y-2">
                 <Label>役割（複数選択可 / すべて未選択の場合は「その他」扱い）</Label>
-                <div className="flex gap-4 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="is_customer"
-                      checked={form.watch("is_customer")}
-                      onCheckedChange={(v) => form.setValue("is_customer", !!v)}
-                    />
-                    <Label htmlFor="is_customer" className="cursor-pointer font-normal">顧客（売上管理で選択可能）</Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="is_vendor"
-                      checked={form.watch("is_vendor")}
-                      onCheckedChange={(v) => form.setValue("is_vendor", !!v)}
-                    />
-                    <Label htmlFor="is_vendor" className="cursor-pointer font-normal">仕入先（仕入管理で選択可能）</Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="is_sga_payee"
-                      checked={!!form.watch("is_sga_payee")}
-                      onCheckedChange={(v) => form.setValue("is_sga_payee", !!v)}
-                    />
-                    <Label htmlFor="is_sga_payee" className="cursor-pointer font-normal">販管費支払先（販管費管理で選択可能）</Label>
-                  </div>
-                </div>
+                <ToggleButtonGroup
+                  options={[
+                    { value: 'customer',  label: '顧客',           description: '売上管理で選択可能' },
+                    { value: 'vendor',    label: '仕入先',         description: '仕入管理で選択可能' },
+                    { value: 'sga_payee', label: '販管費支払先',   description: '販管費管理で選択可能' },
+                  ]}
+                  value={[
+                    ...(form.watch("is_customer")   ? ['customer'] : []),
+                    ...(form.watch("is_vendor")     ? ['vendor'] : []),
+                    ...(form.watch("is_sga_payee")  ? ['sga_payee'] : []),
+                  ]}
+                  onChange={(next) => {
+                    form.setValue("is_customer",  next.includes('customer'));
+                    form.setValue("is_vendor",    next.includes('vendor'));
+                    form.setValue("is_sga_payee", next.includes('sga_payee'));
+                  }}
+                  multi
+                  cols={{ base: 1, sm: 3 }}
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

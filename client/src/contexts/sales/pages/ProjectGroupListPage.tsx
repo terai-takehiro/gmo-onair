@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
+import { ToggleCard } from "@gmo-onair/shared/src/client/ui/toggle-button-group";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -1130,19 +1130,30 @@ function GroupFormDialog({ open, onClose, glsProjects, name, setName, desc, setD
           </div>
           <div>
             <Label>所属案件 *</Label>
-            <div className="max-h-48 overflow-y-auto rounded border p-2 space-y-1 mt-1">
+            <div className="max-h-72 overflow-y-auto rounded border p-2 space-y-1.5 mt-1">
               {glsProjects.length === 0 ? (
                 <p className="text-sm text-muted-foreground">GLS発番済み案件がありません</p>
               ) : (
                 glsProjects.map((p) => (
-                  <label key={p.id} className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-accent">
-                    <Checkbox checked={selectedIds.includes(p.id)} onCheckedChange={() => toggleMember(p.id)} />
-                    <span className="text-sm">
-                      <span className="font-mono text-primary mr-1">{p.gls_number}</span>
-                      {p.name}
-                    </span>
-                    <span className="text-xs text-muted-foreground ml-auto">{p.customer_name}</span>
-                  </label>
+                  <ToggleCard
+                    key={p.id}
+                    selected={selectedIds.includes(p.id)}
+                    onToggle={() => toggleMember(p.id)}
+                    label={
+                      <span>
+                        <span className={selectedIds.includes(p.id) ? "font-mono mr-1" : "font-mono text-primary mr-1"}>
+                          {p.gls_number}
+                        </span>
+                        {p.name}
+                      </span>
+                    }
+                    rightSlot={
+                      <span className={selectedIds.includes(p.id) ? "text-[11px] text-white/80" : "text-[11px] text-muted-foreground"}>
+                        {p.customer_name}
+                      </span>
+                    }
+                    size="sm"
+                  />
                 ))
               )}
             </div>

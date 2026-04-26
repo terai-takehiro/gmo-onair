@@ -22,7 +22,8 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator, AlertTriangle, Info, CalendarDays, FileText, Calendar, Plus, Pencil, Trash2, Check } from "lucide-react";
 import StudioBookingDialog from "@/contexts/production/components/studio/StudioBookingDialog";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import { ToggleButtonGroup } from "@gmo-onair/shared/src/client/ui/toggle-button-group";
 import { cn } from "@/lib/utils";
 import {
   ProjectStageLabels, ProjectStageColors,
@@ -877,27 +878,30 @@ export default function ProjectFormPage() {
                   </div>
                 )}
               </div>
-              <label className="flex items-center gap-2 text-sm cursor-pointer text-muted-foreground">
-                <Checkbox
+              <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
+                <span>複数日程</span>
+                <Switch
                   checked={productionMultiDay}
                   onCheckedChange={(v) => {
                     setProductionMultiDay(!!v);
                     if (!v) setProductionEnd("");
                   }}
                 />
-                複数日程
-              </label>
+              </div>
             </div>
 
             {/* リハーサル */}
             <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Checkbox checked={hasRehearsal} onCheckedChange={(v) => {
-                  setHasRehearsal(!!v);
-                  if (!v) { setRehearsalStart(""); setRehearsalEnd(""); setRehearsalMultiDay(false); }
-                }} />
-                リハーサルあり
-              </label>
+              <div className="flex items-center justify-between gap-2 text-sm">
+                <span>リハーサルあり</span>
+                <Switch
+                  checked={hasRehearsal}
+                  onCheckedChange={(v) => {
+                    setHasRehearsal(!!v);
+                    if (!v) { setRehearsalStart(""); setRehearsalEnd(""); setRehearsalMultiDay(false); }
+                  }}
+                />
+              </div>
               {hasRehearsal && (
                 <div className="pl-6 space-y-2">
                   <div className="flex items-center gap-4">
@@ -912,16 +916,16 @@ export default function ProjectFormPage() {
                       </div>
                     )}
                   </div>
-                  <label className="flex items-center gap-2 text-sm cursor-pointer text-muted-foreground">
-                    <Checkbox
+                  <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
+                    <span>複数日程</span>
+                    <Switch
                       checked={rehearsalMultiDay}
                       onCheckedChange={(v) => {
                         setRehearsalMultiDay(!!v);
                         if (!v) setRehearsalEnd("");
                       }}
                     />
-                    複数日程
-                  </label>
+                  </div>
                 </div>
               )}
             </div>
@@ -939,25 +943,14 @@ export default function ProjectFormPage() {
                   {(() => {
                     const selected = (watch("broadcast_type") || "").split(",").map((s) => s.trim()).filter(Boolean);
                     return (
-                      <div className="mt-2 flex flex-wrap gap-4">
-                        {(Object.entries(BroadcastTypeLabels) as [string, string][]).map(([val, label]) => {
-                          const checked = selected.includes(val);
-                          return (
-                            <label key={val} className="flex items-center gap-2 cursor-pointer">
-                              <input
-                                type="checkbox" checked={checked}
-                                onChange={(e) => {
-                                  const next = e.target.checked
-                                    ? [...selected, val]
-                                    : selected.filter((v) => v !== val);
-                                  setValue("broadcast_type", next.join(","));
-                                }}
-                                className="accent-primary"
-                              />
-                              <span className="text-sm">{label}</span>
-                            </label>
-                          );
-                        })}
+                      <div className="mt-2">
+                        <ToggleButtonGroup
+                          options={(Object.entries(BroadcastTypeLabels) as [string, string][]).map(([val, label]) => ({ value: val, label }))}
+                          value={selected}
+                          onChange={(next) => setValue("broadcast_type", next.join(","))}
+                          multi
+                          cols={{ base: 2, sm: 3, lg: 4 }}
+                        />
                       </div>
                     );
                   })()}
@@ -967,25 +960,14 @@ export default function ProjectFormPage() {
                   {(() => {
                     const selected = (watch("media_platform") || "").split(",").map((s) => s.trim()).filter(Boolean);
                     return (
-                      <div className="mt-2 grid grid-cols-2 gap-2">
-                        {(Object.entries(MediaPlatformLabels) as [string, string][]).map(([val, label]) => {
-                          const checked = selected.includes(val);
-                          return (
-                            <label key={val} className="flex items-center gap-2 cursor-pointer">
-                              <input
-                                type="checkbox" checked={checked}
-                                onChange={(e) => {
-                                  const next = e.target.checked
-                                    ? [...selected, val]
-                                    : selected.filter((v) => v !== val);
-                                  setValue("media_platform", next.join(","));
-                                }}
-                                className="accent-primary"
-                              />
-                              <span className="text-sm">{label}</span>
-                            </label>
-                          );
-                        })}
+                      <div className="mt-2">
+                        <ToggleButtonGroup
+                          options={(Object.entries(MediaPlatformLabels) as [string, string][]).map(([val, label]) => ({ value: val, label }))}
+                          value={selected}
+                          onChange={(next) => setValue("media_platform", next.join(","))}
+                          multi
+                          cols={{ base: 2, sm: 3, lg: 4 }}
+                        />
                       </div>
                     );
                   })()}
@@ -1118,48 +1100,26 @@ export default function ProjectFormPage() {
               <>
                 <div>
                   <Label>番組種別 * <span className="text-xs text-muted-foreground">(複数選択可)</span></Label>
-                  <div className="mt-2 flex flex-wrap gap-4">
-                    {(Object.entries(BroadcastTypeLabels) as [string, string][]).map(([val, label]) => {
-                      const checked = glsDialog.broadcast_types.includes(val);
-                      return (
-                        <label key={val} className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox" value={val} checked={checked}
-                            onChange={(e) => {
-                              const next = e.target.checked
-                                ? [...glsDialog.broadcast_types, val]
-                                : glsDialog.broadcast_types.filter((v) => v !== val);
-                              setGlsDialog({ ...glsDialog, broadcast_types: next });
-                            }}
-                            className="accent-primary"
-                          />
-                          <span className="text-sm">{label}</span>
-                        </label>
-                      );
-                    })}
+                  <div className="mt-2">
+                    <ToggleButtonGroup
+                      options={(Object.entries(BroadcastTypeLabels) as [string, string][]).map(([val, label]) => ({ value: val, label }))}
+                      value={glsDialog.broadcast_types}
+                      onChange={(next) => setGlsDialog({ ...glsDialog, broadcast_types: next })}
+                      multi
+                      cols={{ base: 2, sm: 3, lg: 4 }}
+                    />
                   </div>
                 </div>
                 <div>
                   <Label>配信媒体 * <span className="text-xs text-muted-foreground">(複数選択可)</span></Label>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    {(Object.entries(MediaPlatformLabels) as [string, string][]).map(([val, label]) => {
-                      const checked = glsDialog.media_platforms.includes(val);
-                      return (
-                        <label key={val} className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox" value={val} checked={checked}
-                            onChange={(e) => {
-                              const next = e.target.checked
-                                ? [...glsDialog.media_platforms, val]
-                                : glsDialog.media_platforms.filter((v) => v !== val);
-                              setGlsDialog({ ...glsDialog, media_platforms: next });
-                            }}
-                            className="accent-primary"
-                          />
-                          <span className="text-sm">{label}</span>
-                        </label>
-                      );
-                    })}
+                  <div className="mt-2">
+                    <ToggleButtonGroup
+                      options={(Object.entries(MediaPlatformLabels) as [string, string][]).map(([val, label]) => ({ value: val, label }))}
+                      value={glsDialog.media_platforms}
+                      onChange={(next) => setGlsDialog({ ...glsDialog, media_platforms: next })}
+                      multi
+                      cols={{ base: 2, sm: 3, lg: 4 }}
+                    />
                   </div>
                 </div>
               </>
