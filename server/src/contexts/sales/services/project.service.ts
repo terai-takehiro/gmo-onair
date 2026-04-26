@@ -105,16 +105,21 @@ export class ProjectService {
    * 新規作成（ヨミ段階: 最低限の入力でOK）
    */
   async create(data: Record<string, unknown>, userId: string) {
-    const { name, customer_id, expected_amount, assigned_to, project_type, notes, customer_type, box_url_internal, box_url_external } = data;
+    const { name, customer_id, expected_amount, assigned_to, project_type, notes, customer_type,
+            box_url_internal, box_url_external, application_form, logo_permission } = data;
     if (!name || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名と顧客は必須です');
 
     const id = uuidv4();
     const code = await generateSequenceNumber('opp_code', 'OPP');
     const cType = ['internal', 'external'].includes(customer_type as string) ? customer_type : 'external';
     await execute(
-      `INSERT INTO projects (id, code, name, customer_id, stage, project_type, expected_amount, assigned_to, notes, customer_type, box_url_internal, box_url_external, created_by)
-       VALUES (?, ?, ?, ?, 'neta', ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, code, name, customer_id, project_type || 'other', expected_amount || 0, assigned_to || userId, notes || null, cType, box_url_internal || null, box_url_external || null, userId]
+      `INSERT INTO projects (id, code, name, customer_id, stage, project_type, expected_amount, assigned_to,
+                             notes, customer_type, box_url_internal, box_url_external,
+                             application_form, logo_permission, created_by)
+       VALUES (?, ?, ?, ?, 'neta', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, code, name, customer_id, project_type || 'other', expected_amount || 0, assigned_to || userId,
+       notes || null, cType, box_url_internal || null, box_url_external || null,
+       application_form ? 1 : 0, logo_permission ? 1 : 0, userId]
     );
     return this.getById(id);
   }

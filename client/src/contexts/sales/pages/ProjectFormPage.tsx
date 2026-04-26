@@ -57,6 +57,8 @@ interface FormValues {
   notes: string;
   box_url_internal: string;
   box_url_external: string;
+  application_form: boolean;
+  logo_permission: boolean;
 }
 
 interface GlsDialogState {
@@ -162,6 +164,7 @@ export default function ProjectFormPage() {
       event_start: "", event_end: "", expected_amount: 0, assigned_to: "",
       broadcast_type: "", media_platform: "", tags: "", notes: "",
       box_url_internal: "", box_url_external: "",
+      application_form: false, logo_permission: false,
     },
   });
 
@@ -202,6 +205,8 @@ export default function ProjectFormPage() {
         notes: project.notes || "",
         box_url_internal: project.box_url_internal || "",
         box_url_external: project.box_url_external || "",
+        application_form: !!project.application_form,
+        logo_permission: !!project.logo_permission,
       });
     }
   }, [project, reset]);
@@ -216,6 +221,7 @@ export default function ProjectFormPage() {
     },
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ["projects"] });
+      qc.invalidateQueries({ queryKey: ["dashboard", "alerts"] });
       if (isEdit) {
         qc.invalidateQueries({ queryKey: ["project", id] });
         setSaveSuccess(true);
@@ -686,6 +692,39 @@ export default function ProjectFormPage() {
                       <ExternalLink className="h-4 w-4" />
                     </a>
                   )}
+                </div>
+              </div>
+            </div>
+
+            {/* 書類管理 — application_form (申込書) と logo_permission (ロゴ使用許諾) */}
+            <div className="space-y-3 rounded-xl border bg-muted/20 p-4">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-primary" />
+                <Label className="font-semibold">書類管理</Label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                申込書を ON にするとダッシュボードの「申込書未提出」アラート対象から外れます。
+              </p>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <Label className="text-sm font-medium">申込書 受領済</Label>
+                    <p className="text-xs text-muted-foreground">先方から申込書を受け取って保管済</p>
+                  </div>
+                  <Switch
+                    checked={!!watch("application_form")}
+                    onCheckedChange={(v) => setValue("application_form", !!v, { shouldDirty: true })}
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <Label className="text-sm font-medium">ロゴ使用許諾 取得済</Label>
+                    <p className="text-xs text-muted-foreground">先方からロゴ使用の許可を取得済</p>
+                  </div>
+                  <Switch
+                    checked={!!watch("logo_permission")}
+                    onCheckedChange={(v) => setValue("logo_permission", !!v, { shouldDirty: true })}
+                  />
                 </div>
               </div>
             </div>
