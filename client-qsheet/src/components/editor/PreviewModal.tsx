@@ -231,24 +231,42 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
               <span className="font-mono text-xs">{margin}</span>
             </label>
             <span className="w-px h-4 bg-zinc-200" />
-            <label className="flex items-center gap-1 text-xs cursor-pointer">
-              <input type="checkbox" checked={mono} onChange={() => setMono(!mono)} className="accent-zinc-600 w-3.5 h-3.5" />
-              <span className="text-zinc-600 font-medium">白黒</span>
-            </label>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={mono}
+              onClick={() => setMono(!mono)}
+              className={`px-2.5 py-1 text-xs font-medium rounded-full border transition-colors ${
+                mono ? "bg-zinc-700 border-zinc-700 text-white" : "border-zinc-300 text-zinc-600 hover:bg-zinc-50"
+              }`}
+            >
+              白黒
+            </button>
             <span className="w-px h-4 bg-zinc-200" />
             <span className="text-xs text-zinc-400">出力列:</span>
-            {state.blocks.map((blk) => (
-              <label key={blk.id} className="flex items-center gap-1 text-xs cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={blk.type === "scenario" || selectedBlocks.has(blk.id)}
-                  disabled={blk.type === "scenario"}
-                  onChange={() => toggleBlock(blk.id)}
-                  className="accent-blue-600 w-3.5 h-3.5"
-                />
-                <span className={blk.type === "scenario" ? "text-zinc-400" : "text-zinc-600"}>{blk.label}</span>
-              </label>
-            ))}
+            {state.blocks.map((blk) => {
+              const isScenario = blk.type === "scenario";
+              const isOn = isScenario || selectedBlocks.has(blk.id);
+              return (
+                <button
+                  key={blk.id}
+                  type="button"
+                  role="checkbox"
+                  aria-checked={isOn}
+                  disabled={isScenario}
+                  onClick={() => toggleBlock(blk.id)}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-full border transition-colors disabled:cursor-not-allowed ${
+                    isScenario
+                      ? "bg-zinc-100 border-zinc-200 text-zinc-400"
+                      : isOn
+                        ? "bg-blue-600 border-blue-600 text-white"
+                        : "border-zinc-300 text-zinc-600 hover:bg-zinc-50"
+                  }`}
+                >
+                  {blk.label}
+                </button>
+              );
+            })}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <button onClick={handleCsvDownload} title="CSVダウンロード" className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-50 transition-all">

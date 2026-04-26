@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@gmo-onair/shared/src/client/ui/switch";
 import {
   Select,
   SelectContent,
@@ -390,22 +391,22 @@ export default function DashboardPage() {
             </div>
 
             <div className="border-t pt-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Link2 className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">GLS案件に紐付ける</span>
+                </div>
+                <Switch
                   checked={linkToProject}
-                  onChange={(e) => {
-                    setLinkToProject(e.target.checked);
-                    if (!e.target.checked) {
+                  onCheckedChange={(v) => {
+                    setLinkToProject(!!v);
+                    if (!v) {
                       if (!projectFilter) setSelectedProjectId("");
                       setSelectedEpisodeId("");
                     }
                   }}
-                  className="rounded border-input"
                 />
-                <Link2 className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">GLS案件に紐付ける</span>
-              </label>
+              </div>
 
               {linkToProject && (
                 <div className="mt-3 space-y-3 pl-6">

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { EnhancedCheckbox } from "@gmo-onair/shared/src/client/ui/enhanced-checkbox";
 import {
   ArrowLeft, Copy, Loader2, Wrench, ArrowRightLeft, Package, QrCode, Printer, Link2, X, ChevronDown, Search, Pencil, Plus, LayoutList,
 } from "lucide-react";
@@ -867,11 +868,9 @@ export default function EquipmentDetailPage() {
                   return (
                     <div key={col.id} className="flex justify-between items-center">
                       <span className="text-muted-foreground">{col.name}</span>
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 cursor-pointer"
+                      <EnhancedCheckbox
                         checked={checked}
-                        onChange={e => customValueMutation.mutate({ columnId: col.id, value: e.target.checked ? 'true' : 'false' })}
+                        onCheckedChange={(v) => customValueMutation.mutate({ columnId: col.id, value: v ? 'true' : 'false' })}
                       />
                     </div>
                   );

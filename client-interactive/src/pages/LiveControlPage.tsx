@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@gmo-onair/shared/src/client/ui/switch';
 import { getSocket, disconnectSocket } from '@/lib/socket';
 
 interface StampCount {
@@ -220,16 +221,11 @@ export default function LiveControlPage() {
               <p className="text-sm font-medium">スタンプ受付</p>
               <p className="text-xs text-muted-foreground">視聴者からのスタンプ送信を制御</p>
             </div>
-            <button
-              onClick={() => updateEvent.mutate({ accepting: !eventData.accepting })}
-              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
-                eventData.accepting ? 'bg-green-500' : 'bg-zinc-300'
-              }`}
-            >
-              <span className={`inline-block h-6 w-6 rounded-full bg-white shadow-sm transition-transform ${
-                eventData.accepting ? 'translate-x-7' : 'translate-x-1'
-              }`} />
-            </button>
+            <Switch
+              checked={!!eventData.accepting}
+              onCheckedChange={(v) => updateEvent.mutate({ accepting: !!v })}
+              className="data-[state=checked]:bg-green-500"
+            />
           </div>
 
           {/* 運営コメント即時更新 */}

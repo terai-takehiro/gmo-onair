@@ -5,6 +5,7 @@ import { formatTimer, formatCount } from '@/lib/utils';
 import { type TimerPhase } from '@/hooks/useTimer';
 import api from '@/lib/api';
 import { Settings, X } from 'lucide-react';
+import { Switch } from '@gmo-onair/shared/src/client/ui/switch';
 
 const phaseLabels: Record<TimerPhase, string> = {
   idle: '---',
@@ -158,17 +159,16 @@ export default function TimerDisplayPage() {
           <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3">
             タイマー表示
           </p>
-          <button
-            onClick={() => setToggle('showTimer', !toggles.showTimer)}
-            className="flex items-center justify-between w-full py-1.5 px-1 rounded-lg hover:bg-white/5 transition-colors mb-4"
-          >
+          <div className="flex items-center justify-between w-full py-1.5 px-1 mb-4">
             <span className={`text-sm ${toggles.showTimer ? 'text-white' : 'text-white/40'}`}>
               タイマーを表示
             </span>
-            <div className={`relative w-9 h-5 rounded-full transition-colors ${toggles.showTimer ? 'bg-primary' : 'bg-white/20'}`}>
-              <div className={`absolute top-1 w-3 h-3 rounded-full bg-white shadow transition-transform ${toggles.showTimer ? 'translate-x-5' : 'translate-x-1'}`} />
-            </div>
-          </button>
+            <Switch
+              checked={toggles.showTimer}
+              onCheckedChange={(v) => setToggle('showTimer', !!v)}
+              className="data-[state=unchecked]:bg-white/20"
+            />
+          </div>
 
           {/* Viewer count toggles */}
           <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3">
@@ -176,10 +176,9 @@ export default function TimerDisplayPage() {
           </p>
           <div className="space-y-2">
             {VIEWER_ITEMS.map(({ key, label, color }) => (
-              <button
+              <div
                 key={key}
-                onClick={() => setToggle(key, !toggles[key])}
-                className="flex items-center justify-between w-full py-1.5 px-1 rounded-lg hover:bg-white/5 transition-colors"
+                className="flex items-center justify-between w-full py-1.5 px-1"
               >
                 <div className="flex items-center gap-2.5">
                   <div className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
@@ -187,10 +186,12 @@ export default function TimerDisplayPage() {
                     {label}
                   </span>
                 </div>
-                <div className={`relative w-9 h-5 rounded-full transition-colors ${toggles[key] ? 'bg-primary' : 'bg-white/20'}`}>
-                  <div className={`absolute top-1 w-3 h-3 rounded-full bg-white shadow transition-transform ${toggles[key] ? 'translate-x-5' : 'translate-x-1'}`} />
-                </div>
-              </button>
+                <Switch
+                  checked={toggles[key]}
+                  onCheckedChange={(v) => setToggle(key, !!v)}
+                  className="data-[state=unchecked]:bg-white/20"
+                />
+              </div>
             ))}
           </div>
           {!programId && (
