@@ -21,6 +21,7 @@ interface StudioLocation {
 interface BookingRoom {
   room_id: string;
   room_name: string;
+  room_abbreviation?: string | null;
   room_color: string;
   room_type?: string;
   location_id: string;

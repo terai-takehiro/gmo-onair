@@ -82,7 +82,6 @@ router.post('/', requireRole('system_admin'), wrap(async (req, res) => {
     success: true,
     data: row,
     message: `ユーザーを作成しました`,
-    inviteUrl,
   });
 }));
 

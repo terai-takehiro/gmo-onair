@@ -20,9 +20,10 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator, AlertTriangle, Info, CalendarDays, FileText, Calendar, Plus, Pencil, Trash2 } from "lucide-react";
+import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator, AlertTriangle, Info, CalendarDays, FileText, Calendar, Plus, Pencil, Trash2, Check } from "lucide-react";
 import StudioBookingDialog from "@/contexts/production/components/studio/StudioBookingDialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 import {
   ProjectStageLabels, ProjectStageColors,
   ProjectTypeLabels, BroadcastTypeLabels, MediaPlatformLabels,
@@ -130,7 +131,7 @@ export default function ProjectFormPage() {
     queryKey: ["studio-locations"],
     queryFn: async () => (await api.get("/studios/locations")).data.data,
   });
-  const studioLocations: { id: string; name: string; rooms: { id: string; name: string; color: string }[] }[] = studioLocationsData ?? [];
+  const studioLocations: { id: string; name: string; rooms: { id: string; name: string; abbreviation?: string | null; color: string }[] }[] = studioLocationsData ?? [];
 
   // 編集モード: この案件に紐づくスタジオ予約を取得（単一ソース）
   const { data: projectBookingsData } = useQuery({
@@ -763,74 +764,102 @@ export default function ProjectFormPage() {
             {/* 部屋選択 */}
             <div>
               <Label className="mb-2 block">使用する部屋・空間</Label>
-              <div className="space-y-2">
-                {studioLocations.map((loc) => (
-                  <div key={loc.id}>
-                    <p className="text-xs font-semibold text-muted-foreground mb-1">{loc.name}</p>
-                    {(loc.rooms ?? []).length === 0 ? (
-                      /* 外現場: 自由記述 + 履歴サジェスト */
-                      <div className="relative" ref={locationSuggestionsRef}>
-                        <Input
-                          placeholder="場所を入力（例: 東京国際フォーラム）"
-                          value={locationNote}
-                          onChange={(e) => setLocationNote(e.target.value)}
-                          onFocus={() => setShowLocationSuggestions(true)}
-                          className="text-sm"
-                        />
-                        {showLocationSuggestions && locationHistory.length > 0 && (
-                          <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md">
-                            {locationHistory.map((h) => (
-                              <button
-                                key={h}
-                                type="button"
-                                className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
-                                onMouseDown={(e) => { e.preventDefault(); setLocationNote(h); setShowLocationSuggestions(false); }}
-                              >
-                                {h}
-                              </button>
-                            ))}
-                          </div>
+              <div className="space-y-4">
+                {studioLocations.map((loc) => {
+                  const rooms = loc.rooms ?? [];
+                  const allSelected = rooms.length > 0 && rooms.every(r => scheduleRoomIds.includes(r.id));
+                  return (
+                    <div key={loc.id}>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-semibold text-muted-foreground">{loc.name}</p>
+                        {rooms.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const roomIds = rooms.map(r => r.id);
+                              setScheduleRoomIds(prev =>
+                                allSelected
+                                  ? prev.filter(id => !roomIds.includes(id))
+                                  : [...new Set([...prev, ...roomIds])]
+                              );
+                            }}
+                            className={cn(
+                              "text-[11px] px-2.5 py-1 rounded-full border transition-colors",
+                              allSelected
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-input hover:bg-accent"
+                            )}
+                          >
+                            {allSelected ? '全て解除' : '全て選択'}
+                          </button>
                         )}
                       </div>
-                    ) : (
-                      <>
-                        <div className="flex items-center justify-between mb-1">
-                          <span />
-                          <label className="flex items-center gap-1 text-xs cursor-pointer text-muted-foreground">
-                            <Checkbox
-                              checked={(loc.rooms ?? []).every(r => scheduleRoomIds.includes(r.id))}
-                              onCheckedChange={(checked) => {
-                                const roomIds = (loc.rooms ?? []).map(r => r.id);
-                                setScheduleRoomIds(prev =>
-                                  checked
-                                    ? [...new Set([...prev, ...roomIds])]
-                                    : prev.filter(id => !roomIds.includes(id))
-                                );
-                              }}
-                            />
-                            全て選択
-                          </label>
+                      {rooms.length === 0 ? (
+                        /* 外現場: 自由記述 + 履歴サジェスト */
+                        <div className="relative" ref={locationSuggestionsRef}>
+                          <Input
+                            placeholder="場所を入力（例: 東京国際フォーラム）"
+                            value={locationNote}
+                            onChange={(e) => setLocationNote(e.target.value)}
+                            onFocus={() => setShowLocationSuggestions(true)}
+                            className="text-sm"
+                          />
+                          {showLocationSuggestions && locationHistory.length > 0 && (
+                            <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md">
+                              {locationHistory.map((h) => (
+                                <button
+                                  key={h}
+                                  type="button"
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+                                  onMouseDown={(e) => { e.preventDefault(); setLocationNote(h); setShowLocationSuggestions(false); }}
+                                >
+                                  {h}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                          {(loc.rooms ?? []).map((room) => (
-                            <label key={room.id} className="flex items-center gap-1.5 text-sm cursor-pointer">
-                              <Checkbox
-                                checked={scheduleRoomIds.includes(room.id)}
-                                onCheckedChange={(checked) => {
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                          {rooms.map((room) => {
+                            const selected = scheduleRoomIds.includes(room.id);
+                            return (
+                              <button
+                                key={room.id}
+                                type="button"
+                                role="switch"
+                                aria-checked={selected}
+                                onClick={() => {
                                   setScheduleRoomIds(prev =>
-                                    checked ? [...prev, room.id] : prev.filter(id => id !== room.id)
+                                    selected ? prev.filter(id => id !== room.id) : [...prev, room.id]
                                   );
                                 }}
-                              />
-                              <span className="inline-block w-2 h-2 rounded-full" style={{ background: room.color }} />
-                              {room.name}
-                            </label>
-                          ))}
+                                className={cn(
+                                  "min-h-[44px] flex items-center gap-2 rounded-xl border-2 px-3 py-2 text-sm text-left transition-all",
+                                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                  selected
+                                    ? "border-transparent text-white shadow-sm"
+                                    : "border-input hover:border-primary/40 bg-background hover:bg-muted/30"
+                                )}
+                                style={selected ? { background: room.color } : undefined}
+                              >
+                                <span
+                                  className={cn(
+                                    "inline-block h-2.5 w-2.5 rounded-full shrink-0",
+                                    selected && "ring-2 ring-white/60"
+                                  )}
+                                  style={{ background: selected ? '#ffffff' : room.color }}
+                                />
+                                <span className="truncate flex-1 font-medium">{room.name}</span>
+                                {selected && <Check className="h-4 w-4 shrink-0" />}
+                              </button>
+                            );
+                          })}
                         </div>
-                      </>
-                    )}
-                  </div>
-                ))}
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

@@ -106,7 +106,7 @@ router.post('/invite', requireAuth, requireRole('system_admin'), wrap(async (req
     `,
   });
 
-  res.status(201).json({ success: true, message: `${email} に招待メールを送信しました`, data: { inviteUrl } });
+  res.status(201).json({ success: true, message: `${email} に招待メールを送信しました` });
 }));
 
 // ============================================================
@@ -215,7 +215,13 @@ router.post('/login', authLimiter, wrap(async (req, res) => {
     sameSite: 'lax',
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
-  res.json({ success: true, data: { token: jwtToken, requires_2fa: false } });
+  const isProduction = process.env.NODE_ENV === 'production';
+  res.json({
+    success: true,
+    data: isProduction
+      ? { requires_2fa: false }
+      : { token: jwtToken, requires_2fa: false },
+  });
 }));
 
 // ============================================================
@@ -252,7 +258,11 @@ router.post('/verify-2fa', otpLimiter, wrap(async (req, res) => {
     sameSite: 'lax',
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
-  res.json({ success: true, data: { token: jwtToken } });
+  const isProduction = process.env.NODE_ENV === 'production';
+  res.json({
+    success: true,
+    data: isProduction ? {} : { token: jwtToken },
+  });
 }));
 
 // ============================================================
@@ -341,7 +351,10 @@ router.post('/reset-password', requireAuth, requireRole('system_admin'), wrap(as
       subject: 'GMO ONAiR — パスワードリセット',
       html: `<h2>パスワードリセット</h2><p>下記のリンクから新しいパスワードを設定してください。</p><p><a href="${inviteUrl}" style="display:inline-block;padding:12px 24px;background:#005bac;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;">パスワードを再設定</a></p><p style="color:#666;font-size:12px;">7日間有効です。</p>`,
     });
-    res.json({ success: true, message: `${target.email} にリセットメールを送信しました`, data: { inviteUrl } });
+    res.json({
+      success: true,
+      message: `${target.email} にリセットメールを送信しました`,
+    });
   }
 }));
 

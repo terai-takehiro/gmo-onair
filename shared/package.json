@@ -7,6 +7,9 @@
   "scripts": {
     "build": "echo 'shared: no build step needed (consumed as TypeScript)'"
   },
+  "dependencies": {
+    "@digital-go-jp/design-tokens": "^1.1.9"
+  },
   "peerDependencies": {
     "react": "^18.0.0",
     "axios": "^1.0.0",

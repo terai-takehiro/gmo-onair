@@ -19,6 +19,7 @@ interface StudioRoom {
   id: string;
   location_id: string;
   name: string;
+  abbreviation?: string | null;
   room_type?: string;
   color: string;
 }
