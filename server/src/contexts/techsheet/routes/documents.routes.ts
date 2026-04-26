@@ -6,8 +6,7 @@ import { TECHSHEET_STATUS } from '../../../shared/constants/statuses';
 
 const router = Router();
 
-router.use(requireAuth);
-// TODO: requirePermission('techsheet') を復活させる（権限マイグレーション適用後）
+router.use(requireAuth, requirePermission('techsheet'));
 
 const MAX_TITLE_LENGTH = 500;
 const MAX_SEARCH_LENGTH = 100;
