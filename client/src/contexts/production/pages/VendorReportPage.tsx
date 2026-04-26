@@ -1,3 +1,4 @@
+import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
@@ -122,7 +123,7 @@ export default function VendorReportPage() {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : items.length === 0 ? (
-            <p className="text-center py-8 text-muted-foreground">データがありません</p>
+            <EmptyState title="データがありません" />
           ) : (
             <>
               {/* Mobile cards */}

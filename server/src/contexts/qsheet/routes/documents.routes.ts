@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { v4 as uuid } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
+import { QSHEET_STATUS } from '../../../shared/constants/statuses';
 
 const router = Router();
 
@@ -11,7 +12,8 @@ router.use(requireAuth, requirePermission('qsheet'));
 // Input validation helpers
 const MAX_TITLE_LENGTH = 500;
 const MAX_SEARCH_LENGTH = 100;
-const VALID_STATUSES = ['draft', 'rehearsal', 'on_air', 'archived'];
+// 値は migration 012_qsheet_schema.sql の CHECK 制約と完全一致 (constants から派生)
+const VALID_STATUSES: string[] = Object.values(QSHEET_STATUS);
 
 function sanitizeSearch(input: unknown): string | null {
   if (typeof input !== 'string') return null;

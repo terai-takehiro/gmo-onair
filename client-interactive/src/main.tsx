@@ -1,10 +1,13 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { installHistoryDiagnostic } from '@gmo-onair/shared/src/client/historyDiagnostic';
 import { queryClient } from './lib/queryClient';
 import App from './App';
 import './index.css';
-console.log('[GMO ONAiR] v0.9.0 loaded at', new Date().toISOString());
+
+// v2.4.1+ replaceState 暴走の根本原因観測 + ハード上限ガード
+installHistoryDiagnostic();
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },

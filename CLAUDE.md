@@ -32,11 +32,12 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v1.2.14
+v2.7.4 — インタラクティブ: 5 段階プリセットを実 VPS リサイズから切り離し設定保存のみに格下げ（社内利用想定で最大 8,000 人にスケール調整）
 
 ## ブランチ運用
-- **本番デプロイ**: `main` ブランチへの push で auto-deploy webhook が発火
-- **master ブランチ**: `main` の内容を定期的に同期するミラーブランチ（`master ← main` の PR で同期）
+- **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)
+- **本番デプロイ**: `main` ブランチへの push で GitHub Actions が auto-deploy
+- **検証デプロイ**: `dev` ブランチへの push で GitHub Actions が auto-deploy
 - **バージョン管理**: インクリメンタル（v1.1.93, v1.1.94...）、大きくジャンプしない
 - **バージョン更新ルール**: プッシュする際は必ずパッチバージョンを上げる（例: v1.1.94 → v1.1.95）。以下の全箇所を同時に更新すること:
   1. `CLAUDE.md` の「現在のバージョン」
@@ -201,6 +202,31 @@ EventStampをReact化してONAiRに統合。
 - [x] shared/src/client/ にファクトリ関数集約
 - [x] 4クライアントアプリのリファクタリング (576行削減)
 - [x] 全アプリ型チェック通過
+
+### DONE: v2.1.0 — 全アプリダッシュボードをデジタル庁ダッシュボードガイドブック準拠に刷新
+「ダッシュボードデザインの実践ガイドブック」の4原則(目的に則する / 違いに気づける / 分解できる / 鮮度が高い)に沿い、全 9 ダッシュボードを再設計。
+- [x] 共通パターンライブラリ `shared/src/client/dashboard/` を新設
+  - `DashboardHeader` (タイトル + 期間 + 最終更新 + コントロール)
+  - `KpiCard` (大きな数字 + 単位 + トレンド記号 + emphasis: default/success/warning/negative/info)
+  - `SectionCard` (アイコン + タイトル + 説明 + actions + footnote)
+  - `EmptyState` (icon + title + description + action)
+  - `chartColors` / `chartDefaults` — DADS 準拠のニュートラル中心パレット (brand/positive/negative/warning/info/neutral + categorical 8色)
+- [x] 9 ダッシュボード刷新:
+  - 案件管理 (platform Dashboard, BudgetDashboard, SalesReview)
+  - Qシート / 機材 / インタラクティブ / 技術資料 / ライブ (Session + Dashboard)
+- [x] コントラスト比 3:1 以上・WCAG 2.2 AA focus ring・aria-*/role 強化
+- [x] 全 6 client + server ビルド通過
+
+### DONE: v2.0.0 — デジタル庁デザインシステム (DADS) 全面リニューアル
+GMO ONAiR 全アプリを DADS v2.13 相当の設計思想・トークン・アクセシビリティ水準 (WCAG 2.2 AA) に統合。
+- [x] `@digital-go-jp/design-tokens` + `@digital-go-jp/tailwind-theme-plugin` (MIT) を導入
+- [x] `shared/src/client/tokens.css` を新設。DADS プリミティブ + GMO Blue (#005bac) セマンティック層
+- [x] `shared/tailwind.preset.ts` に共通プリセット。全 6 アプリが継承
+- [x] `shared/src/client/ui/` に UI プリミティブ 12 種を集約 (Button/Input/Label/Card/Badge/Dialog/Select/Checkbox/Switch/Tabs/Textarea/Separator)
+- [x] 6 アプリの `components/ui/` を shared 再エクスポートに置換
+- [x] `client-qsheet` の primary 上書き (#2563eb) を撤廃
+- [x] ファビコン / GMO ONAiR ロゴは継続利用 (ブランド資産は保持)
+- [x] 全アプリ型チェック & ビルド通過
 
 ### LATER: 制作支援アプリ (ProdSheet) — 未着手
 スケジュール・スタッフ配置・ケータリング・連絡先等の制作進行支援。TechSheetと連携。

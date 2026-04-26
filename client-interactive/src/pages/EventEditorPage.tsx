@@ -16,6 +16,24 @@ const ANIMATIONS = ['bounce', 'fade', 'slide', 'shake', 'pop', 'none'] as const;
 const PRESET_COLORS = ['#e11d48', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#6366f1', '#a855f7', '#ec4899'];
 const PRESET_EMOJI = ['👏', '❤️', '🎉', '😂', '👍', '🔥', '⭐', '🎵', '💪', '🙌', '😍', '🤩'];
 
+// 想定同時接続数プリセット (社内利用想定: 最大 8,000 人)
+// 備考: VPS の実リサイズは案件管理など他アプリへの影響を避けるため当面行わず、
+// このボタンは「想定接続数」の保存のみ。VPS 分離後に再度配線予定。
+const SCALING_PRESETS = [
+  { id: 'minimum', label: '最小',   maxConnections: 100  },
+  { id: 'small',   label: '小規模', maxConnections: 500  },
+  { id: 'medium',  label: '中規模', maxConnections: 2000 },
+  { id: 'large',   label: '大規模', maxConnections: 5000 },
+  { id: 'xlarge',  label: '最大',   maxConnections: 8000 },
+] as const;
+type ScalingPreset = typeof SCALING_PRESETS[number];
+
+// 既存値に最も合うプリセットを選択 (m 以上を満たす最小プラン)
+const findSelectedPreset = (m: number | undefined): ScalingPreset => {
+  const v = m ?? SCALING_PRESETS[0].maxConnections;
+  return SCALING_PRESETS.find(p => v <= p.maxConnections) ?? SCALING_PRESETS[SCALING_PRESETS.length - 1];
+};
+
 export default function EventEditorPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -87,6 +105,11 @@ export default function EventEditorPage() {
     mutationFn: () => api.post(`/interactive/events/${id}/reuse`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['interactive-event', id] }),
   });
+
+  const handleSelectScaling = (plan: ScalingPreset) => {
+    if (eventData?.max_connections === plan.maxConnections) return;
+    updateEvent.mutate({ max_connections: plan.maxConnections });
+  };
 
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">読み込み中...</div>;
   if (!eventData) return <div className="p-8 text-center text-muted-foreground">イベントが見つかりません</div>;
@@ -212,14 +235,34 @@ export default function EventEditorPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">最大接続数</label>
-              <Input
-                type="number"
-                className="mt-1 max-w-[160px]"
-                defaultValue={eventData.max_connections}
-                onBlur={e => updateEvent.mutate({ max_connections: parseInt(e.target.value) })}
-                min={1} max={10000}
-              />
+              <label className="text-sm font-medium">想定同時接続数</label>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                想定する最大同時接続数を選択してください（社内利用想定: 最大 8,000 人）。
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                {SCALING_PRESETS.map(p => {
+                  const selected = findSelectedPreset(eventData.max_connections).id === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => handleSelectScaling(p)}
+                      disabled={updateEvent.isPending}
+                      aria-pressed={selected}
+                      className={`flex min-h-[64px] flex-col items-start gap-0.5 rounded-xl border-2 px-3 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                        selected
+                          ? 'border-primary bg-primary/10'
+                          : 'border-input hover:border-primary/40 hover:bg-muted/30'
+                      }`}
+                    >
+                      <span className="text-sm font-semibold">{p.label}</span>
+                      <span className="text-[11px] text-muted-foreground">
+                        〜{p.maxConnections.toLocaleString()}人
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* 待機画面メッセージ */}

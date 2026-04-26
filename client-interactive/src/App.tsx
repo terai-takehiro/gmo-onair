@@ -1,6 +1,7 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { AppShell } from './components/layout/AppShell';
+import { RedirectOnce } from '@gmo-onair/shared/src/client/RedirectOnce';
 import DashboardPage from './pages/DashboardPage';
 import EventEditorPage from './pages/EventEditorPage';
 import QuizManagerPage from './pages/QuizManagerPage';
@@ -33,7 +34,7 @@ export default function App() {
             <Route path="/live/:id" element={<LiveControlPage />} />
           </Route>
         ) : (
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<RedirectOnce to="/login" />} />
         )}
       </Routes>
     </BrowserRouter>

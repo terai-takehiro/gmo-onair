@@ -1,4 +1,4 @@
-@import '@gmo-onair/shared/src/client/design-tokens.css';
+@import '@gmo-onair/shared/src/client/tokens.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -17,31 +17,7 @@
   button, a, [role="button"], label[for], summary {
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
-  }
-
-  :root {
-    --background: 40 20% 96%;
-    --foreground: 60 6% 11%;
-    --card: 40 25% 99%;
-    --card-foreground: 60 6% 11%;
-    --popover: 40 25% 99%;
-    --popover-foreground: 60 6% 11%;
-    --primary: 209 100% 34%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 43 15% 88%;
-    --secondary-foreground: 48 4% 28%;
-    --muted: 43 15% 88%;
-    --muted-foreground: 48 3% 35%;
-    --accent: 43 15% 88%;
-    --accent-foreground: 48 4% 28%;
-    --destructive: 0 55% 46%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 40 18% 91%;
-    --input: 43 15% 88%;
-    --ring: 209 100% 34%;
-    --radius: 0.5rem;
-  }
-}
+  }}
 
 @layer base {
   * { @apply border-border; }

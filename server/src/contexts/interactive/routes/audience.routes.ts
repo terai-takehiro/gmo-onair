@@ -1,8 +1,10 @@
+/**
+ * interactive/routes/audience.routes.ts — Phase 3 v2.6.9
+ * 視聴者向けエンドポイント (認証不要 — QR からアクセス)。
+ * SQL + ロジックは services/audience.service.ts に集約。
+ */
 import { Router, Request, Response, NextFunction } from 'express';
-import crypto from 'crypto';
-import QRCode from 'qrcode';
-import { queryAll, queryOne, execute } from '../../../shared/db/connection';
-import { AppError } from '../../../shared/middleware/errorHandler';
+import { audienceService } from '../services/audience.service';
 
 const router = Router();
 const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) =>
@@ -10,110 +12,34 @@ const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<v
 
 // 注意: 全て認証不要（QRコードからアクセス）
 
-// ──────────────────────────────────────────────
 // イベント情報取得 (視聴者向け)
-// ──────────────────────────────────────────────
 router.get('/events/:id', wrap(async (req, res) => {
-  console.log('[audience] GET /events/' + req.params.id);
-  const channelId = req.query.ch as string | undefined;
-
-  const row = await queryOne(
-    `SELECT id, title, description, status, accepting,
-            youtube_url, banner_url, admin_comment, survey_url,
-            waiting_message, ended_message
-     FROM interactive_events WHERE id = ? AND deleted_at IS NULL`,
-    [req.params.id]
-  ) as any;
-  if (!row) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
-
-  // チャンネル上書き
-  let channel: any = null;
-  try {
-    if (channelId) {
-      channel = await queryOne(
-        'SELECT * FROM interactive_channels WHERE id = ? AND event_id = ? AND is_active = true',
-        [channelId, req.params.id]
-      );
-    }
-    if (!channel) {
-      channel = await queryOne(
-        'SELECT * FROM interactive_channels WHERE event_id = ? AND is_active = true ORDER BY sort_order LIMIT 1',
-        [req.params.id]
-      );
-    }
-  } catch { /* OK */ }
-
-  const stamps = await queryAll(
-    'SELECT id, label, emoji, color, animation, sort_order, image_url FROM interactive_stamps WHERE event_id = ? AND is_active = true ORDER BY sort_order',
-    [req.params.id]
+  const data = await audienceService.getEventForAudience(
+    req.params.id as string,
+    req.query.ch as string | undefined,
   );
-
-  res.json({
-    success: true,
-    data: {
-      title: row.title,
-      status: row.status,
-      accepting: row.accepting ?? false,
-      youtube_url: channel?.youtube_url || row.youtube_url || null,
-      banner_url: channel?.banner_url || row.banner_url || null,
-      admin_comment: channel?.admin_comment || row.admin_comment || null,
-      survey_url: channel?.survey_url || row.survey_url || null,
-      waiting_message: row.waiting_message || null,
-      ended_message: row.ended_message || null,
-      stamps,
-    },
-  });
+  res.json({ success: true, data });
 }));
 
-// ──────────────────────────────────────────────
 // セッション作成
-// ──────────────────────────────────────────────
 router.post('/events/:id/join', wrap(async (req, res) => {
-  console.log('[audience] POST /events/' + req.params.id + '/join');
-  const event = await queryOne(
-    'SELECT id, status, max_connections FROM interactive_events WHERE id = ? AND deleted_at IS NULL',
-    [req.params.id]
-  ) as any;
-  if (!event) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
-
-  const sessionToken = crypto.randomBytes(32).toString('hex');
-  await execute(
-    `INSERT INTO interactive_sessions (id, event_id, session_token, user_agent)
-     VALUES (gen_random_uuid(), ?, ?, ?)`,
-    [req.params.id, sessionToken, String(req.headers['user-agent'] || '').slice(0, 500)]
+  const data = await audienceService.join(
+    req.params.id as string,
+    String(req.headers['user-agent'] || ''),
   );
-
-  res.status(201).json({ success: true, data: { session_token: sessionToken } });
+  res.status(201).json({ success: true, data });
 }));
 
-// ──────────────────────────────────────────────
 // スタンプ送信 (HTTP fallback)
-// ──────────────────────────────────────────────
 router.post('/events/:id/stamp', wrap(async (req, res) => {
-  const { stamp_id } = req.body;
-  if (!stamp_id) throw new AppError(400, 'VALIDATION_ERROR', 'stamp_idは必須です');
-
-  const bucketAt = new Date();
-  bucketAt.setSeconds(0, 0);
-
-  await execute(
-    `INSERT INTO interactive_stamp_counts (id, stamp_id, event_id, count, bucket_at)
-     VALUES (gen_random_uuid(), ?, ?, 1, ?)
-     ON CONFLICT (stamp_id, bucket_at)
-     DO UPDATE SET count = interactive_stamp_counts.count + 1`,
-    [stamp_id, req.params.id, bucketAt.toISOString()]
-  );
-
+  await audienceService.sendStamp(req.params.id as string, req.body?.stamp_id);
   res.json({ success: true });
 }));
 
-// ──────────────────────────────────────────────
-// QRコード (認証不要 — imgタグで直接表示)
-// ──────────────────────────────────────────────
+// QR コード (img タグから直接表示)
 router.get('/events/:id/qr', wrap(async (req, res) => {
   const clientUrl = process.env.CLIENT_URL || `${req.protocol}://${req.get('host')}`;
-  const url = `${clientUrl}/interactive/audience/${req.params.id}`;
-  const svg = await QRCode.toString(url, { type: 'svg', margin: 1 });
+  const svg = await audienceService.generateQrSvg(clientUrl, req.params.id as string);
   res.setHeader('Content-Type', 'image/svg+xml');
   res.setHeader('Cache-Control', 'public, max-age=3600');
   res.send(svg);
@@ -121,8 +47,11 @@ router.get('/events/:id/qr', wrap(async (req, res) => {
 
 router.get('/events/:id/channels/:channelId/qr', wrap(async (req, res) => {
   const clientUrl = process.env.CLIENT_URL || `${req.protocol}://${req.get('host')}`;
-  const url = `${clientUrl}/interactive/audience/${req.params.id}?ch=${req.params.channelId}`;
-  const svg = await QRCode.toString(url, { type: 'svg', margin: 1 });
+  const svg = await audienceService.generateQrSvg(
+    clientUrl,
+    req.params.id as string,
+    req.params.channelId as string,
+  );
   res.setHeader('Content-Type', 'image/svg+xml');
   res.setHeader('Cache-Control', 'public, max-age=3600');
   res.send(svg);

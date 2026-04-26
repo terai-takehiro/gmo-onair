@@ -1,9 +1,19 @@
+/**
+ * RevenueListPage — Phase 2A 部分移行 (v2.6.4)
+ * FilterBar / Pagination / EmptyState は shared プリミティブを使用。
+ * ダイアログは「同一案件で既存売上が見つかれば自動で更新モードに切替」という
+ * useCrudPage の editingItem 単純モデルでは表現しづらい独自フローを持つため、
+ * ローカルの useState + useMutation で従来どおり管理している。
+ */
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
 import { formatCurrency, formatMonth, formatShortDate, localDateStr } from "@/lib/format";
 import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+import { FilterBar } from "@gmo-onair/shared/src/client/ui/filter-bar";
+import { Pagination } from "@gmo-onair/shared/src/client/ui/pagination";
 import { PageTransition } from "@/components/ui/motion";
 import { getProjectCategory } from "@/types";
 import { Input } from "@/components/ui/input";
@@ -33,7 +43,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { Search, Loader2, Plus, Trash2, Download, ExternalLink, Link2 } from "lucide-react";
+import { Loader2, Plus, Trash2, Download, ExternalLink, Link2 } from "lucide-react";
 import PricingItemPicker, { type PickedPricingItem } from "../components/PricingItemPicker";
 import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
 
@@ -484,18 +494,15 @@ export default function RevenueListPage() {
         />
       )}
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="請求KEY・案件名で検索..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-          className="pl-9"
-        />
-      </div>
+      <FilterBar
+        search={search}
+        onSearchChange={(v) => {
+          setSearch(v);
+          setPage(1);
+        }}
+        searchPlaceholder="請求KEY・案件名で検索..."
+        layout="inline"
+      />
 
       {isLoading ? (
         <div className="flex justify-center py-12">
@@ -504,9 +511,7 @@ export default function RevenueListPage() {
       ) : (
         <>
           {revenues.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">
-              データがありません
-            </p>
+            <EmptyState title="データがありません" />
           ) : (
             <>
               {/* Mobile cards */}
@@ -655,37 +660,13 @@ export default function RevenueListPage() {
             </>
           )}
 
-          {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                全{pagination.total}件中{" "}
-                {(pagination.page - 1) * pagination.limit + 1}-
-                {Math.min(
-                  pagination.page * pagination.limit,
-                  pagination.total
-                )}
-                件
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => p - 1)}
-                >
-                  前へ
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= pagination.totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  次へ
-                </Button>
-              </div>
-            </div>
-          )}
+          <Pagination
+            page={page}
+            totalPages={pagination?.totalPages ?? 1}
+            total={pagination?.total ?? 0}
+            onChange={setPage}
+            disabled={isLoading}
+          />
         </>
       )}
 

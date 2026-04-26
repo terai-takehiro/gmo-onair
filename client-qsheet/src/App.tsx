@@ -1,5 +1,6 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { RedirectOnce } from "@gmo-onair/shared/src/client/RedirectOnce";
 import AppShell from "@/components/layout/AppShell";
 import LoginPage from "@/pages/LoginPage";
 import DashboardPage from "@/pages/DashboardPage";
@@ -12,7 +13,7 @@ import { Loader2 } from "lucide-react";
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
   if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  if (!isAuthenticated) return <Navigate to="/qsheet/login" replace />;
+  if (!isAuthenticated) return <RedirectOnce to="/qsheet/login" />;
   return <>{children}</>;
 }
 
@@ -27,7 +28,7 @@ export default function App() {
     <Routes>
       <Route
         path="/qsheet/login"
-        element={isAuthenticated ? <Navigate to="/qsheet" replace /> : <LoginPage />}
+        element={isAuthenticated ? <RedirectOnce to="/qsheet" /> : <LoginPage />}
       />
 
       {/* Pages with AppShell (Header + Sidebar) */}
@@ -42,7 +43,7 @@ export default function App() {
       <Route path="/qsheet/rundown/:id" element={<ProtectedRoute><RundownPage /></ProtectedRoute>} />
       <Route path="/qsheet/prompter/:id" element={<ProtectedRoute><PrompterPage /></ProtectedRoute>} />
 
-      <Route path="*" element={<Navigate to="/qsheet" replace />} />
+      <Route path="*" element={<RedirectOnce to="/qsheet" />} />
     </Routes>
   );
 }

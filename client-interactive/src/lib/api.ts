@@ -2,7 +2,7 @@ import { createApi } from '@gmo-onair/shared/src/client/createApi';
 import axios from 'axios';
 
 const api = createApi({
-  storageKey: 'is_user',
+  storageKey: 'gmo_onair_user',
   loginPath: '/interactive/login',
 });
 

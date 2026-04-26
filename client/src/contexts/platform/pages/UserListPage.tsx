@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -355,7 +356,7 @@ export default function UserListPage() {
       ) : (
         <>
           {(!users || users.length === 0) ? (
-            <p className="text-center text-muted-foreground py-8">データがありません</p>
+            <EmptyState title="データがありません" />
           ) : (
             <>
               {/* Mobile cards */}

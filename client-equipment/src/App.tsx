@@ -1,5 +1,6 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { RedirectOnce } from "@gmo-onair/shared/src/client/RedirectOnce";
 import AppShell from "@/components/layout/AppShell";
 import LoginPage from "@/pages/LoginPage";
 import DashboardPage from "@/pages/DashboardPage";
@@ -21,7 +22,7 @@ import { Loader2 } from "lucide-react";
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
   if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  if (!isAuthenticated) return <Navigate to="/equipment/login" replace />;
+  if (!isAuthenticated) return <RedirectOnce to="/equipment/login" />;
   return <>{children}</>;
 }
 
@@ -36,7 +37,7 @@ export default function App() {
     <Routes>
       <Route
         path="/equipment/login"
-        element={isAuthenticated ? <Navigate to="/equipment" replace /> : <LoginPage />}
+        element={isAuthenticated ? <RedirectOnce to="/equipment" /> : <LoginPage />}
       />
       <Route
         element={
@@ -60,7 +61,7 @@ export default function App() {
         <Route path="/equipment/rental-settings" element={<RentalSettingsPage />} />
         <Route path="/equipment/rental-categories" element={<RentalCategoryPage />} />
       </Route>
-      <Route path="*" element={<Navigate to="/equipment" replace />} />
+      <Route path="*" element={<RedirectOnce to="/equipment" />} />
     </Routes>
   );
 }

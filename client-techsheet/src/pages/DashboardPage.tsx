@@ -34,6 +34,8 @@ import {
   Link2,
   Printer,
 } from "lucide-react";
+import { DashboardHeader, EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+import { TECHSHEET_STATUS, statusOf } from "@gmo-onair/shared/src/constants/statuses";
 
 interface TechsheetDocument {
   id: string;
@@ -65,11 +67,7 @@ interface EpisodeOption {
   recording_date: string | null;
 }
 
-const statusConfig: Record<string, { label: string; color: string }> = {
-  draft: { label: "下書き", color: "bg-slate-100 text-slate-700 border-slate-200" },
-  confirmed: { label: "確定", color: "bg-green-100 text-green-700 border-green-200" },
-  archived: { label: "アーカイブ", color: "bg-gray-100 text-gray-500 border-gray-200" },
-};
+// ステータス定義は shared/src/constants/statuses.ts (TECHSHEET_STATUS) を参照
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -197,23 +195,22 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="space-y-6 p-4 lg:p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="heading-page text-xl lg:text-2xl">技術資料一覧</h1>
-          <p className="text-sm text-muted-foreground">
-            番組・イベントの映像音声技術資料を作成・管理
-          </p>
-        </div>
-        <Button onClick={() => setShowCreate(true)} className="gap-2">
-          <Plus className="h-4 w-4" />
-          新規作成
-        </Button>
-      </div>
+    <div className="space-y-5 p-4 sm:space-y-6 sm:p-6">
+      <DashboardHeader
+        title="技術資料一覧"
+        description="番組・イベントの映像・音声・通信の技術資料を作成・管理します。"
+        lastUpdated={`最終更新 ${new Date().toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
+        controls={
+          <Button onClick={() => setShowCreate(true)} className="gap-2">
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            新規作成
+          </Button>
+        }
+      />
 
       {projectFilter && documents && documents.length > 0 && documents[0].project_name && (
-        <div className="flex items-center gap-2 rounded-lg border bg-primary/5 px-4 py-2.5">
-          <FolderKanban className="h-4 w-4 text-primary shrink-0" />
+        <div className="flex items-center gap-2 rounded-md border border-border bg-primary/5 px-4 py-2.5" role="status">
+          <FolderKanban className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
           <span className="text-sm">
             <span className="font-medium">{documents[0].gls_number}</span>
             <span className="text-muted-foreground ml-1">{documents[0].project_name}</span>
@@ -221,12 +218,12 @@ export default function DashboardPage() {
           </span>
           <Button
             variant="ghost"
-            size="icon"
-            className="h-6 w-6 ml-auto shrink-0"
+            size="icon-sm"
+            className="ml-auto shrink-0"
             onClick={() => setSearchParams({})}
-            title="フィルタ解除"
+            aria-label="フィルタ解除"
           >
-            <X className="h-3.5 w-3.5" />
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
           </Button>
         </div>
       )}
@@ -242,27 +239,30 @@ export default function DashboardPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-24">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" aria-label="読み込み中" />
         </div>
       ) : isError ? (
-        <div className="flex justify-center py-24">
-          <p className="text-sm text-muted-foreground">データを取得できませんでした。サーバー接続を確認してください。</p>
-        </div>
+        <EmptyState
+          title="データを取得できませんでした"
+          description="サーバー接続を確認してから再試行してください。"
+        />
       ) : documents && documents.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {documents.map((doc) => {
-            const status = statusConfig[doc.status] || statusConfig.draft;
+            const spec = statusOf(TECHSHEET_STATUS, doc.status);
+            const label = spec.label;
+            const variant = spec.variant;
             return (
               <Card
                 key={doc.id}
-                className="group hover:shadow-md transition-shadow cursor-pointer"
+                className="group transition-colors cursor-pointer hover:border-primary focus-within:border-primary"
                 onClick={() => navigate(`/techsheet/editor/${doc.id}`)}
               >
                 <CardContent className="p-5">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-sm truncate">
+                      <h3 className="font-semibold text-sm truncate text-foreground">
                         {doc.title || "無題の技術資料"}
                       </h3>
                       {(doc.gls_number || doc.venue) && (
@@ -277,9 +277,7 @@ export default function DashboardPage() {
                       {doc.version && (
                         <span className="text-xs text-muted-foreground">{doc.version}</span>
                       )}
-                      <Badge className={status.color}>
-                        {status.label}
-                      </Badge>
+                      <Badge variant={variant}>{label}</Badge>
                     </div>
                   </div>
 
@@ -341,19 +339,17 @@ export default function DashboardPage() {
           })}
         </div>
       ) : (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <Wrench className="h-12 w-12 text-primary/30 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">技術資料を作成しましょう</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              「新規作成」から番組・イベントの技術資料を作成できます。
-            </p>
+        <EmptyState
+          icon={<Wrench />}
+          title="技術資料を作成しましょう"
+          description="「新規作成」から番組・イベントの技術資料を作成できます。"
+          action={
             <Button onClick={() => setShowCreate(true)} className="gap-2">
-              <Plus className="h-4 w-4" />
+              <Plus className="h-4 w-4" aria-hidden="true" />
               最初の技術資料を作成
             </Button>
-          </CardContent>
-        </Card>
+          }
+        />
       )}
 
       <Dialog open={showCreate} onOpenChange={(open) => { setShowCreate(open); if (!open) resetCreateForm(); }}>

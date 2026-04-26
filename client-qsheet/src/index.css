@@ -1,5 +1,5 @@
-@import '@gmo-onair/shared/src/client/design-tokens.css';
-/* v0.9.0 cache bust — 2026-04-11 */
+/* GMO ONAiR Qシート v2.0 — DADS-based tokens from shared */
+@import '@gmo-onair/shared/src/client/tokens.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -14,7 +14,7 @@
   html, body {
     touch-action: pan-y;
     -webkit-font-smoothing: antialiased;
-    background-color: hsl(var(--card)); /* safe-area inset = header color */
+    background-color: hsl(var(--background));
     -moz-osx-font-smoothing: grayscale;
   }
   button, a, [role="button"], label[for], summary {
@@ -22,68 +22,18 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  :root {
-    /* Qsheet Design System — GMO Blue (#005bac) 統一 + Warm Neutrals */
-    --background: 40 20% 96%;
-    --foreground: 60 6% 11%;
-    --card: 40 25% 99%;
-    --card-foreground: 60 6% 11%;
-    --popover: 40 25% 99%;
-    --popover-foreground: 60 6% 11%;
-    --primary: 209 100% 34%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 43 15% 88%;
-    --secondary-foreground: 48 4% 28%;
-    --muted: 43 15% 88%;
-    --muted-foreground: 48 4% 40%;
-    --accent: 43 15% 88%;
-    --accent-foreground: 48 4% 28%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 40 10% 88%;
-    --input: 40 10% 88%;
-    --ring: 209 100% 34%;
-    --radius: 0.5rem;
-  }
-
-  .dark {
-    --background: 60 3% 10%;
-    --foreground: 40 10% 73%;
-    --card: 60 3% 14%;
-    --card-foreground: 40 10% 73%;
-    --popover: 60 3% 14%;
-    --popover-foreground: 40 10% 73%;
-    --primary: 209 100% 55%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 60 3% 18%;
-    --secondary-foreground: 40 10% 60%;
-    --muted: 60 3% 18%;
-    --muted-foreground: 40 5% 50%;
-    --accent: 60 3% 18%;
-    --accent-foreground: 40 10% 60%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 60 3% 18%;
-    --input: 60 3% 18%;
-    --ring: 209 100% 55%;
-  }
-}
-
-@layer base {
   * {
     @apply border-border;
   }
   html {
-    font-family: 'Noto Sans JP', -apple-system, 'Hiragino Sans', sans-serif;
+    font-family: var(--font-sans);
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Noto Sans JP', -apple-system, 'Hiragino Sans', sans-serif;
-    font-size: 15px;
-    line-height: 1.75;
-    letter-spacing: 0.02em;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--line-height-jp);
+    letter-spacing: var(--letter-spacing-jp);
     margin: 0;
   }
 
@@ -93,64 +43,33 @@
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
-    min-height: 2.5rem;
+    min-height: 2.75rem;
     line-height: 1.5;
   }
 }
 
-/* Oswald font for explicit number/time display */
+/* ── Font utilities ────────────────────────── */
 .font-oswald {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-mono-num);
 }
-
-/* Tabular numbers for time display */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Animations ───────────────────────────────── */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes slideIn {
-  from { opacity: 0; transform: translateX(-8px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-@keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to   { opacity: 1; transform: scale(1); }
-}
-
-.animate-in      { animation: fadeIn 0.2s ease-out; }
-.animate-slide-in { animation: slideIn 0.2s ease-out; }
-.animate-scale-in { animation: scaleIn 0.15s ease-out; }
-
-/* ── Scrollbar ────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
-
-.dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
-.dark ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
-
-/* ── Glassmorphism utilities ─────────────────── */
+/* ── Login page glass card (brand expression) ── */
 .glass-card {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(37, 99, 235, 0.12);
-  border-radius: 24px;
-  box-shadow: 0 8px 32px rgba(37, 99, 235, 0.08), 0 1px 2px rgba(0,0,0,0.04);
+  border: 1px solid hsl(var(--border));
+  border-radius: 1rem;
+  box-shadow: 0 8px 32px rgba(0, 91, 172, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
-/* Login page background */
 .login-bg {
   background: linear-gradient(135deg, #e8f1fb 0%, #f5f7fa 40%, #eef2f7 100%);
 }
 
-/* Floating orbs */
 .login-orb {
   position: absolute;
   border-radius: 50%;
@@ -159,13 +78,13 @@
 }
 .login-orb-1 {
   width: 420px; height: 420px;
-  background: radial-gradient(circle, rgba(37,99,235,0.35), transparent 70%);
+  background: radial-gradient(circle, rgba(0, 91, 172, 0.30), transparent 70%);
   top: -120px; right: -120px;
   animation: orb-float 20s ease-in-out infinite;
 }
 .login-orb-2 {
   width: 320px; height: 320px;
-  background: radial-gradient(circle, rgba(37,99,235,0.25), transparent 70%);
+  background: radial-gradient(circle, rgba(0, 91, 172, 0.22), transparent 70%);
   bottom: -80px; left: -80px;
   animation: orb-float 20s ease-in-out infinite reverse;
   animation-delay: -10s;
@@ -173,41 +92,6 @@
 
 @keyframes orb-float {
   0%, 100% { transform: translate(0, 0); }
-  33% { transform: translate(40px, -50px); }
-  66% { transform: translate(-30px, 30px); }
-}
-
-@keyframes slide-up-in {
-  from { opacity: 0; transform: translateY(24px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.animate-slide-up { animation: slide-up-in 0.5s ease-out both; }
-
-/* ── AppSwitcher animation ─────────────────────── */
-@keyframes switcher-in {
-  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
-}
-.animate-switcher-in { animation: switcher-in 0.2s ease-out both; }
-
-/* ── Page enter animation ──────────────────────── */
-@keyframes page-enter {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.page-enter { animation: page-enter 0.3s ease-out both; }
-
-/* ── Card hover lift ───────────────────────────── */
-.card-hover {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-}
-
-/* ── font-number utility ────────────────────────── */
-.font-number {
-  font-family: 'Oswald', 'Arial Narrow', sans-serif;
-  font-variant-numeric: tabular-nums;
+  33%      { transform: translate(40px, -50px); }
+  66%      { transform: translate(-30px, 30px); }
 }

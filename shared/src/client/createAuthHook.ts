@@ -19,10 +19,30 @@ const LEVEL_ORDER: Record<string, number> = {
 };
 
 export interface AuthHookConfig {
-  /** localStorage key for user data, e.g. 'qs_user', 'ts_user' */
+  /** localStorage key for user data, e.g. 'gmo_onair_user' */
   storageKey: string;
   /** Axios instance created by createApi */
   api: AxiosInstance;
+  /** Legacy keys to migrate from (one-shot copy → storageKey then delete). v2.2.0+ */
+  legacyStorageKeys?: string[];
+}
+
+/**
+ * One-time migration: 旧キー (例 qs_user/eq_user) のデータがあり、
+ * 新キーが空の場合だけ新キーへコピーし、旧キーは削除する。
+ * v2.2.0 で全アプリ共通の `gmo_onair_user` に統一するための互換層。
+ */
+function migrateLegacyKeys(targetKey: string, legacyKeys: string[]) {
+  if (typeof localStorage === 'undefined') return;
+  if (localStorage.getItem(targetKey)) return;
+  for (const k of legacyKeys) {
+    const v = localStorage.getItem(k);
+    if (v) {
+      localStorage.setItem(targetKey, v);
+      localStorage.removeItem(k);
+      return;
+    }
+  }
 }
 
 function readStoredUser(storageKey: string): User | null {
@@ -35,12 +55,19 @@ function readStoredUser(storageKey: string): User | null {
 }
 
 export function createAuthHook(config: AuthHookConfig) {
+  // モジュールロード時に旧キーから新キーへ一度だけ移行する
+  if (config.legacyStorageKeys?.length) {
+    migrateLegacyKeys(config.storageKey, config.legacyStorageKeys);
+  }
   return function useAuth() {
-    // Initialize synchronously from localStorage → no loading flash, buttons active immediately
+    // localStorage の user は表示用の初期値としてのみ使う (UI フラッシュ抑制)。
+    // **正当性は /auth/me で確認するまで保留** — v2.4.2 で loading 初期値を常に true にした。
+    // 旧実装 (loading = (readStoredUser === null)) では「localStorage に stale user が残っていて
+    // cookie が失効」の場合、loading=false で即「ログイン済み」と誤判定し、LoginPage がルートへ
+    // hard redirect → ルートで 401 → /login に戻る、というリダイレクトループを誘発していた。
     const [currentUser, setCurrentUser] = useState<User | null>(() => readStoredUser(config.storageKey));
     const [permissions, setPermissions] = useState<Record<string, string>>({});
-    // loading = false when we have cached user (still verifies in background)
-    const [loading, setLoading] = useState(() => readStoredUser(config.storageKey) === null);
+    const [loading, setLoading] = useState(true);
     const setCurrentUserId = useUiStore((s) => s.setCurrentUserId);
 
     useEffect(() => {

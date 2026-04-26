@@ -7,7 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { Loader2, TrendingUp, TrendingDown, Minus, AlertCircle, RefreshCw } from "lucide-react";
+import {
+  DashboardHeader,
+  KpiCard,
+  SectionCard,
+  EmptyState,
+} from "@gmo-onair/shared/src/client/dashboard";
+import { Loader2, AlertCircle, RefreshCw, Wallet } from "lucide-react";
 
 interface MonthlySummary {
   month: string;
@@ -16,21 +22,6 @@ interface MonthlySummary {
   gross_profit: number;
   sga_total: number;
   operating_profit: number;
-}
-
-function SummaryCard({ label, value, highlight }: { label: string; value: number; highlight?: "green" | "red" | "neutral" }) {
-  const color = highlight === "green"
-    ? value >= 0 ? "text-green-700" : "text-red-700"
-    : highlight === "red"
-      ? "text-red-700"
-      : "";
-  const bg = highlight === "green" && value >= 0 ? "bg-green-50 border-green-200" : highlight === "green" && value < 0 ? "bg-red-50 border-red-200" : "bg-card";
-  return (
-    <div className={`rounded-lg border p-4 text-center ${bg}`}>
-      <p className="text-xs text-muted-foreground mb-1">{label}</p>
-      <p className={`text-lg font-bold font-number ${color}`}>{formatCurrency(value)}</p>
-    </div>
-  );
 }
 
 const EMPTY_SUMMARY: MonthlySummary = {
@@ -47,7 +38,6 @@ export default function BudgetDashboardPage() {
   const [month, setMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
   const [projectId, setProjectId] = useState<string>("");
 
-  // 案件一覧取得（絞り込み用）
   const { data: projectsData } = useQuery({
     queryKey: ["projects-for-budget-dashboard"],
     queryFn: async () => (await api.get("/projects?limit=500")).data,
@@ -75,105 +65,138 @@ export default function BudgetDashboardPage() {
     (error as { message?: string } | null)?.message ||
     "";
 
+  const refreshButton = (
+    <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} aria-label="データ更新">
+      {isFetching ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1 h-4 w-4" />}
+      更新
+    </Button>
+  );
+
+  const grossMarginPct = summary.revenue_total > 0 ? (summary.gross_profit / summary.revenue_total * 100) : 0;
+  const operatingMarginPct = summary.revenue_total > 0 ? (summary.operating_profit / summary.revenue_total * 100) : 0;
+
   return (
     <PageTransition>
-    <div className="space-y-6 p-3 lg:p-6">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-xl lg:text-2xl font-bold">予算ダッシュボード</h1>
-        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
-          {isFetching ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1 h-4 w-4" />}
-          更新
-        </Button>
-      </div>
+      <div className="space-y-5 p-4 sm:space-y-6 sm:p-6">
+        <DashboardHeader
+          title="予算ダッシュボード"
+          description="月次の売上・仕入・粗利・販管費・営業利益を単一画面で確認します。"
+          period={month ? formatMonth(month + "-01") : undefined}
+          controls={refreshButton}
+        />
 
-      <div className="flex flex-wrap items-end gap-3">
-        <div>
-          <Label>年月</Label>
-          <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-36" />
-        </div>
-        <div className="flex-1 min-w-[240px] max-w-md">
-          <Label>案件（任意）</Label>
-          <SearchableSelect
-            options={[
-              { value: "", label: "— 全案件（販管費含む） —" },
-              ...projects.map((p) => ({
-                value: p.id,
-                label: `${p.gls_number || p.name}`,
-                subLabel: p.customer_name || "",
-              })),
-            ]}
-            value={projectId}
-            onChange={(v) => setProjectId(v)}
-            placeholder="GLS番号・案件名で絞り込み..."
-          />
-        </div>
-        {month && <span className="text-sm text-muted-foreground pb-2">{formatMonth(month + "-01")}</span>}
-        {isFetching && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground pb-2" />}
-      </div>
-      {projectId && (
-        <p className="text-xs text-muted-foreground -mt-3">
-          ※ 案件絞り込み時は販管費は集計に含まれません（販管費は案件紐付きなし）
-        </p>
-      )}
-
-      {isError && (
-        <div className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="font-medium">データの取得に失敗しました</p>
-            {errorMessage && <p className="text-xs opacity-80 mt-0.5">{errorMessage}</p>}
+        {/* 絞り込みフィルタ */}
+        <SectionCard title="集計条件" description="年月と案件で絞り込みます。" padding="compact">
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <Label htmlFor="budget-month">年月</Label>
+              <Input
+                id="budget-month"
+                type="month"
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
+                className="w-40"
+              />
+            </div>
+            <div className="flex-1 min-w-[240px] max-w-md">
+              <Label>案件（任意）</Label>
+              <SearchableSelect
+                options={[
+                  { value: "", label: "— 全案件（販管費含む） —" },
+                  ...projects.map((p) => ({
+                    value: p.id,
+                    label: `${p.gls_number || p.name}`,
+                    subLabel: p.customer_name || "",
+                  })),
+                ]}
+                value={projectId}
+                onChange={(v) => setProjectId(v)}
+                placeholder="GLS番号・案件名で絞り込み..."
+              />
+            </div>
+            {isFetching && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground pb-2" aria-label="読み込み中" />}
           </div>
-        </div>
-      )}
+          {projectId && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              ※ 案件絞り込み時は販管費は集計に含まれません (販管費は案件紐付きなし)
+            </p>
+          )}
+        </SectionCard>
 
-      <div className="space-y-6">
-        {/* カード表示 — データ未取得時は 0 表示 */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <SummaryCard label="売上" value={summary.revenue_total} />
-          <SummaryCard label="仕入" value={summary.purchase_total} />
-          <SummaryCard label="粗利" value={summary.gross_profit} highlight="green" />
-          <SummaryCard label="販管費" value={summary.sga_total} />
-          <SummaryCard label="営業利益" value={summary.operating_profit} highlight="green" />
-        </div>
-
-        {/* 損益テーブル */}
-        <div className="max-w-sm rounded-lg border overflow-hidden">
-          <table className="w-full text-sm">
-            <tbody>
-              {[
-                { label: "売上合計", value: summary.revenue_total, bold: false },
-                { label: "仕入合計", value: summary.purchase_total, bold: false, indent: true },
-                { label: "粗利", value: summary.gross_profit, bold: true, divider: true },
-                { label: "販管費", value: summary.sga_total, bold: false, indent: true },
-                { label: "営業利益", value: summary.operating_profit, bold: true, divider: true, highlight: true },
-              ].map(({ label, value, bold, indent, divider, highlight }, i) => (
-                <tr key={i} className={divider ? "border-t border-t-2" : ""}>
-                  <td className={`px-4 py-2 text-muted-foreground ${indent ? "pl-8" : ""} ${bold ? "font-semibold text-foreground" : ""}`}>{label}</td>
-                  <td className={`px-4 py-2 text-right font-number ${bold ? "font-bold" : ""} ${highlight ? (value >= 0 ? "text-green-700" : "text-red-700") : ""}`}>
-                    {formatCurrency(value)}
-                  </td>
-                  <td className="px-2 py-2 w-6">
-                    {highlight && (value > 0 ? <TrendingUp className="h-4 w-4 text-green-600" /> : value < 0 ? <TrendingDown className="h-4 w-4 text-red-600" /> : <Minus className="h-4 w-4 text-muted-foreground" />)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* 利益率 */}
-        {hasData && summary.revenue_total > 0 && (
-          <div className="text-sm text-muted-foreground space-y-0.5">
-            <p>粗利率: <span className="font-medium text-foreground">{(summary.gross_profit / summary.revenue_total * 100).toFixed(1)}%</span></p>
-            <p>営業利益率: <span className={`font-medium ${summary.operating_profit >= 0 ? "text-green-700" : "text-red-700"}`}>{(summary.operating_profit / summary.revenue_total * 100).toFixed(1)}%</span></p>
+        {isError && (
+          <div className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive" role="alert">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
+            <div className="flex-1">
+              <p className="font-medium">データの取得に失敗しました</p>
+              {errorMessage && <p className="text-xs opacity-80 mt-0.5">{errorMessage}</p>}
+            </div>
           </div>
         )}
 
-        {!hasData && !isFetching && !isError && (
-          <p className="text-sm text-muted-foreground">データがありません</p>
-        )}
+        {/* 主要指標 */}
+        <section aria-labelledby="budget-kpi-heading">
+          <h2 id="budget-kpi-heading" className="sr-only">損益サマリー</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <KpiCard label="売上" value={formatCurrency(summary.revenue_total)} loading={isFetching && !hasData} />
+            <KpiCard label="仕入" value={formatCurrency(summary.purchase_total)} loading={isFetching && !hasData} />
+            <KpiCard
+              label="粗利"
+              value={formatCurrency(summary.gross_profit)}
+              emphasis={summary.gross_profit >= 0 ? 'success' : 'negative'}
+              unit={hasData && summary.revenue_total > 0 ? `${grossMarginPct.toFixed(1)}%` : undefined}
+              loading={isFetching && !hasData}
+            />
+            <KpiCard label="販管費" value={formatCurrency(summary.sga_total)} loading={isFetching && !hasData} />
+            <KpiCard
+              label="営業利益"
+              value={formatCurrency(summary.operating_profit)}
+              emphasis={summary.operating_profit >= 0 ? 'success' : 'negative'}
+              unit={hasData && summary.revenue_total > 0 ? `${operatingMarginPct.toFixed(1)}%` : undefined}
+              loading={isFetching && !hasData}
+            />
+          </div>
+        </section>
+
+        {/* 損益詳細テーブル */}
+        <SectionCard
+          title="損益詳細"
+          description="インデント式で費目の階層を表します。"
+          icon={<Wallet />}
+        >
+          {!hasData && !isFetching && !isError ? (
+            <EmptyState title="集計データがありません" description="年月を変更するか、条件を見直してください。" />
+          ) : (
+            <div className="max-w-md rounded-md border border-border overflow-hidden">
+              <table className="w-full text-sm">
+                <caption className="sr-only">月次損益計算表</caption>
+                <tbody>
+                  {[
+                    { label: "売上合計", value: summary.revenue_total, bold: false },
+                    { label: "仕入合計", value: summary.purchase_total, bold: false, indent: true },
+                    { label: "粗利", value: summary.gross_profit, bold: true, divider: true, highlight: true },
+                    { label: "販管費", value: summary.sga_total, bold: false, indent: true },
+                    { label: "営業利益", value: summary.operating_profit, bold: true, divider: true, highlight: true },
+                  ].map(({ label, value, bold, indent, divider, highlight }, i) => (
+                    <tr key={i} className={divider ? "border-t-2 border-border" : ""}>
+                      <th
+                        scope="row"
+                        className={`px-4 py-2 text-left text-muted-foreground font-normal ${indent ? "pl-8" : ""} ${bold ? "font-semibold text-foreground" : ""}`}
+                      >
+                        {label}
+                      </th>
+                      <td
+                        className={`px-4 py-2 text-right font-number tabular-nums ${bold ? "font-bold" : ""} ${highlight ? (value >= 0 ? "text-success" : "text-destructive") : "text-foreground"}`}
+                      >
+                        {formatCurrency(value)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </SectionCard>
       </div>
-    </div>
     </PageTransition>
   );
 }

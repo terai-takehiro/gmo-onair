@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
+import { RedirectOnce } from '@gmo-onair/shared/src/client/RedirectOnce';
 import AppShell from './components/layout/AppShell';
 import LoginPage from './pages/LoginPage';
 import SessionHomePage from './pages/SessionHomePage';
@@ -36,7 +37,7 @@ export default function App() {
             </Route>
           </Route>
         ) : (
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<RedirectOnce to="/login" />} />
         )}
       </Routes>
     </BrowserRouter>

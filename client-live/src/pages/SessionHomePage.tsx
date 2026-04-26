@@ -8,9 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Timer, Plus, ChevronRight, Settings, Search, FolderOpen,
-  Youtube, Globe, Link2, Unlink, Trash2,
+  Youtube, Globe, Link2, Unlink, Trash2, Loader2,
 } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
+import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
 
 interface LiveProgram {
   id: string;
@@ -144,19 +145,20 @@ export default function SessionHomePage() {
           )}
 
           {isLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="h-7 w-7 animate-spin rounded-full border-3 border-primary border-t-transparent" />
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" aria-label="読み込み中" />
             </div>
           ) : filteredPrograms.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground space-y-4">
-              <FolderOpen className="h-10 w-10 opacity-40" />
-              <p className="text-sm">{search ? '該当する番組がありません' : 'セッションがまだありません'}</p>
-              {!search && (
+            <EmptyState
+              icon={<FolderOpen />}
+              title={search ? '該当する番組がありません' : 'セッションがまだありません'}
+              description={search ? '検索条件を変えてお試しください。' : '配信セッションを作成してタイマー運用を開始しましょう。'}
+              action={!search ? (
                 <Button onClick={openDialog}>
-                  <Plus className="h-4 w-4 mr-1.5" />最初のセッションを作成
+                  <Plus className="h-4 w-4 mr-1.5" aria-hidden="true" />最初のセッションを作成
                 </Button>
-              )}
-            </div>
+              ) : undefined}
+            />
           ) : (
             <div className="space-y-1.5">
               {filteredPrograms.map(p => (

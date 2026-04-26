@@ -1,7 +1,26 @@
-@import '@gmo-onair/shared/src/client/design-tokens.css';
+@import '@gmo-onair/shared/src/client/tokens.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ── EventStamp-specific tokens (audience/overlay pages) ── */
+:root {
+  --es-accent:          #005bac;
+  --es-accent-hover:    #0070d4;
+  --es-accent-glow:     rgba(0, 91, 172, 0.30);
+  --es-accent-subtle:   rgba(0, 91, 172, 0.08);
+  --text-primary:       #1a2332;
+  --text-secondary:     #4a5568;
+  --text-muted:         #8899a6;
+  --glass-border:       rgba(0, 91, 172, 0.12);
+  --glass-border-hover: rgba(0, 91, 172, 0.25);
+  --radius-md:          12px;
+  --radius-lg:          16px;
+  --transition-fast:    0.15s ease;
+  --transition-base:    0.2s ease;
+  --space-sm:           8px;
+  --stamp-bar-h:        64px;
+}
 
 @layer base {
   html, body, #root {
@@ -19,50 +38,6 @@
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
   }
-
-  :root {
-    /* GMO ONAiR Interactive Design System */
-    --background: 40 20% 96%;
-    --foreground: 60 6% 11%;
-    --card: 40 25% 99%;
-    --card-foreground: 60 6% 11%;
-    --popover: 40 25% 99%;
-    --popover-foreground: 60 6% 11%;
-    --primary: 209 100% 34%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 43 15% 88%;
-    --secondary-foreground: 48 4% 28%;
-    --muted: 43 15% 88%;
-    --muted-foreground: 48 3% 35%;
-    --accent: 43 15% 88%;
-    --accent-foreground: 48 4% 28%;
-    --destructive: 0 55% 46%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 40 18% 91%;
-    --input: 43 15% 88%;
-    --ring: 209 100% 34%;
-    --radius: 0.5rem;
-
-    /* EventStamp audience page variables */
-    --es-accent: #005bac;
-    --es-accent-hover: #0070d4;
-    --es-accent-glow: rgba(0, 91, 172, 0.3);
-    --es-accent-subtle: rgba(0, 91, 172, 0.08);
-    --text-primary: #1a2332;
-    --text-secondary: #4a5568;
-    --text-muted: #8899a6;
-    --glass-border: rgba(0, 91, 172, 0.12);
-    --glass-border-hover: rgba(0, 91, 172, 0.25);
-    --radius-md: 12px;
-    --radius-lg: 16px;
-    --transition-fast: 0.15s ease;
-    --transition-base: 0.2s ease;
-    --space-sm: 8px;
-
-    /* Stamp bar height token */
-    --stamp-bar-h: 64px;
-  }
-
   * { @apply border-border; }
   body {
     @apply bg-background text-foreground;

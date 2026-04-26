@@ -12,6 +12,13 @@ import {
   ArrowLeft, Copy, Loader2, Wrench, ArrowRightLeft, Package, QrCode, Printer, Link2, X, ChevronDown, Search, Pencil, Plus, LayoutList,
 } from "lucide-react";
 import BranchCodeInput from "@/components/ui/BranchCodeInput";
+import {
+  EQUIPMENT_STATUS,
+  EQUIPMENT_CONDITION,
+  MAINTENANCE_STATUS,
+  MAINTENANCE_TYPE,
+  statusOf,
+} from "@gmo-onair/shared/src/constants/statuses";
 import { useState, useRef, useEffect } from "react";
 import { type CustomColumn } from "@/components/CustomColumnDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -20,23 +27,9 @@ import {
   RACK_SLOT_OPTIONS, STATUS_OPTIONS, CONDITION_OPTIONS, TYPE_LABELS, SECTION_LABELS,
 } from "@/lib/constants";
 
-const statusLabels: Record<string, string> = {
-  active: "稼働中", in_repair: "修理中", retired: "引退", disposed: "廃棄", lost: "紛失",
-};
-const statusColors: Record<string, string> = {
-  active: "bg-green-100 text-green-800", in_repair: "bg-amber-100 text-amber-800",
-  retired: "bg-gray-100 text-gray-600", disposed: "bg-red-100 text-red-800",
-  lost: "bg-red-200 text-red-900",
-};
-const conditionLabels: Record<string, string> = {
-  excellent: "優良", good: "良好", fair: "可", poor: "不良",
-};
-const maintenanceTypeLabels: Record<string, string> = {
-  breakdown: "故障", repair: "修理", maintenance: "メンテナンス", inspection: "点検",
-};
-const maintenanceStatusLabels: Record<string, string> = {
-  reported: "報告済", in_progress: "対応中", completed: "完了", cancelled: "キャンセル",
-};
+// ステータス定義は shared/src/constants/statuses.ts に一元化済み (v2.4.0)
+// EQUIPMENT_STATUS / EQUIPMENT_CONDITION / MAINTENANCE_STATUS / MAINTENANCE_TYPE を使用。
+// 旧 statusColors (bg-*-100 text-*-800) は Badge variant へ自動変換されるため別定義不要。
 
 function sectionLabel(typeCode: string | null, section: string | null) {
   return `${TYPE_LABELS[typeCode || ''] || ''}${SECTION_LABELS[section || ''] || ''}` || '-';
@@ -328,9 +321,9 @@ export default function EquipmentDetailPage() {
         </Button>
         <div className="flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[item.status] || ""}`}>
-              {statusLabels[item.status]}
-            </span>
+            <Badge variant={statusOf(EQUIPMENT_STATUS, item.status).variant}>
+              {statusOf(EQUIPMENT_STATUS, item.status).label}
+            </Badge>
             <Badge variant="outline">{item.equipment_section === "rental" ? "貸出" : "設備"}</Badge>
             {item.rental_category_name && (
               <Badge variant="secondary" className="text-xs">{item.rental_category_name}</Badge>
@@ -765,7 +758,7 @@ export default function EquipmentDetailPage() {
             <InfoRow label="機材名 (型番)" value={item.model_number} />
             <InfoRow label="シリアルNo" value={item.serial_number} />
             <InfoRow label="設置場所" value={item.location_name || item.location_detail} />
-            <InfoRow label="コンディション" value={conditionLabels[item.condition]} />
+            <InfoRow label="コンディション" value={statusOf(EQUIPMENT_CONDITION, item.condition).label} />
             {item.notes && <InfoRow label="備考" value={item.notes} />}
           </CardContent>
         </Card>
@@ -838,10 +831,10 @@ export default function EquipmentDetailPage() {
                       <span className="font-medium">{m.title}</span>
                       <div className="flex items-center gap-1">
                         <Badge variant="outline" className="text-xs">
-                          {maintenanceTypeLabels[m.record_type]}
+                          {statusOf(MAINTENANCE_TYPE, m.record_type).label}
                         </Badge>
                         <span className="text-xs text-muted-foreground">
-                          {maintenanceStatusLabels[m.status]}
+                          {statusOf(MAINTENANCE_STATUS, m.status).label}
                         </span>
                       </div>
                     </div>

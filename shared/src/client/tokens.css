@@ -1,0 +1,250 @@
+/* ==========================================================================
+ * GMO ONAiR v2.0 — Design Tokens
+ * Based on: デジタル庁デザインシステム (DADS v2.13)
+ *   - Foundation: @digital-go-jp/design-tokens (MIT)
+ *   - Brand override: GMO Blue (#005bac)
+ *
+ * Layering:
+ *   1. DADS primitive tokens  ← @digital-go-jp/design-tokens/dist/tokens.css
+ *   2. GMO Blue scale (custom)                    ← this file
+ *   3. Semantic tokens (light/dark theme)          ← this file
+ *   4. Tailwind @layer base color utilities        ← index.css
+ * ========================================================================== */
+
+@import '@digital-go-jp/design-tokens/dist/tokens.css';
+
+/* ── GMO Blue scale — GMO Blue (#005bac) を DADS light-blue スロットに寄せた独自 tint/shade ── */
+:root {
+  --color-gmo-blue-50:   #eaf4fb;
+  --color-gmo-blue-100:  #cfe4f4;
+  --color-gmo-blue-200:  #a6ceeb;
+  --color-gmo-blue-300:  #78b4df;
+  --color-gmo-blue-400:  #4a98d2;
+  --color-gmo-blue-500:  #1e7cc4;
+  --color-gmo-blue-600:  #0068b8;        /* hover */
+  --color-gmo-blue-700:  #005bac;        /* GMO Blue — brand primary */
+  --color-gmo-blue-800:  #004d91;        /* active */
+  --color-gmo-blue-900:  #003f77;
+  --color-gmo-blue-1000: #00315d;
+  --color-gmo-blue-1100: #001f3b;
+}
+
+/* ==========================================================================
+ * Semantic tokens (light theme — default)
+ * Naming follows shadcn/ui convention (HSL pair) so existing Tailwind classes
+ * (bg-primary, text-foreground, border-border, ring-ring ...) keep working.
+ * ========================================================================== */
+:root {
+  /* Surfaces — DADS neutral palette (sumi / solid-gray) */
+  --background:          0 0% 98%;          /* #fafafa — app background */
+  --foreground:          220 15% 11%;       /* #1a1d24 — body text (WCAG AA on bg) */
+
+  --card:                0 0% 100%;         /* #ffffff — card surface */
+  --card-foreground:     220 15% 11%;
+
+  --popover:             0 0% 100%;
+  --popover-foreground:  220 15% 11%;
+
+  /* Brand */
+  --primary:             209 100% 34%;      /* GMO Blue #005bac */
+  --primary-foreground:  0 0% 100%;
+
+  /* Neutrals (DADS sumi aligned) */
+  --secondary:           220 14% 96%;       /* #f3f4f6 — subtle surface */
+  --secondary-foreground: 220 15% 20%;
+
+  --muted:               220 14% 96%;
+  --muted-foreground:    220 10% 40%;        /* #5d6470 — secondary text (contrast 5.5:1) */
+
+  --accent:              209 85% 95%;        /* tint of brand for hover */
+  --accent-foreground:   209 100% 25%;
+
+  /* Status (DADS semantic) */
+  --destructive:         0 78% 44%;          /* red-800 #c7243a */
+  --destructive-foreground: 0 0% 100%;
+
+  --success:             152 74% 30%;         /* green-800 #197a4b */
+  --success-foreground:  0 0% 100%;
+
+  --warning:             36 100% 46%;          /* yellow-700 / orange boundary */
+  --warning-foreground:  0 0% 100%;
+
+  --info:                201 100% 37%;          /* light-blue-700 #0877d7 */
+  --info-foreground:     0 0% 100%;
+
+  /* Chrome — borders, inputs, focus ring */
+  --border:              220 13% 88%;          /* #dbdee3 — surface divider */
+  --input:               220 13% 88%;
+  --ring:                209 100% 34%;           /* focus ring = primary */
+
+  /* Radius — DADS uses 4/8/12/16, map to shadcn's --radius */
+  --radius:              0.5rem;                 /* 8px default */
+
+  /* Charts — derived from DADS semantic palette */
+  --chart-1: 209 100% 34%;        /* GMO Blue */
+  --chart-2: 173 58% 39%;         /* cyan */
+  --chart-3: 152 74% 30%;         /* green */
+  --chart-4: 36 100% 46%;         /* warning amber */
+  --chart-5: 0 78% 44%;            /* red */
+
+  /* Sidebar (shadcn/ui sidebar) */
+  --sidebar-background:             0 0% 100%;
+  --sidebar-foreground:             220 15% 20%;
+  --sidebar-primary:                209 100% 34%;
+  --sidebar-primary-foreground:     0 0% 100%;
+  --sidebar-accent:                 209 85% 95%;
+  --sidebar-accent-foreground:      209 100% 25%;
+  --sidebar-border:                 220 13% 88%;
+  --sidebar-ring:                   209 100% 34%;
+}
+
+/* ==========================================================================
+ * Dark theme — activated via `.dark` class on <html>
+ * DADS does not prescribe dark tokens; we derive from DADS sumi scale.
+ * ========================================================================== */
+.dark {
+  --background:          220 15% 9%;        /* near-black */
+  --foreground:          220 10% 88%;
+
+  --card:                220 13% 12%;
+  --card-foreground:     220 10% 88%;
+
+  --popover:             220 13% 12%;
+  --popover-foreground:  220 10% 88%;
+
+  --primary:             209 100% 55%;       /* lightened GMO Blue for contrast */
+  --primary-foreground:  220 15% 9%;
+
+  --secondary:           220 12% 18%;
+  --secondary-foreground: 220 10% 88%;
+
+  --muted:               220 12% 18%;
+  --muted-foreground:    220 8% 65%;
+
+  --accent:              209 60% 20%;
+  --accent-foreground:   209 85% 88%;
+
+  --destructive:         0 65% 55%;
+  --destructive-foreground: 0 0% 100%;
+
+  --success:             152 50% 50%;
+  --success-foreground:  220 15% 9%;
+
+  --warning:             36 85% 55%;
+  --warning-foreground:  220 15% 9%;
+
+  --info:                201 85% 55%;
+  --info-foreground:     220 15% 9%;
+
+  --border:              220 10% 22%;
+  --input:               220 10% 22%;
+  --ring:                209 100% 55%;
+
+  --chart-1: 209 100% 55%;
+  --chart-2: 173 60% 50%;
+  --chart-3: 152 50% 50%;
+  --chart-4: 36 85% 55%;
+  --chart-5: 0 65% 55%;
+
+  --sidebar-background:             220 15% 9%;
+  --sidebar-foreground:             220 10% 88%;
+  --sidebar-primary:                209 100% 55%;
+  --sidebar-primary-foreground:     220 15% 9%;
+  --sidebar-accent:                 209 60% 20%;
+  --sidebar-accent-foreground:      209 85% 88%;
+  --sidebar-border:                 220 10% 22%;
+  --sidebar-ring:                   209 100% 55%;
+}
+
+/* ==========================================================================
+ * Typography — DADS recommends Noto Sans JP; Oswald kept for monospace numbers.
+ * ========================================================================== */
+:root {
+  --font-sans: 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif;
+  --font-serif: 'Noto Serif JP', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+  --font-mono-ui: 'Noto Sans Mono', 'JetBrains Mono', 'SFMono-Regular', Menlo, monospace;
+  --font-mono-num: 'Oswald', 'Noto Sans Mono', monospace;
+
+  --text-body:         15px;
+  --line-height-jp:    1.75;
+  --letter-spacing-jp: 0.02em;
+}
+
+/* ==========================================================================
+ * Animations & scrollbar — carried over from v1 design-tokens.css
+ * ========================================================================== */
+@keyframes switcher-in {
+  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-switcher-in { animation: switcher-in 0.2s ease-out both; }
+.page-enter          { animation: page-enter 0.3s ease-out both; }
+.animate-fade-in     { animation: fade-in 0.2s ease-out both; }
+.animate-slide-up    { animation: slide-up 0.5s ease-out both; }
+
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.2); }
+.dark ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); }
+.dark ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+/* Number display */
+.font-number {
+  font-family: var(--font-mono-num);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+ * Heading utilities (kept for page/section titles)
+ * ========================================================================== */
+.heading-page {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  line-height: 1.20;
+  letter-spacing: 0.01em;
+}
+.heading-section {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  line-height: 1.25;
+}
+.heading-card {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  line-height: 1.30;
+}
+
+/* ==========================================================================
+ * Focus ring — WCAG 2.2 AA compliant (2px ring + 2px offset)
+ * Applied globally so ALL interactive elements get consistent focus.
+ * ========================================================================== */
+:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+/* Remove the default dotted outline that some browsers add */
+:focus { outline: none; }

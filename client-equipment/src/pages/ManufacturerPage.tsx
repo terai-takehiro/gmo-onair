@@ -1,93 +1,102 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import api from "@/lib/api";
+/**
+ * ManufacturerPage — Phase 2B 移行 (v2.6.5)
+ * useCrudPage / EmptyState の shared プリミティブを使用。
+ */
+import { useEffect, useState } from "react";
+import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+import { useCrudPage } from "@/hooks/useCrudPage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, Plus, Pencil, Trash2, Building2, Phone, Mail, MapPin, User } from "lucide-react";
 
-const defaultForm = {
+interface Manufacturer {
+  id: string;
+  name: string;
+  contact_person?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  sort_order?: number;
+  notes?: string;
+}
+
+interface ManufacturerForm {
+  name: string;
+  contact_person: string;
+  address: string;
+  phone: string;
+  email: string;
+  sort_order: string;
+  notes: string;
+}
+
+const EMPTY_FORM: ManufacturerForm = {
   name: "", contact_person: "", address: "", phone: "", email: "", sort_order: "0", notes: "",
 };
 
 export default function ManufacturerPage() {
-  const qc = useQueryClient();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ ...defaultForm });
+  const [form, setForm] = useState<ManufacturerForm>(EMPTY_FORM);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const { data, isLoading } = useQuery({
+  const crud = useCrudPage<Manufacturer>({
+    endpoint: "/equipment/manufacturers",
     queryKey: ["equipment-manufacturers"],
-    queryFn: async () => (await api.get("/equipment/manufacturers")).data.data,
-  });
-  const manufacturers: any[] = data ?? [];
-
-  const saveMutation = useMutation({
-    mutationFn: (payload: any) =>
-      editingId
-        ? api.put(`/equipment/manufacturers/${editingId}`, payload)
-        : api.post("/equipment/manufacturers", payload),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["equipment-manufacturers"] });
-      setDialogOpen(false);
-      setSaveError(null);
-    },
-    onError: (err: any) => {
-      setSaveError(err?.response?.data?.error?.message || err?.message || '保存に失敗しました');
+    onError: (action, err) => {
+      if (action === "save") {
+        const e = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
+        setSaveError(e?.response?.data?.error?.message || e?.message || "保存に失敗しました");
+      }
     },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/equipment/manufacturers/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["equipment-manufacturers"] }),
-  });
-
-  const openNew = () => {
-    setForm({ ...defaultForm });
-    setEditingId(null);
+  useEffect(() => {
+    if (crud.editingItem) {
+      const m = crud.editingItem;
+      setForm({
+        name: m.name || "",
+        contact_person: m.contact_person || "",
+        address: m.address || "",
+        phone: m.phone || "",
+        email: m.email || "",
+        sort_order: m.sort_order?.toString() || "0",
+        notes: m.notes || "",
+      });
+    } else {
+      setForm(EMPTY_FORM);
+    }
     setSaveError(null);
-    setDialogOpen(true);
-  };
-
-  const openEdit = (m: any) => {
-    setForm({
-      name: m.name || "",
-      contact_person: m.contact_person || "",
-      address: m.address || "",
-      phone: m.phone || "",
-      email: m.email || "",
-      sort_order: m.sort_order?.toString() || "0",
-      notes: m.notes || "",
-    });
-    setEditingId(m.id);
-    setSaveError(null);
-    setDialogOpen(true);
-  };
+  }, [crud.editingItem]);
 
   const handleSave = () => {
     if (!form.name.trim()) return;
-    saveMutation.mutate({ ...form, sort_order: Number(form.sort_order) || 0 });
+    setSaveError(null);
+    crud.save.mutate({ ...form, sort_order: Number(form.sort_order) || 0 });
+  };
+
+  const handleDelete = (m: Manufacturer) => {
+    if (!confirm(`「${m.name}」を削除しますか？`)) return;
+    crud.remove.mutate(m.id);
   };
 
   return (
     <div className="space-y-4 p-4 lg:p-6">
       <div className="flex items-center justify-between">
         <h1 className="heading-page text-xl lg:text-2xl">メーカー管理</h1>
-        <Button size="sm" onClick={openNew}><Plus className="h-4 w-4 mr-1" />メーカー追加</Button>
+        <Button size="sm" onClick={crud.openAdd}><Plus className="h-4 w-4 mr-1" />メーカー追加</Button>
       </div>
 
-      {isLoading ? (
-        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-      ) : manufacturers.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
-          <Building2 className="h-10 w-10 opacity-30" />
-          <p>メーカーがまだ登録されていません</p>
-        </div>
+      {crud.isLoading ? (
+        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label="読み込み中" /></div>
+      ) : crud.items.length === 0 ? (
+        <EmptyState
+          icon={<Building2 className="h-10 w-10 opacity-30" />}
+          title="メーカーがまだ登録されていません"
+        />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {manufacturers.map((m: any) => (
+          {crud.items.map((m) => (
             <div key={m.id} className="rounded-xl border bg-card p-4 space-y-2 hover:shadow-sm transition-shadow">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
@@ -95,12 +104,13 @@ export default function ManufacturerPage() {
                   <span className="font-semibold truncate">{m.name}</span>
                 </div>
                 <div className="flex gap-0.5 shrink-0">
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(m)}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => crud.openEdit(m)} aria-label="編集">
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
                   <Button
                     variant="ghost" size="icon" className="h-7 w-7 text-destructive"
-                    onClick={() => { if (confirm(`「${m.name}」を削除しますか？`)) deleteMutation.mutate(m.id); }}
+                    onClick={() => handleDelete(m)}
+                    aria-label="削除"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
@@ -140,10 +150,10 @@ export default function ManufacturerPage() {
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={crud.dialogOpen} onOpenChange={crud.setDialogOpen}>
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingId ? "メーカー編集" : "メーカー追加"}</DialogTitle>
+            <DialogTitle>{crud.isEditing ? "メーカー編集" : "メーカー追加"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1">
@@ -183,10 +193,10 @@ export default function ManufacturerPage() {
               <p className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">{saveError}</p>
             )}
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>キャンセル</Button>
-              <Button onClick={handleSave} disabled={saveMutation.isPending || !form.name.trim()}>
-                {saveMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-                {editingId ? "更新" : "追加"}
+              <Button variant="outline" onClick={crud.closeDialog}>キャンセル</Button>
+              <Button onClick={handleSave} disabled={crud.save.isPending || !form.name.trim()}>
+                {crud.save.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                {crud.isEditing ? "更新" : "追加"}
               </Button>
             </div>
           </div>

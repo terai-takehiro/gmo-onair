@@ -1,9 +1,13 @@
 import { StrictMode, Component, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { installHistoryDiagnostic } from '@gmo-onair/shared/src/client/historyDiagnostic';
 import { queryClient } from './lib/queryClient';
 import App from './App';
 import './index.css';
+
+// v2.4.1+ replaceState 暴走の根本原因観測 + ハード上限ガード
+installHistoryDiagnostic();
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null };
