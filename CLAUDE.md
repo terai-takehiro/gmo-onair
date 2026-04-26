@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.7.6 — 全 6 アプリの全チェックボックス UI を一斉モダン化（Switch / ToggleButtonGroup / EnhancedCheckbox に統一）
+v2.7.7 — 案件編集に「書類管理」セクション追加（申込書 / ロゴ使用許諾 トグル）— 申込書未提出アラートを UI から解除可能に
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)
