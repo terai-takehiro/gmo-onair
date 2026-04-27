@@ -59,11 +59,11 @@ export const ToggleCard = React.forwardRef<HTMLButtonElement, ToggleCardProps>(
           <span className="shrink-0 flex items-center pt-0.5">{leftSlot}</span>
         )}
         <span className="flex-1 min-w-0 self-center">
-          <span className={cn('block font-medium leading-snug whitespace-normal break-words', size === 'sm' ? 'text-xs' : 'text-sm')}>
+          <span className={cn('block font-medium leading-snug whitespace-normal break-words [word-break:keep-all] [overflow-wrap:anywhere]', size === 'sm' ? 'text-xs' : 'text-sm')}>
             {label}
           </span>
           {description && (
-            <span className={cn('block leading-snug whitespace-normal break-words', selected ? 'text-white/85' : 'text-muted-foreground', 'text-[11px] mt-0.5')}>
+            <span className={cn('block leading-snug whitespace-normal break-words [word-break:keep-all] [overflow-wrap:anywhere]', selected ? 'text-white/85' : 'text-muted-foreground', 'text-[11px] mt-0.5')}>
               {description}
             </span>
           )}
