@@ -14,7 +14,9 @@ export function getSocket(eventId: string, opts?: { admin?: boolean; sessionToke
   socket = io('/interactive', {
     path: '/socket.io/',
     query,
-    transports: ['websocket', 'polling'],
+    // 大規模配信時のCPU/帯域削減のため WebSocket のみ。
+    // pollingフォールバックは廃止（WebSocket未対応環境は事実上ない）。
+    transports: ['websocket'],
     reconnection: true,
     reconnectionDelay: 1000,
     reconnectionAttempts: 10,

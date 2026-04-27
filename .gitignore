@@ -22,3 +22,6 @@ service-account.json
 
 # TypeScript build info
 *.tsbuildinfo
+
+# k6 負荷試験の生成物
+scripts/loadtest/results/

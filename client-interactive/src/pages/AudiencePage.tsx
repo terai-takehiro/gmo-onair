@@ -61,6 +61,11 @@ export default function AudiencePage() {
   const [commentDismissed, setCommentDismissed] = useState(false);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const miniIdRef = useRef(0);
+  // クライアント側タップ集約: 300ms以内のタップは1回のemitにまとめる
+  // これによりサーバー受信負荷を 5タップ/秒 → 約3-4 emit/秒 に圧縮
+  const pendingTapsRef = useRef<Record<string, number>>({});
+  const flushTapsTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const TAP_AGGREGATION_MS = 300;
 
   // Load event & join
   useEffect(() => {
@@ -183,24 +188,57 @@ export default function AudiencePage() {
     }, 500);
   }, []);
 
+  // 集約バッファをサーバーへ送信
+  const flushPendingTaps = useCallback(() => {
+    const pending = pendingTapsRef.current;
+    pendingTapsRef.current = {};
+    flushTapsTimerRef.current = undefined;
+    if (!sessionToken || !eventId) return;
+    const socket = getSocket(eventId, { sessionToken });
+    for (const [stampId, count] of Object.entries(pending)) {
+      if (count > 0) {
+        // サーバー側上限が50なので分割
+        let remaining = count;
+        while (remaining > 0) {
+          const chunk = Math.min(remaining, 50);
+          socket.emit('stamp', { stampId, count: chunk });
+          remaining -= chunk;
+        }
+      }
+    }
+  }, [sessionToken, eventId]);
+
   const handleStamp = useCallback((stamp: Stamp, e: React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>) => {
     if (!sessionToken || !event?.accepting) return;
     if (event.status !== 'live' && event.status !== 'rehearsal') return;
 
-    const socket = getSocket(eventId!, { sessionToken });
-    socket.emit('stamp', { stampId: stamp.id, count: 1 });
-
+    // 即時UIフィードバック（自分のタップは即座に反映）
     setPressAnimations(prev => ({ ...prev, [stamp.id]: true }));
     setTimeout(() => setPressAnimations(prev => ({ ...prev, [stamp.id]: false })), 250);
-
     spawnMiniStamp(stamp, e.currentTarget);
+
+    // サーバーへの送信は300msバッチ集約
+    pendingTapsRef.current[stamp.id] = (pendingTapsRef.current[stamp.id] || 0) + 1;
+    if (!flushTapsTimerRef.current) {
+      flushTapsTimerRef.current = setTimeout(flushPendingTaps, TAP_AGGREGATION_MS);
+    }
 
     // Tap counter
     setTapCount(prev => prev + 1);
     setShowTapCounter(true);
     clearTimeout(tapTimerRef.current);
     tapTimerRef.current = setTimeout(() => setShowTapCounter(false), 2000);
-  }, [sessionToken, event?.status, eventId, spawnMiniStamp]);
+  }, [sessionToken, event?.status, event?.accepting, eventId, spawnMiniStamp, flushPendingTaps]);
+
+  // アンマウント時に未送信分をフラッシュ
+  useEffect(() => {
+    return () => {
+      if (flushTapsTimerRef.current) {
+        clearTimeout(flushTapsTimerRef.current);
+        flushPendingTaps();
+      }
+    };
+  }, [flushPendingTaps]);
 
   // ── Error state ──
   if (error) {

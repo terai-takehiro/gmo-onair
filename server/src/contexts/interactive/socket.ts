@@ -2,10 +2,17 @@ import { Server as HttpServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import { queryOne, execute } from '../../shared/db/connection';
 
-// In-memory stamp aggregation (flushed to DB every 60s)
+// DB集計用バッファ（60秒バッチでDBへフラッシュ）
 const stampBuffer: Map<string, Map<string, number>> = new Map(); // eventId -> (stampId -> count)
 
-let flushInterval: ReturnType<typeof setInterval> | null = null;
+// ブロードキャスト用バッファ（毎秒スタンプ種類ごとに1回だけ全員へ配信）
+// 1万人連打時に「タップ即ブロードキャスト」だと O(N^2) で破綻するため
+const broadcastBuffer: Map<string, Map<string, number>> = new Map(); // eventId -> (stampId -> count)
+
+const BROADCAST_INTERVAL_MS = Number(process.env.STAMP_BROADCAST_INTERVAL_MS) || 1000;
+
+let dbFlushInterval: ReturnType<typeof setInterval> | null = null;
+let broadcastFlushInterval: ReturnType<typeof setInterval> | null = null;
 
 export function initSocketIO(httpServer: HttpServer): Server {
   const allowedOrigins = [
@@ -25,7 +32,10 @@ export function initSocketIO(httpServer: HttpServer): Server {
       methods: ['GET', 'POST'],
       credentials: true,
     },
+    // WebSocket優先（pollingフォールバックは互換性のため残す）
     transports: ['websocket', 'polling'],
+    // 圧縮はCPU消費が大きいため大規模配信時は無効化
+    perMessageDeflate: false,
   });
 
   const interactiveNs = io.of('/interactive');
@@ -51,25 +61,27 @@ export function initSocketIO(httpServer: HttpServer): Server {
     // Broadcast connection count update
     broadcastConnectionCount(interactiveNs, eventId);
 
-    // Handle stamp
-    socket.on('stamp', async (data: { stampId: string; count?: number }) => {
+    // Handle stamp — メモリに加算するだけ。実ブロードキャストは broadcastFlushInterval が一括処理。
+    socket.on('stamp', (data: { stampId: string; count?: number }) => {
       if (!data.stampId || !sessionToken) return;
 
       const pressCount = Math.min(Math.max(Number(data.count) || 1, 1), 50); // Max 50 presses per message
 
-      // Buffer the stamp count
-      if (!stampBuffer.has(eventId)) {
-        stampBuffer.set(eventId, new Map());
+      // DB集計用バッファ
+      let dbEventBuf = stampBuffer.get(eventId);
+      if (!dbEventBuf) {
+        dbEventBuf = new Map();
+        stampBuffer.set(eventId, dbEventBuf);
       }
-      const eventBuffer = stampBuffer.get(eventId)!;
-      eventBuffer.set(data.stampId, (eventBuffer.get(data.stampId) || 0) + pressCount);
+      dbEventBuf.set(data.stampId, (dbEventBuf.get(data.stampId) || 0) + pressCount);
 
-      // Broadcast to all clients in the event (200ms throttle handled client-side)
-      interactiveNs.to(`event:${eventId}`).emit('stamp:update', {
-        stampId: data.stampId,
-        count: pressCount,
-        timestamp: Date.now(),
-      });
+      // ブロードキャスト用バッファ（次回フラッシュで全員へ集約配信）
+      let bcEventBuf = broadcastBuffer.get(eventId);
+      if (!bcEventBuf) {
+        bcEventBuf = new Map();
+        broadcastBuffer.set(eventId, bcEventBuf);
+      }
+      bcEventBuf.set(data.stampId, (bcEventBuf.get(data.stampId) || 0) + pressCount);
     });
 
     // Handle admin commands
@@ -102,11 +114,34 @@ export function initSocketIO(httpServer: HttpServer): Server {
     });
   });
 
-  // Flush stamp buffer to DB every 60 seconds
-  flushInterval = setInterval(() => flushStampBuffer(), 60000);
+  // DBフラッシュ: 60秒ごと（集計値のみ書き込み）
+  dbFlushInterval = setInterval(() => flushStampBuffer(), 60000);
 
-  console.log('Socket.IO initialized for interactive events');
+  // ブロードキャストフラッシュ: BROADCAST_INTERVAL_MS（既定1秒）ごとに集約配信
+  broadcastFlushInterval = setInterval(() => flushBroadcastBuffer(interactiveNs), BROADCAST_INTERVAL_MS);
+
+  console.log(
+    `Socket.IO initialized for interactive events (broadcast interval: ${BROADCAST_INTERVAL_MS}ms)`
+  );
   return io;
+}
+
+function flushBroadcastBuffer(ns: ReturnType<Server['of']>) {
+  for (const [eventId, stamps] of broadcastBuffer.entries()) {
+    if (stamps.size === 0) continue;
+    const room = ns.to(`event:${eventId}`);
+    for (const [stampId, count] of stamps.entries()) {
+      if (count <= 0) continue;
+      // 既存クライアントとの後方互換: 1スタンプ種類ごとに1回 stamp:update を送る。
+      // count にはバッチ期間中の合計タップ数が入るため、Overlay側が密度判定で使える。
+      room.emit('stamp:update', {
+        stampId,
+        count,
+        timestamp: Date.now(),
+      });
+    }
+    stamps.clear();
+  }
 }
 
 async function broadcastConnectionCount(ns: ReturnType<Server['of']>, eventId: string) {
@@ -155,10 +190,14 @@ async function flushStampBuffer() {
 }
 
 export function shutdownSocketIO() {
-  if (flushInterval) {
-    clearInterval(flushInterval);
-    flushInterval = null;
+  if (dbFlushInterval) {
+    clearInterval(dbFlushInterval);
+    dbFlushInterval = null;
   }
-  // Final flush
+  if (broadcastFlushInterval) {
+    clearInterval(broadcastFlushInterval);
+    broadcastFlushInterval = null;
+  }
+  // Final DB flush
   flushStampBuffer().catch(() => {});
 }
