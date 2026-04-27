@@ -233,6 +233,155 @@ const SPEAKER_COLORS = [
 ];
 const PILL_COLORS: Record<string, string> = { video: "bg-blue-700", audio: "bg-rose-700", telop: "bg-purple-700" };
 
+// ─── LED/XR 固定 enum (v2.8.4+) ────────────────────────────
+// シーンマスタは v2.8.5 で投入予定。トリガー / トランジションは固定。
+type LedXrTrigger = "v_end" | "qword_end" | "cue_d" | "as_needed";
+type LedXrTransition = "ci" | "fi";
+const LED_XR_TRIGGERS: { value: LedXrTrigger; label: string }[] = [
+  { value: "v_end", label: "V明け" },
+  { value: "qword_end", label: "Qワード明け" },
+  { value: "cue_d", label: "卓D Cue" },
+  { value: "as_needed", label: "必要に応じて" },
+];
+const LED_XR_TRANSITIONS: { value: LedXrTransition; label: string }[] = [
+  { value: "ci", label: "C.I." },
+  { value: "fi", label: "F.I." },
+];
+
+interface LedXrCellData {
+  value?: string;            // 旧形式の自由テキスト (後方互換)
+  sceneId?: string;          // ledXrScenes[].id 参照 (v2.8.5+)
+  wallOverride?: string;
+  floorOverride?: string;
+  effectOverride?: string;
+  trigger?: LedXrTrigger;
+  transition?: LedXrTransition;
+  memo?: string;
+}
+
+interface LedXrScene {
+  id: string;
+  name: string;
+  wallDefault?: string;
+  floorDefault?: string;
+  effectDefault?: string;
+}
+
+// ─── LedXrCell ──────────────────────────────────────────
+// v2.8.4: シーン select はプレースホルダ (v2.8.5 で実装)、トリガー/トランジションは pill で切替
+function LedXrCell({
+  data,
+  scenes,
+  onChange,
+}: {
+  data: LedXrCellData;
+  scenes?: LedXrScene[];
+  onChange: (next: LedXrCellData) => void;
+}) {
+  const update = (patch: Partial<LedXrCellData>) => onChange({ ...data, ...patch });
+  const selectedScene = scenes?.find((s) => s.id === data.sceneId);
+  const wall = data.wallOverride ?? "";
+  const floor = data.floorOverride ?? "";
+  const effect = data.effectOverride ?? "";
+  const wallPlaceholder = selectedScene?.wallDefault || "壁の表示内容";
+  const floorPlaceholder = selectedScene?.floorDefault || "床の表示内容";
+  const effectPlaceholder = selectedScene?.effectDefault || "効果 (任意)";
+  const isLegacyOnly = !!data.value && !data.sceneId && !data.trigger && !data.transition && !data.wallOverride && !data.floorOverride && !data.effectOverride;
+
+  return (
+    <div className="space-y-1 text-[11px]">
+      {/* 1 行目: シーン選択 + トリガー + トランジション */}
+      <div className="flex flex-wrap items-center gap-1">
+        {scenes && scenes.length > 0 ? (
+          <select
+            value={data.sceneId || ""}
+            onChange={(e) => update({ sceneId: e.target.value || undefined })}
+            className="text-[11px] px-1.5 py-0.5 rounded bg-violet-100 dark:bg-violet-950/40 text-violet-900 dark:text-violet-100 border border-violet-300 dark:border-violet-700 outline-none"
+            title="シーンを選択"
+          >
+            <option value="">— シーン —</option>
+            {scenes.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+        ) : (
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-400 italic" title="シーンマスタ未設定 (サイドバーで追加できます)">
+            シーン未設定
+          </span>
+        )}
+        {LED_XR_TRIGGERS.map((t) => (
+          <button
+            key={t.value}
+            type="button"
+            onClick={() => update({ trigger: data.trigger === t.value ? undefined : t.value })}
+            className={`text-[10px] px-1.5 py-0.5 rounded border ${
+              data.trigger === t.value
+                ? "bg-violet-600 text-white border-violet-600"
+                : "bg-transparent text-zinc-500 border-zinc-300 dark:border-zinc-700 hover:border-violet-400"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+        <span className="text-[10px] text-zinc-400 mx-0.5">/</span>
+        {LED_XR_TRANSITIONS.map((t) => (
+          <button
+            key={t.value}
+            type="button"
+            onClick={() => update({ transition: data.transition === t.value ? undefined : t.value })}
+            className={`text-[10px] px-1.5 py-0.5 rounded border ${
+              data.transition === t.value
+                ? "bg-amber-600 text-white border-amber-600"
+                : "bg-transparent text-zinc-500 border-zinc-300 dark:border-zinc-700 hover:border-amber-400"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {/* 2 行目: 壁 / 床 / 効果 (override 入力、空ならシーンデフォを placeholder 表示) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-1">
+        <input
+          value={wall}
+          onChange={(e) => update({ wallOverride: e.target.value })}
+          placeholder={`壁: ${wallPlaceholder}`}
+          className="text-[11px] px-1.5 py-0.5 bg-transparent border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
+        />
+        <input
+          value={floor}
+          onChange={(e) => update({ floorOverride: e.target.value })}
+          placeholder={`床: ${floorPlaceholder}`}
+          className="text-[11px] px-1.5 py-0.5 bg-transparent border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
+        />
+        <input
+          value={effect}
+          onChange={(e) => update({ effectOverride: e.target.value })}
+          placeholder={`※ ${effectPlaceholder}`}
+          className="text-[11px] px-1.5 py-0.5 bg-transparent border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
+        />
+      </div>
+      {/* 3 行目: memo (旧形式の value はここにフォールバック) */}
+      <input
+        value={data.memo ?? (isLegacyOnly ? data.value || "" : "")}
+        onChange={(e) => {
+          if (isLegacyOnly) {
+            update({ memo: e.target.value, value: undefined });
+          } else {
+            update({ memo: e.target.value });
+          }
+        }}
+        placeholder="メモ..."
+        className="w-full text-[11px] px-1.5 py-0.5 bg-transparent border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
+      />
+      {isLegacyOnly && (
+        <div className="text-[9px] text-amber-600 dark:text-amber-400">
+          旧形式 — シーン / トリガー / トランジションを選択して構造化してください
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── CueRow ─────────────────────────────────────────────
 export default function CueRow({
   row,
@@ -455,6 +604,22 @@ export default function CueRow({
                       <ImageIcon size={14} className="mr-1" />
                       スライド
                     </div>
+                  )}
+                </td>
+              );
+            }
+
+            // ── LED/XR cell (v2.8.4+: 構造化セル + 後方互換) ──
+            if (blk.type === "led_xr") {
+              const cellData = (row.cells?.[blk.id] || {}) as LedXrCellData;
+              return (
+                <td key={blk.id} className="px-1.5 py-1 border-r border-zinc-100/60 dark:border-zinc-800/40 align-top bg-violet-50/40 dark:bg-violet-950/20">
+                  {ei === 0 && (
+                    <LedXrCell
+                      data={cellData}
+                      scenes={masters?.ledXrScenes}
+                      onChange={(next) => updateCell(blk.id, next)}
+                    />
                   )}
                 </td>
               );

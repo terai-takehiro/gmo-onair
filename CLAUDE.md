@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.3 — Q シートの画像サムネを 24px → 48px に拡大 + 動画 (Video) セル全体に薄青背景を追加して視認性向上
+v2.8.4 — Q シート LED/XR セルを構造化 (シーン select / 壁・床・効果 override / 4 トリガー / 2 トランジション)。後方互換: 旧 { value: string } は memo にフォールバック表示
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)
