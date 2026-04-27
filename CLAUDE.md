@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.7.15 — 案件管理一覧をモダンカード式 UI に全面刷新 (Pattern A)。テーブル列潰れを根本解消、xl 以上で 2 カラム表示
+v2.7.16 — 確定案件 (スタジオ/ビジネス) もモダンカード式 UI に統一 (Pattern A)
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)

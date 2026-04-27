@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.7.15 — 案件管理一覧をモダンカード式 UI に全面刷新 (Pattern A)
+**現在のバージョン**: v2.7.16 — 確定案件 (スタジオ/ビジネス) もモダンカード式 UI に統一 (Pattern A)
 
 ---
 
@@ -383,6 +383,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.7.16** | **確定案件 (スタジオ/ビジネス) もモダンカード式 UI に統一 (Pattern A)**。`ConfirmedProjectsPage` (`/projects/studio` / `/projects/business`) は v2.7.15 と同じ二重実装でカラム潰れを起こしていた。これを `ConfirmedProjectCard` に統一: GLS 番号 (font-mono primary) + ステージ Badge / 金額 (右寄せ大、想定→実績の自動切替) / 案件名 (h3、`[word-break:keep-all]`) / 顧客 (Building2)・担当者 (User)・イベント日 (Calendar、isStudio=true 時のみ)・案件種類 (Tag) を lucide アイコン付きで横並び。`xl:grid-cols-2` で広い画面 2 カラム。`isStudio` (GLS-A) / `!isStudio` (GLS-B) でイベント日の表示有無を分岐。空状態を DADS の `<EmptyState>` に置換 |
 | **v2.7.15** | **案件管理一覧をモダンカード式 UI に全面刷新 (Pattern A)**。従来の `ProjectListPage` は `lg:hidden` (mobile=card) / `hidden lg:block` (desktop=table) の二重実装で、デスクトップ側は 11 列を強引に詰めていたためカラム潰れで案件名・顧客名が 1 文字ずつ縦積みされる UX 破綻が発生。これを廃止し全画面幅で **統一カードデザイン** に移行。①カード構造: 上段 = `code` + ステージ Badge + 金額 (右寄せ大)、中段 = 案件名 + 終了日(略)、下段 = 顧客 / 担当者 / 日程 / 種類 を lucide アイコン (Building2/User/Calendar/Tag) 付きで横並び、最下段 = 売上/仕入/粗利 (粗利率% 込み、emerald-600/red-600 着色) + Box 2 リンク。②`xl:grid-cols-2` で広い画面 2 カラム表示、未満は 1 カラム。③カラムソート機能の代替として **ソート Select ドロップダウン** (作成日/イベント日/金額/案件名/顧客名 × 昇降順) を追加。デフォルト=作成日降順。④旧テーブルで使っていた `colWidths` state / リサイズハンドラ / `SortIcon` コンポーネント / 余分な ref など 100 行以上のコードを削除しシンプルに。⑤粗利は売上>0 のときのみ表示 (ヨミ段階の混乱を防ぐ)。Box は社内/外部の 2 種を別個リンク表示。⑥`role="button"` + `tabIndex={0}` + Enter/Space 対応でキーボード操作完備、`focus-visible:ring-2` でアクセシビリティ確保 |
 | **v2.7.14** | **データビューワーのテーブル一覧をアプリ別グループ化 + 日本語名整備**。①既存の DataViewerPage はテーブルがフラットに並んでおり、案件管理 / Qシート / 機材管理など 6 つのアプリ + 共通テーブルが混在して 60+ 個のテーブルが見分けづらかった。`TABLE_GROUPS` 配列を新設し、案件管理 (Briefcase 🧳) / Qシート (FileSpreadsheet 📊) / 機材管理 (Wrench 🔧) / インタラクティブ (Sparkles ✨) / 技術資料 (Camera 📷) / ライブ運用 (Radio 📻) / 共通・マスター (Users 👥) の 7 グループに分類。各グループは label + icon + tables を持ち、サイドバーで `<icon>+<label>` のヘッダー → 該当テーブルのリスト、の二段構造でレンダリング。②`TABLE_LABELS` を全面拡充: 旧版は 18 テーブルしかカバーしておらず、機材 / インタラクティブ / Qシート / 技術資料 / ライブ運用テーブルは英名のみ表示されていた。今回 60+ テーブル全てに日本語名を付与 (例: `equipment_lendings` → 機材貸出、`interactive_stamps` → スタンプログ、`liveops_timers` → ライブタイマー)。③ボタンの中身を 2 行から「日本語名 + 行数 (右寄せ tabular-nums)」「テーブル名 (font-mono、サブテキスト)」の構造に変更し、選択時 / 通常時の色階層を明示。④グループ未定義のテーブル (新規マイグレーションで追加など) は最後の「その他」セクション (Folder 📁) に自動でフォールバック。`KNOWN_GROUPED_TABLES` Set で O(1) 判定。⑤サイドバー幅を `lg:w-56` → `lg:w-64` に拡大、モバイル時の高さ上限を `max-h-48` → `max-h-64` に拡大して 7 グループが見切れにくく |
 | **v2.7.13** | **トグルボタンの CJK 文字 1 文字ずつ縦積み防止**。番組情報パネル (案件編集ページ) で番組種別/配信媒体トグルボタンの「生放送」「YouTube」「ネットメディア」「その他」が `生 / 放 / 送` のように 1 文字ずつ縦積みされていた件を修正。①**根本原因**: 外側 `sm:grid-cols-2` で半々に分割 + 内側 `cols={{ base:2, sm:3, lg:4 }}` の合わせ技で各ボタンが画面幅の ~12.5% しか確保できず、`break-words` が CJK 文字列を 1 文字ずつ折り返していた。②**shared コンポーネント**: `toggle-button-group.tsx` の label/description span に `[word-break:keep-all] [overflow-wrap:anywhere]` を追加。CJK ワードは原則として途中改行せず、それでも溢れるときのみ任意改行する挙動に。③**ProjectFormPage.tsx**: 番組情報パネルの outer 分割を `sm:grid-cols-2` → `lg:grid-cols-2` に変更 (中画面では縦積みのまま)。inner cols を実際の項目数に合わせ、番組種別 (2 項目) は `cols={{ base:2 }}`、配信媒体 (6 項目、最大 7 文字 "ネットメディア") は `cols={{ base:2, sm:3 }}` に縮小。GLS 発番ダイアログの同セクションも同様に修正 |
