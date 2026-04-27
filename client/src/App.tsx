@@ -12,6 +12,7 @@ import AcceptInvitationPage from "@/contexts/platform/pages/AcceptInvitationPage
 import HomePage from "@/contexts/platform/pages/HomePage";
 import UserListPage from "@/contexts/platform/pages/UserListPage";
 import DataViewerPage from "@/contexts/platform/pages/DataViewerPage";
+import DbBackupsPage from "@/contexts/platform/pages/DbBackupsPage";
 
 // Sales (営業管理)
 import DashboardPage from "@/contexts/platform/pages/DashboardPage";
@@ -126,6 +127,7 @@ function AppRoutes() {
         {/* ===== システム管理 (admin) ===== */}
         <Route path="/admin/users" element={<PermissionRoute module="admin"><UserListPage /></PermissionRoute>} />
         <Route path="/admin/data-viewer" element={<PermissionRoute module="admin"><DataViewerPage /></PermissionRoute>} />
+        <Route path="/admin/db-backups" element={<PermissionRoute module="admin"><DbBackupsPage /></PermissionRoute>} />
         <Route path="/admin/settings" element={<PermissionRoute module="admin"><SettingsPage /></PermissionRoute>} />
 
         {/* ブロックアプリ インデックスリダイレクト（BLOCK_APPS.basePath対応） */}
