@@ -220,7 +220,7 @@ function TextColumn({ entry, on, categoryParent, categoryChild, lang }: TextProp
   const displayName    = lang === 'en' ? (entry.nameEn || entry.name) : entry.name;
   const displayCompany = lang === 'en' ? (entry.orgEn  || entry.company) : entry.company;
   const TEXT_W = 350; // card 880 - padding 100 - photoW 390 - gap 40
-  const nameFit = fitText(displayName, TEXT_W, `700 68px 'Noto Serif JP', serif`);
+  const nameFit = fitText(displayName, TEXT_W, `900 68px 'Noto Sans JP', sans-serif`);
   const compFit = fitText(displayCompany, TEXT_W, `500 30px 'Noto Sans JP', sans-serif`);
   const D = 350;
   const T = 700;
@@ -327,8 +327,8 @@ function TextColumn({ entry, on, categoryParent, categoryChild, lang }: TextProp
 
       <div
         style={{
-          fontFamily: "'Noto Serif JP', serif",
-          fontWeight: 700,
+          fontFamily: "'Noto Sans JP', sans-serif",
+          fontWeight: 900,
           fontSize: 68,
           lineHeight: 1.15,
           color: '#fff',

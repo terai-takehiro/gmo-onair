@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import type { CgStep } from '../types';
 import type { CgMappedEntry } from '../types';
 import PortraitPlaceholder from './PortraitPlaceholder';
+import { fitText, fitStyle } from '../fitText';
 import {
   nomineesGrid,
   STRIP_PHOTO_H,
@@ -190,6 +191,8 @@ export default function PhotoStage({ nominees, rankings, stepKey }: Props) {
       {nominees.map((n, i) => {
         const rank = idToRank.get(n.id);
         const L = layoutFor(n, i);
+        const nameFit = fitText(n.name, baseW, `800 19px 'Noto Sans JP', sans-serif`);
+        const compFit = fitText(n.company, baseW, `600 12px 'Noto Sans JP', sans-serif`);
         const isOneShotWinner = rank === 1 && stepKey === 'oneshot';
         const showLabel = isNomineeStep;
         const nomineeRevealed = !isNomineeStep || i < nomineesShown;
@@ -295,10 +298,8 @@ export default function PhotoStage({ nominees, rankings, stepKey }: Props) {
                   letterSpacing: '0.2em',
                   paddingLeft: '0.2em',
                   color: '#bfa15a',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
                   marginBottom: 2,
+                  ...fitStyle(compFit),
                 }}
               >
                 {n.company}
@@ -312,9 +313,7 @@ export default function PhotoStage({ nominees, rankings, stepKey }: Props) {
                   letterSpacing: '0.06em',
                   paddingLeft: '0.06em',
                   lineHeight: 1.15,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
+                  ...fitStyle(nameFit),
                 }}
               >
                 {n.name}
