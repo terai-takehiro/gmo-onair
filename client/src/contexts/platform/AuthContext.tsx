@@ -180,8 +180,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   /** OAuth callback login: store token and fetch user from /auth/me */
   const loginWithToken = useCallback(
-    async (token: string) => {
-      localStorage.setItem("gmo_onair_token", token);
+    async (token: string | undefined) => {
+      // 本番はCookieのみでtokenなし。undefinedをlocalStorageに書かないよう保護
+      if (token) {
+        localStorage.setItem("gmo_onair_token", token);
+      } else {
+        localStorage.removeItem("gmo_onair_token");
+      }
       const res = await api.get("/auth/me");
       const user = res.data.data;
       setCurrentUser(user);

@@ -33,7 +33,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.19 — インタラクティブスタンプの大規模配信耐性向上（サーバー1秒バッチ集約・クライアント300ms集約・WebSocket-only・perMessageDeflate無効化）＋ k6 負荷試験スクリプト追加
+v2.8.20 — 本番ログイン不能バグ修正（loginWithToken undefined問題）（サーバー1秒バッチ集約・クライアント300ms集約・WebSocket-only・perMessageDeflate無効化）＋ k6 負荷試験スクリプト追加
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)

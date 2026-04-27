@@ -18,7 +18,8 @@ export function createApi(config: ApiConfig) {
 
   api.interceptors.request.use((reqConfig) => {
     const token = localStorage.getItem('gmo_onair_token');
-    if (token) {
+    // "undefined"/"null"文字列はlocalStorage汚染なので無視してCookieにフォールバック
+    if (token && token !== 'undefined' && token !== 'null') {
       reqConfig.headers['Authorization'] = `Bearer ${token}`;
     }
     const userId = useUiStore.getState().currentUserId;
