@@ -249,15 +249,14 @@ function RankingRow({ entry, widthPct, revealed, nameVisible, isFirst, lang = 'j
             <div
               style={{
                 fontFamily: "'Noto Sans JP', sans-serif",
-                fontSize: 13,
+                fontSize: 20,
                 fontWeight: 700,
-                letterSpacing: '0.28em',
+                letterSpacing: '0.18em',
                 color: isFirst ? '#fff8d8' : '#fffdf2',
-                paddingLeft: '0.28em',
-                marginBottom: 2,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
+                paddingLeft: '0.18em',
+                marginBottom: 3,
+                lineHeight: 1.2,
+                wordBreak: 'break-word',
                 textShadow: '0 1px 4px rgba(0,0,0,0.85)',
               }}
             >
@@ -269,14 +268,12 @@ function RankingRow({ entry, widthPct, revealed, nameVisible, isFirst, lang = 'j
             style={{
               fontFamily: "'Noto Sans JP', sans-serif",
               fontWeight: 900,
-              fontSize: isFirst ? 36 : 30,
+              fontSize: isFirst ? 38 : 34,
               color: '#fff',
               letterSpacing: '0.06em',
               paddingLeft: '0.06em',
               lineHeight: 1.1,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
+              wordBreak: 'break-word',
               textShadow: '0 2px 6px rgba(0,0,0,0.9)',
             }}
           >

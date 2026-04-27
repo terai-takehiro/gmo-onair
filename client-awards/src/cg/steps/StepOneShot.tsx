@@ -309,10 +309,12 @@ function TextColumn({ entry, on, categoryParent, categoryChild, lang }: TextProp
       <div
         style={{
           fontFamily: "'Noto Sans JP', sans-serif",
-          fontSize: 20,
+          fontSize: 30,
           fontWeight: 500,
           color: 'rgba(255,255,255,0.75)',
-          letterSpacing: '0.14em',
+          letterSpacing: '0.10em',
+          lineHeight: 1.3,
+          wordBreak: 'break-word',
           ...fade,
         }}
       >
@@ -323,10 +325,11 @@ function TextColumn({ entry, on, categoryParent, categoryChild, lang }: TextProp
         style={{
           fontFamily: "'Noto Serif JP', serif",
           fontWeight: 700,
-          fontSize: 58,
+          fontSize: 68,
           lineHeight: 1.15,
           color: '#fff',
           letterSpacing: '0.04em',
+          wordBreak: 'break-word',
           ...fade,
         }}
       >
