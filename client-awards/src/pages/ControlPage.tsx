@@ -151,7 +151,7 @@ export default function ControlPage() {
                       return (
                         <button
                           key={cat.id}
-                          onClick={() => sendCue(cue.step, cat.id)}
+                          onClick={() => sendCue('idle', cat.id)}
                           className={cn(
                             'rounded-lg px-4 py-2.5 text-sm font-semibold transition-all border',
                             active
