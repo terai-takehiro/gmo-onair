@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { CgMappedEntry, OneshotStyle } from '../types';
+import { fitText, fitStyle } from '../fitText';
 import CountUp from '../components/CountUp';
 import PortraitPlaceholder from '../components/PortraitPlaceholder';
 import OneShotImpactBurst from '../oneShotEffects/Classic';
@@ -218,6 +219,9 @@ interface TextProps {
 function TextColumn({ entry, on, categoryParent, categoryChild, lang }: TextProps) {
   const displayName    = lang === 'en' ? (entry.nameEn || entry.name) : entry.name;
   const displayCompany = lang === 'en' ? (entry.orgEn  || entry.company) : entry.company;
+  const TEXT_W = 350; // card 880 - padding 100 - photoW 390 - gap 40
+  const nameFit = fitText(displayName, TEXT_W, `700 68px 'Noto Serif JP', serif`);
+  const compFit = fitText(displayCompany, TEXT_W, `500 30px 'Noto Sans JP', sans-serif`);
   const D = 350;
   const T = 700;
   const fade: React.CSSProperties = {
@@ -314,7 +318,7 @@ function TextColumn({ entry, on, categoryParent, categoryChild, lang }: TextProp
           color: 'rgba(255,255,255,0.75)',
           letterSpacing: '0.10em',
           lineHeight: 1.3,
-          wordBreak: 'break-word',
+          ...fitStyle(compFit),
           ...fade,
         }}
       >
@@ -329,7 +333,7 @@ function TextColumn({ entry, on, categoryParent, categoryChild, lang }: TextProp
           lineHeight: 1.15,
           color: '#fff',
           letterSpacing: '0.04em',
-          wordBreak: 'break-word',
+          ...fitStyle(nameFit),
           ...fade,
         }}
       >

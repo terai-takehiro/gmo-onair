@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { CgStep, CgMappedEntry } from '../types';
 import CountUp from '../components/CountUp';
+import { fitText, fitStyle } from '../fitText';
 import {
   RANK_PAD_X,
   ROW_H,
@@ -109,6 +110,11 @@ function RankingRow({ entry, widthPct, revealed, nameVisible, isFirst, lang = 'j
       return () => clearTimeout(t);
     }
   }, [revealed, grown]);
+
+  const textW = bFullW - 24 - 320;
+  const nameFit = fitText(displayName, textW, `900 ${isFirst ? 38 : 34}px 'Noto Sans JP', sans-serif`);
+  const compText = displayCompany + (entry.role ? ` / ${entry.role}` : '');
+  const compFit = fitText(compText, textW, `700 20px 'Noto Sans JP', sans-serif`);
 
   const ownRatio =
     entry.ownPoints && entry.points
@@ -256,8 +262,8 @@ function RankingRow({ entry, widthPct, revealed, nameVisible, isFirst, lang = 'j
                 paddingLeft: '0.18em',
                 marginBottom: 3,
                 lineHeight: 1.2,
-                wordBreak: 'break-word',
                 textShadow: '0 1px 4px rgba(0,0,0,0.85)',
+                ...fitStyle(compFit),
               }}
             >
               {displayCompany}
@@ -273,8 +279,8 @@ function RankingRow({ entry, widthPct, revealed, nameVisible, isFirst, lang = 'j
               letterSpacing: '0.06em',
               paddingLeft: '0.06em',
               lineHeight: 1.1,
-              wordBreak: 'break-word',
               textShadow: '0 2px 6px rgba(0,0,0,0.9)',
+              ...fitStyle(nameFit),
             }}
           >
             {displayName}

@@ -33,7 +33,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.10 — 賞→部門 親子階層UI（EventEditor + 送出コントロール）、DnD並び替え、ブロードキャスト送出UI刷新
+v2.8.11 — 送出コントロールUI完全刷新（CG左・部門右・ステップ下）、CG プレビュー絶対配置で layout バグ修正、長体(fitText)をランキング・OneShotに適用
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)
