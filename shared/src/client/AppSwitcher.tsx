@@ -16,6 +16,7 @@ import {
   Wrench,
   Users,
   Timer,
+  Trophy,
   type LucideIcon,
 } from "lucide-react";
 
@@ -39,6 +40,7 @@ export const ONAIR_APPS: AppDef[] = [
   { id: "interactive", label: "インタラクティブ", icon: Sparkles,      color: "#db2777", basePath: "/interactive", status: "active" },
   { id: "techsheet",   label: "技術資料",         icon: Wrench,        color: "#0891b2", basePath: "/techsheet",   status: "active" },
   { id: "liveops",     label: "計時LIVE",         icon: Timer,         color: "#ef4444", basePath: "/live",        status: "active" },
+  { id: "awards",      label: "表彰CG",           icon: Trophy,        color: "#f59e0b", basePath: "/awards",      status: "active" },
   { id: "assign",      label: "制作支援",         icon: Users,         color: "#ea580c", basePath: "/prodsheet",   status: "coming_soon" },
 ];
 

@@ -1,0 +1,127 @@
+/* ============================================================
+   Awards CG — 1920×1080 broadcast canvas styles
+   ============================================================ */
+
+/* Base canvas */
+.cg-stage {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  transform-origin: top left;
+  font-family: 'Noto Sans JP', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Step: Title ── */
+@keyframes cg-title-in {
+  from { opacity: 0; transform: translateY(40px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+@keyframes cg-title-sub-in {
+  from { opacity: 0; transform: translateX(-20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.cg-title-main {
+  animation: cg-title-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.cg-title-sub {
+  animation: cg-title-sub-in 0.7s 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── Step: Nominees ── */
+@keyframes cg-nominee-in {
+  from { opacity: 0; transform: translateX(-30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.cg-nominee-item {
+  animation: cg-nominee-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── Step: Ranking bars ── */
+@keyframes cg-bar-in {
+  from { opacity: 0; transform: translateX(-100%); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes cg-bar-photo-pop {
+  from { opacity: 0; transform: scale(0.5); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.cg-rank-bar {
+  animation: cg-bar-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.cg-rank-photo {
+  animation: cg-bar-photo-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* ── Step: Winner bar ── */
+@keyframes cg-winner-bar-in {
+  from { opacity: 0; transform: scaleX(0); }
+  to   { opacity: 1; transform: scaleX(1); }
+}
+@keyframes cg-winner-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251,191,36,0); }
+  50%       { box-shadow: 0 0 60px 20px rgba(251,191,36,0.3); }
+}
+.cg-winner-bar {
+  animation: cg-winner-bar-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) both,
+             cg-winner-pulse 2.5s 0.9s ease-in-out infinite;
+  transform-origin: left center;
+}
+
+/* ── OneShot: Classic ── */
+@keyframes cg-classic-reveal {
+  from { opacity: 0; transform: scale(1.08); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes cg-classic-text-in {
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.cg-classic-photo {
+  animation: cg-classic-reveal 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.cg-classic-text {
+  animation: cg-classic-text-in 0.8s 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── OneShot: Shards ── */
+@keyframes cg-shard {
+  from { opacity: 0; clip-path: polygon(0 0, 0 0, 0 100%, 0 100%); }
+  to   { opacity: 1; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+}
+.cg-shards-reveal {
+  animation: cg-shard 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── OneShot: Spotlight ── */
+@keyframes cg-spotlight-expand {
+  from { opacity: 0.01; filter: brightness(0.4) blur(8px); transform: scale(1.15); }
+  to   { opacity: 1;    filter: brightness(1)   blur(0);   transform: scale(1); }
+}
+.cg-spotlight-reveal {
+  animation: cg-spotlight-expand 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── OneShot: Slit ── */
+@keyframes cg-slit-open {
+  from { clip-path: inset(50% 0 50% 0); }
+  to   { clip-path: inset(0 0 0 0); }
+}
+.cg-slit-reveal {
+  animation: cg-slit-open 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── Shared fade ── */
+@keyframes cg-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes cg-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+.cg-fade-in  { animation: cg-fade-in  0.4s ease both; }
+.cg-fade-out { animation: cg-fade-out 0.3s ease both; }

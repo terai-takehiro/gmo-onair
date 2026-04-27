@@ -14,6 +14,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 | インタラクティブ | `client-interactive/` | `/interactive/` | 5176 | EventStamp・リアルタイム演出 |
 | 技術資料 | `client-techsheet/` | `/techsheet/` | 5177 | カメラ・映像・音声技術仕様書 |
 | ライブ運用 | `client-live/` | `/live/` | 5178 | 本番オペ・進行管理 |
+| 表彰CG | `client-awards/` | `/awards/` | 5179 | 表彰式CG演出・送出管理 |
 
 ### 共有ライブラリ (`shared/`)
 全ブロックアプリの共通コードを集約。各アプリは設定値のみ渡すラッパーファイルで利用。
@@ -32,7 +33,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.7 — Q シート改修 v2.8.3-v2.8.6 をロールバック (UX 改善ならず、再設計のため一旦戻す)。機能としては v2.8.2 と同等
+v2.8.3 — 表彰CG ブロックアプリ (client-awards) 追加。Socket.IO /awards 名前空間、Excel/ダミーデータ取込、CG演出 4スタイル対応
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)

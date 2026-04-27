@@ -1,0 +1,42 @@
+export type CgStep =
+  | 'idle'
+  | 'title'
+  | 'nominees'
+  | 'ranks52'
+  | 'winner-bar'
+  | 'oneshot';
+
+export type OneshotStyle = 'classic' | 'shards' | 'spotlight' | 'slit';
+
+export interface CgEntry {
+  id: number;
+  rank: number | null;
+  name: string;
+  org: string | null;
+  points: number | null;
+  photo_url: string | null;
+  is_winner: boolean;
+}
+
+export interface CgCategory {
+  id: number;
+  name: string;
+  description: string | null;
+  entries: CgEntry[];
+}
+
+export interface CgCueState {
+  step: CgStep;
+  categoryId: number | null;
+  oneshotStyle: OneshotStyle;
+}
+
+// Canvas dimensions
+export const CG_W = 1920;
+export const CG_H = 1080;
+
+// Animation timing (ms)
+export const STRIP_SETTLE = 800;
+export const BAR_INTERVAL = 1100;
+export const PHOTO_OFFSET = 280;
+export const FADE_DURATION = 600;

@@ -42,7 +42,7 @@ export function createApp(): express.Express {
   // CORS — 本番では ALLOWED_ORIGINS 必須 (config.ts で検証済み)
   const devOrigins = isProduction ? [] : [
     'http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175',
-    'http://localhost:5176', 'http://localhost:5177', 'http://localhost:5178', 'http://localhost:3000',
+    'http://localhost:5176', 'http://localhost:5177', 'http://localhost:5178', 'http://localhost:5179', 'http://localhost:3000',
   ];
   const configuredOrigins = [
     ...devOrigins,
@@ -109,6 +109,7 @@ export function createApp(): express.Express {
       serveApp('/interactive', path.join(__dirname, '../../client-interactive/dist'));
       serveApp('/techsheet', path.join(__dirname, '../../client-techsheet/dist'));
       serveApp('/live', path.join(__dirname, '../../client-live/dist'));
+      serveApp('/awards', path.join(__dirname, '../../client-awards/dist'));
 
       app.use(express.static(clientDistPath, staticOptions));
       app.get('*', (_req, res) => {

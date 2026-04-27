@@ -1,0 +1,174 @@
+import { Router, Request, Response, NextFunction } from 'express';
+import multer from 'multer';
+import { execute, queryAll, queryOne, getDb } from '../../../shared/db/connection';
+import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
+import { AppError } from '../../../shared/middleware/errorHandler';
+import { importAwardsExcel } from '../services/excel-import.service';
+
+const router = Router();
+const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
+  (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+
+router.use(requireAuth, requirePermission('awards'));
+
+// ── 一覧 ────────────────────────────────────────────────────
+router.get('/events', wrap(async (_req, res) => {
+  const rows = await queryAll(
+    `SELECT id, name, subtitle, description, scheduled_at, status, created_at, updated_at
+     FROM awards_events ORDER BY scheduled_at DESC NULLS LAST, id DESC`
+  );
+  res.json({ success: true, data: rows });
+}));
+
+// ── 作成 ────────────────────────────────────────────────────
+router.post('/events', wrap(async (req, res) => {
+  const { name, subtitle, description, scheduled_at } = req.body;
+  if (!name?.trim()) throw new AppError(400, 'BAD_REQUEST', 'name は必須です');
+
+  const row = await queryOne(
+    `INSERT INTO awards_events (name, subtitle, description, scheduled_at)
+     VALUES (?, ?, ?, ?) RETURNING *`,
+    [name.trim(), subtitle ?? null, description ?? null, scheduled_at ?? null]
+  );
+  res.status(201).json({ success: true, data: row });
+}));
+
+// ── 詳細（カテゴリ＋エントリ込み）───────────────────────────
+router.get('/events/:id', wrap(async (req, res) => {
+  const id = parseInt(req.params.id as string);
+  const event = await queryOne(`SELECT * FROM awards_events WHERE id = ?`, [id]);
+  if (!event) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
+
+  const categories = await queryAll(
+    `SELECT * FROM awards_categories WHERE event_id = ? ORDER BY display_order, id`, [id]
+  );
+  const entries = await queryAll(
+    `SELECT * FROM awards_entries WHERE event_id = ? ORDER BY category_id, rank NULLS LAST, id`, [id]
+  );
+
+  const catMap = new Map<number, Record<string, unknown> & { entries: unknown[] }>();
+  for (const c of categories) {
+    catMap.set(c.id as number, { ...c, entries: [] });
+  }
+  for (const e of entries) {
+    catMap.get(e.category_id as number)?.entries.push(e);
+  }
+
+  res.json({ success: true, data: { ...event, categories: [...catMap.values()] } });
+}));
+
+// ── 更新 ────────────────────────────────────────────────────
+router.put('/events/:id', wrap(async (req, res) => {
+  const id = parseInt(req.params.id as string);
+  const { name, subtitle, description, scheduled_at } = req.body;
+  if (!name?.trim()) throw new AppError(400, 'BAD_REQUEST', 'name は必須です');
+
+  const row = await queryOne(
+    `UPDATE awards_events SET name=?, subtitle=?, description=?, scheduled_at=?, updated_at=NOW()
+     WHERE id=? RETURNING *`,
+    [name.trim(), subtitle ?? null, description ?? null, scheduled_at ?? null, id]
+  );
+  if (!row) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
+  res.json({ success: true, data: row });
+}));
+
+// ── ステータス変更 ───────────────────────────────────────────
+router.post('/events/:id/status', wrap(async (req, res) => {
+  const id = parseInt(req.params.id as string);
+  const { status } = req.body;
+  if (!['draft', 'live', 'closed'].includes(status)) {
+    throw new AppError(400, 'BAD_REQUEST', 'status は draft/live/closed のいずれか');
+  }
+  const row = await queryOne(
+    `UPDATE awards_events SET status=?, updated_at=NOW() WHERE id=? RETURNING *`,
+    [status, id]
+  );
+  if (!row) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
+  res.json({ success: true, data: row });
+}));
+
+// ── 削除 ────────────────────────────────────────────────────
+router.delete('/events/:id', wrap(async (req, res) => {
+  const id = parseInt(req.params.id as string);
+  const row = await queryOne(`DELETE FROM awards_events WHERE id=? RETURNING id`, [id]);
+  if (!row) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
+  res.json({ success: true });
+}));
+
+// ── Excel インポート ────────────────────────────────────────
+router.post('/events/:id/import-excel', upload.single('file'), wrap(async (req, res) => {
+  const eventId = parseInt(req.params.id as string);
+  const event = await queryOne(`SELECT id FROM awards_events WHERE id=?`, [eventId]);
+  if (!event) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
+  if (!req.file) throw new AppError(400, 'BAD_REQUEST', 'Excel ファイルを添付してください');
+
+  const categoryName: string = (req.body.categoryName as string)?.trim() || 'インポート';
+  const generateDummyPoints = req.body.generateDummyPoints === 'true';
+
+  const result = await importAwardsExcel(req.file.buffer, eventId, categoryName, generateDummyPoints);
+  res.json({ success: true, data: result });
+}));
+
+// ── ダミーデータ挿入（Excel なしでテスト用）────────────────
+router.post('/events/:id/seed-dummy', wrap(async (req, res) => {
+  const eventId = parseInt(req.params.id as string);
+  const event = await queryOne(`SELECT id FROM awards_events WHERE id=?`, [eventId]);
+  if (!event) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
+
+  const categoryName: string = (req.body.categoryName as string)?.trim() || 'ベストパフォーマンス賞';
+  const entryCount = Math.min(parseInt(req.body.entryCount as string) || 5, 10);
+
+  const pool = getDb();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const maxOrderRes = await client.query(
+      `SELECT COALESCE(MAX(display_order),0) AS max FROM awards_categories WHERE event_id = $1`,
+      [eventId]
+    );
+    const catRes = await client.query(
+      `INSERT INTO awards_categories (event_id, name, display_order)
+       VALUES ($1,$2,$3) RETURNING id`,
+      [eventId, categoryName, (maxOrderRes.rows[0].max as number) + 1]
+    );
+    const categoryId: number = catRes.rows[0].id as number;
+
+    const dummyNames = [
+      ['山田 太郎', 'デジタル推進部'],
+      ['鈴木 花子', 'マーケティング部'],
+      ['田中 一郎', '営業第一部'],
+      ['佐藤 美咲', 'エンジニアリング部'],
+      ['高橋 健二', 'クリエイティブ部'],
+      ['渡辺 由美', '商品開発部'],
+      ['伊藤 賢', 'カスタマーサクセス部'],
+      ['中村 真由子', 'ファイナンス部'],
+      ['小林 裕樹', '人事部'],
+      ['加藤 奈緒', '経営企画部'],
+    ];
+    const basePoints = [4800, 4200, 3600, 3100, 2700, 2300, 2000, 1800, 1500, 1200];
+
+    for (let i = 0; i < entryCount; i++) {
+      const rank = i + 1;
+      const [name, org] = dummyNames[i % dummyNames.length];
+      const points = basePoints[i] + Math.floor(Math.random() * 200) - 100;
+      await client.query(
+        `INSERT INTO awards_entries (event_id, category_id, rank, name, org, points, is_winner)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [eventId, categoryId, rank, name, org, points, rank === 1]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.status(201).json({ success: true, data: { categoryId, entryCount } });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}));
+
+export default router;
