@@ -33,6 +33,7 @@ import {
   BookOpen,
   Settings,
   Timer,
+  Trophy,
   Layers,
   Tag,
   Store,
@@ -40,7 +41,7 @@ import {
 
 const ICON_MAP: Record<string, React.ElementType> = {
   FolderKanban, PiggyBank, Calendar, Package, FileText,
-  BookOpen, Users, Truck, Sparkles, Wrench, Timer,
+  BookOpen, Users, Truck, Sparkles, Wrench, Timer, Trophy,
 };
 
 interface NavItem {
@@ -250,6 +251,8 @@ export default function Sidebar() {
             { path: "/equipment", label: "機材管理", Icon: Package, module: "equipment" },
             { path: "/interactive", label: "インタラクティブ", Icon: Sparkles, module: "interactive" },
             { path: "/techsheet", label: "技術資料", Icon: BookOpen, module: "techsheet" },
+            { path: "/live", label: "計時LIVE", Icon: Timer, module: "liveops" },
+            { path: "/awards", label: "アワードCG", Icon: Trophy, module: "awards" },
           ]
             .filter((app) => isAdmin || hasPermission(app.module))
             .map((app) => (

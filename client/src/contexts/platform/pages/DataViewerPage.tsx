@@ -39,6 +39,7 @@ import {
   Sparkles,
   Camera,
   Radio,
+  Trophy,
   Users as UsersIcon,
   Folder,
   Pencil,
@@ -130,6 +131,11 @@ const TABLE_LABELS: Record<string, string> = {
   liveops_settings: 'ライブ設定',
   liveops_snapshots: 'ライブスナップショット',
   liveops_timers: 'ライブタイマー',
+  // 表彰CG
+  awards_events: '表彰イベント',
+  awards_categories: '表彰カテゴリ',
+  awards_entries: '表彰エントリ',
+  awards_cue_state: '表彰CueState',
 
   // 共通・マスター
   users: 'ユーザー',
@@ -216,6 +222,12 @@ const TABLE_GROUPS: TableGroup[] = [
     label: 'ライブ運用',
     icon: Radio,
     tables: ['liveops_programs', 'liveops_settings', 'liveops_snapshots', 'liveops_timers'],
+  },
+  {
+    id: 'awards',
+    label: '表彰CG',
+    icon: Trophy,
+    tables: ['awards_events', 'awards_categories', 'awards_entries', 'awards_cue_state'],
   },
   {
     id: 'common',

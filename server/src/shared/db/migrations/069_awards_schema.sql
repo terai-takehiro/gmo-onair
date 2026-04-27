@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS awards_entries (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_awards_entries_category
-  ON awards_entries(category_id, rank NULLS LAST);
+  ON awards_entries(category_id, rank ASC NULLS LAST);
 CREATE INDEX IF NOT EXISTS idx_awards_entries_event
   ON awards_entries(event_id);
 
