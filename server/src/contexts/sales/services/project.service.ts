@@ -48,6 +48,22 @@ const SORT_COLUMN_MAP: Record<string, string> = {
   created_at: 'p.created_at',
 };
 
+/**
+ * v2.8.1+ デフォルトソート式
+ * - 案件終了 (s_completed) と失注 (e_lost) を最後に押し下げ
+ * - 残りはイベント開始日が近い順 (ASC、NULL は最後)
+ * - 同点はステージ進行度 → 作成日新しい順 でタイブレーク
+ */
+const DEFAULT_SORT_SQL = `
+  CASE
+    WHEN p.stage = 'e_lost' THEN 2
+    WHEN p.stage = 's_completed' THEN 1
+    ELSE 0
+  END ASC,
+  p.event_start ASC NULLS LAST,
+  p.created_at DESC
+`;
+
 export class ProjectService {
   /**
    * 統合一覧: タブ（ヨミ/進行中/完了/失注）+ フィルタ
@@ -90,8 +106,17 @@ export class ProjectService {
       where += ` AND p.gls_number IS NOT NULL AND p.gls_number LIKE 'GLS-B%'`;
     }
 
-    const sortCol = (filter.sortBy && SORT_COLUMN_MAP[filter.sortBy]) || 'p.created_at';
-    const sortDir = filter.sortDir === 'asc' ? 'ASC' : 'DESC';
+    // v2.8.1+: sortBy='default' (または未指定) のときは「完了/失注は最後 + イベント日近い順」
+    let orderBy: string;
+    if (!filter.sortBy || filter.sortBy === 'default') {
+      orderBy = DEFAULT_SORT_SQL;
+    } else {
+      const sortCol = SORT_COLUMN_MAP[filter.sortBy] || 'p.created_at';
+      const sortDir = filter.sortDir === 'asc' ? 'ASC' : 'DESC';
+      // event_start を選んだときは NULL を最後に置く
+      const nullsClause = filter.sortBy === 'event_start' ? ` NULLS ${sortDir === 'ASC' ? 'LAST' : 'FIRST'}` : '';
+      orderBy = `${sortCol} ${sortDir}${nullsClause}`;
+    }
 
     const total = ((await queryOne(`SELECT COUNT(*) as c FROM projects p LEFT JOIN customers c ON c.id = p.customer_id ${where}`, params)) as any).c;
     const rows = await queryAll(
@@ -101,7 +126,7 @@ export class ProjectService {
        FROM projects p
        LEFT JOIN customers c ON c.id = p.customer_id
        LEFT JOIN users u ON u.id = p.assigned_to
-       ${where} ORDER BY ${sortCol} ${sortDir} LIMIT ? OFFSET ?`,
+       ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
       [...params, limit, offset]
     );
     return { rows, total, page, limit };

@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.0 — データビューワーに編集 + 論理削除機能 (system_admin のみ、PATCH/DELETE エンドポイント、PROTECTED_COLUMNS で id/created_at/password_hash 等は保護)
+v2.8.1 — 案件一覧のデフォルトソートを「イベント日近い順 + 完了/失注は最後」に変更 + 終了案件カードを薄表示 + セパレータ「完了・失注した案件」を挿入
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)

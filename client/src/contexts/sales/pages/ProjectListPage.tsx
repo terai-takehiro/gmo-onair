@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
 
-type SortKey = 'created_at' | 'name' | 'customer' | 'stage' | 'expected_amount' | 'event_start';
+type SortKey = 'default' | 'created_at' | 'name' | 'customer' | 'stage' | 'expected_amount' | 'event_start';
 type SortDir = 'asc' | 'desc';
 type TabFilter = 'all' | 'yomi' | 'active' | 'completed' | 'lost';
 
@@ -30,11 +30,13 @@ const tabs: { value: TabFilter; label: string }[] = [
   { value: 'lost', label: '失注' },
 ];
 
+// v2.8.1+: デフォルトは「イベント日の近い順 + 完了/失注は最後」
 const sortOptions: { value: `${SortKey}:${SortDir}`; label: string }[] = [
-  { value: 'created_at:desc', label: '作成日 (新しい順)' },
-  { value: 'created_at:asc', label: '作成日 (古い順)' },
+  { value: 'default:asc', label: 'おすすめ (イベント日順 + 完了/失注は最後)' },
   { value: 'event_start:asc', label: 'イベント日 (近い順)' },
   { value: 'event_start:desc', label: 'イベント日 (遠い順)' },
+  { value: 'created_at:desc', label: '作成日 (新しい順)' },
+  { value: 'created_at:asc', label: '作成日 (古い順)' },
   { value: 'expected_amount:desc', label: '金額 (高い順)' },
   { value: 'expected_amount:asc', label: '金額 (安い順)' },
   { value: 'name:asc', label: '案件名 (50音)' },
@@ -46,7 +48,7 @@ export default function ProjectListPage() {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<TabFilter>("all");
   const [page, setPage] = useState(1);
-  const [sort, setSort] = useState<`${SortKey}:${SortDir}`>("created_at:desc");
+  const [sort, setSort] = useState<`${SortKey}:${SortDir}`>("default:asc");
   const [sortKey, sortDir] = sort.split(":") as [SortKey, SortDir];
 
   const { data, isLoading } = useQuery({
@@ -120,15 +122,50 @@ export default function ProjectListPage() {
         <EmptyState title="該当する案件がありません" description="検索条件を変えるか、新しい案件を作成してください。" />
       ) : (
         <>
-          <div className="grid gap-3 grid-cols-1 xl:grid-cols-2">
-            {projects.map((p: Record<string, unknown>) => (
-              <ProjectCard
-                key={p.id as string}
-                project={p}
-                onClick={() => navigate(`/sales/projects/${p.id}`)}
-              />
-            ))}
-          </div>
+          {/* v2.8.1+: 進行中と完了/失注を視覚的に分離して表示 */}
+          {(() => {
+            const isTerminal = (p: Record<string, unknown>) => p.stage === 's_completed' || p.stage === 'e_lost';
+            const activeProjects = projects.filter((p: Record<string, unknown>) => !isTerminal(p));
+            const terminalProjects = projects.filter((p: Record<string, unknown>) => isTerminal(p));
+            return (
+              <>
+                {activeProjects.length > 0 && (
+                  <div className="grid gap-3 grid-cols-1 xl:grid-cols-2">
+                    {activeProjects.map((p: Record<string, unknown>) => (
+                      <ProjectCard
+                        key={p.id as string}
+                        project={p}
+                        onClick={() => navigate(`/sales/projects/${p.id}`)}
+                      />
+                    ))}
+                  </div>
+                )}
+                {terminalProjects.length > 0 && (
+                  <div className="space-y-3">
+                    {activeProjects.length > 0 && (
+                      <div className="flex items-center gap-3 pt-2">
+                        <div className="h-px flex-1 bg-border" />
+                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                          完了・失注した案件
+                        </span>
+                        <div className="h-px flex-1 bg-border" />
+                      </div>
+                    )}
+                    <div className="grid gap-3 grid-cols-1 xl:grid-cols-2">
+                      {terminalProjects.map((p: Record<string, unknown>) => (
+                        <ProjectCard
+                          key={p.id as string}
+                          project={p}
+                          terminal
+                          onClick={() => navigate(`/sales/projects/${p.id}`)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
           {/* Pagination */}
           {pagination && pagination.totalPages > 1 && (
@@ -157,13 +194,16 @@ export default function ProjectListPage() {
 /**
  * 案件カード — v2.7.15+ で導入したモダンカードデザイン (Pattern A)。
  * 全画面幅で読みやすく、テーブルの「列が潰れる」問題を解消。
+ * v2.8.1+: terminal=true で完了・失注案件向けの薄い表示に切替。
  */
 function ProjectCard({
   project: p,
   onClick,
+  terminal = false,
 }: {
   project: Record<string, unknown>;
   onClick: () => void;
+  terminal?: boolean;
 }) {
   const totalRevenue = Number(p.total_revenue) || 0;
   const totalPurchase = Number(p.total_purchase) || 0;
@@ -182,7 +222,9 @@ function ProjectCard({
       tabIndex={0}
       onClick={onClick}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
-      className="group cursor-pointer rounded-xl border bg-card p-4 transition-all hover:border-primary/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      className={`group cursor-pointer rounded-xl border p-4 transition-all hover:border-primary/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+        terminal ? 'bg-muted/40 opacity-75 hover:opacity-100' : 'bg-card'
+      }`}
     >
       {/* Top row: code + stage + amount */}
       <div className="flex items-start justify-between gap-2 mb-2">
