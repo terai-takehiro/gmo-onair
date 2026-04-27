@@ -11,7 +11,6 @@ export interface ImportResult {
 // ── ヘッダー正規化マッピング ─────────────────────────────────
 const AWARD_HEADERS           = ['種別'];
 const DIVISION_HEADERS        = ['エントリー部門', 'エントリー部門名'];
-const RANK_HEADERS            = ['順位', 'rank', '位'];
 const IMAGE_ID_HEADERS        = ['画像id', '画像ｉｄ', 'imageid', 'image_id', '画像'];
 const NAME_JA_HEADERS         = ['ノミネート名', '氏名', '名前', '名称', 'name'];
 const NAME_PROJECT_HEADERS    = ['プロジェクト名'];
@@ -71,8 +70,7 @@ export async function importAwardsExcel(
 
   const awardCol        = findCol(headers, AWARD_HEADERS);
   const divisionCol     = findCol(headers, DIVISION_HEADERS);
-  const rankCol         = findCol(headers, RANK_HEADERS);
-  const imageIdCol      = findCol(headers, IMAGE_ID_HEADERS);
+const imageIdCol      = findCol(headers, IMAGE_ID_HEADERS);
   const nameJaCol       = findCol(headers, NAME_JA_HEADERS);
   const nameProjCol     = findCol(headers, NAME_PROJECT_HEADERS);
   const nameEnCol       = findCol(headers, NAME_EN_HEADERS);
@@ -90,7 +88,9 @@ export async function importAwardsExcel(
   for (let i = 0; i < dataRows.length; i++) {
     const row = dataRows[i];
     const award    = awardCol >= 0 ? cellStr(row, awardCol) || 'インポート' : 'インポート';
-    const division = divisionCol >= 0 ? cellStr(row, divisionCol) : '';
+    const rawDiv   = divisionCol >= 0 ? cellStr(row, divisionCol) : '';
+    // 「部門」で終わっていなければ末尾に付加
+    const division = rawDiv && !rawDiv.endsWith('部門') ? rawDiv + '部門' : rawDiv;
 
     // ノミネート名(JA): プロジェクト名 優先、なければ ノミネート名
     const projJa = cellStr(row, nameProjCol);
@@ -103,11 +103,12 @@ export async function importAwardsExcel(
     const nomEn  = cellStr(row, nameEnCol);
     const nameEn = projEn || nomEn || null;
 
-    const rankRaw = rankCol >= 0 ? cellStr(row, rankCol) : String(i + 1);
-    const rank    = rankRaw ? parseInt(rankRaw) || null : null;
+    const rank = null; // ランクはポイント入力後に generate-dummy-points や手動で設定
 
     const imageId = imageIdCol >= 0 ? cellStr(row, imageIdCol) || null : null;
-    const orgJa   = orgJaCol >= 0 ? cellStr(row, orgJaCol) || null : null;
+    // 「株式会社」を除去（前後の空白も整理）
+    const stripKK = (s: string) => s.replace(/株式会社/g, '').replace(/\s+/g, ' ').trim();
+    const orgJa   = orgJaCol >= 0 ? stripKK(cellStr(row, orgJaCol)) || null : null;
     const orgEn   = orgEnCol >= 0 ? cellStr(row, orgEnCol) || null : null;
 
     parsedRows.push({ award, division, rank, imageId, nameJa, nameEn, orgJa, orgEn });

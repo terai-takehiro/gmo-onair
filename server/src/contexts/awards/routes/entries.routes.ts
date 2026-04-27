@@ -76,9 +76,10 @@ router.post('/categories/:categoryId/generate-dummy-points', wrap(async (req, re
     const points = Math.max(500, basePoints - i * step + Math.floor(Math.random() * 200) - 100);
     const ownRatio = 0.20 + Math.random() * 0.20;
     const own_points = Math.round(points * ownRatio);
+    const rank = i + 1;
     await execute(
-      `UPDATE awards_entries SET points=?, own_points=?, updated_at=NOW() WHERE id=?`,
-      [points, own_points, entries[i].id]
+      `UPDATE awards_entries SET points=?, own_points=?, rank=?, is_winner=?, updated_at=NOW() WHERE id=?`,
+      [points, own_points, rank, rank === 1, entries[i].id]
     );
   }
   res.json({ success: true, message: `${entries.length} 件のポイントを生成しました` });

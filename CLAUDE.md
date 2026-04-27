@@ -33,7 +33,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.8 — 出力URL日英ボタン追加
+v2.8.9 — CGランク不表示修正、Excelインポート「部門」補完・「株式会社」除去、EntryRow UI刷新
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)

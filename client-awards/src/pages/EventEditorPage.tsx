@@ -96,15 +96,21 @@ function EntryRow({
   onPhotoUpload: (file: File) => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const ownPct = entry.own_points != null && entry.points
+    ? Math.round(entry.own_points / entry.points * 100)
+    : null;
+
   return (
-    <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm">
-      <div className="w-8 text-center text-xs font-bold text-muted-foreground">
+    <div className="flex items-start gap-2 rounded-lg border bg-background px-3 py-2.5 text-sm">
+      {/* Rank */}
+      <div className="mt-1.5 w-6 shrink-0 text-center text-xs font-bold text-muted-foreground">
         {entry.rank ?? '–'}
       </div>
+
       {/* Photo */}
       <button
         onClick={() => fileRef.current?.click()}
-        className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-muted ring-1 ring-border hover:ring-primary/50 transition-all"
+        className="relative mt-0.5 h-10 w-10 shrink-0 overflow-hidden rounded-md bg-muted ring-1 ring-border hover:ring-primary/50 transition-all"
         title="写真をアップロード"
       >
         {entry.photo_url
@@ -119,59 +125,78 @@ function EntryRow({
         className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) onPhotoUpload(f); e.target.value = ''; }}
       />
-      {/* Name (JA + EN) */}
-      <div className="flex-1 min-w-0">
-        <InlineText
-          value={entry.name}
-          onSave={(v) => onUpdate({ name: v })}
-          placeholder="氏名（日本語）"
-          className="font-medium truncate"
-        />
-        <InlineText
-          value={entry.name_en ?? ''}
-          onSave={(v) => onUpdate({ name_en: v || null })}
-          placeholder="Name (EN)"
-          className="text-xs text-muted-foreground/70 truncate"
-        />
-        <InlineText
-          value={entry.org ?? ''}
-          onSave={(v) => onUpdate({ org: v || null })}
-          placeholder="会社名（日本語）"
-          className="text-xs text-muted-foreground"
-        />
-        <InlineText
-          value={entry.org_en ?? ''}
-          onSave={(v) => onUpdate({ org_en: v || null })}
-          placeholder="Company (EN)"
-          className="text-xs text-muted-foreground/70"
-        />
+
+      {/* Identity */}
+      <div className="flex-1 min-w-0 space-y-0.5">
+        {/* JA name + EN name */}
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <InlineText
+            value={entry.name}
+            onSave={(v) => onUpdate({ name: v })}
+            placeholder="氏名"
+            className="font-semibold"
+          />
+          <InlineText
+            value={entry.name_en ?? ''}
+            onSave={(v) => onUpdate({ name_en: v || null })}
+            placeholder="Name EN"
+            className="text-xs text-muted-foreground/60"
+          />
+        </div>
+        {/* JA org + EN org */}
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <InlineText
+            value={entry.org ?? ''}
+            onSave={(v) => onUpdate({ org: v || null })}
+            placeholder="会社名"
+            className="text-xs text-muted-foreground"
+          />
+          <InlineText
+            value={entry.org_en ?? ''}
+            onSave={(v) => onUpdate({ org_en: v || null })}
+            placeholder="Company EN"
+            className="text-xs text-muted-foreground/50"
+          />
+        </div>
+        {/* Image ID badge */}
         {entry.image_id && (
-          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground/50 font-mono">
-            ID:{entry.image_id}
+          <span className="inline-flex items-center rounded bg-muted/60 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground/50">
+            {entry.image_id}
           </span>
         )}
       </div>
+
       {/* Points */}
-      <div className="w-20 text-right">
-        <InlineText
-          value={entry.points != null ? String(entry.points) : ''}
-          onSave={(v) => onUpdate({ points: v ? parseInt(v) || null : null })}
-          placeholder="pt"
-          className="text-xs font-mono"
-        />
-        <InlineText
-          value={entry.own_points != null ? String(entry.own_points) : ''}
-          onSave={(v) => onUpdate({ own_points: v ? parseInt(v) || null : null })}
-          placeholder="自社票pt"
-          className="text-xs font-mono text-amber-600"
-        />
+      <div className="shrink-0 space-y-1 text-right">
+        <div className="flex items-baseline justify-end gap-1">
+          <InlineText
+            value={entry.points != null ? String(entry.points) : ''}
+            onSave={(v) => onUpdate({ points: v ? parseInt(v) || null : null })}
+            placeholder="—"
+            className="font-mono font-bold text-sm tabular-nums"
+          />
+          <span className="text-[10px] font-medium text-muted-foreground">PT</span>
+        </div>
+        <div className="flex items-center justify-end gap-1">
+          <span className="text-[10px] font-semibold text-amber-600/70">自社</span>
+          <InlineText
+            value={entry.own_points != null ? String(entry.own_points) : ''}
+            onSave={(v) => onUpdate({ own_points: v ? parseInt(v) || null : null })}
+            placeholder="—"
+            className="font-mono text-xs tabular-nums text-amber-600"
+          />
+          {ownPct != null && (
+            <span className="text-[10px] tabular-nums text-amber-600/50">({ownPct}%)</span>
+          )}
+        </div>
       </div>
+
       {/* Winner */}
       <button
         onClick={() => onUpdate({ is_winner: !entry.is_winner })}
         title={entry.is_winner ? '大賞' : '大賞にする'}
         className={cn(
-          'flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-all',
+          'mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-all',
           entry.is_winner
             ? 'bg-amber-400/20 text-amber-600'
             : 'text-muted-foreground/30 hover:text-amber-500'
@@ -181,7 +206,7 @@ function EntryRow({
       </button>
       <button
         onClick={onDelete}
-        className="text-muted-foreground/40 hover:text-destructive transition-colors"
+        className="mt-1 text-muted-foreground/40 hover:text-destructive transition-colors"
       >
         <Trash2 className="h-3.5 w-3.5" />
       </button>
