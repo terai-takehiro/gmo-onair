@@ -240,7 +240,9 @@ export default function EventEditorPage() {
     mutationFn: async ({ eid, file }: { eid: number; file: File }) => {
       const fd = new FormData();
       fd.append('photo', file);
-      await api.post(`/awards/entries/${eid}/photo`, fd);
+      await api.post(`/awards/entries/${eid}/photo`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
     },
     onSuccess: invalidate,
   });
@@ -268,7 +270,9 @@ export default function EventEditorPage() {
     fd.append('categoryName', catName);
     if (importGenDummy) fd.append('generateDummyPoints', 'true');
     try {
-      await api.post(`/awards/events/${eventId}/import-excel`, fd);
+      await api.post(`/awards/events/${eventId}/import-excel`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
       invalidate();
     } catch (err: any) {
       alert(`インポートエラー: ${err?.response?.data?.error?.message ?? err.message}`);
