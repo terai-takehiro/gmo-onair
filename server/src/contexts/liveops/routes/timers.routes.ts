@@ -7,6 +7,20 @@ const router = Router();
 const canRead  = [requireAuth, requirePermission('liveops', 'reader')] as const;
 const canWrite = [requireAuth, requirePermission('liveops', 'manager')] as const;
 
+// 公開: 表示画面用（認証不要・ブラウザソース用）
+router.get('/:id/display', async (req, res) => {
+  try {
+    const row = await queryOne(
+      `SELECT id, viewer_overlay_program_id, program_id FROM liveops_timers WHERE id = $1 AND deleted_at IS NULL`,
+      [req.params.id]
+    );
+    if (!row) return res.status(404).json({ success: false, message: 'Not found' });
+    res.json({ success: true, data: row });
+  } catch {
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 router.get('/', ...canRead, async (req, res) => {
   try {
     const { project_id, program_id } = req.query;
