@@ -15,6 +15,7 @@ import {
   DollarSign,
   BarChart3,
   Database,
+  HardDrive,
   X,
   ClipboardList,
   ClipboardCheck,
@@ -137,6 +138,7 @@ const APP_NAV: Record<string, NavSection[]> = {
       items: [
         { label: "ユーザー管理", to: "/admin/users", icon: UserCog },
         { label: "データビューア", to: "/admin/data-viewer", icon: Database },
+        { label: "DBバックアップ", to: "/admin/db-backups", icon: HardDrive },
         { label: "システム設定", to: "/admin/settings", icon: Settings },
       ],
     },

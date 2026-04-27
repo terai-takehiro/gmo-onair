@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.1 — 案件一覧のデフォルトソートを「イベント日近い順 + 完了/失注は最後」に変更 + 終了案件カードを薄表示 + セパレータ「完了・失注した案件」を挿入
+v2.8.2 — DB 復元機能 (CLI スクリプト + UI バックアップ一覧)。BOX のバックアップを安全に復元 (5 層の安全策: 環境チェック / 自動スナップショット / yes 全文確認 / 監査ログ / エラー時の復旧手順表示)
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)
@@ -98,6 +98,24 @@ PostgreSQL の `onair_prod` / `onair_dev` を 3 時間ごとに pg_dump + gzip �
   ```
 - **必須環境変数** (.env): `BOX_CONFIG_JSON` + `BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL`
 - **保存先**: BOX 社内限り親 / `00_DB_Backup/` / `prod` または `dev` / `{db_name}_YYYYMMDD_HHMMSS.sql.gz`
+
+### DB 復元運用 (v2.8.2+)
+バックアップから DB を復元するための CLI スクリプト。**破壊的操作なので慎重に**:
+
+- **管理 UI**: `/admin/db-backups` (system_admin のみ) でバックアップ一覧 + 復元コマンドコピー機能
+- **CLI 復元**:
+  ```bash
+  # 一覧表示
+  docker exec gmo-onair-app_prod-1 node /app/server/scripts/restore-db-from-box.mjs --list
+  # 復元 (対話確認あり、"yes" 全文入力で実行)
+  docker exec -it gmo-onair-app_prod-1 node /app/server/scripts/restore-db-from-box.mjs onair_prod_YYYYMMDD_HHMMSS.sql.gz
+  ```
+- **5 層の安全策**:
+  1. 環境チェック (prod ファイル → prod のみ、クロス禁止)
+  2. 自動スナップショット (`/tmp/before-restore_*.sql.gz` に退避)
+  3. "yes" 全文タイプ確認 (`y` だけでは続行不可)
+  4. 監査ログ (`[restore] AUDIT:` で stdout)
+  5. エラー時に復旧手順を表示
 
 ## UI/UX ポリシー
 

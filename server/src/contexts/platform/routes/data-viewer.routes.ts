@@ -298,4 +298,67 @@ router.delete('/tables/:name/rows/:id', requireRole('system_admin'), async (req,
   }
 });
 
+// =============================================================
+// v2.8.2+ DB バックアップ一覧取得 (BOX 上のファイルを列挙)
+// 復元の実行は CLI スクリプト経由のみ (UI からは行えない設計、案 B)
+// =============================================================
+
+interface BoxFolderItem {
+  id: string;
+  name: string;
+  type: string;
+  size?: number | string;
+  created_at?: string;
+}
+
+interface BoxItemsResponse {
+  entries: BoxFolderItem[];
+}
+
+router.get('/db-backups', requireRole('system_admin'), async (_req, res) => {
+  try {
+    const cfg = process.env.BOX_CONFIG_JSON;
+    const parentId = process.env.BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL;
+    if (!cfg || !parentId) {
+      res.json({ success: true, data: { configured: false, environments: [] } });
+      return;
+    }
+
+    // 動的 import で起動時のクラッシュを避ける (BOX 未設定環境向け)
+    const BoxSDK = (await import('box-node-sdk')).default;
+    const sdk = BoxSDK.getPreconfiguredInstance(JSON.parse(cfg));
+    const client = sdk.getAppAuthClient('enterprise');
+
+    async function findFolder(parent: string, name: string): Promise<string | null> {
+      const items = (await client.folders.getItems(parent, { limit: 1000, fields: 'id,name,type' })) as BoxItemsResponse;
+      return items.entries.find((e) => e.type === 'folder' && e.name === name)?.id ?? null;
+    }
+
+    const rootId = await findFolder(parentId, '00_DB_Backup');
+    if (!rootId) {
+      res.json({ success: true, data: { configured: true, environments: [] } });
+      return;
+    }
+
+    const result: { env: string; files: BoxFolderItem[] }[] = [];
+    for (const env of ['prod', 'dev']) {
+      const envId = await findFolder(rootId, env);
+      if (!envId) continue;
+      const items = (await client.folders.getItems(envId, {
+        limit: 1000,
+        fields: 'id,name,type,size,created_at',
+      })) as BoxItemsResponse;
+      const files = items.entries
+        .filter((e) => e.type === 'file' && e.name.endsWith('.sql.gz'))
+        .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+      result.push({ env, files });
+    }
+
+    res.json({ success: true, data: { configured: true, environments: result } });
+  } catch (err) {
+    console.error('[data-viewer] db-backups list failed:', (err as Error).message);
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+});
+
 export default router;
