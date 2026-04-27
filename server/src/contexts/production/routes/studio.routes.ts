@@ -282,12 +282,16 @@ router.get('/bookings', async (req, res) => {
   ) as any[];
 
   // Attach rooms (with occupant info) to each booking
+  // ロケーションの sort_order → 部屋の sort_order の順でソートし、マスターの並びと一致させる
   const allBookingRooms = await queryAll(
     `SELECT br.booking_id, br.room_id, br.occupant, br.usage_note,
             r.name as room_name, r.abbreviation as room_abbreviation,
-            r.color as room_color, r.room_type, r.location_id
+            r.color as room_color, r.room_type, r.location_id,
+            l.sort_order as location_sort_order, r.sort_order as room_sort_order
      FROM studio_booking_rooms br
-     JOIN studio_rooms r ON r.id = br.room_id`
+     JOIN studio_rooms r ON r.id = br.room_id
+     LEFT JOIN studio_locations l ON l.id = r.location_id
+     ORDER BY l.sort_order NULLS LAST, r.sort_order, r.name`
   ) as any[];
 
   const roomsByBooking = new Map<string, any[]>();
@@ -326,7 +330,9 @@ router.get('/bookings/:id', async (req, res) => {
             r.color as room_color, r.room_type, r.location_id
      FROM studio_booking_rooms br
      JOIN studio_rooms r ON r.id = br.room_id
-     WHERE br.booking_id = ?`, [req.params.id]
+     LEFT JOIN studio_locations l ON l.id = r.location_id
+     WHERE br.booking_id = ?
+     ORDER BY l.sort_order NULLS LAST, r.sort_order, r.name`, [req.params.id]
   );
   booking.rooms = rooms;
   res.json({ success: true, data: booking });
