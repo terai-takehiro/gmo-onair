@@ -5,17 +5,13 @@ import { useAwardsStore } from './useStore';
 import CGSequence from './CGSequence';
 
 interface StageProps {
-  /** Force specific category data (for output page) */
   category?: CgCategory | null;
-  /** Event name/subtitle (for title step) */
   eventName?: string;
   eventSubtitle?: string | null;
   lang?: 'ja' | 'en';
-  /** When true: alpha-transparent output (KEY ch). When false: fill output. */
-  transparent?: boolean;
 }
 
-export default function Stage({ category, eventName = '', eventSubtitle, lang = 'ja', transparent = false }: StageProps) {
+export default function Stage({ category, eventName = '', eventSubtitle, lang = 'ja' }: StageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const { cue, categories } = useAwardsStore();
@@ -59,7 +55,6 @@ export default function Stage({ category, eventName = '', eventSubtitle, lang = 
           eventName={eventName}
           eventSubtitle={eventSubtitle}
           lang={lang}
-          transparent={transparent}
         />
       </div>
     </div>

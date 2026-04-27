@@ -629,35 +629,24 @@ export default function EventEditorPage() {
             />
           </FormField>
           <div className="pt-2 border-t space-y-2">
-            <p className="text-sm font-medium">出力URL（OBS / vMix ブラウザソース）</p>
+            <p className="text-sm font-medium">出力URL（OBS / vMix — Allow Transparency ON）</p>
+            <p className="text-xs text-muted-foreground">アルファチャンネル付き透過出力。ブラウザソースの「透明度を許可」を有効にしてください。</p>
             {[
-              { label: '🇯🇵 日本語出力', lang: 'ja' },
-              { label: '🇺🇸 英語出力', lang: 'en' },
+              { label: '🇯🇵 日本語', lang: 'ja' },
+              { label: '🇺🇸 English', lang: 'en' },
             ].map(({ label, lang }) => {
-              const url = `${window.location.origin}/awards/output/${event.id}?transparent=1&lang=${lang}`;
+              const url = `${window.location.origin}/awards/output/${event.id}?lang=${lang}`;
               return (
                 <div key={lang} className="flex items-center gap-2">
-                  <span className="w-28 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
-                  <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs font-mono truncate">
-                    {url}
-                  </code>
-                  <button
-                    onClick={() => navigator.clipboard.writeText(url)}
-                    title="URLをコピー"
-                    className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors"
-                  >
-                    <Copy className="h-3 w-3" />
-                    コピー
+                  <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
+                  <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs font-mono truncate">{url}</code>
+                  <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
+                    className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                    <Copy className="h-3 w-3" />コピー
                   </button>
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="新しいタブで開く"
-                    className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    開く
+                  <a href={url} target="_blank" rel="noopener noreferrer"
+                    className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                    <ExternalLink className="h-3 w-3" />開く
                   </a>
                 </div>
               );
