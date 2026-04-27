@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/contexts/platform/AuthContext";
 import {
   Table,
   TableHeader,
@@ -21,6 +23,9 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Database,
   Search,
   Download,
@@ -36,6 +41,9 @@ import {
   Radio,
   Users as UsersIcon,
   Folder,
+  Pencil,
+  Trash2,
+  Save,
 } from "lucide-react";
 
 interface TableInfo {
@@ -350,6 +358,10 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 export default function DataViewerPage() {
+  const qc = useQueryClient();
+  const { currentUser } = useAuth();
+  const isSystemAdmin = currentUser?.role === "system_admin";
+
   const [selectedTable, setSelectedTable] = useState<string>("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(50);
@@ -357,6 +369,11 @@ export default function DataViewerPage() {
   const [order, setOrder] = useState<"ASC" | "DESC">("DESC");
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebounce(searchInput, 300);
+
+  // v2.8.0+: 編集ダイアログ / 削除確認ダイアログの状態
+  const [editingRow, setEditingRow] = useState<Record<string, unknown> | null>(null);
+  const [editFormValues, setEditFormValues] = useState<Record<string, string>>({});
+  const [deletingRow, setDeletingRow] = useState<Record<string, unknown> | null>(null);
 
   // Reset page when table or search changes
   useEffect(() => { setPage(1); }, [selectedTable, debouncedSearch]);
@@ -397,6 +414,92 @@ export default function DataViewerPage() {
     },
     enabled: !!selectedTable,
   });
+
+  // v2.8.0+: スキーマ取得 (編集可否・型情報を含む)
+  const { data: schema } = useQuery({
+    queryKey: ["dv-schema", selectedTable],
+    queryFn: async () => {
+      const res = await api.get(`/data-viewer/tables/${selectedTable}/schema`);
+      return res.data.data as Array<{ name: string; type: string; nullable: boolean; editable: boolean }>;
+    },
+    enabled: !!selectedTable && isSystemAdmin,
+  });
+
+  // 削除可能か (deleted_at カラムがあるテーブルのみ論理削除可)
+  const canLogicallyDelete = !!schema?.some(c => c.name === 'deleted_at');
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Record<string, unknown> }) => {
+      return (await api.patch(`/data-viewer/tables/${selectedTable}/rows/${id}`, updates)).data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["dv-data", selectedTable] });
+      qc.invalidateQueries({ queryKey: ["dv-tables"] });
+      setEditingRow(null);
+      setEditFormValues({});
+    },
+    onError: (err: any) => {
+      window.alert(`更新に失敗しました: ${err?.response?.data?.error || err.message}`);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return (await api.delete(`/data-viewer/tables/${selectedTable}/rows/${id}`)).data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["dv-data", selectedTable] });
+      qc.invalidateQueries({ queryKey: ["dv-tables"] });
+      setDeletingRow(null);
+    },
+    onError: (err: any) => {
+      window.alert(`削除に失敗しました: ${err?.response?.data?.error || err.message}`);
+    },
+  });
+
+  const openEdit = (row: Record<string, unknown>) => {
+    const initial: Record<string, string> = {};
+    for (const [k, v] of Object.entries(row)) {
+      if (v === null || v === undefined) initial[k] = "";
+      else if (v instanceof Date) initial[k] = v.toISOString();
+      else initial[k] = String(v);
+    }
+    setEditFormValues(initial);
+    setEditingRow(row);
+  };
+
+  const submitEdit = () => {
+    if (!editingRow) return;
+    const id = editingRow.id as string;
+    if (!id) {
+      window.alert("id が無いため更新できません");
+      return;
+    }
+    // 編集可能なフィールドかつ元と異なるものだけ送信
+    const updates: Record<string, unknown> = {};
+    const editableSet = new Set((schema ?? []).filter(c => c.editable).map(c => c.name));
+    for (const [k, v] of Object.entries(editFormValues)) {
+      if (!editableSet.has(k)) continue;
+      const orig = editingRow[k];
+      const origStr = orig === null || orig === undefined ? "" : String(orig);
+      if (v !== origStr) updates[k] = v;
+    }
+    if (Object.keys(updates).length === 0) {
+      setEditingRow(null);
+      return;
+    }
+    updateMutation.mutate({ id, updates });
+  };
+
+  const submitDelete = () => {
+    if (!deletingRow) return;
+    const id = deletingRow.id as string;
+    if (!id) {
+      window.alert("id が無いため削除できません");
+      return;
+    }
+    deleteMutation.mutate(id);
+  };
 
   const handleSort = useCallback((col: string) => {
     setSort(prev => {
@@ -585,6 +688,11 @@ export default function DataViewerPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        {isSystemAdmin && (
+                          <TableHead className="w-24 sticky left-0 bg-card z-10 whitespace-nowrap">
+                            \u64cd\u4f5c
+                          </TableHead>
+                        )}
                         {tableData.columns.map(col => (
                           <TableHead
                             key={col}
@@ -608,6 +716,32 @@ export default function DataViewerPage() {
                     <TableBody>
                       {tableData.data.map((row, ri) => (
                         <TableRow key={ri}>
+                          {isSystemAdmin && (
+                            <TableCell className="sticky left-0 bg-card z-10 whitespace-nowrap">
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0"
+                                  title="\u7de8\u96c6"
+                                  onClick={() => openEdit(row)}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                {canLogicallyDelete && !row.deleted_at && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    title="\u8ad6\u7406\u524a\u9664"
+                                    onClick={() => setDeletingRow(row)}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          )}
                           {tableData.columns.map(col => {
                             const raw = row[col];
                             const display = formatCell(col, raw);
@@ -672,6 +806,95 @@ export default function DataViewerPage() {
           </div>
         )}
       </div>
+
+      {/* v2.8.0+: 編集ダイアログ */}
+      <Dialog open={!!editingRow} onOpenChange={(open) => { if (!open) { setEditingRow(null); setEditFormValues({}); } }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {TABLE_LABELS[selectedTable] || selectedTable} の行を編集
+            </DialogTitle>
+            <DialogDescription>
+              <span className="font-mono text-xs">id: {editingRow?.id as string}</span>
+              <br />
+              編集できないシステム列 (id / created_at / updated_at / deleted_at / 認証情報など) は無効化されています。
+            </DialogDescription>
+          </DialogHeader>
+          {schema && editingRow && (
+            <div className="space-y-3">
+              {schema.map((col) => {
+                const isLong = col.type === 'text' || col.type === 'jsonb' || col.type === 'json';
+                const value = editFormValues[col.name] ?? "";
+                return (
+                  <div key={col.name} className="grid gap-1">
+                    <label className="text-xs font-medium flex items-center gap-2">
+                      <span>{COLUMN_LABELS[col.name] || col.name}</span>
+                      <span className="font-mono text-[10px] text-muted-foreground">{col.name} : {col.type}</span>
+                      {!col.editable && <Badge variant="outline" className="text-[10px]">編集不可</Badge>}
+                    </label>
+                    {isLong ? (
+                      <Textarea
+                        value={value}
+                        onChange={(e) => setEditFormValues((prev) => ({ ...prev, [col.name]: e.target.value }))}
+                        disabled={!col.editable}
+                        rows={3}
+                        className="font-mono text-xs"
+                      />
+                    ) : (
+                      <Input
+                        value={value}
+                        onChange={(e) => setEditFormValues((prev) => ({ ...prev, [col.name]: e.target.value }))}
+                        disabled={!col.editable}
+                        className="font-mono text-xs"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setEditingRow(null); setEditFormValues({}); }}>
+              キャンセル
+            </Button>
+            <Button onClick={submitEdit} disabled={updateMutation.isPending}>
+              {updateMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* v2.8.0+: 削除確認ダイアログ */}
+      <Dialog open={!!deletingRow} onOpenChange={(open) => { if (!open) setDeletingRow(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-red-600 flex items-center gap-2">
+              <Trash2 className="h-5 w-5" />
+              論理削除の確認
+            </DialogTitle>
+            <DialogDescription>
+              この行を <strong>論理削除</strong> します。<code>deleted_at</code> に現在時刻がセットされ、画面上から見えなくなります (DB からは削除されません)。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-1">
+            <div><span className="text-muted-foreground">テーブル:</span> {TABLE_LABELS[selectedTable] || selectedTable} <span className="font-mono text-[10px]">({selectedTable})</span></div>
+            <div><span className="text-muted-foreground">id:</span> <span className="font-mono">{deletingRow?.id as string}</span></div>
+            {!!(deletingRow?.name || deletingRow?.title) && (
+              <div><span className="text-muted-foreground">name:</span> {String(deletingRow?.name || deletingRow?.title)}</div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeletingRow(null)}>
+              キャンセル
+            </Button>
+            <Button variant="destructive" onClick={submitDelete} disabled={deleteMutation.isPending}>
+              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              論理削除する
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
     </PageTransition>
   );
