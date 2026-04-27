@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.7.11 — BOX フォルダ機密度別 2 親並行作成 (社内限り = 02/03/07_原価利益、社外共有可 = 01/04/05/06) + 案件フォーム URL 入力欄を表示専用に変更 + カレンダー API の `p.status` バグ修正
+v2.7.12 — DB バックアップ自動化 (PostgreSQL → BOX 社内限り/00_DB_Backup/{prod,dev}/、3 時間ごと、30 日保持で自動削除)
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)
@@ -84,6 +84,20 @@ cd /root/gmo-onair && git log --oneline -1                    # 現在のコー�
 curl -sk https://dev.gmo-onair.jp/health                       # 検証稼働確認
 curl -sk https://gmo-onair.jp/health                            # 本番稼働確認
 ```
+
+### DB バックアップ運用 (v2.7.12+)
+PostgreSQL の `onair_prod` / `onair_dev` を 3 時間ごとに pg_dump + gzip → BOX「社内限り」親フォルダ配下の `00_DB_Backup/{prod|dev}/` に自動アップロード。30 日経過したファイルは自動削除。
+
+- **スクリプト本体**: `server/scripts/backup-db-to-box.mjs` (各コンテナ内で実行)
+- **cron 一括設定**: `sudo bash /root/gmo-onair/scripts/setup-backup-cron.sh` (1 度だけ実行、冪等)
+- **ログ**: `/var/log/gmo-onair-backup.log`
+- **手動実行 (動作確認用)**:
+  ```bash
+  docker exec gmo-onair-app_prod-1 node /app/server/scripts/backup-db-to-box.mjs
+  docker exec gmo-onair-app_dev-1  node /app/server/scripts/backup-db-to-box.mjs
+  ```
+- **必須環境変数** (.env): `BOX_CONFIG_JSON` + `BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL`
+- **保存先**: BOX 社内限り親 / `00_DB_Backup/` / `prod` または `dev` / `{db_name}_YYYYMMDD_HHMMSS.sql.gz`
 
 ## UI/UX ポリシー
 

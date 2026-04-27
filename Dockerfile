@@ -42,6 +42,10 @@ RUN npm run build --workspace=server
 FROM node:20-alpine AS production
 WORKDIR /app
 
+# pg_dump を使う DB バックアップスクリプト (server/scripts/backup-db-to-box.mjs) のため
+# postgresql-client をインストール (Postgres 16 のクライアントツール一式: pg_dump 等)
+RUN apk add --no-cache postgresql16-client
+
 # Server dependencies only
 COPY server/package.json server/
 RUN cd server && npm install --omit=dev
@@ -49,6 +53,9 @@ RUN cd server && npm install --omit=dev
 # Server build output + migrations
 COPY --from=builder /app/server/dist server/dist
 COPY server/src/shared/db/migrations server/dist/shared/db/migrations
+
+# DB バックアップスクリプト (cron から docker exec 経由で呼ばれる)
+COPY server/scripts server/scripts
 
 # Japanese fonts for PDF
 COPY server/fonts server/fonts
