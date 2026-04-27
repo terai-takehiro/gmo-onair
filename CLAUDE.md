@@ -33,7 +33,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.17 — OneShotテキスト長体圧縮修正（transform合成バグ）、スマホ部門スクロール対応
+v2.8.18 — OneShotカードレイアウト刷新（NO.1右配置・部門名大型化）、プロポーショナルフォント対応
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)

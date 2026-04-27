@@ -95,6 +95,7 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
         background: 'transparent',
         overflow: 'hidden',
         fontFamily: "'Noto Sans JP', sans-serif",
+        fontFeatureSettings: "'palt' 1",
         color: '#fff',
         perspective: '2400px',
       }}
