@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.5 — Q シート LED/XR シーンマスタをサイドバーに追加 (S0/S1/SXX 単位で 名前 + 壁/床/効果デフォルトを管理、行から sceneId 参照)
+v2.8.6 — Q シート Rundown view に「次の VTR」専用列を追加 (Video ブロックを台本列とは別に常時表示、視認性大幅向上)
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)
