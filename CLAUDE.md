@@ -33,7 +33,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.3 — 表彰CG ブロックアプリ (client-awards) 追加。Socket.IO /awards 名前空間、Excel/ダミーデータ取込、CG演出 4スタイル対応
+v2.8.4 — ホームページに「アワードCG」ブロックアプリ追加
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)

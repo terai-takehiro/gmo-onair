@@ -42,6 +42,7 @@ import {
   ChevronDown,
   ChevronUp,
   Timer,
+  Trophy,
   RefreshCw,
   Loader2,
   CheckCircle2,
@@ -52,7 +53,7 @@ import {
 
 const ICON_MAP: Record<string, React.ElementType> = {
   FolderKanban, PiggyBank, Calendar, Package, FileText,
-  BookOpen, Users, Truck, Sparkles, Wrench, Timer,
+  BookOpen, Users, Truck, Sparkles, Wrench, Timer, Trophy,
 };
 
 const roleLabelMap: Record<string, string> = {
@@ -188,7 +189,7 @@ export default function HomePage() {
                 onClick={() => {
                   if (app.externalUrl) {
                     window.open(app.externalUrl, "_blank", "noopener,noreferrer");
-                  } else if (["equipment", "qsheet", "interactive", "techsheet", "liveops"].includes(app.id)) {
+                  } else if (["equipment", "qsheet", "interactive", "techsheet", "liveops", "awards"].includes(app.id)) {
                     window.location.href = app.basePath;
                   } else {
                     navigate(app.basePath);
