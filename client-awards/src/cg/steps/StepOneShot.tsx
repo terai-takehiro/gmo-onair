@@ -245,11 +245,16 @@ function TextColumn({ entry, on, categoryParent, categoryChild, displayName, dis
   const compFit = fitText(displayCompany, textColW, `500 30px 'Noto Sans JP', sans-serif`);
   const D = 350;
   const T = 700;
-  const fade: React.CSSProperties = {
-    transform: on ? 'translateY(0)' : 'translateY(16px)',
+  const yT = on ? 'translateY(0)' : 'translateY(16px)';
+  const tr = `transform ${T}ms cubic-bezier(.2,.9,.25,1) ${D}ms, opacity ${T}ms ease ${D}ms`;
+
+  // Combines y-translate with optional scaleX from fitStyle without overriding either
+  const fade = (fitSty?: React.CSSProperties): React.CSSProperties => ({
+    ...(fitSty ?? {}),
+    transform: [yT, fitSty?.transform].filter(Boolean).join(' '),
     opacity: on ? 1 : 0,
-    transition: `transform ${T}ms cubic-bezier(.2,.9,.25,1) ${D}ms, opacity ${T}ms ease ${D}ms`,
-  };
+    transition: tr,
+  });
   const goldGrad: React.CSSProperties = {
     background: 'linear-gradient(180deg, #FFFBE6 0%, #F5D76E 48%, #8C6314 100%)',
     WebkitBackgroundClip: 'text',
@@ -280,7 +285,7 @@ function TextColumn({ entry, on, categoryParent, categoryChild, displayName, dis
             color: '#C9A24B',
             letterSpacing: '0.28em',
             paddingLeft: '0.28em',
-            ...fade,
+            ...fade(),
           }}
         >
           {catLabel}
@@ -294,7 +299,7 @@ function TextColumn({ entry, on, categoryParent, categoryChild, displayName, dis
           alignItems: 'baseline',
           gap: 2,
           lineHeight: 0.85,
-          ...fade,
+          ...fade(),
         }}
       >
         <span
@@ -340,8 +345,7 @@ function TextColumn({ entry, on, categoryParent, categoryChild, displayName, dis
           color: 'rgba(255,255,255,0.75)',
           letterSpacing: '0.10em',
           lineHeight: 1.3,
-          ...fitStyle(compFit),
-          ...fade,
+          ...fade(fitStyle(compFit)),
         }}
       >
         {displayCompany}
@@ -355,8 +359,7 @@ function TextColumn({ entry, on, categoryParent, categoryChild, displayName, dis
           lineHeight: 1.15,
           color: '#fff',
           letterSpacing: '0.04em',
-          ...fitStyle(nameFit),
-          ...fade,
+          ...fade(fitStyle(nameFit)),
         }}
       >
         {displayName}
@@ -368,7 +371,7 @@ function TextColumn({ entry, on, categoryParent, categoryChild, displayName, dis
           alignItems: 'baseline',
           gap: 10,
           marginTop: 4,
-          ...fade,
+          ...fade(),
         }}
       >
         <span

@@ -154,7 +154,7 @@ export default function ControlPage() {
         </div>
 
         {/* Right panel: Status + Category */}
-        <div className="w-full lg:w-72 xl:w-80 shrink-0 flex flex-col overflow-hidden">
+        <div className="w-full lg:w-72 xl:w-80 flex-1 min-h-0 lg:flex-none lg:shrink-0 flex flex-col overflow-hidden">
           <StatusBar isLive={isLive} currentStep={currentStep} selectedCat={selectedCat} />
           <div className="flex-1 overflow-y-auto p-3">
             <CategoryPanel awardGroups={awardGroups} cue={cue} sendCue={sendCue} />
