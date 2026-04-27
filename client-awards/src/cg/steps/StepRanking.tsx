@@ -27,7 +27,7 @@ const BAR_INTERVAL = 1100;
 const PHOTO_OFFSET = 280;
 
 export default function StepRanking({ entries, revealLevel, showWinnerBar, stepKey, lang = 'ja' }: Props) {
-  const rows = [...entries].sort((a, b) => a.rank - b.rank);
+  const rows = [...entries].sort((a, b) => a.rank - b.rank).filter((e) => e.rank <= 5);
   const maxPoints = Math.max(...rows.map((r) => r.points), 1);
 
   const [barStarted, setBarStarted] = useState<Record<number, boolean>>({});

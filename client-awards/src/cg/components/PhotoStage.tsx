@@ -191,8 +191,8 @@ export default function PhotoStage({ nominees, rankings, stepKey }: Props) {
       {nominees.map((n, i) => {
         const rank = idToRank.get(n.id);
         const L = layoutFor(n, i);
-        const nameFit = fitText(n.name, baseW, `800 19px 'Noto Sans JP', sans-serif`);
-        const compFit = fitText(n.company, baseW, `600 12px 'Noto Sans JP', sans-serif`);
+        const nameFit = fitText(n.name, baseW, `800 19px 'Noto Sans JP', sans-serif`, true);
+        const compFit = fitText(n.company, baseW, `600 12px 'Noto Sans JP', sans-serif`, true);
         const isOneShotWinner = rank === 1 && stepKey === 'oneshot';
         const showLabel = isNomineeStep;
         const nomineeRevealed = !isNomineeStep || i < nomineesShown;

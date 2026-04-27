@@ -27,12 +27,14 @@ export interface FitResult {
  * @param text       表示テキスト
  * @param containerW 利用可能な横幅（px、1920×1080 ピクセル座標）
  * @param fontStr    Canvas font 文字列  例: "900 38px 'Noto Sans JP', sans-serif"
+ * @param noWrap     true のとき折り返しを行わず scaleX のみで対応（グリッドカード用）
  */
-export function fitText(text: string, containerW: number, fontStr: string): FitResult {
+export function fitText(text: string, containerW: number, fontStr: string, noWrap = false): FitResult {
   const w = measureWidth(text, fontStr);
   if (!w || w <= containerW) return { scaleX: 1, wrap: false };
   const s = containerW / w;
-  return s >= MIN_SCALE ? { scaleX: s, wrap: false } : { scaleX: 1, wrap: true };
+  if (noWrap || s >= MIN_SCALE) return { scaleX: s, wrap: false };
+  return { scaleX: 1, wrap: true };
 }
 
 /** fitResult から CSS style オブジェクトを生成する。 */

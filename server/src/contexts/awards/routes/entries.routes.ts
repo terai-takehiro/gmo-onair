@@ -9,6 +9,21 @@ const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<u
 
 router.use(requireAuth, requirePermission('awards'));
 
+/** ポイント降順でランクを自動再計算し is_winner を更新する */
+async function rerank(categoryId: number): Promise<void> {
+  const entries = await queryAll(
+    `SELECT id FROM awards_entries WHERE category_id=? ORDER BY points DESC NULLS LAST, id ASC`,
+    [categoryId]
+  );
+  for (let i = 0; i < entries.length; i++) {
+    const rank = i + 1;
+    await execute(
+      `UPDATE awards_entries SET rank=?, is_winner=?, updated_at=NOW() WHERE id=?`,
+      [rank, rank === 1, entries[i].id]
+    );
+  }
+}
+
 // ── カテゴリ内エントリ一覧 ──────────────────────────────────
 router.get('/categories/:categoryId/entries', wrap(async (req, res) => {
   const catId = parseInt(req.params.categoryId as string);
@@ -27,37 +42,49 @@ router.post('/categories/:categoryId/entries', wrap(async (req, res) => {
   );
   if (!cat) throw new AppError(404, 'NOT_FOUND', 'カテゴリが見つかりません');
 
-  const { name, name_en, org, org_en, image_id, rank, points, own_points, is_winner } = req.body;
+  const { name, name_en, org, org_en, image_id, points, own_points } = req.body;
   if (!name?.trim()) throw new AppError(400, 'BAD_REQUEST', 'name は必須です');
 
-  const row = await queryOne(
+  await queryOne(
     `INSERT INTO awards_entries (event_id, category_id, name, name_en, org, org_en, image_id, rank, points, own_points, is_winner)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
-    [cat.event_id, catId, name.trim(), name_en ?? null, org ?? null, org_en ?? null, image_id ?? null, rank ?? null, points ?? null, own_points ?? null, is_winner ?? false]
+     VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, false)`,
+    [cat.event_id, catId, name.trim(), name_en ?? null, org ?? null, org_en ?? null, image_id ?? null, points ?? null, own_points ?? null]
   );
-  res.status(201).json({ success: true, data: row });
+  await rerank(catId);
+  const rows = await queryAll(
+    `SELECT * FROM awards_entries WHERE category_id=? ORDER BY rank NULLS LAST, id`,
+    [catId]
+  );
+  res.status(201).json({ success: true, data: rows });
 }));
 
 // ── 更新 ────────────────────────────────────────────────────
 router.put('/entries/:id', wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
-  const { name, name_en, org, org_en, image_id, rank, points, own_points, is_winner } = req.body;
+  const { name, name_en, org, org_en, image_id, points, own_points } = req.body;
   if (!name?.trim()) throw new AppError(400, 'BAD_REQUEST', 'name は必須です');
 
-  const row = await queryOne(
-    `UPDATE awards_entries SET name=?, name_en=?, org=?, org_en=?, image_id=?, rank=?, points=?, own_points=?, is_winner=?, updated_at=NOW()
-     WHERE id=? RETURNING *`,
-    [name.trim(), name_en ?? null, org ?? null, org_en ?? null, image_id ?? null, rank ?? null, points ?? null, own_points ?? null, is_winner ?? false, id]
+  const existing = await queryOne(`SELECT category_id FROM awards_entries WHERE id=?`, [id]);
+  if (!existing) throw new AppError(404, 'NOT_FOUND', 'エントリが見つかりません');
+
+  await execute(
+    `UPDATE awards_entries SET name=?, name_en=?, org=?, org_en=?, image_id=?, points=?, own_points=?, updated_at=NOW()
+     WHERE id=?`,
+    [name.trim(), name_en ?? null, org ?? null, org_en ?? null, image_id ?? null, points ?? null, own_points ?? null, id]
   );
-  if (!row) throw new AppError(404, 'NOT_FOUND', 'エントリが見つかりません');
+  await rerank(existing.category_id as number);
+  const row = await queryOne(`SELECT * FROM awards_entries WHERE id=?`, [id]);
   res.json({ success: true, data: row });
 }));
 
 // ── 削除 ────────────────────────────────────────────────────
 router.delete('/entries/:id', wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
-  const row = await queryOne(`DELETE FROM awards_entries WHERE id=? RETURNING id`, [id]);
-  if (!row) throw new AppError(404, 'NOT_FOUND', 'エントリが見つかりません');
+  const existing = await queryOne(`SELECT category_id FROM awards_entries WHERE id=?`, [id]);
+  if (!existing) throw new AppError(404, 'NOT_FOUND', 'エントリが見つかりません');
+
+  await execute(`DELETE FROM awards_entries WHERE id=?`, [id]);
+  await rerank(existing.category_id as number);
   res.json({ success: true });
 }));
 
@@ -65,7 +92,7 @@ router.delete('/entries/:id', wrap(async (req, res) => {
 router.post('/categories/:categoryId/generate-dummy-points', wrap(async (req, res) => {
   const catId = parseInt(req.params.categoryId as string);
   const entries = await queryAll(
-    `SELECT id, rank FROM awards_entries WHERE category_id=? ORDER BY rank NULLS LAST, id`,
+    `SELECT id FROM awards_entries WHERE category_id=? ORDER BY id`,
     [catId]
   );
   if (!entries.length) throw new AppError(404, 'NOT_FOUND', 'エントリが存在しません');
@@ -76,12 +103,12 @@ router.post('/categories/:categoryId/generate-dummy-points', wrap(async (req, re
     const points = Math.max(500, basePoints - i * step + Math.floor(Math.random() * 200) - 100);
     const ownRatio = 0.20 + Math.random() * 0.20;
     const own_points = Math.round(points * ownRatio);
-    const rank = i + 1;
     await execute(
-      `UPDATE awards_entries SET points=?, own_points=?, rank=?, is_winner=?, updated_at=NOW() WHERE id=?`,
-      [points, own_points, rank, rank === 1, entries[i].id]
+      `UPDATE awards_entries SET points=?, own_points=?, updated_at=NOW() WHERE id=?`,
+      [points, own_points, entries[i].id]
     );
   }
+  await rerank(catId);
   res.json({ success: true, message: `${entries.length} 件のポイントを生成しました` });
 }));
 
