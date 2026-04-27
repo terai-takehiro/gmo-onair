@@ -57,6 +57,8 @@ export async function seed() {
     [USERS.staff1, 'qsheet',      'editor'],
     [USERS.staff1, 'interactive', 'editor'],
     [USERS.staff1, 'techsheet',   'editor'],
+    [USERS.staff1, 'liveops',     'editor'],
+    [USERS.staff1, 'awards',      'editor'],
 
     // staff2 — 鈴木（制作マネージャー寄り）
     [USERS.staff2, 'sales',       'editor'],
@@ -66,6 +68,8 @@ export async function seed() {
     [USERS.staff2, 'qsheet',      'manager'],
     [USERS.staff2, 'interactive', 'manager'],
     [USERS.staff2, 'techsheet',   'manager'],
+    [USERS.staff2, 'liveops',     'manager'],
+    [USERS.staff2, 'awards',      'manager'],
 
     // staff3 — 高橋（制作スタッフ）
     [USERS.staff3, 'sales',       'reader'],
@@ -74,6 +78,8 @@ export async function seed() {
     [USERS.staff3, 'qsheet',      'editor'],
     [USERS.staff3, 'interactive', 'editor'],
     [USERS.staff3, 'techsheet',   'editor'],
+    [USERS.staff3, 'liveops',     'editor'],
+    [USERS.staff3, 'awards',      'editor'],
 
     // staff4 — 田中（経営層・主に閲覧）
     [USERS.staff4, 'sales',       'reader'],
@@ -83,11 +89,15 @@ export async function seed() {
     [USERS.staff4, 'qsheet',      'reader'],
     [USERS.staff4, 'interactive', 'reader'],
     [USERS.staff4, 'techsheet',   'reader'],
+    [USERS.staff4, 'liveops',     'reader'],
+    [USERS.staff4, 'awards',      'reader'],
 
     // staff5 — 山田（限定アクセス）
     [USERS.staff5, 'studio',      'reader'],
     [USERS.staff5, 'qsheet',      'reader'],
     [USERS.staff5, 'techsheet',   'reader'],
+    [USERS.staff5, 'liveops',     'reader'],
+    [USERS.staff5, 'awards',      'reader'],
   ];
 
   for (const [userId, mod, level] of perms) {

@@ -9,6 +9,7 @@ import { ensureStaffPermissions } from './shared/db/ensure-permissions';
 import { initSocketIO, shutdownSocketIO } from './contexts/interactive/socket';
 import { initQsheetSocketIO } from './contexts/qsheet/socket';
 import { initLiveopsSocketIO } from './contexts/liveops';
+import { initAwardsSocketIO } from './contexts/awards';
 
 async function main() {
   await initDb();
@@ -47,6 +48,7 @@ async function main() {
   const io = initSocketIO(httpServer);
   initQsheetSocketIO(io);
   initLiveopsSocketIO(io);
+  initAwardsSocketIO(io);
   app.set('io', io);  // quiz.routes.ts等からSocket.IOにアクセスするため
 
   httpServer.listen(config.port, () => {

@@ -49,7 +49,7 @@ const normalizeLevel = (level: string | undefined): string | undefined => {
 
 // 権限ダイアログで表示するモジュール（順序付き）
 const PERM_MODULES = [
-  "sales", "budget", "studio", "equipment", "qsheet", "techsheet", "liveops", "interactive",
+  "sales", "budget", "studio", "equipment", "qsheet", "techsheet", "liveops", "interactive", "awards",
 ];
 
 interface User {

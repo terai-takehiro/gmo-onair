@@ -172,6 +172,7 @@ router.post('/admin/repair-permissions', requireRole('system_admin'), wrap(async
   const defaultPerms: Record<string, string> = {
     sales: 'reader', budget: 'reader', studio: 'editor',
     equipment: 'reader', qsheet: 'editor', techsheet: 'editor', interactive: 'editor',
+    liveops: 'reader', awards: 'reader',
   };
   const staffUsers = await queryAll(
     `SELECT id FROM users WHERE role = 'staff' AND deleted_at IS NULL`

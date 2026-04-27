@@ -1,0 +1,105 @@
+import { Router, Request, Response, NextFunction } from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import crypto from 'crypto';
+import express from 'express';
+import { execute, queryOne } from '../../../shared/db/connection';
+import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
+import { AppError } from '../../../shared/middleware/errorHandler';
+
+const router = Router();
+const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
+  (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
+
+const UPLOAD_DIR = path.join(__dirname, '../../../../../uploads/awards');
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+const MAGIC: Record<string, number[]> = {
+  '.jpg':  [0xFF, 0xD8, 0xFF],
+  '.png':  [0x89, 0x50, 0x4E, 0x47],
+  '.webp': [0x52, 0x49, 0x46, 0x46],
+};
+
+function detectExt(buf: Buffer): string | null {
+  for (const [ext, sig] of Object.entries(MAGIC)) {
+    if (sig.every((b, i) => buf[i] === b)) return ext;
+  }
+  return null;
+}
+
+// Static image serving (no auth required for CG output)
+router.use('/images', (req, _res, next) => {
+  if (req.path.includes('..')) return next(new AppError(400, 'BAD_REQUEST', 'invalid path'));
+  next();
+});
+router.use('/images', express.static(UPLOAD_DIR, { maxAge: '7d' }));
+
+// ── 顔写真アップロード ──────────────────────────────────────
+router.post(
+  '/entries/:id/photo',
+  requireAuth, requirePermission('awards'),
+  upload.single('photo'),
+  wrap(async (req, res) => {
+    const id = parseInt(req.params.id as string);
+    const entry = await queryOne(`SELECT id FROM awards_entries WHERE id=?`, [id]);
+    if (!entry) throw new AppError(404, 'NOT_FOUND', 'エントリが見つかりません');
+    if (!req.file) throw new AppError(400, 'BAD_REQUEST', 'photo ファイルを添付してください');
+
+    const ext = detectExt(req.file.buffer);
+    if (!ext) throw new AppError(400, 'BAD_REQUEST', 'JPG / PNG / WebP のみ対応');
+
+    const filename = `${crypto.randomUUID()}${ext}`;
+    fs.writeFileSync(path.join(UPLOAD_DIR, filename), req.file.buffer);
+
+    const photoUrl = `/api/v1/internal/awards/images/${filename}`;
+    await execute(
+      `UPDATE awards_entries SET photo_url=?, updated_at=NOW() WHERE id=?`,
+      [photoUrl, id]
+    );
+
+    res.json({ success: true, data: { photoUrl } });
+  })
+);
+
+// ── ZIPアップロード（一括）──────────────────────────────────
+router.post(
+  '/events/:id/photos-zip',
+  requireAuth, requirePermission('awards'),
+  upload.single('zip'),
+  wrap(async (req, res) => {
+    if (!req.file) throw new AppError(400, 'BAD_REQUEST', 'ZIP ファイルを添付してください');
+
+    let AdmZip: new (buf: Buffer) => {
+      getEntries(): { isDirectory: boolean; entryName: string; getData(): Buffer }[];
+    };
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      AdmZip = require('adm-zip');
+    } catch {
+      throw new AppError(500, 'SERVER_ERROR', 'adm-zip が未インストールです。npm install adm-zip を実行してください');
+    }
+
+    const zip = new AdmZip(req.file.buffer);
+    const entries = zip.getEntries();
+    const saved: { filename: string; url: string }[] = [];
+
+    for (const entry of entries) {
+      if (entry.isDirectory) continue;
+      const name = path.basename(entry.entryName);
+      const buf = entry.getData();
+      const ext = detectExt(buf);
+      if (!ext) continue;
+
+      const filename = `${crypto.randomUUID()}${ext}`;
+      fs.writeFileSync(path.join(UPLOAD_DIR, filename), buf);
+      saved.push({ filename: name, url: `/api/v1/internal/awards/images/${filename}` });
+    }
+
+    res.json({ success: true, data: { saved } });
+  })
+);
+
+export default router;

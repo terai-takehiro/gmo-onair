@@ -107,7 +107,7 @@ export function initLiveopsSocketIO(io: IOServer) {
         const token = (socket.handshake.auth as any)?.token as string | undefined
           || extractCookieToken(socket.handshake.headers.cookie as string | undefined);
 
-        if (!token) return next(new Error('Unauthorized'));
+        if (!token) { next(); return; } // トークンなし = read-only 表示用接続を許可
         const payload = verifyToken(token);
         if (!payload) return next(new Error('Unauthorized'));
 
@@ -145,6 +145,7 @@ export function initLiveopsSocketIO(io: IOServer) {
     });
 
     socket.on('timer:set', async ({ timerId, seconds }: { timerId: string; seconds: number }) => {
+      if (!(socket as any).userId) return;
       const clamped = Math.max(0, Math.min(5999, Math.round(seconds)));
       const s = states.get(timerId) || (await loadTimer(timerId)) || ({ id: timerId, warningThresholdSec: 60 } as any);
       const updated: TimerState = {
@@ -160,6 +161,7 @@ export function initLiveopsSocketIO(io: IOServer) {
     });
 
     socket.on('timer:start', async ({ timerId }: { timerId: string }) => {
+      if (!(socket as any).userId) return;
       const s = states.get(timerId);
       if (!s || s.running || s.pausedRemaining <= 0) return;
       const updated: TimerState = { ...s, running: true, startedAt: Date.now() };
@@ -170,6 +172,7 @@ export function initLiveopsSocketIO(io: IOServer) {
     });
 
     socket.on('timer:stop', async ({ timerId }: { timerId: string }) => {
+      if (!(socket as any).userId) return;
       const s = states.get(timerId);
       if (!s || !s.running) return;
       const remaining = s.startedAt != null ? s.pausedRemaining - (Date.now() - s.startedAt) : s.pausedRemaining;
@@ -181,6 +184,7 @@ export function initLiveopsSocketIO(io: IOServer) {
     });
 
     socket.on('timer:reset', async ({ timerId }: { timerId: string }) => {
+      if (!(socket as any).userId) return;
       const s = states.get(timerId);
       if (!s) return;
       const updated: TimerState = {
@@ -194,6 +198,7 @@ export function initLiveopsSocketIO(io: IOServer) {
     });
 
     socket.on('timer:adjust', async ({ timerId, deltaSeconds }: { timerId: string; deltaSeconds: number }) => {
+      if (!(socket as any).userId) return;
       const s = states.get(timerId);
       if (!s) return;
       const updated: TimerState = {

@@ -6,6 +6,23 @@ import { v4 as uuidv4 } from 'uuid';
 const router = Router();
 const canRead = [requireAuth, requirePermission('liveops', 'reader')] as const;
 
+// 公開: 表示画面用（認証不要・ブラウザソース用）
+router.get('/:programId/display', async (req, res) => {
+  try {
+    const rows = await query(
+      `SELECT captured_at, youtube_count, jstream_count, total_count
+       FROM liveops_snapshots
+       WHERE program_id = $1
+       ORDER BY captured_at DESC
+       LIMIT 1`,
+      [req.params.programId]
+    );
+    res.json({ success: true, data: rows });
+  } catch {
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 router.post('/', ...canRead, async (req, res) => {
   try {
     const { programId, youtubeCount, jstreamCount, details } = req.body;

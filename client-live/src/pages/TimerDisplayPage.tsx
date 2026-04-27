@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { useTimer } from '@/hooks/useTimer';
 import { formatTimer, formatCount } from '@/lib/utils';
 import { type TimerPhase } from '@/hooks/useTimer';
-import api from '@/lib/api';
 import { Settings, X } from 'lucide-react';
 import { Switch } from '@gmo-onair/shared/src/client/ui/switch';
 
@@ -60,10 +59,11 @@ export default function TimerDisplayPage() {
     const urlProgram = searchParams.get('programId');
     if (urlProgram) { setProgramId(urlProgram); return; }
     if (!timerId) return;
-    api.get(`/liveops/timers/${timerId}`)
-      .then(r => {
-        const t = r.data.data;
-        setProgramId(t.viewer_overlay_program_id ?? t.program_id ?? null);
+    fetch(`/api/v1/internal/liveops/timers/${timerId}/display`)
+      .then(r => r.json())
+      .then(json => {
+        const t = json.data;
+        if (t) setProgramId(t.viewer_overlay_program_id ?? t.program_id ?? null);
       })
       .catch(() => {});
     // searchParams object 参照は毎回変わるため、文字列値だけを deps にして無限ループを防ぐ
@@ -74,8 +74,9 @@ export default function TimerDisplayPage() {
     if (!programId) return;
     const poll = async () => {
       try {
-        const r = await api.get(`/liveops/snapshots/${programId}?limit=1`);
-        const s = r.data.data?.[0];
+        const r = await fetch(`/api/v1/internal/liveops/snapshots/${programId}/display`);
+        const json = await r.json();
+        const s = json.data?.[0];
         if (s) setCounts({ youtube: s.youtube_count, jstream: s.jstream_count, total: s.total_count });
       } catch { /* ignore */ }
     };
