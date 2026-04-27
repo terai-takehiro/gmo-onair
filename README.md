@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.19 — インタラクティブスタンプの大規模配信耐性向上（サーバー1秒バッチ集約・クライアント300ms集約・WebSocket-only・perMessageDeflate無効化）＋ k6 負荷試験スクリプト追加
+**現在のバージョン**: v2.8.21 — 送出CG・タイマー表示ページをAuth外に分離（ログイン不要化）
 
 ---
 
@@ -383,6 +383,8 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.8.21** | **送出CG・タイマー表示ページをAuth外に分離**: `client-awards/src/App.tsx` と `client-live/src/App.tsx` で、公開ページ（`/awards/output/*`・`/live/display/*`）へのアクセス時に `useAuth()` を呼ばない独立ルーター（`OutputRouter` / `DisplayRouter`）を早期返却する構造に変更。従来は App 全体で `useAuth()` が呼ばれ axios が `/auth/me` を叩いて401→ログインリダイレクトが起きていた問題を根本解決。OBS/vMix ブラウザソースから認証なしで直接アクセス可能になった |
+| **v2.8.20** | **本番ログイン不能バグ修正**: `loginWithToken(undefined)` が `localStorage["gmo_onair_token"] = "undefined"` を書き込む問題を修正。`AuthContext.loginWithToken` でトークンが falsy な場合は `removeItem` に変更。`createApi.ts` のリクエストインターセプターで `"undefined"` / `"null"` 文字列を無視して Cookie にフォールバックするガードを追加 |
 | **v2.8.19** | **インタラクティブスタンプ大規模配信耐性向上**: 1万人同時連打を視野に Socket.IO ブロードキャスト経路を全面再設計。①サーバー側: タップ受信時の即時ブロードキャストを廃止し `broadcastBuffer` にメモリ蓄積、`STAMP_BROADCAST_INTERVAL_MS`(既定1000ms)ごとにスタンプ種類単位で1回だけ集約配信に変更。送信メッセージ数を理論上 5億 msg/s → 数万 msg/s に圧縮。②`perMessageDeflate: false` で WebSocket 圧縮CPUを削減。③クライアント側: `pendingTapsRef` で 300ms 以内のタップを集約してから `socket.emit('stamp', { count })` の単一送信に圧縮、サーバー受信負荷を約 1/2 に削減。④`transports: ['websocket']` のみに固定し polling フォールバック廃止（接続あたりリソース削減）。⑤`scripts/loadtest/` に k6 負荷試験スクリプト一式を追加（`run-loadtest.sh <VUS>` で段階的に 100→10000人を試験可能）。⑥既存クライアント (Overlay/LiveControl/Audience) は `stamp:update` イベント形状が後方互換のため変更不要 |
 | **v2.8.18** | **OneShotカードレイアウト刷新・Canvas測定補正・CG全体プロポーショナルフォント**: ①OneShotカードのレイアウトを全面再設計: 従来の名前左・NO.1右上の構成から「[写真 | テキスト列(flex-1) | NO.1列(160px固定)]」の3カラム構成に変更。NO.1は独立した右カラムに移動し、NO./1を縦積みゴールドグラデーションで巨大表示（52px / 190px Bebas Neue）。②テキスト列の賞名（categoryChild）を38px / fontWeight:700 のゴールドグラデーション大型表示に変更し、部門名（categoryParent）は18px の副次表示に格下げ。名前は58px・会社名は26pxに最適化。③`calcCardW`関数にCanvas API測定補正係数`MEAS_BUF = 1.14`を導入: Canvas `measureText()`はweight-900の日本語CJK文字を約12〜14%過小評価するため、測定値に1.14を乗じてからNO.1カラム分のオーバーヘッドを加算してカード幅を決定。④`TextColumn`の`fade()`を関数化: `...fitStyle(x), ...fade`という展開順で`fade.transform`が`fitStyle.transform`を上書きしてscaleX圧縮が無効化されていたバグを修正。`fade(fitSty?)`が`[translateY, scaleX].join(' ')`で両変換を合成して返す正しい実装に変更。⑤CGSequence全体ルートdivに`fontFeatureSettings: "'palt' 1"`を追加: Noto Sans JPのプロポーショナルメトリクスグリフを有効化し、CG全演出でプロポーショナルフォント組みを適用 |
 | **v2.8.17** | **OneShotテキスト長体圧縮修正・スマホ部門スクロール対応**: ①`fitStyle()`が返す`transform: scaleX(N)`が`fade`オブジェクトのspreadで上書きされ長体圧縮が実際には適用されていなかったバグを修正（v2.8.16の残存不具合）。`fade`を`(fitSty?: CSSProperties) => CSSProperties`関数に変更し`[yT, fitSty?.transform].filter(Boolean).join(' ')`で`translateY`と`scaleX`を合成。cardの`overflow: 'hidden'`も追加して二重の安全網を確保。②ControlPage.tsxのスマホ縦並びレイアウトで右パネル（カテゴリ一覧）がスクロールできない問題を修正: `shrink-0`では`flex-col`内での高さ制約がなく`overflow-y-auto`が機能しないため、`flex-1 min-h-0`（モバイル）＋`lg:flex-none lg:shrink-0`（デスクトップ）に変更 |

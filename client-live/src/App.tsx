@@ -10,14 +10,24 @@ import TimerDisplayPage from './pages/TimerDisplayPage';
 import ProgramsPage from './pages/ProgramsPage';
 import SettingsPage from './pages/SettingsPage';
 
-export default function App() {
+// タイマー表示ページ (/live/display/*) はuseAuthを使わない独立ルーター
+// → useAuth内のaxiosが/auth/meを呼び、401でloginにリダイレクトされるのを防ぐ
+function DisplayRouter() {
+  return (
+    <BrowserRouter basename="/live">
+      <Routes>
+        <Route path="/display/:timerId" element={<TimerDisplayPage />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+function AuthenticatedApp() {
   const { currentUser: user, loading } = useAuth();
 
   return (
     <BrowserRouter basename="/live">
       <Routes>
-        {/* Public display screen — no auth required */}
-        <Route path="/display/:timerId" element={<TimerDisplayPage />} />
         <Route path="/login" element={<LoginPage />} />
 
         {loading ? (
@@ -42,4 +52,12 @@ export default function App() {
       </Routes>
     </BrowserRouter>
   );
+}
+
+export default function App() {
+  // /live/display/* はuseAuth不要 — 認証ミドルウェアを迂回して直接レンダリング
+  if (window.location.pathname.startsWith('/live/display/')) {
+    return <DisplayRouter />;
+  }
+  return <AuthenticatedApp />;
 }

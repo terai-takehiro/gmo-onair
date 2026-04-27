@@ -8,17 +8,24 @@ import ControlPage from './pages/ControlPage';
 import OutputPage from './pages/OutputPage';
 import LoginPage from './pages/LoginPage';
 
-export default function App() {
-  const { currentUser: user, loading } = useAuth();
-
+// 出力ページ (/awards/output/*) はuseAuthを使わない独立ルーター
+// → useAuth内のaxiosが/auth/meを呼び、401でloginにリダイレクトされるのを防ぐ
+function OutputRouter() {
   return (
     <BrowserRouter basename="/awards">
       <Routes>
-        {/* 出力画面: 認証不要（ブラウザソース用） */}
         <Route path="/output/:eventId" element={<OutputPage />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
 
+function AuthenticatedApp() {
+  const { currentUser: user, loading } = useAuth();
+  return (
+    <BrowserRouter basename="/awards">
+      <Routes>
         <Route path="/login" element={<LoginPage />} />
-
         {loading ? (
           <Route
             path="*"
@@ -40,4 +47,12 @@ export default function App() {
       </Routes>
     </BrowserRouter>
   );
+}
+
+export default function App() {
+  // /awards/output/* はuseAuth不要 — 認証ミドルウェアを迂回して直接レンダリング
+  if (window.location.pathname.startsWith('/awards/output/')) {
+    return <OutputRouter />;
+  }
+  return <AuthenticatedApp />;
 }
