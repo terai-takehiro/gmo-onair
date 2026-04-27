@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
@@ -6,6 +6,8 @@ import { useAwardsCue } from '@/hooks/useAwardsCue';
 import { cn } from '@/lib/utils';
 import { ChevronLeft, ExternalLink, Trophy, Radio } from 'lucide-react';
 import type { CgStep, OneshotStyle, CgCategory } from '@/cg/types';
+import CGSequence from '@/cg/CGSequence';
+import { CG_W, CG_H } from '@/cg/types';
 
 interface AwardsEventDetail {
   id: number;
@@ -61,6 +63,18 @@ export default function ControlPage() {
   const awardGroups = useMemo(() => groupByAward(event?.categories ?? []), [event]);
   const selectedCat = event?.categories.find((c) => c.id === cue.categoryId) ?? event?.categories[0];
   const isLive = LIVE_STEPS.includes(cue.step);
+
+  // CG preview scaling
+  const previewRef = useRef<HTMLDivElement>(null);
+  const [previewScale, setPreviewScale] = useState(0.35);
+  useEffect(() => {
+    const update = () => {
+      if (previewRef.current) setPreviewScale(previewRef.current.offsetWidth / CG_W);
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
   const currentStep = STEPS.find((s) => s.step === cue.step);
 
   return (
@@ -87,6 +101,30 @@ export default function ControlPage() {
             <ExternalLink className="h-3.5 w-3.5" />
             出力画面
           </a>
+        </div>
+
+        {/* ── CG Preview ────────────────────────────────────── */}
+        <div
+          ref={previewRef}
+          className="rounded-xl overflow-hidden border border-slate-800 bg-black"
+          style={{ height: Math.round(CG_H * previewScale) }}
+        >
+          <div style={{
+            width: CG_W, height: CG_H,
+            transform: `scale(${previewScale})`,
+            transformOrigin: 'top left',
+            position: 'relative',
+            background: '#000',
+          }}>
+            {event && (
+              <CGSequence
+                cue={cue}
+                category={selectedCat ?? null}
+                eventName={event.name}
+                eventSubtitle={event.subtitle}
+              />
+            )}
+          </div>
         </div>
 
         {/* ── Status panel ──────────────────────────────────── */}
