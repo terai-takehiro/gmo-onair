@@ -10,9 +10,10 @@ interface StageProps {
   /** Event name/subtitle (for title step) */
   eventName?: string;
   eventSubtitle?: string | null;
+  lang?: 'ja' | 'en';
 }
 
-export default function Stage({ category, eventName = '', eventSubtitle }: StageProps) {
+export default function Stage({ category, eventName = '', eventSubtitle, lang = 'ja' }: StageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const { cue, categories } = useAwardsStore();
@@ -55,6 +56,7 @@ export default function Stage({ category, eventName = '', eventSubtitle }: Stage
           category={activeCategory}
           eventName={eventName}
           eventSubtitle={eventSubtitle}
+          lang={lang}
         />
       </div>
     </div>

@@ -18,13 +18,14 @@ interface Props {
   revealLevel: number;
   showWinnerBar: boolean;
   stepKey: CgStep;
+  lang?: 'ja' | 'en';
 }
 
 const STRIP_SETTLE = 800;
 const BAR_INTERVAL = 1100;
 const PHOTO_OFFSET = 280;
 
-export default function StepRanking({ entries, revealLevel, showWinnerBar, stepKey }: Props) {
+export default function StepRanking({ entries, revealLevel, showWinnerBar, stepKey, lang = 'ja' }: Props) {
   const rows = [...entries].sort((a, b) => a.rank - b.rank);
   const maxPoints = Math.max(...rows.map((r) => r.points), 1);
 
@@ -77,6 +78,7 @@ export default function StepRanking({ entries, revealLevel, showWinnerBar, stepK
           revealed={isRevealed(e.rank)}
           nameVisible={nameVisible(e.rank)}
           isFirst={e.rank === 1}
+          lang={lang}
         />
       ))}
     </div>
@@ -89,9 +91,12 @@ interface RowProps {
   revealed: boolean;
   nameVisible: boolean;
   isFirst: boolean;
+  lang?: 'ja' | 'en';
 }
 
-function RankingRow({ entry, widthPct, revealed, nameVisible, isFirst }: RowProps) {
+function RankingRow({ entry, widthPct, revealed, nameVisible, isFirst, lang = 'ja' }: RowProps) {
+  const displayName    = lang === 'en' ? (entry.nameEn || entry.name) : entry.name;
+  const displayCompany = lang === 'en' ? (entry.orgEn  || entry.company) : entry.company;
   const rowTop = rowTopFor(entry.rank);
   const pX = rankPhotoX();
   const bLeft = rankBarLeft();
@@ -240,7 +245,7 @@ function RankingRow({ entry, widthPct, revealed, nameVisible, isFirst }: RowProp
             pointerEvents: 'none',
           }}
         >
-          {(entry.company || entry.role) && (
+          {(displayCompany || entry.role) && (
             <div
               style={{
                 fontFamily: "'Noto Sans JP', sans-serif",
@@ -256,7 +261,7 @@ function RankingRow({ entry, widthPct, revealed, nameVisible, isFirst }: RowProp
                 textShadow: '0 1px 4px rgba(0,0,0,0.85)',
               }}
             >
-              {entry.company}
+              {displayCompany}
               {entry.role ? ` / ${entry.role}` : ''}
             </div>
           )}
@@ -275,7 +280,7 @@ function RankingRow({ entry, widthPct, revealed, nameVisible, isFirst }: RowProp
               textShadow: '0 2px 6px rgba(0,0,0,0.9)',
             }}
           >
-            {entry.name}
+            {displayName}
           </div>
         </div>
 

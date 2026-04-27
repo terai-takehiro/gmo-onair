@@ -27,13 +27,13 @@ router.post('/categories/:categoryId/entries', wrap(async (req, res) => {
   );
   if (!cat) throw new AppError(404, 'NOT_FOUND', 'カテゴリが見つかりません');
 
-  const { name, org, rank, points, own_points, is_winner } = req.body;
+  const { name, name_en, org, org_en, image_id, rank, points, own_points, is_winner } = req.body;
   if (!name?.trim()) throw new AppError(400, 'BAD_REQUEST', 'name は必須です');
 
   const row = await queryOne(
-    `INSERT INTO awards_entries (event_id, category_id, name, org, rank, points, own_points, is_winner)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
-    [cat.event_id, catId, name.trim(), org ?? null, rank ?? null, points ?? null, own_points ?? null, is_winner ?? false]
+    `INSERT INTO awards_entries (event_id, category_id, name, name_en, org, org_en, image_id, rank, points, own_points, is_winner)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+    [cat.event_id, catId, name.trim(), name_en ?? null, org ?? null, org_en ?? null, image_id ?? null, rank ?? null, points ?? null, own_points ?? null, is_winner ?? false]
   );
   res.status(201).json({ success: true, data: row });
 }));
@@ -41,13 +41,13 @@ router.post('/categories/:categoryId/entries', wrap(async (req, res) => {
 // ── 更新 ────────────────────────────────────────────────────
 router.put('/entries/:id', wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
-  const { name, org, rank, points, own_points, is_winner } = req.body;
+  const { name, name_en, org, org_en, image_id, rank, points, own_points, is_winner } = req.body;
   if (!name?.trim()) throw new AppError(400, 'BAD_REQUEST', 'name は必須です');
 
   const row = await queryOne(
-    `UPDATE awards_entries SET name=?, org=?, rank=?, points=?, own_points=?, is_winner=?, updated_at=NOW()
+    `UPDATE awards_entries SET name=?, name_en=?, org=?, org_en=?, image_id=?, rank=?, points=?, own_points=?, is_winner=?, updated_at=NOW()
      WHERE id=? RETURNING *`,
-    [name.trim(), org ?? null, rank ?? null, points ?? null, own_points ?? null, is_winner ?? false, id]
+    [name.trim(), name_en ?? null, org ?? null, org_en ?? null, image_id ?? null, rank ?? null, points ?? null, own_points ?? null, is_winner ?? false, id]
   );
   if (!row) throw new AppError(404, 'NOT_FOUND', 'エントリが見つかりません');
   res.json({ success: true, data: row });

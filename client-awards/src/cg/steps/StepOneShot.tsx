@@ -12,9 +12,10 @@ interface Props {
   style: OneshotStyle;
   categoryParent?: string;
   categoryChild?: string;
+  lang?: 'ja' | 'en';
 }
 
-export default function StepOneShot({ entry, style, categoryParent = '', categoryChild = '' }: Props) {
+export default function StepOneShot({ entry, style, categoryParent = '', categoryChild = '', lang = 'ja' }: Props) {
   const [on, setOn] = useState(false);
   useEffect(() => {
     const t = setTimeout(() => setOn(true), 40);
@@ -30,6 +31,7 @@ export default function StepOneShot({ entry, style, categoryParent = '', categor
       style={style}
       categoryParent={categoryParent}
       categoryChild={categoryChild}
+      lang={lang}
     />
   );
 }
@@ -40,9 +42,10 @@ interface OverlayProps {
   style: OneshotStyle;
   categoryParent: string;
   categoryChild: string;
+  lang: 'ja' | 'en';
 }
 
-function OneShotCardOverlay({ entry, on, style, categoryParent, categoryChild }: OverlayProps) {
+function OneShotCardOverlay({ entry, on, style, categoryParent, categoryChild, lang }: OverlayProps) {
   const cardW = 880;
   const cardH = 620;
   const photoH = 520;
@@ -123,6 +126,7 @@ function OneShotCardOverlay({ entry, on, style, categoryParent, categoryChild }:
           on={on}
           categoryParent={categoryParent}
           categoryChild={categoryChild}
+          lang={lang}
         />
       </div>
     </>
@@ -208,9 +212,12 @@ interface TextProps {
   on: boolean;
   categoryParent: string;
   categoryChild: string;
+  lang: 'ja' | 'en';
 }
 
-function TextColumn({ entry, on, categoryParent, categoryChild }: TextProps) {
+function TextColumn({ entry, on, categoryParent, categoryChild, lang }: TextProps) {
+  const displayName    = lang === 'en' ? (entry.nameEn || entry.name) : entry.name;
+  const displayCompany = lang === 'en' ? (entry.orgEn  || entry.company) : entry.company;
   const D = 350;
   const T = 700;
   const fade: React.CSSProperties = {
@@ -309,7 +316,7 @@ function TextColumn({ entry, on, categoryParent, categoryChild }: TextProps) {
           ...fade,
         }}
       >
-        {entry.company}
+        {displayCompany}
       </div>
 
       <div
@@ -323,7 +330,7 @@ function TextColumn({ entry, on, categoryParent, categoryChild }: TextProps) {
           ...fade,
         }}
       >
-        {entry.name}
+        {displayName}
       </div>
 
       <div

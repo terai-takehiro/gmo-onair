@@ -1,9 +1,27 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import crypto from 'crypto';
 import { execute, queryAll, queryOne, getDb } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { importAwardsExcel } from '../services/excel-import.service';
+
+const UPLOAD_DIR = path.join(__dirname, '../../../../../uploads/awards');
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+const MAGIC: Record<string, number[]> = {
+  '.jpg':  [0xFF, 0xD8, 0xFF],
+  '.png':  [0x89, 0x50, 0x4E, 0x47],
+  '.webp': [0x52, 0x49, 0x46, 0x46],
+};
+function detectExt(buf: Buffer): string | null {
+  for (const [ext, sig] of Object.entries(MAGIC)) {
+    if (sig.every((b, i) => buf[i] === b)) return ext;
+  }
+  return null;
+}
 
 const router = Router();
 const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
@@ -104,12 +122,54 @@ router.post('/events/:id/import-excel', upload.single('file'), wrap(async (req, 
   if (!event) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
   if (!req.file) throw new AppError(400, 'BAD_REQUEST', 'Excel ファイルを添付してください');
 
-  const categoryName: string = (req.body.categoryName as string)?.trim() || 'インポート';
-  const generateDummyPoints = req.body.generateDummyPoints === 'true';
-
-  const result = await importAwardsExcel(req.file.buffer, eventId, categoryName, generateDummyPoints);
+  const result = await importAwardsExcel(req.file.buffer, eventId);
   res.json({ success: true, data: result });
 }));
+
+// ── 画像フォルダ一括インポート（image_id で突合）───────────
+router.post(
+  '/events/:id/import-images',
+  requireAuth, requirePermission('awards'),
+  upload.array('images', 300),
+  wrap(async (req, res) => {
+    const eventId = parseInt(req.params.id as string);
+    const event = await queryOne(`SELECT id FROM awards_events WHERE id=?`, [eventId]);
+    if (!event) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
+
+    const files = req.files as Express.Multer.File[] | undefined;
+    if (!files || files.length === 0) throw new AppError(400, 'BAD_REQUEST', '画像ファイルを添付してください');
+
+    let matched = 0;
+    const unmatched: string[] = [];
+
+    for (const file of files) {
+      const originalName = file.originalname;
+      const imageIdCandidate = originalName.replace(/\.[^.]+$/, ''); // 拡張子なし
+
+      const ext = detectExt(file.buffer);
+      if (!ext) { unmatched.push(originalName); continue; }
+
+      // image_id が一致するエントリを検索
+      const entry = await queryOne(
+        `SELECT id FROM awards_entries WHERE event_id=? AND image_id=?`,
+        [eventId, imageIdCandidate]
+      );
+      if (!entry) { unmatched.push(originalName); continue; }
+
+      const filename = `${crypto.randomUUID()}${ext}`;
+      fs.writeFileSync(path.join(UPLOAD_DIR, filename), file.buffer);
+      const photoUrl = `/api/v1/internal/awards/images/${filename}`;
+
+      await execute(
+        `UPDATE awards_entries SET photo_url=?, updated_at=NOW() WHERE id=?`,
+        [photoUrl, entry.id]
+      );
+      matched++;
+    }
+
+    res.json({ success: true, data: { matched, unmatched } });
+  })
+);
 
 // ── ダミーデータ挿入（Excel なしでテスト用）────────────────
 router.post('/events/:id/seed-dummy', wrap(async (req, res) => {

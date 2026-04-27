@@ -12,6 +12,7 @@ interface Props {
   category: CgCategory | null;
   eventName: string;
   eventSubtitle?: string | null;
+  lang?: 'ja' | 'en';
 }
 
 /** Map API entry to the shape CG components consume. */
@@ -20,7 +21,9 @@ function mapEntry(e: CgCategory['entries'][number]): CgMappedEntry {
     id: String(e.id),
     rank: e.rank ?? 99,
     name: e.name,
+    nameEn: e.name_en ?? undefined,
     company: e.org ?? '',
+    orgEn: e.org_en ?? undefined,
     points: e.points ?? 0,
     ownPoints: e.own_points ?? undefined,
     photo: e.photo_url ?? undefined,
@@ -30,7 +33,7 @@ function mapEntry(e: CgCategory['entries'][number]): CgMappedEntry {
 
 const STEP_ORDER = ['idle', 'title', 'nominees', 'ranks52', 'winner-bar', 'oneshot'] as const;
 
-export default function CGSequence({ cue, category, eventName, eventSubtitle }: Props) {
+export default function CGSequence({ cue, category, eventName, eventSubtitle, lang = 'ja' }: Props) {
   const stepKey = cue.step;
 
   // Map entries
@@ -124,6 +127,7 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle }: 
             revealLevel={revealLevel[stepKey] ?? 0}
             showWinnerBar={showWinnerBar}
             stepKey={stepKey}
+            lang={lang}
           />
         )}
 
@@ -145,6 +149,7 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle }: 
           style={cue.oneshotStyle}
           categoryParent={tweaks.categoryParent}
           categoryChild={tweaks.categoryChild}
+          lang={lang}
         />
       )}
     </div>

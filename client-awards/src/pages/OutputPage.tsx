@@ -18,6 +18,7 @@ export default function OutputPage() {
   const eventId = parseInt(eventIdStr!);
   const [searchParams] = useSearchParams();
   const transparent = searchParams.get('transparent') === '1';
+  const lang = searchParams.get('lang') === 'en' ? 'en' : 'ja';
 
   // Set transparent body for alpha output (OBS / vMix)
   useEffect(() => {
@@ -69,6 +70,7 @@ export default function OutputPage() {
     <Stage
       eventName={event.name}
       eventSubtitle={event.subtitle}
+      lang={lang}
     />
   );
 }

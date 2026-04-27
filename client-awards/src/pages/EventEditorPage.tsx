@@ -13,7 +13,10 @@ interface Entry {
   id: number;
   rank: number | null;
   name: string;
+  name_en: string | null;
   org: string | null;
+  org_en: string | null;
+  image_id: string | null;
   points: number | null;
   own_points: number | null;
   photo_url: string | null;
@@ -116,20 +119,37 @@ function EntryRow({
         className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) onPhotoUpload(f); e.target.value = ''; }}
       />
-      {/* Name */}
+      {/* Name (JA + EN) */}
       <div className="flex-1 min-w-0">
         <InlineText
           value={entry.name}
           onSave={(v) => onUpdate({ name: v })}
-          placeholder="氏名"
+          placeholder="氏名（日本語）"
           className="font-medium truncate"
+        />
+        <InlineText
+          value={entry.name_en ?? ''}
+          onSave={(v) => onUpdate({ name_en: v || null })}
+          placeholder="Name (EN)"
+          className="text-xs text-muted-foreground/70 truncate"
         />
         <InlineText
           value={entry.org ?? ''}
           onSave={(v) => onUpdate({ org: v || null })}
-          placeholder="所属"
+          placeholder="会社名（日本語）"
           className="text-xs text-muted-foreground"
         />
+        <InlineText
+          value={entry.org_en ?? ''}
+          onSave={(v) => onUpdate({ org_en: v || null })}
+          placeholder="Company (EN)"
+          className="text-xs text-muted-foreground/70"
+        />
+        {entry.image_id && (
+          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground/50 font-mono">
+            ID:{entry.image_id}
+          </span>
+        )}
       </div>
       {/* Points */}
       <div className="w-20 text-right">
@@ -179,8 +199,6 @@ export default function EventEditorPage() {
   const [activeTab, setActiveTab] = useState<'info' | 'categories'>('categories');
   const [newCatName, setNewCatName] = useState('');
   const [addingCat, setAddingCat] = useState(false);
-  const [importingCatName, setImportingCatName] = useState('');
-  const [importGenDummy, setImportGenDummy] = useState(false);
 
   const { data: event, isLoading } = useQuery({
     queryKey: ['awards-event', eventId],
@@ -280,18 +298,38 @@ export default function EventEditorPage() {
     onSuccess: invalidate,
   });
 
-  const importExcel = async (file: File, catName: string) => {
+  const importExcel = async (file: File) => {
     const fd = new FormData();
     fd.append('file', file);
-    fd.append('categoryName', catName);
-    if (importGenDummy) fd.append('generateDummyPoints', 'true');
     try {
-      await api.post(`/awards/events/${eventId}/import-excel`, fd, {
+      const res = await api.post(`/awards/events/${eventId}/import-excel`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+      const d = res.data.data as { totalInserted: number; categories: { name: string; inserted: number }[]; warnings: string[] };
+      const catSummary = d.categories.map((c) => `${c.name}: ${c.inserted}件`).join(', ');
+      const msg = `インポート完了: ${d.totalInserted}件 (${catSummary})`;
+      const warnings = d.warnings?.length ? `\n⚠ ${d.warnings.join('\n⚠ ')}` : '';
+      alert(msg + warnings);
       invalidate();
     } catch (err: any) {
       alert(`インポートエラー: ${err?.response?.data?.error?.message ?? err.message}`);
+    }
+  };
+
+  const importImages = async (files: FileList) => {
+    const fd = new FormData();
+    for (const f of Array.from(files)) fd.append('images', f);
+    try {
+      const res = await api.post(`/awards/events/${eventId}/import-images`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      const d = res.data.data as { matched: number; unmatched: string[] };
+      const msg = `${d.matched}件の写真をマッチしました`;
+      const un = d.unmatched.length ? `\n未マッチ(${d.unmatched.length}件): ${d.unmatched.slice(0, 5).join(', ')}${d.unmatched.length > 5 ? '...' : ''}` : '';
+      alert(msg + un);
+      invalidate();
+    } catch (err: any) {
+      alert(`画像インポートエラー: ${err?.response?.data?.error?.message ?? err.message}`);
     }
   };
 
@@ -385,25 +423,24 @@ export default function EventEditorPage() {
                 className="hidden"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
-                  if (f) {
-                    const catName = prompt('カテゴリ名を入力してください', importingCatName || 'インポート') ?? '';
-                    if (catName.trim()) {
-                      setImportingCatName(catName.trim());
-                      importExcel(f, catName.trim());
-                    }
-                  }
+                  if (f) importExcel(f);
                   e.target.value = '';
                 }}
               />
             </label>
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+            <label className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm hover:bg-muted transition-colors cursor-pointer text-muted-foreground">
+              <Upload className="h-4 w-4" />
+              画像フォルダ読込
               <input
-                type="checkbox"
-                checked={importGenDummy}
-                onChange={(e) => setImportGenDummy(e.target.checked)}
-                className="rounded"
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files?.length) importImages(e.target.files);
+                  e.target.value = '';
+                }}
               />
-              ポイント自動生成
             </label>
           </div>
 

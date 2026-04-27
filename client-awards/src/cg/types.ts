@@ -11,7 +11,9 @@ export interface CgMappedEntry {
   id: string;
   rank: number;
   name: string;
+  nameEn?: string;
   company: string;
+  orgEn?: string;
   points: number;
   ownPoints?: number;
   photo?: string;
@@ -25,7 +27,9 @@ export interface CgEntry {
   id: number;
   rank: number | null;
   name: string;
+  name_en: string | null;
   org: string | null;
+  org_en: string | null;
   points: number | null;
   own_points: number | null;
   photo_url: string | null;
