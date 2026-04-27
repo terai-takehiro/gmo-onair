@@ -52,9 +52,10 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-noreply@gmo-onair.jp}
-      # BOX 連携 (v2.7.0+) — 未設定なら BOX 連携無効
+      # BOX 連携 (v2.7.0+ / v2.7.10 で社内/社外フォルダ分離)
       BOX_CONFIG_JSON: ${BOX_CONFIG_JSON:-}
       BOX_PROJECT_PARENT_FOLDER_ID: ${BOX_PROJECT_PARENT_FOLDER_ID:-}
+      BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL: ${BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL:-}
       # CoNoHa VPS スケーリング (v2.7.1+) — 未設定なら resize は 503 NOT_CONFIGURED
       CONOHA_API_USERNAME: ${CONOHA_API_USERNAME:-}
       CONOHA_API_PASSWORD: ${CONOHA_API_PASSWORD:-}
@@ -85,9 +86,10 @@ services:
       ALLOWED_ORIGINS: https://dev.gmo-onair.jp
       # v2.5.0: dev でも本番同様の email/password 認証を有効化
       AUTH_MODE: password
-      # BOX 連携 (v2.7.0+) — dev/prod で同じ親フォルダを使ってもよいし別にしてもよい
+      # BOX 連携 (v2.7.0+ / v2.7.10) — dev/prod で同じ親フォルダを使ってもよいし別にしてもよい
       BOX_CONFIG_JSON: ${BOX_CONFIG_JSON_DEV:-${BOX_CONFIG_JSON:-}}
       BOX_PROJECT_PARENT_FOLDER_ID: ${BOX_PROJECT_PARENT_FOLDER_ID_DEV:-${BOX_PROJECT_PARENT_FOLDER_ID:-}}
+      BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL: ${BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL_DEV:-${BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL:-}}
       # CoNoHa VPS スケーリング (v2.7.1+) — dev も同じ VPS をリサイズするので prod と共有
       CONOHA_API_USERNAME: ${CONOHA_API_USERNAME:-}
       CONOHA_API_PASSWORD: ${CONOHA_API_PASSWORD:-}

@@ -20,7 +20,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator, AlertTriangle, Info, CalendarDays, FileText, Calendar, Plus, Pencil, Trash2, Check } from "lucide-react";
+import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator, AlertTriangle, Info, CalendarDays, FileText, Calendar, Plus, Pencil, Trash2, Check, FolderPlus } from "lucide-react";
 import StudioBookingDialog from "@/contexts/production/components/studio/StudioBookingDialog";
 import { Switch } from "@/components/ui/switch";
 import { ToggleButtonGroup } from "@gmo-onair/shared/src/client/ui/toggle-button-group";
@@ -278,6 +278,38 @@ export default function ProjectFormPage() {
       setGlsResult({ open: true, glsNumber: data.data.gls_number });
     },
   });
+
+  // BOX フォルダ手動作成 (既存案件のバックフィル / 失敗ケースのリトライ)
+  const createBoxFolderMutation = useMutation({
+    mutationFn: async () => (await api.post(`/projects/${id}/create-box-folder`)).data,
+    onSuccess: (data) => {
+      const url = data?.data?.url;
+      if (url) {
+        const cType = watch("customer_type");
+        const field = cType === "internal" ? "box_url_internal" : "box_url_external";
+        setValue(field, url, { shouldDirty: false });
+      }
+      qc.invalidateQueries({ queryKey: ["project", id] });
+      window.alert(data?.data?.already
+        ? "既に BOX フォルダが登録されています"
+        : "✓ BOX フォルダを作成しました");
+    },
+    onError: (err: any) => {
+      const code = err?.response?.data?.error?.code;
+      const msg = err?.response?.data?.error?.message || err?.message || '不明なエラー';
+      const friendly = code === 'BOX_NOT_CONFIGURED'
+        ? 'BOX 連携が未設定です。管理者に環境変数の設定を依頼してください。'
+        : code === 'BOX_FOLDER_CREATE_FAILED'
+          ? 'BOX フォルダ作成に失敗しました。親フォルダ ID 設定を確認してください。'
+          : `BOX フォルダ作成に失敗しました: ${msg}`;
+      window.alert(friendly);
+    },
+  });
+
+  const handleCreateBoxFolder = () => {
+    if (!window.confirm("BOX に案件フォルダを作成しますか？")) return;
+    createBoxFolderMutation.mutate();
+  };
 
   const handleGlsConfirm = () => {
     if (glsDialog.mode === 'link') {
@@ -674,11 +706,28 @@ export default function ProjectFormPage() {
                 <Label>社内限Box URL</Label>
                 <div className="flex gap-2">
                   <Input {...register("box_url_internal")} type="url" placeholder="https://gmo.box.com/..." className="flex-1" />
-                  {watch("box_url_internal") && (
+                  {watch("box_url_internal") ? (
                     <a href={watch("box_url_internal")} target="_blank" rel="noopener noreferrer"
                       className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-input bg-background hover:bg-accent text-muted-foreground">
                       <ExternalLink className="h-4 w-4" />
                     </a>
+                  ) : (
+                    isEdit && watch("customer_type") === "internal" && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCreateBoxFolder}
+                        disabled={createBoxFolderMutation.isPending}
+                        className="shrink-0 gap-1.5"
+                        title="BOX に案件フォルダを作成"
+                      >
+                        {createBoxFolderMutation.isPending
+                          ? <Loader2 className="h-4 w-4 animate-spin" />
+                          : <FolderPlus className="h-4 w-4" />}
+                        <span className="hidden sm:inline">BOX 作成</span>
+                      </Button>
+                    )
                   )}
                 </div>
               </div>
@@ -686,11 +735,28 @@ export default function ProjectFormPage() {
                 <Label>外部共有Box URL</Label>
                 <div className="flex gap-2">
                   <Input {...register("box_url_external")} type="url" placeholder="https://gmo.box.com/..." className="flex-1" />
-                  {watch("box_url_external") && (
+                  {watch("box_url_external") ? (
                     <a href={watch("box_url_external")} target="_blank" rel="noopener noreferrer"
                       className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-input bg-background hover:bg-accent text-muted-foreground">
                       <ExternalLink className="h-4 w-4" />
                     </a>
+                  ) : (
+                    isEdit && watch("customer_type") === "external" && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCreateBoxFolder}
+                        disabled={createBoxFolderMutation.isPending}
+                        className="shrink-0 gap-1.5"
+                        title="BOX に案件フォルダを作成"
+                      >
+                        {createBoxFolderMutation.isPending
+                          ? <Loader2 className="h-4 w-4 animate-spin" />
+                          : <FolderPlus className="h-4 w-4" />}
+                        <span className="hidden sm:inline">BOX 作成</span>
+                      </Button>
+                    )
                   )}
                 </div>
               </div>

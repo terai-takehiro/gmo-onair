@@ -585,7 +585,7 @@ export default function StudioBookingDialog({
                               style={selectedRoomIds.has(room.id) ? { backgroundColor: room.color } : undefined}
                             >
                               <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: room.color }} />
-                              <span className="truncate">{room.name}</span>
+                              <span className="whitespace-normal break-words leading-snug">{room.name}</span>
                             </button>
                           ))}
                         </div>

@@ -2,6 +2,7 @@ declare module 'box-node-sdk' {
   interface BoxClient {
     folders: {
       create(parentId: string, name: string): Promise<{ id: string }>;
+      update(folderId: string, updates: { name?: string }): Promise<{ id: string }>;
     };
   }
 
