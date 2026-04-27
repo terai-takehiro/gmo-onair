@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.4 — ホームページに「アワードCG」ブロックアプリ追加
+**現在のバージョン**: v2.8.5 — 表彰CGデザイン全面刷新（Claude Designの放送用ゴールドデザイン移植）
 
 ---
 
@@ -383,6 +383,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.8.5** | **表彰CGデザイン全面刷新**: Claude Design制作の放送用ゴールドデザイン（Bebas Neue + Noto Sans JP / #F5D76E金パレット）を移植。PhotoStageによる写真モーフィング、PersistentHeaderのシーン間モーフ、CGBackground、CountUp、PortraitPlaceholder、全4 OneShotエフェクト刷新 |
 | **v2.8.4** | **ホームページ「アプリを起動」セクションに「アワードCG」ブロック追加** |
 | **v2.8.3** | **表彰CG ブロックアプリ (`client-awards/`) 新規追加**。①`/awards/` でホスト、ポート 5179 (dev)。②DB マイグレーション `069_awards_schema.sql` (awards_events / categories / entries / cue_state)。③Socket.IO `/awards` 名前空間でリアルタイム cue 同期。④Excel インポート + ダミーデータ生成 + ダミーポイント自動生成。⑤CG 演出: タイトル / ノミニー / ランキング (5→2) / 大賞バー / 一発表示 4 スタイル (Classic / Shards / Spotlight / Slit)。⑥OBS / vMix ブラウザソース向け透過出力 (`?transparent=1`) |
 | **v2.8.7** | **Q シート改修 v2.8.3-v2.8.6 をロールバック (UX 改善が不十分、再設計のため一旦戻す)**。①4 コミット (`5b5c86a` v2.8.3 サムネ拡大 + 動画セル背景 / `a043bae` v2.8.4 LED/XR セル構造化 + 後方互換 / `b634aad` v2.8.5 LED/XR シーンマスタ / `004e877` v2.8.6 Rundown Video 列) を `git revert -n` で逆順に取り消し、1 つの取り消しコミットにまとめる。②**機能としては v2.8.2 と同等**: 画像サムネは 24x24px に戻る、動画セル背景はなし、LED/XR セルは自由テキスト textarea のみ、Rundown は Video 列なし。③**履歴は保持**: 元の 4 コミットは履歴に残るので、cherry-pick で部分採用や、再設計後に再投入可能。④v2.8.3 に投入したサムネ拡大 + 動画セル背景は方向性として悪くなかったが、LED/XR と Rundown 改修が現場フローに合わなかった可能性。次回は実機操作を含めた要件すり合わせから再着手予定 |

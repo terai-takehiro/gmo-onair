@@ -6,6 +6,19 @@ export type CgStep =
   | 'winner-bar'
   | 'oneshot';
 
+/** Normalised entry shape used by all CG render components. */
+export interface CgMappedEntry {
+  id: string;
+  rank: number;
+  name: string;
+  company: string;
+  points: number;
+  ownPoints?: number;
+  photo?: string;
+  role?: string;
+  is_winner?: boolean;
+}
+
 export type OneshotStyle = 'classic' | 'shards' | 'spotlight' | 'slit';
 
 export interface CgEntry {

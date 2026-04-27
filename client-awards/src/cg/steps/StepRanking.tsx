@@ -1,216 +1,363 @@
-import { useEffect, useState } from 'react';
-import type { CgCategory } from '../types';
-import { BAR_INTERVAL, PHOTO_OFFSET } from '../types';
-import PhotoStage from '../components/PhotoStage';
+import { useState, useEffect } from 'react';
+import type { CgStep, CgMappedEntry } from '../types';
+import CountUp from '../components/CountUp';
+import {
+  RANK_PAD_X,
+  ROW_H,
+  RANK_PHOTO_H,
+  RANK_PHOTO_W,
+  CG_W,
+  rowTopFor,
+  rankPhotoX,
+  rankBarLeft,
+  rankBarFullW,
+} from '../layout';
 
-interface StepRankingProps {
-  category: CgCategory | null;
-  eventName: string;
+interface Props {
+  entries: CgMappedEntry[];
+  revealLevel: number;
+  showWinnerBar: boolean;
+  stepKey: CgStep;
 }
 
-const RANK_COLORS: Record<number, { bar: string; accent: string; rank: string }> = {
-  5: { bar: 'rgba(148,163,184,0.15)', accent: '#94a3b8', rank: '#94a3b8' },
-  4: { bar: 'rgba(100,116,139,0.18)', accent: '#64748b', rank: '#94a3b8' },
-  3: { bar: 'rgba(205,127,50,0.20)',  accent: '#cd7f32', rank: '#cd7f32' },
-  2: { bar: 'rgba(192,192,192,0.22)', accent: '#c0c0c0', rank: '#c0c0c0' },
-};
+const STRIP_SETTLE = 800;
+const BAR_INTERVAL = 1100;
+const PHOTO_OFFSET = 280;
 
-const RANK_LABEL: Record<number, string> = { 2: '2nd', 3: '3rd', 4: '4th', 5: '5th' };
+export default function StepRanking({ entries, revealLevel, showWinnerBar, stepKey }: Props) {
+  const rows = [...entries].sort((a, b) => a.rank - b.rank);
+  const maxPoints = Math.max(...rows.map((r) => r.points), 1);
 
-export default function StepRanking({ category, eventName }: StepRankingProps) {
-  const [visibleCount, setVisibleCount] = useState(0);
-  const [photoVisible, setPhotoVisible] = useState<Set<number>>(new Set());
-
-  // Ranked entries 5→2 (exclude rank 1)
-  const entries = category
-    ? [...category.entries]
-        .filter((e) => e.rank !== null && e.rank >= 2 && e.rank <= 5)
-        .sort((a, b) => (b.rank ?? 0) - (a.rank ?? 0)) // 5,4,3,2 order
-    : [];
+  const [barStarted, setBarStarted] = useState<Record<number, boolean>>({});
+  const [inserted, setInserted] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
-    if (!entries.length) return;
+    if (stepKey !== 'ranks52') {
+      setBarStarted({});
+      setInserted({});
+      return;
+    }
     const timers: ReturnType<typeof setTimeout>[] = [];
-
-    entries.forEach((_, i) => {
-      const t1 = setTimeout(() => {
-        setVisibleCount(i + 1);
-      }, i * BAR_INTERVAL);
-
-      const t2 = setTimeout(() => {
-        setPhotoVisible((prev) => new Set([...prev, i]));
-      }, i * BAR_INTERVAL + PHOTO_OFFSET);
-
-      timers.push(t1, t2);
+    ([5, 4, 3, 2] as const).forEach((rank, i) => {
+      timers.push(
+        setTimeout(
+          () => setBarStarted((p) => ({ ...p, [rank]: true })),
+          STRIP_SETTLE + i * BAR_INTERVAL,
+        ),
+      );
+      timers.push(
+        setTimeout(
+          () => setInserted((p) => ({ ...p, [rank]: true })),
+          STRIP_SETTLE + i * BAR_INTERVAL + PHOTO_OFFSET,
+        ),
+      );
     });
-
     return () => timers.forEach(clearTimeout);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [stepKey]);
+
+  const isRevealed = (rank: number): boolean => {
+    if (rank === 1) return showWinnerBar;
+    if (stepKey === 'ranks52') return barStarted[rank] === true;
+    return (6 - rank) <= revealLevel;
+  };
+
+  const nameVisible = (rank: number): boolean => {
+    if (rank === 1) return false;
+    if (stepKey === 'ranks52') return inserted[rank] === true;
+    return isRevealed(rank);
+  };
+
+  return (
+    <div style={{ position: 'absolute', inset: 0 }}>
+      {rows.map((e) => (
+        <RankingRow
+          key={e.id}
+          entry={e}
+          widthPct={(e.points / maxPoints) * 100}
+          revealed={isRevealed(e.rank)}
+          nameVisible={nameVisible(e.rank)}
+          isFirst={e.rank === 1}
+        />
+      ))}
+    </div>
+  );
+}
+
+interface RowProps {
+  entry: CgMappedEntry;
+  widthPct: number;
+  revealed: boolean;
+  nameVisible: boolean;
+  isFirst: boolean;
+}
+
+function RankingRow({ entry, widthPct, revealed, nameVisible, isFirst }: RowProps) {
+  const rowTop = rowTopFor(entry.rank);
+  const pX = rankPhotoX();
+  const bLeft = rankBarLeft();
+  const bFullW = rankBarFullW();
+
+  const [grown, setGrown] = useState(false);
+  useEffect(() => {
+    if (revealed && !grown) {
+      const t = setTimeout(() => setGrown(true), 80);
+      return () => clearTimeout(t);
+    }
+  }, [revealed, grown]);
+
+  const ownRatio =
+    entry.ownPoints && entry.points
+      ? Math.min(1, entry.ownPoints / entry.points)
+      : 0;
+  const ownPct =
+    entry.ownPoints && entry.points
+      ? Math.round((entry.ownPoints / entry.points) * 100)
+      : null;
 
   return (
     <div
-      className="absolute inset-0"
-      style={{ background: 'linear-gradient(160deg, #070714 0%, #0d1428 100%)' }}
+      style={{
+        position: 'absolute',
+        left: RANK_PAD_X,
+        top: rowTop,
+        width: CG_W - RANK_PAD_X * 2,
+        height: ROW_H,
+        opacity: revealed ? 1 : 0.14,
+        transition: 'opacity 500ms ease',
+      }}
     >
-      {/* Header */}
-      <div style={{ position: 'absolute', top: 60, left: 96 }}>
-        <p
-          className="cg-fade-in text-amber-400/80 uppercase tracking-widest"
-          style={{ fontSize: 22, fontFamily: "'Bebas Neue', sans-serif" }}
-        >
-          {category?.name ?? ''}
-        </p>
-        <h2
-          className="cg-fade-in text-white mt-1"
-          style={{ fontSize: 44, fontFamily: "'Noto Serif JP', serif", fontWeight: 700 }}
-        >
-          {eventName}
-        </h2>
-      </div>
-
-      {/* Bars */}
+      {/* Rank number */}
       <div
         style={{
           position: 'absolute',
-          top: 220,
           left: 0,
-          right: 0,
+          top: 0,
+          width: 90,
+          height: ROW_H,
           display: 'flex',
-          flexDirection: 'column',
-          gap: 16,
-          padding: '0 96px',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          fontFamily: "'Bebas Neue', sans-serif",
+          fontSize: 72,
+          lineHeight: 1,
+          background:
+            'linear-gradient(180deg, #e8dcb6 0%, #bfa15a 55%, #6e5321 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          letterSpacing: '0.02em',
+          animation: revealed ? 'cgRankPop 600ms cubic-bezier(.3,1.4,.5,1) both' : 'none',
         }}
       >
-        {entries.map((entry, i) => {
-          const rank = entry.rank ?? (5 - i);
-          const colors = RANK_COLORS[rank] ?? RANK_COLORS[5];
-          const shown = i < visibleCount;
-          const photoShown = photoVisible.has(i);
+        {entry.rank}
+      </div>
 
-          return (
+      {/* Photo slot frame (PhotoStage renders the actual photo here) */}
+      <div
+        style={{
+          position: 'absolute',
+          left: pX - RANK_PAD_X,
+          top: (ROW_H - RANK_PHOTO_H) / 2,
+          width: RANK_PHOTO_W,
+          height: RANK_PHOTO_H,
+          border: '1px solid rgba(201,162,75,0.35)',
+          background: 'rgba(0,0,0,0.35)',
+          opacity: revealed ? 1 : 0,
+          transition: 'opacity 500ms ease',
+        }}
+      />
+
+      {/* Bar area */}
+      <div
+        style={{
+          position: 'absolute',
+          left: bLeft - RANK_PAD_X,
+          top: (ROW_H - RANK_PHOTO_H) / 2,
+          width: bFullW,
+          height: RANK_PHOTO_H,
+        }}
+      >
+        {/* Proportional fill */}
+        <div
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: grown ? `${widthPct}%` : '0%',
+            transition: 'width 800ms cubic-bezier(.22,1,.36,1)',
+            overflow: 'hidden',
+            border: isFirst
+              ? '1px solid rgba(245,215,110,0.9)'
+              : '1px solid rgba(201,162,75,0.55)',
+            background: isFirst
+              ? 'linear-gradient(180deg, #C9A24B 0%, #8C6314 100%)'
+              : 'linear-gradient(180deg, rgba(140,99,20,0.85) 0%, rgba(110,83,33,0.85) 100%)',
+          }}
+        >
+          {ownRatio > 0 && (
             <div
-              key={entry.id}
-              className="cg-rank-bar"
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                height: 128,
-                borderRadius: 8,
-                background: shown ? colors.bar : 'transparent',
-                border: shown ? `1px solid ${colors.accent}30` : 'none',
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: `${ownRatio * 100}%`,
+                background: isFirst
+                  ? 'linear-gradient(180deg, #FFEFB0 0%, #F5D76E 100%)'
+                  : 'linear-gradient(180deg, #F5D76E 0%, #C9A24B 100%)',
+              }}
+            />
+          )}
+          {ownRatio > 0 && ownRatio < 1 && (
+            <div
+              style={{
+                position: 'absolute',
+                left: `${ownRatio * 100}%`,
+                top: 0,
+                bottom: 0,
+                width: 2,
+                background: '#0a0705',
+                transform: 'translateX(-1px)',
+              }}
+            />
+          )}
+        </div>
+
+        {/* Name (slides in after bar grows) */}
+        <div
+          style={{
+            position: 'absolute',
+            left: 24,
+            top: 0,
+            bottom: 0,
+            right: 320,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            opacity: nameVisible ? 1 : 0,
+            transform: nameVisible ? 'translateX(0)' : 'translateX(-24px)',
+            transition: 'opacity 420ms ease, transform 540ms cubic-bezier(.2,.8,.2,1)',
+            pointerEvents: 'none',
+          }}
+        >
+          {(entry.company || entry.role) && (
+            <div
+              style={{
+                fontFamily: "'Noto Sans JP', sans-serif",
+                fontSize: 13,
+                fontWeight: 700,
+                letterSpacing: '0.28em',
+                color: isFirst ? '#fff8d8' : '#fffdf2',
+                paddingLeft: '0.28em',
+                marginBottom: 2,
+                whiteSpace: 'nowrap',
                 overflow: 'hidden',
-                animationDelay: `${i * BAR_INTERVAL}ms`,
-                opacity: shown ? 1 : 0,
-                transition: 'opacity 0.1s',
-                backdropFilter: 'blur(4px)',
+                textOverflow: 'ellipsis',
+                textShadow: '0 1px 4px rgba(0,0,0,0.85)',
               }}
             >
-              {shown && (
-                <>
-                  {/* Rank number */}
-                  <div
-                    style={{
-                      width: 160,
-                      textAlign: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontFamily: "'Bebas Neue', sans-serif",
-                        fontSize: 72,
-                        color: colors.rank,
-                        lineHeight: 1,
-                      }}
-                    >
-                      {RANK_LABEL[rank] ?? `${rank}th`}
-                    </span>
-                  </div>
-
-                  {/* Photo */}
-                  <div
-                    className={photoShown ? 'cg-rank-photo' : ''}
-                    style={{
-                      width: 96,
-                      height: 96,
-                      borderRadius: '50%',
-                      overflow: 'hidden',
-                      flexShrink: 0,
-                      outline: `2px solid ${colors.accent}60`,
-                      opacity: photoShown ? 1 : 0,
-                      transition: 'opacity 0.2s',
-                      animationDelay: `${PHOTO_OFFSET}ms`,
-                    }}
-                  >
-                    <PhotoStage src={entry.photo_url} alt={entry.name} className="w-full h-full" />
-                  </div>
-
-                  {/* Name / Org */}
-                  <div style={{ marginLeft: 32, flex: 1, minWidth: 0 }}>
-                    <p
-                      style={{
-                        fontFamily: "'Noto Sans JP', sans-serif",
-                        fontSize: 44,
-                        fontWeight: 700,
-                        color: '#fff',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      {entry.name}
-                    </p>
-                    {entry.org && (
-                      <p
-                        style={{
-                          fontFamily: "'Noto Sans JP', sans-serif",
-                          fontSize: 26,
-                          color: 'rgba(255,255,255,0.55)',
-                          marginTop: 4,
-                        }}
-                      >
-                        {entry.org}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Points */}
-                  {entry.points != null && (
-                    <div
-                      style={{
-                        marginRight: 48,
-                        textAlign: 'right',
-                        flexShrink: 0,
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontFamily: "'Bebas Neue', sans-serif",
-                          fontSize: 52,
-                          color: colors.accent,
-                          letterSpacing: '0.05em',
-                        }}
-                      >
-                        {entry.points.toLocaleString()}
-                      </span>
-                      <span
-                        style={{
-                          fontFamily: "'Noto Sans JP', sans-serif",
-                          fontSize: 20,
-                          color: 'rgba(255,255,255,0.4)',
-                          marginLeft: 8,
-                        }}
-                      >
-                        pt
-                      </span>
-                    </div>
-                  )}
-                </>
-              )}
+              {entry.company}
+              {entry.role ? ` / ${entry.role}` : ''}
             </div>
-          );
-        })}
+          )}
+          <div
+            style={{
+              fontFamily: "'Noto Sans JP', sans-serif",
+              fontWeight: 900,
+              fontSize: isFirst ? 36 : 30,
+              color: '#fff',
+              letterSpacing: '0.06em',
+              paddingLeft: '0.06em',
+              lineHeight: 1.1,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              textShadow: '0 2px 6px rgba(0,0,0,0.9)',
+            }}
+          >
+            {entry.name}
+          </div>
+        </div>
+
+        {/* Points readout (right side) */}
+        <div
+          style={{
+            position: 'absolute',
+            right: 16,
+            top: 0,
+            bottom: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-end',
+            justifyContent: 'center',
+            gap: 2,
+            opacity: revealed ? (grown ? 1 : 0) : 0,
+            transition: 'opacity 400ms ease 200ms',
+            pointerEvents: 'none',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+            <span
+              style={{
+                fontFamily: "'Bebas Neue', sans-serif",
+                fontSize: isFirst ? 64 : 52,
+                lineHeight: 1,
+                color: '#fff',
+                letterSpacing: '0.02em',
+                textShadow: '0 2px 6px rgba(0,0,0,0.9)',
+              }}
+            >
+              <CountUp value={grown ? entry.points : 0} duration={800} />
+            </span>
+            <span
+              style={{
+                fontFamily: "'Bebas Neue', sans-serif",
+                fontSize: isFirst ? 18 : 15,
+                color: '#F5D76E',
+                letterSpacing: '0.2em',
+              }}
+            >
+              PT
+            </span>
+          </div>
+          {ownPct != null && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: 6,
+                marginTop: 4,
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: "'Noto Sans JP', sans-serif",
+                  fontSize: 15,
+                  fontWeight: 700,
+                  color: '#FFEFB0',
+                  opacity: 0.9,
+                  letterSpacing: '0.12em',
+                }}
+              >
+                自社票
+              </span>
+              <span
+                style={{
+                  fontFamily: "'Bebas Neue', sans-serif",
+                  fontSize: isFirst ? 38 : 32,
+                  lineHeight: 1,
+                  color: '#FFEFB0',
+                  letterSpacing: '0.04em',
+                  textShadow: '0 2px 6px rgba(0,0,0,0.9)',
+                }}
+              >
+                <CountUp value={grown ? ownPct : 0} duration={700} />%
+              </span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
+

@@ -1,58 +1,59 @@
-interface StepTitleProps {
-  eventName: string;
-  eventSubtitle?: string | null;
-  categoryName?: string;
-}
-
-export default function StepTitle({ eventName, eventSubtitle, categoryName }: StepTitleProps) {
+export default function StepTitle() {
   return (
     <div
-      className="absolute inset-0 flex flex-col items-center justify-center"
       style={{
-        background: 'linear-gradient(135deg, #0a0a1a 0%, #1a1a3e 50%, #0a1428 100%)',
+        position: 'absolute',
+        inset: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+        textAlign: 'center',
+        paddingBottom: 220,
       }}
     >
-      {/* Decorative lines */}
-      <div className="absolute inset-x-0 top-1/3 h-px bg-gradient-to-r from-transparent via-amber-400/40 to-transparent" />
-      <div className="absolute inset-x-0 bottom-1/3 h-px bg-gradient-to-r from-transparent via-amber-400/20 to-transparent" />
-
-      <div className="text-center px-24 relative z-10">
-        {categoryName && (
-          <p
-            className="cg-title-sub text-white/60 uppercase tracking-[0.3em] mb-6"
-            style={{ fontSize: 32, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '0.3em' }}
-          >
-            {categoryName}
-          </p>
-        )}
-
-        <h1
-          className="cg-title-main text-white leading-tight"
-          style={{
-            fontSize: 96,
-            fontFamily: "'Noto Serif JP', serif",
-            fontWeight: 700,
-            textShadow: '0 4px 40px rgba(251,191,36,0.3)',
-          }}
-        >
-          {eventName}
-        </h1>
-
-        {eventSubtitle && (
-          <p
-            className="cg-title-sub mt-6 text-white/70"
-            style={{ fontSize: 36, fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 300 }}
-          >
-            {eventSubtitle}
-          </p>
-        )}
-
-        {/* Trophy icon decoration */}
-        <div
-          className="cg-title-sub mx-auto mt-10 opacity-30"
-          style={{ width: 2, height: 80, background: 'linear-gradient(to bottom, #fbbf24, transparent)' }}
-        />
+      <FrameCorners />
+      <div
+        className="cg-title-caption"
+        style={{
+          fontFamily: "'Bebas Neue', sans-serif",
+          fontSize: 22,
+          letterSpacing: '0.55em',
+          color: '#F5D76E',
+          paddingLeft: '0.55em',
+        }}
+      >
+        NOMINEES &nbsp;/&nbsp; RANKING
       </div>
     </div>
+  );
+}
+
+function FrameCorners() {
+  const base: React.CSSProperties = {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    pointerEvents: 'none',
+  };
+  return (
+    <>
+      <div
+        className="cg-corner-tl"
+        style={{ ...base, top: 70, left: 70, borderTop: '2px solid #F5D76E', borderLeft: '2px solid #F5D76E' }}
+      />
+      <div
+        className="cg-corner-tr"
+        style={{ ...base, top: 70, right: 70, borderTop: '2px solid #F5D76E', borderRight: '2px solid #F5D76E' }}
+      />
+      <div
+        className="cg-corner-bl"
+        style={{ ...base, bottom: 90, left: 70, borderBottom: '2px solid #F5D76E', borderLeft: '2px solid #F5D76E' }}
+      />
+      <div
+        className="cg-corner-br"
+        style={{ ...base, bottom: 90, right: 70, borderBottom: '2px solid #F5D76E', borderRight: '2px solid #F5D76E' }}
+      />
+    </>
   );
 }

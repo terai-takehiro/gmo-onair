@@ -1,104 +1,78 @@
-import type { CgEntry, CgCategory } from '../types';
-import PhotoStage from '../components/PhotoStage';
+import { useState, useEffect } from 'react';
 
 interface Props {
-  winner: CgEntry | null;
-  category: CgCategory | null;
-  eventName?: string;
+  on: boolean;
 }
 
-// Shard panels that reveal the photo in sequence
-const SHARDS = [
-  { clipPath: 'polygon(0 0, 45% 0, 50% 100%, 0 100%)',  delay: 0 },
-  { clipPath: 'polygon(43% 0, 75% 0, 72% 100%, 47% 100%)', delay: 0.08 },
-  { clipPath: 'polygon(73% 0, 100% 0, 100% 100%, 70% 100%)', delay: 0.16 },
-];
+const COUNT = 10;
+const shards = Array.from({ length: COUNT }, (_, i) => {
+  const angle = (i / COUNT) * Math.PI * 2 + (i % 2 === 0 ? 0.1 : -0.1);
+  const dist = 820;
+  return {
+    startX: Math.cos(angle) * dist,
+    startY: Math.sin(angle) * dist,
+    length: 140 + (i % 3) * 40,
+    thickness: 2 + (i % 2),
+    rotateDeg: (angle * 180) / Math.PI + 90,
+    delay: 20 + (i % 4) * 30,
+  };
+});
 
-export default function Shards({ winner, category }: Props) {
+export default function OneShotShards({ on }: Props) {
+  const [lit, setLit] = useState(false);
+  useEffect(() => {
+    if (!on) return;
+    const t = setTimeout(() => setLit(true), 20);
+    return () => clearTimeout(t);
+  }, [on]);
+
   return (
-    <div
-      className="absolute inset-0 flex items-center justify-center"
-      style={{ background: '#070714' }}
-    >
-      {/* Photo with shard panels */}
-      <div
-        className="absolute inset-0"
-        style={{ overflow: 'hidden' }}
-      >
-        {SHARDS.map((shard, i) => (
-          <div
-            key={i}
-            className="cg-shards-reveal absolute inset-0"
-            style={{
-              clipPath: shard.clipPath,
-              animationDelay: `${shard.delay}s`,
-            }}
-          >
-            <PhotoStage
-              src={winner?.photo_url ?? null}
-              alt={winner?.name ?? ''}
-              className="absolute inset-0 w-full h-full"
-            />
-            <div
-              className="absolute inset-0"
-              style={{
-                background: 'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.6) 100%)',
-              }}
-            />
-          </div>
-        ))}
-
-        {/* Dark seams between shards */}
-        {[46, 73].map((x) => (
-          <div
-            key={x}
-            className="absolute inset-y-0"
-            style={{ left: `${x}%`, width: 3, background: '#070714' }}
-          />
-        ))}
-      </div>
-
-      {/* Text overlay */}
-      <div
-        className="cg-classic-text relative z-10 text-center"
-        style={{ marginTop: 'auto', paddingBottom: 120, width: '100%' }}
-      >
-        <p
+    <div style={{ position: 'absolute', inset: 0, zIndex: 40, pointerEvents: 'none' }}>
+      {shards.map(({ startX, startY, length, thickness, rotateDeg, delay }, i) => (
+        <div
+          key={i}
           style={{
-            fontFamily: "'Bebas Neue', sans-serif",
-            fontSize: 28,
-            color: 'rgba(251,191,36,0.7)',
-            letterSpacing: '0.4em',
-            marginBottom: 12,
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            width: length,
+            height: thickness,
+            background:
+              'linear-gradient(90deg, rgba(245,215,110,0) 0%, rgba(245,215,110,0.9) 40%, #fff7d0 70%, rgba(245,215,110,0) 100%)',
+            transformOrigin: '50% 50%',
+            transform: lit
+              ? `translate(-50%, -50%) rotate(${rotateDeg}deg)`
+              : `translate(calc(-50% + ${startX}px), calc(-50% + ${startY}px)) rotate(${rotateDeg}deg)`,
+            opacity: lit ? 0 : 1,
+            transition: `transform 560ms cubic-bezier(.6,0,.3,1) ${delay}ms, opacity 280ms ease-out 380ms`,
+            filter: 'drop-shadow(0 0 12px rgba(245,215,110,0.9))',
+            mixBlendMode: 'screen',
           }}
-        >
-          {category?.name ?? '大賞'}
-        </p>
-        <p
-          style={{
-            fontFamily: "'Noto Serif JP', serif",
-            fontSize: 72,
-            fontWeight: 700,
-            color: '#fbbf24',
-            textShadow: '0 2px 40px rgba(0,0,0,0.8)',
-          }}
-        >
-          {winner?.name ?? ''}
-        </p>
-        {winner?.org && (
-          <p
-            style={{
-              fontFamily: "'Noto Sans JP', sans-serif",
-              fontSize: 30,
-              color: 'rgba(255,255,255,0.7)',
-              marginTop: 8,
-              textShadow: '0 2px 20px rgba(0,0,0,0.8)',
-            }}
-          >
-            {winner.org}
-          </p>
-        )}
-      </div>
+        />
+      ))}
+      <div
+        style={{
+          position: 'absolute',
+          left: '50%',
+          top: '50%',
+          width: 120,
+          height: 120,
+          transform: 'translate(-50%, -50%)',
+          borderRadius: '50%',
+          background:
+            'radial-gradient(circle, rgba(255,247,208,0.95) 0%, rgba(245,215,110,0.6) 40%, rgba(245,215,110,0) 70%)',
+          opacity: 0,
+          animation: lit ? 'cgShardFlare 700ms ease-out 400ms both' : 'none',
+          mixBlendMode: 'screen',
+        }}
+      />
+      <style>{`
+        @keyframes cgShardFlare {
+          0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+          40%  { opacity: 0.9; transform: translate(-50%, -50%) scale(1.4); }
+          100% { opacity: 0; transform: translate(-50%, -50%) scale(2.2); }
+        }
+      `}</style>
     </div>
   );
 }
