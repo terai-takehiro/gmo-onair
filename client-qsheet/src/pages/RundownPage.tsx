@@ -203,14 +203,6 @@ export default function RundownPage() {
     return blocks.filter((b) => visibleColumns.has(b.id));
   }, [blocks, visibleColumns]);
 
-  // v2.8.6+: Video ブロックは「次に流す VTR」専用列で別途抽出。
-  // activeBlocks の中の Video ブロックは重複表示を避けるため除外。
-  const videoBlock = useMemo(() => blocks.find((b) => b.type === "video"), [blocks]);
-  const blocksForRows = useMemo(
-    () => (videoBlock ? activeBlocks.filter((b) => b.id !== videoBlock.id) : activeBlocks),
-    [activeBlocks, videoBlock]
-  );
-
   // Save visible columns
   useEffect(() => {
     if (visibleColumns.size > 0) {
@@ -518,13 +510,7 @@ export default function RundownPage() {
               <th className="w-20 px-2 py-2 text-left text-xs font-medium opacity-60">時刻</th>
               <th className="w-14 px-2 py-2 text-center text-xs font-medium opacity-60">尺</th>
               <th className="w-20 px-2 py-2 text-center text-xs font-medium opacity-60">実尺</th>
-              {/* v2.8.6+: Video 専用列 (台本行で何の VTR を流すか分かるように) */}
-              {videoBlock && (
-                <th className={cn("w-40 px-3 py-2 text-left text-xs font-semibold", isDark ? "bg-blue-950/40 text-blue-200" : "bg-blue-50 text-blue-900")}>
-                  ▶ 次の VTR
-                </th>
-              )}
-              {blocksForRows.map((block) => (
+              {activeBlocks.map((block) => (
                 <th key={block.id} className="px-3 py-2 text-left text-xs font-medium opacity-60 min-w-[120px]">
                   {block.label}
                 </th>
@@ -543,8 +529,7 @@ export default function RundownPage() {
 
               return (
                 <tr key={`section-${cue.sectionIdx}-row-${cue.row.id}`}>
-                  {/* v2.8.6+: Video 専用列を含む colSpan ( 4 cols + (videoBlock ? 1 : 0) + blocksForRows ) */}
-                  <td colSpan={4 + (videoBlock ? 1 : 0) + blocksForRows.length}>
+                  <td colSpan={4 + activeBlocks.length}>
                     <div>
                       {/* Section header */}
                       {showSectionHeader && (
@@ -587,30 +572,8 @@ export default function RundownPage() {
                             : "--"
                           }
                         </div>
-                        {/* v2.8.6+: Video 専用列 (台本行で何の VTR を流すか) */}
-                        {videoBlock && (() => {
-                          const videoText = extractCellText(cue.row, videoBlock);
-                          const hasVtr = !!videoText.trim();
-                          return (
-                            <div
-                              className={cn(
-                                "w-40 px-3 py-2 text-xs shrink-0 border-l-2 whitespace-pre-wrap font-semibold",
-                                hasVtr
-                                  ? isDark
-                                    ? "bg-blue-950/30 text-blue-100 border-l-blue-500"
-                                    : "bg-blue-50 text-blue-900 border-l-blue-500"
-                                  : isDark
-                                    ? "border-l-transparent text-zinc-600"
-                                    : "border-l-transparent text-zinc-300"
-                              )}
-                              title={hasVtr ? videoText : "VTR なし"}
-                            >
-                              {hasVtr ? `▶ ${videoText}` : "—"}
-                            </div>
-                          );
-                        })()}
-                        {/* Block columns (Video を除く) */}
-                        {blocksForRows.map((block) => (
+                        {/* Block columns */}
+                        {activeBlocks.map((block) => (
                           <div
                             key={block.id}
                             className={cn(

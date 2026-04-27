@@ -28,20 +28,11 @@ interface Block {
   width: string | number;
 }
 
-interface LedXrScene {
-  id: string;
-  name: string;
-  wallDefault?: string;
-  floorDefault?: string;
-  effectDefault?: string;
-}
-
 interface Masters {
   persons: string[];
   video: string[];
   audio: string[];
   telop: string[];
-  ledXrScenes?: LedXrScene[];
 }
 
 interface Props {
@@ -114,99 +105,6 @@ function CollapsibleSection({
         {action}
       </div>
       {open && <div className="px-4 pb-3 animate-in">{children}</div>}
-    </div>
-  );
-}
-
-// ─── LedXrSceneMasterSection (v2.8.5+) ──────────────────
-// LED/XR シーンマスタ: name + wallDefault + floorDefault + effectDefault の 4 列カード
-function LedXrSceneMasterSection({
-  scenes,
-  onChange,
-}: {
-  scenes: LedXrScene[];
-  onChange: (next: LedXrScene[]) => void;
-}) {
-  const [draftName, setDraftName] = useState("");
-  const addScene = () => {
-    const name = draftName.trim();
-    if (!name) return;
-    const id = `scn_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    onChange([...scenes, { id, name }]);
-    setDraftName("");
-  };
-  const updateScene = (idx: number, patch: Partial<LedXrScene>) => {
-    onChange(scenes.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
-  };
-  const removeScene = (idx: number) => {
-    if (!confirm(`シーン「${scenes[idx]?.name}」を削除しますか? 参照中のセルは「(削除済み)」表示になります。`)) return;
-    onChange(scenes.filter((_, i) => i !== idx));
-  };
-  return (
-    <div className="mb-3 last:mb-0">
-      <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">LED/XR シーン</div>
-      {scenes.length === 0 && (
-        <div className="text-[11px] text-zinc-300 dark:text-zinc-600 italic mb-2">
-          未登録 (S0 / S1 / SXX のように追加してください)
-        </div>
-      )}
-      <div className="space-y-1.5 mb-2">
-        {scenes.map((scene, idx) => (
-          <div key={scene.id} className="rounded-md border border-violet-200 dark:border-violet-900/50 bg-violet-50/40 dark:bg-violet-950/20 p-1.5 group/scene">
-            <div className="flex items-center gap-1 mb-1">
-              <input
-                value={scene.name}
-                onChange={(e) => updateScene(idx, { name: e.target.value })}
-                placeholder="S0"
-                className="w-16 text-[11px] font-mono font-bold px-1.5 py-0.5 bg-violet-100 dark:bg-violet-950/50 border border-violet-300 dark:border-violet-700 rounded outline-none focus:border-violet-500"
-              />
-              <button
-                onClick={() => removeScene(idx)}
-                className="ml-auto opacity-0 group-hover/scene:opacity-100 text-zinc-400 hover:text-red-500 transition-all"
-                title="削除"
-              >
-                <X size={12} />
-              </button>
-            </div>
-            <div className="grid grid-cols-1 gap-1">
-              <input
-                value={scene.wallDefault || ""}
-                onChange={(e) => updateScene(idx, { wallDefault: e.target.value })}
-                placeholder="壁: 表示内容 (例: KV+座席表)"
-                className="text-[11px] px-1.5 py-0.5 bg-white/80 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
-              />
-              <input
-                value={scene.floorDefault || ""}
-                onChange={(e) => updateScene(idx, { floorDefault: e.target.value })}
-                placeholder="床: 表示内容 (例: KV)"
-                className="text-[11px] px-1.5 py-0.5 bg-white/80 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
-              />
-              <input
-                value={scene.effectDefault || ""}
-                onChange={(e) => updateScene(idx, { effectDefault: e.target.value })}
-                placeholder="※ 効果 (任意、例: スタンプあり)"
-                className="text-[11px] px-1.5 py-0.5 bg-white/80 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="flex items-center gap-1">
-        <input
-          value={draftName}
-          onChange={(e) => setDraftName(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") addScene(); }}
-          placeholder="S番号を追加 (例: S2、Enter)"
-          className="flex-1 px-2.5 py-1.5 text-[12px] bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-md outline-none focus:border-violet-400 focus:bg-white dark:focus:bg-zinc-800 placeholder:text-zinc-300 dark:placeholder:text-zinc-600"
-        />
-        <button
-          onClick={addScene}
-          disabled={!draftName.trim()}
-          className="px-2 py-1.5 rounded-md bg-violet-600 text-white text-[11px] hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        >
-          <Plus size={12} />
-        </button>
-      </div>
     </div>
   );
 }
@@ -290,10 +188,7 @@ export default function EditorSidebar({
     onBlocksChange(newBlocks);
   };
 
-  // 文字列マスタ (persons / video / audio / telop) 専用キー型
-  type StringMasterKey = "persons" | "video" | "audio" | "telop";
-
-  const addMasterItem = (key: StringMasterKey, val: string) => {
+  const addMasterItem = (key: keyof Masters, val: string) => {
     if (masters[key]?.includes(val)) return;
     onMastersChange({
       ...masters,
@@ -301,10 +196,10 @@ export default function EditorSidebar({
     });
   };
 
-  const removeMasterItem = (key: StringMasterKey, idx: number) => {
+  const removeMasterItem = (key: keyof Masters, idx: number) => {
     onMastersChange({
       ...masters,
-      [key]: (masters[key] || []).filter((_, i) => i !== idx),
+      [key]: masters[key].filter((_, i) => i !== idx),
     });
   };
 
@@ -407,10 +302,6 @@ export default function EditorSidebar({
             onRemove={(idx) => removeMasterItem(ms.key, idx)}
           />
         ))}
-        <LedXrSceneMasterSection
-          scenes={masters?.ledXrScenes || []}
-          onChange={(next) => onMastersChange({ ...masters, ledXrScenes: next })}
-        />
       </CollapsibleSection>
 
       {/* Stage Templates */}

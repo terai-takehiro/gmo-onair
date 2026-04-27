@@ -50,20 +50,11 @@ interface Block {
   width: string | number;
 }
 
-interface LedXrScene {
-  id: string;
-  name: string;
-  wallDefault?: string;
-  floorDefault?: string;
-  effectDefault?: string;
-}
-
 interface Masters {
   persons: string[];
   video: string[];
   audio: string[];
   telop: string[];
-  ledXrScenes?: LedXrScene[];
 }
 
 interface DocumentMeta {

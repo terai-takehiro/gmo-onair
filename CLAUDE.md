@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.6 — Q シート Rundown view に「次の VTR」専用列を追加 (Video ブロックを台本列とは別に常時表示、視認性大幅向上)
+v2.8.7 — Q シート改修 v2.8.3-v2.8.6 をロールバック (UX 改善ならず、再設計のため一旦戻す)。機能としては v2.8.2 と同等
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)
