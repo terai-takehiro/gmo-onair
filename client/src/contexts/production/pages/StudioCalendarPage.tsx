@@ -20,7 +20,8 @@ import StudioBookingDetailDialog from "../components/studio/StudioBookingDetailD
 import KoubanView from "../components/studio/KoubanView";
 import StudioRoomsManagerDialog from "../components/studio/StudioRoomsManagerDialog";
 import { useAuth } from "@/contexts/platform/AuthContext";
-import { Settings, CalendarSync } from "lucide-react";
+import { Settings, CalendarSync, CalendarDays } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface StudioRoom {
   id: string;
@@ -440,6 +441,46 @@ export default function StudioCalendarPage() {
 
   const clearFilter = () => setSelectedRoomIds(new Set());
 
+  // ── 直近 7 日間の予定 (今日起点) ───────────────────────────
+  // 部屋フィルタ適用後の予約を、今日 +6 日 (計 7 日) の窓に絞ってグルーピング
+  const upcomingDays = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const pad2 = (n: number) => String(n).padStart(2, '0');
+    const dateKey = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+    const dayWeek = ['日', '月', '火', '水', '木', '金', '土'];
+    const days: { key: string; date: Date; label: string; isToday: boolean; isTomorrow: boolean }[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() + i);
+      days.push({
+        key: dateKey(d),
+        date: d,
+        label: `${d.getMonth() + 1}/${d.getDate()} (${dayWeek[d.getDay()]})`,
+        isToday: i === 0,
+        isTomorrow: i === 1,
+      });
+    }
+    const filtered = selectedRoomIds.size > 0
+      ? bookings.filter((b) => (b.rooms ?? []).some((r) => selectedRoomIds.has(r.room_id)))
+      : bookings;
+    const map = new Map<string, StudioBooking[]>();
+    days.forEach((d) => map.set(d.key, []));
+    for (const b of filtered) {
+      const startDay = (b.start_time || '').split('T')[0];
+      const endDay = (b.end_time || startDay).split('T')[0];
+      // 期間予約 (start ≦ targetDay ≦ end) の各日にエントリ
+      days.forEach((d) => {
+        if (startDay && startDay <= d.key && d.key <= endDay) {
+          map.get(d.key)!.push(b);
+        }
+      });
+    }
+    return days.map((d) => ({ ...d, items: map.get(d.key) ?? [] })).filter((d) => d.items.length > 0);
+  }, [bookings, selectedRoomIds]);
+
+  const totalUpcoming = upcomingDays.reduce((sum, d) => sum + d.items.length, 0);
+
   return (
     <PageTransition>
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
@@ -559,6 +600,89 @@ export default function StudioCalendarPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* 直近 7 日の予定 */}
+      <Card className="overflow-hidden">
+        <div className="flex items-center justify-between gap-2 px-4 py-3 border-b bg-muted/20">
+          <div className="flex items-center gap-2 min-w-0">
+            <CalendarDays className="h-4 w-4 text-primary shrink-0" />
+            <h2 className="text-sm font-semibold truncate">直近の予定</h2>
+            <span className="text-xs text-muted-foreground shrink-0">今日から 7 日間</span>
+          </div>
+          {totalUpcoming > 0 && (
+            <Badge variant="outline" className="shrink-0 text-[10px]">
+              {totalUpcoming}件
+            </Badge>
+          )}
+        </div>
+        <CardContent className="p-0">
+          {totalUpcoming === 0 ? (
+            <p className="px-4 py-6 text-center text-sm text-muted-foreground">
+              直近 7 日間に予定はありません
+            </p>
+          ) : (
+            <ul className="divide-y">
+              {upcomingDays.map((d) => (
+                <li key={d.key} className="px-3 py-3 sm:px-4 sm:py-3 flex flex-col sm:flex-row sm:items-start sm:gap-4">
+                  <div className="sm:w-32 shrink-0 mb-2 sm:mb-0 flex items-center gap-2">
+                    <span className={cn(
+                      "inline-flex items-center justify-center rounded-md px-2 py-0.5 text-xs font-semibold shrink-0",
+                      d.isToday
+                        ? "bg-primary text-primary-foreground"
+                        : d.isTomorrow
+                          ? "bg-primary/10 text-primary"
+                          : "bg-muted text-muted-foreground",
+                    )}>
+                      {d.isToday ? '今日' : d.isTomorrow ? '明日' : ''}
+                    </span>
+                    <span className="text-sm font-medium tabular-nums">{d.label}</span>
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    {d.items.map((b) => {
+                      const allDay = !!b.all_day;
+                      const startTime = !allDay ? b.start_time.split('T')[1]?.slice(0, 5) : '';
+                      const endTime = !allDay ? b.end_time.split('T')[1]?.slice(0, 5) : '';
+                      const typeColor = bookingTypeColors[b.booking_type] || '#6b7280';
+                      const typeLabel = bookingTypeLabels[b.booking_type] || b.booking_type;
+                      const tentative = b.status === 'tentative';
+                      const displayTitle = b.title.replace(/^GLS[-A-Z0-9]*\s+/i, '').trim() || b.title;
+                      const roomChain = b.rooms.length > 0 ? buildRoomChain(b.rooms as any) : (b.location_note || '');
+                      return (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => { setDetailBooking(b); setDetailDialogOpen(true); }}
+                          className={cn(
+                            "w-full text-left rounded-lg border-l-4 bg-card hover:bg-accent/50 transition-colors",
+                            "px-3 py-2 flex items-start gap-2 sm:items-center sm:gap-3 flex-wrap sm:flex-nowrap",
+                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            tentative && "opacity-70",
+                          )}
+                          style={{ borderLeftColor: typeColor }}
+                        >
+                          <span
+                            className="inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-semibold text-white shrink-0"
+                            style={{ backgroundColor: typeColor }}
+                          >
+                            {typeLabel}
+                          </span>
+                          <span className="font-medium text-sm flex-1 min-w-0 truncate">{displayTitle}</span>
+                          {roomChain && (
+                            <span className="text-xs text-muted-foreground truncate sm:max-w-[40%]">{roomChain}</span>
+                          )}
+                          <span className="text-xs font-mono text-muted-foreground tabular-nums shrink-0 w-full sm:w-auto sm:ml-auto">
+                            {allDay ? '終日' : `${startTime}–${endTime}`}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Legend */}
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
