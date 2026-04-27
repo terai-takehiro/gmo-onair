@@ -1,11 +1,21 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import {
-  Trophy, ChevronLeft, Plus, Trash2, Check, X,
+  DndContext, closestCenter, PointerSensor, KeyboardSensor,
+  useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
+  useSortable, arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
+  Trophy, ChevronLeft, Plus, Trash2, Check, X, GripVertical,
   Upload, RefreshCw, Tv2, Shuffle, FileSpreadsheet, ExternalLink, Copy,
+  ChevronDown, ChevronRight,
 } from 'lucide-react';
 
 // ── Types ───────────────────────────────────────────────────
@@ -39,6 +49,26 @@ interface AwardsEventDetail {
   scheduled_at: string | null;
   status: 'draft' | 'live' | 'closed';
   categories: Category[];
+}
+
+interface AwardGroup {
+  name: string;
+  divisions: Category[];
+}
+
+function groupByAward(categories: Category[]): AwardGroup[] {
+  const map = new Map<string, Category[]>();
+  const order: string[] = [];
+  for (const cat of categories) {
+    if (!map.has(cat.name)) { map.set(cat.name, []); order.push(cat.name); }
+    map.get(cat.name)!.push(cat);
+  }
+  return order.map((name) => ({ name, divisions: map.get(name)! }));
+}
+
+function computeReorderPayload(groups: AwardGroup[]) {
+  let i = 1;
+  return groups.flatMap((g) => g.divisions.map((d) => ({ id: d.id, displayOrder: i++ })));
 }
 
 const STATUS_OPTIONS = [
@@ -235,6 +265,22 @@ export default function EventEditorPage() {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['awards-event', eventId] });
 
+  // ── DnD local order state ───────────────────────────────────
+  const [localOrder, setLocalOrder] = useState<number[]>([]);
+  useEffect(() => {
+    if (event) setLocalOrder(event.categories.map((c) => c.id));
+  }, [event]);
+  const orderedCategories = useMemo(() => {
+    if (!event) return [];
+    const map = new Map(event.categories.map((c) => [c.id, c]));
+    return localOrder.map((id) => map.get(id)!).filter(Boolean);
+  }, [event, localOrder]);
+  const awardGroups = useMemo(() => groupByAward(orderedCategories), [orderedCategories]);
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
   const updateEvent = useMutation({
     mutationFn: async (patch: Partial<AwardsEventDetail>) => {
       await api.put(`/awards/events/${eventId}`, {
@@ -312,6 +358,41 @@ export default function EventEditorPage() {
     },
     onSuccess: invalidate,
   });
+
+  const reorderCategories = useMutation({
+    mutationFn: async (order: { id: number; displayOrder: number }[]) => {
+      await api.put(`/awards/events/${eventId}/categories/reorder`, { order });
+    },
+    onSuccess: invalidate,
+  });
+
+  const handleDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const aid = String(active.id);
+    const oid = String(over.id);
+    let newGroups = [...awardGroups];
+    if (aid.startsWith('group:') && oid.startsWith('group:')) {
+      const fi = newGroups.findIndex((g) => `group:${g.name}` === aid);
+      const ti = newGroups.findIndex((g) => `group:${g.name}` === oid);
+      if (fi < 0 || ti < 0) return;
+      newGroups = arrayMove(newGroups, fi, ti);
+    } else if (aid.startsWith('div:') && oid.startsWith('div:')) {
+      const fromId = parseInt(aid.slice(4));
+      const toId = parseInt(oid.slice(4));
+      const gi = newGroups.findIndex((g) => g.divisions.some((d) => d.id === fromId));
+      if (gi < 0) return;
+      const g = newGroups[gi];
+      const fi = g.divisions.findIndex((d) => d.id === fromId);
+      const ti = g.divisions.findIndex((d) => d.id === toId);
+      if (fi < 0 || ti < 0) return;
+      newGroups = [...newGroups];
+      newGroups[gi] = { ...g, divisions: arrayMove(g.divisions, fi, ti) };
+    } else return;
+    const newOrder = newGroups.flatMap((g) => g.divisions.map((d) => d.id));
+    setLocalOrder(newOrder);
+    reorderCategories.mutate(computeReorderPayload(newGroups));
+  };
 
   const seedDummy = useMutation({
     mutationFn: async () => {
@@ -428,7 +509,7 @@ export default function EventEditorPage() {
               onClick={() => setAddingCat(true)}
               className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm hover:bg-muted transition-colors"
             >
-              <Plus className="h-4 w-4" /> カテゴリ追加
+              <Plus className="h-4 w-4" /> 賞を追加
             </button>
             <button
               onClick={() => seedDummy.mutate()}
@@ -437,63 +518,43 @@ export default function EventEditorPage() {
               title="ダミーカテゴリとエントリを挿入（テスト用）"
             >
               <Shuffle className="h-4 w-4" />
-              ダミーデータ挿入
+              ダミーデータ
             </button>
             <label className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm hover:bg-muted transition-colors cursor-pointer text-muted-foreground">
               <FileSpreadsheet className="h-4 w-4" />
               Excelインポート
-              <input
-                type="file"
-                accept=".xlsx,.xls"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) importExcel(f);
-                  e.target.value = '';
-                }}
+              <input type="file" accept=".xlsx,.xls" className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) importExcel(f); e.target.value = ''; }}
               />
             </label>
             <label className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm hover:bg-muted transition-colors cursor-pointer text-muted-foreground">
               <Upload className="h-4 w-4" />
-              画像フォルダ読込
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  if (e.target.files?.length) importImages(e.target.files);
-                  e.target.value = '';
-                }}
+              画像フォルダ
+              <input type="file" accept="image/*" multiple className="hidden"
+                onChange={(e) => { if (e.target.files?.length) importImages(e.target.files); e.target.value = ''; }}
               />
             </label>
           </div>
 
+          {/* Add award form */}
           {addingCat && (
-            <div className="flex gap-2">
-              <input
-                autoFocus
-                value={newCatName}
-                onChange={(e) => setNewCatName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && newCatName.trim()) addCategory.mutate(newCatName.trim());
-                  if (e.key === 'Escape') { setAddingCat(false); setNewCatName(''); }
-                }}
-                placeholder="カテゴリ名（例: ベストパフォーマンス賞）"
-                className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              />
-              <button
-                onClick={() => { if (newCatName.trim()) addCategory.mutate(newCatName.trim()); }}
-                className="rounded-lg bg-primary px-3 py-2 text-sm text-white hover:bg-primary/90"
-              >
-                追加
-              </button>
-              <button
-                onClick={() => { setAddingCat(false); setNewCatName(''); }}
-                className="rounded-lg border px-3 py-2 text-sm hover:bg-muted"
-              >
-                取消
-              </button>
+            <div className="rounded-xl border-2 border-dashed border-amber-300 bg-amber-50/40 p-4 space-y-2">
+              <p className="text-xs font-medium text-amber-800">新しい賞を追加</p>
+              <div className="flex gap-2">
+                <input autoFocus value={newCatName}
+                  onChange={(e) => setNewCatName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newCatName.trim()) addCategory.mutate(newCatName.trim());
+                    if (e.key === 'Escape') { setAddingCat(false); setNewCatName(''); }
+                  }}
+                  placeholder="賞名（例: キャリア新人賞）"
+                  className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/50"
+                />
+                <button onClick={() => { if (newCatName.trim()) addCategory.mutate(newCatName.trim()); }}
+                  className="rounded-lg bg-amber-500 px-3 py-2 text-sm text-white hover:bg-amber-600">追加</button>
+                <button onClick={() => { setAddingCat(false); setNewCatName(''); }}
+                  className="rounded-lg border px-3 py-2 text-sm hover:bg-muted">取消</button>
+              </div>
             </div>
           )}
 
@@ -501,25 +562,43 @@ export default function EventEditorPage() {
             <div className="py-12 text-center text-muted-foreground">
               <Trophy className="h-10 w-10 mx-auto mb-2 opacity-20" />
               <p className="text-sm">カテゴリがありません</p>
-              <p className="text-xs mt-1 opacity-70">「カテゴリ追加」またはExcelインポートから作成してください</p>
+              <p className="text-xs mt-1 opacity-70">「賞を追加」またはExcelインポートから作成してください</p>
             </div>
           )}
 
-          {event.categories.map((cat) => (
-            <CategorySection
-              key={cat.id}
-              cat={cat}
-              onDeleteCat={() => {
-                if (confirm(`「${cat.name}」を削除しますか？`)) deleteCategory.mutate(cat.id);
-              }}
-              onUpdateCat={(patch) => updateCategory.mutate({ catId: cat.id, patch })}
-              onAddEntry={(name) => addEntry.mutate({ catId: cat.id, name })}
-              onUpdateEntry={(eid, patch) => updateEntry.mutate({ id: eid, patch })}
-              onDeleteEntry={(eid) => deleteEntry.mutate(eid)}
-              onPhotoUpload={(eid, file) => uploadPhoto.mutate({ eid, file })}
-              onGenerateDummyPoints={() => generateDummyPoints.mutate(cat.id)}
-            />
-          ))}
+          {/* Hierarchical DnD list */}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={awardGroups.map((g) => `group:${g.name}`)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-4">
+                {awardGroups.map((group) => (
+                  <SortableAwardGroupCard
+                    key={group.name}
+                    group={group}
+                    onUpdateAwardName={(newName) => {
+                      if (!newName.trim()) return;
+                      group.divisions.forEach((cat) =>
+                        updateCategory.mutate({ catId: cat.id, patch: { name: newName.trim() } })
+                      );
+                    }}
+                    onAddDivision={(awardName) => {
+                      addCategory.mutate(awardName);
+                    }}
+                    onDeleteCat={(catId) => {
+                      const cat = event.categories.find((c) => c.id === catId);
+                      if (confirm(`「${cat?.description || cat?.name}」を削除しますか？`))
+                        deleteCategory.mutate(catId);
+                    }}
+                    onUpdateCat={(catId, patch) => updateCategory.mutate({ catId, patch })}
+                    onAddEntry={(catId, name) => addEntry.mutate({ catId, name })}
+                    onUpdateEntry={(eid, patch) => updateEntry.mutate({ id: eid, patch })}
+                    onDeleteEntry={(eid) => deleteEntry.mutate(eid)}
+                    onPhotoUpload={(eid, file) => uploadPhoto.mutate({ eid, file })}
+                    onGenerateDummyPoints={(catId) => generateDummyPoints.mutate(catId)}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         </div>
       )}
 
@@ -599,9 +678,8 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
   );
 }
 
-function CategorySection({
-  cat, onDeleteCat, onUpdateCat, onAddEntry, onUpdateEntry, onDeleteEntry, onPhotoUpload, onGenerateDummyPoints,
-}: {
+// ── SortableDivisionSection ─────────────────────────────────
+function SortableDivisionSection({ cat, onDeleteCat, onUpdateCat, onAddEntry, onUpdateEntry, onDeleteEntry, onPhotoUpload, onGenerateDummyPoints }: {
   cat: Category;
   onDeleteCat: () => void;
   onUpdateCat: (patch: { name?: string; description?: string | null }) => void;
@@ -611,106 +689,124 @@ function CategorySection({
   onPhotoUpload: (eid: number, file: File) => void;
   onGenerateDummyPoints: () => void;
 }) {
+  const [collapsed, setCollapsed] = useState(false);
   const [addingEntry, setAddingEntry] = useState(false);
   const [newEntryName, setNewEntryName] = useState('');
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `div:${cat.id}` });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
 
   return (
-    <div className="rounded-xl border bg-card overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-3 bg-muted/40 border-b">
-        <Trophy className="h-4 w-4 text-amber-500 shrink-0" />
+    <div ref={setNodeRef} style={style} className="rounded-lg border bg-background overflow-hidden">
+      <div className="flex items-center gap-1.5 px-3 py-2 bg-slate-50/80 border-b">
+        <button {...listeners} {...attributes} className="cursor-grab touch-none text-slate-300 hover:text-slate-500 transition-colors" title="ドラッグして並び替え">
+          <GripVertical className="h-3.5 w-3.5" />
+        </button>
+        <button onClick={() => setCollapsed(!collapsed)} className="text-slate-400 hover:text-slate-600">
+          {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+        </button>
         <div className="flex-1 min-w-0">
-          <InlineText
-            value={cat.name}
-            onSave={(v) => { if (v.trim()) onUpdateCat({ name: v.trim() }); }}
-            placeholder="賞名"
-            className="font-semibold text-sm"
-          />
-          <InlineText
-            value={cat.description ?? ''}
-            onSave={(v) => onUpdateCat({ description: v.trim() || null })}
-            placeholder="部門名"
-            className="text-xs text-muted-foreground"
-          />
+          <InlineText value={cat.description ?? ''} onSave={(v) => onUpdateCat({ description: v.trim() || null })} placeholder="部門名" className="text-sm font-medium" />
         </div>
         <span className="text-xs text-muted-foreground shrink-0">{cat.entries.length}名</span>
-        <button
-          onClick={onGenerateDummyPoints}
-          title="ダミーポイントを自動生成"
-          className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted transition-colors"
-        >
-          <RefreshCw className="h-3 w-3" />
-          pt生成
+        <button onClick={onGenerateDummyPoints} title="ポイント自動生成" className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted transition-colors">
+          <RefreshCw className="h-3 w-3" />pt生成
         </button>
-        <button
-          onClick={() => setAddingEntry(true)}
-          className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted transition-colors"
-        >
-          <Plus className="h-3 w-3" />
-          追加
+        <button onClick={() => setAddingEntry(true)} className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted transition-colors">
+          <Plus className="h-3 w-3" />追加
         </button>
-        <button
-          onClick={onDeleteCat}
-          className="text-muted-foreground/40 hover:text-destructive transition-colors"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
+        <button onClick={onDeleteCat} className="p-1 text-muted-foreground/40 hover:text-destructive transition-colors">
+          <Trash2 className="h-3 w-3" />
         </button>
       </div>
-
-      <div className="p-3 space-y-1.5">
-        {addingEntry && (
-          <div className="flex gap-2 mb-2">
-            <input
-              autoFocus
-              value={newEntryName}
-              onChange={(e) => setNewEntryName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && newEntryName.trim()) {
-                  onAddEntry(newEntryName.trim());
-                  setAddingEntry(false);
-                  setNewEntryName('');
-                }
-                if (e.key === 'Escape') { setAddingEntry(false); setNewEntryName(''); }
-              }}
-              placeholder="氏名 / 名称"
-              className="flex-1 rounded-lg border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+      {!collapsed && (
+        <div className="p-2.5 space-y-1.5">
+          {addingEntry && (
+            <div className="flex gap-2 mb-2">
+              <input autoFocus value={newEntryName} onChange={(e) => setNewEntryName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newEntryName.trim()) { onAddEntry(newEntryName.trim()); setAddingEntry(false); setNewEntryName(''); }
+                  if (e.key === 'Escape') { setAddingEntry(false); setNewEntryName(''); }
+                }}
+                placeholder="氏名 / 名称"
+                className="flex-1 rounded-lg border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+              <button onClick={() => { if (newEntryName.trim()) { onAddEntry(newEntryName.trim()); setAddingEntry(false); setNewEntryName(''); } }} className="rounded-lg bg-primary px-3 py-1.5 text-xs text-white">追加</button>
+              <button onClick={() => { setAddingEntry(false); setNewEntryName(''); }} className="rounded-lg border px-3 py-1.5 text-xs hover:bg-muted">取消</button>
+            </div>
+          )}
+          {cat.entries.length === 0 && !addingEntry && (
+            <p className="py-3 text-center text-xs text-muted-foreground/50">エントリがありません</p>
+          )}
+          {cat.entries.map((entry) => (
+            <EntryRow key={entry.id} entry={entry}
+              onUpdate={(patch) => onUpdateEntry(entry.id, patch)}
+              onDelete={() => onDeleteEntry(entry.id)}
+              onPhotoUpload={(file) => onPhotoUpload(entry.id, file)}
             />
-            <button
-              onClick={() => {
-                if (newEntryName.trim()) {
-                  onAddEntry(newEntryName.trim());
-                  setAddingEntry(false);
-                  setNewEntryName('');
-                }
-              }}
-              className="rounded-lg bg-primary px-3 py-1.5 text-xs text-white hover:bg-primary/90"
-            >
-              追加
-            </button>
-            <button
-              onClick={() => { setAddingEntry(false); setNewEntryName(''); }}
-              className="rounded-lg border px-3 py-1.5 text-xs hover:bg-muted"
-            >
-              取消
-            </button>
-          </div>
-        )}
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
-        {cat.entries.length === 0 && !addingEntry && (
-          <p className="py-4 text-center text-xs text-muted-foreground/60">
-            エントリがありません
-          </p>
-        )}
+// ── SortableAwardGroupCard ───────────────────────────────────
+function SortableAwardGroupCard({ group, onUpdateAwardName, onAddDivision, onDeleteCat, onUpdateCat, onAddEntry, onUpdateEntry, onDeleteEntry, onPhotoUpload, onGenerateDummyPoints }: {
+  group: AwardGroup;
+  onUpdateAwardName: (name: string) => void;
+  onAddDivision: (awardName: string) => void;
+  onDeleteCat: (catId: number) => void;
+  onUpdateCat: (catId: number, patch: { name?: string; description?: string | null }) => void;
+  onAddEntry: (catId: number, name: string) => void;
+  onUpdateEntry: (eid: number, patch: Partial<Entry>) => void;
+  onDeleteEntry: (eid: number) => void;
+  onPhotoUpload: (eid: number, file: File) => void;
+  onGenerateDummyPoints: (catId: number) => void;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `group:${group.name}` });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
+  const totalEntries = group.divisions.reduce((s, d) => s + d.entries.length, 0);
 
-        {cat.entries.map((entry) => (
-          <EntryRow
-            key={entry.id}
-            entry={entry}
-            onUpdate={(patch) => onUpdateEntry(entry.id, patch)}
-            onDelete={() => onDeleteEntry(entry.id)}
-            onPhotoUpload={(file) => onPhotoUpload(entry.id, file)}
-          />
-        ))}
+  return (
+    <div ref={setNodeRef} style={style} className="rounded-xl border-2 border-amber-200/70 bg-card overflow-hidden shadow-sm">
+      {/* Award (賞) header */}
+      <div className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-amber-50 to-amber-50/20 border-b border-amber-200/60">
+        <button {...listeners} {...attributes} className="cursor-grab touch-none text-amber-300 hover:text-amber-500 transition-colors shrink-0" title="ドラッグして並び替え">
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <Trophy className="h-4 w-4 text-amber-500 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <InlineText value={group.name} onSave={onUpdateAwardName} placeholder="賞名" className="font-bold text-sm text-amber-900" />
+        </div>
+        <span className="text-xs text-amber-700/60 shrink-0 hidden sm:block">{group.divisions.length}部門・{totalEntries}名</span>
+        <button onClick={() => onAddDivision(group.name)} className="flex items-center gap-1 rounded-lg border border-amber-300/50 px-2 py-1 text-xs text-amber-700 hover:bg-amber-100 transition-colors shrink-0">
+          <Plus className="h-3 w-3" />部門追加
+        </button>
+        <button onClick={() => setCollapsed(!collapsed)} className="shrink-0 text-amber-600/50 hover:text-amber-700 transition-colors">
+          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </button>
       </div>
+      {/* Division list */}
+      {!collapsed && (
+        <div className="p-3 space-y-2">
+          <SortableContext items={group.divisions.map((d) => `div:${d.id}`)} strategy={verticalListSortingStrategy}>
+            {group.divisions.map((cat) => (
+              <SortableDivisionSection
+                key={cat.id}
+                cat={cat}
+                onDeleteCat={() => onDeleteCat(cat.id)}
+                onUpdateCat={(patch) => onUpdateCat(cat.id, patch)}
+                onAddEntry={(name) => onAddEntry(cat.id, name)}
+                onUpdateEntry={onUpdateEntry}
+                onDeleteEntry={onDeleteEntry}
+                onPhotoUpload={onPhotoUpload}
+                onGenerateDummyPoints={() => onGenerateDummyPoints(cat.id)}
+              />
+            ))}
+          </SortableContext>
+        </div>
+      )}
     </div>
   );
 }

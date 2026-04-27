@@ -171,6 +171,34 @@ router.post(
   })
 );
 
+// ── カテゴリ並び替え ────────────────────────────────────────
+router.put('/events/:id/categories/reorder', wrap(async (req, res) => {
+  const eventId = parseInt(req.params.id as string);
+  const { order } = req.body as { order: { id: number; displayOrder: number }[] };
+  if (!Array.isArray(order) || order.length === 0) {
+    throw new AppError(400, 'BAD_REQUEST', 'order は配列が必要です');
+  }
+
+  const pool = getDb();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const item of order) {
+      await client.query(
+        `UPDATE awards_categories SET display_order=$1 WHERE id=$2 AND event_id=$3`,
+        [item.displayOrder, item.id, eventId]
+      );
+    }
+    await client.query('COMMIT');
+    res.json({ success: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}));
+
 // ── ダミーデータ挿入（Excel なしでテスト用）────────────────
 router.post('/events/:id/seed-dummy', wrap(async (req, res) => {
   const eventId = parseInt(req.params.id as string);

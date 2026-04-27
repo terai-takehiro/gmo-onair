@@ -1,9 +1,10 @@
+import { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAwardsCue } from '@/hooks/useAwardsCue';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, Tv2, Trophy, ExternalLink } from 'lucide-react';
+import { ChevronLeft, ExternalLink, Trophy, Radio } from 'lucide-react';
 import type { CgStep, OneshotStyle, CgCategory } from '@/cg/types';
 
 interface AwardsEventDetail {
@@ -13,21 +14,35 @@ interface AwardsEventDetail {
   categories: CgCategory[];
 }
 
-const STEPS: { step: CgStep; label: string; desc: string }[] = [
-  { step: 'idle',       label: 'アイドル',       desc: '透過（何も表示しない）' },
-  { step: 'title',      label: 'タイトル',       desc: '賞タイトルカード' },
-  { step: 'nominees',   label: 'ノミニー',       desc: 'ノミネート一覧' },
-  { step: 'ranks52',    label: '5→2位 バー',     desc: 'ランキングバー順に表示' },
-  { step: 'winner-bar', label: '大賞 バー',       desc: '大賞発表前の引きバー' },
-  { step: 'oneshot',    label: '一発表示',        desc: '大賞をフルスクリーン表示' },
+interface AwardGroup { name: string; divisions: CgCategory[] }
+
+function groupByAward(cats: CgCategory[]): AwardGroup[] {
+  const map = new Map<string, CgCategory[]>();
+  const order: string[] = [];
+  for (const c of cats) {
+    if (!map.has(c.name)) { map.set(c.name, []); order.push(c.name); }
+    map.get(c.name)!.push(c);
+  }
+  return order.map((name) => ({ name, divisions: map.get(name)! }));
+}
+
+const STEPS: { step: CgStep; label: string; desc: string; color: 'neutral' | 'live' | 'award' }[] = [
+  { step: 'idle',       label: 'IDLE',        desc: '透過（何も表示しない）', color: 'neutral' },
+  { step: 'title',      label: 'TITLE',       desc: '賞タイトルカード',        color: 'neutral' },
+  { step: 'nominees',   label: 'NOMINEES',    desc: 'ノミネート一覧',          color: 'live'    },
+  { step: 'ranks52',    label: 'RANKS 5→2',   desc: 'ランキングバー',          color: 'live'    },
+  { step: 'winner-bar', label: 'WINNER BAR',  desc: '大賞前の引きバー',        color: 'award'   },
+  { step: 'oneshot',    label: 'ONE SHOT',    desc: '大賞フルスクリーン',      color: 'award'   },
 ];
 
 const ONESHOT_STYLES: { style: OneshotStyle; label: string }[] = [
-  { style: 'classic',   label: 'クラシック' },
-  { style: 'shards',    label: 'シャーズ' },
-  { style: 'spotlight', label: 'スポットライト' },
-  { style: 'slit',      label: 'スリット' },
+  { style: 'classic',   label: 'Classic'   },
+  { style: 'shards',    label: 'Shards'    },
+  { style: 'spotlight', label: 'Spotlight' },
+  { style: 'slit',      label: 'Slit'      },
 ];
+
+const LIVE_STEPS: CgStep[] = ['nominees', 'ranks52', 'winner-bar', 'oneshot'];
 
 export default function ControlPage() {
   const { id } = useParams<{ id: string }>();
@@ -43,127 +58,180 @@ export default function ControlPage() {
   });
 
   const { cue, sendCue } = useAwardsCue(eventId);
-
-  const selectedCategory = event?.categories.find((c) => c.id === cue.categoryId)
-    ?? event?.categories[0];
+  const awardGroups = useMemo(() => groupByAward(event?.categories ?? []), [event]);
+  const selectedCat = event?.categories.find((c) => c.id === cue.categoryId) ?? event?.categories[0];
+  const isLive = LIVE_STEPS.includes(cue.step);
+  const currentStep = STEPS.find((s) => s.step === cue.step);
 
   return (
-    <div className="p-4 sm:p-6 max-w-3xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => navigate(`/event/${eventId}`)} className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted">
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-red-500/10">
-            <Tv2 className="h-4 w-4 text-red-600" />
-          </div>
-          <div className="min-w-0">
-            <h1 className="text-base font-bold truncate">送出コントロール</h1>
-            {event && <p className="text-xs text-muted-foreground truncate">{event.name}</p>}
-          </div>
-        </div>
-        <a
-          href={`/awards/output/${eventId}?transparent=1`}
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs hover:bg-muted transition-colors text-muted-foreground"
-        >
-          <ExternalLink className="h-3.5 w-3.5" />
-          出力画面
-        </a>
-      </div>
+    <div className="min-h-screen bg-slate-950 text-slate-100 p-3 sm:p-5">
+      <div className="max-w-2xl mx-auto space-y-4">
 
-      {/* Current state indicator */}
-      <div className="mb-6 rounded-xl border bg-card p-4">
-        <p className="text-xs text-muted-foreground mb-1">現在の送出状態</p>
-        <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-lg font-bold text-primary">
-            {STEPS.find((s) => s.step === cue.step)?.label ?? cue.step}
-          </span>
-          {selectedCategory && (
-            <span className="flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700">
-              <Trophy className="h-3 w-3" />
-              {selectedCategory.name}
-            </span>
-          )}
-          {cue.step === 'oneshot' && (
-            <span className="text-xs text-muted-foreground">
-              スタイル: {ONESHOT_STYLES.find((s) => s.style === cue.oneshotStyle)?.label}
-            </span>
-          )}
+        {/* ── Header ─────────────────────────────────────────── */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(`/event/${eventId}`)}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4 text-slate-300" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-sm font-bold text-slate-200 truncate">送出コントロール</h1>
+            {event && <p className="text-xs text-slate-500 truncate">{event.name}</p>}
+          </div>
+          <a
+            href={`/awards/output/${eventId}?transparent=1`}
+            target="_blank" rel="noreferrer"
+            className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            出力画面
+          </a>
         </div>
-      </div>
 
-      {/* Category selector */}
-      {event?.categories && event.categories.length > 0 && (
-        <div className="mb-5">
-          <p className="text-sm font-medium mb-2">カテゴリ</p>
-          <div className="flex flex-wrap gap-2">
-            {event.categories.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => sendCue(cue.step, cat.id)}
-                className={cn(
-                  'rounded-full px-3 py-1.5 text-sm font-medium transition-all border',
-                  cue.categoryId === cat.id
-                    ? 'bg-primary text-white border-primary'
-                    : 'border-border hover:border-primary/50 hover:bg-muted'
+        {/* ── Status panel ──────────────────────────────────── */}
+        <div className={cn(
+          'rounded-xl p-4 border transition-all duration-300',
+          isLive
+            ? 'bg-red-950/60 border-red-800/50 ring-1 ring-red-700/40'
+            : 'bg-slate-900 border-slate-800'
+        )}>
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+              isLive ? 'bg-red-600' : 'bg-slate-700'
+            )}>
+              <Radio className={cn('h-4 w-4', isLive ? 'text-white animate-pulse' : 'text-slate-500')} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className={cn(
+                  'text-xs font-bold tracking-widest uppercase',
+                  isLive ? 'text-red-400' : 'text-slate-600'
+                )}>
+                  {isLive ? 'ON AIR' : 'STANDBY'}
+                </span>
+                <span className="text-base font-bold text-slate-100">{currentStep?.label ?? cue.step}</span>
+              </div>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                {selectedCat && (
+                  <span className="flex items-center gap-1 rounded bg-amber-900/40 px-1.5 py-0.5 text-xs font-medium text-amber-400">
+                    <Trophy className="h-2.5 w-2.5" />{selectedCat.name}
+                  </span>
                 )}
-              >
-                {cat.name}
-              </button>
-            ))}
+                {selectedCat?.description && (
+                  <span className="text-xs text-slate-500">{selectedCat.description}</span>
+                )}
+                {cue.step === 'oneshot' && (
+                  <span className="text-xs text-slate-600">
+                    {ONESHOT_STYLES.find((s) => s.style === cue.oneshotStyle)?.label}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
-      )}
 
-      {/* Step buttons */}
-      <div className="mb-5">
-        <p className="text-sm font-medium mb-2">ステップ</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {STEPS.map(({ step, label, desc }) => (
-            <button
-              key={step}
-              onClick={() => sendCue(step)}
-              className={cn(
-                'flex flex-col items-start rounded-xl border p-3 text-left transition-all',
-                cue.step === step
-                  ? 'border-red-500 bg-red-500/5 ring-2 ring-red-500/30'
-                  : 'border-border hover:border-primary/40 hover:bg-muted'
-              )}
-            >
-              <span className={cn(
-                'text-sm font-semibold',
-                cue.step === step ? 'text-red-600' : 'text-foreground'
-              )}>
-                {label}
-              </span>
-              <span className="text-xs text-muted-foreground mt-0.5 leading-tight">{desc}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+        {/* ── Category selector ─────────────────────────────── */}
+        {awardGroups.length > 0 && (
+          <div className="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-slate-800">
+              <p className="text-[10px] font-bold tracking-widest uppercase text-slate-500">Category</p>
+            </div>
+            <div className="p-3 space-y-3">
+              {awardGroups.map((group) => (
+                <div key={group.name}>
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Trophy className="h-3 w-3 text-amber-500 shrink-0" />
+                    <span className="text-xs font-bold text-amber-400">{group.name}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 pl-4">
+                    {group.divisions.map((cat) => {
+                      const active = cue.categoryId === cat.id;
+                      return (
+                        <button
+                          key={cat.id}
+                          onClick={() => sendCue(cue.step, cat.id)}
+                          className={cn(
+                            'rounded-lg px-4 py-2.5 text-sm font-semibold transition-all border',
+                            active
+                              ? 'bg-amber-500 border-amber-400 text-slate-950 shadow-lg shadow-amber-900/30'
+                              : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:border-slate-600'
+                          )}
+                        >
+                          {cat.description || cat.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-      {/* OneShot style (shown when oneshot selected or as preview) */}
-      <div>
-        <p className="text-sm font-medium mb-2">一発表示スタイル</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {ONESHOT_STYLES.map(({ style, label }) => (
-            <button
-              key={style}
-              onClick={() => sendCue(cue.step, undefined, style)}
-              className={cn(
-                'rounded-xl border p-3 text-center text-sm font-medium transition-all',
-                cue.oneshotStyle === style
-                  ? 'border-amber-500 bg-amber-500/10 text-amber-700'
-                  : 'border-border hover:border-amber-400/50 hover:bg-muted'
-              )}
-            >
-              {label}
-            </button>
-          ))}
+        {/* ── Step buttons ──────────────────────────────────── */}
+        <div className="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-slate-800">
+            <p className="text-[10px] font-bold tracking-widest uppercase text-slate-500">Step</p>
+          </div>
+          <div className="p-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {STEPS.map(({ step, label, desc, color }) => {
+              const active = cue.step === step;
+              return (
+                <button
+                  key={step}
+                  onClick={() => sendCue(step)}
+                  className={cn(
+                    'flex flex-col items-start rounded-xl border-2 p-3.5 text-left transition-all min-h-[72px]',
+                    active && color === 'live'   && 'border-red-500 bg-red-950/50 ring-2 ring-red-700/30',
+                    active && color === 'award'  && 'border-amber-500 bg-amber-950/50 ring-2 ring-amber-700/30',
+                    active && color === 'neutral'&& 'border-slate-500 bg-slate-800 ring-2 ring-slate-600/30',
+                    !active && 'border-slate-800 bg-slate-900/50 hover:bg-slate-800 hover:border-slate-700',
+                  )}
+                >
+                  <span className={cn(
+                    'text-xs font-black tracking-wider',
+                    active && color === 'live'    && 'text-red-400',
+                    active && color === 'award'   && 'text-amber-400',
+                    active && color === 'neutral' && 'text-slate-300',
+                    !active && 'text-slate-400',
+                  )}>
+                    {label}
+                  </span>
+                  <span className="text-[11px] text-slate-600 mt-1 leading-tight">{desc}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
+
+        {/* ── OneShot style ─────────────────────────────────── */}
+        <div className="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-slate-800">
+            <p className="text-[10px] font-bold tracking-widest uppercase text-slate-500">One Shot Style</p>
+          </div>
+          <div className="p-3 grid grid-cols-4 gap-2">
+            {ONESHOT_STYLES.map(({ style, label }) => {
+              const active = cue.oneshotStyle === style;
+              return (
+                <button
+                  key={style}
+                  onClick={() => sendCue(cue.step, undefined, style)}
+                  className={cn(
+                    'rounded-lg border py-3 text-center text-xs font-bold transition-all',
+                    active
+                      ? 'border-amber-500 bg-amber-900/30 text-amber-300'
+                      : 'border-slate-800 bg-slate-900/50 text-slate-500 hover:bg-slate-800 hover:text-slate-300'
+                  )}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
       </div>
     </div>
   );
