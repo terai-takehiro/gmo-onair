@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { CgMappedEntry, OneshotStyle } from '../types';
-import { fitText, fitStyle } from '../fitText';
+import { fitText, fitStyle, measureWidth } from '../fitText';
 import CountUp from '../components/CountUp';
 import PortraitPlaceholder from '../components/PortraitPlaceholder';
 import OneShotImpactBurst from '../oneShotEffects/Classic';
@@ -46,11 +46,31 @@ interface OverlayProps {
   lang: 'ja' | 'en';
 }
 
+const MIN_CARD_W = 880;
+const MAX_CARD_W = 1600; // leaves 160px margin each side on 1920px canvas
+const CARD_PAD_X = 50;
+const CARD_PAD_Y = 50;
+const PHOTO_H = 520;
+const PHOTO_W = PHOTO_H * (3 / 4); // 390
+const CARD_GAP = 40;
+const CARD_H = PHOTO_H + CARD_PAD_Y * 2; // 620
+
+function calcCardW(name: string, company: string): number {
+  const NAME_FONT = `900 68px 'Noto Sans JP', sans-serif`;
+  const COMP_FONT = `500 30px 'Noto Sans JP', sans-serif`;
+  // letterSpacing compensation: 0.04em for name, 0.10em for company
+  const nameW = measureWidth(name, NAME_FONT) + name.length * 68 * 0.04;
+  const compW = measureWidth(company, COMP_FONT) + company.length * 30 * 0.10;
+  const needed = CARD_PAD_X * 2 + PHOTO_W + CARD_GAP + Math.max(nameW, compW);
+  return Math.min(MAX_CARD_W, Math.max(MIN_CARD_W, Math.ceil(needed)));
+}
+
 function OneShotCardOverlay({ entry, on, style, categoryParent, categoryChild, lang }: OverlayProps) {
-  const cardW = 880;
-  const cardH = 620;
-  const photoH = 520;
-  const photoW = photoH * (3 / 4);
+  const displayName    = lang === 'en' ? (entry.nameEn || entry.name) : entry.name;
+  const displayCompany = lang === 'en' ? (entry.orgEn  || entry.company) : entry.company;
+
+  const cardW = calcCardW(displayName, displayCompany);
+  const textColW = cardW - CARD_PAD_X * 2 - PHOTO_W - CARD_GAP;
 
   let cardTransform: string;
   let cardTransition: string;
@@ -95,7 +115,7 @@ function OneShotCardOverlay({ entry, on, style, categoryParent, categoryChild, l
           left: '50%',
           top: '50%',
           width: cardW,
-          height: cardH,
+          height: CARD_H,
           transform: cardTransform,
           opacity: on ? 1 : 0,
           transition: `${cardTransition}${cardClipTransition ? ', ' + cardClipTransition : ''}`,
@@ -103,8 +123,8 @@ function OneShotCardOverlay({ entry, on, style, categoryParent, categoryChild, l
           WebkitClipPath: cardClipPath,
           zIndex: 50,
           display: 'flex',
-          gap: 40,
-          padding: '50px 50px 50px 50px',
+          gap: CARD_GAP,
+          padding: `${CARD_PAD_Y}px ${CARD_PAD_X}px`,
           background:
             'linear-gradient(140deg, rgba(22,16,8,0.94) 0%, rgba(12,8,4,0.98) 100%)',
           border: '2px solid rgba(245,215,110,0.75)',
@@ -117,8 +137,8 @@ function OneShotCardOverlay({ entry, on, style, categoryParent, categoryChild, l
         <CardCorners />
         <Portrait
           entry={entry}
-          width={photoW}
-          height={photoH}
+          width={PHOTO_W}
+          height={PHOTO_H}
           delay={style === 'shards' ? 700 : style === 'slit' ? 600 : 200}
           on={on}
         />
@@ -127,7 +147,9 @@ function OneShotCardOverlay({ entry, on, style, categoryParent, categoryChild, l
           on={on}
           categoryParent={categoryParent}
           categoryChild={categoryChild}
-          lang={lang}
+          displayName={displayName}
+          displayCompany={displayCompany}
+          textColW={textColW}
         />
       </div>
     </>
@@ -213,15 +235,14 @@ interface TextProps {
   on: boolean;
   categoryParent: string;
   categoryChild: string;
-  lang: 'ja' | 'en';
+  displayName: string;
+  displayCompany: string;
+  textColW: number;
 }
 
-function TextColumn({ entry, on, categoryParent, categoryChild, lang }: TextProps) {
-  const displayName    = lang === 'en' ? (entry.nameEn || entry.name) : entry.name;
-  const displayCompany = lang === 'en' ? (entry.orgEn  || entry.company) : entry.company;
-  const TEXT_W = 350; // card 880 - padding 100 - photoW 390 - gap 40
-  const nameFit = fitText(displayName, TEXT_W, `900 68px 'Noto Sans JP', sans-serif`);
-  const compFit = fitText(displayCompany, TEXT_W, `500 30px 'Noto Sans JP', sans-serif`);
+function TextColumn({ entry, on, categoryParent, categoryChild, displayName, displayCompany, textColW }: TextProps) {
+  const nameFit = fitText(displayName, textColW, `900 68px 'Noto Sans JP', sans-serif`);
+  const compFit = fitText(displayCompany, textColW, `500 30px 'Noto Sans JP', sans-serif`);
   const D = 350;
   const T = 700;
   const fade: React.CSSProperties = {

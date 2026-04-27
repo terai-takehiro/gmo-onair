@@ -5,7 +5,7 @@
 
 const MIN_SCALE = 0.75;
 
-function measureWidth(text: string, fontStr: string): number {
+export function measureWidth(text: string, fontStr: string): number {
   if (!text || typeof document === 'undefined') return 0;
   try {
     const canvas = document.createElement('canvas');
