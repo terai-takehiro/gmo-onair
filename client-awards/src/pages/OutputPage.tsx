@@ -71,6 +71,7 @@ export default function OutputPage() {
       eventName={event.name}
       eventSubtitle={event.subtitle}
       lang={lang}
+      transparent={transparent}
     />
   );
 }

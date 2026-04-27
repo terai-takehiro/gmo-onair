@@ -6,6 +6,7 @@ import PhotoStage from './components/PhotoStage';
 import StepTitle from './steps/StepTitle';
 import StepRanking from './steps/StepRanking';
 import StepOneShot from './steps/StepOneShot';
+import StepIdle from './steps/StepIdle';
 
 interface Props {
   cue: CgCueState;
@@ -13,6 +14,7 @@ interface Props {
   eventName: string;
   eventSubtitle?: string | null;
   lang?: 'ja' | 'en';
+  transparent?: boolean;
 }
 
 /** Map API entry to the shape CG components consume. */
@@ -33,7 +35,7 @@ function mapEntry(e: CgCategory['entries'][number]): CgMappedEntry {
 
 const STEP_ORDER = ['idle', 'title', 'nominees', 'ranks52', 'winner-bar', 'oneshot'] as const;
 
-export default function CGSequence({ cue, category, eventName, eventSubtitle, lang = 'ja' }: Props) {
+export default function CGSequence({ cue, category, eventName, eventSubtitle, lang = 'ja', transparent = false }: Props) {
   const stepKey = cue.step;
 
   // Map entries
@@ -80,7 +82,17 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
   const showWinnerBar = stepKey === 'winner-bar' || stepKey === 'oneshot';
   const onPhotoStage = ['nominees', 'ranks52', 'winner-bar', 'oneshot'].includes(stepKey);
 
-  if (stepKey === 'idle') return null;
+  // idle: KEY ch (transparent) → nothing; FILL ch → standby screen
+  if (stepKey === 'idle') {
+    if (transparent) return null;
+    return (
+      <StepIdle
+        awardName={category?.name ?? ''}
+        divisionName={category?.description ?? ''}
+        lang={lang}
+      />
+    );
+  }
 
   const winner = sorted.find((e) => e.rank === 1) ?? null;
 
@@ -92,14 +104,14 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
       style={{
         position: 'absolute',
         inset: 0,
-        background: '#050403',
+        background: transparent ? 'transparent' : '#050403',
         overflow: 'hidden',
         fontFamily: "'Noto Sans JP', sans-serif",
         color: '#fff',
         perspective: '2400px',
       }}
     >
-      <CGBackground />
+      <CGBackground transparent={transparent} />
 
       {/* Persistent morphing header */}
       <PersistentHeader key={`hdr-${persistKey}`} tweaks={tweaks} stepKey={stepKey} />
