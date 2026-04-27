@@ -268,6 +268,7 @@ function TextColumn({ entry, on, categoryParent, categoryChild, displayName, dis
         justifyContent: 'center',
         gap: 16,
         minWidth: 0,
+        overflow: 'hidden',
       }}
     >
       {catLabel && (

@@ -44,13 +44,24 @@ interface Props {
 }
 
 export default function PhotoStage({ nominees, rankings, stepKey }: Props) {
+  // Shuffle once on mount (component remounts per category session via key prop)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const shuffled = useMemo(() => {
+    const arr = [...nominees];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }, []);
+
   const idToRank = useMemo(() => {
     const m = new Map<string, number>();
     rankings.forEach((r) => m.set(r.id, r.rank));
     return m;
   }, [rankings]);
 
-  const gridLayout = useMemo(() => nomineesGrid(nominees.length), [nominees.length]);
+  const gridLayout = useMemo(() => nomineesGrid(shuffled.length), [shuffled.length]);
 
   // Staggered insert: which ranks have moved from strip to bar
   const [insertProgress, setInsertProgress] = useState<Record<number, boolean>>({});
@@ -72,7 +83,7 @@ export default function PhotoStage({ nominees, rankings, stepKey }: Props) {
   useEffect(() => {
     if (stepKey !== 'nominees') return;
     setNomineesShown(0);
-    const N = nominees.length;
+    const N = shuffled.length;
     const timers: ReturnType<typeof setTimeout>[] = [];
     for (let i = 0; i < N; i++) {
       timers.push(
@@ -80,11 +91,11 @@ export default function PhotoStage({ nominees, rankings, stepKey }: Props) {
       );
     }
     return () => timers.forEach(clearTimeout);
-  }, [stepKey, nominees.length]);
+  }, [stepKey, shuffled.length]);
 
   // Fixed strip positions based on ALL nominees (never reflow)
   const initialStripPositions = useMemo<Map<string, StripPos>>(() => {
-    const count = nominees.length;
+    const count = shuffled.length;
     const gap = STRIP_GAP;
     let w = STRIP_PHOTO_W;
     let h = STRIP_PHOTO_H;
@@ -98,11 +109,11 @@ export default function PhotoStage({ nominees, rankings, stepKey }: Props) {
     const startX = (CG_W - totalW) / 2;
     const y = STRIP_BOTTOM_Y - h / 2;
     const posById = new Map<string, StripPos>();
-    nominees.forEach((n, idx) => {
+    shuffled.forEach((n, idx) => {
       posById.set(n.id, { x: startX + idx * (w + gap), y, w, h });
     });
     return posById;
-  }, [nominees]);
+  }, [shuffled]);
 
   const isInStrip = (n: CgMappedEntry): boolean => {
     if (stepKey === 'nominees') return false;
@@ -188,7 +199,7 @@ export default function PhotoStage({ nominees, rankings, stepKey }: Props) {
         zIndex: 5,
       }}
     >
-      {nominees.map((n, i) => {
+      {shuffled.map((n, i) => {
         const rank = idToRank.get(n.id);
         const L = layoutFor(n, i);
         const nameFit = fitText(n.name, baseW, `800 19px 'Noto Sans JP', sans-serif`, true);
