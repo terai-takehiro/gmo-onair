@@ -28,7 +28,7 @@ export default function OutputPage() {
   const { data: event } = useQuery({
     queryKey: ['awards-output-event', eventId],
     queryFn: async () => {
-      const res = await fetch(`/api/v1/internal/awards/events/${eventId}`);
+      const res = await fetch(`/api/v1/internal/awards/events/${eventId}/output`);
       if (!res.ok) return null;
       const json = await res.json();
       return json.data as EventData;

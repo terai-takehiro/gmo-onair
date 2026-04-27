@@ -29,6 +29,26 @@ const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<u
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
+// ── 公開: CG出力用（認証不要・ブラウザソース用）──────────────
+router.get('/events/:id/output', wrap(async (req, res) => {
+  const id = parseInt(req.params.id as string);
+  const event = await queryOne(`SELECT id, name, subtitle FROM awards_events WHERE id = ?`, [id]);
+  if (!event) { res.status(404).json({ success: false }); return; }
+
+  const categories = await queryAll(
+    `SELECT * FROM awards_categories WHERE event_id = ? ORDER BY display_order, id`, [id]
+  );
+  const entries = await queryAll(
+    `SELECT * FROM awards_entries WHERE event_id = ? ORDER BY category_id, rank NULLS LAST, id`, [id]
+  );
+
+  const catMap = new Map<number, Record<string, unknown> & { entries: unknown[] }>();
+  for (const c of categories) catMap.set(c.id as number, { ...c, entries: [] });
+  for (const e of entries) catMap.get(e.category_id as number)?.entries.push(e);
+
+  res.json({ success: true, data: { ...event, categories: [...catMap.values()] } });
+}));
+
 router.use(requireAuth, requirePermission('awards'));
 
 // ── 一覧 ────────────────────────────────────────────────────
