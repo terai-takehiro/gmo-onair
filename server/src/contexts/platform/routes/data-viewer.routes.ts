@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { queryAll, queryOne } from '../../../shared/db/connection';
+import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requireRole, requirePermission } from '../../../shared/middleware/auth';
 import { paginatedResponse } from '../../../shared/services/pagination';
 
@@ -8,28 +8,99 @@ const router = Router();
 // Apply auth + permission middleware to all routes
 router.use(requireAuth, requirePermission('admin'));
 
+/**
+ * 編集・閲覧可能なテーブル一覧 (v2.8.0+ 全アプリのテーブルに拡張)
+ * 個別テーブルを意図的に追加して新規テーブル誤公開を防ぐ。
+ */
 const ALLOWED_TABLES = [
-  'users', 'customers', 'vendors', 'partners',
-  'pricing_categories', 'pricing_items', 'sequences',
-  'projects', 'episodes', 'episode_orders',
-  'simulations',
-  'invoice_groups', 'invoice_group_episodes',
-  'revenues', 'purchases',
+  // 案件管理
+  'projects', 'customers', 'vendors', 'companies', 'partners',
+  'revenues', 'revenue_items', 'revenue_allocations',
+  'purchases', 'purchase_allocations',
+  'project_groups', 'project_group_members',
   'sga_expenses',
-  'activity_logs', 'sales_targets',
+  'pricing_categories', 'pricing_items',
+  'episodes', 'episode_orders',
+  'invoice_groups', 'invoice_group_episodes',
+  'studio_locations', 'studio_rooms', 'studio_bookings', 'studio_booking_rooms',
+  'lost_reason_categories',
+  'simulations', 'sales_targets',
+  'activity_logs',
+  // Qシート
+  'qsheet_documents', 'qsheet_stage_templates',
+  // 機材管理
+  'equipment_items', 'equipment_categories',
+  'equipment_branches', 'equipment_locations',
+  'equipment_manufacturers', 'equipment_colors',
+  'equipment_rack_types', 'rack_blank_panels',
+  'equipment_accessories',
+  'equipment_custom_columns', 'equipment_custom_values',
+  'equipment_id_sequences',
+  'equipment_lendings', 'equipment_rental_categories',
+  'inventory_checks', 'inventory_check_items',
+  'maintenance_records',
+  // インタラクティブ
+  'interactive_events', 'interactive_sessions',
+  'interactive_stamps', 'interactive_stamp_counts',
+  'interactive_channels',
+  'interactive_questions', 'interactive_question_texts', 'interactive_answers',
+  'interactive_overlay_templates',
+  // 技術資料
+  'techsheet_documents',
+  // ライブ運用
+  'liveops_programs', 'liveops_settings', 'liveops_snapshots', 'liveops_timers',
+  // 共通・マスター
+  'users', 'user_permissions', 'sequences',
+  'login_attempts', 'verification_codes',
 ];
+
+/**
+ * 編集を禁止するカラム (v2.8.0+)
+ * - 主キー / 監査列 / 認証情報 は UI からの直接編集を許可しない
+ */
+const PROTECTED_COLUMNS = new Set([
+  'id',
+  'created_at', 'updated_at', 'deleted_at',
+  'created_by', 'updated_by',
+  'password_hash', 'password',
+  'two_factor_secret', 'totp_secret',
+  'password_reset_token', 'session_token',
+  'verification_code', 'sms_code',
+]);
 
 // PostgreSQL identifier quoting (prevents injection in table/column names)
 function quoteIdent(name: string): string {
   return '"' + name.replace(/"/g, '""') + '"';
 }
 
+interface ColumnInfo {
+  name: string;
+  type: string;
+  nullable: boolean;
+}
+
+async function getColumns(table: string): Promise<ColumnInfo[]> {
+  const rows = await queryAll(
+    `SELECT column_name as name, data_type as type, is_nullable = 'YES' as nullable
+     FROM information_schema.columns
+     WHERE table_schema = 'public' AND table_name = ?
+     ORDER BY ordinal_position`,
+    [table]
+  );
+  return rows as unknown as ColumnInfo[];
+}
+
 // GET /data-viewer/tables - list tables with row counts
 router.get('/tables', requireRole('system_admin'), async (_req, res) => {
   const tables = [];
   for (const name of ALLOWED_TABLES) {
-    const row = await queryOne(`SELECT COUNT(*) as count FROM ${quoteIdent(name)}`);
-    tables.push({ name, count: (row?.count as number) || 0 });
+    try {
+      const row = await queryOne(`SELECT COUNT(*) as count FROM ${quoteIdent(name)}`);
+      tables.push({ name, count: (row?.count as number) || 0 });
+    } catch (err) {
+      // テーブル未作成 (新規環境やマイグレーション未実行) はスキップ
+      console.warn(`[data-viewer] Skipping table '${name}':`, (err as Error).message);
+    }
   }
   res.json({ success: true, data: tables });
 });
@@ -38,11 +109,13 @@ router.get('/tables', requireRole('system_admin'), async (_req, res) => {
 router.get('/tables/:name/schema', requireRole('system_admin'), async (req, res) => {
   const name = req.params.name as string;
   if (!ALLOWED_TABLES.includes(name)) { res.status(400).json({ success: false, error: 'Invalid table' }); return; }
-  const columns = await queryAll(
-    `SELECT column_name as name, data_type as type FROM information_schema.columns WHERE table_name = ?`,
-    [name]
-  ) as Array<{ name: string; type: string }>;
-  res.json({ success: true, data: columns });
+  const columns = await getColumns(name);
+  // クライアントが編集可否を判別できるように editable フラグを付与
+  const enriched = columns.map(c => ({
+    ...c,
+    editable: !PROTECTED_COLUMNS.has(c.name),
+  }));
+  res.json({ success: true, data: enriched });
 });
 
 // GET /data-viewer/tables/:name - paginated data
@@ -82,7 +155,6 @@ router.get('/tables/:name', requireRole('system_admin'), async (req, res) => {
   const total = (totalRow?.c as number) || 0;
   const rows = await queryAll(`SELECT * FROM ${quotedTable} ${where} ORDER BY ${quoteIdent(safeSort)} ${order} LIMIT ? OFFSET ?`, [...params, limit, offset]);
 
-  // columns は data-viewer 固有の追加情報。pagination は paginatedResponse() で標準化
   res.json({ ...paginatedResponse(rows, total, page, limit), columns: validColumns });
 });
 
@@ -100,7 +172,7 @@ router.get('/tables/:name/export', requireRole('system_admin'), async (req, res)
   const rows = await queryAll(`SELECT * FROM ${quoteIdent(name)}`);
 
   // BOM for Excel UTF-8 compatibility
-  let csv = '\uFEFF' + columns.join(',') + '\n';
+  let csv = '﻿' + columns.join(',') + '\n';
   for (const row of rows) {
     csv += columns.map(c => {
       const val = (row as any)[c];
@@ -113,6 +185,117 @@ router.get('/tables/:name/export', requireRole('system_admin'), async (req, res)
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename=${name}.csv`);
   res.send(csv);
+});
+
+// =============================================================
+// v2.8.0+ 編集 / 論理削除 (system_admin のみ)
+// =============================================================
+
+/**
+ * PATCH /data-viewer/tables/:name/rows/:id
+ * 行を更新する。PROTECTED_COLUMNS は無視。updated_at / updated_by が
+ * カラムに存在すれば自動で現在時刻 / 操作ユーザー ID にセット。
+ */
+router.patch('/tables/:name/rows/:id', requireRole('system_admin'), async (req, res) => {
+  const name = req.params.name as string;
+  const id = req.params.id as string;
+  if (!ALLOWED_TABLES.includes(name)) { res.status(400).json({ success: false, error: 'Invalid table' }); return; }
+  const updates = req.body as Record<string, unknown>;
+  if (!updates || typeof updates !== 'object' || Array.isArray(updates)) {
+    res.status(400).json({ success: false, error: 'Invalid body' });
+    return;
+  }
+
+  const columns = await getColumns(name);
+  const colNames = new Set(columns.map(c => c.name));
+
+  // 編集可能なフィールドのみ抽出
+  const setClauses: string[] = [];
+  const params: unknown[] = [];
+  const changed: Record<string, unknown> = {};
+  for (const [col, val] of Object.entries(updates)) {
+    if (PROTECTED_COLUMNS.has(col)) continue;
+    if (!colNames.has(col)) continue;
+    setClauses.push(`${quoteIdent(col)} = ?`);
+    // 空文字 → NULL (string 型のみ)
+    params.push(val === '' ? null : val);
+    changed[col] = val;
+  }
+
+  if (setClauses.length === 0) {
+    res.status(400).json({ success: false, error: '編集可能なフィールドが指定されていません' });
+    return;
+  }
+
+  // updated_at / updated_by は自動セット (カラムが存在する場合)
+  if (colNames.has('updated_at')) setClauses.push(`${quoteIdent('updated_at')} = NOW()`);
+  if (colNames.has('updated_by')) {
+    setClauses.push(`${quoteIdent('updated_by')} = ?`);
+    params.push((req.user as { id: string })?.id ?? null);
+  }
+
+  params.push(id);
+
+  // 主キーが id でないテーブル (e.g. user_permissions) は更新できない
+  if (!colNames.has('id')) {
+    res.status(405).json({ success: false, error: `テーブル '${name}' は id カラムを持たないため更新できません` });
+    return;
+  }
+
+  const sql = `UPDATE ${quoteIdent(name)} SET ${setClauses.join(', ')} WHERE ${quoteIdent('id')} = ?`;
+  try {
+    await execute(sql, params);
+    console.log(`[data-viewer] UPDATE ${name}/${id} by user=${(req.user as { id: string })?.id}`, JSON.stringify(changed));
+    const row = await queryOne(`SELECT * FROM ${quoteIdent(name)} WHERE ${quoteIdent('id')} = ?`, [id]);
+    res.json({ success: true, data: row });
+  } catch (err) {
+    console.error(`[data-viewer] UPDATE failed on ${name}/${id}:`, (err as Error).message);
+    res.status(400).json({ success: false, error: (err as Error).message });
+  }
+});
+
+/**
+ * DELETE /data-viewer/tables/:name/rows/:id (論理削除のみ)
+ * deleted_at カラムを持つテーブルのみ対応。物理削除は提供しない。
+ */
+router.delete('/tables/:name/rows/:id', requireRole('system_admin'), async (req, res) => {
+  const name = req.params.name as string;
+  const id = req.params.id as string;
+  if (!ALLOWED_TABLES.includes(name)) { res.status(400).json({ success: false, error: 'Invalid table' }); return; }
+
+  const columns = await getColumns(name);
+  const colNames = new Set(columns.map(c => c.name));
+
+  if (!colNames.has('deleted_at')) {
+    res.status(405).json({
+      success: false,
+      error: `テーブル '${name}' は deleted_at カラムを持たないため、論理削除できません (物理削除は安全のため未提供)`,
+    });
+    return;
+  }
+  if (!colNames.has('id')) {
+    res.status(405).json({ success: false, error: `テーブル '${name}' は id カラムを持たないため削除できません` });
+    return;
+  }
+
+  const setClauses = [`${quoteIdent('deleted_at')} = NOW()`];
+  const params: unknown[] = [];
+  if (colNames.has('updated_at')) setClauses.push(`${quoteIdent('updated_at')} = NOW()`);
+  if (colNames.has('updated_by')) {
+    setClauses.push(`${quoteIdent('updated_by')} = ?`);
+    params.push((req.user as { id: string })?.id ?? null);
+  }
+  params.push(id);
+
+  const sql = `UPDATE ${quoteIdent(name)} SET ${setClauses.join(', ')} WHERE ${quoteIdent('id')} = ? AND ${quoteIdent('deleted_at')} IS NULL`;
+  try {
+    await execute(sql, params);
+    console.log(`[data-viewer] LOGICAL DELETE ${name}/${id} by user=${(req.user as { id: string })?.id}`);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(`[data-viewer] DELETE failed on ${name}/${id}:`, (err as Error).message);
+    res.status(400).json({ success: false, error: (err as Error).message });
+  }
 });
 
 export default router;

@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.7.13 — トグルボタンの CJK 文字 1 文字ずつ縦積み防止 (番組情報パネルのレイアウト調整 + word-break: keep-all)
+v2.8.0 — データビューワーに編集 + 論理削除機能 (system_admin のみ、PATCH/DELETE エンドポイント、PROTECTED_COLUMNS で id/created_at/password_hash 等は保護)
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)
