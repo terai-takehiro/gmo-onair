@@ -44,7 +44,7 @@ export const ToggleCard = React.forwardRef<HTMLButtonElement, ToggleCardProps>(
         className={cn(
           minH,
           padding,
-          'flex items-center gap-2 rounded-xl border-2 text-left transition-all',
+          'flex items-start gap-2 rounded-xl border-2 text-left transition-all',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
           'disabled:cursor-not-allowed disabled:opacity-50',
           selected
@@ -56,23 +56,23 @@ export const ToggleCard = React.forwardRef<HTMLButtonElement, ToggleCardProps>(
         {...rest}
       >
         {leftSlot && (
-          <span className="shrink-0 flex items-center">{leftSlot}</span>
+          <span className="shrink-0 flex items-center pt-0.5">{leftSlot}</span>
         )}
-        <span className="flex-1 min-w-0">
-          <span className={cn('block truncate font-medium', size === 'sm' ? 'text-xs' : 'text-sm')}>
+        <span className="flex-1 min-w-0 self-center">
+          <span className={cn('block font-medium leading-snug whitespace-normal break-words', size === 'sm' ? 'text-xs' : 'text-sm')}>
             {label}
           </span>
           {description && (
-            <span className={cn('block truncate', selected ? 'text-white/85' : 'text-muted-foreground', 'text-[11px] mt-0.5')}>
+            <span className={cn('block leading-snug whitespace-normal break-words', selected ? 'text-white/85' : 'text-muted-foreground', 'text-[11px] mt-0.5')}>
               {description}
             </span>
           )}
         </span>
         {rightSlot && (
-          <span className="shrink-0">{rightSlot}</span>
+          <span className="shrink-0 self-center">{rightSlot}</span>
         )}
         {selected && !rightSlot && (
-          <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <Check className="h-4 w-4 shrink-0 self-center" aria-hidden="true" />
         )}
       </button>
     );

@@ -86,3 +86,14 @@ export function getBoxClient(): NonNullable<typeof cachedClient> | null {
 export function getBoxFolderUrl(folderId: string): string {
   return `https://app.box.com/folder/${folderId}`;
 }
+
+/**
+ * BOX フォルダ URL から folder ID を抽出。
+ * 期待フォーマット: https://app.box.com/folder/123456789
+ * マッチしなければ null。
+ */
+export function extractFolderId(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const m = url.match(/\/folder\/(\d+)/);
+  return m ? m[1] : null;
+}

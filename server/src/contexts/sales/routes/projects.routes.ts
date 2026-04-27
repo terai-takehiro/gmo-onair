@@ -85,6 +85,12 @@ router.post('/:id/issue-gls', requirePermission('sales', 'editor'), async (req, 
   res.json({ success: true, data: result });
 });
 
+// BOX フォルダ手動作成 (既存案件向けバックフィル / 失敗ケースのリトライ)
+router.post('/:id/create-box-folder', requirePermission('sales', 'manager'), async (req, res) => {
+  const result = await projectService.createBoxFolder(req.params.id as string);
+  res.json({ success: true, data: result });
+});
+
 // 既存GLS案件へのリンク（エピソード追加）
 router.post('/:id/link-gls', requirePermission('sales', 'editor'), (req, res) => {
   const { target_project_id } = req.body;
