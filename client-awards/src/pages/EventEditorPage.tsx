@@ -5,7 +5,7 @@ import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import {
   Trophy, ChevronLeft, Plus, Trash2, Check, X,
-  Upload, RefreshCw, Tv2, Shuffle, FileSpreadsheet,
+  Upload, RefreshCw, Tv2, Shuffle, FileSpreadsheet, ExternalLink, Copy,
 } from 'lucide-react';
 
 // ── Types ───────────────────────────────────────────────────
@@ -524,21 +524,40 @@ export default function EventEditorPage() {
               className="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
             />
           </FormField>
-          <div className="pt-2 border-t">
-            <p className="text-sm font-medium mb-2">出力URL（OBS / vMix ブラウザソース）</p>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 rounded-lg bg-muted px-3 py-2 text-xs font-mono break-all">
-                {window.location.origin}/awards/output/{event.id}?transparent=1
-              </code>
-              <button
-                onClick={() => navigator.clipboard.writeText(
-                  `${window.location.origin}/awards/output/${event.id}?transparent=1`
-                )}
-                className="shrink-0 rounded-lg border px-3 py-2 text-xs hover:bg-muted"
-              >
-                コピー
-              </button>
-            </div>
+          <div className="pt-2 border-t space-y-2">
+            <p className="text-sm font-medium">出力URL（OBS / vMix ブラウザソース）</p>
+            {[
+              { label: '🇯🇵 日本語出力', lang: 'ja' },
+              { label: '🇺🇸 英語出力', lang: 'en' },
+            ].map(({ label, lang }) => {
+              const url = `${window.location.origin}/awards/output/${event.id}?transparent=1&lang=${lang}`;
+              return (
+                <div key={lang} className="flex items-center gap-2">
+                  <span className="w-28 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
+                  <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs font-mono truncate">
+                    {url}
+                  </code>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(url)}
+                    title="URLをコピー"
+                    className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors"
+                  >
+                    <Copy className="h-3 w-3" />
+                    コピー
+                  </button>
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="新しいタブで開く"
+                    className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    開く
+                  </a>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.7 — Excelインポート刷新（種別/部門自動カテゴリ化）、画像フォルダ読込、バイリンガルCG対応
+**現在のバージョン**: v2.8.8 — 出力URL日英ボタン追加
 
 ---
 
@@ -383,6 +383,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.8.8** | **出力URL日英ボタン追加**: イベント情報タブの出力URL欄を日本語出力・英語出力の2行に拡張。各行にURLコピーボタン＋新しいタブで開くボタンを配置 |
 | **v2.8.7** | **Excelインポート刷新・画像フォルダ読込・バイリンガルCG対応**: ①Excel列「種別」→賞(category.name)、「エントリー部門」→部門(category.description)で自動カテゴリ生成（同名組み合わせ追記）。「プロジェクト名」優先でname上書き、英語列対応。②DB migration 072: name_en/org_en/image_id列追加。③画像フォルダ読込: 複数画像ファイルを選択→image_idで突合→photo_url自動設定。④CGバイリンガル: `?lang=en`パラメータでname_en/org_enを使用してJA/EN切替 |
 | **v2.8.6** | **部門/賞の階層構造対応・自社票ポイント機能追加**: カテゴリの description = 部門（大テキスト）、name = 賞（小テキスト）に変更。DB `awards_entries.own_points` 列追加 (migration 071)。操作UIで部門名インライン編集・自社票ptフィールド追加。CGでownPoints比率バー・パーセント表示 |
 | **v2.8.5** | **表彰CGデザイン全面刷新**: Claude Design制作の放送用ゴールドデザイン（Bebas Neue + Noto Sans JP / #F5D76E金パレット）を移植。PhotoStageによる写真モーフィング、PersistentHeaderのシーン間モーフ、CGBackground、CountUp、PortraitPlaceholder、全4 OneShotエフェクト刷新 |
