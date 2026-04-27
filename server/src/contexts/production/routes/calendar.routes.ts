@@ -24,7 +24,7 @@ router.get('/events', async (req, res) => {
   // Episode events
   const episodeEvents = await queryAll(
     `SELECT e.id, e.episode_code as title, e.recording_date, e.broadcast_date,
-     p.gls_number, p.id as project_id, p.status
+     p.gls_number, p.id as project_id, p.stage
      FROM episodes e
      JOIN projects p ON p.id = e.project_id
      WHERE e.deleted_at IS NULL AND p.deleted_at IS NULL

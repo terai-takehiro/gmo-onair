@@ -283,16 +283,13 @@ export default function ProjectFormPage() {
   const createBoxFolderMutation = useMutation({
     mutationFn: async () => (await api.post(`/projects/${id}/create-box-folder`)).data,
     onSuccess: (data) => {
-      const url = data?.data?.url;
-      if (url) {
-        const cType = watch("customer_type");
-        const field = cType === "internal" ? "box_url_internal" : "box_url_external";
-        setValue(field, url, { shouldDirty: false });
-      }
+      const result = data?.data;
+      if (result?.urlInternal) setValue("box_url_internal", result.urlInternal, { shouldDirty: false });
+      if (result?.urlExternal) setValue("box_url_external", result.urlExternal, { shouldDirty: false });
       qc.invalidateQueries({ queryKey: ["project", id] });
-      window.alert(data?.data?.already
+      window.alert(result?.already
         ? "既に BOX フォルダが登録されています"
-        : "✓ BOX フォルダを作成しました");
+        : "✓ BOX フォルダを作成しました（社内限り / 社外共有可）");
     },
     onError: (err: any) => {
       const code = err?.response?.data?.error?.code;
@@ -701,62 +698,56 @@ export default function ProjectFormPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <Label>社内限Box URL</Label>
-                <div className="flex gap-2">
-                  <Input {...register("box_url_internal")} type="url" placeholder="https://gmo.box.com/..." className="flex-1" />
+            {/* Box フォルダ — 案件作成時に社内限り / 社外共有可の 2 親フォルダへ自動作成される (v2.7.11+) */}
+            {/* URL は表示専用。フォーム送信時に値を保持するため hidden register */}
+            <input type="hidden" {...register("box_url_internal")} />
+            <input type="hidden" {...register("box_url_external")} />
+            <div className="rounded-xl border bg-muted/20 p-4 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <Label className="font-semibold">Box フォルダ</Label>
+                {isEdit && (!watch("box_url_internal") || !watch("box_url_external")) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCreateBoxFolder}
+                    disabled={createBoxFolderMutation.isPending}
+                    className="gap-1.5"
+                    title="BOX に案件フォルダを作成"
+                  >
+                    {createBoxFolderMutation.isPending
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : <FolderPlus className="h-4 w-4" />}
+                    <span>{(watch("box_url_internal") || watch("box_url_external")) ? "未作成側を作成" : "BOX フォルダ作成"}</span>
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                案件作成時に「社内限り（機密情報）」「社外共有可（顧客と共有）」の 2 フォルダが BOX に自動作成されます。
+              </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border bg-background p-3">
+                  <div className="text-xs font-medium text-muted-foreground mb-2">社内限り（機密情報）</div>
                   {watch("box_url_internal") ? (
                     <a href={watch("box_url_internal")} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-input bg-background hover:bg-accent text-muted-foreground">
-                      <ExternalLink className="h-4 w-4" />
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      BOX で開く
                     </a>
                   ) : (
-                    isEdit && watch("customer_type") === "internal" && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleCreateBoxFolder}
-                        disabled={createBoxFolderMutation.isPending}
-                        className="shrink-0 gap-1.5"
-                        title="BOX に案件フォルダを作成"
-                      >
-                        {createBoxFolderMutation.isPending
-                          ? <Loader2 className="h-4 w-4 animate-spin" />
-                          : <FolderPlus className="h-4 w-4" />}
-                        <span className="hidden sm:inline">BOX 作成</span>
-                      </Button>
-                    )
+                    <div className="text-sm text-muted-foreground">未作成</div>
                   )}
                 </div>
-              </div>
-              <div>
-                <Label>外部共有Box URL</Label>
-                <div className="flex gap-2">
-                  <Input {...register("box_url_external")} type="url" placeholder="https://gmo.box.com/..." className="flex-1" />
+                <div className="rounded-lg border bg-background p-3">
+                  <div className="text-xs font-medium text-muted-foreground mb-2">社外共有可（顧客とも共有）</div>
                   {watch("box_url_external") ? (
                     <a href={watch("box_url_external")} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-input bg-background hover:bg-accent text-muted-foreground">
-                      <ExternalLink className="h-4 w-4" />
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      BOX で開く
                     </a>
                   ) : (
-                    isEdit && watch("customer_type") === "external" && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleCreateBoxFolder}
-                        disabled={createBoxFolderMutation.isPending}
-                        className="shrink-0 gap-1.5"
-                        title="BOX に案件フォルダを作成"
-                      >
-                        {createBoxFolderMutation.isPending
-                          ? <Loader2 className="h-4 w-4 animate-spin" />
-                          : <FolderPlus className="h-4 w-4" />}
-                        <span className="hidden sm:inline">BOX 作成</span>
-                      </Button>
-                    )
+                    <div className="text-sm text-muted-foreground">未作成</div>
                   )}
                 </div>
               </div>

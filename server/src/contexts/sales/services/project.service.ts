@@ -2,7 +2,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { generateSequenceNumber, generateGlsNumber } from '../../../shared/services/sequence.service';
 import { AppError } from '../../../shared/middleware/errorHandler';
-import { createProjectFolderTree, renameProjectFolder, type CustomerType } from './box-folder.service';
+import {
+  createProjectFolderTree,
+  renameProjectFolderPair,
+  type CustomerType,
+} from './box-folder.service';
 import { extractFolderId } from '../../../shared/services/box';
 
 /**
@@ -139,19 +143,26 @@ export class ProjectService {
        application_form ? 1 : 0, logo_permission ? 1 : 0, userId]
     );
 
-    // BOX フォルダ自動作成 (作成時点で OPP コードを使う。GLS 発番時にリネームされる)
-    // 既に box_url_* が手動入力されている場合は上書きしない
-    const hasManualBoxUrl = (cType === 'internal' && !!box_url_internal) || (cType === 'external' && !!box_url_external);
-    if (!hasManualBoxUrl) {
-      try {
-        const folder = await createProjectFolderTree(code, String(name), cType);
-        if (folder) {
-          const urlColumn = cType === 'internal' ? 'box_url_internal' : 'box_url_external';
-          await execute(`UPDATE projects SET ${urlColumn} = ? WHERE id = ?`, [folder.folderUrl, id]);
-        }
-      } catch (err) {
-        console.warn('[create] BOX folder creation failed (non-blocking):', (err as Error).message);
+    // BOX フォルダ自動作成 (両親フォルダに並行作成。OPP コード命名で、GLS 発番時にリネームされる)
+    // 既に box_url_internal / box_url_external が手動入力されている場合は、未入力側だけ補填
+    try {
+      const folders = await createProjectFolderTree(code, String(name));
+      const updates: string[] = [];
+      const params: unknown[] = [];
+      if (!box_url_internal && folders.internal) {
+        updates.push('box_url_internal = ?');
+        params.push(folders.internal.folderUrl);
       }
+      if (!box_url_external && folders.external) {
+        updates.push('box_url_external = ?');
+        params.push(folders.external.folderUrl);
+      }
+      if (updates.length > 0) {
+        params.push(id);
+        await execute(`UPDATE projects SET ${updates.join(', ')} WHERE id = ?`, params);
+      }
+    } catch (err) {
+      console.warn('[create] BOX folder creation failed (non-blocking):', (err as Error).message);
     }
 
     return this.getById(id);
@@ -200,18 +211,18 @@ export class ProjectService {
       );
     }
 
-    // 案件名変更を BOX フォルダ名にも反映 (非ブロッキング)
+    // 案件名変更を BOX 両フォルダ (社内限り / 社外共有可) に並行反映 (非ブロッキング)
     if (typeof name === 'string' && name && name !== existing.name) {
       try {
-        const currentBoxUrl = cType === 'internal' ? existing.box_url_internal : existing.box_url_external;
-        const folderId = extractFolderId(currentBoxUrl as string | null);
-        if (folderId) {
+        const internalFolderId = extractFolderId(existing.box_url_internal as string | null);
+        const externalFolderId = extractFolderId(existing.box_url_external as string | null);
+        if (internalFolderId || externalFolderId) {
           const newFolderName = buildProjectFolderName({
             gls_number: existing.gls_number as string | null,
             code: existing.code as string,
             name,
           });
-          await renameProjectFolder(folderId, newFolderName);
+          await renameProjectFolderPair(internalFolderId, externalFolderId, newFolderName);
         }
       } catch (err) {
         console.warn('[update] BOX folder rename failed (non-blocking):', (err as Error).message);
@@ -283,30 +294,38 @@ export class ProjectService {
     // 概算見積を確定売上に変換
     await this.migrateEstimates(id, glsNumber);
 
-    // BOX フォルダの ID 部分を OPP コード → GLS 番号 にリネーム。
-    // 既存フォルダが無い (初回作成失敗 / BOX 後付け有効化) ケースでは新規作成にフォールバック。
+    // BOX 両フォルダ (社内限り / 社外共有可) の ID 部分を OPP コード → GLS 番号 にリネーム。
+    // 片方が未作成の場合 (初回作成失敗 / BOX 後付け有効化) は新規作成でフォールバック。
     // いずれも失敗しても GLS 発番自体はブロックしない。
     try {
-      const cType = normalizeCustomerType(project.customer_type);
-      const urlColumn = cType === 'internal' ? 'box_url_internal' : 'box_url_external';
-      const currentBoxUrl = project[urlColumn] as string | null;
-      const folderId = extractFolderId(currentBoxUrl);
+      const internalFolderId = extractFolderId(project.box_url_internal as string | null);
+      const externalFolderId = extractFolderId(project.box_url_external as string | null);
       const newFolderName = buildProjectFolderName({
         gls_number: glsNumber,
         code: project.code as string,
         name: project.name as string,
       });
 
-      if (folderId) {
-        await renameProjectFolder(folderId, newFolderName);
-        // URL は同じ (folder ID 不変) なので DB 更新は不要
-      } else {
-        const folder = await createProjectFolderTree(glsNumber, project.name as string, cType);
-        if (folder) {
-          await execute(
-            `UPDATE projects SET ${urlColumn}=?, updated_at=NOW() WHERE id=?`,
-            [folder.folderUrl, id],
-          );
+      if (internalFolderId || externalFolderId) {
+        await renameProjectFolderPair(internalFolderId, externalFolderId, newFolderName);
+      }
+
+      // 未作成の側を補填 (両方未作成のケースも含む)
+      if (!internalFolderId || !externalFolderId) {
+        const folders = await createProjectFolderTree(glsNumber, project.name as string);
+        const updates: string[] = [];
+        const params: unknown[] = [];
+        if (!internalFolderId && folders.internal) {
+          updates.push('box_url_internal = ?');
+          params.push(folders.internal.folderUrl);
+        }
+        if (!externalFolderId && folders.external) {
+          updates.push('box_url_external = ?');
+          params.push(folders.external.folderUrl);
+        }
+        if (updates.length > 0) {
+          params.push(id);
+          await execute(`UPDATE projects SET ${updates.join(', ')}, updated_at=NOW() WHERE id=?`, params);
         }
       }
     } catch (err) {
@@ -317,20 +336,23 @@ export class ProjectService {
   }
 
   /**
-   * 既存案件向けの BOX フォルダ手動作成。
+   * 既存案件向けの BOX フォルダ手動作成 (両親フォルダ対応)。
    * - BOX 未設定 → 503
-   * - 既に URL がある → { already: true, url } (idempotent)
+   * - 両 URL すでに揃っている → { already: true } (idempotent)
+   * - 片方だけある場合は無い側のみ補填
    * - GLS 未発番なら OPP コード、発番済みなら GLS 番号で命名
    */
-  async createBoxFolder(id: string): Promise<{ url: string; already: boolean }> {
+  async createBoxFolder(
+    id: string,
+  ): Promise<{ urlInternal: string | null; urlExternal: string | null; already: boolean }> {
     const project = await queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [id]) as any;
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
 
-    const cType = normalizeCustomerType(project.customer_type);
-    const urlColumn = cType === 'internal' ? 'box_url_internal' : 'box_url_external';
-    const existingUrl = project[urlColumn] as string | null;
-    if (existingUrl) {
-      return { url: existingUrl, already: true };
+    const existingInternal = project.box_url_internal as string | null;
+    const existingExternal = project.box_url_external as string | null;
+
+    if (existingInternal && existingExternal) {
+      return { urlInternal: existingInternal, urlExternal: existingExternal, already: true };
     }
 
     // BOX 設定状況をチェック (createProjectFolderTree も同じチェックをするが、
@@ -341,15 +363,31 @@ export class ProjectService {
     }
 
     const idCode = (project.gls_number as string | null) || (project.code as string);
-    const folder = await createProjectFolderTree(idCode, project.name as string, cType);
-    if (!folder) {
+    const folders = await createProjectFolderTree(idCode, project.name as string);
+
+    const newInternal = existingInternal || (folders.internal?.folderUrl ?? null);
+    const newExternal = existingExternal || (folders.external?.folderUrl ?? null);
+
+    if (!newInternal && !newExternal) {
       throw new AppError(502, 'BOX_FOLDER_CREATE_FAILED', 'BOX フォルダ作成に失敗しました (親フォルダ ID 未設定の可能性)');
     }
-    await execute(
-      `UPDATE projects SET ${urlColumn}=?, updated_at=NOW() WHERE id=?`,
-      [folder.folderUrl, id],
-    );
-    return { url: folder.folderUrl, already: false };
+
+    const updates: string[] = [];
+    const params: unknown[] = [];
+    if (!existingInternal && folders.internal) {
+      updates.push('box_url_internal = ?');
+      params.push(folders.internal.folderUrl);
+    }
+    if (!existingExternal && folders.external) {
+      updates.push('box_url_external = ?');
+      params.push(folders.external.folderUrl);
+    }
+    if (updates.length > 0) {
+      params.push(id);
+      await execute(`UPDATE projects SET ${updates.join(', ')}, updated_at=NOW() WHERE id=?`, params);
+    }
+
+    return { urlInternal: newInternal, urlExternal: newExternal, already: false };
   }
 
   /**
