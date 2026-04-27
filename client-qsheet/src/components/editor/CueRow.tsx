@@ -78,11 +78,11 @@ function EntryImageButton({
         <img
           src={imageUrl}
           alt=""
-          className="h-6 w-6 rounded object-cover border border-zinc-200 dark:border-zinc-700"
+          className="h-12 w-12 rounded-md object-cover border border-zinc-200 dark:border-zinc-700"
         />
         <button
           onClick={() => onChange(null)}
-          className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-white border border-zinc-300 text-zinc-500 hover:text-red-500 text-[10px] leading-none flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
+          className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-white border border-zinc-300 text-zinc-500 hover:text-red-500 text-[10px] leading-none flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
           title="画像を削除"
         >
           ×
@@ -391,10 +391,12 @@ export default function CueRow({
             }
 
             // ── Video / Audio / Telop cells (paired: pill + memo) ──
+            // v2.8.3+: Video セルだけ全面に薄青背景を入れて視認性向上
             if (["video", "audio", "telop"].includes(blk.type)) {
               const pillColor = PILL_COLORS[blk.type] || "bg-zinc-600";
+              const cellBg = blk.type === "video" ? "bg-blue-50/60 dark:bg-blue-950/25" : "";
               return (
-                <td key={blk.id} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden align-top">
+                <td key={blk.id} className={`px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden align-top ${cellBg}`}>
                   <div className="flex items-start gap-1.5 min-w-0">
                     <EditablePill
                       value={en?.label || ""}
