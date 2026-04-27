@@ -28,6 +28,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Briefcase,
+  FileSpreadsheet,
+  Wrench,
+  Sparkles,
+  Camera,
+  Radio,
+  Users as UsersIcon,
+  Folder,
 } from "lucide-react";
 
 interface TableInfo {
@@ -43,24 +51,173 @@ interface PaginationInfo {
 }
 
 const TABLE_LABELS: Record<string, string> = {
-  users: 'ユーザー',
+  // 案件管理
+  projects: '案件',
   customers: '顧客',
   vendors: '仕入先',
-  partners: 'パートナー',
+  companies: '会社',
+  partners: 'パートナー(個人)',
+  revenues: '売上',
+  revenue_items: '売上明細',
+  revenue_allocations: '売上按分',
+  purchases: '仕入',
+  purchase_allocations: '仕入按分',
+  project_groups: '費用按分グループ',
+  project_group_members: '費用按分メンバー',
+  sga_expenses: '販管費',
   pricing_categories: '料金カテゴリ',
   pricing_items: '料金項目',
-  sequences: '自動採番',
-  projects: '案件(番組)',
-  episodes: '話数',
-  episode_orders: '発注バッチ',
+  episodes: 'エピソード',
+  episode_orders: 'エピソード発注',
   invoice_groups: '請求グループ',
-  invoice_group_episodes: '請求↔話数',
-  revenues: '売上',
-  purchases: '仕入',
-  purchase_allocations: '仕入按分(グループ)',
-  purchase_episode_allocations: '仕入按分(話数)',
-  sga_expenses: '販管費',
+  invoice_group_episodes: '請求グループ↔エピソード',
+  studio_locations: 'スタジオ拠点',
+  studio_rooms: 'スタジオ部屋',
+  studio_bookings: 'スタジオ予約',
+  studio_booking_rooms: 'スタジオ予約↔部屋',
+  lost_reason_categories: '失注理由マスタ',
+  simulations: 'シミュレーション',
+  sales_targets: '売上目標',
+  activity_logs: '営業活動記録',
+
+  // Qシート
+  qsheet_documents: 'Qシート',
+  qsheet_stage_templates: 'Qシートテンプレート',
+
+  // 機材管理
+  equipment_items: '機材',
+  equipment_categories: '機材カテゴリ',
+  equipment_branches: '機材所属拠点',
+  equipment_locations: '機材保管場所',
+  equipment_manufacturers: '機材メーカー',
+  equipment_colors: '機材カラー',
+  equipment_rack_types: 'ラック種別',
+  rack_blank_panels: 'ラックブランクパネル',
+  equipment_accessories: '機材付属品',
+  equipment_custom_columns: '機材カスタム列定義',
+  equipment_custom_values: '機材カスタム列値',
+  equipment_id_sequences: '機材ID採番',
+  equipment_lendings: '機材貸出',
+  equipment_rental_categories: 'レンタルカテゴリ',
+  inventory_checks: '棚卸',
+  inventory_check_items: '棚卸明細',
+  maintenance_records: 'メンテナンス記録',
+
+  // インタラクティブ
+  interactive_events: 'インタラクティブイベント',
+  interactive_sessions: 'インタラクティブセッション',
+  interactive_stamps: 'スタンプログ',
+  interactive_stamp_counts: 'スタンプ集計',
+  interactive_channels: 'チャンネル',
+  interactive_questions: 'クイズ問題',
+  interactive_question_texts: 'クイズ問題テキスト',
+  interactive_answers: 'クイズ回答',
+  interactive_overlay_templates: 'オーバーレイテンプレート',
+
+  // 技術資料
+  techsheet_documents: '技術資料',
+
+  // ライブ運用
+  liveops_programs: 'ライブ番組',
+  liveops_settings: 'ライブ設定',
+  liveops_snapshots: 'ライブスナップショット',
+  liveops_timers: 'ライブタイマー',
+
+  // 共通・マスター
+  users: 'ユーザー',
+  user_permissions: 'ユーザー権限',
+  sequences: '採番管理',
+  login_attempts: 'ログイン試行',
+  verification_codes: '検証コード(SMS等)',
 };
+
+interface TableGroup {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  tables: string[];
+}
+
+/**
+ * テーブルをアプリ別にグルーピング (v2.7.14+)
+ * 同じテーブルが複数グループに属することはない (アプリ単位で物理分離)
+ */
+const TABLE_GROUPS: TableGroup[] = [
+  {
+    id: 'sales',
+    label: '案件管理',
+    icon: Briefcase,
+    tables: [
+      'projects', 'customers', 'vendors', 'companies', 'partners',
+      'revenues', 'revenue_items', 'revenue_allocations',
+      'purchases', 'purchase_allocations',
+      'project_groups', 'project_group_members',
+      'sga_expenses',
+      'pricing_categories', 'pricing_items',
+      'episodes', 'episode_orders',
+      'invoice_groups', 'invoice_group_episodes',
+      'studio_locations', 'studio_rooms', 'studio_bookings', 'studio_booking_rooms',
+      'lost_reason_categories',
+      'simulations', 'sales_targets',
+      'activity_logs',
+    ],
+  },
+  {
+    id: 'qsheet',
+    label: 'Qシート',
+    icon: FileSpreadsheet,
+    tables: ['qsheet_documents', 'qsheet_stage_templates'],
+  },
+  {
+    id: 'equipment',
+    label: '機材管理',
+    icon: Wrench,
+    tables: [
+      'equipment_items', 'equipment_categories',
+      'equipment_branches', 'equipment_locations',
+      'equipment_manufacturers', 'equipment_colors',
+      'equipment_rack_types', 'rack_blank_panels',
+      'equipment_accessories',
+      'equipment_custom_columns', 'equipment_custom_values',
+      'equipment_id_sequences',
+      'equipment_lendings', 'equipment_rental_categories',
+      'inventory_checks', 'inventory_check_items',
+      'maintenance_records',
+    ],
+  },
+  {
+    id: 'interactive',
+    label: 'インタラクティブ',
+    icon: Sparkles,
+    tables: [
+      'interactive_events', 'interactive_sessions',
+      'interactive_stamps', 'interactive_stamp_counts',
+      'interactive_channels',
+      'interactive_questions', 'interactive_question_texts', 'interactive_answers',
+      'interactive_overlay_templates',
+    ],
+  },
+  {
+    id: 'techsheet',
+    label: '技術資料',
+    icon: Camera,
+    tables: ['techsheet_documents'],
+  },
+  {
+    id: 'liveops',
+    label: 'ライブ運用',
+    icon: Radio,
+    tables: ['liveops_programs', 'liveops_settings', 'liveops_snapshots', 'liveops_timers'],
+  },
+  {
+    id: 'common',
+    label: '共通・マスター',
+    icon: UsersIcon,
+    tables: ['users', 'user_permissions', 'sequences', 'login_attempts', 'verification_codes'],
+  },
+];
+
+const KNOWN_GROUPED_TABLES = new Set(TABLE_GROUPS.flatMap(g => g.tables));
 
 const COLUMN_LABELS: Record<string, string> = {
   id: 'ID',
@@ -276,8 +433,8 @@ export default function DataViewerPage() {
   return (
     <PageTransition>
     <div className="flex flex-col lg:flex-row h-[calc(100vh-3.5rem)] overflow-hidden">
-      {/* Left sidebar - table list */}
-      <div className="w-full lg:w-56 flex-shrink-0 border-b lg:border-b-0 lg:border-r bg-muted/30 overflow-y-auto max-h-48 lg:max-h-none">
+      {/* Left sidebar - table list (grouped by app, v2.7.14+) */}
+      <div className="w-full lg:w-64 flex-shrink-0 border-b lg:border-b-0 lg:border-r bg-muted/30 overflow-y-auto max-h-64 lg:max-h-none">
         <div className="p-3 border-b">
           <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
             <Database className="h-4 w-4" />
@@ -289,25 +446,87 @@ export default function DataViewerPage() {
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <nav className="p-1">
-            {tablesData?.map(table => (
-              <button
-                key={table.name}
-                onClick={() => handleTableSelect(table.name)}
-                className={`w-full text-left rounded-md px-3 py-1.5 text-sm transition-colors ${
-                  selectedTable === table.name
-                    ? "bg-primary text-white"
-                    : "hover:bg-muted text-foreground"
-                }`}
-              >
-                <span className="block font-medium truncate">{TABLE_LABELS[table.name] || table.name}</span>
-                <span className={`block text-xs truncate ${
-                  selectedTable === table.name ? "text-white/70" : "text-muted-foreground"
-                }`}>
-                  {table.name} ({table.count})
-                </span>
-              </button>
-            ))}
+          <nav className="p-2 space-y-3">
+            {TABLE_GROUPS.map(group => {
+              const groupTables = (tablesData ?? []).filter(t => group.tables.includes(t.name));
+              if (groupTables.length === 0) return null;
+              const Icon = group.icon;
+              return (
+                <div key={group.id}>
+                  <div className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <Icon className="h-3 w-3" />
+                    {group.label}
+                  </div>
+                  <div className="space-y-0.5">
+                    {groupTables.map(table => (
+                      <button
+                        key={table.name}
+                        onClick={() => handleTableSelect(table.name)}
+                        className={`w-full text-left rounded-md px-3 py-1.5 text-sm transition-colors ${
+                          selectedTable === table.name
+                            ? "bg-primary text-white"
+                            : "hover:bg-muted text-foreground"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium truncate">{TABLE_LABELS[table.name] || table.name}</span>
+                          <span className={`text-[11px] tabular-nums shrink-0 ${
+                            selectedTable === table.name ? "text-white/80" : "text-muted-foreground"
+                          }`}>
+                            {table.count.toLocaleString()}
+                          </span>
+                        </div>
+                        <span className={`block text-[11px] font-mono truncate ${
+                          selectedTable === table.name ? "text-white/60" : "text-muted-foreground/70"
+                        }`}>
+                          {table.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+            {/* グループ未定義のテーブル (新規追加されたテーブルなど) */}
+            {(() => {
+              const ungrouped = (tablesData ?? []).filter(t => !KNOWN_GROUPED_TABLES.has(t.name));
+              if (ungrouped.length === 0) return null;
+              return (
+                <div>
+                  <div className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <Folder className="h-3 w-3" />
+                    その他
+                  </div>
+                  <div className="space-y-0.5">
+                    {ungrouped.map(table => (
+                      <button
+                        key={table.name}
+                        onClick={() => handleTableSelect(table.name)}
+                        className={`w-full text-left rounded-md px-3 py-1.5 text-sm transition-colors ${
+                          selectedTable === table.name
+                            ? "bg-primary text-white"
+                            : "hover:bg-muted text-foreground"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium truncate">{TABLE_LABELS[table.name] || table.name}</span>
+                          <span className={`text-[11px] tabular-nums shrink-0 ${
+                            selectedTable === table.name ? "text-white/80" : "text-muted-foreground"
+                          }`}>
+                            {table.count.toLocaleString()}
+                          </span>
+                        </div>
+                        <span className={`block text-[11px] font-mono truncate ${
+                          selectedTable === table.name ? "text-white/60" : "text-muted-foreground/70"
+                        }`}>
+                          {table.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </nav>
         )}
       </div>
