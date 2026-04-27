@@ -32,7 +32,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.7.12 — DB バックアップ自動化 (PostgreSQL → BOX 社内限り/00_DB_Backup/{prod,dev}/、3 時間ごと、30 日保持で自動削除)
+v2.7.13 — トグルボタンの CJK 文字 1 文字ずつ縦積み防止 (番組情報パネルのレイアウト調整 + word-break: keep-all)
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)

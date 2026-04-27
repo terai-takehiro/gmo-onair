@@ -1033,7 +1033,7 @@ export default function ProjectFormPage() {
           <Card>
             <CardHeader><CardTitle className="text-base">番組情報</CardTitle></CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <div>
                   <Label>番組種別 <span className="text-xs text-muted-foreground">(複数選択可)</span></Label>
                   {(() => {
@@ -1045,7 +1045,7 @@ export default function ProjectFormPage() {
                           value={selected}
                           onChange={(next) => setValue("broadcast_type", next.join(","))}
                           multi
-                          cols={{ base: 2, sm: 3, lg: 4 }}
+                          cols={{ base: 2 }}
                         />
                       </div>
                     );
@@ -1062,7 +1062,7 @@ export default function ProjectFormPage() {
                           value={selected}
                           onChange={(next) => setValue("media_platform", next.join(","))}
                           multi
-                          cols={{ base: 2, sm: 3, lg: 4 }}
+                          cols={{ base: 2, sm: 3 }}
                         />
                       </div>
                     );
@@ -1202,7 +1202,7 @@ export default function ProjectFormPage() {
                       value={glsDialog.broadcast_types}
                       onChange={(next) => setGlsDialog({ ...glsDialog, broadcast_types: next })}
                       multi
-                      cols={{ base: 2, sm: 3, lg: 4 }}
+                      cols={{ base: 2 }}
                     />
                   </div>
                 </div>
@@ -1214,7 +1214,7 @@ export default function ProjectFormPage() {
                       value={glsDialog.media_platforms}
                       onChange={(next) => setGlsDialog({ ...glsDialog, media_platforms: next })}
                       multi
-                      cols={{ base: 2, sm: 3, lg: 4 }}
+                      cols={{ base: 2, sm: 3 }}
                     />
                   </div>
                 </div>
