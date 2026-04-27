@@ -28,27 +28,34 @@ export default function DashboardPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['awards-events'],
     queryFn: async () => {
-      const res = await api.get('/api/v1/internal/awards/events');
+      const res = await api.get('/awards/events');
       return res.data.data as AwardsEvent[];
     },
   });
 
   const createMutation = useMutation({
     mutationFn: async (name: string) => {
-      const res = await api.post('/api/v1/internal/awards/events', { name });
+      const res = await api.post('/awards/events', { name });
       return res.data.data as AwardsEvent;
     },
     onSuccess: (event) => {
       qc.invalidateQueries({ queryKey: ['awards-events'] });
       setCreating(false);
       setNewName('');
-      navigate(`/event/${event.id}`);
+      if (event?.id) {
+        navigate(`/event/${event.id}`);
+      }
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { error?: { message?: string } } } })
+        ?.response?.data?.error?.message ?? 'イベント作成に失敗しました';
+      alert(msg);
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      await api.delete(`/api/v1/internal/awards/events/${id}`);
+      await api.delete(`/awards/events/${id}`);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['awards-events'] }),
   });
@@ -92,9 +99,9 @@ export default function DashboardPage() {
             <button
               onClick={() => { if (newName.trim()) createMutation.mutate(newName.trim()); }}
               disabled={!newName.trim() || createMutation.isPending}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50"
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50 min-w-[60px]"
             >
-              作成
+              {createMutation.isPending ? '作成中…' : '作成'}
             </button>
             <button
               onClick={() => { setCreating(false); setNewName(''); }}

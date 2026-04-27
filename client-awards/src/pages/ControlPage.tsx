@@ -37,7 +37,7 @@ export default function ControlPage() {
   const { data: event } = useQuery({
     queryKey: ['awards-event', eventId],
     queryFn: async () => {
-      const res = await api.get(`/api/v1/internal/awards/events/${eventId}`);
+      const res = await api.get(`/awards/events/${eventId}`);
       return res.data.data as AwardsEventDetail;
     },
   });

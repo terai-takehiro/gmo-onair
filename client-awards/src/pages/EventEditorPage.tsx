@@ -178,7 +178,7 @@ export default function EventEditorPage() {
   const { data: event, isLoading } = useQuery({
     queryKey: ['awards-event', eventId],
     queryFn: async () => {
-      const res = await api.get(`/api/v1/internal/awards/events/${eventId}`);
+      const res = await api.get(`/awards/events/${eventId}`);
       return res.data.data as AwardsEventDetail;
     },
   });
@@ -187,7 +187,7 @@ export default function EventEditorPage() {
 
   const updateEvent = useMutation({
     mutationFn: async (patch: Partial<AwardsEventDetail>) => {
-      await api.put(`/api/v1/internal/awards/events/${eventId}`, {
+      await api.put(`/awards/events/${eventId}`, {
         name: event?.name, ...patch,
       });
     },
@@ -196,28 +196,28 @@ export default function EventEditorPage() {
 
   const changeStatus = useMutation({
     mutationFn: async (status: string) => {
-      await api.post(`/api/v1/internal/awards/events/${eventId}/status`, { status });
+      await api.post(`/awards/events/${eventId}/status`, { status });
     },
     onSuccess: invalidate,
   });
 
   const addCategory = useMutation({
     mutationFn: async (name: string) => {
-      await api.post(`/api/v1/internal/awards/events/${eventId}/categories`, { name });
+      await api.post(`/awards/events/${eventId}/categories`, { name });
     },
     onSuccess: () => { invalidate(); setAddingCat(false); setNewCatName(''); },
   });
 
   const deleteCategory = useMutation({
     mutationFn: async (catId: number) => {
-      await api.delete(`/api/v1/internal/awards/categories/${catId}`);
+      await api.delete(`/awards/categories/${catId}`);
     },
     onSuccess: invalidate,
   });
 
   const addEntry = useMutation({
     mutationFn: async ({ catId, name }: { catId: number; name: string }) => {
-      await api.post(`/api/v1/internal/awards/categories/${catId}/entries`, { name });
+      await api.post(`/awards/categories/${catId}/entries`, { name });
     },
     onSuccess: invalidate,
   });
@@ -226,13 +226,13 @@ export default function EventEditorPage() {
     mutationFn: async ({ id: eid, patch }: { id: number; patch: Partial<Entry> }) => {
       const old = event?.categories.flatMap((c) => c.entries).find((e) => e.id === eid);
       if (!old) return;
-      await api.put(`/api/v1/internal/awards/entries/${eid}`, { ...old, ...patch });
+      await api.put(`/awards/entries/${eid}`, { ...old, ...patch });
     },
     onSuccess: invalidate,
   });
 
   const deleteEntry = useMutation({
-    mutationFn: async (eid: number) => { await api.delete(`/api/v1/internal/awards/entries/${eid}`); },
+    mutationFn: async (eid: number) => { await api.delete(`/awards/entries/${eid}`); },
     onSuccess: invalidate,
   });
 
@@ -240,21 +240,21 @@ export default function EventEditorPage() {
     mutationFn: async ({ eid, file }: { eid: number; file: File }) => {
       const fd = new FormData();
       fd.append('photo', file);
-      await api.post(`/api/v1/internal/awards/entries/${eid}/photo`, fd);
+      await api.post(`/awards/entries/${eid}/photo`, fd);
     },
     onSuccess: invalidate,
   });
 
   const generateDummyPoints = useMutation({
     mutationFn: async (catId: number) => {
-      await api.post(`/api/v1/internal/awards/categories/${catId}/generate-dummy-points`);
+      await api.post(`/awards/categories/${catId}/generate-dummy-points`);
     },
     onSuccess: invalidate,
   });
 
   const seedDummy = useMutation({
     mutationFn: async () => {
-      await api.post(`/api/v1/internal/awards/events/${eventId}/seed-dummy`, {
+      await api.post(`/awards/events/${eventId}/seed-dummy`, {
         categoryName: 'ベストパフォーマンス賞',
         entryCount: 5,
       });
@@ -268,7 +268,7 @@ export default function EventEditorPage() {
     fd.append('categoryName', catName);
     if (importGenDummy) fd.append('generateDummyPoints', 'true');
     try {
-      await api.post(`/api/v1/internal/awards/events/${eventId}/import-excel`, fd);
+      await api.post(`/awards/events/${eventId}/import-excel`, fd);
       invalidate();
     } catch (err: any) {
       alert(`インポートエラー: ${err?.response?.data?.error?.message ?? err.message}`);
