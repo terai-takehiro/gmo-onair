@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.5 — 表彰CGデザイン全面刷新（Claude Designの放送用ゴールドデザイン移植）
+**現在のバージョン**: v2.8.6 — 部門/賞の階層構造対応、自社票ポイント機能追加
 
 ---
 
@@ -383,6 +383,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.8.6** | **部門/賞の階層構造対応・自社票ポイント機能追加**: カテゴリの description = 部門（大テキスト）、name = 賞（小テキスト）に変更。DB `awards_entries.own_points` 列追加 (migration 071)。操作UIで部門名インライン編集・自社票ptフィールド追加。CGでownPoints比率バー・パーセント表示 |
 | **v2.8.5** | **表彰CGデザイン全面刷新**: Claude Design制作の放送用ゴールドデザイン（Bebas Neue + Noto Sans JP / #F5D76E金パレット）を移植。PhotoStageによる写真モーフィング、PersistentHeaderのシーン間モーフ、CGBackground、CountUp、PortraitPlaceholder、全4 OneShotエフェクト刷新 |
 | **v2.8.4** | **ホームページ「アプリを起動」セクションに「アワードCG」ブロック追加** |
 | **v2.8.3** | **表彰CG ブロックアプリ (`client-awards/`) 新規追加**。①`/awards/` でホスト、ポート 5179 (dev)。②DB マイグレーション `069_awards_schema.sql` (awards_events / categories / entries / cue_state)。③Socket.IO `/awards` 名前空間でリアルタイム cue 同期。④Excel インポート + ダミーデータ生成 + ダミーポイント自動生成。⑤CG 演出: タイトル / ノミニー / ランキング (5→2) / 大賞バー / 一発表示 4 スタイル (Classic / Shards / Spotlight / Slit)。⑥OBS / vMix ブラウザソース向け透過出力 (`?transparent=1`) |

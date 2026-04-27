@@ -27,13 +27,13 @@ router.post('/categories/:categoryId/entries', wrap(async (req, res) => {
   );
   if (!cat) throw new AppError(404, 'NOT_FOUND', 'カテゴリが見つかりません');
 
-  const { name, org, rank, points, is_winner } = req.body;
+  const { name, org, rank, points, own_points, is_winner } = req.body;
   if (!name?.trim()) throw new AppError(400, 'BAD_REQUEST', 'name は必須です');
 
   const row = await queryOne(
-    `INSERT INTO awards_entries (event_id, category_id, name, org, rank, points, is_winner)
-     VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *`,
-    [cat.event_id, catId, name.trim(), org ?? null, rank ?? null, points ?? null, is_winner ?? false]
+    `INSERT INTO awards_entries (event_id, category_id, name, org, rank, points, own_points, is_winner)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+    [cat.event_id, catId, name.trim(), org ?? null, rank ?? null, points ?? null, own_points ?? null, is_winner ?? false]
   );
   res.status(201).json({ success: true, data: row });
 }));
@@ -41,13 +41,13 @@ router.post('/categories/:categoryId/entries', wrap(async (req, res) => {
 // ── 更新 ────────────────────────────────────────────────────
 router.put('/entries/:id', wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
-  const { name, org, rank, points, is_winner } = req.body;
+  const { name, org, rank, points, own_points, is_winner } = req.body;
   if (!name?.trim()) throw new AppError(400, 'BAD_REQUEST', 'name は必須です');
 
   const row = await queryOne(
-    `UPDATE awards_entries SET name=?, org=?, rank=?, points=?, is_winner=?, updated_at=NOW()
+    `UPDATE awards_entries SET name=?, org=?, rank=?, points=?, own_points=?, is_winner=?, updated_at=NOW()
      WHERE id=? RETURNING *`,
-    [name.trim(), org ?? null, rank ?? null, points ?? null, is_winner ?? false, id]
+    [name.trim(), org ?? null, rank ?? null, points ?? null, own_points ?? null, is_winner ?? false, id]
   );
   if (!row) throw new AppError(404, 'NOT_FOUND', 'エントリが見つかりません');
   res.json({ success: true, data: row });
@@ -74,9 +74,11 @@ router.post('/categories/:categoryId/generate-dummy-points', wrap(async (req, re
   const step = 400;
   for (let i = 0; i < entries.length; i++) {
     const points = Math.max(500, basePoints - i * step + Math.floor(Math.random() * 200) - 100);
+    const ownRatio = 0.20 + Math.random() * 0.20;
+    const own_points = Math.round(points * ownRatio);
     await execute(
-      `UPDATE awards_entries SET points=?, updated_at=NOW() WHERE id=?`,
-      [points, entries[i].id]
+      `UPDATE awards_entries SET points=?, own_points=?, updated_at=NOW() WHERE id=?`,
+      [points, own_points, entries[i].id]
     );
   }
   res.json({ success: true, message: `${entries.length} 件のポイントを生成しました` });

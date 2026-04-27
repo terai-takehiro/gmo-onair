@@ -27,6 +27,7 @@ export interface CgEntry {
   name: string;
   org: string | null;
   points: number | null;
+  own_points: number | null;
   photo_url: string | null;
   is_winner: boolean;
 }

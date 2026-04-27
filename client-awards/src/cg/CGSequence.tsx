@@ -22,6 +22,7 @@ function mapEntry(e: CgCategory['entries'][number]): CgMappedEntry {
     name: e.name,
     company: e.org ?? '',
     points: e.points ?? 0,
+    ownPoints: e.own_points ?? undefined,
     photo: e.photo_url ?? undefined,
     is_winner: e.is_winner,
   };
@@ -62,8 +63,8 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle }: 
 
   const tweaks = {
     eventTitle: eventName,
-    categoryParent: category?.name ?? '',
-    categoryChild: category?.description ?? eventSubtitle ?? '',
+    categoryParent: category?.description ?? eventSubtitle ?? '',
+    categoryChild: category?.name ?? '',
   };
 
   // Ranking reveal parameters

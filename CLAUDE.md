@@ -33,7 +33,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.5 — 表彰CGデザイン全面刷新（Claude Designの放送用ゴールドデザイン移植）
+v2.8.6 — 部門/賞の階層構造対応、自社票ポイント機能追加
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)

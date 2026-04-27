@@ -15,6 +15,7 @@ interface Entry {
   name: string;
   org: string | null;
   points: number | null;
+  own_points: number | null;
   photo_url: string | null;
   is_winner: boolean;
 }
@@ -138,6 +139,12 @@ function EntryRow({
           placeholder="pt"
           className="text-xs font-mono"
         />
+        <InlineText
+          value={entry.own_points != null ? String(entry.own_points) : ''}
+          onSave={(v) => onUpdate({ own_points: v ? parseInt(v) || null : null })}
+          placeholder="自社票pt"
+          className="text-xs font-mono text-amber-600"
+        />
       </div>
       {/* Winner */}
       <button
@@ -211,6 +218,15 @@ export default function EventEditorPage() {
   const deleteCategory = useMutation({
     mutationFn: async (catId: number) => {
       await api.delete(`/awards/categories/${catId}`);
+    },
+    onSuccess: invalidate,
+  });
+
+  const updateCategory = useMutation({
+    mutationFn: async ({ catId, patch }: { catId: number; patch: { name?: string; description?: string | null } }) => {
+      const cat = event?.categories.find((c) => c.id === catId);
+      if (!cat) return;
+      await api.put(`/awards/categories/${catId}`, { name: cat.name, description: cat.description, ...patch });
     },
     onSuccess: invalidate,
   });
@@ -301,7 +317,6 @@ export default function EventEditorPage() {
         </button>
         <div className="flex-1 min-w-0">
           <h1 className="text-lg font-bold truncate">{event.name}</h1>
-          {event.subtitle && <p className="text-xs text-muted-foreground">{event.subtitle}</p>}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <select
@@ -435,6 +450,7 @@ export default function EventEditorPage() {
               onDeleteCat={() => {
                 if (confirm(`「${cat.name}」を削除しますか？`)) deleteCategory.mutate(cat.id);
               }}
+              onUpdateCat={(patch) => updateCategory.mutate({ catId: cat.id, patch })}
               onAddEntry={(name) => addEntry.mutate({ catId: cat.id, name })}
               onUpdateEntry={(eid, patch) => updateEntry.mutate({ id: eid, patch })}
               onDeleteEntry={(eid) => deleteEntry.mutate(eid)}
@@ -452,13 +468,6 @@ export default function EventEditorPage() {
             <input
               defaultValue={event.name}
               onBlur={(e) => e.target.value !== event.name && updateEvent.mutate({ name: e.target.value })}
-              className="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
-          </FormField>
-          <FormField label="サブタイトル">
-            <input
-              defaultValue={event.subtitle ?? ''}
-              onBlur={(e) => updateEvent.mutate({ subtitle: e.target.value || null })}
               className="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
           </FormField>
@@ -510,10 +519,11 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
 }
 
 function CategorySection({
-  cat, onDeleteCat, onAddEntry, onUpdateEntry, onDeleteEntry, onPhotoUpload, onGenerateDummyPoints,
+  cat, onDeleteCat, onUpdateCat, onAddEntry, onUpdateEntry, onDeleteEntry, onPhotoUpload, onGenerateDummyPoints,
 }: {
   cat: Category;
   onDeleteCat: () => void;
+  onUpdateCat: (patch: { name?: string; description?: string | null }) => void;
   onAddEntry: (name: string) => void;
   onUpdateEntry: (eid: number, patch: Partial<Entry>) => void;
   onDeleteEntry: (eid: number) => void;
@@ -527,8 +537,21 @@ function CategorySection({
     <div className="rounded-xl border bg-card overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-3 bg-muted/40 border-b">
         <Trophy className="h-4 w-4 text-amber-500 shrink-0" />
-        <span className="font-semibold text-sm flex-1 truncate">{cat.name}</span>
-        <span className="text-xs text-muted-foreground">{cat.entries.length}名</span>
+        <div className="flex-1 min-w-0">
+          <InlineText
+            value={cat.name}
+            onSave={(v) => { if (v.trim()) onUpdateCat({ name: v.trim() }); }}
+            placeholder="賞名"
+            className="font-semibold text-sm"
+          />
+          <InlineText
+            value={cat.description ?? ''}
+            onSave={(v) => onUpdateCat({ description: v.trim() || null })}
+            placeholder="部門名"
+            className="text-xs text-muted-foreground"
+          />
+        </div>
+        <span className="text-xs text-muted-foreground shrink-0">{cat.entries.length}名</span>
         <button
           onClick={onGenerateDummyPoints}
           title="ダミーポイントを自動生成"
