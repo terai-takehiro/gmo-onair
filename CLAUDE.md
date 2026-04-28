@@ -33,7 +33,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.24 — 売上高計10倍バグ修正（pg NUMERIC文字列型→数値変換）+ 全ポップアップUI幅改善
+v2.8.25 — 料金シミュレーション↔概算見積連携 + 想定金額永続化修正
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)
