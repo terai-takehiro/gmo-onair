@@ -38,6 +38,8 @@ interface PdfRevenueData {
   payment_due_date: string | null;
   notes:            string | null;
   status:           string;
+  project_start:    string | null;
+  project_end:      string | null;
   items:            PdfRevenueItem[];
 }
 
@@ -224,7 +226,8 @@ export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
 
         // Estimate row height
         let rh = 22;
-        if (item.period_start || item.period_end) rh = Math.max(rh, 32);
+        const hasPeriod = item.period_start || item.period_end || data.project_start || data.project_end;
+        if (hasPeriod) rh = Math.max(rh, 32);
         if (item.item_notes) {
           const noteLineCount = item.item_notes.split('\n').filter(l => l.trim()).length;
           rh = Math.max(rh, 22 + noteLineCount * 10);
@@ -234,11 +237,13 @@ export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
         drawRect(xDesc, y, tDesc, rh, undefined, '#cccccc');
         drawRect(xAmt,  y, tAmt,  rh, undefined, '#cccccc');
 
-        // Left: item code + period
+        // Left: item code + period（item 個別設定 → なければプロジェクト期間で自動補完）
         textAt(fmtItemCode(i), xCode + 3, y + 4, { fontSize: 7, color: itemColor, width: tCode - 6 });
-        if (item.period_start || item.period_end) {
+        const pStart = item.period_start || data.project_start;
+        const pEnd   = item.period_end   || data.project_end;
+        if (pStart || pEnd) {
           textAt(
-            `${fmtDateSlash(item.period_start)} 〜 ${fmtDateSlash(item.period_end)}`,
+            `${fmtDateSlash(pStart)} 〜 ${fmtDateSlash(pEnd)}`,
             xCode + 3, y + 14,
             { fontSize: 7, color: '#444444', width: tCode - 6 }
           );

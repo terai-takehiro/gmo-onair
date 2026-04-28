@@ -98,6 +98,7 @@ router.get('/:id/pdf', async (req, res, next) => {
   try {
     const row = await queryOne(
       `SELECT r.*, p.name as project_name, p.gls_number,
+              p.event_start as project_start, p.event_end as project_end,
               c.name as customer_name,
               c.address as customer_address,
               c.contact_name as customer_contact
@@ -126,6 +127,8 @@ router.get('/:id/pdf', async (req, res, next) => {
       payment_due_date: row.payment_due_date,
       notes: row.notes,
       status: row.status || 'confirmed',
+      project_start: row.project_start || null,
+      project_end: row.project_end || null,
       items: items.map((it: any) => ({
         description: it.description,
         quantity: it.quantity,
