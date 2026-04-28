@@ -10,7 +10,7 @@ const COMPANY = {
   name:   'GMOグローバルスタジオ株式会社',
   addr1:  '東京都世田谷区用賀四丁目10番1号',
   addr2:  'GMOインターネットTOWER 27F',
-  regNo:  'T9011001046041',
+  regNo:  'T9011001154049',
 };
 
 interface PdfRevenueItem {
