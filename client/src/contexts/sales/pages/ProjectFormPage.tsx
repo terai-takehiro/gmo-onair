@@ -1258,7 +1258,7 @@ export default function ProjectFormPage() {
         open={simOpen}
         onOpenChange={setSimOpen}
         projectId={isEdit ? id : undefined}
-        onApply={(total) => setValue("expected_amount", total)}
+        onApply={(total) => setValue("expected_amount", total, { shouldDirty: true })}
       />
 
       {/* GLS発番ダイアログ */}

@@ -56,10 +56,12 @@ import {
   ShoppingCart,
   Percent,
   Link2,
+  Calculator,
 } from "lucide-react";
 import { AnimatedCurrency } from "@/components/ui/animated-number";
 import DiscountDialog, { DiscountResult } from "@/contexts/finance/components/DiscountDialog";
 import PricingItemPicker, { PickedPricingItem } from "@/contexts/finance/components/PricingItemPicker";
+import SimulationDialog, { SimulationAppliedItem } from "@/contexts/sales/components/SimulationDialog";
 
 interface RevenueItem {
   description: string;
@@ -144,6 +146,9 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
 
   // 料金表ピッカー
   const [pricingPickerOpen, setPricingPickerOpen] = useState(false);
+
+  // 料金シミュレーション
+  const [simDialogOpen, setSimDialogOpen] = useState(false);
 
   // 仕入ダイアログ
   const [purDialogOpen, setPurDialogOpen] = useState(false);
@@ -458,6 +463,25 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
     ]);
   };
 
+  // シミュレーション適用時
+  const applySimulation = (_total: number, simItems: SimulationAppliedItem[]) => {
+    const mapped = simItems.map((it) => ({
+      description: it.description,
+      quantity: it.quantity,
+      unit_price: it.unit_price,
+      amount: it.amount,
+    }));
+    if (dialogOpen) {
+      // ダイアログが開いている場合は追加
+      setItems((prev) => [...prev, ...mapped]);
+    } else {
+      // ダイアログが閉じている場合は新規見積として開く
+      closeDialog();
+      setItems(mapped.length > 0 ? mapped : [{ description: "", quantity: 1, unit_price: 0, amount: 0, period_start: null, period_end: null, item_notes: null }]);
+      setDialogOpen(true);
+    }
+  };
+
   const removeItem = (idx: number) => {
     setItems((prev) => prev.filter((_, i) => i !== idx));
   };
@@ -612,10 +636,18 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
             <FileText className="h-4 w-4" />
             {isEstimateMode ? "概算見積書" : "見積・売上明細"}
           </h2>
-          <Button size="sm" onClick={openNew}>
-            <Plus className="h-4 w-4 mr-1" />
-            {isEstimateMode ? "見積追加" : "明細追加"}
-          </Button>
+          <div className="flex items-center gap-2">
+            {isEstimateMode && (
+              <Button size="sm" variant="outline" onClick={() => setSimDialogOpen(true)}>
+                <Calculator className="h-4 w-4 mr-1" />
+                シミュレーション
+              </Button>
+            )}
+            <Button size="sm" onClick={openNew}>
+              <Plus className="h-4 w-4 mr-1" />
+              {isEstimateMode ? "見積追加" : "明細追加"}
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -1026,7 +1058,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                     </div>
                   </div>
                 ))}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <Button
                     type="button"
                     variant="outline"
@@ -1044,6 +1076,15 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                   >
                     <Link2 className="h-3 w-3 mr-1" />
                     料金表から追加
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSimDialogOpen(true)}
+                  >
+                    <Calculator className="h-3 w-3 mr-1" />
+                    シミュレーション
                   </Button>
                   <Button
                     type="button"
@@ -1146,7 +1187,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
 
       {/* 仕入追加/編集ダイアログ */}
       <Dialog open={purDialogOpen} onOpenChange={(open) => { if (!open) closePurDialog(); }}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingPurId ? "仕入の編集" : "仕入の追加"}</DialogTitle>
           </DialogHeader>
@@ -1250,6 +1291,14 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
           (project as any)?.customer_type === "internal" ? "internal" : "external"
         }
         onSelect={applyPricingItem}
+      />
+
+      {/* 料金シミュレーション */}
+      <SimulationDialog
+        open={simDialogOpen}
+        onOpenChange={setSimDialogOpen}
+        projectId={projectId}
+        onApply={applySimulation}
       />
     </div>
   );

@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.25 — Qシート LED/XR ブロック実装（壁/床パッケージのシーンマスター・Cue/トランジション選択）+ 画像/ハイライト改善（シナリオ画像をピル下に大表示・印刷で司会ピル+画像両立・画像を200pxに拡大・任意エントリに薄いハイライト背景色）
+**現在のバージョン**: v2.8.26 — Qシート LED/XR ブロック実装（壁/床パッケージのシーンマスター・Cue/トランジション選択）+ 画像/ハイライト改善（シナリオ画像をピル下に大表示・印刷で司会ピル+画像両立・画像を200pxに拡大・任意エントリに薄いハイライト背景色）
 
 ---
 
@@ -383,8 +383,10 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
-| **v2.8.25** | **Qシート LED/XR ブロック実装**: ①LED/XR シーンリストを台本ごとのマスター（`doc.data.ledScenes: { id, name, wall, floor }[]`）として管理。`EditorSidebar` に「LED/XR シーン」セクション + `LedSceneSection` コンポーネントを追加（インライン編集 / 追加 / 削除）。②`CueRow` の `led_xr` セルでシーンをプルダウン選択し、選択時に壁/床演出を inline 表示。Cue（V明け/Qワード/卓D/任意入力）とトランジション（フェードインF.I./カットインC.I./任意入力）をエントリ単位で指定可能。`custom` 選択時は隣に任意入力フィールドを表示。③`PreviewModal` の印刷出力に `formatLedEntry()` を追加し「【S1】壁:KVループ＋PC1 / 床:KV / ［卓DでF.I.］」形式で整形出力。④`RundownPage` でも LED/XR ブロックをシーン名 / 壁 / 床 / トリガーで個別レンダリング（複数エントリ対応）。⑤データ伝搬 `EditorPage → EditorSidebar / CueTable → CueRow` 経由で `ledScenes` を渡す。 |
-| **v2.8.24** | **Qシート画像/ハイライト改善**: ①シナリオ画像を編集画面で「司会・影ナレ」ピル行の下に大きく表示（従来は6×6サムネのインライン表示のみ）。映像/音声/テロップ画像も同様。②印刷で `en?.image ? <img> : <pill>` の三項条件により司会ピルが消えていたバグを修正し、ピル＋画像を縦積み表示。③印刷の画像最大高を 100/120 → 200px に拡大（シナリオ・スライド・立ち位置図SVG）。④編集の立ち位置図 SVG を `width="100%"` + `maxHeight: 200` でカラム幅に追従するレスポンシブ表示に変更。⑤ランダウンに立ち位置図SVGとシナリオ/映像/音声/テロップの添付画像レンダリングを新規追加。⑥任意のシナリオエントリに薄いハイライト背景色（黄/緑/青/桃/紫/橙）を設定できる `HighlightPicker` を追加。エントリの `highlight` フィールドに保存され、編集tr / 印刷tr / ランダウン cue 全てに反映（mono印刷時は無視）。⑦`EntryImageButton` に `hideThumbnail` モードを追加し、画像があってもアイコンのみ表示するバリアント（プレビューは親側で大表示） |
+| **v2.8.26** | **Qシート LED/XR ブロック実装 + 画像/ハイライト改善**: ①LED/XR シーンリストを台本ごとのマスター（`doc.data.ledScenes: { id, name, wall, floor }[]`）として管理。`EditorSidebar` に「LED/XR シーン」セクション + `LedSceneSection`（インライン編集/追加/削除）。②`CueRow` の `led_xr` セルでシーンをプルダウン選択し、選択時に壁/床演出を inline 表示。Cue（V明け/Qワード/卓D/任意入力）とトランジション（F.I./C.I./任意入力）をエントリ単位で指定。③印刷で `formatLedEntry()` により「【S1】壁:KVループ＋PC1 / 床:KV / ［卓DでF.I.］」形式に整形。④ランダウンも LED/XR ブロックを個別レンダリング。⑤シナリオ/映像/音声/テロップ画像を編集画面でピル行の下に大きく表示（max-h-40）。⑥印刷で `en?.image ? <img> : <pill>` の三項条件により司会ピルが消えていたバグを修正。⑦印刷の画像最大高を 100/120 → 200px に拡大。⑧立ち位置図 SVG を `width="100%"` + `maxHeight: 200` のレスポンシブ表示に変更。⑨ランダウンに立ち位置図SVGと添付画像レンダリングを追加。⑩任意エントリに薄いハイライト背景色（黄/緑/青/桃/紫/橙）を設定できる `HighlightPicker` を追加。編集tr/印刷tr/ランダウンcue 全てに反映（mono印刷時は無視）。 |
+| **v2.8.25** | **料金シミュレーション↔概算見積連携 + 想定金額永続化修正**: ①BusinessProjectViewに「シミュレーション」ボタンを追加。シミュレーションで選択した項目を概算見積明細に一括追加可能。②SimulationDialog の onApply を `(total, items[])` に拡張。③simulations PUT 保存時に `projects.expected_amount` も即時DB更新 — リロードで消えるバグを修正 |
+| **v2.8.24** | **売上高計10倍バグ修正・全ポップアップUI幅改善**: ①pg ライブラリが NUMERIC(OID 1700) を文字列で返す問題を `types.setTypeParser` で根本修正（`"414308" + "0" = "4143080"` の文字列連結バグ解消）。②`getSummary` の `as number` を `Number()` に変更。③仕入ダイアログ（PurchaseListPage・BusinessProjectView・ProjectGroupListPage）・料金表ピッカー・按分グループダイアログ・スタジオ予約詳細ダイアログの幅を lg/xl/2xl に拡張 |
+| **v2.8.23** | **案件管理3機能改善 + 送出CG修正**: ①仮スケジュール飛び日対応 — `project_dates` テーブル新設、フォームに日程追加UI、一覧に「N日（飛び日）」バッジ。②料金表↔概算見積連携 — `BusinessProjectView` に「料金表から追加」ボタン統合、estimate保存時も `expected_amount` 自動同期。③見積書値引きUI — 専用 `DiscountDialog` 新規作成、各明細行に[%]ボタン・全体値引きボタン。④送出CG背景透過修正・送出UI背景黒統一 |
 | **v2.8.22** | **送出CG背景透過修正・送出UI背景黒統一**: `transparent` プロップを `OutputPage → Stage → CGSequence → CGBackground` まで伝搬し、OBS/vMix ブラウザソースで背景が透過されない問題を修正。`ControlPage` の外側背景を `bg-slate-950` から `bg-black` に変更 |
 | **v2.8.21** | **送出CG・タイマー表示ページをAuth外に分離**: `client-awards/src/App.tsx` と `client-live/src/App.tsx` で、公開ページ（`/awards/output/*`・`/live/display/*`）へのアクセス時に `useAuth()` を呼ばない独立ルーター（`OutputRouter` / `DisplayRouter`）を早期返却する構造に変更。従来は App 全体で `useAuth()` が呼ばれ axios が `/auth/me` を叩いて401→ログインリダイレクトが起きていた問題を根本解決。OBS/vMix ブラウザソースから認証なしで直接アクセス可能になった |
 | **v2.8.20** | **本番ログイン不能バグ修正**: `loginWithToken(undefined)` が `localStorage["gmo_onair_token"] = "undefined"` を書き込む問題を修正。`AuthContext.loginWithToken` でトークンが falsy な場合は `removeItem` に変更。`createApi.ts` のリクエストインターセプターで `"undefined"` / `"null"` 文字列を無視して Cookie にフォールバックするガードを追加 |

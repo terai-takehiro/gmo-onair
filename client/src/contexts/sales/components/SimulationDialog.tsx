@@ -15,13 +15,20 @@ import {
 } from "@/components/ui/table";
 import { Loader2, Calculator, Save, ArrowRight } from "lucide-react";
 
+export interface SimulationAppliedItem {
+  description: string;
+  quantity: number;
+  unit_price: number;
+  amount: number;
+}
+
 interface SimulationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projectId?: string;
   /** @deprecated Use projectId instead */
   opportunityId?: string;
-  onApply: (total: number) => void;
+  onApply: (total: number, items: SimulationAppliedItem[]) => void;
 }
 
 interface ItemState {
@@ -151,7 +158,22 @@ export default function SimulationDialog({ open, onOpenChange, projectId: propPr
 
   const handleApply = () => {
     if (projectId) saveMutation.mutate();
-    onApply(total);
+    const appliedItems: SimulationAppliedItem[] = [];
+    categories.forEach((cat) => {
+      cat.items?.forEach((item) => {
+        const state = itemStates[item.id];
+        if (state?.checked) {
+          const subtotal = calcSubtotal(item.calc_type, state);
+          appliedItems.push({
+            description: item.sub_label ? `${item.name}（${item.sub_label}）` : item.name,
+            quantity: state.quantity || 1,
+            unit_price: state.unitPrice,
+            amount: subtotal,
+          });
+        }
+      });
+    });
+    onApply(total, appliedItems);
     onOpenChange(false);
   };
 

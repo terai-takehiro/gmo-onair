@@ -105,7 +105,7 @@ export default function StudioBookingDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <div className="flex items-start justify-between gap-2">
             <DialogTitle className="text-lg leading-tight pr-8">

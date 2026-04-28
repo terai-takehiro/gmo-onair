@@ -45,6 +45,15 @@ router.put('/:id/simulation', requirePermission('sales', 'editor'), async (req, 
     );
   }
 
+  // シミュレーション合計を expected_amount として案件に即時反映（リロードで消えないように）
+  const totalAmount = items.reduce((sum: number, it: any) => sum + (Number(it.subtotal) || 0), 0);
+  if (totalAmount > 0) {
+    await execute(
+      `UPDATE projects SET expected_amount = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL`,
+      [totalAmount, req.params.id]
+    );
+  }
+
   const saved = await queryAll(
     `SELECT s.id, s.pricing_item_id, s.quantity, s.days, s.unit_price, s.subtotal,
             pi.name as pricing_item_name, pi.sub_label, pi.calc_type,

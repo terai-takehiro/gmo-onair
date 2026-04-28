@@ -730,7 +730,7 @@ export default function ProjectGroupListPage() {
 
         {/* 仕入登録ダイアログ */}
         <Dialog open={purchaseDialogOpen} onOpenChange={setPurchaseDialogOpen}>
-          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingPurchaseId ? 'グループ仕入編集' : 'グループ仕入登録'}</DialogTitle>
             </DialogHeader>
@@ -851,7 +851,7 @@ export default function ProjectGroupListPage() {
 
         {/* 売上登録ダイアログ */}
         <Dialog open={revenueDialogOpen} onOpenChange={setRevenueDialogOpen}>
-          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingRevenueId ? 'グループ売上編集' : 'グループ売上登録'}</DialogTitle>
             </DialogHeader>
@@ -1115,7 +1115,7 @@ function GroupFormDialog({ open, onClose, glsProjects, name, setName, desc, setD
 }) {
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? "グループ編集" : "新規按分グループ"}</DialogTitle>
         </DialogHeader>
