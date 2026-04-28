@@ -1,5 +1,4 @@
 import path from 'path';
-import fs from 'fs';
 
 // pdfmake v0.3.x: singleton instance with .fonts and .createPdf()
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -21,8 +20,8 @@ pdfmake.fonts = {
 // 発行者情報（ハードコード）
 const COMPANY_INFO = {
   name: 'GMOグローバルスタジオ株式会社',
-  address: '東京都世田谷区用賀四丁目10番1号\nGMOインターネットTOWER 27F',
-  tel: '03-5456-2555',
+  address1: '東京都世田谷区用賀四丁目10番1号',
+  address2: 'GMOインターネットTOWER 27F',
   registrationNumber: 'T9011001046041',
 };
 
@@ -55,11 +54,11 @@ interface PdfRevenueData {
 }
 
 function formatCurrency(n: number): string {
-  const prefix = n < 0 ? '-¥' : '¥';
+  const prefix = n < 0 ? '-\xA5' : '\xA5';
   return prefix + Math.abs(n).toLocaleString('ja-JP');
 }
 
-function formatDateSlash(d: string | null): string {
+function formatDateSlash(d: string | null | undefined): string {
   if (!d) return '';
   const parts = d.split('-');
   if (parts.length < 3) return d;
@@ -80,31 +79,28 @@ function formatItemCode(index: number): string {
 export async function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
   const isEstimate = data.status === 'estimate';
   const docDate = data.billing_date || data.recognition_date || new Date().toISOString().slice(0, 10);
+  const safeItems = Array.isArray(data.items) ? data.items : [];
 
   // 定価（正の明細合計）/ 割引額（負の明細合計）/ お見積金額（全合計）
-  const listPrice = data.items.reduce((s, it) => s + Math.max(0, it.amount), 0);
-  const discountTotal = data.items.reduce((s, it) => s + Math.min(0, it.amount), 0);
+  const listPrice = safeItems.reduce((s, it) => s + Math.max(0, it.amount || 0), 0);
+  const discountTotal = safeItems.reduce((s, it) => s + Math.min(0, it.amount || 0), 0);
   const quoteTotal = listPrice + discountTotal;
 
-  // 宛先アドレス行（address フィールドを改行で分割）
-  const addressLines: any[] = [];
+  // 宛先アドレス行（address フィールドを改行で分割して各行を積む）
+  const addressStack: any[] = [];
   if (data.customer_address) {
-    data.customer_address.split('\n').forEach((line) => {
-      const trimmed = line.trim();
-      if (trimmed) {
-        addressLines.push({ text: trimmed, style: 'addressLine', margin: [0, 0, 0, 1] });
-      }
-    });
+    const lines = data.customer_address.split('\n');
+    for (const line of lines) {
+      const t = line.trim();
+      if (t) addressStack.push({ text: t, style: 'addressLine' });
+    }
   }
-  // 会社名
-  addressLines.push({ text: data.customer_name, style: 'addressCompany', margin: [0, 2, 0, 1] });
-  // 担当者
+  addressStack.push({ text: data.customer_name || '', style: 'addressCompany' });
   const contactLabel = data.customer_contact ? `${data.customer_contact} 様` : 'ご担当者 様';
-  addressLines.push({ text: contactLabel, style: 'addressLine', margin: [0, 0, 0, 0] });
+  addressStack.push({ text: contactLabel, style: 'addressLine' });
 
   // 明細テーブル body
   const itemTableBody: any[][] = [
-    // ヘッダー行
     [
       { text: '明細番号\n期間', style: 'tableHeader', fontSize: 7 },
       { text: '商品名\n備考', style: 'tableHeader', fontSize: 7 },
@@ -112,84 +108,51 @@ export async function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer>
     ],
   ];
 
-  for (let i = 0; i < data.items.length; i++) {
-    const item = data.items[i];
+  for (let i = 0; i < safeItems.length; i++) {
+    const item = safeItems[i];
     const code = formatItemCode(i);
-    const isDiscount = item.amount < 0;
+    const isDiscount = (item.amount || 0) < 0;
     const itemColor = isDiscount ? '#d97706' : '#000000';
 
-    // 期間文字列
-    const periodLines: any[] = [];
+    // 左列スタック: 明細番号 + 期間
+    const leftStack: any[] = [
+      { text: code, fontSize: 7, color: itemColor },
+    ];
     if (item.period_start || item.period_end) {
-      periodLines.push({
-        text: formatDateSlash(item.period_start),
-        fontSize: 7,
-        color: '#444444',
-        margin: [0, 2, 0, 0],
-      });
-      periodLines.push({
-        text: `〜${formatDateSlash(item.period_end)}`,
-        fontSize: 7,
-        color: '#444444',
-      });
+      leftStack.push({ text: formatDateSlash(item.period_start), fontSize: 7, color: '#444444' });
+      leftStack.push({ text: `〜${formatDateSlash(item.period_end)}`, fontSize: 7, color: '#444444' });
     }
 
-    // 左列: 明細番号 + 期間
-    const leftCell: any = {
-      stack: [
-        { text: code, fontSize: 7, color: itemColor },
-        ...periodLines,
-      ],
-      margin: [3, 3, 3, 3],
-    };
-
-    // 中列: 商品名 + 備考
-    const noteLines: any[] = [];
+    // 中列スタック: 商品名 + 備考行
+    const middleStack: any[] = [
+      { text: item.description || '', fontSize: 8, color: itemColor },
+    ];
     if (item.item_notes) {
-      item.item_notes.split('\n').forEach((line) => {
-        const trimmed = line.trim();
-        if (trimmed) {
-          noteLines.push({
-            text: trimmed,
-            fontSize: 7,
-            color: '#555555',
-            margin: [0, 1, 0, 0],
-          });
-        }
-      });
+      const noteLines = item.item_notes.split('\n');
+      for (const line of noteLines) {
+        const t = line.trim();
+        if (t) middleStack.push({ text: t, fontSize: 7, color: '#555555' });
+      }
     }
-    const middleCell: any = {
-      stack: [
-        { text: item.description || '', fontSize: 8, color: itemColor },
-        ...noteLines,
-      ],
-      margin: [3, 3, 3, 3],
-    };
 
-    // 右列: 税別金額
-    const rightCell: any = {
-      text: formatCurrency(item.amount),
-      fontSize: 8,
-      alignment: 'right',
-      color: itemColor,
-      margin: [3, 3, 3, 3],
-    };
-
-    itemTableBody.push([leftCell, middleCell, rightCell]);
+    itemTableBody.push([
+      { stack: leftStack, margin: [3, 3, 3, 3] },
+      { stack: middleStack, margin: [3, 3, 3, 3] },
+      { text: formatCurrency(item.amount || 0), fontSize: 8, alignment: 'right', color: itemColor, margin: [3, 3, 3, 3] },
+    ]);
   }
+
+  // 案件名テキスト
+  const projectLabel = data.gls_number
+    ? `${data.gls_number}　${data.project_name || ''}`
+    : (data.project_name || '');
 
   const content: any[] = [
     // ① 発行日（右上）
     {
-      columns: [
-        { width: '*', text: '' },
-        {
-          width: 'auto',
-          text: formatDateSlash(docDate),
-          style: 'small',
-          alignment: 'right',
-        },
-      ],
+      text: formatDateSlash(docDate),
+      fontSize: 8,
+      alignment: 'right',
       margin: [0, 0, 0, 8],
     },
 
@@ -198,19 +161,15 @@ export async function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer>
       columns: [
         {
           width: '55%',
-          stack: addressLines,
+          stack: addressStack,
         },
         {
           width: '45%',
           stack: [
-            { text: COMPANY_INFO.name, style: 'companyName', alignment: 'right', margin: [0, 0, 0, 2] },
-            ...COMPANY_INFO.address.split('\n').map((line) => ({
-              text: line,
-              style: 'small',
-              alignment: 'right' as const,
-              margin: [0, 0, 0, 1],
-            })),
-            { text: `登録番号: ${COMPANY_INFO.registrationNumber}`, style: 'small', alignment: 'right', margin: [0, 1, 0, 0] },
+            { text: COMPANY_INFO.name, style: 'companyName', alignment: 'right' },
+            { text: COMPANY_INFO.address1, style: 'small', alignment: 'right' },
+            { text: COMPANY_INFO.address2, style: 'small', alignment: 'right' },
+            { text: `登録番号: ${COMPANY_INFO.registrationNumber}`, style: 'small', alignment: 'right' },
           ],
         },
       ],
@@ -218,97 +177,74 @@ export async function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer>
       margin: [0, 0, 0, 20],
     },
 
-    // ③ タイトル「御見積書」
+    // ③ タイトル
     {
       text: isEstimate ? '御見積書' : '請　求　書',
       style: 'title',
       margin: [0, 0, 0, 12],
     },
 
-    // ④ 案件名 ＋ 3列サマリーボックス
+    // ④ 案件名
     {
-      columns: [
-        {
-          width: '*',
-          stack: [
-            {
-              canvas: [
-                { type: 'line', x1: 0, y1: 10, x2: 300, y2: 10, lineWidth: 0.5, lineColor: '#888888' },
-              ],
-              margin: [0, 0, 0, 2],
-            },
-            {
-              text: [
-                data.gls_number ? { text: `${data.gls_number}　`, color: '#666666', fontSize: 9 } : '',
-                { text: data.project_name || '', fontSize: 10 },
-              ],
-            },
-            ...(data.subtitle ? [{ text: data.subtitle, fontSize: 8, color: '#666666', margin: [0, 2, 0, 0] }] : []),
+      text: projectLabel,
+      fontSize: 10,
+      margin: [0, 0, 0, 4],
+    },
+    ...(data.subtitle ? [{ text: data.subtitle, fontSize: 8, color: '#666666', margin: [0, 0, 0, 4] }] : []),
+
+    // ⑤ 3列サマリーボックス
+    {
+      table: {
+        widths: ['*', 60, 68, 80],
+        body: [
+          [
+            { text: '', border: [false, false, false, false] },
+            { text: '定価', style: 'summaryHeaderCell', alignment: 'center' },
+            { text: '割引額', style: 'summaryHeaderCell', alignment: 'center' },
+            { text: 'お見積金額', style: 'summaryHeaderCell', alignment: 'center' },
           ],
-        },
-        {
-          width: 'auto',
-          table: {
-            widths: [58, 68, 80],
-            body: [
-              [
-                { text: '定価', style: 'summaryHeader', alignment: 'center' },
-                { text: '割引額', style: 'summaryHeader', alignment: 'center' },
-                { text: 'お見積金額', style: 'summaryHeader', alignment: 'center' },
-              ],
-              [
-                { text: formatCurrency(listPrice), fontSize: 9, alignment: 'right', margin: [4, 2, 4, 2] },
-                {
-                  text: discountTotal < 0 ? formatCurrency(discountTotal) : '−',
-                  fontSize: 9,
-                  alignment: 'right',
-                  color: '#d97706',
-                  margin: [4, 2, 4, 2],
-                },
-                { text: formatCurrency(quoteTotal), fontSize: 10, bold: true, alignment: 'right', margin: [4, 2, 4, 2] },
-              ],
-            ],
-          },
-          layout: {
-            hLineWidth: () => 0.5,
-            vLineWidth: () => 0.5,
-            hLineColor: () => '#cccccc',
-            vLineColor: () => '#cccccc',
-            paddingTop: () => 0,
-            paddingBottom: () => 0,
-            paddingLeft: () => 0,
-            paddingRight: () => 0,
-          },
-        },
-      ],
-      columnGap: 12,
+          [
+            { text: '', border: [false, false, false, false] },
+            { text: formatCurrency(listPrice), fontSize: 9, alignment: 'right', border: [true, false, true, true] },
+            {
+              text: discountTotal < 0 ? formatCurrency(discountTotal) : '−',
+              fontSize: 9,
+              alignment: 'right',
+              color: '#d97706',
+              border: [true, false, true, true],
+            },
+            { text: formatCurrency(quoteTotal), fontSize: 10, bold: true, alignment: 'right', border: [true, false, true, true] },
+          ],
+        ],
+      },
+      layout: {
+        hLineWidth: (i: number) => (i === 0 || i === 2 ? 0.5 : 0),
+        vLineWidth: (i: number) => (i > 1 ? 0.5 : 0),
+        hLineColor: () => '#cccccc',
+        vLineColor: () => '#cccccc',
+        paddingTop: () => 3,
+        paddingBottom: () => 3,
+        paddingLeft: () => 5,
+        paddingRight: () => 5,
+      },
       margin: [0, 0, 0, 6],
     },
 
-    // ⑤ 見積コード
+    // ⑥ 見積コード
     {
-      text: `見積コード　：　${data.billing_key}`,
+      text: `見積コード　：　${data.billing_key || ''}`,
       style: 'small',
       margin: [0, 0, 0, 2],
     },
 
-    // ⑥ 注記（見積有効期間・税別表示）
+    // ⑦ 注記
     {
-      columns: [
-        {
-          text: '＊御見積有効期間：本見積書提出後１ヶ月',
-          style: 'noteText',
-        },
-        {
-          text: '＊本見積書には消費税等は含まれておりません。',
-          style: 'noteText',
-          alignment: 'right',
-        },
-      ],
+      text: '＊御見積有効期間：本見積書提出後１ヶ月　　＊本見積書には消費税等は含まれておりません。',
+      style: 'noteText',
       margin: [0, 0, 0, 10],
     },
 
-    // ⑦ 明細テーブル
+    // ⑧ 明細テーブル
     {
       table: {
         headerRows: 1,
@@ -329,65 +265,58 @@ export async function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer>
       margin: [0, 0, 0, 16],
     },
 
-    // ⑧ 備考ボックス
-    ...(data.notes ? [
-      {
-        table: {
-          widths: ['*'],
-          body: [[
-            {
-              stack: [
-                { text: '備考', style: 'sectionLabel', margin: [0, 0, 0, 4] },
-                ...data.notes.split('\n').map((line) => ({
-                  text: line.trim() || ' ',
-                  style: 'small',
-                  margin: [0, 0, 0, 2],
-                })),
+    // ⑨ 備考ボックス
+    ...(data.notes
+      ? [
+          {
+            table: {
+              widths: ['*'],
+              body: [
+                [
+                  {
+                    stack: [
+                      { text: '備考', style: 'sectionLabel', margin: [0, 0, 0, 4] },
+                      ...data.notes.split('\n').map((line: string) => ({
+                        text: line.trim() || ' ',
+                        style: 'small',
+                        margin: [0, 0, 0, 2],
+                      })),
+                    ],
+                    margin: [6, 6, 6, 6],
+                  },
+                ],
               ],
-              margin: [6, 6, 6, 6],
             },
-          ]],
-        },
-        layout: {
-          hLineWidth: () => 0.5,
-          vLineWidth: () => 0.5,
-          hLineColor: () => '#888888',
-          vLineColor: () => '#888888',
-        },
-        margin: [0, 0, 0, 0],
-      },
-    ] : []),
+            layout: {
+              hLineWidth: () => 0.5,
+              vLineWidth: () => 0.5,
+              hLineColor: () => '#888888',
+              vLineColor: () => '#888888',
+            },
+            margin: [0, 0, 0, 8],
+          },
+        ]
+      : []),
 
-    // 請求書モード: 支払期日
-    ...((!isEstimate && data.payment_due_date) ? [
-      {
-        text: `お支払期日：${formatDateJP(data.payment_due_date)}`,
-        style: 'small',
-        margin: [0, 10, 0, 0],
-      },
-    ] : []),
+    // ⑩ 支払期日（請求書モードのみ）
+    ...((!isEstimate && data.payment_due_date)
+      ? [{ text: `お支払期日：${formatDateJP(data.payment_due_date)}`, style: 'small', margin: [0, 0, 0, 0] }]
+      : []),
   ];
 
   const docDefinition: any = {
     pageSize: 'A4',
-    pageMargins: [40, 40, 40, 50],
+    pageMargins: [40, 40, 40, 40],
     defaultStyle: {
       font: 'NotoSansJP',
       fontSize: 9,
     },
-    footer: (currentPage: number, pageCount: number) => ({
-      text: `${currentPage} / ${pageCount} ページ`,
-      alignment: 'right',
-      fontSize: 8,
-      margin: [0, 10, 40, 0],
-      color: '#666666',
-    }),
     styles: {
       title: { fontSize: 22, bold: true },
       addressLine: { fontSize: 9 },
       addressCompany: { fontSize: 11, bold: true },
       companyName: { fontSize: 10, bold: true },
-      summaryHeader: { fontSize: 7, bold: true, fillColor: '#f5f5f5' },
+      summaryHeaderCell: { fontSize: 7, bold: true, fillColor: '#f5f5f5' },
       tableHeader: { fontSize: 7, bold: true, fillColor: '#f0f0f0' },
       sectionLabel: { fontSize: 9, bold: true },
       small: { fontSize: 8 },
