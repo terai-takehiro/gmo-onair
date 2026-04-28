@@ -1,23 +1,23 @@
 import path from 'path';
 
-// pdfmake v0.3.x: singleton instance with .fonts and .createPdf()
+// pdfmake v0.3.x server-side: PdfPrinter class + createPdfKitDocument
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const pdfmake = require('pdfmake');
+const PdfPrinter = require('pdfmake');
 
-// フォント登録（pdfmake v0.3.x はファイルパスを要求）
-const fontsDir = path.resolve(__dirname, '../../../assets/fonts');
-const fontPath = path.join(fontsDir, 'NotoSansJP.ttf');
+// Docker では WORKDIR /app のもとに server/fonts/ がコピーされる
+// Dockerfile: COPY server/fonts server/fonts
+// __dirname (compiled) = server/dist/shared/services/ → 3つ上 = server/ → fonts/
+const fontsDir = path.resolve(__dirname, '../../../fonts');
 
-pdfmake.fonts = {
+const printer = new PdfPrinter({
   NotoSansJP: {
-    normal: fontPath,
-    bold: fontPath,
-    italics: fontPath,
-    bolditalics: fontPath,
+    normal: path.join(fontsDir, 'NotoSansJP-Regular.ttf'),
+    bold: path.join(fontsDir, 'NotoSansJP-Bold.ttf'),
+    italics: path.join(fontsDir, 'NotoSansJP-Regular.ttf'),
+    bolditalics: path.join(fontsDir, 'NotoSansJP-Bold.ttf'),
   },
-};
+});
 
-// 発行者情報（ハードコード）
 const COMPANY_INFO = {
   name: 'GMOグローバルスタジオ株式会社',
   address1: '東京都世田谷区用賀四丁目10番1号',
@@ -71,33 +71,29 @@ function formatDateJP(d: string | null): string {
   return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
 }
 
-// M00010000001 形式（M + 11桁ゼロパッド）
 function formatItemCode(index: number): string {
   return 'M' + String(10000 * 1000 + index + 1).padStart(11, '0');
 }
 
-export async function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
+export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
   const isEstimate = data.status === 'estimate';
   const docDate = data.billing_date || data.recognition_date || new Date().toISOString().slice(0, 10);
   const safeItems = Array.isArray(data.items) ? data.items : [];
 
-  // 定価（正の明細合計）/ 割引額（負の明細合計）/ お見積金額（全合計）
   const listPrice = safeItems.reduce((s, it) => s + Math.max(0, it.amount || 0), 0);
   const discountTotal = safeItems.reduce((s, it) => s + Math.min(0, it.amount || 0), 0);
   const quoteTotal = listPrice + discountTotal;
 
-  // 宛先アドレス行（address フィールドを改行で分割して各行を積む）
+  // 宛先アドレス
   const addressStack: any[] = [];
   if (data.customer_address) {
-    const lines = data.customer_address.split('\n');
-    for (const line of lines) {
+    data.customer_address.split('\n').forEach((line) => {
       const t = line.trim();
       if (t) addressStack.push({ text: t, style: 'addressLine' });
-    }
+    });
   }
   addressStack.push({ text: data.customer_name || '', style: 'addressCompany' });
-  const contactLabel = data.customer_contact ? `${data.customer_contact} 様` : 'ご担当者 様';
-  addressStack.push({ text: contactLabel, style: 'addressLine' });
+  addressStack.push({ text: data.customer_contact ? `${data.customer_contact} 様` : 'ご担当者 様', style: 'addressLine' });
 
   // 明細テーブル body
   const itemTableBody: any[][] = [
@@ -114,25 +110,17 @@ export async function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer>
     const isDiscount = (item.amount || 0) < 0;
     const itemColor = isDiscount ? '#d97706' : '#000000';
 
-    // 左列スタック: 明細番号 + 期間
-    const leftStack: any[] = [
-      { text: code, fontSize: 7, color: itemColor },
-    ];
+    const leftStack: any[] = [{ text: code, fontSize: 7, color: itemColor }];
     if (item.period_start || item.period_end) {
-      leftStack.push({ text: formatDateSlash(item.period_start), fontSize: 7, color: '#444444' });
-      leftStack.push({ text: `〜${formatDateSlash(item.period_end)}`, fontSize: 7, color: '#444444' });
+      leftStack.push({ text: `${formatDateSlash(item.period_start)} 〜 ${formatDateSlash(item.period_end)}`, fontSize: 7, color: '#444444' });
     }
 
-    // 中列スタック: 商品名 + 備考行
-    const middleStack: any[] = [
-      { text: item.description || '', fontSize: 8, color: itemColor },
-    ];
+    const middleStack: any[] = [{ text: item.description || '', fontSize: 8, color: itemColor }];
     if (item.item_notes) {
-      const noteLines = item.item_notes.split('\n');
-      for (const line of noteLines) {
+      item.item_notes.split('\n').forEach((line) => {
         const t = line.trim();
         if (t) middleStack.push({ text: t, fontSize: 7, color: '#555555' });
-      }
+      });
     }
 
     itemTableBody.push([
@@ -142,27 +130,15 @@ export async function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer>
     ]);
   }
 
-  // 案件名テキスト
   const projectLabel = data.gls_number
     ? `${data.gls_number}　${data.project_name || ''}`
     : (data.project_name || '');
 
   const content: any[] = [
-    // ① 発行日（右上）
-    {
-      text: formatDateSlash(docDate),
-      fontSize: 8,
-      alignment: 'right',
-      margin: [0, 0, 0, 8],
-    },
-
-    // ② 宛先（左）＋ 発行者（右）
+    { text: formatDateSlash(docDate), fontSize: 8, alignment: 'right', margin: [0, 0, 0, 8] },
     {
       columns: [
-        {
-          width: '55%',
-          stack: addressStack,
-        },
+        { width: '55%', stack: addressStack },
         {
           width: '45%',
           stack: [
@@ -176,23 +152,9 @@ export async function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer>
       columnGap: 16,
       margin: [0, 0, 0, 20],
     },
-
-    // ③ タイトル
-    {
-      text: isEstimate ? '御見積書' : '請　求　書',
-      style: 'title',
-      margin: [0, 0, 0, 12],
-    },
-
-    // ④ 案件名
-    {
-      text: projectLabel,
-      fontSize: 10,
-      margin: [0, 0, 0, 4],
-    },
+    { text: isEstimate ? '御見積書' : '請　求　書', style: 'title', margin: [0, 0, 0, 12] },
+    { text: projectLabel, fontSize: 10, margin: [0, 0, 0, 4] },
     ...(data.subtitle ? [{ text: data.subtitle, fontSize: 8, color: '#666666', margin: [0, 0, 0, 4] }] : []),
-
-    // ⑤ 3列サマリーボックス
     {
       table: {
         widths: ['*', 60, 68, 80],
@@ -206,13 +168,7 @@ export async function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer>
           [
             { text: '', border: [false, false, false, false] },
             { text: formatCurrency(listPrice), fontSize: 9, alignment: 'right', border: [true, false, true, true] },
-            {
-              text: discountTotal < 0 ? formatCurrency(discountTotal) : '−',
-              fontSize: 9,
-              alignment: 'right',
-              color: '#d97706',
-              border: [true, false, true, true],
-            },
+            { text: discountTotal < 0 ? formatCurrency(discountTotal) : '−', fontSize: 9, alignment: 'right', color: '#d97706', border: [true, false, true, true] },
             { text: formatCurrency(quoteTotal), fontSize: 10, bold: true, alignment: 'right', border: [true, false, true, true] },
           ],
         ],
@@ -229,22 +185,8 @@ export async function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer>
       },
       margin: [0, 0, 0, 6],
     },
-
-    // ⑥ 見積コード
-    {
-      text: `見積コード　：　${data.billing_key || ''}`,
-      style: 'small',
-      margin: [0, 0, 0, 2],
-    },
-
-    // ⑦ 注記
-    {
-      text: '＊御見積有効期間：本見積書提出後１ヶ月　　＊本見積書には消費税等は含まれておりません。',
-      style: 'noteText',
-      margin: [0, 0, 0, 10],
-    },
-
-    // ⑧ 明細テーブル
+    { text: `見積コード　：　${data.billing_key || ''}`, style: 'small', margin: [0, 0, 0, 2] },
+    { text: '＊御見積有効期間：本見積書提出後１ヶ月　　＊本見積書には消費税等は含まれておりません。', style: 'noteText', margin: [0, 0, 0, 10] },
     {
       table: {
         headerRows: 1,
@@ -252,8 +194,7 @@ export async function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer>
         body: itemTableBody,
       },
       layout: {
-        hLineWidth: (i: number, node: any) =>
-          i === 0 || i === 1 || i === node.table.body.length ? 1 : 0.5,
+        hLineWidth: (i: number, node: any) => i === 0 || i === 1 || i === node.table.body.length ? 1 : 0.5,
         vLineWidth: () => 0.5,
         hLineColor: (i: number) => (i <= 1 ? '#333333' : '#cccccc'),
         vLineColor: () => '#cccccc',
@@ -264,42 +205,23 @@ export async function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer>
       },
       margin: [0, 0, 0, 16],
     },
-
-    // ⑨ 備考ボックス
     ...(data.notes
-      ? [
-          {
-            table: {
-              widths: ['*'],
-              body: [
-                [
-                  {
-                    stack: [
-                      { text: '備考', style: 'sectionLabel', margin: [0, 0, 0, 4] },
-                      ...data.notes.split('\n').map((line: string) => ({
-                        text: line.trim() || ' ',
-                        style: 'small',
-                        margin: [0, 0, 0, 2],
-                      })),
-                    ],
-                    margin: [6, 6, 6, 6],
-                  },
-                ],
+      ? [{
+          table: {
+            widths: ['*'],
+            body: [[{
+              stack: [
+                { text: '備考', style: 'sectionLabel', margin: [0, 0, 0, 4] },
+                ...data.notes.split('\n').map((line: string) => ({ text: line.trim() || ' ', style: 'small', margin: [0, 0, 0, 2] })),
               ],
-            },
-            layout: {
-              hLineWidth: () => 0.5,
-              vLineWidth: () => 0.5,
-              hLineColor: () => '#888888',
-              vLineColor: () => '#888888',
-            },
-            margin: [0, 0, 0, 8],
+              margin: [6, 6, 6, 6],
+            }]],
           },
-        ]
+          layout: { hLineWidth: () => 0.5, vLineWidth: () => 0.5, hLineColor: () => '#888888', vLineColor: () => '#888888' },
+          margin: [0, 0, 0, 8],
+        }]
       : []),
-
-    // ⑩ 支払期日（請求書モードのみ）
-    ...((!isEstimate && data.payment_due_date)
+    ...(!isEstimate && data.payment_due_date
       ? [{ text: `お支払期日：${formatDateJP(data.payment_due_date)}`, style: 'small', margin: [0, 0, 0, 0] }]
       : []),
   ];
@@ -307,10 +229,7 @@ export async function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer>
   const docDefinition: any = {
     pageSize: 'A4',
     pageMargins: [40, 40, 40, 40],
-    defaultStyle: {
-      font: 'NotoSansJP',
-      fontSize: 9,
-    },
+    defaultStyle: { font: 'NotoSansJP', fontSize: 9 },
     styles: {
       title: { fontSize: 22, bold: true },
       addressLine: { fontSize: 9 },
@@ -325,6 +244,16 @@ export async function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer>
     content,
   };
 
-  const pdf = pdfmake.createPdf(docDefinition);
-  return pdf.getBuffer() as Promise<Buffer>;
+  return new Promise<Buffer>((resolve, reject) => {
+    try {
+      const doc = printer.createPdfKitDocument(docDefinition);
+      const chunks: Buffer[] = [];
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', (err: Error) => reject(err));
+      doc.end();
+    } catch (err) {
+      reject(err);
+    }
+  });
 }
