@@ -43,8 +43,9 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { Loader2, Plus, Trash2, Download, ExternalLink, Link2 } from "lucide-react";
+import { Loader2, Plus, Trash2, Download, ExternalLink, Link2, Percent } from "lucide-react";
 import PricingItemPicker, { type PickedPricingItem } from "../components/PricingItemPicker";
+import DiscountDialog, { type DiscountResult } from "../components/DiscountDialog";
 import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
 
 type SortKey = "billing_key" | "project_name" | "amount" | "recognition_date";
@@ -137,6 +138,15 @@ export default function RevenueListPage() {
   const [existingRevenueId, setExistingRevenueId] = useState("");
   const [pricingPickerOpen, setPricingPickerOpen] = useState(false);
   const [flashRowIdx, setFlashRowIdx] = useState<number | null>(null);
+
+  // 値引きダイアログ
+  const [discountDialog, setDiscountDialog] = useState<{
+    open: boolean;
+    mode: "item" | "global";
+    targetIdx?: number;
+    targetDescription?: string;
+    baseAmount: number;
+  }>({ open: false, mode: "item", baseAmount: 0 });
 
   const startResize = useCallback((col: string, e: React.MouseEvent, currentWidth: number) => {
     e.preventDefault();
@@ -461,6 +471,69 @@ export default function RevenueListPage() {
       return next;
     });
   }, []);
+
+  // 項目値引きダイアログを開く
+  const openItemDiscount = useCallback((idx: number) => {
+    setItems((prev) => {
+      const item = prev[idx];
+      if (!item || (item.amount || 0) <= 0) {
+        alert("値引きの対象となる金額が0円以下です");
+        return prev;
+      }
+      setDiscountDialog({
+        open: true,
+        mode: "item",
+        targetIdx: idx,
+        targetDescription: item.description,
+        baseAmount: item.amount,
+      });
+      return prev;
+    });
+  }, []);
+
+  // 全体値引きダイアログを開く
+  const openGlobalDiscount = useCallback(() => {
+    setItems((prev) => {
+      const positiveSubtotal = prev.reduce(
+        (s, it) => s + Math.max(0, it.amount || 0),
+        0
+      );
+      if (positiveSubtotal <= 0) {
+        alert("値引きの対象となる小計が0円以下です");
+        return prev;
+      }
+      setDiscountDialog({
+        open: true,
+        mode: "global",
+        baseAmount: positiveSubtotal,
+      });
+      return prev;
+    });
+  }, []);
+
+  // 値引き適用
+  const applyDiscount = useCallback(
+    (result: DiscountResult) => {
+      const newItem: RevenueItem = {
+        description: result.description,
+        quantity: result.quantity,
+        unit_price: result.unit_price,
+        amount: result.amount,
+      };
+      setItems((prev) => {
+        if (
+          discountDialog.mode === "item" &&
+          discountDialog.targetIdx !== undefined
+        ) {
+          const next = [...prev];
+          next.splice(discountDialog.targetIdx + 1, 0, newItem);
+          return next;
+        }
+        return [...prev, newItem];
+      });
+    },
+    [discountDialog.mode, discountDialog.targetIdx]
+  );
 
   const canSubmit =
     !!selectedProjectId &&
@@ -814,6 +887,16 @@ export default function RevenueListPage() {
                     <Plus className="mr-1 h-3 w-3" />
                     行追加
                   </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-amber-700 border-amber-300 hover:bg-amber-50"
+                    onClick={openGlobalDiscount}
+                  >
+                    <Percent className="mr-1 h-3 w-3" />
+                    全体値引き
+                  </Button>
                 </div>
               </div>
 
@@ -919,15 +1002,29 @@ export default function RevenueListPage() {
                               />
                             </TableCell>
                             <TableCell className="p-1">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() => removeItem(idx)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                              </Button>
+                              <div className="flex items-center gap-0.5">
+                                {(item.amount || 0) > 0 && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-amber-600 hover:bg-amber-50"
+                                    onClick={() => openItemDiscount(idx)}
+                                    title="この項目に値引きを追加"
+                                  >
+                                    <Percent className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => removeItem(idx)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -950,6 +1047,18 @@ export default function RevenueListPage() {
                             placeholder="項目名"
                             className="flex-1 text-sm"
                           />
+                          {(item.amount || 0) > 0 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 shrink-0 text-amber-600"
+                              onClick={() => openItemDiscount(idx)}
+                              title="値引き"
+                            >
+                              <Percent className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                           <Button
                             type="button"
                             variant="ghost"
@@ -1169,6 +1278,17 @@ export default function RevenueListPage() {
         onOpenChange={setPricingPickerOpen}
         customerType={selectedProject?.customer_type === "internal" ? "internal" : "external"}
         onSelect={handlePickPricingItem}
+      />
+
+      <DiscountDialog
+        open={discountDialog.open}
+        onOpenChange={(open) =>
+          setDiscountDialog((prev) => ({ ...prev, open }))
+        }
+        mode={discountDialog.mode}
+        targetDescription={discountDialog.targetDescription}
+        baseAmount={discountDialog.baseAmount}
+        onApply={applyDiscount}
       />
     </div>
     </PageTransition>

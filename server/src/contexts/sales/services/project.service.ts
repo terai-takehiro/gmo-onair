@@ -121,6 +121,7 @@ export class ProjectService {
     const total = ((await queryOne(`SELECT COUNT(*) as c FROM projects p LEFT JOIN customers c ON c.id = p.customer_id ${where}`, params)) as any).c;
     const rows = await queryAll(
       `SELECT p.*, c.name as customer_name, c.short_name as customer_short_name, u.name as assigned_to_name,
+       (SELECT COUNT(*) FROM project_dates pd WHERE pd.project_id = p.id) as dates_count,
        COALESCE((SELECT SUM(r.amount) FROM revenues r WHERE r.project_id = p.id AND r.status = 'confirmed' AND r.deleted_at IS NULL AND r.group_id IS NULL), 0) as total_revenue,
        COALESCE((SELECT SUM(pu.amount) FROM purchases pu WHERE pu.project_id = p.id AND pu.deleted_at IS NULL AND pu.group_id IS NULL), 0) as total_purchase
        FROM projects p
@@ -144,6 +145,12 @@ export class ProjectService {
       [id]
     );
     if (!row) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
+    // 仮スケジュール（複数日程）を付与
+    const dates = await queryAll(
+      `SELECT id, date, label, sort_order FROM project_dates WHERE project_id = ? ORDER BY sort_order ASC, date ASC`,
+      [id]
+    );
+    (row as Record<string, unknown>).dates = dates;
     return row;
   }
 
@@ -152,21 +159,48 @@ export class ProjectService {
    */
   async create(data: Record<string, unknown>, userId: string) {
     const { name, customer_id, expected_amount, assigned_to, project_type, notes, customer_type,
-            box_url_internal, box_url_external, application_form, logo_permission } = data;
+            box_url_internal, box_url_external, application_form, logo_permission,
+            event_start, event_end, dates } = data;
     if (!name || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名と顧客は必須です');
 
     const id = uuidv4();
     const code = await generateSequenceNumber('opp_code', 'OPP');
     const cType = normalizeCustomerType(customer_type);
+
+    // dates 配列がある場合は MIN/MAX を event_start/event_end に同期
+    let finalEventStart: string | null = (event_start as string) || null;
+    let finalEventEnd: string | null = (event_end as string) || null;
+    let datesToInsert: Array<{ date: string; label?: string | null }> = [];
+    if (Array.isArray(dates)) {
+      datesToInsert = (dates as Array<{ date: string; label?: string | null }>)
+        .filter((d) => d && typeof d.date === 'string' && d.date.length > 0);
+      if (datesToInsert.length > 0) {
+        const sorted = [...datesToInsert].map((d) => d.date).sort();
+        finalEventStart = sorted[0];
+        finalEventEnd = sorted[sorted.length - 1];
+      }
+    }
+
     await execute(
       `INSERT INTO projects (id, code, name, customer_id, stage, project_type, expected_amount, assigned_to,
+                             event_start, event_end,
                              notes, customer_type, box_url_internal, box_url_external,
                              application_form, logo_permission, created_by)
-       VALUES (?, ?, ?, ?, 'neta', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, 'neta', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, code, name, customer_id, project_type || 'other', expected_amount || 0, assigned_to || userId,
+       finalEventStart, finalEventEnd,
        notes || null, cType, box_url_internal || null, box_url_external || null,
        application_form ? 1 : 0, logo_permission ? 1 : 0, userId]
     );
+
+    // project_dates にINSERT
+    for (let i = 0; i < datesToInsert.length; i++) {
+      const d = datesToInsert[i];
+      await execute(
+        `INSERT INTO project_dates (id, project_id, date, label, sort_order) VALUES (?, ?, ?, ?, ?)`,
+        [uuidv4(), id, d.date, d.label || null, i + 1]
+      );
+    }
 
     // BOX フォルダ自動作成 (両親フォルダに並行作成。OPP コード命名で、GLS 発番時にリネームされる)
     // 既に box_url_internal / box_url_external が手動入力されている場合は、未入力側だけ補填
@@ -205,8 +239,35 @@ export class ProjectService {
 
     const { name, customer_id, expected_amount, assigned_to, project_type, project_type_other,
             event_start, event_end, broadcast_type, media_platform, tags,
-            application_form, logo_permission, notes, customer_type, box_url_internal, box_url_external } = data;
+            application_form, logo_permission, notes, customer_type, box_url_internal, box_url_external,
+            dates } = data;
     const cType = normalizeCustomerType(customer_type);
+
+    // dates 配列が来ている場合は project_dates を全削除→再INSERT。
+    // 同時に event_start = MIN(date), event_end = MAX(date) を自動同期
+    let finalEventStart: string | null = (event_start as string) || null;
+    let finalEventEnd: string | null = (event_end as string) || null;
+    if (Array.isArray(dates)) {
+      await execute(`DELETE FROM project_dates WHERE project_id = ?`, [id]);
+      const validDates = (dates as Array<{ date: string; label?: string | null }>)
+        .filter((d) => d && typeof d.date === 'string' && d.date.length > 0);
+      for (let i = 0; i < validDates.length; i++) {
+        const d = validDates[i];
+        await execute(
+          `INSERT INTO project_dates (id, project_id, date, label, sort_order) VALUES (?, ?, ?, ?, ?)`,
+          [uuidv4(), id, d.date, d.label || null, i + 1]
+        );
+      }
+      if (validDates.length > 0) {
+        const sorted = [...validDates].map((d) => d.date).sort();
+        finalEventStart = sorted[0];
+        finalEventEnd = sorted[sorted.length - 1];
+      } else {
+        finalEventStart = null;
+        finalEventEnd = null;
+      }
+    }
+
     await execute(
       `UPDATE projects SET name=?, customer_id=?, expected_amount=?, assigned_to=?,
        project_type=?, project_type_other=?, event_start=?, event_end=?,
@@ -216,7 +277,7 @@ export class ProjectService {
        updated_at=NOW(), updated_by=? WHERE id=?`,
       [name, customer_id, expected_amount || 0, assigned_to,
        project_type || 'other', project_type_other || null,
-       event_start || null, event_end || null,
+       finalEventStart, finalEventEnd,
        broadcast_type || null, media_platform || null, tags || '',
        application_form ? 1 : 0, logo_permission ? 1 : 0, notes || null, cType,
        box_url_internal || null, box_url_external || null,

@@ -199,8 +199,8 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
     }
   }
 
-  // 確定売上登録時: 案件の想定金額を同期
-  if (revenueStatus === 'confirmed' && finalAmount > 0) {
+  // 売上/概算見積登録時: 案件の想定金額を同期（estimateでも常に最新値で上書き）
+  if (finalAmount > 0) {
     await execute(`UPDATE projects SET expected_amount = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL`, [finalAmount, project_id]);
   }
 
@@ -245,10 +245,9 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
     }
   }
 
-  // 確定売上の金額変更時: 案件の想定金額を同期
+  // 売上/概算見積更新時: 案件の想定金額を同期（estimateでも常に最新値で上書き）
   const finalProjectId = project_id || existing.project_id;
-  const finalStatus = existing.status;
-  if (finalStatus === 'confirmed' && finalAmount > 0) {
+  if (finalAmount > 0) {
     await execute(`UPDATE projects SET expected_amount = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL`, [finalAmount, finalProjectId]);
   }
 

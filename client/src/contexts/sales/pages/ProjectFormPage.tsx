@@ -106,6 +106,8 @@ export default function ProjectFormPage() {
   const [rehearsalStart, setRehearsalStart] = useState("");
   const [rehearsalEnd, setRehearsalEnd] = useState("");
   const [rehearsalMultiDay, setRehearsalMultiDay] = useState(false);
+  // 追加の日程（飛び日対応）
+  const [extraDates, setExtraDates] = useState<Array<{ date: string; label: string }>>([]);
   const [locationNote, setLocationNote] = useState("");
   const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
   const locationSuggestionsRef = useRef<HTMLDivElement>(null);
@@ -208,6 +210,16 @@ export default function ProjectFormPage() {
         application_form: !!project.application_form,
         logo_permission: !!project.logo_permission,
       });
+      // 仮スケジュール（複数日程）の読み込み
+      if (Array.isArray(project.dates)) {
+        const knownDates = new Set<string>();
+        if (project.event_start) knownDates.add(project.event_start);
+        if (project.event_end) knownDates.add(project.event_end);
+        const extras = (project.dates as Array<{ date: string; label: string | null }>)
+          .filter((d) => !knownDates.has(d.date))
+          .map((d) => ({ date: d.date, label: d.label || "" }));
+        setExtraDates(extras);
+      }
     }
   }, [project, reset]);
 
@@ -337,6 +349,33 @@ export default function ProjectFormPage() {
       values.event_start = (hasRehearsal && rehearsalStart) ? rehearsalStart : productionStart;
       values.event_end = prodEnd || productionStart;
     }
+
+    // 仮スケジュール（複数日程・飛び日対応）配列を組み立て
+    const allDates: Array<{ date: string; label: string | null }> = [];
+    if (productionStart) {
+      allDates.push({ date: productionStart, label: "本番" });
+      if (productionMultiDay && productionEnd && productionEnd !== productionStart) {
+        allDates.push({ date: productionEnd, label: "本番（最終日）" });
+      }
+    }
+    if (hasRehearsal && rehearsalStart) {
+      allDates.push({ date: rehearsalStart, label: "リハ" });
+      if (rehearsalMultiDay && rehearsalEnd && rehearsalEnd !== rehearsalStart) {
+        allDates.push({ date: rehearsalEnd, label: "リハ（最終日）" });
+      }
+    }
+    extraDates.forEach((d) => {
+      if (d.date) allDates.push({ date: d.date, label: d.label || null });
+    });
+    if (allDates.length > 0) {
+      // 重複日を排除（同じ日付があった場合は最初のラベル優先）
+      const uniqueMap = new Map<string, { date: string; label: string | null }>();
+      for (const d of allDates) {
+        if (!uniqueMap.has(d.date)) uniqueMap.set(d.date, d);
+      }
+      (values as any).dates = Array.from(uniqueMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+    }
+
     saveMutation.mutate(values, {
       onSuccess: async (res) => {
         const savedProjectId = (res as any)?.id || id;
@@ -1022,6 +1061,75 @@ export default function ProjectFormPage() {
                       }}
                     />
                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* 追加の日程（飛び日対応） */}
+            <div className="space-y-2 pt-2 border-t">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>追加の日程（飛び日対応）</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    本番・リハと別の日（撤去日や中日など）を追加できます
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setExtraDates((prev) => [...prev, { date: "", label: "" }])
+                  }
+                >
+                  + 日程を追加
+                </Button>
+              </div>
+              {extraDates.length > 0 && (
+                <div className="space-y-2">
+                  {extraDates.map((d, idx) => (
+                    <div key={idx} className="flex items-end gap-2">
+                      <div className="flex-1">
+                        <Label className="text-xs">日付</Label>
+                        <Input
+                          type="date"
+                          value={d.date}
+                          onChange={(e) =>
+                            setExtraDates((prev) => {
+                              const next = [...prev];
+                              next[idx] = { ...next[idx], date: e.target.value };
+                              return next;
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Label className="text-xs">ラベル</Label>
+                        <Input
+                          value={d.label}
+                          onChange={(e) =>
+                            setExtraDates((prev) => {
+                              const next = [...prev];
+                              next[idx] = { ...next[idx], label: e.target.value };
+                              return next;
+                            })
+                          }
+                          placeholder="例: 撤去 / 中日 / 予備日"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive shrink-0"
+                        onClick={() =>
+                          setExtraDates((prev) => prev.filter((_, i) => i !== idx))
+                        }
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

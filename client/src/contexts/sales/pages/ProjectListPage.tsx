@@ -273,6 +273,11 @@ function ProjectCard({
             {p.event_end && p.event_end !== p.event_start
               ? `${formatDate(p.event_start as string)} 〜 ${formatDate(p.event_end as string)}`
               : formatDate(p.event_start as string)}
+            {Number(p.dates_count) > 2 && (
+              <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-medium">
+                {p.dates_count}日（飛び日）
+              </span>
+            )}
           </span>
         )}
         {(p.project_type as string) && (
