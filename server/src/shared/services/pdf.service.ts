@@ -2,15 +2,15 @@ import path from 'path';
 import fs from 'fs';
 import PDFDocument from 'pdfkit';
 
-const fontsDir = path.resolve(__dirname, '../../../fonts');
-const FONT_REGULAR = path.join(fontsDir, 'NotoSansJP-Regular.ttf');
-const FONT_BOLD    = path.join(fontsDir, 'NotoSansJP-Bold.ttf');
+const fontsDir  = path.resolve(__dirname, '../../../fonts');
+const FONT_REG  = path.join(fontsDir, 'NotoSansJP-Regular.ttf');
+const FONT_BOLD = path.join(fontsDir, 'NotoSansJP-Bold.ttf');
 
-const COMPANY_INFO = {
-  name:               'GMOグローバルスタジオ株式会社',
-  address1:           '東京都世田谷区用賀四丁目10番1号',
-  address2:           'GMOインターネットTOWER 27F',
-  registrationNumber: 'T9011001046041',
+const COMPANY = {
+  name:   'GMOグローバルスタジオ株式会社',
+  addr1:  '東京都世田谷区用賀四丁目10番1号',
+  addr2:  'GMOインターネットTOWER 27F',
+  regNo:  'T9011001046041',
 };
 
 interface PdfRevenueItem {
@@ -43,25 +43,23 @@ interface PdfRevenueData {
   items:            PdfRevenueItem[];
 }
 
-function fmtMoney(n: number): string {
-  const prefix = n < 0 ? '-\xA5' : '\xA5';
-  return prefix + Math.abs(n).toLocaleString('ja-JP');
+function money(n: number): string {
+  return (n < 0 ? '-\xA5' : '\xA5') + Math.abs(n).toLocaleString('ja-JP');
 }
 
-function fmtDateSlash(d: string | null | undefined): string {
+function dateSlash(d: string | null | undefined): string {
   if (!d) return '';
   const p = d.split('-');
-  if (p.length < 3) return d;
-  return `${parseInt(p[0])}/${parseInt(p[1])}/${parseInt(p[2])}`;
+  return p.length >= 3 ? `${parseInt(p[0])}/${parseInt(p[1])}/${parseInt(p[2])}` : d;
 }
 
-function fmtDateJP(d: string | null): string {
+function dateJP(d: string | null): string {
   if (!d) return '';
   const dt = new Date(d);
   return `${dt.getFullYear()}年${dt.getMonth() + 1}月${dt.getDate()}日`;
 }
 
-function fmtItemCode(i: number): string {
+function itemCode(i: number): string {
   return 'M' + String(10000 * 1000 + i + 1).padStart(11, '0');
 }
 
@@ -69,225 +67,204 @@ export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
   return new Promise<Buffer>((resolve, reject) => {
     try {
       const isEstimate = data.status === 'estimate';
-      const docDate   = data.billing_date || data.recognition_date || new Date().toISOString().slice(0, 10);
-      const safeItems = Array.isArray(data.items) ? data.items : [];
+      const docDate    = data.billing_date || data.recognition_date || new Date().toISOString().slice(0, 10);
+      const items      = Array.isArray(data.items) ? data.items : [];
 
-      const listPrice    = safeItems.reduce((s, it) => s + Math.max(0, it.amount || 0), 0);
-      const discountTotal = safeItems.reduce((s, it) => s + Math.min(0, it.amount || 0), 0);
-      const quoteTotal   = listPrice + discountTotal;
-
-      const projectLabel = data.gls_number
+      const listPrice     = items.reduce((s, it) => s + Math.max(0, it.amount || 0), 0);
+      const discountTotal = items.reduce((s, it) => s + Math.min(0, it.amount || 0), 0);
+      const quoteTotal    = listPrice + discountTotal;
+      const projectLabel  = data.gls_number
         ? `${data.gls_number}　${data.project_name || ''}`
         : (data.project_name || '');
 
-      // ── PDF setup ──────────────────────────────────────────────
+      // ── PDF / font setup ──────────────────────────────────────
       const doc = new PDFDocument({ size: 'A4', margin: 0 });
-
       const chunks: Buffer[] = [];
-      doc.on('data',  (chunk) => chunks.push(chunk));
+      doc.on('data',  c => chunks.push(c));
       doc.on('end',   () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      // Fonts
-      const hasRegular = fs.existsSync(FONT_REGULAR);
-      const hasBold    = fs.existsSync(FONT_BOLD);
-      if (hasRegular) doc.registerFont('R', FONT_REGULAR);
-      if (hasBold)    doc.registerFont('B', FONT_BOLD);
-      const R = hasRegular ? 'R' : 'Helvetica';
-      const B = hasBold    ? 'B' : 'Helvetica-Bold';
+      if (fs.existsSync(FONT_REG))  doc.registerFont('R', FONT_REG);
+      if (fs.existsSync(FONT_BOLD)) doc.registerFont('B', FONT_BOLD);
+      const R = fs.existsSync(FONT_REG)  ? 'R' : 'Helvetica';
+      const B = fs.existsSync(FONT_BOLD) ? 'B' : 'Helvetica-Bold';
 
-      const ML = 40;   // left margin
-      const MT = 40;   // top margin
-      const PW = 515;  // printable width (A4 = 595, margins = 80)
-      let y = MT;
+      const ML = 40, PW = 515;
+      let y = 40;
 
-      // ── helpers ────────────────────────────────────────────────
-      type TextOpts = { fontSize?: number; font?: string; color?: string; width?: number; align?: string; lineBreak?: boolean };
-      const textAt = (text: string, x: number, yPos: number, opts: TextOpts = {}) => {
-        const { fontSize = 9, font = R, color = '#000000', ...rest } = opts;
-        doc.font(font).fontSize(fontSize).fillColor(color).text(text, x, yPos, { lineBreak: false, ...rest } as any);
+      // ── Helpers ───────────────────────────────────────────────
+      type TOpts = { sz?: number; f?: string; c?: string; w?: number; align?: string; wrap?: boolean };
+
+      /** テキストを指定座標に描画。wrap:true のとき折り返し許可 */
+      const txt = (s: string, x: number, yp: number, o: TOpts = {}) => {
+        doc.font(o.f ?? R).fontSize(o.sz ?? 9).fillColor(o.c ?? '#000000')
+           .text(s, x, yp, { lineBreak: o.wrap ?? false, width: o.w, align: o.align } as any);
       };
 
-      const drawRect = (x: number, yPos: number, w: number, h: number, fill?: string, stroke?: string) => {
-        if (fill && stroke) {
-          doc.rect(x, yPos, w, h).fillAndStroke(fill, stroke);
-        } else if (fill) {
-          doc.rect(x, yPos, w, h).fill(fill);
-        } else if (stroke) {
-          doc.rect(x, yPos, w, h).stroke(stroke);
-        }
+      /** テキストが占める高さを返す（フォント・サイズを一時的にセット） */
+      const textH = (s: string, fnt: string, sz: number, w: number): number =>
+        doc.font(fnt).fontSize(sz).heightOfString(s, { width: w });
+
+      /** 矩形を描画（fill/stroke オプション） */
+      const rect = (x: number, yp: number, w: number, h: number, fill?: string, stroke?: string) => {
+        if (fill && stroke) doc.rect(x, yp, w, h).fillAndStroke(fill, stroke);
+        else if (fill)      doc.rect(x, yp, w, h).fill(fill);
+        else if (stroke)    doc.rect(x, yp, w, h).stroke(stroke);
       };
 
-      // ── ① Date (right) ─────────────────────────────────────────
-      textAt(fmtDateSlash(docDate), ML, y, { fontSize: 8, width: PW, align: 'right' });
+      /**
+       * セル領域をクリッピングしてコンテンツを描画。
+       * はみ出しを確実に防ぐ。
+       */
+      const cell = (cx: number, cy: number, cw: number, ch: number, draw: () => void) => {
+        doc.save();
+        doc.rect(cx, cy, cw, ch).clip();
+        draw();
+        doc.restore();
+      };
+
+      // ── ① 発行日（右上） ──────────────────────────────────────
+      txt(dateSlash(docDate), ML, y, { sz: 8, w: PW, align: 'right' });
       y += 18;
 
-      // ── ② Address (left) + Issuer (right) ─────────────────────
+      // ── ② 宛先（左）＋ 発行者（右） ──────────────────────────
       const yBlock = y;
       let yL = yBlock;
-      const colLW = Math.floor(PW * 0.55);
-      const colRW = PW - colLW;
-      const xR    = ML + colLW;
+      const colL = Math.floor(PW * 0.55), colR = PW - Math.floor(PW * 0.55);
+      const xR = ML + colL;
 
-      // Left: address lines
       if (data.customer_address) {
         for (const line of data.customer_address.split('\n')) {
-          if (line.trim()) {
-            textAt(line.trim(), ML, yL, { fontSize: 9, width: colLW });
-            yL += 14;
-          }
+          if (line.trim()) { txt(line.trim(), ML, yL, { sz: 9, w: colL }); yL += 14; }
         }
       }
-      textAt(data.customer_name || '', ML, yL, { fontSize: 11, font: B, width: colLW });
-      yL += 16;
-      textAt(data.customer_contact ? `${data.customer_contact} 様` : 'ご担当者 様', ML, yL, { fontSize: 9, width: colLW });
-      yL += 14;
+      txt(data.customer_name || '', ML, yL, { sz: 11, f: B, w: colL }); yL += 16;
+      txt(data.customer_contact ? `${data.customer_contact} 様` : 'ご担当者 様', ML, yL, { sz: 9, w: colL }); yL += 14;
 
-      // Right: issuer
       let yR = yBlock;
-      textAt(COMPANY_INFO.name, xR, yR, { fontSize: 10, font: B, width: colRW, align: 'right' });
-      yR += 14;
-      textAt(COMPANY_INFO.address1, xR, yR, { fontSize: 8, color: '#333333', width: colRW, align: 'right' });
-      yR += 12;
-      textAt(COMPANY_INFO.address2, xR, yR, { fontSize: 8, color: '#333333', width: colRW, align: 'right' });
-      yR += 12;
-      textAt(`登録番号: ${COMPANY_INFO.registrationNumber}`, xR, yR, { fontSize: 8, color: '#333333', width: colRW, align: 'right' });
+      txt(COMPANY.name,  xR, yR, { sz: 10, f: B, c: '#000000', w: colR, align: 'right' }); yR += 14;
+      txt(COMPANY.addr1, xR, yR, { sz: 8,  c: '#333333',       w: colR, align: 'right' }); yR += 12;
+      txt(COMPANY.addr2, xR, yR, { sz: 8,  c: '#333333',       w: colR, align: 'right' }); yR += 12;
+      txt(`登録番号: ${COMPANY.regNo}`, xR, yR, { sz: 8, c: '#333333', w: colR, align: 'right' });
 
       y = Math.max(yL, yR) + 14;
 
-      // ── ③ Title ────────────────────────────────────────────────
-      textAt(isEstimate ? '御見積書' : '請　求　書', ML, y, { fontSize: 22, font: B });
-      y += 32;
+      // ── ③ タイトル ────────────────────────────────────────────
+      txt(isEstimate ? '御見積書' : '請　求　書', ML, y, { sz: 22, f: B }); y += 32;
 
-      // ── ④ Project name ─────────────────────────────────────────
-      textAt(projectLabel, ML, y, { fontSize: 10, width: PW });
-      y += 16;
-      if (data.subtitle) {
-        textAt(data.subtitle, ML, y, { fontSize: 8, color: '#666666', width: PW });
-        y += 14;
-      }
+      // ── ④ 案件名 ──────────────────────────────────────────────
+      txt(projectLabel, ML, y, { sz: 10, w: PW }); y += 16;
+      if (data.subtitle) { txt(data.subtitle, ML, y, { sz: 8, c: '#666666', w: PW }); y += 14; }
 
-      // ── ⑤ Summary box ──────────────────────────────────────────
-      const s0 = PW - 60 - 68 - 80; // spacer
-      const s1 = 60, s2 = 68, s3 = 80;
-      const xS1 = ML + s0, xS2 = xS1 + s1, xS3 = xS2 + s2;
-      const sumHH = 18, sumDH = 20;
+      // ── ⑤ 3列サマリーボックス ─────────────────────────────────
+      const s0 = PW - 60 - 68 - 80;
+      const [s1, s2, s3] = [60, 68, 80];
+      const [xS1, xS2, xS3] = [ML + s0, ML + s0 + s1, ML + s0 + s1 + s2];
+      const [sHH, sDH] = [18, 20];
 
-      // Header cells
-      drawRect(xS1, y, s1, sumHH, '#f5f5f5', '#cccccc');
-      drawRect(xS2, y, s2, sumHH, '#f5f5f5', '#cccccc');
-      drawRect(xS3, y, s3, sumHH, '#f5f5f5', '#cccccc');
-      textAt('定価',      xS1, y + 5, { fontSize: 7, font: B, width: s1, align: 'center' });
-      textAt('割引額',    xS2, y + 5, { fontSize: 7, font: B, width: s2, align: 'center' });
-      textAt('お見積金額', xS3, y + 5, { fontSize: 7, font: B, width: s3, align: 'center' });
-      y += sumHH;
+      rect(xS1, y, s1, sHH, '#f5f5f5', '#cccccc');
+      rect(xS2, y, s2, sHH, '#f5f5f5', '#cccccc');
+      rect(xS3, y, s3, sHH, '#f5f5f5', '#cccccc');
+      txt('定価',       xS1, y + 5, { sz: 7, f: B, w: s1, align: 'center' });
+      txt('割引額',     xS2, y + 5, { sz: 7, f: B, w: s2, align: 'center' });
+      txt('お見積金額', xS3, y + 5, { sz: 7, f: B, w: s3, align: 'center' });
+      y += sHH;
 
-      // Data cells
-      drawRect(xS1, y, s1, sumDH, undefined, '#cccccc');
-      drawRect(xS2, y, s2, sumDH, undefined, '#cccccc');
-      drawRect(xS3, y, s3, sumDH, undefined, '#cccccc');
-      textAt(fmtMoney(listPrice), xS1 + 4, y + 6, { fontSize: 9, width: s1 - 8, align: 'right' });
-      textAt(
-        discountTotal < 0 ? fmtMoney(discountTotal) : '−',
-        xS2 + 4, y + 6,
-        { fontSize: 9, color: '#d97706', width: s2 - 8, align: 'right' }
-      );
-      textAt(fmtMoney(quoteTotal), xS3 + 4, y + 5, { fontSize: 10, font: B, width: s3 - 8, align: 'right' });
-      y += sumDH + 8;
+      rect(xS1, y, s1, sDH, undefined, '#cccccc');
+      rect(xS2, y, s2, sDH, undefined, '#cccccc');
+      rect(xS3, y, s3, sDH, undefined, '#cccccc');
+      txt(money(listPrice), xS1 + 4, y + 6, { sz: 9, w: s1 - 8, align: 'right' });
+      txt(discountTotal < 0 ? money(discountTotal) : '−', xS2 + 4, y + 6, { sz: 9, c: '#d97706', w: s2 - 8, align: 'right' });
+      txt(money(quoteTotal), xS3 + 4, y + 5, { sz: 10, f: B, w: s3 - 8, align: 'right' });
+      y += sDH + 8;
 
-      // ── ⑥ Quote code + note ────────────────────────────────────
-      textAt(`見積コード　：　${data.billing_key || ''}`, ML, y, { fontSize: 8 });
-      y += 14;
-      textAt(
-        '＊御見積有効期間：本見積書提出後１ヶ月　　＊本見積書には消費税等は含まれておりません。',
-        ML, y, { fontSize: 7, color: '#444444', width: PW }
-      );
-      y += 16;
+      // ── ⑥ 見積コード＋注記 ───────────────────────────────────
+      txt(`見積コード　：　${data.billing_key || ''}`, ML, y, { sz: 8 }); y += 14;
+      txt('＊御見積有効期間：本見積書提出後１ヶ月　　＊本見積書には消費税等は含まれておりません。',
+          ML, y, { sz: 7, c: '#444444', w: PW }); y += 16;
 
-      // ── ⑦ Items table ──────────────────────────────────────────
-      const tCode = 72, tAmt = 78, tDesc = PW - tCode - tAmt;
-      const xCode = ML, xDesc = ML + tCode, xAmt = ML + tCode + tDesc;
-      const tHH = 20;
+      // ── ⑦ 明細テーブル ───────────────────────────────────────
+      // 期間を2行（開始/終了）で表示するため左列を90ptに拡張
+      const TC = 90, TA = 78, TD = PW - TC - TA;
+      const xC = ML, xD = ML + TC, xA = ML + TC + TD;
+      const HDR_H = 20;
+      const VPAD  = 5;   // 上下パディング
 
-      // Header
-      drawRect(xCode, y, tCode, tHH, '#f0f0f0', '#333333');
-      drawRect(xDesc, y, tDesc, tHH, '#f0f0f0', '#333333');
-      drawRect(xAmt,  y, tAmt,  tHH, '#f0f0f0', '#333333');
-      textAt('明細番号/期間', xCode + 3, y + 4, { fontSize: 7, font: B, width: tCode - 6 });
-      textAt('商品名/備考',   xDesc + 3, y + 4, { fontSize: 7, font: B, width: tDesc - 6 });
-      textAt('税別金額',      xAmt  + 3, y + 4, { fontSize: 7, font: B, width: tAmt  - 6, align: 'right' });
-      y += tHH;
+      // ヘッダー行
+      rect(xC, y, TC, HDR_H, '#f0f0f0', '#333333');
+      rect(xD, y, TD, HDR_H, '#f0f0f0', '#333333');
+      rect(xA, y, TA, HDR_H, '#f0f0f0', '#333333');
+      txt('明細番号/期間', xC + 3, y + 4, { sz: 7, f: B, w: TC - 6 });
+      txt('商品名/備考',   xD + 3, y + 4, { sz: 7, f: B, w: TD - 6 });
+      txt('税別金額',      xA + 3, y + 4, { sz: 7, f: B, w: TA - 6, align: 'right' });
+      y += HDR_H;
 
-      // Rows
-      for (let i = 0; i < safeItems.length; i++) {
-        const item = safeItems[i];
-        const isDiscount = (item.amount || 0) < 0;
-        const itemColor  = isDiscount ? '#d97706' : '#000000';
+      // 明細行
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        const isDisc  = (it.amount || 0) < 0;
+        const itColor = isDisc ? '#d97706' : '#000000';
 
-        // Estimate row height
-        let rh = 22;
-        const hasPeriod = item.period_start || item.period_end || data.project_start || data.project_end;
-        if (hasPeriod) rh = Math.max(rh, 32);
-        if (item.item_notes) {
-          const noteLineCount = item.item_notes.split('\n').filter(l => l.trim()).length;
-          rh = Math.max(rh, 22 + noteLineCount * 10);
-        }
+        // 期間（item個別 → なければプロジェクト期間で補完）
+        const pS = it.period_start || data.project_start;
+        const pE = it.period_end   || data.project_end;
 
-        drawRect(xCode, y, tCode, rh, undefined, '#cccccc');
-        drawRect(xDesc, y, tDesc, rh, undefined, '#cccccc');
-        drawRect(xAmt,  y, tAmt,  rh, undefined, '#cccccc');
+        // ── 行の高さを事前計算 ─────────────────────────────────
+        // 左列: コード(1行) + 期間2行（開始/終了）
+        const leftLines = 1 + (pS ? 1 : 0) + (pE ? 1 : 0);
+        const leftH = VPAD + leftLines * 11 + VPAD;
 
-        // Left: item code + period（item 個別設定 → なければプロジェクト期間で自動補完）
-        textAt(fmtItemCode(i), xCode + 3, y + 4, { fontSize: 7, color: itemColor, width: tCode - 6 });
-        const pStart = item.period_start || data.project_start;
-        const pEnd   = item.period_end   || data.project_end;
-        if (pStart || pEnd) {
-          textAt(
-            `${fmtDateSlash(pStart)} 〜 ${fmtDateSlash(pEnd)}`,
-            xCode + 3, y + 14,
-            { fontSize: 7, color: '#444444', width: tCode - 6 }
-          );
-        }
+        // 中列: 商品名（折り返し可） + 備考（折り返し可）
+        const descH  = textH(it.description || '', R, 8, TD - 6);
+        const notesH = it.item_notes ? textH(it.item_notes, R, 7, TD - 6) : 0;
+        const midH   = VPAD + descH + (notesH > 0 ? 4 + notesH : 0) + VPAD;
 
-        // Middle: description + notes
-        textAt(item.description || '', xDesc + 3, y + 5, { fontSize: 8, color: itemColor, width: tDesc - 6 });
-        if (item.item_notes) {
-          let ny = y + 17;
-          for (const line of item.item_notes.split('\n')) {
-            if (line.trim()) {
-              textAt(line.trim(), xDesc + 3, ny, { fontSize: 7, color: '#555555', width: tDesc - 6 });
-              ny += 10;
-            }
+        const rh = Math.max(leftH, midH, 28); // 最低28pt
+
+        // ── 枠線描画 ───────────────────────────────────────────
+        rect(xC, y, TC, rh, undefined, '#cccccc');
+        rect(xD, y, TD, rh, undefined, '#cccccc');
+        rect(xA, y, TA, rh, undefined, '#cccccc');
+
+        // ── 左列（明細番号＋期間）─────────────────────────────
+        cell(xC, y, TC, rh, () => {
+          txt(itemCode(i), xC + 3, y + VPAD, { sz: 7, c: itColor });
+          if (pS) txt(dateSlash(pS),       xC + 3, y + VPAD + 12, { sz: 7, c: '#444444' });
+          if (pE) txt(`〜 ${dateSlash(pE)}`, xC + 3, y + VPAD + 23, { sz: 7, c: '#444444' });
+        });
+
+        // ── 中列（商品名＋備考）───────────────────────────────
+        cell(xD, y, TD, rh, () => {
+          txt(it.description || '', xD + 3, y + VPAD, { sz: 8, c: itColor, w: TD - 6, wrap: true });
+          if (it.item_notes) {
+            txt(it.item_notes, xD + 3, y + VPAD + descH + 4, { sz: 7, c: '#555555', w: TD - 6, wrap: true });
           }
-        }
+        });
 
-        // Right: amount
-        textAt(fmtMoney(item.amount || 0), xAmt + 3, y + 7, { fontSize: 8, color: itemColor, width: tAmt - 6, align: 'right' });
+        // ── 右列（金額）───────────────────────────────────────
+        cell(xA, y, TA, rh, () => {
+          txt(money(it.amount || 0), xA + 3, y + VPAD, { sz: 8, c: itColor, w: TA - 6, align: 'right' });
+        });
 
         y += rh;
       }
 
-      // Bottom border
-      doc.moveTo(xCode, y).lineTo(xCode + PW, y).strokeColor('#333333').stroke();
+      // テーブル下罫線
+      doc.moveTo(xC, y).lineTo(xC + PW, y).strokeColor('#333333').lineWidth(1).stroke();
       y += 16;
 
-      // ── ⑧ Notes box ────────────────────────────────────────────
+      // ── ⑧ 備考ボックス ────────────────────────────────────────
       if (data.notes) {
-        const noteLines = data.notes.split('\n');
-        const notesH = 20 + noteLines.length * 13;
-        drawRect(ML, y, PW, notesH, undefined, '#888888');
-        textAt('備考', ML + 6, y + 6, { fontSize: 9, font: B });
-        let ny = y + 18;
-        for (const line of noteLines) {
-          textAt(line.trim() || ' ', ML + 6, ny, { fontSize: 8, width: PW - 12 });
-          ny += 13;
-        }
-        y += notesH + 8;
+        const noteH = VPAD + textH(data.notes, R, 8, PW - 18) + VPAD + 16;
+        rect(ML, y, PW, noteH, undefined, '#888888');
+        txt('備考', ML + 6, y + 6, { sz: 9, f: B });
+        txt(data.notes, ML + 6, y + 18, { sz: 8, w: PW - 12, wrap: true });
+        y += noteH + 8;
       }
 
-      // ── ⑨ Payment due date (invoice) ───────────────────────────
+      // ── ⑨ 支払期日（請求書モード） ────────────────────────────
       if (!isEstimate && data.payment_due_date) {
-        textAt(`お支払期日：${fmtDateJP(data.payment_due_date)}`, ML, y, { fontSize: 8 });
+        txt(`お支払期日：${dateJP(data.payment_due_date)}`, ML, y, { sz: 8 });
       }
 
       doc.end();
