@@ -1146,7 +1146,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
 
       {/* 仕入追加/編集ダイアログ */}
       <Dialog open={purDialogOpen} onOpenChange={(open) => { if (!open) closePurDialog(); }}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingPurId ? "仕入の編集" : "仕入の追加"}</DialogTitle>
           </DialogHeader>

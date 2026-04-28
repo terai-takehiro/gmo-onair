@@ -433,7 +433,7 @@ export default function PurchaseListPage() {
             else crud.setDialogOpen(v);
           }}
         >
-          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{crud.isEditing ? "仕入編集" : "新規仕入登録"}</DialogTitle>
             </DialogHeader>

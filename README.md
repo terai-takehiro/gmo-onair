@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.23 — 案件管理3機能改善（飛び日・料金表連携・値引きUI）+ 送出CG背景透過修正
+**現在のバージョン**: v2.8.24 — 売上高計10倍バグ修正（pg NUMERIC文字列型→数値変換）+ 全ポップアップUI幅改善
 
 ---
 
@@ -383,6 +383,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.8.24** | **売上高計10倍バグ修正・全ポップアップUI幅改善**: ①pg ライブラリが NUMERIC(OID 1700) を文字列で返す問題を `types.setTypeParser` で根本修正（`"414308" + "0" = "4143080"` の文字列連結バグ解消）。②`getSummary` の `as number` を `Number()` に変更。③仕入ダイアログ（PurchaseListPage・BusinessProjectView・ProjectGroupListPage）・料金表ピッカー・按分グループダイアログ・スタジオ予約詳細ダイアログの幅を lg/xl/2xl に拡張 |
 | **v2.8.23** | **案件管理3機能改善 + 送出CG修正**: ①仮スケジュール飛び日対応 — `project_dates` テーブル新設、フォームに日程追加UI、一覧に「N日（飛び日）」バッジ。②料金表↔概算見積連携 — `BusinessProjectView` に「料金表から追加」ボタン統合、estimate保存時も `expected_amount` 自動同期。③見積書値引きUI — 専用 `DiscountDialog` 新規作成、各明細行に[%]ボタン・全体値引きボタン。④送出CG背景透過修正・送出UI背景黒統一 |
 | **v2.8.22** | **送出CG背景透過修正・送出UI背景黒統一**: `transparent` プロップを `OutputPage → Stage → CGSequence → CGBackground` まで伝搬し、OBS/vMix ブラウザソースで背景が透過されない問題を修正。`ControlPage` の外側背景を `bg-slate-950` から `bg-black` に変更 |
 | **v2.8.21** | **送出CG・タイマー表示ページをAuth外に分離**: `client-awards/src/App.tsx` と `client-live/src/App.tsx` で、公開ページ（`/awards/output/*`・`/live/display/*`）へのアクセス時に `useAuth()` を呼ばない独立ルーター（`OutputRouter` / `DisplayRouter`）を早期返却する構造に変更。従来は App 全体で `useAuth()` が呼ばれ axios が `/auth/me` を叩いて401→ログインリダイレクトが起きていた問題を根本解決。OBS/vMix ブラウザソースから認証なしで直接アクセス可能になった |
