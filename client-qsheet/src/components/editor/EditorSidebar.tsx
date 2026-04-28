@@ -35,6 +35,13 @@ interface Masters {
   telop: string[];
 }
 
+interface LedScene {
+  id: string;
+  name: string;
+  wall: string;
+  floor: string;
+}
+
 interface Props {
   blocks: Block[];
   masters: Masters;
@@ -48,10 +55,12 @@ interface Props {
     author?: string;
   };
   stageTemplates?: any[];
+  ledScenes?: LedScene[];
   episodeId: string | null;
   onBlocksChange: (blocks: Block[]) => void;
   onMastersChange: (masters: Masters) => void;
   onMetaChange: (meta: Props["meta"]) => void;
+  onLedScenesChange?: (scenes: LedScene[]) => void;
   onEpisodeChange: (episodeId: string | null, episodeCode: string | null) => void;
   onShowImport?: () => void;
   onExportExcel?: () => void;
@@ -155,15 +164,102 @@ function MasterSection({
   );
 }
 
+// ─── LedSceneSection ────────────────────────────────────
+function LedSceneSection({
+  scenes,
+  onChange,
+}: {
+  scenes: LedScene[];
+  onChange: (scenes: LedScene[]) => void;
+}) {
+  const addScene = () => {
+    const next = scenes.length + 1;
+    onChange([
+      ...scenes,
+      { id: `led_${Date.now()}`, name: `S${next}`, wall: "", floor: "" },
+    ]);
+  };
+  const updateScene = (idx: number, patch: Partial<LedScene>) => {
+    const next = [...scenes];
+    next[idx] = { ...next[idx], ...patch };
+    onChange(next);
+  };
+  const removeScene = (idx: number) => {
+    if (!confirm("このシーンを削除しますか？")) return;
+    const next = [...scenes];
+    next.splice(idx, 1);
+    onChange(next);
+  };
+  return (
+    <div>
+      {scenes.length === 0 ? (
+        <p className="text-[12px] text-zinc-400 italic mb-2">シーン未登録</p>
+      ) : (
+        <div className="space-y-2 mb-2">
+          {scenes.map((s, i) => (
+            <div
+              key={s.id}
+              className="group p-2 rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/40 space-y-1"
+            >
+              <div className="flex items-center gap-1.5">
+                <input
+                  value={s.name}
+                  onChange={(e) => updateScene(i, { name: e.target.value })}
+                  placeholder="名前 (例: S1)"
+                  className="flex-1 px-1.5 py-1 text-[12px] font-bold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
+                />
+                <button
+                  onClick={() => removeScene(i)}
+                  className="opacity-0 group-hover:opacity-100 text-zinc-300 hover:text-red-500 transition-all flex-none"
+                  title="削除"
+                >
+                  <X size={11} />
+                </button>
+              </div>
+              <label className="flex items-center gap-1.5">
+                <span className="w-7 flex-none text-[10px] font-bold text-zinc-400 uppercase">壁</span>
+                <input
+                  value={s.wall}
+                  onChange={(e) => updateScene(i, { wall: e.target.value })}
+                  placeholder="壁演出 (例: KVループ＋PC1)"
+                  className="flex-1 px-1.5 py-1 text-[11px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
+                />
+              </label>
+              <label className="flex items-center gap-1.5">
+                <span className="w-7 flex-none text-[10px] font-bold text-zinc-400 uppercase">床</span>
+                <input
+                  value={s.floor}
+                  onChange={(e) => updateScene(i, { floor: e.target.value })}
+                  placeholder="床演出 (例: KV)"
+                  className="flex-1 px-1.5 py-1 text-[11px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
+                />
+              </label>
+            </div>
+          ))}
+        </div>
+      )}
+      <button
+        onClick={addScene}
+        className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-[12px] rounded-md border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-500 hover:border-violet-400 hover:text-violet-600 transition-colors"
+      >
+        <Plus size={12} />
+        シーンを追加
+      </button>
+    </div>
+  );
+}
+
 // ─── EditorSidebar ──────────────────────────────────────
 export default function EditorSidebar({
   blocks,
   masters,
   meta,
   stageTemplates,
+  ledScenes,
   onBlocksChange,
   onMastersChange,
   onMetaChange,
+  onLedScenesChange,
   onShowImport,
   onExportExcel,
   onEditStageTemplate,
@@ -341,6 +437,14 @@ export default function EditorSidebar({
             ))}
           </div>
         )}
+      </CollapsibleSection>
+
+      {/* LED/XR Scenes */}
+      <CollapsibleSection title="LED/XR シーン" defaultOpen={false}>
+        <LedSceneSection
+          scenes={ledScenes || []}
+          onChange={(s) => onLedScenesChange?.(s)}
+        />
       </CollapsibleSection>
 
       {/* Meta / Details */}

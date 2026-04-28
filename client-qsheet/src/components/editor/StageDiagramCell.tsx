@@ -23,21 +23,22 @@ interface StageTemplate {
 
 function StageDiagramPreview({
   elements,
-  width = 120,
-  height = 90,
+  width,
+  height,
 }: {
   elements: StageElement[];
-  width?: number;
-  height?: number;
+  width?: number | string;
+  height?: number | string;
 }) {
   if (!elements?.length) return null;
   return (
     <svg
       viewBox={`0 0 ${STAGE_W} ${STAGE_H}`}
-      width={width}
-      height={height}
-      className="rounded border border-zinc-200 dark:border-zinc-700"
-      style={{ background: "#fafafa" }}
+      preserveAspectRatio="xMidYMid meet"
+      width={width ?? "100%"}
+      height={height ?? "auto"}
+      className="rounded border border-zinc-200 dark:border-zinc-700 max-w-full"
+      style={{ background: "#fafafa", display: "block", maxHeight: 200 }}
     >
       {elements.map((el, i) => {
         if (el.type === "person") {
