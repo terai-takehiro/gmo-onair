@@ -46,14 +46,21 @@ import {
   FileText,
   Download,
   ShoppingCart,
+  Percent,
+  Link2,
 } from "lucide-react";
 import { AnimatedCurrency } from "@/components/ui/animated-number";
+import DiscountDialog, { DiscountResult } from "@/contexts/finance/components/DiscountDialog";
+import PricingItemPicker, { PickedPricingItem } from "@/contexts/finance/components/PricingItemPicker";
 
 interface RevenueItem {
   description: string;
   quantity: number;
   unit_price: number;
   amount: number;
+  period_start?: string | null;
+  period_end?: string | null;
+  item_notes?: string | null;
 }
 
 interface Revenue {
@@ -117,6 +124,18 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
   const [items, setItems] = useState<RevenueItem[]>([
     { description: "", quantity: 1, unit_price: 0, amount: 0 },
   ]);
+
+  // 値引きダイアログ
+  const [discountDialog, setDiscountDialog] = useState<{
+    open: boolean;
+    mode: "item" | "global";
+    targetIdx?: number;
+    targetDescription?: string;
+    baseAmount: number;
+  }>({ open: false, mode: "item", baseAmount: 0 });
+
+  // 料金表ピッカー
+  const [pricingPickerOpen, setPricingPickerOpen] = useState(false);
 
   // 仕入ダイアログ
   const [purDialogOpen, setPurDialogOpen] = useState(false);
@@ -287,7 +306,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
     setPaymentDueDate("");
     setNotes("");
     setSubtitle("");
-    setItems([{ description: "", quantity: 1, unit_price: 0, amount: 0 }]);
+    setItems([{ description: "", quantity: 1, unit_price: 0, amount: 0, period_start: null, period_end: null, item_notes: null }]);
   };
 
   const openNew = () => {
@@ -314,6 +333,9 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
             quantity: it.quantity,
             unit_price: it.unit_price,
             amount: it.amount,
+            period_start: it.period_start || null,
+            period_end: it.period_end || null,
+            item_notes: it.item_notes || null,
           }))
         );
       } else {
@@ -356,6 +378,75 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
     setItems((prev) => [
       ...prev,
       { description: "", quantity: 1, unit_price: 0, amount: 0 },
+    ]);
+  };
+
+  // 項目値引きダイアログを開く
+  const openItemDiscount = (idx: number) => {
+    const item = items[idx];
+    if (!item || (item.amount || 0) <= 0) {
+      alert("値引きの対象となる金額が0円以下です");
+      return;
+    }
+    setDiscountDialog({
+      open: true,
+      mode: "item",
+      targetIdx: idx,
+      targetDescription: item.description,
+      baseAmount: item.amount,
+    });
+  };
+
+  // 全体値引きダイアログを開く
+  const openGlobalDiscount = () => {
+    const positiveSubtotal = items.reduce(
+      (s, it) => s + Math.max(0, it.amount || 0),
+      0
+    );
+    if (positiveSubtotal <= 0) {
+      alert("値引きの対象となる小計が0円以下です");
+      return;
+    }
+    setDiscountDialog({
+      open: true,
+      mode: "global",
+      baseAmount: positiveSubtotal,
+    });
+  };
+
+  // 値引き適用
+  const applyDiscount = (result: DiscountResult) => {
+    const newItem: RevenueItem = {
+      description: result.description,
+      quantity: result.quantity,
+      unit_price: result.unit_price,
+      amount: result.amount,
+    };
+    setItems((prev) => {
+      if (discountDialog.mode === "item" && discountDialog.targetIdx !== undefined) {
+        // 対象明細の直下に挿入
+        const next = [...prev];
+        next.splice(discountDialog.targetIdx + 1, 0, newItem);
+        return next;
+      }
+      // 末尾に追加
+      return [...prev, newItem];
+    });
+  };
+
+  // 料金表ピッカー選択時
+  const applyPricingItem = (picked: PickedPricingItem) => {
+    const desc = picked.sub_label
+      ? `${picked.name}（${picked.sub_label}）`
+      : picked.name;
+    setItems((prev) => [
+      ...prev,
+      {
+        description: desc,
+        quantity: 1,
+        unit_price: picked.unit_price,
+        amount: picked.unit_price,
+      },
     ]);
   };
 
@@ -761,16 +852,31 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                       <span className="text-xs text-muted-foreground">
                         項目 {idx + 1}
                       </span>
-                      {items.length > 1 && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 text-destructive"
-                          onClick={() => removeItem(idx)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {(item.amount || 0) > 0 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-amber-600 hover:bg-amber-50"
+                            onClick={() => openItemDiscount(idx)}
+                            title="この項目に値引きを追加"
+                          >
+                            <Percent className="h-3 w-3 mr-1" />
+                            値引き
+                          </Button>
+                        )}
+                        {items.length > 1 && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-destructive"
+                            onClick={() => removeItem(idx)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     <Input
                       placeholder="項目名（例: コンサルティング費用）"
@@ -811,17 +917,72 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                         </p>
                       </div>
                     </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs">期間（開始）</Label>
+                        <Input
+                          type="date"
+                          value={item.period_start || ""}
+                          onChange={(e) =>
+                            updateItem(idx, "period_start", e.target.value || null)
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">期間（終了）</Label>
+                        <Input
+                          type="date"
+                          value={item.period_end || ""}
+                          onChange={(e) =>
+                            updateItem(idx, "period_end", e.target.value || null)
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs">明細備考</Label>
+                      <Textarea
+                        value={item.item_notes || ""}
+                        onChange={(e) =>
+                          updateItem(idx, "item_notes", e.target.value || null)
+                        }
+                        placeholder="PDFに表示される商品説明・利用条件など（改行で複数行）"
+                        rows={2}
+                        className="text-sm"
+                      />
+                    </div>
                   </div>
                 ))}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={addItem}
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  項目追加
-                </Button>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addItem}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    項目追加
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPricingPickerOpen(true)}
+                  >
+                    <Link2 className="h-3 w-3 mr-1" />
+                    料金表から追加
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-amber-700 border-amber-300 hover:bg-amber-50"
+                    onClick={openGlobalDiscount}
+                  >
+                    <Percent className="h-3 w-3 mr-1" />
+                    全体値引き
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -995,6 +1156,28 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 値引きダイアログ */}
+      <DiscountDialog
+        open={discountDialog.open}
+        onOpenChange={(open) =>
+          setDiscountDialog((prev) => ({ ...prev, open }))
+        }
+        mode={discountDialog.mode}
+        targetDescription={discountDialog.targetDescription}
+        baseAmount={discountDialog.baseAmount}
+        onApply={applyDiscount}
+      />
+
+      {/* 料金表ピッカー */}
+      <PricingItemPicker
+        open={pricingPickerOpen}
+        onOpenChange={setPricingPickerOpen}
+        customerType={
+          (project as any)?.customer_type === "internal" ? "internal" : "external"
+        }
+        onSelect={applyPricingItem}
+      />
     </div>
   );
 }
