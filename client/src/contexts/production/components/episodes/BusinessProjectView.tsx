@@ -56,10 +56,12 @@ import {
   ShoppingCart,
   Percent,
   Link2,
+  Calculator,
 } from "lucide-react";
 import { AnimatedCurrency } from "@/components/ui/animated-number";
 import DiscountDialog, { DiscountResult } from "@/contexts/finance/components/DiscountDialog";
 import PricingItemPicker, { PickedPricingItem } from "@/contexts/finance/components/PricingItemPicker";
+import SimulationDialog, { SimulationAppliedItem } from "@/contexts/sales/components/SimulationDialog";
 
 interface RevenueItem {
   description: string;
@@ -144,6 +146,9 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
 
   // 料金表ピッカー
   const [pricingPickerOpen, setPricingPickerOpen] = useState(false);
+
+  // 料金シミュレーション
+  const [simDialogOpen, setSimDialogOpen] = useState(false);
 
   // 仕入ダイアログ
   const [purDialogOpen, setPurDialogOpen] = useState(false);
@@ -455,6 +460,19 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
         unit_price: picked.unit_price,
         amount: picked.unit_price,
       },
+    ]);
+  };
+
+  // シミュレーション適用時
+  const applySimulation = (_total: number, simItems: SimulationAppliedItem[]) => {
+    setItems((prev) => [
+      ...prev,
+      ...simItems.map((it) => ({
+        description: it.description,
+        quantity: it.quantity,
+        unit_price: it.unit_price,
+        amount: it.amount,
+      })),
     ]);
   };
 
@@ -1026,7 +1044,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                     </div>
                   </div>
                 ))}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <Button
                     type="button"
                     variant="outline"
@@ -1044,6 +1062,15 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                   >
                     <Link2 className="h-3 w-3 mr-1" />
                     料金表から追加
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSimDialogOpen(true)}
+                  >
+                    <Calculator className="h-3 w-3 mr-1" />
+                    シミュレーション
                   </Button>
                   <Button
                     type="button"
@@ -1250,6 +1277,14 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
           (project as any)?.customer_type === "internal" ? "internal" : "external"
         }
         onSelect={applyPricingItem}
+      />
+
+      {/* 料金シミュレーション */}
+      <SimulationDialog
+        open={simDialogOpen}
+        onOpenChange={setSimDialogOpen}
+        projectId={projectId}
+        onApply={applySimulation}
       />
     </div>
   );
