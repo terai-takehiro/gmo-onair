@@ -48,6 +48,7 @@ interface Props {
   sections: Section[];
   masters: any;
   stageTemplates?: any[];
+  ledScenes?: any[];
   sectionTemplates?: any[];
   meta?: any;
   collapsedBlocks?: Set<string>;
@@ -93,6 +94,7 @@ export default function CueTable({
   sections,
   masters,
   stageTemplates,
+  ledScenes,
   meta,
   collapsedBlocks,
   collapsedSections,
@@ -551,6 +553,7 @@ export default function CueTable({
                             blocks={blocks}
                             masters={masters}
                             stageTemplates={stageTemplates}
+                            ledScenes={ledScenes}
                             collapsedBlocks={collapsedBlocks}
                             speakerColorMap={speakerColorMap}
                             onChange={(updater) => updateRow(si, ri, updater)}

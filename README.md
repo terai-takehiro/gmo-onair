@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.25 — 料金シミュレーション↔概算見積連携 + 想定金額永続化修正
+**現在のバージョン**: v2.8.26 — Qシート LED/XR ブロック実装（壁/床パッケージのシーンマスター・Cue/トランジション選択）+ 画像/ハイライト改善（シナリオ画像をピル下に大表示・印刷で司会ピル+画像両立・画像を200pxに拡大・任意エントリに薄いハイライト背景色）
 
 ---
 
@@ -383,6 +383,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.8.26** | **Qシート LED/XR ブロック実装 + 画像/ハイライト改善**: ①LED/XR シーンリストを台本ごとのマスター（`doc.data.ledScenes: { id, name, wall, floor }[]`）として管理。`EditorSidebar` に「LED/XR シーン」セクション + `LedSceneSection`（インライン編集/追加/削除）。②`CueRow` の `led_xr` セルでシーンをプルダウン選択し、選択時に壁/床演出を inline 表示。Cue（V明け/Qワード/卓D/任意入力）とトランジション（F.I./C.I./任意入力）をエントリ単位で指定。③印刷で `formatLedEntry()` により「【S1】壁:KVループ＋PC1 / 床:KV / ［卓DでF.I.］」形式に整形。④ランダウンも LED/XR ブロックを個別レンダリング。⑤シナリオ/映像/音声/テロップ画像を編集画面でピル行の下に大きく表示（max-h-40）。⑥印刷で `en?.image ? <img> : <pill>` の三項条件により司会ピルが消えていたバグを修正。⑦印刷の画像最大高を 100/120 → 200px に拡大。⑧立ち位置図 SVG を `width="100%"` + `maxHeight: 200` のレスポンシブ表示に変更。⑨ランダウンに立ち位置図SVGと添付画像レンダリングを追加。⑩任意エントリに薄いハイライト背景色（黄/緑/青/桃/紫/橙）を設定できる `HighlightPicker` を追加。編集tr/印刷tr/ランダウンcue 全てに反映（mono印刷時は無視）。 |
 | **v2.8.25** | **料金シミュレーション↔概算見積連携 + 想定金額永続化修正**: ①BusinessProjectViewに「シミュレーション」ボタンを追加。シミュレーションで選択した項目を概算見積明細に一括追加可能。②SimulationDialog の onApply を `(total, items[])` に拡張。③simulations PUT 保存時に `projects.expected_amount` も即時DB更新 — リロードで消えるバグを修正 |
 | **v2.8.24** | **売上高計10倍バグ修正・全ポップアップUI幅改善**: ①pg ライブラリが NUMERIC(OID 1700) を文字列で返す問題を `types.setTypeParser` で根本修正（`"414308" + "0" = "4143080"` の文字列連結バグ解消）。②`getSummary` の `as number` を `Number()` に変更。③仕入ダイアログ（PurchaseListPage・BusinessProjectView・ProjectGroupListPage）・料金表ピッカー・按分グループダイアログ・スタジオ予約詳細ダイアログの幅を lg/xl/2xl に拡張 |
 | **v2.8.23** | **案件管理3機能改善 + 送出CG修正**: ①仮スケジュール飛び日対応 — `project_dates` テーブル新設、フォームに日程追加UI、一覧に「N日（飛び日）」バッジ。②料金表↔概算見積連携 — `BusinessProjectView` に「料金表から追加」ボタン統合、estimate保存時も `expected_amount` 自動同期。③見積書値引きUI — 専用 `DiscountDialog` 新規作成、各明細行に[%]ボタン・全体値引きボタン。④送出CG背景透過修正・送出UI背景黒統一 |
