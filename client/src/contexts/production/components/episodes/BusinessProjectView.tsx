@@ -38,6 +38,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   ArrowLeft,
   Plus,
   Trash2,
@@ -814,7 +822,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
 
       {/* 明細追加/編集ダイアログ */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); }}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {isEstimateMode
@@ -842,16 +850,115 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
             {/* Line Items */}
             <div>
               <Label className="text-sm font-semibold">明細項目</Label>
-              <div className="mt-2 space-y-2">
+
+              {/* PC: table layout */}
+              <div className="hidden sm:block mt-2 rounded border overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>内容</TableHead>
+                      <TableHead className="w-14 text-right">数量</TableHead>
+                      <TableHead className="w-28 text-right">単価</TableHead>
+                      <TableHead className="w-28 text-right">金額</TableHead>
+                      <TableHead className="w-[132px]">期間開始</TableHead>
+                      <TableHead className="w-[132px]">期間終了</TableHead>
+                      <TableHead className="w-28">明細備考</TableHead>
+                      <TableHead className="w-14"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((item, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell className="p-1">
+                          <Input
+                            value={item.description}
+                            onChange={(e) => updateItem(idx, "description", e.target.value)}
+                            placeholder="項目名"
+                            className="h-8 text-sm"
+                          />
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <Input
+                            type="number"
+                            min={1}
+                            value={item.quantity}
+                            onChange={(e) => updateItem(idx, "quantity", parseInt(e.target.value) || 0)}
+                            className="h-8 text-sm text-right"
+                          />
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <CurrencyInput
+                            value={item.unit_price}
+                            onChange={(v) => updateItem(idx, "unit_price", v)}
+                            className="h-8 text-sm"
+                          />
+                        </TableCell>
+                        <TableCell className={`p-1 text-right font-number text-sm font-medium ${(item.amount || 0) < 0 ? "text-amber-600" : ""}`}>
+                          {formatCurrency(item.amount)}
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <Input
+                            type="date"
+                            value={item.period_start || ""}
+                            onChange={(e) => updateItem(idx, "period_start", e.target.value || null)}
+                            className="h-8 text-xs"
+                          />
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <Input
+                            type="date"
+                            value={item.period_end || ""}
+                            onChange={(e) => updateItem(idx, "period_end", e.target.value || null)}
+                            className="h-8 text-xs"
+                          />
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <Textarea
+                            value={item.item_notes || ""}
+                            onChange={(e) => updateItem(idx, "item_notes", e.target.value || null)}
+                            className="text-xs min-h-[32px] resize-none"
+                            rows={1}
+                            placeholder="備考"
+                          />
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <div className="flex items-center gap-0.5">
+                            {(item.amount || 0) > 0 && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-amber-600 hover:bg-amber-50"
+                                onClick={() => openItemDiscount(idx)}
+                                title="値引きを追加"
+                              >
+                                <Percent className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                            {items.length > 1 && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive"
+                                onClick={() => removeItem(idx)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile: card layout */}
+              <div className="sm:hidden mt-2 space-y-2">
                 {items.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="rounded-lg border p-3 space-y-2"
-                  >
+                  <div key={idx} className="rounded-lg border p-3 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">
-                        項目 {idx + 1}
-                      </span>
+                      <span className="text-xs text-muted-foreground">項目 {idx + 1}</span>
                       <div className="flex items-center gap-1">
                         {(item.amount || 0) > 0 && (
                           <Button
@@ -881,71 +988,37 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                     <Input
                       placeholder="項目名（例: コンサルティング費用）"
                       value={item.description}
-                      onChange={(e) =>
-                        updateItem(idx, "description", e.target.value)
-                      }
+                      onChange={(e) => updateItem(idx, "description", e.target.value)}
                     />
                     <div className="grid grid-cols-3 gap-2">
                       <div>
                         <Label className="text-xs">数量</Label>
-                        <Input
-                          type="number"
-                          min={1}
-                          value={item.quantity}
-                          onChange={(e) =>
-                            updateItem(
-                              idx,
-                              "quantity",
-                              parseInt(e.target.value) || 0
-                            )
-                          }
-                        />
+                        <Input type="number" min={1} value={item.quantity} onChange={(e) => updateItem(idx, "quantity", parseInt(e.target.value) || 0)} />
                       </div>
                       <div>
                         <Label className="text-xs">単価</Label>
-                        <CurrencyInput
-                          value={item.unit_price}
-                          onChange={(v) =>
-                            updateItem(idx, "unit_price", v)
-                          }
-                        />
+                        <CurrencyInput value={item.unit_price} onChange={(v) => updateItem(idx, "unit_price", v)} />
                       </div>
                       <div>
                         <Label className="text-xs">金額</Label>
-                        <p className="h-9 flex items-center font-number font-medium text-sm">
-                          {formatCurrency(item.amount)}
-                        </p>
+                        <p className="h-9 flex items-center font-number font-medium text-sm">{formatCurrency(item.amount)}</p>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <Label className="text-xs">期間（開始）</Label>
-                        <Input
-                          type="date"
-                          value={item.period_start || ""}
-                          onChange={(e) =>
-                            updateItem(idx, "period_start", e.target.value || null)
-                          }
-                        />
+                        <Input type="date" value={item.period_start || ""} onChange={(e) => updateItem(idx, "period_start", e.target.value || null)} />
                       </div>
                       <div>
                         <Label className="text-xs">期間（終了）</Label>
-                        <Input
-                          type="date"
-                          value={item.period_end || ""}
-                          onChange={(e) =>
-                            updateItem(idx, "period_end", e.target.value || null)
-                          }
-                        />
+                        <Input type="date" value={item.period_end || ""} onChange={(e) => updateItem(idx, "period_end", e.target.value || null)} />
                       </div>
                     </div>
                     <div>
                       <Label className="text-xs">明細備考</Label>
                       <Textarea
                         value={item.item_notes || ""}
-                        onChange={(e) =>
-                          updateItem(idx, "item_notes", e.target.value || null)
-                        }
+                        onChange={(e) => updateItem(idx, "item_notes", e.target.value || null)}
                         placeholder="PDFに表示される商品説明・利用条件など（改行で複数行）"
                         rows={2}
                         className="text-sm"
