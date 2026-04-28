@@ -553,7 +553,20 @@ export class ProjectService {
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
 
     // 直接売上（group_id なし）+ グループ按分された売上
-    const directRev = await queryOne('SELECT COALESCE(SUM(amount), 0) as total FROM revenues WHERE project_id = ? AND group_id IS NULL AND deleted_at IS NULL', [id]);
+    // 明細行がある場合は revenue_items の合計を使う（revenues.amount との乖離を防ぐ）
+    const directRev = await queryOne(
+      `SELECT COALESCE(SUM(
+         CASE WHEN ri.items_sum IS NOT NULL THEN ri.items_sum ELSE r.amount END
+       ), 0) as total
+       FROM revenues r
+       LEFT JOIN (
+         SELECT revenue_id, SUM(amount) as items_sum
+         FROM revenue_items
+         GROUP BY revenue_id
+       ) ri ON ri.revenue_id = r.id
+       WHERE r.project_id = ? AND r.group_id IS NULL AND r.deleted_at IS NULL`,
+      [id]
+    );
     const allocatedRev = await queryOne('SELECT COALESCE(SUM(ra.allocated_amount), 0) as total FROM revenue_allocations ra JOIN revenues r ON r.id = ra.revenue_id AND r.deleted_at IS NULL WHERE ra.project_id = ?', [id]);
     // 直接仕入（group_id なし）+ グループ按分された金額
     const directPur = await queryOne('SELECT COALESCE(SUM(amount), 0) as total FROM purchases WHERE project_id = ? AND group_id IS NULL AND deleted_at IS NULL', [id]);
