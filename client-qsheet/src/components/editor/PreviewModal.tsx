@@ -47,11 +47,34 @@ interface PreviewModalProps {
     sections: any[];
     masters?: any;
     stageTemplates?: any[];
+    ledScenes?: { id: string; name: string; wall: string; floor: string }[];
   };
   onClose: () => void;
   docUpdatedAt?: string;
   docCreatedAt?: string;
   docTitle?: string;
+}
+
+// LED/XR エントリを「【S1】壁:..., 床:..., ［卓DでF.I.］」形式にフォーマット
+function formatLedEntry(
+  entry: any,
+  scenes?: { id: string; name: string; wall: string; floor: string }[],
+): { sceneName: string; wall: string; floor: string; trigger: string } | null {
+  if (!entry) return null;
+  const scene = scenes?.find((s) => s.id === entry.sceneId);
+  const cue = entry.cueType === "custom" ? (entry.cueCustom || "") : (entry.cueType || "");
+  const trans = entry.transition === "custom" ? (entry.transitionCustom || "") : (entry.transition || "");
+  let trigger = "";
+  if (cue && trans) trigger = `${cue}で${trans}`;
+  else if (cue) trigger = cue;
+  else if (trans) trigger = trans;
+  if (!scene && !trigger) return null;
+  return {
+    sceneName: scene?.name || "",
+    wall: scene?.wall || "",
+    floor: scene?.floor || "",
+    trigger,
+  };
 }
 
 // ─── PreviewModal ───────────────────────────────────────
@@ -417,6 +440,24 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                                       return (
                                         <td key={blk.id} style={tdStyle}>
                                           {ei === 0 && cell.image && <img src={cell.image} alt="" style={{ maxWidth: "100%", maxHeight: 200, objectFit: "contain" }} />}
+                                        </td>
+                                      );
+                                    } else if (blk.type === "led_xr") {
+                                      const led = formatLedEntry((cell.entries || [])[ei], state.ledScenes);
+                                      return (
+                                        <td key={blk.id} style={tdStyle}>
+                                          {led && (
+                                            <div style={{ lineHeight: 1.5, fontSize: fontSize - 0.5 + "pt" }}>
+                                              {led.sceneName && (
+                                                <div style={{ fontWeight: 700, color: "#5b21b6" }}>【{led.sceneName}】</div>
+                                              )}
+                                              {led.wall && <div>壁：{led.wall}</div>}
+                                              {led.floor && <div>床：{led.floor}</div>}
+                                              {led.trigger && (
+                                                <div style={{ color: "#6b7280", marginTop: 1 }}>［{led.trigger}］</div>
+                                              )}
+                                            </div>
+                                          )}
                                         </td>
                                       );
                                     } else if (blk.type === "stage_diagram") {

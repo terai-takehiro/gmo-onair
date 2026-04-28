@@ -415,6 +415,7 @@ export default function EditorPage() {
           sections={doc.data.sections}
           masters={doc.data.masters}
           stageTemplates={(doc.data as any).stageTemplates}
+          ledScenes={(doc.data as any).ledScenes}
           meta={doc.data.meta}
           collapsedBlocks={collapsedBlocks}
           collapsedSections={collapsedSections}
@@ -430,10 +431,12 @@ export default function EditorPage() {
             masters={doc.data.masters}
             meta={doc.data.meta}
             stageTemplates={(doc.data as any).stageTemplates}
+            ledScenes={(doc.data as any).ledScenes}
             episodeId={doc.episode_id}
             onBlocksChange={(blocks) => updateData((d) => ({ ...d, blocks }))}
             onMastersChange={(masters) => updateData((d) => ({ ...d, masters }))}
             onMetaChange={(meta) => updateData((d) => ({ ...d, meta }))}
+            onLedScenesChange={(scenes) => updateData((d) => ({ ...d, ledScenes: scenes } as any))}
             onEditStageTemplate={(idx) => setEditingStageIdx(idx)}
             onEpisodeChange={(episodeId, episodeCode) => {
               setDoc((prev) => prev ? { ...prev, episode_id: episodeId, episode_code: episodeCode } : prev);

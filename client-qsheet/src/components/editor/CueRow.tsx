@@ -86,11 +86,19 @@ interface CueRowData {
   [key: string]: any;
 }
 
+interface LedScene {
+  id: string;
+  name: string;
+  wall: string;
+  floor: string;
+}
+
 interface CueRowProps {
   row: CueRowData;
   blocks: Block[];
   masters: any;
   stageTemplates?: any[];
+  ledScenes?: LedScene[];
   collapsedBlocks?: Set<string>;
   speakerColorMap: Record<string, string>;
   onChange: (updater: (r: CueRowData) => CueRowData) => void;
@@ -101,6 +109,13 @@ interface CueRowProps {
   // v1.2.9: エントリ単位の削除（ゴミ箱経由）を親 (CueTable→EditorPage) で処理するためのコールバック
   onDeleteEntry?: (blockId: string, entryIdx: number, payload: any, meta: { sectionLabel?: string; rowLabel?: string }) => void;
 }
+
+// ─── LED/XR cue & transition options ────────────────────
+const LED_CUE_OPTIONS = ["V明け", "Qワード", "卓D"] as const;
+const LED_TRANSITION_OPTIONS = [
+  { value: "F.I.", label: "フェードイン (F.I.)" },
+  { value: "C.I.", label: "カットイン (C.I.)" },
+] as const;
 
 // ─── EntryImageButton ───────────────────────────────────
 // エントリごとの画像添付ボタン。
@@ -322,6 +337,7 @@ export default function CueRow({
   blocks,
   masters,
   stageTemplates,
+  ledScenes,
   collapsedBlocks,
   speakerColorMap,
   onChange,
@@ -583,6 +599,90 @@ export default function CueRow({
                       スライド
                     </div>
                   )}
+                </td>
+              );
+            }
+
+            // ── LED/XR cell ──
+            // セルは entries 配列を持ち、各エントリは:
+            //   { sceneId?, cueType?, cueCustom?, transition?, transitionCustom? }
+            if (blk.type === "led_xr") {
+              const cell = row.cells?.[blk.id] || {};
+              const ledEntry = (cell.entries || [])[ei] || {};
+              const scene = ledScenes?.find((s) => s.id === ledEntry.sceneId);
+              const updateLed = (field: string, value: any) => {
+                const newCell = { ...cell };
+                if (!newCell.entries) newCell.entries = [];
+                while (newCell.entries.length <= ei) newCell.entries.push({});
+                newCell.entries[ei] = { ...newCell.entries[ei], [field]: value };
+                updateCell(blk.id, newCell);
+              };
+              return (
+                <td key={blk.id} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden align-top">
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <select
+                      value={ledEntry.sceneId || ""}
+                      onChange={(e) => updateLed("sceneId", e.target.value || undefined)}
+                      className="w-full px-1.5 py-1 text-[11px] bg-transparent border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
+                    >
+                      <option value="">-- シーン選択 --</option>
+                      {(ledScenes || []).map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                    {scene && (
+                      <div className="px-1.5 py-1 text-[10px] text-zinc-500 dark:text-zinc-400 leading-snug bg-zinc-50/60 dark:bg-zinc-800/40 rounded">
+                        <div>壁: {scene.wall || "—"}</div>
+                        <div>床: {scene.floor || "—"}</div>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1">
+                      <select
+                        value={ledEntry.cueType || ""}
+                        onChange={(e) => updateLed("cueType", e.target.value || undefined)}
+                        className="flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
+                        title="Cue"
+                      >
+                        <option value="">Cue</option>
+                        {LED_CUE_OPTIONS.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                        <option value="custom">任意入力…</option>
+                      </select>
+                      {ledEntry.cueType === "custom" && (
+                        <input
+                          value={ledEntry.cueCustom || ""}
+                          onChange={(e) => updateLed("cueCustom", e.target.value)}
+                          placeholder="Cue (任意)"
+                          className="flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
+                        />
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <select
+                        value={ledEntry.transition || ""}
+                        onChange={(e) => updateLed("transition", e.target.value || undefined)}
+                        className="flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
+                        title="トランジション"
+                      >
+                        <option value="">効果</option>
+                        {LED_TRANSITION_OPTIONS.map((t) => (
+                          <option key={t.value} value={t.value}>{t.label}</option>
+                        ))}
+                        <option value="custom">任意入力…</option>
+                      </select>
+                      {ledEntry.transition === "custom" && (
+                        <input
+                          value={ledEntry.transitionCustom || ""}
+                          onChange={(e) => updateLed("transitionCustom", e.target.value)}
+                          placeholder="効果 (任意)"
+                          className="flex-1 px-1.5 py-1 text-[11px] bg-transparent border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
+                        />
+                      )}
+                    </div>
+                  </div>
                 </td>
               );
             }

@@ -55,6 +55,7 @@ interface DocumentData {
   sections: Section[];
   masters: { persons: string[]; video: string[]; audio: string[]; telop: string[] };
   stageTemplates?: { name: string; elements: any[] }[];
+  ledScenes?: { id: string; name: string; wall: string; floor: string }[];
 }
 
 interface FlatCue {
@@ -586,6 +587,29 @@ export default function RundownPage() {
                         {/* Block columns */}
                         {activeBlocks.map((block) => {
                           const cell = cue.row.cells?.[block.id];
+                          // LED/XR: シーン名 + 壁/床 + トリガー
+                          if (block.type === "led_xr") {
+                            const entries: any[] = Array.isArray(cell?.entries) ? cell.entries : [];
+                            return (
+                              <div key={block.id} className="px-3 py-2 text-xs min-w-[120px] flex-1 leading-tight">
+                                {entries.map((en, ei) => {
+                                  const scene = doc?.data?.ledScenes?.find((s) => s.id === en?.sceneId);
+                                  const cueLabel = en?.cueType === "custom" ? (en.cueCustom || "") : (en?.cueType || "");
+                                  const transLabel = en?.transition === "custom" ? (en.transitionCustom || "") : (en?.transition || "");
+                                  const trigger = cueLabel && transLabel ? `${cueLabel}で${transLabel}` : (cueLabel || transLabel || "");
+                                  if (!scene && !trigger) return null;
+                                  return (
+                                    <div key={ei} className="mb-1 last:mb-0">
+                                      {scene?.name && <div className="font-bold text-violet-400">【{scene.name}】</div>}
+                                      {scene?.wall && <div>壁: {scene.wall}</div>}
+                                      {scene?.floor && <div>床: {scene.floor}</div>}
+                                      {trigger && <div className={cn("text-[11px]", mutedText)}>［{trigger}］</div>}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          }
                           // 立ち位置図: テンプレを SVG レンダリング
                           if (block.type === "stage_diagram") {
                             const tmplIdx = cell?.templateIndex ?? -1;
