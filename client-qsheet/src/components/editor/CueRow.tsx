@@ -1,7 +1,75 @@
-import { useState, useRef, useId } from "react";
-import { ChevronUp, ChevronDown, Copy, Trash2, ImageIcon, ImagePlus, Loader2 } from "lucide-react";
+import { useState, useRef, useId, useEffect } from "react";
+import { ChevronUp, ChevronDown, Copy, Trash2, ImageIcon, ImagePlus, Loader2, Palette } from "lucide-react";
 import api from "@/lib/api";
 import StageDiagramCell from "./StageDiagramCell";
+
+// ─── Highlight colors (faint pastels suited for print) ──────
+// 全エントリで共通。null/undefined はハイライトなし。
+const HIGHLIGHT_COLORS: { value: string; label: string }[] = [
+  { value: "#fef3c7", label: "黄" },     // yellow-100
+  { value: "#dcfce7", label: "緑" },     // green-100
+  { value: "#dbeafe", label: "青" },     // blue-100
+  { value: "#fce7f3", label: "桃" },     // pink-100
+  { value: "#ede9fe", label: "紫" },     // purple-100
+  { value: "#ffedd5", label: "橙" },     // orange-100
+];
+
+function HighlightPicker({
+  value,
+  onChange,
+}: {
+  value?: string;
+  onChange: (color: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+  return (
+    <div ref={ref} className="relative flex-shrink-0">
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+        className={`w-5 h-5 rounded flex items-center justify-center transition-colors mt-[1px] ${
+          value
+            ? "border border-zinc-300 dark:border-zinc-600"
+            : "text-zinc-300 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30 opacity-0 group-hover:opacity-100"
+        }`}
+        style={value ? { backgroundColor: value } : undefined}
+        title="行のハイライト色"
+      >
+        {!value && <Palette size={12} />}
+      </button>
+      {open && (
+        <div className="absolute z-20 right-0 top-6 flex items-center gap-1 p-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-lg">
+          {HIGHLIGHT_COLORS.map((c) => (
+            <button
+              key={c.value}
+              onClick={() => { onChange(c.value); setOpen(false); }}
+              className={`w-5 h-5 rounded border transition-transform hover:scale-110 ${
+                value === c.value ? "border-blue-500 ring-1 ring-blue-300" : "border-zinc-300 dark:border-zinc-600"
+              }`}
+              style={{ backgroundColor: c.value }}
+              title={c.label}
+            />
+          ))}
+          <button
+            onClick={() => { onChange(null); setOpen(false); }}
+            className="w-5 h-5 rounded border border-dashed border-zinc-300 dark:border-zinc-600 text-zinc-400 hover:text-red-500 text-[10px] leading-none flex items-center justify-center"
+            title="クリア"
+          >
+            ×
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Types ──────────────────────────────────────────────
 interface Block {
@@ -35,13 +103,17 @@ interface CueRowProps {
 }
 
 // ─── EntryImageButton ───────────────────────────────────
-// エントリごとの画像添付ボタン（小さいサムネ + アップロード UI）
+// エントリごとの画像添付ボタン。
+// hideThumbnail=true のときは画像が設定されていてもサムネを出さず、
+// 「変更」ボタンとして機能する（実プレビューは親側で大きく表示する）。
 function EntryImageButton({
   imageUrl,
   onChange,
+  hideThumbnail = false,
 }: {
   imageUrl?: string;
   onChange: (url: string | null) => void;
+  hideThumbnail?: boolean;
 }) {
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -72,7 +144,7 @@ function EntryImageButton({
     }
   };
 
-  if (imageUrl) {
+  if (imageUrl && !hideThumbnail) {
     return (
       <div className="relative flex-shrink-0 group/img" title="画像">
         <img
@@ -91,15 +163,26 @@ function EntryImageButton({
     );
   }
 
+  const hasImage = !!imageUrl;
   return (
     <>
       <button
         onClick={() => inputRef.current?.click()}
-        className="flex-shrink-0 w-5 h-5 rounded text-zinc-300 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors opacity-0 group-hover:opacity-100 mt-[1px] flex items-center justify-center"
-        title="画像を添付"
+        className={`flex-shrink-0 w-5 h-5 rounded transition-colors mt-[1px] flex items-center justify-center ${
+          hasImage
+            ? "text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+            : "text-zinc-300 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30 opacity-0 group-hover:opacity-100"
+        }`}
+        title={hasImage ? "画像を変更" : "画像を添付"}
         disabled={uploading}
       >
-        {uploading ? <Loader2 size={12} className="animate-spin" /> : <ImagePlus size={12} />}
+        {uploading ? (
+          <Loader2 size={12} className="animate-spin" />
+        ) : hasImage ? (
+          <ImageIcon size={12} />
+        ) : (
+          <ImagePlus size={12} />
+        )}
       </button>
       <input
         ref={inputRef}
@@ -314,12 +397,16 @@ export default function CueRow({
 
   return (
     <>
-      {Array.from({ length: entryCount }).map((_, ei) => (
+      {Array.from({ length: entryCount }).map((_, ei) => {
+        const scenarioEntry = scenarioEntries[ei];
+        const highlight = scenarioEntry?.highlight as string | undefined;
+        return (
         <tr
           key={ei}
           className={`group transition-colors duration-150 hover:bg-blue-50/40 dark:hover:bg-blue-950/10 ${
             ei === entryCount - 1 ? "border-b border-zinc-100/80 dark:border-zinc-800/60" : ""
           }`}
+          style={highlight ? { backgroundColor: highlight } : undefined}
         >
           {blocks.map((blk) => {
             if (collapsedBlocks?.has(blk.id)) {
@@ -332,58 +419,81 @@ export default function CueRow({
               const color = en?.name ? (speakerColorMap[en.name] || SPEAKER_COLORS[0]) : "bg-zinc-400";
               return (
                 <td key={blk.id} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden break-words align-top">
-                  <div className="flex items-start gap-1.5 min-w-0">
-                    <button
-                      onClick={() => updateEntry(blk, ei, "isQWord", !en?.isQWord)}
-                      className={`flex-shrink-0 w-5 h-5 rounded text-[11px] font-bold leading-none flex items-center justify-center transition-all mt-[1px] ${
-                        en?.isQWord
-                          ? "bg-red-500 text-white shadow-sm"
-                          : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                      }`}
-                      title="Qワード切替"
-                    >
-                      Q
-                    </button>
-                    <EditablePill
-                      value={en?.name || ""}
-                      color={color}
-                      placeholder="名前"
-                      datalistId={`p-${rowUid}-${blk.id}-${ei}`}
-                      datalistOptions={masters?.persons}
-                      onChange={(v) => updateEntry(blk, ei, "name", v)}
-                    />
-                    {en?.isQWord && <span className="flex-shrink-0 text-red-500 font-bold text-[13px] leading-[20px]">Q→</span>}
-                    <textarea
-                      value={en?.html?.replace(/<[^>]*>/g, "") || ""}
-                      onChange={(e) => updateEntry(blk, ei, "html", e.target.value)}
-                      rows={1}
-                      className="text-[13px] bg-transparent border-none outline-none resize-none overflow-hidden min-w-0 w-0"
-                      style={{ flex: "1 1 0", overflowWrap: "break-word", lineHeight: "20px" }}
-                      placeholder={en?.isQWord ? "Qワード..." : "テキスト..."}
-                      onInput={(e) => {
-                        const t = e.target as HTMLTextAreaElement;
-                        t.style.height = "auto";
-                        t.style.height = t.scrollHeight + "px";
-                      }}
-                      ref={(el) => {
-                        if (el) {
-                          el.style.height = "auto";
-                          el.style.height = el.scrollHeight + "px";
-                        }
-                      }}
-                    />
-                    <EntryImageButton
-                      imageUrl={en?.image}
-                      onChange={(url) => updateEntry(blk, ei, "image", url || undefined)}
-                    />
-                    {en && (scenarioEntries.length > 1) && (
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <div className="flex items-start gap-1.5 min-w-0">
                       <button
-                        onClick={() => deleteEntry(blk, ei)}
-                        className="flex-shrink-0 w-4 h-4 rounded-full text-zinc-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors opacity-0 group-hover:opacity-100 mt-[2px] text-[10px] leading-none flex items-center justify-center"
-                        title="このエントリを削除（ゴミ箱へ）"
+                        onClick={() => updateEntry(blk, ei, "isQWord", !en?.isQWord)}
+                        className={`flex-shrink-0 w-5 h-5 rounded text-[11px] font-bold leading-none flex items-center justify-center transition-all mt-[1px] ${
+                          en?.isQWord
+                            ? "bg-red-500 text-white shadow-sm"
+                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                        }`}
+                        title="Qワード切替"
                       >
-                        ×
+                        Q
                       </button>
+                      <EditablePill
+                        value={en?.name || ""}
+                        color={color}
+                        placeholder="名前"
+                        datalistId={`p-${rowUid}-${blk.id}-${ei}`}
+                        datalistOptions={masters?.persons}
+                        onChange={(v) => updateEntry(blk, ei, "name", v)}
+                      />
+                      {en?.isQWord && <span className="flex-shrink-0 text-red-500 font-bold text-[13px] leading-[20px]">Q→</span>}
+                      <textarea
+                        value={en?.html?.replace(/<[^>]*>/g, "") || ""}
+                        onChange={(e) => updateEntry(blk, ei, "html", e.target.value)}
+                        rows={1}
+                        className="text-[13px] bg-transparent border-none outline-none resize-none overflow-hidden min-w-0 w-0"
+                        style={{ flex: "1 1 0", overflowWrap: "break-word", lineHeight: "20px" }}
+                        placeholder={en?.isQWord ? "Qワード..." : "テキスト..."}
+                        onInput={(e) => {
+                          const t = e.target as HTMLTextAreaElement;
+                          t.style.height = "auto";
+                          t.style.height = t.scrollHeight + "px";
+                        }}
+                        ref={(el) => {
+                          if (el) {
+                            el.style.height = "auto";
+                            el.style.height = el.scrollHeight + "px";
+                          }
+                        }}
+                      />
+                      <EntryImageButton
+                        imageUrl={en?.image}
+                        onChange={(url) => updateEntry(blk, ei, "image", url || undefined)}
+                        hideThumbnail
+                      />
+                      <HighlightPicker
+                        value={en?.highlight}
+                        onChange={(c) => updateEntry(blk, ei, "highlight", c || undefined)}
+                      />
+                      {en && (scenarioEntries.length > 1) && (
+                        <button
+                          onClick={() => deleteEntry(blk, ei)}
+                          className="flex-shrink-0 w-4 h-4 rounded-full text-zinc-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors opacity-0 group-hover:opacity-100 mt-[2px] text-[10px] leading-none flex items-center justify-center"
+                          title="このエントリを削除（ゴミ箱へ）"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                    {en?.image && (
+                      <div className="relative inline-block w-fit ml-7 group/img">
+                        <img
+                          src={en.image}
+                          alt=""
+                          className="max-h-40 max-w-full rounded border border-zinc-200 dark:border-zinc-700 object-contain"
+                        />
+                        <button
+                          onClick={() => updateEntry(blk, ei, "image", undefined)}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-zinc-300 text-zinc-500 hover:text-red-500 text-xs leading-none flex items-center justify-center shadow-sm opacity-0 group-hover/img:opacity-100 transition-opacity"
+                          title="画像を削除"
+                        >
+                          ×
+                        </button>
+                      </div>
                     )}
                   </div>
                 </td>
@@ -395,34 +505,53 @@ export default function CueRow({
               const pillColor = PILL_COLORS[blk.type] || "bg-zinc-600";
               return (
                 <td key={blk.id} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden align-top">
-                  <div className="flex items-start gap-1.5 min-w-0">
-                    <EditablePill
-                      value={en?.label || ""}
-                      color={en?.label ? pillColor : "bg-zinc-400"}
-                      placeholder="ID"
-                      datalistId={`${blk.type}-${rowUid}-${blk.id}-${ei}`}
-                      datalistOptions={masters?.[blk.type]}
-                      onChange={(v) => updateEntry(blk, ei, "label", v)}
-                    />
-                    <input
-                      value={en?.memo || ""}
-                      onChange={(e) => updateEntry(blk, ei, "memo", e.target.value)}
-                      className="text-[12px] bg-transparent border-none outline-none min-w-0"
-                      style={{ flex: "1 1 0", lineHeight: "20px" }}
-                      placeholder="メモ..."
-                    />
-                    <EntryImageButton
-                      imageUrl={en?.image}
-                      onChange={(url) => updateEntry(blk, ei, "image", url || undefined)}
-                    />
-                    {en && (en.label || en.memo || en.image) && (
-                      <button
-                        onClick={() => deleteEntry(blk, ei)}
-                        className="flex-shrink-0 w-4 h-4 rounded-full text-zinc-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors opacity-0 group-hover:opacity-100 mt-[2px] text-[10px] leading-none flex items-center justify-center"
-                        title="このエントリを削除（ゴミ箱へ）"
-                      >
-                        ×
-                      </button>
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <div className="flex items-start gap-1.5 min-w-0">
+                      <EditablePill
+                        value={en?.label || ""}
+                        color={en?.label ? pillColor : "bg-zinc-400"}
+                        placeholder="ID"
+                        datalistId={`${blk.type}-${rowUid}-${blk.id}-${ei}`}
+                        datalistOptions={masters?.[blk.type]}
+                        onChange={(v) => updateEntry(blk, ei, "label", v)}
+                      />
+                      <input
+                        value={en?.memo || ""}
+                        onChange={(e) => updateEntry(blk, ei, "memo", e.target.value)}
+                        className="text-[12px] bg-transparent border-none outline-none min-w-0"
+                        style={{ flex: "1 1 0", lineHeight: "20px" }}
+                        placeholder="メモ..."
+                      />
+                      <EntryImageButton
+                        imageUrl={en?.image}
+                        onChange={(url) => updateEntry(blk, ei, "image", url || undefined)}
+                        hideThumbnail
+                      />
+                      {en && (en.label || en.memo || en.image) && (
+                        <button
+                          onClick={() => deleteEntry(blk, ei)}
+                          className="flex-shrink-0 w-4 h-4 rounded-full text-zinc-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors opacity-0 group-hover:opacity-100 mt-[2px] text-[10px] leading-none flex items-center justify-center"
+                          title="このエントリを削除（ゴミ箱へ）"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                    {en?.image && (
+                      <div className="relative inline-block w-fit group/img">
+                        <img
+                          src={en.image}
+                          alt=""
+                          className="max-h-40 max-w-full rounded border border-zinc-200 dark:border-zinc-700 object-contain"
+                        />
+                        <button
+                          onClick={() => updateEntry(blk, ei, "image", undefined)}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-zinc-300 text-zinc-500 hover:text-red-500 text-xs leading-none flex items-center justify-center shadow-sm opacity-0 group-hover/img:opacity-100 transition-opacity"
+                          title="画像を削除"
+                        >
+                          ×
+                        </button>
+                      </div>
                     )}
                   </div>
                 </td>
@@ -494,7 +623,8 @@ export default function CueRow({
             </td>
           )}
         </tr>
-      ))}
+        );
+      })}
       {/* ＋ エントリ追加行 */}
       <tr className="border-b border-zinc-50 dark:border-zinc-900 hover:bg-blue-50/30 dark:hover:bg-blue-950/10 transition-colors">
         <td colSpan={blocks.length + 1}>

@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.23 — 案件管理3機能改善（飛び日・料金表連携・値引きUI）+ 送出CG背景透過修正
+**現在のバージョン**: v2.8.24 — Qシート画像/ハイライト改善（シナリオ画像をピル下に大表示・印刷で司会ピル+画像両立・立ち位置図/スライド/画像を200pxに拡大・任意エントリに薄いハイライト背景色を追加）
 
 ---
 
@@ -383,7 +383,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
-| **v2.8.23** | **案件管理3機能改善 + 送出CG修正**: ①仮スケジュール飛び日対応 — `project_dates` テーブル新設、フォームに日程追加UI、一覧に「N日（飛び日）」バッジ。②料金表↔概算見積連携 — `BusinessProjectView` に「料金表から追加」ボタン統合、estimate保存時も `expected_amount` 自動同期。③見積書値引きUI — 専用 `DiscountDialog` 新規作成、各明細行に[%]ボタン・全体値引きボタン。④送出CG背景透過修正・送出UI背景黒統一 |
+| **v2.8.24** | **Qシート画像/ハイライト改善**: ①シナリオ画像を編集画面で「司会・影ナレ」ピル行の下に大きく表示（従来は6×6サムネのインライン表示のみ）。映像/音声/テロップ画像も同様。②印刷で `en?.image ? <img> : <pill>` の三項条件により司会ピルが消えていたバグを修正し、ピル＋画像を縦積み表示。③印刷の画像最大高を 100/120 → 200px に拡大（シナリオ・スライド・立ち位置図SVG）。④編集の立ち位置図 SVG を `width="100%"` + `maxHeight: 200` でカラム幅に追従するレスポンシブ表示に変更。⑤ランダウンに立ち位置図SVGとシナリオ/映像/音声/テロップの添付画像レンダリングを新規追加。⑥任意のシナリオエントリに薄いハイライト背景色（黄/緑/青/桃/紫/橙）を設定できる `HighlightPicker` を追加。エントリの `highlight` フィールドに保存され、編集tr / 印刷tr / ランダウン cue 全てに反映（mono印刷時は無視）。⑦`EntryImageButton` に `hideThumbnail` モードを追加し、画像があってもアイコンのみ表示するバリアント（プレビューは親側で大表示） |
 | **v2.8.22** | **送出CG背景透過修正・送出UI背景黒統一**: `transparent` プロップを `OutputPage → Stage → CGSequence → CGBackground` まで伝搬し、OBS/vMix ブラウザソースで背景が透過されない問題を修正。`ControlPage` の外側背景を `bg-slate-950` から `bg-black` に変更 |
 | **v2.8.21** | **送出CG・タイマー表示ページをAuth外に分離**: `client-awards/src/App.tsx` と `client-live/src/App.tsx` で、公開ページ（`/awards/output/*`・`/live/display/*`）へのアクセス時に `useAuth()` を呼ばない独立ルーター（`OutputRouter` / `DisplayRouter`）を早期返却する構造に変更。従来は App 全体で `useAuth()` が呼ばれ axios が `/auth/me` を叩いて401→ログインリダイレクトが起きていた問題を根本解決。OBS/vMix ブラウザソースから認証なしで直接アクセス可能になった |
 | **v2.8.20** | **本番ログイン不能バグ修正**: `loginWithToken(undefined)` が `localStorage["gmo_onair_token"] = "undefined"` を書き込む問題を修正。`AuthContext.loginWithToken` でトークンが falsy な場合は `removeItem` に変更。`createApi.ts` のリクエストインターセプターで `"undefined"` / `"null"` 文字列を無視して Cookie にフォールバックするガードを追加 |

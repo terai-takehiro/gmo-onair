@@ -6,6 +6,7 @@ import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { parseDur, fmtAbs } from "@/lib/time";
+import { StageDiagramPreview } from "@/components/editor/StageDiagramCell";
 import {
   Loader2,
   ArrowLeft,
@@ -53,6 +54,7 @@ interface DocumentData {
   blocks: Block[];
   sections: Section[];
   masters: { persons: string[]; video: string[]; audio: string[]; telop: string[] };
+  stageTemplates?: { name: string; elements: any[] }[];
 }
 
 interface FlatCue {
@@ -527,6 +529,14 @@ export default function RundownPage() {
               // Actual elapsed at this cue (if past or current)
               const actualElapsed = isPast || isCurrent ? elapsed - cue.startTime : null;
 
+              // 任意エントリのハイライト色（最初に見つかったものを採用）
+              const scenarioBlk = blocks.find((b) => b.type === "scenario");
+              const cueHighlight = scenarioBlk
+                ? ((cue.row.cells?.[scenarioBlk.id]?.entries || []) as any[])
+                    .map((e) => e?.highlight)
+                    .find((h) => !!h)
+                : undefined;
+
               return (
                 <tr key={`section-${cue.sectionIdx}-row-${cue.row.id}`}>
                   <td colSpan={4 + activeBlocks.length}>
@@ -552,6 +562,7 @@ export default function RundownPage() {
                               ? pastCueText
                               : rowHover
                         )}
+                        style={cueHighlight && !isCurrent ? { backgroundColor: isDark ? `${cueHighlight}33` : cueHighlight } : undefined}
                       >
                         {/* # */}
                         <div className="w-10 px-2 py-2 text-center text-xs font-number shrink-0">
@@ -573,17 +584,62 @@ export default function RundownPage() {
                           }
                         </div>
                         {/* Block columns */}
-                        {activeBlocks.map((block) => (
-                          <div
-                            key={block.id}
-                            className={cn(
-                              "px-3 py-2 text-xs min-w-[120px] flex-1",
-                              block.type === "scenario" ? "whitespace-pre-wrap" : "truncate"
-                            )}
-                          >
-                            {extractCellText(cue.row, block)}
-                          </div>
-                        ))}
+                        {activeBlocks.map((block) => {
+                          const cell = cue.row.cells?.[block.id];
+                          // 立ち位置図: テンプレを SVG レンダリング
+                          if (block.type === "stage_diagram") {
+                            const tmplIdx = cell?.templateIndex ?? -1;
+                            const tmpl = tmplIdx >= 0 ? doc?.data?.stageTemplates?.[tmplIdx] : null;
+                            return (
+                              <div key={block.id} className="px-3 py-2 text-xs min-w-[120px] flex-1">
+                                {tmpl?.elements ? (
+                                  <StageDiagramPreview elements={tmpl.elements} />
+                                ) : (
+                                  <span className={mutedText}>—</span>
+                                )}
+                                {cell?.note && <div className={cn("mt-1 text-[11px]", mutedText)}>{cell.note}</div>}
+                              </div>
+                            );
+                          }
+                          // シナリオ/映像/音声/テロップ: テキスト + 添付画像
+                          if (["scenario", "video", "audio", "telop"].includes(block.type)) {
+                            const entries: any[] = Array.isArray(cell?.entries) ? cell.entries : [];
+                            const images = entries.map((e) => e?.image).filter(Boolean) as string[];
+                            return (
+                              <div
+                                key={block.id}
+                                className={cn(
+                                  "px-3 py-2 text-xs min-w-[120px] flex-1",
+                                  block.type === "scenario" ? "whitespace-pre-wrap" : ""
+                                )}
+                              >
+                                <div className={block.type === "scenario" ? "" : "truncate"}>
+                                  {extractCellText(cue.row, block)}
+                                </div>
+                                {images.length > 0 && (
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {images.map((src, i) => (
+                                      <img
+                                        key={i}
+                                        src={src}
+                                        alt=""
+                                        className="max-h-24 max-w-full rounded border border-zinc-700/30 object-contain"
+                                      />
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }
+                          return (
+                            <div
+                              key={block.id}
+                              className="px-3 py-2 text-xs min-w-[120px] flex-1 truncate"
+                            >
+                              {extractCellText(cue.row, block)}
+                            </div>
+                          );
+                        })}
                       </button>
                     </div>
                   </td>

@@ -371,8 +371,14 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                               const scenarioBlk = visibleBlocks.find((b) => b.type === "scenario");
                               const scenarioEntries = scenarioBlk ? (row.cells?.[scenarioBlk.id]?.entries || []) : [];
                               const entryCount = Math.max(scenarioEntries.length, 1);
-                              return Array.from({ length: entryCount }).map((_, ei) => (
-                                <tr key={`${ri}-${ei}`} style={{ borderBottom: ei === entryCount - 1 ? `1px solid ${borderColor}` : "none" }}>
+                              return Array.from({ length: entryCount }).map((_, ei) => {
+                                const highlight = scenarioEntries[ei]?.highlight as string | undefined;
+                                const trStyle: React.CSSProperties = {
+                                  borderBottom: ei === entryCount - 1 ? `1px solid ${borderColor}` : "none",
+                                  ...(highlight && !mono ? { background: highlight } : {}),
+                                };
+                                return (
+                                <tr key={`${ri}-${ei}`} style={trStyle}>
                                   {visibleBlocks.map((blk) => {
                                     const cell = row.cells?.[blk.id] || {};
                                     const tdStyle: React.CSSProperties = { padding: "3px 6px", verticalAlign: "top", borderRight: "1px solid #e5e7eb", lineHeight: 1.6, height: "1.8em", minHeight: "1.8em" };
@@ -381,14 +387,13 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                                       const col = en?.name ? (spkMap[en.name] || SPEAKER_COLORS[0]) : "#94a3b8";
                                       return (
                                         <td key={blk.id} style={tdStyle}>
-                                          {en?.image ? (
-                                            <img src={en.image} alt="" style={{ maxWidth: "100%", maxHeight: 120, objectFit: "contain" }} />
-                                          ) : (
-                                            <div style={{ display: "flex", alignItems: "flex-start", gap: 4 }}>
-                                              {en?.name && <Pill text={en.name} color={col} mono={mono} />}
-                                              {en?.isQWord && <span style={{ color: mono ? "#000" : "#dc2626", fontWeight: 700, flexShrink: 0, fontSize: fontSize - 1 + "pt" }}>Q</span>}
-                                              <span style={{ overflowWrap: "break-word", flex: 1, fontWeight: en?.isQWord ? 700 : "normal" }} dangerouslySetInnerHTML={{ __html: en?.html || "" }} />
-                                            </div>
+                                          <div style={{ display: "flex", alignItems: "flex-start", gap: 4 }}>
+                                            {en?.name && <Pill text={en.name} color={col} mono={mono} />}
+                                            {en?.isQWord && <span style={{ color: mono ? "#000" : "#dc2626", fontWeight: 700, flexShrink: 0, fontSize: fontSize - 1 + "pt" }}>Q</span>}
+                                            <span style={{ overflowWrap: "break-word", flex: 1, fontWeight: en?.isQWord ? 700 : "normal" }} dangerouslySetInnerHTML={{ __html: en?.html || "" }} />
+                                          </div>
+                                          {en?.image && (
+                                            <img src={en.image} alt="" style={{ display: "block", maxWidth: "100%", maxHeight: 200, objectFit: "contain", marginTop: 4 }} />
                                           )}
                                         </td>
                                       );
@@ -397,20 +402,21 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                                       const col = PILL_COLORS[blk.type] || "#64748b";
                                       return (
                                         <td key={blk.id} style={tdStyle}>
-                                          {en?.image ? (
-                                            <img src={en.image} alt="" style={{ maxWidth: "100%", maxHeight: 120, objectFit: "contain" }} />
-                                          ) : en?.label ? (
+                                          {en?.label ? (
                                             <div style={{ display: "flex", alignItems: "flex-start", gap: 4, minWidth: 0 }}>
                                               <Pill text={en.label} color={col} mono={mono} />
                                               <span style={{ color: "#4b5563", flex: 1, minWidth: 0, wordBreak: "break-word", overflowWrap: "anywhere", whiteSpace: "normal" }}>{en.memo || ""}</span>
                                             </div>
                                           ) : null}
+                                          {en?.image && (
+                                            <img src={en.image} alt="" style={{ display: "block", maxWidth: "100%", maxHeight: 200, objectFit: "contain", marginTop: 4 }} />
+                                          )}
                                         </td>
                                       );
                                     } else if (blk.type === "slide") {
                                       return (
                                         <td key={blk.id} style={tdStyle}>
-                                          {ei === 0 && cell.image && <img src={cell.image} alt="" style={{ maxWidth: "100%", maxHeight: 100, objectFit: "contain" }} />}
+                                          {ei === 0 && cell.image && <img src={cell.image} alt="" style={{ maxWidth: "100%", maxHeight: 200, objectFit: "contain" }} />}
                                         </td>
                                       );
                                     } else if (blk.type === "stage_diagram") {
@@ -419,7 +425,7 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                                       return (
                                         <td key={blk.id} style={tdStyle}>
                                           {ei === 0 && tmplElements && (
-                                            <svg viewBox="0 0 800 600" style={{ width: "100%", maxHeight: 100, borderRadius: 2, border: `1px solid ${borderColor}` }}>
+                                            <svg viewBox="0 0 800 600" style={{ width: "100%", maxHeight: 200, borderRadius: 2, border: `1px solid ${borderColor}` }}>
                                               <rect width="800" height="600" fill="#fafafa" />
                                               {tmplElements.map((el: any, idx: number) => {
                                                 if (el.type === "person") {
@@ -442,7 +448,8 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                                     }
                                   })}
                                 </tr>
-                              ));
+                                );
+                              });
                             })}
                           </tbody>
                         </table>
