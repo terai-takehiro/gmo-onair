@@ -751,7 +751,7 @@ export default function RevenueListPage() {
 
       {/* New Revenue Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{existingRevenueId ? "売上を更新" : "新規売上登録"}</DialogTitle>
           </DialogHeader>
@@ -907,14 +907,14 @@ export default function RevenueListPage() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="w-[28%]">内容</TableHead>
-                          <TableHead className="w-[9%] text-right">数量</TableHead>
-                          <TableHead className="w-[14%] text-right">単価</TableHead>
-                          <TableHead className="w-[14%] text-right">金額</TableHead>
-                          <TableHead className="w-[9%] text-center">期間開始</TableHead>
-                          <TableHead className="w-[9%] text-center">期間終了</TableHead>
-                          <TableHead className="w-[14%]">明細備考</TableHead>
-                          <TableHead className="w-[3%]"></TableHead>
+                          <TableHead>内容</TableHead>
+                          <TableHead className="w-14 text-right">数量</TableHead>
+                          <TableHead className="w-28 text-right">単価</TableHead>
+                          <TableHead className="w-28 text-right">金額</TableHead>
+                          <TableHead className="w-[132px]">期間開始</TableHead>
+                          <TableHead className="w-[132px]">期間終了</TableHead>
+                          <TableHead className="w-28">明細備考</TableHead>
+                          <TableHead className="w-14"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
