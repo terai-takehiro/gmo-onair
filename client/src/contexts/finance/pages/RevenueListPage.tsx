@@ -101,6 +101,9 @@ interface RevenueItem {
   unit_price: number;
   amount: number;
   pricing_item_id?: string;
+  period_start?: string | null;
+  period_end?: string | null;
+  item_notes?: string | null;
 }
 
 export default function RevenueListPage() {
@@ -272,6 +275,9 @@ export default function RevenueListPage() {
         unit_price: it.unit_price || 0,
         amount: it.amount || 0,
         pricing_item_id: it.pricing_item_id,
+        period_start: it.period_start || null,
+        period_end: it.period_end || null,
+        item_notes: it.item_notes || null,
       })));
     }
   }, [primaryRevenue?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -818,11 +824,14 @@ export default function RevenueListPage() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="w-[40%]">内容</TableHead>
-                          <TableHead className="w-[12%] text-right">数量</TableHead>
-                          <TableHead className="w-[20%] text-right">単価</TableHead>
-                          <TableHead className="w-[20%] text-right">金額</TableHead>
-                          <TableHead className="w-[8%]"></TableHead>
+                          <TableHead className="w-[28%]">内容</TableHead>
+                          <TableHead className="w-[9%] text-right">数量</TableHead>
+                          <TableHead className="w-[14%] text-right">単価</TableHead>
+                          <TableHead className="w-[14%] text-right">金額</TableHead>
+                          <TableHead className="w-[9%] text-center">期間開始</TableHead>
+                          <TableHead className="w-[9%] text-center">期間終了</TableHead>
+                          <TableHead className="w-[14%]">明細備考</TableHead>
+                          <TableHead className="w-[3%]"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -877,6 +886,37 @@ export default function RevenueListPage() {
                             </TableCell>
                             <TableCell className="p-1 text-right font-number text-sm font-medium">
                               {formatCurrency(item.amount)}
+                            </TableCell>
+                            <TableCell className="p-1">
+                              <Input
+                                type="date"
+                                value={item.period_start || ""}
+                                onChange={(e) =>
+                                  updateItem(idx, "period_start", e.target.value || null)
+                                }
+                                className="h-8 text-xs"
+                              />
+                            </TableCell>
+                            <TableCell className="p-1">
+                              <Input
+                                type="date"
+                                value={item.period_end || ""}
+                                onChange={(e) =>
+                                  updateItem(idx, "period_end", e.target.value || null)
+                                }
+                                className="h-8 text-xs"
+                              />
+                            </TableCell>
+                            <TableCell className="p-1">
+                              <Textarea
+                                value={item.item_notes || ""}
+                                onChange={(e) =>
+                                  updateItem(idx, "item_notes", e.target.value || null)
+                                }
+                                className="text-xs min-h-[32px] resize-none"
+                                rows={1}
+                                placeholder="備考"
+                              />
                             </TableCell>
                             <TableCell className="p-1">
                               <Button
@@ -953,6 +993,42 @@ export default function RevenueListPage() {
                               {formatCurrency(item.amount)}
                             </div>
                           </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-xs text-muted-foreground">期間（開始）</Label>
+                            <Input
+                              type="date"
+                              value={item.period_start || ""}
+                              onChange={(e) =>
+                                updateItem(idx, "period_start", e.target.value || null)
+                              }
+                              className="text-sm"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">期間（終了）</Label>
+                            <Input
+                              type="date"
+                              value={item.period_end || ""}
+                              onChange={(e) =>
+                                updateItem(idx, "period_end", e.target.value || null)
+                              }
+                              className="text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">明細備考</Label>
+                          <Textarea
+                            value={item.item_notes || ""}
+                            onChange={(e) =>
+                              updateItem(idx, "item_notes", e.target.value || null)
+                            }
+                            placeholder="PDFに表示される商品説明・利用条件など"
+                            rows={2}
+                            className="text-sm"
+                          />
                         </div>
                       </div>
                     ))}

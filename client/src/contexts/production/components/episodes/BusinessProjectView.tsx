@@ -54,6 +54,9 @@ interface RevenueItem {
   quantity: number;
   unit_price: number;
   amount: number;
+  period_start?: string | null;
+  period_end?: string | null;
+  item_notes?: string | null;
 }
 
 interface Revenue {
@@ -287,7 +290,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
     setPaymentDueDate("");
     setNotes("");
     setSubtitle("");
-    setItems([{ description: "", quantity: 1, unit_price: 0, amount: 0 }]);
+    setItems([{ description: "", quantity: 1, unit_price: 0, amount: 0, period_start: null, period_end: null, item_notes: null }]);
   };
 
   const openNew = () => {
@@ -314,6 +317,9 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
             quantity: it.quantity,
             unit_price: it.unit_price,
             amount: it.amount,
+            period_start: it.period_start || null,
+            period_end: it.period_end || null,
+            item_notes: it.item_notes || null,
           }))
         );
       } else {
@@ -810,6 +816,40 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                           {formatCurrency(item.amount)}
                         </p>
                       </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs">期間（開始）</Label>
+                        <Input
+                          type="date"
+                          value={item.period_start || ""}
+                          onChange={(e) =>
+                            updateItem(idx, "period_start", e.target.value || null)
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">期間（終了）</Label>
+                        <Input
+                          type="date"
+                          value={item.period_end || ""}
+                          onChange={(e) =>
+                            updateItem(idx, "period_end", e.target.value || null)
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs">明細備考</Label>
+                      <Textarea
+                        value={item.item_notes || ""}
+                        onChange={(e) =>
+                          updateItem(idx, "item_notes", e.target.value || null)
+                        }
+                        placeholder="PDFに表示される商品説明・利用条件など（改行で複数行）"
+                        rows={2}
+                        className="text-sm"
+                      />
                     </div>
                   </div>
                 ))}

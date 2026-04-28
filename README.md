@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.18 — OneShotカードレイアウト刷新（NO.1右配置・部門名大型化）、プロポーショナルフォント対応
+**現在のバージョン**: v2.8.19 — 見積書PDFテンプレート刷新（明細2行構造・定価/割引額/お見積金額サマリー・顧客住所・ページ番号）
 
 ---
 
@@ -383,6 +383,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.8.19** | **見積書PDFテンプレート刷新**: 明細テーブルを2行構造（明細番号+期間 / 商品名+備考）に変更。ヘッダーに定価/割引額/お見積金額の3列サマリーボックス追加。顧客マスタの住所・担当者名をPDFに反映。割引行（負の金額）をオレンジ色で表示。ページ番号（1/Nページ形式）追加。revenue_itemsテーブルにperiod_start/period_end/item_notesカラム追加（マイグレーション073）。明細入力フォームに期間・備考フィールド追加 |
 | **v2.8.18** | **OneShotカードレイアウト刷新・Canvas測定補正・CG全体プロポーショナルフォント**: ①OneShotカードのレイアウトを全面再設計: 従来の名前左・NO.1右上の構成から「[写真 | テキスト列(flex-1) | NO.1列(160px固定)]」の3カラム構成に変更。NO.1は独立した右カラムに移動し、NO./1を縦積みゴールドグラデーションで巨大表示（52px / 190px Bebas Neue）。②テキスト列の賞名（categoryChild）を38px / fontWeight:700 のゴールドグラデーション大型表示に変更し、部門名（categoryParent）は18px の副次表示に格下げ。名前は58px・会社名は26pxに最適化。③`calcCardW`関数にCanvas API測定補正係数`MEAS_BUF = 1.14`を導入: Canvas `measureText()`はweight-900の日本語CJK文字を約12〜14%過小評価するため、測定値に1.14を乗じてからNO.1カラム分のオーバーヘッドを加算してカード幅を決定。④`TextColumn`の`fade()`を関数化: `...fitStyle(x), ...fade`という展開順で`fade.transform`が`fitStyle.transform`を上書きしてscaleX圧縮が無効化されていたバグを修正。`fade(fitSty?)`が`[translateY, scaleX].join(' ')`で両変換を合成して返す正しい実装に変更。⑤CGSequence全体ルートdivに`fontFeatureSettings: "'palt' 1"`を追加: Noto Sans JPのプロポーショナルメトリクスグリフを有効化し、CG全演出でプロポーショナルフォント組みを適用 |
 | **v2.8.17** | **OneShotテキスト長体圧縮修正・スマホ部門スクロール対応**: ①`fitStyle()`が返す`transform: scaleX(N)`が`fade`オブジェクトのspreadで上書きされ長体圧縮が実際には適用されていなかったバグを修正（v2.8.16の残存不具合）。`fade`を`(fitSty?: CSSProperties) => CSSProperties`関数に変更し`[yT, fitSty?.transform].filter(Boolean).join(' ')`で`translateY`と`scaleX`を合成。cardの`overflow: 'hidden'`も追加して二重の安全網を確保。②ControlPage.tsxのスマホ縦並びレイアウトで右パネル（カテゴリ一覧）がスクロールできない問題を修正: `shrink-0`では`flex-col`内での高さ制約がなく`overflow-y-auto`が機能しないため、`flex-1 min-h-0`（モバイル）＋`lg:flex-none lg:shrink-0`（デスクトップ）に変更 |
 | **v2.8.16** | **OneShotカードテキスト溢れ修正・ノミネート一覧シャッフル表示**: ①OneShotカードの名前テキストが右端に溢れる問題に対してカード外側div・TextColumn divに`overflow: 'hidden'`を追加。②PhotoStage.tsxにFisher-Yatesシャッフルを追加: `useMemo(() => shuffle([...nominees]), [])`で初回マウント時のみランダムシャッフル（CGSequenceが`key={photos-${persistKey}}`でカテゴリ変更・セッション開始時にremountするため安全）。`initialStripPositions`・`nomineesShown`の計算もすべて`shuffled`を使用するよう変更 |

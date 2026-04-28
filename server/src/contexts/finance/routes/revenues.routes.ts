@@ -96,7 +96,17 @@ router.get('/:id', async (req, res) => {
 // PDF出力
 router.get('/:id/pdf', async (req, res, next) => {
   try {
-    const row = await queryOne(`SELECT r.*, p.name as project_name, p.gls_number, c.name as customer_name FROM revenues r LEFT JOIN projects p ON p.id = r.project_id LEFT JOIN customers c ON c.id = r.customer_id WHERE r.id = ? AND r.deleted_at IS NULL`, [req.params.id]) as any;
+    const row = await queryOne(
+      `SELECT r.*, p.name as project_name, p.gls_number,
+              c.name as customer_name,
+              c.address as customer_address,
+              c.contact_name as customer_contact
+       FROM revenues r
+       LEFT JOIN projects p ON p.id = r.project_id
+       LEFT JOIN customers c ON c.id = r.customer_id
+       WHERE r.id = ? AND r.deleted_at IS NULL`,
+      [req.params.id]
+    ) as any;
     if (!row) throw new AppError(404, 'NOT_FOUND', '売上が見つかりません');
 
     const items = await queryAll('SELECT * FROM revenue_items WHERE revenue_id = ? ORDER BY sort_order', [req.params.id]) as any[];
@@ -105,6 +115,8 @@ router.get('/:id/pdf', async (req, res, next) => {
       billing_key: row.billing_key,
       subtitle: row.subtitle,
       customer_name: row.customer_name || '',
+      customer_address: row.customer_address || null,
+      customer_contact: row.customer_contact || null,
       project_name: row.project_name || '',
       gls_number: row.gls_number,
       tax_category: row.tax_category,
@@ -119,6 +131,9 @@ router.get('/:id/pdf', async (req, res, next) => {
         quantity: it.quantity,
         unit_price: it.unit_price,
         amount: it.amount,
+        period_start: it.period_start || null,
+        period_end: it.period_end || null,
+        item_notes: it.item_notes || null,
       })),
     });
 
@@ -177,8 +192,10 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
   if (Array.isArray(items)) {
     for (let i = 0; i < items.length; i++) {
       const it = items[i];
-      await execute(`INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount, pricing_item_id, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [uuidv4(), id, it.description || '', it.quantity || 1, it.unit_price || 0, it.amount || 0, it.pricing_item_id || null, i + 1]);
+      await execute(
+        `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount, pricing_item_id, sort_order, period_start, period_end, item_notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [uuidv4(), id, it.description || '', it.quantity || 1, it.unit_price || 0, it.amount || 0, it.pricing_item_id || null, i + 1, it.period_start || null, it.period_end || null, it.item_notes || null]
+      );
     }
   }
 
@@ -221,8 +238,10 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
     await execute('DELETE FROM revenue_items WHERE revenue_id = ?', [req.params.id]);
     for (let i = 0; i < items.length; i++) {
       const it = items[i];
-      await execute(`INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount, pricing_item_id, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [uuidv4(), req.params.id, it.description || '', it.quantity || 1, it.unit_price || 0, it.amount || 0, it.pricing_item_id || null, i + 1]);
+      await execute(
+        `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount, pricing_item_id, sort_order, period_start, period_end, item_notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [uuidv4(), req.params.id, it.description || '', it.quantity || 1, it.unit_price || 0, it.amount || 0, it.pricing_item_id || null, i + 1, it.period_start || null, it.period_end || null, it.item_notes || null]
+      );
     }
   }
 
