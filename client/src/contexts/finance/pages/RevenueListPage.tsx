@@ -421,7 +421,7 @@ export default function RevenueListPage() {
   }, []);
 
   const updateItem = useCallback(
-    (index: number, field: keyof RevenueItem, value: string | number) => {
+    (index: number, field: keyof RevenueItem, value: string | number | null) => {
       setItems((prev) => {
         const next = [...prev];
         const item = { ...next[index], [field]: value };
