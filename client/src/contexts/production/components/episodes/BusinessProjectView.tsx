@@ -465,15 +465,21 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
 
   // シミュレーション適用時
   const applySimulation = (_total: number, simItems: SimulationAppliedItem[]) => {
-    setItems((prev) => [
-      ...prev,
-      ...simItems.map((it) => ({
-        description: it.description,
-        quantity: it.quantity,
-        unit_price: it.unit_price,
-        amount: it.amount,
-      })),
-    ]);
+    const mapped = simItems.map((it) => ({
+      description: it.description,
+      quantity: it.quantity,
+      unit_price: it.unit_price,
+      amount: it.amount,
+    }));
+    if (dialogOpen) {
+      // ダイアログが開いている場合は追加
+      setItems((prev) => [...prev, ...mapped]);
+    } else {
+      // ダイアログが閉じている場合は新規見積として開く
+      closeDialog();
+      setItems(mapped.length > 0 ? mapped : [{ description: "", quantity: 1, unit_price: 0, amount: 0, period_start: null, period_end: null, item_notes: null }]);
+      setDialogOpen(true);
+    }
   };
 
   const removeItem = (idx: number) => {
@@ -630,10 +636,18 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
             <FileText className="h-4 w-4" />
             {isEstimateMode ? "概算見積書" : "見積・売上明細"}
           </h2>
-          <Button size="sm" onClick={openNew}>
-            <Plus className="h-4 w-4 mr-1" />
-            {isEstimateMode ? "見積追加" : "明細追加"}
-          </Button>
+          <div className="flex items-center gap-2">
+            {isEstimateMode && (
+              <Button size="sm" variant="outline" onClick={() => setSimDialogOpen(true)}>
+                <Calculator className="h-4 w-4 mr-1" />
+                シミュレーション
+              </Button>
+            )}
+            <Button size="sm" onClick={openNew}>
+              <Plus className="h-4 w-4 mr-1" />
+              {isEstimateMode ? "見積追加" : "明細追加"}
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
