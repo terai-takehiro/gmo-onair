@@ -45,5 +45,5 @@ export default function OutputPage() {
 
   if (!event) return null;
 
-  return <Stage eventName={event.name} eventSubtitle={event.subtitle} lang={lang} />;
+  return <Stage eventName={event.name} eventSubtitle={event.subtitle} lang={lang} transparent />;
 }

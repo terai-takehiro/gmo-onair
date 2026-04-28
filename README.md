@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.21 — 送出CG・タイマー表示ページをAuth外に分離（ログイン不要化）
+**現在のバージョン**: v2.8.22 — 送出CG背景透過修正・送出UI背景黒統一
 
 ---
 
@@ -383,6 +383,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.8.22** | **送出CG背景透過修正・送出UI背景黒統一**: `transparent` プロップを `OutputPage → Stage → CGSequence → CGBackground` まで伝搬し、OBS/vMix ブラウザソースで背景が透過されない問題を修正。`ControlPage` の外側背景を `bg-slate-950` から `bg-black` に変更 |
 | **v2.8.21** | **送出CG・タイマー表示ページをAuth外に分離**: `client-awards/src/App.tsx` と `client-live/src/App.tsx` で、公開ページ（`/awards/output/*`・`/live/display/*`）へのアクセス時に `useAuth()` を呼ばない独立ルーター（`OutputRouter` / `DisplayRouter`）を早期返却する構造に変更。従来は App 全体で `useAuth()` が呼ばれ axios が `/auth/me` を叩いて401→ログインリダイレクトが起きていた問題を根本解決。OBS/vMix ブラウザソースから認証なしで直接アクセス可能になった |
 | **v2.8.20** | **本番ログイン不能バグ修正**: `loginWithToken(undefined)` が `localStorage["gmo_onair_token"] = "undefined"` を書き込む問題を修正。`AuthContext.loginWithToken` でトークンが falsy な場合は `removeItem` に変更。`createApi.ts` のリクエストインターセプターで `"undefined"` / `"null"` 文字列を無視して Cookie にフォールバックするガードを追加 |
 | **v2.8.19** | **インタラクティブスタンプ大規模配信耐性向上**: 1万人同時連打を視野に Socket.IO ブロードキャスト経路を全面再設計。①サーバー側: タップ受信時の即時ブロードキャストを廃止し `broadcastBuffer` にメモリ蓄積、`STAMP_BROADCAST_INTERVAL_MS`(既定1000ms)ごとにスタンプ種類単位で1回だけ集約配信に変更。送信メッセージ数を理論上 5億 msg/s → 数万 msg/s に圧縮。②`perMessageDeflate: false` で WebSocket 圧縮CPUを削減。③クライアント側: `pendingTapsRef` で 300ms 以内のタップを集約してから `socket.emit('stamp', { count })` の単一送信に圧縮、サーバー受信負荷を約 1/2 に削減。④`transports: ['websocket']` のみに固定し polling フォールバック廃止（接続あたりリソース削減）。⑤`scripts/loadtest/` に k6 負荷試験スクリプト一式を追加（`run-loadtest.sh <VUS>` で段階的に 100→10000人を試験可能）。⑥既存クライアント (Overlay/LiveControl/Audience) は `stamp:update` イベント形状が後方互換のため変更不要 |

@@ -82,7 +82,7 @@ export default function ControlPage() {
   }, []);
 
   return (
-    <div className="h-full flex flex-col bg-slate-950 text-slate-100 overflow-hidden">
+    <div className="h-full flex flex-col bg-black text-slate-100 overflow-hidden">
 
       {/* ── Header ──────────────────────────────────────────── */}
       <header className="flex items-center gap-2 px-4 h-12 shrink-0 border-b border-slate-800">

@@ -13,6 +13,7 @@ interface Props {
   eventName: string;
   eventSubtitle?: string | null;
   lang?: 'ja' | 'en';
+  transparent?: boolean;
 }
 
 /** Map API entry to the shape CG components consume. */
@@ -33,7 +34,7 @@ function mapEntry(e: CgCategory['entries'][number]): CgMappedEntry {
 
 const STEP_ORDER = ['idle', 'title', 'nominees', 'ranks52', 'winner-bar', 'oneshot'] as const;
 
-export default function CGSequence({ cue, category, eventName, eventSubtitle, lang = 'ja' }: Props) {
+export default function CGSequence({ cue, category, eventName, eventSubtitle, lang = 'ja', transparent }: Props) {
   const stepKey = cue.step;
 
   // Map entries
@@ -100,7 +101,7 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
         perspective: '2400px',
       }}
     >
-      <CGBackground />
+      <CGBackground transparent={transparent} />
 
       {/* Persistent morphing header */}
       <PersistentHeader key={`hdr-${persistKey}`} tweaks={tweaks} stepKey={stepKey} />

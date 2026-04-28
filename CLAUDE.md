@@ -33,7 +33,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.21 — 送出CG・タイマー表示ページをAuth外に分離（ログイン不要化）
+v2.8.22 — 送出CG背景透過修正・送出UI背景黒統一
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)
