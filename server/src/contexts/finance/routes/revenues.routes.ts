@@ -223,9 +223,21 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
   }
 
   // 明細行がある場合は合計を計算
-  const finalAmount = Array.isArray(items) && items.length > 0
-    ? items.reduce((sum: number, it: any) => sum + (it.amount || 0), 0)
-    : (amount !== undefined ? amount : existing.amount);
+  // items が未送信の場合は既存の revenue_items から再計算して revenues.amount を同期
+  let finalAmount: number;
+  if (Array.isArray(items) && items.length > 0) {
+    finalAmount = items.reduce((sum: number, it: any) => sum + (it.amount || 0), 0);
+  } else if (!Array.isArray(items)) {
+    const existingItemsData = await queryOne(
+      'SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as cnt FROM revenue_items WHERE revenue_id = ?',
+      [req.params.id]
+    ) as any;
+    finalAmount = Number(existingItemsData.cnt) > 0
+      ? Number(existingItemsData.total)
+      : (amount !== undefined ? amount : existing.amount);
+  } else {
+    finalAmount = amount !== undefined ? amount : existing.amount;
+  }
 
   const isAdvancePayment = is_advance_payment !== undefined ? (is_advance_payment ? true : false) : existing.is_advance_payment;
   const invoiceIssued = invoice_issued !== undefined ? (invoice_issued ? true : false) : existing.invoice_issued;
