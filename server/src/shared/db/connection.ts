@@ -1,4 +1,9 @@
-import { Pool, PoolClient } from 'pg';
+import { Pool, PoolClient, types } from 'pg';
+
+// pg は NUMERIC(OID 1700) と BIGINT(OID 20) をデフォルトで文字列として返す。
+// 四則演算で意図せず文字列連結にならないよう、アプリ起動時に数値パーサーを設定する。
+types.setTypeParser(1700, parseFloat);  // NUMERIC
+types.setTypeParser(20,   (v) => parseInt(v, 10)); // BIGINT (INT8)
 
 let pool: Pool | null = null;
 
