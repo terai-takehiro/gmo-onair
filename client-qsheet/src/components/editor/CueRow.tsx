@@ -1,75 +1,8 @@
-import { useState, useRef, useId, useEffect } from "react";
-import { ChevronUp, ChevronDown, Copy, Trash2, ImageIcon, ImagePlus, Loader2, Palette } from "lucide-react";
+import { useState, useRef, useId } from "react";
+import { ChevronUp, ChevronDown, Copy, Trash2, ImageIcon, ImagePlus, Loader2 } from "lucide-react";
 import api from "@/lib/api";
 import StageDiagramCell from "./StageDiagramCell";
-
-// ─── Highlight colors (faint pastels suited for print) ──────
-// 全エントリで共通。null/undefined はハイライトなし。
-const HIGHLIGHT_COLORS: { value: string; label: string }[] = [
-  { value: "#fef3c7", label: "黄" },     // yellow-100
-  { value: "#dcfce7", label: "緑" },     // green-100
-  { value: "#dbeafe", label: "青" },     // blue-100
-  { value: "#fce7f3", label: "桃" },     // pink-100
-  { value: "#ede9fe", label: "紫" },     // purple-100
-  { value: "#ffedd5", label: "橙" },     // orange-100
-];
-
-function HighlightPicker({
-  value,
-  onChange,
-}: {
-  value?: string;
-  onChange: (color: string | null) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
-  return (
-    <div ref={ref} className="relative flex-shrink-0">
-      <button
-        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
-        className={`w-5 h-5 rounded flex items-center justify-center transition-colors mt-[1px] ${
-          value
-            ? "border border-zinc-300 dark:border-zinc-600"
-            : "text-zinc-300 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30 opacity-0 group-hover:opacity-100"
-        }`}
-        style={value ? { backgroundColor: value } : undefined}
-        title="行のハイライト色"
-      >
-        {!value && <Palette size={12} />}
-      </button>
-      {open && (
-        <div className="absolute z-20 right-0 top-6 flex items-center gap-1 p-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-lg">
-          {HIGHLIGHT_COLORS.map((c) => (
-            <button
-              key={c.value}
-              onClick={() => { onChange(c.value); setOpen(false); }}
-              className={`w-5 h-5 rounded border transition-transform hover:scale-110 ${
-                value === c.value ? "border-blue-500 ring-1 ring-blue-300" : "border-zinc-300 dark:border-zinc-600"
-              }`}
-              style={{ backgroundColor: c.value }}
-              title={c.label}
-            />
-          ))}
-          <button
-            onClick={() => { onChange(null); setOpen(false); }}
-            className="w-5 h-5 rounded border border-dashed border-zinc-300 dark:border-zinc-600 text-zinc-400 hover:text-red-500 text-[10px] leading-none flex items-center justify-center"
-            title="クリア"
-          >
-            ×
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
+import { HighlightPicker } from "./HighlightPicker";
 
 // ─── Types ──────────────────────────────────────────────
 interface Block {
