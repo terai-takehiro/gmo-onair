@@ -18,7 +18,26 @@ import {
 } from "@/components/ui/select";
 import {
   Loader2, Plus, Search, Cable, Pencil, Trash2, MapPin,
+  Upload, Download, Printer, SlidersHorizontal, ArrowUp, ArrowDown, RotateCcw, Edit3, Copy,
 } from "lucide-react";
+import { useRef } from "react";
+import ConsumableExcelImportDialog from "@/components/ConsumableExcelImportDialog";
+
+const COL_DEFS = [
+  { key: "kind",              label: "種別",     default: true  },
+  { key: "location_name",     label: "設置場所", default: true  },
+  { key: "name",              label: "商品名",   default: true  },
+  { key: "manufacturer_name", label: "メーカー", default: true  },
+  { key: "model_number",      label: "型名",     default: true  },
+  { key: "length_m",          label: "m",        default: true  },
+  { key: "color",             label: "色",       default: true  },
+  { key: "quantity",          label: "本数",     default: true  },
+  { key: "storage_method",    label: "収納方法", default: true  },
+  { key: "notes",             label: "備考",     default: true  },
+] as const;
+type ColKey = typeof COL_DEFS[number]["key"];
+const STORAGE_VIS = "cable-visible-cols";
+const STORAGE_ORDER = "cable-col-order";
 
 const KINDS = [
   { code: "video",    label: "映像", color: "bg-violet-50 text-violet-700" },
@@ -97,6 +116,86 @@ export default function CablePage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<CableForm>(EMPTY_FORM);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [printLandscape, setPrintLandscape] = useState(false);
+  const [printTitle, setPrintTitle] = useState("ケーブル一覧");
+
+  // 表編集モード (inline edit)
+  const [tableEditMode, setTableEditMode] = useState(false);
+  const [tableEdits, setTableEdits] = useState<Record<string, Record<string, string>>>({});
+  const inlinePatch = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Record<string, string> }) =>
+      api.patch(`/equipment/cables/${id}`, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["equipment-cables"] }),
+  });
+  const handleInlineChange = (id: string, field: string, value: string) => {
+    setTableEdits((prev) => ({ ...prev, [id]: { ...(prev[id] ?? {}), [field]: value } }));
+  };
+  const saveInlineRow = (id: string) => {
+    const edits = tableEdits[id];
+    if (!edits || Object.keys(edits).length === 0) return;
+    inlinePatch.mutate({ id, data: edits });
+    setTableEdits((prev) => { const n = { ...prev }; delete n[id]; return n; });
+  };
+
+  // 表示列ピッカー
+  const [colPickerOpen, setColPickerOpen] = useState(false);
+  const colPickerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!colPickerOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (colPickerRef.current && !colPickerRef.current.contains(e.target as Node)) {
+        setColPickerOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [colPickerOpen]);
+
+  const [visibleCols, setVisibleCols] = useState<Set<ColKey>>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_VIS);
+      if (saved) return new Set(JSON.parse(saved)) as Set<ColKey>;
+    } catch { /* ignore */ }
+    return new Set(COL_DEFS.filter((c) => c.default).map((c) => c.key)) as Set<ColKey>;
+  });
+  const toggleCol = (key: ColKey) => setVisibleCols((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    localStorage.setItem(STORAGE_VIS, JSON.stringify([...next]));
+    return next;
+  });
+
+  const DEFAULT_COL_ORDER = COL_DEFS.map((c) => c.key) as ColKey[];
+  const [colOrder, setColOrder] = useState<ColKey[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_ORDER);
+      if (saved) {
+        const parsed: ColKey[] = JSON.parse(saved);
+        const allKeys = COL_DEFS.map((c) => c.key) as ColKey[];
+        return [...parsed.filter((k) => allKeys.includes(k)), ...allKeys.filter((k) => !parsed.includes(k))];
+      }
+    } catch { /* ignore */ }
+    return DEFAULT_COL_ORDER;
+  });
+  const moveCol = (key: ColKey, dir: "up" | "down") => {
+    setColOrder((prev) => {
+      const idx = prev.indexOf(key);
+      if (idx < 0) return prev;
+      const next = [...prev];
+      if (dir === "up" && idx > 0) [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+      if (dir === "down" && idx < next.length - 1) [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+      localStorage.setItem(STORAGE_ORDER, JSON.stringify(next));
+      return next;
+    });
+  };
+  const resetColSettings = () => {
+    localStorage.removeItem(STORAGE_VIS);
+    localStorage.removeItem(STORAGE_ORDER);
+    setVisibleCols(new Set(COL_DEFS.filter((c) => c.default).map((c) => c.key)) as Set<ColKey>);
+    setColOrder(DEFAULT_COL_ORDER);
+  };
 
   const { data: cablesRes, isLoading, error: listError } = useQuery({
     queryKey: ["equipment-cables", filterKind, filterLoc, filterMfr, debouncedSearch],
@@ -156,9 +255,12 @@ export default function CablePage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["equipment-cables"] }),
   });
 
+  const [isCopyMode, setIsCopyMode] = useState(false);
+
   const openNew = () => {
     setForm({ ...EMPTY_FORM, kind: filterKind || "video" });
     setEditingId(null);
+    setIsCopyMode(false);
     setSaveError(null);
     setDialogOpen(true);
   };
@@ -177,6 +279,26 @@ export default function CablePage() {
       notes: it.notes || "",
     });
     setEditingId(it.id);
+    setIsCopyMode(false);
+    setSaveError(null);
+    setDialogOpen(true);
+  };
+
+  const openCopy = (it: Cable) => {
+    setForm({
+      kind: it.kind,
+      location_id: it.location_id || "",
+      name: it.name || "",
+      manufacturer_id: it.manufacturer_id || "",
+      model_number: it.model_number || "",
+      length_m: it.length_m == null ? "" : String(it.length_m),
+      color: it.color || "",
+      quantity: "0", // 個体固有の本数はリセット
+      storage_method: it.storage_method || "",
+      notes: it.notes || "",
+    });
+    setEditingId(null);
+    setIsCopyMode(true);
     setSaveError(null);
     setDialogOpen(true);
   };
@@ -196,6 +318,23 @@ export default function CablePage() {
     [items],
   );
 
+  const downloadExcel = async () => {
+    const res = await api.get("/equipment/cables/export-xlsx", { responseType: "blob" });
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ケーブル_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handlePrint = () => {
+    if (printLandscape) document.body.classList.add("print-landscape");
+    else document.body.classList.remove("print-landscape");
+    setPrintDialogOpen(false);
+    setTimeout(() => window.print(), 150);
+  };
+
   return (
     <div className="space-y-4 p-4 lg:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -205,12 +344,81 @@ export default function CablePage() {
             {items.length} 種類 / 合計 {totalQuantity.toLocaleString()} 本
           </p>
         </div>
-        {canEdit && (
-          <Button size="sm" onClick={openNew}>
-            <Plus className="h-4 w-4 mr-1" />ケーブル登録
+        <div className="flex flex-wrap gap-2">
+          {canEdit && (
+            <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
+              <Upload className="h-4 w-4 mr-1" />Excelインポート
+            </Button>
+          )}
+          <Button size="sm" variant="outline" onClick={downloadExcel}>
+            <Download className="h-4 w-4 mr-1" />Excel出力
           </Button>
-        )}
+          <Button size="sm" variant="outline" onClick={() => setPrintDialogOpen(true)}>
+            <Printer className="h-4 w-4 mr-1" />印刷
+          </Button>
+          {/* 表示列ピッカー */}
+          <div className="relative" ref={colPickerRef}>
+            <Button size="sm" variant={colPickerOpen ? "default" : "outline"} onClick={() => setColPickerOpen((v) => !v)}>
+              <SlidersHorizontal className="h-4 w-4 mr-1" />表示列
+            </Button>
+            {colPickerOpen && (
+              <div className="absolute right-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-lg p-2 w-56">
+                <div className="flex items-center justify-between px-1 pb-1.5">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">表示列</p>
+                  <button className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5" onClick={resetColSettings}>
+                    <RotateCcw className="h-2.5 w-2.5" />既定に戻す
+                  </button>
+                </div>
+                {colOrder.map((key, idx) => {
+                  const col = COL_DEFS.find((c) => c.key === key);
+                  if (!col) return null;
+                  return (
+                    <div key={col.key} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-muted/60">
+                      <input
+                        type="checkbox"
+                        id={`col-${col.key}`}
+                        checked={visibleCols.has(col.key)}
+                        onChange={() => toggleCol(col.key)}
+                        className="h-4 w-4"
+                      />
+                      <label htmlFor={`col-${col.key}`} className="flex-1 cursor-pointer text-sm select-none">
+                        {col.label}
+                      </label>
+                      <div className="flex gap-0.5">
+                        <button className="p-0.5 rounded hover:bg-muted text-muted-foreground disabled:opacity-20" disabled={idx === 0} onClick={() => moveCol(key, "up")}><ArrowUp className="h-3 w-3" /></button>
+                        <button className="p-0.5 rounded hover:bg-muted text-muted-foreground disabled:opacity-20" disabled={idx === colOrder.length - 1} onClick={() => moveCol(key, "down")}><ArrowDown className="h-3 w-3" /></button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          {canEdit && (
+            <Button
+              size="sm"
+              variant={tableEditMode ? "default" : "outline"}
+              onClick={() => { setTableEditMode((v) => !v); setTableEdits({}); }}
+            >
+              <Edit3 className="h-4 w-4 mr-1" />{tableEditMode ? "編集完了" : "表編集"}
+            </Button>
+          )}
+          {canEdit && (
+            <Button size="sm" onClick={openNew}>
+              <Plus className="h-4 w-4 mr-1" />ケーブル登録
+            </Button>
+          )}
+        </div>
       </div>
+
+      <ConsumableExcelImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        endpoint="/equipment/cables"
+        resourceLabel="ケーブル"
+        invalidateKey={["equipment-cables"]}
+        templateFileName="ケーブル_テンプレート.xlsx"
+      />
 
       {/* 種別タブ */}
       <div className="flex flex-wrap gap-1.5 items-center">
@@ -316,6 +524,11 @@ export default function CablePage() {
                   {(canEdit || canDelete) && (
                     <div className="flex justify-end gap-1 mt-1.5 -mb-1">
                       {canEdit && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openCopy(it)} aria-label="コピー">
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {canEdit && (
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(it)} aria-label="編集">
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
@@ -338,32 +551,84 @@ export default function CablePage() {
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="border-b border-border/60 bg-muted/40">
-                    <Th>種別</Th>
-                    <Th>設置場所</Th>
-                    <Th>商品名</Th>
-                    <Th>メーカー</Th>
-                    <Th>型名</Th>
-                    <Th className="text-right">m</Th>
-                    <Th>色</Th>
-                    <Th className="text-right">本数</Th>
-                    <Th>収納方法</Th>
-                    <Th>備考</Th>
+                    {colOrder.filter((k) => visibleCols.has(k)).map((key) => {
+                      const col = COL_DEFS.find((c) => c.key === key);
+                      if (!col) return null;
+                      const right = key === "length_m" || key === "quantity";
+                      return <Th key={key} className={right ? "text-right" : ""}>{col.label}</Th>;
+                    })}
                     <Th className="text-right">操作</Th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/30">
                   {items.map((it) => (
                     <tr key={it.id} className="group transition-colors hover:bg-accent/30">
-                      <Td><KindBadge code={it.kind} /></Td>
-                      <Td className="text-muted-foreground">{it.location_name || "–"}</Td>
-                      <Td className="font-medium">{it.name}</Td>
-                      <Td className="text-muted-foreground">{it.manufacturer_name || "–"}</Td>
-                      <Td className="font-mono text-xs">{it.model_number || "–"}</Td>
-                      <Td className="text-right font-mono">{it.length_m != null && it.length_m !== "" ? `${it.length_m}` : "–"}</Td>
-                      <Td>{it.color || "–"}</Td>
-                      <Td className="text-right font-mono">{it.quantity}</Td>
-                      <Td className="text-muted-foreground">{it.storage_method || "–"}</Td>
-                      <Td className="text-muted-foreground max-w-[200px] truncate">{it.notes || "–"}</Td>
+                      {colOrder.filter((k) => visibleCols.has(k)).map((key) => {
+                        const editVal = (f: string, cur: unknown) =>
+                          tableEdits[it.id]?.[f] ?? (cur ?? "").toString();
+                        const inlineInput = (f: string, cur: unknown, opts?: { type?: string; right?: boolean; mono?: boolean; step?: string }) => (
+                          <input
+                            type={opts?.type || "text"}
+                            step={opts?.step}
+                            value={editVal(f, cur)}
+                            onChange={(e) => handleInlineChange(it.id, f, e.target.value)}
+                            onBlur={() => saveInlineRow(it.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            className={`w-full bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs ${opts?.right ? "text-right" : ""} ${opts?.mono ? "font-mono" : ""}`}
+                          />
+                        );
+                        const inlineSelect = (f: string, cur: unknown, options: { value: string; label: string }[]) => (
+                          <select
+                            value={editVal(f, cur)}
+                            onChange={(e) => { handleInlineChange(it.id, f, e.target.value); saveInlineRow(it.id); }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs"
+                          >
+                            {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                          </select>
+                        );
+                        switch (key) {
+                          case "kind":
+                            return <Td key={key}>{tableEditMode
+                              ? inlineSelect("kind", it.kind, KINDS.map((k) => ({ value: k.code, label: k.label })))
+                              : <KindBadge code={it.kind} />}</Td>;
+                          case "location_name":
+                            return <Td key={key} className="text-muted-foreground">{tableEditMode
+                              ? inlineSelect("location_id", it.location_id ?? "", [{ value: "", label: "—" }, ...locations.map((l) => ({ value: l.id, label: l.name }))])
+                              : (it.location_name || "–")}</Td>;
+                          case "name":
+                            return <Td key={key} className="font-medium">{tableEditMode
+                              ? inlineInput("name", it.name)
+                              : it.name}</Td>;
+                          case "manufacturer_name":
+                            return <Td key={key} className="text-muted-foreground">{tableEditMode
+                              ? inlineSelect("manufacturer_id", it.manufacturer_id ?? "", [{ value: "", label: "—" }, ...manufacturers.map((m) => ({ value: m.id, label: m.name }))])
+                              : (it.manufacturer_name || "–")}</Td>;
+                          case "model_number":
+                            return <Td key={key} className="font-mono text-xs">{tableEditMode
+                              ? inlineInput("model_number", it.model_number, { mono: true })
+                              : (it.model_number || "–")}</Td>;
+                          case "length_m":
+                            return <Td key={key} className="text-right font-mono">{tableEditMode
+                              ? inlineInput("length_m", it.length_m, { type: "number", step: "0.1", right: true, mono: true })
+                              : (it.length_m != null && it.length_m !== "" ? `${it.length_m}` : "–")}</Td>;
+                          case "color":
+                            return <Td key={key}>{tableEditMode ? inlineInput("color", it.color) : (it.color || "–")}</Td>;
+                          case "quantity":
+                            return <Td key={key} className="text-right font-mono">{tableEditMode
+                              ? inlineInput("quantity", it.quantity, { type: "number", right: true, mono: true })
+                              : it.quantity}</Td>;
+                          case "storage_method":
+                            return <Td key={key} className="text-muted-foreground">{tableEditMode
+                              ? inlineInput("storage_method", it.storage_method)
+                              : (it.storage_method || "–")}</Td>;
+                          case "notes":
+                            return <Td key={key} className="text-muted-foreground max-w-[200px] truncate">{tableEditMode
+                              ? inlineInput("notes", it.notes)
+                              : (it.notes || "–")}</Td>;
+                          default: return null;
+                        }
+                      })}
                       <Td className="text-right whitespace-nowrap">
                         {canEdit && (
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(it)} aria-label="編集">
@@ -389,7 +654,7 @@ export default function CablePage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingId ? "ケーブル編集" : "ケーブル登録"}</DialogTitle>
+            <DialogTitle>{editingId ? "ケーブル編集" : isCopyMode ? "ケーブル登録 (コピー)" : "ケーブル登録"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -474,6 +739,84 @@ export default function CablePage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* 印刷プレビューダイアログ */}
+      <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>印刷プレビュー</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label>タイトル</Label>
+              <Input value={printTitle} onChange={(e) => setPrintTitle(e.target.value)} />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                id="cable-print-landscape"
+                type="checkbox"
+                checked={printLandscape}
+                onChange={(e) => setPrintLandscape(e.target.checked)}
+                className="h-4 w-4"
+              />
+              <Label htmlFor="cable-print-landscape" className="cursor-pointer">横向き (A4 ランドスケープ)</Label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              現在表示中の {items.length} 件を印刷します。フィルターとソートが適用されます。
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setPrintDialogOpen(false)}>キャンセル</Button>
+              <Button onClick={handlePrint}>
+                <Printer className="h-4 w-4 mr-1" />印刷
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 印刷時のみ表示される印刷用テーブル */}
+      <div className="hidden print:block">
+        <h1 className="text-xl font-bold mb-2">{printTitle}</h1>
+        <p className="text-xs mb-2">
+          {new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" })}
+          {" / "}{items.length} 件
+        </p>
+        <table className="w-full text-xs border-collapse">
+          <thead>
+            <tr className="border-b border-black">
+              <th className="border px-2 py-1 text-left">種別</th>
+              <th className="border px-2 py-1 text-left">設置場所</th>
+              <th className="border px-2 py-1 text-left">商品名</th>
+              <th className="border px-2 py-1 text-left">メーカー</th>
+              <th className="border px-2 py-1 text-left">型名</th>
+              <th className="border px-2 py-1 text-right">m</th>
+              <th className="border px-2 py-1 text-left">色</th>
+              <th className="border px-2 py-1 text-right">本数</th>
+              <th className="border px-2 py-1 text-left">収納方法</th>
+              <th className="border px-2 py-1 text-left">備考</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((it) => {
+              const k = KINDS.find((x) => x.code === it.kind);
+              return (
+                <tr key={it.id} className="border-b">
+                  <td className="border px-2 py-1">{k?.label || it.kind}</td>
+                  <td className="border px-2 py-1">{it.location_name || ""}</td>
+                  <td className="border px-2 py-1">{it.name}</td>
+                  <td className="border px-2 py-1">{it.manufacturer_name || ""}</td>
+                  <td className="border px-2 py-1">{it.model_number || ""}</td>
+                  <td className="border px-2 py-1 text-right">{it.length_m ?? ""}</td>
+                  <td className="border px-2 py-1">{it.color || ""}</td>
+                  <td className="border px-2 py-1 text-right">{it.quantity}</td>
+                  <td className="border px-2 py-1">{it.storage_method || ""}</td>
+                  <td className="border px-2 py-1">{it.notes || ""}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
