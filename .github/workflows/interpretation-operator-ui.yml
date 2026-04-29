@@ -1,0 +1,95 @@
+name: Interpretation / operator-ui
+
+on:
+  push:
+    branches: [dev, main]
+    paths:
+      - "interpretation/operator-ui/**"
+      - ".github/workflows/interpretation-operator-ui.yml"
+  pull_request:
+    paths:
+      - "interpretation/operator-ui/**"
+      - ".github/workflows/interpretation-operator-ui.yml"
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Target environment
+        type: choice
+        required: true
+        default: dev
+        options: [dev, prod]
+
+concurrency:
+  group: interp-operator-ui-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: typecheck + lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: interpretation/operator-ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: interpretation/operator-ui/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+
+  deploy:
+    name: build + deploy (${{ github.event.inputs.target || (github.ref_name == 'main' && 'prod' || 'dev') }})
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      ENV_NAME: ${{ github.event.inputs.target || (github.ref_name == 'main' && 'prod' || 'dev') }}
+      REGION: asia-northeast1
+      SERVICE: interp-${{ github.event.inputs.target || (github.ref_name == 'main' && 'prod' || 'dev') }}-frontend
+      REPO: interp-${{ github.event.inputs.target || (github.ref_name == 'main' && 'prod' || 'dev') }}-containers
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CICD_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build & push container
+        working-directory: interpretation/operator-ui
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${REPO}/operator-ui:${GITHUB_SHA}"
+          docker build \
+            --build-arg "NEXT_PUBLIC_API_BASE_URL=${{ vars.PUBLIC_API_BASE_URL }}" \
+            --build-arg "NEXT_PUBLIC_WS_BASE_URL=${{ vars.PUBLIC_WS_BASE_URL }}" \
+            -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Deploy Cloud Run service
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --image "$IMAGE" \
+            --region "$REGION" \
+            --project "${{ vars.GCP_PROJECT_ID }}" \
+            --service-account "${{ vars.GCP_FRONTEND_RUNTIME_SA }}" \
+            --port 8080 \
+            --concurrency 80 \
+            --min-instances 0 \
+            --max-instances 3 \
+            --set-env-vars "NEXT_PUBLIC_API_BASE_URL=${{ vars.PUBLIC_API_BASE_URL }},NEXT_PUBLIC_WS_BASE_URL=${{ vars.PUBLIC_WS_BASE_URL }}" \
+            --allow-unauthenticated \
+            --quiet

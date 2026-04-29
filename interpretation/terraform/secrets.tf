@@ -7,6 +7,8 @@
 locals {
   secrets = [
     "db-app-password",         # Cloud SQL application user password
+    "db-url",                  # Full DATABASE_URL (asyncpg) — populate after apply
+    "redis-url",               # Full REDIS_URL with AUTH — populate after apply
     "auth-jwt-secret",         # Backend JWT signing key
     "auth-session-secret",     # Frontend session cookie secret
     "supabase-anon-key",       # (optional) Supabase Auth anon key

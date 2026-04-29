@@ -170,7 +170,80 @@ prod は `deletion_protection` が掛かっているので、先に DB の保護
 
 ---
 
-## 10. トラブルシュート
+## 10. CI/CD (GitHub Actions)
+
+`.github/workflows/interpretation-backend.yml` と
+`.github/workflows/interpretation-operator-ui.yml` が、`interpretation/`
+配下の変更を検知して Cloud Run へ自動デプロイする。Workload Identity
+Federation 経由なのでサービスアカウントキーは発行不要。
+
+### 10.1 一度だけ行うブートストラップ
+
+1. `terraform apply` 後、以下の Terraform 出力を取得する:
+
+   ```bash
+   terraform output -raw wif_provider_resource
+   terraform output -raw wif_service_account_email
+   terraform output -raw backend_service_account
+   terraform output -raw frontend_service_account
+   ```
+
+2. GitHub リポジトリの **Settings → Secrets and variables → Actions →
+   Variables** に以下を登録 (Repository variables):
+
+   | Variable 名 | 値 |
+   |---|---|
+   | `GCP_PROJECT_ID` | プロジェクト ID |
+   | `GCP_WIF_PROVIDER` | `wif_provider_resource` の値 |
+   | `GCP_CICD_SERVICE_ACCOUNT` | `wif_service_account_email` の値 |
+   | `GCP_BACKEND_RUNTIME_SA` | `backend_service_account` の値 |
+   | `GCP_FRONTEND_RUNTIME_SA` | `frontend_service_account` の値 |
+   | `PUBLIC_API_BASE_URL` | バックエンド Cloud Run の公開 URL |
+   | `PUBLIC_WS_BASE_URL` | 同上 (`wss://...`) |
+
+3. Secret Manager に runtime シークレットの実値を投入:
+
+   ```bash
+   # DATABASE_URL (Cloud SQL private IP は terraform output から取得)
+   PG_HOST=$(terraform output -raw cloud_sql_private_ip)
+   PG_PASS=$(gcloud secrets versions access latest --secret=interp-dev-db-app-password)
+   echo -n "postgresql+asyncpg://interpretation_app:${PG_PASS}@${PG_HOST}:5432/interpretation" \
+     | gcloud secrets versions add interp-dev-db-url --data-file=-
+
+   # REDIS_URL
+   REDIS_HOST=$(terraform output -raw redis_host)
+   REDIS_PORT=$(terraform output -raw redis_port)
+   REDIS_AUTH=$(gcloud redis instances get-auth-string interp-dev-redis \
+     --region=asia-northeast1 --format='value(authString)')
+   echo -n "redis://default:${REDIS_AUTH}@${REDIS_HOST}:${REDIS_PORT}/0" \
+     | gcloud secrets versions add interp-dev-redis-url --data-file=-
+   ```
+
+### 10.2 デプロイのトリガ
+
+- `dev` ブランチへ push (`interpretation/backend/**` 変更) → dev 環境へデプロイ
+- `main` ブランチへ push → prod 環境へデプロイ
+- Pull request では lint + typecheck のみ実行 (デプロイなし)
+- `workflow_dispatch` で手動実行も可能 (target=dev/prod 選択)
+
+### 10.3 デプロイステップ
+
+backend ワークフローは:
+
+1. `ruff check` + `mypy`
+2. `docker build` + Artifact Registry push
+3. **Alembic マイグレーション**を Cloud Run Jobs として実行 (`alembic upgrade head`)
+4. Cloud Run service に新リビジョンをロールアウト
+
+`operator-ui` ワークフローは Next.js standalone ビルド + Cloud Run デプロイ。
+
+> **注意**: 初回デプロイ時は Cloud Run Job が存在しないので
+> `gcloud run jobs deploy` で新規作成、2 回目以降は同コマンドが冪等に
+> イメージを更新する (`||` で update へフォールバック)。
+
+---
+
+## 11. トラブルシュート
 
 | 症状 | 原因 | 対処 |
 |---|---|---|
