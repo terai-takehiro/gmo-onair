@@ -96,6 +96,15 @@
   66%      { transform: translate(-30px, 30px); }
 }
 
+/* ── 印刷時のページ分断抑制 (Editor から直接プリント時にも有効) ── */
+@media print {
+  .qsheet-section { page-break-inside: avoid; break-inside: avoid; }
+  .qsheet-row, tr { page-break-inside: avoid; break-inside: avoid; }
+  .qsheet-section-header, thead { page-break-after: avoid; break-after: avoid; }
+  p, td, th { widows: 3; orphans: 3; }
+  nav, aside, .no-print { display: none !important; }
+}
+
 /* ── Dialog as bottom sheet (mobile-friendly editor sidebar) ── */
 /* Override the centered DialogContent positioning to slide up from the bottom */
 .dialog-bottom-sheet {

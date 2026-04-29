@@ -96,7 +96,14 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
   };
 
   const visibleBlocks = state.blocks.filter((b) => b.type === "scenario" || selectedBlocks.has(b.id));
-  const pageDims = paperSize === "A4P" ? { w: 794, h: 1123 } : { w: 1123, h: 794 };
+  // 96 DPI 換算: A4=794×1123, A3=1123×1587
+  const pxDims: Record<string, { w: number; h: number }> = {
+    A4P: { w: 794, h: 1123 },
+    A4L: { w: 1123, h: 794 },
+    A3P: { w: 1123, h: 1587 },
+    A3L: { w: 1587, h: 1123 },
+  };
+  const pageDims = pxDims[paperSize] || pxDims.A4P;
 
   const spkMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -195,9 +202,13 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
     if (!pageRef.current) return;
     const printWindow = window.open("", "_blank");
     if (!printWindow) { alert("ポップアップがブロックされました。許可してください。"); return; }
-    const isPortrait = paperSize === "A4P";
-    const pageW = isPortrait ? "210mm" : "297mm";
-    const pageH = isPortrait ? "297mm" : "210mm";
+    const sizes: Record<string, [string, string]> = {
+      A4P: ["210mm", "297mm"],
+      A4L: ["297mm", "210mm"],
+      A3P: ["297mm", "420mm"],
+      A3L: ["420mm", "297mm"],
+    };
+    const [pageW, pageH] = sizes[paperSize] || sizes.A4P;
     const dl = state.meta?.draftType === "準備稿" ? "準備稿" : state.meta?.draftType === "決定稿" ? "決定稿" : `第${state.meta?.draftNumber || 1}稿`;
     const docTitle = `【${dl}】${state.meta?.title || "進行台本"}`;
     printWindow.document.write(`<!DOCTYPE html><html><head>
@@ -210,6 +221,14 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
         body { font-family: 'Noto Sans JP', -apple-system, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .preview-page { page-break-after: always; break-after: page; }
         .preview-page:last-child { page-break-after: auto; break-after: auto; }
+        /* セクション・行の途中分断を防ぐ */
+        .qsheet-section { page-break-inside: avoid; break-inside: avoid; }
+        .qsheet-row, tr { page-break-inside: avoid; break-inside: avoid; }
+        .qsheet-section-header, thead { page-break-after: avoid; break-after: avoid; }
+        /* 末尾 / 先頭の孤立行を抑制 */
+        p, td, th { widows: 3; orphans: 3; }
+        /* 印刷時に不要な要素を非表示 */
+        nav, aside, .no-print { display: none !important; }
       </style>
     </head><body>${pageRef.current.innerHTML}</body></html>`);
     printWindow.document.close();
@@ -232,15 +251,17 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
 
   return (
     <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="flex flex-col bg-zinc-100 rounded-2xl shadow-2xl overflow-hidden" style={{ width: "92vw", height: "92vh", maxWidth: 1200 }}>
+      <div className="flex flex-col bg-muted rounded-2xl shadow-2xl overflow-hidden" style={{ width: "min(92vw, 1280px)", height: "92vh" }}>
         {/* Toolbar */}
         <div className="flex-none flex items-center justify-between px-5 py-3 bg-white border-b border-zinc-200 shadow-sm gap-4">
           <div className="flex items-center gap-4 flex-wrap">
             <label className="flex items-center gap-2 text-xs text-zinc-500">
               用紙
-              <select value={paperSize} onChange={(e) => setPaperSize(e.target.value)} className="px-2 py-1 text-xs border border-zinc-200 rounded-lg bg-white">
+              <select value={paperSize} onChange={(e) => setPaperSize(e.target.value)} className="px-2 py-1 text-xs border border-border rounded-lg bg-card text-foreground" aria-label="用紙サイズ">
                 <option value="A4P">A4 タテ</option>
                 <option value="A4L">A4 ヨコ</option>
+                <option value="A3P">A3 タテ</option>
+                <option value="A3L">A3 ヨコ</option>
               </select>
             </label>
             <label className="flex items-center gap-2 text-xs text-zinc-500">
