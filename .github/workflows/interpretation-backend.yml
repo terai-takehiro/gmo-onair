@@ -25,11 +25,24 @@ concurrency:
 
 jobs:
   test:
-    name: lint + typecheck
+    name: lint + typecheck + tests
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: interpretation_app
+          POSTGRES_PASSWORD: devpass
+          POSTGRES_DB: interpretation_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U interpretation_app -d interpretation_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     defaults:
       run:
         working-directory: interpretation/backend
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://interpretation_app:devpass@localhost:5432/interpretation_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -38,8 +51,9 @@ jobs:
           cache: pip
           cache-dependency-path: interpretation/backend/pyproject.toml
       - run: pip install -e '.[dev]'
-      - run: ruff check app
+      - run: ruff check app tests
       - run: mypy app
+      - run: pytest -q
 
   deploy:
     name: build + deploy (${{ github.event.inputs.target || (github.ref_name == 'main' && 'prod' || 'dev') }})
