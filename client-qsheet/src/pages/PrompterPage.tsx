@@ -85,6 +85,16 @@ export default function PrompterPage() {
     }
   }
 
+  // Force dark mode (放送モード)
+  useEffect(() => {
+    const html = document.documentElement;
+    const wasAlreadyDark = html.classList.contains("dark");
+    if (!wasAlreadyDark) html.classList.add("dark");
+    return () => {
+      if (!wasAlreadyDark) html.classList.remove("dark");
+    };
+  }, []);
+
   // Socket.IO: listen for cue:update from OnAir page
   useEffect(() => {
     if (!id) return;
@@ -172,8 +182,8 @@ export default function PrompterPage() {
 
   if (isLoading || !doc) {
     return (
-      <div className="flex h-screen items-center justify-center bg-black">
-        <div className="w-8 h-8 border-2 border-white/20 border-t-white/80 rounded-full animate-spin" />
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="w-8 h-8 border-2 border-border border-t-foreground rounded-full animate-spin" />
       </div>
     );
   }
@@ -184,7 +194,7 @@ export default function PrompterPage() {
 
   return (
     <div
-      className="flex flex-col h-screen bg-black text-white overflow-hidden"
+      className="flex flex-col h-screen bg-background text-foreground overflow-hidden"
       onMouseMove={resetControlsTimer}
       onClick={() => setIsScrolling(p => !p)}
     >
@@ -200,26 +210,26 @@ export default function PrompterPage() {
           <Button
             variant="ghost"
             size="icon"
-            className="text-white/60 hover:text-white hover:bg-white/10 h-8 w-8"
+            className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8"
             onClick={() => navigate(`/qsheet/editor/${id}`)}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm text-white/60 truncate max-w-xs">{doc.title}</span>
+          <span className="text-sm text-muted-foreground truncate max-w-xs">{doc.title}</span>
         </div>
 
         <div className="flex items-center gap-3">
           {/* Font size */}
           <div className="flex items-center gap-1">
             <button
-              className="text-white/50 hover:text-white p-1"
+              className="text-muted-foreground hover:text-foreground p-1"
               onClick={() => setFontSize(p => Math.max(p - 4, 16))}
             >
               <span className="text-xs">A-</span>
             </button>
-            <span className="text-xs text-white/50 w-8 text-center">{fontSize}px</span>
+            <span className="text-xs text-muted-foreground w-8 text-center">{fontSize}px</span>
             <button
-              className="text-white/50 hover:text-white p-1"
+              className="text-muted-foreground hover:text-foreground p-1"
               onClick={() => setFontSize(p => Math.min(p + 4, 80))}
             >
               <span className="text-sm font-bold">A+</span>
@@ -228,26 +238,26 @@ export default function PrompterPage() {
 
           {/* Scroll speed */}
           <div className="flex items-center gap-1">
-            <ChevronDown className="h-3.5 w-3.5 text-white/40" />
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/80" />
             <input
               type="range" min={10} max={200} step={10}
               value={scrollSpeed}
               onChange={e => setScrollSpeed(Number(e.target.value))}
               className="w-20 accent-white"
             />
-            <ChevronUp className="h-3.5 w-3.5 text-white/40" />
+            <ChevronUp className="h-3.5 w-3.5 text-muted-foreground/80" />
           </div>
 
           {/* Mirror */}
           <button
-            className={`text-xs px-2 py-1 rounded border transition ${mirror ? 'border-white/40 text-white' : 'border-white/20 text-white/40'}`}
+            className={`text-xs px-2 py-1 rounded border transition ${mirror ? 'border-foreground/60 text-foreground' : 'border-border text-muted-foreground'}`}
             onClick={() => setMirror(p => !p)}
           >
             <Settings2 className="h-3 w-3 inline mr-1" />鏡像
           </button>
 
           {/* Cue info */}
-          <span className="text-xs text-white/40">
+          <span className="text-xs text-muted-foreground/80">
             {currentCue + 1} / {flatCues.length}
           </span>
         </div>
@@ -259,7 +269,7 @@ export default function PrompterPage() {
           className="absolute top-12 left-0 right-0 z-10 text-center transition-opacity duration-500"
           onClick={e => e.stopPropagation()}
         >
-          <span className="inline-block text-xs text-white/30 bg-white/5 px-3 py-1 rounded-full">
+          <span className="inline-block text-xs text-muted-foreground/60 bg-muted/30 px-3 py-1 rounded-full">
             {current.sectionLabel}
           </span>
         </div>
@@ -303,7 +313,7 @@ export default function PrompterPage() {
           }}
         >
           {scenarioText || (
-            <span className="text-white/20">（台本なし）</span>
+            <span className="text-muted-foreground/40">（台本なし）</span>
           )}
         </div>
       </div>
@@ -316,7 +326,7 @@ export default function PrompterPage() {
         style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)' }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center gap-4 text-xs text-white/40">
+        <div className="flex items-center gap-4 text-xs text-muted-foreground/80">
           <span>クリック / スペース: {isScrolling ? 'スクロール停止' : 'スクロール開始'}</span>
           <span>↑↓: フォントサイズ</span>
           <span>←→: スクロール速度</span>
