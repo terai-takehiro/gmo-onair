@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { HeaderNav } from "@/components/header-nav";
 
 export const metadata: Metadata = {
   title: "Interpretation — Operator",
@@ -20,17 +21,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             >
               リアルタイム多言語通訳
             </Link>
-            <nav className="flex items-center gap-4 text-sm text-stone-600">
-              <Link href="/" className="hover:text-brand">
-                セッション
-              </Link>
-              <Link href="/history" className="hover:text-brand">
-                履歴
-              </Link>
-              <Link href="/glossaries" className="hover:text-brand">
-                用語辞書
-              </Link>
-            </nav>
+            <HeaderNav />
           </div>
         </header>
         <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>

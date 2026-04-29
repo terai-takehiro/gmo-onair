@@ -45,6 +45,33 @@ export function getSession(id: string): Promise<SessionPublic> {
   return jsonFetch<SessionPublic>(`/api/v1/sessions/${id}`);
 }
 
+// ---------- Admin ----------
+
+export type AdminUser = {
+  id: string;
+  email: string;
+  display_name: string | null;
+  role: "admin" | "operator";
+};
+
+export type MonthlyCostBucket = {
+  month: string; // YYYY-MM
+  total_jpy: number;
+  by_service: { stt: number; translate: number; tts: number; infra: number };
+};
+
+export function listAdminUsers(): Promise<AdminUser[]> {
+  return jsonFetch<AdminUser[]>("/api/v1/admin/users");
+}
+
+export function getMonthlyCost(
+  months = 12,
+): Promise<{ months: MonthlyCostBucket[] }> {
+  return jsonFetch<{ months: MonthlyCostBucket[] }>(
+    `/api/v1/admin/cost-monthly?months=${months}`,
+  );
+}
+
 function authHeaders(): Record<string, string> {
   const t = bearer();
   return t ? { authorization: `Bearer ${t}` } : {};

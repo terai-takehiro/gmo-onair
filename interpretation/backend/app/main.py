@@ -13,6 +13,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import text as sa_text
 
 from app.api import (
+    admin as admin_api,
     auth as auth_api,
     glossaries,
     output_ws,
@@ -124,6 +125,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_api.router, prefix="/api/v1")
     app.include_router(sessions.router, prefix="/api/v1")
     app.include_router(glossaries.router, prefix="/api/v1")
+    app.include_router(admin_api.router, prefix="/api/v1")
     app.include_router(stream_ws.router)
     app.include_router(output_ws.router)
     app.include_router(preview_ws.router)
