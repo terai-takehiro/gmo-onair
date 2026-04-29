@@ -1,12 +1,10 @@
-"""Operator -> backend audio ingress WebSocket (Phase 1 stub).
+"""Operator -> backend audio ingress WebSocket.
 
 Frontend opens:
-  WSS /ws/operator/{session_id}?token=<jwt>
+  WSS /ws/operator/{session_id}
 
-Binary frames: 16-bit PCM, 16kHz mono, 100ms chunks.
-JSON control frames (TODO): start/stop, language toggles, glossary swap.
-
-Backend: forwards audio to STT pipeline (pipeline/orchestrator.py).
+Binary frames: 16-bit PCM, 16kHz mono, 100ms chunks (1600 samples = 3200 B).
+Frames are forwarded to the per-session orchestrator pipeline.
 """
 
 from __future__ import annotations
@@ -22,6 +20,12 @@ log = structlog.get_logger(__name__)
 
 @router.websocket("/ws/operator/{session_id}")
 async def operator_ws(websocket: WebSocket, session_id: UUID) -> None:
+    orchestrator = websocket.app.state.orchestrator
+    if orchestrator.get(session_id) is None:
+        # Session must be created via POST /api/v1/sessions first.
+        await websocket.close(code=4404, reason="session not started")
+        return
+
     await websocket.accept()
     log.info("operator_ws.connect", session_id=str(session_id))
 
@@ -33,12 +37,11 @@ async def operator_ws(websocket: WebSocket, session_id: UUID) -> None:
                 break
             if (data := msg.get("bytes")) is not None:
                 chunks_received += 1
-                # TODO(Phase 1): forward to pipeline.orchestrator.SessionPipeline
-                # await orchestrator.feed_audio(session_id, data)
+                await orchestrator.feed_audio(session_id, data)
                 continue
-            if (text := msg.get("text")) is not None:
-                # TODO: handle JSON control frames
-                log.debug("operator_ws.control", session_id=str(session_id), payload=text)
+            if msg.get("text") is not None:
+                # Reserved for control messages (start/stop, glossary swap).
+                pass
     except WebSocketDisconnect:
         pass
     finally:

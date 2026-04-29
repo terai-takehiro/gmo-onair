@@ -15,6 +15,8 @@ from fastapi.templating import Jinja2Templates
 from app.api import glossaries, output_ws, sessions, stream_ws
 from app.config import get_settings
 from app.languages import load_languages
+from app.pipeline.orchestrator import Orchestrator
+from app.pipeline.pubsub import PubSubBroker
 from pathlib import Path
 
 _BASE = Path(__file__).parent
@@ -40,8 +42,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     _configure_logging(settings.log_level)
     languages = load_languages()
+    pubsub = PubSubBroker(settings)
+    orchestrator = Orchestrator(settings, pubsub)
     app.state.settings = settings
     app.state.languages = languages
+    app.state.pubsub = pubsub
+    app.state.orchestrator = orchestrator
     log.info(
         "app.startup",
         environment=settings.environment,
@@ -50,6 +56,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        await pubsub.close()
         log.info("app.shutdown")
 
 
