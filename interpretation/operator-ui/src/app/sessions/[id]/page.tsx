@@ -13,6 +13,7 @@ import {
 } from "@/lib/api";
 import { openPreviewWs, type PreviewFrame, type PreviewWS } from "@/lib/preview-ws";
 import { useAuthGuard } from "@/lib/use-auth-guard";
+import { OverlaySettings } from "@/components/overlay-settings";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -295,30 +296,7 @@ export default function LiveSessionPage({ params }: Props) {
         </ul>
       </div>
 
-      {info && (
-        <div className="rounded-2xl border bg-white p-6 shadow-sm">
-          <h3 className="font-serif text-lg font-semibold">vMix 取り込み URL</h3>
-          <ul className="mt-3 space-y-2 text-sm">
-            {Object.entries(info.output_urls).map(([lang, url]) => (
-              <li key={lang} className="flex items-center gap-2">
-                <span className="rounded bg-stone-100 px-2 py-0.5 text-xs">
-                  {lang}
-                </span>
-                <code className="flex-1 truncate font-mono text-xs text-stone-700">
-                  {url}
-                </code>
-                <button
-                  type="button"
-                  onClick={() => navigator.clipboard.writeText(url)}
-                  className="rounded border px-2 py-1 text-xs"
-                >
-                  コピー
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {info && <OverlaySettings outputUrls={info.output_urls} />}
     </section>
   );
 }

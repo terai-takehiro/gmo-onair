@@ -20,11 +20,12 @@ import { AudioPlayer } from "/static/overlay-audio.js";
   const lang = stage.dataset.lang;
   const mode = stage.dataset.mode || "both";
   const wsUrl = stage.dataset.wsUrl;
+  const fadeMs = parseInt(stage.dataset.fadeMs || "4500", 10);
 
   const showText = mode !== "audio";
   const showAudio = mode !== "text";
 
-  const subtitle = new SubtitleStage(linesEl, { maxLines: 2, holdMs: 4500 });
+  const subtitle = new SubtitleStage(linesEl, { maxLines: 2, holdMs: fadeMs });
   const player = showAudio ? new AudioPlayer() : null;
 
   // vMix Chromium needs a user gesture to unlock AudioContext.

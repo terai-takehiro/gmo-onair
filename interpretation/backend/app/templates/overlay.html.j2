@@ -9,10 +9,13 @@
       :root {
         --subtitle-font: {{ font_family }};
         --subtitle-max-chars: {{ max_chars_per_line }};
+        --subtitle-size-scale: {{ size_scale }};
+        --subtitle-color: #{{ color_hex }};
+        --subtitle-outline: #{{ outline_hex }};
       }
     </style>
   </head>
-  <body data-mode="{{ mode }}">
+  <body data-mode="{{ mode }}" data-pos="{{ subtitle_pos }}">
     <div
       id="stage"
       class="subtitle-stage"
@@ -20,6 +23,7 @@
       data-lang="{{ lang_code }}"
       data-mode="{{ mode }}"
       data-ws-url="{{ ws_url }}"
+      data-fade-ms="{{ fade_ms }}"
     >
       <div id="lines" class="subtitle-lines" aria-live="polite"></div>
     </div>

@@ -25,18 +25,41 @@ router = APIRouter()
 log = structlog.get_logger(__name__)
 
 
+_VALID_POS = {"top", "middle", "bottom"}
+
+
+def _hex_color(value: str, default: str) -> str:
+    """Validate a 3- or 6-char hex color (no `#` prefix). Falls back to default."""
+    v = value.lstrip("#")
+    if len(v) in {3, 6} and all(c in "0123456789abcdefABCDEF" for c in v):
+        return v.lower()
+    return default
+
+
 @router.get("/stream/{session_id}/{lang}", response_class=HTMLResponse)
 async def get_overlay(
     request: Request,
     session_id: str,
     lang: str,
     mode: str = "both",
+    pos: str = "bottom",
+    size: int = 100,  # font-size scale percentage (50-200)
+    color: str = "ffffff",
+    outline: str = "000000",
+    fade: int = 4500,  # ms before subtitles fade out
 ) -> HTMLResponse:
     languages = load_languages()
     if lang not in languages:
         raise HTTPException(status_code=404, detail=f"unsupported language: {lang}")
     if mode not in {"text", "audio", "both"}:
         raise HTTPException(status_code=400, detail="mode must be text|audio|both")
+    if pos not in _VALID_POS:
+        raise HTTPException(status_code=400, detail="pos must be top|middle|bottom")
+
+    size = max(50, min(200, size))
+    fade = max(500, min(20_000, fade))
+    color = _hex_color(color, "ffffff")
+    outline = _hex_color(outline, "000000")
 
     spec = languages[lang]
     ws_scheme = "wss" if request.url.scheme == "https" else "ws"
@@ -54,6 +77,11 @@ async def get_overlay(
             "ws_url": ws_url,
             "font_family": spec.font_family,
             "max_chars_per_line": spec.subtitle_max_chars_per_line,
+            "subtitle_pos": pos,
+            "size_scale": size,
+            "color_hex": color,
+            "outline_hex": outline,
+            "fade_ms": fade,
         },
     )
 
