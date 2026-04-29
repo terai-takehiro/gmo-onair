@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.26 — Qシート LED/XR ブロック実装（壁/床パッケージのシーンマスター・Cue/トランジション選択）+ 画像/ハイライト改善（シナリオ画像をピル下に大表示・印刷で司会ピル+画像両立・画像を200pxに拡大・任意エントリに薄いハイライト背景色）
+**現在のバージョン**: v2.8.27 — フルソースコードレビュー報告（2026-04-28）を取り込み、README に「コード健全性 / 既知の課題」セクションを追加。Tailwind バージョン整合性・PostCSS 設定・ESLint 基盤・残存 TODO の現状を可視化。
 
 ---
 
@@ -21,6 +21,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 - [ビルドとデプロイ](#ビルドとデプロイ)
 - [ブランチ運用](#ブランチ運用)
 - [主要なドキュメント](#主要なドキュメント)
+- [コード健全性 / 既知の課題](#コード健全性--既知の課題)
 
 ---
 
@@ -342,6 +343,23 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 | [`docs/architecture/v1.0-data-model.md`](./docs/architecture/v1.0-data-model.md) | データモデル詳細 |
 | [`docs/architecture/v1.0-roadmap.md`](./docs/architecture/v1.0-roadmap.md) | 開発ロードマップ |
 | [`docs/architecture/improvement-proposal.md`](./docs/architecture/improvement-proposal.md) | 改善提案 |
+| [`docs/reviews/code-review-2026-04-28.md`](./docs/reviews/code-review-2026-04-28.md) | フルソースコードレビュー報告（2026-04-28） |
+
+---
+
+## コード健全性 / 既知の課題
+
+直近のフルソースコードレビュー（2026-04-28、対象 459 ファイル）で検出された未解消事項。
+詳細は [`docs/reviews/code-review-2026-04-28.md`](./docs/reviews/code-review-2026-04-28.md) を参照。
+
+| 優先度 | 項目 | 現状 | 対応方針 |
+|---|---|---|---|
+| **High** | Tailwind バージョン不整合 | 各 `client*/package.json` は `tailwindcss: ^3.4.16` を宣言しているが、ロックファイル上は `4.x` 系が解決されており `npm ls tailwindcss` が `invalid` を返す。 | workspace 全体で v3 系に固定（lockfile 再生成）するか、v4 へ全面移行し `@tailwindcss/postcss` を導入する。方針をまず確定させる。 |
+| **High** | フロントエンド build 失敗 | ルート `npm run build` が `@gmo-onair/client` の PostCSS/Tailwind エラーで停止。各 `postcss.config.js` は v3 形式（`tailwindcss: {}` 直指定）のままで、解決済み Tailwind v4 と噛み合っていない。 | 上記バージョン方針確定後に PostCSS 設定を揃える。CI/CD の build を再開させる前提条件。 |
+| **Medium** | ESLint 基盤未整備 | `npm run lint -w client` が ESLint 9 の flat config (`eslint.config.js`) を見つけられず失敗。各クライアントに lint 設定が存在しない。 | ESLint 9（flat config）に統一するか 8 系で揃えるかを決め、`shared/` 経由で設定を共通化する。 |
+| **Low** | 残存 TODO | `server/src/contexts/interactive/services/scaling.service.ts:38`（`currentPlan: 'minimum'` 固定）<br>`client-interactive/src/pages/AudiencePage.tsx:123`（言語固定 `ja`）の 2 箇所。 | 実サーバースペック判定 / チャンネル別言語判定の正式実装に置き換える。issue 化して期限を切る。 |
+
+> サーバー単体ビルド（`npm run build -w server`）は現時点で正常通過しています。
 
 ---
 
@@ -383,6 +401,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.8.27** | **コードレビュー結果を README に取り込み + main → dev 同期**: ①codex によるフルソースコードレビュー報告（[`docs/reviews/code-review-2026-04-28.md`](./docs/reviews/code-review-2026-04-28.md)、対象 459 ファイル）の指摘内容を README の新セクション「コード健全性 / 既知の課題」として可視化。Tailwind v3 宣言と v4 解決の不整合（High）、PostCSS v3 形式設定によるフロントエンド build 失敗（High）、ESLint flat config 未整備（Medium）、`scaling.service.ts:38` / `AudiencePage.tsx:123` の TODO 2 件（Low）を表形式で整理。②サーバー単体ビルドは正常通過の状況を併記。③main にだけ存在していた本レビュー報告を dev にも反映（通常と逆方向の同期）。 |
 | **v2.8.26** | **Qシート LED/XR ブロック実装 + 画像/ハイライト改善**: ①LED/XR シーンリストを台本ごとのマスター（`doc.data.ledScenes: { id, name, wall, floor }[]`）として管理。`EditorSidebar` に「LED/XR シーン」セクション + `LedSceneSection`（インライン編集/追加/削除）。②`CueRow` の `led_xr` セルでシーンをプルダウン選択し、選択時に壁/床演出を inline 表示。Cue（V明け/Qワード/卓D/任意入力）とトランジション（F.I./C.I./任意入力）をエントリ単位で指定。③印刷で `formatLedEntry()` により「【S1】壁:KVループ＋PC1 / 床:KV / ［卓DでF.I.］」形式に整形。④ランダウンも LED/XR ブロックを個別レンダリング。⑤シナリオ/映像/音声/テロップ画像を編集画面でピル行の下に大きく表示（max-h-40）。⑥印刷で `en?.image ? <img> : <pill>` の三項条件により司会ピルが消えていたバグを修正。⑦印刷の画像最大高を 100/120 → 200px に拡大。⑧立ち位置図 SVG を `width="100%"` + `maxHeight: 200` のレスポンシブ表示に変更。⑨ランダウンに立ち位置図SVGと添付画像レンダリングを追加。⑩任意エントリに薄いハイライト背景色（黄/緑/青/桃/紫/橙）を設定できる `HighlightPicker` を追加。編集tr/印刷tr/ランダウンcue 全てに反映（mono印刷時は無視）。 |
 | **v2.8.25** | **料金シミュレーション↔概算見積連携 + 想定金額永続化修正**: ①BusinessProjectViewに「シミュレーション」ボタンを追加。シミュレーションで選択した項目を概算見積明細に一括追加可能。②SimulationDialog の onApply を `(total, items[])` に拡張。③simulations PUT 保存時に `projects.expected_amount` も即時DB更新 — リロードで消えるバグを修正 |
 | **v2.8.24** | **売上高計10倍バグ修正・全ポップアップUI幅改善**: ①pg ライブラリが NUMERIC(OID 1700) を文字列で返す問題を `types.setTypeParser` で根本修正（`"414308" + "0" = "4143080"` の文字列連結バグ解消）。②`getSummary` の `as number` を `Number()` に変更。③仕入ダイアログ（PurchaseListPage・BusinessProjectView・ProjectGroupListPage）・料金表ピッカー・按分グループダイアログ・スタジオ予約詳細ダイアログの幅を lg/xl/2xl に拡張 |

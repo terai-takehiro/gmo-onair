@@ -33,7 +33,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.26 — Qシート LED/XR ブロック実装 + 画像/ハイライト改善：①LED/XR シーンリストを台本ごとのマスターとして管理（壁演出・床演出をパッケージで保持）。サイドバー「LED/XR シーン」で名前/壁/床を編集。②LED/XR セルでシーンをプルダウン選択し、Cue（V明け/Qワード/卓D/任意入力）とトランジション（F.I./C.I./任意入力）をエントリ単位で指定。③印刷とランダウンで「【S1】壁:…/床:…/［卓DでF.I.］」形式で出力。④シナリオ画像をピル下に大表示、印刷で司会ピル+画像両立（バグ修正）、画像を最大200pxに拡大、立ち位置図を編集/ランダウンに表示、任意エントリにハイライト背景色（黄/緑/青/桃/紫/橙）
+v2.8.27 — フルソースコードレビュー報告（2026-04-28、対象 459 ファイル）の指摘事項を README に「コード健全性 / 既知の課題」として可視化し、CLAUDE.md にも再発防止のための「コード健全性ポリシー」を追加。Tailwind v3 宣言と v4 解決の不整合（High）、PostCSS v3 形式設定によるフロントエンド build 失敗（High）、ESLint flat config 未整備（Medium）、`scaling.service.ts:38` / `AudiencePage.tsx:123` の TODO 2 件（Low）が未解消の現状。サーバー単体ビルド（`npm run build -w server`）は正常通過。main にだけ存在していた本レビュー報告を dev にも反映（通常と逆方向の同期）。
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)
@@ -132,6 +132,30 @@ PostgreSQL の `onair_prod` / `onair_dev` を 3 時間ごとに pg_dump + gzip �
   - 固定ヘッダー/フッターは `position: fixed` + `safe-area-inset` を考慮
 - 実装後は DevTools のモバイルエミュレーションで動作確認
 - 既存画面もレスポンシブ不備を見つけたら随時修正すること
+
+## コード健全性ポリシー（2026-04-28 codex フルレビューからの学び）
+
+### 依存関係のバージョン整合性
+- **`package.json` の宣言と `package-lock.json` の解決を必ず一致させる**。codex レビューで `tailwindcss` を `^3.4.16` と宣言したまま lockfile 上は `4.x` 系が解決されており、`npm ls tailwindcss` が `invalid` を返す状態が放置されていた。
+- ライブラリのメジャーバージョンを上げる際は **workspace 全体（7 クライアント + server + shared）で同時に更新** し、関連設定（PostCSS / Vite plugin / Tailwind preset 等）も同じコミット内で揃える。中途半端な更新を残さない。
+- **CI/手元で `npm ls <主要パッケージ> --depth=2` を定期確認**し、`invalid` / `extraneous` を検知したらその場で潰す。
+
+### ビルド関連設定の同期
+- Tailwind v3 → v4 のように **PostCSS API が変わるメジャー更新では `postcss.config.js` を必ず同時更新**する。v4 系は `@tailwindcss/postcss` を経由する形式で、v3 形式（`tailwindcss: {}` 直指定）のまま放置するとフロントエンド build が停止する。
+- 「ローカルでは動いた」だけで push しない。**`npm run build`（ルート、全 workspace 一括）が通ること**を最低ラインの確認項目とする。サーバー単体ビルドが通ってもフロントが落ちている可能性がある。
+
+### Lint 基盤の維持
+- ESLint 9（flat config = `eslint.config.js`）に統一するか 8 系で揃えるかをまず決め、**`shared/` 配下に共通プリセットを置いて全 workspace から参照**する形に集約する。
+- `npm run lint -w client` のような workspace 単位 lint コマンドが**設定ファイル不在で即落ちしている状態を放置しない**。ESLint を導入する以上、CI で確実に走らせる。
+
+### TODO / FIXME の管理
+- ソースに `TODO` / `FIXME` を残す場合は **必ず GitHub Issue 番号（または期限）を併記**する（例: `// TODO(#123): 実サーバースペック判定`）。
+- 残置 TODO（`server/src/contexts/interactive/services/scaling.service.ts:38` の `currentPlan: 'minimum'` 固定、`client-interactive/src/pages/AudiencePage.tsx:123` の言語固定 `ja` 等）は **issue 化して解消時期を明確に**する。
+- ハードコード値（プラン名・言語コード等）はコメントだけでなく**設定ファイル / 環境変数 / DB マスター化**して根本的に外出しする方針を優先。
+
+### 定期セルフレビュー
+- 大きめのリリース（マイナー以上、または機能盛りだくさんなパッチ）の前後で **`docs/reviews/` に簡潔なレビューメモを残す**運用を継続する（codex / Claude いずれも同じフォーマットで蓄積）。
+- レビューで検出した High/Medium 課題は **README の「コード健全性 / 既知の課題」セクションに反映**し、未解消であることを可視化する（隠さない）。
 
 ## デプロイフロー（必須手順）
 1. **検証環境 (dev.gmo-onair.jp)** — `dev` ブランチにプッシュ → 自動デプロイ
