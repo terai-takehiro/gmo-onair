@@ -1,70 +1,147 @@
-// WebAudio MP3 chunk player. Decodes each chunk and schedules it back-to-back
-// so playback is gapless. vMix Chromium requires a user gesture to start
-// AudioContext; call `unlock()` after the operator clicks.
+// Streaming MP3 player.
+//
+// We prefer MediaSource Extensions with audio/mpeg so chunks can be
+// appended as they arrive, giving real streaming playback. vMix's
+// Chromium ships with MSE + MP3 support. If MSE is unavailable, we fall
+// back to the legacy decodeAudioData path which buffers a full segment
+// before playing.
+//
+// Frames consumed:
+//   {type: "audio_chunk", seq, chunk_seq, is_first, mp3_b64}
+//   {type: "audio_end",   seq, chunk_seq}
+
+const MIME = 'audio/mpeg';
 
 export class AudioPlayer {
   constructor() {
-    this._ctx = null;
-    /** @type {AudioBufferSourceNode | null} */
-    this._lastSource = null;
-    this._nextStartTime = 0;
     this._unlocked = false;
+    this._mse = null;
+    this._fallback = null;
   }
 
   async unlock() {
     if (this._unlocked) return;
-    this._ctx = new (window.AudioContext || window.webkitAudioContext)();
-    if (this._ctx.state === "suspended") {
-      await this._ctx.resume();
+    if ("MediaSource" in window && MediaSource.isTypeSupported(MIME)) {
+      this._mse = new MseMp3Player();
+      await this._mse.start();
+    } else {
+      this._fallback = new FallbackMp3Player();
+      await this._fallback.unlock();
     }
-    this._nextStartTime = this._ctx.currentTime;
     this._unlocked = true;
   }
 
-  /**
-   * @param {string} b64
-   */
-  async enqueueBase64Mp3(b64) {
-    if (!this._unlocked || !this._ctx) {
-      // Try silent unlock attempt; will work if the autoplay policy allows.
-      try {
-        await this.unlock();
-      } catch {
-        return;
-      }
-    }
-    const ctx = this._ctx;
-    if (!ctx) return;
-
-    let bytes;
-    try {
-      bytes = base64ToUint8(b64);
-    } catch {
+  enqueueBase64Mp3(b64) {
+    if (!this._unlocked) {
+      this.unlock().catch(() => {});
       return;
     }
+    if (this._mse) this._mse.append(base64ToUint8(b64));
+    else if (this._fallback) this._fallback.enqueueBase64Mp3(b64);
+  }
 
-    let buffer;
-    try {
-      buffer = await ctx.decodeAudioData(bytes.buffer.slice(0));
-    } catch {
-      return;
-    }
-
-    const src = ctx.createBufferSource();
-    src.buffer = buffer;
-    src.connect(ctx.destination);
-
-    const startAt = Math.max(this._nextStartTime, ctx.currentTime);
-    src.start(startAt);
-    this._nextStartTime = startAt + buffer.duration;
-    this._lastSource = src;
+  segmentEnded() {
+    // No-op for MSE — we keep the source open across segments. The
+    // fallback path doesn't need this either since each enqueue is
+    // independently scheduled.
   }
 }
 
-/**
- * @param {string} b64
- * @returns {Uint8Array}
- */
+// ---- MSE-backed player ----
+
+class MseMp3Player {
+  constructor() {
+    this._audio = new Audio();
+    this._audio.autoplay = true;
+    this._audio.crossOrigin = "anonymous";
+    this._media = new MediaSource();
+    this._sourceBuffer = null;
+    this._queue = [];
+    this._appending = false;
+  }
+
+  start() {
+    this._audio.src = URL.createObjectURL(this._media);
+    return new Promise((resolve, reject) => {
+      this._media.addEventListener("sourceopen", () => {
+        try {
+          this._sourceBuffer = this._media.addSourceBuffer(MIME);
+          this._sourceBuffer.mode = "sequence";
+          this._sourceBuffer.addEventListener("updateend", () => this._drain());
+          this._audio.play().catch(() => {});
+          resolve();
+        } catch (e) {
+          reject(e);
+        }
+      });
+      this._media.addEventListener("error", reject);
+    });
+  }
+
+  append(bytes) {
+    this._queue.push(bytes);
+    this._drain();
+  }
+
+  _drain() {
+    if (
+      this._appending ||
+      !this._sourceBuffer ||
+      this._sourceBuffer.updating ||
+      this._queue.length === 0
+    ) {
+      return;
+    }
+    const next = this._queue.shift();
+    this._appending = true;
+    try {
+      this._sourceBuffer.appendBuffer(next);
+    } catch {
+      this._appending = false;
+      return;
+    }
+    this._sourceBuffer.addEventListener(
+      "updateend",
+      () => {
+        this._appending = false;
+        this._drain();
+      },
+      { once: true },
+    );
+  }
+}
+
+// ---- decodeAudioData fallback ----
+
+class FallbackMp3Player {
+  constructor() {
+    this._ctx = null;
+    this._nextStartTime = 0;
+  }
+
+  async unlock() {
+    this._ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (this._ctx.state === "suspended") await this._ctx.resume();
+    this._nextStartTime = this._ctx.currentTime;
+  }
+
+  async enqueueBase64Mp3(b64) {
+    if (!this._ctx) return;
+    let buffer;
+    try {
+      buffer = await this._ctx.decodeAudioData(base64ToUint8(b64).buffer.slice(0));
+    } catch {
+      return;
+    }
+    const src = this._ctx.createBufferSource();
+    src.buffer = buffer;
+    src.connect(this._ctx.destination);
+    const startAt = Math.max(this._nextStartTime, this._ctx.currentTime);
+    src.start(startAt);
+    this._nextStartTime = startAt + buffer.duration;
+  }
+}
+
 function base64ToUint8(b64) {
   const bin = atob(b64);
   const len = bin.length;

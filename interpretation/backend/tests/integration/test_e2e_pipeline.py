@@ -116,7 +116,13 @@ async def test_full_pipeline_publishes_translation_and_audio(monkeypatch) -> Non
     types_en = [m["type"] for m in en_channel]
     assert "translation" in types_en
     assert "audio_chunk" in types_en
+    assert "audio_end" in types_en  # trailing marker (per-chunk streaming)
     assert "session_end" in types_en
+    # Streaming TTS publishes more than one audio_chunk per segment.
+    audio_chunks = [m for m in en_channel if m["type"] == "audio_chunk"]
+    assert len(audio_chunks) >= 2
+    assert audio_chunks[0]["is_first"] is True
+    assert audio_chunks[0]["chunk_seq"] == 1
 
     preview = broker.published_on(preview_channel_for(str(sid)))
     types_preview = [m["type"] for m in preview]

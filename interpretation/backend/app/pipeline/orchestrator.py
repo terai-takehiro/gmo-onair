@@ -291,22 +291,40 @@ class Orchestrator:
 
             if final_text:
                 p.cost_tracker.record_tts(len(final_text))
-                pieces: list[bytes] = []
                 first_audio_ms: float | None = None
+                last_chunk_seq = 0
                 async for audio in tts_mod.synthesize_stream(
                     self._settings, spec, final_text, seq
                 ):
                     if first_audio_ms is None:
                         first_audio_ms = audio.t_ms
-                    pieces.append(audio.mp3_bytes)
+                    last_chunk_seq = audio.chunk_seq
+                    await self._broker.publish_json(
+                        channel,
+                        {
+                            "type": "audio_chunk",
+                            "lang": lang,
+                            "seq": seq,
+                            "chunk_seq": audio.chunk_seq,
+                            "is_first": audio.is_first,
+                            "is_last": False,
+                            "mp3_b64": base64.b64encode(audio.mp3_bytes).decode(
+                                "ascii"
+                            ),
+                        },
+                    )
 
-                payload = {
-                    "type": "audio_chunk",
-                    "lang": lang,
-                    "seq": seq,
-                    "mp3_b64": base64.b64encode(b"".join(pieces)).decode("ascii"),
-                }
-                await self._broker.publish_json(channel, payload)
+                # Trailing marker so the overlay knows when the segment ended;
+                # avoids sending an extra audio_chunk with empty bytes.
+                await self._broker.publish_json(
+                    channel,
+                    {
+                        "type": "audio_end",
+                        "lang": lang,
+                        "seq": seq,
+                        "chunk_seq": last_chunk_seq,
+                    },
+                )
 
                 log.info(
                     "orchestrator.tts_done",
@@ -314,6 +332,7 @@ class Orchestrator:
                     lang=lang,
                     seq=seq,
                     chars=len(final_text),
+                    chunks=last_chunk_seq,
                     first_audio_ms=round(first_audio_ms or 0.0, 1),
                 )
         except Exception as e:
