@@ -291,7 +291,7 @@ export default function CueTable({
   let rowNum = 0;
 
   return (
-    <main className="flex-1 overflow-auto bg-zinc-50 dark:bg-zinc-950">
+    <main className="flex-1 overflow-auto bg-background">
       <div className="p-4 space-y-4">
         {sections.map((section, si) => {
           const isSectionDragTarget = dropTargetSectionIdx === si && draggedSectionIdx !== null && draggedSectionIdx !== si;
@@ -301,11 +301,11 @@ export default function CueTable({
           if (section._pageBreak) {
             return (
               <div key={si} className={`flex items-center gap-2 my-1 px-4 animate-in cursor-grab select-none ${isSectionDragged ? "opacity-40" : ""}`}>
-                <GripVertical size={12} className="text-zinc-300 dark:text-zinc-600 flex-none" />
-                <div className="flex-1 border-t-2 border-dashed border-zinc-300 dark:border-zinc-600" />
-                <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium whitespace-nowrap">改ページ</span>
-                <div className="flex-1 border-t-2 border-dashed border-zinc-300 dark:border-zinc-600" />
-                <button onClick={() => deleteSection(si)} className="text-zinc-300 hover:text-red-400 transition-colors p-0.5">
+                <GripVertical size={12} className="text-muted-foreground/40 flex-none" />
+                <div className="flex-1 border-t-2 border-dashed border-border" />
+                <span className="text-[11px] text-muted-foreground font-medium whitespace-nowrap">改ページ</span>
+                <div className="flex-1 border-t-2 border-dashed border-border" />
+                <button onClick={() => deleteSection(si)} className="text-muted-foreground/60 hover:text-destructive transition-colors p-0.5">
                   <Trash2 size={12} />
                 </button>
               </div>
@@ -319,15 +319,15 @@ export default function CueTable({
             absSec += breakDur;
             return (
               <div key={si} className={`animate-in ${isSectionDragged ? "opacity-40" : ""}`}>
-                <div className="flex items-center gap-3 px-4 py-1.5 bg-zinc-800 dark:bg-zinc-700 rounded-lg cursor-grab select-none">
-                  <GripVertical size={13} className="text-zinc-500 flex-none" />
-                  <span className="text-[13px] text-zinc-400 tabular-nums whitespace-nowrap font-oswald" style={{ letterSpacing: "0.05em" }}>
+                <div className="flex items-center gap-3 px-4 py-1.5 bg-foreground/90 dark:bg-foreground/90 rounded-lg cursor-grab select-none">
+                  <GripVertical size={13} className="text-background/50 flex-none" />
+                  <span className="text-[13px] text-background/70 tabular-nums whitespace-nowrap font-oswald" style={{ letterSpacing: "0.05em" }}>
                     {fmtAbs(breakAbsSec)}
                   </span>
                   <input
                     value={section.label || ""}
                     onChange={(e) => updateSection(si, "label", e.target.value)}
-                    className="bg-transparent text-white text-[13px] font-bold border-none outline-none placeholder:text-zinc-500 tracking-wide flex-1"
+                    className="bg-transparent text-white text-[13px] font-bold border-none outline-none placeholder:text-background/40 tracking-wide flex-1"
                     placeholder="CM"
                   />
                   <span className="text-[15px] font-bold text-white whitespace-nowrap ml-auto font-oswald">
@@ -340,15 +340,15 @@ export default function CueTable({
                       const n = normalizeDur(e.target.value);
                       if (n !== e.target.value) updateSection(si, "duration", n);
                     }}
-                    className={`w-12 text-center text-[11px] border-none outline-none rounded py-0.5 tabular-nums placeholder:text-zinc-500 focus:text-white transition-colors ${
+                    className={`w-12 text-center text-[11px] border-none outline-none rounded py-0.5 tabular-nums placeholder:text-background/50 focus:text-background transition-colors ${
                       parseDur(section.duration || "") === 0
                         ? "bg-amber-500/30 text-amber-100 ring-1 ring-amber-400/70"
-                        : "bg-zinc-700 dark:bg-zinc-600 text-zinc-400"
+                        : "bg-foreground/30 text-background/70"
                     }`}
                     placeholder="0:00"
                     title={parseDur(section.duration || "") === 0 ? "尺が未入力です" : undefined}
                   />
-                  <button onClick={() => deleteSection(si)} className="text-zinc-500 hover:text-red-400 transition-colors p-1">
+                  <button onClick={() => deleteSection(si)} className="text-muted-foreground hover:text-destructive transition-colors p-1">
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -393,7 +393,7 @@ export default function CueTable({
                     placeholder="0:00"
                     title={vtrDur === 0 ? "尺が未入力です" : undefined}
                   />
-                  <button onClick={() => deleteSection(si)} className="text-indigo-300 hover:text-red-300 transition-colors p-1">
+                  <button onClick={() => deleteSection(si)} className="text-info/80 hover:text-destructive/80 transition-colors p-1">
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -411,15 +411,15 @@ export default function CueTable({
           return (
             <div
               key={si}
-              className={`bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200/60 dark:border-zinc-800/60 overflow-hidden shadow-sm animate-in transition-opacity ${
+              className={`bg-card rounded-xl border border-border overflow-hidden shadow-sm animate-in transition-opacity ${
                 isSectionDragged ? "opacity-40" : ""
               } ${isSectionDragTarget ? "ring-2 ring-blue-500 ring-offset-2" : ""}`}
             >
               {/* Section header */}
               <div className={`flex items-center gap-2 px-3 sm:px-4 py-2 cursor-grab select-none flex-wrap ${
                 isSectionCollapsed
-                  ? "bg-gradient-to-r from-blue-800 to-blue-700 dark:from-blue-900 dark:to-blue-800"
-                  : "bg-gradient-to-r from-blue-600 to-blue-500 dark:from-blue-700 dark:to-blue-600"
+                  ? "bg-gradient-to-r from-primary/90 to-primary/70"
+                  : "bg-gradient-to-r from-primary to-primary/80"
               }`}>
                 <GripVertical size={14} className="text-white/30 flex-none" />
                 <span
@@ -487,7 +487,7 @@ export default function CueTable({
                         <col style={{ width: FIXED_COLS.ops + "px" }} />
                       </colgroup>
                       <thead>
-                        <tr className="text-[11px] text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                        <tr className="text-[11px] text-muted-foreground uppercase tracking-wider">
                           {blocks.map((blk, bi) => {
                             const Icon = BLOCK_ICONS[blk.type];
                             const isCollapsed = collapsedBlocks?.has(blk.id);
@@ -526,20 +526,20 @@ export default function CueTable({
                                   setDropTargetIdx(null);
                                 }}
                                 onDragEnd={() => { setDraggedBlockId(null); setDropTargetIdx(null); }}
-                                className={`px-2 py-2 text-left font-medium border-b border-zinc-100 dark:border-zinc-800 relative group/th cursor-grab select-none transition-all ${
+                                className={`px-2 py-2 text-left font-medium border-b border-border/60 relative group/th cursor-grab select-none transition-all ${
                                   draggedBlockId === blk.id ? "opacity-40" : ""
                                 } ${isDragTarget ? "border-l-2 border-l-blue-500" : ""}`}
                               >
                                 {isCollapsed ? (
                                   <div className="flex items-center justify-center h-full">
-                                    <button onClick={() => onToggleCollapse?.(blk.id)} className="p-0.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded transition-colors">
+                                    <button onClick={() => onToggleCollapse?.(blk.id)} className="p-0.5 hover:bg-accent rounded transition-colors">
                                       <ChevronRight size={10} />
                                     </button>
                                     <span className="text-xs whitespace-nowrap" style={{ writingMode: "vertical-rl" }}>{blk.label}</span>
                                   </div>
                                 ) : (
                                   <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                                    <button onClick={() => onToggleCollapse?.(blk.id)} className="p-0.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded transition-colors opacity-0 group-hover/th:opacity-100">
+                                    <button onClick={() => onToggleCollapse?.(blk.id)} className="p-0.5 hover:bg-accent rounded transition-colors opacity-0 group-hover/th:opacity-100">
                                       <ChevronDown size={10} />
                                     </button>
                                     {Icon && <Icon size={12} className="opacity-50" />}
@@ -550,14 +550,14 @@ export default function CueTable({
                                 {!isCollapsed && (
                                   <div
                                     draggable={false}
-                                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 group-hover/th:opacity-100 hover:bg-blue-500 transition-opacity"
+                                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 group-hover/th:opacity-100 hover:bg-primary transition-opacity"
                                     onMouseDown={(e) => startResize(e, blk)}
                                   />
                                 )}
                               </th>
                             );
                           })}
-                          <th className="border-b border-zinc-100 dark:border-zinc-800" />
+                          <th className="border-b border-border/60" />
                         </tr>
                       </thead>
                       <tbody>
@@ -596,7 +596,7 @@ export default function CueTable({
                   {/* Add row footer */}
                   <button
                     onClick={() => addRow(si)}
-                    className="w-full py-2 text-[12px] text-zinc-400 hover:text-blue-600 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 border-t border-zinc-100 dark:border-zinc-800 transition-colors"
+                    className="w-full py-2 text-[12px] text-muted-foreground hover:text-primary hover:bg-primary/10 border-t border-border/60 transition-colors"
                   >
                     ＋ 行を追加
                   </button>
@@ -610,19 +610,19 @@ export default function CueTable({
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={addSection}
-            className="flex-1 min-w-[160px] py-3 text-sm text-zinc-400 hover:text-blue-600 border-2 border-dashed border-zinc-200 dark:border-zinc-800 hover:border-blue-300 dark:hover:border-blue-700 rounded-xl transition-all"
+            className="flex-1 min-w-[160px] py-3 text-sm text-muted-foreground hover:text-primary border-2 border-dashed border-border hover:border-primary rounded-xl transition-all"
           >
             ＋ ロールを追加
           </button>
           <button
             onClick={() => addBreak()}
-            className="py-3 px-5 text-sm text-zinc-400 hover:text-amber-600 border-2 border-dashed border-zinc-200 dark:border-zinc-800 hover:border-amber-300 dark:hover:border-amber-700 rounded-xl transition-all"
+            className="py-3 px-5 text-sm text-muted-foreground hover:text-warning border-2 border-dashed border-border hover:border-warning rounded-xl transition-all"
           >
             ＋ CMなど
           </button>
           <button
             onClick={() => addVtr()}
-            className="py-3 px-5 text-sm text-zinc-400 hover:text-indigo-600 border-2 border-dashed border-zinc-200 dark:border-zinc-800 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-xl transition-all"
+            className="py-3 px-5 text-sm text-muted-foreground hover:text-info border-2 border-dashed border-border hover:border-info rounded-xl transition-all"
           >
             ＋ VTR
           </button>
