@@ -91,7 +91,27 @@ const SPEAKER_COLORS = [
 ];
 
 // ─── CueTable ───────────────────────────────────────────
-export default function CueTable({
+export default function CueTable(props: Props) {
+  // lg 未満ではカード形式の代替ビューに切替。
+  // hooks の数が両分岐で変わらないよう、ラッパで分岐し
+  // 子コンポーネント側でそれぞれ独立した hook 順序を持つ
+  // (リサイズで境界を跨いでもクラッシュしない)。
+  const isLg = useMediaQuery("(min-width: 1024px)");
+  if (!isLg) {
+    return (
+      <CueCardList
+        blocks={props.blocks}
+        sections={props.sections}
+        masters={props.masters}
+        ledScenes={props.ledScenes}
+        updateState={props.updateState}
+      />
+    );
+  }
+  return <CueTableLg {...props} />;
+}
+
+function CueTableLg({
   blocks,
   sections,
   masters,
@@ -104,19 +124,6 @@ export default function CueTable({
   onToggleSectionCollapse,
   updateState,
 }: Props) {
-  // lg 未満ではカード形式の代替ビューに切替
-  const isLg = useMediaQuery("(min-width: 1024px)");
-  if (!isLg) {
-    return (
-      <CueCardList
-        blocks={blocks}
-        sections={sections}
-        masters={masters}
-        ledScenes={ledScenes}
-        updateState={updateState}
-      />
-    );
-  }
   const draggedSectionIdx: number | null = null;
   const dropTargetSectionIdx: number | null = null;
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);

@@ -33,7 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.29 (dev) — Qシート UI/UX モダン化 Phase 1〜4 完了。Phase 1+2 (v2.8.28) の Toast 基盤・DADS 化・Tabs/Sheet/FAB・モバイルフル編集 (CueCardList/CueRowSheet/CueRowMobileEditor)・StageEditor Dialog 化 に加え、Phase 3+4 で以下を投入: ①OnAirPage を `<html class="dark">` 強制 + Socket 切断/再接続 Toast + 全色 semantic 化。②RundownPage を theme 連動の dark 同期 + slate-* → semantic、押し/巻き indicator を destructive/info/success に。③PrompterPage を dark 強制 + 全色 semantic 化。④PreviewModal に **A3 タテ/ヨコ**追加、印刷 CSS で `page-break-inside: avoid` + `widows/orphans: 3` を導入しセクション/行の途中分断を防止、幅を `min(92vw, 1280px)` に。⑤index.css に `@media print` ルール追加（Editor から直接印刷時にも有効、nav/aside を非表示）。⑥**Ctrl+S/Cmd+S** グローバルキーバインド（input/textarea/contenteditable 内では無視）+ `aria-keyshortcuts`。⑦Sidebar に `aria-label`/`aria-current="page"`/`focus-visible:ring-2`、icon に `aria-hidden`。Socket.IO `/qsheet` イベント仕様 + doc.data JSONB 構造完全維持。dev 環境で動作検証中、本番投入はユーザー承認後。
+v2.8.30 (dev) — **Hotfix**: ブラウザリサイズで CueTable がクラッシュするバグ修正。原因は `useMediaQuery` の直後で early return していたため、`isLg` が境界 (1024px) を跨ぐと hooks の数が変動して Rules of Hooks 違反になっていた。修正: ラッパ `CueTable` で `useMediaQuery` のみ評価し、結果に応じて `<CueCardList />` または `<CueTableLg />` に分岐。各子コンポーネントは独立した hook 順序を持つため、リサイズで境界を跨いでも安全に mount/unmount される。
+
+(v2.8.29: Qシート UI/UX モダン化 Phase 1〜4 完了。Phase 1+2 の Toast 基盤・DADS 化・Tabs/Sheet/FAB・モバイルフル編集・StageEditor Dialog 化 + Phase 3+4 の OnAir/Rundown/Prompter dark 強制 + Socket Toast、印刷 page-break ルール、A3 対応、Ctrl+S グローバル、a11y 詰め)
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)
