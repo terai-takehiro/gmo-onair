@@ -19,6 +19,12 @@ import {
   Monitor,
   Lightbulb,
 } from "lucide-react";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@gmo-onair/shared/src/client/ui";
 
 // ─── Types ──────────────────────────────────────────────
 interface Block {
@@ -102,15 +108,17 @@ function CollapsibleSection({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border-b border-zinc-100 dark:border-zinc-800/60">
-      <div className="flex items-center px-4 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
-        <div
+    <div className="border-b border-border last:border-b-0">
+      <div className="flex items-center px-4 py-2.5 hover:bg-accent/40 transition-colors">
+        <button
+          type="button"
           onClick={() => setOpen(!open)}
-          className="flex items-center gap-1.5 flex-1 cursor-pointer text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider select-none"
+          aria-expanded={open}
+          className="flex items-center gap-1.5 flex-1 cursor-pointer text-[11px] font-semibold text-muted-foreground uppercase tracking-wider select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 rounded"
         >
-          {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          {open ? <ChevronDown size={12} aria-hidden /> : <ChevronRight size={12} aria-hidden />}
           <span>{title}</span>
-        </div>
+        </button>
         {action}
       </div>
       {open && <div className="px-4 pb-3 animate-in">{children}</div>}
@@ -141,24 +149,24 @@ function MasterSection({
   };
   return (
     <div className="mb-3 last:mb-0">
-      <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">{label}</div>
+      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">{label}</div>
       <div className="flex flex-wrap gap-1.5 mb-2">
         {items.map((item, i) => (
           <span key={i} className={`group inline-flex items-center gap-1 px-2.5 py-1 ${color} rounded-md text-[11px] font-bold tracking-wide transition-all hover:opacity-80`}>
             <span className="font-mono">{item}</span>
-            <button onClick={() => onRemove(i)} className="opacity-0 group-hover:opacity-100 -mr-0.5 hover:text-red-300 transition-all">
+            <button onClick={() => onRemove(i)} className="opacity-0 group-hover:opacity-100 -mr-0.5 hover:text-destructive/80 transition-all">
               <X size={10} />
             </button>
           </span>
         ))}
-        {items.length === 0 && <span className="text-[11px] text-zinc-300 dark:text-zinc-600 italic">未登録</span>}
+        {items.length === 0 && <span className="text-[11px] text-muted-foreground/60 italic">未登録</span>}
       </div>
       <input
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={`${label}を追加 (Enter)`}
-        className="w-full px-2.5 py-1.5 text-[12px] bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-md outline-none focus:border-blue-400 focus:bg-white dark:focus:bg-zinc-800 dark:focus:border-blue-600 placeholder:text-zinc-300 dark:placeholder:text-zinc-600 transition-all"
+        className="w-full px-2.5 py-1.5 text-[12px] bg-muted/50 border border-border rounded-md outline-none focus:border-primary focus:bg-white placeholder:text-muted-foreground/60 placeholder:text-muted-foreground/40 transition-all"
       />
     </div>
   );
@@ -193,45 +201,45 @@ function LedSceneSection({
   return (
     <div>
       {scenes.length === 0 ? (
-        <p className="text-[12px] text-zinc-400 italic mb-2">シーン未登録</p>
+        <p className="text-[12px] text-muted-foreground italic mb-2">シーン未登録</p>
       ) : (
         <div className="space-y-2 mb-2">
           {scenes.map((s, i) => (
             <div
               key={s.id}
-              className="group p-2 rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/40 space-y-1"
+              className="group p-2 rounded-md border border-border bg-muted/40 space-y-1"
             >
               <div className="flex items-center gap-1.5">
                 <input
                   value={s.name}
                   onChange={(e) => updateScene(i, { name: e.target.value })}
                   placeholder="名前 (例: S1)"
-                  className="flex-1 px-1.5 py-1 text-[12px] font-bold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
+                  className="flex-1 px-1.5 py-1 text-[12px] font-bold bg-card border border-border rounded outline-none focus:border-primary"
                 />
                 <button
                   onClick={() => removeScene(i)}
-                  className="opacity-0 group-hover:opacity-100 text-zinc-300 hover:text-red-500 transition-all flex-none"
+                  className="opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-destructive transition-all flex-none"
                   title="削除"
                 >
                   <X size={11} />
                 </button>
               </div>
               <label className="flex items-center gap-1.5">
-                <span className="w-7 flex-none text-[10px] font-bold text-zinc-400 uppercase">壁</span>
+                <span className="w-7 flex-none text-[10px] font-bold text-muted-foreground uppercase">壁</span>
                 <input
                   value={s.wall}
                   onChange={(e) => updateScene(i, { wall: e.target.value })}
                   placeholder="壁演出 (例: KVループ＋PC1)"
-                  className="flex-1 px-1.5 py-1 text-[11px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
+                  className="flex-1 px-1.5 py-1 text-[11px] bg-card border border-border rounded outline-none focus:border-primary"
                 />
               </label>
               <label className="flex items-center gap-1.5">
-                <span className="w-7 flex-none text-[10px] font-bold text-zinc-400 uppercase">床</span>
+                <span className="w-7 flex-none text-[10px] font-bold text-muted-foreground uppercase">床</span>
                 <input
                   value={s.floor}
                   onChange={(e) => updateScene(i, { floor: e.target.value })}
                   placeholder="床演出 (例: KV)"
-                  className="flex-1 px-1.5 py-1 text-[11px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded outline-none focus:border-violet-400"
+                  className="flex-1 px-1.5 py-1 text-[11px] bg-card border border-border rounded outline-none focus:border-primary"
                 />
               </label>
             </div>
@@ -240,7 +248,7 @@ function LedSceneSection({
       )}
       <button
         onClick={addScene}
-        className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-[12px] rounded-md border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-500 hover:border-violet-400 hover:text-violet-600 transition-colors"
+        className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-[12px] rounded-md border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary transition-colors"
       >
         <Plus size={12} />
         シーンを追加
@@ -300,26 +308,38 @@ export default function EditorSidebar({
   };
 
   return (
-    <aside className="hidden lg:block w-60 flex-none border-r border-zinc-200/60 dark:border-zinc-800/60 bg-white/50 dark:bg-zinc-900/50 overflow-y-auto backdrop-blur-sm">
-      {/* Columns */}
-      <CollapsibleSection
+    <aside
+      className="hidden lg:flex lg:flex-col w-60 flex-none border-r border-border bg-card/50 backdrop-blur-sm"
+      aria-label="エディタサイドバー"
+    >
+      <Tabs defaultValue="blocks" className="flex flex-col h-full">
+        <TabsList className="grid grid-cols-4 m-2 mb-0 sticky top-0 z-10 shrink-0">
+          <TabsTrigger value="blocks" className="text-xs">列</TabsTrigger>
+          <TabsTrigger value="masters" className="text-xs">マスター</TabsTrigger>
+          <TabsTrigger value="meta" className="text-xs">メタ</TabsTrigger>
+          <TabsTrigger value="led" className="text-xs">LED</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="blocks" className="flex-1 overflow-y-auto m-0 mt-2">
+          {/* Columns */}
+          <CollapsibleSection
         title="列"
         action={
           <button
             onClick={() => setShowBlockPicker(!showBlockPicker)}
-            className="w-5 h-5 rounded-md flex items-center justify-center text-zinc-400 hover:bg-blue-100 hover:text-blue-600 dark:hover:bg-blue-950/40 dark:hover:text-blue-400 transition-colors"
+            className="w-5 h-5 rounded-md flex items-center justify-center text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
           >
             <Plus size={12} />
           </button>
         }
       >
         {showBlockPicker && (
-          <div className="mb-2 p-1.5 bg-zinc-50 dark:bg-zinc-800/80 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm animate-scale-in">
+          <div className="mb-2 p-1.5 bg-muted rounded-lg border border-border shadow-sm animate-scale-in">
             {BLOCK_TYPES.map((bt) => (
               <button
                 key={bt.type}
                 onClick={() => addBlock(bt.type)}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] rounded-md hover:bg-white dark:hover:bg-zinc-700 transition-colors text-left"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] rounded-md hover:bg-accent transition-colors text-left"
               >
                 <span className={`w-5 h-5 rounded flex items-center justify-center text-white ${bt.color}`}>
                   <bt.Icon size={12} />
@@ -365,18 +385,18 @@ export default function EditorSidebar({
                   setDropTargetBlkId(null);
                 }}
                 onDragEnd={() => { setDraggedBlkId(null); setDropTargetBlkId(null); }}
-                className={`group flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors cursor-grab select-none ${
+                className={`group flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent/60 transition-colors cursor-grab select-none ${
                   draggedBlkId === blk.id ? "opacity-40" : ""
-                } ${isDragTarget ? "border-t-2 border-blue-500" : ""}`}
+                } ${isDragTarget ? "border-t-2 border-primary" : ""}`}
               >
-                <GripVertical size={11} className="text-zinc-300 dark:text-zinc-700 flex-none" />
+                <GripVertical size={11} className="text-muted-foreground/60 flex-none" />
                 <span className={`w-4 h-4 rounded flex items-center justify-center text-white flex-none ${bt?.color || "bg-zinc-400"}`}>
                   {bt?.Icon ? <bt.Icon size={10} /> : null}
                 </span>
                 <span className="flex-1 text-[13px] truncate font-medium">{blk.label}</span>
                 <button
                   onClick={() => removeBlock(idx)}
-                  className="opacity-0 group-hover:opacity-100 text-zinc-300 hover:text-red-500 transition-all flex-none"
+                  className="opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-destructive transition-all flex-none"
                 >
                   <X size={11} />
                 </button>
@@ -384,10 +404,12 @@ export default function EditorSidebar({
             );
           })}
         </div>
-      </CollapsibleSection>
+          </CollapsibleSection>
+        </TabsContent>
 
-      {/* Master Data */}
-      <CollapsibleSection title="マスタデータ" defaultOpen={false}>
+        <TabsContent value="masters" className="flex-1 overflow-y-auto m-0 mt-2">
+          {/* Master Data */}
+          <CollapsibleSection title="マスタデータ" defaultOpen={true}>
         {MASTER_SECTIONS.map((ms) => (
           <MasterSection
             key={ms.key}
@@ -398,30 +420,30 @@ export default function EditorSidebar({
             onRemove={(idx) => removeMasterItem(ms.key, idx)}
           />
         ))}
-      </CollapsibleSection>
+          </CollapsibleSection>
 
-      {/* Stage Templates */}
-      <CollapsibleSection
-        title="立ち位置図"
-        defaultOpen={false}
+          {/* Stage Templates */}
+          <CollapsibleSection
+            title="立ち位置図"
+            defaultOpen={false}
         action={
           <button
             onClick={() => onEditStageTemplate?.(-1)}
-            className="w-5 h-5 rounded-md flex items-center justify-center text-zinc-400 hover:bg-amber-100 hover:text-amber-600 dark:hover:bg-amber-950/40 dark:hover:text-amber-400 transition-colors"
+            className="w-5 h-5 rounded-md flex items-center justify-center text-muted-foreground hover:bg-warning/10 hover:text-warning transition-colors"
           >
             <Plus size={12} />
           </button>
         }
       >
         {(stageTemplates || []).length === 0 ? (
-          <p className="text-[12px] text-zinc-400 italic">テンプレートなし</p>
+          <p className="text-[12px] text-muted-foreground italic">テンプレートなし</p>
         ) : (
           <div className="space-y-0.5">
             {(stageTemplates || []).map((t: any, i: number) => (
-              <div key={i} className="group flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors">
+              <div key={i} className="group flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] hover:bg-accent/60 transition-colors">
                 <span className="text-sm flex-none">🎭</span>
                 <span className="flex-1 truncate font-medium cursor-pointer" onClick={() => onEditStageTemplate?.(i)}>{t.name}</span>
-                <button onClick={() => onEditStageTemplate?.(i)} className="opacity-0 group-hover:opacity-100 text-zinc-300 hover:text-blue-500 transition-all flex-none">
+                <button onClick={() => onEditStageTemplate?.(i)} className="opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-primary transition-all flex-none">
                   <Pencil size={11} />
                 </button>
                 <button
@@ -429,7 +451,7 @@ export default function EditorSidebar({
                     if (!confirm("この立ち位置図を削除しますか？")) return;
                     // Handled by parent
                   }}
-                  className="opacity-0 group-hover:opacity-100 text-zinc-300 hover:text-red-500 transition-all flex-none"
+                  className="opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-destructive transition-all flex-none"
                 >
                   <Trash2 size={11} />
                 </button>
@@ -437,68 +459,74 @@ export default function EditorSidebar({
             ))}
           </div>
         )}
-      </CollapsibleSection>
+          </CollapsibleSection>
+        </TabsContent>
 
-      {/* LED/XR Scenes */}
-      <CollapsibleSection title="LED/XR シーン" defaultOpen={false}>
-        <LedSceneSection
-          scenes={ledScenes || []}
-          onChange={(s) => onLedScenesChange?.(s)}
-        />
-      </CollapsibleSection>
+        <TabsContent value="led" className="flex-1 overflow-y-auto m-0 mt-2">
+          {/* LED/XR Scenes */}
+          <CollapsibleSection title="LED/XR シーン" defaultOpen={true}>
+            <LedSceneSection
+              scenes={ledScenes || []}
+              onChange={(s) => onLedScenesChange?.(s)}
+            />
+          </CollapsibleSection>
+        </TabsContent>
 
-      {/* Meta / Details */}
-      <CollapsibleSection title="詳細" defaultOpen={false}>
+        <TabsContent value="meta" className="flex-1 overflow-y-auto m-0 mt-2">
+          {/* Meta / Details */}
+          <CollapsibleSection title="詳細" defaultOpen={true}>
         <div className="space-y-2.5">
           <label className="block">
-            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">リハーサル日</span>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">リハーサル日</span>
             <input
               type="date"
               value={meta?.rehearsalDate || ""}
               onChange={(e) => onMetaChange({ ...meta, rehearsalDate: e.target.value })}
-              className="mt-1 w-full px-2.5 py-1.5 text-[13px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
+              className="mt-1 w-full px-2.5 py-1.5 text-[13px] bg-muted border border-border rounded-lg outline-none focus:ring-2 focus:ring-ring/30 focus:border-primary transition-all"
             />
           </label>
           <label className="block">
-            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">撮影場所</span>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">撮影場所</span>
             <input
               type="text"
               value={meta?.location || ""}
               onChange={(e) => onMetaChange({ ...meta, location: e.target.value })}
-              className="mt-1 w-full px-2.5 py-1.5 text-[13px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
+              className="mt-1 w-full px-2.5 py-1.5 text-[13px] bg-muted border border-border rounded-lg outline-none focus:ring-2 focus:ring-ring/30 focus:border-primary transition-all"
             />
           </label>
           <label className="block">
-            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">作成者</span>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">作成者</span>
             <input
               type="text"
               value={meta?.author || ""}
               onChange={(e) => onMetaChange({ ...meta, author: e.target.value })}
-              className="mt-1 w-full px-2.5 py-1.5 text-[13px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
+              className="mt-1 w-full px-2.5 py-1.5 text-[13px] bg-muted border border-border rounded-lg outline-none focus:ring-2 focus:ring-ring/30 focus:border-primary transition-all"
             />
           </label>
         </div>
-      </CollapsibleSection>
+          </CollapsibleSection>
 
-      {/* Excel I/O */}
-      <CollapsibleSection title="Excel入出力" defaultOpen={false}>
+          {/* Excel I/O */}
+          <CollapsibleSection title="Excel入出力" defaultOpen={false}>
         <div className="space-y-1.5">
           <button
             onClick={onExportExcel}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] rounded-lg hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors text-left"
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] rounded-lg hover:bg-accent/60 transition-colors text-left"
           >
-            <FileSpreadsheet size={14} className="text-blue-600 flex-none" />
+            <FileSpreadsheet size={14} className="text-primary flex-none" />
             <span className="font-medium">現在の台本をExcel出力</span>
           </button>
           <button
             onClick={onShowImport}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] rounded-lg hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors text-left"
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] rounded-lg hover:bg-accent/60 transition-colors text-left"
           >
-            <Upload size={14} className="text-amber-600 flex-none" />
+            <Upload size={14} className="text-warning flex-none" />
             <span className="font-medium">Excelから読み込み</span>
           </button>
         </div>
-      </CollapsibleSection>
+          </CollapsibleSection>
+        </TabsContent>
+      </Tabs>
     </aside>
   );
 }
