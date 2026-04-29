@@ -33,7 +33,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.27 — フルソースコードレビュー報告（2026-04-28、対象 459 ファイル）の指摘事項を README に「コード健全性 / 既知の課題」として可視化し、CLAUDE.md にも再発防止のための「コード健全性ポリシー」を追加。Tailwind v3 宣言と v4 解決の不整合（High）、PostCSS v3 形式設定によるフロントエンド build 失敗（High）、ESLint flat config 未整備（Medium）、`scaling.service.ts:38` / `AudiencePage.tsx:123` の TODO 2 件（Low）が未解消の現状。サーバー単体ビルド（`npm run build -w server`）は正常通過。main にだけ存在していた本レビュー報告を dev にも反映（通常と逆方向の同期）。
+v2.8.28 (dev) — Qシート UI/UX モダン化 Phase 1+2 完了。①Toast 基盤を shared に新設（Radix Toast ラップ、5 variants: default/success/destructive/warning/info）+ notify.ts ヘルパ。②Dashboard / EditorPage を DADS semantic tokens に統一、`confirm()` を destructive Dialog に置換、createMutation/deleteMutation/saveMutation のエラー時 Toast 配線。③EditorSidebar を 4 タブ構造（列 / マスター / メタ / LED）に再編成。④EditorSidebar を `EditorSidebarBody` (共通) + `EditorSidebar` (lg+ aside) + `EditorSidebarSheet` (lg未満 bottom-sheet) に 3 分割、右下 FAB で開閉。⑤HighlightPicker を独立ファイル化 + shared Dialog のコンパクト variant 化（画面外問題を構造的に解決）。⑥モバイルフル編集対応: `useMediaQuery` hook + `CueCardList`（lg未満で表形式の代替カードビュー）+ `CueRowSheet` + `CueRowMobileEditor`（縦スタック編集 UI、scenario/led_xr/video/audio/telop/remarks/item を全種類サポート）。⑦CueTable lg 表形式を DADS 化（セクションヘッダグラデを from-primary に、CM/VTR は bg-foreground/90 で反転コントラスト維持、SPEAKER_COLORS 識別色は維持）。⑧StageEditor を独自 modal から shared Dialog に置換、flex-col sm:flex-row でモバイル対応。Socket.IO `/qsheet` イベント仕様 + doc.data JSONB 構造は完全維持、デスクトップ↔モバイル双方向で互換性確認済み。dev 環境で動作検証中、本番投入はユーザー承認後。
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)
