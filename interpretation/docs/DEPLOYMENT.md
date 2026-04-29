@@ -243,7 +243,54 @@ backend ワークフローは:
 
 ---
 
-## 11. トラブルシュート
+## 11. 可観測性 / 監視
+
+### 11.1 構造化ログ + リクエスト相関
+
+すべての REST レスポンスに `X-Request-Id` ヘッダが付く。バックエンド内では
+structlog の contextvars に同 id がバインドされるので、Cloud Logging の
+JSON ペイロードでも `request_id` フィールドで検索可能。
+
+クライアント (operator-ui) は `X-Request-Id` を渡さない場合は新規発行されるが、
+既に持っている場合はそのままパススルーされる。Cloud Run は `X-Cloud-Trace-Context`
+を自動付与するので、その先頭部分も request_id 候補として受け付ける。
+
+### 11.2 ヘルスチェック
+
+| パス | 用途 |
+|---|---|
+| `/health` | 旧式互換 (環境名のみ返す) |
+| `/health/live` | Cloud Run の startup probe (プロセス起動確認) |
+| `/health/ready` | DB / Redis 疎通含む準備完了確認 |
+
+Cloud Run の `startup_probe` / `liveness_probe` を Terraform / `gcloud run`
+側で `/health/live` に向けると、起動中の 5xx を防げる。
+
+### 11.3 アラート
+
+`terraform/monitoring.tf` で 2 つの Cloud Monitoring アラートポリシーを
+管理する:
+
+- **5xx エラー率**: 5 分間で 0.5 req/s を超えると発報
+- **p95 レイテンシ**: 5 分間 p95 が 8s を超えると発報
+
+通知先 (notification channels) は Console で一度だけ作成して、
+`terraform.tfvars` の `notification_channels` にリソース名を投入する:
+
+```bash
+gcloud alpha monitoring channels create \
+  --display-name="On-call email" \
+  --type=email \
+  --channel-labels=email_address=ops@example.com
+
+# 出力された name (e.g. projects/.../notificationChannels/123) を
+# terraform.tfvars に追加:
+#   notification_channels = ["projects/.../notificationChannels/123"]
+```
+
+---
+
+## 12. トラブルシュート
 
 | 症状 | 原因 | 対処 |
 |---|---|---|

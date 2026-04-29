@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
@@ -11,6 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import text as sa_text
 
 from app.api import (
     auth as auth_api,
@@ -23,6 +23,7 @@ from app.api import (
 from app.config import get_settings
 from app.db.session import make_engine, make_sessionmaker
 from app.languages import load_languages
+from app.observability import RequestIdMiddleware, configure_logging
 from app.pipeline.orchestrator import Orchestrator
 from app.pipeline.pubsub import PubSubBroker
 from pathlib import Path
@@ -33,22 +34,10 @@ TEMPLATES = Jinja2Templates(directory=str(_BASE / "templates"))
 log = structlog.get_logger(__name__)
 
 
-def _configure_logging(level: str) -> None:
-    logging.basicConfig(level=level)
-    structlog.configure(
-        processors=[
-            structlog.contextvars.merge_contextvars,
-            structlog.processors.add_log_level,
-            structlog.processors.TimeStamper(fmt="iso"),
-            structlog.processors.JSONRenderer(),
-        ]
-    )
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
-    _configure_logging(settings.log_level)
+    configure_logging(settings.log_level)
     languages = load_languages()
     engine = make_engine(settings)
     sm = make_sessionmaker(engine)
@@ -83,12 +72,16 @@ def create_app() -> FastAPI:
         redoc_url=None,
     )
 
+    # Order matters: RequestId runs first so CORS error responses still
+    # include the X-Request-Id header.
+    app.add_middleware(RequestIdMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins_list,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["x-request-id"],
     )
 
     app.mount("/static", StaticFiles(directory=str(_BASE / "static")), name="static")
@@ -97,6 +90,36 @@ def create_app() -> FastAPI:
     @app.get("/health", tags=["meta"])
     async def health() -> dict[str, str]:
         return {"status": "ok", "environment": settings.environment}
+
+    @app.get("/health/live", tags=["meta"])
+    async def health_live() -> dict[str, str]:
+        """Liveness: process is up. Used by Cloud Run startup probe."""
+        return {"status": "live"}
+
+    @app.get("/health/ready", tags=["meta"])
+    async def health_ready() -> dict[str, str | bool]:
+        """Readiness: DB is reachable and Redis broker is connected."""
+        ok_db = True
+        try:
+            sm = app.state.db_sessionmaker
+            async with sm() as s:
+                await s.execute(sa_text("SELECT 1"))
+        except Exception:
+            ok_db = False
+
+        ok_redis = True
+        try:
+            client = await app.state.pubsub.connect()
+            await client.ping()
+        except Exception:
+            ok_redis = False
+
+        ready = ok_db and ok_redis
+        return {
+            "status": "ready" if ready else "not-ready",
+            "db": ok_db,
+            "redis": ok_redis,
+        }
 
     app.include_router(auth_api.router, prefix="/api/v1")
     app.include_router(sessions.router, prefix="/api/v1")
