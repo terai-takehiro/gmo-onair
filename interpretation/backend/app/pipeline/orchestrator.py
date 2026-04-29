@@ -89,6 +89,78 @@ class Orchestrator:
             p.cost_tracker.record_audio_chunk(ms)
         await p.audio_queue.put(chunk)
 
+    async def push_correction(
+        self,
+        session_id: UUID,
+        lang: str,
+        text: str,
+        seq: int | None = None,
+    ) -> bool:
+        """Operator-driven manual override.
+
+        Re-publishes a final ``translation`` frame (marked ``corrected``) to
+        both the per-language vMix channel and the preview channel, then
+        re-synthesizes audio. Returns True on success, False if the session
+        is gone or the lang spec missing.
+        """
+        p = self._pipelines.get(session_id)
+        if p is None or p.closed.is_set():
+            return False
+        spec = load_languages().get(lang)
+        if spec is None:
+            return False
+
+        actual_seq = seq if seq is not None else next(p.seq)
+        channel = channel_for(str(session_id), lang)
+        preview_ch = preview_channel_for(str(session_id))
+
+        payload = {
+            "type": "translation",
+            "lang": lang,
+            "text": text,
+            "is_final": True,
+            "seq": actual_seq,
+            "t_ms": 0.0,
+            "corrected": True,
+        }
+        await self._broker.publish_json(channel, payload)
+        await self._broker.publish_json(preview_ch, payload)
+
+        p.cost_tracker.record_tts(len(text))
+        pieces: list[bytes] = []
+        try:
+            async for audio in tts_mod.synthesize_stream(
+                self._settings, spec, text, actual_seq
+            ):
+                pieces.append(audio.mp3_bytes)
+        except Exception as e:
+            log.exception(
+                "orchestrator.correction_tts_error",
+                session_id=str(session_id),
+                lang=lang,
+                error=repr(e),
+            )
+            return False
+
+        await self._broker.publish_json(
+            channel,
+            {
+                "type": "audio_chunk",
+                "lang": lang,
+                "seq": actual_seq,
+                "mp3_b64": base64.b64encode(b"".join(pieces)).decode("ascii"),
+                "corrected": True,
+            },
+        )
+        log.info(
+            "orchestrator.correction",
+            session_id=str(session_id),
+            lang=lang,
+            seq=actual_seq,
+            chars=len(text),
+        )
+        return True
+
     async def end_session(self, session_id: UUID) -> CostTracker | None:
         """Stop pipelines for the session and return its CostTracker (for persistence)."""
         p = self._pipelines.pop(session_id, None)

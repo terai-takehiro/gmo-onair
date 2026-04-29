@@ -15,6 +15,7 @@ from app.db import models as m
 from app.db.session import get_db
 from app.languages import enabled_target_codes, load_languages
 from app.models.schemas import (
+    CorrectionRequest,
     GlossaryEntry,
     SessionCost,
     SessionCostSummary,
@@ -155,6 +156,40 @@ async def end_session(
     await db.commit()
     await db.refresh(sess)
     return _to_public(sess)
+
+
+@router.post("/{session_id}/correct", status_code=202)
+async def correct_session(
+    session_id: UUID,
+    payload: CorrectionRequest,
+    request: Request,
+    db: DBDep,
+    user: UserDep,
+) -> dict:
+    """Operator manual correction: re-publish translation + re-synthesize TTS."""
+    sess = await db.get(m.Session, session_id)
+    if not sess:
+        raise HTTPException(status_code=404, detail="session not found")
+    if sess.status != "live":
+        raise HTTPException(status_code=409, detail="session is not live")
+    if payload.lang not in sess.target_languages:
+        raise HTTPException(
+            status_code=400, detail=f"lang {payload.lang} not in target_languages"
+        )
+    text = payload.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="text must not be empty")
+
+    orchestrator = request.app.state.orchestrator
+    ok = await orchestrator.push_correction(
+        session_id=session_id,
+        lang=payload.lang,
+        text=text,
+        seq=payload.seq,
+    )
+    if not ok:
+        raise HTTPException(status_code=500, detail="correction failed")
+    return {"status": "accepted"}
 
 
 @router.get("/{session_id}/cost", response_model=SessionCostSummary)

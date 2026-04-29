@@ -85,6 +85,21 @@ export async function endSession(sessionId: string): Promise<void> {
   });
 }
 
+export async function correctSession(
+  sessionId: string,
+  body: { lang: string; text: string; seq?: number },
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/v1/sessions/${sessionId}/correct`, {
+    method: "POST",
+    headers: { "content-type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`correctSession failed: ${res.status} ${text}`);
+  }
+}
+
 export function getSessionCost(sessionId: string): Promise<SessionCostSummary> {
   return jsonFetch<SessionCostSummary>(`/api/v1/sessions/${sessionId}/cost`);
 }

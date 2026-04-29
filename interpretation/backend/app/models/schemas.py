@@ -127,3 +127,12 @@ class WSError(BaseModel):
     type: Literal["error"] = "error"
     code: str
     message: str
+
+
+# ---------- Operator correction ----------
+
+
+class CorrectionRequest(BaseModel):
+    lang: str
+    text: str
+    seq: int | None = None  # if None the orchestrator allocates a fresh seq

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { listInputDevices, startMicCapture, type MicCapture } from "@/lib/audio";
 import { openOperatorWs, type OperatorWS } from "@/lib/ws";
 import {
+  correctSession,
   endSession,
   getSessionCost,
   type CreateSessionResponse,
@@ -34,6 +35,9 @@ export default function LiveSessionPage({ params }: Props) {
   const [activeLang, setActiveLang] = useState<string | null>(null);
   const [cost, setCost] = useState<SessionCostSummary | null>(null);
   const [previewWs, setPreviewWs] = useState<PreviewWS | null>(null);
+  const [draft, setDraft] = useState<string>("");
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
 
   useEffect(() => {
     const raw = sessionStorage.getItem(`session:${sessionId}`);
@@ -62,6 +66,13 @@ export default function LiveSessionPage({ params }: Props) {
     setPreviewWs(ws);
     return () => ws.close();
   }, [ok, sessionId]);
+
+  // Initialize / refresh draft when active language changes or a new
+  // translation arrives from upstream.
+  useEffect(() => {
+    if (!activeLang) return;
+    setDraft(translations[activeLang] ?? "");
+  }, [activeLang, translations]);
 
   // Poll cost every 5s.
   useEffect(() => {
@@ -114,6 +125,19 @@ export default function LiveSessionPage({ params }: Props) {
     previewWs?.close();
     await endSession(sessionId);
     router.push("/");
+  };
+
+  const pushCorrection = async () => {
+    if (!activeLang || !draft.trim()) return;
+    setPushBusy(true);
+    setPushError(null);
+    try {
+      await correctSession(sessionId, { lang: activeLang, text: draft.trim() });
+    } catch (err) {
+      setPushError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setPushBusy(false);
+    }
   };
 
   if (!ok) return null;
@@ -215,13 +239,31 @@ export default function LiveSessionPage({ params }: Props) {
                 </button>
               ))}
             </div>
-            <div className="mt-3 min-h-16 rounded-xl border bg-stone-50 p-4 text-base">
-              {activeLang && translations[activeLang] ? (
-                translations[activeLang]
-              ) : (
-                <span className="text-stone-400">(翻訳を待機中)</span>
-              )}
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="(翻訳を待機中)"
+              rows={3}
+              className="mt-3 w-full rounded-xl border bg-stone-50 p-4 text-base"
+            />
+
+            <div className="mt-2 flex items-center gap-3 text-xs text-stone-500">
+              <button
+                type="button"
+                onClick={pushCorrection}
+                disabled={pushBusy || !activeLang || !draft.trim()}
+                className="rounded-lg bg-stone-700 px-3 py-1 text-white disabled:opacity-50"
+              >
+                {pushBusy ? "送信中..." : "修正を ON-AIR に反映"}
+              </button>
+              <span>
+                バックエンドが TTS を再生成し、vMix オーバーレイに上書き字幕＋音声を流します。
+              </span>
             </div>
+
+            {pushError && (
+              <p className="mt-2 text-sm text-red-600">{pushError}</p>
+            )}
           </div>
         )}
       </div>
