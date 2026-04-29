@@ -448,8 +448,10 @@ export default function EditorPage() {
         </div>
       </header>
 
-      {/* Editor body + sidebar */}
-      <div className="flex flex-1 overflow-hidden">
+      {/* Editor body + sidebar
+          - lg 以上: 親は overflow-hidden で CueTable 内 <main overflow-auto> が縦スクロール担当
+          - lg 未満: 親自身を overflow-y-auto にして CueCardList を含む全コンテンツをスクロール可能にする */}
+      <div className="flex flex-1 overflow-y-auto lg:overflow-hidden">
         <CueTable
           blocks={doc.data.blocks}
           sections={doc.data.sections}

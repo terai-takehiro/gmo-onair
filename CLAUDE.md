@@ -33,8 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.34 (dev) — **機材管理: ケーブル管理 + コネクタ管理ページ追加**: 機材一覧 (equipment_items) とは別 DB として `equipment_cables` / `equipment_connectors` テーブルを新設。共通の `equipment_locations` / `equipment_manufacturers` を引用する FK 構成。種別 (映像/音声/NW/照明/電源/その他) の CHECK 制約付き。サーバー側に `/equipment/cables` および `/equipment/connectors` の CRUD ルートを追加 (kind/location_id/manufacturer_id/search でフィルター)。クライアントには `CablePage.tsx` / `ConnectorPage.tsx` を追加し、機材一覧と同等の UI/UX (種別タブ + 場所/メーカー Select + 検索 + テーブル/モバイルカード両ビュー + 登録/編集ダイアログ) を実装。サイドバーに「ケーブル管理」「コネクタ管理」を追加。ケーブルはメートル数・色・本数、コネクタは個数を持つ。マイグレーション 076 を追加。
+v2.8.35 (dev) — **機材管理: ケーブル管理 + コネクタ管理ページ追加**: 機材一覧 (equipment_items) とは別 DB として `equipment_cables` / `equipment_connectors` テーブルを新設。共通の `equipment_locations` / `equipment_manufacturers` を引用する FK 構成。種別 (映像/音声/NW/照明/電源/その他) の CHECK 制約付き。サーバー側に `/equipment/cables` および `/equipment/connectors` の CRUD ルートを追加 (kind/location_id/manufacturer_id/search でフィルター)。クライアントには `CablePage.tsx` / `ConnectorPage.tsx` を追加し、機材一覧と同等の UI/UX (種別タブ + 場所/メーカー Select + 検索 + テーブル/モバイルカード両ビュー + 登録/編集ダイアログ) を実装。サイドバーに「ケーブル管理」「コネクタ管理」を追加。ケーブルはメートル数・色・本数、コネクタは個数を持つ。マイグレーション 076 を追加。
 
+(v2.8.34: モバイル スクロール不能 Fix + レスポンシブ強化 — EditorPage 親 div を `overflow-y-auto lg:overflow-hidden` に変更、CueCardList ボタンを iOS HIG 準拠タップ領域に拡大。)
 (v2.8.33: InsertGap UI 安定化 — 固定高 28px + 点線 + 3 ボタン opacity 切替で layout shift を完全排除。)
 (v2.8.32: CM/VTR 任意位置挿入 + ロール/行 DnD)
 

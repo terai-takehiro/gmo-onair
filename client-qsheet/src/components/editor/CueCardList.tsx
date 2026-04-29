@@ -213,48 +213,48 @@ export default function CueCardList({
               : "bg-card"
           }`}
         >
-          <header className={`flex items-center gap-2 px-3 py-2 border-b border-border ${
+          <header className={`flex items-center gap-1 px-2.5 py-2 border-b border-border ${
             sec._break ? "bg-warning/15" : sec._vtr ? "bg-info/15" : "bg-primary/10"
           }`}>
             <input
               value={sec.label || ""}
               onChange={(e) => updateSectionLabel(si, e.target.value)}
-              className="flex-1 bg-transparent border-none outline-none text-sm font-bold text-foreground placeholder:text-muted-foreground/60"
+              className="min-w-0 flex-1 bg-transparent border-none outline-none text-sm font-bold text-foreground placeholder:text-muted-foreground/60"
               placeholder={sec._break ? "CM" : sec._vtr ? "VTR" : "セクション名"}
               aria-label={`セクション ${si + 1} の名前`}
             />
             {sec._break && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-warning/20 text-warning">CM</span>
+              <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded bg-warning/20 text-warning">CM</span>
             )}
             {sec._vtr && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-info/20 text-info">VTR</span>
+              <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded bg-info/20 text-info">VTR</span>
             )}
-            <div className="flex items-center gap-0.5">
+            <div className="flex items-center shrink-0">
               <button
                 type="button"
                 onClick={() => moveSection(si, -1)}
                 disabled={si === 0}
-                className="p-1 rounded hover:bg-accent disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="size-9 inline-flex items-center justify-center rounded hover:bg-accent disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label="ロールを上へ"
               >
-                <ChevronUp className="size-3.5" aria-hidden />
+                <ChevronUp className="size-4" aria-hidden />
               </button>
               <button
                 type="button"
                 onClick={() => moveSection(si, 1)}
                 disabled={si === sections.length - 1}
-                className="p-1 rounded hover:bg-accent disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="size-9 inline-flex items-center justify-center rounded hover:bg-accent disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label="ロールを下へ"
               >
-                <ChevronDown className="size-3.5" aria-hidden />
+                <ChevronDown className="size-4" aria-hidden />
               </button>
               <button
                 type="button"
                 onClick={() => removeSection(si)}
-                className="p-1 rounded hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="size-9 inline-flex items-center justify-center rounded hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label="ロールを削除"
               >
-                <Trash2 className="size-3.5" aria-hidden />
+                <Trash2 className="size-4" aria-hidden />
               </button>
             </div>
           </header>
@@ -299,32 +299,32 @@ export default function CueCardList({
                     </div>
                     <p className="text-xs text-muted-foreground line-clamp-2">{summary}</p>
                   </button>
-                  <div className="flex flex-col border-l border-border">
+                  <div className="flex flex-col border-l border-border w-11 shrink-0">
                     <button
                       type="button"
                       onClick={() => moveRow(si, ri, -1)}
                       disabled={ri === 0}
-                      className="flex-1 px-2 hover:bg-accent disabled:opacity-30 focus-visible:outline-none focus-visible:bg-accent"
+                      className="flex-1 inline-flex items-center justify-center min-h-9 hover:bg-accent disabled:opacity-30 focus-visible:outline-none focus-visible:bg-accent"
                       aria-label="上へ"
                     >
-                      <ChevronUp className="size-3.5" aria-hidden />
+                      <ChevronUp className="size-4" aria-hidden />
                     </button>
                     <button
                       type="button"
                       onClick={() => moveRow(si, ri, 1)}
                       disabled={ri === sec.rows.length - 1}
-                      className="flex-1 px-2 border-t border-border hover:bg-accent disabled:opacity-30 focus-visible:outline-none focus-visible:bg-accent"
+                      className="flex-1 inline-flex items-center justify-center min-h-9 border-t border-border hover:bg-accent disabled:opacity-30 focus-visible:outline-none focus-visible:bg-accent"
                       aria-label="下へ"
                     >
-                      <ChevronDown className="size-3.5" aria-hidden />
+                      <ChevronDown className="size-4" aria-hidden />
                     </button>
                     <button
                       type="button"
                       onClick={() => removeRow(si, ri)}
-                      className="flex-1 px-2 border-t border-border hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:bg-destructive/10"
+                      className="flex-1 inline-flex items-center justify-center min-h-9 border-t border-border hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:bg-destructive/10"
                       aria-label="行を削除"
                     >
-                      <Trash2 className="size-3.5" aria-hidden />
+                      <Trash2 className="size-4" aria-hidden />
                     </button>
                   </div>
                 </li>
