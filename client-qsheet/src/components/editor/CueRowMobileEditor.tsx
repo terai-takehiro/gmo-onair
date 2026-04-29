@@ -123,7 +123,7 @@ export default function CueRowMobileEditor({
             onChange={(e) => patchRow({ duration: e.target.value })}
             placeholder="例: 30 / 1:30"
             inputMode="numeric"
-            className="mt-1 font-mono"
+            className="mt-1 "
           />
         </label>
       </div>

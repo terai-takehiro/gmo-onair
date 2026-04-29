@@ -135,13 +135,13 @@ export default function StudioRoomsManagerDialog({ open, onOpenChange, locations
             <Info className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
             <div className="space-y-1">
               <p>
-                <span className="font-semibold">略称</span> は、カレンダー上で複数の部屋が並ぶ時に使われます（例: WORLD STUDIO → <span className="font-mono">WS</span>）。
+                <span className="font-semibold">略称</span> は、カレンダー上で複数の部屋が並ぶ時に使われます（例: WORLD STUDIO → <span className="">WS</span>）。
               </p>
               <p>
                 <span className="font-semibold">種別</span> は色分けや一覧フィルタに利用します（スタジオ / 調整室 / ゲストルーム / その他）。
               </p>
               <p className="text-muted-foreground">
-                左側の <span className="font-mono">#番号</span> はカレンダー内での並び順です。
+                左側の <span className="">#番号</span> はカレンダー内での並び順です。
               </p>
             </div>
           </div>
@@ -221,7 +221,7 @@ export default function StudioRoomsManagerDialog({ open, onOpenChange, locations
                                 onChange={(e) => setEditRoom(p => ({ ...p, abbreviation: e.target.value }))}
                                 placeholder="例: WS"
                                 maxLength={20}
-                                className="h-9 font-mono"
+                                className="h-9 "
                               />
                             </div>
                             <div className="col-span-2 sm:col-span-2">
@@ -261,7 +261,7 @@ export default function StudioRoomsManagerDialog({ open, onOpenChange, locations
                           <span className="inline-block w-3.5 h-3.5 rounded-full shrink-0 ring-1 ring-border" style={{ background: r.color }} />
                           <span className="font-medium flex-1 min-w-0 truncate">{r.name}</span>
                           {r.abbreviation && (
-                            <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
+                            <span className=" text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
                               {r.abbreviation}
                             </span>
                           )}
@@ -307,7 +307,7 @@ export default function StudioRoomsManagerDialog({ open, onOpenChange, locations
                       }))}
                       placeholder="例: 3調"
                       maxLength={20}
-                      className="h-9 font-mono"
+                      className="h-9 "
                     />
                   </div>
                   <div className="col-span-6 sm:col-span-2">

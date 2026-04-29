@@ -94,7 +94,7 @@ export default function ProgramsPage() {
             <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
               <span className="text-muted-foreground text-xs">紐づき案件: </span>
               {program.gls_number && (
-                <span className="font-mono text-primary text-xs mr-2">{program.gls_number}</span>
+                <span className=" text-primary text-xs mr-2">{program.gls_number}</span>
               )}
               <span className="font-medium">{program.project_name}</span>
             </div>

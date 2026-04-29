@@ -624,7 +624,7 @@ export default function EventEditorPage() {
                         </div>
                       )}
                       <div className="flex gap-2 mt-1">
-                        <Input readOnly value={chUrl} className="text-[10px] font-mono flex-1" />
+                        <Input readOnly value={chUrl} className="text-[10px] flex-1" />
                         <Button variant="outline" size="sm" onClick={() => handleCopy(chUrl, `ch-${ch.id}`)}>
                           {copied === `ch-${ch.id}` ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
                         </Button>
@@ -640,7 +640,7 @@ export default function EventEditorPage() {
               <div>
                 <label className="text-sm font-medium text-muted-foreground">視聴者URL</label>
                 <div className="flex gap-2 mt-1">
-                  <Input readOnly value={audienceUrl} className="text-xs font-mono" />
+                  <Input readOnly value={audienceUrl} className="text-xs " />
                   <Button variant="outline" size="sm" onClick={() => handleCopy(audienceUrl, 'audience')}>
                     {copied === 'audience' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                   </Button>
@@ -664,7 +664,7 @@ export default function EventEditorPage() {
                 <Eye className="h-3.5 w-3.5" />オーバーレイURL（OBS用）
               </label>
               <div className="flex gap-2 mt-1">
-                <Input readOnly value={overlayUrl} className="text-xs font-mono" />
+                <Input readOnly value={overlayUrl} className="text-xs " />
                 <Button variant="outline" size="sm" onClick={() => handleCopy(overlayUrl, 'overlay')}>
                   {copied === 'overlay' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                 </Button>

@@ -350,7 +350,7 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
                       {dryRun.rows.map((r) => (
                         <tr key={r.rowNumber} className={r.errors.length > 0 ? 'bg-red-50' : ''}>
                           <td className="px-2 py-1 tabular-nums">{r.rowNumber}</td>
-                          <td className="px-2 py-1 font-mono">{r.eq_code || '-'}</td>
+                          <td className="px-2 py-1 ">{r.eq_code || '-'}</td>
                           <td className="px-2 py-1">{r.name}</td>
                           <td className="px-2 py-1">
                             <span className={

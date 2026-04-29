@@ -190,7 +190,7 @@ function EntryRow({
         </div>
         {/* Image ID badge */}
         {entry.image_id && (
-          <span className="inline-flex items-center rounded bg-muted/60 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground/50">
+          <span className="inline-flex items-center rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground/50">
             {entry.image_id}
           </span>
         )}
@@ -203,7 +203,7 @@ function EntryRow({
             value={entry.points != null ? String(entry.points) : ''}
             onSave={(v) => onUpdate({ points: v ? parseInt(v) || null : null })}
             placeholder="—"
-            className="font-mono font-bold text-sm tabular-nums"
+            className=" font-bold text-sm tabular-nums"
           />
           <span className="text-[10px] font-medium text-muted-foreground">PT</span>
         </div>
@@ -213,7 +213,7 @@ function EntryRow({
             value={entry.own_points != null ? String(entry.own_points) : ''}
             onSave={(v) => onUpdate({ own_points: v ? parseInt(v) || null : null })}
             placeholder="—"
-            className="font-mono text-xs tabular-nums text-amber-600"
+            className=" text-xs tabular-nums text-amber-600"
           />
           {ownPct != null && (
             <span className="text-[10px] tabular-nums text-amber-600/50">({ownPct}%)</span>
@@ -639,7 +639,7 @@ export default function EventEditorPage() {
               return (
                 <div key={lang} className="flex items-center gap-2">
                   <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
-                  <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs font-mono truncate">{url}</code>
+                  <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
                   <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
                     className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
                     <Copy className="h-3 w-3" />コピー

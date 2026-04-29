@@ -229,7 +229,7 @@ function ProjectCard({
       {/* Top row: code + stage + amount */}
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
-          <span className="font-mono text-xs text-muted-foreground">{code || "—"}</span>
+          <span className=" text-xs text-muted-foreground">{code || "—"}</span>
           <Badge className="shrink-0 text-[11px]" style={{ backgroundColor: stageColor, color: '#fff' }}>
             {stageLabel}
           </Badge>

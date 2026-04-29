@@ -105,7 +105,7 @@ export default function ColorPage() {
                     />
                     <div className="min-w-0">
                       <h3 className="font-medium truncate">{color.name}</h3>
-                      <p className="text-xs font-mono text-muted-foreground">{color.color_hex}</p>
+                      <p className="text-xs text-muted-foreground">{color.color_hex}</p>
                       {color.description && (
                         <p className="text-xs text-muted-foreground truncate mt-0.5">{color.description}</p>
                       )}
@@ -158,7 +158,7 @@ export default function ColorPage() {
                   value={form.color_hex}
                   onChange={(e) => setForm({ ...form, color_hex: e.target.value })}
                   placeholder="#E6F2FF"
-                  className="font-mono"
+                  className=""
                 />
               </div>
             </div>

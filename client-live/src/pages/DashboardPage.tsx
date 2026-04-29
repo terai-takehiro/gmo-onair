@@ -164,7 +164,7 @@ export default function DashboardPage() {
         {/* Log */}
         <div className="rounded-lg border border-border bg-card p-4">
           <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">ログ</h2>
-          <div className="h-28 overflow-y-auto space-y-0.5 font-mono text-xs">
+          <div className="h-28 overflow-y-auto space-y-0.5 text-xs">
             {viewer.logs.length === 0 ? (
               <p className="text-muted-foreground">ログなし</p>
             ) : viewer.logs.map((log: any, i: number) => (

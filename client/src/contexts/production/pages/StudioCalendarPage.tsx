@@ -670,7 +670,7 @@ export default function StudioCalendarPage() {
                           {roomChain && (
                             <span className="text-xs text-muted-foreground truncate sm:max-w-[40%]">{roomChain}</span>
                           )}
-                          <span className="text-xs font-mono text-muted-foreground tabular-nums shrink-0 w-full sm:w-auto sm:ml-auto">
+                          <span className="text-xs text-muted-foreground tabular-nums shrink-0 w-full sm:w-auto sm:ml-auto">
                             {allDay ? '終日' : `${startTime}–${endTime}`}
                           </span>
                         </button>
@@ -911,7 +911,7 @@ function CalendarFeedsDialog({ open, onOpenChange }: { open: boolean; onOpenChan
             <div key={feed.room_id} className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 p-3 border rounded-lg">
               <div className="w-full sm:flex-1 min-w-0">
                 <p className="text-sm font-medium">{feed.location_name} — {feed.room_name}</p>
-                <p className="text-xs text-muted-foreground font-mono truncate mt-0.5">{feed.feed_url}</p>
+                <p className="text-xs text-muted-foreground truncate mt-0.5">{feed.feed_url}</p>
               </div>
               <Button
                 size="sm"
@@ -940,7 +940,7 @@ function CalendarFeedsDialog({ open, onOpenChange }: { open: boolean; onOpenChan
                 <div key={`signage-${feed.room_id}`} className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 p-3 border rounded-lg bg-muted/30">
                   <div className="w-full sm:flex-1 min-w-0">
                     <p className="text-sm font-medium">{feed.location_name} — {feed.room_name}</p>
-                    <p className="text-xs text-muted-foreground font-mono truncate mt-0.5">{sUrl}</p>
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">{sUrl}</p>
                   </div>
                   <Button
                     size="sm"

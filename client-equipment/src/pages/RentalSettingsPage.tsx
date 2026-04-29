@@ -162,10 +162,10 @@ export default function RentalSettingsPage() {
                         <div className="text-xs text-muted-foreground">{item.manufacturer_name}</div>
                       )}
                     </td>
-                    <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
                       {item.model_number || "—"}
                     </td>
-                    <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
                       {item.unit_number != null ? `No.${item.unit_number}` : item.eq_code}
                     </td>
                     <td className="px-4 py-2.5">
@@ -197,12 +197,12 @@ export default function RentalSettingsPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-sm">{item.name}</span>
                     {item.unit_number != null && (
-                      <span className="text-xs font-mono text-muted-foreground">No.{item.unit_number}</span>
+                      <span className="text-xs text-muted-foreground">No.{item.unit_number}</span>
                     )}
                     <Badge variant="outline" className="text-xs">{typeLabel(item.equipment_type_code)}</Badge>
                   </div>
                   {item.model_number && (
-                    <p className="text-xs font-mono text-muted-foreground mt-0.5">{item.model_number}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{item.model_number}</p>
                   )}
                   {item.location_name && (
                     <p className="text-xs text-muted-foreground mt-0.5">{item.location_name}</p>

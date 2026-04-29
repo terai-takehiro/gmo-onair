@@ -180,7 +180,7 @@ export default function ScanPage() {
               onChange={(e) => setManualCode(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleManualSearch(); }}
               placeholder="Y-C-00001"
-              className="font-mono text-base"
+              className=" text-base"
             />
             <Button onClick={handleManualSearch} disabled={searching}>
               <Search className="h-4 w-4 mr-1" />
@@ -208,7 +208,7 @@ export default function ScanPage() {
         >
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <span className="font-mono text-sm text-primary">{scanResult.eq_code}</span>
+              <span className=" text-sm text-primary">{scanResult.eq_code}</span>
               <h3 className="font-medium">{scanResult.name}</h3>
             </div>
             <ArrowRight className="h-4 w-4 text-muted-foreground" />

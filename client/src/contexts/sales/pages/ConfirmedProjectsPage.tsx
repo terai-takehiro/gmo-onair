@@ -178,7 +178,7 @@ function ConfirmedProjectCard({
       {/* Top row: GLS + stage + amount */}
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
-          <span className="font-mono text-xs font-semibold text-primary">
+          <span className=" text-xs font-semibold text-primary">
             {(p.gls_number as string) || "—"}
           </span>
           <Badge className="shrink-0 text-[11px]" style={{ backgroundColor: stageColor, color: '#fff' }}>

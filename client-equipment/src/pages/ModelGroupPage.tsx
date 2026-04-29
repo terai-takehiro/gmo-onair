@@ -455,7 +455,7 @@ export default function ModelGroupPage() {
                                 <span className="text-xs text-muted-foreground">({g.name})</span>
                               )}
                               {g.model_number && (
-                                <span className="text-sm font-mono text-muted-foreground">{g.model_number}</span>
+                                <span className="text-sm text-muted-foreground">{g.model_number}</span>
                               )}
                             </div>
                             {g.manufacturer_name && (
@@ -510,10 +510,10 @@ export default function ModelGroupPage() {
                                     className="border-t cursor-pointer hover:bg-muted/50 transition-colors"
                                     onClick={() => navigate(`/equipment/items/${u.id}`)}
                                   >
-                                    <td className="px-4 py-2.5 font-mono text-sm">
+                                    <td className="px-4 py-2.5 text-sm">
                                       {u.unit_number != null ? `No.${u.unit_number}` : `#${i + 1}`}
                                     </td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{u.eq_code}</td>
+                                    <td className="px-4 py-2.5 text-xs text-muted-foreground">{u.eq_code}</td>
                                     <td className="px-4 py-2.5">
                                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[u.status] ?? "bg-gray-100 text-gray-700"}`}>
                                         {STATUS_LABELS[u.status] ?? u.status}
@@ -525,7 +525,7 @@ export default function ModelGroupPage() {
                                     <td className="px-4 py-2.5 text-xs text-muted-foreground">
                                       {[u.location_name, u.location_detail].filter(Boolean).join(" / ") || "—"}
                                     </td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
                                       {u.serial_number || "—"}
                                     </td>
                                   </tr>
@@ -556,14 +556,14 @@ export default function ModelGroupPage() {
                                 onClick={() => navigate(`/equipment/items/${u.id}`)}
                               >
                                 <div className="flex items-center justify-between gap-2">
-                                  <span className="font-mono text-sm font-medium">
+                                  <span className=" text-sm font-medium">
                                     {u.unit_number != null ? `No.${u.unit_number}` : `#${i + 1}`}
                                   </span>
                                   <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[u.status] ?? "bg-gray-100 text-gray-700"}`}>
                                     {STATUS_LABELS[u.status] ?? u.status}
                                   </span>
                                 </div>
-                                <p className="mt-1 text-xs text-muted-foreground font-mono">{u.eq_code}</p>
+                                <p className="mt-1 text-xs text-muted-foreground ">{u.eq_code}</p>
                                 <p className="mt-0.5 text-xs text-muted-foreground">
                                   {[u.location_name, u.location_detail].filter(Boolean).join(" / ") || "—"}
                                 </p>
@@ -607,7 +607,7 @@ export default function ModelGroupPage() {
               <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
                 <p className="font-medium truncate">{editGroup.name}</p>
                 {editGroup.model_number && (
-                  <p className="text-xs text-muted-foreground font-mono">{editGroup.model_number}</p>
+                  <p className="text-xs text-muted-foreground ">{editGroup.model_number}</p>
                 )}
                 <p className="text-xs text-muted-foreground mt-1">{editGroup.total_count} 台に一括適用されます</p>
               </div>

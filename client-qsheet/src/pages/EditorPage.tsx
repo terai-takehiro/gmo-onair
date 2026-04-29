@@ -410,7 +410,7 @@ export default function EditorPage() {
         <div className="hidden sm:flex items-center gap-3 px-4 pb-2 text-[11px] text-muted-foreground flex-wrap">
           {/* Draft selector */}
           <div className="flex items-center gap-1">
-            <span className="font-bold text-primary text-xs bg-primary/10 px-2 py-0.5 rounded" style={{ fontFamily: "'Oswald',sans-serif" }}>
+            <span className="font-bold text-primary text-xs bg-primary/10 px-2 py-0.5 rounded" style={{ fontFamily: "'Roboto Condensed',sans-serif" }}>
               {getDraftLabel(doc.data.meta)}
             </span>
             <select
@@ -427,15 +427,15 @@ export default function EditorPage() {
           <span className="text-border" aria-hidden>|</span>
           <label className="flex items-center gap-1">
             <span className="text-muted-foreground">放送日</span>
-            <input type="date" value={doc.data.meta.broadcastDate || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, broadcastDate: e.target.value } }))} className="bg-transparent border-none outline-none text-foreground" style={{ fontFamily: "'Oswald',sans-serif" }} aria-label="放送日" />
+            <input type="date" value={doc.data.meta.broadcastDate || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, broadcastDate: e.target.value } }))} className="bg-transparent border-none outline-none text-foreground" style={{ fontFamily: "'Roboto Condensed',sans-serif" }} aria-label="放送日" />
           </label>
           <label className="flex items-center gap-1">
             <span className="text-muted-foreground">収録日</span>
-            <input type="date" value={doc.data.meta.recordingDate || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, recordingDate: e.target.value } }))} className="bg-transparent border-none outline-none text-foreground" style={{ fontFamily: "'Oswald',sans-serif" }} aria-label="収録日" />
+            <input type="date" value={doc.data.meta.recordingDate || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, recordingDate: e.target.value } }))} className="bg-transparent border-none outline-none text-foreground" style={{ fontFamily: "'Roboto Condensed',sans-serif" }} aria-label="収録日" />
           </label>
           <label className="flex items-center gap-1">
             <span className="text-muted-foreground">開始</span>
-            <input type="time" value={doc.data.meta.broadcastStartTime || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, broadcastStartTime: e.target.value } }))} className="bg-transparent border-none outline-none text-foreground" style={{ fontFamily: "'Oswald',sans-serif" }} step="1" aria-label="放送開始時刻" />
+            <input type="time" value={doc.data.meta.broadcastStartTime || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, broadcastStartTime: e.target.value } }))} className="bg-transparent border-none outline-none text-foreground" style={{ fontFamily: "'Roboto Condensed',sans-serif" }} step="1" aria-label="放送開始時刻" />
           </label>
           <label className="flex items-center gap-1">
             <span className="text-muted-foreground">場所</span>
@@ -443,7 +443,7 @@ export default function EditorPage() {
           </label>
           <div className="ml-auto flex items-center gap-1 text-muted-foreground">
             <Clock size={11} aria-hidden />
-            <span style={{ fontFamily: "'Oswald',sans-serif" }} aria-label="総尺">{formatTime(totalDuration)}</span>
+            <span style={{ fontFamily: "'Roboto Condensed',sans-serif" }} aria-label="総尺">{formatTime(totalDuration)}</span>
           </div>
         </div>
       </header>

@@ -109,7 +109,7 @@ export default function Header({ title }: { title?: string }) {
                 {searchResults.projects.map((proj) => (
                   <button key={proj.id} onClick={() => handleResultClick(`/projects/${proj.id}`)}
                     className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-accent text-left transition-colors">
-                    <span className="text-muted-foreground text-xs shrink-0 font-mono">{proj.gls_number || proj.code}</span>
+                    <span className="text-muted-foreground text-xs shrink-0 ">{proj.gls_number || proj.code}</span>
                     <span className="truncate flex-1">{proj.name}</span>
                     <Badge variant="outline" className="text-[10px] shrink-0">{statusOf(PROJECT_STAGE, proj.stage).label}</Badge>
                   </button>

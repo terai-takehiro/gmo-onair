@@ -450,7 +450,7 @@ export default function LendingListPage() {
                           className="w-full text-left px-3 py-1.5 text-sm hover:bg-muted transition-colors"
                           onClick={() => { setForm(f => ({ ...f, project_id: p.id })); setProjectSearch(`${p.gls_number} ${p.name}`); }}
                         >
-                          <span className="font-mono text-xs text-primary">{p.gls_number}</span>
+                          <span className=" text-xs text-primary">{p.gls_number}</span>
                           <span className="ml-2">{p.name}</span>
                         </button>
                       ))}

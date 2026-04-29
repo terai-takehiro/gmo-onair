@@ -208,10 +208,10 @@ export default function BudgetDetailPage() {
                         <TableRow><TableCell colSpan={projectId ? 5 : 6} className="text-center text-muted-foreground">データなし</TableCell></TableRow>
                       ) : revenues.map((r) => (
                         <TableRow key={r.id as string}>
-                          <TableCell className="font-mono text-xs">{(r.billing_key as string) || "-"}</TableCell>
+                          <TableCell className=" text-xs">{(r.billing_key as string) || "-"}</TableCell>
                           {!projectId && (
                             <TableCell className="text-xs truncate max-w-[200px]">
-                              <span className="font-mono text-primary mr-1">{(r.gls_number as string) || "-"}</span>
+                              <span className=" text-primary mr-1">{(r.gls_number as string) || "-"}</span>
                               <span>{(r.project_name as string) || "-"}</span>
                             </TableCell>
                           )}
@@ -265,14 +265,14 @@ export default function BudgetDetailPage() {
                             <TableCell className="truncate max-w-[130px]">{(p.vendor_name as string) || "-"}</TableCell>
                             {!projectId && (
                               <TableCell className="text-xs truncate max-w-[200px]">
-                                <span className="font-mono text-primary mr-1">{(p.gls_number as string) || "-"}</span>
+                                <span className=" text-primary mr-1">{(p.gls_number as string) || "-"}</span>
                                 <span>{(p.project_name as string) || "-"}</span>
                               </TableCell>
                             )}
                             <TableCell className="truncate max-w-[160px] text-xs">{(p.description as string) || "-"}</TableCell>
                             <TableCell className="text-xs">{formatDate(p.payment_due_date as string)}</TableCell>
                             <TableCell className="text-xs">
-                              {settled ? <span className="font-mono text-foreground">{settled}</span> : <span className="text-muted-foreground">未申請</span>}
+                              {settled ? <span className=" text-foreground">{settled}</span> : <span className="text-muted-foreground">未申請</span>}
                             </TableCell>
                             <TableCell className="text-right font-number font-medium">{formatCurrency(p.amount as number)}</TableCell>
                           </TableRow>
@@ -315,13 +315,13 @@ export default function BudgetDetailPage() {
                           const settled = formatSettlementNo(e.settlement_method, e.settlement_number);
                           return (
                             <TableRow key={e.id as string}>
-                              <TableCell className="font-mono text-xs">{(e.billing_key as string) || "-"}</TableCell>
+                              <TableCell className=" text-xs">{(e.billing_key as string) || "-"}</TableCell>
                               <TableCell className="truncate max-w-[130px]">{(e.vendor_name as string) || "-"}</TableCell>
                               <TableCell className="truncate max-w-[180px] text-xs">{(e.description as string) || "-"}</TableCell>
                               <TableCell className="text-xs">{e.expense_type === "fixed" ? "固定" : "スポット"}</TableCell>
                               <TableCell className="text-xs">{formatDate(e.recognition_date as string)}</TableCell>
                               <TableCell className="text-xs">
-                                {settled ? <span className="font-mono text-foreground">{settled}</span> : <span className="text-muted-foreground">未申請</span>}
+                                {settled ? <span className=" text-foreground">{settled}</span> : <span className="text-muted-foreground">未申請</span>}
                               </TableCell>
                               <TableCell className="text-right font-number font-medium">{formatCurrency(e.amount as number)}</TableCell>
                             </TableRow>

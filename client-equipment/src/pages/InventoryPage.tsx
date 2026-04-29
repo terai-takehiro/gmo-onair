@@ -236,7 +236,7 @@ export default function InventoryPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs text-primary">{item.eq_code}</span>
+                        <span className=" text-xs text-primary">{item.eq_code}</span>
                         <span className="text-sm font-medium truncate">
                           {item.equipment_name}{item.unit_number ? ` No.${item.unit_number}` : ""}
                         </span>

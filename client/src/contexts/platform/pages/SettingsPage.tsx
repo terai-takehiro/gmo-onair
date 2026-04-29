@@ -97,7 +97,7 @@ export default function SettingsPage() {
                           <Badge variant="secondary">準備中</Badge>
                         )}
                       </td>
-                      <td className="py-2 font-mono text-xs text-muted-foreground">
+                      <td className="py-2 text-xs text-muted-foreground">
                         {app.basePath}
                       </td>
                     </tr>

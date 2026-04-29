@@ -591,7 +591,7 @@ export default function DataViewerPage() {
                             {table.count.toLocaleString()}
                           </span>
                         </div>
-                        <span className={`block text-[11px] font-mono truncate ${
+                        <span className={`block text-[11px]  truncate ${
                           selectedTable === table.name ? "text-white/60" : "text-muted-foreground/70"
                         }`}>
                           {table.name}
@@ -631,7 +631,7 @@ export default function DataViewerPage() {
                             {table.count.toLocaleString()}
                           </span>
                         </div>
-                        <span className={`block text-[11px] font-mono truncate ${
+                        <span className={`block text-[11px]  truncate ${
                           selectedTable === table.name ? "text-white/60" : "text-muted-foreground/70"
                         }`}>
                           {table.name}
@@ -762,7 +762,7 @@ export default function DataViewerPage() {
                             return (
                               <TableCell
                                 key={col}
-                                className={`whitespace-nowrap ${isIdColumn(col) ? "font-mono text-xs" : ""}`}
+                                className={`whitespace-nowrap ${isIdColumn(col) ? " text-xs" : ""}`}
                                 title={truncated ? fullText : undefined}
                               >
                                 {truncated ? display.substring(0, 30) + "..." : display}
@@ -827,7 +827,7 @@ export default function DataViewerPage() {
               {TABLE_LABELS[selectedTable] || selectedTable} の行を編集
             </DialogTitle>
             <DialogDescription>
-              <span className="font-mono text-xs">id: {editingRow?.id as string}</span>
+              <span className=" text-xs">id: {editingRow?.id as string}</span>
               <br />
               編集できないシステム列 (id / created_at / updated_at / deleted_at / 認証情報など) は無効化されています。
             </DialogDescription>
@@ -841,7 +841,7 @@ export default function DataViewerPage() {
                   <div key={col.name} className="grid gap-1">
                     <label className="text-xs font-medium flex items-center gap-2">
                       <span>{COLUMN_LABELS[col.name] || col.name}</span>
-                      <span className="font-mono text-[10px] text-muted-foreground">{col.name} : {col.type}</span>
+                      <span className=" text-[10px] text-muted-foreground">{col.name} : {col.type}</span>
                       {!col.editable && <Badge variant="outline" className="text-[10px]">編集不可</Badge>}
                     </label>
                     {isLong ? (
@@ -850,14 +850,14 @@ export default function DataViewerPage() {
                         onChange={(e) => setEditFormValues((prev) => ({ ...prev, [col.name]: e.target.value }))}
                         disabled={!col.editable}
                         rows={3}
-                        className="font-mono text-xs"
+                        className=" text-xs"
                       />
                     ) : (
                       <Input
                         value={value}
                         onChange={(e) => setEditFormValues((prev) => ({ ...prev, [col.name]: e.target.value }))}
                         disabled={!col.editable}
-                        className="font-mono text-xs"
+                        className=" text-xs"
                       />
                     )}
                   </div>
@@ -890,8 +890,8 @@ export default function DataViewerPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-1">
-            <div><span className="text-muted-foreground">テーブル:</span> {TABLE_LABELS[selectedTable] || selectedTable} <span className="font-mono text-[10px]">({selectedTable})</span></div>
-            <div><span className="text-muted-foreground">id:</span> <span className="font-mono">{deletingRow?.id as string}</span></div>
+            <div><span className="text-muted-foreground">テーブル:</span> {TABLE_LABELS[selectedTable] || selectedTable} <span className=" text-[10px]">({selectedTable})</span></div>
+            <div><span className="text-muted-foreground">id:</span> <span className="">{deletingRow?.id as string}</span></div>
             {!!(deletingRow?.name || deletingRow?.title) && (
               <div><span className="text-muted-foreground">name:</span> {String(deletingRow?.name || deletingRow?.title)}</div>
             )}

@@ -528,7 +528,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-xl lg:text-2xl font-bold">
             {project.gls_number && (
-              <span className="font-mono text-primary">
+              <span className=" text-primary">
                 {project.gls_number}{" "}
               </span>
             )}
@@ -668,7 +668,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono text-sm font-semibold">
+                        <span className=" text-sm font-semibold">
                           {rev.billing_key}
                         </span>
                         {rev.subtitle && (

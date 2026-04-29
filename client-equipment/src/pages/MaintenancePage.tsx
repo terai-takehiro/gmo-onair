@@ -106,7 +106,7 @@ export default function MaintenancePage() {
                       <Badge variant={statusOf(MAINTENANCE_TYPE, r.record_type).variant} className="text-xs">
                         {statusOf(MAINTENANCE_TYPE, r.record_type).label}
                       </Badge>
-                      <span className="font-mono text-xs text-primary">{r.eq_code}</span>
+                      <span className=" text-xs text-primary">{r.eq_code}</span>
                       <span className="text-sm text-muted-foreground">{r.equipment_name}</span>
                     </div>
                     <h3 className="font-medium mt-1">{r.title}</h3>

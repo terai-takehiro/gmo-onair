@@ -310,14 +310,14 @@ export default function CueCardList({
                     aria-label={`行 ${ri + 1} を編集`}
                   >
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-mono font-bold text-muted-foreground tabular-nums">
+                      <span className="text-[10px] font-bold text-muted-foreground tabular-nums">
                         #{ri + 1}
                       </span>
                       {row.label && (
                         <span className="text-xs font-medium text-foreground truncate">{row.label}</span>
                       )}
                       {row.duration && (
-                        <span className="ml-auto text-[10px] font-mono text-muted-foreground tabular-nums shrink-0">
+                        <span className="ml-auto text-[10px] text-muted-foreground tabular-nums shrink-0">
                           {row.duration}
                         </span>
                       )}
@@ -383,7 +383,7 @@ export default function CueCardList({
                 }))}
                 placeholder="0:00"
                 inputMode="numeric"
-                className="w-16 px-1.5 py-0.5 text-xs font-mono bg-card border border-border rounded outline-none focus:border-primary"
+                className="w-16 px-1.5 py-0.5 text-xs bg-card border border-border rounded outline-none focus:border-primary"
                 aria-label="尺"
               />
             </div>

@@ -106,7 +106,7 @@ function buildCues(data: { sections?: Section[]; meta?: { broadcastStartTime?: s
   return cues;
 }
 
-// Oswald number display component
+// Number display component (Roboto Condensed)
 function F({
   children,
   size,
@@ -126,7 +126,7 @@ function F({
     <span
       className={`tabular-nums ${className}`}
       style={{
-        fontFamily: "'Oswald','Arial Narrow',sans-serif",
+        fontFamily: "'Roboto Condensed','Arial Narrow',sans-serif",
         fontSize: size,
         fontWeight: weight,
         color,
@@ -415,9 +415,9 @@ export default function OnAirPage() {
         <div className="w-full md:w-[500px] h-[40vh] md:h-auto flex-shrink-0 flex flex-col bg-background border-b-2 md:border-b-0 md:border-r-2 border-border">
           {/* Column headers */}
           <div className="flex-none flex items-center h-10 px-2 bg-muted border-b-2 border-border">
-            <div className="w-[120px] text-center text-sm font-black text-foreground tracking-[0.15em]" style={{ fontFamily: "'Oswald',sans-serif" }}>TIME</div>
-            <div className="flex-1 text-sm font-black text-foreground tracking-[0.15em]" style={{ fontFamily: "'Oswald',sans-serif" }}>CUE</div>
-            <div className="w-[90px] text-right pr-4 text-sm font-black text-foreground tracking-[0.15em]" style={{ fontFamily: "'Oswald',sans-serif" }}>DUR</div>
+            <div className="w-[120px] text-center text-sm font-black text-foreground tracking-[0.15em]" style={{ fontFamily: "'Roboto Condensed',sans-serif" }}>TIME</div>
+            <div className="flex-1 text-sm font-black text-foreground tracking-[0.15em]" style={{ fontFamily: "'Roboto Condensed',sans-serif" }}>CUE</div>
+            <div className="w-[90px] text-right pr-4 text-sm font-black text-foreground tracking-[0.15em]" style={{ fontFamily: "'Roboto Condensed',sans-serif" }}>DUR</div>
           </div>
 
           {/* Cue list */}

@@ -340,7 +340,7 @@ export default function EquipmentDetailPage() {
           </h1>
           <button
             onClick={copyEqCode}
-            className="flex items-center gap-1 font-mono text-[11px] text-muted-foreground hover:text-foreground mt-1 transition-colors"
+            className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground mt-1 transition-colors"
             title="IDをコピー"
           >
             <QrCode className="h-3 w-3" />
@@ -370,7 +370,7 @@ export default function EquipmentDetailPage() {
               alt="QRコード"
               className="w-56 h-56 border rounded bg-white p-2"
             />
-            <p className="font-mono text-sm">{item.eq_code}</p>
+            <p className=" text-sm">{item.eq_code}</p>
             <p className="text-xs text-muted-foreground text-center">{item.name}</p>
             <Button onClick={() => window.print()} className="w-full">
               <Printer className="h-4 w-4 mr-1" />
@@ -391,7 +391,7 @@ export default function EquipmentDetailPage() {
                 <Input
                   value={editForm.eq_code || ""}
                   onChange={(e) => setEditForm({ ...editForm, eq_code: e.target.value })}
-                  className="font-mono"
+                  className=""
                   placeholder="Y-V-000001"
                 />
               </div>
@@ -925,7 +925,7 @@ export default function EquipmentDetailPage() {
                         className="flex items-center gap-2 hover:underline text-left"
                         onClick={() => navigate(`/equipment/items/${c.id}`)}
                       >
-                        <span className="font-mono text-xs text-muted-foreground">{c.eq_code}</span>
+                        <span className=" text-xs text-muted-foreground">{c.eq_code}</span>
                         <span>{c.name}{c.model_number ? ` (${c.model_number})` : ""}{c.unit_number ? ` No.${c.unit_number}` : ""}</span>
                         {c.notes && <span className="text-xs text-muted-foreground truncate max-w-[160px]">{c.notes}</span>}
                       </button>
@@ -988,7 +988,7 @@ export default function EquipmentDetailPage() {
                   className="flex items-center gap-2 text-sm hover:underline"
                   onClick={() => navigate(`/equipment/items/${item.parent.id}`)}
                 >
-                  <span className="font-mono text-xs text-muted-foreground">{item.parent.eq_code}</span>
+                  <span className=" text-xs text-muted-foreground">{item.parent.eq_code}</span>
                   <span>{item.parent.name}</span>
                 </button>
               ) : (

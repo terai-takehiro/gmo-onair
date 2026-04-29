@@ -314,7 +314,7 @@ export default function CompanyListPage() {
                     key: "invoice_registration_number",
                     header: "インボイス番号",
                     defaultWidth: 160,
-                    className: "text-xs font-mono text-muted-foreground",
+                    className: "text-xs  text-muted-foreground",
                     cell: (c) => c.invoice_registration_number || "-",
                   },
                   {

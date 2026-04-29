@@ -309,7 +309,7 @@ function ActionItemsSection({ navigate }: { navigate: (to: string) => void }) {
               </Badge>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-foreground truncate">
-                  {a.gls_number ? <span className="font-mono text-xs text-muted-foreground mr-1.5">{a.gls_number}</span> : null}
+                  {a.gls_number ? <span className=" text-xs text-muted-foreground mr-1.5">{a.gls_number}</span> : null}
                   {a.name}
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">{a.message}</p>
@@ -516,7 +516,7 @@ function RecentProjectsSection({ navigate }: { navigate: (to: string) => void })
                 <Clock className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-foreground truncate">
-                    <span className="font-mono text-xs text-muted-foreground mr-1.5">{p.gls_number}</span>
+                    <span className=" text-xs text-muted-foreground mr-1.5">{p.gls_number}</span>
                     {p.name}
                   </p>
                   {p.customer_name ? (
@@ -651,7 +651,7 @@ function PermDiagPanel() {
           {data && !data.error && (
             <>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                <span className="text-muted-foreground">ユーザーID</span><span className="font-mono truncate">{data.userInDb?.id}</span>
+                <span className="text-muted-foreground">ユーザーID</span><span className=" truncate">{data.userInDb?.id}</span>
                 <span className="text-muted-foreground">ロール (DB)</span><span className="font-medium">{data.userInDb?.role}</span>
                 <span className="text-muted-foreground">ステータス</span><span>{data.userInDb?.status}</span>
                 <span className="text-muted-foreground">権限数 (DB table)</span><span className={hasPerms ? "text-success font-bold" : "text-warning font-bold"}>{permCount} モジュール</span>
