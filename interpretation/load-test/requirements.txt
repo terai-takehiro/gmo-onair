@@ -1,0 +1,3 @@
+# Locust + WebSocket client for load testing the interpretation backend.
+locust>=2.31.0
+websocket-client>=1.8.0
