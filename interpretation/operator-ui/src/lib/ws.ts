@@ -1,5 +1,7 @@
 /** Operator WebSocket client. */
 
+import { bearer } from "@/lib/auth";
+
 const WS_BASE =
   process.env.NEXT_PUBLIC_WS_BASE_URL ?? "ws://localhost:8080";
 
@@ -19,7 +21,9 @@ export function openOperatorWs(
     onError?: (ev: Event) => void;
   } = {},
 ): OperatorWS {
-  const url = `${WS_BASE}/ws/operator/${sessionId}`;
+  const token = bearer();
+  const qs = token ? `?token=${encodeURIComponent(token)}` : "";
+  const url = `${WS_BASE}/ws/operator/${sessionId}${qs}`;
   const socket = new WebSocket(url);
   socket.binaryType = "arraybuffer";
 

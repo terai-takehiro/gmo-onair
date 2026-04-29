@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { listInputDevices, startMicCapture, type MicCapture } from "@/lib/audio";
 import { openOperatorWs, type OperatorWS } from "@/lib/ws";
 import { endSession, type CreateSessionResponse } from "@/lib/api";
+import { useAuthGuard } from "@/lib/use-auth-guard";
 
 type Props = { params: Promise<{ id: string }> };
 
 export default function LiveSessionPage({ params }: Props) {
+  const ok = useAuthGuard();
   const { id: sessionId } = use(params);
   const router = useRouter();
 
@@ -60,6 +62,8 @@ export default function LiveSessionPage({ params }: Props) {
     await endSession(sessionId);
     router.push("/");
   };
+
+  if (!ok) return null;
 
   return (
     <section className="space-y-6">

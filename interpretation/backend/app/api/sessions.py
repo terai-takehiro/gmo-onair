@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth import CurrentUser, current_user
 from app.db import models as m
 from app.db.session import get_db
 from app.languages import enabled_target_codes, load_languages
@@ -25,6 +26,7 @@ from app.models.schemas import (
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 DBDep = Annotated[AsyncSession, Depends(get_db)]
+UserDep = Annotated[CurrentUser, Depends(current_user)]
 
 
 def _validate_languages(codes: list[str]) -> list[str]:
@@ -62,7 +64,7 @@ def _to_public(s: m.Session) -> SessionPublic:
 
 @router.post("", response_model=SessionURLs, status_code=201)
 async def create_session(
-    payload: SessionCreate, request: Request, db: DBDep
+    payload: SessionCreate, request: Request, db: DBDep, user: UserDep
 ) -> SessionURLs:
     target_languages = _validate_languages(payload.target_languages)
 
@@ -77,6 +79,7 @@ async def create_session(
         pairs_by_lang = _glossary_pairs_by_lang(entries, target_languages)
 
     sess = m.Session(
+        operator_user_id=user.id,
         target_languages=list(target_languages),
         glossary_preset_id=payload.glossary_preset_id,
         status="live",
@@ -105,7 +108,7 @@ async def create_session(
 
 
 @router.get("/{session_id}", response_model=SessionPublic)
-async def get_session(session_id: UUID, db: DBDep) -> SessionPublic:
+async def get_session(session_id: UUID, db: DBDep, user: UserDep) -> SessionPublic:
     sess = await db.get(m.Session, session_id)
     if not sess:
         raise HTTPException(status_code=404, detail="session not found")
@@ -113,16 +116,17 @@ async def get_session(session_id: UUID, db: DBDep) -> SessionPublic:
 
 
 @router.get("", response_model=list[SessionPublic])
-async def list_sessions(db: DBDep) -> list[SessionPublic]:
-    rows = (
-        await db.execute(select(m.Session).order_by(m.Session.started_at.desc()))
-    ).scalars()
+async def list_sessions(db: DBDep, user: UserDep) -> list[SessionPublic]:
+    stmt = select(m.Session).order_by(m.Session.started_at.desc())
+    if user.role != "admin":
+        stmt = stmt.where(m.Session.operator_user_id == user.id)
+    rows = (await db.execute(stmt)).scalars()
     return [_to_public(s) for s in rows]
 
 
 @router.post("/{session_id}/end", response_model=SessionPublic)
 async def end_session(
-    session_id: UUID, request: Request, db: DBDep
+    session_id: UUID, request: Request, db: DBDep, user: UserDep
 ) -> SessionPublic:
     sess = await db.get(m.Session, session_id)
     if not sess:
@@ -155,7 +159,7 @@ async def end_session(
 
 @router.get("/{session_id}/cost", response_model=SessionCostSummary)
 async def get_session_cost(
-    session_id: UUID, request: Request, db: DBDep
+    session_id: UUID, request: Request, db: DBDep, user: UserDep
 ) -> SessionCostSummary:
     sess = await db.get(m.Session, session_id)
     if not sess:

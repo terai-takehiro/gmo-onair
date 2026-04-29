@@ -12,6 +12,30 @@ from pydantic import BaseModel, Field
 # ---------- Glossary ----------
 
 
+# ---------- Auth ----------
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"
+    expires_at: datetime
+
+
+class UserPublic(BaseModel):
+    id: UUID
+    email: str
+    display_name: str | None = None
+    role: Literal["admin", "operator"]
+
+
+# ---------- Glossary ----------
+
+
 class GlossaryEntry(BaseModel):
     source_ja: str
     translations: dict[str, str] = Field(default_factory=dict)

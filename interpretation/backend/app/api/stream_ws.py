@@ -12,14 +12,28 @@ from __future__ import annotations
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+
+from app.auth import decode_token
 
 router = APIRouter()
 log = structlog.get_logger(__name__)
 
 
 @router.websocket("/ws/operator/{session_id}")
-async def operator_ws(websocket: WebSocket, session_id: UUID) -> None:
+async def operator_ws(
+    websocket: WebSocket, session_id: UUID, token: str | None = None
+) -> None:
+    settings = websocket.app.state.settings
+    if not token:
+        await websocket.close(code=4401, reason="missing token")
+        return
+    try:
+        user = decode_token(token, settings)
+    except HTTPException:
+        await websocket.close(code=4401, reason="invalid token")
+        return
+
     orchestrator = websocket.app.state.orchestrator
     if orchestrator.get(session_id) is None:
         # Session must be created via POST /api/v1/sessions first.
@@ -27,7 +41,11 @@ async def operator_ws(websocket: WebSocket, session_id: UUID) -> None:
         return
 
     await websocket.accept()
-    log.info("operator_ws.connect", session_id=str(session_id))
+    log.info(
+        "operator_ws.connect",
+        session_id=str(session_id),
+        user_id=str(user.id),
+    )
 
     chunks_received = 0
     try:

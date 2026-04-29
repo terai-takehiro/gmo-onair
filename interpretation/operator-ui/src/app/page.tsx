@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSession, type CreateSessionResponse } from "@/lib/api";
+import { useAuthGuard } from "@/lib/use-auth-guard";
 
 const LANGUAGES: { code: string; label: string }[] = [
   { code: "en", label: "英語" },
@@ -11,10 +12,13 @@ const LANGUAGES: { code: string; label: string }[] = [
 ];
 
 export default function HomePage() {
+  const ok = useAuthGuard();
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set(["en"]));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  if (!ok) return null;
 
   const toggle = (code: string) => {
     const next = new Set(selected);

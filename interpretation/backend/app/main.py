@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app.api import glossaries, output_ws, sessions, stream_ws
+from app.api import auth as auth_api, glossaries, output_ws, sessions, stream_ws
 from app.config import get_settings
 from app.db.session import make_engine, make_sessionmaker
 from app.languages import load_languages
@@ -91,6 +91,7 @@ def create_app() -> FastAPI:
     async def health() -> dict[str, str]:
         return {"status": "ok", "environment": settings.environment}
 
+    app.include_router(auth_api.router, prefix="/api/v1")
     app.include_router(sessions.router, prefix="/api/v1")
     app.include_router(glossaries.router, prefix="/api/v1")
     app.include_router(stream_ws.router)
