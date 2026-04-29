@@ -257,8 +257,10 @@ function LedSceneSection({
   );
 }
 
-// ─── EditorSidebar ──────────────────────────────────────
-export default function EditorSidebar({
+// ─── EditorSidebarBody ──────────────────────────────────
+// デスクトップサイドバー / モバイル Sheet 両用の中身。
+// aside ラッパは持たず、Tabs 構造のみを返す。
+export function EditorSidebarBody({
   blocks,
   masters,
   meta,
@@ -308,11 +310,7 @@ export default function EditorSidebar({
   };
 
   return (
-    <aside
-      className="hidden lg:flex lg:flex-col w-60 flex-none border-r border-border bg-card/50 backdrop-blur-sm"
-      aria-label="エディタサイドバー"
-    >
-      <Tabs defaultValue="blocks" className="flex flex-col h-full">
+    <Tabs defaultValue="blocks" className="flex flex-col h-full">
         <TabsList className="grid grid-cols-4 m-2 mb-0 sticky top-0 z-10 shrink-0">
           <TabsTrigger value="blocks" className="text-xs">列</TabsTrigger>
           <TabsTrigger value="masters" className="text-xs">マスター</TabsTrigger>
@@ -527,6 +525,17 @@ export default function EditorSidebar({
           </CollapsibleSection>
         </TabsContent>
       </Tabs>
+  );
+}
+
+// ─── EditorSidebar (desktop wrapper) ────────────────────
+export default function EditorSidebar(props: Props) {
+  return (
+    <aside
+      className="hidden lg:flex lg:flex-col w-60 flex-none border-r border-border bg-card/50 backdrop-blur-sm"
+      aria-label="エディタサイドバー"
+    >
+      <EditorSidebarBody {...props} />
     </aside>
   );
 }

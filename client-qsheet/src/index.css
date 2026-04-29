@@ -95,3 +95,32 @@
   33%      { transform: translate(40px, -50px); }
   66%      { transform: translate(-30px, 30px); }
 }
+
+/* ── Dialog as bottom sheet (mobile-friendly editor sidebar) ── */
+/* Override the centered DialogContent positioning to slide up from the bottom */
+.dialog-bottom-sheet {
+  left: 0 !important;
+  right: 0 !important;
+  top: auto !important;
+  bottom: 0 !important;
+  transform: none !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  border-radius: 1rem 1rem 0 0 !important;
+  max-height: 88vh !important;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.dialog-bottom-sheet[data-state="open"] {
+  animation: slide-in-from-bottom 0.25s ease-out;
+}
+.dialog-bottom-sheet[data-state="closed"] {
+  animation: slide-out-to-bottom 0.2s ease-in;
+}
+@keyframes slide-in-from-bottom {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+@keyframes slide-out-to-bottom {
+  from { transform: translateY(0); }
+  to   { transform: translateY(100%); }
+}

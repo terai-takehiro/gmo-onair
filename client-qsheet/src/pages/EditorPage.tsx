@@ -6,6 +6,7 @@ import { notifyError } from "@/lib/notify";
 import { parseDur as parseDurShared } from "@/lib/time";
 import { Button } from "@/components/ui/button";
 import EditorSidebar from "@/components/editor/EditorSidebar";
+import EditorSidebarSheet from "@/components/editor/EditorSidebarSheet";
 import CueTable from "@/components/editor/CueTable";
 import PreviewModal from "@/components/editor/PreviewModal";
 import TrashDrawer from "@/components/editor/TrashDrawer";
@@ -149,6 +150,7 @@ export default function EditorPage() {
   const [doc, setDoc] = useState<QsheetDocument | null>(null);
   const [dirty, setDirty] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error" | "unsaved">("saved");
   const [saveFlash, setSaveFlash] = useState(false);
   const [collapsedBlocks, setCollapsedBlocks] = useState<Set<string>>(new Set());
@@ -443,7 +445,7 @@ export default function EditorPage() {
           updateState={(updater) => updateData(updater)}
         />
 
-        {/* Sidebar */}
+        {/* Sidebar (lg+) */}
         {sidebarOpen && (
           <EditorSidebar
             blocks={doc.data.blocks}
@@ -464,6 +466,48 @@ export default function EditorPage() {
           />
         )}
       </div>
+
+      {/* Mobile/Tablet Sidebar Sheet (lg未満で FAB から開く) */}
+      <EditorSidebarSheet
+        open={mobileSidebarOpen}
+        onOpenChange={setMobileSidebarOpen}
+        blocks={doc.data.blocks}
+        masters={doc.data.masters}
+        meta={doc.data.meta}
+        stageTemplates={(doc.data as any).stageTemplates}
+        ledScenes={(doc.data as any).ledScenes}
+        episodeId={doc.episode_id}
+        onBlocksChange={(blocks) => updateData((d) => ({ ...d, blocks }))}
+        onMastersChange={(masters) => updateData((d) => ({ ...d, masters }))}
+        onMetaChange={(meta) => updateData((d) => ({ ...d, meta }))}
+        onLedScenesChange={(scenes) => updateData((d) => ({ ...d, ledScenes: scenes } as any))}
+        onEditStageTemplate={(idx) => {
+          setEditingStageIdx(idx);
+          setMobileSidebarOpen(false);
+        }}
+        onEpisodeChange={(episodeId, episodeCode) => {
+          setDoc((prev) => prev ? { ...prev, episode_id: episodeId, episode_code: episodeCode } : prev);
+          setDirty(true);
+        }}
+      />
+
+      {/* FAB — モバイル/タブレットでサイドバーを開く */}
+      <button
+        type="button"
+        onClick={() => setMobileSidebarOpen(true)}
+        aria-label="エディタサイドバーを開く"
+        className={`lg:hidden fixed right-4 size-14 rounded-full shadow-lg flex items-center justify-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+          saveStatus === "error"
+            ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            : "bg-primary text-primary-foreground hover:bg-primary/90"
+        }`}
+        style={{ bottom: "calc(env(safe-area-inset-bottom) + 1rem)" }}
+      >
+        <PanelRightOpen size={22} aria-hidden />
+        {saveStatus === "error" && (
+          <span className="absolute -top-1 -right-1 size-3 rounded-full bg-destructive ring-2 ring-background" aria-hidden />
+        )}
+      </button>
 
       {/* Preview Modal */}
       {showPreview && (
