@@ -605,10 +605,10 @@ export default function RevenueListPage() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-xs text-muted-foreground">
+                          <span className=" text-xs text-muted-foreground">
                             {r.billing_key || "-"}
                           </span>
-                          <span className="font-mono text-xs font-medium text-primary">
+                          <span className=" text-xs font-medium text-primary">
                             {r.gls_number || "-"}
                           </span>
                         </div>
@@ -691,10 +691,10 @@ export default function RevenueListPage() {
                         className="cursor-pointer hover:bg-muted/50"
                         onClick={() => handleEditRevenue(r)}
                       >
-                        <TableCell className="font-mono text-xs">
+                        <TableCell className=" text-xs">
                           {r.billing_key || "-"}
                         </TableCell>
-                        <TableCell className="font-mono text-xs font-medium text-primary">
+                        <TableCell className=" text-xs font-medium text-primary">
                           {r.gls_number || "-"}
                         </TableCell>
                         <TableCell className="max-w-[200px]">
@@ -789,7 +789,7 @@ export default function RevenueListPage() {
                         setProjectSearch(p.name);
                       }}
                     >
-                      <span className="font-mono text-xs text-primary">
+                      <span className=" text-xs text-primary">
                         {p.gls_number || p.id.slice(0, 8)}
                       </span>
                       <span className="truncate">{p.name}</span>

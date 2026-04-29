@@ -459,7 +459,7 @@ export default function UserListPage() {
                 </div>
                 <div className="bg-muted rounded-lg p-3">
                   <p className="text-xs text-muted-foreground mb-1">招待URL（7日間有効）</p>
-                  <p className="text-xs font-mono break-all select-all">{inviteUrl}</p>
+                  <p className="text-xs break-all select-all">{inviteUrl}</p>
                 </div>
                 <Button className="w-full" onClick={() => { navigator.clipboard.writeText(inviteUrl); }}>
                   <Copy className="h-4 w-4 mr-1" />URLをコピー

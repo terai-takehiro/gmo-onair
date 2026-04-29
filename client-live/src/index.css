@@ -23,7 +23,7 @@
   * { @apply border-border; }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Noto Sans JP', -apple-system, 'Hiragino Sans', sans-serif;
+    font-family: var(--font-sans);
   }
 }
 

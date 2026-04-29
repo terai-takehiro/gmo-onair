@@ -202,7 +202,7 @@ export default function StudioBookingDetailDialog({
               >
                 <ExternalLink className="h-3 w-3" />
                 {booking.gls_number && (
-                  <span className="font-mono">{booking.gls_number}</span>
+                  <span className="">{booking.gls_number}</span>
                 )}
                 {booking.project_name}
                 {booking.episode_code && (

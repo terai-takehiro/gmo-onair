@@ -456,7 +456,7 @@ export default function ProjectFormPage() {
           </Badge>
         )}
         {isEdit && project?.code && (
-          <span className="text-sm font-mono text-muted-foreground">{project.gls_number || project.code}</span>
+          <span className="text-sm text-muted-foreground">{project.gls_number || project.code}</span>
         )}
         {isEdit && id && (
           <ProjectQuickLinks
@@ -1382,7 +1382,7 @@ export default function ProjectFormPage() {
               <div className="rounded-lg border bg-green-50 p-4 space-y-2">
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">イベントコード</span>
-                  <span className="font-mono font-bold text-lg">{glsResult.glsNumber}</span>
+                  <span className=" font-bold text-lg">{glsResult.glsNumber}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">案件名</span>

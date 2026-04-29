@@ -157,13 +157,13 @@
 }
 
 /* ==========================================================================
- * Typography — DADS recommends Noto Sans JP; Oswald kept for monospace numbers.
+ * Typography — Noto Sans JP for all UI; Roboto Condensed for emphasized numbers.
  * ========================================================================== */
 :root {
   --font-sans: 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif;
-  --font-serif: 'Noto Serif JP', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
-  --font-mono-ui: 'Noto Sans Mono', 'JetBrains Mono', 'SFMono-Regular', Menlo, monospace;
-  --font-mono-num: 'Oswald', 'Noto Sans Mono', monospace;
+  --font-serif: var(--font-sans);
+  --font-mono-ui: var(--font-sans);
+  --font-mono-num: 'Roboto Condensed', 'Noto Sans JP', sans-serif;
 
   --text-body:         15px;
   --line-height-jp:    1.75;

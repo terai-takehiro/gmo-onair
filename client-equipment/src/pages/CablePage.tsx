@@ -132,9 +132,9 @@ export default function CablePage() {
   const handleInlineChange = (id: string, field: string, value: string) => {
     setTableEdits((prev) => ({ ...prev, [id]: { ...(prev[id] ?? {}), [field]: value } }));
   };
-  const saveInlineRow = (id: string) => {
-    const edits = tableEdits[id];
-    if (!edits || Object.keys(edits).length === 0) return;
+  const saveInlineRow = (id: string, immediate?: Record<string, string>) => {
+    const edits = { ...(tableEdits[id] ?? {}), ...(immediate ?? {}) };
+    if (Object.keys(edits).length === 0) return;
     inlinePatch.mutate({ id, data: edits });
     setTableEdits((prev) => { const n = { ...prev }; delete n[id]; return n; });
   };
@@ -504,10 +504,10 @@ export default function CablePage() {
                       <KindBadge code={it.kind} />
                       {it.color && <span className="text-[11px] text-muted-foreground">●{it.color}</span>}
                     </div>
-                    <span className="text-sm font-mono text-foreground">×{it.quantity}</span>
+                    <span className="text-sm text-foreground">×{it.quantity}</span>
                   </div>
                   <p className="font-semibold text-sm leading-tight mb-0.5 truncate">{it.name}</p>
-                  <p className="font-mono text-xs text-muted-foreground truncate">
+                  <p className=" text-xs text-muted-foreground truncate">
                     {it.model_number || "–"}
                     {it.length_m != null && it.length_m !== "" ? ` / ${it.length_m}m` : ""}
                   </p>
@@ -574,13 +574,13 @@ export default function CablePage() {
                             onChange={(e) => handleInlineChange(it.id, f, e.target.value)}
                             onBlur={() => saveInlineRow(it.id)}
                             onClick={(e) => e.stopPropagation()}
-                            className={`w-full bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs ${opts?.right ? "text-right" : ""} ${opts?.mono ? "font-mono" : ""}`}
+                            className={`w-full bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs ${opts?.right ? "text-right" : ""} ${opts?.mono ? "" : ""}`}
                           />
                         );
                         const inlineSelect = (f: string, cur: unknown, options: { value: string; label: string }[]) => (
                           <select
                             value={editVal(f, cur)}
-                            onChange={(e) => { handleInlineChange(it.id, f, e.target.value); saveInlineRow(it.id); }}
+                            onChange={(e) => { handleInlineChange(it.id, f, e.target.value); saveInlineRow(it.id, { [f]: e.target.value }); }}
                             onClick={(e) => e.stopPropagation()}
                             className="w-full bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs"
                           >
@@ -605,17 +605,17 @@ export default function CablePage() {
                               ? inlineSelect("manufacturer_id", it.manufacturer_id ?? "", [{ value: "", label: "—" }, ...manufacturers.map((m) => ({ value: m.id, label: m.name }))])
                               : (it.manufacturer_name || "–")}</Td>;
                           case "model_number":
-                            return <Td key={key} className="font-mono text-xs">{tableEditMode
+                            return <Td key={key} className=" text-xs">{tableEditMode
                               ? inlineInput("model_number", it.model_number, { mono: true })
                               : (it.model_number || "–")}</Td>;
                           case "length_m":
-                            return <Td key={key} className="text-right font-mono">{tableEditMode
+                            return <Td key={key} className="text-right ">{tableEditMode
                               ? inlineInput("length_m", it.length_m, { type: "number", step: "0.1", right: true, mono: true })
                               : (it.length_m != null && it.length_m !== "" ? `${it.length_m}` : "–")}</Td>;
                           case "color":
                             return <Td key={key}>{tableEditMode ? inlineInput("color", it.color) : (it.color || "–")}</Td>;
                           case "quantity":
-                            return <Td key={key} className="text-right font-mono">{tableEditMode
+                            return <Td key={key} className="text-right ">{tableEditMode
                               ? inlineInput("quantity", it.quantity, { type: "number", right: true, mono: true })
                               : it.quantity}</Td>;
                           case "storage_method":
@@ -630,6 +630,11 @@ export default function CablePage() {
                         }
                       })}
                       <Td className="text-right whitespace-nowrap">
+                        {canEdit && (
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openCopy(it)} title="コピーして新規登録" aria-label="コピー">
+                            <Copy className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                         {canEdit && (
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(it)} aria-label="編集">
                             <Pencil className="h-3.5 w-3.5" />

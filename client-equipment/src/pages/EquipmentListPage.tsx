@@ -828,7 +828,7 @@ export default function EquipmentListPage() {
       if (!col) return null;
       switch (col.key) {
         case 'eq_code':
-          return <td key="eq_code" className={`px-3 ${py} font-mono text-xs text-muted-foreground whitespace-nowrap`}>{item.eq_code}</td>;
+          return <td key="eq_code" className={`px-3 ${py}  text-xs text-muted-foreground whitespace-nowrap`}>{item.eq_code}</td>;
         case 'equipment_type':
           return <td key="equipment_type" className={`px-3 ${py} whitespace-nowrap`}><SectionBadge typeCode={item.equipment_type_code} section={item.equipment_section} /></td>;
         case 'location': {
@@ -855,20 +855,20 @@ export default function EquipmentListPage() {
           return (
             <td key="model_number" className={`px-3 ${py} text-xs text-muted-foreground`}>
               {tableEditMode
-                ? <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs font-mono"
+                ? <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs "
                     value={tableEdits[item.id]?.model_number ?? item.model_number ?? ''}
                     onChange={e => handleInlineChange(item.id, 'model_number', e.target.value)}
                     onBlur={() => saveInlineRow(item.id)}
                     onClick={e => e.stopPropagation()}
                   />
-                : <div className="max-w-[8rem] line-clamp-2 break-all font-mono leading-snug">{item.model_number || '–'}</div>}
+                : <div className="max-w-[8rem] line-clamp-2 break-all leading-snug">{item.model_number || '–'}</div>}
             </td>
           );
         case 'serial_number':
           return (
-            <td key="serial_number" className={`px-3 ${py} text-xs text-muted-foreground font-mono whitespace-nowrap`}>
+            <td key="serial_number" className={`px-3 ${py} text-xs text-muted-foreground  whitespace-nowrap`}>
               {tableEditMode
-                ? <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs font-mono"
+                ? <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs "
                     value={tableEdits[item.id]?.serial_number ?? item.serial_number ?? ''}
                     onChange={e => handleInlineChange(item.id, 'serial_number', e.target.value)}
                     onBlur={() => saveInlineRow(item.id)}
@@ -894,9 +894,9 @@ export default function EquipmentListPage() {
           return <td key="condition" className={`px-3 ${py} text-xs text-muted-foreground whitespace-nowrap`}>{CONDITION_LABELS[item.condition] || '–'}</td>;
         case 'fixed_asset_code':
           return (
-            <td key="fixed_asset_code" className={`px-3 ${py} text-xs text-muted-foreground font-mono whitespace-nowrap`}>
+            <td key="fixed_asset_code" className={`px-3 ${py} text-xs text-muted-foreground  whitespace-nowrap`}>
               {tableEditMode
-                ? <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs font-mono"
+                ? <input className="w-full min-w-[80px] bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs "
                     value={tableEdits[item.id]?.fixed_asset_code ?? item.fixed_asset_code ?? ''}
                     onChange={e => handleInlineChange(item.id, 'fixed_asset_code', e.target.value)}
                     onBlur={() => saveInlineRow(item.id)}
@@ -1193,7 +1193,7 @@ export default function EquipmentListPage() {
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <div className="flex items-center gap-2 min-w-0 flex-wrap">
                         <SectionBadge typeCode={item.equipment_type_code} section={item.equipment_section} />
-                        <span className="font-mono text-xs text-muted-foreground">{item.eq_code}</span>
+                        <span className=" text-xs text-muted-foreground">{item.eq_code}</span>
                       </div>
                       <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
                     </div>
@@ -1202,7 +1202,7 @@ export default function EquipmentListPage() {
                       {(item.children_count ?? 0) > 0 && <span className="ml-1.5 text-[10px] font-normal text-muted-foreground bg-muted rounded-full px-1.5">{item.children_count}</span>}
                       {item.parent_name && <span className="ml-1.5 text-[10px] font-normal text-muted-foreground bg-muted rounded px-1">← {item.parent_name}</span>}
                     </p>
-                    <p className="font-mono text-xs text-muted-foreground truncate">
+                    <p className=" text-xs text-muted-foreground truncate">
                       {item.model_number || '–'}{item.unit_number != null ? ` / No.${item.unit_number}` : ''}
                     </p>
                     <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground flex-wrap">

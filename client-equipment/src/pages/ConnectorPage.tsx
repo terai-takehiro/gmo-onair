@@ -127,9 +127,9 @@ export default function ConnectorPage() {
   const handleInlineChange = (id: string, field: string, value: string) => {
     setTableEdits((prev) => ({ ...prev, [id]: { ...(prev[id] ?? {}), [field]: value } }));
   };
-  const saveInlineRow = (id: string) => {
-    const edits = tableEdits[id];
-    if (!edits || Object.keys(edits).length === 0) return;
+  const saveInlineRow = (id: string, immediate?: Record<string, string>) => {
+    const edits = { ...(tableEdits[id] ?? {}), ...(immediate ?? {}) };
+    if (Object.keys(edits).length === 0) return;
     inlinePatch.mutate({ id, data: edits });
     setTableEdits((prev) => { const n = { ...prev }; delete n[id]; return n; });
   };
@@ -490,10 +490,10 @@ export default function ConnectorPage() {
                     <div className="flex items-center gap-2 min-w-0 flex-wrap">
                       <KindBadge code={it.kind} />
                     </div>
-                    <span className="text-sm font-mono text-foreground">×{it.quantity}</span>
+                    <span className="text-sm text-foreground">×{it.quantity}</span>
                   </div>
                   <p className="font-semibold text-sm leading-tight mb-0.5 truncate">{it.name}</p>
-                  <p className="font-mono text-xs text-muted-foreground truncate">{it.model_number || "–"}</p>
+                  <p className=" text-xs text-muted-foreground truncate">{it.model_number || "–"}</p>
                   <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground flex-wrap">
                     {it.manufacturer_name && <span>{it.manufacturer_name}</span>}
                     {it.manufacturer_name && it.location_name && <span className="opacity-30">|</span>}
@@ -555,13 +555,13 @@ export default function ConnectorPage() {
                             onChange={(e) => handleInlineChange(it.id, f, e.target.value)}
                             onBlur={() => saveInlineRow(it.id)}
                             onClick={(e) => e.stopPropagation()}
-                            className={`w-full bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs ${opts?.right ? "text-right" : ""} ${opts?.mono ? "font-mono" : ""}`}
+                            className={`w-full bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs ${opts?.right ? "text-right" : ""} ${opts?.mono ? "" : ""}`}
                           />
                         );
                         const inlineSelect = (f: string, cur: unknown, options: { value: string; label: string }[]) => (
                           <select
                             value={editVal(f, cur)}
-                            onChange={(e) => { handleInlineChange(it.id, f, e.target.value); saveInlineRow(it.id); }}
+                            onChange={(e) => { handleInlineChange(it.id, f, e.target.value); saveInlineRow(it.id, { [f]: e.target.value }); }}
                             onClick={(e) => e.stopPropagation()}
                             className="w-full bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs"
                           >
@@ -584,9 +584,9 @@ export default function ConnectorPage() {
                               ? inlineSelect("manufacturer_id", it.manufacturer_id ?? "", [{ value: "", label: "—" }, ...manufacturers.map((m) => ({ value: m.id, label: m.name }))])
                               : (it.manufacturer_name || "–")}</Td>;
                           case "model_number":
-                            return <Td key={key} className="font-mono text-xs">{tableEditMode ? inlineInput("model_number", it.model_number, { mono: true }) : (it.model_number || "–")}</Td>;
+                            return <Td key={key} className=" text-xs">{tableEditMode ? inlineInput("model_number", it.model_number, { mono: true }) : (it.model_number || "–")}</Td>;
                           case "quantity":
-                            return <Td key={key} className="text-right font-mono">{tableEditMode ? inlineInput("quantity", it.quantity, { type: "number", right: true, mono: true }) : it.quantity}</Td>;
+                            return <Td key={key} className="text-right ">{tableEditMode ? inlineInput("quantity", it.quantity, { type: "number", right: true, mono: true }) : it.quantity}</Td>;
                           case "storage_method":
                             return <Td key={key} className="text-muted-foreground">{tableEditMode ? inlineInput("storage_method", it.storage_method) : (it.storage_method || "–")}</Td>;
                           case "notes":

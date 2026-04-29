@@ -168,7 +168,7 @@ export default function SessionHomePage() {
                   className="group w-full flex items-center gap-4 rounded-xl border border-border bg-card px-4 py-3.5 text-left transition-all hover:border-primary/40 hover:bg-accent"
                 >
                   {/* GLS badge or standalone indicator */}
-                  <div className={`shrink-0 rounded-md px-2 py-1 text-xs font-mono font-bold ${
+                  <div className={`shrink-0 rounded-md px-2 py-1 text-xs  font-bold ${
                     p.gls_number ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
                   }`}>
                     {p.gls_number ?? 'STA'}
@@ -256,7 +256,7 @@ export default function SessionHomePage() {
               {selectedProject ? (
                 <div className="flex items-center justify-between rounded-lg border border-primary bg-primary/10 px-3 py-2">
                   <div className="min-w-0">
-                    <span className="text-xs font-mono text-primary mr-2">{selectedProject.gls_number ?? '---'}</span>
+                    <span className="text-xs text-primary mr-2">{selectedProject.gls_number ?? '---'}</span>
                     <span className="text-sm font-medium truncate">{selectedProject.name}</span>
                   </div>
                   <button
@@ -290,7 +290,7 @@ export default function SessionHomePage() {
                         }}
                         className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent transition-colors border-b border-border last:border-0"
                       >
-                        <span className="font-mono text-xs text-muted-foreground w-16 shrink-0">{p.gls_number ?? '---'}</span>
+                        <span className=" text-xs text-muted-foreground w-16 shrink-0">{p.gls_number ?? '---'}</span>
                         <span className="truncate">{p.name}</span>
                       </button>
                     ))}

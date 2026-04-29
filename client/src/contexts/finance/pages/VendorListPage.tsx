@@ -115,7 +115,7 @@ export default function VendorListPage() {
                       </div>
                       {v.email && <div className="text-sm text-muted-foreground truncate">{v.email}</div>}
                       {v.invoice_registration_number && (
-                        <div className="text-xs font-mono text-muted-foreground mt-0.5">{v.invoice_registration_number}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">{v.invoice_registration_number}</div>
                       )}
                     </div>
                     <div className="flex gap-1 shrink-0">
@@ -146,7 +146,7 @@ export default function VendorListPage() {
                     key: "invoice_registration_number",
                     header: "適格請求書番号",
                     defaultWidth: 180,
-                    className: "font-mono text-xs",
+                    className: " text-xs",
                     cell: (v) => v.invoice_registration_number || "-",
                   },
                 ] as DataTableColumn<Vendor>[]}

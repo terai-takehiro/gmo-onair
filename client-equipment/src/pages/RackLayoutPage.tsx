@@ -817,7 +817,7 @@ function ItemTooltip({ item, x, y }: { item: any; x: number; y: number }) {
       <div className="bg-card text-foreground rounded-lg shadow-xl border border-border p-3 space-y-1.5" style={{ width: TOOLTIP_W }}>
         <div className="font-bold text-sm leading-tight">{item.name}</div>
         {item.model_number && (
-          <div className="text-xs text-muted-foreground leading-tight tracking-tight font-mono">{item.model_number}</div>
+          <div className="text-xs text-muted-foreground leading-tight tracking-tight ">{item.model_number}</div>
         )}
         {item.manufacturer_name && (
           <div className="text-[11px] text-muted-foreground">{item.manufacturer_name}</div>
@@ -826,7 +826,7 @@ function ItemTooltip({ item, x, y }: { item: any; x: number; y: number }) {
           {item.serial_number && (
             <div className="flex gap-1.5 text-[11px]">
               <span className="text-muted-foreground shrink-0">S/N</span>
-              <span className="font-semibold tracking-tight font-mono">{item.serial_number}</span>
+              <span className="font-semibold tracking-tight ">{item.serial_number}</span>
             </div>
           )}
           {(item.status || item.condition) && (

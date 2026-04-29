@@ -311,7 +311,7 @@ export default function SgaListPage() {
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => crud.openEdit(item)}
                     >
-                      <TableCell className="font-mono text-xs">
+                      <TableCell className=" text-xs">
                         {item.billing_key || "-"}
                       </TableCell>
                       <TableCell>{item.vendor_name || "-"}</TableCell>
@@ -336,7 +336,7 @@ export default function SgaListPage() {
                         <div className="flex items-center gap-1">
                           <SettlementBadge number={item.settlement_number} />
                           {item.settlement_number && item.settlement_number !== "pending" && (
-                            <span className="font-mono text-xs">
+                            <span className=" text-xs">
                               {formatSettlementNo(
                                 item.settlement_method ?? "",
                                 item.settlement_number,

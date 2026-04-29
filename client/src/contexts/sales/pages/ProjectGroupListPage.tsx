@@ -541,7 +541,7 @@ export default function ProjectGroupListPage() {
                       {detail.members.map((m) => (
                         <div key={m.id} className="flex items-center justify-between text-sm py-1 border-b last:border-0">
                           <div>
-                            <span className="font-mono text-primary mr-2">{m.gls_number}</span>
+                            <span className=" text-primary mr-2">{m.gls_number}</span>
                             <span>{m.name}</span>
                           </div>
                           <span className="text-xs text-muted-foreground">{m.customer_name}</span>
@@ -578,7 +578,7 @@ export default function ProjectGroupListPage() {
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-mono text-sm font-semibold">{rev.billing_key}</span>
+                              <span className=" text-sm font-semibold">{rev.billing_key}</span>
                               {rev.subtitle && <span className="text-sm">{rev.subtitle}</span>}
                               <Badge variant="outline" className="text-xs">
                                 {rev.status === "estimate" ? "見積" : "確定"}
@@ -632,7 +632,7 @@ export default function ProjectGroupListPage() {
                             <p className="text-xs font-medium text-muted-foreground mb-1">按分内訳</p>
                             {rev.allocations.map((a: Allocation, i: number) => (
                               <div key={i} className="flex justify-between text-xs py-0.5">
-                                <span className="font-mono">{a.gls_number} {a.project_name}</span>
+                                <span className="">{a.gls_number} {a.project_name}</span>
                                 <span className="font-number font-medium">{formatCurrency(a.allocated_amount)}</span>
                               </div>
                             ))}
@@ -691,7 +691,7 @@ export default function ProjectGroupListPage() {
                             <p className="text-xs font-medium text-muted-foreground mb-1">按分内訳</p>
                             {pu.allocations.map((a: Allocation, i: number) => (
                               <div key={i} className="flex justify-between text-xs py-0.5">
-                                <span className="font-mono">{a.gls_number} {a.project_name}</span>
+                                <span className="">{a.gls_number} {a.project_name}</span>
                                 <span className="font-number font-medium">{formatCurrency(a.allocated_amount)}</span>
                               </div>
                             ))}
@@ -808,7 +808,7 @@ export default function ProjectGroupListPage() {
                     {allocPreview.map((a) => (
                       <div key={a.project_id} className="flex items-center justify-between gap-2">
                         <span className="text-sm">
-                          <span className="font-mono text-primary mr-1">{a.gls_number}</span>
+                          <span className=" text-primary mr-1">{a.gls_number}</span>
                           {a.name}
                         </span>
                         {purAllocMode === "custom" ? (
@@ -969,7 +969,7 @@ export default function ProjectGroupListPage() {
                     {revAllocPreview.map((a) => (
                       <div key={a.project_id} className="flex items-center justify-between gap-2">
                         <span className="text-sm">
-                          <span className="font-mono text-primary mr-1">{a.gls_number}</span>
+                          <span className=" text-primary mr-1">{a.gls_number}</span>
                           {a.name}
                         </span>
                         {revAllocMode === "custom" ? (
@@ -1141,7 +1141,7 @@ function GroupFormDialog({ open, onClose, glsProjects, name, setName, desc, setD
                     onToggle={() => toggleMember(p.id)}
                     label={
                       <span>
-                        <span className={selectedIds.includes(p.id) ? "font-mono mr-1" : "font-mono text-primary mr-1"}>
+                        <span className={selectedIds.includes(p.id) ? " mr-1" : " text-primary mr-1"}>
                           {p.gls_number}
                         </span>
                         {p.name}

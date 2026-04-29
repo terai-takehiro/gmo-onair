@@ -211,7 +211,7 @@ function DocCard({
           <div className="flex items-center gap-1.5">
             <Play size={10} className="text-muted-foreground flex-shrink-0" aria-hidden />
             <span className="text-muted-foreground">放送</span>
-            <span className="font-medium font-mono text-foreground">{meta.broadcastStartTime}</span>
+            <span className="font-medium text-foreground">{meta.broadcastStartTime}</span>
           </div>
         )}
         {meta?.recordingDate && (

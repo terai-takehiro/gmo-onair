@@ -214,7 +214,7 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
     printWindow.document.write(`<!DOCTYPE html><html><head>
       <meta charset="UTF-8"><title>${docTitle}</title>
       <link rel="preconnect" href="https://fonts.googleapis.com">
-      <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
+      <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
       <style>
         @page { size: ${pageW} ${pageH}; margin: 8mm; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -267,12 +267,12 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
             <label className="flex items-center gap-2 text-xs text-zinc-500">
               フォント
               <input type="range" min="7" max="12" value={fontSize} step="0.5" onChange={(e) => setFontSize(parseFloat(e.target.value))} className="w-16" />
-              <span className="font-mono text-xs">{fontSize}pt</span>
+              <span className=" text-xs">{fontSize}pt</span>
             </label>
             <label className="flex items-center gap-2 text-xs text-zinc-500">
               余白
               <input type="range" min="10" max="50" value={margin} step="5" onChange={(e) => setMargin(parseInt(e.target.value))} className="w-16" />
-              <span className="font-mono text-xs">{margin}</span>
+              <span className=" text-xs">{margin}</span>
             </label>
             <span className="w-px h-4 bg-zinc-200" />
             <button
@@ -367,7 +367,7 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                       absSec += dur;
                       return (
                         <div key={si} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", margin: "4px 0", borderTop: "1px dashed #9ca3af", borderBottom: "1px dashed #9ca3af" }}>
-                          <span style={{ fontFamily: "'Oswald',sans-serif", fontSize: fontSize - 0.5 + "pt", color: "#9ca3af", whiteSpace: "nowrap", width: 70, textAlign: "right", flexShrink: 0 }}>{fmtAbs(breakAbs)}</span>
+                          <span style={{ fontFamily: "'Roboto Condensed',sans-serif", fontSize: fontSize - 0.5 + "pt", color: "#9ca3af", whiteSpace: "nowrap", width: 70, textAlign: "right", flexShrink: 0 }}>{fmtAbs(breakAbs)}</span>
                           <span style={{ fontSize: fontSize + "pt", fontWeight: 700, color: "#374151" }}>{sec.label || "CM"}</span>
                           <span style={{ fontSize: fontSize + "pt", fontWeight: 600, color: "#6b7280", marginLeft: "auto" }}>{dur > 0 ? fmtMinSec(dur) : ""}</span>
                         </div>
@@ -379,7 +379,7 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                       absSec += dur;
                       return (
                         <div key={si} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", margin: "4px 0", borderTop: "2px solid #4338ca", borderBottom: "2px solid #4338ca", background: "#eef2ff" }}>
-                          <span style={{ fontFamily: "'Oswald',sans-serif", fontSize: fontSize - 0.5 + "pt", color: "#4338ca", whiteSpace: "nowrap", width: 70, textAlign: "right", flexShrink: 0 }}>{fmtAbs(vtrAbs)}</span>
+                          <span style={{ fontFamily: "'Roboto Condensed',sans-serif", fontSize: fontSize - 0.5 + "pt", color: "#4338ca", whiteSpace: "nowrap", width: 70, textAlign: "right", flexShrink: 0 }}>{fmtAbs(vtrAbs)}</span>
                           <span style={{ fontSize: fontSize - 0.5 + "pt", fontWeight: 800, color: "#4338ca", background: "#c7d2fe", padding: "0 6px", borderRadius: 3, letterSpacing: "0.05em" }}>VTR</span>
                           <span style={{ fontSize: fontSize + "pt", fontWeight: 700, color: "#312e81" }}>{sec.label || ""}</span>
                           <span style={{ fontSize: fontSize + "pt", fontWeight: 600, color: "#4338ca", marginLeft: "auto" }}>{dur > 0 ? fmtMinSec(dur) : ""}</span>
@@ -394,8 +394,8 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                     return (
                       <div key={si} style={{ marginBottom: 6 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 10px", borderLeft: mono ? "4px solid #374151" : "4px solid #2563eb", background: lightBg, borderBottom: `1px solid ${borderColor}` }}>
-                          <span style={{ fontFamily: "'Oswald',sans-serif", fontSize: fontSize + 3 + "pt", color: "#d1d5db", width: 18, textAlign: "center", flexShrink: 0, fontWeight: 700 }}>{rowNum}</span>
-                          <span style={{ fontFamily: "'Oswald',sans-serif", fontSize: fontSize + "pt", color: "#6b7280", whiteSpace: "nowrap" }}>{fmtAbs(roleAbs)}</span>
+                          <span style={{ fontFamily: "'Roboto Condensed',sans-serif", fontSize: fontSize + 3 + "pt", color: "#d1d5db", width: 18, textAlign: "center", flexShrink: 0, fontWeight: 700 }}>{rowNum}</span>
+                          <span style={{ fontFamily: "'Roboto Condensed',sans-serif", fontSize: fontSize + "pt", color: "#6b7280", whiteSpace: "nowrap" }}>{fmtAbs(roleAbs)}</span>
                           {roleDur > 0 && <span style={{ fontSize: fontSize - 0.5 + "pt", color: "#9ca3af", border: "1px solid #d1d5db", padding: "0 6px", borderRadius: 3 }}>ロール尺 {fmtMinSec(roleDur)}</span>}
                           <span style={{ fontWeight: 700, fontSize: fontSize + 0.5 + "pt", color: "#111827", letterSpacing: "0.03em" }}>{sec.label}</span>
                         </div>

@@ -300,7 +300,7 @@ export default function PurchaseListPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono text-xs">{p.gls_number || "-"}</span>
+                        <span className=" text-xs">{p.gls_number || "-"}</span>
                         <SettlementBadge number={p.settlement_number} />
                         {p.group_name && (
                           <Badge variant="outline" className="text-xs">
@@ -375,7 +375,7 @@ export default function PurchaseListPage() {
                     >
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          <span className="font-mono text-sm">{p.gls_number || "-"}</span>
+                          <span className=" text-sm">{p.gls_number || "-"}</span>
                           {p.group_name && (
                             <Badge variant="outline" className="text-xs">
                               按分
@@ -393,7 +393,7 @@ export default function PurchaseListPage() {
                       <TableCell>
                         <SettlementBadge number={p.settlement_number} />
                         {p.settlement_number && p.settlement_number !== "pending" && (
-                          <span className="ml-1 font-mono text-xs text-muted-foreground">
+                          <span className="ml-1 text-xs text-muted-foreground">
                             {formatSettlementNo(
                               p.settlement_method ?? "",
                               p.settlement_number ?? "",

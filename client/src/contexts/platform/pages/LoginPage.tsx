@@ -191,7 +191,7 @@ export default function LoginPage() {
                   <Input id="otp" type="text" inputMode="numeric" maxLength={6}
                     value={otpCode} onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
                     placeholder="000000" required autoComplete="one-time-code"
-                    className="text-center text-2xl tracking-[0.5em] font-mono" />
+                    className="text-center text-2xl tracking-[0.5em] " />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading || otpCode.length !== 6}>
                   {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}

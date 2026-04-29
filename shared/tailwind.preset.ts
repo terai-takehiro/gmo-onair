@@ -20,9 +20,9 @@ const preset = {
     extend: {
       fontFamily: {
         sans: ['"Noto Sans JP"', '-apple-system', '"Hiragino Sans"', 'sans-serif'],
-        serif: ['"Noto Serif JP"', '"Hiragino Mincho ProN"', 'serif'],
-        mono: ['"Noto Sans Mono"', '"JetBrains Mono"', 'monospace'],
-        number: ['Oswald', '"Noto Sans Mono"', 'monospace'],
+        serif: ['"Noto Sans JP"', '-apple-system', '"Hiragino Sans"', 'sans-serif'],
+        mono: ['"Noto Sans JP"', '-apple-system', '"Hiragino Sans"', 'sans-serif'],
+        number: ['"Roboto Condensed"', '"Noto Sans JP"', 'sans-serif'],
       },
       colors: {
         /* GMO Blue scale — matches --color-gmo-blue-* from tokens.css */

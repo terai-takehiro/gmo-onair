@@ -546,7 +546,7 @@ function CueTableLg({
                 <GripVertical size={14} className="text-white/30 flex-none" aria-hidden />
                 <span
                   className="font-bold text-white/25"
-                  style={{ fontFamily: "'Oswald', sans-serif", lineHeight: 1, fontSize: "22px", width: "24px", marginRight: "4px", textAlign: "center", flexShrink: 0 }}
+                  style={{ fontFamily: "'Roboto Condensed', sans-serif", lineHeight: 1, fontSize: "22px", width: "24px", marginRight: "4px", textAlign: "center", flexShrink: 0 }}
                 >
                   {rowNum}
                 </span>

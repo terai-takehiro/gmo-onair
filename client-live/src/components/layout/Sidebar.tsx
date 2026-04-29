@@ -73,7 +73,7 @@ export default function Sidebar({ programId }: Props) {
           <div className="border-b border-border px-3 py-2.5">
             <div className="rounded-md bg-primary/10 px-2.5 py-2">
               {program.gls_number && (
-                <p className="text-[10px] font-mono font-bold text-primary leading-none mb-0.5">{program.gls_number}</p>
+                <p className="text-[10px] font-bold text-primary leading-none mb-0.5">{program.gls_number}</p>
               )}
               <p className="text-xs font-medium truncate">{program.name}</p>
               {program.project_name && !program.gls_number && (

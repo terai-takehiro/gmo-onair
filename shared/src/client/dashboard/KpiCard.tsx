@@ -62,6 +62,21 @@ function trendClass(dir: TrendDirection, semantics: KpiCardProps["trendSemantics
   return isGood ? "text-success" : "text-destructive";
 }
 
+/** 文字列値の末尾が「万」「億」「兆」等の和数単位なら小さく描画する。
+ *  例: "¥2,380万" → ¥2,380 (大) + 万 (小) */
+function renderValue(value: React.ReactNode): React.ReactNode {
+  if (typeof value !== "string") return value;
+  const m = value.match(/^(.*?)([万億兆]+)$/);
+  if (!m) return value;
+  const [, head, suffix] = m;
+  return (
+    <>
+      {head}
+      <span className="text-[0.55em] font-medium ml-0.5 align-baseline">{suffix}</span>
+    </>
+  );
+}
+
 export function KpiCard({
   label,
   value,
@@ -110,7 +125,7 @@ export function KpiCard({
           <span className="h-8 w-24 animate-pulse rounded bg-muted" aria-hidden="true" />
         ) : (
           <span className={cn("font-number font-bold tracking-tight tabular-nums", valueSizeClass, emphasisClasses[emphasis])}>
-            {value}
+            {renderValue(value)}
           </span>
         )}
         {unit ? (

@@ -41,7 +41,7 @@
   * { @apply border-border; }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Noto Sans JP', -apple-system, 'Hiragino Sans', sans-serif;
+    font-family: var(--font-sans);
     font-size: 15px;
     line-height: 1.75;
     letter-spacing: 0.02em;
