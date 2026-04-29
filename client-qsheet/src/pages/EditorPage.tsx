@@ -248,6 +248,23 @@ export default function EditorPage() {
 
 
 
+  // Global Ctrl+S / Cmd+S → manual save (input/textarea/[contenteditable] 内では無視)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.key === "s" || e.key === "S") || !(e.ctrlKey || e.metaKey)) return;
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName?.toLowerCase();
+        if (tag === "input" || tag === "textarea" || tag === "select") return;
+        if (target.isContentEditable) return;
+      }
+      e.preventDefault();
+      handleManualSave();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  });
+
   // Manual save — increments draftNumber if numbered mode
   const handleManualSave = useCallback(() => {
     if (!doc) return;
@@ -326,6 +343,8 @@ export default function EditorPage() {
                 saveFlash ? "bg-success text-success-foreground scale-105" : "bg-primary text-primary-foreground hover:bg-primary/90"
               }`}
               aria-label="手動保存"
+              aria-keyshortcuts="Control+S"
+              title="保存 (Ctrl+S / Cmd+S)"
             >
               <Save size={14} aria-hidden />
               <span className="hidden sm:inline">{saveFlash ? "保存しました" : "保存"}</span>
