@@ -132,9 +132,9 @@ export default function CablePage() {
   const handleInlineChange = (id: string, field: string, value: string) => {
     setTableEdits((prev) => ({ ...prev, [id]: { ...(prev[id] ?? {}), [field]: value } }));
   };
-  const saveInlineRow = (id: string) => {
-    const edits = tableEdits[id];
-    if (!edits || Object.keys(edits).length === 0) return;
+  const saveInlineRow = (id: string, immediate?: Record<string, string>) => {
+    const edits = { ...(tableEdits[id] ?? {}), ...(immediate ?? {}) };
+    if (Object.keys(edits).length === 0) return;
     inlinePatch.mutate({ id, data: edits });
     setTableEdits((prev) => { const n = { ...prev }; delete n[id]; return n; });
   };
@@ -580,7 +580,7 @@ export default function CablePage() {
                         const inlineSelect = (f: string, cur: unknown, options: { value: string; label: string }[]) => (
                           <select
                             value={editVal(f, cur)}
-                            onChange={(e) => { handleInlineChange(it.id, f, e.target.value); saveInlineRow(it.id); }}
+                            onChange={(e) => { handleInlineChange(it.id, f, e.target.value); saveInlineRow(it.id, { [f]: e.target.value }); }}
                             onClick={(e) => e.stopPropagation()}
                             className="w-full bg-transparent border-b border-primary/40 focus:border-primary focus:outline-none text-xs"
                           >
@@ -630,6 +630,11 @@ export default function CablePage() {
                         }
                       })}
                       <Td className="text-right whitespace-nowrap">
+                        {canEdit && (
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openCopy(it)} title="コピーして新規登録" aria-label="コピー">
+                            <Copy className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                         {canEdit && (
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(it)} aria-label="編集">
                             <Pencil className="h-3.5 w-3.5" />
