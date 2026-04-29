@@ -33,8 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.36 (dev) — **機材ダッシュボードにケーブル/コネクタを追加**: 機材ダッシュボードのクイックアクションに「ケーブル管理」「コネクタ管理」ボタンを追加 (Cable/Plug アイコン)。グリッドを `lg:grid-cols-4 xl:grid-cols-7` に拡張。さらに新セクション「消耗品サマリー」を追加し、ケーブル/コネクタの**所有合計本数（個数）+ 種類数**を `KpiCard` で 2 カラム表示 (`/equipment/cables` `/equipment/connectors` を React Query でフェッチして集計、staleTime 60s)。
+v2.8.37 (dev) — **モバイル InsertGap タップ展開式に変更 (UI ノイズ削減)**: ユーザー報告「これが再発しました」(複数の `+ CM / + VTR` ボタンが常時表示でセクション間が散らかって見える) に対応。モバイル CueCardList の InsertGap を「常時 3 ボタン表示」から「**デフォルトは小さな `+` 1 個 + 点線**、タップで pill 形式の 3 種ボタン inline 展開（右端に × 閉じボタン）」に変更。①`expandedGap` state (`number | null`) で展開中のギャップを 1 つだけ追跡。②非展開時はサイズ `size-6 rounded-full` の `+` ボタンのみ表示し、点線で挿入位置を示すだけ。③タップで「ロール · CM · VTR · ×」の pill UI が点線上に重なって表示、選択で挿入＋自動閉じ。④挿入インデックス計算と機能は v2.8.34 と完全互換。デスクトップ CueTableLg の InsertGap (hover 表示式) は v2.8.33 のまま据置。
 
+(v2.8.36: 機材ダッシュボードにケーブル/コネクタを追加 — Cable/Plug クイックアクション + 消耗品サマリー KpiCard。)
 (v2.8.35: 機材管理: ケーブル管理 + コネクタ管理ページ追加 — equipment_cables / equipment_connectors テーブル新設、サーバー CRUD + クライアントページ + サイドバー追加。マイグレーション 076。)
 (v2.8.34: モバイル スクロール不能 Fix + レスポンシブ強化 — EditorPage 親 div を `overflow-y-auto lg:overflow-hidden` に変更、CueCardList ボタンを iOS HIG 準拠タップ領域に拡大。)
 (v2.8.33: InsertGap UI 安定化 — 固定高 28px + 点線 + 3 ボタン opacity 切替で layout shift を完全排除。)

@@ -1,5 +1,5 @@
 import { useState, Fragment } from "react";
-import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, Trash2, ChevronUp, ChevronDown, X } from "lucide-react";
 import { Button } from "@gmo-onair/shared/src/client/ui";
 import CueRowSheet from "./CueRowSheet";
 
@@ -74,6 +74,7 @@ export default function CueCardList({
   updateState,
 }: Props) {
   const [editing, setEditing] = useState<{ si: number; ri: number } | null>(null);
+  const [expandedGap, setExpandedGap] = useState<number | null>(null);
 
   const addRow = (si: number) => {
     updateState((s: any) => {
@@ -158,36 +159,60 @@ export default function CueCardList({
     });
   };
 
-  // 挿入ギャップ (3 種ボタン、モバイルは常時表示・コンパクト)
-  const InsertGap = ({ idx }: { idx: number }) => (
-    <div className="relative flex items-center justify-center gap-1.5 h-7">
-      <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 border-t border-dashed border-border/40 pointer-events-none" />
-      <button
-        type="button"
-        onClick={() => insertAt(idx, "role")}
-        className="relative z-10 px-2 py-0.5 text-[11px] font-medium rounded-md bg-background border border-primary/30 text-primary hover:bg-primary/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        aria-label={`位置 ${idx} にロール挿入`}
-      >
-        ＋ ロール
-      </button>
-      <button
-        type="button"
-        onClick={() => insertAt(idx, "cm")}
-        className="relative z-10 px-2 py-0.5 text-[11px] font-medium rounded-md bg-background border border-warning/30 text-warning hover:bg-warning/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        aria-label={`位置 ${idx} に CM 挿入`}
-      >
-        ＋ CM
-      </button>
-      <button
-        type="button"
-        onClick={() => insertAt(idx, "vtr")}
-        className="relative z-10 px-2 py-0.5 text-[11px] font-medium rounded-md bg-background border border-info/30 text-info hover:bg-info/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        aria-label={`位置 ${idx} に VTR 挿入`}
-      >
-        ＋ VTR
-      </button>
-    </div>
-  );
+  // 挿入ギャップ (タップ展開式: デフォルトは小さな "+" 1 個のみ、
+  // tap で 3 種ボタン inline 展開、再 tap or 右の × で閉じる)
+  const InsertGap = ({ idx }: { idx: number }) => {
+    const expanded = expandedGap === idx;
+    return (
+      <div className="relative flex items-center justify-center h-7">
+        <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 border-t border-dashed border-border/40 pointer-events-none" />
+        {expanded ? (
+          <div className="relative z-10 flex items-center gap-1 bg-background px-1.5 py-0.5 rounded-full shadow-sm border border-border">
+            <button
+              type="button"
+              onClick={() => { insertAt(idx, "role"); setExpandedGap(null); }}
+              className="px-2 py-0.5 text-[11px] font-medium rounded-md text-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              ＋ ロール
+            </button>
+            <span className="text-border" aria-hidden>·</span>
+            <button
+              type="button"
+              onClick={() => { insertAt(idx, "cm"); setExpandedGap(null); }}
+              className="px-2 py-0.5 text-[11px] font-medium rounded-md text-warning hover:bg-warning/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              ＋ CM
+            </button>
+            <span className="text-border" aria-hidden>·</span>
+            <button
+              type="button"
+              onClick={() => { insertAt(idx, "vtr"); setExpandedGap(null); }}
+              className="px-2 py-0.5 text-[11px] font-medium rounded-md text-info hover:bg-info/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              ＋ VTR
+            </button>
+            <button
+              type="button"
+              onClick={() => setExpandedGap(null)}
+              className="size-5 inline-flex items-center justify-center rounded text-muted-foreground hover:bg-accent ml-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="閉じる"
+            >
+              <X size={11} aria-hidden />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setExpandedGap(idx)}
+            className="relative z-10 size-6 inline-flex items-center justify-center rounded-full bg-background border border-border text-muted-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={`位置 ${idx} に挿入`}
+          >
+            <Plus size={12} aria-hidden />
+          </button>
+        )}
+      </div>
+    );
+  };
 
   const editingRow =
     editing && sections[editing.si]?.rows[editing.ri] ? sections[editing.si].rows[editing.ri] : null;
