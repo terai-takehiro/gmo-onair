@@ -3,7 +3,9 @@
 FROM node:20-bookworm-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci
+# Use `npm ci` when a lockfile exists for reproducible builds; fall back to
+# `npm install` until the lockfile is generated and committed.
+RUN if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-fund; fi
 
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app

@@ -12,8 +12,16 @@
 cd interpretation/operator-ui
 cp .env.local.example .env.local
 # 必要に応じて NEXT_PUBLIC_API_BASE_URL などを編集
+
+# 初回のみ: package-lock.json を生成して必ずコミットする
+#   (CI / Dockerfile で `npm ci` を使うため)
 npm install
-npm run dev
+git add package-lock.json && git commit -m "chore(operator-ui): lockfile"
+
+npm run dev          # 開発サーバ
+npm run lint         # ESLint 9 flat config
+npm run typecheck    # tsc --noEmit
+npm run build        # Next.js standalone production build
 ```
 
 http://localhost:3000 を開く。バックエンドが http://localhost:8080 で起動している前提。

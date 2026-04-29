@@ -36,10 +36,19 @@ jobs:
         with:
           node-version: "20"
           cache: npm
-          cache-dependency-path: interpretation/operator-ui/package-lock.json
-      - run: npm ci
+          cache-dependency-path: |
+            interpretation/operator-ui/package-lock.json
+            interpretation/operator-ui/package.json
+      - name: Install (lockfile-aware)
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install --no-audit --no-fund
+          fi
       - run: npm run lint
       - run: npm run typecheck
+      - run: npm run build
 
   deploy:
     name: build + deploy (${{ github.event.inputs.target || (github.ref_name == 'main' && 'prod' || 'dev') }})
