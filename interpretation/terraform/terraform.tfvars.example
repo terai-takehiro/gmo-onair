@@ -1,0 +1,16 @@
+# Copy this file to terraform.tfvars and fill in the values.
+# terraform.tfvars is gitignored.
+
+project_id  = "gmo-interpretation-dev"
+region      = "asia-northeast1"
+zone        = "asia-northeast1-a"
+environment = "dev"
+name_prefix = "interp"
+
+# Override defaults if needed:
+# vertex_ai_region            = "asia-northeast1"
+# stt_region                  = "asia-northeast1"
+# tts_region                  = "global"
+# cloud_sql_tier              = "db-f1-micro"
+# memorystore_tier            = "BASIC"
+# memorystore_memory_size_gb  = 1

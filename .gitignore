@@ -22,3 +22,13 @@ service-account.json
 
 # TypeScript build info
 *.tsbuildinfo
+
+# Terraform (interpretation system)
+**/.terraform/
+**/.terraform.lock.hcl
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfplan
+**/terraform.tfvars
+**/*.auto.tfvars
+**/*.auto.tfvars.json

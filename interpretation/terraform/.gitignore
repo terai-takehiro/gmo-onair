@@ -1,0 +1,19 @@
+# Local Terraform state and plan artifacts
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+
+# Module / provider cache
+.terraform/
+.terraform.lock.hcl
+
+# Local variable files (may contain sensitive values)
+terraform.tfvars
+*.auto.tfvars
+*.auto.tfvars.json
+
+# CLI configuration
+.terraformrc
+terraform.rc
