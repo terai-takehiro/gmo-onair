@@ -1,8 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createSession, type CreateSessionResponse } from "@/lib/api";
+import {
+  createSession,
+  listGlossaries,
+  type CreateSessionResponse,
+  type GlossaryPreset,
+} from "@/lib/api";
 import { useAuthGuard } from "@/lib/use-auth-guard";
 
 const LANGUAGES: { code: string; label: string }[] = [
@@ -17,6 +22,17 @@ export default function HomePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set(["en"]));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [glossaries, setGlossaries] = useState<GlossaryPreset[]>([]);
+  const [glossaryId, setGlossaryId] = useState<string>("");
+
+  useEffect(() => {
+    if (!ok) return;
+    listGlossaries()
+      .then(setGlossaries)
+      .catch(() => {
+        /* glossaries are optional */
+      });
+  }, [ok]);
 
   if (!ok) return null;
 
@@ -37,6 +53,7 @@ export default function HomePage() {
     try {
       const res: CreateSessionResponse = await createSession({
         target_languages: [...selected],
+        glossary_preset_id: glossaryId || null,
       });
       sessionStorage.setItem(`session:${res.session_id}`, JSON.stringify(res));
       router.push(`/sessions/${res.session_id}`);
@@ -74,6 +91,22 @@ export default function HomePage() {
               </button>
             );
           })}
+        </div>
+
+        <div className="mt-4">
+          <label className="text-sm text-stone-700">用語辞書プリセット</label>
+          <select
+            value={glossaryId}
+            onChange={(e) => setGlossaryId(e.target.value)}
+            className="ml-2 rounded border px-2 py-1 text-sm"
+          >
+            <option value="">(なし)</option>
+            {glossaries.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name} ({g.entries.length})
+              </option>
+            ))}
+          </select>
         </div>
 
         {error && <p className="mt-4 text-sm text-red-600">{error}</p>}

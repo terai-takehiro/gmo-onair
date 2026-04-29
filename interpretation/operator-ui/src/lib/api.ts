@@ -70,3 +70,57 @@ export async function endSession(sessionId: string): Promise<void> {
 export function getSessionCost(sessionId: string): Promise<SessionCostSummary> {
   return jsonFetch<SessionCostSummary>(`/api/v1/sessions/${sessionId}/cost`);
 }
+
+// ---------- Glossary ----------
+
+export type GlossaryEntry = {
+  source_ja: string;
+  translations: Record<string, string>;
+  category: "company" | "product" | "person" | "term";
+};
+
+export type GlossaryPreset = {
+  id: string;
+  name: string;
+  entries: GlossaryEntry[];
+  updated_at: string | null;
+};
+
+export type GlossaryPresetCreate = {
+  name: string;
+  entries: GlossaryEntry[];
+};
+
+export function listGlossaries(): Promise<GlossaryPreset[]> {
+  return jsonFetch<GlossaryPreset[]>("/api/v1/glossaries");
+}
+
+export function getGlossary(id: string): Promise<GlossaryPreset> {
+  return jsonFetch<GlossaryPreset>(`/api/v1/glossaries/${id}`);
+}
+
+export function createGlossary(
+  body: GlossaryPresetCreate,
+): Promise<GlossaryPreset> {
+  return jsonFetch<GlossaryPreset>("/api/v1/glossaries", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateGlossary(
+  id: string,
+  body: GlossaryPresetCreate,
+): Promise<GlossaryPreset> {
+  return jsonFetch<GlossaryPreset>(`/api/v1/glossaries/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteGlossary(id: string): Promise<void> {
+  await fetch(`${API_BASE}/api/v1/glossaries/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+}

@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Interpretation — Operator",
@@ -13,10 +14,20 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className="min-h-dvh font-sans antialiased">
         <header className="border-b bg-white">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-            <h1 className="font-serif text-xl font-bold text-brand">
+            <Link
+              href="/"
+              className="font-serif text-xl font-bold text-brand"
+            >
               リアルタイム多言語通訳
-            </h1>
-            <span className="text-sm text-stone-500">Operator Console</span>
+            </Link>
+            <nav className="flex items-center gap-4 text-sm text-stone-600">
+              <Link href="/" className="hover:text-brand">
+                セッション
+              </Link>
+              <Link href="/glossaries" className="hover:text-brand">
+                用語辞書
+              </Link>
+            </nav>
           </div>
         </header>
         <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
