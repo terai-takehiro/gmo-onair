@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
+import { notifyError } from "@/lib/notify";
 import { parseDur as parseDurShared } from "@/lib/time";
 import { Button } from "@/components/ui/button";
 import EditorSidebar from "@/components/editor/EditorSidebar";
@@ -218,6 +219,7 @@ export default function EditorPage() {
     },
     onError: () => {
       setSaveStatus("error");
+      notifyError("保存に失敗しました", { description: "ネットワーク接続を確認して、もう一度保存してください。" });
     },
   });
 
@@ -280,40 +282,50 @@ export default function EditorPage() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
+    <div className="flex flex-col h-full bg-background text-foreground">
       {/* Header */}
-      <header className="flex-none bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border-b border-zinc-200/60 dark:border-zinc-800/60 z-50">
+      <header className="flex-none bg-card/80 backdrop-blur-xl border-b border-border z-50">
         {/* Row 1: Title + save + actions */}
         <div className="flex items-center justify-between px-4 h-11">
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <button onClick={() => navigate("/qsheet")} className="p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 transition-colors flex-shrink-0">
-              <ChevronLeft size={18} />
+            <button
+              onClick={() => navigate("/qsheet")}
+              className="p-1 rounded-lg hover:bg-accent text-muted-foreground transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              aria-label="ダッシュボードに戻る"
+            >
+              <ChevronLeft size={18} aria-hidden />
             </button>
             <input
               value={doc.data.meta.title || ""}
               onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, title: e.target.value } }))}
-              className="flex-1 min-w-0 bg-transparent text-[15px] font-bold border-none outline-none placeholder:text-zinc-300 dark:placeholder:text-zinc-700 truncate"
+              className="flex-1 min-w-0 bg-transparent text-[15px] font-bold border-none outline-none placeholder:text-muted-foreground/40 truncate"
               placeholder="無題のドキュメント"
+              aria-label="ドキュメントタイトル"
             />
           </div>
           <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
             {/* Save status badge */}
-            <span className={`hidden sm:inline text-xs font-medium px-2 py-0.5 rounded-full transition-all ${
-              saveStatus === "saved" ? "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30" :
-              saveStatus === "saving" ? "text-blue-600 bg-blue-50 dark:bg-blue-950/30" :
-              saveStatus === "error" ? "text-red-600 bg-red-50 dark:bg-red-950/30" :
-              "text-amber-600 bg-amber-50 dark:bg-amber-950/30"
-            }`}>
+            <span
+              role="status"
+              aria-live="polite"
+              className={`hidden sm:inline text-xs font-medium px-2 py-0.5 rounded-full transition-all ${
+                saveStatus === "saved" ? "text-success bg-success/10" :
+                saveStatus === "saving" ? "text-primary bg-primary/10" :
+                saveStatus === "error" ? "text-destructive bg-destructive/10" :
+                "text-warning bg-warning/10"
+              }`}
+            >
               {saveStatus === "saved" ? "保存済み" : saveStatus === "saving" ? "保存中..." : saveStatus === "error" ? "エラー" : "未保存"}
             </span>
             {/* Manual save button */}
             <button
               onClick={handleManualSave}
-              className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                saveFlash ? "bg-emerald-500 text-white scale-105" : "bg-blue-600 text-white hover:bg-blue-700"
-              } shadow-sm`}
+              className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
+                saveFlash ? "bg-success text-success-foreground scale-105" : "bg-primary text-primary-foreground hover:bg-primary/90"
+              }`}
+              aria-label="手動保存"
             >
-              <Save size={14} />
+              <Save size={14} aria-hidden />
               <span className="hidden sm:inline">{saveFlash ? "保存しました" : "保存"}</span>
             </button>
             {/* ゴミ箱 — ロール/行/エントリの復元用 */}
@@ -322,13 +334,14 @@ export default function EditorPage() {
               return (
                 <button
                   onClick={() => setShowTrash(true)}
-                  className="relative hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                  className="relative hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
                   title="ゴミ箱（削除したロール/行/エントリを復元）"
+                  aria-label={`ゴミ箱 ${trashCount}件`}
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
                   <span className="hidden md:inline">ゴミ箱</span>
                   {trashCount > 0 && (
-                    <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold min-w-[18px] text-center">
+                    <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold min-w-[18px] text-center">
                       {trashCount}
                     </span>
                   )}
@@ -341,8 +354,12 @@ export default function EditorPage() {
               <span className="hidden lg:inline">CSV</span>
             </Button>
             {/* PDF export */}
-            <button onClick={() => setShowPreview(true)} className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
-              <Eye size={13} />
+            <button
+              onClick={() => setShowPreview(true)}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              aria-label="印刷 / PDF プレビュー"
+            >
+              <Eye size={13} aria-hidden />
               <span className="hidden md:inline">印刷 / PDF</span>
             </button>
             {/* Navigation buttons — tablet+ */}
@@ -359,51 +376,53 @@ export default function EditorPage() {
               <span className="hidden sm:inline text-xs">ON AIR</span>
             </Button>
             <button
-              className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 transition-colors hidden lg:block"
+              className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground transition-colors hidden lg:block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               onClick={() => setSidebarOpen(!sidebarOpen)}
+              aria-label={sidebarOpen ? "サイドバーを閉じる" : "サイドバーを開く"}
             >
-              {sidebarOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
+              {sidebarOpen ? <PanelRightClose size={16} aria-hidden /> : <PanelRightOpen size={16} aria-hidden />}
             </button>
           </div>
         </div>
 
         {/* Row 2: Info bar — draft selector + dates + location (hidden on mobile) */}
-        <div className="hidden sm:flex items-center gap-3 px-4 pb-2 text-[11px] text-zinc-500 dark:text-zinc-400 flex-wrap">
+        <div className="hidden sm:flex items-center gap-3 px-4 pb-2 text-[11px] text-muted-foreground flex-wrap">
           {/* Draft selector */}
           <div className="flex items-center gap-1">
-            <span className="font-bold text-blue-600 dark:text-blue-400 text-xs bg-blue-50 dark:bg-blue-950/30 px-2 py-0.5 rounded" style={{ fontFamily: "'Oswald',sans-serif" }}>
+            <span className="font-bold text-primary text-xs bg-primary/10 px-2 py-0.5 rounded" style={{ fontFamily: "'Oswald',sans-serif" }}>
               {getDraftLabel(doc.data.meta)}
             </span>
             <select
               value={doc.data.meta.draftType || "numbered"}
               onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, draftType: e.target.value } }))}
-              className="bg-transparent border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-0.5 text-[11px] outline-none cursor-pointer"
+              className="bg-transparent border border-border rounded px-1.5 py-0.5 text-[11px] outline-none cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              aria-label="稿の種類"
             >
               <option value="numbered">稿番号を自動設定</option>
               <option value="準備稿">準備稿</option>
               <option value="決定稿">決定稿</option>
             </select>
           </div>
-          <span className="text-zinc-200 dark:text-zinc-700">|</span>
+          <span className="text-border" aria-hidden>|</span>
           <label className="flex items-center gap-1">
-            <span className="text-zinc-400">放送日</span>
-            <input type="date" value={doc.data.meta.broadcastDate || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, broadcastDate: e.target.value } }))} className="bg-transparent border-none outline-none text-zinc-600 dark:text-zinc-300" style={{ fontFamily: "'Oswald',sans-serif" }} />
+            <span className="text-muted-foreground">放送日</span>
+            <input type="date" value={doc.data.meta.broadcastDate || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, broadcastDate: e.target.value } }))} className="bg-transparent border-none outline-none text-foreground" style={{ fontFamily: "'Oswald',sans-serif" }} aria-label="放送日" />
           </label>
           <label className="flex items-center gap-1">
-            <span className="text-zinc-400">収録日</span>
-            <input type="date" value={doc.data.meta.recordingDate || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, recordingDate: e.target.value } }))} className="bg-transparent border-none outline-none text-zinc-600 dark:text-zinc-300" style={{ fontFamily: "'Oswald',sans-serif" }} />
+            <span className="text-muted-foreground">収録日</span>
+            <input type="date" value={doc.data.meta.recordingDate || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, recordingDate: e.target.value } }))} className="bg-transparent border-none outline-none text-foreground" style={{ fontFamily: "'Oswald',sans-serif" }} aria-label="収録日" />
           </label>
           <label className="flex items-center gap-1">
-            <span className="text-zinc-400">開始</span>
-            <input type="time" value={doc.data.meta.broadcastStartTime || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, broadcastStartTime: e.target.value } }))} className="bg-transparent border-none outline-none text-zinc-600 dark:text-zinc-300" style={{ fontFamily: "'Oswald',sans-serif" }} step="1" />
+            <span className="text-muted-foreground">開始</span>
+            <input type="time" value={doc.data.meta.broadcastStartTime || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, broadcastStartTime: e.target.value } }))} className="bg-transparent border-none outline-none text-foreground" style={{ fontFamily: "'Oswald',sans-serif" }} step="1" aria-label="放送開始時刻" />
           </label>
           <label className="flex items-center gap-1">
-            <span className="text-zinc-400">場所</span>
-            <input value={doc.data.meta.location || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, location: e.target.value } }))} className="bg-transparent border-none outline-none text-zinc-600 dark:text-zinc-300 w-32" placeholder="撮影場所" />
+            <span className="text-muted-foreground">場所</span>
+            <input value={doc.data.meta.location || ""} onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, location: e.target.value } }))} className="bg-transparent border-none outline-none text-foreground w-32" placeholder="撮影場所" aria-label="撮影場所" />
           </label>
-          <div className="ml-auto flex items-center gap-1 text-zinc-400">
-            <Clock size={11} />
-            <span style={{ fontFamily: "'Oswald',sans-serif" }}>{formatTime(totalDuration)}</span>
+          <div className="ml-auto flex items-center gap-1 text-muted-foreground">
+            <Clock size={11} aria-hidden />
+            <span style={{ fontFamily: "'Oswald',sans-serif" }} aria-label="総尺">{formatTime(totalDuration)}</span>
           </div>
         </div>
       </header>
