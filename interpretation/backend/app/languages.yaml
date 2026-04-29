@@ -1,0 +1,60 @@
+# Target language configuration. Add a new entry to support a new language —
+# no code change required (REQUIREMENTS.md §7.3).
+
+source:
+  ja:
+    name: 日本語
+    locale: ja-JP
+    stt_model: chirp_3
+
+languages:
+  en:
+    name: 英語
+    locale: en-US
+    tts_voice: en-US-Chirp3-HD-Aoede
+    font_family: "Inter, system-ui, sans-serif"
+    subtitle_max_chars_per_line: 80
+    subtitle_max_lines: 2
+
+  th:
+    name: タイ語
+    locale: th-TH
+    tts_voice: th-TH-Chirp3-HD-Aoede
+    font_family: "Noto Sans Thai, system-ui, sans-serif"
+    subtitle_max_chars_per_line: 60
+    subtitle_max_lines: 2
+
+  vi:
+    name: ベトナム語
+    locale: vi-VN
+    tts_voice: vi-VN-Chirp3-HD-Aoede
+    font_family: "Noto Sans, system-ui, sans-serif"
+    subtitle_max_chars_per_line: 70
+    subtitle_max_lines: 2
+
+  zh-CN:
+    name: 中国語(簡体)
+    locale: cmn-CN
+    tts_voice: cmn-CN-Chirp3-HD-Aoede
+    font_family: "Noto Sans SC, system-ui, sans-serif"
+    subtitle_max_chars_per_line: 50
+    subtitle_max_lines: 2
+    enabled: false
+
+  zh-TW:
+    name: 中国語(繁体)
+    locale: cmn-TW
+    tts_voice: cmn-TW-Chirp3-HD-Aoede
+    font_family: "Noto Sans TC, system-ui, sans-serif"
+    subtitle_max_chars_per_line: 50
+    subtitle_max_lines: 2
+    enabled: false
+
+  ko:
+    name: 韓国語
+    locale: ko-KR
+    tts_voice: ko-KR-Chirp3-HD-Aoede
+    font_family: "Noto Sans KR, system-ui, sans-serif"
+    subtitle_max_chars_per_line: 60
+    subtitle_max_lines: 2
+    enabled: false
