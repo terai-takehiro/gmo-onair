@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, Fragment } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -124,8 +124,10 @@ function CueTableLg({
   onToggleSectionCollapse,
   updateState,
 }: Props) {
-  const draggedSectionIdx: number | null = null;
-  const dropTargetSectionIdx: number | null = null;
+  const [draggedSectionIdx, setDraggedSectionIdx] = useState<number | null>(null);
+  const [dropTargetSectionIdx, setDropTargetSectionIdx] = useState<number | null>(null);
+  const [draggedRow, setDraggedRow] = useState<{ si: number; ri: number } | null>(null);
+  const [dropTargetRowKey, setDropTargetRowKey] = useState<string | null>(null);
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
   const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
 
@@ -261,6 +263,41 @@ function CueTableLg({
     });
   };
 
+  // 任意位置にロール挿入 (idx は挿入位置 = 既存 sections の splice 第一引数)
+  const insertSectionAt = (idx: number) => {
+    updateState((s: any) => {
+      const secs = [...s.sections];
+      secs.splice(idx, 0, { label: "【新しいロール】", rows: [] });
+      return { ...s, sections: secs };
+    });
+  };
+
+  // ロール (section) を from → to へ並び替え (HTML5 DnD 用)
+  const moveSection = (from: number, to: number) => {
+    if (from === to) return;
+    updateState((s: any) => {
+      const secs = [...s.sections];
+      if (from < 0 || from >= secs.length || to < 0 || to >= secs.length) return s;
+      const [moved] = secs.splice(from, 1);
+      secs.splice(to, 0, moved);
+      return { ...s, sections: secs };
+    });
+  };
+
+  // ロール内の行 (row) を indexed swap ではなく任意位置へ並び替え (HTML5 DnD 用)
+  const moveRowTo = (si: number, fromIdx: number, toIdx: number) => {
+    if (fromIdx === toIdx) return;
+    updateState((s: any) => {
+      const secs = [...s.sections];
+      const rows = [...secs[si].rows];
+      if (fromIdx < 0 || fromIdx >= rows.length || toIdx < 0 || toIdx >= rows.length) return s;
+      const [moved] = rows.splice(fromIdx, 1);
+      rows.splice(toIdx, 0, moved);
+      secs[si] = { ...secs[si], rows };
+      return { ...s, sections: secs };
+    });
+  };
+
   const duplicateRow = (si: number, ri: number) => {
     updateState((s: any) => {
       const secs = [...s.sections];
@@ -297,9 +334,43 @@ function CueTableLg({
 
   let rowNum = 0;
 
+  // セクション間に挿入する UI (ホバーで現れる横バー、ロール / CM / VTR を選択挿入)
+  const InsertGap = ({ idx }: { idx: number }) => (
+    <div className="group relative h-1.5 hover:h-9 transition-[height] duration-150">
+      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px bg-border/40 group-hover:bg-primary/30 transition-colors pointer-events-none" />
+      <div className="absolute inset-0 flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+        <button
+          type="button"
+          onClick={() => insertSectionAt(idx)}
+          className="px-2 py-1 text-[11px] font-medium rounded-md bg-card border border-primary/30 text-primary hover:bg-primary/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label={`位置 ${idx} にロールを挿入`}
+        >
+          ＋ ロール
+        </button>
+        <button
+          type="button"
+          onClick={() => addBreak(idx - 1)}
+          className="px-2 py-1 text-[11px] font-medium rounded-md bg-card border border-warning/30 text-warning hover:bg-warning/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label={`位置 ${idx} に CM を挿入`}
+        >
+          ＋ CM
+        </button>
+        <button
+          type="button"
+          onClick={() => addVtr(idx - 1)}
+          className="px-2 py-1 text-[11px] font-medium rounded-md bg-card border border-info/30 text-info hover:bg-info/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label={`位置 ${idx} に VTR を挿入`}
+        >
+          ＋ VTR
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <main className="flex-1 overflow-auto bg-background">
       <div className="p-4 space-y-4">
+        <InsertGap idx={0} />
         {sections.map((section, si) => {
           const isSectionDragTarget = dropTargetSectionIdx === si && draggedSectionIdx !== null && draggedSectionIdx !== si;
           const isSectionDragged = draggedSectionIdx === si;
@@ -307,15 +378,18 @@ function CueTableLg({
           // Page break
           if (section._pageBreak) {
             return (
-              <div key={si} className={`flex items-center gap-2 my-1 px-4 animate-in cursor-grab select-none ${isSectionDragged ? "opacity-40" : ""}`}>
-                <GripVertical size={12} className="text-muted-foreground/40 flex-none" />
-                <div className="flex-1 border-t-2 border-dashed border-border" />
-                <span className="text-[11px] text-muted-foreground font-medium whitespace-nowrap">改ページ</span>
-                <div className="flex-1 border-t-2 border-dashed border-border" />
-                <button onClick={() => deleteSection(si)} className="text-muted-foreground/60 hover:text-destructive transition-colors p-0.5">
-                  <Trash2 size={12} />
-                </button>
-              </div>
+              <Fragment key={si}>
+                <div className={`flex items-center gap-2 my-1 px-4 animate-in cursor-grab select-none ${isSectionDragged ? "opacity-40" : ""}`}>
+                  <GripVertical size={12} className="text-muted-foreground/40 flex-none" />
+                  <div className="flex-1 border-t-2 border-dashed border-border" />
+                  <span className="text-[11px] text-muted-foreground font-medium whitespace-nowrap">改ページ</span>
+                  <div className="flex-1 border-t-2 border-dashed border-border" />
+                  <button onClick={() => deleteSection(si)} className="text-muted-foreground/60 hover:text-destructive transition-colors p-0.5">
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+                <InsertGap idx={si + 1} />
+              </Fragment>
             );
           }
 
@@ -325,41 +399,52 @@ function CueTableLg({
             const breakAbsSec = absSec;
             absSec += breakDur;
             return (
-              <div key={si} className={`animate-in ${isSectionDragged ? "opacity-40" : ""}`}>
-                <div className="flex items-center gap-3 px-4 py-1.5 bg-foreground/90 dark:bg-foreground/90 rounded-lg cursor-grab select-none">
-                  <GripVertical size={13} className="text-background/50 flex-none" />
-                  <span className="text-[13px] text-background/70 tabular-nums whitespace-nowrap font-oswald" style={{ letterSpacing: "0.05em" }}>
-                    {fmtAbs(breakAbsSec)}
-                  </span>
-                  <input
-                    value={section.label || ""}
-                    onChange={(e) => updateSection(si, "label", e.target.value)}
-                    className="bg-transparent text-white text-[13px] font-bold border-none outline-none placeholder:text-background/40 tracking-wide flex-1"
-                    placeholder="CM"
-                  />
-                  <span className="text-[15px] font-bold text-white whitespace-nowrap ml-auto font-oswald">
-                    {(() => { const d = parseDur(section.duration || ""); const m = Math.floor(d / 60); const s = d % 60; return d > 0 ? `${m}分${String(s).padStart(2, "0")}秒` : ""; })()}
-                  </span>
-                  <input
-                    value={section.duration || ""}
-                    onChange={(e) => updateSection(si, "duration", e.target.value)}
-                    onBlur={(e) => {
-                      const n = normalizeDur(e.target.value);
-                      if (n !== e.target.value) updateSection(si, "duration", n);
-                    }}
-                    className={`w-12 text-center text-[11px] border-none outline-none rounded py-0.5 tabular-nums placeholder:text-background/50 focus:text-background transition-colors ${
-                      parseDur(section.duration || "") === 0
-                        ? "bg-amber-500/30 text-amber-100 ring-1 ring-amber-400/70"
-                        : "bg-foreground/30 text-background/70"
-                    }`}
-                    placeholder="0:00"
-                    title={parseDur(section.duration || "") === 0 ? "尺が未入力です" : undefined}
-                  />
-                  <button onClick={() => deleteSection(si)} className="text-muted-foreground hover:text-destructive transition-colors p-1">
-                    <Trash2 size={13} />
-                  </button>
+              <Fragment key={si}>
+                <div
+                  draggable
+                  onDragStart={(e) => { e.dataTransfer.setData("text/x-section-idx", String(si)); e.dataTransfer.effectAllowed = "move"; setDraggedSectionIdx(si); }}
+                  onDragOver={(e) => { if (e.dataTransfer.types.includes("text/x-section-idx")) { e.preventDefault(); setDropTargetSectionIdx(si); } }}
+                  onDragLeave={() => setDropTargetSectionIdx(null)}
+                  onDrop={(e) => { e.preventDefault(); const from = +e.dataTransfer.getData("text/x-section-idx"); moveSection(from, si); setDraggedSectionIdx(null); setDropTargetSectionIdx(null); }}
+                  onDragEnd={() => { setDraggedSectionIdx(null); setDropTargetSectionIdx(null); }}
+                  className={`animate-in ${isSectionDragged ? "opacity-40" : ""} ${isSectionDragTarget ? "outline outline-2 outline-primary outline-offset-2 rounded-lg" : ""}`}
+                >
+                  <div className="flex items-center gap-3 px-4 py-1.5 bg-foreground/90 dark:bg-foreground/90 rounded-lg cursor-grab select-none">
+                    <GripVertical size={13} className="text-background/50 flex-none" aria-hidden />
+                    <span className="text-[13px] text-background/70 tabular-nums whitespace-nowrap font-oswald" style={{ letterSpacing: "0.05em" }}>
+                      {fmtAbs(breakAbsSec)}
+                    </span>
+                    <input
+                      value={section.label || ""}
+                      onChange={(e) => updateSection(si, "label", e.target.value)}
+                      className="bg-transparent text-white text-[13px] font-bold border-none outline-none placeholder:text-background/40 tracking-wide flex-1"
+                      placeholder="CM"
+                    />
+                    <span className="text-[15px] font-bold text-white whitespace-nowrap ml-auto font-oswald">
+                      {(() => { const d = parseDur(section.duration || ""); const m = Math.floor(d / 60); const s = d % 60; return d > 0 ? `${m}分${String(s).padStart(2, "0")}秒` : ""; })()}
+                    </span>
+                    <input
+                      value={section.duration || ""}
+                      onChange={(e) => updateSection(si, "duration", e.target.value)}
+                      onBlur={(e) => {
+                        const n = normalizeDur(e.target.value);
+                        if (n !== e.target.value) updateSection(si, "duration", n);
+                      }}
+                      className={`w-12 text-center text-[11px] border-none outline-none rounded py-0.5 tabular-nums placeholder:text-background/50 focus:text-background transition-colors ${
+                        parseDur(section.duration || "") === 0
+                          ? "bg-amber-500/30 text-amber-100 ring-1 ring-amber-400/70"
+                          : "bg-foreground/30 text-background/70"
+                      }`}
+                      placeholder="0:00"
+                      title={parseDur(section.duration || "") === 0 ? "尺が未入力です" : undefined}
+                    />
+                    <button onClick={() => deleteSection(si)} className="text-muted-foreground hover:text-destructive transition-colors p-1">
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 </div>
-              </div>
+                <InsertGap idx={si + 1} />
+              </Fragment>
             );
           }
 
@@ -369,9 +454,18 @@ function CueTableLg({
             const vtrAbsSec = absSec;
             absSec += vtrDur;
             return (
-              <div key={si} className={`animate-in ${isSectionDragged ? "opacity-40" : ""}`}>
+              <Fragment key={si}>
+                <div
+                  draggable
+                  onDragStart={(e) => { e.dataTransfer.setData("text/x-section-idx", String(si)); e.dataTransfer.effectAllowed = "move"; setDraggedSectionIdx(si); }}
+                  onDragOver={(e) => { if (e.dataTransfer.types.includes("text/x-section-idx")) { e.preventDefault(); setDropTargetSectionIdx(si); } }}
+                  onDragLeave={() => setDropTargetSectionIdx(null)}
+                  onDrop={(e) => { e.preventDefault(); const from = +e.dataTransfer.getData("text/x-section-idx"); moveSection(from, si); setDraggedSectionIdx(null); setDropTargetSectionIdx(null); }}
+                  onDragEnd={() => { setDraggedSectionIdx(null); setDropTargetSectionIdx(null); }}
+                  className={`animate-in ${isSectionDragged ? "opacity-40" : ""} ${isSectionDragTarget ? "outline outline-2 outline-primary outline-offset-2 rounded-lg" : ""}`}
+                >
                 <div className="flex items-center gap-3 px-4 py-1.5 bg-gradient-to-r from-indigo-800 to-indigo-700 dark:from-indigo-900 dark:to-indigo-800 rounded-lg cursor-grab select-none">
-                  <GripVertical size={13} className="text-indigo-300 flex-none" />
+                  <GripVertical size={13} className="text-indigo-300 flex-none" aria-hidden />
                   <span className="text-[11px] font-bold text-indigo-200 bg-indigo-950/50 rounded px-1.5 py-0.5 tracking-wider">VTR</span>
                   <span className="text-[13px] text-indigo-200 tabular-nums whitespace-nowrap font-oswald" style={{ letterSpacing: "0.05em" }}>
                     {fmtAbs(vtrAbsSec)}
@@ -404,7 +498,9 @@ function CueTableLg({
                     <Trash2 size={13} />
                   </button>
                 </div>
-              </div>
+                </div>
+                <InsertGap idx={si + 1} />
+              </Fragment>
             );
           }
 
@@ -416,19 +512,27 @@ function CueTableLg({
           const isSectionCollapsed = collapsedSections?.has(si);
 
           return (
+            <Fragment key={si}>
             <div
-              key={si}
               className={`bg-card rounded-xl border border-border overflow-hidden shadow-sm animate-in transition-opacity ${
                 isSectionDragged ? "opacity-40" : ""
-              } ${isSectionDragTarget ? "ring-2 ring-blue-500 ring-offset-2" : ""}`}
+              } ${isSectionDragTarget ? "ring-2 ring-primary ring-offset-2" : ""}`}
             >
               {/* Section header */}
-              <div className={`flex items-center gap-2 px-3 sm:px-4 py-2 cursor-grab select-none flex-wrap ${
-                isSectionCollapsed
-                  ? "bg-gradient-to-r from-primary/90 to-primary/70"
-                  : "bg-gradient-to-r from-primary to-primary/80"
-              }`}>
-                <GripVertical size={14} className="text-white/30 flex-none" />
+              <div
+                draggable
+                onDragStart={(e) => { e.dataTransfer.setData("text/x-section-idx", String(si)); e.dataTransfer.effectAllowed = "move"; setDraggedSectionIdx(si); }}
+                onDragOver={(e) => { if (e.dataTransfer.types.includes("text/x-section-idx")) { e.preventDefault(); setDropTargetSectionIdx(si); } }}
+                onDragLeave={() => setDropTargetSectionIdx(null)}
+                onDrop={(e) => { e.preventDefault(); const from = +e.dataTransfer.getData("text/x-section-idx"); moveSection(from, si); setDraggedSectionIdx(null); setDropTargetSectionIdx(null); }}
+                onDragEnd={() => { setDraggedSectionIdx(null); setDropTargetSectionIdx(null); }}
+                className={`flex items-center gap-2 px-3 sm:px-4 py-2 cursor-grab select-none flex-wrap ${
+                  isSectionCollapsed
+                    ? "bg-gradient-to-r from-primary/90 to-primary/70"
+                    : "bg-gradient-to-r from-primary to-primary/80"
+                }`}
+              >
+                <GripVertical size={14} className="text-white/30 flex-none" aria-hidden />
                 <span
                   className="font-bold text-white/25"
                   style={{ fontFamily: "'Oswald', sans-serif", lineHeight: 1, fontSize: "22px", width: "24px", marginRight: "4px", textAlign: "center", flexShrink: 0 }}
@@ -594,6 +698,36 @@ function CueTableLg({
                                 rowLabel: meta.rowLabel,
                               })));
                             }}
+                            isRowDragged={draggedRow?.si === si && draggedRow?.ri === ri}
+                            isRowDropTarget={dropTargetRowKey === `${si}-${ri}` && draggedRow !== null && (draggedRow.si !== si || draggedRow.ri !== ri)}
+                            onRowDragStart={(e) => {
+                              e.stopPropagation();
+                              e.dataTransfer.setData("text/x-row-key", `${si}-${ri}`);
+                              e.dataTransfer.effectAllowed = "move";
+                              setDraggedRow({ si, ri });
+                            }}
+                            onRowDragOver={(e) => {
+                              if (!e.dataTransfer.types.includes("text/x-row-key")) return;
+                              e.preventDefault();
+                              e.dataTransfer.dropEffect = "move";
+                              setDropTargetRowKey(`${si}-${ri}`);
+                            }}
+                            onRowDragLeave={() => setDropTargetRowKey(null)}
+                            onRowDrop={(e) => {
+                              if (!e.dataTransfer.types.includes("text/x-row-key")) return;
+                              e.preventDefault();
+                              const key = e.dataTransfer.getData("text/x-row-key");
+                              const [fromSiStr, fromRiStr] = key.split("-");
+                              const fromSi = +fromSiStr;
+                              const fromRi = +fromRiStr;
+                              if (fromSi === si) {
+                                moveRowTo(si, fromRi, ri);
+                              }
+                              // 別ロール間移動は本フェーズでは未対応 (将来対応)
+                              setDraggedRow(null);
+                              setDropTargetRowKey(null);
+                            }}
+                            onRowDragEnd={() => { setDraggedRow(null); setDropTargetRowKey(null); }}
                           />
                         ))}
                       </tbody>
@@ -610,6 +744,8 @@ function CueTableLg({
                 </>
               )}
             </div>
+            <InsertGap idx={si + 1} />
+            </Fragment>
           );
         })}
 

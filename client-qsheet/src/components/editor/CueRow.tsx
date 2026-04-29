@@ -41,6 +41,14 @@ interface CueRowProps {
   onDuplicate: () => void;
   // v1.2.9: エントリ単位の削除（ゴミ箱経由）を親 (CueTable→EditorPage) で処理するためのコールバック
   onDeleteEntry?: (blockId: string, entryIdx: number, payload: any, meta: { sectionLabel?: string; rowLabel?: string }) => void;
+  // v2.8.32: 行 DnD 用 (HTML5 native drag&drop)
+  isRowDragged?: boolean;
+  isRowDropTarget?: boolean;
+  onRowDragStart?: (e: React.DragEvent) => void;
+  onRowDragOver?: (e: React.DragEvent) => void;
+  onRowDragLeave?: (e: React.DragEvent) => void;
+  onRowDrop?: (e: React.DragEvent) => void;
+  onRowDragEnd?: (e: React.DragEvent) => void;
 }
 
 // ─── LED/XR cue & transition options ────────────────────
@@ -279,8 +287,26 @@ export default function CueRow({
   onMoveDown,
   onDuplicate,
   onDeleteEntry,
+  isRowDragged,
+  isRowDropTarget,
+  onRowDragStart,
+  onRowDragOver,
+  onRowDragLeave,
+  onRowDrop,
+  onRowDragEnd,
 }: CueRowProps) {
   const rowUid = useId();
+  const dragHandlers = onRowDragStart
+    ? {
+        draggable: true,
+        onDragStart: onRowDragStart,
+        onDragOver: onRowDragOver,
+        onDragLeave: onRowDragLeave,
+        onDrop: onRowDrop,
+        onDragEnd: onRowDragEnd,
+      }
+    : {};
+  const dragClass = `${onRowDragStart ? "cursor-grab active:cursor-grabbing" : ""} ${isRowDragged ? "opacity-40" : ""} ${isRowDropTarget ? "outline outline-2 outline-primary outline-offset-[-2px]" : ""}`;
 
   const updateCell = (blockId: string, newCell: any) => {
     onChange((r) => ({ ...r, cells: { ...r.cells, [blockId]: newCell } }));
@@ -352,9 +378,10 @@ export default function CueRow({
         return (
         <tr
           key={ei}
+          {...(ei === 0 ? dragHandlers : {})}
           className={`group transition-colors duration-150 hover:bg-blue-50/40 dark:hover:bg-blue-950/10 ${
             ei === entryCount - 1 ? "border-b border-zinc-100/80 dark:border-zinc-800/60" : ""
-          }`}
+          } ${ei === 0 ? dragClass : ""}`}
           style={highlight ? { backgroundColor: highlight } : undefined}
         >
           {blocks.map((blk) => {
@@ -665,7 +692,7 @@ export default function CueRow({
         );
       })}
       {/* ＋ エントリ追加行 */}
-      <tr className="border-b border-zinc-50 dark:border-zinc-900 hover:bg-blue-50/30 dark:hover:bg-blue-950/10 transition-colors">
+      <tr {...dragHandlers} className={`border-b border-zinc-50 dark:border-zinc-900 hover:bg-blue-50/30 dark:hover:bg-blue-950/10 transition-colors ${dragClass}`}>
         <td colSpan={blocks.length + 1}>
           <button
             onClick={addEntryToAllBlocks}
