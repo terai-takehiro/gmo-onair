@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
 import { parseDur, fmtAbs } from "@/lib/time";
+import { notifySuccess, notifyError } from "@/lib/notify";
 import {
   ChevronLeft,
   Play,
@@ -298,12 +299,34 @@ export default function OnAirPage() {
     return () => window.removeEventListener("keydown", h);
   }, [running, go, next, prev, tog, stop]);
 
+  // 放送モードはダークテーマ強制 (DADS の .dark トークンに統一)
+  useEffect(() => {
+    const html = document.documentElement;
+    const wasAlreadyDark = html.classList.contains("dark");
+    if (!wasAlreadyDark) html.classList.add("dark");
+    return () => {
+      if (!wasAlreadyDark) html.classList.remove("dark");
+    };
+  }, []);
+
   // Socket.IO
   const socketRef = useRef<ReturnType<typeof getQsheetSocket> | null>(null);
+  const wasConnectedRef = useRef(false);
   useEffect(() => {
     if (!id) return;
     const socket = getQsheetSocket(id);
     socketRef.current = socket;
+    const onConnect = () => {
+      if (wasConnectedRef.current) {
+        notifySuccess("放送同期に再接続しました");
+      }
+      wasConnectedRef.current = true;
+    };
+    const onDisconnect = () => {
+      notifyError("放送同期が切断されました", { description: "ネットワーク接続を確認してください。" });
+    };
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
     socket.on("cue:next", () => next());
     socket.on("cue:prev", () => prev());
     socket.on("cue:jump", (data: { cueIndex: number }) => {
@@ -315,8 +338,11 @@ export default function OnAirPage() {
     socket.on("cue:pause", () => tog());
     socket.on("cue:reset", () => stop());
     return () => {
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
       disconnectQsheetSocket();
       socketRef.current = null;
+      wasConnectedRef.current = false;
     };
   }, [id, running, go, next, prev, tog, stop]);
 
@@ -339,7 +365,7 @@ export default function OnAirPage() {
   // ============================================================
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-red-500" />
       </div>
     );
@@ -347,11 +373,11 @@ export default function OnAirPage() {
 
   if (!doc || cues.length === 0) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center bg-black text-white gap-4">
-        <p className="text-zinc-500">キューデータがありません</p>
+      <div className="flex h-screen flex-col items-center justify-center bg-background text-foreground gap-4">
+        <p className="text-muted-foreground">キューデータがありません</p>
         <button
           onClick={() => navigate(`/qsheet/editor/${id}`)}
-          className="px-4 py-2 border border-zinc-700 rounded text-sm hover:bg-zinc-900"
+          className="px-4 py-2 border border-border rounded text-sm hover:bg-accent"
         >
           エディターに戻る
         </button>
@@ -360,23 +386,23 @@ export default function OnAirPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-black text-white overflow-hidden select-none">
+    <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden select-none">
       {/* ===== HEADER ===== */}
-      <header className="flex-none h-10 flex items-center justify-between px-5 bg-[#111] border-b border-[#222]">
+      <header className="flex-none h-10 flex items-center justify-between px-5 bg-card border-b border-border">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate(`/qsheet/editor/${id}`)} className="text-[#eee] hover:text-white">
+          <button onClick={() => navigate(`/qsheet/editor/${id}`)} className="text-muted-foreground hover:text-foreground">
             <ChevronLeft size={18} />
           </button>
-          <span className="text-base font-bold text-[#eee]">{doc.data?.meta?.title || doc.title}</span>
+          <span className="text-base font-bold text-foreground">{doc.data?.meta?.title || doc.title}</span>
           {running && !paused && (
             <span className="ml-2 text-sm font-black tracking-[0.2em] text-red-500 flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+              <span className="w-2.5 h-2.5 rounded-full bg-destructive animate-pulse" />
               ON AIR
             </span>
           )}
-          {paused && <span className="ml-2 text-sm font-black tracking-wider text-amber-400">PAUSE</span>}
+          {paused && <span className="ml-2 text-sm font-black tracking-wider text-warning">PAUSE</span>}
         </div>
-        <div className="text-sm font-bold text-[#bbb] hidden md:flex gap-6">
+        <div className="text-sm font-bold text-muted-foreground hidden md:flex gap-6">
           <span>SPACE 次へ</span>
           <span>P 一時停止</span>
           <span>↑↓ ±1分</span>
@@ -386,12 +412,12 @@ export default function OnAirPage() {
 
       <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
         {/* ===== LEFT: RUNDOWN LIST ===== */}
-        <div className="w-full md:w-[500px] h-[40vh] md:h-auto flex-shrink-0 flex flex-col bg-[#0a0a0a] border-b-2 md:border-b-0 md:border-r-2 border-[#222]">
+        <div className="w-full md:w-[500px] h-[40vh] md:h-auto flex-shrink-0 flex flex-col bg-background border-b-2 md:border-b-0 md:border-r-2 border-border">
           {/* Column headers */}
-          <div className="flex-none flex items-center h-10 px-2 bg-[#151515] border-b-2 border-[#222]">
-            <div className="w-[120px] text-center text-sm font-black text-[#eee] tracking-[0.15em]" style={{ fontFamily: "'Oswald',sans-serif" }}>TIME</div>
-            <div className="flex-1 text-sm font-black text-[#eee] tracking-[0.15em]" style={{ fontFamily: "'Oswald',sans-serif" }}>CUE</div>
-            <div className="w-[90px] text-right pr-4 text-sm font-black text-[#eee] tracking-[0.15em]" style={{ fontFamily: "'Oswald',sans-serif" }}>DUR</div>
+          <div className="flex-none flex items-center h-10 px-2 bg-muted border-b-2 border-border">
+            <div className="w-[120px] text-center text-sm font-black text-foreground tracking-[0.15em]" style={{ fontFamily: "'Oswald',sans-serif" }}>TIME</div>
+            <div className="flex-1 text-sm font-black text-foreground tracking-[0.15em]" style={{ fontFamily: "'Oswald',sans-serif" }}>CUE</div>
+            <div className="w-[90px] text-right pr-4 text-sm font-black text-foreground tracking-[0.15em]" style={{ fontFamily: "'Oswald',sans-serif" }}>DUR</div>
           </div>
 
           {/* Cue list */}
@@ -414,16 +440,16 @@ export default function OnAirPage() {
                   }}
                   className={`relative flex items-center cursor-pointer transition-all border-b-2 ${
                     isCur
-                      ? "bg-[#300000] border-[#500]"
+                      ? "bg-destructive/20 border-destructive/40"
                       : isNxt
-                      ? "bg-[#000020] border-[#003]"
+                      ? "bg-info/20 border-info/40"
                       : past
-                      ? "opacity-20 border-[#181818]"
-                      : "border-[#181818] hover:bg-[#111]"
+                      ? "opacity-20 border-border/40"
+                      : "border-border/40 hover:bg-card"
                   }`}
                 >
-                  {isCur && <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500" />}
-                  {isNxt && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500" />}
+                  {isCur && <div className="absolute left-0 top-0 bottom-0 w-1 bg-destructive" />}
+                  {isNxt && <div className="absolute left-0 top-0 bottom-0 w-1 bg-info" />}
 
                   <div className="w-[120px] flex-shrink-0 text-center py-4">
                     <F size={isCur ? 28 : 24} weight={700} color={isCur ? "#fff" : past ? "#333" : "#999"}>
@@ -434,16 +460,16 @@ export default function OnAirPage() {
                   <div className="flex-1 py-4 min-w-0">
                     <div className="flex items-center gap-3">
                       {isCur && (
-                        <span className="text-sm font-black px-3 py-1 rounded bg-red-600 text-white tracking-wider animate-[pulse_1.5s_infinite] flex-shrink-0">
+                        <span className="text-sm font-black px-3 py-1 rounded bg-destructive text-destructive-foreground tracking-wider animate-[pulse_1.5s_infinite] flex-shrink-0">
                           現在
                         </span>
                       )}
                       {isNxt && (
-                        <span className="text-sm font-black px-3 py-1 rounded bg-blue-600 text-white tracking-wider flex-shrink-0">
+                        <span className="text-sm font-black px-3 py-1 rounded bg-primary text-primary-foreground tracking-wider flex-shrink-0">
                           NEXT
                         </span>
                       )}
-                      <span className={`text-xl font-black truncate ${cm ? "text-amber-400" : isCur ? "text-white" : "text-white"}`}>
+                      <span className={`text-xl font-black truncate ${cm ? "text-warning" : isCur ? "text-foreground" : "text-foreground"}`}>
                         {c.label}
                       </span>
                     </div>
@@ -457,9 +483,9 @@ export default function OnAirPage() {
 
                   {/* Progress bar on current cue */}
                   {isCur && cDur > 0 && (
-                    <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#222]">
+                    <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-muted">
                       <div
-                        className={`h-full ${prog >= 1 ? "bg-red-500" : "bg-emerald-500"}`}
+                        className={`h-full ${prog >= 1 ? "bg-destructive" : "bg-success"}`}
                         style={{ width: `${prog * 100}%`, transition: "width 0.1s linear" }}
                       />
                     </div>
@@ -470,8 +496,8 @@ export default function OnAirPage() {
           </div>
 
           {/* Footer */}
-          <div className="flex-none h-10 flex items-center justify-between px-4 bg-[#151515] border-t-2 border-[#222]">
-            <span className="text-sm font-bold text-[#eee]">{cues.length} CUE</span>
+          <div className="flex-none h-10 flex items-center justify-between px-4 bg-muted border-t-2 border-border">
+            <span className="text-sm font-bold text-foreground">{cues.length} CUE</span>
             <F size={18} weight={700} color="#ddd">
               合計 {mm(total)}
             </F>
@@ -481,7 +507,7 @@ export default function OnAirPage() {
         {/* ===== RIGHT: MAIN DISPLAY ===== */}
         <div className="flex-1 flex flex-col">
           {/* Clock */}
-          <div className="flex-none h-16 flex items-center justify-center bg-[#0a0a0a] border-b-2 border-[#222]">
+          <div className="flex-none h-16 flex items-center justify-center bg-background border-b-2 border-border">
             <F size={32} weight={400} color="#ddd" style={{ letterSpacing: "0.1em" }}>
               {clk}
             </F>
@@ -491,13 +517,13 @@ export default function OnAirPage() {
             {/* ===== PRE-SHOW ===== */}
             {!running && cur === -1 && (
               <div className="text-center">
-                <div className="text-2xl font-black text-white mb-2">{doc.data?.meta?.title || doc.title}</div>
-                <div className="text-lg font-bold text-[#bbb] mb-10">
+                <div className="text-2xl font-black text-foreground mb-2">{doc.data?.meta?.title || doc.title}</div>
+                <div className="text-lg font-bold text-muted-foreground mb-10">
                   {cues.length} CUE · {mm(total)}
                 </div>
                 <button
                   onClick={go}
-                  className="px-14 py-5 bg-red-600 hover:bg-red-500 text-white text-2xl font-black rounded-xl transition-all active:scale-95"
+                  className="px-14 py-5 bg-destructive hover:bg-destructive/90 text-destructive-foreground text-2xl font-black rounded-xl transition-all active:scale-95"
                   style={{ boxShadow: "0 0 60px rgba(220,38,38,0.5)" }}
                 >
                   <span className="flex items-center gap-3">
@@ -513,7 +539,7 @@ export default function OnAirPage() {
               <>
                 {/* Program elapsed */}
                 <div className="text-center">
-                  <div className="text-lg font-black text-[#eee] tracking-[0.3em] mb-2">番組経過</div>
+                  <div className="text-lg font-black text-foreground tracking-[0.3em] mb-2">番組経過</div>
                   <F size={60} weight={700} color="#fff" style={{ lineHeight: 1 }}>
                     {hms(showEl)}
                   </F>
@@ -521,14 +547,14 @@ export default function OnAirPage() {
 
                 {/* Current cue card */}
                 {cc && (
-                  <div className="w-full max-w-3xl rounded-lg overflow-hidden bg-[#111] border-2 border-[#333]">
+                  <div className="w-full max-w-3xl rounded-lg overflow-hidden bg-card border-2 border-border">
                     {/* Card header */}
-                    <div className="flex items-center justify-between px-6 py-3 bg-[#1a0000] border-b-2 border-[#333]">
+                    <div className="flex items-center justify-between px-6 py-3 bg-destructive/15 border-b-2 border-border">
                       <div className="flex items-center gap-3">
-                        <span className="text-base font-black px-3 py-1 rounded bg-red-600 text-white tracking-wider animate-[pulse_1.5s_infinite]">
+                        <span className="text-base font-black px-3 py-1 rounded bg-destructive text-destructive-foreground tracking-wider animate-[pulse_1.5s_infinite]">
                           現在
                         </span>
-                        <span className="text-2xl font-black text-white">{cc.label}</span>
+                        <span className="text-2xl font-black text-foreground">{cc.label}</span>
                       </div>
                       <F size={20} weight={700} color="#ddd">
                         {oaFmt(cc.oa)}
@@ -537,14 +563,14 @@ export default function OnAirPage() {
 
                     {/* 3-column timing */}
                     <div className="grid grid-cols-3">
-                      <div className="py-3 sm:py-6 text-center border-r-2 border-[#222]">
-                        <div className="text-xs sm:text-base font-black text-[#eee] tracking-[0.2em] mb-1 sm:mb-3">経過</div>
+                      <div className="py-3 sm:py-6 text-center border-r-2 border-border">
+                        <div className="text-xs sm:text-base font-black text-foreground tracking-[0.2em] mb-1 sm:mb-3">経過</div>
                         <F size={36} weight={700} color="#34d399">
                           {mm(cueEl)}
                         </F>
                       </div>
-                      <div className="py-3 sm:py-6 text-center border-r-2 border-[#222]">
-                        <div className="text-xs sm:text-base font-black text-[#eee] tracking-[0.2em] mb-1 sm:mb-3">残り</div>
+                      <div className="py-3 sm:py-6 text-center border-r-2 border-border">
+                        <div className="text-xs sm:text-base font-black text-foreground tracking-[0.2em] mb-1 sm:mb-3">残り</div>
                         <F
                           size={36}
                           weight={700}
@@ -555,7 +581,7 @@ export default function OnAirPage() {
                         </F>
                       </div>
                       <div className="py-3 sm:py-6 text-center">
-                        <div className="text-xs sm:text-base font-black text-[#eee] tracking-[0.2em] mb-1 sm:mb-3">予定尺</div>
+                        <div className="text-xs sm:text-base font-black text-foreground tracking-[0.2em] mb-1 sm:mb-3">予定尺</div>
                         <F size={36} weight={700} color="#bbb">
                           {mm(cDur)}
                         </F>
@@ -563,9 +589,9 @@ export default function OnAirPage() {
                     </div>
 
                     {/* Cue progress bar */}
-                    <div className="h-1.5 bg-[#222]">
+                    <div className="h-1.5 bg-muted">
                       <div
-                        className={`h-full ${prog >= 1 ? "bg-red-500" : prog > 0.8 ? "bg-amber-500" : "bg-emerald-500"}`}
+                        className={`h-full ${prog >= 1 ? "bg-destructive" : prog > 0.8 ? "bg-warning" : "bg-success"}`}
                         style={{ width: `${Math.min(prog * 100, 100)}%`, transition: "width 0.1s linear" }}
                       />
                     </div>
@@ -574,22 +600,22 @@ export default function OnAirPage() {
 
                 {/* Push/Pull + Next */}
                 <div className="w-full max-w-3xl flex gap-2 sm:gap-4">
-                  <div className="flex-1 rounded-lg p-3 sm:p-5 text-center bg-[#111] border-2 border-[#333]">
-                    <div className="text-xs sm:text-base font-black text-[#eee] tracking-[0.2em] mb-1 sm:mb-2">押し / 巻き</div>
+                  <div className="flex-1 rounded-lg p-3 sm:p-5 text-center bg-card border-2 border-border">
+                    <div className="text-xs sm:text-base font-black text-foreground tracking-[0.2em] mb-1 sm:mb-2">押し / 巻き</div>
                     <F size={32} weight={700} color={ov > 30 ? "#f87171" : ov < -30 ? "#34d399" : "#777"}>
                       {ov > 0 ? "+" : ""}
                       {mm(ov)}
                     </F>
                   </div>
                   {nc && (
-                    <div className="flex-1 rounded-lg p-3 sm:p-5 bg-[#0a0a18] border-2 border-[#224]">
+                    <div className="flex-1 rounded-lg p-3 sm:p-5 bg-info/15 border-2 border-info/40">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="text-sm font-black px-2.5 py-0.5 rounded bg-blue-600 text-white tracking-wider">NEXT</span>
+                        <span className="text-sm font-black px-2.5 py-0.5 rounded bg-primary text-primary-foreground tracking-wider">NEXT</span>
                         <F size={16} weight={700} color="#ccc">
                           {oaFmt(nc.oa)}
                         </F>
                       </div>
-                      <div className={`text-xl font-black ${nc.type === "cm" ? "text-amber-400" : "text-[#eee]"}`}>{nc.label}</div>
+                      <div className={`text-xl font-black ${nc.type === "cm" ? "text-warning" : "text-foreground"}`}>{nc.label}</div>
                       <F size={18} weight={700} color="#ccc" className="mt-1 block">
                         {mm(nc.duration)}
                       </F>
@@ -599,45 +625,45 @@ export default function OnAirPage() {
 
                 {/* Transport controls */}
                 <div className="flex items-center gap-3">
-                  <button onClick={prev} className="p-3 rounded-lg bg-[#222] hover:bg-[#333] text-[#eee] font-bold transition-all active:scale-90">
+                  <button onClick={prev} className="p-3 rounded-lg bg-muted hover:bg-muted/80 text-foreground font-bold transition-all active:scale-90">
                     <SkipBack size={22} />
                   </button>
                   <button
                     onClick={tog}
-                    className={`p-4 rounded-lg transition-all active:scale-90 text-white font-bold ${paused ? "bg-emerald-600 hover:bg-emerald-500" : "bg-amber-600 hover:bg-amber-500"}`}
+                    className={`p-4 rounded-lg transition-all active:scale-90 text-foreground font-bold ${paused ? "bg-success hover:bg-success/90" : "bg-warning hover:bg-warning/90"}`}
                   >
                     {paused ? <Play size={26} /> : <Pause size={26} />}
                   </button>
                   <button
                     onClick={next}
-                    className="p-4 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold transition-all active:scale-90"
+                    className="p-4 rounded-lg bg-destructive hover:bg-destructive/90 text-foreground font-bold transition-all active:scale-90"
                     style={{ boxShadow: "0 0 30px rgba(220,38,38,0.4)" }}
                   >
                     <SkipForward size={26} />
                   </button>
-                  <button onClick={stop} className="p-3 rounded-lg bg-[#222] hover:bg-[#333] text-[#eee] font-bold transition-all active:scale-90">
+                  <button onClick={stop} className="p-3 rounded-lg bg-muted hover:bg-muted/80 text-foreground font-bold transition-all active:scale-90">
                     <Square size={22} />
                   </button>
-                  <div className="w-px h-8 bg-[#333] mx-2" />
+                  <div className="w-px h-8 bg-muted/80 mx-2" />
                   <button
                     onClick={() => setOffset((p) => p - 60)}
-                    className="p-2.5 rounded bg-[#222] hover:bg-[#333] text-white font-bold transition-all active:scale-90"
+                    className="p-2.5 rounded bg-muted hover:bg-muted/80 text-foreground font-bold transition-all active:scale-90"
                   >
                     <Minus size={16} />
                   </button>
-                  <span className="text-sm font-black text-[#bbb] w-8 text-center">±1m</span>
+                  <span className="text-sm font-black text-muted-foreground w-8 text-center">±1m</span>
                   <button
                     onClick={() => setOffset((p) => p + 60)}
-                    className="p-2.5 rounded bg-[#222] hover:bg-[#333] text-white font-bold transition-all active:scale-90"
+                    className="p-2.5 rounded bg-muted hover:bg-muted/80 text-foreground font-bold transition-all active:scale-90"
                   >
                     <Plus size={16} />
                   </button>
                 </div>
 
                 {/* Program progress bar */}
-                <div className="w-full max-w-3xl h-1.5 bg-[#222] rounded-full overflow-hidden">
+                <div className="w-full max-w-3xl h-1.5 bg-muted rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-red-600 rounded-full"
+                    className="h-full bg-destructive rounded-full"
                     style={{ width: `${Math.min((showEl / total) * 100, 100)}%`, transition: "width 0.1s linear" }}
                   />
                 </div>
