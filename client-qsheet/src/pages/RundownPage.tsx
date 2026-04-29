@@ -128,8 +128,18 @@ export default function RundownPage() {
   const tableRef = useRef<HTMLDivElement>(null);
   const localTimerRef = useRef<ReturnType<typeof setInterval>>();
 
-  // Persist theme
-  useEffect(() => { localStorage.setItem(STORAGE_KEY_THEME, theme); }, [theme]);
+  // Persist theme + sync to <html class="dark"> for DADS semantic tokens
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_THEME, theme);
+    const html = document.documentElement;
+    const wasAlreadyDark = html.classList.contains("dark");
+    if (theme === "dark") {
+      if (!wasAlreadyDark) html.classList.add("dark");
+    }
+    return () => {
+      if (theme === "dark" && !wasAlreadyDark) html.classList.remove("dark");
+    };
+  }, [theme]);
 
   // ============================================================
   // Fetch document
@@ -330,14 +340,15 @@ export default function RundownPage() {
   // Theme classes
   // ============================================================
   const isDark = theme === "dark";
-  const bg = isDark ? "bg-slate-950" : "bg-white";
-  const text = isDark ? "text-white" : "text-slate-900";
-  const borderColor = isDark ? "border-slate-800" : "border-slate-200";
-  const headerBg = isDark ? "bg-slate-900/50" : "bg-slate-50";
-  const sectionBg = isDark ? "bg-slate-900/80" : "bg-slate-100";
-  const rowHover = isDark ? "hover:bg-slate-800/50" : "hover:bg-slate-50";
-  const mutedText = isDark ? "text-slate-500" : "text-slate-400";
-  const pastCueText = isDark ? "text-slate-600" : "text-slate-300";
+  // DADS semantic tokens (light/dark の切替は <html class="dark"> で自動)
+  const bg = "bg-background";
+  const text = "text-foreground";
+  const borderColor = "border-border";
+  const headerBg = "bg-card/50";
+  const sectionBg = "bg-card/80";
+  const rowHover = "hover:bg-accent/50";
+  const mutedText = "text-muted-foreground";
+  const pastCueText = "text-muted-foreground/60";
 
   // ============================================================
   // Render
@@ -392,7 +403,7 @@ export default function RundownPage() {
           <Button
             variant="ghost"
             size="icon"
-            className={cn("shrink-0", isDark ? "text-slate-400 hover:text-white hover:bg-slate-800" : "text-slate-500 hover:text-slate-900")}
+            className={cn("shrink-0", isDark ? "text-muted-foreground hover:text-foreground hover:bg-accent" : "text-muted-foreground hover:text-foreground")}
             onClick={() => navigate(`/qsheet/editor/${id}`)}
           >
             <ArrowLeft className="h-4 w-4" />
@@ -407,7 +418,7 @@ export default function RundownPage() {
           <Button
             variant="ghost"
             size="sm"
-            className={cn("h-8 gap-1 text-xs", isDark ? "text-slate-400 hover:text-white hover:bg-slate-800" : "text-slate-500 hover:text-slate-900")}
+            className={cn("h-8 gap-1 text-xs", isDark ? "text-muted-foreground hover:text-foreground hover:bg-accent" : "text-muted-foreground hover:text-foreground")}
             onClick={() => setColumnSelectorOpen(!columnSelectorOpen)}
           >
             <Columns3 className="h-3.5 w-3.5" />
@@ -418,7 +429,7 @@ export default function RundownPage() {
           <Button
             variant="ghost"
             size="icon"
-            className={cn("h-8 w-8", isDark ? "text-slate-400 hover:text-white hover:bg-slate-800" : "text-slate-500 hover:text-slate-900")}
+            className={cn("h-8 w-8", isDark ? "text-muted-foreground hover:text-foreground hover:bg-accent" : "text-muted-foreground hover:text-foreground")}
             onClick={() => setTheme(isDark ? "light" : "dark")}
             title={isDark ? "ライトモード (L)" : "ダークモード (D)"}
           >
@@ -440,11 +451,11 @@ export default function RundownPage() {
                   "px-3 py-1 rounded-full text-xs font-medium transition-colors border",
                   isActive
                     ? isDark
-                      ? "bg-primary text-white border-primary"
-                      : "bg-primary text-white border-primary"
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-primary text-primary-foreground border-primary"
                     : isDark
-                      ? "bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-500"
-                      : "bg-white text-slate-400 border-slate-300 hover:border-slate-400"
+                      ? "bg-muted text-muted-foreground border-border hover:border-foreground/40"
+                      : "bg-card text-muted-foreground border-border hover:border-foreground/40"
                 )}
               >
                 {block.label}
@@ -473,30 +484,30 @@ export default function RundownPage() {
             <span className={mutedText}>経過 </span>
             <span className="font-number font-semibold">{formatTime(elapsed)}</span>
           </div>
-          <div className={cn("w-px h-4", isDark ? "bg-slate-700" : "bg-slate-300")} />
+          <div className={cn("w-px h-4", null, "bg-border")} />
           <div>
             <span className={mutedText}>残り </span>
             <span className="font-number font-semibold">{formatTime(remaining)}</span>
           </div>
-          <div className={cn("w-px h-4", isDark ? "bg-slate-700" : "bg-slate-300")} />
+          <div className={cn("w-px h-4", null, "bg-border")} />
           <div>
             <span className={mutedText}>押し/巻き </span>
             <span
               className={cn(
                 "font-number font-bold",
-                oshimaki > 3 ? "text-red-500" : oshimaki < -3 ? "text-blue-400" : isDark ? "text-green-400" : "text-green-600"
+                oshimaki > 3 ? "text-red-500" : oshimaki < -3 ? "text-info" : isDark ? "text-success" : "text-success"
               )}
             >
               {oshimaki > 0 ? "+" : ""}{formatTime(oshimaki)}
             </span>
           </div>
-          <div className={cn("w-px h-4", isDark ? "bg-slate-700" : "bg-slate-300")} />
+          <div className={cn("w-px h-4", null, "bg-border")} />
           <div className="font-number">
             {Math.round(progressPercent)}%
           </div>
         </div>
         {/* Progress bar */}
-        <div className={cn("h-1 mt-1.5 rounded-full", isDark ? "bg-slate-800" : "bg-slate-200")}>
+        <div className={cn("h-1 mt-1.5 rounded-full", null, "bg-muted")}>
           <div
             className="h-full bg-primary rounded-full transition-all duration-1000"
             style={{ width: `${progressPercent}%` }}
@@ -647,7 +658,7 @@ export default function RundownPage() {
                                         key={i}
                                         src={src}
                                         alt=""
-                                        className="max-h-24 max-w-full rounded border border-zinc-700/30 object-contain"
+                                        className="max-h-24 max-w-full rounded border border-border object-contain"
                                       />
                                     ))}
                                   </div>
@@ -679,7 +690,7 @@ export default function RundownPage() {
         <Button
           variant="ghost"
           size="icon"
-          className={cn(isDark ? "text-slate-400 hover:text-white hover:bg-slate-800" : "text-slate-500 hover:text-slate-900")}
+          className={cn(isDark ? "text-muted-foreground hover:text-foreground hover:bg-accent" : "text-muted-foreground hover:text-foreground")}
           onClick={sendReset}
         >
           <Square className="h-4 w-4" />
@@ -687,7 +698,7 @@ export default function RundownPage() {
         <Button
           variant="ghost"
           size="icon"
-          className={cn(isDark ? "text-slate-400 hover:text-white hover:bg-slate-800" : "text-slate-500 hover:text-slate-900")}
+          className={cn(isDark ? "text-muted-foreground hover:text-foreground hover:bg-accent" : "text-muted-foreground hover:text-foreground")}
           onClick={sendPrev}
         >
           <SkipBack className="h-4 w-4" />
@@ -697,10 +708,10 @@ export default function RundownPage() {
           className={cn(
             "h-12 w-12 rounded-full",
             isPlaying
-              ? "bg-primary hover:bg-primary/80 text-white"
+              ? "bg-primary hover:bg-primary/90 text-primary-foreground"
               : isDark
-                ? "bg-white text-slate-950 hover:bg-slate-200"
-                : "bg-slate-900 text-white hover:bg-slate-700"
+                ? "bg-foreground text-background hover:bg-foreground/90"
+                : "bg-foreground text-background hover:bg-foreground/90"
           )}
           onClick={() => (isPlaying ? sendPause() : sendPlay())}
         >
@@ -709,7 +720,7 @@ export default function RundownPage() {
         <Button
           variant="ghost"
           size="icon"
-          className={cn(isDark ? "text-slate-400 hover:text-white hover:bg-slate-800" : "text-slate-500 hover:text-slate-900")}
+          className={cn(isDark ? "text-muted-foreground hover:text-foreground hover:bg-accent" : "text-muted-foreground hover:text-foreground")}
           onClick={sendNext}
         >
           <SkipForward className="h-4 w-4" />
