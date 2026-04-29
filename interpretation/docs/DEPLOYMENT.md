@@ -290,7 +290,67 @@ gcloud alpha monitoring channels create \
 
 ---
 
-## 12. トラブルシュート
+## 12. セキュリティヘッダ / CSP
+
+`backend/app/middleware_security.py` と `operator-ui/next.config.ts` で
+すべてのレスポンスに以下を付与する。本番運用前に Lighthouse + Mozilla
+Observatory で A 以上を取れる状態にしてある。
+
+### 12.1 共通
+
+- `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
+- `X-Content-Type-Options: nosniff`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Cross-Origin-Opener-Policy: same-origin`
+- `Cross-Origin-Resource-Policy: same-origin`
+
+### 12.2 backend (FastAPI) の CSP
+
+ルートごとに分岐:
+
+| パス | CSP |
+|---|---|
+| `/api/v1/*`, `/health/*` | `default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'` (JSON のみ返すので最小) |
+| `/stream/{sid}/{lang}` `/static/*` | `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self' wss: ws:; frame-ancestors 'none'` |
+
+`media-src 'self' blob:` は overlay-audio.js の MediaSource (blob URL) のため、`connect-src wss: ws:` は vMix が異なるオリジンから接続することを許容するため。
+
+### 12.3 operator-ui (Next.js) の CSP
+
+```
+default-src 'self';
+script-src 'self' 'unsafe-inline';
+style-src 'self' 'unsafe-inline';
+img-src 'self' data:;
+media-src 'self' blob:;
+connect-src 'self' <NEXT_PUBLIC_API_BASE_URL> <NEXT_PUBLIC_WS_BASE_URL>;
+frame-ancestors 'none';
+base-uri 'self'; form-action 'self';
+```
+
+`Permissions-Policy: microphone=(self), camera=(), geolocation=(), usb=(), payment=()`
+
+> **注意**: 操作画面はマイクを使うので `microphone=(self)` を許可する必要がある。
+> 出力 URL (vMix 用) はマイク不要なので backend 側 Permissions-Policy で
+> `microphone=()` (deny all)。
+
+### 12.4 本番投入前の確認
+
+```bash
+# operator-ui (deploy 後)
+curl -I https://operator.example.com | grep -iE "strict|csp|content-security|permissions"
+
+# backend
+curl -I https://api.example.com/health | grep -iE "strict|csp|content-security|permissions"
+curl -I https://api.example.com/stream/<dummy>/en | grep -i content-security-policy
+```
+
+CSP 違反は Console (Cloud Logging のフロントエンド側) で発見しやすい。
+将来的に CSP report-uri を追加する場合は `connect-src` に追記する。
+
+---
+
+## 13. トラブルシュート
 
 | 症状 | 原因 | 対処 |
 |---|---|---|

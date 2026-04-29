@@ -24,6 +24,7 @@ from app.api import (
 from app.config import get_settings
 from app.db.session import make_engine, make_sessionmaker
 from app.languages import load_languages
+from app.middleware_security import SecurityHeadersMiddleware
 from app.observability import RequestIdMiddleware, configure_logging
 from app.pipeline.orchestrator import Orchestrator
 from app.pipeline.pubsub import PubSubBroker
@@ -73,8 +74,10 @@ def create_app() -> FastAPI:
         redoc_url=None,
     )
 
-    # Order matters: RequestId runs first so CORS error responses still
-    # include the X-Request-Id header.
+    # Each middleware sets `response.headers.setdefault(...)`, so the
+    # registration order here only matters for who-gets-to-set-first; the
+    # final response always carries the union.
+    app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(RequestIdMiddleware)
     app.add_middleware(
         CORSMiddleware,
