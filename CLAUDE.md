@@ -33,9 +33,10 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.30 (dev) — **Hotfix**: ブラウザリサイズで CueTable がクラッシュするバグ修正。原因は `useMediaQuery` の直後で early return していたため、`isLg` が境界 (1024px) を跨ぐと hooks の数が変動して Rules of Hooks 違反になっていた。修正: ラッパ `CueTable` で `useMediaQuery` のみ評価し、結果に応じて `<CueCardList />` または `<CueTableLg />` に分岐。各子コンポーネントは独立した hook 順序を持つため、リサイズで境界を跨いでも安全に mount/unmount される。
+v2.8.31 (dev) — **マスター + LED 統合 + 壁/床モダン UI**: ①EditorSidebar の `LED` タブを廃止し、4 タブ → 3 タブ (`列 / マスター / メタ`) に再編成。LED/XR シーン・立ち位置図・マスタデータを `マスター` タブ内で **`ResourceCard`** という統一カード UI で並列表示（アイコン + タイトル + 件数バッジ + アクション）。②`MasterSection` の pill デザインを refined（旧 `font-bold` → `font-medium` + `shadow-sm` + `pl-2.5 pr-1`、削除ボタンは `size-3.5 rounded` + `aria-label`）。③`LedSceneSection` 壁/床表示を 2 カラムグリッドの**ミニカード**化: `bg-primary/5 border-primary/20`（壁）と `bg-warning/5 border-warning/20`（床）の semantic 反対色で識別、`9px uppercase tracking-wider` ラベル + 中身を inline 編集。シーン番号バッジを `size-5 bg-primary/20` 円形に。④CueRow.tsx 壁/床インライン表示も同じ 2 カラムグリッド形式に統一（`8px` ラベル）。⑤CueRowMobileEditor.tsx LedXrEntry に**壁/床表示を追加**（従来は欠落していた）— シーン選択時に自動で読み出し表示。Socket.IO + doc.data JSONB 構造完全維持、機能変更なし。
 
-(v2.8.29: Qシート UI/UX モダン化 Phase 1〜4 完了。Phase 1+2 の Toast 基盤・DADS 化・Tabs/Sheet/FAB・モバイルフル編集・StageEditor Dialog 化 + Phase 3+4 の OnAir/Rundown/Prompter dark 強制 + Socket Toast、印刷 page-break ルール、A3 対応、Ctrl+S グローバル、a11y 詰め)
+(v2.8.30: Hotfix - リサイズで CueTable がクラッシュ。Rules of Hooks 違反を解消。)
+(v2.8.29: Qシート UI/UX モダン化 Phase 1〜4 完了)
 
 ## ブランチ運用
 - **ブランチは `main` (本番) と `dev` (検証) の 2 本のみ** (v2.5.3 で master / claude/* / *-reference を全廃止)

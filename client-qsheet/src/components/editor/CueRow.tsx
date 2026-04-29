@@ -566,9 +566,15 @@ export default function CueRow({
                       ))}
                     </select>
                     {scene && (
-                      <div className="px-1.5 py-1 text-[10px] text-zinc-500 dark:text-zinc-400 leading-snug bg-zinc-50/60 dark:bg-zinc-800/40 rounded">
-                        <div>壁: {scene.wall || "—"}</div>
-                        <div>床: {scene.floor || "—"}</div>
+                      <div className="grid grid-cols-2 gap-1">
+                        <div className="rounded border border-primary/20 bg-primary/5 px-1.5 py-0.5 min-w-0" title={`壁: ${scene.wall || "(未設定)"}`}>
+                          <div className="text-[8px] font-bold uppercase tracking-wider text-primary/80">壁</div>
+                          <div className="text-[10px] font-medium text-foreground truncate">{scene.wall || "—"}</div>
+                        </div>
+                        <div className="rounded border border-warning/30 bg-warning/5 px-1.5 py-0.5 min-w-0" title={`床: ${scene.floor || "(未設定)"}`}>
+                          <div className="text-[8px] font-bold uppercase tracking-wider text-warning/90">床</div>
+                          <div className="text-[10px] font-medium text-foreground truncate">{scene.floor || "—"}</div>
+                        </div>
                       </div>
                     )}
                     <div className="flex items-center gap-1">

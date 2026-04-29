@@ -336,6 +336,7 @@ function LedXrEntry({
   ledScenes?: any[];
   onChangeField: (key: string, value: any) => void;
 }) {
+  const scene = (ledScenes || []).find((s: any) => s.id === entry.sceneId);
   return (
     <>
       <select
@@ -351,6 +352,18 @@ function LedXrEntry({
           </option>
         ))}
       </select>
+      {scene && (
+        <div className="grid grid-cols-2 gap-1.5">
+          <div className="rounded-md border border-primary/20 bg-primary/5 p-1.5">
+            <div className="text-[9px] font-bold uppercase tracking-wider text-primary/80 mb-0.5">壁</div>
+            <div className="text-xs font-medium text-foreground truncate">{scene.wall || "—"}</div>
+          </div>
+          <div className="rounded-md border border-warning/30 bg-warning/5 p-1.5">
+            <div className="text-[9px] font-bold uppercase tracking-wider text-warning/90 mb-0.5">床</div>
+            <div className="text-xs font-medium text-foreground truncate">{scene.floor || "—"}</div>
+          </div>
+        </div>
+      )}
       <Input
         value={entry.cue || ""}
         onChange={(e) => onChangeField("cue", e.target.value)}
