@@ -18,7 +18,16 @@ from app.config import Settings
 
 
 def channel_for(session_id: str, lang: str) -> str:
+    """Per-language vMix output channel."""
     return f"stream:{session_id}:{lang}"
+
+
+def preview_channel_for(session_id: str) -> str:
+    """Operator preview channel: original transcript + all language translations.
+
+    Audio chunks are NOT forwarded here; the operator preview only needs text.
+    """
+    return f"preview:{session_id}"
 
 
 class PubSubBroker:

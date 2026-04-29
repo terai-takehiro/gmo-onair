@@ -12,7 +12,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app.api import auth as auth_api, glossaries, output_ws, sessions, stream_ws
+from app.api import (
+    auth as auth_api,
+    glossaries,
+    output_ws,
+    preview_ws,
+    sessions,
+    stream_ws,
+)
 from app.config import get_settings
 from app.db.session import make_engine, make_sessionmaker
 from app.languages import load_languages
@@ -96,6 +103,7 @@ def create_app() -> FastAPI:
     app.include_router(glossaries.router, prefix="/api/v1")
     app.include_router(stream_ws.router)
     app.include_router(output_ws.router)
+    app.include_router(preview_ws.router)
 
     return app
 

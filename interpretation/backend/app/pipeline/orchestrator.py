@@ -27,7 +27,7 @@ from app.pipeline import stt as stt_mod
 from app.pipeline import translator as tr_mod
 from app.pipeline import tts as tts_mod
 from app.pipeline.costs import CostTracker
-from app.pipeline.pubsub import PubSubBroker, channel_for
+from app.pipeline.pubsub import PubSubBroker, channel_for, preview_channel_for
 
 log = structlog.get_logger(__name__)
 
@@ -100,6 +100,9 @@ class Orchestrator:
             await self._broker.publish_json(
                 channel_for(str(session_id), lang), {"type": "session_end"}
             )
+        await self._broker.publish_json(
+            preview_channel_for(str(session_id)), {"type": "session_end"}
+        )
         for t in p.tasks:
             t.cancel()
         for t in p.tasks:
@@ -128,9 +131,21 @@ class Orchestrator:
                 yield chunk
 
         try:
+            preview_ch = preview_channel_for(str(p.session_id))
             async for ev in stt_mod.stream_recognize(
                 self._settings, audio_iter(), p.boost_phrases
             ):
+                # Forward both interim and final transcripts to the operator
+                # preview so they can sanity-check STT output live.
+                await self._broker.publish_json(
+                    preview_ch,
+                    {
+                        "type": "transcript",
+                        "text": ev.text,
+                        "is_final": ev.is_final,
+                        "t_ms": ev.t_ms,
+                    },
+                )
                 if not ev.is_final:
                     continue
                 seq = next(p.seq)
@@ -166,23 +181,23 @@ class Orchestrator:
             lang, spec.subtitle_max_chars_per_line, glossary
         )
         channel = channel_for(str(p.session_id), lang)
+        preview_ch = preview_channel_for(str(p.session_id))
 
         try:
             final_text = ""
             async for tev in tr_mod.translate_stream(
                 self._settings, src_text, lang, system_prompt, seq
             ):
-                await self._broker.publish_json(
-                    channel,
-                    {
-                        "type": "translation",
-                        "lang": lang,
-                        "text": tev.accumulated,
-                        "is_final": tev.is_final,
-                        "seq": seq,
-                        "t_ms": tev.t_ms,
-                    },
-                )
+                payload = {
+                    "type": "translation",
+                    "lang": lang,
+                    "text": tev.accumulated,
+                    "is_final": tev.is_final,
+                    "seq": seq,
+                    "t_ms": tev.t_ms,
+                }
+                await self._broker.publish_json(channel, payload)
+                await self._broker.publish_json(preview_ch, payload)
                 if tev.is_final:
                     final_text = tev.accumulated
                     p.cost_tracker.record_translate(
