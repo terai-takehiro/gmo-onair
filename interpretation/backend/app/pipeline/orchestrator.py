@@ -206,17 +206,30 @@ class Orchestrator:
 
             if final_text:
                 p.cost_tracker.record_tts(len(final_text))
-                audio = await tts_mod.synthesize_one_shot(
+                pieces: list[bytes] = []
+                first_audio_ms: float | None = None
+                async for audio in tts_mod.synthesize_stream(
                     self._settings, spec, final_text, seq
-                )
-                await self._broker.publish_json(
-                    channel,
-                    {
-                        "type": "audio_chunk",
-                        "lang": lang,
-                        "seq": seq,
-                        "mp3_b64": base64.b64encode(audio.mp3_bytes).decode("ascii"),
-                    },
+                ):
+                    if first_audio_ms is None:
+                        first_audio_ms = audio.t_ms
+                    pieces.append(audio.mp3_bytes)
+
+                payload = {
+                    "type": "audio_chunk",
+                    "lang": lang,
+                    "seq": seq,
+                    "mp3_b64": base64.b64encode(b"".join(pieces)).decode("ascii"),
+                }
+                await self._broker.publish_json(channel, payload)
+
+                log.info(
+                    "orchestrator.tts_done",
+                    session_id=str(p.session_id),
+                    lang=lang,
+                    seq=seq,
+                    chars=len(final_text),
+                    first_audio_ms=round(first_audio_ms or 0.0, 1),
                 )
         except Exception as e:
             log.exception(

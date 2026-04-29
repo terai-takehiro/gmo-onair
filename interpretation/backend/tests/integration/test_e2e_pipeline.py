@@ -62,9 +62,23 @@ async def _fake_translate(settings, src_text, target_lang, system_prompt, seq):
     )
 
 
-async def _fake_tts(settings, lang_spec: LanguageSpec, text: str, seq: int):
-    return tts_mod.AudioResult(
-        lang="en", seq=seq, mp3_bytes=b"FAKE-MP3-BYTES", elapsed_ms=200.0
+async def _fake_tts_stream(settings, lang_spec: LanguageSpec, text: str, seq: int):
+    """Yield two fake MP3 chunks back-to-back to mimic streaming."""
+    yield tts_mod.AudioChunk(
+        lang="en",
+        seq=seq,
+        chunk_seq=1,
+        mp3_bytes=b"FAKE-CHUNK-1",
+        is_first=True,
+        t_ms=80.0,
+    )
+    yield tts_mod.AudioChunk(
+        lang="en",
+        seq=seq,
+        chunk_seq=2,
+        mp3_bytes=b"FAKE-CHUNK-2",
+        is_first=False,
+        t_ms=140.0,
     )
 
 
@@ -72,7 +86,7 @@ async def _fake_tts(settings, lang_spec: LanguageSpec, text: str, seq: int):
 async def test_full_pipeline_publishes_translation_and_audio(monkeypatch) -> None:
     monkeypatch.setattr(stt_mod, "stream_recognize", _fake_stt)
     monkeypatch.setattr(tr_mod, "translate_stream", _fake_translate)
-    monkeypatch.setattr(tts_mod, "synthesize_one_shot", _fake_tts)
+    monkeypatch.setattr(tts_mod, "synthesize_stream", _fake_tts_stream)
 
     settings = get_settings()
     broker = FakePubSubBroker()
@@ -135,12 +149,19 @@ async def test_one_lang_failure_does_not_block_others(monkeypatch) -> None:
             output_tokens=1,
         )
 
-    async def tts_ok(settings, spec, text, seq):
-        return tts_mod.AudioResult(lang="th", seq=seq, mp3_bytes=b"X", elapsed_ms=10.0)
+    async def tts_ok_stream(settings, spec, text, seq):
+        yield tts_mod.AudioChunk(
+            lang="th",
+            seq=seq,
+            chunk_seq=1,
+            mp3_bytes=b"X",
+            is_first=True,
+            t_ms=10.0,
+        )
 
     monkeypatch.setattr(stt_mod, "stream_recognize", stt_one_final)
     monkeypatch.setattr(tr_mod, "translate_stream", translate_with_failure)
-    monkeypatch.setattr(tts_mod, "synthesize_one_shot", tts_ok)
+    monkeypatch.setattr(tts_mod, "synthesize_stream", tts_ok_stream)
 
     settings = get_settings()
     broker = FakePubSubBroker()
