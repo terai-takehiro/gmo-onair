@@ -1,0 +1,37 @@
+# Local-only Postgres + Redis for backend development.
+# Cloud Run + Cloud SQL + Memorystore replace these in prod (Terraform).
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: interp-pg-dev
+    environment:
+      POSTGRES_USER: interpretation_app
+      POSTGRES_PASSWORD: devpass
+      POSTGRES_DB: interpretation
+    ports:
+      - "5432:5432"
+    volumes:
+      - interp_pg_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U interpretation_app -d interpretation"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: interp-redis-dev
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  interp_pg_dev:

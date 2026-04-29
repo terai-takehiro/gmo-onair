@@ -49,8 +49,29 @@ pip install -e '.[dev]'
 cp .env.example .env
 # .env を編集
 
+# Postgres + Redis をローカルで起動
+docker compose -f docker-compose.dev.yml up -d
+
+# DB マイグレーション適用
+alembic upgrade head
+
 uvicorn app.main:app --reload --port 8080
 ```
+
+### マイグレーション
+
+```bash
+# 新規リビジョン作成 (モデル変更時)
+alembic revision --autogenerate -m "add foo column"
+
+# 適用
+alembic upgrade head
+
+# 1ステップ戻す
+alembic downgrade -1
+```
+
+`alembic/env.py` は `DATABASE_URL` 環境変数を読み、`postgresql+asyncpg://` を `postgresql+psycopg2://` に書き換えてから動作する。アプリ実行時は asyncpg、マイグレーション時は psycopg2 という非対称が両立する。
 
 Swagger UI: http://localhost:8080/docs
 

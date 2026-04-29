@@ -1,62 +1,79 @@
-"""Glossary preset REST endpoints (Phase 1 stub)."""
+"""Glossary preset REST endpoints (Cloud SQL backed)."""
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-from uuid import UUID, uuid4
+from typing import Annotated
+from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.schemas import GlossaryPreset, GlossaryPresetCreate
+from app.db import models as m
+from app.db.session import get_db
+from app.models.schemas import GlossaryEntry, GlossaryPreset, GlossaryPresetCreate
 
 router = APIRouter(prefix="/glossaries", tags=["glossaries"])
 
-_GLOSSARIES: dict[UUID, GlossaryPreset] = {}
+DBDep = Annotated[AsyncSession, Depends(get_db)]
+
+
+def _to_public(g: m.GlossaryPreset) -> GlossaryPreset:
+    return GlossaryPreset(
+        id=g.id,
+        name=g.name,
+        entries=[GlossaryEntry.model_validate(e) for e in g.entries],
+        updated_at=g.updated_at,
+    )
 
 
 @router.get("", response_model=list[GlossaryPreset])
-async def list_glossaries() -> list[GlossaryPreset]:
-    return list(_GLOSSARIES.values())
+async def list_glossaries(db: DBDep) -> list[GlossaryPreset]:
+    rows = (
+        await db.execute(
+            select(m.GlossaryPreset).order_by(m.GlossaryPreset.updated_at.desc())
+        )
+    ).scalars()
+    return [_to_public(g) for g in rows]
 
 
 @router.post("", response_model=GlossaryPreset, status_code=201)
-async def create_glossary(payload: GlossaryPresetCreate) -> GlossaryPreset:
-    new_id = uuid4()
-    preset = GlossaryPreset(
-        id=new_id,
+async def create_glossary(payload: GlossaryPresetCreate, db: DBDep) -> GlossaryPreset:
+    g = m.GlossaryPreset(
         name=payload.name,
-        entries=payload.entries,
-        updated_at=datetime.now(UTC),
+        entries=[e.model_dump() for e in payload.entries],
     )
-    _GLOSSARIES[new_id] = preset
-    return preset
+    db.add(g)
+    await db.commit()
+    await db.refresh(g)
+    return _to_public(g)
 
 
 @router.get("/{glossary_id}", response_model=GlossaryPreset)
-async def get_glossary(glossary_id: UUID) -> GlossaryPreset:
-    g = _GLOSSARIES.get(glossary_id)
+async def get_glossary(glossary_id: UUID, db: DBDep) -> GlossaryPreset:
+    g = await db.get(m.GlossaryPreset, glossary_id)
     if not g:
         raise HTTPException(status_code=404, detail="glossary not found")
-    return g
+    return _to_public(g)
 
 
 @router.put("/{glossary_id}", response_model=GlossaryPreset)
 async def update_glossary(
-    glossary_id: UUID, payload: GlossaryPresetCreate
+    glossary_id: UUID, payload: GlossaryPresetCreate, db: DBDep
 ) -> GlossaryPreset:
-    if glossary_id not in _GLOSSARIES:
+    g = await db.get(m.GlossaryPreset, glossary_id)
+    if not g:
         raise HTTPException(status_code=404, detail="glossary not found")
-    updated = GlossaryPreset(
-        id=glossary_id,
-        name=payload.name,
-        entries=payload.entries,
-        updated_at=datetime.now(UTC),
-    )
-    _GLOSSARIES[glossary_id] = updated
-    return updated
+    g.name = payload.name
+    g.entries = [e.model_dump() for e in payload.entries]
+    await db.commit()
+    await db.refresh(g)
+    return _to_public(g)
 
 
 @router.delete("/{glossary_id}", status_code=204)
-async def delete_glossary(glossary_id: UUID) -> None:
-    if glossary_id in _GLOSSARIES:
-        del _GLOSSARIES[glossary_id]
+async def delete_glossary(glossary_id: UUID, db: DBDep) -> None:
+    g = await db.get(m.GlossaryPreset, glossary_id)
+    if g:
+        await db.delete(g)
+        await db.commit()
