@@ -34,18 +34,29 @@ from app.pipeline.youtube_cc import YouTubeCcPoster
 log = structlog.get_logger(__name__)
 
 
+# Bound the per-session audio queue at 200 chunks (~20s of 100ms PCM
+# frames). On a healthy run STT drains in real-time so queue stays near
+# zero. If we ever fill it, that's a sign STT is stuck and we'd rather
+# drop fresh audio than balloon memory; we drop the oldest chunk first
+# so the speaker's *recent* utterance survives.
+_AUDIO_QUEUE_MAX = 200
+
+
 @dataclass
 class SessionPipeline:
     session_id: UUID
     target_languages: list[str]
     glossary_pairs_by_lang: dict[str, list[tuple[str, str]]]
     boost_phrases: list[str]
-    audio_queue: asyncio.Queue[bytes | None] = field(default_factory=asyncio.Queue)
+    audio_queue: asyncio.Queue[bytes | None] = field(
+        default_factory=lambda: asyncio.Queue(maxsize=_AUDIO_QUEUE_MAX)
+    )
     tasks: list[asyncio.Task[None]] = field(default_factory=list)
     closed: asyncio.Event = field(default_factory=asyncio.Event)
     seq: itertools.count = field(default_factory=lambda: itertools.count(1))
     cost_tracker: CostTracker = field(default_factory=CostTracker)
     cc_posters: dict[str, YouTubeCcPoster] = field(default_factory=dict)
+    dropped_chunks: int = 0
 
 
 class Orchestrator:
@@ -94,7 +105,25 @@ class Orchestrator:
         if chunk:
             ms = len(chunk) / 32.0
             p.cost_tracker.record_audio_chunk(ms)
-        await p.audio_queue.put(chunk)
+        try:
+            p.audio_queue.put_nowait(chunk)
+        except asyncio.QueueFull:
+            # Drop the OLDEST queued chunk (best-effort recovery), then
+            # enqueue the fresh one. This trades a brief audio glitch for
+            # bounded memory and keeps the latest speech reaching STT.
+            try:
+                p.audio_queue.get_nowait()
+                p.audio_queue.put_nowait(chunk)
+            except (asyncio.QueueEmpty, asyncio.QueueFull):
+                pass
+            p.dropped_chunks += 1
+            if p.dropped_chunks % 20 == 1:
+                log.warning(
+                    "orchestrator.audio_backpressure",
+                    session_id=str(session_id),
+                    dropped=p.dropped_chunks,
+                    queue_size=p.audio_queue.qsize(),
+                )
 
     async def push_correction(
         self,
