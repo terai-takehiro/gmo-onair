@@ -158,13 +158,14 @@ export default function CueCardList({
     });
   };
 
-  // 挿入ギャップ (3 種ボタン)
+  // 挿入ギャップ (3 種ボタン、モバイルは常時表示・コンパクト)
   const InsertGap = ({ idx }: { idx: number }) => (
-    <div className="flex items-center justify-center gap-1.5 py-1">
+    <div className="relative flex items-center justify-center gap-1.5 h-7">
+      <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 border-t border-dashed border-border/40 pointer-events-none" />
       <button
         type="button"
         onClick={() => insertAt(idx, "role")}
-        className="px-2 py-1 text-[11px] font-medium rounded-md bg-card border border-primary/30 text-primary hover:bg-primary/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="relative z-10 px-2 py-0.5 text-[11px] font-medium rounded-md bg-background border border-primary/30 text-primary hover:bg-primary/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         aria-label={`位置 ${idx} にロール挿入`}
       >
         ＋ ロール
@@ -172,7 +173,7 @@ export default function CueCardList({
       <button
         type="button"
         onClick={() => insertAt(idx, "cm")}
-        className="px-2 py-1 text-[11px] font-medium rounded-md bg-card border border-warning/30 text-warning hover:bg-warning/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="relative z-10 px-2 py-0.5 text-[11px] font-medium rounded-md bg-background border border-warning/30 text-warning hover:bg-warning/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         aria-label={`位置 ${idx} に CM 挿入`}
       >
         ＋ CM
@@ -180,7 +181,7 @@ export default function CueCardList({
       <button
         type="button"
         onClick={() => insertAt(idx, "vtr")}
-        className="px-2 py-1 text-[11px] font-medium rounded-md bg-card border border-info/30 text-info hover:bg-info/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="relative z-10 px-2 py-0.5 text-[11px] font-medium rounded-md bg-background border border-info/30 text-info hover:bg-info/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         aria-label={`位置 ${idx} に VTR 挿入`}
       >
         ＋ VTR

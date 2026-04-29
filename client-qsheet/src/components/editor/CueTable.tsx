@@ -11,6 +11,7 @@ import {
   Layout,
   Image,
   FileText,
+  Plus,
 } from "lucide-react";
 import SectionMenu from "./SectionMenu";
 import { parseDur as parseDurShared, fmtAbs as fmtAbsShared, normalizeDur } from "@/lib/time";
@@ -334,10 +335,20 @@ function CueTableLg({
 
   let rowNum = 0;
 
-  // セクション間に挿入する UI (ホバーで現れる横バー、ロール / CM / VTR を選択挿入)
+  // セクション間に挿入する UI (固定高 + opacity 切替で layout shift なし)
+  // - 通常: 細い破線 + 中央に小さな "+" のみ表示
+  // - hover/focus 時: 3 種ボタン (ロール / CM / VTR) がフェードイン
   const InsertGap = ({ idx }: { idx: number }) => (
-    <div className="group relative h-1.5 hover:h-9 transition-[height] duration-150">
-      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px bg-border/40 group-hover:bg-primary/30 transition-colors pointer-events-none" />
+    <div className="group relative h-7 flex items-center justify-center">
+      <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 border-t border-dashed border-border/40 group-hover:border-primary/40 transition-colors pointer-events-none" />
+      {/* デフォルト表示: 小さな + アイコンのみ */}
+      <span
+        className="relative inline-flex items-center justify-center size-5 rounded-full bg-background text-muted-foreground/60 group-hover:opacity-0 group-focus-within:opacity-0 transition-opacity pointer-events-none"
+        aria-hidden
+      >
+        <Plus size={12} />
+      </span>
+      {/* hover/focus 時: 3 種挿入ボタン */}
       <div className="absolute inset-0 flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
         <button
           type="button"
