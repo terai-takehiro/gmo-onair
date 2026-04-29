@@ -1,0 +1,66 @@
+{
+  "preset_name": "Phase 0 動作確認用ダミー辞書",
+  "description": "STT Speech Adaptation の boost と Gemini 翻訳プロンプト注入の効果を比較するためのサンプル",
+  "entries": [
+    {
+      "source_ja": "GMOグローバルスタジオ",
+      "translations": {
+        "en": "GMO Global Studio",
+        "th": "GMO Global Studio",
+        "vi": "GMO Global Studio",
+        "zh-CN": "GMO 全球工作室",
+        "zh-TW": "GMO 全球工作室",
+        "ko": "GMO 글로벌 스튜디오"
+      },
+      "category": "company"
+    },
+    {
+      "source_ja": "ONAiR",
+      "translations": {
+        "en": "ONAiR",
+        "th": "ONAiR",
+        "vi": "ONAiR",
+        "zh-CN": "ONAiR",
+        "zh-TW": "ONAiR",
+        "ko": "ONAiR"
+      },
+      "category": "product"
+    },
+    {
+      "source_ja": "寺井 赳博",
+      "translations": {
+        "en": "Takehiro Terai",
+        "th": "ทาเคฮิโระ เทไร",
+        "vi": "Takehiro Terai",
+        "zh-CN": "寺井 赳博",
+        "zh-TW": "寺井 赳博",
+        "ko": "데라이 다케히로"
+      },
+      "category": "person"
+    },
+    {
+      "source_ja": "プレスカンファレンス",
+      "translations": {
+        "en": "press conference",
+        "th": "งานแถลงข่าว",
+        "vi": "họp báo",
+        "zh-CN": "新闻发布会",
+        "zh-TW": "記者會",
+        "ko": "프레스 컨퍼런스"
+      },
+      "category": "term"
+    },
+    {
+      "source_ja": "同時通訳",
+      "translations": {
+        "en": "simultaneous interpretation",
+        "th": "การล่ามแบบทันที",
+        "vi": "phiên dịch đồng thời",
+        "zh-CN": "同声传译",
+        "zh-TW": "同步口譯",
+        "ko": "동시 통역"
+      },
+      "category": "term"
+    }
+  ]
+}

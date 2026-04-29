@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+
+# Local secrets / credentials
+.env
+
+# Local outputs (never persist payload bodies)
+out/
+samples/*.wav
+samples/*.mp3
+samples/*.flac
