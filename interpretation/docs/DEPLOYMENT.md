@@ -304,6 +304,28 @@ Observatory で A 以上を取れる状態にしてある。
 - `Cross-Origin-Opener-Policy: same-origin`
 - `Cross-Origin-Resource-Policy: same-origin`
 
+### 12.0 HTTPS / ドメインについて
+
+**Cloud Run はデフォルトで HTTPS が強制される**ため、独自ドメインを
+取得しなくても REQUIREMENTS §5.5 のセキュリティ要件は満たせる。
+デプロイ後に自動付与される URL がそのまま使える:
+
+```
+https://interp-dev-backend-<hash>-an.a.run.app   # backend + vMix オーバーレイ
+https://interp-dev-frontend-<hash>-an.a.run.app  # operator UI
+```
+
+- 証明書は Google マネージド (Let's Encrypt 互換) で自動更新
+- HTTP は自動で HTTPS にリダイレクト
+- HSTS は SecurityHeadersMiddleware で送出
+
+将来カスタムドメイン (例: `interpret.gmo-onair.jp`) を当てたくなったら、
+`gcloud run domain-mappings create --service=... --domain=...` で
+1 コマンド追加 + DNS に CNAME 一行 (CoNoHa の場合: 管理コンソール
+DNS → `gmo-onair.jp` → サブドメイン名 + Type=CNAME + Value=`ghs.googlehosted.com.`)
+を入れるだけ。Terraform 化も小さい変更で対応可能なので、必要になった
+時点で着手する。
+
 ### 12.2 backend (FastAPI) の CSP
 
 ルートごとに分岐:
