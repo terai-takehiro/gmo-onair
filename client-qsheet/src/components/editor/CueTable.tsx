@@ -16,6 +16,8 @@ import SectionMenu from "./SectionMenu";
 import { parseDur as parseDurShared, fmtAbs as fmtAbsShared, normalizeDur } from "@/lib/time";
 import { makeTrashItem, pushToTrash } from "@/lib/trash";
 import CueRow from "./CueRow";
+import CueCardList from "./CueCardList";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 // ─── Types ──────────────────────────────────────────────
 interface Block {
@@ -102,6 +104,19 @@ export default function CueTable({
   onToggleSectionCollapse,
   updateState,
 }: Props) {
+  // lg 未満ではカード形式の代替ビューに切替
+  const isLg = useMediaQuery("(min-width: 1024px)");
+  if (!isLg) {
+    return (
+      <CueCardList
+        blocks={blocks}
+        sections={sections}
+        masters={masters}
+        ledScenes={ledScenes}
+        updateState={updateState}
+      />
+    );
+  }
   const draggedSectionIdx: number | null = null;
   const dropTargetSectionIdx: number | null = null;
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
