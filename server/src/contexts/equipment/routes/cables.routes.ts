@@ -76,7 +76,7 @@ router.get('/', wrap(async (req, res) => {
     sql += ` AND (c.name ILIKE $${i} OR c.model_number ILIKE $${i} OR c.notes ILIKE $${i})`;
     params.push(`%${search}%`); i += 1;
   }
-  sql += ' ORDER BY c.sort_order, c.kind, c.name';
+  sql += ' ORDER BY loc.name NULLS LAST, c.name, c.length_m NULLS LAST, c.kind';
   const rows = await queryAll(sql, params);
   res.json({ success: true, data: rows });
 }));
@@ -214,7 +214,7 @@ router.get('/template', requirePermission('equipment', 'reader'), wrap(async (_r
 // Excel エクスポート
 // ============================================================
 router.get('/export-xlsx', requirePermission('equipment', 'exporter'), wrap(async (_req, res) => {
-  const items = await queryAll(`${SELECT_SQL} ORDER BY c.sort_order, c.kind, c.name`) as Record<string, unknown>[];
+  const items = await queryAll(`${SELECT_SQL} ORDER BY loc.name NULLS LAST, c.name, c.length_m NULLS LAST, c.kind`) as Record<string, unknown>[];
   const rows = items.map((r) => ({
     ...r,
     kind_label: KIND_LABELS[r.kind as string] || r.kind,
