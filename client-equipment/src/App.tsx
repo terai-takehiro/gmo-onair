@@ -17,6 +17,8 @@ import RackLayoutPage from "@/pages/RackLayoutPage";
 import ModelGroupPage from "@/pages/ModelGroupPage";
 import RentalSettingsPage from "@/pages/RentalSettingsPage";
 import RentalCategoryPage from "@/pages/RentalCategoryPage";
+import CablePage from "@/pages/CablePage";
+import ConnectorPage from "@/pages/ConnectorPage";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -60,6 +62,8 @@ export default function App() {
         <Route path="/equipment/model-groups" element={<ModelGroupPage />} />
         <Route path="/equipment/rental-settings" element={<RentalSettingsPage />} />
         <Route path="/equipment/rental-categories" element={<RentalCategoryPage />} />
+        <Route path="/equipment/cables" element={<CablePage />} />
+        <Route path="/equipment/connectors" element={<ConnectorPage />} />
       </Route>
       <Route path="*" element={<RedirectOnce to="/equipment" />} />
     </Routes>

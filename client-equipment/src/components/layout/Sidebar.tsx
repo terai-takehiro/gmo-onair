@@ -7,6 +7,7 @@ import {
   BarChart3, Package, ClipboardList, Wrench, ClipboardCheck,
   QrCode, MapPin, Building2, Palette, Server, Layers, Settings,
   Home, FileText, Sparkles, Briefcase, Timer, Trophy,
+  Cable, Plug,
   X, ChevronLeft,
 } from "lucide-react";
 
@@ -17,6 +18,8 @@ const ICON_MAP: Record<string, React.ElementType> = {
 const navItems = [
   { label: "ダッシュボード", path: "/equipment", icon: BarChart3 },
   { label: "機材一覧", path: "/equipment/items", icon: Package },
+  { label: "ケーブル管理", path: "/equipment/cables", icon: Cable },
+  { label: "コネクタ管理", path: "/equipment/connectors", icon: Plug },
   { label: "貸出機材一覧", path: "/equipment/model-groups", icon: Layers },
   { label: "貸出管理", path: "/equipment/lendings", icon: ClipboardList },
   { label: "貸出機材設定", path: "/equipment/rental-settings", icon: Settings },
