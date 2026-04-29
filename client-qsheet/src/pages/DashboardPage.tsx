@@ -9,8 +9,11 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { notifySuccess, notifyError } from "@/lib/notify";
 import { Switch } from "@gmo-onair/shared/src/client/ui/switch";
 import {
   Select,
@@ -105,12 +108,12 @@ function getDraftLabel(meta?: DocMeta): string {
 }
 
 function getDraftColor(meta?: DocMeta): string {
-  if (!meta) return "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400";
+  if (!meta) return "bg-muted text-muted-foreground";
   if (meta.draftType === "決定稿")
-    return "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 ring-1 ring-emerald-200 dark:ring-emerald-800";
+    return "bg-success/10 text-success ring-1 ring-success/30";
   if (meta.draftType === "準備稿")
-    return "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 ring-1 ring-amber-200 dark:ring-amber-800";
-  return "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 ring-1 ring-blue-200 dark:ring-blue-800";
+    return "bg-warning/10 text-warning ring-1 ring-warning/30";
+  return "bg-primary/10 text-primary ring-1 ring-primary/30";
 }
 
 // ============================================================
@@ -131,8 +134,16 @@ function DocCard({
 
   return (
     <div
-      className="group p-3 sm:p-5 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60 transition-all hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-lg hover:shadow-blue-600/5 cursor-pointer overflow-hidden"
+      role="button"
+      tabIndex={0}
       onClick={() => onNavigate(doc.id)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onNavigate(doc.id);
+        }
+      }}
+      className="group p-3 sm:p-5 bg-card text-card-foreground rounded-2xl border border-border transition-all hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 cursor-pointer overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
     >
       {/* Top row: title + badge + actions */}
       <div className="flex items-start justify-between mb-3">
@@ -152,33 +163,37 @@ function DocCard({
             </p>
           )}
           {meta?.location && (
-            <div className="flex items-center gap-1 text-xs text-zinc-400 mt-0.5">
-              <MapPin size={11} />
+            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+              <MapPin size={11} aria-hidden />
               <span>{meta.location}</span>
             </div>
           )}
         </div>
-        <div className="flex items-center gap-0.5 flex-shrink-0 ml-1 sm:ml-3 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center gap-0.5 flex-shrink-0 ml-1 sm:ml-3 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 transition-opacity">
           <button
+            type="button"
             onClick={(e) => { e.stopPropagation(); onNavigate(doc.id); }}
-            className="p-1.5 sm:p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-blue-500 transition-all"
-            title="編集"
+            className="p-1.5 sm:p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-primary transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+            aria-label="編集"
           >
-            <Pencil size={14} />
+            <Pencil size={14} aria-hidden />
           </button>
           <button
+            type="button"
             onClick={(e) => { e.stopPropagation(); onOnAir(doc.id); }}
-            className="inline-flex items-center gap-0.5 px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-[11px] font-bold rounded-lg bg-red-600 text-white hover:bg-red-500 transition-all"
+            className="inline-flex items-center gap-0.5 px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-[11px] font-bold rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+            aria-label="ONAIRを開始"
           >
-            <Radio size={10} />
+            <Radio size={10} aria-hidden />
             <span className="hidden sm:inline">ONAIR</span>
           </button>
           <button
+            type="button"
             onClick={(e) => { e.stopPropagation(); onDelete(doc.id); }}
-            className="p-1.5 sm:p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-zinc-400 hover:text-red-500 transition-all"
-            title="削除"
+            className="p-1.5 sm:p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+            aria-label="削除"
           >
-            <Trash2 size={14} />
+            <Trash2 size={14} aria-hidden />
           </button>
         </div>
       </div>
@@ -187,46 +202,46 @@ function DocCard({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1.5 text-[11px]">
         {(meta?.broadcastDate || doc.broadcast_date) && (
           <div className="flex items-center gap-1.5">
-            <Calendar size={10} className="text-zinc-400 flex-shrink-0" />
-            <span className="text-zinc-400">放送日</span>
-            <span className="font-medium text-zinc-700 dark:text-zinc-300">{fmtDate(meta?.broadcastDate || doc.broadcast_date)}</span>
+            <Calendar size={10} className="text-muted-foreground flex-shrink-0" aria-hidden />
+            <span className="text-muted-foreground">放送日</span>
+            <span className="font-medium text-foreground">{fmtDate(meta?.broadcastDate || doc.broadcast_date)}</span>
           </div>
         )}
         {meta?.broadcastStartTime && (
           <div className="flex items-center gap-1.5">
-            <Play size={10} className="text-zinc-400 flex-shrink-0" />
-            <span className="text-zinc-400">放送</span>
-            <span className="font-medium font-mono text-zinc-700 dark:text-zinc-300">{meta.broadcastStartTime}</span>
+            <Play size={10} className="text-muted-foreground flex-shrink-0" aria-hidden />
+            <span className="text-muted-foreground">放送</span>
+            <span className="font-medium font-mono text-foreground">{meta.broadcastStartTime}</span>
           </div>
         )}
         {meta?.recordingDate && (
           <div className="flex items-center gap-1.5">
-            <Calendar size={10} className="text-zinc-400 flex-shrink-0" />
-            <span className="text-zinc-400">収録日</span>
-            <span className="font-medium text-zinc-700 dark:text-zinc-300">{fmtDate(meta.recordingDate)}</span>
+            <Calendar size={10} className="text-muted-foreground flex-shrink-0" aria-hidden />
+            <span className="text-muted-foreground">収録日</span>
+            <span className="font-medium text-foreground">{fmtDate(meta.recordingDate)}</span>
           </div>
         )}
         {meta?.rehearsalDate && (
           <div className="flex items-center gap-1.5">
-            <Calendar size={10} className="text-zinc-400 flex-shrink-0" />
-            <span className="text-zinc-400">リハ</span>
-            <span className="font-medium text-zinc-700 dark:text-zinc-300">{fmtDate(meta.rehearsalDate)}</span>
+            <Calendar size={10} className="text-muted-foreground flex-shrink-0" aria-hidden />
+            <span className="text-muted-foreground">リハ</span>
+            <span className="font-medium text-foreground">{fmtDate(meta.rehearsalDate)}</span>
           </div>
         )}
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/60">
-        <div className="flex items-center gap-3 text-xs text-zinc-400">
+      <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span>{doc.creator_name || "不明"}</span>
           <span className="inline-flex items-center gap-0.5">
-            <Clock size={9} />
+            <Clock size={9} aria-hidden />
             {new Date(doc.updated_at).toLocaleDateString("ja-JP")}{" "}
             {new Date(doc.updated_at).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}
           </span>
         </div>
-        <div className="flex items-center gap-1 text-xs text-blue-500 font-medium sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-          台本を開く <ChevronRight size={14} />
+        <div className="flex items-center gap-1 text-xs text-primary font-medium sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+          台本を開く <ChevronRight size={14} aria-hidden />
         </div>
       </div>
     </div>
@@ -253,6 +268,7 @@ export default function DashboardPage() {
   const [linkToProject, setLinkToProject] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [selectedEpisodeId, setSelectedEpisodeId] = useState("");
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const projectFilter = searchParams.get("project");
 
@@ -328,7 +344,11 @@ export default function DashboardPage() {
       queryClient.invalidateQueries({ queryKey: ["qsheet-documents"] });
       setShowCreate(false);
       resetCreateForm();
+      notifySuccess("ドキュメントを作成しました");
       navigate(`/qsheet/editor/${doc.id}`);
+    },
+    onError: () => {
+      notifyError("ドキュメントの作成に失敗しました");
     },
   });
 
@@ -338,6 +358,10 @@ export default function DashboardPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["qsheet-documents"] });
+      notifySuccess("ドキュメントを削除しました");
+    },
+    onError: () => {
+      notifyError("ドキュメントの削除に失敗しました");
     },
   });
 
@@ -371,8 +395,13 @@ export default function DashboardPage() {
   };
 
   const handleDelete = (id: string) => {
-    if (confirm("このドキュメントを削除しますか？")) {
-      deleteMutation.mutate(id);
+    setDeleteTargetId(id);
+  };
+
+  const confirmDelete = () => {
+    if (deleteTargetId) {
+      deleteMutation.mutate(deleteTargetId);
+      setDeleteTargetId(null);
     }
   };
 
@@ -413,7 +442,7 @@ export default function DashboardPage() {
         )}
 
         {/* Search */}
-        <div className="relative max-w-md">
+        <div className="relative max-w-sm sm:max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
           <Input
             placeholder="タイトルで検索..."
@@ -472,7 +501,7 @@ export default function DashboardPage() {
             onSubmit={(e) => { e.preventDefault(); createMutation.mutate(); }}
           >
             <div>
-              <Label className="text-xs text-zinc-500">番組名 <span className="text-red-500">*</span></Label>
+              <Label className="text-xs text-muted-foreground">番組名 <span className="text-destructive">*</span></Label>
               <Input
                 className="mt-1"
                 placeholder="例：サンプル情報バラエティ"
@@ -482,7 +511,7 @@ export default function DashboardPage() {
               />
             </div>
             <div>
-              <Label className="text-xs text-zinc-500">撮影場所 <span className="text-red-500">*</span></Label>
+              <Label className="text-xs text-muted-foreground">撮影場所 <span className="text-destructive">*</span></Label>
               <Input
                 className="mt-1"
                 placeholder="例：GMOグローバルスタジオ"
@@ -492,17 +521,17 @@ export default function DashboardPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs text-zinc-500">放送日 <span className="text-red-500">*</span></Label>
+                <Label className="text-xs text-muted-foreground">放送日 <span className="text-destructive">*</span></Label>
                 <Input className="mt-1" type="date" value={newBroadcastDate} onChange={(e) => setNewBroadcastDate(e.target.value)} />
               </div>
               <div>
-                <Label className="text-xs text-zinc-500">放送開始時刻</Label>
+                <Label className="text-xs text-muted-foreground">放送開始時刻</Label>
                 <Input className="mt-1" type="time" value={newBroadcastStartTime} onChange={(e) => setNewBroadcastStartTime(e.target.value)} />
               </div>
             </div>
             <div>
               <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="text-xs font-medium text-zinc-500">収録日を設定（生放送の場合はOFF）</span>
+                <span className="text-xs font-medium text-muted-foreground">収録日を設定（生放送の場合はOFF）</span>
                 <Switch checked={hasRecording} onCheckedChange={(v) => setHasRecording(!!v)} />
               </div>
               {hasRecording && (
@@ -511,7 +540,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="text-xs font-medium text-zinc-500">リハーサル日を設定</span>
+                <span className="text-xs font-medium text-muted-foreground">リハーサル日を設定</span>
                 <Switch checked={hasRehearsal} onCheckedChange={(v) => setHasRehearsal(!!v)} />
               </div>
               {hasRehearsal && (
@@ -578,14 +607,38 @@ export default function DashboardPage() {
               )}
             </div>
 
-            <button
+            <Button
               type="submit"
               disabled={!newTitle.trim() || !newLocation.trim() || !newBroadcastDate || (hasRecording && !newRecordingDate) || createMutation.isPending}
-              className="w-full py-2.5 text-sm font-semibold rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shadow-blue-600/25 transition-all"
+              className="w-full py-2.5 text-sm font-semibold"
             >
               {createMutation.isPending ? "作成中..." : "台本を作成"}
-            </button>
+            </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* 削除確認ダイアログ */}
+      <Dialog open={deleteTargetId !== null} onOpenChange={(open) => !open && setDeleteTargetId(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>このドキュメントを削除しますか？</DialogTitle>
+            <DialogDescription>
+              この操作は取り消せません。台本データが完全に削除されます。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setDeleteTargetId(null)}>
+              キャンセル
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "削除中..." : "削除する"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
