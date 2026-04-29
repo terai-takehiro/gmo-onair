@@ -27,6 +27,24 @@ export type SessionCostSummary = {
   breakdown: SessionCostBreakdown[];
 };
 
+export type SessionPublic = {
+  id: string;
+  operator_user_id: string;
+  target_languages: string[];
+  glossary_preset_id: string | null;
+  started_at: string;
+  ended_at: string | null;
+  status: "live" | "ended" | "aborted";
+};
+
+export function listSessions(): Promise<SessionPublic[]> {
+  return jsonFetch<SessionPublic[]>("/api/v1/sessions");
+}
+
+export function getSession(id: string): Promise<SessionPublic> {
+  return jsonFetch<SessionPublic>(`/api/v1/sessions/${id}`);
+}
+
 function authHeaders(): Record<string, string> {
   const t = bearer();
   return t ? { authorization: `Bearer ${t}` } : {};

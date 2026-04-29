@@ -24,6 +24,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <Link href="/" className="hover:text-brand">
                 セッション
               </Link>
+              <Link href="/history" className="hover:text-brand">
+                履歴
+              </Link>
               <Link href="/glossaries" className="hover:text-brand">
                 用語辞書
               </Link>
