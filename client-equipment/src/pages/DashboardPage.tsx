@@ -25,6 +25,8 @@ import {
   ClipboardCheck,
   Server,
   QrCode,
+  Cable,
+  Plug,
 } from "lucide-react";
 
 function fmtDate(dateStr: string | null) {
@@ -49,6 +51,21 @@ export default function DashboardPage() {
     retry: 1,
     staleTime: 60 * 1000,
   });
+
+  const { data: cablesData } = useQuery({
+    queryKey: ["equipment-cables"],
+    queryFn: async () => (await api.get("/equipment/cables")).data.data as Array<{ quantity: number }>,
+    staleTime: 60 * 1000,
+  });
+  const { data: connectorsData } = useQuery({
+    queryKey: ["equipment-connectors"],
+    queryFn: async () => (await api.get("/equipment/connectors")).data.data as Array<{ quantity: number }>,
+    staleTime: 60 * 1000,
+  });
+  const cableTypes = cablesData?.length ?? 0;
+  const cableTotal = (cablesData ?? []).reduce((s, c) => s + (Number(c.quantity) || 0), 0);
+  const connectorTypes = connectorsData?.length ?? 0;
+  const connectorTotal = (connectorsData ?? []).reduce((s, c) => s + (Number(c.quantity) || 0), 0);
 
   const refreshButton = (
     <Button
@@ -143,7 +160,7 @@ export default function DashboardPage() {
 
       {/* クイックアクション */}
       <SectionCard title="クイックアクション" description="よく使う操作を1タップで。" padding="compact">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
           <Button variant="outline" className="h-12 gap-2 justify-start px-4" onClick={() => navigate("/equipment/lendings")}>
             <Plus className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
             <span className="text-sm">貸出登録</span>
@@ -156,6 +173,14 @@ export default function DashboardPage() {
             <Package className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
             <span className="text-sm">機材一覧</span>
           </Button>
+          <Button variant="outline" className="h-12 gap-2 justify-start px-4" onClick={() => navigate("/equipment/cables")}>
+            <Cable className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+            <span className="text-sm">ケーブル管理</span>
+          </Button>
+          <Button variant="outline" className="h-12 gap-2 justify-start px-4" onClick={() => navigate("/equipment/connectors")}>
+            <Plug className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+            <span className="text-sm">コネクタ管理</span>
+          </Button>
           <Button variant="outline" className="h-12 gap-2 justify-start px-4" onClick={() => navigate("/equipment/scan")}>
             <QrCode className="h-4 w-4 text-success shrink-0" aria-hidden="true" />
             <span className="text-sm">QRスキャン</span>
@@ -166,6 +191,31 @@ export default function DashboardPage() {
           </Button>
         </div>
       </SectionCard>
+
+      {/* 消耗品サマリー: ケーブル + コネクタ */}
+      <section aria-labelledby="equipment-supplies-heading">
+        <h2 id="equipment-supplies-heading" className="sr-only">消耗品の在庫サマリー</h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <KpiCard
+            label="ケーブル"
+            icon={<Cable />}
+            value={cableTotal}
+            unit="本"
+            footnote={`${cableTypes} 種類`}
+            emphasis="info"
+            onClick={() => navigate("/equipment/cables")}
+          />
+          <KpiCard
+            label="コネクタ"
+            icon={<Plug />}
+            value={connectorTotal}
+            unit="個"
+            footnote={`${connectorTypes} 種類`}
+            emphasis="info"
+            onClick={() => navigate("/equipment/connectors")}
+          />
+        </div>
+      </section>
 
       {/* アラート (要注意) */}
       {((stats.overdue ?? 0) > 0 || (stats.open_maintenance ?? 0) > 0) && (
