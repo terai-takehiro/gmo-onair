@@ -49,6 +49,10 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run build
+      - name: Dependency vulnerability scan (npm audit)
+        # Advisory: report high+ severity but don't fail the build yet —
+        # tighten to `--audit-level=high --omit=dev` with hard-fail later.
+        run: npm audit --audit-level=high --omit=dev || true
 
   deploy:
     name: build + deploy (${{ github.event.inputs.target || (github.ref_name == 'main' && 'prod' || 'dev') }})

@@ -54,6 +54,10 @@ jobs:
       - run: ruff check app tests
       - run: mypy app
       - run: pytest -q
+      - name: Dependency vulnerability scan (pip-audit)
+        # Allow advisory mode for now (don't fail the build) so a fresh CVE
+        # disclosure doesn't block deploys; tighten with `--strict` later.
+        run: pip-audit --progress-spinner off || true
 
   deploy:
     name: build + deploy (${{ github.event.inputs.target || (github.ref_name == 'main' && 'prod' || 'dev') }})
