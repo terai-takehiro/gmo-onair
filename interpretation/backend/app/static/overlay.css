@@ -1,0 +1,119 @@
+/* vMix transparent overlay. Background MUST be fully transparent so vMix
+   can composite the text + audio onto the program output. */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: rgba(0, 0, 0, 0);
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+  font-family: var(--subtitle-font, system-ui, sans-serif);
+}
+
+/* Hide everything when mode=text: ensure no audio prompt UI shows. */
+body[data-mode="audio"] .subtitle-stage {
+  display: none;
+}
+
+.subtitle-stage {
+  position: fixed;
+  bottom: 6vh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90vw;
+  max-width: 1600px;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.subtitle-lines {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4em;
+  text-align: center;
+  color: white;
+  /* Strong, broadcast-friendly outline. Multiple shadows = thicker stroke. */
+  text-shadow:
+    0 0 4px rgba(0, 0, 0, 0.95),
+    0 0 8px rgba(0, 0, 0, 0.9),
+    0 0 12px rgba(0, 0, 0, 0.7),
+    2px 2px 0 rgba(0, 0, 0, 0.6);
+  font-size: clamp(28px, 5.2vh, 80px);
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.subtitle-line {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 220ms ease-out, transform 220ms ease-out;
+  max-width: 100%;
+  padding: 0 0.3em;
+}
+
+.subtitle-line.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.subtitle-line.fade-out {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* Status pill — only visible during operator preview. vMix capture areas
+   typically crop bottom-center so this stays out of frame. */
+.status {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.55);
+  padding: 4px 8px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.status .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #888;
+}
+.status[data-state="open"] .dot {
+  background: #22c55e;
+}
+.status[data-state="connecting"] .dot {
+  background: #facc15;
+}
+.status[data-state="error"] .dot,
+.status[data-state="closed"] .dot {
+  background: #ef4444;
+}
+
+.audio-unlock {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: 240px;
+  height: 56px;
+  border: 0;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.78);
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+}
+.audio-unlock.hidden {
+  display: none;
+}

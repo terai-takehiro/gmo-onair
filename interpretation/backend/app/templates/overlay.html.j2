@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="{{ lang_code }}">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Interpretation overlay — {{ lang_code }}</title>
+    <link rel="stylesheet" href="/static/overlay.css" />
+    <style>
+      :root {
+        --subtitle-font: {{ font_family }};
+        --subtitle-max-chars: {{ max_chars_per_line }};
+      }
+    </style>
+  </head>
+  <body data-mode="{{ mode }}">
+    <div
+      id="stage"
+      class="subtitle-stage"
+      data-session="{{ session_id }}"
+      data-lang="{{ lang_code }}"
+      data-mode="{{ mode }}"
+      data-ws-url="{{ ws_url }}"
+    >
+      <div id="lines" class="subtitle-lines" aria-live="polite"></div>
+    </div>
+
+    <div id="status" class="status">
+      <span class="dot" id="status-dot"></span>
+      <span id="status-text">connecting...</span>
+    </div>
+
+    <!-- vMix Chromium needs a user gesture to allow autoplay; this overlay
+         is shown to the operator first who will click once. The play prompt
+         is hidden if mode=text. -->
+    {% if mode != "text" %}
+    <button id="audio-unlock" class="audio-unlock" type="button">
+      Click to enable audio
+    </button>
+    {% endif %}
+
+    <script src="/static/overlay.js" defer></script>
+  </body>
+</html>

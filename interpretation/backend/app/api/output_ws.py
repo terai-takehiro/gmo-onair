@@ -1,18 +1,27 @@
-"""Per-language output WebSocket (Phase 1 stub).
+"""Per-language output endpoints.
 
-vMix opens HTTPS GET /stream/{session_id}/{lang} → returns the overlay HTML.
-The overlay HTML opens WSS /ws/output/{session_id}/{lang} for live frames.
+GET /stream/{session_id}/{lang}
+    Returns the transparent vMix overlay HTML rendered from
+    templates/overlay.html.j2.
 
-Frame types (JSON):
-  {"type": "transcript_translation", "text": "...", "seq": N, "t_ms": ...}
-  {"type": "audio_chunk", "mp3_b64": "...", "seq": N}
+WS  /ws/output/{session_id}/{lang}
+    Live stream of `translation` and `audio_chunk` frames produced by the
+    pipeline (Phase 1 stub: heartbeat only).
+
+Frame schema (JSON):
+  {"type": "translation", "lang": "...", "text": "...", "is_final": false,
+   "seq": N, "t_ms": ...}
+  {"type": "audio_chunk",  "lang": "...", "seq": N, "mp3_b64": "..."}
   {"type": "heartbeat"}
+  {"type": "session_end"}
 """
 
 from __future__ import annotations
 
+import asyncio
+
 import structlog
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
 from app.languages import load_languages
@@ -22,8 +31,12 @@ log = structlog.get_logger(__name__)
 
 
 @router.get("/stream/{session_id}/{lang}", response_class=HTMLResponse)
-async def get_overlay(session_id: str, lang: str, mode: str = "both") -> HTMLResponse:
-    """Return the transparent vMix overlay HTML."""
+async def get_overlay(
+    request: Request,
+    session_id: str,
+    lang: str,
+    mode: str = "both",
+) -> HTMLResponse:
     languages = load_languages()
     if lang not in languages:
         raise HTTPException(status_code=404, detail=f"unsupported language: {lang}")
@@ -31,30 +44,23 @@ async def get_overlay(session_id: str, lang: str, mode: str = "both") -> HTMLRes
         raise HTTPException(status_code=400, detail="mode must be text|audio|both")
 
     spec = languages[lang]
-    # TODO(Phase 1): render real Jinja2 template (templates/overlay.html.j2).
-    html = f"""<!doctype html>
-<html lang="{lang}">
-<head>
-  <meta charset="utf-8" />
-  <title>Interpretation overlay</title>
-  <style>
-    html, body {{ margin: 0; padding: 0; background: rgba(0,0,0,0); }}
-    body {{ font-family: {spec.font_family}; }}
-    .subtitle-stage {{ position: fixed; bottom: 6vh; left: 50%; transform: translateX(-50%);
-                       max-width: 80vw; text-align: center; color: white;
-                       text-shadow: 0 0 6px black, 0 0 6px black; font-size: 4vh;
-                       line-height: 1.3; }}
-  </style>
-</head>
-<body>
-  <div class="subtitle-stage" data-session="{session_id}" data-lang="{lang}" data-mode="{mode}">
-    (waiting for stream)
-  </div>
-  <!-- TODO: bundle the real overlay JS that opens /ws/output/{session_id}/{lang} -->
-</body>
-</html>
-"""
-    return HTMLResponse(html)
+    ws_scheme = "wss" if request.url.scheme == "https" else "ws"
+    host = request.headers.get("host") or request.url.netloc
+    ws_url = f"{ws_scheme}://{host}/ws/output/{session_id}/{lang}"
+
+    templates = request.app.state.templates
+    return templates.TemplateResponse(
+        request,
+        "overlay.html.j2",
+        {
+            "session_id": session_id,
+            "lang_code": lang,
+            "mode": mode,
+            "ws_url": ws_url,
+            "font_family": spec.font_family,
+            "max_chars_per_line": spec.subtitle_max_chars_per_line,
+        },
+    )
 
 
 @router.websocket("/ws/output/{session_id}/{lang}")
@@ -64,17 +70,11 @@ async def output_ws(websocket: WebSocket, session_id: str, lang: str) -> None:
     try:
         # TODO(Phase 1): subscribe to Redis Pub/Sub channel
         #   stream:{session_id}:{lang}
-        # and forward translation + audio frames.
+        # and forward translation + audio frames produced by the pipeline.
         while True:
             await websocket.send_json({"type": "heartbeat"})
-            await _sleep_seconds(5)
+            await asyncio.sleep(5)
     except WebSocketDisconnect:
         pass
     finally:
         log.info("output_ws.disconnect", session_id=session_id, lang=lang)
-
-
-async def _sleep_seconds(s: float) -> None:
-    import asyncio
-
-    await asyncio.sleep(s)

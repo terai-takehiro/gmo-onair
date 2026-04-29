@@ -9,10 +9,16 @@ from typing import AsyncIterator
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 from app.api import glossaries, output_ws, sessions, stream_ws
 from app.config import get_settings
 from app.languages import load_languages
+from pathlib import Path
+
+_BASE = Path(__file__).parent
+TEMPLATES = Jinja2Templates(directory=str(_BASE / "templates"))
 
 log = structlog.get_logger(__name__)
 
@@ -64,6 +70,9 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    app.mount("/static", StaticFiles(directory=str(_BASE / "static")), name="static")
+    app.state.templates = TEMPLATES
 
     @app.get("/health", tags=["meta"])
     async def health() -> dict[str, str]:
