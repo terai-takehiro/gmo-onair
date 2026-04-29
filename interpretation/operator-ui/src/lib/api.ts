@@ -52,7 +52,39 @@ export type AdminUser = {
   email: string;
   display_name: string | null;
   role: "admin" | "operator";
+  is_active: boolean;
 };
+
+export type AdminUserCreate = {
+  email: string;
+  password: string;
+  display_name?: string | null;
+  role?: "admin" | "operator";
+};
+
+export type AdminUserUpdate = {
+  display_name?: string | null;
+  role?: "admin" | "operator";
+  is_active?: boolean;
+  password?: string;
+};
+
+export function createAdminUser(body: AdminUserCreate): Promise<AdminUser> {
+  return jsonFetch<AdminUser>("/api/v1/admin/users", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateAdminUser(
+  id: string,
+  body: AdminUserUpdate,
+): Promise<AdminUser> {
+  return jsonFetch<AdminUser>(`/api/v1/admin/users/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
 
 export type MonthlyCostBucket = {
   month: string; // YYYY-MM

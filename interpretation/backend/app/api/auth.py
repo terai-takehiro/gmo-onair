@@ -37,6 +37,8 @@ async def login(
     if row is None or not verify_password(payload.password, row.password_hash):
         # Constant-ish response to avoid timing leaks; logging only the email.
         raise HTTPException(status_code=401, detail="invalid email or password")
+    if not row.is_active:
+        raise HTTPException(status_code=403, detail="account disabled")
 
     cu = CurrentUser(id=row.id, email=row.email, role=row.role)
     token = create_access_token(cu, settings)

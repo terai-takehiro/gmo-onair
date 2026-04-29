@@ -31,6 +31,21 @@ class UserPublic(BaseModel):
     email: str
     display_name: str | None = None
     role: Literal["admin", "operator"]
+    is_active: bool = True
+
+
+class UserCreate(BaseModel):
+    email: str
+    password: str
+    display_name: str | None = None
+    role: Literal["admin", "operator"] = "operator"
+
+
+class UserUpdate(BaseModel):
+    display_name: str | None = None
+    role: Literal["admin", "operator"] | None = None
+    is_active: bool | None = None
+    password: str | None = None  # if set, reset password
 
 
 # ---------- Glossary ----------

@@ -10,6 +10,7 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useAuthGuard } from "@/lib/use-auth-guard";
+import { AdminUsers } from "@/components/admin-users";
 
 function downloadCsv(filename: string, csv: string): void {
   const blob = new Blob([csv], { type: "text/csv" });
@@ -128,30 +129,7 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border bg-white p-6 shadow-sm">
-        <h3 className="font-serif text-lg font-semibold">ユーザー一覧</h3>
-        <ul className="mt-3 divide-y text-sm">
-          {users.map((u) => (
-            <li key={u.id} className="flex items-center justify-between py-2">
-              <div>
-                <p className="font-medium">{u.email}</p>
-                <p className="text-xs text-stone-500">
-                  {u.display_name ?? "(no name)"}
-                </p>
-              </div>
-              <span
-                className={`rounded-full px-2 py-0.5 text-xs ${
-                  u.role === "admin"
-                    ? "bg-brand text-white"
-                    : "bg-stone-100 text-stone-700"
-                }`}
-              >
-                {u.role}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
+      <AdminUsers users={users} onChanged={() => listAdminUsers().then(setUsers)} />
     </section>
   );
 }
