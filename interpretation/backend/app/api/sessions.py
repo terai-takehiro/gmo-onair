@@ -79,11 +79,18 @@ async def create_session(
         boost_phrases = [e.source_ja for e in entries]
         pairs_by_lang = _glossary_pairs_by_lang(entries, target_languages)
 
+    cc_ingest_urls = {
+        lang: url
+        for lang, url in (payload.cc_ingest_urls or {}).items()
+        if lang in target_languages
+    } or None
+
     sess = m.Session(
         operator_user_id=user.id,
         target_languages=list(target_languages),
         glossary_preset_id=payload.glossary_preset_id,
         status="live",
+        cc_ingest_urls=cc_ingest_urls,
     )
     db.add(sess)
     await db.commit()
@@ -95,6 +102,7 @@ async def create_session(
         target_languages=target_languages,
         boost_phrases=boost_phrases,
         glossary_pairs_by_lang=pairs_by_lang,
+        cc_ingest_urls=cc_ingest_urls,
     )
 
     base = str(request.base_url).rstrip("/")

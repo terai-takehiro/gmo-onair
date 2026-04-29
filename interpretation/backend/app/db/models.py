@@ -93,6 +93,7 @@ class Session(Base):
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="live")
     client_meta: Mapped[dict | None] = mapped_column(JSON)
+    cc_ingest_urls: Mapped[dict | None] = mapped_column(JSONB)
 
     operator: Mapped["User | None"] = relationship(back_populates="sessions")
     costs: Mapped[list["SessionCost"]] = relationship(

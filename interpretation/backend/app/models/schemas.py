@@ -76,6 +76,9 @@ class SessionCreate(BaseModel):
     target_languages: list[str] = Field(min_length=1, max_length=10)
     glossary_preset_id: UUID | None = None
     note: str | None = None
+    # Optional YouTube Live CC ingest URLs per language. Operators paste the
+    # POST URL surfaced by YouTube Live Studio "Closed captions" panel.
+    cc_ingest_urls: dict[str, str] | None = None
 
 
 class SessionPublic(BaseModel):

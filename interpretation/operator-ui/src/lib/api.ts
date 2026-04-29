@@ -6,6 +6,7 @@ const API_BASE =
 export type CreateSessionRequest = {
   target_languages: string[];
   glossary_preset_id?: string | null;
+  cc_ingest_urls?: Record<string, string> | null;
 };
 
 export type CreateSessionResponse = {

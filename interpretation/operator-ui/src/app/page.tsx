@@ -24,6 +24,7 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [glossaries, setGlossaries] = useState<GlossaryPreset[]>([]);
   const [glossaryId, setGlossaryId] = useState<string>("");
+  const [ccUrls, setCcUrls] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!ok) return;
@@ -51,9 +52,16 @@ export default function HomePage() {
     setBusy(true);
     setError(null);
     try {
+      const ccPayload = Object.fromEntries(
+        [...selected]
+          .map((l) => [l, (ccUrls[l] || "").trim()] as const)
+          .filter(([, v]) => v.length > 0),
+      );
       const res: CreateSessionResponse = await createSession({
         target_languages: [...selected],
         glossary_preset_id: glossaryId || null,
+        cc_ingest_urls:
+          Object.keys(ccPayload).length > 0 ? ccPayload : null,
       });
       sessionStorage.setItem(`session:${res.session_id}`, JSON.stringify(res));
       router.push(`/sessions/${res.session_id}`);
@@ -108,6 +116,34 @@ export default function HomePage() {
             ))}
           </select>
         </div>
+
+        <details className="mt-4 rounded-lg border bg-stone-50 p-3 text-sm">
+          <summary className="cursor-pointer text-stone-700">
+            YouTube Live CC 連携 (任意)
+          </summary>
+          <p className="mt-2 text-xs text-stone-500">
+            YouTube Live Studio の「字幕」パネルで発行される ingest URL を
+            言語ごとに貼り付けると、字幕がその言語チャンネルに自動 POST されます。
+          </p>
+          <div className="mt-3 space-y-2">
+            {[...selected].map((lang) => (
+              <label key={lang} className="flex items-center gap-2">
+                <span className="w-12 rounded bg-stone-200 px-2 py-1 text-center text-xs">
+                  {lang}
+                </span>
+                <input
+                  type="url"
+                  placeholder="https://www.youtube.com/api/live_ingest/text-mt?id=..."
+                  value={ccUrls[lang] ?? ""}
+                  onChange={(e) =>
+                    setCcUrls((prev) => ({ ...prev, [lang]: e.target.value }))
+                  }
+                  className="flex-1 rounded border px-2 py-1 font-mono text-xs"
+                />
+              </label>
+            ))}
+          </div>
+        </details>
 
         {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
 

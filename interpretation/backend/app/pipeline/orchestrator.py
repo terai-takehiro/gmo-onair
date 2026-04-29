@@ -26,8 +26,10 @@ from app.languages import LanguageSpec, load_languages
 from app.pipeline import stt as stt_mod
 from app.pipeline import translator as tr_mod
 from app.pipeline import tts as tts_mod
+from app.pipeline import youtube_cc
 from app.pipeline.costs import CostTracker
 from app.pipeline.pubsub import PubSubBroker, channel_for, preview_channel_for
+from app.pipeline.youtube_cc import YouTubeCcPoster
 
 log = structlog.get_logger(__name__)
 
@@ -43,6 +45,7 @@ class SessionPipeline:
     closed: asyncio.Event = field(default_factory=asyncio.Event)
     seq: itertools.count = field(default_factory=lambda: itertools.count(1))
     cost_tracker: CostTracker = field(default_factory=CostTracker)
+    cc_posters: dict[str, YouTubeCcPoster] = field(default_factory=dict)
 
 
 class Orchestrator:
@@ -60,6 +63,7 @@ class Orchestrator:
         target_languages: list[str],
         boost_phrases: list[str] | None = None,
         glossary_pairs_by_lang: dict[str, list[tuple[str, str]]] | None = None,
+        cc_ingest_urls: dict[str, str] | None = None,
     ) -> SessionPipeline:
         if session_id in self._pipelines:
             return self._pipelines[session_id]
@@ -69,6 +73,9 @@ class Orchestrator:
             target_languages=target_languages,
             glossary_pairs_by_lang=glossary_pairs_by_lang or {},
             boost_phrases=boost_phrases or [],
+            cc_posters=await youtube_cc.make_posters(
+                {l: u for l, u in (cc_ingest_urls or {}).items() if l in target_languages}
+            ),
         )
         self._pipelines[session_id] = p
         p.tasks.append(asyncio.create_task(self._run(p), name=f"sess:{session_id}"))
@@ -182,6 +189,7 @@ class Orchestrator:
                 await t
             except (asyncio.CancelledError, Exception) as e:
                 log.debug("orchestrator.task_cancel", error=repr(e))
+        await youtube_cc.close_all(p.cc_posters)
         log.info(
             "orchestrator.end",
             session_id=str(session_id),
@@ -275,6 +283,11 @@ class Orchestrator:
                     p.cost_tracker.record_translate(
                         tev.input_tokens, tev.output_tokens
                     )
+                    poster = p.cc_posters.get(lang)
+                    if poster is not None and final_text:
+                        # YouTube CC POST is best-effort: do not await blocking
+                        # so that TTS can start in parallel.
+                        asyncio.create_task(poster.post(final_text))
 
             if final_text:
                 p.cost_tracker.record_tts(len(final_text))
