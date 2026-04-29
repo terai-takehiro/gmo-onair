@@ -49,6 +49,9 @@ class TranslationEvent:
     is_final: bool
     seq: int
     t_ms: float
+    # Populated only on the is_final=True event when usage_metadata is available.
+    input_tokens: int = 0
+    output_tokens: int = 0
 
 
 def _build_glossary_block(pairs: list[tuple[str, str]]) -> str:
@@ -82,6 +85,7 @@ async def translate_stream(
     )
     t0 = time.perf_counter()
     accumulated: list[str] = []
+    last_chunk = None
     stream = await client.aio.models.generate_content_stream(
         model=settings.gemini_model,
         contents=src_text,
@@ -92,6 +96,7 @@ async def translate_stream(
         ),
     )
     async for chunk in stream:
+        last_chunk = chunk
         delta = chunk.text or ""
         if not delta:
             continue
@@ -105,6 +110,7 @@ async def translate_stream(
             t_ms=(time.perf_counter() - t0) * 1000,
         )
 
+    in_tok, out_tok = _extract_usage(last_chunk)
     yield TranslationEvent(
         lang=target_lang,
         text_delta="",
@@ -112,4 +118,19 @@ async def translate_stream(
         is_final=True,
         seq=seq,
         t_ms=(time.perf_counter() - t0) * 1000,
+        input_tokens=in_tok,
+        output_tokens=out_tok,
+    )
+
+
+def _extract_usage(chunk) -> tuple[int, int]:
+    """Pull (input_tokens, output_tokens) from a Gemini stream chunk."""
+    if chunk is None:
+        return 0, 0
+    meta = getattr(chunk, "usage_metadata", None)
+    if meta is None:
+        return 0, 0
+    return (
+        getattr(meta, "prompt_token_count", 0) or 0,
+        getattr(meta, "candidates_token_count", 0) or 0,
     )

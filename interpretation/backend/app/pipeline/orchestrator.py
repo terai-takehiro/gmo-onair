@@ -26,6 +26,7 @@ from app.languages import LanguageSpec, load_languages
 from app.pipeline import stt as stt_mod
 from app.pipeline import translator as tr_mod
 from app.pipeline import tts as tts_mod
+from app.pipeline.costs import CostTracker
 from app.pipeline.pubsub import PubSubBroker, channel_for
 
 log = structlog.get_logger(__name__)
@@ -41,6 +42,7 @@ class SessionPipeline:
     tasks: list[asyncio.Task[None]] = field(default_factory=list)
     closed: asyncio.Event = field(default_factory=asyncio.Event)
     seq: itertools.count = field(default_factory=lambda: itertools.count(1))
+    cost_tracker: CostTracker = field(default_factory=CostTracker)
 
 
 class Orchestrator:
@@ -81,12 +83,17 @@ class Orchestrator:
         p = self._pipelines.get(session_id)
         if not p or p.closed.is_set():
             return
+        # 16-bit mono LINEAR16 @ 16kHz: 32 bytes per ms.
+        if chunk:
+            ms = len(chunk) / 32.0
+            p.cost_tracker.record_audio_chunk(ms)
         await p.audio_queue.put(chunk)
 
-    async def end_session(self, session_id: UUID) -> None:
+    async def end_session(self, session_id: UUID) -> CostTracker | None:
+        """Stop pipelines for the session and return its CostTracker (for persistence)."""
         p = self._pipelines.pop(session_id, None)
         if not p:
-            return
+            return None
         p.closed.set()
         await p.audio_queue.put(None)
         for lang in p.target_languages:
@@ -100,7 +107,15 @@ class Orchestrator:
                 await t
             except (asyncio.CancelledError, Exception) as e:
                 log.debug("orchestrator.task_cancel", error=repr(e))
-        log.info("orchestrator.end", session_id=str(session_id))
+        log.info(
+            "orchestrator.end",
+            session_id=str(session_id),
+            stt_seconds=round(p.cost_tracker.stt_seconds, 1),
+            translate_input_tokens=p.cost_tracker.gemini_input_tokens,
+            translate_output_tokens=p.cost_tracker.gemini_output_tokens,
+            tts_characters=p.cost_tracker.tts_characters,
+        )
+        return p.cost_tracker
 
     async def _run(self, p: SessionPipeline) -> None:
         languages = load_languages()
@@ -170,8 +185,12 @@ class Orchestrator:
                 )
                 if tev.is_final:
                     final_text = tev.accumulated
+                    p.cost_tracker.record_translate(
+                        tev.input_tokens, tev.output_tokens
+                    )
 
             if final_text:
+                p.cost_tracker.record_tts(len(final_text))
                 audio = await tts_mod.synthesize_one_shot(
                     self._settings, spec, final_text, seq
                 )

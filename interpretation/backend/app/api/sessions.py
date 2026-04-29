@@ -15,6 +15,8 @@ from app.db.session import get_db
 from app.languages import enabled_target_codes, load_languages
 from app.models.schemas import (
     GlossaryEntry,
+    SessionCost,
+    SessionCostSummary,
     SessionCreate,
     SessionPublic,
     SessionURLs,
@@ -129,10 +131,59 @@ async def end_session(
         return _to_public(sess)
 
     orchestrator = request.app.state.orchestrator
-    await orchestrator.end_session(session_id)
+    tracker = await orchestrator.end_session(session_id)
+
+    if tracker is not None:
+        summary = tracker.to_summary(session_id)
+        for entry in summary.breakdown:
+            db.add(
+                m.SessionCost(
+                    session_id=session_id,
+                    service=entry.service,
+                    units=entry.units,
+                    unit_label=entry.unit_label,
+                    amount_jpy=entry.amount_jpy,
+                )
+            )
 
     sess.status = "ended"
     sess.ended_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(sess)
     return _to_public(sess)
+
+
+@router.get("/{session_id}/cost", response_model=SessionCostSummary)
+async def get_session_cost(
+    session_id: UUID, request: Request, db: DBDep
+) -> SessionCostSummary:
+    sess = await db.get(m.Session, session_id)
+    if not sess:
+        raise HTTPException(status_code=404, detail="session not found")
+
+    # If the session is still live, surface the in-memory tracker so the
+    # operator UI can poll real-time cost (REQUIREMENTS §4.6).
+    if sess.status == "live":
+        orchestrator = request.app.state.orchestrator
+        pipeline = orchestrator.get(session_id)
+        if pipeline is not None:
+            return pipeline.cost_tracker.to_summary(session_id)
+
+    rows = (
+        await db.execute(
+            select(m.SessionCost).where(m.SessionCost.session_id == session_id)
+        )
+    ).scalars().all()
+    breakdown = [
+        SessionCost(
+            service=r.service,  # type: ignore[arg-type]
+            units=float(r.units),
+            unit_label=r.unit_label,
+            amount_jpy=float(r.amount_jpy),
+        )
+        for r in rows
+    ]
+    total = round(sum(b.amount_jpy for b in breakdown), 2)
+    return SessionCostSummary(
+        session_id=session_id, total_jpy=total, breakdown=breakdown
+    )
