@@ -27,7 +27,7 @@ router.get('/events/:eventId/categories', wrap(async (req, res) => {
 // ── 作成 ────────────────────────────────────────────────────
 router.post('/events/:eventId/categories', wrap(async (req, res) => {
   const eventId = parseInt(req.params.eventId as string);
-  const { name, description } = req.body;
+  const { name, name_en, description, description_en } = req.body;
   if (!name?.trim()) throw new AppError(400, 'BAD_REQUEST', 'name は必須です');
 
   const maxOrder = await queryOne(
@@ -35,9 +35,16 @@ router.post('/events/:eventId/categories', wrap(async (req, res) => {
     [eventId]
   );
   const row = await queryOne(
-    `INSERT INTO awards_categories (event_id, name, description, display_order)
-     VALUES (?, ?, ?, ?) RETURNING *`,
-    [eventId, name.trim(), description ?? null, ((maxOrder?.max as number) ?? 0) + 1]
+    `INSERT INTO awards_categories (event_id, name, name_en, description, description_en, display_order)
+     VALUES (?, ?, ?, ?, ?, ?) RETURNING *`,
+    [
+      eventId,
+      name.trim(),
+      name_en?.trim() || null,
+      description ?? null,
+      description_en?.trim() || null,
+      ((maxOrder?.max as number) ?? 0) + 1,
+    ]
   );
   res.status(201).json({ success: true, data: row });
 }));
@@ -45,13 +52,22 @@ router.post('/events/:eventId/categories', wrap(async (req, res) => {
 // ── 更新 ────────────────────────────────────────────────────
 router.put('/categories/:id', wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
-  const { name, description, display_order } = req.body;
+  const { name, name_en, description, description_en, display_order } = req.body;
   if (!name?.trim()) throw new AppError(400, 'BAD_REQUEST', 'name は必須です');
 
   const row = await queryOne(
-    `UPDATE awards_categories SET name=?, description=?, display_order=COALESCE(?, display_order), updated_at=NOW()
+    `UPDATE awards_categories
+       SET name=?, name_en=?, description=?, description_en=?,
+           display_order=COALESCE(?, display_order), updated_at=NOW()
      WHERE id=? RETURNING *`,
-    [name.trim(), description ?? null, display_order ?? null, id]
+    [
+      name.trim(),
+      name_en?.trim() || null,
+      description ?? null,
+      description_en?.trim() || null,
+      display_order ?? null,
+      id,
+    ]
   );
   if (!row) throw new AppError(404, 'NOT_FOUND', 'カテゴリが見つかりません');
   res.json({ success: true, data: row });

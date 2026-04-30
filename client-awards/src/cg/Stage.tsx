@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { CG_W, CG_H } from './types';
 import type { CgCategory } from './types';
 import { useAwardsStore } from './useStore';
-import CGSequence from './CGSequence';
+import CGFrame, { type CgLang } from './CGFrame';
 
 interface StageProps {
   category?: CgCategory | null;
   eventName?: string;
   eventSubtitle?: string | null;
-  lang?: 'ja' | 'en';
+  lang?: CgLang;
   transparent?: boolean;
 }
 
@@ -50,12 +50,12 @@ export default function Stage({ category, eventName = '', eventSubtitle, lang = 
           top: `${(window.innerHeight - CG_H * scale) / 2}px`,
         }}
       >
-        <CGSequence
+        <CGFrame
+          lang={lang}
           cue={cue}
           category={activeCategory}
           eventName={eventName}
           eventSubtitle={eventSubtitle}
-          lang={lang}
           transparent={transparent}
         />
       </div>

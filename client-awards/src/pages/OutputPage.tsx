@@ -5,6 +5,7 @@ import { useAwardsCue } from '@/hooks/useAwardsCue';
 import { useAwardsStore } from '@/cg/useStore';
 import Stage from '@/cg/Stage';
 import type { CgCategory } from '@/cg/types';
+import type { CgLang } from '@/cg/CGFrame';
 
 interface EventData {
   id: number;
@@ -17,7 +18,11 @@ export default function OutputPage() {
   const { eventId: eventIdStr } = useParams<{ eventId: string }>();
   const eventId = parseInt(eventIdStr!);
   const [searchParams] = useSearchParams();
-  const lang = searchParams.get('lang') === 'en' ? 'en' : 'ja';
+  const langParam = searchParams.get('lang');
+  const lang: CgLang =
+    langParam === 'en' ? 'en' :
+    langParam === 'both' ? 'both' :
+    'ja';
 
   // Always transparent — single alpha-channel output
   useEffect(() => {

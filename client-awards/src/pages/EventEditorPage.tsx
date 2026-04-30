@@ -36,7 +36,9 @@ interface Entry {
 interface Category {
   id: number;
   name: string;
+  name_en: string | null;
   description: string | null;
+  description_en: string | null;
   display_order: number;
   entries: Entry[];
 }
@@ -53,6 +55,7 @@ interface AwardsEventDetail {
 
 interface AwardGroup {
   name: string;
+  nameEn: string | null;
   divisions: Category[];
 }
 
@@ -63,7 +66,11 @@ function groupByAward(categories: Category[]): AwardGroup[] {
     if (!map.has(cat.name)) { map.set(cat.name, []); order.push(cat.name); }
     map.get(cat.name)!.push(cat);
   }
-  return order.map((name) => ({ name, divisions: map.get(name)! }));
+  return order.map((name) => {
+    const divisions = map.get(name)!;
+    const nameEn = divisions.find((d) => d.name_en?.trim())?.name_en ?? null;
+    return { name, nameEn, divisions };
+  });
 }
 
 function computeReorderPayload(groups: AwardGroup[]) {
@@ -312,10 +319,22 @@ export default function EventEditorPage() {
   });
 
   const updateCategory = useMutation({
-    mutationFn: async ({ catId, patch }: { catId: number; patch: { name?: string; description?: string | null } }) => {
+    mutationFn: async ({
+      catId,
+      patch,
+    }: {
+      catId: number;
+      patch: { name?: string; name_en?: string | null; description?: string | null; description_en?: string | null };
+    }) => {
       const cat = event?.categories.find((c) => c.id === catId);
       if (!cat) return;
-      await api.put(`/awards/categories/${catId}`, { name: cat.name, description: cat.description, ...patch });
+      await api.put(`/awards/categories/${catId}`, {
+        name: cat.name,
+        name_en: cat.name_en,
+        description: cat.description,
+        description_en: cat.description_en,
+        ...patch,
+      });
     },
     onSuccess: invalidate,
   });
@@ -627,6 +646,12 @@ export default function EventEditorPage() {
                         updateCategory.mutate({ catId: cat.id, patch: { name: newName.trim() } })
                       );
                     }}
+                    onUpdateAwardNameEn={(newNameEn) => {
+                      const v = newNameEn.trim() || null;
+                      group.divisions.forEach((cat) =>
+                        updateCategory.mutate({ catId: cat.id, patch: { name_en: v } })
+                      );
+                    }}
                     onAddDivision={(awardName) => {
                       addCategory.mutate(awardName);
                     }}
@@ -718,7 +743,7 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
 function SortableDivisionSection({ cat, onDeleteCat, onUpdateCat, onAddEntry, onUpdateEntry, onDeleteEntry, onPhotoUpload, onGenerateDummyPoints }: {
   cat: Category;
   onDeleteCat: () => void;
-  onUpdateCat: (patch: { name?: string; description?: string | null }) => void;
+  onUpdateCat: (patch: { name?: string; name_en?: string | null; description?: string | null; description_en?: string | null }) => void;
   onAddEntry: (name: string) => void;
   onUpdateEntry: (eid: number, patch: Partial<Entry>) => void;
   onDeleteEntry: (eid: number) => void;
@@ -740,8 +765,9 @@ function SortableDivisionSection({ cat, onDeleteCat, onUpdateCat, onAddEntry, on
         <button onClick={() => setCollapsed(!collapsed)} className="text-slate-400 hover:text-slate-600">
           {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
         </button>
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 space-y-0.5">
           <InlineText value={cat.description ?? ''} onSave={(v) => onUpdateCat({ description: v.trim() || null })} placeholder="部門名" className="text-sm font-medium" />
+          <InlineText value={cat.description_en ?? ''} onSave={(v) => onUpdateCat({ description_en: v.trim() || null })} placeholder="部門名（英語）" className="text-xs italic text-muted-foreground" />
         </div>
         <span className="text-xs text-muted-foreground shrink-0">{cat.entries.length}名</span>
         <button onClick={onGenerateDummyPoints} title="ポイント自動生成" className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted transition-colors">
@@ -787,12 +813,13 @@ function SortableDivisionSection({ cat, onDeleteCat, onUpdateCat, onAddEntry, on
 }
 
 // ── SortableAwardGroupCard ───────────────────────────────────
-function SortableAwardGroupCard({ group, onUpdateAwardName, onAddDivision, onDeleteCat, onUpdateCat, onAddEntry, onUpdateEntry, onDeleteEntry, onPhotoUpload, onGenerateDummyPoints }: {
+function SortableAwardGroupCard({ group, onUpdateAwardName, onUpdateAwardNameEn, onAddDivision, onDeleteCat, onUpdateCat, onAddEntry, onUpdateEntry, onDeleteEntry, onPhotoUpload, onGenerateDummyPoints }: {
   group: AwardGroup;
   onUpdateAwardName: (name: string) => void;
+  onUpdateAwardNameEn: (nameEn: string) => void;
   onAddDivision: (awardName: string) => void;
   onDeleteCat: (catId: number) => void;
-  onUpdateCat: (catId: number, patch: { name?: string; description?: string | null }) => void;
+  onUpdateCat: (catId: number, patch: { name?: string; name_en?: string | null; description?: string | null; description_en?: string | null }) => void;
   onAddEntry: (catId: number, name: string) => void;
   onUpdateEntry: (eid: number, patch: Partial<Entry>) => void;
   onDeleteEntry: (eid: number) => void;
@@ -812,8 +839,9 @@ function SortableAwardGroupCard({ group, onUpdateAwardName, onAddDivision, onDel
           <GripVertical className="h-4 w-4" />
         </button>
         <Trophy className="h-4 w-4 text-amber-500 shrink-0" />
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 space-y-0.5">
           <InlineText value={group.name} onSave={onUpdateAwardName} placeholder="賞名" className="font-bold text-sm text-amber-900" />
+          <InlineText value={group.nameEn ?? ''} onSave={onUpdateAwardNameEn} placeholder="賞名（英語）" className="text-xs italic text-amber-700/70" />
         </div>
         <span className="text-xs text-amber-700/60 shrink-0 hidden sm:block">{group.divisions.length}部門・{totalEntries}名</span>
         <button onClick={() => onAddDivision(group.name)} className="flex items-center gap-1 rounded-lg border border-amber-300/50 px-2 py-1 text-xs text-amber-700 hover:bg-amber-100 transition-colors shrink-0">

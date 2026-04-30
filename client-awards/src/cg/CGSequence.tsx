@@ -67,8 +67,14 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
 
   const tweaks = {
     eventTitle: eventName,
-    categoryParent: category?.description ?? eventSubtitle ?? '',
-    categoryChild: category?.name ?? '',
+    categoryParent:
+      lang === 'en'
+        ? (category?.description_en || category?.description || eventSubtitle || '')
+        : (category?.description || eventSubtitle || ''),
+    categoryChild:
+      lang === 'en'
+        ? (category?.name_en || category?.name || '')
+        : (category?.name ?? ''),
   };
 
   // Ranking reveal parameters
