@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { Trophy, Plus, Trash2, ExternalLink, Calendar, ChevronRight } from 'lucide-react';
+import { Trophy, Plus, Trash2, ExternalLink, Calendar, ChevronRight, Archive, RotateCcw } from 'lucide-react';
 
 interface AwardsEvent {
   id: number;
@@ -11,6 +11,15 @@ interface AwardsEvent {
   scheduled_at: string | null;
   status: 'draft' | 'live' | 'closed';
   created_at: string;
+}
+
+interface BoxBackup {
+  eventId: number;
+  name: string;
+  folderId: string;
+  folderName: string;
+  imageCount: number;
+  deleted: boolean;
 }
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
@@ -24,6 +33,8 @@ export default function DashboardPage() {
   const qc = useQueryClient();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
+  const [showBackups, setShowBackups] = useState(false);
+  const [restoreNameDraft, setRestoreNameDraft] = useState<{ folderId: string; name: string } | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['awards-events'],
@@ -57,7 +68,40 @@ export default function DashboardPage() {
     mutationFn: async (id: number) => {
       await api.delete(`/awards/events/${id}`);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['awards-events'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['awards-events'] });
+      qc.invalidateQueries({ queryKey: ['awards-box-backups'] });
+    },
+  });
+
+  const { data: backups, isLoading: backupsLoading } = useQuery({
+    queryKey: ['awards-box-backups'],
+    queryFn: async () => {
+      const res = await api.get('/awards/box-backups');
+      return res.data.data as BoxBackup[];
+    },
+    enabled: showBackups,
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: async (input: { folderId: string; name: string }) => {
+      const res = await api.post(`/awards/box-backups/${input.folderId}/restore`, {
+        name: input.name,
+      });
+      return res.data.data as { eventId: number; filesRestored: number; entriesCreated: number };
+    },
+    onSuccess: (d) => {
+      qc.invalidateQueries({ queryKey: ['awards-events'] });
+      qc.invalidateQueries({ queryKey: ['awards-box-backups'] });
+      setRestoreNameDraft(null);
+      alert(`復元しました: ${d.filesRestored} 件の画像 / ${d.entriesCreated} 件のエントリ`);
+      navigate(`/event/${d.eventId}`);
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { error?: { message?: string } } } })
+        ?.response?.data?.error?.message ?? '復元に失敗しました';
+      alert(msg);
+    },
   });
 
   return (
@@ -72,14 +116,118 @@ export default function DashboardPage() {
             <p className="text-xs text-muted-foreground">イベント一覧</p>
           </div>
         </div>
-        <button
-          onClick={() => setCreating(true)}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          新規イベント
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowBackups((s) => !s)}
+            className="flex items-center gap-1.5 rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 hover:bg-amber-100 transition-colors"
+            title="BOX バックアップから復元"
+          >
+            <Archive className="h-3.5 w-3.5" />
+            BOXから復元
+          </button>
+          <button
+            onClick={() => setCreating(true)}
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            新規イベント
+          </button>
+        </div>
       </div>
+
+      {/* ── BOX バックアップ一覧 ──────────────────────────── */}
+      {showBackups && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50/30 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Archive className="h-4 w-4 text-amber-700" />
+              <span className="text-sm font-medium text-amber-900">BOX バックアップ</span>
+            </div>
+            <button onClick={() => setShowBackups(false)} className="text-xs text-muted-foreground hover:text-foreground">閉じる</button>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">
+            社外共有可 / 11_awards_photo / event_*_* に残っているフォルダ。<br />
+            「削除済み」マークのあるイベントは新規イベントとして復元できます。
+          </p>
+          {backupsLoading ? (
+            <div className="text-center py-4 text-xs text-muted-foreground">読み込み中…</div>
+          ) : !backups?.length ? (
+            <div className="text-center py-4 text-xs text-muted-foreground">バックアップフォルダなし</div>
+          ) : (
+            <div className="space-y-1.5">
+              {backups.map((b) => (
+                <div
+                  key={b.folderId}
+                  className="flex items-center gap-2 rounded-lg bg-white border px-3 py-2 text-sm"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono text-muted-foreground">#{b.eventId}</span>
+                      <span className="font-medium truncate">{b.name}</span>
+                      {b.deleted ? (
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-700 ring-1 ring-red-200">削除済み</span>
+                      ) : (
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">現存</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {b.imageCount} 枚 / {b.folderName}
+                    </div>
+                  </div>
+                  {b.deleted && (
+                    <button
+                      onClick={() => setRestoreNameDraft({ folderId: b.folderId, name: b.name })}
+                      className="flex items-center gap-1 rounded-md bg-amber-600 px-2 py-1 text-xs font-medium text-white hover:bg-amber-700"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      復元
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── 復元用名前入力ダイアログ ──────────────────────── */}
+      {restoreNameDraft && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl bg-card p-5 shadow-xl">
+            <h3 className="text-base font-semibold mb-2">バックアップから復元</h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              新しいイベントを作成し、BOX 上の画像をローカルに再ダウンロードします。
+              ノミネートは「復元 #1」「復元 #2」… のプレースホルダで作成されるので、復元後に名前を編集してください。
+            </p>
+            <label className="block text-xs font-medium mb-1">新規イベント名</label>
+            <input
+              autoFocus
+              value={restoreNameDraft.name}
+              onChange={(e) => setRestoreNameDraft({ ...restoreNameDraft, name: e.target.value })}
+              className="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 mb-4"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setRestoreNameDraft(null)}
+                className="rounded-lg border px-3 py-1.5 text-sm hover:bg-muted"
+                disabled={restoreMutation.isPending}
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={() => {
+                  if (!restoreNameDraft.name.trim()) return;
+                  restoreMutation.mutate(restoreNameDraft);
+                }}
+                disabled={!restoreNameDraft.name.trim() || restoreMutation.isPending}
+                className="rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+              >
+                {restoreMutation.isPending ? '復元中…' : '復元する'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {creating && (
         <div className="mb-4 rounded-xl border bg-card p-4 shadow-sm">

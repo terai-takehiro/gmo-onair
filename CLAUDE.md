@@ -33,7 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.51 (dev) — **アワードCG BOX ミラー保存先を「社外共有可 / 11_awards_photo」に変更**: v2.8.50 で「社内限り (`BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL`) / アワードCG_画像」配下に保存する設計だったが、表彰式は社外コラボの可能性があるためユーザー要望で**社外共有可** (`BOX_PROJECT_PARENT_FOLDER_ID`) 配下の `11_awards_photo` に変更。`awards-box.service.ts` の親フォルダ参照と `AWARDS_BOX_FOLDER_NAME` 定数のみ変更。フォルダは初回アップロード時に自動作成される (env 追加・手動作成は不要)。既存の photo_box_file_id は BOX 内部 ID なのでフォルダ位置が変わっても引き続き取得可能。
+v2.8.52 (dev) — **アワードCG: BOX をイベント別サブフォルダ化 + イベント削除時のローカル削除 + BOX バックアップからの復元 UI**: ユーザー要望「イベント終了したら消すが、BOX バックアップから復元できれば完璧」に対応。①**BOX フォルダ構造変更**: `11_awards_photo/` 直下にぶら下げていた画像を `11_awards_photo/event_{eventId}_{eventName}/` のイベント別サブフォルダに変更。`awards-box.service.ts` に `ensureEventFolder` を追加し、`uploadAwardsImageToBox(eventId, eventName, filename, buffer)` のシグネチャに変更。②**イベント削除時のローカルクリーンアップ**: `DELETE /events/:id` でカスケード削除前に photo_url 一覧を取得 → 物理ファイルを `fs.unlinkSync` → DB cascade 削除 → BOX フォルダはそのまま残す。`invalidateEventFolderCache(id)` でメモリキャッシュもクリア。③**BOX バックアップ一覧 / 復元エンドポイント**: `GET /awards/box-backups` で `11_awards_photo/` 直下の `event_*_*` 形式フォルダを一覧化し、現存イベント ID と突合して「削除済み」フラグを付与。`POST /awards/box-backups/:folderId/restore` で新規イベントを作成 → 該当 BOX フォルダ内の全画像をローカルにダウンロード → 「復元」カテゴリ + 「復元 #N」プレースホルダ名のエントリを作成 (photo_box_file_id も DB に書き戻し)。④**Dashboard に復元 UI**: 「BOX から復元」ボタン → バックアップ一覧 (枚数/削除済みフラグ表示) → 削除済みイベントに「復元」ボタン → 名前入力ダイアログ → 復元実行 → 新規イベント編集ページにリダイレクト。
+
+(v2.8.51: アワードCG BOX ミラー保存先を「社外共有可 / 11_awards_photo」に変更。)
 
 (v2.8.50: アワードCG 画像が再デプロイで消える問題の修正（Docker volume 永続化 + BOX ミラー保存 + ローカル消失時の自動復元）。)
 
