@@ -2,6 +2,10 @@
 
 Phase 0 のインフラ構築手順。ローカル CLI から GCP プロジェクトを作成し、Terraform でリソースを apply するまでをカバーする。
 
+> 💡 **Windows ユーザー / インストール作業を最小化したい人** は
+> [`SETUP_CLOUDSHELL.md`](./SETUP_CLOUDSHELL.md) を参照。
+> ブラウザ上の Google Cloud Shell だけで完結する手順を書いてある。
+
 ---
 
 ## 0. 前提
