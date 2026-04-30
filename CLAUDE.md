@@ -33,7 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.48 (dev) — **アワードCG ノミネート一覧 (PhotoStage) が英語切替に未対応だったのを修正**: ユーザー報告「`JA/EN` モードで会社名／氏名が英語側でも日本語のまま表示される」(`新人賞` ステップでノミネート全員が `GMO インターネット / 賞 銘敏` のように JA のまま) に対応。原因は `PhotoStage.tsx` が `n.name` / `n.company` を直接使い、`lang` を受け取っていなかったこと（v2.8.47 で `StepRanking` と `StepOneShot` だけは修正済みだったが、ノミネート一覧の写真カードは漏れていた）。`PhotoStage` に `lang?: 'ja' | 'en'` プロパティを追加し、表示用に `displayName = lang === 'en' ? (nameEn || name) : name` `displayCompany = lang === 'en' ? (orgEn || company) : company` を計算、`fitText` の入力と JSX のテキストを差し替え。`CGSequence` 側の `<PhotoStage lang={lang} />` 呼び出しも追加。
+v2.8.49 (dev) — **アワードCG タイトル文字 stagger を文字数連動に変更（総尺 ~5 秒固定）**: ユーザー報告「タイトルの表示スピードが文字数が多いと非常にゆっくりになる。新人賞 (child) の部分も含めて 5 秒で終わるくらいにしたい」に対応。`PersistentHeader.tsx` のタイトル文字アニメーションは「`700 + i * 140`ms」と per-char 固定 stagger だったため、`新卒パートナー部門` (9 文字) は ~3 秒で済むが `New Graduate Partner Division` (29 文字) では ~5.6 秒以上かかっていた。文字数 N に対して `charDelay = clamp(30, 140, floor(3060 / max(N-1, 1)))` で stagger を可変化（短い文字列はそのまま 140ms、長い文字列ほど縮める）。これで JA / EN いずれもタイトル + child の総尺が ~5 秒以内に収まる（9 文字: ~3 秒, 29 文字: ~5 秒, 50 文字: ~5 秒）。下限 30ms で「文字が連続して出る」感を残す。
+
+(v2.8.48: アワードCG `PhotoStage` が英語切替に未対応だったのを修正。)
 
 (v2.8.47: アワードCG 放送送出 UI 英語/日英切替 + カテゴリ英語名 + 自社票→Own Vote。)
 

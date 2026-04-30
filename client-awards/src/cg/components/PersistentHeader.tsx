@@ -28,6 +28,21 @@ const CHILD_BASE = 52;
 const CHILD_LETTER = 0.4;
 const CHILD_BUDGET = 1700;
 
+// タイトル演出の総尺を ~5 秒に固定するための per-char stagger 計算
+// last char anim 終了 + child anim 終了 がだいたい TITLE_TARGET_MS に収まるよう
+// 文字数に応じて 1 文字あたりの遅延（ms）を縮める。
+const TITLE_PARENT_START = 700;       // 親テキストの最初の文字が出始める時刻
+const TITLE_CHAR_DEFAULT = 140;       // 短い文字数のときに使う既定 stagger
+const TITLE_CHAR_MIN     = 30;        // 文字数が多い時の下限
+const TITLE_TAIL_MS      = 1240;      // child 追加遅延 (340) + child anim (900)
+const TITLE_TARGET_MS    = 5000;      // タイトル全体（child まで）が終わる目標
+
+function titlePerCharDelay(n: number): number {
+  const budget = TITLE_TARGET_MS - TITLE_PARENT_START - TITLE_TAIL_MS;
+  const idealForBudget = Math.floor(budget / Math.max(n - 1, 1));
+  return Math.max(TITLE_CHAR_MIN, Math.min(TITLE_CHAR_DEFAULT, idealForBudget));
+}
+
 export default function PersistentHeader({ tweaks, stepKey }: Props) {
   const isTitle = stepKey === 'title';
   const L = LAYOUTS[stepKey] ?? LAYOUTS.title;
@@ -35,6 +50,7 @@ export default function PersistentHeader({ tweaks, stepKey }: Props) {
   const parent = tweaks.categoryParent ?? '';
   const chars = [...parent];
   const N = chars.length || 1;
+  const charDelay = titlePerCharDelay(N);
 
   // Auto-fit parent font size
   const desiredW = N * BASE_FONT * (1 + LETTER_GAP);
@@ -141,7 +157,7 @@ export default function PersistentHeader({ tweaks, stepKey }: Props) {
                   ...goldGrad,
                   textShadow: '0 0 80px rgba(245,215,110,0.35)',
                   display: 'inline-block',
-                  animationDelay: `${700 + i * 140}ms`,
+                  animationDelay: `${TITLE_PARENT_START + i * charDelay}ms`,
                 }}
               >
                 {c}
@@ -180,7 +196,7 @@ export default function PersistentHeader({ tweaks, stepKey }: Props) {
             color: '#fff',
             whiteSpace: 'nowrap',
             animationDelay: isTitle
-              ? `${700 + chars.length * 140 + 200}ms`
+              ? `${TITLE_PARENT_START + chars.length * charDelay + 200}ms`
               : undefined,
           }}
         >
