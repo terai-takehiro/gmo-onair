@@ -33,7 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.44 (dev) — **アワードCG 画像インポート 0 件マッチ問題の追加対策 (Unicode NFC 正規化 + mojibake 復号 + 診断情報表示)**: v2.8.43 で folder picker 化 + 多段マッチを入れたが「ファイル名と image_id が一致しているのに 0 件」と再報告あり。原因候補は (a) Mac の APFS が Japanese を NFD 分解で保持しているため DB 側 NFC と不一致、(b) multer が originalname を latin1 でデコードして日本語が文字化けしている、(c) DB に image_id が保存されていない、のいずれか。①**`norm` に `String#normalize('NFC')` を追加** (Mac 由来 NFD 文字列を NFC に揃えて DB と一致させる)。②**`fixMojibake` ヘルパー追加**: `originalname` を `Buffer.from(s, 'latin1').toString('utf8')` で再解釈し、置換文字 (U+FFFD) が混入しなければ採用。元ファイル名と復号後の両方をマッチング候補に含める。③**診断情報をレスポンスに追加**: `debug.totalEntries` / `entriesWithImageId` / `sampleImageIds` (DB 側 image_id 先頭 5 件) / `unmatchedDetails` (ファイル名と試行した正規化キー)。④**クライアント側で 0 件マッチ時のみ診断ブロックをアラートに表示** — DB に画像IDが入っていないのか、ファイル名のキー化結果が DB と違うのかをユーザーが目視で切り分けられる。
+v2.8.45 (dev) — **アワードCG 画像インポート: DB image_id の拡張子が原因の不一致を修正**: v2.8.44 の診断情報により、DB の `image_id` が `ai_3_1.jpg` のようにフルファイル名（拡張子付き）で保存されている一方、ファイル側は `stem` で先に拡張子を剥がしてから `norm` していたため、片側だけ末尾に `.jpg` が残って永遠に一致しないことが判明。`norm()` 関数に末尾の画像拡張子 (`.jpg`/`.jpeg`/`.png`/`.webp`/`.gif`) 除去を追加して、DB 側もファイル側も同じキーに正規化されるようにした (`server/src/contexts/awards/routes/events.routes.ts`)。これで `ai_3_1.jpg` (DB) も `ai_3_1.jpg` (file) も同じ `ai31` に揃う。
+
+(v2.8.44: アワードCG 画像インポート — Unicode NFC 正規化 + mojibake 復号 + 診断情報表示。)
 
 (v2.8.43: アワードCG ノミネートインポート不具合 2 件修正 — 英語列「ノミネート者氏名（英語）」を NAME_EN_HEADERS に追加、`findCol` を完全一致優先化、画像フォルダを真の folder picker 化 + 「画像ID → 氏名/英語名」多段マッチに拡張、`.DS_Store` 等を skip。)
 

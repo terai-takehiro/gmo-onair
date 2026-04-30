@@ -170,10 +170,13 @@ router.post(
       [eventId]
     ) as { id: number; image_id: string | null; name: string; name_en: string | null }[];
 
-    // 全角→半角、空白/区切り除去、小文字化、Unicode NFC、leading zero 削除（数字のみ）
+    // 全角→半角、画像拡張子除去、空白/区切り除去、小文字化、Unicode NFC、leading zero 削除（数字のみ）
+    // DB 側 image_id が `ai_3_1.jpg` のようにフルファイル名で保存されているケースに対応するため
+    // 末尾の画像拡張子 (.jpg/.jpeg/.png/.webp/.gif) を先に除去する。
     const norm = (raw: string | null | undefined): string => {
       if (!raw) return '';
       let s = String(raw).normalize('NFC').trim();
+      s = s.replace(/\.(jpe?g|png|webp|gif)$/i, '');
       s = s
         .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
         .replace(/[\s　_\-‐－]+/g, '')
