@@ -145,6 +145,7 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
             nominees={entries}
             rankings={sorted}
             stepKey={stepKey}
+            lang={lang}
           />
         )}
       </div>

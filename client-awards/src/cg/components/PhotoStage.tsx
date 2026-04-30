@@ -41,9 +41,10 @@ interface Props {
   nominees: CgMappedEntry[];
   rankings: CgMappedEntry[];
   stepKey: CgStep;
+  lang?: 'ja' | 'en';
 }
 
-export default function PhotoStage({ nominees, rankings, stepKey }: Props) {
+export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }: Props) {
   // Shuffle once on mount (component remounts per category session via key prop)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const shuffled = useMemo(() => {
@@ -202,8 +203,10 @@ export default function PhotoStage({ nominees, rankings, stepKey }: Props) {
       {shuffled.map((n, i) => {
         const rank = idToRank.get(n.id);
         const L = layoutFor(n, i);
-        const nameFit = fitText(n.name, baseW, `800 19px 'Noto Sans JP', sans-serif`, true);
-        const compFit = fitText(n.company, baseW, `600 12px 'Noto Sans JP', sans-serif`, true);
+        const displayName    = lang === 'en' ? (n.nameEn || n.name)    : n.name;
+        const displayCompany = lang === 'en' ? (n.orgEn  || n.company) : n.company;
+        const nameFit = fitText(displayName,    baseW, `800 19px 'Noto Sans JP', sans-serif`, true);
+        const compFit = fitText(displayCompany, baseW, `600 12px 'Noto Sans JP', sans-serif`, true);
         const isOneShotWinner = rank === 1 && stepKey === 'oneshot';
         const showLabel = isNomineeStep;
         const nomineeRevealed = !isNomineeStep || i < nomineesShown;
@@ -249,7 +252,7 @@ export default function PhotoStage({ nominees, rankings, stepKey }: Props) {
               {n.photo ? (
                 <img
                   src={n.photo}
-                  alt={n.name}
+                  alt={displayName}
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                 />
               ) : (
@@ -313,7 +316,7 @@ export default function PhotoStage({ nominees, rankings, stepKey }: Props) {
                   ...fitStyle(compFit),
                 }}
               >
-                {n.company}
+                {displayCompany}
               </div>
               <div
                 style={{
@@ -327,7 +330,7 @@ export default function PhotoStage({ nominees, rankings, stepKey }: Props) {
                   ...fitStyle(nameFit),
                 }}
               >
-                {n.name}
+                {displayName}
               </div>
             </div>
           </div>
