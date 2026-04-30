@@ -146,11 +146,15 @@ router.post('/events/:id/import-excel', upload.single('file'), wrap(async (req, 
   res.json({ success: true, data: result });
 }));
 
-// ── 画像フォルダ一括インポート（image_id で突合）───────────
+// ── 画像フォルダ一括インポート ──────────────────────────────
+// マッチングは「画像ID 完全一致 → 画像ID 正規化一致 → 氏名/プロジェクト名 一致」の順に試行。
+// ・フォルダアップロード (webkitdirectory) で path 付きファイル名が来ても basename を使用
+// ・隠しファイル (._*, .DS_Store, Thumbs.db) と __MACOSX 配下は無視
+// ・画像IDの leading zero / 全角半角 / 大文字小文字 / 空白の差異を吸収
 router.post(
   '/events/:id/import-images',
   requireAuth, requirePermission('awards'),
-  upload.array('images', 300),
+  upload.array('images', 500),
   wrap(async (req, res) => {
     const eventId = parseInt(req.params.id as string);
     const event = await queryOne(`SELECT id FROM awards_events WHERE id=?`, [eventId]);
@@ -159,22 +163,69 @@ router.post(
     const files = req.files as Express.Multer.File[] | undefined;
     if (!files || files.length === 0) throw new AppError(400, 'BAD_REQUEST', '画像ファイルを添付してください');
 
+    // 1) エントリ一覧を取得して照合用インデックスを作成
+    const entries = await queryAll(
+      `SELECT id, image_id, name, name_en FROM awards_entries WHERE event_id=?`,
+      [eventId]
+    ) as { id: number; image_id: string | null; name: string; name_en: string | null }[];
+
+    // 全角→半角、空白除去、小文字化、leading zero 削除（数字のみ）
+    const norm = (raw: string | null | undefined): string => {
+      if (!raw) return '';
+      let s = String(raw).trim();
+      s = s
+        .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+        .replace(/[\s　_\-‐－]+/g, '')
+        .toLowerCase();
+      // 数字のみなら leading zero を除去（例: 001 == 1）
+      if (/^\d+$/.test(s)) s = String(parseInt(s, 10));
+      return s;
+    };
+
+    const byImageId = new Map<string, number>(); // 画像ID 正規化 → entry.id
+    const byName    = new Map<string, number>(); // 氏名 / 英語名 正規化 → entry.id
+    for (const e of entries) {
+      if (e.image_id) {
+        const k = norm(e.image_id);
+        if (k && !byImageId.has(k)) byImageId.set(k, e.id);
+      }
+      if (e.name) {
+        const k = norm(e.name);
+        if (k && !byName.has(k)) byName.set(k, e.id);
+      }
+      if (e.name_en) {
+        const k = norm(e.name_en);
+        if (k && !byName.has(k)) byName.set(k, e.id);
+      }
+    }
+
     let matched = 0;
     const unmatched: string[] = [];
+    const skipped: string[] = [];
 
     for (const file of files) {
-      const originalName = file.originalname;
-      const imageIdCandidate = originalName.replace(/\.[^.]+$/, ''); // 拡張子なし
+      // webkitdirectory で送られた場合 originalname にパスが含まれることがあるので basename 化
+      const baseName = path.basename(file.originalname);
+
+      // 隠しファイル・OS メタデータを除外
+      if (
+        baseName.startsWith('.') ||
+        baseName.toLowerCase() === 'thumbs.db' ||
+        file.originalname.includes('__MACOSX/')
+      ) {
+        skipped.push(baseName);
+        continue;
+      }
+
+      const stem = baseName.replace(/\.[^.]+$/, ''); // 拡張子なし
+      const key = norm(stem);
 
       const ext = detectExt(file.buffer);
-      if (!ext) { unmatched.push(originalName); continue; }
+      if (!ext) { unmatched.push(baseName); continue; }
 
-      // image_id が一致するエントリを検索
-      const entry = await queryOne(
-        `SELECT id FROM awards_entries WHERE event_id=? AND image_id=?`,
-        [eventId, imageIdCandidate]
-      );
-      if (!entry) { unmatched.push(originalName); continue; }
+      // 画像ID → 名前 の順にマッチング
+      const entryId = byImageId.get(key) ?? byName.get(key);
+      if (!entryId) { unmatched.push(baseName); continue; }
 
       const filename = `${crypto.randomUUID()}${ext}`;
       fs.writeFileSync(path.join(UPLOAD_DIR, filename), file.buffer);
@@ -182,12 +233,12 @@ router.post(
 
       await execute(
         `UPDATE awards_entries SET photo_url=?, updated_at=NOW() WHERE id=?`,
-        [photoUrl, entry.id]
+        [photoUrl, entryId]
       );
       matched++;
     }
 
-    res.json({ success: true, data: { matched, unmatched } });
+    res.json({ success: true, data: { matched, unmatched, skipped } });
   })
 );
 
