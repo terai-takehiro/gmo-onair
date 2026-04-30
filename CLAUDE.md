@@ -33,7 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.49 (dev) — **アワードCG タイトル文字 stagger を文字数連動に変更（総尺 ~5 秒固定）**: ユーザー報告「タイトルの表示スピードが文字数が多いと非常にゆっくりになる。新人賞 (child) の部分も含めて 5 秒で終わるくらいにしたい」に対応。`PersistentHeader.tsx` のタイトル文字アニメーションは「`700 + i * 140`ms」と per-char 固定 stagger だったため、`新卒パートナー部門` (9 文字) は ~3 秒で済むが `New Graduate Partner Division` (29 文字) では ~5.6 秒以上かかっていた。文字数 N に対して `charDelay = clamp(30, 140, floor(3060 / max(N-1, 1)))` で stagger を可変化（短い文字列はそのまま 140ms、長い文字列ほど縮める）。これで JA / EN いずれもタイトル + child の総尺が ~5 秒以内に収まる（9 文字: ~3 秒, 29 文字: ~5 秒, 50 文字: ~5 秒）。下限 30ms で「文字が連続して出る」感を残す。
+v2.8.50 (dev) — **アワードCG 画像が再デプロイで消える問題の修正（Docker volume 永続化 + BOX ミラー保存）**: ユーザー報告「画像データはサーバーに保存されない？」に対応。原因は `docker-compose.yml` に `/app/uploads` の volume マウントが無く、コンテナ再ビルドのたびにアップロード済み画像が消えていたこと。①**Docker volume 永続化**: `docker-compose.yml` に `uploads_prod` `uploads_dev` の named volume を追加して prod/dev の `/app/uploads` をそれぞれ独立に永続化。②**BOX ミラー保存**: アップロード時に `BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL` 配下の `アワードCG_画像` フォルダ（無ければ自動作成）に fire-and-forget で同一バイナリをアップロード。BOX file ID は `awards_entries.photo_box_file_id` 列 (migration 078) に保存。③**ローカルキャッシュ消失時の自動復元**: `GET /api/v1/internal/awards/images/{filename}` のミドルウェアでファイルが存在しなければ DB から `photo_box_file_id` を引いて BOX からストリームダウンロード → ローカルに書き戻し → 以降のリクエストを高速化。これで volume 障害でも BOX に mirror があれば自動回復。新規サービス `awards-box.service.ts`、新規 migration `078_awards_photo_box_file_id.sql`。
+
+(v2.8.49: アワードCG タイトル文字 stagger を文字数連動に変更（総尺 ~5 秒固定）。)
 
 (v2.8.48: アワードCG `PhotoStage` が英語切替に未対応だったのを修正。)
 
