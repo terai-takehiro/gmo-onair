@@ -1,5 +1,5 @@
 /**
- * server/src/contexts/awards/services/awards-box.service.ts — v2.8.50
+ * server/src/contexts/awards/services/awards-box.service.ts — v2.8.51
  *
  * アワードCG ノミネート写真の BOX ミラー保存サービス。
  *
@@ -11,15 +11,22 @@
  *   - 読み出し時: ローカルにファイルが無ければ BOX からストリームで取得し、
  *     ローカルキャッシュに書き戻して以降のリクエストを高速化する。
  *
- * BOX 親フォルダは `BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL` 配下に
- * `アワードCG_画像` という名前で 1 つだけ自動作成する。
+ * BOX 親フォルダは `BOX_PROJECT_PARENT_FOLDER_ID`（社外共有可）配下に
+ * `11_awards_photo` という名前で 1 つだけ自動作成する。
  * ID はメモリキャッシュ + 初回のみ getItems で検索する。
+ *
+ * ※ v2.8.50 では「社内限り」配下の `アワードCG_画像` だったが、表彰式は
+ *    社外コラボの可能性があるため v2.8.51 で「社外共有可」配下の
+ *    `11_awards_photo` に変更。既存ファイルは旧フォルダに残るが、
+ *    新規アップロードは新フォルダに入る（DB 側 photo_box_file_id は
+ *    BOX file ID なので、フォルダ移動が手動で行われていなくても
+ *    引き続き取得可能）。
  */
 import fs from 'fs';
 import path from 'path';
 import { isBoxConfigured, getBoxClient } from '../../../shared/services/box';
 
-const AWARDS_BOX_FOLDER_NAME = 'アワードCG_画像';
+const AWARDS_BOX_FOLDER_NAME = '11_awards_photo';
 
 let cachedFolderId: string | null = null;
 let folderInitPromise: Promise<string | null> | null = null;
@@ -41,9 +48,9 @@ async function ensureAwardsFolder(): Promise<string | null> {
     const client = getBoxClient();
     if (!client) return null;
 
-    const parentId = process.env.BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL || null;
+    const parentId = process.env.BOX_PROJECT_PARENT_FOLDER_ID || null;
     if (!parentId) {
-      console.warn('[awards-box] BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL not set — BOX mirror disabled');
+      console.warn('[awards-box] BOX_PROJECT_PARENT_FOLDER_ID not set — BOX mirror disabled');
       return null;
     }
 

@@ -33,7 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.50 (dev) — **アワードCG 画像が再デプロイで消える問題の修正（Docker volume 永続化 + BOX ミラー保存）**: ユーザー報告「画像データはサーバーに保存されない？」に対応。原因は `docker-compose.yml` に `/app/uploads` の volume マウントが無く、コンテナ再ビルドのたびにアップロード済み画像が消えていたこと。①**Docker volume 永続化**: `docker-compose.yml` に `uploads_prod` `uploads_dev` の named volume を追加して prod/dev の `/app/uploads` をそれぞれ独立に永続化。②**BOX ミラー保存**: アップロード時に `BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL` 配下の `アワードCG_画像` フォルダ（無ければ自動作成）に fire-and-forget で同一バイナリをアップロード。BOX file ID は `awards_entries.photo_box_file_id` 列 (migration 078) に保存。③**ローカルキャッシュ消失時の自動復元**: `GET /api/v1/internal/awards/images/{filename}` のミドルウェアでファイルが存在しなければ DB から `photo_box_file_id` を引いて BOX からストリームダウンロード → ローカルに書き戻し → 以降のリクエストを高速化。これで volume 障害でも BOX に mirror があれば自動回復。新規サービス `awards-box.service.ts`、新規 migration `078_awards_photo_box_file_id.sql`。
+v2.8.51 (dev) — **アワードCG BOX ミラー保存先を「社外共有可 / 11_awards_photo」に変更**: v2.8.50 で「社内限り (`BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL`) / アワードCG_画像」配下に保存する設計だったが、表彰式は社外コラボの可能性があるためユーザー要望で**社外共有可** (`BOX_PROJECT_PARENT_FOLDER_ID`) 配下の `11_awards_photo` に変更。`awards-box.service.ts` の親フォルダ参照と `AWARDS_BOX_FOLDER_NAME` 定数のみ変更。フォルダは初回アップロード時に自動作成される (env 追加・手動作成は不要)。既存の photo_box_file_id は BOX 内部 ID なのでフォルダ位置が変わっても引き続き取得可能。
+
+(v2.8.50: アワードCG 画像が再デプロイで消える問題の修正（Docker volume 永続化 + BOX ミラー保存 + ローカル消失時の自動復元）。)
 
 (v2.8.49: アワードCG タイトル文字 stagger を文字数連動に変更（総尺 ~5 秒固定）。)
 
