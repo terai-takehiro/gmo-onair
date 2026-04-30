@@ -435,7 +435,17 @@ export default function EventEditorPage() {
       const res = await api.post(`/awards/events/${eventId}/import-images`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      const d = res.data.data as { matched: number; unmatched: string[]; skipped?: string[] };
+      const d = res.data.data as {
+        matched: number;
+        unmatched: string[];
+        skipped?: string[];
+        debug?: {
+          totalEntries: number;
+          entriesWithImageId: number;
+          sampleImageIds: string[];
+          unmatchedDetails: { name: string; tried: string }[];
+        };
+      };
       const lines = [`${d.matched}件の写真をマッチしました`];
       if (d.unmatched.length) {
         const sample = d.unmatched.slice(0, 5).join(', ');
@@ -443,6 +453,23 @@ export default function EventEditorPage() {
       }
       if (d.skipped?.length) {
         lines.push(`スキップ(${d.skipped.length}件): 隠しファイル等`);
+      }
+      // 0 件マッチの場合は診断情報を表示
+      if (d.matched === 0 && d.debug) {
+        lines.push('');
+        lines.push(`▼ 診断情報`);
+        lines.push(`DB エントリ数: ${d.debug.totalEntries} (画像ID あり: ${d.debug.entriesWithImageId})`);
+        if (d.debug.sampleImageIds.length) {
+          lines.push(`DB の画像IDサンプル: ${d.debug.sampleImageIds.join(', ')}`);
+        } else {
+          lines.push(`⚠ DB に保存されている image_id がありません。Excel の「画像ID」列が空 or インポート前の可能性があります。`);
+        }
+        if (d.debug.unmatchedDetails.length) {
+          lines.push(`試行キー(先頭3件):`);
+          for (const u of d.debug.unmatchedDetails.slice(0, 3)) {
+            lines.push(`  ${u.name} → [${u.tried}]`);
+          }
+        }
       }
       alert(lines.join('\n'));
       invalidate();

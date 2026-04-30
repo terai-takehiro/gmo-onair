@@ -1,7 +1,7 @@
 {
   "name": "@gmo-onair/client-interactive",
   "private": true,
-  "version": "2.8.43",
+  "version": "2.8.44",
   "type": "module",
   "scripts": {
     "dev": "vite",

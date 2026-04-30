@@ -150,7 +150,8 @@ router.post('/events/:id/import-excel', upload.single('file'), wrap(async (req, 
 // マッチングは「画像ID 完全一致 → 画像ID 正規化一致 → 氏名/プロジェクト名 一致」の順に試行。
 // ・フォルダアップロード (webkitdirectory) で path 付きファイル名が来ても basename を使用
 // ・隠しファイル (._*, .DS_Store, Thumbs.db) と __MACOSX 配下は無視
-// ・画像IDの leading zero / 全角半角 / 大文字小文字 / 空白の差異を吸収
+// ・画像IDの leading zero / 全角半角 / 大文字小文字 / 空白 / Unicode NFC-NFD 差異を吸収
+// ・multer が latin1 で originalname をデコードした場合の文字化けも復号して試行
 router.post(
   '/events/:id/import-images',
   requireAuth, requirePermission('awards'),
@@ -169,10 +170,10 @@ router.post(
       [eventId]
     ) as { id: number; image_id: string | null; name: string; name_en: string | null }[];
 
-    // 全角→半角、空白除去、小文字化、leading zero 削除（数字のみ）
+    // 全角→半角、空白/区切り除去、小文字化、Unicode NFC、leading zero 削除（数字のみ）
     const norm = (raw: string | null | undefined): string => {
       if (!raw) return '';
-      let s = String(raw).trim();
+      let s = String(raw).normalize('NFC').trim();
       s = s
         .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
         .replace(/[\s　_\-‐－]+/g, '')
@@ -182,12 +183,28 @@ router.post(
       return s;
     };
 
+    // multer が latin1 として originalname をデコードしている場合の復号
+    // （新しい multer でも一部環境で UTF-8 が latin1 扱いになることがある）
+    const fixMojibake = (s: string): string => {
+      try {
+        // latin1 として解釈し直して utf8 に再デコード
+        const fixed = Buffer.from(s, 'latin1').toString('utf8');
+        // 戻した結果に置換文字 (U+FFFD) が無く、かつ元と異なるならば採用
+        if (!fixed.includes('�') && fixed !== s) return fixed;
+      } catch { /* noop */ }
+      return s;
+    };
+
     const byImageId = new Map<string, number>(); // 画像ID 正規化 → entry.id
     const byName    = new Map<string, number>(); // 氏名 / 英語名 正規化 → entry.id
+    const sampleImageIds: string[] = [];
     for (const e of entries) {
       if (e.image_id) {
         const k = norm(e.image_id);
-        if (k && !byImageId.has(k)) byImageId.set(k, e.id);
+        if (k && !byImageId.has(k)) {
+          byImageId.set(k, e.id);
+          if (sampleImageIds.length < 5) sampleImageIds.push(e.image_id);
+        }
       }
       if (e.name) {
         const k = norm(e.name);
@@ -200,12 +217,15 @@ router.post(
     }
 
     let matched = 0;
-    const unmatched: string[] = [];
+    const unmatched: { name: string; tried: string }[] = [];
     const skipped: string[] = [];
 
     for (const file of files) {
       // webkitdirectory で送られた場合 originalname にパスが含まれることがあるので basename 化
-      const baseName = path.basename(file.originalname);
+      const rawName = path.basename(file.originalname);
+      // 文字化け復号も試す
+      const fixedName = fixMojibake(rawName);
+      const baseName = fixedName !== rawName ? fixedName : rawName;
 
       // 隠しファイル・OS メタデータを除外
       if (
@@ -218,14 +238,20 @@ router.post(
       }
 
       const stem = baseName.replace(/\.[^.]+$/, ''); // 拡張子なし
-      const key = norm(stem);
+      // 候補: 通常 / 文字化け復号 / 元のまま の 3 通りを試す
+      const keys = [norm(stem), norm(rawName.replace(/\.[^.]+$/, '')), norm(fixedName.replace(/\.[^.]+$/, ''))]
+        .filter((k, i, a) => k && a.indexOf(k) === i);
 
       const ext = detectExt(file.buffer);
-      if (!ext) { unmatched.push(baseName); continue; }
+      if (!ext) { unmatched.push({ name: baseName, tried: keys.join(' | ') }); continue; }
 
       // 画像ID → 名前 の順にマッチング
-      const entryId = byImageId.get(key) ?? byName.get(key);
-      if (!entryId) { unmatched.push(baseName); continue; }
+      let entryId: number | undefined;
+      for (const k of keys) {
+        entryId = byImageId.get(k) ?? byName.get(k);
+        if (entryId) break;
+      }
+      if (!entryId) { unmatched.push({ name: baseName, tried: keys.join(' | ') }); continue; }
 
       const filename = `${crypto.randomUUID()}${ext}`;
       fs.writeFileSync(path.join(UPLOAD_DIR, filename), file.buffer);
@@ -238,7 +264,21 @@ router.post(
       matched++;
     }
 
-    res.json({ success: true, data: { matched, unmatched, skipped } });
+    res.json({
+      success: true,
+      data: {
+        matched,
+        unmatched: unmatched.map((u) => u.name),
+        skipped,
+        // 診断用: マッチに失敗した場合に DB 側の値と試行キーを確認できるように
+        debug: {
+          totalEntries: entries.length,
+          entriesWithImageId: byImageId.size,
+          sampleImageIds,                // DB に保存されている image_id の最初の 5 件
+          unmatchedDetails: unmatched.slice(0, 10), // 最大 10 件、ファイル名と試行した正規化キー
+        },
+      },
+    });
   })
 );
 
