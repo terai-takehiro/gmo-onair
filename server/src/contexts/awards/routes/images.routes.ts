@@ -4,9 +4,10 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import express from 'express';
-import { execute, queryOne } from '../../../shared/db/connection';
+import { execute, queryAll, queryOne } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { uploadAwardsImageToBox, restoreAwardsImageFromBox } from '../services/awards-box.service';
 
 const router = Router();
 const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
@@ -35,6 +36,26 @@ router.use('/images', (req, _res, next) => {
   if (req.path.includes('..')) return next(new AppError(400, 'BAD_REQUEST', 'invalid path'));
   next();
 });
+// ローカルキャッシュにファイルが無ければ BOX からの復元を試みる (v2.8.50+)
+// volume 障害や手動削除などでローカルが空でも、BOX に mirror があれば自動回復する。
+router.use('/images', wrap(async (req, _res, next) => {
+  const filename = path.basename(req.path);
+  if (!filename || filename === '/') return next();
+  const localPath = path.join(UPLOAD_DIR, filename);
+  if (fs.existsSync(localPath)) return next();
+
+  // DB から photo_url が当該ファイル名で終わる entry の box_file_id を引く
+  const photoUrl = `/api/v1/internal/awards/images/${filename}`;
+  const rows = await queryAll(
+    `SELECT photo_box_file_id FROM awards_entries WHERE photo_url = ? AND photo_box_file_id IS NOT NULL LIMIT 1`,
+    [photoUrl]
+  ) as { photo_box_file_id: string }[];
+  if (rows.length === 0) return next();
+
+  const ok = await restoreAwardsImageFromBox(rows[0].photo_box_file_id, localPath);
+  if (!ok) return next();
+  next();
+}));
 router.use('/images', express.static(UPLOAD_DIR, { maxAge: '7d' }));
 
 // ── 顔写真アップロード ──────────────────────────────────────
@@ -56,9 +77,21 @@ router.post(
 
     const photoUrl = `/api/v1/internal/awards/images/${filename}`;
     await execute(
-      `UPDATE awards_entries SET photo_url=?, updated_at=NOW() WHERE id=?`,
+      `UPDATE awards_entries SET photo_url=?, photo_box_file_id=NULL, updated_at=NOW() WHERE id=?`,
       [photoUrl, id]
     );
+
+    // BOX へミラーアップロード（fire-and-forget — 失敗してもレスポンスは成功扱い）
+    uploadAwardsImageToBox(filename, req.file.buffer)
+      .then((boxFileId) => {
+        if (boxFileId) {
+          execute(
+            `UPDATE awards_entries SET photo_box_file_id=?, updated_at=NOW() WHERE id=?`,
+            [boxFileId, id]
+          ).catch((e) => console.warn('[awards-box] DB update failed:', (e as Error).message));
+        }
+      })
+      .catch((e) => console.warn('[awards-box] mirror failed:', (e as Error).message));
 
     res.json({ success: true, data: { photoUrl } });
   })

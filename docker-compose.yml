@@ -67,6 +67,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      # v2.8.50: アップロードされた画像 (awards/qsheet) を Docker 再ビルドで失わないよう永続化
+      - uploads_prod:/app/uploads
     restart: unless-stopped
 
   # ──────────────────────────────────────
@@ -100,6 +103,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      # v2.8.50: アップロードされた画像 (awards/qsheet) を Docker 再ビルドで失わないよう永続化
+      - uploads_dev:/app/uploads
     restart: unless-stopped
 
   # ──────────────────────────────────────
@@ -122,3 +128,5 @@ services:
 
 volumes:
   pgdata:
+  uploads_prod:
+  uploads_dev:

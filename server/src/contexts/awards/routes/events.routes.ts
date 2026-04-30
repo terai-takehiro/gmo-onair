@@ -7,6 +7,7 @@ import { execute, queryAll, queryOne, getDb } from '../../../shared/db/connectio
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { importAwardsExcel } from '../services/excel-import.service';
+import { uploadAwardsImageToBox } from '../services/awards-box.service';
 
 const UPLOAD_DIR = path.join(__dirname, '../../../../../uploads/awards');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -261,9 +262,23 @@ router.post(
       const photoUrl = `/api/v1/internal/awards/images/${filename}`;
 
       await execute(
-        `UPDATE awards_entries SET photo_url=?, updated_at=NOW() WHERE id=?`,
+        `UPDATE awards_entries SET photo_url=?, photo_box_file_id=NULL, updated_at=NOW() WHERE id=?`,
         [photoUrl, entryId]
       );
+
+      // BOX ミラー (fire-and-forget) — entryId をクロージャで捕捉
+      const targetId = entryId;
+      const targetBuf = file.buffer;
+      uploadAwardsImageToBox(filename, targetBuf)
+        .then((boxFileId) => {
+          if (boxFileId) {
+            execute(
+              `UPDATE awards_entries SET photo_box_file_id=?, updated_at=NOW() WHERE id=?`,
+              [boxFileId, targetId]
+            ).catch((e) => console.warn('[awards-box] DB update failed:', (e as Error).message));
+          }
+        })
+        .catch((e) => console.warn('[awards-box] mirror failed:', (e as Error).message));
       matched++;
     }
 
