@@ -97,15 +97,16 @@ router.post('/categories/:categoryId/generate-dummy-points', wrap(async (req, re
   );
   if (!entries.length) throw new AppError(404, 'NOT_FOUND', 'エントリが存在しません');
 
-  const basePoints = 5000;
-  const step = 400;
-  for (let i = 0; i < entries.length; i++) {
-    const points = Math.max(500, basePoints - i * step + Math.floor(Math.random() * 200) - 100);
+  // エントリ ID 順ではなくランダムなポイントを割り当てる（その後 rerank() でポイント順に並び替え）
+  const minPoints = 500;
+  const maxPoints = 5000;
+  for (const entry of entries) {
+    const points = minPoints + Math.floor(Math.random() * (maxPoints - minPoints + 1));
     const ownRatio = 0.20 + Math.random() * 0.20;
     const own_points = Math.round(points * ownRatio);
     await execute(
       `UPDATE awards_entries SET points=?, own_points=?, updated_at=NOW() WHERE id=?`,
-      [points, own_points, entries[i].id]
+      [points, own_points, entry.id]
     );
   }
   await rerank(catId);
