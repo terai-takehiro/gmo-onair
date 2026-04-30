@@ -339,15 +339,15 @@ function RankingRow({ entry, widthPct, revealed, nameVisible, isFirst, lang = 'j
             >
               <span
                 style={{
-                  fontFamily: "'Noto Sans JP', sans-serif",
-                  fontSize: 15,
+                  fontFamily: lang === 'en' ? "'Bebas Neue', sans-serif" : "'Noto Sans JP', sans-serif",
+                  fontSize: lang === 'en' ? 16 : 15,
                   fontWeight: 700,
                   color: '#FFEFB0',
                   opacity: 0.9,
                   letterSpacing: '0.12em',
                 }}
               >
-                自社票
+                {lang === 'en' ? 'Own Vote' : '自社票'}
               </span>
               <span
                 style={{

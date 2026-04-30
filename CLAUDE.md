@@ -33,7 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.46 (dev) — **アワードCG ダミーポイント自動生成をエントリ ID 順 → 完全ランダムに変更**: 従来は `basePoints(5000) - i * 400 + jitter(±100)` でエントリ ID 順に降順ポイントを割り当てていたため、テスト時に「先頭の登録順がそのまま 1 位 / 2 位 / 3 位 …」と固定的になっていた。これを `500 〜 5000` の範囲で各エントリに独立した一様乱数を割り当てる方式に変更 (`server/src/contexts/awards/routes/entries.routes.ts`)。後段の `rerank(catId)` がポイント降順で順位を再計算するため、エントリの登録順とは無関係に「実際に乱数で大きいポイントを引いた人が 1 位」となり、テスト用デモがリアルに見える。
+v2.8.47 (dev) — **アワードCG: 放送送出 UI に英語/日英切替 + カテゴリ英語名 + 「自社票 → Own Vote」**: ①**送出言語切替**: ControlPage ヘッダーに `JA / EN / JA/EN` の 3 値ピッカーを追加 (localStorage 永続化)。`OutputPage` も `?lang=both` を受け付ける。`both` モードは `CGFrame` ラッパー新設 (`client-awards/src/cg/CGFrame.tsx`) で 1920×1080 フレーム内に 960×540 の JA / EN ミニ枠を左右に並べて中央寄せ表示 (各枠の左上に `JA`/`EN` ラベル)。②**カテゴリ英語名**: `awards_categories` に `name_en` `description_en` 列を追加 (migration 077)、CRUD (`categories.routes.ts`) を更新、`CGSequence` の `tweaks.categoryParent / Child` を lang に応じて切替、EventEditor のカテゴリ編集 UI に「賞名（英語）」「部門名（英語）」のインライン入力を追加。③**自社票 → Own Vote**: `StepRanking.tsx` のラベルを `lang === 'en' ? 'Own Vote' : '自社票'` に切替（フォントも英語時は Bebas Neue）。出力 URL ボタンも現在のプレビュー言語をそのまま `?lang=` に渡すので、選択中の言語のフルスクリーン送出がワンクリックで開ける。
+
+(v2.8.46: アワードCG ダミーポイント自動生成をエントリ ID 順 → 完全ランダムに変更。)
 
 (v2.8.45: アワードCG 画像インポート — DB image_id の拡張子による不一致を修正。`norm()` に画像拡張子除去を追加。)
 

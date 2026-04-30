@@ -39,7 +39,9 @@ export interface CgEntry {
 export interface CgCategory {
   id: number;
   name: string;
+  name_en: string | null;
   description: string | null;
+  description_en: string | null;
   entries: CgEntry[];
 }
 

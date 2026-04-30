@@ -6,8 +6,10 @@ import { useAwardsCue } from '@/hooks/useAwardsCue';
 import { cn } from '@/lib/utils';
 import { ChevronLeft, ExternalLink, Trophy, Radio } from 'lucide-react';
 import type { CgStep, OneshotStyle, CgCategory, CgCueState } from '@/cg/types';
-import CGSequence from '@/cg/CGSequence';
+import CGFrame from '@/cg/CGFrame';
 import { CG_W, CG_H } from '@/cg/types';
+
+type PreviewLang = 'ja' | 'en' | 'both';
 
 interface AwardsEventDetail {
   id: number; name: string; subtitle: string | null; categories: CgCategory[];
@@ -59,6 +61,13 @@ export default function ControlPage() {
   const isLive = LIVE_STEPS.includes(cue.step);
   const currentStep = STEPS.find((s) => s.step === cue.step);
 
+  // プレビュー / 出力用 言語選択（localStorage で永続化）
+  const [previewLang, setPreviewLang] = useState<PreviewLang>(() => {
+    const v = localStorage.getItem('awards-preview-lang');
+    return v === 'en' || v === 'both' ? v : 'ja';
+  });
+  useEffect(() => { localStorage.setItem('awards-preview-lang', previewLang); }, [previewLang]);
+
   // CG preview: scale to fit container (letterbox)
   const previewRef = useRef<HTMLDivElement>(null);
   const [cgScale, setCgScale] = useState(0.3);
@@ -104,10 +113,12 @@ export default function ControlPage() {
           <Radio className={cn('h-3 w-3 shrink-0', isLive && 'animate-pulse')} />
           {isLive ? 'ON AIR' : 'STANDBY'}
         </div>
+        <LangPicker value={previewLang} onChange={setPreviewLang} />
         <a
-          href={`/awards/output/${eventId}?lang=ja`}
+          href={`/awards/output/${eventId}?lang=${previewLang}`}
           target="_blank"
           rel="noreferrer"
+          title={`出力 (${previewLang.toUpperCase()})`}
           className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors"
         >
           <ExternalLink className="h-3 w-3" />出力
@@ -142,7 +153,8 @@ export default function ControlPage() {
                   position: 'absolute',
                 }}
               >
-                <CGSequence
+                <CGFrame
+                  lang={previewLang}
                   cue={cue}
                   category={selectedCat ?? null}
                   eventName={event.name}
@@ -307,6 +319,37 @@ function StyleRow({ styles, cue, sendCue }: {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ── LangPicker (header) ───────────────────────────────────
+function LangPicker({ value, onChange }: {
+  value: PreviewLang;
+  onChange: (v: PreviewLang) => void;
+}) {
+  const opts: { v: PreviewLang; label: string }[] = [
+    { v: 'ja',   label: 'JA'    },
+    { v: 'en',   label: 'EN'    },
+    { v: 'both', label: 'JA/EN' },
+  ];
+  return (
+    <div className="flex items-center rounded-lg border border-slate-700/60 bg-slate-900/50 p-0.5 text-[10px] font-black tracking-widest" role="group" aria-label="プレビュー言語">
+      {opts.map(({ v, label }) => (
+        <button
+          key={v}
+          onClick={() => onChange(v)}
+          className={cn(
+            'px-2 py-1 rounded-md transition-colors',
+            value === v
+              ? 'bg-amber-500 text-slate-950'
+              : 'text-slate-500 hover:bg-slate-800 hover:text-slate-300',
+          )}
+          aria-pressed={value === v}
+        >
+          {label}
+        </button>
+      ))}
     </div>
   );
 }
