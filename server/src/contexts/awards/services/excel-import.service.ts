@@ -12,21 +12,43 @@ export interface ImportResult {
 const AWARD_HEADERS           = ['種別'];
 const DIVISION_HEADERS        = ['エントリー部門', 'エントリー部門名'];
 const IMAGE_ID_HEADERS        = ['画像id', '画像ｉｄ', 'imageid', 'image_id', '画像'];
-const NAME_JA_HEADERS         = ['ノミネート名', '氏名', '名前', '名称', 'name'];
+// CG表示名としては「ノミネート名」（個人＝氏名 / チーム＝代表者名 などが入る）を優先
+const NAME_JA_HEADERS         = [
+  'ノミネート名',
+  'ノミネート者氏名',
+  '氏名', '名前', '名称', 'name',
+];
 const NAME_PROJECT_HEADERS    = ['プロジェクト名'];
-const NAME_EN_HEADERS         = ['ノミネート名（英語）', 'ノミネート名(英語)', 'name_en', 'name(en)', '英語名'];
+const NAME_EN_HEADERS         = [
+  'ノミネート者氏名（英語）', 'ノミネート者氏名(英語)',
+  'ノミネート名（英語）', 'ノミネート名(英語)',
+  '氏名（英語）', '氏名(英語)',
+  'name_en', 'name(en)', 'nameenglish', '英語名',
+];
 const NAME_EN_PROJECT_HEADERS = ['プロジェクト名（英語）', 'プロジェクト名(英語)'];
 const ORG_JA_HEADERS          = ['ノミネート者会社', '所属', '会社', '企業', 'org', '部署'];
-const ORG_EN_HEADERS          = ['ノミネート者会社（英語）', 'ノミネート者会社(英語)', 'org_en', 'org(en)', '会社（英語）'];
+const ORG_EN_HEADERS          = ['ノミネート者会社（英語）', 'ノミネート者会社(英語)', 'org_en', 'org(en)', '会社（英語）', '会社(英語)'];
 
+// 全角 ⇄ 半角・大文字小文字・空白を吸収する正規化
 function normalize(s: string): string {
-  return s.replace(/\s+/g, '').toLowerCase();
+  return s
+    .replace(/\s+/g, '')
+    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/（/g, '(').replace(/）/g, ')')
+    .toLowerCase();
 }
 
 function findCol(headers: string[], candidates: string[]): number {
   const normalizedHeaders = headers.map(normalize);
-  for (const cand of candidates) {
-    const idx = normalizedHeaders.findIndex((h) => h.includes(normalize(cand)));
+  const normalizedCands = candidates.map(normalize);
+  // 1) 完全一致を優先（"ノミネート名" が "ノミネート名（英語）" を誤拾いしないように）
+  for (const cand of normalizedCands) {
+    const idx = normalizedHeaders.findIndex((h) => h === cand);
+    if (idx >= 0) return idx;
+  }
+  // 2) 部分一致をフォールバック
+  for (const cand of normalizedCands) {
+    const idx = normalizedHeaders.findIndex((h) => h.includes(cand));
     if (idx >= 0) return idx;
   }
   return -1;

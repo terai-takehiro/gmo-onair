@@ -424,15 +424,27 @@ export default function EventEditorPage() {
 
   const importImages = async (files: FileList) => {
     const fd = new FormData();
-    for (const f of Array.from(files)) fd.append('images', f);
+    // フォルダ選択時は webkitRelativePath が入るので、サーバー側で basename 化される
+    for (const f of Array.from(files)) {
+      // 隠しファイルや OS メタデータはアップロード自体をスキップ（転送量削減）
+      const baseName = f.name;
+      if (baseName.startsWith('.') || baseName.toLowerCase() === 'thumbs.db') continue;
+      fd.append('images', f);
+    }
     try {
       const res = await api.post(`/awards/events/${eventId}/import-images`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      const d = res.data.data as { matched: number; unmatched: string[] };
-      const msg = `${d.matched}件の写真をマッチしました`;
-      const un = d.unmatched.length ? `\n未マッチ(${d.unmatched.length}件): ${d.unmatched.slice(0, 5).join(', ')}${d.unmatched.length > 5 ? '...' : ''}` : '';
-      alert(msg + un);
+      const d = res.data.data as { matched: number; unmatched: string[]; skipped?: string[] };
+      const lines = [`${d.matched}件の写真をマッチしました`];
+      if (d.unmatched.length) {
+        const sample = d.unmatched.slice(0, 5).join(', ');
+        lines.push(`未マッチ(${d.unmatched.length}件): ${sample}${d.unmatched.length > 5 ? '...' : ''}`);
+      }
+      if (d.skipped?.length) {
+        lines.push(`スキップ(${d.skipped.length}件): 隠しファイル等`);
+      }
+      alert(lines.join('\n'));
       invalidate();
     } catch (err: any) {
       alert(`画像インポートエラー: ${err?.response?.data?.error?.message ?? err.message}`);
@@ -527,10 +539,18 @@ export default function EventEditorPage() {
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) importExcel(f); e.target.value = ''; }}
               />
             </label>
-            <label className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm hover:bg-muted transition-colors cursor-pointer text-muted-foreground">
+            <label
+              className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm hover:bg-muted transition-colors cursor-pointer text-muted-foreground"
+              title="フォルダを選択。ファイル名（拡張子除く）が「画像ID」または「ノミネート名／英語名」と一致する写真を一括登録します"
+            >
               <Upload className="h-4 w-4" />
               画像フォルダ
-              <input type="file" accept="image/*" multiple className="hidden"
+              <input
+                type="file"
+                multiple
+                className="hidden"
+                // 非標準属性: フォルダ選択を有効化（Chrome / Edge / Safari / Firefox 対応）
+                {...({ webkitdirectory: '', directory: '', mozdirectory: '' } as Record<string, string>)}
                 onChange={(e) => { if (e.target.files?.length) importImages(e.target.files); e.target.value = ''; }}
               />
             </label>
