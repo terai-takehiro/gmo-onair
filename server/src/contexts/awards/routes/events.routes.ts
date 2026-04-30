@@ -7,7 +7,12 @@ import { execute, queryAll, queryOne, getDb } from '../../../shared/db/connectio
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { importAwardsExcel } from '../services/excel-import.service';
-import { uploadAwardsImageToBox } from '../services/awards-box.service';
+import {
+  uploadAwardsImageToBox,
+  invalidateEventFolderCache,
+  listEventBackups,
+  downloadEventBackupImages,
+} from '../services/awards-box.service';
 
 const UPLOAD_DIR = path.join(__dirname, '../../../../../uploads/awards');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -129,11 +134,114 @@ router.post('/events/:id/status', wrap(async (req, res) => {
 }));
 
 // ── 削除 ────────────────────────────────────────────────────
+// イベント削除時はローカル画像 (/app/uploads/awards/) も物理削除する。
+// BOX 上の `11_awards_photo/event_{id}_{name}/` フォルダは触らないので、
+// あとから「BOX バックアップから復元」エンドポイントで再作成可能。
 router.delete('/events/:id', wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
+
+  // 1) このイベントに紐づく全エントリの photo_url を取得
+  const photos = await queryAll(
+    `SELECT photo_url FROM awards_entries WHERE event_id=? AND photo_url IS NOT NULL`,
+    [id]
+  ) as { photo_url: string }[];
+
+  // 2) DB から削除（cascade で categories / entries / cue_state も消える）
   const row = await queryOne(`DELETE FROM awards_events WHERE id=? RETURNING id`, [id]);
   if (!row) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
-  res.json({ success: true });
+
+  // 3) ローカルファイルを物理削除
+  let localDeleted = 0;
+  for (const p of photos) {
+    const filename = path.basename(p.photo_url);
+    if (!filename || filename.includes('..')) continue;
+    const fp = path.join(UPLOAD_DIR, filename);
+    try {
+      if (fs.existsSync(fp)) {
+        fs.unlinkSync(fp);
+        localDeleted++;
+      }
+    } catch (err) {
+      console.warn(`[awards] Failed to unlink ${fp}:`, (err as Error).message);
+    }
+  }
+
+  // 4) BOX フォルダのキャッシュをクリア（BOX 上のフォルダ自体は残す）
+  invalidateEventFolderCache(id);
+
+  console.log(`[awards] Event ${id} deleted. Local files removed: ${localDeleted}/${photos.length}. BOX folder retained.`);
+  res.json({ success: true, data: { localFilesDeleted: localDeleted } });
+}));
+
+// ── BOX バックアップ一覧 (削除済みイベントの復元候補) ────────
+router.get('/box-backups', wrap(async (_req, res) => {
+  const backups = await listEventBackups();
+
+  // 既に DB に存在する eventId は除外したいので、現存イベントの id を引く
+  const existing = await queryAll(`SELECT id FROM awards_events`) as { id: number }[];
+  const existingIds = new Set(existing.map((e) => e.id));
+
+  // 「削除済み」フラグを付加
+  const enriched = backups.map((b) => ({
+    ...b,
+    deleted: !existingIds.has(b.eventId),
+  }));
+  res.json({ success: true, data: enriched });
+}));
+
+// ── BOX バックアップから復元 ─────────────────────────────────
+// body: { name, subtitle?, scheduledAt? }
+// folderId: 復元元の BOX フォルダ ID（/box-backups で取得した folderId）
+router.post('/box-backups/:folderId/restore', wrap(async (req, res) => {
+  const folderId = String(req.params.folderId);
+  const { name, subtitle, scheduledAt } = req.body as {
+    name?: string;
+    subtitle?: string;
+    scheduledAt?: string;
+  };
+  if (!name?.trim()) throw new AppError(400, 'BAD_REQUEST', 'name は必須です');
+
+  // 1) 新規イベント作成
+  const newEvent = await queryOne(
+    `INSERT INTO awards_events (name, subtitle, scheduled_at)
+     VALUES (?, ?, ?) RETURNING id, name`,
+    [name.trim(), subtitle ?? null, scheduledAt ?? null]
+  ) as { id: number; name: string };
+
+  // 2) BOX フォルダから全画像をローカルに復元
+  const restored = await downloadEventBackupImages(folderId, UPLOAD_DIR);
+
+  // 3) 復元用カテゴリ + ノミネートを作成（とりあえず 1 カテゴリに全画像をぶら下げる）
+  let entriesCreated = 0;
+  if (restored.length > 0) {
+    const cat = await queryOne(
+      `INSERT INTO awards_categories (event_id, name, description, display_order)
+       VALUES (?, ?, ?, ?) RETURNING id`,
+      [newEvent.id, '復元', 'BOX バックアップから復元', 1]
+    ) as { id: number };
+
+    for (let i = 0; i < restored.length; i++) {
+      const r = restored[i];
+      const photoUrl = `/api/v1/internal/awards/images/${r.localFilename}`;
+      const placeholderName = `復元 #${i + 1}`;
+      await execute(
+        `INSERT INTO awards_entries
+           (event_id, category_id, name, photo_url, photo_box_file_id, is_winner)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [newEvent.id, cat.id, placeholderName, photoUrl, r.boxFileId, false]
+      );
+      entriesCreated++;
+    }
+  }
+
+  res.json({
+    success: true,
+    data: {
+      eventId: newEvent.id,
+      filesRestored: restored.length,
+      entriesCreated,
+    },
+  });
 }));
 
 // ── Excel インポート ────────────────────────────────────────
@@ -159,7 +267,9 @@ router.post(
   upload.array('images', 500),
   wrap(async (req, res) => {
     const eventId = parseInt(req.params.id as string);
-    const event = await queryOne(`SELECT id FROM awards_events WHERE id=?`, [eventId]);
+    const event = await queryOne(`SELECT id, name FROM awards_events WHERE id=?`, [eventId]) as
+      | { id: number; name: string }
+      | null;
     if (!event) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
 
     const files = req.files as Express.Multer.File[] | undefined;
@@ -269,7 +379,7 @@ router.post(
       // BOX ミラー (fire-and-forget) — entryId をクロージャで捕捉
       const targetId = entryId;
       const targetBuf = file.buffer;
-      uploadAwardsImageToBox(filename, targetBuf)
+      uploadAwardsImageToBox(event.id, event.name, filename, targetBuf)
         .then((boxFileId) => {
           if (boxFileId) {
             execute(

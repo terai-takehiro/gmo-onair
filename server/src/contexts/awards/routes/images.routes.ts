@@ -65,7 +65,12 @@ router.post(
   upload.single('photo'),
   wrap(async (req, res) => {
     const id = parseInt(req.params.id as string);
-    const entry = await queryOne(`SELECT id FROM awards_entries WHERE id=?`, [id]);
+    const entry = await queryOne(
+      `SELECT e.id, e.event_id, ev.name AS event_name
+       FROM awards_entries e JOIN awards_events ev ON ev.id = e.event_id
+       WHERE e.id = ?`,
+      [id]
+    ) as { id: number; event_id: number; event_name: string } | null;
     if (!entry) throw new AppError(404, 'NOT_FOUND', 'エントリが見つかりません');
     if (!req.file) throw new AppError(400, 'BAD_REQUEST', 'photo ファイルを添付してください');
 
@@ -82,7 +87,7 @@ router.post(
     );
 
     // BOX へミラーアップロード（fire-and-forget — 失敗してもレスポンスは成功扱い）
-    uploadAwardsImageToBox(filename, req.file.buffer)
+    uploadAwardsImageToBox(entry.event_id, entry.event_name, filename, req.file.buffer)
       .then((boxFileId) => {
         if (boxFileId) {
           execute(
