@@ -33,7 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.53 (dev) — **アワードCG 2 件修正: タイトル総尺を日本語と同じ ~3 秒に統一 + WINNER BAR でランク 6 位以下が strip から消えていたバグ修正**: ①**タイトル総尺**: v2.8.49 で 5 秒固定にしたが、ユーザーから「英語のタイトルがまだ少し遅い、日本語と同じ終了タイミングにしたい」と要望。`PersistentHeader.tsx` の `TITLE_TARGET_MS` を 5000ms → **3000ms** に短縮、`TITLE_CHAR_MIN` を 30 → 20 に下げて長文でも収まるようにした。これで JA (9 文字) も EN (29 文字) も child anim 終了が ~3000ms に揃う（数式: `(target - 700 - 1100) / N` を charDelay として使う）。②**WINNER BAR の strip 消失バグ**: `PhotoStage.tsx` の `isInStrip()` で winner-bar / oneshot ステップ時、ランク 6 位以下 (`r >= 6`) が strip にも rank position にも入らず**完全に消える**バグを修正。`if (r >= 6) return true;` を追加して下位ランクが strip 表示で残るように。これで「WINNER BAR 表示時に 1 位以外の strip 写真が全部消える」現象が解消される。
+v2.8.54 (dev) — **アワードCG 自社票の英語ラベルを Own Vote → Internal Vote に変更**: ユーザー要望で、英語 CG 表示時の「自社票」ラベルを `Own Vote` から `Internal Vote` に変更。`client-awards/src/cg/steps/StepRanking.tsx` の 1 箇所のみ。
+
+(v2.8.53: アワードCG タイトル総尺を日本語と同じ ~3 秒に統一 + WINNER BAR でランク 6 位以下が strip から消えていたバグ修正。)
 
 (v2.8.52: アワードCG: BOX をイベント別サブフォルダ化 + イベント削除時のローカル削除 + BOX バックアップからの復元 UI。)
 
