@@ -347,7 +347,7 @@ function RankingRow({ entry, widthPct, revealed, nameVisible, isFirst, lang = 'j
                   letterSpacing: '0.12em',
                 }}
               >
-                {lang === 'en' ? 'Own Vote' : '自社票'}
+                {lang === 'en' ? 'Internal Vote' : '自社票'}
               </span>
               <span
                 style={{
