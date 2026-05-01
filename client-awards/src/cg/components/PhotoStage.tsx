@@ -127,12 +127,14 @@ export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }:
     if (stepKey === 'winner-bar') {
       if (r == null) return true;
       if (r === 1) return true;
-      return false;
+      if (r >= 6) return true;     // ranks 6+ も strip に残す (rank position は 2-5 だけ)
+      return false;                  // 2-5 は rank position
     }
     if (stepKey === 'oneshot') {
       if (r == null) return true;
       if (r === 1) return true;
-      return false;
+      if (r >= 6) return true;     // ranks 6+ も strip に残す（blur 越しに見える）
+      return false;                  // 2-5 は rank position
     }
     return false;
   };
