@@ -387,7 +387,7 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                                             <div style={{ display: "flex", alignItems: "flex-start", gap: 4 }}>
                                               {en?.name && <Pill text={en.name} color={col} mono={mono} />}
                                               {en?.isQWord && <span style={{ color: mono ? "#000" : "#dc2626", fontWeight: 700, flexShrink: 0, fontSize: fontSize - 1 + "pt" }}>Q</span>}
-                                              <span style={{ overflowWrap: "break-word", flex: 1, fontWeight: en?.isQWord ? 700 : "normal" }} dangerouslySetInnerHTML={{ __html: en?.html || "" }} />
+                                              <span style={{ overflowWrap: "break-word", whiteSpace: "pre-wrap", flex: 1, fontWeight: en?.isQWord ? 700 : "normal" }}>{String(en?.html || "").replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]*>/g, "")}</span>
                                             </div>
                                           )}
                                         </td>

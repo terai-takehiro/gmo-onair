@@ -39,6 +39,8 @@ services:
       NODE_ENV: production
       PORT: 3000
       JWT_SECRET: ${JWT_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       CLIENT_URL: https://gmo-onair.jp
       ALLOWED_ORIGINS: https://gmo-onair.jp,https://www.gmo-onair.jp
       ICAL_FEED_TOKEN: ${ICAL_FEED_TOKEN:-}
@@ -81,7 +83,8 @@ services:
       DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@db:5432/onair_dev
       NODE_ENV: development
       PORT: 3000
-      JWT_SECRET: ${JWT_SECRET_DEV:-dev-jwt-secret-do-not-use-in-production}
+      # JWT_SECRET_DEV must be set in .env (no insecure fallback). Generate with: openssl rand -hex 32
+      JWT_SECRET: ${JWT_SECRET_DEV:?JWT_SECRET_DEV is required (openssl rand -hex 32)}
       CLIENT_URL: https://dev.gmo-onair.jp
       ALLOWED_ORIGINS: https://dev.gmo-onair.jp
       # v2.5.0: dev でも本番同様の email/password 認証を有効化
