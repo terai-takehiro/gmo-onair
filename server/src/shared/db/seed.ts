@@ -36,7 +36,8 @@ export async function seed() {
   // ============================================================
   const devPasswordHash = await hashPassword('dev1234');
   const userSql = `INSERT INTO users (id, name, email, role, password_hash, status) VALUES (?, ?, ?, ?, ?, 'active')`;
-  await ins(userSql, [USERS.admin, 'システム管理者', 'account@gmo-globalstudio.com', 'system_admin', devPasswordHash]);
+  // 開発用 admin。本番管理者の実メールはソースに直書きしない (ADMIN_EMAIL を使用 — seed-admin.ts 参照)
+  await ins(userSql, [USERS.admin, 'システム管理者', 'admin@onair.local', 'system_admin', devPasswordHash]);
   await ins(userSql, [USERS.staff1, '佐藤 花子', 'sato@globalstudio.example.com', 'staff', devPasswordHash]);
   await ins(userSql, [USERS.staff2, '鈴木 一郎', 'suzuki@globalstudio.example.com', 'staff', devPasswordHash]);
   await ins(userSql, [USERS.staff3, '高橋 美咲', 'takahashi@globalstudio.example.com', 'staff', devPasswordHash]);
