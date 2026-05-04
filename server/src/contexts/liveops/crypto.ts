@@ -1,14 +1,16 @@
-import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
+import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'crypto';
+import { config } from '../../config';
 
 function getKey(): Buffer {
   const hex = process.env.ENCRYPTION_KEY || '';
-  if (!hex || hex.length < 64) {
-    // In dev, fall back to a deterministic key derived from JWT_SECRET
-    const jwtSecret = process.env.JWT_SECRET || 'dev-jwt-secret-do-not-use-in-production';
-    const { createHash } = require('crypto');
-    return createHash('sha256').update(jwtSecret).digest();
+  if (hex && hex.length >= 64) {
+    return Buffer.from(hex.slice(0, 64), 'hex');
   }
-  return Buffer.from(hex.slice(0, 64), 'hex');
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('ENCRYPTION_KEY is required in production (must be 64+ hex chars)');
+  }
+  // Dev: derive from the resolved JWT secret (which itself is now never the legacy default — see config.ts)
+  return createHash('sha256').update(config.jwtSecret).digest();
 }
 
 /** Encrypt plaintext → iv:authTag:ciphertext (all hex) */

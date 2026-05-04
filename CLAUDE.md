@@ -33,7 +33,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.54 (dev) — **アワードCG 自社票の英語ラベルを Own Vote → Internal Vote に変更**: ユーザー要望で、英語 CG 表示時の「自社票」ラベルを `Own Vote` から `Internal Vote` に変更。`client-awards/src/cg/steps/StepRanking.tsx` の 1 箇所のみ。
+v2.8.55 — セキュリティ修正（QシートPreviewModalのXSS、JWT_SECRETフォールバック撤廃、ADMIN_EMAILの環境変数化）
 
 (v2.8.53: アワードCG タイトル総尺を日本語と同じ ~3 秒に統一 + WINNER BAR でランク 6 位以下が strip から消えていたバグ修正。)
 

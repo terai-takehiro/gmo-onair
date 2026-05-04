@@ -1,3 +1,5 @@
+import { randomBytes } from 'crypto';
+
 const isProduction = process.env.NODE_ENV === 'production';
 
 // Fail fast: 本番環境で必須の環境変数
@@ -23,6 +25,24 @@ const authMode: 'password' | 'mock' =
   : isProduction ? 'password'
   : 'mock';
 
+// JWT secret resolution
+// - 本番: env で必須 (上で検証済み)
+// - 開発: env が未設定なら起動時に毎回ランダムな値を生成 (再起動でセッション失効するが、既知の値で署名されるリスクを排除)
+function resolveJwtSecret(): string {
+  const fromEnv = process.env.JWT_SECRET;
+  if (fromEnv && fromEnv.length >= 32) return fromEnv;
+  if (isProduction) {
+    // 上で process.exit 済みのはずだが念のため
+    throw new Error('JWT_SECRET is required in production');
+  }
+  const generated = randomBytes(32).toString('hex');
+  console.warn(
+    '[config] JWT_SECRET not set — generated an ephemeral secret for this dev process. ' +
+    'Sessions will be invalidated on restart. Set JWT_SECRET in .env to persist.'
+  );
+  return generated;
+}
+
 export const config = {
   port: parseInt(process.env.PORT || '3001', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -32,8 +52,8 @@ export const config = {
   // Auth mode: 'password' (本番) / 'mock' (開発デフォルト) — AUTH_MODE で上書き可能
   authMode,
 
-  // JWT — 本番ではフォールバックなし（上で検証済み）
-  jwtSecret: process.env.JWT_SECRET || 'dev-jwt-secret-do-not-use-in-production',
+  // JWT — 本番では env 必須 / dev は起動時生成のエフェメラル値
+  jwtSecret: resolveJwtSecret(),
   jwtExpiresIn: '7d',
 
   // Client URL

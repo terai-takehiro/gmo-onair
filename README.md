@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.54 (dev) — **アワードCG 自社票の英語ラベルを `Own Vote` → `Internal Vote` に変更**。 // (v2.8.53: タイトル総尺 ~3 秒 + WINNER BAR で 6 位以下が消えるバグ修正)。 // (v2.8.52: BOX イベント別サブフォルダ化 + 削除時クリーンアップ + 復元 UI)。 // (v2.8.51: BOX ミラー保存先を「社外共有可 / 11_awards_photo」に変更)。 // (v2.8.50: Docker volume + BOX ミラー)。 // (v2.8.49: アワードCG 放送送出 UI 英語/日英切替 + カテゴリ英語名 + 自社票→Own Vote)。 // (v2.8.46: ダミーポイント自動生成を完全ランダム化)。 // (v2.8.45: アワードCG 画像インポート — DB image_id の拡張子による不一致を修正。`norm()` に画像拡張子除去を追加)。 // (v2.8.44: アワードCG 画像インポート — Unicode NFC 正規化 + mojibake 復号 + 診断情報表示)。 // (v2.8.43: アワードCG ノミネートインポート不具合 2 件修正): ① Excel の英語列 `ノミネート者氏名（英語）` が拾えなかった問題を修正、② 画像フォルダを真の folder picker 化 + 多段マッチ。 // (v2.8.42: ケーブル一覧の並び順を変更): 設置場所 → 商品名 → 長さ(m, 小さい順) の優先順位でソート。一覧 GET と Excel 出力の双方を更新。 // (v2.8.41: ケーブル管理 不具合 2 件修正): ① CablePage デスクトップ表示にコピーボタンが欠落していたので追加、② 表編集で `<select>` 系セル (設置場所/種別/メーカー) の変更が反映されない stale state バグ修正 (`saveInlineRow(id, immediate)` に変更分を直接渡す形に refactor)。 // (v2.8.40: KpiCard 値末尾の和数単位を小さく描画): ユーザー報告「`¥2,380万` の "万" が数字と同じ大きさで違和感」に対応。`KpiCard` の `value` が文字列かつ末尾が `[万億兆]+` の場合のみ自動的に suffix を `text-[0.55em] font-medium` で小さく描画 (callsite 変更不要)。 // (v2.8.39: 全アプリ フォント統一: Noto Sans JP 一本化 + 数字は Roboto Condensed): ① `font-mono` クラス 134 箇所を全削除、② 数字用フォントを Oswald → Roboto Condensed (UI 馴染み・可読性向上)、③ 各 `index.html` から未使用の Noto Serif JP / Inter を削除、qsheet には Noto Sans JP のロードを追加 (これまでシステムフォントにフォールバック)、④ 各 `index.css` の `font-family` を `var(--font-sans)` 経由に統一。awards CG (Bebas Neue / Noto Serif JP) は CG 演出のため据置。 // (v2.8.38: ケーブル/コネクタ管理ページに表示列・印刷・表編集・コピー・Excel I/O を追加)
+**現在のバージョン**: v2.8.55 — セキュリティ修正（QシートPreviewModalのXSS、JWT_SECRETフォールバック撤廃、ADMIN_EMAILの環境変数化）
 
 ---
 
