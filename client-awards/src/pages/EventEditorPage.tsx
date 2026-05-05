@@ -533,10 +533,10 @@ export default function EventEditorPage() {
           <button
             onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
             className="flex items-center gap-1.5 rounded-lg border border-amber-500/60 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-500/20 transition-colors"
-            title="アワード1S CG (下部テロップ) のオペレーター画面"
+            title="下位置CG (下部テロップ) のオペレーター画面"
           >
             <Subtitles className="h-3.5 w-3.5" />
-            1S CG
+            下位置CG
           </button>
           <button
             onClick={() => navigate(`/event/${eventId}/control`)}
@@ -736,10 +736,10 @@ export default function EventEditorPage() {
           <div className="pt-2 border-t space-y-2">
             <p className="text-sm font-medium flex items-center gap-1.5">
               <Subtitles className="h-3.5 w-3.5 text-amber-600" />
-              1S CG 出力URL（下部テロップ）
+              下位置CG 出力URL（下部テロップ）
             </p>
             <p className="text-xs text-muted-foreground">
-              「1S CG オペレーター」と同じイベントを送出するブラウザソース URL。
+              「下位置CG オペレーター」と同じイベントを送出するブラウザソース URL。
               ランキングCG とは別レイヤーとして並走可能。
             </p>
             {[
