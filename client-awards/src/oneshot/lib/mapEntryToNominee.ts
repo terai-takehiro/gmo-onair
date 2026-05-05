@@ -1,9 +1,11 @@
 import type { Nominee } from '../types';
 import { SEED_NOMINEES } from '../data/seedNominees';
 
-// awards_entries 行 (oneshot_data 込み) を 1S CG が描画する Nominee 形に正規化。
-// oneshot_data に必要なフィールドが入っていればそれを優先、不足分はテーブル基本列から補完。
-// oneshot_data が空なら seed フォールバックを使う (動作確認用)。
+// awards_entries 行 (oneshot_data 任意) を 1S CG が描画する Nominee 形に正規化。
+// oneshot_data があればそれを優先、無ければテーブル基本列 (name / org / photo_url / rank)
+// から最低限の Nominee を組み立てる。これにより既存のランキングCG向けに登録済みの
+// エントリも 1S CG で即座に表示される。
+// イベント自体に entries が 0 件なら seed フォールバック (動作確認用)。
 
 export interface AwardsEntryRow {
   id: number;
@@ -34,32 +36,44 @@ interface OneShotEvent {
   categories: AwardsCategoryRow[];
 }
 
-/** Build a list of Nominee objects from server `/oneshot/output` payload.
- *  Falls back to SEED_NOMINEES when no entries have oneshot_data populated. */
+const EMPTY_RECOMMENDER = {
+  name: '', nameEn: '',
+  company: '', companyEn: '',
+  position: '', positionEn: '',
+  respect: '', respectEn: '',
+  respectComment: '', respectCommentEn: '',
+};
+
+/** Build a list of Nominee objects from the `/oneshot/output` (or `/oneshot/state`)
+ *  payload. Every DB entry produces a Nominee — oneshot_data fields override the
+ *  base columns when present. Returns SEED_NOMINEES only when the event has zero
+ *  entries (fresh event, no data yet). */
 export function mapEventToNominees(event: OneShotEvent | null | undefined): Nominee[] {
   if (!event) return SEED_NOMINEES;
 
   const all: Nominee[] = [];
   for (const cat of event.categories) {
     for (const e of cat.entries) {
-      const od = e.oneshot_data ?? null;
-      if (!od) continue;
+      if (!e.name && !e.oneshot_data) continue;
+      const od = e.oneshot_data ?? {};
+      // The DB id is the source of truth for cue.entryId lookup. We always use
+      // `entry-${e.id}` regardless of whatever od.id may say.
+      const id = `entry-${e.id}`;
 
-      const fallbackId = `entry-${e.id}`;
       const merged: Nominee = {
-        id: od.id ?? fallbackId,
+        id,
         type: od.type ?? 'individual',
         category: od.category ?? cat.description ?? cat.name,
-        categoryEn: od.categoryEn ?? cat.description_en ?? cat.name_en ?? '',
+        categoryEn: od.categoryEn ?? cat.description_en ?? cat.name_en ?? cat.name,
         subcategory: od.subcategory ?? cat.name,
-        subcategoryEn: od.subcategoryEn ?? cat.name_en ?? '',
+        subcategoryEn: od.subcategoryEn ?? cat.name_en ?? cat.name,
         entryNo: od.entryNo ?? String(e.rank ?? e.id).padStart(2, '0'),
         image: od.image ?? e.photo_url ?? '',
         name: od.name ?? e.name,
-        nameEn: od.nameEn ?? e.name_en ?? '',
+        nameEn: od.nameEn ?? e.name_en ?? e.name,
         nameKana: od.nameKana,
         company: od.company ?? e.org ?? '',
-        companyEn: od.companyEn ?? e.org_en ?? '',
+        companyEn: od.companyEn ?? e.org_en ?? e.org ?? '',
         department: od.department ?? '',
         departmentEn: od.departmentEn ?? '',
         position: od.position,
@@ -71,8 +85,8 @@ export function mapEventToNominees(event: OneShotEvent | null | undefined): Nomi
         ismEn: od.ismEn ?? '',
         skills: od.skills ?? [],
         skillsEn: od.skillsEn ?? [],
-        title: od.title ?? '',
-        titleEn: od.titleEn ?? '',
+        title: od.title ?? e.name,
+        titleEn: od.titleEn ?? e.name_en ?? e.name,
         comment: od.comment ?? '',
         commentEn: od.commentEn ?? '',
         projectName: od.projectName,
@@ -81,28 +95,19 @@ export function mapEventToNominees(event: OneShotEvent | null | undefined): Nomi
         teamSize: od.teamSize,
         members: od.members ?? null,
         membersEn: od.membersEn ?? null,
-        recommender: od.recommender ?? {
-          name: '', nameEn: '',
-          company: '', companyEn: '',
-          position: '', positionEn: '',
-          respect: '', respectEn: '',
-          respectComment: '', respectCommentEn: '',
-        },
+        recommender: od.recommender ?? EMPTY_RECOMMENDER,
       };
       all.push(merged);
     }
   }
 
-  // どのエントリにも oneshot_data が無ければ seed を返す
   return all.length > 0 ? all : SEED_NOMINEES;
 }
 
-/** Build map: nominee.id (string) → DB entry id. */
-export function findEntryIdForNominee(entries: AwardsEntryRow[]): Map<string, number> {
-  const map = new Map<string, number>();
-  for (const e of entries) {
-    if (e.oneshot_data?.id) map.set(e.oneshot_data.id, e.id);
-    map.set(`entry-${e.id}`, e.id);
-  }
-  return map;
+/** Extract DB entry id (integer) from a Nominee.id of the form `entry-<n>`.
+ *  Returns null for seed (non-DB) nominees. */
+export function nomineeDbId(nominee: { id: string } | null | undefined): number | null {
+  if (!nominee) return null;
+  const m = nominee.id.match(/^entry-(\d+)$/);
+  return m ? parseInt(m[1], 10) : null;
 }

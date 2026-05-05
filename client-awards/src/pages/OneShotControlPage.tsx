@@ -19,7 +19,7 @@ import { useTickerToggle } from '../oneshot/hooks/useTickerToggle';
 import { useShortcuts } from '../oneshot/hooks/useShortcuts';
 import { getModules } from '../oneshot/modules/getModules';
 import { groupNomineesForTicker } from '../oneshot/lib/groupNominees';
-import { mapEventToNominees, type AwardsCategoryRow } from '../oneshot/lib/mapEntryToNominee';
+import { mapEventToNominees, nomineeDbId, type AwardsCategoryRow } from '../oneshot/lib/mapEntryToNominee';
 import type { Lang, ModuleKey } from '../oneshot/types';
 
 import '../oneshot/styles/index.css';
@@ -93,7 +93,7 @@ export default function OneShotControlPage() {
     const snap: LiveSnapshot = { nomineeIdx: previewIdx, moduleKey: previewModule, lang };
     liveFlow.take(snap);
     sendCue({
-      entryId: nominees[previewIdx]?.id != null ? hashId(nominees[previewIdx].id) : null,
+      entryId: nomineeDbId(nominees[previewIdx]),
       moduleKey: previewModule,
       tickerOn: tickerFlow.on,
       tickerCatIdx,
@@ -134,20 +134,41 @@ export default function OneShotControlPage() {
     clear,
   });
 
-  // CG preview letterbox
-  const previewRef = useRef<HTMLDivElement>(null);
-  const [cgScale, setCgScale] = useState(0.3);
-  const [cgOff, setCgOff] = useState({ x: 0, y: 0 });
+  // ── Letterbox helpers ──────────────────────────────────────
+  const programRef = useRef<HTMLDivElement>(null);
+  const previewThumbRef = useRef<HTMLDivElement>(null);
+  const [programScale, setProgramScale] = useState(0.3);
+  const [programOff, setProgramOff] = useState({ x: 0, y: 0 });
+  const [thumbScale, setThumbScale] = useState(0.1);
+  const [thumbOff, setThumbOff] = useState({ x: 0, y: 0 });
+
   useEffect(() => {
-    const el = previewRef.current;
+    const el = programRef.current;
     if (!el) return;
     const calc = () => {
       const w = el.offsetWidth;
       const h = el.offsetHeight;
       if (!w || !h) return;
       const s = Math.min(w / CG_W, h / CG_H);
-      setCgScale(s);
-      setCgOff({ x: Math.floor((w - CG_W * s) / 2), y: Math.floor((h - CG_H * s) / 2) });
+      setProgramScale(s);
+      setProgramOff({ x: Math.floor((w - CG_W * s) / 2), y: Math.floor((h - CG_H * s) / 2) });
+    };
+    calc();
+    const ro = new ResizeObserver(calc);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const el = previewThumbRef.current;
+    if (!el) return;
+    const calc = () => {
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      if (!w || !h) return;
+      const s = Math.min(w / CG_W, h / CG_H);
+      setThumbScale(s);
+      setThumbOff({ x: Math.floor((w - CG_W * s) / 2), y: Math.floor((h - CG_H * s) / 2) });
     };
     calc();
     const ro = new ResizeObserver(calc);
@@ -200,19 +221,19 @@ export default function OneShotControlPage() {
         </a>
       </header>
 
-      {/* ── Middle: CG Preview (left) + Nominee panel (right) ───── */}
+      {/* ── Middle: PROGRAM (live mirror) + Nominee panel ─────── */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
         <div
-          ref={previewRef}
+          ref={programRef}
           className="w-full aspect-video lg:aspect-auto lg:flex-1 lg:min-h-0 relative bg-black border-b lg:border-b-0 lg:border-r border-slate-800"
         >
           <div
             style={{
               position: 'absolute',
-              left: cgOff.x,
-              top: cgOff.y,
-              width: CG_W * cgScale,
-              height: CG_H * cgScale,
+              left: programOff.x,
+              top: programOff.y,
+              width: CG_W * programScale,
+              height: CG_H * programScale,
               overflow: 'hidden',
             }}
           >
@@ -220,17 +241,20 @@ export default function OneShotControlPage() {
               style={{
                 width: CG_W,
                 height: CG_H,
-                transform: `scale(${cgScale})`,
+                transform: `scale(${programScale})`,
                 transformOrigin: 'top left',
                 position: 'absolute',
               }}
             >
+              {/* PROGRAM = output mirror. lower-third only mounts when isLive
+                  so CLEAR truly clears the screen (matches what the broadcast
+                  output shows). */}
               <OneShotStage
-                nominee={isLive ? liveNominee : previewNominee}
-                lang={isLive && liveFlow.live ? liveFlow.live.lang : lang}
-                moduleKey={isLive && liveFlow.live ? liveFlow.live.moduleKey : previewModule}
+                nominee={liveNominee}
+                lang={liveFlow.live?.lang ?? lang}
+                moduleKey={liveFlow.live?.moduleKey ?? 'title'}
                 transparent={transparent}
-                lowerThirdMounted={isLive ? liveFlow.mounted : true}
+                lowerThirdMounted={liveFlow.mounted}
                 lowerThirdExiting={liveFlow.exiting}
                 tickerMounted={tickerFlow.mounted}
                 tickerExiting={tickerFlow.exiting}
@@ -239,11 +263,17 @@ export default function OneShotControlPage() {
               />
             </div>
           </div>
-          {!isLive && (
-            <div className="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold tracking-widest uppercase bg-slate-900/80 border border-slate-700/60 text-amber-400">
-              ◇ PREVIEW
-            </div>
-          )}
+          <div
+            className={cn(
+              'absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-black tracking-widest uppercase border',
+              isLive
+                ? 'bg-red-950/70 border-red-800/60 text-red-400'
+                : 'bg-slate-900/80 border-slate-700/60 text-slate-500'
+            )}
+          >
+            <span className={cn('h-1.5 w-1.5 rounded-full', isLive ? 'bg-red-500 animate-pulse' : 'bg-slate-600')} />
+            {isLive ? 'PROGRAM · ON AIR' : 'PROGRAM · OFF'}
+          </div>
         </div>
 
         <div className="w-full lg:w-72 xl:w-80 flex-1 min-h-0 lg:flex-none lg:shrink-0 flex flex-col overflow-hidden">
@@ -264,36 +294,76 @@ export default function OneShotControlPage() {
         </div>
       </div>
 
-      {/* ── Bottom: Module / Ticker / Send ────────────── */}
-      <div className="shrink-0 border-t border-slate-800 bg-slate-900/50 p-3 space-y-2">
-        <ModulePickerRow modules={previewModules} selected={previewModule} onSelect={setPreviewModule} />
-        <TickerControlRow
-          on={tickerFlow.on}
-          categories={tickerCats}
-          selectedIdx={tickerCatIdx}
-          onToggle={onToggleTicker}
-          onSelect={onSelectTickerCat}
-        />
-        <SendActionRow
-          isLive={isLive}
-          transparent={transparent}
-          onTake={take}
-          onClear={clear}
-          onToggleTransparent={onToggleTransparent}
-        />
-        <ShortcutHints />
+      {/* ── Bottom: PREVIEW thumb + Module / Ticker / Send ────── */}
+      <div className="shrink-0 border-t border-slate-800 bg-slate-900/50 p-3">
+        <div className="flex flex-col xl:flex-row gap-3">
+          {/* PREVIEW thumbnail (queued state — what the next TAKE will send) */}
+          <div className="flex flex-col gap-1.5 shrink-0 w-full xl:w-[320px]">
+            <div className="flex items-center gap-1.5 text-[10px] font-black tracking-widest uppercase text-amber-500">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+              PREVIEW · NEXT TAKE
+            </div>
+            <div
+              ref={previewThumbRef}
+              className="relative w-full aspect-video bg-black rounded border border-slate-800 overflow-hidden"
+            >
+              <div
+                style={{
+                  position: 'absolute',
+                  left: thumbOff.x,
+                  top: thumbOff.y,
+                  width: CG_W * thumbScale,
+                  height: CG_H * thumbScale,
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    width: CG_W,
+                    height: CG_H,
+                    transform: `scale(${thumbScale})`,
+                    transformOrigin: 'top left',
+                    position: 'absolute',
+                  }}
+                >
+                  <OneShotStage
+                    nominee={previewNominee}
+                    lang={lang}
+                    moduleKey={previewModule}
+                    transparent={transparent}
+                    lowerThirdMounted={true}
+                    lowerThirdExiting={false}
+                    tickerMounted={tickerFlow.on}
+                    tickerExiting={false}
+                    tickerOn={tickerFlow.on}
+                    tickerCategory={currentTicker}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Controls column */}
+          <div className="flex-1 min-w-0 space-y-2">
+            <ModulePickerRow modules={previewModules} selected={previewModule} onSelect={setPreviewModule} />
+            <TickerControlRow
+              on={tickerFlow.on}
+              categories={tickerCats}
+              selectedIdx={tickerCatIdx}
+              onToggle={onToggleTicker}
+              onSelect={onSelectTickerCat}
+            />
+            <SendActionRow
+              isLive={isLive}
+              transparent={transparent}
+              onTake={take}
+              onClear={clear}
+              onToggleTransparent={onToggleTransparent}
+            />
+            <ShortcutHints />
+          </div>
+        </div>
       </div>
     </div>
   );
-}
-
-// Convert Nominee.id (string) to a stable numeric hash.
-// 1S CG cue payload uses entryId as int (DB column awards_oneshot_cue_state.entry_id).
-// For seed data we don't have a real DB id, so we hash. For real entries the
-// mapper would set id = `entry-{dbId}`, which we can detect.
-function hashId(id: string): number | null {
-  const m = id.match(/^entry-(\d+)$/);
-  if (m) return parseInt(m[1], 10);
-  // Otherwise: not a real DB row (seed data) — keep null
-  return null;
 }
