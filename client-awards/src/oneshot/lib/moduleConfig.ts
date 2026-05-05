@@ -1,18 +1,71 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '@/lib/api';
 import type { EventModuleConfig, ModuleDef, Nominee } from '../types';
 import { createDefaultEventModuleConfig } from '../data/presetModules';
 
-// ── 段階1 (v2.8.71): EventModuleConfig 操作ヘルパー ────────────
-// 段階1 では永続化が未実装のため、全イベントが「デフォルトプリセット 7種」を返す。
-// 段階3 で API/DB (awards_events.module_config JSONB) に差し替える。
+// ── EventModuleConfig 操作ヘルパー ────────────────────────────
+// v2.8.74 (段階3): 永続化を実装。
+//   ・GET /awards/events/:id/module-config → JSONB or null
+//   ・PUT /awards/events/:id/module-config → JSON 保存 (null で「プリセット復帰」)
+//   ・null を返したらクライアント側で createDefaultEventModuleConfig() で補完
+//
+// 段階4 で編集 UI を追加し、ユーザーがモジュールを追加・編集・削除できるようにする。
 
-/** イベントの送出モジュール構成を取得。
- *  段階1 (永続化未実装): 常にデフォルトプリセットを返す。
- *  段階3 で `GET /awards/events/:id/module-config` 呼び出しに置き換え。 */
+const QUERY_KEY = (eventId: number) => ['awards-module-config', eventId] as const;
+
+/** イベントの送出モジュール構成を取得。NULL のときは null を返す (= デフォルト未編集状態)。 */
+export async function fetchEventModuleConfig(eventId: number): Promise<EventModuleConfig | null> {
+  const res = await api.get(`/awards/events/${eventId}/module-config`);
+  return (res.data?.data ?? null) as EventModuleConfig | null;
+}
+
+/** イベントに送出モジュール構成を保存。null を渡すと「プリセット復帰」。 */
+export async function saveEventModuleConfig(
+  eventId: number,
+  config: EventModuleConfig | null,
+): Promise<EventModuleConfig | null> {
+  const res = await api.put(`/awards/events/${eventId}/module-config`, { config });
+  return (res.data?.data ?? null) as EventModuleConfig | null;
+}
+
+/** react-query フック。サーバー値が null のときはクライアントのデフォルトプリセットで補完。 */
+export function useEventModuleConfig(eventId: number | null) {
+  return useQuery({
+    queryKey: eventId ? QUERY_KEY(eventId) : ['awards-module-config', 'noop'],
+    queryFn: async () => {
+      if (!eventId) return createDefaultEventModuleConfig();
+      const remote = await fetchEventModuleConfig(eventId);
+      return remote ?? createDefaultEventModuleConfig();
+    },
+    enabled: !!eventId,
+    staleTime: 60_000,
+  });
+}
+
+/** Mutation フック。保存後 cache を invalidate して再取得。 */
+export function useSaveEventModuleConfig(eventId: number | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (config: EventModuleConfig | null) => {
+      if (!eventId) throw new Error('eventId 未指定');
+      return await saveEventModuleConfig(eventId, config);
+    },
+    onSuccess: () => {
+      if (eventId) qc.invalidateQueries({ queryKey: QUERY_KEY(eventId) });
+    },
+  });
+}
+
+// ── 同期版ヘルパー (DynamicModule など、レンダリング中に呼ぶ場所用) ──
+
+/** 段階1 互換シグネチャ。同期版なのでデフォルトプリセットしか返せない。
+ *  実際にイベント別 config を読みたい場所では useEventModuleConfig を使うこと。 */
 export function loadEventModuleConfig(_eventId: number): EventModuleConfig {
   return createDefaultEventModuleConfig();
 }
 
-/** モジュールが現在のノミネートに対して表示可能か (visibility 判定) */
+// ── visibility / order ヘルパー (段階1 から継続) ────────────
+
 export function isModuleVisible(mod: ModuleDef, n: Nominee | null): boolean {
   if (!n) return mod.visibility !== 'team-only' && mod.visibility !== 'individual-only';
   switch (mod.visibility ?? 'always') {
@@ -22,7 +75,6 @@ export function isModuleVisible(mod: ModuleDef, n: Nominee | null): boolean {
   }
 }
 
-/** order 昇順 + visibility 適用済みのモジュール一覧。ピッカー UI / shortcut 解決に使用。 */
 export function getOrderedVisibleModules(
   config: EventModuleConfig,
   n: Nominee | null,
@@ -36,7 +88,6 @@ export function getOrderedVisibleModules(
     });
 }
 
-/** shortcutKey ('0'〜'9') から ModuleDef を解決。重複時は order が小さい方が勝つ。 */
 export function findModuleByShortcut(
   config: EventModuleConfig,
   n: Nominee | null,
@@ -45,7 +96,6 @@ export function findModuleByShortcut(
   return getOrderedVisibleModules(config, n).find((m) => m.shortcutKey === shortcutKey);
 }
 
-/** 段階4 で重複検出に使用。同 shortcutKey を持つモジュールを列挙。 */
 export function detectShortcutConflicts(
   config: EventModuleConfig,
 ): Record<string, ModuleDef[]> {

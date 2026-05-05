@@ -61,6 +61,7 @@ export default function OneShotOutputPage() {
   const transparent = cue.transparent;
   const tickerOn = cue.tickerOn;
   const showPortrait = cue.showPortrait ?? true;
+  const bilingual = cue.bilingual ?? false;
   // v2.8.72+: 動的レンダラ A/B (per-device localStorage、段階2.1 で削除予定)
   const useDynamicRenderer =
     (typeof localStorage !== 'undefined'
@@ -125,6 +126,7 @@ export default function OneShotOutputPage() {
             tickerCategory={currentTicker}
             showPortrait={showPortrait}
             useDynamicRenderer={useDynamicRenderer}
+            bilingual={bilingual}
           />
         </div>
       </div>

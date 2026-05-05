@@ -587,3 +587,25 @@
 }
 .oneshot-cg-root .lt-rec-quote-l { margin-right: 6px; }
 .oneshot-cg-root .lt-rec-quote-r { margin-left: 6px; }
+
+/* v2.8.74+: 日英両方表示 (bilingual) スタック */
+.oneshot-cg-root .lt-bilingual {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.oneshot-cg-root .lt-bilingual-en {
+  font-size: 0.7em;
+  opacity: 0.78;
+  color: var(--text-dim);
+}
+/* EN 側内部の見出しラベルや子要素も比例して小さく */
+.oneshot-cg-root .lt-bilingual-en .lt-module-label,
+.oneshot-cg-root .lt-bilingual-en .lt-module-title,
+.oneshot-cg-root .lt-bilingual-en .lt-module-body,
+.oneshot-cg-root .lt-bilingual-en .lt-respect,
+.oneshot-cg-root .lt-bilingual-en .lt-rec-body,
+.oneshot-cg-root .lt-bilingual-en .lt-tags-ism,
+.oneshot-cg-root .lt-bilingual-en .lt-tag {
+  font-size: inherit;
+}

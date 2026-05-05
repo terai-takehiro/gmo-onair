@@ -21,6 +21,8 @@ interface Props {
   /** v2.8.72+: 動的レンダラ (ModuleDef 駆動) を使うか。
    *  default true。false の場合は v2.8.71 以前のハードコード版で描画。 */
   useDynamicRenderer?: boolean;
+  /** v2.8.74+: 日英両方表示モード。DynamicModule のスロットが JA + EN の縦スタックを描画する。 */
+  bilingual?: boolean;
 }
 
 // 表彰式テロップCG (1920x1080, 背景透過対応)
@@ -34,6 +36,7 @@ export default function LowerThirdCG({
   exiting = false,
   showPortrait = true,
   useDynamicRenderer = true,
+  bilingual = false,
 }: Props) {
   const n = nominee;
   const isTeam = n.type === 'team';
@@ -85,7 +88,7 @@ export default function LowerThirdCG({
                   keyId={`${n.id}-${lang}-${useDynamicRenderer ? dynamicMod?.id ?? mod.key : mod.key}`}
                 >
                   {useDynamicRenderer && dynamicMod
-                    ? <DynamicModule def={dynamicMod} nominee={n} lang={lang} />
+                    ? <DynamicModule def={dynamicMod} nominee={n} lang={lang} bilingual={bilingual} />
                     : mod.render()}
                 </SlotSwitcher>
               )}

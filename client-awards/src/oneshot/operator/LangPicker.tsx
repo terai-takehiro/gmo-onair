@@ -1,15 +1,22 @@
 import { cn } from '@/lib/utils';
 import type { Lang } from '../types';
 
+// v2.8.74+: ranking CG の PreviewLang ('ja'|'en'|'both') と同等の 3-mode 化。
+// 'both' の場合は内部的に lang='ja' + bilingual=true として扱う。
+export type LangMode = 'ja' | 'en' | 'both';
+
 interface Props {
-  value: Lang;
-  onChange: (v: Lang) => void;
+  /** 現在の (lang, bilingual) ペアから派生したモード */
+  value: LangMode;
+  /** モード変更 → (lang, bilingual) に分解されて親で sendCue */
+  onChange: (mode: LangMode) => void;
 }
 
 export default function LangPicker({ value, onChange }: Props) {
-  const opts: { v: Lang; label: string }[] = [
-    { v: 'ja', label: 'JA' },
-    { v: 'en', label: 'EN' },
+  const opts: { v: LangMode; label: string }[] = [
+    { v: 'ja',   label: 'JA'    },
+    { v: 'en',   label: 'EN'    },
+    { v: 'both', label: 'JA/EN' },
   ];
   return (
     <div
@@ -32,4 +39,16 @@ export default function LangPicker({ value, onChange }: Props) {
       ))}
     </div>
   );
+}
+
+/** (lang, bilingual) ペア → LangMode に変換 */
+export function toLangMode(lang: Lang, bilingual: boolean): LangMode {
+  if (bilingual) return 'both';
+  return lang;
+}
+
+/** LangMode → (lang, bilingual) ペアに分解 */
+export function fromLangMode(mode: LangMode): { lang: Lang; bilingual: boolean } {
+  if (mode === 'both') return { lang: 'ja', bilingual: true };
+  return { lang: mode, bilingual: false };
 }

@@ -15,9 +15,13 @@ import { CSS } from '@dnd-kit/utilities';
 import {
   Trophy, ChevronLeft, Plus, Trash2, Check, X, GripVertical,
   Upload, RefreshCw, Tv2, Shuffle, FileSpreadsheet, ExternalLink, Copy,
-  ChevronDown, ChevronRight, Subtitles,
+  ChevronDown, ChevronRight, Subtitles, Download, RotateCcw,
 } from 'lucide-react';
 import ExcelImportDialog from '../oneshot/operator/ExcelImportDialog';
+import {
+  fetchEventModuleConfig, saveEventModuleConfig,
+} from '../oneshot/lib/moduleConfig';
+import { createDefaultEventModuleConfig } from '../oneshot/data/presetModules';
 
 // ── Types ───────────────────────────────────────────────────
 interface Entry {
@@ -753,6 +757,9 @@ export default function EventEditorPage() {
         </div>
       )}
 
+      {/* ── 下位置CG モジュール構成 (Stage 3: JSON エクスポート/インポート) ── */}
+      {event && <ModuleConfigSection eventId={event.id} />}
+
       {/* ── Excel Import Dialog ─────────────────────────────── */}
       <ExcelImportDialog
         open={importOpen}
@@ -760,6 +767,139 @@ export default function EventEditorPage() {
         eventId={eventId}
         onImported={() => invalidate()}
       />
+    </div>
+  );
+}
+
+// ── 下位置CG モジュール構成 セクション (v2.8.74+) ────────────
+// イベントごとの ModuleDef[] (送出モジュール構成) を JSON でエクスポート/インポート。
+// 段階4 で編集 UI を追加するまで、このセクションは「初期化 + I/O」のみ。
+function ModuleConfigSection({ eventId }: { eventId: number }) {
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExport = async () => {
+    setBusy(true);
+    setStatus(null);
+    try {
+      // サーバーが null を返した場合 (= まだ未編集) はデフォルトプリセットをエクスポート
+      const remote = await fetchEventModuleConfig(eventId);
+      const config = remote ?? createDefaultEventModuleConfig();
+      const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `oneshot-module-config_event-${eventId}_${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setStatus({ kind: 'ok', msg: 'JSON をエクスポートしました' });
+    } catch (e) {
+      setStatus({ kind: 'err', msg: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleImport = async (file: File) => {
+    setBusy(true);
+    setStatus(null);
+    try {
+      const text = await file.text();
+      const config = JSON.parse(text);
+      if (config.version !== 1 || !Array.isArray(config.modules)) {
+        throw new Error('JSON 形式が不正です (version=1, modules:[] を含む必要があります)');
+      }
+      await saveEventModuleConfig(eventId, config);
+      setStatus({ kind: 'ok', msg: `インポート完了 (${config.modules.length} モジュール)` });
+    } catch (e) {
+      setStatus({ kind: 'err', msg: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleReset = async () => {
+    if (!window.confirm('モジュール構成をデフォルトプリセットに戻しますか？')) return;
+    setBusy(true);
+    setStatus(null);
+    try {
+      await saveEventModuleConfig(eventId, null);
+      setStatus({ kind: 'ok', msg: 'デフォルトプリセットに戻しました' });
+    } catch (e) {
+      setStatus({ kind: 'err', msg: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl bg-card border border-border p-4 sm:p-6 space-y-4">
+      <div className="flex items-start gap-2">
+        <Subtitles className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-bold flex items-center gap-2">
+            下位置CG モジュール構成
+            <span className="text-[10px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+              段階3 (JSON I/O)
+            </span>
+          </h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            送出モジュール (タイトル / 尊敬ポイント / 得意技 等) の構成を JSON でエクスポート/インポートできます。
+            別イベント・別環境への移植や BOX への手動バックアップに利用してください。
+            DB 自動バックアップ (3 時間ごと BOX) でもこの設定は保護されます。
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          onClick={handleExport}
+          disabled={busy}
+          className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <Download className="h-3.5 w-3.5" />
+          JSON エクスポート
+        </button>
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={busy}
+          className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <Upload className="h-3.5 w-3.5" />
+          JSON インポート
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) handleImport(f);
+            e.target.value = '';
+          }}
+        />
+        <button
+          onClick={handleReset}
+          disabled={busy}
+          className="flex items-center gap-1.5 rounded-lg border border-red-300 text-red-700 px-3 py-2 text-xs font-bold hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          title="デフォルトプリセット (タイトル / 尊敬ポイント など 7 種) に戻す"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          プリセットに戻す
+        </button>
+        {status && (
+          <span
+            className={cn(
+              'text-xs font-medium px-2 py-1 rounded',
+              status.kind === 'ok' ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' : 'text-red-700 bg-red-50 border border-red-200'
+            )}
+          >
+            {status.msg}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

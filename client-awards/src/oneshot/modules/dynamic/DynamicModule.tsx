@@ -14,9 +14,11 @@ interface Props {
   def: ModuleDef;
   nominee: Nominee;
   lang: Lang;
+  /** v2.8.74+: 日英両方表示モード。スロットごとに JA + EN の縦スタックを描画する。 */
+  bilingual?: boolean;
 }
 
-export default function DynamicModule({ def, nominee, lang }: Props) {
+export default function DynamicModule({ def, nominee, lang, bilingual = false }: Props) {
   const groups = groupHeaderSlots(def.slots);
 
   return (
@@ -26,14 +28,43 @@ export default function DynamicModule({ def, nominee, lang }: Props) {
           return (
             <div key={`head-${i}`} className="lt-module-head">
               {g.slots.map((s) => (
-                <Fragment key={s.id}>{renderSlot(s, nominee, lang)}</Fragment>
+                <Fragment key={s.id}>{renderSlotMaybeBilingual(s, nominee, lang, bilingual)}</Fragment>
               ))}
             </div>
           );
         }
-        return <Fragment key={g.slot.id}>{renderSlot(g.slot, nominee, lang)}</Fragment>;
+        return (
+          <Fragment key={g.slot.id}>
+            {renderSlotMaybeBilingual(g.slot, nominee, lang, bilingual)}
+          </Fragment>
+        );
       })}
     </>
+  );
+}
+
+/** v2.8.74+: bilingual=true のとき、JA + EN の 2 つのスロット出力を縦スタックする。
+ *  EN 側は CSS .lt-bilingual-en で小さく/dim 表示。byline / members-grid のように
+ *  バイリンガル化に向かないスロット種別は単一レンダリングに退避。 */
+function renderSlotMaybeBilingual(
+  slot: SlotDef,
+  n: Nominee,
+  lang: Lang,
+  bilingual: boolean,
+): ReactNode {
+  // バイリンガル不適合のスロット種別はそのまま単一レンダリング
+  if (
+    !bilingual ||
+    slot.kind === 'header-byline' ||
+    slot.kind === 'body-members-grid'
+  ) {
+    return renderSlot(slot, n, lang);
+  }
+  return (
+    <div className="lt-bilingual">
+      <div className="lt-bilingual-ja">{renderSlot(slot, n, 'ja')}</div>
+      <div className="lt-bilingual-en">{renderSlot(slot, n, 'en')}</div>
+    </div>
   );
 }
 

@@ -96,6 +96,9 @@ export interface OneShotCueState {
   isLive: boolean;
   /** v2.8.70+: 画像 (Portrait) を表示するか。OFF の場合は左 168px の画像エリアを畳んだ単列レイアウトになる */
   showPortrait: boolean;
+  /** v2.8.74+: 日英両方表示モード。true のとき DynamicModule が JA + EN を縦スタックで描画する。
+   *  ranking CG の `previewLang='both'` と同等の UX。`lang` は primary 言語 (JA を推奨) を保持する。 */
+  bilingual: boolean;
 }
 
 // ── 段階1 (v2.8.71+): 動的モジュールスキーマ ────────────────

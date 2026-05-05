@@ -19,6 +19,8 @@ interface Props {
   showPortrait?: boolean;
   /** v2.8.72+: 動的レンダラ (ModuleDef 駆動) を使うか (default: true) */
   useDynamicRenderer?: boolean;
+  /** v2.8.74+: 日英両方表示モード (default: false) */
+  bilingual?: boolean;
 }
 
 // 1920x1080 のCG出力ステージ。operator/output どちらでも使える。
@@ -36,6 +38,7 @@ export default function OneShotStage({
   tickerCategory,
   showPortrait = true,
   useDynamicRenderer = true,
+  bilingual = false,
 }: Props) {
   return (
     <div className="oneshot-cg-root" style={{ position: 'relative', width: 1920, height: 1080 }}>
@@ -49,6 +52,7 @@ export default function OneShotStage({
           exiting={lowerThirdExiting}
           showPortrait={showPortrait}
           useDynamicRenderer={useDynamicRenderer}
+          bilingual={bilingual}
         />
       )}
       {/* Background-only stage when lower-third is unmounted (transparent stays transparent) */}

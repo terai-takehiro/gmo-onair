@@ -119,6 +119,44 @@ router.put('/events/:id', wrap(async (req, res) => {
   res.json({ success: true, data: row });
 }));
 
+// ── 1S CG モジュール構成 (module_config) ────────────────────
+// v2.8.74+: ユーザーが追加・編集した送出モジュールの構成を保存。
+// NULL は「デフォルトプリセット使用」、設定済みは EventModuleConfig (JSON)。
+router.get('/events/:id/module-config', wrap(async (req, res) => {
+  const id = parseInt(req.params.id as string);
+  const row = await queryOne(
+    `SELECT module_config FROM awards_events WHERE id = ?`, [id]
+  );
+  if (!row) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
+  // module_config が NULL のときは null を返す (クライアントがデフォルトプリセットを使う)
+  res.json({ success: true, data: row.module_config ?? null });
+}));
+
+router.put('/events/:id/module-config', wrap(async (req, res) => {
+  const id = parseInt(req.params.id as string);
+  const config = req.body?.config;
+  // null が来た場合はデフォルト復帰 (column を NULL にセット)
+  if (config !== null && (typeof config !== 'object' || Array.isArray(config))) {
+    throw new AppError(400, 'BAD_REQUEST', 'config はオブジェクト or null で送信してください');
+  }
+  if (config !== null) {
+    if (config.version !== 1) {
+      throw new AppError(400, 'BAD_REQUEST', 'config.version は 1 のみ対応');
+    }
+    if (!Array.isArray(config.modules)) {
+      throw new AppError(400, 'BAD_REQUEST', 'config.modules は配列で送信してください');
+    }
+  }
+  const json = config === null ? null : JSON.stringify(config);
+  const row = await queryOne(
+    `UPDATE awards_events SET module_config = ?::jsonb, updated_at = NOW()
+     WHERE id = ? RETURNING module_config`,
+    [json, id]
+  );
+  if (!row) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
+  res.json({ success: true, data: row.module_config ?? null });
+}));
+
 // ── ステータス変更 ───────────────────────────────────────────
 router.post('/events/:id/status', wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);

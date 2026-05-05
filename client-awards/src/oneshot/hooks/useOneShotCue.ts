@@ -11,6 +11,7 @@ const DEFAULT_CUE: OneShotCueState = {
   lang: 'ja',
   isLive: false,
   showPortrait: true,
+  bilingual: false,
 };
 
 interface SyncPayload extends OneShotCueState {
@@ -38,6 +39,7 @@ export function useOneShotCue(eventId: number | null) {
         lang: data.lang === 'en' ? 'en' : 'ja',
         isLive: !!data.isLive,
         showPortrait: data.showPortrait ?? true,
+        bilingual: !!data.bilingual,
       });
     };
     socket.on('oneshot:sync', onSync);

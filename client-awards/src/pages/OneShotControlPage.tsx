@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { ChevronLeft, ExternalLink, Radio, Subtitles, Tv2, Languages, Database, Image as ImageIcon, ImageOff, Cpu } from 'lucide-react';
 
 import OneShotStage from '../oneshot/OneShotStage';
-import LangPicker from '../oneshot/operator/LangPicker';
+import LangPicker, { fromLangMode, type LangMode } from '../oneshot/operator/LangPicker';
 import NomineePanel, { filterNominees } from '../oneshot/operator/NomineePanel';
 import ModulePickerRow from '../oneshot/operator/ModulePickerRow';
 import TickerControlRow from '../oneshot/operator/TickerControlRow';
@@ -52,13 +52,16 @@ export default function OneShotControlPage() {
   const eventId = parseInt(id!);
   const navigate = useNavigate();
 
-  const [lang, setLang] = useState<Lang>(() => {
+  // v2.8.74+: 3-mode 化 ('ja'|'en'|'both')
+  const [langMode, setLangMode] = useState<LangMode>(() => {
     const v = localStorage.getItem(LANG_KEY);
-    return v === 'en' ? 'en' : 'ja';
+    return v === 'en' || v === 'both' ? v : 'ja';
   });
   useEffect(() => {
-    localStorage.setItem(LANG_KEY, lang);
-  }, [lang]);
+    localStorage.setItem(LANG_KEY, langMode);
+  }, [langMode]);
+  // 内部用: primary 言語 + bilingual フラグに分解
+  const { lang, bilingual } = fromLangMode(langMode);
 
   // v2.8.72+: 動的レンダラ vs ハードコード版の A/B 切替 (localStorage)
   const [useDynamicRenderer, setUseDynamicRenderer] = useState<boolean>(() => {
@@ -157,6 +160,7 @@ export default function OneShotControlPage() {
       lang,
       isLive: true,
       showPortrait,
+      bilingual,
     });
   };
   const clear = () => {
@@ -182,9 +186,10 @@ export default function OneShotControlPage() {
     setShowPortrait(v);
     sendCue({ ...cue, showPortrait: v });
   };
-  const onChangeLang = (v: Lang) => {
-    setLang(v);
-    sendCue({ ...cue, lang: v });
+  const onChangeLangMode = (mode: LangMode) => {
+    setLangMode(mode);
+    const next = fromLangMode(mode);
+    sendCue({ ...cue, lang: next.lang, bilingual: next.bilingual });
   };
 
   // ↑↓ で フィルタ済みノミネート間を循環
@@ -337,7 +342,7 @@ export default function OneShotControlPage() {
           <Cpu className="h-3 w-3" />
           {useDynamicRenderer ? 'Dynamic' : 'Legacy'}
         </button>
-        <LangPicker value={lang} onChange={onChangeLang} />
+        <LangPicker value={langMode} onChange={onChangeLangMode} />
         <a
           href={`/awards/output/${eventId}/oneshot?lang=${lang}`}
           target="_blank"
@@ -388,6 +393,7 @@ export default function OneShotControlPage() {
                 tickerCategory={tickerCategory}
                 showPortrait={showPortrait}
                 useDynamicRenderer={useDynamicRenderer}
+                bilingual={bilingual}
               />
             </div>
           </div>
