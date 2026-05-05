@@ -50,9 +50,11 @@ export function useAnimatedHeight<T extends HTMLElement>(
         currentAnim.current = null;
       }
       try {
+        // v2.8.78: 'cubic-bezier(.4,0,.2,1)' (Material 標準) → expoOut '.16,1,.3,1'
+        // で「すっと動いて柔らかく止まる」自然なリサイズ感に
         const anim = el.animate(
           [{ height: fromActual + 'px' }, { height: target + 'px' }],
-          { duration, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'none' }
+          { duration, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'none' }
         );
         currentAnim.current = anim;
         anim.onfinish = () => {

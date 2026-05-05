@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { EventModuleConfig, Lang, ModuleKey, Nominee } from './types';
 import { getModules } from './modules/getModules';
 import DynamicModule from './modules/dynamic/DynamicModule';
 import { createDefaultEventModuleConfig } from './data/presetModules';
 import { findModuleByCueKey } from './lib/moduleKeyMap';
 import { useAnimatedHeight } from './hooks/useAnimatedHeight';
+import { SLOT_PHASE_EXIT_MS } from './animation/timings';
 import SlotSwitcher from './animation/SlotSwitcher';
 import AwardHeader from './headline/AwardHeader';
 import Headline from './headline/Headline';
@@ -62,10 +63,26 @@ export default function LowerThirdCG({
       ? !!(dynamicMod && dynamicMod.slots.length > 0)
       : true
   );
+
+  // v2.8.78+: wide モード切替を SlotSwitcher の resize phase と同期。
+  // moduleKey 変更後、SLOT_PHASE_EXIT_MS (200ms) 経ってから isWide を反映 →
+  // 旧コンテンツのフェードアウト中は古い width を維持、フェードアウト完了後に
+  // width / height を同時に変化させ、新コンテンツのフェードインに繋げる。
+  const [delayedModuleKey, setDelayedModuleKey] = useState(moduleKey);
+  useEffect(() => {
+    if (moduleKey === delayedModuleKey) return;
+    const t = setTimeout(() => setDelayedModuleKey(moduleKey), SLOT_PHASE_EXIT_MS);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moduleKey]);
+  const delayedDynamicMod = useMemo(
+    () => findModuleByCueKey(effectiveConfig, delayedModuleKey),
+    [effectiveConfig, delayedModuleKey]
+  );
   // 長文系: dynamic は ModuleDef.width を読む、legacy は preset 短キー判定
   const isWide = isTeam || (useDynamicRenderer
-    ? dynamicMod?.width === 'wide'
-    : (moduleKey === 'comment' || moduleKey === 'recComment'));
+    ? delayedDynamicMod?.width === 'wide'
+    : (delayedModuleKey === 'comment' || delayedModuleKey === 'recComment'));
 
   // 高さアニメーション (v2.8.73+: ResizeObserver で content size の変化を検知)
   const panelRef = useAnimatedHeight<HTMLDivElement>();
