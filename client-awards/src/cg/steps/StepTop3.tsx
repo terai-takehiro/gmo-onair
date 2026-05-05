@@ -10,25 +10,28 @@ interface Props {
   lang?: 'ja' | 'en';
 }
 
-const REVEAL_DELAY: Record<number, number> = { 3: 200, 2: 700, 1: 1300 };
+/** Phase 1: ランクバッジ + 空のカードフレーム + ポイント数字が出る。
+ *  Phase 2: 写真本体 + 会社名 + 氏名がクロスフェードで現れる。
+ *  3→2→1 の順で stagger。テンポはゆっくり目（全体 ~6 秒）。 */
+const POINTS_DELAY: Record<number, number> = { 3:  600, 2: 2400, 1: 4200 };
+const REVEAL_DELAY: Record<number, number> = { 3: 1500, 2: 3300, 1: 5100 };
 
-/** BEST3 ステージ。
- *
- *  写真本体もここで描画する（PhotoStage の写真は top3 中は fade out のみ
- *  でその場に残るので、グリッド → TOP3 への移動が画面上に見えない＝ネタ
- *  バレしない）。表示は 3→2→1 の順に stagger reveal される。
- */
 export default function StepTop3({ entries, lang = 'ja' }: Props) {
   const top3 = [...entries]
     .sort((a, b) => a.rank - b.rank)
     .filter((e) => e.rank >= 1 && e.rank <= 3);
 
-  const [revealed, setRevealed] = useState<Record<number, boolean>>({});
+  const [pointsShown, setPointsShown] = useState<Record<number, boolean>>({});
+  const [revealed,    setRevealed]    = useState<Record<number, boolean>>({});
 
   useEffect(() => {
+    setPointsShown({});
     setRevealed({});
     const timers: ReturnType<typeof setTimeout>[] = [];
     ([3, 2, 1] as const).forEach((r) => {
+      timers.push(
+        setTimeout(() => setPointsShown((p) => ({ ...p, [r]: true })), POINTS_DELAY[r]),
+      );
       timers.push(
         setTimeout(() => setRevealed((p) => ({ ...p, [r]: true })), REVEAL_DELAY[r]),
       );
@@ -42,6 +45,7 @@ export default function StepTop3({ entries, lang = 'ja' }: Props) {
         <Top3Card
           key={e.id}
           entry={e}
+          pointsShown={pointsShown[e.rank] === true}
           revealed={revealed[e.rank] === true}
           lang={lang}
         />
@@ -52,14 +56,12 @@ export default function StepTop3({ entries, lang = 'ja' }: Props) {
 
 interface CardProps {
   entry: CgMappedEntry;
+  pointsShown: boolean;
   revealed: boolean;
   lang?: 'ja' | 'en';
 }
 
-/** NOMINEES と同じ "写真 4:3 portrait + 下ラベル + コーナーブラケット"
- *  構造で、サイズを大きくした版。1 位はブラケットを太く + 内側金線 +
- *  ソフトグローで区別する（サイズ階層なし）。 */
-function Top3Card({ entry, revealed, lang = 'ja' }: CardProps) {
+function Top3Card({ entry, pointsShown, revealed, lang = 'ja' }: CardProps) {
   const pos = TOP3_POS[entry.rank as 1 | 2 | 3];
   if (!pos) return null;
   const displayName    = lang === 'en' ? (entry.nameEn || entry.name)    : entry.name;
@@ -90,14 +92,14 @@ function Top3Card({ entry, revealed, lang = 'ja' }: CardProps) {
         width: pos.w,
         height: pos.h + TOP3_LABEL_GAP + pos.companySize * 1.4
               + 8 + pos.nameSize * 1.15 + 24 + pos.ptSize + 24,
-        opacity: revealed ? 1 : 0,
-        transform: revealed ? 'translateY(0) scale(1)' : 'translateY(40px) scale(0.94)',
+        opacity: pointsShown ? 1 : 0,
+        transform: pointsShown ? 'translateY(0) scale(1)' : 'translateY(40px) scale(0.94)',
         transition:
-          'opacity 700ms ease, transform 880ms cubic-bezier(.2,1,.3,1)',
+          'opacity 800ms ease, transform 1000ms cubic-bezier(.2,1,.3,1)',
         willChange: 'transform, opacity',
       }}
     >
-      {/* Rank number badge */}
+      {/* Rank number badge — Phase 1 から表示 */}
       <div
         style={{
           position: 'absolute',
@@ -120,8 +122,7 @@ function Top3Card({ entry, revealed, lang = 'ja' }: CardProps) {
         {entry.rank}
       </div>
 
-      {/* Photo frame: actual image rendered here (not in PhotoStage) so
-          it appears fresh at TOP3 position with no morph from grid. */}
+      {/* Photo frame: 枠は Phase 1 から表示、写真本体は Phase 2 でフェードイン */}
       <div
         style={{
           position: 'absolute',
@@ -137,18 +138,27 @@ function Top3Card({ entry, revealed, lang = 'ja' }: CardProps) {
             : '0 4px 12px rgba(0,0,0,0.5)',
         }}
       >
-        {entry.photo ? (
-          <img
-            src={entry.photo}
-            alt={displayName}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          />
-        ) : (
-          <PortraitPlaceholder entry={entry} seed={entry.rank} />
-        )}
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            opacity: revealed ? 1 : 0,
+            transition: 'opacity 900ms ease',
+          }}
+        >
+          {entry.photo ? (
+            <img
+              src={entry.photo}
+              alt={displayName}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+          ) : (
+            <PortraitPlaceholder entry={entry} seed={entry.rank} />
+          )}
+        </div>
       </div>
 
-      {/* Corner brackets — 1 位は太め (3px×32) で強調、2-3 位は細め (2px×26) */}
+      {/* Corner brackets (装飾。フレームと一緒に Phase 1 から表示) */}
       <Bracket pos="tl" size={bracketSize} stroke={bracketStroke} color={bracketColor} cardW={pos.w} cardH={pos.h} />
       <Bracket pos="tr" size={bracketSize} stroke={bracketStroke} color={bracketColor} cardW={pos.w} cardH={pos.h} />
       <Bracket pos="bl" size={bracketSize} stroke={bracketStroke} color={bracketColor} cardW={pos.w} cardH={pos.h} />
@@ -165,40 +175,50 @@ function Top3Card({ entry, revealed, lang = 'ja' }: CardProps) {
           pointerEvents: 'none',
         }}
       >
-        {displayCompany && (
+        {/* Company + Name は Phase 2 でクロスフェード + わずかにスライドアップ */}
+        <div
+          style={{
+            opacity: revealed ? 1 : 0,
+            transform: revealed ? 'translateY(0)' : 'translateY(8px)',
+            transition: 'opacity 900ms ease, transform 900ms cubic-bezier(.2,1,.3,1)',
+          }}
+        >
+          {displayCompany && (
+            <div
+              style={{
+                fontFamily: "'Noto Sans JP', sans-serif",
+                fontWeight: 600,
+                fontSize: pos.companySize,
+                letterSpacing: '0.2em',
+                paddingLeft: '0.2em',
+                color: '#bfa15a',
+                lineHeight: 1.2,
+                marginBottom: 8,
+                textShadow: '0 1px 4px rgba(0,0,0,0.85)',
+                ...fitStyle(compFit),
+              }}
+            >
+              {displayCompany}
+            </div>
+          )}
           <div
             style={{
               fontFamily: "'Noto Sans JP', sans-serif",
-              fontWeight: 600,
-              fontSize: pos.companySize,
-              letterSpacing: '0.2em',
-              paddingLeft: '0.2em',
-              color: '#bfa15a',
-              lineHeight: 1.2,
-              marginBottom: 8,
-              textShadow: '0 1px 4px rgba(0,0,0,0.85)',
-              ...fitStyle(compFit),
+              fontWeight: 900,
+              fontSize: pos.nameSize,
+              letterSpacing: '0.06em',
+              paddingLeft: '0.06em',
+              lineHeight: 1.15,
+              color: '#fff',
+              textShadow: '0 2px 6px rgba(0,0,0,0.9)',
+              ...fitStyle(nameFit),
             }}
           >
-            {displayCompany}
+            {displayName}
           </div>
-        )}
-        <div
-          style={{
-            fontFamily: "'Noto Sans JP', sans-serif",
-            fontWeight: 900,
-            fontSize: pos.nameSize,
-            letterSpacing: '0.06em',
-            paddingLeft: '0.06em',
-            lineHeight: 1.15,
-            color: '#fff',
-            textShadow: '0 2px 6px rgba(0,0,0,0.9)',
-            ...fitStyle(nameFit),
-          }}
-        >
-          {displayName}
         </div>
 
+        {/* Points は Phase 1 から CountUp で表示 (先出しで期待感を演出) */}
         <div
           style={{
             display: 'flex',
@@ -218,7 +238,7 @@ function Top3Card({ entry, revealed, lang = 'ja' }: CardProps) {
               textShadow: '0 2px 6px rgba(0,0,0,0.9)',
             }}
           >
-            <CountUp value={revealed ? entry.points : 0} duration={900} />
+            <CountUp value={pointsShown ? entry.points : 0} duration={1100} />
           </span>
           <span
             style={{
