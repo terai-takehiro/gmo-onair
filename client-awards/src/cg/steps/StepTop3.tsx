@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { CgMappedEntry } from '../types';
 import CountUp from '../components/CountUp';
+import PortraitPlaceholder from '../components/PortraitPlaceholder';
 import { fitText, fitStyle } from '../fitText';
 import { TOP3_POS, TOP3_LABEL_GAP } from '../layout';
 
@@ -11,6 +12,12 @@ interface Props {
 
 const REVEAL_DELAY: Record<number, number> = { 3: 200, 2: 700, 1: 1300 };
 
+/** BEST3 ステージ。
+ *
+ *  写真本体もここで描画する（PhotoStage の写真は top3 中は fade out のみ
+ *  でその場に残るので、グリッド → TOP3 への移動が画面上に見えない＝ネタ
+ *  バレしない）。表示は 3→2→1 の順に stagger reveal される。
+ */
 export default function StepTop3({ entries, lang = 'ja' }: Props) {
   const top3 = [...entries]
     .sort((a, b) => a.rank - b.rank)
@@ -30,7 +37,7 @@ export default function StepTop3({ entries, lang = 'ja' }: Props) {
   }, []);
 
   return (
-    <div style={{ position: 'absolute', inset: 0 }}>
+    <div style={{ position: 'absolute', inset: 0, zIndex: 6 }}>
       {top3.map((e) => (
         <Top3Card
           key={e.id}
@@ -49,9 +56,9 @@ interface CardProps {
   lang?: 'ja' | 'en';
 }
 
-/** NOMINEES と同じ "写真＋下ラベル" 構造で、サイズを大きくした版。
- *  写真フレームは PhotoStage の 1px 金枠を活かし、ここではコーナーブラケット
- *  + 1 位だけソフトグローを乗せる（一覧との視覚的一貫性）。 */
+/** NOMINEES と同じ "写真 4:3 portrait + 下ラベル + コーナーブラケット"
+ *  構造で、サイズを大きくした版。1 位はブラケットを太く + 内側金線 +
+ *  ソフトグローで区別する（サイズ階層なし）。 */
 function Top3Card({ entry, revealed, lang = 'ja' }: CardProps) {
   const pos = TOP3_POS[entry.rank as 1 | 2 | 3];
   if (!pos) return null;
@@ -81,7 +88,6 @@ function Top3Card({ entry, revealed, lang = 'ja' }: CardProps) {
         left: pos.x,
         top: pos.y,
         width: pos.w,
-        // photo + label + points のすべてを内包する高さ
         height: pos.h + TOP3_LABEL_GAP + pos.companySize * 1.4
               + 8 + pos.nameSize * 1.15 + 24 + pos.ptSize + 24,
         opacity: revealed ? 1 : 0,
@@ -91,7 +97,7 @@ function Top3Card({ entry, revealed, lang = 'ja' }: CardProps) {
         willChange: 'transform, opacity',
       }}
     >
-      {/* Rank number badge — 写真の上にセンタリング */}
+      {/* Rank number badge */}
       <div
         style={{
           position: 'absolute',
@@ -114,8 +120,8 @@ function Top3Card({ entry, revealed, lang = 'ja' }: CardProps) {
         {entry.rank}
       </div>
 
-      {/* Photo overlay — PhotoStage が同座標に写真本体を描く。
-          ここではコーナーブラケットと 1 位のソフトグローのみ重ねる。 */}
+      {/* Photo frame: actual image rendered here (not in PhotoStage) so
+          it appears fresh at TOP3 position with no morph from grid. */}
       <div
         style={{
           position: 'absolute',
@@ -123,17 +129,30 @@ function Top3Card({ entry, revealed, lang = 'ja' }: CardProps) {
           top: 0,
           width: pos.w,
           height: pos.h,
-          pointerEvents: 'none',
+          overflow: 'hidden',
+          background: '#111',
+          border: '1px solid rgba(201,162,75,0.5)',
           boxShadow: isFirst
             ? '0 0 60px rgba(245,215,110,0.45), 0 0 0 1px rgba(245,215,110,0.85) inset'
-            : 'none',
+            : '0 4px 12px rgba(0,0,0,0.5)',
         }}
       >
-        <Bracket pos="tl" size={bracketSize} stroke={bracketStroke} color={bracketColor} />
-        <Bracket pos="tr" size={bracketSize} stroke={bracketStroke} color={bracketColor} />
-        <Bracket pos="bl" size={bracketSize} stroke={bracketStroke} color={bracketColor} />
-        <Bracket pos="br" size={bracketSize} stroke={bracketStroke} color={bracketColor} />
+        {entry.photo ? (
+          <img
+            src={entry.photo}
+            alt={displayName}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+        ) : (
+          <PortraitPlaceholder entry={entry} seed={entry.rank} />
+        )}
       </div>
+
+      {/* Corner brackets — 1 位は太め (3px×32) で強調、2-3 位は細め (2px×26) */}
+      <Bracket pos="tl" size={bracketSize} stroke={bracketStroke} color={bracketColor} cardW={pos.w} cardH={pos.h} />
+      <Bracket pos="tr" size={bracketSize} stroke={bracketStroke} color={bracketColor} cardW={pos.w} cardH={pos.h} />
+      <Bracket pos="bl" size={bracketSize} stroke={bracketStroke} color={bracketColor} cardW={pos.w} cardH={pos.h} />
+      <Bracket pos="br" size={bracketSize} stroke={bracketStroke} color={bracketColor} cardW={pos.w} cardH={pos.h} />
 
       {/* Label area: company → name → points */}
       <div
@@ -180,7 +199,6 @@ function Top3Card({ entry, revealed, lang = 'ja' }: CardProps) {
           {displayName}
         </div>
 
-        {/* Points readout — name の下に十分なマージンを置いて重ならない */}
         <div
           style={{
             display: 'flex',
@@ -223,9 +241,11 @@ interface BracketProps {
   size: number;
   stroke: number;
   color: string;
+  cardW: number;
+  cardH: number;
 }
 
-function Bracket({ pos, size, stroke, color }: BracketProps) {
+function Bracket({ pos, size, stroke, color, cardW, cardH }: BracketProps) {
   const isTop  = pos === 'tl' || pos === 'tr';
   const isLeft = pos === 'tl' || pos === 'bl';
   return (
@@ -234,14 +254,13 @@ function Bracket({ pos, size, stroke, color }: BracketProps) {
         position: 'absolute',
         width: size,
         height: size,
-        top:    isTop  ? 0 : 'auto',
-        bottom: isTop  ? 'auto' : 0,
-        left:   isLeft ? 0 : 'auto',
-        right:  isLeft ? 'auto' : 0,
+        top:    isTop  ? 0 : cardH - size,
+        left:   isLeft ? 0 : cardW - size,
         borderTop:    isTop  ? `${stroke}px solid ${color}` : 'none',
         borderBottom: isTop  ? 'none' : `${stroke}px solid ${color}`,
         borderLeft:   isLeft ? `${stroke}px solid ${color}` : 'none',
         borderRight:  isLeft ? 'none' : `${stroke}px solid ${color}`,
+        pointerEvents: 'none',
       }}
     />
   );

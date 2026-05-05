@@ -15,7 +15,6 @@ import {
   rankPhotoY,
   RANK_PHOTO_H,
   RANK_PHOTO_W,
-  TOP3_POS,
 } from '../layout';
 
 interface PhotoLayout {
@@ -76,21 +75,6 @@ export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }:
         setInsertProgress((p) => ({ ...p, [rank]: true }));
       }, STRIP_SETTLE + i * BAR_INTERVAL + PHOTO_OFFSET);
       timers.push(t);
-    });
-    return () => timers.forEach(clearTimeout);
-  }, [stepKey]);
-
-  // TOP3 step: stagger 3→2→1 出現タイミング (StepTop3 と一致)
-  const [top3Revealed, setTop3Revealed] = useState<Record<number, boolean>>({});
-  useEffect(() => {
-    setTop3Revealed({});
-    if (stepKey !== 'top3') return;
-    const delays: Record<number, number> = { 3: 200, 2: 700, 1: 1300 };
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    ([3, 2, 1] as const).forEach((r) => {
-      timers.push(
-        setTimeout(() => setTop3Revealed((p) => ({ ...p, [r]: true })), delays[r]),
-      );
     });
     return () => timers.forEach(clearTimeout);
   }, [stepKey]);
@@ -196,20 +180,24 @@ export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }:
     }
 
     if (stepKey === 'top3') {
-      if (rank != null && rank >= 1 && rank <= 3) {
-        const p = TOP3_POS[rank as 1 | 2 | 3];
-        const shown = top3Revealed[rank] === true;
-        return {
-          x: p.x,
-          y: p.y,
-          w: p.w,
-          h: p.h,
-          opacity: shown ? 1 : 0,
-          zIndex: 4,
-        };
-      }
-      // ランク 4 位以下・圏外は top3 では非表示
-      return { x: 0, y: 0, w: 0, h: 0, opacity: 0, zIndex: 0 };
+      // BEST3 写真本体は StepTop3 が独立して描画する。ここでは前ステップ
+      // (主に nominees) の位置に留まったまま fade out するだけにして、
+      // 「写真がグリッドから TOP3 位置へ動いて結果がバレる」現象を回避。
+      const { cols, photoW, photoH, cardW, gap, startY, cardH } = gridLayout;
+      const col = idxInOrig % cols;
+      const row = Math.floor(idxInOrig / cols);
+      const N = nominees.length;
+      const rowCount = Math.min(cols, N - row * cols);
+      const rowTotalW = rowCount * cardW + (rowCount - 1) * gap;
+      const rowStartX = (CG_W - rowTotalW) / 2 + 12;
+      return {
+        x: rowStartX + col * (cardW + gap),
+        y: startY + row * (cardH + gap),
+        w: photoW,
+        h: photoH,
+        opacity: 0,
+        zIndex: 2,
+      };
     }
 
     if (rank != null && rank >= 2 && rank <= 5) {
