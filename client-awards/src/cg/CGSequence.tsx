@@ -5,6 +5,7 @@ import PersistentHeader from './components/PersistentHeader';
 import PhotoStage from './components/PhotoStage';
 import StepTitle from './steps/StepTitle';
 import StepRanking from './steps/StepRanking';
+import StepTop3 from './steps/StepTop3';
 import StepOneShot from './steps/StepOneShot';
 
 interface Props {
@@ -32,7 +33,7 @@ function mapEntry(e: CgCategory['entries'][number]): CgMappedEntry {
   };
 }
 
-const STEP_ORDER = ['idle', 'title', 'nominees', 'ranks52', 'winner-bar', 'oneshot'] as const;
+const STEP_ORDER = ['idle', 'title', 'nominees', 'ranks52', 'ranks54', 'top3', 'winner-bar', 'oneshot'] as const;
 
 export default function CGSequence({ cue, category, eventName, eventSubtitle, lang = 'ja', transparent }: Props) {
   const stepKey = cue.step;
@@ -80,12 +81,14 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
   // Ranking reveal parameters
   const revealLevel: Record<string, number> = {
     ranks52: 4,
+    ranks54: 2,
     'winner-bar': 5,
     oneshot: 5,
   };
-  const onRankingBoard = ['ranks52', 'winner-bar', 'oneshot'].includes(stepKey);
+  const onRankingBoard = ['ranks52', 'ranks54', 'winner-bar', 'oneshot'].includes(stepKey);
   const showWinnerBar = stepKey === 'winner-bar' || stepKey === 'oneshot';
-  const onPhotoStage = ['nominees', 'ranks52', 'winner-bar', 'oneshot'].includes(stepKey);
+  const onPhotoStage = ['nominees', 'ranks52', 'ranks54', 'top3', 'winner-bar', 'oneshot'].includes(stepKey);
+  const showTop3 = stepKey === 'top3';
 
   if (stepKey === 'idle') return null;
 
@@ -135,6 +138,14 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
             revealLevel={revealLevel[stepKey] ?? 0}
             showWinnerBar={showWinnerBar}
             stepKey={stepKey}
+            lang={lang}
+          />
+        )}
+
+        {showTop3 && (
+          <StepTop3
+            key={`top3-${persistKey}`}
+            entries={sorted}
             lang={lang}
           />
         )}

@@ -34,13 +34,14 @@ export default function StepRanking({ entries, revealLevel, showWinnerBar, stepK
   const [inserted, setInserted] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
-    if (stepKey !== 'ranks52') {
+    if (stepKey !== 'ranks52' && stepKey !== 'ranks54') {
       setBarStarted({});
       setInserted({});
       return;
     }
+    const sequence = stepKey === 'ranks54' ? [5, 4] : [5, 4, 3, 2];
     const timers: ReturnType<typeof setTimeout>[] = [];
-    ([5, 4, 3, 2] as const).forEach((rank, i) => {
+    sequence.forEach((rank, i) => {
       timers.push(
         setTimeout(
           () => setBarStarted((p) => ({ ...p, [rank]: true })),
@@ -59,13 +60,13 @@ export default function StepRanking({ entries, revealLevel, showWinnerBar, stepK
 
   const isRevealed = (rank: number): boolean => {
     if (rank === 1) return showWinnerBar;
-    if (stepKey === 'ranks52') return barStarted[rank] === true;
+    if (stepKey === 'ranks52' || stepKey === 'ranks54') return barStarted[rank] === true;
     return (6 - rank) <= revealLevel;
   };
 
   const nameVisible = (rank: number): boolean => {
     if (rank === 1) return false;
-    if (stepKey === 'ranks52') return inserted[rank] === true;
+    if (stepKey === 'ranks52' || stepKey === 'ranks54') return inserted[rank] === true;
     return isRevealed(rank);
   };
 

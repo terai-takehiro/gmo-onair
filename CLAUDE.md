@@ -33,7 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.55 — セキュリティ修正（QシートPreviewModalのXSS、JWT_SECRETフォールバック撤廃、ADMIN_EMAILの環境変数化）
+v2.8.56 — アワードCG: TOP3 リアルタイム投票演出パターンを追加。`RANKS 5→4` (5位/4位だけバー表示) と `TOP 3` (1〜3位を横並び大表示。中央=1位を金枠で強調) の 2 ステップを新設し、会場でのリアルタイム投票で大賞を決める賞のフローに対応。`onair_*.awards_cue_state.step` の CHECK 制約を migration 079 で拡張。デザイン (金グラデ・Bebas Neue ナンバー・Noto Sans JP・カードアニメ) は既存 RANKS/WINNER BAR と一貫性を踏襲。
+
+(v2.8.55: セキュリティ修正（QシートPreviewModalのXSS、JWT_SECRETフォールバック撤廃、ADMIN_EMAILの環境変数化）)
 
 (v2.8.53: アワードCG タイトル総尺を日本語と同じ ~3 秒に統一 + WINNER BAR でランク 6 位以下が strip から消えていたバグ修正。)
 
