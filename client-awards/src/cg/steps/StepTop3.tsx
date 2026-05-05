@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import type { CgMappedEntry } from '../types';
 import CountUp from '../components/CountUp';
 import { fitText, fitStyle } from '../fitText';
-import { TOP3_POS, TOP3_STAGE_BOTTOM } from '../layout';
+import { TOP3_POS } from '../layout';
 
 interface Props {
   entries: CgMappedEntry[];
@@ -39,29 +39,6 @@ export default function StepTop3({ entries, lang = 'ja' }: Props) {
           lang={lang}
         />
       ))}
-
-      {/* 投票案内テロップ */}
-      <div
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          top: TOP3_STAGE_BOTTOM + 36,
-          textAlign: 'center',
-          fontFamily: "'Noto Sans JP', sans-serif",
-          fontWeight: 700,
-          fontSize: 26,
-          letterSpacing: '0.42em',
-          paddingLeft: '0.42em',
-          color: '#F5D76E',
-          textShadow: '0 2px 6px rgba(0,0,0,0.85)',
-          opacity: revealed[1] ? 1 : 0,
-          transition: 'opacity 700ms ease 400ms',
-          pointerEvents: 'none',
-        }}
-      >
-        {lang === 'en' ? 'LIVE VOTING — CHOOSE YOUR WINNER' : '会場投票で大賞を決定'}
-      </div>
     </div>
   );
 }
@@ -111,10 +88,10 @@ function Top3Card({ entry, revealed, lang = 'ja' }: CardProps) {
           position: 'absolute',
           left: 0,
           right: 0,
-          top: -64,
+          top: -76,
           textAlign: 'center',
           fontFamily: "'Bebas Neue', sans-serif",
-          fontSize: isFirst ? 96 : 72,
+          fontSize: 80,
           lineHeight: 1,
           background: isFirst
             ? 'linear-gradient(180deg, #FFFBE6 0%, #FFEFB0 18%, #F5D76E 45%, #C9A24B 75%, #8C6314 100%)'

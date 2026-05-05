@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.56 — アワードCG: TOP3 リアルタイム投票演出パターンを追加（RANKS 5→4 と TOP 3 横並び大表示の 2 ステップを新設）
+**現在のバージョン**: v2.8.57 — アワードCG TOP3 演出のレイアウト調整（1〜3 位を左から均等サイズ横並びに変更 + 投票テロップ削除）
 
 ---
 
@@ -401,6 +401,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.8.57** | **アワードCG TOP3 演出のレイアウト調整 (dev)**: ユーザー要望「1 位のサイズは大きくしなくてよい / 左から 1, 2, 3 位の順で並べる / 会場投票テロップは不要」3 件に対応。①**TOP3_POS の見直し**: 中央 1 位 420×560 + 左右 320×426 の階層配置を、3 枠とも同一サイズ 380×506 の左→右 = 1, 2, 3 位の並びに変更。`top3PosFor(slotIndex, emphasize)` ヘルパーで slot 0/1/2 の x を計算。1 位は引き続き `emphasize: true` で金枠 (`3px solid #F5D76E`) + boxShadow を付け、識別性は維持。②**ランク番号バッジを統一**: `isFirst ? 96 : 72` だった badge fontSize を全て 80 に統一、top オフセットを -64 → -76 に微調整。③**投票テロップ削除**: 「会場投票で大賞を決定 / LIVE VOTING — CHOOSE YOUR WINNER」のテロップを `StepTop3.tsx` から削除。`TOP3_STAGE_BOTTOM` の利用先がなくなるためテロップ部分のみ削除（layout.ts の export は他の派生用途に備えて残置）。 |
 | **v2.8.56** | **アワードCG: TOP3 リアルタイム投票演出パターンを追加 (dev)**: 賞によっては「現時点の TOP3 から会場リアルタイム投票で大賞を決める」演出があるためのフロー対応。①新ステップ `RANKS 5→4`: 既存 `RANKS 5→2` と同等のバー演出だが 5 位/4 位だけを順次表示し 3-1 位は dim のまま。②新ステップ `TOP 3`: 1〜3 位を 1920×1080 中央に横並び (左 3 位 / 中央 1 位 / 右 2 位)、中央=1 位を金枠 + boxShadow で一段大きく強調。会場投票案内テロップ（`会場投票で大賞を決定` / `LIVE VOTING — CHOOSE YOUR WINNER`）を下部に配置。③`PhotoStage` を 2 ステップ対応に拡張 (TOP3 では rank 1-3 を専用座標、4 位以下と圏外は strip 残置 / RANKS 5→4 では rank 5,4 だけ insertProgress、3-1 と 6+ は strip 残置)。④デザイントークン (金グラデ `#C9A24B`、Bebas Neue ナンバー、Noto Sans JP 名前、CountUp ポイント) を既存 `StepRanking`/`StepOneShot` と完全踏襲。⑤`ControlPage` の STEP ボタンを 6 → 8 個に拡張 (`grid-cols-2 sm:grid-cols-4 lg:grid-cols-8`)。⑥migration 079 で `awards_cue_state.step` の CHECK 制約に `ranks54` `top3` を追加。 |
 | **v2.8.54** | **アワードCG 自社票の英語ラベルを `Own Vote` → `Internal Vote` に変更 (dev)**: ユーザー要望「自社票の英語を Internal Vote に変更したい」に対応。`client-awards/src/cg/steps/StepRanking.tsx` のラベル分岐を 1 箇所変更するだけ（`lang === 'en' ? 'Internal Vote' : '自社票'`）。 |
 | **v2.8.53** | **アワードCG 2 件修正: タイトル総尺 ~3 秒に統一 + WINNER BAR で 6 位以下が消えるバグ修正 (dev)**: ①**タイトル総尺**: ユーザー報告「英語タイトルがまだ少し遅い、日本語と同じ終了タイミングにしたい」に対応。v2.8.49 で `TITLE_TARGET_MS = 5000ms` にしていたものを `3000ms` に短縮、`TITLE_CHAR_MIN` も 30 → 20ms に下げた。これで JA (9 文字、charDelay=140) も EN (29 文字、charDelay≈40) も child anim 終了が ~3000ms に揃う（数式: charDelay = clamp(20, 140, floor((target-1800)/N))）。②**WINNER BAR の strip 消失バグ修正**: `PhotoStage.tsx` の `isInStrip()` で winner-bar / oneshot ステップ時、`r === 1` または `r == null` のみ strip 扱い、ランク 6 位以下が strip にも rank position にも入らず `layoutFor()` の最後の `return { x:0, y:0, w:0, h:0, opacity:0 }` フォールバックに落ちて**完全に消える**バグを修正。`if (r >= 6) return true;` を winner-bar / oneshot 両方に追加してランク 6 位以下が strip 表示に残るように。これで「WINNER BAR 表示時に 1 位以外の strip 写真が全部消える」現象が解消される。 |
