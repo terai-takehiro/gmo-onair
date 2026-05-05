@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import type { Lang, ModuleKey, Nominee } from './types';
 import { getModules } from './modules/getModules';
+import DynamicModule from './modules/dynamic/DynamicModule';
+import { createDefaultEventModuleConfig } from './data/presetModules';
 import { useAnimatedHeight } from './hooks/useAnimatedHeight';
 import SlotSwitcher from './animation/SlotSwitcher';
 import AwardHeader from './headline/AwardHeader';
@@ -16,6 +18,9 @@ interface Props {
   exiting?: boolean;
   /** 画像 (Portrait) を表示するか。OFF の場合は左カラムを畳んだコンパクト表示 */
   showPortrait?: boolean;
+  /** v2.8.72+: 動的レンダラ (ModuleDef 駆動) を使うか。
+   *  default true。false の場合は v2.8.71 以前のハードコード版で描画。 */
+  useDynamicRenderer?: boolean;
 }
 
 // 表彰式テロップCG (1920x1080, 背景透過対応)
@@ -28,18 +33,25 @@ export default function LowerThirdCG({
   tickerOn = false,
   exiting = false,
   showPortrait = true,
+  useDynamicRenderer = true,
 }: Props) {
   const n = nominee;
   const isTeam = n.type === 'team';
   const modules = useMemo(() => getModules(n, lang), [n, lang]);
   const mod = modules[moduleKey] ?? modules.none!;
+  // 動的レンダラ用: ModuleKey ('title' / 'respect' / ...) → preset:* ModuleDef
+  const dynamicConfig = useMemo(() => createDefaultEventModuleConfig(), []);
+  const dynamicMod = useMemo(
+    () => dynamicConfig.modules.find((m) => m.id === `preset:${moduleKey}`) ?? null,
+    [dynamicConfig, moduleKey]
+  );
   const nomineeKey = `${n.id}-${lang}`;
   const hasModule = moduleKey !== 'none';
   // 長文系モジュールは幅を1500pxに拡張して高さを抑制 (チームはデフォルト wide)
   const isWide = isTeam || moduleKey === 'comment' || moduleKey === 'recComment';
 
   // 高さアニメーション (モジュール切替時に実測してpx補間)
-  const panelRef = useAnimatedHeight<HTMLDivElement>([moduleKey, n.id, lang, showPortrait]);
+  const panelRef = useAnimatedHeight<HTMLDivElement>([moduleKey, n.id, lang, showPortrait, useDynamicRenderer]);
 
   return (
     <div className={'stage' + (transparent ? ' transparent' : '')}>
@@ -69,8 +81,12 @@ export default function LowerThirdCG({
 
             <div className={'lt-module-slot ' + (hasModule ? 'open ' : 'closed ')}>
               {hasModule && (
-                <SlotSwitcher keyId={`${n.id}-${lang}-${mod.key}`}>
-                  {mod.render()}
+                <SlotSwitcher
+                  keyId={`${n.id}-${lang}-${useDynamicRenderer ? dynamicMod?.id ?? mod.key : mod.key}`}
+                >
+                  {useDynamicRenderer && dynamicMod
+                    ? <DynamicModule def={dynamicMod} nominee={n} lang={lang} />
+                    : mod.render()}
                 </SlotSwitcher>
               )}
             </div>

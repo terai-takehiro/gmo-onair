@@ -17,6 +17,8 @@ interface Props {
   tickerCategory: TickerCategory | null;
   /** 画像 (Portrait) を表示するか (default: true) */
   showPortrait?: boolean;
+  /** v2.8.72+: 動的レンダラ (ModuleDef 駆動) を使うか (default: true) */
+  useDynamicRenderer?: boolean;
 }
 
 // 1920x1080 のCG出力ステージ。operator/output どちらでも使える。
@@ -33,6 +35,7 @@ export default function OneShotStage({
   tickerOn,
   tickerCategory,
   showPortrait = true,
+  useDynamicRenderer = true,
 }: Props) {
   return (
     <div className="oneshot-cg-root" style={{ position: 'relative', width: 1920, height: 1080 }}>
@@ -45,6 +48,7 @@ export default function OneShotStage({
           tickerOn={tickerOn}
           exiting={lowerThirdExiting}
           showPortrait={showPortrait}
+          useDynamicRenderer={useDynamicRenderer}
         />
       )}
       {/* Background-only stage when lower-third is unmounted (transparent stays transparent) */}

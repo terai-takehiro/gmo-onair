@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ExternalLink, Radio, Subtitles, Tv2, Languages, Database, Image as ImageIcon, ImageOff } from 'lucide-react';
+import { ChevronLeft, ExternalLink, Radio, Subtitles, Tv2, Languages, Database, Image as ImageIcon, ImageOff, Cpu } from 'lucide-react';
 
 import OneShotStage from '../oneshot/OneShotStage';
 import LangPicker from '../oneshot/operator/LangPicker';
@@ -30,6 +30,9 @@ import '../oneshot/styles/index.css';
 const CG_W = 1920;
 const CG_H = 1080;
 const LANG_KEY = 'awards-oneshot-preview-lang';
+// v2.8.72+: 動的レンダラ (ModuleDef 駆動) と旧ハードコード版の A/B 切替フラグ。
+// 段階2 検証用。段階2.1 で旧版を削除した時点で本フラグも撤去予定。
+const RENDERER_KEY = 'awards-cg-renderer';
 
 interface OneShotEventDetail {
   id: number;
@@ -56,6 +59,15 @@ export default function OneShotControlPage() {
   useEffect(() => {
     localStorage.setItem(LANG_KEY, lang);
   }, [lang]);
+
+  // v2.8.72+: 動的レンダラ vs ハードコード版の A/B 切替 (localStorage)
+  const [useDynamicRenderer, setUseDynamicRenderer] = useState<boolean>(() => {
+    const v = localStorage.getItem(RENDERER_KEY);
+    return v !== 'legacy'; // default: dynamic
+  });
+  useEffect(() => {
+    localStorage.setItem(RENDERER_KEY, useDynamicRenderer ? 'dynamic' : 'legacy');
+  }, [useDynamicRenderer]);
 
   const { data: event } = useQuery({
     queryKey: ['awards-oneshot-state', eventId],
@@ -309,6 +321,22 @@ export default function OneShotControlPage() {
           <Radio className={cn('h-3 w-3 shrink-0', isLive && 'animate-pulse')} />
           {isLive ? 'ON AIR' : 'STANDBY'}
         </div>
+        {/* v2.8.72+: 動的レンダラ A/B 切替 (段階2 検証用、段階2.1 で削除予定) */}
+        <button
+          onClick={() => setUseDynamicRenderer((v) => !v)}
+          className={cn(
+            'hidden sm:flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-black tracking-widest uppercase transition-colors',
+            useDynamicRenderer
+              ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50 hover:bg-emerald-800/60'
+              : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 border border-slate-700/50'
+          )}
+          title={useDynamicRenderer
+            ? '動的レンダラ (ModuleDef 駆動 / 段階2) を使用中。クリックで旧レンダラに切替'
+            : '旧レンダラ (ハードコード版) を使用中。クリックで動的レンダラに切替'}
+        >
+          <Cpu className="h-3 w-3" />
+          {useDynamicRenderer ? 'Dynamic' : 'Legacy'}
+        </button>
         <LangPicker value={lang} onChange={onChangeLang} />
         <a
           href={`/awards/output/${eventId}/oneshot?lang=${lang}`}
@@ -359,6 +387,7 @@ export default function OneShotControlPage() {
                 tickerOn={tickerFlow.on}
                 tickerCategory={tickerCategory}
                 showPortrait={showPortrait}
+                useDynamicRenderer={useDynamicRenderer}
               />
             </div>
           </div>
@@ -446,6 +475,7 @@ export default function OneShotControlPage() {
                       tickerOn={tickerFlow.on}
                       tickerCategory={tickerCategory}
                       showPortrait={showPortrait}
+                      useDynamicRenderer={useDynamicRenderer}
                     />
                   </div>
                 </div>

@@ -61,6 +61,11 @@ export default function OneShotOutputPage() {
   const transparent = cue.transparent;
   const tickerOn = cue.tickerOn;
   const showPortrait = cue.showPortrait ?? true;
+  // v2.8.72+: 動的レンダラ A/B (per-device localStorage、段階2.1 で削除予定)
+  const useDynamicRenderer =
+    (typeof localStorage !== 'undefined'
+      ? localStorage.getItem('awards-cg-renderer')
+      : null) !== 'legacy';
 
   const tickerCats = useMemo(() => groupNomineesForTicker(nominees, lang), [nominees, lang]);
   const currentTicker = tickerCats[cue.tickerCatIdx % Math.max(tickerCats.length, 1)] ?? null;
@@ -119,6 +124,7 @@ export default function OneShotOutputPage() {
             tickerOn={tickerOn}
             tickerCategory={currentTicker}
             showPortrait={showPortrait}
+            useDynamicRenderer={useDynamicRenderer}
           />
         </div>
       </div>
