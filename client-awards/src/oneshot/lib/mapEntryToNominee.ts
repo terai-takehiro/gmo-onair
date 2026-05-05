@@ -1,5 +1,11 @@
 import type { Nominee } from '../types';
 import { SEED_NOMINEES } from '../data/seedNominees';
+import {
+  EMPTY_OVERRIDES,
+  resolveAwardEn,
+  resolveDivisionEn,
+  type I18nOverrides,
+} from './i18nOverrides';
 
 // awards_entries 行 (oneshot_data 任意) を 1S CG が描画する Nominee 形に正規化。
 // oneshot_data があればそれを優先、無ければテーブル基本列 (name / org / photo_url / rank)
@@ -47,12 +53,23 @@ const EMPTY_RECOMMENDER = {
 /** Build a list of Nominee objects from the `/oneshot/output` (or `/oneshot/state`)
  *  payload. Every DB entry produces a Nominee — oneshot_data fields override the
  *  base columns when present. Returns SEED_NOMINEES only when the event has zero
- *  entries (fresh event, no data yet). */
-export function mapEventToNominees(event: OneShotEvent | null | undefined): Nominee[] {
+ *  entries (fresh event, no data yet).
+ *
+ *  EN translation priority (highest → lowest):
+ *    1. oneshot_data.categoryEn / subcategoryEn (per-entry override)
+ *    2. localStorage `i18n` overrides (browser-persistent, DB-independent)
+ *    3. DB awards_categories.name_en / description_en
+ *    4. JA fallback (use the JA value as-is) */
+export function mapEventToNominees(
+  event: OneShotEvent | null | undefined,
+  overrides: I18nOverrides = EMPTY_OVERRIDES,
+): Nominee[] {
   if (!event) return SEED_NOMINEES;
 
   const all: Nominee[] = [];
   for (const cat of event.categories) {
+    const awardEn = resolveAwardEn(cat.name, cat.name_en, overrides);
+    const divisionEn = resolveDivisionEn(cat.description ?? '', cat.description_en, overrides);
     for (const e of cat.entries) {
       if (!e.name && !e.oneshot_data) continue;
       const od = e.oneshot_data ?? {};
@@ -65,10 +82,10 @@ export function mapEventToNominees(event: OneShotEvent | null | undefined): Nomi
         type: od.type ?? 'individual',
         // 賞名 (awards_categories.name = e.g. '新人賞')
         category: od.category ?? cat.name,
-        categoryEn: od.categoryEn ?? cat.name_en ?? cat.name,
+        categoryEn: od.categoryEn ?? awardEn,
         // 部門名 (awards_categories.description = e.g. '新卒パートナー')
         subcategory: od.subcategory ?? cat.description ?? '',
-        subcategoryEn: od.subcategoryEn ?? cat.description_en ?? cat.description ?? '',
+        subcategoryEn: od.subcategoryEn ?? divisionEn,
         entryNo: od.entryNo ?? String(e.rank ?? e.id).padStart(2, '0'),
         image: od.image ?? e.photo_url ?? '',
         name: od.name ?? e.name,

@@ -33,7 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.65 — アワードCG オペレーター回遊性向上: ランキングCG (ControlPage) のヘッダーに「下位置CG」ジャンプボタンを追加し、下位置CG (OneShotControlPage) ヘッダーの「ランキングCG」ボタンと**相互ジャンプ可能**に。同イベントのランキング系 (`/event/:id/control`) と下位置CG (`/event/:id/oneshot/control`) を1クリックで行き来でき、EventEditorPage に戻る必要なし。アイコンは `Subtitles` (下位置CG ジャンプ) と `Tv2` (ランキングCG ジャンプ) で識別。スマホ幅では両方非表示 (`hidden sm:flex`) を維持。
+v2.8.66 — 下位置CG: 賞・部門 英訳辞書 (localStorage) + DB↔CG マッピング Inspector/Editor。①**英訳辞書 (localStorage)**: ユーザー要望「賞と部門の英語については DB にないので UI 上で編集できるようにしたい (DB 削除後も運用継続)」に対応。`oneshot/lib/i18nOverrides.ts` で localStorage に賞名(JA→EN) / 部門名(JA→EN) を保存。優先順位は `oneshot_data.categoryEn` → **localStorage** → DB `awards_categories.name_en` → JA フォールバック。`I18nDictDialog` モーダル (Languages icon ヘッダーボタン) で現在のイベント内の全賞・全部門を一覧編集、JSON Export/Import でデバイス間移動可能、リセット機能あり。DB 列 `name_en` / `description_en` も並走するが localStorage が優先される。②**DB↔CG マッピング Inspector/Editor**: ユーザー要望「受賞者コメント等の情報が適切に DB から反映できていない、どのデータが CG 上のどのデータに紐づくかわかりやすく確認・修正できる UI が欲しい」に対応。`OneShotDataEditor` モーダル (Database icon ヘッダーボタン) で現在 PREVIEW 中のノミネートに対し、CG が描画する全フィールド (基本/プロフィール/イズム/得意技/タイトル/コメント/チーム情報/推薦者) を以下の構成で表示: ② -1 **INSPECT タブ**: 各フィールドに source バッジ (`DB列` / `oneshot_data` / `i18n辞書` / `未設定`) を付与、JA/EN 両方を一覧表示、`未設定` は赤バッジで一目で分かる。② -2 **EDIT タブ**: `oneshot_data` 編集対象フィールドを inline 入力 (textarea / 一行 / カンマ区切り array)、`PUT /api/v1/internal/awards/entries/:id/oneshot-data` で保存、react-query invalidate で即反映。ヘッダーに **充足率% バッジ** (oneshot_data 編集可フィールドの何%が埋まっているか、緑/黄/赤の3段階) を表示。`recommender.respect` `recommender.respectComment` `comment` `ism` `skills` `title` 等の missing データを一目で発見でき、その場で編集→保存できる。
+
+(v2.8.65: アワードCG オペレーター回遊性向上: ランキングCG ⇄ 下位置CG 相互ジャンプボタン。)
 
 (v2.8.64: アワード下部テロップCG: ページ名を「1S CG」→「下位置CG」にリネーム (UI 表示のみ)。ルートパス・内部コード・socket イベント・DB テーブル名は維持。)
 

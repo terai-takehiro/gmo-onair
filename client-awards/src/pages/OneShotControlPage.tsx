@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ExternalLink, Radio, Subtitles, Tv2 } from 'lucide-react';
+import { ChevronLeft, ExternalLink, Radio, Subtitles, Tv2, Languages, Database } from 'lucide-react';
 
 import OneShotStage from '../oneshot/OneShotStage';
 import LangPicker from '../oneshot/operator/LangPicker';
@@ -12,6 +12,9 @@ import ModulePickerRow from '../oneshot/operator/ModulePickerRow';
 import TickerControlRow from '../oneshot/operator/TickerControlRow';
 import SendActionRow from '../oneshot/operator/SendActionRow';
 import ShortcutHints from '../oneshot/operator/ShortcutHints';
+import I18nDictDialog from '../oneshot/operator/I18nDictDialog';
+import OneShotDataEditor from '../oneshot/operator/OneShotDataEditor';
+import { loadOverrides, type I18nOverrides } from '../oneshot/lib/i18nOverrides';
 
 import { useOneShotCue } from '../oneshot/hooks/useOneShotCue';
 import { useTakeFlow } from '../oneshot/hooks/useTakeFlow';
@@ -62,8 +65,15 @@ export default function OneShotControlPage() {
     },
   });
 
-  const nominees = useMemo(() => mapEventToNominees(event), [event]);
+  // i18n override 辞書 (localStorage) — 賞・部門の英訳を DB と独立に保持
+  const [i18nOverrides, setI18nOverrides] = useState<I18nOverrides>(() => loadOverrides());
+
+  const nominees = useMemo(() => mapEventToNominees(event, i18nOverrides), [event, i18nOverrides]);
   const awards = useMemo(() => groupNomineesForTicker(nominees, lang), [nominees, lang]);
+
+  // モーダル開閉
+  const [dictOpen, setDictOpen] = useState(false);
+  const [dataEditorOpen, setDataEditorOpen] = useState(false);
 
   // ── 階層選択 state ──────────────────────────────────────
   const [selectedAwardIdx, setSelectedAwardIdx] = useState(0);
@@ -246,6 +256,30 @@ export default function OneShotControlPage() {
           <span className="text-xs text-slate-600 truncate hidden sm:block">{event.name}</span>
         )}
         <div className="flex-1" />
+        {/* DB → CG マッピング インスペクタ + oneshot_data 編集 */}
+        <button
+          onClick={() => setDataEditorOpen(true)}
+          disabled={!previewNominee || !nomineeDbId(previewNominee)}
+          className={cn(
+            'hidden sm:flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-black tracking-widest uppercase transition-colors',
+            previewNominee && nomineeDbId(previewNominee)
+              ? 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
+              : 'bg-slate-900/40 text-slate-700 cursor-not-allowed'
+          )}
+          title="現在の PREVIEW ノミネートの DB ↔ CG マッピングを確認/編集"
+        >
+          <Database className="h-3 w-3" />
+          データ
+        </button>
+        {/* 賞・部門 英訳辞書 (localStorage) */}
+        <button
+          onClick={() => setDictOpen(true)}
+          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-[10px] font-black tracking-widest uppercase text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors"
+          title="賞・部門の英訳辞書 (localStorage 保存、DB と独立)"
+        >
+          <Languages className="h-3 w-3" />
+          英訳辞書
+        </button>
         {/* 回遊性: 同イベントのランキングCGコントロールへ直接ジャンプ */}
         <button
           onClick={() => navigate(`/event/${eventId}/control`)}
@@ -431,6 +465,30 @@ export default function OneShotControlPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Modals ─────────────────────────────────────────── */}
+      <I18nDictDialog
+        open={dictOpen}
+        onClose={() => setDictOpen(false)}
+        categories={
+          event?.categories.map((c) => ({
+            id: c.id,
+            name: c.name,
+            name_en: c.name_en,
+            description: c.description,
+            description_en: c.description_en,
+          })) ?? []
+        }
+        onSaved={(next) => setI18nOverrides(next)}
+      />
+      <OneShotDataEditor
+        open={dataEditorOpen}
+        onClose={() => setDataEditorOpen(false)}
+        nominee={previewNominee}
+        entryId={nomineeDbId(previewNominee)}
+        refetchKey={['awards-oneshot-state', eventId]}
+        lang={lang}
+      />
     </div>
   );
 }
