@@ -1,0 +1,376 @@
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import {
+  ChevronLeft, Plus, Trash2, GripVertical, Save, RotateCcw, Subtitles,
+  AlertCircle, CheckCircle2, Tv2, Hash, Eye, EyeOff,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+import {
+  DndContext, closestCenter, PointerSensor, KeyboardSensor,
+  useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
+  useSortable, arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+import {
+  useEventModuleConfig, useSaveEventModuleConfig,
+} from '../oneshot/lib/moduleConfig';
+import { createDefaultEventModuleConfig } from '../oneshot/data/presetModules';
+import type {
+  EventModuleConfig, ModuleDef, ModuleVisibility,
+} from '../oneshot/types';
+
+// v2.8.75+ 段階4 (first cut): モジュール構成の編集 UI。
+// このバージョンでは:
+//  ・モジュールの DnD 並び替え (order 自動更新)
+//  ・モジュールの追加 (custom-{uuid}) / 削除
+//  ・基本フィールド編集: label (ja/en) / shortcutKey / visibility / width
+// 次バージョンで slot 編集 (binding source / field / style) と DnD ライブプレビューを追加予定。
+
+export default function ModuleConfigEditPage() {
+  const { id } = useParams<{ id: string }>();
+  const eventId = parseInt(id!);
+  const navigate = useNavigate();
+
+  const { data: serverConfig, isLoading } = useEventModuleConfig(eventId);
+  const saveMutation = useSaveEventModuleConfig(eventId);
+
+  // ローカル編集 state
+  const [draft, setDraft] = useState<EventModuleConfig | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [savedBanner, setSavedBanner] = useState<string | null>(null);
+
+  // 初期ロード or サーバー側更新時に draft を同期 (dirty 状態は維持)
+  useEffect(() => {
+    if (serverConfig && !dirty) setDraft(structuredClone(serverConfig));
+  }, [serverConfig, dirty]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  if (isLoading || !draft) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  const updateModule = (id: string, patch: Partial<ModuleDef>) => {
+    setDraft({
+      ...draft,
+      modules: draft.modules.map((m) => (m.id === id ? { ...m, ...patch } : m)),
+    });
+    setDirty(true);
+    setSavedBanner(null);
+  };
+
+  const addModule = () => {
+    const uuid = crypto.randomUUID();
+    const nextOrder = (draft.modules.reduce((mx, m) => Math.max(mx, m.order), 0) ?? 0) + 1;
+    const newMod: ModuleDef = {
+      id: `custom-${uuid}`,
+      label: { ja: '新しいモジュール', en: 'New Module' },
+      icon: 'Plus',
+      shortcutKey: undefined,
+      order: nextOrder,
+      visibility: 'always',
+      slots: [],
+      width: 'default',
+    };
+    setDraft({ ...draft, modules: [...draft.modules, newMod] });
+    setDirty(true);
+    setSavedBanner(null);
+  };
+
+  const deleteModule = (id: string) => {
+    if (!window.confirm('このモジュールを削除しますか？')) return;
+    setDraft({ ...draft, modules: draft.modules.filter((m) => m.id !== id) });
+    setDirty(true);
+    setSavedBanner(null);
+  };
+
+  const onDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIdx = draft.modules.findIndex((m) => m.id === active.id);
+    const newIdx = draft.modules.findIndex((m) => m.id === over.id);
+    if (oldIdx < 0 || newIdx < 0) return;
+    const reordered = arrayMove(draft.modules, oldIdx, newIdx)
+      .map((m, i) => ({ ...m, order: i }));
+    setDraft({ ...draft, modules: reordered });
+    setDirty(true);
+    setSavedBanner(null);
+  };
+
+  const handleSave = async () => {
+    try {
+      await saveMutation.mutateAsync(draft);
+      setDirty(false);
+      setSavedBanner('保存しました');
+      window.setTimeout(() => setSavedBanner(null), 3000);
+    } catch (e) {
+      setSavedBanner('保存失敗: ' + (e instanceof Error ? e.message : String(e)));
+    }
+  };
+
+  const handleResetToDefault = () => {
+    if (!window.confirm('デフォルトプリセット (タイトル / 尊敬ポイント など 7 種) に戻しますか？')) return;
+    setDraft(createDefaultEventModuleConfig());
+    setDirty(true);
+    setSavedBanner(null);
+  };
+
+  const sortedModules = useMemo(
+    () => [...draft.modules].sort((a, b) => a.order - b.order),
+    [draft.modules]
+  );
+
+  return (
+    <div className="h-full flex flex-col bg-background overflow-hidden">
+      {/* ── Header ────────────────────────────────────────── */}
+      <header className="flex items-center gap-2 px-4 h-12 shrink-0 border-b border-slate-200 bg-card">
+        <button
+          onClick={() => navigate(`/event/${eventId}`)}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors"
+          title="イベント編集に戻る"
+        >
+          <ChevronLeft className="h-4 w-4 text-slate-600" />
+        </button>
+        <Subtitles className="h-4 w-4 text-amber-600 shrink-0" />
+        <span className="text-sm font-bold text-slate-900">下位置CG モジュール構成</span>
+        <span className="text-[10px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+          段階4 / 編集UI
+        </span>
+        <div className="flex-1" />
+        <button
+          onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
+          className="hidden sm:flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs hover:bg-muted transition-colors"
+          title="下位置CG オペレーター画面で動作確認"
+        >
+          <Tv2 className="h-3 w-3" />
+          オペレーターへ
+        </button>
+        <button
+          onClick={handleResetToDefault}
+          className="hidden sm:flex items-center gap-1.5 rounded-lg border border-red-300 text-red-700 px-2.5 py-1.5 text-xs font-bold hover:bg-red-50 transition-colors"
+          title="プリセットに戻す (現在の編集内容を破棄)"
+        >
+          <RotateCcw className="h-3 w-3" />
+          プリセットに戻す
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={!dirty || saveMutation.isPending}
+          className={cn(
+            'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors',
+            dirty && !saveMutation.isPending
+              ? 'bg-emerald-600 text-white hover:bg-emerald-500'
+              : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+          )}
+        >
+          <Save className="h-3 w-3" />
+          {saveMutation.isPending ? '保存中…' : dirty ? '保存' : '保存済み'}
+        </button>
+      </header>
+
+      {/* ── Banner ──────────────────────────────────────── */}
+      {savedBanner && (
+        <div className={cn(
+          'shrink-0 flex items-center gap-2 px-4 py-2 text-sm border-b',
+          savedBanner.startsWith('保存失敗')
+            ? 'bg-red-50 border-red-200 text-red-700'
+            : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+        )}>
+          {savedBanner.startsWith('保存失敗') ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+          {savedBanner}
+        </div>
+      )}
+
+      {/* ── Body ────────────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="max-w-3xl mx-auto space-y-4">
+          <div className="rounded-lg border border-slate-200 bg-card p-3 text-xs text-slate-600">
+            <p className="font-bold text-slate-800 mb-1">モジュールを追加・並び替え・編集できます</p>
+            <p>送出 UI のボタン順は <strong>order 昇順</strong>。ドラッグで並び替え、右端のゴミ箱で削除、下のフォームで基本情報を編集。スロット (CG への描画内容) の詳細編集は次バージョンで対応予定。</p>
+          </div>
+
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+            <SortableContext
+              items={sortedModules.map((m) => m.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-3">
+                {sortedModules.map((mod) => (
+                  <SortableModuleCard
+                    key={mod.id}
+                    mod={mod}
+                    onUpdate={(patch) => updateModule(mod.id, patch)}
+                    onDelete={() => deleteModule(mod.id)}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+
+          <button
+            onClick={addModule}
+            className="w-full flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 hover:border-amber-400 hover:bg-amber-50/40 px-4 py-4 text-sm font-bold text-slate-600 hover:text-amber-700 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            モジュールを追加
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── ドラッグ可能 モジュールカード ────────────────────────────
+function SortableModuleCard({
+  mod, onUpdate, onDelete,
+}: {
+  mod: ModuleDef;
+  onUpdate: (patch: Partial<ModuleDef>) => void;
+  onDelete: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: mod.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  const isPreset = mod.id.startsWith('preset:');
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'rounded-lg border bg-card p-3 sm:p-4 space-y-3',
+        isPreset ? 'border-amber-200' : 'border-slate-200'
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <button
+          {...attributes}
+          {...listeners}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded hover:bg-muted cursor-grab active:cursor-grabbing"
+          title="ドラッグで並び替え"
+        >
+          <GripVertical className="h-4 w-4 text-slate-400" />
+        </button>
+        <span className="text-[10px] font-mono text-slate-400 shrink-0">{mod.id}</span>
+        {isPreset && (
+          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+            PRESET
+          </span>
+        )}
+        <div className="flex-1" />
+        <button
+          onClick={onDelete}
+          className="flex h-8 w-8 items-center justify-center rounded hover:bg-red-50 text-red-600 transition-colors"
+          title="削除"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <FormField label="ラベル (日本語)">
+          <input
+            type="text"
+            value={mod.label.ja}
+            onChange={(e) => onUpdate({ label: { ...mod.label, ja: e.target.value } })}
+            className="w-full rounded border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+          />
+        </FormField>
+        <FormField label="ラベル (English)">
+          <input
+            type="text"
+            value={mod.label.en}
+            onChange={(e) => onUpdate({ label: { ...mod.label, en: e.target.value } })}
+            className="w-full rounded border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+          />
+        </FormField>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <FormField label="ショートカット (0-9)">
+          <div className="relative">
+            <Hash className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
+            <input
+              type="text"
+              maxLength={1}
+              pattern="[0-9]"
+              value={mod.shortcutKey ?? ''}
+              onChange={(e) => {
+                const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 1);
+                onUpdate({ shortcutKey: v || undefined });
+              }}
+              placeholder="—"
+              className="w-full rounded border border-slate-300 pl-7 pr-2.5 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+            />
+          </div>
+        </FormField>
+        <FormField label="表示条件">
+          <select
+            value={mod.visibility ?? 'always'}
+            onChange={(e) => onUpdate({ visibility: e.target.value as ModuleVisibility })}
+            className="w-full rounded border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+          >
+            <option value="always">常に表示</option>
+            <option value="team-only">チームのみ</option>
+            <option value="individual-only">個人のみ</option>
+          </select>
+        </FormField>
+        <FormField label="幅">
+          <select
+            value={mod.width ?? 'default'}
+            onChange={(e) => onUpdate({ width: e.target.value as 'default' | 'wide' })}
+            className="w-full rounded border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+          >
+            <option value="default">デフォルト (1200px)</option>
+            <option value="wide">ワイド (1500px)</option>
+          </select>
+        </FormField>
+      </div>
+
+      <div className="flex items-center gap-3 text-xs text-slate-500 pt-2 border-t border-slate-100">
+        {mod.slots.length === 0 ? (
+          <span className="flex items-center gap-1">
+            <EyeOff className="h-3 w-3" />
+            スロットなし (CG には何も描画されません)
+          </span>
+        ) : (
+          <span className="flex items-center gap-1">
+            <Eye className="h-3 w-3" />
+            {mod.slots.length} スロット
+            <span className="text-slate-400 ml-1">
+              ({mod.slots.map((s) => s.kind).join(' / ')})
+            </span>
+          </span>
+        )}
+        <div className="flex-1" />
+        <span className="text-slate-400">スロット詳細編集は次バージョン対応</span>
+      </div>
+    </div>
+  );
+}
+
+function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}

@@ -9,6 +9,7 @@ import OutputPage from './pages/OutputPage';
 import LoginPage from './pages/LoginPage';
 import OneShotControlPage from './pages/OneShotControlPage';
 import OneShotOutputPage from './pages/OneShotOutputPage';
+import ModuleConfigEditPage from './pages/ModuleConfigEditPage';
 
 // 出力ページ (/awards/output/*) はuseAuthを使わない独立ルーター
 // → useAuth内のaxiosが/auth/meを呼び、401でloginにリダイレクトされるのを防ぐ
@@ -44,6 +45,7 @@ function AuthenticatedApp() {
             <Route path="/event/:id" element={<EventEditorPage />} />
             <Route path="/event/:id/control" element={<ControlPage />} />
             <Route path="/event/:id/oneshot/control" element={<OneShotControlPage />} />
+            <Route path="/event/:id/oneshot/modules" element={<ModuleConfigEditPage />} />
           </Route>
         ) : (
           <Route path="*" element={<RedirectOnce to="/login" />} />

@@ -772,9 +772,10 @@ export default function EventEditorPage() {
 }
 
 // ── 下位置CG モジュール構成 セクション (v2.8.74+) ────────────
-// イベントごとの ModuleDef[] (送出モジュール構成) を JSON でエクスポート/インポート。
-// 段階4 で編集 UI を追加するまで、このセクションは「初期化 + I/O」のみ。
+// イベントごとの ModuleDef[] (送出モジュール構成) を編集 + JSON I/O。
+// 段階4 (v2.8.75+) で「編集ページへ」ボタンを追加。
 function ModuleConfigSection({ eventId }: { eventId: number }) {
+  const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -853,6 +854,13 @@ function ModuleConfigSection({ eventId }: { eventId: number }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => navigate(`/event/${eventId}/oneshot/modules`)}
+          className="flex items-center gap-1.5 rounded-lg bg-amber-600 text-white hover:bg-amber-500 px-3 py-2 text-xs font-bold transition-colors"
+        >
+          <Subtitles className="h-3.5 w-3.5" />
+          モジュール編集
+        </button>
         <button
           onClick={handleExport}
           disabled={busy}
