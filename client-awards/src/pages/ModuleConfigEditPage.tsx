@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ChevronLeft, Plus, Trash2, GripVertical, Save, RotateCcw, Subtitles,
   AlertCircle, CheckCircle2, Tv2, Hash, Eye, EyeOff,
-  ChevronDown, ChevronUp,
+  ChevronDown, ChevronUp, Maximize2, Minimize2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -21,10 +21,17 @@ import {
   useEventModuleConfig, useSaveEventModuleConfig,
 } from '../oneshot/lib/moduleConfig';
 import { createDefaultEventModuleConfig } from '../oneshot/data/presetModules';
+import { SEED_NOMINEES } from '../oneshot/data/seedNominees';
+import LowerThirdCG from '../oneshot/LowerThirdCG';
+import { moduleIdToCueKey } from '../oneshot/lib/moduleKeyMap';
 import type {
-  EventModuleConfig, ModuleDef, ModuleVisibility,
+  EventModuleConfig, Lang, ModuleDef, ModuleVisibility,
   SlotDef, SlotKind, SlotBinding,
 } from '../oneshot/types';
+import '../oneshot/styles/index.css';
+
+const CG_W = 1920;
+const CG_H = 1080;
 
 // v2.8.75+ 段階4 (first cut): モジュール構成の編集 UI。
 // このバージョンでは:
@@ -45,6 +52,11 @@ export default function ModuleConfigEditPage() {
   const [draft, setDraft] = useState<EventModuleConfig | null>(null);
   const [dirty, setDirty] = useState(false);
   const [savedBanner, setSavedBanner] = useState<string | null>(null);
+
+  // v2.8.77+ ライブプレビュー state
+  const [previewModuleId, setPreviewModuleId] = useState<string | null>(null);
+  const [previewLang, setPreviewLang] = useState<Lang>('ja');
+  const [previewExpanded, setPreviewExpanded] = useState(true);
 
   // 初期ロード or サーバー側更新時に draft を同期 (dirty 状態は維持)
   useEffect(() => {
@@ -195,12 +207,23 @@ export default function ModuleConfigEditPage() {
         </div>
       )}
 
-      {/* ── Body ────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+      {/* ── Body (lg+: 2-pane layout, mobile: stacked) ──── */}
+      <div className="flex-1 overflow-y-auto">
+        {/* v2.8.77+: ライブプレビューペイン (sticky top, collapsible) */}
+        <LivePreviewPane
+          draft={draft}
+          previewModuleId={previewModuleId}
+          previewLang={previewLang}
+          onChangeLang={setPreviewLang}
+          expanded={previewExpanded}
+          onToggleExpand={() => setPreviewExpanded((v) => !v)}
+        />
+
+        <div className="p-4 sm:p-6">
         <div className="max-w-3xl mx-auto space-y-4">
           <div className="rounded-lg border border-slate-200 bg-card p-3 text-xs text-slate-600">
             <p className="font-bold text-slate-800 mb-1">モジュールを追加・並び替え・編集できます</p>
-            <p>送出 UI のボタン順は <strong>order 昇順</strong>。ドラッグで並び替え、右端のゴミ箱で削除、下のフォームで基本情報を編集。スロット (CG への描画内容) の詳細編集は次バージョンで対応予定。</p>
+            <p>送出 UI のボタン順は <strong>order 昇順</strong>。ドラッグで並び替え、右端のゴミ箱で削除、下のフォームで基本情報を編集。各モジュールカードの「プレビュー」ボタンで上のペインに表示確認できます。</p>
           </div>
 
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
@@ -213,8 +236,10 @@ export default function ModuleConfigEditPage() {
                   <SortableModuleCard
                     key={mod.id}
                     mod={mod}
+                    isPreviewing={previewModuleId === mod.id}
                     onUpdate={(patch) => updateModule(mod.id, patch)}
                     onDelete={() => deleteModule(mod.id)}
+                    onPreview={() => setPreviewModuleId(mod.id)}
                   />
                 ))}
               </div>
@@ -229,18 +254,160 @@ export default function ModuleConfigEditPage() {
             モジュールを追加
           </button>
         </div>
+        </div>
       </div>
+    </div>
+  );
+}
+
+// ── ライブプレビュー ペイン (sticky top, collapsible) ─────────────
+function LivePreviewPane({
+  draft, previewModuleId, previewLang, onChangeLang, expanded, onToggleExpand,
+}: {
+  draft: EventModuleConfig;
+  previewModuleId: string | null;
+  previewLang: Lang;
+  onChangeLang: (l: Lang) => void;
+  expanded: boolean;
+  onToggleExpand: () => void;
+}) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(0.18);
+  const [off, setOff] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const calc = () => {
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      if (!w || !h) return;
+      const s = Math.min(w / CG_W, h / CG_H);
+      setScale(s);
+      setOff({ x: Math.floor((w - CG_W * s) / 2), y: Math.floor((h - CG_H * s) / 2) });
+    };
+    calc();
+    const ro = new ResizeObserver(calc);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [expanded]);
+
+  // 選択中モジュールを解決 (なければ先頭の non-empty モジュール)
+  const previewMod = useMemo(() => {
+    if (previewModuleId) {
+      return draft.modules.find((m) => m.id === previewModuleId) ?? null;
+    }
+    return draft.modules.find((m) => m.slots.length > 0) ?? draft.modules[0] ?? null;
+  }, [draft, previewModuleId]);
+
+  // モジュールの visibility に合わせてサンプルノミネートを選択
+  const sampleNominee = useMemo(() => {
+    const isTeamOnly = previewMod?.visibility === 'team-only';
+    const team = SEED_NOMINEES.find((n) => n.type === 'team');
+    const indiv = SEED_NOMINEES.find((n) => n.type === 'individual');
+    return isTeamOnly ? (team ?? indiv ?? SEED_NOMINEES[0]) : (indiv ?? SEED_NOMINEES[0]);
+  }, [previewMod]);
+
+  const moduleKey = previewMod ? moduleIdToCueKey(previewMod.id) : 'none';
+
+  return (
+    <div className="sticky top-0 z-20 bg-slate-900 border-b border-slate-300">
+      <div className="flex items-center gap-2 px-3 sm:px-6 py-2">
+        <Eye className="h-4 w-4 text-amber-400 shrink-0" />
+        <span className="text-xs font-black tracking-widest uppercase text-amber-300 shrink-0">
+          ライブプレビュー
+        </span>
+        {previewMod && (
+          <>
+            <span className="text-slate-600 shrink-0">·</span>
+            <span className="text-xs text-slate-300 truncate">
+              {previewLang === 'ja' ? previewMod.label.ja : previewMod.label.en}
+              <span className="text-slate-500 ml-1 font-mono">({previewMod.id})</span>
+            </span>
+          </>
+        )}
+        <div className="flex-1" />
+        {/* lang toggle */}
+        <div className="flex items-center rounded-md border border-slate-700 bg-slate-800 p-0.5 text-[10px] font-black">
+          {(['ja', 'en'] as const).map((l) => (
+            <button
+              key={l}
+              onClick={() => onChangeLang(l)}
+              className={cn(
+                'px-2 py-0.5 rounded transition-colors uppercase',
+                previewLang === l ? 'bg-amber-500 text-slate-950' : 'text-slate-500 hover:text-slate-300'
+              )}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={onToggleExpand}
+          className="flex h-7 w-7 items-center justify-center rounded hover:bg-slate-800 text-slate-400"
+          title={expanded ? 'プレビューを折りたたむ' : 'プレビューを展開'}
+        >
+          {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+        </button>
+      </div>
+      {expanded && (
+        <div
+          ref={wrapRef}
+          className="relative w-full bg-black aspect-video max-h-[40vh]"
+        >
+          {previewMod && sampleNominee && (
+            <div
+              style={{
+                position: 'absolute',
+                left: off.x,
+                top: off.y,
+                width: CG_W * scale,
+                height: CG_H * scale,
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  width: CG_W,
+                  height: CG_H,
+                  transform: `scale(${scale})`,
+                  transformOrigin: 'top left',
+                  position: 'absolute',
+                }}
+              >
+                <div className="oneshot-cg-root" style={{ position: 'relative', width: CG_W, height: CG_H }}>
+                  <LowerThirdCG
+                    nominee={sampleNominee}
+                    lang={previewLang}
+                    moduleKey={moduleKey}
+                    showPortrait={true}
+                    useDynamicRenderer={true}
+                    moduleConfig={draft}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          {!previewMod && (
+            <div className="absolute inset-0 flex items-center justify-center text-xs text-slate-500">
+              モジュールを選択してプレビュー
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
 // ── ドラッグ可能 モジュールカード ────────────────────────────
 function SortableModuleCard({
-  mod, onUpdate, onDelete,
+  mod, isPreviewing, onUpdate, onDelete, onPreview,
 }: {
   mod: ModuleDef;
+  isPreviewing: boolean;
   onUpdate: (patch: Partial<ModuleDef>) => void;
   onDelete: () => void;
+  onPreview: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: mod.id });
   const style = {
@@ -256,6 +423,7 @@ function SortableModuleCard({
       style={style}
       className={cn(
         'rounded-lg border bg-card p-3 sm:p-4 space-y-3',
+        isPreviewing ? 'border-amber-500 ring-2 ring-amber-300' :
         isPreset ? 'border-amber-200' : 'border-slate-200'
       )}
     >
@@ -275,6 +443,19 @@ function SortableModuleCard({
           </span>
         )}
         <div className="flex-1" />
+        <button
+          onClick={onPreview}
+          className={cn(
+            'flex items-center gap-1 rounded px-2 py-1 text-xs font-bold transition-colors',
+            isPreviewing
+              ? 'bg-amber-500 text-slate-950'
+              : 'border border-slate-300 text-slate-600 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'
+          )}
+          title="このモジュールを上のプレビューに表示"
+        >
+          <Eye className="h-3 w-3" />
+          プレビュー
+        </button>
         <button
           onClick={onDelete}
           className="flex h-8 w-8 items-center justify-center rounded hover:bg-red-50 text-red-600 transition-colors"

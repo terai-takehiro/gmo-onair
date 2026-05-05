@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ExternalLink, Radio, Subtitles, Tv2, Languages, Database, Image as ImageIcon, ImageOff, Cpu } from 'lucide-react';
+import { ChevronLeft, ExternalLink, Radio, Subtitles, Tv2, Languages, Database, Cpu } from 'lucide-react';
 
 import OneShotStage from '../oneshot/OneShotStage';
 import LangPicker, { fromLangMode, type LangMode } from '../oneshot/operator/LangPicker';
@@ -448,10 +448,35 @@ export default function OneShotControlPage() {
       </div>
 
       {/* ── Bottom: PREVIEW thumb + Module / Ticker / Send ────── */}
-      <div className="shrink-0 border-t border-slate-800 bg-slate-900/50 p-3">
+      <div className="shrink-0 border-t border-slate-800 bg-slate-900/50">
+        {/* v2.8.77+: モバイル/タブレット (< xl) でのみ表示する PREVIEW info strip
+            (PREVIEW thumbnail を非表示にする代わりに、現在 queue されている
+            ノミネート + モジュールをテキストで簡潔に表示) */}
+        <div className="xl:hidden flex items-center gap-2 px-3 py-1.5 text-[11px] border-b border-slate-800/80 bg-black/30">
+          <span className="font-black tracking-widest uppercase text-amber-500 shrink-0">
+            PREVIEW · {lang.toUpperCase()}{bilingual ? '+EN' : ''}
+          </span>
+          {previewNominee ? (
+            <>
+              <span className="text-slate-200 truncate font-bold">
+                {previewNominee.type === 'team'
+                  ? (lang === 'ja' ? previewNominee.projectName ?? previewNominee.name : previewNominee.projectNameEn ?? previewNominee.nameEn)
+                  : (lang === 'ja' ? previewNominee.name : previewNominee.nameEn)}
+              </span>
+              <span className="text-slate-600 shrink-0">·</span>
+              <span className="text-slate-400 truncate">
+                {previewModules.find((m) => m.id === `preset:${previewModule}` || m.id === previewModule)?.label[lang === 'en' ? 'en' : 'ja'] ?? '—'}
+              </span>
+            </>
+          ) : (
+            <span className="text-slate-500">ノミネート未選択</span>
+          )}
+        </div>
+
+        <div className="p-3">
         <div className="flex flex-col xl:flex-row gap-3">
-          {/* PREVIEW thumbnail */}
-          <div className="flex flex-col gap-1.5 shrink-0 w-full xl:w-[320px]">
+          {/* PREVIEW thumbnail (xl+ only) */}
+          <div className="hidden xl:flex flex-col gap-1.5 shrink-0 w-full xl:w-[320px]">
             <div className="flex items-center gap-1.5 text-[10px] font-black tracking-widest uppercase text-amber-500">
               <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
               PREVIEW · NEXT TAKE ({lang.toUpperCase()})
@@ -517,34 +542,22 @@ export default function OneShotControlPage() {
               currentAward={currentAward}
               onToggle={onToggleTicker}
             />
-            {/* 画像 ON/OFF (送出CGに画像を含めるか) */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={onTogglePortrait}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-md border px-3.5 py-2 text-sm font-semibold transition-all',
-                  showPortrait
-                    ? 'border-emerald-500 bg-emerald-900/30 text-emerald-300'
-                    : 'border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-slate-100'
-                )}
-                title="送出CGに画像 (Portrait) を含めるか切替"
-              >
-                {showPortrait ? <ImageIcon className="h-4 w-4" /> : <ImageOff className="h-4 w-4" />}
-                {showPortrait ? '画像 ON' : '画像 OFF'}
-              </button>
-              <span className="text-[11px] text-slate-500">
-                {showPortrait ? '左に写真を表示' : '写真エリアを畳んでコンパクト表示'}
-              </span>
-            </div>
+            {/* v2.8.77+: 画像 ON/OFF はチップ化して TAKE 行と一緒に flex-wrap */}
             <SendActionRow
               isLive={isLive}
               transparent={transparent}
+              showPortrait={showPortrait}
               onTake={take}
               onClear={clear}
               onToggleTransparent={onToggleTransparent}
+              onTogglePortrait={onTogglePortrait}
             />
-            <ShortcutHints />
+            {/* ShortcutHints は sm 以上 (タブレット縦向き ~) でのみ表示 */}
+            <div className="hidden sm:block">
+              <ShortcutHints />
+            </div>
           </div>
+        </div>
         </div>
       </div>
 
