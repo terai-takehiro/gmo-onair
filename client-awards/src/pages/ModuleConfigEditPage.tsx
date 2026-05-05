@@ -33,6 +33,22 @@ import '../oneshot/styles/index.css';
 const CG_W = 1920;
 const CG_H = 1080;
 
+// v2.8.80+: crypto.randomUUID は HTTPS context が必要。一部 iOS Safari で
+// localhost 以外でも未サポートのケースがあるため安全な fallback を用意。
+function safeUUID(): string {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+  } catch { /* fall through */ }
+  // RFC 4122 v4 風の擬似 UUID (Math.random ベース、暗号学的強度はないが UI 用 ID には十分)
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 // v2.8.75+ 段階4 (first cut): モジュール構成の編集 UI。
 // このバージョンでは:
 //  ・モジュールの DnD 並び替え (order 自動更新)
@@ -59,8 +75,12 @@ export default function ModuleConfigEditPage() {
   const [previewExpanded, setPreviewExpanded] = useState(true);
 
   // 初期ロード or サーバー側更新時に draft を同期 (dirty 状態は維持)
+  // v2.8.80+: 古い iOS Safari (< 15.4) で structuredClone 未サポートのため
+  // JSON ベースの deep clone にフォールバック (ModuleDef は serializable なので安全)
   useEffect(() => {
-    if (serverConfig && !dirty) setDraft(structuredClone(serverConfig));
+    if (serverConfig && !dirty) {
+      setDraft(JSON.parse(JSON.stringify(serverConfig)));
+    }
   }, [serverConfig, dirty]);
 
   const sensors = useSensors(
@@ -86,7 +106,7 @@ export default function ModuleConfigEditPage() {
   };
 
   const addModule = () => {
-    const uuid = crypto.randomUUID();
+    const uuid = safeUUID();
     const nextOrder = (draft.modules.reduce((mx, m) => Math.max(mx, m.order), 0) ?? 0) + 1;
     const newMod: ModuleDef = {
       id: `custom-${uuid}`,
@@ -566,7 +586,7 @@ function SlotsEditor({
 
   const addSlot = () => {
     const newSlot: SlotDef = {
-      id: `slot-${crypto.randomUUID().slice(0, 8)}`,
+      id: `slot-${safeUUID().slice(0, 8)}`,
       kind: 'body-text',
       binding: { source: 'literal', ja: '', en: '' },
     };

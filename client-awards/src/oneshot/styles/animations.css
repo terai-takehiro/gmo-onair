@@ -53,6 +53,14 @@
 .oneshot-cg-root .slot-hold-invisible {
   opacity: 0;
 }
+/* v2.8.80+: resize phase 中は子要素のスタガードアニメ (flap-block / flap-char) を
+   pause して enter phase 開始時に「親の fade-in と一緒に」再生させる。
+   これがないと resize フェーズ中 (見えない時間) にアニメが完了して、
+   enter フェーズではタグや人カードの「順番に入る」演出が見えなくなる。 */
+.oneshot-cg-root .slot-hold-invisible .flap-block,
+.oneshot-cg-root .slot-hold-invisible .flap-char {
+  animation-play-state: paused;
+}
 .oneshot-cg-root .slot-fade-in-seq {
   animation: oscg-slotFadeInSeq 360ms cubic-bezier(.45,.05,.55,.95) both;
 }
