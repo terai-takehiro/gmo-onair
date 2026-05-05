@@ -3,11 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ExternalLink, Radio, Subtitles } from 'lucide-react';
+import { ChevronLeft, ExternalLink, Radio, Subtitles, Tv2 } from 'lucide-react';
 
 import OneShotStage from '../oneshot/OneShotStage';
 import LangPicker from '../oneshot/operator/LangPicker';
-import NomineePanel from '../oneshot/operator/NomineePanel';
+import NomineePanel, { filterNominees } from '../oneshot/operator/NomineePanel';
 import ModulePickerRow from '../oneshot/operator/ModulePickerRow';
 import TickerControlRow from '../oneshot/operator/TickerControlRow';
 import SendActionRow from '../oneshot/operator/SendActionRow';
@@ -36,7 +36,7 @@ interface OneShotEventDetail {
 }
 
 interface LiveSnapshot {
-  nomineeIdx: number;
+  nomineeId: string;
   moduleKey: ModuleKey;
   lang: Lang;
 }
@@ -63,40 +63,71 @@ export default function OneShotControlPage() {
   });
 
   const nominees = useMemo(() => mapEventToNominees(event), [event]);
-  const tickerCats = useMemo(() => groupNomineesForTicker(nominees, lang), [nominees, lang]);
+  const awards = useMemo(() => groupNomineesForTicker(nominees, lang), [nominees, lang]);
 
-  // Preview state (operator pre-roll)
-  const [previewIdx, setPreviewIdx] = useState(0);
+  // ── 階層選択 state ──────────────────────────────────────
+  const [selectedAwardIdx, setSelectedAwardIdx] = useState(0);
+  const [selectedDivision, setSelectedDivision] = useState<string | null>(null);
+  // PREVIEW にロードするノミネートは id ベースで保持 (フィルタ変更でも追える)
+  const [previewId, setPreviewId] = useState<string | null>(null);
+
+  // 賞が変わったら部門選択をリセット
+  useEffect(() => {
+    setSelectedDivision(null);
+  }, [selectedAwardIdx]);
+
+  const currentAward = awards[selectedAwardIdx] ?? null;
+
+  // フィルタされたノミネート (賞 + 部門)
+  const filteredNominees = useMemo(
+    () => filterNominees(nominees, currentAward?.award ?? null, selectedDivision, lang),
+    [nominees, currentAward, selectedDivision, lang]
+  );
+
+  // previewId が現在のフィルタに含まれていなければ先頭にリセット
+  useEffect(() => {
+    if (!filteredNominees.length) {
+      setPreviewId(null);
+      return;
+    }
+    if (previewId == null || !filteredNominees.find((n) => n.id === previewId)) {
+      setPreviewId(filteredNominees[0].id);
+    }
+  }, [filteredNominees, previewId]);
+
+  const previewNominee = useMemo(
+    () => nominees.find((n) => n.id === previewId) ?? null,
+    [nominees, previewId]
+  );
+
   const [previewModule, setPreviewModule] = useState<ModuleKey>('title');
-  const [tickerCatIdx, setTickerCatIdx] = useState(0);
   const [transparent, setTransparent] = useState(false);
 
-  const previewNominee = nominees[previewIdx] ?? nominees[0] ?? null;
   const previewModules = useMemo(
     () => (previewNominee ? getModules(previewNominee, lang) : {}),
     [previewNominee, lang]
   );
-  // Reset to title if currently selected module isn't available for new nominee
+  // モジュールがフィルタ後に存在しなければ title に戻す
   useEffect(() => {
     if (!previewModules[previewModule]) setPreviewModule('title');
   }, [previewModules, previewModule]);
 
-  // Live state (TAKE pushes a snapshot here, also synced via socket)
-  const initialSnapshot: LiveSnapshot = { nomineeIdx: 0, moduleKey: 'title', lang };
-  const liveFlow = useTakeFlow<LiveSnapshot>(initialSnapshot);
+  // Live state — 1S CG 出力中のスナップショット
+  const liveFlow = useTakeFlow<LiveSnapshot>({ nomineeId: '', moduleKey: 'title', lang });
   const tickerFlow = useTickerToggle(false);
 
   const { cue, sendCue } = useOneShotCue(isNaN(eventId) ? null : eventId);
 
-  // Send live state on take/clear/lang change
+  // ── 操作ハンドラ ────────────────────────────────────────
   const take = () => {
-    const snap: LiveSnapshot = { nomineeIdx: previewIdx, moduleKey: previewModule, lang };
+    if (!previewNominee) return;
+    const snap: LiveSnapshot = { nomineeId: previewNominee.id, moduleKey: previewModule, lang };
     liveFlow.take(snap);
     sendCue({
-      entryId: nomineeDbId(nominees[previewIdx]),
+      entryId: nomineeDbId(previewNominee),
       moduleKey: previewModule,
       tickerOn: tickerFlow.on,
-      tickerCatIdx,
+      tickerCatIdx: selectedAwardIdx,
       transparent,
       lang,
       isLive: true,
@@ -109,10 +140,10 @@ export default function OneShotControlPage() {
 
   const onToggleTicker = () => {
     tickerFlow.toggle();
-    sendCue({ ...cue, tickerOn: !tickerFlow.on });
+    sendCue({ ...cue, tickerOn: !tickerFlow.on, tickerCatIdx: selectedAwardIdx });
   };
-  const onSelectTickerCat = (i: number) => {
-    setTickerCatIdx(i);
+  const onSelectAward = (i: number) => {
+    setSelectedAwardIdx(i);
     sendCue({ ...cue, tickerCatIdx: i });
   };
   const onToggleTransparent = () => {
@@ -125,16 +156,30 @@ export default function OneShotControlPage() {
     sendCue({ ...cue, lang: v });
   };
 
+  // ↑↓ で フィルタ済みノミネート間を循環
+  const goPrev = () => {
+    if (!filteredNominees.length) return;
+    const i = filteredNominees.findIndex((n) => n.id === previewId);
+    const next = (i - 1 + filteredNominees.length) % filteredNominees.length;
+    setPreviewId(filteredNominees[next].id);
+  };
+  const goNext = () => {
+    if (!filteredNominees.length) return;
+    const i = filteredNominees.findIndex((n) => n.id === previewId);
+    const next = (i + 1) % filteredNominees.length;
+    setPreviewId(filteredNominees[next].id);
+  };
+
   useShortcuts({
     modules: previewModules,
     setModuleKey: setPreviewModule,
-    prevNominee: () => setPreviewIdx((i) => (nominees.length ? (i - 1 + nominees.length) % nominees.length : 0)),
-    nextNominee: () => setPreviewIdx((i) => (nominees.length ? (i + 1) % nominees.length : 0)),
+    prevNominee: goPrev,
+    nextNominee: goNext,
     take,
     clear,
   });
 
-  // ── Letterbox helpers ──────────────────────────────────────
+  // ── Letterbox ──────────────────────────────────────────
   const programRef = useRef<HTMLDivElement>(null);
   const previewThumbRef = useRef<HTMLDivElement>(null);
   const [programScale, setProgramScale] = useState(0.3);
@@ -176,10 +221,13 @@ export default function OneShotControlPage() {
     return () => ro.disconnect();
   }, []);
 
-  const liveNominee = liveFlow.live ? nominees[liveFlow.live.nomineeIdx] ?? null : null;
-  const isLive = liveFlow.mounted;
+  const liveNominee = useMemo(() => {
+    if (!liveFlow.live?.nomineeId) return null;
+    return nominees.find((n) => n.id === liveFlow.live!.nomineeId) ?? null;
+  }, [liveFlow.live, nominees]);
 
-  const currentTicker = tickerCats[tickerCatIdx % Math.max(tickerCats.length, 1)] ?? null;
+  const isLive = liveFlow.mounted;
+  const tickerCategory = currentAward;
 
   return (
     <div className="h-full flex flex-col bg-black text-slate-100 overflow-hidden">
@@ -188,6 +236,7 @@ export default function OneShotControlPage() {
         <button
           onClick={() => navigate(`/event/${eventId}`)}
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
+          title="イベント編集に戻る"
         >
           <ChevronLeft className="h-4 w-4 text-slate-300" />
         </button>
@@ -197,6 +246,15 @@ export default function OneShotControlPage() {
           <span className="text-xs text-slate-600 truncate hidden sm:block">{event.name}</span>
         )}
         <div className="flex-1" />
+        {/* 回遊性: 同イベントのランキングCGコントロールへ直接ジャンプ */}
+        <button
+          onClick={() => navigate(`/event/${eventId}/control`)}
+          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-[10px] font-black tracking-widest uppercase text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors"
+          title="ランキングCG コントロールへ"
+        >
+          <Tv2 className="h-3 w-3" />
+          ランキングCG
+        </button>
         <div
           className={cn(
             'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black tracking-widest uppercase transition-all',
@@ -221,7 +279,7 @@ export default function OneShotControlPage() {
         </a>
       </header>
 
-      {/* ── Middle: PROGRAM (live mirror) + Nominee panel ─────── */}
+      {/* ── Middle: PROGRAM + Nominee panel ─────────────── */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
         <div
           ref={programRef}
@@ -246,9 +304,6 @@ export default function OneShotControlPage() {
                 position: 'absolute',
               }}
             >
-              {/* PROGRAM = output mirror. lower-third only mounts when isLive
-                  so CLEAR truly clears the screen (matches what the broadcast
-                  output shows). */}
               <OneShotStage
                 nominee={liveNominee}
                 lang={liveFlow.live?.lang ?? lang}
@@ -259,7 +314,7 @@ export default function OneShotControlPage() {
                 tickerMounted={tickerFlow.mounted}
                 tickerExiting={tickerFlow.exiting}
                 tickerOn={tickerFlow.on}
-                tickerCategory={currentTicker}
+                tickerCategory={tickerCategory}
               />
             </div>
           </div>
@@ -272,23 +327,31 @@ export default function OneShotControlPage() {
             )}
           >
             <span className={cn('h-1.5 w-1.5 rounded-full', isLive ? 'bg-red-500 animate-pulse' : 'bg-slate-600')} />
-            {isLive ? 'PROGRAM · ON AIR' : 'PROGRAM · OFF'}
+            {isLive ? `PROGRAM · ON AIR (${lang.toUpperCase()})` : `PROGRAM · OFF (${lang.toUpperCase()})`}
           </div>
+          {!isLive && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="text-center text-slate-700">
+                <div className="text-[10px] font-black tracking-widest uppercase mb-1">PROGRAM OFF</div>
+                <div className="text-[9px] tracking-widest">Press TAKE to send</div>
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="w-full lg:w-72 xl:w-80 flex-1 min-h-0 lg:flex-none lg:shrink-0 flex flex-col overflow-hidden">
-          <div className="shrink-0 px-3 py-2 border-b border-slate-800 bg-slate-900/30">
-            <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase">
-              Nominee · ↑/↓
-            </span>
-          </div>
+        <div className="w-full lg:w-80 xl:w-96 flex-1 min-h-0 lg:flex-none lg:shrink-0 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto p-3">
             <NomineePanel
               nominees={nominees}
-              selectedIdx={previewIdx}
-              liveIdx={isLive && liveFlow.live ? liveFlow.live.nomineeIdx : null}
+              awards={awards}
+              selectedAwardIdx={selectedAwardIdx}
+              selectedDivision={selectedDivision}
+              previewId={previewId}
+              liveId={isLive && liveFlow.live ? liveFlow.live.nomineeId : null}
               lang={lang}
-              onSelect={setPreviewIdx}
+              onSelectAward={onSelectAward}
+              onSelectDivision={setSelectedDivision}
+              onSelectNominee={setPreviewId}
             />
           </div>
         </div>
@@ -297,49 +360,55 @@ export default function OneShotControlPage() {
       {/* ── Bottom: PREVIEW thumb + Module / Ticker / Send ────── */}
       <div className="shrink-0 border-t border-slate-800 bg-slate-900/50 p-3">
         <div className="flex flex-col xl:flex-row gap-3">
-          {/* PREVIEW thumbnail (queued state — what the next TAKE will send) */}
+          {/* PREVIEW thumbnail */}
           <div className="flex flex-col gap-1.5 shrink-0 w-full xl:w-[320px]">
             <div className="flex items-center gap-1.5 text-[10px] font-black tracking-widest uppercase text-amber-500">
               <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-              PREVIEW · NEXT TAKE
+              PREVIEW · NEXT TAKE ({lang.toUpperCase()})
             </div>
             <div
               ref={previewThumbRef}
               className="relative w-full aspect-video bg-black rounded border border-slate-800 overflow-hidden"
             >
-              <div
-                style={{
-                  position: 'absolute',
-                  left: thumbOff.x,
-                  top: thumbOff.y,
-                  width: CG_W * thumbScale,
-                  height: CG_H * thumbScale,
-                  overflow: 'hidden',
-                }}
-              >
+              {previewNominee ? (
                 <div
                   style={{
-                    width: CG_W,
-                    height: CG_H,
-                    transform: `scale(${thumbScale})`,
-                    transformOrigin: 'top left',
                     position: 'absolute',
+                    left: thumbOff.x,
+                    top: thumbOff.y,
+                    width: CG_W * thumbScale,
+                    height: CG_H * thumbScale,
+                    overflow: 'hidden',
                   }}
                 >
-                  <OneShotStage
-                    nominee={previewNominee}
-                    lang={lang}
-                    moduleKey={previewModule}
-                    transparent={transparent}
-                    lowerThirdMounted={true}
-                    lowerThirdExiting={false}
-                    tickerMounted={tickerFlow.on}
-                    tickerExiting={false}
-                    tickerOn={tickerFlow.on}
-                    tickerCategory={currentTicker}
-                  />
+                  <div
+                    style={{
+                      width: CG_W,
+                      height: CG_H,
+                      transform: `scale(${thumbScale})`,
+                      transformOrigin: 'top left',
+                      position: 'absolute',
+                    }}
+                  >
+                    <OneShotStage
+                      nominee={previewNominee}
+                      lang={lang}
+                      moduleKey={previewModule}
+                      transparent={transparent}
+                      lowerThirdMounted={true}
+                      lowerThirdExiting={false}
+                      tickerMounted={tickerFlow.on}
+                      tickerExiting={false}
+                      tickerOn={tickerFlow.on}
+                      tickerCategory={tickerCategory}
+                    />
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-[10px] text-slate-600">
+                  ノミネート未選択
+                </div>
+              )}
             </div>
           </div>
 
@@ -348,10 +417,8 @@ export default function OneShotControlPage() {
             <ModulePickerRow modules={previewModules} selected={previewModule} onSelect={setPreviewModule} />
             <TickerControlRow
               on={tickerFlow.on}
-              categories={tickerCats}
-              selectedIdx={tickerCatIdx}
+              currentAward={currentAward}
               onToggle={onToggleTicker}
-              onSelect={onSelectTickerCat}
             />
             <SendActionRow
               isLive={isLive}

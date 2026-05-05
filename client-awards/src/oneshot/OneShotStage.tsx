@@ -49,7 +49,11 @@ export default function OneShotStage({
       )}
       {tickerMounted && tickerCategory && (
         <div className={'ticker-wrap ' + (tickerExiting ? 't-exit' : 't-enter')}>
-          <Ticker category={tickerCategory.category} items={tickerCategory.items} lang={lang} />
+          <Ticker
+            award={tickerCategory.award}
+            divisions={tickerCategory.divisions}
+            lang={lang}
+          />
         </div>
       )}
     </div>

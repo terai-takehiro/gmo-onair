@@ -63,10 +63,12 @@ export function mapEventToNominees(event: OneShotEvent | null | undefined): Nomi
       const merged: Nominee = {
         id,
         type: od.type ?? 'individual',
-        category: od.category ?? cat.description ?? cat.name,
-        categoryEn: od.categoryEn ?? cat.description_en ?? cat.name_en ?? cat.name,
-        subcategory: od.subcategory ?? cat.name,
-        subcategoryEn: od.subcategoryEn ?? cat.name_en ?? cat.name,
+        // 賞名 (awards_categories.name = e.g. '新人賞')
+        category: od.category ?? cat.name,
+        categoryEn: od.categoryEn ?? cat.name_en ?? cat.name,
+        // 部門名 (awards_categories.description = e.g. '新卒パートナー')
+        subcategory: od.subcategory ?? cat.description ?? '',
+        subcategoryEn: od.subcategoryEn ?? cat.description_en ?? cat.description ?? '',
         entryNo: od.entryNo ?? String(e.rank ?? e.id).padStart(2, '0'),
         image: od.image ?? e.photo_url ?? '',
         name: od.name ?? e.name,

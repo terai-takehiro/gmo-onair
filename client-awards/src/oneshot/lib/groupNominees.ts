@@ -1,16 +1,27 @@
-import type { Lang, Nominee, TickerCategory } from '../types';
+import type { Lang, Nominee, TickerCategory, TickerItem } from '../types';
 
-// 部門ごとにノミネートをグルーピング → ティッカー用カテゴリ一覧
+// 賞 → 部門 → items の階層構造でグルーピング。
+// ティッカーは賞単位で 1 本になり、内部で部門を順番にローテーションする。
 export function groupNomineesForTicker(nominees: Nominee[], lang: Lang): TickerCategory[] {
-  const map = new Map<string, { name: string; company: string }[]>();
-  const order: string[] = [];
+  const awardMap = new Map<string, Map<string, TickerItem[]>>();
+  const awardOrder: string[] = [];
+  const divisionOrder = new Map<string, string[]>();
 
   for (const n of nominees) {
-    const key = lang === 'ja' ? n.category : n.categoryEn;
-    if (!map.has(key)) {
-      map.set(key, []);
-      order.push(key);
+    const award = lang === 'ja' ? n.category : n.categoryEn;
+    const division = lang === 'ja' ? n.subcategory : n.subcategoryEn;
+
+    if (!awardMap.has(award)) {
+      awardMap.set(award, new Map());
+      divisionOrder.set(award, []);
+      awardOrder.push(award);
     }
+    const divMap = awardMap.get(award)!;
+    if (!divMap.has(division)) {
+      divMap.set(division, []);
+      divisionOrder.get(award)!.push(division);
+    }
+
     const name =
       n.type === 'team'
         ? lang === 'ja'
@@ -20,8 +31,14 @@ export function groupNomineesForTicker(nominees: Nominee[], lang: Lang): TickerC
         ? n.name
         : n.nameEn;
     const company = lang === 'ja' ? n.company : n.companyEn;
-    map.get(key)!.push({ name, company });
+    divMap.get(division)!.push({ name, company });
   }
 
-  return order.map((category) => ({ category, items: map.get(category)! }));
+  return awardOrder.map((award) => ({
+    award,
+    divisions: divisionOrder.get(award)!.map((division) => ({
+      division,
+      items: awardMap.get(award)!.get(division)!,
+    })),
+  }));
 }

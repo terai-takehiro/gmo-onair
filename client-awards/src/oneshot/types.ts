@@ -72,9 +72,18 @@ export interface TickerItem {
   company: string;
 }
 
-export interface TickerCategory {
-  category: string;
+/** 賞内の 1 部門 (ティッカーの 1 ローテーション単位) */
+export interface TickerDivision {
+  division: string;
   items: TickerItem[];
+}
+
+/** 賞単位のティッカーカテゴリ。1賞内の全部門を順番にループ表示する。 */
+export interface TickerCategory {
+  /** 賞名 (e.g., '新人賞' / 'Rookie Award') */
+  award: string;
+  /** 賞内の部門配列。1ループ完走後に次の部門にローテーションする。 */
+  divisions: TickerDivision[];
 }
 
 export interface OneShotCueState {
