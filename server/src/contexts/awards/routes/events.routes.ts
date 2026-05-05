@@ -277,7 +277,18 @@ router.post('/events/:id/import-excel', upload.single('file'), wrap(async (req, 
     }
   }
 
-  const result = await importAwardsExcel(req.file.buffer, eventId, mapping);
+  // v2.8.69+: extraColumns (= 既知 CG 項目に該当しないが「そのまま保存」する Excel ヘッダー一覧)
+  let extraColumns: string[] | undefined;
+  if (req.body?.extraColumns) {
+    try {
+      const parsed = JSON.parse(req.body.extraColumns as string);
+      if (Array.isArray(parsed)) extraColumns = parsed.filter((s) => typeof s === 'string');
+    } catch {
+      throw new AppError(400, 'BAD_REQUEST', 'extraColumns は JSON 配列で送信してください');
+    }
+  }
+
+  const result = await importAwardsExcel(req.file.buffer, eventId, mapping, extraColumns);
   res.json({ success: true, data: result });
 }));
 

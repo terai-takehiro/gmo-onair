@@ -172,11 +172,118 @@ interface RowData {
   isTeam: boolean;
 }
 
-/** Preview API: Excel を解析して headers / sampleRows / 推奨マッピングを返す */
+/** Excel 各列の自動分類タイプ */
+export type ColumnType =
+  | 'empty'
+  | 'number'
+  | 'date'
+  | 'list'
+  | 'id'
+  | 'url'
+  | 'shortText'
+  | 'longText';
+
+export interface ColumnAnalysis {
+  /** Excel ヘッダー文字列 (元の表記そのまま) */
+  header: string;
+  /** 自動分類タイプ */
+  type: ColumnType;
+  /** 平均文字数 (非空セル) */
+  avgLength: number;
+  /** 最大文字数 (非空セル) */
+  maxLength: number;
+  /** 入力済セル比率 (0-1) */
+  filledRatio: number;
+  /** ユニークなサンプル値 (最大 3 件) */
+  samples: string[];
+  /** 推奨マッピング先 ImportMappingKey (見つからなければ undefined) */
+  suggestedKey?: ImportMappingKey;
+  /** 推奨の自信度 (exact: ヘッダー名完全一致, partial: 部分一致, none: 推奨なし) */
+  suggestedConfidence: 'exact' | 'partial' | 'none';
+}
+
+function isDateLike(s: string): boolean {
+  if (/^\d{4}[-/年]\d{1,2}[-/月]\d{1,2}/.test(s)) return true;
+  if (/^\d{4}\.\d{1,2}\.\d{1,2}/.test(s)) return true;
+  if (/^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}$/.test(s)) return true;
+  return false;
+}
+
+function analyzeColumn(header: string, values: string[]): ColumnAnalysis {
+  const trimmed = values.map((v) => v.trim());
+  const nonEmpty = trimmed.filter(Boolean);
+  const filledRatio = trimmed.length > 0 ? nonEmpty.length / trimmed.length : 0;
+
+  if (nonEmpty.length === 0) {
+    return {
+      header, type: 'empty', avgLength: 0, maxLength: 0, filledRatio: 0,
+      samples: [], suggestedConfidence: 'none',
+    };
+  }
+
+  const avgLength = nonEmpty.reduce((s, v) => s + v.length, 0) / nonEmpty.length;
+  const maxLength = nonEmpty.reduce((m, v) => Math.max(m, v.length), 0);
+  const samples = Array.from(new Set(nonEmpty)).slice(0, 3);
+
+  let type: ColumnType;
+  if (nonEmpty.every((v) => /^https?:\/\//.test(v))) {
+    type = 'url';
+  } else if (nonEmpty.every((v) => /^-?\d+(\.\d+)?$/.test(v.replace(/,/g, '')))) {
+    type = 'number';
+  } else if (nonEmpty.every((v) => isDateLike(v))) {
+    type = 'date';
+  } else if (
+    nonEmpty.filter((v) => v.split(/\s*[、,／/]\s*/).filter(Boolean).length >= 2).length /
+      nonEmpty.length >= 0.5
+  ) {
+    type = 'list';
+  } else if (
+    avgLength <= 12 &&
+    nonEmpty.every((v) => /^[a-zA-Z0-9_\-]+$/.test(v)) &&
+    new Set(nonEmpty).size / nonEmpty.length >= 0.8
+  ) {
+    type = 'id';
+  } else if (avgLength < 30) {
+    type = 'shortText';
+  } else {
+    type = 'longText';
+  }
+
+  return { header, type, avgLength, maxLength, filledRatio, samples, suggestedConfidence: 'none' };
+}
+
+/** ヘッダー名と分類タイプから ImportMappingKey の候補を提案 */
+function suggestMappingKey(
+  analysis: ColumnAnalysis,
+  alreadyUsed: Set<ImportMappingKey>,
+): { key?: ImportMappingKey; confidence: 'exact' | 'partial' | 'none' } {
+  const headerNorm = normalize(analysis.header);
+
+  // 1) ヘッダー名 完全一致
+  for (const key of Object.keys(AUTO_HEADERS) as ImportMappingKey[]) {
+    if (alreadyUsed.has(key)) continue;
+    if (AUTO_HEADERS[key].some((c) => normalize(c) === headerNorm)) {
+      return { key, confidence: 'exact' };
+    }
+  }
+  // 2) ヘッダー名 部分一致
+  for (const key of Object.keys(AUTO_HEADERS) as ImportMappingKey[]) {
+    if (alreadyUsed.has(key)) continue;
+    if (AUTO_HEADERS[key].some((c) => headerNorm.includes(normalize(c)))) {
+      return { key, confidence: 'partial' };
+    }
+  }
+  return { confidence: 'none' };
+}
+
+/** Preview API: Excel を解析して列情報を返す */
 export interface PreviewResult {
   headers: string[];
   sampleRows: string[][];
   totalRows: number;
+  /** v2.8.69+: 各列の自動分類 + 推奨マッピング */
+  columns: ColumnAnalysis[];
+  /** 後方互換: cgKey → header 形式の推奨マッピング (deprecated, columns 推奨) */
   suggestedMapping: ImportMapping;
 }
 
@@ -193,20 +300,49 @@ export function previewAwardsExcel(buffer: Buffer): PreviewResult {
   const dataRows = rows.slice(headerRow + 1).filter((r) => r.some((c) => String(c).trim()));
   const sampleRows = dataRows.slice(0, 3).map((r) => r.map((c) => String(c ?? '').trim()));
 
-  // 各 ImportMappingKey について auto-detect で見つかった列名を返す
-  const suggested: ImportMapping = {};
-  (Object.keys(AUTO_HEADERS) as ImportMappingKey[]).forEach((key) => {
-    const idx = findCol(headers, AUTO_HEADERS[key]);
-    if (idx >= 0) suggested[key] = headers[idx];
+  // 列ごとに全行の値を集めて type 解析
+  const columns: ColumnAnalysis[] = headers.map((h, idx) => {
+    const colValues = dataRows.map((r) => String(r[idx] ?? ''));
+    return analyzeColumn(h, colValues);
   });
 
-  return { headers, sampleRows, totalRows: dataRows.length, suggestedMapping: suggested };
+  // 推奨マッピングを confidence 順 (exact 優先) で割当て、重複を回避
+  const used = new Set<ImportMappingKey>();
+  // exact 優先で 2 パス
+  for (const pass of ['exact', 'partial'] as const) {
+    columns.forEach((col) => {
+      if (col.type === 'empty' || col.suggestedKey) return;
+      const r = suggestMappingKey(col, used);
+      if (r.confidence === pass && r.key) {
+        col.suggestedKey = r.key;
+        col.suggestedConfidence = r.confidence;
+        used.add(r.key);
+      }
+    });
+  }
+
+  // 後方互換用 suggestedMapping (cgKey → header) を組み立て
+  const suggested: ImportMapping = {};
+  columns.forEach((col) => {
+    if (col.suggestedKey) suggested[col.suggestedKey] = col.header;
+  });
+
+  return { headers, sampleRows, totalRows: dataRows.length, columns, suggestedMapping: suggested };
+}
+
+/** Excel ヘッダー名を JSONB のキー名に sanitize
+ *  (英数字/かな漢字はそのまま、空白とブラケットだけ詰める。oneshot_data の自由欄キーとして使用) */
+function sanitizeKey(header: string): string {
+  return header.replace(/\s+/g, '').replace(/[\[\]]/g, '');
 }
 
 export async function importAwardsExcel(
   buffer: Buffer,
   eventId: number,
   customMapping?: ImportMapping,
+  /** v2.8.69+: 既知 CG 項目に該当しない列を「そのまま保存」する場合の Excel ヘッダー一覧。
+   *  oneshot_data.{sanitizeKey(header)} として書き込まれる。 */
+  extraColumns?: string[],
 ): Promise<ImportResult> {
   const warnings: string[] = [];
 
@@ -255,6 +391,20 @@ export async function importAwardsExcel(
   ];
   const oneshotCols: Partial<Record<ImportMappingKey, number>> = {};
   for (const k of oneshotKeys) oneshotCols[k] = get(k);
+
+  // v2.8.69+: 既知 CG 項目にマッピングされなかった列も oneshot_data に「そのまま保存」する。
+  // 重複を避けるため、customMapping ですでに使われている Excel ヘッダーは extra から除外。
+  const usedHeaders = new Set<string>(
+    Object.values(customMapping ?? {}).filter((v): v is string => !!v),
+  );
+  const extras: { jsonKey: string; col: number }[] = (extraColumns ?? [])
+    .filter((h) => h && !usedHeaders.has(h))
+    .map((h) => {
+      const target = normalize(h);
+      const col = headers.map(normalize).indexOf(target);
+      return { jsonKey: sanitizeKey(h), col };
+    })
+    .filter((x) => x.col >= 0);
 
   for (let i = 0; i < dataRows.length; i++) {
     const row = dataRows[i];
@@ -329,6 +479,12 @@ export async function importAwardsExcel(
     setRec('respectComment', 'recRespectComment');
     setRec('respectCommentEn', 'recRespectCommentEn');
     if (Object.keys(rec).length > 0) od.recommender = rec;
+
+    // v2.8.69+: extras 列をそのまま保存 (キー = sanitize(ヘッダー))
+    for (const { jsonKey, col } of extras) {
+      const v = cellStr(row, col);
+      if (v) od[jsonKey] = v;
+    }
 
     // 何も追加されなかった (type のみ) なら oneshot_data は null として保存
     const oneshotData = Object.keys(od).length > 1 ? od : null;
