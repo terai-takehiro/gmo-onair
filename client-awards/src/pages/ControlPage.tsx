@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAwardsCue } from '@/hooks/useAwardsCue';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ExternalLink, Trophy, Radio } from 'lucide-react';
+import { ChevronLeft, ExternalLink, Trophy, Radio, Subtitles } from 'lucide-react';
 import type { CgStep, OneshotStyle, CgCategory, CgCueState } from '@/cg/types';
 import CGFrame from '@/cg/CGFrame';
 import { CG_W, CG_H } from '@/cg/types';
@@ -105,6 +105,15 @@ export default function ControlPage() {
         <span className="text-[10px] font-black text-slate-400 tracking-widest uppercase">CONTROL</span>
         {event && <span className="text-xs text-slate-600 truncate hidden sm:block">{event.name}</span>}
         <div className="flex-1" />
+        {/* 回遊性: 同イベントの下位置CGコントロールへ直接ジャンプ */}
+        <button
+          onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
+          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-[10px] font-black tracking-widest uppercase text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors"
+          title="下位置CG コントロールへ"
+        >
+          <Subtitles className="h-3 w-3" />
+          下位置CG
+        </button>
         <div className={cn(
           'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black tracking-widest uppercase transition-all',
           isLive
