@@ -57,9 +57,10 @@ export default function OneShotOutputPage() {
   }, [cue.entryId, nominees]);
 
   const lang: Lang = cue.lang ?? initialLang;
-  const moduleKey: ModuleKey = cue.moduleKey ?? 'title';
+  const moduleKey: ModuleKey = cue.moduleKey ?? 'none';
   const transparent = cue.transparent;
   const tickerOn = cue.tickerOn;
+  const showPortrait = cue.showPortrait ?? true;
 
   const tickerCats = useMemo(() => groupNomineesForTicker(nominees, lang), [nominees, lang]);
   const currentTicker = tickerCats[cue.tickerCatIdx % Math.max(tickerCats.length, 1)] ?? null;
@@ -117,6 +118,7 @@ export default function OneShotOutputPage() {
             tickerExiting={false}
             tickerOn={tickerOn}
             tickerCategory={currentTicker}
+            showPortrait={showPortrait}
           />
         </div>
       </div>

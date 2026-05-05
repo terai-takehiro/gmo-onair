@@ -8,7 +8,8 @@ interface Props {
   onSelect: (k: ModuleKey) => void;
 }
 
-const ORDER: ModuleKey[] = ['title', 'respect', 'skills', 'comment', 'members', 'recComment', 'none'];
+// v2.8.70+: 「情報なし (none)」を一番左 (デフォルト) に配置
+const ORDER: ModuleKey[] = ['none', 'title', 'respect', 'skills', 'comment', 'members', 'recComment'];
 
 export default function ModulePickerRow({ modules, selected, onSelect }: Props) {
   const items = ORDER.map((k) => modules[k]).filter((m): m is NonNullable<typeof m> => Boolean(m));

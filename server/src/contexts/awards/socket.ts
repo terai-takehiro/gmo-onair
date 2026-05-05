@@ -31,7 +31,7 @@ export function initAwardsSocketIO(io: Server): void {
 
     // Push current 1S CG state too (independent of ranking cue)
     queryOne(
-      `SELECT entry_id, module_key, ticker_on, ticker_cat_idx, transparent, lang, is_live
+      `SELECT entry_id, module_key, ticker_on, ticker_cat_idx, transparent, lang, is_live, show_portrait
        FROM awards_oneshot_cue_state WHERE event_id = ?`,
       [eventId]
     ).then((state) => {
@@ -44,6 +44,7 @@ export function initAwardsSocketIO(io: Server): void {
           transparent: state.transparent,
           lang: state.lang,
           isLive: state.is_live,
+          showPortrait: state.show_portrait,
           timestamp: Date.now(),
         });
       }
@@ -91,20 +92,22 @@ export function initAwardsSocketIO(io: Server): void {
       transparent?: boolean;
       lang?: 'ja' | 'en';
       isLive?: boolean;
+      showPortrait?: boolean;
     }) => {
       try {
         const entryId = data.entryId ?? null;
-        const moduleKey = data.moduleKey ?? 'title';
+        const moduleKey = data.moduleKey ?? 'none';
         const tickerOn = data.tickerOn ?? false;
         const tickerCatIdx = data.tickerCatIdx ?? 0;
         const transparent = data.transparent ?? false;
         const lang = data.lang === 'en' ? 'en' : 'ja';
         const isLive = data.isLive ?? false;
+        const showPortrait = data.showPortrait ?? true;
 
         await execute(
           `INSERT INTO awards_oneshot_cue_state
-             (event_id, entry_id, module_key, ticker_on, ticker_cat_idx, transparent, lang, is_live, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+             (event_id, entry_id, module_key, ticker_on, ticker_cat_idx, transparent, lang, is_live, show_portrait, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
            ON CONFLICT (event_id) DO UPDATE
              SET entry_id = EXCLUDED.entry_id,
                  module_key = EXCLUDED.module_key,
@@ -113,8 +116,9 @@ export function initAwardsSocketIO(io: Server): void {
                  transparent = EXCLUDED.transparent,
                  lang = EXCLUDED.lang,
                  is_live = EXCLUDED.is_live,
+                 show_portrait = EXCLUDED.show_portrait,
                  updated_at = NOW()`,
-          [eventId, entryId, moduleKey, tickerOn, tickerCatIdx, transparent, lang, isLive]
+          [eventId, entryId, moduleKey, tickerOn, tickerCatIdx, transparent, lang, isLive, showPortrait]
         );
 
         awardsNs.to(room).emit('oneshot:sync', {
@@ -125,6 +129,7 @@ export function initAwardsSocketIO(io: Server): void {
           transparent,
           lang,
           isLive,
+          showPortrait,
           timestamp: Date.now(),
         });
       } catch (err) {

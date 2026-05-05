@@ -42,6 +42,19 @@
   align-items: start;
   contain: layout paint;
 }
+/* 画像 OFF: 左カラムを畳んで単列レイアウト + コンパクト高さ */
+.oneshot-cg-root .lt-panel.no-portrait {
+  grid-template-columns: 1fr;
+  min-height: auto;
+}
+/* 画像 OFF + モジュールなし (情報なし) は最もコンパクト: 賞ヘッダー + ヘッドラインのみ */
+.oneshot-cg-root .lower-third.no-portrait.no-module .lt-info {
+  padding: 16px 24px 18px;
+}
+/* 画像 OFF 時は info の左 padding を画像分減らさない (左右対称に) */
+.oneshot-cg-root .lt-panel.no-portrait .lt-info {
+  padding-left: 24px;
+}
 
 /* ゴールド左アクセント */
 .oneshot-cg-root .lt-panel::before {

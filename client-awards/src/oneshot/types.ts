@@ -94,4 +94,6 @@ export interface OneShotCueState {
   transparent: boolean;
   lang: Lang;
   isLive: boolean;
+  /** v2.8.70+: 画像 (Portrait) を表示するか。OFF の場合は左 168px の画像エリアを畳んだ単列レイアウトになる */
+  showPortrait: boolean;
 }

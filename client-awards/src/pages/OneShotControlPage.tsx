@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ExternalLink, Radio, Subtitles, Tv2, Languages, Database } from 'lucide-react';
+import { ChevronLeft, ExternalLink, Radio, Subtitles, Tv2, Languages, Database, Image as ImageIcon, ImageOff } from 'lucide-react';
 
 import OneShotStage from '../oneshot/OneShotStage';
 import LangPicker from '../oneshot/operator/LangPicker';
@@ -110,20 +110,23 @@ export default function OneShotControlPage() {
     [nominees, previewId]
   );
 
-  const [previewModule, setPreviewModule] = useState<ModuleKey>('title');
+  // v2.8.70+: デフォルト送出は「情報なし」(none)
+  const [previewModule, setPreviewModule] = useState<ModuleKey>('none');
   const [transparent, setTransparent] = useState(false);
+  // v2.8.70+: 画像 (Portrait) 表示 ON/OFF
+  const [showPortrait, setShowPortrait] = useState(true);
 
   const previewModules = useMemo(
     () => (previewNominee ? getModules(previewNominee, lang) : {}),
     [previewNominee, lang]
   );
-  // モジュールがフィルタ後に存在しなければ title に戻す
+  // モジュールがフィルタ後に存在しなければ none に戻す
   useEffect(() => {
-    if (!previewModules[previewModule]) setPreviewModule('title');
+    if (!previewModules[previewModule]) setPreviewModule('none');
   }, [previewModules, previewModule]);
 
   // Live state — 1S CG 出力中のスナップショット
-  const liveFlow = useTakeFlow<LiveSnapshot>({ nomineeId: '', moduleKey: 'title', lang });
+  const liveFlow = useTakeFlow<LiveSnapshot>({ nomineeId: '', moduleKey: 'none', lang });
   const tickerFlow = useTickerToggle(false);
 
   const { cue, sendCue } = useOneShotCue(isNaN(eventId) ? null : eventId);
@@ -141,6 +144,7 @@ export default function OneShotControlPage() {
       transparent,
       lang,
       isLive: true,
+      showPortrait,
     });
   };
   const clear = () => {
@@ -160,6 +164,11 @@ export default function OneShotControlPage() {
     const v = !transparent;
     setTransparent(v);
     sendCue({ ...cue, transparent: v });
+  };
+  const onTogglePortrait = () => {
+    const v = !showPortrait;
+    setShowPortrait(v);
+    sendCue({ ...cue, showPortrait: v });
   };
   const onChangeLang = (v: Lang) => {
     setLang(v);
@@ -341,7 +350,7 @@ export default function OneShotControlPage() {
               <OneShotStage
                 nominee={liveNominee}
                 lang={liveFlow.live?.lang ?? lang}
-                moduleKey={liveFlow.live?.moduleKey ?? 'title'}
+                moduleKey={liveFlow.live?.moduleKey ?? 'none'}
                 transparent={transparent}
                 lowerThirdMounted={liveFlow.mounted}
                 lowerThirdExiting={liveFlow.exiting}
@@ -349,6 +358,7 @@ export default function OneShotControlPage() {
                 tickerExiting={tickerFlow.exiting}
                 tickerOn={tickerFlow.on}
                 tickerCategory={tickerCategory}
+                showPortrait={showPortrait}
               />
             </div>
           </div>
@@ -435,6 +445,7 @@ export default function OneShotControlPage() {
                       tickerExiting={false}
                       tickerOn={tickerFlow.on}
                       tickerCategory={tickerCategory}
+                      showPortrait={showPortrait}
                     />
                   </div>
                 </div>
@@ -454,6 +465,25 @@ export default function OneShotControlPage() {
               currentAward={currentAward}
               onToggle={onToggleTicker}
             />
+            {/* 画像 ON/OFF (送出CGに画像を含めるか) */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onTogglePortrait}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md border px-3.5 py-2 text-sm font-semibold transition-all',
+                  showPortrait
+                    ? 'border-emerald-500 bg-emerald-900/30 text-emerald-300'
+                    : 'border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-slate-100'
+                )}
+                title="送出CGに画像 (Portrait) を含めるか切替"
+              >
+                {showPortrait ? <ImageIcon className="h-4 w-4" /> : <ImageOff className="h-4 w-4" />}
+                {showPortrait ? '画像 ON' : '画像 OFF'}
+              </button>
+              <span className="text-[11px] text-slate-500">
+                {showPortrait ? '左に写真を表示' : '写真エリアを畳んでコンパクト表示'}
+              </span>
+            </div>
             <SendActionRow
               isLive={isLive}
               transparent={transparent}

@@ -15,6 +15,8 @@ interface Props {
   tickerExiting: boolean;
   tickerOn: boolean;
   tickerCategory: TickerCategory | null;
+  /** 画像 (Portrait) を表示するか (default: true) */
+  showPortrait?: boolean;
 }
 
 // 1920x1080 のCG出力ステージ。operator/output どちらでも使える。
@@ -30,6 +32,7 @@ export default function OneShotStage({
   tickerExiting,
   tickerOn,
   tickerCategory,
+  showPortrait = true,
 }: Props) {
   return (
     <div className="oneshot-cg-root" style={{ position: 'relative', width: 1920, height: 1080 }}>
@@ -41,6 +44,7 @@ export default function OneShotStage({
           transparent={transparent}
           tickerOn={tickerOn}
           exiting={lowerThirdExiting}
+          showPortrait={showPortrait}
         />
       )}
       {/* Background-only stage when lower-third is unmounted (transparent stays transparent) */}

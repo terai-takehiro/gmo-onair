@@ -4,12 +4,13 @@ import type { OneShotCueState } from '../types';
 
 const DEFAULT_CUE: OneShotCueState = {
   entryId: null,
-  moduleKey: 'title',
+  moduleKey: 'none',
   tickerOn: false,
   tickerCatIdx: 0,
   transparent: false,
   lang: 'ja',
   isLive: false,
+  showPortrait: true,
 };
 
 interface SyncPayload extends OneShotCueState {
@@ -30,12 +31,13 @@ export function useOneShotCue(eventId: number | null) {
     const onSync = (data: SyncPayload) => {
       setCueState({
         entryId: data.entryId ?? null,
-        moduleKey: data.moduleKey ?? 'title',
+        moduleKey: data.moduleKey ?? 'none',
         tickerOn: !!data.tickerOn,
         tickerCatIdx: data.tickerCatIdx ?? 0,
         transparent: !!data.transparent,
         lang: data.lang === 'en' ? 'en' : 'ja',
         isLive: !!data.isLive,
+        showPortrait: data.showPortrait ?? true,
       });
     };
     socket.on('oneshot:sync', onSync);
