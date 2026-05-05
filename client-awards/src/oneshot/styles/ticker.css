@@ -125,8 +125,16 @@
   100% { opacity: 0.92; transform: translateY(0); filter: blur(0); }
 }
 
-/* 部門切替時の track は scroll animation の padding-left:100% により
-   自然に右端からスライドインするので、追加の fade は不要 */
+/* v2.8.73+: 部門切替時のクロスフェード。outgoing 部門ラベルは fade-out。 */
+.oneshot-cg-root .ticker-cat-division-out {
+  position: absolute;
+  inset: 0;
+  animation: oscg-divisionSwapOut 600ms cubic-bezier(.4,0,.6,1) forwards !important;
+}
+@keyframes oscg-divisionSwapOut {
+  0%   { opacity: 0.92; transform: translateY(0); filter: blur(0); }
+  100% { opacity: 0; transform: translateY(-12px); filter: blur(2px); }
+}
 
 .oneshot-cg-root .ticker-track-wrap {
   position: relative;
@@ -149,15 +157,36 @@
   display: inline-flex;
   align-items: center;
   white-space: nowrap;
-  animation-name: oscg-tickerScroll;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
+  animation: oscg-tickerScroll var(--track-dur, 18s) linear infinite;
   padding-left: 100%;
   will-change: transform;
 }
 @keyframes oscg-tickerScroll {
   0%   { transform: translateX(0); }
   100% { transform: translateX(-66.6667%); }
+}
+
+/* v2.8.73+: 部門切替クロスフェード時、outgoing/incoming track を重ねて配置 */
+.oneshot-cg-root .ticker-track-wrap > .ticker-track-out {
+  position: absolute;
+  left: 0; right: 0; top: 0; bottom: 0;
+  align-items: center;
+  animation:
+    oscg-tickerScroll var(--track-dur, 18s) linear infinite,
+    oscg-trackFadeOut 600ms cubic-bezier(.4,0,.6,1) forwards;
+}
+@keyframes oscg-trackFadeOut {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+.oneshot-cg-root .ticker-track-wrap > .ticker-track-in {
+  animation:
+    oscg-tickerScroll var(--track-dur, 18s) linear infinite,
+    oscg-trackFadeIn 600ms cubic-bezier(.25,.8,.3,1) both;
+}
+@keyframes oscg-trackFadeIn {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
 }
 
 .oneshot-cg-root .ticker-item {

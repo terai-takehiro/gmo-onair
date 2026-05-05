@@ -50,8 +50,8 @@ export default function LowerThirdCG({
   // 長文系モジュールは幅を1500pxに拡張して高さを抑制 (チームはデフォルト wide)
   const isWide = isTeam || moduleKey === 'comment' || moduleKey === 'recComment';
 
-  // 高さアニメーション (モジュール切替時に実測してpx補間)
-  const panelRef = useAnimatedHeight<HTMLDivElement>([moduleKey, n.id, lang, showPortrait, useDynamicRenderer]);
+  // 高さアニメーション (v2.8.73+: ResizeObserver で content size の変化を検知)
+  const panelRef = useAnimatedHeight<HTMLDivElement>();
 
   return (
     <div className={'stage' + (transparent ? ' transparent' : '')}>

@@ -22,7 +22,7 @@
   100% { opacity: 1; transform: translateY(0); }
 }
 
-/* スロット切替 (パネルのリサイズに同期する静かなクロスディゾルブ) */
+/* スロット切替 (パネルのリサイズに同期する静かなクロスディゾルブ — 旧 v2.8.72) */
 .oneshot-cg-root .slot-fade-in {
   animation: oscg-slotFadeIn 420ms cubic-bezier(.4,0,.2,1) both;
 }
@@ -36,6 +36,26 @@
 }
 @keyframes oscg-slotFadeOut {
   to { opacity: 0; }
+}
+
+/* v2.8.73+: 3 フェーズ シーケンシャル切替
+   exit (220ms) → resize (480ms) → enter (320ms) */
+.oneshot-cg-root .slot-fade-out-seq {
+  animation: oscg-slotFadeOutSeq 220ms cubic-bezier(.4,0,.6,1) forwards;
+}
+@keyframes oscg-slotFadeOutSeq {
+  0%   { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-2px); }
+}
+.oneshot-cg-root .slot-hold-invisible {
+  opacity: 0;
+}
+.oneshot-cg-root .slot-fade-in-seq {
+  animation: oscg-slotFadeInSeq 320ms cubic-bezier(.25,.8,.3,1) both;
+}
+@keyframes oscg-slotFadeInSeq {
+  0%   { opacity: 0; transform: translateY(2px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 
 /* メインフレーム入場 (vMix Merge風: 下からスッと上がってフェードイン) */
