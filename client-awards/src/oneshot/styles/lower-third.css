@@ -10,13 +10,12 @@
   margin-left: -600px;
   width: 1200px;
   pointer-events: none;
-  /* v2.8.78: width/margin-left transition を JS height animation (300ms expoOut) に同期。
-     wide 切替時に height/width が同タイミング・同 easing で動くため、
-     パネル全体が「ひとつの動き」として滑らかに変化する。 */
+  /* v2.8.79: 560ms sineInOut (.45,.05,.55,.95) に統一。
+     JS height animation と同タイミング・同 easing で水のように均等な動き。 */
   transition:
-    bottom 300ms cubic-bezier(.16,1,.3,1),
-    width 300ms cubic-bezier(.16,1,.3,1),
-    margin-left 300ms cubic-bezier(.16,1,.3,1);
+    bottom 560ms cubic-bezier(.45,.05,.55,.95),
+    width 560ms cubic-bezier(.45,.05,.55,.95),
+    margin-left 560ms cubic-bezier(.45,.05,.55,.95);
 }
 /* 長文系モジュール: 幅を拡張して高さを抑える */
 .oneshot-cg-root .lower-third.wide {
@@ -590,6 +589,53 @@
 }
 .oneshot-cg-root .lt-rec-quote-l { margin-right: 6px; }
 .oneshot-cg-root .lt-rec-quote-r { margin-left: 6px; }
+
+/* v2.8.79+: bilingual mode の AwardHeader / Headline 拡張 */
+.oneshot-cg-root .lt-award-bilingual {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.oneshot-cg-root .lt-award-row-en {
+  border-top: 1px dashed var(--line);
+  padding-top: 4px;
+}
+.oneshot-cg-root .lt-award-row-en .lt-award-name {
+  font-size: 18px;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+}
+.oneshot-cg-root .lt-award-row-en .lt-award-name::before {
+  width: 5px;
+  height: 5px;
+}
+.oneshot-cg-root .lt-award-row-en .lt-award-sub {
+  font-size: 18px;
+  color: var(--text-mute);
+}
+.oneshot-cg-root .lt-name-row-en {
+  border-top: 1px dashed var(--line);
+  padding-top: 6px;
+  margin-top: 4px;
+  opacity: 0.85;
+}
+.oneshot-cg-root .lt-name-row-en .lt-name {
+  font-size: 28px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em;
+}
+.oneshot-cg-root .lt-name-row-en .lt-project {
+  font-size: 28px;
+  font-weight: 700;
+}
+.oneshot-cg-root .lt-name-row-en .lt-company {
+  font-size: 18px;
+  color: var(--text-mute);
+}
+.oneshot-cg-root .lt-name-row-en .lt-dept {
+  font-size: 16px;
+  color: var(--text-mute);
+}
 
 /* v2.8.74+: 日英両方表示 (bilingual) スタック */
 .oneshot-cg-root .lt-bilingual {

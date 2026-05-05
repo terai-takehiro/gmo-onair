@@ -13,10 +13,19 @@ import { createDefaultEventModuleConfig } from '../data/presetModules';
 
 const QUERY_KEY = (eventId: number) => ['awards-module-config', eventId] as const;
 
-/** イベントの送出モジュール構成を取得。NULL のときは null を返す (= デフォルト未編集状態)。 */
+/** イベントの送出モジュール構成を取得。NULL のときは null を返す (= デフォルト未編集状態)。
+ *  v2.8.79+: 404 / 500 などサーバーエラー時にも null を返してクライアント側でデフォルト
+ *  プリセットにフォールバックできるよう catch を追加。 */
 export async function fetchEventModuleConfig(eventId: number): Promise<EventModuleConfig | null> {
-  const res = await api.get(`/awards/events/${eventId}/module-config`);
-  return (res.data?.data ?? null) as EventModuleConfig | null;
+  try {
+    const res = await api.get(`/awards/events/${eventId}/module-config`);
+    return (res.data?.data ?? null) as EventModuleConfig | null;
+  } catch (e) {
+    // migration 083 未適用 (column missing) 等で 500 が返る場合は null として扱い、
+    // クライアント側でデフォルトプリセットにフォールバック。
+    console.warn('[moduleConfig] fetch failed, falling back to default preset', e);
+    return null;
+  }
 }
 
 /** イベントに送出モジュール構成を保存。null を渡すと「プリセット復帰」。 */

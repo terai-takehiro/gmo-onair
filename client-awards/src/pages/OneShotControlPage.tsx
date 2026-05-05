@@ -287,7 +287,7 @@ export default function OneShotControlPage() {
           <ChevronLeft className="h-4 w-4 text-slate-300" />
         </button>
         <Subtitles className="h-4 w-4 text-amber-500 shrink-0" />
-        <span className="text-[11px] font-black text-slate-300 tracking-widest">下位置CG</span>
+        <span className="text-[11px] font-black text-slate-300 tracking-widest">表彰CG</span>
         {event && (
           <span className="text-xs text-slate-600 truncate hidden sm:block">{event.name}</span>
         )}
@@ -357,7 +357,7 @@ export default function OneShotControlPage() {
           href={`/awards/output/${eventId}/oneshot?lang=${lang}`}
           target="_blank"
           rel="noreferrer"
-          title={`下位置CG 出力 (${lang.toUpperCase()})`}
+          title={`表彰CG 出力 (${lang.toUpperCase()})`}
           className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors"
         >
           <ExternalLink className="h-3 w-3" />

@@ -110,8 +110,8 @@ export default function LowerThirdCG({
           {showPortrait && <Portrait n={n} />}
 
           <div className="lt-info">
-            <AwardHeader n={n} lang={lang} />
-            <Headline n={n} lang={lang} isWide={isWide} />
+            <AwardHeader n={n} lang={lang} bilingual={bilingual} />
+            <Headline n={n} lang={lang} isWide={isWide} bilingual={bilingual} />
 
             <div className={'lt-module-slot ' + (hasModule ? 'open ' : 'closed ')}>
               {hasModule && (

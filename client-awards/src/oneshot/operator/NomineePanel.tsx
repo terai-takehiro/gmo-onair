@@ -74,7 +74,7 @@ export default function NomineePanel({
                 key={a.award}
                 onClick={() => onSelectAward(i)}
                 className={cn(
-                  'rounded-md border px-3 py-1.5 text-sm transition-all flex items-center gap-1.5',
+                  'rounded-md border px-2 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm transition-all flex items-center gap-1 sm:gap-1.5',
                   active
                     ? 'border-amber-400 bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30'
                     : 'border-slate-700/60 bg-slate-800/40 text-slate-300 hover:bg-slate-700 hover:text-slate-100'
@@ -82,7 +82,7 @@ export default function NomineePanel({
                 title={`${a.award} · ${a.divisions.length}部門 · ${totalItems}名`}
               >
                 <span className="font-bold">{a.award}</span>
-                <span className="text-xs opacity-70 tabular-nums">{totalItems}</span>
+                <span className="text-[10px] sm:text-xs opacity-70 tabular-nums">{totalItems}</span>
               </button>
             );
           })}
@@ -100,7 +100,7 @@ export default function NomineePanel({
             <button
               onClick={() => onSelectDivision(null)}
               className={cn(
-                'rounded-md border px-2.5 py-1 text-sm transition-all',
+                'rounded-md border px-2 py-0.5 sm:px-2.5 sm:py-1 text-xs sm:text-sm transition-all',
                 selectedDivision == null
                   ? 'border-amber-400 bg-amber-500/15 text-amber-300'
                   : 'border-slate-700/60 bg-slate-800/40 text-slate-300 hover:bg-slate-700 hover:text-slate-100'
@@ -118,7 +118,7 @@ export default function NomineePanel({
                   key={d.division}
                   onClick={() => onSelectDivision(d.division)}
                   className={cn(
-                    'rounded-md border px-2.5 py-1 text-sm transition-all',
+                    'rounded-md border px-2 py-0.5 sm:px-2.5 sm:py-1 text-xs sm:text-sm transition-all',
                     active
                       ? 'border-amber-400 bg-amber-500/15 text-amber-300'
                       : 'border-slate-700/60 bg-slate-800/40 text-slate-300 hover:bg-slate-700 hover:text-slate-100'

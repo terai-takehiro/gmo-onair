@@ -523,10 +523,10 @@ export default function EventEditorPage() {
           <button
             onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
             className="flex items-center gap-1.5 rounded-lg border border-amber-500/60 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-500/20 transition-colors"
-            title="下位置CG (下部テロップ) のオペレーター画面"
+            title="表彰CG (下部テロップ) のオペレーター画面"
           >
             <Subtitles className="h-3.5 w-3.5" />
-            下位置CG
+            表彰CG
           </button>
           <button
             onClick={() => navigate(`/event/${eventId}/control`)}
@@ -727,10 +727,10 @@ export default function EventEditorPage() {
           <div className="pt-2 border-t space-y-2">
             <p className="text-sm font-medium flex items-center gap-1.5">
               <Subtitles className="h-3.5 w-3.5 text-amber-600" />
-              下位置CG 出力URL（下部テロップ）
+              表彰CG 出力URL（下部テロップ）
             </p>
             <p className="text-xs text-muted-foreground">
-              「下位置CG オペレーター」と同じイベントを送出するブラウザソース URL。
+              「表彰CG オペレーター」と同じイベントを送出するブラウザソース URL。
               ランキングCG とは別レイヤーとして並走可能。
             </p>
             {[
@@ -757,7 +757,7 @@ export default function EventEditorPage() {
         </div>
       )}
 
-      {/* ── 下位置CG モジュール構成 (Stage 3: JSON エクスポート/インポート) ── */}
+      {/* ── 表彰CG モジュール構成 (Stage 3: JSON エクスポート/インポート) ── */}
       {event && <ModuleConfigSection eventId={event.id} />}
 
       {/* ── Excel Import Dialog ─────────────────────────────── */}
@@ -771,7 +771,7 @@ export default function EventEditorPage() {
   );
 }
 
-// ── 下位置CG モジュール構成 セクション (v2.8.74+) ────────────
+// ── 表彰CG モジュール構成 セクション (v2.8.74+) ────────────
 // イベントごとの ModuleDef[] (送出モジュール構成) を編集 + JSON I/O。
 // 段階4 (v2.8.75+) で「編集ページへ」ボタンを追加。
 function ModuleConfigSection({ eventId }: { eventId: number }) {
@@ -840,7 +840,7 @@ function ModuleConfigSection({ eventId }: { eventId: number }) {
         <Subtitles className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-bold flex items-center gap-2">
-            下位置CG モジュール構成
+            表彰CG モジュール構成
             <span className="text-[10px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
               段階3 (JSON I/O)
             </span>

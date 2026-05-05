@@ -50,11 +50,13 @@ export function useAnimatedHeight<T extends HTMLElement>(
         currentAnim.current = null;
       }
       try {
-        // v2.8.78: 'cubic-bezier(.4,0,.2,1)' (Material 標準) → expoOut '.16,1,.3,1'
-        // で「すっと動いて柔らかく止まる」自然なリサイズ感に
+        // v2.8.79: expoOut (.16,1,.3,1) → sineInOut (.45,.05,.55,.95) に変更。
+        // expoOut は 0→25% 時間で 80% 動くため「ジョルト→停止」感があり、ユーザー
+        // 報告のカクツキの一因。sineInOut は速度変化が滑らかな三角関数カーブで、
+        // 拡大縮小が均等な速度で進む「水のような」動き。
         const anim = el.animate(
           [{ height: fromActual + 'px' }, { height: target + 'px' }],
-          { duration, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'none' }
+          { duration, easing: 'cubic-bezier(.45,.05,.55,.95)', fill: 'none' }
         );
         currentAnim.current = anim;
         anim.onfinish = () => {

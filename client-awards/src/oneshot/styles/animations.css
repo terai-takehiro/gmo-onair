@@ -38,12 +38,13 @@
   to { opacity: 0; }
 }
 
-/* v2.8.73+ / v2.8.78 改良: 3 フェーズ シーケンシャル切替
-   exit (200ms) → resize (300ms) → enter (260ms) = 760ms 合計
-   v2.8.78: translateY を撤去して純粋 opacity のみに、height animation との
-   干渉を排除。easing も snappy 系にしてキビキビした切替に。 */
+/* v2.8.73+ → v2.8.79 リファイン: 3 フェーズ シーケンシャル切替
+   exit (280ms) → resize (560ms) → enter (360ms) = 1200ms 合計
+   v2.8.79: 速すぎ + カクツキ問題に対応。durations を ~1.5x に拡張、
+   easing を sineInOut 系 (.45,.05,.55,.95) に統一して「均等で滑らか」に。
+   pure opacity (translateY 不使用) は維持して height animation との干渉を回避。 */
 .oneshot-cg-root .slot-fade-out-seq {
-  animation: oscg-slotFadeOutSeq 200ms cubic-bezier(.4,0,1,1) forwards;
+  animation: oscg-slotFadeOutSeq 280ms cubic-bezier(.45,.05,.55,.95) forwards;
 }
 @keyframes oscg-slotFadeOutSeq {
   0%   { opacity: 1; }
@@ -53,7 +54,7 @@
   opacity: 0;
 }
 .oneshot-cg-root .slot-fade-in-seq {
-  animation: oscg-slotFadeInSeq 260ms cubic-bezier(0,0,.2,1) both;
+  animation: oscg-slotFadeInSeq 360ms cubic-bezier(.45,.05,.55,.95) both;
 }
 @keyframes oscg-slotFadeInSeq {
   0%   { opacity: 0; }

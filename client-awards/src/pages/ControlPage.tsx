@@ -105,14 +105,14 @@ export default function ControlPage() {
         <span className="text-[10px] font-black text-slate-400 tracking-widest uppercase">CONTROL</span>
         {event && <span className="text-xs text-slate-600 truncate hidden sm:block">{event.name}</span>}
         <div className="flex-1" />
-        {/* 回遊性: 同イベントの下位置CGコントロールへ直接ジャンプ */}
+        {/* 回遊性: 同イベントの表彰CG (下位置/下部テロップ) コントロールへ直接ジャンプ */}
         <button
           onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
           className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-[10px] font-black tracking-widest uppercase text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors"
-          title="下位置CG コントロールへ"
+          title="表彰CG コントロールへ"
         >
           <Subtitles className="h-3 w-3" />
-          下位置CG
+          表彰CG
         </button>
         <div className={cn(
           'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black tracking-widest uppercase transition-all',
