@@ -1,0 +1,115 @@
+import type { Nominee } from '../types';
+import rookieImg from '../assets/rookie_1_1.svg';
+import synergyImg from '../assets/synergy_1_2.svg';
+
+// DB の awards_entries に oneshot_data が無い場合のフォールバック (動作確認用)
+// 実運用では将来の EventEditorPage 拡張で oneshot_data を直接編集する想定。
+export const SEED_NOMINEES: Nominee[] = [
+  {
+    id: 'rookie_1',
+    type: 'individual',
+    category: '新人賞',
+    categoryEn: 'Rookie Award',
+    subcategory: '新卒パートナー',
+    subcategoryEn: 'New Graduate Partner',
+    entryNo: '01',
+    image: rookieImg,
+    name: '水崎 祥太',
+    nameEn: 'Shota Mizusaki',
+    nameKana: 'ミズサキ ショウタ',
+    company: 'GMOメディア株式会社',
+    companyEn: 'GMO Media, Inc.',
+    department: 'サービス開発部',
+    departmentEn: 'Service Development Dept.',
+    position: '一般',
+    positionEn: 'Member',
+    location: '東京（セルリアンタワー）',
+    locationEn: 'Tokyo (Cerulean Tower)',
+    joinDate: '2025/04/01',
+    ism: '論理と情熱で、周囲を巻き込みサービスを前に推し進めます！',
+    ismEn: 'Driving services forward with logic and passion, engaging everyone around me.',
+    skills: ['巻き込み力', '論理的思考力', 'ユーザー思考', '行動力', '仕組み化力', '課題解決力', '発想力'],
+    skillsEn: ['Engagement', 'Logical Thinking', 'User-Centric', 'Proactive', 'Systemization', 'Problem Solving', 'Creativity'],
+    title: '7か月連続増収、売上50倍🔥を達成した事業責任者',
+    titleEn: '50x Sales Growth, 7 Consecutive Months of Revenue Increase!',
+    comment:
+      '「エンジニアが自ら売上をつくる」ことに挑戦した1年でした。AIチャットボットを設計から実装まで一貫して担当し、ClaudeCodeへのコントリビュート（世界25人目）を達成。事業責任者に就任し、競合分析をもとに価格体系をゼロから再設計。7ヶ月連続増収を達成し、MRR50万円超のストック売上を自分の手で生み出すことができました。',
+    commentEn:
+      'A year challenging the idea that "Engineers create their own revenue." Oversaw an AI chatbot from design to implementation, becoming a Claude Code contributor (25th in the world). As Business Manager, redesigned pricing from scratch and drove 7 straight months of revenue growth to over ¥500K MRR.',
+    members: null,
+    recommender: {
+      name: '沼田 直之',
+      nameEn: 'Naoyuki Numata',
+      company: 'GMOメディア株式会社',
+      companyEn: 'GMO Media, Inc.',
+      position: '部長',
+      positionEn: 'General Manager',
+      respect: 'AI時代の教育AI SaaSを牽引するプロフェッショナル',
+      respectEn: 'A professional leading the Education AI SaaS in the AI era',
+      respectComment:
+        'コエテコにて、スクール向けAI API SaaS「コエテコマネージャー」の責任者を務める。営業開始から7ヶ月で連続増収を実現。AIエンジニアとしての技術力、PdMとしての製品視点、全国スクールへ足を運ぶ営業力——これらを一人で体現し、顧客の厚い信頼を得ている。',
+      respectCommentEn:
+        'As head of the Koeteko Manager AI SaaS, he achieved 7 consecutive months of revenue growth. He embodies the technical expertise of an AI engineer, the product perspective of a PdM, and hands-on sales capability—all by himself—earning deep trust from clients.',
+    },
+  },
+  {
+    id: 'synergy_1',
+    type: 'team',
+    category: 'No.1シナジー賞',
+    categoryEn: 'No.1 Synergy Award',
+    subcategory: 'シナジー',
+    subcategoryEn: 'Synergy',
+    entryNo: '02',
+    image: synergyImg,
+    projectName: '年間39回のリアルな場でシナジー創出PJ',
+    projectNameEn: 'Synergy Project: 39 In-Person Sessions/Year',
+    projectKana: 'ネンカンサンジュウキュウカイノリアルナバデシナジーソウシュツプロジェクト',
+    name: '島 崇史',
+    nameEn: 'Takafumi Shima',
+    nameKana: 'シマ タカフミ',
+    company: 'GMO天秤AI株式会社',
+    companyEn: 'GMO Tenbin AI, Inc.',
+    department: 'ビジネス推進部 セールスグループ',
+    departmentEn: 'Business Development, Sales Group',
+    position: 'セールスチーム',
+    positionEn: 'Sales Team',
+    location: '東京（セルリアンタワー）',
+    locationEn: 'Tokyo (Cerulean Tower)',
+    joinDate: '2021/07/01',
+    ism: 'GMOインターネットグループ130社の提供サービスの価値をお客様に伝え、ファンになってもらう。',
+    ismEn: 'Convey the value of services from all 130 GMO Internet Group companies to customers and turn them into fans.',
+    skills: ['場づくり', 'イベント企画', '巻き込み力', '営業力', '段取り力'],
+    skillsEn: ['Community Building', 'Event Planning', 'Engagement', 'Sales', 'Coordination'],
+    teamSize: 3,
+    members: [
+      { name: '島 崇史', company: 'GMO天秤AI株式会社', role: '代表' },
+      { name: '中原 卓馬', company: 'GMO TECH株式会社', role: '副代表' },
+      { name: '加藤 雄大', company: 'GMOインターネットグループ株式会社', role: 'メンバー' },
+    ],
+    membersEn: [
+      { name: 'Takafumi Shima', company: 'GMO Tenbin AI, Inc.', role: 'Lead' },
+      { name: 'Takuma Nakahara', company: 'GMO TECH, Inc.', role: 'Sub-lead' },
+      { name: 'Yudai Kato', company: 'GMO Internet Group, Inc.', role: 'Member' },
+    ],
+    title: 'グループ横断イベントで各社顧客とサービスをつなぐ場の創出',
+    titleEn: 'Cross-group events linking customers & services',
+    comment:
+      'グループ横断イベントを通じて顧客同士の接点を創出し、相互送客の拡大につなげてきた取り組み。大型イベントや少人数の交流会を継続的に実施し、GMOインターネットグループ各社のサービス理解を深める機会を広げてきました。',
+    commentEn:
+      'Connecting customers through cross-group events to drive mutual referrals. We held large-scale events and small networking sessions to deepen understanding of services across the GMO Internet Group.',
+    recommender: {
+      name: '山城 博規',
+      nameEn: 'Hiroki Yamashiro',
+      company: 'GMO天秤AI株式会社',
+      companyEn: 'GMO Tenbin AI, Inc.',
+      position: '代表取締役社長',
+      positionEn: 'President & CEO',
+      respect: '行動でシナジーを生み出す場づくりの旗手',
+      respectEn: 'A Pioneer in Creating Synergy Through Action',
+      respectComment:
+        'Yoursを舞台に毎月6件以上のAI関連イベントを自ら企画・開催し、天秤AIの枠を超えてグループ全体のファンを生み出し続けています。100名規模の生成AI感謝祭、海外CEOを招いたBase44コラボなど多様なイベントを一人で企画から運営まで完遂。',
+      respectCommentEn:
+        'He independently plans and hosts over six AI events monthly, creating fans across the group beyond Tenbin AI—from the 100-person Generative AI Thanksgiving Festival to Base44 collaborations with overseas CEOs.',
+    },
+  },
+];

@@ -1,0 +1,68 @@
+/* ============================================================
+   1S CG トランジション (vMix Mergeライク)
+   .oneshot-cg-root スコープ配下のみに適用。
+   ============================================================ */
+
+/* 文字単位パタパタ → vMix風シンプルフェード */
+.oneshot-cg-root .flap-char {
+  display: inline-block;
+  animation: oscg-flapIn 320ms cubic-bezier(.25,.8,.3,1) both;
+}
+@keyframes oscg-flapIn {
+  0%   { opacity: 0; transform: translateY(2px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* ブロック入場フェード */
+.oneshot-cg-root .flap-block {
+  animation: oscg-flapBlockIn 360ms cubic-bezier(.25,.8,.3,1) both;
+}
+@keyframes oscg-flapBlockIn {
+  0%   { opacity: 0; transform: translateY(4px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* スロット切替 (パネルのリサイズに同期する静かなクロスディゾルブ) */
+.oneshot-cg-root .slot-fade-in {
+  animation: oscg-slotFadeIn 420ms cubic-bezier(.4,0,.2,1) both;
+}
+@keyframes oscg-slotFadeIn {
+  0%   { opacity: 0; }
+  30%  { opacity: 0; }
+  100% { opacity: 1; }
+}
+.oneshot-cg-root .slot-fade-out {
+  animation: oscg-slotFadeOut 240ms cubic-bezier(.4,0,.6,1) forwards;
+}
+@keyframes oscg-slotFadeOut {
+  to { opacity: 0; }
+}
+
+/* メインフレーム入場 (vMix Merge風: 下からスッと上がってフェードイン) */
+.oneshot-cg-root .lt-enter {
+  animation: oscg-ltEnter 480ms cubic-bezier(.25,.8,.3,1) both;
+}
+@keyframes oscg-ltEnter {
+  0%   { transform: translateY(24px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+/* メインフレーム退場 */
+.oneshot-cg-root .lt-exit {
+  animation: oscg-ltExit 380ms cubic-bezier(.4,0,.6,1) forwards;
+  pointer-events: none;
+}
+@keyframes oscg-ltExit {
+  0%   { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(20px); opacity: 0; }
+}
+
+/* ゴールドバー: 入場時に静かに伸びる */
+.oneshot-cg-root .lt-enter .lt-panel::before {
+  animation: oscg-goldBarGrow 400ms cubic-bezier(.25,.8,.3,1) 80ms both;
+  transform-origin: 50% 100%;
+}
+@keyframes oscg-goldBarGrow {
+  0%   { transform: scaleY(0); }
+  100% { transform: scaleY(1); }
+}

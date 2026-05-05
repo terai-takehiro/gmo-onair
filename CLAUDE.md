@@ -33,7 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.60 — アワードCG BEST3 演出のテンポ調整 + 二段階リビール: 全体テンポを ~2 秒 → ~6 秒にゆっくり化。各ランクを「Phase 1: ランクバッジ + 空フレーム + ポイント数字 (CountUp)」→ 「Phase 2: 写真本体 + 会社名 + 氏名」の 2 段階に分け、ポイント先出しで期待感を演出してから写真と名前で正体を明かす流れに。タイミングは 3 位 0.6/1.5s, 2 位 2.4/3.3s, 1 位 4.2/5.1s。
+v2.8.61 — アワード1S CG (下部テロップ) 統合: 別途共有された standalone HTML/React UMD/Babel-standalone のオペレーター駆動テロップCGを `client-awards/src/oneshot/` に Vite + TS で全面ポート。新ルート `/awards/event/:id/oneshot/control` (operator) と `/awards/output/:eventId/oneshot` (broadcast) を追加。既存ランキングCG (cue:set/cue:sync) と並走できるよう socket は `oneshot:set` / `oneshot:sync` を新設、DB は `awards_entries.oneshot_data JSONB` 拡張 + 新テーブル `awards_oneshot_cue_state` (migration 081)。CG出力本体 (`.lower-third / .lt-* / .ticker / @keyframes`) はピクセル値・タイミング維持で `.oneshot-cg-root` スコープに移植、operator UI は既存 ControlPage の chrome (slate/red/amber + lucide-react + cn()) を踏襲して再構築。7モジュール (title/respect/skills/comment/members/recComment/none) + キーボードショートカット (↑↓/0–6/Space=TAKE/Esc=CLEAR) + ティッカー ON/OFF + 透過モード + JA/EN 切替を実装。EventEditorPage に「1S CG」リンク + OBS 用透過出力 URL 表示を追加。design-canvas.jsx と巨大生成HTMLは取り込まず、不要 dead CSS (`.lower-third.fixed-h` / `.lt-rec-by` / `.lt-project-meta` / `.flap-out`) も整理。
+
+(v2.8.60: アワードCG BEST3 演出のテンポ調整 + 二段階リビール: 全体テンポを ~2 秒 → ~6 秒にゆっくり化。各ランクを「Phase 1: ランクバッジ + 空フレーム + ポイント数字 (CountUp)」→ 「Phase 2: 写真本体 + 会社名 + 氏名」の 2 段階に分け、ポイント先出しで期待感を演出してから写真と名前で正体を明かす流れに。タイミングは 3 位 0.6/1.5s, 2 位 2.4/3.3s, 1 位 4.2/5.1s。)
 
 (v2.8.59: アワードCG BEST3 遷移時のネタバレ修正: 写真をグリッドから移動させず StepTop3 側で独立描画。)
 

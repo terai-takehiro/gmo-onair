@@ -15,7 +15,7 @@ import { CSS } from '@dnd-kit/utilities';
 import {
   Trophy, ChevronLeft, Plus, Trash2, Check, X, GripVertical,
   Upload, RefreshCw, Tv2, Shuffle, FileSpreadsheet, ExternalLink, Copy,
-  ChevronDown, ChevronRight,
+  ChevronDown, ChevronRight, Subtitles,
 } from 'lucide-react';
 
 // ── Types ───────────────────────────────────────────────────
@@ -531,6 +531,14 @@ export default function EventEditorPage() {
             ))}
           </select>
           <button
+            onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
+            className="flex items-center gap-1.5 rounded-lg border border-amber-500/60 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-500/20 transition-colors"
+            title="アワード1S CG (下部テロップ) のオペレーター画面"
+          >
+            <Subtitles className="h-3.5 w-3.5" />
+            1S CG
+          </button>
+          <button
             onClick={() => navigate(`/event/${eventId}/control`)}
             className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition-colors"
           >
@@ -708,6 +716,37 @@ export default function EventEditorPage() {
               { label: '🇺🇸 English', lang: 'en' },
             ].map(({ label, lang }) => {
               const url = `${window.location.origin}/awards/output/${event.id}?lang=${lang}`;
+              return (
+                <div key={lang} className="flex items-center gap-2">
+                  <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
+                  <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
+                  <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
+                    className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                    <Copy className="h-3 w-3" />コピー
+                  </button>
+                  <a href={url} target="_blank" rel="noopener noreferrer"
+                    className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                    <ExternalLink className="h-3 w-3" />開く
+                  </a>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="pt-2 border-t space-y-2">
+            <p className="text-sm font-medium flex items-center gap-1.5">
+              <Subtitles className="h-3.5 w-3.5 text-amber-600" />
+              1S CG 出力URL（下部テロップ）
+            </p>
+            <p className="text-xs text-muted-foreground">
+              「1S CG オペレーター」と同じイベントを送出するブラウザソース URL。
+              ランキングCG とは別レイヤーとして並走可能。
+            </p>
+            {[
+              { label: '🇯🇵 日本語', lang: 'ja' },
+              { label: '🇺🇸 English', lang: 'en' },
+            ].map(({ label, lang }) => {
+              const url = `${window.location.origin}/awards/output/${event.id}/oneshot?lang=${lang}`;
               return (
                 <div key={lang} className="flex items-center gap-2">
                   <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>

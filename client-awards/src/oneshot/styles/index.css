@@ -1,0 +1,7 @@
+/* 1S CG (アワード下部テロップ) スタイル束ね
+   .oneshot-cg-root スコープでまとめて適用。 */
+@import './tokens.css';
+@import './stage.css';
+@import './lower-third.css';
+@import './animations.css';
+@import './ticker.css';
