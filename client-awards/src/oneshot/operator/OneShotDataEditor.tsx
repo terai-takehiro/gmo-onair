@@ -1,67 +1,95 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import api from '@/lib/api';
 import {
-  X, Save, Database, FileJson, Eye, AlertCircle, CheckCircle2, Type,
-  Globe, Briefcase, Quote, Award, Users as UsersIcon, MessageSquare, Info,
+  X, Save, Database, AlertCircle, CheckCircle2,
+  Image as ImageIcon, Award, User, MessageSquare, Sparkles,
+  Quote, Users as UsersIcon, Info, RotateCcw, Edit3,
 } from 'lucide-react';
+import OneShotStage from '../OneShotStage';
 import type { Lang, Nominee, NomineeMember, NomineeRecommender } from '../types';
 
-/** mapper が source-attribute するためのフィールド分類 */
+/** どこから値が来ているかのタグ */
 type SourceTag = 'db' | 'oneshot_data' | 'i18n' | 'fallback' | 'computed' | 'empty';
 
-interface FieldStatus {
+/** CG ステージ (1920x1080) 上の領域 — ホバー時に半透明枠でハイライト */
+interface Region {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+interface FieldDef {
   key: string;
   label: string;
+  /** CG 上の領域 (ホバーで強調表示) */
+  region: Region;
+  /** 値の出処 */
   source: SourceTag;
+  /** JA 値 */
   ja?: string | null;
+  /** EN 値 */
   en?: string | null;
-  /** oneshot_data 編集対象フィールドのドット記法パス (e.g., 'recommender.respect') */
+  /** oneshot_data 編集対象パス (空なら編集不可) */
   editPath?: string;
-  /** EN フィールドの編集対象パス */
   editPathEn?: string;
+  /** マルチライン入力 */
   multiline?: boolean;
+  /** カンマ区切り array 入力 */
+  asArray?: boolean;
+  /** 詳細ヒント */
+  dbHint?: string;
+  icon?: typeof ImageIcon;
+  /** チーム時のみ表示 */
+  teamOnly?: boolean;
+}
+
+interface SectionDef {
+  key: string;
+  title: string;
+  icon: typeof ImageIcon;
+  fields: FieldDef[];
 }
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  /** 編集対象 — null なら閉じる */
   nominee: Nominee | null;
-  /** DB の awards_entries.id (= nominee が `entry-N` 形式の N) */
   entryId: number | null;
-  /** API 経由保存後に react-query を invalidate するキー */
   refetchKey: unknown[];
   lang: Lang;
 }
 
-const SOURCE_LABEL: Record<SourceTag, { text: string; cls: string }> = {
-  db: { text: 'DB 列', cls: 'bg-emerald-900/40 text-emerald-300 border-emerald-700/40' },
-  oneshot_data: { text: 'oneshot_data', cls: 'bg-amber-900/40 text-amber-300 border-amber-700/40' },
-  i18n: { text: 'i18n 辞書', cls: 'bg-sky-900/40 text-sky-300 border-sky-700/40' },
-  fallback: { text: 'fallback', cls: 'bg-slate-800 text-slate-400 border-slate-700' },
-  computed: { text: '算出', cls: 'bg-slate-800 text-slate-400 border-slate-700' },
-  empty: { text: '未設定', cls: 'bg-red-900/30 text-red-400 border-red-800/40' },
+const SOURCE_LABEL: Record<SourceTag, { text: string; cls: string; dot: string }> = {
+  db: { text: 'DB列', cls: 'bg-emerald-900/40 text-emerald-300 border-emerald-700/40', dot: 'bg-emerald-400' },
+  oneshot_data: { text: 'oneshot_data', cls: 'bg-amber-900/40 text-amber-300 border-amber-700/40', dot: 'bg-amber-400' },
+  i18n: { text: 'i18n辞書', cls: 'bg-sky-900/40 text-sky-300 border-sky-700/40', dot: 'bg-sky-400' },
+  fallback: { text: 'fallback', cls: 'bg-slate-700 text-slate-300 border-slate-600', dot: 'bg-slate-500' },
+  computed: { text: '算出', cls: 'bg-slate-700 text-slate-300 border-slate-600', dot: 'bg-slate-500' },
+  empty: { text: '未設定', cls: 'bg-red-900/40 text-red-300 border-red-800/50', dot: 'bg-red-500' },
 };
 
-/** ドット記法パスで JSONB を deep set */
-function setPath<T extends Record<string, unknown>>(obj: T, path: string, value: unknown): T {
-  if (!path) return obj;
-  const parts = path.split('.');
-  const next: Record<string, unknown> = { ...obj };
-  let cur = next;
-  for (let i = 0; i < parts.length - 1; i++) {
-    const k = parts[i];
-    const v = cur[k];
-    cur[k] = v && typeof v === 'object' ? { ...(v as object) } : {};
-    cur = cur[k] as Record<string, unknown>;
-  }
-  cur[parts[parts.length - 1]] = value;
-  return next as T;
-}
+// ── CG ステージ上の領域定義 (1920×1080 stage 座標)。
+//    lower-third が画面下中央、normal width 1200×~290。
+//    精密な座標ではなく、各フィールドが大体どこに出るかを示す矩形。
+const REGIONS = {
+  portrait: { x: 374, y: 724, w: 146, h: 182 },
+  awardName: { x: 542, y: 724, w: 240, h: 28 },
+  subcategory: { x: 800, y: 724, w: 280, h: 28 },
+  entryNo: { x: 1410, y: 724, w: 130, h: 30 },
+  name: { x: 542, y: 758, w: 480, h: 60 },
+  nameRomaji: { x: 1040, y: 770, w: 200, h: 30 },
+  company: { x: 1280, y: 758, w: 260, h: 30 },
+  department: { x: 1280, y: 794, w: 260, h: 24 },
+  // モジュールスロット (選択中の module で内容が変わる)
+  moduleSlot: { x: 542, y: 840, w: 1000, h: 150 },
+  moduleHeader: { x: 542, y: 840, w: 600, h: 28 },
+  moduleByline: { x: 1100, y: 840, w: 440, h: 28 },
+  moduleBody: { x: 542, y: 880, w: 1000, h: 110 },
+} as const;
 
-/** Nominee → 編集可能な oneshot_data 型 (基本列以外を取り出す) */
 type OneShotDataDraft = {
   type?: 'individual' | 'team';
   entryNo?: string;
@@ -120,6 +148,25 @@ function nomineeToDraft(n: Nominee): OneShotDataDraft {
   };
 }
 
+function setPath<T extends Record<string, unknown>>(obj: T, path: string, value: unknown): T {
+  if (!path) return obj;
+  const parts = path.split('.');
+  const next: Record<string, unknown> = { ...obj };
+  let cur = next;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const k = parts[i];
+    const v = cur[k];
+    cur[k] = v && typeof v === 'object' ? { ...(v as object) } : {};
+    cur = cur[k] as Record<string, unknown>;
+  }
+  cur[parts[parts.length - 1]] = value;
+  return next as T;
+}
+
+function tag(val: string | null | undefined, src: SourceTag): SourceTag {
+  return val && val.trim() ? src : 'empty';
+}
+
 export default function OneShotDataEditor({
   open,
   onClose,
@@ -130,245 +177,291 @@ export default function OneShotDataEditor({
 }: Props) {
   const qc = useQueryClient();
   const [draft, setDraft] = useState<OneShotDataDraft>({});
-  const [tab, setTab] = useState<'inspect' | 'edit'>('inspect');
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (open && nominee) {
       setDraft(nomineeToDraft(nominee));
-      setTab('inspect');
+      setHoveredKey(null);
     }
   }, [open, nominee]);
 
-  const saveMutation = useMutation({
-    mutationFn: async (next: OneShotDataDraft) => {
-      if (!entryId) throw new Error('DB 紐付けのないノミネートは編集できません');
-      // 空文字は null として保存しない (JSONB を肥大化させない)
-      const cleaned: Record<string, unknown> = {};
-      for (const [k, v] of Object.entries(next)) {
-        if (v == null) continue;
-        if (typeof v === 'string' && !v.trim()) continue;
-        if (Array.isArray(v) && v.length === 0) continue;
-        cleaned[k] = v;
-      }
-      // recommender も空オブジェクトなら除外
-      if (cleaned.recommender && Object.keys(cleaned.recommender as object).length === 0) {
-        delete cleaned.recommender;
-      }
-      await api.put(`/awards/entries/${entryId}/oneshot-data`, { oneshot_data: cleaned });
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: refetchKey });
-      onClose();
-    },
-  });
+  // CG プレビュー letterbox
+  const previewRef = useRef<HTMLDivElement>(null);
+  const [previewScale, setPreviewScale] = useState(0.4);
+  useEffect(() => {
+    if (!open) return;
+    const el = previewRef.current;
+    if (!el) return;
+    const calc = () => {
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      if (!w || !h) return;
+      setPreviewScale(Math.min(w / 1920, h / 1080));
+    };
+    calc();
+    const ro = new ResizeObserver(calc);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [open]);
 
-  // インスペクター: nominee の各フィールドの source を表示
-  const fields: FieldStatus[] = useMemo(() => {
+  const sections: SectionDef[] = useMemo(() => {
     if (!nominee) return [];
     const n = nominee;
     const isTeam = n.type === 'team';
-    const tag = (val: string | null | undefined, source: SourceTag): SourceTag =>
-      val && val.trim() ? source : 'empty';
 
-    const list: FieldStatus[] = [
-      // ── 基本 (DB awards_entries 列) ─────────────────
+    return [
       {
-        key: 'name',
-        label: '氏名',
-        source: tag(n.name, 'db'),
-        ja: n.name,
-        en: n.nameEn,
+        key: 'basic',
+        title: '基本情報 (DB 列)',
+        icon: User,
+        fields: [
+          {
+            key: 'name',
+            label: '氏名',
+            region: REGIONS.name,
+            source: tag(n.name, 'db'),
+            ja: n.name,
+            en: n.nameEn,
+            dbHint: 'awards_entries.name / .name_en (EventEditor で編集)',
+            icon: User,
+          },
+          {
+            key: 'company',
+            label: '会社',
+            region: REGIONS.company,
+            source: tag(n.company, 'db'),
+            ja: n.company,
+            en: n.companyEn,
+            dbHint: 'awards_entries.org / .org_en (EventEditor で編集)',
+          },
+          {
+            key: 'image',
+            label: '写真',
+            region: REGIONS.portrait,
+            source: tag(n.image, 'db'),
+            ja: n.image,
+            dbHint: 'awards_entries.photo_url (EventEditor で写真アップロード)',
+            icon: ImageIcon,
+          },
+        ],
       },
       {
-        key: 'company',
-        label: '会社',
-        source: tag(n.company, 'db'),
-        ja: n.company,
-        en: n.companyEn,
+        key: 'award',
+        title: '賞・部門 (DB 列 + i18n 辞書)',
+        icon: Award,
+        fields: [
+          {
+            key: 'category',
+            label: '賞 (Award)',
+            region: REGIONS.awardName,
+            source: tag(n.category, 'db'),
+            ja: n.category,
+            en: n.categoryEn,
+            dbHint: 'awards_categories.name / .name_en + i18n辞書 (英訳辞書ボタンで編集)',
+            icon: Award,
+          },
+          {
+            key: 'subcategory',
+            label: '部門 (Division)',
+            region: REGIONS.subcategory,
+            source: tag(n.subcategory, 'db'),
+            ja: n.subcategory,
+            en: n.subcategoryEn,
+            dbHint: 'awards_categories.description / .description_en + i18n辞書',
+          },
+          {
+            key: 'entryNo',
+            label: 'エントリーNo',
+            region: REGIONS.entryNo,
+            source: n.entryNo ? 'oneshot_data' : 'computed',
+            ja: n.entryNo,
+            editPath: 'entryNo',
+            dbHint: 'oneshot_data.entryNo',
+          },
+        ],
       },
       {
-        key: 'image',
-        label: '写真URL',
-        source: tag(n.image, 'db'),
-        ja: n.image,
+        key: 'profile',
+        title: 'プロフィール (oneshot_data 編集可)',
+        icon: User,
+        fields: [
+          {
+            key: 'department',
+            label: '部署',
+            region: REGIONS.department,
+            source: tag(n.department, 'oneshot_data'),
+            ja: n.department,
+            en: n.departmentEn,
+            editPath: 'department',
+            editPathEn: 'departmentEn',
+          },
+          {
+            key: 'position',
+            label: '役職',
+            region: REGIONS.department,
+            source: tag(n.position, 'oneshot_data'),
+            ja: n.position,
+            en: n.positionEn,
+            editPath: 'position',
+            editPathEn: 'positionEn',
+          },
+          {
+            key: 'location',
+            label: '勤務地',
+            region: REGIONS.department,
+            source: tag(n.location, 'oneshot_data'),
+            ja: n.location,
+            en: n.locationEn,
+            editPath: 'location',
+            editPathEn: 'locationEn',
+          },
+        ],
       },
       {
-        key: 'category',
-        label: '賞 (Award)',
-        source: tag(n.category, 'db'),
-        ja: n.category,
-        en: n.categoryEn,
+        key: 'content',
+        title: 'ノミネート内容 (モジュール表示時)',
+        icon: MessageSquare,
+        fields: [
+          {
+            key: 'ism',
+            label: '私のイズム',
+            region: REGIONS.moduleBody,
+            source: tag(n.ism, 'oneshot_data'),
+            ja: n.ism,
+            en: n.ismEn,
+            editPath: 'ism',
+            editPathEn: 'ismEn',
+            multiline: true,
+            icon: Sparkles,
+          },
+          {
+            key: 'skills',
+            label: '私の得意技',
+            region: REGIONS.moduleBody,
+            source: n.skills.length ? 'oneshot_data' : 'empty',
+            ja: n.skills.join(', '),
+            en: n.skillsEn.join(', '),
+            editPath: 'skills',
+            editPathEn: 'skillsEn',
+            asArray: true,
+            icon: Sparkles,
+          },
+          {
+            key: 'title',
+            label: 'ノミネートタイトル',
+            region: REGIONS.moduleBody,
+            source: tag(n.title, 'oneshot_data'),
+            ja: n.title,
+            en: n.titleEn,
+            editPath: 'title',
+            editPathEn: 'titleEn',
+            icon: Award,
+          },
+          {
+            key: 'comment',
+            label: 'ノミネート者コメント',
+            region: REGIONS.moduleBody,
+            source: tag(n.comment, 'oneshot_data'),
+            ja: n.comment,
+            en: n.commentEn,
+            editPath: 'comment',
+            editPathEn: 'commentEn',
+            multiline: true,
+            icon: MessageSquare,
+          },
+        ],
       },
-      {
-        key: 'subcategory',
-        label: '部門 (Division)',
-        source: tag(n.subcategory, 'db'),
-        ja: n.subcategory,
-        en: n.subcategoryEn,
-      },
-      // ── 1S CG 専用 (oneshot_data) ──────────────────
-      {
-        key: 'entryNo',
-        label: 'エントリーNo',
-        source: n.entryNo ? 'oneshot_data' : 'computed',
-        ja: n.entryNo,
-        editPath: 'entryNo',
-      },
-      {
-        key: 'department',
-        label: '部署',
-        source: tag(n.department, 'oneshot_data'),
-        ja: n.department,
-        en: n.departmentEn,
-        editPath: 'department',
-        editPathEn: 'departmentEn',
-      },
-      {
-        key: 'position',
-        label: '役職',
-        source: tag(n.position, 'oneshot_data'),
-        ja: n.position,
-        en: n.positionEn,
-        editPath: 'position',
-        editPathEn: 'positionEn',
-      },
-      {
-        key: 'location',
-        label: '勤務地',
-        source: tag(n.location, 'oneshot_data'),
-        ja: n.location,
-        en: n.locationEn,
-        editPath: 'location',
-        editPathEn: 'locationEn',
-      },
-      {
-        key: 'ism',
-        label: '私のイズム',
-        source: tag(n.ism, 'oneshot_data'),
-        ja: n.ism,
-        en: n.ismEn,
-        editPath: 'ism',
-        editPathEn: 'ismEn',
-        multiline: true,
-      },
-      {
-        key: 'skills',
-        label: '私の得意技',
-        source: n.skills.length ? 'oneshot_data' : 'empty',
-        ja: n.skills.join(' / '),
-        en: n.skillsEn.join(' / '),
-        editPath: 'skills',
-        editPathEn: 'skillsEn',
-      },
-      {
-        key: 'title',
-        label: 'ノミネートタイトル',
-        source: tag(n.title, 'oneshot_data'),
-        ja: n.title,
-        en: n.titleEn,
-        editPath: 'title',
-        editPathEn: 'titleEn',
-      },
-      {
-        key: 'comment',
-        label: 'ノミネート者コメント',
-        source: tag(n.comment, 'oneshot_data'),
-        ja: n.comment,
-        en: n.commentEn,
-        editPath: 'comment',
-        editPathEn: 'commentEn',
-        multiline: true,
-      },
-      // ── チーム情報 (type=team のみ) ────────────────
       ...(isTeam
         ? [
             {
-              key: 'projectName',
-              label: 'プロジェクト名',
-              source: tag(n.projectName, 'oneshot_data'),
-              ja: n.projectName,
-              en: n.projectNameEn,
-              editPath: 'projectName',
-              editPathEn: 'projectNameEn',
-            } as FieldStatus,
-            {
-              key: 'teamSize',
-              label: '人数',
-              source: n.teamSize != null ? 'oneshot_data' : 'empty',
-              ja: n.teamSize != null ? String(n.teamSize) : '',
-            } as FieldStatus,
-            {
-              key: 'members',
-              label: 'チームメンバー',
-              source: (n.members?.length ?? 0) > 0 ? 'oneshot_data' : 'empty',
-              ja: n.members?.map((m) => `${m.role}: ${m.name} (${m.company})`).join('\n'),
-              en: n.membersEn?.map((m) => `${m.role}: ${m.name} (${m.company})`).join('\n'),
-              multiline: true,
-            } as FieldStatus,
+              key: 'team',
+              title: 'チーム情報 (oneshot_data 編集可)',
+              icon: UsersIcon,
+              fields: [
+                {
+                  key: 'projectName',
+                  label: 'プロジェクト名',
+                  region: REGIONS.name,
+                  source: tag(n.projectName, 'oneshot_data'),
+                  ja: n.projectName,
+                  en: n.projectNameEn,
+                  editPath: 'projectName',
+                  editPathEn: 'projectNameEn',
+                },
+                {
+                  key: 'teamSize',
+                  label: '人数',
+                  region: REGIONS.moduleSlot,
+                  source: n.teamSize != null ? 'oneshot_data' : 'empty',
+                  ja: n.teamSize != null ? String(n.teamSize) : '',
+                },
+              ] as FieldDef[],
+            } satisfies SectionDef,
           ]
         : []),
-      // ── 推薦者 ─────────────────────────────────────
       {
-        key: 'rec.name',
-        label: '推薦者氏名',
-        source: tag(n.recommender.name, 'oneshot_data'),
-        ja: n.recommender.name,
-        en: n.recommender.nameEn,
-        editPath: 'recommender.name',
-        editPathEn: 'recommender.nameEn',
-      },
-      {
-        key: 'rec.company',
-        label: '推薦者会社',
-        source: tag(n.recommender.company, 'oneshot_data'),
-        ja: n.recommender.company,
-        en: n.recommender.companyEn,
-        editPath: 'recommender.company',
-        editPathEn: 'recommender.companyEn',
-      },
-      {
-        key: 'rec.position',
-        label: '推薦者役職',
-        source: tag(n.recommender.position, 'oneshot_data'),
-        ja: n.recommender.position,
-        en: n.recommender.positionEn,
-        editPath: 'recommender.position',
-        editPathEn: 'recommender.positionEn',
-      },
-      {
-        key: 'rec.respect',
-        label: '尊敬ポイント (13文字)',
-        source: tag(n.recommender.respect, 'oneshot_data'),
-        ja: n.recommender.respect,
-        en: n.recommender.respectEn,
-        editPath: 'recommender.respect',
-        editPathEn: 'recommender.respectEn',
-      },
-      {
-        key: 'rec.respectComment',
-        label: '尊敬ポイント コメント',
-        source: tag(n.recommender.respectComment, 'oneshot_data'),
-        ja: n.recommender.respectComment,
-        en: n.recommender.respectCommentEn,
-        editPath: 'recommender.respectComment',
-        editPathEn: 'recommender.respectCommentEn',
-        multiline: true,
+        key: 'recommender',
+        title: '推薦者情報 (oneshot_data 編集可)',
+        icon: Quote,
+        fields: [
+          {
+            key: 'rec.respect',
+            label: '尊敬ポイント (13文字)',
+            region: REGIONS.moduleBody,
+            source: tag(n.recommender.respect, 'oneshot_data'),
+            ja: n.recommender.respect,
+            en: n.recommender.respectEn,
+            editPath: 'recommender.respect',
+            editPathEn: 'recommender.respectEn',
+            icon: Quote,
+          },
+          {
+            key: 'rec.respectComment',
+            label: '尊敬コメント',
+            region: REGIONS.moduleBody,
+            source: tag(n.recommender.respectComment, 'oneshot_data'),
+            ja: n.recommender.respectComment,
+            en: n.recommender.respectCommentEn,
+            editPath: 'recommender.respectComment',
+            editPathEn: 'recommender.respectCommentEn',
+            multiline: true,
+            icon: MessageSquare,
+          },
+          {
+            key: 'rec.name',
+            label: '推薦者氏名',
+            region: REGIONS.moduleByline,
+            source: tag(n.recommender.name, 'oneshot_data'),
+            ja: n.recommender.name,
+            en: n.recommender.nameEn,
+            editPath: 'recommender.name',
+            editPathEn: 'recommender.nameEn',
+          },
+          {
+            key: 'rec.position',
+            label: '推薦者役職',
+            region: REGIONS.moduleByline,
+            source: tag(n.recommender.position, 'oneshot_data'),
+            ja: n.recommender.position,
+            en: n.recommender.positionEn,
+            editPath: 'recommender.position',
+            editPathEn: 'recommender.positionEn',
+          },
+        ],
       },
     ];
-    return list;
   }, [nominee]);
 
-  if (!open || !nominee) return null;
+  const allFields = useMemo(() => sections.flatMap((s) => s.fields), [sections]);
+  const editable = allFields.filter((f) => f.editPath);
+  const filled = editable.filter((f) => f.source === 'oneshot_data').length;
+  const completeness = editable.length ? Math.round((filled / editable.length) * 100) : 0;
 
-  const totalEditable = fields.filter((f) => f.editPath).length;
-  const filledEditable = fields.filter((f) => f.editPath && f.source === 'oneshot_data').length;
-  const completeness = totalEditable > 0 ? Math.round((filledEditable / totalEditable) * 100) : 0;
-
-  const editField = (path: string | undefined): string => {
+  const editValue = (path: string | undefined): string => {
     if (!path) return '';
-    const parts = path.split('.');
     let cur: unknown = draft;
-    for (const p of parts) {
+    for (const p of path.split('.')) {
       if (cur && typeof cur === 'object') cur = (cur as Record<string, unknown>)[p];
       else return '';
     }
@@ -382,220 +475,364 @@ export default function OneShotDataEditor({
     setDraft((d) => setPath(d as Record<string, unknown>, path, v) as OneShotDataDraft);
   };
 
+  const resetDraft = () => {
+    if (nominee) setDraft(nomineeToDraft(nominee));
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (!entryId) throw new Error('DB 紐付けのないノミネートは編集できません');
+      const cleaned: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(draft)) {
+        if (v == null) continue;
+        if (typeof v === 'string' && !v.trim()) continue;
+        if (Array.isArray(v) && v.length === 0) continue;
+        cleaned[k] = v;
+      }
+      if (cleaned.recommender && Object.keys(cleaned.recommender as object).length === 0) {
+        delete cleaned.recommender;
+      }
+      await api.put(`/awards/entries/${entryId}/oneshot-data`, { oneshot_data: cleaned });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: refetchKey });
+      onClose();
+    },
+  });
+
+  if (!open || !nominee) return null;
+
+  const hovered = hoveredKey ? allFields.find((f) => f.key === hoveredKey) : null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-4xl max-h-[92vh] flex flex-col bg-slate-900 border border-slate-700 rounded-lg shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+      <div className="w-full max-w-7xl max-h-[95vh] flex flex-col bg-slate-900 border border-slate-700 rounded-lg shadow-2xl">
         {/* Header */}
-        <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-800">
-          <Database className="h-4 w-4 text-amber-400" />
-          <h2 className="text-sm font-bold text-slate-100">DB ↔ CG マッピング · エントリ #{entryId ?? '-'}</h2>
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-800">
+          <Database className="h-5 w-5 text-amber-400" />
+          <h2 className="text-base font-bold text-slate-100">
+            DB ↔ CG マッピング
+            <span className="ml-2 text-sm text-slate-500 font-normal">エントリ #{entryId ?? '—'}</span>
+          </h2>
           <div className="flex-1" />
           <span
             className={cn(
-              'flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black tracking-widest',
+              'flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black tracking-widest',
               completeness === 100
                 ? 'bg-emerald-900/50 text-emerald-300 border border-emerald-700/50'
                 : completeness >= 50
                 ? 'bg-amber-900/50 text-amber-300 border border-amber-700/50'
                 : 'bg-red-900/40 text-red-300 border border-red-800/40'
             )}
-            title={`oneshot_data 充足率 ${filledEditable}/${totalEditable}`}
+            title={`oneshot_data 充足率 ${filled}/${editable.length}`}
           >
-            <CheckCircle2 className="h-3 w-3" />
-            {completeness}% 充足
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            充足率 {completeness}%
           </span>
           <button
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded hover:bg-slate-800 text-slate-400"
+            className="flex h-9 w-9 items-center justify-center rounded hover:bg-slate-800 text-slate-400"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Tab */}
-        <div className="flex gap-1 px-5 pt-3 border-b border-slate-800">
-          {(
-            [
-              { k: 'inspect', label: 'INSPECT', icon: Eye, hint: 'CGに何が出るか確認' },
-              { k: 'edit', label: 'EDIT', icon: FileJson, hint: 'oneshot_data 編集' },
-            ] as const
-          ).map(({ k, label, icon: Icon, hint }) => (
-            <button
-              key={k}
-              onClick={() => setTab(k)}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-2 text-[11px] font-black tracking-widest border-b-2 -mb-px transition-colors',
-                tab === k
-                  ? 'border-amber-400 text-amber-300'
-                  : 'border-transparent text-slate-500 hover:text-slate-300'
-              )}
-              title={hint}
-            >
-              <Icon className="h-3 w-3" />
-              {label}
-            </button>
-          ))}
-          <div className="flex-1" />
-          {nominee && (
-            <div className="text-[10px] text-slate-500 self-center hidden sm:block">
-              ノミネート: <span className="text-slate-300 font-bold">{lang === 'ja' ? nominee.name : nominee.nameEn}</span>
-              <span className="mx-1.5 text-slate-700">·</span>
-              {lang === 'ja' ? nominee.category : nominee.categoryEn}
+        {/* Body: 2 columns */}
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_minmax(420px,520px)] overflow-hidden min-h-0">
+          {/* ── Left: CG preview with hotspots ─────────────── */}
+          <div className="flex flex-col border-b lg:border-b-0 lg:border-r border-slate-800 overflow-hidden">
+            <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-800/60 bg-slate-950/40">
+              <Edit3 className="h-4 w-4 text-amber-400" />
+              <span className="text-sm font-bold text-slate-200">CG プレビュー</span>
+              <span className="text-xs text-slate-500">右の項目にホバーで該当箇所をハイライト</span>
             </div>
-          )}
-        </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">
-          {tab === 'inspect' ? (
-            <InspectView fields={fields} />
-          ) : (
-            <EditView fields={fields} editField={editField} updateField={updateField} />
-          )}
-        </div>
-
-        {/* Legend (small) */}
-        <div className="px-5 py-2 border-t border-slate-800 bg-slate-950/50 flex items-center gap-2 flex-wrap text-[10px]">
-          <Info className="h-3 w-3 text-slate-500" />
-          <span className="text-slate-500">凡例:</span>
-          {(
-            [
-              { tag: 'db', desc: 'awards_entries / awards_categories 列' },
-              { tag: 'oneshot_data', desc: 'JSONB 列 (このエディタで編集可)' },
-              { tag: 'i18n', desc: 'localStorage 翻訳辞書' },
-              { tag: 'empty', desc: '未設定' },
-            ] as const
-          ).map(({ tag, desc }) => (
-            <span key={tag} className="flex items-center gap-1">
-              <span
-                className={cn(
-                  'inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-bold',
-                  SOURCE_LABEL[tag].cls
-                )}
+            <div className="flex-1 relative bg-black overflow-hidden" ref={previewRef}>
+              {/* 1920x1080 stage */}
+              <div
+                className="absolute"
+                style={{
+                  left: '50%',
+                  top: '50%',
+                  width: 1920,
+                  height: 1080,
+                  transform: `translate(-50%, -50%) scale(${previewScale})`,
+                  transformOrigin: 'center center',
+                }}
               >
-                {SOURCE_LABEL[tag].text}
-              </span>
-              <span className="text-slate-500">{desc}</span>
-            </span>
-          ))}
+                <OneShotStage
+                  nominee={nominee}
+                  lang={lang}
+                  moduleKey="comment"
+                  transparent={false}
+                  lowerThirdMounted={true}
+                  lowerThirdExiting={false}
+                  tickerMounted={false}
+                  tickerExiting={false}
+                  tickerOn={false}
+                  tickerCategory={null}
+                />
+                {/* Hotspots overlay (in stage coords, scaled with parent) */}
+                {allFields.map((f, i) => {
+                  const isHover = hoveredKey === f.key;
+                  return (
+                    <div
+                      key={f.key}
+                      className={cn(
+                        'absolute pointer-events-auto cursor-pointer transition-all',
+                        isHover && 'z-20'
+                      )}
+                      style={{
+                        left: f.region.x,
+                        top: f.region.y,
+                        width: f.region.w,
+                        height: f.region.h,
+                      }}
+                      onMouseEnter={() => setHoveredKey(f.key)}
+                      onMouseLeave={() => setHoveredKey((k) => (k === f.key ? null : k))}
+                    >
+                      {/* outline */}
+                      <div
+                        className={cn(
+                          'absolute inset-0 transition-all',
+                          isHover ? 'opacity-100' : 'opacity-0'
+                        )}
+                        style={{
+                          outline: '4px solid rgba(245, 158, 11, 0.85)',
+                          outlineOffset: '-4px',
+                          background: 'rgba(245, 158, 11, 0.15)',
+                          borderRadius: 4,
+                        }}
+                      />
+                      {/* number badge */}
+                      <div
+                        className={cn(
+                          'absolute -top-3 -left-3 rounded-full text-white text-[28px] font-black flex items-center justify-center transition-all border-2',
+                          isHover
+                            ? 'bg-amber-500 border-white scale-110 shadow-2xl'
+                            : f.source === 'empty'
+                            ? 'bg-red-600 border-red-900'
+                            : f.source === 'oneshot_data'
+                            ? 'bg-amber-600 border-amber-900'
+                            : f.source === 'i18n'
+                            ? 'bg-sky-600 border-sky-900'
+                            : 'bg-emerald-700 border-emerald-900'
+                        )}
+                        style={{
+                          width: 56,
+                          height: 56,
+                          fontSize: 26,
+                          // 重ならないよう少しずらす
+                          transform: `translate(${(i % 4) * 4}px, ${(Math.floor(i / 4) * 2)}px)`,
+                        }}
+                      >
+                        {i + 1}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            {/* Legend */}
+            <div className="px-5 py-3 border-t border-slate-800 bg-slate-950/40 flex items-center gap-3 flex-wrap text-xs">
+              <Info className="h-3.5 w-3.5 text-slate-500" />
+              <span className="text-slate-400">凡例:</span>
+              {(
+                [
+                  { tag: 'db', desc: 'DB列 (固定)' },
+                  { tag: 'oneshot_data', desc: 'JSONB (右で編集可)' },
+                  { tag: 'i18n', desc: '英訳辞書' },
+                  { tag: 'empty', desc: '未設定' },
+                ] as const
+              ).map(({ tag, desc }) => (
+                <span key={tag} className="flex items-center gap-1.5">
+                  <span className={cn('h-2.5 w-2.5 rounded-full', SOURCE_LABEL[tag].dot)} />
+                  <span className="text-slate-300">{desc}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Right: Field list grouped by section ───────── */}
+          <div className="overflow-y-auto p-5 space-y-5">
+            {hovered && (
+              <div className="rounded-lg border border-amber-700/50 bg-amber-950/30 px-3 py-2 text-xs text-amber-200/90">
+                <span className="font-bold">選択中:</span> {hovered.label}
+                {hovered.dbHint && (
+                  <div className="text-[11px] text-amber-300/70 mt-1 font-mono">
+                    {hovered.dbHint}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {sections.map((section, secIdx) => {
+              const SecIcon = section.icon;
+              const offset = sections.slice(0, secIdx).reduce((s, x) => s + x.fields.length, 0);
+              return (
+                <section key={section.key} className="space-y-2.5">
+                  <h3 className="flex items-center gap-2 text-sm font-bold text-slate-200 pb-1.5 border-b border-slate-800">
+                    <SecIcon className="h-4 w-4 text-amber-500" />
+                    {section.title}
+                  </h3>
+                  <div className="space-y-2">
+                    {section.fields.map((f, i) => (
+                      <FieldRow
+                        key={f.key}
+                        index={offset + i + 1}
+                        field={f}
+                        isHovered={hoveredKey === f.key}
+                        onHover={() => setHoveredKey(f.key)}
+                        onLeave={() => setHoveredKey((k) => (k === f.key ? null : k))}
+                        editValueJa={editValue(f.editPath)}
+                        editValueEn={editValue(f.editPathEn)}
+                        updateField={updateField}
+                      />
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center gap-2 px-5 py-3 border-t border-slate-800 bg-slate-950/50">
+        <div className="flex items-center gap-2 px-6 py-3 border-t border-slate-800 bg-slate-950/50">
           {!entryId && (
-            <span className="flex items-center gap-1 text-[10px] text-amber-400">
-              <AlertCircle className="h-3 w-3" />
-              DB 未紐付けノミネート (seed) — 保存不可
+            <span className="flex items-center gap-1.5 text-xs text-amber-400">
+              <AlertCircle className="h-4 w-4" />
+              DB 未紐付け (seed) — 保存不可
             </span>
           )}
           <div className="flex-1" />
           <button
-            onClick={onClose}
-            className="rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-700 transition-colors"
+            onClick={resetDraft}
+            className="flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-400 hover:bg-slate-700 transition-colors"
           >
-            閉じる
+            <RotateCcw className="h-3.5 w-3.5" />
+            リセット
           </button>
-          {tab === 'edit' && (
-            <button
-              onClick={() => saveMutation.mutate(draft)}
-              disabled={!entryId || saveMutation.isPending}
-              className={cn(
-                'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-colors',
-                entryId
-                  ? 'bg-amber-500 text-slate-950 hover:bg-amber-400'
-                  : 'bg-slate-700 text-slate-500 cursor-not-allowed'
-              )}
-            >
-              <Save className="h-3 w-3" />
-              {saveMutation.isPending ? '保存中…' : 'oneshot_data を保存'}
-            </button>
-          )}
+          <button
+            onClick={onClose}
+            className="rounded-md border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 transition-colors"
+          >
+            キャンセル
+          </button>
+          <button
+            onClick={() => saveMutation.mutate()}
+            disabled={!entryId || saveMutation.isPending}
+            className={cn(
+              'flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-bold transition-colors',
+              entryId
+                ? 'bg-amber-500 text-slate-950 hover:bg-amber-400'
+                : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+            )}
+          >
+            <Save className="h-4 w-4" />
+            {saveMutation.isPending ? '保存中…' : 'oneshot_data を保存'}
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Inspect view ──────────────────────────────────────────
-function InspectView({ fields }: { fields: FieldStatus[] }) {
-  return (
-    <div className="space-y-1.5">
-      {fields.map((f) => {
-        const tag = SOURCE_LABEL[f.source];
-        const Icon = iconForKey(f.key);
-        return (
-          <div
-            key={f.key}
-            className="grid grid-cols-12 gap-2 items-start rounded border border-slate-800 bg-slate-800/30 p-2 text-xs"
-          >
-            <div className="col-span-12 sm:col-span-3 flex items-center gap-1.5">
-              <Icon className="h-3 w-3 text-slate-500 shrink-0" />
-              <span className="font-bold text-slate-200 truncate">{f.label}</span>
-            </div>
-            <div className="col-span-6 sm:col-span-2">
-              <span className={cn('inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-bold', tag.cls)}>
-                {tag.text}
-              </span>
-            </div>
-            <div className="col-span-12 sm:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-              <div className="text-slate-300 whitespace-pre-wrap break-words">
-                <span className="text-[9px] tracking-widest text-slate-600 uppercase mr-1">JA</span>
-                {f.ja || <span className="text-slate-600">—</span>}
-              </div>
-              <div className="text-slate-400 whitespace-pre-wrap break-words">
-                <span className="text-[9px] tracking-widest text-slate-600 uppercase mr-1">EN</span>
-                {f.en || <span className="text-slate-600">—</span>}
-              </div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
+// ─── FieldRow ──────────────────────────────────────────────
+interface FieldRowProps {
+  index: number;
+  field: FieldDef;
+  isHovered: boolean;
+  onHover: () => void;
+  onLeave: () => void;
+  editValueJa: string;
+  editValueEn: string;
+  updateField: (path: string, value: string, isArray?: boolean) => void;
 }
 
-// ─── Edit view ─────────────────────────────────────────────
-function EditView({
-  fields,
-  editField,
+function FieldRow({
+  index,
+  field: f,
+  isHovered,
+  onHover,
+  onLeave,
+  editValueJa,
+  editValueEn,
   updateField,
-}: {
-  fields: FieldStatus[];
-  editField: (path: string | undefined) => string;
-  updateField: (path: string, value: string, isArray?: boolean) => void;
-}) {
-  const editable = fields.filter((f) => f.editPath);
+}: FieldRowProps) {
+  const sl = SOURCE_LABEL[f.source];
+  const FieldIcon = f.icon ?? Edit3;
+  const isEditable = !!f.editPath;
   return (
-    <div className="space-y-3">
-      {editable.map((f) => {
-        const isArray = f.key === 'skills';
-        return (
-          <div key={f.key} className="space-y-1.5">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-200">
-              {f.label}
-              {isArray && <span className="text-[9px] text-slate-500">(カンマ区切り)</span>}
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <FieldInput
-                label="JA"
-                multiline={f.multiline}
-                value={editField(f.editPath)}
-                onChange={(v) => f.editPath && updateField(f.editPath, v, isArray)}
-                placeholder={f.ja ?? ''}
-              />
-              {f.editPathEn && (
-                <FieldInput
-                  label="EN"
-                  multiline={f.multiline}
-                  value={editField(f.editPathEn)}
-                  onChange={(v) => f.editPathEn && updateField(f.editPathEn, v, isArray)}
-                  placeholder={f.en ?? ''}
-                />
-              )}
-            </div>
-          </div>
-        );
-      })}
+    <div
+      onMouseEnter={onHover}
+      onMouseLeave={onLeave}
+      className={cn(
+        'rounded-lg border bg-slate-800/40 p-3 transition-all',
+        isHovered
+          ? 'border-amber-500/70 bg-slate-800/80 ring-2 ring-amber-500/30'
+          : 'border-slate-700/60 hover:bg-slate-800/60'
+      )}
+    >
+      {/* Header row */}
+      <div className="flex items-center gap-2 mb-2">
+        <span
+          className={cn(
+            'inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black shrink-0',
+            f.source === 'empty'
+              ? 'bg-red-600 text-white'
+              : f.source === 'oneshot_data'
+              ? 'bg-amber-600 text-white'
+              : f.source === 'i18n'
+              ? 'bg-sky-600 text-white'
+              : 'bg-emerald-700 text-white'
+          )}
+        >
+          {index}
+        </span>
+        <FieldIcon className="h-4 w-4 text-slate-400" />
+        <span className="text-sm font-bold text-slate-100">{f.label}</span>
+        <span className={cn('inline-flex items-center px-2 py-0.5 rounded border text-[11px] font-bold', sl.cls)}>
+          {sl.text}
+        </span>
+        {!isEditable && (
+          <span className="text-[11px] text-slate-500 italic">
+            {f.source === 'db' ? '読み取り専用' : ''}
+          </span>
+        )}
+      </div>
+
+      {/* Values / inputs */}
+      {isEditable ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <FieldInput
+            label="JA"
+            multiline={f.multiline}
+            value={editValueJa}
+            placeholder={f.ja ?? ''}
+            onChange={(v) => f.editPath && updateField(f.editPath, v, f.asArray)}
+          />
+          {f.editPathEn && (
+            <FieldInput
+              label="EN"
+              multiline={f.multiline}
+              value={editValueEn}
+              placeholder={f.en ?? ''}
+              onChange={(v) => f.editPathEn && updateField(f.editPathEn, v, f.asArray)}
+            />
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+          <ReadOnlyValue label="JA" value={f.ja} />
+          <ReadOnlyValue label="EN" value={f.en} />
+        </div>
+      )}
+
+      {/* DB hint */}
+      {f.dbHint && (
+        <div className="mt-2 text-[11px] text-slate-500 font-mono break-all">
+          ↳ {f.dbHint}
+        </div>
+      )}
     </div>
   );
 }
@@ -614,21 +851,21 @@ function FieldInput({
   multiline?: boolean;
 }) {
   const cls = cn(
-    'w-full rounded border bg-slate-800 px-2.5 py-1.5 text-xs text-slate-100 focus:outline-none focus:ring-2',
+    'w-full rounded border bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 transition-colors',
     value
-      ? 'border-amber-500/40 focus:ring-amber-500/40'
+      ? 'border-amber-500/50 focus:ring-amber-500/40'
       : 'border-slate-700 focus:ring-slate-500'
   );
   return (
-    <div className="space-y-0.5">
-      <span className="text-[9px] tracking-widest text-slate-500 uppercase">{label}</span>
+    <div className="space-y-1">
+      <span className="text-[11px] font-bold tracking-widest text-slate-400 uppercase">{label}</span>
       {multiline ? (
         <textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           rows={3}
-          className={cn(cls, 'resize-y')}
+          className={cn(cls, 'resize-y leading-relaxed')}
         />
       ) : (
         <input
@@ -642,13 +879,13 @@ function FieldInput({
   );
 }
 
-// アイコン選定 (UI上でフィールド種別を一目で識別)
-function iconForKey(k: string): typeof Type {
-  if (k.startsWith('rec.')) return Quote;
-  if (k === 'category' || k === 'subcategory' || k === 'entryNo') return Award;
-  if (k === 'image' || k === 'name' || k === 'company') return Briefcase;
-  if (k === 'comment' || k === 'ism' || k === 'title') return MessageSquare;
-  if (k === 'projectName' || k === 'teamSize' || k === 'members') return UsersIcon;
-  if (k === 'departmentEn' || k.endsWith('En')) return Globe;
-  return Type;
+function ReadOnlyValue({ label, value }: { label: string; value: string | null | undefined }) {
+  return (
+    <div className="space-y-1">
+      <span className="text-[11px] font-bold tracking-widest text-slate-500 uppercase">{label}</span>
+      <div className="rounded border border-slate-700 bg-slate-900/50 px-3 py-2 text-sm text-slate-300 break-words whitespace-pre-wrap min-h-[36px]">
+        {value || <span className="text-slate-600">—</span>}
+      </div>
+    </div>
+  );
 }

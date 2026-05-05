@@ -20,22 +20,22 @@ export default function TickerControlRow({ on, currentAward, onToggle }: Props) 
         onClick={onToggle}
         disabled={disabled}
         className={cn(
-          'flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-bold transition-all shrink-0',
+          'flex items-center gap-1.5 rounded-md border px-3.5 py-2 text-sm font-bold transition-all shrink-0',
           on
             ? 'bg-amber-500 border-amber-400 text-slate-950'
             : disabled
-            ? 'border-slate-800 text-slate-700 bg-slate-900/40 cursor-not-allowed'
-            : 'border-slate-800 text-slate-500 hover:bg-slate-800 hover:text-slate-300'
+            ? 'border-slate-800 text-slate-600 bg-slate-900/40 cursor-not-allowed'
+            : 'border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-slate-100'
         )}
       >
-        <Megaphone className="h-3.5 w-3.5" />
+        <Megaphone className="h-4 w-4" />
         {on ? 'TICKER ON' : 'TICKER OFF'}
       </button>
       {currentAward && (
-        <div className="flex items-center gap-2 text-[11px] text-slate-400 min-w-0">
-          <span className="text-slate-600">流す賞 →</span>
-          <span className="font-bold text-amber-300/90 truncate">{currentAward.award}</span>
-          <span className="text-slate-600 text-[10px] shrink-0">
+        <div className="flex items-center gap-2 text-sm text-slate-300 min-w-0">
+          <span className="text-slate-500">流す賞 →</span>
+          <span className="font-bold text-amber-300 truncate">{currentAward.award}</span>
+          <span className="text-slate-500 text-xs shrink-0">
             {divCount > 1 ? `${divCount}部門ループ · ` : ''}
             <span className="tabular-nums">{totalItems}</span>名
           </span>
