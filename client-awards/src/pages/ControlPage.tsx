@@ -31,6 +31,8 @@ const STEPS: { step: CgStep; label: string; desc: string; color: 'neutral' | 'li
   { step: 'title',      label: 'TITLE',      desc: 'タイトルカード',    color: 'neutral' },
   { step: 'nominees',   label: 'NOMINEES',   desc: 'ノミネート一覧',    color: 'live'    },
   { step: 'ranks52',    label: 'RANKS 5→2',  desc: 'ランキングバー',    color: 'live'    },
+  { step: 'ranks54',    label: 'RANKS 5→4',  desc: '5→4のみバー(投票演出)', color: 'live'   },
+  { step: 'top3',       label: 'TOP 3',      desc: 'TOP3横並び大表示',  color: 'award'   },
   { step: 'winner-bar', label: 'WINNER BAR', desc: '大賞引きバー',      color: 'award'   },
   { step: 'oneshot',    label: 'ONE SHOT',   desc: '大賞フルスクリーン', color: 'award'  },
 ];
@@ -40,7 +42,7 @@ const ONESHOT_STYLES: { style: OneshotStyle; label: string }[] = [
   { style: 'spotlight', label: 'Spotlight' },
   { style: 'slit',      label: 'Slit'      },
 ];
-const LIVE_STEPS: CgStep[] = ['nominees', 'ranks52', 'winner-bar', 'oneshot'];
+const LIVE_STEPS: CgStep[] = ['nominees', 'ranks52', 'ranks54', 'top3', 'winner-bar', 'oneshot'];
 
 export default function ControlPage() {
   const { id } = useParams<{ id: string }>();
@@ -262,7 +264,7 @@ function StepRow({ steps, cue, sendCue }: {
   sendCue: (step: CgStep, catId?: number, style?: OneshotStyle) => void;
 }) {
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1.5">
       {steps.map(({ step, label, desc, color }) => {
         const active = cue.step === step;
         return (

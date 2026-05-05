@@ -41,6 +41,59 @@ export const STRIP_BOTTOM_Y = 990;
 export const STRIP_GAP = 12;
 export const STRIP_MAX_W = 1720;
 
+// ── TOP 3 horizontal stage (ranks 1-3 大型横並び) ────────────
+// 中央に 1 位を一段大きく、左右に 3 位 / 2 位（左→右の並びは 3-1-2）。
+const TOP3_STAGE_TOP = 280;
+const TOP3_CENTER_W = 420;
+const TOP3_CENTER_H = 560;
+const TOP3_SIDE_W = 320;
+const TOP3_SIDE_H = 426;
+const TOP3_GAP = 56;
+const TOP3_TOTAL_W = TOP3_SIDE_W + TOP3_GAP + TOP3_CENTER_W + TOP3_GAP + TOP3_SIDE_W;
+const TOP3_START_X = (CG_W - TOP3_TOTAL_W) / 2;
+
+export interface Top3Pos {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  emphasize: boolean;
+  nameSize: number;
+  ptSize: number;
+}
+
+export const TOP3_POS: Record<1 | 2 | 3, Top3Pos> = {
+  3: {
+    x: TOP3_START_X,
+    y: TOP3_STAGE_TOP + (TOP3_CENTER_H - TOP3_SIDE_H) / 2,
+    w: TOP3_SIDE_W,
+    h: TOP3_SIDE_H,
+    emphasize: false,
+    nameSize: 28,
+    ptSize: 56,
+  },
+  1: {
+    x: TOP3_START_X + TOP3_SIDE_W + TOP3_GAP,
+    y: TOP3_STAGE_TOP,
+    w: TOP3_CENTER_W,
+    h: TOP3_CENTER_H,
+    emphasize: true,
+    nameSize: 40,
+    ptSize: 88,
+  },
+  2: {
+    x: TOP3_START_X + TOP3_SIDE_W + TOP3_GAP + TOP3_CENTER_W + TOP3_GAP,
+    y: TOP3_STAGE_TOP + (TOP3_CENTER_H - TOP3_SIDE_H) / 2,
+    w: TOP3_SIDE_W,
+    h: TOP3_SIDE_H,
+    emphasize: false,
+    nameSize: 28,
+    ptSize: 56,
+  },
+};
+
+export const TOP3_STAGE_BOTTOM = TOP3_STAGE_TOP + TOP3_CENTER_H;
+
 // ── Nominees grid ─────────────────────────────────────────────
 export const NOM_PAD_TOP = 340;
 export const NOM_PAD_X = 100;

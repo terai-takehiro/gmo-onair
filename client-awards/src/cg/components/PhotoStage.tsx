@@ -15,6 +15,7 @@ import {
   rankPhotoY,
   RANK_PHOTO_H,
   RANK_PHOTO_W,
+  TOP3_POS,
 } from '../layout';
 
 interface PhotoLayout {
@@ -68,13 +69,29 @@ export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }:
   const [insertProgress, setInsertProgress] = useState<Record<number, boolean>>({});
   useEffect(() => {
     setInsertProgress({});
-    if (stepKey !== 'ranks52') return;
+    if (stepKey !== 'ranks52' && stepKey !== 'ranks54') return;
+    const sequence = stepKey === 'ranks54' ? [5, 4] : [5, 4, 3, 2];
     const timers: ReturnType<typeof setTimeout>[] = [];
-    ([5, 4, 3, 2] as const).forEach((rank, i) => {
+    sequence.forEach((rank, i) => {
       const t = setTimeout(() => {
         setInsertProgress((p) => ({ ...p, [rank]: true }));
       }, STRIP_SETTLE + i * BAR_INTERVAL + PHOTO_OFFSET);
       timers.push(t);
+    });
+    return () => timers.forEach(clearTimeout);
+  }, [stepKey]);
+
+  // TOP3 step: stagger 3→2→1 出現タイミング (StepTop3 と一致)
+  const [top3Revealed, setTop3Revealed] = useState<Record<number, boolean>>({});
+  useEffect(() => {
+    setTop3Revealed({});
+    if (stepKey !== 'top3') return;
+    const delays: Record<number, number> = { 3: 200, 2: 700, 1: 1300 };
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    ([3, 2, 1] as const).forEach((r) => {
+      timers.push(
+        setTimeout(() => setTop3Revealed((p) => ({ ...p, [r]: true })), delays[r]),
+      );
     });
     return () => timers.forEach(clearTimeout);
   }, [stepKey]);
@@ -124,6 +141,19 @@ export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }:
       if (r === 1) return true;
       return insertProgress[r] !== true;
     }
+    if (stepKey === 'ranks54') {
+      // rank 5,4 のみ bar に挿入。rank 3,2,1 と圏外 (r>=6) は strip に残す。
+      if (r == null) return true;
+      if (r === 1 || r === 2 || r === 3) return true;
+      if (r >= 6) return true;
+      return insertProgress[r] !== true;
+    }
+    if (stepKey === 'top3') {
+      // rank 1,2,3 は TOP3 ステージへ。それ以外 (4,5,6+,圏外) は strip に残す。
+      if (r == null) return true;
+      if (r >= 4) return true;
+      return false;
+    }
     if (stepKey === 'winner-bar') {
       if (r == null) return true;
       if (r === 1) return true;
@@ -172,6 +202,19 @@ export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }:
         h: p.h,
         opacity: isWinnerFading ? 0 : 1,
         zIndex: 2,
+      };
+    }
+
+    if (stepKey === 'top3' && rank != null && rank >= 1 && rank <= 3) {
+      const p = TOP3_POS[rank as 1 | 2 | 3];
+      const shown = top3Revealed[rank] === true;
+      return {
+        x: p.x,
+        y: p.y,
+        w: p.w,
+        h: p.h,
+        opacity: shown ? 1 : 0,
+        zIndex: 4,
       };
     }
 

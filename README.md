@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.55 — セキュリティ修正（QシートPreviewModalのXSS、JWT_SECRETフォールバック撤廃、ADMIN_EMAILの環境変数化）
+**現在のバージョン**: v2.8.56 — アワードCG: TOP3 リアルタイム投票演出パターンを追加（RANKS 5→4 と TOP 3 横並び大表示の 2 ステップを新設）
 
 ---
 
@@ -401,6 +401,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.8.56** | **アワードCG: TOP3 リアルタイム投票演出パターンを追加 (dev)**: 賞によっては「現時点の TOP3 から会場リアルタイム投票で大賞を決める」演出があるためのフロー対応。①新ステップ `RANKS 5→4`: 既存 `RANKS 5→2` と同等のバー演出だが 5 位/4 位だけを順次表示し 3-1 位は dim のまま。②新ステップ `TOP 3`: 1〜3 位を 1920×1080 中央に横並び (左 3 位 / 中央 1 位 / 右 2 位)、中央=1 位を金枠 + boxShadow で一段大きく強調。会場投票案内テロップ（`会場投票で大賞を決定` / `LIVE VOTING — CHOOSE YOUR WINNER`）を下部に配置。③`PhotoStage` を 2 ステップ対応に拡張 (TOP3 では rank 1-3 を専用座標、4 位以下と圏外は strip 残置 / RANKS 5→4 では rank 5,4 だけ insertProgress、3-1 と 6+ は strip 残置)。④デザイントークン (金グラデ `#C9A24B`、Bebas Neue ナンバー、Noto Sans JP 名前、CountUp ポイント) を既存 `StepRanking`/`StepOneShot` と完全踏襲。⑤`ControlPage` の STEP ボタンを 6 → 8 個に拡張 (`grid-cols-2 sm:grid-cols-4 lg:grid-cols-8`)。⑥migration 079 で `awards_cue_state.step` の CHECK 制約に `ranks54` `top3` を追加。 |
 | **v2.8.54** | **アワードCG 自社票の英語ラベルを `Own Vote` → `Internal Vote` に変更 (dev)**: ユーザー要望「自社票の英語を Internal Vote に変更したい」に対応。`client-awards/src/cg/steps/StepRanking.tsx` のラベル分岐を 1 箇所変更するだけ（`lang === 'en' ? 'Internal Vote' : '自社票'`）。 |
 | **v2.8.53** | **アワードCG 2 件修正: タイトル総尺 ~3 秒に統一 + WINNER BAR で 6 位以下が消えるバグ修正 (dev)**: ①**タイトル総尺**: ユーザー報告「英語タイトルがまだ少し遅い、日本語と同じ終了タイミングにしたい」に対応。v2.8.49 で `TITLE_TARGET_MS = 5000ms` にしていたものを `3000ms` に短縮、`TITLE_CHAR_MIN` も 30 → 20ms に下げた。これで JA (9 文字、charDelay=140) も EN (29 文字、charDelay≈40) も child anim 終了が ~3000ms に揃う（数式: charDelay = clamp(20, 140, floor((target-1800)/N))）。②**WINNER BAR の strip 消失バグ修正**: `PhotoStage.tsx` の `isInStrip()` で winner-bar / oneshot ステップ時、`r === 1` または `r == null` のみ strip 扱い、ランク 6 位以下が strip にも rank position にも入らず `layoutFor()` の最後の `return { x:0, y:0, w:0, h:0, opacity:0 }` フォールバックに落ちて**完全に消える**バグを修正。`if (r >= 6) return true;` を winner-bar / oneshot 両方に追加してランク 6 位以下が strip 表示に残るように。これで「WINNER BAR 表示時に 1 位以外の strip 写真が全部消える」現象が解消される。 |
 | **v2.8.52** | **アワードCG: BOX イベント別サブフォルダ化 + イベント削除時のローカル削除 + BOX バックアップ復元 UI (dev)**: ユーザー要望「イベント終了したら消すが、BOX バックアップから復元できれば完璧」に対応。①**BOX フォルダ構造変更**: 親 `11_awards_photo` 直下にあった画像を `11_awards_photo/event_{eventId}_{eventName}/` のイベント別サブフォルダに変更。`awards-box.service.ts` の `ensureEventFolder(eventId, eventName)` で初回アップロード時に作成、`event_{eventId}_*` で前方一致検索することで rename 後でも追跡できる。`uploadAwardsImageToBox` のシグネチャを `(eventId, eventName, filename, buffer)` に変更。②**イベント削除時のローカルクリーンアップ**: `DELETE /events/:id` で DB cascade 削除前に `awards_entries.photo_url` 一覧を取得 → 各物理ファイルを `fs.unlinkSync` → BOX 上のフォルダはそのまま残す → `invalidateEventFolderCache(id)` でメモリキャッシュもクリア。③**BOX バックアップ一覧 / 復元エンドポイント**: `GET /awards/box-backups` で BOX 上の `event_*_*` フォルダを `getItems` で列挙し、現存イベント ID と突合して `deleted` フラグ付きで返却（各フォルダの画像枚数も並列取得）。`POST /awards/box-backups/:folderId/restore` で新規 `awards_events` を作成 → `downloadEventBackupImages` で該当 BOX フォルダ内の全画像をローカルに再ダウンロード → 「復元」カテゴリ + 「復元 #N」プレースホルダ名のエントリを作成 (photo_box_file_id も DB に書き戻すので以降の写真キャッシュ消失でも自動復元される)。④**Dashboard に復元 UI**: 「BOX から復元」ボタン → バックアップ一覧パネル（枚数/`削除済み`バッジ表示） → 削除済みイベントに「復元」ボタン → 名前入力ダイアログ → 復元実行 → 新規イベント編集ページにリダイレクト。 |
