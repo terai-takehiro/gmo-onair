@@ -88,6 +88,13 @@ export default function ModuleConfigEditPage() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
+  // v2.8.81+: React error #310 (Rules of Hooks 違反) 修正。
+  // useMemo は条件付き early-return より前に置くため、draft が null でも安全に呼ぶ。
+  const sortedModules = useMemo(
+    () => (draft ? [...draft.modules].sort((a, b) => a.order - b.order) : []),
+    [draft]
+  );
+
   if (isLoading || !draft) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -160,11 +167,6 @@ export default function ModuleConfigEditPage() {
     setDirty(true);
     setSavedBanner(null);
   };
-
-  const sortedModules = useMemo(
-    () => [...draft.modules].sort((a, b) => a.order - b.order),
-    [draft.modules]
-  );
 
   return (
     <div className="h-full flex flex-col bg-background overflow-hidden">

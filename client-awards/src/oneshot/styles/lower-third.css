@@ -10,12 +10,11 @@
   margin-left: -600px;
   width: 1200px;
   pointer-events: none;
-  /* v2.8.79: 560ms sineInOut (.45,.05,.55,.95) に統一。
-     JS height animation と同タイミング・同 easing で水のように均等な動き。 */
+  /* v2.8.81: 360ms sineInOut に短縮 + JS height animation と同期。 */
   transition:
-    bottom 560ms cubic-bezier(.45,.05,.55,.95),
-    width 560ms cubic-bezier(.45,.05,.55,.95),
-    margin-left 560ms cubic-bezier(.45,.05,.55,.95);
+    bottom 360ms cubic-bezier(.45,.05,.55,.95),
+    width 360ms cubic-bezier(.45,.05,.55,.95),
+    margin-left 360ms cubic-bezier(.45,.05,.55,.95);
 }
 /* 長文系モジュール: 幅を拡張して高さを抑える */
 .oneshot-cg-root .lower-third.wide {

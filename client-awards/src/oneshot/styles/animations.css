@@ -44,7 +44,7 @@
    easing を sineInOut 系 (.45,.05,.55,.95) に統一して「均等で滑らか」に。
    pure opacity (translateY 不使用) は維持して height animation との干渉を回避。 */
 .oneshot-cg-root .slot-fade-out-seq {
-  animation: oscg-slotFadeOutSeq 280ms cubic-bezier(.45,.05,.55,.95) forwards;
+  animation: oscg-slotFadeOutSeq 180ms cubic-bezier(.45,.05,.55,.95) forwards;
 }
 @keyframes oscg-slotFadeOutSeq {
   0%   { opacity: 1; }
@@ -62,7 +62,7 @@
   animation-play-state: paused;
 }
 .oneshot-cg-root .slot-fade-in-seq {
-  animation: oscg-slotFadeInSeq 360ms cubic-bezier(.45,.05,.55,.95) both;
+  animation: oscg-slotFadeInSeq 240ms cubic-bezier(.45,.05,.55,.95) both;
 }
 @keyframes oscg-slotFadeInSeq {
   0%   { opacity: 0; }

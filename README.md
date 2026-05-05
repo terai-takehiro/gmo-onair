@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.80 — 表彰CG: モジュール編集 iOS Safari 互換性修正 + flap-block アニメ復活 + ErrorBoundary 改善
+**現在のバージョン**: v2.8.81 — 表彰CG: モジュール編集 React error #310 (Hooks 違反) 修正 + アニメ短縮 (780ms)
 
 ---
 
