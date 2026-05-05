@@ -6,6 +6,7 @@ import OneShotStage from '../oneshot/OneShotStage';
 import { useOneShotCue } from '../oneshot/hooks/useOneShotCue';
 import { groupNomineesForTicker } from '../oneshot/lib/groupNominees';
 import { mapEventToNominees, type AwardsCategoryRow } from '../oneshot/lib/mapEntryToNominee';
+import { useEventModuleConfig } from '../oneshot/lib/moduleConfig';
 import type { Lang, ModuleKey } from '../oneshot/types';
 
 import '../oneshot/styles/index.css';
@@ -47,6 +48,8 @@ export default function OneShotOutputPage() {
 
   const nominees = useMemo(() => mapEventToNominees(event), [event]);
   const { cue } = useOneShotCue(isNaN(eventId) ? null : eventId);
+  // v2.8.76+: イベント別 EventModuleConfig (ユーザー編集) を取得
+  const { data: moduleConfig } = useEventModuleConfig(isNaN(eventId) ? null : eventId);
 
   // Cue.entryId はDB-backed のとき有効。seed データでは null なので、
   // null の場合は先頭ノミネートを表示。
@@ -127,6 +130,7 @@ export default function OneShotOutputPage() {
             showPortrait={showPortrait}
             useDynamicRenderer={useDynamicRenderer}
             bilingual={bilingual}
+            moduleConfig={moduleConfig}
           />
         </div>
       </div>

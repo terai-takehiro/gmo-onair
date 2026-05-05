@@ -1,29 +1,23 @@
 import { useEffect } from 'react';
-import type { ModuleKey } from '../types';
-import type { ModuleMap } from '../modules/getModules';
+import type { ModuleDef } from '../types';
+import { moduleIdToCueKey } from '../lib/moduleKeyMap';
 
 interface Args {
-  modules: ModuleMap;
-  setModuleKey: (k: ModuleKey) => void;
+  /** 表示中の (visibility 適用済み) モジュール一覧 */
+  modules: ModuleDef[];
+  setModuleKey: (cueKey: string) => void;
   prevNominee: () => void;
   nextNominee: () => void;
   take: () => void;
   clear: () => void;
 }
 
-const KEY_TO_MODULE: Record<string, ModuleKey> = {
-  '1': 'title',
-  '2': 'respect',
-  '3': 'skills',
-  '4': 'comment',
-  '5': 'members',
-  '6': 'recComment',
-  '0': 'none',
-};
-
+// v2.8.76+: ModuleDef.shortcutKey ('0'〜'9') を読んで動的にマッピング。
+// 旧版の固定 KEY_TO_MODULE は廃止。
+//
 // Operator keyboard shortcuts:
 //   ↑/↓     ノミネート切替
-//   0–6      モジュール切替
+//   0–9      モジュール切替 (ModuleDef.shortcutKey で割当て)
 //   Space/↵  TAKE
 //   Esc      CLEAR
 export function useShortcuts({
@@ -39,10 +33,13 @@ export function useShortcuts({
       const target = e.target as HTMLElement | null;
       if (target && (target.matches('input, textarea, select') || target.isContentEditable)) return;
 
-      const mk = KEY_TO_MODULE[e.key];
-      if (mk && modules[mk]) {
-        setModuleKey(mk);
-        return;
+      // shortcutKey ('0'〜'9') 一致するモジュールを探す
+      if (/^[0-9]$/.test(e.key)) {
+        const m = modules.find((mod) => mod.shortcutKey === e.key);
+        if (m) {
+          setModuleKey(moduleIdToCueKey(m.id));
+          return;
+        }
       }
       if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault();

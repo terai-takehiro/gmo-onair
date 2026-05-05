@@ -20,9 +20,10 @@ import { useOneShotCue } from '../oneshot/hooks/useOneShotCue';
 import { useTakeFlow } from '../oneshot/hooks/useTakeFlow';
 import { useTickerToggle } from '../oneshot/hooks/useTickerToggle';
 import { useShortcuts } from '../oneshot/hooks/useShortcuts';
-import { getModules } from '../oneshot/modules/getModules';
 import { groupNomineesForTicker } from '../oneshot/lib/groupNominees';
 import { mapEventToNominees, nomineeDbId, type AwardsCategoryRow } from '../oneshot/lib/mapEntryToNominee';
+import { useEventModuleConfig, getOrderedVisibleModules } from '../oneshot/lib/moduleConfig';
+import { findModuleByCueKey } from '../oneshot/lib/moduleKeyMap';
 import type { Lang, ModuleKey } from '../oneshot/types';
 
 import '../oneshot/styles/index.css';
@@ -131,14 +132,23 @@ export default function OneShotControlPage() {
   // v2.8.70+: 画像 (Portrait) 表示 ON/OFF
   const [showPortrait, setShowPortrait] = useState(true);
 
-  const previewModules = useMemo(
-    () => (previewNominee ? getModules(previewNominee, lang) : {}),
-    [previewNominee, lang]
-  );
-  // モジュールがフィルタ後に存在しなければ none に戻す
+  // v2.8.76+: イベント別 EventModuleConfig を取得 (DB → react-query)
+  const { data: moduleConfig } = useEventModuleConfig(isNaN(eventId) ? null : eventId);
+
+  // 表示すべきモジュール (visibility 適用 + order 昇順)
+  const previewModules = useMemo(() => {
+    if (!moduleConfig) return [];
+    return getOrderedVisibleModules(moduleConfig, previewNominee);
+  }, [moduleConfig, previewNominee]);
+
+  // 選択中モジュールがフィルタ後に存在しなければ none に戻す
   useEffect(() => {
-    if (!previewModules[previewModule]) setPreviewModule('none');
-  }, [previewModules, previewModule]);
+    if (!moduleConfig) return;
+    const found = findModuleByCueKey(moduleConfig, previewModule);
+    if (!found || !previewModules.some((m) => m.id === found.id)) {
+      setPreviewModule('none');
+    }
+  }, [moduleConfig, previewModules, previewModule]);
 
   // Live state — 1S CG 出力中のスナップショット
   const liveFlow = useTakeFlow<LiveSnapshot>({ nomineeId: '', moduleKey: 'none', lang });
@@ -208,7 +218,7 @@ export default function OneShotControlPage() {
 
   useShortcuts({
     modules: previewModules,
-    setModuleKey: setPreviewModule,
+    setModuleKey: (cueKey) => setPreviewModule(cueKey),
     prevNominee: goPrev,
     nextNominee: goNext,
     take,
@@ -394,6 +404,7 @@ export default function OneShotControlPage() {
                 showPortrait={showPortrait}
                 useDynamicRenderer={useDynamicRenderer}
                 bilingual={bilingual}
+                moduleConfig={moduleConfig}
               />
             </div>
           </div>
@@ -495,7 +506,12 @@ export default function OneShotControlPage() {
 
           {/* Controls column */}
           <div className="flex-1 min-w-0 space-y-2">
-            <ModulePickerRow modules={previewModules} selected={previewModule} onSelect={setPreviewModule} />
+            <ModulePickerRow
+              modules={previewModules}
+              selected={previewModule}
+              onSelect={setPreviewModule}
+              lang={lang}
+            />
             <TickerControlRow
               on={tickerFlow.on}
               currentAward={currentAward}

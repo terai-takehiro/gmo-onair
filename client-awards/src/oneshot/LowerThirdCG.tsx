@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
-import type { Lang, ModuleKey, Nominee } from './types';
+import type { EventModuleConfig, Lang, ModuleKey, Nominee } from './types';
 import { getModules } from './modules/getModules';
 import DynamicModule from './modules/dynamic/DynamicModule';
 import { createDefaultEventModuleConfig } from './data/presetModules';
+import { findModuleByCueKey } from './lib/moduleKeyMap';
 import { useAnimatedHeight } from './hooks/useAnimatedHeight';
 import SlotSwitcher from './animation/SlotSwitcher';
 import AwardHeader from './headline/AwardHeader';
@@ -23,6 +24,8 @@ interface Props {
   useDynamicRenderer?: boolean;
   /** v2.8.74+: 日英両方表示モード。DynamicModule のスロットが JA + EN の縦スタックを描画する。 */
   bilingual?: boolean;
+  /** v2.8.76+: イベント別 EventModuleConfig。未指定なら createDefaultEventModuleConfig() で補完。 */
+  moduleConfig?: EventModuleConfig;
 }
 
 // 表彰式テロップCG (1920x1080, 背景透過対応)
@@ -37,21 +40,32 @@ export default function LowerThirdCG({
   showPortrait = true,
   useDynamicRenderer = true,
   bilingual = false,
+  moduleConfig,
 }: Props) {
   const n = nominee;
   const isTeam = n.type === 'team';
   const modules = useMemo(() => getModules(n, lang), [n, lang]);
-  const mod = modules[moduleKey] ?? modules.none!;
-  // 動的レンダラ用: ModuleKey ('title' / 'respect' / ...) → preset:* ModuleDef
-  const dynamicConfig = useMemo(() => createDefaultEventModuleConfig(), []);
+  // legacy renderer は preset 短キーで参照
+  const legacyMod = modules[moduleKey] ?? modules.none!;
+  // 動的レンダラ用: イベント別 config (or デフォルト) から moduleKey に対応する ModuleDef を解決
+  const effectiveConfig = useMemo(
+    () => moduleConfig ?? createDefaultEventModuleConfig(),
+    [moduleConfig]
+  );
   const dynamicMod = useMemo(
-    () => dynamicConfig.modules.find((m) => m.id === `preset:${moduleKey}`) ?? null,
-    [dynamicConfig, moduleKey]
+    () => findModuleByCueKey(effectiveConfig, moduleKey),
+    [effectiveConfig, moduleKey]
   );
   const nomineeKey = `${n.id}-${lang}`;
-  const hasModule = moduleKey !== 'none';
-  // 長文系モジュールは幅を1500pxに拡張して高さを抑制 (チームはデフォルト wide)
-  const isWide = isTeam || moduleKey === 'comment' || moduleKey === 'recComment';
+  const hasModule = moduleKey !== 'none' && (
+    useDynamicRenderer
+      ? !!(dynamicMod && dynamicMod.slots.length > 0)
+      : true
+  );
+  // 長文系: dynamic は ModuleDef.width を読む、legacy は preset 短キー判定
+  const isWide = isTeam || (useDynamicRenderer
+    ? dynamicMod?.width === 'wide'
+    : (moduleKey === 'comment' || moduleKey === 'recComment'));
 
   // 高さアニメーション (v2.8.73+: ResizeObserver で content size の変化を検知)
   const panelRef = useAnimatedHeight<HTMLDivElement>();
@@ -85,11 +99,11 @@ export default function LowerThirdCG({
             <div className={'lt-module-slot ' + (hasModule ? 'open ' : 'closed ')}>
               {hasModule && (
                 <SlotSwitcher
-                  keyId={`${n.id}-${lang}-${useDynamicRenderer ? dynamicMod?.id ?? mod.key : mod.key}`}
+                  keyId={`${n.id}-${lang}-${useDynamicRenderer ? dynamicMod?.id ?? legacyMod.key : legacyMod.key}`}
                 >
                   {useDynamicRenderer && dynamicMod
                     ? <DynamicModule def={dynamicMod} nominee={n} lang={lang} bilingual={bilingual} />
-                    : mod.render()}
+                    : legacyMod.render()}
                 </SlotSwitcher>
               )}
             </div>

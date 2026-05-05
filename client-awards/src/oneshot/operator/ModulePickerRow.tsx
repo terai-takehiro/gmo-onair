@@ -1,38 +1,48 @@
 import { cn } from '@/lib/utils';
-import type { ModuleKey } from '../types';
-import type { ModuleMap } from '../modules/getModules';
+import type { Lang, ModuleDef } from '../types';
+import { moduleIdToCueKey } from '../lib/moduleKeyMap';
+
+// v2.8.76+: EventModuleConfig.modules を直接受け取る形に refactor。
+// 旧版 (v2.8.71) は ModuleMap (legacy preset map) + 固定 ORDER 配列だったが、
+// 段階4 でユーザー追加モジュール (custom-{uuid}) をサポートするため、
+// 親が ModuleDef[] を渡し、本コンポーネントはそれを描画するだけに変更。
 
 interface Props {
-  modules: ModuleMap;
-  selected: ModuleKey;
-  onSelect: (k: ModuleKey) => void;
+  /** 表示すべきモジュール一覧 (visibility/order 適用済み)。親で前処理。 */
+  modules: ModuleDef[];
+  /** 現在選択中の cue.moduleKey (短キー or custom-{uuid}) */
+  selected: string;
+  onSelect: (cueKey: string) => void;
+  lang: Lang;
 }
 
-// v2.8.70+: 「情報なし (none)」を一番左 (デフォルト) に配置
-const ORDER: ModuleKey[] = ['none', 'title', 'respect', 'skills', 'comment', 'members', 'recComment'];
-
-export default function ModulePickerRow({ modules, selected, onSelect }: Props) {
-  const items = ORDER.map((k) => modules[k]).filter((m): m is NonNullable<typeof m> => Boolean(m));
+export default function ModulePickerRow({ modules, selected, onSelect, lang }: Props) {
+  const isJa = lang === 'ja';
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5">
-      {items.map((m) => {
-        const active = m.key === selected;
+      {modules.map((m) => {
+        const cueKey = moduleIdToCueKey(m.id);
+        const active = cueKey === selected;
+        const label = isJa ? m.label.ja : m.label.en;
         return (
           <button
-            key={m.key}
-            onClick={() => onSelect(m.key)}
+            key={m.id}
+            onClick={() => onSelect(cueKey)}
             className={cn(
               'flex flex-col items-start rounded-lg border px-3 py-2 text-left transition-all',
               active
                 ? 'border-amber-500 bg-amber-950/50 ring-1 ring-amber-700/40'
                 : 'border-slate-800 bg-slate-900/40 hover:bg-slate-800 hover:border-slate-700'
             )}
+            title={`${m.id}${m.shortcutKey ? ` · key: ${m.shortcutKey}` : ''}`}
           >
             <span className="flex items-center gap-1.5 text-xs font-black tracking-wider leading-none">
-              <kbd className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1 rounded border border-slate-700 bg-slate-800 text-[11px] font-bold text-amber-400">
-                {m.keyHint}
-              </kbd>
-              <span className={active ? 'text-amber-300' : 'text-slate-300'}>{m.label}</span>
+              {m.shortcutKey && (
+                <kbd className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1 rounded border border-slate-700 bg-slate-800 text-[11px] font-bold text-amber-400">
+                  {m.shortcutKey}
+                </kbd>
+              )}
+              <span className={active ? 'text-amber-300' : 'text-slate-300'}>{label}</span>
             </span>
           </button>
         );

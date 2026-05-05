@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   ChevronLeft, Plus, Trash2, GripVertical, Save, RotateCcw, Subtitles,
   AlertCircle, CheckCircle2, Tv2, Hash, Eye, EyeOff,
+  ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -22,6 +23,7 @@ import {
 import { createDefaultEventModuleConfig } from '../oneshot/data/presetModules';
 import type {
   EventModuleConfig, ModuleDef, ModuleVisibility,
+  SlotDef, SlotKind, SlotBinding,
 } from '../oneshot/types';
 
 // v2.8.75+ 段階4 (first cut): モジュール構成の編集 UI。
@@ -342,23 +344,294 @@ function SortableModuleCard({
         </FormField>
       </div>
 
-      <div className="flex items-center gap-3 text-xs text-slate-500 pt-2 border-t border-slate-100">
-        {mod.slots.length === 0 ? (
-          <span className="flex items-center gap-1">
-            <EyeOff className="h-3 w-3" />
-            スロットなし (CG には何も描画されません)
+      <SlotsEditor
+        slots={mod.slots}
+        onChange={(slots) => onUpdate({ slots })}
+      />
+    </div>
+  );
+}
+
+// ── スロットエディタ (collapsible, DnD, add/delete/edit) ─────────
+const SLOT_KIND_OPTIONS: { value: SlotKind; label: string; hint: string }[] = [
+  { value: 'header-label',      label: 'ヘッダーラベル',      hint: '上部小ラベル "▸ ○○"' },
+  { value: 'header-byline',     label: 'ヘッダー by 推薦者',  hint: '"| 推薦/by 名前 役職" (固定)' },
+  { value: 'body-title',        label: 'タイトル本文',        hint: '左金色アクセント付き大文字' },
+  { value: 'body-text',         label: '本文 (汎用)',         hint: '通常パラグラフ' },
+  { value: 'body-ism-text',     label: 'イズム本文',          hint: '得意技と組み合わせる中サイズ' },
+  { value: 'body-large-quote',  label: '大引用「」',          hint: '金色 + 自動 「 」' },
+  { value: 'body-rec-quote',    label: '推薦コメント引用',    hint: '白系 + " " quote' },
+  { value: 'body-tags',         label: 'タグ (チップ)',       hint: 'スキル一覧など 8 件まで' },
+  { value: 'body-members-grid', label: 'メンバーグリッド',    hint: 'チームメンバー 3 列' },
+];
+
+function SlotsEditor({
+  slots, onChange,
+}: { slots: SlotDef[]; onChange: (slots: SlotDef[]) => void }) {
+  const [expanded, setExpanded] = useState(slots.length > 0);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const onDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIdx = slots.findIndex((s) => s.id === active.id);
+    const newIdx = slots.findIndex((s) => s.id === over.id);
+    if (oldIdx < 0 || newIdx < 0) return;
+    onChange(arrayMove(slots, oldIdx, newIdx));
+  };
+
+  const addSlot = () => {
+    const newSlot: SlotDef = {
+      id: `slot-${crypto.randomUUID().slice(0, 8)}`,
+      kind: 'body-text',
+      binding: { source: 'literal', ja: '', en: '' },
+    };
+    onChange([...slots, newSlot]);
+    setExpanded(true);
+  };
+
+  const updateSlot = (id: string, patch: Partial<SlotDef>) => {
+    onChange(slots.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  };
+
+  const deleteSlot = (id: string) => {
+    onChange(slots.filter((s) => s.id !== id));
+  };
+
+  return (
+    <div className="pt-2 border-t border-slate-100 space-y-2">
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-slate-900"
+        >
+          {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          スロット ({slots.length})
+        </button>
+        {!expanded && slots.length > 0 && (
+          <span className="text-xs text-slate-500">
+            <Eye className="inline h-3 w-3 mr-1" />
+            {slots.map((s) => s.kind).join(' / ')}
           </span>
-        ) : (
-          <span className="flex items-center gap-1">
-            <Eye className="h-3 w-3" />
-            {mod.slots.length} スロット
-            <span className="text-slate-400 ml-1">
-              ({mod.slots.map((s) => s.kind).join(' / ')})
-            </span>
+        )}
+        {!expanded && slots.length === 0 && (
+          <span className="text-xs text-slate-400">
+            <EyeOff className="inline h-3 w-3 mr-1" />
+            スロットなし (CG には何も描画されません)
           </span>
         )}
         <div className="flex-1" />
-        <span className="text-slate-400">スロット詳細編集は次バージョン対応</span>
+        {expanded && (
+          <button
+            onClick={addSlot}
+            className="flex items-center gap-1 rounded-md bg-amber-100 hover:bg-amber-200 text-amber-800 px-2 py-1 text-xs font-bold transition-colors"
+          >
+            <Plus className="h-3 w-3" />
+            スロット追加
+          </button>
+        )}
+      </div>
+
+      {expanded && (
+        <div className="space-y-2">
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+            <SortableContext items={slots.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+              {slots.map((slot) => (
+                <SortableSlotCard
+                  key={slot.id}
+                  slot={slot}
+                  onUpdate={(patch) => updateSlot(slot.id, patch)}
+                  onDelete={() => deleteSlot(slot.id)}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
+          {slots.length === 0 && (
+            <div className="text-center text-xs text-slate-400 py-4 border border-dashed border-slate-200 rounded">
+              スロットなし。「スロット追加」をクリックして開始。
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SortableSlotCard({
+  slot, onUpdate, onDelete,
+}: {
+  slot: SlotDef;
+  onUpdate: (patch: Partial<SlotDef>) => void;
+  onDelete: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: slot.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  const updateBinding = (patch: Partial<SlotBinding>) => {
+    onUpdate({ binding: { ...slot.binding, ...patch } as SlotBinding });
+  };
+
+  const setSource = (source: SlotBinding['source']) => {
+    // source 切替時は既存フィールドを破棄して空のバインディングに
+    if (source === 'literal') onUpdate({ binding: { source: 'literal', ja: '', en: '' } });
+    else if (source === 'nominee') onUpdate({ binding: { source: 'nominee', field: 'title' } });
+    else if (source === 'recommender') onUpdate({ binding: { source: 'recommender', field: 'name' } });
+    else onUpdate({ binding: { source: 'oneshot_raw', key: '' } });
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="rounded border border-slate-200 bg-slate-50/50 p-2 sm:p-3 space-y-2"
+    >
+      <div className="flex items-start gap-2">
+        <button
+          {...attributes}
+          {...listeners}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded hover:bg-slate-200 cursor-grab active:cursor-grabbing mt-1"
+          title="ドラッグで並び替え"
+        >
+          <GripVertical className="h-3.5 w-3.5 text-slate-400" />
+        </button>
+        <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
+              スロット種別
+            </label>
+            <select
+              value={slot.kind}
+              onChange={(e) => onUpdate({ kind: e.target.value as SlotKind })}
+              className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+            >
+              {SLOT_KIND_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            <p className="text-[10px] text-slate-500 mt-0.5">
+              {SLOT_KIND_OPTIONS.find((o) => o.value === slot.kind)?.hint}
+            </p>
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
+              データ供給元
+            </label>
+            <select
+              value={slot.binding.source}
+              onChange={(e) => setSource(e.target.value as SlotBinding['source'])}
+              className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+            >
+              <option value="literal">リテラル (固定文字列)</option>
+              <option value="nominee">ノミネート列 (Nominee.*)</option>
+              <option value="recommender">推薦者 (recommender.*)</option>
+              <option value="oneshot_raw">oneshot_data 任意キー</option>
+            </select>
+          </div>
+        </div>
+        <button
+          onClick={onDelete}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded hover:bg-red-100 text-red-600 mt-1"
+          title="削除"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {/* binding 別 入力 UI */}
+      <div className="ml-8">
+        {slot.binding.source === 'literal' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">JA</label>
+              <input
+                type="text"
+                value={slot.binding.ja}
+                onChange={(e) => updateBinding({ ja: e.target.value })}
+                className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">EN</label>
+              <input
+                type="text"
+                value={slot.binding.en}
+                onChange={(e) => updateBinding({ en: e.target.value })}
+                className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs"
+              />
+            </div>
+          </div>
+        )}
+        {slot.binding.source === 'nominee' && (
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
+              field (lang 自動切替: title→titleEn 等)
+            </label>
+            <input
+              type="text"
+              list="nominee-fields"
+              value={slot.binding.field}
+              onChange={(e) => updateBinding({ field: e.target.value })}
+              placeholder="例: title / comment / ism / skills / members"
+              className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs font-mono"
+            />
+            <datalist id="nominee-fields">
+              <option value="title" />
+              <option value="comment" />
+              <option value="ism" />
+              <option value="skills" />
+              <option value="members" />
+              <option value="department" />
+              <option value="position" />
+              <option value="location" />
+              <option value="entryNo" />
+              <option value="projectName" />
+            </datalist>
+          </div>
+        )}
+        {slot.binding.source === 'recommender' && (
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
+              recommender.field (lang 自動切替)
+            </label>
+            <input
+              type="text"
+              list="recommender-fields"
+              value={slot.binding.field}
+              onChange={(e) => updateBinding({ field: e.target.value })}
+              placeholder="例: name / position / respect / respectComment"
+              className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs font-mono"
+            />
+            <datalist id="recommender-fields">
+              <option value="name" />
+              <option value="position" />
+              <option value="company" />
+              <option value="department" />
+              <option value="respect" />
+              <option value="respectComment" />
+            </datalist>
+          </div>
+        )}
+        {slot.binding.source === 'oneshot_raw' && (
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
+              oneshot_data の任意キー (Excel "そのまま保存"列など)
+            </label>
+            <input
+              type="text"
+              value={slot.binding.key}
+              onChange={(e) => updateBinding({ key: e.target.value })}
+              placeholder="例: 私のイズム / customField"
+              className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs font-mono"
+            />
+          </div>
+        )}
       </div>
     </div>
   );

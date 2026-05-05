@@ -1,6 +1,6 @@
 import LowerThirdCG from './LowerThirdCG';
 import Ticker from './Ticker';
-import type { Lang, ModuleKey, Nominee, TickerCategory } from './types';
+import type { EventModuleConfig, Lang, ModuleKey, Nominee, TickerCategory } from './types';
 
 interface Props {
   nominee: Nominee | null;
@@ -21,6 +21,8 @@ interface Props {
   useDynamicRenderer?: boolean;
   /** v2.8.74+: 日英両方表示モード (default: false) */
   bilingual?: boolean;
+  /** v2.8.76+: イベント別 EventModuleConfig (動的モジュール構成) */
+  moduleConfig?: EventModuleConfig;
 }
 
 // 1920x1080 のCG出力ステージ。operator/output どちらでも使える。
@@ -39,6 +41,7 @@ export default function OneShotStage({
   showPortrait = true,
   useDynamicRenderer = true,
   bilingual = false,
+  moduleConfig,
 }: Props) {
   return (
     <div className="oneshot-cg-root" style={{ position: 'relative', width: 1920, height: 1080 }}>
@@ -53,6 +56,7 @@ export default function OneShotStage({
           showPortrait={showPortrait}
           useDynamicRenderer={useDynamicRenderer}
           bilingual={bilingual}
+          moduleConfig={moduleConfig}
         />
       )}
       {/* Background-only stage when lower-third is unmounted (transparent stays transparent) */}

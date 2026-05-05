@@ -1,4 +1,10 @@
-export type ModuleKey =
+// v2.8.76+: ModuleKey は cue.moduleKey 値を表す string 型に緩和。
+// preset モジュールは 'title' / 'respect' / ... の従来キー、custom モジュールは
+// 'custom-{uuid}' を保持。完全な ModuleDef.id ('preset:title' 等) との変換は
+// `oneshot/lib/moduleKeyMap.ts` の cueKeyToModuleId / moduleIdToCueKey ヘルパで行う。
+export type ModuleKey = string;
+/** v2.8.71 までの preset 限定リテラル (型のドキュメンテーション目的、新規コードでは ModuleKey を使用) */
+export type PresetModuleKey =
   | 'title'
   | 'respect'
   | 'skills'
