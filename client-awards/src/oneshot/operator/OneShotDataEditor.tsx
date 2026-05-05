@@ -5,7 +5,7 @@ import api from '@/lib/api';
 import {
   X, Save, Database, AlertCircle, CheckCircle2,
   Image as ImageIcon, Award, User, MessageSquare, Sparkles,
-  Quote, Users as UsersIcon, Info, RotateCcw, Edit3,
+  Quote, Users as UsersIcon, Info, RotateCcw, Edit3, FileJson,
 } from 'lucide-react';
 import OneShotStage from '../OneShotStage';
 import type { Lang, Nominee, NomineeMember, NomineeRecommender } from '../types';
@@ -479,6 +479,8 @@ export default function OneShotDataEditor({
     if (nominee) setDraft(nomineeToDraft(nominee));
   };
 
+  const [showRaw, setShowRaw] = useState(false);
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!entryId) throw new Error('DB 紐付けのないノミネートは編集できません');
@@ -492,32 +494,43 @@ export default function OneShotDataEditor({
       if (cleaned.recommender && Object.keys(cleaned.recommender as object).length === 0) {
         delete cleaned.recommender;
       }
-      await api.put(`/awards/entries/${entryId}/oneshot-data`, { oneshot_data: cleaned });
+      const res = await api.put(`/awards/entries/${entryId}/oneshot-data`, { oneshot_data: cleaned });
+      // サーバーが UPDATE 後の row を返すので返却 (UI 検証用)
+      return res.data?.data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: refetchKey });
-      onClose();
+      // 保存後はモーダルを閉じずに残し、Inspector でバッジが緑(oneshot_data)に
+      // 切り替わるのを確認できるようにする (旧版は閉じていたが、ユーザーが
+      // 「保存しても DB に行ってる感じがしない」と感じる原因になっていたため)
     },
   });
+
+  const saveError =
+    saveMutation.error instanceof Error
+      ? saveMutation.error.message
+      : saveMutation.error
+      ? String(saveMutation.error)
+      : null;
 
   if (!open || !nominee) return null;
 
   const hovered = hoveredKey ? allFields.find((f) => f.key === hoveredKey) : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-      <div className="w-full max-w-7xl max-h-[95vh] flex flex-col bg-slate-900 border border-slate-700 rounded-lg shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 sm:p-4">
+      <div className="w-full max-w-7xl h-[100dvh] sm:max-h-[95vh] sm:h-auto flex flex-col bg-slate-900 border border-slate-700 sm:rounded-lg shadow-2xl">
         {/* Header */}
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-800">
-          <Database className="h-5 w-5 text-amber-400" />
-          <h2 className="text-base font-bold text-slate-100">
+        <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-3 sm:py-4 border-b border-slate-800">
+          <Database className="h-5 w-5 text-amber-400 shrink-0" />
+          <h2 className="text-sm sm:text-base font-bold text-slate-100 min-w-0 truncate">
             DB ↔ CG マッピング
-            <span className="ml-2 text-sm text-slate-500 font-normal">エントリ #{entryId ?? '—'}</span>
+            <span className="ml-2 text-xs sm:text-sm text-slate-500 font-normal">#{entryId ?? '—'}</span>
           </h2>
           <div className="flex-1" />
           <span
             className={cn(
-              'flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black tracking-widest',
+              'flex items-center gap-1.5 rounded-full px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-black tracking-widest shrink-0',
               completeness === 100
                 ? 'bg-emerald-900/50 text-emerald-300 border border-emerald-700/50'
                 : completeness >= 50
@@ -527,7 +540,7 @@ export default function OneShotDataEditor({
             title={`oneshot_data 充足率 ${filled}/${editable.length}`}
           >
             <CheckCircle2 className="h-3.5 w-3.5" />
-            充足率 {completeness}%
+            <span className="hidden xs:inline">充足率 </span>{completeness}%
           </span>
           <button
             onClick={onClose}
@@ -537,14 +550,46 @@ export default function OneShotDataEditor({
           </button>
         </div>
 
-        {/* Body: 2 columns */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_minmax(420px,520px)] overflow-hidden min-h-0">
+        {/* Save success/error banner */}
+        {(saveMutation.isSuccess || saveError) && (
+          <div
+            className={cn(
+              'mx-3 sm:mx-6 mt-3 flex items-start gap-2 rounded border px-3 py-2 text-sm',
+              saveError
+                ? 'border-red-700/60 bg-red-950/40 text-red-200'
+                : 'border-emerald-700/60 bg-emerald-950/40 text-emerald-200'
+            )}
+          >
+            {saveError ? <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" /> : <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />}
+            <div className="min-w-0 flex-1">
+              {saveError ? (
+                <>
+                  <div className="font-bold">保存に失敗しました</div>
+                  <div className="text-xs mt-0.5 break-all">{saveError}</div>
+                </>
+              ) : (
+                <div className="font-bold">
+                  保存しました — 充足率 {completeness}% に更新。バッジが 🟡 oneshot_data に変わっているか確認してください。
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => saveMutation.reset()}
+              className="text-xs opacity-70 hover:opacity-100"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* Body: stack on mobile, 2 cols on lg */}
+        <div className="flex-1 flex flex-col lg:grid lg:grid-cols-[1fr_minmax(420px,520px)] overflow-hidden min-h-0">
           {/* ── Left: CG preview with hotspots ─────────────── */}
-          <div className="flex flex-col border-b lg:border-b-0 lg:border-r border-slate-800 overflow-hidden">
-            <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-800/60 bg-slate-950/40">
-              <Edit3 className="h-4 w-4 text-amber-400" />
+          <div className="flex flex-col h-[34vh] lg:h-auto border-b lg:border-b-0 lg:border-r border-slate-800 overflow-hidden shrink-0 lg:shrink">
+            <div className="flex items-center gap-2 px-3 sm:px-5 py-2 sm:py-3 border-b border-slate-800/60 bg-slate-950/40">
+              <Edit3 className="h-4 w-4 text-amber-400 shrink-0" />
               <span className="text-sm font-bold text-slate-200">CG プレビュー</span>
-              <span className="text-xs text-slate-500">右の項目にホバーで該当箇所をハイライト</span>
+              <span className="text-xs text-slate-500 hidden sm:inline">右の項目にホバーで該当箇所をハイライト</span>
             </div>
             <div className="flex-1 relative bg-black overflow-hidden" ref={previewRef}>
               {/* 1920x1080 stage */}
@@ -653,7 +698,7 @@ export default function OneShotDataEditor({
           </div>
 
           {/* ── Right: Field list grouped by section ───────── */}
-          <div className="overflow-y-auto p-5 space-y-5">
+          <div className="flex-1 lg:flex-initial overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-5">
             {hovered && (
               <div className="rounded-lg border border-amber-700/50 bg-amber-950/30 px-3 py-2 text-xs text-amber-200/90">
                 <span className="font-bold">選択中:</span> {hovered.label}
@@ -695,40 +740,77 @@ export default function OneShotDataEditor({
           </div>
         </div>
 
+        {/* Raw JSONB collapsible (debug) */}
+        {showRaw && (
+          <div className="mx-3 sm:mx-6 mb-2 rounded border border-slate-700 bg-slate-950 p-3 max-h-[40vh] overflow-y-auto">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs font-bold text-slate-300">RAW oneshot_data (送信される JSONB)</span>
+            </div>
+            <pre className="text-[11px] text-emerald-300 whitespace-pre-wrap break-all">
+              {JSON.stringify(
+                Object.fromEntries(
+                  Object.entries(draft).filter(([, v]) => {
+                    if (v == null) return false;
+                    if (typeof v === 'string' && !v.trim()) return false;
+                    if (Array.isArray(v) && v.length === 0) return false;
+                    return true;
+                  })
+                ),
+                null,
+                2
+              )}
+            </pre>
+          </div>
+        )}
+
         {/* Footer */}
-        <div className="flex items-center gap-2 px-6 py-3 border-t border-slate-800 bg-slate-950/50">
+        <div className="flex items-center gap-2 flex-wrap px-3 sm:px-6 py-3 border-t border-slate-800 bg-slate-950/50">
           {!entryId && (
             <span className="flex items-center gap-1.5 text-xs text-amber-400">
               <AlertCircle className="h-4 w-4" />
-              DB 未紐付け (seed) — 保存不可
+              DB 未紐付け
             </span>
           )}
+          <button
+            onClick={() => setShowRaw((v) => !v)}
+            className={cn(
+              'flex items-center gap-1.5 rounded-md border px-2.5 sm:px-3 py-2 text-xs sm:text-sm transition-colors',
+              showRaw
+                ? 'border-emerald-700 bg-emerald-900/30 text-emerald-300'
+                : 'border-slate-700 bg-slate-800 text-slate-400 hover:bg-slate-700'
+            )}
+            title="送信される JSONB を確認"
+          >
+            <FileJson className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">JSONB</span>
+            {showRaw ? '隠す' : '表示'}
+          </button>
           <div className="flex-1" />
           <button
             onClick={resetDraft}
-            className="flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-400 hover:bg-slate-700 transition-colors"
+            className="flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-2.5 sm:px-3 py-2 text-xs sm:text-sm text-slate-400 hover:bg-slate-700 transition-colors"
           >
             <RotateCcw className="h-3.5 w-3.5" />
-            リセット
+            <span className="hidden sm:inline">リセット</span>
           </button>
           <button
             onClick={onClose}
-            className="rounded-md border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 transition-colors"
+            className="rounded-md border border-slate-700 bg-slate-800 px-3 sm:px-4 py-2 text-xs sm:text-sm text-slate-300 hover:bg-slate-700 transition-colors"
           >
-            キャンセル
+            閉じる
           </button>
           <button
             onClick={() => saveMutation.mutate()}
             disabled={!entryId || saveMutation.isPending}
             className={cn(
-              'flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-bold transition-colors',
+              'flex items-center gap-1.5 rounded-md px-3 sm:px-4 py-2 text-sm font-bold transition-colors',
               entryId
                 ? 'bg-amber-500 text-slate-950 hover:bg-amber-400'
                 : 'bg-slate-700 text-slate-500 cursor-not-allowed'
             )}
           >
             <Save className="h-4 w-4" />
-            {saveMutation.isPending ? '保存中…' : 'oneshot_data を保存'}
+            {saveMutation.isPending ? '保存中…' : '保存'}
           </button>
         </div>
       </div>

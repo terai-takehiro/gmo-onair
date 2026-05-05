@@ -151,11 +151,17 @@ router.post('/events/:id/oneshot/cue', wrap(async (req, res) => {
 router.put('/entries/:id/oneshot-data', wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const data = req.body?.oneshot_data ?? null;
+  // pg の implicit cast に依存せず、明示的に ::jsonb キャスト
   await execute(
-    `UPDATE awards_entries SET oneshot_data = ?, updated_at = NOW() WHERE id = ?`,
+    `UPDATE awards_entries SET oneshot_data = ?::jsonb, updated_at = NOW() WHERE id = ?`,
     [data ? JSON.stringify(data) : null, id]
   );
-  res.json({ success: true });
+  // 即時に保存後の状態を返す (クライアント側で UI 検証可能に)
+  const row = await queryOne(
+    `SELECT id, oneshot_data, updated_at FROM awards_entries WHERE id = ?`,
+    [id]
+  );
+  res.json({ success: true, data: row });
 }));
 
 export default router;

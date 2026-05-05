@@ -17,6 +17,7 @@ import {
   Upload, RefreshCw, Tv2, Shuffle, FileSpreadsheet, ExternalLink, Copy,
   ChevronDown, ChevronRight, Subtitles,
 } from 'lucide-react';
+import ExcelImportDialog from '../oneshot/operator/ExcelImportDialog';
 
 // ── Types ───────────────────────────────────────────────────
 interface Entry {
@@ -261,6 +262,7 @@ export default function EventEditorPage() {
   const [activeTab, setActiveTab] = useState<'info' | 'categories'>('categories');
   const [newCatName, setNewCatName] = useState('');
   const [addingCat, setAddingCat] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const { data: event, isLoading } = useQuery({
     queryKey: ['awards-event', eventId],
@@ -423,23 +425,7 @@ export default function EventEditorPage() {
     onSuccess: invalidate,
   });
 
-  const importExcel = async (file: File) => {
-    const fd = new FormData();
-    fd.append('file', file);
-    try {
-      const res = await api.post(`/awards/events/${eventId}/import-excel`, fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      const d = res.data.data as { totalInserted: number; categories: { name: string; inserted: number }[]; warnings: string[] };
-      const catSummary = d.categories.map((c) => `${c.name}: ${c.inserted}件`).join(', ');
-      const msg = `インポート完了: ${d.totalInserted}件 (${catSummary})`;
-      const warnings = d.warnings?.length ? `\n⚠ ${d.warnings.join('\n⚠ ')}` : '';
-      alert(msg + warnings);
-      invalidate();
-    } catch (err: any) {
-      alert(`インポートエラー: ${err?.response?.data?.error?.message ?? err.message}`);
-    }
-  };
+  // 旧 importExcel (alert ベース) は ExcelImportDialog に置き換え済み
 
   const importImages = async (files: FileList) => {
     const fd = new FormData();
@@ -586,13 +572,14 @@ export default function EventEditorPage() {
               <Shuffle className="h-4 w-4" />
               ダミーデータ
             </button>
-            <label className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm hover:bg-muted transition-colors cursor-pointer text-muted-foreground">
+            <button
+              onClick={() => setImportOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm hover:bg-muted transition-colors text-muted-foreground"
+              title="Excel をアップロードして列マッピング画面で取り込み"
+            >
               <FileSpreadsheet className="h-4 w-4" />
               Excelインポート
-              <input type="file" accept=".xlsx,.xls" className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) importExcel(f); e.target.value = ''; }}
-              />
-            </label>
+            </button>
             <label
               className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm hover:bg-muted transition-colors cursor-pointer text-muted-foreground"
               title="フォルダを選択。ファイル名（拡張子除く）が「画像ID」または「ノミネート名／英語名」と一致する写真を一括登録します"
@@ -765,6 +752,14 @@ export default function EventEditorPage() {
           </div>
         </div>
       )}
+
+      {/* ── Excel Import Dialog ─────────────────────────────── */}
+      <ExcelImportDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        eventId={eventId}
+        onImported={() => invalidate()}
+      />
     </div>
   );
 }

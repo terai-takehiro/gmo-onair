@@ -96,8 +96,8 @@ export default function I18nDictDialog({ open, onClose, categories, onSaved }: P
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-3xl max-h-[90vh] flex flex-col bg-slate-900 border border-slate-700 rounded-lg shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 sm:p-4">
+      <div className="w-full max-w-3xl h-[100dvh] sm:max-h-[90vh] sm:h-auto flex flex-col bg-slate-900 border border-slate-700 sm:rounded-lg shadow-2xl">
         {/* Header */}
         <div className="flex items-center gap-2 px-6 py-4 border-b border-slate-800">
           <Languages className="h-5 w-5 text-amber-400" />

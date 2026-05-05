@@ -8,7 +8,9 @@ export interface ImportResult {
   warnings: string[];
 }
 
-// ── ヘッダー正規化マッピング ─────────────────────────────────
+// ── ヘッダー正規化マッピング (auto-detect 候補) ─────────────
+// UI から custom mapping が渡された場合はそちらを優先、未指定の項目だけ
+// この auto-detect にフォールバック。
 const AWARD_HEADERS           = ['種別'];
 const DIVISION_HEADERS        = ['エントリー部門', 'エントリー部門名'];
 const IMAGE_ID_HEADERS        = ['画像id', '画像ｉｄ', 'imageid', 'image_id', '画像'];
@@ -26,8 +28,87 @@ const NAME_EN_HEADERS         = [
   'name_en', 'name(en)', 'nameenglish', '英語名',
 ];
 const NAME_EN_PROJECT_HEADERS = ['プロジェクト名（英語）', 'プロジェクト名(英語)'];
-const ORG_JA_HEADERS          = ['ノミネート者会社', '所属', '会社', '企業', 'org', '部署'];
+const ORG_JA_HEADERS          = ['ノミネート者会社', '所属', '会社', '企業', 'org'];
 const ORG_EN_HEADERS          = ['ノミネート者会社（英語）', 'ノミネート者会社(英語)', 'org_en', 'org(en)', '会社（英語）', '会社(英語)'];
+
+// oneshot_data 用 (フィールドが Excel にある場合のみ収集される)
+const ENTRY_NO_HEADERS        = ['エントリーno', 'エントリーNo', 'entryno', 'entry_no'];
+const NAME_KANA_HEADERS       = ['ノミネート者フリガナ', 'フリガナ'];
+const PROJECT_KANA_HEADERS    = ['プロジェクト名（フリガナ）', 'プロジェクト名(フリガナ)', 'projectkana'];
+const DEPARTMENT_HEADERS      = ['ノミネート者部署', '部署'];
+const POSITION_HEADERS        = ['ノミネート者役職', '役職'];
+const LOCATION_HEADERS        = ['ノミネート者勤務地', '勤務地'];
+const JOIN_DATE_HEADERS       = ['ノミネート者入社日', '入社日'];
+const ISM_HEADERS             = ['ノミネート者私のイズム', '私のイズム', '個人やチームの魅力・個性', 'イズム'];
+const SKILLS_HEADERS          = ['ノミネート者私の得意技', '私の得意技', '個人やチームの特長・強み', '得意技'];
+const TITLE_HEADERS           = ['ノミネートタイトル'];
+const TITLE_EN_HEADERS        = ['ノミネートタイトル（英語）', 'ノミネートタイトル(英語)'];
+const COMMENT_HEADERS         = ['ノミネート者コメント'];
+const COMMENT_EN_HEADERS      = ['ノミネート者コメント（英語）', 'ノミネート者コメント(英語)'];
+const TEAM_SIZE_HEADERS       = ['人数'];
+const MEMBERS_HEADERS         = ['チームメンバー', 'メンバー', '副代表'];
+// 推薦者
+const REC_NAME_HEADERS        = ['推薦者氏名', '推薦者名'];
+const REC_NAME_EN_HEADERS     = ['推薦者氏名（英語）', '推薦者氏名(英語)'];
+const REC_NAME_KANA_HEADERS   = ['推薦者フリガナ'];
+const REC_COMPANY_HEADERS     = ['推薦者会社'];
+const REC_DEPT_HEADERS        = ['推薦者部署', '推薦者`部署'];
+const REC_POSITION_HEADERS    = ['推薦者役職'];
+const REC_RESPECT_HEADERS     = ['尊敬ポイント（13文字）', '尊敬ポイント(13文字)', '尊敬ポイント'];
+const REC_RESPECT_EN_HEADERS  = ['尊敬ポイント（13文字）（英語）', '尊敬ポイント(13文字)(英語)', '尊敬ポイント（英語）', '尊敬ポイント(英語)'];
+const REC_RESPECT_COMMENT_HEADERS    = ['尊敬ポイントに関するコメント'];
+const REC_RESPECT_COMMENT_EN_HEADERS = ['尊敬ポイントに関するコメント（英語）', '尊敬ポイントに関するコメント(英語)'];
+
+// custom mapping のキー定義 (クライアントと共有)
+export type ImportMappingKey =
+  | 'category' | 'division' | 'imageId'
+  | 'name' | 'nameEn' | 'projectName' | 'projectNameEn' | 'nameKana' | 'projectKana'
+  | 'org' | 'orgEn'
+  | 'entryNo' | 'department' | 'position' | 'location' | 'joinDate'
+  | 'ism' | 'skills' | 'title' | 'titleEn' | 'comment' | 'commentEn'
+  | 'teamSize' | 'members'
+  | 'recName' | 'recNameEn' | 'recNameKana' | 'recCompany' | 'recDept' | 'recPosition'
+  | 'recRespect' | 'recRespectEn' | 'recRespectComment' | 'recRespectCommentEn';
+
+export type ImportMapping = Partial<Record<ImportMappingKey, string>>;
+
+// auto-detect 候補とのマッピング (customMapping にない項目はこれで補完)
+const AUTO_HEADERS: Record<ImportMappingKey, string[]> = {
+  category: AWARD_HEADERS,
+  division: DIVISION_HEADERS,
+  imageId: IMAGE_ID_HEADERS,
+  name: NAME_JA_HEADERS,
+  nameEn: NAME_EN_HEADERS,
+  projectName: NAME_PROJECT_HEADERS,
+  projectNameEn: NAME_EN_PROJECT_HEADERS,
+  nameKana: NAME_KANA_HEADERS,
+  projectKana: PROJECT_KANA_HEADERS,
+  org: ORG_JA_HEADERS,
+  orgEn: ORG_EN_HEADERS,
+  entryNo: ENTRY_NO_HEADERS,
+  department: DEPARTMENT_HEADERS,
+  position: POSITION_HEADERS,
+  location: LOCATION_HEADERS,
+  joinDate: JOIN_DATE_HEADERS,
+  ism: ISM_HEADERS,
+  skills: SKILLS_HEADERS,
+  title: TITLE_HEADERS,
+  titleEn: TITLE_EN_HEADERS,
+  comment: COMMENT_HEADERS,
+  commentEn: COMMENT_EN_HEADERS,
+  teamSize: TEAM_SIZE_HEADERS,
+  members: MEMBERS_HEADERS,
+  recName: REC_NAME_HEADERS,
+  recNameEn: REC_NAME_EN_HEADERS,
+  recNameKana: REC_NAME_KANA_HEADERS,
+  recCompany: REC_COMPANY_HEADERS,
+  recDept: REC_DEPT_HEADERS,
+  recPosition: REC_POSITION_HEADERS,
+  recRespect: REC_RESPECT_HEADERS,
+  recRespectEn: REC_RESPECT_EN_HEADERS,
+  recRespectComment: REC_RESPECT_COMMENT_HEADERS,
+  recRespectCommentEn: REC_RESPECT_COMMENT_EN_HEADERS,
+};
 
 // 全角 ⇄ 半角・大文字小文字・空白を吸収する正規化
 function normalize(s: string): string {
@@ -59,6 +140,23 @@ function cellStr(row: unknown[], col: number): string {
   return String(row[col] ?? '').trim();
 }
 
+/** Excel ヘッダー名から列 index を解決。
+ *  customMapping が指定されていればその列名 (= header text) を最優先、
+ *  未指定なら AUTO_HEADERS 候補リストで auto-detect する。 */
+function resolveCol(
+  headers: string[],
+  mapping: ImportMapping | undefined,
+  key: ImportMappingKey,
+): number {
+  const custom = mapping?.[key];
+  if (custom && custom.trim()) {
+    const target = normalize(custom);
+    const idx = headers.map(normalize).indexOf(target);
+    if (idx >= 0) return idx;
+  }
+  return findCol(headers, AUTO_HEADERS[key]);
+}
+
 interface RowData {
   award: string;
   division: string;
@@ -68,11 +166,47 @@ interface RowData {
   nameEn: string | null;
   orgJa: string | null;
   orgEn: string | null;
+  /** 1S CG (oneshot_data) 用。フィールドが Excel に無ければ undefined のまま。 */
+  oneshotData: Record<string, unknown> | null;
+  /** 個人 (individual) / チーム (team) — チーム判定はプロジェクト名の有無で */
+  isTeam: boolean;
+}
+
+/** Preview API: Excel を解析して headers / sampleRows / 推奨マッピングを返す */
+export interface PreviewResult {
+  headers: string[];
+  sampleRows: string[][];
+  totalRows: number;
+  suggestedMapping: ImportMapping;
+}
+
+export function previewAwardsExcel(buffer: Buffer): PreviewResult {
+  const wb = XLSX.read(buffer, { type: 'buffer' });
+  const sheetName = wb.SheetNames[0];
+  if (!sheetName) throw new Error('Excel にシートが見つかりません');
+  const sheet = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '' }) as unknown[][];
+  if (rows.length < 2) throw new Error('データ行が存在しません');
+
+  const headerRow = rows[0].some((h) => String(h).trim()) ? 0 : 1;
+  const headers = rows[headerRow].map((h) => String(h).trim());
+  const dataRows = rows.slice(headerRow + 1).filter((r) => r.some((c) => String(c).trim()));
+  const sampleRows = dataRows.slice(0, 3).map((r) => r.map((c) => String(c ?? '').trim()));
+
+  // 各 ImportMappingKey について auto-detect で見つかった列名を返す
+  const suggested: ImportMapping = {};
+  (Object.keys(AUTO_HEADERS) as ImportMappingKey[]).forEach((key) => {
+    const idx = findCol(headers, AUTO_HEADERS[key]);
+    if (idx >= 0) suggested[key] = headers[idx];
+  });
+
+  return { headers, sampleRows, totalRows: dataRows.length, suggestedMapping: suggested };
 }
 
 export async function importAwardsExcel(
   buffer: Buffer,
   eventId: number,
+  customMapping?: ImportMapping,
 ): Promise<ImportResult> {
   const warnings: string[] = [];
 
@@ -90,50 +224,116 @@ export async function importAwardsExcel(
   const headers = rows[headerRow].map(String);
   const dataRows = rows.slice(headerRow + 1).filter((r) => r.some((c) => String(c).trim()));
 
-  const awardCol        = findCol(headers, AWARD_HEADERS);
-  const divisionCol     = findCol(headers, DIVISION_HEADERS);
-const imageIdCol      = findCol(headers, IMAGE_ID_HEADERS);
-  const nameJaCol       = findCol(headers, NAME_JA_HEADERS);
-  const nameProjCol     = findCol(headers, NAME_PROJECT_HEADERS);
-  const nameEnCol       = findCol(headers, NAME_EN_HEADERS);
-  const nameEnProjCol   = findCol(headers, NAME_EN_PROJECT_HEADERS);
-  const orgJaCol        = findCol(headers, ORG_JA_HEADERS);
-  const orgEnCol        = findCol(headers, ORG_EN_HEADERS);
+  const get = (key: ImportMappingKey) => resolveCol(headers, customMapping, key);
 
-  if (awardCol < 0) warnings.push('「種別」列が見つかりませんでした。単一カテゴリ「インポート」に全エントリを追加します');
-  if (divisionCol < 0) warnings.push('「エントリー部門」列が見つかりませんでした');
-  if (nameJaCol < 0 && nameProjCol < 0) warnings.push('名前列が特定できませんでした。2列目を使用します');
+  const awardCol        = get('category');
+  const divisionCol     = get('division');
+  const imageIdCol      = get('imageId');
+  const nameJaCol       = get('name');
+  const nameProjCol     = get('projectName');
+  const nameEnCol       = get('nameEn');
+  const nameEnProjCol   = get('projectNameEn');
+  const orgJaCol        = get('org');
+  const orgEnCol        = get('orgEn');
+
+  if (awardCol < 0) warnings.push('「種別/賞」列のマッピングがありません。単一カテゴリ「インポート」に全エントリを追加します');
+  if (divisionCol < 0) warnings.push('「エントリー部門」列のマッピングがありません');
+  if (nameJaCol < 0 && nameProjCol < 0) warnings.push('名前列のマッピングが特定できませんでした');
 
   const parsedRows: RowData[] = [];
   let skipped = 0;
+
+  // oneshot_data 用キー一覧 (基本 4 列以外。"name/org" 系は base 列に格納するので除外)
+  // 各 key を Excel 列から読み出して、見つかったものだけ JSONB に格納する。
+  const oneshotKeys: ImportMappingKey[] = [
+    'entryNo', 'nameKana', 'projectKana',
+    'department', 'position', 'location', 'joinDate',
+    'ism', 'skills', 'title', 'titleEn', 'comment', 'commentEn',
+    'teamSize', 'members',
+    'recName', 'recNameEn', 'recNameKana', 'recCompany', 'recDept', 'recPosition',
+    'recRespect', 'recRespectEn', 'recRespectComment', 'recRespectCommentEn',
+  ];
+  const oneshotCols: Partial<Record<ImportMappingKey, number>> = {};
+  for (const k of oneshotKeys) oneshotCols[k] = get(k);
 
   for (let i = 0; i < dataRows.length; i++) {
     const row = dataRows[i];
     const award    = awardCol >= 0 ? cellStr(row, awardCol) || 'インポート' : 'インポート';
     const rawDiv   = divisionCol >= 0 ? cellStr(row, divisionCol) : '';
-    // 「部門」で終わっていなければ末尾に付加
     const division = rawDiv && !rawDiv.endsWith('部門') ? rawDiv + '部門' : rawDiv;
 
-    // ノミネート名(JA): プロジェクト名 優先、なければ ノミネート名
     const projJa = cellStr(row, nameProjCol);
     const nomJa  = nameJaCol >= 0 ? cellStr(row, nameJaCol) : String(row[1] ?? '').trim();
     const nameJa = projJa || nomJa;
     if (!nameJa) { skipped++; continue; }
 
-    // ノミネート名(EN): プロジェクト名（英語）優先、なければ ノミネート名（英語）
     const projEn = cellStr(row, nameEnProjCol);
     const nomEn  = cellStr(row, nameEnCol);
     const nameEn = projEn || nomEn || null;
 
-    const rank = null; // ランクはポイント入力後に generate-dummy-points や手動で設定
+    const rank = null;
 
     const imageId = imageIdCol >= 0 ? cellStr(row, imageIdCol) || null : null;
-    // 「株式会社」を除去（前後の空白も整理）
     const stripKK = (s: string) => s.replace(/株式会社/g, '').replace(/\s+/g, ' ').trim();
     const orgJa   = orgJaCol >= 0 ? stripKK(cellStr(row, orgJaCol)) || null : null;
     const orgEn   = orgEnCol >= 0 ? cellStr(row, orgEnCol) || null : null;
 
-    parsedRows.push({ award, division, rank, imageId, nameJa, nameEn, orgJa, orgEn });
+    // ── oneshot_data を構築 ──
+    const isTeam = !!projJa;
+    const od: Record<string, unknown> = {};
+    od.type = isTeam ? 'team' : 'individual';
+
+    const setIf = (jsonKey: string, mapKey: ImportMappingKey, transform?: (v: string) => unknown) => {
+      const col = oneshotCols[mapKey];
+      if (col == null || col < 0) return;
+      const v = cellStr(row, col);
+      if (!v) return;
+      od[jsonKey] = transform ? transform(v) : v;
+    };
+
+    setIf('entryNo', 'entryNo');
+    setIf('nameKana', 'nameKana');
+    setIf('projectKana', 'projectKana');
+    if (projJa) od.projectName = projJa;
+    if (projEn) od.projectNameEn = projEn;
+    setIf('department', 'department');
+    setIf('position', 'position');
+    setIf('location', 'location');
+    setIf('joinDate', 'joinDate');
+    setIf('ism', 'ism');
+    setIf('skills', 'skills', (v) => v.split(/\s*[、,／/]\s*/).filter(Boolean));
+    setIf('title', 'title');
+    setIf('titleEn', 'titleEn');
+    setIf('comment', 'comment');
+    setIf('commentEn', 'commentEn');
+    setIf('teamSize', 'teamSize', (v) => parseInt(v, 10) || undefined);
+    setIf('members', 'members'); // 文字列のまま (CG 側で member array に整形は今後)
+
+    // 推薦者 (recommender)
+    const rec: Record<string, unknown> = {};
+    const setRec = (jsonKey: string, mapKey: ImportMappingKey) => {
+      const col = oneshotCols[mapKey];
+      if (col == null || col < 0) return;
+      const v = cellStr(row, col);
+      if (!v) return;
+      rec[jsonKey] = v;
+    };
+    setRec('name', 'recName');
+    setRec('nameEn', 'recNameEn');
+    setRec('nameKana', 'recNameKana');
+    setRec('company', 'recCompany');
+    setRec('department', 'recDept');
+    setRec('position', 'recPosition');
+    setRec('respect', 'recRespect');
+    setRec('respectEn', 'recRespectEn');
+    setRec('respectComment', 'recRespectComment');
+    setRec('respectCommentEn', 'recRespectCommentEn');
+    if (Object.keys(rec).length > 0) od.recommender = rec;
+
+    // 何も追加されなかった (type のみ) なら oneshot_data は null として保存
+    const oneshotData = Object.keys(od).length > 1 ? od : null;
+
+    parsedRows.push({ award, division, rank, imageId, nameJa, nameEn, orgJa, orgEn, oneshotData, isTeam });
   }
 
   if (parsedRows.length === 0) throw new Error('有効なデータ行が存在しません');
@@ -190,11 +390,45 @@ const imageIdCol      = findCol(headers, IMAGE_ID_HEADERS);
 
       let inserted = 0;
       for (const r of rowGroup) {
+        // ── 重複チェック (upsert) ──
+        // 同 event + 同 category 内で 氏名 (name) が一致するエントリを探す。
+        // 見つかれば Excel 由来の列だけ UPDATE (rank/points/own_points/photo_url/
+        // photo_box_file_id/oneshot_data など運用データは保持)。
+        // 見つからなければ INSERT。
+        const existing = await client.query(
+          `SELECT id FROM awards_entries
+           WHERE event_id=$1 AND category_id=$2 AND name=$3
+           LIMIT 1`,
+          [eventId, categoryId, r.nameJa]
+        );
+
+        const oneshotJson = r.oneshotData ? JSON.stringify(r.oneshotData) : null;
+
+        if (existing.rows.length > 0) {
+          const existingId = existing.rows[0].id as number;
+          // 既存 oneshot_data に上書きマージ (Excel に値があるキーだけ更新、
+          // 残りは保持) するため `||` 演算子を使用。
+          await client.query(
+            `UPDATE awards_entries
+             SET name_en = $1,
+                 org    = $2,
+                 org_en = $3,
+                 image_id = $4,
+                 oneshot_data = COALESCE(oneshot_data, '{}'::jsonb) || COALESCE($5::jsonb, '{}'::jsonb),
+                 updated_at = NOW()
+             WHERE id = $6`,
+            [r.nameEn, r.orgJa, r.orgEn, r.imageId, oneshotJson, existingId]
+          );
+          inserted++;
+          totalInserted++;
+          continue;
+        }
+
         await client.query(
           `INSERT INTO awards_entries
-             (event_id, category_id, rank, name, name_en, org, org_en, image_id, is_winner)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-          [eventId, categoryId, r.rank, r.nameJa, r.nameEn, r.orgJa, r.orgEn, r.imageId, r.rank === 1]
+             (event_id, category_id, rank, name, name_en, org, org_en, image_id, is_winner, oneshot_data)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb)`,
+          [eventId, categoryId, r.rank, r.nameJa, r.nameEn, r.orgJa, r.orgEn, r.imageId, r.rank === 1, oneshotJson]
         );
         inserted++;
         totalInserted++;
