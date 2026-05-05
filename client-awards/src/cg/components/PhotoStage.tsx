@@ -69,10 +69,9 @@ export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }:
   const [insertProgress, setInsertProgress] = useState<Record<number, boolean>>({});
   useEffect(() => {
     setInsertProgress({});
-    if (stepKey !== 'ranks52' && stepKey !== 'ranks54') return;
-    const sequence = stepKey === 'ranks54' ? [5, 4] : [5, 4, 3, 2];
+    if (stepKey !== 'ranks52') return;
     const timers: ReturnType<typeof setTimeout>[] = [];
-    sequence.forEach((rank, i) => {
+    ([5, 4, 3, 2] as const).forEach((rank, i) => {
       const t = setTimeout(() => {
         setInsertProgress((p) => ({ ...p, [rank]: true }));
       }, STRIP_SETTLE + i * BAR_INTERVAL + PHOTO_OFFSET);
@@ -141,17 +140,8 @@ export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }:
       if (r === 1) return true;
       return insertProgress[r] !== true;
     }
-    if (stepKey === 'ranks54') {
-      // rank 5,4 のみ bar に挿入。rank 3,2,1 と圏外 (r>=6) は strip に残す。
-      if (r == null) return true;
-      if (r === 1 || r === 2 || r === 3) return true;
-      if (r >= 6) return true;
-      return insertProgress[r] !== true;
-    }
     if (stepKey === 'top3') {
-      // rank 1,2,3 は TOP3 ステージへ。それ以外 (4,5,6+,圏外) は strip に残す。
-      if (r == null) return true;
-      if (r >= 4) return true;
+      // rank 1-3 は TOP3 ステージへ、それ以外は非表示（strip も使わない）。
       return false;
     }
     if (stepKey === 'winner-bar') {
@@ -205,17 +195,21 @@ export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }:
       };
     }
 
-    if (stepKey === 'top3' && rank != null && rank >= 1 && rank <= 3) {
-      const p = TOP3_POS[rank as 1 | 2 | 3];
-      const shown = top3Revealed[rank] === true;
-      return {
-        x: p.x,
-        y: p.y,
-        w: p.w,
-        h: p.h,
-        opacity: shown ? 1 : 0,
-        zIndex: 4,
-      };
+    if (stepKey === 'top3') {
+      if (rank != null && rank >= 1 && rank <= 3) {
+        const p = TOP3_POS[rank as 1 | 2 | 3];
+        const shown = top3Revealed[rank] === true;
+        return {
+          x: p.x,
+          y: p.y,
+          w: p.w,
+          h: p.h,
+          opacity: shown ? 1 : 0,
+          zIndex: 4,
+        };
+      }
+      // ランク 4 位以下・圏外は top3 では非表示
+      return { x: 0, y: 0, w: 0, h: 0, opacity: 0, zIndex: 0 };
     }
 
     if (rank != null && rank >= 2 && rank <= 5) {

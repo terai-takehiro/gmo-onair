@@ -16,7 +16,6 @@ const LAYOUTS: Record<string, { x: number; y: number; scale: number; opacity: nu
   nominees:     { x: 960, y: 196, scale: 0.58, opacity: 1 },
   strip:        { x: 960, y: 196, scale: 0.58, opacity: 1 },
   ranks52:      { x: 960, y: 130, scale: 0.44, opacity: 1 },
-  ranks54:      { x: 960, y: 130, scale: 0.44, opacity: 1 },
   top3:         { x: 960, y: 130, scale: 0.44, opacity: 1 },
   'winner-bar': { x: 960, y: 130, scale: 0.44, opacity: 1 },
   oneshot:      { x: 960, y: 130, scale: 0.32, opacity: 0 },
