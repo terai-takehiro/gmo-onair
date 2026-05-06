@@ -480,9 +480,9 @@ export default function OneShotControlPage() {
               「白線が出てる」と誤認させないため、ティッカーの存在をそのまま見せる。 */}
           {!isLive && !tickerFlow.on && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="text-center text-slate-500">
+              <div className="text-center text-slate-300">
                 <div className="text-[10px] font-black tracking-widest uppercase mb-1">PROGRAM OFF</div>
-                <div className="text-[9px] tracking-widest">Press TAKE to send</div>
+                <div className="text-[9px] font-medium tracking-widest">Press TAKE to send</div>
               </div>
             </div>
           )}
