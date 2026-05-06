@@ -403,7 +403,6 @@ function LivePreviewPane({
                     lang={previewLang}
                     moduleKey={moduleKey}
                     showPortrait={true}
-                    useDynamicRenderer={true}
                     moduleConfig={draft}
                   />
                 </div>

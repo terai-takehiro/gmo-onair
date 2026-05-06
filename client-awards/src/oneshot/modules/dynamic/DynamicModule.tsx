@@ -2,23 +2,17 @@ import { Fragment, type ReactNode } from 'react';
 import type { Lang, ModuleDef, Nominee, SlotDef } from '../../types';
 import { asList, asText, resolveBinding } from './resolveBinding';
 
-// ── 段階2 (v2.8.72): 動的モジュールレンダラ ──────────────────
-// ModuleDef.slots[] を順番に走査して .lt-module 内の JSX を生成する。
-// 既存ハードコード版 (Title/Respect/Skills/Comment/Members/RecCommentModule) と
-// 同じ HTML/CSS を出力することを目標に、各 SlotKind に対応するテンプレートを実装。
-//
-// 注意: header-label と header-byline が連続している場合は <div class="lt-module-head"> で
-// グループ化する必要がある (現行 RespectModule / RecCommentModule と同じ構造)。
+// 動的モジュールレンダラ。ModuleDef.slots[] を順番に走査して .lt-module 内の JSX を生成。
+// header-label と header-byline が連続している場合は <div class="lt-module-head"> で
+// グループ化する (RespectModule / RecCommentModule の構造を再現)。
 
 interface Props {
   def: ModuleDef;
   nominee: Nominee;
   lang: Lang;
-  /** v2.8.74+: 日英両方表示モード。スロットごとに JA + EN の縦スタックを描画する。 */
-  bilingual?: boolean;
 }
 
-export default function DynamicModule({ def, nominee, lang, bilingual = false }: Props) {
+export default function DynamicModule({ def, nominee, lang }: Props) {
   const groups = groupHeaderSlots(def.slots);
 
   return (
@@ -28,43 +22,14 @@ export default function DynamicModule({ def, nominee, lang, bilingual = false }:
           return (
             <div key={`head-${i}`} className="lt-module-head">
               {g.slots.map((s) => (
-                <Fragment key={s.id}>{renderSlotMaybeBilingual(s, nominee, lang, bilingual)}</Fragment>
+                <Fragment key={s.id}>{renderSlot(s, nominee, lang)}</Fragment>
               ))}
             </div>
           );
         }
-        return (
-          <Fragment key={g.slot.id}>
-            {renderSlotMaybeBilingual(g.slot, nominee, lang, bilingual)}
-          </Fragment>
-        );
+        return <Fragment key={g.slot.id}>{renderSlot(g.slot, nominee, lang)}</Fragment>;
       })}
     </>
-  );
-}
-
-/** v2.8.74+: bilingual=true のとき、JA + EN の 2 つのスロット出力を縦スタックする。
- *  EN 側は CSS .lt-bilingual-en で小さく/dim 表示。byline / members-grid のように
- *  バイリンガル化に向かないスロット種別は単一レンダリングに退避。 */
-function renderSlotMaybeBilingual(
-  slot: SlotDef,
-  n: Nominee,
-  lang: Lang,
-  bilingual: boolean,
-): ReactNode {
-  // バイリンガル不適合のスロット種別はそのまま単一レンダリング
-  if (
-    !bilingual ||
-    slot.kind === 'header-byline' ||
-    slot.kind === 'body-members-grid'
-  ) {
-    return renderSlot(slot, n, lang);
-  }
-  return (
-    <div className="lt-bilingual">
-      <div className="lt-bilingual-ja">{renderSlot(slot, n, 'ja')}</div>
-      <div className="lt-bilingual-en">{renderSlot(slot, n, 'en')}</div>
-    </div>
   );
 }
 

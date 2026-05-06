@@ -61,11 +61,9 @@ export default function OneShotControlPage() {
   useEffect(() => {
     localStorage.setItem(LANG_KEY, langMode);
   }, [langMode]);
-  // 内部用: primary 言語 + bilingual フラグに分解
-  const { lang, bilingual } = fromLangMode(langMode);
+  // 内部用: primary 言語 (bilingual flag は v2.8.83 で廃止 — 'both' は side-by-side preview に)
+  const { lang } = fromLangMode(langMode);
 
-  // v2.8.88+: 常に dynamic renderer を使用 (Dynamic/Legacy トグル廃止)
-  const useDynamicRenderer = true;
 
   const { data: event } = useQuery({
     queryKey: ['awards-oneshot-state', eventId],
@@ -177,7 +175,7 @@ export default function OneShotControlPage() {
         // local UI state も追従 (operator 画面の picker / toggle 表示を broadcast に揃える)
         setPreviewId(nominee.id);
         setPreviewModule(cue.moduleKey);
-        setLangMode(toLangMode(cue.lang, cue.bilingual));
+        setLangMode(toLangMode(cue.lang, false));
         setTransparent(cue.transparent);
         setShowPortrait(cue.showPortrait);
         if (cue.tickerOn && !tickerFlow.on) tickerFlow.turnOn();
@@ -202,7 +200,7 @@ export default function OneShotControlPage() {
       lang,
       isLive: true,
       showPortrait,
-      bilingual,
+      bilingual: false,
     });
   };
   const clear = () => {
@@ -231,7 +229,7 @@ export default function OneShotControlPage() {
   const onChangeLangMode = (mode: LangMode) => {
     setLangMode(mode);
     const next = fromLangMode(mode);
-    sendCue({ ...cue, lang: next.lang, bilingual: next.bilingual });
+    sendCue({ ...cue, lang: next.lang, bilingual: false });
   };
 
   // ↑↓ で フィルタ済みノミネート間を循環
@@ -408,7 +406,6 @@ export default function OneShotControlPage() {
                   tickerOn={tickerFlow.on}
                   tickerCategory={tickerCategoryJa}
                   showPortrait={showPortrait}
-                  useDynamicRenderer={useDynamicRenderer}
                   moduleConfig={moduleConfig}
                 />
               </div>
@@ -427,7 +424,6 @@ export default function OneShotControlPage() {
                   tickerOn={tickerFlow.on}
                   tickerCategory={tickerCategoryEn}
                   showPortrait={showPortrait}
-                  useDynamicRenderer={useDynamicRenderer}
                   moduleConfig={moduleConfig}
                 />
               </div>
@@ -464,8 +460,6 @@ export default function OneShotControlPage() {
                   tickerOn={tickerFlow.on}
                   tickerCategory={tickerCategory}
                   showPortrait={showPortrait}
-                  useDynamicRenderer={useDynamicRenderer}
-                  bilingual={bilingual}
                   moduleConfig={moduleConfig}
                 />
               </div>
@@ -525,7 +519,7 @@ export default function OneShotControlPage() {
             ノミネート + モジュールをテキストで簡潔に表示) */}
         <div className="xl:hidden flex items-center gap-2 px-3 py-1.5 text-[11px] border-b border-slate-800/80 bg-black/30">
           <span className="font-black tracking-widest uppercase text-amber-500 shrink-0">
-            PREVIEW · {lang.toUpperCase()}{bilingual ? '+EN' : ''}
+            PREVIEW · {langMode === 'both' ? 'JA+EN' : lang.toUpperCase()}
           </span>
           {previewNominee ? (
             <>
@@ -576,7 +570,6 @@ export default function OneShotControlPage() {
                         tickerOn={tickerFlow.on}
                         tickerCategory={tickerCategoryJa}
                         showPortrait={showPortrait}
-                        useDynamicRenderer={useDynamicRenderer}
                         moduleConfig={moduleConfig}
                       />
                     </div>
@@ -595,7 +588,6 @@ export default function OneShotControlPage() {
                         tickerOn={tickerFlow.on}
                         tickerCategory={tickerCategoryEn}
                         showPortrait={showPortrait}
-                        useDynamicRenderer={useDynamicRenderer}
                         moduleConfig={moduleConfig}
                       />
                     </div>
@@ -632,7 +624,6 @@ export default function OneShotControlPage() {
                         tickerOn={tickerFlow.on}
                         tickerCategory={tickerCategory}
                         showPortrait={showPortrait}
-                        useDynamicRenderer={useDynamicRenderer}
                       />
                     </div>
                   </div>
@@ -719,7 +710,6 @@ interface ScaledStageProps {
   tickerOn: boolean;
   tickerCategory: import('../oneshot/types').TickerCategory | null;
   showPortrait?: boolean;
-  useDynamicRenderer?: boolean;
   moduleConfig?: import('../oneshot/types').EventModuleConfig;
 }
 

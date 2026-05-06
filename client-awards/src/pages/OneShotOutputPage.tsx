@@ -68,8 +68,6 @@ export default function OneShotOutputPage() {
   const moduleKey: ModuleKey = cue.moduleKey ?? 'none';
   const tickerOn = cue.tickerOn;
   const showPortrait = cue.showPortrait ?? true;
-  // v2.8.88+: 常に dynamic renderer を使用 (Legacy mode 廃止)
-  const useDynamicRenderer = true;
 
   const tickerCats = useMemo(() => groupNomineesForTicker(nominees, lang), [nominees, lang]);
   const currentTicker = tickerCats[cue.tickerCatIdx % Math.max(tickerCats.length, 1)] ?? null;
@@ -103,9 +101,6 @@ export default function OneShotOutputPage() {
         tickerOn={tickerOn}
         tickerCategory={currentTicker}
         showPortrait={showPortrait}
-        useDynamicRenderer={useDynamicRenderer}
-        // v2.8.83+: in-CG bilingual stacking は廃止 (横並びは operator preview のみ)。
-        bilingual={false}
         moduleConfig={moduleConfig}
       />
     </div>

@@ -17,11 +17,7 @@ interface Props {
   tickerCategory: TickerCategory | null;
   /** 画像 (Portrait) を表示するか (default: true) */
   showPortrait?: boolean;
-  /** v2.8.72+: 動的レンダラ (ModuleDef 駆動) を使うか (default: true) */
-  useDynamicRenderer?: boolean;
-  /** v2.8.74+: 日英両方表示モード (default: false) */
-  bilingual?: boolean;
-  /** v2.8.76+: イベント別 EventModuleConfig (動的モジュール構成) */
+  /** イベント別 EventModuleConfig (動的モジュール構成) */
   moduleConfig?: EventModuleConfig;
 }
 
@@ -39,8 +35,6 @@ export default function OneShotStage({
   tickerOn,
   tickerCategory,
   showPortrait = true,
-  useDynamicRenderer = true,
-  bilingual = false,
   moduleConfig,
 }: Props) {
   return (
@@ -54,8 +48,6 @@ export default function OneShotStage({
           tickerOn={tickerOn}
           exiting={lowerThirdExiting}
           showPortrait={showPortrait}
-          useDynamicRenderer={useDynamicRenderer}
-          bilingual={bilingual}
           moduleConfig={moduleConfig}
         />
       )}

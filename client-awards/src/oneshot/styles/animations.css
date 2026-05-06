@@ -22,29 +22,9 @@
   100% { opacity: 1; transform: translateY(0); }
 }
 
-/* スロット切替 (パネルのリサイズに同期する静かなクロスディゾルブ — 旧 v2.8.72) */
-.oneshot-cg-root .slot-fade-in {
-  animation: oscg-slotFadeIn 420ms cubic-bezier(.4,0,.2,1) both;
-}
-@keyframes oscg-slotFadeIn {
-  0%   { opacity: 0; }
-  30%  { opacity: 0; }
-  100% { opacity: 1; }
-}
-.oneshot-cg-root .slot-fade-out {
-  animation: oscg-slotFadeOut 240ms cubic-bezier(.4,0,.6,1) forwards;
-}
-@keyframes oscg-slotFadeOut {
-  to { opacity: 0; }
-}
-
-/* v2.8.82: 3-phase シーケンスを廃止して**シンプルなクロスディゾルブ**に戻す。
-   Total ~360ms。useAnimatedHeight が height の自然な補間を担うため、これだけで
-   text fade + size 変化が一体感を持って見える。jerkiness の主因だった
-   ・3-phase の state machine + setTimeout chain
-   ・width/height transition の同期問題
-   ・flap-block の paused 制御
-   をすべて取り除いて iOS Safari でも軽快に。 */
+/* スロット切替 (シンプルなクロスディゾルブ ~360ms)
+   旧コンテンツ fade-out 180ms + 新コンテンツ fade-in 240ms (30% delay で overlap)。
+   サイズ変化は LowerThirdCG の FLIP (transform: scale) が GPU 加速で並走。 */
 .oneshot-cg-root .slot-fade-out-seq {
   animation: oscg-slotFadeOutSeq 180ms cubic-bezier(.4,0,.6,1) forwards;
 }
@@ -54,16 +34,11 @@
 }
 .oneshot-cg-root .slot-fade-in-seq {
   animation: oscg-slotFadeInSeq 240ms cubic-bezier(.25,.8,.3,1) both;
-  /* 30% delay で旧の fade-out と少し overlap させて自然なクロスフェード */
 }
 @keyframes oscg-slotFadeInSeq {
   0%   { opacity: 0; }
   30%  { opacity: 0; }
   100% { opacity: 1; }
-}
-/* slot-hold-invisible は 3-phase 用だったため不要。残置で互換のみ。 */
-.oneshot-cg-root .slot-hold-invisible {
-  opacity: 0;
 }
 
 /* メインフレーム入場 (vMix Merge風: 下からスッと上がってフェードイン) */
