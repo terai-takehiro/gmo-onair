@@ -103,7 +103,7 @@ export default function ControlPage() {
           <ChevronLeft className="h-4 w-4 text-slate-300" />
         </button>
         <span className="text-[10px] font-black text-slate-400 tracking-widest uppercase">CONTROL</span>
-        {event && <span className="text-xs text-slate-600 truncate hidden sm:block">{event.name}</span>}
+        {event && <span className="text-xs text-slate-400 truncate hidden sm:block">{event.name}</span>}
         <div className="flex-1" />
         {/* 回遊性: 同イベントの表彰CG (下位置/下部テロップ) コントロールへ直接ジャンプ */}
         <button
@@ -118,7 +118,7 @@ export default function ControlPage() {
           'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black tracking-widest uppercase transition-all',
           isLive
             ? 'bg-red-950/70 text-red-400 border border-red-800/50'
-            : 'bg-slate-800/70 text-slate-500 border border-slate-700/50',
+            : 'bg-slate-800/70 text-slate-300 border border-slate-700/50',
         )}>
           <Radio className={cn('h-3 w-3 shrink-0', isLive && 'animate-pulse')} />
           {isLive ? 'ON AIR' : 'STANDBY'}
@@ -207,18 +207,18 @@ function StatusBar({ isLive, currentStep, selectedCat }: {
       <div className="flex items-center gap-2">
         <span className={cn(
           'text-sm font-black tracking-wider',
-          isLive ? 'text-red-400' : 'text-slate-500',
+          isLive ? 'text-red-400' : 'text-slate-300',
         )}>
           {currentStep?.label ?? '—'}
         </span>
-        <span className="text-xs text-slate-600">{currentStep?.desc}</span>
+        <span className="text-xs text-slate-400">{currentStep?.desc}</span>
       </div>
       {selectedCat && (
         <div className="flex items-center gap-1.5 mt-1">
           <Trophy className="h-3 w-3 text-amber-500 shrink-0" />
           <span className="text-xs text-amber-400 font-semibold truncate">{selectedCat.name}</span>
           {selectedCat.description && (
-            <span className="text-xs text-slate-500 truncate">/ {selectedCat.description}</span>
+            <span className="text-xs text-slate-300 truncate">/ {selectedCat.description}</span>
           )}
         </div>
       )}
@@ -233,7 +233,7 @@ function CategoryPanel({ awardGroups, cue, sendCue }: {
   sendCue: (step: CgStep, catId?: number, style?: OneshotStyle) => void;
 }) {
   if (!awardGroups.length) return (
-    <div className="text-xs text-slate-600 text-center py-6">カテゴリなし</div>
+    <div className="text-xs text-slate-400 text-center py-6">カテゴリなし</div>
   );
   return (
     <div className="space-y-3">
@@ -292,11 +292,11 @@ function StepRow({ steps, cue, sendCue }: {
               active && color === 'live'    && 'text-red-400',
               active && color === 'award'   && 'text-amber-400',
               active && color === 'neutral' && 'text-slate-300',
-              !active && 'text-slate-500',
+              !active && 'text-slate-300',
             )}>
               {label}
             </span>
-            <span className="text-[9px] text-slate-700 mt-0.5 leading-tight">{desc}</span>
+            <span className="text-[9px] text-slate-500 mt-0.5 leading-tight">{desc}</span>
           </button>
         );
       })}
@@ -312,7 +312,7 @@ function StyleRow({ styles, cue, sendCue }: {
 }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[9px] text-slate-600 font-bold tracking-widest uppercase shrink-0">Style</span>
+      <span className="text-[9px] text-slate-400 font-bold tracking-widest uppercase shrink-0">Style</span>
       <div className="flex gap-1.5 flex-wrap">
         {styles.map(({ style, label }) => (
           <button
@@ -322,7 +322,7 @@ function StyleRow({ styles, cue, sendCue }: {
               'rounded-md border px-3 py-1 text-xs font-bold transition-all',
               cue.oneshotStyle === style
                 ? 'border-amber-500 bg-amber-900/30 text-amber-300'
-                : 'border-slate-800 text-slate-600 hover:bg-slate-800 hover:text-slate-300',
+                : 'border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-300',
             )}
           >
             {label}
@@ -353,7 +353,7 @@ function LangPicker({ value, onChange }: {
             'px-2 py-1 rounded-md transition-colors',
             value === v
               ? 'bg-amber-500 text-slate-950'
-              : 'text-slate-500 hover:bg-slate-800 hover:text-slate-300',
+              : 'text-slate-300 hover:bg-slate-800 hover:text-slate-300',
           )}
           aria-pressed={value === v}
         >

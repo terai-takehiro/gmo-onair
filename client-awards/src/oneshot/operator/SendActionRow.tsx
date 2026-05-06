@@ -33,7 +33,7 @@ export default function SendActionRow({
           'flex items-center gap-2 rounded-md px-5 py-2.5 text-sm font-black tracking-widest uppercase transition-colors',
           isLive
             ? 'bg-slate-700 hover:bg-slate-600 text-slate-100'
-            : 'bg-slate-800/40 text-slate-600 cursor-not-allowed'
+            : 'bg-slate-800/40 text-slate-400 cursor-not-allowed'
         )}
       >
         <Square className="h-4 w-4 fill-current" /> CLEAR

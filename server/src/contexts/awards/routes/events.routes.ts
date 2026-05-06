@@ -56,6 +56,18 @@ router.get('/events/:id/output', wrap(async (req, res) => {
   res.json({ success: true, data: { ...event, categories: [...catMap.values()] } });
 }));
 
+// ── 公開: 1S CG モジュール構成 GET (放送送出ページ用、認証不要) ──────
+// v2.8.92+: ranking CG output 同様、出力 URL からモジュール構成も取得できるように。
+// 書き込みの PUT は下の auth 区画に残置。
+router.get('/events/:id/module-config', wrap(async (req, res) => {
+  const id = parseInt(req.params.id as string);
+  const row = await queryOne(
+    `SELECT module_config FROM awards_events WHERE id = ?`, [id]
+  );
+  if (!row) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
+  res.json({ success: true, data: row.module_config ?? null });
+}));
+
 router.use(requireAuth, requirePermission('awards'));
 
 // ── 一覧 ────────────────────────────────────────────────────
@@ -122,16 +134,8 @@ router.put('/events/:id', wrap(async (req, res) => {
 // ── 1S CG モジュール構成 (module_config) ────────────────────
 // v2.8.74+: ユーザーが追加・編集した送出モジュールの構成を保存。
 // NULL は「デフォルトプリセット使用」、設定済みは EventModuleConfig (JSON)。
-router.get('/events/:id/module-config', wrap(async (req, res) => {
-  const id = parseInt(req.params.id as string);
-  const row = await queryOne(
-    `SELECT module_config FROM awards_events WHERE id = ?`, [id]
-  );
-  if (!row) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
-  // module_config が NULL のときは null を返す (クライアントがデフォルトプリセットを使う)
-  res.json({ success: true, data: row.module_config ?? null });
-}));
-
+// PUT は認証必須で別途下に定義。 GET は公開 (放送送出ページが取得するため、
+// ランキングCG output と同じくログイン不要)。
 router.put('/events/:id/module-config', wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const config = req.body?.config;

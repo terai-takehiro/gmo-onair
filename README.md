@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.91 — 表彰CG: アニメーション消失バグ修正 (FLIP ResizeObserver の stale closure を nomineeKey deps で再接続)
+**現在のバージョン**: v2.8.92 — 表彰CG: 送出 URL を認証不要に + 送出 UI 文字視認性改善 (slate トーンを一段階明るく)
 
 ---
 

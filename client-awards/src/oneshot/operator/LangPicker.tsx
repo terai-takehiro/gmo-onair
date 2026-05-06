@@ -30,7 +30,7 @@ export default function LangPicker({ value, onChange }: Props) {
           onClick={() => onChange(v)}
           className={cn(
             'px-2 py-1 rounded-md transition-colors',
-            value === v ? 'bg-amber-500 text-slate-950' : 'text-slate-500 hover:bg-slate-800 hover:text-slate-300'
+            value === v ? 'bg-amber-500 text-slate-950' : 'text-slate-300 hover:bg-slate-800 hover:text-slate-300'
           )}
           aria-pressed={value === v}
         >

@@ -30,7 +30,7 @@ export default function TickerControlRow({ on, currentAward, onToggle }: Props) 
           on
             ? 'bg-amber-500 border-amber-400 text-slate-950'
             : disabled
-            ? 'border-slate-800 text-slate-600 bg-slate-900/40 cursor-not-allowed'
+            ? 'border-slate-800 text-slate-400 bg-slate-900/40 cursor-not-allowed'
             : 'border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-slate-100'
         )}
       >
@@ -40,9 +40,9 @@ export default function TickerControlRow({ on, currentAward, onToggle }: Props) 
       {/* sm 以上のみ info を表示 */}
       {currentAward && (
         <div className="hidden sm:flex items-center gap-2 text-sm text-slate-300 min-w-0">
-          <span className="text-slate-500">流す賞 →</span>
+          <span className="text-slate-300">流す賞 →</span>
           <span className="font-bold text-amber-300 truncate">{currentAward.award}</span>
-          <span className="text-slate-500 text-xs shrink-0">
+          <span className="text-slate-300 text-xs shrink-0">
             {divCount > 1 ? `${divCount}部門ループ · ` : ''}
             <span className="tabular-nums">{totalItems}</span>名
           </span>

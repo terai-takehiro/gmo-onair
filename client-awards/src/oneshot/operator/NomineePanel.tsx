@@ -51,7 +51,7 @@ export default function NomineePanel({
   }, [nominees, currentAward, selectedDivision, isJa]);
 
   if (!awards.length) {
-    return <div className="text-xs text-slate-600 text-center py-6">ノミネートなし</div>;
+    return <div className="text-xs text-slate-400 text-center py-6">ノミネートなし</div>;
   }
 
   return (
@@ -61,7 +61,7 @@ export default function NomineePanel({
         <div className="flex items-center gap-1.5 text-[11px] font-black tracking-widest text-slate-300 uppercase px-0.5">
           <Trophy className="h-3 w-3 text-amber-500" />
           賞 · Award
-          <span className="text-slate-500 normal-case font-medium tracking-wide">
+          <span className="text-slate-300 normal-case font-medium tracking-wide">
             ({awards.length})
           </span>
         </div>
@@ -116,12 +116,12 @@ export default function NomineePanel({
         <div className="flex items-center gap-1.5 text-[11px] font-black tracking-widest text-slate-300 uppercase px-0.5">
           <User className="h-3 w-3 text-amber-500/70" />
           人 · Nominee · ↑/↓
-          <span className="text-slate-500 normal-case font-medium tracking-wide">
+          <span className="text-slate-300 normal-case font-medium tracking-wide">
             ({filtered.length})
           </span>
         </div>
         {filtered.length === 0 ? (
-          <div className="text-sm text-slate-500 text-center py-5 border border-dashed border-slate-800 rounded">
+          <div className="text-sm text-slate-300 text-center py-5 border border-dashed border-slate-800 rounded">
             該当なし
           </div>
         ) : (
