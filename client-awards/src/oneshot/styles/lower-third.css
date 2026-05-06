@@ -35,8 +35,10 @@
   display: grid;
   grid-template-columns: 168px 1fr;
   background: rgba(8, 11, 16, 0.92);
+  /* v2.8.102+: border-bottom (薄ゴールド 45% 透過) を撤去。
+     モバイル小スケール時にサブピクセル描画で白線として誤認される問題を回避。
+     上端の border-top + 左の gold accent + 4 隅の corner decoration で囲み感は維持。 */
   border-top: 1px solid var(--line-strong);
-  border-bottom: 1px solid var(--line);
   min-height: 210px;
   overflow: hidden;
   align-items: start;
