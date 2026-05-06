@@ -66,7 +66,53 @@ export function useOneShotCue(eventId: number | null) {
     [eventId, cue]
   );
 
-  return { cue, sendCue };
+  // v2.8.98+: NEXT (送出予約) state を broadcast。LIVE には反映せず operator+NEXT 出力 URL のみ同期。
+  const sendNextCue = useCallback(
+    (next: OneShotCueState) => {
+      if (!eventId) return;
+      const socket = getAwardsSocket(eventId);
+      socket.emit('oneshot:nextSet', next);
+    },
+    [eventId]
+  );
+
+  return { cue, sendCue, sendNextCue };
+}
+
+// v2.8.98+: NEXT 出力 URL 用 — broadcast された preview 状態を購読する。
+export function useOneShotNextCue(eventId: number | null) {
+  const [nextCue, setNextCue] = useState<OneShotCueState>(DEFAULT_CUE);
+  const connectedRef = useRef(false);
+
+  useEffect(() => {
+    if (!eventId) return;
+    const socket = getAwardsSocket(eventId);
+    connectedRef.current = true;
+
+    const onSync = (data: SyncPayload) => {
+      setNextCue({
+        entryId: data.entryId ?? null,
+        moduleKey: data.moduleKey ?? 'none',
+        tickerOn: !!data.tickerOn,
+        tickerCatIdx: data.tickerCatIdx ?? 0,
+        transparent: !!data.transparent,
+        lang: data.lang === 'en' ? 'en' : 'ja',
+        isLive: !!data.isLive,
+        showPortrait: data.showPortrait ?? true,
+        bilingual: !!data.bilingual,
+      });
+    };
+    socket.on('oneshot:nextSync', onSync);
+
+    return () => {
+      socket.off('oneshot:nextSync', onSync);
+      if (connectedRef.current) {
+        connectedRef.current = false;
+      }
+    };
+  }, [eventId]);
+
+  return { nextCue };
 }
 
 export { DEFAULT_CUE };

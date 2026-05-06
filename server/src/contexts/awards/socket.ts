@@ -1,6 +1,32 @@
 import { Server, Socket } from 'socket.io';
 import { execute, queryOne } from '../../shared/db/connection';
 
+// v2.8.98+: NEXT (送出予約) state は in-memory 保持。
+// LIVE (cue) 状態は DB に永続化しているが、NEXT は operator の手元の状態を
+// 別のブラウザ (NEXT 専用 URL) にミラーするだけなので揮発で十分。
+// operator が disconnect しても直近の NEXT は残し、新規接続時に push する。
+const nextCueByEvent = new Map<number, RankingNextCue>();
+const nextOneshotByEvent = new Map<number, OneShotNextCue>();
+
+interface RankingNextCue {
+  step: string;
+  categoryId: number | null;
+  oneshotStyle: string;
+  timestamp: number;
+}
+interface OneShotNextCue {
+  entryId: number | null;
+  moduleKey: string;
+  tickerOn: boolean;
+  tickerCatIdx: number;
+  transparent: boolean;
+  lang: 'ja' | 'en';
+  isLive: boolean;
+  showPortrait: boolean;
+  bilingual: boolean;
+  timestamp: number;
+}
+
 export function initAwardsSocketIO(io: Server): void {
   const awardsNs = io.of('/awards');
 
@@ -50,6 +76,12 @@ export function initAwardsSocketIO(io: Server): void {
         });
       }
     }).catch(() => {});
+
+    // v2.8.98+: NEXT state も新規接続に push (in-memory)
+    const nextCue = nextCueByEvent.get(eventId);
+    if (nextCue) socket.emit('cue:nextSync', nextCue);
+    const nextOneshot = nextOneshotByEvent.get(eventId);
+    if (nextOneshot) socket.emit('oneshot:nextSync', nextOneshot);
 
     // Control page → Output page: update cue
     socket.on('cue:set', async (data: {
@@ -140,6 +172,51 @@ export function initAwardsSocketIO(io: Server): void {
       } catch (err) {
         console.error('[awards socket] oneshot:set error', err);
       }
+    });
+
+    // v2.8.98+: NEXT (送出予約) cue 同期 — operator → NEXT-output URL
+    // ランキングCG NEXT
+    socket.on('cue:nextSet', (data: {
+      step?: string;
+      categoryId?: number | null;
+      oneshotStyle?: string;
+    }) => {
+      const next: RankingNextCue = {
+        step: data.step ?? 'idle',
+        categoryId: data.categoryId ?? null,
+        oneshotStyle: data.oneshotStyle ?? 'classic',
+        timestamp: Date.now(),
+      };
+      nextCueByEvent.set(eventId, next);
+      awardsNs.to(room).emit('cue:nextSync', next);
+    });
+
+    // 1S CG (下位置CG) NEXT
+    socket.on('oneshot:nextSet', (data: {
+      entryId?: number | null;
+      moduleKey?: string;
+      tickerOn?: boolean;
+      tickerCatIdx?: number;
+      transparent?: boolean;
+      lang?: 'ja' | 'en';
+      isLive?: boolean;
+      showPortrait?: boolean;
+      bilingual?: boolean;
+    }) => {
+      const next: OneShotNextCue = {
+        entryId: data.entryId ?? null,
+        moduleKey: data.moduleKey ?? 'none',
+        tickerOn: data.tickerOn ?? false,
+        tickerCatIdx: data.tickerCatIdx ?? 0,
+        transparent: data.transparent ?? false,
+        lang: data.lang === 'en' ? 'en' : 'ja',
+        isLive: data.isLive ?? false,
+        showPortrait: data.showPortrait ?? true,
+        bilingual: data.bilingual ?? false,
+        timestamp: Date.now(),
+      };
+      nextOneshotByEvent.set(eventId, next);
+      awardsNs.to(room).emit('oneshot:nextSync', next);
     });
 
     socket.on('disconnect', () => {});

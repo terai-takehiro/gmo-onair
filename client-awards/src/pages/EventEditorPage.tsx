@@ -755,6 +755,61 @@ export default function EventEditorPage() {
               );
             })}
           </div>
+
+          {/* v2.8.98+: NEXT (送出予約) 出力 URL — 副調整室向け */}
+          <div className="pt-2 border-t space-y-2">
+            <p className="text-sm font-medium flex items-center gap-1.5">
+              <span className="inline-flex items-center justify-center h-3.5 w-3.5 rounded-full bg-amber-500 text-[8px] font-black text-slate-950">N</span>
+              NEXT 出力URL（送出予約モニター用）
+            </p>
+            <p className="text-xs text-muted-foreground">
+              operator が選択中の「次に送出する CG 内容」をリアルタイム表示。副調整室の director 用モニターに使用。
+              PROGRAM (LIVE) URL とは独立して別タブ・別ブラウザソースで開けます。
+            </p>
+            <div className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">表彰CG NEXT</div>
+            {[
+              { label: '🇯🇵 日本語', lang: 'ja' },
+              { label: '🇺🇸 English', lang: 'en' },
+              { label: '🌐 JA/EN', lang: 'both' },
+            ].map(({ label, lang }) => {
+              const url = `${window.location.origin}/awards/output/${event.id}/next?lang=${lang}`;
+              return (
+                <div key={`next-rank-${lang}`} className="flex items-center gap-2">
+                  <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
+                  <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
+                  <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
+                    className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                    <Copy className="h-3 w-3" />コピー
+                  </button>
+                  <a href={url} target="_blank" rel="noopener noreferrer"
+                    className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                    <ExternalLink className="h-3 w-3" />開く
+                  </a>
+                </div>
+              );
+            })}
+            <div className="text-[10px] font-bold text-amber-700 uppercase tracking-widest mt-2">下位置CG NEXT</div>
+            {[
+              { label: '🇯🇵 日本語', lang: 'ja' },
+              { label: '🇺🇸 English', lang: 'en' },
+            ].map(({ label, lang }) => {
+              const url = `${window.location.origin}/awards/output/${event.id}/oneshot/next?lang=${lang}`;
+              return (
+                <div key={`next-1s-${lang}`} className="flex items-center gap-2">
+                  <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
+                  <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
+                  <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
+                    className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                    <Copy className="h-3 w-3" />コピー
+                  </button>
+                  <a href={url} target="_blank" rel="noopener noreferrer"
+                    className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                    <ExternalLink className="h-3 w-3" />開く
+                  </a>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
