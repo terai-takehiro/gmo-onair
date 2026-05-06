@@ -45,6 +45,9 @@ export function useShortcuts({
         e.preventDefault();
         take();
       } else if (e.key === 'Escape') {
+        // v2.8.100+: 全画面中の Esc はブラウザの全画面解除に専念させ、CLEAR (テロップ OFF) は発火させない。
+        // (Esc が両方トリガしていたため、全画面解除と同時にテロップが消える誤動作が起きていた)
+        if (document.fullscreenElement) return;
         clear();
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();

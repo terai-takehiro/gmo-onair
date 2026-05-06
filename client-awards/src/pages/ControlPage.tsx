@@ -181,6 +181,8 @@ export default function ControlPage() {
         e.preventDefault();
         take();
       } else if (e.key === 'Escape') {
+        // v2.8.100+: 全画面中の Esc はブラウザの全画面解除に専念させ、CLEAR は発火させない。
+        if (document.fullscreenElement) return;
         clear();
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
