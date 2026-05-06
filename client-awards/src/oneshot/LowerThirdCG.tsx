@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useLayoutEffect, useMemo, useRef } from 'react';
 import type { EventModuleConfig, Lang, ModuleKey, Nominee } from './types';
 import { getModules } from './modules/getModules';
 import DynamicModule from './modules/dynamic/DynamicModule';
@@ -8,9 +8,14 @@ import SlotSwitcher from './animation/SlotSwitcher';
 import AwardHeader from './headline/AwardHeader';
 import Headline from './headline/Headline';
 import Portrait from './headline/Portrait';
-// v2.8.85+: useAnimatedHeight (JS height animation) を撤去。
-// JS height anim と CSS width transition が異なる timing/easing で動いてカクツキの源だった。
-// 高さは CSS height: auto の自然リサイズに任せ、視覚的継続性は cross-dissolve で確保する。
+// v2.8.86+: FLIP テクニックで GPU 加速の「なめらか拡大縮小」を復活。
+// JS height animation や CSS width transition の代わりに、
+// transform: scale を 1 つだけアニメーションさせる (compositor 層で動くため frame drop なし)。
+// 1. moduleKey 等が変化 → useLayoutEffect が新サイズを実測
+// 2. 旧サイズ→新サイズの逆比 (sx, sy) を transform: scale で適用 → 視覚的に旧サイズに見える
+// 3. requestAnimationFrame で transition: transform 400ms cubic-bezier をかけ scale(1,1) に戻す
+// 4. ブラウザが GPU で滑らかに補間 (After Effects 的な水のような動き)
+// ※ 子要素も一緒にスケール = テキストも僅かに伸縮するが、cross-dissolve のフェードに紛れて自然
 
 interface Props {
   nominee: Nominee;
@@ -70,7 +75,36 @@ export default function LowerThirdCG({
     ? dynamicMod?.width === 'wide'
     : (moduleKey === 'comment' || moduleKey === 'recComment'));
 
-  // v2.8.85+: JS height animation 廃止 — CSS の自然リサイズ + cross-dissolve のみ
+  // v2.8.86+: FLIP smooth resize — transform: scale で GPU 加速のなめらかなサイズ変化
+  const panelRef = useRef<HTMLDivElement>(null);
+  const prevSizeRef = useRef<{ w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = panelRef.current;
+    if (!el) return;
+    // 前のアニメ残骸をクリア (transition: none で snap させてから測定)
+    el.style.transition = 'none';
+    el.style.transform = '';
+    // 新サイズを measure
+    const newW = el.offsetWidth;
+    const newH = el.offsetHeight;
+    const prev = prevSizeRef.current;
+    prevSizeRef.current = { w: newW, h: newH };
+    // 初回 or サイズ変化なし → アニメせず終了
+    if (!prev) return;
+    if (Math.abs(prev.w - newW) < 1 && Math.abs(prev.h - newH) < 1) return;
+    // 旧サイズ ÷ 新サイズ = 逆スケール率
+    const sx = prev.w / newW;
+    const sy = prev.h / newH;
+    el.style.transformOrigin = '50% 100%'; // 下端中央を固定して上方向に伸縮
+    el.style.willChange = 'transform';
+    el.style.transform = `scale(${sx}, ${sy})`;
+    // 次フレームで transition + identity → ブラウザが GPU で補間
+    requestAnimationFrame(() => {
+      if (!el.isConnected) return;
+      el.style.transition = 'transform 400ms cubic-bezier(.45,.05,.55,.95)';
+      el.style.transform = 'scale(1, 1)';
+    });
+  }, [moduleKey, n.id, lang, showPortrait]);
 
   return (
     <div className={'stage' + (transparent ? ' transparent' : '')}>
@@ -86,7 +120,7 @@ export default function LowerThirdCG({
         }
         key={nomineeKey}
       >
-        <div className={'lt-panel' + (showPortrait ? '' : ' no-portrait')}>
+        <div className={'lt-panel' + (showPortrait ? '' : ' no-portrait')} ref={panelRef}>
           <div className="lt-corner tl" />
           <div className="lt-corner tr" />
           <div className="lt-corner bl" />

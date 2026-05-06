@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.85 — 表彰CG: アニメ根本見直し (JS height anim + width transition 撤去 → 純粋クロスディゾルブのみ) + 'both' モード EN ティッカー修正
+**現在のバージョン**: v2.8.86 — 表彰CG: FLIP テクニックでなめらか拡大縮小を復活 (After Effects 的な GPU 加速)
 
 ---
 
