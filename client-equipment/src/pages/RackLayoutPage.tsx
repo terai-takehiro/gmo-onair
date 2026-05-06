@@ -18,7 +18,9 @@ import { RACK_SLOT_OPTIONS, TYPE_BG } from "@/lib/constants";
 // ── Constants ─────────────────────────────────────────────────────────────────
 const CELL_H = 32;
 const RACK_W = 240;
-const PRINT_U_H = 20;  // px per U for print (45U ≈ 900px, fits A4 portrait)
+const PRINT_U_H = 20;  // 基準 px/U（A4縦に余裕を持って収まる最大値）
+const PRINT_U_H_MIN = 8; // 文字が読める最低 px/U（これ以下にはしない）
+const PRINT_RACK_BODY_BUDGET_PX = 850; // ラック本体に割り当てるA4縦の最大高（chrome除く安全値）
 const PRINT_RACK_W = 290; // px for rack body in print (2 racks fit A4 portrait)
 
 // ── Cell display config ───────────────────────────────────────────────────────
@@ -1310,6 +1312,19 @@ function PrintRackArea({ racks, side, rackConfigs, colors }: {
   colors: any[];
 }) {
   const today = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
+
+  // 最も背の高いラックがA4縦1ページ内に収まるよう px/U を自動調整。
+  // 全ラックで同じスケールを使うことで見た目の比較ができる。
+  const maxUnits = racks.reduce(
+    (m: number, r: any) => Math.max(m, r.location.rack_units ?? 20),
+    1
+  );
+  const printUH = Math.max(
+    PRINT_U_H_MIN,
+    Math.min(PRINT_U_H, PRINT_RACK_BODY_BUDGET_PX / maxUnits)
+  );
+  const fontScale = printUH / PRINT_U_H;
+
   return (
     <div id="rack-print-area-wrapper">
       <div className="rack-print-title">
@@ -1325,6 +1340,8 @@ function PrintRackArea({ racks, side, rackConfigs, colors }: {
             rackData={rackData}
             side={side}
             rackConfig={rackConfigs[rackData.location.id]}
+            printUH={printUH}
+            fontScale={fontScale}
           />
         ))}
       </div>
@@ -1346,10 +1363,12 @@ function PrintRackArea({ racks, side, rackConfigs, colors }: {
   );
 }
 
-function PrintRackDisplay({ rackData, side, rackConfig }: {
+function PrintRackDisplay({ rackData, side, rackConfig, printUH, fontScale }: {
   rackData: { location: any; items: any[]; blanks?: any[] };
   side: "front" | "back";
   rackConfig?: RackConfig;
+  printUH: number;
+  fontScale: number;
 }) {
   const { location, items, blanks = [] } = rackData;
   const rackUnits: number = location.rack_units ?? 20;
@@ -1363,6 +1382,12 @@ function PrintRackDisplay({ rackData, side, rackConfig }: {
     rackConfig?.subtitleMode === "custom" ? (rackConfig.subtitleText || null) :
     autoSubtitle || null;
 
+  // 縮小時は U番号 / 本体内文字も比例して縮小（最低値で頭打ち）
+  const uNumPx = Math.max(5, 5.5 * fontScale);
+  const primaryPt = Math.max(4.5, 6.5 * fontScale);
+  const secondaryPt = Math.max(4, 5.5 * fontScale);
+  const noPt = Math.max(4, 5.5 * fontScale);
+
   return (
     <div className="rack-print-item">
       <div className="rack-print-rack-header">{location.name}</div>
@@ -1371,7 +1396,7 @@ function PrintRackDisplay({ rackData, side, rackConfig }: {
         {/* Left U numbers (every 5 + U1) */}
         <div className="rack-print-u-col">
           {Array.from({ length: rackUnits }, (_, i) => rackUnits - i).map((u) => (
-            <div key={u} className="rack-print-u-cell" style={{ height: PRINT_U_H }}>
+            <div key={u} className="rack-print-u-cell" style={{ height: printUH, fontSize: `${uNumPx}pt` }}>
               {(u % 5 === 0 || u === 1) ? u : ""}
             </div>
           ))}
@@ -1380,20 +1405,20 @@ function PrintRackDisplay({ rackData, side, rackConfig }: {
         {/* Rack body */}
         <div
           className="rack-print-body"
-          style={{ width: PRINT_RACK_W, height: rackUnits * PRINT_U_H }}
+          style={{ width: PRINT_RACK_W, height: rackUnits * printUH }}
         >
           {Array.from({ length: rackUnits }, (_, i) => (
             <div
               key={i}
               className="rack-print-gridline"
-              style={{ top: i * PRINT_U_H, height: PRINT_U_H }}
+              style={{ top: i * printUH, height: printUH }}
             />
           ))}
 
           {sideBlanks.map((b: any) => {
             const { start, span } = slotToColumn(b.rack_slot);
-            const height = (b.rack_height ?? 1) * PRINT_U_H;
-            const top = (rackUnits - b.rack_position - (b.rack_height ?? 1) + 1) * PRINT_U_H;
+            const height = (b.rack_height ?? 1) * printUH;
+            const top = (rackUnits - b.rack_position - (b.rack_height ?? 1) + 1) * printUH;
             const left = ((start - 1) / 6) * PRINT_RACK_W;
             const width = (span / 6) * PRINT_RACK_W;
             const label =
@@ -1401,7 +1426,11 @@ function PrintRackDisplay({ rackData, side, rackConfig }: {
               b.panel_type === "drawer" ? "引出" :
               b.panel_type === "custom" ? (b.label || "—") : "";
             return (
-              <div key={b.id} className="rack-print-blank-item" style={{ top, left, width, height }}>
+              <div
+                key={b.id}
+                className="rack-print-blank-item"
+                style={{ top, left, width, height, fontSize: `${noPt}pt` }}
+              >
                 {label}
               </div>
             );
@@ -1409,8 +1438,8 @@ function PrintRackDisplay({ rackData, side, rackConfig }: {
 
           {sideItems.map((it: any) => {
             const { start, span } = slotToColumn(it.rack_slot);
-            const height = (it.rack_height ?? 1) * PRINT_U_H;
-            const top = (rackUnits - it.rack_position - (it.rack_height ?? 1) + 1) * PRINT_U_H;
+            const height = (it.rack_height ?? 1) * printUH;
+            const top = (rackUnits - it.rack_position - (it.rack_height ?? 1) + 1) * printUH;
             const left = ((start - 1) / 6) * PRINT_RACK_W;
             const width = (span / 6) * PRINT_RACK_W;
             const bg = it.color_hex ?? TYPE_BG[it.equipment_type_code] ?? "#e5e7eb";
@@ -1431,12 +1460,27 @@ function PrintRackDisplay({ rackData, side, rackConfig }: {
                 className="rack-print-cell-item"
                 style={{ top, left, width, height, background: bg }}
               >
-                <div className="rack-print-cell-primary">{primary}</div>
-                {height > PRINT_U_H && secondary && (
-                  <div className="rack-print-cell-secondary">{secondary}</div>
+                <div
+                  className="rack-print-cell-primary"
+                  style={{ fontSize: `${primaryPt}pt` }}
+                >
+                  {primary}
+                </div>
+                {height > printUH && secondary && (
+                  <div
+                    className="rack-print-cell-secondary"
+                    style={{ fontSize: `${secondaryPt}pt` }}
+                  >
+                    {secondary}
+                  </div>
                 )}
                 {it.unit_number != null && (
-                  <div className="rack-print-cell-no">No.{it.unit_number}</div>
+                  <div
+                    className="rack-print-cell-no"
+                    style={{ fontSize: `${noPt}pt` }}
+                  >
+                    No.{it.unit_number}
+                  </div>
                 )}
               </div>
             );
@@ -1446,7 +1490,7 @@ function PrintRackDisplay({ rackData, side, rackConfig }: {
         {/* Right U numbers */}
         <div className="rack-print-u-col">
           {Array.from({ length: rackUnits }, (_, i) => rackUnits - i).map((u) => (
-            <div key={u} className="rack-print-u-cell-r" style={{ height: PRINT_U_H }}>
+            <div key={u} className="rack-print-u-cell-r" style={{ height: printUH, fontSize: `${uNumPx}pt` }}>
               {(u % 5 === 0 || u === 1) ? u : ""}
             </div>
           ))}
