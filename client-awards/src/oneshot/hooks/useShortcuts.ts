@@ -44,9 +44,13 @@ export function useShortcuts({
       if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault();
         take();
+      } else if (e.key === 'x' || e.key === 'X') {
+        // v2.8.101+: 全画面中も使える CLEAR キー (Esc はブラウザの全画面解除と被るため代替)。
+        e.preventDefault();
+        clear();
       } else if (e.key === 'Escape') {
         // v2.8.100+: 全画面中の Esc はブラウザの全画面解除に専念させ、CLEAR (テロップ OFF) は発火させない。
-        // (Esc が両方トリガしていたため、全画面解除と同時にテロップが消える誤動作が起きていた)
+        // 通常モードでは従来通り Esc で CLEAR。全画面中に CLEAR したい場合は X キーを使用。
         if (document.fullscreenElement) return;
         clear();
       } else if (e.key === 'ArrowDown') {

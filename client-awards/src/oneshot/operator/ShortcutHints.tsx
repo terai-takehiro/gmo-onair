@@ -1,9 +1,10 @@
 export default function ShortcutHints() {
   const items: { keys: string[]; label: string }[] = [
     { keys: ['Space', '↵'], label: 'TAKE' },
-    { keys: ['Esc'], label: 'CLEAR' },
+    { keys: ['X', '/', 'Esc'], label: 'CLEAR' },
     { keys: ['↑', '↓'], label: 'NOMINEE' },
-    { keys: ['0', '–', '6'], label: 'MODULE' },
+    { keys: ['0', '–', '9'], label: 'MODULE' },
+    { keys: ['F'], label: '全画面' },
   ];
   return (
     <div className="flex items-center gap-3 flex-wrap text-xs text-slate-400">

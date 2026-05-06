@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.100 — 全画面中の Esc キー競合を回避 (CLEAR ショートカット → 全画面中は発火させない)
+**現在のバージョン**: v2.8.101 — 全画面中も CLEAR 操作可能に: 代替キー X を追加 (Esc はブラウザの全画面解除と被るため)
 
 ---
 
@@ -401,6 +401,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.8.101** | **全画面中も CLEAR 操作可能に: 代替キー X を追加 (dev)**: ユーザー報告「全画面中もテロップ制御できないと意味ない」に対応。v2.8.100 で全画面中の Esc → CLEAR を skip にしたが、それだと全画面中に CLEAR できなくなる本末転倒。修正: `useShortcuts` (下位置CG) と ControlPage (表彰CG) に「`x` / `X` キー → CLEAR」を追加。X はブラウザの全画面解除と被らないため、全画面中でもテロップ OFF 可能。Esc は通常モードで CLEAR、全画面中はブラウザの全画面解除のみ。ShortcutHints / ヒント表示も更新。 |
 | **v2.8.100** | **全画面中の Esc キー競合を回避 (dev)**: ユーザー報告「全画面にした際に Esc を押して OFF になる、これテロップ OFF とショートカット被ってるので回避」に対応。ブラウザの全画面解除 (Esc) と operator UI の CLEAR ショートカット (Esc) が同じキーを共有していたため、全画面中に Esc を 1 回押すと「全画面解除」と「テロップ OFF」が同時にトリガされ、放送中の CG が消えてしまう誤動作が発生。修正: `useShortcuts` と ControlPage の Esc 処理に `if (document.fullscreenElement) return;` を追加。全画面中はブラウザの全画面解除に専念させ、CLEAR は発火させない。 |
 | **v2.8.99** | **送出 UI ラベル「PROGRAM」→「OA」に統一 (dev)**: ①ControlPage の出力ボタン title / 大プレビュー左上ステータスバッジ / 右パネル StatusBar 上段ラベルを OA に。 ②OneShotControlPage の PROGRAM ステータスバッジ + 中央 STANDBY オーバーレイを OA に。 ③EventEditorPage NEXT URL section の説明文も OA (LIVE) URL に。 |
 | **v2.8.98** | **表彰CG preview/take + NEXT 送出予約 URL + 全画面 + ショートカット (dev)**: ユーザー要望「下位置CGのようにランキングCGもプレビュー機能 (ショートカット含め)、プレビューを NEXT として URL 出力可能に、両送出 UI に全画面コマンド」に対応。 ①ControlPage を preview/take 化: step / category / oneshotStyle ボタン操作を「即時 broadcast」から「local NEXT state を更新 → TAKE で broadcast」に変更。NEXT サムネイル + LIVE バッジつき StepRow/CategoryPanel/StyleRow + SendActionRow (TAKE/CLEAR) + StatusBar (PROGRAM + NEXT 2 段)。 ②ショートカット: 0–6 ステップ、Space/Enter TAKE、Esc CLEAR、↑↓ 部門循環、F 全画面。 ③NEXT 出力 URL: `/awards/output/:eventId/next` (ranking) と `/awards/output/:eventId/oneshot/next` (下位置CG) を新設、副調整室モニター用途。socket `cue:nextSet`/`cue:nextSync` + `oneshot:nextSet`/`oneshot:nextSync` を追加 (in-memory、揮発)。 ④`useFullscreen` フック新設、両 operator のヘッダー右端に全画面トグルボタン。 ⑤OneShotControlPage は preview 変化のたびに `oneshot:nextSet` を broadcast、ラベル「PREVIEW · NEXT TAKE」→「NEXT · 送出予約」。 ⑥EventEditorPage に「NEXT 出力URL」セクション追加。 |

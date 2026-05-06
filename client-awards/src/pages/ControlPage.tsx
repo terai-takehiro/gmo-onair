@@ -180,8 +180,12 @@ export default function ControlPage() {
       if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault();
         take();
+      } else if (e.key === 'x' || e.key === 'X') {
+        // v2.8.101+: 全画面中も使える CLEAR キー (Esc はブラウザの全画面解除と被るため代替)。
+        e.preventDefault();
+        clear();
       } else if (e.key === 'Escape') {
-        // v2.8.100+: 全画面中の Esc はブラウザの全画面解除に専念させ、CLEAR は発火させない。
+        // v2.8.100+: 全画面中の Esc はブラウザの全画面解除に専念。通常モードでは Esc で CLEAR。
         if (document.fullscreenElement) return;
         clear();
       } else if (e.key === 'ArrowDown') {
@@ -386,11 +390,12 @@ export default function ControlPage() {
               <StepRow steps={STEPS} liveStep={cue.step} nextStep={nextStep} onSelect={setNextStep} />
               <StyleRow styles={ONESHOT_STYLES} liveStyle={cue.oneshotStyle} nextStyle={nextStyle} onSelect={setNextStyle} />
               <SendActionRow isLive={isLive} onTake={take} onClear={clear} />
-              <div className="hidden sm:flex items-center gap-3 text-[9px] text-slate-500 tracking-widest uppercase font-medium">
+              <div className="hidden sm:flex items-center gap-3 text-[9px] text-slate-500 tracking-widest uppercase font-medium flex-wrap">
                 <span><kbd className="px-1 rounded bg-slate-800 text-slate-300">0–6</kbd> ステップ</span>
                 <span><kbd className="px-1 rounded bg-slate-800 text-slate-300">↑↓</kbd> 部門</span>
                 <span><kbd className="px-1 rounded bg-slate-800 text-slate-300">Space</kbd> TAKE</span>
-                <span><kbd className="px-1 rounded bg-slate-800 text-slate-300">Esc</kbd> CLEAR</span>
+                <span><kbd className="px-1 rounded bg-slate-800 text-slate-300">X</kbd> / <kbd className="px-1 rounded bg-slate-800 text-slate-300">Esc</kbd> CLEAR</span>
+                <span><kbd className="px-1 rounded bg-slate-800 text-slate-300">F</kbd> 全画面</span>
               </div>
             </div>
           </div>
