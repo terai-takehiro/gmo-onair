@@ -296,7 +296,7 @@ function StepRow({ steps, cue, sendCue }: {
             )}>
               {label}
             </span>
-            <span className="text-[9px] text-slate-500 mt-0.5 leading-tight">{desc}</span>
+            <span className="text-[10px] font-medium text-slate-300 mt-1 leading-tight">{desc}</span>
           </button>
         );
       })}
