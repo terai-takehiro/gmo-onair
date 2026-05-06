@@ -38,35 +38,32 @@
   to { opacity: 0; }
 }
 
-/* v2.8.73+ → v2.8.79 リファイン: 3 フェーズ シーケンシャル切替
-   exit (280ms) → resize (560ms) → enter (360ms) = 1200ms 合計
-   v2.8.79: 速すぎ + カクツキ問題に対応。durations を ~1.5x に拡張、
-   easing を sineInOut 系 (.45,.05,.55,.95) に統一して「均等で滑らか」に。
-   pure opacity (translateY 不使用) は維持して height animation との干渉を回避。 */
+/* v2.8.82: 3-phase シーケンスを廃止して**シンプルなクロスディゾルブ**に戻す。
+   Total ~360ms。useAnimatedHeight が height の自然な補間を担うため、これだけで
+   text fade + size 変化が一体感を持って見える。jerkiness の主因だった
+   ・3-phase の state machine + setTimeout chain
+   ・width/height transition の同期問題
+   ・flap-block の paused 制御
+   をすべて取り除いて iOS Safari でも軽快に。 */
 .oneshot-cg-root .slot-fade-out-seq {
-  animation: oscg-slotFadeOutSeq 180ms cubic-bezier(.45,.05,.55,.95) forwards;
+  animation: oscg-slotFadeOutSeq 180ms cubic-bezier(.4,0,.6,1) forwards;
 }
 @keyframes oscg-slotFadeOutSeq {
   0%   { opacity: 1; }
   100% { opacity: 0; }
 }
-.oneshot-cg-root .slot-hold-invisible {
-  opacity: 0;
-}
-/* v2.8.80+: resize phase 中は子要素のスタガードアニメ (flap-block / flap-char) を
-   pause して enter phase 開始時に「親の fade-in と一緒に」再生させる。
-   これがないと resize フェーズ中 (見えない時間) にアニメが完了して、
-   enter フェーズではタグや人カードの「順番に入る」演出が見えなくなる。 */
-.oneshot-cg-root .slot-hold-invisible .flap-block,
-.oneshot-cg-root .slot-hold-invisible .flap-char {
-  animation-play-state: paused;
-}
 .oneshot-cg-root .slot-fade-in-seq {
-  animation: oscg-slotFadeInSeq 240ms cubic-bezier(.45,.05,.55,.95) both;
+  animation: oscg-slotFadeInSeq 240ms cubic-bezier(.25,.8,.3,1) both;
+  /* 30% delay で旧の fade-out と少し overlap させて自然なクロスフェード */
 }
 @keyframes oscg-slotFadeInSeq {
   0%   { opacity: 0; }
+  30%  { opacity: 0; }
   100% { opacity: 1; }
+}
+/* slot-hold-invisible は 3-phase 用だったため不要。残置で互換のみ。 */
+.oneshot-cg-root .slot-hold-invisible {
+  opacity: 0;
 }
 
 /* メインフレーム入場 (vMix Merge風: 下からスッと上がってフェードイン) */
