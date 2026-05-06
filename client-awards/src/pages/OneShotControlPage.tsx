@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { ChevronLeft, ExternalLink, Radio, Subtitles, Tv2, Languages, Database, Cpu } from 'lucide-react';
 
 import OneShotStage from '../oneshot/OneShotStage';
-import LangPicker, { fromLangMode, type LangMode } from '../oneshot/operator/LangPicker';
+import LangPicker, { fromLangMode, toLangMode, type LangMode } from '../oneshot/operator/LangPicker';
 import NomineePanel, { filterNominees } from '../oneshot/operator/NomineePanel';
 import ModulePickerRow from '../oneshot/operator/ModulePickerRow';
 import TickerControlRow from '../oneshot/operator/TickerControlRow';
@@ -155,6 +155,40 @@ export default function OneShotControlPage() {
   const tickerFlow = useTickerToggle(false);
 
   const { cue, sendCue } = useOneShotCue(isNaN(eventId) ? null : eventId);
+
+  // v2.8.84+: 初期マウント時に DB に保存された cue (= 直前の broadcast 状態) を operator
+  // 側に同期。これがないと operator UI は default (PROGRAM OFF) で開くのに、output URL は
+  // 直前の TAKE 内容を放送し続けるという「送出と出力が連動してない」状態になる。
+  // 比較ロジックで mismatch のときだけ liveFlow / 内部 state を更新 (operator 自身の TAKE
+  // で発火する cue 更新には反応しない)。
+  useEffect(() => {
+    if (!nominees.length) return;
+    if (cue.isLive && cue.entryId != null) {
+      const nominee = nominees.find((n) => n.id === `entry-${cue.entryId}`);
+      if (!nominee) return;
+      const liveSame =
+        liveFlow.live?.nomineeId === nominee.id &&
+        liveFlow.live?.moduleKey === cue.moduleKey &&
+        liveFlow.live?.lang === cue.lang &&
+        liveFlow.mounted === true;
+      if (!liveSame) {
+        liveFlow.setExternal(
+          { nomineeId: nominee.id, moduleKey: cue.moduleKey, lang: cue.lang },
+          true,
+        );
+        // local UI state も追従 (operator 画面の picker / toggle 表示を broadcast に揃える)
+        setPreviewId(nominee.id);
+        setPreviewModule(cue.moduleKey);
+        setLangMode(toLangMode(cue.lang, cue.bilingual));
+        setTransparent(cue.transparent);
+        setShowPortrait(cue.showPortrait);
+        if (cue.tickerOn && !tickerFlow.on) tickerFlow.turnOn();
+      }
+    }
+    // 注: cue.isLive=false への sync down (CLEAR) は operator 側で liveFlow.clear() の
+    // 退場アニメを尊重するため行わない。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cue, nominees]);
 
   // ── 操作ハンドラ ────────────────────────────────────────
   const take = () => {
