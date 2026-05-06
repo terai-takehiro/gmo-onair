@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { EventModuleConfig, Lang, ModuleKey, Nominee } from './types';
 import { getModules } from './modules/getModules';
 import DynamicModule from './modules/dynamic/DynamicModule';
@@ -8,14 +8,13 @@ import SlotSwitcher from './animation/SlotSwitcher';
 import AwardHeader from './headline/AwardHeader';
 import Headline from './headline/Headline';
 import Portrait from './headline/Portrait';
-// v2.8.86+: FLIP テクニックで GPU 加速の「なめらか拡大縮小」を復活。
-// JS height animation や CSS width transition の代わりに、
-// transform: scale を 1 つだけアニメーションさせる (compositor 層で動くため frame drop なし)。
-// 1. moduleKey 等が変化 → useLayoutEffect が新サイズを実測
-// 2. 旧サイズ→新サイズの逆比 (sx, sy) を transform: scale で適用 → 視覚的に旧サイズに見える
-// 3. requestAnimationFrame で transition: transform 400ms cubic-bezier をかけ scale(1,1) に戻す
-// 4. ブラウザが GPU で滑らかに補間 (After Effects 的な水のような動き)
-// ※ 子要素も一緒にスケール = テキストも僅かに伸縮するが、cross-dissolve のフェードに紛れて自然
+// v2.8.86+ → v2.8.87+: FLIP テクニック (transform: scale) で GPU 加速の「なめらか拡大縮小」。
+// v2.8.86 では useLayoutEffect (deps: moduleKey) で測定していたが、SlotSwitcher の
+// content swap が **非同期** (useEffect 内で setState) で起きるため、useLayoutEffect が
+// 走る瞬間はまだ旧コンテンツ → 新サイズが取れず、高さだけ変わるケース (例: 尊敬→得意技)
+// で FLIP がスキップされていた。
+// v2.8.87+: **ResizeObserver** に切替えて、実際のレイアウト変化を直接検知。
+// content swap でも width 変化でも何でも検知 → 1 つの仕組みで全パターンカバー。
 
 interface Props {
   nominee: Nominee;
@@ -75,36 +74,69 @@ export default function LowerThirdCG({
     ? dynamicMod?.width === 'wide'
     : (moduleKey === 'comment' || moduleKey === 'recComment'));
 
-  // v2.8.86+: FLIP smooth resize — transform: scale で GPU 加速のなめらかなサイズ変化
+  // v2.8.87+: FLIP smooth resize via ResizeObserver
   const panelRef = useRef<HTMLDivElement>(null);
   const prevSizeRef = useRef<{ w: number; h: number } | null>(null);
-  useLayoutEffect(() => {
+  const animatingRef = useRef(false);
+  useEffect(() => {
     const el = panelRef.current;
     if (!el) return;
-    // 前のアニメ残骸をクリア (transition: none で snap させてから測定)
-    el.style.transition = 'none';
-    el.style.transform = '';
-    // 新サイズを measure
-    const newW = el.offsetWidth;
-    const newH = el.offsetHeight;
-    const prev = prevSizeRef.current;
-    prevSizeRef.current = { w: newW, h: newH };
-    // 初回 or サイズ変化なし → アニメせず終了
-    if (!prev) return;
-    if (Math.abs(prev.w - newW) < 1 && Math.abs(prev.h - newH) < 1) return;
-    // 旧サイズ ÷ 新サイズ = 逆スケール率
-    const sx = prev.w / newW;
-    const sy = prev.h / newH;
-    el.style.transformOrigin = '50% 100%'; // 下端中央を固定して上方向に伸縮
-    el.style.willChange = 'transform';
-    el.style.transform = `scale(${sx}, ${sy})`;
-    // 次フレームで transition + identity → ブラウザが GPU で補間
-    requestAnimationFrame(() => {
-      if (!el.isConnected) return;
-      el.style.transition = 'transform 400ms cubic-bezier(.45,.05,.55,.95)';
-      el.style.transform = 'scale(1, 1)';
+    if (typeof ResizeObserver === 'undefined') return;
+
+    let scheduled: number | null = null;
+
+    const triggerFlip = () => {
+      scheduled = null;
+      // offsetWidth/Height は layout サイズ (transform の影響を受けない) → 安全に measure 可能
+      const newW = el.offsetWidth;
+      const newH = el.offsetHeight;
+      const prev = prevSizeRef.current;
+      prevSizeRef.current = { w: newW, h: newH };
+
+      if (!prev) return; // 初回は記録のみ
+      if (Math.abs(prev.w - newW) < 1 && Math.abs(prev.h - newH) < 1) return;
+      // 進行中アニメは尊重 (rapid 連続クリック時のジャンプ回避)
+      if (animatingRef.current) return;
+
+      const sx = prev.w / newW;
+      const sy = prev.h / newH;
+      el.style.transformOrigin = '50% 100%';
+      el.style.willChange = 'transform';
+      el.style.transition = 'none';
+      el.style.transform = `scale(${sx}, ${sy})`;
+      animatingRef.current = true;
+
+      requestAnimationFrame(() => {
+        if (!el.isConnected) return;
+        el.style.transition = 'transform 400ms cubic-bezier(.45,.05,.55,.95)';
+        el.style.transform = 'scale(1, 1)';
+      });
+      // アニメ完了後 (約 420ms) にフラグ解除
+      window.setTimeout(() => {
+        animatingRef.current = false;
+        // クリーンアップ — 次の measure に支障がないように
+        if (el.isConnected) {
+          el.style.transition = '';
+          el.style.transform = '';
+          el.style.willChange = '';
+        }
+      }, 420);
+    };
+
+    const observer = new ResizeObserver(() => {
+      // rAF coalesce で連続発火を 1 回に集約
+      if (scheduled != null) return;
+      scheduled = requestAnimationFrame(triggerFlip);
     });
-  }, [moduleKey, n.id, lang, showPortrait]);
+    observer.observe(el);
+    // 初期サイズ記録
+    prevSizeRef.current = { w: el.offsetWidth, h: el.offsetHeight };
+
+    return () => {
+      observer.disconnect();
+      if (scheduled != null) cancelAnimationFrame(scheduled);
+    };
+  }, []);
 
   return (
     <div className={'stage' + (transparent ? ' transparent' : '')}>
