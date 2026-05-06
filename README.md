@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.98 — 表彰CG (ranking) に preview/take ワークフロー + NEXT 送出予約 URL + 全画面ボタン + キーボードショートカット (0–6 / Space / Esc / ↑↓ / F)
+**現在のバージョン**: v2.8.99 — 送出 UI ラベル「PROGRAM」→「OA」に統一
 
 ---
 
@@ -401,6 +401,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.8.99** | **送出 UI ラベル「PROGRAM」→「OA」に統一 (dev)**: ①ControlPage の出力ボタン title / 大プレビュー左上ステータスバッジ / 右パネル StatusBar 上段ラベルを OA に。 ②OneShotControlPage の PROGRAM ステータスバッジ + 中央 STANDBY オーバーレイを OA に。 ③EventEditorPage NEXT URL section の説明文も OA (LIVE) URL に。 |
 | **v2.8.98** | **表彰CG preview/take + NEXT 送出予約 URL + 全画面 + ショートカット (dev)**: ユーザー要望「下位置CGのようにランキングCGもプレビュー機能 (ショートカット含め)、プレビューを NEXT として URL 出力可能に、両送出 UI に全画面コマンド」に対応。 ①ControlPage を preview/take 化: step / category / oneshotStyle ボタン操作を「即時 broadcast」から「local NEXT state を更新 → TAKE で broadcast」に変更。NEXT サムネイル + LIVE バッジつき StepRow/CategoryPanel/StyleRow + SendActionRow (TAKE/CLEAR) + StatusBar (PROGRAM + NEXT 2 段)。 ②ショートカット: 0–6 ステップ、Space/Enter TAKE、Esc CLEAR、↑↓ 部門循環、F 全画面。 ③NEXT 出力 URL: `/awards/output/:eventId/next` (ranking) と `/awards/output/:eventId/oneshot/next` (下位置CG) を新設、副調整室モニター用途。socket `cue:nextSet`/`cue:nextSync` + `oneshot:nextSet`/`oneshot:nextSync` を追加 (in-memory、揮発)。 ④`useFullscreen` フック新設、両 operator のヘッダー右端に全画面トグルボタン。 ⑤OneShotControlPage は preview 変化のたびに `oneshot:nextSet` を broadcast、ラベル「PREVIEW · NEXT TAKE」→「NEXT · 送出予約」。 ⑥EventEditorPage に「NEXT 出力URL」セクション追加。 |
 | **v2.8.97** | **CG ナビゲーション/UI 名称整理 (dev)**: ユーザー要望に対応。①EventEditorPage の 2 ボタンを「下位置CG」(amber + Subtitles icon, /oneshot/control へ) と「表彰CG」(red + Trophy icon, /control へ) に変更、Tv2 → Trophy で大賞演出感を強化。 ②OneShotControlPage (下位置CG オペレーター) のヘッダータイトルを「下位置CG」に、出力 URL タイトル属性も同様に、「ランキングCG」ジャンプボタン → 「表彰CG」(Trophy アイコン)。 ③ControlPage (表彰CG オペレーター) のヘッダーに Trophy + 「表彰CG」タイトルを追加、「下位置CG」ジャンプボタンは Subtitles アイコン据置。 ④ModuleConfigEditPage / EventEditorPage URL section / ModuleConfigSection も「下位置CG」ベースに更新。アプリ全体の Sidebar / Header / Login / Dashboard 上の「表彰CG」(umbrella 名) は据置。 |
 | **v2.8.96** | **v2.8.95 の不完全修正を完全修正。CG output URL のログイン不要アクセス実装 (dev)**: v2.8.95 で `router.use(['/events', '/box-backups'], requireAuth, ...)` のような path-scoped に変更したが、`/events` プレフィックスは `/events/:id/oneshot/output` (oneshot.routes.ts 担当の public) や `/events/:eventId/cue` (cues.routes.ts 担当の public) も**マッチしてしまう**ため、これらが本来の router に到達する前に eventRoutes の auth に蹴られる状態が継続。修正: 公開 (auth 不要) エンドポイントを集約した `public.routes.ts` を新設し、`createAwardsRoutes()` で **最初に** マウント。これで `/awards/events/X/output` / `/awards/events/X/oneshot/output` / `/awards/events/X/module-config` / `/awards/events/X/cue` は publicRoutes で先回り解決され、後続の auth-blanket router に到達する前に response が返る。 |
