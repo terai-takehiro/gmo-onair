@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { Trophy, User, Users, Filter } from 'lucide-react';
+import { Trophy, User, Filter, ChevronDown } from 'lucide-react';
 import type { Lang, Nominee, TickerCategory } from '../types';
 
 interface Props {
@@ -19,6 +19,11 @@ interface Props {
   onSelectNominee: (id: string) => void;
 }
 
+// v2.8.88+ NomineePanel リデザイン:
+//   ・賞: プルダウン (select) で 1 行に圧縮
+//   ・部門: 2-col grid 固定、ボタン高 h-9 で押しやすく、長文は letter-spacing 詰めで長体風
+//   ・人: 2-col grid 固定、部門 + 名前のみ (写真・会社・ノー削除)、一覧性重視
+
 export default function NomineePanel({
   nominees,
   awards,
@@ -34,7 +39,6 @@ export default function NomineePanel({
   const isJa = lang === 'ja';
   const currentAward = awards[selectedAwardIdx] ?? null;
 
-  // 賞 + 部門 で絞り込んだノミネート
   const filtered = useMemo(() => {
     if (!currentAward) return [];
     return nominees.filter((n) => {
@@ -47,97 +51,70 @@ export default function NomineePanel({
   }, [nominees, currentAward, selectedDivision, isJa]);
 
   if (!awards.length) {
-    return (
-      <div className="text-xs text-slate-600 text-center py-6">
-        ノミネートなし
-      </div>
-    );
+    return <div className="text-xs text-slate-600 text-center py-6">ノミネートなし</div>;
   }
 
   return (
     <div className="flex flex-col gap-3">
-      {/* ── 賞ピッカー ─────────────────────────── */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-1.5 text-xs font-black tracking-widest text-slate-300 uppercase px-0.5">
-          <Trophy className="h-3.5 w-3.5 text-amber-500" />
+      {/* ── 賞 (プルダウン) ─────────────────────────── */}
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-1.5 text-[11px] font-black tracking-widest text-slate-300 uppercase px-0.5">
+          <Trophy className="h-3 w-3 text-amber-500" />
           賞 · Award
           <span className="text-slate-500 normal-case font-medium tracking-wide">
             ({awards.length})
           </span>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {awards.map((a, i) => {
-            const active = i === selectedAwardIdx;
-            const totalItems = a.divisions.reduce((s, d) => s + d.items.length, 0);
-            return (
-              <button
-                key={a.award}
-                onClick={() => onSelectAward(i)}
-                className={cn(
-                  'rounded-md border px-2 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm transition-all flex items-center gap-1 sm:gap-1.5',
-                  active
-                    ? 'border-amber-400 bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30'
-                    : 'border-slate-700/60 bg-slate-800/40 text-slate-300 hover:bg-slate-700 hover:text-slate-100'
-                )}
-                title={`${a.award} · ${a.divisions.length}部門 · ${totalItems}名`}
-              >
-                <span className="font-bold">{a.award}</span>
-                <span className="text-[10px] sm:text-xs opacity-70 tabular-nums">{totalItems}</span>
-              </button>
-            );
-          })}
+        <div className="relative">
+          <select
+            value={selectedAwardIdx}
+            onChange={(e) => onSelectAward(parseInt(e.target.value, 10))}
+            className="w-full appearance-none rounded-md border border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 text-amber-200 text-sm font-bold pl-3 pr-8 py-2 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500/40 transition-colors"
+          >
+            {awards.map((a, i) => {
+              const total = a.divisions.reduce((s, d) => s + d.items.length, 0);
+              return (
+                <option key={a.award} value={i} className="bg-slate-900 text-slate-100">
+                  {a.award} ({total}名)
+                </option>
+              );
+            })}
+          </select>
+          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-400 pointer-events-none" />
         </div>
       </div>
 
-      {/* ── 部門ピッカー (選択した賞の部門のみ) ──── */}
+      {/* ── 部門 (2-col grid 固定) ────────────────── */}
       {currentAward && currentAward.divisions.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-1.5 text-xs font-black tracking-widest text-slate-300 uppercase px-0.5">
-            <Filter className="h-3.5 w-3.5 text-amber-500/70" />
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5 text-[11px] font-black tracking-widest text-slate-300 uppercase px-0.5">
+            <Filter className="h-3 w-3 text-amber-500/70" />
             部門 · Division
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            <button
+          <div className="grid grid-cols-2 gap-1.5">
+            <DivisionButton
+              label="すべて"
+              count={currentAward.divisions.reduce((s, d) => s + d.items.length, 0)}
+              active={selectedDivision == null}
               onClick={() => onSelectDivision(null)}
-              className={cn(
-                'rounded-md border px-2 py-0.5 sm:px-2.5 sm:py-1 text-xs sm:text-sm transition-all',
-                selectedDivision == null
-                  ? 'border-amber-400 bg-amber-500/15 text-amber-300'
-                  : 'border-slate-700/60 bg-slate-800/40 text-slate-300 hover:bg-slate-700 hover:text-slate-100'
-              )}
-            >
-              すべて
-              <span className="ml-1 text-xs opacity-70 tabular-nums">
-                {currentAward.divisions.reduce((s, d) => s + d.items.length, 0)}
-              </span>
-            </button>
-            {currentAward.divisions.map((d) => {
-              const active = selectedDivision === d.division;
-              return (
-                <button
-                  key={d.division}
-                  onClick={() => onSelectDivision(d.division)}
-                  className={cn(
-                    'rounded-md border px-2 py-0.5 sm:px-2.5 sm:py-1 text-xs sm:text-sm transition-all',
-                    active
-                      ? 'border-amber-400 bg-amber-500/15 text-amber-300'
-                      : 'border-slate-700/60 bg-slate-800/40 text-slate-300 hover:bg-slate-700 hover:text-slate-100'
-                  )}
-                  title={`${d.division} (${d.items.length}名)`}
-                >
-                  {d.division}
-                  <span className="ml-1 text-xs opacity-70 tabular-nums">{d.items.length}</span>
-                </button>
-              );
-            })}
+            />
+            {currentAward.divisions.map((d) => (
+              <DivisionButton
+                key={d.division}
+                label={d.division}
+                count={d.items.length}
+                active={selectedDivision === d.division}
+                onClick={() => onSelectDivision(d.division)}
+              />
+            ))}
           </div>
         </div>
       )}
 
-      {/* ── ノミネート (フィルタ済み) ────────── */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-1.5 text-xs font-black tracking-widest text-slate-300 uppercase px-0.5">
-          <User className="h-3.5 w-3.5 text-amber-500/70" />
+      {/* ── 人 / Nominee (2-col grid, 部門 + 名前のみ) ─ */}
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-1.5 text-[11px] font-black tracking-widest text-slate-300 uppercase px-0.5">
+          <User className="h-3 w-3 text-amber-500/70" />
           人 · Nominee · ↑/↓
           <span className="text-slate-500 normal-case font-medium tracking-wide">
             ({filtered.length})
@@ -148,11 +125,10 @@ export default function NomineePanel({
             該当なし
           </div>
         ) : (
-          <div className="space-y-1.5">
+          <div className="grid grid-cols-2 gap-1.5">
             {filtered.map((n) => {
               const active = n.id === previewId;
               const live = n.id === liveId;
-              const Icon = n.type === 'team' ? Users : User;
               const displayName =
                 n.type === 'team'
                   ? isJa
@@ -161,42 +137,33 @@ export default function NomineePanel({
                   : isJa
                   ? n.name
                   : n.nameEn;
+              const division = isJa ? n.subcategory : n.subcategoryEn;
+              const isLong = (displayName ?? '').length > 9;
               return (
                 <button
                   key={n.id}
                   onClick={() => onSelectNominee(n.id)}
                   className={cn(
-                    'w-full text-left rounded-md border px-3 py-2.5 transition-all flex items-start gap-2.5',
+                    'relative text-left rounded-md border px-2 py-1.5 transition-all min-w-0 min-h-[44px] flex flex-col justify-center gap-0.5',
                     active
-                      ? 'bg-amber-500/10 border-amber-400 ring-1 ring-amber-500/30'
-                      : 'bg-slate-800/60 border-slate-700/50 hover:bg-slate-700 hover:border-slate-600'
+                      ? 'bg-amber-500/15 border-amber-400 ring-1 ring-amber-500/30'
+                      : 'bg-slate-800/60 border-slate-700/50 hover:bg-slate-700 hover:border-slate-600',
                   )}
+                  title={`${division ? division + ' · ' : ''}${displayName}${n.type === 'team' && n.teamSize ? ` (${n.teamSize}名)` : ''}`}
                 >
-                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded bg-slate-900 ring-1 ring-slate-700">
-                    {n.image ? (
-                      <img src={n.image} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <Icon className="h-5 w-5 text-slate-500 absolute inset-0 m-auto" />
-                    )}
-                    {live && (
-                      <div className="absolute inset-0 ring-2 ring-red-500 ring-offset-1 ring-offset-slate-900 rounded" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0 space-y-0.5">
-                    <div className="text-xs font-bold tracking-wider uppercase text-amber-500/90 truncate">
-                      No.{n.entryNo}
-                      {(isJa ? n.subcategory : n.subcategoryEn) && (
-                        <> · {isJa ? n.subcategory : n.subcategoryEn}</>
-                      )}
+                  {division && (
+                    <div className="text-[9px] font-bold tracking-wider uppercase text-amber-500/80 truncate leading-none">
+                      {division}
                     </div>
-                    <div className="text-sm font-bold text-slate-100 truncate">{displayName}</div>
-                    <div className="text-xs text-slate-400 truncate">
-                      {isJa ? n.company : n.companyEn}
-                      {n.type === 'team' && n.teamSize ? ` · ${n.teamSize} members` : ''}
-                    </div>
+                  )}
+                  <div
+                    className="text-xs font-bold text-slate-100 leading-tight truncate"
+                    style={isLong ? { letterSpacing: '-0.04em', fontFeatureSettings: '"palt"' } : undefined}
+                  >
+                    {displayName}
                   </div>
                   {live && (
-                    <span className="text-[10px] font-black tracking-widest text-red-400 px-1.5 py-0.5 rounded bg-red-950/60 border border-red-800/60 shrink-0">
+                    <span className="absolute top-0.5 right-0.5 text-[8px] font-black tracking-widest text-red-300 px-1 py-0.5 rounded bg-red-950/80 border border-red-700/60 leading-none">
                       LIVE
                     </span>
                   )}
@@ -207,6 +174,33 @@ export default function NomineePanel({
         )}
       </div>
     </div>
+  );
+}
+
+// ── 部門ボタン (2-col grid 固定、長文は letter-spacing で長体風に圧縮) ──
+function DivisionButton({
+  label, count, active, onClick,
+}: { label: string; count: number; active: boolean; onClick: () => void }) {
+  const isLong = label.length > 7;
+  return (
+    <button
+      onClick={onClick}
+      title={`${label} (${count}名)`}
+      className={cn(
+        'rounded-md border h-9 px-2 text-sm font-bold transition-all flex items-center justify-between gap-1 min-w-0',
+        active
+          ? 'border-amber-400 bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30'
+          : 'border-slate-700/60 bg-slate-800/40 text-slate-300 hover:bg-slate-700 hover:text-slate-100',
+      )}
+    >
+      <span
+        className="truncate min-w-0 flex-1 text-left"
+        style={isLong ? { letterSpacing: '-0.04em', fontFeatureSettings: '"palt"' } : undefined}
+      >
+        {label}
+      </span>
+      <span className="text-[10px] opacity-70 tabular-nums shrink-0">{count}</span>
+    </button>
   );
 }
 

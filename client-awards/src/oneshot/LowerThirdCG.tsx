@@ -74,7 +74,14 @@ export default function LowerThirdCG({
     ? dynamicMod?.width === 'wide'
     : (moduleKey === 'comment' || moduleKey === 'recComment'));
 
-  // v2.8.87+: FLIP smooth resize via ResizeObserver
+  // v2.8.88+: FLIP smooth resize — ピクつき完全排除版
+  // v2.8.87 では rAF 経由で triggerFlip を 1 frame 後に実行していたため、
+  // SlotSwitcher の content swap → ブラウザが新サイズで paint → 1 frame 後に
+  // transform 適用、というギャップで「新サイズが一瞬見える」ピクツキ発生。
+  // v2.8.88: ResizeObserver callback 内で**同期的に** transform を適用 (rAF 削除)。
+  // 仕様上 ResizeObserver は paint 直前に発火するので、同期適用で paint 前に
+  // inverse scale が乗り、ピクツキが起きない。+ force reflow で確実に
+  // 「inverse 状態」を browser にコミット → transition がきちんと発火。
   const panelRef = useRef<HTMLDivElement>(null);
   const prevSizeRef = useRef<{ w: number; h: number } | null>(null);
   const animatingRef = useRef(false);
@@ -83,11 +90,15 @@ export default function LowerThirdCG({
     if (!el) return;
     if (typeof ResizeObserver === 'undefined') return;
 
-    let scheduled: number | null = null;
+    const observer = new ResizeObserver(() => {
+      // 進行中アニメ中は新規 trigger をスキップ (連続クリック時のジャンプ回避)
+      if (animatingRef.current) return;
 
-    const triggerFlip = () => {
-      scheduled = null;
-      // offsetWidth/Height は layout サイズ (transform の影響を受けない) → 安全に measure 可能
+      // 残骸クリア (animatingRef=false なので no-op か単なるリセット)
+      el.style.transition = 'none';
+      el.style.transform = '';
+
+      // offsetWidth/Height は layout サイズ (transform の影響を受けない) → 安全に measure
       const newW = el.offsetWidth;
       const newH = el.offsetHeight;
       const prev = prevSizeRef.current;
@@ -95,46 +106,38 @@ export default function LowerThirdCG({
 
       if (!prev) return; // 初回は記録のみ
       if (Math.abs(prev.w - newW) < 1 && Math.abs(prev.h - newH) < 1) return;
-      // 進行中アニメは尊重 (rapid 連続クリック時のジャンプ回避)
-      if (animatingRef.current) return;
 
+      // 旧サイズ ÷ 新サイズ = 逆スケール → 視覚的に旧サイズに戻す (paint 直前の同期適用)
       const sx = prev.w / newW;
       const sy = prev.h / newH;
       el.style.transformOrigin = '50% 100%';
       el.style.willChange = 'transform';
-      el.style.transition = 'none';
       el.style.transform = `scale(${sx}, ${sy})`;
+
+      // force reflow: ブラウザに「現在 scale(sx,sy) 状態」を強制コミット
+      // (これがないと続く transition + scale(1,1) が同フレーム内 styler 結合で
+      //  単なる「scale(1,1) を即時適用」と判断されてアニメせず snap してしまう)
+      void el.offsetHeight;
+
+      // 同フレーム内で transition + 目標 scale(1,1) → ブラウザが補間開始
+      el.style.transition = 'transform 400ms cubic-bezier(.45,.05,.55,.95)';
+      el.style.transform = 'scale(1, 1)';
       animatingRef.current = true;
 
-      requestAnimationFrame(() => {
-        if (!el.isConnected) return;
-        el.style.transition = 'transform 400ms cubic-bezier(.45,.05,.55,.95)';
-        el.style.transform = 'scale(1, 1)';
-      });
-      // アニメ完了後 (約 420ms) にフラグ解除
       window.setTimeout(() => {
         animatingRef.current = false;
-        // クリーンアップ — 次の measure に支障がないように
         if (el.isConnected) {
           el.style.transition = '';
           el.style.transform = '';
           el.style.willChange = '';
         }
       }, 420);
-    };
-
-    const observer = new ResizeObserver(() => {
-      // rAF coalesce で連続発火を 1 回に集約
-      if (scheduled != null) return;
-      scheduled = requestAnimationFrame(triggerFlip);
     });
     observer.observe(el);
-    // 初期サイズ記録
     prevSizeRef.current = { w: el.offsetWidth, h: el.offsetHeight };
 
     return () => {
       observer.disconnect();
-      if (scheduled != null) cancelAnimationFrame(scheduled);
     };
   }, []);
 

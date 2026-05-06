@@ -68,10 +68,8 @@ export default function OneShotOutputPage() {
   const moduleKey: ModuleKey = cue.moduleKey ?? 'none';
   const tickerOn = cue.tickerOn;
   const showPortrait = cue.showPortrait ?? true;
-  const useDynamicRenderer =
-    (typeof localStorage !== 'undefined'
-      ? localStorage.getItem('awards-cg-renderer')
-      : null) !== 'legacy';
+  // v2.8.88+: 常に dynamic renderer を使用 (Legacy mode 廃止)
+  const useDynamicRenderer = true;
 
   const tickerCats = useMemo(() => groupNomineesForTicker(nominees, lang), [nominees, lang]);
   const currentTicker = tickerCats[cue.tickerCatIdx % Math.max(tickerCats.length, 1)] ?? null;
