@@ -2,19 +2,14 @@ import { useEffect, useRef, type DependencyList } from 'react';
 import { PANEL_HEIGHT_MS } from '../animation/timings';
 
 // パネルの高さを実測して px で animate (auto→auto をスムーズに繋ぐ)。
-// v2.8.73+: ResizeObserver ベースに切替え。SlotSwitcher の 3 フェーズ
-// (exit → resize → enter) でコンテンツが mount/unmount するたびに
-// scrollHeight が変化 → 自動で height 補間が走る。
 //
-// v2.8.75+: 「画面揺れ」バグ修正:
-// 1. 連続発火する ResizeObserver イベントを requestAnimationFrame で coalesce
-// 2. 進行中アニメをキャンセルして新規開始するときは「現在の実 box 高さ」(rect.height)
-//    を `from` として使用 → 古い prevHeight にジャンプして揺れる現象を解消
-// 3. アニメ終了時に prevHeight を最新の scrollHeight に同期 (drift 補正)
-// 4. width transition 中の連続的な scrollHeight 変化 (overflow:hidden + 内容リフロー)
-//    にも対応 — 1 フレーム coalesce で最後の値だけが反映される
-//
-// 第一引数 deps は後方互換のため残置 (空配列推奨)。
+// v2.8.83+: 「ぴくつく瞬間」修正:
+// 進行中アニメを cancel して再開すると、各フレームで anim 再起動が走り視覚的に
+// twitch する (特に width transition 中に scrollHeight が連続変化する場合)。
+// 修正方針:
+// 1. アニメ実行中は新しい trigger を無視して完走させる
+// 2. アニメ終了時に最終 scrollHeight が target と一致しているか再確認、ズレてれば追加アニメ
+// これで「1 回の滑らかなアニメ + 必要なら follow-up」のシンプルな動きに。
 export function useAnimatedHeight<T extends HTMLElement>(
   _deps: DependencyList = [],
   duration = PANEL_HEIGHT_MS,
@@ -34,26 +29,22 @@ export function useAnimatedHeight<T extends HTMLElement>(
     const triggerAnim = () => {
       scheduledFrame = null;
       if (pendingTarget == null) return;
+
+      // 進行中アニメがあれば cancel せず完走させる (twitch 防止)
+      if (currentAnim.current && currentAnim.current.playState === 'running') {
+        return;
+      }
+
       const target = pendingTarget;
       pendingTarget = null;
 
-      // 現在の実 box 高さを from に使う (アニメ進行中も滑らか)
       const fromActual = el.getBoundingClientRect().height;
       if (Math.abs(fromActual - target) < 0.5) {
         prevHeight.current = target;
         return;
       }
 
-      // 既存アニメをキャンセル
-      if (currentAnim.current) {
-        currentAnim.current.cancel();
-        currentAnim.current = null;
-      }
       try {
-        // v2.8.79: expoOut (.16,1,.3,1) → sineInOut (.45,.05,.55,.95) に変更。
-        // expoOut は 0→25% 時間で 80% 動くため「ジョルト→停止」感があり、ユーザー
-        // 報告のカクツキの一因。sineInOut は速度変化が滑らかな三角関数カーブで、
-        // 拡大縮小が均等な速度で進む「水のような」動き。
         const anim = el.animate(
           [{ height: fromActual + 'px' }, { height: target + 'px' }],
           { duration, easing: 'cubic-bezier(.45,.05,.55,.95)', fill: 'none' }
@@ -61,11 +52,20 @@ export function useAnimatedHeight<T extends HTMLElement>(
         currentAnim.current = anim;
         anim.onfinish = () => {
           if (currentAnim.current === anim) currentAnim.current = null;
-          // アニメ終了後、prevHeight を実際の scrollHeight に同期 (drift 補正)
-          if (el.isConnected) prevHeight.current = el.scrollHeight;
+          if (!el.isConnected) return;
+          // アニメ終了時の最終 scrollHeight が target からずれていれば
+          // (= 途中で content が再フローしていたら) 1 度だけ follow-up
+          const finalHeight = el.scrollHeight;
+          if (Math.abs(target - finalHeight) > 0.5) {
+            pendingTarget = finalHeight;
+            if (scheduledFrame == null) {
+              scheduledFrame = requestAnimationFrame(triggerAnim);
+            }
+          }
+          prevHeight.current = finalHeight;
         };
       } catch {
-        // 古いブラウザで el.animate 未対応の場合: 何もしない (CSS 自然遷移にフォールバック)
+        // 古いブラウザで el.animate 未対応時は CSS 自然遷移にフォールバック
       }
       prevHeight.current = target;
     };
@@ -77,15 +77,12 @@ export function useAnimatedHeight<T extends HTMLElement>(
         return;
       }
       if (Math.abs(prevHeight.current - newHeight) < 0.5) return;
-
-      // 連続発火を 1 フレームに集約 (width transition 中の連続変化を coalesce)
       pendingTarget = newHeight;
       if (scheduledFrame == null) {
         scheduledFrame = requestAnimationFrame(triggerAnim);
       }
     });
     observer.observe(el);
-    // 初期高さを記録
     prevHeight.current = el.scrollHeight;
 
     return () => {

@@ -371,43 +371,86 @@ export default function OneShotControlPage() {
           ref={programRef}
           className="w-full aspect-video lg:aspect-auto lg:flex-1 lg:min-h-0 relative bg-black border-b lg:border-b-0 lg:border-r border-slate-800"
         >
-          <div
-            style={{
-              position: 'absolute',
-              left: programOff.x,
-              top: programOff.y,
-              width: CG_W * programScale,
-              height: CG_H * programScale,
-              overflow: 'hidden',
-            }}
-          >
+          {/* v2.8.83+: langMode='both' のとき JA + EN を別々の CG として横並びプレビュー */}
+          {langMode === 'both' ? (
+            <div className="absolute inset-0 flex">
+              <div className="flex-1 relative">
+                <span className="absolute top-1 left-2 z-10 text-[9px] font-black tracking-widest uppercase text-slate-500">JA</span>
+                <ScaledStage
+                  lang="ja"
+                  nominee={liveNominee}
+                  moduleKey={liveFlow.live?.moduleKey ?? 'none'}
+                  transparent={transparent}
+                  lowerThirdMounted={liveFlow.mounted}
+                  lowerThirdExiting={liveFlow.exiting}
+                  tickerMounted={tickerFlow.mounted}
+                  tickerExiting={tickerFlow.exiting}
+                  tickerOn={tickerFlow.on}
+                  tickerCategory={tickerCategory}
+                  showPortrait={showPortrait}
+                  useDynamicRenderer={useDynamicRenderer}
+                  moduleConfig={moduleConfig}
+                />
+              </div>
+              <div className="w-px bg-slate-800/80 self-stretch" />
+              <div className="flex-1 relative">
+                <span className="absolute top-1 left-2 z-10 text-[9px] font-black tracking-widest uppercase text-slate-500">EN</span>
+                <ScaledStage
+                  lang="en"
+                  nominee={liveNominee}
+                  moduleKey={liveFlow.live?.moduleKey ?? 'none'}
+                  transparent={transparent}
+                  lowerThirdMounted={liveFlow.mounted}
+                  lowerThirdExiting={liveFlow.exiting}
+                  tickerMounted={tickerFlow.mounted}
+                  tickerExiting={tickerFlow.exiting}
+                  tickerOn={tickerFlow.on}
+                  tickerCategory={tickerCategory}
+                  showPortrait={showPortrait}
+                  useDynamicRenderer={useDynamicRenderer}
+                  moduleConfig={moduleConfig}
+                />
+              </div>
+            </div>
+          ) : (
             <div
               style={{
-                width: CG_W,
-                height: CG_H,
-                transform: `scale(${programScale})`,
-                transformOrigin: 'top left',
                 position: 'absolute',
+                left: programOff.x,
+                top: programOff.y,
+                width: CG_W * programScale,
+                height: CG_H * programScale,
+                overflow: 'hidden',
               }}
             >
-              <OneShotStage
-                nominee={liveNominee}
-                lang={liveFlow.live?.lang ?? lang}
-                moduleKey={liveFlow.live?.moduleKey ?? 'none'}
-                transparent={transparent}
-                lowerThirdMounted={liveFlow.mounted}
-                lowerThirdExiting={liveFlow.exiting}
-                tickerMounted={tickerFlow.mounted}
-                tickerExiting={tickerFlow.exiting}
-                tickerOn={tickerFlow.on}
-                tickerCategory={tickerCategory}
-                showPortrait={showPortrait}
-                useDynamicRenderer={useDynamicRenderer}
-                bilingual={bilingual}
-                moduleConfig={moduleConfig}
-              />
+              <div
+                style={{
+                  width: CG_W,
+                  height: CG_H,
+                  transform: `scale(${programScale})`,
+                  transformOrigin: 'top left',
+                  position: 'absolute',
+                }}
+              >
+                <OneShotStage
+                  nominee={liveNominee}
+                  lang={liveFlow.live?.lang ?? lang}
+                  moduleKey={liveFlow.live?.moduleKey ?? 'none'}
+                  transparent={transparent}
+                  lowerThirdMounted={liveFlow.mounted}
+                  lowerThirdExiting={liveFlow.exiting}
+                  tickerMounted={tickerFlow.mounted}
+                  tickerExiting={tickerFlow.exiting}
+                  tickerOn={tickerFlow.on}
+                  tickerCategory={tickerCategory}
+                  showPortrait={showPortrait}
+                  useDynamicRenderer={useDynamicRenderer}
+                  bilingual={bilingual}
+                  moduleConfig={moduleConfig}
+                />
+              </div>
             </div>
-          </div>
+          )}
           <div
             className={cn(
               'absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-black tracking-widest uppercase border',
@@ -483,52 +526,97 @@ export default function OneShotControlPage() {
 
         <div className="p-3">
         <div className="flex flex-col xl:flex-row gap-3">
-          {/* PREVIEW thumbnail (xl+ only) */}
-          <div className="hidden xl:flex flex-col gap-1.5 shrink-0 w-full xl:w-[320px]">
+          {/* PREVIEW thumbnail (xl+ only) — v2.8.83+: 'both' で 2 つ横並び */}
+          <div className={cn(
+            "hidden xl:flex flex-col gap-1.5 shrink-0 w-full",
+            langMode === 'both' ? 'xl:w-[480px]' : 'xl:w-[320px]'
+          )}>
             <div className="flex items-center gap-1.5 text-[10px] font-black tracking-widest uppercase text-amber-500">
               <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-              PREVIEW · NEXT TAKE ({lang.toUpperCase()})
+              PREVIEW · NEXT TAKE ({langMode === 'both' ? 'JA + EN' : lang.toUpperCase()})
             </div>
             <div
               ref={previewThumbRef}
               className="relative w-full aspect-video bg-black rounded border border-slate-800 overflow-hidden"
             >
               {previewNominee ? (
-                <div
-                  style={{
-                    position: 'absolute',
-                    left: thumbOff.x,
-                    top: thumbOff.y,
-                    width: CG_W * thumbScale,
-                    height: CG_H * thumbScale,
-                    overflow: 'hidden',
-                  }}
-                >
+                langMode === 'both' ? (
+                  <div className="absolute inset-0 flex">
+                    <div className="flex-1 relative">
+                      <span className="absolute top-0.5 left-1 z-10 text-[8px] font-black tracking-widest uppercase text-slate-500">JA</span>
+                      <ScaledStage
+                        lang="ja"
+                        nominee={previewNominee}
+                        moduleKey={previewModule}
+                        transparent={transparent}
+                        lowerThirdMounted={true}
+                        lowerThirdExiting={false}
+                        tickerMounted={tickerFlow.on}
+                        tickerExiting={false}
+                        tickerOn={tickerFlow.on}
+                        tickerCategory={tickerCategory}
+                        showPortrait={showPortrait}
+                        useDynamicRenderer={useDynamicRenderer}
+                        moduleConfig={moduleConfig}
+                      />
+                    </div>
+                    <div className="w-px bg-slate-800/80 self-stretch" />
+                    <div className="flex-1 relative">
+                      <span className="absolute top-0.5 left-1 z-10 text-[8px] font-black tracking-widest uppercase text-slate-500">EN</span>
+                      <ScaledStage
+                        lang="en"
+                        nominee={previewNominee}
+                        moduleKey={previewModule}
+                        transparent={transparent}
+                        lowerThirdMounted={true}
+                        lowerThirdExiting={false}
+                        tickerMounted={tickerFlow.on}
+                        tickerExiting={false}
+                        tickerOn={tickerFlow.on}
+                        tickerCategory={tickerCategory}
+                        showPortrait={showPortrait}
+                        useDynamicRenderer={useDynamicRenderer}
+                        moduleConfig={moduleConfig}
+                      />
+                    </div>
+                  </div>
+                ) : (
                   <div
                     style={{
-                      width: CG_W,
-                      height: CG_H,
-                      transform: `scale(${thumbScale})`,
-                      transformOrigin: 'top left',
                       position: 'absolute',
+                      left: thumbOff.x,
+                      top: thumbOff.y,
+                      width: CG_W * thumbScale,
+                      height: CG_H * thumbScale,
+                      overflow: 'hidden',
                     }}
                   >
-                    <OneShotStage
-                      nominee={previewNominee}
-                      lang={lang}
-                      moduleKey={previewModule}
-                      transparent={transparent}
-                      lowerThirdMounted={true}
-                      lowerThirdExiting={false}
-                      tickerMounted={tickerFlow.on}
-                      tickerExiting={false}
-                      tickerOn={tickerFlow.on}
-                      tickerCategory={tickerCategory}
-                      showPortrait={showPortrait}
-                      useDynamicRenderer={useDynamicRenderer}
-                    />
+                    <div
+                      style={{
+                        width: CG_W,
+                        height: CG_H,
+                        transform: `scale(${thumbScale})`,
+                        transformOrigin: 'top left',
+                        position: 'absolute',
+                      }}
+                    >
+                      <OneShotStage
+                        nominee={previewNominee}
+                        lang={lang}
+                        moduleKey={previewModule}
+                        transparent={transparent}
+                        lowerThirdMounted={true}
+                        lowerThirdExiting={false}
+                        tickerMounted={tickerFlow.on}
+                        tickerExiting={false}
+                        tickerOn={tickerFlow.on}
+                        tickerCategory={tickerCategory}
+                        showPortrait={showPortrait}
+                        useDynamicRenderer={useDynamicRenderer}
+                      />
+                    </div>
                   </div>
-                </div>
+                )
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center text-[10px] text-slate-600">
                   ノミネート未選択
@@ -592,6 +680,73 @@ export default function OneShotControlPage() {
         refetchKey={['awards-oneshot-state', eventId]}
         lang={lang}
       />
+    </div>
+  );
+}
+
+// ── ScaledStage ─────────────────────────────────────────────
+// v2.8.83+: 親コンテナのサイズに合わせて 1920×1080 CG をレターボックスする内部コンポーネント。
+// langMode='both' で 2 つ並べる用途で使用。container size を ResizeObserver で計測。
+interface ScaledStageProps {
+  nominee: import('../oneshot/types').Nominee | null;
+  lang: Lang;
+  moduleKey: ModuleKey;
+  transparent: boolean;
+  lowerThirdMounted: boolean;
+  lowerThirdExiting: boolean;
+  tickerMounted: boolean;
+  tickerExiting: boolean;
+  tickerOn: boolean;
+  tickerCategory: import('../oneshot/types').TickerCategory | null;
+  showPortrait?: boolean;
+  useDynamicRenderer?: boolean;
+  moduleConfig?: import('../oneshot/types').EventModuleConfig;
+}
+
+function ScaledStage(props: ScaledStageProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(0.18);
+  const [off, setOff] = useState({ x: 0, y: 0 });
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const calc = () => {
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      if (!w || !h) return;
+      const s = Math.min(w / CG_W, h / CG_H);
+      setScale(s);
+      setOff({ x: Math.floor((w - CG_W * s) / 2), y: Math.floor((h - CG_H * s) / 2) });
+    };
+    calc();
+    const ro = new ResizeObserver(calc);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <div ref={ref} className="absolute inset-0">
+      <div
+        style={{
+          position: 'absolute',
+          left: off.x,
+          top: off.y,
+          width: CG_W * scale,
+          height: CG_H * scale,
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            width: CG_W,
+            height: CG_H,
+            transform: `scale(${scale})`,
+            transformOrigin: 'top left',
+            position: 'absolute',
+          }}
+        >
+          <OneShotStage {...props} />
+        </div>
+      </div>
     </div>
   );
 }

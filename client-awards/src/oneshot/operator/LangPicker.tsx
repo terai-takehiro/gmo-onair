@@ -47,8 +47,11 @@ export function toLangMode(lang: Lang, bilingual: boolean): LangMode {
   return lang;
 }
 
-/** LangMode → (lang, bilingual) ペアに分解 */
+/** LangMode → (lang, bilingual) ペアに分解。
+ *  v2.8.83+: 'both' でも bilingual=false (in-CG 縦スタックは廃止)。
+ *  'both' の場合は OneShotControlPage 側で **JA/EN を別々の CG として横並びプレビュー**する。
+ *  cue.lang は primary lang ('ja') を保持し、output URL は ?lang= で個別レンダリング。 */
 export function fromLangMode(mode: LangMode): { lang: Lang; bilingual: boolean } {
-  if (mode === 'both') return { lang: 'ja', bilingual: true };
+  if (mode === 'both') return { lang: 'ja', bilingual: false };
   return { lang: mode, bilingual: false };
 }
