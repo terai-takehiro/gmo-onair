@@ -9,6 +9,8 @@ export default function Headline({
 
   const projectRef = useCondense<HTMLSpanElement>([n.id, lang, isWide]);
   const nameRef = useCondense<HTMLSpanElement>([n.id, lang, isWide]);
+  const companyRef = useCondense<HTMLDivElement>([n.id, lang, isWide], 0.6);
+  const leadRef = useCondense<HTMLDivElement>([n.id, lang, isWide], 0.6);
 
   if (isTeam) {
     return (
@@ -18,8 +20,8 @@ export default function Headline({
             <span ref={projectRef}>{isJa ? n.projectName : n.projectNameEn}</span>
           </div>
           <div className="lt-affil-block">
-            <div className="lt-company">{isJa ? n.company : n.companyEn}</div>
-            <div className="lt-dept">
+            <div ref={companyRef} className="lt-company">{isJa ? n.company : n.companyEn}</div>
+            <div ref={leadRef} className="lt-dept">
               {isJa ? '代表' : 'Lead'}：{isJa ? n.name : n.nameEn}
             </div>
           </div>
@@ -38,7 +40,7 @@ export default function Headline({
           {isJa && <span className="lt-name-romaji">{n.nameEn}</span>}
         </div>
         <div className="lt-affil-block">
-          <div className="lt-company">{isJa ? n.company : n.companyEn}</div>
+          <div ref={companyRef} className="lt-company">{isJa ? n.company : n.companyEn}</div>
           <div className="lt-dept">{isJa ? n.department : n.departmentEn}</div>
         </div>
       </div>

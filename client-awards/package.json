@@ -1,7 +1,7 @@
 {
   "name": "@gmo-onair/client-awards",
   "private": true,
-  "version": "2.8.93",
+  "version": "2.8.95",
   "type": "module",
   "scripts": {
     "dev": "vite",
