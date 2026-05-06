@@ -86,6 +86,10 @@ export default function OneShotControlPage() {
 
   const nominees = useMemo(() => mapEventToNominees(event, i18nOverrides), [event, i18nOverrides]);
   const awards = useMemo(() => groupNomineesForTicker(nominees, lang), [nominees, lang]);
+  // v2.8.85+: 'both' mode のサイドバイサイド時は EN 側にも EN 版ティッカーが必要なため、
+  // JA / EN 別々にティッカーカテゴリを計算しておく。
+  const awardsJa = useMemo(() => groupNomineesForTicker(nominees, 'ja'), [nominees]);
+  const awardsEn = useMemo(() => groupNomineesForTicker(nominees, 'en'), [nominees]);
 
   // モーダル開閉
   const [dictOpen, setDictOpen] = useState(false);
@@ -308,6 +312,9 @@ export default function OneShotControlPage() {
 
   const isLive = liveFlow.mounted;
   const tickerCategory = currentAward;
+  // v2.8.85+: side-by-side ('both' mode) 用 — JA / EN 各々の ticker
+  const tickerCategoryJa = awardsJa[selectedAwardIdx] ?? null;
+  const tickerCategoryEn = awardsEn[selectedAwardIdx] ?? null;
 
   return (
     <div className="h-full flex flex-col bg-black text-slate-100 overflow-hidden">
@@ -420,7 +427,7 @@ export default function OneShotControlPage() {
                   tickerMounted={tickerFlow.mounted}
                   tickerExiting={tickerFlow.exiting}
                   tickerOn={tickerFlow.on}
-                  tickerCategory={tickerCategory}
+                  tickerCategory={tickerCategoryJa}
                   showPortrait={showPortrait}
                   useDynamicRenderer={useDynamicRenderer}
                   moduleConfig={moduleConfig}
@@ -439,7 +446,7 @@ export default function OneShotControlPage() {
                   tickerMounted={tickerFlow.mounted}
                   tickerExiting={tickerFlow.exiting}
                   tickerOn={tickerFlow.on}
-                  tickerCategory={tickerCategory}
+                  tickerCategory={tickerCategoryEn}
                   showPortrait={showPortrait}
                   useDynamicRenderer={useDynamicRenderer}
                   moduleConfig={moduleConfig}
@@ -588,7 +595,7 @@ export default function OneShotControlPage() {
                         tickerMounted={tickerFlow.on}
                         tickerExiting={false}
                         tickerOn={tickerFlow.on}
-                        tickerCategory={tickerCategory}
+                        tickerCategory={tickerCategoryJa}
                         showPortrait={showPortrait}
                         useDynamicRenderer={useDynamicRenderer}
                         moduleConfig={moduleConfig}
@@ -607,7 +614,7 @@ export default function OneShotControlPage() {
                         tickerMounted={tickerFlow.on}
                         tickerExiting={false}
                         tickerOn={tickerFlow.on}
-                        tickerCategory={tickerCategory}
+                        tickerCategory={tickerCategoryEn}
                         showPortrait={showPortrait}
                         useDynamicRenderer={useDynamicRenderer}
                         moduleConfig={moduleConfig}

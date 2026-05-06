@@ -4,11 +4,13 @@ import { getModules } from './modules/getModules';
 import DynamicModule from './modules/dynamic/DynamicModule';
 import { createDefaultEventModuleConfig } from './data/presetModules';
 import { findModuleByCueKey } from './lib/moduleKeyMap';
-import { useAnimatedHeight } from './hooks/useAnimatedHeight';
 import SlotSwitcher from './animation/SlotSwitcher';
 import AwardHeader from './headline/AwardHeader';
 import Headline from './headline/Headline';
 import Portrait from './headline/Portrait';
+// v2.8.85+: useAnimatedHeight (JS height animation) を撤去。
+// JS height anim と CSS width transition が異なる timing/easing で動いてカクツキの源だった。
+// 高さは CSS height: auto の自然リサイズに任せ、視覚的継続性は cross-dissolve で確保する。
 
 interface Props {
   nominee: Nominee;
@@ -68,8 +70,7 @@ export default function LowerThirdCG({
     ? dynamicMod?.width === 'wide'
     : (moduleKey === 'comment' || moduleKey === 'recComment'));
 
-  // 高さアニメーション (v2.8.73+: ResizeObserver で content size の変化を検知)
-  const panelRef = useAnimatedHeight<HTMLDivElement>();
+  // v2.8.85+: JS height animation 廃止 — CSS の自然リサイズ + cross-dissolve のみ
 
   return (
     <div className={'stage' + (transparent ? ' transparent' : '')}>
@@ -85,7 +86,7 @@ export default function LowerThirdCG({
         }
         key={nomineeKey}
       >
-        <div className={'lt-panel' + (showPortrait ? '' : ' no-portrait')} ref={panelRef}>
+        <div className={'lt-panel' + (showPortrait ? '' : ' no-portrait')}>
           <div className="lt-corner tl" />
           <div className="lt-corner tr" />
           <div className="lt-corner bl" />

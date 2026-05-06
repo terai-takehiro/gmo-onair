@@ -10,11 +10,10 @@
   margin-left: -600px;
   width: 1200px;
   pointer-events: none;
-  /* v2.8.81: 360ms sineInOut に短縮 + JS height animation と同期。 */
-  transition:
-    bottom 360ms cubic-bezier(.45,.05,.55,.95),
-    width 360ms cubic-bezier(.45,.05,.55,.95),
-    margin-left 360ms cubic-bezier(.45,.05,.55,.95);
+  /* v2.8.85+: width / margin-left transition を撤去 (JS との競合 + reflow を回避)。
+     wide ⇔ default の幅変化は cross-dissolve 中に snap で発生 (フェードに隠れる)。
+     bottom transition のみ残す (ticker on/off 時のせり上げ用)。 */
+  transition: bottom 360ms cubic-bezier(.45,.05,.55,.95);
 }
 /* 長文系モジュール: 幅を拡張して高さを抑える */
 .oneshot-cg-root .lower-third.wide {
