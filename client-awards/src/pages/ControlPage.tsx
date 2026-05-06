@@ -239,7 +239,7 @@ export default function ControlPage() {
           href={`/awards/output/${eventId}?lang=${previewLang}`}
           target="_blank"
           rel="noreferrer"
-          title={`PROGRAM 出力 (${previewLang.toUpperCase()})`}
+          title={`OA 出力 (${previewLang.toUpperCase()})`}
           className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors"
         >
           <ExternalLink className="h-3 w-3" />出力
@@ -300,7 +300,7 @@ export default function ControlPage() {
             )}
           >
             <span className={cn('h-1.5 w-1.5 rounded-full', isLive ? 'bg-red-500 animate-pulse' : 'bg-slate-600')} />
-            {isLive ? `PROGRAM · ON AIR (${previewLang.toUpperCase()})` : `PROGRAM · ${cue.step.toUpperCase()} (${previewLang.toUpperCase()})`}
+            {isLive ? `OA · ON AIR (${previewLang.toUpperCase()})` : `OA · ${cue.step.toUpperCase()} (${previewLang.toUpperCase()})`}
           </div>
         </div>
 
@@ -417,7 +417,7 @@ function StatusBar({ isLive, liveStep, liveCategory, nextStep, nextCategory }: {
             'text-[9px] font-black tracking-widest',
             isLive ? 'text-red-400' : 'text-slate-400',
           )}>
-            PROGRAM
+            OA
           </span>
           <span className={cn(
             'text-sm font-black tracking-wider',

@@ -764,7 +764,7 @@ export default function EventEditorPage() {
             </p>
             <p className="text-xs text-muted-foreground">
               operator が選択中の「次に送出する CG 内容」をリアルタイム表示。副調整室の director 用モニターに使用。
-              PROGRAM (LIVE) URL とは独立して別タブ・別ブラウザソースで開けます。
+              OA (LIVE) URL とは独立して別タブ・別ブラウザソースで開けます。
             </p>
             <div className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">表彰CG NEXT</div>
             {[

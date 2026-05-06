@@ -500,14 +500,14 @@ export default function OneShotControlPage() {
             )}
           >
             <span className={cn('h-1.5 w-1.5 rounded-full', isLive ? 'bg-red-500 animate-pulse' : 'bg-slate-600')} />
-            {isLive ? `PROGRAM · ON AIR (${lang.toUpperCase()})` : `PROGRAM · OFF (${lang.toUpperCase()})`}
+            {isLive ? `OA · ON AIR (${lang.toUpperCase()})` : `OA · OFF (${lang.toUpperCase()})`}
           </div>
           {/* v2.8.82: TICKER ON 時は overlay 非表示。ティッカーだけ流している状態を
               「白線が出てる」と誤認させないため、ティッカーの存在をそのまま見せる。 */}
           {!isLive && !tickerFlow.on && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="text-center text-slate-300">
-                <div className="text-[10px] font-black tracking-widest uppercase mb-1">PROGRAM OFF</div>
+                <div className="text-[10px] font-black tracking-widest uppercase mb-1">OA OFF</div>
                 <div className="text-[9px] font-medium tracking-widest">Press TAKE to send</div>
               </div>
             </div>
