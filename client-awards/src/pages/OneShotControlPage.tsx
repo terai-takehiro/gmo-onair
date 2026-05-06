@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ExternalLink, Radio, Subtitles, Trophy, Languages, Database } from 'lucide-react';
+import { ChevronLeft, ExternalLink, Radio, Subtitles, Trophy, Languages, Database, Maximize2, Minimize2 } from 'lucide-react';
+import { useFullscreen } from '@/hooks/useFullscreen';
 
 import OneShotStage from '../oneshot/OneShotStage';
 import LangPicker, { fromLangMode, toLangMode, type LangMode } from '../oneshot/operator/LangPicker';
@@ -150,7 +151,8 @@ export default function OneShotControlPage() {
   const liveFlow = useTakeFlow<LiveSnapshot>({ nomineeId: '', moduleKey: 'none', lang });
   const tickerFlow = useTickerToggle(false);
 
-  const { cue, sendCue } = useOneShotCue(isNaN(eventId) ? null : eventId);
+  const { cue, sendCue, sendNextCue } = useOneShotCue(isNaN(eventId) ? null : eventId);
+  const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
 
   // v2.8.84+: 初期マウント時に DB に保存された cue (= 直前の broadcast 状態) を operator
   // 側に同期。これがないと operator UI は default (PROGRAM OFF) で開くのに、output URL は
@@ -231,6 +233,23 @@ export default function OneShotControlPage() {
     const next = fromLangMode(mode);
     sendCue({ ...cue, lang: next.lang, bilingual: false });
   };
+
+  // v2.8.98+: NEXT (送出予約) を broadcast。preview 状態が変化するたびに socket emit。
+  // NEXT 出力 URL (/awards/output/:eventId/oneshot/next) はこの sync を購読して描画。
+  useEffect(() => {
+    if (!previewNominee) return;
+    sendNextCue({
+      entryId: nomineeDbId(previewNominee),
+      moduleKey: previewModule,
+      tickerOn: tickerFlow.on,
+      tickerCatIdx: selectedAwardIdx,
+      transparent,
+      lang,
+      isLive: true, // NEXT 出力では常に表示
+      showPortrait,
+      bilingual: false,
+    });
+  }, [previewNominee, previewModule, tickerFlow.on, selectedAwardIdx, transparent, lang, showPortrait, sendNextCue]);
 
   // ↑↓ で フィルタ済みノミネート間を循環
   const goPrev = () => {
@@ -381,6 +400,13 @@ export default function OneShotControlPage() {
           <ExternalLink className="h-3 w-3" />
           出力
         </a>
+        <button
+          onClick={toggleFullscreen}
+          title={isFullscreen ? '全画面解除 (F)' : '全画面表示 (F)'}
+          className="flex items-center justify-center h-8 w-8 rounded-lg bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors"
+        >
+          {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+        </button>
       </header>
 
       {/* ── Middle: PROGRAM + Nominee panel ─────────────── */}
@@ -519,7 +545,7 @@ export default function OneShotControlPage() {
             ノミネート + モジュールをテキストで簡潔に表示) */}
         <div className="xl:hidden flex items-center gap-2 px-3 py-1.5 text-[11px] border-b border-slate-800/80 bg-black/30">
           <span className="font-black tracking-widest uppercase text-amber-500 shrink-0">
-            PREVIEW · {langMode === 'both' ? 'JA+EN' : lang.toUpperCase()}
+            NEXT · 送出予約 ({langMode === 'both' ? 'JA+EN' : lang.toUpperCase()})
           </span>
           {previewNominee ? (
             <>
@@ -547,7 +573,7 @@ export default function OneShotControlPage() {
           )}>
             <div className="flex items-center gap-1.5 text-[10px] font-black tracking-widest uppercase text-amber-500">
               <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-              PREVIEW · NEXT TAKE ({langMode === 'both' ? 'JA + EN' : lang.toUpperCase()})
+              NEXT · 送出予約 ({langMode === 'both' ? 'JA + EN' : lang.toUpperCase()})
             </div>
             <div
               ref={previewThumbRef}

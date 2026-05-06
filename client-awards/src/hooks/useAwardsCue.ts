@@ -1,7 +1,7 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useAwardsStore } from '@/cg/useStore';
 import { getAwardsSocket, disconnectAwardsSocket } from '@/lib/socket';
-import type { CgStep, OneshotStyle } from '@/cg/types';
+import type { CgStep, OneshotStyle, CgCueState } from '@/cg/types';
 
 export function useAwardsCue(eventId: number | null) {
   const { cue, setCue } = useAwardsStore();
@@ -50,5 +50,55 @@ export function useAwardsCue(eventId: number | null) {
     setCue(payload);
   }, [eventId, cue, setCue]);
 
-  return { cue, sendCue };
+  // v2.8.98+: NEXT (送出予約) cue を broadcast。LIVE には反映せず operator+NEXT 出力 URL のみ同期。
+  const sendNextCue = useCallback((next: CgCueState) => {
+    if (!eventId) return;
+    const socket = getAwardsSocket(eventId);
+    socket.emit('cue:nextSet', {
+      step: next.step,
+      categoryId: next.categoryId,
+      oneshotStyle: next.oneshotStyle,
+    });
+  }, [eventId]);
+
+  return { cue, sendCue, sendNextCue };
+}
+
+// v2.8.98+: NEXT 出力 URL 用 — broadcast された preview 状態を購読する。
+export function useAwardsNextCue(eventId: number | null) {
+  const [nextCue, setNextCue] = useState<CgCueState>({
+    step: 'idle',
+    categoryId: null,
+    oneshotStyle: 'classic',
+  });
+  const connectedRef = useRef(false);
+
+  useEffect(() => {
+    if (!eventId) return;
+    const socket = getAwardsSocket(eventId);
+    connectedRef.current = true;
+
+    const onSync = (data: {
+      step: CgStep;
+      categoryId: number | null;
+      oneshotStyle: OneshotStyle;
+    }) => {
+      setNextCue({
+        step: data.step,
+        categoryId: data.categoryId,
+        oneshotStyle: data.oneshotStyle,
+      });
+    };
+    socket.on('cue:nextSync', onSync);
+
+    return () => {
+      socket.off('cue:nextSync', onSync);
+      if (connectedRef.current) {
+        // 他の useAwardsCue 利用者と socket を共有しているので disconnect しない
+        connectedRef.current = false;
+      }
+    };
+  }, [eventId]);
+
+  return { nextCue };
 }

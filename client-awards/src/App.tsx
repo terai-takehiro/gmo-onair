@@ -9,6 +9,8 @@ import OutputPage from './pages/OutputPage';
 import LoginPage from './pages/LoginPage';
 import OneShotControlPage from './pages/OneShotControlPage';
 import OneShotOutputPage from './pages/OneShotOutputPage';
+import OneShotOutputNextPage from './pages/OneShotOutputNextPage';
+import OutputNextPage from './pages/OutputNextPage';
 import ModuleConfigEditPage from './pages/ModuleConfigEditPage';
 
 // 出力ページ (/awards/output/*) はuseAuthを使わない独立ルーター
@@ -17,7 +19,10 @@ function OutputRouter() {
   return (
     <BrowserRouter basename="/awards">
       <Routes>
+        {/* v2.8.98+: NEXT (送出予約) 出力 URL — 副調整室向け */}
+        <Route path="/output/:eventId/oneshot/next" element={<OneShotOutputNextPage />} />
         <Route path="/output/:eventId/oneshot" element={<OneShotOutputPage />} />
+        <Route path="/output/:eventId/next" element={<OutputNextPage />} />
         <Route path="/output/:eventId" element={<OutputPage />} />
       </Routes>
     </BrowserRouter>
