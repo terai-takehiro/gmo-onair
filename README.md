@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.90 — 表彰CG: 不要コード一括整理 (legacy module / useAnimatedHeight / bilingual stacking 削除)
+**現在のバージョン**: v2.8.91 — 表彰CG: アニメーション消失バグ修正 (FLIP ResizeObserver の stale closure を nomineeKey deps で再接続)
 
 ---
 

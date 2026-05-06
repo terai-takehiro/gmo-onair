@@ -59,6 +59,9 @@ export default function LowerThirdCG({
   const isWide = isTeam || dynamicMod?.width === 'wide';
 
   // FLIP smooth resize via ResizeObserver (transform: scale で GPU 加速)
+  // 注意: nomineeKey が変化すると `.lower-third` (親) が remount され .lt-panel も
+  // 新しい DOM 要素になるため、deps に nomineeKey を含めて Observer を再接続する。
+  // (空 deps だと初回 mount 時の el を closure で掴み続けて stale Observer になる)
   const panelRef = useRef<HTMLDivElement>(null);
   const prevSizeRef = useRef<{ w: number; h: number } | null>(null);
   const animatingRef = useRef(false);
@@ -66,6 +69,10 @@ export default function LowerThirdCG({
     const el = panelRef.current;
     if (!el) return;
     if (typeof ResizeObserver === 'undefined') return;
+
+    // remount 時は前回サイズをリセット (新しい DOM での初測定は記録のみ)
+    prevSizeRef.current = null;
+    animatingRef.current = false;
 
     const observer = new ResizeObserver(() => {
       // 進行中アニメ中は新規 trigger をスキップ (連続クリック時のジャンプ回避)
@@ -114,7 +121,7 @@ export default function LowerThirdCG({
     return () => {
       observer.disconnect();
     };
-  }, []);
+  }, [nomineeKey]);
 
   return (
     <div className={'stage' + (transparent ? ' transparent' : '')}>
