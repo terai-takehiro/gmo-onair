@@ -7,7 +7,9 @@ const router = Router();
 const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
   (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
 
-router.use(requireAuth, requirePermission('awards'));
+// v2.8.95: パススコープを明示 (パス無し router.use は他 router 担当のリクエストにも
+// 発火して 401 を返してしまうため)。
+router.use(['/categories', '/entries'], requireAuth, requirePermission('awards'));
 
 /** ポイント降順でランクを自動再計算し is_winner を更新する */
 async function rerank(categoryId: number): Promise<void> {

@@ -68,7 +68,10 @@ router.get('/events/:id/module-config', wrap(async (req, res) => {
   res.json({ success: true, data: row.module_config ?? null });
 }));
 
-router.use(requireAuth, requirePermission('awards'));
+// v2.8.95: パススコープを明示。`router.use(mw)` (パス無し) は router 内のすべての
+// リクエストで発火するため、`/awards/images/...` 等の他 router 担当のパスが
+// この router を通過する際に誤って 401 で蹴られる不具合を起こしていた。
+router.use(['/events', '/box-backups'], requireAuth, requirePermission('awards'));
 
 // ── 一覧 ────────────────────────────────────────────────────
 router.get('/events', wrap(async (_req, res) => {

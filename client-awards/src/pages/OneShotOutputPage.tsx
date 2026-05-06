@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
@@ -22,7 +22,8 @@ interface OneShotEventOutput {
 }
 
 // 放送送出ページ (HTML5 Graphics):
-//   ・1920×1080px **固定** (ブラウザソースは 1920×1080 で作成すること)
+//   ・OBS 等のブラウザソースを 1920×1080 で作成すれば 1:1 (scale=1) で native 表示
+//   ・通常ブラウザで開いた場合は viewport にフィットさせて縮小プレビュー (ranking CG と同じ挙動)
 //   ・背景は **常に透過** (operator の透過トグルは preview 用、実出力には影響なし)
 //   ・operator から socket で受けた cue だけを描画
 export default function OneShotOutputPage() {
@@ -36,6 +37,26 @@ export default function OneShotOutputPage() {
   useEffect(() => {
     document.body.setAttribute('data-output-transparent', '');
     return () => document.body.removeAttribute('data-output-transparent');
+  }, []);
+
+  // v2.8.95: viewport にフィットさせるスケール (ranking CG OutputPage / Stage と同じ方式)。
+  // OBS browser source = 1920×1080 のときは scale=1 で 1:1、それ以外は最小縮小率で中央寄せ。
+  const [scale, setScale] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  useEffect(() => {
+    const updateScale = () => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const s = Math.min(w / CG_W, h / CG_H);
+      setScale(s);
+      setOffset({
+        x: Math.max(0, (w - CG_W * s) / 2),
+        y: Math.max(0, (h - CG_H * s) / 2),
+      });
+    };
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
   }, []);
 
   const { data: event } = useQuery({
@@ -74,35 +95,45 @@ export default function OneShotOutputPage() {
 
   if (!event) return null;
 
-  // v2.8.84+: HTML5 Graphics は 1920×1080 固定、scaling 無し。
-  // ブラウザソース (OBS 等) を 1920×1080 で作成すれば native 表示。
+  // v2.8.95: 1920×1080 の論理キャンバスを viewport にフィットさせて表示。
+  // OBS の 1920×1080 browser source では scale=1 で 1:1 ネイティブ表示、
+  // それ以外のブラウザでは縮小して中央配置 (ranking CG と同じ挙動)。
   return (
     <div
       style={{
-        width: CG_W,
-        height: CG_H,
         position: 'fixed',
-        top: 0,
-        left: 0,
+        inset: 0,
         background: 'transparent',
         overflow: 'hidden',
       }}
     >
-      <OneShotStage
-        nominee={liveNominee}
-        lang={lang}
-        moduleKey={moduleKey}
-        // v2.8.84+: 実出力は **常に透過固定**。cue.transparent は operator preview 用のみ。
-        transparent={true}
-        lowerThirdMounted={cue.isLive}
-        lowerThirdExiting={false}
-        tickerMounted={tickerOn}
-        tickerExiting={false}
-        tickerOn={tickerOn}
-        tickerCategory={currentTicker}
-        showPortrait={showPortrait}
-        moduleConfig={moduleConfig}
-      />
+      <div
+        style={{
+          position: 'absolute',
+          top: offset.y,
+          left: offset.x,
+          width: CG_W,
+          height: CG_H,
+          transformOrigin: 'top left',
+          transform: `scale(${scale})`,
+        }}
+      >
+        <OneShotStage
+          nominee={liveNominee}
+          lang={lang}
+          moduleKey={moduleKey}
+          // v2.8.84+: 実出力は **常に透過固定**。cue.transparent は operator preview 用のみ。
+          transparent={true}
+          lowerThirdMounted={cue.isLive}
+          lowerThirdExiting={false}
+          tickerMounted={tickerOn}
+          tickerExiting={false}
+          tickerOn={tickerOn}
+          tickerCategory={currentTicker}
+          showPortrait={showPortrait}
+          moduleConfig={moduleConfig}
+        />
+      </div>
     </div>
   );
 }

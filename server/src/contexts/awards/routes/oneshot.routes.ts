@@ -59,7 +59,9 @@ router.get('/events/:id/oneshot/output', wrap(async (req, res) => {
 }));
 
 // 以降は認証必須
-router.use(requireAuth, requirePermission('awards'));
+// v2.8.95: パススコープを明示 (パス無し router.use は他 router 担当のリクエストにも
+// 発火して 401 を返してしまうため)。
+router.use(['/events', '/entries'], requireAuth, requirePermission('awards'));
 
 // ── operator 用: イベント詳細 + 現在の cue state ─────────────
 router.get('/events/:id/oneshot/state', wrap(async (req, res) => {
