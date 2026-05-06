@@ -41,6 +41,47 @@ export const STRIP_BOTTOM_Y = 990;
 export const STRIP_GAP = 12;
 export const STRIP_MAX_W = 1720;
 
+// ── TOP 3 horizontal stage (ranks 1-3 横並び) ────────────────
+// 同サイズ・等間隔の 3 枠を左から 1 位 / 2 位 / 3 位 の順で並べる。
+// サイズ階層は撤廃し、1 位は金枠＋ソフトグローで区別する。
+// 配置は NOMINEES グリッド (写真 4:3 portrait + 下ラベル) と同じ
+// 構造を踏襲し、巨大化させたバージョンとして見せる。
+export const TOP3_STAGE_TOP = 300;       // 永続ヘッダー (y≈68-192) と被らない位置
+export const TOP3_CARD_W = 380;
+export const TOP3_CARD_H = 506;          // 380 * 4/3 ≒ 506 (nominees と同 4:3 portrait)
+export const TOP3_GAP = 56;
+export const TOP3_LABEL_GAP = 24;        // 写真とラベルの隙間
+const TOP3_TOTAL_W = TOP3_CARD_W * 3 + TOP3_GAP * 2;
+const TOP3_START_X = (CG_W - TOP3_TOTAL_W) / 2;
+
+export interface Top3Pos {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  emphasize: boolean;
+  nameSize: number;
+  companySize: number;
+  ptSize: number;
+}
+
+const top3PosFor = (slotIndex: number, emphasize: boolean): Top3Pos => ({
+  x: TOP3_START_X + slotIndex * (TOP3_CARD_W + TOP3_GAP),
+  y: TOP3_STAGE_TOP,
+  w: TOP3_CARD_W,
+  h: TOP3_CARD_H,
+  emphasize,
+  nameSize: 36,
+  companySize: 20,
+  ptSize: 60,
+});
+
+export const TOP3_POS: Record<1 | 2 | 3, Top3Pos> = {
+  1: top3PosFor(0, true),
+  2: top3PosFor(1, false),
+  3: top3PosFor(2, false),
+};
+
 // ── Nominees grid ─────────────────────────────────────────────
 export const NOM_PAD_TOP = 340;
 export const NOM_PAD_X = 100;

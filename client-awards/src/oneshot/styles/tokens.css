@@ -1,0 +1,19 @@
+/* ============================================================
+   1S CG (アワード下部テロップ) デザイントークン
+   ※ ここに定義した変数は CG 出力本体のみで使用。operator UI 側は
+      既存 client-awards の Tailwind パレット (slate/red/amber) を踏襲。
+   ============================================================ */
+.oneshot-cg-root {
+  --gold: #c9a961;
+  --gold-bright: #e8c97c;
+  --gold-dim: #8c7644;
+  --silver: #c0c4cc;
+  --bg-panel: rgba(8, 11, 16, 0.88);
+  --bg-panel-2: rgba(14, 18, 26, 0.82);
+  --line: rgba(201, 169, 97, 0.45);
+  --line-strong: rgba(201, 169, 97, 0.85);
+  --text: #f4ecd8;
+  --text-dim: #c8c1ae;
+  --text-mute: #908871;
+  --font-jp: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", "Meiryo", system-ui, sans-serif;
+}

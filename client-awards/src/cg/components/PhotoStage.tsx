@@ -124,6 +124,10 @@ export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }:
       if (r === 1) return true;
       return insertProgress[r] !== true;
     }
+    if (stepKey === 'top3') {
+      // rank 1-3 は TOP3 ステージへ、それ以外は非表示（strip も使わない）。
+      return false;
+    }
     if (stepKey === 'winner-bar') {
       if (r == null) return true;
       if (r === 1) return true;
@@ -171,6 +175,27 @@ export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }:
         w: p.w,
         h: p.h,
         opacity: isWinnerFading ? 0 : 1,
+        zIndex: 2,
+      };
+    }
+
+    if (stepKey === 'top3') {
+      // BEST3 写真本体は StepTop3 が独立して描画する。ここでは前ステップ
+      // (主に nominees) の位置に留まったまま fade out するだけにして、
+      // 「写真がグリッドから TOP3 位置へ動いて結果がバレる」現象を回避。
+      const { cols, photoW, photoH, cardW, gap, startY, cardH } = gridLayout;
+      const col = idxInOrig % cols;
+      const row = Math.floor(idxInOrig / cols);
+      const N = nominees.length;
+      const rowCount = Math.min(cols, N - row * cols);
+      const rowTotalW = rowCount * cardW + (rowCount - 1) * gap;
+      const rowStartX = (CG_W - rowTotalW) / 2 + 12;
+      return {
+        x: rowStartX + col * (cardW + gap),
+        y: startY + row * (cardH + gap),
+        w: photoW,
+        h: photoH,
+        opacity: 0,
         zIndex: 2,
       };
     }

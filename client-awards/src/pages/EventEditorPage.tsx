@@ -15,8 +15,13 @@ import { CSS } from '@dnd-kit/utilities';
 import {
   Trophy, ChevronLeft, Plus, Trash2, Check, X, GripVertical,
   Upload, RefreshCw, Tv2, Shuffle, FileSpreadsheet, ExternalLink, Copy,
-  ChevronDown, ChevronRight,
+  ChevronDown, ChevronRight, Subtitles, Download, RotateCcw,
 } from 'lucide-react';
+import ExcelImportDialog from '../oneshot/operator/ExcelImportDialog';
+import {
+  fetchEventModuleConfig, saveEventModuleConfig,
+} from '../oneshot/lib/moduleConfig';
+import { createDefaultEventModuleConfig } from '../oneshot/data/presetModules';
 
 // ── Types ───────────────────────────────────────────────────
 interface Entry {
@@ -261,6 +266,7 @@ export default function EventEditorPage() {
   const [activeTab, setActiveTab] = useState<'info' | 'categories'>('categories');
   const [newCatName, setNewCatName] = useState('');
   const [addingCat, setAddingCat] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const { data: event, isLoading } = useQuery({
     queryKey: ['awards-event', eventId],
@@ -423,23 +429,7 @@ export default function EventEditorPage() {
     onSuccess: invalidate,
   });
 
-  const importExcel = async (file: File) => {
-    const fd = new FormData();
-    fd.append('file', file);
-    try {
-      const res = await api.post(`/awards/events/${eventId}/import-excel`, fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      const d = res.data.data as { totalInserted: number; categories: { name: string; inserted: number }[]; warnings: string[] };
-      const catSummary = d.categories.map((c) => `${c.name}: ${c.inserted}件`).join(', ');
-      const msg = `インポート完了: ${d.totalInserted}件 (${catSummary})`;
-      const warnings = d.warnings?.length ? `\n⚠ ${d.warnings.join('\n⚠ ')}` : '';
-      alert(msg + warnings);
-      invalidate();
-    } catch (err: any) {
-      alert(`インポートエラー: ${err?.response?.data?.error?.message ?? err.message}`);
-    }
-  };
+  // 旧 importExcel (alert ベース) は ExcelImportDialog に置き換え済み
 
   const importImages = async (files: FileList) => {
     const fd = new FormData();
@@ -531,6 +521,14 @@ export default function EventEditorPage() {
             ))}
           </select>
           <button
+            onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
+            className="flex items-center gap-1.5 rounded-lg border border-amber-500/60 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-500/20 transition-colors"
+            title="表彰CG (下部テロップ) のオペレーター画面"
+          >
+            <Subtitles className="h-3.5 w-3.5" />
+            表彰CG
+          </button>
+          <button
             onClick={() => navigate(`/event/${eventId}/control`)}
             className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition-colors"
           >
@@ -578,13 +576,14 @@ export default function EventEditorPage() {
               <Shuffle className="h-4 w-4" />
               ダミーデータ
             </button>
-            <label className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm hover:bg-muted transition-colors cursor-pointer text-muted-foreground">
+            <button
+              onClick={() => setImportOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm hover:bg-muted transition-colors text-muted-foreground"
+              title="Excel をアップロードして列マッピング画面で取り込み"
+            >
               <FileSpreadsheet className="h-4 w-4" />
               Excelインポート
-              <input type="file" accept=".xlsx,.xls" className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) importExcel(f); e.target.value = ''; }}
-              />
-            </label>
+            </button>
             <label
               className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm hover:bg-muted transition-colors cursor-pointer text-muted-foreground"
               title="フォルダを選択。ファイル名（拡張子除く）が「画像ID」または「ノミネート名／英語名」と一致する写真を一括登録します"
@@ -724,8 +723,191 @@ export default function EventEditorPage() {
               );
             })}
           </div>
+
+          <div className="pt-2 border-t space-y-2">
+            <p className="text-sm font-medium flex items-center gap-1.5">
+              <Subtitles className="h-3.5 w-3.5 text-amber-600" />
+              表彰CG 出力URL（下部テロップ）
+            </p>
+            <p className="text-xs text-muted-foreground">
+              「表彰CG オペレーター」と同じイベントを送出するブラウザソース URL。
+              ランキングCG とは別レイヤーとして並走可能。
+            </p>
+            {[
+              { label: '🇯🇵 日本語', lang: 'ja' },
+              { label: '🇺🇸 English', lang: 'en' },
+            ].map(({ label, lang }) => {
+              const url = `${window.location.origin}/awards/output/${event.id}/oneshot?lang=${lang}`;
+              return (
+                <div key={lang} className="flex items-center gap-2">
+                  <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
+                  <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
+                  <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
+                    className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                    <Copy className="h-3 w-3" />コピー
+                  </button>
+                  <a href={url} target="_blank" rel="noopener noreferrer"
+                    className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                    <ExternalLink className="h-3 w-3" />開く
+                  </a>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
+
+      {/* ── 表彰CG モジュール構成 (Stage 3: JSON エクスポート/インポート) ── */}
+      {event && <ModuleConfigSection eventId={event.id} />}
+
+      {/* ── Excel Import Dialog ─────────────────────────────── */}
+      <ExcelImportDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        eventId={eventId}
+        onImported={() => invalidate()}
+      />
+    </div>
+  );
+}
+
+// ── 表彰CG モジュール構成 セクション (v2.8.74+) ────────────
+// イベントごとの ModuleDef[] (送出モジュール構成) を編集 + JSON I/O。
+// 段階4 (v2.8.75+) で「編集ページへ」ボタンを追加。
+function ModuleConfigSection({ eventId }: { eventId: number }) {
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExport = async () => {
+    setBusy(true);
+    setStatus(null);
+    try {
+      // サーバーが null を返した場合 (= まだ未編集) はデフォルトプリセットをエクスポート
+      const remote = await fetchEventModuleConfig(eventId);
+      const config = remote ?? createDefaultEventModuleConfig();
+      const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `oneshot-module-config_event-${eventId}_${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setStatus({ kind: 'ok', msg: 'JSON をエクスポートしました' });
+    } catch (e) {
+      setStatus({ kind: 'err', msg: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleImport = async (file: File) => {
+    setBusy(true);
+    setStatus(null);
+    try {
+      const text = await file.text();
+      const config = JSON.parse(text);
+      if (config.version !== 1 || !Array.isArray(config.modules)) {
+        throw new Error('JSON 形式が不正です (version=1, modules:[] を含む必要があります)');
+      }
+      await saveEventModuleConfig(eventId, config);
+      setStatus({ kind: 'ok', msg: `インポート完了 (${config.modules.length} モジュール)` });
+    } catch (e) {
+      setStatus({ kind: 'err', msg: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleReset = async () => {
+    if (!window.confirm('モジュール構成をデフォルトプリセットに戻しますか？')) return;
+    setBusy(true);
+    setStatus(null);
+    try {
+      await saveEventModuleConfig(eventId, null);
+      setStatus({ kind: 'ok', msg: 'デフォルトプリセットに戻しました' });
+    } catch (e) {
+      setStatus({ kind: 'err', msg: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl bg-card border border-border p-4 sm:p-6 space-y-4">
+      <div className="flex items-start gap-2">
+        <Subtitles className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-bold flex items-center gap-2">
+            表彰CG モジュール構成
+            <span className="text-[10px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+              段階3 (JSON I/O)
+            </span>
+          </h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            送出モジュール (タイトル / 尊敬ポイント / 得意技 等) の構成を JSON でエクスポート/インポートできます。
+            別イベント・別環境への移植や BOX への手動バックアップに利用してください。
+            DB 自動バックアップ (3 時間ごと BOX) でもこの設定は保護されます。
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => navigate(`/event/${eventId}/oneshot/modules`)}
+          className="flex items-center gap-1.5 rounded-lg bg-amber-600 text-white hover:bg-amber-500 px-3 py-2 text-xs font-bold transition-colors"
+        >
+          <Subtitles className="h-3.5 w-3.5" />
+          モジュール編集
+        </button>
+        <button
+          onClick={handleExport}
+          disabled={busy}
+          className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <Download className="h-3.5 w-3.5" />
+          JSON エクスポート
+        </button>
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={busy}
+          className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <Upload className="h-3.5 w-3.5" />
+          JSON インポート
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) handleImport(f);
+            e.target.value = '';
+          }}
+        />
+        <button
+          onClick={handleReset}
+          disabled={busy}
+          className="flex items-center gap-1.5 rounded-lg border border-red-300 text-red-700 px-3 py-2 text-xs font-bold hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          title="デフォルトプリセット (タイトル / 尊敬ポイント など 7 種) に戻す"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          プリセットに戻す
+        </button>
+        {status && (
+          <span
+            className={cn(
+              'text-xs font-medium px-2 py-1 rounded',
+              status.kind === 'ok' ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' : 'text-red-700 bg-red-50 border border-red-200'
+            )}
+          >
+            {status.msg}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

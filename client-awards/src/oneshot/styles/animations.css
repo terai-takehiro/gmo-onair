@@ -1,0 +1,71 @@
+/* ============================================================
+   1S CG トランジション (vMix Mergeライク)
+   .oneshot-cg-root スコープ配下のみに適用。
+   ============================================================ */
+
+/* 文字単位パタパタ → vMix風シンプルフェード */
+.oneshot-cg-root .flap-char {
+  display: inline-block;
+  animation: oscg-flapIn 320ms cubic-bezier(.25,.8,.3,1) both;
+}
+@keyframes oscg-flapIn {
+  0%   { opacity: 0; transform: translateY(2px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* ブロック入場フェード */
+.oneshot-cg-root .flap-block {
+  animation: oscg-flapBlockIn 360ms cubic-bezier(.25,.8,.3,1) both;
+}
+@keyframes oscg-flapBlockIn {
+  0%   { opacity: 0; transform: translateY(4px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* スロット切替 (シンプルなクロスディゾルブ ~360ms)
+   旧コンテンツ fade-out 180ms + 新コンテンツ fade-in 240ms (30% delay で overlap)。
+   サイズ変化は LowerThirdCG の FLIP (transform: scale) が GPU 加速で並走。 */
+.oneshot-cg-root .slot-fade-out-seq {
+  animation: oscg-slotFadeOutSeq 180ms cubic-bezier(.4,0,.6,1) forwards;
+}
+@keyframes oscg-slotFadeOutSeq {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+.oneshot-cg-root .slot-fade-in-seq {
+  animation: oscg-slotFadeInSeq 240ms cubic-bezier(.25,.8,.3,1) both;
+}
+@keyframes oscg-slotFadeInSeq {
+  0%   { opacity: 0; }
+  30%  { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+/* メインフレーム入場 (vMix Merge風: 下からスッと上がってフェードイン) */
+.oneshot-cg-root .lt-enter {
+  animation: oscg-ltEnter 480ms cubic-bezier(.25,.8,.3,1) both;
+}
+@keyframes oscg-ltEnter {
+  0%   { transform: translateY(24px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+/* メインフレーム退場 */
+.oneshot-cg-root .lt-exit {
+  animation: oscg-ltExit 380ms cubic-bezier(.4,0,.6,1) forwards;
+  pointer-events: none;
+}
+@keyframes oscg-ltExit {
+  0%   { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(20px); opacity: 0; }
+}
+
+/* ゴールドバー: 入場時に静かに伸びる */
+.oneshot-cg-root .lt-enter .lt-panel::before {
+  animation: oscg-goldBarGrow 400ms cubic-bezier(.25,.8,.3,1) 80ms both;
+  transform-origin: 50% 100%;
+}
+@keyframes oscg-goldBarGrow {
+  0%   { transform: scaleY(0); }
+  100% { transform: scaleY(1); }
+}

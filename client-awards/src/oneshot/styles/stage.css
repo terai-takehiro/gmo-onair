@@ -1,0 +1,26 @@
+/* ============================================================
+   ステージ (1920x1080)
+   テロップなので背景は透過。operator のプレビューでは市松柄で見やすく。
+   ============================================================ */
+.oneshot-cg-root .stage {
+  position: relative;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  font-feature-settings: "palt";
+  font-family: var(--font-jp);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+  background:
+    linear-gradient(45deg, #1d2128 25%, transparent 25%) 0 0 / 24px 24px,
+    linear-gradient(-45deg, #1d2128 25%, transparent 25%) 0 0 / 24px 24px,
+    linear-gradient(45deg, transparent 75%, #1d2128 75%) 0 0 / 24px 24px,
+    linear-gradient(-45deg, transparent 75%, #1d2128 75%) 0 0 / 24px 24px,
+    #14171d;
+}
+
+/* 本番出力用: stage に transparent クラスをつけると完全透過 */
+.oneshot-cg-root .stage.transparent {
+  background: transparent;
+}

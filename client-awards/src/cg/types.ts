@@ -3,6 +3,7 @@ export type CgStep =
   | 'title'
   | 'nominees'
   | 'ranks52'
+  | 'top3'
   | 'winner-bar'
   | 'oneshot';
 

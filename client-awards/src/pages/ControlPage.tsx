@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAwardsCue } from '@/hooks/useAwardsCue';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ExternalLink, Trophy, Radio } from 'lucide-react';
+import { ChevronLeft, ExternalLink, Trophy, Radio, Subtitles } from 'lucide-react';
 import type { CgStep, OneshotStyle, CgCategory, CgCueState } from '@/cg/types';
 import CGFrame from '@/cg/CGFrame';
 import { CG_W, CG_H } from '@/cg/types';
@@ -31,6 +31,7 @@ const STEPS: { step: CgStep; label: string; desc: string; color: 'neutral' | 'li
   { step: 'title',      label: 'TITLE',      desc: 'タイトルカード',    color: 'neutral' },
   { step: 'nominees',   label: 'NOMINEES',   desc: 'ノミネート一覧',    color: 'live'    },
   { step: 'ranks52',    label: 'RANKS 5→2',  desc: 'ランキングバー',    color: 'live'    },
+  { step: 'top3',       label: 'BEST 3',     desc: '一覧から TOP3 一気発表', color: 'award' },
   { step: 'winner-bar', label: 'WINNER BAR', desc: '大賞引きバー',      color: 'award'   },
   { step: 'oneshot',    label: 'ONE SHOT',   desc: '大賞フルスクリーン', color: 'award'  },
 ];
@@ -40,7 +41,7 @@ const ONESHOT_STYLES: { style: OneshotStyle; label: string }[] = [
   { style: 'spotlight', label: 'Spotlight' },
   { style: 'slit',      label: 'Slit'      },
 ];
-const LIVE_STEPS: CgStep[] = ['nominees', 'ranks52', 'winner-bar', 'oneshot'];
+const LIVE_STEPS: CgStep[] = ['nominees', 'ranks52', 'top3', 'winner-bar', 'oneshot'];
 
 export default function ControlPage() {
   const { id } = useParams<{ id: string }>();
@@ -104,6 +105,15 @@ export default function ControlPage() {
         <span className="text-[10px] font-black text-slate-400 tracking-widest uppercase">CONTROL</span>
         {event && <span className="text-xs text-slate-600 truncate hidden sm:block">{event.name}</span>}
         <div className="flex-1" />
+        {/* 回遊性: 同イベントの表彰CG (下位置/下部テロップ) コントロールへ直接ジャンプ */}
+        <button
+          onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
+          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-[10px] font-black tracking-widest uppercase text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors"
+          title="表彰CG コントロールへ"
+        >
+          <Subtitles className="h-3 w-3" />
+          表彰CG
+        </button>
         <div className={cn(
           'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black tracking-widest uppercase transition-all',
           isLive
@@ -262,7 +272,7 @@ function StepRow({ steps, cue, sendCue }: {
   sendCue: (step: CgStep, catId?: number, style?: OneshotStyle) => void;
 }) {
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1.5">
       {steps.map(({ step, label, desc, color }) => {
         const active = cue.step === step;
         return (

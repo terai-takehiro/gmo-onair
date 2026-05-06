@@ -6,7 +6,8 @@ import crypto from 'crypto';
 import { execute, queryAll, queryOne, getDb } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
-import { importAwardsExcel } from '../services/excel-import.service';
+import { importAwardsExcel, previewAwardsExcel } from '../services/excel-import.service';
+import type { ImportMapping } from '../services/excel-import.service';
 import {
   uploadAwardsImageToBox,
   invalidateEventFolderCache,
@@ -116,6 +117,44 @@ router.put('/events/:id', wrap(async (req, res) => {
   );
   if (!row) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
   res.json({ success: true, data: row });
+}));
+
+// ── 1S CG モジュール構成 (module_config) ────────────────────
+// v2.8.74+: ユーザーが追加・編集した送出モジュールの構成を保存。
+// NULL は「デフォルトプリセット使用」、設定済みは EventModuleConfig (JSON)。
+router.get('/events/:id/module-config', wrap(async (req, res) => {
+  const id = parseInt(req.params.id as string);
+  const row = await queryOne(
+    `SELECT module_config FROM awards_events WHERE id = ?`, [id]
+  );
+  if (!row) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
+  // module_config が NULL のときは null を返す (クライアントがデフォルトプリセットを使う)
+  res.json({ success: true, data: row.module_config ?? null });
+}));
+
+router.put('/events/:id/module-config', wrap(async (req, res) => {
+  const id = parseInt(req.params.id as string);
+  const config = req.body?.config;
+  // null が来た場合はデフォルト復帰 (column を NULL にセット)
+  if (config !== null && (typeof config !== 'object' || Array.isArray(config))) {
+    throw new AppError(400, 'BAD_REQUEST', 'config はオブジェクト or null で送信してください');
+  }
+  if (config !== null) {
+    if (config.version !== 1) {
+      throw new AppError(400, 'BAD_REQUEST', 'config.version は 1 のみ対応');
+    }
+    if (!Array.isArray(config.modules)) {
+      throw new AppError(400, 'BAD_REQUEST', 'config.modules は配列で送信してください');
+    }
+  }
+  const json = config === null ? null : JSON.stringify(config);
+  const row = await queryOne(
+    `UPDATE awards_events SET module_config = ?::jsonb, updated_at = NOW()
+     WHERE id = ? RETURNING module_config`,
+    [json, id]
+  );
+  if (!row) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
+  res.json({ success: true, data: row.module_config ?? null });
 }));
 
 // ── ステータス変更 ───────────────────────────────────────────
@@ -244,14 +283,50 @@ router.post('/box-backups/:folderId/restore', wrap(async (req, res) => {
   });
 }));
 
-// ── Excel インポート ────────────────────────────────────────
+// ── Excel プレビュー (列マッピング UI 用) ───────────────────
+// アップロードされた Excel を解析して headers / sampleRows / 推奨マッピングを返す。
+// クライアントは UI 上で各 CG 項目に対する Excel 列を選択し、import-excel に
+// `mapping` (JSON 文字列) として送り直す。
+router.post('/events/:id/import-preview', upload.single('file'), wrap(async (req, res) => {
+  const eventId = parseInt(req.params.id as string);
+  const event = await queryOne(`SELECT id FROM awards_events WHERE id=?`, [eventId]);
+  if (!event) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
+  if (!req.file) throw new AppError(400, 'BAD_REQUEST', 'Excel ファイルを添付してください');
+
+  const result = previewAwardsExcel(req.file.buffer);
+  res.json({ success: true, data: result });
+}));
+
+// ── Excel インポート (custom mapping 受け入れ) ──────────────
 router.post('/events/:id/import-excel', upload.single('file'), wrap(async (req, res) => {
   const eventId = parseInt(req.params.id as string);
   const event = await queryOne(`SELECT id FROM awards_events WHERE id=?`, [eventId]);
   if (!event) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
   if (!req.file) throw new AppError(400, 'BAD_REQUEST', 'Excel ファイルを添付してください');
 
-  const result = await importAwardsExcel(req.file.buffer, eventId);
+  // mapping は body の `mapping` フィールド (JSON string) で受け取る。
+  // 未指定なら従来通り auto-detect (= 既存の挙動を維持)。
+  let mapping: ImportMapping | undefined;
+  if (req.body?.mapping) {
+    try {
+      mapping = JSON.parse(req.body.mapping as string) as ImportMapping;
+    } catch {
+      throw new AppError(400, 'BAD_REQUEST', 'mapping は JSON 形式で送信してください');
+    }
+  }
+
+  // v2.8.69+: extraColumns (= 既知 CG 項目に該当しないが「そのまま保存」する Excel ヘッダー一覧)
+  let extraColumns: string[] | undefined;
+  if (req.body?.extraColumns) {
+    try {
+      const parsed = JSON.parse(req.body.extraColumns as string);
+      if (Array.isArray(parsed)) extraColumns = parsed.filter((s) => typeof s === 'string');
+    } catch {
+      throw new AppError(400, 'BAD_REQUEST', 'extraColumns は JSON 配列で送信してください');
+    }
+  }
+
+  const result = await importAwardsExcel(req.file.buffer, eventId, mapping, extraColumns);
   res.json({ success: true, data: result });
 }));
 

@@ -1,0 +1,593 @@
+/* ============================================================
+   テロップ本体 (画面下中央)
+   横幅 1200px (wide 時 1500px) / 高さ auto-h
+   ※ すべて .oneshot-cg-root スコープ配下。グローバル汚染を避けるため
+   ============================================================ */
+.oneshot-cg-root .lower-third {
+  position: absolute;
+  left: 50%;
+  bottom: 80px;
+  margin-left: -600px;
+  width: 1200px;
+  pointer-events: none;
+  /* v2.8.85+: width / margin-left transition を撤去 (JS との競合 + reflow を回避)。
+     wide ⇔ default の幅変化は cross-dissolve 中に snap で発生 (フェードに隠れる)。
+     bottom transition のみ残す (ticker on/off 時のせり上げ用)。 */
+  transition: bottom 360ms cubic-bezier(.45,.05,.55,.95);
+}
+/* 長文系モジュール: 幅を拡張して高さを抑える */
+.oneshot-cg-root .lower-third.wide {
+  width: 1500px;
+  margin-left: -750px;
+}
+.oneshot-cg-root .lower-third.auto-h {
+  min-height: 210px;
+  height: auto;
+}
+/* ティッカー送出中はせり上げ (ticker 56 + bottom 22 + 余白24 ≒ 102px) */
+.oneshot-cg-root .lower-third.raised {
+  bottom: 110px;
+}
+
+/* ベースパネル */
+.oneshot-cg-root .lt-panel {
+  position: relative;
+  display: grid;
+  grid-template-columns: 168px 1fr;
+  background: rgba(8, 11, 16, 0.92);
+  border-top: 1px solid var(--line-strong);
+  border-bottom: 1px solid var(--line);
+  min-height: 210px;
+  overflow: hidden;
+  align-items: start;
+  contain: layout paint;
+}
+/* 画像 OFF: 左カラムを畳んで単列レイアウト + コンパクト高さ */
+.oneshot-cg-root .lt-panel.no-portrait {
+  grid-template-columns: 1fr;
+  min-height: auto;
+}
+/* 画像 OFF + モジュールなし (情報なし) は最もコンパクト: 賞ヘッダー + ヘッドラインのみ */
+.oneshot-cg-root .lower-third.no-portrait.no-module .lt-info {
+  padding: 16px 24px 18px;
+}
+/* 画像 OFF 時は info の左 padding を画像分減らさない (左右対称に) */
+.oneshot-cg-root .lt-panel.no-portrait .lt-info {
+  padding-left: 24px;
+}
+
+/* ゴールド左アクセント */
+.oneshot-cg-root .lt-panel::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold-dim));
+}
+
+/* 装飾コーナー */
+.oneshot-cg-root .lt-corner {
+  position: absolute;
+  width: 10px; height: 10px;
+  border: 1px solid var(--gold);
+}
+.oneshot-cg-root .lt-corner.tl { top: 6px; left: 8px; border-right: none; border-bottom: none; }
+.oneshot-cg-root .lt-corner.tr { top: 6px; right: 8px; border-left: none; border-bottom: none; }
+.oneshot-cg-root .lt-corner.bl { bottom: 6px; left: 8px; border-right: none; border-top: none; }
+.oneshot-cg-root .lt-corner.br { bottom: 6px; right: 8px; border-left: none; border-top: none; }
+
+/* 画像枠 (常時表示) */
+.oneshot-cg-root .portrait {
+  position: relative;
+  width: 146px;
+  height: 182px;
+  margin: 14px;
+  background: #0a0d12;
+  border: 1px solid var(--line);
+  overflow: hidden;
+  align-self: start;
+  transition: transform 360ms cubic-bezier(.2,.85,.25,1);
+}
+.oneshot-cg-root .portrait img,
+.oneshot-cg-root .portrait > svg {
+  width: 100%; height: 100%;
+  display: block;
+  object-fit: cover;
+}
+.oneshot-cg-root .portrait::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 65%, rgba(0,0,0,0.55) 100%);
+  pointer-events: none;
+}
+.oneshot-cg-root .portrait-meta {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  padding: 6px 10px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-end;
+  font-family: var(--font-jp);
+  font-size: 24px;
+  letter-spacing: 0.18em;
+  color: var(--gold-bright);
+}
+.oneshot-cg-root .portrait-meta .entry-no {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+
+/* 情報ブロック (右) */
+.oneshot-cg-root .lt-info {
+  padding: 14px 22px 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  align-self: start;
+  justify-content: flex-start;
+  width: 100%;
+}
+
+/* 賞名 + サブカテゴリ ヘッダー */
+.oneshot-cg-root .lt-award-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.oneshot-cg-root .lt-award-name {
+  font-weight: 900;
+  font-size: 24px;
+  letter-spacing: 0.16em;
+  color: var(--gold-bright);
+  line-height: 1;
+  white-space: nowrap;
+  position: relative;
+  padding-left: 14px;
+}
+.oneshot-cg-root .lt-award-name::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  background: var(--gold-bright);
+  transform: translateY(-50%) rotate(45deg);
+}
+.oneshot-cg-root .lt-award-divider {
+  width: 1px; height: 14px;
+  background: var(--line-strong);
+}
+.oneshot-cg-root .lt-award-sub {
+  font-size: 24px;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.oneshot-cg-root .lt-award-spacer { flex: 1; }
+.oneshot-cg-root .lt-entry-mini {
+  font-family: var(--font-jp);
+  font-size: 22px;
+  letter-spacing: 0.2em;
+  color: var(--gold);
+  font-weight: 600;
+  padding: 4px 10px;
+  border: 1px solid var(--line-strong);
+  background: linear-gradient(135deg,
+    rgba(201,169,97,0.12) 0%,
+    rgba(201,169,97,0.04) 100%);
+  position: relative;
+  line-height: 1;
+}
+.oneshot-cg-root .lt-entry-mini::before,
+.oneshot-cg-root .lt-entry-mini::after {
+  content: "";
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: var(--gold-bright);
+}
+.oneshot-cg-root .lt-entry-mini::before { top: -1px; left: -1px; }
+.oneshot-cg-root .lt-entry-mini::after  { bottom: -1px; right: -1px; }
+
+/* 名前 / プロジェクト名 (常時表示) */
+.oneshot-cg-root .lt-headline {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  position: relative;
+}
+.oneshot-cg-root .lt-headline::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: -1px;
+  width: 80px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--gold-bright), transparent);
+}
+
+.oneshot-cg-root .lt-name-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: nowrap;
+}
+.oneshot-cg-root .lt-name-block {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: nowrap;
+  min-width: 0;
+  flex: 1 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.oneshot-cg-root .lt-name-block > .lt-name {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.oneshot-cg-root .lt-name-block > .lt-name-romaji {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.oneshot-cg-root .lt-affil-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  text-align: right;
+  flex-shrink: 0;
+  max-width: 320px;
+  align-self: baseline;
+  position: relative;
+  padding-left: 16px;
+  white-space: nowrap;
+}
+.oneshot-cg-root .lt-affil-block::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 1px;
+  background: var(--line);
+}
+.oneshot-cg-root .lt-name {
+  font-family: var(--font-jp);
+  font-weight: 900;
+  font-size: 44px;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  color: #ffffff;
+  position: relative;
+}
+.oneshot-cg-root .lt-name.en {
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+.oneshot-cg-root .lt-name-romaji {
+  font-family: var(--font-jp);
+  font-size: 24px;
+  letter-spacing: 0.12em;
+  color: var(--gold);
+  font-weight: 500;
+  text-transform: uppercase;
+  position: relative;
+  padding-left: 14px;
+}
+.oneshot-cg-root .lt-name-romaji::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 1px;
+  background: var(--gold);
+}
+.oneshot-cg-root .lt-company {
+  font-size: 24px;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  font-weight: 600;
+  line-height: 1.1;
+  font-feature-settings: "palt";
+}
+.oneshot-cg-root .lt-dept {
+  font-size: 20px;
+  letter-spacing: 0.06em;
+  color: var(--text-mute);
+  font-weight: 400;
+  line-height: 1.1;
+  font-feature-settings: "palt";
+}
+
+/* プロジェクト名 (チーム時) */
+.oneshot-cg-root .lt-project {
+  font-family: var(--font-jp);
+  font-size: 44px;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  line-height: 1.15;
+  color: #fff;
+}
+.oneshot-cg-root .lt-project.en {
+  font-size: 40px;
+  letter-spacing: 0.01em;
+}
+
+/* 切替モジュール (スロット) */
+.oneshot-cg-root .lt-slot {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+.oneshot-cg-root .lt-module-slot {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: opacity 320ms cubic-bezier(.4,0,.2,1);
+}
+.oneshot-cg-root .lt-module-slot.closed {
+  opacity: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+}
+.oneshot-cg-root .lt-module-slot.open {
+  opacity: 1;
+  margin-top: 6px;
+}
+.oneshot-cg-root .lt-module {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.oneshot-cg-root .lt-module.lt-mod-exit {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.oneshot-cg-root .lt-module-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-jp);
+  font-size: 22px;
+  letter-spacing: 0.22em;
+  color: var(--gold);
+  text-transform: uppercase;
+  font-weight: 600;
+  white-space: nowrap;
+  line-height: 1;
+}
+.oneshot-cg-root .lt-module-label::before {
+  content: "▸";
+  width: auto;
+  height: auto;
+  background: transparent;
+  color: var(--gold-bright);
+  font-size: 14px;
+  line-height: 1;
+}
+.oneshot-cg-root .lt-module-label::after {
+  content: "";
+  display: inline-block;
+  width: 24px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--gold), transparent);
+  margin-left: 4px;
+}
+
+.oneshot-cg-root .lt-module-title {
+  font-weight: 900;
+  font-size: 26px;
+  line-height: 1.35;
+  color: #fff;
+  letter-spacing: 0.03em;
+  font-feature-settings: "palt";
+  position: relative;
+  padding-left: 16px;
+}
+.oneshot-cg-root .lt-module-title::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold-dim));
+}
+
+.oneshot-cg-root .lt-module-body {
+  font-size: 24px;
+  line-height: 1.45;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+  text-wrap: pretty;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+/* 長文モード: 幅広テロップでは本文をやや小さく・密度を上げる */
+.oneshot-cg-root .lower-third.wide .lt-module-body {
+  font-size: 23px;
+  line-height: 1.4;
+}
+.oneshot-cg-root .lower-third.wide .lt-respect {
+  font-size: 28px;
+}
+
+/* タグ (得意技 / イズム) */
+.oneshot-cg-root .lt-tags {
+  display: flex; flex-wrap: wrap; gap: 6px 8px;
+}
+.oneshot-cg-root .lt-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  font-size: 24px;
+  letter-spacing: 0.04em;
+  color: var(--gold-bright);
+  border: 1px solid var(--line-strong);
+  background: rgba(201,169,97,0.08);
+  font-weight: 500;
+}
+.oneshot-cg-root .lt-tags-ism {
+  font-size: 24px;
+  color: var(--text);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  margin-bottom: 2px;
+}
+
+/* メンバー一覧 */
+.oneshot-cg-root .lt-members {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px 12px;
+}
+.oneshot-cg-root .lt-member {
+  border-left: 2px solid var(--gold);
+  padding: 2px 8px;
+  min-width: 0;
+}
+.oneshot-cg-root .lt-member-role {
+  font-family: var(--font-jp);
+  font-size: 24px;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+  text-transform: uppercase;
+  font-weight: 500;
+  line-height: 1.2;
+}
+.oneshot-cg-root .lt-member-name {
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+  margin-top: 1px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.oneshot-cg-root .lt-member-co {
+  font-size: 24px;
+  letter-spacing: 0.02em;
+  color: var(--text-mute);
+  margin-top: 1px;
+  font-weight: 400;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 推薦者ブロック */
+.oneshot-cg-root .lt-respect {
+  font-weight: 800;
+  font-size: 26px;
+  color: var(--gold-bright);
+  letter-spacing: 0.03em;
+  line-height: 1.3;
+}
+.oneshot-cg-root .lt-respect::before { content: "「"; color: var(--gold); }
+.oneshot-cg-root .lt-respect::after  { content: "」"; color: var(--gold); }
+
+/* 推薦者ヘッダー (タイトル + by 名前) */
+.oneshot-cg-root .lt-module-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+.oneshot-cg-root .lt-module-byline {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.oneshot-cg-root .lt-byline-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--line-strong);
+  align-self: center;
+  flex-shrink: 0;
+}
+.oneshot-cg-root .lt-byline-by {
+  font-family: var(--font-jp);
+  font-size: 16px;
+  letter-spacing: 0.22em;
+  color: var(--gold);
+  text-transform: uppercase;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.oneshot-cg-root .lt-byline-name {
+  font-family: var(--font-jp);
+  font-size: 24px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+.oneshot-cg-root .lt-byline-pos {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+  font-feature-settings: "palt";
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.oneshot-cg-root .lt-rec-body {
+  font-size: 24px;
+  line-height: 1.45;
+  color: var(--text);
+  letter-spacing: 0.02em;
+  text-wrap: pretty;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+  position: relative;
+  padding: 2px 4px 2px 6px;
+}
+.oneshot-cg-root .lt-rec-quote-l,
+.oneshot-cg-root .lt-rec-quote-r {
+  font-family: var(--font-jp);
+  color: var(--gold-bright);
+  font-size: 30px;
+  line-height: 0;
+  font-weight: 400;
+  vertical-align: -4px;
+  opacity: 0.85;
+}
+.oneshot-cg-root .lt-rec-quote-l { margin-right: 6px; }
+.oneshot-cg-root .lt-rec-quote-r { margin-left: 6px; }
+
+/* v2.8.83 で in-CG bilingual stacking は廃止 ('both' は side-by-side preview に変更)。
+   関連 CSS rules (.lt-award-bilingual / .lt-award-row-en / .lt-name-row-en /
+   .lt-bilingual / .lt-bilingual-en) はすべて削除。 */

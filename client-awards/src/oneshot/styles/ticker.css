@@ -1,0 +1,225 @@
+/* ============================================================
+   下部ティッカー (連続スクロール)
+   位置: セーフ98%ライン (画面下から ~22px)
+   高さ: 56px
+   ============================================================ */
+.oneshot-cg-root .ticker-wrap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 22px;
+  height: 56px;
+  pointer-events: none;
+}
+.oneshot-cg-root .ticker-wrap.t-enter {
+  animation: oscg-tickerEnter 600ms cubic-bezier(.2,.85,.25,1) both;
+}
+@keyframes oscg-tickerEnter {
+  0%   { transform: translateY(80px); opacity: 0; clip-path: inset(0 100% 0 0); }
+  60%  { opacity: 1; clip-path: inset(0 0 0 0); }
+  100% { transform: translateY(0); opacity: 1; clip-path: inset(0 0 0 0); }
+}
+.oneshot-cg-root .ticker-wrap.t-exit {
+  animation: oscg-tickerExit 420ms cubic-bezier(.6,.1,.8,.3) forwards;
+}
+@keyframes oscg-tickerExit {
+  0%   { transform: translateY(0); opacity: 1; clip-path: inset(0 0 0 0); }
+  100% { transform: translateY(60px); opacity: 0; clip-path: inset(0 0 0 100%); }
+}
+
+.oneshot-cg-root .ticker {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: stretch;
+  background: linear-gradient(90deg,
+    rgba(8,11,16,0.94) 0%,
+    rgba(8,11,16,0.94) 70%,
+    rgba(8,11,16,0.85) 100%);
+  border-top: 1px solid var(--line-strong);
+  border-bottom: 1px solid var(--line);
+  pointer-events: none;
+  font-feature-settings: "palt";
+}
+.oneshot-cg-root .ticker::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: -1px;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent, var(--gold-bright) 30%, var(--gold-bright) 70%, transparent);
+  opacity: 0.6;
+}
+
+.oneshot-cg-root .ticker-cat {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 24px 0 28px;
+  background: linear-gradient(90deg,
+    rgba(201,169,97,0.18) 0%,
+    rgba(201,169,97,0.06) 100%);
+  border-right: 1px solid var(--line-strong);
+  position: relative;
+}
+.oneshot-cg-root .ticker-cat::after {
+  content: "";
+  position: absolute;
+  right: -1px; top: 8px; bottom: 8px;
+  width: 1px;
+  background: var(--gold);
+  opacity: 0.7;
+}
+.oneshot-cg-root .ticker-cat-mark {
+  font-size: 18px;
+  color: var(--gold-bright);
+  line-height: 1;
+}
+/* 賞名 (e.g., 新人賞) — 強調 */
+.oneshot-cg-root .ticker-cat-award {
+  font-family: var(--font-jp);
+  font-weight: 900;
+  font-size: 26px;
+  letter-spacing: 0.14em;
+  color: var(--gold-bright);
+  white-space: nowrap;
+  line-height: 1;
+}
+/* 賞 と 部門 の縦区切り */
+.oneshot-cg-root .ticker-cat-sep {
+  display: inline-block;
+  width: 1px;
+  height: 18px;
+  background: var(--gold);
+  opacity: 0.6;
+  margin: 0 4px;
+  vertical-align: middle;
+}
+/* 部門名のラッパー: 切替アニメで上方向にスライドするのを clip するために
+   overflow:hidden な inline-block を作る */
+.oneshot-cg-root .ticker-cat-division-wrap {
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+  overflow: hidden;
+  height: 26px;
+  min-width: 80px;
+}
+/* 部門名 (e.g., 新卒パートナー) — 賞より少し小さく + 切替時にスライドフェード */
+.oneshot-cg-root .ticker-cat-division {
+  display: inline-block;
+  font-family: var(--font-jp);
+  font-weight: 600;
+  font-size: 22px;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+  white-space: nowrap;
+  line-height: 26px;
+  opacity: 0.92;
+  animation: oscg-divisionSwap 620ms cubic-bezier(.25,.8,.3,1) both;
+}
+@keyframes oscg-divisionSwap {
+  0%   { opacity: 0; transform: translateY(14px); filter: blur(2px); }
+  60%  { opacity: 1; filter: blur(0); }
+  100% { opacity: 0.92; transform: translateY(0); filter: blur(0); }
+}
+
+/* v2.8.73+: 部門切替時のクロスフェード。outgoing 部門ラベルは fade-out。 */
+.oneshot-cg-root .ticker-cat-division-out {
+  position: absolute;
+  inset: 0;
+  animation: oscg-divisionSwapOut 600ms cubic-bezier(.4,0,.6,1) forwards !important;
+}
+@keyframes oscg-divisionSwapOut {
+  0%   { opacity: 0.92; transform: translateY(0); filter: blur(0); }
+  100% { opacity: 0; transform: translateY(-12px); filter: blur(2px); }
+}
+
+.oneshot-cg-root .ticker-track-wrap {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  mask-image: linear-gradient(90deg,
+    transparent 0%,
+    #000 40px,
+    #000 calc(100% - 80px),
+    transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg,
+    transparent 0%,
+    #000 40px,
+    #000 calc(100% - 80px),
+    transparent 100%);
+}
+
+.oneshot-cg-root .ticker-track {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  animation: oscg-tickerScroll var(--track-dur, 18s) linear infinite;
+  padding-left: 100%;
+  will-change: transform;
+}
+@keyframes oscg-tickerScroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-66.6667%); }
+}
+
+/* v2.8.73+: 部門切替クロスフェード時、outgoing/incoming track を重ねて配置 */
+.oneshot-cg-root .ticker-track-wrap > .ticker-track-out {
+  position: absolute;
+  left: 0; right: 0; top: 0; bottom: 0;
+  align-items: center;
+  animation:
+    oscg-tickerScroll var(--track-dur, 18s) linear infinite,
+    oscg-trackFadeOut 600ms cubic-bezier(.4,0,.6,1) forwards;
+}
+@keyframes oscg-trackFadeOut {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+.oneshot-cg-root .ticker-track-wrap > .ticker-track-in {
+  animation:
+    oscg-tickerScroll var(--track-dur, 18s) linear infinite,
+    oscg-trackFadeIn 600ms cubic-bezier(.25,.8,.3,1) both;
+}
+@keyframes oscg-trackFadeIn {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.oneshot-cg-root .ticker-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 0 8px;
+  font-family: var(--font-jp);
+}
+.oneshot-cg-root .ticker-name {
+  font-weight: 800;
+  font-size: 28px;
+  letter-spacing: 0.04em;
+  color: #fff;
+  line-height: 1;
+}
+.oneshot-cg-root .ticker-sep {
+  color: var(--gold);
+  font-size: 24px;
+  font-weight: 400;
+  margin: 0 2px;
+}
+.oneshot-cg-root .ticker-co {
+  font-weight: 500;
+  font-size: 26px;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  line-height: 1;
+}
+.oneshot-cg-root .ticker-gap {
+  font-size: 10px;
+  color: var(--gold);
+  margin: 0 28px;
+  opacity: 0.6;
+  vertical-align: middle;
+}

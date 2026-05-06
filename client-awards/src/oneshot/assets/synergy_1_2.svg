@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 331 413" width="331" height="413">
+  <defs>
+    <linearGradient id="gB" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2a3340"></stop>
+      <stop offset="1" stop-color="#15191f"></stop>
+    </linearGradient>
+    <pattern id="stripesB" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
+      <rect width="8" height="8" fill="transparent"></rect>
+      <line x1="0" y1="0" x2="0" y2="8" stroke="#ffffff" stroke-opacity="0.04" stroke-width="4"></line>
+    </pattern>
+  </defs>
+  <rect width="331" height="413" fill="url(#gB)"></rect>
+  <rect width="331" height="413" fill="url(#stripesB)"></rect>
+  <g opacity="0.45" stroke="#c9a961" stroke-width="2" fill="none">
+    <circle cx="120" cy="160" r="36"></circle>
+    <circle cx="210" cy="160" r="36"></circle>
+    <circle cx="165" cy="220" r="36"></circle>
+  </g>
+  <g fill="#c9a961" fill-opacity="0.3">
+    <circle cx="120" cy="160" r="22"></circle>
+    <circle cx="210" cy="160" r="22"></circle>
+    <circle cx="165" cy="220" r="22"></circle>
+  </g>
+  <text x="165.5" y="320" text-anchor="middle" font-family="ui-monospace, monospace" font-size="11" fill="#c9a961" letter-spacing="2">TEAM PHOTO 331×413</text>
+  <text x="165.5" y="340" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#888" letter-spacing="1">Synergy Project</text>
+</svg>
