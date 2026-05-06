@@ -322,7 +322,7 @@ export default function OneShotControlPage() {
         <Subtitles className="h-4 w-4 text-amber-500 shrink-0" />
         <span className="text-[11px] font-black text-slate-300 tracking-widest">表彰CG</span>
         {event && (
-          <span className="text-xs text-slate-600 truncate hidden sm:block">{event.name}</span>
+          <span className="text-xs text-slate-400 truncate hidden sm:block">{event.name}</span>
         )}
         <div className="flex-1" />
         {/* DB → CG マッピング インスペクタ + oneshot_data 編集 */}
@@ -333,7 +333,7 @@ export default function OneShotControlPage() {
             'hidden sm:flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-black tracking-widest uppercase transition-colors',
             previewNominee && nomineeDbId(previewNominee)
               ? 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
-              : 'bg-slate-900/40 text-slate-700 cursor-not-allowed'
+              : 'bg-slate-900/40 text-slate-500 cursor-not-allowed'
           )}
           title="現在の PREVIEW ノミネートの DB ↔ CG マッピングを確認/編集"
         >
@@ -363,7 +363,7 @@ export default function OneShotControlPage() {
             'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black tracking-widest uppercase transition-all',
             isLive
               ? 'bg-red-950/70 text-red-400 border border-red-800/50'
-              : 'bg-slate-800/70 text-slate-500 border border-slate-700/50'
+              : 'bg-slate-800/70 text-slate-300 border border-slate-700/50'
           )}
         >
           <Radio className={cn('h-3 w-3 shrink-0', isLive && 'animate-pulse')} />
@@ -393,7 +393,7 @@ export default function OneShotControlPage() {
           {langMode === 'both' ? (
             <div className="absolute inset-0 flex">
               <div className="flex-1 relative">
-                <span className="absolute top-1 left-2 z-10 text-[9px] font-black tracking-widest uppercase text-slate-500">JA</span>
+                <span className="absolute top-1 left-2 z-10 text-[9px] font-black tracking-widest uppercase text-slate-300">JA</span>
                 <ScaledStage
                   lang="ja"
                   nominee={liveNominee}
@@ -411,7 +411,7 @@ export default function OneShotControlPage() {
               </div>
               <div className="w-px bg-slate-800/80 self-stretch" />
               <div className="flex-1 relative">
-                <span className="absolute top-1 left-2 z-10 text-[9px] font-black tracking-widest uppercase text-slate-500">EN</span>
+                <span className="absolute top-1 left-2 z-10 text-[9px] font-black tracking-widest uppercase text-slate-300">EN</span>
                 <ScaledStage
                   lang="en"
                   nominee={liveNominee}
@@ -470,7 +470,7 @@ export default function OneShotControlPage() {
               'absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-black tracking-widest uppercase border',
               isLive
                 ? 'bg-red-950/70 border-red-800/60 text-red-400'
-                : 'bg-slate-900/80 border-slate-700/60 text-slate-500'
+                : 'bg-slate-900/80 border-slate-700/60 text-slate-300'
             )}
           >
             <span className={cn('h-1.5 w-1.5 rounded-full', isLive ? 'bg-red-500 animate-pulse' : 'bg-slate-600')} />
@@ -480,7 +480,7 @@ export default function OneShotControlPage() {
               「白線が出てる」と誤認させないため、ティッカーの存在をそのまま見せる。 */}
           {!isLive && !tickerFlow.on && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="text-center text-slate-700">
+              <div className="text-center text-slate-500">
                 <div className="text-[10px] font-black tracking-widest uppercase mb-1">PROGRAM OFF</div>
                 <div className="text-[9px] tracking-widest">Press TAKE to send</div>
               </div>
@@ -528,13 +528,13 @@ export default function OneShotControlPage() {
                   ? (lang === 'ja' ? previewNominee.projectName ?? previewNominee.name : previewNominee.projectNameEn ?? previewNominee.nameEn)
                   : (lang === 'ja' ? previewNominee.name : previewNominee.nameEn)}
               </span>
-              <span className="text-slate-600 shrink-0">·</span>
+              <span className="text-slate-400 shrink-0">·</span>
               <span className="text-slate-400 truncate">
                 {previewModules.find((m) => m.id === `preset:${previewModule}` || m.id === previewModule)?.label[lang === 'en' ? 'en' : 'ja'] ?? '—'}
               </span>
             </>
           ) : (
-            <span className="text-slate-500">ノミネート未選択</span>
+            <span className="text-slate-300">ノミネート未選択</span>
           )}
         </div>
 
@@ -557,7 +557,7 @@ export default function OneShotControlPage() {
                 langMode === 'both' ? (
                   <div className="absolute inset-0 flex">
                     <div className="flex-1 relative">
-                      <span className="absolute top-0.5 left-1 z-10 text-[8px] font-black tracking-widest uppercase text-slate-500">JA</span>
+                      <span className="absolute top-0.5 left-1 z-10 text-[8px] font-black tracking-widest uppercase text-slate-300">JA</span>
                       <ScaledStage
                         lang="ja"
                         nominee={previewNominee}
@@ -575,7 +575,7 @@ export default function OneShotControlPage() {
                     </div>
                     <div className="w-px bg-slate-800/80 self-stretch" />
                     <div className="flex-1 relative">
-                      <span className="absolute top-0.5 left-1 z-10 text-[8px] font-black tracking-widest uppercase text-slate-500">EN</span>
+                      <span className="absolute top-0.5 left-1 z-10 text-[8px] font-black tracking-widest uppercase text-slate-300">EN</span>
                       <ScaledStage
                         lang="en"
                         nominee={previewNominee}
@@ -629,7 +629,7 @@ export default function OneShotControlPage() {
                   </div>
                 )
               ) : (
-                <div className="absolute inset-0 flex items-center justify-center text-[10px] text-slate-600">
+                <div className="absolute inset-0 flex items-center justify-center text-[10px] text-slate-400">
                   ノミネート未選択
                 </div>
               )}
