@@ -33,7 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.100 — 全画面中の Esc キー競合を回避。ユーザー報告「全画面にした際に Esc を押して OFF になる、これテロップ OFF とショートカット被ってるので回避」に対応。**問題**: ブラウザの全画面解除 (Esc) と operator UI の CLEAR (テロップ/CG OFF) ショートカット (Esc) が同じキーを共有していたため、全画面中に Esc を 1 回押すと「全画面解除」と「テロップ OFF」が同時にトリガされ、画面サイズだけ戻したいだけなのに放送中の CG が消えてしまう誤動作が発生していた。**修正**: `useShortcuts` (下位置CG operator) と ControlPage (表彰CG operator) の Esc 処理冒頭に `if (document.fullscreenElement) return;` を追加。全画面中はブラウザの全画面解除に専念させ、CLEAR は発火させない。通常モードでは従来通り Esc → CLEAR で動作。
+v2.8.101 — 全画面中も CLEAR 操作可能に: 代替キー X を追加。ユーザー報告「全画面中もテロップ制御できないと意味ない」に対応 (v2.8.100 で全画面中の Esc を skip にしたが、それだと全画面中に CLEAR できなくなる本末転倒)。**修正**: `useShortcuts` (下位置CG) と ControlPage (表彰CG) の Esc 分岐の前に「`x` / `X` キー → CLEAR」を追加。X キーはブラウザの全画面解除と被らないため、全画面中でもテロップ OFF が可能。Esc は引き続き通常モードで CLEAR、全画面中はブラウザの全画面解除のみ (CLEAR は X キーで)。`ShortcutHints` (下位置CG) と ControlPage 下のヒント表示も「`X` / `Esc` CLEAR」「`F` 全画面」に更新。MODULE 表示も `0–6` → `0–9` に修正。
+
+(v2.8.100 — 全画面中の Esc キー競合を回避。全画面中の Esc キー競合を回避。ユーザー報告「全画面にした際に Esc を押して OFF になる、これテロップ OFF とショートカット被ってるので回避」に対応。**問題**: ブラウザの全画面解除 (Esc) と operator UI の CLEAR (テロップ/CG OFF) ショートカット (Esc) が同じキーを共有していたため、全画面中に Esc を 1 回押すと「全画面解除」と「テロップ OFF」が同時にトリガされ、画面サイズだけ戻したいだけなのに放送中の CG が消えてしまう誤動作が発生していた。**修正**: `useShortcuts` (下位置CG operator) と ControlPage (表彰CG operator) の Esc 処理冒頭に `if (document.fullscreenElement) return;` を追加。全画面中はブラウザの全画面解除に専念させ、CLEAR は発火させない。通常モードでは従来通り Esc → CLEAR で動作。
 
 (v2.8.99 — 送出 UI ラベル「PROGRAM」→「OA」に統一。ユーザー要望「PROGRAM の表記は OA で」に対応。①ControlPage: a) ヘッダー「出力」ボタンの title attr「PROGRAM 出力」→「OA 出力」、b) 大プレビュー左上のステータスバッジ「PROGRAM · ON AIR / PROGRAM · {step}」→「OA · ON AIR / OA · {step}」、c) 右パネル StatusBar の上段ラベル「PROGRAM」→「OA」。 ②OneShotControlPage: a) PROGRAM 領域のステータスバッジ「PROGRAM · ON AIR / PROGRAM · OFF」→「OA · ON AIR / OA · OFF」、b) STANDBY 中の中央オーバーレイ「PROGRAM OFF」→「OA OFF」。 ③EventEditorPage NEXT URL section: 説明文「PROGRAM (LIVE) URL」→「OA (LIVE) URL」。コード内コメント等の非表示テキストは据置 (機能変更なし)。
 
