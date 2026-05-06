@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ExternalLink, Radio, Subtitles, Tv2, Languages, Database } from 'lucide-react';
+import { ChevronLeft, ExternalLink, Radio, Subtitles, Trophy, Languages, Database } from 'lucide-react';
 
 import OneShotStage from '../oneshot/OneShotStage';
 import LangPicker, { fromLangMode, toLangMode, type LangMode } from '../oneshot/operator/LangPicker';
@@ -320,7 +320,7 @@ export default function OneShotControlPage() {
           <ChevronLeft className="h-4 w-4 text-slate-300" />
         </button>
         <Subtitles className="h-4 w-4 text-amber-500 shrink-0" />
-        <span className="text-[11px] font-black text-slate-300 tracking-widest">表彰CG</span>
+        <span className="text-[11px] font-black text-slate-300 tracking-widest">下位置CG</span>
         {event && (
           <span className="text-xs text-slate-400 truncate hidden sm:block">{event.name}</span>
         )}
@@ -349,14 +349,14 @@ export default function OneShotControlPage() {
           <Languages className="h-3 w-3" />
           英訳辞書
         </button>
-        {/* 回遊性: 同イベントのランキングCGコントロールへ直接ジャンプ */}
+        {/* 回遊性: 同イベントの表彰CG (ランキング/大賞演出) コントロールへ直接ジャンプ */}
         <button
           onClick={() => navigate(`/event/${eventId}/control`)}
           className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-[10px] font-black tracking-widest uppercase text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors"
-          title="ランキングCG コントロールへ"
+          title="表彰CG (ランキング/大賞演出) コントロールへ"
         >
-          <Tv2 className="h-3 w-3" />
-          ランキングCG
+          <Trophy className="h-3 w-3" />
+          表彰CG
         </button>
         <div
           className={cn(
@@ -375,7 +375,7 @@ export default function OneShotControlPage() {
           href={`/awards/output/${eventId}/oneshot?lang=${lang}`}
           target="_blank"
           rel="noreferrer"
-          title={`表彰CG 出力 (${lang.toUpperCase()})`}
+          title={`下位置CG 出力 (${lang.toUpperCase()})`}
           className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors"
         >
           <ExternalLink className="h-3 w-3" />

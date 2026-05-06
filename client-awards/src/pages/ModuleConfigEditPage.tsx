@@ -180,7 +180,7 @@ export default function ModuleConfigEditPage() {
           <ChevronLeft className="h-4 w-4 text-slate-600" />
         </button>
         <Subtitles className="h-4 w-4 text-amber-600 shrink-0" />
-        <span className="text-sm font-bold text-slate-900">表彰CG モジュール構成</span>
+        <span className="text-sm font-bold text-slate-900">下位置CG モジュール構成</span>
         <span className="text-[10px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
           段階4 / 編集UI
         </span>
@@ -188,7 +188,7 @@ export default function ModuleConfigEditPage() {
         <button
           onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
           className="hidden sm:flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs hover:bg-muted transition-colors"
-          title="表彰CG オペレーター画面で動作確認"
+          title="下位置CG オペレーター画面で動作確認"
         >
           <Tv2 className="h-3 w-3" />
           オペレーターへ

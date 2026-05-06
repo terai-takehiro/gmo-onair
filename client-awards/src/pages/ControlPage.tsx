@@ -102,17 +102,18 @@ export default function ControlPage() {
         >
           <ChevronLeft className="h-4 w-4 text-slate-300" />
         </button>
-        <span className="text-[10px] font-black text-slate-400 tracking-widest uppercase">CONTROL</span>
+        <Trophy className="h-4 w-4 text-amber-500 shrink-0" />
+        <span className="text-[11px] font-black text-slate-300 tracking-widest">表彰CG</span>
         {event && <span className="text-xs text-slate-400 truncate hidden sm:block">{event.name}</span>}
         <div className="flex-1" />
-        {/* 回遊性: 同イベントの表彰CG (下位置/下部テロップ) コントロールへ直接ジャンプ */}
+        {/* 回遊性: 同イベントの下位置CG (下部テロップ) コントロールへ直接ジャンプ */}
         <button
           onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
           className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-[10px] font-black tracking-widest uppercase text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors"
-          title="表彰CG コントロールへ"
+          title="下位置CG コントロールへ"
         >
           <Subtitles className="h-3 w-3" />
-          表彰CG
+          下位置CG
         </button>
         <div className={cn(
           'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black tracking-widest uppercase transition-all',
