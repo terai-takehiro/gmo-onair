@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
+import { TaxHelperButton } from "@gmo-onair/shared/src/client/ui/tax-aware-amount-input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -274,13 +275,21 @@ export default function SgaDialog({
           {/* Row 4: amount */}
           <div className="space-y-1">
             <Label>金額</Label>
-            <CurrencyInput
-              className="max-w-xs"
-              value={form.amount}
-              onChange={(v) =>
-                setForm((f) => ({ ...f, amount: v }))
-              }
-            />
+            <div className="flex items-center gap-1 max-w-xs">
+              <div className="flex-1">
+                <CurrencyInput
+                  value={form.amount}
+                  onChange={(v) =>
+                    setForm((f) => ({ ...f, amount: v }))
+                  }
+                />
+              </div>
+              <TaxHelperButton
+                fieldLabel="販管費 金額"
+                defaultIncludedAmount={form.amount}
+                onResult={(v) => setForm((f) => ({ ...f, amount: v }))}
+              />
+            </div>
           </div>
 
           {/* Row 4.5: expense_type + amortization */}

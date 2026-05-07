@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { previousBusinessDay, toLocalDateStr } from "@gmo-onair/shared/src/utils/businessDays";
+import { TaxHelperButton } from "@gmo-onair/shared/src/client/ui/tax-aware-amount-input";
 import {
   Project,
   Vendor,
@@ -885,15 +886,22 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                                     />
                                   </td>
                                   <td className="py-1 px-1">
-                                    <Input
-                                      type="number"
-                                      min={0}
-                                      value={item.unit_price}
-                                      onChange={(e) =>
-                                        updateInlineItem(idx, "unit_price", parseInt(e.target.value) || 0)
-                                      }
-                                      className="h-7 text-xs text-right"
-                                    />
+                                    <div className="flex items-center gap-0.5">
+                                      <Input
+                                        type="number"
+                                        min={0}
+                                        value={item.unit_price}
+                                        onChange={(e) =>
+                                          updateInlineItem(idx, "unit_price", parseInt(e.target.value) || 0)
+                                        }
+                                        className="h-7 text-xs text-right flex-1"
+                                      />
+                                      <TaxHelperButton
+                                        fieldLabel="単価"
+                                        defaultIncludedAmount={item.unit_price}
+                                        onResult={(v) => updateInlineItem(idx, "unit_price", v)}
+                                      />
+                                    </div>
                                   </td>
                                   <td className="py-1 text-right font-number font-medium tabular-nums">
                                     {formatCurrency(item.amount)}
@@ -1106,11 +1114,18 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                           />
                         </TableCell>
                         <TableCell className="p-1">
-                          <CurrencyInput
-                            value={item.unit_price}
-                            onChange={(v) => updateItem(idx, "unit_price", v)}
-                            className="h-8 text-sm"
-                          />
+                          <div className="flex items-center gap-0.5">
+                            <CurrencyInput
+                              value={item.unit_price}
+                              onChange={(v) => updateItem(idx, "unit_price", v)}
+                              className="h-8 text-sm flex-1"
+                            />
+                            <TaxHelperButton
+                              fieldLabel="単価"
+                              defaultIncludedAmount={item.unit_price}
+                              onResult={(v) => updateItem(idx, "unit_price", v)}
+                            />
+                          </div>
                         </TableCell>
                         <TableCell className={`p-1 text-right font-number text-sm font-medium ${(item.amount || 0) < 0 ? "text-amber-600" : ""}`}>
                           {formatCurrency(item.amount)}
@@ -1216,7 +1231,14 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                       </div>
                       <div>
                         <Label className="text-xs">単価</Label>
-                        <CurrencyInput value={item.unit_price} onChange={(v) => updateItem(idx, "unit_price", v)} />
+                        <div className="flex items-center gap-0.5">
+                          <CurrencyInput value={item.unit_price} onChange={(v) => updateItem(idx, "unit_price", v)} />
+                          <TaxHelperButton
+                            fieldLabel="単価"
+                            defaultIncludedAmount={item.unit_price}
+                            onResult={(v) => updateItem(idx, "unit_price", v)}
+                          />
+                        </div>
                       </div>
                       <div>
                         <Label className="text-xs">金額</Label>

@@ -13,6 +13,7 @@ import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
 import api from "@/lib/api";
 import { formatCurrency, formatMonth, localDateStr } from "@/lib/format";
 import { previousBusinessDay } from "@gmo-onair/shared/src/utils/businessDays";
+import { TaxHelperButton } from "@gmo-onair/shared/src/client/ui/tax-aware-amount-input";
 import { useCrudPage } from "@/hooks/useCrudPage";
 import { PageTransition } from "@/components/ui/motion";
 import {
@@ -472,7 +473,16 @@ export default function PurchaseListPage() {
 
               <div>
                 <Label>金額</Label>
-                <CurrencyInput value={amount} onChange={setAmount} />
+                <div className="flex items-center gap-1">
+                  <div className="flex-1">
+                    <CurrencyInput value={amount} onChange={setAmount} />
+                  </div>
+                  <TaxHelperButton
+                    fieldLabel="仕入金額"
+                    defaultIncludedAmount={amount}
+                    onResult={setAmount}
+                  />
+                </div>
               </div>
 
               <div>
