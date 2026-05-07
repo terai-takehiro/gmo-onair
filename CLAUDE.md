@@ -33,7 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.101 — 全画面中も CLEAR 操作可能に: 代替キー X を追加。ユーザー報告「全画面中もテロップ制御できないと意味ない」に対応 (v2.8.100 で全画面中の Esc を skip にしたが、それだと全画面中に CLEAR できなくなる本末転倒)。**修正**: `useShortcuts` (下位置CG) と ControlPage (表彰CG) の Esc 分岐の前に「`x` / `X` キー → CLEAR」を追加。X キーはブラウザの全画面解除と被らないため、全画面中でもテロップ OFF が可能。Esc は引き続き通常モードで CLEAR、全画面中はブラウザの全画面解除のみ (CLEAR は X キーで)。`ShortcutHints` (下位置CG) と ControlPage 下のヒント表示も「`X` / `Esc` CLEAR」「`F` 全画面」に更新。MODULE 表示も `0–6` → `0–9` に修正。
+v2.8.102 — モバイル小スケール時に下位置CG テロップ下端に白線が見える問題を修正。ユーザー報告「CG作画プレビュー画面のテロップの下にはいっている線」(スクリーンショット添付) に対応。**原因**: `.lt-panel` の `border-bottom: 1px solid var(--line)` (ゴールド `rgba(201, 169, 97, 0.45)`) が、モバイル幅 (~390px) で 1920×1080 CG をスケール (×0.20) 表示した際、1px のゴールド薄線が**サブピクセル描画で淡灰/白っぽく描画される**ため白線として誤認されていた。**修正**: `.lt-panel` の `border-bottom` を撤去。上端 `border-top: 1px solid var(--line-strong)` (85% 透過 = 濃ゴールド) + 左の gold accent (`::before`, `width: 4px`) + 4 隅の corner decoration (`.lt-corner.tl/tr/bl/br`) で囲み感は維持。実際の OBS 1920×1080 ネイティブ表示でも見た目はほぼ変化なし (元々 45% 透過の薄線だったため)。
+
+(v2.8.101 — 全画面中も CLEAR 操作可能に: 代替キー X を追加。ユーザー報告「全画面中もテロップ制御できないと意味ない」に対応 (v2.8.100 で全画面中の Esc を skip にしたが、それだと全画面中に CLEAR できなくなる本末転倒)。**修正**: `useShortcuts` (下位置CG) と ControlPage (表彰CG) の Esc 分岐の前に「`x` / `X` キー → CLEAR」を追加。X キーはブラウザの全画面解除と被らないため、全画面中でもテロップ OFF が可能。Esc は引き続き通常モードで CLEAR、全画面中はブラウザの全画面解除のみ (CLEAR は X キーで)。`ShortcutHints` (下位置CG) と ControlPage 下のヒント表示も「`X` / `Esc` CLEAR」「`F` 全画面」に更新。MODULE 表示も `0–6` → `0–9` に修正。
 
 (v2.8.100 — 全画面中の Esc キー競合を回避。全画面中の Esc キー競合を回避。ユーザー報告「全画面にした際に Esc を押して OFF になる、これテロップ OFF とショートカット被ってるので回避」に対応。**問題**: ブラウザの全画面解除 (Esc) と operator UI の CLEAR (テロップ/CG OFF) ショートカット (Esc) が同じキーを共有していたため、全画面中に Esc を 1 回押すと「全画面解除」と「テロップ OFF」が同時にトリガされ、画面サイズだけ戻したいだけなのに放送中の CG が消えてしまう誤動作が発生していた。**修正**: `useShortcuts` (下位置CG operator) と ControlPage (表彰CG operator) の Esc 処理冒頭に `if (document.fullscreenElement) return;` を追加。全画面中はブラウザの全画面解除に専念させ、CLEAR は発火させない。通常モードでは従来通り Esc → CLEAR で動作。
 
