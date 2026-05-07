@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { previousBusinessDay, toLocalDateStr } from "@gmo-onair/shared/src/utils/businessDays";
 import {
   Project,
   Vendor,
@@ -1130,8 +1131,27 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                     <Input
                       type="date"
                       value={recognitionDate}
-                      onChange={(e) => setRecognitionDate(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setRecognitionDate(val);
+                        // v2.8.103+: 計上日入力時、請求日 (計上月末) と支払期日 (翌月末) を
+                        // 営業日調整して自動入力。既に値が入っている場合は上書きしない。
+                        if (val) {
+                          const [y, m] = val.split("-").map(Number);
+                          if (y && m) {
+                            if (!billingDate) {
+                              setBillingDate(toLocalDateStr(previousBusinessDay(new Date(y, m, 0))));
+                            }
+                            if (!paymentDueDate) {
+                              setPaymentDueDate(toLocalDateStr(previousBusinessDay(new Date(y, m + 1, 0))));
+                            }
+                          }
+                        }
+                      }}
                     />
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      入力すると請求日（計上月末）・支払期日（翌月末）を営業日調整して自動入力（土日祝なら前営業日）
+                    </p>
                   </div>
                   <div>
                     <Label>請求日</Label>

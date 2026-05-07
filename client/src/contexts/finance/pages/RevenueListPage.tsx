@@ -10,6 +10,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
 import { formatCurrency, formatMonth, formatShortDate, localDateStr } from "@/lib/format";
+import { previousBusinessDay } from "@gmo-onair/shared/src/utils/businessDays";
 import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { FilterBar } from "@gmo-onair/shared/src/client/ui/filter-bar";
@@ -259,8 +260,9 @@ export default function RevenueListPage() {
       const [ey, em] = endDate.split("-").map(Number);
       if (ey && em) {
         setRecognitionMonth(`${ey}-${String(em).padStart(2, "0")}`);
-        setBillingDate(localDateStr(new Date(ey, em, 0)));       // 計上月末
-        setPaymentDueDate(localDateStr(new Date(ey, em + 1, 0))); // 翌月末
+        // v2.8.103+: 末日が土日祝のときは前営業日に調整
+        setBillingDate(localDateStr(previousBusinessDay(new Date(ey, em, 0))));       // 計上月末
+        setPaymentDueDate(localDateStr(previousBusinessDay(new Date(ey, em + 1, 0)))); // 翌月末
       }
     }
   }, [selectedProjectId, selectedProject?.event_end]); // eslint-disable-line react-hooks/exhaustive-deps
