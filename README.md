@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.106 — 売上明細編集ダイアログの「項目追加」ボタンを PC view でも表示 (モバイル専用セクション内にあって PC で見えなかった不具合の修正)
+**現在のバージョン**: v2.8.107 — 請求書/見積書 PDF ファイル名が project の GLS 番号変更に追従しない問題を修正 (live `gls_number` で billing_key prefix を置換)
 
 ---
 
@@ -401,6 +401,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.8.107** | **請求書/見積書 PDF ファイル名が project の GLS 番号変更に追従しない問題を修正 (dev)**: ユーザー報告に対応。`revenues.billing_key` は revenue 作成時のスナップショットで project の `gls_number` 更新と連動しないため、ファイル名が古い GLS のまま出力されていた。`/revenues/:id/pdf` で billing_key の GLS-prefix 部分 (例: `GLS001`) を live `gls_number` で置換、エピソード/税枝番のサフィックスは保持。GLS 未発番ケースは billing_key そのままフォールバック。PDF コンテンツ内の GLS 表示は元から live join なので修正不要。 |
 | **v2.8.106** | **売上明細編集ダイアログの「項目追加」等ボタンを PC view でも表示 (dev)**: ユーザー報告 (スクリーンショット添付) 「ここで明細の項目追加ができるようにしたかったのですが」に対応。アクションボタン群 (項目追加 / 料金表から追加 / シミュレーション / 全体値引き) がモバイル専用セクション (`<div className="sm:hidden">`) の内側に配置されていたため PC で見えなかった。両レイアウト共通の位置に移動。 |
 | **v2.8.105** | **税込/税抜ヘルパー (Phase C - 主要適用) (dev)**: ユーザー要望「金額入力時に税込？税抜？を尋ね、税込なら 10%/8%/非課税 を選んで税抜計算」に対応。新規 `shared/src/client/ui/tax-aware-amount-input.tsx` に `TaxHelperButton` (既存 CurrencyInput 等の隣に配置) と `TaxAwareAmountInput` (Input 内蔵版) を実装。クリックで 2 ステップダイアログ (税込/税抜確認 → 税率選択 → 各税率の税抜プレビュー付きボタン) を提示し、税抜金額を四捨五入で換算して onResult に返す。適用箇所: BusinessProjectView 売上明細ダイアログ (PC + モバイル) + インライン編集の単価、PurchaseListPage 仕入金額、SgaDialog 販管費金額、RevenueListPage 売上金額 + 明細単価 (PC + モバイル)。残り (機材/Qシート 等) は後続展開。 |
 | **v2.8.104** | **売上明細項目のインライン編集 (Phase B) (dev)**: ユーザー要望のうち「明細項目をインライン編集可能に」に対応。各売上明細カードの items テーブル上部に「明細を編集」ボタンを追加 (編集モード切替)。編集モードでは項目名/数量/単価を `<Input>` 化、各行に削除アイコン、テーブル下に「行追加」ボタン + 合計表示、上部に「キャンセル」「保存」ボタン。inlineSaveMutation は既存 revenue の他フィールドを保持しつつ items のみ差し替えて PUT、amount は items 合計で自動再計算。items 空の明細にも「明細項目を追加」ボタンを表示。Phase C (税込/税抜ヘルパー全アプリ展開) は後続実装。 |

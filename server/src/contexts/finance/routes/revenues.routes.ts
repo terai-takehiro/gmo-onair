@@ -141,7 +141,19 @@ router.get('/:id/pdf', async (req, res, next) => {
     });
 
     const isEstimate = row.status === 'estimate';
-    const filename = `${isEstimate ? '見積書' : '請求書'}_${row.billing_key}.pdf`;
+    // v2.8.107+: ファイル名は project.gls_number (live) を使う。
+    // billing_key は revenue 作成時のスナップショット (例: "GLS001-001-1") のため、
+    // 後で project の GLS を変更してもそのままだと古い GLS のファイル名で出てしまう。
+    // billing_key の最初のダッシュまでが GLS-prefix なので、そこだけを live gls_number で
+    // 置換し、エピソード/税枝番のサフィックスは保つ。GLS 未発番ケースは billing_key そのまま。
+    let filenameKey = row.billing_key || '';
+    if (row.gls_number && filenameKey) {
+      const dash = filenameKey.indexOf('-');
+      if (dash > 0 && /^GLS\d+$/i.test(filenameKey.slice(0, dash))) {
+        filenameKey = row.gls_number + filenameKey.slice(dash);
+      }
+    }
+    const filename = `${isEstimate ? '見積書' : '請求書'}_${filenameKey}.pdf`;
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
