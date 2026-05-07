@@ -10,6 +10,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
 import { formatCurrency, formatMonth, formatShortDate, localDateStr } from "@/lib/format";
+import { previousBusinessDay } from "@gmo-onair/shared/src/utils/businessDays";
+import { TaxHelperButton } from "@gmo-onair/shared/src/client/ui/tax-aware-amount-input";
 import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { FilterBar } from "@gmo-onair/shared/src/client/ui/filter-bar";
@@ -259,8 +261,9 @@ export default function RevenueListPage() {
       const [ey, em] = endDate.split("-").map(Number);
       if (ey && em) {
         setRecognitionMonth(`${ey}-${String(em).padStart(2, "0")}`);
-        setBillingDate(localDateStr(new Date(ey, em, 0)));       // 計上月末
-        setPaymentDueDate(localDateStr(new Date(ey, em + 1, 0))); // 翌月末
+        // v2.8.103+: 末日が土日祝のときは前営業日に調整
+        setBillingDate(localDateStr(previousBusinessDay(new Date(ey, em, 0))));       // 計上月末
+        setPaymentDueDate(localDateStr(previousBusinessDay(new Date(ey, em + 1, 0)))); // 翌月末
       }
     }
   }, [selectedProjectId, selectedProject?.event_end]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -959,13 +962,20 @@ export default function RevenueListPage() {
                               />
                             </TableCell>
                             <TableCell className="p-1">
-                              <CurrencyInput
-                                value={item.unit_price}
-                                onChange={(v) =>
-                                  updateItem(idx, "unit_price", v)
-                                }
-                                className="h-8 text-sm"
-                              />
+                              <div className="flex items-center gap-0.5">
+                                <CurrencyInput
+                                  value={item.unit_price}
+                                  onChange={(v) =>
+                                    updateItem(idx, "unit_price", v)
+                                  }
+                                  className="h-8 text-sm flex-1"
+                                />
+                                <TaxHelperButton
+                                  fieldLabel="単価"
+                                  defaultIncludedAmount={item.unit_price}
+                                  onResult={(v) => updateItem(idx, "unit_price", v)}
+                                />
+                              </div>
                             </TableCell>
                             <TableCell className="p-1 text-right font-number text-sm font-medium">
                               {formatCurrency(item.amount)}
@@ -1088,13 +1098,20 @@ export default function RevenueListPage() {
                           </div>
                           <div>
                             <Label className="text-xs text-muted-foreground">単価</Label>
-                            <CurrencyInput
-                              value={item.unit_price}
-                              onChange={(v) =>
-                                updateItem(idx, "unit_price", v)
-                              }
-                              className="text-sm"
-                            />
+                            <div className="flex items-center gap-0.5">
+                              <CurrencyInput
+                                value={item.unit_price}
+                                onChange={(v) =>
+                                  updateItem(idx, "unit_price", v)
+                                }
+                                className="text-sm flex-1"
+                              />
+                              <TaxHelperButton
+                                fieldLabel="単価"
+                                defaultIncludedAmount={item.unit_price}
+                                onResult={(v) => updateItem(idx, "unit_price", v)}
+                              />
+                            </div>
                           </div>
                           <div>
                             <Label className="text-xs text-muted-foreground">金額</Label>
@@ -1158,10 +1175,19 @@ export default function RevenueListPage() {
             {items.length === 0 && (
               <div className="space-y-1">
                 <Label>金額</Label>
-                <CurrencyInput
-                  value={amount}
-                  onChange={(v) => setAmount(v)}
-                />
+                <div className="flex items-center gap-1">
+                  <div className="flex-1">
+                    <CurrencyInput
+                      value={amount}
+                      onChange={(v) => setAmount(v)}
+                    />
+                  </div>
+                  <TaxHelperButton
+                    fieldLabel="売上金額"
+                    defaultIncludedAmount={amount}
+                    onResult={setAmount}
+                  />
+                </div>
               </div>
             )}
 

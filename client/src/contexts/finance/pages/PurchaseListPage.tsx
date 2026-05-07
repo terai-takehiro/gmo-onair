@@ -12,6 +12,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
 import api from "@/lib/api";
 import { formatCurrency, formatMonth, localDateStr } from "@/lib/format";
+import { previousBusinessDay } from "@gmo-onair/shared/src/utils/businessDays";
+import { TaxHelperButton } from "@gmo-onair/shared/src/client/ui/tax-aware-amount-input";
 import { useCrudPage } from "@/hooks/useCrudPage";
 import { PageTransition } from "@/components/ui/motion";
 import {
@@ -471,7 +473,16 @@ export default function PurchaseListPage() {
 
               <div>
                 <Label>金額</Label>
-                <CurrencyInput value={amount} onChange={setAmount} />
+                <div className="flex items-center gap-1">
+                  <div className="flex-1">
+                    <CurrencyInput value={amount} onChange={setAmount} />
+                  </div>
+                  <TaxHelperButton
+                    fieldLabel="仕入金額"
+                    defaultIncludedAmount={amount}
+                    onResult={setAmount}
+                  />
+                </div>
               </div>
 
               <div>
@@ -542,12 +553,13 @@ export default function PurchaseListPage() {
                       if (val) {
                         const [y, m] = val.split("-").map(Number);
                         setRecognitionMonth(`${y}-${String(m).padStart(2, "0")}`);
-                        setPaymentDueDate(localDateStr(new Date(y, m + 1, 0)));
+                        // v2.8.103+: 翌月末が土日祝のときは前営業日に調整
+                        setPaymentDueDate(localDateStr(previousBusinessDay(new Date(y, m + 1, 0))));
                       }
                     }}
                   />
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    入力すると計上月（当月）・支払予定日（翌月末）を自動入力します
+                    入力すると計上月（当月）・支払予定日（翌月末、土日祝は前営業日）を自動入力します
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
