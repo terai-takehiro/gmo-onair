@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.103 — 支払予定日 (請求日) 自動入力の営業日対応 (土日祝なら前営業日に調整、@holiday-jp/holiday_jp 導入) — Phase B (売上明細インライン編集) / Phase C (税込/税抜ヘルパー全アプリ展開) は後続継続実装
+**現在のバージョン**: v2.8.104 — Phase B: 売上明細項目のインライン編集 (ダイアログを開かずに直接編集/追加/削除)
 
 ---
 
@@ -401,6 +401,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.8.104** | **売上明細項目のインライン編集 (Phase B) (dev)**: ユーザー要望のうち「明細項目をインライン編集可能に」に対応。各売上明細カードの items テーブル上部に「明細を編集」ボタンを追加 (編集モード切替)。編集モードでは項目名/数量/単価を `<Input>` 化、各行に削除アイコン、テーブル下に「行追加」ボタン + 合計表示、上部に「キャンセル」「保存」ボタン。inlineSaveMutation は既存 revenue の他フィールドを保持しつつ items のみ差し替えて PUT、amount は items 合計で自動再計算。items 空の明細にも「明細項目を追加」ボタンを表示。Phase C (税込/税抜ヘルパー全アプリ展開) は後続実装。 |
 | **v2.8.103** | **支払予定日 (請求日) 自動入力の営業日対応 (Phase A) (dev)**: ユーザー要望 3 件のうち 1 件目を実装。`@holiday-jp/holiday_jp` を導入し `shared/src/utils/businessDays.ts` で `isBusinessDay` / `previousBusinessDay` / `nextBusinessDay` / `toLocalDateStr` / `endOfNextMonth` を提供。PurchaseListPage / RevenueListPage / BusinessProjectView (売上明細編集) の自動入力 (計上月 + 翌月末等) を営業日調整。BusinessProjectView は計上日入力時に請求日・支払期日を空のときのみ自動入力。Phase B (売上明細インライン編集) と Phase C (税込/税抜ヘルパー全アプリ展開) は後続バージョンで継続実装。 |
 | **v2.8.102** | **モバイル小スケール時に下位置CG テロップ下端に白線が見える問題を修正 (dev)**: ユーザー報告「CG作画プレビュー画面のテロップの下にはいっている線」(スクリーンショット添付) に対応。原因: `.lt-panel` の `border-bottom: 1px solid var(--line)` (ゴールド 45% 透過) が、モバイル幅 (~390px) で 1920×1080 CG を ~0.20× スケール表示した際、1px ゴールド薄線がサブピクセル描画で淡灰/白っぽく描画されていた。修正: `.lt-panel` の `border-bottom` を撤去。上端 border-top (85% 透過 濃ゴールド) + 左の gold accent + 4 隅の corner decoration で囲み感は維持。実際の OBS 1920×1080 ネイティブ表示でも見た目はほぼ変化なし。 |
 | **v2.8.101** | **全画面中も CLEAR 操作可能に: 代替キー X を追加 (dev)**: ユーザー報告「全画面中もテロップ制御できないと意味ない」に対応。v2.8.100 で全画面中の Esc → CLEAR を skip にしたが、それだと全画面中に CLEAR できなくなる本末転倒。修正: `useShortcuts` (下位置CG) と ControlPage (表彰CG) に「`x` / `X` キー → CLEAR」を追加。X はブラウザの全画面解除と被らないため、全画面中でもテロップ OFF 可能。Esc は通常モードで CLEAR、全画面中はブラウザの全画面解除のみ。ShortcutHints / ヒント表示も更新。 |
