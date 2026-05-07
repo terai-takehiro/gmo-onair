@@ -1267,45 +1267,48 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                     </div>
                   </div>
                 ))}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addItem}
-                  >
-                    <Plus className="h-3 w-3 mr-1" />
-                    項目追加
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPricingPickerOpen(true)}
-                  >
-                    <Link2 className="h-3 w-3 mr-1" />
-                    料金表から追加
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSimDialogOpen(true)}
-                  >
-                    <Calculator className="h-3 w-3 mr-1" />
-                    シミュレーション
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="text-amber-700 border-amber-300 hover:bg-amber-50"
-                    onClick={openGlobalDiscount}
-                  >
-                    <Percent className="h-3 w-3 mr-1" />
-                    全体値引き
-                  </Button>
-                </div>
+              </div>
+
+              {/* v2.8.106+: 項目追加・料金表・シミュレーション・全体値引き ボタン
+                  (PC table とモバイル card の両方で共通表示) */}
+              <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addItem}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  項目追加
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPricingPickerOpen(true)}
+                >
+                  <Link2 className="h-3 w-3 mr-1" />
+                  料金表から追加
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSimDialogOpen(true)}
+                >
+                  <Calculator className="h-3 w-3 mr-1" />
+                  シミュレーション
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-amber-700 border-amber-300 hover:bg-amber-50"
+                  onClick={openGlobalDiscount}
+                >
+                  <Percent className="h-3 w-3 mr-1" />
+                  全体値引き
+                </Button>
               </div>
             </div>
 
