@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.108 — 機材 Excel インポートで `uq_fixed_asset_code` ユニーク制約違反を事前検出 + エラーメッセージを日本語化
+**現在のバージョン**: v2.8.109 — 固定資産コードのユニーク制約 (uq_fixed_asset_code) を撤廃 (1 つの固定資産コードを複数機材で共有する業務実態に合わせる)
 
 ---
 
@@ -401,6 +401,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.8.109** | **固定資産コードのユニーク制約を撤廃 (dev)**: ユーザー報告「固定資産コードはユニークではないです！」に対応。v2.8.108 で事前検証エラーとして返した重複ロジックを撤回。migration 085 で `uq_fixed_asset_code` 部分ユニーク index を撤去し、検索性のため非ユニークの `idx_fixed_asset_code` に置換。Excel インポートのバリデーション (faCodeMap、catch の翻訳メッセージ) も撤去。1 つの固定資産コードを複数機材で共有できる元の業務実態に合わせる。 |
 | **v2.8.108** | **機材 Excel インポートで固定資産コード重複エラーを事前検出 (dev)**: ユーザー報告「機材登録すると duplicate key value violates unique constraint "uq_fixed_asset_code" エラー」に対応。`import-preview` で equipment_items の `fixed_asset_code` も読み込み、faCodeMap を構築。各行の検証時に a) 既存の他機材との重複、b) 同一インポートファイル内での重複を検出して errors[] に積む。`import` の catch 句で uq_fixed_asset_code 違反を「固定資産コードが既存の機材と重複しています…」の日本語メッセージに翻訳して 409 で返す保険も追加。 |
 | **v2.8.107** | **請求書/見積書 PDF ファイル名が project の GLS 番号変更に追従しない問題を修正 (dev)**: ユーザー報告に対応。`revenues.billing_key` は revenue 作成時のスナップショットで project の `gls_number` 更新と連動しないため、ファイル名が古い GLS のまま出力されていた。`/revenues/:id/pdf` で billing_key の GLS-prefix 部分 (例: `GLS001`) を live `gls_number` で置換、エピソード/税枝番のサフィックスは保持。GLS 未発番ケースは billing_key そのままフォールバック。PDF コンテンツ内の GLS 表示は元から live join なので修正不要。 |
 | **v2.8.106** | **売上明細編集ダイアログの「項目追加」等ボタンを PC view でも表示 (dev)**: ユーザー報告 (スクリーンショット添付) 「ここで明細の項目追加ができるようにしたかったのですが」に対応。アクションボタン群 (項目追加 / 料金表から追加 / シミュレーション / 全体値引き) がモバイル専用セクション (`<div className="sm:hidden">`) の内側に配置されていたため PC で見えなかった。両レイアウト共通の位置に移動。 |
