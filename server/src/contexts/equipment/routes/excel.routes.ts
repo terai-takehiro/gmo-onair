@@ -250,20 +250,30 @@ router.post('/items/import', requirePermission('equipment', 'editor'), upload.si
 
   // マスタ事前ロード
   let manufacturers: { id: string; name: string }[];
-  let existingItems: { id: string; eq_code: string }[];
+  let existingItems: { id: string; eq_code: string; fixed_asset_code: string | null }[];
   try {
     [manufacturers, existingItems] = await Promise.all([
       queryAll('SELECT id, name FROM equipment_manufacturers WHERE deleted_at IS NULL') as Promise<{ id: string; name: string }[]>,
-      queryAll('SELECT id, eq_code FROM equipment_items WHERE deleted_at IS NULL') as Promise<{ id: string; eq_code: string }[]>,
+      queryAll('SELECT id, eq_code, fixed_asset_code FROM equipment_items WHERE deleted_at IS NULL') as Promise<{ id: string; eq_code: string; fixed_asset_code: string | null }[]>,
     ]);
   } catch (e: any) {
     throw new AppError(500, 'DB_ERROR', `マスタ読み込みエラー: ${e?.message || e}`);
   }
   const mfgMap = new Map(manufacturers.map((m) => [m.name, m.id]));
   const eqCodeMap = new Map(existingItems.map((r) => [r.eq_code, r.id]));
+  // v2.8.108+: 固定資産コードの重複チェック用マップ
+  // (DB の uq_fixed_asset_code 部分ユニークインデックスとミラー)
+  const faCodeMap = new Map<string, string>();
+  for (const it of existingItems) {
+    if (it.fixed_asset_code && it.fixed_asset_code.trim()) {
+      faCodeMap.set(it.fixed_asset_code, it.id);
+    }
+  }
 
   type VRow = { rowNumber: number; data: Record<string, unknown>; errors: string[]; action: 'insert'|'update'|'skip'; existingId?: string };
   const validated: VRow[] = [];
+  // v2.8.108+: 同一インポートファイル内での fixed_asset_code 重複検知
+  const seenFaCodeInFile = new Map<string, number>(); // fa_code → 最初に出現した行番号
 
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
@@ -305,6 +315,22 @@ router.post('/items/import', requirePermission('equipment', 'editor'), upload.si
         if (duplicateMode === 'error') errors.push(`機材ID "${eqCode}" は既に存在します`);
         else if (duplicateMode === 'update') action = 'update';
         else action = 'skip';
+      }
+    }
+
+    // v2.8.108+: 固定資産コード 重複チェック
+    // a) 既存の他の機材で使用中 (DB の部分ユニークインデックス uq_fixed_asset_code 違反を事前検知)
+    // b) 同一インポートファイル内で重複
+    if (fixedAssetCode) {
+      const dbOwnerId = faCodeMap.get(fixedAssetCode);
+      if (dbOwnerId && dbOwnerId !== existingId) {
+        errors.push(`固定資産コード "${fixedAssetCode}" は既に他の機材で使用されています`);
+      }
+      const firstSeenRow = seenFaCodeInFile.get(fixedAssetCode);
+      if (firstSeenRow !== undefined) {
+        errors.push(`固定資産コード "${fixedAssetCode}" がインポートファイル内で重複しています (最初は行 ${firstSeenRow})`);
+      } else {
+        seenFaCodeInFile.set(fixedAssetCode, rowNumber);
       }
     }
 
@@ -433,6 +459,14 @@ router.post('/items/import', requirePermission('equipment', 'editor'), upload.si
   } catch (err: any) {
     await client.query('ROLLBACK');
     const msg = err?.message || String(err);
+    // v2.8.108+: 部分ユニーク違反を分かりやすい日本語メッセージに翻訳
+    if (msg.includes('uq_fixed_asset_code')) {
+      throw new AppError(
+        409,
+        'DUPLICATE_FIXED_ASSET_CODE',
+        '固定資産コードが既存の機材と重複しています。インポートファイル内および既存登録機材で固定資産コードがユニークになるよう修正してから再度インポートしてください。',
+      );
+    }
     throw new AppError(500, 'DB_ERROR', `インポート中にエラーが発生しました: ${msg}`);
   } finally {
     client.release();

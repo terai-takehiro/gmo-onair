@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.107 — 請求書/見積書 PDF ファイル名が project の GLS 番号変更に追従しない問題を修正 (live `gls_number` で billing_key prefix を置換)
+**現在のバージョン**: v2.8.108 — 機材 Excel インポートで `uq_fixed_asset_code` ユニーク制約違反を事前検出 + エラーメッセージを日本語化
 
 ---
 
@@ -401,6 +401,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.8.108** | **機材 Excel インポートで固定資産コード重複エラーを事前検出 (dev)**: ユーザー報告「機材登録すると duplicate key value violates unique constraint "uq_fixed_asset_code" エラー」に対応。`import-preview` で equipment_items の `fixed_asset_code` も読み込み、faCodeMap を構築。各行の検証時に a) 既存の他機材との重複、b) 同一インポートファイル内での重複を検出して errors[] に積む。`import` の catch 句で uq_fixed_asset_code 違反を「固定資産コードが既存の機材と重複しています…」の日本語メッセージに翻訳して 409 で返す保険も追加。 |
 | **v2.8.107** | **請求書/見積書 PDF ファイル名が project の GLS 番号変更に追従しない問題を修正 (dev)**: ユーザー報告に対応。`revenues.billing_key` は revenue 作成時のスナップショットで project の `gls_number` 更新と連動しないため、ファイル名が古い GLS のまま出力されていた。`/revenues/:id/pdf` で billing_key の GLS-prefix 部分 (例: `GLS001`) を live `gls_number` で置換、エピソード/税枝番のサフィックスは保持。GLS 未発番ケースは billing_key そのままフォールバック。PDF コンテンツ内の GLS 表示は元から live join なので修正不要。 |
 | **v2.8.106** | **売上明細編集ダイアログの「項目追加」等ボタンを PC view でも表示 (dev)**: ユーザー報告 (スクリーンショット添付) 「ここで明細の項目追加ができるようにしたかったのですが」に対応。アクションボタン群 (項目追加 / 料金表から追加 / シミュレーション / 全体値引き) がモバイル専用セクション (`<div className="sm:hidden">`) の内側に配置されていたため PC で見えなかった。両レイアウト共通の位置に移動。 |
 | **v2.8.105** | **税込/税抜ヘルパー (Phase C - 主要適用) (dev)**: ユーザー要望「金額入力時に税込？税抜？を尋ね、税込なら 10%/8%/非課税 を選んで税抜計算」に対応。新規 `shared/src/client/ui/tax-aware-amount-input.tsx` に `TaxHelperButton` (既存 CurrencyInput 等の隣に配置) と `TaxAwareAmountInput` (Input 内蔵版) を実装。クリックで 2 ステップダイアログ (税込/税抜確認 → 税率選択 → 各税率の税抜プレビュー付きボタン) を提示し、税抜金額を四捨五入で換算して onResult に返す。適用箇所: BusinessProjectView 売上明細ダイアログ (PC + モバイル) + インライン編集の単価、PurchaseListPage 仕入金額、SgaDialog 販管費金額、RevenueListPage 売上金額 + 明細単価 (PC + モバイル)。残り (機材/Qシート 等) は後続展開。 |
