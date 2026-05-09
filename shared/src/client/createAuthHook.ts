@@ -54,6 +54,25 @@ function readStoredUser(storageKey: string): User | null {
   }
 }
 
+const PERMISSIONS_STORAGE_KEY = 'gmo_onair_permissions';
+
+function readStoredPermissions(): Record<string, string> {
+  try {
+    const s = localStorage.getItem(PERMISSIONS_STORAGE_KEY);
+    return s ? (JSON.parse(s) as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeStoredPermissions(perms: Record<string, string>) {
+  try {
+    localStorage.setItem(PERMISSIONS_STORAGE_KEY, JSON.stringify(perms));
+  } catch {
+    /* localStorage full / disabled — silently ignore, runtime state still works */
+  }
+}
+
 export function createAuthHook(config: AuthHookConfig) {
   // モジュールロード時に旧キーから新キーへ一度だけ移行する
   if (config.legacyStorageKeys?.length) {
@@ -66,29 +85,40 @@ export function createAuthHook(config: AuthHookConfig) {
     // cookie が失効」の場合、loading=false で即「ログイン済み」と誤判定し、LoginPage がルートへ
     // hard redirect → ルートで 401 → /login に戻る、というリダイレクトループを誘発していた。
     const [currentUser, setCurrentUser] = useState<User | null>(() => readStoredUser(config.storageKey));
-    const [permissions, setPermissions] = useState<Record<string, string>>({});
+    // permissions も localStorage キャッシュから初期化する (v2.8.90)。
+    // 以前は常に {} 初期値で、`/users/me/permissions` が遅い・失敗すると hasPermission(...) が false を返し、
+    // 編集ボタン (機材登録 / 表編集) が非表示になる問題があった。キャッシュを介して即座に権限を復元する。
+    const [permissions, setPermissions] = useState<Record<string, string>>(() => readStoredPermissions());
     const [loading, setLoading] = useState(true);
     const setCurrentUserId = useUiStore((s) => s.setCurrentUserId);
 
     useEffect(() => {
       const init = async () => {
         try {
-          // Fetch auth + permissions in parallel
-          const [meRes, permRes] = await Promise.all([
-            config.api.get('/auth/me'),
-            config.api.get('/users/me/permissions').catch(() => ({ data: { data: {} } })),
-          ]);
+          // /auth/me が成功するまで permissions の確定はしない。permissions API が失敗した場合は
+          // キャッシュ値を温存して silent fallback (= ボタンが消える事故を防ぐ)。
+          const meRes = await config.api.get('/auth/me');
           const user = meRes.data.data;
           setCurrentUser(user);
           setCurrentUserId(user.id);
           localStorage.setItem(config.storageKey, JSON.stringify(user));
-          setPermissions(permRes.data.data || {});
+
+          try {
+            const permRes = await config.api.get('/users/me/permissions');
+            const perms = permRes.data.data || {};
+            setPermissions(perms);
+            writeStoredPermissions(perms);
+          } catch (permErr) {
+            // permissions 取得失敗時はキャッシュ値を保持 (clobber しない)。
+            console.warn('[useAuth] permissions fetch failed, keeping cached values', permErr);
+          }
         } catch {
-          // Token expired or invalid — clear cached state
+          // /auth/me 失敗 = セッション無効。ユーザーと権限の両方をクリア。
           setCurrentUser(null);
           setPermissions({});
           localStorage.removeItem('gmo_onair_token');
           localStorage.removeItem(config.storageKey);
+          localStorage.removeItem(PERMISSIONS_STORAGE_KEY);
         } finally {
           setLoading(false);
         }
@@ -105,8 +135,14 @@ export function createAuthHook(config: AuthHookConfig) {
         setCurrentUserId(user.id);
         localStorage.setItem(config.storageKey, JSON.stringify(user));
         // Fetch permissions now that we're logged in
-        const pRes = await config.api.get('/users/me/permissions').catch(() => ({ data: { data: {} } }));
-        setPermissions(pRes.data.data || {});
+        try {
+          const pRes = await config.api.get('/users/me/permissions');
+          const perms = pRes.data.data || {};
+          setPermissions(perms);
+          writeStoredPermissions(perms);
+        } catch (permErr) {
+          console.warn('[useAuth] permissions fetch after login failed', permErr);
+        }
       },
       [setCurrentUserId]
     );
@@ -114,15 +150,19 @@ export function createAuthHook(config: AuthHookConfig) {
     const loginWithToken = useCallback(
       async (token: string) => {
         localStorage.setItem('gmo_onair_token', token);
-        const [meRes, permRes] = await Promise.all([
-          config.api.get('/auth/me'),
-          config.api.get('/users/me/permissions').catch(() => ({ data: { data: {} } })),
-        ]);
+        const meRes = await config.api.get('/auth/me');
         const user = meRes.data.data;
         setCurrentUser(user);
         setCurrentUserId(user.id);
         localStorage.setItem(config.storageKey, JSON.stringify(user));
-        setPermissions(permRes.data.data || {});
+        try {
+          const permRes = await config.api.get('/users/me/permissions');
+          const perms = permRes.data.data || {};
+          setPermissions(perms);
+          writeStoredPermissions(perms);
+        } catch (permErr) {
+          console.warn('[useAuth] permissions fetch after token login failed', permErr);
+        }
       },
       [setCurrentUserId]
     );
@@ -133,6 +173,7 @@ export function createAuthHook(config: AuthHookConfig) {
       setCurrentUserId(null);
       localStorage.removeItem(config.storageKey);
       localStorage.removeItem('gmo_onair_token');
+      localStorage.removeItem(PERMISSIONS_STORAGE_KEY);
       config.api.post('/auth/logout').catch(() => {});
     }, [setCurrentUserId]);
 
