@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.109 — 固定資産コードのユニーク制約 (uq_fixed_asset_code) を撤廃 (1 つの固定資産コードを複数機材で共有する業務実態に合わせる)
+**現在のバージョン**: v2.8.110 — 機材一覧の「機材登録/表編集」ボタンが時々消える問題と表が稀にエラーで出ない問題を修正 (permissions の localStorage キャッシュ + 5xx/network の retry 強化)
 
 ---
 
@@ -401,6 +401,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.8.110** | **機材一覧で編集ボタンが時々消える問題 + 表が稀にエラーで出ない問題を修正 (dev)**: ユーザー報告「機材一覧が、たまに画像のようになる。本来は表編集や機材登録のボタンが表示されているはず」「あとちょいちょいエラーが出て、表が表示されないときがある（リロードすると直る）」に対応。①**ボタン消失の根本原因**: `useAuth` (`shared/src/client/createAuthHook.ts`) が `permissions` を初期値 `{}` で起動し `/users/me/permissions` API レスポンスを待つ間、`hasPermission('equipment', 'editor')` が false を返して `canEdit = false` → 編集ボタンが非表示。さらに permissions API が遅延・失敗しても **silent catch** (`.catch(() => ({ data: { data: {} } }))`) で `{}` に上書きされ、cached 状態を温存できなかった。**修正**: a) permissions を **localStorage `gmo_onair_permissions` にキャッシュ** し `useState` 初期化で同期復元 → リロード時に即時に編集ボタンが表示される、b) permissions API 失敗時は **キャッシュ値を温存** (silent fallback で `{}` 上書きしない、`console.warn` のみ) → 一時的なネットワークエラーで権限が消えない、c) logout 時に `gmo_onair_permissions` も削除。 ②**表エラーの耐性向上**: `shared/src/client/queryClient.ts` のグローバル `retry: 1` (= 計 2 試行) を **5xx / network 系のみ最大 2 回 retry (= 計 3 試行) + 指数バックオフ (1s, 2s, 4s, 最大 8s)** に強化。4xx (権限/認証エラー) は即時表示で UX を損なわない。これで `/equipment/items` がコールドスタートやネットワークブリップで 1 度失敗しても自動リトライで表が描画される。 ③**影響範囲**: shared なので全 7 client (案件管理 / Qシート / 機材管理 / インタラクティブ / 技術資料 / ライブ / 表彰CG) に同時に効果が及ぶ。 |
 | **v2.8.109** | **固定資産コードのユニーク制約を撤廃 (dev)**: ユーザー報告「固定資産コードはユニークではないです！」に対応。v2.8.108 で事前検証エラーとして返した重複ロジックを撤回。migration 085 で `uq_fixed_asset_code` 部分ユニーク index を撤去し、検索性のため非ユニークの `idx_fixed_asset_code` に置換。Excel インポートのバリデーション (faCodeMap、catch の翻訳メッセージ) も撤去。1 つの固定資産コードを複数機材で共有できる元の業務実態に合わせる。 |
 | **v2.8.108** | **機材 Excel インポートで固定資産コード重複エラーを事前検出 (dev)**: ユーザー報告「機材登録すると duplicate key value violates unique constraint "uq_fixed_asset_code" エラー」に対応。`import-preview` で equipment_items の `fixed_asset_code` も読み込み、faCodeMap を構築。各行の検証時に a) 既存の他機材との重複、b) 同一インポートファイル内での重複を検出して errors[] に積む。`import` の catch 句で uq_fixed_asset_code 違反を「固定資産コードが既存の機材と重複しています…」の日本語メッセージに翻訳して 409 で返す保険も追加。 |
 | **v2.8.107** | **請求書/見積書 PDF ファイル名が project の GLS 番号変更に追従しない問題を修正 (dev)**: ユーザー報告に対応。`revenues.billing_key` は revenue 作成時のスナップショットで project の `gls_number` 更新と連動しないため、ファイル名が古い GLS のまま出力されていた。`/revenues/:id/pdf` で billing_key の GLS-prefix 部分 (例: `GLS001`) を live `gls_number` で置換、エピソード/税枝番のサフィックスは保持。GLS 未発番ケースは billing_key そのままフォールバック。PDF コンテンツ内の GLS 表示は元から live join なので修正不要。 |
