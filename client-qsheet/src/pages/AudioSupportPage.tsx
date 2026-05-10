@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Mic, AlertTriangle, ArrowRight } from "lucide-react";
+import { Loader2, Mic, AlertTriangle, Radio, ArrowRight } from "lucide-react";
 import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
 
 type MicState = "on" | "off" | "standby";
@@ -58,16 +58,34 @@ interface FlatCue {
   rowIndex: number;
 }
 
+type DiffKind = "turn_on" | "turn_off" | "standby" | "person_change" | "mic_change";
+
 const STATE_BG: Record<MicState, string> = {
-  on: "bg-red-600 ring-2 ring-red-300/40",
-  standby: "bg-amber-400 ring-2 ring-amber-200/40",
-  off: "bg-zinc-800 ring-1 ring-zinc-700",
+  on: "bg-red-600",
+  standby: "bg-amber-400",
+  off: "bg-zinc-800",
 };
 
 const STATE_LABEL: Record<MicState, string> = {
   on: "ON",
   standby: "STBY",
   off: "OFF",
+};
+
+const DIFF_RING: Record<DiffKind, string> = {
+  turn_on: "ring-4 ring-red-400/70",
+  turn_off: "ring-4 ring-zinc-400/50",
+  standby: "ring-4 ring-amber-300/70",
+  person_change: "ring-4 ring-sky-400/70",
+  mic_change: "ring-4 ring-purple-400/70",
+};
+
+const DIFF_LABEL: Record<DiffKind, string> = {
+  turn_on: "ON へ",
+  turn_off: "OFF へ",
+  standby: "STBY へ",
+  person_change: "人物交代",
+  mic_change: "マイク変更",
 };
 
 function flattenCues(sections: PublicSection[]): FlatCue[] {
@@ -100,7 +118,6 @@ function getAssignment(cell: PublicCell | undefined, ch: number): MicAssignment 
   return found || { ch, person: "", micType: "", state: "off" };
 }
 
-// すべての section.rows を 1 本のフラット配列に潰す。indexはflattenCuesの rowIndex と対応。
 function flattenRows(sections: PublicSection[]): PublicRow[] {
   const out: PublicRow[] = [];
   for (const sec of sections) {
@@ -108,6 +125,159 @@ function flattenRows(sections: PublicSection[]): PublicRow[] {
     for (const r of (sec.rows || [])) out.push(r);
   }
   return out;
+}
+
+function classifyDiff(from: MicAssignment, to: MicAssignment): DiffKind | null {
+  if (from.state === to.state && from.person === to.person && from.micType === to.micType) return null;
+  if (from.state !== to.state) {
+    if (to.state === "on") return "turn_on";
+    if (to.state === "off") return "turn_off";
+    return "standby";
+  }
+  if (from.person !== to.person) return "person_change";
+  return "mic_change";
+}
+
+// ─── ChCard ─────────────────────────────────────────────
+function ChCard({
+  ch,
+  label,
+  assignment,
+  diff,
+}: {
+  ch: number;
+  label?: string;
+  assignment: MicAssignment;
+  diff?: DiffKind | null;
+}) {
+  const a = assignment;
+  return (
+    <div
+      className={`relative rounded-2xl p-4 transition-all duration-300 ${STATE_BG[a.state]} ${
+        a.state === "off" ? "opacity-60" : "opacity-100"
+      } ${diff ? DIFF_RING[diff] : ""}`}
+    >
+      {diff && (
+        <span className="absolute -top-2 -right-2 px-2 py-0.5 rounded-full bg-white text-zinc-900 text-[10px] font-bold shadow-md whitespace-nowrap">
+          {DIFF_LABEL[diff]}
+        </span>
+      )}
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div>
+          <div
+            className={`text-3xl font-bold tabular-nums leading-none ${
+              a.state === "off" ? "text-zinc-500" : "text-white"
+            }`}
+            style={{ fontFamily: "'Roboto Condensed',sans-serif" }}
+          >
+            Ch{ch}
+          </div>
+          {label && (
+            <div className={`text-[10px] uppercase tracking-wider mt-0.5 ${a.state === "off" ? "text-zinc-600" : "text-white/70"}`}>
+              {label}
+            </div>
+          )}
+        </div>
+        <span
+          className={`px-2 py-0.5 rounded text-[11px] font-bold tracking-wide ${
+            a.state === "on"
+              ? "bg-white/20 text-white"
+              : a.state === "standby"
+              ? "bg-amber-900/50 text-amber-100"
+              : "bg-zinc-800 text-zinc-500"
+          }`}
+        >
+          {STATE_LABEL[a.state]}
+        </span>
+      </div>
+      <div className="space-y-0.5">
+        <div className={`text-base font-bold truncate ${a.state === "off" ? "text-zinc-600" : "text-white"}`}>
+          {a.person || (a.state === "off" ? "—" : "(未割当)")}
+        </div>
+        <div className={`text-xs truncate ${a.state === "off" ? "text-zinc-600" : "text-white/70"}`}>
+          {a.micType || "—"}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── CueColumn ──────────────────────────────────────────
+function CueColumn({
+  variant,
+  cueIndex,
+  cueLabel,
+  cueType,
+  channels,
+  cell,
+  diffMap,
+  totalCues,
+}: {
+  variant: "oa" | "next";
+  cueIndex: number | null;
+  cueLabel: string;
+  cueType?: "cue" | "cm" | "vtr";
+  channels: { ch: number; label?: string }[];
+  cell: PublicCell | undefined;
+  diffMap?: Map<number, DiffKind>;
+  totalCues: number;
+}) {
+  const isOA = variant === "oa";
+  const accent = isOA
+    ? { bg: "from-red-950/60 to-rose-950/40", border: "border-red-900/60", text: "text-red-300", icon: <Radio size={16} /> }
+    : { bg: "from-amber-950/40 to-zinc-900/40", border: "border-amber-900/40", text: "text-amber-300", icon: <ArrowRight size={16} /> };
+
+  return (
+    <section className={`flex flex-col min-h-0 rounded-2xl border ${accent.border} bg-zinc-900/30 overflow-hidden`}>
+      {/* Section header */}
+      <header className={`flex-none px-4 py-3 bg-gradient-to-r ${accent.bg} border-b ${accent.border}`}>
+        <div className="flex items-baseline gap-2 flex-wrap">
+          <span className={`inline-flex items-center gap-1 text-xs font-black uppercase tracking-widest ${accent.text}`}>
+            {accent.icon}
+            {isOA ? "OA" : "NEXT"}
+          </span>
+          {cueIndex !== null && totalCues > 0 ? (
+            <>
+              <span
+                className="text-2xl sm:text-3xl font-bold tabular-nums text-zinc-200"
+                style={{ fontFamily: "'Roboto Condensed',sans-serif" }}
+              >
+                #{cueIndex + 1}
+              </span>
+              <span className="text-base sm:text-xl font-bold truncate flex-1 min-w-0 text-white">
+                {cueLabel || "—"}
+              </span>
+              {cueType && cueType !== "cue" && (
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">
+                  {cueType}
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="text-base font-bold text-zinc-500 italic">{isOA ? "—" : "(終端)"}</span>
+          )}
+        </div>
+      </header>
+
+      {/* Ch grid */}
+      <div className="flex-1 overflow-y-auto p-4">
+        <div
+          className="grid gap-3"
+          style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}
+        >
+          {channels.map((c) => (
+            <ChCard
+              key={c.ch}
+              ch={c.ch}
+              label={c.label}
+              assignment={getAssignment(cell, c.ch)}
+              diff={diffMap?.get(c.ch) ?? null}
+            />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
 }
 
 export default function AudioSupportPage() {
@@ -185,32 +355,23 @@ export default function AudioSupportPage() {
       if (idx < 0) continue;
       const cell = rows[idx]?.cells[micBlock.id];
       if (cell) {
-        return { cue: cues[i], cell, offset: i - currentCue };
+        return { cue: cues[i], cueIndex: i, cell, offset: i - currentCue };
       }
     }
     return null;
   }, [cues, rows, currentCue, micBlock]);
 
-  const diffs = useMemo(() => {
-    if (!nextCueInfo) return [] as Array<{ ch: number; kind: "turn_on" | "turn_off" | "standby" | "person_change" | "mic_change"; from: MicAssignment; to: MicAssignment }>;
-    const out: Array<{ ch: number; kind: "turn_on" | "turn_off" | "standby" | "person_change" | "mic_change"; from: MicAssignment; to: MicAssignment }> = [];
+  // Ch ごとの差分を Map で持たせて NEXT 列のリングに使う
+  const diffMap = useMemo(() => {
+    const m = new Map<number, DiffKind>();
+    if (!nextCueInfo) return m;
     for (const c of channels) {
       const from = getAssignment(currentCell, c.ch);
       const to = getAssignment(nextCueInfo.cell, c.ch);
-      if (from.state === to.state && from.person === to.person && from.micType === to.micType) continue;
-      let kind: "turn_on" | "turn_off" | "standby" | "person_change" | "mic_change";
-      if (from.state !== to.state) {
-        if (to.state === "on") kind = "turn_on";
-        else if (to.state === "off") kind = "turn_off";
-        else kind = "standby";
-      } else if (from.person !== to.person) {
-        kind = "person_change";
-      } else {
-        kind = "mic_change";
-      }
-      out.push({ ch: c.ch, kind, from, to });
+      const kind = classifyDiff(from, to);
+      if (kind) m.set(c.ch, kind);
     }
-    return out;
+    return m;
   }, [nextCueInfo, channels, currentCell]);
 
   if (isLoading) {
@@ -242,7 +403,7 @@ export default function AudioSupportPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
+    <div className="h-screen bg-zinc-950 text-zinc-100 flex flex-col overflow-hidden">
       {/* Header */}
       <header className="flex-none px-6 py-3 border-b border-zinc-800 bg-zinc-900/60 backdrop-blur">
         <div className="flex items-center justify-between gap-4">
@@ -258,137 +419,33 @@ export default function AudioSupportPage() {
         </div>
       </header>
 
-      {/* Current cue banner */}
-      <div className="flex-none px-6 py-4 bg-gradient-to-r from-pink-950/40 to-rose-950/30 border-b border-zinc-800">
-        <div className="flex items-baseline gap-3 flex-wrap">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-pink-400">現在のキュー</span>
-          <span
-            className="text-2xl sm:text-3xl font-bold tabular-nums text-zinc-400"
-            style={{ fontFamily: "'Roboto Condensed',sans-serif" }}
-          >
-            #{currentCue + 1}
-          </span>
-          <span className="text-lg sm:text-2xl font-bold truncate flex-1 min-w-0">{currentLabel || "—"}</span>
-          {currentType !== "cue" && (
-            <span className="text-xs font-bold uppercase px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">
-              {currentType}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Next-cue diff bar */}
-      {nextCueInfo && (
-        <div className="flex-none px-6 py-3 bg-zinc-900/60 border-b border-zinc-800">
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-1.5 flex-none">
-              <ArrowRight size={14} className="text-zinc-500" aria-hidden />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-                次のキュー{nextCueInfo.offset > 1 ? ` (${nextCueInfo.offset}先)` : ""}
-              </span>
-              <span
-                className="text-base font-bold tabular-nums text-zinc-300 ml-1"
-                style={{ fontFamily: "'Roboto Condensed',sans-serif" }}
-              >
-                {nextCueInfo.cue.label || "—"}
-              </span>
-            </div>
-            {diffs.length === 0 ? (
-              <span className="text-xs text-zinc-500 italic">変化なし</span>
-            ) : (
-              <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
-                {diffs.map((d) => {
-                  const config: Record<typeof d.kind, { bg: string; label: string }> = {
-                    turn_on: { bg: "bg-red-600/30 border-red-500 text-red-100", label: "ON" },
-                    turn_off: { bg: "bg-zinc-700/40 border-zinc-500 text-zinc-300", label: "OFF" },
-                    standby: { bg: "bg-amber-600/30 border-amber-500 text-amber-100", label: "STBY" },
-                    person_change: { bg: "bg-sky-600/30 border-sky-500 text-sky-100", label: "人物交代" },
-                    mic_change: { bg: "bg-purple-600/30 border-purple-500 text-purple-100", label: "マイク変更" },
-                  };
-                  const c = config[d.kind];
-                  return (
-                    <span
-                      key={d.ch}
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium ${c.bg}`}
-                      title={`${d.from.state} → ${d.to.state}${d.from.person !== d.to.person ? ` / ${d.from.person || "—"} → ${d.to.person || "—"}` : ""}${d.from.micType !== d.to.micType ? ` / ${d.from.micType || "—"} → ${d.to.micType || "—"}` : ""}`}
-                    >
-                      <span
-                        className="font-bold tabular-nums"
-                        style={{ fontFamily: "'Roboto Condensed',sans-serif" }}
-                      >
-                        Ch{d.ch}
-                      </span>
-                      <span className="opacity-70">·</span>
-                      <span>{c.label}</span>
-                      {(d.kind === "person_change" || d.kind === "turn_on") && d.to.person && (
-                        <span className="opacity-80 truncate max-w-[8rem]">{d.to.person}</span>
-                      )}
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Main grid */}
-      <main className="flex-1 overflow-y-auto p-6">
-        <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
-          {channels.map((c) => {
-            const a = getAssignment(currentCell, c.ch);
-            return (
-              <div
-                key={c.ch}
-                className={`rounded-2xl p-4 transition-all duration-300 ${STATE_BG[a.state]} ${
-                  a.state === "off" ? "opacity-50" : "opacity-100"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <div>
-                    <div
-                      className={`text-3xl font-bold tabular-nums leading-none ${
-                        a.state === "off" ? "text-zinc-500" : "text-white"
-                      }`}
-                      style={{ fontFamily: "'Roboto Condensed',sans-serif" }}
-                    >
-                      Ch{c.ch}
-                    </div>
-                    {c.label && (
-                      <div className={`text-[10px] uppercase tracking-wider mt-0.5 ${a.state === "off" ? "text-zinc-600" : "text-white/70"}`}>
-                        {c.label}
-                      </div>
-                    )}
-                  </div>
-                  <span
-                    className={`px-2 py-0.5 rounded text-[11px] font-bold tracking-wide ${
-                      a.state === "on"
-                        ? "bg-white/20 text-white"
-                        : a.state === "standby"
-                        ? "bg-amber-900/50 text-amber-100"
-                        : "bg-zinc-800 text-zinc-500"
-                    }`}
-                  >
-                    {STATE_LABEL[a.state]}
-                  </span>
-                </div>
-                <div className="space-y-0.5">
-                  <div className={`text-base font-bold truncate ${a.state === "off" ? "text-zinc-600" : "text-white"}`}>
-                    {a.person || (a.state === "off" ? "—" : "(未割当)")}
-                  </div>
-                  <div className={`text-xs truncate ${a.state === "off" ? "text-zinc-600" : "text-white/70"}`}>
-                    {a.micType || "—"}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      {/* Main: OA / NEXT side-by-side */}
+      <main className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-3 p-3 sm:p-4">
+        <CueColumn
+          variant="oa"
+          cueIndex={cues.length > 0 ? currentCue : null}
+          cueLabel={currentLabel}
+          cueType={currentType}
+          channels={channels}
+          cell={currentCell}
+          totalCues={cues.length}
+        />
+        <CueColumn
+          variant="next"
+          cueIndex={nextCueInfo ? nextCueInfo.cueIndex : null}
+          cueLabel={nextCueInfo?.cue.label || ""}
+          cueType={nextCueInfo?.cue.type}
+          channels={channels}
+          cell={nextCueInfo?.cell}
+          diffMap={diffMap}
+          totalCues={cues.length}
+        />
       </main>
 
       {/* Footer */}
-      <footer className="flex-none px-6 py-2 border-t border-zinc-800 bg-zinc-900/40 text-[11px] text-zinc-500">
-        Ch数: {channels.length} · 全 {cues.length} キュー · この画面はリアルタイムで進行に追従します
+      <footer className="flex-none px-6 py-2 border-t border-zinc-800 bg-zinc-900/40 text-[11px] text-zinc-500 flex items-center justify-between flex-wrap gap-2">
+        <span>Ch数: {channels.length} · 全 {cues.length} キュー</span>
+        <span className="text-zinc-600">差分: <span className="text-red-400">ON</span> / <span className="text-amber-400">STBY</span> / <span className="text-zinc-400">OFF</span> / <span className="text-sky-400">人物交代</span> / <span className="text-purple-400">マイク変更</span></span>
       </footer>
     </div>
   );
