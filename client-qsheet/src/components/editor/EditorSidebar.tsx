@@ -33,11 +33,18 @@ interface Block {
   width: string | number;
 }
 
+interface MicChannel {
+  ch: number;
+  label?: string;
+}
+
 interface Masters {
   persons: string[];
   video: string[];
   audio: string[];
   telop: string[];
+  micTypes?: string[];
+  micChannels?: MicChannel[];
 }
 
 interface LedScene {
@@ -78,7 +85,8 @@ const BLOCK_TYPES = [
   { type: "video", label: "映像", Icon: Video, color: "bg-indigo-600" },
   { type: "slide", label: "スライド", Icon: Image, color: "bg-cyan-600" },
   { type: "telop", label: "テロップ", Icon: Type, color: "bg-purple-600" },
-  { type: "audio", label: "オーディオ", Icon: Mic, color: "bg-rose-600" },
+  { type: "audio", label: "オーディオ (BGM/SE)", Icon: Mic, color: "bg-rose-600" },
+  { type: "audio_mic", label: "マイク香盤", Icon: Mic, color: "bg-pink-700" },
   { type: "led_xr", label: "LED/XR", Icon: Monitor, color: "bg-violet-600" },
   { type: "lighting", label: "照明", Icon: Lightbulb, color: "bg-yellow-600" },
   { type: "stage_diagram", label: "立ち位置図", Icon: Layout, color: "bg-amber-600" },
@@ -91,13 +99,15 @@ const MASTER_SECTIONS = [
   { key: "video" as const, label: "映像", color: "bg-blue-700 text-white" },
   { key: "audio" as const, label: "音声", color: "bg-rose-700 text-white" },
   { key: "telop" as const, label: "テロップ", color: "bg-purple-700 text-white" },
+  { key: "micTypes" as const, label: "マイク種類", color: "bg-pink-700 text-white" },
 ];
 
-const MASTER_ICONS: Record<keyof Masters, any> = {
+const MASTER_ICONS: Record<string, any> = {
   persons: User,
   video: Video,
   audio: Mic,
   telop: Type,
+  micTypes: Mic,
 };
 
 // ─── ResourceCard ───────────────────────────────────────
@@ -364,18 +374,49 @@ export function EditorSidebarBody({
     onBlocksChange(newBlocks);
   };
 
-  const addMasterItem = (key: keyof Masters, val: string) => {
-    if (masters[key]?.includes(val)) return;
+  type MasterStringKey = "persons" | "video" | "audio" | "telop" | "micTypes";
+
+  const addMasterItem = (key: MasterStringKey, val: string) => {
+    const current = (masters[key] as string[] | undefined) || [];
+    if (current.includes(val)) return;
     onMastersChange({
       ...masters,
-      [key]: [...(masters[key] || []), val],
+      [key]: [...current, val],
     });
   };
 
-  const removeMasterItem = (key: keyof Masters, idx: number) => {
+  const removeMasterItem = (key: MasterStringKey, idx: number) => {
+    const current = (masters[key] as string[] | undefined) || [];
     onMastersChange({
       ...masters,
-      [key]: masters[key].filter((_, i) => i !== idx),
+      [key]: current.filter((_, i) => i !== idx),
+    });
+  };
+
+  const addMicChannel = () => {
+    const current = masters.micChannels || [];
+    const nextCh = current.length === 0
+      ? 1
+      : Math.max(...current.map((c) => c.ch)) + 1;
+    onMastersChange({
+      ...masters,
+      micChannels: [...current, { ch: nextCh }],
+    });
+  };
+
+  const updateMicChannel = (idx: number, patch: Partial<MicChannel>) => {
+    const current = masters.micChannels || [];
+    const next = [...current];
+    next[idx] = { ...next[idx], ...patch };
+    next.sort((a, b) => a.ch - b.ch);
+    onMastersChange({ ...masters, micChannels: next });
+  };
+
+  const removeMicChannel = (idx: number) => {
+    const current = masters.micChannels || [];
+    onMastersChange({
+      ...masters,
+      micChannels: current.filter((_, i) => i !== idx),
     });
   };
 
@@ -475,23 +516,73 @@ export function EditorSidebarBody({
         </TabsContent>
 
         <TabsContent value="masters" className="flex-1 overflow-y-auto m-0 mt-2 px-3 pb-3 space-y-3">
-          {/* マスタデータ (出演者 / 映像 / 音声 / テロップ) */}
+          {/* マスタデータ (出演者 / 映像 / 音声 / テロップ / マイク種類) */}
           {MASTER_SECTIONS.map((ms) => (
             <ResourceCard
               key={ms.key}
               icon={MASTER_ICONS[ms.key]}
               title={ms.label}
-              count={(masters?.[ms.key] || []).length}
+              count={((masters?.[ms.key] as string[] | undefined) || []).length}
             >
               <MasterSection
                 label={ms.label}
                 color={ms.color}
-                items={masters?.[ms.key] || []}
+                items={(masters?.[ms.key] as string[] | undefined) || []}
                 onAdd={(val) => addMasterItem(ms.key, val)}
                 onRemove={(idx) => removeMasterItem(ms.key, idx)}
               />
             </ResourceCard>
           ))}
+
+          {/* マイクCh (マイク香盤ブロック用) */}
+          <ResourceCard
+            icon={Mic}
+            title="マイクCh"
+            count={(masters?.micChannels || []).length}
+            action={
+              <button
+                onClick={addMicChannel}
+                className="size-6 rounded-md flex items-center justify-center text-muted-foreground hover:bg-pink-700/10 hover:text-pink-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="Chを追加"
+              >
+                <Plus size={14} aria-hidden />
+              </button>
+            }
+          >
+            {(masters?.micChannels || []).length === 0 ? (
+              <p className="text-[12px] text-muted-foreground italic px-1 py-2">Ch未登録 — マイク香盤ブロックでデフォルトCh1〜4を表示します</p>
+            ) : (
+              <div className="space-y-1">
+                {(masters?.micChannels || []).map((c, i) => (
+                  <div key={i} className="group flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      min={1}
+                      value={c.ch}
+                      onChange={(e) => updateMicChannel(i, { ch: parseInt(e.target.value, 10) || 1 })}
+                      className="w-12 h-7 px-1.5 text-[12px] tabular-nums bg-muted/40 border border-border rounded outline-none focus:border-primary"
+                      style={{ fontFamily: "'Roboto Condensed',sans-serif" }}
+                      aria-label={`Ch番号 ${i + 1}`}
+                    />
+                    <input
+                      value={c.label || ""}
+                      onChange={(e) => updateMicChannel(i, { label: e.target.value })}
+                      placeholder="ラベル (例: MC席1)"
+                      className="flex-1 h-7 px-1.5 text-[12px] bg-muted/40 border border-border rounded outline-none focus:border-primary"
+                      aria-label={`Ch ${c.ch} ラベル`}
+                    />
+                    <button
+                      onClick={() => removeMicChannel(i)}
+                      className="size-6 rounded inline-flex items-center justify-center text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive transition-all opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring flex-none"
+                      aria-label={`Ch ${c.ch} を削除`}
+                    >
+                      <X size={12} aria-hidden />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ResourceCard>
 
           {/* LED/XR シーン (旧 LED タブ) */}
           <ResourceCard

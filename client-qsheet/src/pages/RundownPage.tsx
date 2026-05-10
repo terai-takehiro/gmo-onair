@@ -53,7 +53,14 @@ interface DocumentData {
   meta: { title: string; draft: string; [key: string]: unknown };
   blocks: Block[];
   sections: Section[];
-  masters: { persons: string[]; video: string[]; audio: string[]; telop: string[] };
+  masters: {
+    persons: string[];
+    video: string[];
+    audio: string[];
+    telop: string[];
+    micTypes?: string[];
+    micChannels?: { ch: number; label?: string }[];
+  };
   stageTemplates?: { name: string; elements: any[] }[];
   ledScenes?: { id: string; name: string; wall: string; floor: string }[];
 }
@@ -87,6 +94,18 @@ function extractCellText(row: CueRow, block: Block): string {
       return cell.entries
         .map((e: any) => `${e.label || ""}${e.memo ? " " + e.memo : ""}`)
         .filter((s: string) => s.trim())
+        .join("\n");
+    }
+    if (block.type === "audio_mic" && Array.isArray(cell.assignments)) {
+      return cell.assignments
+        .filter((a: any) => a.state && a.state !== "off")
+        .sort((a: any, b: any) => (a.ch || 0) - (b.ch || 0))
+        .map((a: any) => {
+          const tag = a.state === "on" ? "ON" : "STBY";
+          const name = a.person ? ` ${a.person}` : "";
+          const mic = a.micType ? `/${a.micType}` : "";
+          return `Ch${a.ch}:${tag}${name}${mic}`;
+        })
         .join("\n");
     }
     if (typeof cell === "string") return cell;

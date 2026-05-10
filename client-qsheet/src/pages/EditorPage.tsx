@@ -12,6 +12,7 @@ import PreviewModal from "@/components/editor/PreviewModal";
 import TrashDrawer from "@/components/editor/TrashDrawer";
 import { getTrash } from "@/lib/trash";
 import StageEditor from "@/components/editor/StageEditor";
+import AudioShareDialog from "@/components/editor/AudioShareDialog";
 import {
   Loader2,
   Save,
@@ -23,6 +24,7 @@ import {
   PanelRightClose,
   ChevronLeft,
   MonitorPlay,
+  Mic,
   Eye,
   Trash2,
 } from "lucide-react";
@@ -52,11 +54,25 @@ interface Block {
   width: string | number;
 }
 
+interface MicChannel {
+  ch: number;
+  label?: string;
+}
+
+interface MicAssignment {
+  ch: number;
+  person: string;
+  micType: string;
+  state: "on" | "off" | "standby";
+}
+
 interface Masters {
   persons: string[];
   video: string[];
   audio: string[];
   telop: string[];
+  micTypes?: string[];
+  micChannels?: MicChannel[];
 }
 
 interface DocumentMeta {
@@ -122,7 +138,34 @@ function exportCsv(doc: QsheetDocument) {
         ...blocks.map((b) => {
           const cell = rowCells[b.id];
           if (typeof cell === "string") return cell;
-          if (cell && typeof cell === "object" && "value" in (cell as Record<string, unknown>)) return String((cell as Record<string, unknown>).value || "");
+          if (cell && typeof cell === "object") {
+            const obj = cell as Record<string, unknown>;
+            if (b.type === "audio_mic" && Array.isArray(obj.assignments)) {
+              return (obj.assignments as MicAssignment[])
+                .filter((a) => a.state !== "off")
+                .sort((a, b2) => a.ch - b2.ch)
+                .map((a) => {
+                  const tag = a.state === "on" ? "ON" : "STBY";
+                  const name = a.person ? ` ${a.person}` : "";
+                  const mic = a.micType ? `/${a.micType}` : "";
+                  return `Ch${a.ch}:${tag}${name}${mic}`;
+                })
+                .join(" / ");
+            }
+            if (Array.isArray(obj.entries)) {
+              return (obj.entries as Array<Record<string, unknown>>)
+                .map((e) => {
+                  const html = typeof e.html === "string" ? e.html.replace(/<[^>]*>/g, "") : "";
+                  if (html) return html;
+                  const label = typeof e.label === "string" ? e.label : "";
+                  const memo = typeof e.memo === "string" && e.memo ? ` ${e.memo}` : "";
+                  return `${label}${memo}`;
+                })
+                .filter((s) => s.trim())
+                .join(" / ");
+            }
+            if ("value" in obj) return String(obj.value || "");
+          }
           return "";
         }),
       ]);
@@ -157,6 +200,7 @@ export default function EditorPage() {
   const [collapsedSections, setCollapsedSections] = useState<Set<number>>(new Set());
   const [showPreview, setShowPreview] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
+  const [showAudioShare, setShowAudioShare] = useState(false);
   const [editingStageIdx, setEditingStageIdx] = useState<number | null>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
 
@@ -383,6 +427,20 @@ export default function EditorPage() {
               <Eye size={13} aria-hidden />
               <span className="hidden md:inline">印刷 / PDF</span>
             </button>
+            {/* 音声サポート URL 共有 (マイク香盤ブロックがある時のみ表示) */}
+            {doc.data.blocks.some((b) => b.type === "audio_mic") && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="hidden md:flex h-8 gap-1"
+                onClick={() => setShowAudioShare(true)}
+                title="音声サポート画面 URL を共有"
+              >
+                <Mic className="h-4 w-4 text-pink-600" />
+                <span className="hidden lg:inline text-xs">音声共有</span>
+              </Button>
+            )}
+
             {/* Navigation buttons — tablet+ */}
             <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1" onClick={() => navigate(`/qsheet/rundown/${doc.id}`)}>
               <List className="h-4 w-4" />
@@ -549,6 +607,13 @@ export default function EditorPage() {
           onClose={() => setShowTrash(false)}
         />
       )}
+
+      {/* 音声サポート URL 共有ダイアログ */}
+      <AudioShareDialog
+        open={showAudioShare}
+        onOpenChange={setShowAudioShare}
+        docId={doc.id}
+      />
 
       {/* Stage Editor Modal */}
       {editingStageIdx !== null && (

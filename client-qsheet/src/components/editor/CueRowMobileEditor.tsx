@@ -1,6 +1,7 @@
 import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { Input, Textarea, Button } from "@gmo-onair/shared/src/client/ui";
 import { HighlightPicker } from "./HighlightPicker";
+import MicAssignmentCell from "./MicAssignmentCell";
 
 interface Block {
   id: string;
@@ -129,20 +130,72 @@ export default function CueRowMobileEditor({
       </div>
 
       {/* Per-block entry editors */}
-      {blocks.map((blk) => (
-        <BlockPanel
-          key={blk.id}
-          blk={blk}
-          entries={getEntries(row.cells?.[blk.id])}
-          masters={masters}
-          ledScenes={ledScenes}
-          onAdd={() => addEntry(blk)}
-          onRemove={(ei) => removeEntry(blk, ei)}
-          onMove={(ei, dir) => moveEntry(blk, ei, dir)}
-          onChangeField={(ei, key, value) => updateEntryField(blk, ei, key, value)}
-        />
-      ))}
+      {blocks.map((blk) => {
+        if (blk.type === "audio_mic") {
+          return (
+            <MicAssignmentMobilePanel
+              key={blk.id}
+              blk={blk}
+              cell={row.cells?.[blk.id]}
+              masters={masters}
+              onChange={(val) =>
+                patchRow({
+                  cells: { ...row.cells, [blk.id]: val },
+                })
+              }
+            />
+          );
+        }
+        return (
+          <BlockPanel
+            key={blk.id}
+            blk={blk}
+            entries={getEntries(row.cells?.[blk.id])}
+            masters={masters}
+            ledScenes={ledScenes}
+            onAdd={() => addEntry(blk)}
+            onRemove={(ei) => removeEntry(blk, ei)}
+            onMove={(ei, dir) => moveEntry(blk, ei, dir)}
+            onChangeField={(ei, key, value) => updateEntryField(blk, ei, key, value)}
+          />
+        );
+      })}
     </div>
+  );
+}
+
+// ─── MicAssignmentMobilePanel ───────────────────────────
+// audio_mic ブロックは entries 配列ではなく { assignments } 構造のため
+// BlockPanel を経由せず MicAssignmentCell を直接表示する。
+function MicAssignmentMobilePanel({
+  blk,
+  cell,
+  masters,
+  onChange,
+}: {
+  blk: Block;
+  cell: any;
+  masters: any;
+  onChange: (val: any) => void;
+}) {
+  return (
+    <section className="rounded-lg border border-border bg-card overflow-hidden">
+      <header className="flex items-center justify-between px-3 py-2 bg-muted/40 border-b border-border">
+        <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">
+          {blk.label}
+        </h3>
+        <span className="text-[10px] text-muted-foreground">マイク香盤</span>
+      </header>
+      <div className="p-2 overflow-x-auto">
+        <MicAssignmentCell
+          cell={cell}
+          channels={masters?.micChannels || []}
+          persons={masters?.persons || []}
+          micTypes={masters?.micTypes || []}
+          onChange={onChange}
+        />
+      </div>
+    </section>
   );
 }
 

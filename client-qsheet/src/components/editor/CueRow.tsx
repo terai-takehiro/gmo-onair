@@ -3,6 +3,7 @@ import { ChevronUp, ChevronDown, Copy, Trash2, ImageIcon, ImagePlus, Loader2 } f
 import api from "@/lib/api";
 import StageDiagramCell from "./StageDiagramCell";
 import { HighlightPicker } from "./HighlightPicker";
+import MicAssignmentCell from "./MicAssignmentCell";
 
 // ─── Types ──────────────────────────────────────────────
 interface Block {
@@ -34,6 +35,8 @@ interface CueRowProps {
   ledScenes?: LedScene[];
   collapsedBlocks?: Set<string>;
   speakerColorMap: Record<string, string>;
+  /** マイク香盤「前cue継承」用 — 直前の audio_mic セルの assignments を返す */
+  findPrevAudioMicAssignments?: (blockId: string) => any[] | null;
   onChange: (updater: (r: CueRowData) => CueRowData) => void;
   onDelete: () => void;
   onMoveUp: () => void;
@@ -281,6 +284,7 @@ export default function CueRow({
   ledScenes,
   collapsedBlocks,
   speakerColorMap,
+  findPrevAudioMicAssignments,
   onChange,
   onDelete,
   onMoveUp,
@@ -530,6 +534,33 @@ export default function CueRow({
                       </div>
                     )}
                   </div>
+                </td>
+              );
+            }
+
+            // ── Audio mic (マイク香盤) cell ──
+            if (blk.type === "audio_mic") {
+              return (
+                <td key={blk.id} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 align-top">
+                  {ei === 0 && (
+                    <MicAssignmentCell
+                      cell={row.cells?.[blk.id]}
+                      channels={masters?.micChannels || []}
+                      persons={masters?.persons || []}
+                      micTypes={masters?.micTypes || []}
+                      onChange={(val) => updateCell(blk.id, val)}
+                      onInheritFromPrev={
+                        findPrevAudioMicAssignments
+                          ? () => {
+                              const prev = findPrevAudioMicAssignments(blk.id);
+                              if (prev) {
+                                updateCell(blk.id, { assignments: prev.map((a: any) => ({ ...a })) });
+                              }
+                            }
+                          : undefined
+                      }
+                    />
+                  )}
                 </td>
               );
             }
