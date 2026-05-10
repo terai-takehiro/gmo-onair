@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { Mic } from "lucide-react";
+import { Mic, ArrowDownToLine } from "lucide-react";
 
 export type MicState = "on" | "off" | "standby";
 
@@ -21,6 +21,8 @@ interface MicAssignmentCellProps {
   persons: string[];
   micTypes: string[];
   onChange: (next: { assignments: MicAssignment[] }) => void;
+  /** 直前 cue の assignments を引き継ぎたい時のハンドラ。指定があるとボタンが表示される */
+  onInheritFromPrev?: () => void;
 }
 
 const DEFAULT_CHANNELS: MicChannelDef[] = [
@@ -59,6 +61,7 @@ export default function MicAssignmentCell({
   persons,
   micTypes,
   onChange,
+  onInheritFromPrev,
 }: MicAssignmentCellProps) {
   const uid = useId();
   const personsListId = `mic-persons-${uid}`;
@@ -78,8 +81,27 @@ export default function MicAssignmentCell({
     onChange({ assignments: next });
   };
 
+  const isEmpty = !cell?.assignments || cell.assignments.length === 0
+    || (cell.assignments.every((a) => a.state === "off" && !a.person && !a.micType));
+
   return (
     <div className="flex flex-col gap-0.5 min-w-0">
+      {onInheritFromPrev && (
+        <button
+          type="button"
+          onClick={onInheritFromPrev}
+          className={`self-start inline-flex items-center gap-1 h-5 px-1.5 mb-0.5 rounded text-[10px] font-medium transition-colors ${
+            isEmpty
+              ? "text-pink-700 hover:bg-pink-50 dark:text-pink-400 dark:hover:bg-pink-950/40"
+              : "text-zinc-400 hover:text-pink-700 dark:text-zinc-500 dark:hover:text-pink-400"
+          }`}
+          title="直前 cue のマイク状態をコピー"
+          aria-label="前cueから継承"
+        >
+          <ArrowDownToLine size={11} aria-hidden />
+          前cueから継承
+        </button>
+      )}
       {chList.map((c) => {
         const a = getAssignment(cell, c.ch);
         return (

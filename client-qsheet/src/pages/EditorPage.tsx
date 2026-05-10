@@ -12,6 +12,7 @@ import PreviewModal from "@/components/editor/PreviewModal";
 import TrashDrawer from "@/components/editor/TrashDrawer";
 import { getTrash } from "@/lib/trash";
 import StageEditor from "@/components/editor/StageEditor";
+import AudioShareDialog from "@/components/editor/AudioShareDialog";
 import {
   Loader2,
   Save,
@@ -23,6 +24,7 @@ import {
   PanelRightClose,
   ChevronLeft,
   MonitorPlay,
+  Mic,
   Eye,
   Trash2,
 } from "lucide-react";
@@ -198,6 +200,7 @@ export default function EditorPage() {
   const [collapsedSections, setCollapsedSections] = useState<Set<number>>(new Set());
   const [showPreview, setShowPreview] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
+  const [showAudioShare, setShowAudioShare] = useState(false);
   const [editingStageIdx, setEditingStageIdx] = useState<number | null>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
 
@@ -424,6 +427,20 @@ export default function EditorPage() {
               <Eye size={13} aria-hidden />
               <span className="hidden md:inline">印刷 / PDF</span>
             </button>
+            {/* 音声サポート URL 共有 (マイク香盤ブロックがある時のみ表示) */}
+            {doc.data.blocks.some((b) => b.type === "audio_mic") && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="hidden md:flex h-8 gap-1"
+                onClick={() => setShowAudioShare(true)}
+                title="音声サポート画面 URL を共有"
+              >
+                <Mic className="h-4 w-4 text-pink-600" />
+                <span className="hidden lg:inline text-xs">音声共有</span>
+              </Button>
+            )}
+
             {/* Navigation buttons — tablet+ */}
             <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1" onClick={() => navigate(`/qsheet/rundown/${doc.id}`)}>
               <List className="h-4 w-4" />
@@ -590,6 +607,13 @@ export default function EditorPage() {
           onClose={() => setShowTrash(false)}
         />
       )}
+
+      {/* 音声サポート URL 共有ダイアログ */}
+      <AudioShareDialog
+        open={showAudioShare}
+        onOpenChange={setShowAudioShare}
+        docId={doc.id}
+      />
 
       {/* Stage Editor Modal */}
       {editingStageIdx !== null && (

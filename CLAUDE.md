@@ -33,7 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.56 — Qシート音声ブロック拡張: マイク香盤 + 音声サポート画面 (Phase 1)
+v2.8.57 — Qシート音声ブロック拡張 Phase 2: 前cue継承 / 次cue差分 / URL共有 / モバイル対応
+
+(v2.8.57: Qシート音声ブロック拡張 Phase 2): Phase 1 (v2.8.56) のマイク香盤に運用機能を追加。①**前cueから継承**: `MicAssignmentCell` に `onInheritFromPrev` プロップ追加、`CueTable` で `findPrevAudioMicAssignments(si, ri, blockId)` を計算 → 同一 section 内 → 直前 sections を末尾から遡って最初に見つかった `audio_mic.assignments` を deep copy。②**次cue差分**: `AudioSupportPage` で現在 cue → 次の audio_mic 持ちcue を比較し `turn_on / turn_off / standby / person_change / mic_change` を分類してチップ表示 (Ch3·ON, Ch5·人物交代 等)。③**音声共有 URL コピー + QR**: 新規 `AudioShareDialog` (qrcode 1.5.4 を client-qsheet に追加) で 256x256 QR を canvas 描画、URL コピーボタン + 新タブで開くリンク。`EditorPage` ヘッダーに「音声共有」ボタン (audio_mic ブロックが存在する時のみ表示)。④**モバイル対応**: `CueRowMobileEditor` に `MicAssignmentMobilePanel` を追加し、entries ベースの `BlockPanel` を経由せず `MicAssignmentCell` を直接描画 (横スクロール許可)。
 
 (v2.8.56: Qシート音声ブロック拡張 — マイク香盤 + 音声サポート画面 Phase 1): 音声ブロックを「BGM/SE 用既存 audio」と「マイク香盤専用 audio_mic」の 2 系統に分離。`audio_mic` セルは `{ assignments: [{ ch, person, micType, state: 'on'|'off'|'standby' }] }` の構造化データで、`masters.micChannels[]` (Ch番号 + ラベル) と `masters.micTypes[]` (SM58 等) を optional で追加。既存ドキュメントは不変・SQL マイグレーション不要 (JSONB)。エディタは新規 `client-qsheet/src/components/editor/MicAssignmentCell.tsx` で 3 状態トグル + 出演者/マイク種類 datalist。サイドバーマスタータブに「マイクCh」編集 UI 追加。**音声サポート画面**: 完全パブリック URL `/qsheet/audio/:docId` を新設、認証不要 GET `/qsheet/documents/:id/public-audio` (シナリオ本文・broadcast_date は返さず `X-Robots-Tag: noindex` を付与) + Socket.IO `/qsheet` の `cue:sync` 購読でリアルタイム追従。Ch グリッド (auto-fill 220px、Roboto Condensed) で ON=赤・STBY=黄・OFF=灰の状態を表示。RundownPage / PreviewModal の `extractCellText` と CSV stringify に `audio_mic` 専用分岐を追加 (`[object Object]` 出力を防ぐ)。Phase 2 で「前 cue 継承」「次 cue 差分」「URL コピー + QR」「モバイル対応」、Phase 3 で「PDF 出力」「出演者匿名化」予定。
 

@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.56 — Qシート音声ブロック拡張: マイク香盤 + 音声サポート画面 (Phase 1)
+**現在のバージョン**: v2.8.57 — Qシート音声ブロック拡張 Phase 2 (前cue継承 / 次cue差分 / URL共有 + QR / モバイル対応)
 
 ---
 
@@ -401,6 +401,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.8.57** | **Qシート音声ブロック拡張 Phase 2 — 前cue継承 / 次cue差分 / URL共有 + QR / モバイル対応 (dev)**: v2.8.56 のマイク香盤に運用機能を 4 件追加。①**前cue継承**: `MicAssignmentCell` の左上に「前cueから継承」ボタンを表示し、`CueTable` で section/row を遡って最初に見つかった `audio_mic.assignments` を deep copy 注入。②**次cue差分**: `AudioSupportPage` 上部に差分チップバーを追加し、現在 cue → 次の audio_mic 持ち cue で `turn_on / turn_off / standby / person_change / mic_change` を分類して `Ch3·ON · 人物名` のように色分け表示。③**音声共有 URL + QR**: 新規 `AudioShareDialog` (`qrcode` 1.5.4 を client-qsheet に追加) で 256x256 QR を canvas 描画、URL コピー + 新タブで開くボタン。`EditorPage` ヘッダーに「音声共有」アイコンを追加 (audio_mic ブロックが存在する時のみ表示)。④**モバイル対応**: `CueRowMobileEditor` に `MicAssignmentMobilePanel` を追加し、entries ベースの `BlockPanel` を経由せず `MicAssignmentCell` を直接描画 (横スクロール許可)。サーバー側変更なし、データモデル変更なし。 |
 | **v2.8.56** | **Qシート音声ブロック拡張: マイク香盤 + 音声サポート画面 (Phase 1, dev)**: 音声ブロックを 2 系統に分離し、既存 `audio` ブロックは BGM/SE 専用に温存、新規 `audio_mic` ブロックでマイク香盤を構造化管理する。①**データモデル**: `cells[blk].assignments[]` に `{ ch, person, micType, state: 'on'\|'off'\|'standby' }` を保持、`masters.micChannels[]` (Ch番号 + ラベル) と `masters.micTypes[]` (SM58, ピンマイク 等) を optional 追加。JSONB 既存ドキュメント無変更で後方互換。②**エディタ UI**: `client-qsheet/src/components/editor/MicAssignmentCell.tsx` を新設し、Ch 行ごとに 3 状態トグル (赤/黄/灰) + 出演者 datalist + マイク種類 datalist。サイドバーマスタータブに「マイクCh」編集 UI 追加。`CueRow.tsx` `EditorPage.tsx` `RundownPage.tsx` `PreviewModal.tsx` の `extractCellText` / CSV stringify に `audio_mic` 専用分岐を追加し `[object Object]` 出力を防止。③**音声サポート画面 (新規パブリック)**: `/qsheet/audio/:docId` ルート (認証なし)、サーバー `GET /qsheet/documents/:id/public-audio` がシナリオ本文・broadcast_date を返さず最低限のマイク香盤と masters のみ返却 (`X-Robots-Tag: noindex`)。Socket.IO `/qsheet` の `cue:sync` を購読してリアルタイム追従、Ch グリッド (auto-fill 220px、Roboto Condensed) で ON=赤・STBY=黄・OFF=灰の状態を大きく表示。Phase 2 で「前 cue 継承」「次 cue 差分」「URL コピー + QR」「モバイル対応」、Phase 3 で「PDF 出力」「出演者匿名化」予定。 |
 | **v2.8.55** | **セキュリティ修正（QシートPreviewModalのXSS、JWT_SECRETフォールバック撤廃、ADMIN_EMAILの環境変数化）** |
 | **v2.8.54** | **アワードCG 自社票の英語ラベルを `Own Vote` → `Internal Vote` に変更 (dev)**: ユーザー要望「自社票の英語を Internal Vote に変更したい」に対応。`client-awards/src/cg/steps/StepRanking.tsx` のラベル分岐を 1 箇所変更するだけ（`lang === 'en' ? 'Internal Vote' : '自社票'`）。 |

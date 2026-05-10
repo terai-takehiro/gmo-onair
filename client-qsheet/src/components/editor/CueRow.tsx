@@ -35,6 +35,8 @@ interface CueRowProps {
   ledScenes?: LedScene[];
   collapsedBlocks?: Set<string>;
   speakerColorMap: Record<string, string>;
+  /** マイク香盤「前cue継承」用 — 直前の audio_mic セルの assignments を返す */
+  findPrevAudioMicAssignments?: (blockId: string) => any[] | null;
   onChange: (updater: (r: CueRowData) => CueRowData) => void;
   onDelete: () => void;
   onMoveUp: () => void;
@@ -282,6 +284,7 @@ export default function CueRow({
   ledScenes,
   collapsedBlocks,
   speakerColorMap,
+  findPrevAudioMicAssignments,
   onChange,
   onDelete,
   onMoveUp,
@@ -546,6 +549,16 @@ export default function CueRow({
                       persons={masters?.persons || []}
                       micTypes={masters?.micTypes || []}
                       onChange={(val) => updateCell(blk.id, val)}
+                      onInheritFromPrev={
+                        findPrevAudioMicAssignments
+                          ? () => {
+                              const prev = findPrevAudioMicAssignments(blk.id);
+                              if (prev) {
+                                updateCell(blk.id, { assignments: prev.map((a: any) => ({ ...a })) });
+                              }
+                            }
+                          : undefined
+                      }
                     />
                   )}
                 </td>

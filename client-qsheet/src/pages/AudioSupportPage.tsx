@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Mic, AlertTriangle } from "lucide-react";
+import { Loader2, Mic, AlertTriangle, ArrowRight } from "lucide-react";
 import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
 
 type MicState = "on" | "off" | "standby";
@@ -177,6 +177,42 @@ export default function AudioSupportPage() {
   const currentRow: PublicRow | undefined = currentRowIndex >= 0 ? rows[currentRowIndex] : undefined;
   const currentCell = micBlock && currentRow ? currentRow.cells[micBlock.id] : undefined;
 
+  // 次のキュー（直近で audio_mic セルを持つもの — 通常は次の row）
+  const nextCueInfo = useMemo(() => {
+    if (!micBlock) return null;
+    for (let i = currentCue + 1; i < cues.length; i++) {
+      const idx = cues[i]?.rowIndex ?? -1;
+      if (idx < 0) continue;
+      const cell = rows[idx]?.cells[micBlock.id];
+      if (cell) {
+        return { cue: cues[i], cell, offset: i - currentCue };
+      }
+    }
+    return null;
+  }, [cues, rows, currentCue, micBlock]);
+
+  const diffs = useMemo(() => {
+    if (!nextCueInfo) return [] as Array<{ ch: number; kind: "turn_on" | "turn_off" | "standby" | "person_change" | "mic_change"; from: MicAssignment; to: MicAssignment }>;
+    const out: Array<{ ch: number; kind: "turn_on" | "turn_off" | "standby" | "person_change" | "mic_change"; from: MicAssignment; to: MicAssignment }> = [];
+    for (const c of channels) {
+      const from = getAssignment(currentCell, c.ch);
+      const to = getAssignment(nextCueInfo.cell, c.ch);
+      if (from.state === to.state && from.person === to.person && from.micType === to.micType) continue;
+      let kind: "turn_on" | "turn_off" | "standby" | "person_change" | "mic_change";
+      if (from.state !== to.state) {
+        if (to.state === "on") kind = "turn_on";
+        else if (to.state === "off") kind = "turn_off";
+        else kind = "standby";
+      } else if (from.person !== to.person) {
+        kind = "person_change";
+      } else {
+        kind = "mic_change";
+      }
+      out.push({ ch: c.ch, kind, from, to });
+    }
+    return out;
+  }, [nextCueInfo, channels, currentCell]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-zinc-950 text-zinc-200 flex items-center justify-center">
@@ -240,6 +276,61 @@ export default function AudioSupportPage() {
           )}
         </div>
       </div>
+
+      {/* Next-cue diff bar */}
+      {nextCueInfo && (
+        <div className="flex-none px-6 py-3 bg-zinc-900/60 border-b border-zinc-800">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-1.5 flex-none">
+              <ArrowRight size={14} className="text-zinc-500" aria-hidden />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+                次のキュー{nextCueInfo.offset > 1 ? ` (${nextCueInfo.offset}先)` : ""}
+              </span>
+              <span
+                className="text-base font-bold tabular-nums text-zinc-300 ml-1"
+                style={{ fontFamily: "'Roboto Condensed',sans-serif" }}
+              >
+                {nextCueInfo.cue.label || "—"}
+              </span>
+            </div>
+            {diffs.length === 0 ? (
+              <span className="text-xs text-zinc-500 italic">変化なし</span>
+            ) : (
+              <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
+                {diffs.map((d) => {
+                  const config: Record<typeof d.kind, { bg: string; label: string }> = {
+                    turn_on: { bg: "bg-red-600/30 border-red-500 text-red-100", label: "ON" },
+                    turn_off: { bg: "bg-zinc-700/40 border-zinc-500 text-zinc-300", label: "OFF" },
+                    standby: { bg: "bg-amber-600/30 border-amber-500 text-amber-100", label: "STBY" },
+                    person_change: { bg: "bg-sky-600/30 border-sky-500 text-sky-100", label: "人物交代" },
+                    mic_change: { bg: "bg-purple-600/30 border-purple-500 text-purple-100", label: "マイク変更" },
+                  };
+                  const c = config[d.kind];
+                  return (
+                    <span
+                      key={d.ch}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium ${c.bg}`}
+                      title={`${d.from.state} → ${d.to.state}${d.from.person !== d.to.person ? ` / ${d.from.person || "—"} → ${d.to.person || "—"}` : ""}${d.from.micType !== d.to.micType ? ` / ${d.from.micType || "—"} → ${d.to.micType || "—"}` : ""}`}
+                    >
+                      <span
+                        className="font-bold tabular-nums"
+                        style={{ fontFamily: "'Roboto Condensed',sans-serif" }}
+                      >
+                        Ch{d.ch}
+                      </span>
+                      <span className="opacity-70">·</span>
+                      <span>{c.label}</span>
+                      {(d.kind === "person_change" || d.kind === "turn_on") && d.to.person && (
+                        <span className="opacity-80 truncate max-w-[8rem]">{d.to.person}</span>
+                      )}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Main grid */}
       <main className="flex-1 overflow-y-auto p-6">
