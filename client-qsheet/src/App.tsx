@@ -8,6 +8,7 @@ import EditorPage from "@/pages/EditorPage";
 import OnAirPage from "@/pages/OnAirPage";
 import RundownPage from "@/pages/RundownPage";
 import PrompterPage from "@/pages/PrompterPage";
+import AudioSupportPage from "@/pages/AudioSupportPage";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -42,6 +43,9 @@ export default function App() {
       <Route path="/qsheet/onair/:id" element={<ProtectedRoute><OnAirPage /></ProtectedRoute>} />
       <Route path="/qsheet/rundown/:id" element={<ProtectedRoute><RundownPage /></ProtectedRoute>} />
       <Route path="/qsheet/prompter/:id" element={<ProtectedRoute><PrompterPage /></ProtectedRoute>} />
+
+      {/* Public audio support dashboard — no auth required, docId-based */}
+      <Route path="/qsheet/audio/:id" element={<AudioSupportPage />} />
 
       <Route path="*" element={<RedirectOnce to="/qsheet" />} />
     </Routes>

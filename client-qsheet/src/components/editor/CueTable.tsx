@@ -264,6 +264,28 @@ function CueTableLg({
     });
   };
 
+  // マイク香盤「前cueから継承」用に直前の audio_mic セルの assignments を遡って探す
+  const findPrevAudioMicAssignments = useCallback(
+    (si: number, ri: number, blockId: string): any[] | null => {
+      // 同一 section 内を遡る
+      for (let r = ri - 1; r >= 0; r--) {
+        const a = sections[si]?.rows?.[r]?.cells?.[blockId]?.assignments;
+        if (Array.isArray(a) && a.length > 0) return a;
+      }
+      // 直前の sections を末尾 → 先頭で遡る
+      for (let s = si - 1; s >= 0; s--) {
+        const sec = sections[s];
+        if (!sec || !Array.isArray(sec.rows)) continue;
+        for (let r = sec.rows.length - 1; r >= 0; r--) {
+          const a = sec.rows[r]?.cells?.[blockId]?.assignments;
+          if (Array.isArray(a) && a.length > 0) return a;
+        }
+      }
+      return null;
+    },
+    [sections],
+  );
+
   // 任意位置にロール挿入 (idx は挿入位置 = 既存 sections の splice 第一引数)
   const insertSectionAt = (idx: number) => {
     updateState((s: any) => {
@@ -693,6 +715,7 @@ function CueTableLg({
                             ledScenes={ledScenes}
                             collapsedBlocks={collapsedBlocks}
                             speakerColorMap={speakerColorMap}
+                            findPrevAudioMicAssignments={(blockId) => findPrevAudioMicAssignments(si, ri, blockId)}
                             onChange={(updater) => updateRow(si, ri, updater)}
                             onDelete={() => deleteRow(si, ri)}
                             onMoveUp={() => moveRow(si, ri, -1)}

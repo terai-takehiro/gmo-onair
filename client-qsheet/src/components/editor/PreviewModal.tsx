@@ -171,6 +171,18 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
             const cell = cells[b.id];
             if (typeof cell === "string") return cell;
             if (cell && typeof cell === "object") {
+              if (b.type === "audio_mic" && Array.isArray(cell.assignments)) {
+                return cell.assignments
+                  .filter((a: any) => a.state && a.state !== "off")
+                  .sort((a: any, b2: any) => (a.ch || 0) - (b2.ch || 0))
+                  .map((a: any) => {
+                    const tag = a.state === "on" ? "ON" : "STBY";
+                    const name = a.person ? ` ${a.person}` : "";
+                    const mic = a.micType ? `/${a.micType}` : "";
+                    return `Ch${a.ch}:${tag}${name}${mic}`;
+                  })
+                  .join(" / ");
+              }
               if (Array.isArray(cell.entries)) {
                 return cell.entries
                   .map((e: any) => {
@@ -454,6 +466,31 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                                           ) : null}
                                           {en?.image && (
                                             <img src={en.image} alt="" style={{ display: "block", maxWidth: "100%", maxHeight: 200, objectFit: "contain", marginTop: 4 }} />
+                                          )}
+                                        </td>
+                                      );
+                                    } else if (blk.type === "audio_mic") {
+                                      if (ei !== 0) {
+                                        return <td key={blk.id} style={tdStyle} />;
+                                      }
+                                      const assignments = (cell.assignments || [])
+                                        .filter((a: any) => a.state && a.state !== "off")
+                                        .sort((a: any, b2: any) => (a.ch || 0) - (b2.ch || 0));
+                                      return (
+                                        <td key={blk.id} style={tdStyle}>
+                                          {assignments.length > 0 && (
+                                            <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                                              {assignments.map((a: any) => (
+                                                <div key={a.ch} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: fontSize - 1 + "pt", lineHeight: 1.4 }}>
+                                                  <span style={{ display: "inline-block", minWidth: 32, padding: "0 3px", borderRadius: 2, background: a.state === "on" ? (mono ? "#000" : "#dc2626") : (mono ? "#666" : "#f59e0b"), color: "#fff", fontSize: fontSize - 2 + "pt", fontWeight: 700, textAlign: "center" }}>
+                                                    {a.state === "on" ? "ON" : "STBY"}
+                                                  </span>
+                                                  <span style={{ fontWeight: 700, fontFamily: "'Roboto Condensed',sans-serif" }}>Ch{a.ch}</span>
+                                                  <span>{a.person || ""}</span>
+                                                  {a.micType && <span style={{ color: "#6b7280" }}>/ {a.micType}</span>}
+                                                </div>
+                                              ))}
+                                            </div>
                                           )}
                                         </td>
                                       );
