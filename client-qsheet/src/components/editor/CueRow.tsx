@@ -3,6 +3,7 @@ import { ChevronUp, ChevronDown, Copy, Trash2, ImageIcon, ImagePlus, Loader2 } f
 import api from "@/lib/api";
 import StageDiagramCell from "./StageDiagramCell";
 import { HighlightPicker } from "./HighlightPicker";
+import MicAssignmentCell from "./MicAssignmentCell";
 
 // ─── Types ──────────────────────────────────────────────
 interface Block {
@@ -530,6 +531,23 @@ export default function CueRow({
                       </div>
                     )}
                   </div>
+                </td>
+              );
+            }
+
+            // ── Audio mic (マイク香盤) cell ──
+            if (blk.type === "audio_mic") {
+              return (
+                <td key={blk.id} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 align-top">
+                  {ei === 0 && (
+                    <MicAssignmentCell
+                      cell={row.cells?.[blk.id]}
+                      channels={masters?.micChannels || []}
+                      persons={masters?.persons || []}
+                      micTypes={masters?.micTypes || []}
+                      onChange={(val) => updateCell(blk.id, val)}
+                    />
+                  )}
                 </td>
               );
             }

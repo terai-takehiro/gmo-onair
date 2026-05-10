@@ -52,11 +52,25 @@ interface Block {
   width: string | number;
 }
 
+interface MicChannel {
+  ch: number;
+  label?: string;
+}
+
+interface MicAssignment {
+  ch: number;
+  person: string;
+  micType: string;
+  state: "on" | "off" | "standby";
+}
+
 interface Masters {
   persons: string[];
   video: string[];
   audio: string[];
   telop: string[];
+  micTypes?: string[];
+  micChannels?: MicChannel[];
 }
 
 interface DocumentMeta {
@@ -122,7 +136,34 @@ function exportCsv(doc: QsheetDocument) {
         ...blocks.map((b) => {
           const cell = rowCells[b.id];
           if (typeof cell === "string") return cell;
-          if (cell && typeof cell === "object" && "value" in (cell as Record<string, unknown>)) return String((cell as Record<string, unknown>).value || "");
+          if (cell && typeof cell === "object") {
+            const obj = cell as Record<string, unknown>;
+            if (b.type === "audio_mic" && Array.isArray(obj.assignments)) {
+              return (obj.assignments as MicAssignment[])
+                .filter((a) => a.state !== "off")
+                .sort((a, b2) => a.ch - b2.ch)
+                .map((a) => {
+                  const tag = a.state === "on" ? "ON" : "STBY";
+                  const name = a.person ? ` ${a.person}` : "";
+                  const mic = a.micType ? `/${a.micType}` : "";
+                  return `Ch${a.ch}:${tag}${name}${mic}`;
+                })
+                .join(" / ");
+            }
+            if (Array.isArray(obj.entries)) {
+              return (obj.entries as Array<Record<string, unknown>>)
+                .map((e) => {
+                  const html = typeof e.html === "string" ? e.html.replace(/<[^>]*>/g, "") : "";
+                  if (html) return html;
+                  const label = typeof e.label === "string" ? e.label : "";
+                  const memo = typeof e.memo === "string" && e.memo ? ` ${e.memo}` : "";
+                  return `${label}${memo}`;
+                })
+                .filter((s) => s.trim())
+                .join(" / ");
+            }
+            if ("value" in obj) return String(obj.value || "");
+          }
           return "";
         }),
       ]);
