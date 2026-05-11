@@ -7,6 +7,7 @@ import path from 'path';
 import { createAuthMiddleware } from './shared/middleware/auth';
 import { errorHandler } from './shared/middleware/errorHandler';
 import { createRoutes } from './routes';
+import interactiveExternalRoutes from './contexts/interactive/routes/external.routes';
 
 export function createApp(): express.Express {
   const app = express();
@@ -63,6 +64,9 @@ export function createApp(): express.Express {
   app.use(createAuthMiddleware());
 
   // Routes
+  // 外部公開 API (X-API-Key 認証、Cookie/セッション非依存)。
+  // 将来 Interactive を別 VPS に切り出した後もこの URL 形に揃える前提。
+  app.use('/api/v1/external/interactive', interactiveExternalRoutes);
   app.use('/api/v1/internal', createRoutes());
 
   // Health check — 最小限の情報のみ返す

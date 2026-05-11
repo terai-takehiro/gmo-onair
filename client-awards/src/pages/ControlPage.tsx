@@ -1,10 +1,10 @@
 import { useMemo, useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAwardsCue } from '@/hooks/useAwardsCue';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ExternalLink, Trophy, Radio, Subtitles, Send, X, Maximize2, Minimize2 } from 'lucide-react';
+import { ChevronLeft, ExternalLink, Trophy, Radio, Subtitles, Send, X, Maximize2, Minimize2, Download } from 'lucide-react';
 import type { CgStep, OneshotStyle, CgCategory, CgCueState } from '@/cg/types';
 import CGFrame from '@/cg/CGFrame';
 import { CG_W, CG_H } from '@/cg/types';
@@ -59,6 +59,34 @@ export default function ControlPage() {
 
   const { cue, sendCue, sendNextCue } = useAwardsCue(eventId);
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
+  const qc = useQueryClient();
+
+  // v2.8.113+: Interactive 連携が設定済みなら結果取り込みボタンを表示
+  const { data: interactiveLink } = useQuery({
+    queryKey: ['interactive-link', eventId],
+    queryFn: async () => {
+      const res = await api.get(`/awards/events/${eventId}/interactive-link`);
+      return res.data.data as { eventId: string; mapping: Record<string, unknown> } | null;
+    },
+  });
+
+  const ingestMut = useMutation({
+    mutationFn: async () => {
+      const res = await api.post(`/awards/events/${eventId}/interactive-link/ingest`);
+      return res.data.data as { updatedEntries: number };
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['awards-event', eventId] });
+      alert(`${data.updatedEntries} 件のノミネートを更新しました`);
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { error?: { message?: string } } } })
+        ?.response?.data?.error?.message ?? '取り込みに失敗しました';
+      alert(`取り込み失敗: ${msg}`);
+    },
+  });
+
+  const canIngest = !!interactiveLink && Object.keys(interactiveLink.mapping ?? {}).length > 0;
   const awardGroups = useMemo(() => groupByAward(event?.categories ?? []), [event]);
   const liveCategory = event?.categories.find((c) => c.id === cue.categoryId) ?? null;
   const isLive = LIVE_STEPS.includes(cue.step);
@@ -240,6 +268,17 @@ export default function ControlPage() {
           <Radio className={cn('h-3 w-3 shrink-0', isLive && 'animate-pulse')} />
           {isLive ? 'ON AIR' : 'STANDBY'}
         </div>
+        {canIngest && (
+          <button
+            onClick={() => ingestMut.mutate()}
+            disabled={ingestMut.isPending}
+            title="Interactive のクイズ/投票結果を取り込んで points を更新"
+            className="hidden sm:flex items-center gap-1.5 rounded-lg bg-violet-900/60 px-2.5 py-1.5 text-[10px] font-black tracking-widest uppercase text-violet-300 hover:bg-violet-800/70 hover:text-violet-100 transition-colors disabled:opacity-50"
+          >
+            <Download className={cn('h-3 w-3', ingestMut.isPending && 'animate-pulse')} />
+            {ingestMut.isPending ? '取込中…' : 'Interactive取込'}
+          </button>
+        )}
         <LangPicker value={previewLang} onChange={setPreviewLang} />
         <a
           href={`/awards/output/${eventId}?lang=${previewLang}`}

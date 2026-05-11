@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { getAccessibleApps } from "@gmo-onair/shared/src/client/appNav";
 import {
   Sparkles, Home, FileText, Package, Wrench, Briefcase,
-  X, ChevronLeft, Timer, Trophy,
+  X, ChevronLeft, Timer, Trophy, Key,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -14,6 +14,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
 
 const navItems = [
   { label: "イベント一覧", path: "/", icon: Sparkles, exact: true },
+  { label: "API キー管理", path: "/api-keys", icon: Key, exact: false },
 ];
 
 export default function Sidebar() {

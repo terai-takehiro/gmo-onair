@@ -18,6 +18,7 @@ import {
   ChevronDown, ChevronRight, Subtitles, Download, RotateCcw,
 } from 'lucide-react';
 import ExcelImportDialog from '../oneshot/operator/ExcelImportDialog';
+import InteractiveLinkSection from '../components/InteractiveLinkSection';
 import {
   fetchEventModuleConfig, saveEventModuleConfig,
 } from '../oneshot/lib/moduleConfig';
@@ -815,6 +816,22 @@ export default function EventEditorPage() {
 
       {/* ── 下位置CG モジュール構成 (Stage 3: JSON エクスポート/インポート) ── */}
       {event && <ModuleConfigSection eventId={event.id} />}
+
+      {/* ── Interactive 連携 (v2.8.113+) ─────────────────── */}
+      {event && (
+        <InteractiveLinkSection
+          awardsEventId={event.id}
+          entryOptions={awardGroups.flatMap((g) =>
+            g.divisions.flatMap((d) =>
+              d.entries.map((e) => ({
+                id: e.id,
+                label: `${g.name} / ${d.description ?? d.name} — ${e.name}`,
+              })),
+            ),
+          )}
+          onIngested={invalidate}
+        />
+      )}
 
       {/* ── Excel Import Dialog ─────────────────────────────── */}
       <ExcelImportDialog

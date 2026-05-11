@@ -6,6 +6,7 @@ import quizRoutes from './routes/quiz.routes';
 import scalingRoutes from './routes/scaling.routes';
 import overlayRoutes from './routes/overlays.routes';
 import audienceRoutes from './routes/audience.routes';
+import apiKeyRoutes from './routes/apiKeys.routes';
 
 export function createInteractiveRoutes(): Router {
   const router = Router();
@@ -20,6 +21,7 @@ export function createInteractiveRoutes(): Router {
   router.use('/interactive', quizRoutes);     // /interactive/events/:id/questions, /interactive/questions/:id/*
   router.use('/interactive/scaling', scalingRoutes);
   router.use('/interactive/overlays', overlayRoutes);
+  router.use('/interactive/api-keys', apiKeyRoutes);
 
   return router;
 }

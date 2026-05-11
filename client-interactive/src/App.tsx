@@ -9,6 +9,7 @@ import LiveControlPage from './pages/LiveControlPage';
 import OverlayPage from './pages/OverlayPage';
 import AudiencePage from './pages/AudiencePage';
 import LoginPage from './pages/LoginPage';
+import ApiKeysPage from './pages/ApiKeysPage';
 
 export default function App() {
   const { currentUser: user, loading } = useAuth();
@@ -32,6 +33,7 @@ export default function App() {
             <Route path="/event/:id" element={<EventEditorPage />} />
             <Route path="/event/:id/quiz" element={<QuizManagerPage />} />
             <Route path="/live/:id" element={<LiveControlPage />} />
+            <Route path="/api-keys" element={<ApiKeysPage />} />
           </Route>
         ) : (
           <Route path="*" element={<RedirectOnce to="/login" />} />
