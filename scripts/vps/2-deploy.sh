@@ -34,15 +34,36 @@ command -v docker >/dev/null      || die "Docker 未インストール。先に 
 docker compose version >/dev/null || die "docker compose plugin 未インストール"
 
 # -----------------------------------------------------------------------------
-# 1. main を clone / fetch
+# 1. $APP_DIR を更新
+#    - 通常運用: main にチェックアウト + origin/main に同期
+#    - 初回ブートストラップ等で feature ブランチに居る場合は、強制的に main へ
+#      切り戻すと scripts/vps/ ごと消えてしまうので、現ブランチのまま同期する。
+#      明示的に main へ揃えたい時は SYNC_BRANCH=main で呼ぶ。
 # -----------------------------------------------------------------------------
-log "[1/6] main を $APP_DIR に展開"
+log "[1/6] $APP_DIR を更新"
 if [[ ! -d "$APP_DIR/.git" ]]; then
   git clone "$GIT_REMOTE" "$APP_DIR"
+  git -C "$APP_DIR" checkout main
 fi
 git -C "$APP_DIR" fetch --all --prune
-git -C "$APP_DIR" checkout main
-git -C "$APP_DIR" reset --hard origin/main
+
+CURRENT_BRANCH="$(git -C "$APP_DIR" rev-parse --abbrev-ref HEAD)"
+SYNC_BRANCH="${SYNC_BRANCH:-$CURRENT_BRANCH}"
+if [[ "$SYNC_BRANCH" == "HEAD" ]]; then
+  warn "    detached HEAD 検出 → main にチェックアウトします"
+  git -C "$APP_DIR" checkout main
+  SYNC_BRANCH=main
+elif [[ "$SYNC_BRANCH" != "$CURRENT_BRANCH" ]]; then
+  log "    SYNC_BRANCH=$SYNC_BRANCH 指定 → checkout"
+  git -C "$APP_DIR" checkout "$SYNC_BRANCH"
+fi
+
+if git -C "$APP_DIR" rev-parse --verify "origin/$SYNC_BRANCH" >/dev/null 2>&1; then
+  log "    sync $SYNC_BRANCH ← origin/$SYNC_BRANCH"
+  git -C "$APP_DIR" reset --hard "origin/$SYNC_BRANCH"
+else
+  warn "    origin/$SYNC_BRANCH が見つかりません — reset スキップ"
+fi
 log "    HEAD: $(git -C "$APP_DIR" log --oneline -1)"
 
 # -----------------------------------------------------------------------------
