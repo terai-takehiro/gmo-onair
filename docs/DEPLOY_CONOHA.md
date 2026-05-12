@@ -1,272 +1,326 @@
-# GMO ONAiR - CoNoHa VPS デプロイ手順
+# GMO ONAiR — CoNoHa VPS デプロイ手順 (新 VPS 構築版)
 
-## 全体の流れ
-
-```
-Step 1: CoNoHa VPSを契約・作成
-Step 2: VPSに接続して初期設定
-Step 3: Docker と Docker Compose をインストール
-Step 4: アプリをデプロイ
-Step 5: Nginx を設定
-Step 6: (任意) ドメイン + SSL 設定
-```
-
-所要時間の目安: 約30〜60分
+> 旧 VPS (133.117.74.239) が継ぎ接ぎで負債化したため、**4GB プランで新規 VPS をゼロから立て直す**ための手順書。
+> 既存 VPS は廃棄前提なのでデータ移行は BOX の DB バックアップ経由で行う。
 
 ---
 
-## Step 1: CoNoHa VPSを契約・作成
+## 全体フロー
 
-### 1-1. CoNoHa にログイン
-- https://manage.conoha.jp にアクセス
-- アカウントがなければ新規作成
+```
+Phase 1: CoNoHa で 4GB VPS を新規契約 + 初回ログイン      …  10 分
+Phase 2: 1-bootstrap.sh で OS / Docker / UFW を整備       …   5 分
+Phase 3: 2-deploy.sh でアプリ起動 (HTTP のみ)             …  10〜15 分
+Phase 4: DNS を新 IP に向ける                              …   5 分 (+ 伝播待ち)
+Phase 5: 3-issue-cert.sh で HTTPS 化                       …   3 分
+Phase 6: 旧 VPS の DB を BOX バックアップから復元 (任意)   …   5 分
+Phase 7: 動作確認 + 旧 VPS 解約                            …
+```
 
-### 1-2. VPSを追加
-- 「サーバー追加」をクリック
-- 以下のスペックを選択:
-
-| 項目 | 推奨値 |
-|------|--------|
-| リージョン | 東京 |
-| メモリ | **2GB** (月額 1,848円程度) |
-| イメージ | **Ubuntu 24.04** |
-| rootパスワード | 安全なパスワードを設定(メモしておく) |
-| SSH Key | あれば登録(なくてもOK) |
-
-### 1-3. IPアドレスを確認
-- サーバーが作成されたら、一覧画面に表示される**IPアドレス**をメモ
-- 例: `163.44.xxx.xxx`
+全体で **30〜45 分** + DNS 伝播待ち。
 
 ---
 
-## Step 2: VPSに接続して初期設定
+## 前提
 
-### 2-1. SSH接続
-
-**Mac/Linux の場合（ターミナルから）:**
-```bash
-ssh root@あなたのIPアドレス
-```
-初回は `yes` と入力して接続を許可。rootパスワードを入力。
-
-**Windowsの場合:**
-- PowerShellで同じコマンド、または [Tera Term](https://teratermproject.github.io/) を使用
-
-### 2-2. システムを最新に更新
-```bash
-apt update && apt upgrade -y
-```
-途中で質問が出たらEnterでOK。2〜3分かかります。
+- 旧 VPS の DB が **BOX の `00_DB_Backup/prod/` および `dev/`** に 3 時間ごとに自動退避されている前提
+  (v2.7.12+ で導入。旧 VPS が立ち上がる場合は念のため手動で 1 回 backup を流しておく)
+- 新 VPS でも BOX 連携を使うため `.env` の `BOX_CONFIG_JSON` は引き継ぎ予定の値を準備しておく
 
 ---
 
-## Step 3: Docker と Docker Compose をインストール
+## Phase 1: CoNoHa で 4GB VPS を作成
 
-### 3-1. Docker インストール
-```bash
-curl -fsSL https://get.docker.com | sh
-```
+1. https://manage.conoha.jp にログイン → **「サーバー追加」**
+2. 以下を選択:
 
-### 3-2. Docker を自動起動に設定
-```bash
-systemctl enable docker
-systemctl start docker
-```
+   | 項目 | 値 |
+   |---|---|
+   | リージョン | **東京** |
+   | プラン | **4GB** (4 vCPU / 4GB RAM / SSD 100GB / 月額 約 3,608 円) |
+   | イメージ | **Ubuntu 24.04** |
+   | root パスワード | 安全な値 (パスワードマネージャに保存) |
+   | SSH 鍵 | 用意していれば登録 (任意) |
+   | ネームタグ | `gmo-onair-prod-v2` など |
 
-### 3-3. Docker Compose インストール
-```bash
-apt install -y docker-compose-plugin
-```
+3. 作成完了後、サーバー一覧画面で **公開 IPv4 アドレス** をメモ
+4. (任意) CoNoHa スケーリング API を使うなら、コントロールパネル → 「API」→「API ユーザー」で API ユーザーを発行 (`.env` の `CONOHA_*` に書く)
 
-### 3-4. インストール確認
-```bash
-docker --version
-docker compose version
-```
-両方ともバージョンが表示されればOK。
+### CoNoHa 側 DNS は **まだ触らない** (Phase 4 で切替)
+
+Phase 3 まで完了させて HTTP で動作確認してから DNS を切り替えると、ダウンタイムが最小化できる。
 
 ---
 
-## Step 4: アプリをデプロイ
+## Phase 2: 初期セットアップ (1-bootstrap.sh)
 
-### 4-1. リポジトリをクローン
+### 2-1. SSH 接続
+
 ```bash
-cd /opt
+ssh root@<新 VPS の IP>
+# 初回は yes、続けて root パスワードを入力
+```
+
+### 2-2. bootstrap を実行
+
+リポジトリを clone してからスクリプトを叩く 2 段方式:
+
+```bash
+cd /root
+apt-get update -qq && apt-get install -y -qq git
 git clone https://github.com/terai-takehiro/gmo-onair.git
-cd gmo-onair
+bash /root/gmo-onair/scripts/vps/1-bootstrap.sh
 ```
 
-> もしプライベートリポジトリの場合:
-> ```bash
-> # GitHub Personal Access Token を使う
-> git clone https://あなたのトークン@github.com/terai-takehiro/gmo-onair.git
-> ```
+> ⚠ `curl | bash` 方式は監査性が低いので避け、必ず clone 後に内容を確認してから実行する。
 
-### 4-2. 環境変数を設定
-```bash
-cp .env.example .env
-nano .env
-```
+スクリプトの中身:
 
-以下のように編集:
-```
-# PostgreSQL のパスワード（必ず変更！）
-DATABASE_URL=postgresql://postgres:ここに安全なパスワード@db:5432/onair_db
-DB_PASSWORD=ここに安全なパスワード
+- apt update / upgrade
+- Ubuntu ロケール (C.UTF-8 + ja_JP.UTF-8) + タイムゾーン (Asia/Tokyo)
+- swap 4GB を `/swapfile` に作成 (`vm.swappiness=10`)
+- Docker CE + Compose plugin + buildx を Docker 公式 apt repo からインストール
+- `/etc/docker/daemon.json` でログを 20MB × 5 にローテーション
+- UFW で 22/80/443 のみ許可 (それ以外は deny)
+- fail2ban で SSH を 5 回失敗 → 1 時間 ban
+- unattended-upgrades (security のみ自動適用、自動再起動は OFF)
 
-# Server
-PORT=3000
-NODE_ENV=production
-```
+完走すると公開 IP・空き容量・swap 状態を最後に出力する。
 
-**保存方法**: `Ctrl + O` → Enter → `Ctrl + X`
+---
 
-> パスワードの例: `gmo-onair-2026-Xk9mP` のような英数字+記号の組み合わせ
-
-### 4-3. Docker Compose で起動
-```bash
-docker compose up -d --build
-```
-
-初回は**5〜10分**かかります（Node.js依存関係のインストール + ビルド）。
-
-### 4-4. 起動確認
-```bash
-# コンテナの状態を確認
-docker compose ps
-```
-
-以下のように表示されればOK:
-```
-NAME              STATUS
-gmo-onair-db-1   Up (healthy)
-gmo-onair-app-1  Up
-```
+## Phase 3: アプリ展開 (2-deploy.sh)
 
 ```bash
-# アプリの動作確認
-curl http://localhost:3000/health
+bash /root/gmo-onair/scripts/vps/2-deploy.sh
 ```
 
-`{"status":"ok","name":"GMO ONAiR API"}` と表示されれば成功！
+スクリプトの中身:
 
-### トラブルシューティング
+1. `main` を `/root/gmo-onair` に同期
+2. `dev` worktree を `/root/gmo-onair-dev` に展開 (compose の `app_dev.build.context` 用)
+3. `.env` が無ければランダム値でテンプレートを生成 (DB_PASSWORD / JWT_SECRET / JWT_SECRET_DEV / ENCRYPTION_KEY)
+4. `docker compose build --pull && docker compose up -d`
+5. `app_prod` (3000) / `app_dev` (3001) の `/health` が応答するまで待機
+6. DB バックアップ cron (`scripts/setup-backup-cron.sh`) を仕込む
 
-**起動しない場合:**
+完走後、**ブラウザ非依存の HTTP 動作確認**は VPS 上で:
+
 ```bash
-# ログを確認
-docker compose logs app
-docker compose logs db
+curl -fsS http://127.0.0.1:3000/health
+curl -fsS http://127.0.0.1:3001/health
+docker compose -f /root/gmo-onair/docker-compose.yml ps
 ```
 
-**再ビルドしたい場合:**
+### .env の手動補完
+
+`2-deploy.sh` は秘密値の **構造体** を作るだけ。以下は手動で埋める:
+
 ```bash
-docker compose down
-docker compose up -d --build
+vim /root/gmo-onair/.env
+```
+
+| キー | 用途 | 必須? |
+|---|---|---|
+| `ADMIN_EMAIL` | 起動時に system_admin が自動作成される | 本番では推奨 |
+| `BOX_CONFIG_JSON` | BOX 連携 (フォルダ自動作成 + DB バックアップ) | バックアップ復元したいなら必須 |
+| `BOX_PROJECT_PARENT_FOLDER_ID` | 社外案件フォルダ ID | 任意 |
+| `BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL` | 社内案件フォルダ ID | 任意 |
+| `TWILIO_*` | SMS 2FA | 本番のみ |
+| `SMTP_*` | メール送信 | 本番のみ |
+| `CONOHA_*` | スケーリング API | 任意 |
+
+書き換えたら反映:
+
+```bash
+cd /root/gmo-onair && docker compose up -d
 ```
 
 ---
 
-## Step 5: Nginx を設定
+## Phase 4: DNS 切替
 
-### 5-1. Nginx インストール
-```bash
-apt install -y nginx
+CoNoHa DNS (またはお名前.com 等) で A レコードを **新 VPS の IP** に変更:
+
+```
+gmo-onair.jp.       A  <新 IP>   TTL 300
+www.gmo-onair.jp.   A  <新 IP>   TTL 300
+dev.gmo-onair.jp.   A  <新 IP>   TTL 300
 ```
 
-### 5-2. 設定ファイルを配置
+伝播確認:
+
 ```bash
-cp /opt/gmo-onair/nginx/onair.conf /etc/nginx/sites-available/onair
-ln -s /etc/nginx/sites-available/onair /etc/nginx/sites-enabled/
-rm -f /etc/nginx/sites-enabled/default
+dig +short A gmo-onair.jp     @1.1.1.1
+dig +short A dev.gmo-onair.jp @1.1.1.1
 ```
 
-### 5-3. 設定を確認して再起動
-```bash
-nginx -t
-systemctl restart nginx
-```
-
-### 5-4. ブラウザで確認
-- `http://あなたのIPアドレス` にアクセス
-- GMO ONAiRのダッシュボードが表示されれば完了！
+新 IP が返るまで通常数分〜1 時間 (TTL を 300 にしておけば早い)。
 
 ---
 
-## Step 6: (任意) ドメイン + SSL 設定
+## Phase 5: HTTPS 発行 (3-issue-cert.sh)
 
-ドメインがある場合、HTTPS化できます。
+DNS が新 IP を返すようになってから:
 
-### 6-1. DNSを設定
-ドメイン管理画面（お名前.com, ムームードメインなど）で:
-- **Aレコード**: `onair.あなたのドメイン` → VPSのIPアドレス
-
-DNS反映に最大24時間（通常は数分〜1時間）かかります。
-
-### 6-2. Nginx設定のドメイン名を変更
 ```bash
-nano /etc/nginx/sites-available/onair
+bash /root/gmo-onair/scripts/vps/3-issue-cert.sh
 ```
 
-`server_name _;` の `_` をドメインに変更:
-```
-server_name onair.あなたのドメイン;
-```
+スクリプトの中身:
 
-### 6-3. SSL証明書を取得 (Let's Encrypt)
+1. 公開 IP と各ドメインの DNS 解決結果を照合 (不一致なら警告 + 確認プロンプト)
+2. certbot を apt install
+3. compose の `nginx` だけ stop して host:80 を空ける
+4. `certbot certonly --standalone -d gmo-onair.jp -d www.gmo-onair.jp -d dev.gmo-onair.jp` で 3 ドメイン分の cert を 1 回で発行
+5. `docker compose up -d nginx` で復帰
+6. cron に毎日 03:00 の `certbot renew --deploy-hook 'nginx -s reload'` を登録
+
+確認:
+
 ```bash
-apt install -y certbot python3-certbot-nginx
-certbot --nginx -d onair.あなたのドメイン
+curl -sk https://gmo-onair.jp/health
+curl -sk https://dev.gmo-onair.jp/health
+crontab -l | grep certbot
 ```
 
-メールアドレスを聞かれたら入力、利用規約に `Y`、HTTPSリダイレクトを聞かれたら `2` (リダイレクトする)。
+---
 
-### 6-4. 確認
-- `https://onair.あなたのドメイン` にアクセス
-- 鍵マークが表示され、GMO ONAiRが表示されれば完了！
+## Phase 6: 旧 VPS の DB を BOX バックアップから復元 (任意)
 
-### 6-5. SSL自動更新の確認
+旧データを引き継ぐ場合のみ。新規プロジェクトで始めるなら飛ばす。
+
+### 6-1. .env に BOX_CONFIG_JSON が入っていることを確認
+
 ```bash
-certbot renew --dry-run
+grep -E '^BOX_CONFIG_JSON=' /root/gmo-onair/.env | head -c 80
+# → "BOX_CONFIG_JSON='{\"boxAppSettings\":..." のような長い行が出れば OK
 ```
+
+### 6-2. 復元対象のバックアップを一覧
+
+```bash
+docker exec gmo-onair-app_prod-1 \
+  node /app/server/scripts/restore-db-from-box.mjs --list
+```
+
+`onair_prod_YYYYMMDD_HHMMSS.sql.gz` 形式のファイル名がリストされる。最新を選ぶ。
+
+### 6-3. 本番 DB を復元 (5 層の安全策つき)
+
+```bash
+# -it 必須 (対話確認あり)。"yes" を全文タイプするまで実行されない
+docker exec -it gmo-onair-app_prod-1 \
+  node /app/server/scripts/restore-db-from-box.mjs onair_prod_20260512_030000.sql.gz
+```
+
+実行前に自動スナップショット (`/tmp/before-restore_*.sql.gz`) が取得される。
+ファイル名チェックで `prod` ファイル → `prod` DB のみ復元可能 (クロス禁止)。
+
+### 6-4. dev DB も同様に
+
+```bash
+docker exec gmo-onair-app_dev-1 \
+  node /app/server/scripts/restore-db-from-box.mjs --list
+docker exec -it gmo-onair-app_dev-1 \
+  node /app/server/scripts/restore-db-from-box.mjs onair_dev_20260512_030000.sql.gz
+```
+
+### 6-5. 復元後の整合性確認
+
+```bash
+docker exec gmo-onair-db-1 psql -U postgres -d onair_prod \
+  -c "SELECT COUNT(*) FROM projects;"
+docker exec gmo-onair-db-1 psql -U postgres -d onair_prod \
+  -c "SELECT MAX(updated_at) FROM projects;"
+```
+
+---
+
+## Phase 7: 動作確認 + 旧 VPS 解約
+
+### 7-1. スモークテスト
+
+| チェック | コマンド |
+|---|---|
+| 本番 HTTPS | `curl -sk https://gmo-onair.jp/health` |
+| 本番ログイン画面 | ブラウザで https://gmo-onair.jp → ログイン画面が出る |
+| 検証 HTTPS | `curl -sk https://dev.gmo-onair.jp/health` |
+| Socket.IO | Qシート OnAir 画面 → ランダウン画面が同期する |
+| 機材画像 | uploads_prod volume にデータがあるか `docker volume ls` |
+| BOX 連携 | 案件を 1 件新規作成 → BOX に `_OPP-xxxx` フォルダが生える |
+| DB バックアップ | `tail -20 /var/log/gmo-onair-backup.log` で次回 3 時間サイクルが回る |
+
+### 7-2. 旧 VPS の解約
+
+すべて OK なら CoNoHa コントロールパネルで旧 VPS を停止 → 解約。
+
+> ⚠ 解約前に **BOX に最新の DB バックアップが上がっていることを必ず確認**:
+> `00_DB_Backup/prod/` の最終更新が新 VPS 起動より新しいか目視確認。
 
 ---
 
 ## 日常運用コマンド
 
 ```bash
-# アプリの場所に移動
-cd /opt/gmo-onair
+# 場所
+cd /root/gmo-onair
 
-# ログを見る
-docker compose logs -f app      # アプリのログ (Ctrl+Cで終了)
-docker compose logs -f db       # DBのログ
+# 状態確認
+docker compose ps
+docker compose logs -f app_prod
+docker compose logs -f app_dev
+docker compose logs -f nginx
 
-# アプリを再起動
-docker compose restart app
+# 再起動 (コードはそのまま)
+docker compose restart app_prod
 
-# コードを更新してデプロイ
-git pull origin main
-docker compose up -d --build
+# main / dev を最新化して再ビルド
+cd /root/gmo-onair && git pull origin main && docker compose up -d --build app_prod
+cd /root/gmo-onair-dev && git pull origin dev && docker compose -f /root/gmo-onair/docker-compose.yml up -d --build app_dev
 
-# アプリを停止
-docker compose down
+# 完全停止
+cd /root/gmo-onair && docker compose down
 
-# アプリを停止（DBデータも消す場合 ※注意）
-docker compose down -v
+# DB を psql で覗く
+docker exec -it gmo-onair-db-1 psql -U postgres -d onair_prod
 ```
 
 ---
 
-## 将来: Qシートアプリも同じVPSに追加
+## トラブルシューティング
+
+### app_prod が `unhealthy` のまま
 
 ```bash
-cd /opt
-git clone https://github.com/terai-takehiro/GMO-Qsheet-Editor.git
-cd GMO-Qsheet-Editor
-# .env を設定して docker compose up -d
-# Nginx に qsheet.example.com の設定を追加
+docker compose logs --tail=200 app_prod
+# よくある原因:
+#   1) .env の DB_PASSWORD と db コンテナの初期化済パスワードが不一致
+#      → pgdata volume を消すしかない: docker compose down && docker volume rm gmo-onair_pgdata
+#         (※ DB データは完全消失。必ず BOX 復元の前に行う)
+#   2) JWT_SECRET / JWT_SECRET_DEV が未設定
+#   3) port 3000 が他プロセスに掴まれている: ss -tlnp | grep 3000
 ```
+
+### certbot が rate limit に当たった
+
+Let's Encrypt は同一ドメインで 5 回/週の発行上限あり。
+`/var/log/letsencrypt/letsencrypt.log` を見て理由を確認。
+原則 `--dry-run` で事前テストしてから本発行する。
+
+### DNS を切り替えたのに古い IP に飛ぶ
+
+ブラウザ / OS / 中間 DNS のキャッシュ。
+`dig +short @1.1.1.1 gmo-onair.jp` で 1.1.1.1 (Cloudflare) が新 IP を返していれば最終的には反映される。
+急ぐ場合は端末側の DNS キャッシュをクリア (Mac: `sudo dscacheutil -flushcache`).
+
+### Docker build で OOM
+
+4GB プランでも npm install + tsc + Vite build が重なると稀に OOM する。
+解決策:
+- swap が効いているか確認: `free -h`
+- それでも落ちるなら build キャッシュをクリア: `docker builder prune -af`
+- 最終手段: CoNoHa のリサイズで一時的に 8GB プランに上げてビルドだけ通す
 
 ---
 
@@ -276,13 +330,38 @@ cd GMO-Qsheet-Editor
 インターネット
     │
     ▼
-[CoNoHa VPS]
+[CoNoHa VPS 4GB / 東京]
     │
-    ├── Nginx (:80/:443)
-    │     └── proxy_pass → localhost:3000
+    ├── UFW: 22/80/443 のみ許可
+    ├── fail2ban: SSH ブルートフォース対策
     │
     └── Docker Compose
-          ├── app (GMO ONAiR Express + React) :3000
-          └── db  (PostgreSQL 16) :5432
-                └── Volume: pgdata (永続化)
+          ├── nginx       :80 / :443         — Let's Encrypt + リバプロ
+          │                                    ├─ gmo-onair.jp     → app_prod:3000
+          │                                    └─ dev.gmo-onair.jp → app_dev:3000
+          ├── app_prod    127.0.0.1:3000     — 本番 Express + 静的配信
+          ├── app_dev     127.0.0.1:3001     — 検証 Express + 静的配信
+          └── db          127.0.0.1:5432     — PostgreSQL 16
+                ├─ onair_prod
+                └─ onair_dev
+                └─ volume: pgdata (永続化)
+
+cron (host):
+  - 0,30 */3 * * *  DB を pg_dump → BOX `00_DB_Backup/{prod|dev}/`
+  - 0 3 * * *       certbot renew --deploy-hook 'nginx -s reload'
 ```
+
+---
+
+## 関連スクリプト早見表
+
+| スクリプト | 役割 | いつ実行? |
+|---|---|---|
+| `scripts/vps/1-bootstrap.sh` | OS + Docker + UFW + swap | 新 VPS で一度だけ |
+| `scripts/vps/2-deploy.sh` | clone + .env + compose up | bootstrap 後・更新時も再実行可 |
+| `scripts/vps/3-issue-cert.sh` | Let's Encrypt 発行 | DNS 切替後に一度だけ |
+| `scripts/setup-backup-cron.sh` | DB バックアップ cron | `2-deploy.sh` から自動呼出 |
+| `server/scripts/backup-db-to-box.mjs` | pg_dump → BOX | cron から自動 |
+| `server/scripts/restore-db-from-box.mjs` | BOX → DB 復元 | 移行時 / 災害復旧時 |
+| `deploy/init-db.sh` | DB 初回作成 (prod + dev) | compose の db コンテナ初回起動時に自動実行 |
+| `deploy/check-db-encoding.sh` | UTF-8 / C.UTF-8 確認 | 移行直後に 1 度 |
