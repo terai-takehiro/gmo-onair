@@ -25,3 +25,7 @@ service-account.json
 
 # k6 負荷試験の生成物
 scripts/loadtest/results/
+
+# 経理データ取込み検証用 CSV — 機微情報 (社員名・取引金額) を含むため
+# git には push しない。Box (folder 381450796408) から都度取得。
+docs/accounting-import/samples/
