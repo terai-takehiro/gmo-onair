@@ -47,6 +47,8 @@ interface FormValues {
   customer_type: string;
   project_type: string;
   project_type_other: string;
+  /** 'A' = スタジオ案件 (GLS-A) / 'B' = ビジネス案件 (GLS-B) */
+  gls_category: '' | 'A' | 'B';
   event_start: string;
   event_end: string;
   expected_amount: number;
@@ -163,6 +165,7 @@ export default function ProjectFormPage() {
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<FormValues>({
     defaultValues: {
       name: "", customer_id: "", customer_type: "external", project_type: "", project_type_other: "",
+      gls_category: "",
       event_start: "", event_end: "", expected_amount: 0, assigned_to: "",
       broadcast_type: "", media_platform: "", tags: "", notes: "",
       box_url_internal: "", box_url_external: "",
@@ -197,6 +200,7 @@ export default function ProjectFormPage() {
         customer_type: project.customer_type || "external",
         project_type: project.project_type || "other",
         project_type_other: project.project_type_other || "",
+        gls_category: (project.gls_category === 'A' || project.gls_category === 'B') ? project.gls_category : "",
         event_start: project.event_start || "",
         event_end: project.event_end || "",
         expected_amount: project.expected_amount || 0,
@@ -336,6 +340,7 @@ export default function ProjectFormPage() {
     const errs: string[] = [];
     if (!values.customer_id) errs.push("顧客を選択してください");
     if (!values.project_type) errs.push("案件種類を選択してください");
+    if (!values.gls_category) errs.push("案件分類（スタジオ / ビジネス）を選択してください");
     if (errs.length > 0) {
       setSubmitErrors(errs);
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -415,12 +420,36 @@ export default function ProjectFormPage() {
 
   const currentStage = (project?.stage || "neta") as ProjectStage;
   const projectType = watch("project_type");
+  const glsCategory = watch("gls_category");
   const hasGls = !!project?.gls_number;
   const isYomi = !hasGls;
   const isTerminal = currentStage === 's_completed' || currentStage === 'e_lost';
-  const isCategoryA = getProjectCategory(projectType) === 'A';
+  // 分類はユーザー選択値を優先。未選択時のフォールバックとして project_type からの推奨値を使う
+  const isCategoryA = glsCategory ? glsCategory === 'A' : getProjectCategory(projectType) === 'A';
   const isCategoryARef = useRef(isCategoryA);
   isCategoryARef.current = isCategoryA;
+
+  // project_type を変更したら gls_category をまだ未選択のときだけデフォルト推奨を当てる
+  useEffect(() => {
+    if (!projectType) return;
+    if (glsCategory) return; // 既に選択済みなら触らない
+    setValue('gls_category', getProjectCategory(projectType));
+  }, [projectType, glsCategory, setValue]);
+
+  // 案件分類 A↔B 切替 (GLS発番後の採番し直し用)
+  const [categorySwitchDialog, setCategorySwitchDialog] = useState<{ open: boolean; target: 'A' | 'B' }>({
+    open: false, target: 'A',
+  });
+  const categorySwitchMutation = useMutation({
+    mutationFn: async (target: 'A' | 'B') => {
+      return (await api.patch(`/projects/${id}/gls-category`, { gls_category: target })).data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["projects"] });
+      qc.invalidateQueries({ queryKey: ["project", id] });
+      setCategorySwitchDialog({ open: false, target: 'A' });
+    },
+  });
 
   if (isEdit && projectLoading) {
     return (
@@ -692,6 +721,67 @@ export default function ProjectFormPage() {
                 <Input {...register("project_type_other")} placeholder="案件種類を入力" />
               </div>
             )}
+
+            {/* 案件分類 (GLS-A / GLS-B) — 登録時必須。発番後は採番し直しダイアログ経由 */}
+            <div>
+              <Label>案件分類 *</Label>
+              {hasGls ? (
+                <div className="mt-1 flex flex-wrap items-center gap-3">
+                  <Badge variant="outline" className={glsCategory === 'A'
+                    ? 'border-blue-300 bg-blue-50 text-blue-800'
+                    : 'border-amber-300 bg-amber-50 text-amber-800'}>
+                    {glsCategory === 'A' ? 'スタジオ案件 (GLS-A)' : 'ビジネス案件 (GLS-B)'}
+                  </Badge>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setCategorySwitchDialog({
+                      open: true,
+                      target: glsCategory === 'A' ? 'B' : 'A',
+                    })}
+                  >
+                    {glsCategory === 'A' ? 'ビジネス案件 (B) に変更…' : 'スタジオ案件 (A) に変更…'}
+                  </Button>
+                  <p className="w-full text-xs text-muted-foreground">
+                    GLS発番済のため、分類変更時はGLS番号が採番し直されます（BOXフォルダ名・エピソードコードも自動で更新）。
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="mt-1 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setValue('gls_category', 'A', { shouldDirty: true })}
+                      className={cn(
+                        'rounded-lg border px-3 py-2 text-sm font-medium transition',
+                        glsCategory === 'A'
+                          ? 'border-blue-400 bg-blue-50 text-blue-800 ring-2 ring-blue-200'
+                          : 'border-input bg-background text-foreground hover:bg-muted',
+                      )}
+                    >
+                      スタジオ案件 (GLS-A)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setValue('gls_category', 'B', { shouldDirty: true })}
+                      className={cn(
+                        'rounded-lg border px-3 py-2 text-sm font-medium transition',
+                        glsCategory === 'B'
+                          ? 'border-amber-400 bg-amber-50 text-amber-800 ring-2 ring-amber-200'
+                          : 'border-input bg-background text-foreground hover:bg-muted',
+                      )}
+                    >
+                      ビジネス案件 (GLS-B)
+                    </button>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    スタジオ収録・配信・イベント等は「スタジオ案件」、コンサル・GMO内部案件等は「ビジネス案件」を選択してください。
+                  </p>
+                </>
+              )}
+            </div>
+
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
@@ -1542,6 +1632,50 @@ export default function ProjectFormPage() {
           presetProjectId={id}
         />
       )}
+
+      {/* 案件分類 A↔B 切替 (GLS発番済の採番し直し確認) */}
+      <Dialog open={categorySwitchDialog.open} onOpenChange={(o) => setCategorySwitchDialog((s) => ({ ...s, open: o }))}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>案件分類を変更しますか？</DialogTitle>
+            <DialogDescription>
+              {glsCategory === 'A' ? 'スタジオ案件 (GLS-A)' : 'ビジネス案件 (GLS-B)'}
+              {' → '}
+              {categorySwitchDialog.target === 'A' ? 'スタジオ案件 (GLS-A)' : 'ビジネス案件 (GLS-B)'}
+              に切り替えます。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-3 text-sm">
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-900">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <div className="space-y-1.5">
+                  <p className="font-medium">この案件は GLS 発番済みです ({project?.gls_number})</p>
+                  <p>切替に伴い以下が自動で更新されます:</p>
+                  <ul className="list-disc list-inside text-xs space-y-0.5">
+                    <li>GLS 番号を新カテゴリ側で<strong>採番し直し</strong></li>
+                    <li>エピソードコード (例: <code>{project?.gls_number}-001</code>) も新番号に書換</li>
+                    <li>BOX フォルダ名（社内限り / 社外共有可）を新 GLS 番号にリネーム</li>
+                    <li>既発行 PDF（見積書 / 請求書）の手元ファイルは更新されません</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCategorySwitchDialog({ open: false, target: 'A' })} disabled={categorySwitchMutation.isPending}>
+              キャンセル
+            </Button>
+            <Button
+              onClick={() => categorySwitchMutation.mutate(categorySwitchDialog.target)}
+              disabled={categorySwitchMutation.isPending}
+            >
+              {categorySwitchMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              採番し直して変更
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
     </PageTransition>
   );
