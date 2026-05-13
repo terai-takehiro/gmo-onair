@@ -1,7 +1,6 @@
 import { queryOne, execute } from '../db/connection';
 
-// A系(制作): エピソード・スタジオ予約あり
-const CATEGORY_A_TYPES = ['offline_event', 'hybrid_event', 'live_broadcast', 'recording'];
+export type GlsCategory = 'A' | 'B';
 
 // 従来の年月ベース採番 (OPPコード用)
 export async function generateSequenceNumber(seqName: string, prefix: string): Promise<string> {
@@ -25,9 +24,12 @@ export async function generateSequenceNumber(seqName: string, prefix: string): P
   return `${prefix}-${ym}-${String(counter).padStart(4, '0')}`;
 }
 
-// GLS番号: GLS-A001 (制作系) / GLS-B001 (その他売上)
-export async function generateGlsNumber(projectType?: string): Promise<string> {
-  const category = projectType && CATEGORY_A_TYPES.includes(projectType) ? 'A' : 'B';
+// GLS番号: GLS-A001 (スタジオ案件) / GLS-B001 (ビジネス案件)
+// v2.8.113+ より案件登録時にユーザーが明示的に選択した category を受け取る
+export async function generateGlsNumber(category: GlsCategory): Promise<string> {
+  if (category !== 'A' && category !== 'B') {
+    throw new Error(`Invalid GLS category: ${category}`);
+  }
   const seqName = `gls_${category.toLowerCase()}`;
 
   const row = await queryOne('SELECT counter FROM sequences WHERE seq_name = ?', [seqName]);
@@ -57,9 +59,4 @@ export async function getNextEpisodeNumber(projectId: string): Promise<number> {
     [projectId]
   );
   return row && row.max_num ? (row.max_num as number) + 1 : 1;
-}
-
-// プロジェクトタイプからカテゴリを判定
-export function getGlsCategory(projectType: string): 'A' | 'B' {
-  return CATEGORY_A_TYPES.includes(projectType) ? 'A' : 'B';
 }

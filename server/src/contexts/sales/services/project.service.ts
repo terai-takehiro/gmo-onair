@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
-import { generateSequenceNumber, generateGlsNumber } from '../../../shared/services/sequence.service';
+import { generateSequenceNumber, generateGlsNumber, type GlsCategory } from '../../../shared/services/sequence.service';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import {
   createProjectFolderTree,
@@ -8,6 +8,11 @@ import {
   type CustomerType,
 } from './box-folder.service';
 import { extractFolderId } from '../../../shared/services/box';
+
+/** 案件登録時に渡された値を 'A' | 'B' に正規化。不正値は null を返す */
+function normalizeGlsCategory(value: unknown): GlsCategory | null {
+  return value === 'A' || value === 'B' ? value : null;
+}
 
 /**
  * BOX フォルダ名のフォーマット: `{idCode}_{案件名}`
@@ -100,10 +105,11 @@ export class ProjectService {
       where += ` AND (',' || p.tags || ',') LIKE ?`;
       params.push(`%,${filter.tag},%`);
     }
+    // v2.8.113+: gls_category カラム (DB) を真実とする。発番済の旧データは migration 086 でバックフィル済
     if (filter.glsCategory === 'A') {
-      where += ` AND p.gls_number IS NOT NULL AND p.gls_number LIKE 'GLS-A%'`;
+      where += ` AND p.gls_number IS NOT NULL AND p.gls_category = 'A'`;
     } else if (filter.glsCategory === 'B') {
-      where += ` AND p.gls_number IS NOT NULL AND p.gls_number LIKE 'GLS-B%'`;
+      where += ` AND p.gls_number IS NOT NULL AND p.gls_category = 'B'`;
     }
 
     // v2.8.1+: sortBy='default' (または未指定) のときは「完了/失注は最後 + イベント日近い順」
@@ -160,8 +166,10 @@ export class ProjectService {
   async create(data: Record<string, unknown>, userId: string) {
     const { name, customer_id, expected_amount, assigned_to, project_type, notes, customer_type,
             box_url_internal, box_url_external, application_form, logo_permission,
-            event_start, event_end, dates } = data;
+            event_start, event_end, dates, gls_category } = data;
     if (!name || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名と顧客は必須です');
+    const glsCategory = normalizeGlsCategory(gls_category);
+    if (!glsCategory) throw new AppError(400, 'VALIDATION_ERROR', '案件分類（スタジオ / ビジネス）を選択してください');
 
     const id = uuidv4();
     const code = await generateSequenceNumber('opp_code', 'OPP');
@@ -182,12 +190,12 @@ export class ProjectService {
     }
 
     await execute(
-      `INSERT INTO projects (id, code, name, customer_id, stage, project_type, expected_amount, assigned_to,
+      `INSERT INTO projects (id, code, name, customer_id, stage, project_type, gls_category, expected_amount, assigned_to,
                              event_start, event_end,
                              notes, customer_type, box_url_internal, box_url_external,
                              application_form, logo_permission, created_by)
-       VALUES (?, ?, ?, ?, 'neta', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, code, name, customer_id, project_type || 'other', expected_amount || 0, assigned_to || userId,
+       VALUES (?, ?, ?, ?, 'neta', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, code, name, customer_id, project_type || 'other', glsCategory, expected_amount || 0, assigned_to || userId,
        finalEventStart, finalEventEnd,
        notes || null, cType, box_url_internal || null, box_url_external || null,
        application_form ? 1 : 0, logo_permission ? 1 : 0, userId]
@@ -240,8 +248,13 @@ export class ProjectService {
     const { name, customer_id, expected_amount, assigned_to, project_type, project_type_other,
             event_start, event_end, broadcast_type, media_platform, tags,
             application_form, logo_permission, notes, customer_type, box_url_internal, box_url_external,
-            dates } = data;
+            dates, gls_category } = data;
     const cType = normalizeCustomerType(customer_type);
+    // gls_category は PUT /projects/:id では「発番前のヨミ段階での修正」のみ受け付ける。
+    // 発番後の A↔B 切替は採番し直し + 派生物のリネームが必要なため、専用の
+    // changeGlsCategory() を使う (リクエスト経路は PATCH /projects/:id/gls-category)。
+    const reqCategory = normalizeGlsCategory(gls_category);
+    const allowCategoryUpdate = reqCategory && !(existing as { gls_number?: string | null }).gls_number;
 
     // dates 配列が来ている場合は project_dates を全削除→再INSERT。
     // 同時に event_start = MIN(date), event_end = MAX(date) を自動同期
@@ -268,21 +281,39 @@ export class ProjectService {
       }
     }
 
-    await execute(
-      `UPDATE projects SET name=?, customer_id=?, expected_amount=?, assigned_to=?,
-       project_type=?, project_type_other=?, event_start=?, event_end=?,
-       broadcast_type=?, media_platform=?, tags=?,
-       application_form=?, logo_permission=?, notes=?, customer_type=?,
-       box_url_internal=?, box_url_external=?,
-       updated_at=NOW(), updated_by=? WHERE id=?`,
-      [name, customer_id, expected_amount || 0, assigned_to,
-       project_type || 'other', project_type_other || null,
-       finalEventStart, finalEventEnd,
-       broadcast_type || null, media_platform || null, tags || '',
-       application_form ? 1 : 0, logo_permission ? 1 : 0, notes || null, cType,
-       box_url_internal || null, box_url_external || null,
-       userId, id]
-    );
+    if (allowCategoryUpdate) {
+      await execute(
+        `UPDATE projects SET name=?, customer_id=?, expected_amount=?, assigned_to=?,
+         project_type=?, project_type_other=?, event_start=?, event_end=?,
+         broadcast_type=?, media_platform=?, tags=?,
+         application_form=?, logo_permission=?, notes=?, customer_type=?,
+         box_url_internal=?, box_url_external=?, gls_category=?,
+         updated_at=NOW(), updated_by=? WHERE id=?`,
+        [name, customer_id, expected_amount || 0, assigned_to,
+         project_type || 'other', project_type_other || null,
+         finalEventStart, finalEventEnd,
+         broadcast_type || null, media_platform || null, tags || '',
+         application_form ? 1 : 0, logo_permission ? 1 : 0, notes || null, cType,
+         box_url_internal || null, box_url_external || null, reqCategory,
+         userId, id]
+      );
+    } else {
+      await execute(
+        `UPDATE projects SET name=?, customer_id=?, expected_amount=?, assigned_to=?,
+         project_type=?, project_type_other=?, event_start=?, event_end=?,
+         broadcast_type=?, media_platform=?, tags=?,
+         application_form=?, logo_permission=?, notes=?, customer_type=?,
+         box_url_internal=?, box_url_external=?,
+         updated_at=NOW(), updated_by=? WHERE id=?`,
+        [name, customer_id, expected_amount || 0, assigned_to,
+         project_type || 'other', project_type_other || null,
+         finalEventStart, finalEventEnd,
+         broadcast_type || null, media_platform || null, tags || '',
+         application_form ? 1 : 0, logo_permission ? 1 : 0, notes || null, cType,
+         box_url_internal || null, box_url_external || null,
+         userId, id]
+      );
+    }
 
     // 想定金額が変わった場合、確定売上の代表レコードにも反映
     if (expected_amount !== undefined && Number(expected_amount) > 0) {
@@ -367,7 +398,12 @@ export class ProjectService {
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
     if (project.gls_number) throw new AppError(400, 'VALIDATION_ERROR', '既にGLS番号が発番済みです');
 
-    const glsNumber = await generateGlsNumber(project.project_type as string);
+    // v2.8.113+: project.gls_category を見る (登録時に必須化済)
+    const category = normalizeGlsCategory(project.gls_category);
+    if (!category) {
+      throw new AppError(400, 'VALIDATION_ERROR', '案件分類（スタジオ / ビジネス）が未設定です。先に案件編集で分類を選択してください。');
+    }
+    const glsNumber = await generateGlsNumber(category);
     const { broadcast_type, media_platform } = data;
 
     await execute(
@@ -416,6 +452,99 @@ export class ProjectService {
       }
     } catch (err) {
       console.warn('[issueGls] BOX folder sync failed:', (err as Error).message);
+    }
+
+    return this.getById(id);
+  }
+
+  /**
+   * 案件分類 (gls_category) を A↔B 切替する。
+   *
+   * - GLS 未発番の案件: gls_category カラムだけ更新
+   * - GLS 発番済の案件: 新カテゴリ側 sequence から **採番し直し**、
+   *   - projects.gls_number / gls_category を更新
+   *   - projects.previous_gls_numbers に旧番号を履歴として push
+   *   - 同 project の episodes.episode_code を `{旧GLS}-NNN` → `{新GLS}-NNN` に書換
+   *   - qsheet_documents.episode_code も同様に書換
+   *   - BOX 両フォルダ (社内限り / 社外共有可) を `{新GLS}_{案件名}` にリネーム
+   *
+   * 既発行 PDF (見積書 / 請求書) の filename は revenue 単位で生成時の billing_key に
+   * 依存するが、v2.8.107 で PDF 生成時に live gls_number で組み立て直す実装になっているため、
+   * 以降に再ダウンロードされる PDF は自動的に新 GLS 番号を反映する。既に手元にある
+   * 過去 PDF は当然変更されない。
+   */
+  async changeGlsCategory(id: string, newCategory: GlsCategory, userId: string) {
+    if (newCategory !== 'A' && newCategory !== 'B') {
+      throw new AppError(400, 'VALIDATION_ERROR', '不正な分類です');
+    }
+    const project = await queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [id]) as any;
+    if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
+
+    const currentCategory = normalizeGlsCategory(project.gls_category);
+    if (currentCategory === newCategory) {
+      return this.getById(id);
+    }
+
+    // ヨミ段階: フィールド更新のみ
+    if (!project.gls_number) {
+      await execute(
+        `UPDATE projects SET gls_category=?, updated_at=NOW(), updated_by=? WHERE id=?`,
+        [newCategory, userId, id]
+      );
+      return this.getById(id);
+    }
+
+    // 発番済: 採番し直し + 派生物のカスケード更新
+    const oldGlsNumber = project.gls_number as string;
+    const newGlsNumber = await generateGlsNumber(newCategory);
+
+    // projects: gls_number / gls_category 更新 + 履歴 push
+    await execute(
+      `UPDATE projects
+       SET gls_number=?, gls_category=?,
+           previous_gls_numbers = COALESCE(previous_gls_numbers, '[]'::jsonb) || ?::jsonb,
+           updated_at=NOW(), updated_by=?
+       WHERE id=?`,
+      [newGlsNumber, newCategory, JSON.stringify([{
+        gls_number: oldGlsNumber,
+        category: currentCategory,
+        changed_at: new Date().toISOString(),
+        changed_by: userId,
+      }]), userId, id]
+    );
+
+    // episodes.episode_code: '{old}-NNN' → '{new}-NNN'
+    // episode_code は UNIQUE 制約があるため、衝突回避は新 GLS 番号がグローバルに新規採番された
+    // 番号であることに依存 (採番済 sequence は同期的に increment されるので衝突しない)
+    await execute(
+      `UPDATE episodes
+       SET episode_code = REPLACE(episode_code, ?, ?), updated_at = NOW()
+       WHERE project_id = ? AND deleted_at IS NULL AND episode_code LIKE ?`,
+      [oldGlsNumber, newGlsNumber, id, `${oldGlsNumber}%`]
+    );
+
+    // qsheet_documents.episode_code 同期 (denormalized 列)
+    await execute(
+      `UPDATE qsheet_documents
+       SET episode_code = REPLACE(episode_code, ?, ?), updated_at = NOW()
+       WHERE project_id = ? AND episode_code LIKE ?`,
+      [oldGlsNumber, newGlsNumber, id, `${oldGlsNumber}%`]
+    );
+
+    // BOX 両フォルダのリネーム (非ブロッキング)
+    try {
+      const internalFolderId = extractFolderId(project.box_url_internal as string | null);
+      const externalFolderId = extractFolderId(project.box_url_external as string | null);
+      if (internalFolderId || externalFolderId) {
+        const newFolderName = buildProjectFolderName({
+          gls_number: newGlsNumber,
+          code: project.code as string,
+          name: project.name as string,
+        });
+        await renameProjectFolderPair(internalFolderId, externalFolderId, newFolderName);
+      }
+    } catch (err) {
+      console.warn('[changeGlsCategory] BOX folder rename failed (non-blocking):', (err as Error).message);
     }
 
     return this.getById(id);
@@ -488,10 +617,10 @@ export class ProjectService {
     if (!target || !target.gls_number) throw new AppError(400, 'VALIDATION_ERROR', 'リンク先にGLS番号がありません');
 
     await execute(
-      `UPDATE projects SET gls_number=?, broadcast_type=?, media_platform=?,
+      `UPDATE projects SET gls_number=?, gls_category=?, broadcast_type=?, media_platform=?,
        stage=CASE WHEN stage IN ('neta','d_hold','c_proposal') THEN 'b_verbal' ELSE stage END,
        updated_at=NOW(), updated_by=? WHERE id=?`,
-      [target.gls_number, target.broadcast_type || null, target.media_platform || null, userId, id]
+      [target.gls_number, target.gls_category, target.broadcast_type || null, target.media_platform || null, userId, id]
     );
 
     // 概算見積を確定売上に変換
