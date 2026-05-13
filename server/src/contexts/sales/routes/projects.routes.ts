@@ -85,6 +85,13 @@ router.post('/:id/issue-gls', requirePermission('sales', 'editor'), async (req, 
   res.json({ success: true, data: result });
 });
 
+// 案件分類の A↔B 切替 (発番済の場合は GLS 採番し直し + episode_code / BOX フォルダ自動更新)
+router.patch('/:id/gls-category', requirePermission('sales', 'manager'), async (req, res) => {
+  const { gls_category } = req.body || {};
+  const result = await projectService.changeGlsCategory(req.params.id as string, gls_category, req.user!.id);
+  res.json({ success: true, data: result });
+});
+
 // BOX フォルダ手動作成 (既存案件向けバックフィル / 失敗ケースのリトライ)
 router.post('/:id/create-box-folder', requirePermission('sales', 'manager'), async (req, res) => {
   const result = await projectService.createBoxFolder(req.params.id as string);

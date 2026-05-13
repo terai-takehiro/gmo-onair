@@ -161,7 +161,7 @@ export async function seed() {
   // ============================================================
   // Projects (統合: ヨミ段階 + GLS発番済み)
   // ============================================================
-  const projSql = `INSERT INTO projects (id, code, gls_number, name, customer_id, stage, project_type, expected_amount, event_start, event_end, broadcast_type, media_platform, assigned_to, tags, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const projSql = `INSERT INTO projects (id, code, gls_number, gls_category, name, customer_id, stage, project_type, expected_amount, event_start, event_end, broadcast_type, media_platform, assigned_to, tags, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
   // --- ヨミ段階（GLS番号なし）---
   const yomiData: [string, string, string, string, string, number, string, string][] = [
@@ -179,7 +179,9 @@ export async function seed() {
     const [code, name, custKey, projType, stage, amt, eventStart, eventEnd] = yomiData[i];
     const id = uuidv4();
     PROJECTS[code] = id;
-    await ins(projSql, [id, code, null, name, CUSTOMERS[custKey], stage, projType, amt, eventStart, eventEnd, null, null, staffIds[i % 3], '', USERS.admin]);
+    // ヨミ段階のデフォルト分類: project_type からの推奨値 (A系項目なら 'A')
+    const yomiCat = ['offline_event', 'hybrid_event', 'live_broadcast', 'recording'].includes(projType) ? 'A' : 'B';
+    await ins(projSql, [id, code, null, yomiCat, name, CUSTOMERS[custKey], stage, projType, amt, eventStart, eventEnd, null, null, staffIds[i % 3], '', USERS.admin]);
   }
 
   // --- 失注 ---
@@ -194,8 +196,10 @@ export async function seed() {
     const [code, name, custKey, projType, amt, date, reason, note, lessons, lostAt] = lostData[i];
     const id = uuidv4();
     await execute(
-      `INSERT INTO projects (id, code, name, customer_id, stage, project_type, expected_amount, event_start, assigned_to, lost_reason, lost_reason_note, lessons_learned, lost_at, created_by) VALUES (?, ?, ?, ?, 'e_lost', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, code, name, CUSTOMERS[custKey], projType, amt, date, staffIds[i % 3], reason, note, lessons, lostAt, USERS.admin]
+      `INSERT INTO projects (id, code, name, customer_id, stage, project_type, gls_category, expected_amount, event_start, assigned_to, lost_reason, lost_reason_note, lessons_learned, lost_at, created_by) VALUES (?, ?, ?, ?, 'e_lost', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, code, name, CUSTOMERS[custKey], projType,
+       ['offline_event', 'hybrid_event', 'live_broadcast', 'recording'].includes(projType) ? 'A' : 'B',
+       amt, date, staffIds[i % 3], reason, note, lessons, lostAt, USERS.admin]
     );
   }
 
@@ -216,7 +220,7 @@ export async function seed() {
     PROJECTS[gls] = id;
     // GLS発番済みなので code = OPP-xxx (元のヨミコード) + gls_number
     const oppCode = `OPP-202603-${String(20 + i).padStart(4, '0')}`;
-    await ins(projSql, [id, oppCode, gls, name, CUSTOMERS[custKey], stage, projType, amt, es, ee, bType, mPlatform, staffIds[i % 3], tags, USERS.admin]);
+    await ins(projSql, [id, oppCode, gls, 'A', name, CUSTOMERS[custKey], stage, projType, amt, es, ee, bType, mPlatform, staffIds[i % 3], tags, USERS.admin]);
   }
 
   // --- B系: GLS-B (その他売上) ---
@@ -224,13 +228,13 @@ export async function seed() {
     ['GLS-B001', 'GH 配信コンサルティング契約', 'GH', 'consulting', 'a_won', 3600000],
     ['GLS-B002', 'PW 動画戦略コンサルティング', 'PW', 'consulting', 'a_won', 2400000],
   ];
-  const projBSql = `INSERT INTO projects (id, code, gls_number, name, customer_id, stage, project_type, expected_amount, assigned_to, tags, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const projBSql = `INSERT INTO projects (id, code, gls_number, gls_category, name, customer_id, stage, project_type, expected_amount, assigned_to, tags, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   for (let i = 0; i < glsBData.length; i++) {
     const [gls, name, custKey, projType, stage, amt] = glsBData[i];
     const id = uuidv4();
     PROJECTS[gls] = id;
     const oppCode = `OPP-202603-${String(30 + i).padStart(4, '0')}`;
-    await ins(projBSql, [id, oppCode, gls, name, CUSTOMERS[custKey], stage, projType, amt, staffIds[i % 3], '', USERS.admin]);
+    await ins(projBSql, [id, oppCode, gls, 'B', name, CUSTOMERS[custKey], stage, projType, amt, staffIds[i % 3], '', USERS.admin]);
   }
 
   // ============================================================
