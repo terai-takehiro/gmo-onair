@@ -10,6 +10,7 @@ import { createInteractiveRoutes } from '../contexts/interactive';
 import { createTechsheetRoutes } from '../contexts/techsheet';
 import { createLiveopsRoutes } from '../contexts/liveops';
 import { createAwardsRoutes } from '../contexts/awards';
+import { createAccountingRoutes } from '../contexts/accounting';
 
 export function createRoutes(): Router {
   const router = Router();
@@ -26,6 +27,7 @@ export function createRoutes(): Router {
   router.use(createTechsheetRoutes());
   router.use(createLiveopsRoutes());
   router.use(createAwardsRoutes());
+  router.use(createAccountingRoutes());
 
   return router;
 }
