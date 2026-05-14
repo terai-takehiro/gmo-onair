@@ -145,7 +145,7 @@ export default function DashboardGanttView({ projects, columns, tasks }: Props) 
             <div style={{ height: HEADER_H }} className="border-b flex items-end px-3 pb-1">
               <span className="text-xs text-muted-foreground">案件 / タスク</span>
             </div>
-            {rows.map((row, i) => {
+            {rows.map((row) => {
               if (row.type === "group") {
                 return (
                   <div
