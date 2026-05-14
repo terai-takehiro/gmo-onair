@@ -27,6 +27,9 @@ import ConfirmedProjectsPage from "@/contexts/sales/pages/ConfirmedProjectsPage"
 import EstimatePage from "@/contexts/sales/pages/EstimatePage";
 import ProjectGroupListPage from "@/contexts/sales/pages/ProjectGroupListPage";
 
+// Tasks (タスク管理)
+import ProjectTasksPage from "@/contexts/tasks/pages/ProjectTasksPage";
+
 // Production (スタジオ予約)
 import EpisodeListPage from "@/contexts/production/pages/EpisodeListPage";
 import StudioCalendarPage from "@/contexts/production/pages/StudioCalendarPage";
@@ -102,6 +105,7 @@ function AppRoutes() {
         <Route path="/sales/projects/confirmed/:category" element={<PermissionRoute module="sales"><ConfirmedProjectsPage /></PermissionRoute>} />
         <Route path="/sales/projects/:projectId/episodes" element={<PermissionRoute module="sales"><EpisodeListPage /></PermissionRoute>} />
         <Route path="/sales/projects/:projectId/estimates" element={<PermissionRoute module="sales"><EstimatePage /></PermissionRoute>} />
+        <Route path="/sales/projects/:projectId/tasks" element={<PermissionRoute module="sales"><ProjectTasksPage /></PermissionRoute>} />
         <Route path="/sales/project-groups" element={<PermissionRoute module="sales"><ProjectGroupListPage /></PermissionRoute>} />
         <Route path="/sales/activity-logs" element={<PermissionRoute module="sales"><ActivityLogPage /></PermissionRoute>} />
         <Route path="/sales/review" element={<PermissionRoute module="sales"><SalesReviewPage /></PermissionRoute>} />

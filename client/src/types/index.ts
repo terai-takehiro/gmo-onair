@@ -381,3 +381,85 @@ export interface CalendarEvent {
   gls_number: string;
   project_id: string;
 }
+
+// ============================================================
+// タスク管理 (Kanban / タスクリスト / ガントチャート)
+// ============================================================
+
+export const TaskType = {
+  FREE: 'free',
+  CHECKLIST: 'checklist',
+  PRODUCTION_STEP: 'production_step',
+  SALES: 'sales',
+} as const;
+export type TaskType = (typeof TaskType)[keyof typeof TaskType];
+
+export const TaskTypeLabels: Record<TaskType, string> = {
+  free: 'フリータスク',
+  checklist: 'チェックリスト',
+  production_step: '制作ステップ',
+  sales: '営業タスク',
+};
+
+export const ProductionStep = {
+  SCRIPT: 'script',
+  MATERIALS: 'materials',
+  RECORDING: 'recording',
+} as const;
+export type ProductionStep = (typeof ProductionStep)[keyof typeof ProductionStep];
+
+export const ProductionStepLabels: Record<ProductionStep, string> = {
+  script: '台本作成',
+  materials: '素材準備',
+  recording: '収録',
+};
+
+export interface TaskColumn {
+  id: string;
+  project_id: string;
+  name: string;
+  color: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectTask {
+  id: string;
+  project_id: string;
+  episode_id: string | null;
+  column_id: string | null;
+  title: string;
+  description: string | null;
+  task_type: TaskType;
+  production_step: ProductionStep | null;
+  start_date: string | null;
+  due_date: string | null;
+  assigned_to: string | null;
+  assigned_to_name: string | null;
+  is_completed: boolean;
+  completed_at: string | null;
+  sort_order: number;
+  parent_task_id: string | null;
+  column_name: string | null;
+  column_color: string | null;
+  children?: ProjectTask[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaskColumnTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  is_system: boolean;
+  columns: TaskColumnTemplateColumn[];
+}
+
+export interface TaskColumnTemplateColumn {
+  id: string;
+  template_id: string;
+  name: string;
+  color: string | null;
+  sort_order: number;
+}
