@@ -4,7 +4,6 @@ import {
   DragOverlay,
   DragStartEvent,
   DragEndEvent,
-  DragOverEvent,
   PointerSensor,
   KeyboardSensor,
   useSensor,

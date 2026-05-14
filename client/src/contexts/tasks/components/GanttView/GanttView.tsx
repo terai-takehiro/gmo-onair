@@ -1,11 +1,8 @@
 import { useMemo, useRef } from "react";
 import { addDays, subDays } from "date-fns";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
 import GanttTimeline from "./GanttTimeline";
 import GanttRow from "./GanttRow";
 import { useProjectTasks } from "../../hooks/useProjectTasks";
-import type { ProjectTask } from "@/types";
 
 const DAY_WIDTH = 24;
 const ROW_HEIGHT = 36;
@@ -104,7 +101,7 @@ export default function GanttView({ projectId, episodeId }: Props) {
           className="shrink-0 border-r border-border overflow-y-auto"
           style={{ width: LEFT_PANEL_WIDTH }}
         >
-          {scheduledTasks.map((task, i) => (
+          {scheduledTasks.map((task) => (
             <div
               key={task.id}
               className="flex items-center px-3 border-b border-border/50 text-xs truncate"
