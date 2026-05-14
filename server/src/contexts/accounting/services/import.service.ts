@@ -128,7 +128,7 @@ export async function importCsv(params: {
     periodYm = params.periodYmHint ?? extractPeriodFromFilename(filename, ledger);
   }
 
-  // 3. ハッシュ + 冪等性チェック
+  // 3. ハッシュ + 冪等性チェック (事前): レースが無ければ早期に duplicate を返す
   const hash = hashBuffer(buffer);
   const existing = await findExistingBatch(sourceType, periodYm, hash);
   if (existing) {
@@ -143,6 +143,10 @@ export async function importCsv(params: {
   }
 
   // 4. トランザクションで永続化
+  //    レース対策: 上記の事前チェックを擦り抜けて同一バッチが並行 INSERT された場合、
+  //    uq_accounting_batches_idem (UNIQUE INDEX) で 23505 が発生する。
+  //    その場合は失敗扱いではなく既存バッチを findExistingBatch で再取得して
+  //    duplicate として返す (idempotency 維持)。
   const pool = getDb();
   const client = await pool.connect();
   const batchId = uuidv4();
@@ -199,6 +203,21 @@ export async function importCsv(params: {
     return { batchId, sourceType, periodYm, rowCount, status: 'staged', summary };
   } catch (err) {
     await client.query('ROLLBACK');
+    // 23505 = UNIQUE 違反。並行 INSERT で先に他リクエストが入った場合、
+    // ここに到達する。既存バッチを再取得して duplicate として返す。
+    if ((err as { code?: string })?.code === '23505') {
+      const winner = await findExistingBatch(sourceType, periodYm, hash);
+      if (winner) {
+        return {
+          batchId: winner.id,
+          sourceType,
+          periodYm,
+          rowCount: 0,
+          status: 'duplicate',
+          duplicateOf: winner.id,
+        };
+      }
+    }
     throw err;
   } finally {
     client.release();

@@ -12,6 +12,19 @@ const router = Router();
 // 5MB 上限 (要件書では損益計算書 9KB + 元帳 189KB なので余裕)
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
+/** 数値クエリパラメータを安全にパース (NaN / 範囲外はデフォルトに) */
+function clampInt(
+  raw: unknown,
+  opts: { default: number; min: number; max: number },
+): number {
+  if (raw == null || raw === '') return opts.default;
+  const n = parseInt(String(raw), 10);
+  if (Number.isNaN(n)) return opts.default;
+  if (n < opts.min) return opts.min;
+  if (n > opts.max) return opts.max;
+  return n;
+}
+
 router.use(requireAuth, requirePermission('budget'));
 
 /**
@@ -165,8 +178,8 @@ router.get('/imports/:id/pl-lines', async (req, res) => {
  *     ?account_code=5000     勘定コード前方一致
  */
 router.get('/imports/:id/ledger-entries', async (req, res) => {
-  const limit = Math.min(parseInt((req.query.limit as string) || '100', 10), 1000);
-  const offset = parseInt((req.query.offset as string) || '0', 10);
+  const limit = clampInt(req.query.limit, { default: 100, min: 1, max: 1000 });
+  const offset = clampInt(req.query.offset, { default: 0, min: 0, max: 1_000_000 });
   const where: string[] = ['batch_id = ?'];
   const params: unknown[] = [req.params.id];
   if (req.query.gls) { where.push(`? = ANY(extracted_gls_codes)`); params.push(req.query.gls); }
