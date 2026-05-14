@@ -18,13 +18,11 @@ import {
   HardDrive,
   X,
   ClipboardList,
-  ClipboardCheck,
   Award,
   Film,
   Briefcase,
   GitBranch,
   Package,
-  Wrench,
   PiggyBank,
   Home,
   ChevronLeft,
@@ -34,14 +32,12 @@ import {
   Settings,
   Timer,
   Trophy,
-  Layers,
-  Tag,
   Store,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   FolderKanban, PiggyBank, Calendar, Package, FileText,
-  BookOpen, Users, Truck, Sparkles, Wrench, Timer, Trophy,
+  BookOpen, Users, Truck, Sparkles, Timer, Trophy,
 };
 
 interface NavItem {
@@ -118,19 +114,6 @@ const APP_NAV: Record<string, NavSection[]> = {
     {
       items: [
         { label: "カレンダー", to: "/studio/calendar", icon: Calendar },
-      ],
-    },
-  ],
-  equipment: [
-    {
-      items: [
-        { label: "ダッシュボード", to: "/equipment", icon: BarChart3 },
-        { label: "機材一覧", to: "/equipment/items", icon: Package },
-        { label: "型番別一覧", to: "/equipment/model-groups", icon: Layers },
-        { label: "貸出管理", to: "/equipment/lending", icon: ClipboardList },
-        { label: "メンテナンス", to: "/equipment/maintenance", icon: Wrench },
-        { label: "棚卸し", to: "/equipment/inventory", icon: ClipboardCheck },
-        { label: "貸出カテゴリ", to: "/equipment/rental-categories", icon: Tag },
       ],
     },
   ],
