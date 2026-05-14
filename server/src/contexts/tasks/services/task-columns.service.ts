@@ -12,15 +12,18 @@ export interface TaskColumn {
   updated_at: string;
 }
 
+type TemplateCol = { name: string; color: string | null; sort_order: number };
+
 export const taskColumnsService = {
   async listForProject(projectId: string): Promise<TaskColumn[]> {
-    return queryAll<TaskColumn>(
+    const rows = await queryAll(
       `SELECT id, project_id, name, color, sort_order, created_at, updated_at
        FROM task_columns
        WHERE project_id = $1 AND deleted_at IS NULL
        ORDER BY sort_order, created_at`,
       [projectId]
     );
+    return rows as unknown as TaskColumn[];
   },
 
   async create(
@@ -29,12 +32,12 @@ export const taskColumnsService = {
     userId: string
   ): Promise<TaskColumn> {
     const id = uuidv4();
-    const maxRow = await queryOne<{ max: number }>(
+    const maxRow = await queryOne(
       `SELECT COALESCE(MAX(sort_order), -1) AS max
        FROM task_columns WHERE project_id = $1 AND deleted_at IS NULL`,
       [projectId]
     );
-    const sortOrder = (maxRow?.max ?? -1) + 1;
+    const sortOrder = ((maxRow?.max as number) ?? -1) + 1;
 
     await execute(
       `INSERT INTO task_columns (id, project_id, name, color, sort_order, created_at, updated_at, created_by, updated_by)
@@ -42,11 +45,12 @@ export const taskColumnsService = {
       [id, projectId, data.name, data.color ?? null, sortOrder, userId]
     );
 
-    return (await queryOne<TaskColumn>(
+    const row = await queryOne(
       `SELECT id, project_id, name, color, sort_order, created_at, updated_at
        FROM task_columns WHERE id = $1`,
       [id]
-    ))!;
+    );
+    return row as unknown as TaskColumn;
   },
 
   async fromTemplate(
@@ -54,24 +58,24 @@ export const taskColumnsService = {
     templateId: string,
     userId: string
   ): Promise<TaskColumn[]> {
-    const templateCols = await queryAll<{ name: string; color: string | null; sort_order: number }>(
+    const templateCols = (await queryAll(
       `SELECT name, color, sort_order
        FROM task_column_template_columns
        WHERE template_id = $1
        ORDER BY sort_order`,
       [templateId]
-    );
+    )) as unknown as TemplateCol[];
 
     if (templateCols.length === 0) {
-      throw new AppError(404, 'テンプレートが見つからないか列がありません');
+      throw new AppError(404, 'NOT_FOUND', 'テンプレートが見つからないか列がありません');
     }
 
-    const maxRow = await queryOne<{ max: number }>(
+    const maxRow = await queryOne(
       `SELECT COALESCE(MAX(sort_order), -1) AS max
        FROM task_columns WHERE project_id = $1 AND deleted_at IS NULL`,
       [projectId]
     );
-    let nextOrder = (maxRow?.max ?? -1) + 1;
+    let nextOrder = ((maxRow?.max as number) ?? -1) + 1;
 
     const created: TaskColumn[] = [];
     for (const col of templateCols) {
@@ -82,12 +86,12 @@ export const taskColumnsService = {
         [id, projectId, col.name, col.color, nextOrder, userId]
       );
       nextOrder++;
-      const row = await queryOne<TaskColumn>(
+      const row = await queryOne(
         `SELECT id, project_id, name, color, sort_order, created_at, updated_at
          FROM task_columns WHERE id = $1`,
         [id]
       );
-      if (row) created.push(row);
+      if (row) created.push(row as unknown as TaskColumn);
     }
 
     return created;
@@ -98,11 +102,11 @@ export const taskColumnsService = {
     data: { name?: string; color?: string | null },
     userId: string
   ): Promise<TaskColumn> {
-    const existing = await queryOne<TaskColumn>(
+    const existing = await queryOne(
       `SELECT id FROM task_columns WHERE id = $1 AND deleted_at IS NULL`,
       [id]
     );
-    if (!existing) throw new AppError(404, 'カラムが見つかりません');
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'カラムが見つかりません');
 
     const sets: string[] = ['updated_at = NOW()', 'updated_by = $2'];
     const params: unknown[] = [id, userId];
@@ -116,11 +120,12 @@ export const taskColumnsService = {
       params
     );
 
-    return (await queryOne<TaskColumn>(
+    const row = await queryOne(
       `SELECT id, project_id, name, color, sort_order, created_at, updated_at
        FROM task_columns WHERE id = $1`,
       [id]
-    ))!;
+    );
+    return row as unknown as TaskColumn;
   },
 
   async reorder(
@@ -142,9 +147,8 @@ export const taskColumnsService = {
       `SELECT id FROM task_columns WHERE id = $1 AND deleted_at IS NULL`,
       [id]
     );
-    if (!existing) throw new AppError(404, 'カラムが見つかりません');
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'カラムが見つかりません');
 
-    // タスクの column_id を NULL化
     await execute(
       `UPDATE project_tasks SET column_id = NULL, updated_at = NOW(), updated_by = $1
        WHERE column_id = $2 AND deleted_at IS NULL`,

@@ -18,23 +18,23 @@ export interface TaskColumnTemplate {
 
 export const taskTemplatesService = {
   async list(): Promise<TaskColumnTemplate[]> {
-    const templates = await queryAll<Omit<TaskColumnTemplate, 'columns'>>(
+    const templates = (await queryAll(
       `SELECT id, name, description, is_system
        FROM task_column_templates
        WHERE deleted_at IS NULL
        ORDER BY is_system DESC, name`
-    );
+    )) as unknown as Omit<TaskColumnTemplate, 'columns'>[];
 
     if (templates.length === 0) return [];
 
     const ids = templates.map((t) => t.id);
-    const columns = await queryAll<TaskColumnTemplateColumn>(
+    const columns = (await queryAll(
       `SELECT id, template_id, name, color, sort_order
        FROM task_column_template_columns
        WHERE template_id = ANY($1::text[])
        ORDER BY sort_order`,
       [ids]
-    );
+    )) as unknown as TaskColumnTemplateColumn[];
 
     const colMap = new Map<string, TaskColumnTemplateColumn[]>();
     for (const col of columns) {

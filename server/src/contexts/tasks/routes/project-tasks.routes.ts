@@ -7,7 +7,7 @@ router.use(requireAuth, requirePermission('sales'));
 
 // GET /projects/:projectId/tasks
 router.get('/', async (req, res) => {
-  const { projectId } = req.params;
+  const projectId = (req.params as Record<string, string>).projectId;
   const episodeId = req.query.episode_id !== undefined
     ? (req.query.episode_id as string) || null
     : undefined;
@@ -19,7 +19,7 @@ router.get('/', async (req, res) => {
 
 // POST /projects/:projectId/tasks
 router.post('/', async (req, res) => {
-  const { projectId } = req.params;
+  const projectId = (req.params as Record<string, string>).projectId;
   const userId = (req as { user?: { id: string } }).user!.id;
   const task = await projectTasksService.create(projectId, req.body, userId);
   res.status(201).json({ success: true, data: task });
@@ -52,7 +52,7 @@ router.patch('/:id/move', async (req, res) => {
 
 // PATCH /projects/:projectId/tasks/reorder
 router.patch('/reorder', async (req, res) => {
-  const { projectId } = req.params;
+  const projectId = (req.params as Record<string, string>).projectId;
   const userId = (req as { user?: { id: string } }).user!.id;
   await projectTasksService.reorder(projectId, req.body, userId);
   res.json({ success: true });

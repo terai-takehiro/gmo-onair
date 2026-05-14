@@ -7,14 +7,14 @@ router.use(requireAuth, requirePermission('sales'));
 
 // GET /projects/:projectId/task-columns
 router.get('/', async (req, res) => {
-  const { projectId } = req.params;
+  const projectId = (req.params as Record<string, string>).projectId;
   const columns = await taskColumnsService.listForProject(projectId);
   res.json({ success: true, data: columns });
 });
 
 // POST /projects/:projectId/task-columns
 router.post('/', async (req, res) => {
-  const { projectId } = req.params;
+  const projectId = (req.params as Record<string, string>).projectId;
   const userId = (req as { user?: { id: string } }).user!.id;
   const column = await taskColumnsService.create(projectId, req.body, userId);
   res.status(201).json({ success: true, data: column });
@@ -22,7 +22,7 @@ router.post('/', async (req, res) => {
 
 // POST /projects/:projectId/task-columns/from-template
 router.post('/from-template', async (req, res) => {
-  const { projectId } = req.params;
+  const projectId = (req.params as Record<string, string>).projectId;
   const { template_id } = req.body as { template_id: string };
   const userId = (req as { user?: { id: string } }).user!.id;
   const columns = await taskColumnsService.fromTemplate(projectId, template_id, userId);
@@ -31,7 +31,7 @@ router.post('/from-template', async (req, res) => {
 
 // PATCH /projects/:projectId/task-columns/reorder
 router.patch('/reorder', async (req, res) => {
-  const { projectId } = req.params;
+  const projectId = (req.params as Record<string, string>).projectId;
   const userId = (req as { user?: { id: string } }).user!.id;
   await taskColumnsService.reorder(projectId, req.body, userId);
   res.json({ success: true });

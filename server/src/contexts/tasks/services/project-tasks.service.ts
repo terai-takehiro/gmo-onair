@@ -53,10 +53,8 @@ export const projectTasksService = {
     let episodeClause = '';
     if (filter.episodeId !== undefined) {
       if (filter.episodeId === null) {
-        // 全体ビュー: 全タスクを返す
         episodeClause = '';
       } else {
-        // エピソード絞り込み: episode_id IS NULL OR episode_id = X
         episodeClause = `AND (t.episode_id IS NULL OR t.episode_id = $${idx++})`;
         params.push(filter.episodeId);
       }
@@ -67,7 +65,7 @@ export const projectTasksService = {
       : '';
     if (filter.columnId) params.push(filter.columnId);
 
-    const rows = await queryAll<ProjectTask>(
+    const rows = (await queryAll(
       `${SELECT_TASK}
        WHERE t.project_id = $1
          AND t.deleted_at IS NULL
@@ -76,42 +74,42 @@ export const projectTasksService = {
          ${colClause}
        ORDER BY t.column_id NULLS LAST, t.sort_order, t.created_at`,
       params
-    );
+    )) as unknown as ProjectTask[];
 
     if (rows.length === 0) return [];
 
-    // チェックリスト子タスクを取得してネスト
     const parentIds = rows.map((r) => r.id);
-    const children = await queryAll<ProjectTask>(
+    const children = (await queryAll(
       `${SELECT_TASK}
        WHERE t.parent_task_id = ANY($1::text[])
          AND t.deleted_at IS NULL
        ORDER BY t.sort_order, t.created_at`,
       [parentIds]
-    );
+    )) as unknown as ProjectTask[];
 
     const childMap = new Map<string, ProjectTask[]>();
     for (const child of children) {
-      if (!childMap.has(child.parent_task_id!)) childMap.set(child.parent_task_id!, []);
-      childMap.get(child.parent_task_id!)!.push(child);
+      const pid = child.parent_task_id as string;
+      if (!childMap.has(pid)) childMap.set(pid, []);
+      childMap.get(pid)!.push(child);
     }
 
     return rows.map((r) => ({ ...r, children: childMap.get(r.id) ?? [] }));
   },
 
   async getById(id: string): Promise<ProjectTask | null> {
-    const task = await queryOne<ProjectTask>(
+    const task = (await queryOne(
       `${SELECT_TASK} WHERE t.id = $1 AND t.deleted_at IS NULL`,
       [id]
-    );
+    )) as unknown as ProjectTask | undefined;
     if (!task) return null;
 
-    const children = await queryAll<ProjectTask>(
+    const children = (await queryAll(
       `${SELECT_TASK}
        WHERE t.parent_task_id = $1 AND t.deleted_at IS NULL
        ORDER BY t.sort_order, t.created_at`,
       [id]
-    );
+    )) as unknown as ProjectTask[];
 
     return { ...task, children };
   },
@@ -134,7 +132,7 @@ export const projectTasksService = {
   ): Promise<ProjectTask> {
     const id = uuidv4();
 
-    const maxRow = await queryOne<{ max: number }>(
+    const maxRow = await queryOne(
       `SELECT COALESCE(MAX(sort_order), -1) AS max
        FROM project_tasks
        WHERE project_id = $1
@@ -143,7 +141,7 @@ export const projectTasksService = {
          AND parent_task_id IS NULL`,
       [projectId, data.column_id ?? null]
     );
-    const sortOrder = (maxRow?.max ?? -1) + 1;
+    const sortOrder = ((maxRow?.max as number) ?? -1) + 1;
 
     await execute(
       `INSERT INTO project_tasks
@@ -190,7 +188,7 @@ export const projectTasksService = {
       `SELECT id FROM project_tasks WHERE id = $1 AND deleted_at IS NULL`,
       [id]
     );
-    if (!existing) throw new AppError(404, 'タスクが見つかりません');
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'タスクが見つかりません');
 
     const sets: string[] = ['updated_at = NOW()', 'updated_by = $2'];
     const params: unknown[] = [id, userId];
@@ -216,11 +214,11 @@ export const projectTasksService = {
   },
 
   async toggleComplete(id: string, userId: string): Promise<ProjectTask> {
-    const existing = await queryOne<{ is_completed: boolean }>(
+    const existing = (await queryOne(
       `SELECT is_completed FROM project_tasks WHERE id = $1 AND deleted_at IS NULL`,
       [id]
-    );
-    if (!existing) throw new AppError(404, 'タスクが見つかりません');
+    )) as unknown as { is_completed: boolean } | undefined;
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'タスクが見つかりません');
 
     const next = !existing.is_completed;
     await execute(
@@ -245,7 +243,7 @@ export const projectTasksService = {
       `SELECT id FROM project_tasks WHERE id = $1 AND deleted_at IS NULL`,
       [id]
     );
-    if (!existing) throw new AppError(404, 'タスクが見つかりません');
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'タスクが見つかりません');
 
     await execute(
       `UPDATE project_tasks
@@ -275,9 +273,8 @@ export const projectTasksService = {
       `SELECT id FROM project_tasks WHERE id = $1 AND deleted_at IS NULL`,
       [id]
     );
-    if (!existing) throw new AppError(404, 'タスクが見つかりません');
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'タスクが見つかりません');
 
-    // 子タスクも論理削除
     await execute(
       `UPDATE project_tasks
        SET deleted_at = NOW(), updated_by = $1
