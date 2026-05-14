@@ -1,0 +1,76 @@
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Loader2 } from "lucide-react";
+import { useTaskTemplates, useColumnsFromTemplate } from "../hooks/useProjectTasks";
+
+interface Props {
+  open: boolean;
+  onClose: () => void;
+  projectId: string;
+}
+
+export default function TemplatePickerDialog({ open, onClose, projectId }: Props) {
+  const { data: templates = [], isLoading } = useTaskTemplates();
+  const fromTemplate = useColumnsFromTemplate(projectId);
+
+  const handlePick = async (templateId: string) => {
+    await fromTemplate.mutateAsync(templateId);
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>テンプレートからカラムを追加</DialogTitle>
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {templates.map((tpl) => (
+              <button
+                key={tpl.id}
+                type="button"
+                className="w-full text-left rounded-lg border border-border p-4 hover:bg-accent transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+                onClick={() => handlePick(tpl.id)}
+                disabled={fromTemplate.isPending}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium">{tpl.name}</span>
+                  {tpl.is_system && (
+                    <Badge variant="secondary" className="text-xs">システム</Badge>
+                  )}
+                </div>
+                {tpl.description && (
+                  <p className="text-xs text-muted-foreground mb-2">{tpl.description}</p>
+                )}
+                <div className="flex flex-wrap gap-1">
+                  {tpl.columns.map((col) => (
+                    <span
+                      key={col.id}
+                      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium text-white"
+                      style={{ backgroundColor: col.color ?? "#94a3b8" }}
+                    >
+                      {col.name}
+                    </span>
+                  ))}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="flex justify-end pt-2">
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>
+            キャンセル
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
