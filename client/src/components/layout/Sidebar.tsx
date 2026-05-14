@@ -33,6 +33,9 @@ import {
   Timer,
   Trophy,
   Store,
+  KanbanSquare,
+  ListTodo,
+  GanttChart,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -61,6 +64,14 @@ const APP_NAV: Record<string, NavSection[]> = {
         { label: "確定案件（スタジオ）", to: "/sales/projects/confirmed/studio", icon: Film },
         { label: "確定案件（ビジネス）", to: "/sales/projects/confirmed/business", icon: Briefcase },
         { label: "按分グループ", to: "/sales/project-groups", icon: GitBranch },
+      ],
+    },
+    {
+      title: "タスク",
+      items: [
+        { label: "カンバン", to: "/sales/tasks/kanban", icon: KanbanSquare },
+        { label: "タスクリスト", to: "/sales/tasks/list", icon: ListTodo },
+        { label: "ガントチャート", to: "/sales/tasks/gantt", icon: GanttChart },
       ],
     },
     {

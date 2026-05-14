@@ -4,6 +4,7 @@ import type {
   TaskColumn,
   ProjectTask,
   TaskColumnTemplate,
+  TaskDashboardData,
 } from "@/types";
 
 // ------------------------------------------------------------------ keys
@@ -204,5 +205,17 @@ export function useTaskTemplates() {
       return res.data.data;
     },
     staleTime: 60_000 * 10,
+  });
+}
+
+// ------------------------------------------------------------------ dashboard
+export function useTaskDashboard() {
+  return useQuery({
+    queryKey: ["task-dashboard"] as const,
+    queryFn: async () => {
+      const res = await api.get<{ data: TaskDashboardData }>("/task-dashboard");
+      return res.data.data;
+    },
+    staleTime: 30_000,
   });
 }

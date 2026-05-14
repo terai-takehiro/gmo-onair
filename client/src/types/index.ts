@@ -463,3 +463,24 @@ export interface TaskColumnTemplateColumn {
   color: string | null;
   sort_order: number;
 }
+
+// ---------- Task Dashboard (cross-project) ----------
+
+export interface DashboardProject {
+  id: string;
+  gls_number: string | null;
+  name: string;
+  stage: string;
+}
+
+export interface DashboardTask extends ProjectTask {
+  project_gls_number: string | null;
+  project_name: string;
+  project_stage: string;
+}
+
+export interface TaskDashboardData {
+  projects: DashboardProject[];
+  columns: TaskColumn[];
+  tasks: DashboardTask[];
+}
