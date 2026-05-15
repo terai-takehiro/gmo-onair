@@ -9,6 +9,19 @@ import { errorHandler } from './shared/middleware/errorHandler';
 import { createRoutes } from './routes';
 
 export function createApp(): express.Express {
+  // Express 4.x: async ルートハンドラで throw/reject した場合に自動で next(err) を呼ぶパッチ。
+  // これにより全ルートで try/catch や wrap() がなくても errorHandler に到達する。
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const Layer = require('express/lib/router/layer');
+  const _origHandleReq = Layer.prototype.handle_request as (req: unknown, res: unknown, next: (err?: unknown) => void) => unknown;
+  Layer.prototype.handle_request = function(req: unknown, res: unknown, next: (err?: unknown) => void) {
+    const ret = _origHandleReq.call(this, req, res, next);
+    if (ret !== null && typeof (ret as Promise<unknown>)?.catch === 'function') {
+      (ret as Promise<unknown>).catch(next);
+    }
+    return ret;
+  };
+
   const app = express();
   const appVersion = process.env.npm_package_version || 'unknown';
 
