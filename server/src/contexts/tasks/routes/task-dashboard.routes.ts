@@ -1,13 +1,16 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { queryAll } from '../../../shared/db/connection';
+
+const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) =>
+  (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
 
 const router = Router();
 router.use(requireAuth, requirePermission('sales'));
 
 // GET /task-dashboard
 // 完了・失注を除く全案件のカラム + タスクを返す
-router.get('/', async (req, res) => {
+router.get('/', wrap(async (req, res) => {
   const projects = (await queryAll(
     `SELECT id, gls_number, name, stage
      FROM projects
@@ -56,6 +59,6 @@ router.get('/', async (req, res) => {
   );
 
   res.json({ success: true, data: { projects, columns, tasks } });
-});
+}));
 
 export default router;

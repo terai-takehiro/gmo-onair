@@ -73,11 +73,13 @@ export default function TaskDialog({
     staleTime: 60_000,
   });
 
+  const [saveError, setSaveError] = useState<string | null>(null);
   const createTask = useCreateTask(projectId);
   const updateTask = useUpdateTask(projectId);
   const isPending = createTask.isPending || updateTask.isPending;
 
   useEffect(() => {
+    setSaveError(null);
     if (existing) {
       setTitle(existing.title);
       setDescription(existing.description ?? "");
@@ -101,6 +103,7 @@ export default function TaskDialog({
 
   const handleSave = async () => {
     if (!title.trim()) return;
+    setSaveError(null);
 
     const payload = {
       title: title.trim(),
@@ -114,12 +117,16 @@ export default function TaskDialog({
       due_date: dueDate || null,
     };
 
-    if (existing) {
-      await updateTask.mutateAsync({ id: existing.id, ...payload });
-    } else {
-      await createTask.mutateAsync(payload);
+    try {
+      if (existing) {
+        await updateTask.mutateAsync({ id: existing.id, ...payload });
+      } else {
+        await createTask.mutateAsync(payload);
+      }
+      onClose();
+    } catch {
+      setSaveError("保存に失敗しました。もう一度お試しください。");
     }
-    onClose();
   };
 
   return (
@@ -269,6 +276,10 @@ export default function TaskDialog({
             </div>
           )}
         </div>
+
+        {saveError && (
+          <p className="text-sm text-destructive text-right">{saveError}</p>
+        )}
 
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose} disabled={isPending}>
