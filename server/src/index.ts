@@ -5,6 +5,7 @@ import { initDb } from './shared/db/connection';
 import { runMigrations } from './shared/db/migrate';
 import { seed } from './shared/db/seed';
 import { seedSubApps } from './shared/db/seed-subapps';
+import { seedTasks } from './shared/db/seed-tasks';
 import { ensureStaffPermissions } from './shared/db/ensure-permissions';
 import { initSocketIO, shutdownSocketIO } from './contexts/interactive/socket';
 import { initQsheetSocketIO } from './contexts/qsheet/socket';
@@ -33,6 +34,9 @@ async function main() {
     await seedSubApps().catch((err) => {
       console.warn('[seed-subapps] warn:', err?.message ?? err);
       if (err?.stack) console.warn('[seed-subapps] stack:', err.stack);
+    });
+    await seedTasks().catch((err) => {
+      console.warn('[seed-tasks] warn:', err?.message ?? err);
     });
   } else {
     // seed を行わない場合でも、マスター管理者だけは必ず作成

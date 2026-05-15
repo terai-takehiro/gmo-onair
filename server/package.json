@@ -1,6 +1,6 @@
 {
   "name": "@gmo-onair/server",
-  "version": "2.8.113",
+  "version": "2.8.115",
   "private": true,
   "scripts": {
     "dev": "tsx watch src/index.ts",
@@ -9,7 +9,8 @@
     "db:migrate": "tsx src/shared/db/migrate.ts",
     "db:seed": "tsx src/shared/db/seed.ts",
     "db:reset": "tsx src/shared/db/reset.ts",
-    "db:seed:subapps": "tsx src/shared/db/seed-subapps.ts"
+    "db:seed:subapps": "tsx src/shared/db/seed-subapps.ts",
+    "db:seed:tasks": "tsx src/shared/db/seed-tasks.ts"
   },
   "dependencies": {
     "@types/multer": "^2.1.0",

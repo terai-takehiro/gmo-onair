@@ -1,4 +1,4 @@
-import type { UserRole, ProjectStatus, TaxCategory, SettlementMethod, BroadcastType, MediaPlatform, InvoiceGroupStatus, ProjectType, CalcType } from './enums';
+import type { UserRole, ProjectStatus, TaxCategory, SettlementMethod, BroadcastType, MediaPlatform, InvoiceGroupStatus, CalcType } from './enums';
 
 // 共通フィールド
 export interface BaseEntity {
