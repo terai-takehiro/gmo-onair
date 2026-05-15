@@ -427,12 +427,15 @@ export default function StudioBookingDialog({
                   </div>
                   {projectId && episodes.length > 0 && (
                     <div className="px-3">
-                      <Select value={episodeId} onValueChange={setEpisodeId}>
+                      <Select
+                        value={episodeId || "_none_"}
+                        onValueChange={(v) => setEpisodeId(v === "_none_" ? "" : v)}
+                      >
                         <SelectTrigger className="border-0 bg-transparent px-1 h-10 shadow-none focus:ring-0">
-                          <SelectValue placeholder="話数（任意）" />
+                          <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">なし</SelectItem>
+                          <SelectItem value="_none_">なし</SelectItem>
                           {episodes.map((ep: any) => (
                             <SelectItem key={ep.id} value={ep.id}>{ep.episode_code}</SelectItem>
                           ))}

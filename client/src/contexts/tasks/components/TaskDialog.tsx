@@ -188,12 +188,15 @@ export default function TaskDialog({
           {/* カラム */}
           <div className="space-y-1">
             <Label>カラム</Label>
-            <Select value={columnId} onValueChange={setColumnId}>
+            <Select
+              value={columnId || "_none_"}
+              onValueChange={(v) => setColumnId(v === "_none_" ? "" : v)}
+            >
               <SelectTrigger className="h-9">
-                <SelectValue placeholder="カラムを選択（任意）" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">未割り当て</SelectItem>
+                <SelectItem value="_none_">未割り当て</SelectItem>
                 {columns.map((col) => (
                   <SelectItem key={col.id} value={col.id}>
                     <span className="flex items-center gap-2">
@@ -212,12 +215,15 @@ export default function TaskDialog({
           {/* 担当者 */}
           <div className="space-y-1">
             <Label>担当者</Label>
-            <Select value={assignedTo} onValueChange={setAssignedTo}>
+            <Select
+              value={assignedTo || "_none_"}
+              onValueChange={(v) => setAssignedTo(v === "_none_" ? "" : v)}
+            >
               <SelectTrigger className="h-9">
-                <SelectValue placeholder="担当者を選択（任意）" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">なし</SelectItem>
+                <SelectItem value="_none_">なし</SelectItem>
                 {users.map((u) => (
                   <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
                 ))}
