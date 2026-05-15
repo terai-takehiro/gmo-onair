@@ -27,10 +27,12 @@ interface Props {
 export default function ColumnDialog({ open, onClose, projectId, existing }: Props) {
   const [name, setName] = useState("");
   const [color, setColor] = useState(PRESET_COLORS[0]);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const createCol = useCreateColumn(projectId);
   const updateCol = useUpdateColumn(projectId);
 
   useEffect(() => {
+    setSaveError(null);
     if (existing) {
       setName(existing.name);
       setColor(existing.color ?? PRESET_COLORS[0]);
@@ -44,12 +46,17 @@ export default function ColumnDialog({ open, onClose, projectId, existing }: Pro
 
   const handleSave = async () => {
     if (!name.trim()) return;
-    if (existing) {
-      await updateCol.mutateAsync({ id: existing.id, name: name.trim(), color });
-    } else {
-      await createCol.mutateAsync({ name: name.trim(), color });
+    setSaveError(null);
+    try {
+      if (existing) {
+        await updateCol.mutateAsync({ id: existing.id, name: name.trim(), color });
+      } else {
+        await createCol.mutateAsync({ name: name.trim(), color });
+      }
+      onClose();
+    } catch {
+      setSaveError("保存に失敗しました。もう一度お試しください。");
     }
-    onClose();
   };
 
   return (
@@ -91,6 +98,10 @@ export default function ColumnDialog({ open, onClose, projectId, existing }: Pro
             </div>
           </div>
         </div>
+
+        {saveError && (
+          <p className="text-sm text-destructive text-right">{saveError}</p>
+        )}
 
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose} disabled={isPending}>

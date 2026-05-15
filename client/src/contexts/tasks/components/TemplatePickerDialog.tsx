@@ -15,8 +15,12 @@ export default function TemplatePickerDialog({ open, onClose, projectId }: Props
   const fromTemplate = useColumnsFromTemplate(projectId);
 
   const handlePick = async (templateId: string) => {
-    await fromTemplate.mutateAsync(templateId);
-    onClose();
+    try {
+      await fromTemplate.mutateAsync(templateId);
+      onClose();
+    } catch {
+      // エラーは mutation の isError から取得可能
+    }
   };
 
   return (

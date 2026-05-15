@@ -22,14 +22,18 @@ export default function ChecklistItems({ projectId, parentTask }: Props) {
   const handleAdd = async () => {
     const t = newTitle.trim();
     if (!t) return;
-    await createTask.mutateAsync({
-      title: t,
-      task_type: "checklist",
-      column_id: parentTask.column_id,
-      episode_id: parentTask.episode_id,
-      parent_task_id: parentTask.id,
-    });
-    setNewTitle("");
+    try {
+      await createTask.mutateAsync({
+        title: t,
+        task_type: "checklist",
+        column_id: parentTask.column_id,
+        episode_id: parentTask.episode_id,
+        parent_task_id: parentTask.id,
+      });
+      setNewTitle("");
+    } catch {
+      // 失敗しても入力は残す（再試行できるように）
+    }
   };
 
   return (

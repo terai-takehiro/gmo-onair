@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.118 — TypeScript ビルドエラー修正（req.params キャスト）
+**現在のバージョン**: v2.8.119 — カンバン全ダイアログの async エラー漏れ修正（try/catch 追加）
 
 ---
 
