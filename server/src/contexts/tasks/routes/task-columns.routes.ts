@@ -42,7 +42,7 @@ router.patch('/reorder', wrap(async (req, res) => {
 
 // PUT /projects/:projectId/task-columns/:id
 router.put('/:id', wrap(async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.params as Record<string, string>;
   const userId = (req as { user?: { id: string } }).user!.id;
   const column = await taskColumnsService.update(id, req.body, userId);
   res.json({ success: true, data: column });
@@ -50,7 +50,7 @@ router.put('/:id', wrap(async (req, res) => {
 
 // DELETE /projects/:projectId/task-columns/:id
 router.delete('/:id', wrap(async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.params as Record<string, string>;
   const userId = (req as { user?: { id: string } }).user!.id;
   await taskColumnsService.delete(id, userId);
   res.json({ success: true });

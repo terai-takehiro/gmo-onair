@@ -30,7 +30,7 @@ router.post('/', wrap(async (req, res) => {
 
 // PUT /projects/:projectId/tasks/:id
 router.put('/:id', wrap(async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.params as Record<string, string>;
   const userId = (req as { user?: { id: string } }).user!.id;
   const task = await projectTasksService.update(id, req.body, userId);
   res.json({ success: true, data: task });
@@ -38,7 +38,7 @@ router.put('/:id', wrap(async (req, res) => {
 
 // PATCH /projects/:projectId/tasks/:id/complete
 router.patch('/:id/complete', wrap(async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.params as Record<string, string>;
   const userId = (req as { user?: { id: string } }).user!.id;
   const task = await projectTasksService.toggleComplete(id, userId);
   res.json({ success: true, data: task });
@@ -46,7 +46,7 @@ router.patch('/:id/complete', wrap(async (req, res) => {
 
 // PATCH /projects/:projectId/tasks/:id/move
 router.patch('/:id/move', wrap(async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.params as Record<string, string>;
   const { column_id, sort_order } = req.body as { column_id: string | null; sort_order: number };
   const userId = (req as { user?: { id: string } }).user!.id;
   await projectTasksService.move(id, column_id, sort_order, userId);
@@ -63,7 +63,7 @@ router.patch('/reorder', wrap(async (req, res) => {
 
 // DELETE /projects/:projectId/tasks/:id
 router.delete('/:id', wrap(async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.params as Record<string, string>;
   const userId = (req as { user?: { id: string } }).user!.id;
   await projectTasksService.delete(id, userId);
   res.json({ success: true });
