@@ -1,10 +1,32 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { useAwardsStore } from '@/cg/useStore';
+import { useAwardsStore, DEFAULT_CUE } from '@/cg/useStore';
 import { getAwardsSocket, disconnectAwardsSocket } from '@/lib/socket';
-import type { CgStep, OneshotStyle, CgCueState } from '@/cg/types';
+import type { CgStep, OneshotStyle, CgCueState, VoteDisplay } from '@/cg/types';
+
+interface CuePayload {
+  step?: CgStep;
+  categoryId?: number | null;
+  oneshotStyle?: OneshotStyle;
+  voteDisplay?: VoteDisplay;
+  pollStartedAt?: number | null;
+  revealPhase?: 0 | 1 | 2;
+}
+
+function normalizeCue(data: CuePayload): CgCueState {
+  return {
+    step: data.step ?? 'idle',
+    categoryId: data.categoryId ?? null,
+    oneshotStyle: data.oneshotStyle ?? 'classic',
+    voteDisplay: data.voteDisplay ?? 'count',
+    pollStartedAt: data.pollStartedAt ?? null,
+    revealPhase: (data.revealPhase ?? 0) as 0 | 1 | 2,
+  };
+}
 
 export function useAwardsCue(eventId: number | null) {
   const { cue, setCue } = useAwardsStore();
+  const cueRef = useRef(cue);
+  cueRef.current = cue;
   const connectedRef = useRef(false);
 
   useEffect(() => {
@@ -12,16 +34,8 @@ export function useAwardsCue(eventId: number | null) {
     const socket = getAwardsSocket(eventId);
     connectedRef.current = true;
 
-    socket.on('cue:sync', (data: {
-      step: CgStep;
-      categoryId: number | null;
-      oneshotStyle: OneshotStyle;
-    }) => {
-      setCue({
-        step: data.step,
-        categoryId: data.categoryId,
-        oneshotStyle: data.oneshotStyle,
-      });
+    socket.on('cue:sync', (data: CuePayload) => {
+      setCue(normalizeCue(data));
     });
 
     return () => {
@@ -33,44 +47,26 @@ export function useAwardsCue(eventId: number | null) {
     };
   }, [eventId, setCue]);
 
-  const sendCue = useCallback((
-    step: CgStep,
-    categoryId?: number | null,
-    oneshotStyle?: OneshotStyle,
-  ) => {
+  const sendCue = useCallback((partial: Partial<CgCueState>) => {
     if (!eventId) return;
     const socket = getAwardsSocket(eventId);
-    const payload = {
-      step,
-      categoryId: categoryId ?? cue.categoryId,
-      oneshotStyle: oneshotStyle ?? cue.oneshotStyle,
-    };
-    socket.emit('cue:set', payload);
-    // Optimistic update
-    setCue(payload);
-  }, [eventId, cue, setCue]);
+    const merged: CgCueState = { ...cueRef.current, ...partial };
+    socket.emit('cue:set', merged);
+    setCue(merged);
+  }, [eventId, setCue]);
 
-  // v2.8.98+: NEXT (送出予約) cue を broadcast。LIVE には反映せず operator+NEXT 出力 URL のみ同期。
   const sendNextCue = useCallback((next: CgCueState) => {
     if (!eventId) return;
     const socket = getAwardsSocket(eventId);
-    socket.emit('cue:nextSet', {
-      step: next.step,
-      categoryId: next.categoryId,
-      oneshotStyle: next.oneshotStyle,
-    });
+    socket.emit('cue:nextSet', next);
   }, [eventId]);
 
   return { cue, sendCue, sendNextCue };
 }
 
-// v2.8.98+: NEXT 出力 URL 用 — broadcast された preview 状態を購読する。
+// NEXT 出力 URL 用
 export function useAwardsNextCue(eventId: number | null) {
-  const [nextCue, setNextCue] = useState<CgCueState>({
-    step: 'idle',
-    categoryId: null,
-    oneshotStyle: 'classic',
-  });
+  const [nextCue, setNextCue] = useState<CgCueState>({ ...DEFAULT_CUE });
   const connectedRef = useRef(false);
 
   useEffect(() => {
@@ -78,23 +74,12 @@ export function useAwardsNextCue(eventId: number | null) {
     const socket = getAwardsSocket(eventId);
     connectedRef.current = true;
 
-    const onSync = (data: {
-      step: CgStep;
-      categoryId: number | null;
-      oneshotStyle: OneshotStyle;
-    }) => {
-      setNextCue({
-        step: data.step,
-        categoryId: data.categoryId,
-        oneshotStyle: data.oneshotStyle,
-      });
-    };
+    const onSync = (data: CuePayload) => setNextCue(normalizeCue(data));
     socket.on('cue:nextSync', onSync);
 
     return () => {
       socket.off('cue:nextSync', onSync);
       if (connectedRef.current) {
-        // 他の useAwardsCue 利用者と socket を共有しているので disconnect しない
         connectedRef.current = false;
       }
     };

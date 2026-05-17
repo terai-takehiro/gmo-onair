@@ -12,6 +12,9 @@ interface RankingNextCue {
   step: string;
   categoryId: number | null;
   oneshotStyle: string;
+  voteDisplay: string;
+  pollStartedAt: number | null;
+  revealPhase: number;
   timestamp: number;
 }
 interface OneShotNextCue {
@@ -49,7 +52,8 @@ export function initAwardsSocketIO(io: Server): void {
 
     // Push current state to this new connection (ranking CG)
     queryOne(
-      `SELECT step, category_id, oneshot_style FROM awards_cue_state WHERE event_id = ?`,
+      `SELECT step, category_id, oneshot_style, vote_display, poll_started_at, reveal_phase
+       FROM awards_cue_state WHERE event_id = ?`,
       [eventId]
     ).then((state) => {
       if (state) {
@@ -57,6 +61,9 @@ export function initAwardsSocketIO(io: Server): void {
           step: state.step,
           categoryId: state.category_id,
           oneshotStyle: state.oneshot_style,
+          voteDisplay: state.vote_display ?? 'count',
+          pollStartedAt: state.poll_started_at ? new Date(state.poll_started_at as string | number | Date).getTime() : null,
+          revealPhase: state.reveal_phase ?? 0,
           timestamp: Date.now(),
         });
       }
@@ -104,27 +111,42 @@ export function initAwardsSocketIO(io: Server): void {
       step?: string;
       categoryId?: number | null;
       oneshotStyle?: string;
+      voteDisplay?: string;
+      pollStartedAt?: number | null;
+      revealPhase?: number;
     }) => {
       try {
         const step = data.step ?? 'idle';
         const catId = data.categoryId ?? null;
         const style = data.oneshotStyle ?? 'classic';
+        const voteDisplay = data.voteDisplay === 'percent' ? 'percent' : 'count';
+        const pollStartedAt = typeof data.pollStartedAt === 'number' ? data.pollStartedAt : null;
+        const revealPhase = Math.max(0, Math.min(2, Math.floor(data.revealPhase ?? 0)));
 
         await execute(
-          `INSERT INTO awards_cue_state (event_id, step, category_id, oneshot_style, updated_at)
-           VALUES (?, ?, ?, ?, NOW())
+          `INSERT INTO awards_cue_state
+             (event_id, step, category_id, oneshot_style, vote_display, poll_started_at, reveal_phase, updated_at)
+           VALUES (?, ?, ?, ?, ?, ${pollStartedAt === null ? 'NULL' : 'to_timestamp(?::double precision / 1000.0)'}, ?, NOW())
            ON CONFLICT (event_id) DO UPDATE
              SET step = EXCLUDED.step,
                  category_id = EXCLUDED.category_id,
                  oneshot_style = EXCLUDED.oneshot_style,
+                 vote_display = EXCLUDED.vote_display,
+                 poll_started_at = EXCLUDED.poll_started_at,
+                 reveal_phase = EXCLUDED.reveal_phase,
                  updated_at = NOW()`,
-          [eventId, step, catId, style]
+          pollStartedAt === null
+            ? [eventId, step, catId, style, voteDisplay, revealPhase]
+            : [eventId, step, catId, style, voteDisplay, pollStartedAt, revealPhase]
         );
 
         awardsNs.to(room).emit('cue:sync', {
           step,
           categoryId: catId,
           oneshotStyle: style,
+          voteDisplay,
+          pollStartedAt,
+          revealPhase,
           timestamp: Date.now(),
         });
       } catch (err) {
@@ -226,11 +248,17 @@ export function initAwardsSocketIO(io: Server): void {
       step?: string;
       categoryId?: number | null;
       oneshotStyle?: string;
+      voteDisplay?: string;
+      pollStartedAt?: number | null;
+      revealPhase?: number;
     }) => {
       const next: RankingNextCue = {
         step: data.step ?? 'idle',
         categoryId: data.categoryId ?? null,
         oneshotStyle: data.oneshotStyle ?? 'classic',
+        voteDisplay: data.voteDisplay === 'percent' ? 'percent' : 'count',
+        pollStartedAt: typeof data.pollStartedAt === 'number' ? data.pollStartedAt : null,
+        revealPhase: Math.max(0, Math.min(2, Math.floor(data.revealPhase ?? 0))),
         timestamp: Date.now(),
       };
       nextCueByEvent.set(eventId, next);

@@ -1,14 +1,15 @@
 import { useMemo, useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAwardsCue } from '@/hooks/useAwardsCue';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ExternalLink, Trophy, Radio, Subtitles, Send, X, Maximize2, Minimize2 } from 'lucide-react';
-import type { CgStep, OneshotStyle, CgCategory, CgCueState } from '@/cg/types';
+import { ChevronLeft, ExternalLink, Trophy, Radio, Subtitles, Send, X, Maximize2, Minimize2, BarChart3, Vote } from 'lucide-react';
+import type { CgStep, OneshotStyle, CgCategory, CgCueState, AwardPattern, VoteDisplay } from '@/cg/types';
 import CGFrame from '@/cg/CGFrame';
-import { CG_W, CG_H } from '@/cg/types';
+import { CG_W, CG_H, POLL_DURATION_MS, POLL_REVERT_DELAY_MS } from '@/cg/types';
 import { useFullscreen } from '@/hooks/useFullscreen';
+import VoteSettingsDialog from '@/components/VoteSettingsDialog';
 
 type PreviewLang = 'ja' | 'en' | 'both';
 
@@ -27,14 +28,24 @@ function groupByAward(cats: CgCategory[]): AwardGroup[] {
   return order.map((name) => ({ name, divisions: map.get(name)! }));
 }
 
-const STEPS: { step: CgStep; label: string; desc: string; color: 'neutral' | 'live' | 'award'; shortcut?: string }[] = [
+type StepDef = { step: CgStep; label: string; desc: string; color: 'neutral' | 'live' | 'award'; shortcut?: string };
+
+// パターン別ステップシーケンス
+const STEPS_DIRECT: StepDef[] = [
   { step: 'idle',       label: 'IDLE',       desc: '透過',                    color: 'neutral', shortcut: '0' },
   { step: 'title',      label: 'TITLE',      desc: 'タイトルカード',          color: 'neutral', shortcut: '1' },
   { step: 'nominees',   label: 'NOMINEES',   desc: 'ノミネート一覧',          color: 'live',    shortcut: '2' },
   { step: 'ranks52',    label: 'RANKS 5→2',  desc: 'ランキングバー',          color: 'live',    shortcut: '3' },
-  { step: 'top3',       label: 'BEST 3',     desc: '一覧から TOP3 一気発表',  color: 'award',   shortcut: '4' },
-  { step: 'winner-bar', label: 'WINNER BAR', desc: '大賞引きバー',            color: 'award',   shortcut: '5' },
-  { step: 'oneshot',    label: 'ONE SHOT',   desc: '大賞フルスクリーン',      color: 'award',   shortcut: '6' },
+  { step: 'winner-bar', label: 'WINNER BAR', desc: '大賞引きバー',            color: 'award',   shortcut: '4' },
+  { step: 'oneshot',    label: 'ONE SHOT',   desc: '大賞フルスクリーン',      color: 'award',   shortcut: '5' },
+];
+const STEPS_VOTE: StepDef[] = [
+  { step: 'idle',         label: 'IDLE',       desc: '透過',                    color: 'neutral', shortcut: '0' },
+  { step: 'title',        label: 'TITLE',      desc: 'タイトルカード',          color: 'neutral', shortcut: '1' },
+  { step: 'nominees',     label: 'NOMINEES',   desc: 'ノミネート一覧',          color: 'live',    shortcut: '2' },
+  { step: 'top3',         label: 'BEST 3',     desc: '一覧から TOP3 一気発表',  color: 'live',    shortcut: '3' },
+  { step: 'poll',         label: 'POLL',       desc: 'アンケート投票 (30s)',    color: 'live',    shortcut: '4' },
+  { step: 'vote-reveal',  label: 'RESULT',     desc: '投票結果→大賞',          color: 'award',   shortcut: '5' },
 ];
 const ONESHOT_STYLES: { style: OneshotStyle; label: string }[] = [
   { style: 'classic',   label: 'Classic'   },
@@ -42,7 +53,7 @@ const ONESHOT_STYLES: { style: OneshotStyle; label: string }[] = [
   { style: 'spotlight', label: 'Spotlight' },
   { style: 'slit',      label: 'Slit'      },
 ];
-const LIVE_STEPS: CgStep[] = ['nominees', 'ranks52', 'top3', 'winner-bar', 'oneshot'];
+const LIVE_STEPS: CgStep[] = ['nominees', 'ranks52', 'top3', 'winner-bar', 'oneshot', 'poll', 'vote-reveal'];
 
 export default function ControlPage() {
   const { id } = useParams<{ id: string }>();
@@ -59,17 +70,24 @@ export default function ControlPage() {
 
   const { cue, sendCue, sendNextCue } = useAwardsCue(eventId);
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
+  const queryClient = useQueryClient();
   const awardGroups = useMemo(() => groupByAward(event?.categories ?? []), [event]);
   const liveCategory = event?.categories.find((c) => c.id === cue.categoryId) ?? null;
   const isLive = LIVE_STEPS.includes(cue.step);
-  const liveStep = STEPS.find((s) => s.step === cue.step);
 
   // ── NEXT (preview / 送出予約) state ──────────────────────
-  // v2.8.98+: 下位置CG と同様に preview/take ワークフローを導入。
-  // step/category/style ボタンは LIVE を直接更新せず NEXT を更新、TAKE で送出。
   const [nextStep, setNextStep] = useState<CgStep>('idle');
   const [nextCategoryId, setNextCategoryId] = useState<number | null>(null);
   const [nextStyle, setNextStyle] = useState<OneshotStyle>('classic');
+
+  // ── NEXT category の演出パターンに応じてステップ一覧を切替
+  const nextCategoryRaw = event?.categories.find((c) => c.id === nextCategoryId) ?? null;
+  const pattern: AwardPattern = nextCategoryRaw?.award_pattern === 'vote' ? 'vote' : 'direct';
+  const STEPS = pattern === 'vote' ? STEPS_VOTE : STEPS_DIRECT;
+  const liveStep = [...STEPS_DIRECT, ...STEPS_VOTE].find((s) => s.step === cue.step);
+
+  // 投票設定ダイアログ
+  const [voteDialogOpen, setVoteDialogOpen] = useState(false);
 
   // 初期: LIVE 状態を NEXT にコピー (新規イベント or リロード時)
   const initFromLiveRef = useRef(false);
@@ -82,22 +100,91 @@ export default function ControlPage() {
     initFromLiveRef.current = true;
   }, [event, cue]);
 
-  const nextCategory = event?.categories.find((c) => c.id === nextCategoryId) ?? null;
-  const nextStepDef = STEPS.find((s) => s.step === nextStep);
+  const nextCategory = nextCategoryRaw;
+  const nextStepDef = STEPS.find((s) => s.step === nextStep) ?? [...STEPS_DIRECT, ...STEPS_VOTE].find((s) => s.step === nextStep);
+
+  // パターン切替で現 nextStep が新 STEPS に存在しなくなる場合は idle に戻す
+  useEffect(() => {
+    if (!STEPS.some((s) => s.step === nextStep)) {
+      setNextStep('idle');
+    }
+  }, [pattern]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // NEXT の broadcast (NEXT 出力 URL 用): preview 変化のたびに socket emit
   useEffect(() => {
     if (!event) return;
-    sendNextCue({ step: nextStep, categoryId: nextCategoryId, oneshotStyle: nextStyle });
-  }, [event, nextStep, nextCategoryId, nextStyle, sendNextCue]);
+    sendNextCue({
+      step: nextStep,
+      categoryId: nextCategoryId,
+      oneshotStyle: nextStyle,
+      voteDisplay: cue.voteDisplay,
+      pollStartedAt: null,
+      revealPhase: 0,
+    });
+  }, [event, nextStep, nextCategoryId, nextStyle, cue.voteDisplay, sendNextCue]);
+
+  // poll 自動復帰タイマー (30s + 3s 余韻 → top3 へ戻す)
+  const pollTimerRef = useRef<number | null>(null);
+  const cancelPollTimer = useCallback(() => {
+    if (pollTimerRef.current) {
+      window.clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  }, []);
 
   const take = useCallback(() => {
-    sendCue(nextStep, nextCategoryId, nextStyle);
-  }, [sendCue, nextStep, nextCategoryId, nextStyle]);
+    cancelPollTimer();
+
+    // vote-reveal: TAKE 連打で内部フェーズを進める
+    if (nextStep === 'vote-reveal' && cue.step === 'vote-reveal' && cue.categoryId === nextCategoryId) {
+      const nextPhase = Math.min(2, (cue.revealPhase + 1)) as 0 | 1 | 2;
+      sendCue({ revealPhase: nextPhase });
+      return;
+    }
+
+    // poll: TAKE でカウントダウン開始 + 自動復帰タイマー
+    if (nextStep === 'poll') {
+      const startedAt = Date.now();
+      sendCue({
+        step: 'poll',
+        categoryId: nextCategoryId,
+        oneshotStyle: nextStyle,
+        pollStartedAt: startedAt,
+        revealPhase: 0,
+      });
+      pollTimerRef.current = window.setTimeout(() => {
+        sendCue({ step: 'top3', pollStartedAt: null });
+      }, POLL_DURATION_MS + POLL_REVERT_DELAY_MS);
+      return;
+    }
+
+    // vote-reveal の初回 TAKE: phase=0 でランダム揺れから開始
+    if (nextStep === 'vote-reveal') {
+      sendCue({
+        step: 'vote-reveal',
+        categoryId: nextCategoryId,
+        oneshotStyle: nextStyle,
+        pollStartedAt: null,
+        revealPhase: 0,
+      });
+      return;
+    }
+
+    sendCue({
+      step: nextStep,
+      categoryId: nextCategoryId,
+      oneshotStyle: nextStyle,
+      pollStartedAt: null,
+      revealPhase: 0,
+    });
+  }, [sendCue, nextStep, nextCategoryId, nextStyle, cue.step, cue.categoryId, cue.revealPhase, cancelPollTimer]);
 
   const clear = useCallback(() => {
-    sendCue('idle', cue.categoryId, cue.oneshotStyle);
-  }, [sendCue, cue.categoryId, cue.oneshotStyle]);
+    cancelPollTimer();
+    sendCue({ step: 'idle', pollStartedAt: null, revealPhase: 0 });
+  }, [sendCue, cancelPollTimer]);
+
+  useEffect(() => () => cancelPollTimer(), [cancelPollTimer]);
 
   // ── プレビュー / 出力用 言語選択（localStorage で永続化）
   const [previewLang, setPreviewLang] = useState<PreviewLang>(() => {
@@ -169,8 +256,8 @@ export default function ControlPage() {
       const target = e.target as HTMLElement | null;
       if (target && (target.matches('input, textarea, select') || target.isContentEditable)) return;
 
-      // 0-6: step
-      if (/^[0-6]$/.test(e.key)) {
+      // 0-5: step (パターンにより上限が変わる)
+      if (/^[0-9]$/.test(e.key)) {
         const s = STEPS.find((st) => st.shortcut === e.key);
         if (s) {
           setNextStep(s.step);
@@ -205,7 +292,14 @@ export default function ControlPage() {
     step: nextStep,
     categoryId: nextCategoryId,
     oneshotStyle: nextStyle,
-  }), [nextStep, nextCategoryId, nextStyle]);
+    voteDisplay: cue.voteDisplay,
+    pollStartedAt: null,
+    revealPhase: 0,
+  }), [nextStep, nextCategoryId, nextStyle, cue.voteDisplay]);
+
+  const setVoteDisplay = useCallback((d: VoteDisplay) => {
+    sendCue({ voteDisplay: d });
+  }, [sendCue]);
 
   return (
     <div className="h-full flex flex-col bg-black text-slate-100 overflow-hidden">
@@ -240,6 +334,16 @@ export default function ControlPage() {
           <Radio className={cn('h-3 w-3 shrink-0', isLive && 'animate-pulse')} />
           {isLive ? 'ON AIR' : 'STANDBY'}
         </div>
+        {pattern === 'vote' && (
+          <button
+            onClick={() => setVoteDialogOpen(true)}
+            title="投票数を入力 / 表示方法を切替"
+            className="hidden sm:flex items-center gap-1.5 rounded-lg bg-amber-900/50 border border-amber-700/60 px-2.5 py-1.5 text-[10px] font-black tracking-widest uppercase text-amber-300 hover:bg-amber-800/60 transition-colors"
+          >
+            <BarChart3 className="h-3 w-3" />
+            投票
+          </button>
+        )}
         <LangPicker value={previewLang} onChange={setPreviewLang} />
         <a
           href={`/awards/output/${eventId}?lang=${previewLang}`}
@@ -387,11 +491,36 @@ export default function ControlPage() {
 
             {/* Controls column */}
             <div className="flex-1 min-w-0 space-y-2">
+              <div className="flex items-center gap-2 text-[10px] font-black tracking-widest uppercase">
+                <span className="text-slate-500">PATTERN</span>
+                <span className={cn(
+                  'rounded px-2 py-0.5 border',
+                  pattern === 'vote'
+                    ? 'bg-amber-950/40 border-amber-700/60 text-amber-300'
+                    : 'bg-slate-800/40 border-slate-700/50 text-slate-300',
+                )}>
+                  {pattern === 'vote' ? (
+                    <span className="inline-flex items-center gap-1"><Vote className="h-3 w-3" />投票No.1決定</span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1"><Trophy className="h-3 w-3" />No.1発表</span>
+                  )}
+                </span>
+                {pattern === 'vote' && cue.step === 'vote-reveal' && (
+                  <span className="ml-auto text-amber-400">
+                    REVEAL PHASE: <span className="text-amber-300">{cue.revealPhase}</span>/2 — TAKEで進行
+                  </span>
+                )}
+                {pattern === 'vote' && cue.step === 'poll' && cue.pollStartedAt && (
+                  <PollLiveBadge startedAt={cue.pollStartedAt} />
+                )}
+              </div>
               <StepRow steps={STEPS} liveStep={cue.step} nextStep={nextStep} onSelect={setNextStep} />
-              <StyleRow styles={ONESHOT_STYLES} liveStyle={cue.oneshotStyle} nextStyle={nextStyle} onSelect={setNextStyle} />
+              {pattern === 'direct' && (
+                <StyleRow styles={ONESHOT_STYLES} liveStyle={cue.oneshotStyle} nextStyle={nextStyle} onSelect={setNextStyle} />
+              )}
               <SendActionRow isLive={isLive} onTake={take} onClear={clear} />
               <div className="hidden sm:flex items-center gap-3 text-[9px] text-slate-500 tracking-widest uppercase font-medium flex-wrap">
-                <span><kbd className="px-1 rounded bg-slate-800 text-slate-300">0–6</kbd> ステップ</span>
+                <span><kbd className="px-1 rounded bg-slate-800 text-slate-300">0–5</kbd> ステップ</span>
                 <span><kbd className="px-1 rounded bg-slate-800 text-slate-300">↑↓</kbd> 部門</span>
                 <span><kbd className="px-1 rounded bg-slate-800 text-slate-300">Space</kbd> TAKE</span>
                 <span><kbd className="px-1 rounded bg-slate-800 text-slate-300">X</kbd> / <kbd className="px-1 rounded bg-slate-800 text-slate-300">Esc</kbd> CLEAR</span>
@@ -401,16 +530,41 @@ export default function ControlPage() {
           </div>
         </div>
       </div>
+
+      <VoteSettingsDialog
+        open={voteDialogOpen}
+        category={nextCategory}
+        voteDisplay={cue.voteDisplay}
+        onChangeDisplay={setVoteDisplay}
+        onClose={() => setVoteDialogOpen(false)}
+        onSaved={() => queryClient.invalidateQueries({ queryKey: ['awards-event', eventId] })}
+      />
     </div>
+  );
+}
+
+// ── PollLiveBadge: poll 中の残り秒数を operator UI に表示 ─────
+function PollLiveBadge({ startedAt }: { startedAt: number }) {
+  const [secs, setSecs] = useState(() => Math.max(0, Math.ceil((POLL_DURATION_MS - (Date.now() - startedAt)) / 1000)));
+  useEffect(() => {
+    const tick = () => setSecs(Math.max(0, Math.ceil((POLL_DURATION_MS - (Date.now() - startedAt)) / 1000)));
+    tick();
+    const id = window.setInterval(tick, 200);
+    return () => window.clearInterval(id);
+  }, [startedAt]);
+  return (
+    <span className="ml-auto text-red-400 font-bold animate-pulse">
+      POLL: 残り {secs}s {secs === 0 && '— 3秒後に TOP3 へ戻ります'}
+    </span>
   );
 }
 
 // ── StatusBar (compact, inside right panel top) ───────────
 function StatusBar({ isLive, liveStep, liveCategory, nextStep, nextCategory }: {
   isLive: boolean;
-  liveStep: typeof STEPS[number] | undefined;
+  liveStep: StepDef | undefined;
   liveCategory: CgCategory | null;
-  nextStep: typeof STEPS[number] | undefined;
+  nextStep: StepDef | undefined;
   nextCategory: CgCategory | null;
 }) {
   return (
@@ -520,7 +674,7 @@ function CategoryPanel({ awardGroups, liveCategoryId, nextCategoryId, onSelect }
 
 // ── StepRow (bottom bar) ──────────────────────────────────
 function StepRow({ steps, liveStep, nextStep, onSelect }: {
-  steps: typeof STEPS;
+  steps: StepDef[];
   liveStep: CgStep;
   nextStep: CgStep;
   onSelect: (step: CgStep) => void;

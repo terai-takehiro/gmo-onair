@@ -45,8 +45,18 @@ interface Category {
   description: string | null;
   description_en: string | null;
   display_order: number;
+  award_pattern?: 'direct' | 'vote';
+  poll_title?: string | null;
+  poll_title_en?: string | null;
+  poll_question?: string | null;
+  poll_question_en?: string | null;
   entries: Entry[];
 }
+
+type CategoryPatch = Partial<Pick<Category,
+  'name' | 'name_en' | 'description' | 'description_en' |
+  'award_pattern' | 'poll_title' | 'poll_title_en' | 'poll_question' | 'poll_question_en'
+>>;
 
 interface AwardsEventDetail {
   id: number;
@@ -330,7 +340,7 @@ export default function EventEditorPage() {
       patch,
     }: {
       catId: number;
-      patch: { name?: string; name_en?: string | null; description?: string | null; description_en?: string | null };
+      patch: CategoryPatch;
     }) => {
       const cat = event?.categories.find((c) => c.id === catId);
       if (!cat) return;
@@ -339,6 +349,11 @@ export default function EventEditorPage() {
         name_en: cat.name_en,
         description: cat.description,
         description_en: cat.description_en,
+        award_pattern: cat.award_pattern ?? 'direct',
+        poll_title: cat.poll_title ?? null,
+        poll_title_en: cat.poll_title_en ?? null,
+        poll_question: cat.poll_question ?? null,
+        poll_question_en: cat.poll_question_en ?? null,
         ...patch,
       });
     },
@@ -981,7 +996,7 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
 function SortableDivisionSection({ cat, onDeleteCat, onUpdateCat, onAddEntry, onUpdateEntry, onDeleteEntry, onPhotoUpload, onGenerateDummyPoints }: {
   cat: Category;
   onDeleteCat: () => void;
-  onUpdateCat: (patch: { name?: string; name_en?: string | null; description?: string | null; description_en?: string | null }) => void;
+  onUpdateCat: (patch: CategoryPatch) => void;
   onAddEntry: (name: string) => void;
   onUpdateEntry: (eid: number, patch: Partial<Entry>) => void;
   onDeleteEntry: (eid: number) => void;
@@ -1020,6 +1035,7 @@ function SortableDivisionSection({ cat, onDeleteCat, onUpdateCat, onAddEntry, on
       </div>
       {!collapsed && (
         <div className="p-2.5 space-y-1.5">
+          <PatternBlock cat={cat} onUpdate={onUpdateCat} />
           {addingEntry && (
             <div className="flex gap-2 mb-2">
               <input autoFocus value={newEntryName} onChange={(e) => setNewEntryName(e.target.value)}
@@ -1057,7 +1073,7 @@ function SortableAwardGroupCard({ group, onUpdateAwardName, onUpdateAwardNameEn,
   onUpdateAwardNameEn: (nameEn: string) => void;
   onAddDivision: (awardName: string) => void;
   onDeleteCat: (catId: number) => void;
-  onUpdateCat: (catId: number, patch: { name?: string; name_en?: string | null; description?: string | null; description_en?: string | null }) => void;
+  onUpdateCat: (catId: number, patch: CategoryPatch) => void;
   onAddEntry: (catId: number, name: string) => void;
   onUpdateEntry: (eid: number, patch: Partial<Entry>) => void;
   onDeleteEntry: (eid: number) => void;
@@ -1110,5 +1126,67 @@ function SortableAwardGroupCard({ group, onUpdateAwardName, onUpdateAwardNameEn,
         </div>
       )}
     </div>
+  );
+}
+
+// ── PatternBlock: 部門ごとの演出パターン + 投票文言 ───────────
+function PatternBlock({ cat, onUpdate }: { cat: Category; onUpdate: (patch: CategoryPatch) => void }) {
+  const pattern: 'direct' | 'vote' = cat.award_pattern === 'vote' ? 'vote' : 'direct';
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-md border bg-slate-50/40 px-2.5 py-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[10px] font-black tracking-widest uppercase text-slate-500">演出パターン</span>
+        <div className="inline-flex rounded-md border bg-white p-0.5 text-[11px]">
+          <button
+            onClick={() => onUpdate({ award_pattern: 'direct' })}
+            className={`px-2.5 py-1 rounded ${pattern === 'direct' ? 'bg-amber-600 text-white font-bold' : 'text-slate-600 hover:bg-slate-100'}`}
+          >
+            No.1発表
+          </button>
+          <button
+            onClick={() => onUpdate({ award_pattern: 'vote' })}
+            className={`px-2.5 py-1 rounded ${pattern === 'vote' ? 'bg-amber-600 text-white font-bold' : 'text-slate-600 hover:bg-slate-100'}`}
+          >
+            投票No.1決定
+          </button>
+        </div>
+        {pattern === 'vote' && (
+          <button
+            onClick={() => setOpen(!open)}
+            className="ml-auto text-[11px] text-amber-700 hover:underline"
+          >
+            投票文言を{open ? '閉じる' : '編集'}
+          </button>
+        )}
+      </div>
+      {pattern === 'vote' && open && (
+        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <PatternField label="タイトル (JA)" value={cat.poll_title ?? ''} onSave={(v) => onUpdate({ poll_title: v || null })} placeholder="最優秀新人賞" />
+          <PatternField label="タイトル (EN)" value={cat.poll_title_en ?? ''} onSave={(v) => onUpdate({ poll_title_en: v || null })} placeholder="Best Rookie" />
+          <PatternField label="質問文 (JA)" value={cat.poll_question ?? ''} onSave={(v) => onUpdate({ poll_question: v || null })} placeholder="Q.最優秀新人賞にふさわしいのは？" />
+          <PatternField label="質問文 (EN)" value={cat.poll_question_en ?? ''} onSave={(v) => onUpdate({ poll_question_en: v || null })} placeholder="Q. Who deserves the award?" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PatternField({ label, value, onSave, placeholder }: {
+  label: string; value: string; onSave: (v: string) => void; placeholder?: string;
+}) {
+  const [v, setV] = useState(value);
+  useEffect(() => { setV(value); }, [value]);
+  return (
+    <label className="flex flex-col gap-0.5">
+      <span className="text-[10px] font-semibold text-slate-500">{label}</span>
+      <input
+        value={v}
+        onChange={(e) => setV(e.target.value)}
+        onBlur={() => { if (v !== value) onSave(v.trim()); }}
+        placeholder={placeholder}
+        className="rounded border bg-white px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+      />
+    </label>
   );
 }
