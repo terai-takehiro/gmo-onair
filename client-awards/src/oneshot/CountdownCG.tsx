@@ -48,19 +48,19 @@ export default function CountdownCG({ targetIso, prefix, x, y, scale, lang }: Pr
     [targetMs, now]
   );
 
-  // v2.8.124: 00:00 到達でフェードアウト (1 秒ホールド → 1.2 秒で消える)。
-  // 旧版は deps に `parts` を渡していたため毎 250ms re-run → cleanup で setTimeout がキャンセル
-  // され続け、結果的に fading が発火しなかった。done をスカラ依存にして修正。
+  // v2.8.125: 00:00 到達後 600ms (= "00:00" を見せる時間) 経過したらカットアウト (フェードなし)。
   const done = !!parts?.done;
-  const [fading, setFading] = useState(false);
+  const [hidden, setHidden] = useState(false);
   useEffect(() => {
     if (!done) {
-      setFading(false);
+      setHidden(false);
       return;
     }
-    const id = window.setTimeout(() => setFading(true), 1000);
+    const id = window.setTimeout(() => setHidden(true), 600);
     return () => window.clearTimeout(id);
   }, [done]);
+
+  if (hidden) return null;
 
   const showDays = !!parts && parts.days > 0;
   const showHours = !!parts && (parts.hours > 0 || showDays);
@@ -69,7 +69,7 @@ export default function CountdownCG({ targetIso, prefix, x, y, scale, lang }: Pr
 
   return (
     <div
-      className={'oscg-countdown' + (fading ? ' oscg-countdown--fade' : '')}
+      className="oscg-countdown"
       style={{
         position: 'absolute',
         left: `${x}%`,
@@ -111,47 +111,52 @@ function DigitGroup({ value, digits }: { value: number; digits: number }) {
   );
 }
 
-// v2.8.123: 静止時に隣接桁が覗かないよう、現在桁と (変化中だけ) 直前桁のみレンダリング。
-// reel 自体は rotateX で目標位置へ回転、両面は同じ reel 内なので一緒に回って下から / 上へ抜ける。
+interface Slide {
+  /** 安定したアニメーションキー (React の key にも使用) */
+  id: number;
+  digit: number;
+}
+
+// v2.8.125: スロットマシン式の縦スライド。
+//  - 旧桁: 現在位置 → 上 (-100%) へ抜ける + opacity フェード
+//  - 新桁: 下 (+100%) → 現在位置へ滑り込む
+// 3D シリンダー方式 (~v2.8.124) は静止時/動作時とも違和感があったため撤回。
 function Digit({ value }: { value: number }) {
   const n = ((value % 10) + 10) % 10;
-  const [current, setCurrent] = useState(n);
-  const [previous, setPrevious] = useState<number | null>(null);
-  const timerRef = useRef<number | undefined>(undefined);
+  const idRef = useRef(0);
+  const [slides, setSlides] = useState<Slide[]>(() => [{ id: 0, digit: n }]);
 
   useEffect(() => {
-    if (n === current) return;
-    setPrevious(current);
-    setCurrent(n);
-    if (timerRef.current) window.clearTimeout(timerRef.current);
-    // reel の回転 (480ms) + フェードアウト完走後に直前桁を unmount
-    timerRef.current = window.setTimeout(() => setPrevious(null), 520);
-    return () => {
-      if (timerRef.current) window.clearTimeout(timerRef.current);
-    };
-  }, [n, current]);
+    setSlides((prev) => {
+      const last = prev[prev.length - 1];
+      if (last && last.digit === n) return prev;
+      idRef.current += 1;
+      return [...prev, { id: idRef.current, digit: n }];
+    });
+  }, [n]);
+
+  // 旧スライドはアニメ完走後に unmount
+  useEffect(() => {
+    if (slides.length <= 1) return;
+    const id = window.setTimeout(() => {
+      setSlides((prev) => prev.slice(-1));
+    }, 520);
+    return () => window.clearTimeout(id);
+  }, [slides]);
 
   return (
     <span className="oscg-digit">
-      <span
-        className="oscg-digit-reel"
-        style={{ transform: `rotateX(${-current * 36}deg)` }}
-      >
-        <span
-          className="oscg-digit-face"
-          style={{ transform: `rotateX(${current * 36}deg) translateZ(var(--oscg-digit-r))` }}
-        >
-          {current}
-        </span>
-        {previous !== null && previous !== current && (
+      {slides.map((s, i) => {
+        const isLeaving = i < slides.length - 1;
+        return (
           <span
-            className="oscg-digit-face oscg-digit-face--leaving"
-            style={{ transform: `rotateX(${previous * 36}deg) translateZ(var(--oscg-digit-r))` }}
+            key={s.id}
+            className={'oscg-digit-face' + (isLeaving ? ' is-leaving' : ' is-entering')}
           >
-            {previous}
+            {s.digit}
           </span>
-        )}
-      </span>
+        );
+      })}
     </span>
   );
 }
