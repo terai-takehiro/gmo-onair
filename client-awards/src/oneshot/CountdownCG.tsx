@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import type { Lang } from './types';
 
 interface Props {
@@ -48,6 +48,22 @@ export default function CountdownCG({ targetIso, prefix, x, y, scale, lang }: Pr
     [targetMs, now]
   );
 
+  // v2.8.122: 00:00 到達でフェードアウト (1 秒ホールド → 1.2 秒で消える)
+  const [fading, setFading] = useState(false);
+  const fadingRef = useRef(false);
+  useEffect(() => {
+    if (parts?.done && !fadingRef.current) {
+      fadingRef.current = true;
+      const id = window.setTimeout(() => setFading(true), 1000);
+      return () => window.clearTimeout(id);
+    }
+    if (parts && !parts.done && fadingRef.current) {
+      // target が更新されてカウントダウン再開されたら復活
+      fadingRef.current = false;
+      setFading(false);
+    }
+  }, [parts]);
+
   const showDays = !!parts && parts.days > 0;
   const showHours = !!parts && (parts.hours > 0 || showDays);
   const dayLabel = lang === 'en' ? 'd' : '日';
@@ -55,7 +71,7 @@ export default function CountdownCG({ targetIso, prefix, x, y, scale, lang }: Pr
 
   return (
     <div
-      className="oscg-countdown"
+      className={'oscg-countdown' + (fading ? ' oscg-countdown--fade' : '')}
       style={{
         position: 'absolute',
         left: `${x}%`,

@@ -130,6 +130,9 @@ export default function OneShotControlPage() {
   // v2.8.70+: 画像 (Portrait) 表示 ON/OFF
   const [showPortrait, setShowPortrait] = useState(true);
 
+  // v2.8.122+: コントロール列のタブ ('main' = モジュール/ティッカー / 'countdown' = カウントダウン)
+  const [controlTab, setControlTab] = useState<'main' | 'countdown'>('main');
+
   // v2.8.121+: カウントダウンテロップ (独立 CG レイヤー)
   const [countdownOn, setCountdownOn] = useState(false);
   const [countdownTarget, setCountdownTarget] = useState<string | null>(null);
@@ -741,20 +744,59 @@ export default function OneShotControlPage() {
             </div>
           </div>
 
-          {/* Controls column */}
+          {/* Controls column — v2.8.122+: タブで送出/カウントダウンを切替 */}
           <div className="flex-1 min-w-0 space-y-2">
-            <ModulePickerRow
-              modules={previewModules}
-              selected={previewModule}
-              onSelect={setPreviewModule}
-              lang={lang}
-            />
-            <TickerControlRow
-              on={tickerFlow.on}
-              currentAward={currentAward}
-              onToggle={onToggleTicker}
-            />
-            {/* v2.8.77+: 画像 ON/OFF はチップ化して TAKE 行と一緒に flex-wrap */}
+            <div className="flex items-center gap-1 border-b border-slate-800">
+              {([
+                { id: 'main', label: '送出' },
+                { id: 'countdown', label: 'カウントダウン', live: countdownOn },
+              ] as const).map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setControlTab(t.id)}
+                  className={cn(
+                    'relative px-3 py-1.5 text-[11px] font-black tracking-widest uppercase transition-colors -mb-px border-b-2',
+                    controlTab === t.id
+                      ? 'text-amber-400 border-amber-500'
+                      : 'text-slate-400 border-transparent hover:text-slate-200'
+                  )}
+                >
+                  {t.label}
+                  {('live' in t && t.live) && (
+                    <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {controlTab === 'main' ? (
+              <>
+                <ModulePickerRow
+                  modules={previewModules}
+                  selected={previewModule}
+                  onSelect={setPreviewModule}
+                  lang={lang}
+                />
+                <TickerControlRow
+                  on={tickerFlow.on}
+                  currentAward={currentAward}
+                  onToggle={onToggleTicker}
+                />
+              </>
+            ) : (
+              <CountdownControlPanel
+                on={countdownOn}
+                target={countdownTarget}
+                prefixJa={countdownPrefixJa}
+                prefixEn={countdownPrefixEn}
+                x={countdownX}
+                y={countdownY}
+                scale={countdownScale}
+                onChange={onChangeCountdown}
+              />
+            )}
+
+            {/* TAKE/CLEAR は常時表示 (タブを跨いで操作可能) */}
             <SendActionRow
               isLive={isLive}
               transparent={transparent}
@@ -764,17 +806,6 @@ export default function OneShotControlPage() {
               onToggleTransparent={onToggleTransparent}
               onTogglePortrait={onTogglePortrait}
             />
-            <CountdownControlPanel
-              on={countdownOn}
-              target={countdownTarget}
-              prefixJa={countdownPrefixJa}
-              prefixEn={countdownPrefixEn}
-              x={countdownX}
-              y={countdownY}
-              scale={countdownScale}
-              onChange={onChangeCountdown}
-            />
-            {/* ShortcutHints は sm 以上 (タブレット縦向き ~) でのみ表示 */}
             <div className="hidden sm:block">
               <ShortcutHints />
             </div>
