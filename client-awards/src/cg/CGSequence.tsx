@@ -7,6 +7,8 @@ import StepTitle from './steps/StepTitle';
 import StepRanking from './steps/StepRanking';
 import StepTop3 from './steps/StepTop3';
 import StepOneShot from './steps/StepOneShot';
+import StepPoll from './steps/StepPoll';
+import StepVoteReveal from './steps/StepVoteReveal';
 
 interface Props {
   cue: CgCueState;
@@ -28,6 +30,7 @@ function mapEntry(e: CgCategory['entries'][number]): CgMappedEntry {
     orgEn: e.org_en ?? undefined,
     points: e.points ?? 0,
     ownPoints: e.own_points ?? undefined,
+    voteCount: e.vote_count ?? 0,
     photo: e.photo_url ?? undefined,
     is_winner: e.is_winner,
   };
@@ -88,10 +91,19 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
   const showWinnerBar = stepKey === 'winner-bar' || stepKey === 'oneshot';
   const onPhotoStage = ['nominees', 'ranks52', 'top3', 'winner-bar', 'oneshot'].includes(stepKey);
   const showTop3 = stepKey === 'top3';
+  const showPoll = stepKey === 'poll';
+  const showVoteReveal = stepKey === 'vote-reveal';
 
   if (stepKey === 'idle') return null;
 
   const winner = sorted.find((e) => e.rank === 1) ?? null;
+  // vote-reveal の winner は vote_count 最大値で決まる
+  const voteWinner = useMemo(() => {
+    if (!sorted.length) return null;
+    const top3 = sorted.filter((e) => e.rank >= 1 && e.rank <= 3);
+    const pool = top3.length ? top3 : sorted;
+    return pool.reduce((a, b) => ((b.voteCount ?? 0) > (a.voteCount ?? 0) ? b : a));
+  }, [sorted]);
 
   // Suppress unused import warning from layout.ts
   void STEP_ORDER;
@@ -111,8 +123,10 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
     >
       <CGBackground transparent={transparent} />
 
-      {/* Persistent morphing header */}
-      <PersistentHeader key={`hdr-${persistKey}`} tweaks={tweaks} stepKey={stepKey} />
+      {/* Persistent morphing header — poll / vote-reveal は専用レイアウトのため非表示 */}
+      {stepKey !== 'poll' && stepKey !== 'vote-reveal' && (
+        <PersistentHeader key={`hdr-${persistKey}`} tweaks={tweaks} stepKey={stepKey} />
+      )}
 
       {/* Title step — remounts per session */}
       {stepKey === 'title' && <StepTitle key={`title-${persistKey}`} />}
@@ -166,6 +180,31 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
           key={`oneshot-${persistKey}`}
           entry={winner}
           style={cue.oneshotStyle}
+          categoryParent={tweaks.categoryParent}
+          categoryChild={tweaks.categoryChild}
+          lang={lang}
+        />
+      )}
+
+      {/* Poll — アンケート投票画面 (vote パターン) */}
+      {showPoll && (
+        <StepPoll
+          key={`poll-${persistKey}-${cue.pollStartedAt ?? 'idle'}`}
+          category={category}
+          entries={sorted}
+          startedAt={cue.pollStartedAt}
+          lang={lang}
+        />
+      )}
+
+      {/* Vote reveal — 投票結果棒グラフ → 大賞 */}
+      {showVoteReveal && (
+        <StepVoteReveal
+          key={`vote-${persistKey}`}
+          entries={sorted}
+          winner={voteWinner}
+          phase={cue.revealPhase}
+          display={cue.voteDisplay}
           categoryParent={tweaks.categoryParent}
           categoryChild={tweaks.categoryChild}
           lang={lang}

@@ -54,13 +54,19 @@ router.post('/events/:eventId/categories', wrap(async (req, res) => {
 // ── 更新 ────────────────────────────────────────────────────
 router.put('/categories/:id', wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
-  const { name, name_en, description, description_en, display_order } = req.body;
+  const { name, name_en, description, description_en, display_order,
+          award_pattern, poll_title, poll_title_en, poll_question, poll_question_en } = req.body;
   if (!name?.trim()) throw new AppError(400, 'BAD_REQUEST', 'name は必須です');
+
+  const pattern = award_pattern === 'vote' ? 'vote' : (award_pattern === 'direct' ? 'direct' : null);
 
   const row = await queryOne(
     `UPDATE awards_categories
        SET name=?, name_en=?, description=?, description_en=?,
-           display_order=COALESCE(?, display_order), updated_at=NOW()
+           display_order=COALESCE(?, display_order),
+           award_pattern=COALESCE(?, award_pattern),
+           poll_title=?, poll_title_en=?, poll_question=?, poll_question_en=?,
+           updated_at=NOW()
      WHERE id=? RETURNING *`,
     [
       name.trim(),
@@ -68,11 +74,38 @@ router.put('/categories/:id', wrap(async (req, res) => {
       description ?? null,
       description_en?.trim() || null,
       display_order ?? null,
+      pattern,
+      poll_title?.trim?.() || null,
+      poll_title_en?.trim?.() || null,
+      poll_question?.trim?.() || null,
+      poll_question_en?.trim?.() || null,
       id,
     ]
   );
   if (!row) throw new AppError(404, 'NOT_FOUND', 'カテゴリが見つかりません');
   res.json({ success: true, data: row });
+}));
+
+// ── 投票数の一括更新 (vote-reveal 用) ────────────────────────
+router.put('/categories/:id/vote-counts', wrap(async (req, res) => {
+  const id = parseInt(req.params.id as string);
+  const { counts } = req.body as { counts: { entryId: number; voteCount: number }[] };
+  if (!Array.isArray(counts)) throw new AppError(400, 'BAD_REQUEST', 'counts は配列です');
+
+  for (const c of counts) {
+    if (typeof c.entryId !== 'number') continue;
+    const vc = Math.max(0, Math.floor(Number(c.voteCount) || 0));
+    await execute(
+      `UPDATE awards_entries SET vote_count=?, updated_at=NOW() WHERE id=? AND category_id=?`,
+      [vc, c.entryId, id]
+    );
+  }
+
+  const rows = await queryAll(
+    `SELECT id, vote_count FROM awards_entries WHERE category_id=? ORDER BY id`,
+    [id]
+  );
+  res.json({ success: true, data: rows });
 }));
 
 // ── 並び替え ────────────────────────────────────────────────
