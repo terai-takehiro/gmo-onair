@@ -31,9 +31,11 @@ export default function StepPoll({ category, entries, startedAt, lang }: Props) 
   const title = lang === 'en'
     ? (category?.poll_title_en || category?.poll_title || category?.name_en || category?.name || '')
     : (category?.poll_title || category?.name || '');
-  const question = lang === 'en'
+  const rawQuestion = lang === 'en'
     ? (category?.poll_question_en || category?.poll_question || 'Who deserves the award?')
     : (category?.poll_question || 'ふさわしいのは？');
+  // 縦書き時は半角 ?/! を全角に正規化して中央配置になるように
+  const question = lang === 'ja' ? rawQuestion.replace(/\?/g, '？').replace(/!/g, '！') : rawQuestion;
 
   const [remaining, setRemaining] = useState(POLL_DURATION_MS);
   useEffect(() => {
@@ -370,7 +372,8 @@ function VerticalText({ text, fontSize, color, weight, maxHeight }: {
         textShadow: '0 4px 22px rgba(0,0,0,0.95), 0 0 14px rgba(245,215,110,0.15)',
         transform: scale < 1 ? `scaleY(${scale})` : 'none',
         transformOrigin: 'center center',
-        fontFeatureSettings: '"palt" 1',
+        fontFeatureSettings: '"vert" 1, "palt" 1',
+        textOrientation: 'mixed',
       }}>
         {text}
       </div>
