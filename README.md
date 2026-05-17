@@ -5,7 +5,9 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.128 — 表彰CG 投票パターン UX 刷新（オールスター感謝祭風レイアウト・大型 PinP・スライド型カウントダウン・ラスト5秒巨大表示・棒グラフ豪華化・自動 GRAND PRIX 遷移・GRAND PRIX フルスクリーン刷新）+ **余興用 3 択 Standalone Poll** を新設（表彰DB と独立、画像入稿 or 画像なしも可）
+**現在のバージョン**: v2.8.129 — 表彰CG 投票演出のリファイン: Poll レイアウトをモックアップ準拠（左 1380×800 大型カメラ枠 + 右パネル縦書きタイトル/質問 + Q バッジ）、TOP3 を 1,2,3 番号なし + 初回は順番発表/poll 後は overlap、vote-reveal をアカデミー賞風フォーマル演出に全面刷新（黒地 + 細いゴールド + Noto Serif JP、派手な原色/パーティクル/ビームを全廃）
+
+旧 v2.8.128: 表彰CG 投票パターン UX 刷新（オールスター感謝祭風レイアウト・大型 PinP・スライド型カウントダウン・ラスト5秒巨大表示・棒グラフ豪華化・自動 GRAND PRIX 遷移・GRAND PRIX フルスクリーン刷新）+ **余興用 3 択 Standalone Poll** を新設（表彰DB と独立、画像入稿 or 画像なしも可）
 
 ---
 
@@ -401,6 +403,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.8.129** | **表彰CG 投票演出のリファイン (dev)**: ①Poll レイアウトをモックアップ準拠に大改造（左 1380×800 大型カメラ枠 / 右パネルに Q バッジ + 賞タイトル オレンジ縦帯 + 質問文 縦書き / 下部 3 択帯はカメラ幅と揃え / 右下に 140×140 カウントダウン円）。②TOP3 から 1,2,3 ランクバッジを撤去（vote パターン時 `hideRankBadge` prop）。③TOP3 の初回（poll 前）は 3→2→1 順番発表に戻し、poll 経由の自動 top3 復帰時のみ overlap 一気切替（`cue.revealPhase=1` を marker に使用）。④vote-reveal を**アカデミー賞風フォーマル演出**に全面刷新: 派手な原色 (青/赤/緑)・パーティクル・スキャンライン・放射ビームを全廃、黒地 + 控えめスポット + 細い 1px ゴールド ヘアライン + 4 隅薄装飾 + 細身ゴールドグラデのバー + Noto Serif JP 採用。⑤GrandWinner も同様にミニマル化（4 段ステージング: 賞名 → "受賞者は…" 中間 → 写真 fadeIn → ヘアライン → 名前 96px）、conic-gradient 枠 / 紙吹雪 / 4 隅星装飾を全廃。 |
 | **v2.8.128** | **表彰CG 投票パターン UX 刷新 + 余興 Standalone Poll を新設 (dev)**: ①Poll 画面をオールスター感謝祭風に刷新（中央 1300×720 の大型 PinP カメラ枠 + CSS mask で**アルファ透過くり抜き**、賑やかな award 背景 = 中央スポット + 斜め光線 + 80 個キラキラ）。②スライド型カウントダウン（数字変化で旧桁が下にワイプアウト + 新桁が上から滑り込む 520ms cubic-bezier）。③**ラスト 5 秒**は右上円から中央 320×320 巨大表示 + 拡散ハロ + パルスに切り替わる。④Vote-reveal 棒グラフを豪華化（メタリック 3D 風グラデーション + grow 中の `voteBarShine` スキャンライン + 棒上端から立ち上がる火花パーティクル、放射 16 ビーム背景）。⑤grow 完了 2.8s 後に**自動で GRAND PRIX**（operator の TAKE 不要）。⑥GRAND PRIX フルスクリーン刷新（フラッシュ → SVG フレーム描画 → タイトル → 写真 ズームイン + 4 隅星 + conic-gradient 回転枠 → 110px ゴールドグラデ名前 + glow パルス + 60 個紙吹雪）。⑦投票後 TOP3 は `hidePoints` モードで pt 非表示 + 3 枠同時オーバーラップ切替。⑧投票数入力を `type="text" inputMode="numeric"` で自由入力可能に。⑨**余興 Standalone Poll**: 新ルート `/standalone-poll/:room` + 出力 `/awards/output/standalone-poll/:room`。表彰DB と完全独立、operator UI でタイトル/質問/3 選択肢 (名前・会社・画像 file 入稿 → canvas 480px 縮小 → data URL) を直接入力。画像なしも成立。フロー = idle → poll (30s) → 自動 reveal (shake → TAKE → 自動 winner) → GRAND PRIX。socket は `?pollRoom=xxx` で per-room (in-memory、DB 不使用)。 |
 | **v2.8.127** | **Hotfix: 表彰CG operator が React error #310 (Hooks 違反) でクラッシュ (dev)**: v2.8.125 で `CGSequence` に追加した `voteWinner` 用 `useMemo` を `if (stepKey === 'idle') return null` の**後ろ**に置いていたため、idle ステップ時と他ステップで hooks 数が変化して "Rendered more hooks than during the previous render" エラー発生。早期 return より前に移動して解消（CLAUDE.md v2.8.81 と同パターン）。 |
 | **v2.8.126** | **下位置CG カウントダウン アニメ刷新 + 00:00 カットアウト (dev)**: ①3D シリンダー方式 (v2.8.121〜124) を撤回し、スロットマシン式の縦スライドに変更。新桁は下から `translateY 100% → 0` で滑り込み、旧桁は上へ `0 → -100%` で抜ける + opacity フェード（in: cubic-bezier(.22,.8,.36,1) / out: (.4,0,.68,.35), 480ms）。Digit に `slides: Slide[]` を持たせ、value 変化で push → 520ms 後に古いものを slice。②00:00 はフェード演出を撤去してカットアウト化（done 検知から 600ms ホールド後に hidden=true で return null、CSS transition なし）。③cylinder 関連 CSS (perspective / preserve-3d / reel / 上下マスク / leaving keyframes) を整理。 |

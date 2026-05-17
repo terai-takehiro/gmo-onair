@@ -160,7 +160,8 @@ export default function ControlPage() {
         revealPhase: 0,
       });
       pollTimerRef.current = window.setTimeout(() => {
-        sendCue({ step: 'top3', pollStartedAt: null });
+        // revealPhase=1 マーカー: 「poll を経た top3 表示」(オーバーラップ切替)
+        sendCue({ step: 'top3', pollStartedAt: null, revealPhase: 1 });
       }, POLL_DURATION_MS + POLL_REVERT_DELAY_MS);
       return;
     }

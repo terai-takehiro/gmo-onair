@@ -9,16 +9,14 @@ interface Props {
   entries: CgMappedEntry[];
   lang?: 'ja' | 'en';
   hidePoints?: boolean;
+  simultaneousReveal?: boolean; // true: 一気にオーバーラップ表示 / false: 順番に発表
+  hideRankBadge?: boolean;      // true: 1,2,3 のランクバッジを描画しない
 }
 
-/** Phase 1: ランクバッジ + 空のカードフレーム + ポイント数字が出る。
- *  Phase 2: 写真本体 + 会社名 + 氏名がクロスフェードで現れる。
- *  3→2→1 の順で stagger。テンポはゆっくり目（全体 ~6 秒）。
- *  hidePoints=true の時は pt を出さず、3 枠を同時にオーバーラップ切替で表示。 */
 const POINTS_DELAY: Record<number, number> = { 3:  600, 2: 2400, 1: 4200 };
 const REVEAL_DELAY: Record<number, number> = { 3: 1500, 2: 3300, 1: 5100 };
 
-export default function StepTop3({ entries, lang = 'ja', hidePoints = false }: Props) {
+export default function StepTop3({ entries, lang = 'ja', hidePoints = false, simultaneousReveal = false, hideRankBadge = false }: Props) {
   const top3 = [...entries]
     .sort((a, b) => a.rank - b.rank)
     .filter((e) => e.rank >= 1 && e.rank <= 3);
@@ -29,8 +27,7 @@ export default function StepTop3({ entries, lang = 'ja', hidePoints = false }: P
   useEffect(() => {
     setPointsShown({});
     setRevealed({});
-    if (hidePoints) {
-      // 投票後の表示: 一気にオーバーラップ切替
+    if (simultaneousReveal) {
       const t = setTimeout(() => {
         setPointsShown({ 1: true, 2: true, 3: true });
         setRevealed({ 1: true, 2: true, 3: true });
@@ -47,7 +44,7 @@ export default function StepTop3({ entries, lang = 'ja', hidePoints = false }: P
       );
     });
     return () => timers.forEach(clearTimeout);
-  }, [hidePoints]);
+  }, [simultaneousReveal]);
 
   return (
     <div style={{ position: 'absolute', inset: 0, zIndex: 6 }}>
@@ -59,6 +56,7 @@ export default function StepTop3({ entries, lang = 'ja', hidePoints = false }: P
           revealed={revealed[e.rank] === true}
           lang={lang}
           hidePoints={hidePoints}
+          hideRankBadge={hideRankBadge}
         />
       ))}
     </div>
@@ -71,9 +69,10 @@ interface CardProps {
   revealed: boolean;
   lang?: 'ja' | 'en';
   hidePoints?: boolean;
+  hideRankBadge?: boolean;
 }
 
-function Top3Card({ entry, pointsShown, revealed, lang = 'ja', hidePoints = false }: CardProps) {
+function Top3Card({ entry, pointsShown, revealed, lang = 'ja', hidePoints = false, hideRankBadge = false }: CardProps) {
   const pos = TOP3_POS[entry.rank as 1 | 2 | 3];
   if (!pos) return null;
   const displayName    = lang === 'en' ? (entry.nameEn || entry.name)    : entry.name;
@@ -111,28 +110,30 @@ function Top3Card({ entry, pointsShown, revealed, lang = 'ja', hidePoints = fals
         willChange: 'transform, opacity',
       }}
     >
-      {/* Rank number badge — Phase 1 から表示 */}
-      <div
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          top: -90,
-          textAlign: 'center',
-          fontFamily: "'Bebas Neue', sans-serif",
-          fontSize: 76,
-          lineHeight: 1,
-          background: isFirst
-            ? 'linear-gradient(180deg, #FFFBE6 0%, #FFEFB0 18%, #F5D76E 45%, #C9A24B 75%, #8C6314 100%)'
-            : 'linear-gradient(180deg, #e8dcb6 0%, #bfa15a 55%, #6e5321 100%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          letterSpacing: '0.04em',
-          textShadow: isFirst ? '0 0 40px rgba(245,215,110,0.55)' : 'none',
-        }}
-      >
-        {entry.rank}
-      </div>
+      {/* Rank number badge */}
+      {!hideRankBadge && (
+        <div
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: -90,
+            textAlign: 'center',
+            fontFamily: "'Bebas Neue', sans-serif",
+            fontSize: 76,
+            lineHeight: 1,
+            background: isFirst
+              ? 'linear-gradient(180deg, #FFFBE6 0%, #FFEFB0 18%, #F5D76E 45%, #C9A24B 75%, #8C6314 100%)'
+              : 'linear-gradient(180deg, #e8dcb6 0%, #bfa15a 55%, #6e5321 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            letterSpacing: '0.04em',
+            textShadow: isFirst ? '0 0 40px rgba(245,215,110,0.55)' : 'none',
+          }}
+        >
+          {entry.rank}
+        </div>
+      )}
 
       {/* Photo frame: 枠は Phase 1 から表示、写真本体は Phase 2 でフェードイン */}
       <div

@@ -157,10 +157,12 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
 
         {showTop3 && (
           <StepTop3
-            key={`top3-${persistKey}`}
+            key={`top3-${persistKey}-${cue.revealPhase}`}
             entries={sorted}
             lang={lang}
             hidePoints={category?.award_pattern === 'vote'}
+            hideRankBadge={category?.award_pattern === 'vote'}
+            simultaneousReveal={category?.award_pattern === 'vote' && cue.revealPhase >= 1}
           />
         )}
 
