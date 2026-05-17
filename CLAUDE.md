@@ -33,7 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.145 — Poll 質問文の縦書き仕様調整: ①**上合わせ**に変更 (alignItems: flex-start、旧 center)、②**改行禁止** (white-space: nowrap) で常に 1 列、③transformOrigin: top center で上端基準の長体圧縮、④scale 下限を 0.62 → **0.40** に下げてより強い圧縮を許容、⑤質問専用の questionMaxH = 490 を新設し、**カウントダウン丸 (top: y=820) に被らない位置**までに制限。長文時はそこから自動で長体 (scaleY) で調整。letter-spacing も isLong 時は -0.06em に詰めて密に。
+v2.8.146 — Poll 選択肢高さ縮小 + Vote-reveal の大賞タイトルを poll_title 表記に。①選択肢ベースを CHOICES_H 140 → 100 に縮小、CHOICES_Y は 904 のまま保持 → 下端 1004 で、下に 76px の余白が空く (旧 36px)。②Vote-reveal Phase 2 (大賞フルスクリーン) の categoryChild を category.name (例: 新人賞) ではなく **poll_title** (例: 最優秀新人賞、operator が手入力した文言) に変更。CGSequence で StepVoteReveal に渡す categoryChild を `category.poll_title || tweaks.categoryChild` で上書き、EN 時は poll_title_en を優先。投票の手入力タイトルが大賞リザルトでも一貫して表示される。
+
+(v2.8.145 — Poll 質問文の縦書き仕様調整: ①**上合わせ**に変更 (alignItems: flex-start、旧 center)、②**改行禁止** (white-space: nowrap) で常に 1 列、③transformOrigin: top center で上端基準の長体圧縮、④scale 下限を 0.62 → **0.40** に下げてより強い圧縮を許容、⑤質問専用の questionMaxH = 490 を新設し、**カウントダウン丸 (top: y=820) に被らない位置**までに制限。長文時はそこから自動で長体 (scaleY) で調整。letter-spacing も isLong 時は -0.06em に詰めて密に。)
 
 (v2.8.144 — BEST3 カード間隔拡大 + Poll 選択肢の位置調整。①**BEST3 (StepTop3) のカード間隔を広げる**: `TOP3_GAP` を `56 → 120` に拡大。3 枚のカード間にゆとりを持たせ、視覚的に独立した印象に。②**Poll 選択肢ベースの高さと位置を調整**: `CHOICES_H` を 182 → **140 (元に戻す)** で高さは長くせず、`CHOICES_Y = 1080 - 36 - 140 = 904` に変更し、**下端をカウントダウン丸の下端 (1044) と揃える**。下のスペースが 36px 確保され、丸とラインが揃って全体のリズムが整う。)
 

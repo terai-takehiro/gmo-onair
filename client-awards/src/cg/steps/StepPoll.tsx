@@ -21,9 +21,9 @@ const RIGHT_W = 1920 - RIGHT_X - 60;
 const RIGHT_Y = CAM_Y;
 const RIGHT_H = CAM_H;
 
-// 選択肢ベース: 高さは元 (140) を維持、下端をカウントダウン丸の下端 (1080-36=1044) に合わせる
-const CHOICES_H = 140;
-const CHOICES_Y = 1080 - 36 - CHOICES_H; // = 904
+// 選択肢ベース: 高さを狭めて、下に余白を確保
+const CHOICES_H = 100;
+const CHOICES_Y = 904; // top はそのまま、bottom は 1004 (下に 76px の余白)
 
 const GOLD_BRIGHT = '#FFE8A8';
 const GOLD = '#E8C56C';

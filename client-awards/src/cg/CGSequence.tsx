@@ -201,7 +201,7 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
         />
       )}
 
-      {/* Vote reveal — 投票結果棒グラフ → 大賞 */}
+      {/* Vote reveal — 投票結果棒グラフ → 大賞 (categoryChild は poll_title を優先) */}
       {showVoteReveal && (
         <StepVoteReveal
           key={`vote-${persistKey}`}
@@ -210,7 +210,11 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
           phase={cue.revealPhase}
           display={cue.voteDisplay}
           categoryParent={tweaks.categoryParent}
-          categoryChild={tweaks.categoryChild}
+          categoryChild={
+            lang === 'en'
+              ? (category?.poll_title_en || category?.poll_title || tweaks.categoryChild)
+              : (category?.poll_title || tweaks.categoryChild)
+          }
           lang={lang}
           oneshotStyle={cue.oneshotStyle}
           transparent={transparent}
