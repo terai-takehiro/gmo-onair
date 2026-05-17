@@ -26,9 +26,6 @@ const CHOICES_H = 1080 - CHOICES_Y - 32;
 const GOLD_BRIGHT = '#FFE8A8';
 const GOLD = '#E8C56C';
 const GOLD_DEEP = '#9E7B2E';
-const ORANGE_LIGHT = '#FF8A3D';
-const ORANGE_DEEP = '#C8431A';
-
 export default function StepPoll({ category, entries, startedAt, lang }: Props) {
   const choices = useMemo(() => entries.filter((e) => e.rank >= 1 && e.rank <= 3), [entries]);
   const title = lang === 'en'
@@ -256,9 +253,40 @@ function CornerOrnament({ pos }: { pos: 'tl' | 'tr' | 'bl' | 'br' }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// RightColumn: Q バッジ + 縦帯タイトル + 縦書き質問文 (写真撮影風)
+// RightColumn: 右に [Q + タイトル縦書き] スタック、左に質問縦書き
+// アワード金基調 (オレンジ廃止)
 // ═══════════════════════════════════════════════════════════════════
 function RightColumn({ title, question, isJa }: { title: string; question: string; isJa: boolean }) {
+  if (!isJa) {
+    return (
+      <div style={{
+        position: 'absolute',
+        left: RIGHT_X, top: RIGHT_Y,
+        width: RIGHT_W, height: RIGHT_H,
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'flex-end',
+        paddingTop: 40,
+      }}>
+        <div style={{
+          fontFamily: "'Noto Sans JP', sans-serif",
+          fontWeight: 900, fontSize: 96, lineHeight: 1,
+          background: `linear-gradient(180deg, ${GOLD_BRIGHT} 0%, ${GOLD} 60%, ${GOLD_DEEP} 100%)`,
+          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+          filter: 'drop-shadow(0 4px 22px rgba(0,0,0,0.85))',
+          marginBottom: 18,
+        }}>Q</div>
+        <TitleBand text={title} horizontal />
+        <div style={{
+          marginTop: 22,
+          fontFamily: "'Noto Sans JP', sans-serif",
+          fontWeight: 900, fontSize: 44, color: '#fff',
+          letterSpacing: '0.02em',
+          textShadow: '0 2px 16px rgba(0,0,0,0.85)',
+          lineHeight: 1.15, textAlign: 'right',
+        }}>{question}</div>
+      </div>
+    );
+  }
   return (
     <div style={{
       position: 'absolute',
@@ -268,130 +296,88 @@ function RightColumn({ title, question, isJa }: { title: string; question: strin
       flexDirection: 'row',
       alignItems: 'flex-start',
       justifyContent: 'flex-end',
-      gap: 26,
+      gap: 28,
+      paddingTop: 6,
     }}>
-      {isJa ? (
-        <>
-          {/* 質問文 縦書き */}
-          <div style={{
-            writingMode: 'vertical-rl',
-            fontFamily: "'Noto Serif JP', 'Noto Sans JP', serif",
-            fontWeight: 900,
-            fontSize: 76,
-            color: '#fff',
-            letterSpacing: '0.04em',
-            lineHeight: 1.15,
-            textShadow: '0 4px 24px rgba(0,0,0,0.95), 0 0 16px rgba(245,215,110,0.18)',
-            maxHeight: RIGHT_H - 10,
-            paddingTop: 30,
-          }}>
-            {question}
-          </div>
+      {/* 質問文 縦書き (左) */}
+      <div style={{
+        writingMode: 'vertical-rl',
+        fontFamily: "'Noto Sans JP', sans-serif",
+        fontWeight: 900, fontSize: 70, color: '#fff',
+        letterSpacing: '0.04em', lineHeight: 1.18,
+        textShadow: '0 4px 22px rgba(0,0,0,0.95), 0 0 14px rgba(245,215,110,0.15)',
+        maxHeight: RIGHT_H - 20,
+        paddingTop: 70,
+      }}>
+        {question}
+      </div>
 
-          {/* タイトル オレンジ縦帯 (深み + ハイライト + ゴールド エッジ) */}
-          <TitleBand text={title} />
-
-          {/* Q バッジ */}
-          <QBadge />
-        </>
-      ) : (
-        <div style={{ width: '100%', textAlign: 'right', paddingTop: 30 }}>
-          <div style={{
-            display: 'inline-block',
-            fontFamily: "'Bebas Neue', serif",
-            fontSize: 92, color: GOLD_BRIGHT,
-            letterSpacing: '0.04em',
-            textShadow: '0 4px 24px rgba(0,0,0,0.85), 0 0 18px rgba(245,215,110,0.5)',
-            marginBottom: 12,
-          }}>Q</div>
-          <div style={{
-            display: 'inline-block',
-            padding: '14px 28px',
-            background: `linear-gradient(180deg, ${ORANGE_LIGHT}, ${ORANGE_DEEP})`,
-            border: `2px solid ${GOLD_BRIGHT}`,
-            boxShadow: `0 10px 40px rgba(200,60,20,0.55), inset 0 2px 0 rgba(255,255,255,0.3), 0 0 24px rgba(245,215,110,0.25)`,
-            fontFamily: "'Noto Serif JP', serif",
-            fontWeight: 900,
-            fontSize: 44,
-            color: '#fff',
-            letterSpacing: '0.04em',
-            textShadow: '0 2px 8px rgba(0,0,0,0.5)',
-            marginBottom: 18,
-          }}>{title}</div>
-          <div style={{
-            fontFamily: "'Noto Serif JP', serif",
-            fontWeight: 900,
-            fontSize: 48,
-            color: '#fff',
-            letterSpacing: '0.02em',
-            textShadow: '0 2px 16px rgba(0,0,0,0.85)',
-            lineHeight: 1.15,
-          }}>{question}</div>
-        </div>
-      )}
+      {/* Q + タイトル スタック (右) */}
+      <QTitleStack title={title} />
     </div>
   );
 }
 
-function TitleBand({ text }: { text: string }) {
+function QTitleStack({ title }: { title: string }) {
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      gap: 14, maxHeight: RIGHT_H,
+    }}>
+      {/* Q */}
+      <div style={{
+        fontFamily: "'Noto Sans JP', sans-serif",
+        fontWeight: 900, fontSize: 130, lineHeight: 1,
+        background: `linear-gradient(180deg, ${GOLD_BRIGHT} 0%, ${GOLD} 50%, ${GOLD_DEEP} 100%)`,
+        WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+        filter: 'drop-shadow(0 4px 22px rgba(0,0,0,0.85)) drop-shadow(0 0 16px rgba(245,215,110,0.4))',
+        padding: '0 12px',
+      }}>Q</div>
+      {/* 区切り ヘアライン */}
+      <div style={{
+        width: 92, height: 1,
+        background: `linear-gradient(90deg, transparent, ${GOLD_BRIGHT}, transparent)`,
+        opacity: 0.85,
+      }}/>
+      {/* タイトル 縦帯 */}
+      <TitleBand text={title} />
+    </div>
+  );
+}
+
+function TitleBand({ text, horizontal = false }: { text: string; horizontal?: boolean }) {
   return (
     <div style={{
       position: 'relative',
-      writingMode: 'vertical-rl',
-      padding: '28px 22px',
-      background: `linear-gradient(180deg, ${ORANGE_LIGHT} 0%, #e8631f 55%, ${ORANGE_DEEP} 100%)`,
-      fontFamily: "'Noto Serif JP', 'Noto Sans JP', serif",
-      fontWeight: 900,
-      fontSize: 64,
-      color: '#fff',
-      letterSpacing: '0.14em',
-      lineHeight: 1.0,
-      textShadow: '0 2px 8px rgba(80,20,0,0.65), 0 1px 0 rgba(255,255,255,0.18)',
-      maxHeight: RIGHT_H - 130,
+      writingMode: horizontal ? 'horizontal-tb' : 'vertical-rl',
+      padding: horizontal ? '14px 28px' : '30px 22px',
+      background: 'linear-gradient(180deg, rgba(38,30,16,0.97) 0%, rgba(18,12,5,0.98) 100%)',
+      border: `2px solid ${GOLD}`,
       boxShadow: `
-        0 14px 48px rgba(200,60,20,0.5),
-        inset 0 2px 0 rgba(255,255,255,0.3),
-        inset 0 -2px 0 rgba(80,20,0,0.4),
-        inset 3px 0 0 rgba(255,255,255,0.18),
-        inset -3px 0 0 rgba(80,20,0,0.3)
+        0 16px 44px rgba(0,0,0,0.7),
+        inset 0 2px 0 rgba(255,235,180,0.18),
+        inset 0 -2px 0 rgba(0,0,0,0.6),
+        0 0 36px rgba(245,215,110,0.22)
       `,
-      marginTop: 30,
-    }}>
-      {/* 上下のゴールドのキャップ */}
-      <div style={{
-        position: 'absolute', top: -3, left: 0, right: 0, height: 3,
-        background: `linear-gradient(90deg, ${GOLD_DEEP}, ${GOLD_BRIGHT}, ${GOLD_DEEP})`,
-      }}/>
-      <div style={{
-        position: 'absolute', bottom: -3, left: 0, right: 0, height: 3,
-        background: `linear-gradient(90deg, ${GOLD_DEEP}, ${GOLD_BRIGHT}, ${GOLD_DEEP})`,
-      }}/>
-      {/* 左右のゴールドエッジ */}
-      <div style={{ position: 'absolute', top: 0, bottom: 0, left: -1, width: 1, background: GOLD_BRIGHT, opacity: 0.7 }}/>
-      <div style={{ position: 'absolute', top: 0, bottom: 0, right: -1, width: 1, background: GOLD_DEEP, opacity: 0.7 }}/>
-      {text}
-    </div>
-  );
-}
-
-function QBadge() {
-  return (
-    <div style={{
-      flexShrink: 0,
-      paddingTop: 18,
-      fontFamily: "'Noto Serif JP', serif",
+      fontFamily: "'Noto Sans JP', sans-serif",
       fontWeight: 900,
-      fontSize: 130,
-      lineHeight: 0.95,
-      letterSpacing: '0.02em',
-      background: `linear-gradient(180deg, ${GOLD_BRIGHT} 0%, ${GOLD} 50%, ${GOLD_DEEP} 100%)`,
-      WebkitBackgroundClip: 'text',
-      WebkitTextFillColor: 'transparent',
-      backgroundClip: 'text',
-      filter: 'drop-shadow(0 4px 22px rgba(0,0,0,0.85)) drop-shadow(0 0 18px rgba(245,215,110,0.45))',
-      position: 'relative',
+      fontSize: horizontal ? 40 : 64,
+      letterSpacing: horizontal ? '0.04em' : '0.16em',
+      lineHeight: 1.0,
+      maxHeight: horizontal ? undefined : RIGHT_H - 230,
     }}>
-      Q
+      <div style={{ position: 'absolute', inset: -8, border: `1px solid ${GOLD_BRIGHT}`, opacity: 0.5, pointerEvents: 'none' }}/>
+      <div style={{ position: 'absolute', inset: -16, border: `1px solid ${GOLD_DEEP}`, opacity: 0.3, pointerEvents: 'none' }}/>
+      <div style={{ position: 'absolute', top: -5, left: -5, right: -5, height: 5,
+        background: `linear-gradient(90deg, ${GOLD_DEEP}, ${GOLD_BRIGHT}, ${GOLD_DEEP})` }}/>
+      <div style={{ position: 'absolute', bottom: -5, left: -5, right: -5, height: 5,
+        background: `linear-gradient(90deg, ${GOLD_DEEP}, ${GOLD_BRIGHT}, ${GOLD_DEEP})` }}/>
+      <div style={{ position: 'absolute', inset: 6, border: '1px solid rgba(245,215,110,0.28)', pointerEvents: 'none' }}/>
+      <span style={{
+        background: `linear-gradient(180deg, ${GOLD_BRIGHT} 0%, ${GOLD} 50%, ${GOLD_DEEP} 100%)`,
+        WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+        filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.85))',
+      }}>{text}</span>
     </div>
   );
 }
@@ -540,7 +526,7 @@ function NumberBadge({ index, accent }: { index: number; accent: string }) {
       <div style={{
         position: 'absolute', inset: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: "'Noto Serif JP', 'Bebas Neue', serif",
+        fontFamily: "'Noto Sans JP', sans-serif",
         fontWeight: 900,
         fontSize: 54,
         color: '#fff',
@@ -622,9 +608,9 @@ function Countdown({ secs, ratio, isLast5, isLast10 }: {
 // SlideDigits: 旧桁が下にワイプアウト + 新桁が上から滑り込む
 // ═══════════════════════════════════════════════════════════════════
 function SlideDigits({ value, fontSize, color }: { value: number; fontSize: number; color: string }) {
-  const str = String(Math.max(0, value)); // minDigits=1: 1 桁時はゼロパディングなし
+  const str = String(Math.max(0, value));
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: fontSize * 0.02 }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0 }}>
       {str.split('').map((ch, i) => (
         <SlideDigit key={`${i}-${str.length}`} char={ch} fontSize={fontSize} color={color}/>
       ))}
@@ -648,10 +634,10 @@ function SlideDigit({ char, fontSize, color }: { char: string; fontSize: number;
     const id = window.setTimeout(() => setSlides((c) => (c.length > 1 ? c.slice(1) : c)), 560);
     return () => window.clearTimeout(id);
   }, [slides]);
-  const w = fontSize * 0.62;
+  const w = fontSize * 0.56;
   const h = fontSize * 1.0;
   return (
-    <div style={{ position: 'relative', width: w, height: h, overflow: 'hidden', display: 'inline-block' }}>
+    <div style={{ position: 'relative', width: w, height: h, overflow: 'hidden', display: 'inline-block', fontVariantNumeric: 'tabular-nums' }}>
       <style>{`
         @keyframes pollDigitIn  { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0);   opacity: 1; } }
         @keyframes pollDigitOut { from { transform: translateY(0);    opacity: 1; } to { transform: translateY(100%); opacity: 0; } }
@@ -665,8 +651,10 @@ function SlideDigit({ char, fontSize, color }: { char: string; fontSize: number;
           <div key={s.key} style={{
             position: 'absolute', inset: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: "'Bebas Neue', sans-serif",
+            fontFamily: "'Noto Sans JP', sans-serif",
             fontSize, fontWeight: 900, color, lineHeight: 1,
+            letterSpacing: '-0.04em',
+            fontVariantNumeric: 'tabular-nums',
             animation: anim, willChange: 'transform, opacity',
             textShadow: '0 2px 8px rgba(0,0,0,0.7)',
           }}>{s.ch}</div>

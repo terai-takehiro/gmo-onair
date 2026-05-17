@@ -131,7 +131,7 @@ function Header({ categoryParent, categoryChild }: { categoryParent: string; cat
         &mdash; &nbsp; VOTE REVEAL &nbsp; &mdash;
       </div>
       <div style={{
-        fontFamily: "'Noto Serif JP', 'Noto Sans JP', serif",
+        fontFamily: "'Noto Sans JP', sans-serif",
         fontWeight: 700,
         fontSize: 54,
         letterSpacing: '0.14em',
@@ -223,13 +223,23 @@ function CandidateCard({
     }
 
     if (phase === 0) {
-      // ランダム数字 (180ms 周期)
+      // ランダム数字: 滑らかにロール (rAF で常時補間)
       const seed = display === 'percent' ? 100 : Math.max(targetValue * 2, 999);
-      const tick = () => setShown(Math.floor(Math.random() * (seed + 1)));
-      tick();
-      animRef.current = window.setInterval(tick, 180) as unknown as number;
+      let current = Math.random() * seed;
+      let target = Math.random() * seed;
+      let lastSwap = performance.now();
+      const tick = (now: number) => {
+        if (now - lastSwap > 280) {
+          target = Math.random() * seed;
+          lastSwap = now;
+        }
+        current += (target - current) * 0.18;
+        setShown(Math.max(0, Math.floor(current)));
+        animRef.current = requestAnimationFrame(tick);
+      };
+      animRef.current = requestAnimationFrame(tick);
       return () => {
-        if (animRef.current != null) window.clearInterval(animRef.current);
+        if (animRef.current != null) cancelAnimationFrame(animRef.current);
       };
     }
 
@@ -295,7 +305,7 @@ function CandidateCard({
         padding: '0 12px',
       }}>
         <div style={{
-          fontFamily: "'Noto Serif JP', 'Noto Sans JP', serif",
+          fontFamily: "'Noto Sans JP', sans-serif",
           fontWeight: 700,
           fontSize: 30,
           color: '#f8eccc',
@@ -309,7 +319,7 @@ function CandidateCard({
         {company && (
           <div style={{
             marginTop: 4,
-            fontFamily: "'Noto Serif JP', 'Noto Sans JP', serif",
+            fontFamily: "'Noto Sans JP', sans-serif",
             fontSize: 17,
             color: 'rgba(245,215,110,0.85)',
             letterSpacing: '0.18em',
@@ -318,43 +328,46 @@ function CandidateCard({
         )}
       </div>
 
-      {/* 数字 */}
+      {/* 数字 (固定幅でレイアウトが揺れないように) */}
       <div style={{
         position: 'absolute',
         left: 0, right: 0,
         top: 458,
-        textAlign: 'center',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
         pointerEvents: 'none',
       }}>
         <div style={{
-          display: 'inline-flex',
+          display: 'flex',
           alignItems: 'baseline',
-          gap: 8,
-          padding: '6px 22px',
+          gap: 10,
+          padding: '8px 26px',
+          width: 360,
+          justifyContent: 'center',
           background: 'rgba(8,4,8,0.7)',
           border: '1px solid rgba(245,215,110,0.6)',
           boxShadow: '0 6px 24px rgba(0,0,0,0.55), 0 0 24px rgba(245,215,110,0.18)',
         }}>
           <span style={{
-            fontFamily: "'Bebas Neue', sans-serif",
+            fontFamily: "'Noto Sans JP', sans-serif",
             fontWeight: 900,
-            fontSize: 96,
+            fontSize: 88,
             color: '#fff',
-            letterSpacing: '0.02em',
+            letterSpacing: '-0.04em',
             lineHeight: 1,
             textShadow: '0 2px 14px rgba(0,0,0,0.85), 0 0 18px rgba(245,215,110,0.3)',
             fontVariantNumeric: 'tabular-nums',
-            minWidth: '2ch',
             display: 'inline-block',
             textAlign: 'right',
+            minWidth: '3.6ch',
           }}>
             {shown.toLocaleString()}
           </span>
           <span style={{
-            fontFamily: "'Bebas Neue', sans-serif",
-            fontSize: 32,
+            fontFamily: "'Noto Sans JP', sans-serif",
+            fontWeight: 700,
+            fontSize: 26,
             color: 'rgba(245,215,110,0.9)',
-            letterSpacing: '0.28em',
+            letterSpacing: '0.18em',
             lineHeight: 1,
           }}>{unit}</span>
         </div>
