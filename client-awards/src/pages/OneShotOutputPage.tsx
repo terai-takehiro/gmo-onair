@@ -132,6 +132,15 @@ export default function OneShotOutputPage() {
           tickerCategory={currentTicker}
           showPortrait={showPortrait}
           moduleConfig={moduleConfig}
+          countdown={{
+            on: cue.countdownOn,
+            target: cue.countdownTarget,
+            prefixJa: cue.countdownPrefixJa,
+            prefixEn: cue.countdownPrefixEn,
+            x: cue.countdownX,
+            y: cue.countdownY,
+            scale: cue.countdownScale,
+          }}
         />
       </div>
     </div>

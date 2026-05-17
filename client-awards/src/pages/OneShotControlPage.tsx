@@ -12,6 +12,7 @@ import NomineePanel, { filterNominees } from '../oneshot/operator/NomineePanel';
 import ModulePickerRow from '../oneshot/operator/ModulePickerRow';
 import TickerControlRow from '../oneshot/operator/TickerControlRow';
 import SendActionRow from '../oneshot/operator/SendActionRow';
+import CountdownControlPanel from '../oneshot/operator/CountdownControlPanel';
 import ShortcutHints from '../oneshot/operator/ShortcutHints';
 import I18nDictDialog from '../oneshot/operator/I18nDictDialog';
 import OneShotDataEditor from '../oneshot/operator/OneShotDataEditor';
@@ -129,6 +130,29 @@ export default function OneShotControlPage() {
   // v2.8.70+: 画像 (Portrait) 表示 ON/OFF
   const [showPortrait, setShowPortrait] = useState(true);
 
+  // v2.8.121+: カウントダウンテロップ (独立 CG レイヤー)
+  const [countdownOn, setCountdownOn] = useState(false);
+  const [countdownTarget, setCountdownTarget] = useState<string | null>(null);
+  const [countdownPrefixJa, setCountdownPrefixJa] = useState('アワードまであと');
+  const [countdownPrefixEn, setCountdownPrefixEn] = useState('Awards starts in');
+  const [countdownX, setCountdownX] = useState(50);
+  const [countdownY, setCountdownY] = useState(40);
+  const [countdownScale, setCountdownScale] = useState(1);
+
+  const countdownStage = useMemo(
+    () => ({
+      on: countdownOn,
+      target: countdownTarget,
+      prefixJa: countdownPrefixJa,
+      prefixEn: countdownPrefixEn,
+      x: countdownX,
+      y: countdownY,
+      scale: countdownScale,
+    }),
+    [countdownOn, countdownTarget, countdownPrefixJa, countdownPrefixEn, countdownX, countdownY, countdownScale]
+  );
+
+
   // v2.8.76+: イベント別 EventModuleConfig を取得 (DB → react-query)
   const { data: moduleConfig } = useEventModuleConfig(isNaN(eventId) ? null : eventId);
 
@@ -188,6 +212,22 @@ export default function OneShotControlPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cue, nominees]);
 
+  // v2.8.121+: 初期マウント時に DB の countdown_* 値を operator state に同期
+  const countdownSyncedRef = useRef(false);
+  useEffect(() => {
+    if (countdownSyncedRef.current) return;
+    if (cue.countdownTarget !== null || cue.countdownOn) {
+      setCountdownOn(cue.countdownOn);
+      setCountdownTarget(cue.countdownTarget);
+      setCountdownPrefixJa(cue.countdownPrefixJa);
+      setCountdownPrefixEn(cue.countdownPrefixEn);
+      setCountdownX(cue.countdownX);
+      setCountdownY(cue.countdownY);
+      setCountdownScale(cue.countdownScale);
+      countdownSyncedRef.current = true;
+    }
+  }, [cue]);
+
   // ── 操作ハンドラ ────────────────────────────────────────
   const take = () => {
     if (!previewNominee) return;
@@ -203,6 +243,13 @@ export default function OneShotControlPage() {
       isLive: true,
       showPortrait,
       bilingual: false,
+      countdownOn,
+      countdownTarget,
+      countdownPrefixJa,
+      countdownPrefixEn,
+      countdownX,
+      countdownY,
+      countdownScale,
     });
   };
   const clear = () => {
@@ -228,6 +275,25 @@ export default function OneShotControlPage() {
     setShowPortrait(v);
     sendCue({ ...cue, showPortrait: v });
   };
+  const onChangeCountdown = (patch: Partial<{
+    countdownOn: boolean;
+    countdownTarget: string | null;
+    countdownPrefixJa: string;
+    countdownPrefixEn: string;
+    countdownX: number;
+    countdownY: number;
+    countdownScale: number;
+  }>) => {
+    if (patch.countdownOn !== undefined) setCountdownOn(patch.countdownOn);
+    if (patch.countdownTarget !== undefined) setCountdownTarget(patch.countdownTarget);
+    if (patch.countdownPrefixJa !== undefined) setCountdownPrefixJa(patch.countdownPrefixJa);
+    if (patch.countdownPrefixEn !== undefined) setCountdownPrefixEn(patch.countdownPrefixEn);
+    if (patch.countdownX !== undefined) setCountdownX(patch.countdownX);
+    if (patch.countdownY !== undefined) setCountdownY(patch.countdownY);
+    if (patch.countdownScale !== undefined) setCountdownScale(patch.countdownScale);
+    sendCue({ ...cue, ...patch });
+  };
+
   const onChangeLangMode = (mode: LangMode) => {
     setLangMode(mode);
     const next = fromLangMode(mode);
@@ -248,8 +314,15 @@ export default function OneShotControlPage() {
       isLive: true, // NEXT 出力では常に表示
       showPortrait,
       bilingual: false,
+      countdownOn,
+      countdownTarget,
+      countdownPrefixJa,
+      countdownPrefixEn,
+      countdownX,
+      countdownY,
+      countdownScale,
     });
-  }, [previewNominee, previewModule, tickerFlow.on, selectedAwardIdx, transparent, lang, showPortrait, sendNextCue]);
+  }, [previewNominee, previewModule, tickerFlow.on, selectedAwardIdx, transparent, lang, showPortrait, sendNextCue, countdownOn, countdownTarget, countdownPrefixJa, countdownPrefixEn, countdownX, countdownY, countdownScale]);
 
   // ↑↓ で フィルタ済みノミネート間を循環
   const goPrev = () => {
@@ -433,6 +506,7 @@ export default function OneShotControlPage() {
                   tickerCategory={tickerCategoryJa}
                   showPortrait={showPortrait}
                   moduleConfig={moduleConfig}
+                  countdown={countdownStage}
                 />
               </div>
               <div className="w-px bg-slate-800/80 self-stretch" />
@@ -451,6 +525,7 @@ export default function OneShotControlPage() {
                   tickerCategory={tickerCategoryEn}
                   showPortrait={showPortrait}
                   moduleConfig={moduleConfig}
+                  countdown={countdownStage}
                 />
               </div>
             </div>
@@ -487,6 +562,7 @@ export default function OneShotControlPage() {
                   tickerCategory={tickerCategory}
                   showPortrait={showPortrait}
                   moduleConfig={moduleConfig}
+                  countdown={countdownStage}
                 />
               </div>
             </div>
@@ -597,6 +673,7 @@ export default function OneShotControlPage() {
                         tickerCategory={tickerCategoryJa}
                         showPortrait={showPortrait}
                         moduleConfig={moduleConfig}
+                  countdown={countdownStage}
                       />
                     </div>
                     <div className="w-px bg-slate-800/80 self-stretch" />
@@ -615,6 +692,7 @@ export default function OneShotControlPage() {
                         tickerCategory={tickerCategoryEn}
                         showPortrait={showPortrait}
                         moduleConfig={moduleConfig}
+                  countdown={countdownStage}
                       />
                     </div>
                   </div>
@@ -650,6 +728,7 @@ export default function OneShotControlPage() {
                         tickerOn={tickerFlow.on}
                         tickerCategory={tickerCategory}
                         showPortrait={showPortrait}
+                        countdown={countdownStage}
                       />
                     </div>
                   </div>
@@ -684,6 +763,16 @@ export default function OneShotControlPage() {
               onClear={clear}
               onToggleTransparent={onToggleTransparent}
               onTogglePortrait={onTogglePortrait}
+            />
+            <CountdownControlPanel
+              on={countdownOn}
+              target={countdownTarget}
+              prefixJa={countdownPrefixJa}
+              prefixEn={countdownPrefixEn}
+              x={countdownX}
+              y={countdownY}
+              scale={countdownScale}
+              onChange={onChangeCountdown}
             />
             {/* ShortcutHints は sm 以上 (タブレット縦向き ~) でのみ表示 */}
             <div className="hidden sm:block">
@@ -737,6 +826,7 @@ interface ScaledStageProps {
   tickerCategory: import('../oneshot/types').TickerCategory | null;
   showPortrait?: boolean;
   moduleConfig?: import('../oneshot/types').EventModuleConfig;
+  countdown?: import('../oneshot/OneShotStage').CountdownStageProps;
 }
 
 function ScaledStage(props: ScaledStageProps) {

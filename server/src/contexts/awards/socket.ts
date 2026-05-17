@@ -24,6 +24,13 @@ interface OneShotNextCue {
   isLive: boolean;
   showPortrait: boolean;
   bilingual: boolean;
+  countdownOn: boolean;
+  countdownTarget: string | null;
+  countdownPrefixJa: string;
+  countdownPrefixEn: string;
+  countdownX: number;
+  countdownY: number;
+  countdownScale: number;
   timestamp: number;
 }
 
@@ -57,7 +64,9 @@ export function initAwardsSocketIO(io: Server): void {
 
     // Push current 1S CG state too (independent of ranking cue)
     queryOne(
-      `SELECT entry_id, module_key, ticker_on, ticker_cat_idx, transparent, lang, is_live, show_portrait, bilingual
+      `SELECT entry_id, module_key, ticker_on, ticker_cat_idx, transparent, lang, is_live, show_portrait, bilingual,
+              countdown_on, countdown_target, countdown_prefix_ja, countdown_prefix_en,
+              countdown_x, countdown_y, countdown_scale
        FROM awards_oneshot_cue_state WHERE event_id = ?`,
       [eventId]
     ).then((state) => {
@@ -72,6 +81,13 @@ export function initAwardsSocketIO(io: Server): void {
           isLive: state.is_live,
           showPortrait: state.show_portrait,
           bilingual: state.bilingual,
+          countdownOn: state.countdown_on,
+          countdownTarget: state.countdown_target,
+          countdownPrefixJa: state.countdown_prefix_ja,
+          countdownPrefixEn: state.countdown_prefix_en,
+          countdownX: Number(state.countdown_x),
+          countdownY: Number(state.countdown_y),
+          countdownScale: Number(state.countdown_scale),
           timestamp: Date.now(),
         });
       }
@@ -127,6 +143,13 @@ export function initAwardsSocketIO(io: Server): void {
       isLive?: boolean;
       showPortrait?: boolean;
       bilingual?: boolean;
+      countdownOn?: boolean;
+      countdownTarget?: string | null;
+      countdownPrefixJa?: string;
+      countdownPrefixEn?: string;
+      countdownX?: number;
+      countdownY?: number;
+      countdownScale?: number;
     }) => {
       try {
         const entryId = data.entryId ?? null;
@@ -138,11 +161,19 @@ export function initAwardsSocketIO(io: Server): void {
         const isLive = data.isLive ?? false;
         const showPortrait = data.showPortrait ?? true;
         const bilingual = data.bilingual ?? false;
+        const countdownOn = data.countdownOn ?? false;
+        const countdownTarget = data.countdownTarget ?? null;
+        const countdownPrefixJa = data.countdownPrefixJa ?? 'アワードまであと';
+        const countdownPrefixEn = data.countdownPrefixEn ?? 'Awards starts in';
+        const countdownX = typeof data.countdownX === 'number' ? data.countdownX : 50;
+        const countdownY = typeof data.countdownY === 'number' ? data.countdownY : 40;
+        const countdownScale = typeof data.countdownScale === 'number' ? data.countdownScale : 1;
 
         await execute(
           `INSERT INTO awards_oneshot_cue_state
-             (event_id, entry_id, module_key, ticker_on, ticker_cat_idx, transparent, lang, is_live, show_portrait, bilingual, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+             (event_id, entry_id, module_key, ticker_on, ticker_cat_idx, transparent, lang, is_live, show_portrait, bilingual,
+              countdown_on, countdown_target, countdown_prefix_ja, countdown_prefix_en, countdown_x, countdown_y, countdown_scale, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
            ON CONFLICT (event_id) DO UPDATE
              SET entry_id = EXCLUDED.entry_id,
                  module_key = EXCLUDED.module_key,
@@ -153,8 +184,16 @@ export function initAwardsSocketIO(io: Server): void {
                  is_live = EXCLUDED.is_live,
                  show_portrait = EXCLUDED.show_portrait,
                  bilingual = EXCLUDED.bilingual,
+                 countdown_on = EXCLUDED.countdown_on,
+                 countdown_target = EXCLUDED.countdown_target,
+                 countdown_prefix_ja = EXCLUDED.countdown_prefix_ja,
+                 countdown_prefix_en = EXCLUDED.countdown_prefix_en,
+                 countdown_x = EXCLUDED.countdown_x,
+                 countdown_y = EXCLUDED.countdown_y,
+                 countdown_scale = EXCLUDED.countdown_scale,
                  updated_at = NOW()`,
-          [eventId, entryId, moduleKey, tickerOn, tickerCatIdx, transparent, lang, isLive, showPortrait, bilingual]
+          [eventId, entryId, moduleKey, tickerOn, tickerCatIdx, transparent, lang, isLive, showPortrait, bilingual,
+           countdownOn, countdownTarget, countdownPrefixJa, countdownPrefixEn, countdownX, countdownY, countdownScale]
         );
 
         awardsNs.to(room).emit('oneshot:sync', {
@@ -167,6 +206,13 @@ export function initAwardsSocketIO(io: Server): void {
           isLive,
           showPortrait,
           bilingual,
+          countdownOn,
+          countdownTarget,
+          countdownPrefixJa,
+          countdownPrefixEn,
+          countdownX,
+          countdownY,
+          countdownScale,
           timestamp: Date.now(),
         });
       } catch (err) {
@@ -202,6 +248,13 @@ export function initAwardsSocketIO(io: Server): void {
       isLive?: boolean;
       showPortrait?: boolean;
       bilingual?: boolean;
+      countdownOn?: boolean;
+      countdownTarget?: string | null;
+      countdownPrefixJa?: string;
+      countdownPrefixEn?: string;
+      countdownX?: number;
+      countdownY?: number;
+      countdownScale?: number;
     }) => {
       const next: OneShotNextCue = {
         entryId: data.entryId ?? null,
@@ -213,6 +266,13 @@ export function initAwardsSocketIO(io: Server): void {
         isLive: data.isLive ?? false,
         showPortrait: data.showPortrait ?? true,
         bilingual: data.bilingual ?? false,
+        countdownOn: data.countdownOn ?? false,
+        countdownTarget: data.countdownTarget ?? null,
+        countdownPrefixJa: data.countdownPrefixJa ?? 'アワードまであと',
+        countdownPrefixEn: data.countdownPrefixEn ?? 'Awards starts in',
+        countdownX: typeof data.countdownX === 'number' ? data.countdownX : 50,
+        countdownY: typeof data.countdownY === 'number' ? data.countdownY : 40,
+        countdownScale: typeof data.countdownScale === 'number' ? data.countdownScale : 1,
         timestamp: Date.now(),
       };
       nextOneshotByEvent.set(eventId, next);

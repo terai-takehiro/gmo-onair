@@ -12,6 +12,13 @@ const DEFAULT_CUE: OneShotCueState = {
   isLive: false,
   showPortrait: true,
   bilingual: false,
+  countdownOn: false,
+  countdownTarget: null,
+  countdownPrefixJa: 'アワードまであと',
+  countdownPrefixEn: 'Awards starts in',
+  countdownX: 50,
+  countdownY: 40,
+  countdownScale: 1,
 };
 
 interface SyncPayload extends OneShotCueState {
@@ -40,6 +47,13 @@ export function useOneShotCue(eventId: number | null) {
         isLive: !!data.isLive,
         showPortrait: data.showPortrait ?? true,
         bilingual: !!data.bilingual,
+        countdownOn: !!data.countdownOn,
+        countdownTarget: data.countdownTarget ?? null,
+        countdownPrefixJa: data.countdownPrefixJa ?? 'アワードまであと',
+        countdownPrefixEn: data.countdownPrefixEn ?? 'Awards starts in',
+        countdownX: typeof data.countdownX === 'number' ? data.countdownX : 50,
+        countdownY: typeof data.countdownY === 'number' ? data.countdownY : 40,
+        countdownScale: typeof data.countdownScale === 'number' ? data.countdownScale : 1,
       });
     };
     socket.on('oneshot:sync', onSync);
@@ -100,6 +114,13 @@ export function useOneShotNextCue(eventId: number | null) {
         isLive: !!data.isLive,
         showPortrait: data.showPortrait ?? true,
         bilingual: !!data.bilingual,
+        countdownOn: !!data.countdownOn,
+        countdownTarget: data.countdownTarget ?? null,
+        countdownPrefixJa: data.countdownPrefixJa ?? 'アワードまであと',
+        countdownPrefixEn: data.countdownPrefixEn ?? 'Awards starts in',
+        countdownX: typeof data.countdownX === 'number' ? data.countdownX : 50,
+        countdownY: typeof data.countdownY === 'number' ? data.countdownY : 40,
+        countdownScale: typeof data.countdownScale === 'number' ? data.countdownScale : 1,
       });
     };
     socket.on('oneshot:nextSync', onSync);
