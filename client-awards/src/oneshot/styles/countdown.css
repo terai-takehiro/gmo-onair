@@ -1,0 +1,137 @@
+/* v2.8.121+: カウントダウンテロップ (独立 CG レイヤー)
+   3D 立体数字を縦 10 面シリンダーで回転表示。アワードCG 全体のゴールド基調に揃える。 */
+
+.oneshot-cg-root .oscg-countdown {
+  --oscg-digit-w: 96px;
+  --oscg-digit-h: 132px;
+  /* 10面ポリゴンの外接円半径: h / (2 tan(18°)) ≈ h * 1.5388 */
+  --oscg-digit-r: calc(var(--oscg-digit-h) * 0.769);
+  font-family: var(--font-jp);
+  color: var(--text);
+  text-align: center;
+  pointer-events: none;
+  user-select: none;
+  /* 影 + ゴールドのアクセントで「アワードCG 感」を出す */
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.7));
+}
+
+.oneshot-cg-root .oscg-countdown-prefix {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--gold-bright);
+  text-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.8),
+    0 0 12px rgba(232, 201, 124, 0.25);
+  margin-bottom: 16px;
+  font-feature-settings: "palt";
+}
+
+.oneshot-cg-root .oscg-countdown-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: "Roboto Condensed", var(--font-jp);
+}
+
+.oneshot-cg-root .oscg-countdown-group {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.oneshot-cg-root .oscg-countdown-sep,
+.oneshot-cg-root .oscg-countdown-unit {
+  font-size: calc(var(--oscg-digit-h) * 0.6);
+  line-height: 1;
+  font-weight: 900;
+  color: var(--gold);
+  text-shadow: 0 0 18px rgba(201, 169, 97, 0.5);
+  padding: 0 4px;
+  animation: oscg-cd-pulse 1s ease-in-out infinite;
+}
+.oneshot-cg-root .oscg-countdown-unit {
+  font-size: calc(var(--oscg-digit-h) * 0.42);
+  font-weight: 800;
+  margin-left: 4px;
+  margin-right: 12px;
+  animation: none;
+}
+
+@keyframes oscg-cd-pulse {
+  0%, 100% { opacity: 0.6; }
+  50%      { opacity: 1; }
+}
+
+/* ─ 立体数字 (10面シリンダー) ───────────────────────── */
+.oneshot-cg-root .oscg-digit {
+  position: relative;
+  display: inline-block;
+  width: var(--oscg-digit-w);
+  height: var(--oscg-digit-h);
+  perspective: 1400px;
+  /* シリンダーの上下を切り抜いて「窓」越しに見える感じに */
+  background: linear-gradient(
+    180deg,
+    #0b0d12 0%,
+    #161a23 28%,
+    #1e2330 50%,
+    #161a23 72%,
+    #0b0d12 100%
+  );
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow:
+    0 1px 0 rgba(232, 201, 124, 0.18) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.6) inset,
+    0 4px 16px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+/* 上下に薄いグレア (シリンダー窓ガラス感) */
+.oneshot-cg-root .oscg-digit::before,
+.oneshot-cg-root .oscg-digit::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 28%;
+  pointer-events: none;
+  z-index: 3;
+}
+.oneshot-cg-root .oscg-digit::before {
+  top: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0) 100%);
+}
+.oneshot-cg-root .oscg-digit::after {
+  bottom: 0;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0) 100%);
+}
+
+.oneshot-cg-root .oscg-digit-reel {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transition: transform 620ms cubic-bezier(.34, 1.4, .5, 1);
+  will-change: transform;
+}
+
+.oneshot-cg-root .oscg-digit-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backface-visibility: hidden;
+  font-size: calc(var(--oscg-digit-h) * 0.82);
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(180deg, #f8efd8 0%, #e8c97c 45%, #b89043 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  /* 数字面に立体感: 微妙な outline & inner glow を裏側 layer で表現 */
+}
+.oneshot-cg-root .oscg-digit-face::after {
+  content: attr(data-stroke);
+}

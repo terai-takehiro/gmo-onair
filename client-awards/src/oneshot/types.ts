@@ -105,6 +105,20 @@ export interface OneShotCueState {
   /** v2.8.74+: 日英両方表示モード。true のとき DynamicModule が JA + EN を縦スタックで描画する。
    *  ranking CG の `previewLang='both'` と同等の UX。`lang` は primary 言語 (JA を推奨) を保持する。 */
   bilingual: boolean;
+  // ── v2.8.121+: カウントダウンテロップ (独立 CG レイヤー) ───────────────
+  /** カウントダウン表示 ON/OFF。lower-third / ticker と独立に重ねられる。 */
+  countdownOn: boolean;
+  /** 目標日時 (ISO 8601 文字列。null の場合は --:--:-- 表示) */
+  countdownTarget: string | null;
+  /** 枕詞 (例: "アワードまであと" / "Awards starts in") */
+  countdownPrefixJa: string;
+  countdownPrefixEn: string;
+  /** 中央アンカーの X 座標 (0-100% — 0=左端, 50=中央, 100=右端) */
+  countdownX: number;
+  /** 中央アンカーの Y 座標 (0-100%) */
+  countdownY: number;
+  /** 基準サイズに対する倍率 (0.4 - 2.0) */
+  countdownScale: number;
 }
 
 // ── 段階1 (v2.8.71+): 動的モジュールスキーマ ────────────────

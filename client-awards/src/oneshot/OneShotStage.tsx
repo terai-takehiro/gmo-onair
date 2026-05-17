@@ -1,6 +1,17 @@
 import LowerThirdCG from './LowerThirdCG';
 import Ticker from './Ticker';
+import CountdownCG from './CountdownCG';
 import type { EventModuleConfig, Lang, ModuleKey, Nominee, TickerCategory } from './types';
+
+export interface CountdownStageProps {
+  on: boolean;
+  target: string | null;
+  prefixJa: string;
+  prefixEn: string;
+  x: number;
+  y: number;
+  scale: number;
+}
 
 interface Props {
   nominee: Nominee | null;
@@ -19,6 +30,8 @@ interface Props {
   showPortrait?: boolean;
   /** イベント別 EventModuleConfig (動的モジュール構成) */
   moduleConfig?: EventModuleConfig;
+  /** v2.8.121+: カウントダウンテロップ (lower-third / ticker と独立に重ねる) */
+  countdown?: CountdownStageProps;
 }
 
 // 1920x1080 のCG出力ステージ。operator/output どちらでも使える。
@@ -36,6 +49,7 @@ export default function OneShotStage({
   tickerCategory,
   showPortrait = true,
   moduleConfig,
+  countdown,
 }: Props) {
   return (
     <div className="oneshot-cg-root" style={{ position: 'relative', width: 1920, height: 1080 }}>
@@ -54,6 +68,16 @@ export default function OneShotStage({
       {/* Background-only stage when lower-third is unmounted (transparent stays transparent) */}
       {!lowerThirdMounted && (
         <div className={'stage' + (transparent ? ' transparent' : '')} />
+      )}
+      {countdown?.on && (
+        <CountdownCG
+          targetIso={countdown.target}
+          prefix={lang === 'en' ? countdown.prefixEn : countdown.prefixJa}
+          x={countdown.x}
+          y={countdown.y}
+          scale={countdown.scale}
+          lang={lang}
+        />
       )}
       {tickerMounted && tickerCategory && (
         <div className={'ticker-wrap ' + (tickerExiting ? 't-exit' : 't-enter')}>
