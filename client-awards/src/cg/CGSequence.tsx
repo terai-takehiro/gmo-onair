@@ -211,6 +211,7 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
           categoryParent={tweaks.categoryParent}
           categoryChild={tweaks.categoryChild}
           lang={lang}
+          oneshotStyle={cue.oneshotStyle}
         />
       )}
     </div>
