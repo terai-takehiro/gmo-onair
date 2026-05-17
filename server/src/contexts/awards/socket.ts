@@ -8,6 +8,27 @@ import { execute, queryOne } from '../../shared/db/connection';
 const nextCueByEvent = new Map<number, RankingNextCue>();
 const nextOneshotByEvent = new Map<number, OneShotNextCue>();
 
+// 余興 (Standalone) Poll: in-memory per-room (DB 永続化なし、ad-hoc 用途)
+interface StandalonePollState {
+  title: string;
+  titleEn: string;
+  question: string;
+  questionEn: string;
+  choices: {
+    name: string; nameEn: string;
+    company: string; companyEn: string;
+    photoDataUrl: string | null;
+    voteCount: number;
+  }[];
+  step: 'idle' | 'poll' | 'reveal' | 'winner';
+  pollStartedAt: number | null;
+  display: 'count' | 'percent';
+  revealPhase: 0 | 1 | 2;
+  lang: 'ja' | 'en';
+  timestamp: number;
+}
+const standalonePollByRoom = new Map<string, StandalonePollState>();
+
 interface RankingNextCue {
   step: string;
   categoryId: number | null;
@@ -41,6 +62,50 @@ export function initAwardsSocketIO(io: Server): void {
   const awardsNs = io.of('/awards');
 
   awardsNs.on('connection', (socket: Socket) => {
+    const pollRoomRaw = socket.handshake.query.pollRoom as string | undefined;
+    // 余興 Standalone Poll モード: ?pollRoom=xxx で接続したクライアントはそのモードのみ。
+    if (pollRoomRaw && typeof pollRoomRaw === 'string') {
+      const pollRoom = pollRoomRaw.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64) || 'default';
+      const room = `pollRoom:${pollRoom}`;
+      socket.join(room);
+
+      const current = standalonePollByRoom.get(pollRoom);
+      if (current) socket.emit('standalonePoll:sync', current);
+
+      socket.on('standalonePoll:set', (data: Partial<StandalonePollState>) => {
+        const prev = standalonePollByRoom.get(pollRoom);
+        const next: StandalonePollState = {
+          title: data.title ?? prev?.title ?? '',
+          titleEn: data.titleEn ?? prev?.titleEn ?? '',
+          question: data.question ?? prev?.question ?? '',
+          questionEn: data.questionEn ?? prev?.questionEn ?? '',
+          choices: Array.isArray(data.choices) ? data.choices.slice(0, 3).map((c) => ({
+            name: String(c?.name ?? ''),
+            nameEn: String(c?.nameEn ?? ''),
+            company: String(c?.company ?? ''),
+            companyEn: String(c?.companyEn ?? ''),
+            photoDataUrl: typeof c?.photoDataUrl === 'string' ? c.photoDataUrl : null,
+            voteCount: Math.max(0, Math.floor(Number(c?.voteCount) || 0)),
+          })) : (prev?.choices ?? []),
+          step: (data.step as StandalonePollState['step']) ?? prev?.step ?? 'idle',
+          pollStartedAt: typeof data.pollStartedAt === 'number' ? data.pollStartedAt : (data.pollStartedAt === null ? null : (prev?.pollStartedAt ?? null)),
+          display: data.display === 'percent' ? 'percent' : 'count',
+          revealPhase: Math.max(0, Math.min(2, Math.floor(data.revealPhase ?? prev?.revealPhase ?? 0))) as 0|1|2,
+          lang: data.lang === 'en' ? 'en' : 'ja',
+          timestamp: Date.now(),
+        };
+        standalonePollByRoom.set(pollRoom, next);
+        awardsNs.to(room).emit('standalonePoll:sync', next);
+      });
+
+      socket.on('standalonePoll:clear', () => {
+        standalonePollByRoom.delete(pollRoom);
+        awardsNs.to(room).emit('standalonePoll:sync', null);
+      });
+
+      return; // event 系のハンドラはバインドしない
+    }
+
     const eventId = parseInt(socket.handshake.query.eventId as string);
     if (!eventId || isNaN(eventId)) {
       socket.disconnect();

@@ -160,6 +160,7 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
             key={`top3-${persistKey}`}
             entries={sorted}
             lang={lang}
+            hidePoints={category?.award_pattern === 'vote'}
           />
         )}
 

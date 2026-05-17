@@ -8,15 +8,17 @@ import { TOP3_POS, TOP3_LABEL_GAP } from '../layout';
 interface Props {
   entries: CgMappedEntry[];
   lang?: 'ja' | 'en';
+  hidePoints?: boolean;
 }
 
 /** Phase 1: ランクバッジ + 空のカードフレーム + ポイント数字が出る。
  *  Phase 2: 写真本体 + 会社名 + 氏名がクロスフェードで現れる。
- *  3→2→1 の順で stagger。テンポはゆっくり目（全体 ~6 秒）。 */
+ *  3→2→1 の順で stagger。テンポはゆっくり目（全体 ~6 秒）。
+ *  hidePoints=true の時は pt を出さず、3 枠を同時にオーバーラップ切替で表示。 */
 const POINTS_DELAY: Record<number, number> = { 3:  600, 2: 2400, 1: 4200 };
 const REVEAL_DELAY: Record<number, number> = { 3: 1500, 2: 3300, 1: 5100 };
 
-export default function StepTop3({ entries, lang = 'ja' }: Props) {
+export default function StepTop3({ entries, lang = 'ja', hidePoints = false }: Props) {
   const top3 = [...entries]
     .sort((a, b) => a.rank - b.rank)
     .filter((e) => e.rank >= 1 && e.rank <= 3);
@@ -27,6 +29,14 @@ export default function StepTop3({ entries, lang = 'ja' }: Props) {
   useEffect(() => {
     setPointsShown({});
     setRevealed({});
+    if (hidePoints) {
+      // 投票後の表示: 一気にオーバーラップ切替
+      const t = setTimeout(() => {
+        setPointsShown({ 1: true, 2: true, 3: true });
+        setRevealed({ 1: true, 2: true, 3: true });
+      }, 30);
+      return () => clearTimeout(t);
+    }
     const timers: ReturnType<typeof setTimeout>[] = [];
     ([3, 2, 1] as const).forEach((r) => {
       timers.push(
@@ -37,7 +47,7 @@ export default function StepTop3({ entries, lang = 'ja' }: Props) {
       );
     });
     return () => timers.forEach(clearTimeout);
-  }, []);
+  }, [hidePoints]);
 
   return (
     <div style={{ position: 'absolute', inset: 0, zIndex: 6 }}>
@@ -48,6 +58,7 @@ export default function StepTop3({ entries, lang = 'ja' }: Props) {
           pointsShown={pointsShown[e.rank] === true}
           revealed={revealed[e.rank] === true}
           lang={lang}
+          hidePoints={hidePoints}
         />
       ))}
     </div>
@@ -59,9 +70,10 @@ interface CardProps {
   pointsShown: boolean;
   revealed: boolean;
   lang?: 'ja' | 'en';
+  hidePoints?: boolean;
 }
 
-function Top3Card({ entry, pointsShown, revealed, lang = 'ja' }: CardProps) {
+function Top3Card({ entry, pointsShown, revealed, lang = 'ja', hidePoints = false }: CardProps) {
   const pos = TOP3_POS[entry.rank as 1 | 2 | 3];
   if (!pos) return null;
   const displayName    = lang === 'en' ? (entry.nameEn || entry.name)    : entry.name;
@@ -218,10 +230,10 @@ function Top3Card({ entry, pointsShown, revealed, lang = 'ja' }: CardProps) {
           </div>
         </div>
 
-        {/* Points は Phase 1 から CountUp で表示 (先出しで期待感を演出) */}
+        {/* Points は Phase 1 から CountUp で表示 (先出しで期待感を演出)。hidePoints=true で非表示 */}
         <div
           style={{
-            display: 'flex',
+            display: hidePoints ? 'none' : 'flex',
             alignItems: 'baseline',
             justifyContent: 'center',
             gap: 8,

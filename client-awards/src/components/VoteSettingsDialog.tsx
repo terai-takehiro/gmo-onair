@@ -121,11 +121,17 @@ export default function VoteSettingsDialog({
                         {e.org && <div className="text-[11px] text-slate-400 truncate">{e.org}</div>}
                       </div>
                       <input
-                        type="number"
-                        min={0}
-                        value={v}
-                        onChange={(ev) => setCounts({ ...counts, [e.id]: Math.max(0, parseInt(ev.target.value) || 0) })}
-                        className="w-28 rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-right text-sm font-bold text-slate-100 focus:outline-none focus:border-amber-500"
+                        type="text"
+                        inputMode="numeric"
+                        value={String(v)}
+                        onChange={(ev) => {
+                          const cleaned = ev.target.value.replace(/[^\d]/g, '');
+                          const n = cleaned === '' ? 0 : parseInt(cleaned, 10);
+                          setCounts({ ...counts, [e.id]: isNaN(n) ? 0 : Math.max(0, n) });
+                        }}
+                        onFocus={(ev) => ev.target.select()}
+                        placeholder="0"
+                        className="w-32 rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-right text-base font-bold text-slate-100 focus:outline-none focus:border-amber-500"
                       />
                       <span className="text-xs text-slate-400 shrink-0 w-12 text-right">{pct.toFixed(1)}%</span>
                     </div>

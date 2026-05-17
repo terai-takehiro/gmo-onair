@@ -124,21 +124,28 @@ export default function ControlPage() {
   }, [event, nextStep, nextCategoryId, nextStyle, cue.voteDisplay, sendNextCue]);
 
   // poll 自動復帰タイマー (30s + 3s 余韻 → top3 へ戻す)
+  // vote-reveal 自動進行タイマー (grow 完了 → winner)
   const pollTimerRef = useRef<number | null>(null);
-  const cancelPollTimer = useCallback(() => {
-    if (pollTimerRef.current) {
-      window.clearTimeout(pollTimerRef.current);
-      pollTimerRef.current = null;
-    }
+  const growTimerRef = useRef<number | null>(null);
+  const cancelTimers = useCallback(() => {
+    if (pollTimerRef.current) { window.clearTimeout(pollTimerRef.current); pollTimerRef.current = null; }
+    if (growTimerRef.current) { window.clearTimeout(growTimerRef.current); growTimerRef.current = null; }
   }, []);
 
   const take = useCallback(() => {
-    cancelPollTimer();
+    cancelTimers();
 
-    // vote-reveal: TAKE 連打で内部フェーズを進める
+    // vote-reveal: TAKE 連打で内部フェーズを進める (phase 0→1 のみ手動、1→2 は自動)
     if (nextStep === 'vote-reveal' && cue.step === 'vote-reveal' && cue.categoryId === nextCategoryId) {
-      const nextPhase = Math.min(2, (cue.revealPhase + 1)) as 0 | 1 | 2;
-      sendCue({ revealPhase: nextPhase });
+      if (cue.revealPhase === 0) {
+        sendCue({ revealPhase: 1 });
+        // grow 完了後 (~2.6s) に winner 表示へ自動遷移
+        growTimerRef.current = window.setTimeout(() => {
+          sendCue({ revealPhase: 2 });
+        }, 2800);
+      } else if (cue.revealPhase < 2) {
+        sendCue({ revealPhase: 2 });
+      }
       return;
     }
 
@@ -158,7 +165,7 @@ export default function ControlPage() {
       return;
     }
 
-    // vote-reveal の初回 TAKE: phase=0 でランダム揺れから開始
+    // vote-reveal 初回 TAKE: phase=0 (shake) 開始
     if (nextStep === 'vote-reveal') {
       sendCue({
         step: 'vote-reveal',
@@ -177,14 +184,14 @@ export default function ControlPage() {
       pollStartedAt: null,
       revealPhase: 0,
     });
-  }, [sendCue, nextStep, nextCategoryId, nextStyle, cue.step, cue.categoryId, cue.revealPhase, cancelPollTimer]);
+  }, [sendCue, nextStep, nextCategoryId, nextStyle, cue.step, cue.categoryId, cue.revealPhase, cancelTimers]);
 
   const clear = useCallback(() => {
-    cancelPollTimer();
+    cancelTimers();
     sendCue({ step: 'idle', pollStartedAt: null, revealPhase: 0 });
-  }, [sendCue, cancelPollTimer]);
+  }, [sendCue, cancelTimers]);
 
-  useEffect(() => () => cancelPollTimer(), [cancelPollTimer]);
+  useEffect(() => () => cancelTimers(), [cancelTimers]);
 
   // ── プレビュー / 出力用 言語選択（localStorage で永続化）
   const [previewLang, setPreviewLang] = useState<PreviewLang>(() => {
@@ -507,7 +514,9 @@ export default function ControlPage() {
                 </span>
                 {pattern === 'vote' && cue.step === 'vote-reveal' && (
                   <span className="ml-auto text-amber-400">
-                    REVEAL PHASE: <span className="text-amber-300">{cue.revealPhase}</span>/2 — TAKEで進行
+                    {cue.revealPhase === 0 && <>SHAKE 中 — TAKEで結果発表 (棒が伸び切ったら自動で No.1)</>}
+                    {cue.revealPhase === 1 && <>RESULT 表示中 — まもなく自動で大賞 1S へ</>}
+                    {cue.revealPhase === 2 && <>GRAND PRIX 表示中</>}
                   </span>
                 )}
                 {pattern === 'vote' && cue.step === 'poll' && cue.pollStartedAt && (
