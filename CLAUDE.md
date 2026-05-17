@@ -33,7 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.144 — BEST3 カード間隔拡大 + Poll 選択肢の位置調整。①**BEST3 (StepTop3) のカード間隔を広げる**: `TOP3_GAP` を `56 → 120` に拡大。3 枚のカード間にゆとりを持たせ、視覚的に独立した印象に。②**Poll 選択肢ベースの高さと位置を調整**: `CHOICES_H` を 182 → **140 (元に戻す)** で高さは長くせず、`CHOICES_Y = 1080 - 36 - 140 = 904` に変更し、**下端をカウントダウン丸の下端 (1044) と揃える**。下のスペースが 36px 確保され、丸とラインが揃って全体のリズムが整う。
+v2.8.145 — Poll 質問文の縦書き仕様調整: ①**上合わせ**に変更 (alignItems: flex-start、旧 center)、②**改行禁止** (white-space: nowrap) で常に 1 列、③transformOrigin: top center で上端基準の長体圧縮、④scale 下限を 0.62 → **0.40** に下げてより強い圧縮を許容、⑤質問専用の questionMaxH = 490 を新設し、**カウントダウン丸 (top: y=820) に被らない位置**までに制限。長文時はそこから自動で長体 (scaleY) で調整。letter-spacing も isLong 時は -0.06em に詰めて密に。
+
+(v2.8.144 — BEST3 カード間隔拡大 + Poll 選択肢の位置調整。①**BEST3 (StepTop3) のカード間隔を広げる**: `TOP3_GAP` を `56 → 120` に拡大。3 枚のカード間にゆとりを持たせ、視覚的に独立した印象に。②**Poll 選択肢ベースの高さと位置を調整**: `CHOICES_H` を 182 → **140 (元に戻す)** で高さは長くせず、`CHOICES_Y = 1080 - 36 - 140 = 904` に変更し、**下端をカウントダウン丸の下端 (1044) と揃える**。下のスペースが 36px 確保され、丸とラインが揃って全体のリズムが整う。)
 
 (v2.8.143 — モバイル Safari クラッシュ (`A problem repeatedly occurred`) の修正: Poll / Vote-reveal の背景レイヤーを軽量化。 ①**`mask-composite: exclude` を撤去**: カメラ枠領域のくり抜きを CSS mask → **物理 4 領域分割**に変更 (top/bottom/left/right の独立 div で囲む)。WebKit content process の OOM クラッシュ要因を排除。 ②**`mix-blend-mode: screen` を撤去**: 斜光ビーム 2 枚を削除し、ベースグラデのウォームスポットのみで雰囲気を保つ。composite layer の爆発を防ぐ。 ③**SVG `drop-shadow` フィルター粒子 → CSS `box-shadow` div 粒子**に変更: Poll 36→**14** + Vote-reveal 26→**12** に削減。`<svg>` 要素 + `radialGradient` + `filter: drop-shadow` の組合せが iOS Safari でメモリを爆食いしていたため、軽量な絶対配置 div + `box-shadow` glow に置換。 ④**ErrorBoundary** (v2.8.142) は据置で、もし他で render エラーが出ても画面が真っ黒にならず operator UI 維持。)
 

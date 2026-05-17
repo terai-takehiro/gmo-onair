@@ -274,6 +274,9 @@ function RightColumn({ title, question, isJa }: { title: string; question: strin
   // JA: 上に Q、その下に [質問 縦書き] [タイトル 縦書き] の 2 列。
   // Q は 2 列の上で水平センタリング。
   const innerColMaxH = RIGHT_H - 200;  // Q の高さ分を引いた縦書き列の最大高さ
+  // 質問 縦書きはカウントダウン (top: 820 = 1080-50-210) に被らないように
+  // 行 top (~297) からの maxHeight = 820 - 297 - 30 margin = 493
+  const questionMaxH = 490;
   return (
     <div style={{
       position: 'absolute',
@@ -318,7 +321,7 @@ function RightColumn({ title, question, isJa }: { title: string; question: strin
           fontSize={62}
           color="#fff"
           weight={900}
-          maxHeight={innerColMaxH}
+          maxHeight={questionMaxH}
         />
         <TitleBand text={title} maxH={innerColMaxH} />
       </div>
@@ -331,28 +334,29 @@ function RightColumn({ title, question, isJa }: { title: string; question: strin
 function VerticalText({ text, fontSize, color, weight, maxHeight }: {
   text: string; fontSize: number; color: string; weight: number; maxHeight: number;
 }) {
-  // 概算: 1 文字 ~= fontSize * 1.1 の高さ。maxHeight を超える文字数で scaleY を縮める。
+  // 1 行に収まるよう 長体 scale を計算 (改行不可)。最低 0.40 まで圧縮可能。
   const charsApprox = text.length;
-  const naturalH = charsApprox * fontSize * 1.05;
-  const scale = naturalH > maxHeight ? Math.max(0.62, maxHeight / naturalH) : 1;
+  const naturalH = charsApprox * fontSize * 1.0;
+  const scale = naturalH > maxHeight ? Math.max(0.40, maxHeight / naturalH) : 1;
   const isLong = scale < 1;
   return (
     <div style={{
       maxHeight,
-      display: 'flex', alignItems: 'center',
+      display: 'flex', alignItems: 'flex-start',   // 上合わせ
       flexShrink: 0,
     }}>
       <div style={{
         writingMode: 'vertical-rl',
+        whiteSpace: 'nowrap',                     // 改行禁止 (常に 1 列)
         fontFamily: "'Noto Sans JP', sans-serif",
         fontWeight: weight,
         fontSize,
         color,
-        letterSpacing: isLong ? '-0.04em' : '0.04em',
-        lineHeight: isLong ? 1.05 : 1.18,
+        letterSpacing: isLong ? '-0.06em' : '0.04em',
+        lineHeight: 1,
         textShadow: '0 4px 22px rgba(0,0,0,0.95), 0 0 14px rgba(245,215,110,0.15)',
         transform: scale < 1 ? `scaleY(${scale})` : 'none',
-        transformOrigin: 'center center',
+        transformOrigin: 'top center',            // 上端基準で圧縮
         fontFeatureSettings: '"vert" 1, "palt" 1',
         textOrientation: 'mixed',
       }}>
