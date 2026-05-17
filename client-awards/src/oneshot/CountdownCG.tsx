@@ -113,25 +113,46 @@ function DigitGroup({ value, digits }: { value: number; digits: number }) {
   );
 }
 
-// 10 面の縦シリンダーをくるくる回して数字を選ぶ立体ディスプレイ。
-// 各面は rotateX(-i*36deg) translateZ(R) に配置、コンテナ全体を rotateX(value*-36deg) する。
+// v2.8.123: 静止時に隣接桁が覗かないよう、現在桁と (変化中だけ) 直前桁のみレンダリング。
+// reel 自体は rotateX で目標位置へ回転、両面は同じ reel 内なので一緒に回って下から / 上へ抜ける。
 function Digit({ value }: { value: number }) {
   const n = ((value % 10) + 10) % 10;
+  const [current, setCurrent] = useState(n);
+  const [previous, setPrevious] = useState<number | null>(null);
+  const timerRef = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (n === current) return;
+    setPrevious(current);
+    setCurrent(n);
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+    // reel の回転 (620ms) 完走後に直前桁を unmount
+    timerRef.current = window.setTimeout(() => setPrevious(null), 700);
+    return () => {
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+    };
+  }, [n, current]);
+
   return (
     <span className="oscg-digit">
       <span
         className="oscg-digit-reel"
-        style={{ transform: `rotateX(${-n * 36}deg)` }}
+        style={{ transform: `rotateX(${-current * 36}deg)` }}
       >
-        {Array.from({ length: 10 }).map((_, i) => (
+        <span
+          className="oscg-digit-face"
+          style={{ transform: `rotateX(${current * 36}deg) translateZ(var(--oscg-digit-r))` }}
+        >
+          {current}
+        </span>
+        {previous !== null && previous !== current && (
           <span
-            key={i}
             className="oscg-digit-face"
-            style={{ transform: `rotateX(${i * 36}deg) translateZ(var(--oscg-digit-r))` }}
+            style={{ transform: `rotateX(${previous * 36}deg) translateZ(var(--oscg-digit-r))` }}
           >
-            {i}
+            {previous}
           </span>
-        ))}
+        )}
       </span>
     </span>
   );

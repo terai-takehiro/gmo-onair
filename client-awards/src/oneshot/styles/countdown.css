@@ -104,29 +104,27 @@
     0 4px 16px rgba(0, 0, 0, 0.6);
   overflow: hidden;
 }
-/* 上下の暗グラデでシリンダー窓の奥行きを強調 (隣接桁の覗き込みを隠す) */
+/* v2.8.123+: 静止時に隣接桁を描画しなくなったため、マスクは軽めの vignette のみに。 */
 .oneshot-cg-root .oscg-digit::before,
 .oneshot-cg-root .oscg-digit::after {
   content: "";
   position: absolute;
   left: 0;
   right: 0;
-  height: 42%;
+  height: 22%;
   pointer-events: none;
   z-index: 3;
 }
 .oneshot-cg-root .oscg-digit::before {
   top: 0;
   background: linear-gradient(180deg,
-    rgba(0, 0, 0, 0.95) 0%,
-    rgba(0, 0, 0, 0.6) 60%,
+    rgba(0, 0, 0, 0.8) 0%,
     rgba(0, 0, 0, 0) 100%);
 }
 .oneshot-cg-root .oscg-digit::after {
   bottom: 0;
   background: linear-gradient(0deg,
-    rgba(0, 0, 0, 0.95) 0%,
-    rgba(0, 0, 0, 0.6) 60%,
+    rgba(0, 0, 0, 0.8) 0%,
     rgba(0, 0, 0, 0) 100%);
 }
 
