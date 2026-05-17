@@ -33,7 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.142 — Poll 微調整 + CG プレビューに ErrorBoundary 追加。①**選択肢カードのテキストを右に**: ChoiceCard の名前/会社のコンテナを `left: 96 → 124` に変更し、左の六角形バッジとの間に約 28px のゆとりを追加 (詰まり感を解消)。②**選択肢ブロックを少し上に**: `CHOICES_Y = CAM_Y + CAM_H + 28 → CAM_Y + CAM_H - 10` に変更し、カメラ枠と 10px 重なる位置に下げて全体を上寄りに。`CHOICES_H` も `1080 - CHOICES_Y - 28` に再計算。③**CG プレビューに ErrorBoundary**: ControlPage の PROGRAM プレビューと NEXT サムネイル両方の `<CGFrame>` を新規 `CGErrorBoundary` クラスコンポーネントで包み、CG レンダーが mount/update でクラッシュしても operator UI 全体は維持。`getDerivedStateFromError` でエラー捕捉、メッセージ + 「再試行」ボタンを表示。`componentDidCatch` でコンソールにも詳細をログ。
+v2.8.143 — モバイル Safari クラッシュ (`A problem repeatedly occurred`) の修正: Poll / Vote-reveal の背景レイヤーを軽量化。 ①**`mask-composite: exclude` を撤去**: カメラ枠領域のくり抜きを CSS mask → **物理 4 領域分割**に変更 (top/bottom/left/right の独立 div で囲む)。WebKit content process の OOM クラッシュ要因を排除。 ②**`mix-blend-mode: screen` を撤去**: 斜光ビーム 2 枚を削除し、ベースグラデのウォームスポットのみで雰囲気を保つ。composite layer の爆発を防ぐ。 ③**SVG `drop-shadow` フィルター粒子 → CSS `box-shadow` div 粒子**に変更: Poll 36→**14** + Vote-reveal 26→**12** に削減。`<svg>` 要素 + `radialGradient` + `filter: drop-shadow` の組合せが iOS Safari でメモリを爆食いしていたため、軽量な絶対配置 div + `box-shadow` glow に置換。 ④**ErrorBoundary** (v2.8.142) は据置で、もし他で render エラーが出ても画面が真っ黒にならず operator UI 維持。
+
+(v2.8.142 — Poll 微調整 + CG プレビューに ErrorBoundary 追加。①**選択肢カードのテキストを右に**: ChoiceCard の名前/会社のコンテナを `left: 96 → 124` に変更し、左の六角形バッジとの間に約 28px のゆとりを追加 (詰まり感を解消)。②**選択肢ブロックを少し上に**: `CHOICES_Y = CAM_Y + CAM_H + 28 → CAM_Y + CAM_H - 10` に変更し、カメラ枠と 10px 重なる位置に下げて全体を上寄りに。`CHOICES_H` も `1080 - CHOICES_Y - 28` に再計算。③**CG プレビューに ErrorBoundary**: ControlPage の PROGRAM プレビューと NEXT サムネイル両方の `<CGFrame>` を新規 `CGErrorBoundary` クラスコンポーネントで包み、CG レンダーが mount/update でクラッシュしても operator UI 全体は維持。`getDerivedStateFromError` でエラー捕捉、メッセージ + 「再試行」ボタンを表示。`componentDidCatch` でコンソールにも詳細をログ。)
 
 (v2.8.141 — 微調整: ①Vote-reveal 確定数字ボックスの位置を `top: 430 → 470` に下げて、他要素 (名前カード) との被りを解消。②Poll カウントダウンの 0 秒も 1-5 秒と同じ拡大サイズを維持するように `isLast5 = secs <= 5` (旧 `secs <= 5 && secs > 0`) に変更 → 30→5 秒は通常、5→0 秒は強調表示が継続。)
 

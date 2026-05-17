@@ -66,112 +66,89 @@ export default function StepPoll({ category, entries, startedAt, lang, transpare
 // Atmosphere: 多層背景 — ベース + ビネット + 上スポット + ボケ粒子 + 光線
 // (カメラ枠部分はマスクで完全透過)
 // ═══════════════════════════════════════════════════════════════════
+// Atmosphere: モバイル Safari でクラッシュしないよう軽量化版。
+// CSS mask + mix-blend-mode + 多数 SVG drop-shadow の組合せが
+// WebKit content process を OOM クラッシュさせるため:
+//   - mask-composite を廃止 → カメラ枠の周り 4 領域に分割描画
+//   - mix-blend-mode: screen を撤去 (composite layer の爆発を防ぐ)
+//   - SVG 粒子 36 → 14 + drop-shadow 撤去 (CSS box-shadow ベース)
+// ═══════════════════════════════════════════════════════════════════
 function Atmosphere({ transparent = false }: { transparent?: boolean }) {
   const particles = useMemo(() => {
     const rnd = mulberry32(20260615);
-    return Array.from({ length: 36 }).map(() => ({
-      x: rnd() * 1920,
-      y: rnd() * 1080,
-      r: 1 + rnd() * 2.4,
-      o: 0.35 + rnd() * 0.45,
-      blur: rnd() * 1.5,
-      delay: -rnd() * 6,
-      dur: 4 + rnd() * 5,
-    }));
+    return Array.from({ length: 14 }).map(() => {
+      let x = rnd() * 1920;
+      let y = rnd() * 1080;
+      // カメラ枠領域に重ならないよう適度に避ける
+      if (x > CAM_X && x < CAM_X + CAM_W && y > CAM_Y && y < CAM_Y + CAM_H) {
+        if (rnd() > 0.5) y = CAM_Y + CAM_H + rnd() * (1080 - CAM_Y - CAM_H - 30);
+        else x = CAM_X + CAM_W + rnd() * (1920 - CAM_X - CAM_W - 30);
+      }
+      return {
+        x, y,
+        r: 2 + rnd() * 3,
+        o: 0.45 + rnd() * 0.4,
+        delay: -rnd() * 5,
+        dur: 4 + rnd() * 4,
+      };
+    });
   }, []);
-  // CSS mask でカメラ枠領域をくり抜く
-  const maskStyle: React.CSSProperties = {
-    WebkitMaskImage: 'linear-gradient(#000 0 0), linear-gradient(#000 0 0)',
-    maskImage: 'linear-gradient(#000 0 0), linear-gradient(#000 0 0)',
-    WebkitMaskPosition: `0 0, ${CAM_X}px ${CAM_Y}px`,
-    maskPosition: `0 0, ${CAM_X}px ${CAM_Y}px`,
-    WebkitMaskSize: `100% 100%, ${CAM_W}px ${CAM_H}px`,
-    maskSize: `100% 100%, ${CAM_W}px ${CAM_H}px`,
-    WebkitMaskRepeat: 'no-repeat, no-repeat',
-    maskRepeat: 'no-repeat, no-repeat',
-    WebkitMaskComposite: 'xor',
-    maskComposite: 'exclude',
-  };
+
+  // ベースグラデを 4 領域に分割: カメラ枠を「物理的に」避ける
+  const base = transparent ? 'transparent' : `
+    radial-gradient(ellipse 70% 50% at 50% 5%,  rgba(220,170,90,0.18), transparent 60%),
+    radial-gradient(ellipse 75% 80% at 50% 60%, rgba(60,40,20,0.55), rgba(8,6,12,1) 70%),
+    linear-gradient(180deg, #0c0a14 0%, #060409 100%)
+  `;
+
   return (
-    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', ...maskStyle }}>
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
       <style>{`
         @keyframes pollBokeh {
-          0%, 100% { opacity: 0.4; transform: scale(0.85); }
-          50%      { opacity: 1;   transform: scale(1.15); }
-        }
-        @keyframes pollRayDrift {
-          0%   { transform: translate(-2%, 0) rotate(-8deg); opacity: 0.5; }
-          50%  { transform: translate(2%, 0)  rotate(-6deg); opacity: 0.85; }
-          100% { transform: translate(-2%, 0) rotate(-8deg); opacity: 0.5; }
+          0%, 100% { opacity: 0.35; transform: scale(0.85); }
+          50%      { opacity: 1;   transform: scale(1.2); }
         }
       `}</style>
 
-      {/* ベース: 深い濃紫 → 漆黒 (transparent=true なら省略してアルファ透過) */}
+      {/* ベース 4 領域 (カメラ枠を囲む 上 / 下 / 左 / 右) */}
       {!transparent && (
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: `
-            radial-gradient(ellipse 70% 50% at 50% 5%,  rgba(220,170,90,0.18), transparent 60%),
-            radial-gradient(ellipse 75% 80% at 50% 60%, rgba(60,40,20,0.55), rgba(8,6,12,1) 70%),
-            linear-gradient(180deg, #0c0a14 0%, #060409 100%)
-          `,
-        }}/>
+        <>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: CAM_Y, background: base, backgroundAttachment: 'fixed' }}/>
+          <div style={{ position: 'absolute', top: CAM_Y + CAM_H, left: 0, right: 0, bottom: 0, background: base, backgroundAttachment: 'fixed' }}/>
+          <div style={{ position: 'absolute', top: CAM_Y, left: 0, width: CAM_X, height: CAM_H, background: base, backgroundAttachment: 'fixed' }}/>
+          <div style={{ position: 'absolute', top: CAM_Y, left: CAM_X + CAM_W, right: 0, height: CAM_H, background: base, backgroundAttachment: 'fixed' }}/>
+        </>
       )}
 
-      {/* 左上 / 右上 の斜光ビーム */}
-      <div style={{
-        position: 'absolute', top: -200, left: -200, width: 1400, height: 1400,
-        background: 'linear-gradient(135deg, rgba(245,215,110,0.10) 0%, transparent 35%)',
-        mixBlendMode: 'screen',
-        animation: 'pollRayDrift 9s ease-in-out infinite',
-      }}/>
-      <div style={{
-        position: 'absolute', top: -200, right: -200, width: 1400, height: 1400,
-        background: 'linear-gradient(-135deg, rgba(220,140,60,0.08) 0%, transparent 35%)',
-        mixBlendMode: 'screen',
-        animation: 'pollRayDrift 11s ease-in-out infinite reverse',
-      }}/>
+      {/* ボケ粒子 (軽量: box-shadow ベース、SVG filter なし) */}
+      {particles.map((p, i) => (
+        <div
+          key={i}
+          style={{
+            position: 'absolute',
+            left: p.x - p.r,
+            top: p.y - p.r,
+            width: p.r * 2, height: p.r * 2,
+            borderRadius: '50%',
+            background: '#fff3c4',
+            opacity: p.o,
+            boxShadow: `0 0 ${p.r * 3}px rgba(245,215,110,0.7)`,
+            animation: `pollBokeh ${p.dur}s ease-in-out infinite`,
+            animationDelay: `${p.delay}s`,
+          }}
+        />
+      ))}
 
-      {/* ボケ粒子 */}
-      <svg width={1920} height={1080} style={{ position: 'absolute', inset: 0 }}>
-        <defs>
-          <radialGradient id="bokeh">
-            <stop offset="0%"  stopColor="#fff3c4" stopOpacity="1"/>
-            <stop offset="60%" stopColor="#f5d76e" stopOpacity="0.4"/>
-            <stop offset="100%" stopColor="#f5d76e" stopOpacity="0"/>
-          </radialGradient>
-        </defs>
-        {particles.map((p, i) => (
-          <circle
-            key={i}
-            cx={p.x} cy={p.y} r={p.r * 3}
-            fill="url(#bokeh)"
-            opacity={p.o}
-            style={{
-              filter: `blur(${p.blur}px)`,
-              animation: `pollBokeh ${p.dur}s ease-in-out infinite`,
-              animationDelay: `${p.delay}s`,
-              transformOrigin: `${p.x}px ${p.y}px`,
-            }}
-          />
-        ))}
-      </svg>
-
-      {/* 床のリフレクション */}
-      <div style={{
-        position: 'absolute', left: 0, right: 0, bottom: 0, height: 240,
-        background: 'linear-gradient(180deg, transparent 0%, rgba(245,215,110,0.06) 40%, rgba(245,215,110,0.12) 80%, transparent 100%)',
-      }}/>
-
-      {/* ビネット */}
-      <div style={{
-        position: 'absolute', inset: 0,
-        background: 'radial-gradient(ellipse 100% 100% at 50% 50%, transparent 55%, rgba(0,0,0,0.65) 100%)',
-      }}/>
+      {/* 床のリフレクション (CAM_Y+CAM_H 以下のみ、軽い) */}
+      {!transparent && (
+        <div style={{
+          position: 'absolute', left: 0, right: 0, bottom: 0, height: 200,
+          background: 'linear-gradient(180deg, transparent 0%, rgba(245,215,110,0.07) 60%, transparent 100%)',
+        }}/>
+      )}
     </div>
   );
 }
-
 // ═══════════════════════════════════════════════════════════════════
 // CameraFrame: 多層フレーム + ぼかし内側エッジ + オーナメント
 // ═══════════════════════════════════════════════════════════════════

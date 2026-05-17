@@ -60,14 +60,14 @@ export default function StepVoteReveal({
   );
 }
 
-// ─── ステージ背景 ─────────────────────────────────────────────
+// ─── ステージ背景 (軽量化: モバイル Safari 用) ───────────────
 function Backdrop({ transparent = false }: { transparent?: boolean }) {
   const particles = useMemo(() => {
     const rnd = mulberry32(20260710);
-    return Array.from({ length: 26 }).map(() => ({
+    return Array.from({ length: 12 }).map(() => ({
       x: rnd() * 1920,
       y: 540 + rnd() * 540,
-      size: 1 + rnd() * 2,
+      size: 2 + rnd() * 2,
       delay: -rnd() * 8,
       dur: 12 + rnd() * 10,
       drift: -40 + rnd() * 80,
@@ -98,23 +98,32 @@ function Backdrop({ transparent = false }: { transparent?: boolean }) {
         left: '50%', top: 0, width: 1400, height: 1080, marginLeft: -700,
         background: 'radial-gradient(ellipse 60% 100% at 50% 0%, rgba(255,225,170,0.18), transparent 70%)',
         animation: 'vrSpotPulse 4s ease-in-out infinite',
+        pointerEvents: 'none',
       }}/>
       <div style={{
         position: 'absolute', left: 0, right: 0, bottom: 0, height: 220,
         background: 'linear-gradient(180deg, transparent, rgba(245,215,110,0.08) 50%, transparent)',
+        pointerEvents: 'none',
       }}/>
-      <svg width={1920} height={1080} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-        {particles.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r={p.size} fill="#ffe9b8" opacity={0.5}
-            style={{
-              filter: 'drop-shadow(0 0 4px rgba(255,225,170,0.9))',
-              animation: `vrParticleFloat ${p.dur}s linear infinite`,
-              animationDelay: `${p.delay}s`,
-              ['--drift' as never]: `${p.drift}px`,
-            }}
-          />
-        ))}
-      </svg>
+      {/* 粒子 (軽量: box-shadow ベース、SVG filter 不使用) */}
+      {particles.map((p, i) => (
+        <div
+          key={i}
+          style={{
+            position: 'absolute',
+            left: p.x - p.size,
+            top: p.y - p.size,
+            width: p.size * 2, height: p.size * 2,
+            borderRadius: '50%',
+            background: '#ffe9b8',
+            boxShadow: `0 0 ${p.size * 3}px rgba(255,225,170,0.85)`,
+            animation: `vrParticleFloat ${p.dur}s linear infinite`,
+            animationDelay: `${p.delay}s`,
+            ['--drift' as never]: `${p.drift}px`,
+            pointerEvents: 'none',
+          }}
+        />
+      ))}
     </>
   );
 }
