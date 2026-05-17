@@ -94,16 +94,16 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
   const showPoll = stepKey === 'poll';
   const showVoteReveal = stepKey === 'vote-reveal';
 
-  if (stepKey === 'idle') return null;
-
   const winner = sorted.find((e) => e.rank === 1) ?? null;
-  // vote-reveal の winner は vote_count 最大値で決まる
+  // vote-reveal の winner は vote_count 最大値で決まる (Hooks は早期 return より前で呼ぶ)
   const voteWinner = useMemo(() => {
     if (!sorted.length) return null;
     const top3 = sorted.filter((e) => e.rank >= 1 && e.rank <= 3);
     const pool = top3.length ? top3 : sorted;
     return pool.reduce((a, b) => ((b.voteCount ?? 0) > (a.voteCount ?? 0) ? b : a));
   }, [sorted]);
+
+  if (stepKey === 'idle') return null;
 
   // Suppress unused import warning from layout.ts
   void STEP_ORDER;

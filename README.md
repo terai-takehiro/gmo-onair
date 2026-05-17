@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.126 — 下位置CG カウントダウン アニメーション全面刷新（3D シリンダー → スロットマシン式縦スライド）+ 00:00 はカットアウト化
+**現在のバージョン**: v2.8.127 — Hotfix: 表彰CG operator が React error #310 (Hooks 違反) でクラッシュする問題を修正（v2.8.125 で導入した `voteWinner` 用 `useMemo` を `if (stepKey === 'idle') return null` より前に移動）
 
 ---
 
@@ -401,6 +401,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.8.127** | **Hotfix: 表彰CG operator が React error #310 (Hooks 違反) でクラッシュ (dev)**: v2.8.125 で `CGSequence` に追加した `voteWinner` 用 `useMemo` を `if (stepKey === 'idle') return null` の**後ろ**に置いていたため、idle ステップ時と他ステップで hooks 数が変化して "Rendered more hooks than during the previous render" エラー発生。早期 return より前に移動して解消（CLAUDE.md v2.8.81 と同パターン）。 |
 | **v2.8.126** | **下位置CG カウントダウン アニメ刷新 + 00:00 カットアウト (dev)**: ①3D シリンダー方式 (v2.8.121〜124) を撤回し、スロットマシン式の縦スライドに変更。新桁は下から `translateY 100% → 0` で滑り込み、旧桁は上へ `0 → -100%` で抜ける + opacity フェード（in: cubic-bezier(.22,.8,.36,1) / out: (.4,0,.68,.35), 480ms）。Digit に `slides: Slide[]` を持たせ、value 変化で push → 520ms 後に古いものを slice。②00:00 はフェード演出を撤去してカットアウト化（done 検知から 600ms ホールド後に hidden=true で return null、CSS transition なし）。③cylinder 関連 CSS (perspective / preserve-3d / reel / 上下マスク / leaving keyframes) を整理。 |
 | **v2.8.125** | **表彰CG に演出パターン 2 種を追加 (dev)**: 部門ごとに「No.1発表」(direct, 既存フロー) / 「投票No.1決定」(vote, 新規) を選択可能に。①migration 089 で `awards_categories` に `award_pattern` + `poll_title/poll_question` (JA/EN)、`awards_entries` に `vote_count`、`awards_cue_state` に `vote_display` / `poll_started_at` / `reveal_phase` を追加 + step CHECK に `'poll'` / `'vote-reveal'`。②新規ステップ `poll`（タイトル + 質問文 + TOP3 の3択カード + 30秒カウントダウン + 中央にカメラ合成用アルファ透過枠）と `vote-reveal`（TOP3 縦棒グラフを TAKE 連打で phase 0=ランダム揺れ → 1=0 から実値へ伸張 → 2=大賞フルスクリーン演出 まで統合）。③ControlPage は NEXT 部門の `award_pattern` で送出ステップ一覧を切替、`poll` TAKE で `pollStartedAt=now` セット + 30s + 3s 後に自動 top3 復帰タイマー。`vote-reveal` 中の TAKE で `revealPhase` 0→1→2 進行。ヘッダーに vote 専用「投票」ボタン → `VoteSettingsDialog`（TOP3 投票数の手動入力 + 票数/% 表示切替）。④EventEditorPage の部門カードに `PatternBlock`（パターン トグル + vote 選択時のみ展開する poll_title/poll_question (JA/EN) フィールド）を追加。⑤server `socket.ts` `cue:set/sync/nextSet/nextSync` を新フィールドで拡張、`categories.routes.ts` PUT に `award_pattern` + poll_* + 新規 `PUT /awards/categories/:id/vote-counts`。 |
 | **v2.8.124** | **下位置CG カウントダウン 仕上げ (dev)**: ①00:00 フェードアウト不具合修正（useEffect の deps を `parts` オブジェクト → `done` スカラに変更、cleanup の連続キャンセルを解消）。②動きの安定化（reel の transition を 620ms overshoot bouncy → 480ms 上品な ease-out に変更）。③直前桁にフェードアウト（`.oscg-digit-face--leaving` で opacity 1→0 のキーフレーム発火、静止時 1 桁・回転時のみ短く 2 桁重なる挙動）。④TAKE/CLEAR を 1SHOT タブ専用に移動（カウントダウンは ON/OFF をパネル内蔵）。⑤タブ名「送出」→「1SHOT」にリネーム。 |

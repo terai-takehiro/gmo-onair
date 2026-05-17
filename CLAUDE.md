@@ -33,7 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.126 — 下位置CG カウントダウン アニメーション全面刷新 + 00:00 カットアウト化。①**3D シリンダー方式を撤回、スロットマシン式の縦スライドに変更**: v2.8.121〜124 の 10 面シリンダーは静止時/動作時とも違和感があり「ダサい」とのフィードバックを受け廃止。新桁は `translateY(100% → 0)` で下から滑り込み、旧桁は `translateY(0 → -100%)` で上に抜ける + opacity フェード。easing は `cubic-bezier(.22,.8,.36,1)` (in) / `cubic-bezier(.4,0,.68,.35)` (out) で滑らかに加速/減速。Digit に `slides: Slide[]` state を持たせ、value 変化で新スライドを push → 520ms 後に古いものを slice。 ②**00:00 はカットアウト**: フェード演出 (`.oscg-countdown--fade` の 1.2s opacity transition) を撤去。`done` 検知から 600ms (00:00 をしっかり見せる時間) ホールド後に `hidden=true` で **return null** → CSS フェードなしの即時カットアウト。 ③CSS 上の cylinder 関連 (`perspective`, `transform-style: preserve-3d`, reel transform, 上下マスク, leaving keyframes) を整理。digit container は背景グラデ + gold border + inner shadow を踏襲しつつ単純な 1 セルに。font-size を 0.62 → 0.66 に微増。
+v2.8.127 — Hotfix: v2.8.125 で表彰CG operator が React error #310 (Rendered more hooks than during the previous render) でクラッシュしていた問題を修正。`CGSequence` の `voteWinner` 用 `useMemo` を `if (stepKey === 'idle') return null` の**後**に置いていたため、idle 時とそれ以外で hooks 数が変化。早期 return より前に移動して Rules of Hooks 違反を解消（CLAUDE.md v2.8.81 と同パターン）。
+
+(v2.8.126 — 下位置CG カウントダウン アニメーション全面刷新 + 00:00 カットアウト化。①**3D シリンダー方式を撤回、スロットマシン式の縦スライドに変更**: v2.8.121〜124 の 10 面シリンダーは静止時/動作時とも違和感があり「ダサい」とのフィードバックを受け廃止。新桁は `translateY(100% → 0)` で下から滑り込み、旧桁は `translateY(0 → -100%)` で上に抜ける + opacity フェード。easing は `cubic-bezier(.22,.8,.36,1)` (in) / `cubic-bezier(.4,0,.68,.35)` (out) で滑らかに加速/減速。Digit に `slides: Slide[]` state を持たせ、value 変化で新スライドを push → 520ms 後に古いものを slice。 ②**00:00 はカットアウト**: フェード演出 (`.oscg-countdown--fade` の 1.2s opacity transition) を撤去。`done` 検知から 600ms (00:00 をしっかり見せる時間) ホールド後に `hidden=true` で **return null** → CSS フェードなしの即時カットアウト。 ③CSS 上の cylinder 関連 (`perspective`, `transform-style: preserve-3d`, reel transform, 上下マスク, leaving keyframes) を整理。digit container は背景グラデ + gold border + inner shadow を踏襲しつつ単純な 1 セルに。font-size を 0.62 → 0.66 に微増。)
 
 (v2.8.125 — 表彰CG (ranking) に演出パターン 2 種を追加: 「No.1発表」(direct, 既存フロー) と「投票No.1決定」(vote, 新規)。)
 
