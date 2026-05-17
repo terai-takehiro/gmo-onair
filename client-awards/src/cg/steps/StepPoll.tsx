@@ -265,15 +265,16 @@ function RightColumn({ title, question, isJa }: { title: string; question: strin
         width: RIGHT_W, height: RIGHT_H,
         display: 'flex', flexDirection: 'column',
         alignItems: 'flex-end',
-        paddingTop: 40,
+        paddingTop: 40, paddingRight: 24,
       }}>
         <div style={{
-          fontFamily: "'Noto Sans JP', sans-serif",
-          fontWeight: 900, fontSize: 96, lineHeight: 1,
+          fontFamily: "'Titillium Web', sans-serif",
+          fontWeight: 700, fontStyle: 'italic',
+          fontSize: 130, lineHeight: 1,
           background: `linear-gradient(180deg, ${GOLD_BRIGHT} 0%, ${GOLD} 60%, ${GOLD_DEEP} 100%)`,
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
           filter: 'drop-shadow(0 4px 22px rgba(0,0,0,0.85))',
-          marginBottom: 18,
+          marginBottom: 18, padding: '4px 8px',
         }}>Q</div>
         <TitleBand text={title} horizontal />
         <div style={{
@@ -287,6 +288,7 @@ function RightColumn({ title, question, isJa }: { title: string; question: strin
       </div>
     );
   }
+  // JA: [question (左)] [Q (中央、上下中央寄せ)] [title (右)] の 3 列
   return (
     <div style={{
       position: 'absolute',
@@ -294,61 +296,85 @@ function RightColumn({ title, question, isJa }: { title: string; question: strin
       width: RIGHT_W, height: RIGHT_H,
       display: 'flex',
       flexDirection: 'row',
-      alignItems: 'flex-start',
+      alignItems: 'center',
       justifyContent: 'flex-end',
-      gap: 28,
-      paddingTop: 6,
+      gap: 18,
+      paddingRight: 28,
     }}>
-      {/* 質問文 縦書き (左) */}
+      {/* 質問文 縦書き */}
+      <VerticalText
+        text={question}
+        fontSize={68}
+        color="#fff"
+        weight={900}
+        maxHeight={RIGHT_H - 30}
+      />
+
+      {/* Q (中央、上下中央) */}
+      <div style={{
+        fontFamily: "'Titillium Web', sans-serif",
+        fontWeight: 700, fontStyle: 'italic',
+        fontSize: 150, lineHeight: 1,
+        background: `linear-gradient(180deg, ${GOLD_BRIGHT} 0%, ${GOLD} 50%, ${GOLD_DEEP} 100%)`,
+        WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+        filter: 'drop-shadow(0 4px 22px rgba(0,0,0,0.85)) drop-shadow(0 0 18px rgba(245,215,110,0.45))',
+        padding: '12px 14px 18px',
+        flexShrink: 0,
+      }}>Q</div>
+
+      {/* タイトル 縦帯 */}
+      <TitleBand text={title} maxH={RIGHT_H - 30}/>
+    </div>
+  );
+}
+
+/** 縦書きテキスト: 長文時は letter-spacing + font-feature-settings: "palt" で長体化、
+ *  さらに maxHeight を超える場合は scaleY で圧縮してレイアウトを崩さない。 */
+function VerticalText({ text, fontSize, color, weight, maxHeight }: {
+  text: string; fontSize: number; color: string; weight: number; maxHeight: number;
+}) {
+  // 概算: 1 文字 ~= fontSize * 1.1 の高さ。maxHeight を超える文字数で scaleY を縮める。
+  const charsApprox = text.length;
+  const naturalH = charsApprox * fontSize * 1.05;
+  const scale = naturalH > maxHeight ? Math.max(0.62, maxHeight / naturalH) : 1;
+  const isLong = scale < 1;
+  return (
+    <div style={{
+      maxHeight,
+      display: 'flex', alignItems: 'center',
+      flexShrink: 0,
+    }}>
       <div style={{
         writingMode: 'vertical-rl',
         fontFamily: "'Noto Sans JP', sans-serif",
-        fontWeight: 900, fontSize: 70, color: '#fff',
-        letterSpacing: '0.04em', lineHeight: 1.18,
+        fontWeight: weight,
+        fontSize,
+        color,
+        letterSpacing: isLong ? '-0.04em' : '0.04em',
+        lineHeight: isLong ? 1.05 : 1.18,
         textShadow: '0 4px 22px rgba(0,0,0,0.95), 0 0 14px rgba(245,215,110,0.15)',
-        maxHeight: RIGHT_H - 20,
-        paddingTop: 70,
+        transform: scale < 1 ? `scaleY(${scale})` : 'none',
+        transformOrigin: 'center center',
+        fontFeatureSettings: '"palt" 1',
       }}>
-        {question}
+        {text}
       </div>
-
-      {/* Q + タイトル スタック (右) */}
-      <QTitleStack title={title} />
     </div>
   );
 }
 
-function QTitleStack({ title }: { title: string }) {
-  return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      gap: 14, maxHeight: RIGHT_H,
-    }}>
-      {/* Q */}
-      <div style={{
-        fontFamily: "'Noto Sans JP', sans-serif",
-        fontWeight: 900, fontSize: 130, lineHeight: 1,
-        background: `linear-gradient(180deg, ${GOLD_BRIGHT} 0%, ${GOLD} 50%, ${GOLD_DEEP} 100%)`,
-        WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-        filter: 'drop-shadow(0 4px 22px rgba(0,0,0,0.85)) drop-shadow(0 0 16px rgba(245,215,110,0.4))',
-        padding: '0 12px',
-      }}>Q</div>
-      {/* 区切り ヘアライン */}
-      <div style={{
-        width: 92, height: 1,
-        background: `linear-gradient(90deg, transparent, ${GOLD_BRIGHT}, transparent)`,
-        opacity: 0.85,
-      }}/>
-      {/* タイトル 縦帯 */}
-      <TitleBand text={title} />
-    </div>
-  );
-}
-
-function TitleBand({ text, horizontal = false }: { text: string; horizontal?: boolean }) {
+function TitleBand({ text, horizontal = false, maxH }: { text: string; horizontal?: boolean; maxH?: number }) {
+  const innerMaxH = maxH ?? (horizontal ? undefined : RIGHT_H - 30);
+  const charsApprox = text.length;
+  const fontSize = horizontal ? 40 : 60;
+  const naturalH = horizontal ? 0 : charsApprox * fontSize * 1.1;
+  const scale = (!horizontal && innerMaxH && naturalH > (innerMaxH - 80))
+    ? Math.max(0.65, (innerMaxH - 80) / naturalH) : 1;
+  const isLong = scale < 1;
   return (
     <div style={{
       position: 'relative',
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
       writingMode: horizontal ? 'horizontal-tb' : 'vertical-rl',
       padding: horizontal ? '14px 28px' : '30px 22px',
       background: 'linear-gradient(180deg, rgba(38,30,16,0.97) 0%, rgba(18,12,5,0.98) 100%)',
@@ -361,10 +387,12 @@ function TitleBand({ text, horizontal = false }: { text: string; horizontal?: bo
       `,
       fontFamily: "'Noto Sans JP', sans-serif",
       fontWeight: 900,
-      fontSize: horizontal ? 40 : 64,
-      letterSpacing: horizontal ? '0.04em' : '0.16em',
+      fontSize,
+      letterSpacing: horizontal ? '0.04em' : (isLong ? '0' : '0.14em'),
       lineHeight: 1.0,
-      maxHeight: horizontal ? undefined : RIGHT_H - 230,
+      maxHeight: innerMaxH,
+      flexShrink: 0,
+      fontFeatureSettings: '"palt" 1',
     }}>
       <div style={{ position: 'absolute', inset: -8, border: `1px solid ${GOLD_BRIGHT}`, opacity: 0.5, pointerEvents: 'none' }}/>
       <div style={{ position: 'absolute', inset: -16, border: `1px solid ${GOLD_DEEP}`, opacity: 0.3, pointerEvents: 'none' }}/>
@@ -377,6 +405,9 @@ function TitleBand({ text, horizontal = false }: { text: string; horizontal?: bo
         background: `linear-gradient(180deg, ${GOLD_BRIGHT} 0%, ${GOLD} 50%, ${GOLD_DEEP} 100%)`,
         WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
         filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.85))',
+        transform: scale < 1 ? `scaleY(${scale})` : 'none',
+        transformOrigin: 'center center',
+        display: 'inline-block',
       }}>{text}</span>
     </div>
   );
@@ -556,7 +587,7 @@ function Countdown({ secs, ratio, isLast5, isLast10 }: {
   return (
     <div style={{
       position: 'absolute',
-      right: 60, bottom: 36,
+      right: 100, bottom: 50,
       width: size, height: size,
       animation: isLast5 ? 'pollLast5Pulse 1s ease-in-out infinite' : 'none',
     }}>
@@ -651,9 +682,9 @@ function SlideDigit({ char, fontSize, color }: { char: string; fontSize: number;
           <div key={s.key} style={{
             position: 'absolute', inset: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: "'Noto Sans JP', sans-serif",
+            fontFamily: "'Titillium Web', sans-serif",
             fontSize, fontWeight: 900, color, lineHeight: 1,
-            letterSpacing: '-0.04em',
+            letterSpacing: '-0.03em',
             fontVariantNumeric: 'tabular-nums',
             animation: anim, willChange: 'transform, opacity',
             textShadow: '0 2px 8px rgba(0,0,0,0.7)',

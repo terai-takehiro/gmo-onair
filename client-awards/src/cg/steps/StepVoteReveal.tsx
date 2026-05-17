@@ -38,6 +38,7 @@ export default function StepVoteReveal({
         categoryParent={categoryParent}
         categoryChild={categoryChild}
         lang={lang}
+        hidePoints
       />
     );
   }
@@ -348,11 +349,11 @@ function CandidateCard({
           boxShadow: '0 6px 24px rgba(0,0,0,0.55), 0 0 24px rgba(245,215,110,0.18)',
         }}>
           <span style={{
-            fontFamily: "'Noto Sans JP', sans-serif",
+            fontFamily: "'Titillium Web', sans-serif",
             fontWeight: 900,
-            fontSize: 88,
+            fontSize: 92,
             color: '#fff',
-            letterSpacing: '-0.04em',
+            letterSpacing: '-0.03em',
             lineHeight: 1,
             textShadow: '0 2px 14px rgba(0,0,0,0.85), 0 0 18px rgba(245,215,110,0.3)',
             fontVariantNumeric: 'tabular-nums',
@@ -363,7 +364,7 @@ function CandidateCard({
             {shown.toLocaleString()}
           </span>
           <span style={{
-            fontFamily: "'Noto Sans JP', sans-serif",
+            fontFamily: "'Titillium Web', sans-serif",
             fontWeight: 700,
             fontSize: 26,
             color: 'rgba(245,215,110,0.9)',

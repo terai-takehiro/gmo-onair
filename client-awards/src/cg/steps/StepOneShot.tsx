@@ -14,9 +14,10 @@ interface Props {
   categoryParent?: string;
   categoryChild?: string;
   lang?: 'ja' | 'en';
+  hidePoints?: boolean;
 }
 
-export default function StepOneShot({ entry, style, categoryParent = '', categoryChild = '', lang = 'ja' }: Props) {
+export default function StepOneShot({ entry, style, categoryParent = '', categoryChild = '', lang = 'ja', hidePoints = false }: Props) {
   const [on, setOn] = useState(false);
   useEffect(() => {
     const t = setTimeout(() => setOn(true), 40);
@@ -33,6 +34,7 @@ export default function StepOneShot({ entry, style, categoryParent = '', categor
       categoryParent={categoryParent}
       categoryChild={categoryChild}
       lang={lang}
+      hidePoints={hidePoints}
     />
   );
 }
@@ -44,6 +46,7 @@ interface OverlayProps {
   categoryParent: string;
   categoryChild: string;
   lang: 'ja' | 'en';
+  hidePoints?: boolean;
 }
 
 const MIN_CARD_W = 900;
@@ -69,7 +72,7 @@ function calcCardW(name: string, company: string, catChild: string): number {
   return Math.min(MAX_CARD_W, Math.max(MIN_CARD_W, Math.ceil(overhead + maxTextW)));
 }
 
-function OneShotCardOverlay({ entry, on, style, categoryParent, categoryChild, lang }: OverlayProps) {
+function OneShotCardOverlay({ entry, on, style, categoryParent, categoryChild, lang, hidePoints = false }: OverlayProps) {
   const displayName    = lang === 'en' ? (entry.nameEn || entry.name) : entry.name;
   const displayCompany = lang === 'en' ? (entry.orgEn  || entry.company) : entry.company;
 
@@ -147,6 +150,7 @@ function OneShotCardOverlay({ entry, on, style, categoryParent, categoryChild, l
           displayName={displayName}
           displayCompany={displayCompany}
           textColW={textColW}
+          hidePoints={hidePoints}
         />
         <No1Column on={on} />
       </div>
@@ -265,9 +269,10 @@ interface TextProps {
   displayName: string;
   displayCompany: string;
   textColW: number;
+  hidePoints?: boolean;
 }
 
-function TextColumn({ entry, on, categoryParent, categoryChild, displayName, displayCompany, textColW }: TextProps) {
+function TextColumn({ entry, on, categoryParent, categoryChild, displayName, displayCompany, textColW, hidePoints = false }: TextProps) {
   const nameFit     = fitText(displayName, textColW, `900 58px 'Noto Sans JP', sans-serif`);
   const compFit     = fitText(displayCompany, textColW, `500 26px 'Noto Sans JP', sans-serif`);
   const catChildFit = fitText(categoryChild, textColW, `700 38px 'Noto Sans JP', sans-serif`);
@@ -382,7 +387,8 @@ function TextColumn({ entry, on, categoryParent, categoryChild, displayName, dis
         {displayName}
       </div>
 
-      {/* Points */}
+      {/* Points (vote-reveal 経由などで hidePoints=true なら非表示) */}
+      {!hidePoints && (
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, ...fade() }}>
         <span style={{
           fontFamily: "'Bebas Neue', sans-serif",
@@ -397,6 +403,7 @@ function TextColumn({ entry, on, categoryParent, categoryChild, displayName, dis
           PT
         </span>
       </div>
+      )}
     </div>
   );
 }
