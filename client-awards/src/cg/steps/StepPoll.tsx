@@ -7,6 +7,7 @@ interface Props {
   entries: CgMappedEntry[];
   startedAt: number | null;
   lang: 'ja' | 'en';
+  transparent?: boolean;
 }
 
 // ─── レイアウト ───
@@ -26,7 +27,7 @@ const CHOICES_H = 1080 - CHOICES_Y - 32;
 const GOLD_BRIGHT = '#FFE8A8';
 const GOLD = '#E8C56C';
 const GOLD_DEEP = '#9E7B2E';
-export default function StepPoll({ category, entries, startedAt, lang }: Props) {
+export default function StepPoll({ category, entries, startedAt, lang, transparent = false }: Props) {
   const choices = useMemo(() => entries.filter((e) => e.rank >= 1 && e.rank <= 3), [entries]);
   const title = lang === 'en'
     ? (category?.poll_title_en || category?.poll_title || category?.name_en || category?.name || '')
@@ -52,7 +53,7 @@ export default function StepPoll({ category, entries, startedAt, lang }: Props) 
 
   return (
     <div style={{ position: 'absolute', inset: 0, background: 'transparent', fontFamily: "'Noto Sans JP', sans-serif" }}>
-      <Atmosphere />
+      <Atmosphere transparent={transparent} />
       <CameraFrame />
       <RightColumn title={title} question={question} isJa={lang === 'ja'} />
       <BottomChoices choices={choices} lang={lang} />
@@ -65,7 +66,7 @@ export default function StepPoll({ category, entries, startedAt, lang }: Props) 
 // Atmosphere: 多層背景 — ベース + ビネット + 上スポット + ボケ粒子 + 光線
 // (カメラ枠部分はマスクで完全透過)
 // ═══════════════════════════════════════════════════════════════════
-function Atmosphere() {
+function Atmosphere({ transparent = false }: { transparent?: boolean }) {
   const particles = useMemo(() => {
     const rnd = mulberry32(20260615);
     return Array.from({ length: 36 }).map(() => ({
@@ -105,15 +106,17 @@ function Atmosphere() {
         }
       `}</style>
 
-      {/* ベース: 深い濃紫 → 漆黒。中央上にウォームスポット */}
-      <div style={{
-        position: 'absolute', inset: 0,
-        background: `
-          radial-gradient(ellipse 70% 50% at 50% 5%,  rgba(220,170,90,0.18), transparent 60%),
-          radial-gradient(ellipse 75% 80% at 50% 60%, rgba(60,40,20,0.55), rgba(8,6,12,1) 70%),
-          linear-gradient(180deg, #0c0a14 0%, #060409 100%)
-        `,
-      }}/>
+      {/* ベース: 深い濃紫 → 漆黒 (transparent=true なら省略してアルファ透過) */}
+      {!transparent && (
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: `
+            radial-gradient(ellipse 70% 50% at 50% 5%,  rgba(220,170,90,0.18), transparent 60%),
+            radial-gradient(ellipse 75% 80% at 50% 60%, rgba(60,40,20,0.55), rgba(8,6,12,1) 70%),
+            linear-gradient(180deg, #0c0a14 0%, #060409 100%)
+          `,
+        }}/>
+      )}
 
       {/* 左上 / 右上 の斜光ビーム */}
       <div style={{

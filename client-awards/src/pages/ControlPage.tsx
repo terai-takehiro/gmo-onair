@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { ChevronLeft, ExternalLink, Trophy, Radio, Subtitles, Send, X, Maximize2, Minimize2, BarChart3, Vote } from 'lucide-react';
 import type { CgStep, OneshotStyle, CgCategory, CgCueState, AwardPattern, VoteDisplay } from '@/cg/types';
 import CGFrame from '@/cg/CGFrame';
-import { CG_W, CG_H, POLL_DURATION_MS, POLL_REVERT_DELAY_MS } from '@/cg/types';
+import { CG_W, CG_H, POLL_DURATION_MS } from '@/cg/types';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import VoteSettingsDialog from '@/components/VoteSettingsDialog';
 
@@ -149,7 +149,13 @@ export default function ControlPage() {
       return;
     }
 
-    // poll: TAKE でカウントダウン開始 + 自動復帰タイマー
+    // poll 中に TAKE (nextStep が poll のまま) → top3 へ手動遷移
+    if (nextStep === 'poll' && cue.step === 'poll') {
+      sendCue({ step: 'top3', pollStartedAt: null, revealPhase: 1 });
+      return;
+    }
+
+    // poll: TAKE でカウントダウン開始 (自動復帰は無し、operator が TAKE で進める)
     if (nextStep === 'poll') {
       const startedAt = Date.now();
       sendCue({
@@ -159,10 +165,6 @@ export default function ControlPage() {
         pollStartedAt: startedAt,
         revealPhase: 0,
       });
-      pollTimerRef.current = window.setTimeout(() => {
-        // revealPhase=1 マーカー: 「poll を経た top3 表示」(オーバーラップ切替)
-        sendCue({ step: 'top3', pollStartedAt: null, revealPhase: 1 });
-      }, POLL_DURATION_MS + POLL_REVERT_DELAY_MS);
       return;
     }
 
@@ -563,7 +565,7 @@ function PollLiveBadge({ startedAt }: { startedAt: number }) {
   }, [startedAt]);
   return (
     <span className="ml-auto text-red-400 font-bold animate-pulse">
-      POLL: 残り {secs}s {secs === 0 && '— 3秒後に TOP3 へ戻ります'}
+      POLL: 残り {secs}s {secs === 0 && '— TAKE で結果発表へ'}
     </span>
   );
 }

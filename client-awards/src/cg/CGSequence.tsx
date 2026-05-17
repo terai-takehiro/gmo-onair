@@ -197,6 +197,7 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
           entries={sorted}
           startedAt={cue.pollStartedAt}
           lang={lang}
+          transparent={transparent}
         />
       )}
 
@@ -212,6 +213,7 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
           categoryChild={tweaks.categoryChild}
           lang={lang}
           oneshotStyle={cue.oneshotStyle}
+          transparent={transparent}
         />
       )}
     </div>

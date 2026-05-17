@@ -11,6 +11,7 @@ interface Props {
   categoryChild: string;
   lang: 'ja' | 'en';
   oneshotStyle?: OneshotStyle;
+  transparent?: boolean;
 }
 
 /**
@@ -20,7 +21,7 @@ interface Props {
  * Phase 2: No.1 演出は既存 StepOneShot に委譲。
  */
 export default function StepVoteReveal({
-  entries, winner, phase, display, categoryParent, categoryChild, lang, oneshotStyle = 'classic',
+  entries, winner, phase, display, categoryParent, categoryChild, lang, oneshotStyle = 'classic', transparent = false,
 }: Props) {
   const top3 = useMemo(
     () => entries.filter((e) => e.rank >= 1 && e.rank <= 3),
@@ -45,7 +46,7 @@ export default function StepVoteReveal({
 
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
-      <Backdrop />
+      <Backdrop transparent={transparent} />
       <Header categoryParent={categoryParent} categoryChild={categoryChild} />
       <NumberCards
         cards={top3}
@@ -60,7 +61,7 @@ export default function StepVoteReveal({
 }
 
 // ─── ステージ背景 ─────────────────────────────────────────────
-function Backdrop() {
+function Backdrop({ transparent = false }: { transparent?: boolean }) {
   const particles = useMemo(() => {
     const rnd = mulberry32(20260710);
     return Array.from({ length: 26 }).map(() => ({
@@ -83,13 +84,15 @@ function Backdrop() {
         }
         @keyframes vrSpotPulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
       `}</style>
-      <div style={{
-        position: 'absolute', inset: 0,
-        background: `
-          radial-gradient(ellipse 75% 70% at 50% 60%, rgba(75,22,22,0.85), rgba(8,4,6,1) 75%),
-          linear-gradient(180deg, #1a0508 0%, #050203 100%)
-        `,
-      }}/>
+      {!transparent && (
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: `
+            radial-gradient(ellipse 75% 70% at 50% 60%, rgba(75,22,22,0.85), rgba(8,4,6,1) 75%),
+            linear-gradient(180deg, #1a0508 0%, #050203 100%)
+          `,
+        }}/>
+      )}
       <div style={{
         position: 'absolute',
         left: '50%', top: 0, width: 1400, height: 1080, marginLeft: -700,
