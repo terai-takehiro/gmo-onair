@@ -288,29 +288,22 @@ function RightColumn({ title, question, isJa }: { title: string; question: strin
       </div>
     );
   }
-  // JA: [question (左)] [Q (中央、上下中央寄せ)] [title (右)] の 3 列
+  // JA: 上に Q、その下に [質問 縦書き] [タイトル 縦書き] の 2 列。
+  // Q は 2 列の上で水平センタリング。
+  const innerColMaxH = RIGHT_H - 200;  // Q の高さ分を引いた縦書き列の最大高さ
   return (
     <div style={{
       position: 'absolute',
       left: RIGHT_X, top: RIGHT_Y,
       width: RIGHT_W, height: RIGHT_H,
       display: 'flex',
-      flexDirection: 'row',
+      flexDirection: 'column',
       alignItems: 'center',
-      justifyContent: 'flex-end',
-      gap: 18,
-      paddingRight: 28,
+      justifyContent: 'flex-start',
+      paddingTop: 6,
+      paddingRight: 16,
     }}>
-      {/* 質問文 縦書き */}
-      <VerticalText
-        text={question}
-        fontSize={68}
-        color="#fff"
-        weight={900}
-        maxHeight={RIGHT_H - 30}
-      />
-
-      {/* Q (中央、上下中央) */}
+      {/* Q (上、両列の中央) */}
       <div style={{
         fontFamily: "'Titillium Web', sans-serif",
         fontWeight: 700, fontStyle: 'italic',
@@ -318,12 +311,34 @@ function RightColumn({ title, question, isJa }: { title: string; question: strin
         background: `linear-gradient(180deg, ${GOLD_BRIGHT} 0%, ${GOLD} 50%, ${GOLD_DEEP} 100%)`,
         WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
         filter: 'drop-shadow(0 4px 22px rgba(0,0,0,0.85)) drop-shadow(0 0 18px rgba(245,215,110,0.45))',
-        padding: '12px 14px 18px',
+        padding: '8px 16px 18px',
         flexShrink: 0,
       }}>Q</div>
 
-      {/* タイトル 縦帯 */}
-      <TitleBand text={title} maxH={RIGHT_H - 30}/>
+      {/* 区切り ヘアライン */}
+      <div style={{
+        width: 140, height: 1, marginBottom: 14,
+        background: `linear-gradient(90deg, transparent, ${GOLD_BRIGHT}, transparent)`,
+        opacity: 0.85,
+      }}/>
+
+      {/* 質問 + タイトル の 2 列 (横並び縦書き) */}
+      <div style={{
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        justifyContent: 'center',
+        gap: 22,
+      }}>
+        <VerticalText
+          text={question}
+          fontSize={62}
+          color="#fff"
+          weight={900}
+          maxHeight={innerColMaxH}
+        />
+        <TitleBand text={title} maxH={innerColMaxH} />
+      </div>
     </div>
   );
 }
@@ -682,12 +697,12 @@ function SlideDigit({ char, fontSize, color }: { char: string; fontSize: number;
           <div key={s.key} style={{
             position: 'absolute', inset: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: "'Titillium Web', sans-serif",
-            fontSize, fontWeight: 900, color, lineHeight: 1,
-            letterSpacing: '-0.03em',
+            fontFamily: "'Roboto Condensed', sans-serif",
+            fontSize, fontWeight: 700, color, lineHeight: 1,
+            letterSpacing: '-0.01em',
             fontVariantNumeric: 'tabular-nums',
             animation: anim, willChange: 'transform, opacity',
-            textShadow: '0 2px 8px rgba(0,0,0,0.7)',
+            textShadow: '0 2px 10px rgba(0,0,0,0.75)',
           }}>{s.ch}</div>
         );
       })}

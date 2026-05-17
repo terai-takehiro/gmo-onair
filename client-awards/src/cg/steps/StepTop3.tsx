@@ -119,7 +119,7 @@ function Top3Card({ entry, pointsShown, revealed, lang = 'ja', hidePoints = fals
             right: 0,
             top: -90,
             textAlign: 'center',
-            fontFamily: "'Bebas Neue', sans-serif",
+            fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700,
             fontSize: 76,
             lineHeight: 1,
             background: isFirst
@@ -243,7 +243,7 @@ function Top3Card({ entry, pointsShown, revealed, lang = 'ja', hidePoints = fals
         >
           <span
             style={{
-              fontFamily: "'Bebas Neue', sans-serif",
+              fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700,
               fontSize: pos.ptSize,
               lineHeight: 1,
               color: '#fff',
@@ -255,7 +255,7 @@ function Top3Card({ entry, pointsShown, revealed, lang = 'ja', hidePoints = fals
           </span>
           <span
             style={{
-              fontFamily: "'Bebas Neue', sans-serif",
+              fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700,
               fontSize: Math.round(pos.ptSize * 0.34),
               color: '#F5D76E',
               letterSpacing: '0.2em',

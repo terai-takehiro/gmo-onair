@@ -123,7 +123,7 @@ function Header({ categoryParent, categoryChild }: { categoryParent: string; cat
       textAlign: 'center', pointerEvents: 'none',
     }}>
       <div style={{
-        fontFamily: "'Bebas Neue', sans-serif",
+        fontFamily: "'Roboto Condensed', sans-serif",
         fontSize: 18,
         letterSpacing: '0.75em',
         color: 'rgba(245,215,110,0.95)',
@@ -286,7 +286,7 @@ function CandidateCard({
           <div style={{
             width: '100%', height: '100%',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: "'Bebas Neue', sans-serif",
+            fontFamily: "'Roboto Condensed', sans-serif",
             fontSize: 140, color: 'rgba(245,215,110,0.3)',
           }}>—</div>
         )}
@@ -349,11 +349,11 @@ function CandidateCard({
           boxShadow: '0 6px 24px rgba(0,0,0,0.55), 0 0 24px rgba(245,215,110,0.18)',
         }}>
           <span style={{
-            fontFamily: "'Titillium Web', sans-serif",
-            fontWeight: 900,
+            fontFamily: "'Roboto Condensed', sans-serif",
+            fontWeight: 700,
             fontSize: 92,
             color: '#fff',
-            letterSpacing: '-0.03em',
+            letterSpacing: '-0.01em',
             lineHeight: 1,
             textShadow: '0 2px 14px rgba(0,0,0,0.85), 0 0 18px rgba(245,215,110,0.3)',
             fontVariantNumeric: 'tabular-nums',
@@ -364,7 +364,7 @@ function CandidateCard({
             {shown.toLocaleString()}
           </span>
           <span style={{
-            fontFamily: "'Titillium Web', sans-serif",
+            fontFamily: "'Roboto Condensed', sans-serif",
             fontWeight: 700,
             fontSize: 26,
             color: 'rgba(245,215,110,0.9)',

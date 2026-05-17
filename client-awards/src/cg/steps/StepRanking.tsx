@@ -148,7 +148,7 @@ function RankingRow({ entry, widthPct, revealed, nameVisible, isFirst, lang = 'j
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'flex-end',
-          fontFamily: "'Bebas Neue', sans-serif",
+          fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700,
           fontSize: 72,
           lineHeight: 1,
           background:
@@ -307,7 +307,7 @@ function RankingRow({ entry, widthPct, revealed, nameVisible, isFirst, lang = 'j
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
             <span
               style={{
-                fontFamily: "'Bebas Neue', sans-serif",
+                fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700,
                 fontSize: isFirst ? 64 : 52,
                 lineHeight: 1,
                 color: '#fff',
@@ -319,7 +319,7 @@ function RankingRow({ entry, widthPct, revealed, nameVisible, isFirst, lang = 'j
             </span>
             <span
               style={{
-                fontFamily: "'Bebas Neue', sans-serif",
+                fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700,
                 fontSize: isFirst ? 18 : 15,
                 color: '#F5D76E',
                 letterSpacing: '0.2em',
@@ -339,7 +339,7 @@ function RankingRow({ entry, widthPct, revealed, nameVisible, isFirst, lang = 'j
             >
               <span
                 style={{
-                  fontFamily: lang === 'en' ? "'Bebas Neue', sans-serif" : "'Noto Sans JP', sans-serif",
+                  fontFamily: lang === 'en' ? "'Roboto Condensed', sans-serif" : "'Noto Sans JP', sans-serif",
                   fontSize: lang === 'en' ? 16 : 15,
                   fontWeight: 700,
                   color: '#FFEFB0',
@@ -351,7 +351,7 @@ function RankingRow({ entry, widthPct, revealed, nameVisible, isFirst, lang = 'j
               </span>
               <span
                 style={{
-                  fontFamily: "'Bebas Neue', sans-serif",
+                  fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700,
                   fontSize: isFirst ? 38 : 32,
                   lineHeight: 1,
                   color: '#FFEFB0',

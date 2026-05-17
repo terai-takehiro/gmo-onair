@@ -194,7 +194,7 @@ function No1Column({ on }: { on: boolean }) {
     >
       <div
         style={{
-          fontFamily: "'Bebas Neue', sans-serif",
+          fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700,
           fontSize: 52,
           letterSpacing: '0.04em',
           lineHeight: 1,
@@ -206,7 +206,7 @@ function No1Column({ on }: { on: boolean }) {
       </div>
       <div
         style={{
-          fontFamily: "'Bebas Neue', sans-serif",
+          fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700,
           fontSize: 190,
           letterSpacing: '0.01em',
           lineHeight: 0.82,
@@ -391,13 +391,13 @@ function TextColumn({ entry, on, categoryParent, categoryChild, displayName, dis
       {!hidePoints && (
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, ...fade() }}>
         <span style={{
-          fontFamily: "'Bebas Neue', sans-serif",
+          fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700,
           fontSize: 52, lineHeight: 0.9, color: '#F5D76E', letterSpacing: '0.02em',
         }}>
           <CountUp value={entry.points} duration={1500} />
         </span>
         <span style={{
-          fontFamily: "'Bebas Neue', sans-serif",
+          fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700,
           fontSize: 18, color: '#C9A24B', letterSpacing: '0.24em',
         }}>
           PT
