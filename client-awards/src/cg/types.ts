@@ -45,6 +45,7 @@ export interface CgEntry {
   vote_count: number | null;
   nomination_title: string | null;
   nomination_title_en: string | null;
+  oneshot_data: Record<string, unknown> | null;
   photo_url: string | null;
   is_winner: boolean;
 }

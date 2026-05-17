@@ -32,8 +32,9 @@ function mapEntry(e: CgCategory['entries'][number]): CgMappedEntry {
     points: e.points ?? 0,
     ownPoints: e.own_points ?? undefined,
     voteCount: e.vote_count ?? 0,
-    nominationTitle: e.nomination_title ?? undefined,
-    nominationTitleEn: e.nomination_title_en ?? undefined,
+    // 下位置CG (1S) と同じソースを優先: oneshot_data.title / titleEn
+    nominationTitle: (e.oneshot_data?.title as string | undefined) ?? e.nomination_title ?? undefined,
+    nominationTitleEn: (e.oneshot_data?.titleEn as string | undefined) ?? e.nomination_title_en ?? undefined,
     photo: e.photo_url ?? undefined,
     is_winner: e.is_winner,
   };
