@@ -67,12 +67,16 @@ export default function PersistentHeader({ tweaks, stepKey }: Props) {
   }
 
   // Auto-fit child font size
+  // 親が空 (vote パターン: poll_title のみ表示) の場合、child を大きく扱う
   const childText = tweaks.categoryChild ?? '';
   const childN = [...childText].length || 1;
-  const childDesired = childN * CHILD_BASE * (1 + CHILD_LETTER);
-  let childFontSize = CHILD_BASE;
+  const parentEmpty = !parent;
+  const childBase = parentEmpty ? 140 : CHILD_BASE;     // 親なしなら 52 → 140 に昇格
+  const childLetter = parentEmpty ? 0.1 : CHILD_LETTER;
+  const childDesired = childN * childBase * (1 + childLetter);
+  let childFontSize = childBase;
   if (childDesired > CHILD_BUDGET) {
-    childFontSize = Math.max(34, Math.floor(CHILD_BUDGET / (childN * (1 + CHILD_LETTER))));
+    childFontSize = Math.max(34, Math.floor(CHILD_BUDGET / (childN * (1 + childLetter))));
   }
 
   const goldGrad = {
@@ -193,8 +197,8 @@ export default function PersistentHeader({ tweaks, stepKey }: Props) {
             fontFamily: "'Noto Sans JP', sans-serif",
             fontWeight: 700,
             fontSize: childFontSize,
-            letterSpacing: '0.4em',
-            paddingLeft: '0.4em',
+            letterSpacing: parentEmpty ? '0.1em' : '0.4em',
+            paddingLeft: parentEmpty ? '0.1em' : '0.4em',
             color: '#fff',
             whiteSpace: 'nowrap',
             animationDelay: isTitle
