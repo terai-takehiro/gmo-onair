@@ -30,6 +30,8 @@ interface Entry {
   image_id: string | null;
   points: number | null;
   own_points: number | null;
+  nomination_title: string | null;
+  nomination_title_en: string | null;
   photo_url: string | null;
   is_winner: boolean;
 }
@@ -204,6 +206,21 @@ function EntryRow({
             onSave={(v) => onUpdate({ org_en: v || null })}
             placeholder="Company EN"
             className="text-xs text-muted-foreground/50"
+          />
+        </div>
+        {/* Nomination title (vote パターンで使用) */}
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <InlineText
+            value={entry.nomination_title ?? ''}
+            onSave={(v) => onUpdate({ nomination_title: v || null })}
+            placeholder="ノミネートタイトル (例: 社内システムから AI 活用まで。)"
+            className="text-xs text-amber-700"
+          />
+          <InlineText
+            value={entry.nomination_title_en ?? ''}
+            onSave={(v) => onUpdate({ nomination_title_en: v || null })}
+            placeholder="Nomination Title EN"
+            className="text-xs text-amber-700/60"
           />
         </div>
         {/* Image ID badge */}

@@ -445,6 +445,9 @@ function BottomChoices({ choices, lang }: { choices: CgMappedEntry[]; lang: 'ja'
 }
 
 function ChoiceCard({ index, entry, lang }: { index: number; entry: CgMappedEntry; lang: 'ja' | 'en' }) {
+  const nomTitle = lang === 'en'
+    ? (entry.nominationTitleEn || entry.nominationTitle || '')
+    : (entry.nominationTitle || '');
   const palette = [
     { core: '#3F72D9', deep: '#0E2956', glow: 'rgba(120,170,255,0.45)' },
     { core: '#D03F36', deep: '#5A0C0C', glow: 'rgba(255,130,110,0.45)' },
@@ -511,12 +514,22 @@ function ChoiceCard({ index, entry, lang }: { index: number; entry: CgMappedEntr
         }} min={0.45}>{name}</CondenseText>
         {company && (
           <CondenseText style={{
-            marginTop: 6,
+            marginTop: 4,
             fontFamily: "'Noto Sans JP', sans-serif",
-            fontSize: 16,
+            fontSize: 15,
             color: 'rgba(255,255,255,0.85)',
             letterSpacing: '0.06em',
           }} min={0.45}>{company}</CondenseText>
+        )}
+        {nomTitle && (
+          <CondenseText style={{
+            marginTop: 4,
+            fontFamily: "'Noto Sans JP', sans-serif",
+            fontSize: 16,
+            fontWeight: 700,
+            color: '#F5D76E',
+            letterSpacing: '0.02em',
+          }} min={0.4}>{nomTitle}</CondenseText>
         )}
       </div>
     </div>
@@ -585,7 +598,7 @@ function Countdown({ secs, ratio, isLast5, isLast10 }: {
   return (
     <div style={{
       position: 'absolute',
-      right: 100, bottom: 50,
+      right: 135, bottom: 76,        // 右パネル水平センター + 下端を選択肢ベースと揃える
       width: size, height: size,
       animation: isLast5 ? 'pollLast5Pulse 1s ease-in-out infinite' : 'none',
     }}>

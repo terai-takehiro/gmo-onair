@@ -63,16 +63,18 @@ router.post('/categories/:categoryId/entries', wrap(async (req, res) => {
 // ── 更新 ────────────────────────────────────────────────────
 router.put('/entries/:id', wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
-  const { name, name_en, org, org_en, image_id, points, own_points } = req.body;
+  const { name, name_en, org, org_en, image_id, points, own_points, nomination_title, nomination_title_en } = req.body;
   if (!name?.trim()) throw new AppError(400, 'BAD_REQUEST', 'name は必須です');
 
   const existing = await queryOne(`SELECT category_id FROM awards_entries WHERE id=?`, [id]);
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'エントリが見つかりません');
 
   await execute(
-    `UPDATE awards_entries SET name=?, name_en=?, org=?, org_en=?, image_id=?, points=?, own_points=?, updated_at=NOW()
+    `UPDATE awards_entries SET name=?, name_en=?, org=?, org_en=?, image_id=?, points=?, own_points=?,
+       nomination_title=?, nomination_title_en=?, updated_at=NOW()
      WHERE id=?`,
-    [name.trim(), name_en ?? null, org ?? null, org_en ?? null, image_id ?? null, points ?? null, own_points ?? null, id]
+    [name.trim(), name_en ?? null, org ?? null, org_en ?? null, image_id ?? null, points ?? null, own_points ?? null,
+     nomination_title?.trim?.() || null, nomination_title_en?.trim?.() || null, id]
   );
   await rerank(existing.category_id as number);
   const row = await queryOne(`SELECT * FROM awards_entries WHERE id=?`, [id]);

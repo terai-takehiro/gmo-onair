@@ -62,9 +62,10 @@ const STEPS_VOTE: StepDef[] = [
   { step: 'idle',         label: 'IDLE',       desc: '透過',                    color: 'neutral', shortcut: '0' },
   { step: 'title',        label: 'TITLE',      desc: 'タイトルカード',          color: 'neutral', shortcut: '1' },
   { step: 'nominees',     label: 'NOMINEES',   desc: 'ノミネート一覧',          color: 'live',    shortcut: '2' },
-  { step: 'top3',         label: 'BEST 3',     desc: '一覧から TOP3 一気発表',  color: 'live',    shortcut: '3' },
-  { step: 'poll',         label: 'POLL',       desc: 'アンケート投票 (30s)',    color: 'live',    shortcut: '4' },
-  { step: 'vote-reveal',  label: 'RESULT',     desc: '投票結果→大賞',          color: 'award',   shortcut: '5' },
+  { step: 'top3',         label: 'BEST 3',     desc: 'TOP3 発表',               color: 'live',    shortcut: '3' },
+  { step: 'final-pitch',  label: 'PITCH',      desc: 'ファイナルピッチ (3名→1名)', color: 'live', shortcut: '4' },
+  { step: 'poll',         label: 'POLL',       desc: 'アンケート投票 (30s)',    color: 'live',    shortcut: '5' },
+  { step: 'vote-reveal',  label: 'RESULT',     desc: '投票結果→大賞',          color: 'award',   shortcut: '6' },
 ];
 const ONESHOT_STYLES: { style: OneshotStyle; label: string }[] = [
   { style: 'classic',   label: 'Classic'   },
@@ -72,7 +73,7 @@ const ONESHOT_STYLES: { style: OneshotStyle; label: string }[] = [
   { style: 'spotlight', label: 'Spotlight' },
   { style: 'slit',      label: 'Slit'      },
 ];
-const LIVE_STEPS: CgStep[] = ['nominees', 'ranks52', 'top3', 'winner-bar', 'oneshot', 'poll', 'vote-reveal'];
+const LIVE_STEPS: CgStep[] = ['nominees', 'ranks52', 'top3', 'final-pitch', 'winner-bar', 'oneshot', 'poll', 'vote-reveal'];
 
 export default function ControlPage() {
   const { id } = useParams<{ id: string }>();
@@ -169,6 +170,15 @@ export default function ControlPage() {
     }
 
     // poll 中に TAKE (nextStep が poll のまま) → top3 へ手動遷移
+    // final-pitch: TAKE で ピックアップサイクル (なし→1→なし→2→なし→3→なし)
+    if (nextStep === 'final-pitch' && cue.step === 'final-pitch') {
+      // operator が pick ボタンで revealPhase を直接設定する想定。
+      // ここでは TAKE 連打時にトグル (現在 picked → なし、なし → 1) 程度の動作。
+      const cur = cue.revealPhase;
+      sendCue({ revealPhase: cur === 0 ? 1 : 0 });
+      return;
+    }
+
     if (nextStep === 'poll' && cue.step === 'poll') {
       sendCue({ step: 'top3', pollStartedAt: null, revealPhase: 1 });
       return;
@@ -551,6 +561,28 @@ export default function ControlPage() {
                 )}
               </div>
               <StepRow steps={STEPS} liveStep={cue.step} nextStep={nextStep} onSelect={setNextStep} />
+              {/* ピックアップ用ボタン (Final Pitch ステップ LIVE 中のみ表示) */}
+              {pattern === 'vote' && cue.step === 'final-pitch' && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[9px] text-slate-400 font-bold tracking-widest uppercase shrink-0">PICK</span>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {[0, 1, 2, 3].map((idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => sendCue({ revealPhase: idx as 0|1|2|3 })}
+                        className={cn(
+                          'rounded-md border px-3 py-1 text-xs font-bold transition-all',
+                          cue.revealPhase === idx
+                            ? 'border-amber-500 bg-amber-900/40 text-amber-300'
+                            : 'border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-slate-100',
+                        )}
+                      >
+                        {idx === 0 ? '3人並び' : `${idx}番をピック`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <StyleRow styles={ONESHOT_STYLES} liveStyle={cue.oneshotStyle} nextStyle={nextStyle} onSelect={setNextStyle} />
               <SendActionRow isLive={isLive} onTake={take} onClear={clear} />
               <div className="hidden sm:flex items-center gap-3 text-[9px] text-slate-500 tracking-widest uppercase font-medium flex-wrap">

@@ -387,6 +387,25 @@ function TextColumn({ entry, on, categoryParent, categoryChild, displayName, dis
         {displayName}
       </div>
 
+      {/* ノミネートタイトル (entry.nominationTitle が設定されている時のみ) */}
+      {(entry.nominationTitle || entry.nominationTitleEn) && (
+        <div
+          style={{
+            fontFamily: "'Noto Sans JP', sans-serif",
+            fontWeight: 700,
+            fontSize: 26,
+            color: '#F5D76E',
+            letterSpacing: '0.02em',
+            lineHeight: 1.2,
+            marginTop: 6,
+            textShadow: '0 2px 8px rgba(0,0,0,0.7)',
+            ...fade(),
+          }}
+        >
+          {entry.nominationTitle || entry.nominationTitleEn}
+        </div>
+      )}
+
       {/* Points (vote-reveal 経由などで hidePoints=true なら非表示) */}
       {!hidePoints && (
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, ...fade() }}>

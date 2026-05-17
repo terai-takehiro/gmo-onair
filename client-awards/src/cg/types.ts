@@ -4,6 +4,7 @@ export type CgStep =
   | 'nominees'
   | 'ranks52'
   | 'top3'
+  | 'final-pitch'
   | 'winner-bar'
   | 'oneshot'
   | 'poll'
@@ -20,6 +21,8 @@ export interface CgMappedEntry {
   points: number;
   ownPoints?: number;
   voteCount?: number;
+  nominationTitle?: string;
+  nominationTitleEn?: string;
   photo?: string;
   role?: string;
   is_winner?: boolean;
@@ -40,6 +43,8 @@ export interface CgEntry {
   points: number | null;
   own_points: number | null;
   vote_count: number | null;
+  nomination_title: string | null;
+  nomination_title_en: string | null;
   photo_url: string | null;
   is_winner: boolean;
 }
@@ -64,7 +69,7 @@ export interface CgCueState {
   oneshotStyle: OneshotStyle;
   voteDisplay: VoteDisplay;
   pollStartedAt: number | null; // epoch ms; poll カウントダウン開始時刻
-  revealPhase: 0 | 1 | 2;        // vote-reveal の内部フェーズ (0:shake / 1:grow / 2:winner)
+  revealPhase: 0 | 1 | 2 | 3;        // vote-reveal の内部フェーズ (0:shake / 1:grow / 2:winner)
 }
 
 // Canvas dimensions

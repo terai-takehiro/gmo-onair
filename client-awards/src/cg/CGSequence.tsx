@@ -9,6 +9,7 @@ import StepTop3 from './steps/StepTop3';
 import StepOneShot from './steps/StepOneShot';
 import StepPoll from './steps/StepPoll';
 import StepVoteReveal from './steps/StepVoteReveal';
+import StepFinalPitch from './steps/StepFinalPitch';
 
 interface Props {
   cue: CgCueState;
@@ -31,6 +32,8 @@ function mapEntry(e: CgCategory['entries'][number]): CgMappedEntry {
     points: e.points ?? 0,
     ownPoints: e.own_points ?? undefined,
     voteCount: e.vote_count ?? 0,
+    nominationTitle: e.nomination_title ?? undefined,
+    nominationTitleEn: e.nomination_title_en ?? undefined,
     photo: e.photo_url ?? undefined,
     is_winner: e.is_winner,
   };
@@ -99,6 +102,7 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
   const showWinnerBar = stepKey === 'winner-bar' || stepKey === 'oneshot';
   const onPhotoStage = ['nominees', 'ranks52', 'top3', 'winner-bar', 'oneshot'].includes(stepKey);
   const showTop3 = stepKey === 'top3';
+  const showFinalPitch = stepKey === 'final-pitch';
   const showPoll = stepKey === 'poll';
   const showVoteReveal = stepKey === 'vote-reveal';
 
@@ -131,8 +135,8 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
     >
       <CGBackground transparent={transparent} />
 
-      {/* Persistent morphing header — poll / vote-reveal は専用レイアウトのため非表示 */}
-      {stepKey !== 'poll' && stepKey !== 'vote-reveal' && (
+      {/* Persistent morphing header — poll / vote-reveal / final-pitch は専用レイアウトで非表示 */}
+      {stepKey !== 'poll' && stepKey !== 'vote-reveal' && stepKey !== 'final-pitch' && (
         <PersistentHeader key={`hdr-${persistKey}`} tweaks={tweaks} stepKey={stepKey} />
       )}
 
@@ -197,6 +201,17 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
         />
       )}
 
+      {/* Final Pitch — TOP3 → 1名ピックアップ */}
+      {showFinalPitch && (
+        <StepFinalPitch
+          key={`pitch-${persistKey}`}
+          entries={sorted}
+          pickedIndex={cue.revealPhase as 0 | 1 | 2 | 3}
+          categoryChild={tweaks.categoryChild}
+          lang={lang}
+        />
+      )}
+
       {/* Poll — アンケート投票画面 (vote パターン) */}
       {showPoll && (
         <StepPoll
@@ -215,7 +230,7 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
           key={`vote-${persistKey}`}
           entries={sorted}
           winner={voteWinner}
-          phase={cue.revealPhase}
+          phase={Math.min(2, cue.revealPhase) as 0 | 1 | 2}
           display={cue.voteDisplay}
           categoryParent={tweaks.categoryParent}
           categoryChild={tweaks.categoryChild}
