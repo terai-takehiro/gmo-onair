@@ -431,6 +431,7 @@ export default function ControlPage() {
               liveCategoryId={cue.categoryId}
               nextCategoryId={nextCategoryId}
               onSelect={setNextCategoryId}
+              eventId={eventId}
             />
           </div>
         </div>
@@ -631,12 +632,14 @@ function StatusBar({ isLive, liveStep, liveCategory, nextStep, nextCategory }: {
 }
 
 // ── CategoryPanel ─────────────────────────────────────────
-function CategoryPanel({ awardGroups, liveCategoryId, nextCategoryId, onSelect }: {
+function CategoryPanel({ awardGroups, liveCategoryId, nextCategoryId, onSelect, eventId }: {
   awardGroups: AwardGroup[];
   liveCategoryId: number | null;
   nextCategoryId: number | null;
   onSelect: (catId: number) => void;
+  eventId: number;
 }) {
+  const navigate = useNavigate();
   if (!awardGroups.length) return (
     <div className="text-xs text-slate-400 text-center py-6">カテゴリなし</div>
   );
@@ -678,6 +681,21 @@ function CategoryPanel({ awardGroups, liveCategoryId, nextCategoryId, onSelect }
           </div>
         </div>
       ))}
+
+      {/* 余興ポール: 部門と同列で挟み込めるショートカット */}
+      <div className="pt-2 mt-2 border-t border-slate-800">
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <span className="text-[11px] font-bold text-purple-400 tracking-wide">余興 (3 択ポール)</span>
+        </div>
+        <div className="pl-4">
+          <button
+            onClick={() => navigate(`/standalone-poll/event-${eventId}`)}
+            className="w-full text-left rounded-md px-3 py-2 text-xs font-semibold border bg-purple-950/40 border-purple-700/50 text-purple-200 hover:bg-purple-900/50 hover:border-purple-600 transition-all"
+          >
+            余興ポール を開く →
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -221,18 +221,6 @@ function CameraHole({ isLast5 }: { isLast5: boolean }) {
           />
         );
       })}
-      <div
-        style={{
-          position: 'absolute', top: -34, left: 0,
-          fontFamily: "'Bebas Neue', sans-serif",
-          fontSize: 16,
-          letterSpacing: '0.45em',
-          color: 'rgba(245,215,110,0.95)',
-          textShadow: '0 1px 4px rgba(0,0,0,0.8)',
-        }}
-      >
-        ◆ LIVE CAM
-      </div>
     </div>
   );
 }
@@ -467,103 +455,63 @@ function ChoiceTile({ index, entry, lang }: { index: number; entry: CgMappedEntr
   );
 }
 
-/** カウントダウン表示: 通常 = 右下小、ラスト5秒 = 中央巨大 */
+/** カウントダウン表示: 位置は右下固定、ラスト5秒はその場で強調 */
 function CountdownDisplay({ secs, ratio, isLast10, isLast5 }: {
   secs: number; ratio: number; isLast10: boolean; isLast5: boolean;
 }) {
-  if (isLast5) return <CountdownLast5 secs={secs} />;
+  const size = isLast5 ? 200 : 140;
+  const r = (size / 2) - 8;
+  const stroke = isLast5 ? 5 : 3;
+  const borderW = isLast5 ? 5 : 3;
+  const fontPx = isLast5 ? 140 : 84;
+  const halo = isLast5
+    ? '0 0 80px rgba(255,80,40,0.85), 0 0 40px rgba(255,160,60,0.55)'
+    : isLast10
+      ? '0 0 30px rgba(255,80,40,0.7)'
+      : '0 0 30px rgba(245,215,110,0.5)';
+  const bg = isLast10
+    ? 'radial-gradient(circle, rgba(180,40,40,0.95), rgba(60,10,10,0.95))'
+    : 'radial-gradient(circle, rgba(20,28,40,0.95), rgba(8,12,20,0.95))';
+  const accent = isLast10 ? '#ff6b4a' : '#F5D76E';
 
-  // 通常時: 右下 (右パネル下) コンパクト
   return (
     <div
       style={{
         position: 'absolute',
         right: 60,
         bottom: 30,
-        width: 140,
-        height: 140,
+        width: size,
+        height: size,
         borderRadius: '50%',
-        background: isLast10
-          ? 'radial-gradient(circle, rgba(160,40,40,0.95), rgba(60,10,10,0.95))'
-          : 'radial-gradient(circle, rgba(20,28,40,0.95), rgba(8,12,20,0.95))',
-        border: `3px solid ${isLast10 ? '#ff6b4a' : '#F5D76E'}`,
-        boxShadow: `0 0 30px ${isLast10 ? 'rgba(255,80,40,0.7)' : 'rgba(245,215,110,0.5)'}`,
+        background: bg,
+        border: `${borderW}px solid ${accent}`,
+        boxShadow: halo,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-      }}
-    >
-      <SlideDigits value={secs} fontSize={84} color="#fff" minDigits={2} />
-      <svg width={140} height={140} style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }}>
-        <circle
-          cx={70} cy={70} r={62}
-          fill="none"
-          stroke={isLast10 ? '#ff6b4a' : '#F5D76E'}
-          strokeWidth={3}
-          strokeDasharray={`${2 * Math.PI * 62}`}
-          strokeDashoffset={`${2 * Math.PI * 62 * (1 - ratio)}`}
-          opacity={0.9}
-          style={{ transition: 'stroke-dashoffset 0.1s linear' }}
-        />
-      </svg>
-    </div>
-  );
-}
-
-function CountdownLast5({ secs }: { secs: number }) {
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        left: '50%', top: '50%',
-        transform: 'translate(-50%, -50%)',
-        width: 360, height: 360,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexDirection: 'column',
-        pointerEvents: 'none',
-        zIndex: 20,
+        transition: 'width 220ms ease, height 220ms ease, border-color 220ms ease, box-shadow 220ms ease',
+        animation: isLast5 ? 'pollLast5Pulse 1s ease-in-out infinite' : 'none',
       }}
     >
       <style>{`
         @keyframes pollLast5Pulse {
-          0%, 100% { transform: scale(1);    filter: drop-shadow(0 0 20px rgba(255,90,60,0.7)); }
-          50%      { transform: scale(1.08); filter: drop-shadow(0 0 50px rgba(255,160,60,1)); }
-        }
-        @keyframes pollLast5Halo {
-          0%   { transform: scale(0.6); opacity: 0.85; }
-          100% { transform: scale(1.4); opacity: 0; }
+          0%, 100% { transform: scale(1);     filter: drop-shadow(0 0 14px rgba(255,90,60,0.55)); }
+          50%      { transform: scale(1.04);  filter: drop-shadow(0 0 26px rgba(255,160,60,0.85)); }
         }
       `}</style>
-      <div
-        key={`halo-${secs}`}
-        style={{
-          position: 'absolute', inset: 0,
-          borderRadius: '50%',
-          border: '6px solid #ff6b4a',
-          animation: 'pollLast5Halo 1s ease-out forwards',
-        }}
-      />
-      <div
-        style={{
-          position: 'absolute', inset: 20,
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(200,40,40,0.95), rgba(80,10,10,0.95))',
-          border: '4px solid #ff6b4a',
-          boxShadow: '0 0 80px rgba(255,80,40,0.85), inset 0 0 40px rgba(255,160,60,0.45)',
-        }}
-      />
-      <div
-        style={{
-          position: 'relative',
-          color: '#fff',
-          textShadow: '0 6px 30px rgba(0,0,0,0.85), 0 0 30px rgba(255,200,80,0.9)',
-          animation: 'pollLast5Pulse 1s ease-in-out infinite',
-        }}
-      >
-        <SlideDigits value={secs} fontSize={240} color="#fff" minDigits={1} />
-      </div>
+      <SlideDigits value={secs} fontSize={fontPx} color="#fff" minDigits={1} />
+      <svg width={size} height={size} style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }}>
+        <circle
+          cx={size / 2} cy={size / 2} r={r}
+          fill="none"
+          stroke={accent}
+          strokeWidth={stroke}
+          strokeDasharray={`${2 * Math.PI * r}`}
+          strokeDashoffset={`${2 * Math.PI * r * (1 - ratio)}`}
+          opacity={0.92}
+          style={{ transition: 'stroke-dashoffset 0.1s linear' }}
+        />
+      </svg>
     </div>
   );
 }

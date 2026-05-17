@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { Trophy, Plus, Trash2, ExternalLink, Calendar, ChevronRight, Archive, RotateCcw, Sparkles } from 'lucide-react';
+import { Trophy, Plus, Trash2, ExternalLink, Calendar, ChevronRight, Archive, RotateCcw } from 'lucide-react';
 
 interface AwardsEvent {
   id: number;
@@ -117,14 +117,6 @@ export default function DashboardPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigate('/standalone-poll/main')}
-            className="flex items-center gap-1.5 rounded-lg border border-purple-300/60 bg-purple-50 px-3 py-2 text-xs font-medium text-purple-800 hover:bg-purple-100 transition-colors"
-            title="3 択投票CG (余興用 / 表彰DBと独立)"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            余興ポール
-          </button>
           <button
             onClick={() => setShowBackups((s) => !s)}
             className="flex items-center gap-1.5 rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 hover:bg-amber-100 transition-colors"

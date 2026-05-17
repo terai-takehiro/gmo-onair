@@ -1,79 +1,24 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '@/lib/api';
+import { useMemo } from 'react';
 import type { EventModuleConfig, ModuleDef, Nominee } from '../types';
 import { createDefaultEventModuleConfig } from '../data/presetModules';
 
-// ── EventModuleConfig 操作ヘルパー ────────────────────────────
-// v2.8.74 (段階3): 永続化を実装。
-//   ・GET /awards/events/:id/module-config → JSONB or null
-//   ・PUT /awards/events/:id/module-config → JSON 保存 (null で「プリセット復帰」)
-//   ・null を返したらクライアント側で createDefaultEventModuleConfig() で補完
-//
-// 段階4 で編集 UI を追加し、ユーザーがモジュールを追加・編集・削除できるようにする。
+// v2.8.130: 下位置CG モジュール構成のユーザーカスタマイズ機能を撤廃。
+// 全イベントでデフォルトプリセット (`createDefaultEventModuleConfig()`) を使用する。
+// 旧 v2.8.74〜82 の GET/PUT エンドポイント、エディタ画面、JSON I/O は廃止。
+// `useEventModuleConfig` は互換のため残しているが、同期的にデフォルトプリセットを
+// 返すだけのスタブ。
 
-const QUERY_KEY = (eventId: number) => ['awards-module-config', eventId] as const;
-
-/** イベントの送出モジュール構成を取得。NULL のときは null を返す (= デフォルト未編集状態)。
- *  v2.8.79+: 404 / 500 などサーバーエラー時にも null を返してクライアント側でデフォルト
- *  プリセットにフォールバックできるよう catch を追加。 */
-export async function fetchEventModuleConfig(eventId: number): Promise<EventModuleConfig | null> {
-  try {
-    const res = await api.get(`/awards/events/${eventId}/module-config`);
-    return (res.data?.data ?? null) as EventModuleConfig | null;
-  } catch (e) {
-    // migration 083 未適用 (column missing) 等で 500 が返る場合は null として扱い、
-    // クライアント側でデフォルトプリセットにフォールバック。
-    console.warn('[moduleConfig] fetch failed, falling back to default preset', e);
-    return null;
-  }
+/** イベントの送出モジュール構成 (常にデフォルトプリセット) */
+export function useEventModuleConfig(_eventId: number | null) {
+  const data = useMemo(() => createDefaultEventModuleConfig(), []);
+  return { data };
 }
 
-/** イベントに送出モジュール構成を保存。null を渡すと「プリセット復帰」。 */
-export async function saveEventModuleConfig(
-  eventId: number,
-  config: EventModuleConfig | null,
-): Promise<EventModuleConfig | null> {
-  const res = await api.put(`/awards/events/${eventId}/module-config`, { config });
-  return (res.data?.data ?? null) as EventModuleConfig | null;
-}
-
-/** react-query フック。サーバー値が null のときはクライアントのデフォルトプリセットで補完。 */
-export function useEventModuleConfig(eventId: number | null) {
-  return useQuery({
-    queryKey: eventId ? QUERY_KEY(eventId) : ['awards-module-config', 'noop'],
-    queryFn: async () => {
-      if (!eventId) return createDefaultEventModuleConfig();
-      const remote = await fetchEventModuleConfig(eventId);
-      return remote ?? createDefaultEventModuleConfig();
-    },
-    enabled: !!eventId,
-    staleTime: 60_000,
-  });
-}
-
-/** Mutation フック。保存後 cache を invalidate して再取得。 */
-export function useSaveEventModuleConfig(eventId: number | null) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (config: EventModuleConfig | null) => {
-      if (!eventId) throw new Error('eventId 未指定');
-      return await saveEventModuleConfig(eventId, config);
-    },
-    onSuccess: () => {
-      if (eventId) qc.invalidateQueries({ queryKey: QUERY_KEY(eventId) });
-    },
-  });
-}
-
-// ── 同期版ヘルパー (DynamicModule など、レンダリング中に呼ぶ場所用) ──
-
-/** 段階1 互換シグネチャ。同期版なのでデフォルトプリセットしか返せない。
- *  実際にイベント別 config を読みたい場所では useEventModuleConfig を使うこと。 */
 export function loadEventModuleConfig(_eventId: number): EventModuleConfig {
   return createDefaultEventModuleConfig();
 }
 
-// ── visibility / order ヘルパー (段階1 から継続) ────────────
+// ── visibility / order ヘルパー ──────────────────────────────
 
 export function isModuleVisible(mod: ModuleDef, n: Nominee | null): boolean {
   if (!n) return mod.visibility !== 'team-only' && mod.visibility !== 'individual-only';

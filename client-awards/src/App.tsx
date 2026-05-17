@@ -11,7 +11,6 @@ import OneShotControlPage from './pages/OneShotControlPage';
 import OneShotOutputPage from './pages/OneShotOutputPage';
 import OneShotOutputNextPage from './pages/OneShotOutputNextPage';
 import OutputNextPage from './pages/OutputNextPage';
-import ModuleConfigEditPage from './pages/ModuleConfigEditPage';
 import StandalonePollPage from './pages/StandalonePollPage';
 import StandalonePollOutputPage from './pages/StandalonePollOutputPage';
 
@@ -53,7 +52,6 @@ function AuthenticatedApp() {
             <Route path="/event/:id" element={<EventEditorPage />} />
             <Route path="/event/:id/control" element={<ControlPage />} />
             <Route path="/event/:id/oneshot/control" element={<OneShotControlPage />} />
-            <Route path="/event/:id/oneshot/modules" element={<ModuleConfigEditPage />} />
             <Route path="/standalone-poll/:room" element={<StandalonePollPage />} />
           </Route>
         ) : (
