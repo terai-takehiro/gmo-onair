@@ -193,9 +193,10 @@ function PitchCard({ entry, slot, isPicked, isOther, lang }: {
       {isPicked && nomTitle && (
         <div style={{
           position: 'absolute',
-          left: -140, right: -140,
+          left: -560, right: -560,   // CARD_W 380 + 左右 1120 = 1500px 幅
           top: PHOTO_H + 100,
-          textAlign: 'center',
+          display: 'flex',
+          justifyContent: 'center',
           opacity: 0,
           animation: 'pitchNomTitleIn 800ms cubic-bezier(.2,1,.3,1) 400ms forwards',
         }}>
@@ -205,21 +206,31 @@ function PitchCard({ entry, slot, isPicked, isOther, lang }: {
               to   { opacity: 1; transform: translateY(0); }
             }
           `}</style>
-          <CondenseText
-            style={{
-              fontFamily: "'Noto Sans JP', sans-serif",
-              fontWeight: 900,
-              fontSize: 40,
-              color: '#fff',
-              letterSpacing: '0.04em',
-              textShadow: '0 4px 18px rgba(0,0,0,0.85), 0 0 22px rgba(245,215,110,0.25)',
-              lineHeight: 1.1,
-              padding: '0 80px',
-            }}
-            min={0.4}
-          >
-            {nomTitle}
-          </CondenseText>
+          <div style={{
+            padding: '14px 36px',
+            background: 'linear-gradient(180deg, rgba(30,22,10,0.92) 0%, rgba(12,8,4,0.96) 100%)',
+            border: '2px solid rgba(245,215,110,0.85)',
+            boxShadow: '0 14px 36px rgba(0,0,0,0.7), 0 0 40px rgba(245,215,110,0.25), inset 0 1px 0 rgba(255,235,180,0.18)',
+            maxWidth: 1500,
+            width: '100%',
+            boxSizing: 'border-box',
+          }}>
+            <CondenseText
+              style={{
+                fontFamily: "'Noto Sans JP', sans-serif",
+                fontWeight: 900,
+                fontSize: 44,
+                color: '#fff',
+                letterSpacing: '0.04em',
+                textShadow: '0 2px 12px rgba(0,0,0,0.85)',
+                lineHeight: 1.1,
+                textAlign: 'center',
+              }}
+              min={0.4}
+            >
+              {nomTitle}
+            </CondenseText>
+          </div>
         </div>
       )}
     </div>
