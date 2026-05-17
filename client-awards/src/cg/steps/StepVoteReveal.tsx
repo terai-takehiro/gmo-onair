@@ -247,21 +247,9 @@ function CandidateCard({
       };
     }
 
-    // phase 1: 実値へカウントアップ (2200ms)
-    const start = performance.now();
-    const dur = 2200;
-    const startVal = shown; // 直前のランダム値から
-    const tickRaf = (now: number) => {
-      const t = Math.min(1, (now - start) / dur);
-      const eased = 1 - Math.pow(1 - t, 3);  // easeOutCubic
-      setShown(Math.round(startVal + (targetValue - startVal) * eased));
-      if (t < 1) animRef.current = requestAnimationFrame(tickRaf);
-      else setShown(targetValue);
-    };
-    animRef.current = requestAnimationFrame(tickRaf);
-    return () => {
-      if (animRef.current != null) cancelAnimationFrame(animRef.current);
-    };
+    // phase 1: TAKE で即座に確定値を表示 (ドンと出す)
+    setShown(targetValue);
+    return;
   }, [phase, targetValue, display]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
@@ -332,47 +320,71 @@ function CandidateCard({
         )}
       </div>
 
-      {/* 数字 (固定幅でレイアウトが揺れないように) */}
+      {/* 数字 (Phase 0=小、Phase 1=ドンと拡大 + パンチアニメ) */}
       <div style={{
         position: 'absolute',
         left: 0, right: 0,
-        top: 458,
+        top: phase === 1 ? 430 : 458,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         pointerEvents: 'none',
+        transition: 'top 420ms cubic-bezier(.2,1.2,.4,1)',
       }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'baseline',
-          gap: 10,
-          padding: '8px 26px',
-          width: 360,
-          justifyContent: 'center',
-          background: 'rgba(8,4,8,0.7)',
-          border: '1px solid rgba(245,215,110,0.6)',
-          boxShadow: '0 6px 24px rgba(0,0,0,0.55), 0 0 24px rgba(245,215,110,0.18)',
-        }}>
+        <style>{`
+          @keyframes vrNumberPunch {
+            0%   { transform: scale(0.86); filter: drop-shadow(0 0 0 rgba(245,215,110,0)); }
+            45%  { transform: scale(1.18); filter: drop-shadow(0 0 36px rgba(245,215,110,0.95)); }
+            70%  { transform: scale(0.98); }
+            100% { transform: scale(1);    filter: drop-shadow(0 0 18px rgba(245,215,110,0.5)); }
+          }
+        `}</style>
+        <div
+          key={`pill-${phase}`}
+          style={{
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: phase === 1 ? 14 : 10,
+            padding: phase === 1 ? '14px 38px' : '8px 26px',
+            width: phase === 1 ? 480 : 360,
+            justifyContent: 'center',
+            background: phase === 1
+              ? 'linear-gradient(180deg, rgba(40,28,12,0.95), rgba(15,10,4,0.97))'
+              : 'rgba(8,4,8,0.7)',
+            border: phase === 1
+              ? '2px solid rgba(245,215,110,0.95)'
+              : '1px solid rgba(245,215,110,0.6)',
+            boxShadow: phase === 1
+              ? '0 14px 44px rgba(0,0,0,0.7), 0 0 44px rgba(245,215,110,0.5), inset 0 2px 0 rgba(255,235,180,0.18)'
+              : '0 6px 24px rgba(0,0,0,0.55), 0 0 24px rgba(245,215,110,0.18)',
+            transition: 'all 420ms cubic-bezier(.2,1.2,.4,1)',
+            animation: phase === 1 ? 'vrNumberPunch 600ms cubic-bezier(.2,1.4,.4,1) forwards' : 'none',
+          }}
+        >
           <span style={{
             fontFamily: "'Roboto Condensed', sans-serif",
             fontWeight: 700,
-            fontSize: 92,
+            fontSize: phase === 1 ? 132 : 92,
             color: '#fff',
             letterSpacing: '-0.01em',
             lineHeight: 1,
-            textShadow: '0 2px 14px rgba(0,0,0,0.85), 0 0 18px rgba(245,215,110,0.3)',
+            textShadow: phase === 1
+              ? '0 4px 22px rgba(0,0,0,0.9), 0 0 32px rgba(255,225,170,0.6)'
+              : '0 2px 14px rgba(0,0,0,0.85), 0 0 18px rgba(245,215,110,0.3)',
             fontVariantNumeric: 'tabular-nums',
             display: 'inline-block',
             textAlign: 'right',
             minWidth: '3.6ch',
+            transition: 'font-size 420ms cubic-bezier(.2,1.2,.4,1)',
           }}>
             {shown.toLocaleString()}
           </span>
           <span style={{
             fontFamily: "'Roboto Condensed', sans-serif",
             fontWeight: 700,
-            fontSize: 26,
-            color: 'rgba(245,215,110,0.9)',
+            fontSize: phase === 1 ? 36 : 26,
+            color: 'rgba(245,215,110,0.95)',
             letterSpacing: '0.18em',
             lineHeight: 1,
+            transition: 'font-size 420ms cubic-bezier(.2,1.2,.4,1)',
           }}>{unit}</span>
         </div>
       </div>
