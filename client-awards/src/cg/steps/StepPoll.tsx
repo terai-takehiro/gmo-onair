@@ -21,8 +21,9 @@ const RIGHT_W = 1920 - RIGHT_X - 60;
 const RIGHT_Y = CAM_Y;
 const RIGHT_H = CAM_H;
 
-const CHOICES_Y = CAM_Y + CAM_H - 10;       // 少し上に (camera frame と 10px overlap)
-const CHOICES_H = 1080 - CHOICES_Y - 28;
+// 選択肢ベース: 高さは元 (140) を維持、下端をカウントダウン丸の下端 (1080-36=1044) に合わせる
+const CHOICES_H = 140;
+const CHOICES_Y = 1080 - 36 - CHOICES_H; // = 904
 
 const GOLD_BRIGHT = '#FFE8A8';
 const GOLD = '#E8C56C';
