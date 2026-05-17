@@ -21,8 +21,8 @@ const RIGHT_W = 1920 - RIGHT_X - 60;
 const RIGHT_Y = CAM_Y;
 const RIGHT_H = CAM_H;
 
-const CHOICES_Y = CAM_Y + CAM_H + 28;
-const CHOICES_H = 1080 - CHOICES_Y - 32;
+const CHOICES_Y = CAM_Y + CAM_H - 10;       // 少し上に (camera frame と 10px overlap)
+const CHOICES_H = 1080 - CHOICES_Y - 28;
 
 const GOLD_BRIGHT = '#FFE8A8';
 const GOLD = '#E8C56C';
@@ -513,7 +513,7 @@ function ChoiceCard({ index, entry, lang }: { index: number; entry: CgMappedEntr
       {/* 名前 + 会社 */}
       <div style={{
         position: 'absolute',
-        left: 96, right: 22,
+        left: 124, right: 22,
         top: '50%',
         transform: 'translateY(-50%)',
       }}>

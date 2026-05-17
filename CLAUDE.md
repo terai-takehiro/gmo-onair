@@ -33,7 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.141 — 微調整: ①Vote-reveal 確定数字ボックスの位置を `top: 430 → 470` に下げて、他要素 (名前カード) との被りを解消。②Poll カウントダウンの 0 秒も 1-5 秒と同じ拡大サイズを維持するように `isLast5 = secs <= 5` (旧 `secs <= 5 && secs > 0`) に変更 → 30→5 秒は通常、5→0 秒は強調表示が継続。
+v2.8.142 — Poll 微調整 + CG プレビューに ErrorBoundary 追加。①**選択肢カードのテキストを右に**: ChoiceCard の名前/会社のコンテナを `left: 96 → 124` に変更し、左の六角形バッジとの間に約 28px のゆとりを追加 (詰まり感を解消)。②**選択肢ブロックを少し上に**: `CHOICES_Y = CAM_Y + CAM_H + 28 → CAM_Y + CAM_H - 10` に変更し、カメラ枠と 10px 重なる位置に下げて全体を上寄りに。`CHOICES_H` も `1080 - CHOICES_Y - 28` に再計算。③**CG プレビューに ErrorBoundary**: ControlPage の PROGRAM プレビューと NEXT サムネイル両方の `<CGFrame>` を新規 `CGErrorBoundary` クラスコンポーネントで包み、CG レンダーが mount/update でクラッシュしても operator UI 全体は維持。`getDerivedStateFromError` でエラー捕捉、メッセージ + 「再試行」ボタンを表示。`componentDidCatch` でコンソールにも詳細をログ。
+
+(v2.8.141 — 微調整: ①Vote-reveal 確定数字ボックスの位置を `top: 430 → 470` に下げて、他要素 (名前カード) との被りを解消。②Poll カウントダウンの 0 秒も 1-5 秒と同じ拡大サイズを維持するように `isLast5 = secs <= 5` (旧 `secs <= 5 && secs > 0`) に変更 → 30→5 秒は通常、5→0 秒は強調表示が継続。)
 
 (v2.8.140 — Vote-reveal 結果発表の確定演出を「カウントアップ」→「ドンと拡大」に変更。①**Phase 1 の即時確定**: TAKE 後の `easeOutCubic` 2200ms カウントアップを廃止し、`setShown(targetValue)` で**即座に確定値を表示**。②**数字ボックスのドンと拡大 + パンチアニメ**: Phase 1 移行時に数字ピルが Phase 0 (`width 360 / padding 8x26 / fontSize 92 / 単位 26`) → Phase 1 (`width 480 / padding 14x38 / fontSize 132 / 単位 36`) に拡大 (420ms cubic-bezier overshoot)。`vrNumberPunch` keyframe で `scale(0.86)→1.18→0.98→1` の打突アニメ + `drop-shadow` で 36px ゴールド glow burst。位置も top 458 → 430 に持ち上げて視覚的にも前に出る印象。背景も `rgba(8,4,8,0.7)` 単色 → `linear-gradient(40,28,12 → 15,10,4)` のリッチな暗金グラデ + 2px ゴールド枠 + ゴールド ハロに。)
 

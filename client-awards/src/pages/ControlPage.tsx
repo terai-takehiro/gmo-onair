@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useRef, useState, useCallback } from 'react';
+import { useMemo, useEffect, useRef, useState, useCallback, Component, type ReactNode, type ErrorInfo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
@@ -7,6 +7,25 @@ import { cn } from '@/lib/utils';
 import { ChevronLeft, ExternalLink, Trophy, Radio, Subtitles, Send, X, Maximize2, Minimize2, BarChart3, Vote } from 'lucide-react';
 import type { CgStep, OneshotStyle, CgCategory, CgCueState, AwardPattern, VoteDisplay } from '@/cg/types';
 import CGFrame from '@/cg/CGFrame';
+
+// CG プレビューが mount/update でクラッシュしても operator UI 全体は維持する。
+class CGErrorBoundary extends Component<{ children: ReactNode }, { err: Error | null }> {
+  state = { err: null as Error | null };
+  static getDerivedStateFromError(err: Error) { return { err }; }
+  componentDidCatch(err: Error, info: ErrorInfo) { console.error('[CG ErrorBoundary]', err, info); }
+  render() {
+    if (this.state.err) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', flexDirection: 'column', gap: 8, color: '#f5a76e', background: 'rgba(80,30,15,0.4)', padding: 16, fontSize: 11, textAlign: 'center' }}>
+          <div style={{ fontWeight: 900 }}>CG プレビュー エラー</div>
+          <div style={{ opacity: 0.85 }}>{this.state.err.message}</div>
+          <button onClick={() => this.setState({ err: null })} className="mt-2 rounded bg-slate-800 px-2 py-1 text-[10px] text-slate-200">再試行</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import { CG_W, CG_H, POLL_DURATION_MS } from '@/cg/types';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import VoteSettingsDialog from '@/components/VoteSettingsDialog';
@@ -401,13 +420,15 @@ export default function ControlPage() {
                   position: 'absolute',
                 }}
               >
-                <CGFrame
-                  lang={previewLang}
-                  cue={cue}
-                  category={liveCategory}
-                  eventName={event.name}
-                  eventSubtitle={event.subtitle}
-                />
+                <CGErrorBoundary>
+                  <CGFrame
+                    lang={previewLang}
+                    cue={cue}
+                    category={liveCategory}
+                    eventName={event.name}
+                    eventSubtitle={event.subtitle}
+                  />
+                </CGErrorBoundary>
               </div>
             </div>
           )}
@@ -487,13 +508,15 @@ export default function ControlPage() {
                         position: 'absolute',
                       }}
                     >
-                      <CGFrame
-                        lang={previewLang}
-                        cue={nextCueForPreview}
-                        category={nextCategory}
-                        eventName={event.name}
-                        eventSubtitle={event.subtitle}
-                      />
+                      <CGErrorBoundary>
+                        <CGFrame
+                          lang={previewLang}
+                          cue={nextCueForPreview}
+                          category={nextCategory}
+                          eventName={event.name}
+                          eventSubtitle={event.subtitle}
+                        />
+                      </CGErrorBoundary>
                     </div>
                   </div>
                 )}
