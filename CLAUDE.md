@@ -33,7 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.8.146 — Poll 選択肢高さ縮小 + Vote-reveal の大賞タイトルを poll_title 表記に。①選択肢ベースを CHOICES_H 140 → 100 に縮小、CHOICES_Y は 904 のまま保持 → 下端 1004 で、下に 76px の余白が空く (旧 36px)。②Vote-reveal Phase 2 (大賞フルスクリーン) の categoryChild を category.name (例: 新人賞) ではなく **poll_title** (例: 最優秀新人賞、operator が手入力した文言) に変更。CGSequence で StepVoteReveal に渡す categoryChild を `category.poll_title || tweaks.categoryChild` で上書き、EN 時は poll_title_en を優先。投票の手入力タイトルが大賞リザルトでも一貫して表示される。
+v2.8.147 — Vote 全フローでタイトルを poll_title に統一 (部門カット) + CG 全体でテキスト「…」省略を長体フィット (scaleX) に変更。①CGSequence の tweaks で award_pattern === vote の時、categoryChild = poll_title (operator 手入力タイトル) / categoryParent = 空文字 にハードコード。これにより top3 (poll 後の戻り) / vote-reveal Phase 1 / Phase 2 (大賞フルスクリーン) すべてで「最優秀新人賞」(poll_title) のみ表示され、「○○部門」は表示されない。EN モードは poll_title_en を優先。②新規 CondenseText コンポーネント (cg/components/CondenseText.tsx): useLayoutEffect + ResizeObserver で親要素の clientWidth と子要素の scrollWidth を測定し、はみ出した場合に transform: scaleX(min, w/scrollW) で水平方向に圧縮 (長体)。最小スケールは prop min (デフォルト 0.5、選択肢では 0.45)。③Poll の ChoiceCard の名前/会社、Vote-reveal CandidateCard の名前/会社を CondenseText に置換。textOverflow: ellipsis を廃止し、長文も「…」にならず長体で必ず入る。
+
+(v2.8.146 — Poll 選択肢高さ縮小 + Vote-reveal の大賞タイトルを poll_title 表記に。①選択肢ベースを CHOICES_H 140 → 100 に縮小、CHOICES_Y は 904 のまま保持 → 下端 1004 で、下に 76px の余白が空く (旧 36px)。②Vote-reveal Phase 2 (大賞フルスクリーン) の categoryChild を category.name (例: 新人賞) ではなく **poll_title** (例: 最優秀新人賞、operator が手入力した文言) に変更。CGSequence で StepVoteReveal に渡す categoryChild を `category.poll_title || tweaks.categoryChild` で上書き、EN 時は poll_title_en を優先。投票の手入力タイトルが大賞リザルトでも一貫して表示される。)
 
 (v2.8.145 — Poll 質問文の縦書き仕様調整: ①**上合わせ**に変更 (alignItems: flex-start、旧 center)、②**改行禁止** (white-space: nowrap) で常に 1 列、③transformOrigin: top center で上端基準の長体圧縮、④scale 下限を 0.62 → **0.40** に下げてより強い圧縮を許容、⑤質問専用の questionMaxH = 490 を新設し、**カウントダウン丸 (top: y=820) に被らない位置**までに制限。長文時はそこから自動で長体 (scaleY) で調整。letter-spacing も isLong 時は -0.06em に詰めて密に。)
 

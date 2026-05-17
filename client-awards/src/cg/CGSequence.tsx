@@ -69,16 +69,24 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
 
   const persistKey = `${cue.categoryId ?? 'none'}-${sessionKey}`;
 
+  // vote パターンでは poll_title (operator 手入力タイトル) を categoryChild に使い、
+  // categoryParent (○○部門) はカット。direct パターンは従来通り。
+  const isVote = category?.award_pattern === 'vote';
+  const pollTitle = lang === 'en'
+    ? (category?.poll_title_en || category?.poll_title || '')
+    : (category?.poll_title || '');
   const tweaks = {
     eventTitle: eventName,
-    categoryParent:
-      lang === 'en'
-        ? (category?.description_en || category?.description || eventSubtitle || '')
-        : (category?.description || eventSubtitle || ''),
-    categoryChild:
-      lang === 'en'
-        ? (category?.name_en || category?.name || '')
-        : (category?.name ?? ''),
+    categoryParent: isVote
+      ? ''
+      : (lang === 'en'
+          ? (category?.description_en || category?.description || eventSubtitle || '')
+          : (category?.description || eventSubtitle || '')),
+    categoryChild: isVote && pollTitle
+      ? pollTitle
+      : (lang === 'en'
+          ? (category?.name_en || category?.name || '')
+          : (category?.name ?? '')),
   };
 
   // Ranking reveal parameters
@@ -210,11 +218,7 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
           phase={cue.revealPhase}
           display={cue.voteDisplay}
           categoryParent={tweaks.categoryParent}
-          categoryChild={
-            lang === 'en'
-              ? (category?.poll_title_en || category?.poll_title || tweaks.categoryChild)
-              : (category?.poll_title || tweaks.categoryChild)
-          }
+          categoryChild={tweaks.categoryChild}
           lang={lang}
           oneshotStyle={cue.oneshotStyle}
           transparent={transparent}

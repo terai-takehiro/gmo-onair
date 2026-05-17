@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import type { CgCategory, CgMappedEntry } from '../types';
 import { POLL_DURATION_MS } from '../types';
+import { CondenseText } from '../components/CondenseText';
 
 interface Props {
   category: CgCategory | null;
@@ -499,7 +500,7 @@ function ChoiceCard({ index, entry, lang }: { index: number; entry: CgMappedEntr
         top: '50%',
         transform: 'translateY(-50%)',
       }}>
-        <div style={{
+        <CondenseText style={{
           fontFamily: "'Noto Sans JP', sans-serif",
           fontWeight: 900,
           fontSize: 30,
@@ -507,21 +508,15 @@ function ChoiceCard({ index, entry, lang }: { index: number; entry: CgMappedEntr
           letterSpacing: '0.02em',
           lineHeight: 1.1,
           textShadow: '0 2px 6px rgba(0,0,0,0.7)',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}>{name}</div>
+        }} min={0.45}>{name}</CondenseText>
         {company && (
-          <div style={{
+          <CondenseText style={{
             marginTop: 6,
             fontFamily: "'Noto Sans JP', sans-serif",
             fontSize: 16,
             color: 'rgba(255,255,255,0.85)',
             letterSpacing: '0.06em',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}>{company}</div>
+          }} min={0.45}>{company}</CondenseText>
         )}
       </div>
     </div>

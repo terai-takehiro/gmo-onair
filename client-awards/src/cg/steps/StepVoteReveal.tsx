@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CgMappedEntry, VoteDisplay, OneshotStyle } from '../types';
 import StepOneShot from './StepOneShot';
+import { CondenseText } from '../components/CondenseText';
 
 interface Props {
   entries: CgMappedEntry[];
@@ -30,13 +31,14 @@ export default function StepVoteReveal({
   const totalVotes = useMemo(() => top3.reduce((s, e) => s + (e.voteCount ?? 0), 0), [top3]);
   const actualValues = top3.map((e) => e.voteCount ?? 0);
 
-  // Phase 2: 既存 No.1 演出 (StepOneShot) を再利用
+  // Phase 2: 既存 No.1 演出 (StepOneShot) を再利用。
+  // 大賞表示では categoryParent (○○部門) を表示せず、categoryChild (poll_title) のみ。
   if (phase === 2 && winner) {
     return (
       <StepOneShot
         entry={winner}
         style={oneshotStyle}
-        categoryParent={categoryParent}
+        categoryParent=""
         categoryChild={categoryChild}
         lang={lang}
         hidePoints
@@ -305,7 +307,7 @@ function CandidateCard({
         textAlign: 'center',
         padding: '0 12px',
       }}>
-        <div style={{
+        <CondenseText style={{
           fontFamily: "'Noto Sans JP', sans-serif",
           fontWeight: 700,
           fontSize: 30,
@@ -313,19 +315,15 @@ function CandidateCard({
           letterSpacing: '0.05em',
           textShadow: '0 2px 10px rgba(0,0,0,0.85)',
           lineHeight: 1.15,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}>{name}</div>
+        }} min={0.45}>{name}</CondenseText>
         {company && (
-          <div style={{
+          <CondenseText style={{
             marginTop: 4,
             fontFamily: "'Noto Sans JP', sans-serif",
             fontSize: 17,
             color: 'rgba(245,215,110,0.85)',
             letterSpacing: '0.18em',
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          }}>{company}</div>
+          }} min={0.45}>{company}</CondenseText>
         )}
       </div>
 
