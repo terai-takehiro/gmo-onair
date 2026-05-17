@@ -48,7 +48,7 @@ export default function StepPoll({ category, entries, startedAt, lang, transpare
   }, [startedAt]);
 
   const secs = Math.ceil(remaining / 1000);
-  const isLast5 = secs <= 5 && secs > 0;
+  const isLast5 = secs <= 5; // 0 秒も同じ拡大サイズを維持
   const isLast10 = secs <= 10;
 
   return (

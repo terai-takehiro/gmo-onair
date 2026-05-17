@@ -324,7 +324,7 @@ function CandidateCard({
       <div style={{
         position: 'absolute',
         left: 0, right: 0,
-        top: phase === 1 ? 430 : 458,
+        top: phase === 1 ? 470 : 458,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         pointerEvents: 'none',
         transition: 'top 420ms cubic-bezier(.2,1.2,.4,1)',
