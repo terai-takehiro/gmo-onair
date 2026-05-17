@@ -748,7 +748,7 @@ export default function OneShotControlPage() {
           <div className="flex-1 min-w-0 space-y-2">
             <div className="flex items-center gap-1 border-b border-slate-800">
               {([
-                { id: 'main', label: '送出' },
+                { id: 'main', label: '1SHOT' },
                 { id: 'countdown', label: 'カウントダウン', live: countdownOn },
               ] as const).map((t) => (
                 <button
@@ -769,6 +769,7 @@ export default function OneShotControlPage() {
               ))}
             </div>
 
+            {/* v2.8.124+: TAKE/CLEAR は 1SHOT タブ専用。カウントダウンは ON/OFF をパネル側に内蔵 */}
             {controlTab === 'main' ? (
               <>
                 <ModulePickerRow
@@ -782,6 +783,18 @@ export default function OneShotControlPage() {
                   currentAward={currentAward}
                   onToggle={onToggleTicker}
                 />
+                <SendActionRow
+                  isLive={isLive}
+                  transparent={transparent}
+                  showPortrait={showPortrait}
+                  onTake={take}
+                  onClear={clear}
+                  onToggleTransparent={onToggleTransparent}
+                  onTogglePortrait={onTogglePortrait}
+                />
+                <div className="hidden sm:block">
+                  <ShortcutHints />
+                </div>
               </>
             ) : (
               <CountdownControlPanel
@@ -795,20 +808,6 @@ export default function OneShotControlPage() {
                 onChange={onChangeCountdown}
               />
             )}
-
-            {/* TAKE/CLEAR は常時表示 (タブを跨いで操作可能) */}
-            <SendActionRow
-              isLive={isLive}
-              transparent={transparent}
-              showPortrait={showPortrait}
-              onTake={take}
-              onClear={clear}
-              onToggleTransparent={onToggleTransparent}
-              onTogglePortrait={onTogglePortrait}
-            />
-            <div className="hidden sm:block">
-              <ShortcutHints />
-            </div>
           </div>
         </div>
         </div>

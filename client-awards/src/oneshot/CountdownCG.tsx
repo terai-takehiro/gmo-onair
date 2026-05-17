@@ -48,21 +48,19 @@ export default function CountdownCG({ targetIso, prefix, x, y, scale, lang }: Pr
     [targetMs, now]
   );
 
-  // v2.8.122: 00:00 到達でフェードアウト (1 秒ホールド → 1.2 秒で消える)
+  // v2.8.124: 00:00 到達でフェードアウト (1 秒ホールド → 1.2 秒で消える)。
+  // 旧版は deps に `parts` を渡していたため毎 250ms re-run → cleanup で setTimeout がキャンセル
+  // され続け、結果的に fading が発火しなかった。done をスカラ依存にして修正。
+  const done = !!parts?.done;
   const [fading, setFading] = useState(false);
-  const fadingRef = useRef(false);
   useEffect(() => {
-    if (parts?.done && !fadingRef.current) {
-      fadingRef.current = true;
-      const id = window.setTimeout(() => setFading(true), 1000);
-      return () => window.clearTimeout(id);
-    }
-    if (parts && !parts.done && fadingRef.current) {
-      // target が更新されてカウントダウン再開されたら復活
-      fadingRef.current = false;
+    if (!done) {
       setFading(false);
+      return;
     }
-  }, [parts]);
+    const id = window.setTimeout(() => setFading(true), 1000);
+    return () => window.clearTimeout(id);
+  }, [done]);
 
   const showDays = !!parts && parts.days > 0;
   const showHours = !!parts && (parts.hours > 0 || showDays);
@@ -126,8 +124,8 @@ function Digit({ value }: { value: number }) {
     setPrevious(current);
     setCurrent(n);
     if (timerRef.current) window.clearTimeout(timerRef.current);
-    // reel の回転 (620ms) 完走後に直前桁を unmount
-    timerRef.current = window.setTimeout(() => setPrevious(null), 700);
+    // reel の回転 (480ms) + フェードアウト完走後に直前桁を unmount
+    timerRef.current = window.setTimeout(() => setPrevious(null), 520);
     return () => {
       if (timerRef.current) window.clearTimeout(timerRef.current);
     };
@@ -147,7 +145,7 @@ function Digit({ value }: { value: number }) {
         </span>
         {previous !== null && previous !== current && (
           <span
-            className="oscg-digit-face"
+            className="oscg-digit-face oscg-digit-face--leaving"
             style={{ transform: `rotateX(${previous * 36}deg) translateZ(var(--oscg-digit-r))` }}
           >
             {previous}

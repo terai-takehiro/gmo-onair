@@ -132,8 +132,19 @@
   position: absolute;
   inset: 0;
   transform-style: preserve-3d;
-  transition: transform 620ms cubic-bezier(.34, 1.4, .5, 1);
+  /* v2.8.124: 過剰な overshoot (1.4) を撤去、上品な ease-out に。秒桁が毎秒鳴っても落ち着いた印象 */
+  transition: transform 480ms cubic-bezier(.32, .72, .35, 1);
   will-change: transform;
+}
+
+/* 直前桁は回転中に opacity 1 → 0 でフェード。停止後は unmount される */
+.oneshot-cg-root .oscg-digit-face.oscg-digit-face--leaving {
+  animation: oscg-digit-leave 480ms cubic-bezier(.4, 0, .2, 1) forwards;
+}
+@keyframes oscg-digit-leave {
+  0%   { opacity: 1; }
+  40%  { opacity: 0.55; }
+  100% { opacity: 0; }
 }
 
 .oneshot-cg-root .oscg-digit-face {

@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.8.123 — 下位置CG カウントダウン: 静止時に隣接桁が覗いていた問題を修正（現在 + 直前桁の 2 面のみレンダリングに変更）
+**現在のバージョン**: v2.8.124 — 下位置CG カウントダウン: 00:00 フェードアウト不具合修正 + 動きの安定化（overshoot 撤去・480ms ease-out）+ 直前桁フェードアウト + TAKE を 1SHOT 専用化 + タブ名「送出」→「1SHOT」
 
 ---
 
@@ -401,6 +401,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.8.124** | **下位置CG カウントダウン 仕上げ (dev)**: ①00:00 フェードアウト不具合修正（useEffect の deps を `parts` オブジェクト → `done` スカラに変更、cleanup の連続キャンセルを解消）。②動きの安定化（reel の transition を 620ms overshoot bouncy → 480ms 上品な ease-out に変更）。③直前桁にフェードアウト（`.oscg-digit-face--leaving` で opacity 1→0 のキーフレーム発火、静止時 1 桁・回転時のみ短く 2 桁重なる挙動）。④TAKE/CLEAR を 1SHOT タブ専用に移動（カウントダウンは ON/OFF をパネル内蔵）。⑤タブ名「送出」→「1SHOT」にリネーム。 |
 | **v2.8.123** | **下位置CG カウントダウン: 静止時の隣接桁覗き込みを修正 (dev)**: 10 面シリンダーを「現在桁 + (変化中だけ) 直前桁」の 2 面のみレンダリングに変更。`Digit` に `useState(current/previous)` を持たせ、value 変化で previous=旧 current、700ms 後に previous を unmount。reel 自体は従来通り `rotateX(-current*36deg)` で滑らかに回転。隣接桁を物理的に描画しなくなったので、digit container の上下黒マスクを 42% → 22% に縮小（軽い vignette のみ、動く数字を遮らない）。 |
 | **v2.8.122** | **下位置CG カウントダウン UX 改善 (dev)**: ①数字の上下重なりを解消（digit container を w116/h176 に拡大、glyph を 0.62h に縮小、上下黒マスクを 42% + 強グラデで隣接桁を完全マスク）。②コントロール UI をタブ化（「送出」/「カウントダウン」、TAKE/CLEAR は常時表示）。③分秒指定で開始モードを追加（`指定日時` / `分秒指定` 切替、`分秒指定` は M分S秒 + 開始ボタン + 30s/1m/3m/10m プリセット）。④枕詞に半透明黒 pill ベース（gold border + inner glow）を追加して任意背景で視認性確保。⑤00:00 到達で 1 秒ホールド → 1.2 秒でフェードアウト、target 再設定で復活。 |
 | **v2.8.121** | **下位置CG に カウントダウンテロップを追加 (dev)**: 「アワードまであと〇〇分〇〇秒」をゴールド基調の 3D 立体数字（10 面シリンダー reel）でくるくる回す独立 CG レイヤー。lower-third / ticker と並列に重ねられ、位置（X/Y %）・サイズ（scale）・枕詞（JA/EN）・目標日時を operator UI から自由に設定可能（+1m/+5m/+15m/+30m/+60m クイック プリセット付き）。①migration 087 で `awards_oneshot_cue_state` に 7 カラム追加。②`CountdownCG.tsx` + `countdown.css` を新設。各桁は `perspective:1400px` の縦シリンダーに 10 桁を `rotateX(i*36deg) translateZ(R)` で配置、`transition 620ms cubic-bezier(.34,1.4,.5,1)` で目標値に回転。数字面はゴールドのリニアグラデーション (`#f8efd8 → #e8c97c → #b89043`)、`var(--gold)` `var(--font-jp)` 等 アワードCG 共通トークンを参照。上下に黒グラデの「窓ガラス」グレアでシリンダー感を演出。③operator UI に `CountdownControlPanel` を追加（ON/OFF + datetime-local + 5 プリセット + 枕詞 JA/EN + X/Y/scale スライダ&数値入力）。設定変更は `sendCue` で即 broadcast。④OneShotStage が `countdown` prop を受けて絶対配置で重ね、OneShotControlPage の 5 ヶ所の Stage / ScaledStage、OneShotOutputPage 全てに配線。⑤server `socket.ts` の `oneshot:set` / `oneshot:nextSet` / 初期 sync で 7 フィールドを persist + broadcast。 |
