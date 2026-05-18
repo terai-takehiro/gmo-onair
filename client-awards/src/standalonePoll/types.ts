@@ -39,5 +39,5 @@ export const DEFAULT_POLL: StandalonePollState = {
   lang: 'ja',
 };
 
-export const POLL_DURATION_MS = 30_000;
+export const POLL_DURATION_MS = 60_000;
 export const POLL_REVERT_DELAY_MS = 3_000;

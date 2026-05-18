@@ -85,5 +85,5 @@ export const PHOTO_OFFSET = 280;
 export const FADE_DURATION = 600;
 
 // 投票演出
-export const POLL_DURATION_MS = 30_000;
+export const POLL_DURATION_MS = 60_000;
 export const POLL_REVERT_DELAY_MS = 3_000;
