@@ -88,6 +88,7 @@ export default function OutputNextPage() {
           lang={lang}
           cue={nextCue}
           category={activeCategory}
+          allCategories={event.categories}
           eventName={event.name}
           eventSubtitle={event.subtitle}
           transparent

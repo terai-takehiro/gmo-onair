@@ -51,12 +51,13 @@ type StepDef = { step: CgStep; label: string; desc: string; color: 'neutral' | '
 
 // パターン別ステップシーケンス
 const STEPS_DIRECT: StepDef[] = [
-  { step: 'idle',       label: 'IDLE',       desc: '透過',                    color: 'neutral', shortcut: '0' },
-  { step: 'title',      label: 'TITLE',      desc: 'タイトルカード',          color: 'neutral', shortcut: '1' },
-  { step: 'nominees',   label: 'NOMINEES',   desc: 'ノミネート一覧',          color: 'live',    shortcut: '2' },
-  { step: 'ranks52',    label: 'RANKS 5→2',  desc: 'ランキングバー',          color: 'live',    shortcut: '3' },
-  { step: 'winner-bar', label: 'WINNER BAR', desc: '大賞引きバー',            color: 'award',   shortcut: '4' },
-  { step: 'oneshot',    label: 'ONE SHOT',   desc: '大賞フルスクリーン',      color: 'award',   shortcut: '5' },
+  { step: 'idle',        label: 'IDLE',       desc: '透過',                    color: 'neutral', shortcut: '0' },
+  { step: 'title',       label: 'TITLE',      desc: 'タイトルカード',          color: 'neutral', shortcut: '1' },
+  { step: 'nominees',    label: 'NOMINEES',   desc: 'ノミネート一覧',          color: 'live',    shortcut: '2' },
+  { step: 'ranks52',     label: 'RANKS 5→2',  desc: 'ランキングバー',          color: 'live',    shortcut: '3' },
+  { step: 'winner-bar',  label: 'WINNER BAR', desc: '大賞引きバー',            color: 'award',   shortcut: '4' },
+  { step: 'oneshot',     label: 'ONE SHOT',   desc: '大賞フルスクリーン',      color: 'award',   shortcut: '5' },
+  { step: 'celebration', label: 'CELEB',      desc: '全部門 No.1 + 紙吹雪',    color: 'award',   shortcut: '6' },
 ];
 const STEPS_VOTE: StepDef[] = [
   { step: 'idle',         label: 'IDLE',       desc: '透過',                    color: 'neutral', shortcut: '0' },
@@ -66,6 +67,7 @@ const STEPS_VOTE: StepDef[] = [
   { step: 'final-pitch',  label: 'PITCH',      desc: 'ファイナルピッチ (3名→1名)', color: 'live', shortcut: '4' },
   { step: 'poll',         label: 'POLL',       desc: 'アンケート投票 (30s)',    color: 'live',    shortcut: '5' },
   { step: 'vote-reveal',  label: 'RESULT',     desc: '投票結果→大賞',          color: 'award',   shortcut: '6' },
+  { step: 'celebration',  label: 'CELEB',      desc: '全部門 No.1 + 紙吹雪',    color: 'award',   shortcut: '7' },
 ];
 const ONESHOT_STYLES: { style: OneshotStyle; label: string }[] = [
   { style: 'classic',   label: 'Classic'   },
@@ -73,7 +75,7 @@ const ONESHOT_STYLES: { style: OneshotStyle; label: string }[] = [
   { style: 'spotlight', label: 'Spotlight' },
   { style: 'slit',      label: 'Slit'      },
 ];
-const LIVE_STEPS: CgStep[] = ['nominees', 'ranks52', 'top3', 'final-pitch', 'winner-bar', 'oneshot', 'poll', 'vote-reveal'];
+const LIVE_STEPS: CgStep[] = ['nominees', 'ranks52', 'top3', 'final-pitch', 'winner-bar', 'oneshot', 'poll', 'vote-reveal', 'celebration'];
 
 export default function ControlPage() {
   const { id } = useParams<{ id: string }>();
@@ -435,6 +437,7 @@ export default function ControlPage() {
                     lang={previewLang}
                     cue={cue}
                     category={liveCategory}
+                    allCategories={event.categories}
                     eventName={event.name}
                     eventSubtitle={event.subtitle}
                   />
@@ -523,6 +526,7 @@ export default function ControlPage() {
                           lang={previewLang}
                           cue={nextCueForPreview}
                           category={nextCategory}
+                          allCategories={event.categories}
                           eventName={event.name}
                           eventSubtitle={event.subtitle}
                         />

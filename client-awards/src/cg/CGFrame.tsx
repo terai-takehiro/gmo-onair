@@ -8,6 +8,7 @@ interface Props {
   lang: CgLang;
   cue: CgCueState;
   category: CgCategory | null;
+  allCategories?: CgCategory[];
   eventName: string;
   eventSubtitle?: string | null;
   transparent?: boolean;
@@ -18,12 +19,13 @@ interface Props {
  * - 'ja' / 'en': 単一言語をそのままフルサイズ表示
  * - 'both': 左右に半サイズ（960x540）の JA / EN を並べて中央寄せ
  */
-export default function CGFrame({ lang, cue, category, eventName, eventSubtitle, transparent }: Props) {
+export default function CGFrame({ lang, cue, category, allCategories, eventName, eventSubtitle, transparent }: Props) {
   if (lang !== 'both') {
     return (
       <CGSequence
         cue={cue}
         category={category}
+        allCategories={allCategories}
         eventName={eventName}
         eventSubtitle={eventSubtitle}
         lang={lang}
@@ -57,6 +59,7 @@ export default function CGFrame({ lang, cue, category, eventName, eventSubtitle,
         <CGSequence
           cue={cue}
           category={category}
+          allCategories={allCategories}
           eventName={eventName}
           eventSubtitle={eventSubtitle}
           lang={langMode}

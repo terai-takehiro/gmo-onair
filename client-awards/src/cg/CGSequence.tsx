@@ -10,10 +10,12 @@ import StepOneShot from './steps/StepOneShot';
 import StepPoll from './steps/StepPoll';
 import StepVoteReveal from './steps/StepVoteReveal';
 import StepFinalPitch from './steps/StepFinalPitch';
+import StepCelebration from './steps/StepCelebration';
 
 interface Props {
   cue: CgCueState;
   category: CgCategory | null;
+  allCategories?: CgCategory[];   // celebration ステップで使用
   eventName: string;
   eventSubtitle?: string | null;
   lang?: 'ja' | 'en';
@@ -42,7 +44,7 @@ function mapEntry(e: CgCategory['entries'][number]): CgMappedEntry {
 
 const STEP_ORDER = ['idle', 'title', 'nominees', 'ranks52', 'top3', 'winner-bar', 'oneshot'] as const;
 
-export default function CGSequence({ cue, category, eventName, eventSubtitle, lang = 'ja', transparent }: Props) {
+export default function CGSequence({ cue, category, allCategories, eventName, eventSubtitle, lang = 'ja', transparent }: Props) {
   const stepKey = cue.step;
 
   // Map entries
@@ -73,20 +75,21 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
 
   const persistKey = `${cue.categoryId ?? 'none'}-${sessionKey}`;
 
-  // vote パターンでは poll_title (operator 手入力タイトル) を categoryChild に使い、
-  // categoryParent (○○部門) はカット。direct パターンは従来通り。
+  // vote パターン で poll_title を使うのは final-pitch 以降のステップのみ。
+  // それ以前 (title / nominees / top3) は通常通り DB の部門/賞を表示する。
   const isVote = category?.award_pattern === 'vote';
+  const usePollTitle = isVote && (stepKey === 'final-pitch' || stepKey === 'poll' || stepKey === 'vote-reveal');
   const pollTitle = lang === 'en'
     ? (category?.poll_title_en || category?.poll_title || '')
     : (category?.poll_title || '');
   const tweaks = {
     eventTitle: eventName,
-    categoryParent: isVote
+    categoryParent: usePollTitle
       ? ''
       : (lang === 'en'
           ? (category?.description_en || category?.description || eventSubtitle || '')
           : (category?.description || eventSubtitle || '')),
-    categoryChild: isVote && pollTitle
+    categoryChild: usePollTitle && pollTitle
       ? pollTitle
       : (lang === 'en'
           ? (category?.name_en || category?.name || '')
@@ -106,6 +109,7 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
   const showFinalPitch = stepKey === 'final-pitch';
   const showPoll = stepKey === 'poll';
   const showVoteReveal = stepKey === 'vote-reveal';
+  const showCelebration = stepKey === 'celebration';
 
   const winner = sorted.find((e) => e.rank === 1) ?? null;
   // vote-reveal の winner は vote_count 最大値で決まる (Hooks は早期 return より前で呼ぶ)
@@ -136,8 +140,8 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
     >
       <CGBackground transparent={transparent} />
 
-      {/* Persistent morphing header — poll / vote-reveal / final-pitch は専用レイアウトで非表示 */}
-      {stepKey !== 'poll' && stepKey !== 'vote-reveal' && stepKey !== 'final-pitch' && (
+      {/* Persistent morphing header — poll / vote-reveal / final-pitch / celebration は専用レイアウトで非表示 */}
+      {stepKey !== 'poll' && stepKey !== 'vote-reveal' && stepKey !== 'final-pitch' && stepKey !== 'celebration' && (
         <PersistentHeader key={`hdr-${persistKey}`} tweaks={tweaks} stepKey={stepKey} />
       )}
 
@@ -209,6 +213,22 @@ export default function CGSequence({ cue, category, eventName, eventSubtitle, la
           entries={sorted}
           pickedIndex={cue.revealPhase as 0 | 1 | 2 | 3}
           categoryChild={tweaks.categoryChild}
+          lang={lang}
+        />
+      )}
+
+      {/* Celebration — 同じ賞グループの全部門 No.1 を横並び + Congratulation */}
+      {showCelebration && (
+        <StepCelebration
+          key={`celeb-${persistKey}`}
+          categories={
+            // 同じ award name (category.name) を持つカテゴリのみ抽出
+            // allCategories が無ければ現カテゴリ単独
+            allCategories && category
+              ? allCategories.filter((c) => c.name === category.name)
+              : (category ? [category] : [])
+          }
+          awardName={lang === 'en' ? (category?.name_en || category?.name || '') : (category?.name ?? '')}
           lang={lang}
         />
       )}

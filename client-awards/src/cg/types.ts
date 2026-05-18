@@ -8,7 +8,8 @@ export type CgStep =
   | 'winner-bar'
   | 'oneshot'
   | 'poll'
-  | 'vote-reveal';
+  | 'vote-reveal'
+  | 'celebration';
 
 /** Normalised entry shape used by all CG render components. */
 export interface CgMappedEntry {

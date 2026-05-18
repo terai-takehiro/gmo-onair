@@ -186,7 +186,7 @@ export function initAwardsSocketIO(io: Server): void {
         const style = data.oneshotStyle ?? 'classic';
         const voteDisplay = data.voteDisplay === 'percent' ? 'percent' : 'count';
         const pollStartedAt = typeof data.pollStartedAt === 'number' ? data.pollStartedAt : null;
-        const revealPhase = Math.max(0, Math.min(2, Math.floor(data.revealPhase ?? 0)));
+        const revealPhase = Math.max(0, Math.min(3, Math.floor(data.revealPhase ?? 0)));
 
         await execute(
           `INSERT INTO awards_cue_state
@@ -323,7 +323,7 @@ export function initAwardsSocketIO(io: Server): void {
         oneshotStyle: data.oneshotStyle ?? 'classic',
         voteDisplay: data.voteDisplay === 'percent' ? 'percent' : 'count',
         pollStartedAt: typeof data.pollStartedAt === 'number' ? data.pollStartedAt : null,
-        revealPhase: Math.max(0, Math.min(2, Math.floor(data.revealPhase ?? 0))),
+        revealPhase: Math.max(0, Math.min(3, Math.floor(data.revealPhase ?? 0))),
         timestamp: Date.now(),
       };
       nextCueByEvent.set(eventId, next);

@@ -54,6 +54,7 @@ export default function Stage({ category, eventName = '', eventSubtitle, lang = 
           lang={lang}
           cue={cue}
           category={activeCategory}
+          allCategories={categories}
           eventName={eventName}
           eventSubtitle={eventSubtitle}
           transparent={transparent}
