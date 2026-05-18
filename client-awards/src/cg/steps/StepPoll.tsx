@@ -258,7 +258,7 @@ function RightColumn({ title, question, isJa }: { title: string; question: strin
           background: `linear-gradient(180deg, ${GOLD_BRIGHT} 0%, ${GOLD} 60%, ${GOLD_DEEP} 100%)`,
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
           filter: 'drop-shadow(0 4px 22px rgba(0,0,0,0.85))',
-          marginBottom: 18, padding: '4px 8px',
+          marginBottom: 18, padding: '4px 8px 0.15em',     // Q の tail / 下端切れ防止
         }}>Q</div>
         <TitleBand text={title} horizontal />
         <div style={{

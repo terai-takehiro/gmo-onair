@@ -118,6 +118,7 @@ export default function StepCelebration({ categories, awardName, lang }: Props) 
           fontSize: 140,
           lineHeight: 1,
           letterSpacing: '0.02em',
+          paddingBottom: '0.15em',     // g 等のディセンダー切れ防止
           background: 'linear-gradient(180deg, #FFFBE6 0%, #FFEFB0 18%, #F5D76E 45%, #C9A24B 75%, #8C6314 100%)',
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent',
