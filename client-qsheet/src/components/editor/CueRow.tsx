@@ -1,4 +1,4 @@
-import { useState, useRef, useId } from "react";
+import { memo, useState, useRef, useId } from "react";
 import { ChevronUp, ChevronDown, Copy, Trash2, ImageIcon, ImagePlus, Loader2 } from "lucide-react";
 import api from "@/lib/api";
 import StageDiagramCell from "./StageDiagramCell";
@@ -276,7 +276,7 @@ const SPEAKER_COLORS = [
 const PILL_COLORS: Record<string, string> = { video: "bg-blue-700", audio: "bg-rose-700", telop: "bg-purple-700" };
 
 // ─── CueRow ─────────────────────────────────────────────
-export default function CueRow({
+function CueRowImpl({
   row,
   blocks,
   masters,
@@ -312,87 +312,50 @@ export default function CueRow({
     : {};
   const dragClass = `${onRowDragStart ? "cursor-grab active:cursor-grabbing" : ""} ${isRowDragged ? "opacity-40" : ""} ${isRowDropTarget ? "outline outline-2 outline-primary outline-offset-[-2px]" : ""}`;
 
+  // onDeleteEntry は v2.8.155 で「行 = エントリ」に統一されたため未使用。
+  // 過去版との互換のため Props に残置 (CueTable から渡るが内部では使わない)。
+  void onDeleteEntry;
+
   const updateCell = (blockId: string, newCell: any) => {
     onChange((r) => ({ ...r, cells: { ...r.cells, [blockId]: newCell } }));
   };
 
-  // シナリオのエントリ数を基準にサブ行を生成
-  const scenarioBlock = blocks.find((b) => b.type === "scenario");
-  const scenarioEntries: any[] = scenarioBlock ? (row.cells?.[scenarioBlock.id]?.entries || []) : [];
-  const entryCount = Math.max(scenarioEntries.length, 1);
-
-  const getEntry = (blk: Block, ei: number) => {
+  // v2.8.155: 1 行 = 1 エントリに統一。常に entries[0] を読み書きする。
+  const getEntry = (blk: Block) => {
     const cell = row.cells?.[blk.id] || {};
-    if (blk.type === "scenario") return (cell.entries || [])[ei] || null;
-    if (["video", "audio", "telop"].includes(blk.type)) return (cell.entries || [])[ei] || null;
+    if (blk.type === "scenario" || ["video", "audio", "telop"].includes(blk.type)) {
+      return (cell.entries || [])[0] || null;
+    }
     return null;
   };
 
-  const updateEntry = (blk: Block, ei: number, field: string, value: any) => {
+  const updateEntry = (blk: Block, field: string, value: any) => {
     const cell = { ...(row.cells?.[blk.id] || {}) };
-    if (!cell.entries) cell.entries = [];
-    while (cell.entries.length <= ei) {
-      cell.entries.push(blk.type === "scenario" ? { name: "", html: "", isQWord: false } : { label: "", memo: "" });
+    const entries = Array.isArray(cell.entries) ? [...cell.entries] : [];
+    if (entries.length === 0) {
+      entries.push(blk.type === "scenario" ? { name: "", html: "", isQWord: false } : { label: "", memo: "" });
     }
-    cell.entries[ei] = { ...cell.entries[ei], [field]: value };
+    entries[0] = { ...entries[0], [field]: value };
+    cell.entries = entries;
     updateCell(blk.id, cell);
   };
 
-  // エントリ単位の削除（ゴミ箱経由）
-  // 親コンポーネント (EditorPage) が doc.data.trash に退避する
-  const deleteEntry = (blk: Block, ei: number, sectionLabel?: string) => {
-    const cell = row.cells?.[blk.id] || {};
-    const entry = (cell.entries || [])[ei];
-    if (!entry) return;
-    // 親コールバックでゴミ箱へ退避（未指定なら退避せず単に削除のみ）
-    if (onDeleteEntry) {
-      onDeleteEntry(blk.id, ei, entry, { sectionLabel, rowLabel: row.label });
-    }
-    // 行ローカルでも entries から除去
-    onChange((r) => {
-      const cells = { ...(r.cells || {}) };
-      const c = { ...(cells[blk.id] || {}) };
-      c.entries = (c.entries || []).filter((_: any, i: number) => i !== ei);
-      cells[blk.id] = c;
-      return { ...r, cells };
-    });
-  };
-
-  // 全列に同時にエントリを追加
-  const addEntryToAllBlocks = () => {
-    onChange((r) => {
-      const newCells = { ...r.cells };
-      blocks.forEach((blk) => {
-        const cell = newCells[blk.id] || {};
-        if (blk.type === "scenario") {
-          newCells[blk.id] = { ...cell, entries: [...(cell.entries || []), { name: "", html: "", isQWord: false }] };
-        } else if (["video", "audio", "telop"].includes(blk.type)) {
-          newCells[blk.id] = { ...cell, entries: [...(cell.entries || []), { label: "", memo: "" }] };
-        }
-      });
-      return { ...r, cells: newCells };
-    });
-  };
+  // シナリオセルの highlight (行全体の背景色) を取得
+  const scenarioBlock = blocks.find((b) => b.type === "scenario");
+  const scenarioEntry: any = scenarioBlock ? (row.cells?.[scenarioBlock.id]?.entries || [])[0] : null;
+  const rowHighlight = (scenarioEntry?.highlight as string | undefined) || undefined;
 
   return (
-    <>
-      {Array.from({ length: entryCount }).map((_, ei) => {
-        const scenarioEntry = scenarioEntries[ei];
-        const highlight = scenarioEntry?.highlight as string | undefined;
-        return (
-        <tr
-          key={ei}
-          {...(ei === 0 ? dragHandlers : {})}
-          className={`group transition-colors duration-150 hover:bg-blue-50/40 dark:hover:bg-blue-950/10 ${
-            ei === entryCount - 1 ? "border-b border-zinc-100/80 dark:border-zinc-800/60" : ""
-          } ${ei === 0 ? dragClass : ""}`}
-          style={highlight ? { backgroundColor: highlight } : undefined}
-        >
+    <tr
+      {...dragHandlers}
+      className={`group transition-colors duration-150 hover:bg-blue-50/40 dark:hover:bg-blue-950/10 border-b border-zinc-100/80 dark:border-zinc-800/60 ${dragClass}`}
+      style={rowHighlight ? { backgroundColor: rowHighlight } : undefined}
+    >
           {blocks.map((blk) => {
             if (collapsedBlocks?.has(blk.id)) {
               return <td key={blk.id} className="border-r border-zinc-100/60 dark:border-zinc-800/40" />;
             }
-            const en = getEntry(blk, ei);
+            const en = getEntry(blk);
 
             // ── Scenario cell ──
             if (blk.type === "scenario") {
@@ -402,7 +365,7 @@ export default function CueRow({
                   <div className="flex flex-col gap-1 min-w-0">
                     <div className="flex items-start gap-1.5 min-w-0">
                       <button
-                        onClick={() => updateEntry(blk, ei, "isQWord", !en?.isQWord)}
+                        onClick={() => updateEntry(blk, "isQWord", !en?.isQWord)}
                         className={`flex-shrink-0 w-5 h-5 rounded text-[11px] font-bold leading-none flex items-center justify-center transition-all mt-[1px] ${
                           en?.isQWord
                             ? "bg-red-500 text-white shadow-sm"
@@ -416,14 +379,14 @@ export default function CueRow({
                         value={en?.name || ""}
                         color={color}
                         placeholder="名前"
-                        datalistId={`p-${rowUid}-${blk.id}-${ei}`}
+                        datalistId={`p-${rowUid}-${blk.id}`}
                         datalistOptions={masters?.persons}
-                        onChange={(v) => updateEntry(blk, ei, "name", v)}
+                        onChange={(v) => updateEntry(blk, "name", v)}
                       />
                       {en?.isQWord && <span className="flex-shrink-0 text-red-500 font-bold text-[13px] leading-[20px]">Q→</span>}
                       <textarea
                         value={en?.html?.replace(/<[^>]*>/g, "") || ""}
-                        onChange={(e) => updateEntry(blk, ei, "html", e.target.value)}
+                        onChange={(e) => updateEntry(blk, "html", e.target.value)}
                         rows={1}
                         className="text-[13px] bg-transparent border-none outline-none resize-none overflow-hidden min-w-0 w-0"
                         style={{ flex: "1 1 0", overflowWrap: "break-word", lineHeight: "20px" }}
@@ -442,22 +405,13 @@ export default function CueRow({
                       />
                       <EntryImageButton
                         imageUrl={en?.image}
-                        onChange={(url) => updateEntry(blk, ei, "image", url || undefined)}
+                        onChange={(url) => updateEntry(blk, "image", url || undefined)}
                         hideThumbnail
                       />
                       <HighlightPicker
                         value={en?.highlight}
-                        onChange={(c) => updateEntry(blk, ei, "highlight", c || undefined)}
+                        onChange={(c) => updateEntry(blk, "highlight", c || undefined)}
                       />
-                      {en && (scenarioEntries.length > 1) && (
-                        <button
-                          onClick={() => deleteEntry(blk, ei)}
-                          className="flex-shrink-0 w-4 h-4 rounded-full text-zinc-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors opacity-0 group-hover:opacity-100 mt-[2px] text-[10px] leading-none flex items-center justify-center"
-                          title="このエントリを削除（ゴミ箱へ）"
-                        >
-                          ×
-                        </button>
-                      )}
                     </div>
                     {en?.image && (
                       <div className="relative inline-block w-fit ml-7 group/img">
@@ -467,7 +421,7 @@ export default function CueRow({
                           className="max-h-40 max-w-full rounded border border-zinc-200 dark:border-zinc-700 object-contain"
                         />
                         <button
-                          onClick={() => updateEntry(blk, ei, "image", undefined)}
+                          onClick={() => updateEntry(blk, "image", undefined)}
                           className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-zinc-300 text-zinc-500 hover:text-red-500 text-xs leading-none flex items-center justify-center shadow-sm opacity-0 group-hover/img:opacity-100 transition-opacity"
                           title="画像を削除"
                         >
@@ -491,31 +445,22 @@ export default function CueRow({
                         value={en?.label || ""}
                         color={en?.label ? pillColor : "bg-zinc-400"}
                         placeholder="ID"
-                        datalistId={`${blk.type}-${rowUid}-${blk.id}-${ei}`}
+                        datalistId={`${blk.type}-${rowUid}-${blk.id}`}
                         datalistOptions={masters?.[blk.type]}
-                        onChange={(v) => updateEntry(blk, ei, "label", v)}
+                        onChange={(v) => updateEntry(blk, "label", v)}
                       />
                       <input
                         value={en?.memo || ""}
-                        onChange={(e) => updateEntry(blk, ei, "memo", e.target.value)}
+                        onChange={(e) => updateEntry(blk, "memo", e.target.value)}
                         className="text-[12px] bg-transparent border-none outline-none min-w-0"
                         style={{ flex: "1 1 0", lineHeight: "20px" }}
                         placeholder="メモ..."
                       />
                       <EntryImageButton
                         imageUrl={en?.image}
-                        onChange={(url) => updateEntry(blk, ei, "image", url || undefined)}
+                        onChange={(url) => updateEntry(blk, "image", url || undefined)}
                         hideThumbnail
                       />
-                      {en && (en.label || en.memo || en.image) && (
-                        <button
-                          onClick={() => deleteEntry(blk, ei)}
-                          className="flex-shrink-0 w-4 h-4 rounded-full text-zinc-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors opacity-0 group-hover:opacity-100 mt-[2px] text-[10px] leading-none flex items-center justify-center"
-                          title="このエントリを削除（ゴミ箱へ）"
-                        >
-                          ×
-                        </button>
-                      )}
                     </div>
                     {en?.image && (
                       <div className="relative inline-block w-fit group/img">
@@ -525,7 +470,7 @@ export default function CueRow({
                           className="max-h-40 max-w-full rounded border border-zinc-200 dark:border-zinc-700 object-contain"
                         />
                         <button
-                          onClick={() => updateEntry(blk, ei, "image", undefined)}
+                          onClick={() => updateEntry(blk, "image", undefined)}
                           className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-zinc-300 text-zinc-500 hover:text-red-500 text-xs leading-none flex items-center justify-center shadow-sm opacity-0 group-hover/img:opacity-100 transition-opacity"
                           title="画像を削除"
                         >
@@ -542,25 +487,23 @@ export default function CueRow({
             if (blk.type === "audio_mic") {
               return (
                 <td key={blk.id} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 align-top">
-                  {ei === 0 && (
-                    <MicAssignmentCell
-                      cell={row.cells?.[blk.id]}
-                      channels={masters?.micChannels || []}
-                      persons={masters?.persons || []}
-                      micTypes={masters?.micTypes || []}
-                      onChange={(val) => updateCell(blk.id, val)}
-                      onInheritFromPrev={
-                        findPrevAudioMicAssignments
-                          ? () => {
-                              const prev = findPrevAudioMicAssignments(blk.id);
-                              if (prev) {
-                                updateCell(blk.id, { assignments: prev.map((a: any) => ({ ...a })) });
-                              }
+                  <MicAssignmentCell
+                    cell={row.cells?.[blk.id]}
+                    channels={masters?.micChannels || []}
+                    persons={masters?.persons || []}
+                    micTypes={masters?.micTypes || []}
+                    onChange={(val) => updateCell(blk.id, val)}
+                    onInheritFromPrev={
+                      findPrevAudioMicAssignments
+                        ? () => {
+                            const prev = findPrevAudioMicAssignments(blk.id);
+                            if (prev) {
+                              updateCell(blk.id, { assignments: prev.map((a: any) => ({ ...a })) });
                             }
-                          : undefined
-                      }
-                    />
-                  )}
+                          }
+                        : undefined
+                    }
+                  />
                 </td>
               );
             }
@@ -569,13 +512,11 @@ export default function CueRow({
             if (blk.type === "stage_diagram") {
               return (
                 <td key={blk.id} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 align-top">
-                  {ei === 0 && (
-                    <StageDiagramCell
-                      cell={row.cells?.[blk.id]}
-                      stageTemplates={stageTemplates}
-                      onChange={(val) => updateCell(blk.id, val)}
-                    />
-                  )}
+                  <StageDiagramCell
+                    cell={row.cells?.[blk.id]}
+                    stageTemplates={stageTemplates}
+                    onChange={(val) => updateCell(blk.id, val)}
+                  />
                 </td>
               );
             }
@@ -584,28 +525,25 @@ export default function CueRow({
             if (blk.type === "slide") {
               return (
                 <td key={blk.id} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden align-top">
-                  {ei === 0 && (
-                    <div className="flex items-center justify-center h-16 border border-dashed border-zinc-200 dark:border-zinc-700 rounded text-zinc-300 dark:text-zinc-600 text-xs">
-                      <ImageIcon size={14} className="mr-1" />
-                      スライド
-                    </div>
-                  )}
+                  <div className="flex items-center justify-center h-16 border border-dashed border-zinc-200 dark:border-zinc-700 rounded text-zinc-300 dark:text-zinc-600 text-xs">
+                    <ImageIcon size={14} className="mr-1" />
+                    スライド
+                  </div>
                 </td>
               );
             }
 
             // ── LED/XR cell ──
-            // セルは entries 配列を持ち、各エントリは:
-            //   { sceneId?, cueType?, cueCustom?, transition?, transitionCustom? }
             if (blk.type === "led_xr") {
               const cell = row.cells?.[blk.id] || {};
-              const ledEntry = (cell.entries || [])[ei] || {};
+              const ledEntry = (cell.entries || [])[0] || {};
               const scene = ledScenes?.find((s) => s.id === ledEntry.sceneId);
               const updateLed = (field: string, value: any) => {
                 const newCell = { ...cell };
-                if (!newCell.entries) newCell.entries = [];
-                while (newCell.entries.length <= ei) newCell.entries.push({});
-                newCell.entries[ei] = { ...newCell.entries[ei], [field]: value };
+                const entries = Array.isArray(newCell.entries) ? [...newCell.entries] : [];
+                if (entries.length === 0) entries.push({});
+                entries[0] = { ...entries[0], [field]: value };
+                newCell.entries = entries;
                 updateCell(blk.id, newCell);
               };
               return (
@@ -687,52 +625,39 @@ export default function CueRow({
             // ── Remarks / other cells ──
             return (
               <td key={blk.id} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 align-top">
-                {ei === 0 && (
-                  <textarea
-                    value={(row.cells?.[blk.id] || {}).value || ""}
-                    onChange={(e) => updateCell(blk.id, { ...(row.cells?.[blk.id] || {}), value: e.target.value })}
-                    className="w-full min-h-[20px] text-[12px] bg-transparent border-none outline-none resize-none"
-                    style={{ lineHeight: "20px" }}
-                    placeholder="メモ..."
-                  />
-                )}
+                <textarea
+                  value={(row.cells?.[blk.id] || {}).value || ""}
+                  onChange={(e) => updateCell(blk.id, { ...(row.cells?.[blk.id] || {}), value: e.target.value })}
+                  className="w-full min-h-[20px] text-[12px] bg-transparent border-none outline-none resize-none"
+                  style={{ lineHeight: "20px" }}
+                  placeholder="メモ..."
+                />
               </td>
             );
           })}
 
-          {/* 操作ボタン — 最初のサブ行のみ (モバイル常時表示) */}
-          {ei === 0 && (
-            <td rowSpan={entryCount} className="px-0.5 align-top w-9 border-b border-zinc-100/80 dark:border-zinc-800/60">
-              <div className="flex flex-col items-center gap-0.5 pt-1 opacity-40 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200">
-                <button onClick={onMoveUp} className="p-1.5 text-zinc-400 hover:text-zinc-600 active:text-zinc-800 transition-colors">
-                  <ChevronUp size={14} />
-                </button>
-                <button onClick={onMoveDown} className="p-1.5 text-zinc-400 hover:text-zinc-600 active:text-zinc-800 transition-colors">
-                  <ChevronDown size={14} />
-                </button>
-                <button onClick={onDuplicate} className="p-1.5 text-zinc-400 hover:text-zinc-600 active:text-zinc-800 transition-colors">
-                  <Copy size={12} />
-                </button>
-                <button onClick={onDelete} className="p-1.5 text-zinc-400 hover:text-red-400 active:text-red-600 transition-colors">
-                  <Trash2 size={12} />
-                </button>
-              </div>
-            </td>
-          )}
-        </tr>
-        );
-      })}
-      {/* ＋ エントリ追加行 */}
-      <tr {...dragHandlers} className={`border-b border-zinc-50 dark:border-zinc-900 hover:bg-blue-50/30 dark:hover:bg-blue-950/10 transition-colors ${dragClass}`}>
-        <td colSpan={blocks.length + 1}>
-          <button
-            onClick={addEntryToAllBlocks}
-            className="w-full text-[11px] text-zinc-300 dark:text-zinc-700 hover:text-blue-500 py-1 transition-colors duration-150"
-          >
-            ＋ エントリを追加
-          </button>
-        </td>
-      </tr>
-    </>
+          {/* 操作ボタン (モバイル常時表示) */}
+          <td className="px-0.5 align-top w-9 border-b border-zinc-100/80 dark:border-zinc-800/60">
+            <div className="flex flex-col items-center gap-0.5 pt-1 opacity-40 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200">
+              <button onClick={onMoveUp} className="p-1.5 text-zinc-400 hover:text-zinc-600 active:text-zinc-800 transition-colors">
+                <ChevronUp size={14} />
+              </button>
+              <button onClick={onMoveDown} className="p-1.5 text-zinc-400 hover:text-zinc-600 active:text-zinc-800 transition-colors">
+                <ChevronDown size={14} />
+              </button>
+              <button onClick={onDuplicate} className="p-1.5 text-zinc-400 hover:text-zinc-600 active:text-zinc-800 transition-colors">
+                <Copy size={12} />
+              </button>
+              <button onClick={onDelete} className="p-1.5 text-zinc-400 hover:text-red-400 active:text-red-600 transition-colors">
+                <Trash2 size={12} />
+              </button>
+            </div>
+          </td>
+    </tr>
   );
 }
+
+// React.memo: row / blocks / masters / 各種 collection が shallow 同一なら再レンダーをスキップ
+// CueTable から渡される on* コールバックは CueRowSlot で useCallback 化されている前提
+const CueRow = memo(CueRowImpl);
+export default CueRow;

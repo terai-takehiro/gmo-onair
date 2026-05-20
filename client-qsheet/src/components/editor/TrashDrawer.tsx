@@ -136,7 +136,7 @@ export default function TrashDrawer({ data, onChange, onClose }: TrashDrawerProp
               <Trash2 size={40} className="opacity-30" />
               <p className="text-sm">ゴミ箱は空です</p>
               <p className="text-xs text-zinc-400 text-center">
-                ロール・キュー行・エントリを削除すると<br />ここに退避されます
+                ロール・行を削除するとここに退避されます
               </p>
             </div>
           ) : (
@@ -151,7 +151,7 @@ export default function TrashDrawer({ data, onChange, onClose }: TrashDrawerProp
                           item.type === 'row'     ? 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300' :
                           'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
                         }`}>
-                          {item.type === 'section' ? 'ロール' : item.type === 'row' ? '行' : 'エントリ'}
+                          {item.type === 'section' ? 'ロール' : item.type === 'row' ? '行' : '行内項目'}
                         </span>
                         <span className="text-[11px] text-zinc-400">{formatDeletedAt(item.deletedAt)}</span>
                       </div>

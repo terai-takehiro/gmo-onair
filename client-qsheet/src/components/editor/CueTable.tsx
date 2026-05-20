@@ -1,4 +1,4 @@
-import { useState, useCallback, Fragment } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect, Fragment, memo } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -159,42 +159,44 @@ function CueTableLg({
     document.addEventListener("mouseup", onUp);
   }, [updateState]);
 
-  // Section CRUD
-  const addSection = () => {
+  // Section / Row CRUD — すべて functional setState で記述し、useCallback で安定参照化する
+  // (CueRow への onChange/onDelete/...が毎レンダー新規生成されると React.memo が効かない)
+
+  const addSection = useCallback(() => {
     updateState((s: any) => ({
       ...s,
       sections: [...s.sections, { label: "【新しいロール】", rows: [] }],
     }));
-  };
+  }, [updateState]);
 
-  const addBreak = (afterIndex?: number) => {
-    const idx = afterIndex !== undefined ? afterIndex + 1 : sections.length;
+  const addBreak = useCallback((afterIndex?: number) => {
     updateState((s: any) => {
       const secs = [...s.sections];
+      const idx = afterIndex !== undefined ? afterIndex + 1 : secs.length;
       secs.splice(idx, 0, { _break: true, label: "CM", duration: "1:00", rows: [] });
       return { ...s, sections: secs };
     });
-  };
+  }, [updateState]);
 
-  const addPageBreak = (afterIndex?: number) => {
-    const idx = afterIndex !== undefined ? afterIndex + 1 : sections.length;
+  const addPageBreak = useCallback((afterIndex?: number) => {
     updateState((s: any) => {
       const secs = [...s.sections];
+      const idx = afterIndex !== undefined ? afterIndex + 1 : secs.length;
       secs.splice(idx, 0, { _pageBreak: true });
       return { ...s, sections: secs };
     });
-  };
+  }, [updateState]);
 
-  const addVtr = (afterIndex?: number) => {
-    const idx = afterIndex !== undefined ? afterIndex + 1 : sections.length;
+  const addVtr = useCallback((afterIndex?: number) => {
     updateState((s: any) => {
       const secs = [...s.sections];
+      const idx = afterIndex !== undefined ? afterIndex + 1 : secs.length;
       secs.splice(idx, 0, { _vtr: true, label: "VTR", duration: "0:30", rows: [] });
       return { ...s, sections: secs };
     });
-  };
+  }, [updateState]);
 
-  const deleteSection = (si: number) => {
+  const deleteSection = useCallback((si: number) => {
     if (!confirm("このロールを削除しますか？（ゴミ箱から復元可能です）")) return;
     updateState((s: any) => {
       const section = s.sections[si];
@@ -206,25 +208,25 @@ function CueTableLg({
       const nextState = pushToTrash(s, trashItem);
       return { ...nextState, sections: s.sections.filter((_: any, i: number) => i !== si) };
     });
-  };
+  }, [updateState]);
 
-  const updateSection = (si: number, field: string, value: string) => {
+  const updateSection = useCallback((si: number, field: string, value: string) => {
     updateState((s: any) => {
       const secs = [...s.sections];
       secs[si] = { ...secs[si], [field]: value };
       return { ...s, sections: secs };
     });
-  };
+  }, [updateState]);
 
-  const addRow = (si: number) => {
+  const addRow = useCallback((si: number) => {
     updateState((s: any) => {
       const secs = [...s.sections];
       secs[si] = { ...secs[si], rows: [...secs[si].rows, { duration: "", cells: {} }] };
       return { ...s, sections: secs };
     });
-  };
+  }, [updateState]);
 
-  const updateRow = (si: number, ri: number, updater: (r: CueRow) => CueRow) => {
+  const updateRow = useCallback((si: number, ri: number, updater: (r: CueRow) => CueRow) => {
     updateState((s: any) => {
       const secs = [...s.sections];
       const rows = [...secs[si].rows];
@@ -232,9 +234,9 @@ function CueTableLg({
       secs[si] = { ...secs[si], rows };
       return { ...s, sections: secs };
     });
-  };
+  }, [updateState]);
 
-  const deleteRow = (si: number, ri: number) => {
+  const deleteRow = useCallback((si: number, ri: number) => {
     updateState((s: any) => {
       const section = s.sections[si];
       const row = section?.rows?.[ri];
@@ -250,9 +252,9 @@ function CueTableLg({
       secs[si] = { ...secs[si], rows: secs[si].rows.filter((_: any, i: number) => i !== ri) };
       return { ...nextState, sections: secs };
     });
-  };
+  }, [updateState]);
 
-  const moveRow = (si: number, ri: number, dir: number) => {
+  const moveRow = useCallback((si: number, ri: number, dir: number) => {
     updateState((s: any) => {
       const secs = [...s.sections];
       const rows = [...secs[si].rows];
@@ -262,19 +264,22 @@ function CueTableLg({
       secs[si] = { ...secs[si], rows };
       return { ...s, sections: secs };
     });
-  };
+  }, [updateState]);
 
-  // マイク香盤「前cueから継承」用に直前の audio_mic セルの assignments を遡って探す
+  // sections を ref で参照することで、findPrev のコールバック自体は安定参照のまま
+  // 最新の sections を読めるようにする (毎キーで closure を作り直す必要なし)
+  const sectionsRef = useRef(sections);
+  useEffect(() => { sectionsRef.current = sections; }, [sections]);
+
   const findPrevAudioMicAssignments = useCallback(
     (si: number, ri: number, blockId: string): any[] | null => {
-      // 同一 section 内を遡る
+      const secs = sectionsRef.current;
       for (let r = ri - 1; r >= 0; r--) {
-        const a = sections[si]?.rows?.[r]?.cells?.[blockId]?.assignments;
+        const a = secs[si]?.rows?.[r]?.cells?.[blockId]?.assignments;
         if (Array.isArray(a) && a.length > 0) return a;
       }
-      // 直前の sections を末尾 → 先頭で遡る
       for (let s = si - 1; s >= 0; s--) {
-        const sec = sections[s];
+        const sec = secs[s];
         if (!sec || !Array.isArray(sec.rows)) continue;
         for (let r = sec.rows.length - 1; r >= 0; r--) {
           const a = sec.rows[r]?.cells?.[blockId]?.assignments;
@@ -283,20 +288,18 @@ function CueTableLg({
       }
       return null;
     },
-    [sections],
+    [],
   );
 
-  // 任意位置にロール挿入 (idx は挿入位置 = 既存 sections の splice 第一引数)
-  const insertSectionAt = (idx: number) => {
+  const insertSectionAt = useCallback((idx: number) => {
     updateState((s: any) => {
       const secs = [...s.sections];
       secs.splice(idx, 0, { label: "【新しいロール】", rows: [] });
       return { ...s, sections: secs };
     });
-  };
+  }, [updateState]);
 
-  // ロール (section) を from → to へ並び替え (HTML5 DnD 用)
-  const moveSection = (from: number, to: number) => {
+  const moveSection = useCallback((from: number, to: number) => {
     if (from === to) return;
     updateState((s: any) => {
       const secs = [...s.sections];
@@ -305,10 +308,9 @@ function CueTableLg({
       secs.splice(to, 0, moved);
       return { ...s, sections: secs };
     });
-  };
+  }, [updateState]);
 
-  // ロール内の行 (row) を indexed swap ではなく任意位置へ並び替え (HTML5 DnD 用)
-  const moveRowTo = (si: number, fromIdx: number, toIdx: number) => {
+  const moveRowTo = useCallback((si: number, fromIdx: number, toIdx: number) => {
     if (fromIdx === toIdx) return;
     updateState((s: any) => {
       const secs = [...s.sections];
@@ -319,9 +321,9 @@ function CueTableLg({
       secs[si] = { ...secs[si], rows };
       return { ...s, sections: secs };
     });
-  };
+  }, [updateState]);
 
-  const duplicateRow = (si: number, ri: number) => {
+  const duplicateRow = useCallback((si: number, ri: number) => {
     updateState((s: any) => {
       const secs = [...s.sections];
       const rows = [...secs[si].rows];
@@ -329,7 +331,7 @@ function CueTableLg({
       secs[si] = { ...secs[si], rows };
       return { ...s, sections: secs };
     });
-  };
+  }, [updateState]);
 
   // Time calculation
   let absSec = 0;
@@ -338,22 +340,35 @@ function CueTableLg({
     if (m) absSec = parseInt(m[1]) * 3600 + parseInt(m[2]) * 60 + (parseInt(m[3]) || 0);
   }
 
-  // Speaker color map
-  const speakerColorMap: Record<string, string> = {};
-  let spkIdx = 0;
-  sections.forEach((sec) => {
-    (sec.rows || []).forEach((row) => {
-      blocks.filter((b) => b.type === "scenario").forEach((blk) => {
-        const cell = row.cells?.[blk.id];
-        (cell?.entries || []).forEach((en: any) => {
-          if (en?.name && !speakerColorMap[en.name]) {
-            speakerColorMap[en.name] = SPEAKER_COLORS[spkIdx % SPEAKER_COLORS.length];
-            spkIdx++;
-          }
+  // Speaker color map — 出演者名リストが変わったときだけ再構築。
+  // 中身が同じならオブジェクト参照を維持し、CueRow の React.memo がヒットする。
+  const speakerNamesKey = useMemo(() => {
+    const names: string[] = [];
+    const seen = new Set<string>();
+    const scenarioBlocks = blocks.filter((b) => b.type === "scenario").map((b) => b.id);
+    sections.forEach((sec) => {
+      (sec.rows || []).forEach((row) => {
+        scenarioBlocks.forEach((blkId) => {
+          const cell = row.cells?.[blkId];
+          (cell?.entries || []).forEach((en: any) => {
+            if (en?.name && !seen.has(en.name)) {
+              seen.add(en.name);
+              names.push(en.name);
+            }
+          });
         });
       });
     });
-  });
+    return names.join("");
+  }, [sections, blocks]);
+
+  const speakerColorMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    speakerNamesKey.split("").filter(Boolean).forEach((name, idx) => {
+      map[name] = SPEAKER_COLORS[idx % SPEAKER_COLORS.length];
+    });
+    return map;
+  }, [speakerNamesKey]);
 
   let rowNum = 0;
 
@@ -706,8 +721,10 @@ function CueTableLg({
                       </thead>
                       <tbody>
                         {section.rows.map((row, ri) => (
-                          <CueRow
+                          <CueRowSlot
                             key={ri}
+                            si={si}
+                            ri={ri}
                             row={row}
                             blocks={blocks}
                             masters={masters}
@@ -715,53 +732,16 @@ function CueTableLg({
                             ledScenes={ledScenes}
                             collapsedBlocks={collapsedBlocks}
                             speakerColorMap={speakerColorMap}
-                            findPrevAudioMicAssignments={(blockId) => findPrevAudioMicAssignments(si, ri, blockId)}
-                            onChange={(updater) => updateRow(si, ri, updater)}
-                            onDelete={() => deleteRow(si, ri)}
-                            onMoveUp={() => moveRow(si, ri, -1)}
-                            onMoveDown={() => moveRow(si, ri, 1)}
-                            onDuplicate={() => duplicateRow(si, ri)}
-                            onDeleteEntry={(blockId, entryIdx, payload, meta) => {
-                              // エントリ削除: ゴミ箱に退避する（state 変更自体は CueRow 側で完了している）
-                              updateState((s: any) => pushToTrash(s, makeTrashItem('entry', payload, {
-                                sectionIdx: si,
-                                rowIdx: ri,
-                                blockId,
-                                entryIdx,
-                                sectionLabel: meta.sectionLabel ?? section.label,
-                                rowLabel: meta.rowLabel,
-                              })));
-                            }}
+                            findPrevAudioMicAssignments={findPrevAudioMicAssignments}
+                            updateRow={updateRow}
+                            deleteRow={deleteRow}
+                            moveRow={moveRow}
+                            duplicateRow={duplicateRow}
+                            moveRowTo={moveRowTo}
                             isRowDragged={draggedRow?.si === si && draggedRow?.ri === ri}
                             isRowDropTarget={dropTargetRowKey === `${si}-${ri}` && draggedRow !== null && (draggedRow.si !== si || draggedRow.ri !== ri)}
-                            onRowDragStart={(e) => {
-                              e.stopPropagation();
-                              e.dataTransfer.setData("text/x-row-key", `${si}-${ri}`);
-                              e.dataTransfer.effectAllowed = "move";
-                              setDraggedRow({ si, ri });
-                            }}
-                            onRowDragOver={(e) => {
-                              if (!e.dataTransfer.types.includes("text/x-row-key")) return;
-                              e.preventDefault();
-                              e.dataTransfer.dropEffect = "move";
-                              setDropTargetRowKey(`${si}-${ri}`);
-                            }}
-                            onRowDragLeave={() => setDropTargetRowKey(null)}
-                            onRowDrop={(e) => {
-                              if (!e.dataTransfer.types.includes("text/x-row-key")) return;
-                              e.preventDefault();
-                              const key = e.dataTransfer.getData("text/x-row-key");
-                              const [fromSiStr, fromRiStr] = key.split("-");
-                              const fromSi = +fromSiStr;
-                              const fromRi = +fromRiStr;
-                              if (fromSi === si) {
-                                moveRowTo(si, fromRi, ri);
-                              }
-                              // 別ロール間移動は本フェーズでは未対応 (将来対応)
-                              setDraggedRow(null);
-                              setDropTargetRowKey(null);
-                            }}
-                            onRowDragEnd={() => { setDraggedRow(null); setDropTargetRowKey(null); }}
+                            setDraggedRow={setDraggedRow}
+                            setDropTargetRowKey={setDropTargetRowKey}
                           />
                         ))}
                       </tbody>
@@ -808,3 +788,116 @@ function CueTableLg({
     </main>
   );
 }
+
+// CueRowSlot — 各行のイベントハンドラを useCallback で安定化し、
+// CueRow の React.memo を有効化するためのラッパ。
+// updateRow/deleteRow/... は CueTable で useCallback 化されているため deps が安定。
+interface CueRowSlotProps {
+  si: number;
+  ri: number;
+  row: CueRow;
+  blocks: Block[];
+  masters: any;
+  stageTemplates?: any[];
+  ledScenes?: any[];
+  collapsedBlocks?: Set<string>;
+  speakerColorMap: Record<string, string>;
+  findPrevAudioMicAssignments: (si: number, ri: number, blockId: string) => any[] | null;
+  updateRow: (si: number, ri: number, updater: (r: CueRow) => CueRow) => void;
+  deleteRow: (si: number, ri: number) => void;
+  moveRow: (si: number, ri: number, dir: number) => void;
+  duplicateRow: (si: number, ri: number) => void;
+  moveRowTo: (si: number, fromIdx: number, toIdx: number) => void;
+  isRowDragged: boolean;
+  isRowDropTarget: boolean;
+  setDraggedRow: (v: { si: number; ri: number } | null) => void;
+  setDropTargetRowKey: (v: string | null) => void;
+}
+
+const CueRowSlot = memo(function CueRowSlot({
+  si,
+  ri,
+  row,
+  blocks,
+  masters,
+  stageTemplates,
+  ledScenes,
+  collapsedBlocks,
+  speakerColorMap,
+  findPrevAudioMicAssignments,
+  updateRow,
+  deleteRow,
+  moveRow,
+  duplicateRow,
+  moveRowTo,
+  isRowDragged,
+  isRowDropTarget,
+  setDraggedRow,
+  setDropTargetRowKey,
+}: CueRowSlotProps) {
+  const onChange = useCallback((updater: (r: CueRow) => CueRow) => updateRow(si, ri, updater), [updateRow, si, ri]);
+  const onDelete = useCallback(() => deleteRow(si, ri), [deleteRow, si, ri]);
+  const onMoveUp = useCallback(() => moveRow(si, ri, -1), [moveRow, si, ri]);
+  const onMoveDown = useCallback(() => moveRow(si, ri, 1), [moveRow, si, ri]);
+  const onDuplicate = useCallback(() => duplicateRow(si, ri), [duplicateRow, si, ri]);
+  const findPrev = useCallback(
+    (blockId: string) => findPrevAudioMicAssignments(si, ri, blockId),
+    [findPrevAudioMicAssignments, si, ri],
+  );
+
+  const onRowDragStart = useCallback((e: React.DragEvent) => {
+    e.stopPropagation();
+    e.dataTransfer.setData("text/x-row-key", `${si}-${ri}`);
+    e.dataTransfer.effectAllowed = "move";
+    setDraggedRow({ si, ri });
+  }, [si, ri, setDraggedRow]);
+  const onRowDragOver = useCallback((e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes("text/x-row-key")) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDropTargetRowKey(`${si}-${ri}`);
+  }, [si, ri, setDropTargetRowKey]);
+  const onRowDragLeave = useCallback(() => setDropTargetRowKey(null), [setDropTargetRowKey]);
+  const onRowDrop = useCallback((e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes("text/x-row-key")) return;
+    e.preventDefault();
+    const key = e.dataTransfer.getData("text/x-row-key");
+    const [fromSiStr, fromRiStr] = key.split("-");
+    const fromSi = +fromSiStr;
+    const fromRi = +fromRiStr;
+    if (fromSi === si) {
+      moveRowTo(si, fromRi, ri);
+    }
+    setDraggedRow(null);
+    setDropTargetRowKey(null);
+  }, [si, ri, moveRowTo, setDraggedRow, setDropTargetRowKey]);
+  const onRowDragEnd = useCallback(() => {
+    setDraggedRow(null);
+    setDropTargetRowKey(null);
+  }, [setDraggedRow, setDropTargetRowKey]);
+
+  return (
+    <CueRow
+      row={row}
+      blocks={blocks}
+      masters={masters}
+      stageTemplates={stageTemplates}
+      ledScenes={ledScenes}
+      collapsedBlocks={collapsedBlocks}
+      speakerColorMap={speakerColorMap}
+      findPrevAudioMicAssignments={findPrev}
+      onChange={onChange}
+      onDelete={onDelete}
+      onMoveUp={onMoveUp}
+      onMoveDown={onMoveDown}
+      onDuplicate={onDuplicate}
+      isRowDragged={isRowDragged}
+      isRowDropTarget={isRowDropTarget}
+      onRowDragStart={onRowDragStart}
+      onRowDragOver={onRowDragOver}
+      onRowDragLeave={onRowDragLeave}
+      onRowDrop={onRowDrop}
+      onRowDragEnd={onRowDragEnd}
+    />
+  );
+});

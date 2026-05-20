@@ -1,5 +1,4 @@
-import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
-import { Input, Textarea, Button } from "@gmo-onair/shared/src/client/ui";
+import { Input, Textarea } from "@gmo-onair/shared/src/client/ui";
 import { HighlightPicker } from "./HighlightPicker";
 import MicAssignmentCell from "./MicAssignmentCell";
 
@@ -68,40 +67,24 @@ export default function CueRowMobileEditor({
     });
   };
 
-  const patchEntries = (blk: Block, mut: (entries: any[]) => any[]) => {
+  // v2.8.155: 1 行 = 1 エントリに統一。常に entries[0] を読み書きする。
+  const patchEntry0 = (blk: Block, mut: (entry: any) => any) => {
     const cur = getEntries(row.cells?.[blk.id]);
-    const next = mut(cur);
-    patchRow({
-      cells: { ...row.cells, [blk.id]: setEntries(blk.type, next) },
-    });
-  };
-
-  const addEntry = (blk: Block) => {
-    const tmpl =
+    const entry0 = cur[0] || (
       blk.type === "scenario"
         ? { name: "", html: "" }
         : blk.type === "led_xr"
         ? { sceneId: "", cue: "", transition: "" }
-        : { label: "" };
-    patchEntries(blk, (es) => [...es, tmpl]);
-  };
-
-  const removeEntry = (blk: Block, ei: number) => {
-    patchEntries(blk, (es) => es.filter((_, i) => i !== ei));
-  };
-
-  const moveEntry = (blk: Block, ei: number, dir: -1 | 1) => {
-    patchEntries(blk, (es) => {
-      const next = [...es];
-      const target = ei + dir;
-      if (target < 0 || target >= next.length) return es;
-      [next[ei], next[target]] = [next[target], next[ei]];
-      return next;
+        : { label: "" }
+    );
+    const next = mut(entry0);
+    patchRow({
+      cells: { ...row.cells, [blk.id]: setEntries(blk.type, [next]) },
     });
   };
 
-  const updateEntryField = (blk: Block, ei: number, key: string, value: any) => {
-    patchEntries(blk, (es) => es.map((e, i) => (i === ei ? { ...e, [key]: value } : e)));
+  const updateEntryField = (blk: Block, key: string, value: any) => {
+    patchEntry0(blk, (e) => ({ ...e, [key]: value }));
   };
 
   return (
@@ -150,13 +133,10 @@ export default function CueRowMobileEditor({
           <BlockPanel
             key={blk.id}
             blk={blk}
-            entries={getEntries(row.cells?.[blk.id])}
+            entry={getEntries(row.cells?.[blk.id])[0] || null}
             masters={masters}
             ledScenes={ledScenes}
-            onAdd={() => addEntry(blk)}
-            onRemove={(ei) => removeEntry(blk, ei)}
-            onMove={(ei, dir) => moveEntry(blk, ei, dir)}
-            onChangeField={(ei, key, value) => updateEntryField(blk, ei, key, value)}
+            onChangeField={(key, value) => updateEntryField(blk, key, value)}
           />
         );
       })}
@@ -199,59 +179,41 @@ function MicAssignmentMobilePanel({
   );
 }
 
-// ─── BlockPanel: per-block list of entries ──────────────
+// ─── BlockPanel: 1 entry per block (v2.8.155 で「行 = エントリ」に統一) ──
 function BlockPanel({
   blk,
-  entries,
+  entry,
   masters,
   ledScenes,
-  onAdd,
-  onRemove,
-  onMove,
   onChangeField,
 }: {
   blk: Block;
-  entries: any[];
+  entry: any | null;
   masters: any;
   ledScenes?: any[];
-  onAdd: () => void;
-  onRemove: (ei: number) => void;
-  onMove: (ei: number, dir: -1 | 1) => void;
-  onChangeField: (ei: number, key: string, value: any) => void;
+  onChangeField: (key: string, value: any) => void;
 }) {
+  const en = entry || {};
   return (
     <section className="rounded-lg border border-border bg-card overflow-hidden">
       <header className="flex items-center justify-between px-3 py-2 bg-muted/40 border-b border-border">
         <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">
           {blk.label}
         </h3>
-        <Button variant="ghost" size="sm" onClick={onAdd} aria-label={`${blk.label}を追加`}>
-          <Plus className="size-3.5" aria-hidden />
-          <span className="ml-1 text-xs">追加</span>
-        </Button>
+        <HighlightPicker
+          value={en.highlight}
+          onChange={(c) => onChangeField("highlight", c || undefined)}
+        />
       </header>
 
       <div className="p-2 space-y-2">
-        {entries.length === 0 ? (
-          <p className="text-xs text-muted-foreground italic px-2 py-3 text-center">
-            未入力
-          </p>
-        ) : (
-          entries.map((en, ei) => (
-            <EntryEditor
-              key={ei}
-              blk={blk}
-              entry={en}
-              ei={ei}
-              total={entries.length}
-              masters={masters}
-              ledScenes={ledScenes}
-              onRemove={() => onRemove(ei)}
-              onMove={(dir) => onMove(ei, dir)}
-              onChangeField={(key, value) => onChangeField(ei, key, value)}
-            />
-          ))
-        )}
+        <EntryEditor
+          blk={blk}
+          entry={en}
+          masters={masters}
+          ledScenes={ledScenes}
+          onChangeField={onChangeField}
+        />
       </div>
     </section>
   );
@@ -261,63 +223,18 @@ function BlockPanel({
 function EntryEditor({
   blk,
   entry,
-  ei,
-  total,
   masters,
   ledScenes,
-  onRemove,
-  onMove,
   onChangeField,
 }: {
   blk: Block;
   entry: any;
-  ei: number;
-  total: number;
   masters: any;
   ledScenes?: any[];
-  onRemove: () => void;
-  onMove: (dir: -1 | 1) => void;
   onChangeField: (key: string, value: any) => void;
 }) {
   return (
     <div className="rounded-md border border-border bg-background p-2 space-y-2">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] text-muted-foreground">#{ei + 1}</span>
-        <div className="flex items-center gap-0.5">
-          <button
-            type="button"
-            onClick={() => onMove(-1)}
-            disabled={ei === 0}
-            className="p-1 rounded hover:bg-accent disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label="上へ"
-          >
-            <ChevronUp className="size-3.5" aria-hidden />
-          </button>
-          <button
-            type="button"
-            onClick={() => onMove(1)}
-            disabled={ei === total - 1}
-            className="p-1 rounded hover:bg-accent disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label="下へ"
-          >
-            <ChevronDown className="size-3.5" aria-hidden />
-          </button>
-          <HighlightPicker
-            value={entry.highlight}
-            onChange={(c) => onChangeField("highlight", c || undefined)}
-          />
-          <button
-            type="button"
-            onClick={onRemove}
-            className="p-1 rounded hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label="削除"
-          >
-            <Trash2 className="size-3.5" aria-hidden />
-          </button>
-        </div>
-      </div>
-
       {/* Body — branch by block type */}
       {blk.type === "scenario" ? (
         <>

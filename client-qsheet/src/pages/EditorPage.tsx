@@ -11,6 +11,7 @@ import CueTable from "@/components/editor/CueTable";
 import PreviewModal from "@/components/editor/PreviewModal";
 import TrashDrawer from "@/components/editor/TrashDrawer";
 import { getTrash } from "@/lib/trash";
+import { splitMultiEntryRows } from "@/lib/migrateEntries";
 import StageEditor from "@/components/editor/StageEditor";
 import AudioShareDialog from "@/components/editor/AudioShareDialog";
 import {
@@ -242,7 +243,16 @@ export default function EditorPage() {
       ];
       if (!d.data.meta) d.data.meta = { title: d.title, draft: "準備稿" };
       if (!d.data.masters) d.data.masters = { persons: [], video: [], audio: [], telop: [] };
-      setDoc(d);
+      // v2.8.155: 旧モデルの複数エントリ行を 1 行 = 1 エントリに分割
+      const migrated = splitMultiEntryRows(d.data as any);
+      if (migrated.changed) {
+        d.data = migrated.data as any;
+        setDoc(d);
+        setDirty(true);
+        setSaveStatus("unsaved");
+      } else {
+        setDoc(d);
+      }
     }
   }, [queryData, doc]);
 
@@ -393,14 +403,14 @@ export default function EditorPage() {
               <Save size={14} aria-hidden />
               <span className="hidden sm:inline">{saveFlash ? "保存しました" : "保存"}</span>
             </button>
-            {/* ゴミ箱 — ロール/行/エントリの復元用 */}
+            {/* ゴミ箱 — ロール/行の復元用 */}
             {(() => {
               const trashCount = getTrash(doc.data).length;
               return (
                 <button
                   onClick={() => setShowTrash(true)}
                   className="relative hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-                  title="ゴミ箱（削除したロール/行/エントリを復元）"
+                  title="ゴミ箱（削除したロール/行を復元）"
                   aria-label={`ゴミ箱 ${trashCount}件`}
                 >
                   <Trash2 className="h-3.5 w-3.5" aria-hidden />
