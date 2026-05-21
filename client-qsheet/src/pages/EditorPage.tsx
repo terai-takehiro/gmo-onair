@@ -531,7 +531,7 @@ export default function EditorPage() {
           collapsedSections={collapsedSections}
           onToggleCollapse={toggleBlockCollapse}
           onToggleSectionCollapse={toggleSectionCollapse}
-          updateState={(updater) => updateData(updater)}
+          updateState={updateData}
         />
 
         {/* Sidebar (lg+) */}
