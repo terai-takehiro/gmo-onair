@@ -21,7 +21,7 @@ interface OneShotEventOutput {
   categories: AwardsCategoryRow[];
 }
 
-// v2.8.98+: 下位置CG NEXT (送出予約) 出力 URL。
+// v2.8.98+: 字幕スーパー NEXT (送出予約) 出力 URL。
 // PROGRAM (LIVE) は /awards/output/:eventId/oneshot、こちらは .../oneshot/next。
 // operator OneShotControlPage で選択中の preview 状態を socket 経由で反映。
 // 副調整室で「次に出すテロップ」を確認する用途。

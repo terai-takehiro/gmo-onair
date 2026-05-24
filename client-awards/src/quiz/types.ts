@@ -16,6 +16,7 @@ export interface Quiz {
   display_order: number;
   mode: QuizMode;
   has_answer_check: boolean;
+  cover_image_data_url: string | null;
 }
 
 export interface QuizChoice {

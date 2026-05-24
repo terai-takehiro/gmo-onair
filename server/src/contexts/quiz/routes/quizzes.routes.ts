@@ -91,7 +91,7 @@ router.put('/quizzes/:id', wrap(async (req, res) => {
   const {
     title, title_en, question, question_en,
     choice_count, countdown_seconds, link_category_id, display, display_order,
-    mode, has_answer_check,
+    mode, has_answer_check, cover_image_data_url,
   } = req.body;
 
   const curChoiceCount = Number(cur.choice_count) || 3;
@@ -119,6 +119,7 @@ router.put('/quizzes/:id', wrap(async (req, res) => {
        display_order = COALESCE(?, display_order),
        mode = ?,
        has_answer_check = ?,
+       cover_image_data_url = ?,
        updated_at = NOW()
      WHERE id = ?`,
     [
@@ -129,6 +130,7 @@ router.put('/quizzes/:id', wrap(async (req, res) => {
       newDisplay,
       display_order ?? null,
       newMode, newHac,
+      cover_image_data_url !== undefined ? (cover_image_data_url || null) : cur.cover_image_data_url,
       id,
     ]
   );

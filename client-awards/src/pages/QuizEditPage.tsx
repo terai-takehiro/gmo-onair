@@ -42,6 +42,7 @@ export default function QuizEditPage() {
       display: quiz.display,
       mode: quiz.mode,
       has_answer_check: quiz.has_answer_check,
+      cover_image_data_url: quiz.cover_image_data_url,
     });
   }, [quiz]);
 
@@ -146,6 +147,10 @@ export default function QuizEditPage() {
             </div>
           </Field>
         </div>
+        <CoverImageEditor
+          value={draft.cover_image_data_url ?? null}
+          onChange={(v) => setDraft({ ...draft, cover_image_data_url: v })}
+        />
       </section>
 
       {/* Choices */}
@@ -290,6 +295,69 @@ function ChoiceEditor({ initial, updateChoice, showCorrectFlag }: ChoiceEditorPr
           className="shrink-0 rounded bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 text-xs font-bold disabled:opacity-50">
           保存
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ── 16:9 カバー画像エディタ (poll 段階のカメラ枠内に差し替え表示) ───────────
+function CoverImageEditor({ value, onChange }: {
+  value: string | null;
+  onChange: (v: string | null) => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const handleFile = (f: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const img = new Image();
+      img.onload = () => {
+        // 16:9 で 1280x720 にリサイズ + crop
+        const targetW = 1280, targetH = 720;
+        const canvas = document.createElement('canvas');
+        canvas.width = targetW; canvas.height = targetH;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { onChange(dataUrl); return; }
+        // cover 計算
+        const srcRatio = img.width / img.height;
+        const dstRatio = targetW / targetH;
+        let sx = 0, sy = 0, sw = img.width, sh = img.height;
+        if (srcRatio > dstRatio) {
+          sw = img.height * dstRatio;
+          sx = (img.width - sw) / 2;
+        } else {
+          sh = img.width / dstRatio;
+          sy = (img.height - sh) / 2;
+        }
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
+        const out = canvas.toDataURL('image/jpeg', 0.82);
+        onChange(out);
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(f);
+  };
+  return (
+    <div className="mt-2 rounded border bg-slate-50/40 p-3">
+      <div className="text-[10px] font-bold text-slate-600 mb-2">カバー画像 (16:9, アンケート画面のカメラ枠内に表示)</div>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => fileRef.current?.click()}
+          className="relative w-48 aspect-video rounded-md overflow-hidden bg-slate-200 border border-slate-300 hover:border-purple-500 flex items-center justify-center"
+        >
+          {value
+            ? <img src={value} alt="" className="w-full h-full object-cover"/>
+            : <span className="text-xs text-slate-500">クリックで画像を選択</span>}
+        </button>
+        <input ref={fileRef} type="file" accept="image/*" className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}/>
+        {value && (
+          <button onClick={() => onChange(null)}
+            className="text-xs text-slate-500 hover:text-red-500">削除</button>
+        )}
+      </div>
+      <div className="text-[10px] text-slate-500 mt-2">
+        ※ 自動的に 1280×720 (16:9) にクロップされます。未設定の場合はアルファ透過枠のままです。
       </div>
     </div>
   );

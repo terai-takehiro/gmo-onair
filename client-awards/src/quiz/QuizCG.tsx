@@ -68,6 +68,19 @@ export default function QuizCG({ quiz, cue, transparent = false, lang = 'ja' }: 
   return (
     <div style={{ position: 'absolute', inset: 0, fontFamily: "'Noto Sans JP', sans-serif" }}>
       {!transparent && <BaseBackdrop />}
+      {cue.step === 'poll' && quiz.cover_image_data_url && (
+        <img
+          src={quiz.cover_image_data_url}
+          alt=""
+          style={{
+            position: 'absolute',
+            left: CAM_X + 6, top: CAM_Y + 6,
+            width: CAM_W - 12, height: CAM_H - 12,
+            objectFit: 'cover',
+            pointerEvents: 'none',
+          }}
+        />
+      )}
       <CameraFrame />
       <RightColumn title={title} question={question} isVertical={isJa} />
       <ChoicesGrid

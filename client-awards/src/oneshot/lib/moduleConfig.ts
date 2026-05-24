@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import type { EventModuleConfig, ModuleDef, Nominee } from '../types';
 import { createDefaultEventModuleConfig } from '../data/presetModules';
 
-// v2.8.130: 下位置CG モジュール構成のユーザーカスタマイズ機能を撤廃。
+// v2.8.130: 字幕スーパー モジュール構成のユーザーカスタマイズ機能を撤廃。
 // 全イベントでデフォルトプリセット (`createDefaultEventModuleConfig()`) を使用する。
 // 旧 v2.8.74〜82 の GET/PUT エンドポイント、エディタ画面、JSON I/O は廃止。
 // `useEventModuleConfig` は互換のため残しているが、同期的にデフォルトプリセットを
