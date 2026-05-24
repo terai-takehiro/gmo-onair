@@ -16,6 +16,18 @@ export default function SettingsPage() {
   const [showJs, setShowJs] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  // Zoom fields
+  const [zoomAccountId, setZoomAccountId] = useState('');
+  const [zoomClientId, setZoomClientId] = useState('');
+  const [zoomClientSecret, setZoomClientSecret] = useState('');
+  const [showZoomSecret, setShowZoomSecret] = useState(false);
+
+  // Teams fields
+  const [teamsTenantId, setTeamsTenantId] = useState('');
+  const [teamsClientId, setTeamsClientId] = useState('');
+  const [teamsClientSecret, setTeamsClientSecret] = useState('');
+  const [showTeamsSecret, setShowTeamsSecret] = useState(false);
+
   const { data: settings, refetch } = useQuery({
     queryKey: ['settings'],
     queryFn: () => api.get('/liveops/settings').then(r => r.data.data),
@@ -30,12 +42,20 @@ export default function SettingsPage() {
       youtubeApiKey: youtubeApiKey || undefined,
       jstreamToken: jstreamToken || undefined,
       pollingIntervalSec: parseInt(pollingInterval, 10),
+      zoomAccountId: zoomAccountId || undefined,
+      zoomClientId: zoomClientId || undefined,
+      zoomClientSecret: zoomClientSecret || undefined,
+      teamsTenantId: teamsTenantId || undefined,
+      teamsClientId: teamsClientId || undefined,
+      teamsClientSecret: teamsClientSecret || undefined,
     }),
     onSuccess: () => {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
       setYoutubeApiKey('');
       setJstreamToken('');
+      setZoomAccountId(''); setZoomClientId(''); setZoomClientSecret('');
+      setTeamsTenantId(''); setTeamsClientId(''); setTeamsClientSecret('');
       refetch();
     },
   });
@@ -144,6 +164,104 @@ export default function SettingsPage() {
               {!settings?.hasOwnJstreamToken && settings?.hasJstreamToken && (
                 <p className="text-xs text-amber-600">他ユーザーのトークンを共有利用中 (自分のトークンを設定すると優先されます)</p>
               )}
+            </div>
+          </section>
+
+          {/* Zoom */}
+          <section className="rounded-xl border bg-card p-4 space-y-4">
+            <div>
+              <h2 className="text-sm font-semibold">Zoom API 設定</h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Server-to-Server OAuth アプリの認証情報を入力してください。Zoom Business+ プランが必要です（Metrics API 利用条件）。
+              </p>
+            </div>
+            {settings?.hasOwnZoomCredentials && (
+              <p className="text-xs text-green-600">設定済み</p>
+            )}
+            {!settings?.hasOwnZoomCredentials && settings?.hasZoomCredentials && (
+              <p className="text-xs text-amber-600">他ユーザーの資格情報を共有利用中</p>
+            )}
+            <div className="space-y-1.5">
+              <Label>Account ID</Label>
+              <Input
+                type="text"
+                value={zoomAccountId}
+                onChange={e => setZoomAccountId(e.target.value)}
+                placeholder={settings?.hasZoomCredentials ? '設定済み（変更する場合のみ入力）' : '未設定'}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Client ID</Label>
+              <Input
+                type="text"
+                value={zoomClientId}
+                onChange={e => setZoomClientId(e.target.value)}
+                placeholder={settings?.hasZoomCredentials ? '設定済み（変更する場合のみ入力）' : '未設定'}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Client Secret</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type={showZoomSecret ? 'text' : 'password'}
+                  value={zoomClientSecret}
+                  onChange={e => setZoomClientSecret(e.target.value)}
+                  placeholder={settings?.hasZoomCredentials ? '設定済み（変更する場合のみ入力）' : '未設定'}
+                  className="flex-1"
+                />
+                <Button variant="ghost" size="sm" onClick={() => setShowZoomSecret(!showZoomSecret)}>
+                  {showZoomSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+          </section>
+
+          {/* Teams */}
+          <section className="rounded-xl border bg-card p-4 space-y-4">
+            <div>
+              <h2 className="text-sm font-semibold">Microsoft Teams API 設定</h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Azure AD でアプリ登録し、OnlineMeetings.Read.All アプリケーション権限が必要です。
+              </p>
+            </div>
+            {settings?.hasOwnTeamsCredentials && (
+              <p className="text-xs text-green-600">設定済み</p>
+            )}
+            {!settings?.hasOwnTeamsCredentials && settings?.hasTeamsCredentials && (
+              <p className="text-xs text-amber-600">他ユーザーの資格情報を共有利用中</p>
+            )}
+            <div className="space-y-1.5">
+              <Label>Tenant ID</Label>
+              <Input
+                type="text"
+                value={teamsTenantId}
+                onChange={e => setTeamsTenantId(e.target.value)}
+                placeholder={settings?.hasTeamsCredentials ? '設定済み（変更する場合のみ入力）' : '未設定'}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Client ID</Label>
+              <Input
+                type="text"
+                value={teamsClientId}
+                onChange={e => setTeamsClientId(e.target.value)}
+                placeholder={settings?.hasTeamsCredentials ? '設定済み（変更する場合のみ入力）' : '未設定'}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Client Secret</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type={showTeamsSecret ? 'text' : 'password'}
+                  value={teamsClientSecret}
+                  onChange={e => setTeamsClientSecret(e.target.value)}
+                  placeholder={settings?.hasTeamsCredentials ? '設定済み（変更する場合のみ入力）' : '未設定'}
+                  className="flex-1"
+                />
+                <Button variant="ghost" size="sm" onClick={() => setShowTeamsSecret(!showTeamsSecret)}>
+                  {showTeamsSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
             </div>
           </section>
 

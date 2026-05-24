@@ -11,6 +11,8 @@ interface Snapshot {
   captured_at: string;
   youtube_count: number;
   jstream_count: number;
+  zoom_count?: number;
+  teams_count?: number;
   total_count: number;
 }
 
@@ -51,6 +53,26 @@ export default function ViewerChart({ snapshots }: Props) {
         pointRadius: 1,
         borderWidth: 1.5,
       },
+      ...(snapshots.some(s => (s.zoom_count ?? 0) > 0) ? [{
+        label: 'Zoom',
+        data: snapshots.map(s => s.zoom_count ?? 0),
+        borderColor: '#2D8CFF',
+        backgroundColor: 'rgba(45,140,255,0.08)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 1,
+        borderWidth: 1.5,
+      }] : []),
+      ...(snapshots.some(s => (s.teams_count ?? 0) > 0) ? [{
+        label: 'Teams',
+        data: snapshots.map(s => s.teams_count ?? 0),
+        borderColor: '#6264A7',
+        backgroundColor: 'rgba(98,100,167,0.08)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 1,
+        borderWidth: 1.5,
+      }] : []),
       {
         label: '合計',
         data: snapshots.map(s => s.total_count),

@@ -4,9 +4,17 @@ import programsRoutes from './routes/programs.routes';
 import proxyRoutes from './routes/proxy.routes';
 import snapshotsRoutes from './routes/snapshots.routes';
 import timersRoutes from './routes/timers.routes';
+import webhooksRoutes from './routes/webhooks.routes';
+import { restoreSubscriptions, startSubscriptionRenewal } from './teams-subscription';
+import { getTeamsToken } from './teams-token';
+import { queryOne } from '../../shared/db/connection';
+import { decrypt } from './crypto';
 
 export function createLiveopsRoutes(): Router {
   const router = Router();
+
+  // webhooks: no auth — mount before guarded routes
+  router.use('/liveops/webhooks', webhooksRoutes);
 
   router.use('/liveops/settings', settingsRoutes);
   router.use('/liveops/programs', programsRoutes);
@@ -15,6 +23,32 @@ export function createLiveopsRoutes(): Router {
   router.use('/liveops/timers', timersRoutes);
 
   return router;
+}
+
+export async function initLiveopsServices(): Promise<void> {
+  await restoreSubscriptions();
+
+  startSubscriptionRenewal(async () => {
+    try {
+      const row = await queryOne(
+        `SELECT teams_client_id_enc, teams_client_secret_enc, teams_tenant_id_enc
+         FROM liveops_settings
+         WHERE teams_client_id_enc IS NOT NULL
+         ORDER BY updated_at DESC
+         LIMIT 1`,
+        []
+      );
+      if (!row) return null;
+      const r = row as any;
+      const clientId = r.teams_client_id_enc ? decrypt(r.teams_client_id_enc) : null;
+      const clientSecret = r.teams_client_secret_enc ? decrypt(r.teams_client_secret_enc) : null;
+      const tenantId = r.teams_tenant_id_enc ? decrypt(r.teams_tenant_id_enc) : null;
+      if (!clientId || !clientSecret || !tenantId) return null;
+      return getTeamsToken(tenantId, clientId, clientSecret);
+    } catch {
+      return null;
+    }
+  });
 }
 
 export { initLiveopsSocketIO } from './socket';

@@ -9,7 +9,7 @@ import { seedTasks } from './shared/db/seed-tasks';
 import { ensureStaffPermissions } from './shared/db/ensure-permissions';
 import { initSocketIO, shutdownSocketIO } from './contexts/interactive/socket';
 import { initQsheetSocketIO } from './contexts/qsheet/socket';
-import { initLiveopsSocketIO } from './contexts/liveops';
+import { initLiveopsSocketIO, initLiveopsServices } from './contexts/liveops';
 import { initAwardsSocketIO } from './contexts/awards';
 import { initQuizSocketIO } from './contexts/quiz';
 
@@ -48,6 +48,11 @@ async function main() {
 
   const app = createApp();
   const httpServer = http.createServer(app);
+
+  // Initialize liveops background services (Teams webhook subscriptions)
+  await initLiveopsServices().catch((e) =>
+    console.warn('[startup] initLiveopsServices failed:', (e as Error).message)
+  );
 
   // Socket.IO for interactive events + qsheet sync + liveops timer
   const io = initSocketIO(httpServer);

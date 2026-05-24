@@ -10,7 +10,7 @@ const canRead = [requireAuth, requirePermission('liveops', 'reader')] as const;
 router.get('/:programId/display', async (req, res) => {
   try {
     const rows = await query(
-      `SELECT captured_at, youtube_count, jstream_count, total_count
+      `SELECT captured_at, youtube_count, jstream_count, zoom_count, teams_count, total_count
        FROM liveops_snapshots
        WHERE program_id = $1
        ORDER BY captured_at DESC
@@ -25,13 +25,18 @@ router.get('/:programId/display', async (req, res) => {
 
 router.post('/', ...canRead, async (req, res) => {
   try {
-    const { programId, youtubeCount, jstreamCount, details } = req.body;
+    const { programId, youtubeCount, jstreamCount, zoomCount, teamsCount, details } = req.body;
     if (!programId) return res.status(400).json({ success: false, message: 'programId required' });
 
     await execute(
-      `INSERT INTO liveops_snapshots (id, program_id, youtube_count, jstream_count, details)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [uuidv4(), programId, youtubeCount ?? 0, jstreamCount ?? 0, details ? JSON.stringify(details) : null]
+      `INSERT INTO liveops_snapshots (id, program_id, youtube_count, jstream_count, zoom_count, teams_count, details)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        uuidv4(), programId,
+        youtubeCount ?? 0, jstreamCount ?? 0,
+        zoomCount ?? 0, teamsCount ?? 0,
+        details ? JSON.stringify(details) : null,
+      ]
     );
     res.status(201).json({ success: true });
   } catch {
@@ -43,7 +48,7 @@ router.get('/:programId', ...canRead, async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 60, 300);
     const rows = await query(
-      `SELECT captured_at, youtube_count, jstream_count, total_count, details
+      `SELECT captured_at, youtube_count, jstream_count, zoom_count, teams_count, total_count, details
        FROM liveops_snapshots
        WHERE program_id = $1
        ORDER BY captured_at DESC

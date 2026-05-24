@@ -13,17 +13,21 @@ const phaseLabels: Record<TimerPhase, string> = {
   red: "TIME'S UP",
 };
 
-interface Counts { youtube: number; jstream: number; total: number }
+interface Counts { youtube: number; jstream: number; zoom: number; teams: number; total: number }
 interface Toggles {
   youtube: boolean;
   jstream: boolean;
+  zoom: boolean;
+  teams: boolean;
   total: boolean;
   showTimer: boolean;
 }
 
-const VIEWER_ITEMS: { key: 'youtube' | 'jstream' | 'total'; label: string; color: string }[] = [
+const VIEWER_ITEMS: { key: 'youtube' | 'jstream' | 'zoom' | 'teams' | 'total'; label: string; color: string }[] = [
   { key: 'youtube', label: 'YouTube', color: '#ef4444' },
   { key: 'jstream', label: 'Jstream', color: '#06b6d4' },
+  { key: 'zoom',    label: 'Zoom',    color: '#2D8CFF' },
+  { key: 'teams',   label: 'Teams',   color: '#6264A7' },
   { key: 'total',   label: '合計',    color: '#a855f7' },
 ];
 
@@ -38,17 +42,19 @@ export default function TimerDisplayPage() {
       return {
         youtube:   s.youtube   ?? false,
         jstream:   s.jstream   ?? false,
+        zoom:      s.zoom      ?? false,
+        teams:     s.teams     ?? false,
         total:     s.total     ?? false,
         showTimer: s.showTimer ?? true,
       };
     } catch {
-      return { youtube: false, jstream: false, total: false, showTimer: true };
+      return { youtube: false, jstream: false, zoom: false, teams: false, total: false, showTimer: true };
     }
   });
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [programId, setProgramId] = useState<string | null>(null);
-  const [counts, setCounts] = useState<Counts>({ youtube: 0, jstream: 0, total: 0 });
+  const [counts, setCounts] = useState<Counts>({ youtube: 0, jstream: 0, zoom: 0, teams: 0, total: 0 });
 
   const { state } = useTimer(timerId ?? null);
   const phase = state?.phase ?? 'idle';
@@ -77,7 +83,13 @@ export default function TimerDisplayPage() {
         const r = await fetch(`/api/v1/internal/liveops/snapshots/${programId}/display`);
         const json = await r.json();
         const s = json.data?.[0];
-        if (s) setCounts({ youtube: s.youtube_count, jstream: s.jstream_count, total: s.total_count });
+        if (s) setCounts({
+          youtube: s.youtube_count ?? 0,
+          jstream: s.jstream_count ?? 0,
+          zoom:    s.zoom_count    ?? 0,
+          teams:   s.teams_count   ?? 0,
+          total:   s.total_count   ?? 0,
+        });
       } catch { /* ignore */ }
     };
     poll();
