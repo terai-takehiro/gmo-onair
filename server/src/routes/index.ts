@@ -10,6 +10,7 @@ import { createInteractiveRoutes } from '../contexts/interactive';
 import { createTechsheetRoutes } from '../contexts/techsheet';
 import { createLiveopsRoutes } from '../contexts/liveops';
 import { createAwardsRoutes } from '../contexts/awards';
+import { createQuizRoutes } from '../contexts/quiz';
 import { createTasksRoutes } from '../contexts/tasks';
 
 export function createRoutes(): Router {
@@ -27,6 +28,7 @@ export function createRoutes(): Router {
   router.use(createTechsheetRoutes());
   router.use(createLiveopsRoutes());
   router.use(createAwardsRoutes());
+  router.use(createQuizRoutes());
   router.use(createTasksRoutes());
 
   return router;

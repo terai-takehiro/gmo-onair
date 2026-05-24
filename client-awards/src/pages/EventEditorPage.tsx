@@ -13,7 +13,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
-  Trophy, ChevronLeft, Plus, Trash2, Check, X, GripVertical,
+  Trophy, ChevronLeft, Plus, Trash2, Check, X, GripVertical, HelpCircle,
   Upload, RefreshCw, Shuffle, FileSpreadsheet, ExternalLink, Copy,
   ChevronDown, ChevronRight, Subtitles,
 } from 'lucide-react';
@@ -555,6 +555,14 @@ export default function EventEditorPage() {
           >
             <Subtitles className="h-3.5 w-3.5" />
             下位置CG
+          </button>
+          <button
+            onClick={() => navigate(`/event/${eventId}/quiz`)}
+            className="flex items-center gap-1.5 rounded-lg border border-purple-500/60 bg-purple-500/10 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-500/20 transition-colors"
+            title="アンケート/クイズCG のオペレーター画面"
+          >
+            <HelpCircle className="h-3.5 w-3.5" />
+            アンケート/クイズ
           </button>
           <button
             onClick={() => navigate(`/event/${eventId}/control`)}
