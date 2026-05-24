@@ -9,11 +9,40 @@ import { cn } from '@/lib/utils';
 import type { QuizStep } from '@/quiz/types';
 
 const STEP_LABELS: { step: QuizStep; label: string; desc: string }[] = [
-  { step: 'idle',   label: 'IDLE',   desc: '透過' },
-  { step: 'poll',   label: 'POLL',   desc: 'アンケート (秒指定)' },
-  { step: 'reveal', label: 'RESULT', desc: '投票結果表示' },
-  { step: 'winner', label: 'NO.1',   desc: '大賞フルスクリーン' },
+  { step: 'idle',           label: 'IDLE',    desc: '透過' },
+  { step: 'poll',           label: 'POLL',    desc: 'アンケート (秒指定)' },
+  { step: 'reveal',         label: 'RESULT',  desc: '投票結果表示' },
+  { step: 'winner',         label: 'NO.1',    desc: '大賞フルスクリーン' },
+  { step: 'answer-check',   label: 'ANS',     desc: '回答数表示 (任意)' },
+  { step: 'correct-reveal', label: 'CORRECT', desc: '正解発表 (点滅 + 他は dim)' },
 ];
+
+function nextStepFor(mode: 'survey' | 'quiz', hasAnswerCheck: boolean, current: QuizStep): QuizStep {
+  if (mode === 'quiz') {
+    if (hasAnswerCheck) {
+      if (current === 'idle') return 'poll';
+      if (current === 'poll') return 'answer-check';
+      if (current === 'answer-check') return 'correct-reveal';
+      return 'idle';
+    } else {
+      if (current === 'idle') return 'poll';
+      if (current === 'poll') return 'correct-reveal';
+      return 'idle';
+    }
+  }
+  // survey
+  if (hasAnswerCheck) {
+    if (current === 'idle') return 'poll';
+    if (current === 'poll') return 'answer-check';
+    if (current === 'answer-check') return 'reveal';
+    if (current === 'reveal') return 'winner';
+    return 'idle';
+  }
+  if (current === 'idle') return 'poll';
+  if (current === 'poll') return 'reveal';
+  if (current === 'reveal') return 'winner';
+  return 'idle';
+}
 
 export default function QuizControlPage() {
   const { id, quizId: quizIdRaw } = useParams<{ id: string; quizId: string }>();
@@ -36,15 +65,15 @@ export default function QuizControlPage() {
 
   const take = useCallback(() => {
     if (!quiz) return;
-    if (cue.step === 'idle') {
-      // start poll
+    const next = nextStepFor(quiz.mode, quiz.has_answer_check, cue.step);
+    if (cue.step === 'idle' && next === 'poll') {
       setStep('poll', { pollStartedAt: Date.now() });
     } else if (cue.step === 'poll') {
-      setStep('reveal', { pollStartedAt: null, votes: voteEdits });
-    } else if (cue.step === 'reveal') {
-      setStep('winner');
-    } else if (cue.step === 'winner') {
+      setStep(next, { pollStartedAt: null, votes: voteEdits });
+    } else if (next === 'idle') {
       setStep('idle', { pollStartedAt: null, revealPhase: 0 });
+    } else {
+      setStep(next);
     }
   }, [quiz, cue.step, voteEdits, setStep]);
 
@@ -79,9 +108,12 @@ export default function QuizControlPage() {
 
   if (!quiz) return <div className="p-6 text-sm">読み込み中…</div>;
 
-  const nextLabel = cue.step === 'idle' ? '開始 (POLL)'
-    : cue.step === 'poll' ? '結果へ (RESULT)'
-    : cue.step === 'reveal' ? 'No.1 へ (WINNER)'
+  const nextStep = nextStepFor(quiz.mode, quiz.has_answer_check, cue.step);
+  const nextLabel = nextStep === 'poll' ? '開始 (POLL)'
+    : nextStep === 'answer-check' ? 'アンサーチェック (ANS)'
+    : nextStep === 'reveal' ? '結果 (RESULT)'
+    : nextStep === 'winner' ? '大賞 (NO.1)'
+    : nextStep === 'correct-reveal' ? '正解発表 (CORRECT)'
     : 'リセット (IDLE)';
 
   return (
@@ -179,7 +211,11 @@ export default function QuizControlPage() {
 
           {/* 下部: STEPS + TAKE/CLEAR */}
           <div className="shrink-0 border-t border-slate-800 bg-slate-900/50 p-3 space-y-2">
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="text-[10px] text-slate-400">
+              モード: <span className="text-amber-300 font-bold">{quiz.mode === 'quiz' ? 'クイズ' : 'アンケート'}</span>
+              {' · '}アンサーチェック: <span className="text-amber-300 font-bold">{quiz.has_answer_check ? 'あり' : 'なし'}</span>
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
               {STEP_LABELS.map(({ step, label }) => (
                 <div key={step}
                   className={cn(

@@ -40,6 +40,8 @@ export default function QuizEditPage() {
       countdown_seconds: quiz.countdown_seconds,
       link_category_id: quiz.link_category_id,
       display: quiz.display,
+      mode: quiz.mode,
+      has_answer_check: quiz.has_answer_check,
     });
   }, [quiz]);
 
@@ -108,6 +110,20 @@ export default function QuizEditPage() {
               <option value="percent">パーセント</option>
             </select>
           </Field>
+          <Field label="モード">
+            <select value={draft.mode ?? 'survey'} onChange={(e) => setDraft({ ...draft, mode: e.target.value as 'survey' | 'quiz' })}
+              className="w-full rounded border px-2 py-1.5">
+              <option value="survey">アンケート (No.1 演出あり)</option>
+              <option value="quiz">クイズ (正解発表あり)</option>
+            </select>
+          </Field>
+          <Field label="アンサーチェック">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={!!draft.has_answer_check}
+                onChange={(e) => setDraft({ ...draft, has_answer_check: e.target.checked })}/>
+              <span>結果/正解発表前に回答数を表示するステップを挿入</span>
+            </label>
+          </Field>
           <Field label="連動カテゴリ (任意)">
             <div className="flex gap-2">
               <select value={draft.link_category_id ?? ''}
@@ -137,7 +153,8 @@ export default function QuizEditPage() {
         <h2 className="text-sm font-bold">選択肢 ({quiz.choice_count} 件)</h2>
         <div className="space-y-2">
           {quiz.choices.slice(0, quiz.choice_count).map((c) => (
-            <ChoiceEditor key={c.id} quizId={quizId} initial={c} updateChoice={updateChoice} />
+            <ChoiceEditor key={c.id} quizId={quizId} initial={c} updateChoice={updateChoice}
+            showCorrectFlag={draft.mode === 'quiz'} />
           ))}
         </div>
       </section>
@@ -158,9 +175,10 @@ interface ChoiceEditorProps {
   quizId: number;
   initial: import('@/quiz/types').QuizChoice;
   updateChoice: ReturnType<typeof useUpdateQuizChoice>;
+  showCorrectFlag: boolean;
 }
 
-function ChoiceEditor({ initial, updateChoice }: ChoiceEditorProps) {
+function ChoiceEditor({ initial, updateChoice, showCorrectFlag }: ChoiceEditorProps) {
   const [draft, setDraft] = useState({
     name: initial.name ?? '',
     name_en: initial.name_en ?? '',
@@ -170,6 +188,7 @@ function ChoiceEditor({ initial, updateChoice }: ChoiceEditorProps) {
     nomination_title_en: initial.nomination_title_en ?? '',
     photo_data_url: initial.photo_data_url ?? '',
     vote_count: initial.vote_count ?? 0,
+    is_correct: !!initial.is_correct,
   });
   useEffect(() => {
     setDraft({
@@ -179,6 +198,7 @@ function ChoiceEditor({ initial, updateChoice }: ChoiceEditorProps) {
       nomination_title_en: initial.nomination_title_en ?? '',
       photo_data_url: initial.photo_data_url ?? '',
       vote_count: initial.vote_count ?? 0,
+      is_correct: !!initial.is_correct,
     });
   }, [initial]);
 
@@ -229,8 +249,15 @@ function ChoiceEditor({ initial, updateChoice }: ChoiceEditorProps) {
             placeholder="ノミネートタイトル" className="rounded border px-2 py-1.5"/>
           <input value={draft.nomination_title_en} onChange={(e) => setDraft({ ...draft, nomination_title_en: e.target.value })}
             placeholder="Nomination Title (EN)" className="rounded border px-2 py-1.5"/>
+          {showCorrectFlag && (
+            <label className="flex items-center gap-2 text-xs col-span-1 sm:col-span-2 px-2 py-1.5 rounded border bg-amber-50">
+              <input type="checkbox" checked={draft.is_correct}
+                onChange={(e) => setDraft({ ...draft, is_correct: e.target.checked })}/>
+              <span className="font-bold text-amber-800">この選択肢が正解</span>
+            </label>
+          )}
           <label className="block">
-            <span className="block text-[10px] text-muted-foreground mb-0.5">投票数</span>
+            <span className="block text-[10px] text-muted-foreground mb-0.5">投票数 / 回答数</span>
             <input type="text" inputMode="numeric" value={String(draft.vote_count)}
               onChange={(e) => {
                 const cleaned = e.target.value.replace(/[^\d]/g, '');

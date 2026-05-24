@@ -11,12 +11,10 @@ import OneShotControlPage from './pages/OneShotControlPage';
 import OneShotOutputPage from './pages/OneShotOutputPage';
 import OneShotOutputNextPage from './pages/OneShotOutputNextPage';
 import OutputNextPage from './pages/OutputNextPage';
-import StandalonePollPage from './pages/StandalonePollPage';
 import QuizListPage from './pages/QuizListPage';
 import QuizControlPage from './pages/QuizControlPage';
 import QuizEditPage from './pages/QuizEditPage';
 import QuizOutputPage from './pages/QuizOutputPage';
-import StandalonePollOutputPage from './pages/StandalonePollOutputPage';
 
 // 出力ページ (/awards/output/*) はuseAuthを使わない独立ルーター
 // → useAuth内のaxiosが/auth/meを呼び、401でloginにリダイレクトされるのを防ぐ
@@ -25,7 +23,6 @@ function OutputRouter() {
     <BrowserRouter basename="/awards">
       <Routes>
         {/* v2.8.98+: NEXT (送出予約) 出力 URL — 副調整室向け */}
-        <Route path="/output/standalone-poll/:room" element={<StandalonePollOutputPage />} />
         <Route path="/output/quiz/:quizId" element={<QuizOutputPage />} />
         <Route path="/output/:eventId/oneshot/next" element={<OneShotOutputNextPage />} />
         <Route path="/output/:eventId/oneshot" element={<OneShotOutputPage />} />
@@ -60,7 +57,6 @@ function AuthenticatedApp() {
             <Route path="/event/:id/quiz" element={<QuizListPage />} />
             <Route path="/event/:id/quiz/:quizId/control" element={<QuizControlPage />} />
             <Route path="/event/:id/quiz/:quizId/edit" element={<QuizEditPage />} />
-            <Route path="/standalone-poll/:room" element={<StandalonePollPage />} />
           </Route>
         ) : (
           <Route path="*" element={<RedirectOnce to="/login" />} />

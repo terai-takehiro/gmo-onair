@@ -40,11 +40,15 @@ router.post('/events/:eventId/quizzes', wrap(async (req, res) => {
     countdown_seconds: rawCountdown = 60,
     link_category_id = null,
     display = 'count',
+    mode = 'survey',
+    has_answer_check = false,
   } = req.body;
 
   const choiceCount = Math.max(2, Math.min(6, Math.floor(Number(rawChoiceCount) || 3)));
   const countdownSec = Math.max(5, Math.min(600, Math.floor(Number(rawCountdown) || 60)));
   const disp = display === 'percent' ? 'percent' : 'count';
+  const md = mode === 'quiz' ? 'quiz' : 'survey';
+  const hac = !!has_answer_check;
 
   const maxOrder = await queryOne(
     `SELECT COALESCE(MAX(display_order), 0) AS max FROM quizzes WHERE event_id = ?`,
@@ -53,10 +57,12 @@ router.post('/events/:eventId/quizzes', wrap(async (req, res) => {
 
   const quiz = await queryOne(
     `INSERT INTO quizzes (event_id, title, title_en, question, question_en,
-                          choice_count, countdown_seconds, link_category_id, display, display_order)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+                          choice_count, countdown_seconds, link_category_id, display, display_order,
+                          mode, has_answer_check)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
     [eventId, title, title_en, question, question_en,
-     choiceCount, countdownSec, link_category_id, disp, ((maxOrder?.max as number) ?? 0) + 1]
+     choiceCount, countdownSec, link_category_id, disp, ((maxOrder?.max as number) ?? 0) + 1,
+     md, hac]
   );
   if (!quiz) throw new AppError(500, 'INSERT_FAILED', 'quiz 作成失敗');
 
@@ -85,6 +91,7 @@ router.put('/quizzes/:id', wrap(async (req, res) => {
   const {
     title, title_en, question, question_en,
     choice_count, countdown_seconds, link_category_id, display, display_order,
+    mode, has_answer_check,
   } = req.body;
 
   const curChoiceCount = Number(cur.choice_count) || 3;
@@ -96,6 +103,8 @@ router.put('/quizzes/:id', wrap(async (req, res) => {
     ? Math.max(5, Math.min(600, Math.floor(Number(countdown_seconds) || curCountdown)))
     : curCountdown;
   const newDisplay = display === 'percent' ? 'percent' : (display === 'count' ? 'count' : cur.display);
+  const newMode = mode === 'quiz' ? 'quiz' : (mode === 'survey' ? 'survey' : cur.mode);
+  const newHac = typeof has_answer_check === 'boolean' ? has_answer_check : cur.has_answer_check;
 
   await execute(
     `UPDATE quizzes SET
@@ -108,6 +117,8 @@ router.put('/quizzes/:id', wrap(async (req, res) => {
        link_category_id = ?,
        display = ?,
        display_order = COALESCE(?, display_order),
+       mode = ?,
+       has_answer_check = ?,
        updated_at = NOW()
      WHERE id = ?`,
     [
@@ -117,6 +128,7 @@ router.put('/quizzes/:id', wrap(async (req, res) => {
       link_category_id ?? null,
       newDisplay,
       display_order ?? null,
+      newMode, newHac,
       id,
     ]
   );
@@ -155,7 +167,7 @@ router.put('/quizzes/:id/choices/:position', wrap(async (req, res) => {
   const {
     name, name_en, company, company_en,
     nomination_title, nomination_title_en,
-    photo_data_url, vote_count,
+    photo_data_url, vote_count, is_correct,
   } = req.body;
 
   const existing = await queryOne(
@@ -174,6 +186,7 @@ router.put('/quizzes/:id/choices/:position', wrap(async (req, res) => {
        nomination_title_en = ?,
        photo_data_url = ?,
        vote_count = COALESCE(?, vote_count),
+       is_correct = COALESCE(?, is_correct),
        updated_at = NOW()
      WHERE quiz_id = ? AND position = ?`,
     [
@@ -182,6 +195,7 @@ router.put('/quizzes/:id/choices/:position', wrap(async (req, res) => {
       nomination_title ?? null, nomination_title_en ?? null,
       photo_data_url ?? null,
       vote_count !== undefined ? Math.max(0, Math.floor(Number(vote_count) || 0)) : null,
+      typeof is_correct === 'boolean' ? is_correct : null,
       id, position,
     ]
   );

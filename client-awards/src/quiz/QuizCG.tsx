@@ -62,6 +62,9 @@ export default function QuizCG({ quiz, cue, transparent = false, lang = 'ja' }: 
     );
   }
 
+  const showVotes = cue.step === 'reveal' || cue.step === 'answer-check' || cue.step === 'correct-reveal';
+  const correctReveal = cue.step === 'correct-reveal';
+
   return (
     <div style={{ position: 'absolute', inset: 0, fontFamily: "'Noto Sans JP', sans-serif" }}>
       {!transparent && <BaseBackdrop />}
@@ -72,7 +75,8 @@ export default function QuizCG({ quiz, cue, transparent = false, lang = 'ja' }: 
         choiceCount={quiz.choice_count}
         cue={cue}
         display={quiz.display}
-        showVotes={cue.step === 'reveal'}
+        showVotes={showVotes}
+        correctReveal={correctReveal}
       />
       {cue.step === 'poll' && (
         <Countdown
@@ -240,9 +244,9 @@ function TitleBand({ text, maxH }: { text: string; maxH: number }) {
 }
 
 // ─── 選択肢グリッド ────────────────────────────
-function ChoicesGrid({ choices, choiceCount, cue, display, showVotes }: {
+function ChoicesGrid({ choices, choiceCount, cue, display, showVotes, correctReveal }: {
   choices: QuizChoice[]; choiceCount: number; cue: QuizCueState;
-  display: 'count' | 'percent'; showVotes: boolean;
+  display: 'count' | 'percent'; showVotes: boolean; correctReveal: boolean;
 }) {
   const { cols, rows } = gridForCount(choiceCount);
   const totalH = rows === 1 ? 110 : 230;
@@ -257,6 +261,12 @@ function ChoicesGrid({ choices, choiceCount, cue, display, showVotes }: {
       gridTemplateRows: `repeat(${rows}, 1fr)`,
       gap: 14,
     }}>
+      <style>{`
+        @keyframes qzCorrectPulse {
+          0%, 100% { box-shadow: 0 10px 30px rgba(0,0,0,0.55), 0 0 32px rgba(245,215,110,0.55), 0 0 0 3px rgba(245,215,110,0.95); }
+          50%      { box-shadow: 0 10px 40px rgba(0,0,0,0.65), 0 0 70px rgba(255,235,140,0.95), 0 0 0 5px rgba(255,235,140,0.95); }
+        }
+      `}</style>
       {choices.map((c) => {
         const voteCount = cue.votes?.[c.position] ?? c.vote_count;
         return (
@@ -264,6 +274,7 @@ function ChoicesGrid({ choices, choiceCount, cue, display, showVotes }: {
             key={c.id} index={c.position} choice={c}
             voteCount={voteCount} totalVotes={totalVotes}
             display={display} showVotes={showVotes}
+            correctReveal={correctReveal}
           />
         );
       })}
@@ -271,16 +282,20 @@ function ChoicesGrid({ choices, choiceCount, cue, display, showVotes }: {
   );
 }
 
-function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes }: {
+function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, correctReveal }: {
   index: number; choice: QuizChoice;
   voteCount: number; totalVotes: number;
   display: 'count' | 'percent'; showVotes: boolean;
+  correctReveal: boolean;
 }) {
   const palette = QUIZ_COLORS[(index - 1) % QUIZ_COLORS.length];
   const name = choice.name || `選択肢${index}`;
   const company = choice.company || '';
   const nomTitle = choice.nomination_title || '';
   const pct = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
+  const isCorrect = !!choice.is_correct;
+  const isDimmed = correctReveal && !isCorrect;
+  const isHilite = correctReveal && isCorrect;
   return (
     <div style={{
       position: 'relative',
@@ -290,6 +305,10 @@ function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes }
       padding: '0 18px 0 78px',
       display: 'flex', flexDirection: 'column', justifyContent: 'center',
       boxShadow: `0 10px 30px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.14), 0 0 24px ${palette.glow}`,
+      opacity: isDimmed ? 0.32 : 1,
+      filter: isDimmed ? 'saturate(0.45)' : 'none',
+      transition: 'opacity 500ms ease, filter 500ms ease',
+      animation: isHilite ? 'qzCorrectPulse 1s ease-in-out infinite' : 'none',
     }}>
       {/* 番号バッジ */}
       <div style={{

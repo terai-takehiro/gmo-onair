@@ -65,9 +65,7 @@ const STEPS_VOTE: StepDef[] = [
   { step: 'nominees',     label: 'NOMINEES',   desc: 'ノミネート一覧',          color: 'live',    shortcut: '2' },
   { step: 'top3',         label: 'BEST 3',     desc: 'TOP3 発表',               color: 'live',    shortcut: '3' },
   { step: 'final-pitch',  label: 'PITCH',      desc: 'ファイナルピッチ (3名→1名)', color: 'live', shortcut: '4' },
-  { step: 'poll',         label: 'POLL',       desc: 'アンケート投票 (30s)',    color: 'live',    shortcut: '5' },
-  { step: 'vote-reveal',  label: 'RESULT',     desc: '投票結果→大賞',          color: 'award',   shortcut: '6' },
-  { step: 'celebration',  label: 'CELEB',      desc: '全部門 No.1 + 紙吹雪',    color: 'award',   shortcut: '7' },
+  { step: 'celebration',  label: 'CELEB',      desc: '全部門 No.1 + 紙吹雪',    color: 'award',   shortcut: '5' },
 ];
 const ONESHOT_STYLES: { style: OneshotStyle; label: string }[] = [
   { style: 'classic',   label: 'Classic'   },
@@ -75,7 +73,7 @@ const ONESHOT_STYLES: { style: OneshotStyle; label: string }[] = [
   { style: 'spotlight', label: 'Spotlight' },
   { style: 'slit',      label: 'Slit'      },
 ];
-const LIVE_STEPS: CgStep[] = ['nominees', 'ranks52', 'top3', 'final-pitch', 'winner-bar', 'oneshot', 'poll', 'vote-reveal', 'celebration'];
+const LIVE_STEPS: CgStep[] = ['nominees', 'ranks52', 'top3', 'final-pitch', 'winner-bar', 'oneshot', 'celebration'];
 
 export default function ControlPage() {
   const { id } = useParams<{ id: string }>();
@@ -467,7 +465,6 @@ export default function ControlPage() {
               liveCategoryId={cue.categoryId}
               nextCategoryId={nextCategoryId}
               onSelect={setNextCategoryId}
-              eventId={eventId}
             />
           </div>
         </div>
@@ -691,14 +688,12 @@ function StatusBar({ isLive, liveStep, liveCategory, nextStep, nextCategory }: {
 }
 
 // ── CategoryPanel ─────────────────────────────────────────
-function CategoryPanel({ awardGroups, liveCategoryId, nextCategoryId, onSelect, eventId }: {
+function CategoryPanel({ awardGroups, liveCategoryId, nextCategoryId, onSelect }: {
   awardGroups: AwardGroup[];
   liveCategoryId: number | null;
   nextCategoryId: number | null;
   onSelect: (catId: number) => void;
-  eventId: number;
 }) {
-  const navigate = useNavigate();
   if (!awardGroups.length) return (
     <div className="text-xs text-slate-400 text-center py-6">カテゴリなし</div>
   );
@@ -741,20 +736,7 @@ function CategoryPanel({ awardGroups, liveCategoryId, nextCategoryId, onSelect, 
         </div>
       ))}
 
-      {/* 余興ポール: 部門と同列で挟み込めるショートカット */}
-      <div className="pt-2 mt-2 border-t border-slate-800">
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <span className="text-[11px] font-bold text-purple-400 tracking-wide">余興 (3 択ポール)</span>
-        </div>
-        <div className="pl-4">
-          <button
-            onClick={() => navigate(`/standalone-poll/event-${eventId}`)}
-            className="w-full text-left rounded-md px-3 py-2 text-xs font-semibold border bg-purple-950/40 border-purple-700/50 text-purple-200 hover:bg-purple-900/50 hover:border-purple-600 transition-all"
-          >
-            余興ポール を開く →
-          </button>
-        </div>
-      </div>
+      {/* アンケート/クイズCG はイベントエディタの「アンケート/クイズ」ボタン経由でアクセス */}
     </div>
   );
 }

@@ -1,5 +1,6 @@
-export type QuizStep = 'idle' | 'poll' | 'reveal' | 'winner';
+export type QuizStep = 'idle' | 'poll' | 'reveal' | 'winner' | 'answer-check' | 'correct-reveal';
 export type QuizDisplay = 'count' | 'percent';
+export type QuizMode = 'survey' | 'quiz';
 
 export interface Quiz {
   id: number;
@@ -13,6 +14,8 @@ export interface Quiz {
   link_category_id: number | null;
   display: QuizDisplay;
   display_order: number;
+  mode: QuizMode;
+  has_answer_check: boolean;
 }
 
 export interface QuizChoice {
@@ -27,6 +30,7 @@ export interface QuizChoice {
   nomination_title_en: string | null;
   photo_data_url: string | null;
   vote_count: number;
+  is_correct: boolean;
 }
 
 export interface QuizWithChoices extends Quiz {

@@ -46,7 +46,7 @@ export function initQuizSocketIO(io: Server): void {
       votes?: Record<string | number, number>;  // position -> vote_count
     }) => {
       try {
-        const step = ['idle','poll','reveal','winner'].includes(data.step ?? '') ? data.step : 'idle';
+        const step = ['idle','poll','reveal','winner','answer-check','correct-reveal'].includes(data.step ?? '') ? data.step : 'idle';
         const pollStartedAt = typeof data.pollStartedAt === 'number' ? data.pollStartedAt : null;
         const revealPhase = Math.max(0, Math.min(2, Math.floor(data.revealPhase ?? 0)));
 

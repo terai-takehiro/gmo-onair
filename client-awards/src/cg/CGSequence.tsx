@@ -7,8 +7,6 @@ import StepTitle from './steps/StepTitle';
 import StepRanking from './steps/StepRanking';
 import StepTop3 from './steps/StepTop3';
 import StepOneShot from './steps/StepOneShot';
-import StepPoll from './steps/StepPoll';
-import StepVoteReveal from './steps/StepVoteReveal';
 import StepFinalPitch from './steps/StepFinalPitch';
 import StepCelebration from './steps/StepCelebration';
 
@@ -107,18 +105,9 @@ export default function CGSequence({ cue, category, allCategories, eventName, ev
   const onPhotoStage = ['nominees', 'ranks52', 'top3', 'winner-bar', 'oneshot'].includes(stepKey);
   const showTop3 = stepKey === 'top3';
   const showFinalPitch = stepKey === 'final-pitch';
-  const showPoll = stepKey === 'poll';
-  const showVoteReveal = stepKey === 'vote-reveal';
   const showCelebration = stepKey === 'celebration';
 
   const winner = sorted.find((e) => e.rank === 1) ?? null;
-  // vote-reveal の winner は vote_count 最大値で決まる (Hooks は早期 return より前で呼ぶ)
-  const voteWinner = useMemo(() => {
-    if (!sorted.length) return null;
-    const top3 = sorted.filter((e) => e.rank >= 1 && e.rank <= 3);
-    const pool = top3.length ? top3 : sorted;
-    return pool.reduce((a, b) => ((b.voteCount ?? 0) > (a.voteCount ?? 0) ? b : a));
-  }, [sorted]);
 
   if (stepKey === 'idle') return null;
 
@@ -233,33 +222,7 @@ export default function CGSequence({ cue, category, allCategories, eventName, ev
         />
       )}
 
-      {/* Poll — アンケート投票画面 (vote パターン) */}
-      {showPoll && (
-        <StepPoll
-          key={`poll-${persistKey}-${cue.pollStartedAt ?? 'idle'}`}
-          category={category}
-          entries={sorted}
-          startedAt={cue.pollStartedAt}
-          lang={lang}
-          transparent={transparent}
-        />
-      )}
-
-      {/* Vote reveal — 投票結果棒グラフ → 大賞 (categoryChild は poll_title を優先) */}
-      {showVoteReveal && (
-        <StepVoteReveal
-          key={`vote-${persistKey}`}
-          entries={sorted}
-          winner={voteWinner}
-          phase={Math.min(2, cue.revealPhase) as 0 | 1 | 2}
-          display={cue.voteDisplay}
-          categoryParent={tweaks.categoryParent}
-          categoryChild={tweaks.categoryChild}
-          lang={lang}
-          oneshotStyle={cue.oneshotStyle}
-          transparent={transparent}
-        />
-      )}
+      {/* v2.9.2: poll / vote-reveal は アンケート/クイズCG モジュールに移管 (この CG では表示しない) */}
     </div>
   );
 }
