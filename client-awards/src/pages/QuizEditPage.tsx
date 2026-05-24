@@ -62,9 +62,9 @@ export default function QuizEditPage() {
         <HelpCircle className="h-5 w-5 text-purple-600" />
         <h1 className="text-lg font-bold truncate">{quiz.title || '(タイトル未設定)'}</h1>
         <div className="flex-1" />
-        <button onClick={() => navigate(`/event/${eventId}/quiz/${quizId}/control`)}
+        <button onClick={() => navigate(`/event/${eventId}/quiz-stack/control`)}
           className="flex items-center gap-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 px-3 py-1.5 text-xs font-bold text-white">
-          <Radio className="h-3 w-3" />送出
+          <Radio className="h-3 w-3" />スタック送出
         </button>
         <button onClick={onSave}
           disabled={updateQuiz.isPending}

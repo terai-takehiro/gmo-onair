@@ -57,11 +57,18 @@ export default function QuizListPage() {
         {event && <span className="text-xs text-muted-foreground">{event.name}</span>}
         <div className="ml-auto flex items-center gap-2">
           <a
-            href={`/awards/output/quiz-stack/${eventId}`} target="_blank" rel="noreferrer"
+            href={`/awards/output/quiz-stack/${eventId}?lang=ja`} target="_blank" rel="noreferrer"
             className="flex items-center gap-1 rounded bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700"
-            title="出力 URL (OBS 用 / event 単位スタック)"
+            title="出力 URL JA (OBS 用)"
           >
-            <ExternalLink className="h-3 w-3" />出力 URL
+            <ExternalLink className="h-3 w-3" />出力 JA
+          </a>
+          <a
+            href={`/awards/output/quiz-stack/${eventId}?lang=en`} target="_blank" rel="noreferrer"
+            className="flex items-center gap-1 rounded bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700"
+            title="出力 URL EN (OBS 用)"
+          >
+            <ExternalLink className="h-3 w-3" />出力 EN
           </a>
           <button
             onClick={() => navigate(`/event/${eventId}/quiz-stack/control`)}
