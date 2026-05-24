@@ -100,7 +100,7 @@ export default function ProgramsPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-        <div className="max-w-lg space-y-5">
+        <div className="mx-auto max-w-3xl space-y-5">
           {/* GLS link info (read-only) */}
           {program?.project_name && (
             <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">

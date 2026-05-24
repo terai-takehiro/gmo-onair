@@ -62,7 +62,7 @@ export default function ProjectSelectorPage() {
     <div className="flex flex-col h-full bg-background">
       {/* Page header */}
       <div className="border-b border-border px-4 sm:px-6 py-4">
-        <div className="flex items-center justify-between max-w-4xl mx-auto">
+        <div className="flex items-center justify-between max-w-6xl mx-auto">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15">
               <Timer className="h-5 w-5 text-primary" />
@@ -80,7 +80,7 @@ export default function ProjectSelectorPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
-        <div className="max-w-4xl mx-auto space-y-4">
+        <div className="max-w-6xl mx-auto space-y-4">
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />

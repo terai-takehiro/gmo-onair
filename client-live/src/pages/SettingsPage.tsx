@@ -114,7 +114,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
-        <div className="max-w-lg space-y-6">
+        <div className="mx-auto max-w-3xl space-y-6">
           {/* API Keys */}
           <section className="rounded-xl border bg-card p-4 space-y-4">
             <h2 className="text-sm font-semibold">APIキー設定</h2>
