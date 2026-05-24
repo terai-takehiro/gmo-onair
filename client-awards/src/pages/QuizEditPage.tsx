@@ -259,7 +259,7 @@ function ChoiceEditor({ initial, updateChoice, showCorrectFlag }: ChoiceEditorPr
             <label className="flex items-center gap-2 text-xs col-span-1 sm:col-span-2 px-2 py-1.5 rounded border bg-amber-50">
               <input type="checkbox" checked={draft.is_correct}
                 onChange={(e) => setDraft({ ...draft, is_correct: e.target.checked })}/>
-              <span className="font-bold text-amber-800">この選択肢が正解</span>
+              <span className="font-bold text-amber-800">この選択肢が正解 (複数選択可)</span>
             </label>
           )}
           <label className="block">

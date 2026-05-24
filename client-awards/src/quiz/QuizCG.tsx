@@ -315,12 +315,12 @@ function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, 
       background: `linear-gradient(160deg, ${palette.core}, ${palette.deep})`,
       border: '2px solid rgba(245,215,110,0.55)',
       borderRadius: 8,
-      padding: '0 18px 0 78px',
+      padding: showVotes ? '0 180px 0 78px' : '0 18px 0 78px',
       display: 'flex', flexDirection: 'column', justifyContent: 'center',
       boxShadow: `0 10px 30px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.14), 0 0 24px ${palette.glow}`,
       opacity: isDimmed ? 0.32 : 1,
       filter: isDimmed ? 'saturate(0.45)' : 'none',
-      transition: 'opacity 500ms ease, filter 500ms ease',
+      transition: 'opacity 500ms ease, filter 500ms ease, padding 400ms ease',
       animation: isHilite ? 'qzCorrectPulse 1s ease-in-out infinite' : 'none',
     }}>
       {/* 番号バッジ */}
@@ -352,15 +352,28 @@ function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, 
         }} min={0.4}>{nomTitle}</CondenseText>
       )}
 
-      {/* 票数 (reveal 中のみ右端に大きく表示) */}
+      {/* 票数 (reveal 中のみ右端にベース枠つきで大きく表示) */}
       {showVotes && (
         <div style={{
-          position: 'absolute', right: 18, top: '50%', transform: 'translateY(-50%)',
-          fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700, fontSize: 42,
-          color: '#fff', textShadow: '0 2px 10px rgba(0,0,0,0.85)',
-          fontVariantNumeric: 'tabular-nums',
+          position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)',
+          minWidth: 150, height: 76,
+          padding: '0 18px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'linear-gradient(180deg, rgba(38,30,16,0.96), rgba(15,10,4,0.98))',
+          border: '2px solid rgba(245,215,110,0.85)',
+          borderRadius: 10,
+          boxShadow: '0 6px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,235,140,0.25), 0 0 24px rgba(245,215,110,0.35)',
         }}>
-          {display === 'percent' ? `${pct}%` : voteCount.toLocaleString()}
+          <div style={{
+            fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700, fontSize: 56,
+            color: '#FFF4D6',
+            textShadow: '0 2px 8px rgba(0,0,0,0.85), 0 0 18px rgba(245,215,110,0.55)',
+            fontVariantNumeric: 'tabular-nums',
+            letterSpacing: '-0.02em',
+            lineHeight: 1,
+          }}>
+            {display === 'percent' ? `${pct}%` : voteCount.toLocaleString()}
+          </div>
         </div>
       )}
     </div>
