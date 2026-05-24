@@ -1,6 +1,14 @@
 export type QuizStep = 'idle' | 'poll' | 'reveal' | 'winner' | 'answer-check' | 'correct-reveal';
 export type QuizDisplay = 'count' | 'percent';
-export type QuizMode = 'survey' | 'quiz';
+export type QuizMode = 'survey' | 'survey-only' | 'quiz';
+
+export interface QuizStackCue {
+  eventId: number;
+  currentQuizId: number | null;
+  step: QuizStep;
+  pollStartedAt: number | null;
+  revealPhase: 0 | 1 | 2;
+}
 
 export interface Quiz {
   id: number;

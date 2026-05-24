@@ -10,6 +10,84 @@ export function initQuizSocketIO(io: Server): void {
   const ns = io.of('/quiz');
 
   ns.on('connection', async (socket: Socket) => {
+    const stackEventId = parseInt(socket.handshake.query.stackEventId as string);
+    // ── イベント単位の stack モード (PRV/NEXT で quiz 切替) ──
+    if (stackEventId && !isNaN(stackEventId)) {
+      const room = `quizStack:${stackEventId}`;
+      socket.join(room);
+      // 接続直後に現状を push
+      try {
+        const cue = await queryOne(
+          `SELECT current_quiz_id, step, poll_started_at, reveal_phase FROM quiz_stack_state WHERE event_id = ?`,
+          [stackEventId]
+        );
+        socket.emit('quizStack:sync', {
+          eventId: stackEventId,
+          currentQuizId: cue?.current_quiz_id ?? null,
+          step: cue?.step ?? 'idle',
+          pollStartedAt: cue?.poll_started_at
+            ? new Date(cue.poll_started_at as string | number | Date).getTime()
+            : null,
+          revealPhase: cue?.reveal_phase ?? 0,
+          timestamp: Date.now(),
+        });
+      } catch (err) { console.error('[quiz socket] stack sync error', err); }
+
+      socket.on('quizStack:set', async (data: {
+        currentQuizId?: number | null;
+        step?: string;
+        pollStartedAt?: number | null;
+        revealPhase?: number;
+        votes?: Record<string | number, number>;
+      }) => {
+        try {
+          const step = ['idle','poll','reveal','winner','answer-check','correct-reveal'].includes(data.step ?? '') ? data.step : 'idle';
+          const pollStartedAt = typeof data.pollStartedAt === 'number' ? data.pollStartedAt : null;
+          const revealPhase = Math.max(0, Math.min(2, Math.floor(data.revealPhase ?? 0)));
+          const currentQuizId = typeof data.currentQuizId === 'number' ? data.currentQuizId : null;
+
+          await execute(
+            `INSERT INTO quiz_stack_state (event_id, current_quiz_id, step, poll_started_at, reveal_phase, updated_at)
+             VALUES (?, ?, ?, ${pollStartedAt === null ? 'NULL' : 'to_timestamp(?::double precision / 1000.0)'}, ?, NOW())
+             ON CONFLICT (event_id) DO UPDATE
+               SET current_quiz_id = EXCLUDED.current_quiz_id,
+                   step = EXCLUDED.step,
+                   poll_started_at = EXCLUDED.poll_started_at,
+                   reveal_phase = EXCLUDED.reveal_phase,
+                   updated_at = NOW()`,
+            pollStartedAt === null
+              ? [stackEventId, currentQuizId, step, revealPhase]
+              : [stackEventId, currentQuizId, step, pollStartedAt, revealPhase]
+          );
+
+          if (data.votes && typeof data.votes === 'object' && currentQuizId) {
+            for (const [posKey, v] of Object.entries(data.votes)) {
+              const pos = parseInt(String(posKey));
+              const vc = Math.max(0, Math.floor(Number(v) || 0));
+              if (!isNaN(pos)) {
+                await execute(
+                  `UPDATE quiz_choices SET vote_count = ?, updated_at = NOW()
+                   WHERE quiz_id = ? AND position = ?`,
+                  [vc, currentQuizId, pos]
+                );
+              }
+            }
+          }
+
+          ns.to(room).emit('quizStack:sync', {
+            eventId: stackEventId,
+            currentQuizId,
+            step, pollStartedAt, revealPhase,
+            timestamp: Date.now(),
+          });
+        } catch (err) {
+          console.error('[quiz socket] quizStack:set error', err);
+        }
+      });
+
+      return;
+    }
+
     const quizId = parseInt(socket.handshake.query.quizId as string);
     if (!quizId || isNaN(quizId)) { socket.disconnect(); return; }
     const room = `quiz:${quizId}`;

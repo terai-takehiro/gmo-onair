@@ -2,39 +2,39 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import api from '@/lib/api';
-import { useQuizSocket } from '@/quiz/useQuizSocket';
+import { useQuizStackSocket } from '@/quiz/useQuizStackSocket';
 import QuizCG from '@/quiz/QuizCG';
 import type { QuizWithChoices } from '@/quiz/types';
 import { CG_W, CG_H } from '@/cg/types';
 
-export default function QuizOutputPage() {
-  const { quizId: quizIdRaw } = useParams<{ quizId: string }>();
+interface StackData {
+  quizzes: QuizWithChoices[];
+  stack: { currentQuizId: number | null; step: string; pollStartedAt: number | null; revealPhase: number };
+}
+
+export default function QuizStackOutputPage() {
+  const { eventId: eventIdRaw } = useParams<{ eventId: string }>();
   const [params] = useSearchParams();
   const langParam = params.get('lang');
   const lang: 'ja' | 'en' = langParam === 'en' ? 'en' : 'ja';
+  const eventId = parseInt(eventIdRaw ?? '0');
 
-  const quizId = parseInt(quizIdRaw ?? '0');
-
-  // 公開エンドポイント (認証なし) + react-query で定期再取得
-  const { data: quiz } = useQuery({
-    queryKey: ['quiz-public', quizId],
+  const { data } = useQuery({
+    queryKey: ['quiz-stack-public', eventId],
     queryFn: async () => {
-      const res = await api.get(`/quiz/quizzes/${quizId}/public`);
-      return res.data.data as QuizWithChoices;
+      const res = await api.get(`/quiz/events/${eventId}/quiz-stack/public`);
+      return res.data.data as StackData;
     },
-    enabled: !!quizId,
-    refetchInterval: 30_000,
+    enabled: !!eventId,
+    refetchInterval: 15_000,
   });
 
-  const { cue } = useQuizSocket(quizId || null);
+  const { cue } = useQuizStackSocket(eventId || null);
 
-  // viewport → 1920×1080 letterbox scale
   const wrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [off, setOff] = useState({ x: 0, y: 0 });
   useEffect(() => {
-    const el = wrapRef.current;
-    if (!el) return;
     const calc = () => {
       const w = window.innerWidth, h = window.innerHeight;
       const s = Math.min(w / CG_W, h / CG_H);
@@ -55,23 +55,33 @@ export default function QuizOutputPage() {
     };
   }, []);
 
-  if (!quiz) return null;
+  if (!data) return null;
+  const currentQuiz = data.quizzes.find((q) => q.id === cue.currentQuizId) ?? null;
+  if (!currentQuiz) return null;
 
   return (
     <div ref={wrapRef} style={{ position: 'fixed', inset: 0, background: 'transparent' }}>
       <div style={{
-        position: 'absolute',
-        left: off.x, top: off.y,
-        width: CG_W * scale, height: CG_H * scale,
-        overflow: 'hidden',
+        position: 'absolute', left: off.x, top: off.y,
+        width: CG_W * scale, height: CG_H * scale, overflow: 'hidden',
       }}>
         <div style={{
           width: CG_W, height: CG_H,
-          transform: `scale(${scale})`,
-          transformOrigin: 'top left',
+          transform: `scale(${scale})`, transformOrigin: 'top left',
           position: 'absolute',
         }}>
-          <QuizCG quiz={quiz} cue={cue} transparent lang={lang} />
+          <QuizCG
+            quiz={currentQuiz}
+            cue={{
+              quizId: currentQuiz.id,
+              step: cue.step,
+              pollStartedAt: cue.pollStartedAt,
+              revealPhase: cue.revealPhase,
+              votes: Object.fromEntries(currentQuiz.choices.map((c) => [c.position, c.vote_count])),
+            }}
+            transparent
+            lang={lang}
+          />
         </div>
       </div>
     </div>

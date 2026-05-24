@@ -47,7 +47,7 @@ router.post('/events/:eventId/quizzes', wrap(async (req, res) => {
   const choiceCount = Math.max(2, Math.min(6, Math.floor(Number(rawChoiceCount) || 3)));
   const countdownSec = Math.max(5, Math.min(600, Math.floor(Number(rawCountdown) || 60)));
   const disp = display === 'percent' ? 'percent' : 'count';
-  const md = mode === 'quiz' ? 'quiz' : 'survey';
+  const md = ['quiz','survey-only','survey'].includes(mode) ? mode : 'survey';
   const hac = !!has_answer_check;
 
   const maxOrder = await queryOne(
@@ -103,7 +103,7 @@ router.put('/quizzes/:id', wrap(async (req, res) => {
     ? Math.max(5, Math.min(600, Math.floor(Number(countdown_seconds) || curCountdown)))
     : curCountdown;
   const newDisplay = display === 'percent' ? 'percent' : (display === 'count' ? 'count' : cur.display);
-  const newMode = mode === 'quiz' ? 'quiz' : (mode === 'survey' ? 'survey' : cur.mode);
+  const newMode = ['quiz','survey-only','survey'].includes(mode) ? mode : cur.mode;
   const newHac = typeof has_answer_check === 'boolean' ? has_answer_check : cur.has_answer_check;
 
   await execute(
@@ -188,7 +188,7 @@ router.put('/quizzes/:id/choices/:position', wrap(async (req, res) => {
        nomination_title_en = ?,
        photo_data_url = ?,
        vote_count = COALESCE(?, vote_count),
-       is_correct = COALESCE(?, is_correct),
+       is_correct = COALESCE(?::boolean, is_correct),
        updated_at = NOW()
      WHERE quiz_id = ? AND position = ?`,
     [

@@ -55,6 +55,21 @@ export default function QuizListPage() {
         <HelpCircle className="h-5 w-5 text-purple-600" />
         <h1 className="text-lg font-bold">アンケート/クイズCG</h1>
         {event && <span className="text-xs text-muted-foreground">{event.name}</span>}
+        <div className="ml-auto flex items-center gap-2">
+          <a
+            href={`/awards/output/quiz-stack/${eventId}`} target="_blank" rel="noreferrer"
+            className="flex items-center gap-1 rounded bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700"
+            title="出力 URL (OBS 用 / event 単位スタック)"
+          >
+            <ExternalLink className="h-3 w-3" />出力 URL
+          </a>
+          <button
+            onClick={() => navigate(`/event/${eventId}/quiz-stack/control`)}
+            className="flex items-center gap-1 rounded bg-purple-600 hover:bg-purple-700 px-3 py-1.5 text-xs font-semibold text-white"
+          >
+            <Radio className="h-3 w-3" />スタック送出
+          </button>
+        </div>
       </div>
 
       {/* 新規作成 */}
@@ -120,19 +135,6 @@ export default function QuizListPage() {
                   {linked && ` / 連動: ${linked.name} - ${linked.description || ''}`}
                 </div>
               </div>
-              <a
-                href={`/awards/output/quiz/${q.id}`} target="_blank" rel="noreferrer"
-                className="flex items-center gap-1 rounded bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700"
-                title="出力 URL (OBS 用)"
-              >
-                <ExternalLink className="h-3 w-3" />出力
-              </a>
-              <button
-                onClick={() => navigate(`/event/${eventId}/quiz/${q.id}/control`)}
-                className="flex items-center gap-1 rounded bg-purple-100 hover:bg-purple-200 px-2.5 py-1.5 text-xs font-semibold text-purple-700"
-              >
-                <Radio className="h-3 w-3" />送出
-              </button>
               <button
                 onClick={() => navigate(`/event/${eventId}/quiz/${q.id}/edit`)}
                 className="flex items-center gap-1 rounded bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700"

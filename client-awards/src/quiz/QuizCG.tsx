@@ -411,12 +411,7 @@ function Countdown({ startedAt, totalSec }: { startedAt: number | null; totalSec
         boxShadow: `${halo}, inset 0 3px 0 rgba(255,255,255,0.22)`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
-        <div style={{
-          fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700,
-          fontSize: fontPx, color: '#fff', letterSpacing: '-0.01em',
-          fontVariantNumeric: 'tabular-nums', lineHeight: 1,
-          textShadow: '0 2px 10px rgba(0,0,0,0.75)',
-        }}>{secs}</div>
+        <SlideDigits value={secs} fontSize={fontPx} color="#fff" />
       </div>
       <svg width={size} height={size} style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }}>
         <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={3}/>
@@ -509,3 +504,60 @@ function WinnerView({ choice, title, lang }: { choice: QuizChoice | undefined; t
 
 // Suppress unused import warning
 void useRef;
+
+// ── Slide-in/out 数字 (旧 StepPoll から移植) ─────────────────
+interface Slide { key: number; ch: string; entering: boolean; }
+let __slideKey = 0;
+
+function SlideDigits({ value, fontSize, color }: { value: number; fontSize: number; color: string }) {
+  const str = String(Math.max(0, value));
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0 }}>
+      {str.split('').map((ch, i) => (
+        <SlideDigit key={`${i}-${str.length}`} char={ch} fontSize={fontSize} color={color} />
+      ))}
+    </div>
+  );
+}
+
+function SlideDigit({ char, fontSize, color }: { char: string; fontSize: number; color: string }) {
+  const [slides, setSlides] = useState<Slide[]>(() => [{ key: __slideKey++, ch: char, entering: false }]);
+  useEffect(() => {
+    setSlides((prev) => {
+      const top = prev[prev.length - 1];
+      if (top && top.ch === char) return prev;
+      return [...prev, { key: __slideKey++, ch: char, entering: true }];
+    });
+  }, [char]);
+  useEffect(() => {
+    if (slides.length <= 1) return;
+    const id = window.setTimeout(() => setSlides((c) => (c.length > 1 ? c.slice(1) : c)), 560);
+    return () => window.clearTimeout(id);
+  }, [slides]);
+  const w = fontSize * 0.56;
+  const h = fontSize * 1.0;
+  return (
+    <div style={{ position: 'relative', width: w, height: h, overflow: 'hidden', display: 'inline-block', fontVariantNumeric: 'tabular-nums' }}>
+      <style>{`
+        @keyframes qzDigitIn  { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes qzDigitOut { from { transform: translateY(0); opacity: 1; } to { transform: translateY(100%); opacity: 0; } }
+      `}</style>
+      {slides.map((s, idx) => {
+        const isCurrent = idx === slides.length - 1;
+        const anim = isCurrent
+          ? (s.entering ? 'qzDigitIn 520ms cubic-bezier(.22,.85,.32,1) forwards' : 'none')
+          : 'qzDigitOut 520ms cubic-bezier(.4,0,.66,.4) forwards';
+        return (
+          <div key={s.key} style={{
+            position: 'absolute', inset: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: "'Roboto Condensed', sans-serif", fontSize, fontWeight: 700,
+            color, lineHeight: 1, letterSpacing: '-0.03em',
+            animation: anim, willChange: 'transform, opacity',
+            textShadow: '0 2px 10px rgba(0,0,0,0.75)',
+          }}>{s.ch}</div>
+        );
+      })}
+    </div>
+  );
+}

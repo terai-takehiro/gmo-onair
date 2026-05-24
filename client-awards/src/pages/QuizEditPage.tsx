@@ -112,9 +112,10 @@ export default function QuizEditPage() {
             </select>
           </Field>
           <Field label="モード">
-            <select value={draft.mode ?? 'survey'} onChange={(e) => setDraft({ ...draft, mode: e.target.value as 'survey' | 'quiz' })}
+            <select value={draft.mode ?? 'survey'} onChange={(e) => setDraft({ ...draft, mode: e.target.value as 'survey' | 'survey-only' | 'quiz' })}
               className="w-full rounded border px-2 py-1.5">
-              <option value="survey">アンケート (No.1 演出あり)</option>
+              <option value="survey-only">アンケート (質問のみ)</option>
+              <option value="survey">アンケート (結果発表あり)</option>
               <option value="quiz">クイズ (正解発表あり)</option>
             </select>
           </Field>
