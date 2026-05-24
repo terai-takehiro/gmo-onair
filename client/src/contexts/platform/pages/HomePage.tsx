@@ -135,7 +135,7 @@ export default function HomePage() {
 
   return (
     <PageTransition>
-      <div className="mx-auto max-w-6xl px-4 py-5 sm:py-8 space-y-5 sm:space-y-6">
+      <div className="mx-auto max-w-screen-2xl px-4 py-5 sm:py-8 space-y-5 sm:space-y-6">
         {/* ───── ヘッダー ───── */}
         <DashboardHeader
           title={<img src="/logo-onair.svg" alt="GMO ONAiR" className="h-8 sm:h-10 w-auto" />}

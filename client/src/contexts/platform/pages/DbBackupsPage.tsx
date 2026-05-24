@@ -96,7 +96,7 @@ export default function DbBackupsPage() {
 
   return (
     <PageTransition>
-      <div className="space-y-6 p-3 lg:p-6 max-w-5xl">
+      <div className="space-y-6 p-3 lg:p-6 mx-auto max-w-screen-xl">
         {/* Header */}
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">

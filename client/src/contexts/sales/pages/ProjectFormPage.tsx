@@ -473,7 +473,7 @@ export default function ProjectFormPage() {
 
   return (
     <PageTransition>
-    <div className="mx-auto max-w-3xl space-y-4 lg:space-y-6 p-3 lg:p-6">
+    <div className="mx-auto max-w-5xl space-y-4 lg:space-y-6 p-3 lg:p-6">
       <div className="flex items-center gap-4 flex-wrap">
         <Button variant="ghost" size="icon" onClick={() => navigate("/sales/projects")}>
           <ArrowLeft className="h-5 w-5" />
