@@ -33,7 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.9.13 — PC ワイド画面最適化 第6弾 (ライブ運用)。4 ページを wide 向けに調整: ①`ProgramsPage` `max-w-lg` (左寄せ 512px) → `mx-auto max-w-3xl` (768px 中央)、②`SettingsPage` 同様 → `mx-auto max-w-3xl`、③`SessionHomePage` `max-w-3xl mx-auto` → `max-w-5xl mx-auto` (1024px)、④`ProjectSelectorPage` `max-w-4xl mx-auto` → `max-w-6xl mx-auto` (1152px)。`DashboardPage` は full-width、`TimerDisplayPage` (タイマー専用画面) は fullscreen 表示のため据置。
+v2.9.14 — PC ワイド画面最適化 第7弾 (表彰CG / ラスト)。4 ページの operator/admin 領域を wide 向けに拡張: ①`DashboardPage` `max-w-4xl` (896px) → `max-w-6xl` (1152px)、②`EventEditorPage` `max-w-5xl` (1024px) → `max-w-screen-xl` (1280px)、③`QuizListPage` `max-w-5xl` → `max-w-screen-xl`、④`QuizEditPage` `max-w-5xl` → `max-w-screen-xl`。`ControlPage` / `OneShotControlPage` / `QuizStackControlPage` は元から full-width の xl:flex-row 3 カラム送出 UI で据置。`OutputPage` / `OneShotOutputPage` / `QuizStackOutputPage` / `*NextPage` は 1920×1080 固定 HTML5 Graphics 出力のため絶対に据置。`EventEditorPage` 内部の `max-w-lg` (イベント情報タブの入力 4 項目) は form readability のため据置。**これで 7 アプリ全て (案件管理 / Qシート / 機材管理 / インタラクティブ / 技術資料 / ライブ運用 / 表彰CG) の PC ワイド画面最適化が完了**。
+
+(v2.9.13 — PC ワイド画面最適化 第6弾 (ライブ運用)。4 ページを wide 向けに調整: ①`ProgramsPage` `max-w-lg` (左寄せ 512px) → `mx-auto max-w-3xl` (768px 中央)、②`SettingsPage` 同様 → `mx-auto max-w-3xl`、③`SessionHomePage` `max-w-3xl mx-auto` → `max-w-5xl mx-auto` (1024px)、④`ProjectSelectorPage` `max-w-4xl mx-auto` → `max-w-6xl mx-auto` (1152px)。`DashboardPage` は full-width、`TimerDisplayPage` (タイマー専用画面) は fullscreen 表示のため据置。
 
 (v2.9.12 — PC ワイド画面最適化 第5弾 (技術資料)。`EditorPage` のタブ コンテンツ ラッパ `max-w-5xl` (1024px) → `max-w-screen-xl` (1280px) に拡張。カメラ/映像/音声/通信 シート編集領域が広い画面で 1.25× 拡大される。`DashboardPage` は `space-y-5 p-4 sm:p-6` で full-width、内部の `grid-cols-1 md:grid-cols-2 xl:grid-cols-3` カード一覧と検索の `max-w-md` は意図的なため据置。`PrintPage` の `max-w-[210mm]` は A4 用紙幅で印刷用、固定維持。
 

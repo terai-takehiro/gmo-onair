@@ -46,7 +46,7 @@ export default function QuizListPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-screen-xl mx-auto">
       <div className="flex items-center gap-2 mb-6">
         <button onClick={() => navigate(`/event/${eventId}`)}
           className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200">
