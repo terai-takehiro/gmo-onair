@@ -12,10 +12,24 @@ import { Play, Square, ExternalLink, AlertCircle, Timer } from 'lucide-react';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
 
 interface TimerData { id: string; name: string; phase: string }
-interface Snapshot { captured_at: string; youtube_count: number; jstream_count: number; total_count: number }
+interface Snapshot {
+  captured_at: string;
+  youtube_count: number;
+  jstream_count: number;
+  zoom_count: number;
+  teams_count: number;
+  total_count: number;
+}
 
 export default function DashboardPage() {
   const { programId } = useParams<{ programId: string }>();
+
+  const { data: program } = useQuery({
+    queryKey: ['program', programId],
+    queryFn: () => api.get(`/liveops/programs/${programId}`).then(r => r.data.data),
+    enabled: !!programId,
+    staleTime: 60_000,
+  });
 
   const { data: settingsData } = useQuery({
     queryKey: ['settings'],
@@ -124,7 +138,8 @@ export default function DashboardPage() {
             </Button>
           </div>
 
-          {!settingsData?.hasYoutubeKey && !settingsData?.hasJstreamToken && (
+          {!settingsData?.hasYoutubeKey && !settingsData?.hasJstreamToken &&
+           !settingsData?.hasZoomCredentials && !settingsData?.hasTeamsCredentials && (
             <div className="mx-4 mt-3 flex items-center gap-2 rounded-md bg-warning/10 border border-warning/30 p-2.5 text-xs text-warning" role="alert">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               <Link to="/settings" className="underline">設定</Link>でAPIキーを登録してください
@@ -139,16 +154,14 @@ export default function DashboardPage() {
               sublabel={viewer.counts.ytDetails.map((d: any) => `${d.label}: ${d.count ?? '-'}`).join(' / ')}
             />
             <div className="grid grid-cols-2 gap-2">
-              <ViewerCard
-                label="Jstream"
-                count={viewer.counts.jstream}
-                color="#00b4d8"
-              />
-              <ViewerCard
-                label="合計"
-                count={viewer.counts.total}
-                color="#a855f7"
-              />
+              <ViewerCard label="Jstream" count={viewer.counts.jstream} color="#00b4d8" />
+              {(program?.zoom_meeting_id || program?.zoom_webinar_id) && (
+                <ViewerCard label="Zoom" count={viewer.counts.zoom} color="#2D8CFF" />
+              )}
+              {program?.teams_meeting_url && (
+                <ViewerCard label="Teams" count={viewer.counts.teams} color="#6264A7" />
+              )}
+              <ViewerCard label="合計" count={viewer.counts.total} color="#a855f7" />
             </div>
           </div>
         </div>

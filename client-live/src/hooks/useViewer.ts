@@ -6,16 +6,21 @@ export interface YoutubeDetail { label: string; url: string; count: number | nul
 export interface ViewerCounts {
   youtube: number;
   jstream: number;
+  zoom: number;
+  teams: number;
   total: number;
   ytDetails: YoutubeDetail[];
   lastUpdated: Date | null;
   error: string | null;
 }
 
+const ZERO_COUNTS: ViewerCounts = {
+  youtube: 0, jstream: 0, zoom: 0, teams: 0, total: 0,
+  ytDetails: [], lastUpdated: null, error: null,
+};
+
 export function useViewer(programId: string | null, pollingIntervalSec = 10) {
-  const [counts, setCounts] = useState<ViewerCounts>({
-    youtube: 0, jstream: 0, total: 0, ytDetails: [], lastUpdated: null, error: null,
-  });
+  const [counts, setCounts] = useState<ViewerCounts>(ZERO_COUNTS);
   const [running, setRunning] = useState(false);
   const [logs, setLogs] = useState<Array<{ type: 'success' | 'error' | 'info'; message: string; time: Date }>>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -31,7 +36,6 @@ export function useViewer(programId: string | null, pollingIntervalSec = 10) {
     if (!pid) return;
 
     try {
-      // Fetch program to get youtube URLs and jstream LPID
       const progRes = await api.get(`/liveops/programs/${pid}`);
       const prog = progRes.data.data;
 
@@ -75,12 +79,52 @@ export function useViewer(programId: string | null, pollingIntervalSec = 10) {
         }
       }
 
-      const total = ytTotal + jsCount;
-      setCounts({ youtube: ytTotal, jstream: jsCount, total, ytDetails, lastUpdated: new Date(), error: null });
+      // Zoom Meeting
+      let zoomCount = 0;
+      if (prog.zoom_meeting_id) {
+        try {
+          const zRes = await api.get('/liveops/proxy/zoom', { params: { type: 'meeting', meetingId: prog.zoom_meeting_id } });
+          zoomCount += zRes.data.data.count ?? 0;
+        } catch (e: any) {
+          addLog('error', `Zoom meeting error: ${e?.response?.data?.message || e.message}`);
+        }
+      }
+      // Zoom Webinar
+      if (prog.zoom_webinar_id) {
+        try {
+          const zRes = await api.get('/liveops/proxy/zoom', { params: { type: 'webinar', webinarId: prog.zoom_webinar_id } });
+          zoomCount += zRes.data.data.count ?? 0;
+        } catch (e: any) {
+          addLog('error', `Zoom webinar error: ${e?.response?.data?.message || e.message}`);
+        }
+      }
+      if (prog.zoom_meeting_id || prog.zoom_webinar_id) {
+        addLog('success', `Zoom: ${zoomCount.toLocaleString()} participants`);
+      }
+
+      // Teams
+      let teamsCount = 0;
+      if (prog.teams_meeting_url) {
+        try {
+          const tRes = await api.get('/liveops/proxy/teams', { params: { programId: pid } });
+          teamsCount = tRes.data.data.count ?? 0;
+          addLog('success', `Teams: ${teamsCount.toLocaleString()} participants`);
+        } catch (e: any) {
+          addLog('error', `Teams error: ${e?.response?.data?.message || e.message}`);
+        }
+      }
+
+      const total = ytTotal + jsCount + zoomCount + teamsCount;
+      setCounts({
+        youtube: ytTotal, jstream: jsCount, zoom: zoomCount, teams: teamsCount,
+        total, ytDetails, lastUpdated: new Date(), error: null,
+      });
 
       // Save snapshot
       await api.post('/liveops/snapshots', {
-        programId: pid, youtubeCount: ytTotal, jstreamCount: jsCount,
+        programId: pid,
+        youtubeCount: ytTotal, jstreamCount: jsCount,
+        zoomCount, teamsCount,
         details: { ytDetails },
       }).catch(() => {});
 
@@ -107,7 +151,7 @@ export function useViewer(programId: string | null, pollingIntervalSec = 10) {
   // Reset on programId change
   useEffect(() => {
     stopPolling();
-    setCounts({ youtube: 0, jstream: 0, total: 0, ytDetails: [], lastUpdated: null, error: null });
+    setCounts(ZERO_COUNTS);
   }, [programId]);
 
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);

@@ -14,6 +14,9 @@ interface LiveProgram {
   name: string;
   jstream_lpid: string | null;
   youtube_urls: YoutubeUrl[];
+  zoom_meeting_id: string | null;
+  zoom_webinar_id: string | null;
+  teams_meeting_url: string | null;
   project_id: string | null;
   project_name?: string;
   gls_number?: string | null;
@@ -27,6 +30,9 @@ export default function ProgramsPage() {
   const [name, setName] = useState('');
   const [jstreamLpid, setJstreamLpid] = useState('');
   const [youtubeUrls, setYoutubeUrls] = useState<YoutubeUrl[]>([{ label: '', url: '' }]);
+  const [zoomMeetingId, setZoomMeetingId] = useState('');
+  const [zoomWebinarId, setZoomWebinarId] = useState('');
+  const [teamsMeetingUrl, setTeamsMeetingUrl] = useState('');
   const [saved, setSaved] = useState(false);
 
   const { data: program, isLoading } = useQuery({
@@ -42,6 +48,9 @@ export default function ProgramsPage() {
     setName(program.name);
     setJstreamLpid(program.jstream_lpid ?? '');
     setYoutubeUrls(program.youtube_urls.length > 0 ? program.youtube_urls : [{ label: '', url: '' }]);
+    setZoomMeetingId(program.zoom_meeting_id ?? '');
+    setZoomWebinarId(program.zoom_webinar_id ?? '');
+    setTeamsMeetingUrl(program.teams_meeting_url ?? '');
   }, [program]);
 
   const saveMutation = useMutation({
@@ -49,6 +58,9 @@ export default function ProgramsPage() {
       name,
       jstreamLpid: jstreamLpid || null,
       youtubeUrls: youtubeUrls.filter(u => u.url.trim()),
+      zoomMeetingId: zoomMeetingId || null,
+      zoomWebinarId: zoomWebinarId || null,
+      teamsMeetingUrl: teamsMeetingUrl || null,
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['program', programId] });
@@ -152,6 +164,40 @@ export default function ProgramsPage() {
               placeholder="例: 123456"
               disabled={!canManage}
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Zoom ミーティング ID</Label>
+            <Input
+              value={zoomMeetingId}
+              onChange={e => setZoomMeetingId(e.target.value)}
+              placeholder="例: 123 456 7890"
+              disabled={!canManage}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Zoom ウェビナー ID</Label>
+            <Input
+              value={zoomWebinarId}
+              onChange={e => setZoomWebinarId(e.target.value)}
+              placeholder="例: 987 654 3210"
+              disabled={!canManage}
+            />
+            {(zoomMeetingId || zoomWebinarId) && (
+              <p className="text-xs text-muted-foreground">両方設定すると参加者数を合算します</p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Teams 会議 URL</Label>
+            <Input
+              value={teamsMeetingUrl}
+              onChange={e => setTeamsMeetingUrl(e.target.value)}
+              placeholder="https://teams.microsoft.com/l/meetup-join/..."
+              disabled={!canManage}
+            />
+            <p className="text-xs text-muted-foreground">「会議リンクをコピー」で取得したURLを貼り付け。ミーティング・ウェビナー共通。</p>
           </div>
 
           {canManage && (

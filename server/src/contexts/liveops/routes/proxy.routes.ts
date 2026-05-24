@@ -3,13 +3,26 @@ import axios from 'axios';
 import { queryOne } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { decrypt } from '../crypto';
+import { getZoomToken } from '../zoom-token';
+import { getTeamsToken } from '../teams-token';
+import { getCount } from '../teams-subscription';
 
 const router = Router();
 const canRead  = [requireAuth, requirePermission('liveops', 'reader')] as const;
 const canWrite = [requireAuth, requirePermission('liveops', 'manager')] as const;
 
+type SettingsColumn =
+  | 'youtube_api_key_enc'
+  | 'jstream_token_enc'
+  | 'zoom_client_id_enc'
+  | 'zoom_client_secret_enc'
+  | 'zoom_account_id_enc'
+  | 'teams_client_id_enc'
+  | 'teams_client_secret_enc'
+  | 'teams_tenant_id_enc';
+
 /** APIキーを取得: 自分のキーを優先し、なければ他ユーザーのキーにフォールバック */
-async function resolveKey(userId: string, column: 'youtube_api_key_enc' | 'jstream_token_enc'): Promise<string | null> {
+async function resolveKey(userId: string, column: SettingsColumn): Promise<string | null> {
   const own = await queryOne(
     `SELECT ${column} FROM liveops_settings WHERE user_id = $1`,
     [userId]
@@ -79,6 +92,51 @@ router.get('/jstream', ...canRead, async (req, res) => {
   } catch {
     res.status(500).json({ success: false, message: 'Jstream API error' });
   }
+});
+
+/** Zoom Meeting / Webinar participant count */
+router.get('/zoom', ...canRead, async (req, res) => {
+  try {
+    const userId = (req as any).user!.id;
+    const [clientId, clientSecret, accountId] = await Promise.all([
+      resolveKey(userId, 'zoom_client_id_enc'),
+      resolveKey(userId, 'zoom_client_secret_enc'),
+      resolveKey(userId, 'zoom_account_id_enc'),
+    ]);
+    if (!clientId || !clientSecret || !accountId) {
+      return res.status(400).json({ success: false, message: 'Zoom APIキーが設定されていません。設定ページで資格情報を登録してください。' });
+    }
+
+    const token = await getZoomToken(clientId, clientSecret, accountId);
+    const { type, meetingId, webinarId } = req.query as { type?: string; meetingId?: string; webinarId?: string };
+
+    let endpoint: string;
+    if (type === 'webinar') {
+      if (!webinarId) return res.status(400).json({ success: false, message: 'webinarId required' });
+      endpoint = `https://api.zoom.us/v2/metrics/webinars/${encodeURIComponent(webinarId)}/participants?type=live`;
+    } else {
+      if (!meetingId) return res.status(400).json({ success: false, message: 'meetingId required' });
+      endpoint = `https://api.zoom.us/v2/metrics/meetings/${encodeURIComponent(meetingId)}/participants?type=live`;
+    }
+
+    const zoomRes = await axios.get(endpoint, {
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 10000,
+    });
+    const count: number = zoomRes.data?.total_count ?? 0;
+    res.json({ success: true, data: { count } });
+  } catch (err: any) {
+    const status = err?.response?.status || 500;
+    const msg = err?.response?.data?.message || 'Zoom API error';
+    res.status(status).json({ success: false, message: msg });
+  }
+});
+
+/** Teams participant count (in-memory from webhook) */
+router.get('/teams', ...canRead, async (req, res) => {
+  const { programId } = req.query as { programId?: string };
+  if (!programId) return res.status(400).json({ success: false, message: 'programId required' });
+  res.json({ success: true, data: { count: getCount(programId) } });
 });
 
 /** Singular Live — get model */
