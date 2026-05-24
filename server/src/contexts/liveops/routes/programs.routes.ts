@@ -179,7 +179,7 @@ router.put('/:id', ...canWrite, async (req, res) => {
     const oldUrl = (existing as any).teams_meeting_url;
     const newUrl = teamsMeetingUrl !== undefined ? (teamsMeetingUrl || null) : oldUrl;
     if (newUrl && newUrl !== oldUrl) {
-      trySubscribeTeams(req.params.id, newUrl, req as any);
+      trySubscribeTeams(String(req.params.id), newUrl, req as any);
     }
 
     const row = await queryOne('SELECT * FROM liveops_programs WHERE id = $1', [req.params.id]);
