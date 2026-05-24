@@ -407,7 +407,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-full bg-background text-foreground">
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-5 sm:py-8 space-y-5">
+      <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-5 sm:py-8 space-y-5">
         <DashboardHeader
           title="Qシート"
           description={`${documents?.length || 0} 件のドキュメント。タイトルで検索、新規作成、OnAir/ランダウン起動。`}

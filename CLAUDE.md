@@ -33,7 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.9.8 — PC ワイド画面最適化 (案件管理 client から着手)。スマホファースト設計のため、PC 1920+ 画面で左寄せの細いカラムに見えていた問題を是正。①**HomePage**: `max-w-6xl` (1152px) → `max-w-screen-2xl` (1536px)。ダッシュボードカードが横方向に余裕を持つ。 ②**DbBackupsPage**: `max-w-5xl` (mx-auto なし、左寄せ) → `mx-auto max-w-screen-xl` (1280px 中央)。一覧が画面中央に配置される。 ③**ProjectFormPage**: `max-w-3xl` (768px) → `max-w-5xl` (1024px)。内部の `grid-cols-1 sm:grid-cols-2` セクション (基本情報 / 担当者 / 関係先) が広い画面で 2 カラムを活かせるように。残り 6 アプリ (qsheet/equipment/interactive/techsheet/live/awards) は次バージョン以降で順次。
+v2.9.9 — PC ワイド画面最適化 第2弾 (Qシート)。`DashboardPage` の `max-w-5xl` (1024px) → `max-w-screen-2xl` (1536px) に拡張。ドキュメント一覧と検索/新規作成ヘッダーが広い画面で中央に大きく展開される。EditorPage / RundownPage / OnAirPage / PrompterPage / AudioSupportPage はそれぞれ編集・送出系の専用レイアウトで元から full-width のため変更なし。OnAir の `max-w-3xl` 中央プレビューはビデオ枠の意図的制約のため据置。
+
+(v2.9.8 — PC ワイド画面最適化 (案件管理 client から着手)。スマホファースト設計のため、PC 1920+ 画面で左寄せの細いカラムに見えていた問題を是正。①**HomePage**: `max-w-6xl` (1152px) → `max-w-screen-2xl` (1536px)。ダッシュボードカードが横方向に余裕を持つ。 ②**DbBackupsPage**: `max-w-5xl` (mx-auto なし、左寄せ) → `mx-auto max-w-screen-xl` (1280px 中央)。一覧が画面中央に配置される。 ③**ProjectFormPage**: `max-w-3xl` (768px) → `max-w-5xl` (1024px)。内部の `grid-cols-1 sm:grid-cols-2` セクション (基本情報 / 担当者 / 関係先) が広い画面で 2 カラムを活かせるように。残り 6 アプリ (qsheet/equipment/interactive/techsheet/live/awards) は次バージョン以降で順次。
 
 (v2.9.7 — クイズ正解 複数選択対応の明示 + reveal/answer-check 票数表示にベース枠 + テキスト被り防止。①**正解の複数選択明示**: ChoiceEditor の正解チェックボックスのラベルを「この選択肢が正解 (複数選択可)」に変更。UI/サーバーは元から per-choice 独立保存で排他ではないが、明示的に「複数選択可」と表記して誤解を防ぐ。 ②**票数のベース枠**: `QuizCG` ChoiceCard の右端票数を、min-width 150px / height 76px の暗金グラデ + ゴールド 2px 枠 + 内側ハイライト + glow の独立ピル枠で囲み、`Roboto Condensed 700` 56px ゴールド文字 (`#FFF4D6`) + drop-shadow で発光感を付与。 ③**テキスト被り防止**: showVotes 時のみ ChoiceCard の `padding-right` を 18px → 180px に拡張 (400ms ease transition)。これでテキスト領域が右の票数枠とぶつからず、`CondenseText` (min 0.45/0.4) の長体スケールで自動収納される。
 
