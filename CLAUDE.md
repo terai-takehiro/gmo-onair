@@ -33,7 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.9.9 — PC ワイド画面最適化 第2弾 (Qシート)。`DashboardPage` の `max-w-5xl` (1024px) → `max-w-screen-2xl` (1536px) に拡張。ドキュメント一覧と検索/新規作成ヘッダーが広い画面で中央に大きく展開される。EditorPage / RundownPage / OnAirPage / PrompterPage / AudioSupportPage はそれぞれ編集・送出系の専用レイアウトで元から full-width のため変更なし。OnAir の `max-w-3xl` 中央プレビューはビデオ枠の意図的制約のため据置。
+v2.9.10 — PC ワイド画面最適化 第3弾 (機材管理)。`RentalCategoryPage` の `max-w-lg` (512px、左寄せ) → `mx-auto max-w-2xl` (672px 中央寄せ) に修正。貸出カテゴリ管理ページが画面中央に配置される。その他のページ (DashboardPage / EquipmentListPage / EquipmentDetailPage / CablePage / ConnectorPage / LendingListPage / InventoryPage / MaintenancePage / RackLayoutPage / ColorPage / LocationPage / ManufacturerPage / ModelGroupPage / RentalSettingsPage) は元から full-width で問題なし。`ScanPage` の `max-w-2xl mx-auto` (QR スキャナ用) と `ModelGroupPage` の `DialogContent sm:max-w-sm` は意図的な制約のため据置。
+
+(v2.9.9 — PC ワイド画面最適化 第2弾 (Qシート)。`DashboardPage` の `max-w-5xl` (1024px) → `max-w-screen-2xl` (1536px) に拡張。ドキュメント一覧と検索/新規作成ヘッダーが広い画面で中央に大きく展開される。EditorPage / RundownPage / OnAirPage / PrompterPage / AudioSupportPage はそれぞれ編集・送出系の専用レイアウトで元から full-width のため変更なし。OnAir の `max-w-3xl` 中央プレビューはビデオ枠の意図的制約のため据置。
 
 (v2.9.8 — PC ワイド画面最適化 (案件管理 client から着手)。スマホファースト設計のため、PC 1920+ 画面で左寄せの細いカラムに見えていた問題を是正。①**HomePage**: `max-w-6xl` (1152px) → `max-w-screen-2xl` (1536px)。ダッシュボードカードが横方向に余裕を持つ。 ②**DbBackupsPage**: `max-w-5xl` (mx-auto なし、左寄せ) → `mx-auto max-w-screen-xl` (1280px 中央)。一覧が画面中央に配置される。 ③**ProjectFormPage**: `max-w-3xl` (768px) → `max-w-5xl` (1024px)。内部の `grid-cols-1 sm:grid-cols-2` セクション (基本情報 / 担当者 / 関係先) が広い画面で 2 カラムを活かせるように。残り 6 アプリ (qsheet/equipment/interactive/techsheet/live/awards) は次バージョン以降で順次。
 
