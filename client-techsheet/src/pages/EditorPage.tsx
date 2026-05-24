@@ -303,7 +303,7 @@ export default function EditorPage() {
 
       {/* Tab content */}
       <div className="flex-1 overflow-auto p-4 lg:p-6">
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-screen-xl mx-auto">
           {activeTab === "header" && (
             <HeaderStaffTab data={data} updateData={updateData} doc={doc} setDoc={setDoc} setDirty={setDirty} />
           )}

@@ -33,7 +33,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.9.11 — PC ワイド画面最適化 第4弾 (インタラクティブ)。4 ページを wide 向けに拡張: ①`DashboardPage` `max-w-7xl` (1280px) → `max-w-screen-2xl` (1536px)、②`LiveControlPage` `max-w-6xl` (1152px) → `max-w-screen-2xl` (1536px)、③`QuizManagerPage` `max-w-4xl` (896px) → `max-w-6xl` (1152px)、④`EventEditorPage` `max-w-4xl` (896px) → `max-w-6xl` (1152px)。Operator UI が広い画面で中央に大きく展開される。`AudiencePage` (観客スマホ用) と `OverlayPage` (OBS ブラウザソース固定サイズ) は意図的に専用レイアウトのため据置。
+v2.9.12 — PC ワイド画面最適化 第5弾 (技術資料)。`EditorPage` のタブ コンテンツ ラッパ `max-w-5xl` (1024px) → `max-w-screen-xl` (1280px) に拡張。カメラ/映像/音声/通信 シート編集領域が広い画面で 1.25× 拡大される。`DashboardPage` は `space-y-5 p-4 sm:p-6` で full-width、内部の `grid-cols-1 md:grid-cols-2 xl:grid-cols-3` カード一覧と検索の `max-w-md` は意図的なため据置。`PrintPage` の `max-w-[210mm]` は A4 用紙幅で印刷用、固定維持。
+
+(v2.9.11 — PC ワイド画面最適化 第4弾 (インタラクティブ)。4 ページを wide 向けに拡張: ①`DashboardPage` `max-w-7xl` (1280px) → `max-w-screen-2xl` (1536px)、②`LiveControlPage` `max-w-6xl` (1152px) → `max-w-screen-2xl` (1536px)、③`QuizManagerPage` `max-w-4xl` (896px) → `max-w-6xl` (1152px)、④`EventEditorPage` `max-w-4xl` (896px) → `max-w-6xl` (1152px)。Operator UI が広い画面で中央に大きく展開される。`AudiencePage` (観客スマホ用) と `OverlayPage` (OBS ブラウザソース固定サイズ) は意図的に専用レイアウトのため据置。
 
 (v2.9.10 — PC ワイド画面最適化 第3弾 (機材管理)。`RentalCategoryPage` の `max-w-lg` (512px、左寄せ) → `mx-auto max-w-2xl` (672px 中央寄せ) に修正。貸出カテゴリ管理ページが画面中央に配置される。その他のページ (DashboardPage / EquipmentListPage / EquipmentDetailPage / CablePage / ConnectorPage / LendingListPage / InventoryPage / MaintenancePage / RackLayoutPage / ColorPage / LocationPage / ManufacturerPage / ModelGroupPage / RentalSettingsPage) は元から full-width で問題なし。`ScanPage` の `max-w-2xl mx-auto` (QR スキャナ用) と `ModelGroupPage` の `DialogContent sm:max-w-sm` は意図的な制約のため据置。
 
