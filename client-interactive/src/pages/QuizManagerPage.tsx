@@ -115,7 +115,7 @@ export default function QuizManagerPage() {
   const filteredQuestions = activeTab === 'quiz' ? quizQuestions : surveyQuestions;
 
   return (
-    <div className="max-w-4xl mx-auto px-3 sm:p-4 py-4 space-y-4 sm:space-y-6 pb-12">
+    <div className="max-w-6xl mx-auto px-3 sm:p-4 py-4 space-y-4 sm:space-y-6 pb-12">
       {/* Header */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate(`/event/${eventId}`)}>

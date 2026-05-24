@@ -162,7 +162,7 @@ export default function EventEditorPage() {
   const isOpen = (key: string) => openSections.has(key);
 
   return (
-    <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 space-y-3 pb-12">
+    <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 space-y-3 pb-12">
       {/* ── Sticky Header ── */}
       <div className="flex items-center justify-between sticky top-0 z-30 bg-background/95 backdrop-blur-sm py-3 -mt-4 pt-4">
         <div className="min-w-0">

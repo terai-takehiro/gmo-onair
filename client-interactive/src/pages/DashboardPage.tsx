@@ -171,7 +171,7 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-4 sm:p-6 space-y-5 sm:space-y-6">
+    <div className="max-w-screen-2xl mx-auto px-4 py-4 sm:p-6 space-y-5 sm:space-y-6">
       <DashboardHeader
         title="イベント一覧"
         description="インタラクティブ演出イベントの作成・管理"
