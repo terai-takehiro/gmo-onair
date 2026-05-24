@@ -165,8 +165,8 @@ export default function SharedHeader({
       {onToggleSidebar && (
         <button
           onClick={onToggleSidebar}
-          className="lg:hidden flex h-10 w-10 shrink-0 items-center justify-center rounded-lg hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all"
-          aria-label="メニューを開く"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all"
+          aria-label="メニューを開閉"
           style={{ touchAction: "manipulation" }}
         >
           <Menu className="h-5 w-5" />

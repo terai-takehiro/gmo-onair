@@ -177,8 +177,8 @@ export default function Sidebar() {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[72vw] sm:w-64 flex-col border-r bg-sidebar text-sidebar-foreground transition-transform lg:static lg:translate-x-0",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          "fixed inset-y-0 left-0 z-50 flex w-[72vw] sm:w-64 flex-col border-r bg-sidebar text-sidebar-foreground transition-transform",
+          sidebarOpen ? "translate-x-0 lg:static" : "-translate-x-full"
         )}
       >
         {/* App Header */}
@@ -197,7 +197,7 @@ export default function Sidebar() {
             <span className="truncate text-sm font-bold">{appLabel}</span>
           </div>
           <button
-            className="ml-auto rounded p-1 hover:bg-sidebar-accent lg:hidden"
+            className="ml-auto rounded p-1 hover:bg-sidebar-accent"
             onClick={() => setSidebarOpen(false)}
           >
             <X className="h-5 w-5" />

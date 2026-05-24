@@ -31,8 +31,8 @@ export default function Sidebar() {
         <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
       <aside className={cn(
-        "fixed lg:static inset-y-0 left-0 z-50 flex w-[72vw] sm:w-64 flex-col border-r bg-card transition-transform lg:translate-x-0",
-        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        "fixed inset-y-0 left-0 z-50 flex w-[72vw] sm:w-64 flex-col border-r bg-card transition-transform",
+        sidebarOpen ? "translate-x-0 lg:static" : "-translate-x-full"
       )}>
         <div className="flex h-14 items-center gap-3 border-b px-3">
           <a href="/" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg hover:bg-muted" title="ONAiR ホームへ">
@@ -44,7 +44,7 @@ export default function Sidebar() {
             </div>
             <span className="truncate text-sm font-bold">技術資料</span>
           </div>
-          <button className="ml-auto lg:hidden p-1 rounded hover:bg-muted" onClick={() => setSidebarOpen(false)}>
+          <button className="ml-auto p-1 rounded hover:bg-muted" onClick={() => setSidebarOpen(false)}>
             <X className="h-5 w-5" />
           </button>
         </div>

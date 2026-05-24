@@ -49,8 +49,8 @@ export default function Sidebar({ programId }: Props) {
         <div className="fixed inset-0 z-40 bg-black/60 lg:hidden" onClick={close} />
       )}
       <aside className={cn(
-        'fixed lg:static inset-y-0 left-0 z-50 flex w-[72vw] sm:w-60 flex-col border-r border-border bg-card transition-transform lg:translate-x-0',
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        'fixed inset-y-0 left-0 z-50 flex w-[72vw] sm:w-60 flex-col border-r border-border bg-card transition-transform',
+        sidebarOpen ? 'translate-x-0 lg:static' : '-translate-x-full'
       )}>
         {/* App header */}
         <div className="flex h-14 items-center gap-2.5 border-b border-border px-3">
@@ -63,7 +63,7 @@ export default function Sidebar({ programId }: Props) {
             </div>
             <span className="truncate text-sm font-bold">計時LIVE</span>
           </div>
-          <button className="ml-auto lg:hidden p-1 rounded hover:bg-accent transition-colors" onClick={close}>
+          <button className="ml-auto p-1 rounded hover:bg-accent transition-colors" onClick={close}>
             <X className="h-4 w-4" />
           </button>
         </div>
