@@ -245,10 +245,10 @@ export default function Sidebar() {
             [
               { path: "/qsheet", label: "Qシート", Icon: FileText, module: "qsheet" },
               { path: "/equipment", label: "機材管理", Icon: Package, module: "equipment" },
-              { path: "/interactive", label: "インタラクティブ", Icon: Sparkles, module: "interactive" },
               { path: "/techsheet", label: "技術資料", Icon: BookOpen, module: "techsheet" },
               { path: "/live", label: "計時LIVE", Icon: Timer, module: "liveops" },
               { path: "/awards", label: "アワードCG", Icon: Trophy, module: "awards" },
+              { path: "https://interactive.gmo-onair.jp/", label: "インタラクティブ", Icon: Sparkles, module: "interactive", external: true },
               { path: "https://gmo-translate.jp/", label: "翻訳", Icon: Languages, module: "translate", external: true },
             ] as Array<{ path: string; label: string; Icon: React.ElementType; module: string; external?: boolean }>
           )

@@ -190,7 +190,7 @@ export default function HomePage() {
                 onClick={() => {
                   if (app.externalUrl) {
                     window.open(app.externalUrl, "_blank", "noopener,noreferrer");
-                  } else if (["equipment", "qsheet", "interactive", "techsheet", "liveops", "awards"].includes(app.id)) {
+                  } else if (["equipment", "qsheet", "techsheet", "liveops", "awards"].includes(app.id)) {
                     window.location.href = app.basePath;
                   } else {
                     navigate(app.basePath);
@@ -631,7 +631,7 @@ function PermDiagPanel() {
   const reqUserPermCount = Object.keys(reqUserPerms).length;
   const apiPermCount = apiPerms && !apiPerms._error ? Object.keys(apiPerms).length : 0;
   const ctxPermCount = Object.keys(ctxPerms).length;
-  const testModules = ["sales", "budget", "studio", "equipment", "qsheet", "techsheet", "interactive"];
+  const testModules = ["sales", "budget", "studio", "equipment", "qsheet", "techsheet"];
 
   return (
     <div className="border border-border rounded-md overflow-hidden text-xs">

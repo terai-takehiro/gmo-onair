@@ -39,12 +39,6 @@ const ALLOWED_TABLES = [
   'equipment_lendings', 'equipment_rental_categories',
   'inventory_checks', 'inventory_check_items',
   'maintenance_records',
-  // インタラクティブ
-  'interactive_events', 'interactive_sessions',
-  'interactive_stamps', 'interactive_stamp_counts',
-  'interactive_channels',
-  'interactive_questions', 'interactive_question_texts', 'interactive_answers',
-  'interactive_overlay_templates',
   // 技術資料
   'techsheet_documents',
   // ライブ運用

@@ -11,10 +11,15 @@ GLS番号を中核として全アプリのデータが紐づく。
 | 案件管理 | `client/` | `/` | 5173 | 案件・売上・仕入・損益管理 |
 | Qシート | `client-qsheet/` | `/qsheet/` | 5174 | Qシート作成・OnAir・ランダウン |
 | 機材管理 | `client-equipment/` | `/equipment/` | 5175 | 機材台帳・貸出管理 |
-| インタラクティブ | `client-interactive/` | `/interactive/` | 5176 | EventStamp・リアルタイム演出 |
 | 技術資料 | `client-techsheet/` | `/techsheet/` | 5177 | カメラ・映像・音声技術仕様書 |
 | ライブ運用 | `client-live/` | `/live/` | 5178 | 本番オペ・進行管理 |
 | 表彰CG | `client-awards/` | `/awards/` | 5179 | 表彰式CG演出・送出管理 |
+
+### 外部リンク (別 VPS / 別タブで開く)
+| アプリ | URL | 概要 |
+|---|---|---|
+| インタラクティブ | https://interactive.gmo-onair.jp/ | EventStamp・リアルタイム演出 (別 VPS) |
+| 翻訳 | https://gmo-translate.jp/ | GMO 翻訳ツール |
 
 ### 共有ライブラリ (`shared/`)
 全ブロックアプリの共通コードを集約。各アプリは設定値のみ渡すラッパーファイルで利用。
@@ -28,12 +33,14 @@ GLS番号を中核として全アプリのデータが紐づく。
 ## 技術構成
 - **フロントエンド**: React 19 + Vite 8 + TailwindCSS 4 + shadcn/ui
 - **バックエンド**: Express + PostgreSQL (pg)
-- **モノレポ**: npm workspaces (client, client-qsheet, client-equipment, client-interactive, client-techsheet, client-live, server, shared)
-- **リアルタイム**: Socket.IO (`/qsheet` ネームスペース: OnAir↔ランダウン同期, `/interactive`: スタンプ)
+- **モノレポ**: npm workspaces (client, client-qsheet, client-equipment, client-techsheet, client-live, client-awards, server, shared)
+- **リアルタイム**: Socket.IO (`/qsheet` ネームスペース: OnAir↔ランダウン同期, awards/quiz/liveops 各ネームスペース)
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.9.16 — 外部アプリ「翻訳」(https://gmo-translate.jp/) をナビゲーションに追加。Lucide の `Languages` アイコン + グリーン (`#16a34a` / `bg-green-600`) で表現し、別タブで開く外部リンクとして全 7 アプリのサイドバー「他のアプリ」セクション・ヘッダー右上の AppSwitcher (9 マスドロップダウン)・ホーム画面のアプリランチャーから到達可能に。①**shared `appNav.ts`**: `AppNavItem` に `externalUrl?: string` を追加、`ALL_APPS` に `translate` エントリ (`alwaysVisible: true` / 権限不要) を追加。 ②**全 7 アプリの Sidebar (client / client-qsheet / client-equipment / client-interactive / client-techsheet / client-live / client-awards)**: 「他のアプリ」セクションの `<a>` レンダリングで `app.externalUrl` 有りなら `target="_blank" rel="noopener noreferrer"` を付与してその URL に飛ばす。各 `ICON_MAP` に `Languages` を登録。`client/` の main Sidebar はハードコード配列だったので翻訳行を直接追加し `external: true` で同様にハンドリング。 ③**shared `AppSwitcher`**: ヘッダー右上の 9 マスドロップダウンに `translate` を追加、`externalUrl` 有りなら別タブで開く。 ④**`AuthContext` `BLOCK_APPS`**: HomePage のアプリ ランチャー グリッド用に `translate` を追加。`externalUrl` 有り → クリックで `window.open(..., "_blank", "noopener,noreferrer")` (既存ロジック)。 ⑤**HomePage AppCard**: `disabled={!hasPermission(app.id)}` を `disabled={!app.externalUrl && !hasPermission(app.id)}` に変更し、外部アプリは権限チェックを skip して常時アクセス可能に。
+v2.9.17 — インタラクティブ演出アプリを別 VPS (https://interactive.gmo-onair.jp/) に切り出し、GMO ONAiR モノレポからコード一式を削除。①**外部リンク化**: shared `appNav.ts` / `AppSwitcher.tsx` / `client/AuthContext.tsx` `BLOCK_APPS` の `interactive` エントリを `externalUrl: 'https://interactive.gmo-onair.jp/'` + `alwaysVisible: true` 化 (権限チェック skip)。各アプリのサイドバー「他のアプリ」セクション・ヘッダーの AppSwitcher・ホーム画面のアプリランチャーから別タブで開く。 ②**サーバー側削除**: `server/src/contexts/interactive/` ディレクトリ丸ごと削除。`server/src/routes/index.ts` から import + `router.use(createInteractiveRoutes())` 撤去、`server/src/app.ts` から `serveApp('/interactive', ...)` 撤去。 ③**Socket.IO 基盤の中立化**: 旧 `interactive/socket.ts` が `initSocketIO()` を export していて他全アプリ (qsheet/liveops/awards/quiz) もそれに依存していたため、CORS + transports + perMessageDeflate の foundational コードを新規 `server/src/shared/socket.ts` に抽出。`server/src/index.ts` の import 元を `./shared/socket` に切替。スタンプ用 buffer / `/interactive` namespace handler / DB flush ロジックは廃止。 ④**クライアント側削除**: `client-interactive/` ワークスペース丸ごと削除、root `package.json` の workspaces 配列 + dev/build スクリプトから除外、`package-lock.json` 関連エントリを除去。 ⑤**Dockerfile**: `client-interactive` 関連 4 行を削除 (COPY package.json / COPY src / build / COPY dist)。 ⑥**Seed 削除**: `server/src/shared/db/seed.ts` から `interactive` permission grant 4 行削除、`server/src/shared/db/seed-subapps.ts` の `interactive_events` テーブル存在チェック + 約 60 行の seed ブロック削除。 ⑦**管理画面クリーン**: `client/src/contexts/platform/pages/DataViewerPage.tsx` から 9 個の `interactive_*` テーブル名マッピング + TABLE_GROUPS の interactive group + Sparkles import を削除。`UserListPage.tsx` の `PERM_MODULES` から interactive 削除。`AuthContext.tsx` `MODULE_LABELS` からも削除。 ⑧**DB は据置**: テーブル `interactive_*` 9 個と既存データ、`user_permissions.module='interactive'` 行は本番/dev 共に**残置** (コードのみクリーンに、データは温存)。マイグレーション 013/015/017/018/020/021/022/023/024 の SQL ファイルも履歴として残す。 ⑨ナビ表記は「インタラクティブ演出 (外部)」で外部リンクである旨を明示。
+
+(v2.9.16 — 外部アプリ「翻訳」(https://gmo-translate.jp/) をナビゲーションに追加。Lucide の `Languages` アイコン + グリーン (`#16a34a` / `bg-green-600`) で表現し、別タブで開く外部リンクとして全 7 アプリのサイドバー「他のアプリ」セクション・ヘッダー右上の AppSwitcher (9 マスドロップダウン)・ホーム画面のアプリランチャーから到達可能に。①**shared `appNav.ts`**: `AppNavItem` に `externalUrl?: string` を追加、`ALL_APPS` に `translate` エントリ (`alwaysVisible: true` / 権限不要) を追加。 ②**全 7 アプリの Sidebar (client / client-qsheet / client-equipment / client-interactive / client-techsheet / client-live / client-awards)**: 「他のアプリ」セクションの `<a>` レンダリングで `app.externalUrl` 有りなら `target="_blank" rel="noopener noreferrer"` を付与してその URL に飛ばす。各 `ICON_MAP` に `Languages` を登録。`client/` の main Sidebar はハードコード配列だったので翻訳行を直接追加し `external: true` で同様にハンドリング。 ③**shared `AppSwitcher`**: ヘッダー右上の 9 マスドロップダウンに `translate` を追加、`externalUrl` 有りなら別タブで開く。 ④**`AuthContext` `BLOCK_APPS`**: HomePage のアプリ ランチャー グリッド用に `translate` を追加。`externalUrl` 有り → クリックで `window.open(..., "_blank", "noopener,noreferrer")` (既存ロジック)。 ⑤**HomePage AppCard**: `disabled={!hasPermission(app.id)}` を `disabled={!app.externalUrl && !hasPermission(app.id)}` に変更し、外部アプリは権限チェックを skip して常時アクセス可能に。
 
 (v2.9.15 — PC サイドバー開閉機能。全 7 アプリ (案件管理 / Qシート / 機材管理 / インタラクティブ / 技術資料 / ライブ運用 / 表彰CG) で PC でもサイドバーを閉じられるように。①**shared `uiStore`**: `sidebarOpen` の初期値とトグルを `localStorage.gmo_onair_sidebar_open` に永続化 (PC のみ、モバイルは毎回閉じた状態で起動)。 ②**shared `SharedHeader`**: ハンバーガーボタンから `lg:hidden` を撤去し PC でも常時表示 → 閉じた状態でクリックすれば再オープン可能。 ③**各 Sidebar.tsx (7 ファイル)**: 「`fixed lg:static ... lg:translate-x-0`」(PC では強制表示) を「`fixed transition-transform` + 開時のみ `lg:static`」に変更。閉じると PC でも `-translate-x-full` でスライドアウト + flex フローから外れて main がフル幅に拡張する。サイドバー内の X (閉じる) ボタンも `lg:hidden` を撤去し PC でも常時表示。背景の暗オーバーレイは PC では不要なので `lg:hidden` を維持 (モバイルのみ)。)
 
@@ -309,7 +316,7 @@ v2.9.16 — 外部アプリ「翻訳」(https://gmo-translate.jp/) をナビゲ�
 - **バージョン更新ルール**: プッシュする際は必ずパッチバージョンを上げる（例: v1.1.94 → v1.1.95）。以下の全箇所を同時に更新すること:
   1. `CLAUDE.md` の「現在のバージョン」
   2. ルート `package.json` の `"version"`
-  3. 各ワークスペース `package.json` の `"version"` (`client/`, `client-qsheet/`, `client-equipment/`, `client-interactive/`, `client-techsheet/`, `client-live/`, `server/`)
+  3. 各ワークスペース `package.json` の `"version"` (`client/`, `client-qsheet/`, `client-equipment/`, `client-techsheet/`, `client-live/`, `client-awards/`, `server/`)
   4. `README.md` の「現在のバージョン」＋「バージョン履歴（抜粋）」に新バージョン行を追記（本番プッシュ時は GitHub 上の README も同期更新される）
   5. コミットメッセージに `vX.X.X` を明記
   6. **プッシュ完了後、チャットでバージョン番号とデプロイ先（dev/main）をユーザーに必ず報告すること**
@@ -611,22 +618,27 @@ GMO ONAiR 全アプリを DADS v2.13 相当の設計思想・トークン・ア�
 │   └── 📁 06_納品物/
 ```
 
-## CoNoHa VPS構成 (5ブロックアプリ)
+## CoNoHa VPS構成 (6ブロックアプリ)
 ```
 CoNoHa VPS (2GB RAM)
 ├── Nginx (リバースプロキシ + SSL)
 │   ├── /              → 案件管理 (client/)
-│   ├── /qsheet/      → Qシート (client-qsheet/)
-│   ├── /equipment/   → 機材管理 (client-equipment/)
-│   ├── /interactive/  → インタラクティブ (client-interactive/ + WebSocket)
-│   └── /techsheet/   → 技術資料 (client-techsheet/)
+│   ├── /qsheet/       → Qシート (client-qsheet/)
+│   ├── /equipment/    → 機材管理 (client-equipment/)
+│   ├── /techsheet/    → 技術資料 (client-techsheet/)
+│   ├── /live/         → 計時LIVE (client-live/)
+│   └── /awards/       → 表彰CG (client-awards/)
 ├── Express サーバー (port 3000)
 │   ├── /api/v1/internal/* — 全ブロックアプリ共通API
-│   ├── Socket.IO: /qsheet, /interactive
+│   ├── Socket.IO: /qsheet, /awards, liveops, quiz
 │   └── 各ブロックアプリの静的ファイル配信
 ├── PostgreSQL 16
-│   └── 単一DB: projects, documents, equipment_items, interactive_*, techsheet_documents...
+│   └── 単一DB: projects, qsheet_documents, equipment_items, techsheet_documents, liveops_*, awards_*, ...
 └── Volume: pgdata
+
+## 別 VPS (外部リンク)
+- https://interactive.gmo-onair.jp/ — インタラクティブ演出 (EventStamp / リアルタイム)
+- https://gmo-translate.jp/ — GMO 翻訳ツール
 ```
 
 ## 完了済み
