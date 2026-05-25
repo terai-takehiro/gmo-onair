@@ -5,11 +5,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { getAccessibleApps } from "@gmo-onair/shared/src/client/appNav";
 import {
   LayoutDashboard, FilePlus, FileText, Package, Sparkles, Wrench,
-  Home, Briefcase, X, ChevronLeft, Timer, Trophy,
+  Home, Briefcase, X, ChevronLeft, Timer, Trophy, Languages,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
-  Home, Briefcase, FileText, Package, Sparkles, Wrench, Timer, Trophy,
+  Home, Briefcase, FileText, Package, Sparkles, Wrench, Timer, Trophy, Languages,
 };
 
 const navItems = [
@@ -92,9 +92,14 @@ export default function Sidebar() {
             <p className="px-3 mb-1 text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">他のアプリ</p>
             {otherApps.map((app) => {
               const Icon = ICON_MAP[app.icon] || FileText;
+              const isExternal = !!app.externalUrl;
               return (
-                <a key={app.key} href={app.path}
-                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                <a
+                  key={app.key}
+                  href={isExternal ? app.externalUrl : app.path}
+                  {...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                >
                   <Icon className="h-4 w-4 shrink-0" />
                   {app.label}
                 </a>

@@ -17,6 +17,7 @@ import {
   Users,
   Timer,
   Trophy,
+  Languages,
   type LucideIcon,
 } from "lucide-react";
 
@@ -28,6 +29,7 @@ interface AppDef {
   color: string;
   basePath: string;
   status: "active" | "coming_soon";
+  externalUrl?: string;
 }
 
 export const ONAIR_APPS: AppDef[] = [
@@ -41,6 +43,7 @@ export const ONAIR_APPS: AppDef[] = [
   { id: "techsheet",   label: "技術資料",         icon: Wrench,        color: "#0891b2", basePath: "/techsheet",   status: "active" },
   { id: "liveops",     label: "計時LIVE",         icon: Timer,         color: "#ef4444", basePath: "/live",        status: "active" },
   { id: "awards",      label: "表彰CG",           icon: Trophy,        color: "#f59e0b", basePath: "/awards",      status: "active" },
+  { id: "translate",   label: "翻訳",             icon: Languages,     color: "#16a34a", basePath: "https://gmo-translate.jp/", status: "active", externalUrl: "https://gmo-translate.jp/" },
   { id: "assign",      label: "制作支援",         icon: Users,         color: "#ea580c", basePath: "/prodsheet",   status: "coming_soon" },
 ];
 
@@ -98,12 +101,14 @@ export default function AppSwitcher({ currentApp }: AppSwitcherProps) {
         {ONAIR_APPS.map((app) => {
           const isCurrent = app.id === currentApp;
           const isDisabled = app.status === "coming_soon";
+          const isExternal = !!app.externalUrl;
           const Icon = app.icon;
 
           return (
             <a
               key={app.id}
               href={isDisabled ? undefined : app.basePath}
+              {...(isExternal && !isDisabled ? { target: "_blank", rel: "noopener noreferrer" } : {})}
               onClick={(e) => {
                 if (isDisabled) { e.preventDefault(); return; }
                 setOpen(false);

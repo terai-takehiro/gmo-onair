@@ -49,11 +49,12 @@ import {
   Clock,
   ClipboardList,
   Briefcase,
+  Languages,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   FolderKanban, PiggyBank, Calendar, Package, FileText,
-  BookOpen, Users, Truck, Sparkles, Wrench, Timer, Trophy,
+  BookOpen, Users, Truck, Sparkles, Wrench, Timer, Trophy, Languages,
 };
 
 const roleLabelMap: Record<string, string> = {
@@ -185,7 +186,7 @@ export default function HomePage() {
               <AppCard
                 key={app.id}
                 app={app}
-                disabled={!hasPermission(app.id)}
+                disabled={!app.externalUrl && !hasPermission(app.id)}
                 onClick={() => {
                   if (app.externalUrl) {
                     window.open(app.externalUrl, "_blank", "noopener,noreferrer");
