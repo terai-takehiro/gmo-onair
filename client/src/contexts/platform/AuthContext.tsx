@@ -31,10 +31,10 @@ export const BLOCK_APPS: BlockApp[] = [
   { id: "studio",      label: "カレンダー",         description: "スタジオカレンダー・ブッキング",   icon: "Calendar",     color: "bg-violet-500",  status: "active",      basePath: "/studio" },
   { id: "qsheet",      label: "Qシート",            description: "Qシート作成・OnAir・ランダウン",   icon: "FileText",     color: "bg-rose-500",    status: "active",      basePath: "/qsheet" },
   { id: "equipment",   label: "機材管理",           description: "機材台帳・貸出・メンテナンス",     icon: "Package",      color: "bg-amber-500",   status: "active",      basePath: "/equipment" },
-  { id: "interactive", label: "インタラクティブ演出", description: "スタンプ・リアルタイム演出支援",   icon: "Sparkles",     color: "bg-pink-500",    status: "active",      basePath: "/interactive" },
   { id: "techsheet",   label: "技術資料",           description: "カメラ・映像・音声技術仕様書",     icon: "BookOpen",     color: "bg-cyan-500",    status: "active",      basePath: "/techsheet" },
   { id: "liveops",     label: "計時LIVE",           description: "カウントダウン・視聴者カウンター", icon: "Timer",        color: "bg-red-500",     status: "active",      basePath: "/live" },
   { id: "awards",      label: "アワードCG",         description: "表彰式CG演出・送出管理",           icon: "Trophy",       color: "bg-yellow-500",  status: "active",      basePath: "/awards" },
+  { id: "interactive", label: "インタラクティブ演出", description: "スタンプ・リアルタイム演出支援 (外部)", icon: "Sparkles", color: "bg-pink-500", status: "active",      basePath: "https://interactive.gmo-onair.jp/", externalUrl: "https://interactive.gmo-onair.jp/" },
   { id: "translate",   label: "翻訳",               description: "GMO 翻訳ツール (外部)",            icon: "Languages",    color: "bg-green-600",   status: "active",      basePath: "https://gmo-translate.jp/", externalUrl: "https://gmo-translate.jp/" },
   { id: "assign",      label: "制作支援",           description: "スケジュール・スタッフ配置",       icon: "Users",        color: "bg-orange-500",  status: "coming_soon", basePath: "/prodsheet" },
   { id: "delivery",    label: "素材納品",           description: "VTR/素材の納品管理",               icon: "Truck",        color: "bg-teal-500",    status: "coming_soon", basePath: "/delivery" },
@@ -52,7 +52,6 @@ export const MODULE_LABELS: Record<string, string> = {
   awards: "アワードCG",
   assign: "制作支援",
   delivery: "素材納品",
-  interactive: "インタラクティブ演出",
   admin: "システム管理",
 };
 

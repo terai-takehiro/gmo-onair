@@ -54,13 +54,6 @@ export const queryKeys = {
     document:  (id: string) => ['qsheet', 'document', id] as const,
   },
 
-  // ── インタラクティブ ──────────────────────────────────────
-  interactive: {
-    events: (params?: { search?: string; status?: string }) =>
-              ['interactive', 'events', params ?? {}] as const,
-    event:  (id: string) => ['interactive', 'event', id] as const,
-  },
-
   // ── 技術資料 (TechSheet) ─────────────────────────────────
   techsheet: {
     documents: (params?: { projectId?: string; search?: string }) =>

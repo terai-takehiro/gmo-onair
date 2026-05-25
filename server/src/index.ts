@@ -7,7 +7,7 @@ import { seed } from './shared/db/seed';
 import { seedSubApps } from './shared/db/seed-subapps';
 import { seedTasks } from './shared/db/seed-tasks';
 import { ensureStaffPermissions } from './shared/db/ensure-permissions';
-import { initSocketIO, shutdownSocketIO } from './contexts/interactive/socket';
+import { initSocketIO, shutdownSocketIO } from './shared/socket';
 import { initQsheetSocketIO } from './contexts/qsheet/socket';
 import { initLiveopsSocketIO, initLiveopsServices } from './contexts/liveops';
 import { initAwardsSocketIO } from './contexts/awards';
@@ -54,7 +54,7 @@ async function main() {
     console.warn('[startup] initLiveopsServices failed:', (e as Error).message)
   );
 
-  // Socket.IO for interactive events + qsheet sync + liveops timer
+  // Socket.IO for qsheet sync + liveops timer + awards + quiz
   const io = initSocketIO(httpServer);
   initQsheetSocketIO(io);
   initLiveopsSocketIO(io);
@@ -65,7 +65,7 @@ async function main() {
   httpServer.listen(config.port, () => {
     console.log(`GMO ONAiR API running on http://localhost:${config.port}`);
     console.log(`  Environment: ${config.nodeEnv}`);
-    console.log(`  Socket.IO: enabled (interactive events, qsheet sync, liveops timer)`);
+    console.log(`  Socket.IO: enabled (qsheet sync, liveops timer, awards, quiz)`);
   });
 
   // Graceful shutdown

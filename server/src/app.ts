@@ -119,7 +119,6 @@ export function createApp(): express.Express {
 
       serveApp('/equipment', path.join(__dirname, '../../client-equipment/dist'));
       serveApp('/qsheet', path.join(__dirname, '../../client-qsheet/dist'));
-      serveApp('/interactive', path.join(__dirname, '../../client-interactive/dist'));
       serveApp('/techsheet', path.join(__dirname, '../../client-techsheet/dist'));
       serveApp('/live', path.join(__dirname, '../../client-live/dist'));
       serveApp('/awards', path.join(__dirname, '../../client-awards/dist'));
