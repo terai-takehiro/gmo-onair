@@ -40,7 +40,12 @@ export default function LoginPage() {
   const { login, loginWithToken } = useAuth();
   const [searchParams] = useSearchParams();
   const error = searchParams.get("error");
-  const redirectPath = resolveRedirect(searchParams.get("redirect"));
+  const rawRedirect = searchParams.get("redirect");
+  const redirectPath = resolveRedirect(rawRedirect);
+
+  // v2.9.17 debug: SSO redirect 動作確認用 (本問題が解決したら削除予定)
+  // eslint-disable-next-line no-console
+  console.log('[LoginPage][debug] rawRedirect=', JSON.stringify(rawRedirect), ' → resolved=', JSON.stringify(redirectPath));
 
   // Auth mode
   const { data: authMode } = useQuery({
@@ -79,6 +84,8 @@ export default function LoginPage() {
       } else {
         await loginWithToken(data.token);
         // resolveRedirect で .gmo-onair.jp 系絶対 URL も許可済み
+      // eslint-disable-next-line no-console
+      console.log('[LoginPage][debug] about to redirect to:', redirectPath || "/");
       window.location.replace(redirectPath || "/");
       }
     } catch (err: any) {
@@ -95,6 +102,8 @@ export default function LoginPage() {
     try {
       const res = await api.post("/auth/verify-2fa", { user_id: userId, code: otpCode });
       await loginWithToken(res.data.data.token);
+      // eslint-disable-next-line no-console
+      console.log('[LoginPage][debug] about to redirect to:', redirectPath || "/");
       window.location.replace(redirectPath || "/");
     } catch (err: any) {
       setFormError(err.response?.data?.error?.message || "認証コードが正しくありません");
