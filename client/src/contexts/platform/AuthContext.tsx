@@ -35,6 +35,7 @@ export const BLOCK_APPS: BlockApp[] = [
   { id: "techsheet",   label: "技術資料",           description: "カメラ・映像・音声技術仕様書",     icon: "BookOpen",     color: "bg-cyan-500",    status: "active",      basePath: "/techsheet" },
   { id: "liveops",     label: "計時LIVE",           description: "カウントダウン・視聴者カウンター", icon: "Timer",        color: "bg-red-500",     status: "active",      basePath: "/live" },
   { id: "awards",      label: "アワードCG",         description: "表彰式CG演出・送出管理",           icon: "Trophy",       color: "bg-yellow-500",  status: "active",      basePath: "/awards" },
+  { id: "translate",   label: "翻訳",               description: "GMO 翻訳ツール (外部)",            icon: "Languages",    color: "bg-green-600",   status: "active",      basePath: "https://gmo-translate.jp/", externalUrl: "https://gmo-translate.jp/" },
   { id: "assign",      label: "制作支援",           description: "スケジュール・スタッフ配置",       icon: "Users",        color: "bg-orange-500",  status: "coming_soon", basePath: "/prodsheet" },
   { id: "delivery",    label: "素材納品",           description: "VTR/素材の納品管理",               icon: "Truck",        color: "bg-teal-500",    status: "coming_soon", basePath: "/delivery" },
 ];

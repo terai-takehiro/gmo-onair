@@ -5,11 +5,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { getAccessibleApps } from '@gmo-onair/shared/src/client/appNav';
 import {
   Trophy, LayoutDashboard, ChevronLeft, X,
-  Home, Briefcase, FileText, Package, Sparkles, Wrench, Radio,
+  Home, Briefcase, FileText, Package, Sparkles, Wrench, Radio, Languages,
 } from 'lucide-react';
 
 const ICON_MAP: Record<string, React.ElementType> = {
-  Home, Briefcase, FileText, Package, Sparkles, Wrench, Radio, Trophy,
+  Home, Briefcase, FileText, Package, Sparkles, Wrench, Radio, Trophy, Languages,
 };
 
 const navItems = [
@@ -88,10 +88,12 @@ export default function Sidebar() {
             </p>
             {otherApps.map((app) => {
               const Icon = ICON_MAP[app.icon] || Trophy;
+              const isExternal = !!app.externalUrl;
               return (
                 <a
                   key={app.key}
-                  href={app.path}
+                  href={isExternal ? app.externalUrl : app.path}
+                  {...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                   className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                 >
                   <Icon className="h-4 w-4 shrink-0" />
