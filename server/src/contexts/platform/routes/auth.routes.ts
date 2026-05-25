@@ -208,11 +208,13 @@ router.post('/login', authLimiter, wrap(async (req, res) => {
   await execute('INSERT INTO login_attempts (email, ip_address, success) VALUES (?, ?, true)', [email, ip]);
   await execute('UPDATE users SET last_login_at=NOW() WHERE id=?', [user.id]);
 
-  const jwtToken = signToken({ userId: user.id, email: user.email, role: user.role });
+  const jwtToken = signToken({ userId: user.id, email: user.email, role: user.role, name: user.name });
   res.cookie('gmo_onair_token', jwtToken, {
+    domain: process.env.COOKIE_DOMAIN || undefined,
     httpOnly: true,
     secure: config.nodeEnv === 'production',
     sameSite: 'lax',
+    path: '/',
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
   const isProduction = process.env.NODE_ENV === 'production';
@@ -244,18 +246,20 @@ router.post('/verify-2fa', otpLimiter, wrap(async (req, res) => {
   // コードを使用済みに
   await execute('UPDATE verification_codes SET used_at=NOW() WHERE id=?', [vc.id]);
 
-  const user = await queryOne('SELECT id, email, role FROM users WHERE id = ? AND deleted_at IS NULL', [user_id]) as any;
+  const user = await queryOne('SELECT id, name, email, role FROM users WHERE id = ? AND deleted_at IS NULL', [user_id]) as any;
   if (!user) throw new AppError(404, 'NOT_FOUND', 'ユーザーが見つかりません');
 
   const ip = req.ip || req.socket.remoteAddress || '';
   await execute('INSERT INTO login_attempts (email, ip_address, success) VALUES (?, ?, true)', [user.email, ip]);
   await execute('UPDATE users SET last_login_at=NOW() WHERE id=?', [user.id]);
 
-  const jwtToken = signToken({ userId: user.id, email: user.email, role: user.role });
+  const jwtToken = signToken({ userId: user.id, email: user.email, role: user.role, name: user.name });
   res.cookie('gmo_onair_token', jwtToken, {
+    domain: process.env.COOKIE_DOMAIN || undefined,
     httpOnly: true,
     secure: config.nodeEnv === 'production',
     sameSite: 'lax',
+    path: '/',
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
   const isProduction = process.env.NODE_ENV === 'production';
@@ -363,6 +367,7 @@ router.post('/reset-password', requireAuth, requireRole('system_admin'), wrap(as
 // ============================================================
 router.post('/logout', (_req, res) => {
   res.clearCookie('gmo_onair_token', {
+    domain: process.env.COOKIE_DOMAIN || undefined,
     httpOnly: true,
     secure: config.nodeEnv === 'production',
     sameSite: 'lax',

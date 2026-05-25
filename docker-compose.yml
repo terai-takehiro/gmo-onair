@@ -42,7 +42,9 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       CLIENT_URL: https://gmo-onair.jp
-      ALLOWED_ORIGINS: https://gmo-onair.jp,https://www.gmo-onair.jp
+      ALLOWED_ORIGINS: https://gmo-onair.jp,https://www.gmo-onair.jp,https://interactive.gmo-onair.jp
+      # v2 SSO: cookie を .gmo-onair.jp 全体で共有 (interactive.gmo-onair.jp と相互運用)
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-.gmo-onair.jp}
       ICAL_FEED_TOKEN: ${ICAL_FEED_TOKEN:-}
       # SMS (Twilio)
       TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
@@ -89,7 +91,9 @@ services:
       # JWT_SECRET_DEV must be set in .env (no insecure fallback). Generate with: openssl rand -hex 32
       JWT_SECRET: ${JWT_SECRET_DEV:?JWT_SECRET_DEV is required (openssl rand -hex 32)}
       CLIENT_URL: https://dev.gmo-onair.jp
-      ALLOWED_ORIGINS: https://dev.gmo-onair.jp
+      ALLOWED_ORIGINS: https://dev.gmo-onair.jp,https://dev.interactive.gmo-onair.jp
+      # v2 SSO: cookie を .gmo-onair.jp 全体で共有
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN_DEV:-.gmo-onair.jp}
       # v2.5.0: dev でも本番同様の email/password 認証を有効化
       AUTH_MODE: password
       # BOX 連携 (v2.7.0+ / v2.7.10) — dev/prod で同じ親フォルダを使ってもよいし別にしてもよい
