@@ -90,6 +90,24 @@ export default function QuizCG({ quiz, cue, transparent = false, lang = 'ja' }: 
   const isShakePhase = cue.step === 'reveal' && cue.revealPhase === 0;
   const isLockPhase = (cue.step === 'reveal' && cue.revealPhase >= 1) || cue.step === 'answer-check' || cue.step === 'correct-reveal';
 
+  // v2.9.19+: reveal ステップは「3-shot フルスクリーン」レイアウト
+  // (camera 枠 + 下部 ChoicesGrid から離れ、写真 + 名前 + 数値ピル の大写しに切替)
+  if (cue.step === 'reveal') {
+    return (
+      <div style={{ position: 'absolute', inset: 0, fontFamily: "'Noto Sans JP', sans-serif" }}>
+        {!transparent && <BaseBackdrop />}
+        <RevealStage
+          choices={choices}
+          cue={cue}
+          title={title}
+          isShakePhase={isShakePhase}
+          isLockPhase={isLockPhase}
+          display={quiz.display}
+        />
+      </div>
+    );
+  }
+
   return (
     <div style={{ position: 'absolute', inset: 0, fontFamily: "'Noto Sans JP', sans-serif" }}>
       {!transparent && <BaseBackdrop />}
@@ -464,6 +482,185 @@ function VoteValueText({ value, totalVotes, display }: { value: number; totalVot
     return <>{`${pct}%`}</>;
   }
   return <>{value.toLocaleString()}</>;
+}
+
+// ─── RevealStage (v2.9.19+ : 3-shot フルスクリーン) ─────────
+// 「最優秀を決めるとき」の演出を踏襲: 写真カードを横に並べ、各カード下に
+// 数値ピル (shake = ランダム揺れ / lock = ドン!拡大) を配置。Phase 1 確定後の TAKE で
+// 親 (QuizCG) が winner step に切替えて StepOneShot のフルスクリーン演出に進む。
+function RevealStage({ choices, cue, title, isShakePhase, isLockPhase, display }: {
+  choices: QuizChoice[];
+  cue: QuizCueState;
+  title: string;
+  isShakePhase: boolean;
+  isLockPhase: boolean;
+  display: 'count' | 'percent';
+}) {
+  const totalVotes = useMemo(
+    () => choices.reduce((s, c) => s + (cue.votes?.[c.position] ?? c.vote_count), 0),
+    [choices, cue.votes]
+  );
+  const cols = Math.min(choices.length, 4);
+  return (
+    <div style={{ position: 'absolute', inset: 0 }}>
+      <style>{`
+        @keyframes qzVotePunch {
+          0%   { transform: scale(0.86); }
+          40%  { transform: scale(1.18); }
+          70%  { transform: scale(0.98); }
+          100% { transform: scale(1); }
+        }
+      `}</style>
+      {/* タイトル */}
+      <div style={{
+        position: 'absolute', top: 60, left: 80, right: 80,
+        textAlign: 'center',
+      }}>
+        <div style={{
+          fontFamily: "'Titillium Web', sans-serif",
+          fontWeight: 700, fontStyle: 'italic', fontSize: 72,
+          background: `linear-gradient(180deg, ${GOLD_BRIGHT}, ${GOLD} 50%, ${GOLD_DEEP})`,
+          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+          lineHeight: 1,
+        }}>Q</div>
+        <div style={{
+          marginTop: 14,
+          fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 900, fontSize: 56,
+          color: '#fff',
+          letterSpacing: '0.04em',
+          textShadow: '0 4px 22px rgba(0,0,0,0.85)',
+        }}>{title}</div>
+      </div>
+
+      {/* 3-shot カード列 */}
+      <div style={{
+        position: 'absolute',
+        left: 80, right: 80, top: 270, bottom: 80,
+        display: 'grid',
+        gridTemplateColumns: `repeat(${cols}, 1fr)`,
+        gap: 36,
+        alignItems: 'stretch',
+      }}>
+        {choices.map((c) => (
+          <RevealCard
+            key={c.id}
+            choice={c}
+            voteCount={cue.votes?.[c.position] ?? c.vote_count}
+            totalVotes={totalVotes}
+            isShakePhase={isShakePhase}
+            isLockPhase={isLockPhase}
+            display={display}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RevealCard({ choice, voteCount, totalVotes, isShakePhase, isLockPhase, display }: {
+  choice: QuizChoice; voteCount: number; totalVotes: number;
+  isShakePhase: boolean; isLockPhase: boolean;
+  display: 'count' | 'percent';
+}) {
+  const palette = QUIZ_COLORS[(choice.position - 1) % QUIZ_COLORS.length];
+  const name = choice.name || `選択肢${choice.position}`;
+  const company = choice.company || '';
+  const [shake, setShake] = useState<number>(voteCount);
+  useEffect(() => {
+    if (!isShakePhase) { setShake(voteCount); return; }
+    const range = Math.max(20, voteCount * 2 + 30);
+    const id = window.setInterval(() => setShake(Math.floor(Math.random() * range)), 90);
+    return () => window.clearInterval(id);
+  }, [isShakePhase, voteCount]);
+
+  return (
+    <div style={{
+      position: 'relative',
+      background: `linear-gradient(170deg, ${palette.core}, ${palette.deep})`,
+      border: '3px solid rgba(245,215,110,0.6)',
+      borderRadius: 14,
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      padding: 20,
+      boxShadow: `0 16px 50px rgba(0,0,0,0.65), 0 0 36px ${palette.glow}, inset 0 1px 0 rgba(255,255,255,0.16)`,
+      overflow: 'hidden',
+    }}>
+      {/* 写真エリア */}
+      <div style={{
+        width: '100%', aspectRatio: '1 / 1',
+        background: 'rgba(0,0,0,0.45)',
+        border: `2px solid ${GOLD}`,
+        borderRadius: 8,
+        overflow: 'hidden',
+        marginBottom: 18,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        {choice.photo_data_url ? (
+          <img src={choice.photo_data_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
+        ) : (
+          <div style={{ fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 900, fontSize: 96, color: '#fff', opacity: 0.4 }}>
+            {choice.position}
+          </div>
+        )}
+      </div>
+      {/* 名前 */}
+      <CondenseText style={{
+        fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 900, fontSize: 36,
+        color: '#fff', textShadow: '0 2px 10px rgba(0,0,0,0.8)',
+        lineHeight: 1.1, textAlign: 'center', marginBottom: 4,
+      }} min={0.45}>{name}</CondenseText>
+      {company && (
+        <CondenseText style={{
+          fontFamily: "'Noto Sans JP', sans-serif", fontSize: 22,
+          color: 'rgba(255,255,255,0.88)', letterSpacing: '0.06em',
+          textAlign: 'center', marginBottom: 18,
+        }} min={0.45}>{company}</CondenseText>
+      )}
+      <div style={{ flex: 1 }} />
+      {/* 数値ピル */}
+      <div
+        key={isLockPhase ? 'lock' : 'shake'}
+        style={{
+          width: isLockPhase ? 280 : 220,
+          height: isLockPhase ? 130 : 100,
+          padding: '0 18px',
+          boxSizing: 'border-box',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: isLockPhase
+            ? 'linear-gradient(180deg, rgba(60,44,18,1), rgba(28,18,6,1))'
+            : 'linear-gradient(180deg, rgba(38,30,16,0.96), rgba(15,10,4,0.98))',
+          border: isLockPhase ? '3px solid #FFE8A8' : '2px solid rgba(245,215,110,0.85)',
+          borderRadius: 16,
+          boxShadow: isLockPhase
+            ? '0 16px 48px rgba(0,0,0,0.75), inset 0 2px 0 rgba(255,240,180,0.5), 0 0 72px rgba(255,220,120,0.9), 0 0 24px rgba(255,200,80,0.7)'
+            : '0 10px 28px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,235,140,0.3), 0 0 28px rgba(245,215,110,0.4)',
+          overflow: 'hidden',
+          transition: 'all 420ms cubic-bezier(.2,.85,.3,1.1)',
+          animation: isLockPhase ? 'qzVotePunch 520ms cubic-bezier(.18,1.4,.4,1) both' : 'none',
+          filter: isLockPhase ? 'drop-shadow(0 0 36px rgba(255,210,100,0.6))' : 'none',
+        }}
+      >
+        <CondenseText style={{
+          fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700,
+          fontSize: isLockPhase ? 96 : 72,
+          color: '#FFF4D6',
+          textShadow: isLockPhase
+            ? '0 3px 12px rgba(0,0,0,0.9), 0 0 42px rgba(255,220,140,0.95)'
+            : '0 2px 10px rgba(0,0,0,0.85), 0 0 22px rgba(245,215,110,0.6)',
+          fontVariantNumeric: 'tabular-nums',
+          letterSpacing: '-0.02em',
+          lineHeight: 1,
+          textAlign: 'center',
+          transition: 'font-size 420ms cubic-bezier(.2,.85,.3,1.1)',
+        }} min={0.4}>
+          <VoteValueText
+            value={isShakePhase ? shake : voteCount}
+            totalVotes={totalVotes}
+            display={display}
+          />
+        </CondenseText>
+      </div>
+    </div>
+  );
 }
 
 // ─── カウントダウン ─────────────────────────────
