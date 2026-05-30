@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import type { QuizWithChoices, QuizCueState, QuizChoice } from './types';
 import { QUIZ_COLORS } from './types';
 import { CondenseText } from '@/cg/components/CondenseText';
+import CountUp from '@/cg/components/CountUp';
 
 interface Props {
   quiz: QuizWithChoices;
@@ -305,7 +306,6 @@ function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, 
   const name = choice.name || `選択肢${index}`;
   const company = choice.company || '';
   const nomTitle = choice.nomination_title || '';
-  const pct = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
   const isCorrect = !!choice.is_correct;
   const isDimmed = correctReveal && !isCorrect;
   const isHilite = correctReveal && isCorrect;
@@ -315,13 +315,18 @@ function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, 
       background: `linear-gradient(160deg, ${palette.core}, ${palette.deep})`,
       border: '2px solid rgba(245,215,110,0.55)',
       borderRadius: 8,
-      padding: showVotes ? '0 180px 0 78px' : '0 18px 0 78px',
+      // v2.9.17: padding を常に固定 (showVotes 切替で base を伸ばさない)。
+      // 右側に常に vote パネル分のスペースを確保し、reveal/answer-check 切替時に
+      // カードの形が変わらないようにする。
+      padding: '0 180px 0 78px',
       display: 'flex', flexDirection: 'column', justifyContent: 'center',
       boxShadow: `0 10px 30px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.14), 0 0 24px ${palette.glow}`,
       opacity: isDimmed ? 0.32 : 1,
       filter: isDimmed ? 'saturate(0.45)' : 'none',
-      transition: 'opacity 500ms ease, filter 500ms ease, padding 400ms ease',
+      transition: 'opacity 500ms ease, filter 500ms ease',
       animation: isHilite ? 'qzCorrectPulse 1s ease-in-out infinite' : 'none',
+      overflow: 'hidden',
+      boxSizing: 'border-box',
     }}>
       {/* 番号バッジ */}
       <div style={{
@@ -352,32 +357,50 @@ function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, 
         }} min={0.4}>{nomTitle}</CondenseText>
       )}
 
-      {/* 票数 (reveal 中のみ右端にベース枠つきで大きく表示) */}
+      {/* 票数 (reveal 中のみ表示)。v2.9.17: 固定サイズベース内に CondenseText で収め、
+          数字は CountUp で 0 → 実値に動かす (「数字が動いて TAKE で確定」演出を踏襲)。 */}
       {showVotes && (
         <div style={{
           position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)',
-          minWidth: 150, height: 76,
-          padding: '0 18px',
+          width: 156, height: 76,
+          padding: '0 14px',
+          boxSizing: 'border-box',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           background: 'linear-gradient(180deg, rgba(38,30,16,0.96), rgba(15,10,4,0.98))',
           border: '2px solid rgba(245,215,110,0.85)',
           borderRadius: 10,
           boxShadow: '0 6px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,235,140,0.25), 0 0 24px rgba(245,215,110,0.35)',
+          overflow: 'hidden',
         }}>
-          <div style={{
-            fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700, fontSize: 56,
+          <CondenseText style={{
+            fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700, fontSize: 52,
             color: '#FFF4D6',
             textShadow: '0 2px 8px rgba(0,0,0,0.85), 0 0 18px rgba(245,215,110,0.55)',
             fontVariantNumeric: 'tabular-nums',
             letterSpacing: '-0.02em',
             lineHeight: 1,
-          }}>
-            {display === 'percent' ? `${pct}%` : voteCount.toLocaleString()}
-          </div>
+            textAlign: 'center',
+          }} min={0.4}>
+            <VoteValueAnim voteCount={voteCount} totalVotes={totalVotes} display={display} animate={!correctReveal} />
+          </CondenseText>
         </div>
       )}
     </div>
   );
+}
+
+// v2.9.17: 票数 (count) or 割合 (percent) を CountUp で 0→実値に動かす。
+// correct-reveal (=確定演出) では既に reveal で動かしている前提で animate=false。
+function VoteValueAnim({ voteCount, totalVotes, display, animate }: {
+  voteCount: number; totalVotes: number; display: 'count' | 'percent'; animate: boolean;
+}) {
+  if (display === 'percent') {
+    const pct = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
+    if (!animate) return <>{`${pct}%`}</>;
+    return <><CountUp value={pct} duration={1400} />%</>;
+  }
+  if (!animate) return <>{voteCount.toLocaleString()}</>;
+  return <CountUp value={voteCount} duration={1400} />;
 }
 
 // ─── カウントダウン ─────────────────────────────
