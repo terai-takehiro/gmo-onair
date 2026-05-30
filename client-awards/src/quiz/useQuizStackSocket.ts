@@ -20,7 +20,12 @@ function getStackSocket(eventId: number): Socket {
 
 const DEFAULT = (id: number): QuizStackCue => ({
   eventId: id, currentQuizId: null, step: 'idle', pollStartedAt: null, revealPhase: 0,
+  oneshotStyle: 'classic',
 });
+
+function normStyle(v: unknown): 'classic' | 'shards' | 'spotlight' | 'slit' {
+  return v === 'shards' || v === 'spotlight' || v === 'slit' ? v : 'classic';
+}
 
 export function useQuizStackSocket(eventId: number | null) {
   const [cue, setCue] = useState<QuizStackCue>(() => DEFAULT(eventId ?? 0));
@@ -37,6 +42,7 @@ export function useQuizStackSocket(eventId: number | null) {
       step: data.step,
       pollStartedAt: data.pollStartedAt ?? null,
       revealPhase: (data.revealPhase ?? 0) as 0 | 1 | 2,
+      oneshotStyle: normStyle((data as { oneshotStyle?: unknown }).oneshotStyle),
     });
     sock.on('quizStack:sync', onSync);
     return () => {
@@ -55,6 +61,7 @@ export function useQuizStackSocket(eventId: number | null) {
         step: partial.step ?? cueRef.current.step,
         pollStartedAt: partial.pollStartedAt !== undefined ? partial.pollStartedAt : cueRef.current.pollStartedAt,
         revealPhase: partial.revealPhase ?? cueRef.current.revealPhase,
+        oneshotStyle: partial.oneshotStyle ?? cueRef.current.oneshotStyle,
       },
     };
     setCue(next);
@@ -64,6 +71,7 @@ export function useQuizStackSocket(eventId: number | null) {
       step: next.step,
       pollStartedAt: next.pollStartedAt,
       revealPhase: next.revealPhase,
+      oneshotStyle: next.oneshotStyle,
       votes: partial.votes,
     });
   }, [eventId]);

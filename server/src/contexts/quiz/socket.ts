@@ -33,11 +33,15 @@ export function initQuizSocketIO(io: Server): void {
         });
       } catch (err) { console.error('[quiz socket] stack sync error', err); }
 
+      // v2.9.18+: oneshotStyle は in-memory のみ (DB 非永続)。operator のセッション中だけ保持。
+      let lastOneshotStyle: 'classic' | 'shards' | 'spotlight' | 'slit' = 'classic';
+
       socket.on('quizStack:set', async (data: {
         currentQuizId?: number | null;
         step?: string;
         pollStartedAt?: number | null;
         revealPhase?: number;
+        oneshotStyle?: string;
         votes?: Record<string | number, number>;
       }) => {
         try {
@@ -45,6 +49,9 @@ export function initQuizSocketIO(io: Server): void {
           const pollStartedAt = typeof data.pollStartedAt === 'number' ? data.pollStartedAt : null;
           const revealPhase = Math.max(0, Math.min(2, Math.floor(data.revealPhase ?? 0)));
           const currentQuizId = typeof data.currentQuizId === 'number' ? data.currentQuizId : null;
+          if (data.oneshotStyle === 'shards' || data.oneshotStyle === 'spotlight' || data.oneshotStyle === 'slit' || data.oneshotStyle === 'classic') {
+            lastOneshotStyle = data.oneshotStyle;
+          }
 
           await execute(
             `INSERT INTO quiz_stack_state (event_id, current_quiz_id, step, poll_started_at, reveal_phase, updated_at)
@@ -78,6 +85,7 @@ export function initQuizSocketIO(io: Server): void {
             eventId: stackEventId,
             currentQuizId,
             step, pollStartedAt, revealPhase,
+            oneshotStyle: lastOneshotStyle,
             timestamp: Date.now(),
           });
         } catch (err) {

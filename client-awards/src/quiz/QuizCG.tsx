@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import type { QuizWithChoices, QuizCueState, QuizChoice } from './types';
 import { QUIZ_COLORS } from './types';
 import { CondenseText } from '@/cg/components/CondenseText';
-import CountUp from '@/cg/components/CountUp';
+import StepOneShot from '@/cg/steps/StepOneShot';
+import type { CgMappedEntry } from '@/cg/types';
 
 interface Props {
   quiz: QuizWithChoices;
@@ -55,16 +56,39 @@ export default function QuizCG({ quiz, cue, transparent = false, lang = 'ja' }: 
       (max, c) => ((cue.votes?.[c.position] ?? c.vote_count) > (cue.votes?.[max.position] ?? max.vote_count) ? c : max),
       choices[0],
     );
+    // v2.9.18+: StepOneShot (classic/shards/spotlight/slit) で大賞演出に統一
+    const mapped: CgMappedEntry = {
+      id: String(winnerPos.id),
+      rank: 1,
+      name: winnerPos.name || '',
+      nameEn: winnerPos.name_en ?? undefined,
+      company: winnerPos.company ?? '',
+      orgEn: winnerPos.company_en ?? undefined,
+      points: 0,
+      photo: winnerPos.photo_data_url ?? undefined,
+      nominationTitle: winnerPos.nomination_title ?? undefined,
+      nominationTitleEn: winnerPos.nomination_title_en ?? undefined,
+    };
+    const style = cue.oneshotStyle ?? 'classic';
     return (
       <div style={{ position: 'absolute', inset: 0, fontFamily: "'Noto Sans JP', sans-serif" }}>
         {!transparent && <BaseBackdrop />}
-        <WinnerView choice={winnerPos} title={title} lang={lang} />
+        <StepOneShot
+          entry={mapped}
+          style={style}
+          categoryChild={title}
+          lang={lang}
+          hidePoints
+        />
       </div>
     );
   }
 
   const showVotes = cue.step === 'reveal' || cue.step === 'answer-check' || cue.step === 'correct-reveal';
   const correctReveal = cue.step === 'correct-reveal';
+  // v2.9.18+: reveal step の revealPhase で 0=ランダム揺れ / 1=ドン!確定演出 を分岐
+  const isShakePhase = cue.step === 'reveal' && cue.revealPhase === 0;
+  const isLockPhase = (cue.step === 'reveal' && cue.revealPhase >= 1) || cue.step === 'answer-check' || cue.step === 'correct-reveal';
 
   return (
     <div style={{ position: 'absolute', inset: 0, fontFamily: "'Noto Sans JP', sans-serif" }}>
@@ -91,6 +115,8 @@ export default function QuizCG({ quiz, cue, transparent = false, lang = 'ja' }: 
         display={quiz.display}
         showVotes={showVotes}
         correctReveal={correctReveal}
+        isShakePhase={isShakePhase}
+        isLockPhase={isLockPhase}
       />
       {cue.step === 'poll' && (
         <Countdown
@@ -258,9 +284,10 @@ function TitleBand({ text, maxH }: { text: string; maxH: number }) {
 }
 
 // ─── 選択肢グリッド ────────────────────────────
-function ChoicesGrid({ choices, choiceCount, cue, display, showVotes, correctReveal }: {
+function ChoicesGrid({ choices, choiceCount, cue, display, showVotes, correctReveal, isShakePhase, isLockPhase }: {
   choices: QuizChoice[]; choiceCount: number; cue: QuizCueState;
   display: 'count' | 'percent'; showVotes: boolean; correctReveal: boolean;
+  isShakePhase: boolean; isLockPhase: boolean;
 }) {
   const { cols, rows } = gridForCount(choiceCount);
   const totalH = rows === 1 ? 110 : 230;
@@ -289,6 +316,7 @@ function ChoicesGrid({ choices, choiceCount, cue, display, showVotes, correctRev
             voteCount={voteCount} totalVotes={totalVotes}
             display={display} showVotes={showVotes}
             correctReveal={correctReveal}
+            isShakePhase={isShakePhase} isLockPhase={isLockPhase}
           />
         );
       })}
@@ -296,11 +324,12 @@ function ChoicesGrid({ choices, choiceCount, cue, display, showVotes, correctRev
   );
 }
 
-function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, correctReveal }: {
+function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, correctReveal, isShakePhase, isLockPhase }: {
   index: number; choice: QuizChoice;
   voteCount: number; totalVotes: number;
   display: 'count' | 'percent'; showVotes: boolean;
   correctReveal: boolean;
+  isShakePhase: boolean; isLockPhase: boolean;
 }) {
   const palette = QUIZ_COLORS[(index - 1) % QUIZ_COLORS.length];
   const name = choice.name || `選択肢${index}`;
@@ -309,6 +338,15 @@ function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, 
   const isCorrect = !!choice.is_correct;
   const isDimmed = correctReveal && !isCorrect;
   const isHilite = correctReveal && isCorrect;
+
+  // v2.9.18+: shake phase 中はランダム値を 90ms 周期で更新、lock phase で実値に。
+  const [shake, setShake] = useState<number>(voteCount);
+  useEffect(() => {
+    if (!isShakePhase) { setShake(voteCount); return; }
+    const range = Math.max(20, voteCount * 2 + 30);
+    const id = window.setInterval(() => setShake(Math.floor(Math.random() * range)), 90);
+    return () => window.clearInterval(id);
+  }, [isShakePhase, voteCount]);
   return (
     <div style={{
       position: 'relative',
@@ -357,50 +395,75 @@ function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, 
         }} min={0.4}>{nomTitle}</CondenseText>
       )}
 
-      {/* 票数 (reveal 中のみ表示)。v2.9.17: 固定サイズベース内に CondenseText で収め、
-          数字は CountUp で 0 → 実値に動かす (「数字が動いて TAKE で確定」演出を踏襲)。 */}
+      {/* 票数: v2.9.18 ドンと拡大演出
+          - shake (revealPhase=0): base サイズ (156x76 / font 48) でランダム数字が動く
+          - lock  (revealPhase>=1 or answer-check / correct-reveal): 拡大 (200x100 / font 76) + パンチ keyframe + glow burst */}
       {showVotes && (
-        <div style={{
-          position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)',
-          width: 156, height: 76,
-          padding: '0 14px',
-          boxSizing: 'border-box',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'linear-gradient(180deg, rgba(38,30,16,0.96), rgba(15,10,4,0.98))',
-          border: '2px solid rgba(245,215,110,0.85)',
-          borderRadius: 10,
-          boxShadow: '0 6px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,235,140,0.25), 0 0 24px rgba(245,215,110,0.35)',
-          overflow: 'hidden',
-        }}>
-          <CondenseText style={{
-            fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700, fontSize: 52,
-            color: '#FFF4D6',
-            textShadow: '0 2px 8px rgba(0,0,0,0.85), 0 0 18px rgba(245,215,110,0.55)',
-            fontVariantNumeric: 'tabular-nums',
-            letterSpacing: '-0.02em',
-            lineHeight: 1,
-            textAlign: 'center',
-          }} min={0.4}>
-            <VoteValueAnim voteCount={voteCount} totalVotes={totalVotes} display={display} animate={!correctReveal} />
-          </CondenseText>
-        </div>
+        <>
+          <style>{`
+            @keyframes qzVotePunch {
+              0%   { transform: translateY(-50%) scale(0.86); }
+              40%  { transform: translateY(-50%) scale(1.18); }
+              70%  { transform: translateY(-50%) scale(0.98); }
+              100% { transform: translateY(-50%) scale(1); }
+            }
+          `}</style>
+          <div
+            key={isLockPhase ? 'lock' : 'shake'}
+            style={{
+              position: 'absolute', right: isLockPhase ? -4 : 14, top: '50%',
+              transform: 'translateY(-50%)',
+              width: isLockPhase ? 200 : 156,
+              height: isLockPhase ? 100 : 76,
+              padding: isLockPhase ? '0 18px' : '0 14px',
+              boxSizing: 'border-box',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: isLockPhase
+                ? 'linear-gradient(180deg, rgba(60,44,18,1), rgba(28,18,6,1))'
+                : 'linear-gradient(180deg, rgba(38,30,16,0.96), rgba(15,10,4,0.98))',
+              border: isLockPhase ? '2.5px solid #FFE8A8' : '2px solid rgba(245,215,110,0.85)',
+              borderRadius: 12,
+              boxShadow: isLockPhase
+                ? '0 10px 36px rgba(0,0,0,0.7), inset 0 1.5px 0 rgba(255,240,180,0.45), 0 0 56px rgba(255,220,120,0.85), 0 0 18px rgba(255,200,80,0.6)'
+                : '0 6px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,235,140,0.25), 0 0 24px rgba(245,215,110,0.35)',
+              overflow: 'hidden',
+              transition: 'all 420ms cubic-bezier(.2,.85,.3,1.1)',
+              animation: isLockPhase ? 'qzVotePunch 520ms cubic-bezier(.18,1.4,.4,1) both' : 'none',
+              filter: isLockPhase ? 'drop-shadow(0 0 32px rgba(255,210,100,0.55))' : 'none',
+            }}
+          >
+            <CondenseText style={{
+              fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700,
+              fontSize: isLockPhase ? 76 : 48,
+              color: '#FFF4D6',
+              textShadow: isLockPhase
+                ? '0 2px 10px rgba(0,0,0,0.9), 0 0 32px rgba(255,220,140,0.95)'
+                : '0 2px 8px rgba(0,0,0,0.85), 0 0 18px rgba(245,215,110,0.55)',
+              fontVariantNumeric: 'tabular-nums',
+              letterSpacing: '-0.02em',
+              lineHeight: 1,
+              textAlign: 'center',
+              transition: 'font-size 420ms cubic-bezier(.2,.85,.3,1.1)',
+            }} min={0.4}>
+              <VoteValueText
+                value={isShakePhase ? shake : voteCount}
+                totalVotes={totalVotes}
+                display={display}
+              />
+            </CondenseText>
+          </div>
+        </>
       )}
     </div>
   );
 }
 
-// v2.9.17: 票数 (count) or 割合 (percent) を CountUp で 0→実値に動かす。
-// correct-reveal (=確定演出) では既に reveal で動かしている前提で animate=false。
-function VoteValueAnim({ voteCount, totalVotes, display, animate }: {
-  voteCount: number; totalVotes: number; display: 'count' | 'percent'; animate: boolean;
-}) {
+function VoteValueText({ value, totalVotes, display }: { value: number; totalVotes: number; display: 'count' | 'percent' }) {
   if (display === 'percent') {
-    const pct = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
-    if (!animate) return <>{`${pct}%`}</>;
-    return <><CountUp value={pct} duration={1400} />%</>;
+    const pct = totalVotes > 0 ? Math.round((value / totalVotes) * 100) : 0;
+    return <>{`${pct}%`}</>;
   }
-  if (!animate) return <>{voteCount.toLocaleString()}</>;
-  return <CountUp value={voteCount} duration={1400} />;
+  return <>{value.toLocaleString()}</>;
 }
 
 // ─── カウントダウン ─────────────────────────────
@@ -462,82 +525,6 @@ function Countdown({ startedAt, totalSec }: { startedAt: number | null; totalSec
     </div>
   );
 }
-
-// ─── 大賞 (1S) ─────────────────────────────────
-function WinnerView({ choice, title, lang }: { choice: QuizChoice | undefined; title: string; lang: 'ja' | 'en' }) {
-  if (!choice) return null;
-  const [show, setShow] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setShow(true), 60);
-    return () => clearTimeout(t);
-  }, []);
-  const name = lang === 'en' ? (choice.name_en || choice.name) : choice.name;
-  const company = lang === 'en' ? (choice.company_en || choice.company || '') : (choice.company || '');
-  const nomTitle = lang === 'en'
-    ? (choice.nomination_title_en || choice.nomination_title || '')
-    : (choice.nomination_title || '');
-  return (
-    <div style={{
-      position: 'absolute', inset: 0,
-      display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      background: 'radial-gradient(ellipse at center, rgba(80,40,10,0.55), rgba(0,0,0,0.85))',
-    }}>
-      <style>{`
-        @keyframes qzWinIn { from { opacity: 0; transform: translateY(40px) scale(0.92); } to { opacity: 1; transform: translateY(0) scale(1); } }
-      `}</style>
-      <div style={{
-        fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 700, fontSize: 36,
-        color: GOLD, letterSpacing: '0.1em', marginBottom: 20,
-        opacity: show ? 1 : 0, transition: 'opacity 600ms ease',
-      }}>{title}</div>
-      {choice.photo_data_url && (
-        <img src={choice.photo_data_url} alt=""
-          style={{
-            width: 480, height: 480, objectFit: 'cover',
-            border: `4px solid ${GOLD_BRIGHT}`,
-            boxShadow: `0 0 60px ${GOLD}99`,
-            opacity: show ? 1 : 0,
-            animation: show ? 'qzWinIn 900ms cubic-bezier(.2,.85,.3,1) forwards' : 'none',
-          }}/>
-      )}
-      <div style={{
-        marginTop: 30,
-        fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 900, fontSize: 100,
-        background: `linear-gradient(180deg, ${GOLD_BRIGHT}, ${GOLD} 50%, ${GOLD_DEEP})`,
-        WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-        letterSpacing: '0.06em',
-        opacity: show ? 1 : 0,
-        transform: show ? 'translateY(0)' : 'translateY(40px)',
-        transition: 'all 1000ms cubic-bezier(.2,.85,.3,1) 400ms',
-      }}>{name}</div>
-      {company && (
-        <div style={{
-          marginTop: 12, fontFamily: "'Noto Sans JP', sans-serif",
-          fontSize: 30, fontWeight: 700, color: GOLD, letterSpacing: '0.08em',
-          opacity: show ? 1 : 0, transition: 'opacity 800ms ease 600ms',
-        }}>{company}</div>
-      )}
-      {nomTitle && (
-        <div style={{
-          marginTop: 14, padding: '14px 36px',
-          background: 'linear-gradient(180deg, rgba(30,22,10,0.92), rgba(12,8,4,0.96))',
-          border: `2px solid ${GOLD_BRIGHT}`,
-          boxShadow: `0 14px 36px rgba(0,0,0,0.7), 0 0 40px ${GOLD}40`,
-          maxWidth: 1500, opacity: show ? 1 : 0,
-          transition: 'opacity 900ms ease 800ms',
-        }}>
-          <CondenseText style={{
-            fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 900, fontSize: 36,
-            color: '#fff', textShadow: '0 2px 12px rgba(0,0,0,0.85)',
-            lineHeight: 1.1, textAlign: 'center',
-          }} min={0.4}>{nomTitle}</CondenseText>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // Suppress unused import warning
 void useRef;
 
