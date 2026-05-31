@@ -76,7 +76,7 @@ export default function CGSequence({ cue, category, allCategories, eventName, ev
   // vote パターン で poll_title を使うのは final-pitch 以降のステップのみ。
   // それ以前 (title / nominees / top3) は通常通り DB の部門/賞を表示する。
   const isVote = category?.award_pattern === 'vote';
-  const usePollTitle = isVote && (stepKey === 'final-pitch' || stepKey === 'poll' || stepKey === 'vote-reveal');
+  const usePollTitle = isVote && stepKey === 'final-pitch';
   const pollTitle = lang === 'en'
     ? (category?.poll_title_en || category?.poll_title || '')
     : (category?.poll_title || '');
@@ -129,8 +129,8 @@ export default function CGSequence({ cue, category, allCategories, eventName, ev
     >
       <CGBackground transparent={transparent} />
 
-      {/* Persistent morphing header — poll / vote-reveal / final-pitch / celebration は専用レイアウトで非表示 */}
-      {stepKey !== 'poll' && stepKey !== 'vote-reveal' && stepKey !== 'final-pitch' && stepKey !== 'celebration' && (
+      {/* Persistent morphing header — final-pitch / celebration は専用レイアウトで非表示 */}
+      {stepKey !== 'final-pitch' && stepKey !== 'celebration' && (
         <PersistentHeader key={`hdr-${persistKey}`} tweaks={tweaks} stepKey={stepKey} />
       )}
 
