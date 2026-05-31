@@ -567,10 +567,10 @@ export default function EventEditorPage() {
           <button
             onClick={() => navigate(`/event/${eventId}/control`)}
             className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition-colors"
-            title="リアルタイムCG (ランキング演出) のオペレーター画面"
+            title="ランキングCG (ランキング演出) のオペレーター画面"
           >
             <Tv className="h-3.5 w-3.5" />
-            リアルタイムCG
+            ランキングCG
           </button>
         </div>
       </div>
@@ -802,7 +802,7 @@ export default function EventEditorPage() {
               operator が選択中の「次に送出する CG 内容」をリアルタイム表示。副調整室の director 用モニターに使用。
               OA (LIVE) URL とは独立して別タブ・別ブラウザソースで開けます。
             </p>
-            <div className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">リアルタイムCG NEXT</div>
+            <div className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">ランキングCG NEXT</div>
             {[
               { label: '🇯🇵 日本語', lang: 'ja' },
               { label: '🇺🇸 English', lang: 'en' },

@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.9.28 — リアルタイムCG クイズ/アンケート: 保存ボタンを 1 つに統合 (選択肢ごとの保存を廃止、上部「保存」で一括保存)、保存時に Interactive へ自動送信 (CG→Interactive)、編集画面に「Interactive から取込」(Interactive→CG) を追加して双方向連携を明示、CG の選択肢カードを名前のみ表示 (42px に拡大、会社名/ノミネートタイトルは省略)、カウントダウンは 0 で停止し次の TAKE で結果演出へ (自動遷移を廃止)。旧 v2.9.27 — クイズ/アンケート編集画面 UI をインタラクティブ演出側と整合・シンプル化。
+**現在のバージョン**: v2.9.29 — リアルタイムCG ランキングCG: vote(投票)演出を撤去(投票数手入力ダイアログ VoteSettingsDialog 削除 + 死んだ poll/vote-reveal 処理を一掃)、ただし**ファイナルピッチ演出と演出パターン分岐 (direct/vote) は存続**(vote パターンのバッジを「ファイナルピッチ」に改称)。DB/サーバーは据え置き(マイグレーション不要)。あわせて操作起動ボタン「リアルタイムCG」→「ランキングCG」に改称(アプリ名との重複を解消)。旧 v2.9.28 — クイズ/アンケート: 保存ボタンを 1 つに統合 (選択肢ごとの保存を廃止、上部「保存」で一括保存)、保存時に Interactive へ自動送信、編集画面に「Interactive から取込」を追加して双方向連携を明示、CG 選択肢カードを名前のみ表示、カウントダウンは 0 で停止し次の TAKE で結果演出へ。
 
 旧 v2.8.128: 表彰CG 投票パターン UX 刷新（オールスター感謝祭風レイアウト・大型 PinP・スライド型カウントダウン・ラスト5秒巨大表示・棒グラフ豪華化・自動 GRAND PRIX 遷移・GRAND PRIX フルスクリーン刷新）+ **余興用 3 択 Standalone Poll** を新設（表彰DB と独立、画像入稿 or 画像なしも可）
 
@@ -409,6 +409,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.9.29** | **ランキングCG: vote 演出撤去 + ファイナルピッチ存続 + ボタン名整理**: 投票演出はクイズ/アンケート側 (Interactive 実票連携) に一本化したため、ランキングCG (`/event/:id/control`) の旧「投票」UI を撤去。①`VoteSettingsDialog`(投票数手入力)+「投票」ボタンを削除。②到達不能だった poll/vote-reveal の TAKE 分岐・自動進行タイマー・`PollLiveBadge`・vote-reveal ステータス UI を一掃。③`top3 → final-pitch (3名→1名ピック)` のフロー・PICK ボタン・`StepFinalPitch` は存続。④演出パターン分岐 (`award_pattern` direct/vote) は維持(vote バッジを「ファイナルピッチ」に改称)。⑤DB/サーバーは据え置き(step CHECK・vote_count 等のカラム・vote-counts エンドポイントは未使用のまま残置、マイグレーション不要)。⑥操作起動ボタン「リアルタイムCG」→「ランキングCG」+ NEXT URL ラベルも改称(アプリ名との重複を解消)。 |
 | **v2.9.28** | **クイズ/アンケート: 保存統合 + 双方向連携 + CG 名前のみ + カウントダウン停止**: ①編集画面の保存ボタンを 1 つに統合 (選択肢ごとの保存を廃止し、上部「保存」で quiz 本体 + 全選択肢を一括保存)。②保存時に Interactive へ自動送信 (CG→Interactive、`push/:quizId`、未連携でも設定済みなら初回保存で自動作成・連携)。③編集画面に「Interactive から取込」ボタン (Interactive→CG、`pull/:quizId`) を追加し双方向を明示。④CG の選択肢カードを名前のみ表示 (42px に拡大、会社名/ノミネートタイトルを省略)。⑤poll カウントダウンが 0 になっても自動遷移せず停止し、次の TAKE で結果演出 (reveal) へ進む。 |
 | **v2.9.27** | **リアルタイムCG クイズ/アンケート編集画面 UI をインタラクティブ演出側と整合**: `client-awards` の `QuizListPage` / `QuizEditPage` を別 VPS `gmo-onair-interactive` の `QuizManagerPage` のデザインに合わせてシンプル化。一覧はクイズ/アンケートタブ + 折りたたみ作成フォーム (現タブの mode を継承) + 種別バッジ、編集は種別を下線タブ化 + 正解選択を緑チェックトグル (複数正解可) + 英語名/会社/ノミネートタイトル/票数を「詳細 (CG 表示用)」折りたたみに集約。機能・データモデル・server API・保存/連携ロジックは不変 (見た目と導線のみ)。 |
 | **v2.9.17** | **インタラクティブを別 VPS に切り出し + コードをモノレポから削除**: `https://interactive.gmo-onair.jp/` への外部リンクとしてナビ (Sidebar / AppSwitcher / HomePage) に残し、`client-interactive/` ワークスペース・`server/src/contexts/interactive/`・関連 Docker build steps・seed・DataViewer マッピング・MODULE_LABELS 等を全て削除。Socket.IO foundational コード (CORS + transports) は旧 `interactive/socket.ts` から新規 `server/src/shared/socket.ts` に抽出して中立化 (他全アプリの namespace 初期化が依存していたため)。スタンプ用 in-memory buffer + DB flush ロジックは廃止。DB の `interactive_*` 9 テーブル・既存データ・user_permissions 行は据置 (コードのみクリーン)。マイグレーション 013/015/017/018/020/021/022/023/024 の SQL ファイルは履歴として残置。 |
