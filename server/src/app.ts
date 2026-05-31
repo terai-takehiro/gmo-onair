@@ -7,6 +7,7 @@ import path from 'path';
 import { createAuthMiddleware } from './shared/middleware/auth';
 import { errorHandler } from './shared/middleware/errorHandler';
 import { createRoutes } from './routes';
+import { getAllowedOrigins } from './config';
 
 export function createApp(): express.Express {
   // Express 4.x: async ルートハンドラで throw/reject した場合に自動で next(err) を呼ぶパッチ。
@@ -52,15 +53,9 @@ export function createApp(): express.Express {
     originAgentCluster: hasHttps,
   }));
 
-  // CORS — 本番では ALLOWED_ORIGINS 必須 (config.ts で検証済み)
-  const devOrigins = isProduction ? [] : [
-    'http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175',
-    'http://localhost:5176', 'http://localhost:5177', 'http://localhost:5178', 'http://localhost:5179', 'http://localhost:3000',
-  ];
-  const configuredOrigins = [
-    ...devOrigins,
-    ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean) : []),
-  ];
+  // CORS — 本番では ALLOWED_ORIGINS 必須 (config.ts で検証済み)。
+  // 許可オリジンの構築は getAllowedOrigins() に集約 (Socket.IO と共有)。
+  const configuredOrigins = getAllowedOrigins();
   app.use(cors({
     origin: configuredOrigins.length > 0 ? configuredOrigins : false,
     credentials: true,
