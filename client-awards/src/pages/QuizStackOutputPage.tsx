@@ -29,7 +29,7 @@ export default function QuizStackOutputPage() {
     refetchInterval: 15_000,
   });
 
-  const { cue } = useQuizStackSocket(eventId || null);
+  const { cue, liveVotes } = useQuizStackSocket(eventId || null);
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
@@ -59,6 +59,13 @@ export default function QuizStackOutputPage() {
   const currentQuiz = data.quizzes.find((q) => q.id === cue.currentQuizId) ?? null;
   if (!currentQuiz) return null;
 
+  // 投票数: 通常は 15s ごとの再取得値。Interactive 連携時は poller からの
+  // リアルタイム votes (liveVotes) が現在 quiz のものなら優先してマージ。
+  const baseVotes = Object.fromEntries(currentQuiz.choices.map((c) => [c.position, c.vote_count]));
+  const votes = liveVotes && liveVotes.quizId === currentQuiz.id
+    ? { ...baseVotes, ...liveVotes.votes }
+    : baseVotes;
+
   return (
     <div ref={wrapRef} style={{ position: 'fixed', inset: 0, background: 'transparent' }}>
       <div style={{
@@ -77,7 +84,7 @@ export default function QuizStackOutputPage() {
               step: cue.step,
               pollStartedAt: cue.pollStartedAt,
               revealPhase: cue.revealPhase,
-              votes: Object.fromEntries(currentQuiz.choices.map((c) => [c.position, c.vote_count])),
+              votes,
             }}
             transparent
             lang={lang}

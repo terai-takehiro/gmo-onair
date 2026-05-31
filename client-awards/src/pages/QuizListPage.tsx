@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { ChevronLeft, Plus, Trash2, Edit3, ExternalLink, Radio, HelpCircle } from 'lucide-react';
 import { useQuizzes, useCreateQuiz, useDeleteQuiz } from '@/quiz/api';
+import InteractiveLinkPanel from '@/quiz/InteractiveLinkPanel';
 import type { CgCategory } from '@/cg/types';
 
 interface AwardsEventDetail {
@@ -78,6 +79,9 @@ export default function QuizListPage() {
           </button>
         </div>
       </div>
+
+      {/* インタラクティブ演出 連携 */}
+      <InteractiveLinkPanel eventId={eventId} />
 
       {/* 新規作成 */}
       <div className="mb-6 rounded-xl border bg-card p-4 space-y-3">

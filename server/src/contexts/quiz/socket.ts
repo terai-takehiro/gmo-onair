@@ -182,3 +182,21 @@ export function initQuizSocketIO(io: Server): void {
     });
   });
 }
+
+/**
+ * v2.9.24: Interactive (別 VPS) からのリアルタイム投票数を CG 出力に push する。
+ * poller (interactive-poller.service) が vote_count を DB 更新した後に呼ぶ。
+ *
+ * cue (step / phase / oneshotStyle) には一切触れず votes だけを流す軽量イベントなので、
+ * operator のステップ操作と競合しない。クライアント側は votes をマージ表示するだけ。
+ */
+export async function emitInteractiveVotes(io: Server, eventId: number, quizId: number): Promise<void> {
+  const choices = await queryAll(
+    `SELECT position, vote_count FROM quiz_choices WHERE quiz_id = ? ORDER BY position`,
+    [quizId],
+  );
+  const votes = Object.fromEntries(choices.map((c) => [c.position, c.vote_count]));
+  const ns = io.of('/quiz');
+  ns.to(`quizStack:${eventId}`).emit('quizStack:votes', { eventId, quizId, votes, timestamp: Date.now() });
+  ns.to(`quiz:${quizId}`).emit('quiz:votes', { quizId, votes, timestamp: Date.now() });
+}

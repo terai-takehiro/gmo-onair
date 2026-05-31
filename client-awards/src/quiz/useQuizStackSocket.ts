@@ -29,12 +29,16 @@ function normStyle(v: unknown): 'classic' | 'shards' | 'spotlight' | 'slit' {
 
 export function useQuizStackSocket(eventId: number | null) {
   const [cue, setCue] = useState<QuizStackCue>(() => DEFAULT(eventId ?? 0));
+  // v2.9.24: Interactive (別 VPS) poller からのリアルタイム投票数。
+  // { quizId, votes: {position: count} }。cue とは独立に保持し、出力側でマージする。
+  const [liveVotes, setLiveVotes] = useState<{ quizId: number; votes: Record<number, number> } | null>(null);
   const cueRef = useRef(cue);
   cueRef.current = cue;
 
   useEffect(() => {
     if (!eventId) return;
     setCue(DEFAULT(eventId));
+    setLiveVotes(null);
     const sock = getStackSocket(eventId);
     const onSync = (data: QuizStackCue) => setCue({
       eventId: data.eventId,
@@ -44,9 +48,14 @@ export function useQuizStackSocket(eventId: number | null) {
       revealPhase: (data.revealPhase ?? 0) as 0 | 1 | 2,
       oneshotStyle: normStyle((data as { oneshotStyle?: unknown }).oneshotStyle),
     });
+    const onVotes = (data: { quizId: number; votes: Record<number, number> }) => {
+      if (data && typeof data.quizId === 'number') setLiveVotes({ quizId: data.quizId, votes: data.votes ?? {} });
+    };
     sock.on('quizStack:sync', onSync);
+    sock.on('quizStack:votes', onVotes);
     return () => {
       sock.off('quizStack:sync', onSync);
+      sock.off('quizStack:votes', onVotes);
       sock.disconnect();
       socket = null; currentEventId = null;
     };
@@ -80,5 +89,5 @@ export function useQuizStackSocket(eventId: number | null) {
     sendCue({ step, ...extra });
   }, [sendCue]);
 
-  return { cue, sendCue, setStep };
+  return { cue, sendCue, setStep, liveVotes };
 }
