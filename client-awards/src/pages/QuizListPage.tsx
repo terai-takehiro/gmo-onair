@@ -5,6 +5,7 @@ import api from '@/lib/api';
 import { ChevronLeft, Plus, Trash2, Edit3, ExternalLink, Radio, HelpCircle } from 'lucide-react';
 import { useQuizzes, useCreateQuiz, useDeleteQuiz } from '@/quiz/api';
 import InteractiveLinkPanel from '@/quiz/InteractiveLinkPanel';
+import QuizInteractiveSync, { type IaQuestion } from '@/quiz/QuizInteractiveSync';
 import type { CgCategory } from '@/cg/types';
 
 interface AwardsEventDetail {
@@ -28,6 +29,21 @@ export default function QuizListPage() {
   const { data: quizzes = [] } = useQuizzes(eventId);
   const createMut = useCreateQuiz(eventId);
   const deleteMut = useDeleteQuiz(eventId);
+
+  // Interactive 連携の設定状態
+  const { data: iaLink } = useQuery({
+    queryKey: ['interactive-link', eventId],
+    queryFn: async () => (await api.get(`/quiz/events/${eventId}/interactive-link`)).data.data as { configured: boolean },
+  });
+  // 連携先 Interactive の問題一覧 (各 quiz のプルダウン候補)。連携済みのときだけ取得。
+  const { data: iaQuestions = [] } = useQuery({
+    queryKey: ['interactive-questions', eventId],
+    queryFn: async () => {
+      const res = await api.get(`/quiz/events/${eventId}/interactive-link/preview`);
+      return (res.data.data?.questions ?? []) as IaQuestion[];
+    },
+    enabled: !!iaLink?.configured,
+  });
 
   const [newTitle, setNewTitle] = useState('');
   const [newChoiceCount, setNewChoiceCount] = useState(3);
@@ -138,27 +154,40 @@ export default function QuizListPage() {
         {quizzes.map((q) => {
           const linked = event?.categories.find((c) => c.id === q.link_category_id);
           return (
-            <div key={q.id} className="rounded-lg border bg-card p-3 flex items-center gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-bold truncate">{q.title || '(タイトル未設定)'}</div>
-                <div className="text-xs text-muted-foreground truncate">
-                  {q.choice_count} 択 / {q.countdown_seconds} 秒 / 表示: {q.display === 'percent' ? '%' : '票'}
-                  {linked && ` / 連動: ${linked.name} - ${linked.description || ''}`}
+            <div key={q.id} className="rounded-lg border bg-card p-3">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-bold truncate">{q.title || '(タイトル未設定)'}</div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {q.choice_count} 択 / {q.countdown_seconds} 秒 / 表示: {q.display === 'percent' ? '%' : '票'}
+                    {linked && ` / 連動: ${linked.name} - ${linked.description || ''}`}
+                  </div>
                 </div>
+                <button
+                  onClick={() => navigate(`/event/${eventId}/quiz/${q.id}/edit`)}
+                  className="flex items-center gap-1 rounded bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700"
+                >
+                  <Edit3 className="h-3 w-3" />編集
+                </button>
+                <button
+                  onClick={() => { if (window.confirm(`「${q.title}」を削除します。よろしいですか？`)) deleteMut.mutate(q.id); }}
+                  className="flex items-center justify-center rounded p-1.5 text-red-500 hover:bg-red-50"
+                  title="削除"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
-              <button
-                onClick={() => navigate(`/event/${eventId}/quiz/${q.id}/edit`)}
-                className="flex items-center gap-1 rounded bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700"
-              >
-                <Edit3 className="h-3 w-3" />編集
-              </button>
-              <button
-                onClick={() => { if (window.confirm(`「${q.title}」を削除します。よろしいですか？`)) deleteMut.mutate(q.id); }}
-                className="flex items-center justify-center rounded p-1.5 text-red-500 hover:bg-red-50"
-                title="削除"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
+              {/* 1 問単位の Interactive 連携 (連携設定済みのときのみ) */}
+              {iaLink?.configured && (
+                <div className="mt-2 border-t border-dashed pt-2">
+                  <QuizInteractiveSync
+                    eventId={eventId}
+                    quizId={q.id}
+                    currentIqId={(q as unknown as { interactive_question_id?: string | null }).interactive_question_id ?? null}
+                    questions={iaQuestions}
+                  />
+                </div>
+              )}
             </div>
           );
         })}

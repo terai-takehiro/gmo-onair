@@ -30,6 +30,7 @@ export interface InteractiveQuestionSummary {
   type: string;
   status: string;
   correct_index: number | null;
+  correct_indices?: number[] | null;
   texts: { language_code: string; question_text: string; choices: string[] }[] | null;
   answer_count: number;
 }
@@ -96,6 +97,7 @@ export const interactiveBridge = {
       interactiveQuestionId?: string | null;
       type?: string;
       correctIndex?: number | null;
+      correctIndexes?: number[];
       texts: Array<{ lang: string; question: string; choices: string[] }>;
     }>,
   ) {

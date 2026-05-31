@@ -50,6 +50,13 @@ export default function QuizEditPage() {
 
   const onSave = async () => {
     await updateQuiz.mutateAsync(draft);
+    // v2.9.26: Interactive と連携済みの quiz は保存時に本文・選択肢・正解を自動同期。
+    // 未連携 (interactive_question_id 無し) のときは新規作成を避けるため何もしない。
+    if ((quiz as unknown as { interactive_question_id?: string | null }).interactive_question_id) {
+      try {
+        await api.post(`/quiz/events/${eventId}/interactive-link/push/${quizId}`);
+      } catch { /* 連携未設定/失敗は保存をブロックしない */ }
+    }
   };
 
   return (
@@ -112,10 +119,9 @@ export default function QuizEditPage() {
             </select>
           </Field>
           <Field label="モード">
-            <select value={draft.mode ?? 'survey'} onChange={(e) => setDraft({ ...draft, mode: e.target.value as 'survey' | 'survey-only' | 'quiz' })}
+            <select value={draft.mode ?? 'survey'} onChange={(e) => setDraft({ ...draft, mode: e.target.value as 'survey' | 'quiz' })}
               className="w-full rounded border px-2 py-1.5">
-              <option value="survey-only">アンケート (質問のみ)</option>
-              <option value="survey">アンケート (結果発表あり)</option>
+              <option value="survey">アンケート</option>
               <option value="quiz">クイズ (正解発表あり)</option>
             </select>
           </Field>
