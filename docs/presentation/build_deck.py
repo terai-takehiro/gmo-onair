@@ -45,7 +45,7 @@ PAPER      = RGBColor(0xF6, 0xF8, 0xFB)
 WHITE      = RGBColor(0xFF, 0xFF, 0xFF)
 CARD       = RGBColor(0xFF, 0xFF, 0xFF)
 
-FONT = "Meiryo"          # 日本語フォント（PowerPoint既定で安全）
+FONT = "Noto Sans JP"    # 日本語フォント（プロジェクト標準に統一）
 FONT_NUM = "Arial"
 
 EMU_IN = 914400
