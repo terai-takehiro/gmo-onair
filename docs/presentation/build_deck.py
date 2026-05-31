@@ -607,6 +607,51 @@ def screen_cg(s, x, y, w, h):
 
 # 画面モックアップを APPS の順に対応させる
 SCREENS = [screen_projects, screen_qsheet, screen_equipment, screen_techsheet, screen_live, screen_cg]
+# 実スクリーンショットのファイル名（docs/presentation/screens/ に置けば自動で差し替わる）
+SCREEN_KEYS = ["projects", "qsheet", "equipment", "techsheet", "live", "cg"]
+import os as _os
+_SCREENS_DIR = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "screens")
+
+
+def _find_shot(key):
+    for ext in (".png", ".jpg", ".jpeg", ".webp"):
+        p = _os.path.join(_SCREENS_DIR, key + ext)
+        if _os.path.exists(p):
+            return p
+    return None
+
+
+def place_screen(s, idx, cx, cy, cw, ch):
+    """実スクショがあれば cover-fit で配置、無ければベクターモックアップを描画"""
+    shot = _find_shot(SCREEN_KEYS[idx])
+    if not shot:
+        SCREENS[idx](s, cx, cy, cw, ch)
+        return False
+    try:
+        from PIL import Image
+        iw, ih = Image.open(shot).size
+    except Exception:
+        iw, ih = (1600, 1000)
+    target = cw / ch
+    src = iw / ih
+    # cover: フレームを埋めるよう、はみ出し分を crop
+    if src > target:
+        # 画像が横長 → 左右をトリミング
+        pic = s.shapes.add_picture(shot, Inches(cx), Inches(cy), height=Inches(ch))
+        over = pic.width - Inches(cw)
+        crop = (over / pic.width) / 2 if pic.width else 0
+        pic.crop_left = crop; pic.crop_right = crop
+        pic.left = Inches(cx); pic.width = Inches(cw)
+    else:
+        # 画像が縦長 → 上下をトリミング
+        pic = s.shapes.add_picture(shot, Inches(cx), Inches(cy), width=Inches(cw))
+        over = pic.height - Inches(ch)
+        crop = (over / pic.height) / 2 if pic.height else 0
+        pic.crop_top = crop; pic.crop_bottom = crop
+        pic.top = Inches(cy); pic.height = Inches(ch)
+    return True
+
+
 SCREEN_URLS = [
     "gmo-onair.jp",
     "gmo-onair.jp/qsheet/rundown",
@@ -800,9 +845,10 @@ def s_app_detail(n, idx):
     fx, fy, fw, fh = 5.7, 1.78, 6.85, 4.55
     text(s, fx, fy - 0.0, fw, 0.0, [])
     cx, cy, cw, ch = browser_frame(s, fx, fy + 0.18, fw, fh, SCREEN_URLS[idx], accent=c)
-    SCREENS[idx](s, cx, cy, cw, ch)
+    is_real = place_screen(s, idx, cx, cy, cw, ch)
+    cap = "▲ 実際の画面（" + name + "）" if is_real else "▲ 実際の画面イメージ（" + name + "）"
     text(s, fx, fy + fh + 0.24, fw, 0.3,
-         [("▲ 実際の画面イメージ（" + name + "）", 10, GRAY_LT, True)], align=PP_ALIGN.CENTER)
+         [(cap, 10, GRAY_LT, True)], align=PP_ALIGN.CENTER)
     footer(s, n)
     return s
 
@@ -821,7 +867,7 @@ def s_gallery(n):
         col = i % cols; row = i // cols
         x = gx + col*(gw + gap_x); y = gy + row*(gh + gap_y)
         cx, cy, cw, ch = browser_frame(s, x, y, gw, gh, SCREEN_URLS[i].split('/')[-1] or "onair", accent=c)
-        SCREENS[i](s, cx, cy, cw, ch)
+        place_screen(s, i, cx, cy, cw, ch)
         # キャプション
         cap = rect(s, x + 0.12, y + gh + 0.06, gw - 0.24, 0.28, fill=lc, line=None, round_=True)
         centered_label(cap, f"{name}", 10.5, c)
