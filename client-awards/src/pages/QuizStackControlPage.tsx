@@ -10,6 +10,7 @@ import type { QuizStep, QuizMode, QuizOneshotStyle } from '@/quiz/types';
 
 function nextStepFor(mode: QuizMode, hasAnswerCheck: boolean, current: QuizStep): QuizStep {
   if (mode === 'quiz') {
+    // クイズ: 出題 → [アンサーチェック] → 正解発表
     if (hasAnswerCheck) {
       if (current === 'idle') return 'poll';
       if (current === 'poll') return 'answer-check';
@@ -20,15 +21,9 @@ function nextStepFor(mode: QuizMode, hasAnswerCheck: boolean, current: QuizStep)
     if (current === 'poll') return 'correct-reveal';
     return 'idle';
   }
-  if (mode === 'survey-only') {
-    if (hasAnswerCheck) {
-      if (current === 'idle') return 'poll';
-      if (current === 'poll') return 'answer-check';
-      return 'idle';
-    }
-    if (current === 'idle') return 'poll';
-    return 'idle';
-  }
+  // アンケート (survey): 出題 → [アンサーチェック] → 結果発表 (reveal) → No.1 発表 (winner)。
+  // operator は answer-check で CLEAR して終了するか、TAKE を続けて
+  // 結果発表 → No.1 発表 の CG 専用分岐へ進める (既存挙動を踏襲)。
   if (hasAnswerCheck) {
     if (current === 'idle') return 'poll';
     if (current === 'poll') return 'answer-check';
@@ -268,7 +263,7 @@ export default function QuizStackControlPage() {
               </div>
               {currentQuiz && (
                 <div className="text-sm text-slate-300">
-                  {currentQuiz.mode === 'quiz' ? 'クイズ' : currentQuiz.mode === 'survey-only' ? 'アンケート (質問のみ)' : 'アンケート (結果発表あり)'}
+                  {currentQuiz.mode === 'quiz' ? 'クイズ' : 'アンケート'}
                   {' · '}{currentQuiz.choice_count} 択 / {currentQuiz.countdown_seconds} 秒
                 </div>
               )}
@@ -294,7 +289,7 @@ export default function QuizStackControlPage() {
               </select>
               {nextQuiz && (
                 <div className="text-sm text-amber-200/80">
-                  {nextQuiz.mode === 'quiz' ? 'クイズ' : nextQuiz.mode === 'survey-only' ? 'アンケート (質問のみ)' : 'アンケート (結果発表あり)'}
+                  {nextQuiz.mode === 'quiz' ? 'クイズ' : 'アンケート'}
                   {' · '}{nextQuiz.choice_count} 択 / {nextQuiz.countdown_seconds} 秒
                 </div>
               )}

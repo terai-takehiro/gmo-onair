@@ -1,6 +1,6 @@
 export type QuizStep = 'idle' | 'poll' | 'reveal' | 'winner' | 'answer-check' | 'correct-reveal';
 export type QuizDisplay = 'count' | 'percent';
-export type QuizMode = 'survey' | 'survey-only' | 'quiz';
+export type QuizMode = 'survey' | 'quiz';
 export type QuizOneshotStyle = 'classic' | 'shards' | 'spotlight' | 'slit';
 
 export interface QuizStackCue {
