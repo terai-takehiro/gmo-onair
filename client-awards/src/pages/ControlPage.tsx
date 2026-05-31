@@ -1,11 +1,11 @@
 import { useMemo, useEffect, useRef, useState, useCallback, Component, type ReactNode, type ErrorInfo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAwardsCue } from '@/hooks/useAwardsCue';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ExternalLink, Tv, Radio, Subtitles, Send, X, Maximize2, Minimize2, BarChart3, Vote } from 'lucide-react';
-import type { CgStep, OneshotStyle, CgCategory, CgCueState, AwardPattern, VoteDisplay } from '@/cg/types';
+import { ChevronLeft, ExternalLink, Tv, Radio, Subtitles, Send, X, Maximize2, Minimize2, Vote } from 'lucide-react';
+import type { CgStep, OneshotStyle, CgCategory, CgCueState, AwardPattern } from '@/cg/types';
 import CGFrame from '@/cg/CGFrame';
 
 // CG プレビューが mount/update でクラッシュしても operator UI 全体は維持する。
@@ -26,9 +26,8 @@ class CGErrorBoundary extends Component<{ children: ReactNode }, { err: Error | 
     return this.props.children;
   }
 }
-import { CG_W, CG_H, POLL_DURATION_MS } from '@/cg/types';
+import { CG_W, CG_H } from '@/cg/types';
 import { useFullscreen } from '@/hooks/useFullscreen';
-import VoteSettingsDialog from '@/components/VoteSettingsDialog';
 
 type PreviewLang = 'ja' | 'en' | 'both';
 
@@ -90,7 +89,6 @@ export default function ControlPage() {
 
   const { cue, sendCue, sendNextCue } = useAwardsCue(eventId);
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
-  const queryClient = useQueryClient();
   const awardGroups = useMemo(() => groupByAward(event?.categories ?? []), [event]);
   const liveCategory = event?.categories.find((c) => c.id === cue.categoryId) ?? null;
   const isLive = LIVE_STEPS.includes(cue.step);
@@ -105,9 +103,6 @@ export default function ControlPage() {
   const pattern: AwardPattern = nextCategoryRaw?.award_pattern === 'vote' ? 'vote' : 'direct';
   const STEPS = pattern === 'vote' ? STEPS_VOTE : STEPS_DIRECT;
   const liveStep = [...STEPS_DIRECT, ...STEPS_VOTE].find((s) => s.step === cue.step);
-
-  // 投票設定ダイアログ
-  const [voteDialogOpen, setVoteDialogOpen] = useState(false);
 
   // 初期: LIVE 状態を NEXT にコピー (新規イベント or リロード時)
   const initFromLiveRef = useRef(false);
@@ -143,69 +138,12 @@ export default function ControlPage() {
     });
   }, [event, nextStep, nextCategoryId, nextStyle, cue.voteDisplay, sendNextCue]);
 
-  // poll 自動復帰タイマー (30s + 3s 余韻 → top3 へ戻す)
-  // vote-reveal 自動進行タイマー (grow 完了 → winner)
-  const pollTimerRef = useRef<number | null>(null);
-  const growTimerRef = useRef<number | null>(null);
-  const cancelTimers = useCallback(() => {
-    if (pollTimerRef.current) { window.clearTimeout(pollTimerRef.current); pollTimerRef.current = null; }
-    if (growTimerRef.current) { window.clearTimeout(growTimerRef.current); growTimerRef.current = null; }
-  }, []);
-
   const take = useCallback(() => {
-    cancelTimers();
-
-    // vote-reveal: TAKE 連打で内部フェーズを進める (phase 0→1 のみ手動、1→2 は自動)
-    if (nextStep === 'vote-reveal' && cue.step === 'vote-reveal' && cue.categoryId === nextCategoryId) {
-      if (cue.revealPhase === 0) {
-        sendCue({ revealPhase: 1 });
-        // grow 完了後 (~2.6s) に winner 表示へ自動遷移
-        growTimerRef.current = window.setTimeout(() => {
-          sendCue({ revealPhase: 2 });
-        }, 2800);
-      } else if (cue.revealPhase < 2) {
-        sendCue({ revealPhase: 2 });
-      }
-      return;
-    }
-
-    // poll 中に TAKE (nextStep が poll のまま) → top3 へ手動遷移
-    // final-pitch: TAKE で ピックアップサイクル (なし→1→なし→2→なし→3→なし)
+    // final-pitch: TAKE で ピックアップ トグル (3人並び → 1番ピック、それ以外 → 3人並びに戻す)。
+    //   詳細な n 番ピックは下の PICK ボタンで revealPhase を直接指定する。
     if (nextStep === 'final-pitch' && cue.step === 'final-pitch') {
-      // operator が pick ボタンで revealPhase を直接設定する想定。
-      // ここでは TAKE 連打時にトグル (現在 picked → なし、なし → 1) 程度の動作。
       const cur = cue.revealPhase;
       sendCue({ revealPhase: cur === 0 ? 1 : 0 });
-      return;
-    }
-
-    if (nextStep === 'poll' && cue.step === 'poll') {
-      sendCue({ step: 'top3', pollStartedAt: null, revealPhase: 1 });
-      return;
-    }
-
-    // poll: TAKE でカウントダウン開始 (自動復帰は無し、operator が TAKE で進める)
-    if (nextStep === 'poll') {
-      const startedAt = Date.now();
-      sendCue({
-        step: 'poll',
-        categoryId: nextCategoryId,
-        oneshotStyle: nextStyle,
-        pollStartedAt: startedAt,
-        revealPhase: 0,
-      });
-      return;
-    }
-
-    // vote-reveal 初回 TAKE: phase=0 (shake) 開始
-    if (nextStep === 'vote-reveal') {
-      sendCue({
-        step: 'vote-reveal',
-        categoryId: nextCategoryId,
-        oneshotStyle: nextStyle,
-        pollStartedAt: null,
-        revealPhase: 0,
-      });
       return;
     }
 
@@ -216,14 +154,11 @@ export default function ControlPage() {
       pollStartedAt: null,
       revealPhase: 0,
     });
-  }, [sendCue, nextStep, nextCategoryId, nextStyle, cue.step, cue.categoryId, cue.revealPhase, cancelTimers]);
+  }, [sendCue, nextStep, nextCategoryId, nextStyle, cue.step, cue.revealPhase]);
 
   const clear = useCallback(() => {
-    cancelTimers();
     sendCue({ step: 'idle', pollStartedAt: null, revealPhase: 0 });
-  }, [sendCue, cancelTimers]);
-
-  useEffect(() => () => cancelTimers(), [cancelTimers]);
+  }, [sendCue]);
 
   // ── プレビュー / 出力用 言語選択（localStorage で永続化）
   const [previewLang, setPreviewLang] = useState<PreviewLang>(() => {
@@ -336,10 +271,6 @@ export default function ControlPage() {
     revealPhase: 0,
   }), [nextStep, nextCategoryId, nextStyle, cue.voteDisplay]);
 
-  const setVoteDisplay = useCallback((d: VoteDisplay) => {
-    sendCue({ voteDisplay: d });
-  }, [sendCue]);
-
   return (
     <div className="h-full flex flex-col bg-black text-slate-100 overflow-hidden">
 
@@ -373,16 +304,6 @@ export default function ControlPage() {
           <Radio className={cn('h-3 w-3 shrink-0', isLive && 'animate-pulse')} />
           {isLive ? 'ON AIR' : 'STANDBY'}
         </div>
-        {pattern === 'vote' && (
-          <button
-            onClick={() => setVoteDialogOpen(true)}
-            title="投票数を入力 / 表示方法を切替"
-            className="hidden sm:flex items-center gap-1.5 rounded-lg bg-amber-900/50 border border-amber-700/60 px-2.5 py-1.5 text-[10px] font-black tracking-widest uppercase text-amber-300 hover:bg-amber-800/60 transition-colors"
-          >
-            <BarChart3 className="h-3 w-3" />
-            投票
-          </button>
-        )}
         <LangPicker value={previewLang} onChange={setPreviewLang} />
         <a
           href={`/awards/output/${eventId}?lang=${previewLang}`}
@@ -545,21 +466,11 @@ export default function ControlPage() {
                     : 'bg-slate-800/40 border-slate-700/50 text-slate-300',
                 )}>
                   {pattern === 'vote' ? (
-                    <span className="inline-flex items-center gap-1"><Vote className="h-3 w-3" />投票No.1決定</span>
+                    <span className="inline-flex items-center gap-1"><Vote className="h-3 w-3" />ファイナルピッチ</span>
                   ) : (
                     <span className="inline-flex items-center gap-1"><Tv className="h-3 w-3" />No.1発表</span>
                   )}
                 </span>
-                {pattern === 'vote' && cue.step === 'vote-reveal' && (
-                  <span className="ml-auto text-amber-400">
-                    {cue.revealPhase === 0 && <>SHAKE 中 — TAKEで結果発表 (棒が伸び切ったら自動で No.1)</>}
-                    {cue.revealPhase === 1 && <>RESULT 表示中 — まもなく自動で大賞 1S へ</>}
-                    {cue.revealPhase === 2 && <>GRAND PRIX 表示中</>}
-                  </span>
-                )}
-                {pattern === 'vote' && cue.step === 'poll' && cue.pollStartedAt && (
-                  <PollLiveBadge startedAt={cue.pollStartedAt} />
-                )}
               </div>
               <StepRow steps={STEPS} liveStep={cue.step} nextStep={nextStep} onSelect={setNextStep} />
               {/* ピックアップ用ボタン (Final Pitch ステップ LIVE 中のみ表示) */}
@@ -597,32 +508,7 @@ export default function ControlPage() {
           </div>
         </div>
       </div>
-
-      <VoteSettingsDialog
-        open={voteDialogOpen}
-        category={nextCategory}
-        voteDisplay={cue.voteDisplay}
-        onChangeDisplay={setVoteDisplay}
-        onClose={() => setVoteDialogOpen(false)}
-        onSaved={() => queryClient.invalidateQueries({ queryKey: ['awards-event', eventId] })}
-      />
     </div>
-  );
-}
-
-// ── PollLiveBadge: poll 中の残り秒数を operator UI に表示 ─────
-function PollLiveBadge({ startedAt }: { startedAt: number }) {
-  const [secs, setSecs] = useState(() => Math.max(0, Math.ceil((POLL_DURATION_MS - (Date.now() - startedAt)) / 1000)));
-  useEffect(() => {
-    const tick = () => setSecs(Math.max(0, Math.ceil((POLL_DURATION_MS - (Date.now() - startedAt)) / 1000)));
-    tick();
-    const id = window.setInterval(tick, 200);
-    return () => window.clearInterval(id);
-  }, [startedAt]);
-  return (
-    <span className="ml-auto text-red-400 font-bold animate-pulse">
-      POLL: 残り {secs}s {secs === 0 && '— TAKE で結果発表へ'}
-    </span>
   );
 }
 
