@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ExternalLink, Radio, Subtitles, Trophy, Languages, Database, Maximize2, Minimize2 } from 'lucide-react';
+import { ChevronLeft, ExternalLink, Radio, Subtitles, Tv, Languages, Database, Maximize2, Minimize2 } from 'lucide-react';
 import { useFullscreen } from '@/hooks/useFullscreen';
 
 import OneShotStage from '../oneshot/OneShotStage';
@@ -444,14 +444,14 @@ export default function OneShotControlPage() {
           <Languages className="h-3 w-3" />
           英訳辞書
         </button>
-        {/* 回遊性: 同イベントの表彰CG (ランキング/大賞演出) コントロールへ直接ジャンプ */}
+        {/* 回遊性: 同イベントのリアルタイムCG (ランキング演出) コントロールへ直接ジャンプ */}
         <button
           onClick={() => navigate(`/event/${eventId}/control`)}
           className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-[10px] font-black tracking-widest uppercase text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors"
-          title="表彰CG (ランキング/大賞演出) コントロールへ"
+          title="リアルタイムCG (ランキング演出) コントロールへ"
         >
-          <Trophy className="h-3 w-3" />
-          表彰CG
+          <Tv className="h-3 w-3" />
+          リアルタイムCG
         </button>
         <div
           className={cn(

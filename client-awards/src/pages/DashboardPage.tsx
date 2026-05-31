@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { Trophy, Plus, Trash2, ExternalLink, Calendar, ChevronRight, Archive, RotateCcw } from 'lucide-react';
+import { Tv, Plus, Trash2, ExternalLink, Calendar, ChevronRight, Archive, RotateCcw } from 'lucide-react';
 
 interface AwardsEvent {
   id: number;
@@ -109,10 +109,10 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10">
-            <Trophy className="h-5 w-5 text-amber-600" />
+            <Tv className="h-5 w-5 text-amber-600" />
           </div>
           <div>
-            <h1 className="text-xl font-bold">表彰CG</h1>
+            <h1 className="text-xl font-bold">リアルタイムCG</h1>
             <p className="text-xs text-muted-foreground">イベント一覧</p>
           </div>
         </div>
@@ -241,7 +241,7 @@ export default function DashboardPage() {
                 if (e.key === 'Enter' && newName.trim()) createMutation.mutate(newName.trim());
                 if (e.key === 'Escape') { setCreating(false); setNewName(''); }
               }}
-              placeholder="例: 第10回 年間表彰式 2025"
+              placeholder="例: イベント名 2026"
               className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
             <button
@@ -267,7 +267,7 @@ export default function DashboardPage() {
         </div>
       ) : !data?.length ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <Trophy className="h-12 w-12 text-muted-foreground/30 mb-3" />
+          <Tv className="h-12 w-12 text-muted-foreground/30 mb-3" />
           <p className="text-sm font-medium text-muted-foreground">イベントがありません</p>
           <p className="text-xs text-muted-foreground/70 mt-1">「新規イベント」から作成してください</p>
         </div>
@@ -282,7 +282,7 @@ export default function DashboardPage() {
                 onClick={() => navigate(`/event/${event.id}`)}
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/10">
-                  <Trophy className="h-5 w-5 text-amber-600" />
+                  <Tv className="h-5 w-5 text-amber-600" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">

@@ -21,7 +21,7 @@ interface Props {
   moduleConfig?: EventModuleConfig;
 }
 
-// 表彰式テロップCG (1920x1080, 背景透過対応)
+// リアルタイム下位置CG (1920x1080, 背景透過対応)
 // テロップ本体: 1200×~290, 画面下中央
 //
 // レンダリング:

@@ -1,7 +1,7 @@
 /**
  * server/src/contexts/awards/services/awards-box.service.ts — v2.8.52
  *
- * アワードCG ノミネート写真の BOX ミラー保存サービス。
+ * リアルタイムCG ノミネート写真の BOX ミラー保存サービス。
  *
  * 設計方針:
  *   - ローカル `/app/uploads/awards/` を高速読み出し用キャッシュとし、

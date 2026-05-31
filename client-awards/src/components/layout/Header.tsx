@@ -8,7 +8,7 @@ export default function Header() {
   return (
     <SharedHeader
       currentApp="awards"
-      appLabel="表彰CG"
+      appLabel="リアルタイムCG"
       currentUser={currentUser}
       onLogout={logout}
       onToggleSidebar={toggleSidebar}

@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAwardsCue } from '@/hooks/useAwardsCue';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ExternalLink, Trophy, Radio, Subtitles, Send, X, Maximize2, Minimize2, BarChart3, Vote } from 'lucide-react';
+import { ChevronLeft, ExternalLink, Tv, Radio, Subtitles, Send, X, Maximize2, Minimize2, BarChart3, Vote } from 'lucide-react';
 import type { CgStep, OneshotStyle, CgCategory, CgCueState, AwardPattern, VoteDisplay } from '@/cg/types';
 import CGFrame from '@/cg/CGFrame';
 
@@ -351,8 +351,8 @@ export default function ControlPage() {
         >
           <ChevronLeft className="h-4 w-4 text-slate-300" />
         </button>
-        <Trophy className="h-4 w-4 text-amber-500 shrink-0" />
-        <span className="text-[11px] font-black text-slate-300 tracking-widest">表彰CG</span>
+        <Tv className="h-4 w-4 text-amber-500 shrink-0" />
+        <span className="text-[11px] font-black text-slate-300 tracking-widest">リアルタイムCG</span>
         {event && <span className="text-xs text-slate-400 truncate hidden sm:block">{event.name}</span>}
         <div className="flex-1" />
         {/* 回遊性: 同イベントの字幕スーパー (下部テロップ) コントロールへ直接ジャンプ */}
@@ -547,7 +547,7 @@ export default function ControlPage() {
                   {pattern === 'vote' ? (
                     <span className="inline-flex items-center gap-1"><Vote className="h-3 w-3" />投票No.1決定</span>
                   ) : (
-                    <span className="inline-flex items-center gap-1"><Trophy className="h-3 w-3" />No.1発表</span>
+                    <span className="inline-flex items-center gap-1"><Tv className="h-3 w-3" />No.1発表</span>
                   )}
                 </span>
                 {pattern === 'vote' && cue.step === 'vote-reveal' && (
@@ -657,7 +657,7 @@ function StatusBar({ isLive, liveStep, liveCategory, nextStep, nextCategory }: {
         </div>
         {liveCategory && (
           <div className="flex items-center gap-1.5 mt-1">
-            <Trophy className="h-3 w-3 text-amber-500 shrink-0" />
+            <Tv className="h-3 w-3 text-amber-500 shrink-0" />
             <span className="text-xs text-amber-400 font-semibold truncate">{liveCategory.name}</span>
             {liveCategory.description && (
               <span className="text-xs text-slate-300 truncate">/ {liveCategory.description}</span>
@@ -675,7 +675,7 @@ function StatusBar({ isLive, liveStep, liveCategory, nextStep, nextCategory }: {
         </div>
         {nextCategory && (
           <div className="flex items-center gap-1.5 mt-1">
-            <Trophy className="h-3 w-3 text-amber-500 shrink-0" />
+            <Tv className="h-3 w-3 text-amber-500 shrink-0" />
             <span className="text-xs text-amber-400 font-semibold truncate">{nextCategory.name}</span>
             {nextCategory.description && (
               <span className="text-xs text-slate-300 truncate">/ {nextCategory.description}</span>
@@ -702,7 +702,7 @@ function CategoryPanel({ awardGroups, liveCategoryId, nextCategoryId, onSelect }
       {awardGroups.map((g) => (
         <div key={g.name}>
           <div className="flex items-center gap-1.5 mb-1.5">
-            <Trophy className="h-3 w-3 text-amber-500 shrink-0" />
+            <Tv className="h-3 w-3 text-amber-500 shrink-0" />
             <span className="text-[11px] font-bold text-amber-500 tracking-wide">{g.name}</span>
           </div>
           <div className="flex flex-col gap-1 pl-4">

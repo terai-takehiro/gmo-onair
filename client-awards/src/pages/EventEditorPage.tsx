@@ -13,7 +13,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
-  Trophy, ChevronLeft, Plus, Trash2, Check, X, GripVertical, HelpCircle,
+  Tv, ChevronLeft, Plus, Trash2, Check, X, GripVertical, HelpCircle,
   Upload, RefreshCw, Shuffle, FileSpreadsheet, ExternalLink, Copy,
   ChevronDown, ChevronRight, Subtitles,
 } from 'lucide-react';
@@ -267,7 +267,7 @@ function EntryRow({
             : 'text-muted-foreground/30 hover:text-amber-500'
         )}
       >
-        <Trophy className="h-3.5 w-3.5" />
+        <Tv className="h-3.5 w-3.5" />
       </button>
       <button
         onClick={onDelete}
@@ -567,10 +567,10 @@ export default function EventEditorPage() {
           <button
             onClick={() => navigate(`/event/${eventId}/control`)}
             className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition-colors"
-            title="表彰CG (ランキング/大賞演出) のオペレーター画面"
+            title="リアルタイムCG (ランキング演出) のオペレーター画面"
           >
-            <Trophy className="h-3.5 w-3.5" />
-            表彰CG
+            <Tv className="h-3.5 w-3.5" />
+            リアルタイムCG
           </button>
         </div>
       </div>
@@ -662,7 +662,7 @@ export default function EventEditorPage() {
 
           {event.categories.length === 0 && !addingCat && (
             <div className="py-12 text-center text-muted-foreground">
-              <Trophy className="h-10 w-10 mx-auto mb-2 opacity-20" />
+              <Tv className="h-10 w-10 mx-auto mb-2 opacity-20" />
               <p className="text-sm">カテゴリがありません</p>
               <p className="text-xs mt-1 opacity-70">「賞を追加」またはExcelインポートから作成してください</p>
             </div>
@@ -768,7 +768,7 @@ export default function EventEditorPage() {
             </p>
             <p className="text-xs text-muted-foreground">
               「字幕スーパー オペレーター」と同じイベントを送出するブラウザソース URL。
-              表彰CG (ランキング/大賞演出) とは別レイヤーとして並走可能。
+              リアルタイムCG (ランキング演出) とは別レイヤーとして並走可能。
             </p>
             {[
               { label: '🇯🇵 日本語', lang: 'ja' },
@@ -802,7 +802,7 @@ export default function EventEditorPage() {
               operator が選択中の「次に送出する CG 内容」をリアルタイム表示。副調整室の director 用モニターに使用。
               OA (LIVE) URL とは独立して別タブ・別ブラウザソースで開けます。
             </p>
-            <div className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">表彰CG NEXT</div>
+            <div className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">リアルタイムCG NEXT</div>
             {[
               { label: '🇯🇵 日本語', lang: 'ja' },
               { label: '🇺🇸 English', lang: 'en' },
@@ -973,7 +973,7 @@ function SortableAwardGroupCard({ group, onUpdateAwardName, onUpdateAwardNameEn,
         <button {...listeners} {...attributes} className="cursor-grab touch-none text-amber-300 hover:text-amber-500 transition-colors shrink-0" title="ドラッグして並び替え">
           <GripVertical className="h-4 w-4" />
         </button>
-        <Trophy className="h-4 w-4 text-amber-500 shrink-0" />
+        <Tv className="h-4 w-4 text-amber-500 shrink-0" />
         <div className="flex-1 min-w-0 space-y-0.5">
           <InlineText value={group.name} onSave={onUpdateAwardName} placeholder="賞名" className="font-bold text-sm text-amber-900" />
           <InlineText value={group.nameEn ?? ''} onSave={onUpdateAwardNameEn} placeholder="賞名（英語）" className="text-xs italic text-amber-700/70" />

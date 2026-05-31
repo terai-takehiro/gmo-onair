@@ -6,11 +6,11 @@ import { getAccessibleApps } from "@gmo-onair/shared/src/client/appNav";
 import {
   LayoutDashboard, Wrench,
   Home, FileText, Package, Sparkles, Briefcase,
-  X, ChevronLeft, Timer, Trophy, Languages,
+  X, ChevronLeft, Timer, Tv, Languages,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
-  Home, Briefcase, FileText, Package, Sparkles, Wrench, Timer, Trophy, Languages,
+  Home, Briefcase, FileText, Package, Sparkles, Wrench, Timer, Tv, Languages,
 };
 
 const navItems = [

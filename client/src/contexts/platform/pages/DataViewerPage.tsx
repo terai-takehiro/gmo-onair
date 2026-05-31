@@ -38,7 +38,7 @@ import {
   Wrench,
   Camera,
   Radio,
-  Trophy,
+  Tv,
   Users as UsersIcon,
   Folder,
   Pencil,
@@ -119,11 +119,11 @@ const TABLE_LABELS: Record<string, string> = {
   liveops_settings: 'ライブ設定',
   liveops_snapshots: 'ライブスナップショット',
   liveops_timers: 'ライブタイマー',
-  // 表彰CG
-  awards_events: '表彰イベント',
-  awards_categories: '表彰カテゴリ',
-  awards_entries: '表彰エントリ',
-  awards_cue_state: '表彰CueState',
+  // リアルタイムCG
+  awards_events: 'イベント',
+  awards_categories: 'カテゴリ',
+  awards_entries: 'エントリ',
+  awards_cue_state: 'CueState',
 
   // 共通・マスター
   users: 'ユーザー',
@@ -201,8 +201,8 @@ const TABLE_GROUPS: TableGroup[] = [
   },
   {
     id: 'awards',
-    label: '表彰CG',
-    icon: Trophy,
+    label: 'リアルタイムCG',
+    icon: Tv,
     tables: ['awards_events', 'awards_categories', 'awards_entries', 'awards_cue_state'],
   },
   {

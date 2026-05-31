@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { Languages, Trophy, Filter, X, Download, Upload, Save, RotateCcw, Info } from 'lucide-react';
+import { Languages, Tv, Filter, X, Download, Upload, Save, RotateCcw, Info } from 'lucide-react';
 import {
   loadOverrides,
   saveOverrides,
@@ -127,7 +127,7 @@ export default function I18nDictDialog({ open, onClose, categories, onSaved }: P
           {/* 賞 */}
           <section>
             <div className="flex items-center gap-2 mb-3">
-              <Trophy className="h-4 w-4 text-amber-500" />
+              <Tv className="h-4 w-4 text-amber-500" />
               <h3 className="text-sm font-black tracking-widest text-slate-200 uppercase">
                 賞 · Award
                 <span className="ml-1.5 text-slate-500 font-medium">({awards.length})</span>
