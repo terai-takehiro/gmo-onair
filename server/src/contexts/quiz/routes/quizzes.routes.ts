@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { execute, queryAll, queryOne } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { interactiveBridge } from '../services/interactive-bridge.service';
 
 const router = Router();
 const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
@@ -257,6 +258,213 @@ router.delete('/quizzes/:id', wrap(async (req, res) => {
   const row = await queryOne(`DELETE FROM quizzes WHERE id = ? RETURNING id`, [id]);
   if (!row) throw new AppError(404, 'NOT_FOUND', 'quiz が見つかりません');
   res.json({ success: true });
+}));
+
+// ════════════════════════════════════════════════════════════════════
+// インタラクティブ演出 (別 VPS) 連携  — v2.9.24
+//   投票集計は Interactive 側で言語横断合算済み → poller が vote_count に反映 (別サービス)。
+//   ここでは「連携設定 (URL/APIキー/対象イベント)」と「問題本文の双方向同期」を扱う。
+// ════════════════════════════════════════════════════════════════════
+
+interface StoredLink {
+  baseUrl: string;
+  apiKeyPrefix?: string;
+  apiKeySecret: string;
+  interactiveEventId: string;
+}
+
+async function loadLink(eventId: number): Promise<StoredLink | null> {
+  const ev = await queryOne(`SELECT interactive_link FROM awards_events WHERE id = ?`, [eventId]);
+  if (!ev?.interactive_link) return null;
+  const raw = ev.interactive_link as unknown;
+  return (typeof raw === 'string' ? JSON.parse(raw) : raw) as StoredLink;
+}
+
+// 連携設定の取得 (APIキーはマスクして返す)
+router.get('/events/:eventId/interactive-link', wrap(async (req, res) => {
+  const eventId = parseInt(req.params.eventId as string);
+  const link = await loadLink(eventId);
+  res.json({
+    success: true,
+    data: link
+      ? {
+          configured: true,
+          baseUrl: link.baseUrl,
+          apiKeyPrefix: link.apiKeyPrefix ?? null,
+          interactiveEventId: link.interactiveEventId,
+        }
+      : { configured: false },
+  });
+}));
+
+// 連携設定の保存 (apiKeySecret 空欄なら既存を維持)
+router.put('/events/:eventId/interactive-link', wrap(async (req, res) => {
+  const eventId = parseInt(req.params.eventId as string);
+  const { baseUrl, interactiveEventId, apiKeySecret } = req.body ?? {};
+  if (!baseUrl || !interactiveEventId) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'baseUrl と interactiveEventId は必須です');
+  }
+  const existing = await loadLink(eventId);
+  const secret = apiKeySecret && String(apiKeySecret).trim()
+    ? String(apiKeySecret).trim()
+    : existing?.apiKeySecret;
+  if (!secret) throw new AppError(400, 'VALIDATION_ERROR', 'API キーが必要です');
+
+  const link: StoredLink = {
+    baseUrl: String(baseUrl).trim().replace(/\/+$/, ''),
+    apiKeyPrefix: secret.slice(0, 12),
+    apiKeySecret: secret,
+    interactiveEventId: String(interactiveEventId).trim(),
+  };
+  await execute(
+    `UPDATE awards_events SET interactive_link = ?::jsonb, updated_at = NOW() WHERE id = ?`,
+    [JSON.stringify(link), eventId],
+  );
+  res.json({ success: true, data: { configured: true, baseUrl: link.baseUrl, apiKeyPrefix: link.apiKeyPrefix, interactiveEventId: link.interactiveEventId } });
+}));
+
+// 連携解除
+router.delete('/events/:eventId/interactive-link', wrap(async (req, res) => {
+  const eventId = parseInt(req.params.eventId as string);
+  await execute(`UPDATE awards_events SET interactive_link = NULL, updated_at = NOW() WHERE id = ?`, [eventId]);
+  await execute(`UPDATE quizzes SET interactive_question_id = NULL WHERE event_id = ?`, [eventId]);
+  res.json({ success: true });
+}));
+
+// 連携先候補の Interactive イベント一覧 (設定 UI のプルダウン用)。
+// baseUrl + apiKey を body で受けて疎通確認も兼ねる (保存前のテストに使える)。
+router.post('/events/:eventId/interactive-link/list-events', wrap(async (req, res) => {
+  const eventId = parseInt(req.params.eventId as string);
+  const { baseUrl, apiKeySecret } = req.body ?? {};
+  const stored = await loadLink(eventId);
+  const link: StoredLink = {
+    baseUrl: (baseUrl ?? stored?.baseUrl ?? '').replace(/\/+$/, ''),
+    apiKeySecret: (apiKeySecret && String(apiKeySecret).trim()) || stored?.apiKeySecret || '',
+    interactiveEventId: stored?.interactiveEventId ?? '',
+  };
+  const events = await interactiveBridge.listEvents(link);
+  res.json({ success: true, data: events });
+}));
+
+// Interactive の問題一覧プレビュー (取込前の確認用)
+router.get('/events/:eventId/interactive-link/preview', wrap(async (req, res) => {
+  const eventId = parseInt(req.params.eventId as string);
+  const link = await loadLink(eventId);
+  if (!link) throw new AppError(400, 'NOT_CONFIGURED', '連携が未設定です');
+  const data = await interactiveBridge.listQuestions(link);
+  res.json({ success: true, data });
+}));
+
+// 取込: Interactive → Awards (問題本文・選択肢を quizzes/quiz_choices に upsert)
+router.post('/events/:eventId/interactive-link/pull', wrap(async (req, res) => {
+  const eventId = parseInt(req.params.eventId as string);
+  const link = await loadLink(eventId);
+  if (!link) throw new AppError(400, 'NOT_CONFIGURED', '連携が未設定です');
+
+  const { questions } = await interactiveBridge.listQuestions(link);
+  let created = 0;
+  let updated = 0;
+
+  for (const iq of questions ?? []) {
+    const texts = iq.texts ?? [];
+    const ja = texts.find((t) => t.language_code === 'ja') ?? texts[0];
+    const en = texts.find((t) => t.language_code === 'en');
+    const jaChoices = (ja?.choices ?? []) as string[];
+    const enChoices = (en?.choices ?? []) as string[];
+    const choiceCount = Math.max(2, Math.min(6, Math.max(jaChoices.length, enChoices.length) || 2));
+    const mode = iq.type === 'survey' ? 'survey' : 'quiz';
+
+    // 既存の紐づけ quiz を探す
+    let quiz = await queryOne(
+      `SELECT id FROM quizzes WHERE event_id = ? AND interactive_question_id = ?`,
+      [eventId, iq.id],
+    );
+
+    if (quiz) {
+      await execute(
+        `UPDATE quizzes SET question = ?, question_en = ?, choice_count = ?, mode = ?, updated_at = NOW() WHERE id = ?`,
+        [ja?.question_text ?? '', en?.question_text ?? null, choiceCount, mode, quiz.id],
+      );
+      updated++;
+    } else {
+      const maxOrder = await queryOne(
+        `SELECT COALESCE(MAX(display_order), 0) AS max FROM quizzes WHERE event_id = ?`,
+        [eventId],
+      );
+      quiz = await queryOne(
+        `INSERT INTO quizzes (event_id, title, question, question_en, choice_count, mode, display_order, interactive_question_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+        [eventId, ja?.question_text ?? '', ja?.question_text ?? '', en?.question_text ?? null,
+         choiceCount, mode, ((maxOrder?.max as number) ?? 0) + 1, iq.id],
+      );
+      await execute(`INSERT INTO quiz_cue_state (quiz_id) VALUES (?) ON CONFLICT DO NOTHING`, [quiz!.id]);
+      created++;
+    }
+
+    // 選択肢 upsert (Interactive choice_index i → Awards position i+1)。name/name_en のみ更新。
+    for (let i = 0; i < choiceCount; i++) {
+      const isCorrect = iq.correct_index !== null && iq.correct_index === i;
+      await execute(
+        `INSERT INTO quiz_choices (quiz_id, position, name, name_en, is_correct)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT (quiz_id, position)
+         DO UPDATE SET name = EXCLUDED.name, name_en = EXCLUDED.name_en, is_correct = EXCLUDED.is_correct, updated_at = NOW()`,
+        [quiz!.id, i + 1, jaChoices[i] ?? '', enChoices[i] ?? null, isCorrect],
+      );
+    }
+  }
+
+  res.json({ success: true, data: { created, updated } });
+}));
+
+// 送信: Awards → Interactive (event 内の全 quiz の本文・選択肢を Interactive に書き込む)
+router.post('/events/:eventId/interactive-link/push', wrap(async (req, res) => {
+  const eventId = parseInt(req.params.eventId as string);
+  const link = await loadLink(eventId);
+  if (!link) throw new AppError(400, 'NOT_CONFIGURED', '連携が未設定です');
+
+  const quizzes = await queryAll(
+    `SELECT * FROM quizzes WHERE event_id = ? ORDER BY display_order, id`,
+    [eventId],
+  );
+  if (!quizzes.length) {
+    return res.json({ success: true, data: { pushed: 0 } });
+  }
+
+  const payload = [];
+  for (const q of quizzes) {
+    const choices = await queryAll(
+      `SELECT position, name, name_en, is_correct FROM quiz_choices WHERE quiz_id = ? ORDER BY position`,
+      [q.id],
+    );
+    // 正解 (複数可) のうち先頭を Interactive の単一 correct_index にマップ (position-1)
+    const correct = choices.find((c) => c.is_correct);
+    payload.push({
+      _quizId: q.id as number,
+      interactiveQuestionId: (q.interactive_question_id as string | null) ?? null,
+      type: q.mode === 'quiz' ? 'quiz' : 'survey',
+      correctIndex: correct ? (correct.position as number) - 1 : null,
+      texts: [
+        { lang: 'ja', question: (q.question as string) ?? '', choices: choices.map((c) => (c.name as string) ?? '') },
+        { lang: 'en', question: (q.question_en as string) ?? '', choices: choices.map((c) => (c.name_en as string) ?? '') },
+      ],
+    });
+  }
+
+  const result = await interactiveBridge.syncQuestions(
+    link,
+    payload.map(({ interactiveQuestionId, type, correctIndex, texts }) => ({ interactiveQuestionId, type, correctIndex, texts })),
+  );
+
+  // 返ってきた interactiveQuestionId を quizzes に保存 (入力順で対応)
+  for (let i = 0; i < payload.length; i++) {
+    const iqId = result?.[i]?.interactiveQuestionId;
+    if (iqId) {
+      await execute(`UPDATE quizzes SET interactive_question_id = ? WHERE id = ?`, [iqId, payload[i]._quizId]);
+    }
+  }
+
+  res.json({ success: true, data: { pushed: payload.length } });
 }));
 
 export default router;

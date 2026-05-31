@@ -11,7 +11,7 @@ import { initSocketIO, shutdownSocketIO } from './shared/socket';
 import { initQsheetSocketIO } from './contexts/qsheet/socket';
 import { initLiveopsSocketIO, initLiveopsServices } from './contexts/liveops';
 import { initAwardsSocketIO } from './contexts/awards';
-import { initQuizSocketIO } from './contexts/quiz';
+import { initQuizSocketIO, initInteractivePoller } from './contexts/quiz';
 
 async function main() {
   await initDb();
@@ -60,6 +60,7 @@ async function main() {
   initLiveopsSocketIO(io);
   initAwardsSocketIO(io);
   initQuizSocketIO(io);
+  initInteractivePoller(io);  // v2.9.24: Interactive 投票数を CG にリアルタイム反映
   app.set('io', io);  // quiz.routes.ts等からSocket.IOにアクセスするため
 
   httpServer.listen(config.port, () => {

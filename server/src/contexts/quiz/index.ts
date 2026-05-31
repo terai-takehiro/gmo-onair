@@ -11,3 +11,4 @@ export function createQuizRoutes(): Router {
 }
 
 export { initQuizSocketIO } from './socket';
+export { initInteractivePoller, shutdownInteractivePoller } from './services/interactive-poller.service';
