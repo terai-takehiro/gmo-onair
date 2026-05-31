@@ -1092,10 +1092,11 @@ def s_safety(n):
 # ==================================================================
 def s_iteration(n):
     s = slide(); bg(s)
-    page_header(s, "CONTINUOUS IMPROVEMENT", "小さく速く、止まらない改善", num=n)
-    text(s, 0.85, 1.7, 11.6, 0.6,
-         [[("対話のたびにバージョンが1つ進む。", 14, INK, True),
-           ("数百回の小さな改善の積み重ねが“現場で本当に使える”アプリをつくる。", 14, GRAY, False)]],
+    page_header(s, "DEVELOPMENT CADENCE", "改善の密度 — 止まらないアップデート", num=n)
+    text(s, 0.85, 1.66, 11.6, 0.6,
+         [[("v0.2 → v2.9.26 まで ", 14, INK, True), ("337 回のバージョンアップ", 14, GMO_BLUE, True),
+           ("。直近の1か月だけで ", 14, INK, True), ("150 回以上（1日あたり約4〜5回）", 14, ACCENT, True),
+           (" を改善デプロイ。", 14, INK, True)]],
          line_spacing=1.2)
     # タイムライン
     base_y = 4.6
@@ -1238,6 +1239,129 @@ def s_closing(n):
 
 
 # ==================================================================
+# 結論ファースト : Claude を使わなかったら？
+# ==================================================================
+def s_without_claude(n):
+    s = slide(); bg(s)
+    page_header(s, "CONCLUSION FIRST", "もし Claude を使わなかったら？", num=n)
+    # 結論バンド（2段：従来 / 実際）
+    band1 = rect(s, 0.85, 1.62, 11.6, 1.0, fill=RED_LT, line=None, round_=True)
+    rect(s, 0.85, 1.62, 0.16, 1.0, fill=RED)
+    text(s, 1.2, 1.72, 11.0, 0.85,
+         [[("従来型開発なら　", 13, RED, True),
+           ("エンジニア 5〜7名 × 約12か月 ／ 費用 およそ 6,000万〜1億円", 17, INK, True)]],
+         anchor=MSO_ANCHOR.MIDDLE, line_spacing=1.1)
+    band2 = rect(s, 0.85, 2.74, 11.6, 1.0, fill=GREEN_LT, line=None, round_=True)
+    rect(s, 0.85, 2.74, 0.16, 1.0, fill=GREEN)
+    text(s, 1.2, 2.84, 11.0, 0.85,
+         [[("実際（Claude活用）　", 13, GREEN, True),
+           ("ほぼ 1名 の指揮 × 対話 ／ 外注費 ほぼ0円・数週間で土台→以後も毎日進化", 17, INK, True)]],
+         anchor=MSO_ANCHOR.MIDDLE, line_spacing=1.1)
+    # 比較カード4枚
+    items = [
+        ("期間", "約 12 か月", "数週間で土台\n以後も毎日改善", GMO_BLUE),
+        ("人数", "5〜7 名", "1 名（社内）\n＋ Claude", TEAL),
+        ("費用", "6,000万〜1億円", "ほぼ 0 円\n(AI+VPS 月数万円)", ACCENT),
+        ("速さ", "仕様確定に数週間", "言ったその日に\n動くものが出る", PURPLE),
+    ]
+    cw = 2.85; gap = 0.25; x0 = 0.85; y0 = 3.95; ch = 2.05
+    for i, (lab, was, now, c) in enumerate(items):
+        x = x0 + i*(cw+gap)
+        rect(s, x, y0, cw, ch, fill=CARD, line=LINE, lw=1, round_=True, shadow=True)
+        head = rect(s, x, y0, cw, 0.42, fill=c, round_=True)
+        rect(s, x, y0+0.3, cw, 0.12, fill=c)
+        centered_label(head, lab, 13, WHITE)
+        text(s, x+0.15, y0+0.52, cw-0.3, 0.4, [[("従来 ", 9, RED, True), (was, 12.5, INK, True)]],
+             align=PP_ALIGN.CENTER, line_spacing=1.0)
+        line(s, x+0.4, y0+1.02, x+cw-0.4, y0+1.02, color=LINE, width=1)
+        text(s, x+0.12, y0+1.1, cw-0.24, 0.85,
+             [[("Claude", 9, GREEN, True)], [(now, 11.5, GREEN, True)]],
+             align=PP_ALIGN.CENTER, line_spacing=1.05)
+    # 前提の注記
+    text(s, 0.85, 6.2, 11.6, 0.55,
+         [("※ 推計の前提：本体規模 約97,000行・6アプリ＋サーバー・DB世代99・リアルタイム/放送CG/財務/PDF/Excel/BOX連携/2FA/自動デプロイを含む。人月単価100万円・受託相場で試算。",
+           9.5, GRAY_LT, True)], line_spacing=1.15)
+    footer(s, n)
+    return s
+
+
+# ==================================================================
+# 開発プロセスの実際（フェーズ）
+# ==================================================================
+def s_process(n):
+    s = slide(); bg(s)
+    page_header(s, "THE PROCESS", "開発プロセスの実際 — 積み上げの記録", num=n)
+    phases = [
+        ("1", "基盤づくり", "PostgreSQL化・Docker/Nginx・VPSデプロイ", GMO_BLUE),
+        ("2", "3アプリ並走", "案件管理＋Qシート＋演出を同居", SKY),
+        ("3", "サブアプリ統合", "機材・技術資料・ライブ運用を統合", TEAL),
+        ("4", "デザイン全面刷新", "デジタル庁準拠(DADS)で全アプリ統一", GREEN),
+        ("5", "放送CGの作り込み", "下位置CG・表彰CG・投票演出を実装", ACCENT),
+        ("6", "外部連携", "インタラクティブ⇄CGをリアルタイム連携", PURPLE),
+    ]
+    cols = 3; cw = 3.78; ch = 1.62; gx = 0.28; gy = 0.3; x0 = 0.78; y0 = 1.78
+    for i, (num, t, d, c) in enumerate(phases):
+        col = i % cols; row = i // cols
+        x = x0 + col*(cw+gx); y = y0 + row*(ch+gy)
+        rect(s, x, y, cw, ch, fill=CARD, line=LINE, lw=1, round_=True, shadow=True)
+        rect(s, x, y, 0.14, ch, fill=c)
+        circ = oval(s, x+0.32, y+0.3, 0.62, 0.62, fill=c)
+        centered_label(circ, num, 22, WHITE)
+        text(s, x+1.12, y+0.26, cw-1.3, 0.5, [(t, 15, INK, True)])
+        text(s, x+1.14, y+0.78, cw-1.3, 0.7, [(d, 11, GRAY, False)], line_spacing=1.12)
+    # 統計バンド
+    band = rect(s, 0.78, 5.95, 11.78, 0.95, fill=BLUE_LIGHT, line=None, round_=True)
+    stats = [("337", "回のバージョンアップ\n(v0.2 → v2.9.26)"),
+             ("99", "世代のDB設計変更\n(機能追加の積み重ね)"),
+             ("150+", "直近1か月の改善デプロイ\n(1日 約4〜5回)")]
+    sw_ = 11.78/3
+    for i, (v, d) in enumerate(stats):
+        sx = 0.78 + i*sw_
+        text(s, sx+0.3, 6.05, sw_-0.4, 0.8,
+             [[(v, 26, GMO_BLUE, True, FONT_NUM), ("  " + d.split(chr(10))[0], 11, INK, True)],
+              [(d.split(chr(10))[1], 9.5, GRAY, False)]], line_spacing=1.05, anchor=MSO_ANCHOR.MIDDLE)
+        if i < 2:
+            line(s, sx+sw_, 6.12, sx+sw_, 6.78, color=RGBColor(0xC2,0xD6,0xEC), width=1)
+    footer(s, n)
+    return s
+
+
+# ==================================================================
+# どこが大変だったか（リアル）
+# ==================================================================
+def s_hard(n):
+    s = slide(); bg(s)
+    page_header(s, "THE HARD PARTS", "正直、ここは大変だった", num=n)
+    cards = [
+        (RED, "放送CGの“なめらかさ”",
+         "アニメのカクつきを何度も作り直し。「After Effectsのような滑らかさを」の一言から数十回の調整 → 最終的に GPU で動く方式(FLIP)に到達。"),
+        (ACCENT, "画面クラッシュとの戦い",
+         "React の落とし穴や iPhone Safari のメモリ落ちで真っ赤なエラー画面。原因特定→修正のループで一つずつ潰した。"),
+        (TEAL, "入力のもたつき",
+         "Qシートで1打鍵ごとに数百セルが再描画され“3テンポ遅れ”。描画の最適化で体感ゼロまで改善。"),
+        (PURPLE, "“前に作ったやつで”問題",
+         "言葉のニュアンスのズレ。過去バージョンの実装を特定し、当時の演出を完全に復元して解決。"),
+        (GMO_BLUE, "放送事故を絶対に出さない",
+         "本番と検証DBを完全分離。「本番に入れて」と明示するまで反映しないルール＋3時間ごと自動バックアップ。"),
+        (GREEN, "“現場で本当に使えるか”",
+         "機能が動くだけでは不十分。現場の指摘を即反映する往復で、実運用に耐える形に磨き込んだ。"),
+    ]
+    cols = 2; cw = 5.78; ch = 1.52; gx = 0.28; gy = 0.22; x0 = 0.78; y0 = 1.74
+    for i, (c, t, d) in enumerate(cards):
+        col = i % cols; row = i // cols
+        x = x0 + col*(cw+gx); y = y0 + row*(ch+gy)
+        rect(s, x, y, cw, ch, fill=CARD, line=LINE, lw=1, round_=True, shadow=True)
+        rect(s, x, y, 0.14, ch, fill=c)
+        # 警告アイコン
+        tri = shape(s, MSO_SHAPE.ISOSCELES_TRIANGLE, x+0.34, y+0.3, 0.5, 0.45, fill=c, line=None)
+        text(s, x+0.34, y+0.42, 0.5, 0.3, [("!", 14, WHITE, True)], align=PP_ALIGN.CENTER)
+        text(s, x+1.0, y+0.2, cw-1.15, 0.4, [(t, 14, INK, True)])
+        text(s, x+1.02, y+0.62, cw-1.2, 0.85, [(d, 10.5, GRAY, False)], line_spacing=1.12)
+    footer(s, n)
+    return s
+
+
+# ==================================================================
 # 組み立て
 # ==================================================================
 def build():
@@ -1252,11 +1376,13 @@ def build():
     s_connect(n); n += 1
     s_lifecycle(n); n += 1
     s_tech(n); n += 1
-    s_vibe_intro(n); n += 1
+    # --- Part 2: 作り方・プロセス（結論ファースト） ---
+    s_without_claude(n); n += 1
+    s_process(n); n += 1
     s_dialogue(n); n += 1
+    s_hard(n); n += 1
     s_safety(n); n += 1
     s_iteration(n); n += 1
-    s_vibe_howto(n); n += 1
     s_numbers(n); n += 1
     s_roadmap(n); n += 1
     s_closing(n); n += 1
