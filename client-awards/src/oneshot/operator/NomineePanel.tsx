@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { Trophy, User, Filter, ChevronDown } from 'lucide-react';
+import { Tv, User, Filter, ChevronDown } from 'lucide-react';
 import type { Lang, Nominee, TickerCategory } from '../types';
 
 interface Props {
@@ -59,7 +59,7 @@ export default function NomineePanel({
       {/* ── 賞 (プルダウン) ─────────────────────────── */}
       <div className="space-y-1.5">
         <div className="flex items-center gap-1.5 text-[11px] font-black tracking-widest text-slate-300 uppercase px-0.5">
-          <Trophy className="h-3 w-3 text-amber-500" />
+          <Tv className="h-3 w-3 text-amber-500" />
           賞 · Award
           <span className="text-slate-300 normal-case font-medium tracking-wide">
             ({awards.length})

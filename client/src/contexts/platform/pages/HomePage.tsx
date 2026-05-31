@@ -42,7 +42,7 @@ import {
   ChevronDown,
   ChevronUp,
   Timer,
-  Trophy,
+  Tv,
   RefreshCw,
   Loader2,
   CheckCircle2,
@@ -54,7 +54,7 @@ import {
 
 const ICON_MAP: Record<string, React.ElementType> = {
   FolderKanban, PiggyBank, Calendar, Package, FileText,
-  BookOpen, Users, Truck, Sparkles, Wrench, Timer, Trophy, Languages,
+  BookOpen, Users, Truck, Sparkles, Wrench, Timer, Tv, Languages,
 };
 
 const roleLabelMap: Record<string, string> = {

@@ -4,12 +4,12 @@ import { useUiStore } from '@/stores/uiStore';
 import { useAuth } from '@/hooks/useAuth';
 import { getAccessibleApps } from '@gmo-onair/shared/src/client/appNav';
 import {
-  Trophy, LayoutDashboard, ChevronLeft, X,
+  Tv, LayoutDashboard, ChevronLeft, X,
   Home, Briefcase, FileText, Package, Sparkles, Wrench, Radio, Languages,
 } from 'lucide-react';
 
 const ICON_MAP: Record<string, React.ElementType> = {
-  Home, Briefcase, FileText, Package, Sparkles, Wrench, Radio, Trophy, Languages,
+  Home, Briefcase, FileText, Package, Sparkles, Wrench, Radio, Tv, Languages,
 };
 
 const navItems = [
@@ -46,9 +46,9 @@ export default function Sidebar() {
           </a>
           <div className="flex items-center gap-2 min-w-0">
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-amber-500 text-white">
-              <Trophy className="h-4 w-4" />
+              <Tv className="h-4 w-4" />
             </div>
-            <span className="truncate text-sm font-bold">表彰CG</span>
+            <span className="truncate text-sm font-bold">リアルタイムCG</span>
           </div>
           <button
             className="ml-auto p-1 rounded hover:bg-muted"
@@ -87,7 +87,7 @@ export default function Sidebar() {
               他のアプリ
             </p>
             {otherApps.map((app) => {
-              const Icon = ICON_MAP[app.icon] || Trophy;
+              const Icon = ICON_MAP[app.icon] || Tv;
               const isExternal = !!app.externalUrl;
               return (
                 <a

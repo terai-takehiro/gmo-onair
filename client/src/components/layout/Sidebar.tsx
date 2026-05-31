@@ -31,7 +31,7 @@ import {
   BookOpen,
   Settings,
   Timer,
-  Trophy,
+  Tv,
   Store,
   KanbanSquare,
   ListTodo,
@@ -41,7 +41,7 @@ import {
 
 const ICON_MAP: Record<string, React.ElementType> = {
   FolderKanban, PiggyBank, Calendar, Package, FileText,
-  BookOpen, Users, Truck, Sparkles, Timer, Trophy,
+  BookOpen, Users, Truck, Sparkles, Timer, Tv,
 };
 
 interface NavItem {
@@ -247,7 +247,7 @@ export default function Sidebar() {
               { path: "/equipment", label: "機材管理", Icon: Package, module: "equipment" },
               { path: "/techsheet", label: "技術資料", Icon: BookOpen, module: "techsheet" },
               { path: "/live", label: "計時LIVE", Icon: Timer, module: "liveops" },
-              { path: "/awards", label: "アワードCG", Icon: Trophy, module: "awards" },
+              { path: "/awards", label: "リアルタイムCG", Icon: Tv, module: "awards" },
               { path: "https://interactive.gmo-onair.jp/", label: "インタラクティブ", Icon: Sparkles, module: "interactive", external: true },
               { path: "https://gmo-translate.jp/", label: "翻訳", Icon: Languages, module: "translate", external: true },
             ] as Array<{ path: string; label: string; Icon: React.ElementType; module: string; external?: boolean }>

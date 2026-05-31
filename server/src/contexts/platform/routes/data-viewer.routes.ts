@@ -43,7 +43,7 @@ const ALLOWED_TABLES = [
   'techsheet_documents',
   // ライブ運用
   'liveops_programs', 'liveops_settings', 'liveops_snapshots', 'liveops_timers',
-  // 表彰CG
+  // リアルタイムCG
   'awards_events', 'awards_categories', 'awards_entries', 'awards_cue_state',
   // 共通・マスター
   'users', 'user_permissions', 'sequences',

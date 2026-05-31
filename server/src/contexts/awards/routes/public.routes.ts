@@ -58,7 +58,7 @@ router.get('/events/:eventId/cue', wrap(async (req, res) => {
   });
 }));
 
-// ── 表彰CG (1S) module 構成 (放送送出ページ用) ─────────────
+// ── リアルタイムCG (1S) module 構成 (放送送出ページ用) ─────────────
 router.get('/events/:id/module-config', wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const row = await queryOne(
@@ -68,7 +68,7 @@ router.get('/events/:id/module-config', wrap(async (req, res) => {
   res.json({ success: true, data: row.module_config ?? null });
 }));
 
-// ── 表彰CG (1S) output (event 詳細 + categories + entries(oneshot_data含む) + 現在の oneshot cue state) ──
+// ── リアルタイムCG (1S) output (event 詳細 + categories + entries(oneshot_data含む) + 現在の oneshot cue state) ──
 router.get('/events/:id/oneshot/output', wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const event = await queryOne(

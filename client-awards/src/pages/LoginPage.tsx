@@ -5,7 +5,7 @@ export default function LoginPage() {
     <SubAppLoginRedirect
       storageKey="gmo_onair_user"
       appBasePath="/awards/"
-      appLabel="表彰CG"
+      appLabel="リアルタイムCG"
     />
   );
 }

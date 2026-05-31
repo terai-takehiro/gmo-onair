@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.9.23 — インタラクティブ演出アプリを別 VPS (https://interactive.gmo-onair.jp/) に切り出し、GMO ONAiR モノレポからコード一式 (client-interactive ワークスペース / server/contexts/interactive / Socket.IO 旧基盤 / 関連 seed / DataViewer mappings 等) を削除。Socket.IO foundational コード (CORS + transports) は新規 `server/src/shared/socket.ts` に抽出して中立化、qsheet/liveops/awards/quiz の各 namespace は継続稼働。ナビゲーション (Sidebar / AppSwitcher / HomePage) からは別タブで開く外部リンクとして残り、Sparkles アイコン (`#db2777` ピンク) + 「(外部)」表記。DB の `interactive_*` 9 テーブル・データ・既存 user_permissions は据置 (コードのみクリーン)。旧 v2.9.22 — 外部アプリ「翻訳」(https://gmo-translate.jp/) をナビゲーションに追加。`Languages` アイコン + グリーン (`#16a34a` / `bg-green-600`) で表現し、別タブで開く外部リンクとして全 7 アプリのサイドバー「他のアプリ」セクション・ヘッダー右上の AppSwitcher (9 マスドロップダウン)・ホーム画面のアプリランチャーから到達可能に。旧 v2.9.21 — debug ログ削除 (本番昇格前のクリーンアップ): v2.9.16 で導入した SSO redirect 動作確認用の `console.log('[LoginPage][debug] ...')` 2 行を撤去。dev で SSO 動作確認完了したため本番昇格。`resolveRedirect()` の絶対 URL 許可 + cookie `Domain=.gmo-onair.jp` + Interactive 側 auto-mirror はそのまま維持。旧 v2.9.20 — 表彰CG クイズ/アンケート No.1 決定演出を以前作成した v2.8.147 の StepVoteReveal と完全一致に置換（自前 fullscreen 実装を撤回、オリジナルを inline 移植）。旧 v2.9.19 — 表彰CG クイズ/アンケート No.1 決定演出: ランダム揺れ → ドン!確定を**フルスクリーン 3-shot 画面**（写真 + 名前 + 大型数値ピル）に移行。旧 v2.9.18 — 表彰CG クイズ/アンケート No.1 決定演出を「最優秀を決めるとき」の流れに統一（シンキングタイム → 自動でランダム揺れ → TAKE でドン!確定 → TAKE で StepOneShot フルスクリーン）。旧 v2.9.17 — 表彰CG クイズ/アンケートCG (QuizCG): ChoiceCard base を固定化（showVotes での padding 切替廃止）+ vote パネル `width: 156` 固定 + `<CondenseText min={0.4}>` で長体収納 + `<CountUp>` で「数字が動いて TAKE で確定 → No.1」演出を踏襲。旧 v2.9.6 — 計時LIVE 視聴者カウンターに Zoom（ミーティング + ウェビナー合算）と Microsoft Teams（Graph API Change Notification）を追加。旧 v2.8.156 — Qシート 入力ラグ Hotfix (v2.8.155 で memo が全行 bailout していた問題)。`updateState={(updater) => updateData(updater)}` という inline lambda が毎レンダーで新規参照を生成し、CueTable 内の useCallback チェーンを全て無効化していた。`updateState={updateData}` に変更 (1 行修正) でコールバック参照が完全に安定し、非タイピング行の React.memo が初めて発動。旧 v2.8.155 — Qシート「行」と「エントリ」を「行」に統一 + 入力ラグ全体最適化（React.memo + useCallback + useMemo で 1 行 typing 時の他行再レンダー排除、500 セル → 1 セルに）。旧 v2.8.134 — 投票 No.1 演出から PT 数表示を撤去（`StepOneShot` に `hidePoints` prop、vote-reveal Phase 2 でのみ true）+ v2.8.133 で Titillium Web を CG 数字 / Q に統一、右パネル 3 列レイアウト (質問 / Q / タイトル) + 長文時の長体スケール (`transform: scaleY` + `palt`) + カウントダウン円を内側寄せ。旧 v2.8.132: 表彰CG 投票演出ブラッシュアップ: 右パネルを [Q→タイトル縦書き] スタック + 左に質問縦書きの 2 列構成に再編 / オレンジ廃止 → アワード金基調の暗金タイトル帯 / 全フォントを Noto Sans JP (ゴシック) に統一 / カウントダウン数字を密に詰める / Vote-reveal の数字ピルを固定幅化 + rAF lerp で滑らかロール表示 (レイアウト揺れ・カクツキ解消)。旧 v2.8.131: 表彰CG 投票演出を再々設計（棒グラフ廃止、数字のみ：Phase 0 ランダム変動 → TAKE → Phase 1 実値カウントアップ → 自動で既存 StepOneShot の No.1 演出へ）+ Poll の見た目を全面ブラッシュアップ（多層ゴールド フレーム + 六角形バッジ + グラスモーフィズム カード + ボケ粒子背景）+ カウントダウン丸サイズ 210px 固定（ラスト 5 秒は数字だけ拡大）。旧 v2.8.130: 表彰CG 投票演出をゼロベース再設計（棒グラフ廃止 → 写真カード + 背後から伸びる金色の光柱、Theatrical Reveal）+ Poll カウントダウンのラスト 5 秒はその場で拡大強調 + 1 桁時はゼロパディング無し + LIVE CAM 表記削除 + 過去のモジュール構成カスタマイズ機能を全撤廃 + 余興ポールを Dashboard から ControlPage の部門一覧末尾に移設。旧 v2.8.129: 表彰CG 投票演出のリファイン: Poll レイアウトをモックアップ準拠（左 1380×800 大型カメラ枠 + 右パネル縦書きタイトル/質問 + Q バッジ）、TOP3 を 1,2,3 番号なし + 初回は順番発表/poll 後は overlap、vote-reveal をアカデミー賞風フォーマル演出に全面刷新（黒地 + 細いゴールド + Noto Serif JP、派手な原色/パーティクル/ビームを全廃）
+**現在のバージョン**: v2.9.24 — 「アワードCG / 表彰CG」→「**リアルタイムCG**」にアプリ名を汎用化、アイコンを `Trophy` (ゴールド表彰トロフィー) → `Tv` (放送モニタ) に変更。汎用 CG 送出システムとしての位置づけを明確化。内部識別子 (`module: 'awards'` / URL `/awards/` / DB テーブル `awards_*` / Socket.IO namespace `/awards` / ディレクトリ名) は安定性のため**据置**。shared `appNav` / `AppSwitcher` / `client/AuthContext.tsx` BLOCK_APPS + MODULE_LABELS / 全 5 アプリ Sidebar / client-awards 自身の index.html title + Header + Sidebar + 全ページ (Login / Dashboard / Control / OneShotControl / EventEditor) + 内部コンポーネント (I18nDictDialog / NomineePanel / LowerThirdCG コメント / countdown.css コメント) / server 側コメント (awards-box.service / public.routes / data-viewer.routes) / DataViewerPage (admin) の TABLE_GROUPS label + icon + awards_* テーブル名マッピング (表彰イベント/カテゴリ/エントリ → イベント/カテゴリ/エントリ) を一斉更新。操作 UI の表記も「ランキング/大賞演出」→「ランキング演出」、placeholder「第10回 年間表彰式 2025」→「イベント名 2026」など汎用化。別リポジトリ `gmo-onair-interactive` のナビ「他のアプリ」も対応更新が必要 (別セッションで対応)。旧 v2.9.23 — インタラクティブ演出アプリを別 VPS (https://interactive.gmo-onair.jp/) に切り出し、GMO ONAiR モノレポからコード一式 (client-interactive ワークスペース / server/contexts/interactive / Socket.IO 旧基盤 / 関連 seed / DataViewer mappings 等) を削除。Socket.IO foundational コード (CORS + transports) は新規 `server/src/shared/socket.ts` に抽出して中立化、qsheet/liveops/awards/quiz の各 namespace は継続稼働。ナビゲーション (Sidebar / AppSwitcher / HomePage) からは別タブで開く外部リンクとして残り、Sparkles アイコン (`#db2777` ピンク) + 「(外部)」表記。DB の `interactive_*` 9 テーブル・データ・既存 user_permissions は据置 (コードのみクリーン)。旧 v2.9.22 — 外部アプリ「翻訳」(https://gmo-translate.jp/) をナビゲーションに追加。`Languages` アイコン + グリーン (`#16a34a` / `bg-green-600`) で表現し、別タブで開く外部リンクとして全 7 アプリのサイドバー「他のアプリ」セクション・ヘッダー右上の AppSwitcher (9 マスドロップダウン)・ホーム画面のアプリランチャーから到達可能に。旧 v2.9.21 — debug ログ削除 (本番昇格前のクリーンアップ): v2.9.16 で導入した SSO redirect 動作確認用の `console.log('[LoginPage][debug] ...')` 2 行を撤去。dev で SSO 動作確認完了したため本番昇格。`resolveRedirect()` の絶対 URL 許可 + cookie `Domain=.gmo-onair.jp` + Interactive 側 auto-mirror はそのまま維持。旧 v2.9.20 — 表彰CG クイズ/アンケート No.1 決定演出を以前作成した v2.8.147 の StepVoteReveal と完全一致に置換（自前 fullscreen 実装を撤回、オリジナルを inline 移植）。旧 v2.9.19 — 表彰CG クイズ/アンケート No.1 決定演出: ランダム揺れ → ドン!確定を**フルスクリーン 3-shot 画面**（写真 + 名前 + 大型数値ピル）に移行。旧 v2.9.18 — 表彰CG クイズ/アンケート No.1 決定演出を「最優秀を決めるとき」の流れに統一（シンキングタイム → 自動でランダム揺れ → TAKE でドン!確定 → TAKE で StepOneShot フルスクリーン）。旧 v2.9.17 — 表彰CG クイズ/アンケートCG (QuizCG): ChoiceCard base を固定化（showVotes での padding 切替廃止）+ vote パネル `width: 156` 固定 + `<CondenseText min={0.4}>` で長体収納 + `<CountUp>` で「数字が動いて TAKE で確定 → No.1」演出を踏襲。旧 v2.9.6 — 計時LIVE 視聴者カウンターに Zoom（ミーティング + ウェビナー合算）と Microsoft Teams（Graph API Change Notification）を追加。旧 v2.8.156 — Qシート 入力ラグ Hotfix (v2.8.155 で memo が全行 bailout していた問題)。`updateState={(updater) => updateData(updater)}` という inline lambda が毎レンダーで新規参照を生成し、CueTable 内の useCallback チェーンを全て無効化していた。`updateState={updateData}` に変更 (1 行修正) でコールバック参照が完全に安定し、非タイピング行の React.memo が初めて発動。旧 v2.8.155 — Qシート「行」と「エントリ」を「行」に統一 + 入力ラグ全体最適化（React.memo + useCallback + useMemo で 1 行 typing 時の他行再レンダー排除、500 セル → 1 セルに）。旧 v2.8.134 — 投票 No.1 演出から PT 数表示を撤去（`StepOneShot` に `hidePoints` prop、vote-reveal Phase 2 でのみ true）+ v2.8.133 で Titillium Web を CG 数字 / Q に統一、右パネル 3 列レイアウト (質問 / Q / タイトル) + 長文時の長体スケール (`transform: scaleY` + `palt`) + カウントダウン円を内側寄せ。旧 v2.8.132: 表彰CG 投票演出ブラッシュアップ: 右パネルを [Q→タイトル縦書き] スタック + 左に質問縦書きの 2 列構成に再編 / オレンジ廃止 → アワード金基調の暗金タイトル帯 / 全フォントを Noto Sans JP (ゴシック) に統一 / カウントダウン数字を密に詰める / Vote-reveal の数字ピルを固定幅化 + rAF lerp で滑らかロール表示 (レイアウト揺れ・カクツキ解消)。旧 v2.8.131: 表彰CG 投票演出を再々設計（棒グラフ廃止、数字のみ：Phase 0 ランダム変動 → TAKE → Phase 1 実値カウントアップ → 自動で既存 StepOneShot の No.1 演出へ）+ Poll の見た目を全面ブラッシュアップ（多層ゴールド フレーム + 六角形バッジ + グラスモーフィズム カード + ボケ粒子背景）+ カウントダウン丸サイズ 210px 固定（ラスト 5 秒は数字だけ拡大）。旧 v2.8.130: 表彰CG 投票演出をゼロベース再設計（棒グラフ廃止 → 写真カード + 背後から伸びる金色の光柱、Theatrical Reveal）+ Poll カウントダウンのラスト 5 秒はその場で拡大強調 + 1 桁時はゼロパディング無し + LIVE CAM 表記削除 + 過去のモジュール構成カスタマイズ機能を全撤廃 + 余興ポールを Dashboard から ControlPage の部門一覧末尾に移設。旧 v2.8.129: 表彰CG 投票演出のリファイン: Poll レイアウトをモックアップ準拠（左 1380×800 大型カメラ枠 + 右パネル縦書きタイトル/質問 + Q バッジ）、TOP3 を 1,2,3 番号なし + 初回は順番発表/poll 後は overlap、vote-reveal をアカデミー賞風フォーマル演出に全面刷新（黒地 + 細いゴールド + Noto Serif JP、派手な原色/パーティクル/ビームを全廃）
 
 旧 v2.8.128: 表彰CG 投票パターン UX 刷新（オールスター感謝祭風レイアウト・大型 PinP・スライド型カウントダウン・ラスト5秒巨大表示・棒グラフ豪華化・自動 GRAND PRIX 遷移・GRAND PRIX フルスクリーン刷新）+ **余興用 3 択 Standalone Poll** を新設（表彰DB と独立、画像入稿 or 画像なしも可）
 
@@ -36,7 +36,7 @@ GMO ONAiR は、単一の React/Express モノレポ上に**6つのブロック�
 - **機材管理（client-equipment）**: 機材台帳・貸出管理
 - **技術資料（client-techsheet）**: カメラ・映像・音声技術仕様書
 - **ライブ運用（client-live）**: 本番オペ・進行管理
-- **表彰CG（client-awards）**: 表彰式CG演出・送出管理
+- **リアルタイムCG（client-awards）**: リアルタイム放送CG演出・送出管理
 
 全アプリは **GLS番号**（例: `GLS-A001`）という統一識別子で紐づき、単一の PostgreSQL データベースを DB 名で本番/検証に分離して共有します。
 
@@ -51,7 +51,7 @@ GMO ONAiR は、単一の React/Express モノレポ上に**6つのブロック�
 | 機材管理 | `client-equipment/` | `/equipment/` | 5175 | 機材台帳・貸出 |
 | 技術資料 | `client-techsheet/` | `/techsheet/` | 5177 | カメラ/映像/音声 技術仕様書 |
 | ライブ運用 | `client-live/` | `/live/` | 5178 | 本番オペ・進行管理 |
-| 表彰CG | `client-awards/` | `/awards/` | 5179 | 表彰式CG演出・送出管理 |
+| リアルタイムCG | `client-awards/` | `/awards/` | 5179 | リアルタイム放送CG演出・送出管理 (内部識別子は `awards`) |
 
 ### 外部リンク (別 VPS / 別タブで開く)
 - **インタラクティブ**: <https://interactive.gmo-onair.jp/> — EventStamp・リアルタイム演出
@@ -70,7 +70,7 @@ GMO ONAiR は、単一の React/Express モノレポ上に**6つのブロック�
 - **TanStack Query** (React Query) — サーバー状態管理
 - **Zustand** — クライアント状態管理（UI ストア等）
 - **React Router v6**
-- **Socket.IO Client** — Qシート/表彰CG/計時LIVE でリアルタイム同期
+- **Socket.IO Client** — Qシート/リアルタイムCG/計時LIVE でリアルタイム同期
 - **Lucide React** — アイコン
 
 ### バックエンド
@@ -102,7 +102,7 @@ gmo-onair/
 ├── client-equipment/        # 機材管理アプリ
 ├── client-techsheet/        # 技術資料アプリ
 ├── client-live/             # ライブ運用アプリ
-├── client-awards/           # 表彰CGアプリ
+├── client-awards/           # リアルタイムCG アプリ (内部識別子は `awards`)
 ├── shared/                  # 全アプリ共通のファクトリ関数・ユーティリティ
 │   └── src/client/
 │       ├── createApi.ts           # axios ファクトリ
@@ -168,7 +168,7 @@ gmo-onair/
 ### リアルタイム通信
 
 - **`/qsheet` ネームスペース**: OnAir ↔ ランダウン画面の同期（cue:update, sync, next, prev, jump, play, pause, reset）
-- **`/awards` ネームスペース**: 表彰CG の cue:set / cue:sync ブロードキャスト
+- **`/awards` ネームスペース**: リアルタイムCG の cue:set / cue:sync ブロードキャスト
 - **計時LIVE / Quiz** ネームスペース: タイマー同期・クイズ進行
 - (旧 `/interactive` ネームスペース は v2.9.17 で別 VPS に切り出し)
 
