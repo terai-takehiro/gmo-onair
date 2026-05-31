@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.9.26 — 出題システムの共通化 (リアルタイムCG ⇄ インタラクティブ): 種別を survey/quiz の2種に統一 (survey-only 廃止)、各 quiz に1問単位のプルダウン連携 (取込/送信)、複数正解の同期、保存時の自動同期、No.1発表の人物情報維持。CG演出デザインは現状維持。旧 v2.9.25 — リアルタイムCG ⇄ インタラクティブ連携 (投票数リアルタイム合算反映 + 問題本文双方向同期)。
+**現在のバージョン**: v2.9.27 — リアルタイムCG クイズ/アンケート編集画面 UI をインタラクティブ演出側 (`gmo-onair-interactive` の QuizManagerPage) と整合・シンプル化: 一覧にクイズ/アンケートタブ + 折りたたみ作成フォーム + 種別バッジ、編集画面は種別を下線タブ化 + 正解選択を緑チェックトグル (複数正解可) + 英語名/会社/ノミネートタイトル/票数を「詳細 (CG 表示用)」折りたたみに集約。機能・データモデル・server API は不変 (見た目と導線のみ)。旧 v2.9.26 — 出題システムの共通化 (種別を survey/quiz の2種に統一・1問単位連携・複数正解同期・保存時自動同期)。
 
 旧 v2.8.128: 表彰CG 投票パターン UX 刷新（オールスター感謝祭風レイアウト・大型 PinP・スライド型カウントダウン・ラスト5秒巨大表示・棒グラフ豪華化・自動 GRAND PRIX 遷移・GRAND PRIX フルスクリーン刷新）+ **余興用 3 択 Standalone Poll** を新設（表彰DB と独立、画像入稿 or 画像なしも可）
 
@@ -409,6 +409,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.9.27** | **リアルタイムCG クイズ/アンケート編集画面 UI をインタラクティブ演出側と整合**: `client-awards` の `QuizListPage` / `QuizEditPage` を別 VPS `gmo-onair-interactive` の `QuizManagerPage` のデザインに合わせてシンプル化。一覧はクイズ/アンケートタブ + 折りたたみ作成フォーム (現タブの mode を継承) + 種別バッジ、編集は種別を下線タブ化 + 正解選択を緑チェックトグル (複数正解可) + 英語名/会社/ノミネートタイトル/票数を「詳細 (CG 表示用)」折りたたみに集約。機能・データモデル・server API・保存/連携ロジックは不変 (見た目と導線のみ)。 |
 | **v2.9.17** | **インタラクティブを別 VPS に切り出し + コードをモノレポから削除**: `https://interactive.gmo-onair.jp/` への外部リンクとしてナビ (Sidebar / AppSwitcher / HomePage) に残し、`client-interactive/` ワークスペース・`server/src/contexts/interactive/`・関連 Docker build steps・seed・DataViewer マッピング・MODULE_LABELS 等を全て削除。Socket.IO foundational コード (CORS + transports) は旧 `interactive/socket.ts` から新規 `server/src/shared/socket.ts` に抽出して中立化 (他全アプリの namespace 初期化が依存していたため)。スタンプ用 in-memory buffer + DB flush ロジックは廃止。DB の `interactive_*` 9 テーブル・既存データ・user_permissions 行は据置 (コードのみクリーン)。マイグレーション 013/015/017/018/020/021/022/023/024 の SQL ファイルは履歴として残置。 |
 | **v2.9.16** | **外部アプリ「翻訳」を追加**: `https://gmo-translate.jp/` への外部リンクを `Languages` アイコン + グリーン (`#16a34a`) で全 7 アプリのサイドバー「他のアプリ」・ヘッダーの AppSwitcher・ホーム画面のアプリランチャーに追加。`AppNavItem` / `BlockApp` / `AppDef` に `externalUrl?: string` を追加し、有る場合は `<a target="_blank" rel="noopener noreferrer">` で別タブ起動。HomePage の AppCard は `disabled={!app.externalUrl && !hasPermission(app.id)}` で外部アプリの権限チェックを skip。 |
 | **v2.8.156** | **Qシート: 入力ラグ Hotfix (memo 全行 bailout 問題)**: v2.8.155 で導入した最適化が逆効果になっていた原因は、`EditorPage.tsx` の `<CueTable updateState={(updater) => updateData(updater)}>` という inline lambda が毎レンダーで新規参照を生成していたこと。CueTable 内の `useCallback([updateState])` 経由で組まれた `updateRow` 等が全て毎レンダーで参照変化 → `CueRowSlot` の memo が props 差を検知して全行 bailout → 余計な比較コストだけが残り「悪化」と感じる挙動に。修正は 1 行: `updateState={updateData}` (useCallback 済みの安定参照を直接渡す)。これでコールバック参照が EditorPage → CueTable → CueRowSlot → CueRow まで完全に安定し、非タイピング行は memo がヒットして再レンダーされない (v2.8.155 で意図していた挙動が初めて発動)。 |
