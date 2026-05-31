@@ -333,9 +333,245 @@ def html_cg():
     return page("リアルタイムCG", body, css, show_top=False)
 
 
+# ---------------------------------------------------------------- 予算ダッシュボード
+def html_budget():
+    css = """
+    .cond{padding:14px 16px;margin:14px 0;}
+    .cond h3{font-size:14px;font-weight:800;}
+    .fields{display:flex;gap:18px;margin-top:10px;}
+    .fld{flex:0 0 auto;}
+    .fld .l{color:#5b6672;font-size:11px;font-weight:700;margin-bottom:4px;}
+    .fld .b{border:1px solid #e0e6ee;border-radius:8px;padding:8px 12px;font-size:12px;color:#1f2a37;background:#fff;min-width:150px;}
+    .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:14px 0;}
+    .kpi{padding:14px;}
+    .kpi .l{color:#5b6672;font-size:11px;font-weight:700;}
+    .kpi .v{font-size:26px;font-weight:800;margin-top:6px;}
+    .pl{padding:16px 18px;}
+    .pl h3{font-size:14px;font-weight:800;margin-bottom:2px;}
+    .plrow{display:flex;justify-content:space-between;padding:9px 8px;border-bottom:1px solid #f2f4f7;font-size:13px;}
+    .plrow.ind{padding-left:26px;color:#5b6672;}
+    .plrow.sum{font-weight:800;}
+    """
+    def kpi(l,v,vc="#1f2a37"): return f'<div class="card kpi"><div class="l">{l}</div><div class="v" style="color:{vc}">{v}</div></div>'
+    body = f"""
+    <div class="row" style="justify-content:space-between"><div class="h1">予算ダッシュボード</div><span class="btn">⟳ 更新</span></div>
+    <div class="sub">月次の売上・仕入・粗利・販管費・営業利益を単一画面で確認します。　2026年05月</div>
+    <div class="card cond"><h3>集計条件</h3>
+      <div class="fields"><div class="fld"><div class="l">年月</div><div class="b">2026年05月 📅</div></div>
+        <div class="fld"><div class="l">案件（任意）</div><div class="b">— 全案件（販管費含む） —　⌄</div></div></div></div>
+    <div class="kpis">
+      {kpi("売上","¥6,300,000")}{kpi("仕入","¥1,800,000")}{kpi("粗利","¥4,500,000",vc="#2ea06b")}
+      {kpi("販管費","¥1,200,000")}{kpi("営業利益","¥3,300,000",vc="#2ea06b")}</div>
+    <div class="card pl"><h3>📑 損益詳細</h3><div class="sub">インデント式で費目の階層を表します。</div>
+      <div style="margin-top:10px">
+        <div class="plrow sum"><span>売上合計</span><span>¥6,300,000</span></div>
+        <div class="plrow ind"><span>仕入合計</span><span>¥1,800,000</span></div>
+        <div class="plrow sum"><span>粗利</span><span style="color:#2ea06b">¥4,500,000</span></div>
+        <div class="plrow ind"><span>販管費合計</span><span>¥1,200,000</span></div>
+        <div class="plrow sum"><span>営業利益</span><span style="color:#2ea06b">¥3,300,000</span></div></div></div>
+    """
+    return page("予算管理", body, css)
+
+
+# ---------------------------------------------------------------- カンバン（タスク）
+def html_kanban():
+    css = """
+    .ktabs{display:flex;align-items:center;gap:18px;margin:12px 0 16px;font-size:13px;color:#8a939e;font-weight:700;}
+    .ktabs .on{color:#1f2a37;}
+    .board{padding:14px 16px;}
+    .bhead{font-weight:800;font-size:14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;}
+    .badge{background:#dbe7f5;color:#005bac;font-size:11px;font-weight:800;border-radius:20px;padding:2px 10px;}
+    .cols{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;}
+    .col .ch{font-size:11px;font-weight:800;color:#5b6672;display:flex;justify-content:space-between;margin-bottom:8px;}
+    .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px;}
+    .tk{background:#f7f9fc;border:1px solid #eceff3;border-radius:8px;padding:8px 9px;font-size:11px;margin-bottom:7px;color:#1f2a37;}
+    .tk.done{color:#b6bfca;text-decoration:line-through;background:#fafbfc;}
+    """
+    cols = [("未着手","#9aa6b2","1",["請求書作成"]),
+            ("台本作成","#2f80ed","2",["スタッフ弁当手配","台本クライアント確認"]),
+            ("素材準備","#16a34a","3",["スタジオ機材手配","テロップ素材制作","VTR素材収集"]),
+            ("収録","#f59e0b","3",["台本第1稿","本番収録","リハーサル"]),
+            ("確認中","#f59e0b","2",["編集・MA確認","クライアント最終試写"]),
+            ("完了","#16a34a","",["企画書作成","クライアント事前打合せ"])]
+    colhtml=""
+    for name,c,n,cards in cols:
+        cs="".join(f'<div class="tk{" done" if name=="完了" else ""}">{t}</div>' for t in cards)
+        colhtml+=f'<div class="col"><div class="ch"><span><span class="dot" style="background:{c}"></span>{name}</span><span>{n}</span></div>{cs}</div>'
+    body=f"""
+    <div class="ktabs"><span>▦ <span class="on">カンバン</span></span><span>☰ タスクリスト</span><span>≡ ガント</span>
+      <span style="color:#8a939e">18案件 ・ 81タスク</span><span style="margin-left:auto">⟳ 更新</span></div>
+    <div class="card board">
+      <div class="bhead">GLS-A004 PW 新サービス発表会 <span class="badge">11件</span> <span style="color:#16a34a;font-size:11px;font-weight:700">完了2件</span></div>
+      <div class="cols">{colhtml}</div></div>
+    <div class="card board" style="margin-top:12px">
+      <div class="bhead">GLS-A006 DA 社内イベント中継 <span class="badge">11件</span> <span style="color:#16a34a;font-size:11px;font-weight:700">完了2件</span></div>
+      <div class="cols">{colhtml}</div></div>
+    """
+    return page("案件管理", body, css)
+
+
+# ---------------------------------------------------------------- ガント
+def html_gantt():
+    css = """
+    .gtabs{display:flex;align-items:center;gap:18px;margin:12px 0 14px;font-size:13px;color:#8a939e;font-weight:700;}
+    .gtabs .on{color:#1f2a37;}
+    .gwrap{display:grid;grid-template-columns:230px 1fr;border:1px solid #eceff3;border-radius:10px;overflow:hidden;background:#fff;}
+    .gleft .r,.gright .r{height:34px;border-bottom:1px solid #f2f4f7;display:flex;align-items:center;padding:0 12px;font-size:12px;}
+    .gleft .grp{font-weight:800;background:#fafbfd;}
+    .gright{position:relative;background:linear-gradient(#fff,#fff);}
+    .gright .hd{height:30px;border-bottom:1px solid #eceff3;color:#8a939e;font-size:11px;display:flex;align-items:center;padding-left:12px;}
+    .bar{position:absolute;height:18px;border-radius:5px;color:#fff;font-size:10px;display:flex;align-items:center;padding:0 7px;}
+    .dotc{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:8px;}
+    """
+    tasks=[("スタジオ機材手配","#2f80ed",58,20),("テロップ素材制作","#2f80ed",66,18),("VTR素材収集","#2f80ed",54,16),
+           ("企画書作成","#16a34a",10,16),("クライアント事前打合せ","#16a34a",24,18),("台本第1稿","#f59e0b",40,22),
+           ("台本クライアント確認","#7c5cd6",62,16),("本番収録","#f59e0b",78,12),("編集・MA確認","#f59e0b",84,10)]
+    left='<div class="r grp">GLS-A004 PW 新サービス発表会</div>'+ "".join(f'<div class="r"><span class="dotc" style="background:{c}"></span>{t}</div>' for t,c,_,_ in tasks)
+    rows='<div class="hd">2026/05</div>'
+    for i,(t,c,x,w) in enumerate(tasks):
+        top=30+i*34+8
+        rows+=f'<div class="r" style="border:none"></div>' if False else ''
+        rows+=f'<div class="bar" style="top:{top}px;left:{x}%;width:{w}%;background:{c}">{t if w>14 else ""}</div>'
+    # baseline rows for grid lines on right
+    rightrows="".join('<div class="r" style="border-bottom:1px solid #f4f6f9"></div>' for _ in tasks)
+    body=f"""
+    <div class="gtabs"><span>▦ カンバン</span><span>☰ タスクリスト</span><span>≡ <span class="on">ガント</span></span>
+      <span style="color:#8a939e">18案件 ・ 81タスク</span></div>
+    <div class="gwrap"><div class="gleft">{left}</div>
+      <div class="gright"><div class="hd">2026 / 05</div>{rightrows}{rows}</div></div>
+    """
+    return page("案件管理", body, css)
+
+
+# ---------------------------------------------------------------- スタジオ予約
+def html_studio():
+    css = """
+    .stop{display:flex;align-items:center;justify-content:space-between;}
+    .legend{display:flex;flex-wrap:wrap;gap:14px;margin:14px 0;font-size:11px;color:#5b6672;}
+    .legend i{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px;}
+    .calhd{display:flex;align-items:center;justify-content:space-between;margin:10px 0;}
+    .seg{display:flex;gap:6px;}
+    .seg span{border:1px solid #e0e6ee;border-radius:7px;padding:5px 11px;font-size:12px;color:#5b6672;font-weight:700;}
+    .nav span{background:#475569;color:#fff;border-radius:7px;padding:6px 11px;font-size:12px;font-weight:700;margin-right:6px;}
+    .cal{border:1px solid #eceff3;border-radius:10px;overflow:hidden;background:#fff;}
+    .wk{display:grid;grid-template-columns:repeat(7,1fr);background:#fafbfd;}
+    .wk div{padding:9px;text-align:center;font-size:12px;font-weight:700;color:#5b6672;border-right:1px solid #f2f4f7;}
+    .days{display:grid;grid-template-columns:repeat(7,1fr);}
+    .day{height:62px;border-right:1px solid #f2f4f7;border-top:1px solid #f2f4f7;padding:6px 8px;font-size:11px;color:#5b6672;text-align:right;}
+    .recent{padding:13px 16px;margin:12px 0;color:#8a939e;font-size:12px;text-align:center;}
+    """
+    LEG=[("本番","#e2483d"),("リハーサル","#f59e0b"),("仮押さえ","#2f80ed"),("相談","#16a34a"),
+         ("メンテナンス","#475569"),("内覧","#7c5cd6"),("社内利用","#0ea5b7"),("設営/準備","#f59e0b"),("その他","#9aa6b2")]
+    leg="".join(f'<span><i style="background:{c}"></i>{n}</span>' for n,c in LEG)
+    # 5月カレンダー（4/26始まり）
+    cells=[("26",1),("27",0),("28",0),("29",1),("30",0),("1",0),("2",2)]
+    rows=""
+    start=26; cur=[]
+    seq=[("26",0.06),("27",0),("28",0),("29",0.06),("30",0),("1",0),("2",0.05),
+         ("3",0.06),("4",0.05),("5",0),("6",0.05),("7",0),("8",0),("9",0.05),
+         ("10",0.06),("11",0.05),("12",0.05),("13",0),("14",0),("15",0.05),("16",0.05),
+         ("17",0.06),("18",0.05),("19",0),("20",0),("21",0),("22",0),("23",0.05)]
+    cellhtml=""
+    for d,tint in seq:
+        bg = f"background:rgba(226,72,61,{tint})" if tint else ""
+        cellhtml+=f'<div class="day" style="{bg}">{d}日</div>'
+    body=f"""
+    <div class="stop"><div><div class="h1">スタジオ予約</div><div class="sub">カレンダーをタップして予約を追加</div></div>
+      <div class="row gap"><span class="btn">▽ 部屋</span><span class="btn">🗓 カレンダー連携</span><span class="btn">⚙ 部屋管理</span><span class="btn primary">＋ 予約追加</span></div></div>
+    <div class="card recent">📅 直近の予定（今日から7日間）<br><span style="display:block;margin-top:8px">直近7日間に予定はありません</span></div>
+    <div class="legend">{leg}　<span style="color:#9aa6b2">※斜体・薄色は未確定の予約</span></div>
+    <div class="calhd"><div class="nav"><span>‹ ›</span><span style="background:#e0e6ee;color:#3a4654">今日</span></div>
+      <div style="font-weight:800">2026年5月</div>
+      <div class="seg"><span style="background:#475569;color:#fff">月</span><span>週</span><span>日</span><span>一覧</span></div></div>
+    <div class="cal"><div class="wk"><div>日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div style="border:none">土</div></div>
+      <div class="days">{cellhtml}</div></div>
+    """
+    return page("カレンダー", body, css)
+
+
+# ---------------------------------------------------------------- ユーザー管理
+def html_users():
+    css = """
+    table{width:100%;border-collapse:collapse;}
+    th{text-align:left;color:#8a939e;font-size:12px;font-weight:700;padding:12px 10px;border-bottom:1px solid #eceff3;}
+    td{padding:14px 10px;border-bottom:1px solid #f2f4f7;font-size:13px;}
+    .rl{font-size:11px;font-weight:800;border-radius:20px;padding:4px 12px;}
+    .rl.admin{background:#f8d7d5;color:#c0392b;}.rl.staff{background:#dbe7f5;color:#2f6fb0;}
+    .st{font-size:11px;font-weight:700;border-radius:20px;padding:4px 12px;background:#ddf1e7;color:#2ea06b;}
+    .act{color:#9aa6b2;font-size:14px;}
+    """
+    def row(n,m,role,admin=False):
+        rl=f'<span class="rl admin">システム管理者</span>' if admin else f'<span class="rl staff">スタッフ</span>'
+        return f'<tr><td style="font-weight:700">{n}</td><td style="color:#5b6672">{m}</td><td>{rl}</td><td><span class="st">有効</span></td><td style="color:#5b6672">2026/04/14</td><td class="act">🔑 ✏ 🗑</td></tr>'
+    body=f"""
+    <div class="row" style="justify-content:space-between"><div><div class="h1">ユーザー管理</div>
+      <div class="sub">ロールは「管理者」または「スタッフ」の2種類。アプリ別の権限は 🔑 ボタンで設定します。</div></div>
+      <div class="row gap"><span class="btn">🔑 権限修復</span><span class="btn primary">＋ 新規追加</span></div></div>
+    <div class="card" style="padding:6px 14px;margin-top:16px"><table>
+      <tr><th>名前</th><th>メール</th><th>ロール</th><th>ステータス</th><th>作成日</th><th></th></tr>
+      {row("システム管理者","account@gmo-globalstudio.com","",admin=True)}
+      {row("佐藤 花子","sato@globalstudio.example.com","")}
+      {row("外部 クライアント","client@example.com","")}
+      {row("田中 健二","tanaka@globalstudio.example.com","")}
+      {row("鈴木 一郎","suzuki@globalstudio.example.com","")}
+      {row("高橋 美咲","takahashi@globalstudio.example.com","")}
+    </table></div>
+    """
+    return page("システム管理", body, css)
+
+
+# ---------------------------------------------------------------- DBビューア
+def html_dbviewer():
+    css = """
+    .dwrap{display:grid;grid-template-columns:230px 1fr;gap:16px;height:calc(100% - 10px);}
+    .tlist{border:1px solid #eceff3;border-radius:10px;background:#fff;padding:10px;overflow:hidden;}
+    .tlist .hd{font-size:12px;font-weight:800;color:#5b6672;margin-bottom:8px;}
+    .ti{display:flex;justify-content:space-between;align-items:center;padding:7px 9px;border-radius:7px;font-size:12px;color:#3a4654;}
+    .ti.on{background:#005bac;color:#fff;}
+    .ti .c{font-size:10px;opacity:.7;}
+    .ti small{display:block;font-size:9px;color:#9aa6b2;}
+    .ti.on small{color:#cfe0f2;}
+    .dmain{border:1px solid #eceff3;border-radius:10px;background:#fff;padding:12px 14px;}
+    .dtop{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+    table{width:100%;border-collapse:collapse;}
+    th{text-align:left;color:#8a939e;font-size:11px;font-weight:700;padding:9px 8px;border-bottom:1px solid #eceff3;}
+    td{padding:9px 8px;border-bottom:1px solid #f4f6f9;font-size:11px;color:#1f2a37;}
+    """
+    TBLS=[("案件","projects","28",True),("顧客","customers","10",False),("仕入先","vendors","9",False),
+          ("会社","companies","18",False),("パートナー(個人)","partners","5",False),("売上","revenues","38",False),
+          ("売上明細","revenue_items","124",False),("売上按分","revenue_allocations","4",False),
+          ("仕入","purchases","17",False),("仕入按分","purchase_allocations","4",False),
+          ("費用按分グループ","project_groups","2",False)]
+    ti="".join(f'<div class="ti{" on" if on else ""}"><span>{j}<small>{e}</small></span><span class="c">{c}</span></div>' for j,e,c,on in TBLS)
+    rows=[("febec1c9","OPP-202603-0031","GLS-B002","PW 動画戦略コンサルティング"),
+          ("efae7af8","OPP-202603-0008","","富士見 バラエティ撮影"),
+          ("e98414d3","OPP-202603-0003","","DA 動画配信スタジオ定期利用"),
+          ("e26bde09","OPP-202603-0022","GLS-A003","SN 生放送「ナイトトーク」"),
+          ("d3f80fb1","OPP-202604-0002","GLS-A010","テストテスト掛田"),
+          ("d1236ddd","OPP-202603-0009","","PW IR動画制作"),
+          ("d01ba34f","OPP-202603-0020","GLS-A001","GH IR説明会 2026春"),
+          ("bfa069d6","OPP-202603-0025","GLS-A006","DA 社内イベント中継")]
+    tr="".join(f'<tr><td>✏ 🗑</td><td>{i}</td><td>{c}</td><td>{e}</td><td style="font-weight:600">{n}</td></tr>' for i,c,e,n in rows)
+    body=f"""
+    <div class="dwrap">
+      <div class="tlist"><div class="hd">🗄 テーブル一覧</div>
+        <div style="font-size:10px;color:#9aa6b2;font-weight:700;margin:4px 0 4px">🏛 案件管理</div>{ti}</div>
+      <div class="dmain">
+        <div class="dtop"><b style="font-size:15px">案件</b><span style="color:#9aa6b2;font-size:12px">projects</span>
+          <span class="badge" style="background:#dbe7f5;color:#005bac;font-size:11px;font-weight:800;border-radius:20px;padding:2px 9px">28件</span>
+          <span style="margin-left:auto"></span><span class="btn">🔍 検索...</span>&nbsp;<span class="btn">50件 ⌄</span>&nbsp;<span class="btn">⬇ CSV</span></div>
+        <table><tr><th></th><th>ID ↕</th><th>code ↕</th><th>イベントコード ↕</th><th>名前 ↕</th></tr>{tr}</table>
+        <div style="color:#9aa6b2;font-size:11px;margin-top:10px">全 28 件中 1〜28 件（ページ 1 / 1）</div></div>
+    </div>
+    """
+    return page("システム管理", body, css)
+
+
 SCREENS = {
     "projects": html_projects, "qsheet": html_qsheet, "equipment": html_equipment,
     "techsheet": html_techsheet, "live": html_live, "cg": html_cg,
+    "budget": html_budget, "kanban": html_kanban, "gantt": html_gantt,
+    "studio": html_studio, "users": html_users, "dbviewer": html_dbviewer,
 }
 
 

@@ -621,12 +621,8 @@ def _find_shot(key):
     return None
 
 
-def place_screen(s, idx, cx, cy, cw, ch):
-    """実スクショがあれば cover-fit で配置、無ければベクターモックアップを描画"""
-    shot = _find_shot(SCREEN_KEYS[idx])
-    if not shot:
-        SCREENS[idx](s, cx, cy, cw, ch)
-        return False
+def _cover_fit(s, shot, cx, cy, cw, ch):
+    """画像を (cx,cy,cw,ch) に cover-fit（はみ出し分を crop）で配置"""
     try:
         from PIL import Image
         iw, ih = Image.open(shot).size
@@ -634,21 +630,36 @@ def place_screen(s, idx, cx, cy, cw, ch):
         iw, ih = (1600, 1000)
     target = cw / ch
     src = iw / ih
-    # cover: フレームを埋めるよう、はみ出し分を crop
     if src > target:
-        # 画像が横長 → 左右をトリミング
         pic = s.shapes.add_picture(shot, Inches(cx), Inches(cy), height=Inches(ch))
         over = pic.width - Inches(cw)
         crop = (over / pic.width) / 2 if pic.width else 0
         pic.crop_left = crop; pic.crop_right = crop
         pic.left = Inches(cx); pic.width = Inches(cw)
     else:
-        # 画像が縦長 → 上下をトリミング
         pic = s.shapes.add_picture(shot, Inches(cx), Inches(cy), width=Inches(cw))
         over = pic.height - Inches(ch)
         crop = (over / pic.height) / 2 if pic.height else 0
         pic.crop_top = crop; pic.crop_bottom = crop
         pic.top = Inches(cy); pic.height = Inches(ch)
+
+
+def place_named_screen(s, key, cx, cy, cw, ch):
+    """key (例: 'budget') の PNG を cover-fit 配置。無ければ False"""
+    shot = _find_shot(key)
+    if not shot:
+        return False
+    _cover_fit(s, shot, cx, cy, cw, ch)
+    return True
+
+
+def place_screen(s, idx, cx, cy, cw, ch):
+    """実スクショがあれば cover-fit で配置、無ければベクターモックアップを描画"""
+    shot = _find_shot(SCREEN_KEYS[idx])
+    if not shot:
+        SCREENS[idx](s, cx, cy, cw, ch)
+        return False
+    _cover_fit(s, shot, cx, cy, cw, ch)
     return True
 
 
@@ -871,6 +882,83 @@ def s_gallery(n):
         # キャプション
         cap = rect(s, x + 0.12, y + gh + 0.06, gw - 0.24, 0.28, fill=lc, line=None, round_=True)
         centered_label(cap, f"{name}", 10.5, c)
+    footer(s, n)
+    return s
+
+
+def _screen_grid(s, items, cols, gw, gh, gx, gy, gap_x, gap_y):
+    """items: list of (key, label, url, color, light)"""
+    for i, (key, label, url, c, lc) in enumerate(items):
+        col = i % cols; row = i // cols
+        x = gx + col*(gw + gap_x); y = gy + row*(gh + gap_y)
+        cx, cy, cw, ch = browser_frame(s, x, y, gw, gh, url, accent=c)
+        place_named_screen(s, key, cx, cy, cw, ch)
+        cap = rect(s, x + 0.12, y + gh + 0.06, gw - 0.24, 0.3, fill=lc, line=None, round_=True)
+        centered_label(cap, label, 11, c)
+
+
+# ==================================================================
+# スライド : 案件管理の深掘り（タスク/予算/予約）
+# ==================================================================
+def s_more_projects(n):
+    s = slide(); bg(s)
+    page_header(s, "DEEP DIVE — 案件管理", "“管理”だけじゃない — 進行・お金・場所まで一気通貫", num=n)
+    items = [
+        ("budget", "予算・損益ダッシュボード", "gmo-onair.jp/budget", GMO_BLUE, BLUE_LIGHT),
+        ("kanban", "タスク管理（カンバン）", "gmo-onair.jp/tasks", TEAL, TEAL_LT),
+        ("gantt", "タスク管理（ガント）", "gmo-onair.jp/gantt", ACCENT, ACCENT_LT),
+        ("studio", "スタジオ予約（カレンダー）", "gmo-onair.jp/studio", GREEN, GREEN_LT),
+    ]
+    _screen_grid(s, items, cols=2, gw=5.78, gh=2.18, gx=0.78, gy=1.82, gap_x=0.28, gap_y=0.5)
+    footer(s, n)
+    return s
+
+
+# ==================================================================
+# スライド : プラットフォーム運営（管理・ガバナンス）
+# ==================================================================
+def s_admin(n):
+    s = slide(); bg(s)
+    page_header(s, "PLATFORM GOVERNANCE", "プラットフォーム運営 — 権限・データを社内で掌握", num=n)
+    # 左に2画面、右に説明
+    fx, fy, fw, fh = 0.78, 1.9, 7.4, 2.18
+    cx, cy, cw, ch = browser_frame(s, fx, fy, fw*0.5 - 0.1, fh, "gmo-onair.jp/admin/users", accent=GMO_BLUE)
+    place_named_screen(s, "users", cx, cy, cw, ch)
+    cap = rect(s, fx, fy + fh + 0.06, fw*0.5 - 0.1, 0.3, fill=BLUE_LIGHT, line=None, round_=True)
+    centered_label(cap, "ユーザー権限管理", 11, GMO_BLUE)
+    x2 = fx + fw*0.5 + 0.1
+    cx, cy, cw, ch = browser_frame(s, x2, fy, fw*0.5 - 0.1, fh, "gmo-onair.jp/admin/db", accent=PURPLE)
+    place_named_screen(s, "dbviewer", cx, cy, cw, ch)
+    cap = rect(s, x2, fy + fh + 0.06, fw*0.5 - 0.1, 0.3, fill=PURPLE_LT, line=None, round_=True)
+    centered_label(cap, "DBビューア（全テーブル）", 11, PURPLE)
+    # 2枚目（システム設定/バックアップ）
+    fy2 = fy + fh + 0.65
+    cx, cy, cw, ch = browser_frame(s, fx, fy2, fw, 1.95, "gmo-onair.jp/admin/settings", accent=GREEN)
+    # システム設定は専用PNGが無いので、説明テキストで補足（バックアップ要点）
+    rect(s, cx, cy, cw, ch, fill=PAPER, line=None)
+    text(s, cx + 0.3, cy + 0.2, cw - 0.6, ch - 0.4,
+         [[("システム設定 — 全データバックアップ（管理者専用）", 13, INK, True)],
+          [("ユーザー・顧客・案件・売上・仕入・販管費・機材・スタジオ予約など", 11, GRAY, False)],
+          [("主要13テーブルを 日本語ヘッダー付きの単一 xlsx で出力（バックアップ・監査用）。", 11, GRAY, False)],
+          [("アプリ情報：GMO ONAiR  v2.9.26　／　パスワード変更も同画面で。", 11, GREEN, True)]],
+         line_spacing=1.35, space_after=4)
+    cap = rect(s, fx, fy2 + 1.95 + 0.06, fw, 0.3, fill=GREEN_LT, line=None, round_=True)
+    centered_label(cap, "システム設定（全データExcelバックアップ）", 11, GREEN)
+    # 右の説明カラム
+    text(s, 8.5, 1.95, 4.0, 0.4, [("社内で完結するガバナンス", 14, GMO_BLUE, True)])
+    pts = [
+        ("権限は2ロール＋アプリ別", "管理者/スタッフ＋アプリ単位の権限で過不足なく付与"),
+        ("全テーブルを可視化", "案件28・売上明細124など全データをCSVで確認・抽出"),
+        ("ワンクリック退避", "主要13テーブルをExcel一括バックアップ（監査対応）"),
+        ("外注に渡さない", "データもアクセス権も社内に閉じて掌握"),
+    ]
+    yy = 2.5
+    for t, d in pts:
+        chk = shape(s, MSO_SHAPE.OVAL, 8.5, yy + 0.03, 0.28, 0.28, fill=GMO_BLUE, line=None)
+        text(s, 8.53, yy - 0.01, 0.28, 0.28, [("✓", 10, WHITE, True)], align=PP_ALIGN.CENTER)
+        text(s, 8.9, yy - 0.04, 3.6, 0.4, [(t, 12.5, INK, True)])
+        text(s, 8.9, yy + 0.28, 3.6, 0.5, [(d, 10, GRAY, False)], line_spacing=1.08)
+        yy += 0.92
     footer(s, n)
     return s
 
@@ -1374,6 +1462,8 @@ def build():
     for idx in range(6):
         s_app_detail(n, idx); n += 1
     s_gallery(n); n += 1
+    s_more_projects(n); n += 1
+    s_admin(n); n += 1
     s_connect(n); n += 1
     s_lifecycle(n); n += 1
     s_tech(n); n += 1
