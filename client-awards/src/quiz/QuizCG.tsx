@@ -351,8 +351,6 @@ function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, 
 }) {
   const palette = QUIZ_COLORS[(index - 1) % QUIZ_COLORS.length];
   const name = choice.name || `選択肢${index}`;
-  const company = choice.company || '';
-  const nomTitle = choice.nomination_title || '';
   const isCorrect = !!choice.is_correct;
   const isDimmed = correctReveal && !isCorrect;
   const isHilite = correctReveal && isCorrect;
@@ -396,22 +394,11 @@ function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, 
         filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.45))',
       }}>{index}</div>
 
+      {/* v2.9.28: 選択肢は名前のみ表示 (会社名/ノミネートタイトルは省略し、名前を大きく) */}
       <CondenseText style={{
-        fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 900, fontSize: 26,
+        fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 900, fontSize: 42,
         color: '#fff', textShadow: '0 2px 6px rgba(0,0,0,0.7)', lineHeight: 1.1,
-      }} min={0.45}>{name}</CondenseText>
-      {company && (
-        <CondenseText style={{
-          marginTop: 2, fontFamily: "'Noto Sans JP', sans-serif", fontSize: 14,
-          color: 'rgba(255,255,255,0.85)', letterSpacing: '0.06em',
-        }} min={0.45}>{company}</CondenseText>
-      )}
-      {nomTitle && (
-        <CondenseText style={{
-          marginTop: 2, fontFamily: "'Noto Sans JP', sans-serif", fontSize: 14,
-          fontWeight: 700, color: '#F5D76E',
-        }} min={0.4}>{nomTitle}</CondenseText>
-      )}
+      }} min={0.4}>{name}</CondenseText>
 
       {/* 票数: v2.9.18 ドンと拡大演出
           - shake (revealPhase=0): base サイズ (156x76 / font 48) でランダム数字が動く
