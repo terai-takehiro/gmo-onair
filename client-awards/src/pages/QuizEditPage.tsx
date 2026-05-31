@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import {
   ArrowLeft, RefreshCw, Image as ImageIcon, ImageOff, Save, Radio, Check,
-  ChevronDown, ChevronRight,
+  ChevronDown, ChevronRight, CheckCircle2, Link2, Download, Loader2,
 } from 'lucide-react';
-import { useQuiz, useUpdateQuiz, useUpdateQuizChoice, useSyncQuizFromCategory } from '@/quiz/api';
-import type { Quiz } from '@/quiz/types';
+import { useQuiz, useSyncQuizFromCategory } from '@/quiz/api';
+import type { Quiz, QuizChoice } from '@/quiz/types';
 import { QUIZ_COLORS } from '@/quiz/types';
 import type { CgCategory } from '@/cg/types';
 
@@ -16,11 +16,33 @@ interface AwardsEventDetail {
   categories: CgCategory[];
 }
 
+// 選択肢の編集ドラフト (CG 表示用フィールドを含む)
+interface ChoiceDraft {
+  name: string; name_en: string;
+  company: string; company_en: string;
+  nomination_title: string; nomination_title_en: string;
+  photo_data_url: string;
+  vote_count: number;
+  is_correct: boolean;
+}
+
+function toChoiceDraft(c: QuizChoice): ChoiceDraft {
+  return {
+    name: c.name ?? '', name_en: c.name_en ?? '',
+    company: c.company ?? '', company_en: c.company_en ?? '',
+    nomination_title: c.nomination_title ?? '', nomination_title_en: c.nomination_title_en ?? '',
+    photo_data_url: c.photo_data_url ?? '',
+    vote_count: c.vote_count ?? 0,
+    is_correct: !!c.is_correct,
+  };
+}
+
 export default function QuizEditPage() {
   const { id, quizId: quizIdRaw } = useParams<{ id: string; quizId: string }>();
   const eventId = parseInt(id!);
   const quizId = parseInt(quizIdRaw!);
   const navigate = useNavigate();
+  const qc = useQueryClient();
 
   const { data: event } = useQuery({
     queryKey: ['awards-event', eventId],
@@ -30,14 +52,24 @@ export default function QuizEditPage() {
     },
   });
   const { data: quiz } = useQuiz(quizId);
-
-  const updateQuiz = useUpdateQuiz(quizId, eventId);
-  const updateChoice = useUpdateQuizChoice(quizId);
   const sync = useSyncQuizFromCategory(quizId);
 
+  // インタラクティブ演出 連携状態 (取込/自動送信の可否判定に使う)
+  const { data: iaLink } = useQuery({
+    queryKey: ['interactive-link', eventId],
+    queryFn: async () => (await api.get(`/quiz/events/${eventId}/interactive-link`)).data.data as { configured: boolean },
+  });
+  const [pulling, setPulling] = useState(false);
+
   const [draft, setDraft] = useState<Partial<Quiz>>({});
+  // 選択肢ドラフト: position をキーに 1 つの保存ボタンでまとめて保存する
+  const [choiceDrafts, setChoiceDrafts] = useState<Record<number, ChoiceDraft>>({});
+  const [saving, setSaving] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
+
   useEffect(() => {
-    if (quiz) setDraft({
+    if (!quiz) return;
+    setDraft({
       title: quiz.title, title_en: quiz.title_en,
       question: quiz.question, question_en: quiz.question_en,
       choice_count: quiz.choice_count,
@@ -48,20 +80,56 @@ export default function QuizEditPage() {
       has_answer_check: quiz.has_answer_check,
       cover_image_data_url: quiz.cover_image_data_url,
     });
+    const m: Record<number, ChoiceDraft> = {};
+    for (const c of quiz.choices) m[c.position] = toChoiceDraft(c);
+    setChoiceDrafts(m);
   }, [quiz]);
 
   if (!quiz) return <div className="p-6 text-sm text-muted-foreground">読み込み中…</div>;
 
   const isQuiz = (draft.mode ?? quiz.mode) === 'quiz';
+  const choiceCount = draft.choice_count ?? quiz.choice_count;
+  // この quiz が連携中の Interactive 問題 ID (API は返すが型に無いため cast)
+  const iqId = (quiz as unknown as { interactive_question_id?: string | null }).interactive_question_id ?? null;
 
+  // 取込 (Interactive → リアルタイムCG): 連携中の問題の本文・選択肢・正解で上書き
+  const onPull = async () => {
+    if (!iqId) return;
+    if (!window.confirm('インタラクティブ演出側の本文・選択肢・正解で、この問題を上書きします。よろしいですか？')) return;
+    setPulling(true);
+    try {
+      await api.post(`/quiz/events/${eventId}/interactive-link/pull/${quizId}`);
+      await qc.invalidateQueries({ queryKey: ['quizzes'] });
+    } catch {
+      alert('取込に失敗しました（連携先の問題が見つからない可能性があります）。');
+    } finally {
+      setPulling(false);
+    }
+  };
+
+  const setChoice = (position: number, patch: Partial<ChoiceDraft>) => {
+    setChoiceDrafts((prev) => ({ ...prev, [position]: { ...prev[position], ...patch } }));
+  };
+
+  // ── 1 つの「保存」で quiz 本体 + 全選択肢 + Interactive 送信をまとめて実行 ──
   const onSave = async () => {
-    await updateQuiz.mutateAsync(draft);
-    // v2.9.26: Interactive と連携済みの quiz は保存時に本文・選択肢・正解を自動同期。
-    // 未連携 (interactive_question_id 無し) のときは新規作成を避けるため何もしない。
-    if ((quiz as unknown as { interactive_question_id?: string | null }).interactive_question_id) {
-      try {
-        await api.post(`/quiz/events/${eventId}/interactive-link/push/${quizId}`);
-      } catch { /* 連携未設定/失敗は保存をブロックしない */ }
+    setSaving(true);
+    try {
+      await api.put(`/quiz/quizzes/${quizId}`, draft);
+      // 表示中の各選択肢を保存 (choice_count 内のみ)
+      for (let pos = 1; pos <= choiceCount; pos++) {
+        const cd = choiceDrafts[pos];
+        if (cd) await api.put(`/quiz/quizzes/${quizId}/choices/${pos}`, cd);
+      }
+      // 保存時に自動で Interactive へ送信 (本文・選択肢・正解)。
+      // 連携設定済みなら新規作成 or 更新、未設定なら 400 を握りつぶす (保存はブロックしない)。
+      // 既に連携済みの場合は interactive_question_id 経由で同じ問題を更新する。
+      try { await api.post(`/quiz/events/${eventId}/interactive-link/push/${quizId}`); } catch { /* 連携未設定/失敗は無視 */ }
+      await qc.invalidateQueries({ queryKey: ['quizzes'] });
+      setSavedFlash(true);
+      setTimeout(() => setSavedFlash(false), 2500);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -77,25 +145,30 @@ export default function QuizEditPage() {
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-lg sm:text-xl font-semibold truncate">{quiz.title || '(タイトル未設定)'}</h1>
+          <h1 className="text-lg sm:text-xl font-semibold truncate">{draft.title || quiz.title || '(タイトル未設定)'}</h1>
           <div className="flex items-center gap-2 mt-0.5">
             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
               isQuiz ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'
             }`}>
               {isQuiz ? 'クイズ' : 'アンケート'}
             </span>
-            <span className="text-xs text-muted-foreground">{quiz.choice_count} 択 / {draft.countdown_seconds ?? quiz.countdown_seconds} 秒</span>
+            <span className="text-xs text-muted-foreground">{choiceCount} 択 / {draft.countdown_seconds ?? quiz.countdown_seconds} 秒</span>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {savedFlash && (
+            <span className="hidden sm:flex items-center gap-1 text-xs font-semibold text-green-600">
+              <CheckCircle2 className="h-3.5 w-3.5" />保存しました
+            </span>
+          )}
           <button onClick={() => navigate(`/event/${eventId}/quiz-stack/control`)}
             className="flex items-center gap-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700">
             <Radio className="h-3.5 w-3.5" />送出
           </button>
           <button onClick={onSave}
-            disabled={updateQuiz.isPending}
-            className="flex items-center gap-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-50 px-3 py-1.5 text-xs font-bold text-white">
-            <Save className="h-3.5 w-3.5" />{updateQuiz.isPending ? '保存中…' : '保存'}
+            disabled={saving}
+            className="flex items-center gap-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-50 px-4 py-1.5 text-xs font-bold text-white">
+            <Save className="h-3.5 w-3.5" />{saving ? '保存中…' : '保存'}
           </button>
         </div>
       </div>
@@ -115,6 +188,29 @@ export default function QuizEditPage() {
           );
         })}
       </div>
+
+      {/* インタラクティブ演出 連携 (双方向) — 設定済みのときのみ表示 */}
+      {iaLink?.configured && (
+        <div className="rounded-xl border border-cyan-200 bg-cyan-50/40 p-3 flex flex-wrap items-center gap-2">
+          <Link2 className="h-4 w-4 text-cyan-600 shrink-0" />
+          <span className="text-xs font-bold text-cyan-900">インタラクティブ演出 連携</span>
+          {iqId
+            ? <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">連携中</span>
+            : <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-600">未連携</span>}
+          <div className="flex-1" />
+          <button onClick={onPull} disabled={!iqId || pulling}
+            className="flex items-center gap-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 px-3 py-1.5 text-xs font-bold text-white"
+            title="インタラクティブ演出の内容をこの問題に取り込む">
+            {pulling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            Interactive から取込
+          </button>
+          <p className="w-full text-[11px] text-cyan-700">
+            ⬆ 送信 (CG → Interactive) は<strong>保存時に自動</strong>で実行されます。
+            ⬇ 取込 (Interactive → CG) は上のボタンで実行します。
+            {!iqId && '（一覧ページで連携先の問題を選ぶと有効になります）'}
+          </p>
+        </div>
+      )}
 
       {/* 基本設定 */}
       <section className="rounded-xl border bg-card p-4 space-y-3">
@@ -194,7 +290,7 @@ export default function QuizEditPage() {
       {/* 選択肢 */}
       <section className="rounded-xl border bg-card p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold">選択肢 ({quiz.choice_count} 件)</h2>
+          <h2 className="text-sm font-bold">選択肢 ({choiceCount} 件)</h2>
           {isQuiz && (
             <span className="text-[11px] text-green-700 font-medium flex items-center gap-1">
               <Check className="h-3 w-3" />正解を選択 (複数可)
@@ -202,11 +298,19 @@ export default function QuizEditPage() {
           )}
         </div>
         <div className="space-y-2">
-          {quiz.choices.slice(0, quiz.choice_count).map((c) => (
-            <ChoiceEditor key={c.id} quizId={quizId} initial={c} updateChoice={updateChoice}
-              showCorrectFlag={isQuiz} />
+          {Array.from({ length: choiceCount }, (_, i) => i + 1).map((pos) => (
+            <ChoiceEditor
+              key={pos}
+              position={pos}
+              value={choiceDrafts[pos] ?? toChoiceDraft({ position: pos } as QuizChoice)}
+              onChange={(patch) => setChoice(pos, patch)}
+              showCorrectFlag={isQuiz}
+            />
           ))}
         </div>
+        <p className="text-[11px] text-muted-foreground">
+          ※ 変更は上部の「保存」ボタンでまとめて保存されます (選択肢ごとの保存は不要)。
+        </p>
       </section>
     </div>
   );
@@ -222,39 +326,16 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 interface ChoiceEditorProps {
-  quizId: number;
-  initial: import('@/quiz/types').QuizChoice;
-  updateChoice: ReturnType<typeof useUpdateQuizChoice>;
+  position: number;
+  value: ChoiceDraft;
+  onChange: (patch: Partial<ChoiceDraft>) => void;
   showCorrectFlag: boolean;
 }
 
-function ChoiceEditor({ initial, updateChoice, showCorrectFlag }: ChoiceEditorProps) {
-  const [draft, setDraft] = useState({
-    name: initial.name ?? '',
-    name_en: initial.name_en ?? '',
-    company: initial.company ?? '',
-    company_en: initial.company_en ?? '',
-    nomination_title: initial.nomination_title ?? '',
-    nomination_title_en: initial.nomination_title_en ?? '',
-    photo_data_url: initial.photo_data_url ?? '',
-    vote_count: initial.vote_count ?? 0,
-    is_correct: !!initial.is_correct,
-  });
+function ChoiceEditor({ position, value, onChange, showCorrectFlag }: ChoiceEditorProps) {
   const [open, setOpen] = useState(false);
-  useEffect(() => {
-    setDraft({
-      name: initial.name ?? '', name_en: initial.name_en ?? '',
-      company: initial.company ?? '', company_en: initial.company_en ?? '',
-      nomination_title: initial.nomination_title ?? '',
-      nomination_title_en: initial.nomination_title_en ?? '',
-      photo_data_url: initial.photo_data_url ?? '',
-      vote_count: initial.vote_count ?? 0,
-      is_correct: !!initial.is_correct,
-    });
-  }, [initial]);
-
   const fileRef = useRef<HTMLInputElement>(null);
-  const color = QUIZ_COLORS[(initial.position - 1) % QUIZ_COLORS.length];
+  const color = QUIZ_COLORS[(position - 1) % QUIZ_COLORS.length];
 
   const handleFile = (f: File) => {
     const reader = new FileReader();
@@ -268,58 +349,48 @@ function ChoiceEditor({ initial, updateChoice, showCorrectFlag }: ChoiceEditorPr
         const canvas = document.createElement('canvas');
         canvas.width = w; canvas.height = h;
         const ctx = canvas.getContext('2d');
-        if (!ctx) { setDraft({ ...draft, photo_data_url: dataUrl }); return; }
+        if (!ctx) { onChange({ photo_data_url: dataUrl }); return; }
         ctx.drawImage(img, 0, 0, w, h);
-        const out = canvas.toDataURL('image/jpeg', 0.82);
-        setDraft((d) => ({ ...d, photo_data_url: out }));
+        onChange({ photo_data_url: canvas.toDataURL('image/jpeg', 0.82) });
       };
       img.src = dataUrl;
     };
     reader.readAsDataURL(f);
   };
 
-  const save = () => {
-    updateChoice.mutate({ position: initial.position, body: draft });
-  };
-
   return (
     <div className="rounded-lg border bg-card p-3">
-      {/* 基本行: 番号 + 名前 + 正解トグル + 写真 + 保存 */}
+      {/* 基本行: 番号 + 名前 + 正解トグル + 写真 */}
       <div className="flex items-center gap-2.5">
         <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-black text-white"
           style={{ background: color.core }}>
-          {initial.position}
+          {position}
         </div>
 
         {/* 正解トグル (クイズ時のみ) — インタラクティブ側と同じ緑チェック */}
         {showCorrectFlag && (
-          <button type="button" aria-pressed={draft.is_correct}
-            aria-label={`選択肢 ${initial.position} を正解にする`}
-            onClick={() => setDraft({ ...draft, is_correct: !draft.is_correct })}
+          <button type="button" aria-pressed={value.is_correct}
+            aria-label={`選択肢 ${position} を正解にする`}
+            onClick={() => onChange({ is_correct: !value.is_correct })}
             className={`w-9 h-9 rounded-lg border-2 flex items-center justify-center shrink-0 transition-colors ${
-              draft.is_correct ? 'border-green-500 bg-green-500 text-white' : 'border-slate-300 text-transparent hover:border-green-400'
+              value.is_correct ? 'border-green-500 bg-green-500 text-white' : 'border-slate-300 text-transparent hover:border-green-400'
             }`}>
             <Check className="h-4 w-4" />
           </button>
         )}
 
-        <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-          placeholder={`選択肢 ${initial.position}`} className="flex-1 min-w-0 rounded-lg border px-3 py-2 text-sm"/>
+        <input value={value.name} onChange={(e) => onChange({ name: e.target.value })}
+          placeholder={`選択肢 ${position}`} className="flex-1 min-w-0 rounded-lg border px-3 py-2 text-sm"/>
 
         <button onClick={() => fileRef.current?.click()}
           className="relative w-9 h-9 rounded-lg overflow-hidden bg-slate-100 border hover:border-purple-500 flex items-center justify-center shrink-0"
           title="画像をアップロード">
-          {draft.photo_data_url
-            ? <img src={draft.photo_data_url} alt="" className="w-full h-full object-cover"/>
+          {value.photo_data_url
+            ? <img src={value.photo_data_url} alt="" className="w-full h-full object-cover"/>
             : <ImageIcon className="h-4 w-4 text-slate-400"/>}
         </button>
         <input ref={fileRef} type="file" accept="image/*" className="hidden"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}/>
-
-        <button onClick={save} disabled={updateChoice.isPending}
-          className="shrink-0 rounded-lg bg-slate-800 hover:bg-slate-700 text-white px-3 py-2 text-xs font-bold disabled:opacity-50">
-          保存
-        </button>
       </div>
 
       {/* 詳細 (CG 表示用) — 折りたたみでシンプルさを維持 */}
@@ -330,29 +401,29 @@ function ChoiceEditor({ initial, updateChoice, showCorrectFlag }: ChoiceEditorPr
       </button>
       {open && (
         <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-          <input value={draft.name_en} onChange={(e) => setDraft({ ...draft, name_en: e.target.value })}
+          <input value={value.name_en} onChange={(e) => onChange({ name_en: e.target.value })}
             placeholder="Name (EN)" className="rounded-lg border px-3 py-2"/>
-          <input value={draft.company} onChange={(e) => setDraft({ ...draft, company: e.target.value })}
+          <input value={value.company} onChange={(e) => onChange({ company: e.target.value })}
             placeholder="会社・所属" className="rounded-lg border px-3 py-2"/>
-          <input value={draft.company_en} onChange={(e) => setDraft({ ...draft, company_en: e.target.value })}
+          <input value={value.company_en} onChange={(e) => onChange({ company_en: e.target.value })}
             placeholder="Company (EN)" className="rounded-lg border px-3 py-2"/>
-          <input value={draft.nomination_title} onChange={(e) => setDraft({ ...draft, nomination_title: e.target.value })}
+          <input value={value.nomination_title} onChange={(e) => onChange({ nomination_title: e.target.value })}
             placeholder="ノミネートタイトル" className="rounded-lg border px-3 py-2"/>
-          <input value={draft.nomination_title_en} onChange={(e) => setDraft({ ...draft, nomination_title_en: e.target.value })}
+          <input value={value.nomination_title_en} onChange={(e) => onChange({ nomination_title_en: e.target.value })}
             placeholder="Nomination Title (EN)" className="rounded-lg border px-3 py-2"/>
           <label className="flex items-center gap-2">
             <span className="text-[10px] text-muted-foreground shrink-0">投票数/回答数</span>
-            <input type="text" inputMode="numeric" value={String(draft.vote_count)}
+            <input type="text" inputMode="numeric" value={String(value.vote_count)}
               onChange={(e) => {
                 const cleaned = e.target.value.replace(/[^\d]/g, '');
                 const n = cleaned === '' ? 0 : parseInt(cleaned, 10);
-                setDraft({ ...draft, vote_count: isNaN(n) ? 0 : Math.max(0, n) });
+                onChange({ vote_count: isNaN(n) ? 0 : Math.max(0, n) });
               }}
               onFocus={(e) => e.target.select()}
               className="w-full rounded-lg border px-3 py-2"/>
           </label>
-          {draft.photo_data_url && (
-            <button onClick={() => setDraft({ ...draft, photo_data_url: '' })}
+          {value.photo_data_url && (
+            <button onClick={() => onChange({ photo_data_url: '' })}
               className="text-[11px] text-slate-500 hover:text-red-500 inline-flex items-center gap-1 justify-self-start">
               <ImageOff className="h-3.5 w-3.5"/>画像を削除
             </button>

@@ -75,20 +75,9 @@ export default function QuizStackControlPage() {
     setVoteEdits(m);
   }, [currentQuiz]);
 
-  // v2.9.18+: poll の制限時間到達で自動的に reveal/phase 0 (ランダム揺れ) に遷移
-  useEffect(() => {
-    if (cue.step !== 'poll' || !cue.pollStartedAt || !currentQuiz) return;
-    const elapsed = Date.now() - cue.pollStartedAt;
-    const remaining = currentQuiz.countdown_seconds * 1000 - elapsed;
-    if (remaining <= 0) {
-      sendCue({ step: 'reveal', pollStartedAt: null, revealPhase: 0, votes: voteEdits });
-      return;
-    }
-    const id = window.setTimeout(() => {
-      sendCue({ step: 'reveal', pollStartedAt: null, revealPhase: 0, votes: voteEdits });
-    }, remaining);
-    return () => window.clearTimeout(id);
-  }, [cue.step, cue.pollStartedAt, currentQuiz, sendCue, voteEdits]);
+  // v2.9.28: カウントダウンが 0 になっても自動遷移しない (poll のまま停止)。
+  // operator が次に TAKE を押したとき reveal/phase 0 (ランダム揺れ) へ進む。
+  // → 旧 v2.9.18 の poll 制限時間到達による自動 reveal 遷移は廃止。
 
   const take = useCallback(() => {
     if (!currentQuiz) {

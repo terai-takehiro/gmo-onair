@@ -5,7 +5,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 
 **本番環境**: https://gmo-onair.jp
 **検証環境**: https://dev.gmo-onair.jp
-**現在のバージョン**: v2.9.27 — リアルタイムCG クイズ/アンケート編集画面 UI をインタラクティブ演出側 (`gmo-onair-interactive` の QuizManagerPage) と整合・シンプル化: 一覧にクイズ/アンケートタブ + 折りたたみ作成フォーム + 種別バッジ、編集画面は種別を下線タブ化 + 正解選択を緑チェックトグル (複数正解可) + 英語名/会社/ノミネートタイトル/票数を「詳細 (CG 表示用)」折りたたみに集約。機能・データモデル・server API は不変 (見た目と導線のみ)。旧 v2.9.26 — 出題システムの共通化 (種別を survey/quiz の2種に統一・1問単位連携・複数正解同期・保存時自動同期)。
+**現在のバージョン**: v2.9.28 — リアルタイムCG クイズ/アンケート: 保存ボタンを 1 つに統合 (選択肢ごとの保存を廃止、上部「保存」で一括保存)、保存時に Interactive へ自動送信 (CG→Interactive)、編集画面に「Interactive から取込」(Interactive→CG) を追加して双方向連携を明示、CG の選択肢カードを名前のみ表示 (42px に拡大、会社名/ノミネートタイトルは省略)、カウントダウンは 0 で停止し次の TAKE で結果演出へ (自動遷移を廃止)。旧 v2.9.27 — クイズ/アンケート編集画面 UI をインタラクティブ演出側と整合・シンプル化。
 
 旧 v2.8.128: 表彰CG 投票パターン UX 刷新（オールスター感謝祭風レイアウト・大型 PinP・スライド型カウントダウン・ラスト5秒巨大表示・棒グラフ豪華化・自動 GRAND PRIX 遷移・GRAND PRIX フルスクリーン刷新）+ **余興用 3 択 Standalone Poll** を新設（表彰DB と独立、画像入稿 or 画像なしも可）
 
@@ -409,6 +409,7 @@ feature/xxx → dev → (検証環境で動作確認) → main → (本番自動
 
 | バージョン | 内容 |
 |---|---|
+| **v2.9.28** | **クイズ/アンケート: 保存統合 + 双方向連携 + CG 名前のみ + カウントダウン停止**: ①編集画面の保存ボタンを 1 つに統合 (選択肢ごとの保存を廃止し、上部「保存」で quiz 本体 + 全選択肢を一括保存)。②保存時に Interactive へ自動送信 (CG→Interactive、`push/:quizId`、未連携でも設定済みなら初回保存で自動作成・連携)。③編集画面に「Interactive から取込」ボタン (Interactive→CG、`pull/:quizId`) を追加し双方向を明示。④CG の選択肢カードを名前のみ表示 (42px に拡大、会社名/ノミネートタイトルを省略)。⑤poll カウントダウンが 0 になっても自動遷移せず停止し、次の TAKE で結果演出 (reveal) へ進む。 |
 | **v2.9.27** | **リアルタイムCG クイズ/アンケート編集画面 UI をインタラクティブ演出側と整合**: `client-awards` の `QuizListPage` / `QuizEditPage` を別 VPS `gmo-onair-interactive` の `QuizManagerPage` のデザインに合わせてシンプル化。一覧はクイズ/アンケートタブ + 折りたたみ作成フォーム (現タブの mode を継承) + 種別バッジ、編集は種別を下線タブ化 + 正解選択を緑チェックトグル (複数正解可) + 英語名/会社/ノミネートタイトル/票数を「詳細 (CG 表示用)」折りたたみに集約。機能・データモデル・server API・保存/連携ロジックは不変 (見た目と導線のみ)。 |
 | **v2.9.17** | **インタラクティブを別 VPS に切り出し + コードをモノレポから削除**: `https://interactive.gmo-onair.jp/` への外部リンクとしてナビ (Sidebar / AppSwitcher / HomePage) に残し、`client-interactive/` ワークスペース・`server/src/contexts/interactive/`・関連 Docker build steps・seed・DataViewer マッピング・MODULE_LABELS 等を全て削除。Socket.IO foundational コード (CORS + transports) は旧 `interactive/socket.ts` から新規 `server/src/shared/socket.ts` に抽出して中立化 (他全アプリの namespace 初期化が依存していたため)。スタンプ用 in-memory buffer + DB flush ロジックは廃止。DB の `interactive_*` 9 テーブル・既存データ・user_permissions 行は据置 (コードのみクリーン)。マイグレーション 013/015/017/018/020/021/022/023/024 の SQL ファイルは履歴として残置。 |
 | **v2.9.16** | **外部アプリ「翻訳」を追加**: `https://gmo-translate.jp/` への外部リンクを `Languages` アイコン + グリーン (`#16a34a`) で全 7 アプリのサイドバー「他のアプリ」・ヘッダーの AppSwitcher・ホーム画面のアプリランチャーに追加。`AppNavItem` / `BlockApp` / `AppDef` に `externalUrl?: string` を追加し、有る場合は `<a target="_blank" rel="noopener noreferrer">` で別タブ起動。HomePage の AppCard は `disabled={!app.externalUrl && !hasPermission(app.id)}` で外部アプリの権限チェックを skip。 |
