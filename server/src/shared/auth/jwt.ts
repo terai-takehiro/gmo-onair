@@ -6,6 +6,8 @@ export interface JwtPayload {
   userId: string;
   email: string;
   role: string;
+  /** v2 SSO: 表示名。Interactive 側で auto-mirror 時に users.name に使う */
+  name?: string;
 }
 
 export function signToken(payload: JwtPayload): string {

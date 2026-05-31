@@ -16,12 +16,31 @@ const roleLabelMap: Record<string, string> = {
   staff: "スタッフ",
 };
 
+/**
+ * v2 SSO: redirect 先の安全な解決。
+ * - 相対パス ("/foo") はそのまま許可
+ * - 絶対 URL は **.gmo-onair.jp 系のみ** 許可 (cross-subdomain SSO 用)
+ * - それ以外は "/" にフォールバック (Open Redirect 脆弱性回避)
+ */
+function resolveRedirect(raw: string | null): string {
+  if (!raw) return '/';
+  if (raw.startsWith('/') && !raw.startsWith('//')) return raw;
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return '/';
+    const host = u.hostname.toLowerCase();
+    if (host === 'gmo-onair.jp' || host.endsWith('.gmo-onair.jp')) {
+      return u.toString();
+    }
+  } catch { /* fall through */ }
+  return '/';
+}
+
 export default function LoginPage() {
   const { login, loginWithToken } = useAuth();
   const [searchParams] = useSearchParams();
   const error = searchParams.get("error");
-  const redirectPath = searchParams.get("redirect");
-
+  const redirectPath = resolveRedirect(searchParams.get("redirect"));
   // Auth mode
   const { data: authMode } = useQuery({
     queryKey: ["auth-mode"],
@@ -58,8 +77,8 @@ export default function LoginPage() {
         setPhoneMasked(data.phone_masked);
       } else {
         await loginWithToken(data.token);
-        if (redirectPath && redirectPath.startsWith('/')) { window.location.href = redirectPath; }
-        else { window.location.replace("/"); }
+        // resolveRedirect で .gmo-onair.jp 系絶対 URL も許可済み
+      window.location.replace(redirectPath || "/");
       }
     } catch (err: any) {
       setFormError(err.response?.data?.error?.message || "ログインに失敗しました");
@@ -75,8 +94,7 @@ export default function LoginPage() {
     try {
       const res = await api.post("/auth/verify-2fa", { user_id: userId, code: otpCode });
       await loginWithToken(res.data.data.token);
-      if (redirectPath && redirectPath.startsWith('/')) { window.location.href = redirectPath; }
-      else { window.location.replace("/"); }
+      window.location.replace(redirectPath || "/");
     } catch (err: any) {
       setFormError(err.response?.data?.error?.message || "認証コードが正しくありません");
     } finally {
@@ -93,8 +111,7 @@ export default function LoginPage() {
 
   const handleMockLogin = async (uid: string) => {
     await login(uid);
-    if (redirectPath && redirectPath.startsWith('/')) { window.location.href = redirectPath; }
-    else { window.location.replace("/"); }
+    window.location.replace(redirectPath || "/");
   };
 
   const isMock = authMode?.mode === "mock";

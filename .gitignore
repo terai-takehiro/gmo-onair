@@ -25,3 +25,6 @@ service-account.json
 
 # k6 負荷試験の生成物
 scripts/loadtest/results/
+
+# Claude Code worktrees (sub-agent isolated workspaces)
+.claude/worktrees/

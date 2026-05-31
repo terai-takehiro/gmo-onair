@@ -6,7 +6,7 @@ import { useQuizStackSocket } from '@/quiz/useQuizStackSocket';
 import QuizCG from '@/quiz/QuizCG';
 import { CG_W, CG_H } from '@/cg/types';
 import { cn } from '@/lib/utils';
-import type { QuizStep, QuizMode } from '@/quiz/types';
+import type { QuizStep, QuizMode, QuizOneshotStyle } from '@/quiz/types';
 
 function nextStepFor(mode: QuizMode, hasAnswerCheck: boolean, current: QuizStep): QuizStep {
   if (mode === 'quiz') {
@@ -80,18 +80,39 @@ export default function QuizStackControlPage() {
     setVoteEdits(m);
   }, [currentQuiz]);
 
+  // v2.9.18+: poll の制限時間到達で自動的に reveal/phase 0 (ランダム揺れ) に遷移
+  useEffect(() => {
+    if (cue.step !== 'poll' || !cue.pollStartedAt || !currentQuiz) return;
+    const elapsed = Date.now() - cue.pollStartedAt;
+    const remaining = currentQuiz.countdown_seconds * 1000 - elapsed;
+    if (remaining <= 0) {
+      sendCue({ step: 'reveal', pollStartedAt: null, revealPhase: 0, votes: voteEdits });
+      return;
+    }
+    const id = window.setTimeout(() => {
+      sendCue({ step: 'reveal', pollStartedAt: null, revealPhase: 0, votes: voteEdits });
+    }, remaining);
+    return () => window.clearTimeout(id);
+  }, [cue.step, cue.pollStartedAt, currentQuiz, sendCue, voteEdits]);
+
   const take = useCallback(() => {
     if (!currentQuiz) {
       // NEXT を PROGRAM にプロモートして POLL 開始
       if (!nextQuiz) return;
-      sendCue({ currentQuizId: nextQuiz.id, step: 'poll', pollStartedAt: Date.now() });
+      sendCue({ currentQuizId: nextQuiz.id, step: 'poll', pollStartedAt: Date.now(), revealPhase: 0 });
+      return;
+    }
+    // v2.9.18+: reveal step 内の phase 進行 (TAKE で 0→1 ドン!確定)
+    if (cue.step === 'reveal' && cue.revealPhase === 0) {
+      sendCue({ revealPhase: 1, votes: voteEdits });
       return;
     }
     const next = nextStepFor(currentQuiz.mode, currentQuiz.has_answer_check, cue.step);
     if (cue.step === 'idle' && next === 'poll') {
-      sendCue({ step: 'poll', pollStartedAt: Date.now() });
+      sendCue({ step: 'poll', pollStartedAt: Date.now(), revealPhase: 0 });
     } else if (cue.step === 'poll') {
-      sendCue({ step: next, pollStartedAt: null, votes: voteEdits });
+      // 通常 TAKE でも reveal/phase 0 に進める (自動遷移を待たず手動でも可)
+      sendCue({ step: 'reveal', pollStartedAt: null, revealPhase: 0, votes: voteEdits });
     } else if (next === 'idle') {
       // 終了 → NEXT を新しい PROGRAM に
       if (nextQuiz && nextQuiz.id !== cue.currentQuizId) {
@@ -106,6 +127,11 @@ export default function QuizStackControlPage() {
       setStep(next);
     }
   }, [currentQuiz, nextQuiz, cue, voteEdits, sendCue, setStep, quizzes]);
+
+  // 大賞演出スタイル
+  const setOneshotStyle = useCallback((style: QuizOneshotStyle) => {
+    sendCue({ oneshotStyle: style });
+  }, [sendCue]);
 
   const clear = useCallback(() => {
     sendCue({ step: 'idle', pollStartedAt: null, revealPhase: 0 });
@@ -131,11 +157,15 @@ export default function QuizStackControlPage() {
   }, []);
 
   const nextStep = currentQuiz ? nextStepFor(currentQuiz.mode, currentQuiz.has_answer_check, cue.step) : 'poll';
+  // v2.9.18+: reveal/phase 0 のときは TAKE で ドン!確定 (phase 1) に進む
+  const inShakeReveal = cue.step === 'reveal' && cue.revealPhase === 0;
   const nextLabel = !currentQuiz
     ? '次のクイズを開始'
-    : (nextStep === 'idle'
-      ? (nextQuiz && nextQuiz.id !== cue.currentQuizId ? '次のクイズへ' : 'リセット (IDLE)')
-      : `次へ (${STEP_LABELS[nextStep]})`);
+    : inShakeReveal
+      ? '次へ (ドン!確定)'
+      : (nextStep === 'idle'
+        ? (nextQuiz && nextQuiz.id !== cue.currentQuizId ? '次のクイズへ' : 'リセット (IDLE)')
+        : `次へ (${STEP_LABELS[nextStep]})`);
 
   const totalVotes = useMemo(() => Object.values(voteEdits).reduce((s, v) => s + (v || 0), 0), [voteEdits]);
 
@@ -190,6 +220,7 @@ export default function QuizStackControlPage() {
                     quizId: currentQuiz.id, step: cue.step,
                     pollStartedAt: cue.pollStartedAt, revealPhase: cue.revealPhase,
                     votes: voteEdits,
+                    oneshotStyle: cue.oneshotStyle,
                   }}
                 />
               </div>
@@ -267,6 +298,28 @@ export default function QuizStackControlPage() {
                   {' · '}{nextQuiz.choice_count} 択 / {nextQuiz.countdown_seconds} 秒
                 </div>
               )}
+            </div>
+
+            {/* 大賞演出スタイル */}
+            <div className="rounded-lg border border-slate-700 bg-slate-950/40 p-3 space-y-2">
+              <div className="text-sm font-black tracking-widest text-slate-200">大賞演出スタイル</div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {(['classic','shards','spotlight','slit'] as const).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setOneshotStyle(s)}
+                    className={cn(
+                      'rounded px-2 py-1.5 text-[11px] font-black tracking-widest uppercase',
+                      cue.oneshotStyle === s
+                        ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700',
+                    )}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+              <div className="text-[10px] text-slate-400">No.1 発表時のフルスクリーン演出</div>
             </div>
 
             {/* 投票数 (PROGRAM) */}

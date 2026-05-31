@@ -1,6 +1,7 @@
 export type QuizStep = 'idle' | 'poll' | 'reveal' | 'winner' | 'answer-check' | 'correct-reveal';
 export type QuizDisplay = 'count' | 'percent';
 export type QuizMode = 'survey' | 'survey-only' | 'quiz';
+export type QuizOneshotStyle = 'classic' | 'shards' | 'spotlight' | 'slit';
 
 export interface QuizStackCue {
   eventId: number;
@@ -8,6 +9,7 @@ export interface QuizStackCue {
   step: QuizStep;
   pollStartedAt: number | null;
   revealPhase: 0 | 1 | 2;
+  oneshotStyle: QuizOneshotStyle;
 }
 
 export interface Quiz {
@@ -52,6 +54,7 @@ export interface QuizCueState {
   pollStartedAt: number | null;
   revealPhase: 0 | 1 | 2;
   votes: Record<number, number>;
+  oneshotStyle?: QuizOneshotStyle;
 }
 
 export const QUIZ_COLORS = [
