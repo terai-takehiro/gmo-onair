@@ -42,3 +42,12 @@ python3 docs/presentation/build_deck.py
 実機スクリーンショットに差し替えたい場合は、各画面のPNGを用意のうえ、
 `build_deck.py` の `screen_*` 関数を `slide.shapes.add_picture(...)` に置き換えれば
 そのまま反映できます（ブラウザ枠 `browser_frame()` はそのまま流用可能）。
+
+## アプリ画面の生成（make_screens.py）
+`docs/presentation/screens/*.png` は、ユーザー提供の実スクリーンショット（実データ）を
+もとに HTML を組み、ローカル Chromium (Playwright) でレンダリングした高精細再現です。
+再生成は次の順で行います:
+```bash
+python3 docs/presentation/make_screens.py   # 画面PNGを生成
+python3 docs/presentation/build_deck.py      # PNGを埋め込んでpptx生成
+```
