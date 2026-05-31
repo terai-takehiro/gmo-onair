@@ -1,7 +1,7 @@
 /**
  * shared/src/client/SubAppLoginRedirect.tsx
  *
- * サブアプリ (qsheet/equipment/interactive/techsheet/liveops) の /<app>/login で表示する
+ * サブアプリ (qsheet/equipment/techsheet/liveops/awards) の /<app>/login で表示する
  * "redirect-only" ページ。
  *
  * v2.5.2: dev でも本番でも email/password 認証 (メインアプリ) に統一されたため、
@@ -18,7 +18,7 @@ import { useUiStore } from './uiStore';
 export interface SubAppLoginRedirectProps {
   /** localStorage キー (gmo_onair_user) */
   storageKey: string;
-  /** ログイン後の戻り先 + 既ログイン時のホーム遷移先 (例: '/live/', '/interactive/') */
+  /** ログイン後の戻り先 + 既ログイン時のホーム遷移先 (例: '/live/', '/awards/') */
   appBasePath: string;
   /** 表示用のアプリ名 (例: '計時LIVE') */
   appLabel: string;

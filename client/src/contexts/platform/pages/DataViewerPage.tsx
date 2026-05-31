@@ -36,7 +36,6 @@ import {
   Briefcase,
   FileSpreadsheet,
   Wrench,
-  Sparkles,
   Camera,
   Radio,
   Trophy,
@@ -112,17 +111,6 @@ const TABLE_LABELS: Record<string, string> = {
   inventory_check_items: '棚卸明細',
   maintenance_records: 'メンテナンス記録',
 
-  // インタラクティブ
-  interactive_events: 'インタラクティブイベント',
-  interactive_sessions: 'インタラクティブセッション',
-  interactive_stamps: 'スタンプログ',
-  interactive_stamp_counts: 'スタンプ集計',
-  interactive_channels: 'チャンネル',
-  interactive_questions: 'クイズ問題',
-  interactive_question_texts: 'クイズ問題テキスト',
-  interactive_answers: 'クイズ回答',
-  interactive_overlay_templates: 'オーバーレイテンプレート',
-
   // 技術資料
   techsheet_documents: '技術資料',
 
@@ -197,18 +185,6 @@ const TABLE_GROUPS: TableGroup[] = [
       'equipment_lendings', 'equipment_rental_categories',
       'inventory_checks', 'inventory_check_items',
       'maintenance_records',
-    ],
-  },
-  {
-    id: 'interactive',
-    label: 'インタラクティブ',
-    icon: Sparkles,
-    tables: [
-      'interactive_events', 'interactive_sessions',
-      'interactive_stamps', 'interactive_stamp_counts',
-      'interactive_channels',
-      'interactive_questions', 'interactive_question_texts', 'interactive_answers',
-      'interactive_overlay_templates',
     ],
   },
   {

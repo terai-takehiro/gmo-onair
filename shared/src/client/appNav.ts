@@ -7,6 +7,7 @@ export interface AppNavItem {
   label: string;       // 表示名
   icon: string;        // lucide icon name (Sidebarでマッピング)
   alwaysVisible?: boolean; // 権限不要で常に表示 (ホームなど)
+  externalUrl?: string;    // 外部URL (別タブで開く)
 }
 
 /** 全ブロックアプリ・モジュールの定義 (ユーザーがアクセス可能なもの全てをSidebarに掲載) */
@@ -19,10 +20,12 @@ export const ALL_APPS: AppNavItem[] = [
   // 独立ブロックアプリ
   { key: 'qsheet',      path: '/qsheet',             label: 'Qシート',             icon: 'FileText' },
   { key: 'equipment',   path: '/equipment',          label: '機材管理',            icon: 'Package' },
-  { key: 'interactive', path: '/interactive',        label: 'インタラクティブ',    icon: 'Sparkles' },
   { key: 'techsheet',   path: '/techsheet',          label: '技術資料',            icon: 'Wrench' },
   { key: 'liveops',    path: '/live',               label: '計時LIVE',            icon: 'Radio' },
   { key: 'awards',     path: '/awards',             label: '表彰CG',              icon: 'Trophy' },
+  // 外部アプリ (別タブで開く・権限不要)
+  { key: 'interactive', path: 'https://interactive.gmo-onair.jp/', label: 'インタラクティブ', icon: 'Sparkles',  alwaysVisible: true, externalUrl: 'https://interactive.gmo-onair.jp/' },
+  { key: 'translate',  path: 'https://gmo-translate.jp/', label: '翻訳',           icon: 'Languages', alwaysVisible: true, externalUrl: 'https://gmo-translate.jp/' },
 ];
 
 /**

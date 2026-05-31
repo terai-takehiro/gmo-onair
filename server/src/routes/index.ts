@@ -6,7 +6,6 @@ import { createFinanceRoutes } from '../contexts/finance';
 import { createAssetRoutes } from '../contexts/asset';
 import { createEquipmentRoutes } from '../contexts/equipment';
 import { createQsheetRoutes } from '../contexts/qsheet';
-import { createInteractiveRoutes } from '../contexts/interactive';
 import { createTechsheetRoutes } from '../contexts/techsheet';
 import { createLiveopsRoutes } from '../contexts/liveops';
 import { createAwardsRoutes } from '../contexts/awards';
@@ -24,7 +23,6 @@ export function createRoutes(): Router {
   router.use(createAssetRoutes());
   router.use(createEquipmentRoutes());
   router.use(createQsheetRoutes());
-  router.use(createInteractiveRoutes());
   router.use(createTechsheetRoutes());
   router.use(createLiveopsRoutes());
   router.use(createAwardsRoutes());

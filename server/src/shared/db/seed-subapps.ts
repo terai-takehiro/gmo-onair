@@ -1,6 +1,6 @@
 /**
  * seed-subapps.ts
- * 機材管理・Qシート・技術資料・インタラクティブのダミーデータを既存DBに追加するスクリプト。
+ * 機材管理・Qシート・技術資料のダミーデータを既存DBに追加するスクリプト。
  * 初回シード後にこれらのテーブルが空の場合に実行してください。
  * サーバー起動時に自動実行されます。
  *
@@ -26,12 +26,11 @@ async function seedSubApps() {
   const eqTableOk = await tableExists('equipment_items');
   const qTableOk  = await tableExists('qsheet_documents');
   const tsTableOk = await tableExists('techsheet_documents');
-  const evTableOk = await tableExists('interactive_events');
 
-  if (!eqTableOk || !qTableOk || !tsTableOk || !evTableOk) {
+  if (!eqTableOk || !qTableOk || !tsTableOk) {
     console.warn('[seed-subapps] テーブルが未作成のためスキップ:', {
       equipment_items: eqTableOk, qsheet_documents: qTableOk,
-      techsheet_documents: tsTableOk, interactive_events: evTableOk,
+      techsheet_documents: tsTableOk,
     });
     return;
   }
@@ -40,14 +39,12 @@ async function seedSubApps() {
   const eqCount = await queryOne('SELECT COUNT(*)::int AS c FROM equipment_items');
   const qCount  = await queryOne('SELECT COUNT(*)::int AS c FROM qsheet_documents');
   const tsCount = await queryOne('SELECT COUNT(*)::int AS c FROM techsheet_documents');
-  const evCount = await queryOne('SELECT COUNT(*)::int AS c FROM interactive_events');
 
   const hasEquipment   = (eqCount?.c as number) > 0;
   const hasQsheet      = (qCount?.c  as number) > 0;
   const hasTechsheet   = (tsCount?.c as number) > 0;
-  const hasInteractive = (evCount?.c as number) > 0;
 
-  if (hasEquipment && hasQsheet && hasTechsheet && hasInteractive) {
+  if (hasEquipment && hasQsheet && hasTechsheet) {
     console.log('Sub-app data already seeded. Skipping.');
     return;
   }
@@ -758,64 +755,6 @@ async function seedSubApps() {
     console.log('  techsheet_documents: OK');
   }
 
-  // ============================================================
-  // インタラクティブ演出イベント・スタンプ
-  // ============================================================
-  if (!hasInteractive) {
-    console.log('Seeding interactive_events...');
-    const evSql = `INSERT INTO interactive_events
-      (id, title, description, status, project_id, episode_id, config, max_connections, created_by)
-      VALUES (?,?,?,?,?,?,?,?,?)`;
-    const stSql = `INSERT INTO interactive_stamps
-      (id, event_id, label, emoji, color, animation, sort_order, is_active)
-      VALUES (?,?,?,?,?,?,?,?)`;
-
-    // イベント1: IR説明会
-    if (PA001 && EA001) {
-      const ev1 = uuidv4();
-      await ins(evSql, [
-        ev1, 'GH春季IR説明会 リアクション', 'IR説明会のリアルタイムリアクション収集',
-        'draft', PA001, EA001,
-        JSON.stringify({ theme: 'corporate', showCount: true }),
-        500, staff1Id,
-      ]);
-      await ins(stSql, [uuidv4(), ev1, 'なるほど', '💡', '#3b82f6', 'bounce', 1, true]);
-      await ins(stSql, [uuidv4(), ev1, 'いいね',   '👍', '#22c55e', 'bounce', 2, true]);
-      await ins(stSql, [uuidv4(), ev1, '質問',     '❓', '#f59e0b', 'pop',    3, true]);
-      await ins(stSql, [uuidv4(), ev1, 'すごい',   '🎉', '#ec4899', 'shake',  4, true]);
-    }
-
-    // イベント2: ネット生配信
-    if (PA003 && EA003) {
-      const ev2 = uuidv4();
-      await ins(evSql, [
-        ev2, 'ネットLIVE配信 #001 スタンプ', '視聴者参加型リアクションスタンプ',
-        'draft', PA003, EA003,
-        JSON.stringify({ theme: 'fun', showCount: true, allowAnonymous: true }),
-        2000, staff3Id,
-      ]);
-      await ins(stSql, [uuidv4(), ev2, '笑',   '😂', '#f59e0b', 'shake',  1, true]);
-      await ins(stSql, [uuidv4(), ev2, '拍手',  '👏', '#22c55e', 'bounce', 2, true]);
-      await ins(stSql, [uuidv4(), ev2, 'ハート', '❤️', '#ef4444', 'pop',    3, true]);
-      await ins(stSql, [uuidv4(), ev2, '驚き',  '😮', '#8b5cf6', 'bounce', 4, true]);
-      await ins(stSql, [uuidv4(), ev2, '炎',    '🔥', '#f97316', 'shake',  5, true]);
-    }
-
-    // イベント3: デモ用（プロジェクト未紐付け）
-    const ev3 = uuidv4();
-    await ins(evSql, [
-      ev3, 'デモ・テストイベント', 'スタンプ演出のデモ用イベント',
-      'draft', null, null,
-      JSON.stringify({ theme: 'fun', showCount: true }),
-      100, adminId,
-    ]);
-    await ins(stSql, [uuidv4(), ev3, 'ナイス',   '👌', '#3b82f6', 'bounce', 1, true]);
-    await ins(stSql, [uuidv4(), ev3, 'ありがとう', '🙏', '#ec4899', 'pop',    2, true]);
-    await ins(stSql, [uuidv4(), ev3, '面白い',   '😄', '#f59e0b', 'shake',  3, true]);
-    await ins(stSql, [uuidv4(), ev3, '感動',     '😢', '#8b5cf6', 'bounce', 4, true]);
-
-    console.log('  interactive_events + stamps: OK');
-  }
 
   saveDb();
   console.log('Sub-app seed data inserted successfully.');
