@@ -6,11 +6,21 @@ import { useQuizStackSocket } from '@/quiz/useQuizStackSocket';
 import QuizCG from '@/quiz/QuizCG';
 import { CG_W, CG_H } from '@/cg/types';
 import { cn } from '@/lib/utils';
-import type { QuizStep, QuizMode, QuizOneshotStyle } from '@/quiz/types';
+import type { QuizStep, QuizMode, QuizOneshotStyle, SurveyPattern } from '@/quiz/types';
 
-function nextStepFor(mode: QuizMode, hasAnswerCheck: boolean, current: QuizStep): QuizStep {
+// v2.9.36: 演出パターンを (mode, surveyPattern, hasAnswerCheck) で明示分岐。
+//   - mode='quiz'                     → 「正解発表」(常に correct-reveal で終了)
+//   - mode='survey' + 'answer-check' → 「アンサーチェック」(answer-check で終了、No.1 発表なし)
+//   - mode='survey' + 'top-reveal'   → 「No.1 発表」(reveal → winner のフルスクリーン演出)
+// has_answer_check は「アンサーチェック演出を前段に挿入するか」の独立フラグ。
+function nextStepFor(
+  mode: QuizMode,
+  surveyPattern: SurveyPattern | null,
+  hasAnswerCheck: boolean,
+  current: QuizStep
+): QuizStep {
   if (mode === 'quiz') {
-    // クイズ: 出題 → [アンサーチェック] → 正解発表
+    // クイズ (正解発表): 出題 → [アンサーチェック] → 正解発表 → idle
     if (hasAnswerCheck) {
       if (current === 'idle') return 'poll';
       if (current === 'poll') return 'answer-check';
@@ -21,9 +31,15 @@ function nextStepFor(mode: QuizMode, hasAnswerCheck: boolean, current: QuizStep)
     if (current === 'poll') return 'correct-reveal';
     return 'idle';
   }
-  // アンケート (survey): 出題 → [アンサーチェック] → 結果発表 (reveal) → No.1 発表 (winner)。
-  // operator は answer-check で CLEAR して終了するか、TAKE を続けて
-  // 結果発表 → No.1 発表 の CG 専用分岐へ進める (既存挙動を踏襲)。
+  // アンケート: 演出パターンで分岐
+  const pattern: SurveyPattern = surveyPattern ?? 'top-reveal'; // 旧データ互換のデフォルト
+  if (pattern === 'answer-check') {
+    // アンサーチェックのみ: 出題 → アンサーチェック → idle (No.1 発表なし)
+    if (current === 'idle') return 'poll';
+    if (current === 'poll') return 'answer-check';
+    return 'idle';
+  }
+  // top-reveal (No.1 発表): 出題 → [アンサーチェック] → 結果発表 (reveal) → No.1 発表 (winner)
   if (hasAnswerCheck) {
     if (current === 'idle') return 'poll';
     if (current === 'poll') return 'answer-check';
@@ -41,6 +57,14 @@ const STEP_LABELS: Record<QuizStep, string> = {
   idle: 'IDLE', poll: 'POLL', 'answer-check': 'ANS', reveal: 'RESULT',
   winner: 'NO.1', 'correct-reveal': 'CORRECT',
 };
+
+// 演出パターンの表示 (operator UI のバッジ用)
+function patternBadge(mode: QuizMode, surveyPattern: SurveyPattern | null) {
+  if (mode === 'quiz') return { label: '正解発表', color: 'bg-blue-900/40 text-blue-300 border-blue-700/50' };
+  const pattern = surveyPattern ?? 'top-reveal';
+  if (pattern === 'answer-check') return { label: 'アンサーチェック', color: 'bg-emerald-900/40 text-emerald-300 border-emerald-700/50' };
+  return { label: 'No.1 発表', color: 'bg-amber-900/40 text-amber-300 border-amber-700/50' };
+}
 
 export default function QuizStackControlPage() {
   const { id } = useParams<{ id: string }>();
@@ -91,7 +115,7 @@ export default function QuizStackControlPage() {
       sendCue({ revealPhase: 1, votes: voteEdits });
       return;
     }
-    const next = nextStepFor(currentQuiz.mode, currentQuiz.has_answer_check, cue.step);
+    const next = nextStepFor(currentQuiz.mode, currentQuiz.survey_pattern, currentQuiz.has_answer_check, cue.step);
     if (cue.step === 'idle' && next === 'poll') {
       sendCue({ step: 'poll', pollStartedAt: Date.now(), revealPhase: 0 });
     } else if (cue.step === 'poll') {
@@ -140,7 +164,7 @@ export default function QuizStackControlPage() {
     return () => ro.disconnect();
   }, []);
 
-  const nextStep = currentQuiz ? nextStepFor(currentQuiz.mode, currentQuiz.has_answer_check, cue.step) : 'poll';
+  const nextStep = currentQuiz ? nextStepFor(currentQuiz.mode, currentQuiz.survey_pattern, currentQuiz.has_answer_check, cue.step) : 'poll';
   // v2.9.18+: reveal/phase 0 のときは TAKE で ドン!確定 (phase 1) に進む
   const inShakeReveal = cue.step === 'reveal' && cue.revealPhase === 0;
   const nextLabel = !currentQuiz
@@ -285,10 +309,28 @@ export default function QuizStackControlPage() {
                 {currentQuiz?.title || '(未選択)'}
               </div>
               {currentQuiz && (
-                <div className="text-sm text-slate-300">
-                  {currentQuiz.mode === 'quiz' ? 'クイズ' : 'アンケート'}
-                  {' · '}{currentQuiz.choice_count} 択 / {currentQuiz.countdown_seconds} 秒
-                </div>
+                <>
+                  <div className="text-sm text-slate-300">
+                    {currentQuiz.mode === 'quiz' ? 'クイズ' : 'アンケート'}
+                    {' · '}{currentQuiz.choice_count} 択 / {currentQuiz.countdown_seconds} 秒
+                  </div>
+                  {/* v2.9.36: 演出パターン バッジ + アンサーチェック前段の表示 */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {(() => {
+                      const b = patternBadge(currentQuiz.mode, currentQuiz.survey_pattern);
+                      return (
+                        <span className={cn('inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] font-bold', b.color)}>
+                          {b.label}
+                        </span>
+                      );
+                    })()}
+                    {currentQuiz.has_answer_check && (
+                      <span className="inline-flex items-center gap-1 rounded border border-slate-600 bg-slate-800/60 px-2 py-0.5 text-[11px] font-bold text-slate-300">
+                        + アンサーチェック前段
+                      </span>
+                    )}
+                  </div>
+                </>
               )}
             </div>
 

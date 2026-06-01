@@ -3,6 +3,11 @@ export type QuizDisplay = 'count' | 'percent';
 export type QuizMode = 'survey' | 'quiz';
 export type QuizOneshotStyle = 'classic' | 'shards' | 'spotlight' | 'slit';
 
+// v2.9.36: アンケート時の演出パターン (クイズ時は null = 常に正解発表)
+//   'answer-check' = poll → answer-check → idle (アンサーチェックのみで終了)
+//   'top-reveal'   = poll → [answer-check?] → reveal → winner → idle (No.1 発表まで)
+export type SurveyPattern = 'answer-check' | 'top-reveal';
+
 export interface QuizStackCue {
   eventId: number;
   currentQuizId: number | null;
@@ -26,6 +31,8 @@ export interface Quiz {
   display_order: number;
   mode: QuizMode;
   has_answer_check: boolean;
+  /** v2.9.36: アンケート時の演出パターン。mode='quiz' のときは null (常に正解発表). */
+  survey_pattern: SurveyPattern | null;
   cover_image_data_url: string | null;
 }
 

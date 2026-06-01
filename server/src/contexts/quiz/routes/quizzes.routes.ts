@@ -43,6 +43,7 @@ router.post('/events/:eventId/quizzes', wrap(async (req, res) => {
     display = 'count',
     mode = 'survey',
     has_answer_check = false,
+    survey_pattern = null,
   } = req.body;
 
   const choiceCount = Math.max(2, Math.min(6, Math.floor(Number(rawChoiceCount) || 3)));
@@ -50,6 +51,10 @@ router.post('/events/:eventId/quizzes', wrap(async (req, res) => {
   const disp = display === 'percent' ? 'percent' : 'count';
   const md = ['quiz','survey'].includes(mode) ? mode : 'survey';
   const hac = !!has_answer_check;
+  // 演出パターン (アンケート時のみ有効。クイズ時は null = 常に正解発表)
+  const sp = md === 'survey'
+    ? (['answer-check', 'top-reveal'].includes(survey_pattern) ? survey_pattern : 'top-reveal')
+    : null;
 
   const maxOrder = await queryOne(
     `SELECT COALESCE(MAX(display_order), 0) AS max FROM quizzes WHERE event_id = ?`,
@@ -59,11 +64,11 @@ router.post('/events/:eventId/quizzes', wrap(async (req, res) => {
   const quiz = await queryOne(
     `INSERT INTO quizzes (event_id, title, title_en, question, question_en,
                           choice_count, countdown_seconds, link_category_id, display, display_order,
-                          mode, has_answer_check)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+                          mode, has_answer_check, survey_pattern)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
     [eventId, title, title_en, question, question_en,
      choiceCount, countdownSec, link_category_id, disp, ((maxOrder?.max as number) ?? 0) + 1,
-     md, hac]
+     md, hac, sp]
   );
   if (!quiz) throw new AppError(500, 'INSERT_FAILED', 'quiz 作成失敗');
 
@@ -92,7 +97,7 @@ router.put('/quizzes/:id', wrap(async (req, res) => {
   const {
     title, title_en, question, question_en,
     choice_count, countdown_seconds, link_category_id, display, display_order,
-    mode, has_answer_check, cover_image_data_url,
+    mode, has_answer_check, survey_pattern, cover_image_data_url,
   } = req.body;
 
   const curChoiceCount = Number(cur.choice_count) || 3;
@@ -106,6 +111,15 @@ router.put('/quizzes/:id', wrap(async (req, res) => {
   const newDisplay = display === 'percent' ? 'percent' : (display === 'count' ? 'count' : cur.display);
   const newMode = ['quiz','survey'].includes(mode) ? mode : cur.mode;
   const newHac = typeof has_answer_check === 'boolean' ? has_answer_check : cur.has_answer_check;
+  // 演出パターン (アンケート時のみ有効。クイズ時は強制的に null)
+  let newSp: string | null;
+  if (newMode === 'quiz') {
+    newSp = null;
+  } else if (survey_pattern !== undefined) {
+    newSp = ['answer-check', 'top-reveal'].includes(survey_pattern) ? survey_pattern : 'top-reveal';
+  } else {
+    newSp = cur.survey_pattern ?? 'top-reveal';
+  }
 
   await execute(
     `UPDATE quizzes SET
@@ -120,6 +134,7 @@ router.put('/quizzes/:id', wrap(async (req, res) => {
        display_order = COALESCE(?, display_order),
        mode = ?,
        has_answer_check = ?,
+       survey_pattern = ?,
        cover_image_data_url = ?,
        updated_at = NOW()
      WHERE id = ?`,
@@ -130,7 +145,7 @@ router.put('/quizzes/:id', wrap(async (req, res) => {
       link_category_id ?? null,
       newDisplay,
       display_order ?? null,
-      newMode, newHac,
+      newMode, newHac, newSp,
       cover_image_data_url !== undefined ? (cover_image_data_url || null) : cur.cover_image_data_url,
       id,
     ]
