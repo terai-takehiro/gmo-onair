@@ -119,8 +119,14 @@ export default function QuizStackControlPage() {
     if (cue.step === 'idle' && next === 'poll') {
       sendCue({ step: 'poll', pollStartedAt: Date.now(), revealPhase: 0 });
     } else if (cue.step === 'poll') {
-      // 通常 TAKE でも reveal/phase 0 に進める (自動遷移を待たず手動でも可)
-      sendCue({ step: 'reveal', pollStartedAt: null, revealPhase: 0, votes: voteEdits });
+      // v2.9.38: 次のステップは nextStepFor の結果に従う
+      //   - survey × answer-check       → answer-check (選択肢内 票数表示)
+      //   - survey × top-reveal         → reveal (3-shot ランダム揺れ)
+      //   - survey × top-reveal + 前段ANS → answer-check (前段)
+      //   - quiz                        → correct-reveal (正解ハイライト)
+      //   - quiz + 前段ANS              → answer-check (前段)
+      // votes は次が reveal/answer-check/correct-reveal いずれの場合も渡しておく。
+      sendCue({ step: next, pollStartedAt: null, revealPhase: 0, votes: voteEdits });
     } else if (next === 'idle') {
       // 終了 → NEXT を新しい PROGRAM に
       if (nextQuiz && nextQuiz.id !== cue.currentQuizId) {
