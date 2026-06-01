@@ -195,12 +195,37 @@ export default function QuizListPage() {
             <div key={q.id} className="rounded-lg border bg-card p-3">
               <div className="flex items-center gap-3">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 ${
                       isQuiz ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'
                     }`}>
                       {isQuiz ? 'クイズ' : 'アンケート'}
                     </span>
+                    {/* v2.9.36: 演出パターン バッジ */}
+                    {(() => {
+                      if (isQuiz) {
+                        return (
+                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 bg-blue-100 text-blue-700">
+                            正解発表
+                          </span>
+                        );
+                      }
+                      const p = q.survey_pattern ?? 'top-reveal';
+                      return p === 'answer-check' ? (
+                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 bg-emerald-100 text-emerald-700">
+                          アンサーチェック
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 bg-amber-100 text-amber-700">
+                          No.1 発表
+                        </span>
+                      );
+                    })()}
+                    {q.has_answer_check && (q.mode === 'quiz' || (q.survey_pattern ?? 'top-reveal') === 'top-reveal') && (
+                      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 bg-slate-100 text-slate-600 border border-slate-300">
+                        + 前段ANS
+                      </span>
+                    )}
                     <span className="text-sm font-bold truncate">{q.title || '(タイトル未設定)'}</span>
                   </div>
                   <div className="text-xs text-muted-foreground truncate mt-0.5">
