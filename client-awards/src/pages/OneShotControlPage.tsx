@@ -404,7 +404,8 @@ export default function OneShotControlPage() {
   const tickerCategoryEn = awardsEn[selectedAwardIdx] ?? null;
 
   return (
-    <div className="h-full flex flex-col bg-black text-slate-100 overflow-hidden">
+    <div className="h-full flex flex-col bg-black text-slate-100 overflow-y-auto lg:overflow-hidden">
+      {/* モバイル: スクロール許可 (v2.9.35). lg+ では従来通り overflow-hidden で固定レイアウト。 */}
       {/* ── Header (v2.9.34 統一: h-14 / アイコン h-9 w-9 / text-sm + 3-way 回遊ナビ) ──── */}
       <header className="flex items-center gap-2 px-4 h-14 shrink-0 border-b border-slate-800">
         <button
@@ -495,10 +496,10 @@ export default function OneShotControlPage() {
       </header>
 
       {/* ── Middle: PROGRAM + Nominee panel ─────────────── */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
+      <div className="flex-1 flex flex-col lg:flex-row lg:overflow-hidden min-h-0">
         <div
           ref={programRef}
-          className="w-full aspect-video lg:aspect-auto lg:flex-1 lg:min-h-0 relative bg-black border-b lg:border-b-0 lg:border-r border-slate-800"
+          className="w-full aspect-video lg:aspect-auto lg:flex-1 lg:min-h-0 max-h-[35vh] lg:max-h-none relative bg-black border-b lg:border-b-0 lg:border-r border-slate-800 shrink-0 lg:shrink"
         >
           {/* v2.8.83+: langMode='both' のとき JA + EN を別々の CG として横並びプレビュー */}
           {langMode === 'both' ? (
