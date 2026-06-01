@@ -52,8 +52,10 @@ router.post('/events/:eventId/quizzes', wrap(async (req, res) => {
   const md = ['quiz','survey'].includes(mode) ? mode : 'survey';
   const hac = !!has_answer_check;
   // 演出パターン (アンケート時のみ有効。クイズ時は null = 常に正解発表)
-  const sp = md === 'survey'
-    ? (['answer-check', 'top-reveal'].includes(survey_pattern) ? survey_pattern : 'top-reveal')
+  const sp: string | null = md === 'survey'
+    ? (typeof survey_pattern === 'string' && ['answer-check', 'top-reveal'].includes(survey_pattern)
+        ? survey_pattern
+        : 'top-reveal')
     : null;
 
   const maxOrder = await queryOne(
@@ -115,10 +117,13 @@ router.put('/quizzes/:id', wrap(async (req, res) => {
   let newSp: string | null;
   if (newMode === 'quiz') {
     newSp = null;
+  } else if (typeof survey_pattern === 'string' && ['answer-check', 'top-reveal'].includes(survey_pattern)) {
+    newSp = survey_pattern;
   } else if (survey_pattern !== undefined) {
-    newSp = ['answer-check', 'top-reveal'].includes(survey_pattern) ? survey_pattern : 'top-reveal';
+    // 不正値 → デフォルトに丸める
+    newSp = 'top-reveal';
   } else {
-    newSp = cur.survey_pattern ?? 'top-reveal';
+    newSp = (cur.survey_pattern as string | null) ?? 'top-reveal';
   }
 
   await execute(
