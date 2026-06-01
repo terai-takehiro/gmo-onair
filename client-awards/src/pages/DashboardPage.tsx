@@ -106,31 +106,35 @@ export default function DashboardPage() {
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10">
+      {/* v2.9.37: モバイル時のヘッダーをコンパクトに (ラベル/ボタン折り返し回避) */}
+      <div className="flex items-center justify-between gap-2 mb-6">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/10">
             <Tv className="h-5 w-5 text-amber-600" />
           </div>
-          <div>
-            <h1 className="text-xl font-bold">リアルタイムCG</h1>
-            <p className="text-xs text-muted-foreground">イベント一覧</p>
+          <div className="min-w-0">
+            <h1 className="text-base sm:text-xl font-bold whitespace-nowrap">リアルタイムCG</h1>
+            <p className="text-[11px] sm:text-xs text-muted-foreground whitespace-nowrap">イベント一覧</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
+          {/* BOXから復元: モバイルではアイコンのみ (36×36px)、sm+ でテキスト付き */}
           <button
             onClick={() => setShowBackups((s) => !s)}
-            className="flex items-center gap-1.5 rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 hover:bg-amber-100 transition-colors"
+            className="flex items-center justify-center gap-1.5 rounded-lg border border-amber-300/60 bg-amber-50 hover:bg-amber-100 transition-colors text-amber-800 font-medium h-9 w-9 sm:w-auto sm:px-3 sm:py-2 sm:text-xs whitespace-nowrap"
             title="BOX バックアップから復元"
           >
-            <Archive className="h-3.5 w-3.5" />
-            BOXから復元
+            <Archive className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+            <span className="hidden sm:inline">BOXから復元</span>
           </button>
+          {/* 新規イベント: モバイルでもテキスト残すが whitespace-nowrap で 1 行固定 */}
           <button
             onClick={() => setCreating(true)}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors"
+            className="flex items-center gap-1.5 sm:gap-2 rounded-lg bg-primary hover:bg-primary/90 transition-colors text-white font-medium h-9 sm:h-auto px-3 sm:px-4 sm:py-2 text-xs sm:text-sm whitespace-nowrap"
           >
             <Plus className="h-4 w-4" />
-            新規イベント
+            <span className="sm:hidden">新規</span>
+            <span className="hidden sm:inline">新規イベント</span>
           </button>
         </div>
       </div>
