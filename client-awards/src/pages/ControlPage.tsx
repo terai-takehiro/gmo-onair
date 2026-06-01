@@ -272,10 +272,11 @@ export default function ControlPage() {
   }), [nextStep, nextCategoryId, nextStyle, cue.voteDisplay]);
 
   return (
-    <div className="h-full flex flex-col bg-black text-slate-100 overflow-hidden">
+    <div className="h-full flex flex-col bg-black text-slate-100 overflow-y-auto lg:overflow-hidden">
+      {/* モバイル: スクロール許可 (v2.9.35). lg+ では従来通り overflow-hidden で固定レイアウト。 */}
 
-      {/* ── Header (v2.9.34 統一: h-14 / アイコン h-9 w-9 / text-sm) ──────── */}
-      <header className="flex items-center gap-2 px-4 h-14 shrink-0 border-b border-slate-800">
+      {/* ── Header (v2.9.34 統一 + v2.9.35 モバイル コンパクト化) ──────── */}
+      <header className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 h-14 shrink-0 border-b border-slate-800">
         <button
           onClick={() => navigate(`/event/${eventId}`)}
           title="イベント詳細へ戻る"
@@ -285,11 +286,12 @@ export default function ControlPage() {
         </button>
         <div className="flex items-center gap-1.5 shrink-0">
           <Tv className="h-4 w-4 text-amber-500" />
-          <span className="text-sm font-black text-slate-200 tracking-wider">リアルタイムCG</span>
+          <span className="text-sm font-black text-slate-200 tracking-wider hidden sm:inline">リアルタイムCG</span>
+          <span className="text-xs font-black text-slate-200 tracking-wider sm:hidden">Ranking</span>
         </div>
         {event && <span className="text-xs text-slate-400 truncate hidden md:block">{event.name}</span>}
-        <div className="flex-1" />
-        {/* ── 3-way 回遊ナビ (v2.9.34): 字幕スーパー / クイズ・アンケートCG へジャンプ ── */}
+        <div className="flex-1 min-w-0" />
+        {/* ── 3-way 回遊ナビ (sm+ のみ表示) ── */}
         <button
           onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
           className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
@@ -306,14 +308,16 @@ export default function ControlPage() {
           <HelpCircle className="h-3.5 w-3.5" />
           <span className="hidden md:inline">クイズ</span>
         </button>
+        {/* ON AIR バッジ: モバイルは dot のみ */}
         <div className={cn(
-          'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black tracking-widest uppercase transition-all',
+          'flex items-center gap-1.5 rounded-full text-xs font-black tracking-widest uppercase transition-all shrink-0',
+          'px-2 py-1.5 sm:px-3',
           isLive
             ? 'bg-red-950/70 text-red-400 border border-red-800/50'
             : 'bg-slate-800/70 text-slate-300 border border-slate-700/50',
         )}>
           <Radio className={cn('h-3 w-3 shrink-0', isLive && 'animate-pulse')} />
-          {isLive ? 'ON AIR' : 'STANDBY'}
+          <span className="hidden sm:inline">{isLive ? 'ON AIR' : 'STANDBY'}</span>
         </div>
         <LangPicker value={previewLang} onChange={setPreviewLang} />
         <a
@@ -321,27 +325,28 @@ export default function ControlPage() {
           target="_blank"
           rel="noreferrer"
           title={`OA 出力 (${previewLang.toUpperCase()})`}
-          className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
+          className="flex items-center justify-center gap-1.5 rounded-lg bg-slate-800 h-9 w-9 sm:w-auto sm:px-3 sm:py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors shrink-0"
         >
-          <ExternalLink className="h-3.5 w-3.5" />
+          <ExternalLink className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
           <span className="hidden sm:inline">出力</span>
         </a>
+        {/* 全画面ボタン: モバイルでは hidden (タッチデバイスでは必要性低) */}
         <button
           onClick={toggleFullscreen}
           title={isFullscreen ? '全画面解除 (F)' : '全画面表示 (F)'}
-          className="flex items-center justify-center h-9 w-9 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
+          className="hidden sm:flex items-center justify-center h-9 w-9 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors shrink-0"
         >
           {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
         </button>
       </header>
 
       {/* ── Middle: PROGRAM (left) + Category (right) ─── */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
+      <div className="flex-1 flex flex-col lg:flex-row lg:overflow-hidden min-h-0">
 
-        {/* PROGRAM (LIVE) — fills flex space */}
+        {/* PROGRAM (LIVE) — モバイルは max-h で抑えて操作系を優先 / lg+ は flex で残スペースを埋める */}
         <div
           ref={programRef}
-          className="w-full aspect-video lg:aspect-auto lg:flex-1 lg:min-h-0 relative bg-black border-b lg:border-b-0 lg:border-r border-slate-800"
+          className="w-full aspect-video lg:aspect-auto lg:flex-1 lg:min-h-0 max-h-[35vh] lg:max-h-none relative bg-black border-b lg:border-b-0 lg:border-r border-slate-800 shrink-0 lg:shrink"
         >
           {event && (
             <div
@@ -647,7 +652,7 @@ function StepRow({ steps, liveStep, nextStep, onSelect }: {
   onSelect: (step: CgStep) => void;
 }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+    <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2">
       {steps.map(({ step, label, desc, color, shortcut }) => {
         const isNext = nextStep === step;
         const isLiveStep = liveStep === step;
@@ -656,7 +661,7 @@ function StepRow({ steps, liveStep, nextStep, onSelect }: {
             key={step}
             onClick={() => onSelect(step)}
             className={cn(
-              'relative flex flex-col items-start rounded-lg border px-3 py-2.5 text-left transition-all min-h-[60px]',
+              'relative flex flex-col items-start rounded-lg border px-2 sm:px-3 py-2 sm:py-2.5 text-left transition-all min-h-[52px] sm:min-h-[60px]',
               isNext && color === 'live'    && 'border-amber-500 bg-amber-950/40 ring-1 ring-amber-700/40',
               isNext && color === 'award'   && 'border-amber-500 bg-amber-950/50 ring-1 ring-amber-700/40',
               isNext && color === 'neutral' && 'border-amber-500 bg-amber-950/30 ring-1 ring-amber-700/40',
@@ -664,20 +669,20 @@ function StepRow({ steps, liveStep, nextStep, onSelect }: {
             )}
           >
             {shortcut && (
-              <span className="absolute top-1.5 right-2 text-[10px] font-black tracking-widest text-slate-500">
+              <span className="absolute top-1 right-1.5 sm:top-1.5 sm:right-2 text-[9px] sm:text-[10px] font-black tracking-widest text-slate-500">
                 {shortcut}
               </span>
             )}
             <span className={cn(
-              'text-xs font-black tracking-wider leading-none',
+              'text-[11px] sm:text-xs font-black tracking-wider leading-none',
               isNext ? 'text-amber-300' : 'text-slate-200',
             )}>
               {label}
             </span>
-            <span className="text-[11px] font-medium text-slate-300 mt-1.5 leading-tight">{desc}</span>
+            <span className="text-[10px] sm:text-[11px] font-medium text-slate-300 mt-1 sm:mt-1.5 leading-tight">{desc}</span>
             {isLiveStep && (
               <span className={cn(
-                'absolute top-1.5 left-2 text-[9px] font-black tracking-widest rounded px-1 py-0.5',
+                'absolute top-1 left-1.5 sm:top-1.5 sm:left-2 text-[8px] sm:text-[9px] font-black tracking-widest rounded px-1 py-0.5',
                 isNext ? 'bg-red-700 text-white' : 'bg-red-950/70 text-red-300 border border-red-800/50',
               )}>
                 LIVE
