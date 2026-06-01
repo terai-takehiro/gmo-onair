@@ -738,7 +738,7 @@ export default function EventEditorPage() {
           </FormField>
           {/* ════════════════════════════════════════════════
               送出 URL — OBS / vMix の Browser Source に貼り付けて使用
-              機能別 (リアルタイムCG / 字幕スーパー) に整理し、各々 OA (本番出力) + NEXT (副調整室 director プレビュー) を並列。
+              機能別 (リアルタイムCG / 字幕スーパー / クイズ・アンケートCG) に整理し、ランキング/字幕は OA + NEXT、クイズ・アンケートCG は OA のみ (NEXT は operator UI 内の「次の出題」状態として持つ)。
               いずれも 1920×1080 アルファチャンネル付き透過出力 — Browser Source の「透明度を許可」を ON にすること。
               ════════════════════════════════════════════════ */}
           <div className="pt-2 border-t space-y-2">
@@ -845,6 +845,41 @@ export default function EventEditorPage() {
                 const url = `${window.location.origin}/awards/output/${event.id}/oneshot/next?lang=${lang}`;
                 return (
                   <div key={`1s-next-${lang}`} className="flex items-center gap-2">
+                    <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
+                    <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
+                    <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
+                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                      <Copy className="h-3 w-3" />コピー
+                    </button>
+                    <a href={url} target="_blank" rel="noopener noreferrer"
+                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                      <ExternalLink className="h-3 w-3" />開く
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ── クイズ / アンケートCG ─────────── */}
+          <div className="pt-2 border-t space-y-2">
+            <p className="text-sm font-medium flex items-center gap-1.5">
+              <HelpCircle className="h-3.5 w-3.5 text-purple-600" />
+              クイズ / アンケートCG <span className="text-xs text-muted-foreground font-normal">(質問 + 選択肢 + 投票結果)</span>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              operator (<code className="px-1 rounded bg-muted text-[10px]">/event/{event.id}/quiz-stack/control</code>) で順次送出。
+              NEXT 用の独立 URL はなく、operator UI 内で「次の出題」を選択 → TAKE で OA に反映する方式。
+            </p>
+            <div className="space-y-1.5">
+              <div className="text-[10px] font-bold text-red-700 uppercase tracking-widest">OA (本番)</div>
+              {[
+                { label: '🇯🇵 日本語', lang: 'ja' },
+                { label: '🇺🇸 English', lang: 'en' },
+              ].map(({ label, lang }) => {
+                const url = `${window.location.origin}/awards/output/quiz-stack/${event.id}?lang=${lang}`;
+                return (
+                  <div key={`quiz-oa-${lang}`} className="flex items-center gap-2">
                     <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
                     <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
