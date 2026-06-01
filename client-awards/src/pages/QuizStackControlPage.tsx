@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ExternalLink, Send, X, Radio, HelpCircle, ChevronRight as IconRight } from 'lucide-react';
+import { ChevronLeft, ExternalLink, Send, X, Radio, HelpCircle, Tv, Subtitles, ChevronRight as IconRight } from 'lucide-react';
 import { useQuizzes, useQuiz } from '@/quiz/api';
 import { useQuizStackSocket } from '@/quiz/useQuizStackSocket';
 import QuizCG from '@/quiz/QuizCG';
@@ -155,31 +155,64 @@ export default function QuizStackControlPage() {
 
   return (
     <div className="h-full flex flex-col bg-black text-slate-100 overflow-hidden">
-      <header className="flex items-center gap-2 px-4 h-12 shrink-0 border-b border-slate-800">
-        <button onClick={() => navigate(`/event/${eventId}/quiz`)}
-          className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700">
+      {/* ── Header (v2.9.34 統一: h-14 / アイコン h-9 w-9 / text-sm + 3-way 回遊ナビ) ──── */}
+      <header className="flex items-center gap-2 px-4 h-14 shrink-0 border-b border-slate-800">
+        <button
+          onClick={() => navigate(`/event/${eventId}/quiz`)}
+          title="クイズ / アンケート一覧へ戻る"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
+        >
           <ChevronLeft className="h-4 w-4 text-slate-300" />
         </button>
-        <HelpCircle className="h-4 w-4 text-purple-400" />
-        <span className="text-sm font-black text-slate-200 tracking-widest">アンケート/クイズ 送出</span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <HelpCircle className="h-4 w-4 text-purple-400" />
+          <span className="text-sm font-black text-slate-200 tracking-wider">クイズ / アンケートCG</span>
+        </div>
         <div className="flex-1" />
-        <a href={`/awards/output/quiz-stack/${eventId}?lang=ja`} target="_blank" rel="noreferrer"
-          className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-700">
-          <ExternalLink className="h-3 w-3" />出力 JA
-        </a>
-        <a href={`/awards/output/quiz-stack/${eventId}?lang=en`} target="_blank" rel="noreferrer"
-          className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-700">
-          <ExternalLink className="h-3 w-3" />出力 EN
-        </a>
+        {/* ── 3-way 回遊ナビ (v2.9.34): リアルタイムCG / 字幕スーパー へジャンプ ── */}
+        <button
+          onClick={() => navigate(`/event/${eventId}/control`)}
+          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
+          title="リアルタイムCG (ランキング演出) コントロールへ"
+        >
+          <Tv className="h-3.5 w-3.5" />
+          <span className="hidden md:inline">リアルタイムCG</span>
+        </button>
+        <button
+          onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
+          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
+          title="字幕スーパー (下部テロップ) コントロールへ"
+        >
+          <Subtitles className="h-3.5 w-3.5" />
+          <span className="hidden md:inline">字幕スーパー</span>
+        </button>
         <div className={cn(
           'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black tracking-widest uppercase',
           cue.step !== 'idle'
             ? 'bg-red-950/70 text-red-300 border border-red-700/60'
             : 'bg-slate-800/70 text-slate-200 border border-slate-600/50',
         )}>
-          <Radio className={cn('h-3.5 w-3.5', cue.step !== 'idle' && 'animate-pulse')} />
+          <Radio className={cn('h-3 w-3', cue.step !== 'idle' && 'animate-pulse')} />
           {cue.step !== 'idle' ? 'ON AIR' : 'STANDBY'}
         </div>
+        <a
+          href={`/awards/output/quiz-stack/${eventId}?lang=ja`}
+          target="_blank"
+          rel="noreferrer"
+          title="OA 出力 (JA)"
+          className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />JA
+        </a>
+        <a
+          href={`/awards/output/quiz-stack/${eventId}?lang=en`}
+          target="_blank"
+          rel="noreferrer"
+          title="OA 出力 (EN)"
+          className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />EN
+        </a>
       </header>
 
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
@@ -287,13 +320,13 @@ export default function QuizStackControlPage() {
             {/* 大賞演出スタイル */}
             <div className="rounded-lg border border-slate-700 bg-slate-950/40 p-3 space-y-2">
               <div className="text-sm font-black tracking-widest text-slate-200">大賞演出スタイル</div>
-              <div className="grid grid-cols-4 gap-1.5">
+              <div className="grid grid-cols-4 gap-2">
                 {(['classic','shards','spotlight','slit'] as const).map((s) => (
                   <button
                     key={s}
                     onClick={() => setOneshotStyle(s)}
                     className={cn(
-                      'rounded px-2 py-1.5 text-[11px] font-black tracking-widest uppercase',
+                      'rounded-md px-2 py-2 text-xs font-black tracking-widest uppercase min-h-[36px]',
                       cue.oneshotStyle === s
                         ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300'
                         : 'bg-slate-800 text-slate-300 hover:bg-slate-700',
@@ -303,7 +336,7 @@ export default function QuizStackControlPage() {
                   </button>
                 ))}
               </div>
-              <div className="text-[10px] text-slate-400">No.1 発表時のフルスクリーン演出</div>
+              <div className="text-xs text-slate-400">No.1 発表時のフルスクリーン演出</div>
             </div>
 
             {/* 投票数 (PROGRAM) */}

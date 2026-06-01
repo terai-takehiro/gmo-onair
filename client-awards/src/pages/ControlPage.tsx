@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAwardsCue } from '@/hooks/useAwardsCue';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ExternalLink, Tv, Radio, Subtitles, Send, X, Maximize2, Minimize2, Vote } from 'lucide-react';
+import { ChevronLeft, ExternalLink, Tv, Radio, Subtitles, Send, X, Maximize2, Minimize2, Vote, HelpCircle } from 'lucide-react';
 import type { CgStep, OneshotStyle, CgCategory, CgCueState, AwardPattern } from '@/cg/types';
 import CGFrame from '@/cg/CGFrame';
 
@@ -274,29 +274,40 @@ export default function ControlPage() {
   return (
     <div className="h-full flex flex-col bg-black text-slate-100 overflow-hidden">
 
-      {/* ── Header ──────────────────────────────────────────── */}
-      <header className="flex items-center gap-2 px-4 h-12 shrink-0 border-b border-slate-800">
+      {/* ── Header (v2.9.34 統一: h-14 / アイコン h-9 w-9 / text-sm) ──────── */}
+      <header className="flex items-center gap-2 px-4 h-14 shrink-0 border-b border-slate-800">
         <button
           onClick={() => navigate(`/event/${eventId}`)}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
+          title="イベント詳細へ戻る"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
         >
           <ChevronLeft className="h-4 w-4 text-slate-300" />
         </button>
-        <Tv className="h-4 w-4 text-amber-500 shrink-0" />
-        <span className="text-[11px] font-black text-slate-300 tracking-widest">リアルタイムCG</span>
-        {event && <span className="text-xs text-slate-400 truncate hidden sm:block">{event.name}</span>}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Tv className="h-4 w-4 text-amber-500" />
+          <span className="text-sm font-black text-slate-200 tracking-wider">リアルタイムCG</span>
+        </div>
+        {event && <span className="text-xs text-slate-400 truncate hidden md:block">{event.name}</span>}
         <div className="flex-1" />
-        {/* 回遊性: 同イベントの字幕スーパー (下部テロップ) コントロールへ直接ジャンプ */}
+        {/* ── 3-way 回遊ナビ (v2.9.34): 字幕スーパー / クイズ・アンケートCG へジャンプ ── */}
         <button
           onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
-          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-[10px] font-black tracking-widest uppercase text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors"
-          title="字幕スーパー コントロールへ"
+          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
+          title="字幕スーパー (下部テロップ) コントロールへ"
         >
-          <Subtitles className="h-3 w-3" />
-          字幕スーパー
+          <Subtitles className="h-3.5 w-3.5" />
+          <span className="hidden md:inline">字幕スーパー</span>
+        </button>
+        <button
+          onClick={() => navigate(`/event/${eventId}/quiz-stack/control`)}
+          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
+          title="クイズ / アンケートCG コントロールへ"
+        >
+          <HelpCircle className="h-3.5 w-3.5" />
+          <span className="hidden md:inline">クイズ</span>
         </button>
         <div className={cn(
-          'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black tracking-widest uppercase transition-all',
+          'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black tracking-widest uppercase transition-all',
           isLive
             ? 'bg-red-950/70 text-red-400 border border-red-800/50'
             : 'bg-slate-800/70 text-slate-300 border border-slate-700/50',
@@ -310,16 +321,17 @@ export default function ControlPage() {
           target="_blank"
           rel="noreferrer"
           title={`OA 出力 (${previewLang.toUpperCase()})`}
-          className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors"
+          className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
         >
-          <ExternalLink className="h-3 w-3" />出力
+          <ExternalLink className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">出力</span>
         </a>
         <button
           onClick={toggleFullscreen}
           title={isFullscreen ? '全画面解除 (F)' : '全画面表示 (F)'}
-          className="flex items-center justify-center h-8 w-8 rounded-lg bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors"
+          className="flex items-center justify-center h-9 w-9 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
         >
-          {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+          {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
         </button>
       </header>
 
@@ -378,7 +390,7 @@ export default function ControlPage() {
         </div>
 
         {/* Right panel: Status + Category */}
-        <div className="w-full lg:w-72 xl:w-80 flex-1 min-h-0 lg:flex-none lg:shrink-0 flex flex-col overflow-hidden">
+        <div className="w-full lg:w-80 xl:w-96 flex-1 min-h-0 lg:flex-none lg:shrink-0 flex flex-col overflow-hidden">
           <StatusBar isLive={isLive} liveStep={liveStep} liveCategory={liveCategory} nextStep={nextStepDef} nextCategory={nextCategory} />
           <div className="flex-1 overflow-y-auto p-3">
             <CategoryPanel
@@ -635,7 +647,7 @@ function StepRow({ steps, liveStep, nextStep, onSelect }: {
   onSelect: (step: CgStep) => void;
 }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5">
+    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
       {steps.map(({ step, label, desc, color, shortcut }) => {
         const isNext = nextStep === step;
         const isLiveStep = liveStep === step;
@@ -644,7 +656,7 @@ function StepRow({ steps, liveStep, nextStep, onSelect }: {
             key={step}
             onClick={() => onSelect(step)}
             className={cn(
-              'relative flex flex-col items-start rounded-lg border px-2.5 py-2 text-left transition-all',
+              'relative flex flex-col items-start rounded-lg border px-3 py-2.5 text-left transition-all min-h-[60px]',
               isNext && color === 'live'    && 'border-amber-500 bg-amber-950/40 ring-1 ring-amber-700/40',
               isNext && color === 'award'   && 'border-amber-500 bg-amber-950/50 ring-1 ring-amber-700/40',
               isNext && color === 'neutral' && 'border-amber-500 bg-amber-950/30 ring-1 ring-amber-700/40',
@@ -652,20 +664,20 @@ function StepRow({ steps, liveStep, nextStep, onSelect }: {
             )}
           >
             {shortcut && (
-              <span className="absolute top-1 right-1.5 text-[8px] font-black tracking-widest text-slate-500 group-hover:text-slate-400">
+              <span className="absolute top-1.5 right-2 text-[10px] font-black tracking-widest text-slate-500">
                 {shortcut}
               </span>
             )}
             <span className={cn(
-              'text-[10px] font-black tracking-wider leading-none',
-              isNext ? 'text-amber-300' : 'text-slate-300',
+              'text-xs font-black tracking-wider leading-none',
+              isNext ? 'text-amber-300' : 'text-slate-200',
             )}>
               {label}
             </span>
-            <span className="text-[10px] font-medium text-slate-300 mt-1 leading-tight">{desc}</span>
+            <span className="text-[11px] font-medium text-slate-300 mt-1.5 leading-tight">{desc}</span>
             {isLiveStep && (
               <span className={cn(
-                'absolute top-1 left-1.5 text-[8px] font-black tracking-widest rounded px-1 py-0',
+                'absolute top-1.5 left-2 text-[9px] font-black tracking-widest rounded px-1 py-0.5',
                 isNext ? 'bg-red-700 text-white' : 'bg-red-950/70 text-red-300 border border-red-800/50',
               )}>
                 LIVE
@@ -687,8 +699,8 @@ function StyleRow({ styles, liveStyle, nextStyle, onSelect }: {
 }) {
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      <span className="text-[9px] text-slate-400 font-bold tracking-widest uppercase shrink-0">Style</span>
-      <div className="flex gap-1.5 flex-wrap">
+      <span className="text-xs text-slate-400 font-bold tracking-widest uppercase shrink-0">Style</span>
+      <div className="flex gap-2 flex-wrap">
         {styles.map(({ style, label }) => {
           const isNext = nextStyle === style;
           const isLiveStyle = liveStyle === style;
@@ -697,16 +709,16 @@ function StyleRow({ styles, liveStyle, nextStyle, onSelect }: {
               key={style}
               onClick={() => onSelect(style)}
               className={cn(
-                'rounded-md border px-3 py-1 text-xs font-bold transition-all relative',
+                'rounded-md border px-3.5 py-2 text-xs font-bold transition-all relative min-h-[36px]',
                 isNext
                   ? 'border-amber-500 bg-amber-900/30 text-amber-300'
-                  : 'border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-slate-200',
+                  : 'border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-slate-100',
               )}
             >
               {label}
               {isLiveStyle && (
                 <span className={cn(
-                  'absolute -top-1.5 -right-1.5 text-[7px] font-black tracking-widest rounded px-1',
+                  'absolute -top-1.5 -right-1.5 text-[9px] font-black tracking-widest rounded px-1 py-0.5',
                   isNext ? 'bg-red-700 text-white' : 'bg-red-950/80 text-red-300 border border-red-800/50',
                 )}>
                   LIVE
@@ -730,16 +742,16 @@ function SendActionRow({ isLive, onTake, onClear }: {
     <div className="flex items-center gap-2">
       <button
         onClick={onTake}
-        className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-red-600 hover:bg-red-500 text-white px-4 py-2.5 text-sm font-black tracking-widest uppercase transition-colors"
+        className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-red-600 hover:bg-red-500 text-white px-4 py-3.5 text-base font-black tracking-widest uppercase transition-colors shadow-lg shadow-red-900/40"
       >
-        <Send className="h-4 w-4" />
+        <Send className="h-5 w-5" />
         TAKE
       </button>
       <button
         onClick={onClear}
         disabled={!isLive}
         className={cn(
-          'flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-black tracking-widest uppercase transition-colors',
+          'flex items-center justify-center gap-2 rounded-lg px-4 py-3.5 text-base font-black tracking-widest uppercase transition-colors',
           isLive
             ? 'bg-slate-700 hover:bg-slate-600 text-slate-100'
             : 'bg-slate-900/40 text-slate-500 cursor-not-allowed',
