@@ -128,13 +128,25 @@ export default function QuizStackControlPage() {
       // votes は次が reveal/answer-check/correct-reveal いずれの場合も渡しておく。
       sendCue({ step: next, pollStartedAt: null, revealPhase: 0, votes: voteEdits });
     } else if (next === 'idle') {
-      // 終了 → NEXT を新しい PROGRAM に
+      // 終了 → 次のクイズへ
       if (nextQuiz && nextQuiz.id !== cue.currentQuizId) {
-        sendCue({ currentQuizId: nextQuiz.id, step: 'idle', pollStartedAt: null, revealPhase: 0 });
-        // ローカル NEXT を更に次に
+        // v2.9.41: 1-TAKE で直接次の quiz の poll まで進める。
+        //   旧版 (v2.9.40 まで) は terminal → idle で一旦止まり、もう 1 度 TAKE で
+        //   idle → poll と進める 2-TAKE 設計だったが、画面が一瞬黒くなり挙動が不安定
+        //   に見えていた。新版では step='poll' を一気に送って seamless に切替える。
+        //   votes は空オブジェクトで初期化 (useEffect で新 quiz の choices.vote_count
+        //   を読んで上書きされる)
+        sendCue({
+          currentQuizId: nextQuiz.id,
+          step: 'poll',
+          pollStartedAt: Date.now(),
+          revealPhase: 0,
+          votes: {},
+        });
         const idx = quizzes.findIndex((q) => q.id === nextQuiz.id);
         setNextQuizId(quizzes[(idx + 1) % quizzes.length]?.id ?? quizzes[0].id);
       } else {
+        // 1 quiz だけの場合 or NEXT 未選択時: 同じ quiz の idle に戻す
         setStep('idle', { pollStartedAt: null, revealPhase: 0 });
       }
     } else {
