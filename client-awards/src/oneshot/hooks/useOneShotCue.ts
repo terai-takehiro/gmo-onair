@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getAwardsSocket, disconnectAwardsSocket } from '@/lib/socket';
+import { updateServerOffsetFromTimestamp } from '@/lib/serverClock';
 import type { OneShotCueState } from '../types';
 
 const DEFAULT_CUE: OneShotCueState = {
@@ -37,6 +38,7 @@ export function useOneShotCue(eventId: number | null) {
     connectedRef.current = true;
 
     const onSync = (data: SyncPayload) => {
+      updateServerOffsetFromTimestamp(data.timestamp);
       setCueState({
         entryId: data.entryId ?? null,
         moduleKey: data.moduleKey ?? 'none',
@@ -74,7 +76,15 @@ export function useOneShotCue(eventId: number | null) {
       if (!eventId) return;
       const socket = getAwardsSocket(eventId);
       const next: OneShotCueState = { ...cue, ...patch };
-      socket.emit('oneshot:set', next);
+      // v2.9.43: countdownTarget が変化したときは「operator の Date.now()」を
+      // 同梱してサーバー側でサーバー時刻基準に正規化させる (時計ずれ対策)。
+      const targetChanged =
+        Object.prototype.hasOwnProperty.call(patch, 'countdownTarget') &&
+        patch.countdownTarget !== cue.countdownTarget;
+      const payload: OneShotCueState & { countdownTargetSetAt?: number } = targetChanged
+        ? { ...next, countdownTargetSetAt: Date.now() }
+        : next;
+      socket.emit('oneshot:set', payload);
       setCueState(next);
     },
     [eventId, cue]
@@ -104,6 +114,7 @@ export function useOneShotNextCue(eventId: number | null) {
     connectedRef.current = true;
 
     const onSync = (data: SyncPayload) => {
+      updateServerOffsetFromTimestamp(data.timestamp);
       setNextCue({
         entryId: data.entryId ?? null,
         moduleKey: data.moduleKey ?? 'none',
