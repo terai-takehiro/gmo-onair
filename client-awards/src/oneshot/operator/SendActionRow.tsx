@@ -22,21 +22,21 @@ export default function SendActionRow({
     <div className="flex items-center gap-2 flex-wrap">
       <button
         onClick={onTake}
-        className="flex items-center gap-2 rounded-md bg-red-600 hover:bg-red-500 px-5 py-2.5 text-sm font-black tracking-widest uppercase text-white transition-colors shadow-lg shadow-red-900/30"
+        className="flex items-center gap-2 rounded-md bg-red-600 hover:bg-red-500 px-5 py-3.5 text-base font-black tracking-widest uppercase text-white transition-colors shadow-lg shadow-red-900/40"
       >
-        <Play className="h-4 w-4 fill-current" /> TAKE
+        <Play className="h-5 w-5 fill-current" /> TAKE
       </button>
       <button
         onClick={onClear}
         disabled={!isLive}
         className={cn(
-          'flex items-center gap-2 rounded-md px-5 py-2.5 text-sm font-black tracking-widest uppercase transition-colors',
+          'flex items-center gap-2 rounded-md px-5 py-3.5 text-base font-black tracking-widest uppercase transition-colors',
           isLive
             ? 'bg-slate-700 hover:bg-slate-600 text-slate-100'
             : 'bg-slate-800/40 text-slate-400 cursor-not-allowed'
         )}
       >
-        <Square className="h-4 w-4 fill-current" /> CLEAR
+        <Square className="h-5 w-5 fill-current" /> CLEAR
       </button>
       <div className="flex-1 hidden sm:block" />
       <button

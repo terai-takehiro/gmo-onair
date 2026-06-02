@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useAwardsStore, DEFAULT_CUE } from '@/cg/useStore';
 import { getAwardsSocket, disconnectAwardsSocket } from '@/lib/socket';
+import { updateServerOffsetFromTimestamp } from '@/lib/serverClock';
 import type { CgStep, OneshotStyle, CgCueState, VoteDisplay } from '@/cg/types';
 
 interface CuePayload {
@@ -10,6 +11,7 @@ interface CuePayload {
   voteDisplay?: VoteDisplay;
   pollStartedAt?: number | null;
   revealPhase?: 0 | 1 | 2;
+  timestamp?: number;
 }
 
 function normalizeCue(data: CuePayload): CgCueState {
@@ -35,6 +37,7 @@ export function useAwardsCue(eventId: number | null) {
     connectedRef.current = true;
 
     socket.on('cue:sync', (data: CuePayload) => {
+      updateServerOffsetFromTimestamp(data.timestamp);
       setCue(normalizeCue(data));
     });
 
@@ -74,7 +77,10 @@ export function useAwardsNextCue(eventId: number | null) {
     const socket = getAwardsSocket(eventId);
     connectedRef.current = true;
 
-    const onSync = (data: CuePayload) => setNextCue(normalizeCue(data));
+    const onSync = (data: CuePayload) => {
+      updateServerOffsetFromTimestamp(data.timestamp);
+      setNextCue(normalizeCue(data));
+    };
     socket.on('cue:nextSync', onSync);
 
     return () => {

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ExternalLink, Radio, Subtitles, Tv, Languages, Database, Maximize2, Minimize2 } from 'lucide-react';
+import { ChevronLeft, ExternalLink, Radio, Subtitles, Tv, Languages, Database, Maximize2, Minimize2, HelpCircle } from 'lucide-react';
 import { useFullscreen } from '@/hooks/useFullscreen';
 
 import OneShotStage from '../oneshot/OneShotStage';
@@ -404,20 +404,23 @@ export default function OneShotControlPage() {
   const tickerCategoryEn = awardsEn[selectedAwardIdx] ?? null;
 
   return (
-    <div className="h-full flex flex-col bg-black text-slate-100 overflow-hidden">
-      {/* ── Header ───────────────────────────────────────── */}
-      <header className="flex items-center gap-2 px-4 h-12 shrink-0 border-b border-slate-800">
+    <div className="h-full flex flex-col bg-black text-slate-100 overflow-y-auto lg:overflow-hidden">
+      {/* モバイル: スクロール許可 (v2.9.35). lg+ では従来通り overflow-hidden で固定レイアウト。 */}
+      {/* ── Header (v2.9.34 統一: h-14 / アイコン h-9 w-9 / text-sm + 3-way 回遊ナビ) ──── */}
+      <header className="flex items-center gap-2 px-4 h-14 shrink-0 border-b border-slate-800">
         <button
           onClick={() => navigate(`/event/${eventId}`)}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
-          title="イベント編集に戻る"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
+          title="イベント詳細へ戻る"
         >
           <ChevronLeft className="h-4 w-4 text-slate-300" />
         </button>
-        <Subtitles className="h-4 w-4 text-amber-500 shrink-0" />
-        <span className="text-[11px] font-black text-slate-300 tracking-widest">字幕スーパー</span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Subtitles className="h-4 w-4 text-amber-500" />
+          <span className="text-sm font-black text-slate-200 tracking-wider">字幕スーパー</span>
+        </div>
         {event && (
-          <span className="text-xs text-slate-400 truncate hidden sm:block">{event.name}</span>
+          <span className="text-xs text-slate-400 truncate hidden md:block">{event.name}</span>
         )}
         <div className="flex-1" />
         {/* DB → CG マッピング インスペクタ + oneshot_data 編集 */}
@@ -425,37 +428,45 @@ export default function OneShotControlPage() {
           onClick={() => setDataEditorOpen(true)}
           disabled={!previewNominee || !nomineeDbId(previewNominee)}
           className={cn(
-            'hidden sm:flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-black tracking-widest uppercase transition-colors',
+            'hidden lg:flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-colors',
             previewNominee && nomineeDbId(previewNominee)
-              ? 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
+              ? 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-slate-100'
               : 'bg-slate-900/40 text-slate-500 cursor-not-allowed'
           )}
           title="現在の PREVIEW ノミネートの DB ↔ CG マッピングを確認/編集"
         >
-          <Database className="h-3 w-3" />
-          データ
+          <Database className="h-3.5 w-3.5" />
+          <span className="hidden xl:inline">データ</span>
         </button>
         {/* 賞・部門 英訳辞書 (localStorage) */}
         <button
           onClick={() => setDictOpen(true)}
-          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-[10px] font-black tracking-widest uppercase text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors"
+          className="hidden lg:flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
           title="賞・部門の英訳辞書 (localStorage 保存、DB と独立)"
         >
-          <Languages className="h-3 w-3" />
-          英訳辞書
+          <Languages className="h-3.5 w-3.5" />
+          <span className="hidden xl:inline">英訳辞書</span>
         </button>
-        {/* 回遊性: 同イベントのリアルタイムCG (ランキング演出) コントロールへ直接ジャンプ */}
+        {/* ── 3-way 回遊ナビ (v2.9.34): リアルタイムCG / クイズ・アンケートCG へジャンプ ── */}
         <button
           onClick={() => navigate(`/event/${eventId}/control`)}
-          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-[10px] font-black tracking-widest uppercase text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors"
+          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
           title="リアルタイムCG (ランキング演出) コントロールへ"
         >
-          <Tv className="h-3 w-3" />
-          リアルタイムCG
+          <Tv className="h-3.5 w-3.5" />
+          <span className="hidden md:inline">リアルタイムCG</span>
+        </button>
+        <button
+          onClick={() => navigate(`/event/${eventId}/quiz-stack/control`)}
+          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
+          title="クイズ / アンケートCG コントロールへ"
+        >
+          <HelpCircle className="h-3.5 w-3.5" />
+          <span className="hidden md:inline">クイズ</span>
         </button>
         <div
           className={cn(
-            'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black tracking-widest uppercase transition-all',
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black tracking-widest uppercase transition-all',
             isLive
               ? 'bg-red-950/70 text-red-400 border border-red-800/50'
               : 'bg-slate-800/70 text-slate-300 border border-slate-700/50'
@@ -464,32 +475,31 @@ export default function OneShotControlPage() {
           <Radio className={cn('h-3 w-3 shrink-0', isLive && 'animate-pulse')} />
           {isLive ? 'ON AIR' : 'STANDBY'}
         </div>
-        {/* v2.8.88: Dynamic/Legacy トグル廃止 (常に dynamic 使用) */}
         <LangPicker value={langMode} onChange={onChangeLangMode} />
         <a
           href={`/awards/output/${eventId}/oneshot?lang=${lang}`}
           target="_blank"
           rel="noreferrer"
           title={`字幕スーパー 出力 (${lang.toUpperCase()})`}
-          className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors"
+          className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
         >
-          <ExternalLink className="h-3 w-3" />
-          出力
+          <ExternalLink className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">出力</span>
         </a>
         <button
           onClick={toggleFullscreen}
           title={isFullscreen ? '全画面解除 (F)' : '全画面表示 (F)'}
-          className="flex items-center justify-center h-8 w-8 rounded-lg bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors"
+          className="flex items-center justify-center h-9 w-9 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
         >
-          {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+          {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
         </button>
       </header>
 
       {/* ── Middle: PROGRAM + Nominee panel ─────────────── */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
+      <div className="flex-1 flex flex-col lg:flex-row lg:overflow-hidden min-h-0">
         <div
           ref={programRef}
-          className="w-full aspect-video lg:aspect-auto lg:flex-1 lg:min-h-0 relative bg-black border-b lg:border-b-0 lg:border-r border-slate-800"
+          className="w-full aspect-video lg:aspect-auto lg:flex-1 lg:min-h-0 max-h-[35vh] lg:max-h-none relative bg-black border-b lg:border-b-0 lg:border-r border-slate-800 shrink-0 lg:shrink"
         >
           {/* v2.8.83+: langMode='both' のとき JA + EN を別々の CG として横並びプレビュー */}
           {langMode === 'both' ? (

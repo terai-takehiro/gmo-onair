@@ -59,3 +59,17 @@ export const config = {
   // Client URL
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
 };
+
+// CORS 許可オリジン — HTTP (app.ts) と Socket.IO (socket.ts) で共有
+// 本番では ALLOWED_ORIGINS 必須 (上で検証済み)、dev はローカル Vite ポートを許可
+export function getAllowedOrigins(): string[] {
+  const devOrigins = isProduction ? [] : [
+    'http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175',
+    'http://localhost:5176', 'http://localhost:5177', 'http://localhost:5178',
+    'http://localhost:5179', 'http://localhost:3000',
+  ];
+  const envOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
+    : [];
+  return [...devOrigins, ...envOrigins];
+}

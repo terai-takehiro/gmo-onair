@@ -1,11 +1,11 @@
 import { useMemo, useEffect, useRef, useState, useCallback, Component, type ReactNode, type ErrorInfo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAwardsCue } from '@/hooks/useAwardsCue';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ExternalLink, Tv, Radio, Subtitles, Send, X, Maximize2, Minimize2, BarChart3, Vote } from 'lucide-react';
-import type { CgStep, OneshotStyle, CgCategory, CgCueState, AwardPattern, VoteDisplay } from '@/cg/types';
+import { ChevronLeft, ExternalLink, Tv, Radio, Subtitles, Send, X, Maximize2, Minimize2, Vote, HelpCircle } from 'lucide-react';
+import type { CgStep, OneshotStyle, CgCategory, CgCueState, AwardPattern } from '@/cg/types';
 import CGFrame from '@/cg/CGFrame';
 
 // CG プレビューが mount/update でクラッシュしても operator UI 全体は維持する。
@@ -26,9 +26,8 @@ class CGErrorBoundary extends Component<{ children: ReactNode }, { err: Error | 
     return this.props.children;
   }
 }
-import { CG_W, CG_H, POLL_DURATION_MS } from '@/cg/types';
+import { CG_W, CG_H } from '@/cg/types';
 import { useFullscreen } from '@/hooks/useFullscreen';
-import VoteSettingsDialog from '@/components/VoteSettingsDialog';
 
 type PreviewLang = 'ja' | 'en' | 'both';
 
@@ -90,7 +89,6 @@ export default function ControlPage() {
 
   const { cue, sendCue, sendNextCue } = useAwardsCue(eventId);
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
-  const queryClient = useQueryClient();
   const awardGroups = useMemo(() => groupByAward(event?.categories ?? []), [event]);
   const liveCategory = event?.categories.find((c) => c.id === cue.categoryId) ?? null;
   const isLive = LIVE_STEPS.includes(cue.step);
@@ -105,9 +103,6 @@ export default function ControlPage() {
   const pattern: AwardPattern = nextCategoryRaw?.award_pattern === 'vote' ? 'vote' : 'direct';
   const STEPS = pattern === 'vote' ? STEPS_VOTE : STEPS_DIRECT;
   const liveStep = [...STEPS_DIRECT, ...STEPS_VOTE].find((s) => s.step === cue.step);
-
-  // 投票設定ダイアログ
-  const [voteDialogOpen, setVoteDialogOpen] = useState(false);
 
   // 初期: LIVE 状態を NEXT にコピー (新規イベント or リロード時)
   const initFromLiveRef = useRef(false);
@@ -143,69 +138,15 @@ export default function ControlPage() {
     });
   }, [event, nextStep, nextCategoryId, nextStyle, cue.voteDisplay, sendNextCue]);
 
-  // poll 自動復帰タイマー (30s + 3s 余韻 → top3 へ戻す)
-  // vote-reveal 自動進行タイマー (grow 完了 → winner)
-  const pollTimerRef = useRef<number | null>(null);
-  const growTimerRef = useRef<number | null>(null);
-  const cancelTimers = useCallback(() => {
-    if (pollTimerRef.current) { window.clearTimeout(pollTimerRef.current); pollTimerRef.current = null; }
-    if (growTimerRef.current) { window.clearTimeout(growTimerRef.current); growTimerRef.current = null; }
-  }, []);
+  // 全カテゴリ一覧 (NEXT ↑↓ 循環 + TAKE 自動進行で使用)
+  const allCats = event?.categories ?? [];
 
   const take = useCallback(() => {
-    cancelTimers();
-
-    // vote-reveal: TAKE 連打で内部フェーズを進める (phase 0→1 のみ手動、1→2 は自動)
-    if (nextStep === 'vote-reveal' && cue.step === 'vote-reveal' && cue.categoryId === nextCategoryId) {
-      if (cue.revealPhase === 0) {
-        sendCue({ revealPhase: 1 });
-        // grow 完了後 (~2.6s) に winner 表示へ自動遷移
-        growTimerRef.current = window.setTimeout(() => {
-          sendCue({ revealPhase: 2 });
-        }, 2800);
-      } else if (cue.revealPhase < 2) {
-        sendCue({ revealPhase: 2 });
-      }
-      return;
-    }
-
-    // poll 中に TAKE (nextStep が poll のまま) → top3 へ手動遷移
-    // final-pitch: TAKE で ピックアップサイクル (なし→1→なし→2→なし→3→なし)
+    // final-pitch: TAKE で ピックアップ トグル (3人並び → 1番ピック、それ以外 → 3人並びに戻す)。
+    //   詳細な n 番ピックは下の PICK ボタンで revealPhase を直接指定する。
     if (nextStep === 'final-pitch' && cue.step === 'final-pitch') {
-      // operator が pick ボタンで revealPhase を直接設定する想定。
-      // ここでは TAKE 連打時にトグル (現在 picked → なし、なし → 1) 程度の動作。
       const cur = cue.revealPhase;
       sendCue({ revealPhase: cur === 0 ? 1 : 0 });
-      return;
-    }
-
-    if (nextStep === 'poll' && cue.step === 'poll') {
-      sendCue({ step: 'top3', pollStartedAt: null, revealPhase: 1 });
-      return;
-    }
-
-    // poll: TAKE でカウントダウン開始 (自動復帰は無し、operator が TAKE で進める)
-    if (nextStep === 'poll') {
-      const startedAt = Date.now();
-      sendCue({
-        step: 'poll',
-        categoryId: nextCategoryId,
-        oneshotStyle: nextStyle,
-        pollStartedAt: startedAt,
-        revealPhase: 0,
-      });
-      return;
-    }
-
-    // vote-reveal 初回 TAKE: phase=0 (shake) 開始
-    if (nextStep === 'vote-reveal') {
-      sendCue({
-        step: 'vote-reveal',
-        categoryId: nextCategoryId,
-        oneshotStyle: nextStyle,
-        pollStartedAt: null,
-        revealPhase: 0,
-      });
       return;
     }
 
@@ -216,14 +157,26 @@ export default function ControlPage() {
       pollStartedAt: null,
       revealPhase: 0,
     });
-  }, [sendCue, nextStep, nextCategoryId, nextStyle, cue.step, cue.categoryId, cue.revealPhase, cancelTimers]);
+
+    // v2.9.43: TAKE 後に NEXT ポインタを自動進行 (「TAKE を押していったらどんどん次に送れる」)。
+    //   - STEPS 内で次のステップへ
+    //   - 最終ステップ (celebration) の場合は次のカテゴリの最初のステップ (idle) に進む
+    //   - 最終カテゴリの最終ステップでは据置 (循環したくないので明示操作を求める)
+    const idx = STEPS.findIndex((s) => s.step === nextStep);
+    if (idx >= 0 && idx < STEPS.length - 1) {
+      setNextStep(STEPS[idx + 1].step);
+    } else if (idx === STEPS.length - 1) {
+      const catIdx = allCats.findIndex((c) => c.id === nextCategoryId);
+      if (catIdx >= 0 && catIdx < allCats.length - 1) {
+        setNextCategoryId(allCats[catIdx + 1].id);
+        setNextStep('idle');
+      }
+    }
+  }, [sendCue, nextStep, nextCategoryId, nextStyle, cue.step, cue.revealPhase, STEPS, allCats]);
 
   const clear = useCallback(() => {
-    cancelTimers();
     sendCue({ step: 'idle', pollStartedAt: null, revealPhase: 0 });
-  }, [sendCue, cancelTimers]);
-
-  useEffect(() => () => cancelTimers(), [cancelTimers]);
+  }, [sendCue]);
 
   // ── プレビュー / 出力用 言語選択（localStorage で永続化）
   const [previewLang, setPreviewLang] = useState<PreviewLang>(() => {
@@ -275,7 +228,6 @@ export default function ControlPage() {
   }, []);
 
   // ── ↑↓ で 全カテゴリ間を循環 (フラット)
-  const allCats = event?.categories ?? [];
   const goPrev = useCallback(() => {
     if (!allCats.length) return;
     const i = allCats.findIndex((c) => c.id === nextCategoryId);
@@ -336,79 +288,82 @@ export default function ControlPage() {
     revealPhase: 0,
   }), [nextStep, nextCategoryId, nextStyle, cue.voteDisplay]);
 
-  const setVoteDisplay = useCallback((d: VoteDisplay) => {
-    sendCue({ voteDisplay: d });
-  }, [sendCue]);
-
   return (
-    <div className="h-full flex flex-col bg-black text-slate-100 overflow-hidden">
+    <div className="h-full flex flex-col bg-black text-slate-100 overflow-y-auto lg:overflow-hidden">
+      {/* モバイル: スクロール許可 (v2.9.35). lg+ では従来通り overflow-hidden で固定レイアウト。 */}
 
-      {/* ── Header ──────────────────────────────────────────── */}
-      <header className="flex items-center gap-2 px-4 h-12 shrink-0 border-b border-slate-800">
+      {/* ── Header (v2.9.34 統一 + v2.9.35 モバイル コンパクト化) ──────── */}
+      <header className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 h-14 shrink-0 border-b border-slate-800">
         <button
           onClick={() => navigate(`/event/${eventId}`)}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
+          title="イベント詳細へ戻る"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
         >
           <ChevronLeft className="h-4 w-4 text-slate-300" />
         </button>
-        <Tv className="h-4 w-4 text-amber-500 shrink-0" />
-        <span className="text-[11px] font-black text-slate-300 tracking-widest">リアルタイムCG</span>
-        {event && <span className="text-xs text-slate-400 truncate hidden sm:block">{event.name}</span>}
-        <div className="flex-1" />
-        {/* 回遊性: 同イベントの字幕スーパー (下部テロップ) コントロールへ直接ジャンプ */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Tv className="h-4 w-4 text-amber-500" />
+          <span className="text-sm font-black text-slate-200 tracking-wider hidden sm:inline">リアルタイムCG</span>
+          <span className="text-xs font-black text-slate-200 tracking-wider sm:hidden">Ranking</span>
+        </div>
+        {event && <span className="text-xs text-slate-400 truncate hidden md:block">{event.name}</span>}
+        <div className="flex-1 min-w-0" />
+        {/* ── 3-way 回遊ナビ (sm+ のみ表示) ── */}
         <button
           onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
-          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-[10px] font-black tracking-widest uppercase text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors"
-          title="字幕スーパー コントロールへ"
+          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
+          title="字幕スーパー (下部テロップ) コントロールへ"
         >
-          <Subtitles className="h-3 w-3" />
-          字幕スーパー
+          <Subtitles className="h-3.5 w-3.5" />
+          <span className="hidden md:inline">字幕スーパー</span>
         </button>
+        <button
+          onClick={() => navigate(`/event/${eventId}/quiz-stack/control`)}
+          className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
+          title="クイズ / アンケートCG コントロールへ"
+        >
+          <HelpCircle className="h-3.5 w-3.5" />
+          <span className="hidden md:inline">クイズ</span>
+        </button>
+        {/* ON AIR バッジ: モバイルは dot のみ */}
         <div className={cn(
-          'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black tracking-widest uppercase transition-all',
+          'flex items-center gap-1.5 rounded-full text-xs font-black tracking-widest uppercase transition-all shrink-0',
+          'px-2 py-1.5 sm:px-3',
           isLive
             ? 'bg-red-950/70 text-red-400 border border-red-800/50'
             : 'bg-slate-800/70 text-slate-300 border border-slate-700/50',
         )}>
           <Radio className={cn('h-3 w-3 shrink-0', isLive && 'animate-pulse')} />
-          {isLive ? 'ON AIR' : 'STANDBY'}
+          <span className="hidden sm:inline">{isLive ? 'ON AIR' : 'STANDBY'}</span>
         </div>
-        {pattern === 'vote' && (
-          <button
-            onClick={() => setVoteDialogOpen(true)}
-            title="投票数を入力 / 表示方法を切替"
-            className="hidden sm:flex items-center gap-1.5 rounded-lg bg-amber-900/50 border border-amber-700/60 px-2.5 py-1.5 text-[10px] font-black tracking-widest uppercase text-amber-300 hover:bg-amber-800/60 transition-colors"
-          >
-            <BarChart3 className="h-3 w-3" />
-            投票
-          </button>
-        )}
         <LangPicker value={previewLang} onChange={setPreviewLang} />
         <a
           href={`/awards/output/${eventId}?lang=${previewLang}`}
           target="_blank"
           rel="noreferrer"
           title={`OA 出力 (${previewLang.toUpperCase()})`}
-          className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors"
+          className="flex items-center justify-center gap-1.5 rounded-lg bg-slate-800 h-9 w-9 sm:w-auto sm:px-3 sm:py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors shrink-0"
         >
-          <ExternalLink className="h-3 w-3" />出力
+          <ExternalLink className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+          <span className="hidden sm:inline">出力</span>
         </a>
+        {/* 全画面ボタン: モバイルでは hidden (タッチデバイスでは必要性低) */}
         <button
           onClick={toggleFullscreen}
           title={isFullscreen ? '全画面解除 (F)' : '全画面表示 (F)'}
-          className="flex items-center justify-center h-8 w-8 rounded-lg bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors"
+          className="hidden sm:flex items-center justify-center h-9 w-9 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors shrink-0"
         >
-          {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+          {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
         </button>
       </header>
 
       {/* ── Middle: PROGRAM (left) + Category (right) ─── */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
+      <div className="flex-1 flex flex-col lg:flex-row lg:overflow-hidden min-h-0">
 
-        {/* PROGRAM (LIVE) — fills flex space */}
+        {/* PROGRAM (LIVE) — モバイルは max-h で抑えて操作系を優先 / lg+ は flex で残スペースを埋める */}
         <div
           ref={programRef}
-          className="w-full aspect-video lg:aspect-auto lg:flex-1 lg:min-h-0 relative bg-black border-b lg:border-b-0 lg:border-r border-slate-800"
+          className="w-full aspect-video lg:aspect-auto lg:flex-1 lg:min-h-0 max-h-[35vh] lg:max-h-none relative bg-black border-b lg:border-b-0 lg:border-r border-slate-800 shrink-0 lg:shrink"
         >
           {event && (
             <div
@@ -457,7 +412,7 @@ export default function ControlPage() {
         </div>
 
         {/* Right panel: Status + Category */}
-        <div className="w-full lg:w-72 xl:w-80 flex-1 min-h-0 lg:flex-none lg:shrink-0 flex flex-col overflow-hidden">
+        <div className="w-full lg:w-80 xl:w-96 flex-1 min-h-0 lg:flex-none lg:shrink-0 flex flex-col overflow-hidden">
           <StatusBar isLive={isLive} liveStep={liveStep} liveCategory={liveCategory} nextStep={nextStepDef} nextCategory={nextCategory} />
           <div className="flex-1 overflow-y-auto p-3">
             <CategoryPanel
@@ -545,21 +500,11 @@ export default function ControlPage() {
                     : 'bg-slate-800/40 border-slate-700/50 text-slate-300',
                 )}>
                   {pattern === 'vote' ? (
-                    <span className="inline-flex items-center gap-1"><Vote className="h-3 w-3" />投票No.1決定</span>
+                    <span className="inline-flex items-center gap-1"><Vote className="h-3 w-3" />ファイナルピッチ</span>
                   ) : (
                     <span className="inline-flex items-center gap-1"><Tv className="h-3 w-3" />No.1発表</span>
                   )}
                 </span>
-                {pattern === 'vote' && cue.step === 'vote-reveal' && (
-                  <span className="ml-auto text-amber-400">
-                    {cue.revealPhase === 0 && <>SHAKE 中 — TAKEで結果発表 (棒が伸び切ったら自動で No.1)</>}
-                    {cue.revealPhase === 1 && <>RESULT 表示中 — まもなく自動で大賞 1S へ</>}
-                    {cue.revealPhase === 2 && <>GRAND PRIX 表示中</>}
-                  </span>
-                )}
-                {pattern === 'vote' && cue.step === 'poll' && cue.pollStartedAt && (
-                  <PollLiveBadge startedAt={cue.pollStartedAt} />
-                )}
               </div>
               <StepRow steps={STEPS} liveStep={cue.step} nextStep={nextStep} onSelect={setNextStep} />
               {/* ピックアップ用ボタン (Final Pitch ステップ LIVE 中のみ表示) */}
@@ -597,32 +542,7 @@ export default function ControlPage() {
           </div>
         </div>
       </div>
-
-      <VoteSettingsDialog
-        open={voteDialogOpen}
-        category={nextCategory}
-        voteDisplay={cue.voteDisplay}
-        onChangeDisplay={setVoteDisplay}
-        onClose={() => setVoteDialogOpen(false)}
-        onSaved={() => queryClient.invalidateQueries({ queryKey: ['awards-event', eventId] })}
-      />
     </div>
-  );
-}
-
-// ── PollLiveBadge: poll 中の残り秒数を operator UI に表示 ─────
-function PollLiveBadge({ startedAt }: { startedAt: number }) {
-  const [secs, setSecs] = useState(() => Math.max(0, Math.ceil((POLL_DURATION_MS - (Date.now() - startedAt)) / 1000)));
-  useEffect(() => {
-    const tick = () => setSecs(Math.max(0, Math.ceil((POLL_DURATION_MS - (Date.now() - startedAt)) / 1000)));
-    tick();
-    const id = window.setInterval(tick, 200);
-    return () => window.clearInterval(id);
-  }, [startedAt]);
-  return (
-    <span className="ml-auto text-red-400 font-bold animate-pulse">
-      POLL: 残り {secs}s {secs === 0 && '— TAKE で結果発表へ'}
-    </span>
   );
 }
 
@@ -749,7 +669,7 @@ function StepRow({ steps, liveStep, nextStep, onSelect }: {
   onSelect: (step: CgStep) => void;
 }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5">
+    <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2">
       {steps.map(({ step, label, desc, color, shortcut }) => {
         const isNext = nextStep === step;
         const isLiveStep = liveStep === step;
@@ -758,7 +678,7 @@ function StepRow({ steps, liveStep, nextStep, onSelect }: {
             key={step}
             onClick={() => onSelect(step)}
             className={cn(
-              'relative flex flex-col items-start rounded-lg border px-2.5 py-2 text-left transition-all',
+              'relative flex flex-col items-start rounded-lg border px-2 sm:px-3 py-2 sm:py-2.5 text-left transition-all min-h-[52px] sm:min-h-[60px]',
               isNext && color === 'live'    && 'border-amber-500 bg-amber-950/40 ring-1 ring-amber-700/40',
               isNext && color === 'award'   && 'border-amber-500 bg-amber-950/50 ring-1 ring-amber-700/40',
               isNext && color === 'neutral' && 'border-amber-500 bg-amber-950/30 ring-1 ring-amber-700/40',
@@ -766,20 +686,20 @@ function StepRow({ steps, liveStep, nextStep, onSelect }: {
             )}
           >
             {shortcut && (
-              <span className="absolute top-1 right-1.5 text-[8px] font-black tracking-widest text-slate-500 group-hover:text-slate-400">
+              <span className="absolute top-1 right-1.5 sm:top-1.5 sm:right-2 text-[9px] sm:text-[10px] font-black tracking-widest text-slate-500">
                 {shortcut}
               </span>
             )}
             <span className={cn(
-              'text-[10px] font-black tracking-wider leading-none',
-              isNext ? 'text-amber-300' : 'text-slate-300',
+              'text-[11px] sm:text-xs font-black tracking-wider leading-none',
+              isNext ? 'text-amber-300' : 'text-slate-200',
             )}>
               {label}
             </span>
-            <span className="text-[10px] font-medium text-slate-300 mt-1 leading-tight">{desc}</span>
+            <span className="text-[10px] sm:text-[11px] font-medium text-slate-300 mt-1 sm:mt-1.5 leading-tight">{desc}</span>
             {isLiveStep && (
               <span className={cn(
-                'absolute top-1 left-1.5 text-[8px] font-black tracking-widest rounded px-1 py-0',
+                'absolute top-1 left-1.5 sm:top-1.5 sm:left-2 text-[8px] sm:text-[9px] font-black tracking-widest rounded px-1 py-0.5',
                 isNext ? 'bg-red-700 text-white' : 'bg-red-950/70 text-red-300 border border-red-800/50',
               )}>
                 LIVE
@@ -801,8 +721,8 @@ function StyleRow({ styles, liveStyle, nextStyle, onSelect }: {
 }) {
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      <span className="text-[9px] text-slate-400 font-bold tracking-widest uppercase shrink-0">Style</span>
-      <div className="flex gap-1.5 flex-wrap">
+      <span className="text-xs text-slate-400 font-bold tracking-widest uppercase shrink-0">Style</span>
+      <div className="flex gap-2 flex-wrap">
         {styles.map(({ style, label }) => {
           const isNext = nextStyle === style;
           const isLiveStyle = liveStyle === style;
@@ -811,16 +731,16 @@ function StyleRow({ styles, liveStyle, nextStyle, onSelect }: {
               key={style}
               onClick={() => onSelect(style)}
               className={cn(
-                'rounded-md border px-3 py-1 text-xs font-bold transition-all relative',
+                'rounded-md border px-3.5 py-2 text-xs font-bold transition-all relative min-h-[36px]',
                 isNext
                   ? 'border-amber-500 bg-amber-900/30 text-amber-300'
-                  : 'border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-slate-200',
+                  : 'border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-slate-100',
               )}
             >
               {label}
               {isLiveStyle && (
                 <span className={cn(
-                  'absolute -top-1.5 -right-1.5 text-[7px] font-black tracking-widest rounded px-1',
+                  'absolute -top-1.5 -right-1.5 text-[9px] font-black tracking-widest rounded px-1 py-0.5',
                   isNext ? 'bg-red-700 text-white' : 'bg-red-950/80 text-red-300 border border-red-800/50',
                 )}>
                   LIVE
@@ -844,16 +764,16 @@ function SendActionRow({ isLive, onTake, onClear }: {
     <div className="flex items-center gap-2">
       <button
         onClick={onTake}
-        className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-red-600 hover:bg-red-500 text-white px-4 py-2.5 text-sm font-black tracking-widest uppercase transition-colors"
+        className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-red-600 hover:bg-red-500 text-white px-4 py-3.5 text-base font-black tracking-widest uppercase transition-colors shadow-lg shadow-red-900/40"
       >
-        <Send className="h-4 w-4" />
+        <Send className="h-5 w-5" />
         TAKE
       </button>
       <button
         onClick={onClear}
         disabled={!isLive}
         className={cn(
-          'flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-black tracking-widest uppercase transition-colors',
+          'flex items-center justify-center gap-2 rounded-lg px-4 py-3.5 text-base font-black tracking-widest uppercase transition-colors',
           isLive
             ? 'bg-slate-700 hover:bg-slate-600 text-slate-100'
             : 'bg-slate-900/40 text-slate-500 cursor-not-allowed',

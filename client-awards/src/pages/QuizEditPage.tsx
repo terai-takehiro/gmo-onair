@@ -78,6 +78,7 @@ export default function QuizEditPage() {
       display: quiz.display,
       mode: quiz.mode,
       has_answer_check: quiz.has_answer_check,
+      survey_pattern: quiz.survey_pattern,
       cover_image_data_url: quiz.cover_image_data_url,
     });
     const m: Record<number, ChoiceDraft> = {};
@@ -179,11 +180,21 @@ export default function QuizEditPage() {
           const active = (draft.mode ?? 'survey') === m;
           return (
             <button key={m}
-              onClick={() => setDraft({ ...draft, mode: m })}
+              onClick={() => {
+                // クイズ→アンケート切替時: survey_pattern が未設定なら top-reveal を既定に
+                // アンケート→クイズ切替時: survey_pattern は無視されるが null にして整合性を保つ
+                setDraft({
+                  ...draft,
+                  mode: m,
+                  survey_pattern: m === 'survey'
+                    ? (draft.survey_pattern ?? quiz.survey_pattern ?? 'top-reveal')
+                    : null,
+                });
+              }}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                 active ? 'border-purple-600 text-purple-700' : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}>
-              {m === 'quiz' ? 'クイズ (正解発表あり)' : 'アンケート'}
+              {m === 'quiz' ? 'クイズ' : 'アンケート'}
             </button>
           );
         })}
@@ -275,11 +286,87 @@ export default function QuizEditPage() {
           </Field>
         </div>
 
-        <label className="flex items-center gap-2 text-sm rounded-lg border bg-slate-50/60 px-3 py-2">
-          <input type="checkbox" checked={!!draft.has_answer_check}
-            onChange={(e) => setDraft({ ...draft, has_answer_check: e.target.checked })}/>
-          <span>結果/正解発表の前に「回答数の確認」ステップを挿入する</span>
-        </label>
+        {/* v2.9.36: 演出パターン ピッカー — 種別により選択肢が変わる階層型 UI */}
+        <div className="rounded-xl border border-purple-200 bg-purple-50/30 p-3 space-y-3">
+          <div className="text-sm font-bold text-purple-900 flex items-center gap-1.5">
+            演出パターン
+            <span className="text-xs font-normal text-purple-700">
+              (TAKE で進む CG 演出のフローを決めます)
+            </span>
+          </div>
+          {(() => {
+            const mode = draft.mode ?? quiz.mode;
+            if (mode === 'quiz') {
+              return (
+                <div className="rounded-lg border-2 border-blue-500 bg-blue-50/60 p-3">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-500 text-white text-[10px] font-black">✓</span>
+                    <span className="text-sm font-bold text-blue-900">正解発表 (クイズ固定)</span>
+                  </div>
+                  <p className="mt-1 ml-7 text-xs text-blue-800">
+                    正解選択肢をハイライト表示。クイズ種別では常にこの演出になります。
+                  </p>
+                </div>
+              );
+            }
+            // mode === 'survey'
+            const pattern = draft.survey_pattern ?? quiz.survey_pattern ?? 'top-reveal';
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {([
+                  { v: 'answer-check', emoji: '📊', label: 'アンサーチェック', desc: '各選択肢の票数を集計してアニメ表示し、そこで終了 (No.1 発表なし)', color: 'emerald' },
+                  { v: 'top-reveal',   emoji: '🏆', label: 'No.1 発表',         desc: 'フルスクリーン 3-shot で 1 位を演出付き発表',                 color: 'amber' },
+                ] as const).map(({ v, emoji, label, desc, color }) => {
+                  const active = pattern === v;
+                  const colorCls = active
+                    ? (color === 'emerald'
+                        ? 'border-emerald-500 bg-emerald-50/80 text-emerald-900'
+                        : 'border-amber-500 bg-amber-50/80 text-amber-900')
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300';
+                  return (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setDraft({ ...draft, survey_pattern: v })}
+                      className={`rounded-lg border-2 p-3 text-left transition-colors ${colorCls}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">{emoji}</span>
+                        <span className="text-sm font-bold">{label}</span>
+                        {active && (
+                          <span className={`ml-auto inline-flex items-center justify-center h-5 w-5 rounded-full text-white text-[10px] font-black ${
+                            color === 'emerald' ? 'bg-emerald-500' : 'bg-amber-500'
+                          }`}>✓</span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-xs">{desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
+          {/* アンサーチェック前段オプション (No.1 発表 / 正解発表のいずれでも追加可能) */}
+          {(() => {
+            const mode = draft.mode ?? quiz.mode;
+            const pattern = draft.survey_pattern ?? quiz.survey_pattern ?? 'top-reveal';
+            // アンサーチェックパターンのときは「前段」は意味がないので非表示
+            if (mode === 'survey' && pattern === 'answer-check') return null;
+            return (
+              <label className="flex items-start gap-2 text-sm rounded-lg border bg-slate-50/60 px-3 py-2 cursor-pointer">
+                <input type="checkbox" className="mt-0.5" checked={!!draft.has_answer_check}
+                  onChange={(e) => setDraft({ ...draft, has_answer_check: e.target.checked })}/>
+                <span>
+                  <strong>アンサーチェック演出を前段に挿入する</strong>
+                  <span className="block text-xs text-slate-600">
+                    本演出 ({mode === 'quiz' ? '正解発表' : 'No.1 発表'}) の前に「票数集計アニメ」を 1 ステップ追加します。
+                  </span>
+                </span>
+              </label>
+            );
+          })()}
+        </div>
 
         <CoverImageEditor
           value={draft.cover_image_data_url ?? null}

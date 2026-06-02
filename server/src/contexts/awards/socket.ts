@@ -170,6 +170,7 @@ export function initAwardsSocketIO(io: Server): void {
       bilingual?: boolean;
       countdownOn?: boolean;
       countdownTarget?: string | null;
+      countdownTargetSetAt?: number;
       countdownPrefixJa?: string;
       countdownPrefixEn?: string;
       countdownX?: number;
@@ -187,7 +188,22 @@ export function initAwardsSocketIO(io: Server): void {
         const showPortrait = data.showPortrait ?? true;
         const bilingual = data.bilingual ?? false;
         const countdownOn = data.countdownOn ?? false;
-        const countdownTarget = data.countdownTarget ?? null;
+        // v2.9.43: operator が新規に target をセットしたときは
+        // `countdownTargetSetAt` (= operator の Date.now()) を伴って送られてくる。
+        // operator の時計とサーバーの時計のずれ分だけ target を補正して、
+        // 以降は「サーバー時刻基準の絶対時刻」として全クライアントで共有する。
+        let countdownTarget = data.countdownTarget ?? null;
+        if (
+          countdownTarget &&
+          typeof data.countdownTargetSetAt === 'number' &&
+          isFinite(data.countdownTargetSetAt)
+        ) {
+          const targetMs = new Date(countdownTarget).getTime();
+          if (!isNaN(targetMs)) {
+            const skew = Date.now() - data.countdownTargetSetAt; // server - operator
+            countdownTarget = new Date(targetMs + skew).toISOString();
+          }
+        }
         const countdownPrefixJa = data.countdownPrefixJa ?? 'アワードまであと';
         const countdownPrefixEn = data.countdownPrefixEn ?? 'Awards starts in';
         const countdownX = typeof data.countdownX === 'number' ? data.countdownX : 50;

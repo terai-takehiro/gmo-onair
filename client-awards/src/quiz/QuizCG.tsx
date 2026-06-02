@@ -26,9 +26,16 @@ const RIGHT_W = 1920 - RIGHT_X - 60;
 const RIGHT_H = CAM_H;
 
 // 選択肢グリッド (choice_count に応じてレイアウト)
+// v2.9.40: 4 択以上は 2 行配置に。各カードの幅を稼いで選択肢テキストを大きく見せる。
+//   2 択: 2x1
+//   3 択: 3x1
+//   4 択: 2x2 (旧 4x1 から変更 — カード幅が狭くなって名前が読めなかった)
+//   5 択: 3x2
+//   6 択: 3x2
 function gridForCount(n: number): { cols: number; rows: number } {
-  if (n <= 3) return { cols: n, rows: 1 };
-  if (n === 4) return { cols: 4, rows: 1 };
+  if (n <= 2) return { cols: Math.max(2, n), rows: 1 };
+  if (n === 3) return { cols: 3, rows: 1 };
+  if (n === 4) return { cols: 2, rows: 2 };
   if (n === 5) return { cols: 3, rows: 2 };
   if (n === 6) return { cols: 3, rows: 2 };
   return { cols: 3, rows: 1 };
@@ -308,7 +315,10 @@ function ChoicesGrid({ choices, choiceCount, cue, display, showVotes, correctRev
   isShakePhase: boolean; isLockPhase: boolean;
 }) {
   const { cols, rows } = gridForCount(choiceCount);
-  const totalH = rows === 1 ? 110 : 230;
+  // v2.9.40: 票数枠縮小 (v2.9.39) と選択肢ブロック縮減に合わせて高さ圧縮
+  //   1 行: 110 → 96 (各カード ~96px)
+  //   2 行: 230 → 200 (各カード ~93px + gap 14)
+  const totalH = rows === 1 ? 96 : 200;
   const top = 1080 - 36 - totalH;
   const totalVotes = Object.values(cue.votes ?? {}).reduce((s, v) => s + (v || 0), 0);
   return (
@@ -372,7 +382,8 @@ function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, 
       // v2.9.17: padding を常に固定 (showVotes 切替で base を伸ばさない)。
       // 右側に常に vote パネル分のスペースを確保し、reveal/answer-check 切替時に
       // カードの形が変わらないようにする。
-      padding: '0 180px 0 78px',
+      // v2.9.39: 票数枠を半分に縮小 → 右 padding 180 → 110px に。
+      padding: '0 110px 0 78px',
       display: 'flex', flexDirection: 'column', justifyContent: 'center',
       boxShadow: `0 10px 30px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.14), 0 0 24px ${palette.glow}`,
       opacity: isDimmed ? 0.32 : 1,
@@ -400,9 +411,9 @@ function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, 
         color: '#fff', textShadow: '0 2px 6px rgba(0,0,0,0.7)', lineHeight: 1.1,
       }} min={0.4}>{name}</CondenseText>
 
-      {/* 票数: v2.9.18 ドンと拡大演出
-          - shake (revealPhase=0): base サイズ (156x76 / font 48) でランダム数字が動く
-          - lock  (revealPhase>=1 or answer-check / correct-reveal): 拡大 (200x100 / font 76) + パンチ keyframe + glow burst */}
+      {/* 票数: v2.9.18 ドンと拡大演出 / v2.9.39 サイズ半減 (選択肢の手狭感を解消)
+          - shake (revealPhase=0): base サイズ (90x48 / font 32) でランダム数字が動く
+          - lock  (revealPhase>=1 or answer-check / correct-reveal): 拡大 (120x60 / font 48) + パンチ keyframe + glow burst */}
       {showVotes && (
         <>
           <style>{`
@@ -416,30 +427,30 @@ function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, 
           <div
             key={isLockPhase ? 'lock' : 'shake'}
             style={{
-              position: 'absolute', right: isLockPhase ? -4 : 14, top: '50%',
+              position: 'absolute', right: isLockPhase ? -2 : 10, top: '50%',
               transform: 'translateY(-50%)',
-              width: isLockPhase ? 200 : 156,
-              height: isLockPhase ? 100 : 76,
-              padding: isLockPhase ? '0 18px' : '0 14px',
+              width: isLockPhase ? 120 : 90,
+              height: isLockPhase ? 60 : 48,
+              padding: isLockPhase ? '0 12px' : '0 10px',
               boxSizing: 'border-box',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               background: isLockPhase
                 ? 'linear-gradient(180deg, rgba(60,44,18,1), rgba(28,18,6,1))'
                 : 'linear-gradient(180deg, rgba(38,30,16,0.96), rgba(15,10,4,0.98))',
-              border: isLockPhase ? '2.5px solid #FFE8A8' : '2px solid rgba(245,215,110,0.85)',
-              borderRadius: 12,
+              border: isLockPhase ? '2px solid #FFE8A8' : '1.5px solid rgba(245,215,110,0.85)',
+              borderRadius: 10,
               boxShadow: isLockPhase
-                ? '0 10px 36px rgba(0,0,0,0.7), inset 0 1.5px 0 rgba(255,240,180,0.45), 0 0 56px rgba(255,220,120,0.85), 0 0 18px rgba(255,200,80,0.6)'
-                : '0 6px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,235,140,0.25), 0 0 24px rgba(245,215,110,0.35)',
+                ? '0 6px 22px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,240,180,0.45), 0 0 32px rgba(255,220,120,0.85), 0 0 12px rgba(255,200,80,0.6)'
+                : '0 4px 14px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,235,140,0.25), 0 0 16px rgba(245,215,110,0.35)',
               overflow: 'hidden',
               transition: 'all 420ms cubic-bezier(.2,.85,.3,1.1)',
               animation: isLockPhase ? 'qzVotePunch 520ms cubic-bezier(.18,1.4,.4,1) both' : 'none',
-              filter: isLockPhase ? 'drop-shadow(0 0 32px rgba(255,210,100,0.55))' : 'none',
+              filter: isLockPhase ? 'drop-shadow(0 0 22px rgba(255,210,100,0.55))' : 'none',
             }}
           >
             <CondenseText style={{
               fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700,
-              fontSize: isLockPhase ? 76 : 48,
+              fontSize: isLockPhase ? 48 : 32,
               color: '#FFF4D6',
               textShadow: isLockPhase
                 ? '0 2px 10px rgba(0,0,0,0.9), 0 0 32px rgba(255,220,140,0.95)'
