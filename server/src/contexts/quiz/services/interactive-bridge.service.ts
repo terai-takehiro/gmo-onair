@@ -14,6 +14,10 @@ export interface InteractiveLink {
   apiKeyPrefix?: string;
   apiKeySecret: string;
   interactiveEventId: string;
+  /** カウントダウン終了後、回答締切までに足す配信ディレイ秒 (0-120) */
+  closeBufferSeconds?: number;
+  /** カウントダウン連動で自動出題/締切するか (default true) */
+  autoControl?: boolean;
 }
 
 export interface InteractiveResultsDump {
@@ -88,6 +92,16 @@ export const interactiveBridge = {
   /** 1 問の集計結果 (言語横断で合算済みの得票数) */
   getResults(link: InteractiveLink, questionId: string) {
     return call<InteractiveResultsDump>(link, 'GET', `/questions/${encodeURIComponent(questionId)}/results`);
+  },
+
+  /** 出題 (回答受付開始) — カウントダウン開始に連動 */
+  activateQuestion(link: InteractiveLink, questionId: string) {
+    return call<{ ok: boolean; status: string }>(link, 'POST', `/questions/${encodeURIComponent(questionId)}/activate`);
+  },
+
+  /** 締切 (回答受付終了) — カウントダウン終了 + バッファに連動 */
+  closeQuestion(link: InteractiveLink, questionId: string) {
+    return call<{ ok: boolean; status: string }>(link, 'POST', `/questions/${encodeURIComponent(questionId)}/close`);
   },
 
   /** Awards → Interactive へ問題本文・選択肢を書き込む (push) */

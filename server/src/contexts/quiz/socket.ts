@@ -1,5 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { execute, queryAll, queryOne } from '../../shared/db/connection';
+import { onCountdownStart } from './services/interactive-lifecycle.service';
 
 /**
  * Quiz CG socket: /quiz namespace, ?quizId= でルーム join。
@@ -53,6 +54,16 @@ export function initQuizSocketIO(io: Server): void {
             lastOneshotStyle = data.oneshotStyle;
           }
 
+          // カウントダウン連動の自動出題/締切 判定用に、更新前の step / poll_started_at を控える
+          const prev = await queryOne(
+            `SELECT step, poll_started_at FROM quiz_stack_state WHERE event_id = ?`,
+            [stackEventId],
+          );
+          const prevStep = (prev?.step as string) ?? 'idle';
+          const prevPollMs = prev?.poll_started_at
+            ? new Date(prev.poll_started_at as string | number | Date).getTime()
+            : null;
+
           await execute(
             `INSERT INTO quiz_stack_state (event_id, current_quiz_id, step, poll_started_at, reveal_phase, updated_at)
              VALUES (?, ?, ?, ${pollStartedAt === null ? 'NULL' : 'to_timestamp(?::double precision / 1000.0)'}, ?, NOW())
@@ -88,6 +99,14 @@ export function initQuizSocketIO(io: Server): void {
             oneshotStyle: lastOneshotStyle,
             timestamp: Date.now(),
           });
+
+          // カウントダウン (poll) 新規開始を検知 → Interactive を自動出題 + 終了+バッファで締切予約。
+          // 「新規」= poll に入った or poll_started_at が変わった (再 TAKE / 別問題)。
+          const isNewPoll = step === 'poll' && pollStartedAt !== null
+            && (prevStep !== 'poll' || prevPollMs !== pollStartedAt);
+          if (isNewPoll && currentQuizId) {
+            void onCountdownStart(stackEventId, currentQuizId, pollStartedAt);
+          }
         } catch (err) {
           console.error('[quiz socket] quizStack:set error', err);
         }

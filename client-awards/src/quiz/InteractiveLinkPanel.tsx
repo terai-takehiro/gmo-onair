@@ -16,6 +16,8 @@ interface LinkConfig {
   baseUrl?: string;
   apiKeyPrefix?: string | null;
   interactiveEventId?: string;
+  closeBufferSeconds?: number;
+  autoControl?: boolean;
 }
 interface IaEvent { id: string; title: string; status: string }
 
@@ -26,6 +28,8 @@ export default function InteractiveLinkPanel({ eventId }: { eventId: number }) {
   const [apiKey, setApiKey] = useState('');
   const [iaEventId, setIaEventId] = useState('');
   const [iaEvents, setIaEvents] = useState<IaEvent[] | null>(null);
+  const [closeBuffer, setCloseBuffer] = useState(0);
+  const [autoControl, setAutoControl] = useState(true);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
   const { data: cfg } = useQuery({
@@ -36,6 +40,8 @@ export default function InteractiveLinkPanel({ eventId }: { eventId: number }) {
       if (c.configured) {
         setBaseUrl(c.baseUrl || baseUrl);
         setIaEventId(c.interactiveEventId || '');
+        setCloseBuffer(c.closeBufferSeconds ?? 0);
+        setAutoControl(c.autoControl !== false);
       }
       return c;
     },
@@ -57,7 +63,7 @@ export default function InteractiveLinkPanel({ eventId }: { eventId: number }) {
   });
 
   const saveMut = useMutation({
-    mutationFn: () => api.put(`/quiz/events/${eventId}/interactive-link`, { baseUrl, apiKeySecret: apiKey || undefined, interactiveEventId: iaEventId }),
+    mutationFn: () => api.put(`/quiz/events/${eventId}/interactive-link`, { baseUrl, apiKeySecret: apiKey || undefined, interactiveEventId: iaEventId, closeBufferSeconds: closeBuffer, autoControl }),
     onSuccess: () => { setApiKey(''); qc.invalidateQueries({ queryKey: ['interactive-link', eventId] }); flash('ok', '連携設定を保存しました'); },
     onError: (e: any) => flash('err', e?.response?.data?.error?.message || '保存に失敗しました'),
   });
@@ -156,6 +162,26 @@ export default function InteractiveLinkPanel({ eventId }: { eventId: number }) {
               className="rounded-lg bg-slate-200 hover:bg-slate-300 disabled:opacity-50 px-3 py-1.5 text-xs font-semibold text-slate-700">
               {testMut.isPending ? '確認中…' : '接続テスト'}
             </button>
+          </div>
+
+          {/* カウントダウン連動 出題/締切 */}
+          <div className="rounded-lg border border-cyan-200 bg-white/60 p-3 space-y-2">
+            <label className="flex items-center gap-2 text-sm font-semibold text-cyan-900">
+              <input type="checkbox" checked={autoControl} onChange={(e) => setAutoControl(e.target.checked)} className="h-4 w-4 accent-cyan-600" />
+              カウントダウンに連動して自動で出題・締切する
+            </label>
+            <p className="text-[11px] leading-relaxed text-cyan-800/70">
+              ON にすると、CG のカウントダウン開始でインタラクティブ側を自動「出題」、カウントダウン終了
+              （+下のバッファ秒）で自動「締切」します。集計結果は締切後も自動反映されます。
+            </p>
+            <label className="flex items-center gap-2 text-xs">
+              <span className="font-semibold text-muted-foreground">配信ディレイ バッファ</span>
+              <input type="number" min={0} max={120} value={closeBuffer}
+                onChange={(e) => setCloseBuffer(Math.max(0, Math.min(120, Math.floor(Number(e.target.value) || 0))))}
+                disabled={!autoControl}
+                className="w-20 rounded border px-2 py-1 text-sm disabled:opacity-50" />
+              <span className="text-muted-foreground">秒（カウントダウン終了からこの秒数後に締切）</span>
+            </label>
           </div>
 
           <div className="flex items-center gap-2">

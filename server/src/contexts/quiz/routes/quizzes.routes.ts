@@ -271,6 +271,8 @@ interface StoredLink {
   apiKeyPrefix?: string;
   apiKeySecret: string;
   interactiveEventId: string;
+  closeBufferSeconds?: number;
+  autoControl?: boolean;
 }
 
 async function loadLink(eventId: number): Promise<StoredLink | null> {
@@ -292,6 +294,8 @@ router.get('/events/:eventId/interactive-link', wrap(async (req, res) => {
           baseUrl: link.baseUrl,
           apiKeyPrefix: link.apiKeyPrefix ?? null,
           interactiveEventId: link.interactiveEventId,
+          closeBufferSeconds: link.closeBufferSeconds ?? 0,
+          autoControl: link.autoControl !== false,
         }
       : { configured: false },
   });
@@ -300,7 +304,7 @@ router.get('/events/:eventId/interactive-link', wrap(async (req, res) => {
 // 連携設定の保存 (apiKeySecret 空欄なら既存を維持)
 router.put('/events/:eventId/interactive-link', wrap(async (req, res) => {
   const eventId = parseInt(req.params.eventId as string);
-  const { baseUrl, interactiveEventId, apiKeySecret } = req.body ?? {};
+  const { baseUrl, interactiveEventId, apiKeySecret, closeBufferSeconds, autoControl } = req.body ?? {};
   if (!baseUrl || !interactiveEventId) {
     throw new AppError(400, 'VALIDATION_ERROR', 'baseUrl と interactiveEventId は必須です');
   }
@@ -310,17 +314,24 @@ router.put('/events/:eventId/interactive-link', wrap(async (req, res) => {
     : existing?.apiKeySecret;
   if (!secret) throw new AppError(400, 'VALIDATION_ERROR', 'API キーが必要です');
 
+  const buffer = closeBufferSeconds !== undefined
+    ? Math.max(0, Math.min(120, Math.floor(Number(closeBufferSeconds) || 0)))
+    : existing?.closeBufferSeconds ?? 0;
+  const auto = autoControl !== undefined ? !!autoControl : existing?.autoControl !== false;
+
   const link: StoredLink = {
     baseUrl: String(baseUrl).trim().replace(/\/+$/, ''),
     apiKeyPrefix: secret.slice(0, 12),
     apiKeySecret: secret,
     interactiveEventId: String(interactiveEventId).trim(),
+    closeBufferSeconds: buffer,
+    autoControl: auto,
   };
   await execute(
     `UPDATE awards_events SET interactive_link = ?::jsonb, updated_at = NOW() WHERE id = ?`,
     [JSON.stringify(link), eventId],
   );
-  res.json({ success: true, data: { configured: true, baseUrl: link.baseUrl, apiKeyPrefix: link.apiKeyPrefix, interactiveEventId: link.interactiveEventId } });
+  res.json({ success: true, data: { configured: true, baseUrl: link.baseUrl, apiKeyPrefix: link.apiKeyPrefix, interactiveEventId: link.interactiveEventId, closeBufferSeconds: buffer, autoControl: auto } });
 }));
 
 // 連携解除
