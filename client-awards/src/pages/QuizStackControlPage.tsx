@@ -107,7 +107,7 @@ export default function QuizStackControlPage() {
     if (!currentQuiz) {
       // NEXT を PROGRAM にプロモートして POLL 開始
       if (!nextQuiz) return;
-      sendCue({ currentQuizId: nextQuiz.id, step: 'poll', pollStartedAt: Date.now(), revealPhase: 0 });
+      sendCue({ currentQuizId: nextQuiz.id, step: 'poll', pollStartedAt: Date.now(), revealPhase: 0, votes: {} });
       return;
     }
     // v2.9.18+: reveal step 内の phase 進行 (TAKE で 0→1 ドン!確定)
@@ -116,26 +116,11 @@ export default function QuizStackControlPage() {
       return;
     }
     const next = nextStepFor(currentQuiz.mode, currentQuiz.survey_pattern, currentQuiz.has_answer_check, cue.step);
-    if (cue.step === 'idle' && next === 'poll') {
-      sendCue({ step: 'poll', pollStartedAt: Date.now(), revealPhase: 0 });
-    } else if (cue.step === 'poll') {
-      // v2.9.38: 次のステップは nextStepFor の結果に従う
-      //   - survey × answer-check       → answer-check (選択肢内 票数表示)
-      //   - survey × top-reveal         → reveal (3-shot ランダム揺れ)
-      //   - survey × top-reveal + 前段ANS → answer-check (前段)
-      //   - quiz                        → correct-reveal (正解ハイライト)
-      //   - quiz + 前段ANS              → answer-check (前段)
-      // votes は次が reveal/answer-check/correct-reveal いずれの場合も渡しておく。
-      sendCue({ step: next, pollStartedAt: null, revealPhase: 0, votes: voteEdits });
-    } else if (next === 'idle') {
-      // 終了 → 次のクイズへ
+    if (cue.step === 'idle') {
+      // v2.9.42: TAKE from idle のロジック整理
+      //   - NEXT が currentQuiz と異なる → auto-advance (キュー進行): 新クイズの poll を開始
+      //   - NEXT === currentQuiz → 同じクイズの poll を開始 (リスタート or 初回)
       if (nextQuiz && nextQuiz.id !== cue.currentQuizId) {
-        // v2.9.41: 1-TAKE で直接次の quiz の poll まで進める。
-        //   旧版 (v2.9.40 まで) は terminal → idle で一旦止まり、もう 1 度 TAKE で
-        //   idle → poll と進める 2-TAKE 設計だったが、画面が一瞬黒くなり挙動が不安定
-        //   に見えていた。新版では step='poll' を一気に送って seamless に切替える。
-        //   votes は空オブジェクトで初期化 (useEffect で新 quiz の choices.vote_count
-        //   を読んで上書きされる)
         sendCue({
           currentQuizId: nextQuiz.id,
           step: 'poll',
@@ -143,16 +128,63 @@ export default function QuizStackControlPage() {
           revealPhase: 0,
           votes: {},
         });
-        const idx = quizzes.findIndex((q) => q.id === nextQuiz.id);
-        setNextQuizId(quizzes[(idx + 1) % quizzes.length]?.id ?? quizzes[0].id);
       } else {
-        // 1 quiz だけの場合 or NEXT 未選択時: 同じ quiz の idle に戻す
-        setStep('idle', { pollStartedAt: null, revealPhase: 0 });
+        sendCue({ step: 'poll', pollStartedAt: Date.now(), revealPhase: 0 });
       }
+    } else if (cue.step === 'poll') {
+      // v2.9.38: 次のステップは nextStepFor の結果に従う
+      sendCue({ step: next, pollStartedAt: null, revealPhase: 0, votes: voteEdits });
+    } else if (next === 'idle') {
+      // v2.9.42: terminal state (winner / correct-reveal / answer-check terminal) で TAKE
+      //   → 何もしない (operator は CLEAR を押してクイズを終了させる必要がある)
+      //   旧 v2.9.41 の自動 1-TAKE 進行は撤回し、CLEAR を「クイズ終了」の明示的境界に
+      return;
     } else {
       setStep(next);
     }
-  }, [currentQuiz, nextQuiz, cue, voteEdits, sendCue, setStep, quizzes]);
+  }, [currentQuiz, nextQuiz, cue, voteEdits, sendCue, setStep]);
+
+  // v2.9.42: 決定ボタン — 選択中の NEXT を currentQuiz として load する (idle のみ)
+  //   何もしなければ TAKE で順番進行、操作者が明示的に staged を変えたいときに使う
+  const stageSelected = useCallback(() => {
+    if (!nextQuiz || cue.step !== 'idle') return;
+    if (nextQuiz.id === cue.currentQuizId) return; // 既に load 済み
+    sendCue({
+      currentQuizId: nextQuiz.id,
+      step: 'idle',
+      pollStartedAt: null,
+      revealPhase: 0,
+      votes: {},
+    });
+    // nextQuizId はそのままにして、TAKE で同じクイズの poll を開始できるようにする。
+  }, [nextQuiz, cue.step, cue.currentQuizId, sendCue]);
+
+  // v2.9.42: terminal step に到達した瞬間に NEXT を次-in-order に自動進行。
+  //   これにより quiz 終了 + CLEAR の後に TAKE すると次のクイズが自動再生される
+  //   (operator は 決定 ボタンで manual override 可能、ただし操作者が pulldown を
+  //    変えた場合はその選択を尊重する)。
+  const prevStepRef = useRef<QuizStep>(cue.step);
+  useEffect(() => {
+    const prev = prevStepRef.current;
+    prevStepRef.current = cue.step;
+    if (!currentQuiz || quizzes.length === 0) return;
+    const isTerminal = (s: QuizStep): boolean => {
+      if (s === 'winner' || s === 'correct-reveal') return true;
+      if (s === 'answer-check'
+          && currentQuiz.mode === 'survey'
+          && (currentQuiz.survey_pattern ?? 'top-reveal') === 'answer-check') {
+        return true;
+      }
+      return false;
+    };
+    if (isTerminal(cue.step) && !isTerminal(prev)) {
+      const idx = quizzes.findIndex((q) => q.id === currentQuiz.id);
+      const candidate = quizzes[(idx + 1) % quizzes.length]?.id;
+      if (candidate && candidate !== currentQuiz.id) {
+        setNextQuizId(candidate);
+      }
+    }
+  }, [cue.step, currentQuiz, quizzes]);
 
   // 大賞演出スタイル
   const setOneshotStyle = useCallback((style: QuizOneshotStyle) => {
@@ -185,13 +217,17 @@ export default function QuizStackControlPage() {
   const nextStep = currentQuiz ? nextStepFor(currentQuiz.mode, currentQuiz.survey_pattern, currentQuiz.has_answer_check, cue.step) : 'poll';
   // v2.9.18+: reveal/phase 0 のときは TAKE で ドン!確定 (phase 1) に進む
   const inShakeReveal = cue.step === 'reveal' && cue.revealPhase === 0;
+  // v2.9.42: TAKE on terminal は no-op、CLEAR で終了 → idle で TAKE すると次のクイズへ
+  const isTerminalNow = currentQuiz != null && nextStep === 'idle' && cue.step !== 'idle' && cue.step !== 'poll';
   const nextLabel = !currentQuiz
     ? '次のクイズを開始'
     : inShakeReveal
       ? '次へ (ドン!確定)'
-      : (nextStep === 'idle'
-        ? (nextQuiz && nextQuiz.id !== cue.currentQuizId ? '次のクイズへ' : 'リセット (IDLE)')
-        : `次へ (${STEP_LABELS[nextStep]})`);
+      : isTerminalNow
+        ? 'CLEAR でクイズ終了'
+        : (cue.step === 'idle'
+          ? (nextQuiz && nextQuiz.id !== cue.currentQuizId ? '次のクイズを開始' : 'リスタート (POLL)')
+          : `次へ (${STEP_LABELS[nextStep]})`);
 
   const totalVotes = useMemo(() => Object.values(voteEdits).reduce((s, v) => s + (v || 0), 0), [voteEdits]);
 
@@ -376,6 +412,31 @@ export default function QuizStackControlPage() {
                   {' · '}{nextQuiz.choice_count} 択 / {nextQuiz.countdown_seconds} 秒
                 </div>
               )}
+              {/* v2.9.42: 決定ボタン — idle 中に手動で staged クイズを load する */}
+              <button
+                onClick={stageSelected}
+                disabled={cue.step !== 'idle' || !nextQuiz || nextQuiz.id === cue.currentQuizId}
+                className={cn(
+                  'w-full flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold transition-colors',
+                  cue.step === 'idle' && nextQuiz && nextQuiz.id !== cue.currentQuizId
+                    ? 'bg-amber-600 hover:bg-amber-500 text-slate-950 shadow-md shadow-amber-900/30'
+                    : 'bg-slate-800/60 text-slate-500 cursor-not-allowed'
+                )}
+                title={
+                  cue.step !== 'idle'
+                    ? '決定は CLEAR な状態のときのみ操作可能'
+                    : !nextQuiz
+                      ? 'NEXT を選択してください'
+                      : nextQuiz.id === cue.currentQuizId
+                        ? '既に load 済み'
+                        : '選択中のクイズを PROGRAM に仕込む'
+                }
+              >
+                決定 (NEXT を仕込む)
+              </button>
+              <p className="text-[11px] text-amber-200/60 leading-tight">
+                何もしなければ表示順で自動進行。CLEAR な状態で 決定 を押すと、選択中のクイズを次の PROGRAM として仕込めます。
+              </p>
             </div>
 
             {/* 大賞演出スタイル */}
