@@ -3,6 +3,7 @@ import type { QuizWithChoices, QuizCueState, QuizChoice } from './types';
 import { QUIZ_COLORS } from './types';
 import { CondenseText } from '@/cg/components/CondenseText';
 import StepOneShot from '@/cg/steps/StepOneShot';
+import { getServerNow } from '@/lib/serverClock';
 import type { CgMappedEntry } from '@/cg/types';
 
 interface Props {
@@ -845,7 +846,8 @@ function Countdown({ startedAt, totalSec }: { startedAt: number | null; totalSec
   const [remaining, setRemaining] = useState(totalSec * 1000);
   useEffect(() => {
     if (startedAt == null) { setRemaining(totalSec * 1000); return; }
-    const tick = () => setRemaining(Math.max(0, totalSec * 1000 - (Date.now() - startedAt)));
+    // getServerNow() でサーバー時計基準に揃える (operator PC と vMix の時計ずれを吸収)
+    const tick = () => setRemaining(Math.max(0, totalSec * 1000 - (getServerNow() - startedAt)));
     tick();
     const id = window.setInterval(tick, 80);
     return () => window.clearInterval(id);

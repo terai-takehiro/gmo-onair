@@ -6,6 +6,7 @@ import { useQuizStackSocket } from '@/quiz/useQuizStackSocket';
 import QuizCG from '@/quiz/QuizCG';
 import { CG_W, CG_H } from '@/cg/types';
 import { cn } from '@/lib/utils';
+import { getServerNow } from '@/lib/serverClock';
 import type { QuizStep, QuizMode, QuizOneshotStyle, SurveyPattern } from '@/quiz/types';
 
 // v2.9.36: 演出パターンを (mode, surveyPattern, hasAnswerCheck) で明示分岐。
@@ -72,7 +73,7 @@ export default function QuizStackControlPage() {
   const navigate = useNavigate();
 
   const { data: quizzes = [] } = useQuizzes(eventId);
-  const { cue, sendCue, setStep } = useQuizStackSocket(eventId);
+  const { cue, sendCue, setStep, liveVotes } = useQuizStackSocket(eventId);
 
   // PROGRAM = cue.currentQuizId, NEXT = ローカル選択
   const [nextQuizId, setNextQuizId] = useState<number | null>(null);
@@ -91,6 +92,11 @@ export default function QuizStackControlPage() {
   const { data: currentQuiz } = useQuiz(cue.currentQuizId);
   const { data: nextQuiz } = useQuiz(nextQuizId);
 
+  // Interactive 連携中の quiz か (interactive_question_id があれば連動対象)
+  const isLinked = !!(currentQuiz as { interactive_question_id?: string | null } | undefined)?.interactive_question_id;
+  // 連携中で、現在 quiz のリアルタイム投票が来ているか
+  const liveActive = isLinked && !!liveVotes && liveVotes.quizId === cue.currentQuizId;
+
   const [voteEdits, setVoteEdits] = useState<Record<number, number>>({});
   useEffect(() => {
     if (!currentQuiz) return;
@@ -98,6 +104,13 @@ export default function QuizStackControlPage() {
     for (const c of currentQuiz.choices) m[c.position] = c.vote_count;
     setVoteEdits(m);
   }, [currentQuiz]);
+
+  // Interactive 連動時: poller のリアルタイム投票数を操作UIにも反映 (手入力を上書き)。
+  // 出力CG と同じ liveVotes を使うことで「プレビューと実CGの集計が一致」する。
+  useEffect(() => {
+    if (!liveVotes || liveVotes.quizId !== cue.currentQuizId) return;
+    setVoteEdits((prev) => ({ ...prev, ...liveVotes.votes }));
+  }, [liveVotes, cue.currentQuizId]);
 
   // v2.9.28: カウントダウンが 0 になっても自動遷移しない (poll のまま停止)。
   // operator が次に TAKE を押したとき reveal/phase 0 (ランダム揺れ) へ進む。
@@ -107,7 +120,7 @@ export default function QuizStackControlPage() {
     if (!currentQuiz) {
       // NEXT を PROGRAM にプロモートして POLL 開始
       if (!nextQuiz) return;
-      sendCue({ currentQuizId: nextQuiz.id, step: 'poll', pollStartedAt: Date.now(), revealPhase: 0, votes: {} });
+      sendCue({ currentQuizId: nextQuiz.id, step: 'poll', pollStartedAt: getServerNow(), revealPhase: 0, votes: {} });
       return;
     }
     // v2.9.18+: reveal step 内の phase 進行 (TAKE で 0→1 ドン!確定)
@@ -124,12 +137,12 @@ export default function QuizStackControlPage() {
         sendCue({
           currentQuizId: nextQuiz.id,
           step: 'poll',
-          pollStartedAt: Date.now(),
+          pollStartedAt: getServerNow(),
           revealPhase: 0,
           votes: {},
         });
       } else {
-        sendCue({ step: 'poll', pollStartedAt: Date.now(), revealPhase: 0 });
+        sendCue({ step: 'poll', pollStartedAt: getServerNow(), revealPhase: 0 });
       }
     } else if (cue.step === 'poll') {
       // v2.9.38: 次のステップは nextStepFor の結果に従う
@@ -468,6 +481,12 @@ export default function QuizStackControlPage() {
                   <div className="text-sm font-black tracking-widest text-slate-200">投票/回答数</div>
                   <div className="text-sm text-slate-400">合計 <span className="font-bold text-slate-100">{totalVotes.toLocaleString()}</span> {currentQuiz.display === 'percent' ? '' : '票'}</div>
                 </div>
+                {isLinked && (
+                  <div className="flex items-center gap-1.5 rounded-md bg-cyan-900/40 border border-cyan-700/50 px-2 py-1.5 text-xs font-bold text-cyan-300">
+                    <Radio className={cn('h-3 w-3', liveActive && 'animate-pulse')} />
+                    インタラクティブ連動中{liveActive ? '（リアルタイム反映）' : '（出題待ち）'}・手入力は無効
+                  </div>
+                )}
                 {currentQuiz.choices.slice(0, currentQuiz.choice_count).map((c) => {
                   const v = voteEdits[c.position] ?? 0;
                   return (
@@ -475,20 +494,27 @@ export default function QuizStackControlPage() {
                       <div className="shrink-0 w-7 h-7 rounded-full bg-purple-600 flex items-center justify-center text-xs font-black text-white">{c.position}</div>
                       <div className="flex-1 min-w-0 truncate text-slate-100 font-semibold">{c.name || `選択肢${c.position}`}</div>
                       <input type="text" inputMode="numeric" value={String(v)}
+                        readOnly={isLinked}
                         onChange={(e) => {
+                          if (isLinked) return;
                           const cleaned = e.target.value.replace(/[^\d]/g, '');
                           const n = cleaned === '' ? 0 : parseInt(cleaned, 10);
                           setVoteEdits({ ...voteEdits, [c.position]: isNaN(n) ? 0 : Math.max(0, n) });
                         }}
-                        onFocus={(e) => e.target.select()}
-                        className="w-24 rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-right text-base font-bold text-slate-50"/>
+                        onFocus={(e) => { if (!isLinked) e.target.select(); }}
+                        className={cn(
+                          'w-24 rounded border border-slate-700 px-2 py-1.5 text-right text-base font-bold text-slate-50',
+                          isLinked ? 'bg-slate-800/60 cursor-not-allowed text-cyan-200' : 'bg-slate-900'
+                        )}/>
                     </div>
                   );
                 })}
-                <button onClick={() => sendCue({ votes: voteEdits })}
-                  className="w-full rounded-lg bg-amber-600 hover:bg-amber-500 px-3 py-2 text-sm font-black text-slate-950">
-                  投票数を保存 (送出に反映)
-                </button>
+                {!isLinked && (
+                  <button onClick={() => sendCue({ votes: voteEdits })}
+                    className="w-full rounded-lg bg-amber-600 hover:bg-amber-500 px-3 py-2 text-sm font-black text-slate-950">
+                    投票数を保存 (送出に反映)
+                  </button>
+                )}
               </div>
             )}
           </div>
