@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
+import { getServerNow } from '@/lib/serverClock';
 import type { Lang } from './types';
 
 interface Props {
@@ -37,9 +38,12 @@ export default function CountdownCG({ targetIso, prefix, x, y, scale, lang }: Pr
     return isNaN(t) ? null : t;
   }, [targetIso]);
 
-  const [now, setNow] = useState(() => Date.now());
+  // v2.9.43: サーバー時刻基準で動かす (operator PC ⇄ vMix の時計ずれを吸収)。
+  // serverClock.ts が socket sync の timestamp から offset を更新するため、
+  // 全クライアントで同期した残時間が表示される。
+  const [now, setNow] = useState(() => getServerNow());
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 250);
+    const id = setInterval(() => setNow(getServerNow()), 250);
     return () => clearInterval(id);
   }, []);
 

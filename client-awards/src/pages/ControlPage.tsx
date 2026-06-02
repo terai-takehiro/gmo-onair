@@ -138,6 +138,9 @@ export default function ControlPage() {
     });
   }, [event, nextStep, nextCategoryId, nextStyle, cue.voteDisplay, sendNextCue]);
 
+  // 全カテゴリ一覧 (NEXT ↑↓ 循環 + TAKE 自動進行で使用)
+  const allCats = event?.categories ?? [];
+
   const take = useCallback(() => {
     // final-pitch: TAKE で ピックアップ トグル (3人並び → 1番ピック、それ以外 → 3人並びに戻す)。
     //   詳細な n 番ピックは下の PICK ボタンで revealPhase を直接指定する。
@@ -154,7 +157,22 @@ export default function ControlPage() {
       pollStartedAt: null,
       revealPhase: 0,
     });
-  }, [sendCue, nextStep, nextCategoryId, nextStyle, cue.step, cue.revealPhase]);
+
+    // v2.9.43: TAKE 後に NEXT ポインタを自動進行 (「TAKE を押していったらどんどん次に送れる」)。
+    //   - STEPS 内で次のステップへ
+    //   - 最終ステップ (celebration) の場合は次のカテゴリの最初のステップ (idle) に進む
+    //   - 最終カテゴリの最終ステップでは据置 (循環したくないので明示操作を求める)
+    const idx = STEPS.findIndex((s) => s.step === nextStep);
+    if (idx >= 0 && idx < STEPS.length - 1) {
+      setNextStep(STEPS[idx + 1].step);
+    } else if (idx === STEPS.length - 1) {
+      const catIdx = allCats.findIndex((c) => c.id === nextCategoryId);
+      if (catIdx >= 0 && catIdx < allCats.length - 1) {
+        setNextCategoryId(allCats[catIdx + 1].id);
+        setNextStep('idle');
+      }
+    }
+  }, [sendCue, nextStep, nextCategoryId, nextStyle, cue.step, cue.revealPhase, STEPS, allCats]);
 
   const clear = useCallback(() => {
     sendCue({ step: 'idle', pollStartedAt: null, revealPhase: 0 });
@@ -210,7 +228,6 @@ export default function ControlPage() {
   }, []);
 
   // ── ↑↓ で 全カテゴリ間を循環 (フラット)
-  const allCats = event?.categories ?? [];
   const goPrev = useCallback(() => {
     if (!allCats.length) return;
     const i = allCats.findIndex((c) => c.id === nextCategoryId);
