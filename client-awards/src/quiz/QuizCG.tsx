@@ -26,9 +26,16 @@ const RIGHT_W = 1920 - RIGHT_X - 60;
 const RIGHT_H = CAM_H;
 
 // 選択肢グリッド (choice_count に応じてレイアウト)
+// v2.9.40: 4 択以上は 2 行配置に。各カードの幅を稼いで選択肢テキストを大きく見せる。
+//   2 択: 2x1
+//   3 択: 3x1
+//   4 択: 2x2 (旧 4x1 から変更 — カード幅が狭くなって名前が読めなかった)
+//   5 択: 3x2
+//   6 択: 3x2
 function gridForCount(n: number): { cols: number; rows: number } {
-  if (n <= 3) return { cols: n, rows: 1 };
-  if (n === 4) return { cols: 4, rows: 1 };
+  if (n <= 2) return { cols: Math.max(2, n), rows: 1 };
+  if (n === 3) return { cols: 3, rows: 1 };
+  if (n === 4) return { cols: 2, rows: 2 };
   if (n === 5) return { cols: 3, rows: 2 };
   if (n === 6) return { cols: 3, rows: 2 };
   return { cols: 3, rows: 1 };
@@ -308,7 +315,10 @@ function ChoicesGrid({ choices, choiceCount, cue, display, showVotes, correctRev
   isShakePhase: boolean; isLockPhase: boolean;
 }) {
   const { cols, rows } = gridForCount(choiceCount);
-  const totalH = rows === 1 ? 110 : 230;
+  // v2.9.40: 票数枠縮小 (v2.9.39) と選択肢ブロック縮減に合わせて高さ圧縮
+  //   1 行: 110 → 96 (各カード ~96px)
+  //   2 行: 230 → 200 (各カード ~93px + gap 14)
+  const totalH = rows === 1 ? 96 : 200;
   const top = 1080 - 36 - totalH;
   const totalVotes = Object.values(cue.votes ?? {}).reduce((s, v) => s + (v || 0), 0);
   return (
