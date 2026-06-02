@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { QuizStackCue, QuizStep } from './types';
+import { updateServerOffsetFromTimestamp } from '@/lib/serverClock';
 
 let socket: Socket | null = null;
 let currentEventId: number | null = null;
@@ -40,7 +41,9 @@ export function useQuizStackSocket(eventId: number | null) {
     setCue(DEFAULT(eventId));
     setLiveVotes(null);
     const sock = getStackSocket(eventId);
-    const onSync = (data: QuizStackCue) => setCue({
+    const onSync = (data: QuizStackCue & { timestamp?: number }) => {
+      updateServerOffsetFromTimestamp(data.timestamp);
+      setCue({
       eventId: data.eventId,
       currentQuizId: data.currentQuizId ?? null,
       step: data.step,
@@ -48,7 +51,9 @@ export function useQuizStackSocket(eventId: number | null) {
       revealPhase: (data.revealPhase ?? 0) as 0 | 1 | 2,
       oneshotStyle: normStyle((data as { oneshotStyle?: unknown }).oneshotStyle),
     });
-    const onVotes = (data: { quizId: number; votes: Record<number, number> }) => {
+    };
+    const onVotes = (data: { quizId: number; votes: Record<number, number>; timestamp?: number }) => {
+      updateServerOffsetFromTimestamp(data.timestamp);
       if (data && typeof data.quizId === 'number') setLiveVotes({ quizId: data.quizId, votes: data.votes ?? {} });
     };
     sock.on('quizStack:sync', onSync);
