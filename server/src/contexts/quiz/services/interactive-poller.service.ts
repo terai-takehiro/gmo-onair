@@ -18,7 +18,9 @@ import { queryAll, execute } from '../../../shared/db/connection';
 import { emitInteractiveVotes } from '../socket';
 import { interactiveBridge, type InteractiveLink } from './interactive-bridge.service';
 
-const POLL_INTERVAL_MS = 2000;
+// 送出中の 1 問だけを対象にした軽量ポーリング。リアルタイム性のため 800ms 間隔。
+// (対象は通常 1 行 = Interactive への HTTP も 1 req/800ms 程度)
+const POLL_INTERVAL_MS = 800;
 let timer: ReturnType<typeof setInterval> | null = null;
 let running = false;
 
@@ -59,24 +61,28 @@ async function pollOnce(io: Server): Promise<void> {
       }
 
       const choices = dump?.results?.choices ?? [];
-      if (!choices.length) continue;
 
-      // 現在の vote_count を取得して差分判定
+      // 現在の vote_count を取得
       const current = (await queryAll(
         `SELECT position, vote_count FROM quiz_choices WHERE quiz_id = ? ORDER BY position`,
         [row.current_quiz_id],
       )) as { position: number; vote_count: number }[];
-      const currentMap = new Map(current.map((c) => [c.position, c.vote_count]));
 
+      // Interactive results を正本として反映。
+      // results に含まれない選択肢 (= 0 票 / 再出題で回答クリア) は 0 に揃える。
       // Interactive choice_index は 0 始まり、Awards position は 1 始まり → position = index + 1
-      let changed = false;
+      const resultMap = new Map<number, number>();
       for (const c of choices) {
-        const newCount = Math.max(0, Math.floor(Number(c.count) || 0));
-        const position = c.index + 1;
-        if (currentMap.get(position) !== newCount) {
+        resultMap.set(c.index + 1, Math.max(0, Math.floor(Number(c.count) || 0)));
+      }
+
+      let changed = false;
+      for (const cur of current) {
+        const newCount = resultMap.get(cur.position) ?? 0;
+        if (cur.vote_count !== newCount) {
           await execute(
             `UPDATE quiz_choices SET vote_count = ?, updated_at = NOW() WHERE quiz_id = ? AND position = ?`,
-            [newCount, row.current_quiz_id, position],
+            [newCount, row.current_quiz_id, cur.position],
           );
           changed = true;
         }

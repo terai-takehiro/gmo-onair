@@ -105,6 +105,17 @@ export function initQuizSocketIO(io: Server): void {
           const isNewPoll = step === 'poll' && pollStartedAt !== null
             && (prevStep !== 'poll' || prevPollMs !== pollStartedAt);
           if (isNewPoll && currentQuizId) {
+            // 再出題: 前回の集計が残らないよう投票数を 0 リセットして即時ブロードキャスト。
+            // (Interactive 連動時は activate 側で回答もクリアされ、poller が 0 を反映)
+            try {
+              await execute(
+                `UPDATE quiz_choices SET vote_count = 0, updated_at = NOW() WHERE quiz_id = ?`,
+                [currentQuizId],
+              );
+              await emitInteractiveVotes(io, stackEventId, currentQuizId);
+            } catch (resetErr) {
+              console.error('[quiz socket] vote reset on re-poll error', resetErr);
+            }
             void onCountdownStart(stackEventId, currentQuizId, pollStartedAt);
           }
         } catch (err) {
