@@ -377,8 +377,11 @@ function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, 
   return (
     <div style={{
       position: 'relative',
-      background: `linear-gradient(160deg, ${palette.core}, ${palette.deep})`,
-      border: '2px solid rgba(245,215,110,0.55)',
+      // 不正解 (correct-reveal 時) は半透明ではなくグレーのベース色にする
+      background: isDimmed
+        ? 'linear-gradient(160deg, #565c66, #2e333c)'
+        : `linear-gradient(160deg, ${palette.core}, ${palette.deep})`,
+      border: isDimmed ? '2px solid rgba(255,255,255,0.18)' : '2px solid rgba(245,215,110,0.55)',
       borderRadius: 8,
       // v2.9.17: padding を常に固定 (showVotes 切替で base を伸ばさない)。
       // 右側に常に vote パネル分のスペースを確保し、reveal/answer-check 切替時に
@@ -386,10 +389,13 @@ function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, 
       // v2.9.39: 票数枠を半分に縮小 → 右 padding 180 → 110px に。
       padding: '0 110px 0 78px',
       display: 'flex', flexDirection: 'column', justifyContent: 'center',
-      boxShadow: `0 10px 30px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.14), 0 0 24px ${palette.glow}`,
-      opacity: isDimmed ? 0.32 : 1,
-      filter: isDimmed ? 'saturate(0.45)' : 'none',
-      transition: 'opacity 500ms ease, filter 500ms ease',
+      boxShadow: isDimmed
+        ? '0 8px 22px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)'
+        : `0 10px 30px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.14), 0 0 24px ${palette.glow}`,
+      // 透明にはしない (常に opacity 1)。
+      opacity: 1,
+      filter: 'none',
+      transition: 'background 400ms ease, border-color 400ms ease, box-shadow 400ms ease',
       animation: isHilite ? 'qzCorrectPulse 1s ease-in-out infinite' : 'none',
       overflow: 'hidden',
       boxSizing: 'border-box',
@@ -398,7 +404,9 @@ function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, 
       <div style={{
         position: 'absolute', left: -10, top: '50%', transform: 'translateY(-50%)',
         width: 72, height: 72,
-        background: `radial-gradient(circle at 35% 30%, #fff, ${palette.core} 70%, #1a1a1a)`,
+        background: isDimmed
+          ? 'radial-gradient(circle at 35% 30%, #cfd3d9, #6b7079 70%, #1a1a1a)'
+          : `radial-gradient(circle at 35% 30%, #fff, ${palette.core} 70%, #1a1a1a)`,
         clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 900, fontSize: 44,
