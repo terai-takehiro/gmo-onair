@@ -7,6 +7,7 @@ import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { FilterBar } from "@gmo-onair/shared/src/client/ui/filter-bar";
 import { Pagination } from "@gmo-onair/shared/src/client/ui/pagination";
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { formatCurrency, formatDate, formatMonth } from "@/lib/format";
@@ -79,6 +80,24 @@ export default function SgaListPage() {
   });
 
   const [form, setForm] = useState<SgaFormData>(initialFormData);
+
+  // 予算ダッシュボード等から ?edit={id} で遷移されたら、その販管費の編集モーダルを開く
+  const [searchParams] = useSearchParams();
+  const editParam = searchParams.get("edit");
+  const editOpenedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!editParam || editOpenedRef.current === editParam) return;
+    editOpenedRef.current = editParam;
+    (async () => {
+      try {
+        const row = (await api.get(`/sga/${editParam}`)).data?.data;
+        if (row) crud.openEdit(row as SgaExpense);
+      } catch {
+        /* 取得失敗時は無視 */
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editParam]);
 
   // editingItem 同期: open 時に form を埋める / close 時にリセット
   useEffect(() => {

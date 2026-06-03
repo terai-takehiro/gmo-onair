@@ -92,21 +92,22 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
 });
 
 router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
-  const existing = await queryOne('SELECT id FROM purchases WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+  const existing = await queryOne('SELECT id, is_provisional FROM purchases WHERE id = ? AND deleted_at IS NULL', [req.params.id]) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '仕入が見つかりません');
 
   const { project_id, episode_id, vendor_id, settlement_method, settlement_number, settlement_url,
           tax_category, invoice_qualified, amount, description,
-          recognition_date, inspection_date, payment_due_date, notes,
+          recognition_date, inspection_date, payment_due_date, notes, is_provisional,
           service_completed_date } = req.body;
   await execute(
     `UPDATE purchases SET project_id=?, episode_id=?, vendor_id=?, settlement_method=?, settlement_number=?, settlement_url=?,
      tax_category=?, invoice_qualified=?, amount=?, description=?,
-     recognition_date=?, inspection_date=?, payment_due_date=?, notes=?, service_completed_date=?,
+     recognition_date=?, inspection_date=?, payment_due_date=?, notes=?, is_provisional=?, service_completed_date=?,
      updated_at=NOW(), updated_by=? WHERE id=?`,
     [project_id, episode_id || null, vendor_id, settlement_method || null, settlement_number || null, settlement_url || null,
      tax_category, invoice_qualified ? 1 : 0, amount, description || null,
      recognition_date || null, inspection_date || null, payment_due_date || null, notes || null,
+     is_provisional !== undefined ? !!is_provisional : existing.is_provisional,
      service_completed_date || null, req.user!.id, req.params.id]
   );
   const row = await queryOne('SELECT * FROM purchases WHERE id = ?', [req.params.id]);

@@ -14,7 +14,7 @@ import {
   SectionCard,
   EmptyState,
 } from "@gmo-onair/shared/src/client/dashboard";
-import { Loader2, AlertCircle, RefreshCw, Wallet, ExternalLink, Receipt, ShoppingCart, DollarSign } from "lucide-react";
+import { Loader2, AlertCircle, RefreshCw, ExternalLink, Receipt, ShoppingCart, DollarSign } from "lucide-react";
 
 interface MonthlySummary {
   month: string;
@@ -58,6 +58,7 @@ export default function BudgetDashboardPage() {
     },
     enabled: !!month,
     retry: 1,
+    refetchOnMount: "always",
   });
   const summary: MonthlySummary = (data?.data as MonthlySummary) ?? EMPTY_SUMMARY;
   const hasData = !!data?.data;
@@ -73,6 +74,7 @@ export default function BudgetDashboardPage() {
       return (await api.get("/revenues", { params })).data;
     },
     enabled: breakdownEnabled,
+    refetchOnMount: "always",
   });
   const { data: purchaseList } = useQuery({
     queryKey: ["budget-breakdown-purchases", month, projectId],
@@ -82,6 +84,7 @@ export default function BudgetDashboardPage() {
       return (await api.get("/purchases", { params })).data;
     },
     enabled: breakdownEnabled,
+    refetchOnMount: "always",
   });
   // 販管費は案件に紐づかないため、案件絞り込み時は取得しない
   const { data: sgaList } = useQuery({
@@ -89,6 +92,7 @@ export default function BudgetDashboardPage() {
     queryFn: async () =>
       (await api.get("/sga", { params: { recognition_month: month, limit: "300" } })).data,
     enabled: breakdownEnabled && !projectId,
+    refetchOnMount: "always",
   });
 
   const revenueRows: Array<{ id: string; gls_number?: string | null; project_name?: string | null; customer_name?: string | null; amount: number }> = revenueList?.data ?? [];
@@ -191,46 +195,6 @@ export default function BudgetDashboardPage() {
             />
           </div>
         </section>
-
-        {/* 損益詳細テーブル */}
-        <SectionCard
-          title="損益詳細"
-          description="インデント式で費目の階層を表します。"
-          icon={<Wallet />}
-        >
-          {!hasData && !isFetching && !isError ? (
-            <EmptyState title="集計データがありません" description="年月を変更するか、条件を見直してください。" />
-          ) : (
-            <div className="max-w-md rounded-md border border-border overflow-hidden">
-              <table className="w-full text-sm">
-                <caption className="sr-only">月次損益計算表</caption>
-                <tbody>
-                  {[
-                    { label: "売上合計", value: summary.revenue_total, bold: false },
-                    { label: "仕入合計", value: summary.purchase_total, bold: false, indent: true },
-                    { label: "粗利", value: summary.gross_profit, bold: true, divider: true, highlight: true },
-                    { label: "販管費", value: summary.sga_total, bold: false, indent: true },
-                    { label: "営業利益", value: summary.operating_profit, bold: true, divider: true, highlight: true },
-                  ].map(({ label, value, bold, indent, divider, highlight }, i) => (
-                    <tr key={i} className={divider ? "border-t-2 border-border" : ""}>
-                      <th
-                        scope="row"
-                        className={`px-4 py-2 text-left text-muted-foreground font-normal ${indent ? "pl-8" : ""} ${bold ? "font-semibold text-foreground" : ""}`}
-                      >
-                        {label}
-                      </th>
-                      <td
-                        className={`px-4 py-2 text-right font-number tabular-nums ${bold ? "font-bold" : ""} ${highlight ? (value >= 0 ? "text-success" : "text-destructive") : "text-foreground"}`}
-                      >
-                        {formatCurrency(value)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </SectionCard>
 
         {/* 内訳 (明細) — PC は横並び 3 カラム */}
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-3 lg:gap-6">
@@ -341,13 +305,18 @@ export default function BudgetDashboardPage() {
               ) : (
                 <ul className="divide-y divide-border">
                   {sgaRows.map((s) => (
-                    <li key={s.id} className="flex items-center justify-between gap-2 py-2 text-sm">
-                      <div className="min-w-0 flex-1">
+                    <li key={s.id} className="flex items-center justify-between gap-2 py-1">
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/budget/sga?edit=${s.id}`)}
+                        className="min-w-0 flex-1 py-1 text-left text-sm transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                        title="クリックで販管費編集を開く"
+                      >
                         <p className="truncate text-foreground">{s.vendor_name || "-"}</p>
                         {s.description && (
                           <p className="truncate text-xs text-muted-foreground">{s.description}</p>
                         )}
-                      </div>
+                      </button>
                       <div className="flex shrink-0 items-center gap-2">
                         <span className="min-w-[96px] text-right font-number tabular-nums">{formatCurrency(s.amount)}</span>
                         {/* URL の有無に関わらず金額の縦列を揃えるため固定幅スロットを確保 */}
