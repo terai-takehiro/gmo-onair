@@ -33,6 +33,7 @@ export interface SgaFormData {
   settlement_method: string;
   settlement_number: string;
   settlement_number_pending: boolean;
+  settlement_url: string;
   amount: number;
   description: string;
   notes: string;
@@ -54,6 +55,7 @@ export const initialFormData: SgaFormData = {
   settlement_method: "xpoint",
   settlement_number: "",
   settlement_number_pending: false,
+  settlement_url: "",
   amount: 0,
   description: "",
   notes: "",
@@ -270,6 +272,19 @@ export default function SgaDialog({
                 </p>
               )}
             </div>
+          </div>
+
+          {/* Row 3.5: 申請URL */}
+          <div className="space-y-1">
+            <Label>申請URL</Label>
+            <Input
+              type="url"
+              value={form.settlement_url}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, settlement_url: e.target.value }))
+              }
+              placeholder="精算申請ページのURL（任意）"
+            />
           </div>
 
           {/* Row 4: amount */}

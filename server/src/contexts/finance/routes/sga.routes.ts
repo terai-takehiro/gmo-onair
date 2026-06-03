@@ -62,7 +62,7 @@ router.get('/:id', async (req, res) => {
 // POST /sga - Create
 router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
   const {
-    vendor_name, vendor_id, settlement_method, settlement_number, description, notes,
+    vendor_name, vendor_id, settlement_method, settlement_number, settlement_url, description, notes,
     recognition_date, payment_due_date, tax_category, invoice_qualified, amount,
     expense_type, amortize_start, amortize_end, source
   } = req.body;
@@ -73,10 +73,10 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
   const id = uuidv4();
 
   await execute(
-    `INSERT INTO sga_expenses (id, billing_key, vendor_name, vendor_id, settlement_method, settlement_number, description, notes, recognition_date, payment_due_date, tax_category, invoice_qualified, amount, expense_type, amortize_start, amortize_end, source, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO sga_expenses (id, billing_key, vendor_name, vendor_id, settlement_method, settlement_number, settlement_url, description, notes, recognition_date, payment_due_date, tax_category, invoice_qualified, amount, expense_type, amortize_start, amortize_end, source, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id, billing_key, vendor_name || null, vendor_id || null,
-      settlement_method || null, settlement_number || null,
+      settlement_method || null, settlement_number || null, settlement_url || null,
       description || null, notes || null,
       recognition_date, payment_due_date || null,
       tax_category || 'tax10',
@@ -99,7 +99,7 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
   if (!existing) throw new AppError(404, 'NOT_FOUND', '販管費が見つかりません');
 
   const {
-    vendor_name, vendor_id, settlement_method, settlement_number, description, notes,
+    vendor_name, vendor_id, settlement_method, settlement_number, settlement_url, description, notes,
     recognition_date, payment_due_date, tax_category, invoice_qualified, amount,
     expense_type, amortize_start, amortize_end, source
   } = req.body;
@@ -113,10 +113,10 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
   }
 
   await execute(
-    `UPDATE sga_expenses SET billing_key=?, vendor_name=?, vendor_id=?, settlement_method=?, settlement_number=?, description=?, notes=?, recognition_date=?, payment_due_date=?, tax_category=?, invoice_qualified=?, amount=?, expense_type=?, amortize_start=?, amortize_end=?, source=?, updated_at=NOW(), updated_by=? WHERE id=?`,
+    `UPDATE sga_expenses SET billing_key=?, vendor_name=?, vendor_id=?, settlement_method=?, settlement_number=?, settlement_url=?, description=?, notes=?, recognition_date=?, payment_due_date=?, tax_category=?, invoice_qualified=?, amount=?, expense_type=?, amortize_start=?, amortize_end=?, source=?, updated_at=NOW(), updated_by=? WHERE id=?`,
     [
       billing_key, vendor_name || null, vendor_id || null,
-      settlement_method || null, settlement_number || null,
+      settlement_method || null, settlement_number || null, settlement_url || null,
       description || null, notes || null,
       recognition_date || existing.recognition_date,
       payment_due_date || null,

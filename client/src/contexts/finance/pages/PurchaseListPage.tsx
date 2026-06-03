@@ -53,7 +53,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2, ExternalLink } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
 
 function SettlementBadge({ number }: { number: string | null | undefined }) {
@@ -94,6 +94,7 @@ interface PurchaseRow {
   group_name: string | null;
   settlement_method: string | null;
   settlement_number: string | null;
+  settlement_url: string | null;
   is_provisional: boolean;
   invoice_qualified: number | boolean | null;
 }
@@ -112,10 +113,18 @@ export default function PurchaseListPage() {
   const [colWidths, setColWidths] = useState<Record<string, number>>({});
   const resizeRef = useRef<{ col: string; startX: number; startW: number } | null>(null);
 
+  // 月絞り込み (YYYY-MM) + 並び替え
+  const [monthFilter, setMonthFilter] = useState("");
+  const [sortOrder, setSortOrder] = useState("date_desc");
+
   const crud = useCrudPage<PurchaseRow>({
     endpoint: "/purchases",
     queryKey: ["purchases-all"],
-    extraParams: { project_id: filterProjectId || undefined },
+    extraParams: {
+      project_id: filterProjectId || undefined,
+      recognition_month: monthFilter || undefined,
+      sort: sortOrder,
+    },
   });
 
   // Dialog form state — フィールドが多く form ライブラリ未使用なので個別 useState を維持
@@ -124,6 +133,7 @@ export default function PurchaseListPage() {
   const [taxCategory, setTaxCategory] = useState("tax10");
   const [settlementMethod, setSettlementMethod] = useState("rakuraku");
   const [settlementNumber, setSettlementNumber] = useState("");
+  const [settlementUrl, setSettlementUrl] = useState("");
   const [invoiceQualified, setInvoiceQualified] = useState("qualified");
   const [amount, setAmount] = useState<number>(0);
   const [description, setDescription] = useState("");
@@ -144,6 +154,7 @@ export default function PurchaseListPage() {
       setSettlementNumber(
         p.settlement_number && p.settlement_number !== "pending" ? p.settlement_number : "",
       );
+      setSettlementUrl(p.settlement_url || "");
       setInvoiceQualified(p.invoice_qualified ? "qualified" : "unqualified");
       setAmount(p.amount || 0);
       setDescription(p.description || "");
@@ -158,6 +169,7 @@ export default function PurchaseListPage() {
       setTaxCategory("tax10");
       setSettlementMethod("rakuraku");
       setSettlementNumber("");
+      setSettlementUrl("");
       setInvoiceQualified("qualified");
       setAmount(0);
       setDescription("");
@@ -217,6 +229,7 @@ export default function PurchaseListPage() {
       tax_category: taxCategory,
       settlement_method: settlementMethod,
       settlement_number: settlementNumber || null,
+      settlement_url: settlementUrl || null,
       invoice_qualified: invoiceQualified === "qualified" ? 1 : 0,
       amount,
       description: description || null,
@@ -282,6 +295,57 @@ export default function PurchaseListPage() {
           layout="inline"
         />
 
+        {/* 月絞り込み + 並び替え */}
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <Label className="text-xs text-muted-foreground">計上月で絞り込み</Label>
+            <div className="flex items-center gap-1">
+              <Input
+                type="month"
+                value={monthFilter}
+                onChange={(e) => {
+                  setMonthFilter(e.target.value);
+                  crud.setPage(1);
+                }}
+                className="w-40"
+              />
+              {monthFilter && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 text-xs"
+                  onClick={() => {
+                    setMonthFilter("");
+                    crud.setPage(1);
+                  }}
+                >
+                  解除
+                </Button>
+              )}
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">並び替え</Label>
+            <Select
+              value={sortOrder}
+              onValueChange={(v) => {
+                setSortOrder(v);
+                crud.setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date_desc">計上月（新しい順）</SelectItem>
+                <SelectItem value="date_asc">計上月（古い順）</SelectItem>
+                <SelectItem value="amount_desc">金額（大きい順）</SelectItem>
+                <SelectItem value="amount_asc">金額（小さい順）</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
         {crud.isLoading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="読み込み中" />
@@ -318,8 +382,21 @@ export default function PurchaseListPage() {
                         {p.recognition_date && ` / ${formatMonth(p.recognition_date)}`}
                       </div>
                     </div>
-                    <div className="text-right shrink-0">
+                    <div className="flex flex-col items-end gap-1 shrink-0">
                       <div className="font-medium font-number">{formatCurrency(p.amount)}</div>
+                      {p.settlement_url && (
+                        <a
+                          href={p.settlement_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                          title="申請URLを開く"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          申請
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -393,15 +470,29 @@ export default function PurchaseListPage() {
                         {p.description || "-"}
                       </TableCell>
                       <TableCell>
-                        <SettlementBadge number={p.settlement_number} />
-                        {p.settlement_number && p.settlement_number !== "pending" && (
-                          <span className="ml-1 text-xs text-muted-foreground">
-                            {formatSettlementNo(
-                              p.settlement_method ?? "",
-                              p.settlement_number ?? "",
-                            )}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1">
+                          <SettlementBadge number={p.settlement_number} />
+                          {p.settlement_number && p.settlement_number !== "pending" && (
+                            <span className="text-xs text-muted-foreground">
+                              {formatSettlementNo(
+                                p.settlement_method ?? "",
+                                p.settlement_number ?? "",
+                              )}
+                            </span>
+                          )}
+                          {p.settlement_url && (
+                            <a
+                              href={p.settlement_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center text-primary hover:text-primary/80"
+                              title="申請URLを開く"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         {TaxCategoryLabels[p.tax_category as TaxCategory] ?? p.tax_category}
@@ -589,6 +680,15 @@ export default function PurchaseListPage() {
                     value={settlementNumber}
                     onChange={(e) => setSettlementNumber(e.target.value)}
                     placeholder="任意"
+                  />
+                </div>
+                <div>
+                  <Label>申請URL</Label>
+                  <Input
+                    type="url"
+                    value={settlementUrl}
+                    onChange={(e) => setSettlementUrl(e.target.value)}
+                    placeholder="精算申請ページのURL（任意）"
                   />
                 </div>
               </div>

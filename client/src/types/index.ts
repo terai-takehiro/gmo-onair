@@ -291,6 +291,7 @@ export interface SgaExpense extends BaseEntity {
   assigned_to: string | null;
   settlement_method: SettlementMethod | null;
   settlement_number: string | null;
+  settlement_url: string | null;
   vendor_name: string;
   vendor_id: string | null;
   description: string | null;
@@ -314,6 +315,7 @@ export interface Purchase extends BaseEntity {
   assigned_to: string | null;
   settlement_method: SettlementMethod | null;
   settlement_number: string | null;
+  settlement_url: string | null;
   tax_category: TaxCategory;
   invoice_qualified: boolean;
   amount: number;

@@ -25,6 +25,7 @@ const REVENUES_CONFIG: ResourceConfig = {
   columns: [
     { key: 'billing_key',      header: '請求キー',     width: 16 },
     { key: 'project_key',      header: '案件コード/GLS', width: 16 },
+    { key: 'project_name',     header: '案件名',       width: 24 },
     { key: 'episode_code',     header: 'エピソードコード', width: 18 },
     { key: 'customer_name',    header: '顧客名',       width: 24 },
     { key: 'amount',           header: '金額',         width: 12 },
@@ -36,7 +37,7 @@ const REVENUES_CONFIG: ResourceConfig = {
     { key: 'notes',            header: '備考',         width: 30 },
   ],
   templateRows: [
-    { billing_key: 'INV-2026-001', project_key: 'PRJ-2026-001', episode_code: 'PRJ-2026-001-001',
+    { billing_key: 'INV-2026-001', project_key: 'PRJ-2026-001', project_name: '', episode_code: 'PRJ-2026-001-001',
       customer_name: '株式会社サンプル', amount: 1000000, tax_category: 'tax10',
       recognition_date: '2026-06-30', billing_date: '2026-06-30', payment_due_date: '2026-07-31',
       assigned_to_email: 'admin@example.com', notes: '' },
@@ -52,7 +53,7 @@ const REVENUES_CONFIG: ResourceConfig = {
     ],
   },
   exportQuery: `
-    SELECT r.billing_key, COALESCE(p.gls_number, p.code) as project_key, e.episode_code,
+    SELECT r.billing_key, COALESCE(p.gls_number, p.code) as project_key, p.name as project_name, e.episode_code,
            c.name as customer_name, r.amount, r.tax_category,
            r.recognition_date, r.billing_date, r.payment_due_date,
            u.email as assigned_to_email, r.notes
@@ -153,6 +154,7 @@ const PURCHASES_CONFIG: ResourceConfig = {
   columns: [
     { key: 'billing_key',      header: '請求キー',     width: 16 },
     { key: 'project_key',      header: '案件コード/GLS', width: 16 },
+    { key: 'project_name',     header: '案件名',       width: 24 },
     { key: 'episode_code',     header: 'エピソードコード', width: 18 },
     { key: 'vendor_name',      header: '仕入先名',     width: 24 },
     { key: 'amount',           header: '金額',         width: 12 },
@@ -162,15 +164,18 @@ const PURCHASES_CONFIG: ResourceConfig = {
     { key: 'inspection_date',  header: '検収日',       width: 12 },
     { key: 'payment_due_date', header: '支払期日',     width: 12 },
     { key: 'settlement_method', header: '精算方法',     width: 12 },
+    { key: 'settlement_number', header: '精算番号',     width: 14 },
+    { key: 'settlement_url',   header: '申請URL',      width: 30 },
     { key: 'assigned_to_email', header: '担当者Email', width: 24 },
     { key: 'notes',            header: '備考',         width: 30 },
   ],
   templateRows: [
-    { billing_key: 'PUR-2026-001', project_key: 'PRJ-2026-001', episode_code: '',
+    { billing_key: 'PUR-2026-001', project_key: 'PRJ-2026-001', project_name: '', episode_code: '',
       vendor_name: '株式会社サンプル仕入', amount: 300000, tax_category: 'tax10',
       description: 'カメラレンタル', recognition_date: '2026-06-15',
       inspection_date: '2026-06-15', payment_due_date: '2026-07-31',
-      settlement_method: 'rakuraku', assigned_to_email: 'admin@example.com', notes: '' },
+      settlement_method: 'rakuraku', settlement_number: '', settlement_url: '',
+      assigned_to_email: 'admin@example.com', notes: '' },
   ],
   guideSheet: {
     name: '入力ガイド',
@@ -182,10 +187,10 @@ const PURCHASES_CONFIG: ResourceConfig = {
     ],
   },
   exportQuery: `
-    SELECT pu.billing_key, COALESCE(p.gls_number, p.code) as project_key, e.episode_code,
+    SELECT pu.billing_key, COALESCE(p.gls_number, p.code) as project_key, p.name as project_name, e.episode_code,
            v.name as vendor_name, pu.amount, pu.tax_category, pu.description,
            pu.recognition_date, pu.inspection_date, pu.payment_due_date,
-           pu.settlement_method, u.email as assigned_to_email, pu.notes
+           pu.settlement_method, pu.settlement_number, pu.settlement_url, u.email as assigned_to_email, pu.notes
     FROM purchases pu
     LEFT JOIN projects p ON p.id = pu.project_id
     LEFT JOIN episodes e ON e.id = pu.episode_id
@@ -257,6 +262,8 @@ const PURCHASES_CONFIG: ResourceConfig = {
         inspection_date: asDate(raw.inspection_date),
         payment_due_date: asDate(raw.payment_due_date),
         settlement_method: settlement,
+        settlement_number: asString(raw.settlement_number),
+        settlement_url: asString(raw.settlement_url),
         notes: asString(raw.notes),
       },
       errors,
@@ -265,12 +272,12 @@ const PURCHASES_CONFIG: ResourceConfig = {
   insert: async (client, d, userId) => {
     await client.query(
       `INSERT INTO purchases (id, billing_key, project_id, episode_id, vendor_id, assigned_to,
-                              settlement_method, amount, tax_category, description,
+                              settlement_method, settlement_number, settlement_url, amount, tax_category, description,
                               recognition_date, inspection_date, payment_due_date,
                               notes, created_by, updated_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
       [newId(), d.billing_key, d.project_id, d.episode_id, d.vendor_id, d.assigned_to,
-       d.settlement_method, d.amount, d.tax_category, d.description,
+       d.settlement_method, d.settlement_number, d.settlement_url, d.amount, d.tax_category, d.description,
        d.recognition_date, d.inspection_date, d.payment_due_date,
        d.notes, userId, userId],
     );
@@ -296,6 +303,8 @@ const SGA_CONFIG: ResourceConfig = {
     { key: 'amortize_start',    header: '償却開始',   width: 12 },
     { key: 'amortize_end',      header: '償却終了',   width: 12 },
     { key: 'settlement_method', header: '精算方法',   width: 12 },
+    { key: 'settlement_number', header: '精算番号',   width: 14 },
+    { key: 'settlement_url',    header: '申請URL',    width: 30 },
     { key: 'assigned_to_email', header: '担当者Email', width: 24 },
     { key: 'notes',             header: '備考',       width: 30 },
   ],
@@ -304,6 +313,7 @@ const SGA_CONFIG: ResourceConfig = {
       amount: 7000, tax_category: 'tax10', expense_type: 'fixed',
       recognition_date: '2026-04-01', payment_due_date: '2026-04-27',
       amortize_start: '', amortize_end: '', settlement_method: 'other',
+      settlement_number: '', settlement_url: '',
       assigned_to_email: 'admin@example.com', notes: '' },
   ],
   guideSheet: {
@@ -319,6 +329,7 @@ const SGA_CONFIG: ResourceConfig = {
     SELECT s.billing_key, s.vendor_name, s.description, s.amount, s.tax_category,
            s.expense_type, s.recognition_date, s.payment_due_date,
            s.amortize_start, s.amortize_end, s.settlement_method,
+           s.settlement_number, s.settlement_url,
            u.email as assigned_to_email, s.notes
     FROM sga_expenses s
     LEFT JOIN users u ON u.id = s.assigned_to
@@ -361,6 +372,8 @@ const SGA_CONFIG: ResourceConfig = {
         amortize_start: asDate(raw.amortize_start),
         amortize_end: asDate(raw.amortize_end),
         settlement_method: settlement,
+        settlement_number: asString(raw.settlement_number),
+        settlement_url: asString(raw.settlement_url),
         assigned_to,
         notes: asString(raw.notes),
       },
@@ -371,12 +384,12 @@ const SGA_CONFIG: ResourceConfig = {
     await client.query(
       `INSERT INTO sga_expenses (id, billing_key, vendor_name, description, amount,
                                  tax_category, expense_type, recognition_date, payment_due_date,
-                                 amortize_start, amortize_end, settlement_method, assigned_to,
+                                 amortize_start, amortize_end, settlement_method, settlement_number, settlement_url, assigned_to,
                                  notes, source, created_by, updated_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
       [newId(), d.billing_key, d.vendor_name, d.description, d.amount,
        d.tax_category, d.expense_type, d.recognition_date, d.payment_due_date,
-       d.amortize_start, d.amortize_end, d.settlement_method, d.assigned_to,
+       d.amortize_start, d.amortize_end, d.settlement_method, d.settlement_number, d.settlement_url, d.assigned_to,
        d.notes, 'staff', userId, userId],
     );
   },

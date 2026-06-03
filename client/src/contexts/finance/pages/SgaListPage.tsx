@@ -67,6 +67,7 @@ export default function SgaListPage() {
         settlement_number:
           item.settlement_number === "pending" ? "" : (item.settlement_number ?? ""),
         settlement_number_pending: item.settlement_number === "pending",
+        settlement_url: item.settlement_url ?? "",
         amount: item.amount ?? 0,
         description: item.description ?? "",
         notes: item.notes ?? "",
@@ -128,6 +129,7 @@ export default function SgaListPage() {
       recognition_date: form.recognition_date || null,
       settlement_method: form.settlement_method,
       settlement_number: form.settlement_number || null,
+      settlement_url: form.settlement_url || null,
       amount: form.amount,
       description: form.description || null,
       notes: form.notes || null,

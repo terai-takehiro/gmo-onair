@@ -32,6 +32,15 @@ router.get('/', async (req, res) => {
     params.push(`${recognitionMonth}-%`);
   }
 
+  // 並び替え (ホワイトリスト方式でインジェクション防止)
+  const SORT_MAP: Record<string, string> = {
+    date_desc: 'pu.recognition_date DESC, pu.created_at DESC',
+    date_asc: 'pu.recognition_date ASC, pu.created_at ASC',
+    amount_desc: 'pu.amount DESC, pu.recognition_date DESC',
+    amount_asc: 'pu.amount ASC, pu.recognition_date DESC',
+  };
+  const orderBy = SORT_MAP[(req.query.sort as string) || ''] || SORT_MAP.date_desc;
+
   const allocJoin = projectId
     ? `LEFT JOIN purchase_allocations pa ON pa.purchase_id = pu.id AND pa.project_id = ?`
     : '';
@@ -46,7 +55,7 @@ router.get('/', async (req, res) => {
      LEFT JOIN vendors v ON v.id = pu.vendor_id
      LEFT JOIN project_groups pg ON pg.id = pu.group_id
      ${allocJoin}
-     ${where} ORDER BY pu.recognition_date DESC, pu.created_at DESC LIMIT ? OFFSET ?`,
+     ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
     [...allocParams, ...params, limit, offset]
   );
   res.json(paginatedResponse(rows, total, page, limit));
@@ -77,7 +86,7 @@ router.get('/:id', async (req, res) => {
 });
 
 router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
-  const { project_id, episode_id, vendor_id, settlement_method, settlement_number,
+  const { project_id, episode_id, vendor_id, settlement_method, settlement_number, settlement_url,
           tax_category, invoice_qualified, amount, description,
           recognition_date, inspection_date, payment_due_date, notes, is_provisional,
           service_completed_date } = req.body;
@@ -91,10 +100,10 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
 
   const id = uuidv4();
   await execute(
-    `INSERT INTO purchases (id, billing_key, project_id, episode_id, vendor_id, assigned_to, settlement_method, settlement_number, tax_category, invoice_qualified, amount, description, recognition_date, inspection_date, payment_due_date, notes, is_provisional, service_completed_date, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO purchases (id, billing_key, project_id, episode_id, vendor_id, assigned_to, settlement_method, settlement_number, settlement_url, tax_category, invoice_qualified, amount, description, recognition_date, inspection_date, payment_due_date, notes, is_provisional, service_completed_date, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, billing_key, project_id, episode_id || null, vendor_id, req.user!.id,
-     settlement_method || null, settlement_number || null, tax_category || 'tax10',
+     settlement_method || null, settlement_number || null, settlement_url || null, tax_category || 'tax10',
      invoice_qualified !== undefined ? (invoice_qualified ? 1 : 0) : 1,
      amount || 0, description || null, recognition_date || null,
      inspection_date || null, payment_due_date || null, notes || null, is_provisional ? true : false,
@@ -108,16 +117,16 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
   const existing = await queryOne('SELECT id FROM purchases WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!existing) throw new AppError(404, 'NOT_FOUND', '仕入が見つかりません');
 
-  const { project_id, episode_id, vendor_id, settlement_method, settlement_number,
+  const { project_id, episode_id, vendor_id, settlement_method, settlement_number, settlement_url,
           tax_category, invoice_qualified, amount, description,
           recognition_date, inspection_date, payment_due_date, notes,
           service_completed_date } = req.body;
   await execute(
-    `UPDATE purchases SET project_id=?, episode_id=?, vendor_id=?, settlement_method=?, settlement_number=?,
+    `UPDATE purchases SET project_id=?, episode_id=?, vendor_id=?, settlement_method=?, settlement_number=?, settlement_url=?,
      tax_category=?, invoice_qualified=?, amount=?, description=?,
      recognition_date=?, inspection_date=?, payment_due_date=?, notes=?, service_completed_date=?,
      updated_at=NOW(), updated_by=? WHERE id=?`,
-    [project_id, episode_id || null, vendor_id, settlement_method || null, settlement_number || null,
+    [project_id, episode_id || null, vendor_id, settlement_method || null, settlement_number || null, settlement_url || null,
      tax_category, invoice_qualified ? 1 : 0, amount, description || null,
      recognition_date || null, inspection_date || null, payment_due_date || null, notes || null,
      service_completed_date || null, req.user!.id, req.params.id]

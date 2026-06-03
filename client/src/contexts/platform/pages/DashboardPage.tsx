@@ -102,10 +102,17 @@ const typeLabels: Record<string, string> = {
 export default function DashboardPage() {
   const navigate = useNavigate();
   const [kpiPeriod, setKpiPeriod] = useState<'monthly' | 'yearly'>('monthly');
+  // 任意の月を選択 (YYYY-MM)。指定時は今月/年間トグルより優先
+  const [selectedMonth, setSelectedMonth] = useState<string>("");
 
   const { data: kpi, isLoading: kpiLoading } = useQuery<KPI>({
-    queryKey: queryKeys.dashboard.kpi(kpiPeriod),
-    queryFn: async () => (await api.get("/dashboard/kpi", { params: { period: kpiPeriod } })).data.data,
+    queryKey: [...queryKeys.dashboard.kpi(kpiPeriod), selectedMonth],
+    queryFn: async () => {
+      const params: Record<string, string> = selectedMonth
+        ? { month: selectedMonth }
+        : { period: kpiPeriod };
+      return (await api.get("/dashboard/kpi", { params })).data.data;
+    },
   });
 
   const { data: alerts } = useQuery<Alert[]>({
@@ -144,28 +151,48 @@ export default function DashboardPage() {
   });
 
   const periodToggle = (
-    <div
-      className="inline-flex gap-1 rounded-md border border-border bg-card p-1"
-      role="tablist"
-      aria-label="集計期間の切替"
-    >
-      {([
-        ['monthly', '今月'],
-        ['yearly', '年間'],
-      ] as const).map(([value, label]) => (
+    <div className="flex flex-wrap items-center gap-2">
+      <div
+        className="inline-flex gap-1 rounded-md border border-border bg-card p-1"
+        role="tablist"
+        aria-label="集計期間の切替"
+      >
+        {([
+          ['monthly', '今月'],
+          ['yearly', '年間'],
+        ] as const).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={!selectedMonth && kpiPeriod === value}
+            onClick={() => { setSelectedMonth(""); setKpiPeriod(value); }}
+            className={`rounded-sm px-3 py-1.5 text-xs sm:text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+              !selectedMonth && kpiPeriod === value ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <input
+        type="month"
+        value={selectedMonth}
+        onChange={(e) => setSelectedMonth(e.target.value)}
+        aria-label="特定の月を選択"
+        className={`h-9 rounded-md border bg-card px-2 text-xs sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+          selectedMonth ? 'border-primary text-primary' : 'border-border text-foreground'
+        }`}
+      />
+      {selectedMonth && (
         <button
-          key={value}
           type="button"
-          role="tab"
-          aria-selected={kpiPeriod === value}
-          onClick={() => setKpiPeriod(value)}
-          className={`rounded-sm px-3 py-1.5 text-xs sm:text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-            kpiPeriod === value ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted'
-          }`}
+          onClick={() => setSelectedMonth("")}
+          className="rounded-sm px-2 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
         >
-          {label}
+          今月に戻す
         </button>
-      ))}
+      )}
     </div>
   );
 

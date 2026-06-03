@@ -13,7 +13,7 @@ import {
   SectionCard,
   EmptyState,
 } from "@gmo-onair/shared/src/client/dashboard";
-import { Loader2, AlertCircle, RefreshCw, Wallet } from "lucide-react";
+import { Loader2, AlertCircle, RefreshCw, Wallet, ExternalLink, Receipt, ShoppingCart, DollarSign } from "lucide-react";
 
 interface MonthlySummary {
   month: string;
@@ -59,6 +59,38 @@ export default function BudgetDashboardPage() {
   });
   const summary: MonthlySummary = (data?.data as MonthlySummary) ?? EMPTY_SUMMARY;
   const hasData = !!data?.data;
+
+  // 内訳 (明細) — 既存の一覧 API を月 (+案件) で再利用
+  const breakdownEnabled = !!month;
+  const { data: revenueList } = useQuery({
+    queryKey: ["budget-breakdown-revenues", month, projectId],
+    queryFn: async () => {
+      const params: Record<string, string> = { recognition_month: month, limit: "300" };
+      if (projectId) params.project_id = projectId;
+      return (await api.get("/revenues", { params })).data;
+    },
+    enabled: breakdownEnabled,
+  });
+  const { data: purchaseList } = useQuery({
+    queryKey: ["budget-breakdown-purchases", month, projectId],
+    queryFn: async () => {
+      const params: Record<string, string> = { recognition_month: month, limit: "300" };
+      if (projectId) params.project_id = projectId;
+      return (await api.get("/purchases", { params })).data;
+    },
+    enabled: breakdownEnabled,
+  });
+  // 販管費は案件に紐づかないため、案件絞り込み時は取得しない
+  const { data: sgaList } = useQuery({
+    queryKey: ["budget-breakdown-sga", month],
+    queryFn: async () =>
+      (await api.get("/sga", { params: { recognition_month: month, limit: "300" } })).data,
+    enabled: breakdownEnabled && !projectId,
+  });
+
+  const revenueRows: Array<{ id: string; gls_number?: string | null; project_name?: string | null; customer_name?: string | null; amount: number }> = revenueList?.data ?? [];
+  const purchaseRows: Array<{ id: string; gls_number?: string | null; project_name?: string | null; vendor_name?: string | null; amount: number; settlement_url?: string | null }> = purchaseList?.data ?? [];
+  const sgaRows: Array<{ id: string; vendor_name?: string | null; description?: string | null; amount: number; settlement_url?: string | null }> = sgaList?.data ?? [];
   const errorMessage =
     (error as { response?: { data?: { error?: { message?: string } } }; message?: string } | null)
       ?.response?.data?.error?.message ||
@@ -196,6 +228,118 @@ export default function BudgetDashboardPage() {
             </div>
           )}
         </SectionCard>
+
+        {/* 内訳 (明細) */}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6">
+          {/* 売上 内訳 */}
+          <SectionCard
+            title="売上 内訳"
+            description="選択月の売上明細です。"
+            icon={<DollarSign />}
+            footnote={`${revenueRows.length} 件`}
+          >
+            {revenueRows.length === 0 ? (
+              <EmptyState title="売上明細がありません" />
+            ) : (
+              <ul className="divide-y divide-border">
+                {revenueRows.map((r) => (
+                  <li key={r.id} className="flex items-center justify-between gap-2 py-2 text-sm">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-foreground">{r.gls_number || r.project_name || "-"}</p>
+                      {r.customer_name && (
+                        <p className="truncate text-xs text-muted-foreground">{r.customer_name}</p>
+                      )}
+                    </div>
+                    <span className="shrink-0 font-number tabular-nums">{formatCurrency(r.amount)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </SectionCard>
+
+          {/* 仕入 内訳 */}
+          <SectionCard
+            title="仕入 内訳"
+            description="選択月の仕入明細です。申請URLボタンで精算ページを開けます。"
+            icon={<ShoppingCart />}
+            footnote={`${purchaseRows.length} 件`}
+          >
+            {purchaseRows.length === 0 ? (
+              <EmptyState title="仕入明細がありません" />
+            ) : (
+              <ul className="divide-y divide-border">
+                {purchaseRows.map((p) => (
+                  <li key={p.id} className="flex items-center justify-between gap-2 py-2 text-sm">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-foreground">{p.gls_number || p.project_name || "-"}</p>
+                      {p.vendor_name && (
+                        <p className="truncate text-xs text-muted-foreground">{p.vendor_name}</p>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="font-number tabular-nums">{formatCurrency(p.amount)}</span>
+                      {p.settlement_url && (
+                        <a
+                          href={p.settlement_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center text-primary hover:text-primary/80"
+                          title="申請URLを開く"
+                          aria-label="申請URLを開く"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </SectionCard>
+
+          {/* 販管費 内訳 (案件絞り込み時は非表示) */}
+          {!projectId && (
+            <SectionCard
+              title="販管費 内訳"
+              description="選択月の販管費明細です。申請URLボタンで精算ページを開けます。"
+              icon={<Receipt />}
+              footnote={`${sgaRows.length} 件`}
+              className="lg:col-span-2"
+            >
+              {sgaRows.length === 0 ? (
+                <EmptyState title="販管費明細がありません" />
+              ) : (
+                <ul className="divide-y divide-border">
+                  {sgaRows.map((s) => (
+                    <li key={s.id} className="flex items-center justify-between gap-2 py-2 text-sm">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-foreground">{s.vendor_name || "-"}</p>
+                        {s.description && (
+                          <p className="truncate text-xs text-muted-foreground">{s.description}</p>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className="font-number tabular-nums">{formatCurrency(s.amount)}</span>
+                        {s.settlement_url && (
+                          <a
+                            href={s.settlement_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-primary hover:text-primary/80"
+                            title="申請URLを開く"
+                            aria-label="申請URLを開く"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </SectionCard>
+          )}
+        </div>
       </div>
     </PageTransition>
   );

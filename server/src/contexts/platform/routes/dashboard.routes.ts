@@ -28,9 +28,17 @@ router.get('/check-completed', async (_req, res) => {
 router.get('/kpi', async (req, res) => {
   const now = new Date();
   const period = req.query.period as string || 'monthly';
+  // 任意の月を指定 (YYYY-MM)。指定時は period より優先し、その月のみを集計
+  const monthParam = req.query.month as string | undefined;
+  const hasMonth = !!monthParam && /^\d{4}-\d{2}$/.test(monthParam);
   let periodStart: string, periodEnd: string, periodLabel: string;
 
-  if (period === 'yearly') {
+  if (hasMonth) {
+    const [y, m] = monthParam!.split('-').map(Number);
+    periodStart = `${monthParam}-01`;
+    periodEnd = `${monthParam}-31`;
+    periodLabel = `${y}年${m}月`;
+  } else if (period === 'yearly') {
     periodStart = `${now.getFullYear()}-01-01`;
     periodEnd = `${now.getFullYear()}-12-31`;
     periodLabel = `${now.getFullYear()}年`;
@@ -54,7 +62,7 @@ router.get('/kpi', async (req, res) => {
   );
 
   let sgaAmortizedTotal = 0;
-  if (period === 'yearly') {
+  if (!hasMonth && period === 'yearly') {
     for (let m = 0; m < 12; m++) {
       const ym = `${now.getFullYear()}-${String(m + 1).padStart(2, '0')}`;
       const amortRows = await queryAll(
@@ -69,7 +77,9 @@ router.get('/kpi', async (req, res) => {
       }
     }
   } else {
-    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const currentMonth = hasMonth
+      ? monthParam!
+      : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const amortRows = await queryAll(
       `SELECT amount, amortize_start, amortize_end FROM sga_expenses
        WHERE deleted_at IS NULL AND amortize_start IS NOT NULL AND amortize_start != ''
