@@ -86,6 +86,21 @@ export function useSyncQuizFromCategory(quizId: number | null) {
   });
 }
 
+// v2.9.48: 送出スタックの並び替え (display_order 一括採番)
+export function useReorderQuizzes(eventId: number | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (order: number[]) => {
+      if (!eventId) throw new Error('eventId required');
+      const res = await api.put(`/quiz/events/${eventId}/quizzes/reorder`, { order });
+      return res.data.data as Quiz[];
+    },
+    onSuccess: (rows) => {
+      if (eventId) qc.setQueryData(KEY_LIST(eventId), rows);
+    },
+  });
+}
+
 export function useDeleteQuiz(eventId: number | null) {
   const qc = useQueryClient();
   return useMutation({
