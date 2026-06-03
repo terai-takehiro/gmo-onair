@@ -6,6 +6,7 @@ import { extractPagination, paginatedResponse } from '../../../shared/services/p
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateBillingKey } from '../../../shared/services/billing-key.service';
 import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
+import { buildPurchaseWhere, buildPurchaseOrder } from '../list-query';
 
 const router = Router();
 
@@ -13,33 +14,10 @@ const router = Router();
 router.use(requireAuth, requirePermission('budget'));
 
 router.get('/', async (req, res) => {
-  const { page, limit, offset, search } = extractPagination(req);
+  const { page, limit, offset } = extractPagination(req);
   const projectId = req.query.project_id as string;
-  const groupId = req.query.group_id as string;
-  let where = 'WHERE pu.deleted_at IS NULL';
-  const params: unknown[] = [];
-  if (search) { where += ` AND (pu.description ILIKE ? OR v.name ILIKE ? OR p.gls_number ILIKE ?)`; params.push(`%${search}%`, `%${search}%`, `%${search}%`); }
-  // プロジェクト絞込み: 直接仕入 + グループ按分された仕入
-  if (projectId) {
-    where += ` AND ((pu.project_id = ? AND pu.group_id IS NULL) OR pu.id IN (SELECT purchase_id FROM purchase_allocations WHERE project_id = ?))`;
-    params.push(projectId, projectId);
-  }
-  if (groupId) { where += ` AND pu.group_id = ?`; params.push(groupId); }
-  const recognitionMonth = req.query.recognition_month as string;
-  if (recognitionMonth) {
-    // recognition_date は TEXT (YYYY-MM-DD) のため前方一致
-    where += ` AND pu.recognition_date LIKE ?`;
-    params.push(`${recognitionMonth}-%`);
-  }
-
-  // 並び替え (ホワイトリスト方式でインジェクション防止)
-  const SORT_MAP: Record<string, string> = {
-    date_desc: 'pu.recognition_date DESC, pu.created_at DESC',
-    date_asc: 'pu.recognition_date ASC, pu.created_at ASC',
-    amount_desc: 'pu.amount DESC, pu.recognition_date DESC',
-    amount_asc: 'pu.amount ASC, pu.recognition_date DESC',
-  };
-  const orderBy = SORT_MAP[(req.query.sort as string) || ''] || SORT_MAP.date_desc;
+  const { where, params } = buildPurchaseWhere(req.query);
+  const orderBy = buildPurchaseOrder(req.query);
 
   const allocJoin = projectId
     ? `LEFT JOIN purchase_allocations pa ON pa.purchase_id = pu.id AND pa.project_id = ?`

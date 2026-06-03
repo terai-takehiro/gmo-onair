@@ -30,6 +30,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
 
@@ -43,13 +44,34 @@ import SgaDialog, {
 export default function SgaListPage() {
   const { currentUser } = useAuth();
   const [sourceFilter, setSourceFilter] = useState<string>("");
+  const [monthFilter, setMonthFilter] = useState("");
   const [colWidths, setColWidths] = useState<Record<string, number>>({});
   const resizeRef = useRef<{ col: string; startX: number; startW: number } | null>(null);
+
+  // 列ヘッダー並び替え (null = サーバー既定: 金額降順)
+  const [sortCol, setSortCol] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const sortParam = sortCol ? `${sortCol}_${sortDir}` : undefined;
+  const handleSort = (col: string) => {
+    if (sortCol === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortCol(col); setSortDir("asc"); }
+    crud.setPage(1);
+  };
+  // 列キー → サーバーソートキー
+  const SORT_KEY: Record<string, string> = {
+    bkey: "billing_key", vendor: "vendor", desc: "desc", rec: "recognition",
+    due: "due", tax: "tax", amount: "amount", method: "method",
+    status: "settlement", type: "type", source: "source",
+  };
 
   const crud = useCrudPage<SgaExpense>({
     endpoint: "/sga",
     queryKey: ["sga-list"],
-    extraParams: { source: sourceFilter || undefined },
+    extraParams: {
+      source: sourceFilter || undefined,
+      recognition_month: monthFilter || undefined,
+      sort: sortParam,
+    },
   });
 
   const [form, setForm] = useState<SgaFormData>(initialFormData);
@@ -166,6 +188,12 @@ export default function SgaListPage() {
               name="販管費"
               queryKey={["sga-expenses"]}
               hasDuplicateKey={false}
+              exportParams={{
+                search: crud.search || undefined,
+                source: sourceFilter || undefined,
+                recognition_month: monthFilter || undefined,
+                sort: sortParam,
+              }}
             />
             <Button onClick={crud.openAdd}>
               <Plus className="mr-1 h-4 w-4" />
@@ -190,6 +218,36 @@ export default function SgaListPage() {
           }}
           layout="stacked"
         />
+
+        {/* 月絞り込み (並び替えは各列ヘッダーのクリックで操作) */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">発生年月で絞り込み</span>
+          <Input
+            type="month"
+            value={monthFilter}
+            onChange={(e) => {
+              setMonthFilter(e.target.value);
+              crud.setPage(1);
+            }}
+            className="w-40"
+          />
+          {monthFilter && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-xs"
+              onClick={() => {
+                setMonthFilter("");
+                crud.setPage(1);
+              }}
+            >
+              解除
+            </Button>
+          )}
+          <span className="text-xs text-muted-foreground">
+            ／ 各列の見出しクリックで並び替え（既定: 金額降順）
+          </span>
+        </div>
 
         {crud.isLoading ? (
           <div className="flex justify-center py-12">
@@ -293,7 +351,23 @@ export default function SgaListPage() {
                             align === "right" ? " text-right" : ""
                           }`}
                         >
-                          {label}
+                          {SORT_KEY[key] ? (
+                            <button
+                              type="button"
+                              onClick={() => handleSort(SORT_KEY[key])}
+                              className={`inline-flex items-center gap-0.5 hover:text-primary ${
+                                align === "right" ? "flex-row-reverse" : ""
+                              }`}
+                              title="クリックで並び替え"
+                            >
+                              {label}
+                              <span className="text-[10px] leading-none text-primary">
+                                {sortCol === SORT_KEY[key] ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                              </span>
+                            </button>
+                          ) : (
+                            label
+                          )}
                           <span
                             className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize opacity-0 hover:opacity-100 hover:bg-primary/40 select-none"
                             onMouseDown={(e) =>

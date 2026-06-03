@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { formatCurrency, formatMonth } from "@/lib/format";
 import { PageTransition } from "@/components/ui/motion";
@@ -34,6 +35,7 @@ const EMPTY_SUMMARY: MonthlySummary = {
 };
 
 export default function BudgetDashboardPage() {
+  const navigate = useNavigate();
   const now = new Date();
   const [month, setMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
   const [projectId, setProjectId] = useState<string>("");
@@ -65,7 +67,8 @@ export default function BudgetDashboardPage() {
   const { data: revenueList } = useQuery({
     queryKey: ["budget-breakdown-revenues", month, projectId],
     queryFn: async () => {
-      const params: Record<string, string> = { recognition_month: month, limit: "300" };
+      // KPI (monthly-summary) は確定売上のみ集計しているため内訳も confirmed に揃える
+      const params: Record<string, string> = { recognition_month: month, limit: "300", status: "confirmed" };
       if (projectId) params.project_id = projectId;
       return (await api.get("/revenues", { params })).data;
     },
@@ -89,7 +92,7 @@ export default function BudgetDashboardPage() {
   });
 
   const revenueRows: Array<{ id: string; gls_number?: string | null; project_name?: string | null; customer_name?: string | null; amount: number }> = revenueList?.data ?? [];
-  const purchaseRows: Array<{ id: string; gls_number?: string | null; project_name?: string | null; vendor_name?: string | null; amount: number; settlement_url?: string | null }> = purchaseList?.data ?? [];
+  const purchaseRows: Array<{ id: string; gls_number?: string | null; project_name?: string | null; vendor_name?: string | null; description?: string | null; amount: number; settlement_url?: string | null }> = purchaseList?.data ?? [];
   const sgaRows: Array<{ id: string; vendor_name?: string | null; description?: string | null; amount: number; settlement_url?: string | null }> = sgaList?.data ?? [];
   const errorMessage =
     (error as { response?: { data?: { error?: { message?: string } } }; message?: string } | null)
@@ -137,7 +140,7 @@ export default function BudgetDashboardPage() {
                   { value: "", label: "— 全案件（販管費含む） —" },
                   ...projects.map((p) => ({
                     value: p.id,
-                    label: `${p.gls_number || p.name}`,
+                    label: [p.gls_number, p.name].filter(Boolean).join("　") || p.name,
                     subLabel: p.customer_name || "",
                   })),
                 ]}
@@ -243,14 +246,24 @@ export default function BudgetDashboardPage() {
             ) : (
               <ul className="divide-y divide-border">
                 {revenueRows.map((r) => (
-                  <li key={r.id} className="flex items-center justify-between gap-2 py-2 text-sm">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-foreground">{r.gls_number || r.project_name || "-"}</p>
-                      {r.customer_name && (
-                        <p className="truncate text-xs text-muted-foreground">{r.customer_name}</p>
-                      )}
-                    </div>
-                    <span className="shrink-0 font-number tabular-nums">{formatCurrency(r.amount)}</span>
+                  <li key={r.id}>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/budget/revenues?edit=${r.id}`)}
+                      className="flex w-full items-center justify-between gap-2 py-2 text-left text-sm transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                      title="クリックで売上詳細を開く"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-foreground">
+                          <span className="font-number text-primary">{r.gls_number || "-"}</span>
+                          {r.project_name && <span className="ml-2">{r.project_name}</span>}
+                        </p>
+                        {r.customer_name && (
+                          <p className="truncate text-xs text-muted-foreground">{r.customer_name}</p>
+                        )}
+                      </div>
+                      <span className="shrink-0 font-number tabular-nums">{formatCurrency(r.amount)}</span>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -269,15 +282,23 @@ export default function BudgetDashboardPage() {
             ) : (
               <ul className="divide-y divide-border">
                 {purchaseRows.map((p) => (
-                  <li key={p.id} className="flex items-center justify-between gap-2 py-2 text-sm">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-foreground">{p.gls_number || p.project_name || "-"}</p>
-                      {p.vendor_name && (
-                        <p className="truncate text-xs text-muted-foreground">{p.vendor_name}</p>
-                      )}
-                    </div>
+                  <li key={p.id} className="flex items-center justify-between gap-2 py-1">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/budget/purchases?edit=${p.id}`)}
+                      className="min-w-0 flex-1 py-1 text-left text-sm transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                      title="クリックで仕入編集を開く"
+                    >
+                      <p className="truncate text-foreground">
+                        <span className="font-number text-primary">{p.gls_number || "-"}</span>
+                        {p.project_name && <span className="ml-2">{p.project_name}</span>}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {[p.vendor_name, p.description].filter(Boolean).join("／") || "-"}
+                      </p>
+                    </button>
                     <div className="flex shrink-0 items-center gap-2">
-                      <span className="font-number tabular-nums">{formatCurrency(p.amount)}</span>
+                      <span className="font-number tabular-nums text-sm">{formatCurrency(p.amount)}</span>
                       {p.settlement_url && (
                         <a
                           href={p.settlement_url}

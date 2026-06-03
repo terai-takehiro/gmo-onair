@@ -44,6 +44,8 @@ export interface ResourceConfig {
   permission: { module: string; level?: 'reader' | 'exporter' | 'editor' | 'manager' | 'owner' };
   /** Excel出力用SQL — 列名は columns.key と一致させる */
   exportQuery: string;
+  /** 動的Excel出力 (絞り込み/並び替えを反映) — 指定時は exportQuery より優先 */
+  buildExportQuery?: (query: Request['query']) => { sql: string; params: unknown[] };
   /** 重複チェック用のテーブル名・カラム名 (uniqueKey が指定された行で重複検出) */
   duplicate?: { table: string; column: string };
   /** 各行の事前ロード値マップ (例: customer name → id) */
@@ -77,8 +79,10 @@ export function createExcelResourceRouter(config: ResourceConfig): Router {
   }));
 
   // ============ Excelエクスポート ============
-  router.get('/export-xlsx', requirePermission(module, 'exporter'), wrap(async (_req, res) => {
-    const rows = await queryAll(config.exportQuery) as Record<string, unknown>[];
+  router.get('/export-xlsx', requirePermission(module, 'exporter'), wrap(async (req, res) => {
+    const rows = (config.buildExportQuery
+      ? await (async () => { const { sql, params } = config.buildExportQuery!(req.query); return queryAll(sql, params); })()
+      : await queryAll(config.exportQuery)) as Record<string, unknown>[];
     const buf = buildExcelWorkbook([
       { name: config.name.slice(0, 31), columns: config.columns, rows },
     ]);

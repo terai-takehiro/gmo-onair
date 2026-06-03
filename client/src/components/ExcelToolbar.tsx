@@ -39,9 +39,11 @@ interface Props {
   queryKey?: unknown[];
   /** 重複検出キーが利用可能か (skip/update/error の選択肢を出すか) */
   hasDuplicateKey?: boolean;
+  /** Excel出力時に付与するクエリパラメータ (一覧の絞り込み/並び替えを反映) */
+  exportParams?: Record<string, string | number | undefined>;
 }
 
-export default function ExcelToolbar({ resource, name, queryKey, hasDuplicateKey = true }: Props) {
+export default function ExcelToolbar({ resource, name, queryKey, hasDuplicateKey = true, exportParams }: Props) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -56,8 +58,12 @@ export default function ExcelToolbar({ resource, name, queryKey, hasDuplicateKey
   };
   const handleClose = (next: boolean) => { if (!next) reset(); setOpen(next); };
 
-  const downloadFile = async (url: string, filename: string) => {
-    const res = await api.get(url, { responseType: "blob" });
+  const downloadFile = async (
+    url: string,
+    filename: string,
+    params?: Record<string, string | number | undefined>,
+  ) => {
+    const res = await api.get(url, { responseType: "blob", params });
     const blobUrl = URL.createObjectURL(res.data);
     const a = document.createElement("a");
     a.href = blobUrl; a.download = filename; a.click();
@@ -67,7 +73,13 @@ export default function ExcelToolbar({ resource, name, queryKey, hasDuplicateKey
   const downloadTemplate = () => downloadFile(`${resource}/excel/template`, `${name}_テンプレート.xlsx`);
   const downloadExport = () => {
     const today = new Date().toISOString().slice(0, 10);
-    return downloadFile(`${resource}/excel/export-xlsx`, `${name}_${today}.xlsx`);
+    // undefined / 空文字のパラメータは除外
+    const params = exportParams
+      ? Object.fromEntries(
+          Object.entries(exportParams).filter(([, v]) => v != null && v !== ""),
+        )
+      : undefined;
+    return downloadFile(`${resource}/excel/export-xlsx`, `${name}_${today}.xlsx`, params);
   };
 
   const validateMutation = useMutation<DryRunResult, Error, void>({

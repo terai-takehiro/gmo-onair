@@ -6,6 +6,7 @@ import { extractPagination, paginatedResponse } from '../../../shared/services/p
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateEstimatePdf } from '../../../shared/services/pdf.service';
 import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
+import { buildRevenueWhere, buildRevenueOrder } from '../list-query';
 
 const router = Router();
 
@@ -14,32 +15,12 @@ router.use(requireAuth, requirePermission('budget'));
 
 // 売上一覧
 router.get('/', async (req, res) => {
-  const { page, limit, offset, search } = extractPagination(req);
+  const { page, limit, offset } = extractPagination(req);
   const projectId = req.query.project_id as string;
-  let where = 'WHERE r.deleted_at IS NULL';
-  const params: unknown[] = [];
-  if (search) {
-    const safeSearch = String(search).slice(0, 100).replace(/[%_\\]/g, '\\$&');
-    where += ` AND (r.billing_key ILIKE ? ESCAPE '\\' OR r.notes ILIKE ? ESCAPE '\\')`;
-    params.push(`%${safeSearch}%`, `%${safeSearch}%`);
-  }
+  const { where, params } = buildRevenueWhere(req.query);
+  const orderBy = buildRevenueOrder(req.query);
 
-  // プロジェクト絞込み: 直接売上 + グループ按分された売上
-  if (projectId) {
-    where += ` AND ((r.project_id = ? AND r.group_id IS NULL) OR r.id IN (SELECT revenue_id FROM revenue_allocations WHERE project_id = ?))`;
-    params.push(projectId, projectId);
-  }
-  const recognitionMonth = req.query.recognition_month as string;
-  if (recognitionMonth) {
-    // recognition_date は TEXT (YYYY-MM-DD) のため前方一致
-    where += ` AND r.recognition_date LIKE ?`;
-    params.push(`${recognitionMonth}-%`);
-  }
-  const status = req.query.status as string;
-  if (status) { where += ` AND r.status = ?`; params.push(status); }
-  else if (!projectId) { where += ` AND r.status = 'confirmed'`; }
-
-  const total = ((await queryOne(`SELECT COUNT(*) as c FROM revenues r ${where}`, params)) as any).c;
+  const total = ((await queryOne(`SELECT COUNT(*) as c FROM revenues r LEFT JOIN projects p ON p.id = r.project_id LEFT JOIN customers c ON c.id = r.customer_id ${where}`, params)) as any).c;
 
   // allocated_amount: グループ按分時はこのプロジェクトへの配分額
   const allocJoin = projectId
@@ -56,7 +37,7 @@ router.get('/', async (req, res) => {
      LEFT JOIN episodes e ON e.id = r.episode_id
      ${allocJoin}
      ${projectId ? 'LEFT JOIN project_groups pg ON pg.id = r.group_id' : ''}
-     ${where} ORDER BY r.billing_key ASC, r.created_at DESC LIMIT ? OFFSET ?`,
+     ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
     [...allocParams, ...params, limit, offset]
   );
 

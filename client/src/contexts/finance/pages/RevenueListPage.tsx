@@ -50,8 +50,19 @@ import PricingItemPicker, { type PickedPricingItem } from "../components/Pricing
 import DiscountDialog, { type DiscountResult } from "../components/DiscountDialog";
 import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
 
-type SortKey = "billing_key" | "project_name" | "amount" | "recognition_date";
+type SortKey = "billing_key" | "gls_number" | "project_name" | "customer_name" | "tax_category" | "amount" | "recognition_date";
 type SortDir = "asc" | "desc";
+
+// 列キー → サーバー側ソートキー (list-query.ts の REVENUE_SORT と一致)
+const REVENUE_SORT_TO_SERVER: Record<string, string> = {
+  billing_key: "billing_key",
+  gls_number: "gls",
+  project_name: "project",
+  customer_name: "customer",
+  tax_category: "tax",
+  amount: "amount",
+  recognition_date: "recognition",
+};
 
 function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey | null; sortDir: SortDir }) {
   if (sortKey !== col) return <ChevronsUpDown className="inline h-3 w-3 ml-0.5 opacity-40" />;
@@ -120,6 +131,7 @@ export default function RevenueListPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [monthFilter, setMonthFilter] = useState(""); // YYYY-MM 計上月絞り込み
   const [colWidths, setColWidths] = useState<Record<string, number>>({});
   const resizeRef = useRef<{ col: string; startX: number; startW: number } | null>(null);
 
@@ -171,32 +183,29 @@ export default function RevenueListPage() {
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else { setSortKey(key); setSortDir("asc"); }
+    setPage(1);
   };
 
+  // サーバー側ソート: 既定 (sortKey=null) は案件コード昇順→金額降順
+  const sortParam = sortKey && REVENUE_SORT_TO_SERVER[sortKey]
+    ? `${REVENUE_SORT_TO_SERVER[sortKey]}_${sortDir}`
+    : undefined;
+
   const { data, isLoading } = useQuery({
-    queryKey: ["revenues-all", page, search, filterProjectId],
+    queryKey: ["revenues-all", page, search, filterProjectId, monthFilter, sortParam],
     queryFn: async () => {
       const params: Record<string, string | number> = { page, limit: 20 };
       if (search) params.search = search;
       if (filterProjectId) params.project_id = filterProjectId;
+      if (monthFilter) params.recognition_month = monthFilter;
+      if (sortParam) params.sort = sortParam;
       return (await api.get("/revenues", { params })).data;
     },
   });
 
-  const revenuesRaw: RevenueRow[] = data?.data ?? [];
+  // サーバー側でソート済みのため、そのまま使用
+  const revenues: RevenueRow[] = data?.data ?? [];
   const pagination = data?.pagination;
-
-  const revenues = useMemo(() => {
-    if (!sortKey) return revenuesRaw;
-    return [...revenuesRaw].sort((a, b) => {
-      const av = (a[sortKey] ?? "") as string | number;
-      const bv = (b[sortKey] ?? "") as string | number;
-      const cmp = typeof av === "number" && typeof bv === "number"
-        ? av - bv
-        : String(av).localeCompare(String(bv), "ja");
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-  }, [revenuesRaw, sortKey, sortDir]);
 
   // Search projects for dialog
   const { data: projectsData } = useQuery({
@@ -389,6 +398,23 @@ export default function RevenueListPage() {
     setDialogOpen(true);
   };
 
+  // 予算ダッシュボード等から ?edit={id} で遷移されたら、その売上の詳細モーダルを開く
+  const editParam = searchParams.get("edit");
+  const editOpenedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!editParam || editOpenedRef.current === editParam) return;
+    editOpenedRef.current = editParam;
+    (async () => {
+      try {
+        const row = (await api.get(`/revenues/${editParam}`)).data?.data;
+        if (row) handleEditRevenue(row as RevenueRow);
+      } catch {
+        /* 取得失敗時は無視 */
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editParam]);
+
   const handleCreateSubmit = () => {
     if (!selectedProjectId) return;
 
@@ -561,7 +587,18 @@ export default function RevenueListPage() {
           )}
         </div>
         <div className="flex flex-wrap gap-2">
-          <ExcelToolbar resource="/revenues" name="売上" queryKey={["revenues"]} hasDuplicateKey={false} />
+          <ExcelToolbar
+            resource="/revenues"
+            name="売上"
+            queryKey={["revenues"]}
+            hasDuplicateKey={false}
+            exportParams={{
+              search: search || undefined,
+              project_id: filterProjectId || undefined,
+              recognition_month: monthFilter || undefined,
+              sort: sortParam,
+            }}
+          />
           <Button onClick={() => setDialogOpen(true)}>
             <Plus className="mr-1 h-4 w-4" />
             新規売上
@@ -585,6 +622,36 @@ export default function RevenueListPage() {
         searchPlaceholder="請求KEY・案件名で検索..."
         layout="inline"
       />
+
+      {/* 月絞り込み (並び替えは各列ヘッダーのクリックで操作) */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-muted-foreground">計上月で絞り込み</span>
+        <Input
+          type="month"
+          value={monthFilter}
+          onChange={(e) => {
+            setMonthFilter(e.target.value);
+            setPage(1);
+          }}
+          className="w-40"
+        />
+        {monthFilter && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2 text-xs"
+            onClick={() => {
+              setMonthFilter("");
+              setPage(1);
+            }}
+          >
+            解除
+          </Button>
+        )}
+        <span className="text-xs text-muted-foreground">
+          ／ 各列の見出しクリックで並び替え（既定: 案件コード昇順 → 金額降順）
+        </span>
+      </div>
 
       {isLoading ? (
         <div className="flex justify-center py-12">
@@ -658,10 +725,10 @@ export default function RevenueListPage() {
                     <TableRow>
                       {([
                         { key: "billing_key", label: "請求KEY", defaultW: 130 },
-                        { key: "gls_number", label: "GLS番号", colId: "gls", defaultW: 110, noSort: true },
+                        { key: "gls_number", label: "GLS番号", colId: "gls", defaultW: 110 },
                         { key: "project_name", label: "案件名", defaultW: 180 },
-                        { key: "customer_name", label: "顧客", colId: "customer", defaultW: 120, noSort: true },
-                        { key: "tax_category", label: "税区分", colId: "tax", defaultW: 70, noSort: true },
+                        { key: "customer_name", label: "顧客", colId: "customer", defaultW: 120 },
+                        { key: "tax_category", label: "税区分", colId: "tax", defaultW: 70 },
                         { key: "amount", label: "金額", defaultW: 100, align: "right" },
                         { key: "recognition_date", label: "計上月", defaultW: 90 },
                         { key: "action", label: "", colId: "action", defaultW: 60, noSort: true },

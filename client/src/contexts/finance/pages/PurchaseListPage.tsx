@@ -113,9 +113,17 @@ export default function PurchaseListPage() {
   const [colWidths, setColWidths] = useState<Record<string, number>>({});
   const resizeRef = useRef<{ col: string; startX: number; startW: number } | null>(null);
 
-  // 月絞り込み (YYYY-MM) + 並び替え
+  // 月絞り込み (YYYY-MM) + 列ヘッダー並び替え
   const [monthFilter, setMonthFilter] = useState("");
-  const [sortOrder, setSortOrder] = useState("date_desc");
+  // 列ヘッダークリックでの並び替え (null = サーバー既定: 案件コード昇順→金額降順)
+  const [sortCol, setSortCol] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const sortParam = sortCol ? `${sortCol}_${sortDir}` : undefined;
+  const handleSort = (col: string) => {
+    if (sortCol === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortCol(col); setSortDir("asc"); }
+    crud.setPage(1);
+  };
 
   const crud = useCrudPage<PurchaseRow>({
     endpoint: "/purchases",
@@ -123,7 +131,7 @@ export default function PurchaseListPage() {
     extraParams: {
       project_id: filterProjectId || undefined,
       recognition_month: monthFilter || undefined,
-      sort: sortOrder,
+      sort: sortParam,
     },
   });
 
@@ -199,6 +207,23 @@ export default function PurchaseListPage() {
     document.addEventListener("mouseup", onMouseUp);
   }, []);
 
+  // 予算ダッシュボード等から ?edit={id} で遷移されたら、その仕入の編集モーダルを開く
+  const editParam = searchParams.get("edit");
+  const editOpenedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!editParam || editOpenedRef.current === editParam) return;
+    editOpenedRef.current = editParam;
+    (async () => {
+      try {
+        const row = (await api.get(`/purchases/${editParam}`)).data?.data;
+        if (row) crud.openEdit(row as PurchaseRow);
+      } catch {
+        /* 取得失敗時は無視 */
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editParam]);
+
   const { data: glsProjectsData } = useQuery({
     queryKey: ["gls-projects-for-purchase"],
     queryFn: async () => (await api.get("/projects/gls-projects")).data,
@@ -270,6 +295,12 @@ export default function PurchaseListPage() {
               name="仕入"
               queryKey={["purchases"]}
               hasDuplicateKey={false}
+              exportParams={{
+                search: crud.search || undefined,
+                project_id: filterProjectId || undefined,
+                recognition_month: monthFilter || undefined,
+                sort: sortParam,
+              }}
             />
             <Button variant="outline" onClick={() => navigate("/project-groups")}>
               按分グループ
@@ -295,7 +326,7 @@ export default function PurchaseListPage() {
           layout="inline"
         />
 
-        {/* 月絞り込み + 並び替え */}
+        {/* 月絞り込み (並び替えは各列ヘッダーのクリックで操作) */}
         <div className="flex flex-wrap items-end gap-3">
           <div>
             <Label className="text-xs text-muted-foreground">計上月で絞り込み</Label>
@@ -324,26 +355,9 @@ export default function PurchaseListPage() {
               )}
             </div>
           </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">並び替え</Label>
-            <Select
-              value={sortOrder}
-              onValueChange={(v) => {
-                setSortOrder(v);
-                crud.setPage(1);
-              }}
-            >
-              <SelectTrigger className="w-44">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="date_desc">計上月（新しい順）</SelectItem>
-                <SelectItem value="date_asc">計上月（古い順）</SelectItem>
-                <SelectItem value="amount_desc">金額（大きい順）</SelectItem>
-                <SelectItem value="amount_asc">金額（小さい順）</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <p className="pb-2 text-xs text-muted-foreground">
+            各列の見出しをクリックで並び替え（既定: 案件コード昇順 → 金額降順）
+          </p>
         </div>
 
         {crud.isLoading ? (
@@ -432,7 +446,19 @@ export default function PurchaseListPage() {
                             align === "right" ? " text-right" : ""
                           }`}
                         >
-                          {label}
+                          <button
+                            type="button"
+                            onClick={() => handleSort(key)}
+                            className={`inline-flex items-center gap-0.5 hover:text-primary ${
+                              align === "right" ? "flex-row-reverse" : ""
+                            }`}
+                            title="クリックで並び替え"
+                          >
+                            {label}
+                            <span className="text-[10px] leading-none text-primary">
+                              {sortCol === key ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                            </span>
+                          </button>
                           <span
                             className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize opacity-0 hover:opacity-100 hover:bg-primary/40 select-none"
                             onMouseDown={(e) =>

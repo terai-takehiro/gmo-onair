@@ -5,6 +5,7 @@ import { requireAuth, requirePermission } from '../../../shared/middleware/auth'
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateSgaBillingKey } from '../../../shared/services/billing-key.service';
+import { buildSgaWhere, buildSgaOrder } from '../list-query';
 
 const router = Router();
 
@@ -13,40 +14,13 @@ router.use(requireAuth, requirePermission('budget'));
 
 // GET /sga - List with pagination, search, filters
 router.get('/', async (req, res) => {
-  const { page, limit, offset, search } = extractPagination(req);
-  const dateFrom = req.query.date_from as string;
-  const dateTo = req.query.date_to as string;
-  const source = req.query.source as string;
-  const recognitionMonth = req.query.recognition_month as string;
-
-  let where = 'WHERE s.deleted_at IS NULL';
-  const params: unknown[] = [];
-
-  if (source && (source === 'staff' || source === 'accounting')) {
-    where += ` AND s.source = ?`;
-    params.push(source);
-  }
-  if (search) {
-    where += ` AND (s.vendor_name ILIKE ? OR s.description ILIKE ?)`;
-    params.push(`%${search}%`, `%${search}%`);
-  }
-  if (dateFrom) {
-    where += ` AND s.recognition_date >= ?`;
-    params.push(dateFrom);
-  }
-  if (dateTo) {
-    where += ` AND s.recognition_date <= ?`;
-    params.push(dateTo);
-  }
-  if (recognitionMonth) {
-    // recognition_date は TEXT (YYYY-MM-DD) のため前方一致
-    where += ` AND s.recognition_date LIKE ?`;
-    params.push(`${recognitionMonth}-%`);
-  }
+  const { page, limit, offset } = extractPagination(req);
+  const { where, params } = buildSgaWhere(req.query);
+  const orderBy = buildSgaOrder(req.query);
 
   const total = ((await queryOne(`SELECT COUNT(*) as c FROM sga_expenses s ${where}`, params)) as any).c;
   const rows = await queryAll(
-    `SELECT s.* FROM sga_expenses s ${where} ORDER BY s.recognition_date DESC, s.created_at DESC LIMIT ? OFFSET ?`,
+    `SELECT s.* FROM sga_expenses s ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
     [...params, limit, offset]
   );
   res.json(paginatedResponse(rows, total, page, limit));

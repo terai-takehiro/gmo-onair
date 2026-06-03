@@ -4,6 +4,11 @@ import { Router } from 'express';
 import {
   createExcelResourceRouter, ResourceConfig, newId, asString, asInt, asDate,
 } from '../../../shared/utils/excel-resource';
+import {
+  buildPurchaseWhere, buildPurchaseOrder,
+  buildRevenueWhere, buildRevenueOrder,
+  buildSgaWhere, buildSgaOrder,
+} from '../list-query';
 
 const TAX_MAP: Record<string, string> = {
   tax10: 'tax10', '10%': 'tax10', '税10': 'tax10',
@@ -63,6 +68,24 @@ const REVENUES_CONFIG: ResourceConfig = {
     LEFT JOIN customers c ON c.id = r.customer_id
     LEFT JOIN users u ON u.id = r.assigned_to
     WHERE r.deleted_at IS NULL ORDER BY r.recognition_date DESC`,
+  buildExportQuery: (q) => {
+    const { where, params } = buildRevenueWhere(q);
+    const orderBy = buildRevenueOrder(q);
+    return {
+      sql: `
+        SELECT r.billing_key, COALESCE(p.gls_number, p.code) as project_key, p.name as project_name, e.episode_code,
+               c.name as customer_name, r.amount, r.tax_category,
+               r.recognition_date, r.billing_date, r.payment_due_date,
+               u.email as assigned_to_email, r.notes
+        FROM revenues r
+        LEFT JOIN projects p ON p.id = r.project_id
+        LEFT JOIN episodes e ON e.id = r.episode_id
+        LEFT JOIN customers c ON c.id = r.customer_id
+        LEFT JOIN users u ON u.id = r.assigned_to
+        ${where} ORDER BY ${orderBy}`,
+      params,
+    };
+  },
   preloadLookups: async (client) => {
     const projects = await client.query('SELECT id, code, gls_number FROM projects WHERE deleted_at IS NULL');
     const episodes = await client.query('SELECT id, episode_code FROM episodes WHERE deleted_at IS NULL');
@@ -197,6 +220,24 @@ const PURCHASES_CONFIG: ResourceConfig = {
     LEFT JOIN vendors v ON v.id = pu.vendor_id
     LEFT JOIN users u ON u.id = pu.assigned_to
     WHERE pu.deleted_at IS NULL ORDER BY pu.recognition_date DESC`,
+  buildExportQuery: (q) => {
+    const { where, params } = buildPurchaseWhere(q);
+    const orderBy = buildPurchaseOrder(q);
+    return {
+      sql: `
+        SELECT pu.billing_key, COALESCE(p.gls_number, p.code) as project_key, p.name as project_name, e.episode_code,
+               v.name as vendor_name, pu.amount, pu.tax_category, pu.description,
+               pu.recognition_date, pu.inspection_date, pu.payment_due_date,
+               pu.settlement_method, pu.settlement_number, pu.settlement_url, u.email as assigned_to_email, pu.notes
+        FROM purchases pu
+        LEFT JOIN projects p ON p.id = pu.project_id
+        LEFT JOIN episodes e ON e.id = pu.episode_id
+        LEFT JOIN vendors v ON v.id = pu.vendor_id
+        LEFT JOIN users u ON u.id = pu.assigned_to
+        ${where} ORDER BY ${orderBy}`,
+      params,
+    };
+  },
   preloadLookups: async (client) => {
     const projects = await client.query('SELECT id, code, gls_number FROM projects WHERE deleted_at IS NULL');
     const episodes = await client.query('SELECT id, episode_code FROM episodes WHERE deleted_at IS NULL');
@@ -334,6 +375,22 @@ const SGA_CONFIG: ResourceConfig = {
     FROM sga_expenses s
     LEFT JOIN users u ON u.id = s.assigned_to
     WHERE s.deleted_at IS NULL ORDER BY s.recognition_date DESC`,
+  buildExportQuery: (q) => {
+    const { where, params } = buildSgaWhere(q);
+    const orderBy = buildSgaOrder(q);
+    return {
+      sql: `
+        SELECT s.billing_key, s.vendor_name, s.description, s.amount, s.tax_category,
+               s.expense_type, s.recognition_date, s.payment_due_date,
+               s.amortize_start, s.amortize_end, s.settlement_method,
+               s.settlement_number, s.settlement_url,
+               u.email as assigned_to_email, s.notes
+        FROM sga_expenses s
+        LEFT JOIN users u ON u.id = s.assigned_to
+        ${where} ORDER BY ${orderBy}`,
+      params,
+    };
+  },
   preloadLookups: async (client) => {
     const users = await client.query('SELECT id, email FROM users WHERE deleted_at IS NULL');
     return { users: new Map(users.rows.map((r) => [r.email as string, r.id as string])) };
