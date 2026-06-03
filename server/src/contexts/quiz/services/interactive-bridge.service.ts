@@ -104,6 +104,16 @@ export const interactiveBridge = {
     return call<{ ok: boolean; status: string }>(link, 'POST', `/questions/${encodeURIComponent(questionId)}/close`);
   },
 
+  /** 正解発表 — Awards の「正解発表」操作に連動して視聴者画面に正解を表示 */
+  revealQuestion(link: InteractiveLink, questionId: string) {
+    return call<{ ok: boolean; status: string }>(link, 'POST', `/questions/${encodeURIComponent(questionId)}/reveal`);
+  },
+
+  /** クリア — Awards の「クリア」操作に連動して視聴者画面の問題表示を消す */
+  dismissQuestion(link: InteractiveLink, questionId: string) {
+    return call<{ ok: boolean; status: string }>(link, 'POST', `/questions/${encodeURIComponent(questionId)}/dismiss`);
+  },
+
   /** Awards → Interactive へ問題本文・選択肢を書き込む (push) */
   syncQuestions(
     link: InteractiveLink,

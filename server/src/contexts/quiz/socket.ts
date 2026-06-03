@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { execute, queryAll, queryOne } from '../../shared/db/connection';
-import { onCountdownStart } from './services/interactive-lifecycle.service';
+import { onCountdownStart, onReveal, onClear } from './services/interactive-lifecycle.service';
 
 /**
  * Quiz CG socket: /quiz namespace, ?quizId= でルーム join。
@@ -54,15 +54,16 @@ export function initQuizSocketIO(io: Server): void {
             lastOneshotStyle = data.oneshotStyle;
           }
 
-          // カウントダウン連動の自動出題/締切 判定用に、更新前の step / poll_started_at を控える
+          // カウントダウン連動の自動出題/締切/正解発表/クリア 判定用に、更新前の状態を控える
           const prev = await queryOne(
-            `SELECT step, poll_started_at FROM quiz_stack_state WHERE event_id = ?`,
+            `SELECT step, poll_started_at, current_quiz_id FROM quiz_stack_state WHERE event_id = ?`,
             [stackEventId],
           );
           const prevStep = (prev?.step as string) ?? 'idle';
           const prevPollMs = prev?.poll_started_at
             ? new Date(prev.poll_started_at as string | number | Date).getTime()
             : null;
+          const prevQuizId = (prev?.current_quiz_id as number | null) ?? null;
 
           await execute(
             `INSERT INTO quiz_stack_state (event_id, current_quiz_id, step, poll_started_at, reveal_phase, updated_at)
@@ -117,6 +118,19 @@ export function initQuizSocketIO(io: Server): void {
               console.error('[quiz socket] vote reset on re-poll error', resetErr);
             }
             void onCountdownStart(stackEventId, currentQuizId, pollStartedAt);
+          }
+
+          // 正解発表 (quiz の correct-reveal) に入ったら Interactive 視聴者画面にも正解を表示。
+          if (step === 'correct-reveal' && prevStep !== 'correct-reveal') {
+            const qid = currentQuizId ?? prevQuizId;
+            if (qid) void onReveal(stackEventId, qid);
+          }
+
+          // クリア (idle に戻る) で Interactive 視聴者画面の問題表示も消す。
+          // clear 時の payload は currentQuizId を持たないことがあるため prevQuizId をフォールバック。
+          if (step === 'idle' && prevStep !== 'idle') {
+            const qid = currentQuizId ?? prevQuizId;
+            if (qid) void onClear(stackEventId, qid);
           }
         } catch (err) {
           console.error('[quiz socket] quizStack:set error', err);

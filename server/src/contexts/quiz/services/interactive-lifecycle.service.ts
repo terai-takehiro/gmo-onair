@@ -95,6 +95,58 @@ export async function onCountdownStart(eventId: number, quizId: number, pollStar
   console.log(`[ia-lifecycle] scheduled close of ${qid} in ${Math.round(delay / 1000)}s (countdown ${ctx.countdownSeconds}s + buffer ${buffer}s)`);
 }
 
+/**
+ * Awards の「正解発表」操作 (quiz の correct-reveal ステップ) に連動して、
+ * Interactive 視聴者画面に正解を表示する (question:reveal を配信させる)。
+ * 連携未設定 / 未紐付け / 自動制御 OFF のときは何もしない。
+ */
+export async function onReveal(eventId: number, quizId: number): Promise<void> {
+  let ctx: PollContext | null;
+  try {
+    ctx = await loadContext(eventId, quizId);
+  } catch (err) {
+    console.warn('[ia-lifecycle] loadContext (reveal) failed:', (err as Error).message);
+    return;
+  }
+  if (!ctx || !ctx.interactiveQuestionId || !ctx.link) return;
+  if (!ctx.link.baseUrl || !ctx.link.apiKeySecret) return;
+  if (ctx.link.autoControl === false) return;
+
+  // 正解発表前に締切も確実にしておく (operator が締切前に正解発表した場合の保険)。
+  cancelClose(eventId);
+  const link = ctx.link;
+  const qid = ctx.interactiveQuestionId;
+  interactiveBridge
+    .revealQuestion(link, qid)
+    .then(() => console.log(`[ia-lifecycle] revealed question ${qid} (event ${eventId})`))
+    .catch((err) => console.warn('[ia-lifecycle] reveal failed:', (err as Error).message));
+}
+
+/**
+ * Awards の「クリア」操作 (step → idle) に連動して、Interactive 視聴者画面の
+ * 問題表示を消す (question:dismiss を配信させる)。予約中の締切タイマーも解除。
+ */
+export async function onClear(eventId: number, quizId: number): Promise<void> {
+  cancelClose(eventId);
+  let ctx: PollContext | null;
+  try {
+    ctx = await loadContext(eventId, quizId);
+  } catch (err) {
+    console.warn('[ia-lifecycle] loadContext (clear) failed:', (err as Error).message);
+    return;
+  }
+  if (!ctx || !ctx.interactiveQuestionId || !ctx.link) return;
+  if (!ctx.link.baseUrl || !ctx.link.apiKeySecret) return;
+  if (ctx.link.autoControl === false) return;
+
+  const link = ctx.link;
+  const qid = ctx.interactiveQuestionId;
+  interactiveBridge
+    .dismissQuestion(link, qid)
+    .then(() => console.log(`[ia-lifecycle] dismissed question ${qid} (event ${eventId})`))
+    .catch((err) => console.warn('[ia-lifecycle] dismiss failed:', (err as Error).message));
+}
+
 /** 全タイマー停止 (graceful shutdown 用) */
 export function shutdownInteractiveLifecycle(): void {
   for (const t of closeTimers.values()) clearTimeout(t);
