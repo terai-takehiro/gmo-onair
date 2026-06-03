@@ -268,14 +268,17 @@ function VerticalText({ text, fontSize, maxHeight }: { text: string; fontSize: n
   return (
     <div style={{ maxHeight, display: 'flex', alignItems: 'flex-start' }}>
       <div style={{
-        writingMode: 'vertical-rl', whiteSpace: 'nowrap',
+        writingMode: 'vertical-rl', textOrientation: 'mixed', whiteSpace: 'nowrap',
         fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 900, fontSize,
         color: '#fff', letterSpacing: isLong ? '-0.06em' : '0.04em',
         lineHeight: 1,
         textShadow: '0 4px 22px rgba(0,0,0,0.95)',
         transform: scale < 1 ? `scaleY(${scale})` : 'none',
         transformOrigin: 'top center',
-        fontFeatureSettings: '"vert" 1, "palt" 1',
+        // v2.9.50: 縦書きの「？」「！」が左にずれる問題を修正。
+        //   palt (横組み用プロポーショナル詰め) は縦組みで約物を左寄せにするため外し、
+        //   vert (縦組みグリフ置換) のみ有効化して全角約物を中央に配置する。
+        fontFeatureSettings: '"vert" 1',
       }}>{text}</div>
     </div>
   );
