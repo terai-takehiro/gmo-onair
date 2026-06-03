@@ -113,8 +113,11 @@ export default function PurchaseListPage() {
   const [colWidths, setColWidths] = useState<Record<string, number>>({});
   const resizeRef = useRef<{ col: string; startX: number; startW: number } | null>(null);
 
-  // 月絞り込み (YYYY-MM) + 列ヘッダー並び替え
-  const [monthFilter, setMonthFilter] = useState("");
+  // 月絞り込み (YYYY-MM) + 列ヘッダー並び替え。既定は今月で絞り込み
+  const [monthFilter, setMonthFilter] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
   // 列ヘッダークリックでの並び替え (null = サーバー既定: 案件コード昇順→金額降順)
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -397,7 +400,14 @@ export default function PurchaseListPage() {
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
-                      <div className="font-medium font-number">{formatCurrency(p.amount)}</div>
+                      <div className="font-medium font-number">
+                        {p.is_provisional && (
+                          <span className="mr-1 inline-block rounded bg-amber-100 px-1 py-0.5 text-[10px] font-bold text-amber-700 align-middle">
+                            仮
+                          </span>
+                        )}
+                        {formatCurrency(p.amount)}
+                      </div>
                       {p.settlement_url && (
                         <a
                           href={p.settlement_url}
@@ -524,6 +534,11 @@ export default function PurchaseListPage() {
                         {TaxCategoryLabels[p.tax_category as TaxCategory] ?? p.tax_category}
                       </TableCell>
                       <TableCell className="text-right font-medium font-number">
+                        {p.is_provisional && (
+                          <span className="mr-1 inline-block rounded bg-amber-100 px-1 py-0.5 text-[10px] font-bold text-amber-700 align-middle">
+                            仮
+                          </span>
+                        )}
                         {formatCurrency(p.amount)}
                       </TableCell>
                       <TableCell>{formatMonth(p.recognition_date)}</TableCell>

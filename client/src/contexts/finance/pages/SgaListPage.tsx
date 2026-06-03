@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, ExternalLink } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
 
 import SgaDialog, {
@@ -44,7 +44,11 @@ import SgaDialog, {
 export default function SgaListPage() {
   const { currentUser } = useAuth();
   const [sourceFilter, setSourceFilter] = useState<string>("");
-  const [monthFilter, setMonthFilter] = useState("");
+  // 既定は今月で絞り込み
+  const [monthFilter, setMonthFilter] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
   const [colWidths, setColWidths] = useState<Record<string, number>>({});
   const resizeRef = useRef<{ col: string; startX: number; startW: number } | null>(null);
 
@@ -269,6 +273,19 @@ export default function SgaListPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium truncate">{item.vendor_name || "-"}</span>
                         <SettlementBadge number={item.settlement_number} />
+                        {item.settlement_url && (
+                          <a
+                            href={item.settlement_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center text-primary hover:text-primary/80"
+                            title="申請URLを開く"
+                            aria-label="申請URLを開く"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        )}
                         {item.amortize_start ? (
                           <span className="inline-block rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
                             按分中
@@ -418,6 +435,19 @@ export default function SgaListPage() {
                                 item.settlement_number,
                               )}
                             </span>
+                          )}
+                          {item.settlement_url && (
+                            <a
+                              href={item.settlement_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center text-primary hover:text-primary/80"
+                              title="申請URLを開く"
+                              aria-label="申請URLを開く"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
                           )}
                         </div>
                       </TableCell>

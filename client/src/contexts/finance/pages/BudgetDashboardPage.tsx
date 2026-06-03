@@ -92,7 +92,7 @@ export default function BudgetDashboardPage() {
   });
 
   const revenueRows: Array<{ id: string; gls_number?: string | null; project_name?: string | null; customer_name?: string | null; amount: number }> = revenueList?.data ?? [];
-  const purchaseRows: Array<{ id: string; gls_number?: string | null; project_name?: string | null; vendor_name?: string | null; description?: string | null; amount: number; settlement_url?: string | null }> = purchaseList?.data ?? [];
+  const purchaseRows: Array<{ id: string; gls_number?: string | null; project_name?: string | null; vendor_name?: string | null; description?: string | null; amount: number; settlement_url?: string | null; is_provisional?: boolean }> = purchaseList?.data ?? [];
   const sgaRows: Array<{ id: string; vendor_name?: string | null; description?: string | null; amount: number; settlement_url?: string | null }> = sgaList?.data ?? [];
   const errorMessage =
     (error as { response?: { data?: { error?: { message?: string } } }; message?: string } | null)
@@ -232,8 +232,8 @@ export default function BudgetDashboardPage() {
           )}
         </SectionCard>
 
-        {/* 内訳 (明細) */}
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6">
+        {/* 内訳 (明細) — PC は横並び 3 カラム */}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3 lg:gap-6">
           {/* 売上 内訳 */}
           <SectionCard
             title="売上 内訳"
@@ -298,19 +298,29 @@ export default function BudgetDashboardPage() {
                       </p>
                     </button>
                     <div className="flex shrink-0 items-center gap-2">
-                      <span className="font-number tabular-nums text-sm">{formatCurrency(p.amount)}</span>
-                      {p.settlement_url && (
-                        <a
-                          href={p.settlement_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center text-primary hover:text-primary/80"
-                          title="申請URLを開く"
-                          aria-label="申請URLを開く"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
-                      )}
+                      <span className="min-w-[96px] text-right font-number tabular-nums text-sm">
+                        {p.is_provisional && (
+                          <span className="mr-1 inline-block rounded bg-amber-100 px-1 py-0.5 text-[10px] font-bold text-amber-700 align-middle">
+                            仮
+                          </span>
+                        )}
+                        {formatCurrency(p.amount)}
+                      </span>
+                      {/* URL の有無に関わらず金額の縦列を揃えるため固定幅スロットを確保 */}
+                      <span className="inline-flex w-5 shrink-0 justify-center">
+                        {p.settlement_url && (
+                          <a
+                            href={p.settlement_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-primary hover:text-primary/80"
+                            title="申請URLを開く"
+                            aria-label="申請URLを開く"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        )}
+                      </span>
                     </div>
                   </li>
                 ))}
@@ -325,7 +335,6 @@ export default function BudgetDashboardPage() {
               description="選択月の販管費明細です。申請URLボタンで精算ページを開けます。"
               icon={<Receipt />}
               footnote={`${sgaRows.length} 件`}
-              className="lg:col-span-2"
             >
               {sgaRows.length === 0 ? (
                 <EmptyState title="販管費明細がありません" />
@@ -340,19 +349,22 @@ export default function BudgetDashboardPage() {
                         )}
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
-                        <span className="font-number tabular-nums">{formatCurrency(s.amount)}</span>
-                        {s.settlement_url && (
-                          <a
-                            href={s.settlement_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center text-primary hover:text-primary/80"
-                            title="申請URLを開く"
-                            aria-label="申請URLを開く"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        )}
+                        <span className="min-w-[96px] text-right font-number tabular-nums">{formatCurrency(s.amount)}</span>
+                        {/* URL の有無に関わらず金額の縦列を揃えるため固定幅スロットを確保 */}
+                        <span className="inline-flex w-5 shrink-0 justify-center">
+                          {s.settlement_url && (
+                            <a
+                              href={s.settlement_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center text-primary hover:text-primary/80"
+                              title="申請URLを開く"
+                              aria-label="申請URLを開く"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          )}
+                        </span>
                       </div>
                     </li>
                   ))}

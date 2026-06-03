@@ -131,7 +131,11 @@ export default function RevenueListPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const [monthFilter, setMonthFilter] = useState(""); // YYYY-MM 計上月絞り込み
+  // YYYY-MM 計上月絞り込み。既定は今月で絞り込み
+  const [monthFilter, setMonthFilter] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
   const [colWidths, setColWidths] = useState<Record<string, number>>({});
   const resizeRef = useRef<{ col: string; startX: number; startW: number } | null>(null);
 
