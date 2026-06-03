@@ -34,6 +34,15 @@ export interface Quiz {
   /** v2.9.36: アンケート時の演出パターン。mode='quiz' のときは null (常に正解発表). */
   survey_pattern: SurveyPattern | null;
   cover_image_data_url: string | null;
+  /** v2.9.48: 送出 UI に表示する任意の名前。空なら title をフォールバック表示。 */
+  stack_label: string | null;
+}
+
+/** v2.9.48: 送出 UI に表示する名前 (stack_label > title フォールバック)。 */
+export function quizStackLabel(q: { stack_label?: string | null; title?: string | null; id: number }): string {
+  return (q.stack_label && q.stack_label.trim())
+    || (q.title && q.title.trim())
+    || `quiz #${q.id}`;
 }
 
 export interface QuizChoice {

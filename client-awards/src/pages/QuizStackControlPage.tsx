@@ -8,6 +8,7 @@ import { CG_W, CG_H } from '@/cg/types';
 import { cn } from '@/lib/utils';
 import { getServerNow } from '@/lib/serverClock';
 import type { QuizStep, QuizMode, QuizOneshotStyle, SurveyPattern } from '@/quiz/types';
+import { quizStackLabel } from '@/quiz/types';
 
 // v2.9.36: 演出パターンを (mode, surveyPattern, hasAnswerCheck) で明示分岐。
 //   - mode='quiz'                     → 「正解発表」(常に correct-reveal で終了)
@@ -344,7 +345,7 @@ export default function QuizStackControlPage() {
             <span className={cn(cue.step !== 'idle' ? 'text-red-400' : 'text-slate-400')}>
               {cue.step !== 'idle' ? '● OA' : 'OA'}
             </span>
-            <span className="text-slate-100">{currentQuiz?.title || '(未選択)'}</span>
+            <span className="text-slate-100">{currentQuiz ? quizStackLabel(currentQuiz) : '(未選択)'}</span>
             <span className="text-slate-400">·</span>
             <span className="text-amber-300">{STEP_LABELS[cue.step]}</span>
           </div>
@@ -373,7 +374,7 @@ export default function QuizStackControlPage() {
                 </div>
               </div>
               <div className="text-xl font-black text-slate-50 leading-tight break-words">
-                {currentQuiz?.title || '(未選択)'}
+                {currentQuiz ? quizStackLabel(currentQuiz) : '(未選択)'}
               </div>
               {currentQuiz && (
                 <>
@@ -415,8 +416,8 @@ export default function QuizStackControlPage() {
                 className="w-full rounded-lg border border-amber-700/40 bg-slate-900 px-3 py-2 text-base font-bold text-slate-50"
               >
                 <option value="">(選択なし)</option>
-                {quizzes.map((q) => (
-                  <option key={q.id} value={q.id}>{q.title || `quiz #${q.id}`}</option>
+                {quizzes.map((q, i) => (
+                  <option key={q.id} value={q.id}>{i + 1}. {quizStackLabel(q)}</option>
                 ))}
               </select>
               {nextQuiz && (

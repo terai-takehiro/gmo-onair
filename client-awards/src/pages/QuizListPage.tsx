@@ -1,10 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import {
+  DndContext, closestCenter, PointerSensor, KeyboardSensor,
+  useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
+  useSortable, arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import api from '@/lib/api';
-import { ArrowLeft, Plus, Trash2, Edit3, ExternalLink, Radio, X, HelpCircle } from 'lucide-react';
-import { useQuizzes, useCreateQuiz, useDeleteQuiz } from '@/quiz/api';
-import type { QuizMode } from '@/quiz/types';
+import { ArrowLeft, Plus, Trash2, Edit3, ExternalLink, Radio, X, HelpCircle, GripVertical, ChevronUp, ChevronDown, ListOrdered } from 'lucide-react';
+import { useQuizzes, useCreateQuiz, useDeleteQuiz, useReorderQuizzes, useUpdateQuiz } from '@/quiz/api';
+import { quizStackLabel, type Quiz, type QuizMode } from '@/quiz/types';
 import InteractiveLinkPanel from '@/quiz/InteractiveLinkPanel';
 import QuizInteractiveSync, { type IaQuestion } from '@/quiz/QuizInteractiveSync';
 import type { CgCategory } from '@/cg/types';
@@ -106,6 +115,9 @@ export default function QuizListPage() {
 
       {/* インタラクティブ演出 連携 */}
       <InteractiveLinkPanel eventId={eventId} />
+
+      {/* 送出スタック (順番・送出名) */}
+      <StackOrderPanel eventId={eventId} quizzes={quizzes} />
 
       {/* タブ: クイズ / アンケート */}
       <div className="flex items-center justify-between border-b">
@@ -258,6 +270,146 @@ export default function QuizListPage() {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// 送出スタック (順番・送出名) — v2.9.48
+//   送出 UI (QuizStackControlPage) の NEXT プルダウン / 自動進行が参照する
+//   display_order を 1 本のスタックとして並び替え + 送出名 (stack_label) を編集。
+//   並び替え: PC = ドラッグ&ドロップ / スマホ = ↑↓ ボタン。
+// ════════════════════════════════════════════════════════════════
+function StackOrderPanel({ eventId, quizzes }: { eventId: number; quizzes: Quiz[] }) {
+  const [open, setOpen] = useState(true);
+  const [order, setOrder] = useState<number[]>([]);
+  const reorderMut = useReorderQuizzes(eventId);
+
+  // quizzes 変化 (初回ロード / 並び替え成功 / 追加・削除) に追従
+  useEffect(() => {
+    setOrder(quizzes.map((q) => q.id));
+  }, [quizzes]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const quizMap = new Map(quizzes.map((q) => [q.id, q]));
+  const ordered = order.map((id) => quizMap.get(id)).filter((q): q is Quiz => !!q);
+
+  const applyOrder = (next: number[]) => {
+    setOrder(next);
+    reorderMut.mutate(next);
+  };
+  const move = (from: number, to: number) => {
+    if (to < 0 || to >= order.length) return;
+    applyOrder(arrayMove(order, from, to));
+  };
+  const handleDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const from = order.indexOf(Number(active.id));
+    const to = order.indexOf(Number(over.id));
+    if (from < 0 || to < 0) return;
+    applyOrder(arrayMove(order, from, to));
+  };
+
+  return (
+    <div className="rounded-xl border bg-card">
+      <button onClick={() => setOpen((s) => !s)}
+        className="flex w-full items-center gap-2 px-4 py-3 text-left">
+        <ListOrdered className="h-4 w-4 text-purple-600 shrink-0" />
+        <span className="text-sm font-semibold">送出スタック（順番・送出名）</span>
+        <span className="text-xs text-muted-foreground">{ordered.length}問</span>
+        <span className="flex-1" />
+        {reorderMut.isPending && <span className="text-xs text-muted-foreground">保存中…</span>}
+        {open ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+      </button>
+      {open && (
+        <div className="px-4 pb-4 space-y-2">
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            送出 UI は基本この順番で出題し、必要に応じて「かるた取り」のように NEXT から任意の問題を選べます。
+            送出名は送出 UI に表示する名前（空ならタイトルを表示）。
+          </p>
+          {ordered.length === 0 ? (
+            <div className="text-center py-6 text-sm text-muted-foreground">問題がありません</div>
+          ) : (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={order.map(String)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-1.5">
+                  {ordered.map((q, i) => (
+                    <StackRow
+                      key={q.id}
+                      quiz={q}
+                      index={i}
+                      total={ordered.length}
+                      eventId={eventId}
+                      onUp={() => move(i, i - 1)}
+                      onDown={() => move(i, i + 1)}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StackRow({ quiz, index, total, eventId, onUp, onDown }: {
+  quiz: Quiz; index: number; total: number; eventId: number;
+  onUp: () => void; onDown: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: String(quiz.id) });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
+  const updateMut = useUpdateQuiz(quiz.id, eventId);
+  const [label, setLabel] = useState(quiz.stack_label ?? '');
+  useEffect(() => { setLabel(quiz.stack_label ?? ''); }, [quiz.stack_label]);
+
+  const saveLabel = () => {
+    const trimmed = label.trim();
+    if (trimmed === (quiz.stack_label ?? '')) return;
+    updateMut.mutate({ stack_label: trimmed || null });
+  };
+
+  const isQuiz = quiz.mode === 'quiz';
+  return (
+    <div ref={setNodeRef} style={style}
+      className="flex items-center gap-2 rounded-lg border bg-background px-2 py-2">
+      {/* PC: ドラッグハンドル / スマホ: ↑↓ ボタン */}
+      <button {...listeners} {...attributes}
+        className="hidden sm:flex cursor-grab touch-none text-slate-300 hover:text-slate-500 shrink-0"
+        title="ドラッグして並び替え" aria-label="ドラッグして並び替え">
+        <GripVertical className="h-4 w-4" />
+      </button>
+      <div className="flex sm:hidden flex-col shrink-0">
+        <button onClick={onUp} disabled={index === 0} aria-label="上へ"
+          className="flex h-5 w-7 items-center justify-center rounded text-slate-500 hover:bg-muted disabled:opacity-30">
+          <ChevronUp className="h-4 w-4" />
+        </button>
+        <button onClick={onDown} disabled={index === total - 1} aria-label="下へ"
+          className="flex h-5 w-7 items-center justify-center rounded text-slate-500 hover:bg-muted disabled:opacity-30">
+          <ChevronDown className="h-4 w-4" />
+        </button>
+      </div>
+      <span className="shrink-0 w-6 text-center text-sm font-bold text-purple-600 tabular-nums">{index + 1}</span>
+      <span className={`shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+        isQuiz ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'
+      }`}>
+        {isQuiz ? 'クイズ' : 'アンケート'}
+      </span>
+      <input
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+        onBlur={saveLabel}
+        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+        placeholder={quizStackLabel(quiz)}
+        className="flex-1 min-w-0 rounded-md border px-2 py-1.5 text-sm"
+        title="送出名 (空ならタイトルを表示)"
+      />
     </div>
   );
 }

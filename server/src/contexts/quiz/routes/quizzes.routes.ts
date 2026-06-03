@@ -20,6 +20,28 @@ router.get('/events/:eventId/quizzes', wrap(async (req, res) => {
   res.json({ success: true, data: rows });
 }));
 
+// ── 送出スタックの並び替え (display_order を一括採番) ──
+//   body.order = quiz id の配列 (送出したい順)。survey/quiz を跨いだ 1 本のスタック。
+router.put('/events/:eventId/quizzes/reorder', wrap(async (req, res) => {
+  const eventId = parseInt(req.params.eventId as string);
+  const order = req.body?.order;
+  if (!Array.isArray(order)) throw new AppError(400, 'BAD_REQUEST', 'order (配列) が必要です');
+  let pos = 1;
+  for (const raw of order) {
+    const quizId = parseInt(String(raw));
+    if (!Number.isFinite(quizId)) continue;
+    await execute(
+      `UPDATE quizzes SET display_order = ?, updated_at = NOW() WHERE id = ? AND event_id = ?`,
+      [pos++, quizId, eventId]
+    );
+  }
+  const rows = await queryAll(
+    `SELECT * FROM quizzes WHERE event_id = ? ORDER BY display_order, id`,
+    [eventId]
+  );
+  res.json({ success: true, data: rows });
+}));
+
 // ── 詳細 (choices 含む) ────────────────────────────────
 router.get('/quizzes/:id', wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
@@ -44,6 +66,7 @@ router.post('/events/:eventId/quizzes', wrap(async (req, res) => {
     mode = 'survey',
     has_answer_check = false,
     survey_pattern = null,
+    stack_label = null,
   } = req.body;
 
   const choiceCount = Math.max(2, Math.min(6, Math.floor(Number(rawChoiceCount) || 3)));
@@ -63,14 +86,16 @@ router.post('/events/:eventId/quizzes', wrap(async (req, res) => {
     [eventId]
   );
 
+  const stackLabel = typeof stack_label === 'string' && stack_label.trim() ? stack_label.trim() : null;
+
   const quiz = await queryOne(
     `INSERT INTO quizzes (event_id, title, title_en, question, question_en,
                           choice_count, countdown_seconds, link_category_id, display, display_order,
-                          mode, has_answer_check, survey_pattern)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+                          mode, has_answer_check, survey_pattern, stack_label)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
     [eventId, title, title_en, question, question_en,
      choiceCount, countdownSec, link_category_id, disp, ((maxOrder?.max as number) ?? 0) + 1,
-     md, hac, sp]
+     md, hac, sp, stackLabel]
   );
   if (!quiz) throw new AppError(500, 'INSERT_FAILED', 'quiz 作成失敗');
 
@@ -100,6 +125,7 @@ router.put('/quizzes/:id', wrap(async (req, res) => {
     title, title_en, question, question_en,
     choice_count, countdown_seconds, link_category_id, display, display_order,
     mode, has_answer_check, survey_pattern, cover_image_data_url,
+    stack_label,
   } = req.body;
 
   const curChoiceCount = Number(cur.choice_count) || 3;
@@ -125,6 +151,10 @@ router.put('/quizzes/:id', wrap(async (req, res) => {
   } else {
     newSp = (cur.survey_pattern as string | null) ?? 'top-reveal';
   }
+  // 送出名 (空文字は null = title フォールバック)。undefined は現状維持。
+  const newStackLabel: string | null = stack_label !== undefined
+    ? (typeof stack_label === 'string' && stack_label.trim() ? stack_label.trim() : null)
+    : ((cur.stack_label as string | null) ?? null);
 
   await execute(
     `UPDATE quizzes SET
@@ -141,6 +171,7 @@ router.put('/quizzes/:id', wrap(async (req, res) => {
        has_answer_check = ?,
        survey_pattern = ?,
        cover_image_data_url = ?,
+       stack_label = ?,
        updated_at = NOW()
      WHERE id = ?`,
     [
@@ -152,6 +183,7 @@ router.put('/quizzes/:id', wrap(async (req, res) => {
       display_order ?? null,
       newMode, newHac, newSp,
       cover_image_data_url !== undefined ? (cover_image_data_url || null) : cur.cover_image_data_url,
+      newStackLabel,
       id,
     ]
   );
