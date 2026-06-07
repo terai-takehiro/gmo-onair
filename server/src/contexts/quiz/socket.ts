@@ -47,7 +47,6 @@ export function initQuizSocketIO(io: Server): void {
       }) => {
         try {
           const step = ['idle','poll','reveal','winner','answer-check','correct-reveal'].includes(data.step ?? '') ? data.step : 'idle';
-          const pollStartedAt = typeof data.pollStartedAt === 'number' ? data.pollStartedAt : null;
           const revealPhase = Math.max(0, Math.min(2, Math.floor(data.revealPhase ?? 0)));
           const currentQuizId = typeof data.currentQuizId === 'number' ? data.currentQuizId : null;
           if (data.oneshotStyle === 'shards' || data.oneshotStyle === 'spotlight' || data.oneshotStyle === 'slit' || data.oneshotStyle === 'classic') {
@@ -65,18 +64,30 @@ export function initQuizSocketIO(io: Server): void {
             : null;
           const prevQuizId = (prev?.current_quiz_id as number | null) ?? null;
 
+          // v2.9.55: poll 開始時刻はサーバー時刻で打刻し単一の真実源にする。
+          //   旧実装は operator が getServerNow() で打刻した値をそのまま保存していたため、
+          //   operator 機の時計補正がわずかでもずれると別マシンの出力URLに数秒差として出ていた。
+          //   - 新規 poll (poll に突入 / poll 中に別 quiz へ) → サーバー Date.now()
+          //   - 継続 poll (同一 quiz の votes 保存等の再送) → 既存の poll_started_at を維持
+          //   - poll 以外のステップ → null
+          const enteringPoll = step === 'poll' && prevStep !== 'poll';
+          const quizChangedDuringPoll = step === 'poll' && prevStep === 'poll' && prevQuizId !== currentQuizId;
+          const isNewPoll = enteringPoll || quizChangedDuringPoll;
+          const effectivePollStartedAt: number | null =
+            step !== 'poll' ? null : (isNewPoll ? Date.now() : (prevPollMs ?? Date.now()));
+
           await execute(
             `INSERT INTO quiz_stack_state (event_id, current_quiz_id, step, poll_started_at, reveal_phase, updated_at)
-             VALUES (?, ?, ?, ${pollStartedAt === null ? 'NULL' : 'to_timestamp(?::double precision / 1000.0)'}, ?, NOW())
+             VALUES (?, ?, ?, ${effectivePollStartedAt === null ? 'NULL' : 'to_timestamp(?::double precision / 1000.0)'}, ?, NOW())
              ON CONFLICT (event_id) DO UPDATE
                SET current_quiz_id = EXCLUDED.current_quiz_id,
                    step = EXCLUDED.step,
                    poll_started_at = EXCLUDED.poll_started_at,
                    reveal_phase = EXCLUDED.reveal_phase,
                    updated_at = NOW()`,
-            pollStartedAt === null
+            effectivePollStartedAt === null
               ? [stackEventId, currentQuizId, step, revealPhase]
-              : [stackEventId, currentQuizId, step, pollStartedAt, revealPhase]
+              : [stackEventId, currentQuizId, step, effectivePollStartedAt, revealPhase]
           );
 
           if (data.votes && typeof data.votes === 'object' && currentQuizId) {
@@ -96,15 +107,12 @@ export function initQuizSocketIO(io: Server): void {
           ns.to(room).emit('quizStack:sync', {
             eventId: stackEventId,
             currentQuizId,
-            step, pollStartedAt, revealPhase,
+            step, pollStartedAt: effectivePollStartedAt, revealPhase,
             oneshotStyle: lastOneshotStyle,
             timestamp: Date.now(),
           });
 
-          // カウントダウン (poll) 新規開始を検知 → Interactive を自動出題 + 終了+バッファで締切予約。
-          // 「新規」= poll に入った or poll_started_at が変わった (再 TAKE / 別問題)。
-          const isNewPoll = step === 'poll' && pollStartedAt !== null
-            && (prevStep !== 'poll' || prevPollMs !== pollStartedAt);
+          // カウントダウン (poll) 新規開始 (isNewPoll) を検知 → Interactive を自動出題 + 締切予約。
           if (isNewPoll && currentQuizId) {
             // 再出題: 前回の集計が残らないよう投票数を 0 リセットして即時ブロードキャスト。
             // (Interactive 連動時は activate 側で回答もクリアされ、poller が 0 を反映)
@@ -117,7 +125,7 @@ export function initQuizSocketIO(io: Server): void {
             } catch (resetErr) {
               console.error('[quiz socket] vote reset on re-poll error', resetErr);
             }
-            void onCountdownStart(stackEventId, currentQuizId, pollStartedAt);
+            void onCountdownStart(stackEventId, currentQuizId, effectivePollStartedAt ?? Date.now());
           }
 
           // 正解発表 (quiz の correct-reveal) に入ったら Interactive 視聴者画面にも正解を表示。
