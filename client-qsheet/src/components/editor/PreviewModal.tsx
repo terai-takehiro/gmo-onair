@@ -228,26 +228,38 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
       <link rel="preconnect" href="https://fonts.googleapis.com">
       <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
       <style>
-        /* ページ番号: ブラウザの物理ページカウンタを下マージンに印字 (Chrome/Edge 131+)。
-           ロールが 1 枚に収まらず複数枚に分かれても、実際の印刷ページと必ず一致する */
-        @page {
-          size: ${pageW} ${pageH};
-          margin: 8mm 8mm 14mm 8mm;
-          @bottom-center {
-            content: counter(page) " / " counter(pages) " ページ";
-            font-family: 'Noto Sans JP', -apple-system, sans-serif;
-            font-size: 9pt;
-            font-weight: 600;
-            color: #374151;
-          }
-        }
+        /* @page マージンボックス (@bottom-center) は Chrome 非対応のため使わない。
+           代わりに各 .preview-page を「ちょうど 1 物理ページ」にし、DOM フッターを
+           flex で下端に固定する。各ページ = 1 物理ページなので、フッターの
+           {n} / {total} は文書全体の通し番号 = 実際の印刷ページ番号と一致する */
+        @page { size: ${pageW} ${pageH}; margin: 0; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Noto Sans JP', -apple-system, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        /* 各ページ (= ロール) を 1 物理ページに。プレビュー用の min-height / 影 / 余白は印刷では解除し空白ページを防ぐ */
-        .preview-page { page-break-after: always; break-after: page; min-height: 0 !important; margin-bottom: 0 !important; box-shadow: none !important; border-radius: 0 !important; }
+        /* 1 ロール = 1 物理ページ。min-height をシート高に合わせ (空白ページ防止に僅かに小さく)、
+           flex 縦並びにしてフッターを margin-top:auto で物理ページ下端へ */
+        .preview-page {
+          width: ${pageW} !important;
+          min-height: calc(${pageH} - 2mm) !important;
+          height: auto !important;
+          padding: 11mm 10mm 10mm 10mm !important;
+          margin: 0 !important;
+          box-shadow: none !important;
+          border-radius: 0 !important;
+          display: flex !important;
+          flex-direction: column !important;
+          page-break-after: always;
+          break-after: page;
+        }
         .preview-page:last-child { page-break-after: auto; break-after: auto; }
-        /* プレビュー用の論理ページ番号フッターは印刷では使わない (@page カウンタが正) */
-        .preview-page-footer { display: none !important; }
+        /* ページ番号フッターを物理ページ下端に (全体通し番号) */
+        .preview-page-footer {
+          display: block !important;
+          position: static !important;
+          left: auto !important; right: auto !important; bottom: auto !important;
+          margin-top: auto !important;
+          padding-top: 8px;
+          text-align: center;
+        }
         /* 台本ブロック以外の列は印刷時のみ少し小さく (列幅が狭く読みづらいため) */
         @media print { td.qs-other { font-size: 0.85em !important; } }
         /* セクション・行の途中分断を防ぐ */
