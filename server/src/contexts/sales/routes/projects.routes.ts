@@ -20,6 +20,7 @@ router.get('/', async (req, res) => {
     tab: (req.query.tab as ProjectFilter['tab']) || 'all',
     tag: req.query.tag as string,
     glsCategory: req.query.gls_category as ProjectFilter['glsCategory'],
+    eventMonth: req.query.event_month as string,
     sortBy: req.query.sort_by as string,
     sortDir: (req.query.sort_dir as 'asc' | 'desc') || 'desc',
   };

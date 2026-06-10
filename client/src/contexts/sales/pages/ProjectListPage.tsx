@@ -30,9 +30,9 @@ const tabs: { value: TabFilter; label: string }[] = [
   { value: 'lost', label: '失注' },
 ];
 
-// v2.8.1+: デフォルトは「イベント日の近い順 + 完了/失注は最後」
+// v2.9.54+: デフォルトは「提案中 (B→D) → 受注済 (完了→A) → その他 (失注→ネタ)」
 const sortOptions: { value: `${SortKey}:${SortDir}`; label: string }[] = [
-  { value: 'default:asc', label: 'おすすめ (イベント日順 + 完了/失注は最後)' },
+  { value: 'default:asc', label: 'おすすめ (提案中 → 受注済 → その他)' },
   { value: 'event_start:asc', label: 'イベント日 (近い順)' },
   { value: 'event_start:desc', label: 'イベント日 (遠い順)' },
   { value: 'created_at:desc', label: '作成日 (新しい順)' },
@@ -50,13 +50,19 @@ export default function ProjectListPage() {
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<`${SortKey}:${SortDir}`>("default:asc");
   const [sortKey, sortDir] = sort.split(":") as [SortKey, SortDir];
+  // 開催月 (YYYY-MM) 絞り込み。既定は今月
+  const [monthFilter, setMonthFilter] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
 
   const { data, isLoading } = useQuery({
-    queryKey: ["projects", page, search, tab, sortKey, sortDir],
+    queryKey: ["projects", page, search, tab, sortKey, sortDir, monthFilter],
     queryFn: async () => {
       const params: Record<string, string | number> = { page, limit: 20 };
       if (search) params.search = search;
       if (tab !== 'all') params.tab = tab;
+      if (monthFilter) params.event_month = monthFilter;
       params.sort_by = sortKey;
       params.sort_dir = sortDir;
       return (await api.get("/projects", { params })).data;
@@ -90,9 +96,9 @@ export default function ProjectListPage() {
         </TabsList>
       </Tabs>
 
-      {/* Search + sort */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative flex-1 max-w-md">
+      {/* Search + month filter + sort */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:flex-wrap">
+        <div className="relative flex-1 max-w-md min-w-[200px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="案件名・コード・顧客名で検索..."
@@ -100,6 +106,26 @@ export default function ProjectListPage() {
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             className="pl-9"
           />
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">開催月</span>
+          <Input
+            type="month"
+            value={monthFilter}
+            onChange={(e) => { setMonthFilter(e.target.value); setPage(1); }}
+            className="w-40"
+            aria-label="開催月で絞り込み"
+          />
+          {monthFilter && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-xs"
+              onClick={() => { setMonthFilter(""); setPage(1); }}
+            >
+              解除
+            </Button>
+          )}
         </div>
         <Select value={sort} onValueChange={(v) => { setSort(v as typeof sort); setPage(1); }}>
           <SelectTrigger className="w-full sm:w-56">
@@ -122,49 +148,40 @@ export default function ProjectListPage() {
         <EmptyState title="該当する案件がありません" description="検索条件を変えるか、新しい案件を作成してください。" />
       ) : (
         <>
-          {/* v2.8.1+: 進行中と完了/失注を視覚的に分離して表示 */}
+          {/* v2.9.54+: 提案中 (B→D) → 受注済 (完了→A) → その他 (失注→ネタ) の 3 区分で表示 */}
           {(() => {
-            const isTerminal = (p: Record<string, unknown>) => p.stage === 's_completed' || p.stage === 'e_lost';
-            const activeProjects = projects.filter((p: Record<string, unknown>) => !isTerminal(p));
-            const terminalProjects = projects.filter((p: Record<string, unknown>) => isTerminal(p));
-            return (
-              <>
-                {activeProjects.length > 0 && (
-                  <div className="grid gap-3 grid-cols-1 xl:grid-cols-2">
-                    {activeProjects.map((p: Record<string, unknown>) => (
-                      <ProjectCard
-                        key={p.id as string}
-                        project={p}
-                        onClick={() => navigate(`/sales/projects/${p.id}`)}
-                      />
-                    ))}
-                  </div>
-                )}
-                {terminalProjects.length > 0 && (
-                  <div className="space-y-3">
-                    {activeProjects.length > 0 && (
-                      <div className="flex items-center gap-3 pt-2">
-                        <div className="h-px flex-1 bg-border" />
-                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                          完了・失注した案件
-                        </span>
-                        <div className="h-px flex-1 bg-border" />
-                      </div>
-                    )}
-                    <div className="grid gap-3 grid-cols-1 xl:grid-cols-2">
-                      {terminalProjects.map((p: Record<string, unknown>) => (
-                        <ProjectCard
-                          key={p.id as string}
-                          project={p}
-                          terminal
-                          onClick={() => navigate(`/sales/projects/${p.id}`)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            );
+            const groupOf = (p: Record<string, unknown>) => {
+              const s = p.stage as string;
+              if (s === 'b_verbal' || s === 'c_proposal' || s === 'd_hold') return 0;
+              if (s === 's_completed' || s === 'a_won') return 1;
+              return 2; // e_lost, neta
+            };
+            const groups = [
+              { label: '提案中', items: projects.filter((p: Record<string, unknown>) => groupOf(p) === 0) },
+              { label: '受注済・完了', items: projects.filter((p: Record<string, unknown>) => groupOf(p) === 1) },
+              { label: 'その他（失注・ネタ）', items: projects.filter((p: Record<string, unknown>) => groupOf(p) === 2) },
+            ].filter((g) => g.items.length > 0);
+            return groups.map((g, gi) => (
+              <div key={g.label} className="space-y-3">
+                <div className={`flex items-center gap-3 ${gi > 0 ? 'pt-2' : ''}`}>
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-xs font-medium text-muted-foreground tracking-wider">
+                    {g.label}
+                  </span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+                <div className="grid gap-3 grid-cols-1 xl:grid-cols-2">
+                  {g.items.map((p: Record<string, unknown>) => (
+                    <ProjectCard
+                      key={p.id as string}
+                      project={p}
+                      terminal={p.stage === 'e_lost'}
+                      onClick={() => navigate(`/sales/projects/${p.id}`)}
+                    />
+                  ))}
+                </div>
+              </div>
+            ));
           })()}
 
           {/* Pagination */}

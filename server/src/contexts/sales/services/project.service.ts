@@ -37,6 +37,8 @@ export interface ProjectFilter {
   tab?: 'all' | 'yomi' | 'active' | 'completed' | 'lost';
   tag?: string;
   glsCategory?: 'A' | 'B';
+  /** 開催月 (YYYY-MM)。イベント期間がこの月に重なる案件のみ */
+  eventMonth?: string;
   sortBy?: string;
   sortDir?: 'asc' | 'desc';
 }
@@ -54,16 +56,20 @@ const SORT_COLUMN_MAP: Record<string, string> = {
 };
 
 /**
- * v2.8.1+ デフォルトソート式
- * - 案件終了 (s_completed) と失注 (e_lost) を最後に押し下げ
- * - 残りはイベント開始日が近い順 (ASC、NULL は最後)
- * - 同点はステージ進行度 → 作成日新しい順 でタイブレーク
+ * v2.9.54+ デフォルトソート式
+ * - 提案中 (B口頭 → C提案 → D保留) → 受注済 (S完了 → A受注) → その他 (E失注 → ネタ)
+ * - 同グループ内はイベント開始日が近い順 (ASC、NULL は最後) → 作成日新しい順
  */
 const DEFAULT_SORT_SQL = `
-  CASE
-    WHEN p.stage = 'e_lost' THEN 2
-    WHEN p.stage = 's_completed' THEN 1
-    ELSE 0
+  CASE p.stage
+    WHEN 'b_verbal'    THEN 1
+    WHEN 'c_proposal'  THEN 2
+    WHEN 'd_hold'      THEN 3
+    WHEN 's_completed' THEN 4
+    WHEN 'a_won'       THEN 5
+    WHEN 'e_lost'      THEN 6
+    WHEN 'neta'        THEN 7
+    ELSE 8
   END ASC,
   p.event_start ASC NULLS LAST,
   p.created_at DESC
@@ -110,6 +116,15 @@ export class ProjectService {
       where += ` AND p.gls_number IS NOT NULL AND p.gls_category = 'A'`;
     } else if (filter.glsCategory === 'B') {
       where += ` AND p.gls_number IS NOT NULL AND p.gls_category = 'B'`;
+    }
+    // 開催月 (YYYY-MM): イベント期間 [event_start, event_end] が対象月に重なる案件
+    // event_start/event_end は TEXT (YYYY-MM-DD) なので文字列比較でレンジ判定する
+    if (filter.eventMonth && /^\d{4}-\d{2}$/.test(filter.eventMonth)) {
+      const [y, m] = filter.eventMonth.split('-').map(Number);
+      const monthStart = `${filter.eventMonth}-01`;
+      const nextMonthStart = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`;
+      where += ` AND p.event_start IS NOT NULL AND p.event_start < ? AND COALESCE(NULLIF(p.event_end, ''), p.event_start) >= ?`;
+      params.push(nextMonthStart, monthStart);
     }
 
     // v2.8.1+: sortBy='default' (または未指定) のときは「完了/失注は最後 + イベント日近い順」
