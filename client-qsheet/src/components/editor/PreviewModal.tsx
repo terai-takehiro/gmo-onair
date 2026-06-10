@@ -228,14 +228,26 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
       <link rel="preconnect" href="https://fonts.googleapis.com">
       <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
       <style>
-        @page { size: ${pageW} ${pageH}; margin: 8mm; }
+        /* ページ番号: ブラウザの物理ページカウンタを下マージンに印字 (Chrome/Edge 131+)。
+           ロールが 1 枚に収まらず複数枚に分かれても、実際の印刷ページと必ず一致する */
+        @page {
+          size: ${pageW} ${pageH};
+          margin: 8mm 8mm 14mm 8mm;
+          @bottom-center {
+            content: counter(page) " / " counter(pages) " ページ";
+            font-family: 'Noto Sans JP', -apple-system, sans-serif;
+            font-size: 9pt;
+            font-weight: 600;
+            color: #374151;
+          }
+        }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Noto Sans JP', -apple-system, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         /* 各ページ (= ロール) を 1 物理ページに。プレビュー用の min-height / 影 / 余白は印刷では解除し空白ページを防ぐ */
         .preview-page { page-break-after: always; break-after: page; min-height: 0 !important; margin-bottom: 0 !important; box-shadow: none !important; border-radius: 0 !important; }
         .preview-page:last-child { page-break-after: auto; break-after: auto; }
-        /* ページ番号フッターは絶対配置を解除し、各ページ末尾に通常フローで表示 */
-        .preview-page-footer { position: static !important; left: auto !important; right: auto !important; bottom: auto !important; margin-top: 14px !important; padding-top: 6px; border-top: 1px solid #d1d5db; }
+        /* プレビュー用の論理ページ番号フッターは印刷では使わない (@page カウンタが正) */
+        .preview-page-footer { display: none !important; }
         /* 台本ブロック以外の列は印刷時のみ少し小さく (列幅が狭く読みづらいため) */
         @media print { td.qs-other { font-size: 0.85em !important; } }
         /* セクション・行の途中分断を防ぐ */
