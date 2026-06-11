@@ -5,6 +5,7 @@ import {
   GripVertical,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   User,
   Video,
   Type,
@@ -266,6 +267,13 @@ function LedSceneSection({
     next.splice(idx, 1);
     onChange(next);
   };
+  const moveScene = (idx: number, dir: -1 | 1) => {
+    const to = idx + dir;
+    if (to < 0 || to >= scenes.length) return;
+    const next = [...scenes];
+    [next[idx], next[to]] = [next[to], next[idx]];
+    onChange(next);
+  };
   return (
     <div>
       {scenes.length === 0 ? (
@@ -289,6 +297,22 @@ function LedSceneSection({
                   className="flex-1 px-1 py-0.5 text-[12px] font-bold bg-transparent border-none outline-none focus:bg-card rounded transition-colors"
                   aria-label={`シーン ${i + 1} の名前`}
                 />
+                <button
+                  onClick={() => moveScene(i, -1)}
+                  disabled={i === 0}
+                  className="size-5 rounded inline-flex items-center justify-center text-muted-foreground/60 hover:bg-primary/10 hover:text-primary transition-all flex-none disabled:opacity-25 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={`シーン ${i + 1} を上へ`}
+                >
+                  <ChevronUp size={13} aria-hidden />
+                </button>
+                <button
+                  onClick={() => moveScene(i, 1)}
+                  disabled={i === scenes.length - 1}
+                  className="size-5 rounded inline-flex items-center justify-center text-muted-foreground/60 hover:bg-primary/10 hover:text-primary transition-all flex-none disabled:opacity-25 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={`シーン ${i + 1} を下へ`}
+                >
+                  <ChevronDown size={13} aria-hidden />
+                </button>
                 <button
                   onClick={() => removeScene(i)}
                   className="size-5 rounded inline-flex items-center justify-center opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive transition-all flex-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:opacity-100"

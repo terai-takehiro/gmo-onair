@@ -84,7 +84,17 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
   const [margin, setMargin] = useState(30);
   const [selectedBlocks, setSelectedBlocks] = useState<Set<string>>(() => new Set());
   const [mono, setMono] = useState(false);
+  // 改ページ方式: "flow" = 連続 (ロールを物理ページなりに詰める / A4横向け) / "role" = ロールごとに改ページ
+  const [pageMode, setPageMode] = useState<"flow" | "role">(() => {
+    if (typeof localStorage === "undefined") return "flow";
+    return localStorage.getItem("qs_print_pagemode") === "role" ? "role" : "flow";
+  });
   const pageRef = useRef<HTMLDivElement>(null);
+
+  const changePageMode = (m: "flow" | "role") => {
+    setPageMode(m);
+    try { localStorage.setItem("qs_print_pagemode", m); } catch { /* ignore */ }
+  };
 
   const toggleBlock = (id: string) => {
     setSelectedBlocks((prev) => {
@@ -223,21 +233,11 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
     const [pageW, pageH] = sizes[paperSize] || sizes.A4P;
     const dl = state.meta?.draftType === "準備稿" ? "準備稿" : state.meta?.draftType === "決定稿" ? "決定稿" : `第${state.meta?.draftNumber || 1}稿`;
     const docTitle = `【${dl}】${state.meta?.title || "進行台本"}`;
-    printWindow.document.write(`<!DOCTYPE html><html><head>
-      <meta charset="UTF-8"><title>${docTitle}</title>
-      <link rel="preconnect" href="https://fonts.googleapis.com">
-      <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
-      <style>
-        /* @page マージンボックス (@bottom-center) は Chrome 非対応のため使わない。
-           代わりに各 .preview-page を「ちょうど 1 物理ページ」にし、DOM フッターを
-           flex で下端に固定する。各ページ = 1 物理ページなので、フッターの
-           {n} / {total} は文書全体の通し番号 = 実際の印刷ページ番号と一致する */
-        @page { size: ${pageW} ${pageH}; margin: 0; }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Noto Sans JP', -apple-system, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        /* 1 ロール = 1 物理ページ。min-height をシート高に合わせ (空白ページ防止に僅かに小さく)、
-           flex 縦並びにしてフッターを margin-top:auto で物理ページ下端へ */
-        .preview-page {
+    // "role": 各 .preview-page = ちょうど 1 物理ページ (flex 縦並び + 下端フッター)。
+    // "flow": .preview-page を通常ブロックにし、物理ページなりに自然分割させる
+    //         (行は break-inside で分断防止、ロールは複数ページに跨ってよい)。
+    const previewPageCss = pageMode === "role"
+      ? `.preview-page {
           width: ${pageW} !important;
           min-height: calc(${pageH} - 2mm) !important;
           height: auto !important;
@@ -250,8 +250,35 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
           page-break-after: always;
           break-after: page;
         }
-        .preview-page:last-child { page-break-after: auto; break-after: auto; }
-        /* ページ番号フッターを物理ページ下端に (全体通し番号) */
+        .preview-page:last-child { page-break-after: auto; break-after: auto; }`
+      : `.preview-page {
+          width: ${pageW} !important;
+          height: auto !important;
+          min-height: 0 !important;
+          padding: 11mm 10mm 10mm 10mm !important;
+          margin: 0 !important;
+          box-shadow: none !important;
+          border-radius: 0 !important;
+          display: block !important;
+          page-break-after: always;
+          break-after: page;
+        }
+        .preview-page:last-child { page-break-after: auto; break-after: auto; }`;
+    printWindow.document.write(`<!DOCTYPE html><html><head>
+      <meta charset="UTF-8"><title>${docTitle}</title>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+      <style>
+        /* @page マージンボックス (@bottom-center) は Chrome 非対応のため使わない。
+           代わりに各 .preview-page を「ちょうど 1 物理ページ」にし、DOM フッターを
+           flex で下端に固定する。各ページ = 1 物理ページなので、フッターの
+           {n} / {total} は文書全体の通し番号 = 実際の印刷ページ番号と一致する */
+        @page { size: ${pageW} ${pageH}; margin: 0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Noto Sans JP', -apple-system, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        /* 改ページ方式によって .preview-page のレイアウトを切替 (role = 1 物理ページ / flow = 連続) */
+        ${previewPageCss}
+        /* ページ番号フッターを物理ページ下端に (全体通し番号、role モードのみ) */
         .preview-page-footer {
           display: block !important;
           position: static !important;
@@ -276,8 +303,12 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
     setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
   };
 
-  // ページ分割: 明示的な改ページ + 「ロールが変わるたびに必ず改ページ」
-  // (CM / VTR は直前のロールと同じページに残し、次のロールで改ページする)
+  // ページ分割。2 方式:
+  //  - "flow" (連続 / 既定): 明示的な改ページ (_pageBreak) でのみ分割し、
+  //    あとはロールを物理ページなりに連続して詰める (A4横で紙が無駄にならない)。
+  //    ブラウザの自然なページ分割に任せ、行/ロール途中での分断は CSS break-inside で抑制。
+  //  - "role": 明示的な改ページ + ロールが変わるたびに必ず改ページ (1 ロール = 1 ページ)。
+  //    CM / VTR は直前のロールと同じページに残し、次のロールで改ページする。
   const pages: any[][] = [];
   let currentPage: any[] = [];
   let pageHasRole = false;
@@ -289,7 +320,7 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
       return;
     }
     const isRole = !sec._break && !sec._vtr;
-    if (isRole && pageHasRole) {
+    if (pageMode === "role" && isRole && pageHasRole) {
       // 既にこのページにロールがある → ロールが変わったので改ページ
       pages.push(currentPage);
       currentPage = [];
@@ -342,6 +373,36 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
             >
               白黒
             </button>
+            <span className="w-px h-4 bg-zinc-200" />
+            <label className="flex items-center gap-1.5 text-xs text-zinc-500">
+              改ページ
+              <span className="inline-flex rounded-full border border-zinc-300 overflow-hidden" role="radiogroup" aria-label="改ページ方式">
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={pageMode === "flow"}
+                  onClick={() => changePageMode("flow")}
+                  title="ロールを物理ページなりに連続して詰める (A4横などで紙が無駄になりません)"
+                  className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                    pageMode === "flow" ? "bg-blue-600 text-white" : "text-zinc-600 hover:bg-zinc-50"
+                  }`}
+                >
+                  ページごと
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={pageMode === "role"}
+                  onClick={() => changePageMode("role")}
+                  title="ロールが変わるたびに改ページ (1 ロール = 1 ページ)。ページ番号が物理ページと一致します"
+                  className={`px-2.5 py-1 text-xs font-medium border-l border-zinc-300 transition-colors ${
+                    pageMode === "role" ? "bg-blue-600 text-white" : "text-zinc-600 hover:bg-zinc-50"
+                  }`}
+                >
+                  ロールごと
+                </button>
+              </span>
+            </label>
             <span className="w-px h-4 bg-zinc-200" />
             <span className="text-xs text-zinc-400">出力列:</span>
             {state.blocks.map((blk) => {
@@ -600,10 +661,14 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                     );
                   })}
 
-                  {/* Footer (ページ番号) */}
-                  <div className="preview-page-footer" style={{ position: "absolute", bottom: margin, left: margin, right: margin, textAlign: "center", fontSize: "8.5pt", fontWeight: 600, color: mono ? "#374151" : "#6b7280" }}>
-                    {pi + 1} / {totalPages} ページ
-                  </div>
+                  {/* Footer (ページ番号) — 各 .preview-page = 1 物理ページの "role" モードでのみ
+                      通し番号が物理ページと一致する。"flow" モードは 1 ブロックが複数物理ページに
+                      跨るため通し番号を出さず、必要ならブラウザ印刷ダイアログの「ヘッダーとフッター」を ON */}
+                  {pageMode === "role" && (
+                    <div className="preview-page-footer" style={{ position: "absolute", bottom: margin, left: margin, right: margin, textAlign: "center", fontSize: "8.5pt", fontWeight: 600, color: mono ? "#374151" : "#6b7280" }}>
+                      {pi + 1} / {totalPages} ページ
+                    </div>
+                  )}
                 </div>
               );
             })}
