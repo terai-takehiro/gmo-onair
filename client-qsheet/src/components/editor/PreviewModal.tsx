@@ -29,7 +29,7 @@ function fmtJpDateShort(str: string | undefined): string {
 // ─── Pill ───────────────────────────────────────────────
 function Pill({ text, color, mono }: { text: string; color: string; mono: boolean }) {
   if (!text) return null;
-  const c = mono ? "#374151" : color;
+  const c = mono ? "#111827" : color;
   const len = text.length;
   const scale = len <= 3 ? 1 : Math.max(0.5, 3 / len);
   return (
@@ -84,7 +84,17 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
   const [margin, setMargin] = useState(30);
   const [selectedBlocks, setSelectedBlocks] = useState<Set<string>>(() => new Set());
   const [mono, setMono] = useState(false);
+  // 改ページ方式: "flow" = 連続 (ロールを物理ページなりに詰める / A4横向け) / "role" = ロールごとに改ページ
+  const [pageMode, setPageMode] = useState<"flow" | "role">(() => {
+    if (typeof localStorage === "undefined") return "flow";
+    return localStorage.getItem("qs_print_pagemode") === "role" ? "role" : "flow";
+  });
   const pageRef = useRef<HTMLDivElement>(null);
+
+  const changePageMode = (m: "flow" | "role") => {
+    setPageMode(m);
+    try { localStorage.setItem("qs_print_pagemode", m); } catch { /* ignore */ }
+  };
 
   const toggleBlock = (id: string) => {
     setSelectedBlocks((prev) => {
@@ -223,16 +233,62 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
     const [pageW, pageH] = sizes[paperSize] || sizes.A4P;
     const dl = state.meta?.draftType === "準備稿" ? "準備稿" : state.meta?.draftType === "決定稿" ? "決定稿" : `第${state.meta?.draftNumber || 1}稿`;
     const docTitle = `【${dl}】${state.meta?.title || "進行台本"}`;
+    // "role": 各 .preview-page = ちょうど 1 物理ページ (flex 縦並び + 下端フッター)。
+    // "flow": .preview-page を通常ブロックにし、物理ページなりに自然分割させる
+    //         (行は break-inside で分断防止、ロールは複数ページに跨ってよい)。
+    const previewPageCss = pageMode === "role"
+      ? `.preview-page {
+          width: ${pageW} !important;
+          min-height: calc(${pageH} - 2mm) !important;
+          height: auto !important;
+          padding: 11mm 10mm 10mm 10mm !important;
+          margin: 0 !important;
+          box-shadow: none !important;
+          border-radius: 0 !important;
+          display: flex !important;
+          flex-direction: column !important;
+          page-break-after: always;
+          break-after: page;
+        }
+        .preview-page:last-child { page-break-after: auto; break-after: auto; }`
+      : `.preview-page {
+          width: ${pageW} !important;
+          height: auto !important;
+          min-height: 0 !important;
+          padding: 11mm 10mm 10mm 10mm !important;
+          margin: 0 !important;
+          box-shadow: none !important;
+          border-radius: 0 !important;
+          display: block !important;
+          page-break-after: always;
+          break-after: page;
+        }
+        .preview-page:last-child { page-break-after: auto; break-after: auto; }`;
     printWindow.document.write(`<!DOCTYPE html><html><head>
       <meta charset="UTF-8"><title>${docTitle}</title>
       <link rel="preconnect" href="https://fonts.googleapis.com">
       <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
       <style>
-        @page { size: ${pageW} ${pageH}; margin: 8mm; }
+        /* @page マージンボックス (@bottom-center) は Chrome 非対応のため使わない。
+           代わりに各 .preview-page を「ちょうど 1 物理ページ」にし、DOM フッターを
+           flex で下端に固定する。各ページ = 1 物理ページなので、フッターの
+           {n} / {total} は文書全体の通し番号 = 実際の印刷ページ番号と一致する */
+        @page { size: ${pageW} ${pageH}; margin: 0; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Noto Sans JP', -apple-system, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .preview-page { page-break-after: always; break-after: page; }
-        .preview-page:last-child { page-break-after: auto; break-after: auto; }
+        /* 改ページ方式によって .preview-page のレイアウトを切替 (role = 1 物理ページ / flow = 連続) */
+        ${previewPageCss}
+        /* ページ番号フッターを物理ページ下端に (全体通し番号、role モードのみ) */
+        .preview-page-footer {
+          display: block !important;
+          position: static !important;
+          left: auto !important; right: auto !important; bottom: auto !important;
+          margin-top: auto !important;
+          padding-top: 8px;
+          text-align: center;
+        }
+        /* 台本ブロック以外の列は印刷時のみ少し小さく (列幅が狭く読みづらいため) */
+        @media print { td.qs-other { font-size: 0.85em !important; } }
         /* セクション・行の途中分断を防ぐ */
         .qsheet-section { page-break-inside: avoid; break-inside: avoid; }
         .qsheet-row, tr { page-break-inside: avoid; break-inside: avoid; }
@@ -247,12 +303,31 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
     setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
   };
 
-  // Split sections by page breaks
+  // ページ分割。2 方式:
+  //  - "flow" (連続 / 既定): 明示的な改ページ (_pageBreak) でのみ分割し、
+  //    あとはロールを物理ページなりに連続して詰める (A4横で紙が無駄にならない)。
+  //    ブラウザの自然なページ分割に任せ、行/ロール途中での分断は CSS break-inside で抑制。
+  //  - "role": 明示的な改ページ + ロールが変わるたびに必ず改ページ (1 ロール = 1 ページ)。
+  //    CM / VTR は直前のロールと同じページに残し、次のロールで改ページする。
   const pages: any[][] = [];
   let currentPage: any[] = [];
+  let pageHasRole = false;
   state.sections.forEach((sec: any) => {
-    if (sec._pageBreak) { pages.push(currentPage); currentPage = []; }
-    else currentPage.push(sec);
+    if (sec._pageBreak) {
+      if (currentPage.length) pages.push(currentPage);
+      currentPage = [];
+      pageHasRole = false;
+      return;
+    }
+    const isRole = !sec._break && !sec._vtr;
+    if (pageMode === "role" && isRole && pageHasRole) {
+      // 既にこのページにロールがある → ロールが変わったので改ページ
+      pages.push(currentPage);
+      currentPage = [];
+      pageHasRole = false;
+    }
+    currentPage.push(sec);
+    if (isRole) pageHasRole = true;
   });
   if (currentPage.length > 0) pages.push(currentPage);
   if (pages.length === 0) pages.push([]);
@@ -299,6 +374,36 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
               白黒
             </button>
             <span className="w-px h-4 bg-zinc-200" />
+            <label className="flex items-center gap-1.5 text-xs text-zinc-500">
+              改ページ
+              <span className="inline-flex rounded-full border border-zinc-300 overflow-hidden" role="radiogroup" aria-label="改ページ方式">
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={pageMode === "flow"}
+                  onClick={() => changePageMode("flow")}
+                  title="ロールを物理ページなりに連続して詰める (A4横などで紙が無駄になりません)"
+                  className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                    pageMode === "flow" ? "bg-blue-600 text-white" : "text-zinc-600 hover:bg-zinc-50"
+                  }`}
+                >
+                  ページごと
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={pageMode === "role"}
+                  onClick={() => changePageMode("role")}
+                  title="ロールが変わるたびに改ページ (1 ロール = 1 ページ)。ページ番号が物理ページと一致します"
+                  className={`px-2.5 py-1 text-xs font-medium border-l border-zinc-300 transition-colors ${
+                    pageMode === "role" ? "bg-blue-600 text-white" : "text-zinc-600 hover:bg-zinc-50"
+                  }`}
+                >
+                  ロールごと
+                </button>
+              </span>
+            </label>
+            <span className="w-px h-4 bg-zinc-200" />
             <span className="text-xs text-zinc-400">出力列:</span>
             {state.blocks.map((blk) => {
               const isScenario = blk.type === "scenario";
@@ -344,7 +449,7 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
           <div ref={pageRef}>
             {pages.map((pageSections, pi) => {
               return (
-                <div key={pi} className="preview-page bg-white shadow-lg rounded" style={{ width: pageDims.w, minHeight: pageDims.h, padding: margin, fontSize: fontSize + "pt", color: "#1f2937", position: "relative", marginBottom: pi < totalPages - 1 ? 24 : 0 }}>
+                <div key={pi} className="preview-page bg-white shadow-lg rounded" style={{ width: pageDims.w, minHeight: pageDims.h, padding: margin, fontSize: fontSize + "pt", color: mono ? "#000" : "#1f2937", position: "relative", marginBottom: pi < totalPages - 1 ? 24 : 0 }}>
                   {/* Document Header (page 1 only) */}
                   {pi === 0 && (
                     <div style={{ marginBottom: 16, borderBottom: `2px solid ${borderColor}`, paddingBottom: 12 }}>
@@ -378,10 +483,10 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                       const breakAbs = absSec;
                       absSec += dur;
                       return (
-                        <div key={si} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", margin: "4px 0", borderTop: "1px dashed #9ca3af", borderBottom: "1px dashed #9ca3af" }}>
-                          <span style={{ fontFamily: "'Roboto Condensed',sans-serif", fontSize: fontSize - 0.5 + "pt", color: "#9ca3af", whiteSpace: "nowrap", width: 70, textAlign: "right", flexShrink: 0 }}>{fmtAbs(breakAbs)}</span>
-                          <span style={{ fontSize: fontSize + "pt", fontWeight: 700, color: "#374151" }}>{sec.label || "CM"}</span>
-                          <span style={{ fontSize: fontSize + "pt", fontWeight: 600, color: "#6b7280", marginLeft: "auto" }}>{dur > 0 ? fmtMinSec(dur) : ""}</span>
+                        <div key={si} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", margin: "4px 0", borderTop: mono ? "1px dashed #6b7280" : "1px dashed #9ca3af", borderBottom: mono ? "1px dashed #6b7280" : "1px dashed #9ca3af" }}>
+                          <span style={{ fontFamily: "'Roboto Condensed',sans-serif", fontSize: fontSize - 0.5 + "pt", color: mono ? "#4b5563" : "#9ca3af", whiteSpace: "nowrap", width: 70, textAlign: "right", flexShrink: 0 }}>{fmtAbs(breakAbs)}</span>
+                          <span style={{ fontSize: fontSize + "pt", fontWeight: 700, color: mono ? "#000" : "#374151" }}>{sec.label || "CM"}</span>
+                          <span style={{ fontSize: fontSize + "pt", fontWeight: 600, color: mono ? "#1f2937" : "#6b7280", marginLeft: "auto" }}>{dur > 0 ? fmtMinSec(dur) : ""}</span>
                         </div>
                       );
                     }
@@ -390,11 +495,11 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                       const vtrAbs = absSec;
                       absSec += dur;
                       return (
-                        <div key={si} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", margin: "4px 0", borderTop: "2px solid #4338ca", borderBottom: "2px solid #4338ca", background: "#eef2ff" }}>
-                          <span style={{ fontFamily: "'Roboto Condensed',sans-serif", fontSize: fontSize - 0.5 + "pt", color: "#4338ca", whiteSpace: "nowrap", width: 70, textAlign: "right", flexShrink: 0 }}>{fmtAbs(vtrAbs)}</span>
-                          <span style={{ fontSize: fontSize - 0.5 + "pt", fontWeight: 800, color: "#4338ca", background: "#c7d2fe", padding: "0 6px", borderRadius: 3, letterSpacing: "0.05em" }}>VTR</span>
-                          <span style={{ fontSize: fontSize + "pt", fontWeight: 700, color: "#312e81" }}>{sec.label || ""}</span>
-                          <span style={{ fontSize: fontSize + "pt", fontWeight: 600, color: "#4338ca", marginLeft: "auto" }}>{dur > 0 ? fmtMinSec(dur) : ""}</span>
+                        <div key={si} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", margin: "4px 0", borderTop: mono ? "2px solid #374151" : "2px solid #4338ca", borderBottom: mono ? "2px solid #374151" : "2px solid #4338ca", background: mono ? "#f3f4f6" : "#eef2ff" }}>
+                          <span style={{ fontFamily: "'Roboto Condensed',sans-serif", fontSize: fontSize - 0.5 + "pt", color: mono ? "#1f2937" : "#4338ca", whiteSpace: "nowrap", width: 70, textAlign: "right", flexShrink: 0 }}>{fmtAbs(vtrAbs)}</span>
+                          <span style={{ fontSize: fontSize - 0.5 + "pt", fontWeight: 800, color: mono ? "#fff" : "#4338ca", background: mono ? "#374151" : "#c7d2fe", padding: "0 6px", borderRadius: 3, letterSpacing: "0.05em" }}>VTR</span>
+                          <span style={{ fontSize: fontSize + "pt", fontWeight: 700, color: mono ? "#000" : "#312e81" }}>{sec.label || ""}</span>
+                          <span style={{ fontSize: fontSize + "pt", fontWeight: 600, color: mono ? "#1f2937" : "#4338ca", marginLeft: "auto" }}>{dur > 0 ? fmtMinSec(dur) : ""}</span>
                         </div>
                       );
                     }
@@ -406,9 +511,9 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                     return (
                       <div key={si} style={{ marginBottom: 6 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 10px", borderLeft: mono ? "4px solid #374151" : "4px solid #2563eb", background: lightBg, borderBottom: `1px solid ${borderColor}` }}>
-                          <span style={{ fontFamily: "'Roboto Condensed',sans-serif", fontSize: fontSize + 3 + "pt", color: "#d1d5db", width: 18, textAlign: "center", flexShrink: 0, fontWeight: 700 }}>{rowNum}</span>
-                          <span style={{ fontFamily: "'Roboto Condensed',sans-serif", fontSize: fontSize + "pt", color: "#6b7280", whiteSpace: "nowrap" }}>{fmtAbs(roleAbs)}</span>
-                          {roleDur > 0 && <span style={{ fontSize: fontSize - 0.5 + "pt", color: "#9ca3af", border: "1px solid #d1d5db", padding: "0 6px", borderRadius: 3 }}>ロール尺 {fmtMinSec(roleDur)}</span>}
+                          <span style={{ fontFamily: "'Roboto Condensed',sans-serif", fontSize: fontSize + 3 + "pt", color: mono ? "#6b7280" : "#d1d5db", width: 18, textAlign: "center", flexShrink: 0, fontWeight: 700 }}>{rowNum}</span>
+                          <span style={{ fontFamily: "'Roboto Condensed',sans-serif", fontSize: fontSize + "pt", color: mono ? "#1f2937" : "#6b7280", whiteSpace: "nowrap" }}>{fmtAbs(roleAbs)}</span>
+                          {roleDur > 0 && <span style={{ fontSize: fontSize - 0.5 + "pt", color: mono ? "#374151" : "#9ca3af", border: mono ? "1px solid #9ca3af" : "1px solid #d1d5db", padding: "0 6px", borderRadius: 3 }}>ロール尺 {fmtMinSec(roleDur)}</span>}
                           <span style={{ fontWeight: 700, fontSize: fontSize + 0.5 + "pt", color: "#111827", letterSpacing: "0.03em" }}>{sec.label}</span>
                         </div>
                         <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: fontSize + "pt" }}>
@@ -418,7 +523,7 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                           <thead>
                             <tr>
                               {visibleBlocks.map((blk) => (
-                                <th key={blk.id} style={{ padding: "2px 6px", textAlign: "left", fontWeight: 700, fontSize: fontSize - 1 + "pt", color: "#6b7280", borderBottom: `2px solid ${borderColor}`, background: "#fff" }}>{blk.label}</th>
+                                <th key={blk.id} style={{ padding: "2px 6px", textAlign: "left", fontWeight: 700, fontSize: fontSize - 1 + "pt", color: mono ? "#1f2937" : "#6b7280", borderBottom: `2px solid ${borderColor}`, background: "#fff" }}>{blk.label}</th>
                               ))}
                             </tr>
                           </thead>
@@ -457,11 +562,11 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                                       const en = (cell.entries || [])[ei];
                                       const col = PILL_COLORS[blk.type] || "#64748b";
                                       return (
-                                        <td key={blk.id} style={tdStyle}>
+                                        <td key={blk.id} className="qs-other" style={tdStyle}>
                                           {en?.label ? (
                                             <div style={{ display: "flex", alignItems: "flex-start", gap: 4, minWidth: 0 }}>
                                               <Pill text={en.label} color={col} mono={mono} />
-                                              <span style={{ color: "#4b5563", flex: 1, minWidth: 0, wordBreak: "break-word", overflowWrap: "anywhere", whiteSpace: "normal" }}>{en.memo || ""}</span>
+                                              <span style={{ color: mono ? "#000" : "#4b5563", flex: 1, minWidth: 0, wordBreak: "break-word", overflowWrap: "anywhere", whiteSpace: "normal" }}>{en.memo || ""}</span>
                                             </div>
                                           ) : null}
                                           {en?.image && (
@@ -471,23 +576,23 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                                       );
                                     } else if (blk.type === "audio_mic") {
                                       if (ei !== 0) {
-                                        return <td key={blk.id} style={tdStyle} />;
+                                        return <td key={blk.id} className="qs-other" style={tdStyle} />;
                                       }
                                       const assignments = (cell.assignments || [])
                                         .filter((a: any) => a.state && a.state !== "off")
                                         .sort((a: any, b2: any) => (a.ch || 0) - (b2.ch || 0));
                                       return (
-                                        <td key={blk.id} style={tdStyle}>
+                                        <td key={blk.id} className="qs-other" style={tdStyle}>
                                           {assignments.length > 0 && (
                                             <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
                                               {assignments.map((a: any) => (
                                                 <div key={a.ch} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: fontSize - 1 + "pt", lineHeight: 1.4 }}>
-                                                  <span style={{ display: "inline-block", minWidth: 32, padding: "0 3px", borderRadius: 2, background: a.state === "on" ? (mono ? "#000" : "#dc2626") : (mono ? "#666" : "#f59e0b"), color: "#fff", fontSize: fontSize - 2 + "pt", fontWeight: 700, textAlign: "center" }}>
+                                                  <span style={{ display: "inline-block", minWidth: 32, padding: "0 3px", borderRadius: 2, background: a.state === "on" ? (mono ? "#000" : "#dc2626") : (mono ? "#374151" : "#f59e0b"), color: "#fff", fontSize: fontSize - 2 + "pt", fontWeight: 700, textAlign: "center" }}>
                                                     {a.state === "on" ? "ON" : "STBY"}
                                                   </span>
                                                   <span style={{ fontWeight: 700, fontFamily: "'Roboto Condensed',sans-serif" }}>Ch{a.ch}</span>
                                                   <span>{a.person || ""}</span>
-                                                  {a.micType && <span style={{ color: "#6b7280" }}>/ {a.micType}</span>}
+                                                  {a.micType && <span style={{ color: mono ? "#374151" : "#6b7280" }}>/ {a.micType}</span>}
                                                 </div>
                                               ))}
                                             </div>
@@ -496,23 +601,23 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                                       );
                                     } else if (blk.type === "slide") {
                                       return (
-                                        <td key={blk.id} style={tdStyle}>
+                                        <td key={blk.id} className="qs-other" style={tdStyle}>
                                           {ei === 0 && cell.image && <img src={cell.image} alt="" style={{ maxWidth: "100%", maxHeight: 200, objectFit: "contain" }} />}
                                         </td>
                                       );
                                     } else if (blk.type === "led_xr") {
                                       const led = formatLedEntry((cell.entries || [])[ei], state.ledScenes);
                                       return (
-                                        <td key={blk.id} style={tdStyle}>
+                                        <td key={blk.id} className="qs-other" style={tdStyle}>
                                           {led && (
                                             <div style={{ lineHeight: 1.5, fontSize: fontSize - 0.5 + "pt" }}>
                                               {led.sceneName && (
-                                                <div style={{ fontWeight: 700, color: "#5b21b6" }}>【{led.sceneName}】</div>
+                                                <div style={{ fontWeight: 700, color: mono ? "#000" : "#5b21b6" }}>【{led.sceneName}】</div>
                                               )}
                                               {led.wall && <div>壁：{led.wall}</div>}
                                               {led.floor && <div>床：{led.floor}</div>}
                                               {led.trigger && (
-                                                <div style={{ color: "#6b7280", marginTop: 1 }}>［{led.trigger}］</div>
+                                                <div style={{ color: mono ? "#1f2937" : "#6b7280", marginTop: 1 }}>［{led.trigger}］</div>
                                               )}
                                             </div>
                                           )}
@@ -522,7 +627,7 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                                       const tmplIdx = cell.templateIndex ?? -1;
                                       const tmplElements = tmplIdx >= 0 && state.stageTemplates?.[tmplIdx] ? state.stageTemplates[tmplIdx].elements : null;
                                       return (
-                                        <td key={blk.id} style={tdStyle}>
+                                        <td key={blk.id} className="qs-other" style={tdStyle}>
                                           {ei === 0 && tmplElements && (
                                             <svg viewBox="0 0 800 600" style={{ width: "100%", maxHeight: 200, borderRadius: 2, border: `1px solid ${borderColor}` }}>
                                               <rect width="800" height="600" fill="#fafafa" />
@@ -539,11 +644,11 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                                               })}
                                             </svg>
                                           )}
-                                          {ei === 0 && cell.note && <div style={{ fontSize: fontSize - 1 + "pt", color: "#6b7280", marginTop: 2 }}>{cell.note}</div>}
+                                          {ei === 0 && cell.note && <div style={{ fontSize: fontSize - 1 + "pt", color: mono ? "#1f2937" : "#6b7280", marginTop: 2 }}>{cell.note}</div>}
                                         </td>
                                       );
                                     } else {
-                                      return <td key={blk.id} style={{ ...tdStyle, whiteSpace: "pre-line", color: "#4b5563" }}>{ei === 0 ? (cell.value || "") : ""}</td>;
+                                      return <td key={blk.id} className="qs-other" style={{ ...tdStyle, whiteSpace: "pre-line", color: mono ? "#000" : "#4b5563" }}>{ei === 0 ? (cell.value || "") : ""}</td>;
                                     }
                                   })}
                                 </tr>
@@ -556,10 +661,14 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                     );
                   })}
 
-                  {/* Footer */}
-                  <div style={{ position: "absolute", bottom: margin, left: margin, right: margin, textAlign: "center", fontSize: "8pt", color: "#9ca3af" }}>
-                    {pi + 1} / {totalPages}
-                  </div>
+                  {/* Footer (ページ番号) — 各 .preview-page = 1 物理ページの "role" モードでのみ
+                      通し番号が物理ページと一致する。"flow" モードは 1 ブロックが複数物理ページに
+                      跨るため通し番号を出さず、必要ならブラウザ印刷ダイアログの「ヘッダーとフッター」を ON */}
+                  {pageMode === "role" && (
+                    <div className="preview-page-footer" style={{ position: "absolute", bottom: margin, left: margin, right: margin, textAlign: "center", fontSize: "8.5pt", fontWeight: 600, color: mono ? "#374151" : "#6b7280" }}>
+                      {pi + 1} / {totalPages} ページ
+                    </div>
+                  )}
                 </div>
               );
             })}

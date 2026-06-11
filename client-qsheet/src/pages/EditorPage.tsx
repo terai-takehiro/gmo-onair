@@ -14,6 +14,8 @@ import { getTrash } from "@/lib/trash";
 import { splitMultiEntryRows } from "@/lib/migrateEntries";
 import StageEditor from "@/components/editor/StageEditor";
 import AudioShareDialog from "@/components/editor/AudioShareDialog";
+import CsvImportDialog from "@/components/editor/CsvImportDialog";
+import type { CsvImportResult } from "@/lib/csvImport";
 import {
   Loader2,
   Save,
@@ -21,6 +23,7 @@ import {
   List,
   Clock,
   Download,
+  Upload,
   PanelRightOpen,
   PanelRightClose,
   ChevronLeft,
@@ -202,6 +205,7 @@ export default function EditorPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
   const [showAudioShare, setShowAudioShare] = useState(false);
+  const [showCsvImport, setShowCsvImport] = useState(false);
   const [editingStageIdx, setEditingStageIdx] = useState<number | null>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
 
@@ -287,6 +291,19 @@ export default function EditorPage() {
     setDirty(true);
     setSaveStatus("unsaved");
   }, []);
+
+  // CSV インポート: 解析済みセクションを置き換え or 末尾に追加、検出した話者を masters.persons にマージ
+  const handleCsvImport = useCallback((result: CsvImportResult, mode: "replace" | "append") => {
+    updateData((d) => {
+      const persons = Array.isArray(d.masters?.persons) ? d.masters.persons : [];
+      const newPersons = result.speakerNames.filter((n) => !persons.includes(n));
+      return {
+        ...d,
+        sections: mode === "replace" ? result.sections : [...d.sections, ...result.sections],
+        masters: newPersons.length > 0 ? { ...d.masters, persons: [...persons, ...newPersons] } : d.masters,
+      };
+    });
+  }, [updateData]);
 
   // Auto-save (2s debounce)
   useEffect(() => {
@@ -424,9 +441,14 @@ export default function EditorPage() {
               );
             })()}
             {/* CSV export — desktop only */}
-            <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1 text-xs" onClick={() => exportCsv(doc)}>
+            <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1 text-xs" onClick={() => exportCsv(doc)} title="CSVエクスポート">
               <Download className="h-3.5 w-3.5" />
               <span className="hidden lg:inline">CSV</span>
+            </Button>
+            {/* CSV import — desktop only */}
+            <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1 text-xs" onClick={() => setShowCsvImport(true)} title="CSVインポート">
+              <Upload className="h-3.5 w-3.5" />
+              <span className="hidden lg:inline">CSV取込</span>
             </Button>
             {/* PDF export */}
             <button
@@ -606,6 +628,15 @@ export default function EditorPage() {
           docUpdatedAt={(doc as any).updated_at}
           docCreatedAt={(doc as any).created_at}
           docTitle={doc.title}
+        />
+      )}
+
+      {/* CSV インポート */}
+      {showCsvImport && (
+        <CsvImportDialog
+          blocks={doc.data.blocks}
+          onImport={handleCsvImport}
+          onClose={() => setShowCsvImport(false)}
         />
       )}
 
