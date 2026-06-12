@@ -101,7 +101,17 @@ export default function ControlPage() {
   // ── NEXT category の演出パターンに応じてステップ一覧を切替
   const nextCategoryRaw = event?.categories.find((c) => c.id === nextCategoryId) ?? null;
   const pattern: AwardPattern = nextCategoryRaw?.award_pattern === 'vote' ? 'vote' : 'direct';
-  const STEPS = pattern === 'vote' ? STEPS_VOTE : STEPS_DIRECT;
+  // CELEB (全部門 No.1 + 紙吹雪) は「その賞 (award name) の最後の部門」にだけ出す
+  const isLastDivisionOfAward = useMemo(() => {
+    if (!nextCategoryRaw) return false;
+    const group = awardGroups.find((g) => g.name === nextCategoryRaw.name);
+    if (!group) return false;
+    return group.divisions[group.divisions.length - 1]?.id === nextCategoryRaw.id;
+  }, [awardGroups, nextCategoryRaw]);
+  const STEPS = useMemo(() => {
+    const base = pattern === 'vote' ? STEPS_VOTE : STEPS_DIRECT;
+    return isLastDivisionOfAward ? base : base.filter((s) => s.step !== 'celebration');
+  }, [pattern, isLastDivisionOfAward]);
   const liveStep = [...STEPS_DIRECT, ...STEPS_VOTE].find((s) => s.step === cue.step);
 
   // 初期: LIVE 状態を NEXT にコピー (新規イベント or リロード時)
@@ -118,12 +128,13 @@ export default function ControlPage() {
   const nextCategory = nextCategoryRaw;
   const nextStepDef = STEPS.find((s) => s.step === nextStep) ?? [...STEPS_DIRECT, ...STEPS_VOTE].find((s) => s.step === nextStep);
 
-  // パターン切替で現 nextStep が新 STEPS に存在しなくなる場合は idle に戻す
+  // パターン切替 / 部門切替 (celebration 可否の変化) で現 nextStep が新 STEPS に
+  // 存在しなくなる場合は idle に戻す
   useEffect(() => {
     if (!STEPS.some((s) => s.step === nextStep)) {
       setNextStep('idle');
     }
-  }, [pattern]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [STEPS]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // NEXT の broadcast (NEXT 出力 URL 用): preview 変化のたびに socket emit
   useEffect(() => {
@@ -160,7 +171,8 @@ export default function ControlPage() {
 
     // v2.9.43: TAKE 後に NEXT ポインタを自動進行 (「TAKE を押していったらどんどん次に送れる」)。
     //   - STEPS 内で次のステップへ
-    //   - 最終ステップ (celebration) の場合は次のカテゴリの最初のステップ (idle) に進む
+    //   - 最終ステップの場合は次のカテゴリの最初のステップ (idle) に進む
+    //     (賞の最後の部門では celebration が最終、それ以外は oneshot / final-pitch が最終)
     //   - 最終カテゴリの最終ステップでは据置 (循環したくないので明示操作を求める)
     const idx = STEPS.findIndex((s) => s.step === nextStep);
     if (idx >= 0 && idx < STEPS.length - 1) {
