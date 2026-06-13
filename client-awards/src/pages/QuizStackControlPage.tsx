@@ -10,14 +10,13 @@ import { getServerNow } from '@/lib/serverClock';
 import type { QuizStep, QuizMode, SurveyPattern } from '@/quiz/types';
 import { quizStackLabel } from '@/quiz/types';
 
-// v2.9.63: アンケートCG は「投票 (poll) + 集計 (answer-check)」まで。
-//   No.1 発表 (旧 reveal/winner) はランキングCG の survey-oneshot ステップへ移管した。
-//   - mode='quiz'   → 「正解発表」(出題 → [アンサーチェック] → 正解発表 → idle)
-//   - mode='survey' → 出題 → 集計 (answer-check) → idle。survey_pattern='top-reveal' の
-//     アンケートは、賞の最後にランキングCG側で No.1 が発表される (quiz 側の挙動は同一)。
+// アンケートCG の TAKE フロー。
+//   - mode='quiz'                    → 出題 → [アンサーチェック] → 正解発表 → idle
+//   - mode='survey' + 'answer-check' → 出題 → 集計 (answer-check) → idle
+//   - mode='survey' + 'top-reveal'   → 出題のみ → idle (集計も No.1 もランキングCG側で発表)
 function nextStepFor(
   mode: QuizMode,
-  _surveyPattern: SurveyPattern | null,
+  surveyPattern: SurveyPattern | null,
   hasAnswerCheck: boolean,
   current: QuizStep
 ): QuizStep {
@@ -33,7 +32,13 @@ function nextStepFor(
     if (current === 'poll') return 'correct-reveal';
     return 'idle';
   }
-  // アンケート: 出題 → 集計 (answer-check) → idle (No.1 はランキングCGで発表)
+  // アンケート
+  const pattern: SurveyPattern = surveyPattern ?? 'top-reveal';
+  if (pattern === 'top-reveal') {
+    // No.1 発表: この画面は出題のみ。集計・No.1 はランキングCGで。
+    return current === 'idle' ? 'poll' : 'idle';
+  }
+  // アンサーチェック: 出題 → 集計 → idle
   if (current === 'idle') return 'poll';
   if (current === 'poll') return 'answer-check';
   return 'idle';
@@ -126,7 +131,9 @@ export default function QuizStackControlPage() {
         sendCue({ step: 'poll', pollStartedAt: getServerNow(), revealPhase: 0 });
       }
     } else if (cue.step === 'poll') {
-      // v2.9.38: 次のステップは nextStepFor の結果に従う
+      // poll の次が idle (= top-reveal アンケート: 出題のみ) のときは TAKE no-op。
+      //   operator は CLEAR で投票を終了する (No.1 はランキングCGで発表)。
+      if (next === 'idle') return;
       sendCue({ step: next, pollStartedAt: null, revealPhase: 0, votes: voteEdits });
     } else if (next === 'idle') {
       // v2.9.42: terminal state (winner / correct-reveal / answer-check terminal) で TAKE
@@ -162,10 +169,13 @@ export default function QuizStackControlPage() {
     const prev = prevStepRef.current;
     prevStepRef.current = cue.step;
     if (!currentQuiz || quizzes.length === 0) return;
+    const surveyPattern = currentQuiz.survey_pattern ?? 'top-reveal';
     const isTerminal = (s: QuizStep): boolean => {
       if (s === 'correct-reveal') return true;
-      // アンケートは answer-check が終端 (No.1 はランキングCGで発表)
-      if (s === 'answer-check' && currentQuiz.mode === 'survey') return true;
+      if (currentQuiz.mode === 'survey') {
+        // top-reveal は出題 (poll) が終端、answer-check は集計が終端
+        return surveyPattern === 'top-reveal' ? s === 'poll' : s === 'answer-check';
+      }
       return false;
     };
     if (isTerminal(cue.step) && !isTerminal(prev)) {
@@ -201,11 +211,17 @@ export default function QuizStackControlPage() {
   }, []);
 
   const nextStep = currentQuiz ? nextStepFor(currentQuiz.mode, currentQuiz.survey_pattern, currentQuiz.has_answer_check, cue.step) : 'poll';
+  // top-reveal アンケートは poll (出題) が終端 → TAKE no-op、CLEAR で投票終了。
+  const pollIsTerminal = !!currentQuiz && currentQuiz.mode === 'survey'
+    && (currentQuiz.survey_pattern ?? 'top-reveal') === 'top-reveal' && cue.step === 'poll';
   // TAKE on terminal は no-op、CLEAR で終了 → idle で TAKE すると次のクイズへ
-  const isTerminalNow = currentQuiz != null && nextStep === 'idle' && cue.step !== 'idle' && cue.step !== 'poll';
+  const isTerminalNow = currentQuiz != null && nextStep === 'idle' && cue.step !== 'idle'
+    && (cue.step !== 'poll' || pollIsTerminal);
   const nextLabel = !currentQuiz
     ? '次のクイズを開始'
-    : isTerminalNow
+    : pollIsTerminal
+      ? 'CLEAR で投票終了'
+      : isTerminalNow
       ? 'CLEAR でクイズ終了'
       : (cue.step === 'idle'
         ? (nextQuiz && nextQuiz.id !== cue.currentQuizId ? '次のクイズを開始' : 'リスタート (POLL)')

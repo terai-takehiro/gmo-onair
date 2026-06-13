@@ -58,11 +58,9 @@ export default function QuizCG({ quiz, cue, transparent = false, lang = 'ja' }: 
   //   No.1 発表 (旧 reveal/winner) はランキングCG の survey-oneshot ステップへ移管した。
   if (cue.step === 'idle') return null;
 
+  // answer-check / correct-reveal のときだけ票数を表示する。
   const showVotes = cue.step === 'answer-check' || cue.step === 'correct-reveal';
   const correctReveal = cue.step === 'correct-reveal';
-  // answer-check / correct-reveal は確定値を集計表示 (ランダム揺れはしない)
-  const isShakePhase = false;
-  const isLockPhase = cue.step === 'answer-check' || cue.step === 'correct-reveal';
 
   return (
     <div style={{ position: 'absolute', inset: 0, fontFamily: "'Noto Sans JP', sans-serif" }}>
@@ -89,8 +87,6 @@ export default function QuizCG({ quiz, cue, transparent = false, lang = 'ja' }: 
         display={quiz.display}
         showVotes={showVotes}
         correctReveal={correctReveal}
-        isShakePhase={isShakePhase}
-        isLockPhase={isLockPhase}
       />
       {cue.step === 'poll' && (
         <Countdown
@@ -277,15 +273,11 @@ function TitleBand({ text, maxH }: { text: string; maxH: number }) {
 }
 
 // ─── 選択肢グリッド ────────────────────────────
-function ChoicesGrid({ choices, choiceCount, cue, display, showVotes, correctReveal, isShakePhase, isLockPhase }: {
+function ChoicesGrid({ choices, choiceCount, cue, display, showVotes, correctReveal }: {
   choices: QuizChoice[]; choiceCount: number; cue: QuizCueState;
   display: 'count' | 'percent'; showVotes: boolean; correctReveal: boolean;
-  isShakePhase: boolean; isLockPhase: boolean;
 }) {
   const { cols, rows } = gridForCount(choiceCount);
-  // v2.9.40: 票数枠縮小 (v2.9.39) と選択肢ブロック縮減に合わせて高さ圧縮
-  //   1 行: 110 → 96 (各カード ~96px)
-  //   2 行: 230 → 200 (各カード ~93px + gap 14)
   const totalH = rows === 1 ? 96 : 200;
   const top = 1080 - 36 - totalH;
   const totalVotes = Object.values(cue.votes ?? {}).reduce((s, v) => s + (v || 0), 0);
@@ -312,7 +304,6 @@ function ChoicesGrid({ choices, choiceCount, cue, display, showVotes, correctRev
             voteCount={voteCount} totalVotes={totalVotes}
             display={display} showVotes={showVotes}
             correctReveal={correctReveal}
-            isShakePhase={isShakePhase} isLockPhase={isLockPhase}
           />
         );
       })}
@@ -320,12 +311,15 @@ function ChoicesGrid({ choices, choiceCount, cue, display, showVotes, correctRev
   );
 }
 
-function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, correctReveal, isShakePhase, isLockPhase }: {
+// 票数枠の幅 (showVotes 時に右側に確保するスペース)
+const VOTE_PILL_W = 124;
+const VOTE_PILL_GAP = 12;
+
+function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, correctReveal }: {
   index: number; choice: QuizChoice;
   voteCount: number; totalVotes: number;
   display: 'count' | 'percent'; showVotes: boolean;
   correctReveal: boolean;
-  isShakePhase: boolean; isLockPhase: boolean;
 }) {
   const palette = QUIZ_COLORS[(index - 1) % QUIZ_COLORS.length];
   const name = choice.name || `選択肢${index}`;
@@ -333,36 +327,26 @@ function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, 
   const isDimmed = correctReveal && !isCorrect;
   const isHilite = correctReveal && isCorrect;
 
-  // v2.9.18+: shake phase 中はランダム値を 90ms 周期で更新、lock phase で実値に。
-  const [shake, setShake] = useState<number>(voteCount);
-  useEffect(() => {
-    if (!isShakePhase) { setShake(voteCount); return; }
-    const range = Math.max(20, voteCount * 2 + 30);
-    const id = window.setInterval(() => setShake(Math.floor(Math.random() * range)), 90);
-    return () => window.clearInterval(id);
-  }, [isShakePhase, voteCount]);
+  // 番号バッジ (左) の右端 ≈ 62px。showVotes のときだけ右に票数枠分を確保する。
+  // poll (showVotes=false) では右余白を詰めて選択肢テキストの領域を最大化。
+  const padRight = showVotes ? VOTE_PILL_W + VOTE_PILL_GAP + 8 : 24;
+
   return (
     <div style={{
       position: 'relative',
-      // 不正解 (correct-reveal 時) は半透明ではなくグレーのベース色にする
       background: isDimmed
         ? 'linear-gradient(160deg, #565c66, #2e333c)'
         : `linear-gradient(160deg, ${palette.core}, ${palette.deep})`,
       border: isDimmed ? '2px solid rgba(255,255,255,0.18)' : '2px solid rgba(245,215,110,0.55)',
       borderRadius: 8,
-      // v2.9.17: padding を常に固定 (showVotes 切替で base を伸ばさない)。
-      // 右側に常に vote パネル分のスペースを確保し、reveal/answer-check 切替時に
-      // カードの形が変わらないようにする。
-      // v2.9.39: 票数枠を半分に縮小 → 右 padding 180 → 110px に。
-      padding: '0 110px 0 78px',
+      padding: `8px ${padRight}px 8px 84px`,
       display: 'flex', flexDirection: 'column', justifyContent: 'center',
       boxShadow: isDimmed
         ? '0 8px 22px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)'
         : `0 10px 30px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.14), 0 0 24px ${palette.glow}`,
-      // 透明にはしない (常に opacity 1)。
       opacity: 1,
       filter: 'none',
-      transition: 'background 400ms ease, border-color 400ms ease, box-shadow 400ms ease',
+      transition: 'background 400ms ease, border-color 400ms ease, box-shadow 400ms ease, padding 300ms ease',
       animation: isHilite ? 'qzCorrectPulse 1s ease-in-out infinite' : 'none',
       overflow: 'hidden',
       boxSizing: 'border-box',
@@ -381,70 +365,49 @@ function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, 
         filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.45))',
       }}>{index}</div>
 
-      {/* v2.9.28: 選択肢は名前のみ表示 (会社名/ノミネートタイトルは省略し、名前を大きく) */}
-      <CondenseText style={{
-        fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 900, fontSize: 42,
-        color: '#fff', textShadow: '0 2px 6px rgba(0,0,0,0.7)', lineHeight: 1.1,
-      }} min={0.4}>{name}</CondenseText>
+      {/* 選択肢名: 長文は最大 2 行で折り返し、それでも入らなければ省略 (はみ出さない) */}
+      <div style={{
+        fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 900, fontSize: 38,
+        color: '#fff', textShadow: '0 2px 6px rgba(0,0,0,0.7)',
+        lineHeight: 1.14,
+        display: '-webkit-box',
+        WebkitLineClamp: 2,
+        WebkitBoxOrient: 'vertical',
+        overflow: 'hidden',
+        wordBreak: 'break-word',
+        overflowWrap: 'anywhere',
+      }}>{name}</div>
 
-      {/* 票数: v2.9.18 ドンと拡大演出 / v2.9.39 サイズ半減 (選択肢の手狭感を解消)
-          - shake (revealPhase=0): base サイズ (90x48 / font 32) でランダム数字が動く
-          - lock  (revealPhase>=1 or answer-check / correct-reveal): 拡大 (120x60 / font 48) + パンチ keyframe + glow burst */}
+      {/* 票数 (answer-check / correct-reveal 時のみ)。右端の固定枠に収め、テキストと被らない。 */}
       {showVotes && (
-        <>
-          <style>{`
-            @keyframes qzVotePunch {
-              0%   { transform: translateY(-50%) scale(0.86); }
-              40%  { transform: translateY(-50%) scale(1.18); }
-              70%  { transform: translateY(-50%) scale(0.98); }
-              100% { transform: translateY(-50%) scale(1); }
-            }
-          `}</style>
-          <div
-            key={isLockPhase ? 'lock' : 'shake'}
-            style={{
-              position: 'absolute', right: isLockPhase ? -2 : 10, top: '50%',
-              transform: 'translateY(-50%)',
-              width: isLockPhase ? 120 : 90,
-              height: isLockPhase ? 60 : 48,
-              padding: isLockPhase ? '0 12px' : '0 10px',
-              boxSizing: 'border-box',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: isLockPhase
-                ? 'linear-gradient(180deg, rgba(60,44,18,1), rgba(28,18,6,1))'
-                : 'linear-gradient(180deg, rgba(38,30,16,0.96), rgba(15,10,4,0.98))',
-              border: isLockPhase ? '2px solid #FFE8A8' : '1.5px solid rgba(245,215,110,0.85)',
-              borderRadius: 10,
-              boxShadow: isLockPhase
-                ? '0 6px 22px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,240,180,0.45), 0 0 32px rgba(255,220,120,0.85), 0 0 12px rgba(255,200,80,0.6)'
-                : '0 4px 14px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,235,140,0.25), 0 0 16px rgba(245,215,110,0.35)',
-              overflow: 'hidden',
-              transition: 'all 420ms cubic-bezier(.2,.85,.3,1.1)',
-              animation: isLockPhase ? 'qzVotePunch 520ms cubic-bezier(.18,1.4,.4,1) both' : 'none',
-              filter: isLockPhase ? 'drop-shadow(0 0 22px rgba(255,210,100,0.55))' : 'none',
-            }}
-          >
-            <CondenseText style={{
-              fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700,
-              fontSize: isLockPhase ? 48 : 32,
-              color: '#FFF4D6',
-              textShadow: isLockPhase
-                ? '0 2px 10px rgba(0,0,0,0.9), 0 0 32px rgba(255,220,140,0.95)'
-                : '0 2px 8px rgba(0,0,0,0.85), 0 0 18px rgba(245,215,110,0.55)',
-              fontVariantNumeric: 'tabular-nums',
-              letterSpacing: '-0.02em',
-              lineHeight: 1,
-              textAlign: 'center',
-              transition: 'font-size 420ms cubic-bezier(.2,.85,.3,1.1)',
-            }} min={0.4}>
-              <VoteValueText
-                value={isShakePhase ? shake : voteCount}
-                totalVotes={totalVotes}
-                display={display}
-              />
-            </CondenseText>
-          </div>
-        </>
+        <div
+          style={{
+            position: 'absolute', right: VOTE_PILL_GAP, top: '50%',
+            transform: 'translateY(-50%)',
+            width: VOTE_PILL_W, height: 60,
+            padding: '0 12px',
+            boxSizing: 'border-box',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'linear-gradient(180deg, rgba(60,44,18,1), rgba(28,18,6,1))',
+            border: '2px solid #FFE8A8',
+            borderRadius: 10,
+            boxShadow: '0 6px 22px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,240,180,0.45), 0 0 24px rgba(255,220,120,0.55)',
+            overflow: 'hidden',
+          }}
+        >
+          <CondenseText style={{
+            fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700,
+            fontSize: 46,
+            color: '#FFF4D6',
+            textShadow: '0 2px 10px rgba(0,0,0,0.9), 0 0 24px rgba(255,220,140,0.85)',
+            fontVariantNumeric: 'tabular-nums',
+            letterSpacing: '-0.02em',
+            lineHeight: 1,
+            textAlign: 'center',
+          }} min={0.4}>
+            <VoteValueText value={voteCount} totalVotes={totalVotes} display={display} />
+          </CondenseText>
+        </div>
       )}
     </div>
   );

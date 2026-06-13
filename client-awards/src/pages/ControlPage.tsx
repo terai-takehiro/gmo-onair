@@ -120,8 +120,12 @@ export default function ControlPage() {
   const STEPS = useMemo(() => {
     const base = pattern === 'vote' ? STEPS_VOTE : STEPS_DIRECT;
     let steps = isLastDivisionOfAward ? base : base.filter((s) => s.step !== 'celebration');
-    // 連動アンケートを持つ部門でだけ末尾に「アンケート No.1 発表」を追加 (賞の最後に出す)
-    if (nextCategoryHasSurvey) steps = [...steps, SURVEY_STEP];
+    if (nextCategoryHasSurvey) {
+      // 連動アンケートを持つ部門は「アンケート No.1 発表」を末尾に追加。
+      // この場合「全部門 No.1 + 紙吹雪 (CELEB)」は出さない (No.1 発表に一本化)。
+      steps = steps.filter((s) => s.step !== 'celebration');
+      steps = [...steps, SURVEY_STEP];
+    }
     return steps;
   }, [pattern, isLastDivisionOfAward, nextCategoryHasSurvey]);
   const liveStep = [...STEPS_DIRECT, ...STEPS_VOTE].find((s) => s.step === cue.step);
