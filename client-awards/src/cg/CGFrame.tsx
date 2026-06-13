@@ -1,5 +1,5 @@
 import { CG_W, CG_H } from './types';
-import type { CgCategory, CgCueState } from './types';
+import type { CgCategory, CgCueState, CgSurvey } from './types';
 import CGSequence from './CGSequence';
 
 export type CgLang = 'ja' | 'en' | 'both';
@@ -9,6 +9,7 @@ interface Props {
   cue: CgCueState;
   category: CgCategory | null;
   allCategories?: CgCategory[];
+  surveys?: CgSurvey[];
   eventName: string;
   eventSubtitle?: string | null;
   transparent?: boolean;
@@ -19,13 +20,14 @@ interface Props {
  * - 'ja' / 'en': 単一言語をそのままフルサイズ表示
  * - 'both': 左右に半サイズ（960x540）の JA / EN を並べて中央寄せ
  */
-export default function CGFrame({ lang, cue, category, allCategories, eventName, eventSubtitle, transparent }: Props) {
+export default function CGFrame({ lang, cue, category, allCategories, surveys, eventName, eventSubtitle, transparent }: Props) {
   if (lang !== 'both') {
     return (
       <CGSequence
         cue={cue}
         category={category}
         allCategories={allCategories}
+        surveys={surveys}
         eventName={eventName}
         eventSubtitle={eventSubtitle}
         lang={lang}
@@ -60,6 +62,7 @@ export default function CGFrame({ lang, cue, category, allCategories, eventName,
           cue={cue}
           category={category}
           allCategories={allCategories}
+          surveys={surveys}
           eventName={eventName}
           eventSubtitle={eventSubtitle}
           lang={langMode}

@@ -14,6 +14,7 @@ import {
   listEventBackups,
   downloadEventBackupImages,
 } from '../services/awards-box.service';
+import { fetchEventSurveys } from '../services/survey-output.service';
 
 const UPLOAD_DIR = path.join(__dirname, '../../../../../uploads/awards');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -53,7 +54,9 @@ router.get('/events/:id/output', wrap(async (req, res) => {
   for (const c of categories) catMap.set(c.id as number, { ...c, entries: [] });
   for (const e of entries) catMap.get(e.category_id as number)?.entries.push(e);
 
-  res.json({ success: true, data: { ...event, categories: [...catMap.values()] } });
+  const surveys = await fetchEventSurveys(id);
+
+  res.json({ success: true, data: { ...event, categories: [...catMap.values()], surveys } });
 }));
 
 // ── 公開: 1S CG モジュール構成 GET (放送送出ページ用、認証不要) ──────
@@ -116,7 +119,10 @@ router.get('/events/:id', wrap(async (req, res) => {
     catMap.get(e.category_id as number)?.entries.push(e);
   }
 
-  res.json({ success: true, data: { ...event, categories: [...catMap.values()] } });
+  // v2.9.63: operator (ControlPage) のプレビュー/ステップ出し分け用に連動アンケートも返す
+  const surveys = await fetchEventSurveys(id);
+
+  res.json({ success: true, data: { ...event, categories: [...catMap.values()], surveys } });
 }));
 
 // ── 更新 ────────────────────────────────────────────────────

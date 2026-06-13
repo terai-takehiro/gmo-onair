@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { queryAll, queryOne } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { fetchEventSurveys } from '../services/survey-output.service';
 
 // v2.8.96: 公開 (auth 不要) エンドポイントを集約。
 // 他 router (eventRoutes 等) は `router.use([...], requireAuth, ...)` で auth ガードを掛けているが、
@@ -42,7 +43,10 @@ router.get('/events/:id/output', wrap(async (req, res) => {
   for (const c of categories) catMap.set(c.id as number, { ...c, entries: [] });
   for (const e of entries) catMap.get(e.category_id as number)?.entries.push(e);
 
-  res.json({ success: true, data: { ...event, categories: [...catMap.values()] } });
+  // v2.9.63: 連動アンケート (survey-oneshot 用) を同梱
+  const surveys = await fetchEventSurveys(id);
+
+  res.json({ success: true, data: { ...event, categories: [...catMap.values()], surveys } });
 }));
 
 // ── ランキングCG cue 状態 (HTTP fallback、Socket.IO 不通時用) ──────

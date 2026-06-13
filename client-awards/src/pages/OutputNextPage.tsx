@@ -5,13 +5,14 @@ import { useAwardsNextCue } from '@/hooks/useAwardsCue';
 import { useAwardsStore } from '@/cg/useStore';
 import CGFrame, { type CgLang } from '@/cg/CGFrame';
 import { CG_W, CG_H } from '@/cg/types';
-import type { CgCategory } from '@/cg/types';
+import type { CgCategory, CgSurvey } from '@/cg/types';
 
 interface EventData {
   id: number;
   name: string;
   subtitle: string | null;
   categories: CgCategory[];
+  surveys?: CgSurvey[];
 }
 
 // v2.8.98+: NEXT (送出予約) を表示する独立した出力 URL。
@@ -45,10 +46,11 @@ export default function OutputNextPage() {
     refetchInterval: 30000,
   });
 
-  const { setCategories } = useAwardsStore();
+  const { setCategories, setSurveys } = useAwardsStore();
   useEffect(() => {
     if (event?.categories) setCategories(event.categories);
-  }, [event, setCategories]);
+    if (event) setSurveys(event.surveys ?? []);
+  }, [event, setCategories, setSurveys]);
 
   const { nextCue } = useAwardsNextCue(isNaN(eventId) ? null : eventId);
   const activeCategory =
@@ -89,6 +91,7 @@ export default function OutputNextPage() {
           cue={nextCue}
           category={activeCategory}
           allCategories={event.categories}
+          surveys={event.surveys ?? []}
           eventName={event.name}
           eventSubtitle={event.subtitle}
           transparent

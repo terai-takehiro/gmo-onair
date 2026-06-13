@@ -7,17 +7,17 @@ import QuizCG from '@/quiz/QuizCG';
 import { CG_W, CG_H } from '@/cg/types';
 import { cn } from '@/lib/utils';
 import { getServerNow } from '@/lib/serverClock';
-import type { QuizStep, QuizMode, QuizOneshotStyle, SurveyPattern } from '@/quiz/types';
+import type { QuizStep, QuizMode, SurveyPattern } from '@/quiz/types';
 import { quizStackLabel } from '@/quiz/types';
 
-// v2.9.36: 演出パターンを (mode, surveyPattern, hasAnswerCheck) で明示分岐。
-//   - mode='quiz'                     → 「正解発表」(常に correct-reveal で終了)
-//   - mode='survey' + 'answer-check' → 「アンサーチェック」(answer-check で終了、No.1 発表なし)
-//   - mode='survey' + 'top-reveal'   → 「No.1 発表」(reveal → winner のフルスクリーン演出)
-// has_answer_check は「アンサーチェック演出を前段に挿入するか」の独立フラグ。
+// v2.9.63: アンケートCG は「投票 (poll) + 集計 (answer-check)」まで。
+//   No.1 発表 (旧 reveal/winner) はランキングCG の survey-oneshot ステップへ移管した。
+//   - mode='quiz'   → 「正解発表」(出題 → [アンサーチェック] → 正解発表 → idle)
+//   - mode='survey' → 出題 → 集計 (answer-check) → idle。survey_pattern='top-reveal' の
+//     アンケートは、賞の最後にランキングCG側で No.1 が発表される (quiz 側の挙動は同一)。
 function nextStepFor(
   mode: QuizMode,
-  surveyPattern: SurveyPattern | null,
+  _surveyPattern: SurveyPattern | null,
   hasAnswerCheck: boolean,
   current: QuizStep
 ): QuizStep {
@@ -33,25 +33,9 @@ function nextStepFor(
     if (current === 'poll') return 'correct-reveal';
     return 'idle';
   }
-  // アンケート: 演出パターンで分岐
-  const pattern: SurveyPattern = surveyPattern ?? 'top-reveal'; // 旧データ互換のデフォルト
-  if (pattern === 'answer-check') {
-    // アンサーチェックのみ: 出題 → アンサーチェック → idle (No.1 発表なし)
-    if (current === 'idle') return 'poll';
-    if (current === 'poll') return 'answer-check';
-    return 'idle';
-  }
-  // top-reveal (No.1 発表): 出題 → [アンサーチェック] → 結果発表 (reveal) → No.1 発表 (winner)
-  if (hasAnswerCheck) {
-    if (current === 'idle') return 'poll';
-    if (current === 'poll') return 'answer-check';
-    if (current === 'answer-check') return 'reveal';
-    if (current === 'reveal') return 'winner';
-    return 'idle';
-  }
+  // アンケート: 出題 → 集計 (answer-check) → idle (No.1 はランキングCGで発表)
   if (current === 'idle') return 'poll';
-  if (current === 'poll') return 'reveal';
-  if (current === 'reveal') return 'winner';
+  if (current === 'poll') return 'answer-check';
   return 'idle';
 }
 
@@ -65,7 +49,7 @@ function patternBadge(mode: QuizMode, surveyPattern: SurveyPattern | null) {
   if (mode === 'quiz') return { label: '正解発表', color: 'bg-blue-900/40 text-blue-300 border-blue-700/50' };
   const pattern = surveyPattern ?? 'top-reveal';
   if (pattern === 'answer-check') return { label: 'アンサーチェック', color: 'bg-emerald-900/40 text-emerald-300 border-emerald-700/50' };
-  return { label: 'No.1 発表', color: 'bg-amber-900/40 text-amber-300 border-amber-700/50' };
+  return { label: 'No.1 → ランキングCG', color: 'bg-amber-900/40 text-amber-300 border-amber-700/50' };
 }
 
 export default function QuizStackControlPage() {
@@ -184,11 +168,8 @@ export default function QuizStackControlPage() {
     if (!currentQuiz || quizzes.length === 0) return;
     const isTerminal = (s: QuizStep): boolean => {
       if (s === 'winner' || s === 'correct-reveal') return true;
-      if (s === 'answer-check'
-          && currentQuiz.mode === 'survey'
-          && (currentQuiz.survey_pattern ?? 'top-reveal') === 'answer-check') {
-        return true;
-      }
+      // v2.9.63: アンケートは answer-check が終端 (No.1 はランキングCGで発表)
+      if (s === 'answer-check' && currentQuiz.mode === 'survey') return true;
       return false;
     };
     if (isTerminal(cue.step) && !isTerminal(prev)) {
@@ -199,11 +180,6 @@ export default function QuizStackControlPage() {
       }
     }
   }, [cue.step, currentQuiz, quizzes]);
-
-  // 大賞演出スタイル
-  const setOneshotStyle = useCallback((style: QuizOneshotStyle) => {
-    sendCue({ oneshotStyle: style });
-  }, [sendCue]);
 
   const clear = useCallback(() => {
     sendCue({ step: 'idle', pollStartedAt: null, revealPhase: 0 });
@@ -451,28 +427,6 @@ export default function QuizStackControlPage() {
               <p className="text-[11px] text-amber-200/60 leading-tight">
                 何もしなければ表示順で自動進行。CLEAR な状態で 決定 を押すと、選択中のクイズを次の PROGRAM として仕込めます。
               </p>
-            </div>
-
-            {/* 大賞演出スタイル */}
-            <div className="rounded-lg border border-slate-700 bg-slate-950/40 p-3 space-y-2">
-              <div className="text-sm font-black tracking-widest text-slate-200">大賞演出スタイル</div>
-              <div className="grid grid-cols-4 gap-2">
-                {(['classic','shards','spotlight','slit'] as const).map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setOneshotStyle(s)}
-                    className={cn(
-                      'rounded-md px-2 py-2 text-xs font-black tracking-widest uppercase min-h-[36px]',
-                      cue.oneshotStyle === s
-                        ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300'
-                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700',
-                    )}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-              <div className="text-xs text-slate-400">No.1 発表時のフルスクリーン演出</div>
             </div>
 
             {/* 投票数 (PROGRAM) */}

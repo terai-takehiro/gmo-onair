@@ -865,11 +865,16 @@ export default function EventEditorPage() {
           <div className="pt-2 border-t space-y-2">
             <p className="text-sm font-medium flex items-center gap-1.5">
               <HelpCircle className="h-3.5 w-3.5 text-purple-600" />
-              クイズ / アンケートCG <span className="text-xs text-muted-foreground font-normal">(質問 + 選択肢 + 投票結果)</span>
+              クイズ / アンケートCG <span className="text-xs text-muted-foreground font-normal">(質問 + 選択肢 + 投票/集計)</span>
             </p>
             <p className="text-xs text-muted-foreground">
               operator (<code className="px-1 rounded bg-muted text-[10px]">/event/{event.id}/quiz-stack/control</code>) で順次送出。
               NEXT 用の独立 URL はなく、operator UI 内で「次の出題」を選択 → TAKE で OA に反映する方式。
+            </p>
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+              この出力は<strong>投票 (POLL) + 集計 (アンサーチェック)</strong> まで。
+              アンケートの <strong>No.1 発表</strong>は、上の<strong>リアルタイムCG（ランキング）出力URL</strong>側で、
+              連動カテゴリ（賞）の最後に「SURVEY No.1」ステップとして表示されます。
             </p>
             <div className="space-y-1.5">
               <div className="text-[10px] font-bold text-red-700 uppercase tracking-widest">OA (本番)</div>
