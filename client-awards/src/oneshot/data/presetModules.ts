@@ -1,13 +1,11 @@
 import type { EventModuleConfig, ModuleDef } from '../types';
 
-// ── 段階1 (v2.8.71): 動的モジュールスキーマの種データ ──────────
-// 現行ハードコード版 (modules/{Title,Respect,Skills,Comment,Members,RecComment}Module.tsx)
-// + 'none' を ModuleDef[] として 1:1 で書き起こしたもの。
-// 段階2 で DynamicModule renderer がこの定義から JSX を生成する。
+// 動的モジュールスキーマの種データ。
+// DynamicModule renderer がこの定義から JSX を生成する。
 //
 // 各 ModuleDef.id は 'preset:{key}' 形式。ユーザーが追加するモジュールは
-// 'custom-{uuid}' 形式 (段階4 の編集 UI が UUID を発行)。
-// プリセットも段階4 で複製・編集・削除が可能になる。
+// 'custom-{uuid}' 形式 (編集 UI が UUID を発行)。
+// プリセットも編集 UI で複製・編集・削除が可能。
 
 const NONE: ModuleDef = {
   id: 'preset:none',
@@ -92,34 +90,12 @@ const SKILLS: ModuleDef = {
   ],
 };
 
-const COMMENT: ModuleDef = {
-  id: 'preset:comment',
-  label: { ja: '本人コメント', en: 'Comment' },
-  icon: 'MessageSquare',
-  shortcutKey: '4',
-  order: 4,
-  visibility: 'always',
-  width: 'wide',
-  slots: [
-    {
-      id: 'comment-label',
-      kind: 'header-label',
-      binding: { source: 'literal', ja: 'ノミネート者コメント', en: 'Nominee Comment' },
-    },
-    {
-      id: 'comment-body',
-      kind: 'body-text',
-      binding: { source: 'nominee', field: 'comment' },
-    },
-  ],
-};
-
 const MEMBERS: ModuleDef = {
   id: 'preset:members',
   label: { ja: 'チームメンバー', en: 'Team' },
   icon: 'Users',
-  shortcutKey: '5',
-  order: 5,
+  shortcutKey: '4',
+  order: 4,
   visibility: 'team-only',
   slots: [
     {
@@ -135,39 +111,12 @@ const MEMBERS: ModuleDef = {
   ],
 };
 
-const REC_COMMENT: ModuleDef = {
-  id: 'preset:recComment',
-  label: { ja: '推薦コメント', en: 'Recommendation' },
-  icon: 'MessageCircle',
-  shortcutKey: '6',
-  order: 6,
-  visibility: 'always',
-  width: 'wide',
-  slots: [
-    {
-      id: 'rec-label',
-      kind: 'header-label',
-      binding: { source: 'literal', ja: '推薦者コメント', en: 'From the Recommender' },
-    },
-    {
-      id: 'rec-byline',
-      kind: 'header-byline',
-      binding: { source: 'recommender', field: 'name' },
-    },
-    {
-      id: 'rec-quote',
-      kind: 'body-rec-quote',
-      binding: { source: 'recommender', field: 'respectComment' },
-    },
-  ],
-};
-
-/** 既存 6 モジュール + 'none' のプリセット定義 (段階1 では参照のみ) */
+/** プリセット定義 (情報なし / タイトル / 尊敬ポイント / 得意技 / チームメンバー) */
 export const DEFAULT_PRESET_MODULES: ModuleDef[] = [
-  NONE, TITLE, RESPECT, SKILLS, COMMENT, MEMBERS, REC_COMMENT,
+  NONE, TITLE, RESPECT, SKILLS, MEMBERS,
 ];
 
-/** 新規イベントの初期 EventModuleConfig (現行 7 プリセットをそのまま含む) */
+/** 新規イベントの初期 EventModuleConfig */
 export function createDefaultEventModuleConfig(): EventModuleConfig {
   // immutable な深いコピーを返す (呼び出し側が改変しても種データに影響しないように)
   return JSON.parse(JSON.stringify({

@@ -1,11 +1,14 @@
-export type QuizStep = 'idle' | 'poll' | 'reveal' | 'winner' | 'answer-check' | 'correct-reveal';
+// アンケートCG は「投票 (poll) + 集計 (answer-check)」まで。
+// クイズは正解発表 (correct-reveal) まで。No.1 発表 (旧 reveal/winner) は
+// ランキングCG の survey-oneshot ステップへ移管済 (v2.9.63)。
+export type QuizStep = 'idle' | 'poll' | 'answer-check' | 'correct-reveal';
 export type QuizDisplay = 'count' | 'percent';
 export type QuizMode = 'survey' | 'quiz';
-export type QuizOneshotStyle = 'classic' | 'shards' | 'spotlight' | 'slit';
 
-// v2.9.36: アンケート時の演出パターン (クイズ時は null = 常に正解発表)
-//   'answer-check' = poll → answer-check → idle (アンサーチェックのみで終了)
-//   'top-reveal'   = poll → [answer-check?] → reveal → winner → idle (No.1 発表まで)
+// アンケート時の演出パターン (クイズ時は null = 常に正解発表)
+//   'answer-check' = poll → answer-check → idle (集計のみで終了)
+//   'top-reveal'   = poll → answer-check → idle (quiz 側は同一。この賞の No.1 を
+//                    ランキングCG (survey-oneshot) で連動カテゴリの賞の最後に発表する)
 export type SurveyPattern = 'answer-check' | 'top-reveal';
 
 export interface QuizStackCue {
@@ -14,7 +17,6 @@ export interface QuizStackCue {
   step: QuizStep;
   pollStartedAt: number | null;
   revealPhase: 0 | 1 | 2;
-  oneshotStyle: QuizOneshotStyle;
 }
 
 export interface Quiz {
@@ -70,7 +72,6 @@ export interface QuizCueState {
   pollStartedAt: number | null;
   revealPhase: 0 | 1 | 2;
   votes: Record<number, number>;
-  oneshotStyle?: QuizOneshotStyle;
 }
 
 export const QUIZ_COLORS = [

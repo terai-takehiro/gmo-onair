@@ -32,10 +32,6 @@ export const SEED_NOMINEES: Nominee[] = [
     skillsEn: ['Engagement', 'Logical Thinking', 'User-Centric', 'Proactive', 'Systemization', 'Problem Solving', 'Creativity'],
     title: '7か月連続増収、売上50倍🔥を達成した事業責任者',
     titleEn: '50x Sales Growth, 7 Consecutive Months of Revenue Increase!',
-    comment:
-      '「エンジニアが自ら売上をつくる」ことに挑戦した1年でした。AIチャットボットを設計から実装まで一貫して担当し、ClaudeCodeへのコントリビュート（世界25人目）を達成。事業責任者に就任し、競合分析をもとに価格体系をゼロから再設計。7ヶ月連続増収を達成し、MRR50万円超のストック売上を自分の手で生み出すことができました。',
-    commentEn:
-      'A year challenging the idea that "Engineers create their own revenue." Oversaw an AI chatbot from design to implementation, becoming a Claude Code contributor (25th in the world). As Business Manager, redesigned pricing from scratch and drove 7 straight months of revenue growth to over ¥500K MRR.',
     members: null,
     recommender: {
       name: '沼田 直之',
@@ -46,10 +42,6 @@ export const SEED_NOMINEES: Nominee[] = [
       positionEn: 'General Manager',
       respect: 'AI時代の教育AI SaaSを牽引するプロフェッショナル',
       respectEn: 'A professional leading the Education AI SaaS in the AI era',
-      respectComment:
-        'コエテコにて、スクール向けAI API SaaS「コエテコマネージャー」の責任者を務める。営業開始から7ヶ月で連続増収を実現。AIエンジニアとしての技術力、PdMとしての製品視点、全国スクールへ足を運ぶ営業力——これらを一人で体現し、顧客の厚い信頼を得ている。',
-      respectCommentEn:
-        'As head of the Koeteko Manager AI SaaS, he achieved 7 consecutive months of revenue growth. He embodies the technical expertise of an AI engineer, the product perspective of a PdM, and hands-on sales capability—all by himself—earning deep trust from clients.',
     },
   },
   {
@@ -93,10 +85,6 @@ export const SEED_NOMINEES: Nominee[] = [
     ],
     title: 'グループ横断イベントで各社顧客とサービスをつなぐ場の創出',
     titleEn: 'Cross-group events linking customers & services',
-    comment:
-      'グループ横断イベントを通じて顧客同士の接点を創出し、相互送客の拡大につなげてきた取り組み。大型イベントや少人数の交流会を継続的に実施し、GMOインターネットグループ各社のサービス理解を深める機会を広げてきました。',
-    commentEn:
-      'Connecting customers through cross-group events to drive mutual referrals. We held large-scale events and small networking sessions to deepen understanding of services across the GMO Internet Group.',
     recommender: {
       name: '山城 博規',
       nameEn: 'Hiroki Yamashiro',
@@ -106,10 +94,6 @@ export const SEED_NOMINEES: Nominee[] = [
       positionEn: 'President & CEO',
       respect: '行動でシナジーを生み出す場づくりの旗手',
       respectEn: 'A Pioneer in Creating Synergy Through Action',
-      respectComment:
-        'Yoursを舞台に毎月6件以上のAI関連イベントを自ら企画・開催し、天秤AIの枠を超えてグループ全体のファンを生み出し続けています。100名規模の生成AI感謝祭、海外CEOを招いたBase44コラボなど多様なイベントを一人で企画から運営まで完遂。',
-      respectCommentEn:
-        'He independently plans and hosts over six AI events monthly, creating fans across the group beyond Tenbin AI—from the 100-person Generative AI Thanksgiving Festival to Base44 collaborations with overseas CEOs.',
     },
   },
 ];

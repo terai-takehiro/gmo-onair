@@ -47,7 +47,6 @@ const EMPTY_RECOMMENDER = {
   company: '', companyEn: '',
   position: '', positionEn: '',
   respect: '', respectEn: '',
-  respectComment: '', respectCommentEn: '',
 };
 
 /** Build a list of Nominee objects from the `/oneshot/output` (or `/oneshot/state`)
@@ -106,8 +105,6 @@ export function mapEventToNominees(
         skillsEn: od.skillsEn ?? [],
         title: od.title ?? e.name,
         titleEn: od.titleEn ?? e.name_en ?? e.name,
-        comment: od.comment ?? '',
-        commentEn: od.commentEn ?? '',
         projectName: od.projectName,
         projectNameEn: od.projectNameEn,
         projectKana: od.projectKana,

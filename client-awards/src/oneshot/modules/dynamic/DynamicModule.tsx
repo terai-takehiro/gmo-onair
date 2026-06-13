@@ -92,15 +92,6 @@ function renderSlot(slot: SlotDef, n: Nominee, lang: Lang): ReactNode {
       // CSS .lt-respect::before / ::after が「」を自動で付ける
       return <div className="lt-respect">{asText(value)}</div>;
 
-    case 'body-rec-quote':
-      return (
-        <div className="lt-rec-body">
-          <span className="lt-rec-quote-l">“</span>
-          {asText(value)}
-          <span className="lt-rec-quote-r">”</span>
-        </div>
-      );
-
     case 'body-tags': {
       const list = asList(value).slice(0, 8);
       return (

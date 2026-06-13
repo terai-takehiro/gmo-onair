@@ -40,8 +40,7 @@ function nextStepFor(
 }
 
 const STEP_LABELS: Record<QuizStep, string> = {
-  idle: 'IDLE', poll: 'POLL', 'answer-check': 'ANS', reveal: 'RESULT',
-  winner: 'NO.1', 'correct-reveal': 'CORRECT',
+  idle: 'IDLE', poll: 'POLL', 'answer-check': 'ANS', 'correct-reveal': 'CORRECT',
 };
 
 // 演出パターンの表示 (operator UI のバッジ用)
@@ -58,7 +57,7 @@ export default function QuizStackControlPage() {
   const navigate = useNavigate();
 
   const { data: quizzes = [] } = useQuizzes(eventId);
-  const { cue, sendCue, setStep, liveVotes } = useQuizStackSocket(eventId);
+  const { cue, sendCue, setStep, liveVotes, sendNext } = useQuizStackSocket(eventId);
 
   // PROGRAM = cue.currentQuizId, NEXT = ローカル選択
   const [nextQuizId, setNextQuizId] = useState<number | null>(null);
@@ -72,6 +71,9 @@ export default function QuizStackControlPage() {
       setNextQuizId(quizzes[0].id);
     }
   }, [quizzes, cue.currentQuizId, nextQuizId]);
+
+  // NEXT 選択を broadcast (NEXT 出力 URL 用)
+  useEffect(() => { sendNext(nextQuizId); }, [nextQuizId, sendNext]);
 
   // 現在 / 次の quiz 詳細
   const { data: currentQuiz } = useQuiz(cue.currentQuizId);
@@ -97,20 +99,14 @@ export default function QuizStackControlPage() {
     setVoteEdits((prev) => ({ ...prev, ...liveVotes.votes }));
   }, [liveVotes, cue.currentQuizId]);
 
-  // v2.9.28: カウントダウンが 0 になっても自動遷移しない (poll のまま停止)。
-  // operator が次に TAKE を押したとき reveal/phase 0 (ランダム揺れ) へ進む。
-  // → 旧 v2.9.18 の poll 制限時間到達による自動 reveal 遷移は廃止。
+  // カウントダウンが 0 になっても自動遷移しない (poll のまま停止)。
+  // operator が次に TAKE を押したとき次ステップ (answer-check / correct-reveal) へ進む。
 
   const take = useCallback(() => {
     if (!currentQuiz) {
       // NEXT を PROGRAM にプロモートして POLL 開始
       if (!nextQuiz) return;
       sendCue({ currentQuizId: nextQuiz.id, step: 'poll', pollStartedAt: getServerNow(), revealPhase: 0, votes: {} });
-      return;
-    }
-    // v2.9.18+: reveal step 内の phase 進行 (TAKE で 0→1 ドン!確定)
-    if (cue.step === 'reveal' && cue.revealPhase === 0) {
-      sendCue({ revealPhase: 1, votes: voteEdits });
       return;
     }
     const next = nextStepFor(currentQuiz.mode, currentQuiz.survey_pattern, currentQuiz.has_answer_check, cue.step);
@@ -167,8 +163,8 @@ export default function QuizStackControlPage() {
     prevStepRef.current = cue.step;
     if (!currentQuiz || quizzes.length === 0) return;
     const isTerminal = (s: QuizStep): boolean => {
-      if (s === 'winner' || s === 'correct-reveal') return true;
-      // v2.9.63: アンケートは answer-check が終端 (No.1 はランキングCGで発表)
+      if (s === 'correct-reveal') return true;
+      // アンケートは answer-check が終端 (No.1 はランキングCGで発表)
       if (s === 'answer-check' && currentQuiz.mode === 'survey') return true;
       return false;
     };
@@ -205,19 +201,15 @@ export default function QuizStackControlPage() {
   }, []);
 
   const nextStep = currentQuiz ? nextStepFor(currentQuiz.mode, currentQuiz.survey_pattern, currentQuiz.has_answer_check, cue.step) : 'poll';
-  // v2.9.18+: reveal/phase 0 のときは TAKE で ドン!確定 (phase 1) に進む
-  const inShakeReveal = cue.step === 'reveal' && cue.revealPhase === 0;
-  // v2.9.42: TAKE on terminal は no-op、CLEAR で終了 → idle で TAKE すると次のクイズへ
+  // TAKE on terminal は no-op、CLEAR で終了 → idle で TAKE すると次のクイズへ
   const isTerminalNow = currentQuiz != null && nextStep === 'idle' && cue.step !== 'idle' && cue.step !== 'poll';
   const nextLabel = !currentQuiz
     ? '次のクイズを開始'
-    : inShakeReveal
-      ? '次へ (ドン!確定)'
-      : isTerminalNow
-        ? 'CLEAR でクイズ終了'
-        : (cue.step === 'idle'
-          ? (nextQuiz && nextQuiz.id !== cue.currentQuizId ? '次のクイズを開始' : 'リスタート (POLL)')
-          : `次へ (${STEP_LABELS[nextStep]})`);
+    : isTerminalNow
+      ? 'CLEAR でクイズ終了'
+      : (cue.step === 'idle'
+        ? (nextQuiz && nextQuiz.id !== cue.currentQuizId ? '次のクイズを開始' : 'リスタート (POLL)')
+        : `次へ (${STEP_LABELS[nextStep]})`);
 
   const totalVotes = useMemo(() => Object.values(voteEdits).reduce((s, v) => s + (v || 0), 0), [voteEdits]);
 
@@ -306,7 +298,6 @@ export default function QuizStackControlPage() {
                     quizId: currentQuiz.id, step: cue.step,
                     pollStartedAt: cue.pollStartedAt, revealPhase: cue.revealPhase,
                     votes: voteEdits,
-                    oneshotStyle: cue.oneshotStyle,
                   }}
                 />
               </div>

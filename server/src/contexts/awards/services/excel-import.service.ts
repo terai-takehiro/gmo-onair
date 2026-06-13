@@ -43,8 +43,6 @@ const ISM_HEADERS             = ['ノミネート者私のイズム', '私のイ
 const SKILLS_HEADERS          = ['ノミネート者私の得意技', '私の得意技', '個人やチームの特長・強み', '得意技'];
 const TITLE_HEADERS           = ['ノミネートタイトル'];
 const TITLE_EN_HEADERS        = ['ノミネートタイトル（英語）', 'ノミネートタイトル(英語)'];
-const COMMENT_HEADERS         = ['ノミネート者コメント'];
-const COMMENT_EN_HEADERS      = ['ノミネート者コメント（英語）', 'ノミネート者コメント(英語)'];
 const TEAM_SIZE_HEADERS       = ['人数'];
 const MEMBERS_HEADERS         = ['チームメンバー', 'メンバー', '副代表'];
 // 推薦者
@@ -56,8 +54,6 @@ const REC_DEPT_HEADERS        = ['推薦者部署', '推薦者`部署'];
 const REC_POSITION_HEADERS    = ['推薦者役職'];
 const REC_RESPECT_HEADERS     = ['尊敬ポイント（13文字）', '尊敬ポイント(13文字)', '尊敬ポイント'];
 const REC_RESPECT_EN_HEADERS  = ['尊敬ポイント（13文字）（英語）', '尊敬ポイント(13文字)(英語)', '尊敬ポイント（英語）', '尊敬ポイント(英語)'];
-const REC_RESPECT_COMMENT_HEADERS    = ['尊敬ポイントに関するコメント'];
-const REC_RESPECT_COMMENT_EN_HEADERS = ['尊敬ポイントに関するコメント（英語）', '尊敬ポイントに関するコメント(英語)'];
 
 // custom mapping のキー定義 (クライアントと共有)
 export type ImportMappingKey =
@@ -65,10 +61,10 @@ export type ImportMappingKey =
   | 'name' | 'nameEn' | 'projectName' | 'projectNameEn' | 'nameKana' | 'projectKana'
   | 'org' | 'orgEn'
   | 'entryNo' | 'department' | 'position' | 'location' | 'joinDate'
-  | 'ism' | 'skills' | 'title' | 'titleEn' | 'comment' | 'commentEn'
+  | 'ism' | 'skills' | 'title' | 'titleEn'
   | 'teamSize' | 'members'
   | 'recName' | 'recNameEn' | 'recNameKana' | 'recCompany' | 'recDept' | 'recPosition'
-  | 'recRespect' | 'recRespectEn' | 'recRespectComment' | 'recRespectCommentEn';
+  | 'recRespect' | 'recRespectEn';
 
 export type ImportMapping = Partial<Record<ImportMappingKey, string>>;
 
@@ -94,8 +90,6 @@ const AUTO_HEADERS: Record<ImportMappingKey, string[]> = {
   skills: SKILLS_HEADERS,
   title: TITLE_HEADERS,
   titleEn: TITLE_EN_HEADERS,
-  comment: COMMENT_HEADERS,
-  commentEn: COMMENT_EN_HEADERS,
   teamSize: TEAM_SIZE_HEADERS,
   members: MEMBERS_HEADERS,
   recName: REC_NAME_HEADERS,
@@ -106,8 +100,6 @@ const AUTO_HEADERS: Record<ImportMappingKey, string[]> = {
   recPosition: REC_POSITION_HEADERS,
   recRespect: REC_RESPECT_HEADERS,
   recRespectEn: REC_RESPECT_EN_HEADERS,
-  recRespectComment: REC_RESPECT_COMMENT_HEADERS,
-  recRespectCommentEn: REC_RESPECT_COMMENT_EN_HEADERS,
 };
 
 // 全角 ⇄ 半角・大文字小文字・空白を吸収する正規化
@@ -384,10 +376,10 @@ export async function importAwardsExcel(
   const oneshotKeys: ImportMappingKey[] = [
     'entryNo', 'nameKana', 'projectKana',
     'department', 'position', 'location', 'joinDate',
-    'ism', 'skills', 'title', 'titleEn', 'comment', 'commentEn',
+    'ism', 'skills', 'title', 'titleEn',
     'teamSize', 'members',
     'recName', 'recNameEn', 'recNameKana', 'recCompany', 'recDept', 'recPosition',
-    'recRespect', 'recRespectEn', 'recRespectComment', 'recRespectCommentEn',
+    'recRespect', 'recRespectEn',
   ];
   const oneshotCols: Partial<Record<ImportMappingKey, number>> = {};
   for (const k of oneshotKeys) oneshotCols[k] = get(k);
@@ -454,8 +446,6 @@ export async function importAwardsExcel(
     setIf('skills', 'skills', (v) => v.split(/\s*[、,／/]\s*/).filter(Boolean));
     setIf('title', 'title');
     setIf('titleEn', 'titleEn');
-    setIf('comment', 'comment');
-    setIf('commentEn', 'commentEn');
     setIf('teamSize', 'teamSize', (v) => parseInt(v, 10) || undefined);
     setIf('members', 'members'); // 文字列のまま (CG 側で member array に整形は今後)
 
@@ -476,8 +466,6 @@ export async function importAwardsExcel(
     setRec('position', 'recPosition');
     setRec('respect', 'recRespect');
     setRec('respectEn', 'recRespectEn');
-    setRec('respectComment', 'recRespectComment');
-    setRec('respectCommentEn', 'recRespectCommentEn');
     if (Object.keys(rec).length > 0) od.recommender = rec;
 
     // v2.8.69+: extras 列をそのまま保存 (キー = sanitize(ヘッダー))
