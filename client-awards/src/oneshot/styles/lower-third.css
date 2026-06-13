@@ -178,6 +178,8 @@
 .oneshot-cg-root .lt-entry-mini {
   font-family: var(--font-jp);
   font-size: 22px;
+  flex-shrink: 0;
+  white-space: nowrap;
   letter-spacing: 0.2em;
   color: var(--gold);
   font-weight: 600;

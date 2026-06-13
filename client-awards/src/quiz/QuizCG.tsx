@@ -222,10 +222,12 @@ function RightColumn({ title, question, isVertical }: { title: string; question:
           fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 900, fontSize: 40,
           color: '#fff', marginBottom: 18,
         }} min={0.5}>{title}</CondenseText>
-        <CondenseText style={{
+        {/* 英語の質問文は長文になりがちなので折り返しで対応 (縦方向に余裕がある) */}
+        <div style={{
           fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 900, fontSize: 36,
           color: '#fff', textShadow: '0 2px 16px rgba(0,0,0,0.85)',
-        }} min={0.5}>{question}</CondenseText>
+          lineHeight: 1.3, overflowWrap: 'break-word',
+        }}>{question}</div>
       </div>
     );
   }
@@ -260,13 +262,20 @@ function RightColumn({ title, question, isVertical }: { title: string; question:
   );
 }
 
-function VerticalText({ text, fontSize, maxHeight }: { text: string; fontSize: number; maxHeight: number }) {
-  const charsApprox = text.length;
+function VerticalText({ text, fontSize: baseFontSize, maxHeight }: { text: string; fontSize: number; maxHeight: number }) {
+  const charsApprox = [...text].length;
+  // 超長文は scaleY 下限 (0.55) ではみ出していたため、まずフォントサイズ自体を
+  // 「scaleY 0.55 で収まる」サイズまで縮小し、残りを scaleY (長体) で吸収する。
+  const MIN_SCALE_Y = 0.55;
+  let fontSize = baseFontSize;
+  if (charsApprox > 0 && charsApprox * fontSize * MIN_SCALE_Y > maxHeight) {
+    fontSize = Math.max(24, Math.floor(maxHeight / (charsApprox * MIN_SCALE_Y)));
+  }
   const naturalH = charsApprox * fontSize * 1.0;
-  const scale = naturalH > maxHeight ? Math.max(0.4, maxHeight / naturalH) : 1;
+  const scale = naturalH > maxHeight ? Math.max(MIN_SCALE_Y, maxHeight / naturalH) : 1;
   const isLong = scale < 1;
   return (
-    <div style={{ maxHeight, display: 'flex', alignItems: 'flex-start' }}>
+    <div style={{ maxHeight, display: 'flex', alignItems: 'flex-start', overflow: 'hidden' }}>
       <div style={{
         writingMode: 'vertical-rl', textOrientation: 'mixed', whiteSpace: 'nowrap',
         fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 900, fontSize,
@@ -285,10 +294,16 @@ function VerticalText({ text, fontSize, maxHeight }: { text: string; fontSize: n
 }
 
 function TitleBand({ text, maxH }: { text: string; maxH: number }) {
-  const charsApprox = text.length;
-  const fontSize = 56;
+  const charsApprox = [...text].length;
+  // 超長文は scaleY 下限 (0.65) ではみ出していたため、まずフォントサイズを縮小して
+  // 「scaleY 0.65 で収まる」サイズに合わせ、残りを scaleY で吸収する。
+  const avail = maxH - 80;
+  let fontSize = 56;
+  if (charsApprox > 0 && charsApprox * fontSize * 1.1 * 0.65 > avail) {
+    fontSize = Math.max(26, Math.floor(avail / (charsApprox * 1.1 * 0.65)));
+  }
   const naturalH = charsApprox * fontSize * 1.1;
-  const scale = naturalH > (maxH - 80) ? Math.max(0.65, (maxH - 80) / naturalH) : 1;
+  const scale = naturalH > avail ? Math.max(0.65, avail / naturalH) : 1;
   return (
     <div style={{
       position: 'relative', writingMode: 'vertical-rl',
@@ -299,6 +314,7 @@ function TitleBand({ text, maxH }: { text: string; maxH: number }) {
       fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 900, fontSize,
       letterSpacing: scale < 1 ? '0' : '0.14em', lineHeight: 1,
       maxHeight: maxH,
+      overflow: 'hidden',
       fontFeatureSettings: '"palt" 1',
     }}>
       <div style={{ position: 'absolute', inset: -8, border: `1px solid ${GOLD_BRIGHT}`, opacity: 0.5 }}/>
@@ -614,7 +630,7 @@ function Header({ categoryChild }: { categoryChild: string }) {
       }}>
         &mdash; &nbsp; VOTE REVEAL &nbsp; &mdash;
       </div>
-      <div style={{
+      <CondenseText style={{
         fontFamily: "'Noto Sans JP', sans-serif",
         fontWeight: 700,
         fontSize: 54,
@@ -622,9 +638,11 @@ function Header({ categoryChild }: { categoryChild: string }) {
         color: '#f8eccc',
         textShadow: '0 4px 18px rgba(0,0,0,0.85)',
         lineHeight: 1.1,
-      }}>
+        textAlign: 'center',
+        padding: '0 100px',
+      }} min={0.4}>
         {categoryChild}
-      </div>
+      </CondenseText>
     </div>
   );
 }
@@ -687,6 +705,12 @@ function CandidateCard({ cx, choice, actual, totalVotes, display, phase }: {
     ? (totalVotes > 0 ? Math.round((actual / totalVotes) * 100) : 0)
     : actual;
   const unit = display === 'percent' ? '%' : '票';
+
+  // 5 桁以上の大票数でピル (固定幅) からはみ出さないよう桁数でフォントを縮小
+  const numFontBase = (p: 0 | 1) => (p === 1 ? 132 : 92);
+  const numAvailW = (p: 0 | 1) => (p === 1 ? 480 - 38 * 2 - 60 : 360 - 26 * 2 - 44);
+  const fitNumFont = (p: 0 | 1, str: string) =>
+    Math.min(numFontBase(p), Math.floor(numAvailW(p) / (Math.max(str.length, 1) * 0.52)));
 
   const [shown, setShown] = useState<number>(0);
   const animRef = useRef<number | null>(null);
@@ -811,7 +835,7 @@ function CandidateCard({ cx, choice, actual, totalVotes, display, phase }: {
           <span style={{
             fontFamily: "'Roboto Condensed', sans-serif",
             fontWeight: 700,
-            fontSize: phase === 1 ? 132 : 92,
+            fontSize: fitNumFont(phase, shown.toLocaleString()),
             color: '#fff',
             letterSpacing: '-0.01em',
             lineHeight: 1,
@@ -870,7 +894,11 @@ function Countdown({ startedAt, totalSec }: { startedAt: number | null; totalSec
   const isLast10 = secs <= 10;
   const size = 210;
   const r = size / 2 - 10;
-  const fontPx = isLast5 ? 175 : 140;
+  // 3 桁以上 (countdown_seconds が 100 秒超) は数字が円からはみ出すため桁数で縮小
+  const digits = String(Math.max(0, secs)).length;
+  const baseFontPx = isLast5 ? 175 : 140;
+  const maxDigitsW = size - 56;                    // 円の内側に収まる幅
+  const fontPx = Math.min(baseFontPx, Math.floor(maxDigitsW / (digits * 0.56)));
   const accent = isLast10 ? '#ff7a5a' : GOLD_BRIGHT;
   const halo = isLast5
     ? '0 0 80px rgba(255,90,40,0.85)'

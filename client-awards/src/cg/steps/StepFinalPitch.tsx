@@ -33,17 +33,25 @@ export default function StepFinalPitch({ entries, pickedIndex, categoryChild, la
         }}>
           &mdash; &nbsp; FINAL PITCH &nbsp; &mdash;
         </div>
-        <div style={{
-          fontFamily: "'Noto Sans JP', sans-serif",
-          fontWeight: 900,
-          fontSize: 52,
-          letterSpacing: '0.12em',
-          background: 'linear-gradient(180deg, #FFE8A8 0%, #E8C56C 50%, #9E7B2E 100%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          backgroundClip: 'text',
-          filter: 'drop-shadow(0 4px 18px rgba(0,0,0,0.85))',
-        }}>{categoryChild}</div>
+        <CondenseText
+          style={{
+            fontFamily: "'Noto Sans JP', sans-serif",
+            fontWeight: 900,
+            fontSize: 52,
+            letterSpacing: '0.12em',
+            textAlign: 'center',
+            padding: '0 80px',
+          }}
+          min={0.4}
+        >
+          <span style={{
+            background: 'linear-gradient(180deg, #FFE8A8 0%, #E8C56C 50%, #9E7B2E 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            filter: 'drop-shadow(0 4px 18px rgba(0,0,0,0.85))',
+          }}>{categoryChild}</span>
+        </CondenseText>
       </div>
 
       {/* カード表示 */}

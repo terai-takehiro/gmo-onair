@@ -63,11 +63,14 @@ const NO1_GAP = 28;
 // Canvas measureText underestimates weight-900 CJK by ~12–14%; buffer compensates.
 const MEAS_BUF = 1.14;
 
-function calcCardW(name: string, company: string, catChild: string): number {
+function calcCardW(name: string, company: string, catChild: string, nomTitle: string): number {
   const nameW  = measureWidth(name, `900 58px 'Noto Sans JP'`) * MEAS_BUF + name.length * 58 * 0.04;
   const compW  = measureWidth(company, `500 26px 'Noto Sans JP'`) * MEAS_BUF + company.length * 26 * 0.08;
   const catW   = measureWidth(catChild, `700 38px 'Noto Sans JP'`) * MEAS_BUF + catChild.length * 38 * 0.04;
-  const maxTextW = Math.max(nameW, compW, catW);
+  // ノミネートタイトルは長文になりがちなのでカード拡張への寄与は 700px まで
+  // (それ以上は TextColumn 側の fitText が長体/折り返しで収める)
+  const nomW   = Math.min(700, measureWidth(nomTitle, `700 26px 'Noto Sans JP'`) * MEAS_BUF + nomTitle.length * 26 * 0.02);
+  const maxTextW = Math.max(nameW, compW, catW, nomW);
   const overhead = CARD_PAD_X * 2 + PHOTO_W + CARD_GAP + NO1_COL_W + NO1_GAP;
   return Math.min(MAX_CARD_W, Math.max(MIN_CARD_W, Math.ceil(overhead + maxTextW)));
 }
@@ -76,7 +79,7 @@ function OneShotCardOverlay({ entry, on, style, categoryParent, categoryChild, l
   const displayName    = lang === 'en' ? (entry.nameEn || entry.name) : entry.name;
   const displayCompany = lang === 'en' ? (entry.orgEn  || entry.company) : entry.company;
 
-  const cardW    = calcCardW(displayName, displayCompany, categoryChild);
+  const cardW    = calcCardW(displayName, displayCompany, categoryChild, entry.nominationTitle || entry.nominationTitleEn || '');
   const textColW = cardW - CARD_PAD_X * 2 - PHOTO_W - CARD_GAP - NO1_COL_W - NO1_GAP;
 
   let cardTransform: string;
@@ -273,9 +276,12 @@ interface TextProps {
 }
 
 function TextColumn({ entry, on, categoryParent, categoryChild, displayName, displayCompany, textColW, hidePoints = false }: TextProps) {
-  const nameFit     = fitText(displayName, textColW, `900 58px 'Noto Sans JP', sans-serif`);
-  const compFit     = fitText(displayCompany, textColW, `500 26px 'Noto Sans JP', sans-serif`);
-  const catChildFit = fitText(categoryChild, textColW, `700 38px 'Noto Sans JP', sans-serif`);
+  const nameFit      = fitText(displayName, textColW, `900 58px 'Noto Sans JP', sans-serif`, { letterSpacingEm: 0.04 });
+  const compFit      = fitText(displayCompany, textColW, `500 26px 'Noto Sans JP', sans-serif`, { letterSpacingEm: 0.08 });
+  const catChildFit  = fitText(categoryChild, textColW, `700 38px 'Noto Sans JP', sans-serif`, { letterSpacingEm: 0.06 });
+  const catParentFit = fitText(categoryParent, textColW, `600 18px 'Noto Sans JP', sans-serif`, { noWrap: true, letterSpacingEm: 0.22 });
+  const nomTitle     = entry.nominationTitle || entry.nominationTitleEn || '';
+  const nomTitleFit  = fitText(nomTitle, textColW, `700 26px 'Noto Sans JP', sans-serif`, { letterSpacingEm: 0.02 });
   const D = 280;
   const T = 700;
   const yT = on ? 'translateY(0)' : 'translateY(16px)';
@@ -324,7 +330,7 @@ function TextColumn({ entry, on, categoryParent, categoryChild, displayName, dis
         </div>
       )}
 
-      {/* Division (secondary) */}
+      {/* Division (secondary) — 長文は長体 (scaleX) で収める (旧: overflow hidden で見切れていた) */}
       {categoryParent && (
         <div
           style={{
@@ -334,10 +340,8 @@ function TextColumn({ entry, on, categoryParent, categoryChild, displayName, dis
             color: 'rgba(201,162,75,0.75)',
             letterSpacing: '0.22em',
             paddingLeft: '0.22em',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
             marginTop: -8,
-            ...fade(),
+            ...fade(fitStyle(catParentFit)),
           }}
         >
           {categoryParent}
@@ -387,8 +391,8 @@ function TextColumn({ entry, on, categoryParent, categoryChild, displayName, dis
         {displayName}
       </div>
 
-      {/* ノミネートタイトル (entry.nominationTitle が設定されている時のみ) */}
-      {(entry.nominationTitle || entry.nominationTitleEn) && (
+      {/* ノミネートタイトル (entry.nominationTitle が設定されている時のみ)。長文は長体→折り返しで収める */}
+      {nomTitle && (
         <div
           style={{
             fontFamily: "'Noto Sans JP', sans-serif",
@@ -399,10 +403,10 @@ function TextColumn({ entry, on, categoryParent, categoryChild, displayName, dis
             lineHeight: 1.2,
             marginTop: 6,
             textShadow: '0 2px 8px rgba(0,0,0,0.7)',
-            ...fade(),
+            ...fade(fitStyle(nomTitleFit)),
           }}
         >
-          {entry.nominationTitle || entry.nominationTitleEn}
+          {nomTitle}
         </div>
       )}
 
