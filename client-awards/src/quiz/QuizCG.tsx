@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { QuizWithChoices, QuizCueState, QuizChoice } from './types';
 import { QUIZ_COLORS } from './types';
-import { CondenseText } from '@/cg/components/CondenseText';
+import { CondenseText, CondenseMultiline } from '@/cg/components/CondenseText';
 import { getServerNow } from '@/lib/serverClock';
 
 interface Props {
@@ -339,7 +339,7 @@ function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, 
         : `linear-gradient(160deg, ${palette.core}, ${palette.deep})`,
       border: isDimmed ? '2px solid rgba(255,255,255,0.18)' : '2px solid rgba(245,215,110,0.55)',
       borderRadius: 8,
-      padding: `8px ${padRight}px 8px 84px`,
+      padding: `6px ${padRight}px 6px 84px`,
       display: 'flex', flexDirection: 'column', justifyContent: 'center',
       boxShadow: isDimmed
         ? '0 8px 22px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)'
@@ -365,18 +365,17 @@ function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, 
         filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.45))',
       }}>{index}</div>
 
-      {/* 選択肢名: 長文は最大 2 行で折り返し、それでも入らなければ省略 (はみ出さない) */}
-      <div style={{
-        fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 900, fontSize: 38,
-        color: '#fff', textShadow: '0 2px 6px rgba(0,0,0,0.7)',
-        lineHeight: 1.14,
-        display: '-webkit-box',
-        WebkitLineClamp: 2,
-        WebkitBoxOrient: 'vertical',
-        overflow: 'hidden',
-        wordBreak: 'break-word',
-        overflowWrap: 'anywhere',
-      }}>{name}</div>
+      {/* 選択肢名: 最大 2 行で折り返し、それでも入らない長文は長体 (scaleX) で圧縮して
+          2 行に収める (「…」で切らない)。 */}
+      <CondenseMultiline
+        style={{
+          fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 900, fontSize: 38,
+          color: '#fff', textShadow: '0 2px 6px rgba(0,0,0,0.7)',
+          lineHeight: 1.08,
+        }}
+        min={0.45}
+        maxLines={2}
+      >{name}</CondenseMultiline>
 
       {/* 票数 (answer-check / correct-reveal 時のみ)。右端の固定枠に収め、テキストと被らない。 */}
       {showVotes && (
