@@ -37,6 +37,11 @@ export interface KessanOptions {
 export interface KessanReport {
   dryRun: boolean;
   period: string;
+  /** 取込データの対象期間 (取引日の最小〜最大 + 含まれる年月一覧) */
+  dateRange: { from: string; to: string; months: string[] };
+  /** 取込先 DB 名 (prod=本番 / dev=検証 の判別用) */
+  targetDb: string;
+  isProd: boolean;
   scopes: string[];
   sourceFile: string;
   summary: {
@@ -50,6 +55,8 @@ export interface KessanReport {
     missingCustomers: string[];
     created: { projects: number; customers: number; vendors: number };
   };
+  /** 既存データ (非決算インポート行) に同一金額+内容が見つかった重複候補 */
+  duplicates: { sga: number; revenues: number; purchases: number; samples: string[] };
   samples: { sga: string[]; revenues: string[]; purchases: string[] };
   committed?: { sga: number; revenues: number; purchases: number; skipped: number };
   warnings: string[];
@@ -192,16 +199,24 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
   const data = rows.slice(1).filter((r) => r.length > C.credit && String(r[C.no] ?? '').trim());
   const party = (r: string[]) => stripCode(firstNonEmpty(r[C.csub], r[C.cpartner], r[C.partner]));
 
-  // period 自動判定
+  // period 自動判定 + 対象期間 (取引日の最小〜最大 + 含まれる年月)
+  const counts: Record<string, number> = {};
+  let dateFrom = '', dateTo = '';
+  for (const r of data) {
+    const d = normDate(r[C.date]);
+    const ym = d.slice(0, 7);
+    if (/^\d{4}-\d{2}$/.test(ym)) counts[ym] = (counts[ym] || 0) + 1;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+      if (!dateFrom || d < dateFrom) dateFrom = d;
+      if (!dateTo || d > dateTo) dateTo = d;
+    }
+  }
+  const months = Object.keys(counts).sort();
   let period = opts.period || '';
   if (!period) {
-    const counts: Record<string, number> = {};
-    for (const r of data) {
-      const ym = normDate(r[C.date]).slice(0, 7);
-      if (/^\d{4}-\d{2}$/.test(ym)) counts[ym] = (counts[ym] || 0) + 1;
-    }
     period = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || '0000-00';
   }
+  const dateRange = { from: dateFrom, to: dateTo, months };
   const MARKER = `[kessan:${period}]`;
 
   // --- 抽出 ---
@@ -239,8 +254,11 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
   }
   const sum = (arr: { amount: number }[]) => arr.reduce((s, x) => s + x.amount, 0);
 
+  const targetDb = String(process.env.DB_NAME || process.env.DATABASE_URL || '').toLowerCase();
+  const isProd = targetDb.includes('prod') || targetDb.includes('production');
+
   const report: KessanReport = {
-    dryRun: !commit, period, scopes, sourceFile: glFile.name,
+    dryRun: !commit, period, dateRange, targetDb: process.env.DB_NAME || (isProd ? 'prod' : 'dev'), isProd, scopes, sourceFile: glFile.name,
     summary: {
       sga: { count: sga.length, amount: sum(sga) },
       revenues: { count: rev.length, amount: sum(rev) },
@@ -248,6 +266,7 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       fixedCogs: { count: fixed.length, amount: sum(fixed), routed: excludeFixed ? '除外' : `${FIXED_NAME} (${FIXED_CODE})` },
     },
     masters: { missingProjects: [], missingCustomers: [], created: { projects: 0, customers: 0, vendors: 0 } },
+    duplicates: { sga: 0, revenues: 0, purchases: 0, samples: [] },
     samples: {
       sga: sga.slice(0, 6).map((x) => `${x.date} ${yen(x.amount)} ${x.tax_category} ${x.vendor_name} | ${x.description.slice(0, 60)}`),
       revenues: rev.map((x) => `${x.date} ${yen(x.amount)} ${x.gls || 'GLS?'} ${x.customer_name} | ${x.project_name}`),
@@ -287,6 +306,64 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       if (noGls) warnings.push(`売上で GLS 未抽出 ${noGls} 件 (案件紐付け不可)`);
       if ((report.masters.missingProjects.length || report.masters.missingCustomers.length) && !createMasters) {
         warnings.push('未登録マスタがあります。createMasters=true で自動作成します (dev)。');
+      }
+    }
+
+    // 重複候補チェック (既存の「決算インポート以外」の行に同一 金額+内容+日付 があるか)
+    // dry-run でも実行し、誤って二重計上しないよう事前に警告する。
+    if (dateFrom && dateTo) {
+      const dupSamples: string[] = [];
+      if (scopes.includes('sga') && sga.length) {
+        const ex = await client.query(
+          `SELECT amount, vendor_name, recognition_date FROM sga_expenses
+           WHERE recognition_date >= $1 AND recognition_date <= $2
+             AND (notes IS NULL OR notes NOT LIKE '[kessan:%') AND deleted_at IS NULL`,
+          [dateFrom, dateTo]
+        );
+        const set = new Set(ex.rows.map((r) => `${toInt(r.amount)}|${String(r.vendor_name || '').trim()}|${normDate(r.recognition_date)}`));
+        for (const x of sga) {
+          if (set.has(`${x.amount}|${x.vendor_name}|${x.date}`)) {
+            report.duplicates.sga++;
+            if (dupSamples.length < 8) dupSamples.push(`[販管費] ${x.date} ${yen(x.amount)} ${x.vendor_name}`);
+          }
+        }
+      }
+      if (scopes.includes('revenues') && rev.length) {
+        const ex = await client.query(
+          `SELECT r.amount, p.gls_number, r.recognition_date FROM revenues r
+           JOIN projects p ON p.id = r.project_id
+           WHERE r.recognition_date >= $1 AND r.recognition_date <= $2
+             AND (r.notes IS NULL OR r.notes NOT LIKE '[kessan:%') AND r.deleted_at IS NULL`,
+          [dateFrom, dateTo]
+        );
+        const set = new Set(ex.rows.map((r) => `${toInt(r.amount)}|${String(r.gls_number || '').trim()}|${normDate(r.recognition_date)}`));
+        for (const x of rev) {
+          if (x.gls && set.has(`${x.amount}|${x.gls}|${x.date}`)) {
+            report.duplicates.revenues++;
+            if (dupSamples.length < 8) dupSamples.push(`[売上] ${x.date} ${yen(x.amount)} ${x.gls}`);
+          }
+        }
+      }
+      if (scopes.includes('purchases') && pur.length) {
+        const ex = await client.query(
+          `SELECT pu.amount, p.gls_number, pu.recognition_date FROM purchases pu
+           JOIN projects p ON p.id = pu.project_id
+           WHERE pu.recognition_date >= $1 AND pu.recognition_date <= $2
+             AND (pu.notes IS NULL OR pu.notes NOT LIKE '[kessan:%') AND pu.deleted_at IS NULL`,
+          [dateFrom, dateTo]
+        );
+        const set = new Set(ex.rows.map((r) => `${toInt(r.amount)}|${String(r.gls_number || '').trim()}|${normDate(r.recognition_date)}`));
+        for (const x of pur) {
+          if (x.gls && set.has(`${x.amount}|${x.gls}|${x.date}`)) {
+            report.duplicates.purchases++;
+            if (dupSamples.length < 8) dupSamples.push(`[仕入] ${x.date} ${yen(x.amount)} ${x.gls}`);
+          }
+        }
+      }
+      report.duplicates.samples = dupSamples;
+      const dupTotal = report.duplicates.sga + report.duplicates.revenues + report.duplicates.purchases;
+      if (dupTotal > 0) {
+        warnings.push(`既存データに同一金額+内容の重複候補が ${dupTotal} 件あります (販管費 ${report.duplicates.sga} / 売上 ${report.duplicates.revenues} / 仕入 ${report.duplicates.purchases})。手入力分との二重計上にご注意ください。`);
       }
     }
 

@@ -1,12 +1,12 @@
 /**
- * kessan.routes.ts — 決算データ取込 (検証DB専用・管理者限定)
+ * kessan.routes.ts — 決算データ取込 (管理者限定)
  *
  * POST /admin/kessan/run  — 総勘定元帳(Box)を予算管理/案件管理へ取込む
- *   body: { scope, commit, createMasters, excludeFixed, glFileId?, period? }
+ *   body: { scope, commit, createMasters, excludeFixed, glFileId?, boxFolderId?, period? }
  *
  * ガード:
  *   - requireAuth + system_admin ロール限定
- *   - DB 名が prod っぽい場合は 403 (本番では実行不可)
+ *   - 本番DB/検証DB の両方で実行可 (レポートに targetDb/isProd を含め画面で明示)
  */
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../../../shared/middleware/auth';
@@ -16,19 +16,19 @@ import { isBoxConfigured } from '../../../shared/services/box';
 const router = Router();
 router.use(requireAuth, requireRole('system_admin'));
 
-function isProdDb(): boolean {
-  const s = String(process.env.DB_NAME || process.env.DATABASE_URL || '').toLowerCase();
-  return s.includes('prod') || s.includes('production');
+/** Box フォルダ ID または共有URL (https://.../folder/123456) から数値 ID を取り出す */
+function extractFolderId(input: string): string | undefined {
+  const s = String(input || '').trim();
+  if (!s) return undefined;
+  if (/^\d+$/.test(s)) return s;
+  const m = s.match(/folder\/(\d+)/);
+  return m ? m[1] : undefined;
 }
 
 router.post('/run', async (req, res) => {
   try {
-    if (isProdDb()) {
-      res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: '本番DBでは実行できません (検証DB専用)' } });
-      return;
-    }
     if (!isBoxConfigured()) {
-      res.status(400).json({ success: false, error: { code: 'BOX_NOT_CONFIGURED', message: 'Box が未設定です (app_dev に BOX_CONFIG_JSON が必要)。Box連携が無効のため決算CSVを取得できません。' } });
+      res.status(400).json({ success: false, error: { code: 'BOX_NOT_CONFIGURED', message: 'Box が未設定です (BOX_CONFIG_JSON が必要)。Box連携が無効のため決算CSVを取得できません。' } });
       return;
     }
     const b = req.body || {};
@@ -39,7 +39,7 @@ router.post('/run', async (req, res) => {
       createMasters: b.createMasters === true,
       excludeFixed: b.excludeFixed === true,
       glFileId: typeof b.glFileId === 'string' && b.glFileId ? b.glFileId : undefined,
-      boxFolderId: typeof b.boxFolderId === 'string' && b.boxFolderId ? b.boxFolderId : undefined,
+      boxFolderId: typeof b.boxFolderId === 'string' && b.boxFolderId ? extractFolderId(b.boxFolderId) : undefined,
       period: typeof b.period === 'string' && /^\d{4}-\d{2}$/.test(b.period) ? b.period : undefined,
     };
     const report = await runKessanImport(opts, req.user!.id);
