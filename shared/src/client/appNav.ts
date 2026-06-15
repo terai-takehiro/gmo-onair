@@ -15,7 +15,7 @@ export const ALL_APPS: AppNavItem[] = [
   { key: 'home',        path: '/',                   label: 'ホーム',              icon: 'Home',        alwaysVisible: true },
   // 案件管理アプリ (client/) 内のモジュール
   { key: 'sales',       path: '/',                   label: '案件管理',            icon: 'Briefcase' },
-  { key: 'budget',      path: '/budget/revenues',    label: '予算管理',            icon: 'PiggyBank' },
+  { key: 'budget',      path: '/budget/revenues',    label: '財務管理',            icon: 'PiggyBank' },
   { key: 'studio',      path: '/studio/calendar',    label: 'スタジオ予約',        icon: 'Calendar' },
   // 独立ブロックアプリ
   { key: 'qsheet',      path: '/qsheet',             label: 'Qシート',             icon: 'FileText' },

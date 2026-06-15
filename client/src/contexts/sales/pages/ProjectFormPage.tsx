@@ -1000,9 +1000,11 @@ export default function ProjectFormPage() {
                     })}
                   </div>
                 )}
-                <p className="text-xs text-muted-foreground">
-                  以下の入力欄は新規作成時に使用します。編集時は上の「予約を追加」からスタジオ予約を直接管理してください
-                </p>
+                {projectBookings.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    以下の入力欄は、案件にまだ予約が無いとき用です。予約を登録すると非表示になります（以後は上の「予約を追加」から管理してください）
+                  </p>
+                )}
               </div>
             )}
             {!isEdit && (
@@ -1010,6 +1012,9 @@ export default function ProjectFormPage() {
                 以下を入力すると、案件登録時にスタジオ予約も同時に作成されます（後から個別に編集・追加可能）
               </p>
             )}
+            {/* 予約登録前（仮押さえ前）のみ表示。予約が登録されたら以後はスケジュール一覧＋「予約を追加」で管理 */}
+            {projectBookings.length === 0 && (
+            <>
             {/* 部屋選択 */}
             <div>
               <Label className="mb-2 block">使用する部屋・空間</Label>
@@ -1246,6 +1251,8 @@ export default function ProjectFormPage() {
                 </div>
               )}
             </div>
+            </>
+            )}
           </CardContent>
         </Card>
 

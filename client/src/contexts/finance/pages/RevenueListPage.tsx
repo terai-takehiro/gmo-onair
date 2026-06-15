@@ -402,7 +402,7 @@ export default function RevenueListPage() {
     setDialogOpen(true);
   };
 
-  // 予算ダッシュボード等から ?edit={id} で遷移されたら、その売上の詳細モーダルを開く
+  // 財務ダッシュボード等から ?edit={id} で遷移されたら、その売上の詳細モーダルを開く
   const editParam = searchParams.get("edit");
   const editOpenedRef = useRef<string | null>(null);
   useEffect(() => {

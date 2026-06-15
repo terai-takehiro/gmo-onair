@@ -210,7 +210,7 @@ export default function PurchaseListPage() {
     document.addEventListener("mouseup", onMouseUp);
   }, []);
 
-  // 予算ダッシュボード等から ?edit={id} で遷移されたら、その仕入の編集モーダルを開く
+  // 財務ダッシュボード等から ?edit={id} で遷移されたら、その仕入の編集モーダルを開く
   const editParam = searchParams.get("edit");
   const editOpenedRef = useRef<string | null>(null);
   useEffect(() => {

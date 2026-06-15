@@ -27,7 +27,7 @@ router.get('/', async (req, res) => {
 
   const total = ((await queryOne(`SELECT COUNT(*) as c FROM purchases pu LEFT JOIN vendors v ON v.id = pu.vendor_id LEFT JOIN projects p ON p.id = pu.project_id ${allocJoin} ${where}`, [...allocParams, ...params])) as any).c;
   const rows = await queryAll(
-    `SELECT pu.*, p.name as project_name, p.gls_number, v.name as vendor_name, pg.name as group_name${allocCol}
+    `SELECT pu.*, p.name as project_name, p.gls_number, p.code as project_code, v.name as vendor_name, pg.name as group_name${allocCol}
      FROM purchases pu
      LEFT JOIN projects p ON p.id = pu.project_id
      LEFT JOIN vendors v ON v.id = pu.vendor_id

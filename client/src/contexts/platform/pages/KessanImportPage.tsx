@@ -93,7 +93,7 @@ export default function KessanImportPage() {
         <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
-            freee の総勘定元帳（Box）を予算管理・案件管理へ取り込みます。
+            freee の総勘定元帳（Box）を財務管理・案件管理へ取り込みます。
             まず「解析（dry-run）」で内容を確認し、問題なければ「投入」してください。投入は対象月分（マーカー <code>[kessan:YYYY-MM]</code>）を入れ直すため、何度でも安全に再実行できます。
             本番DB・検証DBの両方で実行できます（取込先は結果に明示されます）。
           </div>

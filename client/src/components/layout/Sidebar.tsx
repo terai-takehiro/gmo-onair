@@ -97,7 +97,7 @@ const APP_NAV: Record<string, NavSection[]> = {
   budget: [
     {
       items: [
-        { label: "予算ダッシュボード", to: "/budget/dashboard", icon: BarChart3 },
+        { label: "財務ダッシュボード", to: "/budget/dashboard", icon: BarChart3 },
       ],
     },
     {
