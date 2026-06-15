@@ -42,14 +42,22 @@ export default function KessanImportPage() {
   const [createMasters, setCreateMasters] = useState(true);
   const [excludeFixed, setExcludeFixed] = useState(false);
   const [boxFolder, setBoxFolder] = useState("");
+  const [boxFile, setBoxFile] = useState("");
   const [report, setReport] = useState<KessanReport | null>(null);
 
   const run = useMutation<KessanReport, Error, boolean>({
     mutationFn: async (commit) => {
       const res = await api.post(
         "/admin/kessan/run",
-        { scope, commit, createMasters, excludeFixed, boxFolderId: boxFolder.trim() || undefined },
-        { timeout: 120000 }
+        {
+          scope,
+          commit,
+          createMasters,
+          excludeFixed,
+          boxFolderId: boxFolder.trim() || undefined,
+          glFileId: boxFile.trim() || undefined,
+        },
+        { timeout: 180000 }
       );
       return res.data.data as KessanReport;
     },
@@ -126,7 +134,20 @@ export default function KessanImportPage() {
               className="w-full h-9 rounded-md border border-border bg-background px-2 text-sm"
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              指定したフォルダ内の「総勘定元帳/元帳」CSV のうち最新を自動選択します。空欄なら既定の取込元を使用します。
+              指定したフォルダ内の「総勘定元帳/元帳」CSV（freee）のうち最新を自動選択します。空欄なら既定の取込元を使用します。
+            </p>
+          </div>
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">取込元ファイルを直接指定（任意：Box ファイル ID または 共有URL）</label>
+            <input
+              type="text"
+              value={boxFile}
+              onChange={(e) => setBoxFile(e.target.value)}
+              placeholder="例: 2285787526887 または https://….box.com/file/2285787526887"
+              className="w-full h-9 rounded-md border border-border bg-background px-2 text-sm"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              freee CSV・MoneyForward の xlsx（★グローバルスタジオPL見通し）どちらも指定可。形式は自動判定します（最優先・フォルダ設定より優先）。
             </p>
           </div>
           <div className="flex flex-wrap gap-2">

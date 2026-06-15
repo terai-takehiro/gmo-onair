@@ -25,6 +25,15 @@ function extractFolderId(input: string): string | undefined {
   return m ? m[1] : undefined;
 }
 
+/** Box ファイル ID または共有URL (https://.../file/123456) から数値 ID を取り出す */
+function extractFileId(input: string): string | undefined {
+  const s = String(input || '').trim();
+  if (!s) return undefined;
+  if (/^\d+$/.test(s)) return s;
+  const m = s.match(/file\/(\d+)/);
+  return m ? m[1] : undefined;
+}
+
 router.post('/run', async (req, res) => {
   try {
     if (!isBoxConfigured()) {
@@ -38,7 +47,7 @@ router.post('/run', async (req, res) => {
       commit: b.commit === true,
       createMasters: b.createMasters === true,
       excludeFixed: b.excludeFixed === true,
-      glFileId: typeof b.glFileId === 'string' && b.glFileId ? b.glFileId : undefined,
+      glFileId: typeof b.glFileId === 'string' && b.glFileId ? extractFileId(b.glFileId) : undefined,
       boxFolderId: typeof b.boxFolderId === 'string' && b.boxFolderId ? extractFolderId(b.boxFolderId) : undefined,
       period: typeof b.period === 'string' && /^\d{4}-\d{2}$/.test(b.period) ? b.period : undefined,
     };

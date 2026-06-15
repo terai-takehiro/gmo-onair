@@ -16,6 +16,7 @@
 import type { PoolClient } from 'pg';
 import { randomUUID } from 'node:crypto';
 import { TextDecoder } from 'node:util';
+import * as XLSX from 'xlsx';
 import { getDb } from '../../../shared/db/connection';
 import { getBoxClient } from '../../../shared/services/box';
 
@@ -172,18 +173,34 @@ function decodeCsv(buf: Buffer): string {
 interface SgaRow { no: string; date: string; amount: number; tax_category: string; invoice_qualified: number; vendor_name: string; description: string; }
 interface RevRow { no: string; date: string; amount: number; tax_category: string; customer_name: string; gls: string | null; project_name: string; memo: string; }
 interface PurRow { no: string; date: string; amount: number; tax_category: string; invoice_qualified: number; vendor_name: string; description: string; gls: string | null; split: number; }
+interface Extracted { sga: SgaRow[]; rev: RevRow[]; pur: PurRow[]; fixed: PurRow[]; }
 
-export async function runKessanImport(opts: KessanOptions, userId: string | null): Promise<KessanReport> {
-  const scope = opts.scope || 'sga';
-  const scopes = scope === 'all' ? ['sga', 'revenues', 'purchases'] : [scope];
-  const commit = !!opts.commit;
-  const createMasters = !!opts.createMasters;
-  const excludeFixed = !!opts.excludeFixed;
-  const warnings: string[] = [];
+/** ▲ / △ / (123) / -123 を負数として解釈する金額パーサ */
+const toAmt = (s: unknown): number => {
+  const str = String(s ?? '').trim();
+  const neg = /^\(.*\)$/.test(str) || str.startsWith('▲') || str.startsWith('△') || str.startsWith('-');
+  const n = parseInt(str.replace(/[^0-9]/g, ''), 10) || 0;
+  return neg ? -n : n;
+};
+/** "M/D/YYYY ..." または ISO 日付を YYYY-MM-DD に正規化 */
+const parseFlexDate = (s: unknown): string => {
+  const str = String(s ?? '').trim();
+  const m = str.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+  const iso = normDate(str);
+  return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : '';
+};
+/** 摘要から案件 GLS 番号 (1件) を抽出: 「GLS137｢…｣」のように鍵括弧直前を優先、無ければ最初の GLS 番号 */
+function parseGlsPrimary(memo: unknown): string | null {
+  const s = String(memo ?? '');
+  let m = s.match(/GLS(\d+)\s*[｢「]/);
+  if (m) return 'GLS' + m[1];
+  m = s.match(/GLS(\d+)/);
+  return m ? 'GLS' + m[1] : null;
+}
 
-  // --- Box から GL 取得 + パース ---
-  const glFile = await resolveGlFile(opts);
-  const csv = decodeCsv(await boxDownloadBuf(glFile.id));
+/** freee 総勘定元帳 CSV (借方/貸方・複式) から P/L 行を抽出 */
+function extractFreeeCsv(csv: string, glFileName: string): Extracted {
   const rows = parseCsv(csv);
   const header = rows[0] || [];
   const idx = (name: string) => header.indexOf(name);
@@ -194,32 +211,11 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
     memo: idx('摘要'), debit: idx('借方金額'), credit: idx('貸方金額'),
   };
   if (C.acct < 0 || C.debit < 0) {
-    throw new Error(`CSV ヘッダーが想定と異なります (勘定科目/借方金額 が見つからない)。取込元=${glFile.name} / 先頭行=${(header || []).join('|').slice(0, 160)}`);
+    throw new Error(`CSV ヘッダーが想定と異なります (勘定科目/借方金額 が見つからない)。取込元=${glFileName} / 先頭行=${(header || []).join('|').slice(0, 160)}`);
   }
   const data = rows.slice(1).filter((r) => r.length > C.credit && String(r[C.no] ?? '').trim());
   const party = (r: string[]) => stripCode(firstNonEmpty(r[C.csub], r[C.cpartner], r[C.partner]));
 
-  // period 自動判定 + 対象期間 (取引日の最小〜最大 + 含まれる年月)
-  const counts: Record<string, number> = {};
-  let dateFrom = '', dateTo = '';
-  for (const r of data) {
-    const d = normDate(r[C.date]);
-    const ym = d.slice(0, 7);
-    if (/^\d{4}-\d{2}$/.test(ym)) counts[ym] = (counts[ym] || 0) + 1;
-    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
-      if (!dateFrom || d < dateFrom) dateFrom = d;
-      if (!dateTo || d > dateTo) dateTo = d;
-    }
-  }
-  const months = Object.keys(counts).sort();
-  let period = opts.period || '';
-  if (!period) {
-    period = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || '0000-00';
-  }
-  const dateRange = { from: dateFrom, to: dateTo, months };
-  const MARKER = `[kessan:${period}]`;
-
-  // --- 抽出 ---
   const sga: SgaRow[] = [], rev: RevRow[] = [], pur: PurRow[] = [], fixed: PurRow[] = [];
   for (const r of data) {
     const a = acct(r[C.acct]);
@@ -252,13 +248,123 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       }
     }
   }
+  return { sga, rev, pur, fixed };
+}
+
+/**
+ * MoneyForward 形式の GL 明細 (★グローバルスタジオPL見通し.xlsx 「費用詳細」内の元帳ブロック) を抽出。
+ * - 単一金額列「機能通貨発生金額」(各勘定の自然残=正) を採用。借方/貸方なし。
+ * - 案件 GLS は「文字摘要1」から抽出。税区分列が無いため一律 tax10 + 適格扱い。
+ * - G社名='GLS' 以外 (AM/GLOVIA 等の他社レガシー) は除外。
+ */
+function extractMoneyForwardXlsx(buf: Buffer, warnings: string[]): Extracted {
+  const wb = XLSX.read(buf, { type: 'buffer' });
+  let H: Record<string, number> | null = null;
+  let body: string[][] = [];
+  for (const sheetName of wb.SheetNames) {
+    const ws = wb.Sheets[sheetName];
+    if (!ws) continue;
+    const aoa = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, raw: false, defval: '' });
+    for (let i = 0; i < aoa.length; i++) {
+      const row = ((aoa[i] as unknown[]) || []).map((c) => String(c ?? '').trim());
+      const at = (n: string) => row.indexOf(n);
+      if (at('機能通貨発生金額') >= 0 && at('勘定科目コード') >= 0 && at('文字摘要1') >= 0) {
+        H = {
+          ym: at('計上月YM'), date: at('伝票日付2'), no: at('伝票番号'),
+          acct: at('勘定科目コード'), acctName: at('科目名'), detail: at('細目名'),
+          amount: at('機能通貨発生金額'), memo: at('文字摘要1'),
+          company: at('G社名'), partner: at('取引先コード'),
+        };
+        body = aoa.slice(i + 1).map((rr) => ((rr as unknown[]) || []).map((c) => String(c ?? '')));
+        break;
+      }
+    }
+    if (H) break;
+  }
+  if (!H) {
+    throw new Error('MoneyForward GL シートが見つかりません (列「機能通貨発生金額 / 勘定科目コード / 文字摘要1」を含むヘッダー行が必要)');
+  }
+
+  const sga: SgaRow[] = [], rev: RevRow[] = [], pur: PurRow[] = [], fixed: PurRow[] = [];
+  let skippedOther = 0;
+  for (const r of body) {
+    const company = String(r[H.company] ?? '').trim();
+    if (company && company !== 'GLS') { skippedOther++; continue; } // 他社 (AM/GLOVIA) は除外
+    const codeStr = String(r[H.acct] ?? '').trim();
+    if (!/^\d+$/.test(codeStr)) continue;
+    const code = parseInt(codeStr, 10);
+    const amount = toAmt(r[H.amount]);
+    if (amount === 0) continue;
+    const memo = String(r[H.memo] ?? '').trim();
+    const ym = String(r[H.ym] ?? '').trim();
+    const date = parseFlexDate(r[H.date]) || (/^\d{4}-\d{2}$/.test(ym) ? `${ym}-01` : '');
+    const no = String(r[H.no] ?? '').trim();
+    const acctName = String(r[H.acctName] ?? '').trim();
+    const sub = String(r[H.detail] ?? '').trim();
+    const desc = [acctName, sub === 'N/A' ? '' : sub, memo].filter(Boolean).join(' / ').slice(0, 240);
+    const partner = stripCode(String(r[H.partner] ?? '').trim()); // ほぼ空欄
+
+    if (code >= 7000 && code <= 7999) {
+      sga.push({ no, date, amount, tax_category: 'tax10', invoice_qualified: 1, vendor_name: partner || `（${acctName}）`, description: desc });
+    } else if (code === 5000) {
+      rev.push({ no, date, amount, tax_category: 'tax10', customer_name: partner || '(顧客不明)', gls: parseGlsPrimary(memo), project_name: stripGlsName(memo), memo });
+    } else if (code >= 6000 && code <= 6999) {
+      const gls = parseGlsPrimary(memo);
+      const base = { no, date, tax_category: 'tax10', invoice_qualified: 1, vendor_name: partner || `（${acctName}）`, description: desc };
+      if (!gls) fixed.push({ ...base, gls: null, amount, split: 1 });
+      else pur.push({ ...base, gls, amount, split: 1 });
+    }
+    // 8xxx(営業外) / 9xxx(税) は取込対象外
+  }
+  warnings.push('MoneyForward 形式: 税区分列が無いため一律 tax10 + 適格として取込みます。取引先コードが空欄のため取引先/顧客名は科目名プレースホルダになります（取込後に手修正可）。');
+  if (skippedOther) warnings.push(`MoneyForward: GLS 以外 (AM/GLOVIA 等の他社レガシー) ${skippedOther} 行を除外しました。`);
+  return { sga, rev, pur, fixed };
+}
+
+export async function runKessanImport(opts: KessanOptions, userId: string | null): Promise<KessanReport> {
+  const scope = opts.scope || 'sga';
+  const scopes = scope === 'all' ? ['sga', 'revenues', 'purchases'] : [scope];
+  const commit = !!opts.commit;
+  const createMasters = !!opts.createMasters;
+  const excludeFixed = !!opts.excludeFixed;
+  const warnings: string[] = [];
+
+  // --- Box から GL 取得 → 形式判定 (xlsx=MoneyForward / CSV=freee) → 抽出 ---
+  const glFile = await resolveGlFile(opts);
+  const buf = await boxDownloadBuf(glFile.id);
+  const isXlsx = buf.length > 3 && buf[0] === 0x50 && buf[1] === 0x4b; // 'PK' (zip) = xlsx
+  const sourceFmt = isXlsx ? 'MoneyForward (xlsx)' : 'freee (CSV)';
+  const { sga, rev, pur, fixed } = isXlsx
+    ? extractMoneyForwardXlsx(buf, warnings)
+    : extractFreeeCsv(decodeCsv(buf), glFile.name);
+
+  // period 判定 + 対象期間 (抽出行の日付の最小〜最大 + 含まれる年月)
+  const counts: Record<string, number> = {};
+  let dateFrom = '', dateTo = '';
+  for (const x of [...sga, ...rev, ...pur, ...fixed]) {
+    const d = x.date;
+    const ym = d.slice(0, 7);
+    if (/^\d{4}-\d{2}$/.test(ym)) counts[ym] = (counts[ym] || 0) + 1;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+      if (!dateFrom || d < dateFrom) dateFrom = d;
+      if (!dateTo || d > dateTo) dateTo = d;
+    }
+  }
+  const months = Object.keys(counts).sort();
+  // 複数月にまたがる取込 (履歴インポート等) はマーカーを期間レンジにして月次取込と衝突させない
+  let period = opts.period || '';
+  if (!period) {
+    period = months.length > 1 ? `${months[0]}〜${months[months.length - 1]}` : (months[0] || Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || '0000-00');
+  }
+  const dateRange = { from: dateFrom, to: dateTo, months };
+  const MARKER = `[kessan:${period}]`;
   const sum = (arr: { amount: number }[]) => arr.reduce((s, x) => s + x.amount, 0);
 
   const targetDb = String(process.env.DB_NAME || process.env.DATABASE_URL || '').toLowerCase();
   const isProd = targetDb.includes('prod') || targetDb.includes('production');
 
   const report: KessanReport = {
-    dryRun: !commit, period, dateRange, targetDb: process.env.DB_NAME || (isProd ? 'prod' : 'dev'), isProd, scopes, sourceFile: glFile.name,
+    dryRun: !commit, period, dateRange, targetDb: process.env.DB_NAME || (isProd ? 'prod' : 'dev'), isProd, scopes, sourceFile: `${glFile.name}（${sourceFmt}）`,
     summary: {
       sga: { count: sga.length, amount: sum(sga) },
       revenues: { count: rev.length, amount: sum(rev) },
@@ -313,12 +419,13 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
     // dry-run でも実行し、誤って二重計上しないよう事前に警告する。
     if (dateFrom && dateTo) {
       const dupSamples: string[] = [];
+      const selfMarker = `${MARKER}%`; // 今回の取込分は自己重複と見なさず除外
       if (scopes.includes('sga') && sga.length) {
         const ex = await client.query(
           `SELECT amount, vendor_name, recognition_date FROM sga_expenses
            WHERE recognition_date >= $1 AND recognition_date <= $2
-             AND (notes IS NULL OR notes NOT LIKE '[kessan:%') AND deleted_at IS NULL`,
-          [dateFrom, dateTo]
+             AND (notes IS NULL OR notes NOT LIKE $3) AND deleted_at IS NULL`,
+          [dateFrom, dateTo, selfMarker]
         );
         const set = new Set(ex.rows.map((r) => `${toInt(r.amount)}|${String(r.vendor_name || '').trim()}|${normDate(r.recognition_date)}`));
         for (const x of sga) {
@@ -333,8 +440,8 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
           `SELECT r.amount, p.gls_number, r.recognition_date FROM revenues r
            JOIN projects p ON p.id = r.project_id
            WHERE r.recognition_date >= $1 AND r.recognition_date <= $2
-             AND (r.notes IS NULL OR r.notes NOT LIKE '[kessan:%') AND r.deleted_at IS NULL`,
-          [dateFrom, dateTo]
+             AND (r.notes IS NULL OR r.notes NOT LIKE $3) AND r.deleted_at IS NULL`,
+          [dateFrom, dateTo, selfMarker]
         );
         const set = new Set(ex.rows.map((r) => `${toInt(r.amount)}|${String(r.gls_number || '').trim()}|${normDate(r.recognition_date)}`));
         for (const x of rev) {
@@ -349,8 +456,8 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
           `SELECT pu.amount, p.gls_number, pu.recognition_date FROM purchases pu
            JOIN projects p ON p.id = pu.project_id
            WHERE pu.recognition_date >= $1 AND pu.recognition_date <= $2
-             AND (pu.notes IS NULL OR pu.notes NOT LIKE '[kessan:%') AND pu.deleted_at IS NULL`,
-          [dateFrom, dateTo]
+             AND (pu.notes IS NULL OR pu.notes NOT LIKE $3) AND pu.deleted_at IS NULL`,
+          [dateFrom, dateTo, selfMarker]
         );
         const set = new Set(ex.rows.map((r) => `${toInt(r.amount)}|${String(r.gls_number || '').trim()}|${normDate(r.recognition_date)}`));
         for (const x of pur) {
