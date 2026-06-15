@@ -31,6 +31,10 @@ export function buildPurchaseWhere(q: Query): { where: string; params: unknown[]
   const rf = s(q.recognition_from), rt = s(q.recognition_to);
   if (rf) { where += ` AND pu.recognition_date >= ?`; params.push(rf); }
   if (rt) { where += ` AND pu.recognition_date <= ?`; params.push(rt); }
+  // 固定原価Pj (code=FIXED-COGS) の絞り込み。'1'=固定原価のみ / '0'=固定原価を除く
+  const fc = s(q.fixed_cost);
+  if (fc === '1') { where += ` AND p.code = 'FIXED-COGS'`; }
+  else if (fc === '0') { where += ` AND (p.code IS NULL OR p.code <> 'FIXED-COGS')`; }
   return { where, params };
 }
 
