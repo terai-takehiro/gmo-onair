@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
@@ -8,6 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import {
   DashboardHeader,
   KpiCard,
@@ -42,11 +45,37 @@ const EMPTY_SUMMARY: MonthlySummary = {
 
 const FIXED_COGS_CODE = "FIXED-COGS";
 
+type PeriodMode = "month" | "quarter" | "year" | "range";
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
 export default function BudgetDashboardPage() {
   const navigate = useNavigate();
   const now = new Date();
-  const [month, setMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
+  const curYm = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}`;
+  const [periodMode, setPeriodMode] = useState<PeriodMode>("month");
+  const [month, setMonth] = useState(curYm); // 月モード
+  const [year, setYear] = useState(now.getFullYear()); // 四半期 / 年モード
+  const [quarter, setQuarter] = useState(Math.floor(now.getMonth() / 3) + 1); // 1〜4
+  const [rangeFrom, setRangeFrom] = useState(`${now.getFullYear()}-01`); // 期間指定 (YYYY-MM)
+  const [rangeTo, setRangeTo] = useState(curYm);
   const [projectId, setProjectId] = useState<string>("");
+
+  // 集計期間を [from, to] (YYYY-MM-DD) + 表示ラベルに正規化
+  const period = useMemo(() => {
+    if (periodMode === "quarter") {
+      const sm = (quarter - 1) * 3 + 1;
+      const em = sm + 2;
+      return { from: `${year}-${pad2(sm)}-01`, to: `${year}-${pad2(em)}-31`, label: `${year}年 ${quarter}Q（${sm}〜${em}月）` };
+    }
+    if (periodMode === "year") {
+      return { from: `${year}-01-01`, to: `${year}-12-31`, label: `${year}年（1〜12月 合算）` };
+    }
+    if (periodMode === "range") {
+      const [f, t] = rangeFrom <= rangeTo ? [rangeFrom, rangeTo] : [rangeTo, rangeFrom];
+      return { from: `${f}-01`, to: `${t}-31`, label: `${formatMonth(f + "-01")} 〜 ${formatMonth(t + "-01")}` };
+    }
+    return { from: `${month}-01`, to: `${month}-31`, label: formatMonth(month + "-01") };
+  }, [periodMode, month, year, quarter, rangeFrom, rangeTo]);
 
   const { data: projectsData } = useQuery({
     queryKey: ["projects-for-budget-dashboard"],
@@ -56,28 +85,31 @@ export default function BudgetDashboardPage() {
   const projects: Array<{ id: string; gls_number: string | null; name: string; customer_name?: string }> =
     projectsData?.data ?? [];
 
+  // 期間が複数月にまたがると明細が増えるため上限を引き上げる
+  const breakdownLimit = periodMode === "month" ? "300" : "2000";
+
   const { data, isFetching, isError, error, refetch } = useQuery({
-    queryKey: ["budget-monthly-summary", month, projectId],
+    queryKey: ["budget-monthly-summary", period.from, period.to, projectId],
     queryFn: async () => {
-      const params: Record<string, string> = { month };
+      const params: Record<string, string> = { from: period.from, to: period.to };
       if (projectId) params.project_id = projectId;
-      const res = await api.get("/monthly-summary", { params, timeout: 15000 });
+      const res = await api.get("/monthly-summary", { params, timeout: 20000 });
       return res.data;
     },
-    enabled: !!month,
+    enabled: !!period.from,
     retry: 1,
     refetchOnMount: "always",
   });
   const summary: MonthlySummary = (data?.data as MonthlySummary) ?? EMPTY_SUMMARY;
   const hasData = !!data?.data;
 
-  // 内訳 (明細) — 既存の一覧 API を月 (+案件) で再利用
-  const breakdownEnabled = !!month;
+  // 内訳 (明細) — 既存の一覧 API を期間 (+案件) で再利用
+  const breakdownEnabled = !!period.from;
   const { data: revenueList } = useQuery({
-    queryKey: ["budget-breakdown-revenues", month, projectId],
+    queryKey: ["budget-breakdown-revenues", period.from, period.to, projectId],
     queryFn: async () => {
       // KPI (monthly-summary) は確定売上のみ集計しているため内訳も confirmed に揃える
-      const params: Record<string, string> = { recognition_month: month, limit: "300", status: "confirmed" };
+      const params: Record<string, string> = { recognition_from: period.from, recognition_to: period.to, limit: breakdownLimit, status: "confirmed" };
       if (projectId) params.project_id = projectId;
       return (await api.get("/revenues", { params })).data;
     },
@@ -85,9 +117,9 @@ export default function BudgetDashboardPage() {
     refetchOnMount: "always",
   });
   const { data: purchaseList } = useQuery({
-    queryKey: ["budget-breakdown-purchases", month, projectId],
+    queryKey: ["budget-breakdown-purchases", period.from, period.to, projectId],
     queryFn: async () => {
-      const params: Record<string, string> = { recognition_month: month, limit: "300" };
+      const params: Record<string, string> = { recognition_from: period.from, recognition_to: period.to, limit: breakdownLimit };
       if (projectId) params.project_id = projectId;
       return (await api.get("/purchases", { params })).data;
     },
@@ -96,9 +128,9 @@ export default function BudgetDashboardPage() {
   });
   // 販管費は案件に紐づかないため、案件絞り込み時は取得しない
   const { data: sgaList } = useQuery({
-    queryKey: ["budget-breakdown-sga", month],
+    queryKey: ["budget-breakdown-sga", period.from, period.to],
     queryFn: async () =>
-      (await api.get("/sga", { params: { recognition_month: month, limit: "300" } })).data,
+      (await api.get("/sga", { params: { recognition_from: period.from, recognition_to: period.to, limit: breakdownLimit } })).data,
     enabled: breakdownEnabled && !projectId,
     refetchOnMount: "always",
   });
@@ -175,24 +207,71 @@ export default function BudgetDashboardPage() {
       <div className="space-y-5 p-4 sm:space-y-6 sm:p-6">
         <DashboardHeader
           title="財務ダッシュボード"
-          description="月次の売上・変動原価・限界利益・固定原価・売上総利益・販管費・営業利益を単一画面で確認します。"
-          period={month ? formatMonth(month + "-01") : undefined}
+          description="売上・変動原価・限界利益・固定原価・売上総利益・販管費・営業利益を、月／四半期／年／期間指定で確認します。"
+          period={period.label}
           controls={refreshButton}
         />
 
         {/* 絞り込みフィルタ */}
-        <SectionCard title="集計条件" description="年月と案件で絞り込みます。" padding="compact">
+        <SectionCard title="集計条件" description="集計期間（月／四半期／年／期間指定）と案件で絞り込みます。" padding="compact">
+          {/* 期間モード切替 */}
+          <div className="mb-3 inline-flex flex-wrap rounded-lg border border-border p-0.5">
+            {([["month", "月"], ["quarter", "四半期"], ["year", "年"], ["range", "期間指定"]] as [PeriodMode, string][]).map(([m, lbl]) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setPeriodMode(m)}
+                className={`rounded-md px-3 py-1.5 text-sm transition-colors ${periodMode === m ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:bg-muted"}`}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
           <div className="flex flex-wrap items-end gap-3">
-            <div>
-              <Label htmlFor="budget-month">年月</Label>
-              <Input
-                id="budget-month"
-                type="month"
-                value={month}
-                onChange={(e) => setMonth(e.target.value)}
-                className="w-40"
-              />
-            </div>
+            {periodMode === "month" && (
+              <div>
+                <Label htmlFor="budget-month">年月</Label>
+                <Input id="budget-month" type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-40" />
+              </div>
+            )}
+            {periodMode === "quarter" && (
+              <>
+                <div>
+                  <Label htmlFor="budget-year-q">年</Label>
+                  <Input id="budget-year-q" type="number" value={year} onChange={(e) => setYear(Number(e.target.value) || year)} className="w-24" />
+                </div>
+                <div>
+                  <Label>四半期</Label>
+                  <Select value={String(quarter)} onValueChange={(v) => setQuarter(Number(v))}>
+                    <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1Q（1〜3月）</SelectItem>
+                      <SelectItem value="2">2Q（4〜6月）</SelectItem>
+                      <SelectItem value="3">3Q（7〜9月）</SelectItem>
+                      <SelectItem value="4">4Q（10〜12月）</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
+            {periodMode === "year" && (
+              <div>
+                <Label htmlFor="budget-year">年</Label>
+                <Input id="budget-year" type="number" value={year} onChange={(e) => setYear(Number(e.target.value) || year)} className="w-28" />
+              </div>
+            )}
+            {periodMode === "range" && (
+              <>
+                <div>
+                  <Label htmlFor="budget-from">開始月</Label>
+                  <Input id="budget-from" type="month" value={rangeFrom} onChange={(e) => setRangeFrom(e.target.value)} className="w-40" />
+                </div>
+                <div>
+                  <Label htmlFor="budget-to">終了月</Label>
+                  <Input id="budget-to" type="month" value={rangeTo} onChange={(e) => setRangeTo(e.target.value)} className="w-40" />
+                </div>
+              </>
+            )}
             <div className="flex-1 min-w-[240px] max-w-md">
               <Label>案件（任意）</Label>
               <SearchableSelect

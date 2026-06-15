@@ -28,6 +28,9 @@ export function buildPurchaseWhere(q: Query): { where: string; params: unknown[]
   if (groupId) { where += ` AND pu.group_id = ?`; params.push(groupId); }
   const rm = s(q.recognition_month);
   if (rm) { where += ` AND pu.recognition_date LIKE ?`; params.push(`${rm}-%`); }
+  const rf = s(q.recognition_from), rt = s(q.recognition_to);
+  if (rf) { where += ` AND pu.recognition_date >= ?`; params.push(rf); }
+  if (rt) { where += ` AND pu.recognition_date <= ?`; params.push(rt); }
   return { where, params };
 }
 
@@ -76,6 +79,9 @@ export function buildRevenueWhere(q: Query): { where: string; params: unknown[] 
   }
   const rm = s(q.recognition_month);
   if (rm) { where += ` AND r.recognition_date LIKE ?`; params.push(`${rm}-%`); }
+  const rf = s(q.recognition_from), rt = s(q.recognition_to);
+  if (rf) { where += ` AND r.recognition_date >= ?`; params.push(rf); }
+  if (rt) { where += ` AND r.recognition_date <= ?`; params.push(rt); }
   const status = s(q.status);
   if (status) { where += ` AND r.status = ?`; params.push(status); }
   else if (!projectId) { where += ` AND r.status = 'confirmed'`; }
@@ -119,6 +125,9 @@ export function buildSgaWhere(q: Query): { where: string; params: unknown[] } {
   if (dateTo) { where += ` AND s.recognition_date <= ?`; params.push(dateTo); }
   const rm = s(q.recognition_month);
   if (rm) { where += ` AND s.recognition_date LIKE ?`; params.push(`${rm}-%`); }
+  const rf = s(q.recognition_from), rt = s(q.recognition_to);
+  if (rf) { where += ` AND s.recognition_date >= ?`; params.push(rf); }
+  if (rt) { where += ` AND s.recognition_date <= ?`; params.push(rt); }
   return { where, params };
 }
 
