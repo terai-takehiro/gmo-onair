@@ -37,11 +37,18 @@ export interface ProjectFilter {
   tab?: 'all' | 'yomi' | 'active' | 'completed' | 'lost';
   tag?: string;
   glsCategory?: 'A' | 'B';
+  /** 'kessan' = 決算インポートで取り込んだ案件 (notes が [kessan:...] で始まる) のみ */
+  source?: 'kessan';
+  /** 決算インポートのマーカー (例 '2026-01' / '2025-08〜2026-01') で絞り込み */
+  kessanMarker?: string;
   /** 開催月 (YYYY-MM)。イベント期間がこの月に重なる案件のみ */
   eventMonth?: string;
   sortBy?: string;
   sortDir?: 'asc' | 'desc';
 }
+
+/** 一括更新で変更可能なフィールド (申し込み情報等のパラメータ) */
+const STAGES = ['neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 's_completed', 'e_lost'];
 
 const SORT_COLUMN_MAP: Record<string, string> = {
   code: 'p.gls_number',
@@ -111,6 +118,14 @@ export class ProjectService {
       where += ` AND (',' || p.tags || ',') LIKE ?`;
       params.push(`%,${filter.tag},%`);
     }
+    // 決算インポート分のみ (notes が [kessan: で始まる)。LIKE の [ は Postgres では通常文字
+    if (filter.source === 'kessan') {
+      where += ` AND p.notes LIKE '[kessan:%'`;
+    }
+    if (filter.kessanMarker) {
+      where += ` AND p.notes LIKE ?`;
+      params.push(`[kessan:${filter.kessanMarker}]%`);
+    }
     // v2.8.113+: gls_category カラム (DB) を真実とする。発番済の旧データは migration 086 でバックフィル済
     if (filter.glsCategory === 'A') {
       where += ` AND p.gls_number IS NOT NULL AND p.gls_category = 'A'`;
@@ -173,6 +188,95 @@ export class ProjectService {
     );
     (row as Record<string, unknown>).dates = dates;
     return row;
+  }
+
+  /**
+   * 決算インポートのマーカー一覧 (取込バッチ) を件数つきで返す。
+   * notes の `[kessan:XXX]` の XXX を抽出して集計。
+   */
+  async getKessanMarkers() {
+    return await queryAll(
+      `SELECT m.marker, COUNT(*)::int AS count
+       FROM (
+         SELECT substring(notes from '\\[kessan:([^\\]]+)\\]') AS marker
+         FROM projects
+         WHERE deleted_at IS NULL AND notes LIKE '[kessan:%'
+       ) m
+       WHERE m.marker IS NOT NULL
+       GROUP BY m.marker
+       ORDER BY m.marker DESC`
+    );
+  }
+
+  /**
+   * 一括更新: 指定した案件 ID 群に対し、渡されたフィールドだけをまとめて更新する。
+   * 申し込み情報等のパラメータ (顧客 / 担当 / 分類 / 種別 / ステージ / 開催日 / 申込フラグ / タグ) に対応。
+   * gls_category はここでは列を直接更新する (発番済 GLS の採番し直しは行わない = 決算取込の GLS を保持)。
+   */
+  async bulkUpdate(ids: string[], set: Record<string, unknown>, userId: string) {
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new AppError(400, 'VALIDATION_ERROR', '対象の案件が選択されていません');
+    }
+    if (ids.length > 2000) {
+      throw new AppError(400, 'VALIDATION_ERROR', '一度に更新できる案件は 2000 件までです');
+    }
+
+    const setClauses: string[] = [];
+    const params: unknown[] = [];
+
+    if (typeof set.customer_id === 'string' && set.customer_id) {
+      setClauses.push('customer_id = ?'); params.push(set.customer_id);
+    }
+    if (typeof set.assigned_to === 'string' && set.assigned_to) {
+      setClauses.push('assigned_to = ?'); params.push(set.assigned_to);
+    }
+    if (set.gls_category === 'A' || set.gls_category === 'B') {
+      setClauses.push('gls_category = ?'); params.push(set.gls_category);
+    }
+    if (typeof set.project_type === 'string' && set.project_type) {
+      setClauses.push('project_type = ?'); params.push(set.project_type);
+    }
+    if (typeof set.stage === 'string' && STAGES.includes(set.stage)) {
+      setClauses.push('stage = ?'); params.push(set.stage);
+    }
+    if (set.event_start !== undefined) {
+      setClauses.push('event_start = ?'); params.push((set.event_start as string) || null);
+    }
+    if (set.event_end !== undefined) {
+      setClauses.push('event_end = ?'); params.push((set.event_end as string) || null);
+    }
+    if (set.application_form !== undefined) {
+      setClauses.push('application_form = ?'); params.push(set.application_form ? 1 : 0);
+    }
+    if (set.logo_permission !== undefined) {
+      setClauses.push('logo_permission = ?'); params.push(set.logo_permission ? 1 : 0);
+    }
+    // タグ: mode='replace' で置換 / 'append' で末尾追加 (空なら付与のみ)
+    if (typeof set.tags === 'string' && (set.tagsMode === 'replace' || set.tagsMode === 'append')) {
+      const tag = (set.tags as string).trim();
+      if (set.tagsMode === 'replace') {
+        setClauses.push('tags = ?'); params.push(tag);
+      } else if (tag) {
+        setClauses.push(`tags = CASE WHEN COALESCE(tags, '') = '' THEN ? ELSE tags || ',' || ? END`);
+        params.push(tag, tag);
+      }
+    }
+
+    if (setClauses.length === 0) {
+      throw new AppError(400, 'VALIDATION_ERROR', '変更する項目が指定されていません');
+    }
+
+    setClauses.push('updated_at = NOW()');
+    setClauses.push('updated_by = ?'); params.push(userId);
+
+    const placeholders = ids.map(() => '?').join(', ');
+    params.push(...ids);
+
+    await execute(
+      `UPDATE projects SET ${setClauses.join(', ')} WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
+      params
+    );
+    return { updated: ids.length };
   }
 
   /**

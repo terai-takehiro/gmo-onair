@@ -18,6 +18,7 @@ import KessanImportPage from "@/contexts/platform/pages/KessanImportPage";
 // Sales (営業管理)
 import DashboardPage from "@/contexts/platform/pages/DashboardPage";
 import ProjectListPage from "@/contexts/sales/pages/ProjectListPage";
+import GlsImportProjectsPage from "@/contexts/sales/pages/GlsImportProjectsPage";
 import ProjectFormPage from "@/contexts/sales/pages/ProjectFormPage";
 import CustomerListPage from "@/contexts/sales/pages/CustomerListPage";
 import CompanyListPage from "@/contexts/sales/pages/CompanyListPage";
@@ -102,6 +103,7 @@ function AppRoutes() {
         {/* ===== 営業管理 (sales) ===== */}
         <Route path="/sales/dashboard" element={<PermissionRoute module="sales"><DashboardPage /></PermissionRoute>} />
         <Route path="/sales/projects" element={<PermissionRoute module="sales"><ProjectListPage /></PermissionRoute>} />
+        <Route path="/sales/gls-import" element={<PermissionRoute module="sales"><GlsImportProjectsPage /></PermissionRoute>} />
         <Route path="/sales/projects/new" element={<PermissionRoute module="sales"><ProjectFormPage /></PermissionRoute>} />
         <Route path="/sales/projects/:id" element={<PermissionRoute module="sales"><ProjectFormPage /></PermissionRoute>} />
         <Route path="/sales/projects/confirmed/:category" element={<PermissionRoute module="sales"><ConfirmedProjectsPage /></PermissionRoute>} />
