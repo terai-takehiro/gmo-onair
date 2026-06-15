@@ -63,6 +63,7 @@ const APP_NAV: Record<string, NavSection[]> = {
       title: "案件",
       items: [
         { label: "案件一覧", to: "/sales/projects", icon: FolderKanban },
+        { label: "旧GLS（決算取込）", to: "/sales/gls-import", icon: Database },
         { label: "確定案件（スタジオ）", to: "/sales/projects/confirmed/studio", icon: Film },
         { label: "確定案件（ビジネス）", to: "/sales/projects/confirmed/business", icon: Briefcase },
         { label: "按分グループ", to: "/sales/project-groups", icon: GitBranch },

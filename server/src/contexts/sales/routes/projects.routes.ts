@@ -20,6 +20,8 @@ router.get('/', async (req, res) => {
     tab: (req.query.tab as ProjectFilter['tab']) || 'all',
     tag: req.query.tag as string,
     glsCategory: req.query.gls_category as ProjectFilter['glsCategory'],
+    source: req.query.source === 'kessan' ? 'kessan' : undefined,
+    kessanMarker: req.query.kessan_marker as string,
     eventMonth: req.query.event_month as string,
     sortBy: req.query.sort_by as string,
     sortDir: (req.query.sort_dir as 'asc' | 'desc') || 'desc',
@@ -49,6 +51,18 @@ router.get('/tags', async (_req, res) => {
 // GLS番号付き案件一覧（リンク先選択用）
 router.get('/gls-projects', async (_req, res) => {
   res.json({ success: true, data: await projectService.getGlsProjects() });
+});
+
+// 決算インポートのマーカー (取込バッチ) 一覧
+router.get('/kessan-markers', async (_req, res) => {
+  res.json({ success: true, data: await projectService.getKessanMarkers() });
+});
+
+// 一括更新 (申し込み情報等のパラメータをまとめて変更)
+router.patch('/bulk', requirePermission('sales', 'manager'), async (req, res) => {
+  const { ids, set } = req.body || {};
+  const result = await projectService.bulkUpdate(ids, set || {}, req.user!.id);
+  res.json({ success: true, data: result });
 });
 
 // 詳細
