@@ -233,11 +233,126 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
     const [pageW, pageH] = sizes[paperSize] || sizes.A4P;
     const dl = state.meta?.draftType === "準備稿" ? "準備稿" : state.meta?.draftType === "決定稿" ? "決定稿" : `第${state.meta?.draftNumber || 1}稿`;
     const docTitle = `【${dl}】${state.meta?.title || "進行台本"}`;
-    // "role": 各 .preview-page = ちょうど 1 物理ページ (flex 縦並び + 下端フッター)。
-    // "flow": .preview-page を通常ブロックにし、物理ページなりに自然分割させる
-    //         (行は break-inside で分断防止、ロールは複数ページに跨ってよい)。
-    const previewPageCss = pageMode === "role"
-      ? `.preview-page {
+    const fc = mono ? "#374151" : "#6b7280";
+
+    if (pageMode === "flow") {
+      // ── 「ページごと」= 実際の物理ページサイズに合わせて JS で分割し、各ページに通し番号 ──
+      // Chrome は CSS の @page マージンボックス (counter(page)) を印刷しないため、印刷ウィンドウ内で
+      // 実レイアウトを測定してコンテンツを物理ページ単位に詰め直し、各ページ下端に {n} / {total} を付与する。
+      // ロールが 1 ページに収まらない場合は行単位で次ページへ送り、列見出しを継続ページ先頭へ反復する。
+      const pad = margin;
+      const footerH = 26;
+      const contentWpx = Math.max(0, pageDims.w - pad * 2);
+      printWindow.document.write(`<!DOCTYPE html><html><head>
+        <meta charset="UTF-8"><title>${docTitle}</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+        <style>
+          @page { size: ${pageW} ${pageH}; margin: 0; }
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: 'Noto Sans JP', -apple-system, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          /* 測定用ソース (画面外に隠す。コンテンツ幅 = 最終ページの内寸と一致させる) */
+          #qs-src { position: absolute; left: -10000px; top: 0; width: ${contentWpx}px; visibility: hidden; }
+          /* 物理ページ = 紙サイズちょうど。content は上下左右パディング内の固定枠、footer はその下 */
+          .qs-print-page { position: relative; width: ${pageW}; height: ${pageH}; overflow: hidden; background: #fff; page-break-after: always; break-after: page; }
+          .qs-print-page:last-child { page-break-after: auto; break-after: auto; }
+          .qs-print-content { position: absolute; top: ${pad}px; left: ${pad}px; right: ${pad}px; bottom: ${pad + footerH}px; overflow: hidden; }
+          .qs-print-footer { position: absolute; left: ${pad}px; right: ${pad}px; bottom: ${pad}px; text-align: center; font-size: 8.5pt; font-weight: 600; color: ${fc}; }
+          td.qs-other { font-size: 0.85em; }
+          nav, aside, .no-print { display: none !important; }
+        </style>
+      </head><body>
+        <div id="qs-src">${pageRef.current.innerHTML}</div>
+        <div id="qs-pages"></div>
+        <script>(function(){
+          var src = document.getElementById('qs-src');
+          var pages = document.getElementById('qs-pages');
+          var content = newPage();
+          function newPage(){
+            var pg = document.createElement('div'); pg.className = 'qs-print-page';
+            var ct = document.createElement('div'); ct.className = 'qs-print-content';
+            var ft = document.createElement('div'); ft.className = 'qs-print-footer';
+            pg.appendChild(ct); pg.appendChild(ft); pages.appendChild(pg);
+            return ct;
+          }
+          function over(){ return content.scrollHeight > content.clientHeight + 1; }
+          function pushBlock(node){
+            content.appendChild(node);
+            if (over() && content.childNodes.length > 1){ content.removeChild(node); content = newPage(); content.appendChild(node); }
+          }
+          function pushRole(roleEl){
+            var head = roleEl.querySelector('[data-rolehead]');
+            var table = roleEl.querySelector('table');
+            if (!table){ pushBlock(roleEl.cloneNode(true)); return; }
+            var colgroup = table.querySelector('colgroup');
+            var thead = table.querySelector('thead');
+            var rows = [].slice.call(table.querySelectorAll('tbody > tr'));
+            var i = 0;
+            do {
+              var wrap = document.createElement('div');
+              if (head) wrap.appendChild(head.cloneNode(true));
+              var t = document.createElement('table');
+              t.setAttribute('style', table.getAttribute('style') || '');
+              if (colgroup) t.appendChild(colgroup.cloneNode(true));
+              if (thead) t.appendChild(thead.cloneNode(true));
+              var tb = document.createElement('tbody'); t.appendChild(tb); wrap.appendChild(t);
+              content.appendChild(wrap);
+              if (over() && content.childNodes.length > 1){ content.removeChild(wrap); content = newPage(); content.appendChild(wrap); }
+              while (i < rows.length){
+                var r = rows[i].cloneNode(true);
+                tb.appendChild(r);
+                if (over()){
+                  if (tb.childNodes.length === 1){ i++; break; } // 1 行が 1 ページより高い稀ケース: そのまま残す
+                  tb.removeChild(r); break;
+                }
+                i++;
+              }
+              if (i < rows.length){ content = newPage(); } else { break; }
+            } while (i < rows.length);
+          }
+          var pps = [].slice.call(src.querySelectorAll('.preview-page'));
+          var first = true;
+          pps.forEach(function(pp){
+            if (!first && content.childNodes.length > 0){ content = newPage(); } // 明示的な改ページ位置で新ページ
+            first = false;
+            var items = [].slice.call(pp.children).filter(function(c){ return c.getAttribute && c.getAttribute('data-fl'); });
+            items.forEach(function(it){
+              if (it.getAttribute('data-fl') === 'role') pushRole(it); else pushBlock(it.cloneNode(true));
+            });
+          });
+          var all = pages.querySelectorAll('.qs-print-page');
+          var total = all.length;
+          for (var k = 0; k < total; k++){ all[k].querySelector('.qs-print-footer').textContent = (k + 1) + ' / ' + total + ' ページ'; }
+          src.style.display = 'none';
+          function go(){ window.focus(); window.print(); setTimeout(function(){ window.close(); }, 400); }
+          function waitImages(cb){
+            var imgs = [].slice.call(document.images);
+            var pending = imgs.filter(function(im){ return !im.complete; });
+            if (!pending.length){ cb(); return; }
+            var left = pending.length, done = false;
+            function one(){ if (done) return; left--; if (left <= 0){ done = true; cb(); } }
+            pending.forEach(function(im){ im.addEventListener('load', one); im.addEventListener('error', one); });
+            setTimeout(function(){ if (!done){ done = true; cb(); } }, 1500);
+          }
+          if (document.fonts && document.fonts.ready){ document.fonts.ready.then(function(){ waitImages(go); }); }
+          else { waitImages(go); }
+        })();<\/script>
+      </body></html>`);
+      printWindow.document.close();
+      return;
+    }
+
+    // ── 「ロールごと」= 各 .preview-page をちょうど 1 物理ページにし、DOM フッターを下端固定 ──
+    printWindow.document.write(`<!DOCTYPE html><html><head>
+      <meta charset="UTF-8"><title>${docTitle}</title>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+      <style>
+        @page { size: ${pageW} ${pageH}; margin: 0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Noto Sans JP', -apple-system, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        /* 1 ロール = 1 物理ページ。min-height をシート高に合わせ、flex 縦並びでフッターを下端へ */
+        .preview-page {
           width: ${pageW} !important;
           min-height: calc(${pageH} - 2mm) !important;
           height: auto !important;
@@ -250,35 +365,7 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
           page-break-after: always;
           break-after: page;
         }
-        .preview-page:last-child { page-break-after: auto; break-after: auto; }`
-      : `.preview-page {
-          width: ${pageW} !important;
-          height: auto !important;
-          min-height: 0 !important;
-          padding: 11mm 10mm 10mm 10mm !important;
-          margin: 0 !important;
-          box-shadow: none !important;
-          border-radius: 0 !important;
-          display: block !important;
-          page-break-after: always;
-          break-after: page;
-        }
-        .preview-page:last-child { page-break-after: auto; break-after: auto; }`;
-    printWindow.document.write(`<!DOCTYPE html><html><head>
-      <meta charset="UTF-8"><title>${docTitle}</title>
-      <link rel="preconnect" href="https://fonts.googleapis.com">
-      <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
-      <style>
-        /* @page マージンボックス (@bottom-center) は Chrome 非対応のため使わない。
-           代わりに各 .preview-page を「ちょうど 1 物理ページ」にし、DOM フッターを
-           flex で下端に固定する。各ページ = 1 物理ページなので、フッターの
-           {n} / {total} は文書全体の通し番号 = 実際の印刷ページ番号と一致する */
-        @page { size: ${pageW} ${pageH}; margin: 0; }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Noto Sans JP', -apple-system, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        /* 改ページ方式によって .preview-page のレイアウトを切替 (role = 1 物理ページ / flow = 連続) */
-        ${previewPageCss}
-        /* ページ番号フッターを物理ページ下端に (全体通し番号、role モードのみ) */
+        .preview-page:last-child { page-break-after: auto; break-after: auto; }
         .preview-page-footer {
           display: block !important;
           position: static !important;
@@ -287,15 +374,11 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
           padding-top: 8px;
           text-align: center;
         }
-        /* 台本ブロック以外の列は印刷時のみ少し小さく (列幅が狭く読みづらいため) */
         @media print { td.qs-other { font-size: 0.85em !important; } }
-        /* セクション・行の途中分断を防ぐ */
         .qsheet-section { page-break-inside: avoid; break-inside: avoid; }
         .qsheet-row, tr { page-break-inside: avoid; break-inside: avoid; }
         .qsheet-section-header, thead { page-break-after: avoid; break-after: avoid; }
-        /* 末尾 / 先頭の孤立行を抑制 */
         p, td, th { widows: 3; orphans: 3; }
-        /* 印刷時に不要な要素を非表示 */
         nav, aside, .no-print { display: none !important; }
       </style>
     </head><body>${pageRef.current.innerHTML}</body></html>`);
@@ -452,7 +535,7 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                 <div key={pi} className="preview-page bg-white shadow-lg rounded" style={{ width: pageDims.w, minHeight: pageDims.h, padding: margin, fontSize: fontSize + "pt", color: mono ? "#000" : "#1f2937", position: "relative", marginBottom: pi < totalPages - 1 ? 24 : 0 }}>
                   {/* Document Header (page 1 only) */}
                   {pi === 0 && (
-                    <div style={{ marginBottom: 16, borderBottom: `2px solid ${borderColor}`, paddingBottom: 12 }}>
+                    <div data-fl="block" style={{ marginBottom: 16, borderBottom: `2px solid ${borderColor}`, paddingBottom: 12 }}>
                       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
                         <div>
                           <div style={{ fontSize: fontSize + 7 + "pt", fontWeight: 900, letterSpacing: "-0.02em", lineHeight: 1.2, color: "#111827" }}>{state.meta?.title || "無題"}</div>
@@ -483,7 +566,7 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                       const breakAbs = absSec;
                       absSec += dur;
                       return (
-                        <div key={si} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", margin: "4px 0", borderTop: mono ? "1px dashed #6b7280" : "1px dashed #9ca3af", borderBottom: mono ? "1px dashed #6b7280" : "1px dashed #9ca3af" }}>
+                        <div key={si} data-fl="block" style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", margin: "4px 0", borderTop: mono ? "1px dashed #6b7280" : "1px dashed #9ca3af", borderBottom: mono ? "1px dashed #6b7280" : "1px dashed #9ca3af" }}>
                           <span style={{ fontFamily: "'Roboto Condensed',sans-serif", fontSize: fontSize - 0.5 + "pt", color: mono ? "#4b5563" : "#9ca3af", whiteSpace: "nowrap", width: 70, textAlign: "right", flexShrink: 0 }}>{fmtAbs(breakAbs)}</span>
                           <span style={{ fontSize: fontSize + "pt", fontWeight: 700, color: mono ? "#000" : "#374151" }}>{sec.label || "CM"}</span>
                           <span style={{ fontSize: fontSize + "pt", fontWeight: 600, color: mono ? "#1f2937" : "#6b7280", marginLeft: "auto" }}>{dur > 0 ? fmtMinSec(dur) : ""}</span>
@@ -495,7 +578,7 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                       const vtrAbs = absSec;
                       absSec += dur;
                       return (
-                        <div key={si} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", margin: "4px 0", borderTop: mono ? "2px solid #374151" : "2px solid #4338ca", borderBottom: mono ? "2px solid #374151" : "2px solid #4338ca", background: mono ? "#f3f4f6" : "#eef2ff" }}>
+                        <div key={si} data-fl="block" style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", margin: "4px 0", borderTop: mono ? "2px solid #374151" : "2px solid #4338ca", borderBottom: mono ? "2px solid #374151" : "2px solid #4338ca", background: mono ? "#f3f4f6" : "#eef2ff" }}>
                           <span style={{ fontFamily: "'Roboto Condensed',sans-serif", fontSize: fontSize - 0.5 + "pt", color: mono ? "#1f2937" : "#4338ca", whiteSpace: "nowrap", width: 70, textAlign: "right", flexShrink: 0 }}>{fmtAbs(vtrAbs)}</span>
                           <span style={{ fontSize: fontSize - 0.5 + "pt", fontWeight: 800, color: mono ? "#fff" : "#4338ca", background: mono ? "#374151" : "#c7d2fe", padding: "0 6px", borderRadius: 3, letterSpacing: "0.05em" }}>VTR</span>
                           <span style={{ fontSize: fontSize + "pt", fontWeight: 700, color: mono ? "#000" : "#312e81" }}>{sec.label || ""}</span>
@@ -509,8 +592,8 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
                     absSec += roleDur;
                     rowNum++;
                     return (
-                      <div key={si} style={{ marginBottom: 6 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 10px", borderLeft: mono ? "4px solid #374151" : "4px solid #2563eb", background: lightBg, borderBottom: `1px solid ${borderColor}` }}>
+                      <div key={si} data-fl="role" style={{ marginBottom: 6 }}>
+                        <div data-rolehead="1" style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 10px", borderLeft: mono ? "4px solid #374151" : "4px solid #2563eb", background: lightBg, borderBottom: `1px solid ${borderColor}` }}>
                           <span style={{ fontFamily: "'Roboto Condensed',sans-serif", fontSize: fontSize + 3 + "pt", color: mono ? "#6b7280" : "#d1d5db", width: 18, textAlign: "center", flexShrink: 0, fontWeight: 700 }}>{rowNum}</span>
                           <span style={{ fontFamily: "'Roboto Condensed',sans-serif", fontSize: fontSize + "pt", color: mono ? "#1f2937" : "#6b7280", whiteSpace: "nowrap" }}>{fmtAbs(roleAbs)}</span>
                           {roleDur > 0 && <span style={{ fontSize: fontSize - 0.5 + "pt", color: mono ? "#374151" : "#9ca3af", border: mono ? "1px solid #9ca3af" : "1px solid #d1d5db", padding: "0 6px", borderRadius: 3 }}>ロール尺 {fmtMinSec(roleDur)}</span>}
