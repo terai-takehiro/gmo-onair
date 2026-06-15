@@ -501,19 +501,26 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
     }
     async function ensureProject(key: string, name: string, customerId: string | null, isFixed = false): Promise<{ id: string; customer_id: string | null } | null> {
       const cacheKey = isFixed ? `__fixed__${key}` : key;
-      if (cache.projects.has(cacheKey)) return cache.projects.get(cacheKey)!;
+      // キャッシュ命中でも null (= マスタ照合フェーズで「未登録」と記録された値) の場合は
+      // ここで作成を試みる必要があるため early-return しない (ensureCustomer/ensureVendor と同じ挙動)。
+      const cached = cache.projects.get(cacheKey);
+      if (cached) return cached;
       const col = isFixed ? 'code' : 'gls_number';
       const r = await client.query(`SELECT id, customer_id FROM projects WHERE ${col}=$1 AND deleted_at IS NULL LIMIT 1`, [key]);
       let p = r.rows[0] || null;
       if (!p) {
         if (!createMasters) { cache.projects.set(cacheKey, null); return null; }
+        // projects.customer_id は NOT NULL。仕入専用 GLS など顧客不明の場合は
+        // フォールバック顧客「(顧客不明)」を割り当てて作成する。
+        const cid = customerId || (await ensureCustomer('(顧客不明)'));
+        if (!cid) { cache.projects.set(cacheKey, null); return null; }
         const id = randomUUID();
         await client.query(
           `INSERT INTO projects (id, code, gls_number, name, customer_id, stage, assigned_to, notes, created_by)
            VALUES ($1,$2,$3,$4,$5,'a_won',$6,$7,$8)`,
-          [id, key, isFixed ? null : key, name || key, customerId, fallbackUser, MARKER, fallbackUser]
+          [id, key, isFixed ? null : key, name || key, cid, fallbackUser, MARKER, fallbackUser]
         );
-        p = { id, customer_id: customerId };
+        p = { id, customer_id: cid };
         report.masters.created.projects++;
       }
       cache.projects.set(cacheKey, p); return p;
