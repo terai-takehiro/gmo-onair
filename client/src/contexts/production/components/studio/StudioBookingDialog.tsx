@@ -411,7 +411,7 @@ export default function StudioBookingDialog({
               {/* ③ 案件 */}
               <div>
                 <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">案件</p>
-                <div className="rounded-xl border bg-muted/30 divide-y overflow-hidden">
+                <div className="rounded-xl border bg-muted/30 divide-y">
                   <div className="px-3 py-1.5">
                     <SearchableSelect
                       options={projectOptions.map((p: any) => ({
