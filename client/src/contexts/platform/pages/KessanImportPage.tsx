@@ -10,6 +10,7 @@ interface KessanReport {
   dryRun: boolean;
   period: string;
   scopes: string[];
+  sourceFile?: string;
   summary: {
     sga: { count: number; amount: number };
     revenues: { count: number; amount: number };
@@ -134,7 +135,7 @@ export default function KessanImportPage() {
               <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${report.dryRun ? "bg-sky-100 text-sky-700" : "bg-green-100 text-green-700"}`}>
                 {report.dryRun ? "DRY-RUN（未投入）" : "投入完了"}
               </span>
-              <span className="text-sm text-muted-foreground">対象期間 {report.period} / {report.scopes.join(", ")}</span>
+              <span className="text-sm text-muted-foreground">対象期間 {report.period} / {report.scopes.join(", ")}{report.sourceFile ? ` / 取込元: ${report.sourceFile}` : ""}</span>
             </div>
 
             <div className="overflow-x-auto">

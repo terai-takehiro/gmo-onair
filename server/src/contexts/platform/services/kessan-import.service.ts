@@ -29,6 +29,7 @@ export interface KessanOptions {
   createMasters?: boolean;
   excludeFixed?: boolean;
   glFileId?: string;
+  boxFolderId?: string; // 指定フォルダ内の最新CSVを自動選択 (未指定なら env KESSAN_BOX_FOLDER_ID)
   period?: string; // YYYY-MM
 }
 
@@ -36,6 +37,7 @@ export interface KessanReport {
   dryRun: boolean;
   period: string;
   scopes: string[];
+  sourceFile: string;
   summary: {
     sga: { count: number; amount: number };
     revenues: { count: number; amount: number };
@@ -112,6 +114,25 @@ const invQualified = (...xs: unknown[]): number => {
 };
 const yen = (n: number): string => '¥' + Number(n).toLocaleString();
 
+/** 取込対象の GL ファイルを解決: 明示ID → 指定フォルダの最新CSV → 既定ID */
+async function resolveGlFile(opts: KessanOptions): Promise<{ id: string; name: string }> {
+  if (opts.glFileId) return { id: opts.glFileId, name: '(指定ファイル)' };
+  const folderId = opts.boxFolderId || process.env.KESSAN_BOX_FOLDER_ID;
+  if (folderId) {
+    const client = getBoxClient();
+    if (!client) throw new Error('BOX が未設定です (BOX_CONFIG_JSON)');
+    const items = await client.folders.getItems(folderId, { fields: 'id,name,type,created_at', limit: 1000 });
+    const csvs = items.entries.filter((e) => e.type === 'file' && /\.csv$/i.test(e.name));
+    if (!csvs.length) throw new Error(`Box フォルダ (${folderId}) に CSV ファイルがありません`);
+    // 「総勘定元帳/元帳」を優先、無ければ全CSV。最新 (created_at 降順、同点はファイル名降順)
+    const preferred = csvs.filter((e) => /元帳|総勘定/.test(e.name));
+    const pool = preferred.length ? preferred : csvs;
+    pool.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')) || String(b.name).localeCompare(String(a.name)));
+    return { id: pool[0].id, name: pool[0].name };
+  }
+  return { id: DEFAULT_GL_FILE_ID, name: '(既定の総勘定元帳)' };
+}
+
 async function boxDownload(fileId: string): Promise<string> {
   const client = getBoxClient();
   if (!client) throw new Error('BOX が未設定です (BOX_CONFIG_JSON)');
@@ -138,7 +159,8 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
   const warnings: string[] = [];
 
   // --- Box から GL 取得 + パース ---
-  const csv = await boxDownload(opts.glFileId || DEFAULT_GL_FILE_ID);
+  const glFile = await resolveGlFile(opts);
+  const csv = await boxDownload(glFile.id);
   const rows = parseCsv(csv);
   const header = rows[0] || [];
   const idx = (name: string) => header.indexOf(name);
@@ -200,7 +222,7 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
   const sum = (arr: { amount: number }[]) => arr.reduce((s, x) => s + x.amount, 0);
 
   const report: KessanReport = {
-    dryRun: !commit, period, scopes,
+    dryRun: !commit, period, scopes, sourceFile: glFile.name,
     summary: {
       sga: { count: sga.length, amount: sum(sga) },
       revenues: { count: rev.length, amount: sum(rev) },
