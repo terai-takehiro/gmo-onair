@@ -55,6 +55,10 @@ const getOpt = (n, d) => {
 };
 const COMMIT = hasFlag('--commit');
 const CREATE_MASTERS = hasFlag('--create-masters');
+const EXCLUDE_FIXED = hasFlag('--exclude-fixed-cogs'); // 既定: GLS無しの固定原価は固定原価プロジェクトへ計上
+const FIXED_CODE = 'FIXED-COGS';
+const FIXED_NAME = '固定原価（スタジオ償却負担額等）';
+const FIXED_CUSTOMER = '（固定費・社内）';
 const SCOPE = getOpt('--scope', 'sga'); // sga | revenues | purchases | all
 const GL_FILE_ID = getOpt('--gl-file-id', DEFAULT_GL_FILE_ID);
 const LOCAL_FILE = getOpt('--local-file', ''); // Box の代わりにローカルCSVを読む (テスト/オフライン用)
@@ -263,8 +267,10 @@ async function main() {
   console.log('\n========== 抽出サマリ ==========');
   console.log(`販管費(7xxx): ${sga.length} 件 / 合計 ${yen(sum(sga))}`);
   console.log(`売上(5000)  : ${rev.length} 件 / 合計 ${yen(sum(rev))}`);
-  console.log(`仕入(6xxx)  : ${pur.length} 件(按分後) / 合計 ${yen(sum(pur))}` +
-              (unassignedPur.length ? `  ※GLS未割当 ${unassignedPur.length} 件 ${yen(sum(unassignedPur))} は除外` : ''));
+  console.log(`仕入(6xxx)  : ${pur.length} 件 / 合計 ${yen(sum(pur))}` +
+              (unassignedPur.length
+                ? `  ＋GLS無し固定原価 ${unassignedPur.length} 件 ${yen(sum(unassignedPur))} → ${EXCLUDE_FIXED ? '除外' : `「${FIXED_NAME}」(${FIXED_CODE}) へ計上`}`
+                : ''));
 
   if (NO_DB) {
     console.log('\n[kessan] --no-db: DB 接続せず抽出サマリのみ。サンプル:');
@@ -272,8 +278,8 @@ async function main() {
     rev.forEach((x) => console.log(`  [売上] ${x.date} ${yen(x.amount)} ${x.tax_category} ${x.gls || 'GLS?'} ${x.customer_name} | ${x.project_name}`));
     pur.slice(0, 10).forEach((x) => console.log(`  [仕入] ${x.date} ${yen(x.amount)} ${x.tax_category} ${x.gls}${x.split > 1 ? `(1/${x.split})` : ''} ${x.vendor_name}`));
     if (unassignedPur.length) {
-      console.log('  -- GLS未割当の原価 (除外) --');
-      unassignedPur.slice(0, 10).forEach((x) => console.log(`  [除外] ${x.date} ${yen(x.amount)} ${x.vendor_name} | ${x.description.slice(0, 80)}`));
+      console.log(`  -- GLS無し固定原価 (${EXCLUDE_FIXED ? '除外' : `${FIXED_CODE} へ計上`}) --`);
+      unassignedPur.slice(0, 10).forEach((x) => console.log(`  [固定原価] ${x.date} ${yen(x.amount)} ${x.vendor_name} | ${x.description.slice(0, 80)}`));
     }
     return;
   }
@@ -363,18 +369,24 @@ async function main() {
       masterCache.vendors.set(name, id); counts.vendCreated++;
       return id;
     }
-    async function ensureProject(gls, name, customerId) {
-      let p = await findProject(gls);
-      if (p) return p;
-      if (!CREATE_MASTERS) return null;
-      const id = randomUUID();
-      await client.query(
-        `INSERT INTO projects (id, code, gls_number, name, customer_id, stage, assigned_to, notes, created_by)
-         VALUES ($1,$2,$3,$4,$5,'a_won',$6,$7,$8)`,
-        [id, gls, gls, name || gls, customerId, userId, MARKER, userId]
-      );
-      p = { id, customer_id: customerId };
-      masterCache.projects.set(gls, p); counts.projCreated++;
+    async function ensureProject(key, name, customerId, isFixed = false) {
+      const cacheKey = isFixed ? `__fixed__${key}` : key;
+      if (masterCache.projects.has(cacheKey)) return masterCache.projects.get(cacheKey);
+      const col = isFixed ? 'code' : 'gls_number';
+      const r = await client.query(`SELECT id, customer_id FROM projects WHERE ${col}=$1 AND deleted_at IS NULL LIMIT 1`, [key]);
+      let p = r.rows[0] || null;
+      if (!p) {
+        if (!CREATE_MASTERS) { masterCache.projects.set(cacheKey, null); return null; }
+        const id = randomUUID();
+        await client.query(
+          `INSERT INTO projects (id, code, gls_number, name, customer_id, stage, assigned_to, notes, created_by)
+           VALUES ($1,$2,$3,$4,$5,'a_won',$6,$7,$8)`,
+          [id, key, isFixed ? null : key, name || key, customerId, userId, MARKER, userId]
+        );
+        p = { id, customer_id: customerId };
+        counts.projCreated++;
+      }
+      masterCache.projects.set(cacheKey, p);
       return p;
     }
 
@@ -427,6 +439,28 @@ async function main() {
            x.description, x.date, `${MARKER} ${x.no}${x.split > 1 ? ` (1/${x.split}按分)` : ''}`.slice(0, 240), userId]
         );
         counts.pur++;
+      }
+      // GLS無しの固定原価 → 固定原価プロジェクトへ計上 (既定)
+      if (!EXCLUDE_FIXED && unassignedPur.length) {
+        const fixedCust = await ensureCustomer(FIXED_CUSTOMER);
+        const fixedProj = fixedCust ? await ensureProject(FIXED_CODE, FIXED_NAME, fixedCust, true) : null;
+        if (!fixedProj) {
+          console.log(`  ⚠ 固定原価プロジェクトを作成できません (--create-masters 未指定?) → ${unassignedPur.length} 件スキップ`);
+          counts.skipped += unassignedPur.length;
+        } else {
+          for (const x of unassignedPur) {
+            const vendorId = await ensureVendor(x.vendor_name);
+            if (!vendorId) { counts.skipped++; continue; }
+            await client.query(
+              `INSERT INTO purchases (id, project_id, vendor_id, tax_category, invoice_qualified, amount,
+                 description, recognition_date, notes, created_by)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+              [randomUUID(), fixedProj.id, vendorId, x.tax_category, x.invoice_qualified, x.amount,
+               x.description, x.date, `${MARKER} ${x.no} [固定原価]`.slice(0, 240), userId]
+            );
+            counts.pur++;
+          }
+        }
       }
     }
 
