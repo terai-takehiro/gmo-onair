@@ -54,7 +54,7 @@ import {
   Pencil,
   Loader2,
   FileText,
-  Download,
+  Receipt,
   ShoppingCart,
   Percent,
   Link2,
@@ -361,9 +361,9 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
     setInlineItems((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const handleDownloadPdf = async (revenueId: string) => {
+  const handleDownloadPdf = async (revenueId: string, type: 'estimate' | 'invoice') => {
     try {
-      const res = await api.get(`/revenues/${revenueId}/pdf`, { responseType: 'blob' });
+      const res = await api.get(`/revenues/${revenueId}/pdf`, { params: { type }, responseType: 'blob' });
       const blob = new Blob([res.data], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -780,15 +780,28 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                         )}
                       </div>
                       {rev.items && rev.items.length > 0 && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          title="PDF出力"
-                          onClick={() => handleDownloadPdf(rev.id)}
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1 px-2"
+                            title="見積書PDFを発行"
+                            onClick={() => handleDownloadPdf(rev.id, 'estimate')}
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">見積書</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1 px-2"
+                            title="請求書PDFを発行"
+                            onClick={() => handleDownloadPdf(rev.id, 'invoice')}
+                          >
+                            <Receipt className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">請求書</span>
+                          </Button>
+                        </>
                       )}
                       <Button
                         variant="ghost"
