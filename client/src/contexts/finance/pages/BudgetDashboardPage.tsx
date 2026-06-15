@@ -43,8 +43,6 @@ const EMPTY_SUMMARY: MonthlySummary = {
   operating_profit: 0,
 };
 
-const FIXED_COGS_CODE = "FIXED-COGS";
-
 type PeriodMode = "month" | "quarter" | "year" | "range";
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
@@ -116,10 +114,23 @@ export default function BudgetDashboardPage() {
     enabled: breakdownEnabled,
     refetchOnMount: "always",
   });
+  // 仕入(変動原価) 内訳: 固定原価Pjを除外。固定原価は gls_number=NULL で
+  // 既定ソート (gls ASC NULLS LAST) の末尾に来るため、limit 内に入らず消えるのを防ぐ。
   const { data: purchaseList } = useQuery({
     queryKey: ["budget-breakdown-purchases", period.from, period.to, projectId],
     queryFn: async () => {
-      const params: Record<string, string> = { recognition_from: period.from, recognition_to: period.to, limit: breakdownLimit };
+      const params: Record<string, string> = { recognition_from: period.from, recognition_to: period.to, limit: breakdownLimit, fixed_cost: "0" };
+      if (projectId) params.project_id = projectId;
+      return (await api.get("/purchases", { params })).data;
+    },
+    enabled: breakdownEnabled,
+    refetchOnMount: "always",
+  });
+  // 固定原価 内訳: 固定原価Pjのみを専用クエリで取得 (件数が少ないため limit 切れの心配なし)
+  const { data: fixedList } = useQuery({
+    queryKey: ["budget-breakdown-fixed", period.from, period.to, projectId],
+    queryFn: async () => {
+      const params: Record<string, string> = { recognition_from: period.from, recognition_to: period.to, limit: "2000", fixed_cost: "1" };
       if (projectId) params.project_id = projectId;
       return (await api.get("/purchases", { params })).data;
     },
@@ -136,10 +147,10 @@ export default function BudgetDashboardPage() {
   });
 
   const revenueRows: Array<{ id: string; gls_number?: string | null; project_name?: string | null; customer_name?: string | null; amount: number }> = revenueList?.data ?? [];
-  const purchaseRows: Array<{ id: string; gls_number?: string | null; project_name?: string | null; project_code?: string | null; vendor_name?: string | null; description?: string | null; amount: number; settlement_url?: string | null; is_provisional?: boolean }> = purchaseList?.data ?? [];
-  // 固定原価Pj (code=FIXED-COGS) の仕入を「固定原価」、それ以外を「変動原価」として分離
-  const variablePurchaseRows = purchaseRows.filter((p) => p.project_code !== FIXED_COGS_CODE);
-  const fixedPurchaseRows = purchaseRows.filter((p) => p.project_code === FIXED_COGS_CODE);
+  type PurchaseRow = { id: string; gls_number?: string | null; project_name?: string | null; project_code?: string | null; vendor_name?: string | null; description?: string | null; amount: number; settlement_url?: string | null; is_provisional?: boolean };
+  // 仕入(変動原価) = fixed_cost=0 で取得済 / 固定原価 = 専用クエリ (fixed_cost=1)
+  const variablePurchaseRows: PurchaseRow[] = purchaseList?.data ?? [];
+  const fixedPurchaseRows: PurchaseRow[] = fixedList?.data ?? [];
   const sgaRows: Array<{ id: string; vendor_name?: string | null; description?: string | null; amount: number; settlement_url?: string | null }> = sgaList?.data ?? [];
   const errorMessage =
     (error as { response?: { data?: { error?: { message?: string } } }; message?: string } | null)
@@ -147,7 +158,7 @@ export default function BudgetDashboardPage() {
     (error as { message?: string } | null)?.message ||
     "";
 
-  const renderPurchaseItem = (p: (typeof purchaseRows)[number]) => (
+  const renderPurchaseItem = (p: PurchaseRow) => (
     <li key={p.id} className="flex items-center justify-between gap-2 py-1">
       <button
         type="button"
