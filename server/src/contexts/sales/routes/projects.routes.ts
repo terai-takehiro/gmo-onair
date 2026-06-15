@@ -114,9 +114,16 @@ router.post('/:id/create-box-folder', requirePermission('sales', 'manager'), asy
 });
 
 // 既存GLS案件へのリンク（エピソード追加）
-router.post('/:id/link-gls', requirePermission('sales', 'editor'), (req, res) => {
+router.post('/:id/link-gls', requirePermission('sales', 'editor'), async (req, res) => {
   const { target_project_id } = req.body;
-  const result = projectService.linkToExistingGls(req.params.id as string, target_project_id, req.user!.id);
+  const result = await projectService.linkToExistingGls(req.params.id as string, target_project_id, req.user!.id);
+  res.json({ success: true, data: result });
+});
+
+// 発番済みの案件を別の既存GLSのエピソードへ紐づけ直す (旧GLSは履歴に保存)
+router.post('/:id/relink-gls', requirePermission('sales', 'manager'), async (req, res) => {
+  const { target_project_id } = req.body;
+  const result = await projectService.relinkExistingGls(req.params.id as string, target_project_id, req.user!.id);
   res.json({ success: true, data: result });
 });
 

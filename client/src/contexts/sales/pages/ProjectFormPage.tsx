@@ -84,6 +84,8 @@ export default function ProjectFormPage() {
     open: false, mode: 'new', broadcast_types: ["recording"], media_platforms: ["other"], target_project_id: "",
   });
   const [glsResult, setGlsResult] = useState<{ open: boolean; glsNumber: string } | null>(null);
+  // 発番済み案件を別 GLS のエピソードへ紐づけ直す
+  const [relinkDialog, setRelinkDialog] = useState<{ open: boolean; target_project_id: string }>({ open: false, target_project_id: "" });
   const [lostDialog, setLostDialog] = useState<LostDialogState>({
     open: false, lost_reason: '', lost_reason_note: '', lessons_learned: '',
   });
@@ -267,7 +269,7 @@ export default function ProjectFormPage() {
   const { data: glsProjectsData } = useQuery({
     queryKey: ["gls-projects"],
     queryFn: async () => (await api.get("/projects/gls-projects")).data,
-    enabled: glsDialog.open && glsDialog.mode === 'link',
+    enabled: (glsDialog.open && glsDialog.mode === 'link') || relinkDialog.open,
   });
   const glsProjects: { id: string; gls_number: string; name: string; customer_name: string }[] = glsProjectsData?.data ?? [];
 
@@ -292,6 +294,22 @@ export default function ProjectFormPage() {
       qc.invalidateQueries({ queryKey: ["project", id] });
       setGlsDialog({ ...glsDialog, open: false });
       setGlsResult({ open: true, glsNumber: data.data.gls_number });
+    },
+  });
+
+  // 発番済み案件を別 GLS のエピソードへ紐づけ直す
+  const relinkMutation = useMutation({
+    mutationFn: async (targetProjectId: string) => {
+      return (await api.post(`/projects/${id}/relink-gls`, { target_project_id: targetProjectId })).data;
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["projects"] });
+      qc.invalidateQueries({ queryKey: ["project", id] });
+      setRelinkDialog({ open: false, target_project_id: "" });
+      window.alert(`✓ ${data.data.gls_number} のエピソードに紐づけ直しました（旧GLS番号は履歴に保存されています）`);
+    },
+    onError: (err: any) => {
+      window.alert(err?.response?.data?.error?.message || err?.message || '紐づけに失敗しました');
     },
   });
 
@@ -665,10 +683,15 @@ export default function ProjectFormPage() {
                 {currentStage === 's_completed' && ' (S 案件終了)'}
               </span>
             </div>
-            <Button size="sm" onClick={() => navigate(`/sales/projects/${id}/episodes`)}>
-              <ExternalLink className="mr-2 h-4 w-4" />
-              見積・売上管理
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={() => setRelinkDialog({ open: true, target_project_id: "" })}>
+                別GLSへ紐づけ
+              </Button>
+              <Button size="sm" onClick={() => navigate(`/sales/projects/${id}/episodes`)}>
+                <ExternalLink className="mr-2 h-4 w-4" />
+                見積・売上管理
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -1453,6 +1476,54 @@ export default function ProjectFormPage() {
             >
               {(glsMutation.isPending || linkGlsMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {glsDialog.mode === 'link' ? 'GLS番号をリンク' : 'GLS発番する'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 別GLSへ紐づけ直しダイアログ (発番済み案件をエピソード化) */}
+      <Dialog open={relinkDialog.open} onOpenChange={(open) => setRelinkDialog({ ...relinkDialog, open })}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>別GLSのエピソードへ紐づけ直す</DialogTitle>
+            <DialogDescription>
+              この案件（現在 {project?.gls_number}）を、選択した既存GLS案件のエピソードとして付け替えます。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <Label>紐づけ先のGLS案件</Label>
+              <SearchableSelect
+                options={glsProjects
+                  .filter((p) => p.id !== id)
+                  .map((p) => ({ value: p.id, label: `${p.gls_number}　${p.name}`, subLabel: p.customer_name }))}
+                value={relinkDialog.target_project_id}
+                onChange={(v) => setRelinkDialog({ ...relinkDialog, target_project_id: v })}
+                placeholder="GLS番号で検索..."
+              />
+            </div>
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 space-y-1">
+              <p>適用すると以下が行われます：</p>
+              <ul className="list-disc pl-4 space-y-0.5">
+                <li>GLS番号が紐づけ先のものに変わり、エピソードコードは新GLSで採番し直されます</li>
+                <li>現在のGLS番号（{project?.gls_number}）は履歴 (previous_gls_numbers) に保存されます</li>
+                <li>BOXフォルダ名・Qシートのエピソードコードも新GLSに更新されます</li>
+                <li>概算見積が残っていれば確定売上に変換されます（売上/仕入の実績はそのまま保持）</li>
+              </ul>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRelinkDialog({ open: false, target_project_id: "" })}>キャンセル</Button>
+            <Button
+              disabled={!relinkDialog.target_project_id || relinkMutation.isPending}
+              onClick={() => {
+                if (window.confirm("この案件を選択したGLSのエピソードに紐づけ直します。よろしいですか？")) {
+                  relinkMutation.mutate(relinkDialog.target_project_id);
+                }
+              }}
+            >
+              {relinkMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              紐づけ直す
             </Button>
           </DialogFooter>
         </DialogContent>
