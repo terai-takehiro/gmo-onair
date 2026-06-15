@@ -23,6 +23,8 @@ router.get('/', async (req, res) => {
     source: req.query.source === 'kessan' ? 'kessan' : undefined,
     kessanMarker: req.query.kessan_marker as string,
     eventMonth: req.query.event_month as string,
+    eventFrom: req.query.event_from as string,
+    eventTo: req.query.event_to as string,
     sortBy: req.query.sort_by as string,
     sortDir: (req.query.sort_dir as 'asc' | 'desc') || 'desc',
   };
