@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
@@ -21,6 +21,7 @@ import ExcelToolbar from "@/components/ExcelToolbar";
 type SortKey = 'default' | 'created_at' | 'name' | 'customer' | 'stage' | 'expected_amount' | 'event_start';
 type SortDir = 'asc' | 'desc';
 type TabFilter = 'all' | 'yomi' | 'active' | 'completed' | 'lost';
+type EventPeriodMode = 'half' | 'month' | 'quarter' | 'year' | 'all';
 
 const tabs: { value: TabFilter; label: string }[] = [
   { value: 'all', label: '全て' },
@@ -50,19 +51,39 @@ export default function ProjectListPage() {
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<`${SortKey}:${SortDir}`>("default:asc");
   const [sortKey, sortDir] = sort.split(":") as [SortKey, SortDir];
-  // 開催月 (YYYY-MM) 絞り込み。既定は今月
-  const [monthFilter, setMonthFilter] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-  });
+  // 開催期間 絞り込み。既定は「今月〜半年先」、月/四半期/年/全件 も選択可
+  const now = new Date();
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  const curYm = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}`;
+  const [eventMode, setEventMode] = useState<EventPeriodMode>("half");
+  const [eventMonth, setEventMonth] = useState(curYm);
+  const [eventYear, setEventYear] = useState(now.getFullYear());
+  const [eventQuarter, setEventQuarter] = useState(Math.floor(now.getMonth() / 3) + 1);
+
+  // 開催期間レンジ (YYYY-MM-DD)。'all' は null (絞り込みなし)
+  const eventRange = useMemo(() => {
+    if (eventMode === "all") return null;
+    if (eventMode === "month") return { from: `${eventMonth}-01`, to: `${eventMonth}-31` };
+    if (eventMode === "quarter") {
+      const sm = (eventQuarter - 1) * 3 + 1;
+      return { from: `${eventYear}-${pad2(sm)}-01`, to: `${eventYear}-${pad2(sm + 2)}-31` };
+    }
+    if (eventMode === "year") return { from: `${eventYear}-01-01`, to: `${eventYear}-12-31` };
+    // half: 今月〜半年先 (今月初日 〜 6ヶ月先の月末)
+    const from = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-01`;
+    const end = new Date(now.getFullYear(), now.getMonth() + 7, 0); // (今月+6) の月末
+    const to = `${end.getFullYear()}-${pad2(end.getMonth() + 1)}-${pad2(end.getDate())}`;
+    return { from, to };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventMode, eventMonth, eventYear, eventQuarter]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["projects", page, search, tab, sortKey, sortDir, monthFilter],
+    queryKey: ["projects", page, search, tab, sortKey, sortDir, eventRange?.from, eventRange?.to],
     queryFn: async () => {
       const params: Record<string, string | number> = { page, limit: 20 };
       if (search) params.search = search;
       if (tab !== 'all') params.tab = tab;
-      if (monthFilter) params.event_month = monthFilter;
+      if (eventRange) { params.event_from = eventRange.from; params.event_to = eventRange.to; }
       params.sort_by = sortKey;
       params.sort_dir = sortDir;
       return (await api.get("/projects", { params })).data;
@@ -107,24 +128,48 @@ export default function ProjectListPage() {
             className="pl-9"
           />
         </div>
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-muted-foreground whitespace-nowrap">開催月</span>
-          <Input
-            type="month"
-            value={monthFilter}
-            onChange={(e) => { setMonthFilter(e.target.value); setPage(1); }}
-            className="w-40"
-            aria-label="開催月で絞り込み"
-          />
-          {monthFilter && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 px-2 text-xs"
-              onClick={() => { setMonthFilter(""); setPage(1); }}
-            >
-              解除
-            </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* 開催期間モード切替 */}
+          <div className="inline-flex rounded-lg border border-border p-0.5">
+            {([["half", "半年"], ["month", "月"], ["quarter", "四半期"], ["year", "年"], ["all", "全件"]] as [EventPeriodMode, string][]).map(([m, lbl]) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => { setEventMode(m); setPage(1); }}
+                className={`rounded-md px-2.5 py-1 text-xs transition-colors ${eventMode === m ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:bg-muted"}`}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
+          {eventMode === "month" && (
+            <Input
+              type="month"
+              value={eventMonth}
+              onChange={(e) => { setEventMonth(e.target.value); setPage(1); }}
+              className="w-36"
+              aria-label="開催月で絞り込み"
+            />
+          )}
+          {eventMode === "quarter" && (
+            <>
+              <Input type="number" value={eventYear} onChange={(e) => { setEventYear(Number(e.target.value) || eventYear); setPage(1); }} className="w-20" aria-label="年" />
+              <Select value={String(eventQuarter)} onValueChange={(v) => { setEventQuarter(Number(v)); setPage(1); }}>
+                <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1Q（1〜3月）</SelectItem>
+                  <SelectItem value="2">2Q（4〜6月）</SelectItem>
+                  <SelectItem value="3">3Q（7〜9月）</SelectItem>
+                  <SelectItem value="4">4Q（10〜12月）</SelectItem>
+                </SelectContent>
+              </Select>
+            </>
+          )}
+          {eventMode === "year" && (
+            <Input type="number" value={eventYear} onChange={(e) => { setEventYear(Number(e.target.value) || eventYear); setPage(1); }} className="w-24" aria-label="年" />
+          )}
+          {eventMode === "half" && (
+            <span className="text-xs text-muted-foreground whitespace-nowrap">今月〜半年先を表示</span>
           )}
         </div>
         <Select value={sort} onValueChange={(v) => { setSort(v as typeof sort); setPage(1); }}>
