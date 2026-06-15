@@ -81,7 +81,7 @@ export default function SgaListPage() {
 
   const [form, setForm] = useState<SgaFormData>(initialFormData);
 
-  // 予算ダッシュボード等から ?edit={id} で遷移されたら、その販管費の編集モーダルを開く
+  // 財務ダッシュボード等から ?edit={id} で遷移されたら、その販管費の編集モーダルを開く
   const [searchParams] = useSearchParams();
   const editParam = searchParams.get("edit");
   const editOpenedRef = useRef<string | null>(null);

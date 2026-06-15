@@ -20,19 +20,27 @@ interface MonthlySummary {
   month: string;
   revenue_total: number;
   purchase_total: number;
-  gross_profit: number;
+  fixed_cost_total: number;   // 固定原価
+  variable_cost_total: number; // 変動原価 (= 仕入 − 固定原価)
+  marginal_profit: number;    // 限界利益 (= 売上 − 変動原価)
+  gross_profit: number;       // 売上総利益 (= 限界利益 − 固定原価)
   sga_total: number;
-  operating_profit: number;
+  operating_profit: number;   // 営業利益 (= 売上総利益 − 販管費)
 }
 
 const EMPTY_SUMMARY: MonthlySummary = {
   month: "",
   revenue_total: 0,
   purchase_total: 0,
+  fixed_cost_total: 0,
+  variable_cost_total: 0,
+  marginal_profit: 0,
   gross_profit: 0,
   sga_total: 0,
   operating_profit: 0,
 };
+
+const FIXED_COGS_CODE = "FIXED-COGS";
 
 export default function BudgetDashboardPage() {
   const navigate = useNavigate();
@@ -96,13 +104,60 @@ export default function BudgetDashboardPage() {
   });
 
   const revenueRows: Array<{ id: string; gls_number?: string | null; project_name?: string | null; customer_name?: string | null; amount: number }> = revenueList?.data ?? [];
-  const purchaseRows: Array<{ id: string; gls_number?: string | null; project_name?: string | null; vendor_name?: string | null; description?: string | null; amount: number; settlement_url?: string | null; is_provisional?: boolean }> = purchaseList?.data ?? [];
+  const purchaseRows: Array<{ id: string; gls_number?: string | null; project_name?: string | null; project_code?: string | null; vendor_name?: string | null; description?: string | null; amount: number; settlement_url?: string | null; is_provisional?: boolean }> = purchaseList?.data ?? [];
+  // 固定原価Pj (code=FIXED-COGS) の仕入を「固定原価」、それ以外を「変動原価」として分離
+  const variablePurchaseRows = purchaseRows.filter((p) => p.project_code !== FIXED_COGS_CODE);
+  const fixedPurchaseRows = purchaseRows.filter((p) => p.project_code === FIXED_COGS_CODE);
   const sgaRows: Array<{ id: string; vendor_name?: string | null; description?: string | null; amount: number; settlement_url?: string | null }> = sgaList?.data ?? [];
   const errorMessage =
     (error as { response?: { data?: { error?: { message?: string } } }; message?: string } | null)
       ?.response?.data?.error?.message ||
     (error as { message?: string } | null)?.message ||
     "";
+
+  const renderPurchaseItem = (p: (typeof purchaseRows)[number]) => (
+    <li key={p.id} className="flex items-center justify-between gap-2 py-1">
+      <button
+        type="button"
+        onClick={() => navigate(`/budget/purchases?edit=${p.id}`)}
+        className="min-w-0 flex-1 py-1 text-left text-sm transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+        title="クリックで仕入編集を開く"
+      >
+        <p className="truncate text-foreground">
+          <span className="font-number text-primary">{p.gls_number || "-"}</span>
+          {p.project_name && <span className="ml-2">{p.project_name}</span>}
+        </p>
+        <p className="truncate text-xs text-muted-foreground">
+          {[p.vendor_name, p.description].filter(Boolean).join("／") || "-"}
+        </p>
+      </button>
+      <div className="flex shrink-0 items-center gap-2">
+        <span className="min-w-[96px] text-right font-number tabular-nums text-sm">
+          {p.is_provisional && (
+            <span className="mr-1 inline-block rounded bg-amber-100 px-1 py-0.5 text-[10px] font-bold text-amber-700 align-middle">
+              仮
+            </span>
+          )}
+          {formatCurrency(p.amount)}
+        </span>
+        {/* URL の有無に関わらず金額の縦列を揃えるため固定幅スロットを確保 */}
+        <span className="inline-flex w-5 shrink-0 justify-center">
+          {p.settlement_url && (
+            <a
+              href={p.settlement_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center text-primary hover:text-primary/80"
+              title="申請URLを開く"
+              aria-label="申請URLを開く"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          )}
+        </span>
+      </div>
+    </li>
+  );
 
   const refreshButton = (
     <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} aria-label="データ更新">
@@ -111,6 +166,7 @@ export default function BudgetDashboardPage() {
     </Button>
   );
 
+  const marginalPct = summary.revenue_total > 0 ? (summary.marginal_profit / summary.revenue_total * 100) : 0;
   const grossMarginPct = summary.revenue_total > 0 ? (summary.gross_profit / summary.revenue_total * 100) : 0;
   const operatingMarginPct = summary.revenue_total > 0 ? (summary.operating_profit / summary.revenue_total * 100) : 0;
 
@@ -118,8 +174,8 @@ export default function BudgetDashboardPage() {
     <PageTransition>
       <div className="space-y-5 p-4 sm:space-y-6 sm:p-6">
         <DashboardHeader
-          title="予算ダッシュボード"
-          description="月次の売上・仕入・粗利・販管費・営業利益を単一画面で確認します。"
+          title="財務ダッシュボード"
+          description="月次の売上・変動原価・限界利益・固定原価・売上総利益・販管費・営業利益を単一画面で確認します。"
           period={month ? formatMonth(month + "-01") : undefined}
           controls={refreshButton}
         />
@@ -172,14 +228,22 @@ export default function BudgetDashboardPage() {
           </div>
         )}
 
-        {/* 主要指標 */}
+        {/* 主要指標 — 損益の流れ: 売上 −変動原価= 粗利(限界利益) −固定原価= 売上総利益 −販管費= 営業利益 */}
         <section aria-labelledby="budget-kpi-heading">
           <h2 id="budget-kpi-heading" className="sr-only">損益サマリー</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
             <KpiCard label="売上" value={formatCurrency(summary.revenue_total)} loading={isFetching && !hasData} />
-            <KpiCard label="仕入" value={formatCurrency(summary.purchase_total)} loading={isFetching && !hasData} />
+            <KpiCard label="仕入（変動原価）" value={formatCurrency(summary.variable_cost_total)} loading={isFetching && !hasData} />
             <KpiCard
-              label="粗利"
+              label="粗利（限界利益）"
+              value={formatCurrency(summary.marginal_profit)}
+              emphasis={summary.marginal_profit >= 0 ? 'success' : 'negative'}
+              unit={hasData && summary.revenue_total > 0 ? `${marginalPct.toFixed(1)}%` : undefined}
+              loading={isFetching && !hasData}
+            />
+            <KpiCard label="固定原価" value={formatCurrency(summary.fixed_cost_total)} loading={isFetching && !hasData} />
+            <KpiCard
+              label="売上総利益"
               value={formatCurrency(summary.gross_profit)}
               emphasis={summary.gross_profit >= 0 ? 'success' : 'negative'}
               unit={hasData && summary.revenue_total > 0 ? `${grossMarginPct.toFixed(1)}%` : undefined}
@@ -194,6 +258,11 @@ export default function BudgetDashboardPage() {
               loading={isFetching && !hasData}
             />
           </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            売上 −変動原価 = <span className="font-medium text-foreground">粗利（限界利益）</span> ／
+            粗利 −固定原価 = <span className="font-medium text-foreground">売上総利益</span> ／
+            売上総利益 −販管費 = <span className="font-medium text-foreground">営業利益</span>
+          </p>
         </section>
 
         {/* 内訳 (明細) — PC は横並び 3 カラム */}
@@ -234,63 +303,38 @@ export default function BudgetDashboardPage() {
             )}
           </SectionCard>
 
-          {/* 仕入 内訳 */}
-          <SectionCard
-            title="仕入 内訳"
-            description="選択月の仕入明細です。申請URLボタンで精算ページを開けます。"
-            icon={<ShoppingCart />}
-            footnote={`${purchaseRows.length} 件`}
-          >
-            {purchaseRows.length === 0 ? (
-              <EmptyState title="仕入明細がありません" />
-            ) : (
-              <ul className="divide-y divide-border">
-                {purchaseRows.map((p) => (
-                  <li key={p.id} className="flex items-center justify-between gap-2 py-1">
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/budget/purchases?edit=${p.id}`)}
-                      className="min-w-0 flex-1 py-1 text-left text-sm transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
-                      title="クリックで仕入編集を開く"
-                    >
-                      <p className="truncate text-foreground">
-                        <span className="font-number text-primary">{p.gls_number || "-"}</span>
-                        {p.project_name && <span className="ml-2">{p.project_name}</span>}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {[p.vendor_name, p.description].filter(Boolean).join("／") || "-"}
-                      </p>
-                    </button>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span className="min-w-[96px] text-right font-number tabular-nums text-sm">
-                        {p.is_provisional && (
-                          <span className="mr-1 inline-block rounded bg-amber-100 px-1 py-0.5 text-[10px] font-bold text-amber-700 align-middle">
-                            仮
-                          </span>
-                        )}
-                        {formatCurrency(p.amount)}
-                      </span>
-                      {/* URL の有無に関わらず金額の縦列を揃えるため固定幅スロットを確保 */}
-                      <span className="inline-flex w-5 shrink-0 justify-center">
-                        {p.settlement_url && (
-                          <a
-                            href={p.settlement_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center text-primary hover:text-primary/80"
-                            title="申請URLを開く"
-                            aria-label="申請URLを開く"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        )}
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </SectionCard>
+          {/* 仕入(変動原価) 内訳 + 固定原価 内訳 を中央カラムに縦積み */}
+          <div className="space-y-5 lg:space-y-6">
+            <SectionCard
+              title="仕入（変動原価） 内訳"
+              description="案件に紐づく変動原価の明細です。申請URLボタンで精算ページを開けます。"
+              icon={<ShoppingCart />}
+              footnote={`${variablePurchaseRows.length} 件`}
+            >
+              {variablePurchaseRows.length === 0 ? (
+                <EmptyState title="変動原価の明細がありません" />
+              ) : (
+                <ul className="divide-y divide-border">
+                  {variablePurchaseRows.map(renderPurchaseItem)}
+                </ul>
+              )}
+            </SectionCard>
+
+            <SectionCard
+              title="固定原価 内訳"
+              description="固定原価プロジェクト（スタジオ償却負担額等）に計上された原価です。"
+              icon={<ShoppingCart />}
+              footnote={`${fixedPurchaseRows.length} 件`}
+            >
+              {fixedPurchaseRows.length === 0 ? (
+                <EmptyState title="固定原価の明細がありません" />
+              ) : (
+                <ul className="divide-y divide-border">
+                  {fixedPurchaseRows.map(renderPurchaseItem)}
+                </ul>
+              )}
+            </SectionCard>
+          </div>
 
           {/* 販管費 内訳 (案件絞り込み時は非表示) */}
           {!projectId && (

@@ -27,7 +27,7 @@ export interface BlockApp {
 
 export const BLOCK_APPS: BlockApp[] = [
   { id: "sales",       label: "案件管理",           description: "案件パイプライン・顧客・見積",     icon: "FolderKanban", color: "bg-blue-500",    status: "active",      basePath: "/sales" },
-  { id: "budget",      label: "予算管理",           description: "売上・仕入・販管費・損益",         icon: "PiggyBank",    color: "bg-emerald-500", status: "active",      basePath: "/budget" },
+  { id: "budget",      label: "財務管理",           description: "売上・仕入・販管費・損益",         icon: "PiggyBank",    color: "bg-emerald-500", status: "active",      basePath: "/budget" },
   { id: "studio",      label: "カレンダー",         description: "スタジオカレンダー・ブッキング",   icon: "Calendar",     color: "bg-violet-500",  status: "active",      basePath: "/studio" },
   { id: "qsheet",      label: "Qシート",            description: "Qシート作成・OnAir・ランダウン",   icon: "FileText",     color: "bg-rose-500",    status: "active",      basePath: "/qsheet" },
   { id: "equipment",   label: "機材管理",           description: "機材台帳・貸出・メンテナンス",     icon: "Package",      color: "bg-amber-500",   status: "active",      basePath: "/equipment" },
@@ -43,7 +43,7 @@ export const BLOCK_APPS: BlockApp[] = [
 /** モジュール定義（日本語ラベル付き）— パーミッションキーとして使用 */
 export const MODULE_LABELS: Record<string, string> = {
   sales: "案件管理",
-  budget: "予算管理",
+  budget: "財務管理",
   studio: "カレンダー",
   equipment: "機材管理",
   qsheet: "Qシート",

@@ -39,7 +39,7 @@ import StudioCalendarPage from "@/contexts/production/pages/StudioCalendarPage";
 import SignagePage from "@/contexts/production/pages/SignagePage";
 import VendorReportPage from "@/contexts/production/pages/VendorReportPage";
 
-// Finance (予算管理)
+// Finance (財務管理)
 import RevenueListPage from "@/contexts/finance/pages/RevenueListPage";
 import PurchaseListPage from "@/contexts/finance/pages/PurchaseListPage";
 import SgaListPage from "@/contexts/finance/pages/SgaListPage";
@@ -119,7 +119,7 @@ function AppRoutes() {
         <Route path="/sales/companies" element={<PermissionRoute module="sales"><CompanyListPage /></PermissionRoute>} />
         <Route path="/sales/pricing" element={<PermissionRoute module="sales"><PricingListPage /></PermissionRoute>} />
 
-        {/* ===== 予算管理 (budget) ===== */}
+        {/* ===== 財務管理 (budget) ===== */}
         <Route path="/budget/revenues" element={<PermissionRoute module="budget"><RevenueListPage /></PermissionRoute>} />
         <Route path="/budget/purchases" element={<PermissionRoute module="budget"><PurchaseListPage /></PermissionRoute>} />
         <Route path="/budget/sga" element={<PermissionRoute module="budget"><SgaListPage /></PermissionRoute>} />
