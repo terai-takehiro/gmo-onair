@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
-import type { CgCueState, CgCategory, CgMappedEntry } from './types';
+import type { CgCueState, CgCategory, CgMappedEntry, CgSurvey } from './types';
 import CGBackground from './components/CGBackground';
 import PersistentHeader from './components/PersistentHeader';
 import PhotoStage from './components/PhotoStage';
@@ -9,11 +9,13 @@ import StepTop3 from './steps/StepTop3';
 import StepOneShot from './steps/StepOneShot';
 import StepFinalPitch from './steps/StepFinalPitch';
 import StepCelebration from './steps/StepCelebration';
+import StepSurveyReveal from './steps/StepSurveyReveal';
 
 interface Props {
   cue: CgCueState;
   category: CgCategory | null;
   allCategories?: CgCategory[];   // celebration ステップで使用
+  surveys?: CgSurvey[];           // survey-oneshot ステップで使用 (連動アンケート)
   eventName: string;
   eventSubtitle?: string | null;
   lang?: 'ja' | 'en';
@@ -42,7 +44,7 @@ function mapEntry(e: CgCategory['entries'][number]): CgMappedEntry {
 
 const STEP_ORDER = ['idle', 'title', 'nominees', 'ranks52', 'top3', 'winner-bar', 'oneshot'] as const;
 
-export default function CGSequence({ cue, category, allCategories, eventName, eventSubtitle, lang = 'ja', transparent }: Props) {
+export default function CGSequence({ cue, category, allCategories, surveys, eventName, eventSubtitle, lang = 'ja', transparent }: Props) {
   const stepKey = cue.step;
 
   // Map entries
@@ -106,6 +108,12 @@ export default function CGSequence({ cue, category, allCategories, eventName, ev
   const showTop3 = stepKey === 'top3';
   const showFinalPitch = stepKey === 'final-pitch';
   const showCelebration = stepKey === 'celebration';
+  const showSurveyOneshot = stepKey === 'survey-oneshot';
+
+  // survey-oneshot: 現カテゴリに紐づく連動アンケートを探す
+  const linkedSurvey = showSurveyOneshot && category
+    ? (surveys ?? []).find((s) => s.link_category_id === category.id) ?? null
+    : null;
 
   const winner = sorted.find((e) => e.rank === 1) ?? null;
 
@@ -129,8 +137,8 @@ export default function CGSequence({ cue, category, allCategories, eventName, ev
     >
       <CGBackground transparent={transparent} />
 
-      {/* Persistent morphing header — final-pitch / celebration は専用レイアウトで非表示 */}
-      {stepKey !== 'final-pitch' && stepKey !== 'celebration' && (
+      {/* Persistent morphing header — final-pitch / celebration / survey-oneshot は専用レイアウトで非表示 */}
+      {stepKey !== 'final-pitch' && stepKey !== 'celebration' && stepKey !== 'survey-oneshot' && (
         <PersistentHeader key={`hdr-${persistKey}`} tweaks={tweaks} stepKey={stepKey} />
       )}
 
@@ -219,6 +227,20 @@ export default function CGSequence({ cue, category, allCategories, eventName, ev
           }
           awardName={lang === 'en' ? (category?.name_en || category?.name || '') : (category?.name ?? '')}
           lang={lang}
+        />
+      )}
+
+      {/* Survey No.1 — 連動アンケートの最多得票をフルスクリーン発表 (賞の最後) */}
+      {showSurveyOneshot && linkedSurvey && (
+        <StepSurveyReveal
+          key={`survey-${persistKey}`}
+          choices={linkedSurvey.choices.slice(0, linkedSurvey.choice_count)}
+          title={lang === 'en' ? (linkedSurvey.title_en || linkedSurvey.title) : linkedSurvey.title}
+          display={linkedSurvey.display}
+          phase={Math.min(2, cue.revealPhase) as 0 | 1 | 2}
+          oneshotStyle={cue.oneshotStyle}
+          lang={lang}
+          transparent={transparent}
         />
       )}
 

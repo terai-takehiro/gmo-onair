@@ -1,11 +1,13 @@
 import { create } from 'zustand';
-import type { CgCueState, CgCategory } from './types';
+import type { CgCueState, CgCategory, CgSurvey } from './types';
 
 interface AwardsStore {
   cue: CgCueState;
   categories: CgCategory[];
+  surveys: CgSurvey[];
   setCue: (cue: Partial<CgCueState>) => void;
   setCategories: (cats: CgCategory[]) => void;
+  setSurveys: (surveys: CgSurvey[]) => void;
 }
 
 export const DEFAULT_CUE: CgCueState = {
@@ -20,7 +22,9 @@ export const DEFAULT_CUE: CgCueState = {
 export const useAwardsStore = create<AwardsStore>((set) => ({
   cue: { ...DEFAULT_CUE },
   categories: [],
+  surveys: [],
   setCue: (partial) =>
     set((s) => ({ cue: { ...s.cue, ...partial } })),
   setCategories: (cats) => set({ categories: cats }),
+  setSurveys: (surveys) => set({ surveys }),
 }));

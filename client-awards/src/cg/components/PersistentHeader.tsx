@@ -55,14 +55,16 @@ export default function PersistentHeader({ tweaks, stepKey }: Props) {
   const charDelay = titlePerCharDelay(N);
 
   // Auto-fit parent font size
+  // 縮小に下限 (font 120 + scaleX 0.7) があると超長文ではみ出していたため、
+  // font は下限ありで保ちつつ最終的に scaleX で必ず BUDGET 内に収める。
   const desiredW = N * BASE_FONT * (1 + LETTER_GAP);
   let parentFontSize = BASE_FONT;
   let parentScaleX = 1;
   if (desiredW > PARENT_BUDGET) {
-    parentFontSize = Math.max(120, Math.floor(PARENT_BUDGET / (N * (1 + LETTER_GAP))));
+    parentFontSize = Math.max(110, Math.floor(PARENT_BUDGET / (N * (1 + LETTER_GAP))));
     const wAtNew = N * parentFontSize * (1 + LETTER_GAP);
     if (wAtNew > PARENT_BUDGET) {
-      parentScaleX = Math.max(0.7, PARENT_BUDGET / wAtNew);
+      parentScaleX = PARENT_BUDGET / wAtNew;
     }
   }
 
@@ -75,9 +77,19 @@ export default function PersistentHeader({ tweaks, stepKey }: Props) {
   const childLetter = parentEmpty ? 0.1 : CHILD_LETTER;
   const childDesired = childN * childBase * (1 + childLetter);
   let childFontSize = childBase;
+  let childScaleX = 1;
   if (childDesired > CHILD_BUDGET) {
     childFontSize = Math.max(34, Math.floor(CHILD_BUDGET / (childN * (1 + childLetter))));
+    const wAtNew = childN * childFontSize * (1 + childLetter);
+    if (wAtNew > CHILD_BUDGET) {
+      childScaleX = CHILD_BUDGET / wAtNew;
+    }
   }
+
+  // Auto-fit event title (28px / 0.7em 字間) — 長いイベント名は長体で収める
+  const evN = [...(tweaks.eventTitle ?? '')].length;
+  const evDesired = evN * 28 * 1.7;
+  const evScaleX = evDesired > PARENT_BUDGET ? PARENT_BUDGET / evDesired : 1;
 
   const goldGrad = {
     background:
@@ -102,7 +114,7 @@ export default function PersistentHeader({ tweaks, stepKey }: Props) {
         textAlign: 'center',
       }}
     >
-      {/* Event title */}
+      {/* Event title — scaleX は CSS keyframes (transform) と衝突しないよう内側 span に掛ける */}
       <div
         className={isTitle ? 'cg-title-event' : undefined}
         style={{
@@ -115,7 +127,15 @@ export default function PersistentHeader({ tweaks, stepKey }: Props) {
           whiteSpace: 'nowrap',
         }}
       >
-        {tweaks.eventTitle}
+        <span
+          style={{
+            display: 'inline-block',
+            transform: evScaleX < 1 ? `scaleX(${evScaleX})` : undefined,
+            transformOrigin: 'center center',
+          }}
+        >
+          {tweaks.eventTitle}
+        </span>
       </div>
 
       {/* Gold hairline */}
@@ -206,7 +226,16 @@ export default function PersistentHeader({ tweaks, stepKey }: Props) {
               : undefined,
           }}
         >
-          {childText}
+          {/* scaleX は CSS keyframes (transform) と衝突しないよう内側 span に掛ける */}
+          <span
+            style={{
+              display: 'inline-block',
+              transform: childScaleX < 1 ? `scaleX(${childScaleX})` : undefined,
+              transformOrigin: 'center center',
+            }}
+          >
+            {childText}
+          </span>
         </div>
       </div>
     </div>

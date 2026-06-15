@@ -5,7 +5,7 @@ import api from '@/lib/api';
 import { useAwardsCue } from '@/hooks/useAwardsCue';
 import { cn } from '@/lib/utils';
 import { ChevronLeft, ExternalLink, Tv, Radio, Subtitles, Send, X, Maximize2, Minimize2, Vote, HelpCircle } from 'lucide-react';
-import type { CgStep, OneshotStyle, CgCategory, CgCueState, AwardPattern } from '@/cg/types';
+import type { CgStep, OneshotStyle, CgCategory, CgCueState, AwardPattern, CgSurvey } from '@/cg/types';
 import CGFrame from '@/cg/CGFrame';
 
 // CG プレビューが mount/update でクラッシュしても operator UI 全体は維持する。
@@ -33,6 +33,7 @@ type PreviewLang = 'ja' | 'en' | 'both';
 
 interface AwardsEventDetail {
   id: number; name: string; subtitle: string | null; categories: CgCategory[];
+  surveys?: CgSurvey[];
 }
 interface AwardGroup { name: string; divisions: CgCategory[] }
 
@@ -66,13 +67,15 @@ const STEPS_VOTE: StepDef[] = [
   { step: 'final-pitch',  label: 'PITCH',      desc: 'ファイナルピッチ (3名→1名)', color: 'live', shortcut: '4' },
   { step: 'celebration',  label: 'CELEB',      desc: '全部門 No.1 + 紙吹雪',    color: 'award',   shortcut: '5' },
 ];
+// v2.9.63: 連動アンケートを持つ部門でだけ末尾に追加する「アンケート No.1 発表」ステップ
+const SURVEY_STEP: StepDef = { step: 'survey-oneshot', label: 'SURVEY No.1', desc: 'アンケートNo.1発表', color: 'award', shortcut: '7' };
 const ONESHOT_STYLES: { style: OneshotStyle; label: string }[] = [
   { style: 'classic',   label: 'Classic'   },
   { style: 'shards',    label: 'Shards'    },
   { style: 'spotlight', label: 'Spotlight' },
   { style: 'slit',      label: 'Slit'      },
 ];
-const LIVE_STEPS: CgStep[] = ['nominees', 'ranks52', 'top3', 'final-pitch', 'winner-bar', 'oneshot', 'celebration'];
+const LIVE_STEPS: CgStep[] = ['nominees', 'ranks52', 'top3', 'final-pitch', 'winner-bar', 'oneshot', 'celebration', 'survey-oneshot'];
 
 export default function ControlPage() {
   const { id } = useParams<{ id: string }>();
@@ -90,6 +93,7 @@ export default function ControlPage() {
   const { cue, sendCue, sendNextCue } = useAwardsCue(eventId);
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
   const awardGroups = useMemo(() => groupByAward(event?.categories ?? []), [event]);
+  const surveys = useMemo<CgSurvey[]>(() => event?.surveys ?? [], [event]);
   const liveCategory = event?.categories.find((c) => c.id === cue.categoryId) ?? null;
   const isLive = LIVE_STEPS.includes(cue.step);
 
@@ -101,7 +105,29 @@ export default function ControlPage() {
   // ── NEXT category の演出パターンに応じてステップ一覧を切替
   const nextCategoryRaw = event?.categories.find((c) => c.id === nextCategoryId) ?? null;
   const pattern: AwardPattern = nextCategoryRaw?.award_pattern === 'vote' ? 'vote' : 'direct';
-  const STEPS = pattern === 'vote' ? STEPS_VOTE : STEPS_DIRECT;
+  // CELEB (全部門 No.1 + 紙吹雪) は「その賞 (award name) の最後の部門」にだけ出す
+  const isLastDivisionOfAward = useMemo(() => {
+    if (!nextCategoryRaw) return false;
+    const group = awardGroups.find((g) => g.name === nextCategoryRaw.name);
+    if (!group) return false;
+    return group.divisions[group.divisions.length - 1]?.id === nextCategoryRaw.id;
+  }, [awardGroups, nextCategoryRaw]);
+  // NEXT 部門が連動 (top-reveal) アンケートを持つか
+  const nextCategoryHasSurvey = useMemo(
+    () => nextCategoryId != null && surveys.some((s) => s.link_category_id === nextCategoryId),
+    [surveys, nextCategoryId],
+  );
+  const STEPS = useMemo(() => {
+    const base = pattern === 'vote' ? STEPS_VOTE : STEPS_DIRECT;
+    let steps = isLastDivisionOfAward ? base : base.filter((s) => s.step !== 'celebration');
+    if (nextCategoryHasSurvey) {
+      // 連動アンケートを持つ部門は「アンケート No.1 発表」を末尾に追加。
+      // この場合「全部門 No.1 + 紙吹雪 (CELEB)」は出さない (No.1 発表に一本化)。
+      steps = steps.filter((s) => s.step !== 'celebration');
+      steps = [...steps, SURVEY_STEP];
+    }
+    return steps;
+  }, [pattern, isLastDivisionOfAward, nextCategoryHasSurvey]);
   const liveStep = [...STEPS_DIRECT, ...STEPS_VOTE].find((s) => s.step === cue.step);
 
   // 初期: LIVE 状態を NEXT にコピー (新規イベント or リロード時)
@@ -118,12 +144,13 @@ export default function ControlPage() {
   const nextCategory = nextCategoryRaw;
   const nextStepDef = STEPS.find((s) => s.step === nextStep) ?? [...STEPS_DIRECT, ...STEPS_VOTE].find((s) => s.step === nextStep);
 
-  // パターン切替で現 nextStep が新 STEPS に存在しなくなる場合は idle に戻す
+  // パターン切替 / 部門切替 (celebration 可否の変化) で現 nextStep が新 STEPS に
+  // 存在しなくなる場合は idle に戻す
   useEffect(() => {
     if (!STEPS.some((s) => s.step === nextStep)) {
       setNextStep('idle');
     }
-  }, [pattern]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [STEPS]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // NEXT の broadcast (NEXT 出力 URL 用): preview 変化のたびに socket emit
   useEffect(() => {
@@ -150,6 +177,21 @@ export default function ControlPage() {
       return;
     }
 
+    // v2.9.63: survey-oneshot は TAKE で revealPhase を 0→1→2 (ロール→ロック→No.1) に進める。
+    //   phase 2 到達後の TAKE で次のカテゴリの idle へ。
+    if (nextStep === 'survey-oneshot' && cue.step === 'survey-oneshot') {
+      if (cue.revealPhase < 2) {
+        sendCue({ revealPhase: (cue.revealPhase + 1) as 0 | 1 | 2 | 3 });
+      } else {
+        const catIdx = allCats.findIndex((c) => c.id === nextCategoryId);
+        if (catIdx >= 0 && catIdx < allCats.length - 1) {
+          setNextCategoryId(allCats[catIdx + 1].id);
+          setNextStep('idle');
+        }
+      }
+      return;
+    }
+
     sendCue({
       step: nextStep,
       categoryId: nextCategoryId,
@@ -158,9 +200,14 @@ export default function ControlPage() {
       revealPhase: 0,
     });
 
+    // survey-oneshot を新規送出した直後は NEXT ポインタを据え置き
+    // (次の TAKE で revealPhase を進めるため。下の自動進行はスキップ)。
+    if (nextStep === 'survey-oneshot') return;
+
     // v2.9.43: TAKE 後に NEXT ポインタを自動進行 (「TAKE を押していったらどんどん次に送れる」)。
     //   - STEPS 内で次のステップへ
-    //   - 最終ステップ (celebration) の場合は次のカテゴリの最初のステップ (idle) に進む
+    //   - 最終ステップの場合は次のカテゴリの最初のステップ (idle) に進む
+    //     (賞の最後の部門では celebration が最終、それ以外は oneshot / final-pitch が最終)
     //   - 最終カテゴリの最終ステップでは据置 (循環したくないので明示操作を求める)
     const idx = STEPS.findIndex((s) => s.step === nextStep);
     if (idx >= 0 && idx < STEPS.length - 1) {
@@ -391,6 +438,7 @@ export default function ControlPage() {
                     cue={cue}
                     category={liveCategory}
                     allCategories={event.categories}
+                    surveys={surveys}
                     eventName={event.name}
                     eventSubtitle={event.subtitle}
                   />
@@ -479,6 +527,7 @@ export default function ControlPage() {
                           cue={nextCueForPreview}
                           category={nextCategory}
                           allCategories={event.categories}
+                          surveys={surveys}
                           eventName={event.name}
                           eventSubtitle={event.subtitle}
                         />

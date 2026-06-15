@@ -21,18 +21,15 @@ function getStackSocket(eventId: number): Socket {
 
 const DEFAULT = (id: number): QuizStackCue => ({
   eventId: id, currentQuizId: null, step: 'idle', pollStartedAt: null, revealPhase: 0,
-  oneshotStyle: 'classic',
 });
-
-function normStyle(v: unknown): 'classic' | 'shards' | 'spotlight' | 'slit' {
-  return v === 'shards' || v === 'spotlight' || v === 'slit' ? v : 'classic';
-}
 
 export function useQuizStackSocket(eventId: number | null) {
   const [cue, setCue] = useState<QuizStackCue>(() => DEFAULT(eventId ?? 0));
   // v2.9.24: Interactive (別 VPS) poller からのリアルタイム投票数。
   // { quizId, votes: {position: count} }。cue とは独立に保持し、出力側でマージする。
   const [liveVotes, setLiveVotes] = useState<{ quizId: number; votes: Record<number, number> } | null>(null);
+  // v2.9.64: NEXT (送出予約) の quiz。operator が選択 → NEXT 出力 URL に反映。
+  const [nextQuizId, setNextQuizIdState] = useState<number | null>(null);
   const cueRef = useRef(cue);
   cueRef.current = cue;
 
@@ -49,18 +46,22 @@ export function useQuizStackSocket(eventId: number | null) {
       step: data.step,
       pollStartedAt: data.pollStartedAt ?? null,
       revealPhase: (data.revealPhase ?? 0) as 0 | 1 | 2,
-      oneshotStyle: normStyle((data as { oneshotStyle?: unknown }).oneshotStyle),
     });
     };
     const onVotes = (data: { quizId: number; votes: Record<number, number>; timestamp?: number }) => {
       updateServerOffsetFromTimestamp(data.timestamp);
       if (data && typeof data.quizId === 'number') setLiveVotes({ quizId: data.quizId, votes: data.votes ?? {} });
     };
+    const onNextSync = (data: { nextQuizId: number | null }) => {
+      setNextQuizIdState(data?.nextQuizId ?? null);
+    };
     sock.on('quizStack:sync', onSync);
     sock.on('quizStack:votes', onVotes);
+    sock.on('quizStack:nextSync', onNextSync);
     return () => {
       sock.off('quizStack:sync', onSync);
       sock.off('quizStack:votes', onVotes);
+      sock.off('quizStack:nextSync', onNextSync);
       sock.disconnect();
       socket = null; currentEventId = null;
     };
@@ -75,7 +76,6 @@ export function useQuizStackSocket(eventId: number | null) {
         step: partial.step ?? cueRef.current.step,
         pollStartedAt: partial.pollStartedAt !== undefined ? partial.pollStartedAt : cueRef.current.pollStartedAt,
         revealPhase: partial.revealPhase ?? cueRef.current.revealPhase,
-        oneshotStyle: partial.oneshotStyle ?? cueRef.current.oneshotStyle,
       },
     };
     setCue(next);
@@ -85,7 +85,6 @@ export function useQuizStackSocket(eventId: number | null) {
       step: next.step,
       pollStartedAt: next.pollStartedAt,
       revealPhase: next.revealPhase,
-      oneshotStyle: next.oneshotStyle,
       votes: partial.votes,
     });
   }, [eventId]);
@@ -94,5 +93,12 @@ export function useQuizStackSocket(eventId: number | null) {
     sendCue({ step, ...extra });
   }, [sendCue]);
 
-  return { cue, sendCue, setStep, liveVotes };
+  // NEXT (送出予約) の quiz を broadcast (NEXT 出力 URL 用)
+  const sendNext = useCallback((id: number | null) => {
+    if (!eventId) return;
+    setNextQuizIdState(id);
+    getStackSocket(eventId).emit('quizStack:nextSet', { nextQuizId: id });
+  }, [eventId]);
+
+  return { cue, sendCue, setStep, liveVotes, nextQuizId, sendNext };
 }

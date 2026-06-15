@@ -15,6 +15,7 @@ import QuizListPage from './pages/QuizListPage';
 import QuizEditPage from './pages/QuizEditPage';
 import QuizStackControlPage from './pages/QuizStackControlPage';
 import QuizStackOutputPage from './pages/QuizStackOutputPage';
+import QuizStackOutputNextPage from './pages/QuizStackOutputNextPage';
 
 // 出力ページ (/awards/output/*) はuseAuthを使わない独立ルーター
 // → useAuth内のaxiosが/auth/meを呼び、401でloginにリダイレクトされるのを防ぐ
@@ -22,7 +23,8 @@ function OutputRouter() {
   return (
     <BrowserRouter basename="/awards">
       <Routes>
-        {/* v2.9.4+: クイズ/アンケート スタック出力 (event 単位) */}
+        {/* クイズ/アンケート スタック出力 (event 単位)。OA + NEXT (送出予約) */}
+        <Route path="/output/quiz-stack/:eventId/next" element={<QuizStackOutputNextPage />} />
         <Route path="/output/quiz-stack/:eventId" element={<QuizStackOutputPage />} />
         <Route path="/output/:eventId/oneshot/next" element={<OneShotOutputNextPage />} />
         <Route path="/output/:eventId/oneshot" element={<OneShotOutputPage />} />

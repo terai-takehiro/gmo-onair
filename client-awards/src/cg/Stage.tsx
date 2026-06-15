@@ -15,7 +15,7 @@ interface StageProps {
 export default function Stage({ category, eventName = '', eventSubtitle, lang = 'ja', transparent }: StageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
-  const { cue, categories } = useAwardsStore();
+  const { cue, categories, surveys } = useAwardsStore();
 
   // Scale to fit viewport
   useEffect(() => {
@@ -55,6 +55,7 @@ export default function Stage({ category, eventName = '', eventSubtitle, lang = 
           cue={cue}
           category={activeCategory}
           allCategories={categories}
+          surveys={surveys}
           eventName={eventName}
           eventSubtitle={eventSubtitle}
           transparent={transparent}

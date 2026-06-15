@@ -14,10 +14,10 @@ export type ImportMappingKey =
   | 'name' | 'nameEn' | 'projectName' | 'projectNameEn' | 'nameKana' | 'projectKana'
   | 'org' | 'orgEn'
   | 'entryNo' | 'department' | 'position' | 'location' | 'joinDate'
-  | 'ism' | 'skills' | 'title' | 'titleEn' | 'comment' | 'commentEn'
+  | 'ism' | 'skills' | 'title' | 'titleEn'
   | 'teamSize' | 'members'
   | 'recName' | 'recNameEn' | 'recNameKana' | 'recCompany' | 'recDept' | 'recPosition'
-  | 'recRespect' | 'recRespectEn' | 'recRespectComment' | 'recRespectCommentEn';
+  | 'recRespect' | 'recRespectEn';
 
 export type ImportMapping = Partial<Record<ImportMappingKey, string>>;
 
@@ -88,8 +88,6 @@ const CG_GROUPS: CgFieldGroup[] = [
       { key: 'skills', label: '私の得意技' },
       { key: 'title', label: 'ノミネートタイトル' },
       { key: 'titleEn', label: 'ノミネートタイトル (英語)' },
-      { key: 'comment', label: 'ノミネート者コメント' },
-      { key: 'commentEn', label: 'ノミネート者コメント (英語)' },
     ],
   },
   {
@@ -110,8 +108,6 @@ const CG_GROUPS: CgFieldGroup[] = [
       { key: 'recPosition', label: '推薦者役職' },
       { key: 'recRespect', label: '尊敬ポイント' },
       { key: 'recRespectEn', label: '尊敬ポイント (英語)' },
-      { key: 'recRespectComment', label: '尊敬ポイント コメント' },
-      { key: 'recRespectCommentEn', label: '尊敬ポイント コメント (英語)' },
     ],
   },
 ];

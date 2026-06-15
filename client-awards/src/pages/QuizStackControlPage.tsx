@@ -7,14 +7,13 @@ import QuizCG from '@/quiz/QuizCG';
 import { CG_W, CG_H } from '@/cg/types';
 import { cn } from '@/lib/utils';
 import { getServerNow } from '@/lib/serverClock';
-import type { QuizStep, QuizMode, QuizOneshotStyle, SurveyPattern } from '@/quiz/types';
+import type { QuizStep, QuizMode, SurveyPattern } from '@/quiz/types';
 import { quizStackLabel } from '@/quiz/types';
 
-// v2.9.36: 演出パターンを (mode, surveyPattern, hasAnswerCheck) で明示分岐。
-//   - mode='quiz'                     → 「正解発表」(常に correct-reveal で終了)
-//   - mode='survey' + 'answer-check' → 「アンサーチェック」(answer-check で終了、No.1 発表なし)
-//   - mode='survey' + 'top-reveal'   → 「No.1 発表」(reveal → winner のフルスクリーン演出)
-// has_answer_check は「アンサーチェック演出を前段に挿入するか」の独立フラグ。
+// アンケートCG の TAKE フロー。
+//   - mode='quiz'                    → 出題 → [アンサーチェック] → 正解発表 → idle
+//   - mode='survey' + 'answer-check' → 出題 → 集計 (answer-check) → idle
+//   - mode='survey' + 'top-reveal'   → 出題のみ → idle (集計も No.1 もランキングCG側で発表)
 function nextStepFor(
   mode: QuizMode,
   surveyPattern: SurveyPattern | null,
@@ -33,31 +32,20 @@ function nextStepFor(
     if (current === 'poll') return 'correct-reveal';
     return 'idle';
   }
-  // アンケート: 演出パターンで分岐
-  const pattern: SurveyPattern = surveyPattern ?? 'top-reveal'; // 旧データ互換のデフォルト
-  if (pattern === 'answer-check') {
-    // アンサーチェックのみ: 出題 → アンサーチェック → idle (No.1 発表なし)
-    if (current === 'idle') return 'poll';
-    if (current === 'poll') return 'answer-check';
-    return 'idle';
+  // アンケート
+  const pattern: SurveyPattern = surveyPattern ?? 'top-reveal';
+  if (pattern === 'top-reveal') {
+    // No.1 発表: この画面は出題のみ。集計・No.1 はランキングCGで。
+    return current === 'idle' ? 'poll' : 'idle';
   }
-  // top-reveal (No.1 発表): 出題 → [アンサーチェック] → 結果発表 (reveal) → No.1 発表 (winner)
-  if (hasAnswerCheck) {
-    if (current === 'idle') return 'poll';
-    if (current === 'poll') return 'answer-check';
-    if (current === 'answer-check') return 'reveal';
-    if (current === 'reveal') return 'winner';
-    return 'idle';
-  }
+  // アンサーチェック: 出題 → 集計 → idle
   if (current === 'idle') return 'poll';
-  if (current === 'poll') return 'reveal';
-  if (current === 'reveal') return 'winner';
+  if (current === 'poll') return 'answer-check';
   return 'idle';
 }
 
 const STEP_LABELS: Record<QuizStep, string> = {
-  idle: 'IDLE', poll: 'POLL', 'answer-check': 'ANS', reveal: 'RESULT',
-  winner: 'NO.1', 'correct-reveal': 'CORRECT',
+  idle: 'IDLE', poll: 'POLL', 'answer-check': 'ANS', 'correct-reveal': 'CORRECT',
 };
 
 // 演出パターンの表示 (operator UI のバッジ用)
@@ -65,7 +53,7 @@ function patternBadge(mode: QuizMode, surveyPattern: SurveyPattern | null) {
   if (mode === 'quiz') return { label: '正解発表', color: 'bg-blue-900/40 text-blue-300 border-blue-700/50' };
   const pattern = surveyPattern ?? 'top-reveal';
   if (pattern === 'answer-check') return { label: 'アンサーチェック', color: 'bg-emerald-900/40 text-emerald-300 border-emerald-700/50' };
-  return { label: 'No.1 発表', color: 'bg-amber-900/40 text-amber-300 border-amber-700/50' };
+  return { label: 'No.1 → ランキングCG', color: 'bg-amber-900/40 text-amber-300 border-amber-700/50' };
 }
 
 export default function QuizStackControlPage() {
@@ -74,7 +62,7 @@ export default function QuizStackControlPage() {
   const navigate = useNavigate();
 
   const { data: quizzes = [] } = useQuizzes(eventId);
-  const { cue, sendCue, setStep, liveVotes } = useQuizStackSocket(eventId);
+  const { cue, sendCue, setStep, liveVotes, sendNext } = useQuizStackSocket(eventId);
 
   // PROGRAM = cue.currentQuizId, NEXT = ローカル選択
   const [nextQuizId, setNextQuizId] = useState<number | null>(null);
@@ -88,6 +76,9 @@ export default function QuizStackControlPage() {
       setNextQuizId(quizzes[0].id);
     }
   }, [quizzes, cue.currentQuizId, nextQuizId]);
+
+  // NEXT 選択を broadcast (NEXT 出力 URL 用)
+  useEffect(() => { sendNext(nextQuizId); }, [nextQuizId, sendNext]);
 
   // 現在 / 次の quiz 詳細
   const { data: currentQuiz } = useQuiz(cue.currentQuizId);
@@ -113,20 +104,14 @@ export default function QuizStackControlPage() {
     setVoteEdits((prev) => ({ ...prev, ...liveVotes.votes }));
   }, [liveVotes, cue.currentQuizId]);
 
-  // v2.9.28: カウントダウンが 0 になっても自動遷移しない (poll のまま停止)。
-  // operator が次に TAKE を押したとき reveal/phase 0 (ランダム揺れ) へ進む。
-  // → 旧 v2.9.18 の poll 制限時間到達による自動 reveal 遷移は廃止。
+  // カウントダウンが 0 になっても自動遷移しない (poll のまま停止)。
+  // operator が次に TAKE を押したとき次ステップ (answer-check / correct-reveal) へ進む。
 
   const take = useCallback(() => {
     if (!currentQuiz) {
       // NEXT を PROGRAM にプロモートして POLL 開始
       if (!nextQuiz) return;
       sendCue({ currentQuizId: nextQuiz.id, step: 'poll', pollStartedAt: getServerNow(), revealPhase: 0, votes: {} });
-      return;
-    }
-    // v2.9.18+: reveal step 内の phase 進行 (TAKE で 0→1 ドン!確定)
-    if (cue.step === 'reveal' && cue.revealPhase === 0) {
-      sendCue({ revealPhase: 1, votes: voteEdits });
       return;
     }
     const next = nextStepFor(currentQuiz.mode, currentQuiz.survey_pattern, currentQuiz.has_answer_check, cue.step);
@@ -146,7 +131,9 @@ export default function QuizStackControlPage() {
         sendCue({ step: 'poll', pollStartedAt: getServerNow(), revealPhase: 0 });
       }
     } else if (cue.step === 'poll') {
-      // v2.9.38: 次のステップは nextStepFor の結果に従う
+      // poll の次が idle (= top-reveal アンケート: 出題のみ) のときは TAKE no-op。
+      //   operator は CLEAR で投票を終了する (No.1 はランキングCGで発表)。
+      if (next === 'idle') return;
       sendCue({ step: next, pollStartedAt: null, revealPhase: 0, votes: voteEdits });
     } else if (next === 'idle') {
       // v2.9.42: terminal state (winner / correct-reveal / answer-check terminal) で TAKE
@@ -182,12 +169,12 @@ export default function QuizStackControlPage() {
     const prev = prevStepRef.current;
     prevStepRef.current = cue.step;
     if (!currentQuiz || quizzes.length === 0) return;
+    const surveyPattern = currentQuiz.survey_pattern ?? 'top-reveal';
     const isTerminal = (s: QuizStep): boolean => {
-      if (s === 'winner' || s === 'correct-reveal') return true;
-      if (s === 'answer-check'
-          && currentQuiz.mode === 'survey'
-          && (currentQuiz.survey_pattern ?? 'top-reveal') === 'answer-check') {
-        return true;
+      if (s === 'correct-reveal') return true;
+      if (currentQuiz.mode === 'survey') {
+        // top-reveal は出題 (poll) が終端、answer-check は集計が終端
+        return surveyPattern === 'top-reveal' ? s === 'poll' : s === 'answer-check';
       }
       return false;
     };
@@ -199,11 +186,6 @@ export default function QuizStackControlPage() {
       }
     }
   }, [cue.step, currentQuiz, quizzes]);
-
-  // 大賞演出スタイル
-  const setOneshotStyle = useCallback((style: QuizOneshotStyle) => {
-    sendCue({ oneshotStyle: style });
-  }, [sendCue]);
 
   const clear = useCallback(() => {
     sendCue({ step: 'idle', pollStartedAt: null, revealPhase: 0 });
@@ -229,19 +211,21 @@ export default function QuizStackControlPage() {
   }, []);
 
   const nextStep = currentQuiz ? nextStepFor(currentQuiz.mode, currentQuiz.survey_pattern, currentQuiz.has_answer_check, cue.step) : 'poll';
-  // v2.9.18+: reveal/phase 0 のときは TAKE で ドン!確定 (phase 1) に進む
-  const inShakeReveal = cue.step === 'reveal' && cue.revealPhase === 0;
-  // v2.9.42: TAKE on terminal は no-op、CLEAR で終了 → idle で TAKE すると次のクイズへ
-  const isTerminalNow = currentQuiz != null && nextStep === 'idle' && cue.step !== 'idle' && cue.step !== 'poll';
+  // top-reveal アンケートは poll (出題) が終端 → TAKE no-op、CLEAR で投票終了。
+  const pollIsTerminal = !!currentQuiz && currentQuiz.mode === 'survey'
+    && (currentQuiz.survey_pattern ?? 'top-reveal') === 'top-reveal' && cue.step === 'poll';
+  // TAKE on terminal は no-op、CLEAR で終了 → idle で TAKE すると次のクイズへ
+  const isTerminalNow = currentQuiz != null && nextStep === 'idle' && cue.step !== 'idle'
+    && (cue.step !== 'poll' || pollIsTerminal);
   const nextLabel = !currentQuiz
     ? '次のクイズを開始'
-    : inShakeReveal
-      ? '次へ (ドン!確定)'
+    : pollIsTerminal
+      ? 'CLEAR で投票終了'
       : isTerminalNow
-        ? 'CLEAR でクイズ終了'
-        : (cue.step === 'idle'
-          ? (nextQuiz && nextQuiz.id !== cue.currentQuizId ? '次のクイズを開始' : 'リスタート (POLL)')
-          : `次へ (${STEP_LABELS[nextStep]})`);
+      ? 'CLEAR でクイズ終了'
+      : (cue.step === 'idle'
+        ? (nextQuiz && nextQuiz.id !== cue.currentQuizId ? '次のクイズを開始' : 'リスタート (POLL)')
+        : `次へ (${STEP_LABELS[nextStep]})`);
 
   const totalVotes = useMemo(() => Object.values(voteEdits).reduce((s, v) => s + (v || 0), 0), [voteEdits]);
 
@@ -330,7 +314,6 @@ export default function QuizStackControlPage() {
                     quizId: currentQuiz.id, step: cue.step,
                     pollStartedAt: cue.pollStartedAt, revealPhase: cue.revealPhase,
                     votes: voteEdits,
-                    oneshotStyle: cue.oneshotStyle,
                   }}
                 />
               </div>
@@ -451,28 +434,6 @@ export default function QuizStackControlPage() {
               <p className="text-[11px] text-amber-200/60 leading-tight">
                 何もしなければ表示順で自動進行。CLEAR な状態で 決定 を押すと、選択中のクイズを次の PROGRAM として仕込めます。
               </p>
-            </div>
-
-            {/* 大賞演出スタイル */}
-            <div className="rounded-lg border border-slate-700 bg-slate-950/40 p-3 space-y-2">
-              <div className="text-sm font-black tracking-widest text-slate-200">大賞演出スタイル</div>
-              <div className="grid grid-cols-4 gap-2">
-                {(['classic','shards','spotlight','slit'] as const).map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setOneshotStyle(s)}
-                    className={cn(
-                      'rounded-md px-2 py-2 text-xs font-black tracking-widest uppercase min-h-[36px]',
-                      cue.oneshotStyle === s
-                        ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300'
-                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700',
-                    )}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-              <div className="text-xs text-slate-400">No.1 発表時のフルスクリーン演出</div>
             </div>
 
             {/* 投票数 (PROGRAM) */}

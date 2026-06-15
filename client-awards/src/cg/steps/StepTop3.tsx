@@ -79,15 +79,18 @@ function Top3Card({ entry, pointsShown, revealed, lang = 'ja', hidePoints = fals
   const displayCompany = lang === 'en' ? (entry.orgEn  || entry.company) : entry.company;
   const isFirst = pos.emphasize;
 
+  // ラベル下に points 行が続く固定レイアウトのため折り返さず scaleX のみで収める
   const nameFit = fitText(
     displayName,
     pos.w - 16,
     `900 ${pos.nameSize}px 'Noto Sans JP', sans-serif`,
+    { noWrap: true, letterSpacingEm: 0.06 },
   );
   const compFit = fitText(
     displayCompany,
     pos.w - 16,
     `600 ${pos.companySize}px 'Noto Sans JP', sans-serif`,
+    { noWrap: true, letterSpacingEm: 0.2 },
   );
 
   const bracketStroke = isFirst ? 3 : 2;

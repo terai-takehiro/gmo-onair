@@ -112,9 +112,10 @@ function RankingRow({ entry, widthPct, revealed, nameVisible, isFirst, lang = 'j
   }, [revealed, grown]);
 
   const textW = bFullW - 24 - 320;
-  const nameFit = fitText(displayName, textW, `900 ${isFirst ? 38 : 34}px 'Noto Sans JP', sans-serif`);
+  // 行高さが固定なので折り返さず scaleX (長体) のみで必ず収める
+  const nameFit = fitText(displayName, textW, `900 ${isFirst ? 38 : 34}px 'Noto Sans JP', sans-serif`, { noWrap: true, letterSpacingEm: 0.06 });
   const compText = displayCompany + (entry.role ? ` / ${entry.role}` : '');
-  const compFit = fitText(compText, textW, `700 20px 'Noto Sans JP', sans-serif`);
+  const compFit = fitText(compText, textW, `700 20px 'Noto Sans JP', sans-serif`, { noWrap: true, letterSpacingEm: 0.18 });
 
   const ownRatio =
     entry.ownPoints && entry.points

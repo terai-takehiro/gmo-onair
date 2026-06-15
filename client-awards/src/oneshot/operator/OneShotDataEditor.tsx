@@ -107,8 +107,6 @@ type OneShotDataDraft = {
   skillsEn?: string[];
   title?: string;
   titleEn?: string;
-  comment?: string;
-  commentEn?: string;
   projectName?: string;
   projectNameEn?: string;
   projectKana?: string;
@@ -136,8 +134,6 @@ function nomineeToDraft(n: Nominee): OneShotDataDraft {
     skillsEn: n.skillsEn.length ? n.skillsEn : undefined,
     title: n.title || undefined,
     titleEn: n.titleEn || undefined,
-    comment: n.comment || undefined,
-    commentEn: n.commentEn || undefined,
     projectName: n.projectName,
     projectNameEn: n.projectNameEn,
     projectKana: n.projectKana,
@@ -358,18 +354,6 @@ export default function OneShotDataEditor({
             editPathEn: 'titleEn',
             icon: Award,
           },
-          {
-            key: 'comment',
-            label: 'ノミネート者コメント',
-            region: REGIONS.moduleBody,
-            source: tag(n.comment, 'oneshot_data'),
-            ja: n.comment,
-            en: n.commentEn,
-            editPath: 'comment',
-            editPathEn: 'commentEn',
-            multiline: true,
-            icon: MessageSquare,
-          },
         ],
       },
       ...(isTeam
@@ -415,18 +399,6 @@ export default function OneShotDataEditor({
             editPath: 'recommender.respect',
             editPathEn: 'recommender.respectEn',
             icon: Quote,
-          },
-          {
-            key: 'rec.respectComment',
-            label: '尊敬コメント',
-            region: REGIONS.moduleBody,
-            source: tag(n.recommender.respectComment, 'oneshot_data'),
-            ja: n.recommender.respectComment,
-            en: n.recommender.respectCommentEn,
-            editPath: 'recommender.respectComment',
-            editPathEn: 'recommender.respectCommentEn',
-            multiline: true,
-            icon: MessageSquare,
           },
           {
             key: 'rec.name',
@@ -607,7 +579,7 @@ export default function OneShotDataEditor({
                 <OneShotStage
                   nominee={nominee}
                   lang={lang}
-                  moduleKey="comment"
+                  moduleKey="respect"
                   transparent={false}
                   lowerThirdMounted={true}
                   lowerThirdExiting={false}

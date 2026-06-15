@@ -126,7 +126,7 @@ export default function StepCelebration({ categories, awardName, lang }: Props) 
           filter: 'drop-shadow(0 6px 22px rgba(0,0,0,0.85))',
           animation: 'celebGlow 2.4s ease-in-out infinite',
         }}>Congratulation!</div>
-        <div style={{
+        <CondenseText style={{
           marginTop: 12,
           fontFamily: "'Noto Sans JP', sans-serif",
           fontSize: 32,
@@ -134,7 +134,9 @@ export default function StepCelebration({ categories, awardName, lang }: Props) 
           letterSpacing: '0.18em',
           color: '#F5D76E',
           textShadow: '0 2px 10px rgba(0,0,0,0.8)',
-        }}>{awardName}</div>
+          textAlign: 'center',
+          padding: '0 80px',
+        }} min={0.45}>{awardName}</CondenseText>
       </div>
 
       {/* 受賞者横並び */}

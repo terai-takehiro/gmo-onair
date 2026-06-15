@@ -232,8 +232,8 @@ export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }:
         const L = layoutFor(n, i);
         const displayName    = lang === 'en' ? (n.nameEn || n.name)    : n.name;
         const displayCompany = lang === 'en' ? (n.orgEn  || n.company) : n.company;
-        const nameFit = fitText(displayName,    baseW, `800 19px 'Noto Sans JP', sans-serif`, true);
-        const compFit = fitText(displayCompany, baseW, `600 12px 'Noto Sans JP', sans-serif`, true);
+        const nameFit = fitText(displayName,    baseW, `800 19px 'Noto Sans JP', sans-serif`, { noWrap: true, letterSpacingEm: 0.06 });
+        const compFit = fitText(displayCompany, baseW, `600 12px 'Noto Sans JP', sans-serif`, { noWrap: true, letterSpacingEm: 0.2 });
         const isOneShotWinner = rank === 1 && stepKey === 'oneshot';
         const showLabel = isNomineeStep;
         const nomineeRevealed = !isNomineeStep || i < nomineesShown;

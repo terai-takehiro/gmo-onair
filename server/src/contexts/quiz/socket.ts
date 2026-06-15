@@ -7,6 +7,10 @@ import { onCountdownStart, onReveal, onClear } from './services/interactive-life
  * - quiz:set     operator → server: 状態更新 (step / poll_started_at / reveal_phase / votes)
  * - quiz:sync    server → all in room: 最新スナップショット
  */
+// v2.9.64: NEXT (送出予約) の quiz id を event 単位で保持 (in-memory)。
+// ranking/oneshot の nextCue 相当。NEXT 出力 URL が購読する。
+const stackNextByEvent = new Map<number, number | null>();
+
 export function initQuizSocketIO(io: Server): void {
   const ns = io.of('/quiz');
 
@@ -32,26 +36,28 @@ export function initQuizSocketIO(io: Server): void {
           revealPhase: cue?.reveal_phase ?? 0,
           timestamp: Date.now(),
         });
+        // NEXT (送出予約) の現状も push
+        socket.emit('quizStack:nextSync', { nextQuizId: stackNextByEvent.get(stackEventId) ?? null });
       } catch (err) { console.error('[quiz socket] stack sync error', err); }
 
-      // v2.9.18+: oneshotStyle は in-memory のみ (DB 非永続)。operator のセッション中だけ保持。
-      let lastOneshotStyle: 'classic' | 'shards' | 'spotlight' | 'slit' = 'classic';
+      // NEXT (送出予約) の quiz 選択を broadcast (NEXT 出力 URL 用)
+      socket.on('quizStack:nextSet', (data: { nextQuizId?: number | null }) => {
+        const id = typeof data?.nextQuizId === 'number' ? data.nextQuizId : null;
+        stackNextByEvent.set(stackEventId, id);
+        ns.to(room).emit('quizStack:nextSync', { nextQuizId: id });
+      });
 
       socket.on('quizStack:set', async (data: {
         currentQuizId?: number | null;
         step?: string;
         pollStartedAt?: number | null;
         revealPhase?: number;
-        oneshotStyle?: string;
         votes?: Record<string | number, number>;
       }) => {
         try {
-          const step = ['idle','poll','reveal','winner','answer-check','correct-reveal'].includes(data.step ?? '') ? data.step : 'idle';
+          const step = ['idle','poll','answer-check','correct-reveal'].includes(data.step ?? '') ? data.step : 'idle';
           const revealPhase = Math.max(0, Math.min(2, Math.floor(data.revealPhase ?? 0)));
           const currentQuizId = typeof data.currentQuizId === 'number' ? data.currentQuizId : null;
-          if (data.oneshotStyle === 'shards' || data.oneshotStyle === 'spotlight' || data.oneshotStyle === 'slit' || data.oneshotStyle === 'classic') {
-            lastOneshotStyle = data.oneshotStyle;
-          }
 
           // カウントダウン連動の自動出題/締切/正解発表/クリア 判定用に、更新前の状態を控える
           const prev = await queryOne(
@@ -108,7 +114,6 @@ export function initQuizSocketIO(io: Server): void {
             eventId: stackEventId,
             currentQuizId,
             step, pollStartedAt: effectivePollStartedAt, revealPhase,
-            oneshotStyle: lastOneshotStyle,
             timestamp: Date.now(),
           });
 
@@ -184,7 +189,7 @@ export function initQuizSocketIO(io: Server): void {
       votes?: Record<string | number, number>;  // position -> vote_count
     }) => {
       try {
-        const step = ['idle','poll','reveal','winner','answer-check','correct-reveal'].includes(data.step ?? '') ? data.step : 'idle';
+        const step = ['idle','poll','answer-check','correct-reveal'].includes(data.step ?? '') ? data.step : 'idle';
         const pollStartedAt = typeof data.pollStartedAt === 'number' ? data.pollStartedAt : null;
         const revealPhase = Math.max(0, Math.min(2, Math.floor(data.revealPhase ?? 0)));
 

@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAwardsCue } from '@/hooks/useAwardsCue';
 import { useAwardsStore } from '@/cg/useStore';
 import Stage from '@/cg/Stage';
-import type { CgCategory } from '@/cg/types';
+import type { CgCategory, CgSurvey } from '@/cg/types';
 import type { CgLang } from '@/cg/CGFrame';
 
 interface EventData {
@@ -12,6 +12,7 @@ interface EventData {
   name: string;
   subtitle: string | null;
   categories: CgCategory[];
+  surveys?: CgSurvey[];
 }
 
 export default function OutputPage() {
@@ -41,10 +42,11 @@ export default function OutputPage() {
     refetchInterval: 30000,
   });
 
-  const { setCategories } = useAwardsStore();
+  const { setCategories, setSurveys } = useAwardsStore();
   useEffect(() => {
     if (event?.categories) setCategories(event.categories);
-  }, [event, setCategories]);
+    if (event) setSurveys(event.surveys ?? []);
+  }, [event, setCategories, setSurveys]);
 
   useAwardsCue(isNaN(eventId) ? null : eventId);
 

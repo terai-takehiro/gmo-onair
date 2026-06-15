@@ -9,7 +9,30 @@ export type CgStep =
   | 'oneshot'
   | 'poll'
   | 'vote-reveal'
-  | 'celebration';
+  | 'celebration'
+  | 'survey-oneshot';   // v2.9.63: 連動アンケートの No.1 をフルスクリーン発表
+
+/** v2.9.63: 連動アンケート (survey-oneshot 用)。/output が categories と並べて返す。 */
+export interface CgSurveyChoice {
+  position: number;
+  name: string | null;
+  name_en: string | null;
+  company: string | null;
+  company_en: string | null;
+  photo_data_url: string | null;
+  nomination_title: string | null;
+  nomination_title_en: string | null;
+  vote_count: number;
+}
+export interface CgSurvey {
+  id: number;
+  link_category_id: number;
+  title: string;
+  title_en: string | null;
+  display: 'count' | 'percent';
+  choice_count: number;
+  choices: CgSurveyChoice[];
+}
 
 /** Normalised entry shape used by all CG render components. */
 export interface CgMappedEntry {

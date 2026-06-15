@@ -315,7 +315,7 @@ export default function QuizEditPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {([
                   { v: 'answer-check', emoji: '📊', label: 'アンサーチェック', desc: '各選択肢の票数を集計してアニメ表示し、そこで終了 (No.1 発表なし)', color: 'emerald' },
-                  { v: 'top-reveal',   emoji: '🏆', label: 'No.1 発表',         desc: 'フルスクリーン 3-shot で 1 位を演出付き発表',                 color: 'amber' },
+                  { v: 'top-reveal',   emoji: '🏆', label: 'No.1 発表',         desc: 'アンケートCGは投票+集計まで。No.1 はランキングCG側で、連動カテゴリの賞の最後にフルスクリーン発表', color: 'amber' },
                 ] as const).map(({ v, emoji, label, desc, color }) => {
                   const active = pattern === v;
                   const colorCls = active
@@ -347,12 +347,11 @@ export default function QuizEditPage() {
             );
           })()}
 
-          {/* アンサーチェック前段オプション (No.1 発表 / 正解発表のいずれでも追加可能) */}
+          {/* アンサーチェック前段オプション — quiz (正解発表) のみ。
+              アンケートは「投票 → 集計 (answer-check)」固定なので前段オプションは非表示。 */}
           {(() => {
             const mode = draft.mode ?? quiz.mode;
-            const pattern = draft.survey_pattern ?? quiz.survey_pattern ?? 'top-reveal';
-            // アンサーチェックパターンのときは「前段」は意味がないので非表示
-            if (mode === 'survey' && pattern === 'answer-check') return null;
+            if (mode !== 'quiz') return null;
             return (
               <label className="flex items-start gap-2 text-sm rounded-lg border bg-slate-50/60 px-3 py-2 cursor-pointer">
                 <input type="checkbox" className="mt-0.5" checked={!!draft.has_answer_check}
@@ -360,7 +359,7 @@ export default function QuizEditPage() {
                 <span>
                   <strong>アンサーチェック演出を前段に挿入する</strong>
                   <span className="block text-xs text-slate-600">
-                    本演出 ({mode === 'quiz' ? '正解発表' : 'No.1 発表'}) の前に「票数集計アニメ」を 1 ステップ追加します。
+                    正解発表の前に「票数集計アニメ」を 1 ステップ追加します。
                   </span>
                 </span>
               </label>
