@@ -749,6 +749,88 @@ export class ProjectService {
   }
 
   /**
+   * 発番済みの案件を「別の既存 GLS のエピソード」として紐づけ直す。
+   * - GLS 未発番なら従来の linkToExistingGls にフォールバック (概算見積→確定売上)
+   * - 発番済みなら: gls_number を新 GLS に差し替え、旧番号を previous_gls_numbers に push、
+   *   episodes.episode_code / qsheet_documents.episode_code を新 GLS で **再採番** (UNIQUE 衝突回避のため
+   *   新 GLS の現在の最大エピソード番号の続きに振る)、BOX フォルダ名をリネーム、概算見積を確定売上に変換。
+   */
+  async relinkExistingGls(id: string, targetProjectId: string, userId: string) {
+    const project = await queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [id]) as any;
+    if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
+    if (id === targetProjectId) throw new AppError(400, 'VALIDATION_ERROR', '自分自身には紐づけできません');
+
+    const target = await queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [targetProjectId]) as any;
+    if (!target || !target.gls_number) throw new AppError(400, 'VALIDATION_ERROR', 'リンク先にGLS番号がありません');
+
+    // GLS 未発番ならヨミ段階のリンクと同じ
+    if (!project.gls_number) {
+      return this.linkToExistingGls(id, targetProjectId, userId);
+    }
+
+    const oldGls = project.gls_number as string;
+    const newGls = target.gls_number as string;
+    if (oldGls === newGls) throw new AppError(400, 'VALIDATION_ERROR', '既に同じGLS番号に紐づいています');
+
+    // 1. projects: gls_number 差し替え + 旧番号を履歴に push + 分類/番組種別/媒体を継承 + ステージ昇格
+    await execute(
+      `UPDATE projects
+       SET gls_number=?, gls_category=?,
+           broadcast_type=COALESCE(broadcast_type, ?), media_platform=COALESCE(media_platform, ?),
+           previous_gls_numbers = COALESCE(previous_gls_numbers, '[]'::jsonb) || ?::jsonb,
+           stage=CASE WHEN stage IN ('neta','d_hold','c_proposal') THEN 'b_verbal' ELSE stage END,
+           updated_at=NOW(), updated_by=?
+       WHERE id=?`,
+      [newGls, target.gls_category, target.broadcast_type || null, target.media_platform || null,
+       JSON.stringify([{ gls_number: oldGls, category: project.gls_category, changed_at: new Date().toISOString(), changed_by: userId, reason: 'relink-episode' }]),
+       userId, id]
+    );
+
+    // 2. episode_code 再採番 (新 GLS の最大番号の続きに振り直して UNIQUE 衝突を回避)
+    const eps = await queryAll(
+      `SELECT id, episode_code, episode_number FROM episodes WHERE project_id=? AND deleted_at IS NULL ORDER BY episode_number ASC, created_at ASC`,
+      [id]
+    ) as any[];
+    if (eps.length > 0) {
+      const base = ((await queryOne(
+        `SELECT COALESCE(MAX(episode_number), 0) as m FROM episodes WHERE episode_code LIKE ? AND deleted_at IS NULL`,
+        [`${newGls}-%`]
+      )) as any).m as number;
+      for (let i = 0; i < eps.length; i++) {
+        const ep = eps[i];
+        const newNum = base + i + 1;
+        const newCode = `${newGls}-${String(newNum).padStart(3, '0')}`;
+        await execute('UPDATE episodes SET episode_code=?, episode_number=?, updated_at=NOW() WHERE id=?', [newCode, newNum, ep.id]);
+        await execute('UPDATE qsheet_documents SET episode_code=?, updated_at=NOW() WHERE project_id=? AND episode_code=?', [newCode, id, ep.episode_code]);
+      }
+    } else {
+      // episodes 行が無い場合でも qsheet_documents が旧 GLS プレフィックスを持つことがある
+      await execute(
+        `UPDATE qsheet_documents SET episode_code = REPLACE(episode_code, ?, ?), updated_at=NOW() WHERE project_id=? AND episode_code LIKE ?`,
+        [oldGls, newGls, id, `${oldGls}%`]
+      );
+    }
+
+    // 3. BOX 両フォルダのリネーム (非ブロッキング)
+    try {
+      const internalFolderId = extractFolderId(project.box_url_internal as string | null);
+      const externalFolderId = extractFolderId(project.box_url_external as string | null);
+      if (internalFolderId || externalFolderId) {
+        await renameProjectFolderPair(internalFolderId, externalFolderId, buildProjectFolderName({
+          gls_number: newGls, code: project.code as string, name: project.name as string,
+        }));
+      }
+    } catch (err) {
+      console.warn('[relinkGls] BOX folder rename failed:', (err as Error).message);
+    }
+
+    // 4. 概算見積を確定売上に変換 (残っていれば)
+    await this.migrateEstimates(id, newGls);
+
+    return this.getById(id);
+  }
+
+  /**
    * GLS番号付き案件一覧（リンク先選択用）
    */
   async getGlsProjects() {
