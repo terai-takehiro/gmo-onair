@@ -15,6 +15,7 @@
  */
 import type { PoolClient } from 'pg';
 import { randomUUID } from 'node:crypto';
+import { TextDecoder } from 'node:util';
 import { getDb } from '../../../shared/db/connection';
 import { getBoxClient } from '../../../shared/services/box';
 
@@ -133,7 +134,7 @@ async function resolveGlFile(opts: KessanOptions): Promise<{ id: string; name: s
   return { id: DEFAULT_GL_FILE_ID, name: '(既定の総勘定元帳)' };
 }
 
-async function boxDownload(fileId: string): Promise<string> {
+async function boxDownloadBuf(fileId: string): Promise<Buffer> {
   const client = getBoxClient();
   if (!client) throw new Error('BOX が未設定です (BOX_CONFIG_JSON)');
   const stream = await client.files.getReadStream(fileId);
@@ -143,7 +144,22 @@ async function boxDownload(fileId: string): Promise<string> {
     stream.on('end', () => resolve());
     stream.on('error', reject);
   });
-  return Buffer.concat(chunks).toString('utf8');
+  return Buffer.concat(chunks);
+}
+
+/** freee CSV は UTF-8 または Shift_JIS。ヘッダー文字が読める方を採用する。 */
+function decodeCsv(buf: Buffer): string {
+  const utf8 = buf.toString('utf8');
+  if (utf8.includes('勘定科目') || utf8.includes('取引No')) return utf8;
+  try {
+    const sjis = new TextDecoder('shift_jis').decode(buf);
+    if (sjis.includes('勘定科目') || sjis.includes('取引No')) return sjis;
+    // どちらでもヘッダーが見つからない場合、置換文字が少ない方を返す
+    const bad = (s: string) => (s.match(/�/g) || []).length;
+    return bad(sjis) < bad(utf8) ? sjis : utf8;
+  } catch {
+    return utf8;
+  }
 }
 
 interface SgaRow { no: string; date: string; amount: number; tax_category: string; invoice_qualified: number; vendor_name: string; description: string; }
@@ -160,7 +176,7 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
 
   // --- Box から GL 取得 + パース ---
   const glFile = await resolveGlFile(opts);
-  const csv = await boxDownload(glFile.id);
+  const csv = decodeCsv(await boxDownloadBuf(glFile.id));
   const rows = parseCsv(csv);
   const header = rows[0] || [];
   const idx = (name: string) => header.indexOf(name);
@@ -170,7 +186,9 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
     csub: idx('相手補助科目'), cpartner: idx('相手取引先'), cinv: idx('相手インボイス'),
     memo: idx('摘要'), debit: idx('借方金額'), credit: idx('貸方金額'),
   };
-  if (C.acct < 0 || C.debit < 0) throw new Error('CSV ヘッダーが想定と異なります (勘定科目/借方金額 が見つからない)');
+  if (C.acct < 0 || C.debit < 0) {
+    throw new Error(`CSV ヘッダーが想定と異なります (勘定科目/借方金額 が見つからない)。取込元=${glFile.name} / 先頭行=${(header || []).join('|').slice(0, 160)}`);
+  }
   const data = rows.slice(1).filter((r) => r.length > C.credit && String(r[C.no] ?? '').trim());
   const party = (r: string[]) => stripCode(firstNonEmpty(r[C.csub], r[C.cpartner], r[C.partner]));
 
