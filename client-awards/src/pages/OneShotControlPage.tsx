@@ -50,7 +50,7 @@ interface LiveSnapshot {
   lang: Lang;
 }
 
-export default function OneShotControlPage({ embedded = false }: { embedded?: boolean } = {}) {
+export default function OneShotControlPage({ embedded = false, shortcutsEnabled = true }: { embedded?: boolean; shortcutsEnabled?: boolean } = {}) {
   const { id } = useParams<{ id: string }>();
   const eventId = parseInt(id!);
   const navigate = useNavigate();
@@ -348,6 +348,7 @@ export default function OneShotControlPage({ embedded = false }: { embedded?: bo
     nextNominee: goNext,
     take,
     clear,
+    enabled: shortcutsEnabled,
   });
 
   // ── Letterbox ──────────────────────────────────────────

@@ -10,6 +10,8 @@ interface Args {
   nextNominee: () => void;
   take: () => void;
   clear: () => void;
+  /** false のときショートカットを無効化 (統合コックピットで非フォーカス時など)。既定 true */
+  enabled?: boolean;
 }
 
 // v2.8.76+: ModuleDef.shortcutKey ('0'〜'9') を読んで動的にマッピング。
@@ -27,8 +29,10 @@ export function useShortcuts({
   nextNominee,
   take,
   clear,
+  enabled = true,
 }: Args) {
   useEffect(() => {
+    if (!enabled) return;
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && (target.matches('input, textarea, select') || target.isContentEditable)) return;
@@ -63,5 +67,5 @@ export function useShortcuts({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [modules, setModuleKey, prevNominee, nextNominee, take, clear]);
+  }, [enabled, modules, setModuleKey, prevNominee, nextNominee, take, clear]);
 }

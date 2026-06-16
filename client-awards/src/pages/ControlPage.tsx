@@ -77,7 +77,7 @@ const ONESHOT_STYLES: { style: OneshotStyle; label: string }[] = [
 ];
 const LIVE_STEPS: CgStep[] = ['nominees', 'ranks52', 'top3', 'final-pitch', 'winner-bar', 'oneshot', 'celebration', 'survey-oneshot'];
 
-export default function ControlPage({ embedded = false }: { embedded?: boolean } = {}) {
+export default function ControlPage({ embedded = false, shortcutsEnabled = true }: { embedded?: boolean; shortcutsEnabled?: boolean } = {}) {
   const { id } = useParams<{ id: string }>();
   const eventId = parseInt(id!);
   const navigate = useNavigate();
@@ -288,8 +288,9 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
     setNextCategoryId(allCats[next].id);
   }, [allCats, nextCategoryId]);
 
-  // ── キーボードショートカット
+  // ── キーボードショートカット (統合コックピットの非フォーカス時は無効)
   useEffect(() => {
+    if (!shortcutsEnabled) return;
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && (target.matches('input, textarea, select') || target.isContentEditable)) return;
@@ -323,7 +324,7 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [take, clear, goPrev, goNext]);
+  }, [shortcutsEnabled, take, clear, goPrev, goNext]);
 
   // NEXT preview に渡す cue (LIVE と独立に NEXT 状態を描画)
   const nextCueForPreview: CgCueState = useMemo(() => ({

@@ -10,12 +10,13 @@ import OneShotControlPage from './OneShotControlPage';
 import QuizStackControlPage from './QuizStackControlPage';
 
 // v2.9.88: 統合送出コックピット。出力URL・各レイヤーの送出ロジック・socket は据え置き、
-//   operator の「制御」を 1 画面に集約。上部タブでレイヤー切替。各操作ページは embedded で
-//   自前ヘッダーを隠して埋め込む。アクティブなレイヤーのみマウント。
+//   operator の「制御」を 1 画面に集約。各操作ページは embedded で自前ヘッダーを隠して埋め込む。
 // v2.9.89 (Phase 2): 全レイヤーの ON-AIR 状態を常時表示 (cg-status を 2 秒ポーリング)。
-// v2.9.90 (Phase 3): キーボードでレイヤー切替を統合 (`[` 前 / `]` 次)。各レイヤー固有の
-//   ショートカット (0–9 / Space / Enter / X / Esc / ↑↓) はアクティブなレイヤーのページが
-//   そのまま処理する (active のみマウントのため衝突しない)。
+// v2.9.90 (Phase 3): `[` / `]` でレイヤー切替を統合。
+// v2.9.91: PC (lg+) はタブではなく **3 レイヤーを横並びで一覧表示** (全部同時に見える)。
+//   ただし全レイヤー同時マウントだとキーボードショートカット (Space=TAKE 等) が全レイヤーで
+//   同時発火するため、**フォーカス中の 1 レイヤーだけショートカット有効** (`[`/`]` または
+//   カラムクリックでフォーカス移動)。モバイル (< lg) は従来どおりタブ (1 レイヤーのみ表示)。
 
 type Layer = 'oneshot' | 'ranking' | 'quiz';
 
@@ -43,11 +44,25 @@ function outputUrls(layer: Layer, eventId: number): { ja: string; en: string } {
   }
 }
 
+function useMediaQuery(query: string): boolean {
+  const [match, setMatch] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const handler = () => setMatch(mq.matches);
+    handler();
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, [query]);
+  return match;
+}
+
 export default function CgCockpitPage() {
   const { id } = useParams<{ id: string }>();
   const eventId = parseInt(id!);
   const navigate = useNavigate();
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
+  const wide = useMediaQuery('(min-width: 1024px)');
+  // wide: フォーカス中レイヤー (ショートカット有効先) / narrow: 表示中タブ
   const [layer, setLayer] = useState<Layer>('oneshot');
 
   const { data: event } = useQuery({
@@ -67,7 +82,7 @@ export default function CgCockpitPage() {
   const liveOf = (k: Layer): boolean =>
     k === 'ranking' ? !!status?.ranking.live : k === 'oneshot' ? !!status?.oneshot.live : !!status?.quiz.live;
 
-  // Phase 3: `[` / `]` でレイヤーを前後に切替 (各レイヤー固有キーとは衝突しない)。
+  // `[` / `]` でフォーカス (= ショートカット有効レイヤー / narrow では表示タブ) を前後に移動。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== '[' && e.key !== ']') return;
@@ -84,11 +99,32 @@ export default function CgCockpitPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const urls = outputUrls(layer, eventId);
+  // 各レイヤーの操作本体。focused のときだけショートカット有効。
+  const renderPanel = (key: Layer, focused: boolean) => {
+    if (key === 'oneshot') return <OneShotControlPage embedded shortcutsEnabled={focused} />;
+    if (key === 'ranking') return <ControlPage embedded shortcutsEnabled={focused} />;
+    return <QuizStackControlPage embedded />;
+  };
+
+  const OutputLinks = ({ k }: { k: Layer }) => {
+    const u = outputUrls(k, eventId);
+    return (
+      <>
+        <a href={u.ja} target="_blank" rel="noreferrer" title="OA 出力 (JA)"
+          className="flex items-center gap-1 rounded-md bg-slate-800 px-2 py-1.5 text-[11px] font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors">
+          <ExternalLink className="h-3 w-3" />JA
+        </a>
+        <a href={u.en} target="_blank" rel="noreferrer" title="OA 出力 (EN)"
+          className="flex items-center gap-1 rounded-md bg-slate-800 px-2 py-1.5 text-[11px] font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors">
+          <ExternalLink className="h-3 w-3" />EN
+        </a>
+      </>
+    );
+  };
 
   return (
     <div className="h-full flex flex-col bg-black text-slate-100 overflow-hidden">
-      {/* ── 統合ヘッダー (全レイヤー共通) ───────────────────────── */}
+      {/* ── 統合ヘッダー ─────────────────────────────────── */}
       <header className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 h-14 shrink-0 border-b border-slate-800">
         <button
           onClick={() => navigate(`/event/${eventId}`)}
@@ -97,59 +133,47 @@ export default function CgCockpitPage() {
         >
           <ChevronLeft className="h-4 w-4 text-slate-300" />
         </button>
-        <span className="hidden lg:block text-sm font-bold text-slate-200 truncate max-w-[160px]">
+        <span className="text-sm font-bold text-slate-200 truncate max-w-[140px] lg:max-w-[220px]">
           {event?.name ?? '送出'}
         </span>
 
-        {/* レイヤー切替タブ (各タブに ON-AIR バッジ / `[` `]` でも切替) */}
-        <div className="flex-1 flex items-center justify-center gap-1 sm:gap-1.5 min-w-0">
-          {LAYERS.map((l) => {
-            const Icon = l.icon;
-            const active = layer === l.key;
-            const live = liveOf(l.key);
-            return (
-              <button
-                key={l.key}
-                onClick={() => setLayer(l.key)}
-                className={cn(
-                  'relative flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3.5 h-9 text-xs sm:text-sm font-bold transition-colors border',
-                  active
-                    ? 'bg-slate-700 text-slate-50 border-slate-500'
-                    : 'bg-slate-900/60 text-slate-400 border-transparent hover:bg-slate-800 hover:text-slate-200',
-                  live && 'ring-1 ring-red-500/70',
-                )}
-                title={`${l.label}${live ? ' — ON AIR' : ''}`}
-              >
-                <Icon className={cn('h-4 w-4 shrink-0', active ? l.color : '')} />
-                <span className="hidden sm:inline">{l.label}</span>
-                <span className="sm:hidden">{l.short}</span>
-                {/* ON-AIR ドット */}
-                <span
+        {/* narrow のみ: レイヤー切替タブ (wide は横並び一覧なので不要) */}
+        {!wide && (
+          <div className="flex-1 flex items-center justify-center gap-1 min-w-0">
+            {LAYERS.map((l) => {
+              const Icon = l.icon;
+              const active = layer === l.key;
+              const live = liveOf(l.key);
+              return (
+                <button
+                  key={l.key}
+                  onClick={() => setLayer(l.key)}
                   className={cn(
-                    'inline-block h-2 w-2 rounded-full shrink-0',
-                    live ? 'bg-red-500 animate-pulse' : 'bg-slate-600/50',
+                    'relative flex items-center gap-1.5 rounded-lg px-2.5 h-9 text-xs font-bold transition-colors border',
+                    active ? 'bg-slate-700 text-slate-50 border-slate-500'
+                           : 'bg-slate-900/60 text-slate-400 border-transparent hover:bg-slate-800',
+                    live && 'ring-1 ring-red-500/70',
                   )}
-                  aria-label={live ? 'ON AIR' : 'OFF'}
-                />
-              </button>
-            );
-          })}
-        </div>
+                  title={`${l.label}${live ? ' — ON AIR' : ''}`}
+                >
+                  <Icon className={cn('h-4 w-4 shrink-0', active ? l.color : '')} />
+                  <span>{l.short}</span>
+                  <span className={cn('inline-block h-2 w-2 rounded-full shrink-0', live ? 'bg-red-500 animate-pulse' : 'bg-slate-600/50')} />
+                </button>
+              );
+            })}
+          </div>
+        )}
 
-        {/* キーボードヒント (PC のみ) */}
-        <span className="hidden xl:inline text-[11px] text-slate-500 shrink-0" title="[ / ] でレイヤー切替">
-          <kbd className="rounded bg-slate-800 px-1">[</kbd> <kbd className="rounded bg-slate-800 px-1">]</kbd> 切替
+        {wide && <div className="flex-1" />}
+
+        {/* キーボードヒント */}
+        <span className="hidden xl:inline text-[11px] text-slate-500 shrink-0" title={wide ? '[ / ] でフォーカス移動 (ショートカット有効レイヤー)' : '[ / ] でレイヤー切替'}>
+          <kbd className="rounded bg-slate-800 px-1">[</kbd> <kbd className="rounded bg-slate-800 px-1">]</kbd> {wide ? 'フォーカス' : '切替'}
         </span>
 
-        {/* アクティブレイヤーの出力URL (JA/EN) */}
-        <a href={urls.ja} target="_blank" rel="noreferrer" title="OA 出力 (JA)"
-          className="flex items-center gap-1 rounded-lg bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors">
-          <ExternalLink className="h-3.5 w-3.5" />JA
-        </a>
-        <a href={urls.en} target="_blank" rel="noreferrer" title="OA 出力 (EN)"
-          className="hidden sm:flex items-center gap-1 rounded-lg bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors">
-          <ExternalLink className="h-3.5 w-3.5" />EN
-        </a>
+        {/* narrow のみ: アクティブレイヤーの出力URL (wide は各カラムに表示) */}
+        {!wide && <OutputLinks k={layer} />}
 
         <button
           onClick={toggleFullscreen}
@@ -160,12 +184,49 @@ export default function CgCockpitPage() {
         </button>
       </header>
 
-      {/* ── アクティブレイヤーの操作本体 (自前ヘッダーは embedded で非表示) ── */}
-      <div className="flex-1 min-h-0 overflow-hidden">
-        {layer === 'oneshot' && <OneShotControlPage embedded />}
-        {layer === 'ranking' && <ControlPage embedded />}
-        {layer === 'quiz' && <QuizStackControlPage embedded />}
-      </div>
+      {/* ── 操作本体 ───────────────────────────────────── */}
+      {wide ? (
+        // PC: 3 レイヤーを横並びで一覧表示。フォーカス中カラムだけショートカット有効。
+        <div className="flex-1 min-h-0 flex flex-row divide-x divide-slate-800">
+          {LAYERS.map((l) => {
+            const Icon = l.icon;
+            const focused = layer === l.key;
+            const live = liveOf(l.key);
+            return (
+              <div
+                key={l.key}
+                onMouseDown={() => setLayer(l.key)}
+                className={cn(
+                  'flex-1 min-w-0 flex flex-col',
+                  focused ? 'ring-2 ring-inset ring-sky-500/70' : '',
+                )}
+              >
+                {/* カラム見出し */}
+                <div className={cn(
+                  'flex items-center gap-2 h-9 px-2 shrink-0 border-b border-slate-800',
+                  focused ? 'bg-slate-800/80' : 'bg-slate-900/50',
+                )}>
+                  <Icon className={cn('h-4 w-4 shrink-0', l.color)} />
+                  <span className="text-xs font-bold text-slate-100 truncate">{l.label}</span>
+                  <span className={cn('inline-block h-2 w-2 rounded-full shrink-0', live ? 'bg-red-500 animate-pulse' : 'bg-slate-600/50')}
+                    aria-label={live ? 'ON AIR' : 'OFF'} />
+                  {focused && <span className="text-[10px] font-bold text-sky-400 shrink-0">● 操作中</span>}
+                  <span className="flex-1" />
+                  <OutputLinks k={l.key} />
+                </div>
+                <div className="flex-1 min-h-0 overflow-hidden">
+                  {renderPanel(l.key, focused)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        // モバイル: タブで 1 レイヤーのみ表示
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {renderPanel(layer, true)}
+        </div>
+      )}
     </div>
   );
 }
