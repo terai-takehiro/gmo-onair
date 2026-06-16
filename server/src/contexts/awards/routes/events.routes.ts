@@ -7,6 +7,7 @@ import { execute, queryAll, queryOne, getDb } from '../../../shared/db/connectio
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { importAwardsExcel, previewAwardsExcel } from '../services/excel-import.service';
+import { onClear } from '../../quiz/services/interactive-lifecycle.service';
 import type { ImportMapping } from '../services/excel-import.service';
 import {
   uploadAwardsImageToBox,
@@ -75,6 +76,89 @@ router.get('/events/:id/module-config', wrap(async (req, res) => {
 // リクエストで発火するため、`/awards/images/...` 等の他 router 担当のパスが
 // この router を通過する際に誤って 401 で蹴られる不具合を起こしていた。
 router.use(['/events', '/box-backups'], requireAuth, requirePermission('awards'));
+
+// ════════════════════════════════════════════════════════════════════
+// v2.9.89: 統合送出コックピット Phase 2 — 全レイヤー ON-AIR 状態 + 一括CLEAR
+//   3 レイヤー (ランキング awards_cue_state / 字幕 awards_oneshot_cue_state /
+//   クイズ quiz_stack_state) の live 状態をまとめて返し、また 1 発で全部 OFF にする。
+//   socket は既存のまま (cue:sync / oneshot:sync / quizStack:sync を broadcast)。
+// ════════════════════════════════════════════════════════════════════
+type EmitIo = { of: (n: string) => { to: (r: string) => { emit: (e: string, p: unknown) => void } } };
+function getIo(req: Request): EmitIo | undefined {
+  return (req as unknown as { app: { get: (k: string) => unknown } }).app?.get('io') as EmitIo | undefined;
+}
+
+// 各レイヤーの ON-AIR 状態 (badge 用、operator が常時監視)
+router.get('/events/:id/cg-status', wrap(async (req, res) => {
+  const eventId = parseInt(req.params.id as string);
+  const ranking = await queryOne(`SELECT step FROM awards_cue_state WHERE event_id = ?`, [eventId]);
+  const oneshot = await queryOne(`SELECT is_live FROM awards_oneshot_cue_state WHERE event_id = ?`, [eventId]);
+  const quiz = await queryOne(`SELECT step FROM quiz_stack_state WHERE event_id = ?`, [eventId]);
+  const rStep = (ranking?.step as string) ?? 'idle';
+  const qStep = (quiz?.step as string) ?? 'idle';
+  res.json({
+    success: true,
+    data: {
+      ranking: { live: rStep !== 'idle', step: rStep },
+      oneshot: { live: !!oneshot?.is_live },
+      quiz: { live: qStep !== 'idle', step: qStep },
+    },
+  });
+}));
+
+// 全レイヤー一括CLEAR (パニック)。3 レイヤーを OFF にして各出力へ broadcast。
+router.post('/events/:id/cg-clear-all', wrap(async (req, res) => {
+  const eventId = parseInt(req.params.id as string);
+  const io = getIo(req);
+  const awards = io?.of('/awards').to(`event:${eventId}`);
+  const quizNs = io?.of('/quiz').to(`quizStack:${eventId}`);
+
+  // ① ランキングCG → idle
+  await execute(`UPDATE awards_cue_state SET step = 'idle', reveal_phase = 0, updated_at = NOW() WHERE event_id = ?`, [eventId]);
+  const r = await queryOne(`SELECT category_id, oneshot_style, vote_display FROM awards_cue_state WHERE event_id = ?`, [eventId]);
+  awards?.emit('cue:sync', {
+    step: 'idle',
+    categoryId: r?.category_id ?? null,
+    oneshotStyle: r?.oneshot_style ?? 'classic',
+    voteDisplay: r?.vote_display ?? 'count',
+    pollStartedAt: null,
+    revealPhase: 0,
+    timestamp: Date.now(),
+  });
+
+  // ② 字幕スーパー (下位置CG) → is_live false (テロップ OFF)
+  await execute(`UPDATE awards_oneshot_cue_state SET is_live = false, updated_at = NOW() WHERE event_id = ?`, [eventId]);
+  const o = await queryOne(
+    `SELECT entry_id, module_key, ticker_on, ticker_cat_idx, transparent, lang, show_portrait, bilingual,
+            countdown_on, countdown_target, countdown_prefix_ja, countdown_prefix_en, countdown_x, countdown_y, countdown_scale
+     FROM awards_oneshot_cue_state WHERE event_id = ?`,
+    [eventId]
+  );
+  if (o) {
+    awards?.emit('oneshot:sync', {
+      entryId: o.entry_id, moduleKey: o.module_key, tickerOn: o.ticker_on, tickerCatIdx: o.ticker_cat_idx,
+      transparent: o.transparent, lang: o.lang, isLive: false, showPortrait: o.show_portrait, bilingual: o.bilingual,
+      countdownOn: o.countdown_on, countdownTarget: o.countdown_target,
+      countdownPrefixJa: o.countdown_prefix_ja, countdownPrefixEn: o.countdown_prefix_en,
+      countdownX: Number(o.countdown_x), countdownY: Number(o.countdown_y), countdownScale: Number(o.countdown_scale),
+      timestamp: Date.now(),
+    });
+  }
+
+  // ③ クイズ・アンケートCG → idle (+ Interactive 視聴者画面も dismiss)
+  const qPrev = await queryOne(`SELECT current_quiz_id FROM quiz_stack_state WHERE event_id = ?`, [eventId]);
+  await execute(`UPDATE quiz_stack_state SET step = 'idle', poll_started_at = NULL, reveal_phase = 0, updated_at = NOW() WHERE event_id = ?`, [eventId]);
+  quizNs?.emit('quizStack:sync', {
+    eventId,
+    currentQuizId: qPrev?.current_quiz_id ?? null,
+    step: 'idle', pollStartedAt: null, revealPhase: 0,
+    timestamp: Date.now(),
+  });
+  const prevQuizId = qPrev?.current_quiz_id as number | null;
+  if (prevQuizId) { try { await onClear(eventId, prevQuizId); } catch { /* interactive 連携なしなら no-op */ } }
+
+  res.json({ success: true });
+}));
 
 // ── 一覧 ────────────────────────────────────────────────────
 router.get('/events', wrap(async (_req, res) => {
