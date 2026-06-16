@@ -423,8 +423,8 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
-  const { currentUser, hasPermission } = useAuth();
-  const isAdmin = currentUser?.role === "system_admin" || hasPermission("qsheet", "manager");
+  const { currentUser } = useAuth();
+  const isAdmin = currentUser?.role === "system_admin";
   const [shareDoc, setShareDoc] = useState<QsheetDocument | null>(null);
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
