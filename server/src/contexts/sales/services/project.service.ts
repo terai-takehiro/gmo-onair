@@ -497,10 +497,13 @@ export class ProjectService {
       );
     }
 
-    // d_hold 遷移時、案件に日程が入っていれば仮押さえ予約を自動生成
+    // d_hold 遷移時、案件に日程が入っていれば仮押さえ予約を自動生成。
+    // 重複防止: この案件に既に予約 (種別問わず: 本番/リハ/仮押さえ/手動登録) があれば作らない。
+    // (旧実装は booking_type='hold' のみ照合していたため、新規作成時に作られた本番予約と
+    //  仮押さえ予約が二重登録されていた)
     if (stage === 'd_hold' && project.event_start) {
       const existing = await queryOne(
-        `SELECT id FROM studio_bookings WHERE project_id = ? AND booking_type = 'hold' AND deleted_at IS NULL`,
+        `SELECT id FROM studio_bookings WHERE project_id = ? AND deleted_at IS NULL LIMIT 1`,
         [id]
       );
       if (!existing) {
