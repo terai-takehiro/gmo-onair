@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, Tv, Subtitles, HelpCircle, ExternalLink, Maximize2, Minimize2, OctagonX } from 'lucide-react';
+import { ChevronLeft, Tv, Subtitles, HelpCircle, ExternalLink, Maximize2, Minimize2 } from 'lucide-react';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useFullscreen } from '@/hooks/useFullscreen';
@@ -12,9 +12,10 @@ import QuizStackControlPage from './QuizStackControlPage';
 // v2.9.88: 統合送出コックピット。出力URL・各レイヤーの送出ロジック・socket は据え置き、
 //   operator の「制御」を 1 画面に集約。上部タブでレイヤー切替。各操作ページは embedded で
 //   自前ヘッダーを隠して埋め込む。アクティブなレイヤーのみマウント。
-// v2.9.89 (Phase 2): 全レイヤーの ON-AIR 状態を常時表示 (cg-status を 2 秒ポーリング) +
-//   全レイヤー一括CLEAR (パニック)。状態取得/一括CLEAR はサーバー HTTP で行い、
-//   各操作ページの client socket ライフサイクルとは干渉しない。
+// v2.9.89 (Phase 2): 全レイヤーの ON-AIR 状態を常時表示 (cg-status を 2 秒ポーリング)。
+// v2.9.90 (Phase 3): キーボードでレイヤー切替を統合 (`[` 前 / `]` 次)。各レイヤー固有の
+//   ショートカット (0–9 / Space / Enter / X / Esc / ↑↓) はアクティブなレイヤーのページが
+//   そのまま処理する (active のみマウントのため衝突しない)。
 
 type Layer = 'oneshot' | 'ranking' | 'quiz';
 
@@ -48,7 +49,6 @@ export default function CgCockpitPage() {
   const navigate = useNavigate();
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
   const [layer, setLayer] = useState<Layer>('oneshot');
-  const [clearing, setClearing] = useState(false);
 
   const { data: event } = useQuery({
     queryKey: ['awards-event', eventId],
@@ -57,7 +57,7 @@ export default function CgCockpitPage() {
   });
 
   // 全レイヤー ON-AIR 状態 (2 秒ポーリング)
-  const { data: status, refetch: refetchStatus } = useQuery({
+  const { data: status } = useQuery({
     queryKey: ['cg-status', eventId],
     queryFn: async () => (await api.get(`/awards/events/${eventId}/cg-status`)).data.data as CgStatus,
     enabled: !isNaN(eventId),
@@ -66,20 +66,25 @@ export default function CgCockpitPage() {
 
   const liveOf = (k: Layer): boolean =>
     k === 'ranking' ? !!status?.ranking.live : k === 'oneshot' ? !!status?.oneshot.live : !!status?.quiz.live;
-  const anyLive = LAYERS.some((l) => liveOf(l.key));
+
+  // Phase 3: `[` / `]` でレイヤーを前後に切替 (各レイヤー固有キーとは衝突しない)。
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '[' && e.key !== ']') return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.matches('input, textarea, select') || t.isContentEditable)) return;
+      e.preventDefault();
+      setLayer((cur) => {
+        const idx = LAYERS.findIndex((l) => l.key === cur);
+        const next = e.key === ']' ? (idx + 1) % LAYERS.length : (idx - 1 + LAYERS.length) % LAYERS.length;
+        return LAYERS[next].key;
+      });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const urls = outputUrls(layer, eventId);
-
-  const clearAll = async () => {
-    if (!window.confirm('全レイヤー (字幕スーパー / ランキングCG / クイズ・アンケート) を一括で OFF にします。よろしいですか？')) return;
-    setClearing(true);
-    try {
-      await api.post(`/awards/events/${eventId}/cg-clear-all`);
-      await refetchStatus();
-    } catch { /* network — ignore */ } finally {
-      setClearing(false);
-    }
-  };
 
   return (
     <div className="h-full flex flex-col bg-black text-slate-100 overflow-hidden">
@@ -96,7 +101,7 @@ export default function CgCockpitPage() {
           {event?.name ?? '送出'}
         </span>
 
-        {/* レイヤー切替タブ (各タブに ON-AIR バッジ) */}
+        {/* レイヤー切替タブ (各タブに ON-AIR バッジ / `[` `]` でも切替) */}
         <div className="flex-1 flex items-center justify-center gap-1 sm:gap-1.5 min-w-0">
           {LAYERS.map((l) => {
             const Icon = l.icon;
@@ -131,6 +136,11 @@ export default function CgCockpitPage() {
           })}
         </div>
 
+        {/* キーボードヒント (PC のみ) */}
+        <span className="hidden xl:inline text-[11px] text-slate-500 shrink-0" title="[ / ] でレイヤー切替">
+          <kbd className="rounded bg-slate-800 px-1">[</kbd> <kbd className="rounded bg-slate-800 px-1">]</kbd> 切替
+        </span>
+
         {/* アクティブレイヤーの出力URL (JA/EN) */}
         <a href={urls.ja} target="_blank" rel="noreferrer" title="OA 出力 (JA)"
           className="flex items-center gap-1 rounded-lg bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors">
@@ -140,22 +150,6 @@ export default function CgCockpitPage() {
           className="hidden sm:flex items-center gap-1 rounded-lg bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors">
           <ExternalLink className="h-3.5 w-3.5" />EN
         </a>
-
-        {/* 全レイヤー一括CLEAR (パニック) */}
-        <button
-          onClick={clearAll}
-          disabled={clearing || !anyLive}
-          title="全レイヤーを一括で OFF にする (パニック)"
-          className={cn(
-            'flex items-center gap-1 rounded-lg px-2.5 py-2 text-xs font-black transition-colors',
-            anyLive
-              ? 'bg-red-600 hover:bg-red-500 text-white'
-              : 'bg-slate-800/60 text-slate-500 cursor-not-allowed',
-          )}
-        >
-          <OctagonX className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">{clearing ? '消去中…' : '一括CLEAR'}</span>
-        </button>
 
         <button
           onClick={toggleFullscreen}
