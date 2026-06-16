@@ -47,6 +47,7 @@ router.post('/run', async (req, res) => {
       commit: b.commit === true,
       createMasters: b.createMasters === true,
       excludeFixed: b.excludeFixed === true,
+      skipDuplicates: b.skipDuplicates === true,
       glFileId: typeof b.glFileId === 'string' && b.glFileId ? extractFileId(b.glFileId) : undefined,
       boxFolderId: typeof b.boxFolderId === 'string' && b.boxFolderId ? extractFolderId(b.boxFolderId) : undefined,
       period: typeof b.period === 'string' && /^\d{4}-\d{2}$/.test(b.period) ? b.period : undefined,

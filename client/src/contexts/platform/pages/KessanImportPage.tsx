@@ -27,7 +27,7 @@ interface KessanReport {
   };
   duplicates: { sga: number; revenues: number; purchases: number; samples: string[] };
   samples: { sga: string[]; revenues: string[]; purchases: string[] };
-  committed?: { sga: number; revenues: number; purchases: number; skipped: number };
+  committed?: { sga: number; revenues: number; purchases: number; skipped: number; dupSkipped: number };
   warnings: string[];
 }
 
@@ -41,6 +41,7 @@ export default function KessanImportPage() {
   const [scope, setScope] = useState<Scope>("all");
   const [createMasters, setCreateMasters] = useState(true);
   const [excludeFixed, setExcludeFixed] = useState(false);
+  const [skipDuplicates, setSkipDuplicates] = useState(true);
   const [boxFolder, setBoxFolder] = useState("");
   const [boxFile, setBoxFile] = useState("");
   const [report, setReport] = useState<KessanReport | null>(null);
@@ -54,6 +55,7 @@ export default function KessanImportPage() {
           commit,
           createMasters,
           excludeFixed,
+          skipDuplicates,
           boxFolderId: boxFolder.trim() || undefined,
           glFileId: boxFile.trim() || undefined,
         },
@@ -122,6 +124,10 @@ export default function KessanImportPage() {
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={excludeFixed} onChange={(e) => setExcludeFixed(e.target.checked)} className="accent-primary" />
               固定原価（GLS無し）を除外する
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={skipDuplicates} onChange={(e) => setSkipDuplicates(e.target.checked)} className="accent-primary" />
+              重複候補（既存と同一 金額+内容+日付）はスキップする
             </label>
           </div>
           <div>
@@ -220,7 +226,8 @@ export default function KessanImportPage() {
             {report.committed && (
               <p className="text-sm">
                 投入結果：販管費 <strong>{report.committed.sga}</strong> / 売上 <strong>{report.committed.revenues}</strong> / 仕入 <strong>{report.committed.purchases}</strong>
-                {report.committed.skipped ? ` / スキップ ${report.committed.skipped}` : ""}
+                {report.committed.dupSkipped ? ` / 重複スキップ ${report.committed.dupSkipped}` : ""}
+                {report.committed.skipped ? ` / その他スキップ ${report.committed.skipped}` : ""}
                 ｜ 新規作成：案件 {report.masters.created.projects} / 顧客 {report.masters.created.customers} / 取引先 {report.masters.created.vendors}
               </p>
             )}

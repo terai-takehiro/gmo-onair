@@ -30,6 +30,8 @@ export interface KessanOptions {
   commit?: boolean;
   createMasters?: boolean;
   excludeFixed?: boolean;
+  /** 重複候補 (既存データと同一 金額+内容+日付) の行を投入しない */
+  skipDuplicates?: boolean;
   glFileId?: string;
   boxFolderId?: string; // 指定フォルダ内の最新CSVを自動選択 (未指定なら env KESSAN_BOX_FOLDER_ID)
   period?: string; // YYYY-MM
@@ -59,7 +61,7 @@ export interface KessanReport {
   /** 既存データ (非決算インポート行) に同一金額+内容が見つかった重複候補 */
   duplicates: { sga: number; revenues: number; purchases: number; samples: string[] };
   samples: { sga: string[]; revenues: string[]; purchases: string[] };
-  committed?: { sga: number; revenues: number; purchases: number; skipped: number };
+  committed?: { sga: number; revenues: number; purchases: number; skipped: number; dupSkipped: number };
   warnings: string[];
 }
 
@@ -327,6 +329,7 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
   const commit = !!opts.commit;
   const createMasters = !!opts.createMasters;
   const excludeFixed = !!opts.excludeFixed;
+  const skipDuplicates = !!opts.skipDuplicates;
   const warnings: string[] = [];
 
   // --- Box から GL 取得 → 形式判定 (xlsx=MoneyForward / CSV=freee) → 抽出 ---
@@ -389,7 +392,11 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
     const fallbackUser = userId || u.rows[0]?.id || null;
 
     const cache = { customers: new Map<string, string | null>(), vendors: new Map<string, string | null>(), projects: new Map<string, { id: string; customer_id: string | null } | null>() };
-    const counts = { sga: 0, rev: 0, pur: 0, skipped: 0 };
+    const counts = { sga: 0, rev: 0, pur: 0, skipped: 0, dupSkipped: 0 };
+    // 重複候補チェックで作った「既存キー」集合 (skipDuplicates 時に投入をスキップするのに使う)
+    let dupSetSga: Set<string> | undefined;
+    let dupSetRev: Set<string> | undefined;
+    let dupSetPur: Set<string> | undefined;
 
     async function findCustomer(name: string) {
       if (cache.customers.has(name)) return cache.customers.get(name)!;
@@ -427,9 +434,9 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
              AND (notes IS NULL OR notes NOT LIKE $3) AND deleted_at IS NULL`,
           [dateFrom, dateTo, selfMarker]
         );
-        const set = new Set(ex.rows.map((r) => `${toInt(r.amount)}|${String(r.vendor_name || '').trim()}|${normDate(r.recognition_date)}`));
+        dupSetSga = new Set(ex.rows.map((r) => `${toInt(r.amount)}|${String(r.vendor_name || '').trim()}|${normDate(r.recognition_date)}`));
         for (const x of sga) {
-          if (set.has(`${x.amount}|${x.vendor_name}|${x.date}`)) {
+          if (dupSetSga.has(`${x.amount}|${x.vendor_name}|${x.date}`)) {
             report.duplicates.sga++;
             if (dupSamples.length < 8) dupSamples.push(`[販管費] ${x.date} ${yen(x.amount)} ${x.vendor_name}`);
           }
@@ -443,9 +450,9 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
              AND (r.notes IS NULL OR r.notes NOT LIKE $3) AND r.deleted_at IS NULL`,
           [dateFrom, dateTo, selfMarker]
         );
-        const set = new Set(ex.rows.map((r) => `${toInt(r.amount)}|${String(r.gls_number || '').trim()}|${normDate(r.recognition_date)}`));
+        dupSetRev = new Set(ex.rows.map((r) => `${toInt(r.amount)}|${String(r.gls_number || '').trim()}|${normDate(r.recognition_date)}`));
         for (const x of rev) {
-          if (x.gls && set.has(`${x.amount}|${x.gls}|${x.date}`)) {
+          if (x.gls && dupSetRev.has(`${x.amount}|${x.gls}|${x.date}`)) {
             report.duplicates.revenues++;
             if (dupSamples.length < 8) dupSamples.push(`[売上] ${x.date} ${yen(x.amount)} ${x.gls}`);
           }
@@ -459,9 +466,9 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
              AND (pu.notes IS NULL OR pu.notes NOT LIKE $3) AND pu.deleted_at IS NULL`,
           [dateFrom, dateTo, selfMarker]
         );
-        const set = new Set(ex.rows.map((r) => `${toInt(r.amount)}|${String(r.gls_number || '').trim()}|${normDate(r.recognition_date)}`));
+        dupSetPur = new Set(ex.rows.map((r) => `${toInt(r.amount)}|${String(r.gls_number || '').trim()}|${normDate(r.recognition_date)}`));
         for (const x of pur) {
-          if (x.gls && set.has(`${x.amount}|${x.gls}|${x.date}`)) {
+          if (x.gls && dupSetPur.has(`${x.amount}|${x.gls}|${x.date}`)) {
             report.duplicates.purchases++;
             if (dupSamples.length < 8) dupSamples.push(`[仕入] ${x.date} ${yen(x.amount)} ${x.gls}`);
           }
@@ -470,7 +477,10 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       report.duplicates.samples = dupSamples;
       const dupTotal = report.duplicates.sga + report.duplicates.revenues + report.duplicates.purchases;
       if (dupTotal > 0) {
-        warnings.push(`既存データに同一金額+内容の重複候補が ${dupTotal} 件あります (販管費 ${report.duplicates.sga} / 売上 ${report.duplicates.revenues} / 仕入 ${report.duplicates.purchases})。手入力分との二重計上にご注意ください。`);
+        const note = skipDuplicates
+          ? '「重複候補をスキップ」がONのため、これらの行は投入されません。'
+          : '手入力分との二重計上にご注意ください (「重複候補をスキップ」をONにすると投入を除外できます)。';
+        warnings.push(`既存データに同一金額+内容の重複候補が ${dupTotal} 件あります (販管費 ${report.duplicates.sga} / 売上 ${report.duplicates.revenues} / 仕入 ${report.duplicates.purchases})。${note}`);
       }
     }
 
@@ -531,6 +541,7 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       if (scopes.includes('sga')) {
         await client.query('DELETE FROM sga_expenses WHERE notes LIKE $1', [`${MARKER}%`]);
         for (const x of sga) {
+          if (skipDuplicates && dupSetSga?.has(`${x.amount}|${x.vendor_name}|${x.date}`)) { counts.dupSkipped++; continue; }
           await client.query(
             `INSERT INTO sga_expenses (id, billing_key, vendor_name, description, amount, tax_category,
                invoice_qualified, expense_type, source, recognition_date, notes, created_by)
@@ -543,6 +554,7 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       if (scopes.includes('revenues')) {
         await client.query('DELETE FROM revenues WHERE notes LIKE $1', [`${MARKER}%`]);
         for (const x of rev) {
+          if (skipDuplicates && x.gls && dupSetRev?.has(`${x.amount}|${x.gls}|${x.date}`)) { counts.dupSkipped++; continue; }
           if (!x.gls) { counts.skipped++; continue; }
           const customerId = await ensureCustomer(x.customer_name);
           if (!customerId) { counts.skipped++; continue; }
@@ -559,6 +571,7 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       if (scopes.includes('purchases')) {
         await client.query('DELETE FROM purchases WHERE notes LIKE $1', [`${MARKER}%`]);
         for (const x of pur) {
+          if (skipDuplicates && x.gls && dupSetPur?.has(`${x.amount}|${x.gls}|${x.date}`)) { counts.dupSkipped++; continue; }
           const proj = await ensureProject(x.gls as string, x.gls as string, null);
           if (!proj) { counts.skipped++; continue; }
           const vendorId = await ensureVendor(x.vendor_name);
@@ -593,7 +606,7 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       await client.query('ROLLBACK');
       throw e;
     }
-    report.committed = { sga: counts.sga, revenues: counts.rev, purchases: counts.pur, skipped: counts.skipped };
+    report.committed = { sga: counts.sga, revenues: counts.rev, purchases: counts.pur, skipped: counts.skipped, dupSkipped: counts.dupSkipped };
     return report;
   } finally {
     client.release();
