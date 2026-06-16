@@ -3,6 +3,7 @@ import { v4 as uuid } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { QSHEET_STATUS } from '../../../shared/constants/statuses';
+import { isQsheetAdmin, canAccessDoc } from '../access';
 
 const router = Router();
 
@@ -29,7 +30,8 @@ router.get('/documents', async (req: Request, res: Response) => {
     const { status, episode_id, project_id, search } = req.query;
     let sql = `
       SELECT d.*, u.name as creator_name,
-             p.name as project_name, p.gls_number
+             p.name as project_name, p.gls_number,
+             (SELECT COUNT(*) FROM qsheet_document_shares s WHERE s.document_id = d.id)::int as share_count
       FROM qsheet_documents d
       LEFT JOIN users u ON d.created_by = u.id
       LEFT JOIN projects p ON d.project_id = p.id
@@ -37,6 +39,15 @@ router.get('/documents', async (req: Request, res: Response) => {
     `;
     const params: unknown[] = [];
     let paramIndex = 1;
+
+    // 管理者以外は「自分が作成」または「自分に共有された」ドキュメントのみ
+    if (!isQsheetAdmin(req.user!)) {
+      sql += ` AND (d.created_by = $${paramIndex} OR EXISTS (
+                 SELECT 1 FROM qsheet_document_shares s
+                 WHERE s.document_id = d.id AND s.user_id = $${paramIndex}))`;
+      params.push(req.user!.id);
+      paramIndex++;
+    }
 
     if (status && typeof status === 'string' && VALID_STATUSES.includes(status)) {
       sql += ` AND d.status = $${paramIndex++}`;
@@ -84,6 +95,11 @@ router.get('/documents/:id', async (req: Request, res: Response) => {
       res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'ドキュメントが見つかりません' } });
       return;
     }
+    // アクセス権チェック (作成者 / 共有先 / 管理者のみ)。存在を秘匿するため 404 を返す
+    if (!(await canAccessDoc(req.user!, row.id as string, (row.created_by as string) ?? null))) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'ドキュメントが見つかりません' } });
+      return;
+    }
     res.json({ success: true, data: row });
   } catch (err: unknown) {
     console.error('GET /documents/:id error:', err);
@@ -124,8 +140,13 @@ router.post('/documents', requirePermission('qsheet', 'editor'), async (req: Req
 // ============================================================
 router.put('/documents/:id', requirePermission('qsheet', 'editor'), async (req: Request, res: Response) => {
   try {
-    const existing = await queryOne('SELECT id FROM qsheet_documents WHERE id = $1 AND deleted_at IS NULL', [req.params.id]);
+    const existing = await queryOne('SELECT id, created_by FROM qsheet_documents WHERE id = $1 AND deleted_at IS NULL', [req.params.id]);
     if (!existing) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'ドキュメントが見つかりません' } });
+      return;
+    }
+    // アクセス権チェック (作成者 / 共有先 / 管理者のみ編集可)
+    if (!(await canAccessDoc(req.user!, existing.id as string, (existing.created_by as string) ?? null))) {
       res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'ドキュメントが見つかりません' } });
       return;
     }
@@ -156,11 +177,16 @@ router.put('/documents/:id', requirePermission('qsheet', 'editor'), async (req: 
 // ============================================================
 // ドキュメント削除 (ソフトデリート)
 // ============================================================
-router.delete('/documents/:id', requirePermission('qsheet', 'manager'), async (req: Request, res: Response) => {
+router.delete('/documents/:id', requirePermission('qsheet', 'editor'), async (req: Request, res: Response) => {
   try {
-    const existing = await queryOne('SELECT id FROM qsheet_documents WHERE id = $1 AND deleted_at IS NULL', [req.params.id]);
+    const existing = await queryOne('SELECT id, created_by FROM qsheet_documents WHERE id = $1 AND deleted_at IS NULL', [req.params.id]);
     if (!existing) {
       res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'ドキュメントが見つかりません' } });
+      return;
+    }
+    // 削除できるのは作成者本人または管理者のみ (共有先は削除不可)
+    if (!isQsheetAdmin(req.user!) && (existing.created_by as string) !== req.user!.id) {
+      res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'このドキュメントを削除する権限がありません' } });
       return;
     }
 
@@ -172,6 +198,117 @@ router.delete('/documents/:id', requirePermission('qsheet', 'manager'), async (r
     res.json({ success: true, data: { id: req.params.id } });
   } catch (err: unknown) {
     console.error('DELETE /documents/:id error:', err);
+    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: 'サーバー内部エラーが発生しました' } });
+  }
+});
+
+// ============================================================
+// 共有ユーザー候補一覧 (共有ピッカー用 / 本番でも利用可)
+//   - qsheet 権限を持つ認証ユーザーなら誰でも候補一覧を取得できる
+// ============================================================
+router.get('/share-users', async (req: Request, res: Response) => {
+  try {
+    const rows = await queryAll(
+      `SELECT id, name, email FROM users
+       WHERE deleted_at IS NULL AND id <> $1
+       ORDER BY name`,
+      [req.user!.id]
+    );
+    res.json({ success: true, data: rows });
+  } catch (err: unknown) {
+    console.error('GET /share-users error:', err);
+    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: 'サーバー内部エラーが発生しました' } });
+  }
+});
+
+// ============================================================
+// ドキュメントの共有先一覧 (作成者 / 管理者のみ)
+// ============================================================
+router.get('/documents/:id/shares', async (req: Request, res: Response) => {
+  try {
+    const doc = await queryOne('SELECT id, created_by FROM qsheet_documents WHERE id = $1 AND deleted_at IS NULL', [req.params.id]);
+    if (!doc) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'ドキュメントが見つかりません' } });
+      return;
+    }
+    // 共有設定を見られるのは作成者または管理者のみ
+    if (!isQsheetAdmin(req.user!) && (doc.created_by as string) !== req.user!.id) {
+      res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: '共有設定を閲覧する権限がありません' } });
+      return;
+    }
+    const rows = await queryAll(
+      `SELECT s.user_id, u.name, u.email
+       FROM qsheet_document_shares s
+       LEFT JOIN users u ON s.user_id = u.id
+       WHERE s.document_id = $1
+       ORDER BY u.name`,
+      [req.params.id]
+    );
+    res.json({ success: true, data: rows });
+  } catch (err: unknown) {
+    console.error('GET /documents/:id/shares error:', err);
+    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: 'サーバー内部エラーが発生しました' } });
+  }
+});
+
+// ============================================================
+// ドキュメントの共有先を設定 (作成者 / 管理者のみ)
+//   body: { user_ids: string[] } — 渡された一覧で完全置き換え
+// ============================================================
+router.put('/documents/:id/shares', requirePermission('qsheet', 'editor'), async (req: Request, res: Response) => {
+  try {
+    const doc = await queryOne('SELECT id, created_by FROM qsheet_documents WHERE id = $1 AND deleted_at IS NULL', [req.params.id]);
+    if (!doc) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'ドキュメントが見つかりません' } });
+      return;
+    }
+    // 共有設定を変更できるのは作成者または管理者のみ
+    if (!isQsheetAdmin(req.user!) && (doc.created_by as string) !== req.user!.id) {
+      res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: '共有設定を変更する権限がありません' } });
+      return;
+    }
+
+    const { user_ids } = req.body as { user_ids?: unknown };
+    const ownerId = (doc.created_by as string) ?? null;
+    // 入力を正規化: 文字列のみ / 重複排除 / 作成者本人は除外 (自分には共有不要)
+    const requested = Array.isArray(user_ids)
+      ? Array.from(new Set(user_ids.filter((u): u is string => typeof u === 'string' && u.length > 0)))
+          .filter((u) => u !== ownerId)
+      : [];
+
+    // 実在する (削除されていない) ユーザーのみに絞り込む
+    let validIds: string[] = [];
+    if (requested.length > 0) {
+      const placeholders = requested.map((_, i) => `$${i + 1}`).join(', ');
+      const found = await queryAll(
+        `SELECT id FROM users WHERE deleted_at IS NULL AND id IN (${placeholders})`,
+        requested
+      );
+      validIds = found.map((r) => r.id as string);
+    }
+
+    // 完全置き換え: 既存を削除 → 新規を挿入
+    await execute('DELETE FROM qsheet_document_shares WHERE document_id = $1', [req.params.id]);
+    for (const uid of validIds) {
+      await execute(
+        `INSERT INTO qsheet_document_shares (document_id, user_id, created_by)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (document_id, user_id) DO NOTHING`,
+        [req.params.id, uid, req.user!.id]
+      );
+    }
+
+    const rows = await queryAll(
+      `SELECT s.user_id, u.name, u.email
+       FROM qsheet_document_shares s
+       LEFT JOIN users u ON s.user_id = u.id
+       WHERE s.document_id = $1
+       ORDER BY u.name`,
+      [req.params.id]
+    );
+    res.json({ success: true, data: rows });
+  } catch (err: unknown) {
+    console.error('PUT /documents/:id/shares error:', err);
     res.status(500).json({ success: false, error: { code: 'INTERNAL', message: 'サーバー内部エラーが発生しました' } });
   }
 });

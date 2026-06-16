@@ -1,0 +1,31 @@
+// Qシート ドキュメントのアクセス制御ヘルパー (documents / pdf ルートで共用)
+//   - 管理者 (system_admin / qsheet が manager|owner) は全ドキュメント閲覧可
+//   - それ以外は「作成者本人」または「共有されたユーザー」のみ閲覧可
+import { queryOne } from '../../shared/db/connection';
+
+interface AccessUser {
+  id: string;
+  role: string;
+  permissions?: Record<string, string>;
+}
+
+export function isQsheetAdmin(user: AccessUser): boolean {
+  if (user.role === 'system_admin') return true;
+  const lvl = user.permissions?.qsheet;
+  return lvl === 'manager' || lvl === 'owner';
+}
+
+/** doc に対して user がアクセス可能か (作成者 / 共有先 / 管理者) を判定 */
+export async function canAccessDoc(
+  user: AccessUser,
+  docId: string,
+  createdBy: string | null
+): Promise<boolean> {
+  if (isQsheetAdmin(user)) return true;
+  if (createdBy && createdBy === user.id) return true;
+  const share = await queryOne(
+    'SELECT 1 FROM qsheet_document_shares WHERE document_id = $1 AND user_id = $2',
+    [docId, user.id]
+  );
+  return !!share;
+}
