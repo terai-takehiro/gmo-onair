@@ -15,6 +15,7 @@ import QuizListPage from './pages/QuizListPage';
 import QuizEditPage from './pages/QuizEditPage';
 import QuizStackControlPage from './pages/QuizStackControlPage';
 import QuizStackOutputPage from './pages/QuizStackOutputPage';
+import CgCockpitPage from './pages/CgCockpitPage';
 import QuizStackOutputNextPage from './pages/QuizStackOutputNextPage';
 
 // 出力ページ (/awards/output/*) はuseAuthを使わない独立ルーター
@@ -54,6 +55,7 @@ function AuthenticatedApp() {
           <Route element={<AppShell />}>
             <Route index element={<DashboardPage />} />
             <Route path="/event/:id" element={<EventEditorPage />} />
+            <Route path="/event/:id/cg/control" element={<CgCockpitPage />} />
             <Route path="/event/:id/control" element={<ControlPage />} />
             <Route path="/event/:id/oneshot/control" element={<OneShotControlPage />} />
             <Route path="/event/:id/quiz" element={<QuizListPage />} />

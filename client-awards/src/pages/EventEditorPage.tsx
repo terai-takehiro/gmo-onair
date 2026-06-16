@@ -15,7 +15,7 @@ import { CSS } from '@dnd-kit/utilities';
 import {
   Tv, ChevronLeft, Plus, Trash2, Check, X, GripVertical, HelpCircle,
   Upload, RefreshCw, Shuffle, FileSpreadsheet, ExternalLink, Copy,
-  ChevronDown, ChevronRight, Subtitles,
+  ChevronDown, ChevronRight, Subtitles, Layers,
 } from 'lucide-react';
 import ExcelImportDialog from '../oneshot/operator/ExcelImportDialog';
 
@@ -548,6 +548,14 @@ export default function EventEditorPage() {
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
+          <button
+            onClick={() => navigate(`/event/${eventId}/cg/control`)}
+            className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800 transition-colors ring-1 ring-slate-500"
+            title="統合送出コックピット (ランキング/字幕/クイズを1画面で操作)"
+          >
+            <Layers className="h-3.5 w-3.5" />
+            統合送出
+          </button>
           <button
             onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
             className="flex items-center gap-1.5 rounded-lg border border-amber-500/60 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-500/20 transition-colors"

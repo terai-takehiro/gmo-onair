@@ -56,7 +56,7 @@ function patternBadge(mode: QuizMode, surveyPattern: SurveyPattern | null) {
   return { label: 'No.1 → ランキングCG', color: 'bg-amber-900/40 text-amber-300 border-amber-700/50' };
 }
 
-export default function QuizStackControlPage() {
+export default function QuizStackControlPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { id } = useParams<{ id: string }>();
   const eventId = parseInt(id!);
   const navigate = useNavigate();
@@ -233,6 +233,8 @@ export default function QuizStackControlPage() {
     <div className="h-full flex flex-col bg-black text-slate-100 overflow-y-auto lg:overflow-hidden">
       {/* モバイル: スクロール許可 (v2.9.35). lg+ では従来通り overflow-hidden で固定レイアウト。 */}
       {/* ── Header (v2.9.34 統一: h-14 / アイコン h-9 w-9 / text-sm + 3-way 回遊ナビ) ──── */}
+      {/* v2.9.88: 統合コックピットに埋め込む場合 (embedded) はヘッダーを隠す */}
+      {!embedded && (
       <header className="flex items-center gap-2 px-4 h-14 shrink-0 border-b border-slate-800">
         <button
           onClick={() => navigate(`/event/${eventId}/quiz`)}
@@ -291,6 +293,7 @@ export default function QuizStackControlPage() {
           <ExternalLink className="h-3.5 w-3.5" />EN
         </a>
       </header>
+      )}
 
       <div className="flex-1 flex flex-col lg:flex-row lg:overflow-hidden min-h-0">
         {/* PROGRAM プレビュー */}

@@ -77,7 +77,7 @@ const ONESHOT_STYLES: { style: OneshotStyle; label: string }[] = [
 ];
 const LIVE_STEPS: CgStep[] = ['nominees', 'ranks52', 'top3', 'final-pitch', 'winner-bar', 'oneshot', 'celebration', 'survey-oneshot'];
 
-export default function ControlPage() {
+export default function ControlPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { id } = useParams<{ id: string }>();
   const eventId = parseInt(id!);
   const navigate = useNavigate();
@@ -340,6 +340,8 @@ export default function ControlPage() {
       {/* モバイル: スクロール許可 (v2.9.35). lg+ では従来通り overflow-hidden で固定レイアウト。 */}
 
       {/* ── Header (v2.9.34 統一 + v2.9.35 モバイル コンパクト化) ──────── */}
+      {/* v2.9.88: 統合コックピットに埋め込む場合 (embedded) はヘッダーを隠す */}
+      {!embedded && (
       <header className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 h-14 shrink-0 border-b border-slate-800">
         <button
           onClick={() => navigate(`/event/${eventId}`)}
@@ -403,6 +405,7 @@ export default function ControlPage() {
           {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
         </button>
       </header>
+      )}
 
       {/* ── Middle: PROGRAM (left) + Category (right) ─── */}
       <div className="flex-1 flex flex-col lg:flex-row lg:overflow-hidden min-h-0">
