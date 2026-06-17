@@ -211,7 +211,7 @@ function Top3Card({ entry, pointsShown, revealed, lang = 'ja', hidePoints = fals
                 lineHeight: 1.2,
                 marginBottom: 8,
                 textShadow: '0 1px 4px rgba(0,0,0,0.85)',
-                ...fitStyle(compFit),
+                ...fitStyle(compFit, 'center'),
               }}
             >
               {displayCompany}
@@ -227,7 +227,7 @@ function Top3Card({ entry, pointsShown, revealed, lang = 'ja', hidePoints = fals
               lineHeight: 1.15,
               color: '#fff',
               textShadow: '0 2px 6px rgba(0,0,0,0.9)',
-              ...fitStyle(nameFit),
+              ...fitStyle(nameFit, 'center'),
             }}
           >
             {displayName}
