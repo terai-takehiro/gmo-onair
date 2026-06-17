@@ -120,6 +120,11 @@ function normalize(s: string): string {
     .toLowerCase();
 }
 
+/** ヘッダーが「(英語)」系のラベルか (英語列を JA 項目が誤検出しないための判定) */
+function isEnglishHeader(normalizedHeader: string): boolean {
+  return /英語|\(en\)|\(eng\)|english/.test(normalizedHeader);
+}
+
 function findCol(headers: string[], candidates: string[]): number {
   const normalizedHeaders = headers.map(normalize);
   const normalizedCands = candidates.map(normalize);
@@ -128,9 +133,14 @@ function findCol(headers: string[], candidates: string[]): number {
     const idx = normalizedHeaders.findIndex((h) => h === cand);
     if (idx >= 0) return idx;
   }
-  // 2) 部分一致をフォールバック
+  // 2) 部分一致をフォールバック。
+  //    ただし「プロジェクト名」が「プロジェクト名（英語）」を拾うような、
+  //    日本語候補 → 英語列 の部分一致は除外する (候補自体が英語ラベルの場合のみ許可)。
   for (const cand of normalizedCands) {
-    const idx = normalizedHeaders.findIndex((h) => h.includes(cand));
+    const candEn = isEnglishHeader(cand);
+    const idx = normalizedHeaders.findIndex(
+      (h) => h.includes(cand) && (candEn || !isEnglishHeader(h)),
+    );
     if (idx >= 0) return idx;
   }
   return -1;
