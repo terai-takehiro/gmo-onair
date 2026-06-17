@@ -722,7 +722,7 @@ function StepRow({ steps, liveStep, nextStep, onSelect }: {
   onSelect: (step: CgStep) => void;
 }) {
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2">
       {steps.map(({ step, label, desc, color, shortcut }) => {
         const isNext = nextStep === step;
         const isLiveStep = liveStep === step;
