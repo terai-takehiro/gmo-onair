@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import type { CgStep } from '../types';
 import type { CgMappedEntry } from '../types';
 import PortraitPlaceholder from './PortraitPlaceholder';
-import { fitText, fitStyle } from '../fitText';
+import { fitText } from '../fitText';
+import FitLine from './FitLine';
 import {
   nomineesGrid,
   STRIP_PHOTO_H,
@@ -334,34 +335,30 @@ export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }:
                 textAlign: 'center',
               }}
             >
-              <div
+              <FitLine
+                text={displayCompany}
+                fit={compFit}
+                wrapperStyle={{ marginBottom: 2 }}
                 style={{
                   fontFamily: "'Noto Sans JP', sans-serif",
                   fontSize: 12,
                   fontWeight: 600,
                   letterSpacing: '0.2em',
-                  paddingLeft: '0.2em',
                   color: '#bfa15a',
-                  marginBottom: 2,
-                  ...fitStyle(compFit, 'center'),
                 }}
-              >
-                {displayCompany}
-              </div>
-              <div
+              />
+              <FitLine
+                text={displayName}
+                fit={nameFit}
                 style={{
                   fontFamily: "'Noto Sans JP', sans-serif",
                   fontWeight: 800,
                   fontSize: 19,
                   color: '#fff',
                   letterSpacing: '0.06em',
-                  paddingLeft: '0.06em',
                   lineHeight: 1.15,
-                  ...fitStyle(nameFit, 'center'),
                 }}
-              >
-                {displayName}
-              </div>
+              />
             </div>
           </div>
         );

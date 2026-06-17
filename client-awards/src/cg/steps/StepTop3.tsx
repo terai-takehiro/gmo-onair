@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import type { CgMappedEntry } from '../types';
 import CountUp from '../components/CountUp';
 import PortraitPlaceholder from '../components/PortraitPlaceholder';
-import { fitText, fitStyle } from '../fitText';
+import { fitText } from '../fitText';
+import FitLine from '../components/FitLine';
 import { TOP3_POS, TOP3_LABEL_GAP } from '../layout';
 
 interface Props {
@@ -200,38 +201,34 @@ function Top3Card({ entry, pointsShown, revealed, lang = 'ja', hidePoints = fals
           }}
         >
           {displayCompany && (
-            <div
+            <FitLine
+              text={displayCompany}
+              fit={compFit}
+              wrapperStyle={{ marginBottom: 8 }}
               style={{
                 fontFamily: "'Noto Sans JP', sans-serif",
                 fontWeight: 600,
                 fontSize: pos.companySize,
                 letterSpacing: '0.2em',
-                paddingLeft: '0.2em',
                 color: '#bfa15a',
                 lineHeight: 1.2,
-                marginBottom: 8,
                 textShadow: '0 1px 4px rgba(0,0,0,0.85)',
-                ...fitStyle(compFit, 'center'),
               }}
-            >
-              {displayCompany}
-            </div>
+            />
           )}
-          <div
+          <FitLine
+            text={displayName}
+            fit={nameFit}
             style={{
               fontFamily: "'Noto Sans JP', sans-serif",
               fontWeight: 900,
               fontSize: pos.nameSize,
               letterSpacing: '0.06em',
-              paddingLeft: '0.06em',
               lineHeight: 1.15,
               color: '#fff',
               textShadow: '0 2px 6px rgba(0,0,0,0.9)',
-              ...fitStyle(nameFit, 'center'),
             }}
-          >
-            {displayName}
-          </div>
+          />
         </div>
 
         {/* Points は Phase 1 から CountUp で表示 (先出しで期待感を演出)。hidePoints=true で非表示 */}
