@@ -58,8 +58,10 @@ export function fitText(
   return { scaleX: 1, wrap: true };
 }
 
-/** fitResult から CSS style オブジェクトを生成する。 */
-export function fitStyle(fit: FitResult): React.CSSProperties {
+/** fitResult から CSS style オブジェクトを生成する。
+ *  origin: scaleX 圧縮の基点。左揃えレイアウトは既定の 'left center'、
+ *  中央揃え (textAlign:center) コンテナ内では 'center' を渡すと左偏りを防げる。 */
+export function fitStyle(fit: FitResult, origin: string = 'left center'): React.CSSProperties {
   if (fit.wrap) {
     return { whiteSpace: 'normal', wordBreak: 'break-word', overflow: 'visible' };
   }
@@ -68,7 +70,7 @@ export function fitStyle(fit: FitResult): React.CSSProperties {
       whiteSpace: 'nowrap',
       display: 'inline-block',
       transform: `scaleX(${fit.scaleX.toFixed(4)})`,
-      transformOrigin: 'left center',
+      transformOrigin: origin,
     };
   }
   return { whiteSpace: 'nowrap' };
