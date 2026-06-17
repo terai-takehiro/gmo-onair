@@ -65,6 +65,37 @@ export default function CgCockpitPage() {
   // wide: フォーカス中レイヤー (ショートカット有効先) / narrow: 表示中タブ
   const [layer, setLayer] = useState<Layer>('oneshot');
 
+  // v2.9.95: wide 表示で横並びにするレイヤーを任意選択 (2 つ / 3 つ)。localStorage に永続化。
+  const [visible, setVisible] = useState<Layer[]>(() => {
+    try {
+      const raw = localStorage.getItem('cg-cockpit-visible-layers');
+      if (raw) {
+        const arr = (JSON.parse(raw) as string[]).filter((k): k is Layer =>
+          k === 'oneshot' || k === 'ranking' || k === 'quiz');
+        if (arr.length >= 1) return arr;
+      }
+    } catch { /* noop */ }
+    return ['oneshot', 'ranking', 'quiz'];
+  });
+  useEffect(() => {
+    try { localStorage.setItem('cg-cockpit-visible-layers', JSON.stringify(visible)); } catch { /* noop */ }
+  }, [visible]);
+  // LAYERS 順を保った表示対象リスト
+  const visibleLayers = LAYERS.filter((l) => visible.includes(l.key));
+  const toggleVisible = (k: Layer) => {
+    setVisible((cur) =>
+      cur.includes(k)
+        ? (cur.length > 1 ? cur.filter((x) => x !== k) : cur)  // 最低 1 つは残す
+        : [...cur, k],
+    );
+  };
+  // フォーカス中レイヤーが非表示になったら先頭の表示レイヤーへ寄せる
+  useEffect(() => {
+    if (wide && !visible.includes(layer) && visibleLayers.length > 0) {
+      setLayer(visibleLayers[0].key);
+    }
+  }, [wide, visible, layer, visibleLayers]);
+
   const { data: event } = useQuery({
     queryKey: ['awards-event', eventId],
     queryFn: async () => (await api.get(`/awards/events/${eventId}`)).data.data as { id: number; name: string },
@@ -83,21 +114,25 @@ export default function CgCockpitPage() {
     k === 'ranking' ? !!status?.ranking.live : k === 'oneshot' ? !!status?.oneshot.live : !!status?.quiz.live;
 
   // `[` / `]` でフォーカス (= ショートカット有効レイヤー / narrow では表示タブ) を前後に移動。
+  // wide では「表示中レイヤー」、narrow では全レイヤーを巡回。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== '[' && e.key !== ']') return;
       const t = e.target as HTMLElement | null;
       if (t && (t.matches('input, textarea, select') || t.isContentEditable)) return;
       e.preventDefault();
+      const list = (wide ? LAYERS.filter((l) => visible.includes(l.key)) : LAYERS).map((l) => l.key);
+      if (list.length === 0) return;
       setLayer((cur) => {
-        const idx = LAYERS.findIndex((l) => l.key === cur);
-        const next = e.key === ']' ? (idx + 1) % LAYERS.length : (idx - 1 + LAYERS.length) % LAYERS.length;
-        return LAYERS[next].key;
+        const idx = list.indexOf(cur);
+        const base = idx < 0 ? 0 : idx;
+        const next = e.key === ']' ? (base + 1) % list.length : (base - 1 + list.length) % list.length;
+        return list[next];
       });
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [wide, visible]);
 
   // 各レイヤーの操作本体。focused のときだけショートカット有効。
   const renderPanel = (key: Layer, focused: boolean) => {
@@ -165,7 +200,34 @@ export default function CgCockpitPage() {
           </div>
         )}
 
-        {wide && <div className="flex-1" />}
+        {/* wide のみ: 横並び表示するレイヤーを任意選択 (2 つ / 3 つ) */}
+        {wide && (
+          <div className="flex-1 flex items-center justify-center gap-1.5 min-w-0">
+            <span className="text-[11px] font-bold text-slate-500 shrink-0">表示</span>
+            {LAYERS.map((l) => {
+              const Icon = l.icon;
+              const on = visible.includes(l.key);
+              const live = liveOf(l.key);
+              return (
+                <button
+                  key={l.key}
+                  onClick={() => toggleVisible(l.key)}
+                  aria-pressed={on}
+                  className={cn(
+                    'relative flex items-center gap-1.5 rounded-lg px-2.5 h-9 text-xs font-bold transition-colors border',
+                    on ? 'bg-slate-700 text-slate-50 border-slate-500'
+                       : 'bg-slate-900/60 text-slate-500 border-transparent hover:bg-slate-800',
+                  )}
+                  title={`${l.label} を${on ? '非表示にする' : '表示する'}`}
+                >
+                  <Icon className={cn('h-4 w-4 shrink-0', on ? l.color : 'text-slate-600')} />
+                  <span>{l.short}</span>
+                  <span className={cn('inline-block h-2 w-2 rounded-full shrink-0', live ? 'bg-red-500 animate-pulse' : 'bg-slate-600/50')} />
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* キーボードヒント */}
         <span className="hidden xl:inline text-[11px] text-slate-500 shrink-0" title={wide ? '[ / ] でフォーカス移動 (ショートカット有効レイヤー)' : '[ / ] でレイヤー切替'}>
@@ -186,9 +248,9 @@ export default function CgCockpitPage() {
 
       {/* ── 操作本体 ───────────────────────────────────── */}
       {wide ? (
-        // PC: 3 レイヤーを横並びで一覧表示。フォーカス中カラムだけショートカット有効。
+        // PC: 選択したレイヤー (2 つ / 3 つ) を横並びで一覧表示。フォーカス中カラムだけショートカット有効。
         <div className="flex-1 min-h-0 flex flex-row divide-x divide-slate-800">
-          {LAYERS.map((l) => {
+          {visibleLayers.map((l) => {
             const Icon = l.icon;
             const focused = layer === l.key;
             const live = liveOf(l.key);
