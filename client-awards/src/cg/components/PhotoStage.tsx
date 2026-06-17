@@ -155,8 +155,10 @@ export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }:
       const rowCount = Math.min(cols, N - row * cols);
       const rowTotalW = rowCount * cardW + (rowCount - 1) * gap;
       const rowStartX = (CG_W - rowTotalW) / 2 + 12;
+      // 写真はカード枠 (cardW) より狭い (photoW = cardW - 24) ので、
+      // スロット中央に寄せて左右の余白を均等にする (写真もラベルも同じ x を使うので一緒に動く)。
       return {
-        x: rowStartX + col * (cardW + gap),
+        x: rowStartX + col * (cardW + gap) + (cardW - photoW) / 2,
         y: startY + row * (cardH + gap),
         w: photoW,
         h: photoH,
@@ -191,7 +193,7 @@ export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }:
       const rowTotalW = rowCount * cardW + (rowCount - 1) * gap;
       const rowStartX = (CG_W - rowTotalW) / 2 + 12;
       return {
-        x: rowStartX + col * (cardW + gap),
+        x: rowStartX + col * (cardW + gap) + (cardW - photoW) / 2,
         y: startY + row * (cardH + gap),
         w: photoW,
         h: photoH,
