@@ -329,6 +329,7 @@ export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }:
                 transition,
                 pointerEvents: 'none',
                 zIndex: L.zIndex,
+                textAlign: 'center',
               }}
             >
               <div
@@ -340,7 +341,7 @@ export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }:
                   paddingLeft: '0.2em',
                   color: '#bfa15a',
                   marginBottom: 2,
-                  ...fitStyle(compFit),
+                  ...fitStyle(compFit, 'center'),
                 }}
               >
                 {displayCompany}
@@ -354,7 +355,7 @@ export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }:
                   letterSpacing: '0.06em',
                   paddingLeft: '0.06em',
                   lineHeight: 1.15,
-                  ...fitStyle(nameFit),
+                  ...fitStyle(nameFit, 'center'),
                 }}
               >
                 {displayName}
