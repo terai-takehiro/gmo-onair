@@ -60,15 +60,23 @@ export function fitText(
 
 /** fitResult から CSS style オブジェクトを生成する。
  *  origin: scaleX 圧縮の基点。左揃えレイアウトは既定の 'left center'、
- *  中央揃え (textAlign:center) コンテナ内では 'center' を渡すと左偏りを防げる。 */
+ *  中央揃え (textAlign:center) コンテナ内では 'center' を渡すと左偏りを防げる。
+ *
+ *  origin==='center' のときは inline-block ではなく block + text-align:center で
+ *  圧縮する。inline-block は自然幅が親より広い (長文) とオーバーフローの中央寄せが
+ *  不安定で、transformOrigin の基点が親中央からずれて「長体になった瞬間に左右へずれる」
+ *  原因になる。block + width:100% なら transformOrigin:center が確実に親 (= 写真) の
+ *  中央 (50%) を指すため、圧縮しても中央に揃ったままになる。 */
 export function fitStyle(fit: FitResult, origin: string = 'left center'): React.CSSProperties {
   if (fit.wrap) {
     return { whiteSpace: 'normal', wordBreak: 'break-word', overflow: 'visible' };
   }
   if (fit.scaleX < 1) {
+    const centered = origin === 'center';
     return {
       whiteSpace: 'nowrap',
-      display: 'inline-block',
+      display: centered ? 'block' : 'inline-block',
+      ...(centered ? { textAlign: 'center' as const } : {}),
       transform: `scaleX(${fit.scaleX.toFixed(4)})`,
       transformOrigin: origin,
     };
