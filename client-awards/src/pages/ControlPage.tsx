@@ -47,28 +47,28 @@ function groupByAward(cats: CgCategory[]): AwardGroup[] {
   return order.map((name) => ({ name, divisions: map.get(name)! }));
 }
 
-type StepDef = { step: CgStep; label: string; desc: string; color: 'neutral' | 'live' | 'award'; shortcut?: string };
+type StepDef = { step: CgStep; label: string; desc: string; color: 'neutral' | 'live' | 'award' };
 
 // パターン別ステップシーケンス
 const STEPS_DIRECT: StepDef[] = [
-  { step: 'idle',        label: 'IDLE',       desc: '透過',                    color: 'neutral', shortcut: '0' },
-  { step: 'title',       label: 'TITLE',      desc: 'タイトルカード',          color: 'neutral', shortcut: '1' },
-  { step: 'nominees',    label: 'NOMINEES',   desc: 'ノミネート一覧',          color: 'live',    shortcut: '2' },
-  { step: 'ranks52',     label: 'RANKS 5→2',  desc: 'ランキングバー',          color: 'live',    shortcut: '3' },
-  { step: 'winner-bar',  label: 'WINNER BAR', desc: '大賞引きバー',            color: 'award',   shortcut: '4' },
-  { step: 'oneshot',     label: 'ONE SHOT',   desc: '大賞フルスクリーン',      color: 'award',   shortcut: '5' },
-  { step: 'celebration', label: 'CELEB',      desc: '全部門 No.1 + 紙吹雪',    color: 'award',   shortcut: '6' },
+  { step: 'idle',        label: 'IDLE',       desc: '透過',                    color: 'neutral' },
+  { step: 'title',       label: 'TITLE',      desc: 'タイトルカード',          color: 'neutral' },
+  { step: 'nominees',    label: 'NOMINEES',   desc: 'ノミネート一覧',          color: 'live'    },
+  { step: 'ranks52',     label: 'RANKS 5→2',  desc: 'ランキングバー',          color: 'live'    },
+  { step: 'winner-bar',  label: 'WINNER BAR', desc: '大賞引きバー',            color: 'award'   },
+  { step: 'oneshot',     label: 'ONE SHOT',   desc: '大賞フルスクリーン',      color: 'award'   },
+  { step: 'celebration', label: 'CELEB',      desc: '全部門 No.1 + 紙吹雪',    color: 'award'   },
 ];
 const STEPS_VOTE: StepDef[] = [
-  { step: 'idle',         label: 'IDLE',       desc: '透過',                    color: 'neutral', shortcut: '0' },
-  { step: 'title',        label: 'TITLE',      desc: 'タイトルカード',          color: 'neutral', shortcut: '1' },
-  { step: 'nominees',     label: 'NOMINEES',   desc: 'ノミネート一覧',          color: 'live',    shortcut: '2' },
-  { step: 'top3',         label: 'BEST 3',     desc: 'TOP3 発表',               color: 'live',    shortcut: '3' },
-  { step: 'final-pitch',  label: 'PITCH',      desc: 'ファイナルピッチ (3名→1名)', color: 'live', shortcut: '4' },
-  { step: 'celebration',  label: 'CELEB',      desc: '全部門 No.1 + 紙吹雪',    color: 'award',   shortcut: '5' },
+  { step: 'idle',         label: 'IDLE',       desc: '透過',                    color: 'neutral' },
+  { step: 'title',        label: 'TITLE',      desc: 'タイトルカード',          color: 'neutral' },
+  { step: 'nominees',     label: 'NOMINEES',   desc: 'ノミネート一覧',          color: 'live'    },
+  { step: 'top3',         label: 'BEST 3',     desc: 'TOP3 発表',               color: 'live'    },
+  { step: 'final-pitch',  label: 'PITCH',      desc: 'ファイナルピッチ (3名→1名)', color: 'live' },
+  { step: 'celebration',  label: 'CELEB',      desc: '全部門 No.1 + 紙吹雪',    color: 'award'   },
 ];
 // v2.9.63: 連動アンケートを持つ部門でだけ末尾に追加する「アンケート No.1 発表」ステップ
-const SURVEY_STEP: StepDef = { step: 'survey-oneshot', label: 'SURVEY No.1', desc: 'アンケートNo.1発表', color: 'award', shortcut: '7' };
+const SURVEY_STEP: StepDef = { step: 'survey-oneshot', label: 'SURVEY No.1', desc: 'アンケートNo.1発表', color: 'award' };
 const ONESHOT_STYLES: { style: OneshotStyle; label: string }[] = [
   { style: 'classic',   label: 'Classic'   },
   { style: 'shards',    label: 'Shards'    },
@@ -77,7 +77,7 @@ const ONESHOT_STYLES: { style: OneshotStyle; label: string }[] = [
 ];
 const LIVE_STEPS: CgStep[] = ['nominees', 'ranks52', 'top3', 'final-pitch', 'winner-bar', 'oneshot', 'celebration', 'survey-oneshot'];
 
-export default function ControlPage({ embedded = false, shortcutsEnabled = true }: { embedded?: boolean; shortcutsEnabled?: boolean } = {}) {
+export default function ControlPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { id } = useParams<{ id: string }>();
   const eventId = parseInt(id!);
   const navigate = useNavigate();
@@ -273,58 +273,6 @@ export default function ControlPage({ embedded = false, shortcutsEnabled = true 
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-
-  // ── ↑↓ で 全カテゴリ間を循環 (フラット)
-  const goPrev = useCallback(() => {
-    if (!allCats.length) return;
-    const i = allCats.findIndex((c) => c.id === nextCategoryId);
-    const next = (i - 1 + allCats.length) % allCats.length;
-    setNextCategoryId(allCats[next].id);
-  }, [allCats, nextCategoryId]);
-  const goNext = useCallback(() => {
-    if (!allCats.length) return;
-    const i = allCats.findIndex((c) => c.id === nextCategoryId);
-    const next = (i + 1) % allCats.length;
-    setNextCategoryId(allCats[next].id);
-  }, [allCats, nextCategoryId]);
-
-  // ── キーボードショートカット (統合コックピットの非フォーカス時は無効)
-  useEffect(() => {
-    if (!shortcutsEnabled) return;
-    const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (target && (target.matches('input, textarea, select') || target.isContentEditable)) return;
-
-      // 0-5: step (パターンにより上限が変わる)
-      if (/^[0-9]$/.test(e.key)) {
-        const s = STEPS.find((st) => st.shortcut === e.key);
-        if (s) {
-          setNextStep(s.step);
-          return;
-        }
-      }
-      if (e.key === ' ' || e.key === 'Enter') {
-        e.preventDefault();
-        take();
-      } else if (e.key === 'x' || e.key === 'X') {
-        // v2.8.101+: 全画面中も使える CLEAR キー (Esc はブラウザの全画面解除と被るため代替)。
-        e.preventDefault();
-        clear();
-      } else if (e.key === 'Escape') {
-        // v2.8.100+: 全画面中の Esc はブラウザの全画面解除に専念。通常モードでは Esc で CLEAR。
-        if (document.fullscreenElement) return;
-        clear();
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        goNext();
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        goPrev();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [shortcutsEnabled, take, clear, goPrev, goNext]);
 
   // NEXT preview に渡す cue (LIVE と独立に NEXT 状態を描画)
   const nextCueForPreview: CgCueState = useMemo(() => ({
@@ -723,7 +671,7 @@ function StepRow({ steps, liveStep, nextStep, onSelect }: {
 }) {
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2">
-      {steps.map(({ step, label, desc, color, shortcut }) => {
+      {steps.map(({ step, label, desc, color }) => {
         const isNext = nextStep === step;
         const isLiveStep = liveStep === step;
         return (
@@ -738,11 +686,6 @@ function StepRow({ steps, liveStep, nextStep, onSelect }: {
               !isNext && 'border-slate-800 bg-slate-900/40 hover:bg-slate-800 hover:border-slate-700',
             )}
           >
-            {shortcut && (
-              <span className="absolute top-1 right-1.5 sm:top-1.5 sm:right-2 text-[9px] sm:text-[10px] font-black tracking-widest text-slate-500">
-                {shortcut}
-              </span>
-            )}
             <span className={cn(
               'text-[11px] sm:text-xs font-black tracking-wider leading-none',
               isNext ? 'text-amber-300' : 'text-slate-200',

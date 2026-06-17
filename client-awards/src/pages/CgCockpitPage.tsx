@@ -12,11 +12,9 @@ import QuizStackControlPage from './QuizStackControlPage';
 // v2.9.88: 統合送出コックピット。出力URL・各レイヤーの送出ロジック・socket は据え置き、
 //   operator の「制御」を 1 画面に集約。各操作ページは embedded で自前ヘッダーを隠して埋め込む。
 // v2.9.89 (Phase 2): 全レイヤーの ON-AIR 状態を常時表示 (cg-status を 2 秒ポーリング)。
-// v2.9.90 (Phase 3): `[` / `]` でレイヤー切替を統合。
-// v2.9.91: PC (lg+) はタブではなく **3 レイヤーを横並びで一覧表示** (全部同時に見える)。
-//   ただし全レイヤー同時マウントだとキーボードショートカット (Space=TAKE 等) が全レイヤーで
-//   同時発火するため、**フォーカス中の 1 レイヤーだけショートカット有効** (`[`/`]` または
-//   カラムクリックでフォーカス移動)。モバイル (< lg) は従来どおりタブ (1 レイヤーのみ表示)。
+// v2.9.91: PC (lg+) はタブではなく **複数レイヤーを横並びで一覧表示** (同時に見える)。
+//   モバイル (< lg) は従来どおりタブ (1 レイヤーのみ表示)。
+// v2.9.96: キーボードショートカットを全廃 (フォーカス式ショートカット・`[`/`]` 切替も撤去)。
 
 type Layer = 'oneshot' | 'ranking' | 'quiz';
 
@@ -62,7 +60,7 @@ export default function CgCockpitPage() {
   const navigate = useNavigate();
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
   const wide = useMediaQuery('(min-width: 1024px)');
-  // wide: フォーカス中レイヤー (ショートカット有効先) / narrow: 表示中タブ
+  // narrow (モバイル) の表示中タブ。wide では横並び一覧のため未使用。
   const [layer, setLayer] = useState<Layer>('oneshot');
 
   // v2.9.95: wide 表示で横並びにするレイヤーを任意選択 (2 つ / 3 つ)。localStorage に永続化。
@@ -89,12 +87,6 @@ export default function CgCockpitPage() {
         : [...cur, k],
     );
   };
-  // フォーカス中レイヤーが非表示になったら先頭の表示レイヤーへ寄せる
-  useEffect(() => {
-    if (wide && !visible.includes(layer) && visibleLayers.length > 0) {
-      setLayer(visibleLayers[0].key);
-    }
-  }, [wide, visible, layer, visibleLayers]);
 
   const { data: event } = useQuery({
     queryKey: ['awards-event', eventId],
@@ -113,31 +105,10 @@ export default function CgCockpitPage() {
   const liveOf = (k: Layer): boolean =>
     k === 'ranking' ? !!status?.ranking.live : k === 'oneshot' ? !!status?.oneshot.live : !!status?.quiz.live;
 
-  // `[` / `]` でフォーカス (= ショートカット有効レイヤー / narrow では表示タブ) を前後に移動。
-  // wide では「表示中レイヤー」、narrow では全レイヤーを巡回。
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== '[' && e.key !== ']') return;
-      const t = e.target as HTMLElement | null;
-      if (t && (t.matches('input, textarea, select') || t.isContentEditable)) return;
-      e.preventDefault();
-      const list = (wide ? LAYERS.filter((l) => visible.includes(l.key)) : LAYERS).map((l) => l.key);
-      if (list.length === 0) return;
-      setLayer((cur) => {
-        const idx = list.indexOf(cur);
-        const base = idx < 0 ? 0 : idx;
-        const next = e.key === ']' ? (base + 1) % list.length : (base - 1 + list.length) % list.length;
-        return list[next];
-      });
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [wide, visible]);
-
-  // 各レイヤーの操作本体。focused のときだけショートカット有効。
-  const renderPanel = (key: Layer, focused: boolean) => {
-    if (key === 'oneshot') return <OneShotControlPage embedded shortcutsEnabled={focused} />;
-    if (key === 'ranking') return <ControlPage embedded shortcutsEnabled={focused} />;
+  // 各レイヤーの操作本体。
+  const renderPanel = (key: Layer) => {
+    if (key === 'oneshot') return <OneShotControlPage embedded />;
+    if (key === 'ranking') return <ControlPage embedded />;
     return <QuizStackControlPage embedded />;
   };
 
@@ -229,17 +200,12 @@ export default function CgCockpitPage() {
           </div>
         )}
 
-        {/* キーボードヒント */}
-        <span className="hidden xl:inline text-[11px] text-slate-500 shrink-0" title={wide ? '[ / ] でフォーカス移動 (ショートカット有効レイヤー)' : '[ / ] でレイヤー切替'}>
-          <kbd className="rounded bg-slate-800 px-1">[</kbd> <kbd className="rounded bg-slate-800 px-1">]</kbd> {wide ? 'フォーカス' : '切替'}
-        </span>
-
         {/* narrow のみ: アクティブレイヤーの出力URL (wide は各カラムに表示) */}
         {!wide && <OutputLinks k={layer} />}
 
         <button
           onClick={toggleFullscreen}
-          title={isFullscreen ? '全画面解除 (F)' : '全画面 (F)'}
+          title={isFullscreen ? '全画面解除' : '全画面'}
           className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
         >
           {isFullscreen ? <Minimize2 className="h-4 w-4 text-slate-300" /> : <Maximize2 className="h-4 w-4 text-slate-300" />}
@@ -248,36 +214,24 @@ export default function CgCockpitPage() {
 
       {/* ── 操作本体 ───────────────────────────────────── */}
       {wide ? (
-        // PC: 選択したレイヤー (2 つ / 3 つ) を横並びで一覧表示。フォーカス中カラムだけショートカット有効。
+        // PC: 選択したレイヤー (1〜3 つ) を横並びで一覧表示。
         <div className="flex-1 min-h-0 flex flex-row divide-x divide-slate-800">
           {visibleLayers.map((l) => {
             const Icon = l.icon;
-            const focused = layer === l.key;
             const live = liveOf(l.key);
             return (
-              <div
-                key={l.key}
-                onMouseDown={() => setLayer(l.key)}
-                className={cn(
-                  'flex-1 min-w-0 flex flex-col',
-                  focused ? 'ring-2 ring-inset ring-sky-500/70' : '',
-                )}
-              >
+              <div key={l.key} className="flex-1 min-w-0 flex flex-col">
                 {/* カラム見出し */}
-                <div className={cn(
-                  'flex items-center gap-2 h-9 px-2 shrink-0 border-b border-slate-800',
-                  focused ? 'bg-slate-800/80' : 'bg-slate-900/50',
-                )}>
+                <div className="flex items-center gap-2 h-9 px-2 shrink-0 border-b border-slate-800 bg-slate-900/50">
                   <Icon className={cn('h-4 w-4 shrink-0', l.color)} />
                   <span className="text-xs font-bold text-slate-100 truncate">{l.label}</span>
                   <span className={cn('inline-block h-2 w-2 rounded-full shrink-0', live ? 'bg-red-500 animate-pulse' : 'bg-slate-600/50')}
                     aria-label={live ? 'ON AIR' : 'OFF'} />
-                  {focused && <span className="text-[10px] font-bold text-sky-400 shrink-0">● 操作中</span>}
                   <span className="flex-1" />
                   <OutputLinks k={l.key} />
                 </div>
                 <div className="flex-1 min-h-0 overflow-hidden">
-                  {renderPanel(l.key, focused)}
+                  {renderPanel(l.key)}
                 </div>
               </div>
             );
@@ -286,7 +240,7 @@ export default function CgCockpitPage() {
       ) : (
         // モバイル: タブで 1 レイヤーのみ表示
         <div className="flex-1 min-h-0 overflow-hidden">
-          {renderPanel(layer, true)}
+          {renderPanel(layer)}
         </div>
       )}
     </div>
