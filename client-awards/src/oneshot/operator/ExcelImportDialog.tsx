@@ -17,7 +17,8 @@ export type ImportMappingKey =
   | 'ism' | 'skills' | 'title' | 'titleEn'
   | 'teamSize' | 'members'
   | 'recName' | 'recNameEn' | 'recNameKana' | 'recCompany' | 'recDept' | 'recPosition'
-  | 'recRespect' | 'recRespectEn';
+  | 'recRespect' | 'recRespectEn'
+  | 'rank' | 'points' | 'ownPoints';
 
 export type ImportMapping = Partial<Record<ImportMappingKey, string>>;
 
@@ -67,6 +68,14 @@ const CG_GROUPS: CgFieldGroup[] = [
       { key: 'org', label: '会社' },
       { key: 'orgEn', label: '会社 (英語)' },
       { key: 'imageId', label: '画像ID' },
+    ],
+  },
+  {
+    title: '投票結果 (DB列)',
+    fields: [
+      { key: 'rank', label: '順位' },
+      { key: 'points', label: 'ポイント総計' },
+      { key: 'ownPoints', label: '自社票 (Own Vote)' },
     ],
   },
   {

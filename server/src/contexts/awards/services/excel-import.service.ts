@@ -54,6 +54,11 @@ const REC_DEPT_HEADERS        = ['推薦者部署', '推薦者`部署'];
 const REC_POSITION_HEADERS    = ['推薦者役職'];
 const REC_RESPECT_HEADERS     = ['尊敬ポイント（13文字）', '尊敬ポイント(13文字)', '尊敬ポイント'];
 const REC_RESPECT_EN_HEADERS  = ['尊敬ポイント（13文字）（英語）', '尊敬ポイント(13文字)(英語)', '尊敬ポイント（英語）', '尊敬ポイント(英語)'];
+// 投票結果 (DB列: rank / points / own_points)
+const RANK_HEADERS            = ['順位', 'rank'];
+const POINTS_HEADERS          = ['ポイント総計', 'ポイント', 'points', 'point'];
+// 「自社以外票」を部分一致で誤検出しないよう「自社票」完全一致候補のみに限定
+const OWN_POINTS_HEADERS      = ['自社票', 'own_points'];
 
 // custom mapping のキー定義 (クライアントと共有)
 export type ImportMappingKey =
@@ -64,7 +69,8 @@ export type ImportMappingKey =
   | 'ism' | 'skills' | 'title' | 'titleEn'
   | 'teamSize' | 'members'
   | 'recName' | 'recNameEn' | 'recNameKana' | 'recCompany' | 'recDept' | 'recPosition'
-  | 'recRespect' | 'recRespectEn';
+  | 'recRespect' | 'recRespectEn'
+  | 'rank' | 'points' | 'ownPoints';
 
 export type ImportMapping = Partial<Record<ImportMappingKey, string>>;
 
@@ -100,6 +106,9 @@ const AUTO_HEADERS: Record<ImportMappingKey, string[]> = {
   recPosition: REC_POSITION_HEADERS,
   recRespect: REC_RESPECT_HEADERS,
   recRespectEn: REC_RESPECT_EN_HEADERS,
+  rank: RANK_HEADERS,
+  points: POINTS_HEADERS,
+  ownPoints: OWN_POINTS_HEADERS,
 };
 
 // 全角 ⇄ 半角・大文字小文字・空白を吸収する正規化
@@ -153,6 +162,10 @@ interface RowData {
   award: string;
   division: string;
   rank: number | null;
+  /** ポイント総計 (小数可)。Excel に列が無ければ null。 */
+  points: number | null;
+  /** 自社票 (小数可) → CG の Own Vote 表示 (own_points)。 */
+  ownPoints: number | null;
   imageId: string | null;
   nameJa: string;
   nameEn: string | null;
@@ -363,6 +376,9 @@ export async function importAwardsExcel(
   const nameEnProjCol   = get('projectNameEn');
   const orgJaCol        = get('org');
   const orgEnCol        = get('orgEn');
+  const rankCol         = get('rank');
+  const pointsCol       = get('points');
+  const ownPointsCol    = get('ownPoints');
 
   if (awardCol < 0) warnings.push('「種別/賞」列のマッピングがありません。単一カテゴリ「インポート」に全エントリを追加します');
   if (divisionCol < 0) warnings.push('「エントリー部門」列のマッピングがありません');
@@ -413,7 +429,17 @@ export async function importAwardsExcel(
     const nomEn  = cellStr(row, nameEnCol);
     const nameEn = projEn || nomEn || null;
 
-    const rank = null;
+    // 投票結果 (順位は整数 / ポイント・自社票は小数可)。空セルは null。
+    const parseNum = (col: number, integer = false): number | null => {
+      if (col < 0) return null;
+      const raw = cellStr(row, col).replace(/,/g, '');
+      if (!raw) return null;
+      const n = integer ? parseInt(raw, 10) : parseFloat(raw);
+      return Number.isFinite(n) ? n : null;
+    };
+    const rank      = parseNum(rankCol, true);
+    const points    = parseNum(pointsCol);
+    const ownPoints = parseNum(ownPointsCol);
 
     const imageId = imageIdCol >= 0 ? cellStr(row, imageIdCol) || null : null;
     const stripKK = (s: string) => s.replace(/株式会社/g, '').replace(/\s+/g, ' ').trim();
@@ -477,7 +503,7 @@ export async function importAwardsExcel(
     // 何も追加されなかった (type のみ) なら oneshot_data は null として保存
     const oneshotData = Object.keys(od).length > 1 ? od : null;
 
-    parsedRows.push({ award, division, rank, imageId, nameJa, nameEn, orgJa, orgEn, oneshotData, isTeam });
+    parsedRows.push({ award, division, rank, points, ownPoints, imageId, nameJa, nameEn, orgJa, orgEn, oneshotData, isTeam });
   }
 
   if (parsedRows.length === 0) throw new Error('有効なデータ行が存在しません');
@@ -552,6 +578,7 @@ export async function importAwardsExcel(
           const existingId = existing.rows[0].id as number;
           // 既存 oneshot_data に上書きマージ (Excel に値があるキーだけ更新、
           // 残りは保持) するため `||` 演算子を使用。
+          // rank / points / own_points は Excel に値がある時のみ上書き (COALESCE で既存値を保持)
           await client.query(
             `UPDATE awards_entries
              SET name_en = $1,
@@ -559,9 +586,13 @@ export async function importAwardsExcel(
                  org_en = $3,
                  image_id = $4,
                  oneshot_data = COALESCE(oneshot_data, '{}'::jsonb) || COALESCE($5::jsonb, '{}'::jsonb),
+                 rank       = COALESCE($7, rank),
+                 points     = COALESCE($8, points),
+                 own_points = COALESCE($9, own_points),
+                 is_winner  = CASE WHEN $7 IS NOT NULL THEN ($7 = 1) ELSE is_winner END,
                  updated_at = NOW()
              WHERE id = $6`,
-            [r.nameEn, r.orgJa, r.orgEn, r.imageId, oneshotJson, existingId]
+            [r.nameEn, r.orgJa, r.orgEn, r.imageId, oneshotJson, existingId, r.rank, r.points, r.ownPoints]
           );
           inserted++;
           totalInserted++;
@@ -570,9 +601,9 @@ export async function importAwardsExcel(
 
         await client.query(
           `INSERT INTO awards_entries
-             (event_id, category_id, rank, name, name_en, org, org_en, image_id, is_winner, oneshot_data)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb)`,
-          [eventId, categoryId, r.rank, r.nameJa, r.nameEn, r.orgJa, r.orgEn, r.imageId, r.rank === 1, oneshotJson]
+             (event_id, category_id, rank, points, own_points, name, name_en, org, org_en, image_id, is_winner, oneshot_data)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb)`,
+          [eventId, categoryId, r.rank, r.points, r.ownPoints, r.nameJa, r.nameEn, r.orgJa, r.orgEn, r.imageId, r.rank === 1, oneshotJson]
         );
         inserted++;
         totalInserted++;
