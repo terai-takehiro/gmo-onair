@@ -234,7 +234,7 @@ function Top3Card({ entry, pointsShown, revealed, lang = 'ja', hidePoints = fals
         {/* Points は Phase 1 から CountUp で表示 (先出しで期待感を演出)。hidePoints=true で非表示 */}
         <div
           style={{
-            display: hidePoints ? 'none' : 'flex',
+            display: (hidePoints || !(Number(entry.points) > 0)) ? 'none' : 'flex',
             alignItems: 'baseline',
             justifyContent: 'center',
             gap: 8,
