@@ -44,9 +44,21 @@ interface PreviewResult {
   suggestedMapping: ImportMapping;
 }
 
+interface EntryChange {
+  category: string;
+  name: string;
+  kind: 'created' | 'updated';
+  fields: string[];
+}
+
 interface ImportResult {
   totalInserted: number;
+  created: number;
+  updated: number;
+  unchanged: number;
   skipped: number;
+  changes: EntryChange[];
+  dryRun: boolean;
   warnings: string[];
   categories: { id: number; name: string; description: string | null; inserted: number }[];
 }
@@ -166,13 +178,14 @@ interface Props {
   onImported: () => void;
 }
 
-type Phase = 'select' | 'preview' | 'committing' | 'done';
+type Phase = 'select' | 'preview' | 'planning' | 'plan' | 'committing' | 'done';
 
 export default function ExcelImportDialog({ open, onClose, eventId, onImported }: Props) {
   const [phase, setPhase] = useState<Phase>('select');
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [assignments, setAssignments] = useState<Record<string, Assignment>>({});
+  const [plan, setPlan] = useState<ImportResult | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -182,6 +195,7 @@ export default function ExcelImportDialog({ open, onClose, eventId, onImported }
       setFile(null);
       setPreview(null);
       setAssignments({});
+      setPlan(null);
       setResult(null);
       setError(null);
     }
@@ -231,26 +245,35 @@ export default function ExcelImportDialog({ open, onClose, eventId, onImported }
   });
 
   const importMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (dryRun: boolean) => {
       if (!file) throw new Error('ファイルが選択されていません');
       const { mapping, extraColumns } = buildPayload(assignments);
       const fd = new FormData();
       fd.append('file', file);
       fd.append('mapping', JSON.stringify(mapping));
       fd.append('extraColumns', JSON.stringify(extraColumns));
+      fd.append('dryRun', dryRun ? 'true' : 'false');
       const res = await api.post(`/awards/events/${eventId}/import-excel`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       return res.data.data as ImportResult;
     },
     onSuccess: (r) => {
-      saveStoredAssignments(eventId, assignments);
-      setResult(r);
-      setPhase('done');
-      onImported();
+      if (r.dryRun) {
+        // 差分プランを表示 (まだ DB へは書き込んでいない)
+        setPlan(r);
+        setPhase('plan');
+      } else {
+        saveStoredAssignments(eventId, assignments);
+        setResult(r);
+        setPhase('done');
+        onImported();
+      }
     },
     onError: (err) => {
       setError(err instanceof Error ? err.message : String(err));
+      // committing/planning から前の操作画面へ戻す
+      setPhase((p) => (p === 'committing' ? 'plan' : 'preview'));
     },
   });
 
@@ -308,6 +331,8 @@ export default function ExcelImportDialog({ open, onClose, eventId, onImported }
               validation={validation}
             />
           )}
+          {phase === 'planning' && <PhaseSpinner label="差分を確認中…" />}
+          {phase === 'plan' && plan && <PhasePlan plan={plan} />}
           {phase === 'committing' && <PhaseSpinner label="インポート中…" />}
           {phase === 'done' && result && <PhaseDone result={result} />}
         </div>
@@ -343,8 +368,8 @@ export default function ExcelImportDialog({ open, onClose, eventId, onImported }
                     return;
                   }
                   setError(null);
-                  setPhase('committing');
-                  importMutation.mutate();
+                  setPhase('planning');
+                  importMutation.mutate(true);
                 }}
                 disabled={importMutation.isPending}
                 className={cn(
@@ -355,7 +380,34 @@ export default function ExcelImportDialog({ open, onClose, eventId, onImported }
                 )}
               >
                 <Check className="h-4 w-4" />
-                {importMutation.isPending ? '実行中…' : 'この設定でインポート'}
+                {importMutation.isPending ? '確認中…' : '差分を確認'}
+              </button>
+            </>
+          )}
+          {phase === 'plan' && plan && (
+            <>
+              <button
+                onClick={() => { setPhase('preview'); setPlan(null); }}
+                className="rounded-md border px-3 py-2 text-sm hover:bg-muted"
+              >
+                戻る
+              </button>
+              <button
+                onClick={() => { setError(null); setPhase('committing'); importMutation.mutate(false); }}
+                disabled={importMutation.isPending || (plan.created + plan.updated === 0)}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-bold',
+                  plan.created + plan.updated > 0
+                    ? 'bg-emerald-600 text-white hover:bg-emerald-500'
+                    : 'bg-slate-300 text-slate-500 cursor-not-allowed',
+                )}
+              >
+                <Check className="h-4 w-4" />
+                {importMutation.isPending
+                  ? '投入中…'
+                  : plan.created + plan.updated > 0
+                  ? `投入する (新規 ${plan.created} / 更新 ${plan.updated})`
+                  : '投入する変更なし'}
               </button>
             </>
           )}
@@ -364,7 +416,7 @@ export default function ExcelImportDialog({ open, onClose, eventId, onImported }
               閉じる
             </button>
           )}
-          {(phase === 'select' || phase === 'committing') && (
+          {(phase === 'select' || phase === 'planning' || phase === 'committing') && (
             <button onClick={onClose} className="rounded-md border px-3 py-2 text-sm hover:bg-muted">
               キャンセル
             </button>
@@ -612,6 +664,88 @@ function PhaseSpinner({ label }: { label: string }) {
   );
 }
 
+// ── 差分サマリー (新規 / 更新 / 変更なし / スキップ) ──────────
+function StatPills({ r }: { r: ImportResult }) {
+  const pill = (label: string, n: number, cls: string) => (
+    <div className={cn('flex flex-col items-center justify-center rounded-lg border px-3 py-2 min-w-[72px]', cls)}>
+      <span className="text-xl font-black tabular-nums leading-none">{n}</span>
+      <span className="text-[11px] font-bold mt-1">{label}</span>
+    </div>
+  );
+  return (
+    <div className="flex flex-wrap gap-2">
+      {pill('新規', r.created, 'border-emerald-300 bg-emerald-50 text-emerald-700')}
+      {pill('更新', r.updated, 'border-sky-300 bg-sky-50 text-sky-700')}
+      {pill('変更なし', r.unchanged, 'border-slate-300 bg-slate-50 text-slate-500')}
+      {r.skipped > 0 && pill('取込不可', r.skipped, 'border-amber-300 bg-amber-50 text-amber-700')}
+    </div>
+  );
+}
+
+// ── 新規/更新の明細リスト ────────────────────────────────
+function ChangesList({ changes }: { changes: EntryChange[] }) {
+  if (changes.length === 0) {
+    return (
+      <div className="rounded border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-center text-sm text-slate-500">
+        新規・更新はありません (すべて既存と一致)
+      </div>
+    );
+  }
+  return (
+    <div className="rounded border border-slate-200 bg-white">
+      <div className="px-3 py-2 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
+        新規 / 更新 の明細
+      </div>
+      <div className="divide-y divide-slate-100 max-h-[34vh] overflow-y-auto">
+        {changes.map((c, i) => (
+          <div key={i} className="flex items-center gap-2 px-3 py-1.5 text-sm">
+            <span className={cn(
+              'shrink-0 text-[10px] font-black rounded px-1.5 py-0.5',
+              c.kind === 'created' ? 'bg-emerald-100 text-emerald-700' : 'bg-sky-100 text-sky-700',
+            )}>
+              {c.kind === 'created' ? '新規' : '更新'}
+            </span>
+            <span className="text-[10px] text-slate-400 shrink-0 max-w-[140px] truncate">{c.category}</span>
+            <span className="font-bold text-slate-800 min-w-0 truncate">{c.name}</span>
+            {c.fields.length > 0 && (
+              <span className="text-[11px] text-sky-600 shrink-0 truncate max-w-[200px]">変更: {c.fields.join(' / ')}</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Phase: 差分プラン (dry-run。投入前の確認) ──────────────
+function PhasePlan({ plan }: { plan: ImportResult }) {
+  return (
+    <div className="p-6 space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="rounded-full bg-sky-100 p-2">
+          <Info className="h-6 w-6 text-sky-600" />
+        </div>
+        <div>
+          <div className="text-base font-bold text-slate-900">差分の確認 (まだ投入していません)</div>
+          <div className="text-sm text-slate-600">
+            既存と一致するものはスキップされます。下記の新規・更新だけが投入されます。
+          </div>
+        </div>
+      </div>
+      <StatPills r={plan} />
+      <ChangesList changes={plan.changes} />
+      {plan.warnings.length > 0 && (
+        <div className="rounded border border-amber-300 bg-amber-50 p-3">
+          <div className="text-sm font-bold text-amber-900 mb-1">⚠ 警告</div>
+          <ul className="space-y-0.5 text-xs text-amber-800 list-disc pl-5">
+            {plan.warnings.map((w, i) => <li key={i}>{w}</li>)}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Phase: 完了 ──────────────────────────────────────────
 function PhaseDone({ result }: { result: ImportResult }) {
   return (
@@ -623,10 +757,14 @@ function PhaseDone({ result }: { result: ImportResult }) {
         <div>
           <div className="text-base font-bold text-slate-900">インポート完了</div>
           <div className="text-sm text-slate-600">
-            {result.totalInserted}件処理 (重複は上書き) / {result.skipped}件スキップ
+            新規 {result.created} / 更新 {result.updated} / 変更なし {result.unchanged}
+            {result.skipped > 0 && ` / 取込不可 ${result.skipped}`}
           </div>
         </div>
       </div>
+
+      <StatPills r={result} />
+      <ChangesList changes={result.changes} />
 
       <div className="rounded border border-slate-200 bg-white">
         <div className="px-3 py-2 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">

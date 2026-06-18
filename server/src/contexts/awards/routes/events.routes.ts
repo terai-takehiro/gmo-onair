@@ -359,7 +359,10 @@ router.post('/events/:id/import-excel', upload.single('file'), wrap(async (req, 
     }
   }
 
-  const result = await importAwardsExcel(req.file.buffer, eventId, mapping, extraColumns);
+  // v2.9.102+: dryRun=true なら DB へ書き込まず差分プラン (新規/更新/変更なし) のみ返す。
+  const dryRun = req.body?.dryRun === 'true' || req.body?.dryRun === true;
+
+  const result = await importAwardsExcel(req.file.buffer, eventId, mapping, extraColumns, dryRun);
   res.json({ success: true, data: result });
 }));
 
