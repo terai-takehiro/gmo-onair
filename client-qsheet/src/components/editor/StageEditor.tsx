@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { UserPlus, Square, Trash2, Save } from "lucide-react";
+import { UserPlus, Square, Trash2, Save, Copy } from "lucide-react";
 import { Dialog, DialogContent } from "@gmo-onair/shared/src/client/ui";
 
 const STAGE_W = 800;
@@ -59,10 +59,11 @@ function getHandles(el: StageElement): ResizeHandle[] {
 interface StageEditorProps {
   template?: { name: string; elements: StageElement[] } | null;
   onSave: (data: { name: string; elements: StageElement[] }) => void;
+  onSaveCopy?: (data: { name: string; elements: StageElement[] }) => void;
   onClose: () => void;
 }
 
-export default function StageEditor({ template, onSave, onClose }: StageEditorProps) {
+export default function StageEditor({ template, onSave, onSaveCopy, onClose }: StageEditorProps) {
   const [name, setName] = useState(template?.name || "新しい立ち位置図");
   const [elements, setElements] = useState<StageElement[]>(() =>
     JSON.parse(JSON.stringify(template?.elements || []))
@@ -188,6 +189,19 @@ export default function StageEditor({ template, onSave, onClose }: StageEditorPr
             placeholder="テンプレート名"
             aria-label="立ち位置図テンプレート名"
           />
+          {onSaveCopy && (
+            <button
+              onClick={() => {
+                const copyName = template && name === template.name ? `${name} (コピー)` : name;
+                onSaveCopy({ name: copyName, elements });
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-muted text-foreground rounded-lg hover:bg-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              aria-label="複製として保存"
+              title="現在の内容を新しい立ち位置図として複製保存 (元データは変更しない)"
+            >
+              <Copy size={13} aria-hidden />複製保存
+            </button>
+          )}
           <button
             onClick={() => onSave({ name, elements })}
             className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
