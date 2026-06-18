@@ -10,12 +10,10 @@ export default function Headline({
   const projectRef = useCondense<HTMLSpanElement>([n.id, lang, isWide]);
   const nameRef = useCondense<HTMLSpanElement>([n.id, lang, isWide]);
   const companyRef = useCondense<HTMLDivElement>([n.id, lang, isWide], 0.6);
-  const leadRef = useCondense<HTMLDivElement>([n.id, lang, isWide], 0.6);
 
   if (isTeam) {
     // プロジェクト名が無いチーム (= ノミネート名自体がチーム名) は name をヘッドラインに使う。
-    // その場合は「代表：name」が見出しと重複するため代表行は出さない。
-    const hasProject = isJa ? !!n.projectName : !!n.projectNameEn;
+    // 「代表：～」行は CG では出さない (ユーザー要望)。
     const projectText = isJa ? (n.projectName || n.name) : (n.projectNameEn || n.nameEn);
     return (
       <div className="lt-headline">
@@ -25,11 +23,6 @@ export default function Headline({
           </div>
           <div className="lt-affil-block">
             <div ref={companyRef} className="lt-company">{isJa ? n.company : n.companyEn}</div>
-            {hasProject && (
-              <div ref={leadRef} className="lt-dept">
-                {isJa ? '代表' : 'Lead'}：{isJa ? n.name : n.nameEn}
-              </div>
-            )}
           </div>
         </div>
       </div>

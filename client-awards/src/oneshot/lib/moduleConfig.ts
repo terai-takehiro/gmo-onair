@@ -1,6 +1,35 @@
 import { useMemo } from 'react';
-import type { EventModuleConfig, ModuleDef, Nominee } from '../types';
+import type { EventModuleConfig, Lang, ModuleDef, Nominee } from '../types';
 import { createDefaultEventModuleConfig } from '../data/presetModules';
+import { resolveBinding } from '../modules/dynamic/resolveBinding';
+
+function isEmptyValue(v: unknown): boolean {
+  if (v == null) return true;
+  if (Array.isArray(v)) return v.length === 0;
+  if (typeof v === 'string') return v.trim() === '';
+  return false;
+}
+
+/** このノミネートに対し、モジュールが表示すべき中身を持つか。
+ *  literal (見出しラベル) 以外のバインディングが 1 つでも非空なら true。
+ *  中身バインディングが無いモジュール (例: 情報なし) は常に true (クリア用なので残す)。
+ *  ja / en どちらかに中身があれば表示する。 */
+export function moduleHasContent(mod: ModuleDef, n: Nominee | null): boolean {
+  const contentSlots = mod.slots.filter((s) => s.binding.source !== 'literal');
+  if (contentSlots.length === 0) return true;
+  if (!n) return true;
+  const langs: Lang[] = ['ja', 'en'];
+  return contentSlots.some((s) =>
+    langs.some((lang) => {
+      try {
+        if (s.binding.source === 'recommender' && !n.recommender) return false;
+        return !isEmptyValue(resolveBinding(s.binding, n, lang));
+      } catch {
+        return false;
+      }
+    }),
+  );
+}
 
 // v2.8.130: 字幕スーパー モジュール構成のユーザーカスタマイズ機能を撤廃。
 // 全イベントでデフォルトプリセット (`createDefaultEventModuleConfig()`) を使用する。
@@ -35,6 +64,8 @@ export function getOrderedVisibleModules(
 ): ModuleDef[] {
   return config.modules
     .filter((m) => isModuleVisible(m, n))
+    // 中身のあるモジュールだけ (未入力項目のボタンは出さない)。情報なしは常に残る。
+    .filter((m) => moduleHasContent(m, n))
     .slice()
     .sort((a, b) => {
       if (a.order !== b.order) return a.order - b.order;
