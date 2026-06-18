@@ -410,8 +410,8 @@ function TextColumn({ entry, on, categoryParent, categoryChild, displayName, dis
         </div>
       )}
 
-      {/* Points (vote-reveal 経由などで hidePoints=true なら非表示) */}
-      {!hidePoints && (
+      {/* Points (vote-reveal 経由などで hidePoints=true、または 0/未入力 のときは非表示) */}
+      {!hidePoints && Number(entry.points) > 0 && (
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, ...fade() }}>
         <span style={{
           fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700,
