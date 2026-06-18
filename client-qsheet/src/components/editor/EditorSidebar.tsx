@@ -18,6 +18,7 @@ import {
   Pencil,
   Monitor,
   Lightbulb,
+  Copy,
 } from "lucide-react";
 import {
   Tabs,
@@ -78,6 +79,7 @@ interface Props {
   onShowImport?: () => void;
   onExportExcel?: () => void;
   onEditStageTemplate?: (idx: number) => void;
+  onDuplicateStageTemplate?: (idx: number) => void;
 }
 
 // ─── Block type config ──────────────────────────────────
@@ -377,6 +379,7 @@ export function EditorSidebarBody({
   onShowImport,
   onExportExcel,
   onEditStageTemplate,
+  onDuplicateStageTemplate,
 }: Props) {
   const [showBlockPicker, setShowBlockPicker] = useState(false);
   const [draggedBlkId, setDraggedBlkId] = useState<string | null>(null);
@@ -649,6 +652,14 @@ export function EditorSidebarBody({
                   >
                     <span className="text-sm flex-none" aria-hidden>🎭</span>
                     <span className="flex-1 truncate font-medium">{t.name}</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onDuplicateStageTemplate?.(i); }}
+                      className="opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-warning transition-all flex-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                      aria-label="複製"
+                      title="複製して編集 (元データを転用)"
+                    >
+                      <Copy size={12} aria-hidden />
+                    </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); onEditStageTemplate?.(i); }}
                       className="opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-primary transition-all flex-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"

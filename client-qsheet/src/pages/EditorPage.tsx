@@ -371,6 +371,21 @@ export default function EditorPage() {
     );
   }
 
+  // 立ち位置図テンプレートを複製して、その複製を編集モードで開く
+  // (元データはそのまま残り、「1人追加」などの転用が時短になる)
+  const duplicateStageTemplate = (idx: number) => {
+    const templates = (((doc.data as any).stageTemplates) || []) as Array<{ name: string; elements: unknown[] }>;
+    const src = templates[idx];
+    if (!src) return;
+    const copy = {
+      name: `${src.name || "立ち位置図"} (コピー)`,
+      elements: JSON.parse(JSON.stringify(src.elements || [])),
+    };
+    const newIdx = templates.length;
+    updateData((d) => ({ ...d, stageTemplates: [...(((d as any).stageTemplates) || []), copy] } as any));
+    setEditingStageIdx(newIdx);
+  };
+
   return (
     <div className="flex flex-col h-full bg-background text-foreground">
       {/* Header */}
@@ -570,6 +585,7 @@ export default function EditorPage() {
             onMetaChange={(meta) => updateData((d) => ({ ...d, meta }))}
             onLedScenesChange={(scenes) => updateData((d) => ({ ...d, ledScenes: scenes } as any))}
             onEditStageTemplate={(idx) => setEditingStageIdx(idx)}
+            onDuplicateStageTemplate={(idx) => duplicateStageTemplate(idx)}
             onEpisodeChange={(episodeId, episodeCode) => {
               setDoc((prev) => prev ? { ...prev, episode_id: episodeId, episode_code: episodeCode } : prev);
               setDirty(true);
@@ -594,6 +610,10 @@ export default function EditorPage() {
         onLedScenesChange={(scenes) => updateData((d) => ({ ...d, ledScenes: scenes } as any))}
         onEditStageTemplate={(idx) => {
           setEditingStageIdx(idx);
+          setMobileSidebarOpen(false);
+        }}
+        onDuplicateStageTemplate={(idx) => {
+          duplicateStageTemplate(idx);
           setMobileSidebarOpen(false);
         }}
         onEpisodeChange={(episodeId, episodeCode) => {
@@ -671,6 +691,12 @@ export default function EditorPage() {
               return { ...d, stageTemplates: templates } as any;
             });
             setEditingStageIdx(null);
+          }}
+          onSaveCopy={(data) => {
+            // 現在の内容を新しいテンプレートとして追加し、その複製を続けて編集 (元データは変更しない)
+            const newIdx = (((doc.data as any).stageTemplates) || []).length;
+            updateData((d) => ({ ...d, stageTemplates: [...(((d as any).stageTemplates) || []), data] } as any));
+            setEditingStageIdx(newIdx);
           }}
           onClose={() => setEditingStageIdx(null)}
         />
