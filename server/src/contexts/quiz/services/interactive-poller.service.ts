@@ -28,7 +28,25 @@ interface ActiveRow {
   event_id: number;
   current_quiz_id: number;
   interactive_question_id: string;
-  interactive_link: InteractiveLink | null;
+  interactive_link: InteractiveLink | string | null;
+}
+
+/**
+ * interactive_link は JSONB だが、保存経路によっては「JSON 文字列」で返ることがある
+ * (二重エンコード等)。lifecycle.service と同じく string / object 両対応で正規化する。
+ * これをしないと文字列のとき link.baseUrl が undefined になり、poller が毎回スキップして
+ * 「出題 (activate) はできるのに投票数が CG に反映されない」状態になる。
+ */
+function normalizeLink(raw: InteractiveLink | string | null): InteractiveLink | null {
+  if (!raw) return null;
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw) as InteractiveLink;
+    } catch {
+      return null;
+    }
+  }
+  return raw;
 }
 
 async function pollOnce(io: Server): Promise<void> {
@@ -48,7 +66,7 @@ async function pollOnce(io: Server): Promise<void> {
     )) as unknown as ActiveRow[];
 
     for (const row of rows) {
-      const link = row.interactive_link;
+      const link = normalizeLink(row.interactive_link);
       if (!link?.baseUrl || !link?.apiKeySecret) continue;
 
       let dump;
@@ -90,6 +108,10 @@ async function pollOnce(io: Server): Promise<void> {
 
       if (changed) {
         await emitInteractiveVotes(io, row.event_id, row.current_quiz_id);
+        console.log(
+          `[interactive-poller] votes updated quiz=${row.current_quiz_id} ` +
+            `total=${dump?.results?.total ?? 0} (event ${row.event_id})`,
+        );
       }
     }
   } catch (err) {
