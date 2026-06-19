@@ -30,7 +30,11 @@ export default function QuizStackOutputPage() {
       return res.data.data as StackData;
     },
     enabled: !!eventId,
-    refetchInterval: 15_000,
+    // 投票数は socket (quizStack:votes) でリアルタイム反映するのが主経路だが、
+    // OBS ブラウザソースや別マシン出力では WebSocket が不安定/プロキシでバッファされる
+    // ことがあり、その場合この再取得が唯一の更新経路になる。15s だと「ものすごくラグ」に
+    // 感じるため 2.5s に短縮 (対象は quiz_choices の軽量 read なので負荷は軽微)。
+    refetchInterval: 2_500,
   });
 
   const { cue, liveVotes } = useQuizStackSocket(eventId || null);

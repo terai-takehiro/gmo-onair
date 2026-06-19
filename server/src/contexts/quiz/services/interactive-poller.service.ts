@@ -70,6 +70,7 @@ async function pollOnce(io: Server): Promise<void> {
       if (!link?.baseUrl || !link?.apiKeySecret) continue;
 
       let dump;
+      const t0 = Date.now();
       try {
         dump = await interactiveBridge.getResults(link, row.interactive_question_id);
       } catch (err) {
@@ -77,6 +78,13 @@ async function pollOnce(io: Server): Promise<void> {
         console.warn('[interactive-poller] getResults failed:', (err as Error).message);
         continue;
       }
+      const latencyMs = Date.now() - t0;
+      // 取得レイテンシ + 集計を可視化 (ラグの切り分け用)。リモート VPS への HTTP が
+      // 遅いと poller の実効サイクルが伸びて反映ラグになるため、毎回 latency を出す。
+      console.log(
+        `[interactive-poller] fetched quiz=${row.current_quiz_id} iaQ=${row.interactive_question_id} ` +
+          `total=${dump?.results?.total ?? 0} latency=${latencyMs}ms`,
+      );
 
       const choices = dump?.results?.choices ?? [];
 
