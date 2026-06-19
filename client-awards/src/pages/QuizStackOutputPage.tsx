@@ -19,6 +19,10 @@ export default function QuizStackOutputPage() {
   const lang: 'ja' | 'en' = langParam === 'en' ? 'en' : 'ja';
   const eventId = parseInt(eventIdRaw ?? '0');
 
+  // ?bg=1 で背景あり版を出力 (既定は透過)
+  const bgParam = (params.get('bg') ?? '').toLowerCase();
+  const withBg = bgParam === '1' || bgParam === 'on' || bgParam === 'true';
+
   const { data } = useQuery({
     queryKey: ['quiz-stack-public', eventId],
     queryFn: async () => {
@@ -47,13 +51,18 @@ export default function QuizStackOutputPage() {
   }, []);
 
   useEffect(() => {
+    if (withBg) {
+      // 背景あり: body を不透明 (黒) に
+      document.body.style.background = '#000';
+      return () => { document.body.style.background = ''; };
+    }
     document.body.setAttribute('data-output-transparent', '');
     document.body.style.background = 'transparent';
     return () => {
       document.body.removeAttribute('data-output-transparent');
       document.body.style.background = '';
     };
-  }, []);
+  }, [withBg]);
 
   if (!data) return null;
   const currentQuiz = data.quizzes.find((q) => q.id === cue.currentQuizId) ?? null;
@@ -67,7 +76,7 @@ export default function QuizStackOutputPage() {
     : baseVotes;
 
   return (
-    <div ref={wrapRef} style={{ position: 'fixed', inset: 0, background: 'transparent' }}>
+    <div ref={wrapRef} style={{ position: 'fixed', inset: 0, background: withBg ? '#000' : 'transparent' }}>
       <div style={{
         position: 'absolute', left: off.x, top: off.y,
         width: CG_W * scale, height: CG_H * scale, overflow: 'hidden',
@@ -86,7 +95,7 @@ export default function QuizStackOutputPage() {
               revealPhase: cue.revealPhase,
               votes,
             }}
-            transparent
+            transparent={!withBg}
             lang={lang}
           />
         </div>
