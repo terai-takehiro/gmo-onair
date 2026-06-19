@@ -409,6 +409,54 @@ router.post('/events/:eventId/interactive-link/list-events', wrap(async (req, re
   res.json({ success: true, data: events });
 }));
 
+// 連携の総合診断 (ブラウザで開いて JSON を確認するだけで原因が分かる)。
+// 「インタラクティブに票はあるのに CG に反映されない」の切り分け用:
+//   - 連携設定 (link) の有無 / baseUrl / interactiveEventId
+//   - 現在送出中 (quiz_stack_state) の step / quiz / 紐づけ済み interactive_question_id
+//   - Interactive 側の問題一覧 (各問題の status / 回答数) ← どれが ACTIVE で票があるか
+//   - 紐づけ id と ACTIVE 問題、それぞれの getResults 集計
+router.get('/events/:eventId/interactive-link/diagnose', wrap(async (req, res) => {
+  const eventId = parseInt(req.params.eventId as string);
+  const out: Record<string, unknown> = { eventId };
+
+  const link = await loadLink(eventId);
+  out.linkConfigured = !!link;
+  if (!link) { res.json({ success: true, data: out }); return; }
+  out.link = { baseUrl: link.baseUrl, interactiveEventId: link.interactiveEventId, apiKeyPrefix: link.apiKeyPrefix ?? null, autoControl: link.autoControl !== false };
+
+  // 送出中の状態
+  const stack = await queryOne(`SELECT current_quiz_id, step FROM quiz_stack_state WHERE event_id = ?`, [eventId]);
+  out.stack = stack ?? null;
+  let linkedQid: string | null = null;
+  if (stack?.current_quiz_id) {
+    const q = await queryOne(`SELECT id, title, interactive_question_id FROM quizzes WHERE id = ?`, [stack.current_quiz_id]);
+    out.currentQuiz = q ?? null;
+    linkedQid = (q as { interactive_question_id?: string | null })?.interactive_question_id ?? null;
+  }
+
+  // Interactive 側の問題一覧 (status / 回答数) — Awards→Interactive 疎通も兼ねる
+  try {
+    const { questions } = await interactiveBridge.listQuestions(link);
+    out.interactiveQuestions = (questions ?? []).map((q) => ({ id: q.id, status: q.status, answer_count: q.answer_count }));
+    const active = (questions ?? []).filter((q) => q.status === 'active').sort((a, b) => (b.answer_count ?? 0) - (a.answer_count ?? 0))[0];
+    out.activeQuestionId = active?.id ?? null;
+
+    // 紐づけ id / ACTIVE 問題 それぞれの集計を取得
+    const probe = async (qid: string | null) => {
+      if (!qid) return null;
+      try { const d = await interactiveBridge.getResults(link, qid); return { total: d?.results?.total ?? 0, choices: d?.results?.choices ?? [] }; }
+      catch (e) { return { error: (e as Error).message }; }
+    };
+    out.linkedQuestionId = linkedQid;
+    out.resultsForLinked = await probe(linkedQid);
+    out.resultsForActive = await probe(active?.id ?? null);
+  } catch (e) {
+    out.interactiveError = (e as Error).message;
+  }
+
+  res.json({ success: true, data: out });
+}));
+
 // Interactive の問題一覧プレビュー (取込前の確認用)
 router.get('/events/:eventId/interactive-link/preview', wrap(async (req, res) => {
   const eventId = parseInt(req.params.eventId as string);
