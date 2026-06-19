@@ -3,6 +3,7 @@ import { execute, queryAll, queryOne } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { interactiveBridge } from '../services/interactive-bridge.service';
+import { getPollerHeartbeat } from '../services/interactive-poller.service';
 
 const router = Router();
 const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
@@ -432,7 +433,16 @@ router.get('/events/:eventId/interactive-link/diagnose', wrap(async (req, res) =
     const q = await queryOne(`SELECT id, title, interactive_question_id FROM quizzes WHERE id = ?`, [stack.current_quiz_id]);
     out.currentQuiz = q ?? null;
     linkedQid = (q as { interactive_question_id?: string | null })?.interactive_question_id ?? null;
+    // Awards 側 DB の現在の票数 (poller がここに書き込む)。getResults と比べて
+    // 「取れているのに DB に書けていない」か「DB は更新済みだが CG が読めていない」かを切り分ける。
+    out.currentQuizChoices = await queryAll(
+      `SELECT position, name, vote_count FROM quiz_choices WHERE quiz_id = ? ORDER BY position`,
+      [stack.current_quiz_id],
+    );
   }
+
+  // poller が実際に動いているか + 直近で何票拾えたか
+  out.pollerHeartbeat = getPollerHeartbeat();
 
   // Interactive 側の問題一覧 (status / 回答数) — Awards→Interactive 疎通も兼ねる
   try {
