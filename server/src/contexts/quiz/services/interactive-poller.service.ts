@@ -24,6 +24,21 @@ const POLL_INTERVAL_MS = 800;
 let timer: ReturnType<typeof setInterval> | null = null;
 let running = false;
 
+// poller の稼働状況 (diagnose エンドポイントで「poller が動いているか/何票拾えたか」を確認用)
+interface PollerHeartbeat {
+  startedAt: number | null;
+  lastRunAt: number | null;
+  runCount: number;
+  lastMatched: number;
+  lastByEvent: Record<number, { qid: string; total: number; wrote: boolean; at: number }>;
+}
+const heartbeat: PollerHeartbeat = {
+  startedAt: null, lastRunAt: null, runCount: 0, lastMatched: 0, lastByEvent: {},
+};
+export function getPollerHeartbeat(): PollerHeartbeat {
+  return heartbeat;
+}
+
 interface ActiveRow {
   event_id: number;
   current_quiz_id: number;
@@ -96,6 +111,8 @@ async function resolveQuestionId(
 async function pollOnce(io: Server): Promise<void> {
   if (running) return; // 前回の poll がまだ走っていたらスキップ (多重実行防止)
   running = true;
+  heartbeat.lastRunAt = Date.now();
+  heartbeat.runCount += 1;
   try {
     const rows = (await queryAll(
       `SELECT s.event_id, s.current_quiz_id,
@@ -108,6 +125,7 @@ async function pollOnce(io: Server): Promise<void> {
           AND q.interactive_question_id IS NOT NULL
           AND e.interactive_link IS NOT NULL`,
     )) as unknown as ActiveRow[];
+    heartbeat.lastMatched = rows.length;
 
     for (const row of rows) {
       const link = normalizeLink(row.interactive_link);
@@ -160,6 +178,9 @@ async function pollOnce(io: Server): Promise<void> {
           changed = true;
         }
       }
+      heartbeat.lastByEvent[row.event_id] = {
+        qid: targetQid, total: dump?.results?.total ?? 0, wrote: changed, at: Date.now(),
+      };
 
       if (changed) {
         await emitInteractiveVotes(io, row.event_id, row.current_quiz_id);
@@ -178,6 +199,7 @@ async function pollOnce(io: Server): Promise<void> {
 
 export function initInteractivePoller(io: Server): void {
   if (timer) return;
+  heartbeat.startedAt = Date.now();
   timer = setInterval(() => {
     void pollOnce(io);
   }, POLL_INTERVAL_MS);
