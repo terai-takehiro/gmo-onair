@@ -787,6 +787,30 @@ export default function EventEditorPage() {
               })}
             </div>
             <div className="space-y-1.5">
+              <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">OA (背景あり)</div>
+              <p className="text-[10px] text-muted-foreground -mt-0.5">透過せず背景込みで表示。単独全画面表示や、映像と重ねない用途に。</p>
+              {[
+                { label: '🇯🇵 日本語', lang: 'ja' },
+                { label: '🇺🇸 English', lang: 'en' },
+              ].map(({ label, lang }) => {
+                const url = `${window.location.origin}/awards/output/${event.id}?lang=${lang}&bg=1`;
+                return (
+                  <div key={`rank-oabg-${lang}`} className="flex items-center gap-2">
+                    <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
+                    <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
+                    <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
+                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                      <Copy className="h-3 w-3" />コピー
+                    </button>
+                    <a href={url} target="_blank" rel="noopener noreferrer"
+                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                      <ExternalLink className="h-3 w-3" />開く
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="space-y-1.5">
               <div className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">NEXT</div>
               {[
                 { label: '🇯🇵 日本語', lang: 'ja' },
@@ -892,6 +916,30 @@ export default function EventEditorPage() {
                 const url = `${window.location.origin}/awards/output/quiz-stack/${event.id}?lang=${lang}`;
                 return (
                   <div key={`quiz-oa-${lang}`} className="flex items-center gap-2">
+                    <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
+                    <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
+                    <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
+                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                      <Copy className="h-3 w-3" />コピー
+                    </button>
+                    <a href={url} target="_blank" rel="noopener noreferrer"
+                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                      <ExternalLink className="h-3 w-3" />開く
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="space-y-1.5">
+              <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">OA (背景あり)</div>
+              <p className="text-[10px] text-muted-foreground -mt-0.5">透過せず背景込みで表示。単独全画面表示や、映像と重ねない用途に。</p>
+              {[
+                { label: '🇯🇵 日本語', lang: 'ja' },
+                { label: '🇺🇸 English', lang: 'en' },
+              ].map(({ label, lang }) => {
+                const url = `${window.location.origin}/awards/output/quiz-stack/${event.id}?lang=${lang}&bg=1`;
+                return (
+                  <div key={`quiz-oabg-${lang}`} className="flex items-center gap-2">
                     <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
                     <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"

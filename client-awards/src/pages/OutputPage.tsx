@@ -25,11 +25,21 @@ export default function OutputPage() {
     langParam === 'both' ? 'both' :
     'ja';
 
-  // Always transparent — single alpha-channel output
+  // ?bg=1 で背景あり版を出力 (既定は透過 — 単一アルファチャンネル出力)
+  const bgParam = (searchParams.get('bg') ?? '').toLowerCase();
+  const withBg = bgParam === '1' || bgParam === 'on' || bgParam === 'true';
+
   useEffect(() => {
+    if (withBg) {
+      // 背景あり: body を不透明 (黒) にしてレターボックスも黒に
+      const prev = document.body.style.background;
+      document.body.style.background = '#000';
+      return () => { document.body.style.background = prev; };
+    }
+    // 既定: 透過出力 (Browser Source の「透明度を許可」用)
     document.body.setAttribute('data-output-transparent', '');
     return () => document.body.removeAttribute('data-output-transparent');
-  }, []);
+  }, [withBg]);
 
   const { data: event } = useQuery({
     queryKey: ['awards-output-event', eventId],
@@ -52,5 +62,5 @@ export default function OutputPage() {
 
   if (!event) return null;
 
-  return <Stage eventName={event.name} eventSubtitle={event.subtitle} lang={lang} transparent />;
+  return <Stage eventName={event.name} eventSubtitle={event.subtitle} lang={lang} transparent={!withBg} />;
 }
