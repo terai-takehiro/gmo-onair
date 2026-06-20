@@ -95,7 +95,11 @@ export default function PersistentHeader({ tweaks, stepKey }: Props) {
     background:
       'linear-gradient(180deg, #FFFBE6 0%, #FFEFB0 18%, #F5D76E 45%, #C9A24B 75%, #8C6314 100%)',
     WebkitBackgroundClip: 'text' as const,
+    backgroundClip: 'text' as const,
     WebkitTextFillColor: 'transparent' as const,
+    // background-clip:text はグラデを padding-box にしか塗らないため、line-height:1 だと
+    // g/p/y 等のディセンダーが塗り域の下に出て「切れる」。下に余白を足して塗り域を広げる。
+    paddingBottom: '0.18em' as const,
   };
 
   return (

@@ -45,6 +45,8 @@ export default function StepFinalPitch({ entries, pickedIndex, categoryChild, la
           min={0.4}
         >
           <span style={{
+            display: 'inline-block',
+            paddingBottom: '0.16em',   // background-clip:text のディセンダー切れ防止
             background: 'linear-gradient(180deg, #FFE8A8 0%, #E8C56C 50%, #9E7B2E 100%)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
