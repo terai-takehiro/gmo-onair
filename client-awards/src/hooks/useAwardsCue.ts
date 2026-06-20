@@ -11,6 +11,7 @@ interface CuePayload {
   voteDisplay?: VoteDisplay;
   pollStartedAt?: number | null;
   revealPhase?: 0 | 1 | 2;
+  winnerEntryId?: number | null;
   timestamp?: number;
 }
 
@@ -22,6 +23,7 @@ function normalizeCue(data: CuePayload): CgCueState {
     voteDisplay: data.voteDisplay ?? 'count',
     pollStartedAt: data.pollStartedAt ?? null,
     revealPhase: (data.revealPhase ?? 0) as 0 | 1 | 2,
+    winnerEntryId: data.winnerEntryId ?? null,
   };
 }
 
