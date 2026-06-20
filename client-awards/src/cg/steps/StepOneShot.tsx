@@ -298,7 +298,11 @@ function TextColumn({ entry, on, categoryParent, categoryChild, displayName, dis
   const goldGrad: React.CSSProperties = {
     background: 'linear-gradient(180deg, #FFFBE6 0%, #F5D76E 48%, #8C6314 100%)',
     WebkitBackgroundClip: 'text',
+    backgroundClip: 'text',
     WebkitTextFillColor: 'transparent',
+    // background-clip:text のグラデは padding-box にしか乗らないため、g/p/y 等の
+    // ディセンダー切れ防止に下余白を付ける。
+    paddingBottom: '0.16em',
   };
 
   return (
