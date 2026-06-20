@@ -333,6 +333,17 @@ function CueTableLg({
     });
   }, [updateState]);
 
+  // 指定行の直下に空行を挿入 (途中に行を追加)
+  const insertRow = useCallback((si: number, ri: number) => {
+    updateState((s: any) => {
+      const secs = [...s.sections];
+      const rows = [...secs[si].rows];
+      rows.splice(ri + 1, 0, { duration: "", cells: {} });
+      secs[si] = { ...secs[si], rows };
+      return { ...s, sections: secs };
+    });
+  }, [updateState]);
+
   // Time calculation
   let absSec = 0;
   if (meta?.broadcastStartTime) {
@@ -737,6 +748,7 @@ function CueTableLg({
                             deleteRow={deleteRow}
                             moveRow={moveRow}
                             duplicateRow={duplicateRow}
+                            insertRow={insertRow}
                             moveRowTo={moveRowTo}
                             isRowDragged={draggedRow?.si === si && draggedRow?.ri === ri}
                             isRowDropTarget={dropTargetRowKey === `${si}-${ri}` && draggedRow !== null && (draggedRow.si !== si || draggedRow.ri !== ri)}
@@ -807,6 +819,7 @@ interface CueRowSlotProps {
   deleteRow: (si: number, ri: number) => void;
   moveRow: (si: number, ri: number, dir: number) => void;
   duplicateRow: (si: number, ri: number) => void;
+  insertRow: (si: number, ri: number) => void;
   moveRowTo: (si: number, fromIdx: number, toIdx: number) => void;
   isRowDragged: boolean;
   isRowDropTarget: boolean;
@@ -829,6 +842,7 @@ const CueRowSlot = memo(function CueRowSlot({
   deleteRow,
   moveRow,
   duplicateRow,
+  insertRow,
   moveRowTo,
   isRowDragged,
   isRowDropTarget,
@@ -840,6 +854,7 @@ const CueRowSlot = memo(function CueRowSlot({
   const onMoveUp = useCallback(() => moveRow(si, ri, -1), [moveRow, si, ri]);
   const onMoveDown = useCallback(() => moveRow(si, ri, 1), [moveRow, si, ri]);
   const onDuplicate = useCallback(() => duplicateRow(si, ri), [duplicateRow, si, ri]);
+  const onInsertBelow = useCallback(() => insertRow(si, ri), [insertRow, si, ri]);
   const findPrev = useCallback(
     (blockId: string) => findPrevAudioMicAssignments(si, ri, blockId),
     [findPrevAudioMicAssignments, si, ri],
@@ -891,6 +906,7 @@ const CueRowSlot = memo(function CueRowSlot({
       onMoveUp={onMoveUp}
       onMoveDown={onMoveDown}
       onDuplicate={onDuplicate}
+      onInsertBelow={onInsertBelow}
       isRowDragged={isRowDragged}
       isRowDropTarget={isRowDropTarget}
       onRowDragStart={onRowDragStart}

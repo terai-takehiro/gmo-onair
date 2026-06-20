@@ -1,5 +1,5 @@
 import { memo, useState, useRef, useId, useEffect, useCallback } from "react";
-import { ChevronUp, ChevronDown, Copy, Trash2, ImageIcon, ImagePlus, Loader2 } from "lucide-react";
+import { ChevronUp, ChevronDown, Copy, Trash2, ImageIcon, ImagePlus, Loader2, Plus } from "lucide-react";
 import api from "@/lib/api";
 import StageDiagramCell from "./StageDiagramCell";
 import { HighlightPicker } from "./HighlightPicker";
@@ -157,6 +157,8 @@ interface CueRowProps {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onDuplicate: () => void;
+  /** この行の直下に空行を挿入 (途中に行を追加) */
+  onInsertBelow?: () => void;
   // v1.2.9: エントリ単位の削除（ゴミ箱経由）を親 (CueTable→EditorPage) で処理するためのコールバック
   onDeleteEntry?: (blockId: string, entryIdx: number, payload: any, meta: { sectionLabel?: string; rowLabel?: string }) => void;
   // v2.8.32: 行 DnD 用 (HTML5 native drag&drop)
@@ -405,6 +407,7 @@ function CueRowImpl({
   onMoveUp,
   onMoveDown,
   onDuplicate,
+  onInsertBelow,
   onDeleteEntry,
   isRowDragged,
   isRowDropTarget,
@@ -750,10 +753,13 @@ function CueRowImpl({
               <button onClick={onMoveDown} className="p-1.5 text-zinc-400 hover:text-zinc-600 active:text-zinc-800 transition-colors">
                 <ChevronDown size={14} />
               </button>
-              <button onClick={onDuplicate} className="p-1.5 text-zinc-400 hover:text-zinc-600 active:text-zinc-800 transition-colors">
+              <button onClick={onInsertBelow} className="p-1.5 text-zinc-400 hover:text-primary active:text-primary transition-colors" title="この行の下に空行を挿入">
+                <Plus size={13} />
+              </button>
+              <button onClick={onDuplicate} className="p-1.5 text-zinc-400 hover:text-zinc-600 active:text-zinc-800 transition-colors" title="この行を複製">
                 <Copy size={12} />
               </button>
-              <button onClick={onDelete} className="p-1.5 text-zinc-400 hover:text-red-400 active:text-red-600 transition-colors">
+              <button onClick={onDelete} className="p-1.5 text-zinc-400 hover:text-red-400 active:text-red-600 transition-colors" title="この行を削除">
                 <Trash2 size={12} />
               </button>
             </div>
