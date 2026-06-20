@@ -1,5 +1,5 @@
 import { memo, useState, useRef, useId, useEffect, useCallback } from "react";
-import { ChevronUp, ChevronDown, Copy, Trash2, ImageIcon, ImagePlus, Loader2, Plus } from "lucide-react";
+import { ChevronUp, ChevronDown, Copy, Trash2, ImageIcon, ImagePlus, Loader2, Plus, Check } from "lucide-react";
 import api from "@/lib/api";
 import StageDiagramCell from "./StageDiagramCell";
 import { HighlightPicker } from "./HighlightPicker";
@@ -159,6 +159,9 @@ interface CueRowProps {
   onDuplicate: () => void;
   /** この行の直下に空行を挿入 (途中に行を追加) */
   onInsertBelow?: () => void;
+  /** 行の複数選択 (グループ ドラッグ移動用) */
+  isSelected?: boolean;
+  onToggleSelect?: (e: React.MouseEvent) => void;
   // v1.2.9: エントリ単位の削除（ゴミ箱経由）を親 (CueTable→EditorPage) で処理するためのコールバック
   onDeleteEntry?: (blockId: string, entryIdx: number, payload: any, meta: { sectionLabel?: string; rowLabel?: string }) => void;
   // v2.8.32: 行 DnD 用 (HTML5 native drag&drop)
@@ -408,6 +411,8 @@ function CueRowImpl({
   onMoveDown,
   onDuplicate,
   onInsertBelow,
+  isSelected,
+  onToggleSelect,
   onDeleteEntry,
   isRowDragged,
   isRowDropTarget,
@@ -466,7 +471,7 @@ function CueRowImpl({
   return (
     <tr
       {...dragHandlers}
-      className={`group transition-colors duration-150 hover:bg-blue-50/40 dark:hover:bg-blue-950/10 border-b border-zinc-100/80 dark:border-zinc-800/60 ${dragClass}`}
+      className={`group transition-colors duration-150 hover:bg-blue-50/40 dark:hover:bg-blue-950/10 border-b border-zinc-100/80 dark:border-zinc-800/60 ${isSelected ? "ring-2 ring-inset ring-primary/60 bg-primary/5" : ""} ${dragClass}`}
       style={rowHighlight ? { backgroundColor: rowHighlight } : undefined}
     >
           {blocks.map((blk) => {
@@ -746,7 +751,24 @@ function CueRowImpl({
 
           {/* 操作ボタン (モバイル常時表示) */}
           <td className="px-0.5 align-top w-9 border-b border-zinc-100/80 dark:border-zinc-800/60">
-            <div className="flex flex-col items-center gap-0.5 pt-1 opacity-40 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200">
+            <div className="flex flex-col items-center gap-0.5 pt-1">
+              {onToggleSelect && (
+                <button
+                  onClick={onToggleSelect}
+                  className={`size-5 rounded border flex items-center justify-center transition-all ${
+                    isSelected
+                      ? "bg-primary border-primary text-primary-foreground opacity-100"
+                      : "border-zinc-300 dark:border-zinc-600 text-transparent opacity-40 sm:opacity-0 sm:group-hover:opacity-100"
+                  }`}
+                  title="行を選択 (まとめて移動 / Shift+クリックで範囲選択)"
+                  aria-pressed={isSelected}
+                  aria-label="行を選択"
+                >
+                  <Check size={12} aria-hidden />
+                </button>
+              )}
+            </div>
+            <div className="flex flex-col items-center gap-0.5 pt-0.5 opacity-40 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200">
               <button onClick={onMoveUp} className="p-1.5 text-zinc-400 hover:text-zinc-600 active:text-zinc-800 transition-colors">
                 <ChevronUp size={14} />
               </button>

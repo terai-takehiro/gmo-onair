@@ -129,6 +129,11 @@ function CueTableLg({
   const [dropTargetSectionIdx, setDropTargetSectionIdx] = useState<number | null>(null);
   const [draggedRow, setDraggedRow] = useState<{ si: number; ri: number } | null>(null);
   const [dropTargetRowKey, setDropTargetRowKey] = useState<string | null>(null);
+  // 行の複数選択 (グループ ドラッグ移動用)。key = `${si}-${ri}`
+  const [selectedRowKeys, setSelectedRowKeys] = useState<Set<string>>(() => new Set());
+  const selectedRef = useRef(selectedRowKeys);
+  useEffect(() => { selectedRef.current = selectedRowKeys; }, [selectedRowKeys]);
+  const lastSelRef = useRef<{ si: number; ri: number } | null>(null);
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
   const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
 
@@ -344,6 +349,64 @@ function CueTableLg({
     });
   }, [updateState]);
 
+  // ── 行の複数選択 + グループ移動 ──────────────────────
+  const toggleRowSelect = useCallback((si: number, ri: number, range?: boolean) => {
+    setSelectedRowKeys((prev) => {
+      const next = new Set(prev);
+      if (range && lastSelRef.current && lastSelRef.current.si === si) {
+        const a = Math.min(lastSelRef.current.ri, ri);
+        const b = Math.max(lastSelRef.current.ri, ri);
+        for (let i = a; i <= b; i++) next.add(`${si}-${i}`);
+      } else {
+        const key = `${si}-${ri}`;
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+      }
+      return next;
+    });
+    lastSelRef.current = { si, ri };
+  }, []);
+
+  const clearRowSelection = useCallback(() => {
+    setSelectedRowKeys((prev) => (prev.size === 0 ? prev : new Set()));
+    lastSelRef.current = null;
+  }, []);
+
+  // 同一セクション内の複数行を toIdx 位置へ相対順を保ったまま移動
+  const moveRowsTo = useCallback((si: number, fromIndices: number[], toIdx: number) => {
+    updateState((s: any) => {
+      const secs = [...s.sections];
+      const rows = [...secs[si].rows];
+      const sorted = Array.from(new Set(fromIndices)).sort((a, b) => a - b);
+      if (sorted.length === 0 || sorted.some((i) => i < 0 || i >= rows.length)) return s;
+      if (sorted.includes(toIdx)) return s; // ドロップ先が選択行自身なら何もしない
+      const moving = sorted.map((i) => rows[i]);
+      const target = rows[toIdx];
+      const remaining = rows.filter((_: any, i: number) => !sorted.includes(i));
+      const insertAt = target ? remaining.indexOf(target) : remaining.length;
+      remaining.splice(insertAt < 0 ? remaining.length : insertAt, 0, ...moving);
+      secs[si] = { ...secs[si], rows: remaining };
+      return { ...s, sections: secs };
+    });
+  }, [updateState]);
+
+  // ドロップ時: ドラッグ元の行が選択集合に含まれていればグループ移動、そうでなければ単独移動
+  const moveRowsGroup = useCallback((si: number, fromRi: number, toRi: number) => {
+    const sel = selectedRef.current;
+    const fromKey = `${si}-${fromRi}`;
+    const groupIndices = sel.has(fromKey)
+      ? Array.from(sel)
+          .filter((k) => k.startsWith(`${si}-`))
+          .map((k) => Number(k.slice(String(si).length + 1)))
+      : [];
+    if (groupIndices.length > 1) {
+      moveRowsTo(si, groupIndices, toRi);
+      clearRowSelection();
+    } else {
+      moveRowTo(si, fromRi, toRi);
+    }
+  }, [moveRowsTo, moveRowTo, clearRowSelection]);
+
   // Time calculation
   let absSec = 0;
   if (meta?.broadcastStartTime) {
@@ -428,6 +491,18 @@ function CueTableLg({
 
   return (
     <main className="flex-1 overflow-auto bg-background">
+      {selectedRowKeys.size > 0 && (
+        <div className="sticky top-0 z-20 flex items-center gap-3 px-4 py-2 bg-primary text-primary-foreground text-xs font-medium shadow">
+          <span>{selectedRowKeys.size} 行を選択中</span>
+          <span className="opacity-80 hidden sm:inline">選択した行のいずれかをドラッグするとまとめて移動できます（Shift+クリックで範囲選択）</span>
+          <button
+            onClick={clearRowSelection}
+            className="ml-auto px-2 py-0.5 rounded bg-primary-foreground/15 hover:bg-primary-foreground/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/50"
+          >
+            選択解除
+          </button>
+        </div>
+      )}
       <div className="p-4 space-y-4">
         <InsertGap idx={0} />
         {sections.map((section, si) => {
@@ -749,8 +824,15 @@ function CueTableLg({
                             moveRow={moveRow}
                             duplicateRow={duplicateRow}
                             insertRow={insertRow}
-                            moveRowTo={moveRowTo}
-                            isRowDragged={draggedRow?.si === si && draggedRow?.ri === ri}
+                            moveRowsGroup={moveRowsGroup}
+                            isSelected={selectedRowKeys.has(`${si}-${ri}`)}
+                            toggleRowSelect={toggleRowSelect}
+                            isRowDragged={
+                              draggedRow !== null && (
+                                (draggedRow.si === si && draggedRow.ri === ri) ||
+                                (selectedRowKeys.has(`${draggedRow.si}-${draggedRow.ri}`) && draggedRow.si === si && selectedRowKeys.has(`${si}-${ri}`))
+                              )
+                            }
                             isRowDropTarget={dropTargetRowKey === `${si}-${ri}` && draggedRow !== null && (draggedRow.si !== si || draggedRow.ri !== ri)}
                             setDraggedRow={setDraggedRow}
                             setDropTargetRowKey={setDropTargetRowKey}
@@ -820,7 +902,9 @@ interface CueRowSlotProps {
   moveRow: (si: number, ri: number, dir: number) => void;
   duplicateRow: (si: number, ri: number) => void;
   insertRow: (si: number, ri: number) => void;
-  moveRowTo: (si: number, fromIdx: number, toIdx: number) => void;
+  moveRowsGroup: (si: number, fromRi: number, toRi: number) => void;
+  isSelected: boolean;
+  toggleRowSelect: (si: number, ri: number, range?: boolean) => void;
   isRowDragged: boolean;
   isRowDropTarget: boolean;
   setDraggedRow: (v: { si: number; ri: number } | null) => void;
@@ -843,7 +927,9 @@ const CueRowSlot = memo(function CueRowSlot({
   moveRow,
   duplicateRow,
   insertRow,
-  moveRowTo,
+  moveRowsGroup,
+  isSelected,
+  toggleRowSelect,
   isRowDragged,
   isRowDropTarget,
   setDraggedRow,
@@ -855,6 +941,7 @@ const CueRowSlot = memo(function CueRowSlot({
   const onMoveDown = useCallback(() => moveRow(si, ri, 1), [moveRow, si, ri]);
   const onDuplicate = useCallback(() => duplicateRow(si, ri), [duplicateRow, si, ri]);
   const onInsertBelow = useCallback(() => insertRow(si, ri), [insertRow, si, ri]);
+  const onToggleSelect = useCallback((e: React.MouseEvent) => toggleRowSelect(si, ri, e.shiftKey), [toggleRowSelect, si, ri]);
   const findPrev = useCallback(
     (blockId: string) => findPrevAudioMicAssignments(si, ri, blockId),
     [findPrevAudioMicAssignments, si, ri],
@@ -881,11 +968,11 @@ const CueRowSlot = memo(function CueRowSlot({
     const fromSi = +fromSiStr;
     const fromRi = +fromRiStr;
     if (fromSi === si) {
-      moveRowTo(si, fromRi, ri);
+      moveRowsGroup(si, fromRi, ri);
     }
     setDraggedRow(null);
     setDropTargetRowKey(null);
-  }, [si, ri, moveRowTo, setDraggedRow, setDropTargetRowKey]);
+  }, [si, ri, moveRowsGroup, setDraggedRow, setDropTargetRowKey]);
   const onRowDragEnd = useCallback(() => {
     setDraggedRow(null);
     setDropTargetRowKey(null);
@@ -907,6 +994,8 @@ const CueRowSlot = memo(function CueRowSlot({
       onMoveDown={onMoveDown}
       onDuplicate={onDuplicate}
       onInsertBelow={onInsertBelow}
+      isSelected={isSelected}
+      onToggleSelect={onToggleSelect}
       isRowDragged={isRowDragged}
       isRowDropTarget={isRowDropTarget}
       onRowDragStart={onRowDragStart}
