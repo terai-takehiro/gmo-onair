@@ -1,9 +1,124 @@
-import { memo, useState, useRef, useId } from "react";
+import { memo, useState, useRef, useId, useEffect, useCallback } from "react";
 import { ChevronUp, ChevronDown, Copy, Trash2, ImageIcon, ImagePlus, Loader2 } from "lucide-react";
 import api from "@/lib/api";
 import StageDiagramCell from "./StageDiagramCell";
 import { HighlightPicker } from "./HighlightPicker";
 import MicAssignmentCell from "./MicAssignmentCell";
+
+// ─── Buffered text inputs ───────────────────────────────
+// 入力中はローカル state に保持し、blur / IME 確定 / 短いデバウンスでのみグローバル
+// state へ commit する。これにより「1 打鍵ごとに巨大なドキュメント全体が再レンダー
+// されて入力がもたつく」問題を解消する (出演者名フィールドと同じ buffer 方式)。
+const COMMIT_DELAY = 500;
+
+function useBufferedValue(value: string, onCommit: (v: string) => void) {
+  const [val, setVal] = useState(value);
+  const valRef = useRef(value);
+  const committedRef = useRef(value);
+  const focusedRef = useRef(false);
+  const composingRef = useRef(false);
+  const onCommitRef = useRef(onCommit);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  onCommitRef.current = onCommit;
+
+  // フォーカスしていないときだけ外部からの値変更を取り込む (入力中のカーソル飛びを防ぐ)
+  useEffect(() => {
+    if (!focusedRef.current && value !== valRef.current) {
+      committedRef.current = value;
+      valRef.current = value;
+      setVal(value);
+    }
+  }, [value]);
+
+  const commit = useCallback(() => {
+    if (timer.current) { clearTimeout(timer.current); timer.current = null; }
+    if (composingRef.current) return;
+    if (valRef.current !== committedRef.current) {
+      committedRef.current = valRef.current;
+      onCommitRef.current(valRef.current);
+    }
+  }, []);
+
+  // アンマウント時 (行削除等) に未 commit を flush
+  useEffect(() => () => { commit(); }, [commit]);
+
+  const schedule = useCallback(() => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(commit, COMMIT_DELAY);
+  }, [commit]);
+
+  const onChange = useCallback((v: string) => {
+    valRef.current = v;
+    setVal(v);
+    if (!composingRef.current) schedule();
+  }, [schedule]);
+
+  const onFocus = useCallback(() => { focusedRef.current = true; }, []);
+  const onBlur = useCallback(() => { focusedRef.current = false; commit(); }, [commit]);
+  const onCompositionStart = useCallback(() => { composingRef.current = true; }, []);
+  const onCompositionEnd = useCallback((v: string) => {
+    composingRef.current = false;
+    valRef.current = v;
+    setVal(v);
+    schedule();
+  }, [schedule]);
+
+  return { val, onChange, onFocus, onBlur, onCompositionStart, onCompositionEnd };
+}
+
+function BufferedTextarea({
+  value,
+  onCommit,
+  autosize,
+  ...rest
+}: {
+  value: string;
+  onCommit: (v: string) => void;
+  autosize?: boolean;
+} & Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "value" | "onChange">) {
+  const buf = useBufferedValue(value, onCommit);
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (autosize && ref.current) {
+      ref.current.style.height = "auto";
+      ref.current.style.height = ref.current.scrollHeight + "px";
+    }
+  }, [buf.val, autosize]);
+  return (
+    <textarea
+      {...rest}
+      ref={ref}
+      value={buf.val}
+      onChange={(e) => buf.onChange(e.target.value)}
+      onFocus={buf.onFocus}
+      onBlur={buf.onBlur}
+      onCompositionStart={buf.onCompositionStart}
+      onCompositionEnd={(e) => buf.onCompositionEnd((e.target as HTMLTextAreaElement).value)}
+    />
+  );
+}
+
+function BufferedInput({
+  value,
+  onCommit,
+  ...rest
+}: {
+  value: string;
+  onCommit: (v: string) => void;
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) {
+  const buf = useBufferedValue(value, onCommit);
+  return (
+    <input
+      {...rest}
+      value={buf.val}
+      onChange={(e) => buf.onChange(e.target.value)}
+      onFocus={buf.onFocus}
+      onBlur={buf.onBlur}
+      onCompositionStart={buf.onCompositionStart}
+      onCompositionEnd={(e) => buf.onCompositionEnd((e.target as HTMLInputElement).value)}
+    />
+  );
+}
 
 // ─── Types ──────────────────────────────────────────────
 interface Block {
@@ -384,24 +499,14 @@ function CueRowImpl({
                         onChange={(v) => updateEntry(blk, "name", v)}
                       />
                       {en?.isQWord && <span className="flex-shrink-0 text-red-500 font-bold text-[13px] leading-[20px]">Q→</span>}
-                      <textarea
+                      <BufferedTextarea
+                        autosize
                         value={en?.html?.replace(/<[^>]*>/g, "") || ""}
-                        onChange={(e) => updateEntry(blk, "html", e.target.value)}
+                        onCommit={(v) => updateEntry(blk, "html", v)}
                         rows={1}
                         className="text-[13px] bg-transparent border-none outline-none resize-none overflow-hidden min-w-0 w-0"
                         style={{ flex: "1 1 0", overflowWrap: "break-word", lineHeight: "20px" }}
                         placeholder={en?.isQWord ? "Qワード..." : "テキスト..."}
-                        onInput={(e) => {
-                          const t = e.target as HTMLTextAreaElement;
-                          t.style.height = "auto";
-                          t.style.height = t.scrollHeight + "px";
-                        }}
-                        ref={(el) => {
-                          if (el) {
-                            el.style.height = "auto";
-                            el.style.height = el.scrollHeight + "px";
-                          }
-                        }}
                       />
                       <EntryImageButton
                         imageUrl={en?.image}
@@ -449,9 +554,9 @@ function CueRowImpl({
                         datalistOptions={masters?.[blk.type]}
                         onChange={(v) => updateEntry(blk, "label", v)}
                       />
-                      <input
+                      <BufferedInput
                         value={en?.memo || ""}
-                        onChange={(e) => updateEntry(blk, "memo", e.target.value)}
+                        onCommit={(v) => updateEntry(blk, "memo", v)}
                         className="text-[12px] bg-transparent border-none outline-none min-w-0"
                         style={{ flex: "1 1 0", lineHeight: "20px" }}
                         placeholder="メモ..."
@@ -625,9 +730,9 @@ function CueRowImpl({
             // ── Remarks / other cells ──
             return (
               <td key={blk.id} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 align-top">
-                <textarea
+                <BufferedTextarea
                   value={(row.cells?.[blk.id] || {}).value || ""}
-                  onChange={(e) => updateCell(blk.id, { ...(row.cells?.[blk.id] || {}), value: e.target.value })}
+                  onCommit={(v) => updateCell(blk.id, { ...(row.cells?.[blk.id] || {}), value: v })}
                   className="w-full min-h-[20px] text-[12px] bg-transparent border-none outline-none resize-none"
                   style={{ lineHeight: "20px" }}
                   placeholder="メモ..."
