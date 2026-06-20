@@ -82,18 +82,24 @@ export default function CGSequence({ cue, category, allCategories, surveys, even
   const pollTitle = lang === 'en'
     ? (category?.poll_title_en || category?.poll_title || '')
     : (category?.poll_title || '');
+  // 部門 (description) = 大きい金文字(parent) / 賞 (name) = 小さい白文字(child)。
+  const division = lang === 'en'
+    ? (category?.description_en || category?.description || '')
+    : (category?.description || '');
+  const award = lang === 'en'
+    ? (category?.name_en || category?.name || '')
+    : (category?.name ?? '');
+  const hasDivision = !!(division && division.trim());
   const tweaks = {
     eventTitle: eventName,
+    // 部門があれば 部門=大 / 賞=小。
+    // 部門が無いときは 賞 を「部門のサイズ・色 (大きい金文字)」に昇格させ、小文字行は出さない。
     categoryParent: usePollTitle
       ? ''
-      : (lang === 'en'
-          ? (category?.description_en || category?.description || eventSubtitle || '')
-          : (category?.description || eventSubtitle || '')),
+      : (hasDivision ? division : (award || eventSubtitle || '')),
     categoryChild: usePollTitle && pollTitle
       ? pollTitle
-      : (lang === 'en'
-          ? (category?.name_en || category?.name || '')
-          : (category?.name ?? '')),
+      : (hasDivision ? award : ''),
   };
 
   // Ranking reveal parameters
