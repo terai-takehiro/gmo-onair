@@ -11,13 +11,17 @@ interface WinnerItem {
 interface Props {
   categories: CgCategory[];  // 同じ award name グループのカテゴリのみ渡す想定
   awardName: string;          // ○○賞
+  // 手動選択 No.1 (投票No.1決定でアンケート未紐づけのとき)。該当カテゴリだけ rank=1 を上書き。
+  winnerOverride?: { categoryId: number; entryId: number } | null;
   lang: 'ja' | 'en';
 }
 
-export default function StepCelebration({ categories, awardName, lang }: Props) {
+export default function StepCelebration({ categories, awardName, winnerOverride, lang }: Props) {
   const winners = useMemo<WinnerItem[]>(() => {
     return categories.map((c) => {
-      const w = c.entries.find((e) => e.rank === 1 || e.is_winner);
+      const overrideId = winnerOverride && winnerOverride.categoryId === c.id ? winnerOverride.entryId : null;
+      const w = (overrideId != null ? c.entries.find((e) => e.id === overrideId) : undefined)
+        ?? c.entries.find((e) => e.rank === 1 || e.is_winner);
       if (!w) return null;
       const photo = w.photo_url ?? undefined;
       const od = (w as unknown as { oneshot_data?: Record<string, unknown> }).oneshot_data;
@@ -40,7 +44,7 @@ export default function StepCelebration({ categories, awardName, lang }: Props) 
         _od: od,
       } as WinnerItem & { _od?: Record<string, unknown> };
     }).filter((x): x is WinnerItem => x !== null);
-  }, [categories, lang]);
+  }, [categories, lang, winnerOverride]);
 
   // 紙吹雪
   const confetti = useMemo(() => {

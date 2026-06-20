@@ -99,6 +99,9 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
   const [nextStep, setNextStep] = useState<CgStep>('idle');
   const [nextCategoryId, setNextCategoryId] = useState<number | null>(null);
   const [nextStyle, setNextStyle] = useState<OneshotStyle>('classic');
+  // 手動選択 No.1 (vote + アンケート未紐づけ時)。カテゴリ切替でリセット。
+  const [nextWinnerId, setNextWinnerId] = useState<number | null>(null);
+  useEffect(() => { setNextWinnerId(null); }, [nextCategoryId]);
 
   // ── NEXT category の演出パターンに応じてステップ一覧を切替
   const nextCategoryRaw = event?.categories.find((c) => c.id === nextCategoryId) ?? null;
@@ -115,8 +118,12 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
     () => nextCategoryId != null && surveys.some((s) => s.link_category_id === nextCategoryId),
     [surveys, nextCategoryId],
   );
+  // 投票No.1決定(vote)でアンケート未紐づけのときは final-pitch を出さず、
+  // operator が手動で No.1 を選び CELEB(紙吹雪) で発表する。
+  const voteManualWinner = pattern === 'vote' && !nextCategoryHasSurvey;
   const STEPS = useMemo(() => {
-    const base = pattern === 'vote' ? STEPS_VOTE : STEPS_DIRECT;
+    let base = pattern === 'vote' ? STEPS_VOTE : STEPS_DIRECT;
+    if (voteManualWinner) base = base.filter((s) => s.step !== 'final-pitch');
     let steps = isLastDivisionOfAward ? base : base.filter((s) => s.step !== 'celebration');
     if (nextCategoryHasSurvey) {
       // 連動アンケートを持つ部門は「アンケート No.1 発表」を末尾に追加。
@@ -125,7 +132,7 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
       steps = [...steps, SURVEY_STEP];
     }
     return steps;
-  }, [pattern, isLastDivisionOfAward, nextCategoryHasSurvey]);
+  }, [pattern, isLastDivisionOfAward, nextCategoryHasSurvey, voteManualWinner]);
   const liveStep = [...STEPS_DIRECT, ...STEPS_VOTE].find((s) => s.step === cue.step);
 
   // 初期: LIVE 状態を NEXT にコピー (新規イベント or リロード時)
@@ -160,8 +167,9 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
       voteDisplay: cue.voteDisplay,
       pollStartedAt: null,
       revealPhase: 0,
+      winnerEntryId: voteManualWinner ? (nextWinnerId ?? null) : null,
     });
-  }, [event, nextStep, nextCategoryId, nextStyle, cue.voteDisplay, sendNextCue]);
+  }, [event, nextStep, nextCategoryId, nextStyle, cue.voteDisplay, sendNextCue, voteManualWinner, nextWinnerId]);
 
   // 全カテゴリ一覧 (NEXT ↑↓ 循環 + TAKE 自動進行で使用)
   const allCats = event?.categories ?? [];
@@ -196,6 +204,8 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
       oneshotStyle: nextStyle,
       pollStartedAt: null,
       revealPhase: 0,
+      // 手動選択 No.1 (vote + アンケート未紐づけ時のみ。それ以外は null で従来の rank=1)
+      winnerEntryId: voteManualWinner ? (nextWinnerId ?? null) : null,
     });
 
     // survey-oneshot を新規送出した直後は NEXT ポインタを据え置き
@@ -217,7 +227,7 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
         setNextStep('idle');
       }
     }
-  }, [sendCue, nextStep, nextCategoryId, nextStyle, cue.step, cue.revealPhase, STEPS, allCats]);
+  }, [sendCue, nextStep, nextCategoryId, nextStyle, nextWinnerId, voteManualWinner, cue.step, cue.revealPhase, STEPS, allCats]);
 
   const clear = useCallback(() => {
     sendCue({ step: 'idle', pollStartedAt: null, revealPhase: 0 });
@@ -280,7 +290,8 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
     voteDisplay: cue.voteDisplay,
     pollStartedAt: null,
     revealPhase: 0,
-  }), [nextStep, nextCategoryId, nextStyle, cue.voteDisplay]);
+    winnerEntryId: voteManualWinner ? (nextWinnerId ?? null) : null,
+  }), [nextStep, nextCategoryId, nextStyle, cue.voteDisplay, voteManualWinner, nextWinnerId]);
 
   return (
     <div className="h-full flex flex-col bg-black text-slate-100 overflow-y-auto lg:overflow-hidden">
@@ -526,6 +537,31 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
                       </button>
                     ))}
                   </div>
+                </div>
+              )}
+              {/* 投票No.1決定 (アンケート未紐づけ) は CELEB の No.1 を手動選択 */}
+              {voteManualWinner && nextCategory && nextCategory.entries.length > 0 && (
+                <div className="rounded-lg border border-amber-800/40 bg-amber-950/20 p-2 space-y-1.5">
+                  <div className="text-[11px] font-bold text-amber-300 tracking-wider">No.1 を選択（紙吹雪で発表）</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {nextCategory.entries.map((e) => (
+                      <button
+                        key={e.id}
+                        onClick={() => setNextWinnerId(e.id)}
+                        className={cn(
+                          'rounded-md border px-2.5 py-1.5 text-xs font-semibold transition-all',
+                          nextWinnerId === e.id
+                            ? 'border-amber-500 bg-amber-900/50 text-amber-200'
+                            : 'border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-slate-100',
+                        )}
+                      >
+                        {e.name}
+                      </button>
+                    ))}
+                  </div>
+                  {nextWinnerId == null && (
+                    <div className="text-[10px] text-amber-200/60">未選択のときは順位1位を No.1 として発表します</div>
+                  )}
                 </div>
               )}
               <StyleRow styles={ONESHOT_STYLES} liveStyle={cue.oneshotStyle} nextStyle={nextStyle} onSelect={setNextStyle} />

@@ -55,7 +55,7 @@ export function initAwardsSocketIO(io: Server): void {
 
     // Push current state to this new connection (ranking CG)
     queryOne(
-      `SELECT step, category_id, oneshot_style, vote_display, poll_started_at, reveal_phase
+      `SELECT step, category_id, oneshot_style, vote_display, poll_started_at, reveal_phase, winner_entry_id
        FROM awards_cue_state WHERE event_id = ?`,
       [eventId]
     ).then((state) => {
@@ -67,6 +67,7 @@ export function initAwardsSocketIO(io: Server): void {
           voteDisplay: state.vote_display ?? 'count',
           pollStartedAt: state.poll_started_at ? new Date(state.poll_started_at as string | number | Date).getTime() : null,
           revealPhase: state.reveal_phase ?? 0,
+          winnerEntryId: state.winner_entry_id ?? null,
           timestamp: Date.now(),
         });
       }
@@ -117,6 +118,7 @@ export function initAwardsSocketIO(io: Server): void {
       voteDisplay?: string;
       pollStartedAt?: number | null;
       revealPhase?: number;
+      winnerEntryId?: number | null;
     }) => {
       try {
         const step = data.step ?? 'idle';
@@ -125,11 +127,12 @@ export function initAwardsSocketIO(io: Server): void {
         const voteDisplay = data.voteDisplay === 'percent' ? 'percent' : 'count';
         const pollStartedAt = typeof data.pollStartedAt === 'number' ? data.pollStartedAt : null;
         const revealPhase = Math.max(0, Math.min(3, Math.floor(data.revealPhase ?? 0)));
+        const winnerEntryId = typeof data.winnerEntryId === 'number' ? data.winnerEntryId : null;
 
         await execute(
           `INSERT INTO awards_cue_state
-             (event_id, step, category_id, oneshot_style, vote_display, poll_started_at, reveal_phase, updated_at)
-           VALUES (?, ?, ?, ?, ?, ${pollStartedAt === null ? 'NULL' : 'to_timestamp(?::double precision / 1000.0)'}, ?, NOW())
+             (event_id, step, category_id, oneshot_style, vote_display, poll_started_at, reveal_phase, winner_entry_id, updated_at)
+           VALUES (?, ?, ?, ?, ?, ${pollStartedAt === null ? 'NULL' : 'to_timestamp(?::double precision / 1000.0)'}, ?, ?, NOW())
            ON CONFLICT (event_id) DO UPDATE
              SET step = EXCLUDED.step,
                  category_id = EXCLUDED.category_id,
@@ -137,10 +140,11 @@ export function initAwardsSocketIO(io: Server): void {
                  vote_display = EXCLUDED.vote_display,
                  poll_started_at = EXCLUDED.poll_started_at,
                  reveal_phase = EXCLUDED.reveal_phase,
+                 winner_entry_id = EXCLUDED.winner_entry_id,
                  updated_at = NOW()`,
           pollStartedAt === null
-            ? [eventId, step, catId, style, voteDisplay, revealPhase]
-            : [eventId, step, catId, style, voteDisplay, pollStartedAt, revealPhase]
+            ? [eventId, step, catId, style, voteDisplay, revealPhase, winnerEntryId]
+            : [eventId, step, catId, style, voteDisplay, pollStartedAt, revealPhase, winnerEntryId]
         );
 
         awardsNs.to(room).emit('cue:sync', {
@@ -150,6 +154,7 @@ export function initAwardsSocketIO(io: Server): void {
           voteDisplay,
           pollStartedAt,
           revealPhase,
+          winnerEntryId,
           timestamp: Date.now(),
         });
       } catch (err) {

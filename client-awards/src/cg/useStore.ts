@@ -17,6 +17,7 @@ export const DEFAULT_CUE: CgCueState = {
   voteDisplay: 'count',
   pollStartedAt: null,
   revealPhase: 0,
+  winnerEntryId: null,
 };
 
 export const useAwardsStore = create<AwardsStore>((set) => ({

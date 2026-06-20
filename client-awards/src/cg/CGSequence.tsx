@@ -121,7 +121,10 @@ export default function CGSequence({ cue, category, allCategories, surveys, even
     ? (surveys ?? []).find((s) => s.link_category_id === category.id) ?? null
     : null;
 
-  const winner = sorted.find((e) => e.rank === 1) ?? null;
+  // 手動選択 No.1 (winnerEntryId) があればそれを優先、無ければ rank=1。
+  const winner =
+    (cue.winnerEntryId != null ? sorted.find((e) => e.id === String(cue.winnerEntryId)) : undefined) ??
+    sorted.find((e) => e.rank === 1) ?? null;
 
   if (stepKey === 'idle') return null;
 
@@ -232,6 +235,9 @@ export default function CGSequence({ cue, category, allCategories, surveys, even
               : (category ? [category] : [])
           }
           awardName={lang === 'en' ? (category?.name_en || category?.name || '') : (category?.name ?? '')}
+          winnerOverride={cue.winnerEntryId != null && cue.categoryId != null
+            ? { categoryId: cue.categoryId, entryId: cue.winnerEntryId }
+            : null}
           lang={lang}
         />
       )}
