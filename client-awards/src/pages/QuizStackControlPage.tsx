@@ -81,7 +81,11 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
   useEffect(() => { sendNext(nextQuizId); }, [nextQuizId, sendNext]);
 
   // 現在 / 次の quiz 詳細
-  const { data: currentQuiz } = useQuiz(cue.currentQuizId);
+  // 連動クイズの送出中は operator プレビューも 2.5s ごとに DB の最新票数を取得
+  // (出力URLと同じ更新経路。socket が届かない環境でも操作UIの数値/CGが反映される)。
+  const currentInList = quizzes.find((q) => q.id === cue.currentQuizId) as { interactive_question_id?: string | null } | undefined;
+  const linkedCurrentForPoll = !!currentInList?.interactive_question_id && cue.step !== 'idle';
+  const { data: currentQuiz } = useQuiz(cue.currentQuizId, { refetchMs: linkedCurrentForPoll ? 2500 : false });
   const { data: nextQuiz } = useQuiz(nextQuizId);
 
   // Interactive 連携中の quiz か (interactive_question_id があれば連動対象)
