@@ -50,11 +50,10 @@ function groupByAward(cats: CgCategory[]): AwardGroup[] {
 type StepDef = { step: CgStep; label: string; desc: string; color: 'neutral' | 'live' | 'award' };
 
 // パターン別ステップシーケンス
+// NOMINEES (ノミネート一覧) / RANKS 5→2 (ランキングバー) の CG は使わないため除外。
 const STEPS_DIRECT: StepDef[] = [
   { step: 'idle',        label: 'IDLE',       desc: '透過',                    color: 'neutral' },
   { step: 'title',       label: 'TITLE',      desc: 'タイトルカード',          color: 'neutral' },
-  { step: 'nominees',    label: 'NOMINEES',   desc: 'ノミネート一覧',          color: 'live'    },
-  { step: 'ranks52',     label: 'RANKS 5→2',  desc: 'ランキングバー',          color: 'live'    },
   { step: 'winner-bar',  label: 'WINNER BAR', desc: '大賞引きバー',            color: 'award'   },
   { step: 'oneshot',     label: 'ONE SHOT',   desc: '大賞フルスクリーン',      color: 'award'   },
   { step: 'celebration', label: 'CELEB',      desc: '全部門 No.1 + 紙吹雪',    color: 'award'   },
@@ -62,7 +61,6 @@ const STEPS_DIRECT: StepDef[] = [
 const STEPS_VOTE: StepDef[] = [
   { step: 'idle',         label: 'IDLE',       desc: '透過',                    color: 'neutral' },
   { step: 'title',        label: 'TITLE',      desc: 'タイトルカード',          color: 'neutral' },
-  { step: 'nominees',     label: 'NOMINEES',   desc: 'ノミネート一覧',          color: 'live'    },
   { step: 'top3',         label: 'BEST 3',     desc: 'TOP3 発表',               color: 'live'    },
   { step: 'final-pitch',  label: 'PITCH',      desc: 'ファイナルピッチ (3名→1名)', color: 'live' },
   { step: 'celebration',  label: 'CELEB',      desc: '全部門 No.1 + 紙吹雪',    color: 'award'   },
@@ -75,7 +73,7 @@ const ONESHOT_STYLES: { style: OneshotStyle; label: string }[] = [
   { style: 'spotlight', label: 'Spotlight' },
   { style: 'slit',      label: 'Slit'      },
 ];
-const LIVE_STEPS: CgStep[] = ['nominees', 'ranks52', 'top3', 'final-pitch', 'winner-bar', 'oneshot', 'celebration', 'survey-oneshot'];
+const LIVE_STEPS: CgStep[] = ['top3', 'final-pitch', 'winner-bar', 'oneshot', 'celebration', 'survey-oneshot'];
 
 export default function ControlPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { id } = useParams<{ id: string }>();
