@@ -63,6 +63,19 @@ export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }:
     return m;
   }, [rankings]);
 
+  // 棒グラフ発表の対象順位 (StepRanking と完全一致させる)。
+  // 実在する 2〜5 位を降順に → 人数が少ないときは 4位/3位 から繰り上げ開始。
+  // ここを固定 [5,4,3,2] のままにすると、4→2 / 3→2 で写真の登場順・タイミングが
+  // バー (StepRanking) とずれてしまう。
+  const revealRanks = useMemo(
+    () =>
+      Array.from(new Set(rankings.map((r) => r.rank)))
+        .filter((r) => r >= 2 && r <= 5)
+        .sort((a, b) => b - a),
+    [rankings],
+  );
+  const revealKey = revealRanks.join(',');
+
   const gridLayout = useMemo(() => nomineesGrid(shuffled.length), [shuffled.length]);
 
   // Staggered insert: which ranks have moved from strip to bar
@@ -71,14 +84,14 @@ export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }:
     setInsertProgress({});
     if (stepKey !== 'ranks52') return;
     const timers: ReturnType<typeof setTimeout>[] = [];
-    ([5, 4, 3, 2] as const).forEach((rank, i) => {
+    revealRanks.forEach((rank, i) => {
       const t = setTimeout(() => {
         setInsertProgress((p) => ({ ...p, [rank]: true }));
       }, STRIP_SETTLE + i * BAR_INTERVAL + PHOTO_OFFSET);
       timers.push(t);
     });
     return () => timers.forEach(clearTimeout);
-  }, [stepKey]);
+  }, [stepKey, revealKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Staggered nominees reveal
   const [nomineesShown, setNomineesShown] = useState(0);
