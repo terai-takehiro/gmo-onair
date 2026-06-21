@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import api from '@/lib/api';
 import { useQuizStackSocket } from '@/quiz/useQuizStackSocket';
+import { useCgAudio } from '@/hooks/useCgAudio';
 import QuizCG from '@/quiz/QuizCG';
 import type { QuizWithChoices } from '@/quiz/types';
 import { CG_W, CG_H } from '@/cg/types';
@@ -23,6 +24,10 @@ export default function QuizStackOutputPage() {
   const bgParam = (params.get('bg') ?? '').toLowerCase();
   const withBg = bgParam === '1' || bgParam === 'on' || bgParam === 'true';
 
+  // ?audio=1 を付けた URL でのみ演出SEを鳴らす
+  const audioParam = (params.get('audio') ?? '').toLowerCase();
+  const audioOn = audioParam === '1' || audioParam === 'on' || audioParam === 'true';
+
   const { data } = useQuery({
     queryKey: ['quiz-stack-public', eventId],
     queryFn: async () => {
@@ -38,6 +43,18 @@ export default function QuizStackOutputPage() {
   });
 
   const { cue, liveVotes } = useQuizStackSocket(eventId || null);
+
+  // 演出SE: クイズCG のステップ遷移 (= TAKE) ごとに割り当てSEを再生 (前の音はカットアウト)
+  const { play } = useCgAudio(eventId || null, audioOn);
+  const prevQuizStepRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!audioOn) return;
+    const step = cue.step;
+    if (prevQuizStepRef.current === null) { prevQuizStepRef.current = step; return; }
+    if (prevQuizStepRef.current === step) return;
+    prevQuizStepRef.current = step;
+    play('quiz', step);
+  }, [cue.step, audioOn, play]);
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);

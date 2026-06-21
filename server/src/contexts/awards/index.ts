@@ -4,6 +4,7 @@ import eventRoutes from './routes/events.routes';
 import categoryRoutes from './routes/categories.routes';
 import entryRoutes from './routes/entries.routes';
 import imageRoutes from './routes/images.routes';
+import soundsRoutes from './routes/sounds.routes';
 import cueRoutes from './routes/cues.routes';
 import oneshotRoutes from './routes/oneshot.routes';
 
@@ -16,6 +17,7 @@ export function createAwardsRoutes(): Router {
   // 発火する仕様のため、public path も auth に蹴られないようここで先回り解決する。
   router.use('/awards', publicRoutes);
   router.use('/awards', imageRoutes);
+  router.use('/awards', soundsRoutes);  // /audio 配信 + sounds マッピング/CRUD (write のみ auth)
 
   router.use('/awards', eventRoutes);
   router.use('/awards', categoryRoutes);

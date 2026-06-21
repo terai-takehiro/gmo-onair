@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAwardsCue } from '@/hooks/useAwardsCue';
+import { useCgAudio } from '@/hooks/useCgAudio';
 import { useAwardsStore } from '@/cg/useStore';
 import Stage from '@/cg/Stage';
 import type { CgCategory, CgSurvey } from '@/cg/types';
@@ -28,6 +29,10 @@ export default function OutputPage() {
   // ?bg=1 で背景あり版を出力 (既定は透過 — 単一アルファチャンネル出力)
   const bgParam = (searchParams.get('bg') ?? '').toLowerCase();
   const withBg = bgParam === '1' || bgParam === 'on' || bgParam === 'true';
+
+  // ?audio=1 を付けた URL でのみ演出SEを鳴らす (多重再生防止: OBS のプログラム送出用 1 枚だけ)
+  const audioParam = (searchParams.get('audio') ?? '').toLowerCase();
+  const audioOn = audioParam === '1' || audioParam === 'on' || audioParam === 'true';
 
   useEffect(() => {
     if (withBg) {
@@ -59,6 +64,29 @@ export default function OutputPage() {
   }, [event, setCategories, setSurveys]);
 
   useAwardsCue(isNaN(eventId) ? null : eventId);
+
+  // 演出SE: ステップ遷移 (= TAKE) のたびに割り当てSEを再生 (前の音はカットアウト)
+  const { play } = useCgAudio(isNaN(eventId) ? null : eventId, audioOn);
+  const cue = useAwardsStore((s) => s.cue);
+  const categories = useAwardsStore((s) => s.categories);
+  const prevStepRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!audioOn) return;
+    const step = cue.step;
+    // 初回 (リロード時など) は鳴らさない。実際の遷移のみ再生。
+    if (prevStepRef.current === null) { prevStepRef.current = step; return; }
+    if (prevStepRef.current === step) return;
+    prevStepRef.current = step;
+    if (step === 'idle') { play('ranking', 'idle'); return; } // idle = カットアウト(割り当て無ければ無音)
+    // RANKS (ranks52) は開始順位別SE。現カテゴリの実在順位 (2〜5) の最上位を rankStart に。
+    let rankStart: number | null = null;
+    if (step === 'ranks52') {
+      const cat = categories.find((c) => c.id === cue.categoryId);
+      const ranks = (cat?.entries ?? []).map((e) => e.rank ?? 99).filter((r) => r >= 2 && r <= 5);
+      rankStart = ranks.length ? Math.max(...ranks) : 5;
+    }
+    play('ranking', step, rankStart);
+  }, [cue.step, cue.categoryId, audioOn, categories, play]);
 
   if (!event) return null;
 
