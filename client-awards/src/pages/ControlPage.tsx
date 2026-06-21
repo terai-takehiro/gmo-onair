@@ -123,6 +123,14 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
   // 投票No.1決定(vote)でアンケート未紐づけのときは final-pitch を出さず、
   // operator が手動で No.1 を選び CELEB(紙吹雪) で発表する。
   const voteManualWinner = pattern === 'vote' && !nextCategoryHasSurvey;
+  // ランキング棒グラフの開始順位 (2〜5 で実在する最上位)。人数が少なければ自動で繰り上げ、
+  // RANKS ステップのボタン名も「RANKS 4→2」等に追従させる。
+  const rankStart = useMemo(() => {
+    const ranks = (nextCategoryRaw?.entries ?? [])
+      .map((e) => e.rank ?? 99)
+      .filter((r) => r >= 2 && r <= 5);
+    return ranks.length ? Math.max(...ranks) : 5;
+  }, [nextCategoryRaw]);
   const STEPS = useMemo(() => {
     let base = pattern === 'vote' ? STEPS_VOTE : STEPS_DIRECT;
     if (voteManualWinner) base = base.filter((s) => s.step !== 'final-pitch');
@@ -133,8 +141,18 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
       steps = steps.filter((s) => s.step !== 'celebration');
       steps = [...steps, SURVEY_STEP];
     }
+    // RANKS ステップのラベルを開始順位に合わせて変更 (RANKS 5→2 / 4→2 / 3→2 / 2)。
+    steps = steps.map((s) =>
+      s.step === 'ranks52'
+        ? {
+            ...s,
+            label: rankStart <= 2 ? 'RANKS 2' : `RANKS ${rankStart}→2`,
+            desc: rankStart <= 2 ? '2位発表 (ランキングバー)' : `${rankStart}位→2位発表 (ランキングバー)`,
+          }
+        : s,
+    );
     return steps;
-  }, [pattern, isLastDivisionOfAward, nextCategoryHasSurvey, voteManualWinner]);
+  }, [pattern, isLastDivisionOfAward, nextCategoryHasSurvey, voteManualWinner, rankStart]);
   const liveStep = [...STEPS_DIRECT, ...STEPS_VOTE].find((s) => s.step === cue.step);
 
   // 初期: LIVE 状態を NEXT にコピー (新規イベント or リロード時)

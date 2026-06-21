@@ -30,6 +30,14 @@ export default function StepRanking({ entries, revealLevel, showWinnerBar, stepK
   const rows = [...entries].sort((a, b) => a.rank - b.rank).filter((e) => e.rank <= 5);
   const maxPoints = Math.max(...rows.map((r) => r.points), 1);
 
+  // 棒グラフ発表の対象順位 (2〜5 で実在するもの) を降順に。
+  // 人数が少ないときは自動で最上位 (4位/3位 等) から開始する。
+  const revealRanks = rows
+    .map((r) => r.rank)
+    .filter((r) => r >= 2 && r <= 5)
+    .sort((a, b) => b - a);
+  const revealKey = revealRanks.join(',');
+
   const [barStarted, setBarStarted] = useState<Record<number, boolean>>({});
   const [inserted, setInserted] = useState<Record<number, boolean>>({});
 
@@ -40,7 +48,7 @@ export default function StepRanking({ entries, revealLevel, showWinnerBar, stepK
       return;
     }
     const timers: ReturnType<typeof setTimeout>[] = [];
-    ([5, 4, 3, 2] as const).forEach((rank, i) => {
+    revealRanks.forEach((rank, i) => {
       timers.push(
         setTimeout(
           () => setBarStarted((p) => ({ ...p, [rank]: true })),
@@ -55,7 +63,7 @@ export default function StepRanking({ entries, revealLevel, showWinnerBar, stepK
       );
     });
     return () => timers.forEach(clearTimeout);
-  }, [stepKey]);
+  }, [stepKey, revealKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isRevealed = (rank: number): boolean => {
     if (rank === 1) return showWinnerBar;
