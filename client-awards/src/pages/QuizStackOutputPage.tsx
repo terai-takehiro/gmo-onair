@@ -53,8 +53,15 @@ export default function QuizStackOutputPage() {
     if (prevQuizStepRef.current === null) { prevQuizStepRef.current = step; return; }
     if (prevQuizStepRef.current === step) return;
     prevQuizStepRef.current = step;
-    play('quiz', step);
-  }, [cue.step, audioOn, play]);
+    // poll (出題カウントダウン) は出題クイズの countdown_seconds 別SE。
+    // 一致する秒数の音源が無ければ rankStart=null のSEにフォールバック。
+    let variant: number | null = null;
+    if (step === 'poll') {
+      const q = data?.quizzes.find((x) => x.id === cue.currentQuizId);
+      if (q) variant = q.countdown_seconds;
+    }
+    play('quiz', step, variant);
+  }, [cue.step, cue.currentQuizId, audioOn, data, play]);
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
