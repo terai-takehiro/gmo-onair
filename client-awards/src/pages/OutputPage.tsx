@@ -57,11 +57,27 @@ export default function OutputPage() {
     refetchInterval: 30000,
   });
 
+  // v2.9.124: アンケート票数確定をリロード無しで反映するため、surveys は 30s 周期の
+  // event 全体 fetch とは別に軽量エンドポイントを 3s ごとにポーリングする。
+  const { data: polledSurveys } = useQuery({
+    queryKey: ['awards-output-surveys', eventId],
+    queryFn: async () => {
+      const res = await fetch(`/api/v1/internal/awards/events/${eventId}/surveys`);
+      if (!res.ok) return null;
+      const json = await res.json();
+      return (json.data ?? []) as CgSurvey[];
+    },
+    refetchInterval: 3000,
+  });
+
   const { setCategories, setSurveys } = useAwardsStore();
   useEffect(() => {
     if (event?.categories) setCategories(event.categories);
-    if (event) setSurveys(event.surveys ?? []);
-  }, [event, setCategories, setSurveys]);
+  }, [event, setCategories]);
+  useEffect(() => {
+    if (polledSurveys) setSurveys(polledSurveys);
+    else if (event) setSurveys(event.surveys ?? []);
+  }, [polledSurveys, event, setSurveys]);
 
   useAwardsCue(isNaN(eventId) ? null : eventId);
 
