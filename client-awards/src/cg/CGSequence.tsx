@@ -147,10 +147,13 @@ export default function CGSequence({ cue, category, allCategories, surveys, even
       <CGBackground transparent={transparent} />
 
       {/* v2.9.125: ランキング演出は背景が無いと視認性が厳しいため、半透明の黒ベースを敷く。
-          No.1発表系 (oneshot / celebration / survey-oneshot) は専用フルスクリーン演出のため対象外。
+          No.1発表系 (oneshot / celebration) は専用フルスクリーン演出のため対象外。
+          v2.9.129: survey-oneshot (アンケートNo.1) は票数/%表示中 (phase 0/1) はスクリムを生かし、
+          No.1 が出る瞬間 (phase 2 = StepOneShot フルスクリーン) だけスクリムを解除する。
           v2.9.128: 濃さ (中心値 cue.scrimOpacity) を操作画面のスライダーでライブ調整。
           上 -0.10 / 中央 base / 下 +0.10 のグラデ (0〜0.95 にクランプ)。 */}
-      {!['oneshot', 'celebration', 'survey-oneshot'].includes(stepKey) && (() => {
+      {!['oneshot', 'celebration'].includes(stepKey) &&
+        !(stepKey === 'survey-oneshot' && cue.revealPhase >= 2) && (() => {
         const base = Math.max(0, Math.min(0.95, cue.scrimOpacity ?? 0.72));
         const clamp = (v: number) => Math.max(0, Math.min(0.95, v)).toFixed(3);
         return (
