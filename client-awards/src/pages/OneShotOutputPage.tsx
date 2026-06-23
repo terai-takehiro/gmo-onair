@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
 import OneShotStage from '../oneshot/OneShotStage';
+import { LT_EXIT_MS } from '../oneshot/animation/timings';
 import { useOneShotCue } from '../oneshot/hooks/useOneShotCue';
 import { groupNomineesForTicker } from '../oneshot/lib/groupNominees';
 import { mapEventToNominees, type AwardsCategoryRow } from '../oneshot/lib/mapEntryToNominee';
@@ -93,6 +94,32 @@ export default function OneShotOutputPage() {
   const tickerCats = useMemo(() => groupNomineesForTicker(nominees, lang), [nominees, lang]);
   const currentTicker = tickerCats[cue.tickerCatIdx % Math.max(tickerCats.length, 1)] ?? null;
 
+  // v2.9.125: CLEAR (cue.isLive=false) でカットアウトせず TAKE と同じくフェードアウト
+  // (.lt-exit) させる。cue.isLive の true→false を検知して exiting を立て、LT_EXIT_MS 後に
+  // unmount する。退場中は最後に live だった nominee を保持して表示する。
+  const [ltMounted, setLtMounted] = useState(false);
+  const [ltExiting, setLtExiting] = useState(false);
+  const ltExitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastNomineeRef = useRef(liveNominee);
+  if (cue.isLive && liveNominee) lastNomineeRef.current = liveNominee;
+  useEffect(() => {
+    if (cue.isLive) {
+      if (ltExitTimer.current) { clearTimeout(ltExitTimer.current); ltExitTimer.current = null; }
+      setLtExiting(false);
+      setLtMounted(true);
+    } else if (ltMounted && !ltExiting) {
+      setLtExiting(true);
+      ltExitTimer.current = setTimeout(() => {
+        setLtMounted(false);
+        setLtExiting(false);
+        ltExitTimer.current = null;
+      }, LT_EXIT_MS);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cue.isLive]);
+  useEffect(() => () => { if (ltExitTimer.current) clearTimeout(ltExitTimer.current); }, []);
+  const displayNominee = cue.isLive ? liveNominee : lastNomineeRef.current;
+
   if (!event) return null;
 
   // v2.8.95: 1920×1080 の論理キャンバスを viewport にフィットさせて表示。
@@ -119,13 +146,13 @@ export default function OneShotOutputPage() {
         }}
       >
         <OneShotStage
-          nominee={liveNominee}
+          nominee={displayNominee}
           lang={lang}
           moduleKey={moduleKey}
           // v2.8.84+: 実出力は **常に透過固定**。cue.transparent は operator preview 用のみ。
           transparent={true}
-          lowerThirdMounted={cue.isLive}
-          lowerThirdExiting={false}
+          lowerThirdMounted={ltMounted}
+          lowerThirdExiting={ltExiting}
           tickerMounted={tickerOn}
           tickerExiting={false}
           tickerOn={tickerOn}

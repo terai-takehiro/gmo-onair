@@ -28,7 +28,8 @@ export interface FitOptions {
   noWrap?: boolean;
   /** CSS の letter-spacing (em)。Canvas 計測には含まれないため幅に加算する */
   letterSpacingEm?: number;
-  /** 計測バッファ。Canvas は太字 CJK を過小評価しがちなので既定 1.05 */
+  /** 計測バッファ。Canvas は太字 CJK を過小評価しがちなので既定 1.08
+   *  (overflow:hidden の FitLine で長体が僅かに切れるのを防ぐため少し多めに見積もる) */
   buffer?: number;
 }
 
@@ -45,7 +46,7 @@ export function fitText(
   opts: boolean | FitOptions = {},
 ): FitResult {
   const o: FitOptions = typeof opts === 'boolean' ? { noWrap: opts } : opts;
-  const buffer = o.buffer ?? 1.05;
+  const buffer = o.buffer ?? 1.08;
   let w = measureWidth(text, fontStr) * buffer;
   if (w && o.letterSpacingEm) {
     const m = fontStr.match(/(\d+(?:\.\d+)?)px/);

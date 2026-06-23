@@ -146,6 +146,22 @@ export default function CGSequence({ cue, category, allCategories, surveys, even
     >
       <CGBackground transparent={transparent} />
 
+      {/* v2.9.125: ランキング演出は背景が無いと視認性が厳しいため、半透明の黒ベースを敷く。
+          No.1発表系 (oneshot / celebration / survey-oneshot) は専用フルスクリーン演出のため対象外。 */}
+      {!['oneshot', 'celebration', 'survey-oneshot'].includes(stepKey) && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background:
+              'linear-gradient(180deg, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.52) 55%, rgba(0,0,0,0.62) 100%)',
+            pointerEvents: 'none',
+            animation: 'cgFadeIn 500ms ease both',
+          }}
+        />
+      )}
+
+
       {/* Persistent morphing header — final-pitch / celebration / survey-oneshot は専用レイアウトで非表示 */}
       {stepKey !== 'final-pitch' && stepKey !== 'celebration' && stepKey !== 'survey-oneshot' && (
         <PersistentHeader key={`hdr-${persistKey}`} tweaks={tweaks} stepKey={stepKey} />
