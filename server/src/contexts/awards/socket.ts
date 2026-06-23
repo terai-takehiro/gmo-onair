@@ -17,6 +17,7 @@ interface RankingNextCue {
   voteDisplay: string;
   pollStartedAt: number | null;
   revealPhase: number;
+  scrimOpacity?: number;
   timestamp: number;
 }
 interface OneShotNextCue {
@@ -55,7 +56,7 @@ export function initAwardsSocketIO(io: Server): void {
 
     // Push current state to this new connection (ranking CG)
     queryOne(
-      `SELECT step, category_id, oneshot_style, vote_display, poll_started_at, reveal_phase, winner_entry_id
+      `SELECT step, category_id, oneshot_style, vote_display, poll_started_at, reveal_phase, winner_entry_id, scrim_opacity
        FROM awards_cue_state WHERE event_id = ?`,
       [eventId]
     ).then((state) => {
@@ -68,6 +69,7 @@ export function initAwardsSocketIO(io: Server): void {
           pollStartedAt: state.poll_started_at ? new Date(state.poll_started_at as string | number | Date).getTime() : null,
           revealPhase: state.reveal_phase ?? 0,
           winnerEntryId: state.winner_entry_id ?? null,
+          scrimOpacity: state.scrim_opacity != null ? Number(state.scrim_opacity) : 0.72,
           timestamp: Date.now(),
         });
       }
@@ -119,6 +121,7 @@ export function initAwardsSocketIO(io: Server): void {
       pollStartedAt?: number | null;
       revealPhase?: number;
       winnerEntryId?: number | null;
+      scrimOpacity?: number;
     }) => {
       try {
         const step = data.step ?? 'idle';
@@ -128,11 +131,14 @@ export function initAwardsSocketIO(io: Server): void {
         const pollStartedAt = typeof data.pollStartedAt === 'number' ? data.pollStartedAt : null;
         const revealPhase = Math.max(0, Math.min(3, Math.floor(data.revealPhase ?? 0)));
         const winnerEntryId = typeof data.winnerEntryId === 'number' ? data.winnerEntryId : null;
+        const scrimOpacity = typeof data.scrimOpacity === 'number'
+          ? Math.max(0, Math.min(0.95, data.scrimOpacity))
+          : 0.72;
 
         await execute(
           `INSERT INTO awards_cue_state
-             (event_id, step, category_id, oneshot_style, vote_display, poll_started_at, reveal_phase, winner_entry_id, updated_at)
-           VALUES (?, ?, ?, ?, ?, ${pollStartedAt === null ? 'NULL' : 'to_timestamp(?::double precision / 1000.0)'}, ?, ?, NOW())
+             (event_id, step, category_id, oneshot_style, vote_display, poll_started_at, reveal_phase, winner_entry_id, scrim_opacity, updated_at)
+           VALUES (?, ?, ?, ?, ?, ${pollStartedAt === null ? 'NULL' : 'to_timestamp(?::double precision / 1000.0)'}, ?, ?, ?, NOW())
            ON CONFLICT (event_id) DO UPDATE
              SET step = EXCLUDED.step,
                  category_id = EXCLUDED.category_id,
@@ -141,10 +147,11 @@ export function initAwardsSocketIO(io: Server): void {
                  poll_started_at = EXCLUDED.poll_started_at,
                  reveal_phase = EXCLUDED.reveal_phase,
                  winner_entry_id = EXCLUDED.winner_entry_id,
+                 scrim_opacity = EXCLUDED.scrim_opacity,
                  updated_at = NOW()`,
           pollStartedAt === null
-            ? [eventId, step, catId, style, voteDisplay, revealPhase, winnerEntryId]
-            : [eventId, step, catId, style, voteDisplay, pollStartedAt, revealPhase, winnerEntryId]
+            ? [eventId, step, catId, style, voteDisplay, revealPhase, winnerEntryId, scrimOpacity]
+            : [eventId, step, catId, style, voteDisplay, pollStartedAt, revealPhase, winnerEntryId, scrimOpacity]
         );
 
         awardsNs.to(room).emit('cue:sync', {
@@ -155,6 +162,7 @@ export function initAwardsSocketIO(io: Server): void {
           pollStartedAt,
           revealPhase,
           winnerEntryId,
+          scrimOpacity,
           timestamp: Date.now(),
         });
       } catch (err) {
@@ -275,6 +283,7 @@ export function initAwardsSocketIO(io: Server): void {
       voteDisplay?: string;
       pollStartedAt?: number | null;
       revealPhase?: number;
+      scrimOpacity?: number;
     }) => {
       const next: RankingNextCue = {
         step: data.step ?? 'idle',
@@ -283,6 +292,7 @@ export function initAwardsSocketIO(io: Server): void {
         voteDisplay: data.voteDisplay === 'percent' ? 'percent' : 'count',
         pollStartedAt: typeof data.pollStartedAt === 'number' ? data.pollStartedAt : null,
         revealPhase: Math.max(0, Math.min(3, Math.floor(data.revealPhase ?? 0))),
+        scrimOpacity: typeof data.scrimOpacity === 'number' ? Math.max(0, Math.min(0.95, data.scrimOpacity)) : 0.72,
         timestamp: Date.now(),
       };
       nextCueByEvent.set(eventId, next);

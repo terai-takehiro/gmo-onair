@@ -325,7 +325,8 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
     pollStartedAt: null,
     revealPhase: 0,
     winnerEntryId: voteManualWinner ? (nextWinnerId ?? null) : null,
-  }), [nextStep, nextCategoryId, nextStyle, cue.voteDisplay, voteManualWinner, nextWinnerId]);
+    scrimOpacity: cue.scrimOpacity,
+  }), [nextStep, nextCategoryId, nextStyle, cue.voteDisplay, voteManualWinner, nextWinnerId, cue.scrimOpacity]);
 
   return (
     <div className="h-full flex flex-col bg-black text-slate-100 overflow-y-auto lg:overflow-hidden">
@@ -599,6 +600,20 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
                 </div>
               )}
               <StyleRow styles={ONESHOT_STYLES} liveStyle={cue.oneshotStyle} nextStyle={nextStyle} onSelect={setNextStyle} />
+              {/* v2.9.128: 半透明黒ベースの濃さをライブ調整 (cue で即時配信)。No.1発表系には適用されない。 */}
+              <div className="flex items-center gap-3 px-1">
+                <span className="text-[10px] font-black tracking-widest uppercase text-slate-400 shrink-0">黒ベース濃さ</span>
+                <input
+                  type="range" min={0} max={0.95} step={0.05}
+                  value={cue.scrimOpacity ?? 0.72}
+                  onChange={(e) => sendCue({ scrimOpacity: Number(e.target.value) })}
+                  className="flex-1 accent-slate-200"
+                  aria-label="ランキング演出の黒ベースの濃さ"
+                />
+                <span className="text-xs font-bold text-slate-200 tabular-nums w-10 text-right">
+                  {Math.round((cue.scrimOpacity ?? 0.72) * 100)}%
+                </span>
+              </div>
               <SendActionRow isLive={isLive} onTake={take} onClear={clear} />
               <div className="hidden sm:flex items-center gap-3 text-[9px] text-slate-500 tracking-widest uppercase font-medium flex-wrap">
                 <span><kbd className="px-1 rounded bg-slate-800 text-slate-300">0–5</kbd> ステップ</span>

@@ -12,6 +12,7 @@ interface CuePayload {
   pollStartedAt?: number | null;
   revealPhase?: 0 | 1 | 2;
   winnerEntryId?: number | null;
+  scrimOpacity?: number;
   timestamp?: number;
 }
 
@@ -24,6 +25,7 @@ function normalizeCue(data: CuePayload): CgCueState {
     pollStartedAt: data.pollStartedAt ?? null,
     revealPhase: (data.revealPhase ?? 0) as 0 | 1 | 2,
     winnerEntryId: data.winnerEntryId ?? null,
+    scrimOpacity: data.scrimOpacity ?? 0.72,
   };
 }
 
