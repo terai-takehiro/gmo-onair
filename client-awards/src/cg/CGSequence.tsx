@@ -154,7 +154,7 @@ export default function CGSequence({ cue, category, allCategories, surveys, even
             position: 'absolute',
             inset: 0,
             background:
-              'linear-gradient(180deg, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.52) 55%, rgba(0,0,0,0.62) 100%)',
+              'linear-gradient(180deg, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.72) 55%, rgba(0,0,0,0.82) 100%)',
             pointerEvents: 'none',
             animation: 'cgFadeIn 500ms ease both',
           }}

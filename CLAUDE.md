@@ -38,7 +38,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.9.126 — **リアルタイムCG: 紙吹雪 (CELEB) のタイトル文字を「Congratulation!」→「Congratulations!」に修正**。ユーザー要望に対応 (英語として正しい複数形に)。`StepCelebration` の金グラデ タイトル文字列のみ変更 (フォント/演出は不変)。`client-awards` のみ・サーバー/DB スキーマ変更なし。
+v2.9.127 — **リアルタイムCG: ランキング演出の半透明黒ベースを濃くした**。ユーザー要望「半透明の黒ベースをもう少し濃くしたい」に対応。`CGSequence` のスクリムを `rgba(0,0,0,0.42→0.52→0.62)` → **`rgba(0,0,0,0.62→0.72→0.82)`** に変更 (より濃く)。対象ステップ・No.1発表系の除外は v2.9.125 のまま。`client-awards` のみ・サーバー/DB スキーマ変更なし。
+
+(v2.9.126 — **リアルタイムCG: 紙吹雪 (CELEB) のタイトル文字を「Congratulation!」→「Congratulations!」に修正**。ユーザー要望に対応 (英語として正しい複数形に)。`StepCelebration` の金グラデ タイトル文字列のみ変更 (フォント/演出は不変)。`client-awards` のみ・サーバー/DB スキーマ変更なし。)
 
 (v2.9.125 — **リアルタイムCG 3 点: ①ランキング演出に半透明黒ベース(視認性) ②会社名の長体が僅かに切れる問題を修正 ③字幕スーパー(1SHOT)の CLEAR をカットアウト→フェードアウトに**。ユーザー報告に対応。①**半透明黒ベース**: 「ランキングCG全体として背景が無く視認性が厳しい、半透明な黒ベースが基本あるといい (No.1発表のやつは今のままでOK)」に対応。`CGSequence` で CGBackground の上に**全画面の半透明黒スクリム** (`linear-gradient(180deg, rgba(0,0,0,0.42)→0.52→0.62)` + `cgFadeIn`) を敷く。対象は title/nominees/ranks52/top3/final-pitch/winner-bar。**No.1発表系 (oneshot / celebration / survey-oneshot) は専用フルスクリーン演出のためスクリム対象外** (今のまま)。透過出力 (`?audio`/既定) でも敷かれるため OBS で映像に重ねてもテキストが読める。②**会社名の長体切れ**: `FitLine` の中央寄せ補正 `paddingLeft`(letter-spacing相殺) が、長体圧縮中 (`scaleX<1`) のとき `fitText` が既に末尾 letter-spacing を計測幅に含めているのと**二重計上**になり、`overflow:hidden` で右端が僅かに切れていた。`scaleX>=1` (余白あり) のときだけ補正を適用するよう変更。あわせて `fitText` の計測バッファを 1.05→**1.08** に上げて長体の見積りに余裕を持たせ切れを防止。③**1SHOT フェードアウト**: 「1SHOT をアウトさせるときカットアウトになる、TAKE と同じくフェードアウトしてほしい」に対応。`OneShotOutputPage` は `lowerThirdMounted={cue.isLive}` / `lowerThirdExiting={false}` で CLEAR 時に**即 unmount=カットアウト**していた。`cue.isLive` の true→false を検知して `exiting` を立て `LT_EXIT_MS`(480ms) 後に unmount する state machine を追加 (退場中は最後に live だった nominee を保持表示)。これで TAKE の入場 (.lt-enter) と対になる退場アニメ (.lt-exit) が出力でも再生される。`client-awards` のみ・サーバー/DB スキーマ変更なし。)
 
