@@ -239,7 +239,7 @@ export default function CGSequence({ cue, category, allCategories, surveys, even
         />
       )}
 
-      {/* Celebration — 同じ賞グループの全部門 No.1 を横並び + Congratulation */}
+      {/* Celebration — 同じ賞グループの全部門 No.1 を横並び + Congratulations */}
       {showCelebration && (
         <StepCelebration
           key={`celeb-${persistKey}`}

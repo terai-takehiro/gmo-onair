@@ -108,7 +108,7 @@ export default function StepCelebration({ categories, awardName, winnerOverride,
         ))}
       </div>
 
-      {/* タイトル: Congratulation! */}
+      {/* タイトル: Congratulations! */}
       <div style={{
         position: 'absolute',
         top: 90, left: 0, right: 0,
@@ -129,7 +129,7 @@ export default function StepCelebration({ categories, awardName, winnerOverride,
           backgroundClip: 'text',
           filter: 'drop-shadow(0 6px 22px rgba(0,0,0,0.85))',
           animation: 'celebGlow 2.4s ease-in-out infinite',
-        }}>Congratulation!</div>
+        }}>Congratulations!</div>
         <CondenseText style={{
           marginTop: 12,
           fontFamily: "'Noto Sans JP', sans-serif",
