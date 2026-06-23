@@ -85,8 +85,18 @@ export default function StepCelebration({ categories, awardName, winnerOverride,
           to   { opacity: 1; transform: translateY(0)    scale(1); }
         }
         @keyframes celebGlow {
-          0%, 100% { filter: drop-shadow(0 0 18px rgba(245,215,110,0.6)); }
-          50%      { filter: drop-shadow(0 0 32px rgba(255,200,80,1)); }
+          0%, 100% {
+            filter:
+              drop-shadow(2px 2px 0 rgba(0,0,0,0.92)) drop-shadow(-2px 2px 0 rgba(0,0,0,0.92))
+              drop-shadow(2px -2px 0 rgba(0,0,0,0.92)) drop-shadow(-2px -2px 0 rgba(0,0,0,0.92))
+              drop-shadow(0 4px 14px rgba(0,0,0,0.9)) drop-shadow(0 0 18px rgba(245,215,110,0.55));
+          }
+          50% {
+            filter:
+              drop-shadow(2px 2px 0 rgba(0,0,0,0.92)) drop-shadow(-2px 2px 0 rgba(0,0,0,0.92))
+              drop-shadow(2px -2px 0 rgba(0,0,0,0.92)) drop-shadow(-2px -2px 0 rgba(0,0,0,0.92))
+              drop-shadow(0 4px 14px rgba(0,0,0,0.9)) drop-shadow(0 0 30px rgba(255,200,80,0.95));
+          }
         }
       `}</style>
 
@@ -127,7 +137,9 @@ export default function StepCelebration({ categories, awardName, winnerOverride,
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent',
           backgroundClip: 'text',
-          filter: 'drop-shadow(0 6px 22px rgba(0,0,0,0.85))',
+          // 縁取り (黒の outline) + 影 + 金グロウは celebGlow keyframes で付与 (透過背景でも視認性確保)
+          filter:
+            'drop-shadow(2px 2px 0 rgba(0,0,0,0.92)) drop-shadow(-2px 2px 0 rgba(0,0,0,0.92)) drop-shadow(2px -2px 0 rgba(0,0,0,0.92)) drop-shadow(-2px -2px 0 rgba(0,0,0,0.92)) drop-shadow(0 4px 14px rgba(0,0,0,0.9))',
           animation: 'celebGlow 2.4s ease-in-out infinite',
         }}>Congratulations!</div>
         <CondenseText style={{
@@ -137,7 +149,7 @@ export default function StepCelebration({ categories, awardName, winnerOverride,
           fontWeight: 700,
           letterSpacing: '0.18em',
           color: '#F5D76E',
-          textShadow: '0 2px 10px rgba(0,0,0,0.8)',
+          textShadow: '-2px -2px 0 rgba(0,0,0,0.9), 2px -2px 0 rgba(0,0,0,0.9), -2px 2px 0 rgba(0,0,0,0.9), 2px 2px 0 rgba(0,0,0,0.9), 0 2px 12px rgba(0,0,0,0.95)',
           textAlign: 'center',
           padding: '0 80px',
         }} min={0.45}>{awardName}</CondenseText>
@@ -195,7 +207,8 @@ function CelebrationCard({ winner, width, height, delay }: {
           fontSize: 18,
           color: '#F5D76E',
           letterSpacing: '0.14em',
-          textShadow: '0 2px 8px rgba(0,0,0,0.85)',
+          paddingLeft: 3, paddingRight: 3,
+          textShadow: '-1.5px -1.5px 0 rgba(0,0,0,0.9), 1.5px -1.5px 0 rgba(0,0,0,0.9), -1.5px 1.5px 0 rgba(0,0,0,0.9), 1.5px 1.5px 0 rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.95)',
         }} min={0.5}>{title}</CondenseText>
       </div>
 
@@ -229,7 +242,8 @@ function CelebrationCard({ winner, width, height, delay }: {
           fontSize: 24,
           color: '#fff',
           letterSpacing: '0.04em',
-          textShadow: '0 2px 8px rgba(0,0,0,0.85)',
+          paddingLeft: 3, paddingRight: 3,
+          textShadow: '-1.5px -1.5px 0 rgba(0,0,0,0.92), 1.5px -1.5px 0 rgba(0,0,0,0.92), -1.5px 1.5px 0 rgba(0,0,0,0.92), 1.5px 1.5px 0 rgba(0,0,0,0.92), 0 2px 10px rgba(0,0,0,0.95)',
           lineHeight: 1.15,
         }} min={0.5}>{winner.entry.name}</CondenseText>
         {winner.entry.company && (
@@ -237,8 +251,10 @@ function CelebrationCard({ winner, width, height, delay }: {
             marginTop: 2,
             fontFamily: "'Noto Sans JP', sans-serif",
             fontSize: 14,
-            color: 'rgba(245,215,110,0.85)',
+            color: 'rgba(245,215,110,0.95)',
             letterSpacing: '0.14em',
+            paddingLeft: 3, paddingRight: 3,
+            textShadow: '-1px -1px 0 rgba(0,0,0,0.9), 1px -1px 0 rgba(0,0,0,0.9), -1px 1px 0 rgba(0,0,0,0.9), 1px 1px 0 rgba(0,0,0,0.9), 0 2px 6px rgba(0,0,0,0.95)',
           }} min={0.5}>{winner.entry.company}</CondenseText>
         )}
       </div>
