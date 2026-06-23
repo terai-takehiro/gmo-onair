@@ -18,6 +18,7 @@ export const DEFAULT_CUE: CgCueState = {
   pollStartedAt: null,
   revealPhase: 0,
   winnerEntryId: null,
+  scrimOpacity: 0.72,
 };
 
 export const useAwardsStore = create<AwardsStore>((set) => ({

@@ -147,19 +147,25 @@ export default function CGSequence({ cue, category, allCategories, surveys, even
       <CGBackground transparent={transparent} />
 
       {/* v2.9.125: ランキング演出は背景が無いと視認性が厳しいため、半透明の黒ベースを敷く。
-          No.1発表系 (oneshot / celebration / survey-oneshot) は専用フルスクリーン演出のため対象外。 */}
-      {!['oneshot', 'celebration', 'survey-oneshot'].includes(stepKey) && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background:
-              'linear-gradient(180deg, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.72) 55%, rgba(0,0,0,0.82) 100%)',
-            pointerEvents: 'none',
-            animation: 'cgFadeIn 500ms ease both',
-          }}
-        />
-      )}
+          No.1発表系 (oneshot / celebration / survey-oneshot) は専用フルスクリーン演出のため対象外。
+          v2.9.128: 濃さ (中心値 cue.scrimOpacity) を操作画面のスライダーでライブ調整。
+          上 -0.10 / 中央 base / 下 +0.10 のグラデ (0〜0.95 にクランプ)。 */}
+      {!['oneshot', 'celebration', 'survey-oneshot'].includes(stepKey) && (() => {
+        const base = Math.max(0, Math.min(0.95, cue.scrimOpacity ?? 0.72));
+        const clamp = (v: number) => Math.max(0, Math.min(0.95, v)).toFixed(3);
+        return (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background:
+                `linear-gradient(180deg, rgba(0,0,0,${clamp(base - 0.1)}) 0%, rgba(0,0,0,${clamp(base)}) 55%, rgba(0,0,0,${clamp(base + 0.1)}) 100%)`,
+              pointerEvents: 'none',
+              animation: 'cgFadeIn 500ms ease both',
+            }}
+          />
+        );
+      })()}
 
 
       {/* Persistent morphing header — final-pitch / celebration / survey-oneshot は専用レイアウトで非表示 */}

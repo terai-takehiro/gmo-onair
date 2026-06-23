@@ -38,7 +38,9 @@ GLS番号を中核として全アプリのデータが紐づく。
 - **デプロイ先**: CoNoHa VPS (Docker Compose + PostgreSQL + Nginx)
 
 ## 現在のバージョン
-v2.9.127 — **リアルタイムCG: ランキング演出の半透明黒ベースを濃くした**。ユーザー要望「半透明の黒ベースをもう少し濃くしたい」に対応。`CGSequence` のスクリムを `rgba(0,0,0,0.42→0.52→0.62)` → **`rgba(0,0,0,0.62→0.72→0.82)`** に変更 (より濃く)。対象ステップ・No.1発表系の除外は v2.9.125 のまま。`client-awards` のみ・サーバー/DB スキーマ変更なし。
+v2.9.128 — **リアルタイムCG: 半透明黒ベースの濃さを操作画面でライブ調整できるように**。ユーザー要望「透過度を調整できる機能があるといい」に対応。①**DB** (migration 106): `awards_cue_state` に `scrim_opacity NUMERIC(3,2) NOT NULL DEFAULT 0.72` を追加。②**cue 伝搬**: `CgCueState.scrimOpacity` を追加し、awards socket (`cue:set`/`cue:sync` + 初期 sync + `cue:nextSet`/`nextSync`) と `useAwardsCue` (CuePayload/normalizeCue) で送受信 (0〜0.95 にクランプ)。③**CGSequence**: スクリムのグラデを固定値から **`cue.scrimOpacity` を中心値**に算出 (上 base-0.10 / 中央 base / 下 base+0.10、各 0〜0.95 クランプ)。④**操作画面 (`ControlPage`)**: StyleRow と TAKE の間に「黒ベース濃さ」スライダー (0〜95%、step5%) を追加し、`sendCue({ scrimOpacity })` で**ライブ即時配信** (TAKE 不要・本番中に微調整可)。NEXT プレビューにも反映。No.1発表系 (oneshot/celebration/survey-oneshot) には従来どおりスクリム非適用。サーバー + `client-awards`、migration 106。
+
+(v2.9.127 — **リアルタイムCG: ランキング演出の半透明黒ベースを濃くした**。ユーザー要望「半透明の黒ベースをもう少し濃くしたい」に対応。`CGSequence` のスクリムを `rgba(0,0,0,0.42→0.52→0.62)` → **`rgba(0,0,0,0.62→0.72→0.82)`** に変更 (より濃く)。対象ステップ・No.1発表系の除外は v2.9.125 のまま。`client-awards` のみ・サーバー/DB スキーマ変更なし。)
 
 (v2.9.126 — **リアルタイムCG: 紙吹雪 (CELEB) のタイトル文字を「Congratulation!」→「Congratulations!」に修正**。ユーザー要望に対応 (英語として正しい複数形に)。`StepCelebration` の金グラデ タイトル文字列のみ変更 (フォント/演出は不変)。`client-awards` のみ・サーバー/DB スキーマ変更なし。)
 
