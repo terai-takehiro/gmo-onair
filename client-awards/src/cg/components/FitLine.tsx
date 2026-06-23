@@ -44,10 +44,13 @@ export default function FitLine({ text, fit, style, wrapperStyle }: Props) {
     );
   }
 
-  // letter-spacing の末尾アキ相殺 (中央寄せ時に半文字ぶん左へ寄るのを補正)
+  // letter-spacing の末尾アキ相殺 (中央寄せ時に半文字ぶん左へ寄るのを補正)。
+  // ただし長体圧縮中 (scaleX < 1) は、fitText が既に末尾の letter-spacing を計測幅に
+  // 含めているため paddingLeft を足すと幅を二重計上し overflow:hidden で右端が僅かに
+  // 切れる。圧縮時は補正を行わない (余白がある scaleX===1 のときだけ補正)。
   const ls = style?.letterSpacing;
   const compensate: CSSProperties =
-    typeof ls === 'string' && ls.endsWith('em') ? { paddingLeft: ls } : {};
+    fit.scaleX >= 1 && typeof ls === 'string' && ls.endsWith('em') ? { paddingLeft: ls } : {};
 
   return (
     <div
