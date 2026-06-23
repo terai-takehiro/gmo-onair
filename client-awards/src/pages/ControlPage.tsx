@@ -93,7 +93,21 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
   const { cue, sendCue, sendNextCue } = useAwardsCue(eventId);
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
   const awardGroups = useMemo(() => groupByAward(event?.categories ?? []), [event]);
-  const surveys = useMemo<CgSurvey[]>(() => event?.surveys ?? [], [event]);
+  // v2.9.124: アンケート票数確定をリロード無しで反映するため、surveys は event 本体
+  // (60s staleTime・refetch なし) ではなく軽量エンドポイントを 3s ごとにポーリング。
+  const { data: polledSurveys } = useQuery({
+    queryKey: ['awards-surveys', eventId],
+    queryFn: async () => {
+      const res = await api.get(`/awards/events/${eventId}/surveys`);
+      return res.data.data as CgSurvey[];
+    },
+    refetchInterval: 3000,
+    refetchOnMount: 'always',
+  });
+  const surveys = useMemo<CgSurvey[]>(
+    () => polledSurveys ?? event?.surveys ?? [],
+    [polledSurveys, event],
+  );
   const liveCategory = event?.categories.find((c) => c.id === cue.categoryId) ?? null;
   const isLive = LIVE_STEPS.includes(cue.step);
 
