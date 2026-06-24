@@ -96,10 +96,15 @@ export default function QuizStackOutputPage() {
   const currentQuiz = data.quizzes.find((q) => q.id === cue.currentQuizId) ?? null;
   if (!currentQuiz) return null;
 
-  // 投票数: 通常は 15s ごとの再取得値。Interactive 連携時は poller からの
-  // リアルタイム votes (liveVotes) が現在 quiz のものなら優先してマージ。
+  // 投票数の正本:
+  //   - Interactive 連携クイズ: poller の liveVotes (リアルタイム) を DB 値に重ねる。
+  //   - 手入力 (非連携) クイズ: DB の vote_count (quiz_choices) のみ。
+  // ※ liveVotes は poll 開始時のリセット (全0) でも飛んでくるため、非連携クイズでこれを
+  //   無条件にマージすると「手入力した DB 値を 0 で上書き」してしまう (出力に反映されない不具合)。
+  //   連携クイズのときだけ liveVotes を適用する。
+  const isLinked = !!(currentQuiz as { interactive_question_id?: string | null }).interactive_question_id;
   const baseVotes = Object.fromEntries(currentQuiz.choices.map((c) => [c.position, c.vote_count]));
-  const votes = liveVotes && liveVotes.quizId === currentQuiz.id
+  const votes = isLinked && liveVotes && liveVotes.quizId === currentQuiz.id
     ? { ...baseVotes, ...liveVotes.votes }
     : baseVotes;
 
