@@ -103,10 +103,13 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
 
   // Interactive 連動時: poller のリアルタイム投票数を操作UIにも反映 (手入力を上書き)。
   // 出力CG と同じ liveVotes を使うことで「プレビューと実CGの集計が一致」する。
+  // 非連携 (手入力) クイズでは liveVotes (poll 開始時の全0リセット等) で手入力を
+  // 上書きしないよう、連携クイズのときだけ反映する。
   useEffect(() => {
+    if (!isLinked) return;
     if (!liveVotes || liveVotes.quizId !== cue.currentQuizId) return;
     setVoteEdits((prev) => ({ ...prev, ...liveVotes.votes }));
-  }, [liveVotes, cue.currentQuizId]);
+  }, [isLinked, liveVotes, cue.currentQuizId]);
 
   // カウントダウンが 0 になっても自動遷移しない (poll のまま停止)。
   // operator が次に TAKE を押したとき次ステップ (answer-check / correct-reveal) へ進む。
