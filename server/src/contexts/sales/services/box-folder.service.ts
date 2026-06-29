@@ -42,6 +42,10 @@ function sanitizeFolderName(name: string): string {
   return name.replace(/[/\\:?*|"<>]/g, '').trim() || 'untitled';
 }
 
+// フォルダ名の頭に付与して社内/社外を一目で判別できるようにする
+const INTERNAL_PREFIX = '【社内】';
+const EXTERNAL_PREFIX = '【社外】';
+
 function getInternalParentFolderId(): string | null {
   return process.env.BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL || null;
 }
@@ -113,7 +117,7 @@ export async function createProjectFolderTree(
   const client = getBoxClient();
   if (!client) return { internal: null, external: null };
 
-  const folderName = sanitizeFolderName(`${idCode}_${projectName}`);
+  const baseName = sanitizeFolderName(`${idCode}_${projectName}`);
   const internalParent = getInternalParentFolderId();
   const externalParent = getExternalParentFolderId();
 
@@ -130,10 +134,10 @@ export async function createProjectFolderTree(
   // 親フォルダが異なるので並行実行 OK
   const [internal, external] = await Promise.all([
     internalParent
-      ? createOneFolderTree(client, internalParent, folderName, INTERNAL_SUBFOLDERS, '社内限り')
+      ? createOneFolderTree(client, internalParent, `${INTERNAL_PREFIX}${baseName}`, INTERNAL_SUBFOLDERS, '社内限り')
       : Promise.resolve(null),
     externalParent
-      ? createOneFolderTree(client, externalParent, folderName, EXTERNAL_SUBFOLDERS, '社外共有可')
+      ? createOneFolderTree(client, externalParent, `${EXTERNAL_PREFIX}${baseName}`, EXTERNAL_SUBFOLDERS, '社外共有可')
       : Promise.resolve(null),
   ]);
 
@@ -173,7 +177,7 @@ export async function renameProjectFolderPair(
   newName: string,
 ): Promise<void> {
   await Promise.all([
-    internalFolderId ? renameProjectFolder(internalFolderId, newName) : Promise.resolve(null),
-    externalFolderId ? renameProjectFolder(externalFolderId, newName) : Promise.resolve(null),
+    internalFolderId ? renameProjectFolder(internalFolderId, `${INTERNAL_PREFIX}${newName}`) : Promise.resolve(null),
+    externalFolderId ? renameProjectFolder(externalFolderId, `${EXTERNAL_PREFIX}${newName}`) : Promise.resolve(null),
   ]);
 }

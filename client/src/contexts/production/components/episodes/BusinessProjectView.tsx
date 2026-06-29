@@ -73,6 +73,7 @@ interface RevenueItem {
   period_start?: string | null;
   period_end?: string | null;
   item_notes?: string | null;
+  category?: string | null;
 }
 
 interface Revenue {
@@ -419,6 +420,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
             period_start: it.period_start || null,
             period_end: it.period_end || null,
             item_notes: it.item_notes || null,
+            category: it.category || null,
           }))
         );
       } else {
@@ -458,10 +460,19 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
   };
 
   const addItem = () => {
-    setItems((prev) => [
-      ...prev,
-      { description: "", quantity: 1, unit_price: 0, amount: 0 },
-    ]);
+    setItems((prev) => {
+      // 項目追加時は1つ前の入力分の日付・カテゴリをコピーする (連続入力の手間を軽減)
+      const last = prev[prev.length - 1];
+      return [
+        ...prev,
+        {
+          description: "", quantity: 1, unit_price: 0, amount: 0,
+          period_start: last?.period_start ?? null,
+          period_end: last?.period_end ?? null,
+          category: last?.category ?? null,
+        },
+      ];
+    });
   };
 
   // 項目値引きダイアログを開く
@@ -1090,6 +1101,14 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
             {/* Line Items */}
             <div>
               <Label className="text-sm font-semibold">明細項目</Label>
+              <datalist id="revenue-item-categories">
+                <option value="制作費" />
+                <option value="機材費" />
+                <option value="人件費" />
+                <option value="スタジオ費" />
+                <option value="配信費" />
+                <option value="諸経費" />
+              </datalist>
 
               {/* PC: table layout */}
               <div className="hidden sm:block mt-2 rounded border overflow-hidden">
@@ -1097,6 +1116,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                   <TableHeader>
                     <TableRow>
                       <TableHead>内容</TableHead>
+                      <TableHead className="w-28">カテゴリ</TableHead>
                       <TableHead className="w-14 text-right">数量</TableHead>
                       <TableHead className="w-28 text-right">単価</TableHead>
                       <TableHead className="w-28 text-right">金額</TableHead>
@@ -1115,6 +1135,15 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                             onChange={(e) => updateItem(idx, "description", e.target.value)}
                             placeholder="項目名"
                             className="h-8 text-sm"
+                          />
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <Input
+                            value={item.category || ""}
+                            onChange={(e) => updateItem(idx, "category", e.target.value || null)}
+                            placeholder="カテゴリ"
+                            className="h-8 text-sm"
+                            list="revenue-item-categories"
                           />
                         </TableCell>
                         <TableCell className="p-1">
@@ -1237,6 +1266,15 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                       value={item.description}
                       onChange={(e) => updateItem(idx, "description", e.target.value)}
                     />
+                    <div>
+                      <Label className="text-xs">カテゴリ（任意・見積書でカテゴリ別に内訳整理）</Label>
+                      <Input
+                        placeholder="例: 機材費 / 人件費 / 制作費"
+                        value={item.category || ""}
+                        onChange={(e) => updateItem(idx, "category", e.target.value || null)}
+                        list="revenue-item-categories"
+                      />
+                    </div>
                     <div className="grid grid-cols-3 gap-2">
                       <div>
                         <Label className="text-xs">数量</Label>

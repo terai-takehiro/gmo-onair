@@ -125,6 +125,7 @@ router.get('/:id/pdf', async (req, res, next) => {
         period_start: it.period_start || null,
         period_end: it.period_end || null,
         item_notes: it.item_notes || null,
+        category: it.category || null,
       })),
     });
 
@@ -196,8 +197,8 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
     for (let i = 0; i < items.length; i++) {
       const it = items[i];
       await execute(
-        `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount, pricing_item_id, sort_order, period_start, period_end, item_notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [uuidv4(), id, it.description || '', it.quantity || 1, it.unit_price || 0, it.amount || 0, it.pricing_item_id || null, i + 1, it.period_start || null, it.period_end || null, it.item_notes || null]
+        `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount, pricing_item_id, sort_order, period_start, period_end, item_notes, category) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [uuidv4(), id, it.description || '', it.quantity || 1, it.unit_price || 0, it.amount || 0, it.pricing_item_id || null, i + 1, it.period_start || null, it.period_end || null, it.item_notes || null, it.category || null]
       );
     }
   }
@@ -254,8 +255,8 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
     for (let i = 0; i < items.length; i++) {
       const it = items[i];
       await execute(
-        `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount, pricing_item_id, sort_order, period_start, period_end, item_notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [uuidv4(), req.params.id, it.description || '', it.quantity || 1, it.unit_price || 0, it.amount || 0, it.pricing_item_id || null, i + 1, it.period_start || null, it.period_end || null, it.item_notes || null]
+        `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount, pricing_item_id, sort_order, period_start, period_end, item_notes, category) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [uuidv4(), req.params.id, it.description || '', it.quantity || 1, it.unit_price || 0, it.amount || 0, it.pricing_item_id || null, i + 1, it.period_start || null, it.period_end || null, it.item_notes || null, it.category || null]
       );
     }
   }

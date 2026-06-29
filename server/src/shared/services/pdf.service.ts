@@ -21,6 +21,7 @@ interface PdfRevenueItem {
   period_start: string | null;
   period_end:   string | null;
   item_notes:   string | null;
+  category:     string | null;
 }
 
 interface PdfRevenueData {
@@ -57,10 +58,6 @@ function dateJP(d: string | null): string {
   if (!d) return '';
   const dt = new Date(d);
   return `${dt.getFullYear()}年${dt.getMonth() + 1}月${dt.getDate()}日`;
-}
-
-function itemCode(i: number): string {
-  return 'M' + String(10000 * 1000 + i + 1).padStart(11, '0');
 }
 
 export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
@@ -183,79 +180,118 @@ export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
       txt('＊御見積有効期間：本見積書提出後１ヶ月　　＊本見積書には消費税等は含まれておりません。',
           ML, y, { sz: 7, c: '#444444', w: PW }); y += 16;
 
-      // ── ⑦ 明細テーブル ───────────────────────────────────────
-      // 期間を2行（開始/終了）で表示するため左列を90ptに拡張
-      const TC = 90, TA = 78, TD = PW - TC - TA;
-      const xC = ML, xD = ML + TC, xA = ML + TC + TD;
+      // ── ⑦ 明細テーブル（カテゴリ別 / 複数ページ対応） ──────────
+      const PAGE_BOTTOM = 800; // A4 高さ 842 − 下余白
+      const VPAD = 5;
       const HDR_H = 20;
-      const VPAD  = 5;   // 上下パディング
+      // 列: 商品名/備考 | 数量 | 単価 | 金額(税別)
+      const wQty = 46, wUnit = 82, wAmt = 86;
+      const wDesc = PW - wQty - wUnit - wAmt;
+      const xDesc = ML, xQty = ML + wDesc, xUnit = xQty + wQty, xAmt = xUnit + wUnit;
 
-      // ヘッダー行
-      rect(xC, y, TC, HDR_H, '#f0f0f0', '#333333');
-      rect(xD, y, TD, HDR_H, '#f0f0f0', '#333333');
-      rect(xA, y, TA, HDR_H, '#f0f0f0', '#333333');
-      txt('明細番号/期間', xC + 3, y + 4, { sz: 7, f: B, w: TC - 6 });
-      txt('商品名/備考',   xD + 3, y + 4, { sz: 7, f: B, w: TD - 6 });
-      txt('税別金額',      xA + 3, y + 4, { sz: 7, f: B, w: TA - 6, align: 'right' });
-      y += HDR_H;
+      const drawTableHeader = () => {
+        rect(xDesc, y, wDesc, HDR_H, '#f0f0f0', '#333333');
+        rect(xQty,  y, wQty,  HDR_H, '#f0f0f0', '#333333');
+        rect(xUnit, y, wUnit, HDR_H, '#f0f0f0', '#333333');
+        rect(xAmt,  y, wAmt,  HDR_H, '#f0f0f0', '#333333');
+        txt('商品名 / 備考', xDesc + 3, y + 5, { sz: 7, f: B, w: wDesc - 6 });
+        txt('数量',          xQty + 3,  y + 5, { sz: 7, f: B, w: wQty - 6, align: 'right' });
+        txt('単価',          xUnit + 3, y + 5, { sz: 7, f: B, w: wUnit - 6, align: 'right' });
+        txt('金額(税別)',    xAmt + 3,  y + 5, { sz: 7, f: B, w: wAmt - 6, align: 'right' });
+        y += HDR_H;
+      };
 
-      // 明細行
-      for (let i = 0; i < items.length; i++) {
-        const it = items[i];
-        const isDisc  = (it.amount || 0) < 0;
-        const itColor = isDisc ? '#d97706' : '#000000';
+      // 必要な高さが確保できなければ改ページしてヘッダーを描き直す
+      const ensureSpace = (h: number) => {
+        if (y + h > PAGE_BOTTOM) {
+          doc.addPage();
+          y = 40;
+          drawTableHeader();
+        }
+      };
 
-        // 期間（item個別 → なければプロジェクト期間で補完）
-        const pS = it.period_start || data.project_start;
-        const pE = it.period_end   || data.project_end;
+      drawTableHeader();
 
-        // ── 行の高さを事前計算 ─────────────────────────────────
-        // 左列: コード(1行) + 期間2行（開始/終了）
-        const leftLines = 1 + (pS ? 1 : 0) + (pE ? 1 : 0);
-        const leftH = VPAD + leftLines * 11 + VPAD;
+      // カテゴリ別にグループ化（初出順を保持。カテゴリ無しは「未分類」を最後に）
+      const hasCategories = items.some((it) => (it.category || '').trim());
+      const groupOrder: string[] = [];
+      const groupMap = new Map<string, PdfRevenueItem[]>();
+      for (const it of items) {
+        const cat = hasCategories ? ((it.category || '').trim() || '（未分類）') : '';
+        if (!groupMap.has(cat)) { groupMap.set(cat, []); groupOrder.push(cat); }
+        groupMap.get(cat)!.push(it);
+      }
 
-        // 中列: 商品名（折り返し可） + 備考（折り返し可）
-        const descH  = textH(it.description || '', R, 8, TD - 6);
-        const notesH = it.item_notes ? textH(it.item_notes, R, 7, TD - 6) : 0;
-        const midH   = VPAD + descH + (notesH > 0 ? 4 + notesH : 0) + VPAD;
+      for (const cat of groupOrder) {
+        const groupItems = groupMap.get(cat)!;
 
-        const rh = Math.max(leftH, midH, 28); // 最低28pt
+        // カテゴリ見出し帯
+        if (hasCategories) {
+          ensureSpace(18 + 24);
+          rect(xDesc, y, PW, 18, '#e8eef5', '#333333');
+          txt(cat, xDesc + 5, y + 5, { sz: 8, f: B, w: PW - 10 });
+          y += 18;
+        }
 
-        // ── 枠線描画 ───────────────────────────────────────────
-        rect(xC, y, TC, rh, undefined, '#cccccc');
-        rect(xD, y, TD, rh, undefined, '#cccccc');
-        rect(xA, y, TA, rh, undefined, '#cccccc');
+        for (const it of groupItems) {
+          const isDisc  = (it.amount || 0) < 0;
+          const itColor = isDisc ? '#d97706' : '#000000';
+          const pS = it.period_start || data.project_start;
+          const pE = it.period_end   || data.project_end;
+          const periodStr = (pS || pE) ? `期間: ${dateSlash(pS)}${pE ? ' 〜 ' + dateSlash(pE) : ''}` : '';
 
-        // ── 左列（明細番号＋期間）─────────────────────────────
-        cell(xC, y, TC, rh, () => {
-          txt(itemCode(i), xC + 3, y + VPAD, { sz: 7, c: itColor });
-          if (pS) txt(dateSlash(pS),       xC + 3, y + VPAD + 12, { sz: 7, c: '#444444' });
-          if (pE) txt(`〜 ${dateSlash(pE)}`, xC + 3, y + VPAD + 23, { sz: 7, c: '#444444' });
-        });
+          const descH   = textH(it.description || '', R, 8, wDesc - 6);
+          const periodH = periodStr ? 10 : 0;
+          const notesH  = it.item_notes ? textH(it.item_notes, R, 7, wDesc - 6) : 0;
+          const rh = Math.max(VPAD + descH + (periodH ? 2 + periodH : 0) + (notesH ? 2 + notesH : 0) + VPAD, 24);
 
-        // ── 中列（商品名＋備考）───────────────────────────────
-        cell(xD, y, TD, rh, () => {
-          txt(it.description || '', xD + 3, y + VPAD, { sz: 8, c: itColor, w: TD - 6, wrap: true });
-          if (it.item_notes) {
-            txt(it.item_notes, xD + 3, y + VPAD + descH + 4, { sz: 7, c: '#555555', w: TD - 6, wrap: true });
-          }
-        });
+          ensureSpace(rh);
 
-        // ── 右列（金額）───────────────────────────────────────
-        cell(xA, y, TA, rh, () => {
-          txt(money(it.amount || 0), xA + 3, y + VPAD, { sz: 8, c: itColor, w: TA - 6, align: 'right' });
-        });
+          rect(xDesc, y, wDesc, rh, undefined, '#cccccc');
+          rect(xQty,  y, wQty,  rh, undefined, '#cccccc');
+          rect(xUnit, y, wUnit, rh, undefined, '#cccccc');
+          rect(xAmt,  y, wAmt,  rh, undefined, '#cccccc');
 
-        y += rh;
+          cell(xDesc, y, wDesc, rh, () => {
+            txt(it.description || '', xDesc + 3, y + VPAD, { sz: 8, c: itColor, w: wDesc - 6, wrap: true });
+            let yy = y + VPAD + descH;
+            if (periodStr) { txt(periodStr, xDesc + 3, yy + 2, { sz: 7, c: '#444444', w: wDesc - 6 }); yy += 2 + periodH; }
+            if (it.item_notes) { txt(it.item_notes, xDesc + 3, yy + 2, { sz: 7, c: '#555555', w: wDesc - 6, wrap: true }); }
+          });
+          // 数量 × 単価 = 金額 が項目ごとに分かるように 3 列で表示
+          cell(xQty, y, wQty, rh, () => {
+            txt(String(it.quantity ?? 1), xQty + 3, y + VPAD, { sz: 8, c: itColor, w: wQty - 6, align: 'right' });
+          });
+          cell(xUnit, y, wUnit, rh, () => {
+            txt(money(it.unit_price || 0), xUnit + 3, y + VPAD, { sz: 8, c: itColor, w: wUnit - 6, align: 'right' });
+          });
+          cell(xAmt, y, wAmt, rh, () => {
+            txt(money(it.amount || 0), xAmt + 3, y + VPAD, { sz: 8, c: itColor, w: wAmt - 6, align: 'right' });
+          });
+
+          y += rh;
+        }
+
+        // カテゴリ小計
+        if (hasCategories) {
+          const sub = groupItems.reduce((s, it) => s + (it.amount || 0), 0);
+          ensureSpace(18);
+          rect(xDesc, y, wDesc + wQty + wUnit, 18, '#fafafa', '#cccccc');
+          rect(xAmt,  y, wAmt, 18, '#fafafa', '#cccccc');
+          txt(`小計（${cat}）`, xDesc + 3, y + 5, { sz: 7, f: B, w: wDesc + wQty + wUnit - 6, align: 'right' });
+          txt(money(sub), xAmt + 3, y + 5, { sz: 8, f: B, w: wAmt - 6, align: 'right' });
+          y += 18;
+        }
       }
 
       // テーブル下罫線
-      doc.moveTo(xC, y).lineTo(xC + PW, y).strokeColor('#333333').lineWidth(1).stroke();
+      doc.moveTo(xDesc, y).lineTo(xDesc + PW, y).strokeColor('#333333').lineWidth(1).stroke();
       y += 16;
 
       // ── ⑧ 備考ボックス ────────────────────────────────────────
       if (data.notes) {
         const noteH = VPAD + textH(data.notes, R, 8, PW - 18) + VPAD + 16;
+        ensureSpace(noteH + 8);
         rect(ML, y, PW, noteH, undefined, '#888888');
         txt('備考', ML + 6, y + 6, { sz: 9, f: B });
         txt(data.notes, ML + 6, y + 18, { sz: 8, w: PW - 12, wrap: true });
@@ -264,6 +300,7 @@ export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
 
       // ── ⑨ 支払期日（請求書モード） ────────────────────────────
       if (!isEstimate && data.payment_due_date) {
+        ensureSpace(20);
         txt(`お支払期日：${dateJP(data.payment_due_date)}`, ML, y, { sz: 8 });
       }
 
