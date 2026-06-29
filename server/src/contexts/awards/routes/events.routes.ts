@@ -76,6 +76,26 @@ router.get('/events/:id/module-config', wrap(async (req, res) => {
 // この router を通過する際に誤って 401 で蹴られる不具合を起こしていた。
 router.use(['/events', '/box-backups'], requireAuth, requirePermission('awards'));
 
+// v2.9.89: 統合送出コックピット — 全レイヤー ON-AIR 状態 (badge 用、operator が常時監視)。
+//   3 レイヤー (ランキング awards_cue_state / 字幕 awards_oneshot_cue_state /
+//   クイズ quiz_stack_state) の live 状態をまとめて返す。socket は不変。
+router.get('/events/:id/cg-status', wrap(async (req, res) => {
+  const eventId = parseInt(req.params.id as string);
+  const ranking = await queryOne(`SELECT step FROM awards_cue_state WHERE event_id = ?`, [eventId]);
+  const oneshot = await queryOne(`SELECT is_live FROM awards_oneshot_cue_state WHERE event_id = ?`, [eventId]);
+  const quiz = await queryOne(`SELECT step FROM quiz_stack_state WHERE event_id = ?`, [eventId]);
+  const rStep = (ranking?.step as string) ?? 'idle';
+  const qStep = (quiz?.step as string) ?? 'idle';
+  res.json({
+    success: true,
+    data: {
+      ranking: { live: rStep !== 'idle', step: rStep },
+      oneshot: { live: !!oneshot?.is_live },
+      quiz: { live: qStep !== 'idle', step: qStep },
+    },
+  });
+}));
+
 // ── 一覧 ────────────────────────────────────────────────────
 router.get('/events', wrap(async (_req, res) => {
   const rows = await queryAll(
@@ -339,7 +359,10 @@ router.post('/events/:id/import-excel', upload.single('file'), wrap(async (req, 
     }
   }
 
-  const result = await importAwardsExcel(req.file.buffer, eventId, mapping, extraColumns);
+  // v2.9.102+: dryRun=true なら DB へ書き込まず差分プラン (新規/更新/変更なし) のみ返す。
+  const dryRun = req.body?.dryRun === 'true' || req.body?.dryRun === true;
+
+  const result = await importAwardsExcel(req.file.buffer, eventId, mapping, extraColumns, dryRun);
   res.json({ success: true, data: result });
 }));
 

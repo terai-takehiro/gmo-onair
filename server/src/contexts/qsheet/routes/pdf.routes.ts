@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { queryOne } from '../../../shared/db/connection';
 import { requireAuth } from '../../../shared/middleware/auth';
+import { canAccessDoc } from '../access';
 import PDFDocument from 'pdfkit';
 import path from 'path';
 import fs from 'fs';
@@ -103,6 +104,11 @@ router.post('/export-pdf', async (req: Request, res: Response) => {
     ) as any;
 
     if (!doc) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'ドキュメントが見つかりません' } });
+      return;
+    }
+    // アクセス権チェック (作成者 / 共有先 / 管理者のみ)。存在を秘匿するため 404
+    if (!(await canAccessDoc(req.user!, doc.id as string, (doc.created_by as string) ?? null))) {
       res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'ドキュメントが見つかりません' } });
       return;
     }

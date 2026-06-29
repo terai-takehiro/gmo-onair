@@ -1,10 +1,30 @@
 import * as XLSX from 'xlsx';
 import { getDb } from '../../../shared/db/connection';
 
+export interface EntryChange {
+  category: string;
+  name: string;
+  kind: 'created' | 'updated';
+  /** updated のとき変更されたフィールド名一覧 */
+  fields: string[];
+}
+
 export interface ImportResult {
   categories: { id: number; name: string; description: string | null; inserted: number }[];
+  /** 後方互換: created + updated の合計 (= 実際に書き込んだ件数) */
   totalInserted: number;
+  /** 新規追加された件数 */
+  created: number;
+  /** 既存と差分があり更新された件数 */
+  updated: number;
+  /** 既存と完全一致のためスキップした件数 (重複) */
+  unchanged: number;
+  /** 名前が空などで取り込めなかった件数 */
   skipped: number;
+  /** 新規/更新の明細 (最大 200 件) */
+  changes: EntryChange[];
+  /** dryRun=true の場合 true (DB へは書き込まず差分プランのみ返す) */
+  dryRun: boolean;
   warnings: string[];
 }
 
@@ -54,6 +74,11 @@ const REC_DEPT_HEADERS        = ['推薦者部署', '推薦者`部署'];
 const REC_POSITION_HEADERS    = ['推薦者役職'];
 const REC_RESPECT_HEADERS     = ['尊敬ポイント（13文字）', '尊敬ポイント(13文字)', '尊敬ポイント'];
 const REC_RESPECT_EN_HEADERS  = ['尊敬ポイント（13文字）（英語）', '尊敬ポイント(13文字)(英語)', '尊敬ポイント（英語）', '尊敬ポイント(英語)'];
+// 投票結果 (DB列: rank / points / own_points)
+const RANK_HEADERS            = ['順位', 'rank'];
+const POINTS_HEADERS          = ['ポイント総計', 'ポイント', 'points', 'point'];
+// 「自社以外票」を部分一致で誤検出しないよう「自社票」完全一致候補のみに限定
+const OWN_POINTS_HEADERS      = ['自社票', 'own_points'];
 
 // custom mapping のキー定義 (クライアントと共有)
 export type ImportMappingKey =
@@ -64,7 +89,8 @@ export type ImportMappingKey =
   | 'ism' | 'skills' | 'title' | 'titleEn'
   | 'teamSize' | 'members'
   | 'recName' | 'recNameEn' | 'recNameKana' | 'recCompany' | 'recDept' | 'recPosition'
-  | 'recRespect' | 'recRespectEn';
+  | 'recRespect' | 'recRespectEn'
+  | 'rank' | 'points' | 'ownPoints';
 
 export type ImportMapping = Partial<Record<ImportMappingKey, string>>;
 
@@ -100,6 +126,9 @@ const AUTO_HEADERS: Record<ImportMappingKey, string[]> = {
   recPosition: REC_POSITION_HEADERS,
   recRespect: REC_RESPECT_HEADERS,
   recRespectEn: REC_RESPECT_EN_HEADERS,
+  rank: RANK_HEADERS,
+  points: POINTS_HEADERS,
+  ownPoints: OWN_POINTS_HEADERS,
 };
 
 // 全角 ⇄ 半角・大文字小文字・空白を吸収する正規化
@@ -111,6 +140,11 @@ function normalize(s: string): string {
     .toLowerCase();
 }
 
+/** ヘッダーが「(英語)」系のラベルか (英語列を JA 項目が誤検出しないための判定) */
+function isEnglishHeader(normalizedHeader: string): boolean {
+  return /英語|\(en\)|\(eng\)|english/.test(normalizedHeader);
+}
+
 function findCol(headers: string[], candidates: string[]): number {
   const normalizedHeaders = headers.map(normalize);
   const normalizedCands = candidates.map(normalize);
@@ -119,9 +153,14 @@ function findCol(headers: string[], candidates: string[]): number {
     const idx = normalizedHeaders.findIndex((h) => h === cand);
     if (idx >= 0) return idx;
   }
-  // 2) 部分一致をフォールバック
+  // 2) 部分一致をフォールバック。
+  //    ただし「プロジェクト名」が「プロジェクト名（英語）」を拾うような、
+  //    日本語候補 → 英語列 の部分一致は除外する (候補自体が英語ラベルの場合のみ許可)。
   for (const cand of normalizedCands) {
-    const idx = normalizedHeaders.findIndex((h) => h.includes(cand));
+    const candEn = isEnglishHeader(cand);
+    const idx = normalizedHeaders.findIndex(
+      (h) => h.includes(cand) && (candEn || !isEnglishHeader(h)),
+    );
     if (idx >= 0) return idx;
   }
   return -1;
@@ -153,6 +192,10 @@ interface RowData {
   award: string;
   division: string;
   rank: number | null;
+  /** ポイント総計 (小数可)。Excel に列が無ければ null。 */
+  points: number | null;
+  /** 自社票 (小数可) → CG の Own Vote 表示 (own_points)。 */
+  ownPoints: number | null;
   imageId: string | null;
   nameJa: string;
   nameEn: string | null;
@@ -328,6 +371,29 @@ function sanitizeKey(header: string): string {
   return header.replace(/\s+/g, '').replace(/[\[\]]/g, '');
 }
 
+/** チームメンバー欄のパース。
+ *  Excel 形式: `[1]GMOインターネット株式会社｜7718｜笠原 稜太 [2]…｜…｜…`
+ *  `[N]` 区切りで各メンバー、`｜`/`|` 区切りで「会社｜社員番号｜氏名」。
+ *  CG には**氏名だけ**を出すため name のみ抽出 (会社・社員番号は捨てる)。
+ *  `[N]` マーカーが無い場合は読点/カンマ/スラッシュ区切りにフォールバック。 */
+function parseTeamMembers(raw: string): { role: string; name: string; company: string }[] {
+  if (!raw || !raw.trim()) return [];
+  let segs: string[];
+  if (/\[\d+\]/.test(raw)) {
+    segs = raw.split(/\s*\[\d+\]\s*/).map((s) => s.trim()).filter(Boolean);
+  } else {
+    segs = raw.split(/\s*[、,／/]\s*/).map((s) => s.trim()).filter(Boolean);
+  }
+  return segs
+    .map((seg) => {
+      // 「会社｜社員番号｜氏名」→ 氏名 (最後の区切り以降) を採用
+      const parts = seg.split(/[｜|]/).map((p) => p.trim()).filter(Boolean);
+      const name = parts.length > 0 ? parts[parts.length - 1] : seg.trim();
+      return { role: '', name, company: '' };
+    })
+    .filter((m) => m.name);
+}
+
 export async function importAwardsExcel(
   buffer: Buffer,
   eventId: number,
@@ -335,6 +401,8 @@ export async function importAwardsExcel(
   /** v2.8.69+: 既知 CG 項目に該当しない列を「そのまま保存」する場合の Excel ヘッダー一覧。
    *  oneshot_data.{sanitizeKey(header)} として書き込まれる。 */
   extraColumns?: string[],
+  /** v2.9.102+: true なら DB へ書き込まず、新規/更新/変更なしの差分プランのみ返す (通知用)。 */
+  dryRun = false,
 ): Promise<ImportResult> {
   const warnings: string[] = [];
 
@@ -363,6 +431,9 @@ export async function importAwardsExcel(
   const nameEnProjCol   = get('projectNameEn');
   const orgJaCol        = get('org');
   const orgEnCol        = get('orgEn');
+  const rankCol         = get('rank');
+  const pointsCol       = get('points');
+  const ownPointsCol    = get('ownPoints');
 
   if (awardCol < 0) warnings.push('「種別/賞」列のマッピングがありません。単一カテゴリ「インポート」に全エントリを追加します');
   if (divisionCol < 0) warnings.push('「エントリー部門」列のマッピングがありません');
@@ -413,15 +484,36 @@ export async function importAwardsExcel(
     const nomEn  = cellStr(row, nameEnCol);
     const nameEn = projEn || nomEn || null;
 
-    const rank = null;
+    // 投票結果 (順位は整数 / ポイント・自社票は小数可)。空セルは null。
+    const parseNum = (col: number, integer = false): number | null => {
+      if (col < 0) return null;
+      const raw = cellStr(row, col).replace(/,/g, '');
+      if (!raw) return null;
+      const n = integer ? parseInt(raw, 10) : parseFloat(raw);
+      return Number.isFinite(n) ? n : null;
+    };
+    const rank      = parseNum(rankCol, true);
+    const points    = parseNum(pointsCol);
+    const ownPoints = parseNum(ownPointsCol);
 
     const imageId = imageIdCol >= 0 ? cellStr(row, imageIdCol) || null : null;
     const stripKK = (s: string) => s.replace(/株式会社/g, '').replace(/\s+/g, ' ').trim();
     const orgJa   = orgJaCol >= 0 ? stripKK(cellStr(row, orgJaCol)) || null : null;
     const orgEn   = orgEnCol >= 0 ? cellStr(row, orgEnCol) || null : null;
 
+    // ── チームメンバー (氏名抽出) と人数を先に算出してチーム判定に使う ──
+    const membersColIdx = oneshotCols['members'];
+    const membersRaw = membersColIdx != null && membersColIdx >= 0 ? cellStr(row, membersColIdx) : '';
+    const parsedMembers = parseTeamMembers(membersRaw);
+    const teamSizeColIdx = oneshotCols['teamSize'];
+    const teamSizeNum = teamSizeColIdx != null && teamSizeColIdx >= 0
+      ? parseInt(cellStr(row, teamSizeColIdx), 10) || 0
+      : 0;
+
     // ── oneshot_data を構築 ──
-    const isTeam = !!projJa;
+    // チーム判定: チームメンバーがある / 人数>1 / 日本語プロジェクト名がある のいずれか。
+    // (英語のみのプロジェクト名は findCol 修正で projJa に入らないため、ここでは判定に使わない)
+    const isTeam = parsedMembers.length > 0 || teamSizeNum > 1 || !!projJa;
     const od: Record<string, unknown> = {};
     od.type = isTeam ? 'team' : 'individual';
 
@@ -447,7 +539,12 @@ export async function importAwardsExcel(
     setIf('title', 'title');
     setIf('titleEn', 'titleEn');
     setIf('teamSize', 'teamSize', (v) => parseInt(v, 10) || undefined);
-    setIf('members', 'members'); // 文字列のまま (CG 側で member array に整形は今後)
+    // チームメンバーは氏名のみ抽出した配列で保存 (CG の members グリッドが描画)。
+    // 英語名は元データに無いため JA と同じ配列を membersEn にも入れて EN 表示でも氏名を出す。
+    if (parsedMembers.length > 0) {
+      od.members = parsedMembers;
+      od.membersEn = parsedMembers;
+    }
 
     // 推薦者 (recommender)
     const rec: Record<string, unknown> = {};
@@ -477,7 +574,7 @@ export async function importAwardsExcel(
     // 何も追加されなかった (type のみ) なら oneshot_data は null として保存
     const oneshotData = Object.keys(od).length > 1 ? od : null;
 
-    parsedRows.push({ award, division, rank, imageId, nameJa, nameEn, orgJa, orgEn, oneshotData, isTeam });
+    parsedRows.push({ award, division, rank, points, ownPoints, imageId, nameJa, nameEn, orgJa, orgEn, oneshotData, isTeam });
   }
 
   if (parsedRows.length === 0) throw new Error('有効なデータ行が存在しません');
@@ -497,7 +594,17 @@ export async function importAwardsExcel(
   const pool = getDb();
   const client = await pool.connect();
   const resultCategories: { id: number; name: string; description: string | null; inserted: number }[] = [];
-  let totalInserted = 0;
+  let created = 0;
+  let updated = 0;
+  let unchanged = 0;
+  const changes: EntryChange[] = [];
+  const CHANGES_CAP = 200;
+
+  // 文字列比較 (null/undefined を '' に正規化)
+  const s = (v: unknown): string => (v == null ? '' : String(v));
+  // 数値比較 (null は「変更なし扱い」)
+  const numChanged = (newVal: number | null, exVal: unknown): boolean =>
+    newVal != null && Number(exVal) !== newVal;
 
   try {
     await client.query('BEGIN');
@@ -534,13 +641,13 @@ export async function importAwardsExcel(
 
       let inserted = 0;
       for (const r of rowGroup) {
-        // ── 重複チェック (upsert) ──
+        // ── 重複チェック (upsert + 差分検出) ──
         // 同 event + 同 category 内で 氏名 (name) が一致するエントリを探す。
-        // 見つかれば Excel 由来の列だけ UPDATE (rank/points/own_points/photo_url/
-        // photo_box_file_id/oneshot_data など運用データは保持)。
+        // 既存と完全一致なら何もしない (重複スキップ)。差分があれば UPDATE して通知。
         // 見つからなければ INSERT。
         const existing = await client.query(
-          `SELECT id FROM awards_entries
+          `SELECT id, name_en, org, org_en, image_id, rank, points, own_points, oneshot_data
+           FROM awards_entries
            WHERE event_id=$1 AND category_id=$2 AND name=$3
            LIMIT 1`,
           [eventId, categoryId, r.nameJa]
@@ -549,39 +656,87 @@ export async function importAwardsExcel(
         const oneshotJson = r.oneshotData ? JSON.stringify(r.oneshotData) : null;
 
         if (existing.rows.length > 0) {
-          const existingId = existing.rows[0].id as number;
-          // 既存 oneshot_data に上書きマージ (Excel に値があるキーだけ更新、
-          // 残りは保持) するため `||` 演算子を使用。
-          await client.query(
-            `UPDATE awards_entries
-             SET name_en = $1,
-                 org    = $2,
-                 org_en = $3,
-                 image_id = $4,
-                 oneshot_data = COALESCE(oneshot_data, '{}'::jsonb) || COALESCE($5::jsonb, '{}'::jsonb),
-                 updated_at = NOW()
-             WHERE id = $6`,
-            [r.nameEn, r.orgJa, r.orgEn, r.imageId, oneshotJson, existingId]
-          );
+          const ex = existing.rows[0] as Record<string, unknown>;
+
+          // ── 差分フィールドを算出 ──
+          const fields: string[] = [];
+          if (s(ex.name_en) !== s(r.nameEn)) fields.push('氏名(英語)');
+          if (s(ex.org) !== s(r.orgJa)) fields.push('会社');
+          if (s(ex.org_en) !== s(r.orgEn)) fields.push('会社(英語)');
+          if (s(ex.image_id) !== s(r.imageId)) fields.push('画像ID');
+          if (numChanged(r.rank, ex.rank)) fields.push('順位');
+          if (numChanged(r.points, ex.points)) fields.push('ポイント');
+          if (numChanged(r.ownPoints, ex.own_points)) fields.push('自社票');
+          // oneshot_data は浅いマージ (|| と同じ)。新データの各キーが既存と違えば変更ありとみなす。
+          if (r.oneshotData) {
+            const exOd = (ex.oneshot_data && typeof ex.oneshot_data === 'object'
+              ? ex.oneshot_data : {}) as Record<string, unknown>;
+            const newOd = r.oneshotData as Record<string, unknown>;
+            const odChanged = Object.keys(newOd).some(
+              (k) => JSON.stringify(exOd[k]) !== JSON.stringify(newOd[k]),
+            );
+            if (odChanged) fields.push('CG表示内容');
+          }
+
+          if (fields.length === 0) {
+            unchanged++;
+            continue; // 完全一致 → スキップ (重複を投入しない)
+          }
+
+          if (!dryRun) {
+            const existingId = ex.id as number;
+            await client.query(
+              `UPDATE awards_entries
+               SET name_en = $1,
+                   org    = $2,
+                   org_en = $3,
+                   image_id = $4,
+                   oneshot_data = COALESCE(oneshot_data, '{}'::jsonb) || COALESCE($5::jsonb, '{}'::jsonb),
+                   rank       = COALESCE($7, rank),
+                   points     = COALESCE($8, points),
+                   own_points = COALESCE($9, own_points),
+                   is_winner  = CASE WHEN $7 IS NOT NULL THEN ($7 = 1) ELSE is_winner END,
+                   updated_at = NOW()
+               WHERE id = $6`,
+              [r.nameEn, r.orgJa, r.orgEn, r.imageId, oneshotJson, existingId, r.rank, r.points, r.ownPoints]
+            );
+          }
+          updated++;
           inserted++;
-          totalInserted++;
+          if (changes.length < CHANGES_CAP) {
+            changes.push({ category: divisionName ? `${awardName}/${divisionName}` : awardName, name: r.nameJa, kind: 'updated', fields });
+          }
           continue;
         }
 
-        await client.query(
-          `INSERT INTO awards_entries
-             (event_id, category_id, rank, name, name_en, org, org_en, image_id, is_winner, oneshot_data)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb)`,
-          [eventId, categoryId, r.rank, r.nameJa, r.nameEn, r.orgJa, r.orgEn, r.imageId, r.rank === 1, oneshotJson]
-        );
+        if (!dryRun) {
+          await client.query(
+            `INSERT INTO awards_entries
+               (event_id, category_id, rank, points, own_points, name, name_en, org, org_en, image_id, is_winner, oneshot_data)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb)`,
+            [eventId, categoryId, r.rank, r.points, r.ownPoints, r.nameJa, r.nameEn, r.orgJa, r.orgEn, r.imageId, r.rank === 1, oneshotJson]
+          );
+        }
+        created++;
         inserted++;
-        totalInserted++;
+        if (changes.length < CHANGES_CAP) {
+          changes.push({ category: divisionName ? `${awardName}/${divisionName}` : awardName, name: r.nameJa, kind: 'created', fields: [] });
+        }
       }
       resultCategories.push({ id: categoryId, name: awardName, description: divisionName || null, inserted });
     }
 
-    await client.query('COMMIT');
-    return { categories: resultCategories, totalInserted, skipped, warnings };
+    // dryRun のときは書き込みを破棄 (カテゴリ作成も含めロールバック)
+    await client.query(dryRun ? 'ROLLBACK' : 'COMMIT');
+    return {
+      categories: resultCategories,
+      totalInserted: created + updated,
+      created, updated, unchanged,
+      skipped,
+      changes,
+      dryRun,
+      warnings,
+    };
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;

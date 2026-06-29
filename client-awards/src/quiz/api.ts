@@ -17,7 +17,7 @@ export function useQuizzes(eventId: number | null) {
   });
 }
 
-export function useQuiz(id: number | null) {
+export function useQuiz(id: number | null, opts?: { refetchMs?: number | false }) {
   return useQuery({
     queryKey: KEY_DETAIL(id ?? 0),
     queryFn: async () => {
@@ -26,6 +26,8 @@ export function useQuiz(id: number | null) {
       return res.data.data as QuizWithChoices;
     },
     enabled: !!id,
+    // 送出中(連動)は operator プレビューも DB の最新票数を取り続ける (socket が不安定でも反映)。
+    refetchInterval: opts?.refetchMs ?? false,
   });
 }
 

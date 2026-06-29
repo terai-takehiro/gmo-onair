@@ -95,6 +95,12 @@ export interface CgCueState {
   voteDisplay: VoteDisplay;
   pollStartedAt: number | null; // epoch ms; poll カウントダウン開始時刻
   revealPhase: 0 | 1 | 2 | 3;        // vote-reveal の内部フェーズ (0:shake / 1:grow / 2:winner)
+  // 投票No.1決定(vote)でアンケート未紐づけのとき、operator が手動選択した No.1 のエントリ id。
+  // null なら rank=1 / is_winner を No.1 として扱う (従来挙動)。
+  winnerEntryId?: number | null;
+  // v2.9.128: ランキング演出の半透明黒ベース (スクリム) の濃さ (0〜0.95、中心値)。
+  // 操作画面のスライダーでライブ調整。未指定は 0.72 (v2.9.127 の中心値)。
+  scrimOpacity?: number;
 }
 
 // Canvas dimensions

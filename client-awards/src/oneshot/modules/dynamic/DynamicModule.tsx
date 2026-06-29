@@ -1,6 +1,13 @@
 import { Fragment, type ReactNode } from 'react';
 import type { Lang, ModuleDef, Nominee, SlotDef } from '../../types';
 import { asList, asText, resolveBinding } from './resolveBinding';
+import { useCondense } from '../../hooks/useCondense';
+
+// メンバー氏名: セル幅をはみ出す場合は scaleX で長体にして収める
+function MemberName({ name }: { name: string }) {
+  const ref = useCondense<HTMLSpanElement>([name], 0.5);
+  return <span ref={ref}>{name}</span>;
+}
 
 // 動的モジュールレンダラ。ModuleDef.slots[] を順番に走査して .lt-module 内の JSX を生成。
 // header-label と header-byline が連続している場合は <div class="lt-module-head"> で
@@ -113,17 +120,19 @@ function renderSlot(slot: SlotDef, n: Nominee, lang: Lang): ReactNode {
       const list = Array.isArray(value)
         ? (value as Array<{ role: string; name: string; company: string }>)
         : [];
+      // 横は最大 8 名。8 名を超える場合は折り返して複数行に。
+      const cols = Math.min(8, Math.max(1, list.length));
       return (
-        <div className="lt-members">
+        <div className="lt-members" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
           {list.map((m, i) => (
             <div
               key={i}
               className="lt-member flap-block"
-              style={{ animationDelay: `${i * 70 + 120}ms` }}
+              style={{ animationDelay: `${i * 60 + 120}ms` }}
             >
-              <div className="lt-member-role">{m.role}</div>
-              <div className="lt-member-name">{m.name}</div>
-              <div className="lt-member-co">{m.company}</div>
+              {m.role && <div className="lt-member-role">{m.role}</div>}
+              <div className="lt-member-name"><MemberName name={m.name} /></div>
+              {m.company && <div className="lt-member-co">{m.company}</div>}
             </div>
           ))}
         </div>

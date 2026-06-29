@@ -56,7 +56,7 @@ function patternBadge(mode: QuizMode, surveyPattern: SurveyPattern | null) {
   return { label: 'No.1 → ランキングCG', color: 'bg-amber-900/40 text-amber-300 border-amber-700/50' };
 }
 
-export default function QuizStackControlPage() {
+export default function QuizStackControlPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { id } = useParams<{ id: string }>();
   const eventId = parseInt(id!);
   const navigate = useNavigate();
@@ -81,7 +81,11 @@ export default function QuizStackControlPage() {
   useEffect(() => { sendNext(nextQuizId); }, [nextQuizId, sendNext]);
 
   // 現在 / 次の quiz 詳細
-  const { data: currentQuiz } = useQuiz(cue.currentQuizId);
+  // 連動クイズの送出中は operator プレビューも 2.5s ごとに DB の最新票数を取得
+  // (出力URLと同じ更新経路。socket が届かない環境でも操作UIの数値/CGが反映される)。
+  const currentInList = quizzes.find((q) => q.id === cue.currentQuizId) as { interactive_question_id?: string | null } | undefined;
+  const linkedCurrentForPoll = !!currentInList?.interactive_question_id && cue.step !== 'idle';
+  const { data: currentQuiz } = useQuiz(cue.currentQuizId, { refetchMs: linkedCurrentForPoll ? 2500 : false });
   const { data: nextQuiz } = useQuiz(nextQuizId);
 
   // Interactive 連携中の quiz か (interactive_question_id があれば連動対象)
@@ -99,10 +103,13 @@ export default function QuizStackControlPage() {
 
   // Interactive 連動時: poller のリアルタイム投票数を操作UIにも反映 (手入力を上書き)。
   // 出力CG と同じ liveVotes を使うことで「プレビューと実CGの集計が一致」する。
+  // 非連携 (手入力) クイズでは liveVotes (poll 開始時の全0リセット等) で手入力を
+  // 上書きしないよう、連携クイズのときだけ反映する。
   useEffect(() => {
+    if (!isLinked) return;
     if (!liveVotes || liveVotes.quizId !== cue.currentQuizId) return;
     setVoteEdits((prev) => ({ ...prev, ...liveVotes.votes }));
-  }, [liveVotes, cue.currentQuizId]);
+  }, [isLinked, liveVotes, cue.currentQuizId]);
 
   // カウントダウンが 0 になっても自動遷移しない (poll のまま停止)。
   // operator が次に TAKE を押したとき次ステップ (answer-check / correct-reveal) へ進む。
@@ -233,6 +240,8 @@ export default function QuizStackControlPage() {
     <div className="h-full flex flex-col bg-black text-slate-100 overflow-y-auto lg:overflow-hidden">
       {/* モバイル: スクロール許可 (v2.9.35). lg+ では従来通り overflow-hidden で固定レイアウト。 */}
       {/* ── Header (v2.9.34 統一: h-14 / アイコン h-9 w-9 / text-sm + 3-way 回遊ナビ) ──── */}
+      {/* v2.9.88: 統合コックピットに埋め込む場合 (embedded) はヘッダーを隠す */}
+      {!embedded && (
       <header className="flex items-center gap-2 px-4 h-14 shrink-0 border-b border-slate-800">
         <button
           onClick={() => navigate(`/event/${eventId}/quiz`)}
@@ -291,6 +300,7 @@ export default function QuizStackControlPage() {
           <ExternalLink className="h-3.5 w-3.5" />EN
         </a>
       </header>
+      )}
 
       <div className="flex-1 flex flex-col lg:flex-row lg:overflow-hidden min-h-0">
         {/* PROGRAM プレビュー */}

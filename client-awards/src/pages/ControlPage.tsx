@@ -47,28 +47,28 @@ function groupByAward(cats: CgCategory[]): AwardGroup[] {
   return order.map((name) => ({ name, divisions: map.get(name)! }));
 }
 
-type StepDef = { step: CgStep; label: string; desc: string; color: 'neutral' | 'live' | 'award'; shortcut?: string };
+type StepDef = { step: CgStep; label: string; desc: string; color: 'neutral' | 'live' | 'award' };
 
 // パターン別ステップシーケンス
 const STEPS_DIRECT: StepDef[] = [
-  { step: 'idle',        label: 'IDLE',       desc: '透過',                    color: 'neutral', shortcut: '0' },
-  { step: 'title',       label: 'TITLE',      desc: 'タイトルカード',          color: 'neutral', shortcut: '1' },
-  { step: 'nominees',    label: 'NOMINEES',   desc: 'ノミネート一覧',          color: 'live',    shortcut: '2' },
-  { step: 'ranks52',     label: 'RANKS 5→2',  desc: 'ランキングバー',          color: 'live',    shortcut: '3' },
-  { step: 'winner-bar',  label: 'WINNER BAR', desc: '大賞引きバー',            color: 'award',   shortcut: '4' },
-  { step: 'oneshot',     label: 'ONE SHOT',   desc: '大賞フルスクリーン',      color: 'award',   shortcut: '5' },
-  { step: 'celebration', label: 'CELEB',      desc: '全部門 No.1 + 紙吹雪',    color: 'award',   shortcut: '6' },
+  { step: 'idle',        label: 'IDLE',       desc: '透過',                    color: 'neutral' },
+  { step: 'title',       label: 'TITLE',      desc: 'タイトルカード',          color: 'neutral' },
+  { step: 'nominees',    label: 'NOMINEES',   desc: 'ノミネート一覧',          color: 'live'    },
+  { step: 'ranks52',     label: 'RANKS 5→2',  desc: '5位→2位発表 (ランキングバー)', color: 'live' },
+  { step: 'winner-bar',  label: 'WINNER BAR', desc: '1位ランキングバー (大賞引き)', color: 'award' },
+  { step: 'oneshot',     label: 'ONE SHOT',   desc: '大賞フルスクリーン',      color: 'award'   },
+  { step: 'celebration', label: 'CELEB',      desc: '全部門 No.1 + 紙吹雪',    color: 'award'   },
 ];
 const STEPS_VOTE: StepDef[] = [
-  { step: 'idle',         label: 'IDLE',       desc: '透過',                    color: 'neutral', shortcut: '0' },
-  { step: 'title',        label: 'TITLE',      desc: 'タイトルカード',          color: 'neutral', shortcut: '1' },
-  { step: 'nominees',     label: 'NOMINEES',   desc: 'ノミネート一覧',          color: 'live',    shortcut: '2' },
-  { step: 'top3',         label: 'BEST 3',     desc: 'TOP3 発表',               color: 'live',    shortcut: '3' },
-  { step: 'final-pitch',  label: 'PITCH',      desc: 'ファイナルピッチ (3名→1名)', color: 'live', shortcut: '4' },
-  { step: 'celebration',  label: 'CELEB',      desc: '全部門 No.1 + 紙吹雪',    color: 'award',   shortcut: '5' },
+  { step: 'idle',         label: 'IDLE',       desc: '透過',                    color: 'neutral' },
+  { step: 'title',        label: 'TITLE',      desc: 'タイトルカード',          color: 'neutral' },
+  { step: 'nominees',     label: 'NOMINEES',   desc: 'ノミネート一覧',          color: 'live'    },
+  { step: 'top3',         label: 'BEST 3',     desc: 'TOP3 発表',               color: 'live'    },
+  { step: 'final-pitch',  label: 'PITCH',      desc: 'ファイナルピッチ (3名→1名)', color: 'live' },
+  { step: 'celebration',  label: 'CELEB',      desc: '全部門 No.1 + 紙吹雪',    color: 'award'   },
 ];
 // v2.9.63: 連動アンケートを持つ部門でだけ末尾に追加する「アンケート No.1 発表」ステップ
-const SURVEY_STEP: StepDef = { step: 'survey-oneshot', label: 'SURVEY No.1', desc: 'アンケートNo.1発表', color: 'award', shortcut: '7' };
+const SURVEY_STEP: StepDef = { step: 'survey-oneshot', label: 'SURVEY No.1', desc: 'アンケートNo.1発表', color: 'award' };
 const ONESHOT_STYLES: { style: OneshotStyle; label: string }[] = [
   { style: 'classic',   label: 'Classic'   },
   { style: 'shards',    label: 'Shards'    },
@@ -77,7 +77,7 @@ const ONESHOT_STYLES: { style: OneshotStyle; label: string }[] = [
 ];
 const LIVE_STEPS: CgStep[] = ['nominees', 'ranks52', 'top3', 'final-pitch', 'winner-bar', 'oneshot', 'celebration', 'survey-oneshot'];
 
-export default function ControlPage() {
+export default function ControlPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { id } = useParams<{ id: string }>();
   const eventId = parseInt(id!);
   const navigate = useNavigate();
@@ -93,7 +93,21 @@ export default function ControlPage() {
   const { cue, sendCue, sendNextCue } = useAwardsCue(eventId);
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
   const awardGroups = useMemo(() => groupByAward(event?.categories ?? []), [event]);
-  const surveys = useMemo<CgSurvey[]>(() => event?.surveys ?? [], [event]);
+  // v2.9.124: アンケート票数確定をリロード無しで反映するため、surveys は event 本体
+  // (60s staleTime・refetch なし) ではなく軽量エンドポイントを 3s ごとにポーリング。
+  const { data: polledSurveys } = useQuery({
+    queryKey: ['awards-surveys', eventId],
+    queryFn: async () => {
+      const res = await api.get(`/awards/events/${eventId}/surveys`);
+      return res.data.data as CgSurvey[];
+    },
+    refetchInterval: 3000,
+    refetchOnMount: 'always',
+  });
+  const surveys = useMemo<CgSurvey[]>(
+    () => polledSurveys ?? event?.surveys ?? [],
+    [polledSurveys, event],
+  );
   const liveCategory = event?.categories.find((c) => c.id === cue.categoryId) ?? null;
   const isLive = LIVE_STEPS.includes(cue.step);
 
@@ -101,6 +115,9 @@ export default function ControlPage() {
   const [nextStep, setNextStep] = useState<CgStep>('idle');
   const [nextCategoryId, setNextCategoryId] = useState<number | null>(null);
   const [nextStyle, setNextStyle] = useState<OneshotStyle>('classic');
+  // 手動選択 No.1 (vote + アンケート未紐づけ時)。カテゴリ切替でリセット。
+  const [nextWinnerId, setNextWinnerId] = useState<number | null>(null);
+  useEffect(() => { setNextWinnerId(null); }, [nextCategoryId]);
 
   // ── NEXT category の演出パターンに応じてステップ一覧を切替
   const nextCategoryRaw = event?.categories.find((c) => c.id === nextCategoryId) ?? null;
@@ -117,8 +134,20 @@ export default function ControlPage() {
     () => nextCategoryId != null && surveys.some((s) => s.link_category_id === nextCategoryId),
     [surveys, nextCategoryId],
   );
+  // 投票No.1決定(vote)でアンケート未紐づけのときは final-pitch を出さず、
+  // operator が手動で No.1 を選び CELEB(紙吹雪) で発表する。
+  const voteManualWinner = pattern === 'vote' && !nextCategoryHasSurvey;
+  // ランキング棒グラフの開始順位 (2〜5 で実在する最上位)。人数が少なければ自動で繰り上げ、
+  // RANKS ステップのボタン名も「RANKS 4→2」等に追従させる。
+  const rankStart = useMemo(() => {
+    const ranks = (nextCategoryRaw?.entries ?? [])
+      .map((e) => e.rank ?? 99)
+      .filter((r) => r >= 2 && r <= 5);
+    return ranks.length ? Math.max(...ranks) : 5;
+  }, [nextCategoryRaw]);
   const STEPS = useMemo(() => {
-    const base = pattern === 'vote' ? STEPS_VOTE : STEPS_DIRECT;
+    let base = pattern === 'vote' ? STEPS_VOTE : STEPS_DIRECT;
+    if (voteManualWinner) base = base.filter((s) => s.step !== 'final-pitch');
     let steps = isLastDivisionOfAward ? base : base.filter((s) => s.step !== 'celebration');
     if (nextCategoryHasSurvey) {
       // 連動アンケートを持つ部門は「アンケート No.1 発表」を末尾に追加。
@@ -126,8 +155,18 @@ export default function ControlPage() {
       steps = steps.filter((s) => s.step !== 'celebration');
       steps = [...steps, SURVEY_STEP];
     }
+    // RANKS ステップのラベルを開始順位に合わせて変更 (RANKS 5→2 / 4→2 / 3→2 / 2)。
+    steps = steps.map((s) =>
+      s.step === 'ranks52'
+        ? {
+            ...s,
+            label: rankStart <= 2 ? 'RANKS 2' : `RANKS ${rankStart}→2`,
+            desc: rankStart <= 2 ? '2位発表 (ランキングバー)' : `${rankStart}位→2位発表 (ランキングバー)`,
+          }
+        : s,
+    );
     return steps;
-  }, [pattern, isLastDivisionOfAward, nextCategoryHasSurvey]);
+  }, [pattern, isLastDivisionOfAward, nextCategoryHasSurvey, voteManualWinner, rankStart]);
   const liveStep = [...STEPS_DIRECT, ...STEPS_VOTE].find((s) => s.step === cue.step);
 
   // 初期: LIVE 状態を NEXT にコピー (新規イベント or リロード時)
@@ -162,8 +201,9 @@ export default function ControlPage() {
       voteDisplay: cue.voteDisplay,
       pollStartedAt: null,
       revealPhase: 0,
+      winnerEntryId: voteManualWinner ? (nextWinnerId ?? null) : null,
     });
-  }, [event, nextStep, nextCategoryId, nextStyle, cue.voteDisplay, sendNextCue]);
+  }, [event, nextStep, nextCategoryId, nextStyle, cue.voteDisplay, sendNextCue, voteManualWinner, nextWinnerId]);
 
   // 全カテゴリ一覧 (NEXT ↑↓ 循環 + TAKE 自動進行で使用)
   const allCats = event?.categories ?? [];
@@ -198,6 +238,8 @@ export default function ControlPage() {
       oneshotStyle: nextStyle,
       pollStartedAt: null,
       revealPhase: 0,
+      // 手動選択 No.1 (vote + アンケート未紐づけ時のみ。それ以外は null で従来の rank=1)
+      winnerEntryId: voteManualWinner ? (nextWinnerId ?? null) : null,
     });
 
     // survey-oneshot を新規送出した直後は NEXT ポインタを据え置き
@@ -219,7 +261,7 @@ export default function ControlPage() {
         setNextStep('idle');
       }
     }
-  }, [sendCue, nextStep, nextCategoryId, nextStyle, cue.step, cue.revealPhase, STEPS, allCats]);
+  }, [sendCue, nextStep, nextCategoryId, nextStyle, nextWinnerId, voteManualWinner, cue.step, cue.revealPhase, STEPS, allCats]);
 
   const clear = useCallback(() => {
     sendCue({ step: 'idle', pollStartedAt: null, revealPhase: 0 });
@@ -274,57 +316,6 @@ export default function ControlPage() {
     return () => ro.disconnect();
   }, []);
 
-  // ── ↑↓ で 全カテゴリ間を循環 (フラット)
-  const goPrev = useCallback(() => {
-    if (!allCats.length) return;
-    const i = allCats.findIndex((c) => c.id === nextCategoryId);
-    const next = (i - 1 + allCats.length) % allCats.length;
-    setNextCategoryId(allCats[next].id);
-  }, [allCats, nextCategoryId]);
-  const goNext = useCallback(() => {
-    if (!allCats.length) return;
-    const i = allCats.findIndex((c) => c.id === nextCategoryId);
-    const next = (i + 1) % allCats.length;
-    setNextCategoryId(allCats[next].id);
-  }, [allCats, nextCategoryId]);
-
-  // ── キーボードショートカット
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (target && (target.matches('input, textarea, select') || target.isContentEditable)) return;
-
-      // 0-5: step (パターンにより上限が変わる)
-      if (/^[0-9]$/.test(e.key)) {
-        const s = STEPS.find((st) => st.shortcut === e.key);
-        if (s) {
-          setNextStep(s.step);
-          return;
-        }
-      }
-      if (e.key === ' ' || e.key === 'Enter') {
-        e.preventDefault();
-        take();
-      } else if (e.key === 'x' || e.key === 'X') {
-        // v2.8.101+: 全画面中も使える CLEAR キー (Esc はブラウザの全画面解除と被るため代替)。
-        e.preventDefault();
-        clear();
-      } else if (e.key === 'Escape') {
-        // v2.8.100+: 全画面中の Esc はブラウザの全画面解除に専念。通常モードでは Esc で CLEAR。
-        if (document.fullscreenElement) return;
-        clear();
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        goNext();
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        goPrev();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [take, clear, goPrev, goNext]);
-
   // NEXT preview に渡す cue (LIVE と独立に NEXT 状態を描画)
   const nextCueForPreview: CgCueState = useMemo(() => ({
     step: nextStep,
@@ -333,13 +324,17 @@ export default function ControlPage() {
     voteDisplay: cue.voteDisplay,
     pollStartedAt: null,
     revealPhase: 0,
-  }), [nextStep, nextCategoryId, nextStyle, cue.voteDisplay]);
+    winnerEntryId: voteManualWinner ? (nextWinnerId ?? null) : null,
+    scrimOpacity: cue.scrimOpacity,
+  }), [nextStep, nextCategoryId, nextStyle, cue.voteDisplay, voteManualWinner, nextWinnerId, cue.scrimOpacity]);
 
   return (
     <div className="h-full flex flex-col bg-black text-slate-100 overflow-y-auto lg:overflow-hidden">
       {/* モバイル: スクロール許可 (v2.9.35). lg+ では従来通り overflow-hidden で固定レイアウト。 */}
 
       {/* ── Header (v2.9.34 統一 + v2.9.35 モバイル コンパクト化) ──────── */}
+      {/* v2.9.88: 統合コックピットに埋め込む場合 (embedded) はヘッダーを隠す */}
+      {!embedded && (
       <header className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 h-14 shrink-0 border-b border-slate-800">
         <button
           onClick={() => navigate(`/event/${eventId}`)}
@@ -403,6 +398,7 @@ export default function ControlPage() {
           {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
         </button>
       </header>
+      )}
 
       {/* ── Middle: PROGRAM (left) + Category (right) ─── */}
       <div className="flex-1 flex flex-col lg:flex-row lg:overflow-hidden min-h-0">
@@ -578,7 +574,46 @@ export default function ControlPage() {
                   </div>
                 </div>
               )}
+              {/* 投票No.1決定 (アンケート未紐づけ) は CELEB の No.1 を手動選択 */}
+              {voteManualWinner && nextCategory && nextCategory.entries.length > 0 && (
+                <div className="rounded-lg border border-amber-800/40 bg-amber-950/20 p-2 space-y-1.5">
+                  <div className="text-[11px] font-bold text-amber-300 tracking-wider">No.1 を選択（紙吹雪で発表）</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {nextCategory.entries.map((e) => (
+                      <button
+                        key={e.id}
+                        onClick={() => setNextWinnerId(e.id)}
+                        className={cn(
+                          'rounded-md border px-2.5 py-1.5 text-xs font-semibold transition-all',
+                          nextWinnerId === e.id
+                            ? 'border-amber-500 bg-amber-900/50 text-amber-200'
+                            : 'border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-slate-100',
+                        )}
+                      >
+                        {e.name}
+                      </button>
+                    ))}
+                  </div>
+                  {nextWinnerId == null && (
+                    <div className="text-[10px] text-amber-200/60">未選択のときは順位1位を No.1 として発表します</div>
+                  )}
+                </div>
+              )}
               <StyleRow styles={ONESHOT_STYLES} liveStyle={cue.oneshotStyle} nextStyle={nextStyle} onSelect={setNextStyle} />
+              {/* v2.9.128: 半透明黒ベースの濃さをライブ調整 (cue で即時配信)。No.1発表系には適用されない。 */}
+              <div className="flex items-center gap-3 px-1">
+                <span className="text-[10px] font-black tracking-widest uppercase text-slate-400 shrink-0">黒ベース濃さ</span>
+                <input
+                  type="range" min={0} max={0.95} step={0.05}
+                  value={cue.scrimOpacity ?? 0.72}
+                  onChange={(e) => sendCue({ scrimOpacity: Number(e.target.value) })}
+                  className="flex-1 accent-slate-200"
+                  aria-label="ランキング演出の黒ベースの濃さ"
+                />
+                <span className="text-xs font-bold text-slate-200 tabular-nums w-10 text-right">
+                  {Math.round((cue.scrimOpacity ?? 0.72) * 100)}%
+                </span>
+              </div>
               <SendActionRow isLive={isLive} onTake={take} onClear={clear} />
               <div className="hidden sm:flex items-center gap-3 text-[9px] text-slate-500 tracking-widest uppercase font-medium flex-wrap">
                 <span><kbd className="px-1 rounded bg-slate-800 text-slate-300">0–5</kbd> ステップ</span>
@@ -718,8 +753,8 @@ function StepRow({ steps, liveStep, nextStep, onSelect }: {
   onSelect: (step: CgStep) => void;
 }) {
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-      {steps.map(({ step, label, desc, color, shortcut }) => {
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2">
+      {steps.map(({ step, label, desc, color }) => {
         const isNext = nextStep === step;
         const isLiveStep = liveStep === step;
         return (
@@ -734,11 +769,6 @@ function StepRow({ steps, liveStep, nextStep, onSelect }: {
               !isNext && 'border-slate-800 bg-slate-900/40 hover:bg-slate-800 hover:border-slate-700',
             )}
           >
-            {shortcut && (
-              <span className="absolute top-1 right-1.5 sm:top-1.5 sm:right-2 text-[9px] sm:text-[10px] font-black tracking-widest text-slate-500">
-                {shortcut}
-              </span>
-            )}
             <span className={cn(
               'text-[11px] sm:text-xs font-black tracking-wider leading-none',
               isNext ? 'text-amber-300' : 'text-slate-200',

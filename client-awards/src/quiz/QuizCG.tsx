@@ -87,6 +87,7 @@ export default function QuizCG({ quiz, cue, transparent = false, lang = 'ja' }: 
         display={quiz.display}
         showVotes={showVotes}
         correctReveal={correctReveal}
+        lang={lang}
       />
       {cue.step === 'poll' && (
         <Countdown
@@ -150,27 +151,38 @@ function CameraFrame() {
 // ─── 右パネル ──────────────────────────────────
 function RightColumn({ title, question, isVertical }: { title: string; question: string; isVertical: boolean }) {
   if (!isVertical) {
+    // 英語は横組み。縦書き(JA)と同じ「Q → 区切り線 → タイトル(金) → 質問(白)」を
+    // 列の中央に縦スタックして英語向けに最適化する (右寄せの不揃いを解消)。
     return (
       <div style={{
-        position: 'absolute', left: RIGHT_X, top: 40,
-        width: RIGHT_W, textAlign: 'right',
+        position: 'absolute', left: RIGHT_X, top: CAM_Y,
+        width: RIGHT_W, height: RIGHT_H,
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        textAlign: 'center', padding: '0 4px',
       }}>
         <div style={{
           fontFamily: "'Titillium Web', sans-serif",
-          fontWeight: 700, fontStyle: 'italic', fontSize: 96,
-          background: `linear-gradient(180deg, ${GOLD_BRIGHT}, ${GOLD} 60%, ${GOLD_DEEP})`,
+          fontWeight: 700, fontStyle: 'italic', fontSize: 128, lineHeight: 1,
+          background: `linear-gradient(180deg, ${GOLD_BRIGHT}, ${GOLD} 50%, ${GOLD_DEEP})`,
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-          marginBottom: 16, paddingBottom: '0.15em',
+          filter: 'drop-shadow(0 4px 22px rgba(0,0,0,0.85))',
+          padding: '8px 16px 18px',
         }}>Q</div>
-        <CondenseText style={{
-          fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 900, fontSize: 40,
-          color: '#fff', marginBottom: 18,
-        }} min={0.5}>{title}</CondenseText>
-        {/* 英語の質問文は長文になりがちなので折り返しで対応 (縦方向に余裕がある) */}
         <div style={{
-          fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 900, fontSize: 36,
-          color: '#fff', textShadow: '0 2px 16px rgba(0,0,0,0.85)',
-          lineHeight: 1.3, overflowWrap: 'break-word',
+          width: 150, height: 1, margin: '6px 0 22px',
+          background: `linear-gradient(90deg, transparent, ${GOLD_BRIGHT}, transparent)`,
+        }}/>
+        <CondenseText style={{
+          fontFamily: "'Titillium Web', 'Noto Sans JP', sans-serif", fontWeight: 700, fontSize: 34,
+          color: GOLD_BRIGHT, letterSpacing: '0.04em', marginBottom: 18,
+          textShadow: '0 2px 12px rgba(0,0,0,0.85)',
+        }} min={0.5}>{title}</CondenseText>
+        {/* 英語の質問文は長文になりがちなので折り返し + 行間広めで読みやすく */}
+        <div style={{
+          fontFamily: "'Titillium Web', 'Noto Sans JP', sans-serif", fontWeight: 700, fontSize: 40,
+          color: '#fff', textShadow: '0 2px 16px rgba(0,0,0,0.9)',
+          lineHeight: 1.28, overflowWrap: 'break-word', maxWidth: '100%',
         }}>{question}</div>
       </div>
     );
@@ -273,9 +285,10 @@ function TitleBand({ text, maxH }: { text: string; maxH: number }) {
 }
 
 // ─── 選択肢グリッド ────────────────────────────
-function ChoicesGrid({ choices, choiceCount, cue, display, showVotes, correctReveal }: {
+function ChoicesGrid({ choices, choiceCount, cue, display, showVotes, correctReveal, lang }: {
   choices: QuizChoice[]; choiceCount: number; cue: QuizCueState;
   display: 'count' | 'percent'; showVotes: boolean; correctReveal: boolean;
+  lang: 'ja' | 'en';
 }) {
   const { cols, rows } = gridForCount(choiceCount);
   const totalH = rows === 1 ? 96 : 200;
@@ -304,6 +317,7 @@ function ChoicesGrid({ choices, choiceCount, cue, display, showVotes, correctRev
             voteCount={voteCount} totalVotes={totalVotes}
             display={display} showVotes={showVotes}
             correctReveal={correctReveal}
+            lang={lang}
           />
         );
       })}
@@ -315,14 +329,17 @@ function ChoicesGrid({ choices, choiceCount, cue, display, showVotes, correctRev
 const VOTE_PILL_W = 124;
 const VOTE_PILL_GAP = 12;
 
-function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, correctReveal }: {
+function ChoiceCard({ index, choice, voteCount, totalVotes, display, showVotes, correctReveal, lang }: {
   index: number; choice: QuizChoice;
   voteCount: number; totalVotes: number;
   display: 'count' | 'percent'; showVotes: boolean;
   correctReveal: boolean;
+  lang: 'ja' | 'en';
 }) {
   const palette = QUIZ_COLORS[(index - 1) % QUIZ_COLORS.length];
-  const name = choice.name || `選択肢${index}`;
+  const name = lang === 'en'
+    ? (choice.name_en || choice.name || `Option ${index}`)
+    : (choice.name || `選択肢${index}`);
   const isCorrect = !!choice.is_correct;
   const isDimmed = correctReveal && !isCorrect;
   const isHilite = correctReveal && isCorrect;

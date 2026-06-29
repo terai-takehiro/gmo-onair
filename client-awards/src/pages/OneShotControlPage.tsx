@@ -13,7 +13,6 @@ import ModulePickerRow from '../oneshot/operator/ModulePickerRow';
 import TickerControlRow from '../oneshot/operator/TickerControlRow';
 import SendActionRow from '../oneshot/operator/SendActionRow';
 import CountdownControlPanel from '../oneshot/operator/CountdownControlPanel';
-import ShortcutHints from '../oneshot/operator/ShortcutHints';
 import I18nDictDialog from '../oneshot/operator/I18nDictDialog';
 import OneShotDataEditor from '../oneshot/operator/OneShotDataEditor';
 import { loadOverrides, type I18nOverrides } from '../oneshot/lib/i18nOverrides';
@@ -21,7 +20,6 @@ import { loadOverrides, type I18nOverrides } from '../oneshot/lib/i18nOverrides'
 import { useOneShotCue } from '../oneshot/hooks/useOneShotCue';
 import { useTakeFlow } from '../oneshot/hooks/useTakeFlow';
 import { useTickerToggle } from '../oneshot/hooks/useTickerToggle';
-import { useShortcuts } from '../oneshot/hooks/useShortcuts';
 import { groupNomineesForTicker } from '../oneshot/lib/groupNominees';
 import { mapEventToNominees, nomineeDbId, type AwardsCategoryRow } from '../oneshot/lib/mapEntryToNominee';
 import { useEventModuleConfig, getOrderedVisibleModules } from '../oneshot/lib/moduleConfig';
@@ -50,7 +48,7 @@ interface LiveSnapshot {
   lang: Lang;
 }
 
-export default function OneShotControlPage() {
+export default function OneShotControlPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { id } = useParams<{ id: string }>();
   const eventId = parseInt(id!);
   const navigate = useNavigate();
@@ -327,29 +325,6 @@ export default function OneShotControlPage() {
     });
   }, [previewNominee, previewModule, tickerFlow.on, selectedAwardIdx, transparent, lang, showPortrait, sendNextCue, countdownOn, countdownTarget, countdownPrefixJa, countdownPrefixEn, countdownX, countdownY, countdownScale]);
 
-  // ↑↓ で フィルタ済みノミネート間を循環
-  const goPrev = () => {
-    if (!filteredNominees.length) return;
-    const i = filteredNominees.findIndex((n) => n.id === previewId);
-    const next = (i - 1 + filteredNominees.length) % filteredNominees.length;
-    setPreviewId(filteredNominees[next].id);
-  };
-  const goNext = () => {
-    if (!filteredNominees.length) return;
-    const i = filteredNominees.findIndex((n) => n.id === previewId);
-    const next = (i + 1) % filteredNominees.length;
-    setPreviewId(filteredNominees[next].id);
-  };
-
-  useShortcuts({
-    modules: previewModules,
-    setModuleKey: (cueKey) => setPreviewModule(cueKey),
-    prevNominee: goPrev,
-    nextNominee: goNext,
-    take,
-    clear,
-  });
-
   // ── Letterbox ──────────────────────────────────────────
   const programRef = useRef<HTMLDivElement>(null);
   const previewThumbRef = useRef<HTMLDivElement>(null);
@@ -407,6 +382,8 @@ export default function OneShotControlPage() {
     <div className="h-full flex flex-col bg-black text-slate-100 overflow-y-auto lg:overflow-hidden">
       {/* モバイル: スクロール許可 (v2.9.35). lg+ では従来通り overflow-hidden で固定レイアウト。 */}
       {/* ── Header (v2.9.34 統一: h-14 / アイコン h-9 w-9 / text-sm + 3-way 回遊ナビ) ──── */}
+      {/* v2.9.88: 統合コックピットに埋め込む場合 (embedded) はヘッダーを隠す */}
+      {!embedded && (
       <header className="flex items-center gap-2 px-4 h-14 shrink-0 border-b border-slate-800">
         <button
           onClick={() => navigate(`/event/${eventId}`)}
@@ -494,6 +471,7 @@ export default function OneShotControlPage() {
           {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
         </button>
       </header>
+      )}
 
       {/* ── Middle: PROGRAM + Nominee panel ─────────────── */}
       <div className="flex-1 flex flex-col lg:flex-row lg:overflow-hidden min-h-0">
@@ -802,9 +780,6 @@ export default function OneShotControlPage() {
                   onToggleTransparent={onToggleTransparent}
                   onTogglePortrait={onTogglePortrait}
                 />
-                <div className="hidden sm:block">
-                  <ShortcutHints />
-                </div>
               </>
             ) : (
               <CountdownControlPanel

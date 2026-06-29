@@ -475,13 +475,14 @@
 /* メンバー一覧 */
 .oneshot-cg-root .lt-members {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px 12px;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 8px 10px;
 }
 .oneshot-cg-root .lt-member {
   border-left: 2px solid var(--gold);
   padding: 2px 8px;
   min-width: 0;
+  overflow: hidden;
 }
 .oneshot-cg-root .lt-member-role {
   font-family: var(--font-jp);
@@ -500,7 +501,6 @@
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 .oneshot-cg-root .lt-member-co {
   font-size: 24px;

@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import type { CgStep } from '../types';
 import type { CgMappedEntry } from '../types';
 import PortraitPlaceholder from './PortraitPlaceholder';
-import { fitText, fitStyle } from '../fitText';
+import { fitText } from '../fitText';
+import FitLine from './FitLine';
 import {
   nomineesGrid,
   STRIP_PHOTO_H,
@@ -62,6 +63,19 @@ export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }:
     return m;
   }, [rankings]);
 
+  // 棒グラフ発表の対象順位 (StepRanking と完全一致させる)。
+  // 実在する 2〜5 位を降順に → 人数が少ないときは 4位/3位 から繰り上げ開始。
+  // ここを固定 [5,4,3,2] のままにすると、4→2 / 3→2 で写真の登場順・タイミングが
+  // バー (StepRanking) とずれてしまう。
+  const revealRanks = useMemo(
+    () =>
+      Array.from(new Set(rankings.map((r) => r.rank)))
+        .filter((r) => r >= 2 && r <= 5)
+        .sort((a, b) => b - a),
+    [rankings],
+  );
+  const revealKey = revealRanks.join(',');
+
   const gridLayout = useMemo(() => nomineesGrid(shuffled.length), [shuffled.length]);
 
   // Staggered insert: which ranks have moved from strip to bar
@@ -70,14 +84,14 @@ export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }:
     setInsertProgress({});
     if (stepKey !== 'ranks52') return;
     const timers: ReturnType<typeof setTimeout>[] = [];
-    ([5, 4, 3, 2] as const).forEach((rank, i) => {
+    revealRanks.forEach((rank, i) => {
       const t = setTimeout(() => {
         setInsertProgress((p) => ({ ...p, [rank]: true }));
       }, STRIP_SETTLE + i * BAR_INTERVAL + PHOTO_OFFSET);
       timers.push(t);
     });
     return () => timers.forEach(clearTimeout);
-  }, [stepKey]);
+  }, [stepKey, revealKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Staggered nominees reveal
   const [nomineesShown, setNomineesShown] = useState(0);
@@ -155,8 +169,10 @@ export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }:
       const rowCount = Math.min(cols, N - row * cols);
       const rowTotalW = rowCount * cardW + (rowCount - 1) * gap;
       const rowStartX = (CG_W - rowTotalW) / 2 + 12;
+      // 写真はカード枠 (cardW) より狭い (photoW = cardW - 24) ので、
+      // スロット中央に寄せて左右の余白を均等にする (写真もラベルも同じ x を使うので一緒に動く)。
       return {
-        x: rowStartX + col * (cardW + gap),
+        x: rowStartX + col * (cardW + gap) + (cardW - photoW) / 2,
         y: startY + row * (cardH + gap),
         w: photoW,
         h: photoH,
@@ -191,7 +207,7 @@ export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }:
       const rowTotalW = rowCount * cardW + (rowCount - 1) * gap;
       const rowStartX = (CG_W - rowTotalW) / 2 + 12;
       return {
-        x: rowStartX + col * (cardW + gap),
+        x: rowStartX + col * (cardW + gap) + (cardW - photoW) / 2,
         y: startY + row * (cardH + gap),
         w: photoW,
         h: photoH,
@@ -329,36 +345,33 @@ export default function PhotoStage({ nominees, rankings, stepKey, lang = 'ja' }:
                 transition,
                 pointerEvents: 'none',
                 zIndex: L.zIndex,
+                textAlign: 'center',
               }}
             >
-              <div
+              <FitLine
+                text={displayCompany}
+                fit={compFit}
+                wrapperStyle={{ marginBottom: 2 }}
                 style={{
                   fontFamily: "'Noto Sans JP', sans-serif",
                   fontSize: 12,
                   fontWeight: 600,
                   letterSpacing: '0.2em',
-                  paddingLeft: '0.2em',
                   color: '#bfa15a',
-                  marginBottom: 2,
-                  ...fitStyle(compFit),
                 }}
-              >
-                {displayCompany}
-              </div>
-              <div
+              />
+              <FitLine
+                text={displayName}
+                fit={nameFit}
                 style={{
                   fontFamily: "'Noto Sans JP', sans-serif",
                   fontWeight: 800,
                   fontSize: 19,
                   color: '#fff',
                   letterSpacing: '0.06em',
-                  paddingLeft: '0.06em',
                   lineHeight: 1.15,
-                  ...fitStyle(nameFit),
                 }}
-              >
-                {displayName}
-              </div>
+              />
             </div>
           </div>
         );

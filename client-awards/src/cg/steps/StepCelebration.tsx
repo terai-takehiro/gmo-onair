@@ -11,13 +11,17 @@ interface WinnerItem {
 interface Props {
   categories: CgCategory[];  // 同じ award name グループのカテゴリのみ渡す想定
   awardName: string;          // ○○賞
+  // 手動選択 No.1 (投票No.1決定でアンケート未紐づけのとき)。該当カテゴリだけ rank=1 を上書き。
+  winnerOverride?: { categoryId: number; entryId: number } | null;
   lang: 'ja' | 'en';
 }
 
-export default function StepCelebration({ categories, awardName, lang }: Props) {
+export default function StepCelebration({ categories, awardName, winnerOverride, lang }: Props) {
   const winners = useMemo<WinnerItem[]>(() => {
     return categories.map((c) => {
-      const w = c.entries.find((e) => e.rank === 1 || e.is_winner);
+      const overrideId = winnerOverride && winnerOverride.categoryId === c.id ? winnerOverride.entryId : null;
+      const w = (overrideId != null ? c.entries.find((e) => e.id === overrideId) : undefined)
+        ?? c.entries.find((e) => e.rank === 1 || e.is_winner);
       if (!w) return null;
       const photo = w.photo_url ?? undefined;
       const od = (w as unknown as { oneshot_data?: Record<string, unknown> }).oneshot_data;
@@ -40,7 +44,7 @@ export default function StepCelebration({ categories, awardName, lang }: Props) 
         _od: od,
       } as WinnerItem & { _od?: Record<string, unknown> };
     }).filter((x): x is WinnerItem => x !== null);
-  }, [categories, lang]);
+  }, [categories, lang, winnerOverride]);
 
   // 紙吹雪
   const confetti = useMemo(() => {
@@ -81,8 +85,18 @@ export default function StepCelebration({ categories, awardName, lang }: Props) 
           to   { opacity: 1; transform: translateY(0)    scale(1); }
         }
         @keyframes celebGlow {
-          0%, 100% { filter: drop-shadow(0 0 18px rgba(245,215,110,0.6)); }
-          50%      { filter: drop-shadow(0 0 32px rgba(255,200,80,1)); }
+          0%, 100% {
+            filter:
+              drop-shadow(2px 2px 0 rgba(0,0,0,0.92)) drop-shadow(-2px 2px 0 rgba(0,0,0,0.92))
+              drop-shadow(2px -2px 0 rgba(0,0,0,0.92)) drop-shadow(-2px -2px 0 rgba(0,0,0,0.92))
+              drop-shadow(0 4px 14px rgba(0,0,0,0.9)) drop-shadow(0 0 18px rgba(245,215,110,0.55));
+          }
+          50% {
+            filter:
+              drop-shadow(2px 2px 0 rgba(0,0,0,0.92)) drop-shadow(-2px 2px 0 rgba(0,0,0,0.92))
+              drop-shadow(2px -2px 0 rgba(0,0,0,0.92)) drop-shadow(-2px -2px 0 rgba(0,0,0,0.92))
+              drop-shadow(0 4px 14px rgba(0,0,0,0.9)) drop-shadow(0 0 30px rgba(255,200,80,0.95));
+          }
         }
       `}</style>
 
@@ -104,7 +118,7 @@ export default function StepCelebration({ categories, awardName, lang }: Props) 
         ))}
       </div>
 
-      {/* タイトル: Congratulation! */}
+      {/* タイトル: Congratulations! */}
       <div style={{
         position: 'absolute',
         top: 90, left: 0, right: 0,
@@ -123,9 +137,11 @@ export default function StepCelebration({ categories, awardName, lang }: Props) 
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent',
           backgroundClip: 'text',
-          filter: 'drop-shadow(0 6px 22px rgba(0,0,0,0.85))',
+          // 縁取り (黒の outline) + 影 + 金グロウは celebGlow keyframes で付与 (透過背景でも視認性確保)
+          filter:
+            'drop-shadow(2px 2px 0 rgba(0,0,0,0.92)) drop-shadow(-2px 2px 0 rgba(0,0,0,0.92)) drop-shadow(2px -2px 0 rgba(0,0,0,0.92)) drop-shadow(-2px -2px 0 rgba(0,0,0,0.92)) drop-shadow(0 4px 14px rgba(0,0,0,0.9))',
           animation: 'celebGlow 2.4s ease-in-out infinite',
-        }}>Congratulation!</div>
+        }}>Congratulations!</div>
         <CondenseText style={{
           marginTop: 12,
           fontFamily: "'Noto Sans JP', sans-serif",
@@ -133,7 +149,7 @@ export default function StepCelebration({ categories, awardName, lang }: Props) 
           fontWeight: 700,
           letterSpacing: '0.18em',
           color: '#F5D76E',
-          textShadow: '0 2px 10px rgba(0,0,0,0.8)',
+          textShadow: '-2px -2px 0 rgba(0,0,0,0.9), 2px -2px 0 rgba(0,0,0,0.9), -2px 2px 0 rgba(0,0,0,0.9), 2px 2px 0 rgba(0,0,0,0.9), 0 2px 12px rgba(0,0,0,0.95)',
           textAlign: 'center',
           padding: '0 80px',
         }} min={0.45}>{awardName}</CondenseText>
@@ -191,7 +207,8 @@ function CelebrationCard({ winner, width, height, delay }: {
           fontSize: 18,
           color: '#F5D76E',
           letterSpacing: '0.14em',
-          textShadow: '0 2px 8px rgba(0,0,0,0.85)',
+          paddingLeft: 3, paddingRight: 3,
+          textShadow: '-1.5px -1.5px 0 rgba(0,0,0,0.9), 1.5px -1.5px 0 rgba(0,0,0,0.9), -1.5px 1.5px 0 rgba(0,0,0,0.9), 1.5px 1.5px 0 rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.95)',
         }} min={0.5}>{title}</CondenseText>
       </div>
 
@@ -225,7 +242,8 @@ function CelebrationCard({ winner, width, height, delay }: {
           fontSize: 24,
           color: '#fff',
           letterSpacing: '0.04em',
-          textShadow: '0 2px 8px rgba(0,0,0,0.85)',
+          paddingLeft: 3, paddingRight: 3,
+          textShadow: '-1.5px -1.5px 0 rgba(0,0,0,0.92), 1.5px -1.5px 0 rgba(0,0,0,0.92), -1.5px 1.5px 0 rgba(0,0,0,0.92), 1.5px 1.5px 0 rgba(0,0,0,0.92), 0 2px 10px rgba(0,0,0,0.95)',
           lineHeight: 1.15,
         }} min={0.5}>{winner.entry.name}</CondenseText>
         {winner.entry.company && (
@@ -233,8 +251,10 @@ function CelebrationCard({ winner, width, height, delay }: {
             marginTop: 2,
             fontFamily: "'Noto Sans JP', sans-serif",
             fontSize: 14,
-            color: 'rgba(245,215,110,0.85)',
+            color: 'rgba(245,215,110,0.95)',
             letterSpacing: '0.14em',
+            paddingLeft: 3, paddingRight: 3,
+            textShadow: '-1px -1px 0 rgba(0,0,0,0.9), 1px -1px 0 rgba(0,0,0,0.9), -1px 1px 0 rgba(0,0,0,0.9), 1px 1px 0 rgba(0,0,0,0.9), 0 2px 6px rgba(0,0,0,0.95)',
           }} min={0.5}>{winner.entry.company}</CondenseText>
         )}
       </div>

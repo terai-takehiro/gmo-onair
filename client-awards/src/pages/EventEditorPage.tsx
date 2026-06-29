@@ -15,9 +15,10 @@ import { CSS } from '@dnd-kit/utilities';
 import {
   Tv, ChevronLeft, Plus, Trash2, Check, X, GripVertical, HelpCircle,
   Upload, RefreshCw, Shuffle, FileSpreadsheet, ExternalLink, Copy,
-  ChevronDown, ChevronRight, Subtitles,
+  ChevronDown, ChevronRight, Subtitles, Layers,
 } from 'lucide-react';
 import ExcelImportDialog from '../oneshot/operator/ExcelImportDialog';
+import SoundConfigSection from '../components/SoundConfigSection';
 
 // ── Types ───────────────────────────────────────────────────
 interface Entry {
@@ -549,6 +550,14 @@ export default function EventEditorPage() {
             ))}
           </select>
           <button
+            onClick={() => navigate(`/event/${eventId}/cg/control`)}
+            className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800 transition-colors ring-1 ring-slate-500"
+            title="統合送出コックピット (ランキング/字幕/クイズを1画面で操作)"
+          >
+            <Layers className="h-3.5 w-3.5" />
+            統合送出
+          </button>
+          <button
             onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
             className="flex items-center gap-1.5 rounded-lg border border-amber-500/60 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-500/20 transition-colors"
             title="字幕スーパー (下部テロップ) のオペレーター画面"
@@ -741,11 +750,15 @@ export default function EventEditorPage() {
               機能別 (リアルタイムCG / 字幕スーパー / クイズ・アンケートCG)、各 OA + NEXT。
               いずれも 1920×1080 アルファチャンネル付き透過出力 — Browser Source の「透明度を許可」を ON にすること。
               ════════════════════════════════════════════════ */}
+          {/* 演出SE (効果音) 設定 */}
+          <SoundConfigSection eventId={event.id} />
+
           <div className="pt-2 border-t space-y-2">
             <p className="text-sm font-medium">送出 URL</p>
             <p className="text-xs text-muted-foreground">
               OBS / vMix の Browser Source 用。<strong>1920×1080</strong> で配置し、透過合成は「<strong>透明度を許可 (Allow Transparency) ON</strong>」を必須としてください。
               <span className="text-red-700 font-medium ml-1">OA</span> = 本番出力 / <span className="text-amber-700 font-medium ml-0.5">NEXT</span> = 次に送出する内容のプレビュー。
+              <br />演出SE（効果音）を鳴らすには出力URLに <code className="px-1 rounded bg-muted text-[10px]">?audio=1</code> を付けてください（鳴らすのは1枚だけ・下の「演出SE」で音源を登録）。各 OA に「音声あり」URLも用意しています。
             </p>
           </div>
 
@@ -764,6 +777,54 @@ export default function EventEditorPage() {
                 const url = `${window.location.origin}/awards/output/${event.id}?lang=${lang}`;
                 return (
                   <div key={`rank-oa-${lang}`} className="flex items-center gap-2">
+                    <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
+                    <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
+                    <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
+                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                      <Copy className="h-3 w-3" />コピー
+                    </button>
+                    <a href={url} target="_blank" rel="noopener noreferrer"
+                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                      <ExternalLink className="h-3 w-3" />開く
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="space-y-1.5">
+              <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">OA (背景あり)</div>
+              <p className="text-[10px] text-muted-foreground -mt-0.5">透過せず背景込みで表示。単独全画面表示や、映像と重ねない用途に。</p>
+              {[
+                { label: '🇯🇵 日本語', lang: 'ja' },
+                { label: '🇺🇸 English', lang: 'en' },
+              ].map(({ label, lang }) => {
+                const url = `${window.location.origin}/awards/output/${event.id}?lang=${lang}&bg=1`;
+                return (
+                  <div key={`rank-oabg-${lang}`} className="flex items-center gap-2">
+                    <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
+                    <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
+                    <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
+                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                      <Copy className="h-3 w-3" />コピー
+                    </button>
+                    <a href={url} target="_blank" rel="noopener noreferrer"
+                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                      <ExternalLink className="h-3 w-3" />開く
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="space-y-1.5">
+              <div className="text-[10px] font-bold text-cyan-700 uppercase tracking-widest">OA (音声あり)</div>
+              <p className="text-[10px] text-muted-foreground -mt-0.5">演出SEを鳴らす本番URL。鳴らすのは <strong>このURL 1枚だけ</strong>（多重再生防止）。透過のまま。</p>
+              {[
+                { label: '🇯🇵 日本語', lang: 'ja' },
+                { label: '🇺🇸 English', lang: 'en' },
+              ].map(({ label, lang }) => {
+                const url = `${window.location.origin}/awards/output/${event.id}?lang=${lang}&audio=1`;
+                return (
+                  <div key={`rank-oaaudio-${lang}`} className="flex items-center gap-2">
                     <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
                     <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
@@ -884,6 +945,54 @@ export default function EventEditorPage() {
                 const url = `${window.location.origin}/awards/output/quiz-stack/${event.id}?lang=${lang}`;
                 return (
                   <div key={`quiz-oa-${lang}`} className="flex items-center gap-2">
+                    <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
+                    <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
+                    <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
+                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                      <Copy className="h-3 w-3" />コピー
+                    </button>
+                    <a href={url} target="_blank" rel="noopener noreferrer"
+                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                      <ExternalLink className="h-3 w-3" />開く
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="space-y-1.5">
+              <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">OA (背景あり)</div>
+              <p className="text-[10px] text-muted-foreground -mt-0.5">透過せず背景込みで表示。単独全画面表示や、映像と重ねない用途に。</p>
+              {[
+                { label: '🇯🇵 日本語', lang: 'ja' },
+                { label: '🇺🇸 English', lang: 'en' },
+              ].map(({ label, lang }) => {
+                const url = `${window.location.origin}/awards/output/quiz-stack/${event.id}?lang=${lang}&bg=1`;
+                return (
+                  <div key={`quiz-oabg-${lang}`} className="flex items-center gap-2">
+                    <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
+                    <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
+                    <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"
+                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                      <Copy className="h-3 w-3" />コピー
+                    </button>
+                    <a href={url} target="_blank" rel="noopener noreferrer"
+                      className="shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs hover:bg-muted transition-colors">
+                      <ExternalLink className="h-3 w-3" />開く
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="space-y-1.5">
+              <div className="text-[10px] font-bold text-cyan-700 uppercase tracking-widest">OA (音声あり)</div>
+              <p className="text-[10px] text-muted-foreground -mt-0.5">演出SEを鳴らす本番URL。鳴らすのは <strong>このURL 1枚だけ</strong>。透過のまま。</p>
+              {[
+                { label: '🇯🇵 日本語', lang: 'ja' },
+                { label: '🇺🇸 English', lang: 'en' },
+              ].map(({ label, lang }) => {
+                const url = `${window.location.origin}/awards/output/quiz-stack/${event.id}?lang=${lang}&audio=1`;
+                return (
+                  <div key={`quiz-oaaudio-${lang}`} className="flex items-center gap-2">
                     <span className="w-24 shrink-0 text-xs text-muted-foreground font-medium">{label}</span>
                     <code className="flex-1 min-w-0 rounded-lg bg-muted px-2 py-1.5 text-xs truncate">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(url)} title="URLをコピー"

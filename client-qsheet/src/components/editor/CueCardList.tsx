@@ -94,6 +94,19 @@ export default function CueCardList({
     });
   };
 
+  const insertRow = (si: number, ri: number) => {
+    updateState((s: any) => {
+      const next = { ...s };
+      next.sections = next.sections.map((sec: any, i: number) => {
+        if (i !== si) return sec;
+        const rows = [...sec.rows];
+        rows.splice(ri + 1, 0, { id: `row_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, label: "", duration: "", cells: {} });
+        return { ...sec, rows };
+      });
+      return next;
+    });
+  };
+
   const removeRow = (si: number, ri: number) => {
     if (!confirm("この行を削除しますか？")) return;
     updateState((s: any) => {
@@ -342,6 +355,14 @@ export default function CueCardList({
                       aria-label="下へ"
                     >
                       <ChevronDown className="size-4" aria-hidden />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertRow(si, ri)}
+                      className="flex-1 inline-flex items-center justify-center min-h-9 border-t border-border hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:bg-primary/10"
+                      aria-label="この行の下に空行を挿入"
+                    >
+                      <Plus className="size-4" aria-hidden />
                     </button>
                     <button
                       type="button"

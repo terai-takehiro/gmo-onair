@@ -49,6 +49,15 @@ router.get('/events/:id/output', wrap(async (req, res) => {
   res.json({ success: true, data: { ...event, categories: [...catMap.values()], surveys } });
 }));
 
+// ── 連動アンケート (survey-oneshot) の最新票数のみ (軽量・高頻度ポーリング用) ──
+// v2.9.124: アンケート投票確定後、ランキングCG の操作UI / 出力URL が
+// リロード無しで最新票数を反映できるよう、event 全体ではなく surveys だけを返す。
+router.get('/events/:id/surveys', wrap(async (req, res) => {
+  const id = parseInt(req.params.id as string);
+  const surveys = await fetchEventSurveys(id);
+  res.json({ success: true, data: surveys });
+}));
+
 // ── ランキングCG cue 状態 (HTTP fallback、Socket.IO 不通時用) ──────
 router.get('/events/:eventId/cue', wrap(async (req, res) => {
   const eventId = parseInt(req.params.eventId as string);

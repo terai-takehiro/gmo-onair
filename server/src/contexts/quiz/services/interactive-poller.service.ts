@@ -24,16 +24,95 @@ const POLL_INTERVAL_MS = 800;
 let timer: ReturnType<typeof setInterval> | null = null;
 let running = false;
 
+// poller の稼働状況 (diagnose エンドポイントで「poller が動いているか/何票拾えたか」を確認用)
+interface PollerHeartbeat {
+  startedAt: number | null;
+  lastRunAt: number | null;
+  runCount: number;
+  lastMatched: number;
+  lastByEvent: Record<number, { qid: string; total: number; wrote: boolean; at: number }>;
+}
+const heartbeat: PollerHeartbeat = {
+  startedAt: null, lastRunAt: null, runCount: 0, lastMatched: 0, lastByEvent: {},
+};
+export function getPollerHeartbeat(): PollerHeartbeat {
+  return heartbeat;
+}
+
 interface ActiveRow {
   event_id: number;
   current_quiz_id: number;
   interactive_question_id: string;
-  interactive_link: InteractiveLink | null;
+  interactive_link: InteractiveLink | string | null;
+}
+
+/**
+ * interactive_link は JSONB だが、保存経路によっては「JSON 文字列」で返ることがある
+ * (二重エンコード等)。lifecycle.service と同じく string / object 両対応で正規化する。
+ * これをしないと文字列のとき link.baseUrl が undefined になり、poller が毎回スキップして
+ * 「出題 (activate) はできるのに投票数が CG に反映されない」状態になる。
+ */
+function normalizeLink(raw: InteractiveLink | string | null): InteractiveLink | null {
+  if (!raw) return null;
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw) as InteractiveLink;
+    } catch {
+      return null;
+    }
+  }
+  return raw;
+}
+
+// event_id → 連携イベントで「いま ACTIVE な問題」の id (TTL キャッシュ)。
+// 保存済みの interactive_question_id が古い/別問題を指していても、視聴者が実際に
+// 投票している ACTIVE 問題から票を拾えるようにするための解決結果。
+const activeQCache = new Map<number, { qid: string | null; ts: number }>();
+const ACTIVE_Q_TTL_MS = 2500;
+
+/**
+ * 集計に使う Interactive 問題 id を解決する。
+ * 連携イベントで現在 ACTIVE な問題 (= 視聴者が今投票している問題) を優先し、
+ * 取れなければ Awards 側に保存済みの linkedId にフォールバック。
+ * listQuestions の呼び出しは event 単位で TTL キャッシュして毎サイクル叩かない。
+ */
+async function resolveQuestionId(
+  link: InteractiveLink,
+  eventId: number,
+  linkedId: string,
+): Promise<string> {
+  const now = Date.now();
+  const cached = activeQCache.get(eventId);
+  if (cached && now - cached.ts < ACTIVE_Q_TTL_MS) {
+    return cached.qid ?? linkedId;
+  }
+  try {
+    const { questions } = await interactiveBridge.listQuestions(link);
+    // ACTIVE な問題を優先。複数あれば回答数が最大のもの。無ければ null。
+    const active = (questions ?? [])
+      .filter((q) => q.status === 'active')
+      .sort((a, b) => (b.answer_count ?? 0) - (a.answer_count ?? 0))[0];
+    const qid = active?.id ?? null;
+    activeQCache.set(eventId, { qid, ts: now });
+    if (qid && qid !== linkedId) {
+      console.warn(
+        `[interactive-poller] linked id stale? polling ACTIVE question ${qid} ` +
+          `instead of linked ${linkedId} (event ${eventId})`,
+      );
+    }
+    return qid ?? linkedId;
+  } catch (err) {
+    activeQCache.set(eventId, { qid: null, ts: now });
+    console.warn('[interactive-poller] listQuestions failed:', (err as Error).message);
+    return linkedId;
+  }
 }
 
 async function pollOnce(io: Server): Promise<void> {
   if (running) return; // 前回の poll がまだ走っていたらスキップ (多重実行防止)
   running = true;
+  heartbeat.lastRunAt = Date.now();
+  heartbeat.runCount += 1;
   try {
     const rows = (await queryAll(
       `SELECT s.event_id, s.current_quiz_id,
@@ -46,19 +125,31 @@ async function pollOnce(io: Server): Promise<void> {
           AND q.interactive_question_id IS NOT NULL
           AND e.interactive_link IS NOT NULL`,
     )) as unknown as ActiveRow[];
+    heartbeat.lastMatched = rows.length;
 
     for (const row of rows) {
-      const link = row.interactive_link;
+      const link = normalizeLink(row.interactive_link);
       if (!link?.baseUrl || !link?.apiKeySecret) continue;
 
+      // 視聴者が今投票している ACTIVE 問題を優先解決 (保存済み id が古くても拾えるように)
+      const targetQid = await resolveQuestionId(link, row.event_id, row.interactive_question_id);
+
       let dump;
+      const t0 = Date.now();
       try {
-        dump = await interactiveBridge.getResults(link, row.interactive_question_id);
+        dump = await interactiveBridge.getResults(link, targetQid);
       } catch (err) {
         // 1 イベントの失敗で全体を止めない
         console.warn('[interactive-poller] getResults failed:', (err as Error).message);
         continue;
       }
+      const latencyMs = Date.now() - t0;
+      // 取得レイテンシ + 集計を可視化 (ラグの切り分け用)。リモート VPS への HTTP が
+      // 遅いと poller の実効サイクルが伸びて反映ラグになるため、毎回 latency を出す。
+      console.log(
+        `[interactive-poller] fetched quiz=${row.current_quiz_id} iaQ=${targetQid} ` +
+          `(linked=${row.interactive_question_id}) total=${dump?.results?.total ?? 0} latency=${latencyMs}ms`,
+      );
 
       const choices = dump?.results?.choices ?? [];
 
@@ -87,9 +178,16 @@ async function pollOnce(io: Server): Promise<void> {
           changed = true;
         }
       }
+      heartbeat.lastByEvent[row.event_id] = {
+        qid: targetQid, total: dump?.results?.total ?? 0, wrote: changed, at: Date.now(),
+      };
 
       if (changed) {
         await emitInteractiveVotes(io, row.event_id, row.current_quiz_id);
+        console.log(
+          `[interactive-poller] votes updated quiz=${row.current_quiz_id} ` +
+            `total=${dump?.results?.total ?? 0} (event ${row.event_id})`,
+        );
       }
     }
   } catch (err) {
@@ -101,6 +199,7 @@ async function pollOnce(io: Server): Promise<void> {
 
 export function initInteractivePoller(io: Server): void {
   if (timer) return;
+  heartbeat.startedAt = Date.now();
   timer = setInterval(() => {
     void pollOnce(io);
   }, POLL_INTERVAL_MS);

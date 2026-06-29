@@ -82,18 +82,24 @@ export default function CGSequence({ cue, category, allCategories, surveys, even
   const pollTitle = lang === 'en'
     ? (category?.poll_title_en || category?.poll_title || '')
     : (category?.poll_title || '');
+  // 部門 (description) = 大きい金文字(parent) / 賞 (name) = 小さい白文字(child)。
+  const division = lang === 'en'
+    ? (category?.description_en || category?.description || '')
+    : (category?.description || '');
+  const award = lang === 'en'
+    ? (category?.name_en || category?.name || '')
+    : (category?.name ?? '');
+  const hasDivision = !!(division && division.trim());
   const tweaks = {
     eventTitle: eventName,
+    // 部門があれば 部門=大 / 賞=小。
+    // 部門が無いときは 賞 を「部門のサイズ・色 (大きい金文字)」に昇格させ、小文字行は出さない。
     categoryParent: usePollTitle
       ? ''
-      : (lang === 'en'
-          ? (category?.description_en || category?.description || eventSubtitle || '')
-          : (category?.description || eventSubtitle || '')),
+      : (hasDivision ? division : (award || eventSubtitle || '')),
     categoryChild: usePollTitle && pollTitle
       ? pollTitle
-      : (lang === 'en'
-          ? (category?.name_en || category?.name || '')
-          : (category?.name ?? '')),
+      : (hasDivision ? award : ''),
   };
 
   // Ranking reveal parameters
@@ -115,7 +121,10 @@ export default function CGSequence({ cue, category, allCategories, surveys, even
     ? (surveys ?? []).find((s) => s.link_category_id === category.id) ?? null
     : null;
 
-  const winner = sorted.find((e) => e.rank === 1) ?? null;
+  // 手動選択 No.1 (winnerEntryId) があればそれを優先、無ければ rank=1。
+  const winner =
+    (cue.winnerEntryId != null ? sorted.find((e) => e.id === String(cue.winnerEntryId)) : undefined) ??
+    sorted.find((e) => e.rank === 1) ?? null;
 
   if (stepKey === 'idle') return null;
 
@@ -136,6 +145,31 @@ export default function CGSequence({ cue, category, allCategories, surveys, even
       }}
     >
       <CGBackground transparent={transparent} />
+
+      {/* v2.9.125: ランキング演出は背景が無いと視認性が厳しいため、半透明の黒ベースを敷く。
+          No.1発表系 (oneshot / celebration) は専用フルスクリーン演出のため対象外。
+          v2.9.129: survey-oneshot (アンケートNo.1) は票数/%表示中 (phase 0/1) はスクリムを生かし、
+          No.1 が出る瞬間 (phase 2 = StepOneShot フルスクリーン) だけスクリムを解除する。
+          v2.9.128: 濃さ (中心値 cue.scrimOpacity) を操作画面のスライダーでライブ調整。
+          上 -0.10 / 中央 base / 下 +0.10 のグラデ (0〜0.95 にクランプ)。 */}
+      {!['oneshot', 'celebration'].includes(stepKey) &&
+        !(stepKey === 'survey-oneshot' && cue.revealPhase >= 2) && (() => {
+        const base = Math.max(0, Math.min(0.95, cue.scrimOpacity ?? 0.72));
+        const clamp = (v: number) => Math.max(0, Math.min(0.95, v)).toFixed(3);
+        return (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background:
+                `linear-gradient(180deg, rgba(0,0,0,${clamp(base - 0.1)}) 0%, rgba(0,0,0,${clamp(base)}) 55%, rgba(0,0,0,${clamp(base + 0.1)}) 100%)`,
+              pointerEvents: 'none',
+              animation: 'cgFadeIn 500ms ease both',
+            }}
+          />
+        );
+      })()}
+
 
       {/* Persistent morphing header — final-pitch / celebration / survey-oneshot は専用レイアウトで非表示 */}
       {stepKey !== 'final-pitch' && stepKey !== 'celebration' && stepKey !== 'survey-oneshot' && (
@@ -214,7 +248,7 @@ export default function CGSequence({ cue, category, allCategories, surveys, even
         />
       )}
 
-      {/* Celebration — 同じ賞グループの全部門 No.1 を横並び + Congratulation */}
+      {/* Celebration — 同じ賞グループの全部門 No.1 を横並び + Congratulations */}
       {showCelebration && (
         <StepCelebration
           key={`celeb-${persistKey}`}
@@ -226,6 +260,9 @@ export default function CGSequence({ cue, category, allCategories, surveys, even
               : (category ? [category] : [])
           }
           awardName={lang === 'en' ? (category?.name_en || category?.name || '') : (category?.name ?? '')}
+          winnerOverride={cue.winnerEntryId != null && cue.categoryId != null
+            ? { categoryId: cue.categoryId, entryId: cue.winnerEntryId }
+            : null}
           lang={lang}
         />
       )}

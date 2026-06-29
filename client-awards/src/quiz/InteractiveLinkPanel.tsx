@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { Link2, Download, Upload, Loader2, CheckCircle2, AlertCircle, Unlink } from 'lucide-react';
+import { Link2, Download, Upload, Loader2, CheckCircle2, AlertCircle, Unlink, Activity } from 'lucide-react';
 
 /**
  * 表彰CG ⇄ インタラクティブ演出 (別 VPS) 連携パネル — v2.9.24
@@ -85,6 +85,50 @@ export default function InteractiveLinkPanel({ eventId }: { eventId: number }) {
     onError: (e: any) => flash('err', e?.response?.data?.error?.message || '送信に失敗しました'),
   });
 
+  // 連携の総合診断 (票が CG に反映されない原因の特定用)
+  const [diag, setDiag] = useState<Record<string, unknown> | null>(null);
+  const diagMut = useMutation({
+    mutationFn: async () => (await api.get(`/quiz/events/${eventId}/interactive-link/diagnose`)).data.data as Record<string, unknown>,
+    onSuccess: (d) => { setDiag(d); flash('ok', '診断を取得しました（下に結果）'); },
+    onError: (e: any) => flash('err', e?.response?.data?.error?.message || '診断に失敗しました'),
+  });
+
+  // 診断結果から人間向けの判定文を作る
+  const diagVerdict = (d: Record<string, unknown> | null): { kind: 'ok' | 'err' | 'warn'; text: string }[] => {
+    if (!d) return [];
+    const out: { kind: 'ok' | 'err' | 'warn'; text: string }[] = [];
+    if (!d.linkConfigured) { out.push({ kind: 'err', text: '連携が未設定です（このイベントに interactive_link がありません）' }); return out; }
+    if (d.interactiveError) { out.push({ kind: 'err', text: `Interactive への接続でエラー: ${String(d.interactiveError)}（URL / API キーを確認）` }); return out; }
+    const stack = d.stack as { step?: string } | null;
+    if (!stack || stack.step === 'idle' || !stack.step) out.push({ kind: 'warn', text: 'いま出題中（poll）ではありません。クイズを TAKE して出題中にしてから診断すると票が見えます' });
+    const rl = d.resultsForLinked as { total?: number } | null;
+    const ra = d.resultsForActive as { total?: number } | null;
+    const linkedTotal = rl?.total ?? 0;
+    const activeTotal = ra?.total ?? 0;
+    const fetched = Math.max(linkedTotal, activeTotal);
+
+    // poller の稼働確認
+    const hb = d.pollerHeartbeat as { lastRunAt?: number | null; lastByEvent?: Record<string, { total?: number; wrote?: boolean }> } | null;
+    const lastRun = hb?.lastRunAt ?? null;
+    const pollerStale = !lastRun || (Date.now() - lastRun > 6000);
+    if (pollerStale) {
+      out.push({ kind: 'err', text: 'poller が動いていない可能性があります（直近の実行が確認できません）。サーバー再起動 / 設定を確認します' });
+    }
+
+    // Awards 側 DB の票数 (poller が書き込む先) と getResults を比較
+    const choices = (d.currentQuizChoices as { position: number; vote_count: number }[] | undefined) ?? [];
+    const dbTotal = choices.reduce((s, c) => s + (Number(c.vote_count) || 0), 0);
+
+    if (fetched > 0 && dbTotal > 0) {
+      out.push({ kind: 'ok', text: `Interactive から取得(${fetched}票) → Awards DB にも反映済(${dbTotal}票)。ここまで正常なので、CG に出ないのは出力URL側の更新だけ。出力(OBS)をリロードしてください` });
+    } else if (fetched > 0 && dbTotal === 0) {
+      out.push({ kind: 'err', text: `Interactive からは ${fetched}票 取れているのに Awards DB が 0票 = poller が DB に書けていません（poller の対象一致 or 書き込みの問題）。これは要修正です` });
+    } else {
+      out.push({ kind: 'err', text: 'Interactive 側からこの問題の票が 0 です。下の一覧で票(answer_count)が入っている問題が active か確認してください' });
+    }
+    return out;
+  };
+
   const configured = cfg?.configured;
 
   return (
@@ -111,7 +155,29 @@ export default function InteractiveLinkPanel({ eventId }: { eventId: number }) {
             {pushMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
             Interactive へ送信
           </button>
+          <button onClick={() => diagMut.mutate()} disabled={diagMut.isPending}
+            className="flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-50 px-3 py-2 text-xs font-bold text-white">
+            {diagMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Activity className="h-3.5 w-3.5" />}
+            連携を診断
+          </button>
           <span className="text-[11px] text-cyan-700">投票数は連携中なら自動でリアルタイム反映されます</span>
+        </div>
+      )}
+
+      {/* 診断結果 */}
+      {diag && (
+        <div className="mt-3 space-y-2 rounded-lg border border-amber-300 bg-amber-50/60 p-3">
+          <div className="text-xs font-bold text-amber-900">連携診断結果</div>
+          {diagVerdict(diag).map((v, i) => (
+            <div key={i} className={`flex items-start gap-2 rounded px-2 py-1.5 text-xs ${v.kind === 'ok' ? 'bg-green-50 text-green-800' : v.kind === 'warn' ? 'bg-amber-100 text-amber-900' : 'bg-red-50 text-red-800'}`}>
+              {v.kind === 'ok' ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
+              <span>{v.text}</span>
+            </div>
+          ))}
+          <details className="text-[11px]">
+            <summary className="cursor-pointer font-semibold text-amber-800">詳細 JSON（コピーして共有可）</summary>
+            <pre className="mt-1 max-h-64 overflow-auto rounded bg-slate-900 p-2 text-[10px] leading-tight text-slate-100">{JSON.stringify(diag, null, 2)}</pre>
+          </details>
         </div>
       )}
 

@@ -13,18 +13,6 @@ export default function StepTitle() {
       }}
     >
       <FrameCorners />
-      <div
-        className="cg-title-caption"
-        style={{
-          fontFamily: "'Bebas Neue', sans-serif",
-          fontSize: 22,
-          letterSpacing: '0.55em',
-          color: '#F5D76E',
-          paddingLeft: '0.55em',
-        }}
-      >
-        NOMINEES &nbsp;/&nbsp; RANKING
-      </div>
     </div>
   );
 }
