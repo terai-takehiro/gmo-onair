@@ -118,6 +118,7 @@ interface RevenueItem {
   period_start?: string | null;
   period_end?: string | null;
   item_notes?: string | null;
+  category?: string | null;
 }
 
 export default function RevenueListPage() {
@@ -304,6 +305,7 @@ export default function RevenueListPage() {
         period_start: it.period_start || null,
         period_end: it.period_end || null,
         item_notes: it.item_notes || null,
+        category: it.category || null,
       })));
     }
   }, [primaryRevenue?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -443,10 +445,19 @@ export default function RevenueListPage() {
 
   // Revenue item helpers
   const addItem = useCallback(() => {
-    setItems((prev) => [
-      ...prev,
-      { description: "", quantity: 1, unit_price: 0, amount: 0 },
-    ]);
+    // 項目追加時は1つ前の入力分の日付・カテゴリをコピー
+    setItems((prev) => {
+      const last = prev[prev.length - 1];
+      return [
+        ...prev,
+        {
+          description: "", quantity: 1, unit_price: 0, amount: 0,
+          period_start: last?.period_start ?? null,
+          period_end: last?.period_end ?? null,
+          category: last?.category ?? null,
+        },
+      ];
+    });
   }, []);
 
   const removeItem = useCallback((index: number) => {
@@ -929,6 +940,14 @@ export default function RevenueListPage() {
 
             {/* Revenue Items */}
             <div className="space-y-2">
+              <datalist id="revenue-item-categories">
+                <option value="制作費" />
+                <option value="機材費" />
+                <option value="人件費" />
+                <option value="スタジオ費" />
+                <option value="配信費" />
+                <option value="諸経費" />
+              </datalist>
               <div className="flex items-center justify-between">
                 <Label>明細行</Label>
                 <div className="flex flex-wrap gap-2">
@@ -982,6 +1001,7 @@ export default function RevenueListPage() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>内容</TableHead>
+                          <TableHead className="w-28">カテゴリ</TableHead>
                           <TableHead className="w-14 text-right">数量</TableHead>
                           <TableHead className="w-28 text-right">単価</TableHead>
                           <TableHead className="w-28 text-right">金額</TableHead>
@@ -1016,6 +1036,15 @@ export default function RevenueListPage() {
                                   </span>
                                 )}
                               </div>
+                            </TableCell>
+                            <TableCell className="p-1">
+                              <Input
+                                value={item.category || ""}
+                                onChange={(e) => updateItem(idx, "category", e.target.value || null)}
+                                placeholder="カテゴリ"
+                                className="h-8 text-sm"
+                                list="revenue-item-categories"
+                              />
                             </TableCell>
                             <TableCell className="p-1">
                               <Input
@@ -1150,6 +1179,13 @@ export default function RevenueListPage() {
                             <Trash2 className="h-3.5 w-3.5 text-destructive" />
                           </Button>
                         </div>
+                        <Input
+                          value={item.category || ""}
+                          onChange={(e) => updateItem(idx, "category", e.target.value || null)}
+                          placeholder="カテゴリ（任意）"
+                          className="text-sm"
+                          list="revenue-item-categories"
+                        />
                         <div className="grid grid-cols-3 gap-2">
                           <div>
                             <Label className="text-xs text-muted-foreground">数量</Label>
