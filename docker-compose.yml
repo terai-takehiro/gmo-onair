@@ -45,7 +45,6 @@ services:
       ALLOWED_ORIGINS: https://gmo-onair.jp,https://www.gmo-onair.jp,https://interactive.gmo-onair.jp
       # v2 SSO: cookie を .gmo-onair.jp 全体で共有 (interactive.gmo-onair.jp と相互運用)
       COOKIE_DOMAIN: ${COOKIE_DOMAIN:-.gmo-onair.jp}
-      ICAL_FEED_TOKEN: ${ICAL_FEED_TOKEN:-}
       # SMS (Twilio)
       TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
