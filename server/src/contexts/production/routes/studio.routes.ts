@@ -37,6 +37,15 @@ async function verifyFeedToken(token: string | undefined): Promise<boolean> {
   return token === current;
 }
 
+/** カレンダーフィードの対象期間 (過去3ヶ月〜未来1年) を YYYY-MM-DD の文字列で返す。
+ *  TEXT 列 (start_time/end_time) と文字列比較するため timestamptz 化しない。 */
+function calendarWindow(): { fromDate: string; toDate: string } {
+  const now = new Date();
+  const from = new Date(now); from.setMonth(from.getMonth() - 3);
+  const to = new Date(now); to.setFullYear(to.getFullYear() + 1);
+  return { fromDate: from.toISOString().slice(0, 10), toDate: to.toISOString().slice(0, 10) };
+}
+
 // カレンダー連携の自己診断 (認証不要・トークン不要)。
 // 「カレンダーが全く登録できない」ときに、サーバー側フィードが生成できているか / トークンが
 // 発行済みか / 予約件数 を ブラウザで確認できる。トークン値そのものは伏せる (末尾4桁のみ)。
@@ -50,10 +59,13 @@ router.get('/calendar-status', async (_req, res) => {
     out.tokenError = (e as Error).message;
   }
   try {
+    const { fromDate, toDate } = calendarWindow();
     const c = (await queryOne(
       `SELECT COUNT(*)::int AS c FROM studio_bookings
-       WHERE deleted_at IS NULL AND end_time >= (NOW() - interval '3 months')
-         AND start_time <= (NOW() + interval '1 year')`,
+       WHERE deleted_at IS NULL
+         AND substr(COALESCE(NULLIF(end_time, ''), start_time), 1, 10) >= ?
+         AND substr(start_time, 1, 10) <= ?`,
+      [fromDate, toDate],
     )) as any;
     out.bookingCount = c?.c ?? 0;
   } catch (e) {
@@ -81,6 +93,11 @@ router.get('/calendar.ics', async (req, res) => {
   }
 
   // 過去3ヶ月〜未来1年の予約 (全部屋)
+  // start_time/end_time は TEXT (ISO 文字列) 列なので、timestamptz の NOW()-interval と
+  // 直接比較すると Postgres が `operator does not exist: text >= timestamp with time zone`
+  // で 500 になる (= カレンダーが全クライアントで登録できなかった根本原因)。
+  // 日付先頭10桁 (YYYY-MM-DD) 同士の文字列比較にして型不一致とセパレータ差異を回避する。
+  const { fromDate, toDate } = calendarWindow();
   const bookings = await queryAll(
     `SELECT b.id, b.title, b.booking_type, b.start_time, b.end_time, b.all_day,
             b.location_note, b.notes, b.created_at, b.updated_at,
@@ -88,9 +105,10 @@ router.get('/calendar.ics', async (req, res) => {
      FROM studio_bookings b
      LEFT JOIN projects p ON p.id = b.project_id
      WHERE b.deleted_at IS NULL
-       AND b.end_time >= (NOW() - interval '3 months')
-       AND b.start_time <= (NOW() + interval '1 year')
+       AND substr(COALESCE(NULLIF(b.end_time, ''), b.start_time), 1, 10) >= ?
+       AND substr(b.start_time, 1, 10) <= ?
      ORDER BY b.start_time`,
+    [fromDate, toDate],
   ) as any[];
 
   // 予約ごとの部屋一覧 (占有者/用途メモ込み) を取得しマージする
