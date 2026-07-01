@@ -34,20 +34,42 @@ function formatUtcTimestamp(value: string | Date): string {
  * 文字列から日時の数字を直接抜き出して組み立てることで、実行環境のタイムゾーンに依存せず
  * 常に「保存された時刻をそのまま Asia/Tokyo のローカル時刻」として出力する。
  */
-function formatDateTime(iso: string, allDay?: boolean): string {
+function formatDateTime(iso: string | Date | null | undefined, allDay?: boolean): string {
+  if (iso == null) return '';
+  const str = iso instanceof Date ? iso.toISOString() : String(iso);
   if (allDay) {
     // VALUE=DATE format: YYYYMMDD
-    return iso.replace(/[-:]/g, '').slice(0, 8);
+    const md = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return md ? `${md[1]}${md[2]}${md[3]}` : '';
   }
   // DATETIME format (TZID 用・Z サフィックスなし): YYYYMMDDTHHMMSS
-  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})/);
+  const m = str.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})/);
   if (m) {
     const [, y, mo, d, h, mi, s] = m;
     return `${y}${mo}${d}T${h}${mi}${s}`;
   }
-  // 想定外フォーマットのフォールバック (日時情報が無い場合など)
-  const dt = new Date(iso);
-  return dt.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, '');
+  // 想定外フォーマットのフォールバック (日時情報が壊れている場合)。
+  // Invalid Date は toISOString() が RangeError を投げてフィード全体を 500 にするため
+  // try/catch で握りつぶし、空文字を返して呼び出し側でイベントごとスキップさせる。
+  try {
+    const dt = new Date(str);
+    if (isNaN(dt.getTime())) return '';
+    return dt.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, '');
+  } catch {
+    return '';
+  }
+}
+
+/** YYYYMMDDTHHMMSS (JST ウォールクロック) に hours 時間を加算する (タイムゾーン非依存の純算術) */
+function addHoursToCompact(compact: string, hours: number): string {
+  const m = compact.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})$/);
+  if (!m) return compact;
+  const [, y, mo, d, h, mi, s] = m.map(Number) as unknown as number[];
+  // ウォールクロックをそのまま UTC として扱い算術 (実 TZ 変換はしない)
+  const ms = Date.UTC(y, mo - 1, d, h + hours, mi, s);
+  const dt = new Date(ms);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${dt.getUTCFullYear()}${p(dt.getUTCMonth() + 1)}${p(dt.getUTCDate())}T${p(dt.getUTCHours())}${p(dt.getUTCMinutes())}${p(dt.getUTCSeconds())}`;
 }
 
 /** YYYY-MM-DD 文字列に days 日を加算する (タイムゾーンに依存しない純粋な日付計算) */
@@ -110,6 +132,9 @@ export function generateICalFeed(calendarName: string, events: ICalEvent[]): str
     'METHOD:PUBLISH',
     `X-WR-CALNAME:${escapeText(calendarName)}`,
     'X-WR-TIMEZONE:Asia/Tokyo',
+    // 購読フィードのリフレッシュ間隔ヒント (Outlook / webcal クライアントが参照)
+    'REFRESH-INTERVAL;VALUE=DURATION:PT1H',
+    'X-PUBLISHED-TTL:PT1H',
     // タイムゾーン定義
     'BEGIN:VTIMEZONE',
     'TZID:Asia/Tokyo',
@@ -122,22 +147,36 @@ export function generateICalFeed(calendarName: string, events: ICalEvent[]): str
   ];
 
   for (const ev of events) {
+    // ── 日時の検証 (壊れた VEVENT を出さない = Outlook が「追加できません」になる主因) ──
+    const vevent: string[] = [];
+    if (ev.allDay) {
+      const ds = formatDateTime(ev.dtstart, true);
+      if (!ds) continue; // 開始日が無効ならこのイベントは丸ごと skip
+      let de = addDaysToDateStr(ev.dtend, 1); // 終日は翌日を指定 (exclusive end)
+      // 終了 <= 開始 (同日/未指定) のときは開始翌日にして最低 1 日を保証
+      if (!/^\d{8}$/.test(de) || de <= ds) de = addDaysToDateStr(ev.dtstart, 1);
+      vevent.push(`DTSTART;VALUE=DATE:${ds}`);
+      vevent.push(`DTEND;VALUE=DATE:${de}`);
+    } else {
+      const ds = formatDateTime(ev.dtstart);
+      if (!ds) continue; // 開始時刻が無効ならこのイベントは丸ごと skip
+      let de = formatDateTime(ev.dtend);
+      // 終了 <= 開始 (ゼロ/負の長さ) は Outlook が拒否する → 開始 +1 時間にする
+      if (!de || de <= ds) de = addHoursToCompact(ds, 1);
+      vevent.push(`DTSTART;TZID=Asia/Tokyo:${ds}`);
+      vevent.push(`DTEND;TZID=Asia/Tokyo:${de}`);
+    }
+
     lines.push('BEGIN:VEVENT');
     lines.push(`UID:${ev.uid}`);
     // DTSTAMP は RFC 5545 上 UID と並ぶ必須プロパティ。Google Calendar は欠落を黙って許容するが、
     // Outlook / Exchange は欠落したVEVENTを拒否する (「Outlookに追加できない」の直接原因)。
     lines.push(`DTSTAMP:${formatUtcTimestamp(ev.lastModified || ev.created || new Date())}`);
+    lines.push(...vevent);
 
-    if (ev.allDay) {
-      lines.push(`DTSTART;VALUE=DATE:${formatDateTime(ev.dtstart, true)}`);
-      // iCal の終日イベントは翌日を指定 (exclusive end)
-      lines.push(`DTEND;VALUE=DATE:${addDaysToDateStr(ev.dtend, 1)}`);
-    } else {
-      lines.push(`DTSTART;TZID=Asia/Tokyo:${formatDateTime(ev.dtstart)}`);
-      lines.push(`DTEND;TZID=Asia/Tokyo:${formatDateTime(ev.dtend)}`);
-    }
-
-    lines.push(`SUMMARY:${escapeText(ev.summary)}`);
+    // SUMMARY は空だと Outlook が VEVENT を無効扱いすることがあるため必ず非空にする
+    const summary = (ev.summary || '').trim() || '（無題の予約）';
+    lines.push(`SUMMARY:${escapeText(summary)}`);
     if (ev.description) lines.push(`DESCRIPTION:${escapeText(ev.description)}`);
     if (ev.location) lines.push(`LOCATION:${escapeText(ev.location)}`);
     if (ev.created) lines.push(`CREATED:${formatUtcTimestamp(ev.created)}`);
