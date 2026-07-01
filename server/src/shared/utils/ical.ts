@@ -67,17 +67,38 @@ function escapeText(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
 }
 
-// iCal の行は 75 バイト (octet) 以内で折り返す
+/**
+ * iCal の行は 75 オクテット (バイト) 以内で折り返す (RFC 5545 §3.1)。
+ * 旧実装は JS の文字数 (UTF-16 コード単位) で切っていたため、日本語 (UTF-8 で1文字3バイト)
+ * を含む行は実際のバイト長が上限を大幅に超えてしまい、Outlook 等の厳格なパーサーで
+ * 予定表の追加に失敗する一因になっていた。コードポイント単位で分割しつつ、
+ * 実際の UTF-8 バイト長を積算して 75 オクテット以内に収める。
+ */
 function foldLine(line: string): string {
-  const maxLen = 75;
-  if (line.length <= maxLen) return line;
-  let result = line.slice(0, maxLen);
-  let pos = maxLen;
-  while (pos < line.length) {
-    result += '\r\n ' + line.slice(pos, pos + maxLen - 1);
-    pos += maxLen - 1;
+  const maxOctets = 75;
+  if (Buffer.byteLength(line, 'utf8') <= maxOctets) return line;
+
+  const chars = Array.from(line); // サロゲートペアを含むコードポイント単位で分割
+  const segments: string[] = [];
+  let current = '';
+  let currentBytes = 0;
+
+  for (const ch of chars) {
+    const chBytes = Buffer.byteLength(ch, 'utf8');
+    // 継続行は先頭に半角スペース1バイトを付与するため、実質使える幅は 74 オクテット
+    const limit = segments.length === 0 ? maxOctets : maxOctets - 1;
+    if (current !== '' && currentBytes + chBytes > limit) {
+      segments.push(current);
+      current = ch;
+      currentBytes = chBytes;
+    } else {
+      current += ch;
+      currentBytes += chBytes;
+    }
   }
-  return result;
+  if (current !== '') segments.push(current);
+
+  return segments.map((seg, i) => (i === 0 ? seg : ' ' + seg)).join('\r\n');
 }
 
 export function generateICalFeed(calendarName: string, events: ICalEvent[]): string {
@@ -103,6 +124,9 @@ export function generateICalFeed(calendarName: string, events: ICalEvent[]): str
   for (const ev of events) {
     lines.push('BEGIN:VEVENT');
     lines.push(`UID:${ev.uid}`);
+    // DTSTAMP は RFC 5545 上 UID と並ぶ必須プロパティ。Google Calendar は欠落を黙って許容するが、
+    // Outlook / Exchange は欠落したVEVENTを拒否する (「Outlookに追加できない」の直接原因)。
+    lines.push(`DTSTAMP:${formatUtcTimestamp(ev.lastModified || ev.created || new Date())}`);
 
     if (ev.allDay) {
       lines.push(`DTSTART;VALUE=DATE:${formatDateTime(ev.dtstart, true)}`);
