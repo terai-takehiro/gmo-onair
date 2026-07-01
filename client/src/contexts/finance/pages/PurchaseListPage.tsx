@@ -113,8 +113,11 @@ export default function PurchaseListPage() {
   const [colWidths, setColWidths] = useState<Record<string, number>>({});
   const resizeRef = useRef<{ col: string; startX: number; startW: number } | null>(null);
 
-  // 月絞り込み (YYYY-MM) + 列ヘッダー並び替え。既定は今月で絞り込み
+  // 月絞り込み (YYYY-MM) + 列ヘッダー並び替え。
+  // 既定は今月で絞り込み。ただし特定の案件内で表示している場合 (?project_id) は
+  // その案件の全月を見たいので「解除 (全月)」を既定にする。
   const [monthFilter, setMonthFilter] = useState(() => {
+    if (searchParams.get("project_id")) return "";
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
@@ -175,7 +178,8 @@ export default function PurchaseListPage() {
       setPaymentDueDate(p.payment_due_date ? p.payment_due_date.slice(0, 10) : "");
       setIsProvisional(!!p.is_provisional);
     } else {
-      setSelectedProjectId("");
+      // 新規登録: 案件絞り込み中 (?project_id) なら「案件」をその案件で初期化する
+      setSelectedProjectId(filterProjectId || "");
       setVendorId("");
       setTaxCategory("tax10");
       setSettlementMethod("rakuraku");
@@ -190,7 +194,7 @@ export default function PurchaseListPage() {
       setPaymentDueDate("");
       setIsProvisional(false);
     }
-  }, [crud.editingItem]);
+  }, [crud.editingItem, filterProjectId]);
 
   const startResize = useCallback((col: string, e: React.MouseEvent, currentWidth: number) => {
     e.preventDefault();

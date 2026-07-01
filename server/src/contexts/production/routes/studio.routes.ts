@@ -100,8 +100,14 @@ router.get('/calendar.ics', async (req, res) => {
 
   const ical = generateICalFeed('GMO ONAiR スタジオ予約', events);
 
-  res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
-  res.setHeader('Content-Disposition', 'inline; filename="studio-bookings.ics"');
+  // method=PUBLISH を Content-Type にも明示 (Outlook/Exchange のフェッチャが参照する)。
+  res.setHeader('Content-Type', 'text/calendar; charset=utf-8; method=PUBLISH');
+  // ?download=1 のときは .ics ファイルとしてダウンロード (Outlook への手動インポート用フォールバック)。
+  // 通常 (購読) は attachment を付けない — Content-Disposition があると一部の Outlook 版が
+  // 「購読」ではなく「ダウンロード」扱いにして "後でもう一度お試しください" で失敗するため。
+  if (req.query.download === '1') {
+    res.setHeader('Content-Disposition', 'attachment; filename="studio-bookings.ics"');
+  }
   res.setHeader('Cache-Control', 'public, max-age=300'); // 5分キャッシュ
   res.send(ical);
 });
