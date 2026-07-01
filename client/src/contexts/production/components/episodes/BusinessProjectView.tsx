@@ -55,6 +55,7 @@ import {
   Loader2,
   FileText,
   Receipt,
+  FileSpreadsheet,
   ShoppingCart,
   Percent,
   Link2,
@@ -378,6 +379,28 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
       URL.revokeObjectURL(url);
     } catch {
       alert('PDF生成に失敗しました');
+    }
+  };
+
+  // 請求書 Excel (業務推進への監査提出用・BOX格納フォーマット) をダウンロード
+  const handleDownloadExcel = async (revenueId: string) => {
+    try {
+      const res = await api.get(`/revenues/${revenueId}/excel`, { responseType: 'blob' });
+      const blob = new Blob([res.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const disposition = res.headers['content-disposition'] || '';
+      const match = disposition.match(/filename\*=UTF-8''(.+)/);
+      a.download = match ? decodeURIComponent(match[1]) : 'invoice.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('Excel生成に失敗しました');
     }
   };
 
@@ -811,6 +834,16 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                           >
                             <Receipt className="h-3.5 w-3.5" />
                             <span className="hidden sm:inline">請求書</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1 px-2"
+                            title="請求書Excelを発行（業務推進提出用）"
+                            onClick={() => handleDownloadExcel(rev.id)}
+                          >
+                            <FileSpreadsheet className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">請求書Excel</span>
                           </Button>
                         </>
                       )}
