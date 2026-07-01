@@ -37,11 +37,46 @@ async function verifyFeedToken(token: string | undefined): Promise<boolean> {
   return token === current;
 }
 
+// カレンダー連携の自己診断 (認証不要・トークン不要)。
+// 「カレンダーが全く登録できない」ときに、サーバー側フィードが生成できているか / トークンが
+// 発行済みか / 予約件数 を ブラウザで確認できる。トークン値そのものは伏せる (末尾4桁のみ)。
+router.get('/calendar-status', async (_req, res) => {
+  const out: Record<string, unknown> = { ok: false };
+  try {
+    const t = await getOrCreateFeedToken();
+    out.tokenConfigured = !!t;
+    out.tokenTail = t ? t.slice(-4) : null;
+  } catch (e) {
+    out.tokenError = (e as Error).message;
+  }
+  try {
+    const c = (await queryOne(
+      `SELECT COUNT(*)::int AS c FROM studio_bookings
+       WHERE deleted_at IS NULL AND end_time >= (NOW() - interval '3 months')
+         AND start_time <= (NOW() + interval '1 year')`,
+    )) as any;
+    out.bookingCount = c?.c ?? 0;
+  } catch (e) {
+    out.bookingQueryError = (e as Error).message;
+  }
+  try {
+    // フィードを実際に生成してみて例外が出ないか確認する (件数0でも成功扱い)
+    const feed = generateICalFeed('診断', []);
+    out.feedGenerates = feed.startsWith('BEGIN:VCALENDAR');
+    out.ok = out.tokenConfigured === true && !out.tokenError && !out.bookingQueryError;
+  } catch (e) {
+    out.feedGenError = (e as Error).message;
+  }
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.status(out.ok ? 200 : 500).send(JSON.stringify(out, null, 2));
+});
+
 // 全部屋を統合した単一カレンダーフィード (旧: 部屋ごとに個別URLだったものを1本化)
 router.get('/calendar.ics', async (req, res) => {
+ try {
   const token = req.query.token as string;
   if (!(await verifyFeedToken(token))) {
-    res.status(403).send('Invalid feed token');
+    res.status(403).type('text/plain; charset=utf-8').send('Invalid feed token (カレンダー連携ダイアログのURLを再取得してください)');
     return;
   }
 
@@ -110,6 +145,13 @@ router.get('/calendar.ics', async (req, res) => {
   }
   res.setHeader('Cache-Control', 'public, max-age=300'); // 5分キャッシュ
   res.send(ical);
+ } catch (err) {
+  // 例外を握りつぶさず、原因を text/plain で返す (Google/Outlook は本文を無視するが、
+  // ブラウザで直接開けば原因が分かる。従来は bare 500 で全クライアントが黙って失敗していた)。
+  console.error('[calendar.ics] generation error:', err);
+  res.status(500).type('text/plain; charset=utf-8')
+    .send('calendar feed error: ' + (err as Error).message);
+ }
 });
 
 // サイネージ用データ (認証不要 — トークンで保護)
