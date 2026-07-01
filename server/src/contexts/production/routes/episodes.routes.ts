@@ -117,6 +117,45 @@ router.post('/:projectId/episodes/batch', requirePermission('sales', 'editor'), 
   res.status(201).json({ success: true, data: createdEpisodes });
 });
 
+// 月次ユニットを1件作成 (ビジネス案件の月締め請求単位)。
+// エピソードを「月」として流用し、コードは {GLS}-{YYMM} (例: GLS-B001-2607) にする。
+// 通常案件の話数エピソードと同じ episodes テーブルを使うため、売上/請求書/見積書は
+// 既存の episode_id 連携をそのまま利用できる (1 月 = 1 請求単位)。
+router.post('/:projectId/episodes/month', requirePermission('sales', 'editor'), async (req, res) => {
+  const projectId = req.params.projectId as string;
+  const yearMonth = String(req.body?.year_month || '').trim(); // 'YYYY-MM'
+  const m = yearMonth.match(/^(\d{4})-(\d{2})$/);
+  if (!m) throw new AppError(400, 'VALIDATION_ERROR', '対象月は YYYY-MM 形式で指定してください');
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  if (month < 1 || month > 12) throw new AppError(400, 'VALIDATION_ERROR', '月は 01〜12 で指定してください');
+
+  const project = await queryOne('SELECT gls_number FROM projects WHERE id = ? AND deleted_at IS NULL', [projectId]) as any;
+  if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
+  if (!project.gls_number) throw new AppError(400, 'VALIDATION_ERROR', 'GLS発番後に月次ユニットを作成できます');
+
+  const yymm = `${m[1].slice(2)}${m[2]}`;            // 2026-07 → 2607
+  const episodeCode = `${project.gls_number}-${yymm}`; // GLS-B001-2607
+  const episodeNumber = Number(`${m[1].slice(2)}${m[2]}`); // 2607 (時系列で並ぶ)
+  const title = `${year}年${month}月`;
+
+  // 冪等: 同じ月が既にあればそれを返す (二重作成しない)
+  const existing = await queryOne(
+    'SELECT * FROM episodes WHERE project_id = ? AND episode_code = ? AND deleted_at IS NULL',
+    [projectId, episodeCode],
+  );
+  if (existing) { res.json({ success: true, data: existing, existed: true }); return; }
+
+  const id = uuidv4();
+  await execute(
+    `INSERT INTO episodes (id, project_id, episode_code, episode_number, title, created_by)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [id, projectId, episodeCode, episodeNumber, title, req.user!.id],
+  );
+  const row = await queryOne('SELECT * FROM episodes WHERE id = ?', [id]);
+  res.status(201).json({ success: true, data: row });
+});
+
 // Update episode
 router.put('/:projectId/episodes/:id', requirePermission('sales', 'editor'), async (req, res) => {
   const existing = await queryOne(
