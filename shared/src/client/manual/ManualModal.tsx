@@ -111,7 +111,7 @@ export default function ManualModal({ open, onOpenChange, content }: ManualModal
         <DialogHeader className="shrink-0 space-y-1 border-b border-border px-4 pb-3 pt-4 sm:px-6 sm:pt-5">
           <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <AppIcon className="h-4.5 w-4.5" />
+              <AppIcon className="h-[18px] w-[18px]" />
             </span>
             <span className="truncate">{content.appLabel} 利用マニュアル</span>
           </DialogTitle>
@@ -192,7 +192,7 @@ export default function ManualModal({ open, onOpenChange, content }: ManualModal
           <div id="_manual-content-scroll" className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
             <div className="mb-3 flex items-center gap-2.5">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <ActiveIcon className="h-4.5 w-4.5" />
+                <ActiveIcon className="h-[18px] w-[18px]" />
               </span>
               <h3 className="text-base font-bold text-foreground sm:text-lg">{activeSection.title}</h3>
             </div>

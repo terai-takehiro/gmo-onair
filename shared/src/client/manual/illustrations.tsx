@@ -72,7 +72,7 @@ export function FlowDiagram({ steps, caption }: { steps: FlowStep[]; caption?: s
                 )}
               >
                 <div className={cn("flex h-9 w-9 items-center justify-center rounded-full bg-background/70", TONE_TEXT[tone])}>
-                  <Icon className="h-4.5 w-4.5" />
+                  <Icon className="h-[18px] w-[18px]" />
                 </div>
                 <span className="text-xs font-semibold leading-tight text-foreground">{step.label}</span>
                 {step.sub && <span className="text-[10px] leading-tight text-muted-foreground">{step.sub}</span>}
@@ -94,7 +94,7 @@ export function Callout({ tone, title, text }: { tone: ManualTone; title?: strin
   const Icon = TONE_ICON[tone];
   return (
     <div className={cn("my-3 flex gap-2.5 rounded-xl border p-3.5", TONE_BG[tone], TONE_BORDER[tone])}>
-      <Icon className={cn("h-4.5 w-4.5 shrink-0 mt-0.5", TONE_TEXT[tone])} />
+      <Icon className={cn("h-[18px] w-[18px] shrink-0 mt-0.5", TONE_TEXT[tone])} />
       <div className="min-w-0">
         <p className={cn("text-xs font-bold tracking-wide", TONE_TEXT[tone])}>{title ?? TONE_LABEL[tone]}</p>
         <p className="mt-0.5 text-sm leading-relaxed text-foreground whitespace-pre-line">{text}</p>
@@ -135,7 +135,7 @@ export function IconGrid({ items }: { items: IconGridItem[] }) {
         return (
           <div key={i} className="flex flex-col items-center gap-1.5 rounded-xl border border-border p-3 text-center">
             <div className={cn("flex h-9 w-9 items-center justify-center rounded-full", TONE_BG[tone], TONE_TEXT[tone])}>
-              <Icon className="h-4.5 w-4.5" />
+              <Icon className="h-[18px] w-[18px]" />
             </div>
             <span className="text-xs font-semibold leading-tight text-foreground">{item.label}</span>
             {item.text && <span className="text-[11px] leading-tight text-muted-foreground">{item.text}</span>}

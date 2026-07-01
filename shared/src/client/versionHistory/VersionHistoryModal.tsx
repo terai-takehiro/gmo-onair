@@ -2,37 +2,16 @@
 // dataUrl (既定 "/version-history.json"、案件管理アプリの public/ に生成される静的ファイル。
 // 案件管理アプリが "/" を担当するため他アプリからも同一オリジンで到達可能) を fetch し、
 // 検索・一覧表示・JSON ダウンロードを提供する。
-import { useEffect, useMemo, useState, Fragment } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search, History, Download, Loader2, AlertTriangle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
 import { Input } from "../ui/input";
 import { cn } from "../utils";
 import type { VersionHistoryData, VersionHistoryEntry } from "./types";
+import { renderInline, RichDescription } from "./richDescription";
 
 const PAGE_SIZE = 20;
 const LOAD_MORE_STEP = 30;
-
-// **bold** / `code` だけを解釈する最小限のインライン markdown レンダラ
-function renderInline(text: string) {
-  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter((p) => p !== "");
-  return parts.map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**")) {
-      return (
-        <strong key={i} className="font-semibold text-foreground">
-          {part.slice(2, -2)}
-        </strong>
-      );
-    }
-    if (part.startsWith("`") && part.endsWith("`")) {
-      return (
-        <code key={i} className="rounded bg-muted px-1 py-0.5 text-[0.85em] font-mono">
-          {part.slice(1, -1)}
-        </code>
-      );
-    }
-    return <Fragment key={i}>{part}</Fragment>;
-  });
-}
 
 function matches(entry: VersionHistoryEntry, q: string) {
   if (!q) return true;
@@ -105,7 +84,7 @@ export default function VersionHistoryModal({
         <DialogHeader className="shrink-0 space-y-1 border-b border-border px-4 pb-3 pt-4 sm:px-6 sm:pt-5">
           <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <History className="h-4.5 w-4.5" />
+              <History className="h-[18px] w-[18px]" />
             </span>
             <span className="truncate">{productLabel} バージョン履歴</span>
             {data?.currentVersion && (
@@ -162,26 +141,32 @@ export default function VersionHistoryModal({
               <p className="mb-3 text-xs text-muted-foreground">
                 全 {data.count} 件中 {q ? filtered.length : visible.length} 件を表示
               </p>
-              <ol className="space-y-3">
+              <ol className="space-y-2.5">
                 {visible.map((v, i) => (
-                  <li key={`${v.version}-${i}`} className="rounded-xl border border-border p-3.5">
-                    <div className="flex flex-wrap items-center gap-2">
+                  <li
+                    key={`${v.version}-${i}`}
+                    className={cn(
+                      "rounded-xl border p-3.5",
+                      v.isCurrent ? "border-success/30 bg-success/[0.04]" : "border-border"
+                    )}
+                  >
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                       <span
                         className={cn(
-                          "rounded-full px-2 py-0.5 text-xs font-bold font-number",
-                          v.isCurrent ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+                          "shrink-0 rounded-full px-2 py-0.5 text-xs font-bold font-number tabular-nums",
+                          v.isCurrent ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
                         )}
                       >
                         v{v.version}
                       </span>
                       {v.isCurrent && (
-                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                        <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
                           現在のバージョン
                         </span>
                       )}
-                      <span className="text-sm font-semibold text-foreground">{renderInline(v.title)}</span>
+                      <span className="text-sm font-bold leading-snug text-foreground">{renderInline(v.title)}</span>
                     </div>
-                    <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{renderInline(v.description)}</p>
+                    <RichDescription text={v.description} defaultExpanded={v.isCurrent} />
                   </li>
                 ))}
               </ol>

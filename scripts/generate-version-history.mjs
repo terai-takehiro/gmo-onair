@@ -67,8 +67,12 @@ function parseEntries(sectionText) {
 
     const titleMatch = body.match(TITLE_RE);
     let title;
+    // title をタイトル行の先頭太字から抽出できた場合、本文側の重複表示を避けるため
+    // description からはその接頭辞（太字＋直後の句点）を取り除く。
+    let description = body;
     if (titleMatch) {
       title = titleMatch[1];
+      description = body.slice(titleMatch[0].length).replace(/^[。.]\s*/, "").trim();
     } else {
       const firstSentence = body.split("。")[0];
       title = firstSentence.length <= 90 ? firstSentence : `${firstSentence.slice(0, 90)}…`;
@@ -79,7 +83,7 @@ function parseEntries(sectionText) {
       version,
       isCurrent: isFirst,
       title,
-      description: body,
+      description: description || body,
     });
     isFirst = false;
   }
