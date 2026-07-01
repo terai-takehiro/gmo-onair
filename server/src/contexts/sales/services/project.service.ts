@@ -141,12 +141,16 @@ export class ProjectService {
       const [y, m] = filter.eventMonth.split('-').map(Number);
       const monthStart = `${filter.eventMonth}-01`;
       const nextMonthStart = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`;
-      where += ` AND p.event_start IS NOT NULL AND p.event_start < ? AND COALESCE(NULLIF(p.event_end, ''), p.event_start) >= ?`;
+      // 開催日が無い案件 (ビジネス系など studio 日程を持たない案件) は日付で絞れないため
+      // 期間フィルタでも常に含める (従来は event_start IS NOT NULL で除外していたため、
+      // 確定済みのビジネス案件が全体一覧から消えていた)。
+      where += ` AND (p.event_start IS NULL OR NULLIF(p.event_start, '') IS NULL OR (p.event_start < ? AND COALESCE(NULLIF(p.event_end, ''), p.event_start) >= ?))`;
       params.push(nextMonthStart, monthStart);
     }
     // 開催期間レンジ (YYYY-MM-DD): イベント期間 [event_start, event_end] がレンジに重なる案件
     if (filter.eventFrom && filter.eventTo && /^\d{4}-\d{2}-\d{2}$/.test(filter.eventFrom) && /^\d{4}-\d{2}-\d{2}$/.test(filter.eventTo)) {
-      where += ` AND p.event_start IS NOT NULL AND p.event_start <= ? AND COALESCE(NULLIF(p.event_end, ''), p.event_start) >= ?`;
+      // 開催日が無い案件は日付で絞れないため常に含める (上記と同じ理由)
+      where += ` AND (p.event_start IS NULL OR NULLIF(p.event_start, '') IS NULL OR (p.event_start <= ? AND COALESCE(NULLIF(p.event_end, ''), p.event_start) >= ?))`;
       params.push(filter.eventTo, filter.eventFrom);
     }
 

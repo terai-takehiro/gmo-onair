@@ -662,6 +662,19 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
               ] || project.project_type}
             </Badge>
           )}
+          {/* 確定案件でも案件名・パラメータを再編集できるよう編集フォームへの導線を出す
+              (従来この画面には編集ボタンが無く、確定済みビジネス案件のタイトル等を直せなかった) */}
+          {!isEstimateMode && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1 ml-auto"
+              onClick={() => navigate(`/sales/projects/${projectId}`)}
+            >
+              <Pencil className="h-4 w-4" />
+              案件を編集
+            </Button>
+          )}
         </div>
         <p className="text-sm text-muted-foreground">
           {(project as any).customer_name}
