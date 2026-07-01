@@ -6,6 +6,7 @@ import { extractPagination, paginatedResponse } from '../../../shared/services/p
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateEstimatePdf } from '../../../shared/services/pdf.service';
 import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
+import { buildExcelWorkbook, excelResponse } from '../../../shared/utils/excel';
 import { buildRevenueWhere, buildRevenueOrder } from '../list-query';
 
 const router = Router();
@@ -148,6 +149,125 @@ router.get('/:id/pdf', async (req, res, next) => {
     res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
     res.setHeader('Content-Length', pdfBuffer.length);
     res.send(pdfBuffer);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// 請求書 Excel 出力 (業務推進への監査提出用・BOX 格納フォーマット準拠)
+// 1 明細行 = 1 レコードのフラットな表 (請求先情報は各行に反復)。
+router.get('/:id/excel', async (req, res, next) => {
+  try {
+    const row = await queryOne(
+      `SELECT r.*, p.name as project_name, p.gls_number,
+              p.event_start as project_start, p.event_end as project_end,
+              c.name as customer_name,
+              c.address as customer_address,
+              c.contact_name as customer_contact
+       FROM revenues r
+       LEFT JOIN projects p ON p.id = r.project_id
+       LEFT JOIN customers c ON c.id = r.customer_id
+       WHERE r.id = ? AND r.deleted_at IS NULL`,
+      [req.params.id]
+    ) as any;
+    if (!row) throw new AppError(404, 'NOT_FOUND', '売上が見つかりません');
+
+    const items = await queryAll('SELECT * FROM revenue_items WHERE revenue_id = ? ORDER BY sort_order', [req.params.id]) as any[];
+
+    // YYYY/M/D 形式 (ゼロ埋めなし)
+    const dateSlash = (d: string | null | undefined): string => {
+      if (!d) return '';
+      const p = String(d).slice(0, 10).split('-');
+      return p.length >= 3 ? `${parseInt(p[0])}/${parseInt(p[1])}/${parseInt(p[2])}` : String(d);
+    };
+    // 税区分 → 税率ラベル + 税込への係数
+    const tc = row.tax_category as string;
+    const rateLabel = tc === 'tax8' ? '8%' : tc === 'exempt' ? '非課税' : '10%';
+    const rateMul = tc === 'tax8' ? 1.08 : tc === 'exempt' ? 1 : 1.1;
+    const inclusive = (net: number): number => (tc === 'exempt' ? net : Math.round(net * rateMul));
+
+    // 請求先住所は 1 カラムのため住所1 に全文を入れる (郵便番号/建物名は分離保持していない)
+    const addr1 = (row.customer_address || '').replace(/\n/g, ' ').trim();
+
+    // 明細行 → フラット行。明細が無ければ売上金額で 1 行組み立てる。
+    type Src = { description: string; quantity: number; unit_price: number; amount: number; period_start: string | null; period_end: string | null; item_notes: string | null };
+    const srcItems: Src[] = items.length > 0
+      ? items.map((it) => ({
+          description: it.description || '',
+          quantity: it.quantity ?? 1,
+          unit_price: it.unit_price ?? 0,
+          amount: it.amount ?? 0,
+          period_start: it.period_start || null,
+          period_end: it.period_end || null,
+          item_notes: it.item_notes || null,
+        }))
+      : [{
+          description: row.subtitle || row.project_name || '',
+          quantity: 1,
+          unit_price: row.amount ?? 0,
+          amount: row.amount ?? 0,
+          period_start: null,
+          period_end: null,
+          item_notes: row.notes || null,
+        }];
+
+    const rows = srcItems.map((it, i) => {
+      const pS = it.period_start || row.project_start;
+      const pE = it.period_end || row.project_end;
+      const period = pS || pE ? `${dateSlash(pS)}${pE ? '～' + dateSlash(pE) : ''}` : '';
+      const net = it.amount ?? 0;
+      return {
+        billTo: row.customer_name || '',
+        billZip: '',
+        billAddr1: addr1,
+        billBldg: '',
+        contact: row.customer_contact || '',
+        honorific: '様',
+        no: i + 1,
+        itemCode: 'M' + String(10000 * 1000 + i + 1).padStart(11, '0'),
+        period,
+        productName: it.description,
+        note: it.item_notes || '',
+        net,
+        rate: rateLabel,
+        inclusive: inclusive(net),
+        paymentDue: dateSlash(row.payment_due_date),
+      };
+    });
+
+    const buffer = buildExcelWorkbook([
+      {
+        name: '請求データ',
+        columns: [
+          { key: 'billTo', header: '請求先名称', width: 24 },
+          { key: 'billZip', header: '請求先郵便番号', width: 14 },
+          { key: 'billAddr1', header: '請求先住所1', width: 30 },
+          { key: 'billBldg', header: '請求先住所(建物名）', width: 20 },
+          { key: 'contact', header: '担当者名', width: 14 },
+          { key: 'honorific', header: '敬称', width: 6 },
+          { key: 'no', header: 'No', width: 6 },
+          { key: 'itemCode', header: '明細番号', width: 16 },
+          { key: 'period', header: '期間', width: 22 },
+          { key: 'productName', header: '商品名', width: 30 },
+          { key: 'note', header: '備考', width: 30 },
+          { key: 'net', header: '税抜', width: 12 },
+          { key: 'rate', header: '消費税率', width: 10 },
+          { key: 'inclusive', header: '消費税込', width: 12 },
+          { key: 'paymentDue', header: '入金予定日', width: 14 },
+        ],
+        rows,
+      },
+    ]);
+
+    // ファイル名は project.gls_number (live) を優先 (PDF と同じ方針)
+    let filenameKey = row.billing_key || '';
+    if (row.gls_number && filenameKey) {
+      const dash = filenameKey.indexOf('-');
+      if (dash > 0 && /^GLS\d+$/i.test(filenameKey.slice(0, dash))) {
+        filenameKey = row.gls_number + filenameKey.slice(dash);
+      }
+    }
+    excelResponse(res, `請求書_${filenameKey || row.id}.xlsx`, buffer);
   } catch (err) {
     next(err);
   }

@@ -132,8 +132,11 @@ export default function RevenueListPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("desc");
-  // YYYY-MM 計上月絞り込み。既定は今月で絞り込み
+  // YYYY-MM 計上月絞り込み。既定は今月で絞り込み。
+  // ただし特定の案件内で表示している場合 (?project_id) はその案件の全月を
+  // 見たいので「解除 (全月)」を既定にする。
   const [monthFilter, setMonthFilter] = useState(() => {
+    if (searchParams.get("project_id")) return "";
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
