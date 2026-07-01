@@ -9,18 +9,58 @@ export interface ICalEvent {
   dtstart: string;   // ISO 8601 or YYYYMMDD
   dtend: string;
   allDay?: boolean;
-  created?: string;
-  lastModified?: string;
+  // pg は TIMESTAMP (無time zone) 列を JS Date オブジェクトとして返すため、文字列/Date どちらも受け付ける
+  created?: string | Date;
+  lastModified?: string | Date;
 }
 
+/**
+ * CREATED / LAST-MODIFIED は RFC 5545 上つねに UTC ("Z" 終端、TZID 不可) で出力する。
+ * DTSTART/DTEND (JST ウォールクロック文字列) とは異なり、こちらは Postgres の
+ * TIMESTAMP 列を由来とする実時刻 (文字列 or Date オブジェクト) なのでそのまま UTC 変換する。
+ */
+function formatUtcTimestamp(value: string | Date): string {
+  const dt = value instanceof Date ? value : new Date(value);
+  return dt.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+}
+
+/**
+ * VEVENT の DTSTART/DTEND は TZID=Asia/Tokyo (ローカル時刻・Z終端なし) で出力する必要がある。
+ * DB の start_time/end_time は JST のウォールクロック文字列 (例: "2026-01-15T14:00:00") で
+ * 保存されているため、`new Date(iso).toISOString()` を経由すると
+ *   ①実行環境のタイムゾーンによって数字がずれる (naive datetime は "ローカル時刻" として解釈される)
+ *   ②toISOString() は末尾に "Z" (UTC) を付与するため、TZID パラメータと矛盾し RFC 5545 違反になる
+ * という2つの不具合があり、Google Calendar 等での連携が正しく動作しない原因になっていた。
+ * 文字列から日時の数字を直接抜き出して組み立てることで、実行環境のタイムゾーンに依存せず
+ * 常に「保存された時刻をそのまま Asia/Tokyo のローカル時刻」として出力する。
+ */
 function formatDateTime(iso: string, allDay?: boolean): string {
   if (allDay) {
     // VALUE=DATE format: YYYYMMDD
     return iso.replace(/[-:]/g, '').slice(0, 8);
   }
-  // DATETIME format: YYYYMMDDTHHMMSSZ
-  const d = new Date(iso);
-  return d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  // DATETIME format (TZID 用・Z サフィックスなし): YYYYMMDDTHHMMSS
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})/);
+  if (m) {
+    const [, y, mo, d, h, mi, s] = m;
+    return `${y}${mo}${d}T${h}${mi}${s}`;
+  }
+  // 想定外フォーマットのフォールバック (日時情報が無い場合など)
+  const dt = new Date(iso);
+  return dt.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, '');
+}
+
+/** YYYY-MM-DD 文字列に days 日を加算する (タイムゾーンに依存しない純粋な日付計算) */
+function addDaysToDateStr(dateStr: string, days: number): string {
+  const m = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return dateStr;
+  const [, y, mo, d] = m;
+  const utcMs = Date.UTC(Number(y), Number(mo) - 1, Number(d) + days);
+  const dt = new Date(utcMs);
+  const yyyy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getUTCDate()).padStart(2, '0');
+  return `${yyyy}${mm}${dd}`;
 }
 
 function escapeText(s: string): string {
@@ -67,9 +107,7 @@ export function generateICalFeed(calendarName: string, events: ICalEvent[]): str
     if (ev.allDay) {
       lines.push(`DTSTART;VALUE=DATE:${formatDateTime(ev.dtstart, true)}`);
       // iCal の終日イベントは翌日を指定 (exclusive end)
-      const endDate = new Date(ev.dtend);
-      endDate.setDate(endDate.getDate() + 1);
-      lines.push(`DTEND;VALUE=DATE:${endDate.toISOString().replace(/[-:]/g, '').slice(0, 8)}`);
+      lines.push(`DTEND;VALUE=DATE:${addDaysToDateStr(ev.dtend, 1)}`);
     } else {
       lines.push(`DTSTART;TZID=Asia/Tokyo:${formatDateTime(ev.dtstart)}`);
       lines.push(`DTEND;TZID=Asia/Tokyo:${formatDateTime(ev.dtend)}`);
@@ -78,8 +116,8 @@ export function generateICalFeed(calendarName: string, events: ICalEvent[]): str
     lines.push(`SUMMARY:${escapeText(ev.summary)}`);
     if (ev.description) lines.push(`DESCRIPTION:${escapeText(ev.description)}`);
     if (ev.location) lines.push(`LOCATION:${escapeText(ev.location)}`);
-    if (ev.created) lines.push(`CREATED:${formatDateTime(ev.created)}`);
-    if (ev.lastModified) lines.push(`LAST-MODIFIED:${formatDateTime(ev.lastModified)}`);
+    if (ev.created) lines.push(`CREATED:${formatUtcTimestamp(ev.created)}`);
+    if (ev.lastModified) lines.push(`LAST-MODIFIED:${formatUtcTimestamp(ev.lastModified)}`);
 
     lines.push('END:VEVENT');
   }

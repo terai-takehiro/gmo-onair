@@ -876,12 +876,18 @@ export default function StudioCalendarPage() {
 // カレンダー連携ダイアログ
 // ============================================================
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Copy, CheckCircle2 } from "lucide-react";
+import { Copy, CheckCircle2, RotateCcw } from "lucide-react";
+
+interface StudioFeedsData {
+  calendar_feed_url: string;
+  rooms: { room_id: string; room_name: string; location_name: string; room_type: string; signage_url: string }[];
+}
 
 function CalendarFeedsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const qc = useQueryClient();
   const { data } = useQuery({
     queryKey: ["studio-feeds"],
-    queryFn: async () => (await api.get("/studios/rooms/feeds")).data.data as { room_id: string; room_name: string; location_name: string; room_type: string; feed_url: string }[],
+    queryFn: async () => (await api.get("/studios/rooms/feeds")).data.data as StudioFeedsData,
     enabled: open,
   });
 
@@ -891,6 +897,11 @@ function CalendarFeedsDialog({ open, onOpenChange }: { open: boolean; onOpenChan
     setCopied(id);
     setTimeout(() => setCopied(null), 2000);
   };
+
+  const regenerateMutation = useMutation({
+    mutationFn: async () => (await api.post("/studios/rooms/feeds/regenerate-token")).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["studio-feeds"] }),
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -903,57 +914,49 @@ function CalendarFeedsDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         </DialogHeader>
 
         <p className="text-sm text-muted-foreground mb-4">
-          各部屋のフィードURLをGoogle Calendar / Outlook に追加すると、予約が自動同期されます。
+          下記のURLをGoogle Calendar / Outlook に1つ追加するだけで、全部屋の予約がまとめて自動同期されます。
         </p>
 
-        <div className="space-y-2">
-          {(data ?? []).map((feed) => (
-            <div key={feed.room_id} className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 p-3 border rounded-lg">
-              <div className="w-full sm:flex-1 min-w-0">
-                <p className="text-sm font-medium">{feed.location_name} — {feed.room_name}</p>
-                <p className="text-xs text-muted-foreground truncate mt-0.5">{feed.feed_url}</p>
-              </div>
-              <Button
-                size="sm"
-                variant={copied === feed.room_id ? "default" : "outline"}
-                onClick={() => copyUrl(feed.feed_url, feed.room_id)}
-                className="shrink-0 w-full sm:w-auto"
-              >
-                {copied === feed.room_id ? <CheckCircle2 className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
-                {copied === feed.room_id ? "コピー済" : "URLコピー"}
-              </Button>
+        {data && (
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 p-3 border rounded-lg bg-primary/5">
+            <div className="w-full sm:flex-1 min-w-0">
+              <p className="text-sm font-medium">カレンダー フィードURL（全部屋・共通）</p>
+              <p className="text-xs text-muted-foreground truncate mt-0.5">{data.calendar_feed_url}</p>
             </div>
-          ))}
-        </div>
+            <Button
+              size="sm"
+              variant={copied === "cal" ? "default" : "outline"}
+              onClick={() => copyUrl(data.calendar_feed_url, "cal")}
+              className="shrink-0 w-full sm:w-auto"
+            >
+              {copied === "cal" ? <CheckCircle2 className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
+              {copied === "cal" ? "コピー済" : "URLコピー"}
+            </Button>
+          </div>
+        )}
 
-        {/* サイネージURL一覧 */}
+        {/* サイネージURL一覧 (物理ディスプレイ設置用なので部屋ごと) */}
         <div className="border-t pt-4 mt-4">
           <p className="text-sm font-semibold mb-3">サイネージURL（楽屋/会議室入口用）</p>
-          <p className="text-xs text-muted-foreground mb-2">タブレットやモニターのブラウザで全画面表示</p>
+          <p className="text-xs text-muted-foreground mb-2">タブレットやモニターのブラウザで全画面表示（部屋ごとに個別のURLです）</p>
           <div className="space-y-2">
-            {(data ?? []).map((feed) => {
-              const baseUrl = new URL(feed.feed_url).origin;
-              const roomId = feed.room_id;
-              const token = new URL(feed.feed_url).searchParams.get('token') || '';
-              const sUrl = `${baseUrl}/signage/${roomId}?token=${token}`;
-              return (
-                <div key={`signage-${feed.room_id}`} className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 p-3 border rounded-lg bg-muted/30">
-                  <div className="w-full sm:flex-1 min-w-0">
-                    <p className="text-sm font-medium">{feed.location_name} — {feed.room_name}</p>
-                    <p className="text-xs text-muted-foreground truncate mt-0.5">{sUrl}</p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant={copied === `s-${feed.room_id}` ? "default" : "outline"}
-                    onClick={() => copyUrl(sUrl, `s-${feed.room_id}`)}
-                    className="shrink-0 w-full sm:w-auto"
-                  >
-                    {copied === `s-${feed.room_id}` ? <CheckCircle2 className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
-                    {copied === `s-${feed.room_id}` ? "コピー済" : "URLコピー"}
-                  </Button>
+            {(data?.rooms ?? []).map((room) => (
+              <div key={`signage-${room.room_id}`} className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 p-3 border rounded-lg bg-muted/30">
+                <div className="w-full sm:flex-1 min-w-0">
+                  <p className="text-sm font-medium">{room.location_name} — {room.room_name}</p>
+                  <p className="text-xs text-muted-foreground truncate mt-0.5">{room.signage_url}</p>
                 </div>
-              );
-            })}
+                <Button
+                  size="sm"
+                  variant={copied === `s-${room.room_id}` ? "default" : "outline"}
+                  onClick={() => copyUrl(room.signage_url, `s-${room.room_id}`)}
+                  className="shrink-0 w-full sm:w-auto"
+                >
+                  {copied === `s-${room.room_id}` ? <CheckCircle2 className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
+                  {copied === `s-${room.room_id}` ? "コピー済" : "URLコピー"}
+                </Button>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -970,6 +973,26 @@ function CalendarFeedsDialog({ open, onOpenChange }: { open: boolean; onOpenChan
             </div>
             <p className="text-amber-600">※ 同期間隔はカレンダーアプリ側の設定に依存します（通常数時間〜24時間）</p>
           </div>
+        </div>
+
+        <div className="border-t pt-4 mt-4">
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-destructive hover:text-destructive"
+            disabled={regenerateMutation.isPending}
+            onClick={() => {
+              if (window.confirm("フィードトークンを再生成しますか？\n既存のカレンダー登録・サイネージ表示はすべて無効になり、上記URLを登録し直す必要があります。")) {
+                regenerateMutation.mutate();
+              }
+            }}
+          >
+            {regenerateMutation.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RotateCcw className="h-4 w-4 mr-1" />}
+            フィードトークンを再生成
+          </Button>
+          <p className="text-xs text-muted-foreground mt-1.5">
+            URLが外部に漏れた場合など、緊急時のみ実行してください。
+          </p>
         </div>
       </DialogContent>
     </Dialog>

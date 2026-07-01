@@ -11,58 +11,85 @@ const router = Router();
 // ============================================================
 // iCal フィード (認証不要 — URLのtokenで認証)
 // Google Calendar / Outlook から定期取得される
+//
+// v2.9.133+: フィードトークンは環境変数 (ICAL_FEED_TOKEN) の手動設定に依存していたが、
+// 未設定のままだと全リクエストが 403 になり「カレンダー連携が機能しない」原因になっていた。
+// DB (studio_calendar_settings, singleton) にトークンを永続化し、無ければ初回アクセス時に
+// 自動発行する方式に変更 (運用者の手作業なしで必ず動く)。
 // ============================================================
 
-// フィードトークン (本番では必ず .env に設定)
-const FEED_TOKEN = process.env.ICAL_FEED_TOKEN;
-if (!FEED_TOKEN && process.env.NODE_ENV === 'production') {
-  console.error('WARNING: ICAL_FEED_TOKEN not set. Calendar feeds and signage will be disabled.');
+/** フィードトークンを取得。未生成なら自動発行して DB に保存する (singleton row, id=1) */
+async function getOrCreateFeedToken(): Promise<string> {
+  const row = await queryOne('SELECT feed_token FROM studio_calendar_settings WHERE id = 1') as any;
+  if (row?.feed_token) return row.feed_token;
+  const token = crypto.randomBytes(24).toString('hex');
+  await execute(
+    `INSERT INTO studio_calendar_settings (id, feed_token) VALUES (1, ?)
+     ON CONFLICT (id) DO UPDATE SET feed_token = EXCLUDED.feed_token, updated_at = NOW()`,
+    [token],
+  );
+  return token;
 }
 
-router.get('/rooms/:roomId/calendar.ics', async (req, res) => {
+async function verifyFeedToken(token: string | undefined): Promise<boolean> {
+  if (!token) return false;
+  const current = await getOrCreateFeedToken();
+  return token === current;
+}
+
+// 全部屋を統合した単一カレンダーフィード (旧: 部屋ごとに個別URLだったものを1本化)
+router.get('/calendar.ics', async (req, res) => {
   const token = req.query.token as string;
-  if (!FEED_TOKEN || token !== FEED_TOKEN) {
+  if (!(await verifyFeedToken(token))) {
     res.status(403).send('Invalid feed token');
     return;
   }
 
-  const room = await queryOne(
-    `SELECT r.id, r.name, r.color, r.room_type, l.name as location_name
-     FROM studio_rooms r
-     LEFT JOIN studio_locations l ON l.id = r.location_id
-     WHERE r.id = ? AND r.deleted_at IS NULL`,
-    [req.params.roomId],
-  ) as any;
-  if (!room) { res.status(404).send('Room not found'); return; }
-
-  // この部屋が含まれる予約を取得 (過去3ヶ月〜未来1年)
+  // 過去3ヶ月〜未来1年の予約 (全部屋)
   const bookings = await queryAll(
     `SELECT b.id, b.title, b.booking_type, b.start_time, b.end_time, b.all_day,
             b.location_note, b.notes, b.created_at, b.updated_at,
-            p.name as project_name, p.gls_number,
-            br.occupant, br.usage_note
+            p.name as project_name, p.gls_number
      FROM studio_bookings b
-     JOIN studio_booking_rooms br ON br.booking_id = b.id AND br.room_id = ?
      LEFT JOIN projects p ON p.id = b.project_id
      WHERE b.deleted_at IS NULL
        AND b.end_time >= (NOW() - interval '3 months')
        AND b.start_time <= (NOW() + interval '1 year')
      ORDER BY b.start_time`,
-    [req.params.roomId],
   ) as any[];
 
+  // 予約ごとの部屋一覧 (占有者/用途メモ込み) を取得しマージする
+  const bookingRooms = await queryAll(
+    `SELECT br.booking_id, br.occupant, br.usage_note, r.name as room_name, l.name as location_name
+     FROM studio_booking_rooms br
+     JOIN studio_rooms r ON r.id = br.room_id
+     LEFT JOIN studio_locations l ON l.id = r.location_id
+     ORDER BY l.sort_order, r.sort_order`,
+  ) as any[];
+  const roomsByBooking = new Map<string, typeof bookingRooms>();
+  for (const br of bookingRooms) {
+    if (!roomsByBooking.has(br.booking_id)) roomsByBooking.set(br.booking_id, []);
+    roomsByBooking.get(br.booking_id)!.push(br);
+  }
+
   const events: ICalEvent[] = bookings.map((b) => {
+    const rooms = roomsByBooking.get(b.id) || [];
+    const roomLabels = rooms.map((r) => (r.location_name ? `${r.location_name} - ${r.room_name}` : r.room_name));
+    const occupants = [...new Set(rooms.map((r) => r.occupant).filter(Boolean))];
+    const usageNotes = [...new Set(rooms.map((r) => r.usage_note).filter(Boolean))];
+
     const parts: string[] = [];
     if (b.project_name) parts.push(b.gls_number ? `[${b.gls_number}] ${b.project_name}` : b.project_name);
-    if (b.occupant) parts.push(`使用者: ${b.occupant}`);
-    if (b.usage_note) parts.push(b.usage_note);
+    if (occupants.length) parts.push(`使用者: ${occupants.join(', ')}`);
+    if (usageNotes.length) parts.push(usageNotes.join('\n'));
+    if (b.location_note) parts.push(b.location_note);
     if (b.notes) parts.push(b.notes);
 
     return {
-      uid: `booking-${b.id}-${room.id}@gmo-onair.jp`,
-      summary: b.title,
+      uid: `booking-${b.id}@gmo-onair.jp`,
+      summary: roomLabels.length ? `${b.title}（${roomLabels.join(' / ')}）` : b.title,
       description: parts.join('\n') || undefined,
-      location: room.location_name ? `${room.location_name} - ${room.name}` : room.name,
+      location: roomLabels.join(' / ') || undefined,
       dtstart: b.start_time,
       dtend: b.end_time,
       allDay: !!b.all_day,
@@ -71,11 +98,10 @@ router.get('/rooms/:roomId/calendar.ics', async (req, res) => {
     };
   });
 
-  const calName = room.location_name ? `${room.location_name} ${room.name}` : room.name;
-  const ical = generateICalFeed(calName, events);
+  const ical = generateICalFeed('GMO ONAiR スタジオ予約', events);
 
   res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
-  res.setHeader('Content-Disposition', `inline; filename="${room.name}.ics"`);
+  res.setHeader('Content-Disposition', 'inline; filename="studio-bookings.ics"');
   res.setHeader('Cache-Control', 'public, max-age=300'); // 5分キャッシュ
   res.send(ical);
 });
@@ -83,7 +109,7 @@ router.get('/rooms/:roomId/calendar.ics', async (req, res) => {
 // サイネージ用データ (認証不要 — トークンで保護)
 router.get('/rooms/:roomId/signage', async (req, res) => {
   const token = req.query.token as string;
-  if (!FEED_TOKEN || token !== FEED_TOKEN) {
+  if (!(await verifyFeedToken(token))) {
     res.status(403).json({ success: false, error: { message: 'Invalid token' } });
     return;
   }
@@ -130,8 +156,13 @@ router.get('/rooms/:roomId/signage', async (req, res) => {
   });
 });
 
-// 全部屋のフィードURL一覧 (認証必要 — 管理画面で表示用)
+// カレンダー連携情報 (認証必要 — 管理画面で表示用)
+// v2.9.133+: 部屋ごとに個別だったカレンダーフィードURLを全部屋共通の1本に統合。
+// サイネージURL (物理ディスプレイ設置用) は部屋固有のため従来どおり部屋ごとに一覧表示する。
 router.get('/rooms/feeds', requireAuth, requirePermission('studio'), async (_req, res) => {
+  const token = await getOrCreateFeedToken();
+  const baseUrl = process.env.CLIENT_URL || 'https://gmo-onair.jp';
+
   const rooms = await queryAll(
     `SELECT r.id, r.name, r.room_type, l.name as location_name
      FROM studio_rooms r
@@ -140,26 +171,32 @@ router.get('/rooms/feeds', requireAuth, requirePermission('studio'), async (_req
      ORDER BY l.sort_order, r.sort_order`,
   ) as any[];
 
-  const baseUrl = process.env.CLIENT_URL || 'https://gmo-onair.jp';
-  const feeds = rooms.map((r) => ({
-    room_id: r.id,
-    room_name: r.name,
-    location_name: r.location_name,
-    room_type: r.room_type,
-    feed_url: `${baseUrl}/api/v1/internal/studios/rooms/${r.id}/calendar.ics?token=${FEED_TOKEN}`,
-  }));
-
-  res.json({ success: true, data: feeds });
-});
-
-// フィードトークン再生成
-router.post('/rooms/feeds/regenerate-token', requireAuth, requireRole('system_admin'), async (_req, res) => {
-  const newToken = crypto.randomBytes(24).toString('hex');
-  // 実際にはDBに保存すべきだが、簡易的に環境変数で管理
-  // ここではレスポンスで新トークンを返し、.envに手動設定してもらう
   res.json({
     success: true,
-    message: '新しいフィードトークンを生成しました。.env の ICAL_FEED_TOKEN に設定してください。',
+    data: {
+      calendar_feed_url: `${baseUrl}/api/v1/internal/studios/calendar.ics?token=${token}`,
+      rooms: rooms.map((r) => ({
+        room_id: r.id,
+        room_name: r.name,
+        location_name: r.location_name,
+        room_type: r.room_type,
+        signage_url: `${baseUrl}/signage/${r.id}?token=${token}`,
+      })),
+    },
+  });
+});
+
+// フィードトークン再生成 (DB に永続化。既発行の全URL・サイネージ表示は無効化される点に注意)
+router.post('/rooms/feeds/regenerate-token', requireAuth, requireRole('system_admin'), async (_req, res) => {
+  const newToken = crypto.randomBytes(24).toString('hex');
+  await execute(
+    `INSERT INTO studio_calendar_settings (id, feed_token) VALUES (1, ?)
+     ON CONFLICT (id) DO UPDATE SET feed_token = EXCLUDED.feed_token, updated_at = NOW()`,
+    [newToken],
+  );
+  res.json({
+    success: true,
+    message: 'フィードトークンを再生成しました。既存のカレンダー登録・サイネージURLは無効になります。',
     data: { token: newToken },
   });
 });
