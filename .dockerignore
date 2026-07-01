@@ -11,3 +11,6 @@ scripts
 nginx
 *.md
 !shared/package.json
+# client の prebuild (scripts/generate-version-history.mjs) が CLAUDE.md をパースするため必要
+!CLAUDE.md
+!scripts/generate-version-history.mjs

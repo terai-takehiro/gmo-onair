@@ -27,6 +27,9 @@ COPY client-techsheet/ client-techsheet/
 COPY client-live/ client-live/
 COPY client-awards/ client-awards/
 COPY server/ server/
+# CLAUDE.md 「現在のバージョン」節 + それをパースする scripts/ (client の prebuild が参照)
+COPY CLAUDE.md ./
+COPY scripts/ scripts/
 
 # 3. Build in order
 RUN npm run build --workspace=shared 2>/dev/null || true
