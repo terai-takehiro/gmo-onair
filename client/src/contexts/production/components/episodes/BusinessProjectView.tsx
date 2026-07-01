@@ -141,6 +141,9 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
   const [items, setItems] = useState<RevenueItem[]>([
     { description: "", quantity: 1, unit_price: 0, amount: 0 },
   ]);
+  // 月次ユニット (ビジネス案件の月締め請求単位) — 売上をエピソード(月)に紐づける
+  const [episodeId, setEpisodeId] = useState<string | null>(null);
+  const [newMonth, setNewMonth] = useState(""); // YYYY-MM (月を追加ピッカー)
 
   // 値引きダイアログ
   const [discountDialog, setDiscountDialog] = useState<{
@@ -176,6 +179,34 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
       (await api.get("/revenues", { params: { project_id: projectId, limit: 100 } })).data,
   });
   const revenues: Revenue[] = revenuesData?.data ?? [];
+
+  // 月次管理モード: 確定済みビジネス案件 (GLS発番済・非A系・非見積モード) で有効
+  const monthlyMode = !isEstimateMode && !isCategoryA && !!project.gls_number;
+
+  // 月次ユニット (エピソードを「月」として流用) の一覧
+  const { data: episodesData } = useQuery({
+    queryKey: ["episodes-months", projectId],
+    queryFn: async () =>
+      (await api.get(`/projects/${projectId}/episodes`, { params: { limit: 200 } })).data,
+    enabled: monthlyMode,
+  });
+  const monthEpisodes: Array<{ id: string; episode_code: string; episode_number: number; title: string | null }> =
+    episodesData?.data ?? [];
+
+  // 月ユニット作成 → その月の売上明細入力ダイアログを開く
+  const addMonthMutation = useMutation({
+    mutationFn: async (ym: string) =>
+      (await api.post(`/projects/${projectId}/episodes/month`, { year_month: ym })).data,
+    onSuccess: (res: any) => {
+      qc.invalidateQueries({ queryKey: ["episodes-months", projectId] });
+      setNewMonth("");
+      const ep = res.data;
+      // 既にその月の売上があればそれを編集、無ければ新規で開く
+      const existingRev = revenues.find((r) => (r as any).episode_id === ep.id);
+      if (existingRev) openEdit(existingRev);
+      else openNewForMonth(ep.id, ep.title || "");
+    },
+  });
 
   // Fetch purchases for this project
   const { data: purchasesData, isLoading: purchasesLoading } = useQuery({
@@ -413,6 +444,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
     setPaymentDueDate("");
     setNotes("");
     setSubtitle("");
+    setEpisodeId(null);
     setItems([{ description: "", quantity: 1, unit_price: 0, amount: 0, period_start: null, period_end: null, item_notes: null }]);
   };
 
@@ -421,8 +453,17 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
     setDialogOpen(true);
   };
 
+  // 月次ユニット (エピソード) に紐づけた新規売上を開く
+  const openNewForMonth = (epId: string, monthTitle: string) => {
+    closeDialog();
+    setEpisodeId(epId);
+    setSubtitle(monthTitle);
+    setDialogOpen(true);
+  };
+
   const openEdit = async (rev: Revenue) => {
     setEditingId(rev.id);
+    setEpisodeId((rev as any).episode_id || null);
     setTaxCategory(rev.tax_category || "tax10");
     setRecognitionDate(rev.recognition_date || "");
     setBillingDate(rev.billing_date || "");
@@ -592,10 +633,17 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
 
   const totalAmount = items.reduce((s, it) => s + (it.amount || 0), 0);
 
+  // 月次モードでは月ユニットに紐づく売上は「月次請求」セクションで表示するため、
+  // 下の「見積・売上明細」フラット一覧からは除外して二重表示を防ぐ。
+  const flatRevenues = monthlyMode
+    ? revenues.filter((r) => !(r as any).episode_id)
+    : revenues;
+
   const handleSubmit = () => {
     saveMutation.mutate({
       project_id: projectId,
       customer_id: project.customer_id,
+      episode_id: episodeId || null,
       tax_category: taxCategory,
       amount: totalAmount,
       recognition_date: recognitionDate || null,
@@ -661,6 +709,19 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                 project.project_type as keyof typeof ProjectTypeLabels
               ] || project.project_type}
             </Badge>
+          )}
+          {/* 確定案件でも案件名・パラメータを再編集できるよう編集フォームへの導線を出す
+              (従来この画面には編集ボタンが無く、確定済みビジネス案件のタイトル等を直せなかった) */}
+          {!isEstimateMode && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1 ml-auto"
+              onClick={() => navigate(`/sales/projects/${projectId}`)}
+            >
+              <Pencil className="h-4 w-4" />
+              案件を編集
+            </Button>
           )}
         </div>
         <p className="text-sm text-muted-foreground">
@@ -733,12 +794,137 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
         </Card>
       )}
 
+      {/* 月次請求 (ビジネス案件の月締め請求単位) — 1月 = 1請求単位 (GLS-XXXX-YYMM) */}
+      {monthlyMode && (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-base font-semibold flex items-center gap-2">
+              <Receipt className="h-4 w-4" />
+              月次請求（月締め）
+            </h2>
+            <div className="flex items-center gap-2">
+              <Input
+                type="month"
+                value={newMonth}
+                onChange={(e) => setNewMonth(e.target.value)}
+                className="h-9 w-40"
+                aria-label="追加する対象月"
+              />
+              <Button
+                size="sm"
+                disabled={!newMonth || addMonthMutation.isPending}
+                onClick={() => addMonthMutation.mutate(newMonth)}
+              >
+                {addMonthMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4 mr-1" />
+                )}
+                月を追加
+              </Button>
+            </div>
+          </div>
+
+          {monthEpisodes.length === 0 ? (
+            <Card>
+              <CardContent className="py-6 text-center text-sm text-muted-foreground">
+                月次ユニットがありません。対象月を選んで「月を追加」すると、
+                {" "}
+                <span className="font-medium text-foreground">{project.gls_number}-YYMM</span>
+                {" "}
+                の請求単位（1月＝1請求書/見積書）が作成されます。
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {monthEpisodes.map((ep) => {
+                const monthRevs = revenues.filter((r) => (r as any).episode_id === ep.id);
+                const monthTotal = monthRevs.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+                const primaryRev = monthRevs[0];
+                return (
+                  <Card key={ep.id}>
+                    <CardContent className="flex flex-wrap items-center gap-3 py-3 px-4">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium">
+                          {ep.episode_code}
+                          {ep.title && (
+                            <span className="ml-2 text-muted-foreground">{ep.title}</span>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {monthRevs.length}件 / 合計 {formatCurrency(monthTotal)}
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {primaryRev ? (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1 px-2"
+                              title="この月の明細を編集"
+                              onClick={() => openEdit(primaryRev)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">明細編集</span>
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1 px-2"
+                              title="見積書PDFを発行"
+                              onClick={() => handleDownloadPdf(primaryRev.id, "estimate")}
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">見積書</span>
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1 px-2"
+                              title="請求書PDFを発行"
+                              onClick={() => handleDownloadPdf(primaryRev.id, "invoice")}
+                            >
+                              <Receipt className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">請求書</span>
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1 px-2"
+                              title="請求書Excelを発行（業務推進提出用）"
+                              onClick={() => handleDownloadExcel(primaryRev.id)}
+                            >
+                              <FileSpreadsheet className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">請求書Excel</span>
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            size="sm"
+                            className="h-8 gap-1 px-2"
+                            onClick={() => openNewForMonth(ep.id, ep.title || "")}
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            明細を入力
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Revenue List = 見積/売上明細 */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold flex items-center gap-2">
             <FileText className="h-4 w-4" />
-            {isEstimateMode ? "概算見積書" : "見積・売上明細"}
+            {isEstimateMode ? "概算見積書" : monthlyMode ? "その他の売上明細（月次外）" : "見積・売上明細"}
           </h2>
           <div className="flex items-center gap-2">
             {isEstimateMode && (
@@ -758,15 +944,17 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
           <div className="flex justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
-        ) : revenues.length === 0 ? (
+        ) : flatRevenues.length === 0 ? (
           <Card>
             <CardContent className="py-8 text-center text-muted-foreground">
-              売上明細がありません。「明細追加」から見積構成を作成してください。
+              {monthlyMode
+                ? "月次以外の売上明細はありません。月締め請求は上の「月次請求」から管理します。"
+                : "売上明細がありません。「明細追加」から見積構成を作成してください。"}
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-3">
-            {revenues.map((rev) => (
+            {flatRevenues.map((rev) => (
               <Card key={rev.id}>
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-2">

@@ -289,10 +289,21 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
   const seqNum = String(existingCount + 1).padStart(3, '0');
   const taxSuffix = (tax_category || 'tax10') === 'tax8' ? '2' : (tax_category === 'exempt' ? '0' : '1');
 
+  // 月次ユニット等でエピソードに紐づく場合は、そのエピソードコードを請求KEYの基底にする
+  // (例: GLS-B001-2607 → GLS-B001-2607-1)。月締め請求で「1月=1請求単位」を成立させる。
+  let episodeCode: string | null = null;
+  if (episode_id) {
+    const ep = await queryOne('SELECT episode_code FROM episodes WHERE id = ? AND deleted_at IS NULL', [episode_id]) as any;
+    episodeCode = ep?.episode_code || null;
+  }
+
   let billing_key: string;
   if (revenueStatus === 'estimate') {
     // 概算見積: EST-OPPコード-連番-税枝番
     billing_key = `EST-${seqNum}-${taxSuffix}`;
+  } else if (episodeCode) {
+    // エピソード (月次ユニット等) 紐づき: {エピソードコード}-税枝番
+    billing_key = `${episodeCode}-${taxSuffix}`;
   } else {
     // 確定: GLS番号-連番-税枝番
     const base = project?.gls_number || 'REV';
