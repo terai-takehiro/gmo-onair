@@ -206,6 +206,11 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
       if (existingRev) openEdit(existingRev);
       else openNewForMonth(ep.id, ep.title || "");
     },
+    onError: (err: any) => {
+      const msg =
+        err?.response?.data?.error?.message || err?.message || "月ユニットの作成に失敗しました";
+      alert(`月の追加に失敗しました: ${msg}`);
+    },
   });
 
   // Fetch purchases for this project
