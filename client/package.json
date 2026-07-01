@@ -1,10 +1,12 @@
 {
   "name": "@gmo-onair/client",
   "private": true,
-  "version": "2.9.134",
+  "version": "2.9.135",
   "type": "module",
   "scripts": {
+    "predev": "node ../scripts/generate-version-history.mjs",
     "dev": "vite",
+    "prebuild": "node ../scripts/generate-version-history.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint ."
