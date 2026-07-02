@@ -1,0 +1,240 @@
+// client-live/src/manual/content.tsx — 計時LIVEアプリの利用マニュアル コンテンツ
+// shared/src/client/manual/ManualModal に渡す ManualContent データ。
+// 画面が変わったらここを更新すればマニュアルにも反映される。
+import {
+  Timer,
+  LayoutGrid,
+  FilePlus2,
+  MonitorPlay,
+  Users,
+  Settings,
+  Tv2,
+  HelpCircle,
+  KeyRound,
+  Gauge,
+  Link2,
+} from "lucide-react";
+import type { ManualContent } from "@gmo-onair/shared/src/client/manual/types";
+
+export const LIVE_MANUAL: ManualContent = {
+  appLabel: "計時LIVE",
+  appIcon: Timer,
+  intro:
+    "本番進行用のタイマーと、YouTube・Jstream・Zoom・Teams の視聴者数カウンターをまとめて運用するアプリです。配信セッションを作成し、タイマー表示画面を副調整室のモニターや配信画面に映して使います。",
+  sections: [
+    // ── はじめに ───────────────────────────────────────────
+    {
+      id: "intro-overview",
+      group: "はじめに",
+      icon: LayoutGrid,
+      title: "計時LIVEとは",
+      keywords: ["概要", "全体像", "タイマー", "視聴者数"],
+      blocks: [
+        {
+          type: "p",
+          text: "計時LIVEは、番組・イベントの本番進行を支えるブロックアプリです。1つの「セッション」の中でタイマーの操作と視聴者数の取得を行い、専用の表示画面（認証不要URL）を別モニターに映せます。",
+        },
+        {
+          type: "flow",
+          steps: [
+            { icon: FilePlus2, label: "セッション作成", sub: "GLS紐づけ or 単独", tone: "primary" },
+            { icon: Timer, label: "タイマー管理", sub: "作成・セット", tone: "info" },
+            { icon: MonitorPlay, label: "表示画面", sub: "別モニターに表示", tone: "success" },
+            { icon: Users, label: "視聴者数", sub: "各配信の合算", tone: "warning" },
+          ],
+        },
+        {
+          type: "callout",
+          tone: "info",
+          title: "権限について",
+          text: "タイマー操作・セッション作成・削除・設定の保存には管理者権限（管理レベル）が必要です。権限がない場合はボタンが非表示になるか「タイマー操作は管理者権限が必要です」と表示されます。",
+        },
+      ],
+    },
+
+    // ── セッション ─────────────────────────────────────────
+    {
+      id: "session",
+      group: "セッション",
+      icon: FilePlus2,
+      title: "セッションの作成と一覧",
+      keywords: ["セッション", "新規作成", "gls", "スタンドアロン"],
+      blocks: [
+        {
+          type: "steps",
+          items: [
+            {
+              title: "「新規作成」を押す",
+              text: "トップの「セッション一覧」右上の「新規作成」で「新規セッション作成」ダイアログを開きます。",
+            },
+            {
+              title: "モードを選ぶ",
+              text: "「GLS案件に紐づける」または「スタンドアロン」を選びます。GLSモードでは「案件名・GLS番号で検索...」で案件を選ぶと、番組名が案件名から自動入力されます。",
+            },
+            {
+              title: "番組名を入力して作成",
+              text: "「番組名」（例: 定期ライブ配信、社内イベント...）を入力し「作成して開始」を押すと、そのままダッシュボードに移動します。",
+            },
+          ],
+        },
+        {
+          type: "bullets",
+          items: [
+            "一覧は「番組名・GLS番号で検索...」で絞り込めます。GLS未紐づけのセッションは「STA」（スタンドアロン）バッジが付きます。",
+            "各行にはYouTube URL数・Jstream設定の有無（JS）が表示され、行クリックでダッシュボードに入ります。",
+            "削除（ゴミ箱）は管理者のみ。タイマーのデータは残りますが、そのセッションには戻れません。",
+          ],
+        },
+      ],
+    },
+
+    // ── タイマー ───────────────────────────────────────────
+    {
+      id: "dashboard",
+      group: "タイマー",
+      icon: Gauge,
+      title: "ダッシュボードの見方",
+      keywords: ["ダッシュボード", "timer", "viewers", "ログ", "推移"],
+      blocks: [
+        {
+          type: "bullets",
+          items: [
+            "Timer パネル：先頭のタイマーが大きく表示され、下の操作パネルからそのまま操作できます。「管理」でタイマー管理ページへ。",
+            "Viewers パネル：「開始／停止」トグルで視聴者数の取得を制御します。YouTube・Jstream・Zoom・Teams・合計のカウンターが並びます（Zoom/Teamsは番組設定に入力がある場合のみ表示）。",
+            "視聴者数推移グラフ：取得を開始するとスナップショットが約15秒間隔で記録され、推移グラフに表示されます。",
+            "ログ パネル：取得の成功（緑）・エラー（赤）が時刻付きで流れます。取得できないときはまずここを確認してください。",
+          ],
+        },
+        {
+          type: "callout",
+          tone: "warning",
+          text: "「設定でAPIキーを登録してください」と表示される場合は、視聴者数取得に必要なAPIキーが未設定です。「設定」ページ（管理者のみ）で登録してください。",
+        },
+      ],
+    },
+    {
+      id: "timer",
+      group: "タイマー",
+      icon: Timer,
+      title: "タイマーの作成と操作",
+      keywords: ["タイマー", "プリセット", "開始", "停止", "リセット", "時間調整", "qr"],
+      blocks: [
+        {
+          type: "steps",
+          items: [
+            { title: "タイマーを作る", text: "「タイマー管理」右上の「新規」で「タイマー作成」ダイアログを開き、「名前」（本番尺、休憩など）を入力して「作成」します。" },
+            { title: "時間をセットする", text: "「プリセット」（1分／3分／5分／10分／15分／20分／30分）か、「カスタム」の分・秒入力＋「セット」で時間を設定します。" },
+            { title: "操作する", text: "「開始」（緑）「停止」「リセット」（赤）で制御します。走行中でも「時間調整」（-1分／-30秒／-10秒／+10秒／+30秒／+1分）で押し引きできます。" },
+            { title: "表示画面を出す", text: "「表示」ボタンで別タブに表示画面を開くか、「QR」ボタンで表示画面URLをコピーして別マシン・タブレットに渡します。" },
+          ],
+        },
+        {
+          type: "callout",
+          tone: "info",
+          text: "タイマーはサーバーとリアルタイム同期（WebSocket）しているので、操作画面と表示画面が別のマシンでもズレません。残り時間に応じて通常→WARNING（黄）→TIME'S UP（赤・点滅）とフェーズが変わります。",
+        },
+      ],
+    },
+    {
+      id: "display",
+      group: "タイマー",
+      icon: Tv2,
+      title: "タイマー表示画面",
+      keywords: ["表示画面", "全画面", "認証不要", "オーバーレイ"],
+      blocks: [
+        {
+          type: "p",
+          text: "表示画面（/live/display/…）は認証不要・黒背景・全画面のページです。副調整室のモニターや配信画面へのオーバーレイ用に、URLを直接開くだけで使えます。",
+        },
+        {
+          type: "bullets",
+          items: [
+            "中央に大きなタイマーとステータス（COUNTDOWN／WARNING／TIME'S UP）が表示されます。",
+            "右下の歯車（表示設定）から「タイマーを表示」トグルと、視聴者カウント（YouTube／Jstream／Zoom／Teams／合計）の項目別トグルを切り替えられます。タイマーをOFFにすると視聴者数のみの大型表示になります。",
+            "表示設定はそのブラウザに保存されます（タイマーごと）。マシンごとに好みの表示にできます。",
+          ],
+        },
+      ],
+    },
+
+    // ── 番組・視聴者数 ─────────────────────────────────────
+    {
+      id: "program",
+      group: "番組・視聴者数",
+      icon: Link2,
+      title: "番組設定（配信先の登録）",
+      keywords: ["番組設定", "youtube", "jstream", "zoom", "teams", "url"],
+      blocks: [
+        {
+          type: "steps",
+          items: [
+            { title: "YouTube URL", text: "「YouTube URL」に配信URLを貼り付けます。「追加」で複数本登録でき、各行に「ラベル」（例: メイン／サブ）を付けられます。" },
+            { title: "Jstream", text: "「Jstream LPID」（例: 123456）を入力します。" },
+            { title: "Zoom", text: "「Zoom ミーティング ID」「Zoom ウェビナー ID」を入力します。両方設定すると参加者数を合算します。" },
+            { title: "Teams", text: "「Teams 会議 URL」に、Teamsの「会議リンクをコピー」で取得したURLを貼り付けます（ミーティング・ウェビナー共通）。" },
+            { title: "保存", text: "「保存」または下部の「設定を保存」を押します（保存後「保存済み ✓」）。番組名が空だと保存できません。" },
+          ],
+        },
+      ],
+    },
+    {
+      id: "settings",
+      group: "番組・視聴者数",
+      icon: KeyRound,
+      title: "設定（APIキー・管理者のみ）",
+      keywords: ["設定", "apiキー", "認証情報", "ポーリング", "エクスポート", "インポート"],
+      blocks: [
+        { type: "callout", tone: "muted", title: "管理者のみ", text: "このページの変更には管理者権限が必要です。" },
+        {
+          type: "bullets",
+          items: [
+            "APIキー設定：「YouTube Data API v3 キー」「Jstream トークン」を登録します。キーはサーバーで暗号化して保存され、保存後は画面にマスク表示（末尾4桁）のみ残ります。",
+            "Zoom API 設定：Server-to-Server OAuth アプリの「Account ID」「Client ID」「Client Secret」を登録します（Zoom Business+ プランが必要）。",
+            "Microsoft Teams API 設定：Azure AD でアプリ登録した「Tenant ID」「Client ID」「Client Secret」を登録します（OnlineMeetings.Read.All 権限が必要）。",
+            "ポーリング設定：「取得間隔 (秒)」（5〜300秒）で視聴者数の取得頻度を調整します。",
+            "設定の書き出し・読み込み：番組プリセットをJSONで「エクスポート」「インポート」できます（APIキーは含まれません）。",
+          ],
+        },
+        {
+          type: "callout",
+          tone: "info",
+          text: "APIキーは組織内で共有されます。自分のキーが未設定でも他ユーザーのキーで動作しますが、自分のキーを設定するとそちらが優先されます。",
+        },
+      ],
+    },
+
+    // ── 困ったときは ───────────────────────────────────────
+    {
+      id: "help-faq",
+      group: "困ったときは",
+      icon: HelpCircle,
+      title: "よくある質問",
+      keywords: ["faq", "視聴者数", "権限", "タイマー"],
+      blocks: [
+        {
+          type: "glossary",
+          items: [
+            { term: "視聴者数が取得できない", def: "①「設定」でAPIキー（YouTube/Jstream/Zoom/Teams）が登録済みか、②「番組設定」に配信URL・IDが入っているか、③ダッシュボードのViewersパネルで「開始」を押したか、を順に確認してください。ログパネルの赤いエラーが原因特定のヒントになります。" },
+            { term: "タイマーが操作できない", def: "タイマー操作には管理者権限が必要です。「タイマー操作は管理者権限が必要です」と表示される場合はシステム管理者に権限付与を依頼してください。" },
+            { term: "表示画面を別のPCで開きたい", def: "タイマー管理の「QR」ボタンでURLをコピーし、別マシンのブラウザで開いてください。表示画面は認証不要です。" },
+            { term: "Zoom/Teamsのカウンターが出ない", def: "番組設定にZoom ID／Teams URLが入力されている場合のみ表示されます。加えて「設定」でZoom/Teamsの認証情報の登録が必要です。" },
+          ],
+        },
+        { type: "p", text: "上記で解決しない場合は、システム管理者にお問い合わせください。" },
+      ],
+    },
+    {
+      id: "help-settings-note",
+      group: "困ったときは",
+      icon: Settings,
+      title: "APIキーが画面から消えた？",
+      keywords: ["apiキー", "マスク", "再表示"],
+      blocks: [
+        {
+          type: "p",
+          text: "APIキー・シークレットは保存すると画面から消え、マスク表示（設定済み・末尾4桁など）に変わります。これは正常な動作で、セキュリティ上、保存後の再表示はできません。変更したいときは新しい値を入力して保存し直してください。",
+        },
+      ],
+    },
+  ],
+};
