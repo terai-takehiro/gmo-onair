@@ -150,7 +150,7 @@ export default function SgaDialog({
 
         <div className="space-y-4">
           {/* Row 1: vendor + tax */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>支払先</Label>
               <Input
@@ -232,7 +232,7 @@ export default function SgaDialog({
           </div>
 
           {/* Row 3: settlement */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>精算方法</Label>
               <Select
@@ -402,7 +402,7 @@ export default function SgaDialog({
           </div>
 
           {/* Row 5: description + notes */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>詳細</Label>
               <Input
@@ -438,7 +438,7 @@ export default function SgaDialog({
           </div>
 
           {/* Row 6: invoice + assigned_to */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>インボイス</Label>
               <Select

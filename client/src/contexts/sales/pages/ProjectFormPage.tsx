@@ -772,7 +772,7 @@ export default function ProjectFormPage() {
                 </div>
               ) : (
                 <>
-                  <div className="mt-1 grid grid-cols-2 gap-2">
+                  <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => setValue('gls_category', 'A', { shouldDirty: true })}
@@ -1343,7 +1343,7 @@ export default function ProjectFormPage() {
 
       {/* ステージ変更確認ダイアログ */}
       <Dialog open={stageConfirmOpen} onOpenChange={setStageConfirmOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-500" />
@@ -1383,7 +1383,7 @@ export default function ProjectFormPage() {
 
       {/* GLS発番ダイアログ */}
       <Dialog open={glsDialog.open} onOpenChange={(open) => setGlsDialog({ ...glsDialog, open })}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Trophy className="h-5 w-5 text-green-600" />
@@ -1395,7 +1395,7 @@ export default function ProjectFormPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             {/* モード選択 */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 type="button"
                 className={`rounded-lg border-2 p-3 text-left transition-colors ${glsDialog.mode === 'new' ? 'border-green-500 bg-green-50' : 'border-muted hover:border-green-300'}`}
@@ -1490,7 +1490,7 @@ export default function ProjectFormPage() {
 
       {/* 別GLSへ紐づけ直しダイアログ (発番済み案件をエピソード化) */}
       <Dialog open={relinkDialog.open} onOpenChange={(open) => setRelinkDialog({ ...relinkDialog, open })}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>別GLSのエピソードへ紐づけ直す</DialogTitle>
             <DialogDescription>
@@ -1539,7 +1539,7 @@ export default function ProjectFormPage() {
       {/* GLS発番完了ダイアログ */}
       {glsResult && (
         <Dialog open={glsResult.open} onOpenChange={(open) => { if (!open) setGlsResult(null); }}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-green-700">
                 <CheckCircle2 className="h-6 w-6" />
@@ -1573,7 +1573,7 @@ export default function ProjectFormPage() {
 
       {/* 失注ダイアログ */}
       <Dialog open={lostDialog.open} onOpenChange={(open) => setLostDialog({ ...lostDialog, open })}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-600">
               <AlertTriangle className="h-5 w-5" />
@@ -1646,7 +1646,7 @@ export default function ProjectFormPage() {
 
       {/* 仮押さえ完了 → スタジオ予約誘導ダイアログ */}
       <Dialog open={holdPromptOpen} onOpenChange={setHoldPromptOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-blue-700">
               <CalendarDays className="h-5 w-5" />
@@ -1713,7 +1713,7 @@ export default function ProjectFormPage() {
 
       {/* 案件分類 A↔B 切替 (GLS発番済の採番し直し確認) */}
       <Dialog open={categorySwitchDialog.open} onOpenChange={(o) => setCategorySwitchDialog((s) => ({ ...s, open: o }))}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>案件分類を変更しますか？</DialogTitle>
             <DialogDescription>
