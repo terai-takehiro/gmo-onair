@@ -642,7 +642,7 @@ export default function PurchaseListPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label>税区分</Label>
                   <Select value={taxCategory} onValueChange={setTaxCategory}>
@@ -698,7 +698,7 @@ export default function PurchaseListPage() {
                     入力すると計上月（当月）・支払予定日（翌月末、土日祝は前営業日）を自動入力します
                   </p>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <Label>計上月</Label>
                     <Input

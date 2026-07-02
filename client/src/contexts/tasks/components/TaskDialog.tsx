@@ -150,7 +150,7 @@ export default function TaskDialog({
           </div>
 
           {/* 種別 */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label>種別</Label>
               <Select value={taskType} onValueChange={(v) => setTaskType(v as TaskType)}>
@@ -232,7 +232,7 @@ export default function TaskDialog({
           </div>
 
           {/* 期間 */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="task-start">開始日</Label>
               <Input

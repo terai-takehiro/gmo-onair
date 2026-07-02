@@ -1230,7 +1230,7 @@ export default function RevenueListPage() {
                             </div>
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <div>
                             <Label className="text-xs text-muted-foreground">期間（開始）</Label>
                             <Input

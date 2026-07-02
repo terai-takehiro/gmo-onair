@@ -340,7 +340,7 @@ export default function ActivityLogPage() {
 
       {/* 活動記録ダイアログ */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingId ? "活動記録の編集" : "活動を記録"}</DialogTitle>
           </DialogHeader>

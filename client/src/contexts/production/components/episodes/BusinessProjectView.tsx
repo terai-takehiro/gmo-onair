@@ -1522,7 +1522,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                         <p className="h-9 flex items-center font-number font-medium text-sm">{formatCurrency(item.amount)}</p>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <div>
                         <Label className="text-xs">期間（開始）</Label>
                         <Input type="date" value={item.period_start || ""} onChange={(e) => updateItem(idx, "period_start", e.target.value || null)} />
@@ -1721,7 +1721,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
               <Input value={purDesc} onChange={(e) => setPurDesc(e.target.value)} placeholder="仕入の説明" />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label>税区分</Label>
                 <Select value={purTax} onValueChange={setPurTax}>

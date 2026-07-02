@@ -65,7 +65,7 @@ export default function CustomerDialog({ open, onOpenChange, onCreated }: Props)
             <Label>担当者名</Label>
             <Input {...form.register("contact_name")} placeholder="山田 太郎" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>メール</Label>
               <Input type="email" {...form.register("email")} />
