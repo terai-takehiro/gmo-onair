@@ -89,6 +89,8 @@ interface RevenueRow {
   group_id: string | null;
   status: string;
   items?: RevenueItem[];
+  /** 月次ユニット等エピソード紐づき時のコード (例 GLS-B005-2607)。表示は GLS 番号より優先 */
+  episode_code?: string | null;
 }
 
 interface ProjectOption {
@@ -697,7 +699,7 @@ export default function RevenueListPage() {
                             {r.billing_key || "-"}
                           </span>
                           <span className=" text-xs font-medium text-primary">
-                            {r.gls_number || "-"}
+                            {r.episode_code || r.gls_number || "-"}
                           </span>
                         </div>
                         <div className="text-sm mt-0.5 font-medium truncate">
@@ -783,7 +785,7 @@ export default function RevenueListPage() {
                           {r.billing_key || "-"}
                         </TableCell>
                         <TableCell className=" text-xs font-medium text-primary">
-                          {r.gls_number || "-"}
+                          {r.episode_code || r.gls_number || "-"}
                         </TableCell>
                         <TableCell className="max-w-[200px]">
                           <span className="block truncate">
