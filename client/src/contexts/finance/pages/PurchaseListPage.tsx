@@ -97,6 +97,8 @@ interface PurchaseRow {
   settlement_url: string | null;
   is_provisional: boolean;
   invoice_qualified: number | boolean | null;
+  /** 月次ユニット等エピソード紐づき時のコード (例 GLS-B005-2607)。表示は GLS 番号より優先 */
+  episode_code?: string | null;
 }
 
 interface ProjectOption {
@@ -387,7 +389,7 @@ export default function PurchaseListPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className=" text-xs">{p.gls_number || "-"}</span>
+                        <span className=" text-xs">{p.episode_code || p.gls_number || "-"}</span>
                         <SettlementBadge number={p.settlement_number} />
                         {p.group_name && (
                           <Badge variant="outline" className="text-xs">
@@ -494,7 +496,7 @@ export default function PurchaseListPage() {
                     >
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          <span className=" text-sm">{p.gls_number || "-"}</span>
+                          <span className=" text-sm">{p.episode_code || p.gls_number || "-"}</span>
                           {p.group_name && (
                             <Badge variant="outline" className="text-xs">
                               按分

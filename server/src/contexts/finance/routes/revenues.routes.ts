@@ -79,7 +79,7 @@ router.get('/:id', async (req, res) => {
 router.get('/:id/pdf', async (req, res, next) => {
   try {
     const row = await queryOne(
-      `SELECT r.*, p.name as project_name, p.gls_number,
+      `SELECT r.*, p.name as project_name, p.gls_number, e.episode_code,
               p.event_start as project_start, p.event_end as project_end,
               c.name as customer_name,
               c.address as customer_address,
@@ -87,6 +87,7 @@ router.get('/:id/pdf', async (req, res, next) => {
        FROM revenues r
        LEFT JOIN projects p ON p.id = r.project_id
        LEFT JOIN customers c ON c.id = r.customer_id
+       LEFT JOIN episodes e ON e.id = r.episode_id
        WHERE r.id = ? AND r.deleted_at IS NULL`,
       [req.params.id]
     ) as any;
@@ -108,7 +109,8 @@ router.get('/:id/pdf', async (req, res, next) => {
       customer_address: row.customer_address || null,
       customer_contact: row.customer_contact || null,
       project_name: row.project_name || '',
-      gls_number: row.gls_number,
+      // 月次ユニット等エピソード紐づき時は帳票ヘッダーにも月コード (GLS-B005-2607) を出す
+      gls_number: row.episode_code || row.gls_number,
       tax_category: row.tax_category,
       amount: row.amount,
       recognition_date: row.recognition_date,
@@ -159,7 +161,7 @@ router.get('/:id/pdf', async (req, res, next) => {
 router.get('/:id/excel', async (req, res, next) => {
   try {
     const row = await queryOne(
-      `SELECT r.*, p.name as project_name, p.gls_number,
+      `SELECT r.*, p.name as project_name, p.gls_number, e.episode_code,
               p.event_start as project_start, p.event_end as project_end,
               c.name as customer_name,
               c.address as customer_address,
@@ -167,6 +169,7 @@ router.get('/:id/excel', async (req, res, next) => {
        FROM revenues r
        LEFT JOIN projects p ON p.id = r.project_id
        LEFT JOIN customers c ON c.id = r.customer_id
+       LEFT JOIN episodes e ON e.id = r.episode_id
        WHERE r.id = ? AND r.deleted_at IS NULL`,
       [req.params.id]
     ) as any;
