@@ -101,7 +101,7 @@ router.get('/calendar.ics', async (req, res) => {
   const bookings = await queryAll(
     `SELECT b.id, b.title, b.booking_type, b.start_time, b.end_time, b.all_day,
             b.location_note, b.notes, b.created_at, b.updated_at,
-            p.name as project_name, p.gls_number
+            b.project_id, p.name as project_name, p.gls_number
      FROM studio_bookings b
      LEFT JOIN projects p ON p.id = b.project_id
      WHERE b.deleted_at IS NULL
@@ -125,24 +125,55 @@ router.get('/calendar.ics', async (req, res) => {
     roomsByBooking.get(br.booking_id)!.push(br);
   }
 
+  // 予約種別ラベル (StudioBookingDialog の bookingTypeOptions と一致させること)
+  const BOOKING_TYPE_LABELS: Record<string, string> = {
+    performance: '本番', rehearsal: 'リハーサル', hold: '仮押さえ', tour: '内覧',
+    consultation: '相談', setup: '設営/準備', maintenance: 'メンテナンス',
+    internal: '社内利用', other: 'その他',
+  };
+  const appBaseUrl = process.env.CLIENT_URL || 'https://gmo-onair.jp';
+
   const events: ICalEvent[] = bookings.map((b) => {
     const rooms = roomsByBooking.get(b.id) || [];
-    const roomLabels = rooms.map((r) => (r.location_name ? `${r.location_name} - ${r.room_name}` : r.room_name));
     const occupants = [...new Set(rooms.map((r) => r.occupant).filter(Boolean))];
     const usageNotes = [...new Set(rooms.map((r) => r.usage_note).filter(Boolean))];
 
+    // タイトル: 【予約種別】タイトル (部屋の羅列は本文へ移して見やすく)
+    const typeLabel = BOOKING_TYPE_LABELS[b.booking_type] || '';
+    const summary = typeLabel ? `【${typeLabel}】${b.title || ''}`.trim() : (b.title || '');
+
+    // 場所: 建物 (拠点) 名のみ。外現場等の手入力 (location_note) があればそれも併記。
+    const buildings = [...new Set(rooms.map((r) => r.location_name).filter(Boolean))];
+    const locationParts = [...buildings];
+    if (b.location_note) locationParts.push(b.location_note);
+
+    // 本文: 案件 (GLS + 案件ページURL) → 部屋の詳細 (1部屋1行) → 使用者/メモ/備考
     const parts: string[] = [];
-    if (b.project_name) parts.push(b.gls_number ? `[${b.gls_number}] ${b.project_name}` : b.project_name);
-    if (occupants.length) parts.push(`使用者: ${occupants.join(', ')}`);
-    if (usageNotes.length) parts.push(usageNotes.join('\n'));
-    if (b.location_note) parts.push(b.location_note);
+    if (b.project_name) {
+      parts.push(b.gls_number ? `[${b.gls_number}] ${b.project_name}` : b.project_name);
+      if (b.project_id) parts.push(`案件ページ: ${appBaseUrl}/sales/projects/${b.project_id}`);
+      parts.push('');
+    }
+    if (rooms.length) {
+      parts.push('■ 使用する部屋');
+      for (const r of rooms) {
+        const detail = [r.occupant && `使用者: ${r.occupant}`, r.usage_note].filter(Boolean).join(' / ');
+        parts.push(`・${r.location_name ? `${r.location_name} - ` : ''}${r.room_name}${detail ? `（${detail}）` : ''}`);
+      }
+      parts.push('');
+    } else {
+      if (occupants.length) parts.push(`使用者: ${occupants.join(', ')}`);
+      if (usageNotes.length) parts.push(usageNotes.join('\n'));
+    }
+    if (b.location_note) parts.push(`場所メモ: ${b.location_note}`);
     if (b.notes) parts.push(b.notes);
+    while (parts.length && parts[parts.length - 1] === '') parts.pop();
 
     return {
       uid: `booking-${b.id}@gmo-onair.jp`,
-      summary: roomLabels.length ? `${b.title}（${roomLabels.join(' / ')}）` : b.title,
+      summary,
       description: parts.join('\n') || undefined,
-      location: roomLabels.join(' / ') || undefined,
+      location: locationParts.join(' / ') || undefined,
       dtstart: b.start_time,
       dtend: b.end_time,
       allDay: !!b.all_day,
