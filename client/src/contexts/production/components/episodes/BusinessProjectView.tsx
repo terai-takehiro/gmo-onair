@@ -24,6 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -170,8 +171,14 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
   const [purTax, setPurTax] = useState("tax10");
   const [purSettlement, setPurSettlement] = useState("rakuraku");
   const [purSettlementNo, setPurSettlementNo] = useState("");
+  const [purSettlementUrl, setPurSettlementUrl] = useState("");
   const [purInvoice, setPurInvoice] = useState("qualified");
-  const [purRecDate, setPurRecDate] = useState("");
+  // 計上月 (YYYY-MM)。財務側の仕入ダイアログと同じ「月」粒度で扱う (送信時に -01 を付与)
+  const [purRecMonth, setPurRecMonth] = useState("");
+  const [purServiceDate, setPurServiceDate] = useState(""); // 役務提供完了日
+  const [purPayDueDate, setPurPayDueDate] = useState(""); // 支払予定日
+  const [purIsProvisional, setPurIsProvisional] = useState(false); // 仮 (見込み仕入)
+  const [purNotes, setPurNotes] = useState("");
 
   // Fetch revenues for this project
   const { data: revenuesData, isLoading } = useQuery({
@@ -216,6 +223,33 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
       alert(`月の追加に失敗しました: ${msg}`);
     },
   });
+
+  // 月ユニット削除 (紐づく売上/仕入が残っている場合は先に削除を促す)
+  const deleteMonthMutation = useMutation({
+    mutationFn: async (epId: string) =>
+      (await api.delete(`/projects/${projectId}/episodes/${epId}`)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["episodes-months", projectId] });
+    },
+    onError: (err: any) => {
+      const msg =
+        err?.response?.data?.error?.message || err?.message || "削除に失敗しました";
+      alert(`月ユニットの削除に失敗しました: ${msg}`);
+    },
+  });
+
+  const handleDeleteMonth = (ep: { id: string; episode_code: string }) => {
+    const linkedRevs = revenues.filter((r) => (r as any).episode_id === ep.id).length;
+    const linkedPurs = purchases.filter((p) => (p as any).episode_id === ep.id).length;
+    if (linkedRevs > 0 || linkedPurs > 0) {
+      alert(
+        `${ep.episode_code} には売上 ${linkedRevs} 件 / 仕入 ${linkedPurs} 件が紐づいています。\n先にそれらを削除（または編集で紐づけを変更）してから月を削除してください。`,
+      );
+      return;
+    }
+    if (!confirm(`${ep.episode_code} を削除しますか？`)) return;
+    deleteMonthMutation.mutate(ep.id);
+  };
 
   // Fetch purchases for this project
   const { data: purchasesData, isLoading: purchasesLoading } = useQuery({
@@ -269,8 +303,13 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
     setPurTax("tax10");
     setPurSettlement("rakuraku");
     setPurSettlementNo("");
+    setPurSettlementUrl("");
     setPurInvoice("qualified");
-    setPurRecDate("");
+    setPurRecMonth("");
+    setPurServiceDate("");
+    setPurPayDueDate("");
+    setPurIsProvisional(false);
+    setPurNotes("");
   };
 
   const openNewPurchase = () => {
@@ -278,11 +317,11 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
     setPurDialogOpen(true);
   };
 
-  // 月次ユニット (エピソード) に紐づけた新規仕入を開く
-  const openNewPurchaseForMonth = (epId: string, monthRecDate?: string) => {
+  // 月次ユニット (エピソード) に紐づけた新規仕入を開く (計上月をその月で初期化)
+  const openNewPurchaseForMonth = (epId: string, recMonth?: string) => {
     closePurDialog();
     setPurEpisodeId(epId);
-    if (monthRecDate) setPurRecDate(monthRecDate);
+    if (recMonth) setPurRecMonth(recMonth);
     setPurDialogOpen(true);
   };
 
@@ -294,9 +333,14 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
     setPurDesc(pu.description || "");
     setPurTax(pu.tax_category || "tax10");
     setPurSettlement(pu.settlement_method || "rakuraku");
-    setPurSettlementNo(pu.settlement_number || "");
+    setPurSettlementNo(pu.settlement_number && pu.settlement_number !== "pending" ? pu.settlement_number : "");
+    setPurSettlementUrl((pu as any).settlement_url || "");
     setPurInvoice(pu.invoice_qualified ? "qualified" : "unqualified");
-    setPurRecDate(pu.recognition_date?.slice(0, 10) || "");
+    setPurRecMonth(pu.recognition_date ? pu.recognition_date.slice(0, 7) : "");
+    setPurServiceDate("");
+    setPurPayDueDate((pu as any).payment_due_date ? String((pu as any).payment_due_date).slice(0, 10) : "");
+    setPurIsProvisional(!!(pu as any).is_provisional);
+    setPurNotes((pu as any).notes || "");
     setPurDialogOpen(true);
   };
 
@@ -311,8 +355,13 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
       tax_category: purTax,
       settlement_method: purSettlement,
       settlement_number: purSettlementNo || null,
+      settlement_url: purSettlementUrl || null,
       invoice_qualified: purInvoice === "qualified" ? 1 : 0,
-      recognition_date: purRecDate || null,
+      recognition_date: purRecMonth ? `${purRecMonth}-01` : null,
+      service_completed_date: purServiceDate || null,
+      payment_due_date: purPayDueDate || null,
+      is_provisional: purIsProvisional,
+      notes: purNotes || null,
     });
   };
 
@@ -665,11 +714,14 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
 
   // 月次モードでは月ユニットに紐づく売上/仕入は「月次管理」セクションで表示するため、
   // 下のフラット一覧からは除外して二重表示を防ぐ。
+  // 存在する月ユニットの id 集合で照合する (月が削除済み等で紐づき先が無いレコードは
+  // フラット一覧に出して見えなくならないようにする)。
+  const monthEpisodeIds = new Set(monthEpisodes.map((e) => e.id));
   const flatRevenues = monthlyMode
-    ? revenues.filter((r) => !(r as any).episode_id)
+    ? revenues.filter((r) => !monthEpisodeIds.has((r as any).episode_id))
     : revenues;
   const flatPurchases = monthlyMode
-    ? purchases.filter((p) => !(p as any).episode_id)
+    ? purchases.filter((p) => !monthEpisodeIds.has((p as any).episode_id))
     : purchases;
 
   const handleSubmit = () => {
@@ -877,13 +929,13 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                 const revTotal = monthRevs.reduce((s, r) => s + (Number(r.amount) || 0), 0);
                 const purTotal = monthPurs.reduce((s, p) => s + (Number(p.amount) || 0), 0);
                 const primaryRev = monthRevs[0];
-                // episode_code の末尾 YYMM から計上日 (YYYY-MM-01) を導出
+                // episode_code の末尾 YYMM から計上月 (YYYY-MM) を導出
                 const mm = ep.episode_code.match(/-(\d{2})(\d{2})$/);
-                const monthRecDate = mm ? `20${mm[1]}-${mm[2]}-01` : undefined;
+                const recMonth = mm ? `20${mm[1]}-${mm[2]}` : undefined;
                 return (
                   <Card key={ep.id}>
                     <CardContent className="space-y-3 py-3 px-4">
-                      {/* ヘッダー: コード + 売上/仕入/粗利 */}
+                      {/* ヘッダー: コード + 売上/仕入/粗利 + 削除 */}
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="text-sm font-semibold">
                           {ep.episode_code}
@@ -893,6 +945,15 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                           <span>売上 <span className="font-medium font-number">{formatCurrency(revTotal)}</span></span>
                           <span className="text-muted-foreground">仕入 <span className="font-medium font-number">{formatCurrency(purTotal)}</span></span>
                           <span className="text-primary">粗利 <span className="font-medium font-number">{formatCurrency(revTotal - purTotal)}</span></span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                            title="この月ユニットを削除（紐づく売上/仕入がある場合は先に削除が必要）"
+                            onClick={() => handleDeleteMonth(ep)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
                       </div>
 
@@ -929,7 +990,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                       <div className="rounded-md border bg-muted/20 p-2 space-y-1.5">
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-xs font-medium">仕入</span>
-                          <Button variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => openNewPurchaseForMonth(ep.id, monthRecDate)}>
+                          <Button variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => openNewPurchaseForMonth(ep.id, recMonth)}>
                             <Plus className="h-3 w-3" />仕入を追加
                           </Button>
                         </div>
@@ -1760,12 +1821,37 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
 
             <div>
               <Label>金額</Label>
-              <CurrencyInput value={purAmount} onChange={setPurAmount} />
+              <div className="flex items-center gap-1">
+                <div className="flex-1">
+                  <CurrencyInput value={purAmount} onChange={setPurAmount} />
+                </div>
+                <TaxHelperButton
+                  fieldLabel="仕入金額"
+                  defaultIncludedAmount={purAmount}
+                  onResult={setPurAmount}
+                />
+              </div>
             </div>
 
             <div>
               <Label>説明</Label>
-              <Input value={purDesc} onChange={(e) => setPurDesc(e.target.value)} placeholder="仕入の説明" />
+              <Textarea
+                value={purDesc}
+                onChange={(e) => setPurDesc(e.target.value)}
+                placeholder="仕入の説明"
+                rows={3}
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="pur-is-provisional" className="cursor-pointer">
+                仮（確定前の見込み仕入）
+              </Label>
+              <Switch
+                id="pur-is-provisional"
+                checked={purIsProvisional}
+                onCheckedChange={(v) => setPurIsProvisional(!!v)}
+              />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1793,14 +1879,62 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
               </div>
             </div>
 
+            <div className="space-y-3 rounded-md border p-3">
+              <div>
+                <Label>役務提供完了日</Label>
+                <Input
+                  type="date"
+                  value={purServiceDate}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setPurServiceDate(val);
+                    if (val) {
+                      const [y, m] = val.split("-").map(Number);
+                      if (y && m) {
+                        setPurRecMonth(`${y}-${String(m).padStart(2, "0")}`);
+                        // 翌月末が土日祝のときは前営業日に調整
+                        setPurPayDueDate(toLocalDateStr(previousBusinessDay(new Date(y, m + 1, 0))));
+                      }
+                    }
+                  }}
+                />
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  入力すると計上月（当月）・支払予定日（翌月末、土日祝は前営業日）を自動入力します
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label>計上月</Label>
+                  <Input
+                    type="month"
+                    value={purRecMonth}
+                    onChange={(e) => setPurRecMonth(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>支払予定日</Label>
+                  <Input
+                    type="date"
+                    value={purPayDueDate}
+                    onChange={(e) => setPurPayDueDate(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label>精算番号</Label>
                 <Input value={purSettlementNo} onChange={(e) => setPurSettlementNo(e.target.value)} placeholder="任意" />
               </div>
               <div>
-                <Label>計上日</Label>
-                <Input type="date" value={purRecDate} onChange={(e) => setPurRecDate(e.target.value)} />
+                <Label>申請URL</Label>
+                <Input
+                  type="url"
+                  value={purSettlementUrl}
+                  onChange={(e) => setPurSettlementUrl(e.target.value)}
+                  placeholder="精算申請ページのURL（任意）"
+                />
               </div>
             </div>
 
@@ -1814,14 +1948,45 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                 </SelectContent>
               </Select>
             </div>
+
+            <div>
+              <Label>備考</Label>
+              <Textarea
+                value={purNotes}
+                onChange={(e) => setPurNotes(e.target.value)}
+                placeholder="任意"
+                rows={2}
+              />
+            </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={closePurDialog}>キャンセル</Button>
-            <Button disabled={!purVendorId || savePurMutation.isPending} onClick={handlePurSubmit}>
-              {savePurMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {editingPurId ? "更新" : "追加"}
-            </Button>
+          <DialogFooter className="flex sm:justify-between gap-2">
+            <div>
+              {editingPurId && (
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    if (!confirm("この仕入を削除しますか？この操作は元に戻せません。")) return;
+                    deletePurMutation.mutate(editingPurId, { onSuccess: () => closePurDialog() });
+                  }}
+                  disabled={deletePurMutation.isPending}
+                >
+                  {deletePurMutation.isPending ? (
+                    <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="mr-1 h-4 w-4" />
+                  )}
+                  削除
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={closePurDialog}>キャンセル</Button>
+              <Button disabled={!purVendorId || savePurMutation.isPending} onClick={handlePurSubmit}>
+                {savePurMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {editingPurId ? "更新" : "追加"}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

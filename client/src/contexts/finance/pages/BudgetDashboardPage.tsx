@@ -146,8 +146,8 @@ export default function BudgetDashboardPage() {
     refetchOnMount: "always",
   });
 
-  const revenueRows: Array<{ id: string; gls_number?: string | null; project_name?: string | null; customer_name?: string | null; amount: number }> = revenueList?.data ?? [];
-  type PurchaseRow = { id: string; gls_number?: string | null; project_name?: string | null; project_code?: string | null; vendor_name?: string | null; description?: string | null; amount: number; settlement_url?: string | null; is_provisional?: boolean };
+  const revenueRows: Array<{ id: string; gls_number?: string | null; episode_code?: string | null; project_name?: string | null; customer_name?: string | null; amount: number }> = revenueList?.data ?? [];
+  type PurchaseRow = { id: string; gls_number?: string | null; episode_code?: string | null; project_name?: string | null; project_code?: string | null; vendor_name?: string | null; description?: string | null; amount: number; settlement_url?: string | null; is_provisional?: boolean };
   // 仕入(変動原価) = fixed_cost=0 で取得済 / 固定原価 = 専用クエリ (fixed_cost=1)
   const variablePurchaseRows: PurchaseRow[] = purchaseList?.data ?? [];
   const fixedPurchaseRows: PurchaseRow[] = fixedList?.data ?? [];
@@ -167,7 +167,7 @@ export default function BudgetDashboardPage() {
         title="クリックで仕入編集を開く"
       >
         <p className="truncate text-foreground">
-          <span className="font-number text-primary">{p.gls_number || "-"}</span>
+          <span className="font-number text-primary">{p.episode_code || p.gls_number || "-"}</span>
           {p.project_name && <span className="ml-2">{p.project_name}</span>}
         </p>
         <p className="truncate text-xs text-muted-foreground">
@@ -378,7 +378,7 @@ export default function BudgetDashboardPage() {
                     >
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-foreground">
-                          <span className="font-number text-primary">{r.gls_number || "-"}</span>
+                          <span className="font-number text-primary">{r.episode_code || r.gls_number || "-"}</span>
                           {r.project_name && <span className="ml-2">{r.project_name}</span>}
                         </p>
                         {r.customer_name && (
