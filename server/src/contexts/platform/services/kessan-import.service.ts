@@ -601,6 +601,30 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
           }
         }
       }
+      // 取込で作成/更新された案件の開催日 (event_start/event_end) を、紐づく売上/仕入の
+      // 計上日 MIN/MAX で補完する (未設定の案件のみ)。日付が無いと案件一覧の期間絞り込み・
+      // 日付ソートに乗らず、終了済みの旧案件が現行ビューに混ざり続けるため (migration 110 と同ロジック)。
+      await client.query(
+        `WITH d AS (
+           SELECT p.id, MIN(x.d) AS dmin, MAX(x.d) AS dmax
+           FROM projects p
+           JOIN LATERAL (
+             SELECT r.recognition_date AS d FROM revenues r
+             WHERE r.project_id = p.id AND r.deleted_at IS NULL
+               AND r.recognition_date IS NOT NULL AND r.recognition_date <> ''
+             UNION ALL
+             SELECT pu.recognition_date FROM purchases pu
+             WHERE pu.project_id = p.id AND pu.deleted_at IS NULL
+               AND pu.recognition_date IS NOT NULL AND pu.recognition_date <> ''
+           ) x ON true
+           WHERE p.deleted_at IS NULL
+             AND p.notes LIKE '[kessan:%'
+             AND (p.event_start IS NULL OR p.event_start = '')
+           GROUP BY p.id
+         )
+         UPDATE projects p SET event_start = d.dmin, event_end = d.dmax, updated_at = NOW()
+         FROM d WHERE p.id = d.id`,
+      );
       await client.query('COMMIT');
     } catch (e) {
       await client.query('ROLLBACK');

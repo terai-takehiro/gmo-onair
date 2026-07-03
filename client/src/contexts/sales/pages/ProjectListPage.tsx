@@ -127,6 +127,11 @@ export default function ProjectListPage() {
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             className="pl-9"
           />
+          {search && (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              検索中は開催期間の絞り込みを無視して全期間から探します
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* 開催期間モード切替 */}
