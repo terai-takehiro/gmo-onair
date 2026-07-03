@@ -205,7 +205,10 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
       // 既にその月の売上があればそれを編集、無ければ新規で開く
       const existingRev = revenues.find((r) => (r as any).episode_id === ep.id);
       if (existingRev) openEdit(existingRev);
-      else openNewForMonth(ep.id, ep.title || "");
+      else {
+        const mm2 = String(ep.episode_code || "").match(/-(\d{2})(\d{2})$/);
+        openNewForMonth(ep.id, ep.title || "", mm2 ? `20${mm2[1]}-${mm2[2]}` : undefined);
+      }
     },
     onError: (err: any) => {
       const msg =
@@ -470,11 +473,21 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
     setDialogOpen(true);
   };
 
-  // 月次ユニット (エピソード) に紐づけた新規売上を開く
-  const openNewForMonth = (epId: string, monthTitle: string) => {
+  // 月次ユニット (エピソード) に紐づけた新規売上を開く。
+  // recMonth ("YYYY-MM") を渡すと計上日=その月末・請求日=計上月末・支払期日=翌月末を自動入力し、
+  // 財務ダッシュボード (計上日で月集計) にその月として確実に反映されるようにする。
+  const openNewForMonth = (epId: string, monthTitle: string, recMonth?: string) => {
     closeDialog();
     setEpisodeId(epId);
     setSubtitle(monthTitle);
+    if (recMonth) {
+      const [y, m] = recMonth.split("-").map(Number);
+      if (y && m) {
+        setRecognitionDate(toLocalDateStr(previousBusinessDay(new Date(y, m, 0))));
+        setBillingDate(toLocalDateStr(previousBusinessDay(new Date(y, m, 0))));
+        setPaymentDueDate(toLocalDateStr(previousBusinessDay(new Date(y, m + 1, 0))));
+      }
+    }
     setDialogOpen(true);
   };
 
@@ -904,7 +917,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                                 </Button>
                               </>
                             ) : (
-                              <Button size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => openNewForMonth(ep.id, ep.title || "")}>
+                              <Button size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => openNewForMonth(ep.id, ep.title || "", mm ? `20${mm[1]}-${mm[2]}` : undefined)}>
                                 <Plus className="h-3 w-3" />売上明細を入力
                               </Button>
                             )}
