@@ -137,7 +137,10 @@ export class ProjectService {
     }
     // 開催月 (YYYY-MM): イベント期間 [event_start, event_end] が対象月に重なる案件
     // event_start/event_end は TEXT (YYYY-MM-DD) なので文字列比較でレンジ判定する
-    if (filter.eventMonth && /^\d{4}-\d{2}$/.test(filter.eventMonth)) {
+    // ※ 検索キーワードが指定されているときは期間フィルタを適用しない —
+    //   既定表示 (今月〜半年先) のまま過去案件を名前/GLS で検索しても
+    //   ヒットせず「案件が消えた」ように見えていたため、検索は常に全期間から探す。
+    if (!filter.search && filter.eventMonth && /^\d{4}-\d{2}$/.test(filter.eventMonth)) {
       const [y, m] = filter.eventMonth.split('-').map(Number);
       const monthStart = `${filter.eventMonth}-01`;
       const nextMonthStart = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`;
@@ -148,7 +151,8 @@ export class ProjectService {
       params.push(nextMonthStart, monthStart);
     }
     // 開催期間レンジ (YYYY-MM-DD): イベント期間 [event_start, event_end] がレンジに重なる案件
-    if (filter.eventFrom && filter.eventTo && /^\d{4}-\d{2}-\d{2}$/.test(filter.eventFrom) && /^\d{4}-\d{2}-\d{2}$/.test(filter.eventTo)) {
+    // (検索時は期間フィルタを適用しない — 上記と同じ理由)
+    if (!filter.search && filter.eventFrom && filter.eventTo && /^\d{4}-\d{2}-\d{2}$/.test(filter.eventFrom) && /^\d{4}-\d{2}-\d{2}$/.test(filter.eventTo)) {
       // 開催日が無い案件は日付で絞れないため常に含める (上記と同じ理由)
       where += ` AND (p.event_start IS NULL OR NULLIF(p.event_start, '') IS NULL OR (p.event_start <= ? AND COALESCE(NULLIF(p.event_end, ''), p.event_start) >= ?))`;
       params.push(filter.eventTo, filter.eventFrom);
