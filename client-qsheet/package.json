@@ -1,7 +1,7 @@
 {
   "name": "@gmo-onair/client-qsheet",
   "private": true,
-  "version": "2.9.157",
+  "version": "2.9.158",
   "type": "module",
   "scripts": {
     "dev": "vite",
