@@ -465,11 +465,12 @@ function KpiSection({ navigate }: { navigate: (to: string) => void }) {
 // 最上部・全幅で目立たせ、件数だけでなくイベント名も表示する
 // ══════════════════════════════════════════════════════════
 interface ScheduleEvent {
-  type: string; // 'event' (本番) | 'recording' (収録) | 'broadcast' (放送)
+  type: string; // 'event' (本番) | 'recording' (収録) | 'broadcast' (放送) | 'booking' (スタジオ予約)
   name?: string;
   project_name?: string;
   gls_number?: string;
   episode_code?: string;
+  booking_type?: string; // type='booking' のときの予約種別 (performance/rehearsal/maintenance 等)
 }
 
 const EVENT_TYPE_STYLE: Record<string, { label: string; dot: string; chip: string }> = {
@@ -477,6 +478,27 @@ const EVENT_TYPE_STYLE: Record<string, { label: string; dot: string; chip: strin
   recording: { label: "収録", dot: "bg-blue-500", chip: "bg-blue-50 text-blue-700 border-blue-200" },
   broadcast: { label: "放送", dot: "bg-green-600", chip: "bg-green-50 text-green-700 border-green-200" },
 };
+
+// スタジオ予約の種別別スタイル (StudioBookingDialog の bookingTypeOptions と同じ値)
+const BOOKING_TYPE_STYLE: Record<string, { label: string; dot: string; chip: string }> = {
+  performance: { label: "本番", dot: "bg-red-500", chip: "bg-red-50 text-red-700 border-red-200" },
+  rehearsal: { label: "リハーサル", dot: "bg-amber-500", chip: "bg-amber-50 text-amber-700 border-amber-200" },
+  hold: { label: "仮押さえ", dot: "bg-yellow-400", chip: "bg-yellow-50 text-yellow-700 border-yellow-200" },
+  tour: { label: "内覧", dot: "bg-slate-400", chip: "bg-slate-50 text-slate-600 border-slate-200" },
+  consultation: { label: "相談", dot: "bg-slate-400", chip: "bg-slate-50 text-slate-600 border-slate-200" },
+  setup: { label: "設営/準備", dot: "bg-slate-400", chip: "bg-slate-50 text-slate-600 border-slate-200" },
+  maintenance: { label: "メンテナンス", dot: "bg-slate-500", chip: "bg-slate-100 text-slate-700 border-slate-300" },
+  internal: { label: "社内利用", dot: "bg-slate-400", chip: "bg-slate-50 text-slate-600 border-slate-200" },
+  other: { label: "その他", dot: "bg-slate-400", chip: "bg-slate-50 text-slate-600 border-slate-200" },
+  project: { label: "予約", dot: "bg-slate-400", chip: "bg-slate-50 text-slate-600 border-slate-200" },
+};
+
+function scheduleEventStyle(ev: ScheduleEvent): { label: string; dot: string; chip: string } {
+  if (ev.type === "booking") {
+    return BOOKING_TYPE_STYLE[ev.booking_type ?? ""] ?? BOOKING_TYPE_STYLE.other;
+  }
+  return EVENT_TYPE_STYLE[ev.type] ?? EVENT_TYPE_STYLE.event;
+}
 
 function ScheduleSection() {
   const { data: weeklyData, isLoading } = useQuery<Array<{ date: string; dayLabel: string; events: ScheduleEvent[] }>>({
@@ -490,12 +512,18 @@ function ScheduleSection() {
   return (
     <SectionCard
       title="今後のスケジュール"
-      description="今日から 7 日間の本番・収録・放送予定です。"
+      description="今日から 7 日間の本番・収録・放送とスタジオ予約 (リハーサル・メンテナンス等すべて) の予定です。"
       icon={<Calendar />}
       actions={
-        <span className="flex items-center gap-3 text-xs text-muted-foreground">
-          {Object.entries(EVENT_TYPE_STYLE).map(([k, s]) => (
-            <span key={k} className="flex items-center gap-1">
+        <span className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+          {[
+            EVENT_TYPE_STYLE.event,
+            EVENT_TYPE_STYLE.recording,
+            EVENT_TYPE_STYLE.broadcast,
+            BOOKING_TYPE_STYLE.rehearsal,
+            { label: "その他予約", dot: "bg-slate-400", chip: "" },
+          ].map((s) => (
+            <span key={s.label} className="flex items-center gap-1">
               <span className={cn("inline-block h-2 w-2 rounded-full", s.dot)} aria-hidden="true" />
               {s.label}
             </span>
@@ -551,7 +579,7 @@ function ScheduleSection() {
                   ) : (
                     <>
                       {shown.map((ev, j) => {
-                        const style = EVENT_TYPE_STYLE[ev.type] ?? EVENT_TYPE_STYLE.event;
+                        const style = scheduleEventStyle(ev);
                         const label = ev.name || ev.project_name || ev.episode_code || style.label;
                         return (
                           <span
