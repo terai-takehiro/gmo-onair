@@ -161,13 +161,32 @@ router.get('/weekly-schedule', async (_req, res) => {
        WHERE e.deleted_at IS NULL AND (e.recording_date = ? OR e.broadcast_date = ?)`,
       [dateStr, dateStr]
     );
+    // スタジオ予約 (メンテナンス・リハーサル・仮押さえ等の全種別)。
+    // start_time/end_time は TEXT (ISO文字列) のため日付先頭 10 桁の文字列比較 (v2.9.144 と同方式)
+    const bookings = await queryAll(
+      `SELECT b.id, b.title as name, b.booking_type, b.project_id, p.gls_number
+       FROM studio_bookings b LEFT JOIN projects p ON p.id = b.project_id
+       WHERE b.deleted_at IS NULL
+       AND substr(b.start_time, 1, 10) <= ?
+       AND substr(COALESCE(NULLIF(b.end_time, ''), b.start_time), 1, 10) >= ?`,
+      [dateStr, dateStr]
+    );
+
+    // 本番予約 (performance) は案件のイベント期間 ('event') と重複しやすいので、
+    // 同じ案件がその日に既に出ている場合はスキップ (他の種別はすべて表示)
+    const projectIds = new Set(projects.map((p: any) => p.id));
+    const bookingEvents = bookings
+      .filter((b: any) => !(b.booking_type === 'performance' && b.project_id && projectIds.has(b.project_id)))
+      .map((b: any) => ({
+        name: b.name, gls_number: b.gls_number, booking_type: b.booking_type, type: 'booking',
+      }));
 
     days.push({
       date: dateStr,
       dayLabel: dayLabels[d.getDay()],
       events: [...projects, ...episodes.map((ep: any) => ({
         ...ep, type: ep.recording_date === dateStr ? 'recording' : 'broadcast',
-      }))],
+      })), ...bookingEvents],
     });
   }
   res.json({ success: true, data: days });
