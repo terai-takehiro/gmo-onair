@@ -162,6 +162,7 @@ export default function XpointImportPage() {
   const [dragOver, setDragOver] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [uploadErrors, setUploadErrors] = useState<string[]>([]);
+  const [uploadNotices, setUploadNotices] = useState<string[]>([]);
 
   const scan = useMutation({
     mutationFn: async () => {
@@ -184,16 +185,22 @@ export default function XpointImportPage() {
   const uploadFiles = useMutation({
     mutationFn: async (files: File[]) => {
       const errors: string[] = [];
+      const notices: string[] = [];
       const parsedResults: { file: XpointFileRow; result: XpointParseResult }[] = [];
       for (let i = 0; i < files.length; i++) {
         const f = files[i];
-        setUploadProgress(`アップロード中 (${i + 1}/${files.length}): ${f.name}`);
+        setUploadProgress(`取込中 (${i + 1}/${files.length}): ${f.name} — Box への保存と解析に 1 分ほどかかることがあります`);
         try {
           const fd = new FormData();
           fd.append("file", f);
           if (folderInput.trim()) fd.append("folder", folderInput.trim());
-          const data = (await api.post("/xpoint/upload", fd, { timeout: 180_000 })).data.data;
-          if (data.parse_error) {
+          const data = (await api.post("/xpoint/upload", fd, {
+            timeout: 180_000,
+            headers: { "Content-Type": "multipart/form-data" },
+          })).data.data;
+          if (data.parse_pending) {
+            notices.push(data.parse_error);
+          } else if (data.parse_error) {
             errors.push(`${f.name}: ${data.parse_error}`);
           } else if (data.file && data.result) {
             parsedResults.push({ file: data.file as XpointFileRow, result: data.result as XpointParseResult });
@@ -202,11 +209,12 @@ export default function XpointImportPage() {
           errors.push(`${f.name}: ${err?.response?.data?.error?.message || err.message}`);
         }
       }
-      return { errors, parsedResults };
+      return { errors, notices, parsedResults };
     },
-    onSuccess: ({ errors, parsedResults }) => {
+    onSuccess: ({ errors, notices, parsedResults }) => {
       setUploadProgress(null);
       setUploadErrors(errors);
+      setUploadNotices(notices);
       scan.mutate();
       // 1 件だけアップロードして解析成功したら、そのままレビューを開いて次の操作へ誘導
       if (parsedResults.length === 1) setReviewTarget(parsedResults[0]);
@@ -214,6 +222,7 @@ export default function XpointImportPage() {
     onError: (err: any) => {
       setUploadProgress(null);
       setUploadErrors([err?.response?.data?.error?.message || err.message]);
+      setUploadNotices([]);
       scan.mutate();
     },
   });
@@ -223,6 +232,7 @@ export default function XpointImportPage() {
     const pdfs = Array.from(list).filter((f) => /\.pdf$/i.test(f.name));
     const rejected = Array.from(list).length - pdfs.length;
     setUploadErrors(rejected > 0 ? [`PDF 以外のファイル ${rejected} 件は無視しました`] : []);
+    setUploadNotices([]);
     if (pdfs.length > 0) uploadFiles.mutate(pdfs);
   };
 
@@ -354,10 +364,13 @@ export default function XpointImportPage() {
             <p className="text-xs text-muted-foreground">
               アップロードした PDF は Box の取込フォルダに保存され、そのまま解析されてレビュー画面が開きます。
             </p>
-            {uploadErrors.length > 0 && (
+            {(uploadErrors.length > 0 || uploadNotices.length > 0) && (
               <div className="space-y-0.5">
+                {uploadNotices.map((n, i) => (
+                  <p key={`n-${i}`} className="text-xs text-amber-700 flex items-start gap-1"><AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />{n}</p>
+                ))}
                 {uploadErrors.map((e, i) => (
-                  <p key={i} className="text-xs text-red-600 flex items-start gap-1"><AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />{e}</p>
+                  <p key={`e-${i}`} className="text-xs text-red-600 flex items-start gap-1"><AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />{e}</p>
                 ))}
               </div>
             )}

@@ -115,17 +115,41 @@ function streamToString(stream: NodeJS.ReadableStream): Promise<string> {
 }
 
 /**
+ * Box のテキスト抽出 (extracted_text representation) がまだ生成中で取得できなかったことを表す。
+ * アップロード直後の PDF は生成に 1〜2 分かかることがある。エラーではなく「後で再解析」を促す。
+ */
+export class RepresentationPendingError extends Error {
+  constructor() {
+    super('Box のテキスト抽出が準備中です。1〜2 分待ってから「解析してレビュー」を押してください。');
+    this.name = 'RepresentationPendingError';
+  }
+}
+
+/**
  * Box の extracted_text representation から PDF のテキストを取得。
  * (サーバーに PDF パーサーを持たず、Box 側の抽出結果を使う。
- *  representation が未生成の場合は SDK がポーリングして待機する)
+ *  representation が未生成の場合は SDK がポーリングして待機するが、
+ *  timeoutMs を超えたら RepresentationPendingError にして呼び出し側へ制御を返す。
+ *  nginx の /api/ プロキシは既定 60 秒で 504 を返すため、必ずそれより短くすること)
  */
-export async function fetchXpointPdfText(boxFileId: string): Promise<string> {
+export async function fetchXpointPdfText(boxFileId: string, timeoutMs = 45_000): Promise<string> {
   const client = getBoxClient();
   if (!client) throw new Error('Box が未設定です (BOX_CONFIG_JSON が必要)');
-  const stream = await (client.files as any).getRepresentationContent(boxFileId, '[extracted_text]');
-  const text = await streamToString(stream);
-  if (!text.trim()) throw new Error('PDF からテキストを抽出できませんでした (スキャン画像 PDF の可能性があります)');
-  return text;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new RepresentationPendingError()), timeoutMs);
+  });
+  try {
+    const stream = (await Promise.race([
+      (client.files as any).getRepresentationContent(boxFileId, '[extracted_text]'),
+      timeout,
+    ])) as NodeJS.ReadableStream;
+    const text = await Promise.race([streamToString(stream), timeout]);
+    if (!text.trim()) throw new Error('PDF からテキストを抽出できませんでした (スキャン画像 PDF の可能性があります)');
+    return text;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 export interface VendorMatch { id: string; name: string; matched_by: 'name' | 'invoice_number' | 'partial' }
@@ -306,6 +330,15 @@ export async function parseXpointFile(boxFileId: string, fileName?: string): Pro
     );
     return result;
   } catch (err) {
+    if (err instanceof RepresentationPendingError) {
+      // 抽出準備中はエラーにせず「未解析」のまま (後から解析ボタンで再実行できる)
+      await execute(
+        `UPDATE xpoint_import_files SET status = 'new', error_message = NULL, updated_at = NOW()
+         WHERE box_file_id = ? AND status NOT IN ('registered', 'skipped')`,
+        [boxFileId]
+      );
+      throw err;
+    }
     const message = (err as Error).message || String(err);
     await execute(
       `UPDATE xpoint_import_files SET status = 'error', error_message = ?, updated_at = NOW() WHERE box_file_id = ?`,

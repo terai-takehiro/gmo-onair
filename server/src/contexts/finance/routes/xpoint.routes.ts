@@ -17,6 +17,7 @@ import { generateBillingKey, generateSgaBillingKey } from '../../../shared/servi
 import { isBoxConfigured, getBoxFolderUrl } from '../../../shared/services/box';
 import {
   resolveXpointFolderId, scanXpointFolder, parseXpointFile, uploadXpointPdf,
+  RepresentationPendingError,
 } from '../services/xpoint-import.service';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
@@ -64,15 +65,24 @@ router.post('/upload', upload.single('file'), async (req, res) => {
   const uploaded = await uploadXpointPdf(folderId, originalName, f.buffer);
 
   try {
+    // アップロード直後は Box のテキスト抽出が未生成のことが多いため、待ちすぎずに制御を返す
     const result = await parseXpointFile(uploaded.id, uploaded.name);
     const row = await queryOne('SELECT * FROM xpoint_import_files WHERE box_file_id = ?', [uploaded.id]);
     res.status(201).json({ success: true, data: { file: row, result } });
   } catch (err) {
-    // Box への保存自体は成功している。解析失敗はファイル一覧上の「エラー」として扱い、再解析できる。
+    // Box への保存自体は成功している。抽出準備中は「未解析」、それ以外は「エラー」として一覧に残り再解析できる。
+    const pending = err instanceof RepresentationPendingError;
     const row = await queryOne('SELECT * FROM xpoint_import_files WHERE box_file_id = ?', [uploaded.id]);
     res.status(201).json({
       success: true,
-      data: { file: row, result: null, parse_error: `PDF の解析に失敗しました: ${(err as Error).message}` },
+      data: {
+        file: row,
+        result: null,
+        parse_pending: pending,
+        parse_error: pending
+          ? `${uploaded.name}: アップロードは完了しました (Box に保存済み)。テキスト抽出の準備中のため、1〜2 分後に一覧の「解析してレビュー」を押してください。`
+          : `PDF の解析に失敗しました: ${(err as Error).message}`,
+      },
     });
   }
 });
@@ -86,6 +96,9 @@ router.post('/files/:boxFileId/parse', async (req, res) => {
     const result = await parseXpointFile(boxFileId, req.body?.file_name);
     res.json({ success: true, data: result });
   } catch (err) {
+    if (err instanceof RepresentationPendingError) {
+      throw new AppError(422, 'XPOINT_PARSE_PENDING', err.message);
+    }
     throw new AppError(422, 'XPOINT_PARSE_ERROR', `PDF の解析に失敗しました: ${(err as Error).message}`);
   }
 });
