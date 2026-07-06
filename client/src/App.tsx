@@ -43,6 +43,7 @@ import VendorReportPage from "@/contexts/production/pages/VendorReportPage";
 import RevenueListPage from "@/contexts/finance/pages/RevenueListPage";
 import PurchaseListPage from "@/contexts/finance/pages/PurchaseListPage";
 import SgaListPage from "@/contexts/finance/pages/SgaListPage";
+import XpointImportPage from "@/contexts/finance/pages/XpointImportPage";
 import VendorListPage from "@/contexts/finance/pages/VendorListPage";
 import PartnerListPage from "@/contexts/finance/pages/PartnerListPage";
 import BudgetDetailPage from "@/contexts/finance/pages/BudgetDetailPage";
@@ -123,6 +124,7 @@ function AppRoutes() {
         <Route path="/budget/revenues" element={<PermissionRoute module="budget"><RevenueListPage /></PermissionRoute>} />
         <Route path="/budget/purchases" element={<PermissionRoute module="budget"><PurchaseListPage /></PermissionRoute>} />
         <Route path="/budget/sga" element={<PermissionRoute module="budget"><SgaListPage /></PermissionRoute>} />
+        <Route path="/budget/xpoint-import" element={<PermissionRoute module="budget"><XpointImportPage /></PermissionRoute>} />
         <Route path="/budget/vendors" element={<PermissionRoute module="budget"><VendorListPage /></PermissionRoute>} />
         <Route path="/budget/partners" element={<PermissionRoute module="budget"><PartnerListPage /></PermissionRoute>} />
         <Route path="/budget/reports/vendors" element={<PermissionRoute module="budget"><VendorReportPage /></PermissionRoute>} />
