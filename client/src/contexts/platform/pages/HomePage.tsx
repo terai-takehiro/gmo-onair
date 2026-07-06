@@ -165,22 +165,19 @@ export default function HomePage() {
           }
         />
 
-        {/* ───── 1. 今日対応すべきこと (最上部) ───── */}
-        {canSeeSales && <ActionItemsSection navigate={navigate} />}
+        {/* ───── 1. 今後のスケジュール (最上部・全幅で目立たせる) ───── */}
+        {canSeeStudio && <ScheduleSection />}
 
-        {/* ───── 1.5 クイックアクセス (財務管理が有効なユーザー) ───── */}
+        {/* ───── 2. クイックアクセス (財務管理が有効なユーザー) ───── */}
         {canSeeBudget && <QuickAccessSection navigate={navigate} />}
 
-        {/* ───── 2. 今月の主要指標 + 前月比 ───── */}
+        {/* ───── 3. 今月の主要指標 + 前月比 ───── */}
         {canSeeSales && <KpiSection navigate={navigate} />}
 
-        {/* ───── 3. 今週のスケジュール / 直近の案件 ───── */}
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6">
-          {canSeeStudio && <ScheduleSection />}
-          {canSeeSales && <RecentProjectsSection navigate={navigate} />}
-        </div>
+        {/* ───── 4. 直近の案件 ───── */}
+        {canSeeSales && <RecentProjectsSection navigate={navigate} />}
 
-        {/* ───── 4. ブロックアプリ起動 (補助) ───── */}
+        {/* ───── 5. ブロックアプリ起動 (補助) ───── */}
         <SectionCard
           title="アプリを起動"
           description="業務に応じたブロックアプリへ遷移します。"
@@ -207,7 +204,10 @@ export default function HomePage() {
           </div>
         </SectionCard>
 
-        {/* ───── 5. システム管理 (admin only) ───── */}
+        {/* ───── 6. 今日対応すべきこと (優先度低めのため下部に配置) ───── */}
+        {canSeeSales && <ActionItemsSection navigate={navigate} />}
+
+        {/* ───── 7. システム管理 (admin only) ───── */}
         {isAdmin && (
           <SectionCard
             title="システム管理"
@@ -461,52 +461,113 @@ function KpiSection({ navigate }: { navigate: (to: string) => void }) {
 }
 
 // ══════════════════════════════════════════════════════════
-// セクション 3-A: 今週のスケジュール
+// セクション 1: 今後のスケジュール (今日から 7 日間)
+// 最上部・全幅で目立たせ、件数だけでなくイベント名も表示する
 // ══════════════════════════════════════════════════════════
+interface ScheduleEvent {
+  type: string; // 'event' (本番) | 'recording' (収録) | 'broadcast' (放送)
+  name?: string;
+  project_name?: string;
+  gls_number?: string;
+  episode_code?: string;
+}
+
+const EVENT_TYPE_STYLE: Record<string, { label: string; dot: string; chip: string }> = {
+  event: { label: "本番", dot: "bg-red-500", chip: "bg-red-50 text-red-700 border-red-200" },
+  recording: { label: "収録", dot: "bg-blue-500", chip: "bg-blue-50 text-blue-700 border-blue-200" },
+  broadcast: { label: "放送", dot: "bg-green-600", chip: "bg-green-50 text-green-700 border-green-200" },
+};
+
 function ScheduleSection() {
-  const { data: weeklyData, isLoading } = useQuery<Array<{ date: string; dayLabel: string; events: Array<{ type: string }> }>>({
+  const { data: weeklyData, isLoading } = useQuery<Array<{ date: string; dayLabel: string; events: ScheduleEvent[] }>>({
     queryKey: queryKeys.dashboard.weeklySchedule(),
     queryFn: async () => (await api.get("/dashboard/weekly-schedule")).data.data,
     staleTime: 120_000,
   });
 
+  const totalEvents = (weeklyData ?? []).reduce((a, d) => a + d.events.length, 0);
+
   return (
     <SectionCard
-      title="今週のスケジュール"
-      description="本番・収録・放送の予定数。今日の列がハイライトされます。"
+      title="今後のスケジュール"
+      description="今日から 7 日間の本番・収録・放送予定です。"
       icon={<Calendar />}
+      actions={
+        <span className="flex items-center gap-3 text-xs text-muted-foreground">
+          {Object.entries(EVENT_TYPE_STYLE).map(([k, s]) => (
+            <span key={k} className="flex items-center gap-1">
+              <span className={cn("inline-block h-2 w-2 rounded-full", s.dot)} aria-hidden="true" />
+              {s.label}
+            </span>
+          ))}
+        </span>
+      }
       padding="compact"
     >
       {isLoading ? (
         <div className="flex justify-center py-6">
           <Loader2 className="h-5 w-5 animate-spin text-primary" aria-label="読み込み中" />
         </div>
-      ) : !weeklyData || weeklyData.length === 0 ? (
-        <EmptyState title="今週の予定はありません" />
+      ) : !weeklyData || weeklyData.length === 0 || totalEvents === 0 ? (
+        <EmptyState title="今後 7 日間の予定はありません" />
       ) : (
-        <div className="grid grid-cols-7 gap-1">
-          {weeklyData.map((day) => {
-            const isToday = day.date === new Date().toISOString().split('T')[0];
+        <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
+          {weeklyData.map((day, i) => {
+            const isToday = i === 0;
             const count = day.events.length;
+            const isSunday = day.dayLabel === "日";
+            const isSaturday = day.dayLabel === "土";
+            const shown = day.events.slice(0, 3);
+            const overflow = count - shown.length;
             return (
               <div
                 key={day.date}
                 className={cn(
-                  "rounded-md border p-2 text-center min-h-[64px] flex flex-col justify-between",
-                  isToday ? "border-primary bg-primary/5" : "border-border bg-muted/20"
+                  "rounded-md border p-1.5 sm:p-2 min-h-[88px] sm:min-h-[120px] flex flex-col",
+                  isToday ? "border-primary border-2 bg-primary/5" : "border-border bg-muted/20"
                 )}
               >
-                <div className={cn("text-xs", isToday ? "font-bold text-primary" : "text-muted-foreground")}>
-                  {day.dayLabel}
+                <div className="text-center">
+                  <span className={cn(
+                    "text-xs",
+                    isToday ? "font-bold text-primary" : isSunday ? "text-red-500" : isSaturday ? "text-blue-500" : "text-muted-foreground"
+                  )}>
+                    {isToday ? "今日" : day.dayLabel}
+                  </span>
+                  <span className={cn("ml-1 text-xs font-medium", isToday ? "text-primary" : "text-foreground")}>
+                    {Number(day.date.split("-")[2])}
+                  </span>
                 </div>
-                <div className={cn("text-xs", isToday ? "text-primary" : "text-foreground")}>
-                  {day.date.split('-')[2]}
-                </div>
+                {/* モバイルは件数のみ、sm 以上でイベント名チップを表示 */}
                 <div className={cn(
-                  "mt-1 text-base font-bold font-number tabular-nums",
+                  "mt-1 text-center text-base font-bold font-number tabular-nums sm:hidden",
                   count > 0 ? (isToday ? "text-primary" : "text-foreground") : "text-muted-foreground/40"
                 )}>
-                  {count > 0 ? count : '–'}
+                  {count > 0 ? count : "–"}
+                </div>
+                <div className="mt-1.5 hidden sm:flex flex-col gap-1 flex-1">
+                  {count === 0 ? (
+                    <span className="text-center text-xs text-muted-foreground/40 mt-2">–</span>
+                  ) : (
+                    <>
+                      {shown.map((ev, j) => {
+                        const style = EVENT_TYPE_STYLE[ev.type] ?? EVENT_TYPE_STYLE.event;
+                        const label = ev.name || ev.project_name || ev.episode_code || style.label;
+                        return (
+                          <span
+                            key={j}
+                            title={`[${style.label}] ${ev.gls_number ? `${ev.gls_number} ` : ""}${label}`}
+                            className={cn("truncate rounded border px-1 py-0.5 text-[10px] leading-tight", style.chip)}
+                          >
+                            {label}
+                          </span>
+                        );
+                      })}
+                      {overflow > 0 && (
+                        <span className="text-center text-[10px] text-muted-foreground">+{overflow} 件</span>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             );

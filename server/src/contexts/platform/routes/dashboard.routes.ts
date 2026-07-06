@@ -140,16 +140,13 @@ router.get('/recent-projects', async (_req, res) => {
 
 router.get('/weekly-schedule', async (_req, res) => {
   const now = new Date();
-  const dayOfWeek = now.getDay(); // 0 = 日曜日
   const days: Array<{ date: string; dayLabel: string; events: unknown[] }> = [];
   const dayLabels = ['日', '月', '火', '水', '木', '金', '土'];
 
-  // 日曜始まりの週
+  // 今日起点の 7 日間 (「今後のスケジュール」— 過ぎた曜日は表示しない)
   for (let i = 0; i < 7; i++) {
-    const daysToAdd = i - dayOfWeek;
-
     const d = new Date(now);
-    d.setDate(d.getDate() + daysToAdd);
+    d.setDate(d.getDate() + i);
     const dateStr = d.toISOString().split('T')[0];
 
     const projects = await queryAll(
