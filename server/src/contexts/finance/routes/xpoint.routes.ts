@@ -8,6 +8,7 @@
  * POST /xpoint/files/:id/reopen         : skipped/error を再びレビュー可能に戻す
  */
 import { Router } from 'express';
+import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
 import { queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
@@ -15,8 +16,10 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateBillingKey, generateSgaBillingKey } from '../../../shared/services/billing-key.service';
 import { isBoxConfigured, getBoxFolderUrl } from '../../../shared/services/box';
 import {
-  resolveXpointFolderId, scanXpointFolder, parseXpointFile,
+  resolveXpointFolderId, scanXpointFolder, parseXpointFile, uploadXpointPdf,
 } from '../services/xpoint-import.service';
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 const router = Router();
 
@@ -35,6 +38,43 @@ router.get('/files', async (req, res) => {
   const folderId = resolveXpointFolderId(req.query.folder as string | undefined);
   const files = await scanXpointFolder(folderId);
   res.json({ success: true, data: { folderId, folderUrl: getBoxFolderUrl(folderId), files } });
+});
+
+/**
+ * PDF を直接アップロードして取込。
+ * アップロードされた PDF は Box の監視フォルダに保存され (原本も Box に残る)、
+ * そのまま解析まで実行してレビュー用データを返す。
+ */
+router.post('/upload', upload.single('file'), async (req, res) => {
+  requireBox();
+  const f = req.file;
+  if (!f || !f.buffer) throw new AppError(400, 'VALIDATION_ERROR', 'PDF ファイルを指定してください');
+  // multipart のファイル名は latin1 で届くことがあるため UTF-8 に復元
+  let originalName = f.originalname || 'upload.pdf';
+  try {
+    const decoded = Buffer.from(originalName, 'latin1').toString('utf8');
+    if (!decoded.includes('�')) originalName = decoded;
+  } catch { /* 変換失敗時はそのまま */ }
+  if (!/\.pdf$/i.test(originalName)) throw new AppError(400, 'VALIDATION_ERROR', 'PDF ファイルのみアップロードできます');
+  if (f.buffer.slice(0, 5).toString('latin1') !== '%PDF-') {
+    throw new AppError(400, 'VALIDATION_ERROR', 'PDF 形式のファイルではありません');
+  }
+
+  const folderId = resolveXpointFolderId((req.body?.folder as string) || undefined);
+  const uploaded = await uploadXpointPdf(folderId, originalName, f.buffer);
+
+  try {
+    const result = await parseXpointFile(uploaded.id, uploaded.name);
+    const row = await queryOne('SELECT * FROM xpoint_import_files WHERE box_file_id = ?', [uploaded.id]);
+    res.status(201).json({ success: true, data: { file: row, result } });
+  } catch (err) {
+    // Box への保存自体は成功している。解析失敗はファイル一覧上の「エラー」として扱い、再解析できる。
+    const row = await queryOne('SELECT * FROM xpoint_import_files WHERE box_file_id = ?', [uploaded.id]);
+    res.status(201).json({
+      success: true,
+      data: { file: row, result: null, parse_error: `PDF の解析に失敗しました: ${(err as Error).message}` },
+    });
+  }
 });
 
 // PDF を解析 (Box の extracted_text からフィールド抽出 + マスタ照合 + 重複チェック)

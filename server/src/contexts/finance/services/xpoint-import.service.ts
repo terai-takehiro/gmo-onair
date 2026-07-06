@@ -76,6 +76,35 @@ export async function scanXpointFolder(folderId: string): Promise<XpointFileRow[
   return rows as unknown as XpointFileRow[];
 }
 
+/**
+ * アップロードされた PDF を Box の監視フォルダへ保存する。
+ * 解析は Box の extracted_text representation を使う一本化された経路のため、
+ * アップロード取込も「まず Box に置く」ことで同じパイプラインに乗せる (原本も Box に残る)。
+ */
+export async function uploadXpointPdf(folderId: string, fileName: string, buffer: Buffer): Promise<{ id: string; name: string }> {
+  const client = getBoxClient();
+  if (!client) throw new Error('Box が未設定です (BOX_CONFIG_JSON が必要)');
+  const safeName = (fileName || 'upload.pdf').replace(/[\\/:*?"<>|]/g, '_');
+  const doUpload = async (name: string) => {
+    const resp: any = await client.files.uploadFile(folderId, name, buffer);
+    const entry = resp?.entries?.[0] ?? resp;
+    return { id: String(entry.id), name: String(entry.name) };
+  };
+  try {
+    return await doUpload(safeName);
+  } catch (err: any) {
+    // 同名ファイルが既にある場合はタイムスタンプを付けて別名で保存 (内容が同じとは限らないため上書きしない)
+    if (err?.statusCode === 409) {
+      const dot = safeName.lastIndexOf('.');
+      const stamped = dot < 0
+        ? `${safeName}_${Date.now()}`
+        : `${safeName.slice(0, dot)}_${Date.now()}${safeName.slice(dot)}`;
+      return await doUpload(stamped);
+    }
+    throw err;
+  }
+}
+
 function streamToString(stream: NodeJS.ReadableStream): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];

@@ -8,7 +8,7 @@
  * (種別 × GLS × 税区分) の「登録単位」に分解して 1 単位ずつ確認・登録する。
  * 自動登録は行わず、すべての項目が人間の目のチェックを通ってから確定される。
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import api from "@/lib/api";
@@ -31,7 +31,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Vendor, TaxCategoryLabels } from "@/types";
 import {
   Loader2, FolderSearch, ExternalLink, FileText, AlertTriangle, CheckCircle2,
-  RotateCcw, SkipForward, ScanSearch, Check,
+  RotateCcw, SkipForward, ScanSearch, Check, Upload, CloudUpload, PenLine,
 } from "lucide-react";
 
 // ---- サーバーの解析結果に対応する型 (表示に使う分のみ) ----
@@ -158,6 +158,10 @@ export default function XpointImportPage() {
   const [scanned, setScanned] = useState<{ folderId: string; folderUrl: string; files: XpointFileRow[] } | null>(null);
   const [reviewTarget, setReviewTarget] = useState<{ file: XpointFileRow; result: XpointParseResult } | null>(null);
   const [showDone, setShowDone] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
+  const [uploadErrors, setUploadErrors] = useState<string[]>([]);
 
   const scan = useMutation({
     mutationFn: async () => {
@@ -166,6 +170,61 @@ export default function XpointImportPage() {
     },
     onSuccess: (data) => setScanned(data),
   });
+
+  // ページを開いたら既定フォルダの一覧を自動表示 (解析・登録は一切自動実行しない)
+  const autoLoadedRef = useRef(false);
+  useEffect(() => {
+    if (autoLoadedRef.current) return;
+    autoLoadedRef.current = true;
+    scan.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // PDF を直接アップロード → Box 監視フォルダに保存 → 解析まで実行
+  const uploadFiles = useMutation({
+    mutationFn: async (files: File[]) => {
+      const errors: string[] = [];
+      const parsedResults: { file: XpointFileRow; result: XpointParseResult }[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        setUploadProgress(`アップロード中 (${i + 1}/${files.length}): ${f.name}`);
+        try {
+          const fd = new FormData();
+          fd.append("file", f);
+          if (folderInput.trim()) fd.append("folder", folderInput.trim());
+          const data = (await api.post("/xpoint/upload", fd, { timeout: 180_000 })).data.data;
+          if (data.parse_error) {
+            errors.push(`${f.name}: ${data.parse_error}`);
+          } else if (data.file && data.result) {
+            parsedResults.push({ file: data.file as XpointFileRow, result: data.result as XpointParseResult });
+          }
+        } catch (err: any) {
+          errors.push(`${f.name}: ${err?.response?.data?.error?.message || err.message}`);
+        }
+      }
+      return { errors, parsedResults };
+    },
+    onSuccess: ({ errors, parsedResults }) => {
+      setUploadProgress(null);
+      setUploadErrors(errors);
+      scan.mutate();
+      // 1 件だけアップロードして解析成功したら、そのままレビューを開いて次の操作へ誘導
+      if (parsedResults.length === 1) setReviewTarget(parsedResults[0]);
+    },
+    onError: (err: any) => {
+      setUploadProgress(null);
+      setUploadErrors([err?.response?.data?.error?.message || err.message]);
+      scan.mutate();
+    },
+  });
+
+  const handleFiles = (list: FileList | File[] | null) => {
+    if (!list) return;
+    const pdfs = Array.from(list).filter((f) => /\.pdf$/i.test(f.name));
+    const rejected = Array.from(list).length - pdfs.length;
+    setUploadErrors(rejected > 0 ? [`PDF 以外のファイル ${rejected} 件は無視しました`] : []);
+    if (pdfs.length > 0) uploadFiles.mutate(pdfs);
+  };
 
   const parse = useMutation({
     mutationFn: async (file: XpointFileRow) => {
@@ -201,49 +260,129 @@ export default function XpointImportPage() {
         <div>
           <h1 className="text-xl lg:text-2xl font-bold">精算 PDF 取込 (X-Point / 楽楽精算)</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Box フォルダの X-Point / 楽楽精算の申請 PDF を読み込み、内容を確認・修正してから仕入 / 販管費に登録します。
+            X-Point / 楽楽精算の申請 PDF を読み込み、内容を確認・修正してから仕入 / 販管費に登録します。
             自動では登録されません — <span className="font-medium text-foreground">すべての項目を必ず確認してください</span>。
           </p>
         </div>
 
-        {/* フォルダ読み込み */}
-        <div className="rounded-xl border bg-card p-4 space-y-3">
-          <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
-            <div className="flex-1 space-y-1">
+        {/* 使い方 3 ステップ */}
+        <div className="rounded-xl border bg-card p-3 sm:p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+            {[
+              { icon: CloudUpload, title: "1. PDF を取り込む", desc: "Box フォルダに置いて読み込むか、この画面に直接アップロード" },
+              { icon: ScanSearch, title: "2. 解析してレビュー", desc: "「解析してレビュー」を押すと内容を自動で読み取ります" },
+              { icon: PenLine, title: "3. 確認・修正して登録", desc: "全項目を目でチェックし、必要なら直して仕入/販管費に登録" },
+            ].map((s, i) => (
+              <div key={i} className="flex items-start gap-2.5">
+                <div className="rounded-lg bg-primary/10 text-primary p-2 shrink-0"><s.icon className="h-4 w-4" /></div>
+                <div>
+                  <p className="font-medium">{s.title}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{s.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 取込元: Box フォルダ / 直接アップロード */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {/* Box フォルダ */}
+          <div className="rounded-xl border bg-card p-4 space-y-3">
+            <p className="text-sm font-semibold flex items-center gap-2">
+              <FolderSearch className="h-4 w-4 text-primary" />Box フォルダから読み込み
+            </p>
+            <div className="space-y-1">
               <Label className="text-xs">取込元 Box フォルダ (ID または URL・空欄なら既定フォルダ)</Label>
               <Input
                 value={folderInput}
                 onChange={(e) => setFolderInput(e.target.value)}
-                placeholder="例: 397127787652 / https://gmo-globalstudio.app.box.com/folder/397127787652"
+                placeholder="例: 397127787652 / https://gmo-globalstudio.app.box.com/folder/…"
               />
             </div>
-            <Button onClick={() => scan.mutate()} disabled={scan.isPending} className="shrink-0">
-              {scan.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FolderSearch className="h-4 w-4 mr-2" />}
-              フォルダを読み込み
+            <Button onClick={() => scan.mutate()} disabled={scan.isPending} className="w-full">
+              {scan.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RotateCcw className="h-4 w-4 mr-2" />}
+              {scanned ? "フォルダを再読み込み" : "フォルダを読み込み"}
             </Button>
+            {scan.isError && (
+              <p className="text-sm text-red-600">
+                読み込みに失敗しました: {(scan.error as any)?.response?.data?.error?.message || (scan.error as Error).message}
+              </p>
+            )}
+            {scanned && (
+              <p className="text-xs text-muted-foreground">
+                フォルダ: <a href={scanned.folderUrl} target="_blank" rel="noopener noreferrer" className="underline inline-flex items-center gap-0.5">{scanned.folderId}<ExternalLink className="h-3 w-3" /></a>
+                {" ・ "}PDF {files.length} 件 (処理済み {doneCount} 件)
+              </p>
+            )}
           </div>
-          {scan.isError && (
-            <p className="text-sm text-red-600">
-              読み込みに失敗しました: {(scan.error as any)?.response?.data?.error?.message || (scan.error as Error).message}
+
+          {/* 直接アップロード */}
+          <div className="rounded-xl border bg-card p-4 space-y-3">
+            <p className="text-sm font-semibold flex items-center gap-2">
+              <Upload className="h-4 w-4 text-primary" />PDF を直接アップロード
             </p>
-          )}
-          {scanned && (
+            <div
+              className={`rounded-lg border-2 border-dashed p-5 text-center cursor-pointer transition-colors ${
+                dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+              }`}
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files); }}
+            >
+              {uploadFiles.isPending ? (
+                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground py-1">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {uploadProgress || "アップロード中…"}
+                </div>
+              ) : (
+                <>
+                  <CloudUpload className="h-6 w-6 mx-auto text-muted-foreground" />
+                  <p className="text-sm mt-1.5 font-medium">ここに PDF をドラッグ＆ドロップ</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">またはクリックしてファイルを選択 (複数可・PDF のみ)</p>
+                </>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                multiple
+                className="hidden"
+                onChange={(e) => { handleFiles(e.target.files); e.target.value = ""; }}
+              />
+            </div>
             <p className="text-xs text-muted-foreground">
-              フォルダ: <a href={scanned.folderUrl} target="_blank" rel="noopener noreferrer" className="underline inline-flex items-center gap-0.5">{scanned.folderId}<ExternalLink className="h-3 w-3" /></a>
-              {" ・ "}PDF {files.length} 件 (処理済み {doneCount} 件)
-              <button className="ml-2 underline" onClick={() => setShowDone((v) => !v)}>
-                {showDone ? "処理済みを隠す" : "処理済みも表示"}
-              </button>
+              アップロードした PDF は Box の取込フォルダに保存され、そのまま解析されてレビュー画面が開きます。
             </p>
-          )}
+            {uploadErrors.length > 0 && (
+              <div className="space-y-0.5">
+                {uploadErrors.map((e, i) => (
+                  <p key={i} className="text-xs text-red-600 flex items-start gap-1"><AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />{e}</p>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ファイル一覧 */}
         {scanned && (
           <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold">
+                取込ファイル一覧
+                <span className="ml-2 font-normal text-xs text-muted-foreground">
+                  レビュー待ち {files.filter((f) => f.status === "parsed").length} ・ 未解析 {files.filter((f) => f.status === "new").length} ・ 登録済み {files.filter((f) => f.status === "registered").length}
+                </span>
+              </h2>
+              <button className="text-xs underline text-muted-foreground" onClick={() => setShowDone((v) => !v)}>
+                {showDone ? "処理済み (登録済み・スキップ) を隠す" : "処理済み (登録済み・スキップ) も表示"}
+              </button>
+            </div>
             {visibleFiles.length === 0 && (
               <div className="rounded-xl border bg-card p-8 text-center text-sm text-muted-foreground">
-                {files.length === 0 ? "フォルダに PDF がありません" : "未処理の PDF はありません"}
+                {files.length === 0
+                  ? "フォルダに PDF がありません。上の Box フォルダに PDF を置いて再読み込みするか、直接アップロードしてください。"
+                  : "未処理の PDF はありません。新しい PDF を Box フォルダに置いて再読み込みするか、直接アップロードしてください。"}
               </div>
             )}
             {visibleFiles.map((f) => {
@@ -332,9 +471,9 @@ export default function XpointImportPage() {
           </div>
         )}
 
-        {!scanned && !scan.isPending && (
-          <div className="rounded-xl border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
-            「フォルダを読み込み」を押すと Box フォルダ内の精算申請 PDF (X-Point / 楽楽精算) を検出します
+        {!scanned && scan.isPending && (
+          <div className="rounded-xl border border-dashed bg-card p-8 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />Box フォルダを読み込んでいます…
           </div>
         )}
 
