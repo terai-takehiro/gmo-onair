@@ -11,7 +11,11 @@
  */
 import { getBoxClient, extractFolderId } from '../../../shared/services/box';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
-import { parseXpointText, toExclusiveAmount, XpointParsed } from './xpoint-parse.service';
+import {
+  parseXpointText, XpointParsed,
+  parseRakurakuText, RakurakuParsed,
+  detectVoucherFormat, buildXpointUnits, buildRakurakuUnits, RegistrationUnit,
+} from './xpoint-parse.service';
 
 // 既定の監視フォルダ (X-Point 申請 PDF 格納先)。env で上書き可、リクエストで都度指定も可。
 const DEFAULT_XPOINT_FOLDER_ID = '397127787652';
@@ -28,12 +32,14 @@ export interface XpointFileRow {
   box_modified_at: string | null;
   xp_number: string | null;
   kind: string;
+  format: string;
   status: string;
   parsed_data: unknown;
   error_message: string | null;
   registered_table: string | null;
   registered_id: string | null;
   registered_at: string | null;
+  registered_records: unknown[];
 }
 
 /** フォルダ内の PDF を一覧し、未知のファイルを xpoint_import_files に登録して現況を返す */
@@ -97,51 +103,59 @@ export interface VendorMatch { id: string; name: string; matched_by: 'name' | 'i
 export interface ProjectMatch { id: string; name: string; gls_number: string }
 export interface DuplicateRow { id: string; amount: number; recognition_date: string | null; vendor_name: string | null; description: string | null }
 
+/** 登録単位 + その単位の案件照合結果 */
+export interface UnitWithMatch extends RegistrationUnit {
+  project: ProjectMatch | null;
+}
+
 export interface XpointParseResult {
-  parsed: XpointParsed;
+  /** 判定したフォーマット (unknown は X-Point として解析を試みた結果) */
+  format: 'xpoint' | 'rakuraku';
+  /** 精算方法 (フォーマットに対応: xpoint = X-Point / rakuraku = 楽楽精算) */
+  settlementMethod: 'xpoint' | 'rakuraku';
+  /** 精算番号 (X-Point 番号 / 楽楽の伝票 No) */
+  settlementNumber: string | null;
+  /** X-Point の解析結果 (rakuraku のときは null) */
+  parsed: XpointParsed | null;
+  /** 楽楽精算の解析結果 (xpoint のときは null) */
+  voucher: RakurakuParsed | null;
+  /** 登録単位 (1 単位 = 仕入/販管費 1 レコード)。楽楽精算は 種別×GLS×税区分 で複数になり得る */
+  units: UnitWithMatch[];
+  /** 解析上の注意点 (人間のレビューで確認すべき点) */
+  warnings: string[];
   match: {
     vendor: VendorMatch | null;
     vendorCandidates: VendorMatch[];
-    project: ProjectMatch | null;
   };
   duplicates: {
     purchases: DuplicateRow[];
     sga: DuplicateRow[];
   };
-  suggested: {
-    taxCategory: 'tax10' | 'tax8' | 'exempt';
-    amountExclusive: number | null;
-    recognitionMonth: string | null; // YYYY-MM
-  };
   parsedAt: string;
 }
 
-/** 解析結果に ONAiR マスタ (取引先/案件) の照合と重複チェックを付与 */
-export async function enrichParsed(parsed: XpointParsed): Promise<XpointParseResult> {
+/** 取引先マスタ照合: 名称完全一致 → 適格事業者番号 → 法人格を除いた部分一致候補 */
+async function matchVendor(vendorName: string | null, invoiceNumber: string | null): Promise<{ vendor: VendorMatch | null; vendorCandidates: VendorMatch[] }> {
   let vendor: VendorMatch | null = null;
   const vendorCandidates: VendorMatch[] = [];
 
-  if (parsed.vendorName) {
+  if (vendorName) {
     const exact = (await queryOne(
       `SELECT id, name FROM vendors WHERE deleted_at IS NULL AND name = ? LIMIT 1`,
-      [parsed.vendorName]
+      [vendorName]
     )) as any;
-    if (exact) {
-      vendor = { id: exact.id, name: exact.name, matched_by: 'name' };
-    }
+    if (exact) vendor = { id: exact.id, name: exact.name, matched_by: 'name' };
   }
-  if (!vendor && parsed.invoiceNumber) {
+  if (!vendor && invoiceNumber) {
     const byInv = (await queryOne(
       `SELECT id, name FROM vendors WHERE deleted_at IS NULL AND invoice_registration_number = ? LIMIT 1`,
-      [parsed.invoiceNumber]
+      [invoiceNumber]
     )) as any;
-    if (byInv) {
-      vendor = { id: byInv.id, name: byInv.name, matched_by: 'invoice_number' };
-    }
+    if (byInv) vendor = { id: byInv.id, name: byInv.name, matched_by: 'invoice_number' };
   }
-  if (!vendor && parsed.vendorName) {
+  if (!vendor && vendorName) {
     // 法人格・空白の揺らぎを吸収した部分一致候補 (自動確定はせず候補として提示)
-    const core = parsed.vendorName.replace(/株式会社|有限会社|合同会社|\(株\)|（株）|\s/g, '');
+    const core = vendorName.replace(/株式会社|有限会社|合同会社|\(株\)|（株）|\s/g, '');
     if (core.length >= 2) {
       const rows = (await queryAll(
         `SELECT id, name FROM vendors WHERE deleted_at IS NULL AND name ILIKE ? ORDER BY name LIMIT 5`,
@@ -150,48 +164,48 @@ export async function enrichParsed(parsed: XpointParsed): Promise<XpointParseRes
       for (const r of rows) vendorCandidates.push({ id: r.id, name: r.name, matched_by: 'partial' });
     }
   }
+  return { vendor, vendorCandidates };
+}
 
-  let project: ProjectMatch | null = null;
-  if (parsed.glsNumber) {
-    const p = (await queryOne(
-      `SELECT id, name, gls_number FROM projects WHERE deleted_at IS NULL AND UPPER(gls_number) = ? LIMIT 1`,
-      [parsed.glsNumber]
-    )) as any;
-    if (p) project = { id: p.id, name: p.name, gls_number: p.gls_number };
+/** GLS 番号 → 案件の照合 (単位ごと・重複クエリはキャッシュ) */
+async function matchProjects(units: RegistrationUnit[]): Promise<UnitWithMatch[]> {
+  const cache = new Map<string, ProjectMatch | null>();
+  const out: UnitWithMatch[] = [];
+  for (const u of units) {
+    let project: ProjectMatch | null = null;
+    if (u.glsNumber) {
+      if (cache.has(u.glsNumber)) {
+        project = cache.get(u.glsNumber)!;
+      } else {
+        const p = (await queryOne(
+          `SELECT id, name, gls_number FROM projects WHERE deleted_at IS NULL AND UPPER(gls_number) = ? LIMIT 1`,
+          [u.glsNumber]
+        )) as any;
+        project = p ? { id: p.id, name: p.name, gls_number: p.gls_number } : null;
+        cache.set(u.glsNumber, project);
+      }
+    }
+    out.push({ ...u, project });
   }
+  return out;
+}
 
-  // 二重登録チェック: 精算番号 (= X-Point 番号) が一致する既存レコード
-  let dupPurchases: DuplicateRow[] = [];
-  let dupSga: DuplicateRow[] = [];
-  if (parsed.xpNumber) {
-    dupPurchases = (await queryAll(
-      `SELECT pu.id, pu.amount, pu.recognition_date, v.name as vendor_name, pu.description
-       FROM purchases pu LEFT JOIN vendors v ON v.id = pu.vendor_id
-       WHERE pu.deleted_at IS NULL AND pu.settlement_method = 'xpoint' AND pu.settlement_number = ?`,
-      [parsed.xpNumber]
-    )) as unknown as DuplicateRow[];
-    dupSga = (await queryAll(
-      `SELECT id, amount, recognition_date, vendor_name, description
-       FROM sga_expenses
-       WHERE deleted_at IS NULL AND settlement_method = 'xpoint' AND settlement_number = ?`,
-      [parsed.xpNumber]
-    )) as unknown as DuplicateRow[];
-  }
-
-  const amountExclusive =
-    parsed.amountInclusive != null ? toExclusiveAmount(parsed.amountInclusive, 'tax10') : null;
-
-  return {
-    parsed,
-    match: { vendor, vendorCandidates, project },
-    duplicates: { purchases: dupPurchases, sga: dupSga },
-    suggested: {
-      taxCategory: 'tax10',
-      amountExclusive,
-      recognitionMonth: parsed.recognitionDate ? parsed.recognitionDate.slice(0, 7) : null,
-    },
-    parsedAt: new Date().toISOString(),
-  };
+/** 二重登録チェック: 同じ精算方法 + 精算番号の既存レコード */
+async function findDuplicates(method: string, settlementNumber: string | null): Promise<{ purchases: DuplicateRow[]; sga: DuplicateRow[] }> {
+  if (!settlementNumber) return { purchases: [], sga: [] };
+  const purchases = (await queryAll(
+    `SELECT pu.id, pu.amount, pu.recognition_date, v.name as vendor_name, pu.description
+     FROM purchases pu LEFT JOIN vendors v ON v.id = pu.vendor_id
+     WHERE pu.deleted_at IS NULL AND pu.settlement_method = ? AND pu.settlement_number = ?`,
+    [method, settlementNumber]
+  )) as unknown as DuplicateRow[];
+  const sga = (await queryAll(
+    `SELECT id, amount, recognition_date, vendor_name, description
+     FROM sga_expenses
+     WHERE deleted_at IS NULL AND settlement_method = ? AND settlement_number = ?`,
+    [method, settlementNumber]
+  )) as unknown as DuplicateRow[];
+  return { purchases, sga };
 }
 
 /** PDF を解析して結果を保存 (status: parsed / error) */
@@ -205,13 +219,61 @@ export async function parseXpointFile(boxFileId: string, fileName?: string): Pro
 
   try {
     const text = await fetchXpointPdfText(boxFileId);
-    const parsed = parseXpointText(text);
-    const result = await enrichParsed(parsed);
+    const detected = detectVoucherFormat(text);
+
+    let parsed: XpointParsed | null = null;
+    let voucher: RakurakuParsed | null = null;
+    let units: RegistrationUnit[];
+    let warnings: string[];
+    let settlementNumber: string | null;
+    let format: 'xpoint' | 'rakuraku';
+
+    if (detected === 'rakuraku') {
+      format = 'rakuraku';
+      voucher = parseRakurakuText(text);
+      units = buildRakurakuUnits(voucher);
+      warnings = voucher.warnings;
+      settlementNumber = voucher.denpyoNumber;
+    } else {
+      format = 'xpoint';
+      parsed = parseXpointText(text);
+      units = buildXpointUnits(parsed);
+      warnings = [...parsed.warnings];
+      settlementNumber = parsed.xpNumber;
+      if (detected === 'unknown') {
+        warnings.unshift('フォーマット (X-Point / 楽楽精算) を判定できませんでした。X-Point として解析していますが全項目を確認してください。');
+      }
+    }
+
+    const method = format;
+    const unitsWithMatch = await matchProjects(units);
+    const vendorMatch = parsed
+      ? await matchVendor(parsed.vendorName, parsed.invoiceNumber)
+      : { vendor: null, vendorCandidates: [] };
+    const duplicates = await findDuplicates(method, settlementNumber);
+
+    const result: XpointParseResult = {
+      format,
+      settlementMethod: method,
+      settlementNumber,
+      parsed,
+      voucher,
+      units: unitsWithMatch,
+      warnings,
+      match: vendorMatch,
+      duplicates,
+      parsedAt: new Date().toISOString(),
+    };
+
+    // ファイル単位の kind: 全単位が同じならそれ、混在なら unknown (レビューで単位ごとに選択)
+    const kinds = new Set(units.map((u) => u.kind));
+    const fileKind = kinds.size === 1 ? units[0].kind : 'unknown';
+
     await execute(
       `UPDATE xpoint_import_files
-       SET xp_number = ?, kind = ?, status = 'parsed', parsed_data = ?::jsonb, error_message = NULL, updated_at = NOW()
+       SET xp_number = ?, kind = ?, format = ?, status = 'parsed', parsed_data = ?::jsonb, error_message = NULL, updated_at = NOW()
        WHERE box_file_id = ?`,
-      [parsed.xpNumber, parsed.kind, JSON.stringify(result), boxFileId]
+      [settlementNumber, fileKind, format, JSON.stringify(result), boxFileId]
     );
     return result;
   } catch (err) {

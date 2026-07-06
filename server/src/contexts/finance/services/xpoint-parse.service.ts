@@ -1,14 +1,44 @@
 /**
- * xpoint-parse.service.ts — X-Point (OBIC 経費申請書) PDF テキストの解析
+ * xpoint-parse.service.ts — 精算申請 PDF テキストの解析 (X-Point / 楽楽精算)
  *
  * Box の extracted_text representation で得たプレーンテキストから、
- * 仕入/販管費の登録に必要なフィールドを抽出する純粋関数。
+ * 仕入/販管費の登録に必要なフィールドを抽出する純粋関数群。
  *
- * PDF はフォーム (ver.2025/12/18 テンプレート) のため、テキストは
- * 「ラベル群 → 値群 → 'ver.xxxx' → 申請者情報/承認履歴」の順に出力される。
- * 値の並び順はフォームのバージョンで変わり得るため、位置依存を最小限にした
- * パターンマッチ中心で抽出し、曖昧なものは warnings に積んで人間のレビューに委ねる。
+ * 対応フォーマット:
+ *  - X-Point (OBIC 経費申請書): 1 PDF = 1 支払。「ラベル群 → 値群 → 'ver.xxxx' →
+ *    申請者情報/承認履歴」の順に出力されるフォーム。
+ *  - 楽楽精算 (経費精算 伝票): 1 PDF = 1 伝票 = 複数明細行。明細ごとに税区分
+ *    (10%標準/不課税 等) が異なり得るため、(種別 × GLS番号 × 税区分) でグループ化した
+ *    「登録単位」に分解する。
+ *
+ * どちらもレイアウト依存を最小限にしたパターンマッチ中心で抽出し、
+ * 曖昧なものは warnings に積んで人間のレビューに委ねる。
  */
+
+export type VoucherFormat = 'xpoint' | 'rakuraku' | 'unknown';
+
+/** 1 回の登録操作に対応する単位 (仕入/販管費 1 レコード分)。楽楽精算は 1 伝票から複数生成され得る */
+export interface RegistrationUnit {
+  kind: 'purchase' | 'sga' | 'unknown';
+  glsNumber: string | null;
+  taxCategory: 'tax10' | 'tax8' | 'exempt';
+  /** この単位に含まれる明細の税込合計 (円) */
+  amountInclusive: number;
+  /** 税区分で換算した税抜金額 (円) */
+  amountExclusive: number;
+  description: string | null;
+  /** 計上日の候補 (明細の最終日付 / X-Point は経理欄の計上日) */
+  recognitionDate: string | null;
+  /** 由来した明細 No (楽楽精算のみ) */
+  itemNos: number[];
+}
+
+/** テキストからフォーマットを判定 */
+export function detectVoucherFormat(text: string): VoucherFormat {
+  if (/XP\d{6,}/.test(text) || text.includes('OBIC)経費申請書') || text.includes('経費事前申請No')) return 'xpoint';
+  if (/伝票No/.test(text) && text.includes('経費精算')) return 'rakuraku';
+  return 'unknown';
+}
 
 export interface XpointParsed {
   /** X-Point 番号 (例 '177619')。XP0000177619 から先頭ゼロを除去。ファイル名とは一致しないことがある */
@@ -269,4 +299,179 @@ export function parseXpointText(text: string): XpointParsed {
     applicationDate, servicePeriodStart, servicePeriodEnd, paymentDueDate, recognitionDate,
     description, detailLines, account, applicantName, warnings,
   };
+}
+
+/** X-Point の解析結果を登録単位 (常に 1 件) に変換 */
+export function buildXpointUnits(parsed: XpointParsed): RegistrationUnit[] {
+  const taxCategory = 'tax10' as const; // 税率はテキストから確定できないため 10% 仮定 (warnings で確認を促す)
+  const inclusive = parsed.amountInclusive ?? 0;
+  return [{
+    kind: parsed.kind,
+    glsNumber: parsed.glsNumber,
+    taxCategory,
+    amountInclusive: inclusive,
+    amountExclusive: toExclusiveAmount(inclusive, taxCategory),
+    description: parsed.description,
+    recognitionDate: parsed.recognitionDate,
+    itemNos: [],
+  }];
+}
+
+// ============================================================
+// 楽楽精算 (経費精算 伝票)
+// ============================================================
+
+export interface RakurakuItem {
+  no: number;
+  date: string | null;           // YYYY-MM-DD (利用日)
+  taxLabel: string;              // 例 '10%標準' / '不課税'
+  taxCategory: 'tax10' | 'tax8' | 'exempt';
+  body: string;                  // 利用内訳 + 支払方法の生テキスト
+  amountInclusive: number;
+  usage: string | null;          // 用途行の生テキスト (例 '[仕入れ][GLS-A004]GMOアワード2026_宿泊費')
+  kind: 'purchase' | 'sga' | 'unknown';
+  glsNumber: string | null;
+  description: string | null;    // 用途からタグを除いた本文
+}
+
+export interface RakurakuParsed {
+  /** 伝票 No (精算番号 楽-XXXXXX に使用) */
+  denpyoNumber: string | null;
+  /** ヘッダーの長い管理番号 (伝票 No と食い違う場合は警告) */
+  headerNumber: string | null;
+  applicantName: string | null;
+  applicationDate: string | null;
+  /** 合計 精算額 (税込) */
+  totalInclusive: number | null;
+  items: RakurakuItem[];
+  warnings: string[];
+}
+
+function mapTaxLabel(label: string): 'tax10' | 'tax8' | 'exempt' | null {
+  if (label.includes('10%')) return 'tax10';
+  if (label.includes('8%')) return 'tax8';
+  if (/不課税|非課税|対象外|免税/.test(label)) return 'exempt';
+  return null;
+}
+
+export function parseRakurakuText(text: string): RakurakuParsed {
+  const warnings: string[] = [];
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+
+  // --- 伝票 No: 本文の「伝票No.011643」を採用 (ヘッダーの長い管理番号は使わず参考表示のみ) ---
+  const denpyoMatches = [...text.matchAll(/伝票No\.?\s*(\d+)/g)].map((m) => m[1]);
+  const denpyoNumber = denpyoMatches.length > 0 ? denpyoMatches[denpyoMatches.length - 1] : null;
+  const headerNumber = lines.find((l) => /^\d{10,}$/.test(l)) || null;
+  if (!denpyoNumber) {
+    warnings.push('伝票No が見つかりません。精算番号を手入力してください。');
+  } else if (new Set(denpyoMatches).size > 1) {
+    warnings.push(`本文中の伝票No が複数あります (${[...new Set(denpyoMatches)].join(' / ')})。精算番号を確認してください。`);
+  }
+
+  // --- 申請者 / 申請日 ---
+  const applicantMatch = text.match(/申請者\s*([^\s(（]+(?:[\s　]+[^\s(（]+)*)[(（]\d+[)）]/);
+  const applicantName = applicantMatch ? applicantMatch[1].trim() : null;
+  const appDateMatch = text.match(/申請日\s*(\d{4}\/\d{1,2}\/\d{1,2})/);
+  const applicationDate = appDateMatch ? toIsoDate(appDateMatch[1]) : null;
+
+  // --- 合計 精算額: 「合計 精算額」ラベルの次に現れる数値ペア行 ---
+  let totalInclusive: number | null = null;
+  const totalLabelIdx = lines.findIndex((l) => l.includes('合計') && l.includes('精算額'));
+  if (totalLabelIdx >= 0) {
+    for (let i = totalLabelIdx + 1; i < Math.min(totalLabelIdx + 4, lines.length); i++) {
+      const m = lines[i].match(/^([\d,]+)\s+([\d,]+)$/) || lines[i].match(/^([\d,]+)$/);
+      if (m) {
+        totalInclusive = parseInt((m[2] || m[1]).replace(/,/g, ''), 10);
+        break;
+      }
+    }
+  }
+
+  // --- 明細行: 'No 日付 …【税区分】利用内訳 支払方法 金額 ○' + 直後の用途行 '[仕入れ][GLS-A004]…' ---
+  const items: RakurakuItem[] = [];
+  const ITEM_RE = /^(\d{1,3})\s*(\d{4}\/\d{1,2}\/\d{1,2})(.*?)【(.+?)】(.*?)([\d,]+)\s*○?\s*$/;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(ITEM_RE);
+    if (!m) continue;
+    const taxLabel = m[4];
+    const taxCategory = mapTaxLabel(taxLabel);
+    if (taxCategory === null) {
+      warnings.push(`明細 ${m[1]} の税区分「${taxLabel}」を判定できません。10% として扱うので確認してください。`);
+    }
+    // 直後の '[' で始まる行が用途
+    let usage: string | null = null;
+    if (i + 1 < lines.length && /^\[/.test(lines[i + 1])) usage = lines[i + 1];
+
+    let kind: RakurakuItem['kind'] = 'unknown';
+    let glsNumber: string | null = null;
+    let description: string | null = null;
+    if (usage) {
+      const kindMatch = usage.match(/\[(仕入れ?|販管費)\]/);
+      if (kindMatch) kind = kindMatch[1].startsWith('仕入') ? 'purchase' : 'sga';
+      const glsMatch = usage.match(/\[(GLS[-A-Za-z0-9]*\d[-A-Za-z0-9]*)\]/i);
+      if (glsMatch) glsNumber = glsMatch[1].toUpperCase();
+      description = usage.replace(/\[[^\]]*\]/g, '').trim() || null;
+    }
+
+    items.push({
+      no: parseInt(m[1], 10),
+      date: toIsoDate(m[2]),
+      taxLabel,
+      taxCategory: taxCategory ?? 'tax10',
+      body: (m[3] + m[5]).trim(),
+      amountInclusive: parseInt(m[6].replace(/,/g, ''), 10),
+      usage, kind, glsNumber, description,
+    });
+  }
+
+  if (items.length === 0) {
+    warnings.push('明細行を抽出できませんでした。テンプレートが変わった可能性があります。手動で入力してください。');
+  } else {
+    const sum = items.reduce((a, it) => a + it.amountInclusive, 0);
+    if (totalInclusive != null && sum !== totalInclusive) {
+      warnings.push(`明細の合計 (${sum.toLocaleString()}円) と伝票の精算額 (${totalInclusive.toLocaleString()}円) が一致しません。抽出漏れの可能性があるため必ず PDF と突き合わせてください。`);
+    }
+    for (const it of items) {
+      if (it.kind === 'unknown') warnings.push(`明細 ${it.no} の用途に [仕入れ]/[販管費] タグが無く種別を判定できません。`);
+    }
+  }
+  warnings.push('楽楽精算の金額は税込表記です。明細の税区分から税抜換算していますが、必ず確認してください。');
+  warnings.push('楽楽精算は従業員立替のため PDF に取引先の記載がありません。仕入先/支払先はレビューで選択・入力してください。');
+
+  return { denpyoNumber, headerNumber, applicantName, applicationDate, totalInclusive, items, warnings };
+}
+
+/** 楽楽精算の明細を (種別 × GLS番号 × 税区分) でグループ化して登録単位に変換 */
+export function buildRakurakuUnits(parsed: RakurakuParsed): RegistrationUnit[] {
+  const groups = new Map<string, RegistrationUnit>();
+  for (const it of parsed.items) {
+    const key = `${it.kind}|${it.glsNumber ?? ''}|${it.taxCategory}`;
+    let g = groups.get(key);
+    if (!g) {
+      g = {
+        kind: it.kind,
+        glsNumber: it.glsNumber,
+        taxCategory: it.taxCategory,
+        amountInclusive: 0,
+        amountExclusive: 0,
+        description: null,
+        recognitionDate: null,
+        itemNos: [],
+      };
+      groups.set(key, g);
+    }
+    g.amountInclusive += it.amountInclusive;
+    g.itemNos.push(it.no);
+    if (it.date && (!g.recognitionDate || it.date > g.recognitionDate)) g.recognitionDate = it.date;
+    if (it.description) {
+      const parts = g.description ? g.description.split(' / ') : [];
+      if (!parts.includes(it.description)) parts.push(it.description);
+      g.description = parts.join(' / ');
+    }
+  }
+  const units = [...groups.values()];
+  for (const u of units) {
+    u.amountExclusive = toExclusiveAmount(u.amountInclusive, u.taxCategory);
+  }
+  return units;
 }

@@ -1,11 +1,14 @@
 /**
- * XpointImportPage — X-Point 申請 PDF 取込
+ * XpointImportPage — 精算申請 PDF 取込 (X-Point / 楽楽精算)
  *
- * Box の監視フォルダから X-Point (OBIC 経費申請書) PDF を読み込み (手動ボタン)、
- * 解析結果を仕入/販管費の登録画面と同等のフォームでレビュー・修正してから登録する。
+ * Box の監視フォルダから X-Point (OBIC 経費申請書) / 楽楽精算 (経費精算 伝票) の PDF を
+ * 読み込み (手動ボタン)、解析結果を仕入/販管費の登録画面と同等のフォームで
+ * レビュー・修正してから登録する。
+ * 楽楽精算は 1 伝票に税区分の異なる複数明細が含まれ得るため、
+ * (種別 × GLS × 税区分) の「登録単位」に分解して 1 単位ずつ確認・登録する。
  * 自動登録は行わず、すべての項目が人間の目のチェックを通ってから確定される。
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import api from "@/lib/api";
@@ -25,13 +28,13 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { Vendor, TaxCategoryLabels, SettlementMethodLabels } from "@/types";
+import { Vendor, TaxCategoryLabels } from "@/types";
 import {
   Loader2, FolderSearch, ExternalLink, FileText, AlertTriangle, CheckCircle2,
-  RotateCcw, SkipForward, ScanSearch,
+  RotateCcw, SkipForward, ScanSearch, Check,
 } from "lucide-react";
 
-// ---- サーバーの XpointParseResult に対応する型 (表示に使う分のみ) ----
+// ---- サーバーの解析結果に対応する型 (表示に使う分のみ) ----
 interface XpointParsed {
   xpNumber: string | null;
   kind: "purchase" | "sga" | "unknown";
@@ -55,19 +58,64 @@ interface XpointParsed {
   warnings: string[];
 }
 
+interface RakurakuItem {
+  no: number;
+  date: string | null;
+  taxLabel: string;
+  taxCategory: string;
+  body: string;
+  amountInclusive: number;
+  usage: string | null;
+  kind: "purchase" | "sga" | "unknown";
+  glsNumber: string | null;
+  description: string | null;
+}
+
+interface RakurakuParsed {
+  denpyoNumber: string | null;
+  headerNumber: string | null;
+  applicantName: string | null;
+  applicationDate: string | null;
+  totalInclusive: number | null;
+  items: RakurakuItem[];
+  warnings: string[];
+}
+
+interface RegistrationUnit {
+  kind: "purchase" | "sga" | "unknown";
+  glsNumber: string | null;
+  taxCategory: "tax10" | "tax8" | "exempt";
+  amountInclusive: number;
+  amountExclusive: number;
+  description: string | null;
+  recognitionDate: string | null;
+  itemNos: number[];
+  project: { id: string; name: string; gls_number: string } | null;
+}
+
 interface VendorMatch { id: string; name: string; matched_by: string }
 interface DuplicateRow { id: string; amount: number; recognition_date: string | null; vendor_name: string | null; description: string | null }
 
 interface XpointParseResult {
-  parsed: XpointParsed;
-  match: {
-    vendor: VendorMatch | null;
-    vendorCandidates: VendorMatch[];
-    project: { id: string; name: string; gls_number: string } | null;
-  };
+  format: "xpoint" | "rakuraku";
+  settlementMethod: "xpoint" | "rakuraku";
+  settlementNumber: string | null;
+  parsed: XpointParsed | null;
+  voucher: RakurakuParsed | null;
+  units: RegistrationUnit[];
+  warnings: string[];
+  match: { vendor: VendorMatch | null; vendorCandidates: VendorMatch[] };
   duplicates: { purchases: DuplicateRow[]; sga: DuplicateRow[] };
-  suggested: { taxCategory: string; amountExclusive: number | null; recognitionMonth: string | null };
   parsedAt: string;
+}
+
+interface RegisteredRecord {
+  table: string;
+  id: string;
+  kind: string;
+  unit_index: number | null;
+  amount: number;
+  at: string;
 }
 
 interface XpointFileRow {
@@ -77,11 +125,13 @@ interface XpointFileRow {
   box_modified_at: string | null;
   xp_number: string | null;
   kind: string;
+  format: "xpoint" | "rakuraku" | "unknown";
   status: "new" | "parsed" | "registered" | "skipped" | "error";
   parsed_data: XpointParseResult | null;
   error_message: string | null;
   registered_table: string | null;
   registered_id: string | null;
+  registered_records: RegisteredRecord[] | null;
 }
 
 interface ProjectOption { id: string; gls_number: string; name: string }
@@ -96,6 +146,10 @@ const STATUS_BADGE: Record<XpointFileRow["status"], { label: string; cls: string
 
 function taxRate(cat: string): number {
   return cat === "tax10" ? 1.1 : cat === "tax8" ? 1.08 : 1;
+}
+
+function settlementPrefix(format: string): string {
+  return format === "rakuraku" ? "楽" : "X";
 }
 
 export default function XpointImportPage() {
@@ -145,9 +199,9 @@ export default function XpointImportPage() {
     <PageTransition>
       <div className="space-y-4 lg:space-y-6 p-3 lg:p-6 mx-auto max-w-screen-xl">
         <div>
-          <h1 className="text-xl lg:text-2xl font-bold">X-Point 申請 PDF 取込</h1>
+          <h1 className="text-xl lg:text-2xl font-bold">精算 PDF 取込 (X-Point / 楽楽精算)</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Box フォルダの X-Point 申請 PDF を読み込み、内容を確認・修正してから仕入 / 販管費に登録します。
+            Box フォルダの X-Point / 楽楽精算の申請 PDF を読み込み、内容を確認・修正してから仕入 / 販管費に登録します。
             自動では登録されません — <span className="font-medium text-foreground">すべての項目を必ず確認してください</span>。
           </p>
         </div>
@@ -194,7 +248,11 @@ export default function XpointImportPage() {
             )}
             {visibleFiles.map((f) => {
               const badge = STATUS_BADGE[f.status];
-              const p = f.parsed_data?.parsed;
+              const pd = f.parsed_data;
+              const subject = pd?.parsed?.subject ?? pd?.voucher?.items?.[0]?.usage ?? null;
+              const totalInclusive = pd?.parsed?.amountInclusive ?? pd?.voucher?.totalInclusive ?? null;
+              const payeeName = pd?.parsed?.vendorName ?? (pd?.voucher?.applicantName ? `${pd.voucher.applicantName} (立替)` : null);
+              const regRecords = f.registered_records || [];
               return (
                 <div key={f.box_file_id} className="rounded-xl border bg-card p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                   <div className="flex-1 min-w-0">
@@ -202,28 +260,39 @@ export default function XpointImportPage() {
                       <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
                       <span className="font-medium text-sm">{f.file_name}</span>
                       <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${badge.cls}`}>{badge.label}</span>
-                      {f.xp_number && <Badge variant="outline" className="text-xs">X-{f.xp_number}</Badge>}
-                      {p?.kind === "purchase" && <Badge className="bg-indigo-100 text-indigo-700 hover:bg-indigo-100 text-xs">仕入</Badge>}
-                      {p?.kind === "sga" && <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 text-xs">販管費</Badge>}
+                      {pd && (
+                        <Badge variant="outline" className="text-xs">
+                          {pd.format === "rakuraku" ? "楽楽精算" : "X-Point"}
+                        </Badge>
+                      )}
+                      {f.xp_number && <Badge variant="outline" className="text-xs">{settlementPrefix(f.format)}-{f.xp_number}</Badge>}
+                      {f.kind === "purchase" && <Badge className="bg-indigo-100 text-indigo-700 hover:bg-indigo-100 text-xs">仕入</Badge>}
+                      {f.kind === "sga" && <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 text-xs">販管費</Badge>}
+                      {pd && pd.units.length > 1 && (
+                        <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 text-xs">{pd.units.length} 単位</Badge>
+                      )}
                     </div>
-                    {p && (
+                    {pd && (
                       <p className="text-xs text-muted-foreground mt-1 truncate">
-                        {p.subject}
-                        {p.vendorName ? ` ／ ${p.vendorName}` : ""}
-                        {p.amountInclusive != null ? ` ／ 税込 ${formatCurrency(p.amountInclusive)}` : ""}
+                        {subject}
+                        {payeeName ? ` ／ ${payeeName}` : ""}
+                        {totalInclusive != null ? ` ／ 税込 ${formatCurrency(totalInclusive)}` : ""}
                       </p>
                     )}
                     {f.status === "error" && f.error_message && (
                       <p className="text-xs text-red-600 mt-1">{f.error_message}</p>
                     )}
-                    {f.status === "registered" && f.registered_id && (
-                      <p className="text-xs text-green-700 mt-1">
-                        <Link
-                          className="underline"
-                          to={f.registered_table === "purchases" ? `/budget/purchases?edit=${f.registered_id}` : `/budget/sga?edit=${f.registered_id}`}
-                        >
-                          登録レコードを開く
-                        </Link>
+                    {regRecords.length > 0 && (
+                      <p className="text-xs text-green-700 mt-1 flex flex-wrap gap-2">
+                        {regRecords.map((r, i) => (
+                          <Link
+                            key={`${r.table}-${r.id}`}
+                            className="underline"
+                            to={r.table === "purchases" ? `/budget/purchases?edit=${r.id}` : `/budget/sga?edit=${r.id}`}
+                          >
+                            登録{regRecords.length > 1 ? ` ${i + 1}` : ""} ({r.kind === "purchase" ? "仕入" : "販管費"} {formatCurrency(r.amount)})
+                          </Link>
+                        ))}
                       </p>
                     )}
                   </div>
@@ -265,7 +334,7 @@ export default function XpointImportPage() {
 
         {!scanned && !scan.isPending && (
           <div className="rounded-xl border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
-            「フォルダを読み込み」を押すと Box フォルダ内の X-Point 申請 PDF を検出します
+            「フォルダを読み込み」を押すと Box フォルダ内の精算申請 PDF (X-Point / 楽楽精算) を検出します
           </div>
         )}
 
@@ -273,7 +342,10 @@ export default function XpointImportPage() {
           <XpointReviewDialog
             file={reviewTarget.file}
             result={reviewTarget.result}
-            onClose={() => setReviewTarget(null)}
+            onClose={() => {
+              setReviewTarget(null);
+              scan.mutate(); // 部分登録の状態を一覧へ反映
+            }}
             onRegistered={() => {
               setReviewTarget(null);
               scan.mutate();
@@ -288,7 +360,8 @@ export default function XpointImportPage() {
 }
 
 // ============================================================
-// レビューダイアログ — 仕入/販管費の登録画面と同等のフォームで人間がチェック・修正して登録
+// レビューダイアログ — 登録単位 (1 単位 = 仕入/販管費 1 レコード) ごとに
+// 人間がチェック・修正して登録する。楽楽精算は複数単位をステップで処理。
 // ============================================================
 function XpointReviewDialog({
   file, result, onClose, onRegistered,
@@ -299,30 +372,71 @@ function XpointReviewDialog({
   onRegistered: () => void;
 }) {
   const p = result.parsed;
-  const [kind, setKind] = useState<"purchase" | "sga">(p.kind === "sga" ? "sga" : "purchase");
+  const v = result.voucher;
+  const units = result.units;
+  const isRakuraku = result.format === "rakuraku";
 
-  // ---- 共通フィールド ----
-  const [taxCategory, setTaxCategory] = useState(result.suggested.taxCategory || "tax10");
-  const [amount, setAmount] = useState<number>(result.suggested.amountExclusive ?? p.amountInclusive ?? 0);
-  const [settlementNumber, setSettlementNumber] = useState(p.xpNumber || "");
-  const [invoiceQualified, setInvoiceQualified] = useState(p.invoiceQualified ? "qualified" : "unqualified");
-  const [description, setDescription] = useState(p.description || p.subject || "");
-  const [notes, setNotes] = useState(() =>
-    [`[X-Point取込] ${file.file_name}`, p.subject, p.account, ...(p.detailLines || [])].filter(Boolean).join("\n")
-  );
-  const [paymentDueDate, setPaymentDueDate] = useState(p.paymentDueDate || "");
+  // 登録済み単位 (再オープン時に registered_records から復元)
+  const [registeredUnits, setRegisteredUnits] = useState<Set<number>>(() => {
+    const s = new Set<number>();
+    for (const r of file.registered_records || []) {
+      if (typeof r.unit_index === "number") s.add(r.unit_index);
+    }
+    return s;
+  });
+  const firstOpen = units.findIndex((_, i) => !new Set((file.registered_records || []).map((r) => r.unit_index)).has(i));
+  const [unitIdx, setUnitIdx] = useState(firstOpen >= 0 ? firstOpen : 0);
+  const unit = units[unitIdx];
 
-  // ---- 仕入フィールド ----
-  const [projectId, setProjectId] = useState(result.match.project?.id || "");
+  // ---- 共通フィールド (伝票単位で共有) ----
+  const [settlementNumber, setSettlementNumber] = useState(result.settlementNumber || "");
+  const [invoiceQualified, setInvoiceQualified] = useState(p ? (p.invoiceQualified ? "qualified" : "unqualified") : "qualified");
+  const [paymentDueDate, setPaymentDueDate] = useState(p?.paymentDueDate || "");
+
+  // ---- 単位ごとのフィールド ----
+  const [kind, setKind] = useState<"purchase" | "sga">("purchase");
+  const [taxCategory, setTaxCategory] = useState<string>("tax10");
+  const [amount, setAmount] = useState<number>(0);
+  const [description, setDescription] = useState("");
+  const [notes, setNotes] = useState("");
+  const [projectId, setProjectId] = useState("");
   const [vendorId, setVendorId] = useState(result.match.vendor?.id || "");
   const [createVendor, setCreateVendor] = useState(false);
-  const [recognitionMonth, setRecognitionMonth] = useState(result.suggested.recognitionMonth || "");
-  const [serviceCompletedDate, setServiceCompletedDate] = useState(p.servicePeriodEnd || "");
+  const [recognitionMonth, setRecognitionMonth] = useState("");
+  const [serviceCompletedDate, setServiceCompletedDate] = useState("");
   const [isProvisional, setIsProvisional] = useState(false);
+  const [vendorName, setVendorName] = useState("");
+  const [recognitionDate, setRecognitionDate] = useState("");
 
-  // ---- 販管費フィールド ----
-  const [vendorName, setVendorName] = useState(p.vendorName || "");
-  const [recognitionDate, setRecognitionDate] = useState(p.recognitionDate || "");
+  // 単位が切り替わったら、その単位の抽出値でフォームを再プリフィル
+  useEffect(() => {
+    if (!unit) return;
+    setKind(unit.kind === "sga" ? "sga" : "purchase");
+    setTaxCategory(unit.taxCategory);
+    setAmount(unit.amountExclusive);
+    setProjectId(unit.project?.id || "");
+    setRecognitionMonth(unit.recognitionDate ? unit.recognitionDate.slice(0, 7) : "");
+    setRecognitionDate(unit.recognitionDate || "");
+    setDescription(unit.description || p?.description || p?.subject || "");
+    if (isRakuraku && v) {
+      setServiceCompletedDate(unit.recognitionDate || "");
+      setVendorName(v.applicantName ? `${v.applicantName}（立替精算）` : "");
+      const unitItems = v.items.filter((it) => unit.itemNos.includes(it.no));
+      setNotes(
+        [
+          `[楽楽精算取込] ${file.file_name} / 伝票No.${v.denpyoNumber || "?"} / 申請者: ${v.applicantName || "?"}`,
+          ...unitItems.map((it) => `No.${it.no} ${it.date || ""} ${it.usage || it.body} ${formatCurrency(it.amountInclusive)}(税込)`),
+        ].join("\n")
+      );
+    } else {
+      setServiceCompletedDate(p?.servicePeriodEnd || "");
+      setVendorName(p?.vendorName || "");
+      setNotes(
+        [`[X-Point取込] ${file.file_name}`, p?.subject, p?.account, ...(p?.detailLines || [])].filter(Boolean).join("\n")
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unitIdx]);
 
   const { data: glsProjectsData } = useQuery({
     queryKey: ["gls-projects-for-purchase"],
@@ -338,9 +452,10 @@ function XpointReviewDialog({
 
   const register = useMutation({
     mutationFn: async () => {
+      const willComplete = registeredUnits.size + 1 >= units.length;
       const common = {
         tax_category: taxCategory,
-        settlement_method: "xpoint",
+        settlement_method: result.settlementMethod,
         settlement_number: settlementNumber || null,
         invoice_qualified: invoiceQualified === "qualified" ? 1 : 0,
         amount,
@@ -348,13 +463,13 @@ function XpointReviewDialog({
         notes: notes || null,
         payment_due_date: paymentDueDate || null,
       };
+      const newVendor = createVendor && !vendorId && p?.vendorName
+        ? { name: p.vendorName, invoice_registration_number: p.invoiceNumber || null }
+        : undefined;
       const body =
         kind === "purchase"
           ? {
-              kind,
-              new_vendor: createVendor && !vendorId && p.vendorName
-                ? { name: p.vendorName, invoice_registration_number: p.invoiceNumber || null }
-                : undefined,
+              kind, unit_index: unitIdx, complete: willComplete, new_vendor: newVendor,
               purchase: {
                 ...common,
                 project_id: projectId,
@@ -365,10 +480,7 @@ function XpointReviewDialog({
               },
             }
           : {
-              kind,
-              new_vendor: createVendor && !vendorId && p.vendorName
-                ? { name: p.vendorName, invoice_registration_number: p.invoiceNumber || null }
-                : undefined,
+              kind, unit_index: unitIdx, complete: willComplete, new_vendor: newVendor,
               sga: {
                 ...common,
                 vendor_name: vendorName || null,
@@ -377,9 +489,23 @@ function XpointReviewDialog({
                 expense_type: "spot",
               },
             };
-      return (await api.post(`/xpoint/files/${file.id}/register`, body)).data;
+      await api.post(`/xpoint/files/${file.id}/register`, body);
+      return { willComplete };
     },
-    onSuccess: () => onRegistered(),
+    onSuccess: ({ willComplete }) => {
+      if (willComplete) {
+        onRegistered();
+        return;
+      }
+      setRegisteredUnits((prev) => {
+        const next = new Set(prev);
+        next.add(unitIdx);
+        // 次の未登録単位へ進む
+        const nextIdx = units.findIndex((_, i) => !next.has(i));
+        if (nextIdx >= 0) setUnitIdx(nextIdx);
+        return next;
+      });
+    },
     onError: (err: any) => {
       alert(`登録に失敗しました: ${err?.response?.data?.error?.message || err.message}`);
     },
@@ -389,53 +515,92 @@ function XpointReviewDialog({
   const allDup = [...result.duplicates.purchases, ...result.duplicates.sga];
 
   const recalcFromInclusive = (cat: string) => {
-    if (p.amountInclusive != null) setAmount(Math.round(p.amountInclusive / taxRate(cat)));
+    if (unit) setAmount(Math.round(unit.amountInclusive / taxRate(cat)));
   };
 
   const canSubmit = useMemo(() => {
     if (amount <= 0) return false;
-    if (kind === "purchase") return !!projectId && (!!vendorId || (createVendor && !!p.vendorName));
+    if (registeredUnits.has(unitIdx)) return false;
+    if (kind === "purchase") return !!projectId && (!!vendorId || (createVendor && !!p?.vendorName));
     return !!recognitionDate && !!vendorName;
-  }, [amount, kind, projectId, vendorId, createVendor, p.vendorName, recognitionDate, vendorName]);
+  }, [amount, kind, projectId, vendorId, createVendor, p?.vendorName, recognitionDate, vendorName, registeredUnits, unitIdx]);
 
-  const vendorOptions = vendors.map((v) => ({ value: v.id, label: v.name }));
+  const vendorOptions = vendors.map((vd) => ({ value: vd.id, label: vd.name }));
   const projectOptions = glsProjects.map((pr) => ({ value: pr.id, label: `${pr.gls_number} ${pr.name}` }));
+  const prefix = settlementPrefix(result.format);
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex flex-wrap items-center gap-2">
-            X-Point 申請の内容確認
-            {p.xpNumber && <Badge variant="outline">X-{p.xpNumber}</Badge>}
+            {isRakuraku ? "楽楽精算の内容確認" : "X-Point 申請の内容確認"}
+            {result.settlementNumber && <Badge variant="outline">{prefix}-{result.settlementNumber}</Badge>}
             <span className="text-xs font-normal text-muted-foreground">{file.file_name}</span>
           </DialogTitle>
         </DialogHeader>
 
         {/* 抽出結果 (参照用・読み取り専用) */}
-        <div className="rounded-lg border bg-muted/30 p-3 text-sm space-y-1">
-          <p className="text-xs font-semibold text-muted-foreground">PDF から抽出した内容 (参照用)</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
-            <div><span className="text-muted-foreground">件名: </span>{p.subject || "—"}</div>
-            <div><span className="text-muted-foreground">取引先: </span>{p.vendorCode ? `${p.vendorCode} ` : ""}{p.vendorName || "—"}</div>
-            <div><span className="text-muted-foreground">支払金額 (税込): </span>{p.amountInclusive != null ? formatCurrency(p.amountInclusive) : "—"}{p.paymentMethod ? ` (${p.paymentMethod})` : ""}</div>
-            <div><span className="text-muted-foreground">科目: </span>{p.account || "—"}</div>
-            <div><span className="text-muted-foreground">申請日: </span>{p.applicationDate || "—"}{p.applicantName ? ` (${p.applicantName})` : ""}</div>
-            <div><span className="text-muted-foreground">納期/期間: </span>{p.servicePeriodStart || "—"} 〜 {p.servicePeriodEnd || "—"}</div>
-            <div><span className="text-muted-foreground">支払予定日: </span>{p.paymentDueDate || "—"}</div>
-            <div><span className="text-muted-foreground">計上日 (経理欄): </span>{p.recognitionDate || "—"}</div>
-            <div><span className="text-muted-foreground">適格事業者番号: </span>{p.invoiceNumber || "—"}</div>
-            <div><span className="text-muted-foreground">GLS 番号: </span>{p.glsNumber || "—"}</div>
+        {p && (
+          <div className="rounded-lg border bg-muted/30 p-3 text-sm space-y-1">
+            <p className="text-xs font-semibold text-muted-foreground">PDF から抽出した内容 (参照用)</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
+              <div><span className="text-muted-foreground">件名: </span>{p.subject || "—"}</div>
+              <div><span className="text-muted-foreground">取引先: </span>{p.vendorCode ? `${p.vendorCode} ` : ""}{p.vendorName || "—"}</div>
+              <div><span className="text-muted-foreground">支払金額 (税込): </span>{p.amountInclusive != null ? formatCurrency(p.amountInclusive) : "—"}{p.paymentMethod ? ` (${p.paymentMethod})` : ""}</div>
+              <div><span className="text-muted-foreground">科目: </span>{p.account || "—"}</div>
+              <div><span className="text-muted-foreground">申請日: </span>{p.applicationDate || "—"}{p.applicantName ? ` (${p.applicantName})` : ""}</div>
+              <div><span className="text-muted-foreground">納期/期間: </span>{p.servicePeriodStart || "—"} 〜 {p.servicePeriodEnd || "—"}</div>
+              <div><span className="text-muted-foreground">支払予定日: </span>{p.paymentDueDate || "—"}</div>
+              <div><span className="text-muted-foreground">計上日 (経理欄): </span>{p.recognitionDate || "—"}</div>
+              <div><span className="text-muted-foreground">適格事業者番号: </span>{p.invoiceNumber || "—"}</div>
+              <div><span className="text-muted-foreground">GLS 番号: </span>{p.glsNumber || "—"}</div>
+            </div>
           </div>
-        </div>
+        )}
+        {v && (
+          <div className="rounded-lg border bg-muted/30 p-3 text-sm space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground">PDF から抽出した内容 (参照用)</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
+              <div><span className="text-muted-foreground">伝票No: </span>{v.denpyoNumber || "—"}{v.headerNumber ? ` (管理番号 ${v.headerNumber})` : ""}</div>
+              <div><span className="text-muted-foreground">申請者: </span>{v.applicantName || "—"}{v.applicationDate ? ` (申請日 ${v.applicationDate})` : ""}</div>
+              <div><span className="text-muted-foreground">合計 精算額 (税込): </span>{v.totalInclusive != null ? formatCurrency(v.totalInclusive) : "—"}</div>
+              <div><span className="text-muted-foreground">明細数: </span>{v.items.length} 行 → {units.length} 登録単位</div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-muted-foreground text-left">
+                    <th className="pr-2 py-0.5 font-medium">No</th>
+                    <th className="pr-2 py-0.5 font-medium">日付</th>
+                    <th className="pr-2 py-0.5 font-medium">税区分</th>
+                    <th className="pr-2 py-0.5 font-medium text-right">金額(税込)</th>
+                    <th className="py-0.5 font-medium">用途</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {v.items.map((it) => (
+                    <tr key={it.no} className="border-t border-border/50">
+                      <td className="pr-2 py-0.5">{it.no}</td>
+                      <td className="pr-2 py-0.5 whitespace-nowrap">{it.date || "—"}</td>
+                      <td className="pr-2 py-0.5 whitespace-nowrap">{it.taxLabel}</td>
+                      <td className="pr-2 py-0.5 text-right whitespace-nowrap">{formatCurrency(it.amountInclusive)}</td>
+                      <td className="py-0.5">{it.usage || it.body}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* 警告 */}
-        {(p.warnings.length > 0 || allDup.length > 0) && (
+        {(result.warnings.length > 0 || allDup.length > 0) && (
           <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-1">
             {allDup.length > 0 && (
               <p className="text-xs font-semibold text-red-700 flex items-start gap-1">
                 <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                精算番号 X-{p.xpNumber} は既に {result.duplicates.purchases.length > 0 ? `仕入 ${result.duplicates.purchases.length} 件` : ""}
+                精算番号 {prefix}-{result.settlementNumber} は既に {result.duplicates.purchases.length > 0 ? `仕入 ${result.duplicates.purchases.length} 件` : ""}
                 {result.duplicates.purchases.length > 0 && result.duplicates.sga.length > 0 ? "・" : ""}
                 {result.duplicates.sga.length > 0 ? `販管費 ${result.duplicates.sga.length} 件` : ""}
                 に登録されています。二重登録に注意してください。
@@ -446,11 +611,42 @@ function XpointReviewDialog({
                 既存: {d.vendor_name || "—"} / {formatCurrency(d.amount)} / 計上 {d.recognition_date || "—"} / {d.description || ""}
               </p>
             ))}
-            {p.warnings.map((w, i) => (
+            {result.warnings.map((w, i) => (
               <p key={i} className="text-xs text-amber-800 flex items-start gap-1">
                 <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />{w}
               </p>
             ))}
+          </div>
+        )}
+
+        {/* 登録単位のステップ (楽楽精算で複数単位のとき) */}
+        {units.length > 1 && (
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-muted-foreground">
+              登録単位 (税区分・案件ごとに {units.length} 件に分けて登録します)
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {units.map((u, i) => {
+                const done = registeredUnits.has(i);
+                return (
+                  <button
+                    key={i}
+                    className={`rounded-lg border px-3 py-1.5 text-xs text-left ${
+                      i === unitIdx ? "border-primary ring-2 ring-primary/30 bg-primary/5" : "bg-card"
+                    } ${done ? "opacity-70" : ""}`}
+                    onClick={() => setUnitIdx(i)}
+                  >
+                    <span className="font-medium flex items-center gap-1">
+                      {done && <Check className="h-3 w-3 text-green-600" />}
+                      単位 {i + 1}: {u.kind === "sga" ? "販管費" : "仕入"} / {TaxCategoryLabels[u.taxCategory as keyof typeof TaxCategoryLabels] || u.taxCategory}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {u.glsNumber || "GLS なし"} ・ 税込 {formatCurrency(u.amountInclusive)} → 税抜 {formatCurrency(u.amountExclusive)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -470,8 +666,8 @@ function XpointReviewDialog({
           >
             販管費として登録
           </Button>
-          {p.kind === "unknown" && (
-            <span className="text-xs text-amber-700 self-center">件名から種別を判定できませんでした。選択してください。</span>
+          {unit?.kind === "unknown" && (
+            <span className="text-xs text-amber-700 self-center">種別を判定できませんでした。選択してください。</span>
           )}
         </div>
 
@@ -487,8 +683,8 @@ function XpointReviewDialog({
                   onChange={setProjectId}
                   placeholder="GLS番号・案件名で検索"
                 />
-                {!result.match.project && p.glsNumber && (
-                  <p className="text-xs text-amber-700">GLS 番号 {p.glsNumber} に一致する案件が見つかりませんでした。手動で選択してください。</p>
+                {!unit?.project && unit?.glsNumber && (
+                  <p className="text-xs text-amber-700">GLS 番号 {unit.glsNumber} に一致する案件が見つかりませんでした。手動で選択してください。</p>
                 )}
               </div>
               <div className="space-y-1 sm:col-span-2">
@@ -496,7 +692,7 @@ function XpointReviewDialog({
                 <SearchableSelect
                   options={vendorOptions}
                   value={vendorId}
-                  onChange={(v) => { setVendorId(v); if (v) setCreateVendor(false); }}
+                  onChange={(val) => { setVendorId(val); if (val) setCreateVendor(false); }}
                   placeholder="仕入先を検索"
                 />
                 {result.match.vendor && (
@@ -509,7 +705,10 @@ function XpointReviewDialog({
                     候補: {result.match.vendorCandidates.map((c) => c.name).join(" / ")} — 上の検索から選択してください
                   </p>
                 )}
-                {!vendorId && p.vendorName && (
+                {isRakuraku && (
+                  <p className="text-xs text-muted-foreground">楽楽精算は従業員立替のため、立替経費用の仕入先を選択してください。</p>
+                )}
+                {!vendorId && p?.vendorName && (
                   <label className="flex items-center gap-2 text-xs mt-1 cursor-pointer">
                     <input type="checkbox" checked={createVendor} onChange={(e) => setCreateVendor(e.target.checked)} />
                     仕入先「{p.vendorName}」を新規作成して登録する
@@ -534,7 +733,7 @@ function XpointReviewDialog({
             <Label>税区分</Label>
             <Select
               value={taxCategory}
-              onValueChange={(v) => { setTaxCategory(v); recalcFromInclusive(v); }}
+              onValueChange={(val) => { setTaxCategory(val); recalcFromInclusive(val); }}
             >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -543,14 +742,17 @@ function XpointReviewDialog({
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">X-Point の金額は税込表記のため、変更すると税込 {p.amountInclusive != null ? formatCurrency(p.amountInclusive) : "—"} から税抜金額を再計算します</p>
+            <p className="text-xs text-muted-foreground">
+              {isRakuraku ? "明細の税区分から自動判定済み。" : "X-Point の金額は税込表記のため 10% を仮定。"}
+              変更するとこの単位の税込 {unit ? formatCurrency(unit.amountInclusive) : "—"} から税抜金額を再計算します
+            </p>
           </div>
           <div className="space-y-1">
             <Label>金額 (税抜) *</Label>
             <CurrencyInput value={amount} onChange={setAmount} />
-            {p.amountInclusive != null && (
+            {unit && (
               <p className="text-xs text-muted-foreground">
-                税込 {formatCurrency(p.amountInclusive)} ÷ {taxCategory === "tax10" ? "1.1" : taxCategory === "tax8" ? "1.08" : "1"} = {formatCurrency(Math.round(p.amountInclusive / taxRate(taxCategory)))}
+                税込 {formatCurrency(unit.amountInclusive)} ÷ {taxCategory === "tax10" ? "1.1" : taxCategory === "tax8" ? "1.08" : "1"} = {formatCurrency(Math.round(unit.amountInclusive / taxRate(taxCategory)))}
               </p>
             )}
           </div>
@@ -573,9 +775,9 @@ function XpointReviewDialog({
             <Input type="date" value={paymentDueDate} onChange={(e) => setPaymentDueDate(e.target.value)} />
           </div>
           <div className="space-y-1">
-            <Label>精算番号 ({SettlementMethodLabels.xpoint})</Label>
+            <Label>精算番号 ({isRakuraku ? "楽楽精算" : "X-Point"})</Label>
             <div className="flex items-center gap-1">
-              <span className="text-sm text-muted-foreground">X-</span>
+              <span className="text-sm text-muted-foreground">{prefix}-</span>
               <Input value={settlementNumber} onChange={(e) => setSettlementNumber(e.target.value)} />
             </div>
           </div>
@@ -613,7 +815,11 @@ function XpointReviewDialog({
           <Button variant="outline" onClick={onClose}>閉じる</Button>
           <Button onClick={() => register.mutate()} disabled={!canSubmit || register.isPending}>
             {register.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {kind === "purchase" ? "仕入として登録" : "販管費として登録"}
+            {registeredUnits.has(unitIdx)
+              ? "この単位は登録済み"
+              : units.length > 1
+                ? `この単位を${kind === "purchase" ? "仕入" : "販管費"}として登録 (${registeredUnits.size + 1}/${units.length})`
+                : kind === "purchase" ? "仕入として登録" : "販管費として登録"}
           </Button>
         </DialogFooter>
       </DialogContent>

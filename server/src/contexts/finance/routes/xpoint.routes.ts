@@ -60,6 +60,8 @@ async function getFileRow(id: string): Promise<any> {
  * レビュー済みの内容で登録。
  * body: {
  *   kind: 'purchase' | 'sga',
+ *   unit_index?: number,        // 登録単位の添字 (楽楽精算は 1 伝票から複数単位が生まれる)
+ *   complete?: boolean,         // true (既定) でファイルを「登録済み」にする。複数単位の途中は false
  *   new_vendor?: { name, invoice_registration_number? },   // 未登録取引先をその場で作成
  *   purchase?: { project_id, vendor_id, tax_category, amount, ... },  // POST /purchases と同じフィールド
  *   sga?: { vendor_name, vendor_id, tax_category, amount, recognition_date, ... }  // POST /sga と同じフィールド
@@ -72,7 +74,8 @@ router.post('/files/:id/register', async (req, res) => {
     throw new AppError(409, 'ALREADY_REGISTERED', 'このファイルは既に登録済みです');
   }
 
-  const { kind, new_vendor, purchase, sga } = req.body || {};
+  const { kind, new_vendor, purchase, sga, unit_index, complete } = req.body || {};
+  const defaultMethod = file.format === 'rakuraku' ? 'rakuraku' : 'xpoint';
   if (kind !== 'purchase' && kind !== 'sga') {
     throw new AppError(400, 'VALIDATION_ERROR', 'kind は purchase / sga を指定してください');
   }
@@ -117,7 +120,7 @@ router.post('/files/:id/register', async (req, res) => {
       `INSERT INTO purchases (id, billing_key, project_id, episode_id, vendor_id, assigned_to, settlement_method, settlement_number, settlement_url, tax_category, invoice_qualified, amount, description, recognition_date, inspection_date, payment_due_date, notes, is_provisional, service_completed_date, created_by)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [registeredId, billing_key, p.project_id, p.episode_id || null, vendorId, req.user!.id,
-       p.settlement_method || 'xpoint', p.settlement_number || file.xp_number || null, p.settlement_url || null,
+       p.settlement_method || defaultMethod, p.settlement_number || file.xp_number || null, p.settlement_url || null,
        p.tax_category || 'tax10',
        p.invoice_qualified !== undefined ? (p.invoice_qualified ? 1 : 0) : 1,
        p.amount || 0, p.description || null, p.recognition_date || null,
@@ -134,7 +137,7 @@ router.post('/files/:id/register', async (req, res) => {
       `INSERT INTO sga_expenses (id, billing_key, vendor_name, vendor_id, settlement_method, settlement_number, settlement_url, description, notes, recognition_date, payment_due_date, tax_category, invoice_qualified, amount, expense_type, amortize_start, amortize_end, source, created_by)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [registeredId, billing_key, s.vendor_name || null, s.vendor_id || createdVendorId || null,
-       s.settlement_method || 'xpoint', s.settlement_number || file.xp_number || null, s.settlement_url || null,
+       s.settlement_method || defaultMethod, s.settlement_number || file.xp_number || null, s.settlement_url || null,
        s.description || null, s.notes || null,
        s.recognition_date, s.payment_due_date || null,
        s.tax_category || 'tax10',
@@ -145,11 +148,26 @@ router.post('/files/:id/register', async (req, res) => {
     );
   }
 
+  // 登録履歴 (楽楽精算は 1 伝票から複数レコードになるため配列で保持)
+  const record = {
+    table: registeredTable,
+    id: registeredId,
+    kind,
+    unit_index: typeof unit_index === 'number' ? unit_index : null,
+    amount: kind === 'purchase' ? (purchase?.amount || 0) : (sga?.amount || 0),
+    at: new Date().toISOString(),
+    by: req.user!.id,
+  };
+  // complete=false (複数単位の途中) はステータスを据え置き、最後の単位で registered に。
+  const markRegistered = complete !== false;
   await execute(
     `UPDATE xpoint_import_files
-     SET status = 'registered', kind = ?, registered_table = ?, registered_id = ?, registered_by = ?, registered_at = NOW(), updated_at = NOW()
+     SET status = ${markRegistered ? `'registered'` : 'status'},
+         kind = ?, registered_table = ?, registered_id = ?, registered_by = ?, registered_at = NOW(),
+         registered_records = COALESCE(registered_records, '[]'::jsonb) || ?::jsonb,
+         updated_at = NOW()
      WHERE id = ?`,
-    [kind, registeredTable, registeredId, req.user!.id, file.id]
+    [kind, registeredTable, registeredId, req.user!.id, JSON.stringify([record]), file.id]
   );
 
   const row = await queryOne(`SELECT * FROM ${registeredTable} WHERE id = ?`, [registeredId]);
