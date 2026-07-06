@@ -1,7 +1,7 @@
 {
   "name": "@gmo-onair/client",
   "private": true,
-  "version": "2.9.156",
+  "version": "2.9.157",
   "type": "module",
   "scripts": {
     "predev": "node ../scripts/generate-version-history.mjs",
