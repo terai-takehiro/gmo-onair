@@ -131,18 +131,21 @@ export default function TimerDisplayPage() {
       {/* Timer (hidden in viewer-only mode) */}
       {!viewerOnly && (
         <>
-          <div className={`timer-display-font relative ${timerColor(phase)} ${phase === 'red' ? 'timer-glow-red' : ''}`}>
-            {display}
-          </div>
-          <div className="relative mt-4 flex items-center gap-4">
-            <span className={`timer-status-font ${statusColor(phase)}`}>
-              {overtime ? 'OVERTIME' : phaseLabels[phase]}
-            </span>
-            {totalSeconds > 0 && phase !== 'idle' && (
-              <span className="timer-set-font text-white/30">
-                / {formatTimer(totalSeconds * 1000)}
+          {/* 視聴者バー表示中はタイマーを少し上に寄せて干渉を防ぐ */}
+          <div className={`relative flex flex-col items-center ${showOverlay ? 'mb-[12vh]' : ''}`}>
+            <div className={`timer-display-font ${timerColor(phase)} ${phase === 'red' ? 'timer-glow-red' : ''}`}>
+              {display}
+            </div>
+            <div className="mt-[1.5vh] flex items-center gap-[1.5vw]">
+              <span className={`timer-status-font ${statusColor(phase)}`}>
+                {overtime ? 'OVERTIME' : phaseLabels[phase]}
               </span>
-            )}
+              {totalSeconds > 0 && phase !== 'idle' && (
+                <span className="timer-set-font text-white/30">
+                  / {formatTimer(totalSeconds * 1000)}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* 画面下端の残り時間プログレスバー */}
@@ -161,11 +164,11 @@ export default function TimerDisplayPage() {
       {showOverlay && (
         viewerOnly ? (
           /* Viewer-only: large centered counts */
-          <div className="flex items-center gap-12">
+          <div className="flex flex-wrap items-center justify-center gap-x-[6vw] gap-y-[6vh] px-[4vw]">
             {visibleItems.map(({ key, label, color }) => (
               <div key={key} className="text-center text-white">
-                <div className="text-sm font-semibold mb-2" style={{ color }}>{label}</div>
-                <div className="text-7xl font-bold tabular-nums leading-none">
+                <div className="viewer-hero-label" style={{ color }}>{label}</div>
+                <div className="viewer-hero-count">
                   {formatCount(counts[key])}
                 </div>
               </div>
@@ -173,11 +176,11 @@ export default function TimerDisplayPage() {
           </div>
         ) : (
           /* Timer + viewer: bar at bottom */
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-8 rounded-2xl bg-black/50 backdrop-blur-md px-8 py-3 border border-white/10">
+          <div className="absolute bottom-[4vh] left-1/2 -translate-x-1/2 flex w-max max-w-[94vw] flex-wrap items-center justify-center gap-x-[3.5vw] gap-y-3 rounded-3xl bg-black/55 backdrop-blur-md px-[3vw] py-[1.8vh] border border-white/10">
             {visibleItems.map(({ key, label, color }) => (
               <div key={key} className="text-center text-white">
-                <div className="text-xs font-semibold mb-0.5" style={{ color }}>{label}</div>
-                <div className="text-3xl font-bold tabular-nums leading-none">
+                <div className="viewer-bar-label" style={{ color }}>{label}</div>
+                <div className="viewer-bar-count">
                   {formatCount(counts[key])}
                 </div>
               </div>
