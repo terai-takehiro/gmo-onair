@@ -141,7 +141,7 @@ export default function ProgramsPage() {
                   disabled={!canManage}
                 />
                 <Input
-                  placeholder="https://youtube.com/watch?v=..."
+                  placeholder="https://youtube.com/watch?v=... または https://youtube.com/live/..."
                   value={u.url}
                   onChange={e => updateYtUrl(i, 'url', e.target.value)}
                   className="flex-1"

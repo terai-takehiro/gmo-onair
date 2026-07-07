@@ -14,7 +14,7 @@ export default function ViewerCard({ label, count, color, sublabel }: Props) {
         <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: color }} />
         <span className="text-sm font-medium text-muted-foreground">{label}</span>
       </div>
-      <div className="text-4xl font-bold tabular-nums" style={{ color }}>
+      <div className="text-5xl font-bold tabular-nums" style={{ color }}>
         {formatCount(count)}
       </div>
       {sublabel && (
