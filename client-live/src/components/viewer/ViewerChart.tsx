@@ -16,11 +16,15 @@ interface Snapshot {
   total_count: number;
 }
 
+interface Visible { youtube?: boolean; jstream?: boolean; zoom?: boolean; teams?: boolean }
+
 interface Props {
   snapshots: Snapshot[];
+  /** プラットフォームごとの表示可否 (省略時は全表示) */
+  visible?: Visible;
 }
 
-export default function ViewerChart({ snapshots }: Props) {
+export default function ViewerChart({ snapshots, visible }: Props) {
   if (snapshots.length === 0) {
     return (
       <div className="flex h-36 items-center justify-center text-sm text-muted-foreground">
@@ -29,11 +33,13 @@ export default function ViewerChart({ snapshots }: Props) {
     );
   }
 
+  const show = (key: keyof Visible) => visible?.[key] ?? true;
+
   const labels = snapshots.map(s => format(s.captured_at));
   const data = {
     labels,
     datasets: [
-      {
+      ...(show('youtube') ? [{
         label: 'YouTube',
         data: snapshots.map(s => s.youtube_count),
         borderColor: '#ef4444',
@@ -42,8 +48,8 @@ export default function ViewerChart({ snapshots }: Props) {
         tension: 0.3,
         pointRadius: 1,
         borderWidth: 1.5,
-      },
-      {
+      }] : []),
+      ...(show('jstream') ? [{
         label: 'Jstream',
         data: snapshots.map(s => s.jstream_count),
         borderColor: '#06b6d4',
@@ -52,8 +58,8 @@ export default function ViewerChart({ snapshots }: Props) {
         tension: 0.3,
         pointRadius: 1,
         borderWidth: 1.5,
-      },
-      ...(snapshots.some(s => (s.zoom_count ?? 0) > 0) ? [{
+      }] : []),
+      ...(show('zoom') && snapshots.some(s => (s.zoom_count ?? 0) > 0) ? [{
         label: 'Zoom',
         data: snapshots.map(s => s.zoom_count ?? 0),
         borderColor: '#2D8CFF',
@@ -63,7 +69,7 @@ export default function ViewerChart({ snapshots }: Props) {
         pointRadius: 1,
         borderWidth: 1.5,
       }] : []),
-      ...(snapshots.some(s => (s.teams_count ?? 0) > 0) ? [{
+      ...(show('teams') && snapshots.some(s => (s.teams_count ?? 0) > 0) ? [{
         label: 'Teams',
         data: snapshots.map(s => s.teams_count ?? 0),
         borderColor: '#6264A7',

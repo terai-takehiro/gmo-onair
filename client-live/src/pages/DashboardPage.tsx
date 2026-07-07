@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useTimer } from '@/hooks/useTimer';
-import { useViewer } from '@/hooks/useViewer';
+import { useViewer, type PlatformKey, type PlatformToggles, ALL_PLATFORMS_ON } from '@/hooks/useViewer';
 import TimerDisplay from '@/components/timer/TimerDisplay';
 import TimerControls from '@/components/timer/TimerControls';
 import ViewerCard from '@/components/viewer/ViewerCard';
@@ -21,8 +22,37 @@ interface Snapshot {
   total_count: number;
 }
 
+const PLATFORM_META: { key: PlatformKey; label: string; color: string }[] = [
+  { key: 'youtube', label: 'YouTube', color: '#ff0000' },
+  { key: 'jstream', label: 'Jstream', color: '#00b4d8' },
+  { key: 'zoom',    label: 'Zoom',    color: '#2D8CFF' },
+  { key: 'teams',   label: 'Teams',   color: '#6264A7' },
+];
+
+function loadToggles(programId: string | undefined): PlatformToggles {
+  try {
+    const s = JSON.parse(localStorage.getItem(`lv_dash_platforms_${programId}`) ?? '{}');
+    return {
+      youtube: s.youtube ?? true,
+      jstream: s.jstream ?? true,
+      zoom:    s.zoom    ?? true,
+      teams:   s.teams   ?? true,
+    };
+  } catch {
+    return { ...ALL_PLATFORMS_ON };
+  }
+}
+
 export default function DashboardPage() {
   const { programId } = useParams<{ programId: string }>();
+
+  // 取得・表示するプラットフォームのトグル (番組ごとに localStorage 保存)
+  const [platformToggles, setPlatformToggles] = useState<PlatformToggles>(() => loadToggles(programId));
+  const setToggle = (key: PlatformKey, val: boolean) => {
+    const next = { ...platformToggles, [key]: val };
+    setPlatformToggles(next);
+    localStorage.setItem(`lv_dash_platforms_${programId}`, JSON.stringify(next));
+  };
 
   const { data: program } = useQuery({
     queryKey: ['program', programId],
@@ -52,7 +82,20 @@ export default function DashboardPage() {
   // Use first timer as the active timer for the dashboard
   const activeTimerId = timers[0]?.id ?? null;
   const timer = useTimer(activeTimerId);
-  const viewer = useViewer(programId ?? null, settingsData?.pollingIntervalSec ?? 10);
+  const viewer = useViewer(programId ?? null, settingsData?.pollingIntervalSec ?? 10, platformToggles);
+
+  // どのプラットフォームが番組に設定済みか (未設定はトグル対象外)
+  const configured: PlatformToggles = {
+    youtube: (program?.youtube_urls?.length ?? 0) > 0,
+    jstream: !!program?.jstream_lpid,
+    zoom:    !!(program?.zoom_meeting_id || program?.zoom_webinar_id),
+    teams:   !!program?.teams_meeting_url,
+  };
+  const isActive = (key: PlatformKey) => configured[key] && platformToggles[key];
+  // 合計はトグル ON のプラットフォームのみ合算 (OFF 直後も即時に反映)
+  const displayTotal = PLATFORM_META.reduce(
+    (sum, { key }) => sum + (isActive(key) ? viewer.counts[key] : 0), 0
+  );
 
   return (
     <div className="flex h-full flex-col">
@@ -146,23 +189,66 @@ export default function DashboardPage() {
             </div>
           )}
 
+          {/* プラットフォーム別 取得/表示トグル */}
+          <div className="flex flex-wrap items-center gap-1.5 px-3 sm:px-4 pt-3">
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mr-1">取得対象</span>
+            {PLATFORM_META.map(({ key, label, color }) => {
+              const conf = configured[key];
+              const on = platformToggles[key];
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  disabled={!conf}
+                  onClick={() => setToggle(key, !on)}
+                  aria-pressed={conf && on}
+                  title={!conf ? `${label} は番組設定で未登録です` : on ? `${label} の取得を停止` : `${label} を取得対象にする`}
+                  className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors min-h-[28px] ${
+                    !conf
+                      ? 'opacity-35 cursor-not-allowed border-border text-muted-foreground'
+                      : on
+                        ? 'border-transparent text-white shadow-sm'
+                        : 'border-border text-muted-foreground hover:bg-accent line-through decoration-1'
+                  }`}
+                  style={conf && on ? { backgroundColor: color } : undefined}
+                >
+                  <span
+                    className="h-2 w-2 rounded-full shrink-0"
+                    style={{ backgroundColor: conf && on ? 'rgba(255,255,255,0.9)' : color }}
+                  />
+                  {label}
+                  {!conf && <span className="text-[10px] font-normal">未設定</span>}
+                </button>
+              );
+            })}
+          </div>
+
           <div className="p-3 sm:p-4 space-y-2">
-            <ViewerCard
-              label="YouTube"
-              count={viewer.counts.youtube}
-              color="#ff0000"
-              sublabel={viewer.counts.ytDetails.map((d: any) => `${d.label}: ${d.count ?? '-'}`).join(' / ')}
-            />
+            {isActive('youtube') && (
+              <ViewerCard
+                label="YouTube"
+                count={viewer.counts.youtube}
+                color="#ff0000"
+                sublabel={viewer.counts.ytDetails.map((d: any) => `${d.label}: ${d.count ?? '-'}`).join(' / ')}
+              />
+            )}
             <div className="grid grid-cols-2 gap-2">
-              <ViewerCard label="Jstream" count={viewer.counts.jstream} color="#00b4d8" />
-              {(program?.zoom_meeting_id || program?.zoom_webinar_id) && (
+              {isActive('jstream') && (
+                <ViewerCard label="Jstream" count={viewer.counts.jstream} color="#00b4d8" />
+              )}
+              {isActive('zoom') && (
                 <ViewerCard label="Zoom" count={viewer.counts.zoom} color="#2D8CFF" />
               )}
-              {program?.teams_meeting_url && (
+              {isActive('teams') && (
                 <ViewerCard label="Teams" count={viewer.counts.teams} color="#6264A7" />
               )}
-              <ViewerCard label="合計" count={viewer.counts.total} color="#a855f7" />
+              <ViewerCard label="合計" count={displayTotal} color="#a855f7" />
             </div>
+            {PLATFORM_META.every(({ key }) => !isActive(key)) && (
+              <p className="text-xs text-muted-foreground">
+                取得対象のプラットフォームがありません。上のトグルを ON にするか、番組設定で URL / ID を登録してください。
+              </p>
+            )}
           </div>
         </div>
 
@@ -170,7 +256,7 @@ export default function DashboardPage() {
         {snapshots.length > 0 && (
           <div className="rounded-lg border border-border bg-card p-4">
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">視聴者数推移</h2>
-            <ViewerChart snapshots={snapshots} />
+            <ViewerChart snapshots={snapshots} visible={platformToggles} />
           </div>
         )}
 

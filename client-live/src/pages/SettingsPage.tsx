@@ -5,7 +5,82 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Eye, EyeOff, CheckCircle, Download, Upload, ShieldOff } from 'lucide-react';
+import { Eye, EyeOff, CheckCircle, Download, Upload, ShieldOff, PlugZap, Loader2, XCircle, AlertTriangle, HelpCircle } from 'lucide-react';
+
+type TestPlatform = 'youtube' | 'jstream' | 'zoom' | 'teams';
+interface TestResult { status: 'ok' | 'error' | 'unconfigured' | 'untested'; message: string; latencyMs: number; detail?: string }
+
+/** API 接続テストボタン + 結果表示 */
+function ApiTestRow({ platform, note }: { platform: TestPlatform; note?: string }) {
+  const [result, setResult] = useState<TestResult | null>(null);
+  const [testing, setTesting] = useState(false);
+
+  const run = async () => {
+    setTesting(true);
+    setResult(null);
+    try {
+      const r = await api.post(`/liveops/settings/test/${platform}`);
+      setResult(r.data.data as TestResult);
+    } catch (e: any) {
+      setResult({ status: 'error', message: e?.response?.data?.message || e.message, latencyMs: 0 });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const icon = result?.status === 'ok' ? <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
+    : result?.status === 'error' ? <XCircle className="h-4 w-4 text-destructive shrink-0" />
+    : result ? <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+    : null;
+  const textColor = result?.status === 'ok' ? 'text-green-700 dark:text-green-500'
+    : result?.status === 'error' ? 'text-destructive'
+    : 'text-amber-600';
+
+  return (
+    <div className="space-y-1.5 pt-1">
+      <div className="flex items-center gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={run} disabled={testing}>
+          {testing
+            ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />テスト中…</>
+            : <><PlugZap className="h-3.5 w-3.5 mr-1.5" />接続テスト</>}
+        </Button>
+        {note && <span className="text-xs text-muted-foreground">{note}</span>}
+      </div>
+      {result && (
+        <div className={`flex items-start gap-1.5 rounded-md border p-2 text-xs ${
+          result.status === 'ok' ? 'border-green-600/30 bg-green-600/5'
+          : result.status === 'error' ? 'border-destructive/30 bg-destructive/5'
+          : 'border-amber-500/30 bg-amber-500/5'
+        }`} role="status">
+          {icon}
+          <div className="min-w-0">
+            <p className={`font-medium ${textColor}`}>
+              {result.message}
+              {result.status === 'ok' && result.latencyMs > 0 && (
+                <span className="font-normal text-muted-foreground"> ({result.latencyMs}ms)</span>
+              )}
+            </p>
+            {result.detail && <p className="text-muted-foreground mt-0.5 break-all">{result.detail}</p>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 取得方法などの簡易ガイド (折りたたみ) */
+function ApiGuide({ title, steps }: { title: string; steps: React.ReactNode[] }) {
+  return (
+    <details className="rounded-md border bg-muted/30 px-3 py-2 text-xs">
+      <summary className="flex cursor-pointer items-center gap-1.5 font-medium text-muted-foreground select-none">
+        <HelpCircle className="h-3.5 w-3.5 shrink-0" />{title}
+      </summary>
+      <ol className="mt-2 list-decimal space-y-1 pl-5 text-muted-foreground">
+        {steps.map((s, i) => <li key={i}>{s}</li>)}
+      </ol>
+    </details>
+  );
+}
 
 export default function SettingsPage() {
   const { canManage } = usePermissions();
@@ -142,6 +217,15 @@ export default function SettingsPage() {
               {!settings?.hasOwnYoutubeKey && settings?.hasYoutubeKey && (
                 <p className="text-xs text-amber-600">他ユーザーのキーを共有利用中 (自分のキーを設定すると優先されます)</p>
               )}
+              <ApiGuide
+                title="YouTube APIキーの取得方法"
+                steps={[
+                  <>Google Cloud Console でプロジェクトを作成し「YouTube Data API v3」を有効化</>,
+                  <>「認証情報」→「APIキーを作成」でキーを発行 (キー制限で YouTube Data API v3 のみに絞ると安全)</>,
+                  <>発行されたキーを上の欄に貼り付けて保存</>,
+                ]}
+              />
+              <ApiTestRow platform="youtube" note="保存済みのキーで YouTube API を実際に呼び出して検証します" />
             </div>
 
             <div className="space-y-1.5">
@@ -164,6 +248,14 @@ export default function SettingsPage() {
               {!settings?.hasOwnJstreamToken && settings?.hasJstreamToken && (
                 <p className="text-xs text-amber-600">他ユーザーのトークンを共有利用中 (自分のトークンを設定すると優先されます)</p>
               )}
+              <ApiGuide
+                title="Jstream トークンの取得方法"
+                steps={[
+                  <>J-Stream Equipmedia の管理画面で API トークンを発行 (契約担当者経由)</>,
+                  <>トークンを上の欄に貼り付けて保存。番組設定でライブの LPID を登録すると取得が始まります</>,
+                ]}
+              />
+              <ApiTestRow platform="jstream" note="番組設定に登録済みの LPID を使って疎通確認します" />
             </div>
           </section>
 
@@ -214,6 +306,15 @@ export default function SettingsPage() {
                 </Button>
               </div>
             </div>
+            <ApiGuide
+              title="Zoom 資格情報の取得方法"
+              steps={[
+                <>Zoom App Marketplace →「Develop」→「Build App」→「Server-to-Server OAuth」でアプリを作成</>,
+                <>Scopes に <code className="rounded bg-muted px-1">dashboard_meetings:read:admin</code> / <code className="rounded bg-muted px-1">dashboard_webinars:read:admin</code> を追加</>,
+                <>App Credentials の Account ID / Client ID / Client Secret を上の欄に入力して保存</>,
+              ]}
+            />
+            <ApiTestRow platform="zoom" note="Zoom の OAuth 認証を実際に行い資格情報を検証します" />
           </section>
 
           {/* Teams */}
@@ -263,6 +364,15 @@ export default function SettingsPage() {
                 </Button>
               </div>
             </div>
+            <ApiGuide
+              title="Teams 資格情報の取得方法"
+              steps={[
+                <>Azure Portal →「アプリの登録」で新規アプリを登録 (Tenant ID / Client ID が発行される)</>,
+                <>「証明書とシークレット」でクライアントシークレットを作成</>,
+                <>「APIのアクセス許可」で Microsoft Graph の <code className="rounded bg-muted px-1">OnlineMeetings.Read.All</code> (アプリケーション) を追加し管理者の同意を付与</>,
+              ]}
+            />
+            <ApiTestRow platform="teams" note="Microsoft Graph の認証を実際に行い資格情報を検証します" />
           </section>
 
           {/* Polling */}

@@ -7,10 +7,17 @@ import { Settings, X } from 'lucide-react';
 import { Switch } from '@gmo-onair/shared/src/client/ui/switch';
 
 const phaseLabels: Record<TimerPhase, string> = {
-  idle: '---',
+  idle: 'STANDBY',
   countdown: 'COUNTDOWN',
   yellow: 'WARNING',
   red: "TIME'S UP",
+};
+
+const phaseBarColors: Record<TimerPhase, string> = {
+  idle: 'rgba(255,255,255,0.25)',
+  countdown: '#16a34a',
+  yellow: '#d97706',
+  red: '#dc2626',
 };
 
 interface Counts { youtube: number; jstream: number; zoom: number; teams: number; total: number }
@@ -59,7 +66,12 @@ export default function TimerDisplayPage() {
   const { state } = useTimer(timerId ?? null);
   const phase = state?.phase ?? 'idle';
   const remainingMs = state?.remainingMs ?? 0;
+  const totalSeconds = state?.totalSeconds ?? 0;
   const display = state ? formatTimer(remainingMs) : '--:--';
+  const progress = state && phase !== 'idle' && totalSeconds > 0
+    ? Math.min(1, Math.max(0, remainingMs / (totalSeconds * 1000)))
+    : null;
+  const overtime = phase === 'red' && remainingMs < 0;
 
   useEffect(() => {
     const urlProgram = searchParams.get('programId');
@@ -112,15 +124,36 @@ export default function TimerDisplayPage() {
       className="relative flex h-screen w-screen flex-col items-center justify-center select-none bg-black overflow-hidden"
       onClick={() => settingsOpen && setSettingsOpen(false)}
     >
+      {/* フェーズ別バックドロップ (WARNING/TIME'S UP で背景がうっすら色づく) */}
+      {!viewerOnly && phase === 'yellow' && <div className="timer-backdrop timer-backdrop-yellow" />}
+      {!viewerOnly && phase === 'red' && <div className="timer-backdrop timer-backdrop-red" />}
+
       {/* Timer (hidden in viewer-only mode) */}
       {!viewerOnly && (
         <>
-          <div className={`timer-display-font ${timerColor(phase)}`}>
+          <div className={`timer-display-font relative ${timerColor(phase)} ${phase === 'red' ? 'timer-glow-red' : ''}`}>
             {display}
           </div>
-          <div className={`timer-status-font mt-4 ${statusColor(phase)}`}>
-            {phaseLabels[phase]}
+          <div className="relative mt-4 flex items-center gap-4">
+            <span className={`timer-status-font ${statusColor(phase)}`}>
+              {overtime ? 'OVERTIME' : phaseLabels[phase]}
+            </span>
+            {totalSeconds > 0 && phase !== 'idle' && (
+              <span className="timer-set-font text-white/30">
+                / {formatTimer(totalSeconds * 1000)}
+              </span>
+            )}
           </div>
+
+          {/* 画面下端の残り時間プログレスバー */}
+          {progress != null && (
+            <div className="absolute inset-x-0 bottom-0 h-2 bg-white/5" aria-hidden="true">
+              <div
+                className="h-full timer-progress-fill"
+                style={{ width: `${progress * 100}%`, backgroundColor: phaseBarColors[phase] }}
+              />
+            </div>
+          )}
         </>
       )}
 

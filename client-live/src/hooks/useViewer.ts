@@ -3,6 +3,14 @@ import api from '@/lib/api';
 
 export interface YoutubeDetail { label: string; url: string; count: number | null }
 
+export type PlatformKey = 'youtube' | 'jstream' | 'zoom' | 'teams';
+
+export type PlatformToggles = Record<PlatformKey, boolean>;
+
+export const ALL_PLATFORMS_ON: PlatformToggles = {
+  youtube: true, jstream: true, zoom: true, teams: true,
+};
+
 export interface ViewerCounts {
   youtube: number;
   jstream: number;
@@ -19,13 +27,20 @@ const ZERO_COUNTS: ViewerCounts = {
   ytDetails: [], lastUpdated: null, error: null,
 };
 
-export function useViewer(programId: string | null, pollingIntervalSec = 10) {
+export function useViewer(
+  programId: string | null,
+  pollingIntervalSec = 10,
+  enabledPlatforms: PlatformToggles = ALL_PLATFORMS_ON,
+) {
   const [counts, setCounts] = useState<ViewerCounts>(ZERO_COUNTS);
   const [running, setRunning] = useState(false);
   const [logs, setLogs] = useState<Array<{ type: 'success' | 'error' | 'info'; message: string; time: Date }>>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const programRef = useRef(programId);
   programRef.current = programId;
+  // OFF にしたプラットフォームは API を叩かない (ref 経由で最新のトグル状態を参照)
+  const enabledRef = useRef(enabledPlatforms);
+  enabledRef.current = enabledPlatforms;
 
   const addLog = useCallback((type: 'success' | 'error' | 'info', message: string) => {
     setLogs(prev => [{ type, message, time: new Date() }, ...prev].slice(0, 100));
@@ -34,6 +49,7 @@ export function useViewer(programId: string | null, pollingIntervalSec = 10) {
   const pollOnce = useCallback(async () => {
     const pid = programRef.current;
     if (!pid) return;
+    const enabled = enabledRef.current;
 
     try {
       const progRes = await api.get(`/liveops/programs/${pid}`);
@@ -44,7 +60,7 @@ export function useViewer(programId: string | null, pollingIntervalSec = 10) {
 
       // YouTube
       const ytUrls: Array<{ label: string; url: string }> = prog.youtube_urls || [];
-      if (ytUrls.length > 0) {
+      if (enabled.youtube && ytUrls.length > 0) {
         const videoIds = ytUrls
           .map(u => { const m = u.url.match(/(?:v=|youtu\.be\/)([^&?/]+)/); return m?.[1] || ''; })
           .filter(Boolean);
@@ -69,7 +85,7 @@ export function useViewer(programId: string | null, pollingIntervalSec = 10) {
 
       // Jstream
       let jsCount = 0;
-      if (prog.jstream_lpid) {
+      if (enabled.jstream && prog.jstream_lpid) {
         try {
           const jsRes = await api.get('/liveops/proxy/jstream', { params: { lpid: prog.jstream_lpid } });
           jsCount = jsRes.data.data.count;
@@ -81,7 +97,7 @@ export function useViewer(programId: string | null, pollingIntervalSec = 10) {
 
       // Zoom Meeting
       let zoomCount = 0;
-      if (prog.zoom_meeting_id) {
+      if (enabled.zoom && prog.zoom_meeting_id) {
         try {
           const zRes = await api.get('/liveops/proxy/zoom', { params: { type: 'meeting', meetingId: prog.zoom_meeting_id } });
           zoomCount += zRes.data.data.count ?? 0;
@@ -90,7 +106,7 @@ export function useViewer(programId: string | null, pollingIntervalSec = 10) {
         }
       }
       // Zoom Webinar
-      if (prog.zoom_webinar_id) {
+      if (enabled.zoom && prog.zoom_webinar_id) {
         try {
           const zRes = await api.get('/liveops/proxy/zoom', { params: { type: 'webinar', webinarId: prog.zoom_webinar_id } });
           zoomCount += zRes.data.data.count ?? 0;
@@ -98,13 +114,13 @@ export function useViewer(programId: string | null, pollingIntervalSec = 10) {
           addLog('error', `Zoom webinar error: ${e?.response?.data?.message || e.message}`);
         }
       }
-      if (prog.zoom_meeting_id || prog.zoom_webinar_id) {
+      if (enabled.zoom && (prog.zoom_meeting_id || prog.zoom_webinar_id)) {
         addLog('success', `Zoom: ${zoomCount.toLocaleString()} participants`);
       }
 
       // Teams
       let teamsCount = 0;
-      if (prog.teams_meeting_url) {
+      if (enabled.teams && prog.teams_meeting_url) {
         try {
           const tRes = await api.get('/liveops/proxy/teams', { params: { programId: pid } });
           teamsCount = tRes.data.data.count ?? 0;
