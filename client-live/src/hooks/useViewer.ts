@@ -3,6 +3,15 @@ import api from '@/lib/api';
 
 export interface YoutubeDetail { label: string; url: string; count: number | null }
 
+/**
+ * YouTube URL から動画 ID を抽出。
+ * 対応形式: watch?v=ID / youtu.be/ID / live/ID / shorts/ID / embed/ID
+ */
+export function extractYoutubeVideoId(url: string): string {
+  const m = url.match(/(?:[?&]v=|youtu\.be\/|\/(?:live|shorts|embed)\/)([A-Za-z0-9_-]{6,})/);
+  return m?.[1] || '';
+}
+
 export type PlatformKey = 'youtube' | 'jstream' | 'zoom' | 'teams';
 
 export type PlatformToggles = Record<PlatformKey, boolean>;
@@ -62,15 +71,14 @@ export function useViewer(
       const ytUrls: Array<{ label: string; url: string }> = prog.youtube_urls || [];
       if (enabled.youtube && ytUrls.length > 0) {
         const videoIds = ytUrls
-          .map(u => { const m = u.url.match(/(?:v=|youtu\.be\/)([^&?/]+)/); return m?.[1] || ''; })
+          .map(u => extractYoutubeVideoId(u.url))
           .filter(Boolean);
         if (videoIds.length > 0) {
           try {
             const ytRes = await api.get('/liveops/proxy/youtube', { params: { videoIds: videoIds.join(',') } });
             const countMap: Record<string, number | null> = ytRes.data.data;
             for (const u of ytUrls) {
-              const m = u.url.match(/(?:v=|youtu\.be\/)([^&?/]+)/);
-              const vid = m?.[1] || '';
+              const vid = extractYoutubeVideoId(u.url);
               const count = vid ? (countMap[vid] ?? null) : null;
               ytDetails.push({ label: u.label, url: u.url, count });
               if (count != null) ytTotal += count;
