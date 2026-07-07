@@ -38,8 +38,10 @@
   50%       { color: #f87171; }
 }
 
+/* 全画面表示 (TimerDisplayPage) 用。画面幅・高さの小さい方に合わせてスケールし、
+   大型モニターでは画面いっぱいまで拡大する。 */
 .timer-display-font {
-  font-size: clamp(3.5rem, 20vw, 13rem);
+  font-size: min(23vw, 48vh);
   font-variant-numeric: tabular-nums;
   font-weight: 800;
   line-height: 1;
@@ -48,18 +50,61 @@
 }
 
 .timer-status-font {
-  font-size: clamp(0.65rem, 1.8vw, 1.25rem);
+  font-size: clamp(0.75rem, 2.4vw, 4.5vh);
   font-weight: 700;
   letter-spacing: 0.25em;
   text-transform: uppercase;
   opacity: 0.45;
 }
 
+/* ダッシュボード等のパネル埋め込み用 (h-44/h-52 のカード内に収まるサイズ)。
+   全画面表示用の .timer-display-font (20vw) とは別物。 */
+.timer-panel-font {
+  font-size: clamp(3.25rem, 12vw, 6.5rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-feature-settings: "tnum";
+}
+
 .timer-set-font {
-  font-size: clamp(0.65rem, 1.6vw, 1.1rem);
+  font-size: clamp(0.7rem, 2.1vw, 4vh);
   font-weight: 600;
   letter-spacing: 0.05em;
   font-variant-numeric: tabular-nums;
+}
+
+/* 全画面表示: タイマー併用時の視聴者数バー */
+.viewer-bar-label {
+  font-size: clamp(0.75rem, 1.4vw, 1.4rem);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.25em;
+}
+.viewer-bar-count {
+  font-size: clamp(1.75rem, 4.2vw, 4.5rem);
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* 全画面表示: 視聴者数のみモードの大型カウンター */
+.viewer-hero-label {
+  font-size: clamp(1rem, 2.4vw, 2.5rem);
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 0.35em;
+}
+.viewer-hero-count {
+  font-size: clamp(3.5rem, 11vw, 15rem);
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
 }
 
 /* 残り時間プログレスバー (幅は 1 秒間隔で更新されるため linear で滑らかに追従) */

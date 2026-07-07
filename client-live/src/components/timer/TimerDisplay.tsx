@@ -35,17 +35,17 @@ export default function TimerDisplay({ state, compact = false }: Props) {
   const overtime = phase === 'red' && remainingMs < 0;
 
   return (
-    <div className={`phase-${phase} relative flex flex-col items-center justify-center transition-colors duration-500 ${compact ? 'rounded-xl p-4' : 'w-full h-full'}`}>
-      <div className={`${compact ? 'text-4xl font-bold tabular-nums' : 'timer-display-font'} ${phase === 'red' ? 'timer-glow-red' : ''}`}>
+    <div className={`phase-${phase} relative flex flex-col items-center justify-center overflow-hidden transition-colors duration-500 ${compact ? 'rounded-xl p-4' : 'w-full h-full pb-3'}`}>
+      <div className={`${compact ? 'text-4xl font-bold tabular-nums' : 'timer-panel-font'} ${phase === 'red' ? 'timer-glow-red' : ''}`}>
         {display}
       </div>
-      <div className="flex items-center gap-2 mt-2">
+      <div className="flex items-center gap-2 mt-1.5">
         {state?.running && phase !== 'red' && <span className="live-dot" aria-hidden="true" style={{ background: phaseBarColors[phase] }} />}
-        <span className={compact ? 'text-sm opacity-80 font-medium tracking-widest' : 'timer-status-font'}>
+        <span className={`${compact ? 'text-sm' : 'text-xs sm:text-sm'} font-bold tracking-[0.25em] uppercase opacity-50`}>
           {overtime ? 'OVERTIME' : phaseLabels[phase]}
         </span>
         {totalSeconds > 0 && phase !== 'idle' && (
-          <span className={`${compact ? 'text-xs' : 'timer-set-font'} opacity-50 tabular-nums`}>
+          <span className="text-xs sm:text-sm font-semibold opacity-40 tabular-nums">
             / {formatTimer(totalSeconds * 1000)}
           </span>
         )}
