@@ -55,6 +55,42 @@
   opacity: 0.45;
 }
 
+.timer-set-font {
+  font-size: clamp(0.65rem, 1.6vw, 1.1rem);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 残り時間プログレスバー (幅は 1 秒間隔で更新されるため linear で滑らかに追従) */
+.timer-progress-fill {
+  transition: width 0.35s linear, background-color 0.5s ease;
+}
+
+/* TIME'S UP 時の数字グロウ */
+.timer-glow-red {
+  text-shadow: 0 0 24px rgba(220, 38, 38, 0.55), 0 0 72px rgba(220, 38, 38, 0.25);
+}
+
+/* 全画面表示のフェーズ別バックドロップ (数字の背後にうっすら色が差す) */
+.timer-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transition: opacity 0.8s ease;
+}
+.timer-backdrop-yellow {
+  background: radial-gradient(ellipse 70% 55% at 50% 45%, rgba(217, 119, 6, 0.16), transparent 70%);
+}
+.timer-backdrop-red {
+  background: radial-gradient(ellipse 70% 55% at 50% 45%, rgba(220, 38, 38, 0.22), transparent 70%);
+  animation: backdrop-pulse 1.6s ease-in-out infinite;
+}
+@keyframes backdrop-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.55; }
+}
+
 .live-dot {
   width: 8px;
   height: 8px;
