@@ -40,6 +40,16 @@ function jsonToY(value: any): any {
   return value;
 }
 
+/** 素の JSON 値を Y ノード (Y.Map/Y.Array/primitive) へ変換する (粒度操作で新規ノードを差し込む用)。 */
+export function toYValue(value: any): any {
+  return jsonToY(value);
+}
+
+/** Y ノードを素の JSON 値へ戻す。 */
+export function fromYValue(value: any): any {
+  return yToJson(value);
+}
+
 /** Y 型ツリーを素の JSON 値へ戻す。 */
 function yToJson(value: any): any {
   if (value instanceof Y.Array) return value.toArray().map(yToJson);
