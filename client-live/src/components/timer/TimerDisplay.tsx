@@ -1,13 +1,6 @@
 import { formatTimer } from '@/lib/utils';
 import { type TimerState, type TimerPhase } from '@/hooks/useTimer';
 
-const phaseLabels: Record<TimerPhase, string> = {
-  idle: 'STANDBY',
-  countdown: 'COUNTDOWN',
-  yellow: 'WARNING',
-  red: "TIME'S UP",
-};
-
 const phaseBarColors: Record<TimerPhase, string> = {
   idle: 'hsl(var(--muted-foreground) / 0.35)',
   countdown: '#16a34a',
@@ -32,24 +25,20 @@ export default function TimerDisplay({ state, compact = false }: Props) {
   const totalSeconds = state?.totalSeconds ?? 0;
   const display = state ? formatTimer(remainingMs) : '--:--';
   const progress = timerProgress(state);
-  const overtime = phase === 'red' && remainingMs < 0;
 
   return (
     <div className={`phase-${phase} relative flex flex-col items-center justify-center overflow-hidden transition-colors duration-500 ${compact ? 'rounded-xl p-4' : 'w-full h-full pb-3'}`}>
       <div className={`${compact ? 'text-4xl font-bold tabular-nums' : 'timer-panel-font'} ${phase === 'red' ? 'timer-glow-red' : ''}`}>
         {display}
       </div>
-      <div className="flex items-center gap-2 mt-1.5">
-        {state?.running && phase !== 'red' && <span className="live-dot" aria-hidden="true" style={{ background: phaseBarColors[phase] }} />}
-        <span className={`${compact ? 'text-sm' : 'text-xs sm:text-sm'} font-bold tracking-[0.25em] uppercase opacity-50`}>
-          {overtime ? 'OVERTIME' : phaseLabels[phase]}
-        </span>
-        {totalSeconds > 0 && phase !== 'idle' && (
-          <span className="text-xs sm:text-sm font-semibold opacity-40 tabular-nums">
-            / {formatTimer(totalSeconds * 1000)}
+      {totalSeconds > 0 && phase !== 'idle' && (
+        <div className="flex items-center gap-2 mt-1.5">
+          {state?.running && <span className="live-dot" aria-hidden="true" style={{ background: phaseBarColors[phase] }} />}
+          <span className={`${compact ? 'text-sm' : 'text-xs sm:text-sm'} font-semibold opacity-50 tabular-nums`}>
+            設定 {formatTimer(totalSeconds * 1000)}
           </span>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* 残り時間プログレスバー */}
       {progress != null && (

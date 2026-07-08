@@ -6,15 +6,8 @@ import { type TimerPhase } from '@/hooks/useTimer';
 import { Settings, X } from 'lucide-react';
 import { Switch } from '@gmo-onair/shared/src/client/ui/switch';
 
-const phaseLabels: Record<TimerPhase, string> = {
-  idle: 'STANDBY',
-  countdown: 'COUNTDOWN',
-  yellow: 'WARNING',
-  red: "TIME'S UP",
-};
-
 const phaseBarColors: Record<TimerPhase, string> = {
-  idle: 'rgba(255,255,255,0.25)',
+  idle: 'rgba(128,128,128,0.35)',
   countdown: '#16a34a',
   yellow: '#d97706',
   red: '#dc2626',
@@ -28,6 +21,7 @@ interface Toggles {
   teams: boolean;
   total: boolean;
   showTimer: boolean;
+  lightBase: boolean;
 }
 
 const VIEWER_ITEMS: { key: 'youtube' | 'jstream' | 'zoom' | 'teams' | 'total'; label: string; color: string }[] = [
@@ -37,6 +31,23 @@ const VIEWER_ITEMS: { key: 'youtube' | 'jstream' | 'zoom' | 'teams' | 'total'; l
   { key: 'teams',   label: 'Teams',   color: '#6264A7' },
   { key: 'total',   label: '合計',    color: '#a855f7' },
 ];
+
+const PLATFORM_ITEMS = VIEWER_ITEMS.filter(i => i.key !== 'total') as
+  { key: 'youtube' | 'jstream' | 'zoom' | 'teams'; label: string; color: string }[];
+
+/** 「● リアルタイム視聴者数」見出し (赤ドットは点滅) */
+function ViewerHeader() {
+  return (
+    <div className="flex items-center gap-[0.9vw]">
+      <span
+        className="live-dot shrink-0"
+        style={{ width: 'max(10px, 0.85vw)', height: 'max(10px, 0.85vw)' }}
+        aria-hidden="true"
+      />
+      <span className="viewer-header-ja">リアルタイム視聴者数</span>
+    </div>
+  );
+}
 
 export default function TimerDisplayPage() {
   const { timerId } = useParams<{ timerId: string }>();
@@ -53,9 +64,10 @@ export default function TimerDisplayPage() {
         teams:     s.teams     ?? false,
         total:     s.total     ?? false,
         showTimer: s.showTimer ?? true,
+        lightBase: s.lightBase ?? false,
       };
     } catch {
-      return { youtube: false, jstream: false, zoom: false, teams: false, total: false, showTimer: true };
+      return { youtube: false, jstream: false, zoom: false, teams: false, total: false, showTimer: true, lightBase: false };
     }
   });
 
@@ -71,7 +83,6 @@ export default function TimerDisplayPage() {
   const progress = state && phase !== 'idle' && totalSeconds > 0
     ? Math.min(1, Math.max(0, remainingMs / (totalSeconds * 1000)))
     : null;
-  const overtime = phase === 'red' && remainingMs < 0;
 
   useEffect(() => {
     const urlProgram = searchParams.get('programId');
@@ -115,84 +126,122 @@ export default function TimerDisplayPage() {
     localStorage.setItem(storageKey, JSON.stringify(next));
   };
 
-  const visibleItems = VIEWER_ITEMS.filter(item => toggles[item.key]);
-  const showOverlay = !!programId && visibleItems.length > 0;
+  const light = toggles.lightBase;
+  const platformItems = PLATFORM_ITEMS.filter(item => toggles[item.key]);
+  const showTotal = toggles.total;
+  const anyViewerOn = platformItems.length > 0 || showTotal;
+  const showViewers = !!programId && anyViewerOn;
   const viewerOnly = !toggles.showTimer;
+  // タイマー + 視聴者数 → 横並び 6:4 (縦長画面は上下積み)
+  const splitMode = !viewerOnly && showViewers;
+
+  const dimText = light ? 'text-black/40' : 'text-white/40';
+  const lineColor = light ? 'border-black/15' : 'border-white/15';
+
+  const timerBlock = (fontClass: string) => (
+    <>
+      <div className={`${fontClass} ${timerColor(phase, light)} ${phase === 'red' ? 'timer-glow-red' : ''}`}>
+        {display}
+      </div>
+      {totalSeconds > 0 && phase !== 'idle' && (
+        <div className={`timer-set-font mt-[1.8vh] flex items-center gap-[0.8vw] ${dimText}`}>
+          {state?.running && (
+            <span
+              className="live-dot shrink-0"
+              style={{ width: 'max(8px, 0.6vw)', height: 'max(8px, 0.6vw)', background: phaseBarColors[phase] }}
+              aria-hidden="true"
+            />
+          )}
+          <span className="tabular-nums">設定 {formatTimer(totalSeconds * 1000)}</span>
+        </div>
+      )}
+    </>
+  );
 
   return (
     <div
-      className="relative flex h-screen w-screen flex-col items-center justify-center select-none bg-black overflow-hidden"
+      className={`relative flex h-screen w-screen flex-col items-center justify-center select-none overflow-hidden ${light ? 'bg-[#fafafa] text-neutral-900' : 'bg-black text-white'}`}
       onClick={() => settingsOpen && setSettingsOpen(false)}
     >
       {/* フェーズ別バックドロップ (WARNING/TIME'S UP で背景がうっすら色づく) */}
       {!viewerOnly && phase === 'yellow' && <div className="timer-backdrop timer-backdrop-yellow" />}
       {!viewerOnly && phase === 'red' && <div className="timer-backdrop timer-backdrop-red" />}
 
-      {/* Timer (hidden in viewer-only mode) */}
-      {!viewerOnly && (
-        <>
-          {/* 視聴者バー表示中はタイマーを少し上に寄せて干渉を防ぐ */}
-          <div className={`relative flex flex-col items-center ${showOverlay ? 'mb-[12vh]' : ''}`}>
-            <div className={`timer-display-font ${timerColor(phase)} ${phase === 'red' ? 'timer-glow-red' : ''}`}>
-              {display}
-            </div>
-            <div className="mt-[1.5vh] flex items-center gap-[1.5vw]">
-              <span className={`timer-status-font ${statusColor(phase)}`}>
-                {overtime ? 'OVERTIME' : phaseLabels[phase]}
-              </span>
-              {totalSeconds > 0 && phase !== 'idle' && (
-                <span className="timer-set-font text-white/30">
-                  / {formatTimer(totalSeconds * 1000)}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* 画面下端の残り時間プログレスバー */}
-          {progress != null && (
-            <div className="absolute inset-x-0 bottom-0 h-2 bg-white/5" aria-hidden="true">
-              <div
-                className="h-full timer-progress-fill"
-                style={{ width: `${progress * 100}%`, backgroundColor: phaseBarColors[phase] }}
-              />
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Viewer count display */}
-      {showOverlay && (
-        viewerOnly ? (
-          /* Viewer-only: large centered counts */
-          <div className="flex flex-wrap items-center justify-center gap-x-[6vw] gap-y-[6vh] px-[4vw]">
-            {visibleItems.map(({ key, label, color }) => (
-              <div key={key} className="text-center text-white">
-                <div className="viewer-hero-label" style={{ color }}>{label}</div>
-                <div className="viewer-hero-count">
-                  {formatCount(counts[key])}
-                </div>
+      {viewerOnly ? (
+        /* ── 視聴者数のみ: 見出し + 合計主役 + 内訳 ── */
+        showViewers && (
+          <div className="relative flex flex-col items-center justify-center gap-[4.5vh] px-[4vw]">
+            <ViewerHeader />
+            {showTotal && (
+              <div className="text-center">
+                <div className="viewer-only-total-count">{formatCount(counts.total)}</div>
+                <div className="viewer-total-label mt-[1vh]">合計</div>
               </div>
-            ))}
-          </div>
-        ) : (
-          /* Timer + viewer: bar at bottom */
-          <div className="absolute bottom-[4vh] left-1/2 -translate-x-1/2 flex w-max max-w-[94vw] flex-wrap items-center justify-center gap-x-[3.5vw] gap-y-3 rounded-3xl bg-black/55 backdrop-blur-md px-[3vw] py-[1.8vh] border border-white/10">
-            {visibleItems.map(({ key, label, color }) => (
-              <div key={key} className="text-center text-white">
-                <div className="viewer-bar-label" style={{ color }}>{label}</div>
-                <div className="viewer-bar-count">
-                  {formatCount(counts[key])}
-                </div>
+            )}
+            {platformItems.length > 0 && (
+              <div className="flex flex-wrap items-end justify-center gap-x-[5vw] gap-y-[4vh]">
+                {platformItems.map(({ key, label, color }) => (
+                  <div key={key} className="text-center">
+                    <div className={showTotal ? 'viewer-row-label mb-[0.6vh]' : 'viewer-hero-label'} style={{ color }}>{label}</div>
+                    <div className={`${showTotal ? 'viewer-break-count' : 'viewer-hero-count'} tabular-nums`}>
+                      {formatCount(counts[key])}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         )
+      ) : splitMode ? (
+        /* ── 横並び 6:4 (タイマー : 視聴者数)。縦長画面は上下積み ── */
+        <div className="relative flex h-full w-full flex-col landscape:flex-row">
+          <div className="flex flex-1 flex-col items-center justify-center pb-[2vh] landscape:w-[60%] landscape:flex-none landscape:flex-initial">
+            {timerBlock('split-timer-font')}
+          </div>
+          <div className={`flex flex-col justify-center border-t px-[4vw] pb-[3vh] pt-[2vh] landscape:w-[40%] landscape:border-t-0 landscape:border-l landscape:px-[3.2vw] landscape:pt-0 ${lineColor}`}>
+            <ViewerHeader />
+            {showTotal && (
+              <div className="mt-[3.5vh]">
+                <div className="viewer-total-label mb-[0.5vh]">合計</div>
+                <div className="viewer-total-count">{formatCount(counts.total)}</div>
+              </div>
+            )}
+            {showTotal && platformItems.length > 0 && (
+              <div className={`my-[3.2vh] border-t ${lineColor}`} aria-hidden="true" />
+            )}
+            {platformItems.length > 0 && (
+              <div className={`flex flex-col gap-[2.4vh] ${!showTotal ? 'mt-[3.5vh]' : ''}`}>
+                {platformItems.map(({ key, label, color }) => (
+                  <div key={key} className="flex items-baseline justify-between gap-[2vw]">
+                    <span className="viewer-row-label" style={{ color }}>{label}</span>
+                    <span className="viewer-row-count tabular-nums">{formatCount(counts[key])}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        /* ── タイマーのみ: 画面中央フル表示 ── */
+        <div className="relative flex flex-col items-center">
+          {timerBlock('timer-display-font')}
+        </div>
+      )}
+
+      {/* 画面下端の残り時間プログレスバー */}
+      {!viewerOnly && progress != null && (
+        <div className={`absolute inset-x-0 bottom-0 h-2 ${light ? 'bg-black/10' : 'bg-white/5'}`} aria-hidden="true">
+          <div
+            className="h-full timer-progress-fill"
+            style={{ width: `${progress * 100}%`, backgroundColor: phaseBarColors[phase] }}
+          />
+        </div>
       )}
 
       {/* Settings toggle button */}
       <button
         onClick={e => { e.stopPropagation(); setSettingsOpen(v => !v); }}
-        className="absolute bottom-4 right-4 p-2 rounded-full text-white/30 hover:text-white/70 hover:bg-white/10 transition-all"
+        className={`absolute bottom-4 right-4 p-2 rounded-full transition-all ${light ? 'text-black/30 hover:text-black/70 hover:bg-black/10' : 'text-white/30 hover:text-white/70 hover:bg-white/10'}`}
         title="表示設定"
       >
         {settingsOpen ? <X className="h-4 w-4" /> : <Settings className="h-4 w-4" />}
@@ -201,20 +250,30 @@ export default function TimerDisplayPage() {
       {/* Settings panel */}
       {settingsOpen && (
         <div
-          className="absolute bottom-14 right-4 bg-neutral-900/95 backdrop-blur-sm border border-white/10 rounded-2xl p-4 text-white shadow-2xl min-w-[200px]"
+          className="absolute bottom-14 right-4 z-10 bg-neutral-900/95 backdrop-blur-sm border border-white/10 rounded-2xl p-4 text-white shadow-2xl min-w-[220px]"
           onClick={e => e.stopPropagation()}
         >
-          {/* Timer visibility */}
+          {/* 表示モード */}
           <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3">
-            タイマー表示
+            表示
           </p>
-          <div className="flex items-center justify-between w-full py-1.5 px-1 mb-4">
+          <div className="flex items-center justify-between w-full py-1.5 px-1">
             <span className={`text-sm ${toggles.showTimer ? 'text-white' : 'text-white/40'}`}>
               タイマーを表示
             </span>
             <Switch
               checked={toggles.showTimer}
               onCheckedChange={(v) => setToggle('showTimer', !!v)}
+              className="data-[state=unchecked]:bg-white/20"
+            />
+          </div>
+          <div className="flex items-center justify-between w-full py-1.5 px-1 mb-4">
+            <span className={`text-sm ${toggles.lightBase ? 'text-white' : 'text-white/40'}`}>
+              白ベースで表示
+            </span>
+            <Switch
+              checked={toggles.lightBase}
+              onCheckedChange={(v) => setToggle('lightBase', !!v)}
               className="data-[state=unchecked]:bg-white/20"
             />
           </div>
@@ -254,14 +313,8 @@ export default function TimerDisplayPage() {
   );
 }
 
-function timerColor(phase: TimerPhase) {
-  if (phase === 'yellow') return 'text-amber-400';
+function timerColor(phase: TimerPhase, light: boolean) {
+  if (phase === 'yellow') return light ? 'text-amber-600' : 'text-amber-400';
   if (phase === 'red') return 'text-red-500 phase-red';
-  return 'text-white';
-}
-
-function statusColor(phase: TimerPhase) {
-  if (phase === 'yellow') return 'text-amber-400/60';
-  if (phase === 'red') return 'text-red-400/60';
-  return 'text-white/40';
+  return light ? 'text-neutral-900' : 'text-white';
 }
