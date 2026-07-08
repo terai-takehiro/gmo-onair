@@ -12,6 +12,7 @@ import PreviewModal from "@/components/editor/PreviewModal";
 import TrashDrawer from "@/components/editor/TrashDrawer";
 import { getTrash } from "@/lib/trash";
 import { splitMultiEntryRows } from "@/lib/migrateEntries";
+import { ensureStableIds } from "@/lib/stableIds";
 import StageEditor from "@/components/editor/StageEditor";
 import AudioShareDialog from "@/components/editor/AudioShareDialog";
 import CsvImportDialog from "@/components/editor/CsvImportDialog";
@@ -252,8 +253,11 @@ export default function EditorPage() {
       if (!d.data.masters) d.data.masters = { persons: [], video: [], audio: [], telop: [] };
       // v2.8.155: 旧モデルの複数エントリ行を 1 行 = 1 エントリに分割
       const migrated = splitMultiEntryRows(d.data as any);
-      if (migrated.changed) {
-        d.data = migrated.data as any;
+      // Phase 0 (同時編集の地固め): 全 section/row に安定 id を後付け
+      const withIds = ensureStableIds(migrated.data as any);
+      const anyChanged = migrated.changed || withIds.changed;
+      d.data = withIds.data as any;
+      if (anyChanged) {
         setDoc(d);
         setDirty(true);
         setSaveStatus("unsaved");

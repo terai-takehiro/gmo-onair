@@ -16,6 +16,7 @@ import {
 import SectionMenu from "./SectionMenu";
 import { parseDur as parseDurShared, fmtAbs as fmtAbsShared, normalizeDur } from "@/lib/time";
 import { makeTrashItem, pushToTrash } from "@/lib/trash";
+import { genId } from "@/lib/stableIds";
 import CueRow from "./CueRow";
 import CueCardList from "./CueCardList";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -38,6 +39,7 @@ interface CueRow {
 }
 
 interface Section {
+  id?: string;
   label: string;
   rows: CueRow[];
   duration?: string;
@@ -202,7 +204,7 @@ function CueTableLg({
   const addSection = useCallback(() => {
     updateState((s: any) => ({
       ...s,
-      sections: [...s.sections, { label: "【新しいロール】", rows: [] }],
+      sections: [...s.sections, { id: genId("sec"), label: "【新しいロール】", rows: [] }],
     }));
   }, [updateState]);
 
@@ -210,7 +212,7 @@ function CueTableLg({
     updateState((s: any) => {
       const secs = [...s.sections];
       const idx = afterIndex !== undefined ? afterIndex + 1 : secs.length;
-      secs.splice(idx, 0, { _break: true, label: "CM", duration: "1:00", rows: [] });
+      secs.splice(idx, 0, { id: genId("sec"), _break: true, label: "CM", duration: "1:00", rows: [] });
       return { ...s, sections: secs };
     });
   }, [updateState]);
@@ -219,7 +221,7 @@ function CueTableLg({
     updateState((s: any) => {
       const secs = [...s.sections];
       const idx = afterIndex !== undefined ? afterIndex + 1 : secs.length;
-      secs.splice(idx, 0, { _pageBreak: true });
+      secs.splice(idx, 0, { id: genId("sec"), _pageBreak: true });
       return { ...s, sections: secs };
     });
   }, [updateState]);
@@ -228,7 +230,7 @@ function CueTableLg({
     updateState((s: any) => {
       const secs = [...s.sections];
       const idx = afterIndex !== undefined ? afterIndex + 1 : secs.length;
-      secs.splice(idx, 0, { _vtr: true, label: "VTR", duration: "0:30", rows: [] });
+      secs.splice(idx, 0, { id: genId("sec"), _vtr: true, label: "VTR", duration: "0:30", rows: [] });
       return { ...s, sections: secs };
     });
   }, [updateState]);
@@ -258,7 +260,7 @@ function CueTableLg({
   const addRow = useCallback((si: number) => {
     updateState((s: any) => {
       const secs = [...s.sections];
-      secs[si] = { ...secs[si], rows: [...secs[si].rows, { duration: "", cells: {} }] };
+      secs[si] = { ...secs[si], rows: [...secs[si].rows, { id: genId("row"), duration: "", cells: {} }] };
       return { ...s, sections: secs };
     });
   }, [updateState]);
@@ -331,7 +333,7 @@ function CueTableLg({
   const insertSectionAt = useCallback((idx: number) => {
     updateState((s: any) => {
       const secs = [...s.sections];
-      secs.splice(idx, 0, { label: "【新しいロール】", rows: [] });
+      secs.splice(idx, 0, { id: genId("sec"), label: "【新しいロール】", rows: [] });
       return { ...s, sections: secs };
     });
   }, [updateState]);
@@ -365,7 +367,10 @@ function CueTableLg({
     updateState((s: any) => {
       const secs = [...s.sections];
       const rows = [...secs[si].rows];
-      rows.splice(ri + 1, 0, JSON.parse(JSON.stringify(rows[ri])));
+      // 複製行は新規 id (安定 ID の一意性を保つため元の id はコピーしない)
+      const clone = JSON.parse(JSON.stringify(rows[ri]));
+      clone.id = genId("row");
+      rows.splice(ri + 1, 0, clone);
       secs[si] = { ...secs[si], rows };
       return { ...s, sections: secs };
     });
@@ -376,7 +381,7 @@ function CueTableLg({
     updateState((s: any) => {
       const secs = [...s.sections];
       const rows = [...secs[si].rows];
-      rows.splice(ri + 1, 0, { duration: "", cells: {} });
+      rows.splice(ri + 1, 0, { id: genId("row"), duration: "", cells: {} });
       secs[si] = { ...secs[si], rows };
       return { ...s, sections: secs };
     });
@@ -552,7 +557,7 @@ function CueTableLg({
           // Page break
           if (section._pageBreak) {
             return (
-              <Fragment key={si}>
+              <Fragment key={section.id ?? si}>
                 <div className={`flex items-center gap-2 my-1 px-4 animate-in cursor-grab select-none ${isSectionDragged ? "opacity-40" : ""}`}>
                   <GripVertical size={12} className="text-muted-foreground/40 flex-none" />
                   <div className="flex-1 border-t-2 border-dashed border-border" />
@@ -573,7 +578,7 @@ function CueTableLg({
             const breakAbsSec = absSec;
             absSec += breakDur;
             return (
-              <Fragment key={si}>
+              <Fragment key={section.id ?? si}>
                 <div
                   draggable
                   onDragStart={(e) => { e.dataTransfer.setData("text/x-section-idx", String(si)); e.dataTransfer.effectAllowed = "move"; setDraggedSectionIdx(si); }}
@@ -628,7 +633,7 @@ function CueTableLg({
             const vtrAbsSec = absSec;
             absSec += vtrDur;
             return (
-              <Fragment key={si}>
+              <Fragment key={section.id ?? si}>
                 <div
                   draggable
                   onDragStart={(e) => { e.dataTransfer.setData("text/x-section-idx", String(si)); e.dataTransfer.effectAllowed = "move"; setDraggedSectionIdx(si); }}
@@ -686,7 +691,7 @@ function CueTableLg({
           const isSectionCollapsed = collapsedSections?.has(si);
 
           return (
-            <Fragment key={si}>
+            <Fragment key={section.id ?? si}>
             <div
               className={`bg-card rounded-xl border border-border overflow-hidden shadow-sm animate-in transition-opacity ${
                 isSectionDragged ? "opacity-40" : ""
@@ -848,7 +853,7 @@ function CueTableLg({
                       <tbody>
                         {section.rows.map((row, ri) => (
                           <CueRowSlot
-                            key={ri}
+                            key={row.id ?? ri}
                             si={si}
                             ri={ri}
                             row={row}
