@@ -140,7 +140,12 @@ router.post('/documents', requirePermission('qsheet', 'editor'), async (req: Req
 // ============================================================
 router.put('/documents/:id', requirePermission('qsheet', 'editor'), async (req: Request, res: Response) => {
   try {
-    const existing = await queryOne('SELECT id, created_by FROM qsheet_documents WHERE id = $1 AND deleted_at IS NULL', [req.params.id]);
+    const existing = await queryOne(
+      `SELECT d.id, d.created_by, d.updated_at, d.updated_by, u.name as updater_name
+       FROM qsheet_documents d LEFT JOIN users u ON d.updated_by = u.id
+       WHERE d.id = $1 AND d.deleted_at IS NULL`,
+      [req.params.id]
+    );
     if (!existing) {
       res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'ドキュメントが見つかりません' } });
       return;
@@ -149,6 +154,30 @@ router.put('/documents/:id', requirePermission('qsheet', 'editor'), async (req: 
     if (!(await canAccessDoc(req.user!, existing.id as string, (existing.created_by as string) ?? null))) {
       res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'ドキュメントが見つかりません' } });
       return;
+    }
+
+    // 楽観ロック: クライアントが読み込んだ時点の updated_at を送ってきた場合、
+    // DB の updated_at と異なれば「他のユーザーが先に保存した」として 409 を返す
+    // (同時編集での黙った上書き合戦を防止。expected_updated_at 未送信の旧クライアントは従来どおり)
+    const { expected_updated_at } = req.body as { expected_updated_at?: unknown };
+    if (typeof expected_updated_at === 'string' && expected_updated_at) {
+      const expectedMs = new Date(expected_updated_at).getTime();
+      const currentMs = new Date(existing.updated_at as string).getTime();
+      if (Number.isFinite(expectedMs) && Number.isFinite(currentMs) && expectedMs !== currentMs) {
+        const isSelf = (existing.updated_by as string) === req.user!.id;
+        res.status(409).json({
+          success: false,
+          error: {
+            code: 'CONFLICT',
+            message: isSelf
+              ? 'このシートは別のタブ/端末で更新されています。最新の内容を読み込み直してください。'
+              : `このシートは ${existing.updater_name || '他のユーザー'} さんが先に更新しました。上書きを防ぐため保存を中止しました。`,
+            current_updated_at: existing.updated_at,
+            updated_by_name: existing.updater_name || null,
+          },
+        });
+        return;
+      }
     }
 
     const { title, data, episode_id, project_id, broadcast_date, episode_code, status } = req.body;
