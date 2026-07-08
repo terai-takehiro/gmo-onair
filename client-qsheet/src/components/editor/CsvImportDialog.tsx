@@ -76,7 +76,8 @@ export default function CsvImportDialog({ blocks, onImport, onClose }: CsvImport
           <div className="text-xs text-muted-foreground leading-relaxed">
             CSVエクスポートと同じ形式 (1 行目: <code className="px-1 bg-muted rounded">#, セクション, 尺, ブロック名...</code>) を読み込みます。
             同じセクション名が連続する行は 1 つのロールにまとまります。
-            セクション名「CM」はCM行、「VTR: タイトル」はVTR行になります。
+            セクション名が「CM」で始まる行はCM行、「VTR」または「VTR: タイトル」はVTR行になり、尺列の値がそのまま反映されます (全角ＣＭ/ＶＴＲも可)。
+            ロールの先頭にブロック内容が空の行を置くと、その尺が<strong>ロール尺</strong>になります (無ければ各行の尺の合計を自動設定)。
           </div>
 
           {/* File picker */}
