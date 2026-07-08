@@ -35,16 +35,16 @@ const VIEWER_ITEMS: { key: 'youtube' | 'jstream' | 'zoom' | 'teams' | 'total'; l
 const PLATFORM_ITEMS = VIEWER_ITEMS.filter(i => i.key !== 'total') as
   { key: 'youtube' | 'jstream' | 'zoom' | 'teams'; label: string; color: string }[];
 
-/** 「● リアルタイム視聴者数」見出し (赤ドットは点滅) */
+/** 「● 視聴者数」見出し (赤ドットは点滅) */
 function ViewerHeader() {
   return (
-    <div className="flex items-center gap-[0.9vw]">
+    <div className="flex items-center justify-center gap-[0.9vw]">
       <span
         className="live-dot shrink-0"
         style={{ width: 'max(10px, 0.85vw)', height: 'max(10px, 0.85vw)' }}
         aria-hidden="true"
       />
-      <span className="viewer-header-ja">リアルタイム視聴者数</span>
+      <span className="viewer-header-ja">視聴者数</span>
     </div>
   );
 }
@@ -179,13 +179,13 @@ export default function TimerDisplayPage() {
               </div>
             )}
             {platformItems.length > 0 && (
-              <div className="flex flex-wrap items-end justify-center gap-x-[5vw] gap-y-[4vh]">
+              <div className="flex flex-wrap items-start justify-center gap-x-[5vw] gap-y-[4vh]">
                 {platformItems.map(({ key, label, color }) => (
                   <div key={key} className="text-center">
-                    <div className={showTotal ? 'viewer-row-label mb-[0.6vh]' : 'viewer-hero-label'} style={{ color }}>{label}</div>
                     <div className={`${showTotal ? 'viewer-break-count' : 'viewer-hero-count'} tabular-nums`}>
                       {formatCount(counts[key])}
                     </div>
+                    <div className={`${showTotal ? 'viewer-row-label' : 'viewer-hero-label'} mt-[0.8vh]`} style={{ color }}>{label}</div>
                   </div>
                 ))}
               </div>
@@ -198,23 +198,23 @@ export default function TimerDisplayPage() {
           <div className="flex flex-1 flex-col items-center justify-center pb-[2vh] landscape:w-[60%] landscape:flex-none landscape:flex-initial">
             {timerBlock('split-timer-font')}
           </div>
-          <div className={`flex flex-col justify-center border-t px-[4vw] pb-[3vh] pt-[2vh] landscape:w-[40%] landscape:border-t-0 landscape:border-l landscape:px-[3.2vw] landscape:pt-0 ${lineColor}`}>
+          <div className={`flex flex-col items-center justify-center border-t px-[3vw] pb-[3vh] pt-[2vh] text-center landscape:w-[40%] landscape:border-t-0 landscape:border-l landscape:px-[2.4vw] landscape:pt-0 ${lineColor}`}>
             <ViewerHeader />
             {showTotal && (
-              <div className="mt-[3.5vh]">
-                <div className="viewer-total-label mb-[0.5vh]">合計</div>
-                <div className="viewer-total-count">{formatCount(counts.total)}</div>
+              <div className="mt-[2.8vh]">
+                <div className="viewer-total-count tabular-nums">{formatCount(counts.total)}</div>
+                <div className="viewer-total-label mt-[1vh]">合計</div>
               </div>
             )}
             {showTotal && platformItems.length > 0 && (
-              <div className={`my-[3.2vh] border-t ${lineColor}`} aria-hidden="true" />
+              <div className={`my-[3vh] w-full border-t ${lineColor}`} aria-hidden="true" />
             )}
             {platformItems.length > 0 && (
-              <div className={`flex flex-col gap-[2.4vh] ${!showTotal ? 'mt-[3.5vh]' : ''}`}>
+              <div className={`grid gap-x-[3vw] gap-y-[3vh] ${platformItems.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} ${!showTotal ? 'mt-[3.5vh]' : ''}`}>
                 {platformItems.map(({ key, label, color }) => (
-                  <div key={key} className="flex items-baseline justify-between gap-[2vw]">
-                    <span className="viewer-row-label" style={{ color }}>{label}</span>
-                    <span className="viewer-row-count tabular-nums">{formatCount(counts[key])}</span>
+                  <div key={key} className="text-center">
+                    <div className="viewer-cell-count tabular-nums">{formatCount(counts[key])}</div>
+                    <div className="viewer-row-label mt-[0.6vh]" style={{ color }}>{label}</div>
                   </div>
                 ))}
               </div>
