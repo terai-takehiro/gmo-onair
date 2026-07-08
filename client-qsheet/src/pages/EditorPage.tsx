@@ -13,6 +13,9 @@ import TrashDrawer from "@/components/editor/TrashDrawer";
 import { getTrash } from "@/lib/trash";
 import { splitMultiEntryRows } from "@/lib/migrateEntries";
 import { ensureStableIds } from "@/lib/stableIds";
+import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
+import { useAuth } from "@/hooks/useAuth";
+import PresenceAvatars, { type PresenceUser } from "@/components/editor/PresenceAvatars";
 import StageEditor from "@/components/editor/StageEditor";
 import AudioShareDialog from "@/components/editor/AudioShareDialog";
 import CsvImportDialog from "@/components/editor/CsvImportDialog";
@@ -204,6 +207,8 @@ export default function EditorPage() {
   // 最終保存時刻 (目視確認用) と 同時編集の競合メッセージ
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [conflictMsg, setConflictMsg] = useState<string | null>(null);
+  const [presenceUsers, setPresenceUsers] = useState<PresenceUser[]>([]);
+  const { currentUser } = useAuth();
   const [collapsedBlocks, setCollapsedBlocks] = useState<Set<string>>(new Set());
   const [collapsedSections, setCollapsedSections] = useState<Set<number>>(new Set());
   const [showPreview, setShowPreview] = useState(false);
@@ -339,6 +344,26 @@ export default function EditorPage() {
     return () => clearTimeout(autoSaveTimer.current);
   }, [dirty, doc, conflictMsg]);
 
+  // 在席表示 (Phase 1): このシートを今開いている人を Socket.IO で同期する。
+  // 内容同期はまだ載せず、presence のみ (誰かが同時に開いていると分かる → 競合の心当たりが付く)。
+  useEffect(() => {
+    if (!id) return;
+    const socket = getQsheetSocket(id);
+    const onPresence = (payload: { users?: PresenceUser[] }) => {
+      setPresenceUsers(Array.isArray(payload?.users) ? payload.users : []);
+    };
+    socket.on("presence:sync", onPresence);
+    const onConnect = () => socket.emit("presence:query");
+    socket.on("connect", onConnect);
+    if (socket.connected) socket.emit("presence:query");
+    return () => {
+      socket.off("presence:sync", onPresence);
+      socket.off("connect", onConnect);
+      disconnectQsheetSocket();
+      setPresenceUsers([]);
+    };
+  }, [id]);
+
   // Note: Section/row CRUD is handled by CueTable component
 
 
@@ -433,6 +458,8 @@ export default function EditorPage() {
             />
           </div>
           <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
+            {/* 在席表示 (このシートを今開いている人) */}
+            <PresenceAvatars users={presenceUsers} currentUserId={currentUser?.id} />
             {/* Save status badge (最終保存時刻つき) */}
             <span
               role="status"
