@@ -1,5 +1,6 @@
 // CSV インポート: CSV エクスポート (#, セクション, 尺, ...ブロック列) と往復可能な形式を読み込み、
 // sections[] に変換する。Excel で編集した CSV (引用符・改行・カンマ内包) にも対応。
+import { parseDur } from "@/lib/time";
 
 // ─── CSV パーサ (RFC 4180 準拠: "" エスケープ / セル内改行 / CRLF) ───
 export function parseCsv(text: string): string[][] {
@@ -135,24 +136,30 @@ export function buildSectionsFromCsv(rows: string[][], map: CsvColumnMap): CsvIm
     const duration = map.durationIdx >= 0 ? (r[map.durationIdx] || "").trim() : "";
     const hasBlockContent = map.blockCols.some(({ idx }) => (r[idx] || "").trim() !== "");
 
-    // VTR 行: 「VTR: タイトル」(PreviewModal の CSV 出力形式)
-    const vtrMatch = label.match(/^VTR[:：]\s*(.*)$/);
+    // VTR 行: 「VTR: タイトル」「VTR」「ＶＴＲ」(全角/コロン無しも許容)
+    const vtrMatch = label.match(/^(?:VTR|ＶＴＲ)(?:[:：]\s*(.*))?$/i);
     if (vtrMatch && !hasBlockContent) {
-      sections.push({ _vtr: true, label: vtrMatch[1] || "VTR", duration: duration || "0:30", rows: [] });
+      sections.push({ _vtr: true, label: (vtrMatch[1] || "").trim() || "VTR", duration: duration || "0:30", rows: [] });
       current = null;
       return;
     }
-    // CM 行: ラベルが CM でブロック内容なし
-    if (/^CM$/i.test(label) && !hasBlockContent) {
-      sections.push({ _break: true, label: "CM", duration: duration || "1:00", rows: [] });
+    // CM 行: ラベルが CM で始まりブロック内容なし (「CM」「ＣＭ」「CM②」等、名前はそのまま保持)
+    if (/^(?:CM|ＣＭ)/i.test(label) && !hasBlockContent) {
+      sections.push({ _break: true, label, duration: duration || "1:00", rows: [] });
       current = null;
       return;
     }
 
-    // ロール行: ラベルが前行と変われば新セクション
+    // ロール行: ラベルが前行と変われば新セクション。
+    // 新セクションの先頭行がブロック内容なしなら「ロール見出し行」とみなし、
+    // その尺をロール尺 (section.duration) に設定する (空行は作らない)。
     if (!current || current.label !== label) {
       current = { label: label || "【無題ロール】", rows: [] };
       sections.push(current);
+      if (!hasBlockContent) {
+        if (duration) current.duration = duration;
+        return;
+      }
     }
 
     const cells: Record<string, any> = {};
@@ -167,6 +174,14 @@ export function buildSectionsFromCsv(rows: string[][], map: CsvColumnMap): CsvIm
     });
     current.rows.push({ duration, cells });
     rowCount++;
+  });
+
+  // ロール尺が未設定のロールは、行の尺の合計をロール尺に反映する
+  // (時刻タイムラインは section.duration で進むため、CSV に書いた尺が「反映されない」問題の解消)
+  sections.forEach((sec) => {
+    if (sec._break || sec._vtr || sec.duration) return;
+    const total = (sec.rows || []).reduce((sum: number, row: any) => sum + parseDur(row.duration || ""), 0);
+    if (total > 0) sec.duration = `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
   });
 
   return {

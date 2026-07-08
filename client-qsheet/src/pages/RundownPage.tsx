@@ -129,6 +129,33 @@ export default function RundownPage() {
   const [currentCue, setCurrentCue] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  // 現在キューに入った時点の経過秒 (実尺 = elapsed - これ)。予定尺と切り離して必ず 0 から進む
+  const [cueEnteredElapsed, setCueEnteredElapsed] = useState(0);
+  // 通過済みキューの実測尺 (NEXT で進んだときに記録)
+  const [actualDurations, setActualDurations] = useState<Record<number, number>>({});
+  const prevCueRef = useRef(0);
+  const elapsedRef = useRef(0);
+  useEffect(() => { elapsedRef.current = elapsed; }, [elapsed]);
+
+  // キューが切り替わったら: 直前キューの実測尺を記録し、実尺の起点を現在時刻に
+  useEffect(() => {
+    const prev = prevCueRef.current;
+    if (prev === currentCue) return;
+    const spent = Math.max(0, elapsedRef.current - (cueEnteredElapsed ?? 0));
+    if (currentCue === prev + 1 && spent > 0) {
+      // 順送りのときだけ実測として記録 (ジャンプ/巻き戻しは計測として無意味なので記録しない)
+      setActualDurations((m) => ({ ...m, [prev]: spent }));
+    }
+    prevCueRef.current = currentCue;
+    setCueEnteredElapsed(elapsedRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentCue]);
+
+  const resetCueTiming = useCallback(() => {
+    prevCueRef.current = 0;
+    setCueEnteredElapsed(0);
+    setActualDurations({});
+  }, []);
 
   // Local UI state
   const [theme, setTheme] = useState<"light" | "dark">(() => {
@@ -267,7 +294,7 @@ export default function RundownPage() {
     });
     socket.on("cue:play", () => setIsPlaying(true));
     socket.on("cue:pause", () => setIsPlaying(false));
-    socket.on("cue:reset", () => { setIsPlaying(false); setCurrentCue(0); setElapsed(0); });
+    socket.on("cue:reset", () => { setIsPlaying(false); setCurrentCue(0); setElapsed(0); resetCueTiming(); });
 
     return () => {
       disconnectQsheetSocket();
@@ -290,11 +317,23 @@ export default function RundownPage() {
   // ============================================================
   // Transport command helpers (emit to Socket.IO)
   // ============================================================
-  const sendNext = useCallback(() => { socketRef.current?.emit("cue:next"); setCurrentCue((p) => Math.min(p + 1, flatCues.length - 1)); }, [flatCues.length]);
+  const sendNext = useCallback(() => {
+    socketRef.current?.emit("cue:next");
+    setCurrentCue((p) => Math.min(p + 1, flatCues.length - 1));
+    // NEXT で進んだのに計時が止まっている場合は自動で走らせる (「次のキューで計時が進まない」対策)
+    setIsPlaying((playing) => {
+      if (!playing) socketRef.current?.emit("cue:play");
+      return true;
+    });
+  }, [flatCues.length]);
   const sendPrev = useCallback(() => { socketRef.current?.emit("cue:prev"); setCurrentCue((p) => Math.max(p - 1, 0)); }, []);
   const sendPlay = useCallback(() => { socketRef.current?.emit("cue:play"); setIsPlaying(true); }, []);
   const sendPause = useCallback(() => { socketRef.current?.emit("cue:pause"); setIsPlaying(false); }, []);
-  const sendReset = useCallback(() => { socketRef.current?.emit("cue:reset"); setIsPlaying(false); setCurrentCue(0); setElapsed(0); }, []);
+  const sendReset = useCallback(() => {
+    if (!window.confirm("計時をリセットしますか？ (経過時間と実尺の記録がクリアされます)")) return;
+    socketRef.current?.emit("cue:reset");
+    setIsPlaying(false); setCurrentCue(0); setElapsed(0); resetCueTiming();
+  }, [resetCueTiming]);
   const sendJump = useCallback((idx: number) => {
     socketRef.current?.emit("cue:jump", { cueIndex: idx });
     setCurrentCue(idx);
@@ -557,8 +596,14 @@ export default function RundownPage() {
               const showSectionHeader = cue.sectionIdx !== lastSectionIdx;
               lastSectionIdx = cue.sectionIdx;
 
-              // Actual elapsed at this cue (if past or current)
-              const actualElapsed = isPast || isCurrent ? elapsed - cue.startTime : null;
+              // 実尺: 現在キュー = このキューに入ってからの経過 (必ず 0 から進む)、
+              // 通過済み = NEXT 時に記録した実測尺 (旧実装の「elapsed - 予定開始時刻」は
+              // 予定より早く進めると負になり "--" 表示 = 計時が止まって見えるバグがあった)
+              const actualElapsed = isCurrent
+                ? Math.max(0, elapsed - cueEnteredElapsed)
+                : isPast
+                  ? (actualDurations[cue.globalIndex] ?? null)
+                  : null;
 
               // 任意エントリのハイライト色（最初に見つかったものを採用）
               const scenarioBlk = blocks.find((b) => b.type === "scenario");
@@ -704,48 +749,64 @@ export default function RundownPage() {
         </table>
       </div>
 
-      {/* ==================== Transport controls ==================== */}
-      <div className={cn("flex items-center justify-center gap-4 px-4 py-3 border-t", borderColor, headerBg)}>
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn(isDark ? "text-muted-foreground hover:text-foreground hover:bg-accent" : "text-muted-foreground hover:text-foreground")}
-          onClick={sendReset}
-        >
-          <Square className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn(isDark ? "text-muted-foreground hover:text-foreground hover:bg-accent" : "text-muted-foreground hover:text-foreground")}
-          onClick={sendPrev}
-        >
-          <SkipBack className="h-4 w-4" />
-        </Button>
-        <Button
-          size="icon"
-          className={cn(
-            "h-12 w-12 rounded-full",
-            isPlaying
-              ? "bg-primary hover:bg-primary/90 text-primary-foreground"
-              : isDark
-                ? "bg-foreground text-background hover:bg-foreground/90"
-                : "bg-foreground text-background hover:bg-foreground/90"
-          )}
-          onClick={() => (isPlaying ? sendPause() : sendPlay())}
-        >
-          {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn(isDark ? "text-muted-foreground hover:text-foreground hover:bg-accent" : "text-muted-foreground hover:text-foreground")}
-          onClick={sendNext}
-        >
-          <SkipForward className="h-4 w-4" />
-        </Button>
-        <div className={cn("text-xs ml-4 hidden sm:block", mutedText)}>
-          Space: 次へ / P: 再生/停止 / ESC: リセット / L/D: テーマ切替
+      {/* ==================== Transport controls (iPad/タッチ操作向けに大型化) ==================== */}
+      <div
+        className={cn("border-t px-3 pt-2 pb-2", borderColor, headerBg)}
+        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.5rem)" }}
+      >
+        <div className="flex items-stretch gap-2 max-w-4xl mx-auto">
+          {/* RESET (誤タップ防止に小さめ + confirm) */}
+          <button
+            onClick={sendReset}
+            className={cn(
+              "flex flex-col items-center justify-center gap-0.5 w-16 min-h-[64px] rounded-xl border transition-colors select-none",
+              borderColor,
+              "text-muted-foreground hover:text-destructive hover:border-destructive/50 hover:bg-destructive/10 active:bg-destructive/20"
+            )}
+            aria-label="リセット"
+          >
+            <Square className="h-5 w-5" aria-hidden />
+            <span className="text-[10px] font-bold tracking-wider">RESET</span>
+          </button>
+          {/* BACK */}
+          <button
+            onClick={sendPrev}
+            className={cn(
+              "flex flex-col items-center justify-center gap-0.5 flex-1 min-h-[64px] rounded-xl border transition-colors select-none",
+              borderColor,
+              "hover:bg-accent active:bg-accent/80"
+            )}
+            aria-label="前のキューへ"
+          >
+            <SkipBack className="h-6 w-6" aria-hidden />
+            <span className="text-xs font-bold tracking-wider">BACK</span>
+          </button>
+          {/* PLAY / PAUSE */}
+          <button
+            onClick={() => (isPlaying ? sendPause() : sendPlay())}
+            className={cn(
+              "flex flex-col items-center justify-center gap-0.5 flex-1 min-h-[64px] rounded-xl transition-colors select-none font-bold",
+              isPlaying
+                ? "bg-warning/15 text-warning border border-warning/40 hover:bg-warning/25 active:bg-warning/30"
+                : "bg-success/15 text-success border border-success/40 hover:bg-success/25 active:bg-success/30"
+            )}
+            aria-label={isPlaying ? "一時停止" : "再生"}
+          >
+            {isPlaying ? <Pause className="h-6 w-6" aria-hidden /> : <Play className="h-6 w-6 ml-0.5" aria-hidden />}
+            <span className="text-xs tracking-wider">{isPlaying ? "PAUSE" : "PLAY"}</span>
+          </button>
+          {/* NEXT (最重要 = 最大) */}
+          <button
+            onClick={sendNext}
+            className="flex items-center justify-center gap-2 flex-[2] min-h-[64px] rounded-xl bg-primary text-primary-foreground font-black shadow-lg shadow-primary/25 hover:bg-primary/90 active:scale-[0.98] transition-all select-none"
+            aria-label="次のキューへ"
+          >
+            <span className="text-lg tracking-widest">NEXT</span>
+            <SkipForward className="h-7 w-7" aria-hidden />
+          </button>
+        </div>
+        <div className={cn("text-xs mt-1.5 text-center hidden lg:block", mutedText)}>
+          Space/↓: 次へ / ↑: 前へ / P: 再生/停止 / ESC: リセット / L/D: テーマ切替
         </div>
       </div>
     </div>

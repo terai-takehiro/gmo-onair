@@ -134,6 +134,38 @@ function CueTableLg({
   const selectedRef = useRef(selectedRowKeys);
   useEffect(() => { selectedRef.current = selectedRowKeys; }, [selectedRowKeys]);
   const lastSelRef = useRef<{ si: number; ri: number } | null>(null);
+
+  // ── ドラッグ中の自動スクロール (ネイティブ DnD は端に来ても自動で送らないため自前で) ──
+  const scrollRef = useRef<HTMLElement | null>(null);
+  const scrollSpeedRef = useRef(0);
+  const rafRef = useRef<number | null>(null);
+  const stepScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (el && scrollSpeedRef.current !== 0) {
+      el.scrollTop += scrollSpeedRef.current;
+      rafRef.current = requestAnimationFrame(stepScroll);
+    } else {
+      rafRef.current = null;
+    }
+  }, []);
+  const onContainerDragOver = useCallback((e: React.DragEvent) => {
+    const types = e.dataTransfer.types;
+    // 行 / ロール のドラッグ中のみ作動
+    if (!types.includes("text/x-row-key") && !types.includes("text/x-section-idx")) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const EDGE = 90; // 端から 90px で発動
+    const MAX = 22;  // 1 フレームあたり最大 22px
+    const y = e.clientY;
+    let speed = 0;
+    if (y < rect.top + EDGE) speed = -Math.ceil(((rect.top + EDGE - y) / EDGE) * MAX);
+    else if (y > rect.bottom - EDGE) speed = Math.ceil(((y - (rect.bottom - EDGE)) / EDGE) * MAX);
+    scrollSpeedRef.current = speed;
+    if (speed !== 0 && rafRef.current == null) rafRef.current = requestAnimationFrame(stepScroll);
+  }, [stepScroll]);
+  const stopAutoScroll = useCallback(() => { scrollSpeedRef.current = 0; }, []);
+  useEffect(() => () => { if (rafRef.current != null) cancelAnimationFrame(rafRef.current); }, []);
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
   const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
 
@@ -320,7 +352,8 @@ function CueTableLg({
     updateState((s: any) => {
       const secs = [...s.sections];
       const rows = [...secs[si].rows];
-      if (fromIdx < 0 || fromIdx >= rows.length || toIdx < 0 || toIdx >= rows.length) return s;
+      // toIdx === rows.length は「末尾へ」を許可 (splice はクランプして末尾追加)
+      if (fromIdx < 0 || fromIdx >= rows.length || toIdx < 0 || toIdx > rows.length) return s;
       const [moved] = rows.splice(fromIdx, 1);
       rows.splice(toIdx, 0, moved);
       secs[si] = { ...secs[si], rows };
@@ -490,7 +523,14 @@ function CueTableLg({
   );
 
   return (
-    <main className="flex-1 overflow-auto bg-background">
+    <main
+      ref={scrollRef}
+      className="flex-1 overflow-auto bg-background"
+      onDragOver={onContainerDragOver}
+      onDrop={stopAutoScroll}
+      onDragEnd={stopAutoScroll}
+      onDragLeave={(e) => { if (e.currentTarget === e.target) stopAutoScroll(); }}
+    >
       {selectedRowKeys.size > 0 && (
         <div className="sticky top-0 z-20 flex items-center gap-3 px-4 py-2 bg-primary text-primary-foreground text-xs font-medium shadow">
           <span>{selectedRowKeys.size} 行を選択中</span>
@@ -842,12 +882,32 @@ function CueTableLg({
                     </table>
                   </div>
 
-                  {/* Add row footer */}
+                  {/* Add row footer (行ドラッグ中はこのロール末尾へのドロップゾーンも兼ねる) */}
                   <button
                     onClick={() => addRow(si)}
-                    className="w-full py-2 text-[12px] text-muted-foreground hover:text-primary hover:bg-primary/10 border-t border-border/60 transition-colors"
+                    onDragOver={(e) => {
+                      if (!e.dataTransfer.types.includes("text/x-row-key")) return;
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                      setDropTargetRowKey(`${si}-end`);
+                    }}
+                    onDragLeave={() => setDropTargetRowKey((k) => (k === `${si}-end` ? null : k))}
+                    onDrop={(e) => {
+                      if (!e.dataTransfer.types.includes("text/x-row-key")) return;
+                      e.preventDefault();
+                      const [fromSiStr, fromRiStr] = e.dataTransfer.getData("text/x-row-key").split("-");
+                      if (+fromSiStr === si) moveRowsGroup(si, +fromRiStr, section.rows.length);
+                      setDraggedRow(null);
+                      setDropTargetRowKey(null);
+                      stopAutoScroll();
+                    }}
+                    className={`w-full py-2 text-[12px] border-t transition-colors ${
+                      dropTargetRowKey === `${si}-end`
+                        ? "border-primary border-t-2 bg-primary/15 text-primary font-medium"
+                        : "border-border/60 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                    }`}
                   >
-                    ＋ 行を追加
+                    {dropTargetRowKey === `${si}-end` ? "ここに移動 (末尾)" : "＋ 行を追加"}
                   </button>
                 </>
               )}

@@ -171,6 +171,11 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
         rows.push([String(num++), String(sec.label || ""), String(sec.duration || ""), ...blocks.map(() => "")]);
         return;
       }
+      // ロール尺 (sec.duration) があれば「ロール見出し行」(ブロック空) として先頭に出力し、
+      // 再インポート時にロール尺として復元できるようにする
+      if (sec.duration) {
+        rows.push([String(num++), String(sec.label || ""), String(sec.duration), ...blocks.map(() => "")]);
+      }
       secRows.forEach((row: any) => {
         const cells = (row.cells || {}) as Record<string, any>;
         rows.push([

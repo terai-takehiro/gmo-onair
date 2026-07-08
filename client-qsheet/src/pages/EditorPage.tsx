@@ -198,8 +198,11 @@ export default function EditorPage() {
   const [dirty, setDirty] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error" | "unsaved">("saved");
+  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error" | "unsaved" | "conflict">("saved");
   const [saveFlash, setSaveFlash] = useState(false);
+  // 最終保存時刻 (目視確認用) と 同時編集の競合メッセージ
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [conflictMsg, setConflictMsg] = useState<string | null>(null);
   const [collapsedBlocks, setCollapsedBlocks] = useState<Set<string>>(new Set());
   const [collapsedSections, setCollapsedSections] = useState<Set<number>>(new Set());
   const [showPreview, setShowPreview] = useState(false);
@@ -263,21 +266,37 @@ export default function EditorPage() {
   const saveMutation = useMutation({
     mutationFn: async (document: QsheetDocument) => {
       setSaveStatus("saving");
-      await api.put(`/qsheet/documents/${document.id}`, {
+      const res = await api.put(`/qsheet/documents/${document.id}`, {
         title: document.data.meta.title || document.title,
         data: document.data,
         status: document.status,
         broadcast_date: document.broadcast_date,
         episode_code: document.episode_code,
         episode_id: document.episode_id,
+        // 楽観ロック: 読み込み時点の updated_at を送り、他ユーザーが先に保存していたら 409
+        expected_updated_at: document.updated_at,
       });
+      return res.data.data as { updated_at: string };
     },
-    onSuccess: () => {
+    onSuccess: (saved) => {
       setDirty(false);
       setSaveStatus("saved");
+      setLastSavedAt(new Date());
+      // 次回保存の楽観ロック用に updated_at を最新化 (編集中の data は触らない)
+      if (saved?.updated_at) {
+        setDoc((prev) => (prev ? { ...prev, updated_at: saved.updated_at } : prev));
+      }
       queryClient.invalidateQueries({ queryKey: ["qsheet-documents"] });
     },
-    onError: () => {
+    onError: (err: any) => {
+      if (err?.response?.status === 409) {
+        // 同時編集の競合: 自動保存を止めてバナーで案内 (黙った上書きはしない)
+        const msg = err.response?.data?.error?.message ||
+          "他のユーザーがこのシートを先に更新したため、上書きを防ぐため保存を中止しました。";
+        setSaveStatus("conflict");
+        setConflictMsg(msg);
+        return;
+      }
       setSaveStatus("error");
       notifyError("保存に失敗しました", { description: "ネットワーク接続を確認して、もう一度保存してください。" });
     },
@@ -289,7 +308,8 @@ export default function EditorPage() {
       return { ...prev, data: updater({ ...prev.data }) };
     });
     setDirty(true);
-    setSaveStatus("unsaved");
+    // 競合状態は編集しても解除しない (バナーで「最新を読み込む」を促す)
+    setSaveStatus((prev) => (prev === "conflict" ? prev : "unsaved"));
   }, []);
 
   // CSV インポート: 解析済みセクションを置き換え or 末尾に追加、検出した話者を masters.persons にマージ
@@ -305,15 +325,15 @@ export default function EditorPage() {
     });
   }, [updateData]);
 
-  // Auto-save (2s debounce)
+  // Auto-save (2s debounce)。競合検出中は自動保存を止める (409 の連発を防止)
   useEffect(() => {
-    if (!dirty || !doc) return;
+    if (!dirty || !doc || conflictMsg) return;
     clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(() => {
       saveMutation.mutate(doc);
     }, 2000);
     return () => clearTimeout(autoSaveTimer.current);
-  }, [dirty, doc]);
+  }, [dirty, doc, conflictMsg]);
 
   // Note: Section/row CRUD is handled by CueTable component
 
@@ -409,18 +429,24 @@ export default function EditorPage() {
             />
           </div>
           <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
-            {/* Save status badge */}
+            {/* Save status badge (最終保存時刻つき) */}
             <span
               role="status"
               aria-live="polite"
-              className={`hidden sm:inline text-xs font-medium px-2 py-0.5 rounded-full transition-all ${
+              title={lastSavedAt ? `最終保存 ${lastSavedAt.toLocaleTimeString("ja-JP")}` : "このセッションではまだ保存されていません"}
+              className={`hidden sm:inline text-xs font-medium px-2 py-0.5 rounded-full transition-all whitespace-nowrap ${
                 saveStatus === "saved" ? "text-success bg-success/10" :
                 saveStatus === "saving" ? "text-primary bg-primary/10" :
-                saveStatus === "error" ? "text-destructive bg-destructive/10" :
+                saveStatus === "error" || saveStatus === "conflict" ? "text-destructive bg-destructive/10" :
                 "text-warning bg-warning/10"
               }`}
             >
-              {saveStatus === "saved" ? "保存済み" : saveStatus === "saving" ? "保存中..." : saveStatus === "error" ? "エラー" : "未保存"}
+              {saveStatus === "saved"
+                ? `保存済み${lastSavedAt ? ` ${lastSavedAt.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : ""}`
+                : saveStatus === "saving" ? "保存中..."
+                : saveStatus === "error" ? "保存エラー"
+                : saveStatus === "conflict" ? "競合 (未保存)"
+                : `未保存${lastSavedAt ? ` (最終保存 ${lastSavedAt.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })})` : ""}`}
             </span>
             {/* Manual save button */}
             <button
@@ -552,6 +578,20 @@ export default function EditorPage() {
           </div>
         </div>
       </header>
+
+      {/* 同時編集の競合バナー */}
+      {conflictMsg && (
+        <div role="alert" className="flex flex-wrap items-center gap-2 px-4 py-2.5 bg-destructive text-destructive-foreground text-sm">
+          <span className="font-bold">⚠ 保存が競合しました:</span>
+          <span className="flex-1 min-w-[200px]">{conflictMsg} 自動保存は停止中です。必要なら現在の内容を CSV エクスポート等で退避してから、最新を読み込んでください。</span>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-3 py-1.5 text-xs font-bold rounded-lg bg-destructive-foreground/15 hover:bg-destructive-foreground/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive-foreground/50"
+          >
+            最新を読み込む (自分の未保存分は破棄)
+          </button>
+        </div>
+      )}
 
       {/* Editor body + sidebar
           - lg 以上: 親は overflow-hidden で CueTable 内 <main overflow-auto> が縦スクロール担当
