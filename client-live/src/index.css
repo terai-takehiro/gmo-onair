@@ -49,12 +49,14 @@
   font-feature-settings: "tnum";
 }
 
-.timer-status-font {
-  font-size: clamp(0.75rem, 2.4vw, 4.5vh);
-  font-weight: 700;
-  letter-spacing: 0.25em;
-  text-transform: uppercase;
-  opacity: 0.45;
+/* 横並び 6:4 レイアウトのタイマー数字 (左 60% カラム用) */
+.split-timer-font {
+  font-size: min(18.5vw, 40vh);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-feature-settings: "tnum";
 }
 
 /* ダッシュボード等のパネル埋め込み用 (h-44/h-52 のカード内に収まるサイズ)。
@@ -75,28 +77,68 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* 全画面表示: タイマー併用時の視聴者数バー */
-.viewer-bar-label {
-  font-size: clamp(0.9rem, 1.9vw, 2rem);
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  margin-bottom: 0.25em;
+/* 全画面表示: 「リアルタイム視聴者数」見出し */
+.viewer-header-ja {
+  font-size: clamp(1.3rem, 2.5vw, 3.2rem);
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  white-space: nowrap;
 }
-.viewer-bar-count {
-  font-size: clamp(2.25rem, 6.5vw, 7.5rem);
+
+/* 横並びレイアウト右カラム: 合計 (主役) */
+.viewer-total-label {
+  font-size: clamp(0.9rem, 1.6vw, 2rem);
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  color: #a855f7;
+}
+.viewer-total-count {
+  font-size: min(11.5vw, 21vh);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* 横並びレイアウト右カラム: プラットフォーム別の行 (ラベル左・数字右) */
+.viewer-row-label {
+  font-size: clamp(1rem, 1.7vw, 2.1rem);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+.viewer-row-count {
+  font-size: min(4.8vw, 9vh);
   font-weight: 800;
   line-height: 1;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
 }
 
-/* 全画面表示: 視聴者数のみモードの大型カウンター */
+/* 視聴者数のみモード: 合計の超特大カウンター */
+.viewer-only-total-count {
+  font-size: min(19vw, 34vh);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+/* 視聴者数のみモード: 合計表示時の内訳カウンター */
+.viewer-break-count {
+  font-size: min(5.5vw, 10vh);
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* 視聴者数のみモード: 合計非表示時の大型カウンター */
 .viewer-hero-label {
   font-size: clamp(1.25rem, 3vw, 3.5rem);
   font-weight: 700;
   letter-spacing: 0.15em;
-  text-transform: uppercase;
   margin-bottom: 0.35em;
 }
 .viewer-hero-count {
