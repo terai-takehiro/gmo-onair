@@ -3,6 +3,7 @@ import { verifyToken } from '../../shared/auth/jwt';
 import { queryOne } from '../../shared/db/connection';
 import { canAccessDoc } from './access';
 import { config } from '../../config';
+import { qsheetRooms } from './collab';
 
 /**
  * Qsheet Socket.IO namespace.
@@ -127,6 +128,33 @@ export function initQsheetSocketIO(io: Server): void {
       socket.emit('presence:sync', { users: presenceList(docId) });
     });
 
+    // ── 同時共同編集 (Phase 2.2): Yjs 更新の同期・中継 ──
+    // アクセス権のあるユーザーのみ参加可 (匿名/未認可は cue:sync リッスンのみ)。
+    let collabAcquired = false;
+    socket.on('yjs:sync', async () => {
+      if (!socket.data.canAccess) return;
+      if (!collabAcquired) {
+        collabAcquired = true;
+        try {
+          await qsheetRooms.acquire(docId);
+        } catch (e) {
+          collabAcquired = false;
+          console.error('[qsheet-collab] acquire error', e);
+          return;
+        }
+      }
+      const state = qsheetRooms.getState(docId);
+      if (state) socket.emit('yjs:state', Buffer.from(state));
+    });
+
+    socket.on('yjs:update', (update: ArrayBuffer | Buffer | Uint8Array) => {
+      if (!socket.data.canAccess || !collabAcquired) return;
+      const u = update instanceof Uint8Array ? update : new Uint8Array(update as ArrayBuffer);
+      qsheetRooms.applyUpdate(docId, u);
+      // 他の参加者へ増分を中継
+      socket.to(room).emit('yjs:update', Buffer.from(u));
+    });
+
     // ── transport (cue:*) — 発火はアクセス権のあるユーザーのみ、匿名/未認可はリッスンのみ ──
     socket.on('cue:update', (data: { currentCue: number; elapsed: number; isPlaying: boolean }) => {
       if (!socket.data.canAccess) return;
@@ -157,6 +185,10 @@ export function initQsheetSocketIO(io: Server): void {
     });
 
     socket.on('disconnect', () => {
+      if (collabAcquired) {
+        qsheetRooms.release(docId);
+        collabAcquired = false;
+      }
       const m = presenceByDoc.get(docId);
       if (m && m.delete(socket.id)) {
         if (m.size === 0) presenceByDoc.delete(docId);
