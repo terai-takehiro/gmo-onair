@@ -155,6 +155,13 @@ export function initQsheetSocketIO(io: Server): void {
       socket.to(room).emit('yjs:update', Buffer.from(u));
     });
 
+    // awareness (ライブカーソル/選択) — ephemeral、永続化せず room へ中継のみ
+    socket.on('awareness:update', (update: ArrayBuffer | Buffer | Uint8Array) => {
+      if (!socket.data.canAccess) return;
+      const u = update instanceof Uint8Array ? update : new Uint8Array(update as ArrayBuffer);
+      socket.to(room).emit('awareness:update', Buffer.from(u));
+    });
+
     // ── transport (cue:*) — 発火はアクセス権のあるユーザーのみ、匿名/未認可はリッスンのみ ──
     socket.on('cue:update', (data: { currentCue: number; elapsed: number; isPlaying: boolean }) => {
       if (!socket.data.canAccess) return;

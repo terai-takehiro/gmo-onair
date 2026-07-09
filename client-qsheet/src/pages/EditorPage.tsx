@@ -214,7 +214,9 @@ export default function EditorPage() {
   const { currentUser } = useAuth();
   // 同時共同編集 (Phase 2.2c): 既定 OFF。?collab=1 のときだけ Y.Doc 駆動に切替 (dev 検証用)。
   const collabEnabled = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("collab") === "1";
-  const { data: collabData, synced: collabSynced, mutate: collabMutate } = useCollabDoc(id, collabEnabled);
+  const collabUser = currentUser ? { id: currentUser.id, name: currentUser.name } : null;
+  const { data: collabData, synced: collabSynced, mutate: collabMutate, peers: collabPeers, setCursor: setCollabCursor } =
+    useCollabDoc(id, collabEnabled, collabUser);
   const [collapsedBlocks, setCollapsedBlocks] = useState<Set<string>>(new Set());
   const [collapsedSections, setCollapsedSections] = useState<Set<number>>(new Set());
   const [showPreview, setShowPreview] = useState(false);
@@ -355,6 +357,58 @@ export default function EditorPage() {
     if (!collabEnabled || !collabData) return;
     setDoc((prev) => (prev ? { ...prev, data: collabData as DocumentData } : prev));
   }, [collabEnabled, collabData]);
+
+  // collab (Phase 3): セルにフォーカスしたら自分のカーソル位置を共有する。
+  useEffect(() => {
+    if (!collabEnabled) return;
+    const onFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLElement | null;
+      const cell = target?.closest?.("[data-collab-cell]") as HTMLElement | null;
+      const key = cell?.getAttribute("data-collab-cell");
+      if (!key) return;
+      const [rowId, blockId] = key.split("|");
+      if (rowId && blockId) setCollabCursor({ rowId, blockId });
+    };
+    document.addEventListener("focusin", onFocusIn);
+    return () => document.removeEventListener("focusin", onFocusIn);
+  }, [collabEnabled, setCollabCursor]);
+
+  // collab (Phase 3): 他ユーザーの編集中セルを色付き枠 + 名前ラベルで表示 (DOM 直接操作でメモ最適化を壊さない)。
+  useEffect(() => {
+    if (!collabEnabled) return;
+    const touched: HTMLElement[] = [];
+    const badges: HTMLElement[] = [];
+    for (const p of collabPeers) {
+      if (!p.cursor) continue;
+      const key = `${p.cursor.rowId}|${p.cursor.blockId}`;
+      let el: HTMLElement | null = null;
+      try {
+        el = document.querySelector(`[data-collab-cell="${CSS.escape(key)}"]`) as HTMLElement | null;
+      } catch {
+        el = null;
+      }
+      if (!el) continue;
+      el.style.outline = `2px solid ${p.user.color}`;
+      el.style.outlineOffset = "-2px";
+      if (getComputedStyle(el).position === "static") el.style.position = "relative";
+      touched.push(el);
+      const badge = document.createElement("div");
+      badge.textContent = p.user.name;
+      badge.style.cssText =
+        `position:absolute;top:0;right:0;transform:translateY(-100%);background:${p.user.color};` +
+        `color:#fff;font-size:10px;line-height:1.4;padding:0 4px;border-radius:4px 4px 0 0;` +
+        `pointer-events:none;white-space:nowrap;z-index:40;font-weight:600;`;
+      el.appendChild(badge);
+      badges.push(badge);
+    }
+    return () => {
+      for (const el of touched) {
+        el.style.outline = "";
+        el.style.outlineOffset = "";
+      }
+      for (const b of badges) b.remove();
+    };
+  }, [collabEnabled, collabPeers]);
 
   // Auto-save (2s debounce)。競合検出中は自動保存を止める (409 の連発を防止)。
   // collab モードでは Y 更新をサーバーが永続化するため HTTP 保存はしない。

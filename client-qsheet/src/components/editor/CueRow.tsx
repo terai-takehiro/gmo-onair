@@ -443,6 +443,10 @@ function CueRowImpl({
     onChange((r) => ({ ...r, cells: { ...r.cells, [blockId]: newCell } }));
   };
 
+  // 同時共同編集 (Phase 3): セルにライブカーソル用の識別子を付ける (row.id は文書内で一意)。
+  const rowId = (row as any).id as string | undefined;
+  const cellKey = (blockId: string) => (rowId ? `${rowId}|${blockId}` : undefined);
+
   // v2.8.155: 1 行 = 1 エントリに統一。常に entries[0] を読み書きする。
   const getEntry = (blk: Block) => {
     const cell = row.cells?.[blk.id] || {};
@@ -476,7 +480,7 @@ function CueRowImpl({
     >
           {blocks.map((blk) => {
             if (collapsedBlocks?.has(blk.id)) {
-              return <td key={blk.id} className="border-r border-zinc-100/60 dark:border-zinc-800/40" />;
+              return <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="border-r border-zinc-100/60 dark:border-zinc-800/40" />;
             }
             const en = getEntry(blk);
 
@@ -484,7 +488,7 @@ function CueRowImpl({
             if (blk.type === "scenario") {
               const color = en?.name ? (speakerColorMap[en.name] || SPEAKER_COLORS[0]) : "bg-zinc-400";
               return (
-                <td key={blk.id} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden break-words align-top">
+                <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden break-words align-top">
                   <div className="flex flex-col gap-1 min-w-0">
                     <div className="flex items-start gap-1.5 min-w-0">
                       <button
@@ -551,7 +555,7 @@ function CueRowImpl({
             if (["video", "audio", "telop"].includes(blk.type)) {
               const pillColor = PILL_COLORS[blk.type] || "bg-zinc-600";
               return (
-                <td key={blk.id} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden align-top">
+                <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden align-top">
                   <div className="flex flex-col gap-1 min-w-0">
                     <div className="flex items-start gap-1.5 min-w-0">
                       <EditablePill
@@ -599,7 +603,7 @@ function CueRowImpl({
             // ── Audio mic (マイク香盤) cell ──
             if (blk.type === "audio_mic") {
               return (
-                <td key={blk.id} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 align-top">
+                <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 align-top">
                   <MicAssignmentCell
                     cell={row.cells?.[blk.id]}
                     channels={masters?.micChannels || []}
@@ -624,7 +628,7 @@ function CueRowImpl({
             // ── Stage diagram cell ──
             if (blk.type === "stage_diagram") {
               return (
-                <td key={blk.id} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 align-top">
+                <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 align-top">
                   <StageDiagramCell
                     cell={row.cells?.[blk.id]}
                     stageTemplates={stageTemplates}
@@ -637,7 +641,7 @@ function CueRowImpl({
             // ── Slide cell (image drop zone) ──
             if (blk.type === "slide") {
               return (
-                <td key={blk.id} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden align-top">
+                <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden align-top">
                   <div className="flex items-center justify-center h-16 border border-dashed border-zinc-200 dark:border-zinc-700 rounded text-zinc-300 dark:text-zinc-600 text-xs">
                     <ImageIcon size={14} className="mr-1" />
                     スライド
@@ -660,7 +664,7 @@ function CueRowImpl({
                 updateCell(blk.id, newCell);
               };
               return (
-                <td key={blk.id} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden align-top">
+                <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 overflow-hidden align-top">
                   <div className="flex flex-col gap-1 min-w-0">
                     <select
                       value={ledEntry.sceneId || ""}
@@ -737,7 +741,7 @@ function CueRowImpl({
 
             // ── Remarks / other cells ──
             return (
-              <td key={blk.id} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 align-top">
+              <td key={blk.id} data-collab-cell={cellKey(blk.id)} className="px-1.5 py-0.5 border-r border-zinc-100/60 dark:border-zinc-800/40 align-top">
                 <BufferedTextarea
                   value={(row.cells?.[blk.id] || {}).value || ""}
                   onCommit={(v) => updateCell(blk.id, { ...(row.cells?.[blk.id] || {}), value: v })}
