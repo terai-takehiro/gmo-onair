@@ -212,8 +212,11 @@ export default function EditorPage() {
   const [conflictMsg, setConflictMsg] = useState<string | null>(null);
   const [presenceUsers, setPresenceUsers] = useState<PresenceUser[]>([]);
   const { currentUser } = useAuth();
-  // 同時共同編集 (Phase 2.2c): 既定 OFF。?collab=1 のときだけ Y.Doc 駆動に切替 (dev 検証用)。
-  const collabEnabled = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("collab") === "1";
+  // 同時共同編集 (Phase 4b): 既定 ON。?collab=0 で従来モードに即フォールバック (緊急スイッチ)。
+  const collabRequested = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("collab") !== "0";
+  // 安全網: 同期が一定時間成立しなければ従来 HTTP 保存モードへ退避 (データ消失防止)。
+  const [collabFailed, setCollabFailed] = useState(false);
+  const collabEnabled = collabRequested && !collabFailed;
   const collabUser = currentUser ? { id: currentUser.id, name: currentUser.name } : null;
   const { data: collabData, synced: collabSynced, mutate: collabMutate, peers: collabPeers, setCursor: setCollabCursor } =
     useCollabDoc(id, collabEnabled, collabUser);
@@ -357,6 +360,20 @@ export default function EditorPage() {
     if (!collabEnabled || !collabData) return;
     setDoc((prev) => (prev ? { ...prev, data: collabData as DocumentData } : prev));
   }, [collabEnabled, collabData]);
+
+  // collab 安全網 (Phase 4b): 8 秒同期しなければ従来 HTTP 保存モードへ退避 (編集を消さない)。
+  useEffect(() => {
+    if (!collabRequested || collabSynced || collabFailed) return;
+    const t = setTimeout(() => {
+      setCollabFailed(true);
+      // 退避時に現在の内容を HTTP 保存経路で確実に永続化する (取りこぼし防止)
+      setDirty(true);
+      notifyError("共同編集に接続できませんでした", {
+        description: "通常の保存モードに切り替えました。編集内容は従来どおり保存されます。",
+      });
+    }, 8000);
+    return () => clearTimeout(t);
+  }, [collabRequested, collabSynced, collabFailed]);
 
   // collab (Phase 3): セルにフォーカスしたら自分のカーソル位置を共有する。
   useEffect(() => {
