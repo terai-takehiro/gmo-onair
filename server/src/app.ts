@@ -7,20 +7,34 @@ import path from 'path';
 import { createAuthMiddleware } from './shared/middleware/auth';
 import { errorHandler } from './shared/middleware/errorHandler';
 import { createRoutes } from './routes';
+import { createMcpRoutes } from './contexts/mcp';
 import { getAllowedOrigins } from './config';
 
 export function createApp(): express.Express {
   // Express 4.x: async ルートハンドラで throw/reject した場合に自動で next(err) を呼ぶパッチ。
   // これにより全ルートで try/catch や wrap() がなくても errorHandler に到達する。
+  // ※ express の handle_request はハンドラの戻り値 (Promise) を return しないため、
+  //   元実装をラップして戻り値を拾う方式では捕捉できない (旧パッチは常に undefined を見ていて
+  //   無効だった = async throw が unhandled rejection になりリクエストがハングしていた)。
+  //   ハンドラを自前で呼び出して Promise を直接 .catch(next) する。
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Layer = require('express/lib/router/layer');
   const _origHandleReq = Layer.prototype.handle_request as (req: unknown, res: unknown, next: (err?: unknown) => void) => unknown;
   Layer.prototype.handle_request = function(req: unknown, res: unknown, next: (err?: unknown) => void) {
-    const ret = _origHandleReq.call(this, req, res, next);
-    if (ret !== null && typeof (ret as Promise<unknown>)?.catch === 'function') {
-      (ret as Promise<unknown>).catch(next);
+    const fn = (this as { handle?: unknown }).handle;
+    if (typeof fn === 'function' && fn.length <= 3) {
+      try {
+        const ret = fn(req, res, next);
+        if (ret !== null && typeof (ret as Promise<unknown>)?.catch === 'function') {
+          (ret as Promise<unknown>).catch(next);
+        }
+      } catch (err) {
+        next(err);
+      }
+      return;
     }
-    return ret;
+    // error handler 等 (arity > 3) は元実装に委譲
+    return _origHandleReq.call(this, req, res, next);
   };
 
   const app = express();
@@ -72,6 +86,10 @@ export function createApp(): express.Express {
 
   // Routes
   app.use('/api/v1/internal', createRoutes());
+
+  // MCP サーバー (Claude Code 等の MCP クライアント用、APIキー認証)
+  // MCP_API_KEY 未設定時は 503 を返すだけで無効
+  app.use('/api/v1/mcp', createMcpRoutes());
 
   // Health check — 最小限の情報のみ返す
   app.get('/health', async (_req, res) => {

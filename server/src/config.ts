@@ -58,6 +58,11 @@ export const config = {
 
   // Client URL
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
+
+  // MCP サーバー (/api/v1/mcp) — 未設定なら機能無効 (503)。本番必須にはしない。
+  mcpApiKey: process.env.MCP_API_KEY || '',
+  // MCP 経由の書き込みで created_by に記録される actor 識別子
+  mcpActorId: process.env.MCP_ACTOR_ID || 'mcp-claude',
 };
 
 // CORS 許可オリジン — HTTP (app.ts) と Socket.IO (socket.ts) で共有

@@ -66,6 +66,8 @@ services:
       CONOHA_SERVER_ID: ${CONOHA_SERVER_ID:-}
       CONOHA_IDENTITY_ENDPOINT: ${CONOHA_IDENTITY_ENDPOINT:-}
       CONOHA_COMPUTE_ENDPOINT: ${CONOHA_COMPUTE_ENDPOINT:-}
+      # MCP サーバー (v2.9.171+) — 未設定なら /api/v1/mcp は 503 (機能無効)
+      MCP_API_KEY: ${MCP_API_KEY:-}
       SKIP_SEED: "true"
     depends_on:
       db:
@@ -106,6 +108,8 @@ services:
       CONOHA_SERVER_ID: ${CONOHA_SERVER_ID:-}
       CONOHA_IDENTITY_ENDPOINT: ${CONOHA_IDENTITY_ENDPOINT:-}
       CONOHA_COMPUTE_ENDPOINT: ${CONOHA_COMPUTE_ENDPOINT:-}
+      # MCP サーバー (v2.9.171+) — 未設定なら /api/v1/mcp は 503 (機能無効)。本番とは別のキーを使うこと
+      MCP_API_KEY: ${MCP_API_KEY_DEV:-}
     depends_on:
       db:
         condition: service_healthy
