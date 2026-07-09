@@ -14,6 +14,31 @@ export function getSections(ydoc: Y.Doc): YArr {
   return ydoc.getArray('sections');
 }
 
+/** 現在の section id 一覧 (順序どおり)。差分の並び替え照合に使う。 */
+export function listSectionIds(ydoc: Y.Doc): string[] {
+  const arr = getSections(ydoc);
+  const out: string[] = [];
+  for (let i = 0; i < arr.length; i++) {
+    const m = arr.get(i);
+    if (m instanceof Y.Map) out.push(m.get('id'));
+  }
+  return out;
+}
+
+/** 指定 section の現在の row id 一覧 (順序どおり)。 */
+export function listRowIds(ydoc: Y.Doc, sectionId: string): string[] {
+  const sec = findSection(ydoc, sectionId);
+  if (!sec) return [];
+  const rows = sec.get('rows');
+  if (!(rows instanceof Y.Array)) return [];
+  const out: string[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const m = rows.get(i);
+    if (m instanceof Y.Map) out.push(m.get('id'));
+  }
+  return out;
+}
+
 function indexById(arr: YArr, id: string): number {
   for (let i = 0; i < arr.length; i++) {
     const m = arr.get(i);
@@ -58,6 +83,9 @@ export function findRow(ydoc: Y.Doc, sectionId: string, rowId: string): YMap | n
 export function setMeta(ydoc: Y.Doc, key: string, value: unknown): void {
   ydoc.getMap('meta').set(key, toYValue(value));
 }
+export function deleteMeta(ydoc: Y.Doc, key: string): void {
+  ydoc.getMap('meta').delete(key);
+}
 export function setMastersList(ydoc: Y.Doc, key: string, list: unknown): void {
   ydoc.getMap('masters').set(key, toYValue(list));
 }
@@ -85,6 +113,10 @@ export function setSectionField(ydoc: Y.Doc, sectionId: string, field: string, v
   const sec = findSection(ydoc, sectionId);
   if (sec) sec.set(field, toYValue(value));
 }
+export function deleteSectionField(ydoc: Y.Doc, sectionId: string, field: string): void {
+  const sec = findSection(ydoc, sectionId);
+  if (sec) sec.delete(field);
+}
 export function moveSection(ydoc: Y.Doc, sectionId: string, toIndex: number): void {
   const arr = getSections(ydoc);
   const from = indexById(arr, sectionId);
@@ -100,6 +132,10 @@ export function moveSection(ydoc: Y.Doc, sectionId: string, toIndex: number): vo
 export function setRowField(ydoc: Y.Doc, sectionId: string, rowId: string, field: string, value: unknown): void {
   const row = findRow(ydoc, sectionId, rowId);
   if (row) row.set(field, toYValue(value));
+}
+export function deleteRowField(ydoc: Y.Doc, sectionId: string, rowId: string, field: string): void {
+  const row = findRow(ydoc, sectionId, rowId);
+  if (row) row.delete(field);
 }
 /** 1 セル (blockId) をまるごと置き換える (セル単位 LWW)。 */
 export function setRowCell(ydoc: Y.Doc, sectionId: string, rowId: string, blockId: string, cell: unknown): void {
@@ -117,6 +153,12 @@ export function insertRowAfter(ydoc: Y.Doc, sectionId: string, afterRowId: strin
     if (at >= 0) idx = at + 1;
   }
   rows.insert(idx, [toYValue(row)]);
+}
+export function deleteRowCell(ydoc: Y.Doc, sectionId: string, rowId: string, blockId: string): void {
+  const row = findRow(ydoc, sectionId, rowId);
+  if (!row) return;
+  const cells = row.get('cells');
+  if (cells instanceof Y.Map) cells.delete(blockId);
 }
 export function deleteRow(ydoc: Y.Doc, sectionId: string, rowId: string): void {
   const sec = findSection(ydoc, sectionId);

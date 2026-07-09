@@ -10,8 +10,28 @@
 // 永続化は注入 (RoomPersistence) にして純粋にテスト可能にしている。
 
 import * as Y from 'yjs';
+import { randomUUID } from 'crypto';
 import { queryOne, execute } from '../../shared/db/connection';
 import { docToUpdate } from '../../shared/collab/yjsDoc';
+
+/**
+ * 種化前に全 section/row へ安定 id を後付けする。
+ * Phase 0 (クライアント ensureStableIds) 前の JSONB には id が無く、
+ * id キーの粒度マージが機能しないため、サーバー種でも必ず id を保証する。
+ * 種は初回一度きり永続化されるので id はその後 Y state 内で安定する。
+ */
+function backfillIds(data: any): any {
+  if (!data || !Array.isArray(data.sections)) return data;
+  for (const sec of data.sections) {
+    if (sec && typeof sec === 'object' && !sec.id) sec.id = `sec_${randomUUID()}`;
+    if (sec && Array.isArray(sec.rows)) {
+      for (const row of sec.rows) {
+        if (row && typeof row === 'object' && !row.id) row.id = `row_${randomUUID()}`;
+      }
+    }
+  }
+  return data;
+}
 
 export interface RoomPersistence {
   /** 保存済み Y state を返す (無ければ null)。 */
@@ -141,7 +161,7 @@ const dbPersistence: RoomPersistence = {
     );
     if (!row) return null;
     const data = typeof row.data === 'string' ? JSON.parse(row.data as string) : row.data;
-    return docToUpdate(data);
+    return docToUpdate(backfillIds(data));
   },
   async persist(docId, state) {
     await execute(

@@ -16,6 +16,9 @@ import { ensureStableIds } from "@/lib/stableIds";
 import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
 import { useAuth } from "@/hooks/useAuth";
 import PresenceAvatars, { type PresenceUser } from "@/components/editor/PresenceAvatars";
+import { useCollabDoc } from "@/lib/collab/useCollabDoc";
+import { applyDataDiff } from "@/lib/collab/ydocDiff";
+import { yDocToData } from "@gmo-onair/shared/src/collab/yjsDoc";
 import StageEditor from "@/components/editor/StageEditor";
 import AudioShareDialog from "@/components/editor/AudioShareDialog";
 import CsvImportDialog from "@/components/editor/CsvImportDialog";
@@ -209,6 +212,9 @@ export default function EditorPage() {
   const [conflictMsg, setConflictMsg] = useState<string | null>(null);
   const [presenceUsers, setPresenceUsers] = useState<PresenceUser[]>([]);
   const { currentUser } = useAuth();
+  // 同時共同編集 (Phase 2.2c): 既定 OFF。?collab=1 のときだけ Y.Doc 駆動に切替 (dev 検証用)。
+  const collabEnabled = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("collab") === "1";
+  const { data: collabData, synced: collabSynced, mutate: collabMutate } = useCollabDoc(id, collabEnabled);
   const [collapsedBlocks, setCollapsedBlocks] = useState<Set<string>>(new Set());
   const [collapsedSections, setCollapsedSections] = useState<Set<number>>(new Set());
   const [showPreview, setShowPreview] = useState(false);
@@ -312,6 +318,16 @@ export default function EditorPage() {
   });
 
   const updateData = useCallback((updater: (data: DocumentData) => DocumentData) => {
+    if (collabEnabled) {
+      // collab: Y.Doc を真実源に。現在の Y 状態を prev として updater を適用し、差分を Y 操作へ翻訳。
+      collabMutate((ydoc) => {
+        const prev = yDocToData(ydoc) as DocumentData;
+        const next = updater(prev);
+        applyDataDiff(ydoc, prev, next);
+      });
+      // React 表示は collabData→doc.data 同期 effect が更新する (ここでは setDoc しない)
+      return;
+    }
     setDoc((prev) => {
       if (!prev) return prev;
       return { ...prev, data: updater({ ...prev.data }) };
@@ -319,7 +335,7 @@ export default function EditorPage() {
     setDirty(true);
     // 競合状態は編集しても解除しない (バナーで「最新を読み込む」を促す)
     setSaveStatus((prev) => (prev === "conflict" ? prev : "unsaved"));
-  }, []);
+  }, [collabEnabled, collabMutate]);
 
   // CSV インポート: 解析済みセクションを置き換え or 末尾に追加、検出した話者を masters.persons にマージ
   const handleCsvImport = useCallback((result: CsvImportResult, mode: "replace" | "append") => {
@@ -334,8 +350,16 @@ export default function EditorPage() {
     });
   }, [updateData]);
 
-  // Auto-save (2s debounce)。競合検出中は自動保存を止める (409 の連発を防止)
+  // collab: Y.Doc スナップショットを doc.data に反映 (Y が真実源)。
   useEffect(() => {
+    if (!collabEnabled || !collabData) return;
+    setDoc((prev) => (prev ? { ...prev, data: collabData as DocumentData } : prev));
+  }, [collabEnabled, collabData]);
+
+  // Auto-save (2s debounce)。競合検出中は自動保存を止める (409 の連発を防止)。
+  // collab モードでは Y 更新をサーバーが永続化するため HTTP 保存はしない。
+  useEffect(() => {
+    if (collabEnabled) return;
     if (!dirty || !doc || conflictMsg) return;
     clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(() => {
@@ -388,6 +412,18 @@ export default function EditorPage() {
   // Manual save — increments draftNumber if numbered mode
   const handleManualSave = useCallback(() => {
     if (!doc) return;
+    if (collabEnabled) {
+      // collab: 稿番号の更新のみ Y 経由で行い、HTTP 保存はしない (サーバーが Y を永続化)。
+      updateData((d) => {
+        const meta = { ...d.meta };
+        if (meta.draftType === "numbered" || !meta.draftType) meta.draftNumber = (meta.draftNumber || 1) + 1;
+        meta.updatedAt = new Date().toISOString();
+        return { ...d, meta };
+      });
+      setSaveFlash(true);
+      setTimeout(() => setSaveFlash(false), 1500);
+      return;
+    }
     clearTimeout(autoSaveTimer.current);
     const nextDoc = { ...doc, data: { ...doc.data, meta: { ...doc.data.meta } } };
     if (nextDoc.data.meta.draftType === "numbered" || !nextDoc.data.meta.draftType) {
@@ -398,7 +434,7 @@ export default function EditorPage() {
     setSaveFlash(true);
     setTimeout(() => setSaveFlash(false), 1500);
     saveMutation.mutate(nextDoc);
-  }, [doc, saveMutation]);
+  }, [doc, saveMutation, collabEnabled, updateData]);
 
   const getDraftLabel = (meta?: DocumentMeta): string => {
     if (!meta) return "第1稿";
@@ -458,6 +494,17 @@ export default function EditorPage() {
             />
           </div>
           <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
+            {/* 同時共同編集モード (?collab=1) のインジケータ */}
+            {collabEnabled && (
+              <span
+                className={`hidden sm:inline text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${
+                  collabSynced ? "text-primary bg-primary/10" : "text-muted-foreground bg-muted"
+                }`}
+                title={collabSynced ? "同時共同編集: 同期済み" : "同時共同編集: 接続中..."}
+              >
+                {collabSynced ? "共同編集中" : "接続中..."}
+              </span>
+            )}
             {/* 在席表示 (このシートを今開いている人) */}
             <PresenceAvatars users={presenceUsers} currentUserId={currentUser?.id} />
             {/* Save status badge (最終保存時刻つき) */}
