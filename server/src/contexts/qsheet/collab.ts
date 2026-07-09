@@ -12,7 +12,7 @@
 import * as Y from 'yjs';
 import { randomUUID } from 'crypto';
 import { queryOne, execute } from '../../shared/db/connection';
-import { docToUpdate } from '../../shared/collab/yjsDoc';
+import { docToUpdate, updateToData } from '../../shared/collab/yjsDoc';
 
 /**
  * 種化前に全 section/row へ安定 id を後付けする。
@@ -169,6 +169,18 @@ const dbPersistence: RoomPersistence = {
        ON CONFLICT (doc_id) DO UPDATE SET state = EXCLUDED.state, updated_at = now()`,
       [docId, Buffer.from(state)],
     );
+    // Phase 4a: JSONB スナップショットも同期し、JSONB を読む既存経路
+    // (OnAir/Rundown/Prompter/音声サポート/PDF/一覧) を collab 編集中も最新に保つ。
+    // これがカットオーバー (全員常時 collab) の前提。失敗しても Y 永続化は成立済みなので握りつぶす。
+    try {
+      const data = updateToData(state);
+      await execute(
+        `UPDATE qsheet_documents SET data = $2, updated_at = now() WHERE id = $1 AND deleted_at IS NULL`,
+        [docId, JSON.stringify(data)],
+      );
+    } catch (e) {
+      console.error('[qsheet-collab] jsonb snapshot error', e);
+    }
   },
 };
 
