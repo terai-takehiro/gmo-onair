@@ -15,6 +15,11 @@ function extractPresentedKey(req: Request): string | null {
   }
   const apiKey = req.headers['x-api-key'];
   if (typeof apiKey === 'string' && apiKey.trim()) return apiKey.trim();
+  // クエリパラメータ ?key= (claude.ai カスタムコネクタの追加ダイアログはヘッダーを
+  // 設定できない UI があるため、URL にキーを埋め込む方式もサポートする。
+  // URL 自体が秘密情報になる点は docs/mcp-server.md に明記)
+  const queryKey = req.query?.key;
+  if (typeof queryKey === 'string' && queryKey.trim()) return queryKey.trim();
   return null;
 }
 

@@ -15,7 +15,11 @@ nginx の既存 `/api/` プロキシをそのまま通るため、インフラ�
 
 ## 認証
 
-静的 APIキー。`Authorization: Bearer <key>` (推奨) または `X-API-Key: <key>` ヘッダーで送る。
+静的 APIキー。次の 3 通りのいずれかで送る:
+
+1. `Authorization: Bearer <key>` ヘッダー (推奨・Claude Code 向け)
+2. `X-API-Key: <key>` ヘッダー
+3. URL クエリ `?key=<key>` (v2.9.172+。**claude.ai カスタムコネクタ向け** — 追加ダイアログにヘッダー入力欄が無い UI があるため。URL 自体が秘密情報になるので、この URL を共有・掲示しないこと)
 
 | 環境変数 (VPS の `/root/gmo-onair/.env`) | 適用先 |
 |---|---|
@@ -35,6 +39,16 @@ claude mcp add --transport http onair https://dev.gmo-onair.jp/api/v1/mcp \
 ```
 
 登録後、Claude Code 内で「今月のスタジオ予約を見せて」「GLS-B005 の収支は？」のように使える。
+
+## claude.ai / Claude アプリの「カスタムコネクタ」への登録
+
+設定 → コネクタ → カスタムコネクタを追加 で、URL に**キー付き URL** を入力する (OAuth 欄は空のまま):
+
+```
+https://gmo-onair.jp/api/v1/mcp?key=<MCP_API_KEY>
+```
+
+Anthropic のクラウドから接続されるため、claude.ai (Web)・デスクトップ・モバイルアプリすべてで同じコネクタが使える。キーをローテーションしたらコネクタの URL も更新すること。
 
 ## ツール一覧 (9 種)
 
