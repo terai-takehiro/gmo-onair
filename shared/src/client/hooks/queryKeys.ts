@@ -18,6 +18,7 @@ export const queryKeys = {
     kpi:            (period: string) => ['dashboard', 'kpi', period] as const,
     alerts:         () => ['dashboard', 'alerts'] as const,
     recentProjects: () => ['dashboard', 'recent-projects'] as const,
+    salesBoard:     () => ['dashboard', 'sales-board'] as const,
     monthlyChart:   () => ['dashboard', 'monthly-chart'] as const,
     weeklySchedule: () => ['dashboard', 'weekly-schedule'] as const,
     pipeline:       () => ['dashboard', 'pipeline'] as const,

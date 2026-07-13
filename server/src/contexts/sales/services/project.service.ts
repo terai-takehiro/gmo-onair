@@ -67,7 +67,8 @@ const SORT_COLUMN_MAP: Record<string, string> = {
 
 /**
  * v2.9.54+ デフォルトソート式
- * - 提案中 (B口頭 → C提案 → D保留) → 受注済 (S完了 → A受注) → その他 (E失注 → ネタ)
+ * - 提案中 (B口頭 → C提案 → D保留) → 受注済 (S完了 → A受注) → その他 (ネタ → E失注)
+ * - v2.9.175+: その他グループ内をネタ → 失注の順に変更 (従来は失注 → ネタ)
  * - 同グループ内はイベント開始日が近い順 (ASC、NULL は最後) → 作成日新しい順
  */
 const DEFAULT_SORT_SQL = `
@@ -77,8 +78,8 @@ const DEFAULT_SORT_SQL = `
     WHEN 'd_hold'      THEN 3
     WHEN 's_completed' THEN 4
     WHEN 'a_won'       THEN 5
-    WHEN 'e_lost'      THEN 6
-    WHEN 'neta'        THEN 7
+    WHEN 'neta'        THEN 6
+    WHEN 'e_lost'      THEN 7
     ELSE 8
   END ASC,
   p.event_start ASC NULLS LAST,

@@ -138,6 +138,59 @@ router.get('/recent-projects', async (_req, res) => {
   res.json({ success: true, data: rows });
 });
 
+// v2.9.175+: 営業ダッシュボード — 進行中の全案件を「ホットな情報 (直近の営業活動)」付きで一覧化
+// - 進行中 = stage NOT IN ('s_completed','e_lost') (ヨミ〜受注済までの全パイプライン)
+// - 各案件に直近の営業活動 (メール/電話/打合せ等) と次回アクションを付与
+// - 直近 14 日以内に活動がある案件を「ホット」として先頭に、活動日の新しい順で並べる
+// - トップページで確実に一覧化するためページングせず全件返す (進行中に限定されるため件数は自然に有界、上限 100)
+router.get('/sales-board', async (_req, res) => {
+  const rows = await queryAll(
+    `SELECT p.id, p.gls_number, p.name, p.stage, p.event_start,
+            c.name AS customer_name,
+            la.activity_type   AS last_activity_type,
+            la.subject         AS last_activity_subject,
+            la.activity_date   AS last_activity_date,
+            la.next_action     AS next_action,
+            la.next_action_date AS next_action_date,
+            ac.cnt             AS activity_count,
+            CASE WHEN la.activity_date IS NOT NULL
+                 AND la.activity_date >= (CURRENT_DATE - INTERVAL '14 days')::text
+                 THEN 1 ELSE 0 END AS is_hot
+     FROM projects p
+     LEFT JOIN customers c ON c.id = p.customer_id
+     LEFT JOIN LATERAL (
+       SELECT a.activity_type, a.subject, a.activity_date, a.next_action, a.next_action_date
+       FROM activity_logs a
+       WHERE a.project_id = p.id AND a.deleted_at IS NULL
+       ORDER BY a.activity_date DESC, a.created_at DESC
+       LIMIT 1
+     ) la ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT COUNT(*) AS cnt FROM activity_logs a2
+       WHERE a2.project_id = p.id AND a2.deleted_at IS NULL
+     ) ac ON TRUE
+     WHERE p.deleted_at IS NULL
+       AND p.stage NOT IN ('s_completed','e_lost')
+     ORDER BY
+       CASE WHEN la.activity_date IS NOT NULL
+            AND la.activity_date >= (CURRENT_DATE - INTERVAL '14 days')::text
+            THEN 0 ELSE 1 END ASC,
+       la.activity_date DESC NULLS LAST,
+       CASE p.stage
+         WHEN 'b_verbal'   THEN 1
+         WHEN 'a_won'      THEN 2
+         WHEN 'c_proposal' THEN 3
+         WHEN 'd_hold'     THEN 4
+         WHEN 'neta'       THEN 5
+         ELSE 6
+       END ASC,
+       p.event_start ASC NULLS LAST,
+       p.created_at DESC
+     LIMIT 100`
+  );
+  res.json({ success: true, data: rows });
+});
+
 router.get('/weekly-schedule', async (_req, res) => {
   const now = new Date();
   const days: Array<{ date: string; dayLabel: string; events: unknown[] }> = [];
