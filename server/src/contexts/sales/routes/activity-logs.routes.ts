@@ -38,6 +38,16 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
   res.json({ success: true, data: await activityLogService.update(req.params.id as string, req.body) });
 });
 
+// 次回アクションを完了 (営業ダッシュボードのワンタップ操作)
+router.post('/:id/complete-next-action', requirePermission('sales', 'editor'), async (req, res) => {
+  res.json({ success: true, data: await activityLogService.completeNextAction(req.params.id as string) });
+});
+
+// 次回アクションを延期 (body: { date: 'YYYY-MM-DD' })
+router.post('/:id/postpone-next-action', requirePermission('sales', 'editor'), async (req, res) => {
+  res.json({ success: true, data: await activityLogService.postponeNextAction(req.params.id as string, req.body?.date) });
+});
+
 router.delete('/:id', requirePermission('sales', 'manager'), async (req, res) => {
   await activityLogService.delete(req.params.id as string);
   res.json({ success: true, message: '削除しました' });

@@ -12,7 +12,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Edit2, Trash2, Clock, AlertCircle } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, Clock, AlertCircle, Sparkles } from "lucide-react";
+
+// v2.9.178+: AI 起票 (MCP 経由のメール取込等) バッジ
+function AiCreatedBadge({ requestedBy }: { requestedBy?: string | null }) {
+  return (
+    <span
+      className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0.5 text-[10px] text-violet-700"
+      title={requestedBy ? `AI取込 (指示: ${requestedBy})` : "AI取込"}
+    >
+      <Sparkles className="h-3 w-3" aria-hidden="true" />
+      AI取込
+    </span>
+  );
+}
 
 const ACTIVITY_TYPES = [
   { value: "call", label: "電話", color: "bg-blue-100 text-blue-700" },
@@ -224,6 +237,7 @@ export default function ActivityLogPage() {
                           <div className="flex items-center gap-2">
                             <span className={`text-xs px-2 py-0.5 rounded shrink-0 ${at.color}`}>{at.label}</span>
                             <span className="font-medium truncate">{log.subject}</span>
+                            {log.is_ai_created && <AiCreatedBadge requestedBy={log.ai_requested_by} />}
                           </div>
                           <div className="text-sm text-muted-foreground mt-1 truncate">
                             {log.project_code ? log.project_code : log.customer_name || "-"}
@@ -285,7 +299,12 @@ export default function ActivityLogPage() {
                         <TableCell>
                           <span className={`text-xs px-2 py-0.5 rounded ${at.color}`}>{at.label}</span>
                         </TableCell>
-                        <TableCell className="font-medium max-w-[200px] truncate">{log.subject}</TableCell>
+                        <TableCell className="font-medium max-w-[240px]">
+                          <span className="flex items-center gap-1.5">
+                            <span className="truncate">{log.subject}</span>
+                            {log.is_ai_created && <AiCreatedBadge requestedBy={log.ai_requested_by} />}
+                          </span>
+                        </TableCell>
                         <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">
                           {log.project_code ? `${log.project_code}` : log.customer_name || "-"}
                         </TableCell>
