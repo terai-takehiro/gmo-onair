@@ -122,7 +122,7 @@ export default function SignagePage() {
       </div>
 
       {/* フッター */}
-      <div className="signage-footer">GMO GLOBAL STUDIO</div>
+      <div className="signage-footer">GMO SAMURAI STUDIO</div>
     </div>
   );
 }
