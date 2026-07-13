@@ -483,19 +483,24 @@ export default function StudioBookingDialog({
                     </div>
                   </div>
 
-                  {/* 終了 */}
-                  {(!isSingleDateType || multiDay) && (
+                  {/* 終了
+                      単日タイプ (本番/リハ) でも時刻指定 (!allDay) なら「同日の終了時刻」を
+                      入力できるよう終了行を表示する。終了「日」は複数日/非単日タイプのみ、
+                      終了「時刻」は時刻指定時は常に表示 (= 8:00〜20:00 のような同日枠に対応)。 */}
+                  {(!isSingleDateType || multiDay || !allDay) && (
                     <div className="flex items-center px-4 py-3.5 gap-2">
                       <span className="text-[15px] w-8 shrink-0">終了</span>
                       <div className="flex flex-1 justify-end items-center gap-3">
-                        <input
-                          type="date"
-                          value={endDate}
-                          onChange={(e) => setEndDate(e.target.value)}
-                          min={startDate}
-                          className={inputCls}
-                          style={{ fontSize: "16px", colorScheme: "light" }}
-                        />
+                        {(!isSingleDateType || multiDay) && (
+                          <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            min={startDate}
+                            className={inputCls}
+                            style={{ fontSize: "16px", colorScheme: "light" }}
+                          />
+                        )}
                         {!allDay && (
                           <input
                             type="time"
