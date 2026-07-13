@@ -52,6 +52,12 @@ import {
   ClipboardList,
   Briefcase,
   Languages,
+  TrendingUp,
+  Flame,
+  Phone,
+  Mail,
+  MessageSquare,
+  CalendarClock,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -104,6 +110,52 @@ interface Project {
   customer_name?: string;
   stage: string;
   event_start?: string;
+}
+
+// v2.9.175+: 営業ダッシュボード (ホット案件) の 1 案件
+interface SalesBoardItem {
+  id: string;
+  gls_number?: string | null;
+  name: string;
+  customer_name?: string | null;
+  stage: string;
+  event_start?: string | null;
+  last_activity_type?: string | null;
+  last_activity_subject?: string | null;
+  last_activity_date?: string | null;
+  next_action?: string | null;
+  next_action_date?: string | null;
+  activity_count?: number;
+  is_hot?: number;
+}
+
+// 営業活動種別 → ラベル + アイコン (activity_logs.activity_type)
+const ACTIVITY_META: Record<string, { label: string; icon: React.ElementType }> = {
+  call: { label: "電話", icon: Phone },
+  email: { label: "メール", icon: Mail },
+  meeting: { label: "打合せ", icon: Users },
+  visit: { label: "訪問", icon: Users },
+  proposal: { label: "提案", icon: FileText },
+  demo: { label: "デモ", icon: MessageSquare },
+  followup: { label: "フォロー", icon: MessageSquare },
+  follow_up: { label: "フォロー", icon: MessageSquare },
+  other: { label: "その他", icon: MessageSquare },
+};
+
+// YYYY-MM-DD を「今日 / N日前 / M/D」の相対表記に
+function relativeDay(dateStr?: string | null): string {
+  if (!dateStr) return "";
+  const d = new Date(`${dateStr}T00:00:00`);
+  if (isNaN(d.getTime())) return dateStr;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = Math.round((today.getTime() - d.getTime()) / 86_400_000);
+  if (diff === 0) return "今日";
+  if (diff === 1) return "昨日";
+  if (diff > 1 && diff <= 30) return `${diff}日前`;
+  if (diff === -1) return "明日";
+  if (diff < 0 && diff >= -30) return `${-diff}日後`;
+  return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
 // ステータス定義は shared/src/constants/statuses.ts に一元化済み (v2.4.0)
@@ -174,10 +226,13 @@ export default function HomePage() {
         {/* ───── 3. 今月の主要指標 + 前月比 ───── */}
         {canSeeSales && <KpiSection navigate={navigate} />}
 
-        {/* ───── 4. 直近の案件 ───── */}
+        {/* ───── 4. 営業ダッシュボード (進行中案件 + ホットな情報) ───── */}
+        {canSeeSales && <SalesBoardSection navigate={navigate} />}
+
+        {/* ───── 5. 直近の案件 ───── */}
         {canSeeSales && <RecentProjectsSection navigate={navigate} />}
 
-        {/* ───── 5. ブロックアプリ起動 (補助) ───── */}
+        {/* ───── 6. ブロックアプリ起動 (補助) ───── */}
         <SectionCard
           title="アプリを起動"
           description="業務に応じたブロックアプリへ遷移します。"
@@ -204,10 +259,10 @@ export default function HomePage() {
           </div>
         </SectionCard>
 
-        {/* ───── 6. 今日対応すべきこと (優先度低めのため下部に配置) ───── */}
+        {/* ───── 7. 今日対応すべきこと (優先度低めのため下部に配置) ───── */}
         {canSeeSales && <ActionItemsSection navigate={navigate} />}
 
-        {/* ───── 7. システム管理 (admin only) ───── */}
+        {/* ───── 8. システム管理 (admin only) ───── */}
         {isAdmin && (
           <SectionCard
             title="システム管理"
@@ -601,6 +656,156 @@ function ScheduleSection() {
             );
           })}
         </div>
+      )}
+    </SectionCard>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// セクション: 営業ダッシュボード (進行中案件 + ホットな情報)
+// - 進行中の全案件を一覧化 (ページングなし = トップページで確実に見える)
+// - 直近の営業活動 (メール/電話/打合せ) がある「ホット案件」を先頭に強調表示
+// - 次回アクション期限も併記し、今すぐ追うべき案件が一目で分かる
+// ══════════════════════════════════════════════════════════
+function SalesBoardSection({ navigate }: { navigate: (to: string) => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const { data: items, isLoading } = useQuery<SalesBoardItem[]>({
+    queryKey: queryKeys.dashboard.salesBoard(),
+    queryFn: async () => (await api.get("/dashboard/sales-board")).data.data,
+    staleTime: 60_000,
+  });
+
+  const list = items ?? [];
+  const hotCount = list.filter((p) => p.is_hot === 1).length;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const followupCount = list.filter(
+    (p) => p.next_action_date && p.next_action_date >= todayStr
+  ).length;
+
+  // 既定は最初の 8 件表示 + 「すべて表示」で全件展開 (確実に一覧化できるように)
+  const VISIBLE = 8;
+  const shown = expanded ? list : list.slice(0, VISIBLE);
+
+  return (
+    <SectionCard
+      title={`営業ダッシュボード${list.length ? ` (進行中 ${list.length}件)` : ""}`}
+      description="進行中の全案件を一覧化。メール・電話など直近のやり取りがある案件を上部に強調表示します。"
+      icon={<TrendingUp />}
+      actions={
+        <button
+          type="button"
+          className="text-xs text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm flex items-center gap-1"
+          onClick={() => navigate("/sales/projects")}
+        >
+          案件一覧 <ArrowRight className="h-3 w-3" aria-hidden="true" />
+        </button>
+      }
+      padding="compact"
+    >
+      {isLoading ? (
+        <div className="flex justify-center py-6">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" aria-label="読み込み中" />
+        </div>
+      ) : list.length === 0 ? (
+        <EmptyState title="進行中の案件はありません" />
+      ) : (
+        <>
+          {/* サマリー: ホット / 次アクション期限あり */}
+          <div className="mb-3 flex flex-wrap gap-2 text-xs">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 border border-orange-200 px-2.5 py-1 text-orange-700">
+              <Flame className="h-3.5 w-3.5" aria-hidden="true" />
+              ホット案件 {hotCount} 件
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-1 text-blue-700">
+              <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
+              次アクション期限あり {followupCount} 件
+            </span>
+          </div>
+
+          <ul className="divide-y divide-border">
+            {shown.map((p) => {
+              const meta = p.last_activity_type
+                ? ACTIVITY_META[p.last_activity_type] ?? ACTIVITY_META.other
+                : null;
+              const ActIcon = meta?.icon;
+              const overdue =
+                p.next_action_date && p.next_action_date < todayStr;
+              return (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex w-full items-start gap-3 px-2 py-2.5 text-left transition-colors hover:bg-accent rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      p.is_hot === 1 && "bg-orange-50/40"
+                    )}
+                    onClick={() => navigate(`/sales/projects/${p.id}`)}
+                  >
+                    <div className="mt-0.5 shrink-0">
+                      {p.is_hot === 1 ? (
+                        <Flame className="h-4 w-4 text-orange-500" aria-label="ホット" />
+                      ) : (
+                        <Briefcase className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {p.gls_number ? (
+                          <span className="text-xs text-muted-foreground mr-1.5">{p.gls_number}</span>
+                        ) : null}
+                        {p.name}
+                      </p>
+                      {p.customer_name ? (
+                        <p className="text-xs text-muted-foreground truncate">{p.customer_name}</p>
+                      ) : null}
+                      {/* 直近の営業活動 */}
+                      {meta && ActIcon ? (
+                        <p className="mt-1 flex items-center gap-1.5 text-xs text-foreground/80 truncate">
+                          <ActIcon className="h-3.5 w-3.5 shrink-0 text-orange-600" aria-hidden="true" />
+                          <span className="font-medium">{meta.label}</span>
+                          <span className="text-muted-foreground">{relativeDay(p.last_activity_date)}</span>
+                          {p.last_activity_subject ? (
+                            <span className="text-muted-foreground truncate">· {p.last_activity_subject}</span>
+                          ) : null}
+                        </p>
+                      ) : null}
+                      {/* 次回アクション */}
+                      {p.next_action && p.next_action_date ? (
+                        <p
+                          className={cn(
+                            "mt-0.5 flex items-center gap-1.5 text-xs truncate",
+                            overdue ? "text-red-600 font-medium" : "text-blue-700"
+                          )}
+                        >
+                          <CalendarClock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                          {relativeDay(p.next_action_date)}
+                          <span className="text-muted-foreground truncate">{p.next_action}</span>
+                          {overdue ? <span className="shrink-0">(期限超過)</span> : null}
+                        </p>
+                      ) : null}
+                    </div>
+                    <Badge variant={statusOf(PROJECT_STAGE, p.stage).variant} className="shrink-0">
+                      {statusOf(PROJECT_STAGE, p.stage).label}
+                    </Badge>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+
+          {list.length > VISIBLE ? (
+            <button
+              type="button"
+              className="mt-2 flex w-full items-center justify-center gap-1 rounded-md py-2 text-xs text-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => setExpanded((v) => !v)}
+            >
+              {expanded ? (
+                <>閉じる <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" /></>
+              ) : (
+                <>残り {list.length - VISIBLE} 件を表示 <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" /></>
+              )}
+            </button>
+          ) : null}
+        </>
       )}
     </SectionCard>
   );

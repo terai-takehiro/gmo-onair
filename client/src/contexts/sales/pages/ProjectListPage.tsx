@@ -31,7 +31,7 @@ const tabs: { value: TabFilter; label: string }[] = [
   { value: 'lost', label: '失注' },
 ];
 
-// v2.9.54+: デフォルトは「提案中 (B→D) → 受注済 (完了→A) → その他 (失注→ネタ)」
+// v2.9.175+: デフォルトは「提案中 (B→D) → 受注済 (完了→A) → その他 (ネタ→失注)」
 const sortOptions: { value: `${SortKey}:${SortDir}`; label: string }[] = [
   { value: 'default:asc', label: 'おすすめ (提案中 → 受注済 → その他)' },
   { value: 'event_start:asc', label: 'イベント日 (近い順)' },
@@ -198,7 +198,7 @@ export default function ProjectListPage() {
         <EmptyState title="該当する案件がありません" description="検索条件を変えるか、新しい案件を作成してください。" />
       ) : (
         <>
-          {/* v2.9.54+: 提案中 (B→D) → 受注済 (完了→A) → その他 (失注→ネタ) の 3 区分で表示 */}
+          {/* v2.9.175+: 提案中 (B→D) → 受注済 (完了→A) → その他 (ネタ→失注) の 3 区分で表示 */}
           {(() => {
             const groupOf = (p: Record<string, unknown>) => {
               const s = p.stage as string;
@@ -209,7 +209,7 @@ export default function ProjectListPage() {
             const groups = [
               { label: '提案中', items: projects.filter((p: Record<string, unknown>) => groupOf(p) === 0) },
               { label: '受注済・完了', items: projects.filter((p: Record<string, unknown>) => groupOf(p) === 1) },
-              { label: 'その他（失注・ネタ）', items: projects.filter((p: Record<string, unknown>) => groupOf(p) === 2) },
+              { label: 'その他（ネタ・失注）', items: projects.filter((p: Record<string, unknown>) => groupOf(p) === 2) },
             ].filter((g) => g.items.length > 0);
             return groups.map((g, gi) => (
               <div key={g.label} className="space-y-3">
