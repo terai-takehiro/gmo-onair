@@ -1,0 +1,144 @@
+import { z } from 'zod';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { activityLogService } from '../../sales/services/activity-log.service';
+import { queryAll } from '../../../shared/db/connection';
+import { ok, runTool, clampLimit, pagination, audit, REQUESTED_BY } from '../helpers';
+
+// 営業活動記録 (activity_logs) の MCP ツール — activityLogService を再利用。
+// activity_type の選択肢は UI (ActivityLogPage) と同一 (migration 115 で DB CHECK も整合済み)。
+
+const ACTIVITY_TYPES = ['call', 'email', 'visit', 'meeting', 'proposal', 'demo', 'follow_up', 'other'] as const;
+
+export function registerActivityTools(server: McpServer): void {
+  server.registerTool(
+    'list_activity_logs',
+    {
+      title: '営業活動記録一覧',
+      description:
+        '営業活動記録を一覧する。activity_type: call=電話, email=メール, visit=訪問, meeting=打合せ, proposal=提案, demo=デモ, follow_up=フォロー, other=その他。' +
+        'upcoming: true にすると「次回アクションが days 日以内に予定されている記録」だけを返す (期限リマインド用)。',
+      inputSchema: {
+        project_id: z.string().optional(),
+        customer_id: z.string().optional(),
+        user_id: z.string().optional().describe('担当者の users.id で絞り込み'),
+        activity_type: z.enum(ACTIVITY_TYPES).optional(),
+        search: z.string().max(100).optional().describe('件名 / 内容の部分一致'),
+        upcoming: z.boolean().default(false).describe('true で次回アクション予定のみ (days 日以内)'),
+        days: z.number().int().min(1).max(90).default(7).describe('upcoming の対象日数'),
+        page: z.number().int().min(1).default(1),
+        limit: z.number().int().min(1).max(100).default(20),
+      },
+    },
+    async (args) => runTool(async () => {
+      const limit = clampLimit(args.limit);
+      const page = args.page ?? 1;
+
+      if (args.upcoming) {
+        // getUpcomingActions は userId 必須のため、任意ユーザー対応の同形クエリをここで実行
+        let where = `WHERE a.deleted_at IS NULL AND a.next_action IS NOT NULL AND a.next_action_date IS NOT NULL
+                     AND a.next_action_date <= (CURRENT_DATE + (? || ' days')::interval)::text`;
+        const params: unknown[] = [args.days ?? 7];
+        if (args.user_id) { where += ' AND a.user_id = ?'; params.push(args.user_id); }
+        if (args.project_id) { where += ' AND a.project_id = ?'; params.push(args.project_id); }
+        const rows = await queryAll(
+          `SELECT a.*, u.name as user_name, p.code as project_code, p.name as project_name, c.name as customer_name
+           FROM activity_logs a
+           LEFT JOIN users u ON u.id = a.user_id
+           LEFT JOIN projects p ON p.id = a.project_id
+           LEFT JOIN customers c ON c.id = a.customer_id
+           ${where} ORDER BY a.next_action_date ASC LIMIT ?`,
+          [...params, limit],
+        );
+        return ok({ data: rows, upcoming_days: args.days ?? 7 });
+      }
+
+      const { rows, total } = await activityLogService.list(
+        {
+          projectId: args.project_id,
+          customerId: args.customer_id,
+          userId: args.user_id,
+          activityType: args.activity_type,
+          search: args.search,
+        },
+        page, limit, (page - 1) * limit,
+      );
+      return ok({ data: rows, pagination: pagination(page, limit, Number(total)) });
+    }),
+  );
+
+  server.registerTool(
+    'create_activity_log',
+    {
+      title: '営業活動記録の登録',
+      description:
+        '営業活動 (商談・電話・メール等) を記録する。user_id は活動した営業担当の users.id (必須 — list_users で解決)。' +
+        'メール/議事録取込フロー: list_customers →(無ければ create_customer)→ list_projects で案件特定 →(無ければ create_project)→ 本ツール。' +
+        '次のアクションが決まっている場合は next_action / next_action_date を必ず記録する。',
+      inputSchema: {
+        user_id: z.string().min(1).describe('活動した担当者の users.id (必須)'),
+        activity_type: z.enum(ACTIVITY_TYPES),
+        activity_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe('活動日 (YYYY-MM-DD)'),
+        subject: z.string().min(1).describe('件名'),
+        project_id: z.string().optional().describe('関連する案件 ID (任意)'),
+        customer_id: z.string().optional().describe('関連する顧客 ID (任意)'),
+        description: z.string().optional().describe('活動内容の詳細'),
+        next_action: z.string().optional().describe('次回アクション'),
+        next_action_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('次回アクション予定日'),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      // activity_logs.user_id は users への FK のため、実在ユーザー id を service の userId として渡す
+      const row = await activityLogService.create(
+        {
+          project_id: args.project_id,
+          customer_id: args.customer_id,
+          activity_type: args.activity_type,
+          activity_date: args.activity_date,
+          subject: args.subject,
+          description: args.description,
+          next_action: args.next_action,
+          next_action_date: args.next_action_date,
+        },
+        args.user_id,
+      ) as any;
+      audit('create_activity_log', args, { created_id: row.id, subject: args.subject }, args.requested_by);
+      return ok({ created: true, activity_log: row });
+    }),
+  );
+
+  server.registerTool(
+    'update_activity_log',
+    {
+      title: '営業活動記録の更新',
+      description: '営業活動記録を部分更新する。渡したフィールドだけが変更される (サーバー側で既存値とマージ)。',
+      inputSchema: {
+        id: z.string().min(1),
+        activity_type: z.enum(ACTIVITY_TYPES).optional(),
+        activity_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        subject: z.string().min(1).optional(),
+        project_id: z.string().nullable().optional(),
+        customer_id: z.string().nullable().optional(),
+        description: z.string().nullable().optional(),
+        next_action: z.string().nullable().optional().describe('null で「次回アクション完了 (解除)」'),
+        next_action_date: z.string().nullable().optional(),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      // service の update は全上書きのため read-merge-write
+      const existing = await activityLogService.getById(args.id) as any;
+      const fields = ['project_id', 'customer_id', 'activity_type', 'activity_date', 'subject',
+                      'description', 'next_action', 'next_action_date'] as const;
+      const merged: Record<string, unknown> = {};
+      for (const f of fields) {
+        const argVal = (args as Record<string, unknown>)[f];
+        merged[f] = argVal !== undefined ? argVal : existing[f];
+      }
+      const row = await activityLogService.update(args.id, merged) as any;
+      const changedFields = Object.keys(args).filter((k) => !['id', 'requested_by'].includes(k));
+      audit('update_activity_log', args, { updated_id: args.id, changed_fields: changedFields }, args.requested_by);
+      return ok({ updated: true, changed_fields: changedFields, activity_log: row });
+    }),
+  );
+}

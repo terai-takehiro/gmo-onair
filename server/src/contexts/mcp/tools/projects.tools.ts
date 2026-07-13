@@ -1,11 +1,28 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { projectService } from '../../sales/services/project.service';
-import { ok, runTool, clampLimit, pagination } from '../helpers';
+import { queryOne } from '../../../shared/db/connection';
+import { config } from '../../../config';
+import { ok, runTool, clampLimit, pagination, preview, audit, REQUESTED_BY } from '../helpers';
 
-// 案件管理 (sales) の MCP ツール — 既存の projectService を再利用 (読み取り専用)
+// 案件管理 (sales) の MCP ツール — 既存の projectService を再利用。
+// 書き込みは create / update (read-merge-write) / stage 変更 / GLS 発番。
+// GLS 発番と失注 (e_lost) は confirm 2段階 (プレビュー→了承→実行)。
 
 const STAGES = ['neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 's_completed', 'e_lost'] as const;
+
+const STAGE_LABELS: Record<string, string> = {
+  neta: 'ネタ', d_hold: 'D 仮押さえ', c_proposal: 'C 見積提案', b_verbal: 'B 口頭決定',
+  a_won: 'A 受注済', s_completed: 'S 案件終了', e_lost: 'E 失注',
+};
+
+/** update の read-merge-write 対象フィールド (project.service.ts update の UPDATE 文と一致させること) */
+const UPDATE_FIELDS = [
+  'name', 'customer_id', 'expected_amount', 'assigned_to', 'project_type', 'project_type_other',
+  'event_start', 'event_end', 'broadcast_type', 'media_platform', 'tags',
+  'application_form', 'logo_permission', 'notes', 'customer_type',
+  'box_url_internal', 'box_url_external', 'gls_category',
+] as const;
 
 /** 一覧の返却行を要約列に絞る (p.* は列が多くコンテキストを圧迫するため) */
 function trimProjectRow(row: any) {
@@ -90,6 +107,220 @@ export function registerProjectTools(server: McpServer): void {
         projectService.getSummary(args.id),
       ]);
       return ok({ ...(project as Record<string, unknown>), summary });
+    }),
+  );
+
+  server.registerTool(
+    'create_project',
+    {
+      title: '案件登録 (ヨミ)',
+      description:
+        '新規案件をヨミ (stage=neta) として登録する。customer_id は必須 — 先に list_customers で検索し、無ければ create_customer で作成する。' +
+        'assigned_to は担当者の users.id (必須) — list_users で名前から解決する。' +
+        'gls_category: A=スタジオ案件 / B=ビジネス案件。副作用: BOX に案件フォルダが自動作成される。',
+      inputSchema: {
+        name: z.string().min(1).describe('案件名'),
+        customer_id: z.string().min(1).describe('顧客 ID (list_customers で解決)'),
+        gls_category: z.enum(['A', 'B']).describe('案件分類 A=スタジオ / B=ビジネス'),
+        assigned_to: z.string().min(1).describe('担当者の users.id (list_users で名前→id を解決。必須)'),
+        expected_amount: z.number().int().min(0).optional().describe('想定金額 (円・税抜)'),
+        project_type: z.string().optional(),
+        customer_type: z.enum(['internal', 'external']).optional().describe('internal=社内 / external=社外 (既定)'),
+        event_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('開催開始日 (YYYY-MM-DD)'),
+        event_end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        dates: z.array(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), label: z.string().optional() }))
+          .optional().describe('複数日程 (飛び日対応)。指定すると event_start/end は MIN/MAX に自動同期'),
+        notes: z.string().optional().describe('備考 (問合せ経緯など)'),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      const row = await projectService.create(
+        {
+          name: args.name,
+          customer_id: args.customer_id,
+          gls_category: args.gls_category,
+          assigned_to: args.assigned_to,
+          expected_amount: args.expected_amount,
+          project_type: args.project_type,
+          customer_type: args.customer_type,
+          event_start: args.event_start,
+          event_end: args.event_end,
+          dates: args.dates,
+          notes: args.notes,
+        },
+        config.mcpActorId,
+      ) as any;
+      audit('create_project', args, { created_id: row.id, code: row.code, name: row.name }, args.requested_by);
+      return ok({ created: true, project: row });
+    }),
+  );
+
+  server.registerTool(
+    'update_project',
+    {
+      title: '案件更新',
+      description:
+        '案件を部分更新する。渡したフィールドだけが変更される (サーバー側で既存値とマージ)。' +
+        '日程を変更する場合のみ dates を全量で渡す (全置換)。gls_category は GLS 発番前のみ変更可。' +
+        'ステージ変更は change_project_stage を使うこと (このツールでは変更できない)。',
+      inputSchema: {
+        id: z.string().min(1).describe('案件 ID'),
+        name: z.string().min(1).optional(),
+        customer_id: z.string().optional(),
+        expected_amount: z.number().int().min(0).optional(),
+        assigned_to: z.string().optional().describe('担当者の users.id (list_users で解決)'),
+        project_type: z.string().optional(),
+        project_type_other: z.string().nullable().optional(),
+        event_start: z.string().nullable().optional().describe('YYYY-MM-DD。null で解除'),
+        event_end: z.string().nullable().optional(),
+        broadcast_type: z.string().nullable().optional(),
+        media_platform: z.string().nullable().optional(),
+        tags: z.string().optional().describe('カンマ区切りタグ文字列'),
+        application_form: z.boolean().optional().describe('申込書受領フラグ'),
+        logo_permission: z.boolean().optional().describe('ロゴ使用許諾フラグ'),
+        notes: z.string().nullable().optional(),
+        customer_type: z.enum(['internal', 'external']).optional(),
+        gls_category: z.enum(['A', 'B']).optional().describe('GLS 発番前のみ変更可'),
+        dates: z.array(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), label: z.string().optional() }))
+          .optional().describe('渡した場合のみ日程を全置換 (event_start/end も自動同期)'),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      const existing = await projectService.getById(args.id) as Record<string, unknown>;
+
+      // 発番後の gls_category 変更は service が黙って無視するため、明示的にエラーにする
+      if (args.gls_category !== undefined && existing.gls_number &&
+          args.gls_category !== existing.gls_category) {
+        return ok({
+          updated: false,
+          error: 'GLS 発番済みのため gls_category はこのツールでは変更できません (採番し直しが必要なため、UI の「別GLSへ紐づけ / 分類を変更」から実施してください)',
+        });
+      }
+
+      // read-merge-write: 渡されたフィールドだけ上書きし、未指定は既存値をラウンドトリップ
+      // (projectService.update は全上書き仕様のため、省略フィールドが null 化される事故を防ぐ)
+      const payload: Record<string, unknown> = {};
+      for (const f of UPDATE_FIELDS) {
+        const argVal = (args as Record<string, unknown>)[f];
+        payload[f] = argVal !== undefined ? argVal : existing[f];
+      }
+      if (args.dates !== undefined) payload.dates = args.dates; // 明示指定時のみ全置換
+
+      const row = await projectService.update(args.id, payload, config.mcpActorId) as any;
+      const changedFields = Object.keys(args).filter((k) => !['id', 'requested_by'].includes(k));
+      audit('update_project', args, { updated_id: row.id, changed_fields: changedFields }, args.requested_by);
+      return ok({ updated: true, changed_fields: changedFields, project: row });
+    }),
+  );
+
+  server.registerTool(
+    'change_project_stage',
+    {
+      title: '案件ステージ変更',
+      description:
+        '案件のステージを変更する。stage コードの意味は list_projects の説明を参照。' +
+        'e_lost (失注) は重要操作のため、必ず confirm なしで一度実行してプレビューを取得し、' +
+        'ユーザーの明示的な了承を得てから confirm: true で再実行すること (承認なしの confirm: true は禁止)。' +
+        'd_hold への変更時、開催日が設定済みで予約が無ければ仮押さえ予約がカレンダーに自動作成される。',
+      inputSchema: {
+        id: z.string().min(1).describe('案件 ID'),
+        stage: z.enum(STAGES),
+        confirm: z.boolean().default(false).describe('e_lost のときのみ必要。プレビュー確認後に true'),
+        lost_reason: z.string().optional().describe('失注理由 (e_lost のとき推奨)'),
+        lost_reason_note: z.string().optional(),
+        lessons_learned: z.string().optional().describe('教訓・学び (e_lost のとき)'),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      const existing = await projectService.getById(args.id) as any;
+
+      if (args.stage === 'e_lost' && !args.confirm) {
+        return preview(
+          `案件「${existing.name}」を失注 (E) にする`,
+          [
+            `現在のステージ: ${STAGE_LABELS[existing.stage] ?? existing.stage}`,
+            `想定金額: ¥${Number(existing.expected_amount ?? 0).toLocaleString()}`,
+            `記録される失注理由: ${args.lost_reason ?? '(未指定)'}${args.lost_reason_note ? ` / ${args.lost_reason_note}` : ''}`,
+            `教訓・学び: ${args.lessons_learned ?? '(未指定)'}`,
+            'lost_at が記録され、一覧の失注タブへ移動する',
+          ],
+          '失注登録後もステージを戻すことは可能だが、失注日時・理由の記録が残る',
+        );
+      }
+
+      const row = await projectService.changeStage(
+        args.id, args.stage,
+        { lost_reason: args.lost_reason, lost_reason_note: args.lost_reason_note, lessons_learned: args.lessons_learned },
+        config.mcpActorId,
+      ) as any;
+      audit('change_project_stage', args, { id: row.id, from: existing.stage, to: args.stage }, args.requested_by);
+      const note = args.stage === 'd_hold' && existing.event_start
+        ? '開催日設定済みのため、予約が未登録なら仮押さえ予約がカレンダーに自動作成されています'
+        : undefined;
+      return ok({ updated: true, from: existing.stage, to: args.stage, ...(note ? { note } : {}), project: row });
+    }),
+  );
+
+  server.registerTool(
+    'issue_gls',
+    {
+      title: 'GLS 発番',
+      description:
+        '案件に GLS 番号を発番する (重要操作・取り消し不可)。必ず confirm なしで一度実行してプレビューを取得し、' +
+        'ユーザーの明示的な了承を得てから confirm: true で再実行すること (承認なしの confirm: true は禁止)。' +
+        '副作用: ステージ自動昇格 (neta/d_hold/c_proposal → b_verbal)、概算見積の確定売上への変換、BOX フォルダのリネーム。',
+      inputSchema: {
+        id: z.string().min(1).describe('案件 ID'),
+        confirm: z.boolean().default(false).describe('プレビューをユーザーに確認してもらってから true'),
+        broadcast_type: z.string().optional().describe('番組種別 (任意)'),
+        media_platform: z.string().optional().describe('配信媒体 (任意)'),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      const project = await projectService.getById(args.id) as any;
+      // service と同じ前提チェックをプレビュー段階で行う (confirm 後に初めてエラーになる事故を防ぐ)
+      if (project.gls_number) {
+        return ok({ executed: false, error: `既に GLS 番号が発番済みです (${project.gls_number})` });
+      }
+      if (project.gls_category !== 'A' && project.gls_category !== 'B') {
+        return ok({ executed: false, error: '案件分類 (gls_category) が未設定です。先に update_project で A/B を設定してください' });
+      }
+
+      const estRow = await queryOne(
+        `SELECT COUNT(*)::int AS c, COALESCE(SUM(amount), 0) AS total FROM revenues
+         WHERE project_id = ? AND status = 'estimate' AND deleted_at IS NULL`,
+        [args.id],
+      ) as any;
+
+      if (!args.confirm) {
+        const willPromote = ['neta', 'd_hold', 'c_proposal'].includes(project.stage);
+        return preview(
+          `案件「${project.name}」に GLS 番号を発番する`,
+          [
+            `発番系列: GLS-${project.gls_category} (${project.gls_category === 'A' ? 'スタジオ' : 'ビジネス'})`,
+            willPromote
+              ? `ステージ: ${STAGE_LABELS[project.stage] ?? project.stage} → B 口頭決定 に自動昇格`
+              : `ステージ: ${STAGE_LABELS[project.stage] ?? project.stage} (変更なし)`,
+            Number(estRow?.c ?? 0) > 0
+              ? `概算見積 ${estRow.c} 件 (合計 ¥${Number(estRow.total).toLocaleString()}) が確定売上に変換され、請求キーが再生成される`
+              : '変換対象の概算見積はなし',
+            'BOX フォルダ名が OPP コード → GLS 番号 にリネームされる',
+          ],
+          'GLS 発番は取り消せません (分類変更は再採番になります)',
+        );
+      }
+
+      const row = await projectService.issueGls(
+        args.id,
+        { broadcast_type: args.broadcast_type, media_platform: args.media_platform },
+        config.mcpActorId,
+      ) as any;
+      audit('issue_gls', args, { id: row.id, gls_number: row.gls_number, stage: row.stage }, args.requested_by);
+      return ok({ executed: true, gls_number: row.gls_number, stage: row.stage, project: row });
     }),
   );
 }

@@ -50,21 +50,67 @@ https://gmo-onair.jp/api/v1/mcp?key=<MCP_API_KEY>
 
 Anthropic のクラウドから接続されるため、claude.ai (Web)・デスクトップ・モバイルアプリすべてで同じコネクタが使える。キーをローテーションしたらコネクタの URL も更新すること。
 
-## ツール一覧 (9 種)
+## ツール一覧 (27 種 / v2.9.173+)
 
+### 案件管理
 | ツール | 種別 | 概要 |
 |---|---|---|
 | `list_projects` | read | 案件検索・一覧 (search / stage / tab / gls_category / 開催期間 / ページング) |
 | `get_project` | read | 案件詳細 + 収支サマリー (売上 / 仕入 / 粗利 / 粗利率) |
-| `list_studio_rooms` | read | 拠点 + 部屋一覧 (予約作成時の room_ids 調べ用) |
-| `list_studio_bookings` | read | スタジオ予約一覧 (from / to / room_id / project_id。上限 500 件) |
-| `create_studio_booking` | **write** | スタジオ予約の新規作成 (唯一の書き込み。既定 status=tentative、`created_by='mcp-claude'` で記録) |
-| `get_monthly_summary` | read | 月次/期間の損益サマリー (売上・変動/固定原価・限界利益・売上総利益・販管費・営業利益) |
-| `list_revenues` | read | 売上一覧 (計上月 / 案件 / status / 並び替え) |
-| `list_purchases` | read | 仕入一覧 (計上月 / 案件 / 固定原価絞り込み / 並び替え) |
-| `list_sga` | read | 販管費一覧 (計上月 / source / 並び替え) |
+| `create_project` | write | ヨミ案件の新規登録 (stage=neta 固定。assigned_to は list_users で解決した users.id 必須) |
+| `update_project` | write | 部分更新 (サーバー側で既存値とマージ — 渡したフィールドだけ変わる) |
+| `change_project_stage` | write | ステージ変更。**e_lost (失注) は confirm 2段階**。d_hold で仮押さえ予約を自動作成 |
+| `issue_gls` | write | **GLS 発番 (confirm 2段階・取消不可)**。プレビューで昇格ステージ / 見積変換件数 / BOXリネームを提示 |
 
-絞り込み・並び替えの条件は UI の一覧 (`finance/list-query.ts`) / `projectService` と同一実装を共有しているため、画面と同じ結果が返る。
+### 顧客・営業活動・タスク・担当者
+| ツール | 種別 | 概要 |
+|---|---|---|
+| `list_customers` / `get_customer` | read | 顧客検索・詳細 (+直近案件10件) |
+| `create_customer` | write | 顧客登録 (**重複ガード**: 類似名があれば候補を返して作成しない。`allow_duplicate:true` で強制) |
+| `update_customer` | write | 顧客の部分更新 (マージ) |
+| `list_activity_logs` | read | 営業活動記録一覧。`upcoming:true` で次回アクション予定 (N日以内) のみ |
+| `create_activity_log` / `update_activity_log` | write | 活動記録の登録/更新 (user_id は活動した担当者の users.id 必須) |
+| `list_tasks` | read | タスク一覧 (案件内 or 進行中案件の横断) |
+| `create_task` / `update_task` | write | タスク作成/更新 (completed で完了切替) |
+| `list_users` | read | ユーザー一覧 — 担当者名 → users.id の解決に使う |
+
+### カレンダー・財務・分析
+| ツール | 種別 | 概要 |
+|---|---|---|
+| `list_studio_rooms` / `list_studio_bookings` | read | 拠点部屋一覧・予約一覧 (上限500件) |
+| `create_studio_booking` | write | スタジオ予約作成 (既定 status=tentative) |
+| `get_monthly_summary` | read | 月次/期間の損益サマリー (損益7指標) |
+| `list_revenues` / `list_purchases` / `list_sga` | read | 売上/仕入/販管費一覧 |
+| `get_sales_funnel` | read | 営業ファネル (ステージ別件数/金額・転換率・滞留・月次推移) |
+| `get_lost_reason_analysis` | read | 失注理由分析 (+教訓・学び) |
+| `get_sales_performance` | read | 担当者別 目標vs実績 |
+
+絞り込み・並び替え・書き込みロジックは UI と同一の service 層 (`projectService` / `activityLogService` / `projectTasksService` / `salesAnalyticsService` / `finance/list-query.ts`) を共有しているため、画面と同じ結果・同じ副作用になる。
+
+## confirm 2段階フロー (重要操作)
+
+`issue_gls` と `change_project_stage` (e_lost) は誤操作防止のため 2段階:
+
+1. `confirm` なし (または false) で実行 → **書き込まず** に `{preview: true, effects: [...], warning}` を返す
+2. AI がプレビュー内容をユーザーに提示し、明示的な了承を得る
+3. `confirm: true` を付けて再実行 → 実行される
+
+ツールの説明文にも「承認なしの confirm: true は禁止」と明記済み。
+
+## 監査ログ (mcp_audit_log)
+
+全ての書き込みツールは成功時に `mcp_audit_log` テーブルへ記録される (tool_name / 引数 / 結果サマリー / requested_by / 日時)。共用キー運用のため、各書き込みツールの任意引数 `requested_by` (指示者名) を AI が聞き取って渡す設計。記録失敗はツールの成否に影響しない (fire-and-forget)。
+
+確認クエリ例:
+```sql
+SELECT tool_name, requested_by, result_summary, created_at FROM mcp_audit_log ORDER BY created_at DESC LIMIT 50;
+```
+
+## 典型フロー (AI への指示例)
+
+- **メール/議事録の取込起票**: 文面を貼って「起票して」→ AI が `list_customers` → (無ければ `create_customer`) → `create_project` → `create_activity_log` (次回アクション付き)
+- **GLS 発番**: 「この案件 GLS 発番して」→ AI がプレビュー提示 → 「OK」→ confirm:true で実行
+- **朝のダイジェスト**: `get_sales_funnel` + `list_activity_logs(upcoming:true)` + `list_tasks` で本日のサマリーを生成
 
 ## 動作確認 (curl)
 

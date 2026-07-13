@@ -2,10 +2,10 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { studioBookingService } from '../../production/services/studio-booking.service';
 import { config } from '../../../config';
-import { ok, runTool } from '../helpers';
+import { ok, runTool, audit, REQUESTED_BY } from '../helpers';
 
 // スタジオ予約カレンダー (production/studio) の MCP ツール。
-// 参照 2 種 + 予約作成 (このMCPサーバー唯一の書き込みツール)。
+// 参照 2 種 + 予約作成。
 
 const BOOKING_TYPES = [
   'performance', 'rehearsal', 'hold', 'tour', 'consultation',
@@ -95,7 +95,7 @@ export function registerStudioTools(server: McpServer): void {
     {
       title: 'スタジオ予約作成',
       description:
-        'スタジオ予約を新規作成する (このMCPサーバー唯一の書き込みツール)。作成した予約はカレンダー UI にすぐ表示される。' +
+        'スタジオ予約を新規作成する。作成した予約はカレンダー UI にすぐ表示される。' +
         'room_ids は list_studio_rooms で確認した部屋 ID を渡す。使用者/用途メモを部屋ごとに付けたい場合は room_details を使う。' +
         '既定 status は tentative (仮予約)。日時は JST ローカルの ISO 形式 (例 2026-07-15T13:00:00)。',
       inputSchema: {
@@ -115,6 +115,7 @@ export function registerStudioTools(server: McpServer): void {
         })).optional().describe('部屋ごとの使用者・用途メモ付き指定 (room_ids より優先)'),
         location_note: z.string().optional().describe('外現場など場所メモ'),
         notes: z.string().optional().describe('備考'),
+        ...REQUESTED_BY,
       },
     },
     async (args) => runTool(async () => {
@@ -134,7 +135,8 @@ export function registerStudioTools(server: McpServer): void {
           status: args.status,
         },
         config.mcpActorId,
-      );
+      ) as any;
+      audit('create_studio_booking', args, { created_id: row?.id, title: args.title }, args.requested_by);
       return ok({ created: true, booking: row });
     }),
   );
