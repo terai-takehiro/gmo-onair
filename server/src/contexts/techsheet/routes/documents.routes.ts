@@ -19,7 +19,7 @@ function sanitizeSearch(input: unknown): string | null {
 }
 
 // Default data structure for new documents
-// GMOグローバルスタジオ = 常設スタジオ前提
+// GMOサムライスタジオ = 常設スタジオ前提
 function defaultDocumentData() {
   return {
     header: {

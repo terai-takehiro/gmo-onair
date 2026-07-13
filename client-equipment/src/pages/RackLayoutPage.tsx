@@ -158,11 +158,11 @@ export default function RackLayoutPage() {
   const branches: any[] = branchesData ?? [];
   const rackTypes: any[] = rackTypesData ?? [];
 
-  // ブランチデータロード後に「GMOグローバルスタジオ」を自動選択（URLパラメータ未設定時のみ）
+  // ブランチデータロード後に「GMOサムライスタジオ用賀」(旧 GMOグローバルスタジオ) を自動選択（URLパラメータ未設定時のみ）
   const branchDefaultApplied = useRef(false);
   useEffect(() => {
     if (branchDefaultApplied.current || sp.get("branch") || branches.length === 0) return;
-    const gls = branches.find((b: any) => /GMO|グローバル|GLS/i.test(b.name));
+    const gls = branches.find((b: any) => /GMO|グローバル|サムライ|用賀|GLS/i.test(b.name));
     const defaultId = gls?.id ?? branches[0]?.id;
     if (defaultId) {
       branchDefaultApplied.current = true;
