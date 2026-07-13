@@ -687,7 +687,7 @@ export default function DashboardPage() {
               <Label className="text-xs text-muted-foreground">撮影場所 <span className="text-destructive">*</span></Label>
               <Input
                 className="mt-1"
-                placeholder="例：GMOグローバルスタジオ"
+                placeholder="例：GMOサムライスタジオ用賀"
                 value={newLocation}
                 onChange={(e) => setNewLocation(e.target.value)}
               />

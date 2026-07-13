@@ -632,13 +632,15 @@ export async function seed() {
   const locSql = `INSERT INTO studio_locations (id, name, sort_order) VALUES (?, ?, ?)`;
   const LOC_YOGA = uuidv4();
   const LOC_SHIBUYA = uuidv4();
+  const LOC_AOYAMA = uuidv4();
   const LOC_EXTERNAL = uuidv4();
-  await ins(locSql, [LOC_YOGA, 'GMOグローバルスタジオ', 1]);
-  await ins(locSql, [LOC_SHIBUYA, 'GMOサムライコンテンツスタジオ渋谷', 2]);
-  await ins(locSql, [LOC_EXTERNAL, '外現場', 3]);
+  await ins(locSql, [LOC_YOGA, 'GMOサムライスタジオ用賀', 1]);
+  await ins(locSql, [LOC_SHIBUYA, 'GMOサムライスタジオ渋谷', 2]);
+  await ins(locSql, [LOC_AOYAMA, 'GMOサムライスタジオ青山', 3]);
+  await ins(locSql, [LOC_EXTERNAL, '外現場', 4]);
 
   const roomSql = `INSERT INTO studio_rooms (id, location_id, name, room_type, color, sort_order) VALUES (?, ?, ?, ?, ?, ?)`;
-  // 用賀スタジオ
+  // 用賀 (GMOサムライスタジオ用賀)
   const ROOMS: Record<string, string> = {};
   const yogaRooms: [string, string, string, number][] = [
     ['WORLD STUDIO', 'studio', '#2563eb', 1],
@@ -658,7 +660,7 @@ export async function seed() {
     await ins(roomSql, [id, LOC_YOGA, name, roomType, color, order]);
   }
 
-  // 渋谷スタジオ
+  // 渋谷 (GMOサムライスタジオ渋谷)
   const shibuyaRooms: [string, string, string, number][] = [
     ['第1スタジオ', 'studio', '#e11d48', 1],
     ['第2スタジオ', 'studio', '#ea580c', 2],
@@ -668,6 +670,13 @@ export async function seed() {
     const id = uuidv4();
     ROOMS[name] = id;
     await ins(roomSql, [id, LOC_SHIBUYA, name, roomType, color, order]);
+  }
+
+  // 青山 (GMOサムライスタジオ青山) — 1スタジオのみのため部屋「STUDIO」1件
+  {
+    const id = uuidv4();
+    ROOMS['AOYAMA STUDIO'] = id;
+    await ins(roomSql, [id, LOC_AOYAMA, 'STUDIO', 'studio', '#16a34a', 1]);
   }
 
   // ============================================================
@@ -716,7 +725,7 @@ export async function seed() {
   await ins(bkRoomSql, [bk7, ROOMS['WORLD STUDIO'], null, null]);
   await ins(bkRoomSql, [bk7, ROOMS['SKY STUDIO'], null, null]);
 
-  // 渋谷スタジオ予約
+  // 渋谷 (GMOサムライスタジオ渋谷) 予約
   const bk8 = uuidv4();
   await ins(bkSql, [bk8, 'GLS-A008 富士見 CM収録', 'project', PROJECTS['GLS-A008'], EPISODES['GLS-A008-001'], 0, '2026-03-25T10:00', '2026-03-25T20:00', null, 'CM撮影', USERS.staff3]);
   await ins(bkRoomSql, [bk8, ROOMS['第1スタジオ'], null, null]);

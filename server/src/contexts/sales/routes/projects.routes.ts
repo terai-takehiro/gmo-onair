@@ -2,8 +2,9 @@ import { Router } from 'express';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { projectService, ProjectFilter } from '../services/project.service';
-import { queryAll } from '../../../shared/db/connection';
+import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
+import { config } from '../../../config';
 
 const router = Router();
 
@@ -69,7 +70,28 @@ router.patch('/bulk', requirePermission('sales', 'manager'), async (req, res) =>
 
 // 詳細
 router.get('/:id', async (req, res) => {
-  res.json({ success: true, data: await projectService.getById(req.params.id as string) });
+  const project = await projectService.getById(req.params.id as string) as Record<string, unknown>;
+  // AI 起票 (MCP 経由) の場合は監査ログから指示者 (requested_by) を逆引きして併記
+  if (project && project.created_by === config.mcpActorId) {
+    const audit = await queryOne(
+      `SELECT requested_by FROM mcp_audit_log
+       WHERE tool_name = 'create_project' AND result_summary->>'created_id' = ?
+       ORDER BY created_at ASC LIMIT 1`,
+      [project.id]
+    );
+    project.ai_requested_by = (audit as Record<string, unknown> | null)?.requested_by ?? null;
+  }
+  res.json({ success: true, data: project });
+});
+
+// AI 起票案件の内容確認を記録 (ホームの AI 起票インボックス / 案件編集のバナーから)
+router.post('/:id/ai-review', requirePermission('sales', 'editor'), async (req, res) => {
+  await execute(
+    `UPDATE projects SET ai_reviewed_at = NOW(), ai_reviewed_by = ?, updated_at = NOW()
+     WHERE id = ? AND deleted_at IS NULL`,
+    [req.user!.id, req.params.id]
+  );
+  res.json({ success: true, data: { reviewed: true } });
 });
 
 // サマリー（売上/仕入/粗利）

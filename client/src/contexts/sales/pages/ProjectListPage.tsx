@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Plus, Search, Loader2, ExternalLink, Building2, User, Calendar, Tag,
+  Plus, Search, Loader2, ExternalLink, Building2, User, Calendar, Tag, Sparkles,
 } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
 
@@ -300,6 +300,16 @@ function ProjectCard({
           <Badge className="shrink-0 text-[11px]" style={{ backgroundColor: stageColor, color: '#fff' }}>
             {stageLabel}
           </Badge>
+          {p.created_by === "mcp-claude" && (
+            <span
+              className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0.5 text-[10px] text-violet-700"
+              title="AI（メール取込等）により起票された案件"
+            >
+              <Sparkles className="h-3 w-3" aria-hidden="true" />
+              AI起票
+              {!p.ai_reviewed_at ? <span className="text-amber-600 font-medium">·未確認</span> : null}
+            </span>
+          )}
         </div>
         <div className="text-right shrink-0">
           {totalRevenue > 0 ? (

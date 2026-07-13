@@ -20,11 +20,12 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator, AlertTriangle, Info, CalendarDays, FileText, Calendar, Plus, Pencil, Trash2, Check, FolderPlus } from "lucide-react";
+import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator, AlertTriangle, Info, CalendarDays, FileText, Calendar, Plus, Pencil, Trash2, Check, FolderPlus, Sparkles, Phone, Mail, Users, MessageSquare, CalendarClock, History } from "lucide-react";
 import StudioBookingDialog from "@/contexts/production/components/studio/StudioBookingDialog";
 import { Switch } from "@/components/ui/switch";
 import { ToggleButtonGroup } from "@gmo-onair/shared/src/client/ui/toggle-button-group";
 import { cn } from "@/lib/utils";
+import { queryKeys } from "@gmo-onair/shared/src/client/hooks/queryKeys";
 import {
   ProjectStageLabels, ProjectStageColors,
   ProjectTypeLabels, BroadcastTypeLabels, MediaPlatformLabels,
@@ -180,6 +181,23 @@ export default function ProjectFormPage() {
     queryFn: async () => (await api.get(`/projects/${id}`)).data.data,
     enabled: isEdit,
     retry: 1,
+  });
+
+  // v2.9.178+: 営業活動タイムライン (この案件の活動履歴。AI メール取込分も含む)
+  const { data: activityData } = useQuery({
+    queryKey: ["project-activities", id],
+    queryFn: async () => (await api.get("/activity-logs", { params: { project_id: id, limit: 20 } })).data,
+    enabled: isEdit && !!id,
+  });
+  const projectActivities: any[] = activityData?.data ?? [];
+
+  // v2.9.178+: AI 起票案件の「確認済み」記録
+  const aiReviewMutation = useMutation({
+    mutationFn: async () => api.post(`/projects/${id}/ai-review`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["project", id] });
+      qc.invalidateQueries({ queryKey: queryKeys.dashboard.aiInbox() });
+    },
   });
 
   const { data: customersData } = useQuery({
@@ -552,6 +570,35 @@ export default function ProjectFormPage() {
             {currentStage === 'b_verbal' && 'GLS発番済みです。正式受注が確定したら「A 受注済へ」に進み、見積・売上管理で制作準備を始めましょう。'}
             {currentStage === 'a_won' && '受注済みです。見積・売上管理から明細を登録しましょう。'}
           </span>
+        </div>
+      )}
+
+      {/* v2.9.178+: AI 起票バナー (MCP 経由で AI が起票した案件) */}
+      {isEdit && project?.created_by === "mcp-claude" && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-violet-200 bg-violet-50 p-3 text-sm text-violet-900">
+          <Sparkles className="h-4 w-4 shrink-0 text-violet-600" aria-hidden="true" />
+          <span className="min-w-0 flex-1">
+            この案件は AI（問い合わせメール取込等）により起票されました。
+            {project.ai_requested_by ? <span className="ml-1 font-medium">指示: {project.ai_requested_by}</span> : null}
+          </span>
+          {project.ai_reviewed_at ? (
+            <span className="flex shrink-0 items-center gap-1.5 text-xs text-green-700">
+              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+              確認済み ({new Date(project.ai_reviewed_at).toLocaleString("ja-JP", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })})
+            </span>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="shrink-0 h-8 gap-1 border-violet-300 text-violet-700 hover:bg-violet-100"
+              disabled={aiReviewMutation.isPending}
+              onClick={() => aiReviewMutation.mutate()}
+            >
+              {aiReviewMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" aria-hidden="true" />}
+              内容を確認済みにする
+            </Button>
+          )}
         </div>
       )}
 
@@ -1297,6 +1344,89 @@ export default function ProjectFormPage() {
                   })()}
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* v2.9.178+: 営業活動タイムライン (AI メール取込分も含む) */}
+        {isEdit && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <History className="h-4 w-4 text-primary" aria-hidden="true" />
+                営業活動タイムライン
+                {projectActivities.length > 0 ? (
+                  <span className="text-xs font-normal text-muted-foreground">直近 {projectActivities.length} 件</span>
+                ) : null}
+                <button
+                  type="button"
+                  className="ml-auto text-xs font-normal text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+                  onClick={() => navigate("/sales/activity-logs")}
+                >
+                  営業活動ページで記録
+                </button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {projectActivities.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  この案件の活動記録はまだありません。メール・電話などのやり取りは営業活動ページ (または AI のメール取込) から記録されます。
+                </p>
+              ) : (
+                <ol className="relative space-y-4 border-l border-border pl-5 ml-1.5">
+                  {projectActivities.map((a: any) => {
+                    const actMeta: Record<string, { label: string; icon: React.ElementType }> = {
+                      call: { label: "電話", icon: Phone },
+                      email: { label: "メール", icon: Mail },
+                      meeting: { label: "打合せ", icon: Users },
+                      visit: { label: "訪問", icon: Users },
+                      proposal: { label: "提案", icon: FileText },
+                      demo: { label: "デモ", icon: MessageSquare },
+                      followup: { label: "フォロー", icon: MessageSquare },
+                      follow_up: { label: "フォロー", icon: MessageSquare },
+                      other: { label: "その他", icon: MessageSquare },
+                    };
+                    const m = actMeta[a.activity_type] ?? actMeta.other;
+                    const MIcon = m.icon;
+                    const naOverdue = a.next_action_date && !a.next_action_done_at && a.next_action_date < new Date().toISOString().slice(0, 10);
+                    return (
+                      <li key={a.id} className="relative">
+                        <span className="absolute -left-[27px] top-0.5 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-card">
+                          <MIcon className="h-3 w-3 text-orange-600" aria-hidden="true" />
+                        </span>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">{m.label}</span>
+                          <span>{a.activity_date}</span>
+                          {a.user_name ? <span>{a.user_name}</span> : null}
+                          {a.is_ai_created ? (
+                            <span
+                              className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0.5 text-[10px] text-violet-700"
+                              title={a.ai_requested_by ? `AI取込 (指示: ${a.ai_requested_by})` : "AI取込"}
+                            >
+                              <Sparkles className="h-3 w-3" aria-hidden="true" />
+                              AI取込
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="mt-0.5 text-sm font-medium text-foreground">{a.subject}</p>
+                        {a.description ? (
+                          <p className="mt-0.5 text-xs text-muted-foreground whitespace-pre-line line-clamp-3">{a.description}</p>
+                        ) : null}
+                        {a.next_action ? (
+                          <p className={cn(
+                            "mt-1 flex items-center gap-1.5 text-xs",
+                            a.next_action_done_at ? "text-muted-foreground line-through" : naOverdue ? "text-red-600 font-medium" : "text-blue-700"
+                          )}>
+                            <CalendarClock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                            {a.next_action_date ?? ""} {a.next_action}
+                            {a.next_action_done_at ? <span className="no-underline">✓ 完了</span> : naOverdue ? <span>(期限超過)</span> : null}
+                          </p>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
             </CardContent>
           </Card>
         )}

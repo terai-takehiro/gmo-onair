@@ -19,6 +19,7 @@ export const queryKeys = {
     alerts:         () => ['dashboard', 'alerts'] as const,
     recentProjects: () => ['dashboard', 'recent-projects'] as const,
     salesBoard:     () => ['dashboard', 'sales-board'] as const,
+    aiInbox:        () => ['dashboard', 'ai-inbox'] as const,
     monthlyChart:   () => ['dashboard', 'monthly-chart'] as const,
     weeklySchedule: () => ['dashboard', 'weekly-schedule'] as const,
     pipeline:       () => ['dashboard', 'pipeline'] as const,

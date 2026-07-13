@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth, BLOCK_APPS, type BlockApp } from "@/contexts/platform/AuthContext";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
@@ -58,6 +58,8 @@ import {
   Mail,
   MessageSquare,
   CalendarClock,
+  Check,
+  Inbox,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -123,11 +125,33 @@ interface SalesBoardItem {
   last_activity_type?: string | null;
   last_activity_subject?: string | null;
   last_activity_date?: string | null;
+  next_action_activity_id?: string | null;
   next_action?: string | null;
   next_action_date?: string | null;
   activity_count?: number;
   is_hot?: number;
+  // v2.9.178+: AI 起票情報
+  created_by?: string | null;
+  ai_reviewed_at?: string | null;
+  ai_requested_by?: string | null;
 }
+
+// v2.9.178+: AI 起票インボックスの 1 案件
+interface AiInboxItem {
+  id: string;
+  code?: string | null;
+  gls_number?: string | null;
+  name: string;
+  stage: string;
+  expected_amount?: number | null;
+  created_at: string;
+  customer_name?: string | null;
+  assigned_to_name?: string | null;
+  ai_requested_by?: string | null;
+}
+
+// AI 起票判定 (MCP 経由の書き込みは created_by='mcp-claude')
+const isAiCreated = (createdBy?: string | null) => createdBy === "mcp-claude";
 
 // 営業活動種別 → ラベル + アイコン (activity_logs.activity_type)
 const ACTIVITY_META: Record<string, { label: string; icon: React.ElementType }> = {
@@ -223,10 +247,13 @@ export default function HomePage() {
         {/* ───── 2. クイックアクセス (財務管理が有効なユーザー) ───── */}
         {canSeeBudget && <QuickAccessSection navigate={navigate} />}
 
-        {/* ───── 3. 今月の主要指標 + 前月比 ───── */}
+        {/* ───── 3. AI 起票インボックス (未確認の AI 起票案件があるときだけ表示) ───── */}
+        {canSeeSales && <AiInboxSection navigate={navigate} />}
+
+        {/* ───── 4. 今月の主要指標 + 前月比 ───── */}
         {canSeeSales && <KpiSection navigate={navigate} />}
 
-        {/* ───── 4. 営業ダッシュボード (進行中案件 + ホットな情報) ───── */}
+        {/* ───── 5. 営業ダッシュボード (進行中案件 + ホットな情報) ───── */}
         {canSeeSales && <SalesBoardSection navigate={navigate} />}
 
         {/* ───── 5. 直近の案件 ───── */}
@@ -662,6 +689,83 @@ function ScheduleSection() {
 }
 
 // ══════════════════════════════════════════════════════════
+// セクション: AI 起票インボックス (v2.9.178+)
+// AI (メール取込等の MCP 経由) が起票した案件のうち未確認のものを表示し、
+// 人間が内容を確認 → 「確認済み」にするレビュー導線。0 件のときは非表示。
+// ══════════════════════════════════════════════════════════
+function AiInboxSection({ navigate }: { navigate: (to: string) => void }) {
+  const qc = useQueryClient();
+  const { data: items } = useQuery<AiInboxItem[]>({
+    queryKey: queryKeys.dashboard.aiInbox(),
+    queryFn: async () => (await api.get("/dashboard/ai-inbox")).data.data,
+    staleTime: 60_000,
+    refetchOnMount: "always",
+  });
+
+  const reviewMutation = useMutation({
+    mutationFn: async (projectId: string) => api.post(`/projects/${projectId}/ai-review`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.dashboard.aiInbox() });
+      qc.invalidateQueries({ queryKey: queryKeys.dashboard.salesBoard() });
+    },
+  });
+
+  const list = items ?? [];
+  if (list.length === 0) return null;
+
+  return (
+    <SectionCard
+      title={`AI 起票インボックス (未確認 ${list.length}件)`}
+      description="AI が問い合わせメール等から起票した案件です。内容を確認して「確認済み」にしてください。"
+      icon={<Inbox />}
+      padding="compact"
+      className="border-violet-200"
+    >
+      <ul className="divide-y divide-border">
+        {list.map((p) => (
+          <li key={p.id} className="flex items-start gap-3 px-2 py-2.5">
+            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-violet-500" aria-label="AI起票" />
+            <button
+              type="button"
+              className="min-w-0 flex-1 text-left rounded-md transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => navigate(`/sales/projects/${p.id}`)}
+            >
+              <p className="text-sm font-medium text-foreground truncate">
+                {(p.gls_number || p.code) ? (
+                  <span className="text-xs text-muted-foreground mr-1.5">{p.gls_number || p.code}</span>
+                ) : null}
+                {p.name}
+              </p>
+              <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                {p.customer_name ? <span className="truncate">{p.customer_name}</span> : null}
+                <span>起票 {relativeDay(p.created_at?.slice(0, 10))}</span>
+                {p.ai_requested_by ? (
+                  <span className="text-violet-600">指示: {p.ai_requested_by}</span>
+                ) : null}
+                {p.assigned_to_name ? <span>担当: {p.assigned_to_name}</span> : null}
+              </p>
+            </button>
+            <Badge variant={statusOf(PROJECT_STAGE, p.stage).variant} className="shrink-0 mt-0.5">
+              {statusOf(PROJECT_STAGE, p.stage).label}
+            </Badge>
+            <Button
+              size="sm"
+              variant="outline"
+              className="shrink-0 h-8 gap-1 text-xs"
+              disabled={reviewMutation.isPending}
+              onClick={() => reviewMutation.mutate(p.id)}
+            >
+              <Check className="h-3.5 w-3.5" aria-hidden="true" />
+              確認済み
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </SectionCard>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
 // セクション: 営業ダッシュボード (進行中案件 + ホットな情報)
 // - 進行中の全案件を一覧化 (ページングなし = トップページで確実に見える)
 // - 直近の営業活動 (メール/電話/打合せ) がある「ホット案件」を先頭に強調表示
@@ -669,11 +773,36 @@ function ScheduleSection() {
 // ══════════════════════════════════════════════════════════
 function SalesBoardSection({ navigate }: { navigate: (to: string) => void }) {
   const [expanded, setExpanded] = useState(false);
+  // 延期メニューを開いている次回アクションの activity_id (1つだけ開く)
+  const [postponeFor, setPostponeFor] = useState<string | null>(null);
+  const qc = useQueryClient();
   const { data: items, isLoading } = useQuery<SalesBoardItem[]>({
     queryKey: queryKeys.dashboard.salesBoard(),
     queryFn: async () => (await api.get("/dashboard/sales-board")).data.data,
     staleTime: 60_000,
+    refetchOnMount: "always",
   });
+
+  // 次回アクションの 完了 / 延期 (ページ遷移なしのワンタップ操作)
+  const nextActionMutation = useMutation({
+    mutationFn: async (p: { id: string; action: "complete" | "postpone"; date?: string }) =>
+      p.action === "complete"
+        ? api.post(`/activity-logs/${p.id}/complete-next-action`)
+        : api.post(`/activity-logs/${p.id}/postpone-next-action`, { date: p.date }),
+    onSuccess: () => {
+      setPostponeFor(null);
+      qc.invalidateQueries({ queryKey: queryKeys.dashboard.salesBoard() });
+    },
+  });
+
+  // 今日から N 日後の YYYY-MM-DD
+  const dateAfter = (days: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${d.getFullYear()}-${m}-${dd}`;
+  };
 
   const list = items ?? [];
   const hotCount = list.filter((p) => p.is_hot === 1).length;
@@ -730,14 +859,14 @@ function SalesBoardSection({ navigate }: { navigate: (to: string) => void }) {
               const ActIcon = meta?.icon;
               const overdue =
                 p.next_action_date && p.next_action_date < todayStr;
+              const aiCreated = isAiCreated(p.created_by);
+              const naId = p.next_action_activity_id;
               return (
-                <li key={p.id}>
+                <li key={p.id} className={cn(p.is_hot === 1 && "bg-orange-50/40 rounded-md")}>
+                  {/* 案件本体 (クリックで詳細へ)。次回アクションの操作ボタンはネスト不可のため下の別行に置く */}
                   <button
                     type="button"
-                    className={cn(
-                      "flex w-full items-start gap-3 px-2 py-2.5 text-left transition-colors hover:bg-accent rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      p.is_hot === 1 && "bg-orange-50/40"
-                    )}
+                    className="flex w-full items-start gap-3 px-2 pt-2.5 pb-1.5 text-left transition-colors hover:bg-accent rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     onClick={() => navigate(`/sales/projects/${p.id}`)}
                   >
                     <div className="mt-0.5 shrink-0">
@@ -753,6 +882,16 @@ function SalesBoardSection({ navigate }: { navigate: (to: string) => void }) {
                           <span className="text-xs text-muted-foreground mr-1.5">{p.gls_number}</span>
                         ) : null}
                         {p.name}
+                        {aiCreated ? (
+                          <span
+                            className="ml-1.5 inline-flex items-center gap-0.5 align-middle rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0.5 text-[10px] font-normal text-violet-700"
+                            title={p.ai_requested_by ? `AI起票 (指示: ${p.ai_requested_by})` : "AI起票"}
+                          >
+                            <Sparkles className="h-3 w-3" aria-hidden="true" />
+                            AI起票
+                            {!p.ai_reviewed_at ? <span className="text-amber-600 font-medium">·未確認</span> : null}
+                          </span>
+                        ) : null}
                       </p>
                       {p.customer_name ? (
                         <p className="text-xs text-muted-foreground truncate">{p.customer_name}</p>
@@ -768,25 +907,74 @@ function SalesBoardSection({ navigate }: { navigate: (to: string) => void }) {
                           ) : null}
                         </p>
                       ) : null}
-                      {/* 次回アクション */}
-                      {p.next_action && p.next_action_date ? (
-                        <p
-                          className={cn(
-                            "mt-0.5 flex items-center gap-1.5 text-xs truncate",
-                            overdue ? "text-red-600 font-medium" : "text-blue-700"
-                          )}
-                        >
-                          <CalendarClock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                          {relativeDay(p.next_action_date)}
-                          <span className="text-muted-foreground truncate">{p.next_action}</span>
-                          {overdue ? <span className="shrink-0">(期限超過)</span> : null}
-                        </p>
-                      ) : null}
                     </div>
                     <Badge variant={statusOf(PROJECT_STAGE, p.stage).variant} className="shrink-0">
                       {statusOf(PROJECT_STAGE, p.stage).label}
                     </Badge>
                   </button>
+                  {/* 次回アクション (完了/延期 をページ遷移なしで操作) */}
+                  {p.next_action && p.next_action_date && naId ? (
+                    <div className="flex flex-wrap items-center gap-1.5 pl-9 pr-2 pb-2">
+                      <span
+                        className={cn(
+                          "flex min-w-0 flex-1 items-center gap-1.5 text-xs",
+                          overdue ? "text-red-600 font-medium" : "text-blue-700"
+                        )}
+                      >
+                        <CalendarClock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                        {relativeDay(p.next_action_date)}
+                        <span className="text-muted-foreground truncate">{p.next_action}</span>
+                        {overdue ? <span className="shrink-0">(期限超過)</span> : null}
+                      </span>
+                      <span className="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-0.5 rounded-md border border-green-200 bg-green-50 px-2 py-1 text-[11px] text-green-700 hover:bg-green-100 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          disabled={nextActionMutation.isPending}
+                          onClick={() => nextActionMutation.mutate({ id: naId, action: "complete" })}
+                          aria-label="次回アクションを完了"
+                        >
+                          <Check className="h-3 w-3" aria-hidden="true" />
+                          完了
+                        </button>
+                        <button
+                          type="button"
+                          className={cn(
+                            "inline-flex items-center gap-0.5 rounded-md border px-2 py-1 text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            postponeFor === naId
+                              ? "border-blue-300 bg-blue-100 text-blue-800"
+                              : "border-border bg-muted/40 text-muted-foreground hover:bg-accent"
+                          )}
+                          onClick={() => setPostponeFor(postponeFor === naId ? null : naId)}
+                          aria-label="次回アクションを延期"
+                        >
+                          延期
+                          <ChevronDown className="h-3 w-3" aria-hidden="true" />
+                        </button>
+                      </span>
+                      {postponeFor === naId ? (
+                        <span className="flex w-full items-center justify-end gap-1 pt-0.5">
+                          {[
+                            { label: "明日", days: 1 },
+                            { label: "3日後", days: 3 },
+                            { label: "1週間後", days: 7 },
+                          ].map((opt) => (
+                            <button
+                              key={opt.days}
+                              type="button"
+                              className="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              disabled={nextActionMutation.isPending}
+                              onClick={() =>
+                                nextActionMutation.mutate({ id: naId, action: "postpone", date: dateAfter(opt.days) })
+                              }
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </li>
               );
             })}

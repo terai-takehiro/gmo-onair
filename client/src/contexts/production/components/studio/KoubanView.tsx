@@ -60,10 +60,13 @@ const SLOT_HEIGHT = 48; // px per 30min slot
 const SLOTS_PER_HOUR = 2;
 const TOTAL_SLOTS = (SLOT_END - SLOT_START) * SLOTS_PER_HOUR;
 
-type LocationTab = "yoga" | "shibuya" | "other";
+type LocationTab = "yoga" | "shibuya" | "aoyama" | "other";
 
 function getLocationTab(locationName: string): LocationTab {
+  // 判定順が重要: 新名称「GMOサムライスタジオ用賀/青山」も「サムライ」を含むため、
+  // 地名 (用賀/青山) を「サムライ」→渋谷 のフォールバックより先に判定する
   if (locationName.includes("用賀") || locationName.includes("グローバル")) return "yoga";
+  if (locationName.includes("青山")) return "aoyama";
   if (locationName.includes("渋谷") || locationName.includes("サムライ")) return "shibuya";
   return "other";
 }
@@ -181,9 +184,11 @@ export default function KoubanView({
   }, [bookings, filteredRooms, dateStr]);
 
   // Location tabs with counts
+  // 正式名称は「GMOサムライスタジオ用賀/渋谷/青山」— タブは地名で省略表記
   const tabConfig: { key: LocationTab; label: string }[] = [
-    { key: "yoga", label: "GMOグローバルスタジオ" },
-    { key: "shibuya", label: "GMOサムライコンテンツスタジオ渋谷" },
+    { key: "yoga", label: "用賀" },
+    { key: "shibuya", label: "渋谷" },
+    { key: "aoyama", label: "青山" },
     { key: "other", label: "その他" },
   ];
 

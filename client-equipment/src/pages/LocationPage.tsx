@@ -316,7 +316,7 @@ function MasterDialog({ open, onClose }: { open: boolean; onClose: () => void })
             title="拠点"
             apiPath="/equipment/branches"
             queryKey="equipment-branches"
-            placeholder="例: 用賀、渋谷"
+            placeholder="例: 用賀、渋谷、青山"
           />
           <MasterSection
             title="種別"
