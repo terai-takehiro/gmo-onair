@@ -49,7 +49,7 @@ export function SectionCard({
       )}
       {...rest}
     >
-      <header className="flex flex-wrap items-start justify-between gap-2 border-b border-border px-4 py-3 sm:px-6 sm:py-4">
+      <header className="flex flex-col gap-2 border-b border-border px-4 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:px-6 sm:py-4">
         <div className="min-w-0 flex-1">
           <h2 className="heading-section flex items-center gap-2 text-base sm:text-lg text-foreground">
             {icon ? <span className="text-primary [&>svg]:h-5 [&>svg]:w-5" aria-hidden="true">{icon}</span> : null}
