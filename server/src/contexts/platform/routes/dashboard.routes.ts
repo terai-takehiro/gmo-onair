@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
+import { config } from '../../../config';
 
 const router = Router();
 
@@ -144,31 +145,52 @@ router.get('/recent-projects', async (_req, res) => {
 // - 直近 14 日以内に活動がある案件を「ホット」として先頭に、活動日の新しい順で並べる
 // - トップページで確実に一覧化するためページングせず全件返す (進行中に限定されるため件数は自然に有界、上限 100)
 router.get('/sales-board', async (_req, res) => {
+  // v2.9.178+: 次回アクションは「未完了 (next_action_done_at IS NULL) で期限が最も近いもの」を
+  // 直近活動とは独立した lateral で取得 (完了/延期の操作対象として activity_id も返す)。
+  // AI 起票 (created_by='mcp-claude') は mcp_audit_log から指示者 (requested_by) を逆引きして併記。
   const rows = await queryAll(
     `SELECT p.id, p.gls_number, p.name, p.stage, p.event_start,
+            p.created_by, p.ai_reviewed_at,
             c.name AS customer_name,
             la.activity_type   AS last_activity_type,
             la.subject         AS last_activity_subject,
             la.activity_date   AS last_activity_date,
-            la.next_action     AS next_action,
-            la.next_action_date AS next_action_date,
+            na.activity_id     AS next_action_activity_id,
+            na.next_action     AS next_action,
+            na.next_action_date AS next_action_date,
             ac.cnt             AS activity_count,
+            ai.requested_by    AS ai_requested_by,
             CASE WHEN la.activity_date IS NOT NULL
                  AND la.activity_date >= (CURRENT_DATE - INTERVAL '14 days')::text
                  THEN 1 ELSE 0 END AS is_hot
      FROM projects p
      LEFT JOIN customers c ON c.id = p.customer_id
      LEFT JOIN LATERAL (
-       SELECT a.activity_type, a.subject, a.activity_date, a.next_action, a.next_action_date
+       SELECT a.activity_type, a.subject, a.activity_date
        FROM activity_logs a
        WHERE a.project_id = p.id AND a.deleted_at IS NULL
        ORDER BY a.activity_date DESC, a.created_at DESC
        LIMIT 1
      ) la ON TRUE
      LEFT JOIN LATERAL (
+       SELECT a.id AS activity_id, a.next_action, a.next_action_date
+       FROM activity_logs a
+       WHERE a.project_id = p.id AND a.deleted_at IS NULL
+         AND a.next_action IS NOT NULL AND a.next_action_date IS NOT NULL
+         AND a.next_action_done_at IS NULL
+       ORDER BY a.next_action_date ASC, a.created_at DESC
+       LIMIT 1
+     ) na ON TRUE
+     LEFT JOIN LATERAL (
        SELECT COUNT(*) AS cnt FROM activity_logs a2
        WHERE a2.project_id = p.id AND a2.deleted_at IS NULL
      ) ac ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT m.requested_by FROM mcp_audit_log m
+       WHERE m.tool_name = 'create_project' AND m.result_summary->>'created_id' = p.id
+       ORDER BY m.created_at ASC
+       LIMIT 1
+     ) ai ON TRUE
      WHERE p.deleted_at IS NULL
        AND p.stage NOT IN ('s_completed','e_lost')
      ORDER BY
@@ -187,6 +209,33 @@ router.get('/sales-board', async (_req, res) => {
        p.event_start ASC NULLS LAST,
        p.created_at DESC
      LIMIT 100`
+  );
+  res.json({ success: true, data: rows });
+});
+
+// v2.9.178+: AI 起票インボックス — AI (MCP 経由のメール取込等) が起票した案件のうち
+// 人間がまだ内容確認していないもの (ai_reviewed_at IS NULL) を新しい順に返す。
+// 確認は POST /projects/:id/ai-review (projects.routes) で記録する。
+router.get('/ai-inbox', async (_req, res) => {
+  const rows = await queryAll(
+    `SELECT p.id, p.code, p.gls_number, p.name, p.stage, p.expected_amount, p.created_at,
+            c.name AS customer_name, u.name AS assigned_to_name,
+            ai.requested_by AS ai_requested_by
+     FROM projects p
+     LEFT JOIN customers c ON c.id = p.customer_id
+     LEFT JOIN users u ON u.id = p.assigned_to
+     LEFT JOIN LATERAL (
+       SELECT m.requested_by FROM mcp_audit_log m
+       WHERE m.tool_name = 'create_project' AND m.result_summary->>'created_id' = p.id
+       ORDER BY m.created_at ASC
+       LIMIT 1
+     ) ai ON TRUE
+     WHERE p.deleted_at IS NULL
+       AND p.created_by = ?
+       AND p.ai_reviewed_at IS NULL
+     ORDER BY p.created_at DESC
+     LIMIT 50`,
+    [config.mcpActorId]
   );
   res.json({ success: true, data: rows });
 });
