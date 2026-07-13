@@ -63,7 +63,9 @@ function dateJP(d: string | null): string {
 export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
   return new Promise<Buffer>((resolve, reject) => {
     try {
-      const isEstimate = data.status === 'estimate';
+      const isEstimate   = data.status === 'estimate';
+      const isInspection = data.status === 'inspection'; // 検収書 (金額を伏せ 数量・単位のみ)
+      const showMoney    = !isInspection;
       const docDate    = data.billing_date || data.recognition_date || new Date().toISOString().slice(0, 10);
       const items      = Array.isArray(data.items) ? data.items : [];
 
@@ -147,13 +149,23 @@ export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
       y = Math.max(yL, yR) + 14;
 
       // ── ③ タイトル ────────────────────────────────────────────
-      txt(isEstimate ? '御見積書' : '請　求　書', ML, y, { sz: 22, f: B }); y += 32;
+      const docTitle = isInspection ? '検　収　書' : isEstimate ? '御見積書' : '請　求　書';
+      txt(docTitle, ML, y, { sz: 22, f: B }); y += 30;
+      if (isInspection) {
+        txt('下記の役務に関し、検収致しました。', ML, y, { sz: 9, c: '#333333', w: PW }); y += 16;
+      }
 
       // ── ④ 案件名 ──────────────────────────────────────────────
       txt(projectLabel, ML, y, { sz: 10, w: PW }); y += 16;
       if (data.subtitle) { txt(data.subtitle, ML, y, { sz: 8, c: '#666666', w: PW }); y += 14; }
 
-      // ── ⑤ 3列サマリーボックス ─────────────────────────────────
+      // ── ④' 検収書: 担当者/検収日 欄 (記入用) ───────────────────
+      if (isInspection) {
+        txt(`担当者：${'　'.repeat(12)}　　検収日：${'　'.repeat(10)}`, ML, y, { sz: 9, w: PW }); y += 18;
+      }
+
+      // ── ⑤ 3列サマリーボックス (検収書は金額を伏せるため非表示) ──
+      if (showMoney) {
       const s0 = PW - 60 - 68 - 80;
       const [s1, s2, s3] = [60, 68, 80];
       const [xS1, xS2, xS3] = [ML + s0, ML + s0 + s1, ML + s0 + s1 + s2];
@@ -174,30 +186,46 @@ export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
       txt(discountTotal < 0 ? money(discountTotal) : '−', xS2 + 4, y + 6, { sz: 9, c: '#d97706', w: s2 - 8, align: 'right' });
       txt(money(quoteTotal), xS3 + 4, y + 5, { sz: 10, f: B, w: s3 - 8, align: 'right' });
       y += sDH + 8;
+      } // showMoney
 
-      // ── ⑥ 見積コード＋注記 ───────────────────────────────────
-      txt(`見積コード　：　${data.billing_key || ''}`, ML, y, { sz: 8 }); y += 14;
-      txt('＊御見積有効期間：本見積書提出後１ヶ月　　＊本見積書には消費税等は含まれておりません。',
-          ML, y, { sz: 7, c: '#444444', w: PW }); y += 16;
+      // ── ⑥ コード＋注記 ───────────────────────────────────────
+      const codeLabel = isInspection ? '見積書コード' : '見積コード';
+      txt(`${codeLabel}　：　${data.billing_key || ''}`, ML, y, { sz: 8 }); y += 14;
+      if (isEstimate) {
+        txt('＊御見積有効期間：本見積書提出後１ヶ月　　＊本見積書には消費税等は含まれておりません。',
+            ML, y, { sz: 7, c: '#444444', w: PW }); y += 16;
+      } else if (isInspection) {
+        txt('＊本書は上記役務の検収を確認するものです。金額は当初見積および別途発行の請求書に準じます。',
+            ML, y, { sz: 7, c: '#444444', w: PW }); y += 16;
+      } else {
+        y += 4;
+      }
 
       // ── ⑦ 明細テーブル（カテゴリ別 / 複数ページ対応） ──────────
       const PAGE_BOTTOM = 800; // A4 高さ 842 − 下余白
       const VPAD = 5;
       const HDR_H = 20;
-      // 列: 商品名/備考 | 数量 | 単価 | 金額(税別)
+      // 列: (通常) 商品名/備考 | 数量 | 単価 | 金額(税別) / (検収書) 商品名/備考 | 数量 | 単位
       const wQty = 46, wUnit = 82, wAmt = 86;
-      const wDesc = PW - wQty - wUnit - wAmt;
+      const wUnitCol = 60; // 検収書の「単位」列幅
+      const wDesc = showMoney ? PW - wQty - wUnit - wAmt : PW - wQty - wUnitCol;
       const xDesc = ML, xQty = ML + wDesc, xUnit = xQty + wQty, xAmt = xUnit + wUnit;
+      const xUnitColX = xQty + wQty; // 検収書の単位列 x
 
       const drawTableHeader = () => {
         rect(xDesc, y, wDesc, HDR_H, '#f0f0f0', '#333333');
         rect(xQty,  y, wQty,  HDR_H, '#f0f0f0', '#333333');
-        rect(xUnit, y, wUnit, HDR_H, '#f0f0f0', '#333333');
-        rect(xAmt,  y, wAmt,  HDR_H, '#f0f0f0', '#333333');
         txt('商品名 / 備考', xDesc + 3, y + 5, { sz: 7, f: B, w: wDesc - 6 });
         txt('数量',          xQty + 3,  y + 5, { sz: 7, f: B, w: wQty - 6, align: 'right' });
-        txt('単価',          xUnit + 3, y + 5, { sz: 7, f: B, w: wUnit - 6, align: 'right' });
-        txt('金額(税別)',    xAmt + 3,  y + 5, { sz: 7, f: B, w: wAmt - 6, align: 'right' });
+        if (showMoney) {
+          rect(xUnit, y, wUnit, HDR_H, '#f0f0f0', '#333333');
+          rect(xAmt,  y, wAmt,  HDR_H, '#f0f0f0', '#333333');
+          txt('単価',       xUnit + 3, y + 5, { sz: 7, f: B, w: wUnit - 6, align: 'right' });
+          txt('金額(税別)', xAmt + 3,  y + 5, { sz: 7, f: B, w: wAmt - 6, align: 'right' });
+        } else {
+          rect(xUnitColX, y, wUnitCol, HDR_H, '#f0f0f0', '#333333');
+          txt('単位', xUnitColX + 3, y + 5, { sz: 7, f: B, w: wUnitCol - 6, align: 'center' });
+        }
         y += HDR_H;
       };
 
@@ -249,8 +277,6 @@ export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
 
           rect(xDesc, y, wDesc, rh, undefined, '#cccccc');
           rect(xQty,  y, wQty,  rh, undefined, '#cccccc');
-          rect(xUnit, y, wUnit, rh, undefined, '#cccccc');
-          rect(xAmt,  y, wAmt,  rh, undefined, '#cccccc');
 
           cell(xDesc, y, wDesc, rh, () => {
             txt(it.description || '', xDesc + 3, y + VPAD, { sz: 8, c: itColor, w: wDesc - 6, wrap: true });
@@ -258,22 +284,32 @@ export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
             if (periodStr) { txt(periodStr, xDesc + 3, yy + 2, { sz: 7, c: '#444444', w: wDesc - 6 }); yy += 2 + periodH; }
             if (it.item_notes) { txt(it.item_notes, xDesc + 3, yy + 2, { sz: 7, c: '#555555', w: wDesc - 6, wrap: true }); }
           });
-          // 数量 × 単価 = 金額 が項目ごとに分かるように 3 列で表示
           cell(xQty, y, wQty, rh, () => {
             txt(String(it.quantity ?? 1), xQty + 3, y + VPAD, { sz: 8, c: itColor, w: wQty - 6, align: 'right' });
           });
-          cell(xUnit, y, wUnit, rh, () => {
-            txt(money(it.unit_price || 0), xUnit + 3, y + VPAD, { sz: 8, c: itColor, w: wUnit - 6, align: 'right' });
-          });
-          cell(xAmt, y, wAmt, rh, () => {
-            txt(money(it.amount || 0), xAmt + 3, y + VPAD, { sz: 8, c: itColor, w: wAmt - 6, align: 'right' });
-          });
+          if (showMoney) {
+            // 数量 × 単価 = 金額 が項目ごとに分かるように 3 列で表示
+            rect(xUnit, y, wUnit, rh, undefined, '#cccccc');
+            rect(xAmt,  y, wAmt,  rh, undefined, '#cccccc');
+            cell(xUnit, y, wUnit, rh, () => {
+              txt(money(it.unit_price || 0), xUnit + 3, y + VPAD, { sz: 8, c: itColor, w: wUnit - 6, align: 'right' });
+            });
+            cell(xAmt, y, wAmt, rh, () => {
+              txt(money(it.amount || 0), xAmt + 3, y + VPAD, { sz: 8, c: itColor, w: wAmt - 6, align: 'right' });
+            });
+          } else {
+            // 検収書: 単位「式」
+            rect(xUnitColX, y, wUnitCol, rh, undefined, '#cccccc');
+            cell(xUnitColX, y, wUnitCol, rh, () => {
+              txt('式', xUnitColX + 3, y + VPAD, { sz: 8, c: itColor, w: wUnitCol - 6, align: 'center' });
+            });
+          }
 
           y += rh;
         }
 
-        // カテゴリ小計
-        if (hasCategories) {
+        // カテゴリ小計 (検収書は金額を伏せるため出さない)
+        if (hasCategories && showMoney) {
           const sub = groupItems.reduce((s, it) => s + (it.amount || 0), 0);
           ensureSpace(18);
           rect(xDesc, y, wDesc + wQty + wUnit, 18, '#fafafa', '#cccccc');
@@ -299,9 +335,16 @@ export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
       }
 
       // ── ⑨ 支払期日（請求書モード） ────────────────────────────
-      if (!isEstimate && data.payment_due_date) {
+      if (!isEstimate && !isInspection && data.payment_due_date) {
         ensureSpace(20);
         txt(`お支払期日：${dateJP(data.payment_due_date)}`, ML, y, { sz: 8 });
+      }
+
+      // ── ⑨' 検収書: 当日追加対応の注記 ─────────────────────────
+      if (isInspection) {
+        ensureSpace(28);
+        txt('当日追加対応が発生した場合は、別途請求書に基づくものも含め検収対象といたします。',
+            ML, y, { sz: 8, c: '#333333', w: PW, wrap: true });
       }
 
       doc.end();

@@ -95,11 +95,12 @@ router.get('/:id/pdf', async (req, res, next) => {
 
     const items = await queryAll('SELECT * FROM revenue_items WHERE revenue_id = ? ORDER BY sort_order', [req.params.id]) as any[];
 
-    // ?type=estimate|invoice で帳票種別を明示指定可 (未指定は売上ステータスに従う)。
-    // これにより確定売上からも「見積書」を、概算見積からも「請求書」を発行できる。
+    // ?type=estimate|invoice|inspection で帳票種別を明示指定可 (未指定は売上ステータスに従う)。
+    // これにより確定売上からも「見積書」を、概算見積からも「請求書」を、いずれからも「検収書」を発行できる。
     const typeParam = req.query.type as string | undefined;
     const docStatus = typeParam === 'estimate' ? 'estimate'
       : typeParam === 'invoice' ? 'confirmed'
+      : typeParam === 'inspection' ? 'inspection'
       : (row.status || 'confirmed');
 
     const pdfBuffer = await generateEstimatePdf({
@@ -132,7 +133,7 @@ router.get('/:id/pdf', async (req, res, next) => {
       })),
     });
 
-    const isEstimate = docStatus === 'estimate';
+    const docLabel = docStatus === 'estimate' ? '見積書' : docStatus === 'inspection' ? '検収書' : '請求書';
     // v2.8.107+: ファイル名は project.gls_number (live) を使う。
     // billing_key は revenue 作成時のスナップショット (例: "GLS001-001-1") のため、
     // 後で project の GLS を変更してもそのままだと古い GLS のファイル名で出てしまう。
@@ -145,7 +146,7 @@ router.get('/:id/pdf', async (req, res, next) => {
         filenameKey = row.gls_number + filenameKey.slice(dash);
       }
     }
-    const filename = `${isEstimate ? '見積書' : '請求書'}_${filenameKey}.pdf`;
+    const filename = `${docLabel}_${filenameKey}.pdf`;
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
