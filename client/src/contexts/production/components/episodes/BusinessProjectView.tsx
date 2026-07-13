@@ -57,6 +57,7 @@ import {
   FileText,
   Receipt,
   FileSpreadsheet,
+  ClipboardCheck,
   ShoppingCart,
   Percent,
   Link2,
@@ -463,7 +464,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
     setInlineItems((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const handleDownloadPdf = async (revenueId: string, type: 'estimate' | 'invoice') => {
+  const handleDownloadPdf = async (revenueId: string, type: 'estimate' | 'invoice' | 'inspection') => {
     try {
       const res = await api.get(`/revenues/${revenueId}/pdf`, { params: { type }, responseType: 'blob' });
       const blob = new Blob([res.data], { type: 'application/pdf' });
@@ -973,6 +974,9 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                                 <Button variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => handleDownloadPdf(primaryRev.id, "invoice")}>
                                   <Receipt className="h-3 w-3" />請求書
                                 </Button>
+                                <Button variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => handleDownloadPdf(primaryRev.id, "inspection")}>
+                                  <ClipboardCheck className="h-3 w-3" />検収書
+                                </Button>
                                 <Button variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => handleDownloadExcel(primaryRev.id)}>
                                   <FileSpreadsheet className="h-3 w-3" />Excel
                                 </Button>
@@ -1126,6 +1130,16 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                           >
                             <Receipt className="h-3.5 w-3.5" />
                             <span className="hidden sm:inline">請求書</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1 px-2"
+                            title="検収書PDFを発行"
+                            onClick={() => handleDownloadPdf(rev.id, 'inspection')}
+                          >
+                            <ClipboardCheck className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">検収書</span>
                           </Button>
                           <Button
                             variant="outline"
@@ -1398,7 +1412,11 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
 
       {/* 明細追加/編集ダイアログ */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); }}>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent
+          className="sm:max-w-6xl max-h-[90vh] overflow-y-auto"
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>
               {isEstimateMode
@@ -1440,26 +1458,27 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>内容</TableHead>
-                      <TableHead className="w-28">カテゴリ</TableHead>
-                      <TableHead className="w-14 text-right">数量</TableHead>
-                      <TableHead className="w-28 text-right">単価</TableHead>
+                      <TableHead className="min-w-[220px]">内容</TableHead>
+                      <TableHead className="w-36">カテゴリ</TableHead>
+                      <TableHead className="w-16 text-right">数量</TableHead>
+                      <TableHead className="w-32 text-right">単価</TableHead>
                       <TableHead className="w-28 text-right">金額</TableHead>
-                      <TableHead className="w-[132px]">期間開始</TableHead>
-                      <TableHead className="w-[132px]">期間終了</TableHead>
-                      <TableHead className="w-28">明細備考</TableHead>
+                      <TableHead className="w-[128px]">期間開始</TableHead>
+                      <TableHead className="w-[128px]">期間終了</TableHead>
+                      <TableHead className="min-w-[200px]">明細備考</TableHead>
                       <TableHead className="w-14"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {items.map((item, idx) => (
-                      <TableRow key={idx}>
+                      <TableRow key={idx} className="align-top">
                         <TableCell className="p-1">
-                          <Input
+                          <Textarea
                             value={item.description}
                             onChange={(e) => updateItem(idx, "description", e.target.value)}
-                            placeholder="項目名"
-                            className="h-8 text-sm"
+                            placeholder="項目名・内容"
+                            rows={1}
+                            className="text-sm min-h-[36px] resize-y"
                           />
                         </TableCell>
                         <TableCell className="p-1">
@@ -1467,7 +1486,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                             value={item.category || ""}
                             onChange={(e) => updateItem(idx, "category", e.target.value || null)}
                             placeholder="カテゴリ"
-                            className="h-8 text-sm"
+                            className="h-9 text-sm"
                             list="revenue-item-categories"
                           />
                         </TableCell>
@@ -1477,7 +1496,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                             min={1}
                             value={item.quantity}
                             onChange={(e) => updateItem(idx, "quantity", parseInt(e.target.value) || 0)}
-                            className="h-8 text-sm text-right"
+                            className="h-9 text-sm text-right"
                           />
                         </TableCell>
                         <TableCell className="p-1">
@@ -1517,7 +1536,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                           <Textarea
                             value={item.item_notes || ""}
                             onChange={(e) => updateItem(idx, "item_notes", e.target.value || null)}
-                            className="text-xs min-h-[32px] resize-none"
+                            className="text-xs min-h-[36px] resize-y"
                             rows={1}
                             placeholder="備考"
                           />
