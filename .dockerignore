@@ -11,6 +11,11 @@ scripts
 nginx
 *.md
 !shared/package.json
-# client の prebuild (scripts/generate-version-history.mjs) が CLAUDE.md をパースするため必要
+# client の prebuild が使う生成スクリプトは全て再包含すること。
+# (scripts/ は除外だが、prebuild = generate-version-history.mjs && generate-mcp-tools.mjs が
+#  Docker ビルド中に実行されるため、これらを個別に再包含しないと MODULE_NOT_FOUND で build 失敗。
+#  generate-version-history.mjs は CLAUDE.md をパースするため CLAUDE.md も必要。
+#  今後 scripts/generate-*.mjs を prebuild に追加したら、ここに !行 を追加すること。)
 !CLAUDE.md
 !scripts/generate-version-history.mjs
+!scripts/generate-mcp-tools.mjs
