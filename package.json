@@ -1,6 +1,6 @@
 {
   "name": "gmo-onair",
-  "version": "2.9.178",
+  "version": "2.9.179",
   "private": true,
   "description": "GMO ONAiR - 統合業務管理システム",
   "workspaces": [
@@ -10,16 +10,17 @@
     "client-techsheet",
     "client-live",
     "client-awards",
+    "client-daily",
     "server",
     "shared"
   ],
   "scripts": {
-    "dev": "concurrently -n client,equipment,qsheet,techsheet,live,awards,server -c blue,cyan,magenta,white,red,orange,green \"npm run dev -w client\" \"npm run dev -w client-equipment\" \"npm run dev -w client-qsheet\" \"npm run dev -w client-techsheet\" \"npm run dev -w client-live\" \"npm run dev -w client-awards\" \"npm run dev -w server\"",
+    "dev": "concurrently -n client,equipment,qsheet,techsheet,live,awards,daily,server -c blue,cyan,magenta,white,red,orange,yellow,green \"npm run dev -w client\" \"npm run dev -w client-equipment\" \"npm run dev -w client-qsheet\" \"npm run dev -w client-techsheet\" \"npm run dev -w client-live\" \"npm run dev -w client-awards\" \"npm run dev -w client-daily\" \"npm run dev -w server\"",
     "dev:client": "npm run dev -w client",
     "dev:qsheet": "npm run dev -w client-qsheet",
     "dev:server": "npm run dev -w server",
-    "build": "npm run build -w shared && npm run build -w client && npm run build -w client-equipment && npm run build -w client-qsheet && npm run build -w client-techsheet && npm run build -w client-live && npm run build -w client-awards && npm run build -w server",
-    "build:render": "cd client && npx vite build && cd ../client-equipment && npx vite build && cd ../client-qsheet && npx vite build && cd ../client-techsheet && npx vite build && cd ../client-live && npx vite build && cd ../client-awards && npx vite build && cd ../server && npx tsc && mkdir -p dist/shared/db && cp -r src/shared/db/migrations dist/shared/db/",
+    "build": "npm run build -w shared && npm run build -w client && npm run build -w client-equipment && npm run build -w client-qsheet && npm run build -w client-techsheet && npm run build -w client-live && npm run build -w client-awards && npm run build -w client-daily && npm run build -w server",
+    "build:render": "cd client && npx vite build && cd ../client-equipment && npx vite build && cd ../client-qsheet && npx vite build && cd ../client-techsheet && npx vite build && cd ../client-live && npx vite build && cd ../client-awards && npx vite build && cd ../client-daily && npx vite build && cd ../server && npx tsc && mkdir -p dist/shared/db && cp -r src/shared/db/migrations dist/shared/db/",
     "start:render": "node server/dist/index.js",
     "db:migrate": "npm run db:migrate -w server",
     "db:seed": "npm run db:seed -w server",

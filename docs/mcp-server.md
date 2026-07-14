@@ -50,7 +50,7 @@ https://gmo-onair.jp/api/v1/mcp?key=<MCP_API_KEY>
 
 Anthropic のクラウドから接続されるため、claude.ai (Web)・デスクトップ・モバイルアプリすべてで同じコネクタが使える。キーをローテーションしたらコネクタの URL も更新すること。
 
-## ツール一覧 (27 種 / v2.9.173+)
+## ツール一覧 (32 種 / v2.9.179+)
 
 ### 案件管理
 | ツール | 種別 | 概要 |
@@ -85,6 +85,19 @@ Anthropic のクラウドから接続されるため、claude.ai (Web)・デス�
 | `get_lost_reason_analysis` | read | 失注理由分析 (+教訓・学び) |
 | `get_sales_performance` | read | 担当者別 目標vs実績 |
 
+### 日常業務 (dailyops — 週報 / 日報)
+| ツール | 種別 | 概要 |
+|---|---|---|
+| `get_weekly_activity_stats` | read | 週次活動集計 (新規案件 / 活動内訳 / パイプライン / 売上 / 今週・来週イベント / 来週期限の次回アクション)。week_start 省略時=先週月曜、任意日は月曜へ正規化 |
+| `submit_ops_report` | write | レポート本体の upsert (kind × period_key で 1 本・再実行は更新)。**items (行) には触れない** — 人間の追記は消えない。published を draft に戻すこともない |
+| `add_ops_report_items` | write | レポートへ行を追加 (レポートが無ければ自動作成)。daily_news は URL 重複を自動スキップ (再実行安全) |
+| `list_ops_reports` | read | レポート一覧 (メタのみ)。投稿済み確認・欠番チェック用 |
+| `get_ops_report` | read | レポート全文 + 行 (人間の追記行も含む — それを踏まえて本文を更新できる) |
+
+kind と運用契約:
+- `weekly_activity` (ウィークリー活動報告) — 全社で週 1 本。period_key = 週開始日の月曜。`get_weekly_activity_stats` の結果を文章化して body に、結果そのものを payload の `{stats: ...}` に入れて **status='draft'** で `submit_ops_report`。人間がアプリでトピック行を追記し「確認・確定」で published にする。
+- `daily_news` (デイリーニュース報告) — 日 1 本。period_key = 日付。Web の業界ニュースを `add_ops_report_items` で行として投稿 (**published** で直接公開・確定操作なし)。行のフィールド: category (LED/照明/映像/音声/配信/コンテンツ/スタジオ/AR/XR/その他)、content (1行要約)、url、ai_related (AI 関連か)、note。採用フラグ (pick 1〜5) は人間がアプリで設定する。
+
 絞り込み・並び替え・書き込みロジックは UI と同一の service 層 (`projectService` / `activityLogService` / `projectTasksService` / `salesAnalyticsService` / `finance/list-query.ts`) を共有しているため、画面と同じ結果・同じ副作用になる。
 
 ## confirm 2段階フロー (重要操作)
@@ -111,6 +124,8 @@ SELECT tool_name, requested_by, result_summary, created_at FROM mcp_audit_log OR
 - **メール/議事録の取込起票**: 文面を貼って「起票して」→ AI が `list_customers` → (無ければ `create_customer`) → `create_project` → `create_activity_log` (次回アクション付き)
 - **GLS 発番**: 「この案件 GLS 発番して」→ AI がプレビュー提示 → 「OK」→ confirm:true で実行
 - **朝のダイジェスト**: `get_sales_funnel` + `list_activity_logs(upcoming:true)` + `list_tasks` で本日のサマリーを生成
+- **デイリーニュース報告 (毎朝の定期実行)**: Web 検索で業界ニュース (映像制作/配信/スタジオ/LED/照明/AR-XR 等) を収集 → 各記事を 1 行要約 → `add_ops_report_items(kind=daily_news, period_key=今日)` で投稿。再実行しても URL 重複はスキップされる
+- **ウィークリー活動報告 (週明けの定期実行)**: `get_weekly_activity_stats` で先週の集計を取得 → 文章化 → `submit_ops_report(kind=weekly_activity, status=draft, payload={stats})` で投稿 → 人間がアプリ (`/daily/weekly`) でトピック追記・確認・確定
 
 ## 動作確認 (curl)
 
@@ -142,7 +157,8 @@ server/src/contexts/mcp/
 └── tools/
     ├── projects.tools.ts   projectService を再利用
     ├── studio.tools.ts     studio-booking.service を再利用
-    └── finance.tools.ts    monthly-summary.service + list-query を再利用
+    ├── finance.tools.ts    monthly-summary.service + list-query を再利用
+    └── opsreports.tools.ts dailyops の ops-report.service / weekly-stats.service を再利用
 ```
 
 スタジオ予約と月次サマリーのロジックは v2.9.171 でルートから service 層へ抽出済み (`production/services/studio-booking.service.ts` / `finance/services/monthly-summary.service.ts`) — UI と MCP が同一コードパスを通る。

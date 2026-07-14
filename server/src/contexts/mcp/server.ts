@@ -7,6 +7,7 @@ import { registerActivityTools } from './tools/activities.tools';
 import { registerTaskTools } from './tools/tasks.tools';
 import { registerAnalyticsTools } from './tools/analytics.tools';
 import { registerUserTools } from './tools/users.tools';
+import { registerOpsReportTools } from './tools/opsreports.tools';
 
 // GMO ONAiR MCP サーバー本体。
 // stateless HTTP モードのためリクエストごとに生成される (ツール登録のみで I/O は無いので軽量)。
@@ -27,6 +28,7 @@ export function buildMcpServer(): McpServer {
   registerTaskTools(server);      // 案件タスク (read + create/update)
   registerAnalyticsTools(server); // 営業分析 (read)
   registerUserTools(server);      // ユーザー解決 (read)
+  registerOpsReportTools(server); // 日常業務レポート (read + 週報/日報の投稿)
 
   return server;
 }

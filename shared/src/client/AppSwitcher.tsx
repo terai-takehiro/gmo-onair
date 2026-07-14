@@ -17,6 +17,7 @@ import {
   Users,
   Timer,
   Tv,
+  ClipboardList,
   Languages,
   type LucideIcon,
 } from "lucide-react";
@@ -42,6 +43,7 @@ export const ONAIR_APPS: AppDef[] = [
   { id: "techsheet",   label: "技術資料",         icon: Wrench,        color: "#0891b2", basePath: "/techsheet",   status: "active" },
   { id: "liveops",     label: "計時LIVE",         icon: Timer,         color: "#ef4444", basePath: "/live",        status: "active" },
   { id: "awards",      label: "リアルタイムCG",   icon: Tv,            color: "#f59e0b", basePath: "/awards",      status: "active" },
+  { id: "dailyops",    label: "日常業務",         icon: ClipboardList, color: "#0d9488", basePath: "/daily",       status: "active" },
   { id: "interactive", label: "インタラクティブ", icon: Sparkles,      color: "#db2777", basePath: "https://interactive.gmo-onair.jp/", status: "active", externalUrl: "https://interactive.gmo-onair.jp/" },
   { id: "translate",   label: "翻訳",             icon: Languages,     color: "#16a34a", basePath: "https://gmo-translate.jp/", status: "active", externalUrl: "https://gmo-translate.jp/" },
   { id: "assign",      label: "制作支援",         icon: Users,         color: "#ea580c", basePath: "/prodsheet",   status: "coming_soon" },

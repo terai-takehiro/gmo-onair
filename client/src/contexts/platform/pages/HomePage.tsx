@@ -64,7 +64,7 @@ import {
 
 const ICON_MAP: Record<string, React.ElementType> = {
   FolderKanban, PiggyBank, Calendar, Package, FileText,
-  BookOpen, Users, Truck, Sparkles, Wrench, Timer, Tv, Languages,
+  BookOpen, Users, Truck, Sparkles, Wrench, Timer, Tv, Languages, ClipboardList,
 };
 
 const roleLabelMap: Record<string, string> = {
