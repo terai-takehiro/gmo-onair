@@ -6,7 +6,7 @@ import { getAccessibleApps } from '@gmo-onair/shared/src/client/appNav';
 import {
   ClipboardList, CalendarCheck, Newspaper, ChevronLeft, X,
   Home, FileText, Package, Sparkles, Wrench, Timer, Tv, Languages,
-  Briefcase, PiggyBank, Calendar, LayoutDashboard, DoorOpen,
+  Briefcase, PiggyBank, Calendar, LayoutDashboard, DoorOpen, Inbox,
 } from 'lucide-react';
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -58,6 +58,8 @@ export default function Sidebar() {
           <SidebarLink to="/weekly" icon={CalendarCheck} onClick={close}>ウィークリー活動報告</SidebarLink>
           <SidebarLink to="/news" icon={Newspaper} onClick={close}>デイリーニュース報告</SidebarLink>
           <SidebarLink to="/inview" icon={DoorOpen} onClick={close}>内覧会 来場予約</SidebarLink>
+          <SidebarLink to="/finance" icon={FileText} onClick={close}>見積 / 請求書</SidebarLink>
+          <SidebarLink to="/inquiries" icon={Inbox} onClick={close}>その他問い合わせ</SidebarLink>
         </nav>
 
         {/* Other apps */}

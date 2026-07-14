@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom';
-import { CalendarCheck, Newspaper, ChevronRight, Sparkles, CheckCircle2, CircleDashed, DoorOpen, Users } from 'lucide-react';
+import { CalendarCheck, Newspaper, ChevronRight, Sparkles, CheckCircle2, CircleDashed, DoorOpen, Users, FileText, Inbox } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useReports } from '@/lib/reportsApi';
 import { useInviewList } from '@/lib/inviewApi';
+import { useFinanceDocs, useInquiries } from '@/lib/inboxApi';
 import { MENUS, formatDateJa, formatWeekJa, type OpsReport } from '@/lib/types';
 
 const MENU_ICONS: Record<string, React.ElementType> = {
@@ -21,6 +22,10 @@ export default function HomePage() {
   };
   const upcomingInviewCount = inviewUpcoming.data?.length ?? 0;
   const upcomingInviewHeadcount = (inviewUpcoming.data ?? []).reduce((a, r) => a + (r.party_size || 1), 0);
+  const financeDocs = useFinanceDocs();
+  const pendingFinance = (financeDocs.data ?? []).filter((d) => d.status !== 'processed' && d.status !== 'rejected').length;
+  const inquiries = useInquiries();
+  const unhandledInquiries = (inquiries.data ?? []).filter((q) => !q.handled_at).length;
 
   return (
     <div className="mx-auto max-w-4xl p-4 sm:p-6 space-y-6">
@@ -106,6 +111,52 @@ export default function HomePage() {
                     ) : (
                       <span className="text-muted-foreground">今後の予約はまだありません</span>
                     )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        {/* 見積 / 請求書 */}
+        <Link to="/finance" className="group">
+          <Card className="h-full transition-shadow hover:shadow-md">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><FileText className="h-5 w-5" /></div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <h2 className="font-semibold text-sm truncate">見積 / 請求書</h2>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">メール受信の見積・請求・注文書を AI が取込。確認→承認→処理完了で管理</p>
+                  <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
+                    {pendingFinance > 0 ? (
+                      <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700"><CircleDashed className="h-3 w-3" /> 未処理 {pendingFinance}件</Badge>
+                    ) : <span className="text-muted-foreground">未処理はありません</span>}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        {/* その他問い合わせ */}
+        <Link to="/inquiries" className="group">
+          <Card className="h-full transition-shadow hover:shadow-md">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Inbox className="h-5 w-5" /></div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <h2 className="font-semibold text-sm truncate">その他問い合わせ</h2>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">スパム・営業を除いた有益なメールを AI が分類・重要度づけ</p>
+                  <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
+                    {unhandledInquiries > 0 ? (
+                      <Badge variant="outline" className="gap-1 border-violet-300 text-violet-700"><Sparkles className="h-3 w-3" /> 未対応 {unhandledInquiries}件</Badge>
+                    ) : <span className="text-muted-foreground">未対応はありません</span>}
                   </div>
                 </div>
               </div>

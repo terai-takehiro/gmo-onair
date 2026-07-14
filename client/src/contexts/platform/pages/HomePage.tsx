@@ -206,6 +206,7 @@ export default function HomePage() {
   const canSeeSales = hasPermission("sales");
   const canSeeStudio = hasPermission("studio");
   const canSeeBudget = hasPermission("budget");
+  const canSeeDailyops = hasPermission("dailyops");
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "おはようございます" : hour < 18 ? "お疲れさまです" : "お疲れさまです";
@@ -249,6 +250,9 @@ export default function HomePage() {
 
         {/* ───── 3. AI 起票インボックス (未確認の AI 起票案件があるときだけ表示) ───── */}
         {canSeeSales && <AiInboxSection navigate={navigate} />}
+
+        {/* ───── 3.5 日常業務アラート (未処理があるときだけ・コンパクト) ───── */}
+        {canSeeDailyops && <DailyOpsAlertStrip />}
 
         {/* ───── 4. 今月の主要指標 + 前月比 ───── */}
         {canSeeSales && <KpiSection navigate={navigate} />}
@@ -762,6 +766,46 @@ function AiInboxSection({ navigate }: { navigate: (to: string) => void }) {
         ))}
       </ul>
     </SectionCard>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// セクション: 日常業務アラート (v2.9.181+)
+// 未処理の見積/請求書・未対応の問い合わせがあるときだけコンパクトに表示。
+// 0 件 or 取得失敗時は非表示 (ごちゃつかないように)。/daily/ は別 SPA のため full nav。
+// ══════════════════════════════════════════════════════════
+function DailyOpsAlertStrip() {
+  const { data } = useQuery<{ pendingFinanceDocs: number; unhandledInquiries: number }>({
+    queryKey: ["dailyops", "alerts"],
+    queryFn: async () => (await api.get("/dailyops/alerts")).data.data,
+    staleTime: 60_000,
+  });
+  const pending = data?.pendingFinanceDocs ?? 0;
+  const unhandled = data?.unhandledInquiries ?? 0;
+  if (pending + unhandled === 0) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/20 bg-primary/[0.03] px-3 py-2 text-sm">
+      <span className="flex items-center gap-1.5 font-medium text-foreground">
+        <ClipboardList className="h-4 w-4 text-primary" aria-hidden="true" />
+        日常業務
+      </span>
+      {pending > 0 && (
+        <a href="/daily/finance" className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs text-amber-700 hover:bg-amber-100">
+          <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+          未処理の見積/請求 {pending}件
+        </a>
+      )}
+      {unhandled > 0 && (
+        <a href="/daily/inquiries" className="inline-flex items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs text-violet-700 hover:bg-violet-100">
+          <Inbox className="h-3.5 w-3.5" aria-hidden="true" />
+          要確認の問い合わせ {unhandled}件
+        </a>
+      )}
+      <a href="/daily/" className="ml-auto inline-flex items-center gap-0.5 text-xs text-primary hover:underline">
+        日常業務を開く <ArrowRight className="h-3 w-3" aria-hidden="true" />
+      </a>
+    </div>
   );
 }
 
