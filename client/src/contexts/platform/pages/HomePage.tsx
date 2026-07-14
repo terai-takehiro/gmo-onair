@@ -275,7 +275,7 @@ export default function HomePage() {
                 onClick={() => {
                   if (app.externalUrl) {
                     window.open(app.externalUrl, "_blank", "noopener,noreferrer");
-                  } else if (["equipment", "qsheet", "techsheet", "liveops", "awards"].includes(app.id)) {
+                  } else if (["equipment", "qsheet", "techsheet", "liveops", "awards", "dailyops"].includes(app.id)) {
                     window.location.href = app.basePath;
                   } else {
                     navigate(app.basePath);
