@@ -11,6 +11,7 @@ import { createLiveopsRoutes } from '../contexts/liveops';
 import { createAwardsRoutes } from '../contexts/awards';
 import { createQuizRoutes } from '../contexts/quiz';
 import { createTasksRoutes } from '../contexts/tasks';
+import { createDailyopsRoutes } from '../contexts/dailyops';
 
 export function createRoutes(): Router {
   const router = Router();
@@ -28,6 +29,7 @@ export function createRoutes(): Router {
   router.use(createAwardsRoutes());
   router.use(createQuizRoutes());
   router.use(createTasksRoutes());
+  router.use(createDailyopsRoutes());
 
   return router;
 }

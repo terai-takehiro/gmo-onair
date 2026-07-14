@@ -14,6 +14,7 @@ COPY client-qsheet/package.json client-qsheet/
 COPY client-techsheet/package.json client-techsheet/
 COPY client-live/package.json client-live/
 COPY client-awards/package.json client-awards/
+COPY client-daily/package.json client-daily/
 COPY server/package.json server/
 COPY shared/package.json shared/
 RUN npm install --workspaces --include-workspace-root
@@ -26,6 +27,7 @@ COPY client-qsheet/ client-qsheet/
 COPY client-techsheet/ client-techsheet/
 COPY client-live/ client-live/
 COPY client-awards/ client-awards/
+COPY client-daily/ client-daily/
 COPY server/ server/
 # CLAUDE.md 「現在のバージョン」節 + それをパースする scripts/ (client の prebuild が参照)
 COPY CLAUDE.md ./
@@ -39,6 +41,7 @@ RUN npm run build --workspace=client-qsheet
 RUN npm run build --workspace=client-techsheet
 RUN npm run build --workspace=client-live
 RUN npm run build --workspace=client-awards
+RUN npm run build --workspace=client-daily
 RUN npm run build --workspace=server
 
 # ── Stage 2: Production ──────────────────────
@@ -70,6 +73,7 @@ COPY --from=builder /app/client-qsheet/dist client-qsheet/dist
 COPY --from=builder /app/client-techsheet/dist client-techsheet/dist
 COPY --from=builder /app/client-live/dist client-live/dist
 COPY --from=builder /app/client-awards/dist client-awards/dist
+COPY --from=builder /app/client-daily/dist client-daily/dist
 
 # Runtime
 RUN mkdir -p /app/uploads/qsheet /app/uploads/awards

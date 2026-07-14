@@ -59,6 +59,7 @@ export async function seed() {
     [USERS.staff1, 'techsheet',   'editor'],
     [USERS.staff1, 'liveops',     'editor'],
     [USERS.staff1, 'awards',      'editor'],
+    [USERS.staff1, 'dailyops',    'editor'],
 
     // staff2 — 鈴木（制作マネージャー寄り）
     [USERS.staff2, 'sales',       'editor'],
@@ -69,6 +70,7 @@ export async function seed() {
     [USERS.staff2, 'techsheet',   'manager'],
     [USERS.staff2, 'liveops',     'manager'],
     [USERS.staff2, 'awards',      'manager'],
+    [USERS.staff2, 'dailyops',    'manager'],
 
     // staff3 — 高橋（制作スタッフ）
     [USERS.staff3, 'sales',       'reader'],
@@ -78,6 +80,7 @@ export async function seed() {
     [USERS.staff3, 'techsheet',   'editor'],
     [USERS.staff3, 'liveops',     'editor'],
     [USERS.staff3, 'awards',      'editor'],
+    [USERS.staff3, 'dailyops',    'editor'],
 
     // staff4 — 田中（経営層・主に閲覧）
     [USERS.staff4, 'sales',       'reader'],
@@ -88,6 +91,7 @@ export async function seed() {
     [USERS.staff4, 'techsheet',   'reader'],
     [USERS.staff4, 'liveops',     'reader'],
     [USERS.staff4, 'awards',      'reader'],
+    [USERS.staff4, 'dailyops',    'reader'],
 
     // staff5 — 山田（限定アクセス）
     [USERS.staff5, 'studio',      'reader'],

@@ -1,0 +1,216 @@
+@import '@gmo-onair/shared/src/client/tokens.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+    -webkit-text-size-adjust: 100%;
+    max-width: 100vw;
+  }
+  html {
+    touch-action: pan-y;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, a, [role="button"], label[for], summary {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }}
+
+@layer base {
+  * { @apply border-border; }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+  }
+}
+
+/* ── Timer Phase Colors ── */
+.phase-idle      { color: hsl(var(--foreground)); }
+.phase-countdown { color: hsl(var(--foreground)); }
+.phase-yellow    { color: #d97706; }
+.phase-red       { color: #dc2626; animation: pulse-text 0.8s ease-in-out infinite; }
+
+@keyframes pulse-text {
+  0%, 100% { color: #dc2626; }
+  50%       { color: #f87171; }
+}
+
+/* 全画面表示 (TimerDisplayPage) 用。画面幅・高さの小さい方に合わせてスケールし、
+   大型モニターでは画面いっぱいまで拡大する。 */
+.timer-display-font {
+  font-size: min(23vw, 48vh);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-feature-settings: "tnum";
+}
+
+/* 横並び 6:4 レイアウトのタイマー数字 (左 60% カラム用) */
+.split-timer-font {
+  font-size: min(18.5vw, 40vh);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-feature-settings: "tnum";
+}
+
+/* ダッシュボード等のパネル埋め込み用 (h-44/h-52 のカード内に収まるサイズ)。
+   全画面表示用の .timer-display-font (20vw) とは別物。 */
+.timer-panel-font {
+  font-size: clamp(3.25rem, 12vw, 6.5rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-feature-settings: "tnum";
+}
+
+.timer-set-font {
+  font-size: clamp(0.7rem, 2.1vw, 4vh);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 全画面表示: 「リアルタイム視聴者数」見出し */
+.viewer-header-ja {
+  font-size: clamp(1.3rem, 2.5vw, 3.2rem);
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  white-space: nowrap;
+}
+
+/* 横並びレイアウト右カラム: 合計 (主役) */
+.viewer-total-label {
+  font-size: clamp(0.9rem, 1.6vw, 2rem);
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  color: #a855f7;
+}
+.viewer-total-count {
+  font-size: min(12.5vw, 23vh);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* 横並びレイアウト右カラム: プラットフォーム別セル (数字の下にラベル) */
+.viewer-row-label {
+  font-size: clamp(1rem, 1.7vw, 2.1rem);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+.viewer-cell-count {
+  font-size: min(6.5vw, 12vh);
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* 視聴者数のみモード: 合計の超特大カウンター */
+.viewer-only-total-count {
+  font-size: min(20vw, 35vh);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+/* 視聴者数のみモード: 合計表示時の内訳カウンター */
+.viewer-break-count {
+  font-size: min(6vw, 11vh);
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* 視聴者数のみモード: 合計非表示時の大型カウンター */
+.viewer-hero-label {
+  font-size: clamp(1.25rem, 3vw, 3.5rem);
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  margin-bottom: 0.35em;
+}
+.viewer-hero-count {
+  font-size: clamp(4rem, 14vw, 20rem);
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* 残り時間プログレスバー (幅は 1 秒間隔で更新されるため linear で滑らかに追従) */
+.timer-progress-fill {
+  transition: width 0.35s linear, background-color 0.5s ease;
+}
+
+/* TIME'S UP 時の数字グロウ */
+.timer-glow-red {
+  text-shadow: 0 0 24px rgba(220, 38, 38, 0.55), 0 0 72px rgba(220, 38, 38, 0.25);
+}
+
+/* 全画面表示のフェーズ別バックドロップ (数字の背後にうっすら色が差す) */
+.timer-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transition: opacity 0.8s ease;
+}
+.timer-backdrop-yellow {
+  background: radial-gradient(ellipse 70% 55% at 50% 45%, rgba(217, 119, 6, 0.16), transparent 70%);
+}
+.timer-backdrop-red {
+  background: radial-gradient(ellipse 70% 55% at 50% 45%, rgba(220, 38, 38, 0.22), transparent 70%);
+  animation: backdrop-pulse 1.6s ease-in-out infinite;
+}
+@keyframes backdrop-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.55; }
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #dc2626;
+  animation: live-blink 1.2s ease-in-out infinite;
+}
+@keyframes live-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+/* ── AppSwitcher animation ─────────────────────── */
+@keyframes switcher-in {
+  from { opacity: 0; transform: scale(.95) translateY(-6px); }
+  to   { opacity: 1; transform: scale(1)   translateY(0);    }
+}
+.animate-switcher-in { animation: switcher-in .15s ease-out; }
+
+/* ── AI 本文 (markdown) の簡易タイポグラフィ ───── */
+.md-body h1 { font-size: 1.15rem; font-weight: 700; margin: 1rem 0 0.5rem; }
+.md-body h2 { font-size: 1.05rem; font-weight: 700; margin: 1rem 0 0.4rem; }
+.md-body h3 { font-size: 0.95rem; font-weight: 600; margin: 0.8rem 0 0.3rem; }
+.md-body h1:first-child, .md-body h2:first-child, .md-body h3:first-child { margin-top: 0; }
+.md-body p { margin: 0.4rem 0; }
+.md-body ul, .md-body ol { margin: 0.4rem 0 0.4rem 1.4rem; }
+.md-body ul { list-style: disc; }
+.md-body ol { list-style: decimal; }
+.md-body li { margin: 0.15rem 0; }
+.md-body strong { font-weight: 700; }
+.md-body a { color: hsl(var(--primary)); text-decoration: underline; }
+.md-body code { background: hsl(var(--muted)); border-radius: 4px; padding: 0.1em 0.35em; font-size: 0.85em; }
+.md-body blockquote { border-left: 3px solid hsl(var(--border)); padding-left: 0.8rem; color: hsl(var(--muted-foreground)); margin: 0.5rem 0; }
+.md-body table { border-collapse: collapse; margin: 0.5rem 0; font-size: 0.85em; }
+.md-body th, .md-body td { border: 1px solid hsl(var(--border)); padding: 0.25rem 0.5rem; }
+.md-body hr { border: none; border-top: 1px solid hsl(var(--border)); margin: 0.8rem 0; }
