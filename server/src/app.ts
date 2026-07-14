@@ -135,6 +135,7 @@ export function createApp(): express.Express {
       serveApp('/techsheet', path.join(__dirname, '../../client-techsheet/dist'));
       serveApp('/live', path.join(__dirname, '../../client-live/dist'));
       serveApp('/awards', path.join(__dirname, '../../client-awards/dist'));
+      serveApp('/daily', path.join(__dirname, '../../client-daily/dist'));
 
       app.use(express.static(clientDistPath, staticOptions));
       app.get('*', (_req, res) => {

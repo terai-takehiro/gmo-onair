@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
-  Home, Briefcase, FileText, Package, Sparkles, Wrench, Timer, Tv, Languages,
+  Home, Briefcase, FileText, Package, Sparkles, Wrench, Timer, Tv, Languages, ClipboardList,
 };
 
 const navItems = [

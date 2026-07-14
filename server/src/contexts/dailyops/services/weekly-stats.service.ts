@@ -1,0 +1,158 @@
+import { queryAll, queryOne } from '../../../shared/db/connection';
+import { config } from '../../../config';
+import { normalizeWeekStart, defaultWeekStart, addDays } from './ops-report.service';
+
+// ウィークリー活動報告の数値集計 (オンデマンド)。
+// dashboard.routes の /kpi /sales-board /weekly-schedule と同じ流儀で集計する。
+// AI (MCP の get_weekly_activity_stats) はこの結果を読んで文章化し、
+// payload.stats として submit_ops_report に同梱する (画面はそのスナップショットを表示)。
+
+export interface WeeklyStats {
+  period: { week_start: string; week_end: string };
+  new_projects: { count: number; ai_count: number; items: Record<string, unknown>[] };
+  activities: { count: number; ai_count: number; by_type: Record<string, unknown>[] };
+  pipeline: Record<string, unknown>[];
+  revenue: { week_total: number; month_total: number; month: string };
+  events_this_week: Record<string, unknown>[];
+  next_week: {
+    week_start: string;
+    week_end: string;
+    events: Record<string, unknown>[];
+    next_actions: Record<string, unknown>[];
+  };
+}
+
+export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklyStats> {
+  const weekStart = weekStartInput ? normalizeWeekStart(weekStartInput) : defaultWeekStart();
+  const weekEnd = addDays(weekStart, 6);
+  const nextWeekStart = addDays(weekStart, 7);
+  const nextWeekEnd = addDays(weekStart, 13);
+  const month = weekStart.slice(0, 7);
+
+  // 週内に作成された案件 (AI 起票は mcp_audit_log から指示者を逆引き — sales-board と同形)
+  const newProjects = await queryAll(
+    `SELECT p.id, p.gls_number, p.name, p.stage, p.expected_amount, p.created_by,
+            c.name AS customer_name,
+            ai.requested_by AS ai_requested_by
+     FROM projects p
+     LEFT JOIN customers c ON c.id = p.customer_id
+     LEFT JOIN LATERAL (
+       SELECT m.requested_by FROM mcp_audit_log m
+       WHERE m.tool_name = 'create_project' AND m.result_summary->>'created_id' = p.id
+       ORDER BY m.created_at ASC
+       LIMIT 1
+     ) ai ON TRUE
+     WHERE p.deleted_at IS NULL
+       AND p.created_at >= ?::date AND p.created_at < (?::date + INTERVAL '1 day')
+     ORDER BY p.created_at ASC
+     LIMIT 20`,
+    [weekStart, weekEnd],
+  );
+  const newProjectCounts = await queryOne(
+    `SELECT COUNT(*) AS c, COUNT(*) FILTER (WHERE created_by = ?) AS ai_c
+     FROM projects
+     WHERE deleted_at IS NULL
+       AND created_at >= ?::date AND created_at < (?::date + INTERVAL '1 day')`,
+    [config.mcpActorId, weekStart, weekEnd],
+  );
+
+  // 週内の営業活動 (activity_date は TEXT の日付)
+  const activityCounts = await queryOne(
+    `SELECT COUNT(*) AS c, COUNT(*) FILTER (WHERE created_by = ?) AS ai_c
+     FROM activity_logs
+     WHERE deleted_at IS NULL AND activity_date BETWEEN ? AND ?`,
+    [config.mcpActorId, weekStart, weekEnd],
+  );
+  const activityByType = await queryAll(
+    `SELECT activity_type, COUNT(*) AS count
+     FROM activity_logs
+     WHERE deleted_at IS NULL AND activity_date BETWEEN ? AND ?
+     GROUP BY activity_type
+     ORDER BY count DESC`,
+    [weekStart, weekEnd],
+  );
+
+  // パイプライン現況 (stage 遷移履歴は無いため現時点スナップショット)
+  const pipeline = await queryAll(
+    `SELECT stage, COUNT(*) AS count, COALESCE(SUM(expected_amount), 0) AS expected_amount
+     FROM projects
+     WHERE deleted_at IS NULL AND stage NOT IN ('s_completed', 'e_lost')
+     GROUP BY stage
+     ORDER BY CASE stage
+       WHEN 'a_won' THEN 1 WHEN 'b_verbal' THEN 2 WHEN 'c_proposal' THEN 3
+       WHEN 'd_hold' THEN 4 WHEN 'neta' THEN 5 ELSE 6 END`,
+  );
+
+  // 売上 (計上日ベース): 週内合計 + 当月累計
+  const weekRevenue = await queryOne(
+    `SELECT COALESCE(SUM(amount), 0) AS total FROM revenues
+     WHERE deleted_at IS NULL AND recognition_date BETWEEN ? AND ?`,
+    [weekStart, weekEnd],
+  );
+  const monthRevenue = await queryOne(
+    `SELECT COALESCE(SUM(amount), 0) AS total FROM revenues
+     WHERE deleted_at IS NULL AND substr(recognition_date, 1, 7) = ?`,
+    [month],
+  );
+
+  // 今週 / 来週のイベント (GLS 発番済案件のイベント期間が週に重なるもの)
+  const eventsInRange = (from: string, to: string) => queryAll(
+    `SELECT p.id, p.gls_number, p.name, p.stage, p.event_start, p.event_end,
+            c.name AS customer_name
+     FROM projects p
+     LEFT JOIN customers c ON c.id = p.customer_id
+     WHERE p.deleted_at IS NULL AND p.gls_number IS NOT NULL
+       AND NULLIF(p.event_start, '') IS NOT NULL
+       AND p.event_start <= ?
+       AND COALESCE(NULLIF(p.event_end, ''), p.event_start) >= ?
+     ORDER BY p.event_start ASC
+     LIMIT 30`,
+    [to, from],
+  );
+  const eventsThisWeek = await eventsInRange(weekStart, weekEnd);
+  const eventsNextWeek = await eventsInRange(nextWeekStart, nextWeekEnd);
+
+  // 来週期限の未完了 next_action
+  const nextActions = await queryAll(
+    `SELECT a.id, a.next_action, a.next_action_date, a.subject,
+            p.id AS project_id, p.gls_number, p.name AS project_name,
+            u.name AS user_name
+     FROM activity_logs a
+     LEFT JOIN projects p ON p.id = a.project_id
+     LEFT JOIN users u ON u.id = a.user_id
+     WHERE a.deleted_at IS NULL
+       AND a.next_action IS NOT NULL AND a.next_action_date IS NOT NULL
+       AND a.next_action_done_at IS NULL
+       AND a.next_action_date BETWEEN ? AND ?
+     ORDER BY a.next_action_date ASC
+     LIMIT 30`,
+    [nextWeekStart, nextWeekEnd],
+  );
+
+  return {
+    period: { week_start: weekStart, week_end: weekEnd },
+    new_projects: {
+      count: Number(newProjectCounts?.c ?? 0),
+      ai_count: Number(newProjectCounts?.ai_c ?? 0),
+      items: newProjects,
+    },
+    activities: {
+      count: Number(activityCounts?.c ?? 0),
+      ai_count: Number(activityCounts?.ai_c ?? 0),
+      by_type: activityByType,
+    },
+    pipeline,
+    revenue: {
+      week_total: Number(weekRevenue?.total ?? 0),
+      month_total: Number(monthRevenue?.total ?? 0),
+      month,
+    },
+    events_this_week: eventsThisWeek,
+    next_week: {
+      week_start: nextWeekStart,
+      week_end: nextWeekEnd,
+      events: eventsNextWeek,
+      next_actions: nextActions,
+    },
+  };
+}

@@ -7,11 +7,11 @@ import { getAccessibleApps } from '@gmo-onair/shared/src/client/appNav';
 import api from '@/lib/api';
 import {
   Timer, LayoutDashboard, Settings, ChevronLeft, X,
-  Home, FileText, Package, Sparkles, Wrench, ArrowLeft, Languages,
+  Home, FileText, Package, Sparkles, Wrench, ArrowLeft, Languages, ClipboardList,
 } from 'lucide-react';
 
 const ICON_MAP: Record<string, React.ElementType> = {
-  Home, FileText, Package, Sparkles, Wrench, Timer, Languages,
+  Home, FileText, Package, Sparkles, Wrench, Timer, Languages, ClipboardList,
 };
 
 interface Props { programId?: string }
