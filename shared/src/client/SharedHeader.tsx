@@ -7,7 +7,7 @@
  */
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Menu, LogOut, ChevronDown, ArrowLeftRight, HelpCircle, History } from "lucide-react";
+import { Menu, LogOut, ChevronDown, ArrowLeftRight, HelpCircle, History, Plug } from "lucide-react";
 import AppSwitcher from "./AppSwitcher";
 
 // ─── スタイル自己注入（初回のみ） ────────────────────────────────────────────
@@ -52,6 +52,8 @@ export interface SharedHeaderProps {
   onOpenManual?: () => void;
   /** 渡すと「バージョン履歴」ボタン（時計アイコン）をユーザーメニューの左に表示 */
   onOpenVersionHistory?: () => void;
+  /** 渡すと「MCP コネクタ」ボタン（プラグアイコン）をユーザーメニューの左に表示 */
+  onOpenMcpInfo?: () => void;
 }
 
 // ─── ロールラベル ─────────────────────────────────────────────────────────────
@@ -76,6 +78,7 @@ export default function SharedHeader({
   centerContent,
   onOpenManual,
   onOpenVersionHistory,
+  onOpenMcpInfo,
 }: SharedHeaderProps) {
   useEffect(() => injectSharedHeaderStyles(), []);
 
@@ -201,6 +204,19 @@ export default function SharedHeader({
 
       {/* 中央スロット（検索など） */}
       {centerContent}
+
+      {/* MCP コネクタ */}
+      {onOpenMcpInfo && (
+        <button
+          onClick={onOpenMcpInfo}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all"
+          aria-label="MCP コネクタ情報を開く"
+          title="MCP コネクタ"
+          style={{ touchAction: "manipulation" }}
+        >
+          <Plug className="h-5 w-5 text-muted-foreground" />
+        </button>
+      )}
 
       {/* バージョン履歴 */}
       {onOpenVersionHistory && (

@@ -29,6 +29,8 @@ scripts/loadtest/results/
 # バージョン履歴 JSON（scripts/generate-version-history.mjs が CLAUDE.md から都度生成。
 # client の prebuild/predev で自動生成されるためコミット不要）
 client/public/version-history.json
+# MCP ツールカタログ JSON（scripts/generate-mcp-tools.mjs が tools/*.tools.ts から都度生成）
+client/public/mcp-tools.json
 
 # Claude Code worktrees (sub-agent isolated workspaces)
 .claude/worktrees/
