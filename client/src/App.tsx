@@ -36,6 +36,8 @@ import TaskDashboardPage from "@/contexts/tasks/pages/TaskDashboardPage";
 // Production (スタジオ予約)
 import EpisodeListPage from "@/contexts/production/pages/EpisodeListPage";
 import StudioCalendarPage from "@/contexts/production/pages/StudioCalendarPage";
+import PartnerSchedulePage from "@/contexts/production/pages/PartnerSchedulePage";
+import MyCalendarPage from "@/contexts/production/pages/MyCalendarPage";
 import SignagePage from "@/contexts/production/pages/SignagePage";
 import VendorReportPage from "@/contexts/production/pages/VendorReportPage";
 
@@ -133,6 +135,8 @@ function AppRoutes() {
 
         {/* ===== スタジオ予約 (studio) ===== */}
         <Route path="/studio/calendar" element={<PermissionRoute module="studio"><StudioCalendarPage /></PermissionRoute>} />
+        <Route path="/studio/partners" element={<PermissionRoute module="partner_schedule"><PartnerSchedulePage /></PermissionRoute>} />
+        <Route path="/studio/my-calendar" element={<PermissionRoute module="partner_schedule"><MyCalendarPage /></PermissionRoute>} />
 
         {/* 機材管理 (/equipment/*) は client-equipment/ が Nginx 経由で配信 */}
 

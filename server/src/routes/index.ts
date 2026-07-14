@@ -12,6 +12,7 @@ import { createAwardsRoutes } from '../contexts/awards';
 import { createQuizRoutes } from '../contexts/quiz';
 import { createTasksRoutes } from '../contexts/tasks';
 import { createDailyopsRoutes } from '../contexts/dailyops';
+import { createScheduleRoutes } from '../contexts/schedule';
 
 export function createRoutes(): Router {
   const router = Router();
@@ -30,6 +31,7 @@ export function createRoutes(): Router {
   router.use(createQuizRoutes());
   router.use(createTasksRoutes());
   router.use(createDailyopsRoutes());
+  router.use(createScheduleRoutes());
 
   return router;
 }

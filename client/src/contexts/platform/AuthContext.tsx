@@ -46,6 +46,7 @@ export const MODULE_LABELS: Record<string, string> = {
   sales: "案件管理",
   budget: "財務管理",
   studio: "カレンダー",
+  partner_schedule: "パートナースケジュール",
   equipment: "機材管理",
   qsheet: "Qシート",
   techsheet: "技術資料",

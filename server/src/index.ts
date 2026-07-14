@@ -12,6 +12,7 @@ import { initQsheetSocketIO } from './contexts/qsheet/socket';
 import { initLiveopsSocketIO, initLiveopsServices } from './contexts/liveops';
 import { initAwardsSocketIO } from './contexts/awards';
 import { initQuizSocketIO, initInteractivePoller } from './contexts/quiz';
+import { initIcsSyncPoller, shutdownIcsSyncPoller } from './contexts/schedule';
 
 async function main() {
   await initDb();
@@ -61,6 +62,7 @@ async function main() {
   initAwardsSocketIO(io);
   initQuizSocketIO(io);
   initInteractivePoller(io);  // v2.9.24: Interactive 投票数を CG にリアルタイム反映
+  initIcsSyncPoller();        // v2.9.186: マイカレンダーの ICS 購読同期 (Outlook/Google → ONAiR)
   app.set('io', io);  // quiz.routes.ts等からSocket.IOにアクセスするため
 
   httpServer.listen(config.port, () => {
@@ -72,6 +74,7 @@ async function main() {
   // Graceful shutdown
   process.on('SIGTERM', () => {
     shutdownSocketIO();
+    shutdownIcsSyncPoller();
     httpServer.close();
   });
 }
