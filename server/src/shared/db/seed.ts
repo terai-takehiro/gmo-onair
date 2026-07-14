@@ -54,6 +54,7 @@ export async function seed() {
     [USERS.staff1, 'sales',       'manager'],
     [USERS.staff1, 'budget',      'manager'],
     [USERS.staff1, 'studio',      'editor'],
+    [USERS.staff1, 'partner_schedule', 'editor'],
     [USERS.staff1, 'equipment',   'reader'],
     [USERS.staff1, 'qsheet',      'editor'],
     [USERS.staff1, 'techsheet',   'editor'],
@@ -65,6 +66,7 @@ export async function seed() {
     [USERS.staff2, 'sales',       'editor'],
     [USERS.staff2, 'budget',      'reader'],
     [USERS.staff2, 'studio',      'manager'],
+    [USERS.staff2, 'partner_schedule', 'manager'],
     [USERS.staff2, 'equipment',   'manager'],
     [USERS.staff2, 'qsheet',      'manager'],
     [USERS.staff2, 'techsheet',   'manager'],
@@ -75,6 +77,7 @@ export async function seed() {
     // staff3 — 高橋（制作スタッフ）
     [USERS.staff3, 'sales',       'reader'],
     [USERS.staff3, 'studio',      'editor'],
+    [USERS.staff3, 'partner_schedule', 'editor'],
     [USERS.staff3, 'equipment',   'editor'],
     [USERS.staff3, 'qsheet',      'editor'],
     [USERS.staff3, 'techsheet',   'editor'],
@@ -86,6 +89,7 @@ export async function seed() {
     [USERS.staff4, 'sales',       'reader'],
     [USERS.staff4, 'budget',      'reader'],
     [USERS.staff4, 'studio',      'reader'],
+    [USERS.staff4, 'partner_schedule', 'reader'],
     [USERS.staff4, 'equipment',   'reader'],
     [USERS.staff4, 'qsheet',      'reader'],
     [USERS.staff4, 'techsheet',   'reader'],
@@ -95,6 +99,7 @@ export async function seed() {
 
     // staff5 — 山田（限定アクセス）
     [USERS.staff5, 'studio',      'reader'],
+    [USERS.staff5, 'partner_schedule', 'editor'],
     [USERS.staff5, 'qsheet',      'reader'],
     [USERS.staff5, 'techsheet',   'reader'],
     [USERS.staff5, 'liveops',     'reader'],

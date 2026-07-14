@@ -22,6 +22,7 @@ import StudioRoomsManagerDialog from "../components/studio/StudioRoomsManagerDia
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { Settings, CalendarSync, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CalendarNavPills } from "../components/schedule/scheduleShared";
 
 interface StudioRoom {
   id: string;
@@ -508,7 +509,8 @@ export default function StudioCalendarPage() {
             currentPage="calendar"
           />
         )}
-        <div className="flex flex-wrap gap-1.5 sm:gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <CalendarNavPills current="studio" />
           <Button
             variant={filterOpen ? "default" : "outline"}
             size="sm"
