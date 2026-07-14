@@ -9,7 +9,6 @@ import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
 import api from "@/lib/api";
 import { formatShortDate } from "@/lib/format";
-import { PageTransition } from "@/components/ui/motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +21,7 @@ import StudioRoomsManagerDialog from "../components/studio/StudioRoomsManagerDia
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { Settings, CalendarSync, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CalendarNavPills } from "../components/schedule/scheduleShared";
+import { CalendarNavPills, loadCalState, saveCalState, clampView } from "../components/schedule/scheduleShared";
 
 interface StudioRoom {
   id: string;
@@ -169,8 +168,16 @@ export default function StudioCalendarPage() {
     }
   }, [isMobile]);
 
+  // カレンダー間 (統合/スタジオ/パートナー/マイ) で表示中の月・ビューを共有し、
+  // 切り替え時にリセットされないようにする
+  const calState = useRef(loadCalState()).current;
+  const allowedViews = isMobile
+    ? ["listMonth", "timeGridDay"]
+    : ["dayGridMonth", "timeGridWeek", "timeGridDay", "listWeek"];
+  const initialView = clampView(calState.view, allowedViews, isMobile ? "listMonth" : "dayGridMonth");
+
   // Track current FullCalendar view to prevent resets
-  const [currentView, setCurrentView] = useState<string>(isMobile ? "listMonth" : "dayGridMonth");
+  const [currentView, setCurrentView] = useState<string>(initialView);
   // Track current date for 香盤 view
   const [koubanDate, setKoubanDate] = useState<Date>(new Date());
 
@@ -217,6 +224,7 @@ export default function StudioCalendarPage() {
       const res = await api.get("/studios/bookings", { params });
       return res.data.data;
     },
+    placeholderData: (prev: any) => prev, // 期間移動/再取得中も前の表示を残す
   });
 
   // Fetch project calendar events (existing)
@@ -386,6 +394,7 @@ export default function StudioCalendarPage() {
     });
     // Track the current view so we don't reset on re-render
     setCurrentView(arg.view.type);
+    saveCalState(arg.view.type, arg.view.currentStart);
     // Sync kouban date with calendar's current date
     if (arg.view.type === "timeGridDay") {
       setKoubanDate(arg.start);
@@ -483,7 +492,7 @@ export default function StudioCalendarPage() {
   const totalUpcoming = upcomingDays.reduce((sum, d) => sum + d.items.length, 0);
 
   return (
-    <PageTransition>
+    <div className="animate-in fade-in duration-200">
     <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -762,8 +771,8 @@ export default function StudioCalendarPage() {
       {/* Calendar */}
       <Card className={!isMobile && currentView === "timeGridDay" ? "hidden" : ""}>
         <CardContent className="p-2 sm:p-4 relative">
-          {bookingsLoading && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
+          {bookingsLoading && bookings.length === 0 && (
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-background/40">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           )}
@@ -771,7 +780,8 @@ export default function StudioCalendarPage() {
             <FullCalendar
               ref={calendarRef}
               plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-              initialView={isMobile ? "listMonth" : "dayGridMonth"}
+              initialView={initialView}
+              initialDate={calState.dateStr}
               locale="ja"
               headerToolbar={isMobile ? {
                 left: "prev,next",
@@ -873,7 +883,7 @@ export default function StudioCalendarPage() {
         }}
       />
     </div>
-    </PageTransition>
+    </div>
   );
 }
 

@@ -130,6 +130,37 @@ export function paintHolidayCell(arg: { date: Date; el: HTMLElement }) {
   }
 }
 
+// ─── カレンダー間で共有する 表示ビュー + 表示日付 ──────────────────────────
+// 統合/スタジオ/パートナー/マイ を切り替えても「同じ月・同じビュー」を維持して
+// 切り替え時のリセット感 (ガタつき) を無くすための永続化。
+const CAL_STATE_KEY = "gmo_cal_view_state";
+
+export interface SharedCalState {
+  view?: string;    // FullCalendar のビュー名 (dayGridMonth 等)
+  dateStr?: string; // 表示期間の代表日 (YYYY-MM-DD, ローカル)
+}
+
+export function loadCalState(): SharedCalState {
+  try {
+    const raw = localStorage.getItem(CAL_STATE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch { /* ignore */ }
+  return {};
+}
+
+export function saveCalState(view: string, date: Date) {
+  try {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const dateStr = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    localStorage.setItem(CAL_STATE_KEY, JSON.stringify({ view, dateStr }));
+  } catch { /* ignore */ }
+}
+
+/** 保存されたビューが対象ページで使えない場合はフォールバックに丸める */
+export function clampView(view: string | undefined, allowed: string[], fallback: string): string {
+  return view && allowed.includes(view) ? view : fallback;
+}
+
 /** 終日イベントの inclusive 終了日 → FullCalendar の exclusive end (+1 日、ローカル演算) */
 export function toExclusiveEnd(endDate: string): string {
   const [y, m, d] = endDate.split("T")[0].split("-").map(Number);

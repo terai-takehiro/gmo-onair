@@ -7,7 +7,6 @@ import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
 import type { DatesSetArg, EventClickArg, DateSelectArg } from "@fullcalendar/core";
 import api from "@/lib/api";
-import { PageTransition } from "@/components/ui/motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, Plus, Users } from "lucide-react";
@@ -17,6 +16,7 @@ import PartnerScheduleDialog from "../components/schedule/PartnerScheduleDialog"
 import {
   SCHEDULE_TYPE_LABELS, SCHEDULE_TYPE_COLORS,
   useIsMobile, paintHolidayCell, toExclusiveEnd,
+  loadCalState, saveCalState, clampView,
   CalendarNavPills, type PartnerSchedule,
 } from "../components/schedule/scheduleShared";
 
@@ -39,10 +39,18 @@ export default function PartnerSchedulePage() {
   const [editing, setEditing] = useState<PartnerSchedule | null>(null);
   const [presetRange, setPresetRange] = useState<{ start: string; end: string } | null>(null);
 
+  // カレンダー間で表示中の月・ビューを共有 (切り替え時にリセットしない)
+  const calState = useRef(loadCalState()).current;
+  const allowedViews = isMobile
+    ? ["listMonth", "dayGridMonth"]
+    : ["dayGridMonth", "timeGridWeek", "listWeek"];
+  const initialView = clampView(calState.view, allowedViews, isMobile ? "listMonth" : "dayGridMonth");
+
   const { data: schedules = [], isLoading } = useQuery<PartnerSchedule[]>({
     queryKey: ["partner-schedules", dateRange.from, dateRange.to],
     queryFn: async () =>
       (await api.get(`/schedule/partner?from=${dateRange.from}&to=${dateRange.to}`)).data.data,
+    placeholderData: (prev) => prev, // 期間移動/再取得中も前の表示を残す
   });
 
   const { data: partnerUsers = [] } = useQuery<Array<{ id: string; name: string }>>({
@@ -74,6 +82,7 @@ export default function PartnerSchedulePage() {
     const pad = (n: number) => String(n).padStart(2, "0");
     const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     setDateRange({ from: fmt(info.start), to: fmt(info.end) });
+    saveCalState(info.view.type, info.view.currentStart);
   }, []);
 
   const handleEventClick = useCallback((info: EventClickArg) => {
@@ -95,7 +104,7 @@ export default function PartnerSchedulePage() {
   }, [canEdit]);
 
   return (
-    <PageTransition>
+    <div className="animate-in fade-in duration-200">
       <div className="space-y-4 p-4 sm:p-6">
         {/* ヘッダー: モバイルは「タイトル+ボタン」「回遊ピル」の 2 行、sm 以上は 1 行 */}
         <div className="flex flex-wrap items-center gap-2">
@@ -156,8 +165,8 @@ export default function PartnerSchedulePage() {
         {/* カレンダー */}
         <Card>
           <CardContent className="relative p-2 sm:p-4">
-            {isLoading && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
+            {isLoading && schedules.length === 0 && (
+              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-background/40">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             )}
@@ -165,7 +174,8 @@ export default function PartnerSchedulePage() {
               <FullCalendar
                 ref={calendarRef}
                 plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-                initialView={isMobile ? "listMonth" : "dayGridMonth"}
+                initialView={initialView}
+                initialDate={calState.dateStr}
                 locale="ja"
                 headerToolbar={isMobile ? {
                   left: "prev,next",
@@ -209,6 +219,6 @@ export default function PartnerSchedulePage() {
           isManager={isManager}
         />
       </div>
-    </PageTransition>
+    </div>
   );
 }

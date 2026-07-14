@@ -7,7 +7,6 @@ import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
 import type { DatesSetArg, EventClickArg } from "@fullcalendar/core";
 import api from "@/lib/api";
-import { PageTransition } from "@/components/ui/motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, Layers, CalendarDays, Users, CalendarClock } from "lucide-react";
 import { useAuth } from "@/contexts/platform/AuthContext";
@@ -19,6 +18,7 @@ import {
   SCHEDULE_TYPE_COLORS,
   BOOKING_TYPE_COLORS,
   useIsMobile, paintHolidayCell, toExclusiveEnd,
+  loadCalState, saveCalState, clampView,
   CalendarNavPills, type PartnerSchedule, type PersonalEvent,
 } from "../components/schedule/scheduleShared";
 
@@ -79,6 +79,13 @@ export default function UnifiedCalendarPage() {
     from: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0],
     to: new Date(new Date().getFullYear(), new Date().getMonth() + 2, 0).toISOString().split("T")[0],
   });
+  // カレンダー間で表示中の月・ビューを共有 (切り替え時にリセットしない)
+  const calState = useRef(loadCalState()).current;
+  const allowedViews = isMobile
+    ? ["listMonth", "dayGridMonth"]
+    : ["dayGridMonth", "timeGridWeek", "listWeek"];
+  const initialView = clampView(calState.view, allowedViews, isMobile ? "listMonth" : "dayGridMonth");
+
   const [layers, setLayers] = useState<Record<LayerKey, boolean>>(loadLayerPrefs);
   const toggleLayer = (key: LayerKey) => {
     setLayers((prev) => {
@@ -102,6 +109,7 @@ export default function UnifiedCalendarPage() {
     queryFn: async () =>
       (await api.get(`/studios/bookings?from=${dateRange.from}&to=${dateRange.to}`)).data.data,
     enabled: canStudio,
+    placeholderData: (prev) => prev,
   });
 
   const { data: schedules = [], isLoading: l2 } = useQuery<PartnerSchedule[]>({
@@ -109,6 +117,7 @@ export default function UnifiedCalendarPage() {
     queryFn: async () =>
       (await api.get(`/schedule/partner?from=${dateRange.from}&to=${dateRange.to}`)).data.data,
     enabled: canPartner,
+    placeholderData: (prev) => prev,
   });
 
   const { data: personalEvents = [], isLoading: l3 } = useQuery<PersonalEvent[]>({
@@ -116,6 +125,7 @@ export default function UnifiedCalendarPage() {
     queryFn: async () =>
       (await api.get(`/schedule/personal?from=${dateRange.from}&to=${dateRange.to}`)).data.data,
     enabled: canPersonal,
+    placeholderData: (prev) => prev,
   });
 
   const isLoading = l1 || l2 || l3;
@@ -179,6 +189,7 @@ export default function UnifiedCalendarPage() {
     const pad = (n: number) => String(n).padStart(2, "0");
     const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     setDateRange({ from: fmt(info.start), to: fmt(info.end) });
+    saveCalState(info.view.type, info.view.currentStart);
   }, []);
 
   const handleEventClick = useCallback((info: EventClickArg) => {
@@ -211,7 +222,7 @@ export default function UnifiedCalendarPage() {
   ];
 
   return (
-    <PageTransition>
+    <div className="animate-in fade-in duration-200">
       <div className="space-y-4 p-4 sm:p-6">
         {/* ヘッダー: モバイルは「タイトル」「回遊ピル」の 2 行、sm 以上は 1 行 */}
         <div className="flex flex-wrap items-center gap-2">
@@ -251,8 +262,8 @@ export default function UnifiedCalendarPage() {
         {/* カレンダー */}
         <Card>
           <CardContent className="relative p-2 sm:p-4">
-            {isLoading && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
+            {isLoading && calendarEvents.length === 0 && (
+              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-background/40">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             )}
@@ -260,7 +271,8 @@ export default function UnifiedCalendarPage() {
               <FullCalendar
                 ref={calendarRef}
                 plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-                initialView={isMobile ? "listMonth" : "dayGridMonth"}
+                initialView={initialView}
+                initialDate={calState.dateStr}
                 locale="ja"
                 headerToolbar={isMobile ? {
                   left: "prev,next",
@@ -322,6 +334,6 @@ export default function UnifiedCalendarPage() {
           presetRange={null}
         />
       </div>
-    </PageTransition>
+    </div>
   );
 }
