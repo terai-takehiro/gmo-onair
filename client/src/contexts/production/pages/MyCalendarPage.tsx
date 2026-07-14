@@ -7,7 +7,6 @@ import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
 import type { DatesSetArg, EventClickArg, DateSelectArg } from "@fullcalendar/core";
 import api from "@/lib/api";
-import { PageTransition } from "@/components/ui/motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, Plus, CalendarClock, CloudDownload } from "lucide-react";
@@ -17,6 +16,7 @@ import IcsFeedsDialog from "../components/schedule/IcsFeedsDialog";
 import {
   SCHEDULE_TYPE_COLORS, SCHEDULE_TYPE_LABELS,
   useIsMobile, paintHolidayCell, toExclusiveEnd,
+  loadCalState, saveCalState, clampView,
   CalendarNavPills, type PersonalEvent, type PartnerSchedule,
 } from "../components/schedule/scheduleShared";
 
@@ -41,10 +41,18 @@ export default function MyCalendarPage() {
   const [editing, setEditing] = useState<PersonalEvent | null>(null);
   const [presetRange, setPresetRange] = useState<{ start: string; end: string; allDay: boolean } | null>(null);
 
+  // カレンダー間で表示中の月・ビューを共有 (切り替え時にリセットしない)
+  const calState = useRef(loadCalState()).current;
+  const allowedViews = isMobile
+    ? ["listMonth", "timeGridDay"]
+    : ["dayGridMonth", "timeGridWeek", "timeGridDay", "listWeek"];
+  const initialView = clampView(calState.view, allowedViews, isMobile ? "listMonth" : "dayGridMonth");
+
   const { data: events = [], isLoading } = useQuery<PersonalEvent[]>({
     queryKey: ["personal-events", dateRange.from, dateRange.to],
     queryFn: async () =>
       (await api.get(`/schedule/personal?from=${dateRange.from}&to=${dateRange.to}`)).data.data,
+    placeholderData: (prev) => prev,
   });
 
   // 自分のパートナー予定 (代休/有給等) も参考表示
@@ -53,6 +61,7 @@ export default function MyCalendarPage() {
     queryFn: async () =>
       (await api.get(`/schedule/partner?from=${dateRange.from}&to=${dateRange.to}&user_id=${currentUser!.id}`)).data.data,
     enabled: !!currentUser?.id,
+    placeholderData: (prev) => prev,
   });
 
   const calendarEvents = useMemo(() => {
@@ -91,6 +100,7 @@ export default function MyCalendarPage() {
     const pad = (n: number) => String(n).padStart(2, "0");
     const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     setDateRange({ from: fmt(info.start), to: fmt(info.end) });
+    saveCalState(info.view.type, info.view.currentStart);
   }, []);
 
   const handleEventClick = useCallback((info: EventClickArg) => {
@@ -117,7 +127,7 @@ export default function MyCalendarPage() {
   }, []);
 
   return (
-    <PageTransition>
+    <div className="animate-in fade-in duration-200">
       <div className="space-y-4 p-4 sm:p-6">
         {/* ヘッダー: モバイルは「タイトル+ボタン」「回遊ピル」の 2 行、sm 以上は 1 行 */}
         <div className="flex flex-wrap items-center gap-2">
@@ -164,8 +174,8 @@ export default function MyCalendarPage() {
         {/* カレンダー */}
         <Card>
           <CardContent className="relative p-2 sm:p-4">
-            {isLoading && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
+            {isLoading && events.length === 0 && (
+              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-background/40">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             )}
@@ -173,7 +183,8 @@ export default function MyCalendarPage() {
               <FullCalendar
                 ref={calendarRef}
                 plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-                initialView={isMobile ? "listMonth" : "dayGridMonth"}
+                initialView={initialView}
+                initialDate={calState.dateStr}
                 locale="ja"
                 headerToolbar={isMobile ? {
                   left: "prev,next",
@@ -220,6 +231,6 @@ export default function MyCalendarPage() {
         />
         <IcsFeedsDialog open={feedsDialogOpen} onOpenChange={setFeedsDialogOpen} />
       </div>
-    </PageTransition>
+    </div>
   );
 }
