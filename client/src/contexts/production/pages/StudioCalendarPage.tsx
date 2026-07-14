@@ -510,7 +510,10 @@ export default function StudioCalendarPage() {
           />
         )}
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-          <CalendarNavPills current="studio" />
+          {/* 回遊ピルはモバイルでは独立行 (order-last + w-full) に落として潰れを防ぐ */}
+          <div className="order-last w-full sm:order-none sm:w-auto flex">
+            <CalendarNavPills current="studio" />
+          </div>
           <Button
             variant={filterOpen ? "default" : "outline"}
             size="sm"

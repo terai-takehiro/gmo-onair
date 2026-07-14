@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { CalendarDays, Users, CalendarClock } from "lucide-react";
+import { CalendarDays, Users, CalendarClock, Layers } from "lucide-react";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { cn } from "@/lib/utils";
 
@@ -61,6 +61,31 @@ export const SCHEDULE_TYPE_COLORS: Record<string, string> = {
   other: "#6b7280",         // グレー
 };
 
+// スタジオ予約種別の色/ラベル — StudioCalendarPage と同一セット (統合ビューで使用)
+export const BOOKING_TYPE_COLORS: Record<string, string> = {
+  performance: "#dc2626",
+  rehearsal: "#f59e0b",
+  hold: "#3b82f6",
+  consultation: "#10b981",
+  maintenance: "#64748b",
+  tour: "#8b5cf6",
+  internal: "#0891b2",
+  setup: "#d97706",
+  other: "#6b7280",
+};
+
+export const BOOKING_TYPE_LABELS: Record<string, string> = {
+  performance: "本番",
+  rehearsal: "リハーサル",
+  hold: "仮押さえ",
+  consultation: "相談",
+  maintenance: "メンテナンス",
+  tour: "内覧",
+  internal: "社内利用",
+  setup: "設営/準備",
+  other: "その他",
+};
+
 // 日本の祝日 (2025–2027) — StudioCalendarPage と同一セット
 export const JP_HOLIDAYS = new Set([
   "2025-01-01","2025-01-13","2025-02-11","2025-02-23","2025-02-24",
@@ -113,30 +138,46 @@ export function toExclusiveEnd(endDate: string): string {
   return `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}`;
 }
 
-/** スタジオ / パートナー / マイ の 3 カレンダー回遊ピル */
-export function CalendarNavPills({ current }: { current: "studio" | "partners" | "my" }) {
+/**
+ * 統合 / スタジオ / パートナー / マイ のカレンダー回遊ピル。
+ * モバイルで押し潰されて文字が縦折れしないよう、各ピルは whitespace-nowrap + shrink-0、
+ * コンテナは横スクロール可 (overflow-x-auto) にしている。呼び出し側はヘッダーの
+ * ボタン行に混ぜず、独立した行 (w-full) に置くこと。
+ */
+export function CalendarNavPills({ current }: { current: "all" | "studio" | "partners" | "my" }) {
   const { currentUser, hasPermission } = useAuth();
-  const canPartner = currentUser?.role === "system_admin" || hasPermission("partner_schedule");
+  const activeRef = useRef<HTMLAnchorElement | null>(null);
+  const isAdmin = currentUser?.role === "system_admin";
+  const canStudio = isAdmin || hasPermission("studio");
+  const canPartner = isAdmin || hasPermission("partner_schedule");
+
+  // モバイルの横スクロール時、アクティブなピルが見切れないよう初期表示で寄せる
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ inline: "nearest", block: "nearest" });
+  }, [current]);
+
   const pills = [
-    { key: "studio", label: "スタジオ", to: "/studio/calendar", icon: CalendarDays, show: true },
+    { key: "all", label: "統合", to: "/studio/all", icon: Layers, show: canStudio || canPartner },
+    { key: "studio", label: "スタジオ", to: "/studio/calendar", icon: CalendarDays, show: canStudio },
     { key: "partners", label: "パートナー", to: "/studio/partners", icon: Users, show: canPartner },
     { key: "my", label: "マイ", to: "/studio/my-calendar", icon: CalendarClock, show: canPartner },
   ].filter((p) => p.show);
   if (pills.length <= 1) return null;
   return (
-    <div className="flex items-center gap-1 rounded-full border bg-muted/40 p-1">
+    <div className="flex max-w-full items-center gap-1 overflow-x-auto rounded-full border bg-muted/40 p-1">
       {pills.map((p) => (
         <NavLink
           key={p.key}
           to={p.to}
+          ref={current === p.key ? activeRef : undefined}
           className={cn(
-            "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+            "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
             current === p.key
               ? "bg-primary text-primary-foreground shadow-sm"
               : "text-muted-foreground hover:bg-accent hover:text-foreground"
           )}
         >
-          <p.icon className="h-3.5 w-3.5" />
+          <p.icon className="h-3.5 w-3.5 shrink-0" />
           {p.label}
         </NavLink>
       ))}

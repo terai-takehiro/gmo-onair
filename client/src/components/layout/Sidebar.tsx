@@ -9,6 +9,7 @@ import {
   ShoppingCart,
   Calendar,
   CalendarClock,
+  Layers,
   Building2,
   Truck,
   Users,
@@ -53,6 +54,8 @@ interface NavItem {
   icon: React.ElementType;
   /** 指定すると、そのモジュール権限を持つユーザーにのみ表示 (アプリ全体の権限とは別ゲート) */
   module?: string;
+  /** 指定すると、いずれかのモジュール権限を持つユーザーに表示 (複合ページ用・module より優先) */
+  modules?: string[];
 }
 
 interface NavSection {
@@ -132,6 +135,7 @@ const APP_NAV: Record<string, NavSection[]> = {
   studio: [
     {
       items: [
+        { label: "統合カレンダー", to: "/studio/all", icon: Layers, modules: ["studio", "partner_schedule"] },
         { label: "スタジオカレンダー", to: "/studio/calendar", icon: Calendar },
         { label: "パートナースケジュール", to: "/studio/partners", icon: Users, module: "partner_schedule" },
         { label: "マイカレンダー", to: "/studio/my-calendar", icon: CalendarClock, module: "partner_schedule" },
@@ -226,7 +230,12 @@ export default function Sidebar() {
                   </p>
                 )}
                 {section.items
-                  .filter((item) => !item.module || isAdmin || hasPermission(item.module))
+                  .filter((item) => {
+                    if (isAdmin) return true;
+                    if (item.modules && item.modules.length > 0) return item.modules.some((m) => hasPermission(m));
+                    if (item.module) return hasPermission(item.module);
+                    return true;
+                  })
                   .map((item) => (
                   <NavLink
                     key={item.to}
