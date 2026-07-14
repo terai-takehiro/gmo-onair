@@ -216,7 +216,11 @@ export default function StudioBookingDialog({
           setStartDate(presetDate.start);
           const endD = new Date(presetDate.end);
           endD.setDate(endD.getDate() - 1);
-          const ed = endD.toISOString().split("T")[0];
+          let ed = endD.toISOString().split("T")[0];
+          // presetDate.end は FullCalendar の exclusive-end 前提 (-1 で最終日)。
+          // 呼び出し元が inclusive end (単日なら start と同値) を渡すと ed が start より
+          // 前になるため、start にクランプして単日扱いにする (二重の安全策)。
+          if (ed < presetDate.start) ed = presetDate.start;
           setEndDate(ed); setMultiDay(presetDate.start !== ed);
           setStartTime("09:00"); setEndTime("18:00");
         } else {

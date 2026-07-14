@@ -50,7 +50,7 @@ https://gmo-onair.jp/api/v1/mcp?key=<MCP_API_KEY>
 
 Anthropic のクラウドから接続されるため、claude.ai (Web)・デスクトップ・モバイルアプリすべてで同じコネクタが使える。キーをローテーションしたらコネクタの URL も更新すること。
 
-## ツール一覧 (32 種 / v2.9.179+)
+## ツール一覧 (39 種 / v2.9.183+)
 
 ### 案件管理
 | ツール | 種別 | 概要 |
@@ -97,6 +97,21 @@ Anthropic のクラウドから接続されるため、claude.ai (Web)・デス�
 kind と運用契約:
 - `weekly_activity` (ウィークリー活動報告) — 全社で週 1 本。period_key = 週開始日の月曜。`get_weekly_activity_stats` の結果を文章化して body に、結果そのものを payload の `{stats: ...}` に入れて **status='draft'** で `submit_ops_report`。人間がアプリでトピック行を追記し「確認・確定」で published にする。
 - `daily_news` (デイリーニュース報告) — 日 1 本。period_key = 日付。Web の業界ニュースを `add_ops_report_items` で行として投稿 (**published** で直接公開・確定操作なし)。行のフィールド: category (LED/照明/映像/音声/配信/コンテンツ/スタジオ/AR/XR/その他)、content (1行要約)、url、ai_related (AI 関連か)、note。採用フラグ (pick 1〜5) は人間がアプリで設定する。
+
+### 内覧会 来場予約 (dailyops — inview)
+| ツール | 種別 | 概要 |
+|---|---|---|
+| `register_inview_attendee` | write | Kairos3 の登録通知メールを取り込む。`session_label` に「参加希望の回」をそのまま渡すと日付/時間帯/対象を自動抽出。同 email × 同 session_label は更新 (再取込で重複しない)。同行者・全連絡先フィールド対応 |
+| `list_inview_attendees` | read | 来場予約一覧 (from/to/upcoming で絞り込み) |
+| `list_inview_sessions` | read | 回 (セッション) ごとの 登録件数 / 合計人数 / 来場済み数 集計 |
+
+### 見積/請求・その他問い合わせ (dailyops — inbox)
+| ツール | 種別 | 概要 |
+|---|---|---|
+| `record_finance_doc` | write | メール受信の 見積書/請求書/注文書 を取込 (doc_type / 送付者 / 金額 / 締月 / 支払期日 / message_id で重複ガード)。status=new。承認/却下/処理完了は人がアプリで操作 |
+| `list_finance_docs` | read | 見積/請求書の一覧 (status / doc_type / pending) |
+| `record_inquiry` | write | 他カテゴリに属さない**有益メールのみ**登録。**スパム・営業・メルマガ・他ツール対象 (見積請求/内覧会/案件) は呼び出し前に AI が除外する契約**。summary / importance / category / action_needed を付与 |
+| `list_inquiries` | read | その他問い合わせの一覧 (importance / unhandled) |
 
 絞り込み・並び替え・書き込みロジックは UI と同一の service 層 (`projectService` / `activityLogService` / `projectTasksService` / `salesAnalyticsService` / `finance/list-query.ts`) を共有しているため、画面と同じ結果・同じ副作用になる。
 

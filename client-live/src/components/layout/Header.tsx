@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import SharedHeader from '@gmo-onair/shared/src/client/SharedHeader';
 import ManualModal from '@gmo-onair/shared/src/client/manual/ManualModal';
 import VersionHistoryModal from '@gmo-onair/shared/src/client/versionHistory/VersionHistoryModal';
+import McpInfoModal from '@gmo-onair/shared/src/client/mcpInfo/McpInfoModal';
 import { LIVE_MANUAL } from '@/manual/content';
 import api from '@/lib/api';
 
@@ -16,6 +17,7 @@ export default function Header({ programId }: Props) {
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const [manualOpen, setManualOpen] = useState(false);
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
+  const [mcpInfoOpen, setMcpInfoOpen] = useState(false);
 
   const { data: program } = useQuery({
     queryKey: ['program', programId],
@@ -39,9 +41,11 @@ export default function Header({ programId }: Props) {
         onToggleSidebar={toggleSidebar}
         onOpenManual={() => setManualOpen(true)}
         onOpenVersionHistory={() => setVersionHistoryOpen(true)}
+        onOpenMcpInfo={() => setMcpInfoOpen(true)}
       />
       <ManualModal open={manualOpen} onOpenChange={setManualOpen} content={LIVE_MANUAL} />
       <VersionHistoryModal open={versionHistoryOpen} onOpenChange={setVersionHistoryOpen} productLabel="GMO ONAiR" />
+      <McpInfoModal open={mcpInfoOpen} onOpenChange={setMcpInfoOpen} />
     </>
   );
 }

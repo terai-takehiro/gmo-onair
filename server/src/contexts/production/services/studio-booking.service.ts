@@ -119,6 +119,19 @@ export const studioBookingService = {
       }
     }
 
+    // 案件に紐づく本予約を登録したら、d_hold 遷移で自動生成された「仮押さえ」プレースホルダを
+    // soft-delete して二重登録を防ぐ (ユーザーが手動で作った仮押さえ予約は notes が異なるため残る)。
+    // 今作成した行 (id) は notes マーカー不一致で対象外だが、念のため id 除外も入れる。
+    if (project_id) {
+      await execute(
+        `UPDATE studio_bookings
+            SET deleted_at = NOW(), updated_at = NOW(), updated_by = ?
+          WHERE project_id = ? AND id != ? AND booking_type = 'hold'
+            AND notes = '案件ステージ移行で自動生成' AND deleted_at IS NULL`,
+        [actorId, project_id, id]
+      );
+    }
+
     return queryOne('SELECT * FROM studio_bookings WHERE id = ?', [id]);
   },
 };
