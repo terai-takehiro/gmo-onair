@@ -119,14 +119,13 @@ export default function MyCalendarPage() {
   return (
     <PageTransition>
       <div className="space-y-4 p-4 sm:p-6">
-        {/* ヘッダー */}
+        {/* ヘッダー: モバイルは「タイトル+ボタン」「回遊ピル」の 2 行、sm 以上は 1 行 */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <CalendarClock className="h-6 w-6 text-primary shrink-0" />
-            <h1 className="text-xl font-bold truncate">マイカレンダー</h1>
+            <h1 className="text-lg sm:text-xl font-bold truncate">マイカレンダー</h1>
           </div>
-          <div className="ml-auto flex items-center gap-2">
-            <CalendarNavPills current="my" />
+          <div className="flex shrink-0 items-center gap-2 sm:order-last">
             <Button size="sm" variant="outline" onClick={() => setFeedsDialogOpen(true)}>
               <CloudDownload className="mr-1 h-4 w-4" />
               <span className="hidden sm:inline">外部カレンダー連携</span>
@@ -134,27 +133,31 @@ export default function MyCalendarPage() {
             </Button>
             <Button size="sm" onClick={() => { setEditing(null); setPresetRange(null); setEventDialogOpen(true); }}>
               <Plus className="mr-1 h-4 w-4" />
-              予定を登録
+              <span className="hidden sm:inline">予定を登録</span>
+              <span className="sm:hidden">登録</span>
             </Button>
           </div>
+          <div className="w-full sm:w-auto flex">
+            <CalendarNavPills current="my" />
+          </div>
         </div>
-        <p className="text-sm text-muted-foreground -mt-2">
+        <p className="hidden sm:block text-sm text-muted-foreground -mt-2">
           あなただけに表示される個人カレンダーです。Outlook/Google の予定を連携して取り込めます。
         </p>
 
-        {/* 凡例 */}
-        <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-          <span className="flex items-center gap-1">
+        {/* 凡例 (モバイルは横スクロールで 1 行に収める) */}
+        <div className="flex items-center gap-3 overflow-x-auto text-[11px] text-muted-foreground">
+          <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
             <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: MANUAL_COLOR }} />
             個人予定
           </span>
-          <span className="flex items-center gap-1">
+          <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
             <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: ICS_COLOR }} />
             Outlook/Google 同期
           </span>
-          <span className="flex items-center gap-1">
+          <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
             <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: SCHEDULE_TYPE_COLORS.daikyu }} />
-            パートナー予定（代休/有給等・自分の分）
+            パートナー予定（自分の分）
           </span>
         </div>
 

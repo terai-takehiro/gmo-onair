@@ -97,23 +97,24 @@ export default function PartnerSchedulePage() {
   return (
     <PageTransition>
       <div className="space-y-4 p-4 sm:p-6">
-        {/* ヘッダー */}
+        {/* ヘッダー: モバイルは「タイトル+ボタン」「回遊ピル」の 2 行、sm 以上は 1 行 */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <Users className="h-6 w-6 text-primary shrink-0" />
-            <h1 className="text-xl font-bold truncate">パートナースケジュール</h1>
+            <h1 className="text-lg sm:text-xl font-bold truncate">パートナースケジュール</h1>
           </div>
-          <div className="ml-auto flex items-center gap-2">
+          {canEdit && (
+            <Button size="sm" className="shrink-0 sm:order-last" onClick={() => { setEditing(null); setPresetRange(null); setDialogOpen(true); }}>
+              <Plus className="mr-1 h-4 w-4" />
+              <span className="hidden sm:inline">予定を登録</span>
+              <span className="sm:hidden">登録</span>
+            </Button>
+          )}
+          <div className="w-full sm:w-auto flex">
             <CalendarNavPills current="partners" />
-            {canEdit && (
-              <Button size="sm" onClick={() => { setEditing(null); setPresetRange(null); setDialogOpen(true); }}>
-                <Plus className="mr-1 h-4 w-4" />
-                予定を登録
-              </Button>
-            )}
           </div>
         </div>
-        <p className="text-sm text-muted-foreground -mt-2">
+        <p className="hidden sm:block text-sm text-muted-foreground -mt-2">
           代休・有給・出張・社外活動などをパートナー間で共有します（この画面はパートナースケジュール権限を持つメンバーのみ閲覧できます）。
         </p>
 
