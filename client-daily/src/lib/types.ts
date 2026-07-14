@@ -38,6 +38,48 @@ export interface OpsReport {
   item_count?: number;
 }
 
+// ── 内覧会 来場予約 ──────────────────────────────────
+export interface InviewRegistration {
+  id: string;
+  session_label: string;
+  session_date: string | null;
+  session_time: string | null;
+  session_audience: string | null;
+  name: string;
+  furigana: string | null;
+  email: string | null;
+  company: string | null;
+  role: string | null;
+  postal_code: string | null;
+  address: string | null;
+  phone: string | null;
+  fax: string | null;
+  mobile: string | null;
+  mail_consent: boolean | null;
+  party_size: number;
+  companions: string[] | null;
+  visit_time: string | null;
+  interests: string | null;
+  notes: string | null;
+  source: string;
+  checked_in_at: string | null;
+  checked_in_by: string | null;
+  requested_by: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InviewSession {
+  session_date: string | null;
+  session_label: string;
+  session_time: string | null;
+  session_audience: string | null;
+  registration_count: number;
+  total_headcount: number;
+  checked_in_count: number;
+}
+
 /** ホームのメニュー定義 — 今後の小メニュー追加はこの配列に 1 行足してページを作るだけ */
 export interface DailyMenu {
   kind: OpsReportKind;

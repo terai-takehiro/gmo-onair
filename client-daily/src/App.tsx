@@ -7,6 +7,7 @@ import HomePage from './pages/HomePage';
 import WeeklyListPage from './pages/WeeklyListPage';
 import WeeklyDetailPage from './pages/WeeklyDetailPage';
 import DailyNewsPage from './pages/DailyNewsPage';
+import InviewPage from './pages/InviewPage';
 
 export default function App() {
   const { currentUser: user, loading } = useAuth();
@@ -28,6 +29,7 @@ export default function App() {
             <Route path="/weekly" element={<WeeklyListPage />} />
             <Route path="/weekly/:id" element={<WeeklyDetailPage />} />
             <Route path="/news" element={<DailyNewsPage />} />
+            <Route path="/inview" element={<InviewPage />} />
           </Route>
         ) : (
           <Route path="*" element={<RedirectOnce to="/login" />} />
