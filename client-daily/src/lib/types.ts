@@ -38,6 +38,100 @@ export interface OpsReport {
   item_count?: number;
 }
 
+// ── 内覧会 来場予約 ──────────────────────────────────
+export interface InviewRegistration {
+  id: string;
+  session_label: string;
+  session_date: string | null;
+  session_time: string | null;
+  session_audience: string | null;
+  name: string;
+  furigana: string | null;
+  email: string | null;
+  company: string | null;
+  role: string | null;
+  postal_code: string | null;
+  address: string | null;
+  phone: string | null;
+  fax: string | null;
+  mobile: string | null;
+  mail_consent: boolean | null;
+  party_size: number;
+  companions: string[] | null;
+  visit_time: string | null;
+  interests: string | null;
+  notes: string | null;
+  source: string;
+  checked_in_at: string | null;
+  checked_in_by: string | null;
+  requested_by: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InviewSession {
+  session_date: string | null;
+  session_label: string;
+  session_time: string | null;
+  session_audience: string | null;
+  registration_count: number;
+  total_headcount: number;
+  checked_in_count: number;
+}
+
+// ── 見積/請求書/注文書 ──────────────────────────────
+export type FinanceDocType = 'quote' | 'invoice' | 'order';
+export type FinanceDocStatus = 'new' | 'reviewing' | 'approved' | 'rejected' | 'processed';
+
+export interface FinanceDoc {
+  id: string;
+  doc_type: FinanceDocType;
+  sender: string | null;
+  subject: string | null;
+  content: string | null;
+  amount: number | string | null;
+  closing_month: string | null;
+  payment_due: string | null;
+  status: FinanceDocStatus;
+  received_at: string | null;
+  processed_by: string | null;
+  processed_at: string | null;
+  gls_number: string | null;
+  notes: string | null;
+  source: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export const FINANCE_DOC_TYPE_LABELS: Record<FinanceDocType, string> = {
+  quote: '見積書', invoice: '請求書', order: '注文書',
+};
+export const FINANCE_DOC_STATUS_LABELS: Record<FinanceDocStatus, string> = {
+  new: '受信', reviewing: '確認中', approved: '承認', rejected: '却下', processed: '処理完了',
+};
+
+// ── その他問い合わせ ──────────────────────────────
+export type Importance = 'high' | 'medium' | 'low';
+export interface MiscInquiry {
+  id: string;
+  sender: string | null;
+  subject: string | null;
+  summary: string;
+  category: string | null;
+  importance: Importance;
+  action_needed: string | null;
+  url: string | null;
+  received_at: string | null;
+  handled_at: string | null;
+  handled_by: string | null;
+  notes: string | null;
+  source: string;
+  created_at: string;
+  updated_at: string;
+}
+export const IMPORTANCE_LABELS: Record<Importance, string> = { high: '高', medium: '中', low: '低' };
+
 /** ホームのメニュー定義 — 今後の小メニュー追加はこの配列に 1 行足してページを作るだけ */
 export interface DailyMenu {
   kind: OpsReportKind;
