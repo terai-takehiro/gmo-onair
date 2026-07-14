@@ -72,6 +72,19 @@ interface GlsDialogState {
   target_project_id: string;
 }
 
+/**
+ * inclusive な終了日 (YYYY-MM-DD) を 1 日進めて exclusive-end に変換する。
+ * StudioBookingDialog / FullCalendar は終日イベントの end を exclusive (end-1 が最終日)
+ * として扱うため、案件の event 日付 (inclusive) を presetDate に渡すときはこれで揃える。
+ * toISOString() の UTC 変換によるズレを避けるためローカル日付演算で計算。
+ */
+function addOneDayStr(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const next = new Date(y, m - 1, d + 1);
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  return `${next.getFullYear()}-${pad2(next.getMonth() + 1)}-${pad2(next.getDate())}`;
+}
+
 export default function ProjectFormPage() {
   const { id } = useParams();
   const isEdit = !!id;
@@ -459,6 +472,16 @@ export default function ProjectFormPage() {
   const glsCategory = watch("gls_category");
   const hasGls = !!project?.gls_number;
   const isYomi = !hasGls;
+
+  // 「スタジオ予約」ショートカットで StudioBookingDialog に渡す presetDate を組み立てる。
+  // 案件の event 日付は inclusive のため、dialog が期待する exclusive-end に addOneDayStr で揃える
+  // (揃えないと dialog 側の -1 で終了日が開始日より前になり、複数日が誤って ON になる)。
+  const buildProjectPresetDate = (): { start: string; end: string; allDay: boolean } | null => {
+    const start = productionStart || project?.event_start;
+    if (!start) return null;
+    const inclusiveEnd = productionEnd || productionStart || project?.event_end || project?.event_start || start;
+    return { start, end: addOneDayStr(inclusiveEnd), allDay: true };
+  };
   const isTerminal = currentStage === 's_completed' || currentStage === 'e_lost';
   // 分類はユーザー選択値を優先。未選択時のフォールバックとして project_type からの推奨値を使う
   const isCategoryA = glsCategory ? glsCategory === 'A' : getProjectCategory(projectType) === 'A';
@@ -684,9 +707,7 @@ export default function ProjectFormPage() {
                 onClick={() => navigate("/studio/calendar", {
                   state: {
                     presetRoomIds: scheduleRoomIds,
-                    presetDate: (productionStart || project?.event_start)
-                      ? { start: productionStart || project.event_start, end: productionEnd || productionStart || project?.event_end || project?.event_start, allDay: true }
-                      : null,
+                    presetDate: buildProjectPresetDate(),
                     presetProjectId: id,
                   },
                 })}
@@ -1811,9 +1832,7 @@ export default function ProjectFormPage() {
                 navigate("/studio/calendar", {
                   state: {
                     presetRoomIds: scheduleRoomIds,
-                    presetDate: (productionStart || project?.event_start)
-                      ? { start: productionStart || project.event_start, end: productionEnd || productionStart || project?.event_end || project?.event_start, allDay: true }
-                      : null,
+                    presetDate: buildProjectPresetDate(),
                     presetProjectId: id,
                   },
                 });
