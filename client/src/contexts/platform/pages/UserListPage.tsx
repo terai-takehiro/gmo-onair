@@ -135,7 +135,7 @@ function PermissionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             権限設定
@@ -218,8 +218,12 @@ function PermissionDialog({
                       {level === "none" ? "なし" : ACCESS_LEVEL_LABELS[level]}
                     </span>
                     <Select value={level} onValueChange={(v) => setModuleLevel(mod, v)}>
-                      <SelectTrigger className="w-36 h-8 text-xs">
-                        <SelectValue />
+                      {/* トリガーは 1 行の短いラベルのみ表示 (説明はドロップダウン内に表示)。
+                          SelectValue だと選択項目の2行レイアウトがそのまま出て枠からはみ出すため、算出ラベルを直接描画する。 */}
+                      <SelectTrigger className="w-32 sm:w-40 h-9 text-xs shrink-0">
+                        <span className="truncate">
+                          {level === "none" ? "アクセスなし" : ACCESS_LEVEL_LABELS[level]}
+                        </span>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">
@@ -227,10 +231,10 @@ function PermissionDialog({
                         </SelectItem>
                         {Object.entries(ACCESS_LEVEL_LABELS).map(([lv, lbl]) => (
                           <SelectItem key={lv} value={lv}>
-                            <div className="flex flex-col">
-                              <span>{lbl}</span>
+                            <span className="flex items-baseline gap-2 whitespace-nowrap">
+                              <span className="font-medium">{lbl}</span>
                               <span className="text-[10px] text-muted-foreground">{ACCESS_LEVEL_DESCRIPTIONS[lv]}</span>
-                            </div>
+                            </span>
                           </SelectItem>
                         ))}
                       </SelectContent>
