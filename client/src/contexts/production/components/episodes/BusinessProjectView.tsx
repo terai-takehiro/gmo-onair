@@ -1413,7 +1413,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
       {/* 明細追加/編集ダイアログ */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); }}>
         <DialogContent
-          className="sm:max-w-6xl max-h-[90vh] overflow-y-auto"
+          className="sm:max-w-[min(96vw,1400px)] max-h-[90vh] overflow-y-auto"
           onInteractOutside={(e) => e.preventDefault()}
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
@@ -1453,20 +1453,20 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                 <option value="諸経費" />
               </datalist>
 
-              {/* PC: table layout */}
-              <div className="hidden sm:block mt-2 rounded border overflow-hidden">
-                <Table>
+              {/* PC: table layout — dialog 幅を超えたら bordered 枠内で横スクロール (列は圧縮しない) */}
+              <div className="hidden sm:block mt-2 rounded border overflow-x-auto">
+                <Table className="min-w-[1180px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="min-w-[220px]">内容</TableHead>
-                      <TableHead className="w-36">カテゴリ</TableHead>
-                      <TableHead className="w-16 text-right">数量</TableHead>
-                      <TableHead className="w-32 text-right">単価</TableHead>
+                      <TableHead className="w-32">カテゴリ</TableHead>
+                      <TableHead className="w-20 text-right">数量</TableHead>
+                      <TableHead className="w-40 text-right">単価</TableHead>
                       <TableHead className="w-28 text-right">金額</TableHead>
-                      <TableHead className="w-[128px]">期間開始</TableHead>
-                      <TableHead className="w-[128px]">期間終了</TableHead>
-                      <TableHead className="min-w-[200px]">明細備考</TableHead>
-                      <TableHead className="w-14"></TableHead>
+                      <TableHead className="w-[130px]">期間開始</TableHead>
+                      <TableHead className="w-[130px]">期間終了</TableHead>
+                      <TableHead className="min-w-[180px]">明細備考</TableHead>
+                      <TableHead className="w-16"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
