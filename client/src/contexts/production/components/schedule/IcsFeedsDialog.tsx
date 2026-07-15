@@ -5,8 +5,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Trash2, RefreshCw, Plus, CloudDownload, AlertTriangle, ShieldAlert, ChevronDown } from "lucide-react";
+import { Loader2, Trash2, RefreshCw, Plus, CloudDownload, AlertTriangle, ShieldAlert, ChevronDown, Link2 } from "lucide-react";
 import type { IcsFeed } from "./scheduleShared";
+
+interface GoogleStatus {
+  configured: boolean;
+  connected: boolean;
+  email: string | null;
+  last_synced_at: string | null;
+  last_error: string | null;
+  event_count: number | null;
+}
 
 interface Props {
   open: boolean;
@@ -30,10 +39,33 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
     enabled: open,
   });
 
+  const { data: google } = useQuery<GoogleStatus>({
+    queryKey: ["google-cal-status"],
+    queryFn: async () => (await api.get("/schedule/google/status")).data.data,
+    enabled: open,
+  });
+
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["personal-ics-feeds"] });
     qc.invalidateQueries({ queryKey: ["personal-events"] });
+    qc.invalidateQueries({ queryKey: ["google-cal-status"] });
   };
+
+  const googleSyncMutation = useMutation({
+    mutationFn: async () => (await api.post("/schedule/google/sync")).data.data,
+    onSuccess: (data: any) => {
+      invalidate();
+      setError(null);
+      setNotice(`Google カレンダーを同期しました（${data.total} 件 / 追加 ${data.created} / 更新 ${data.updated} / 削除 ${data.removed}）`);
+    },
+    onError: (err: any) => { setNotice(null); setError(err?.response?.data?.error?.message || "同期に失敗しました"); },
+  });
+
+  const googleDisconnectMutation = useMutation({
+    mutationFn: async () => api.delete("/schedule/google"),
+    onSuccess: () => { invalidate(); setNotice("Google カレンダーの連携を解除しました（同期済みの予定も削除されます）"); },
+    onError: (err: any) => { setNotice(null); setError(err?.response?.data?.error?.message || "連携解除に失敗しました"); },
+  });
 
   const addMutation = useMutation({
     mutationFn: async () => (await api.post("/schedule/feeds", { label, url })).data.data,
@@ -76,6 +108,78 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
             （取込のみの一方向。ONAiR 側からの書き込みはありません）。
           </DialogDescription>
         </DialogHeader>
+
+        {/* Google カレンダー OAuth 連携 (会社 Workspace は ICS 公開が無効なことが多いため推奨) */}
+        <div className="space-y-2 rounded-lg border border-green-600/30 bg-green-50/40 p-3">
+          <div className="flex items-center gap-2">
+            <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "#16a34a" }} />
+            <span className="text-sm font-semibold">Google カレンダー（推奨）</span>
+          </div>
+          {!google ? (
+            <div className="flex justify-center py-2"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
+          ) : !google.configured ? (
+            <p className="text-xs text-muted-foreground">
+              管理者が Google 連携を設定すると、ログイン認証だけで自分の Google カレンダーを取り込めるようになります。
+            </p>
+          ) : !google.connected ? (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">
+                Google にログインして許可すると、自分のカレンダーを 15 分ごとに自動で取り込みます（取込のみ・一方向）。
+                会社ポリシーで ICS 公開ができない場合はこちらをご利用ください。
+              </p>
+              <Button
+                size="sm"
+                className="bg-green-600 hover:bg-green-700"
+                onClick={() => { window.location.href = "/api/v1/internal/schedule/google/start"; }}
+              >
+                <Link2 className="mr-1 h-4 w-4" />
+                Google と連携
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium">{google.email || "連携中"}</span>
+                <span className="rounded bg-green-600/15 px-1.5 py-0.5 text-[11px] font-medium text-green-700">連携中</span>
+                <div className="ml-auto flex items-center gap-1">
+                  <Button
+                    size="sm" variant="outline" className="h-8"
+                    onClick={() => googleSyncMutation.mutate()}
+                    disabled={googleSyncMutation.isPending}
+                    title="今すぐ同期"
+                  >
+                    {googleSyncMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                  </Button>
+                  <Button
+                    size="sm" variant="outline" className="h-8 text-destructive border-destructive/40 hover:bg-destructive/10"
+                    onClick={() => { if (confirm("Google カレンダーの連携を解除しますか？（同期済みの予定も削除されます）")) googleDisconnectMutation.mutate(); }}
+                    disabled={googleDisconnectMutation.isPending}
+                    title="連携を解除"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {google.last_synced_at
+                  ? `最終同期: ${new Date(google.last_synced_at).toLocaleString("ja-JP")}${google.event_count != null ? ` ・ ${google.event_count} 件` : ""}`
+                  : "未同期"}
+              </p>
+              {google.last_error && (
+                <p className="flex items-start gap-1 text-[11px] text-destructive">
+                  <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
+                  {google.last_error}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <span className="h-px flex-1 bg-border" />
+          または 公開 ICS URL で連携
+          <span className="h-px flex-1 bg-border" />
+        </div>
 
         {/* URL の発行手順ガイド */}
         <button

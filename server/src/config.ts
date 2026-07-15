@@ -63,6 +63,14 @@ export const config = {
   mcpApiKey: process.env.MCP_API_KEY || '',
   // MCP 経由の書き込みで created_by に記録される actor 識別子
   mcpActorId: process.env.MCP_ACTOR_ID || 'mcp-claude',
+
+  // Google カレンダー OAuth 連携 (マイカレンダー) — 未設定なら機能無効 (503 / ボタン非表示)
+  googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+  // 既定は同一オリジンの内部コールバック (nginx /api プロキシ経由・設定変更不要)
+  googleOAuthRedirect:
+    process.env.GOOGLE_OAUTH_REDIRECT ||
+    `${process.env.CLIENT_URL || 'http://localhost:5173'}/api/v1/internal/schedule/google/callback`,
 };
 
 // CORS 許可オリジン — HTTP (app.ts) と Socket.IO (socket.ts) で共有

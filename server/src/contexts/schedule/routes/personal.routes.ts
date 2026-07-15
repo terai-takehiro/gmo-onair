@@ -54,7 +54,7 @@ router.put('/personal/:id', ...canUse, async (req, res) => {
     `SELECT * FROM personal_events WHERE id = ? AND user_id = ? AND deleted_at IS NULL`,
     [String(req.params.id), req.user!.id]) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '予定が見つかりません');
-  if (existing.source === 'ics') throw new AppError(400, 'VALIDATION_ERROR', '同期された予定は編集できません (Outlook/Google 側で編集してください)');
+  if (existing.source === 'ics' || existing.source === 'google') throw new AppError(400, 'VALIDATION_ERROR', '同期された予定は編集できません (Outlook/Google 側で編集してください)');
   const b = req.body ?? {};
   await execute(
     `UPDATE personal_events SET title=?, all_day=?, start_time=?, end_time=?, location=?, notes=?, updated_at=NOW() WHERE id=?`,
