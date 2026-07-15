@@ -10,6 +10,7 @@ import { registerUserTools } from './tools/users.tools';
 import { registerOpsReportTools } from './tools/opsreports.tools';
 import { registerInviewTools } from './tools/inview.tools';
 import { registerInboxTools } from './tools/inbox.tools';
+import { registerPricingTools } from './tools/pricing.tools';
 
 // GMO ONAiR MCP サーバー本体。
 // stateless HTTP モードのためリクエストごとに生成される (ツール登録のみで I/O は無いので軽量)。
@@ -33,6 +34,7 @@ export function buildMcpServer(): McpServer {
   registerOpsReportTools(server); // 日常業務レポート (read + 週報/日報の投稿)
   registerInviewTools(server);    // 内覧会 来場予約 (read + Kairos3 メール取込登録)
   registerInboxTools(server);     // 見積/請求書 + その他問い合わせ (read + メール取込)
+  registerPricingTools(server);   // 料金表 (read) + 見積シミュレーション (read + 設定)
 
   return server;
 }

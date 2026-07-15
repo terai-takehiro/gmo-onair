@@ -41,13 +41,18 @@ export function mcpAuth(req: Request, res: Response, next: NextFunction): void {
 
   const presented = extractPresentedKey(req);
   if (!presented || !safeEqual(presented, config.mcpApiKey)) {
-    res.status(401)
-      .set('WWW-Authenticate', 'Bearer')
-      .json({
-        jsonrpc: '2.0',
-        error: { code: -32000, message: 'Unauthorized: invalid or missing API key' },
-        id: null,
-      });
+    // ※ `WWW-Authenticate: Bearer` はあえて付けない。
+    //   このヘッダーを 401 に付けると MCP 認証仕様 (RFC 9728) に従って claude.ai の
+    //   カスタムコネクタが OAuth 2.1 のクライアント登録 (DCR) を試みてしまい、
+    //   OAuth サーバーが無いため「サインインサービスに登録できませんでした /
+    //   OAuth Client ID を追加してください」エラーになる。
+    //   本サーバーは静的 APIキー (?key= / Bearer / X-API-Key) のみを使うため、
+    //   OAuth を誘発しないようチャレンジヘッダーを送出しない。
+    res.status(401).json({
+      jsonrpc: '2.0',
+      error: { code: -32000, message: 'Unauthorized: invalid or missing API key' },
+      id: null,
+    });
     return;
   }
 

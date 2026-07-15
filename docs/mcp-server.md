@@ -29,6 +29,7 @@ nginx の既存 `/api/` プロキシをそのまま通るため、インフラ�
 - **未設定 = 機能無効**: キーが設定されていない環境では `/api/v1/mcp` は常に 503 を返す (デプロイしただけでは何も公開されない)。
 - キー生成: `openssl rand -hex 32`
 - **キーローテーション**: `.env` の値を差し替えてコンテナ再起動するだけ。旧キーは即失効する。
+- **OAuth は使わない (v2.9.193+)**: 認証失敗時の 401 に `WWW-Authenticate` チャレンジヘッダーを**あえて付けない**。これを付けると claude.ai のカスタムコネクタが OAuth 2.1 のクライアント登録 (DCR) を試み、OAuth サーバーが無いため「サインインサービスに登録できませんでした / OAuth Client ID を追加してください」エラーになる。本サーバーは静的 APIキーのみを使うため OAuth を誘発しない設計。カスタムコネクタ登録時は OAuth Client ID 欄は空のまま、URL に `?key=` を付けるだけでよい。
 - ⚠ このキー 1 本で下記 3 ドメインの読み取り + スタジオ予約作成が可能 (アプリ内の per-user 権限は適用されない)。キーの共有範囲はアプリの sales/studio/budget 権限を持つメンバー相当に限定すること。
 
 ## Claude Code への登録
@@ -50,7 +51,7 @@ https://gmo-onair.jp/api/v1/mcp?key=<MCP_API_KEY>
 
 Anthropic のクラウドから接続されるため、claude.ai (Web)・デスクトップ・モバイルアプリすべてで同じコネクタが使える。キーをローテーションしたらコネクタの URL も更新すること。
 
-## ツール一覧 (39 種 / v2.9.183+)
+## ツール一覧 (42 種 / v2.9.193+)
 
 ### 案件管理
 | ツール | 種別 | 概要 |
@@ -84,6 +85,13 @@ Anthropic のクラウドから接続されるため、claude.ai (Web)・デス�
 | `get_sales_funnel` | read | 営業ファネル (ステージ別件数/金額・転換率・滞留・月次推移) |
 | `get_lost_reason_analysis` | read | 失注理由分析 (+教訓・学び) |
 | `get_sales_performance` | read | 担当者別 目標vs実績 |
+
+### 料金表・見積 (v2.9.193+)
+| ツール | 種別 | 概要 |
+|---|---|---|
+| `list_pricing` | read | 料金表マスタ (カテゴリ別に項目・calc_type・定価/グループ内価格)。見積を組む前に pricing_item_id を調べる |
+| `get_project_simulation` | read | 案件の見積明細 + 合計 |
+| `set_project_simulation` | write | 料金表から案件の見積を組んで設定 (既存は全置換)。subtotal は calc_type からサーバー算出、単価は案件の customer_type で自動選択、合計を expected_amount に反映 |
 
 ### 日常業務 (dailyops — 週報 / 日報)
 | ツール | 種別 | 概要 |
