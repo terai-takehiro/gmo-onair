@@ -1,8 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { financeDocService, inquiryService, FINANCE_DOC_TYPES, FINANCE_DOC_STATUSES } from '../../dailyops/services/inbox.service';
-import { config } from '../../../config';
-import { ok, runTool, audit, REQUESTED_BY } from '../helpers';
+import { ok, runTool, audit, REQUESTED_BY, currentActorId } from '../helpers';
 
 // 日常業務アプリ (dailyops) — 受信箱系の MCP ツール。
 // AI がメールを読み取り、見積/請求書 と その他問い合わせ を分類して取り込む想定。
@@ -43,7 +42,7 @@ export function registerInboxTools(server: McpServer): void {
         closing_month: args.closing_month ?? null, payment_due: args.payment_due ?? null,
         received_at: args.received_at ?? null, gls_number: args.gls_number ?? null, notes: args.notes ?? null,
         source: 'email', message_id: args.message_id ?? null,
-        requested_by: args.requested_by ?? null, created_by: config.mcpActorId,
+        requested_by: args.requested_by ?? null, created_by: currentActorId(),
       });
       audit('record_finance_doc', { doc_type: args.doc_type, sender: args.sender, subject: args.subject, amount: args.amount },
         { id: row.id, action, doc_type: row.doc_type }, args.requested_by);
@@ -98,7 +97,7 @@ export function registerInboxTools(server: McpServer): void {
         category: args.category ?? null, importance: args.importance ?? 'medium',
         action_needed: args.action_needed ?? null, url: args.url ?? null,
         received_at: args.received_at ?? null, source: 'email', message_id: args.message_id ?? null,
-        requested_by: args.requested_by ?? null, created_by: config.mcpActorId,
+        requested_by: args.requested_by ?? null, created_by: currentActorId(),
       });
       audit('record_inquiry', { subject: args.subject, sender: args.sender, importance: args.importance, category: args.category },
         { id: row.id, action }, args.requested_by);

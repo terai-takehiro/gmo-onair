@@ -3,8 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
-import { config } from '../../../config';
-import { ok, runTool, clampLimit, pagination, audit, REQUESTED_BY } from '../helpers';
+import { ok, runTool, clampLimit, pagination, audit, REQUESTED_BY, currentActorId } from '../helpers';
 
 // 顧客 (customers) の MCP ツール。
 // ルート (customers.routes.ts) は inline SQL のため、同形のクエリをここに持つ。
@@ -108,7 +107,7 @@ export function registerCustomerTools(server: McpServer): void {
         `INSERT INTO customers (id, name, short_name, contact_name, email, phone, address, notes, created_by)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [id, args.name, args.short_name || null, args.contact_name || null, args.email || null,
-         args.phone || null, args.address || null, args.notes || null, config.mcpActorId],
+         args.phone || null, args.address || null, args.notes || null, currentActorId()],
       );
       const row = await queryOne(`SELECT ${CUSTOMER_COLS} FROM customers WHERE id = ?`, [id]);
       audit('create_customer', args, { created_id: id, name: args.name }, args.requested_by);
@@ -150,7 +149,7 @@ export function registerCustomerTools(server: McpServer): void {
         `UPDATE customers SET name=?, short_name=?, contact_name=?, email=?, phone=?, address=?, notes=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
         [merged.name, merged.short_name, merged.contact_name, merged.email, merged.phone,
-         merged.address, merged.notes, config.mcpActorId, args.id],
+         merged.address, merged.notes, currentActorId(), args.id],
       );
       const row = await queryOne(`SELECT ${CUSTOMER_COLS} FROM customers WHERE id = ?`, [args.id]);
       const changedFields = Object.keys(args).filter((k) => !['id', 'requested_by'].includes(k));

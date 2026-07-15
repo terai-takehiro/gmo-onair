@@ -8,6 +8,7 @@ import { createAuthMiddleware } from './shared/middleware/auth';
 import { errorHandler } from './shared/middleware/errorHandler';
 import { createRoutes } from './routes';
 import { createMcpRoutes } from './contexts/mcp';
+import { registerMcpOAuthMetadata, createMcpOAuthRouter } from './contexts/mcp/oauth/routes';
 import { getAllowedOrigins } from './config';
 
 export function createApp(): express.Express {
@@ -87,8 +88,16 @@ export function createApp(): express.Express {
   // Routes
   app.use('/api/v1/internal', createRoutes());
 
-  // MCP サーバー (Claude Code 等の MCP クライアント用、APIキー認証)
-  // MCP_API_KEY 未設定時は 503 を返すだけで無効
+  // MCP OAuth 2.1 認可サーバー (claude.ai 組織カスタムコネクタ用)。
+  //   - ルート直下の well-known メタデータ (RFC 8414 / RFC 9728)
+  //   - /api/v1/mcp/oauth/{authorize,token,register,revoke}
+  // 保護対象の /api/v1/mcp より前にマウントする (oauth/* が /mcp プレフィックスに食われないように、
+  // また well-known は SPA catch-all より前に処理する必要があるため)。
+  registerMcpOAuthMetadata(app);
+  app.use('/api/v1/mcp/oauth', createMcpOAuthRouter());
+
+  // MCP サーバー (Claude Code 等の MCP クライアント / claude.ai コネクタ用)。
+  // 認証は「静的 APIキー (?key=/Bearer/X-API-Key) または OAuth アクセストークン」の二本立て。
   app.use('/api/v1/mcp', createMcpRoutes());
 
   // Health check — 最小限の情報のみ返す

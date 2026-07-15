@@ -2,8 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { opsReportService, OPS_REPORT_KINDS } from '../../dailyops/services/ops-report.service';
 import { getWeeklyStats } from '../../dailyops/services/weekly-stats.service';
-import { config } from '../../../config';
-import { ok, runTool, clampLimit, audit, REQUESTED_BY } from '../helpers';
+import { ok, runTool, clampLimit, audit, REQUESTED_BY, currentActorId } from '../helpers';
 
 // 日常業務アプリ (dailyops) の MCP ツール — 汎用レポート基盤 (ops_reports / ops_report_items)。
 // AI エージェントが定期実行 (毎朝のニュース収集 / 週明けの週次レポート生成) で使う想定。
@@ -67,7 +66,7 @@ export function registerOpsReportTools(server: McpServer): void {
         payload: args.payload,
         status: args.status,
         requested_by: args.requested_by ?? null,
-        created_by: config.mcpActorId,
+        created_by: currentActorId(),
       });
       audit('submit_ops_report', { ...args, body: args.body ? `${args.body.slice(0, 200)}…` : undefined },
         { report_id: report.id, kind: args.kind, period_key: report.period_key, action }, args.requested_by);
@@ -100,7 +99,7 @@ export function registerOpsReportTools(server: McpServer): void {
       },
     },
     async (args) => runTool(async () => {
-      const report = await opsReportService.ensureReport(args.kind, args.period_key, config.mcpActorId);
+      const report = await opsReportService.ensureReport(args.kind, args.period_key, currentActorId());
       // daily_news の新規レポートは published に昇格 (閲覧型のため)
       if (args.kind === 'daily_news' && report.status !== 'published') {
         await opsReportService.upsertReport({ kind: args.kind, period_key: args.period_key, status: 'published' });
@@ -108,7 +107,7 @@ export function registerOpsReportTools(server: McpServer): void {
       const { added, skipped } = await opsReportService.addItems(
         report.id as string,
         args.items,
-        { source: 'ai', recordedBy: args.requested_by || config.mcpActorId, dedupeUrl: true },
+        { source: 'ai', recordedBy: args.requested_by || currentActorId(), dedupeUrl: true },
       );
       audit('add_ops_report_items', { kind: args.kind, period_key: args.period_key, item_count: args.items.length },
         { report_id: report.id, added, skipped }, args.requested_by);

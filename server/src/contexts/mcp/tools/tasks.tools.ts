@@ -2,8 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { projectTasksService } from '../../tasks/services/project-tasks.service';
 import { queryAll } from '../../../shared/db/connection';
-import { config } from '../../../config';
-import { ok, runTool, clampLimit, audit, REQUESTED_BY } from '../helpers';
+import { ok, runTool, clampLimit, audit, REQUESTED_BY, currentActorId } from '../helpers';
 
 // 案件タスク (project_tasks) の MCP ツール — projectTasksService を再利用。
 
@@ -86,7 +85,7 @@ export function registerTaskTools(server: McpServer): void {
           due_date: args.due_date ?? null,
           assigned_to: args.assigned_to ?? null,
         },
-        config.mcpActorId,
+        currentActorId(),
       );
       audit('create_task', args, { created_id: task.id, title: args.title, project_id: args.project_id }, args.requested_by);
       return ok({ created: true, task });
@@ -118,13 +117,13 @@ export function registerTaskTools(server: McpServer): void {
         if (argVal !== undefined) data[f] = argVal;
       }
       let task = Object.keys(data).length > 0
-        ? await projectTasksService.update(args.id, data, config.mcpActorId)
+        ? await projectTasksService.update(args.id, data, currentActorId())
         : await projectTasksService.getById(args.id);
       if (!task) return ok({ updated: false, error: 'タスクが見つかりません' });
 
       // completed 指定があり現状と異なる場合のみ toggle (service はトグル式のため)
       if (args.completed !== undefined && Boolean(task.is_completed) !== args.completed) {
-        task = await projectTasksService.toggleComplete(args.id, config.mcpActorId);
+        task = await projectTasksService.toggleComplete(args.id, currentActorId());
       }
       const changedFields = Object.keys(args).filter((k) => !['id', 'requested_by'].includes(k));
       audit('update_task', args, { updated_id: args.id, changed_fields: changedFields }, args.requested_by);
