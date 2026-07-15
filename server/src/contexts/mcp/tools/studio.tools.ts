@@ -1,8 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { studioBookingService } from '../../production/services/studio-booking.service';
-import { config } from '../../../config';
-import { ok, runTool, audit, REQUESTED_BY } from '../helpers';
+import { ok, runTool, audit, REQUESTED_BY, currentActorId } from '../helpers';
 
 // スタジオ予約カレンダー (production/studio) の MCP ツール。
 // 参照 2 種 + 予約作成。
@@ -134,7 +133,7 @@ export function registerStudioTools(server: McpServer): void {
           notes: args.notes ?? null,
           status: args.status,
         },
-        config.mcpActorId,
+        currentActorId(),
       ) as any;
       audit('create_studio_booking', args, { created_id: row?.id, title: args.title }, args.requested_by);
       return ok({ created: true, booking: row });

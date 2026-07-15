@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { mcpAuth } from './auth';
 import { buildMcpServer } from './server';
+import { actorContext, type McpActor } from './helpers';
+import { config } from '../../config';
 
 // MCP (Model Context Protocol) エンドポイント — /api/v1/mcp
 // Claude Code 等の MCP クライアントが Streamable HTTP で接続する。
@@ -17,28 +19,33 @@ export function createMcpRoutes(): Router {
   router.use(mcpAuth);
 
   router.post('/', async (req, res) => {
-    const server = buildMcpServer();
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: undefined,
-      enableJsonResponse: true,
-    });
-    res.on('close', () => {
-      transport.close();
-      server.close();
-    });
-    try {
-      await server.connect(transport);
-      await transport.handleRequest(req, res, req.body);
-    } catch (err) {
-      console.error('[mcp] request error:', err instanceof Error ? err.message : err);
-      if (!res.headersSent) {
-        res.status(500).json({
-          jsonrpc: '2.0',
-          error: { code: -32603, message: 'Internal server error' },
-          id: null,
-        });
+    // 書き込み actor をリクエストスコープに載せる (OAuth 経由なら実 ONAiR ユーザー、
+    // 静的キー経由なら共用 mcpActorId)。ツールは currentActorId() で参照する。
+    const actor: McpActor = (req as any).mcpActor ?? { actorId: config.mcpActorId, isOAuth: false };
+    await actorContext.run(actor, async () => {
+      const server = buildMcpServer();
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: undefined,
+        enableJsonResponse: true,
+      });
+      res.on('close', () => {
+        transport.close();
+        server.close();
+      });
+      try {
+        await server.connect(transport);
+        await transport.handleRequest(req, res, req.body);
+      } catch (err) {
+        console.error('[mcp] request error:', err instanceof Error ? err.message : err);
+        if (!res.headersSent) {
+          res.status(500).json({
+            jsonrpc: '2.0',
+            error: { code: -32603, message: 'Internal server error' },
+            id: null,
+          });
+        }
       }
-    }
+    });
   });
 
   // stateless モードでは GET (SSE ストリーム) / DELETE (セッション終了) は提供しない

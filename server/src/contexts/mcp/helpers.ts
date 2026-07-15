@@ -1,9 +1,22 @@
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
+import { AsyncLocalStorage } from 'async_hooks';
 import { AppError } from '../../shared/middleware/errorHandler';
 import { execute } from '../../shared/db/connection';
+import { config } from '../../config';
 
 // MCP ツール共通ヘルパー
+
+// リクエストごとの書き込み actor (created_by / user_id / 監査に使う)。
+// OAuth (ONAiR ログイン連携) 経由なら実 ONAiR ユーザー id、静的キー経由なら mcpActorId ('mcp-claude')。
+// index.ts の POST ハンドラが handleRequest を actorContext.run(...) で包む。
+export interface McpActor { actorId: string; isOAuth: boolean }
+export const actorContext = new AsyncLocalStorage<McpActor>();
+
+/** 現在のリクエストの書き込み actor id。OAuth 未使用時は共用 mcpActorId にフォールバック。 */
+export function currentActorId(): string {
+  return actorContext.getStore()?.actorId ?? config.mcpActorId;
+}
 
 export interface ToolResult {
   content: Array<{ type: 'text'; text: string }>;

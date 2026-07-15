@@ -1,8 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { inviewService } from '../../dailyops/services/inview.service';
-import { config } from '../../../config';
-import { ok, runTool, audit, REQUESTED_BY } from '../helpers';
+import { ok, runTool, audit, REQUESTED_BY, currentActorId } from '../helpers';
 
 // 日常業務アプリ (dailyops) — 内覧会 来場予約の MCP ツール。
 // Kairos3 の登録通知メール (info@gmo-globalstudio.com 宛) を AI が取り込んで
@@ -74,7 +73,7 @@ export function registerInviewTools(server: McpServer): void {
         notes: args.notes ?? null,
         source: 'kairos3',
         requested_by: args.requested_by ?? null,
-        created_by: config.mcpActorId,
+        created_by: currentActorId(),
       });
       audit('register_inview_attendee',
         { name: args.name, session_label: args.session_label, email: args.email, party_size: args.party_size },

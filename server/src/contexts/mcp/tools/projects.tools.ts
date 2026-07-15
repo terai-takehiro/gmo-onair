@@ -2,8 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { projectService } from '../../sales/services/project.service';
 import { queryOne } from '../../../shared/db/connection';
-import { config } from '../../../config';
-import { ok, runTool, clampLimit, pagination, preview, audit, REQUESTED_BY } from '../helpers';
+import { ok, runTool, clampLimit, pagination, preview, audit, REQUESTED_BY, currentActorId } from '../helpers';
 
 // 案件管理 (sales) の MCP ツール — 既存の projectService を再利用。
 // 書き込みは create / update (read-merge-write) / stage 変更 / GLS 発番。
@@ -149,7 +148,7 @@ export function registerProjectTools(server: McpServer): void {
           dates: args.dates,
           notes: args.notes,
         },
-        config.mcpActorId,
+        currentActorId(),
       ) as any;
       audit('create_project', args, { created_id: row.id, code: row.code, name: row.name }, args.requested_by);
       return ok({ created: true, project: row });
@@ -208,7 +207,7 @@ export function registerProjectTools(server: McpServer): void {
       }
       if (args.dates !== undefined) payload.dates = args.dates; // 明示指定時のみ全置換
 
-      const row = await projectService.update(args.id, payload, config.mcpActorId) as any;
+      const row = await projectService.update(args.id, payload, currentActorId()) as any;
       const changedFields = Object.keys(args).filter((k) => !['id', 'requested_by'].includes(k));
       audit('update_project', args, { updated_id: row.id, changed_fields: changedFields }, args.requested_by);
       return ok({ updated: true, changed_fields: changedFields, project: row });
@@ -254,7 +253,7 @@ export function registerProjectTools(server: McpServer): void {
       const row = await projectService.changeStage(
         args.id, args.stage,
         { lost_reason: args.lost_reason, lost_reason_note: args.lost_reason_note, lessons_learned: args.lessons_learned },
-        config.mcpActorId,
+        currentActorId(),
       ) as any;
       audit('change_project_stage', args, { id: row.id, from: existing.stage, to: args.stage }, args.requested_by);
       const note = args.stage === 'd_hold' && existing.event_start
@@ -317,7 +316,7 @@ export function registerProjectTools(server: McpServer): void {
       const row = await projectService.issueGls(
         args.id,
         { broadcast_type: args.broadcast_type, media_platform: args.media_platform },
-        config.mcpActorId,
+        currentActorId(),
       ) as any;
       audit('issue_gls', args, { id: row.id, gls_number: row.gls_number, stage: row.stage }, args.requested_by);
       return ok({ executed: true, gls_number: row.gls_number, stage: row.stage, project: row });

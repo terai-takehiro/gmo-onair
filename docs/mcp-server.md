@@ -15,24 +15,42 @@ nginx の既存 `/api/` プロキシをそのまま通るため、インフラ�
 
 ## 認証
 
-静的 APIキー。次の 3 通りのいずれかで送る:
+**2 方式を併用** (どちらでもアクセス可):
+
+### A. OAuth 2.1 / ONAiR ログイン連携 (v2.9.194+・**claude.ai 組織コネクタ推奨**)
+
+claude.ai の**組織管理カスタムコネクタ**は接続時に必ず OAuth 2.1 + 動的クライアント登録 (DCR) を試みる (「認証なし / APIキー」を宣言できない)。そのため本サーバー自身が OAuth 2.1 認可サーバー兼リソースサーバーになっている。認証は **ONAiR ログイン連携** — 各メンバーが自分の ONAiR アカウントでサインインし、以降の AI 書き込みが**本人名義**で監査ログに残る (共用 `mcp-claude` を脱却)。
+
+- **エンドポイント**:
+  - メタデータ (RFC 8414 / 9728): `GET /.well-known/oauth-authorization-server`、`GET /.well-known/oauth-protected-resource/api/v1/mcp`
+  - 認可サーバー: `/api/v1/mcp/oauth/{authorize,token,register,revoke}`
+- **フロー**: コネクタが `/register` で自己登録 (public client / PKCE S256) → `/authorize` へ誘導 → 未ログインなら ONAiR の `/login?redirect=...` に飛び、ログイン後に認可コードを発行 → `/token` で access (JWT・1時間) + refresh (30日) を取得 → 以降 `Authorization: Bearer <access>` で MCP を呼ぶ。
+- **actor**: OAuth トークン経由の書き込みは `created_by` / 監査ログの actor が**実 ONAiR ユーザー id** になる (誰の指示かが確実に残る)。
+- アクセストークンは JWT (ステートレス・DB 不要)。署名鍵は `JWT_SECRET` から派生した別鍵 (ONAiR セッション JWT とは分離)。リフレッシュトークンのみ DB (`mcp_oauth_refresh_tokens`) に保持し失効可能。
+- OAuth は `MCP_API_KEY` の設定有無に関わらず**常に有効**。
+
+### B. 静的 APIキー (Claude Code CLI / 個人利用)
+
+次の 3 通りのいずれかで送る:
 
 1. `Authorization: Bearer <key>` ヘッダー (推奨・Claude Code 向け)
 2. `X-API-Key: <key>` ヘッダー
-3. URL クエリ `?key=<key>` (v2.9.172+。**claude.ai カスタムコネクタ向け** — 追加ダイアログにヘッダー入力欄が無い UI があるため。URL 自体が秘密情報になるので、この URL を共有・掲示しないこと)
+3. URL クエリ `?key=<key>` (v2.9.172+)
 
 | 環境変数 (VPS の `/root/gmo-onair/.env`) | 適用先 |
 |---|---|
 | `MCP_API_KEY` | app_prod (gmo-onair.jp) |
 | `MCP_API_KEY_DEV` | app_dev (dev.gmo-onair.jp) |
 
-- **未設定 = 機能無効**: キーが設定されていない環境では `/api/v1/mcp` は常に 503 を返す (デプロイしただけでは何も公開されない)。
-- キー生成: `openssl rand -hex 32`
-- **キーローテーション**: `.env` の値を差し替えてコンテナ再起動するだけ。旧キーは即失効する。
-- **OAuth は使わない (v2.9.193+)**: 認証失敗時の 401 に `WWW-Authenticate` チャレンジヘッダーを**あえて付けない**。これを付けると claude.ai のカスタムコネクタが OAuth 2.1 のクライアント登録 (DCR) を試み、OAuth サーバーが無いため「サインインサービスに登録できませんでした / OAuth Client ID を追加してください」エラーになる。本サーバーは静的 APIキーのみを使うため OAuth を誘発しない設計。カスタムコネクタ登録時は OAuth Client ID 欄は空のまま、URL に `?key=` を付けるだけでよい。
-- ⚠ このキー 1 本で下記 3 ドメインの読み取り + スタジオ予約作成が可能 (アプリ内の per-user 権限は適用されない)。キーの共有範囲はアプリの sales/studio/budget 権限を持つメンバー相当に限定すること。
+- キー生成: `openssl rand -hex 32`。**キーローテーション**は `.env` を差し替えてコンテナ再起動するだけ (旧キー即失効)。
+- 静的キー経由の書き込みは actor が共用 `mcp-claude` になる (誰の指示かは任意引数 `requested_by` で補う)。
+- ⚠ このキー 1 本で全ツール (読み取り + 書き込み) が実行可能 (アプリ内の per-user 権限は適用されない)。キーの共有範囲は sales/studio/budget 権限保持者相当に限定すること。
 
-## Claude Code への登録
+### 認証失敗時
+
+静的キーにも OAuth トークンにも該当しない場合は **401 + `WWW-Authenticate: Bearer resource_metadata="…/.well-known/oauth-protected-resource/api/v1/mcp"`** を返す。これにより claude.ai は本サーバーの OAuth を発見してサインインに進む。
+
+## Claude Code への登録 (静的キー)
 
 ```bash
 claude mcp add --transport http onair https://dev.gmo-onair.jp/api/v1/mcp \
@@ -43,13 +61,25 @@ claude mcp add --transport http onair https://dev.gmo-onair.jp/api/v1/mcp \
 
 ## claude.ai / Claude アプリの「カスタムコネクタ」への登録
 
-設定 → コネクタ → カスタムコネクタを追加 で、URL に**キー付き URL** を入力する (OAuth 欄は空のまま):
+### 組織コネクタ (OAuth・推奨)
+
+設定 → コネクタ → カスタムコネクタを追加 で、**URL だけ**入力する (OAuth Client ID 欄は空のまま):
+
+```
+https://gmo-onair.jp/api/v1/mcp
+```
+
+接続すると ONAiR ログイン画面が開くので、自分の ONAiR アカウントでサインインする。以降のツール実行は本人名義で監査ログに残る。ログイン済みブラウザなら自動で認可される。
+
+### 個人コネクタ (キー付き URL・OAuth を使わない場合)
+
+OAuth を使わず APIキーで繋ぎたい場合は、URL に `?key=` を付ける (OAuth 欄は空のまま):
 
 ```
 https://gmo-onair.jp/api/v1/mcp?key=<MCP_API_KEY>
 ```
 
-Anthropic のクラウドから接続されるため、claude.ai (Web)・デスクトップ・モバイルアプリすべてで同じコネクタが使える。キーをローテーションしたらコネクタの URL も更新すること。
+URL 自体が秘密情報になるので共有・掲示しないこと。キーをローテーションしたらコネクタ URL も更新する。
 
 ## ツール一覧 (42 種 / v2.9.193+)
 
@@ -167,21 +197,43 @@ curl -s $BASE "${H[@]}" -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
 curl -s $BASE "${H[@]}" -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_projects","arguments":{"limit":3}}}'
 ```
 
-期待される異常系: キーなし/誤り → 401、`MCP_API_KEY` 未設定 → 503、GET → 405。
+期待される異常系: 静的キーなし/誤り (かつ OAuth トークンなし) → 401 + `WWW-Authenticate`、GET → 405。
+
+### OAuth ダンス (curl)
+
+```bash
+BASE=https://dev.gmo-onair.jp
+# 1. メタデータ
+curl -s $BASE/.well-known/oauth-authorization-server | jq
+# 2. DCR (public client)
+curl -s -X POST $BASE/api/v1/mcp/oauth/register -H 'Content-Type: application/json' \
+  -d '{"client_name":"test","redirect_uris":["http://localhost:9999/cb"]}' | jq
+# 3. /authorize はブラウザで開く (ONAiR ログイン cookie が要るため)。code を受け取る
+# 4. /token に code + code_verifier (PKCE) を POST して access_token を得る
+# 5. Bearer <access_token> で /api/v1/mcp を叩く
+```
 
 ## 実装構成
 
 ```
 server/src/contexts/mcp/
-├── index.ts        ルート (/api/v1/mcp、stateless Streamable HTTP)
-├── auth.ts         APIキー認証 (timingSafeEqual)
+├── index.ts        ルート (/api/v1/mcp、stateless Streamable HTTP、actorContext で actor をリクエストスコープ化)
+├── auth.ts         認証 二本立て (静的キー timingSafeEqual / OAuth アクセストークン検証)
 ├── server.ts       McpServer 構築 + ツール登録
-├── helpers.ts      ok/runTool/clampLimit/pagination
+├── helpers.ts      ok/runTool/clampLimit/pagination/audit/preview + actorContext/currentActorId
+├── oauth/          OAuth 2.1 認可サーバー (v2.9.194+)
+│   ├── routes.ts        well-known メタデータ + /authorize(ONAiRログインゲート)・/token・/register・/revoke
+│   ├── provider.ts      OAuthServerProvider (code発行/交換・PKCE・JWT access・refresh・失効)
+│   ├── store.ts         DCR クライアントストア (public client / PKCE)
+│   ├── context.ts       authorizeContext (ALS で /authorize の ONAiR ユーザーを provider へ渡す)
+│   └── token-secret.ts  アクセストークン JWT 署名鍵 (JWT_SECRET 派生の別鍵) + TTL
 └── tools/
     ├── projects.tools.ts   projectService を再利用
     ├── studio.tools.ts     studio-booking.service を再利用
     ├── finance.tools.ts    monthly-summary.service + list-query を再利用
-    └── opsreports.tools.ts dailyops の ops-report.service / weekly-stats.service を再利用
+    └── … (customers / activities / tasks / analytics / users / pricing / opsreports / inview / inbox)
 ```
 
-スタジオ予約と月次サマリーのロジックは v2.9.171 でルートから service 層へ抽出済み (`production/services/studio-booking.service.ts` / `finance/services/monthly-summary.service.ts`) — UI と MCP が同一コードパスを通る。
+- スタジオ予約と月次サマリーのロジックは v2.9.171 でルートから service 層へ抽出済み — UI と MCP が同一コードパスを通る。
+- 書き込みツールの actor は `currentActorId()` で解決: OAuth 経由なら実 ONAiR ユーザー id、静的キー経由なら共用 `mcp-claude`。
+- OAuth 用テーブル: `mcp_oauth_clients` / `mcp_oauth_codes` (単回使用・10分) / `mcp_oauth_refresh_tokens` (30日・失効可) — migration 125。
