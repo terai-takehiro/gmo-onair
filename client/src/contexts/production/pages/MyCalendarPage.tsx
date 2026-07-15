@@ -1,5 +1,6 @@
-import { useState, useCallback, useMemo, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -26,11 +27,31 @@ import {
 //   ・自分のパートナースケジュール (代休/有給等・種別色) も参考表示
 const MANUAL_COLOR = "#2563eb";
 const ICS_COLOR = "#64748b";
+const GOOGLE_COLOR = "#16a34a";
 
 export default function MyCalendarPage() {
   const isMobile = useIsMobile(1024);
   const calendarRef = useRef<any>(null);
   const { currentUser } = useAuth();
+  const qc = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [googleNotice, setGoogleNotice] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  // Google OAuth コールバックからの戻り (?google=linked / error) を検知
+  useEffect(() => {
+    const g = searchParams.get("google");
+    if (!g) return;
+    if (g === "linked") {
+      setGoogleNotice({ ok: true, msg: "Google カレンダーと連携しました。予定を取り込みました。" });
+      qc.invalidateQueries({ queryKey: ["personal-events"] });
+      qc.invalidateQueries({ queryKey: ["google-cal-status"] });
+    } else if (g === "error") {
+      setGoogleNotice({ ok: false, msg: "Google 連携に失敗しました。もう一度お試しください。" });
+    }
+    // URL からパラメータを除去
+    searchParams.delete("google");
+    setSearchParams(searchParams, { replace: true });
+  }, [searchParams, setSearchParams, qc]);
 
   const [dateRange, setDateRange] = useState<{ from: string; to: string }>({
     from: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0],
@@ -67,7 +88,7 @@ export default function MyCalendarPage() {
   const calendarEvents = useMemo(() => {
     const list: any[] = events.map((e) => {
       const isAllDay = !!e.all_day;
-      const color = e.source === "ics" ? ICS_COLOR : MANUAL_COLOR;
+      const color = e.source === "google" ? GOOGLE_COLOR : e.source === "ics" ? ICS_COLOR : MANUAL_COLOR;
       return {
         id: `pe-${e.id}`,
         title: e.source === "ics" && e.feed_label ? `${e.title}｜${e.feed_label}` : e.title,
@@ -155,6 +176,19 @@ export default function MyCalendarPage() {
           あなただけに表示される個人カレンダーです。Outlook/Google の予定を連携して取り込めます。
         </p>
 
+        {googleNotice && (
+          <div
+            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+              googleNotice.ok
+                ? "border-green-600/30 bg-green-50 text-green-800"
+                : "border-destructive/30 bg-destructive/10 text-destructive"
+            }`}
+          >
+            <span className="flex-1">{googleNotice.msg}</span>
+            <button type="button" className="text-xs underline" onClick={() => setGoogleNotice(null)}>閉じる</button>
+          </div>
+        )}
+
         {/* 凡例 (モバイルは横スクロールで 1 行に収める) */}
         <div className="flex items-center gap-3 overflow-x-auto text-[11px] text-muted-foreground">
           <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
@@ -162,8 +196,12 @@ export default function MyCalendarPage() {
             個人予定
           </span>
           <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
+            <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: GOOGLE_COLOR }} />
+            Google カレンダー
+          </span>
+          <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
             <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: ICS_COLOR }} />
-            Outlook/Google 同期
+            Outlook/ICS 同期
           </span>
           <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
             <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: SCHEDULE_TYPE_COLORS.daikyu }} />

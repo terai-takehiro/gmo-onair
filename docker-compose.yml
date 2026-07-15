@@ -68,6 +68,11 @@ services:
       CONOHA_COMPUTE_ENDPOINT: ${CONOHA_COMPUTE_ENDPOINT:-}
       # MCP サーバー (v2.9.171+) — 未設定なら /api/v1/mcp は 503 (機能無効)
       MCP_API_KEY: ${MCP_API_KEY:-}
+      # Google カレンダー OAuth 連携 (v2.9.190+) — 未設定ならマイカレンダーの Google 連携は無効。
+      # prod/dev で同じ OAuth クライアントを使う (Google Cloud に両ドメインの redirect URI を登録)。
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_OAUTH_REDIRECT: ${GOOGLE_OAUTH_REDIRECT:-}
       SKIP_SEED: "true"
     depends_on:
       db:
@@ -110,6 +115,10 @@ services:
       CONOHA_COMPUTE_ENDPOINT: ${CONOHA_COMPUTE_ENDPOINT:-}
       # MCP サーバー (v2.9.171+) — 未設定なら /api/v1/mcp は 503 (機能無効)。本番とは別のキーを使うこと
       MCP_API_KEY: ${MCP_API_KEY_DEV:-}
+      # Google カレンダー OAuth 連携 (v2.9.190+) — prod と同じ OAuth クライアントを共有 (redirect は CLIENT_URL から自動生成)
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_OAUTH_REDIRECT: ${GOOGLE_OAUTH_REDIRECT_DEV:-}
     depends_on:
       db:
         condition: service_healthy
