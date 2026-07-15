@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { projectService } from '../../sales/services/project.service';
-import { queryOne } from '../../../shared/db/connection';
+import { queryOne, execute } from '../../../shared/db/connection';
 import { ok, runTool, clampLimit, pagination, preview, audit, REQUESTED_BY, currentActorId } from '../helpers';
 
 // 案件管理 (sales) の MCP ツール — 既存の projectService を再利用。
@@ -116,7 +116,9 @@ export function registerProjectTools(server: McpServer): void {
       description:
         '新規案件をヨミ (stage=neta) として登録する。customer_id は必須 — 先に list_customers で検索し、無ければ create_customer で作成する。' +
         'assigned_to は担当者の users.id (必須) — list_users で名前から解決する。' +
-        'gls_category: A=スタジオ案件 / B=ビジネス案件。副作用: BOX に案件フォルダが自動作成される。',
+        'gls_category: A=スタジオ案件 / B=ビジネス案件。副作用: BOX に案件フォルダが自動作成される。' +
+        '**メール自動取込では idempotency_key を必ず渡すこと** — 同じキーの案件が既にあれば新規作成せず既存を返す (無人バッチの二重登録防止)。' +
+        'message_id (由来メールの Message-ID) と source_channel (info@ / sales@cc / 電話 等) も分かれば渡す。',
       inputSchema: {
         name: z.string().min(1).describe('案件名'),
         customer_id: z.string().min(1).describe('顧客 ID (list_customers で解決)'),
@@ -130,10 +132,26 @@ export function registerProjectTools(server: McpServer): void {
         dates: z.array(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), label: z.string().optional() }))
           .optional().describe('複数日程 (飛び日対応)。指定すると event_start/end は MIN/MAX に自動同期'),
         notes: z.string().optional().describe('備考 (問合せ経緯など)'),
+        idempotency_key: z.string().max(200).optional()
+          .describe('冪等キー (メール取込は必須推奨。意図単位で一意に。例 "email:<Message-ID>:project")。同じキーが既存なら再作成しない'),
+        message_id: z.string().max(500).optional().describe('由来メールの Message-ID (紐付け・検索用)'),
+        source_channel: z.string().max(100).optional().describe('流入チャネル (info@ / sales@cc / phone 等)'),
         ...REQUESTED_BY,
       },
     },
     async (args) => runTool(async () => {
+      // 冪等ガード: idempotency_key が既存なら BOX フォルダ等の副作用を起こさず既存を返す
+      if (args.idempotency_key) {
+        const dup = await queryOne(
+          'SELECT * FROM projects WHERE idempotency_key = ? AND deleted_at IS NULL',
+          [args.idempotency_key],
+        ) as any;
+        if (dup) {
+          audit('create_project', args, { existing_id: dup.id, code: dup.code, idempotent: true }, args.requested_by);
+          return ok({ created: false, existing: true, project: dup, note: '同じ idempotency_key の案件が既にあるため再作成していません' });
+        }
+      }
+
       const row = await projectService.create(
         {
           name: args.name,
@@ -150,8 +168,19 @@ export function registerProjectTools(server: McpServer): void {
         },
         currentActorId(),
       ) as any;
+
+      // 取込メタ (message_id / idempotency_key / source_channel) を後付けで保存 (service は未対応のため UPDATE)
+      if (args.idempotency_key || args.message_id || args.source_channel) {
+        await execute(
+          `UPDATE projects SET idempotency_key = COALESCE(?, idempotency_key),
+                               message_id = COALESCE(?, message_id),
+                               source_channel = COALESCE(?, source_channel)
+           WHERE id = ?`,
+          [args.idempotency_key ?? null, args.message_id ?? null, args.source_channel ?? null, row.id],
+        );
+      }
       audit('create_project', args, { created_id: row.id, code: row.code, name: row.name }, args.requested_by);
-      return ok({ created: true, project: row });
+      return ok({ created: true, project: { ...row, idempotency_key: args.idempotency_key ?? null, message_id: args.message_id ?? null, source_channel: args.source_channel ?? null } });
     }),
   );
 

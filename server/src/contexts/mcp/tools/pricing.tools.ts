@@ -34,7 +34,7 @@ function pickUnitPrice(customerType: string, item: { unit_price: number | null; 
 }
 
 const SIM_SELECT = `
-  SELECT s.id, s.pricing_item_id, s.quantity, s.days, s.unit_price, s.subtotal,
+  SELECT s.id, s.pricing_item_id, s.quantity, s.days, s.unit_price, s.subtotal, s.status,
          pi.name as pricing_item_name, pi.sub_label, pi.calc_type,
          pc.name as category_name, pc.sort_order as category_sort_order
   FROM simulations s
@@ -90,7 +90,8 @@ export function registerPricingTools(server: McpServer): void {
       if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
       const items = await queryAll(SIM_SELECT, [args.project_id]) as any[];
       const total = items.reduce((s, it) => s + (Number(it.subtotal) || 0), 0);
-      return ok({ items, total });
+      const isDraft = items.length > 0 && items.some((it) => it.status === 'draft');
+      return ok({ items, total, status: isDraft ? 'draft' : 'final', is_draft: isDraft });
     }),
   );
 
@@ -99,7 +100,9 @@ export function registerPricingTools(server: McpServer): void {
     {
       title: '案件の見積を設定',
       description:
-        '料金表の項目から案件の見積を組んで設定する。**既存の見積は全置換される**。合計が案件の想定金額 (expected_amount) に自動反映される。' +
+        '料金表の項目から案件の見積を組んで設定する。**既存の見積は全置換される**。' +
+        '**既定は status=draft (AI 下書き・未確定)**: 想定金額 (expected_amount) には反映されず、担当者がアプリの案件画面で「確定する」を押すと最終化される。' +
+        'AI が自動で確定させたい明確な指示があるときだけ status=final を指定する (その場合は即 expected_amount に反映)。' +
         '先に list_pricing で pricing_item_id と calc_type を確認すること。数量(quantity)/日数(days) の意味は calc_type による ' +
         '(例 days_people は 日数×人数、days は 日数のみ)。単価は案件の customer_type から自動選択されるが unit_price_override で上書き可。',
       inputSchema: {
@@ -110,6 +113,8 @@ export function registerPricingTools(server: McpServer): void {
           days: z.number().int().min(0).default(1).describe('日数 or 時間数 (calc_type により使用)'),
           unit_price_override: z.number().int().min(0).optional().describe('単価を明示指定 (未指定なら料金表から自動選択)'),
         })).min(1).describe('見積明細の配列'),
+        status: z.enum(['draft', 'final']).default('draft')
+          .describe('draft=下書き(既定・expected_amount 未反映) / final=確定(即 expected_amount 反映)。通常は draft のままにし人間が確定する'),
         ...REQUESTED_BY,
       },
     },
@@ -119,6 +124,7 @@ export function registerPricingTools(server: McpServer): void {
       ) as any;
       if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
       const customerType = project.customer_type === 'internal' ? 'internal' : 'external';
+      const status = args.status === 'final' ? 'final' : 'draft';
 
       // 各明細の単価・小計をサーバー側で確定
       const rows: Array<{ pricing_item_id: string; quantity: number; days: number; unit_price: number; subtotal: number; name: string }> = [];
@@ -135,17 +141,17 @@ export function registerPricingTools(server: McpServer): void {
         rows.push({ pricing_item_id: item.id, quantity, days, unit_price: unitPrice, subtotal, name: item.name });
       }
 
-      // UI ルート (PUT /projects/:id/simulation) と同一の書き込み (全置換 + expected_amount 反映)
+      // 全置換 (status タグ付き)。expected_amount は final のときだけ反映 (draft は確定済み金額に触れない)
       await execute('DELETE FROM simulations WHERE project_id = ?', [args.project_id]);
       for (const r of rows) {
         await execute(
-          `INSERT INTO simulations (id, project_id, pricing_item_id, quantity, days, unit_price, subtotal) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [uuidv4(), args.project_id, r.pricing_item_id, r.quantity, r.days, r.unit_price, r.subtotal],
+          `INSERT INTO simulations (id, project_id, pricing_item_id, quantity, days, unit_price, subtotal, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [uuidv4(), args.project_id, r.pricing_item_id, r.quantity, r.days, r.unit_price, r.subtotal, status],
         );
       }
       const total = rows.reduce((s, r) => s + r.subtotal, 0);
       let expectedAmountUpdated = false;
-      if (total > 0) {
+      if (status === 'final' && total > 0) {
         await execute(
           `UPDATE projects SET expected_amount = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL`,
           [total, args.project_id],
@@ -153,14 +159,17 @@ export function registerPricingTools(server: McpServer): void {
         expectedAmountUpdated = true;
       }
 
-      audit('set_project_simulation', args, { project_id: args.project_id, item_count: rows.length, total }, args.requested_by);
+      audit('set_project_simulation', args, { project_id: args.project_id, item_count: rows.length, total, status }, args.requested_by);
       return ok({
         updated: true,
+        status,
         customer_type: customerType,
         items: rows,
         total,
         expected_amount_updated: expectedAmountUpdated,
-        ...(total === 0 ? { note: '合計が 0 のため expected_amount は更新していません' } : {}),
+        ...(status === 'draft'
+          ? { note: 'status=draft の下書きとして保存しました。担当者がアプリの案件画面で「確定する」を押すまで想定金額 (expected_amount) には反映されません' }
+          : (total === 0 ? { note: '合計が 0 のため expected_amount は更新していません' } : {})),
       });
     }),
   );
