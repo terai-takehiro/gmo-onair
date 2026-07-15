@@ -841,7 +841,7 @@ export default function RevenueListPage() {
 
       {/* New Revenue Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[min(96vw,1400px)] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{existingRevenueId ? "売上を更新" : "新規売上登録"}</DialogTitle>
           </DialogHeader>
@@ -999,21 +999,21 @@ export default function RevenueListPage() {
               </div>
 
               {items.length > 0 && (
-                <div className="rounded border overflow-hidden">
-                  {/* Desktop table */}
-                  <div className="hidden sm:block">
-                    <Table>
+                <div className="rounded border">
+                  {/* Desktop table — dialog 幅を超えたら bordered 枠内で横スクロール (列は圧縮しない) */}
+                  <div className="hidden sm:block overflow-x-auto">
+                    <Table className="min-w-[1180px]">
                       <TableHeader>
                         <TableRow>
-                          <TableHead>内容</TableHead>
-                          <TableHead className="w-28">カテゴリ</TableHead>
-                          <TableHead className="w-14 text-right">数量</TableHead>
-                          <TableHead className="w-28 text-right">単価</TableHead>
+                          <TableHead className="min-w-[220px]">内容</TableHead>
+                          <TableHead className="w-32">カテゴリ</TableHead>
+                          <TableHead className="w-20 text-right">数量</TableHead>
+                          <TableHead className="w-40 text-right">単価</TableHead>
                           <TableHead className="w-28 text-right">金額</TableHead>
-                          <TableHead className="w-[132px]">期間開始</TableHead>
-                          <TableHead className="w-[132px]">期間終了</TableHead>
-                          <TableHead className="w-28">明細備考</TableHead>
-                          <TableHead className="w-14"></TableHead>
+                          <TableHead className="w-[130px]">期間開始</TableHead>
+                          <TableHead className="w-[130px]">期間終了</TableHead>
+                          <TableHead className="min-w-[180px]">明細備考</TableHead>
+                          <TableHead className="w-16"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
