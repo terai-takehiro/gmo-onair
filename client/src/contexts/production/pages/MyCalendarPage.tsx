@@ -28,6 +28,7 @@ import {
 const MANUAL_COLOR = "#2563eb";
 const ICS_COLOR = "#64748b";
 const GOOGLE_COLOR = "#16a34a";
+const OUTLOOK_COLOR = "#0078d4";
 
 export default function MyCalendarPage() {
   const isMobile = useIsMobile(1024);
@@ -37,19 +38,24 @@ export default function MyCalendarPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [googleNotice, setGoogleNotice] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  // Google OAuth コールバックからの戻り (?google=linked / error) を検知
+  // OAuth コールバックからの戻り (?google=linked|error / ?outlook=linked|error) を検知
   useEffect(() => {
     const g = searchParams.get("google");
-    if (!g) return;
-    if (g === "linked") {
-      setGoogleNotice({ ok: true, msg: "Google カレンダーと連携しました。予定を取り込みました。" });
+    const o = searchParams.get("outlook");
+    if (!g && !o) return;
+    const provider = g ? "Google" : "Outlook";
+    const status = g || o;
+    if (status === "linked") {
+      setGoogleNotice({ ok: true, msg: `${provider} カレンダーと連携しました。予定を取り込みました。` });
       qc.invalidateQueries({ queryKey: ["personal-events"] });
       qc.invalidateQueries({ queryKey: ["google-cal-status"] });
-    } else if (g === "error") {
-      setGoogleNotice({ ok: false, msg: "Google 連携に失敗しました。もう一度お試しください。" });
+      qc.invalidateQueries({ queryKey: ["ms-cal-status"] });
+    } else if (status === "error") {
+      setGoogleNotice({ ok: false, msg: `${provider} 連携に失敗しました。もう一度お試しください。` });
     }
     // URL からパラメータを除去
     searchParams.delete("google");
+    searchParams.delete("outlook");
     setSearchParams(searchParams, { replace: true });
   }, [searchParams, setSearchParams, qc]);
 
@@ -88,7 +94,7 @@ export default function MyCalendarPage() {
   const calendarEvents = useMemo(() => {
     const list: any[] = events.map((e) => {
       const isAllDay = !!e.all_day;
-      const color = e.source === "google" ? GOOGLE_COLOR : e.source === "ics" ? ICS_COLOR : MANUAL_COLOR;
+      const color = e.source === "google" ? GOOGLE_COLOR : e.source === "outlook" ? OUTLOOK_COLOR : e.source === "ics" ? ICS_COLOR : MANUAL_COLOR;
       return {
         id: `pe-${e.id}`,
         title: e.source === "ics" && e.feed_label ? `${e.title}｜${e.feed_label}` : e.title,
@@ -200,8 +206,12 @@ export default function MyCalendarPage() {
             Google カレンダー
           </span>
           <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
+            <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: OUTLOOK_COLOR }} />
+            Outlook カレンダー
+          </span>
+          <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
             <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: ICS_COLOR }} />
-            Outlook/ICS 同期
+            ICS 購読
           </span>
           <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
             <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: SCHEDULE_TYPE_COLORS.daikyu }} />

@@ -71,6 +71,14 @@ export const config = {
   googleOAuthRedirect:
     process.env.GOOGLE_OAUTH_REDIRECT ||
     `${process.env.CLIENT_URL || 'http://localhost:5173'}/api/v1/internal/schedule/google/callback`,
+
+  // Outlook (Microsoft 365) カレンダー OAuth 連携 — 未設定なら機能無効 (503 / ボタン非表示)
+  msClientId: process.env.MS_CLIENT_ID || '',
+  msClientSecret: process.env.MS_CLIENT_SECRET || '',
+  msTenantId: process.env.MS_TENANT_ID || '',
+  msOAuthRedirect:
+    process.env.MS_OAUTH_REDIRECT ||
+    `${process.env.CLIENT_URL || 'http://localhost:5173'}/api/v1/internal/schedule/ms/callback`,
 };
 
 // CORS 許可オリジン — HTTP (app.ts) と Socket.IO (socket.ts) で共有

@@ -28,7 +28,7 @@ export interface PersonalEvent {
   end_time: string;
   location: string | null;
   notes: string | null;
-  source: "manual" | "ics" | "google";
+  source: "manual" | "ics" | "google" | "outlook";
   feed_id: string | null;
   feed_label?: string | null;
 }
