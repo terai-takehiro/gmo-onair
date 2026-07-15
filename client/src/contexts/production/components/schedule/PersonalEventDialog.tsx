@@ -19,10 +19,10 @@ interface Props {
 }
 
 // マイカレンダーの個人予定 ダイアログ。
-// 外部同期分 (source='ics' / 'google') は読み取り専用 (削除のみ可・次回同期で復活する旨を表示)。
+// 外部同期分 (source='ics' / 'google' / 'outlook') は読み取り専用 (削除のみ可・次回同期で復活する旨を表示)。
 export default function PersonalEventDialog({ open, onOpenChange, editing, presetRange }: Props) {
   const qc = useQueryClient();
-  const isIcs = editing?.source === "ics" || editing?.source === "google";
+  const isIcs = editing?.source === "ics" || editing?.source === "google" || editing?.source === "outlook";
 
   const [title, setTitle] = useState("");
   const [allDay, setAllDay] = useState(false);

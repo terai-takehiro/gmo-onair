@@ -73,6 +73,11 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_OAUTH_REDIRECT: ${GOOGLE_OAUTH_REDIRECT:-}
+      # Outlook (Microsoft 365) カレンダー OAuth 連携 (v2.9.191+) — 未設定なら無効。prod/dev で同じアプリ登録を共有。
+      MS_CLIENT_ID: ${MS_CLIENT_ID:-}
+      MS_CLIENT_SECRET: ${MS_CLIENT_SECRET:-}
+      MS_TENANT_ID: ${MS_TENANT_ID:-}
+      MS_OAUTH_REDIRECT: ${MS_OAUTH_REDIRECT:-}
       SKIP_SEED: "true"
     depends_on:
       db:
@@ -119,6 +124,11 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_OAUTH_REDIRECT: ${GOOGLE_OAUTH_REDIRECT_DEV:-}
+      # Outlook (Microsoft 365) カレンダー OAuth 連携 (v2.9.191+) — prod と同じアプリ登録を共有 (redirect は CLIENT_URL から自動生成)
+      MS_CLIENT_ID: ${MS_CLIENT_ID:-}
+      MS_CLIENT_SECRET: ${MS_CLIENT_SECRET:-}
+      MS_TENANT_ID: ${MS_TENANT_ID:-}
+      MS_OAUTH_REDIRECT: ${MS_OAUTH_REDIRECT_DEV:-}
     depends_on:
       db:
         condition: service_healthy
