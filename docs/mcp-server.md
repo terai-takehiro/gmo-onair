@@ -88,7 +88,7 @@ URL 自体が秘密情報になるので共有・掲示しないこと。キー�
 |---|---|---|
 | `list_projects` | read | 案件検索・一覧 (search / stage / tab / gls_category / 開催期間 / ページング) |
 | `get_project` | read | 案件詳細 + 収支サマリー (売上 / 仕入 / 粗利 / 粗利率) |
-| `create_project` | write | ヨミ案件の新規登録 (stage=neta 固定。assigned_to は list_users で解決した users.id 必須) |
+| `create_project` | write | ヨミ案件の新規登録 (stage=neta 固定。assigned_to は list_users で解決した users.id 必須)。**idempotency_key を渡すと二重登録を防止** (既存なら再作成せず既存を返す)。message_id / source_channel も保存可 (メール取込用) |
 | `update_project` | write | 部分更新 (サーバー側で既存値とマージ — 渡したフィールドだけ変わる) |
 | `change_project_stage` | write | ステージ変更。**e_lost (失注) は confirm 2段階**。d_hold で仮押さえ予約を自動作成 |
 | `issue_gls` | write | **GLS 発番 (confirm 2段階・取消不可)**。プレビューで昇格ステージ / 見積変換件数 / BOXリネームを提示 |
@@ -100,7 +100,7 @@ URL 自体が秘密情報になるので共有・掲示しないこと。キー�
 | `create_customer` | write | 顧客登録 (**重複ガード**: 類似名があれば候補を返して作成しない。`allow_duplicate:true` で強制) |
 | `update_customer` | write | 顧客の部分更新 (マージ) |
 | `list_activity_logs` | read | 営業活動記録一覧。`upcoming:true` で次回アクション予定 (N日以内) のみ |
-| `create_activity_log` / `update_activity_log` | write | 活動記録の登録/更新 (user_id は活動した担当者の users.id 必須) |
+| `create_activity_log` / `update_activity_log` | write | 活動記録の登録/更新 (user_id は活動した担当者の users.id 必須)。create は **idempotency_key で二重登録防止** + message_id / source_channel 保存可。同一メールから案件と活動を両方起票するときは key を意図別に分ける (例 `email:<msgid>:project` / `:activity`) |
 | `list_tasks` | read | タスク一覧 (案件内 or 進行中案件の横断) |
 | `create_task` / `update_task` | write | タスク作成/更新 (completed で完了切替) |
 | `list_users` | read | ユーザー一覧 — 担当者名 → users.id の解決に使う |
@@ -121,7 +121,7 @@ URL 自体が秘密情報になるので共有・掲示しないこと。キー�
 |---|---|---|
 | `list_pricing` | read | 料金表マスタ (カテゴリ別に項目・calc_type・定価/グループ内価格)。見積を組む前に pricing_item_id を調べる |
 | `get_project_simulation` | read | 案件の見積明細 + 合計 |
-| `set_project_simulation` | write | 料金表から案件の見積を組んで設定 (既存は全置換)。subtotal は calc_type からサーバー算出、単価は案件の customer_type で自動選択、合計を expected_amount に反映 |
+| `set_project_simulation` | write | 料金表から案件の見積を組んで設定 (既存は全置換)。subtotal は calc_type からサーバー算出、単価は案件の customer_type で自動選択。**既定 status=draft (AI 下書き・未確定)**: expected_amount には反映されず、担当者がアプリの案件画面で「確定する」を押すと最終化される。status=final を明示すると即反映 |
 
 ### 日常業務 (dailyops — 週報 / 日報)
 | ツール | 種別 | 概要 |

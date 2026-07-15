@@ -110,6 +110,32 @@ export default function ProjectFormPage() {
     queryFn: async () => (await api.get("/sales-analytics/lost-reason-categories")).data,
   });
   const lostReasonCategories: { id: string; name: string }[] = lostReasonsData?.data ?? [];
+
+  // 見積シミュレーション (AI 下書き = draft の検出 + 確定)
+  const { data: simulationData } = useQuery({
+    queryKey: ["simulation", id],
+    queryFn: async () => (await api.get(`/projects/${id}/simulation`)).data,
+    enabled: isEdit,
+    refetchOnMount: "always",
+  });
+  const simulationItems: Array<{ subtotal: number; status?: string }> = simulationData?.data ?? [];
+  const hasDraftSimulation = simulationItems.length > 0 && simulationItems.some((s) => s.status === "draft");
+  const draftSimulationTotal = simulationItems.reduce((sum, s) => sum + (Number(s.subtotal) || 0), 0);
+  const finalizeSimMutation = useMutation({
+    mutationFn: async () => (await api.post(`/projects/${id}/simulation/finalize`)).data,
+    onSuccess: (res) => {
+      const rows: Array<{ subtotal: number }> = res?.data ?? [];
+      const total = rows.reduce((sum, r) => sum + (Number(r.subtotal) || 0), 0);
+      if (total > 0) setValue("expected_amount", total, { shouldDirty: true });
+      qc.invalidateQueries({ queryKey: ["simulation", id] });
+      qc.invalidateQueries({ queryKey: ["project", id] });
+    },
+    onError: (e: unknown) => {
+      const msg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
+      alert(`見積の確定に失敗しました: ${msg || "不明なエラー"}`);
+    },
+  });
+
   const [holdPromptOpen, setHoldPromptOpen] = useState(false);
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
   const [stageSelectValue, setStageSelectValue] = useState("");
@@ -893,6 +919,44 @@ export default function ProjectFormPage() {
                     料金シミュレーション
                   </Button>
                 )}
+                {hasDraftSimulation && (
+                  <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                    <div className="flex items-start gap-2">
+                      <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-amber-900">AI 下書きの見積があります（未確定）</p>
+                        <p className="mt-0.5 text-xs text-amber-800">
+                          合計 <span className="font-number font-semibold">{formatCurrency(draftSimulationTotal)}</span>。
+                          確定するまで想定金額には反映されません。
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-8 bg-amber-600 text-xs hover:bg-amber-700"
+                            onClick={() => finalizeSimMutation.mutate()}
+                            disabled={finalizeSimMutation.isPending}
+                          >
+                            {finalizeSimMutation.isPending
+                              ? <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                              : <Check className="mr-1 h-3 w-3" />}
+                            確定する
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-8 border-amber-300 text-xs"
+                            onClick={() => setSimOpen(true)}
+                          >
+                            <Calculator className="mr-1 h-3 w-3" />
+                            内容を確認・編集
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
               <div>
                 <Label>担当者</Label>
@@ -1527,7 +1591,11 @@ export default function ProjectFormPage() {
       {/* 料金シミュレーションダイアログ */}
       <SimulationDialog
         open={simOpen}
-        onOpenChange={setSimOpen}
+        onOpenChange={(o) => {
+          setSimOpen(o);
+          // 閉じたら見積の draft/final 状態を取り直す (ダイアログ内保存は final 化するため)
+          if (!o) qc.invalidateQueries({ queryKey: ["simulation", id] });
+        }}
         projectId={isEdit ? id : undefined}
         onApply={(total) => setValue("expected_amount", total, { shouldDirty: true })}
       />

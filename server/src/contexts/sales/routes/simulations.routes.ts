@@ -9,26 +9,26 @@ const router = Router();
 // Apply auth + permission middleware to all routes
 router.use(requireAuth, requirePermission('sales'));
 
+const SIM_SELECT = `
+  SELECT s.id, s.pricing_item_id, s.quantity, s.days, s.unit_price, s.subtotal, s.status,
+         pi.name as pricing_item_name, pi.sub_label, pi.calc_type,
+         pc.name as category_name, pc.sort_order as category_sort_order
+  FROM simulations s
+  LEFT JOIN pricing_items pi ON pi.id = s.pricing_item_id
+  LEFT JOIN pricing_categories pc ON pc.id = pi.category_id
+  WHERE s.project_id = ?
+  ORDER BY pc.sort_order, pi.sort_order`;
+
 // GET /projects/:id/simulation
 router.get('/:id/simulation', async (req, res) => {
   const project = await queryOne('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
 
-  const items = await queryAll(
-    `SELECT s.id, s.pricing_item_id, s.quantity, s.days, s.unit_price, s.subtotal,
-            pi.name as pricing_item_name, pi.sub_label, pi.calc_type,
-            pc.name as category_name, pc.sort_order as category_sort_order
-     FROM simulations s
-     LEFT JOIN pricing_items pi ON pi.id = s.pricing_item_id
-     LEFT JOIN pricing_categories pc ON pc.id = pi.category_id
-     WHERE s.project_id = ?
-     ORDER BY pc.sort_order, pi.sort_order`,
-    [req.params.id]
-  );
+  const items = await queryAll(SIM_SELECT, [req.params.id]);
   res.json({ success: true, data: items });
 });
 
-// PUT /projects/:id/simulation
+// PUT /projects/:id/simulation — UI からの保存は常に確定 (status=final)
 router.put('/:id/simulation', requirePermission('sales', 'editor'), async (req, res) => {
   const project = await queryOne('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
   if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
@@ -40,7 +40,7 @@ router.put('/:id/simulation', requirePermission('sales', 'editor'), async (req, 
 
   for (const item of items) {
     await execute(
-      `INSERT INTO simulations (id, project_id, pricing_item_id, quantity, days, unit_price, subtotal) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO simulations (id, project_id, pricing_item_id, quantity, days, unit_price, subtotal, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'final')`,
       [uuidv4(), req.params.id, item.pricing_item_id, item.quantity ?? 0, item.days ?? 0, item.unit_price ?? 0, item.subtotal ?? 0]
     );
   }
@@ -54,17 +54,28 @@ router.put('/:id/simulation', requirePermission('sales', 'editor'), async (req, 
     );
   }
 
-  const saved = await queryAll(
-    `SELECT s.id, s.pricing_item_id, s.quantity, s.days, s.unit_price, s.subtotal,
-            pi.name as pricing_item_name, pi.sub_label, pi.calc_type,
-            pc.name as category_name, pc.sort_order as category_sort_order
-     FROM simulations s
-     LEFT JOIN pricing_items pi ON pi.id = s.pricing_item_id
-     LEFT JOIN pricing_categories pc ON pc.id = pi.category_id
-     WHERE s.project_id = ?
-     ORDER BY pc.sort_order, pi.sort_order`,
+  const saved = await queryAll(SIM_SELECT, [req.params.id]);
+  res.json({ success: true, data: saved });
+});
+
+// POST /projects/:id/simulation/finalize — AI 下書き (draft) を確定して expected_amount に反映
+router.post('/:id/simulation/finalize', requirePermission('sales', 'editor'), async (req, res) => {
+  const project = await queryOne('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+  if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
+
+  await execute(
+    `UPDATE simulations SET status = 'final' WHERE project_id = ? AND status = 'draft'`,
     [req.params.id]
   );
+
+  const saved = await queryAll(SIM_SELECT, [req.params.id]) as any[];
+  const totalAmount = saved.reduce((sum: number, it: any) => sum + (Number(it.subtotal) || 0), 0);
+  if (totalAmount > 0) {
+    await execute(
+      `UPDATE projects SET expected_amount = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL`,
+      [totalAmount, req.params.id]
+    );
+  }
   res.json({ success: true, data: saved });
 });
 

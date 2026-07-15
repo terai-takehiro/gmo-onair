@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { activityLogService } from '../../sales/services/activity-log.service';
-import { queryAll } from '../../../shared/db/connection';
+import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { ok, runTool, clampLimit, pagination, audit, REQUESTED_BY } from '../helpers';
 
 // 営業活動記録 (activity_logs) の MCP ツール — activityLogService を再利用。
@@ -73,7 +73,10 @@ export function registerActivityTools(server: McpServer): void {
       description:
         '営業活動 (商談・電話・メール等) を記録する。user_id は活動した営業担当の users.id (必須 — list_users で解決)。' +
         'メール/議事録取込フロー: list_customers →(無ければ create_customer)→ list_projects で案件特定 →(無ければ create_project)→ 本ツール。' +
-        '次のアクションが決まっている場合は next_action / next_action_date を必ず記録する。',
+        '次のアクションが決まっている場合は next_action / next_action_date を必ず記録する。' +
+        '**メール自動取込では idempotency_key を必ず渡すこと** — 同じキーの記録が既にあれば再作成せず既存を返す (無人バッチの二重登録防止)。' +
+        'message_id (由来メールの Message-ID) / source_channel (info@ 等) も分かれば渡す。同じメールから案件と活動記録を両方起票するときは ' +
+        'idempotency_key を意図別に (例 "email:<Message-ID>:project" と "email:<Message-ID>:activity") 分けること。',
       inputSchema: {
         user_id: z.string().min(1).describe('活動した担当者の users.id (必須)'),
         activity_type: z.enum(ACTIVITY_TYPES),
@@ -84,10 +87,26 @@ export function registerActivityTools(server: McpServer): void {
         description: z.string().optional().describe('活動内容の詳細'),
         next_action: z.string().optional().describe('次回アクション'),
         next_action_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('次回アクション予定日'),
+        idempotency_key: z.string().max(200).optional()
+          .describe('冪等キー (メール取込は必須推奨。意図単位で一意に。例 "email:<Message-ID>:activity")。同じキーが既存なら再作成しない'),
+        message_id: z.string().max(500).optional().describe('由来メールの Message-ID (紐付け・検索用)'),
+        source_channel: z.string().max(100).optional().describe('流入チャネル (info@ / sales@cc / phone 等)'),
         ...REQUESTED_BY,
       },
     },
     async (args) => runTool(async () => {
+      // 冪等ガード: idempotency_key が既存なら再作成せず既存を返す
+      if (args.idempotency_key) {
+        const dup = await queryOne(
+          'SELECT * FROM activity_logs WHERE idempotency_key = ? AND deleted_at IS NULL',
+          [args.idempotency_key],
+        ) as any;
+        if (dup) {
+          audit('create_activity_log', args, { existing_id: dup.id, idempotent: true }, args.requested_by);
+          return ok({ created: false, existing: true, activity_log: dup, note: '同じ idempotency_key の活動記録が既にあるため再作成していません' });
+        }
+      }
+
       // activity_logs.user_id は users への FK のため、実在ユーザー id を service の userId として渡す
       const row = await activityLogService.create(
         {
@@ -102,8 +121,19 @@ export function registerActivityTools(server: McpServer): void {
         },
         args.user_id,
       ) as any;
+
+      // 取込メタを後付けで保存 (service は未対応のため UPDATE)
+      if (args.idempotency_key || args.message_id || args.source_channel) {
+        await execute(
+          `UPDATE activity_logs SET idempotency_key = COALESCE(?, idempotency_key),
+                                    message_id = COALESCE(?, message_id),
+                                    source_channel = COALESCE(?, source_channel)
+           WHERE id = ?`,
+          [args.idempotency_key ?? null, args.message_id ?? null, args.source_channel ?? null, row.id],
+        );
+      }
       audit('create_activity_log', args, { created_id: row.id, subject: args.subject }, args.requested_by);
-      return ok({ created: true, activity_log: row });
+      return ok({ created: true, activity_log: { ...row, idempotency_key: args.idempotency_key ?? null, message_id: args.message_id ?? null, source_channel: args.source_channel ?? null } });
     }),
   );
 
