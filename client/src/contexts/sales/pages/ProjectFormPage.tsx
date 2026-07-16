@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import api from "@/lib/api";
 import { formatCurrency, formatShortDate } from "@/lib/format";
+import { relativeTime } from "@/lib/aiFeed";
 import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
@@ -121,6 +122,9 @@ export default function ProjectFormPage() {
   const simulationItems: Array<{ subtotal: number; status?: string }> = simulationData?.data ?? [];
   const hasDraftSimulation = simulationItems.length > 0 && simulationItems.some((s) => s.status === "draft");
   const draftSimulationTotal = simulationItems.reduce((sum, s) => sum + (Number(s.subtotal) || 0), 0);
+  // AI 下書きの由来 (いつ・誰の指示で・誰の名義で作られたか) — mcp_audit_log から (v2.9.198+)
+  const aiDraftOrigin: { created_at?: string; requested_by?: string | null; actor_id?: string | null; actor_name?: string | null } | null =
+    simulationData?.ai_draft_origin ?? null;
   const finalizeSimMutation = useMutation({
     mutationFn: async () => (await api.post(`/projects/${id}/simulation/finalize`)).data,
     onSuccess: (res) => {
@@ -929,6 +933,16 @@ export default function ProjectFormPage() {
                           合計 <span className="font-number font-semibold">{formatCurrency(draftSimulationTotal)}</span>。
                           確定するまで想定金額には反映されません。
                         </p>
+                        {aiDraftOrigin?.created_at && (
+                          <p className="mt-0.5 text-[11px] text-amber-700">
+                            作成: {relativeTime(aiDraftOrigin.created_at)}
+                            {aiDraftOrigin.requested_by ? ` ／ 指示: ${aiDraftOrigin.requested_by}` : ""}
+                            {(() => {
+                              const actor = aiDraftOrigin.actor_id === "mcp-claude" ? "共用キー" : aiDraftOrigin.actor_name;
+                              return actor ? ` ／ 実行: ${actor}` : "";
+                            })()}
+                          </p>
+                        )}
                         <div className="mt-2 flex flex-wrap gap-2">
                           <Button
                             type="button"

@@ -35,6 +35,7 @@ router.get('/', wrap(async (req, res) => {
     [projectIds]
   )) as unknown as { id: string; project_id: string; name: string; color: string | null; sort_order: number }[];
 
+  // v2.9.198+: AI 作成判定 (MCP create_task) を mcp_audit_log から逆引き (lateral はパラメータ無しのため $n 採番に影響しない)
   const tasks = await queryAll(
     `SELECT
        t.id, t.project_id, t.episode_id, t.column_id,
@@ -46,11 +47,18 @@ router.get('/', wrap(async (req, res) => {
        t.created_at, t.updated_at,
        p.gls_number AS project_gls_number,
        p.name AS project_name,
-       p.stage AS project_stage
+       p.stage AS project_stage,
+       (ai.audit_id IS NOT NULL) AS is_ai_created,
+       ai.requested_by AS ai_requested_by
      FROM project_tasks t
      JOIN projects p ON p.id = t.project_id
      LEFT JOIN users u ON u.id = t.assigned_to
      LEFT JOIN task_columns tc ON tc.id = t.column_id AND tc.deleted_at IS NULL
+     LEFT JOIN LATERAL (
+       SELECT m.id AS audit_id, m.requested_by FROM mcp_audit_log m
+       WHERE m.tool_name = 'create_task' AND m.result_summary->>'created_id' = t.id
+       ORDER BY m.created_at ASC LIMIT 1
+     ) ai ON TRUE
      WHERE t.project_id = ANY($1::text[])
        AND t.deleted_at IS NULL
        AND t.parent_task_id IS NULL

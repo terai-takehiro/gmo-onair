@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Calendar, User, Pencil, Trash2, GripVertical } from "lucide-react";
+import { Calendar, User, Pencil, Trash2, GripVertical, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -93,6 +93,17 @@ export default function KanbanCard({ task, projectId, episodeId, columnId }: Pro
             </p>
 
             <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+              {/* AI 作成バッジ (MCP create_task 由来) */}
+              {task.is_ai_created && (
+                <span
+                  className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 text-[10px] font-medium text-violet-700 h-4"
+                  title={task.ai_requested_by ? `AI作成（指示者: ${task.ai_requested_by}）` : "AI作成"}
+                >
+                  <Sparkles className="h-2.5 w-2.5" />
+                  AI
+                </span>
+              )}
+
               {/* 種別バッジ */}
               {taskTypeLabel && (
                 <Badge variant="outline" className="text-[10px] h-4 px-1.5">

@@ -9,6 +9,7 @@ import {
   Trash2,
   ChevronDown,
   ChevronRight,
+  Sparkles,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
@@ -69,6 +70,17 @@ export default function TaskListItem({ task, projectId, episodeId }: Props) {
             >
               {task.title}
             </span>
+
+            {/* AI 作成バッジ (MCP create_task 由来) */}
+            {task.is_ai_created && (
+              <span
+                className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 text-[10px] font-medium text-violet-700 h-5 shrink-0"
+                title={task.ai_requested_by ? `AI作成（指示者: ${task.ai_requested_by}）` : "AI作成"}
+              >
+                <Sparkles className="h-3 w-3" />
+                AI
+              </span>
+            )}
 
             {/* 種別バッジ */}
             {task.task_type !== "free" && (

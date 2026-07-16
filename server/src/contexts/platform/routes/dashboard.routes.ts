@@ -273,20 +273,35 @@ router.get('/ai-inbox', async (_req, res) => {
 
 // v2.9.197+: AI 活動フィード — mcp_audit_log の書き込み履歴を時系列で返す
 // (「AI が最近やったこと」をホームで一望する用途)。actor_id は OAuth 経由なら実ユーザー。
+// v2.9.198+: tool (単一 tool_name) 絞り込み + page ページング + pagination 返却
+// (data は従来どおり配列 = ホームのダイジェストは後方互換)。
 router.get('/ai-activity-feed', async (req, res) => {
-  const days = Math.min(31, Math.max(1, parseInt(req.query.days as string) || 7));
+  const days = Math.min(90, Math.max(1, parseInt(req.query.days as string) || 7));
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 30));
+  const page = Math.max(1, parseInt(req.query.page as string) || 1);
+  const offset = (page - 1) * limit;
+
+  let where = `WHERE m.created_at >= NOW() - (? || ' days')::interval`;
+  const params: unknown[] = [days];
+  const tool = req.query.tool as string;
+  if (tool && /^[a-z_]{1,60}$/.test(tool)) { where += ' AND m.tool_name = ?'; params.push(tool); }
+
+  const total = ((await queryOne(`SELECT COUNT(*) as c FROM mcp_audit_log m ${where}`, params)) as any).c;
   const rows = await queryAll(
     `SELECT m.id, m.tool_name, m.result_summary, m.requested_by, m.actor_id, m.created_at,
             u.name AS actor_name
      FROM mcp_audit_log m
      LEFT JOIN users u ON u.id = m.actor_id
-     WHERE m.created_at >= NOW() - (? || ' days')::interval
+     ${where}
      ORDER BY m.created_at DESC
-     LIMIT ?`,
-    [days, limit]
+     LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
   );
-  res.json({ success: true, data: rows });
+  res.json({
+    success: true,
+    data: rows,
+    pagination: { page, limit, total: Number(total), totalPages: Math.ceil(Number(total) / limit) },
+  });
 });
 
 router.get('/weekly-schedule', async (_req, res) => {

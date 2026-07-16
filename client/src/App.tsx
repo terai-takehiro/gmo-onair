@@ -24,6 +24,7 @@ import CustomerListPage from "@/contexts/sales/pages/CustomerListPage";
 import CompanyListPage from "@/contexts/sales/pages/CompanyListPage";
 import PricingListPage from "@/contexts/sales/pages/PricingListPage";
 import ActivityLogPage from "@/contexts/sales/pages/ActivityLogPage";
+import AiActivityPage from "@/contexts/sales/pages/AiActivityPage";
 import SalesReviewPage from "@/contexts/sales/pages/SalesReviewPage";
 import ConfirmedProjectsPage from "@/contexts/sales/pages/ConfirmedProjectsPage";
 import EstimatePage from "@/contexts/sales/pages/EstimatePage";
@@ -118,6 +119,7 @@ function AppRoutes() {
         <Route path="/sales/tasks/:view" element={<PermissionRoute module="sales"><TaskDashboardPage /></PermissionRoute>} />
         <Route path="/sales/project-groups" element={<PermissionRoute module="sales"><ProjectGroupListPage /></PermissionRoute>} />
         <Route path="/sales/activity-logs" element={<PermissionRoute module="sales"><ActivityLogPage /></PermissionRoute>} />
+        <Route path="/sales/ai-activity" element={<PermissionRoute module="sales"><AiActivityPage /></PermissionRoute>} />
         <Route path="/sales/review" element={<PermissionRoute module="sales"><SalesReviewPage /></PermissionRoute>} />
         <Route path="/sales/customers" element={<PermissionRoute module="sales"><CustomerListPage /></PermissionRoute>} />
         <Route path="/sales/companies" element={<PermissionRoute module="sales"><CompanyListPage /></PermissionRoute>} />

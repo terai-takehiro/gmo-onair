@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Sparkles } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
 import { useCrudPage } from "@/hooks/useCrudPage";
 
@@ -24,6 +24,21 @@ interface Customer {
   email?: string;
   phone?: string;
   address?: string;
+  is_ai_created?: boolean;
+  ai_requested_by?: string | null;
+}
+
+/** AI (MCP) が登録した顧客のバッジ (ActivityLogPage と同意匠) */
+function AiCreatedBadge({ requestedBy }: { requestedBy?: string | null }) {
+  return (
+    <span
+      className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 shrink-0"
+      title={requestedBy ? `AI登録（指示者: ${requestedBy}）` : "AI登録"}
+    >
+      <Sparkles className="h-3 w-3" />
+      AI登録
+    </span>
+  );
 }
 
 interface CustomerForm {
@@ -103,7 +118,10 @@ export default function CustomerListPage() {
                 <div key={c.id} className="rounded-lg border p-3 transition-colors hover:bg-muted/50">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <div className="font-medium truncate">{c.name}</div>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-medium truncate">{c.name}</span>
+                        {c.is_ai_created && <AiCreatedBadge requestedBy={c.ai_requested_by} />}
+                      </div>
                       <div className="text-sm text-muted-foreground truncate">
                         {c.contact_name && <span>{c.contact_name}</span>}
                         {c.phone && <span>{c.contact_name ? " / " : ""}{c.phone}</span>}
@@ -133,7 +151,15 @@ export default function CustomerListPage() {
                 rowKey={(c) => c.id}
                 storageKey="customers"
                 columns={[
-                  { key: "name", header: "顧客名", defaultWidth: 240, className: "font-medium", cell: (c) => c.name },
+                  {
+                    key: "name", header: "顧客名", defaultWidth: 240, className: "font-medium",
+                    cell: (c) => (
+                      <span className="inline-flex items-center gap-1.5">
+                        {c.name}
+                        {c.is_ai_created && <AiCreatedBadge requestedBy={c.ai_requested_by} />}
+                      </span>
+                    ),
+                  },
                   { key: "contact_name", header: "担当者", defaultWidth: 160, cell: (c) => c.contact_name || "-" },
                   { key: "email", header: "メール", defaultWidth: 220, cell: (c) => c.email || "-" },
                   { key: "phone", header: "電話", defaultWidth: 140, cell: (c) => c.phone || "-" },

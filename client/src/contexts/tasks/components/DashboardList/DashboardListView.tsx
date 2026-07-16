@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { CheckSquare, Square, ExternalLink } from "lucide-react";
+import { CheckSquare, Square, ExternalLink, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DashboardProject, DashboardTask, TaskColumn } from "@/types";
 
@@ -137,8 +137,19 @@ export default function DashboardListView({ projects, columns, tasks }: Props) {
                             )}
                           </td>
                           <td className="px-3 py-2">
-                            <span className={cn(task.is_completed && "line-through")}>
-                              {task.title}
+                            <span className="inline-flex items-center gap-1.5">
+                              <span className={cn(task.is_completed && "line-through")}>
+                                {task.title}
+                              </span>
+                              {task.is_ai_created && (
+                                <span
+                                  className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 text-[10px] font-medium text-violet-700 shrink-0"
+                                  title={task.ai_requested_by ? `AI作成（指示者: ${task.ai_requested_by}）` : "AI作成"}
+                                >
+                                  <Sparkles className="h-2.5 w-2.5" />
+                                  AI
+                                </span>
+                              )}
                             </span>
                           </td>
                           <td className="px-3 py-2 hidden sm:table-cell text-muted-foreground text-xs">

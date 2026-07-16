@@ -21,6 +21,14 @@ import {
 } from "@gmo-onair/shared/src/constants/statuses";
 import { queryKeys } from "@gmo-onair/shared/src/client/hooks/queryKeys";
 import {
+  type AiFeedItem,
+  AI_TOOL_LABELS,
+  aiFeedSubject,
+  aiFeedProjectLink,
+  aiFeedActor,
+  relativeTime,
+} from "@/lib/aiFeed";
+import {
   FolderKanban,
   PiggyBank,
   Calendar,
@@ -783,56 +791,8 @@ function AiInboxSection({ navigate }: { navigate: (to: string) => void }) {
 // セクション: AI 活動フィード (v2.9.197+)
 // mcp_audit_log から「AI が最近やったこと」を時系列で一望する。
 // actor (OAuth 経由の実行者 or 共用キー) と指示者を併記して帰属を明確に。
+// 整形ヘルパーは @/lib/aiFeed に集約 (/sales/ai-activity と共用)。
 // ══════════════════════════════════════════════════════════
-interface AiFeedItem {
-  id: string;
-  tool_name: string;
-  result_summary: Record<string, unknown> | null;
-  requested_by: string | null;
-  actor_id: string | null;
-  actor_name: string | null;
-  created_at: string;
-}
-const AI_TOOL_LABELS: Record<string, string> = {
-  create_project: "案件を起票",
-  update_project: "案件を更新",
-  change_project_stage: "ステージ変更",
-  issue_gls: "GLS 発番",
-  create_customer: "顧客を登録",
-  update_customer: "顧客を更新",
-  create_activity_log: "活動記録を登録",
-  update_activity_log: "活動記録を更新",
-  create_task: "タスク作成",
-  update_task: "タスク更新",
-  create_studio_booking: "スタジオ予約を作成",
-  set_project_simulation: "見積を作成",
-  record_finance_doc: "見積/請求書を取込",
-  record_inquiry: "問い合わせを取込",
-  register_inview_attendee: "内覧会予約を登録",
-  submit_ops_report: "レポート投稿",
-  add_ops_report_items: "レポート行を追加",
-};
-/** result_summary から人間可読の対象名を抜き出す */
-function aiFeedSubject(rs: Record<string, unknown> | null): string {
-  if (!rs) return "";
-  const cand = [rs.name, rs.subject, rs.title, rs.code, rs.gls_number, rs.session_label, rs.doc_type];
-  const v = cand.find((x) => typeof x === "string" && x);
-  let s = (v as string) ?? "";
-  if (rs.total != null && typeof rs.total === "number") s += `${s ? " " : ""}(合計 ¥${Number(rs.total).toLocaleString()})`;
-  if (rs.status === "draft") s += " [下書き]";
-  if (rs.idempotent) s += " [既存・重複回避]";
-  return s;
-}
-/** created_at → 相対時刻 (○分前/○時間前/○日前) */
-function relativeTime(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime();
-  const min = Math.floor(ms / 60000);
-  if (min < 1) return "たった今";
-  if (min < 60) return `${min}分前`;
-  const h = Math.floor(min / 60);
-  if (h < 24) return `${h}時間前`;
-  return `${Math.floor(h / 24)}日前`;
-}
 function AiActivityFeedSection({ navigate }: { navigate: (to: string) => void }) {
   const [expanded, setExpanded] = useState(false);
   const { data } = useQuery<AiFeedItem[]>({
@@ -853,17 +813,19 @@ function AiActivityFeedSection({ navigate }: { navigate: (to: string) => void })
       icon={<Sparkles />}
       padding="compact"
       className="border-violet-100"
+      actions={
+        <Button variant="ghost" size="sm" className="h-7 text-xs text-violet-700" onClick={() => navigate("/sales/ai-activity")}>
+          すべて見る
+          <ArrowRight className="ml-1 h-3.5 w-3.5" aria-hidden="true" />
+        </Button>
+      }
     >
       <ul className="divide-y divide-border">
         {shown.map((f) => {
           const label = AI_TOOL_LABELS[f.tool_name] ?? f.tool_name;
           const subject = aiFeedSubject(f.result_summary);
-          const rs = f.result_summary ?? {};
-          const projectLink =
-            f.tool_name === "create_project" && typeof rs.created_id === "string" ? `/sales/projects/${rs.created_id}`
-            : typeof rs.project_id === "string" ? `/sales/projects/${rs.project_id}`
-            : null;
-          const actor = f.actor_id === "mcp-claude" ? "共用キー" : (f.actor_name ?? null);
+          const projectLink = aiFeedProjectLink(f);
+          const actor = aiFeedActor(f);
           return (
             <li key={f.id} className="flex items-start gap-2.5 px-2 py-2">
               <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-violet-200 bg-violet-50">

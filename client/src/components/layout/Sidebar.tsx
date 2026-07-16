@@ -88,6 +88,7 @@ const APP_NAV: Record<string, NavSection[]> = {
       title: "営業",
       items: [
         { label: "営業活動記録", to: "/sales/activity-logs", icon: ClipboardList },
+        { label: "AI活動履歴", to: "/sales/ai-activity", icon: Sparkles },
         { label: "営業レビュー", to: "/sales/review", icon: Award },
         { label: "ダッシュボード", to: "/sales/dashboard", icon: BarChart3 },
       ],
