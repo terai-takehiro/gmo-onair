@@ -125,13 +125,15 @@ interface SalesBoardItem {
   last_activity_type?: string | null;
   last_activity_subject?: string | null;
   last_activity_date?: string | null;
+  last_activity_is_ai?: boolean | null;
   next_action_activity_id?: string | null;
   next_action?: string | null;
   next_action_date?: string | null;
   activity_count?: number;
   is_hot?: number;
-  // v2.9.178+: AI 起票情報
+  // v2.9.178+: AI 起票情報 (v2.9.197+ is_ai_created はサーバー計算・OAuth 本人名義でも検出)
   created_by?: string | null;
+  is_ai_created?: boolean | null;
   ai_reviewed_at?: string | null;
   ai_requested_by?: string | null;
 }
@@ -150,8 +152,10 @@ interface AiInboxItem {
   ai_requested_by?: string | null;
 }
 
-// AI 起票判定 (MCP 経由の書き込みは created_by='mcp-claude')
-const isAiCreated = (createdBy?: string | null) => createdBy === "mcp-claude";
+// AI 起票判定: サーバー計算の is_ai_created (監査ログ照合・OAuth 本人名義でも検出) を優先し、
+// 旧クライアント互換で created_by='mcp-claude' (静的キー) にもフォールバック
+const isAiCreated = (p: { is_ai_created?: boolean | null; created_by?: string | null }) =>
+  !!p.is_ai_created || p.created_by === "mcp-claude";
 
 // 営業活動種別 → ラベル + アイコン (activity_logs.activity_type)
 const ACTIVITY_META: Record<string, { label: string; icon: React.ElementType }> = {
@@ -262,6 +266,9 @@ export default function HomePage() {
 
         {/* ───── 5. 営業ダッシュボード (進行中案件 + ホットな情報) ───── */}
         {canSeeSales && <SalesBoardSection navigate={navigate} />}
+
+        {/* ───── 5.2 AI 活動フィード (AI が最近やったこと・監査ログから) ───── */}
+        {canSeeSales && <AiActivityFeedSection navigate={navigate} />}
 
         {/* ───── 5. 直近の案件 ───── */}
         {canSeeSales && <RecentProjectsSection navigate={navigate} />}
@@ -773,6 +780,136 @@ function AiInboxSection({ navigate }: { navigate: (to: string) => void }) {
 }
 
 // ══════════════════════════════════════════════════════════
+// セクション: AI 活動フィード (v2.9.197+)
+// mcp_audit_log から「AI が最近やったこと」を時系列で一望する。
+// actor (OAuth 経由の実行者 or 共用キー) と指示者を併記して帰属を明確に。
+// ══════════════════════════════════════════════════════════
+interface AiFeedItem {
+  id: string;
+  tool_name: string;
+  result_summary: Record<string, unknown> | null;
+  requested_by: string | null;
+  actor_id: string | null;
+  actor_name: string | null;
+  created_at: string;
+}
+const AI_TOOL_LABELS: Record<string, string> = {
+  create_project: "案件を起票",
+  update_project: "案件を更新",
+  change_project_stage: "ステージ変更",
+  issue_gls: "GLS 発番",
+  create_customer: "顧客を登録",
+  update_customer: "顧客を更新",
+  create_activity_log: "活動記録を登録",
+  update_activity_log: "活動記録を更新",
+  create_task: "タスク作成",
+  update_task: "タスク更新",
+  create_studio_booking: "スタジオ予約を作成",
+  set_project_simulation: "見積を作成",
+  record_finance_doc: "見積/請求書を取込",
+  record_inquiry: "問い合わせを取込",
+  register_inview_attendee: "内覧会予約を登録",
+  submit_ops_report: "レポート投稿",
+  add_ops_report_items: "レポート行を追加",
+};
+/** result_summary から人間可読の対象名を抜き出す */
+function aiFeedSubject(rs: Record<string, unknown> | null): string {
+  if (!rs) return "";
+  const cand = [rs.name, rs.subject, rs.title, rs.code, rs.gls_number, rs.session_label, rs.doc_type];
+  const v = cand.find((x) => typeof x === "string" && x);
+  let s = (v as string) ?? "";
+  if (rs.total != null && typeof rs.total === "number") s += `${s ? " " : ""}(合計 ¥${Number(rs.total).toLocaleString()})`;
+  if (rs.status === "draft") s += " [下書き]";
+  if (rs.idempotent) s += " [既存・重複回避]";
+  return s;
+}
+/** created_at → 相対時刻 (○分前/○時間前/○日前) */
+function relativeTime(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(ms / 60000);
+  if (min < 1) return "たった今";
+  if (min < 60) return `${min}分前`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h}時間前`;
+  return `${Math.floor(h / 24)}日前`;
+}
+function AiActivityFeedSection({ navigate }: { navigate: (to: string) => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const { data } = useQuery<AiFeedItem[]>({
+    queryKey: queryKeys.dashboard.aiActivityFeed(),
+    queryFn: async () => (await api.get("/dashboard/ai-activity-feed", { params: { days: 7, limit: 50 } })).data.data,
+    staleTime: 60_000,
+    refetchOnMount: "always",
+  });
+  const list = data ?? [];
+  if (list.length === 0) return null;
+  const VISIBLE = 6;
+  const shown = expanded ? list : list.slice(0, VISIBLE);
+
+  return (
+    <SectionCard
+      title={`AI 活動フィード (直近7日 ${list.length}件)`}
+      description="AI (MCP 経由) がこの1週間に実行した書き込みの履歴です。"
+      icon={<Sparkles />}
+      padding="compact"
+      className="border-violet-100"
+    >
+      <ul className="divide-y divide-border">
+        {shown.map((f) => {
+          const label = AI_TOOL_LABELS[f.tool_name] ?? f.tool_name;
+          const subject = aiFeedSubject(f.result_summary);
+          const rs = f.result_summary ?? {};
+          const projectLink =
+            f.tool_name === "create_project" && typeof rs.created_id === "string" ? `/sales/projects/${rs.created_id}`
+            : typeof rs.project_id === "string" ? `/sales/projects/${rs.project_id}`
+            : null;
+          const actor = f.actor_id === "mcp-claude" ? "共用キー" : (f.actor_name ?? null);
+          return (
+            <li key={f.id} className="flex items-start gap-2.5 px-2 py-2">
+              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-violet-200 bg-violet-50">
+                <Sparkles className="h-3 w-3 text-violet-600" aria-hidden="true" />
+              </span>
+              <div className="min-w-0 flex-1 text-xs">
+                <p className="text-foreground">
+                  <span className="font-medium">{label}</span>
+                  {subject ? (
+                    projectLink ? (
+                      <button
+                        type="button"
+                        className="ml-1.5 text-primary hover:underline truncate align-bottom max-w-[60%] inline-block"
+                        onClick={() => navigate(projectLink)}
+                      >
+                        {subject}
+                      </button>
+                    ) : (
+                      <span className="ml-1.5 text-muted-foreground">{subject}</span>
+                    )
+                  ) : null}
+                </p>
+                <p className="mt-0.5 flex flex-wrap gap-x-2 text-[11px] text-muted-foreground">
+                  <span>{relativeTime(f.created_at)}</span>
+                  {actor ? <span>実行: {actor}</span> : null}
+                  {f.requested_by ? <span className="text-violet-600">指示: {f.requested_by}</span> : null}
+                </p>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      {list.length > VISIBLE && (
+        <button
+          type="button"
+          className="mt-1 px-2 text-xs text-violet-700 hover:underline"
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? "折りたたむ" : `残り${list.length - VISIBLE}件を表示`}
+        </button>
+      )}
+    </SectionCard>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
 // セクション: 日常業務アラート (v2.9.181+)
 // 未処理の見積/請求書・未対応の問い合わせがあるときだけコンパクトに表示。
 // 0 件 or 取得失敗時は非表示 (ごちゃつかないように)。/daily/ は別 SPA のため full nav。
@@ -1012,7 +1149,7 @@ function SalesBoardSection({ navigate }: { navigate: (to: string) => void }) {
               const ActIcon = meta?.icon;
               const overdue =
                 p.next_action_date && p.next_action_date < todayStr;
-              const aiCreated = isAiCreated(p.created_by);
+              const aiCreated = isAiCreated(p);
               const naId = p.next_action_activity_id;
               return (
                 <li key={p.id} className={cn(p.is_hot === 1 && "bg-orange-50/40 rounded-md")}>
@@ -1049,11 +1186,22 @@ function SalesBoardSection({ navigate }: { navigate: (to: string) => void }) {
                       {p.customer_name ? (
                         <p className="text-xs text-muted-foreground truncate">{p.customer_name}</p>
                       ) : null}
-                      {/* 直近の営業活動 */}
+                      {/* 直近の営業活動 (AI 取込は violet で区別) */}
                       {meta && ActIcon ? (
                         <p className="mt-1 flex items-center gap-1.5 text-xs text-foreground/80 truncate">
-                          <ActIcon className="h-3.5 w-3.5 shrink-0 text-orange-600" aria-hidden="true" />
+                          <ActIcon
+                            className={cn("h-3.5 w-3.5 shrink-0", p.last_activity_is_ai ? "text-violet-600" : "text-orange-600")}
+                            aria-hidden="true"
+                          />
                           <span className="font-medium">{meta.label}</span>
+                          {p.last_activity_is_ai ? (
+                            <span
+                              className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1 py-0 text-[10px] text-violet-700"
+                              title="この活動は AI（メール取込等）により記録されました"
+                            >
+                              <Sparkles className="h-2.5 w-2.5" aria-hidden="true" />AI
+                            </span>
+                          ) : null}
                           <span className="text-muted-foreground">{relativeDay(p.last_activity_date)}</span>
                           {p.last_activity_subject ? (
                             <span className="text-muted-foreground truncate">· {p.last_activity_subject}</span>

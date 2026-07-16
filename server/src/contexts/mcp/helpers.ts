@@ -98,10 +98,11 @@ function truncateDeep(value: unknown, maxLen: number): unknown {
 /**
  * 監査ログ記録 (書き込み成功時のみ呼ぶ)。fire-and-forget —
  * INSERT に失敗してもツールの成功結果は変えない (warn のみ)。
+ * actor_id (v2.9.197+): OAuth 経由 = 実 ONAiR ユーザー id / 静的キー = mcpActorId を自動記録。
  */
 export function audit(tool: string, args: unknown, resultSummary: unknown, requestedBy?: string): void {
   void execute(
-    `INSERT INTO mcp_audit_log (id, tool_name, args, result_summary, requested_by) VALUES (?, ?, ?::jsonb, ?::jsonb, ?)`,
-    [uuidv4(), tool, JSON.stringify(truncateDeep(args, 1000) ?? null), JSON.stringify(resultSummary ?? null), requestedBy ?? null],
+    `INSERT INTO mcp_audit_log (id, tool_name, args, result_summary, requested_by, actor_id) VALUES (?, ?, ?::jsonb, ?::jsonb, ?, ?)`,
+    [uuidv4(), tool, JSON.stringify(truncateDeep(args, 1000) ?? null), JSON.stringify(resultSummary ?? null), requestedBy ?? null, currentActorId()],
   ).catch((e) => console.warn('[mcp audit] insert failed (non-blocking):', (e as Error).message));
 }

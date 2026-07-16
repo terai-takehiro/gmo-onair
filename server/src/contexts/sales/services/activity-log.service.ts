@@ -8,7 +8,15 @@ export interface ActivityLogFilter {
   userId?: string;
   activityType?: string;
   search?: string;
+  /** 'ai' = AI (MCP) 取込のみ / 'human' = 手入力のみ。判定は mcp_audit_log 照合 (OAuth 本人名義でも検出) */
+  origin?: 'ai' | 'human';
 }
+
+/** AI 取込判定の EXISTS 句 (COUNT とデータ取得の両方で共有) */
+const AI_ORIGIN_EXISTS = `EXISTS (
+  SELECT 1 FROM mcp_audit_log m
+  WHERE m.tool_name = 'create_activity_log' AND m.result_summary->>'created_id' = a.id
+)`;
 
 export class ActivityLogService {
   async list(filter: ActivityLogFilter, page: number, limit: number, offset: number) {
@@ -19,6 +27,8 @@ export class ActivityLogService {
     if (filter.userId) { where += ' AND a.user_id = ?'; params.push(filter.userId); }
     if (filter.activityType) { where += ' AND a.activity_type = ?'; params.push(filter.activityType); }
     if (filter.search) { where += ' AND (a.subject ILIKE ? OR a.description ILIKE ?)'; params.push(`%${filter.search}%`, `%${filter.search}%`); }
+    if (filter.origin === 'ai') { where += ` AND ${AI_ORIGIN_EXISTS}`; }
+    else if (filter.origin === 'human') { where += ` AND NOT ${AI_ORIGIN_EXISTS}`; }
 
     const total = ((await queryOne(`SELECT COUNT(*) as c FROM activity_logs a ${where}`, params)) as any).c;
     // v2.9.178+: AI 起票 (MCP create_activity_log) を mcp_audit_log から逆引きして

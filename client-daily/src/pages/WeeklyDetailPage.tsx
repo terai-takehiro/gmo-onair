@@ -76,7 +76,7 @@ export default function WeeklyDetailPage() {
                   <CircleDashed className="h-3 w-3" /> 下書き
                 </Badge>
               )}
-              {report.created_by === 'mcp-claude' && (
+              {(report.created_by === 'mcp-claude' || !!report.requested_by) && (
                 <Badge variant="outline" className="gap-1 border-violet-300 text-violet-700">
                   <Sparkles className="h-3 w-3" /> AI 起票
                   {report.requested_by ? ` (指示: ${report.requested_by})` : ''}

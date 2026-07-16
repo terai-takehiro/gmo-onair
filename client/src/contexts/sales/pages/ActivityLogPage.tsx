@@ -27,6 +27,35 @@ function AiCreatedBadge({ requestedBy }: { requestedBy?: string | null }) {
   );
 }
 
+// v2.9.197+: 由来 (プロベナンス) チップ — 流入チャネル + メール取込 + AI 指示者。
+// AI 自動入力の「どこから来た情報か」を一目で分かるようにする。
+function ProvenanceChips({ log }: { log: Record<string, unknown> }) {
+  const channel = log.source_channel as string | null;
+  const hasMail = !!log.message_id;
+  const requestedBy = log.ai_requested_by as string | null;
+  if (!channel && !hasMail && !requestedBy) return null;
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1">
+      {channel && (
+        <span className="inline-flex shrink-0 items-center rounded-full bg-sky-50 border border-sky-200 px-1.5 py-0.5 text-[10px] text-sky-700" title="流入チャネル">
+          {channel}
+        </span>
+      )}
+      {hasMail && (
+        <span
+          className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-slate-100 border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-600"
+          title={`メール由来 (Message-ID: ${log.message_id})`}
+        >
+          ✉ メール取込
+        </span>
+      )}
+      {requestedBy && (
+        <span className="text-[10px] text-violet-600" title="AI への指示者">指示: {requestedBy}</span>
+      )}
+    </span>
+  );
+}
+
 const ACTIVITY_TYPES = [
   { value: "call", label: "電話", color: "bg-blue-100 text-blue-700" },
   { value: "email", label: "メール", color: "bg-green-100 text-green-700" },
@@ -63,6 +92,7 @@ export default function ActivityLogPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("");
+  const [originFilter, setOriginFilter] = useState<"" | "ai" | "human">("");
   const [page, setPage] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -70,11 +100,12 @@ export default function ActivityLogPage() {
 
   // 活動記録一覧
   const { data, isLoading } = useQuery({
-    queryKey: ["activity-logs", page, search, typeFilter],
+    queryKey: ["activity-logs", page, search, typeFilter, originFilter],
     queryFn: async () => {
       const params: Record<string, string | number> = { page, limit: 20 };
       if (search) params.search = search;
       if (typeFilter) params.activity_type = typeFilter;
+      if (originFilter) params.origin = originFilter;
       return (await api.get("/activity-logs", { params })).data;
     },
   });
@@ -196,8 +227,8 @@ export default function ActivityLogPage() {
       )}
 
       {/* フィルター */}
-      <div className="flex gap-2">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 max-w-sm min-w-[180px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="件名で検索..."
@@ -215,6 +246,26 @@ export default function ActivityLogPage() {
             ))}
           </SelectContent>
         </Select>
+        {/* 入力元フィルタ (AI 取込 / 手入力) */}
+        <div className="inline-flex rounded-lg border border-border p-0.5">
+          {([["", "すべて"], ["ai", "AI取込"], ["human", "手入力"]] as ["" | "ai" | "human", string][]).map(([v, lbl]) => (
+            <button
+              key={v || "all"}
+              type="button"
+              onClick={() => { setOriginFilter(v); setPage(1); }}
+              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs transition-colors ${
+                originFilter === v
+                  ? v === "ai"
+                    ? "bg-violet-600 text-white font-medium"
+                    : "bg-primary text-primary-foreground font-medium"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {v === "ai" && <Sparkles className="h-3 w-3" aria-hidden="true" />}
+              {lbl}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* 一覧 */}
@@ -231,7 +282,12 @@ export default function ActivityLogPage() {
                 {logs.map((log: any) => {
                   const at = getActivityType(log.activity_type);
                   return (
-                    <div key={log.id} className="rounded-lg border p-3 transition-colors hover:bg-muted/50">
+                    <div
+                      key={log.id}
+                      className={`rounded-lg border p-3 transition-colors hover:bg-muted/50 ${
+                        log.is_ai_created ? "border-l-4 border-l-violet-400 border-violet-200 bg-violet-50/30" : ""
+                      }`}
+                    >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
@@ -239,9 +295,12 @@ export default function ActivityLogPage() {
                             <span className="font-medium truncate">{log.subject}</span>
                             {log.is_ai_created && <AiCreatedBadge requestedBy={log.ai_requested_by} />}
                           </div>
+                          <div className="mt-1">
+                            <ProvenanceChips log={log} />
+                          </div>
                           <div className="text-sm text-muted-foreground mt-1 truncate">
                             {log.project_code ? log.project_code : log.customer_name || "-"}
-                            {log.performed_by_name && <span> / {log.performed_by_name}</span>}
+                            {log.user_name && <span> / {log.user_name}</span>}
                           </div>
                           <div className="text-sm text-muted-foreground flex items-center gap-2 mt-0.5">
                             <span>{formatDate(log.activity_date)}</span>
@@ -294,21 +353,27 @@ export default function ActivityLogPage() {
                   {logs.map((log: any) => {
                     const at = getActivityType(log.activity_type);
                     return (
-                      <TableRow key={log.id}>
-                        <TableCell className="text-sm">{formatDate(log.activity_date)}</TableCell>
+                      <TableRow key={log.id} className={log.is_ai_created ? "bg-violet-50/40 hover:bg-violet-50/70" : undefined}>
+                        <TableCell className="text-sm">
+                          <span className="flex items-center gap-1.5">
+                            {log.is_ai_created ? <span className="h-4 w-1 shrink-0 rounded-full bg-violet-400" aria-hidden="true" /> : null}
+                            {formatDate(log.activity_date)}
+                          </span>
+                        </TableCell>
                         <TableCell>
                           <span className={`text-xs px-2 py-0.5 rounded ${at.color}`}>{at.label}</span>
                         </TableCell>
-                        <TableCell className="font-medium max-w-[240px]">
+                        <TableCell className="font-medium max-w-[280px]">
                           <span className="flex items-center gap-1.5">
                             <span className="truncate">{log.subject}</span>
                             {log.is_ai_created && <AiCreatedBadge requestedBy={log.ai_requested_by} />}
                           </span>
+                          <ProvenanceChips log={log} />
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">
                           {log.project_code ? `${log.project_code}` : log.customer_name || "-"}
                         </TableCell>
-                        <TableCell className="text-sm">{log.performed_by_name}</TableCell>
+                        <TableCell className="text-sm">{log.user_name}</TableCell>
                         <TableCell className="text-center text-sm">
                           {log.duration_minutes ? `${log.duration_minutes}分` : "-"}
                         </TableCell>

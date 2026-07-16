@@ -135,9 +135,13 @@ export class ProjectService {
       where += ` AND p.notes LIKE ?`;
       params.push(`[kessan:${filter.kessanMarker}]%`);
     }
-    // AI (MCP) 起票フィルタ: created_by = mcpActor の案件のみ。確認状態でさらに絞れる
+    // AI (MCP) 起票フィルタ。判定は created_by=mcpActor (静的キー) OR mcp_audit_log 照合
+    // (OAuth 経由は created_by が本人名義になるため、監査ログの created_id 一致でも検出する)
     if (filter.aiCreated) {
-      where += ` AND p.created_by = ?`;
+      where += ` AND (p.created_by = ? OR EXISTS (
+        SELECT 1 FROM mcp_audit_log m
+        WHERE m.tool_name = 'create_project' AND m.result_summary->>'created_id' = p.id
+      ))`;
       params.push(config.mcpActorId);
     }
     if (filter.aiReviewed === 'reviewed') {
@@ -187,16 +191,25 @@ export class ProjectService {
     }
 
     const total = ((await queryOne(`SELECT COUNT(*) as c FROM projects p LEFT JOIN customers c ON c.id = p.customer_id ${where}`, params)) as any).c;
+    // is_ai_created は created_by=mcpActor (静的キー) OR 監査ログ照合 (OAuth 本人名義でも検出)。
+    // SELECT 句の ? が最初のプレースホルダになるため params の先頭に mcpActorId を置く。
     const rows = await queryAll(
       `SELECT p.*, c.name as customer_name, c.short_name as customer_short_name, u.name as assigned_to_name,
        (SELECT COUNT(*) FROM project_dates pd WHERE pd.project_id = p.id) as dates_count,
        COALESCE((SELECT SUM(r.amount) FROM revenues r WHERE r.project_id = p.id AND r.status = 'confirmed' AND r.deleted_at IS NULL AND r.group_id IS NULL), 0) as total_revenue,
-       COALESCE((SELECT SUM(pu.amount) FROM purchases pu WHERE pu.project_id = p.id AND pu.deleted_at IS NULL AND pu.group_id IS NULL), 0) as total_purchase
+       COALESCE((SELECT SUM(pu.amount) FROM purchases pu WHERE pu.project_id = p.id AND pu.deleted_at IS NULL AND pu.group_id IS NULL), 0) as total_purchase,
+       (p.created_by = ? OR ai.audit_id IS NOT NULL) as is_ai_created,
+       ai.requested_by as ai_requested_by
        FROM projects p
        LEFT JOIN customers c ON c.id = p.customer_id
        LEFT JOIN users u ON u.id = p.assigned_to
+       LEFT JOIN LATERAL (
+         SELECT m.id AS audit_id, m.requested_by FROM mcp_audit_log m
+         WHERE m.tool_name = 'create_project' AND m.result_summary->>'created_id' = p.id
+         ORDER BY m.created_at ASC LIMIT 1
+       ) ai ON TRUE
        ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+      [config.mcpActorId, ...params, limit, offset]
     );
     return { rows, total, page, limit };
   }

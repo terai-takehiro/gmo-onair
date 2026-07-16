@@ -16,6 +16,8 @@ router.get('/', async (req, res) => {
     customerId: req.query.customer_id as string,
     userId: req.query.user_id as string,
     activityType: req.query.activity_type as string,
+    origin: req.query.origin === 'ai' ? 'ai' as const
+      : req.query.origin === 'human' ? 'human' as const : undefined,
   };
   const result = await activityLogService.list(filter, page, limit, offset);
   res.json(paginatedResponse(result.rows, result.total, result.page, result.limit));

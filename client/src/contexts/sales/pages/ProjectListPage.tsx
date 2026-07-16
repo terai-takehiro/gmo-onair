@@ -121,7 +121,7 @@ export default function ProjectListPage() {
   };
   // 選択可能なのは AI 起票フィルタ ON かつ 未確認の案件のみ
   const selectableIds: string[] = aiOnly
-    ? projects.filter((p: Record<string, unknown>) => p.created_by === "mcp-claude" && !p.ai_reviewed_at).map((p: Record<string, unknown>) => p.id as string)
+    ? projects.filter((p: Record<string, unknown>) => p.is_ai_created && !p.ai_reviewed_at).map((p: Record<string, unknown>) => p.id as string)
     : [];
 
   return (
@@ -401,10 +401,10 @@ function ProjectCard({
           <Badge className="shrink-0 text-[11px]" style={{ backgroundColor: stageColor, color: '#fff' }}>
             {stageLabel}
           </Badge>
-          {p.created_by === "mcp-claude" && (
+          {!!p.is_ai_created && (
             <span
               className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0.5 text-[10px] text-violet-700"
-              title="AI（メール取込等）により起票された案件"
+              title={p.ai_requested_by ? `AI起票 (指示: ${p.ai_requested_by})` : "AI（メール取込等）により起票された案件"}
             >
               <Sparkles className="h-3 w-3" aria-hidden="true" />
               AI起票
