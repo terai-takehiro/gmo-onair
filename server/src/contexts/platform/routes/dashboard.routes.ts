@@ -128,6 +128,29 @@ router.get('/alerts', async (_req, res) => {
   res.json({ success: true, data: alerts });
 });
 
+// 期限超過の次回アクション (エスカレーション用)。進行中案件で next_action_date < 今日 かつ 未完了。
+// 期限が古い順。ホームの「対応漏れ」アラートと、Claude スケジュール実行→Slack 通知の両方で使う。
+router.get('/overdue-actions', async (_req, res) => {
+  const rows = await queryAll(
+    `SELECT a.id AS activity_id, a.next_action, a.next_action_date,
+            a.project_id, p.code AS project_code, p.gls_number, p.name AS project_name, p.stage,
+            a.user_id, u.name AS assigned_to_name, c.name AS customer_name,
+            (CURRENT_DATE - a.next_action_date::date) AS days_overdue
+     FROM activity_logs a
+     JOIN projects p ON p.id = a.project_id
+     LEFT JOIN users u ON u.id = a.user_id
+     LEFT JOIN customers c ON c.id = p.customer_id
+     WHERE a.deleted_at IS NULL AND p.deleted_at IS NULL
+       AND p.stage NOT IN ('s_completed','e_lost')
+       AND a.next_action IS NOT NULL AND a.next_action_date IS NOT NULL
+       AND a.next_action_done_at IS NULL
+       AND a.next_action_date < CURRENT_DATE::text
+     ORDER BY a.next_action_date ASC
+     LIMIT 200`
+  );
+  res.json({ success: true, data: rows });
+});
+
 router.get('/recent-projects', async (_req, res) => {
   const rows = await queryAll(
     `SELECT p.*, c.name as customer_name FROM projects p

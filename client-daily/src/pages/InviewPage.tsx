@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   CalendarCheck, Plus, Users, Mail, Phone, Smartphone, Building2, Sparkles,
-  CheckCircle2, Circle, Pencil, Trash2, Clock, MapPin, Loader2,
+  CheckCircle2, Circle, Pencil, Trash2, Clock, MapPin, Loader2, Briefcase, ExternalLink,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,7 +15,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { formatDateJa, type InviewRegistration } from '@/lib/types';
 import {
   useInviewList, useCreateInview, useUpdateInview, useCheckInInview, useDeleteInview,
-  type InviewInput,
+  usePromoteInview, type InviewInput,
 } from '@/lib/inviewApi';
 
 // セッション (回) キー
@@ -125,7 +125,9 @@ export default function InviewPage() {
 function AttendeeCard({ r, canEdit, onEdit }: { r: InviewRegistration; canEdit: boolean; onEdit: () => void }) {
   const checkIn = useCheckInInview();
   const del = useDeleteInview();
+  const promote = usePromoteInview();
   const isKairos = r.source === 'kairos3';
+  const isPromoted = !!r.promoted_project_id;
   return (
     <Card className={r.checked_in_at ? 'border-emerald-200 bg-emerald-50/30' : ''}>
       <CardContent className="p-3 sm:p-4">
@@ -144,6 +146,17 @@ function AttendeeCard({ r, canEdit, onEdit }: { r: InviewRegistration; canEdit: 
                 <Badge variant="outline" className="gap-1 border-emerald-300 text-emerald-700 text-[11px]">
                   <CheckCircle2 className="h-3 w-3" />来場済み
                 </Badge>
+              ) : null}
+              {isPromoted ? (
+                <a
+                  href={`/sales/projects/${r.promoted_project_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-full border border-blue-300 bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-700 hover:underline"
+                  title="この来場予約から作成された案件を開く"
+                >
+                  <Briefcase className="h-3 w-3" />案件化済み<ExternalLink className="h-2.5 w-2.5" />
+                </a>
               ) : null}
             </div>
             {(r.company || r.role) && (
@@ -176,6 +189,31 @@ function AttendeeCard({ r, canEdit, onEdit }: { r: InviewRegistration; canEdit: 
               >
                 {r.checked_in_at ? <><Circle className="h-3.5 w-3.5" />受付取消</> : <><CheckCircle2 className="h-3.5 w-3.5" />受付する</>}
               </Button>
+              {!isPromoted && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1 border-blue-300 text-xs text-blue-700 hover:bg-blue-50"
+                  disabled={promote.isPending}
+                  onClick={() => {
+                    if (!confirm(`${r.company || r.name} を案件化しますか？\n顧客・ヨミ案件・来場の活動記録を作成します。`)) return;
+                    promote.mutate({ id: r.id }, {
+                      onSuccess: (res) => {
+                        alert(res.customer_created
+                          ? '案件化しました（新規顧客も作成）。案件管理アプリでヨミ案件を確認できます。'
+                          : '案件化しました。案件管理アプリでヨミ案件を確認できます。');
+                      },
+                      onError: (e: unknown) => {
+                        const msg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
+                        alert(`案件化に失敗しました: ${msg || '不明なエラー'}`);
+                      },
+                    });
+                  }}
+                >
+                  {promote.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Briefcase className="h-3.5 w-3.5" />}
+                  案件化
+                </Button>
+              )}
               <div className="flex gap-1">
                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onEdit} aria-label="編集"><Pencil className="h-3.5 w-3.5" /></Button>
                 <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" aria-label="削除"

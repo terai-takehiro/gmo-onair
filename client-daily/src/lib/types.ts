@@ -64,6 +64,9 @@ export interface InviewRegistration {
   source: string;
   checked_in_at: string | null;
   checked_in_by: string | null;
+  promoted_project_id: string | null;
+  promoted_at: string | null;
+  promoted_by: string | null;
   requested_by: string | null;
   created_by: string | null;
   created_at: string;

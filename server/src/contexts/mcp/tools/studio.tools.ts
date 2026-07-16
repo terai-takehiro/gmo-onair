@@ -90,6 +90,32 @@ export function registerStudioTools(server: McpServer): void {
   );
 
   server.registerTool(
+    'get_studio_availability',
+    {
+      title: 'スタジオ空き照会',
+      description:
+        '指定期間 [from, to] (YYYY-MM-DD・両端含む) の各部屋の空き状況を返す。' +
+        '返り値: rooms[] 各要素に busy (期間に重なる予約) と free_days (予約が1件も無い終日空きの日付配列)。' +
+        '問い合わせへの「◯日は空いていますか」回答や、予約前の空き確認に使う。room_id を指定すると 1 部屋に絞れる。' +
+        '複数日にまたがる予約は各日を busy 扱い (安全側)。照会期間は最大 92 日。' +
+        'list_studio_bookings と違い日付境界 (単日照会) の取りこぼしが無い。',
+      inputSchema: {
+        from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe('照会開始日 (YYYY-MM-DD)'),
+        to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('照会終了日 (YYYY-MM-DD・省略時は from と同日 = 単日照会)'),
+        room_id: z.string().optional().describe('部屋 ID (list_studio_rooms で取得) で 1 部屋に絞る'),
+      },
+    },
+    async (args) => runTool(async () => {
+      const result = await studioBookingService.getAvailability({
+        from: args.from,
+        to: args.to ?? args.from,
+        roomId: args.room_id,
+      });
+      return ok(result);
+    }),
+  );
+
+  server.registerTool(
     'create_studio_booking',
     {
       title: 'スタジオ予約作成',

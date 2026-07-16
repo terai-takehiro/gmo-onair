@@ -73,3 +73,21 @@ export function useDeleteInview() {
     onSuccess: invalidate,
   });
 }
+
+export interface PromoteResult {
+  promoted: boolean;
+  already?: boolean;
+  project_id: string;
+  customer_id: string;
+  customer_created?: boolean;
+}
+
+// 案件化 (昇格): 顧客(find-or-create) + ヨミ案件 + 来場の活動記録 を起票
+export function usePromoteInview() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ id, gls_category }: { id: string; gls_category?: 'A' | 'B' }) =>
+      api.post(`/dailyops/inview/${id}/promote`, gls_category ? { gls_category } : {}).then((r) => r.data.data as PromoteResult),
+    onSuccess: invalidate,
+  });
+}

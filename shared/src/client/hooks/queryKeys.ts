@@ -20,6 +20,7 @@ export const queryKeys = {
     recentProjects: () => ['dashboard', 'recent-projects'] as const,
     salesBoard:     () => ['dashboard', 'sales-board'] as const,
     aiInbox:        () => ['dashboard', 'ai-inbox'] as const,
+    overdueActions: () => ['dashboard', 'overdue-actions'] as const,
     monthlyChart:   () => ['dashboard', 'monthly-chart'] as const,
     weeklySchedule: () => ['dashboard', 'weekly-schedule'] as const,
     pipeline:       () => ['dashboard', 'pipeline'] as const,

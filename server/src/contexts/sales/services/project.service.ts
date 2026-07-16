@@ -8,6 +8,7 @@ import {
   type CustomerType,
 } from './box-folder.service';
 import { extractFolderId } from '../../../shared/services/box';
+import { config } from '../../../config';
 
 /** 案件登録時に渡された値を 'A' | 'B' に正規化。不正値は null を返す */
 function normalizeGlsCategory(value: unknown): GlsCategory | null {
@@ -41,6 +42,10 @@ export interface ProjectFilter {
   source?: 'kessan';
   /** 決算インポートのマーカー (例 '2026-01' / '2025-08〜2026-01') で絞り込み */
   kessanMarker?: string;
+  /** AI (MCP) が起票した案件のみ (created_by = mcpActorId) */
+  aiCreated?: boolean;
+  /** AI 起票案件の確認状態フィルタ ('reviewed'=確認済 / 'unreviewed'=未確認) */
+  aiReviewed?: 'reviewed' | 'unreviewed';
   /** 開催月 (YYYY-MM)。イベント期間がこの月に重なる案件のみ */
   eventMonth?: string;
   /** 開催期間レンジ (YYYY-MM-DD)。イベント期間がこのレンジに重なる案件のみ */
@@ -129,6 +134,16 @@ export class ProjectService {
     if (filter.kessanMarker) {
       where += ` AND p.notes LIKE ?`;
       params.push(`[kessan:${filter.kessanMarker}]%`);
+    }
+    // AI (MCP) 起票フィルタ: created_by = mcpActor の案件のみ。確認状態でさらに絞れる
+    if (filter.aiCreated) {
+      where += ` AND p.created_by = ?`;
+      params.push(config.mcpActorId);
+    }
+    if (filter.aiReviewed === 'reviewed') {
+      where += ` AND p.ai_reviewed_at IS NOT NULL`;
+    } else if (filter.aiReviewed === 'unreviewed') {
+      where += ` AND p.ai_reviewed_at IS NULL`;
     }
     // v2.8.113+: gls_category カラム (DB) を真実とする。発番済の旧データは migration 086 でバックフィル済
     if (filter.glsCategory === 'A') {

@@ -251,6 +251,9 @@ export default function HomePage() {
         {/* ───── 3. AI 起票インボックス (未確認の AI 起票案件があるときだけ表示) ───── */}
         {canSeeSales && <AiInboxSection navigate={navigate} />}
 
+        {/* ───── 3.3 対応漏れ (期限超過の次回アクション) アラート ───── */}
+        {canSeeSales && <OverdueActionsStrip navigate={navigate} />}
+
         {/* ───── 3.5 日常業務アラート (未処理があるときだけ・コンパクト) ───── */}
         {canSeeDailyops && <DailyOpsAlertStrip />}
 
@@ -774,6 +777,112 @@ function AiInboxSection({ navigate }: { navigate: (to: string) => void }) {
 // 未処理の見積/請求書・未対応の問い合わせがあるときだけコンパクトに表示。
 // 0 件 or 取得失敗時は非表示 (ごちゃつかないように)。/daily/ は別 SPA のため full nav。
 // ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+// セクション: 対応漏れ (期限超過の次回アクション) エスカレーション
+// - 進行中案件で next_action_date < 今日 かつ 未完了 のものを一覧
+// - 完了 / 延期 (明日・1週間) をワンタップ (SalesBoardSection と同じ経路)
+// - 0 件のときは非表示 (アラートを溜めない)
+// ══════════════════════════════════════════════════════════
+interface OverdueActionItem {
+  activity_id: string;
+  next_action: string;
+  next_action_date: string;
+  days_overdue: number;
+  project_id: string;
+  gls_number: string | null;
+  project_code: string | null;
+  project_name: string;
+  assigned_to_name: string | null;
+  customer_name: string | null;
+}
+function OverdueActionsStrip({ navigate }: { navigate: (to: string) => void }) {
+  const qc = useQueryClient();
+  const [expanded, setExpanded] = useState(false);
+  const [postponeFor, setPostponeFor] = useState<string | null>(null);
+  const { data } = useQuery<OverdueActionItem[]>({
+    queryKey: queryKeys.dashboard.overdueActions(),
+    queryFn: async () => (await api.get("/dashboard/overdue-actions")).data.data,
+    staleTime: 60_000,
+    refetchOnMount: "always",
+  });
+  const mutation = useMutation({
+    mutationFn: async (p: { id: string; action: "complete" | "postpone"; date?: string }) =>
+      p.action === "complete"
+        ? api.post(`/activity-logs/${p.id}/complete-next-action`)
+        : api.post(`/activity-logs/${p.id}/postpone-next-action`, { date: p.date }),
+    onSuccess: () => {
+      setPostponeFor(null);
+      qc.invalidateQueries({ queryKey: queryKeys.dashboard.overdueActions() });
+      qc.invalidateQueries({ queryKey: queryKeys.dashboard.salesBoard() });
+    },
+  });
+  const dateAfter = (days: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  const list = data ?? [];
+  if (list.length === 0) return null;
+  const VISIBLE = 5;
+  const shown = expanded ? list : list.slice(0, VISIBLE);
+
+  return (
+    <div className="rounded-lg border border-red-200 bg-red-50/50 p-3">
+      <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-red-800">
+        <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+        対応漏れ（次回アクション期限超過）{list.length}件
+      </div>
+      <ul className="space-y-1.5">
+        {shown.map((a) => (
+          <li key={a.activity_id} className="rounded-md border border-red-100 bg-white px-2.5 py-1.5 text-xs">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <button
+                className="font-medium text-primary hover:underline"
+                onClick={() => navigate(`/sales/projects/${a.project_id}`)}
+              >
+                {a.gls_number || a.project_code || a.project_name}
+              </button>
+              <span className="truncate text-muted-foreground">{a.project_name}</span>
+              <span className="rounded bg-red-100 px-1.5 py-0.5 font-medium text-red-700">
+                {a.days_overdue}日超過
+              </span>
+              {a.assigned_to_name && <span className="text-muted-foreground">担当: {a.assigned_to_name}</span>}
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <span className="flex-1 min-w-0 truncate text-foreground">
+                → {a.next_action}（期限 {a.next_action_date}）
+              </span>
+              <div className="flex shrink-0 items-center gap-1">
+                <Button
+                  size="sm" variant="outline" className="h-6 px-2 text-[11px]"
+                  disabled={mutation.isPending}
+                  onClick={() => mutation.mutate({ id: a.activity_id, action: "complete" })}
+                >
+                  完了
+                </Button>
+                {postponeFor === a.activity_id ? (
+                  <>
+                    <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px]" onClick={() => mutation.mutate({ id: a.activity_id, action: "postpone", date: dateAfter(1) })}>明日</Button>
+                    <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px]" onClick={() => mutation.mutate({ id: a.activity_id, action: "postpone", date: dateAfter(7) })}>1週間</Button>
+                    <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px]" onClick={() => setPostponeFor(null)}>×</Button>
+                  </>
+                ) : (
+                  <Button size="sm" variant="outline" className="h-6 px-2 text-[11px]" onClick={() => setPostponeFor(a.activity_id)}>延期</Button>
+                )}
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {list.length > VISIBLE && (
+        <button className="mt-2 text-xs text-red-700 hover:underline" onClick={() => setExpanded((v) => !v)}>
+          {expanded ? "折りたたむ" : `残り${list.length - VISIBLE}件を表示`}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function DailyOpsAlertStrip() {
   const { data } = useQuery<{ pendingFinanceDocs: number; unhandledInquiries: number }>({
     queryKey: ["dailyops", "alerts"],
