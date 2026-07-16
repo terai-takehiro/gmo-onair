@@ -4,6 +4,7 @@ import { extractPagination, paginatedResponse } from '../../../shared/services/p
 import { projectService, ProjectFilter } from '../services/project.service';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
+import { AppError } from '../../../shared/middleware/errorHandler';
 import { config } from '../../../config';
 
 const router = Router();
@@ -23,6 +24,9 @@ router.get('/', async (req, res) => {
     glsCategory: req.query.gls_category as ProjectFilter['glsCategory'],
     source: req.query.source === 'kessan' ? 'kessan' : undefined,
     kessanMarker: req.query.kessan_marker as string,
+    aiCreated: req.query.ai_created === '1' || req.query.ai_created === 'true',
+    aiReviewed: req.query.ai_reviewed === 'reviewed' ? 'reviewed'
+      : req.query.ai_reviewed === 'unreviewed' ? 'unreviewed' : undefined,
     eventMonth: req.query.event_month as string,
     eventFrom: req.query.event_from as string,
     eventTo: req.query.event_to as string,
@@ -92,6 +96,23 @@ router.post('/:id/ai-review', requirePermission('sales', 'editor'), async (req, 
     [req.user!.id, req.params.id]
   );
   res.json({ success: true, data: { reviewed: true } });
+});
+
+// AI 起票案件の内容確認を一括記録 (案件一覧の複数選択→まとめて確認済みに)
+router.post('/ai-review-bulk', requirePermission('sales', 'editor'), async (req, res) => {
+  const ids: unknown = (req.body || {}).ids;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'ids は 1 件以上の配列で指定してください');
+  }
+  const idList = ids.filter((x): x is string => typeof x === 'string').slice(0, 500);
+  if (idList.length === 0) throw new AppError(400, 'VALIDATION_ERROR', '有効な ID がありません');
+  const placeholders = idList.map(() => '?').join(', ');
+  await execute(
+    `UPDATE projects SET ai_reviewed_at = NOW(), ai_reviewed_by = ?, updated_at = NOW()
+     WHERE id IN (${placeholders}) AND deleted_at IS NULL AND ai_reviewed_at IS NULL`,
+    [req.user!.id, ...idList]
+  );
+  res.json({ success: true, data: { reviewed: idList.length } });
 });
 
 // サマリー（売上/仕入/粗利）

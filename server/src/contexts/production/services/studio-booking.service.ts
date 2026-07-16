@@ -2,6 +2,17 @@ import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 
+/** from〜to (YYYY-MM-DD, 両端含む) の日付を昇順で列挙。UTC 基準で TZ ドリフトを回避。 */
+function enumerateDates(from: string, to: string): string[] {
+  const out: string[] = [];
+  const start = new Date(`${from}T00:00:00Z`);
+  const end = new Date(`${to}T00:00:00Z`);
+  for (let d = start; d.getTime() <= end.getTime(); d = new Date(d.getTime() + 86400000)) {
+    out.push(d.toISOString().slice(0, 10));
+  }
+  return out;
+}
+
 // スタジオ予約の参照・作成ロジック。studio.routes.ts のハンドラ本体を抽出したもので、
 // HTTP ルート (UI) と MCP サーバーの両方から同じコードパスで呼ばれる。
 
@@ -91,6 +102,82 @@ export const studioBookingService = {
     }
 
     return result;
+  },
+
+  /**
+   * 空き照会。指定期間 [from, to] (YYYY-MM-DD, 両端含む) の各部屋について、
+   * 期間に重なる予約 (busy) と、予約が1件も無い「終日空き」日 (free_days) を返す。
+   *
+   * start_time/end_time は TEXT のため、calendar.ics と同じく先頭10桁 (日付部分) の
+   * 文字列比較で期間絞り込みする → 単日 (from===to) の時刻指定予約が漏れる境界バグを回避。
+   * 複数日にまたがる予約は各日を busy 扱い (空きの過大報告より、busy の過大報告=安全側)。
+   */
+  async getAvailability(filter: { from: string; to: string; roomId?: string }): Promise<any> {
+    const from = filter.from.slice(0, 10);
+    const to = filter.to.slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'from / to は YYYY-MM-DD 形式で指定してください');
+    }
+    if (from > to) throw new AppError(400, 'VALIDATION_ERROR', 'from は to 以前の日付にしてください');
+    const allDates = enumerateDates(from, to);
+    if (allDates.length > 92) throw new AppError(400, 'VALIDATION_ERROR', '照会期間は最大 92 日までです');
+
+    // 部屋マスター (roomId 指定時は 1 部屋に絞る)
+    const locations = await this.listRooms();
+    let rooms: any[] = [];
+    for (const loc of locations) {
+      for (const r of loc.rooms) rooms.push({ ...r, location_name: loc.name, location_sort_order: loc.sort_order });
+    }
+    if (filter.roomId) rooms = rooms.filter((r) => r.id === filter.roomId);
+
+    // 期間に重なる予約 (境界安全な substr 比較)。room 紐付けも取得。
+    const bookings = await queryAll(
+      `SELECT b.id, b.title, b.booking_type, b.status, b.all_day, b.start_time, b.end_time,
+              b.location_note, b.project_id, p.name as project_name, p.gls_number, e.episode_code
+       FROM studio_bookings b
+       LEFT JOIN projects p ON p.id = b.project_id
+       LEFT JOIN episodes e ON e.id = b.episode_id
+       WHERE b.deleted_at IS NULL
+         AND substr(COALESCE(NULLIF(b.end_time, ''), b.start_time), 1, 10) >= ?
+         AND substr(b.start_time, 1, 10) <= ?
+       ORDER BY b.start_time`,
+      [from, to]
+    ) as any[];
+
+    const bookingRooms = await queryAll(
+      `SELECT br.booking_id, br.room_id, br.occupant FROM studio_booking_rooms br`
+    ) as any[];
+    const roomsByBooking = new Map<string, string[]>();
+    for (const br of bookingRooms) {
+      if (!roomsByBooking.has(br.booking_id)) roomsByBooking.set(br.booking_id, []);
+      roomsByBooking.get(br.booking_id)!.push(br.room_id);
+    }
+
+    // 各部屋の busy 予約 + 占有日集合
+    const result = rooms.map((room) => {
+      const busy = bookings.filter((b) => (roomsByBooking.get(b.id) ?? []).includes(room.id));
+      const occupied = new Set<string>();
+      for (const b of busy) {
+        const s = String(b.start_time).slice(0, 10);
+        const e = String(b.end_time || b.start_time).slice(0, 10);
+        for (const d of enumerateDates(s < from ? from : s, e > to ? to : e)) occupied.add(d);
+      }
+      return {
+        room_id: room.id,
+        room_name: room.name,
+        room_abbreviation: room.abbreviation,
+        location_name: room.location_name,
+        busy: busy.map((b) => ({
+          id: b.id, title: b.title, booking_type: b.booking_type, status: b.status,
+          all_day: b.all_day, start_time: b.start_time, end_time: b.end_time,
+          project_id: b.project_id, gls_number: b.gls_number, project_name: b.project_name,
+          episode_code: b.episode_code,
+        })),
+        free_days: allDates.filter((d) => !occupied.has(d)),
+      };
+    });
+
+    return { from, to, days: allDates, rooms: result };
   },
 
   /** 予約作成。actorId は created_by に記録される (UI = ログインユーザー / MCP = sentinel) */

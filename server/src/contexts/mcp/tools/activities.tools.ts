@@ -35,7 +35,9 @@ export function registerActivityTools(server: McpServer): void {
 
       if (args.upcoming) {
         // getUpcomingActions は userId 必須のため、任意ユーザー対応の同形クエリをここで実行
+        // 完了済み (next_action_done_at) は除外する
         let where = `WHERE a.deleted_at IS NULL AND a.next_action IS NOT NULL AND a.next_action_date IS NOT NULL
+                     AND a.next_action_done_at IS NULL
                      AND a.next_action_date <= (CURRENT_DATE + (? || ' days')::interval)::text`;
         const params: unknown[] = [args.days ?? 7];
         if (args.user_id) { where += ' AND a.user_id = ?'; params.push(args.user_id); }
@@ -63,6 +65,45 @@ export function registerActivityTools(server: McpServer): void {
         page, limit, (page - 1) * limit,
       );
       return ok({ data: rows, pagination: pagination(page, limit, Number(total)) });
+    }),
+  );
+
+  server.registerTool(
+    'list_overdue_actions',
+    {
+      title: '期限超過の次回アクション一覧',
+      description:
+        '進行中案件で、次回アクションの予定日が今日より前かつ未完了 (対応漏れ) のものを期限が古い順に返す。' +
+        '定期リマインド / エスカレーション用途 (例: 毎朝このツールを叩いて Slack に「対応漏れ N件」を投稿する)。' +
+        '各行に days_overdue (超過日数)・案件 (gls_number/project_name)・担当者 (assigned_to_name)・顧客名 を含む。' +
+        'user_id を渡すとその担当者分だけに絞れる。',
+      inputSchema: {
+        user_id: z.string().optional().describe('担当者の users.id で絞り込み (未指定なら全担当者)'),
+        limit: z.number().int().min(1).max(200).default(100),
+      },
+    },
+    async (args) => runTool(async () => {
+      let where = `WHERE a.deleted_at IS NULL AND p.deleted_at IS NULL
+                   AND p.stage NOT IN ('s_completed','e_lost')
+                   AND a.next_action IS NOT NULL AND a.next_action_date IS NOT NULL
+                   AND a.next_action_done_at IS NULL
+                   AND a.next_action_date < CURRENT_DATE::text`;
+      const params: unknown[] = [];
+      if (args.user_id) { where += ' AND a.user_id = ?'; params.push(args.user_id); }
+      const rows = await queryAll(
+        `SELECT a.id AS activity_id, a.next_action, a.next_action_date,
+                (CURRENT_DATE - a.next_action_date::date) AS days_overdue,
+                a.project_id, p.code AS project_code, p.gls_number, p.name AS project_name, p.stage,
+                a.user_id, u.name AS assigned_to_name, c.name AS customer_name
+         FROM activity_logs a
+         JOIN projects p ON p.id = a.project_id
+         LEFT JOIN users u ON u.id = a.user_id
+         LEFT JOIN customers c ON c.id = p.customer_id
+         ${where}
+         ORDER BY a.next_action_date ASC LIMIT ?`,
+        [...params, clampLimit(args.limit, 100)],
+      );
+      return ok({ total: rows.length, overdue_actions: rows });
     }),
   );
 

@@ -81,7 +81,7 @@ https://gmo-onair.jp/api/v1/mcp?key=<MCP_API_KEY>
 
 URL 自体が秘密情報になるので共有・掲示しないこと。キーをローテーションしたらコネクタ URL も更新する。
 
-## ツール一覧 (42 種 / v2.9.193+)
+## ツール一覧 (44 種 / v2.9.196+)
 
 ### 案件管理
 | ツール | 種別 | 概要 |
@@ -99,7 +99,8 @@ URL 自体が秘密情報になるので共有・掲示しないこと。キー�
 | `list_customers` / `get_customer` | read | 顧客検索・詳細 (+直近案件10件) |
 | `create_customer` | write | 顧客登録 (**重複ガード**: 類似名があれば候補を返して作成しない。`allow_duplicate:true` で強制) |
 | `update_customer` | write | 顧客の部分更新 (マージ) |
-| `list_activity_logs` | read | 営業活動記録一覧。`upcoming:true` で次回アクション予定 (N日以内) のみ |
+| `list_activity_logs` | read | 営業活動記録一覧。`upcoming:true` で次回アクション予定 (N日以内・未完了のみ) |
+| `list_overdue_actions` | read | 期限超過の次回アクション (対応漏れ) 一覧。定期リマインド→Slack 通知用 (毎朝叩いて「対応漏れ N件」を投稿する運用)。days_overdue / 案件 / 担当者 / 顧客を含む |
 | `create_activity_log` / `update_activity_log` | write | 活動記録の登録/更新 (user_id は活動した担当者の users.id 必須)。create は **idempotency_key で二重登録防止** + message_id / source_channel 保存可。同一メールから案件と活動を両方起票するときは key を意図別に分ける (例 `email:<msgid>:project` / `:activity`) |
 | `list_tasks` | read | タスク一覧 (案件内 or 進行中案件の横断) |
 | `create_task` / `update_task` | write | タスク作成/更新 (completed で完了切替) |
@@ -109,6 +110,7 @@ URL 自体が秘密情報になるので共有・掲示しないこと。キー�
 | ツール | 種別 | 概要 |
 |---|---|---|
 | `list_studio_rooms` / `list_studio_bookings` | read | 拠点部屋一覧・予約一覧 (上限500件) |
+| `get_studio_availability` | read | 空き照会 (部屋ごとの busy 予約 + 終日空き日)。単日照会の境界取りこぼしが無い。「◯日空いてますか」回答用。最大92日 |
 | `create_studio_booking` | write | スタジオ予約作成 (既定 status=tentative) |
 | `get_monthly_summary` | read | 月次/期間の損益サマリー (損益7指標) |
 | `list_revenues` / `list_purchases` / `list_sga` | read | 売上/仕入/販管費一覧 |

@@ -394,6 +394,18 @@ router.get('/bookings', async (req, res) => {
   res.json({ success: true, data: result });
 });
 
+// GET /studios/bookings/availability?from=&to=&room_id= — 空き照会 (部屋ごとの busy / 終日空き日)
+// ※ /bookings/:id より前に定義すること (:id に "availability" が捕捉されないように)
+router.get('/bookings/availability', async (req, res) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const from = (req.query.from as string) || today;
+  const to = (req.query.to as string) || from;
+  const result = await studioBookingService.getAvailability({
+    from, to, roomId: req.query.room_id as string,
+  });
+  res.json({ success: true, data: result });
+});
+
 // GET /studios/bookings/:id
 router.get('/bookings/:id', async (req, res) => {
   const booking = await queryOne(

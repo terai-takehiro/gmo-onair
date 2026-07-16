@@ -1,6 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { projectService } from '../../sales/services/project.service';
+import { activityLogService } from '../../sales/services/activity-log.service';
 
 // 日常業務アプリ (dailyops) — 内覧会 来場予約の service 層。
 // API (inview.routes) と MCP (inview.tools) の両方から使う。
@@ -71,7 +73,8 @@ function normCompanions(v: unknown): string[] | null {
 const ROW_COLS = `id, session_label, session_date, session_time, session_audience,
   name, furigana, email, company, role, postal_code, address, phone, fax, mobile,
   mail_consent, party_size, companions, visit_time, interests, notes, source,
-  checked_in_at, checked_in_by, requested_by, created_by, created_at, updated_at`;
+  checked_in_at, checked_in_by, promoted_project_id, promoted_at, promoted_by,
+  requested_by, created_by, created_at, updated_at`;
 
 export const inviewService = {
   /** 一覧 (既定は全件、フィルタで from/to/未来のみ)。session_date 降順・回内は登録順。 */
@@ -212,6 +215,101 @@ export const inviewService = {
     const existing = await queryOne(`SELECT id FROM inview_registrations WHERE id = ? AND deleted_at IS NULL`, [id]);
     if (!existing) throw new AppError(404, '来場予約が見つかりません', 'NOT_FOUND');
     await execute(`UPDATE inview_registrations SET deleted_at = NOW(), updated_at = NOW() WHERE id = ?`, [id]);
+  },
+
+  /**
+   * 来場予約を「案件化 (昇格)」する。顧客を会社名から find-or-create し、ヨミ案件 (stage=neta) と
+   * 来場の活動記録 (activity_type=visit) を起票して、登録に promoted_project_id を記録する。
+   * 既に昇格済みなら何もせず既存の project_id を返す (冪等)。
+   * @param actor 実行ユーザー { userId, userName }
+   * @param opts  gls_category (既定 'A' スタジオ) / customer_id (明示指定で find-or-create をスキップ)
+   */
+  async promote(
+    id: string,
+    actor: { userId: string; userName?: string | null },
+    opts: { gls_category?: 'A' | 'B'; customer_id?: string } = {},
+  ): Promise<{ promoted: boolean; already?: boolean; project_id: string; customer_id: string; customer_created?: boolean }> {
+    const reg = await this.getById(id);
+    if (!reg) throw new AppError(404, '来場予約が見つかりません', 'NOT_FOUND');
+    if (reg.promoted_project_id) {
+      return { promoted: false, already: true, project_id: String(reg.promoted_project_id), customer_id: '' };
+    }
+
+    // 1) 顧客の解決 (明示指定 > 会社名で find > 作成)
+    const company = String(reg.company ?? '').trim();
+    const personName = String(reg.name ?? '').trim();
+    let customerId = opts.customer_id;
+    let customerCreated = false;
+    if (!customerId) {
+      const key = company || personName;
+      if (company) {
+        const found = await queryOne(
+          `SELECT id FROM customers WHERE deleted_at IS NULL AND (name = ? OR short_name = ?) ORDER BY (name = ?) DESC LIMIT 1`,
+          [company, company, company],
+        ) as any;
+        if (found) customerId = String(found.id);
+      }
+      if (!customerId) {
+        const cid = uuidv4();
+        await execute(
+          `INSERT INTO customers (id, name, contact_name, email, phone, address, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [cid, key || '（内覧会来場者）', personName || null,
+           (reg.email as string) || null, (reg.phone as string) || (reg.mobile as string) || null,
+           (reg.address as string) || null, actor.userId],
+        );
+        customerId = cid;
+        customerCreated = true;
+      }
+    }
+
+    // 2) ヨミ案件を起票 (stage=neta は projectService.create が固定)
+    const glsCategory = opts.gls_category === 'B' ? 'B' : 'A';
+    const noteLines = [
+      '内覧会 来場予約からの起票',
+      reg.session_label ? `回: ${reg.session_label}` : '',
+      `来場者: ${personName}${reg.role ? `（${reg.role}）` : ''}`,
+      company ? `会社: ${company}` : '',
+      reg.party_size ? `参加人数: ${reg.party_size}名` : '',
+      Array.isArray(reg.companions) && (reg.companions as string[]).length ? `同行者: ${(reg.companions as string[]).join('、')}` : '',
+      reg.interests ? `興味・相談: ${reg.interests}` : '',
+      (reg.email || reg.phone || reg.mobile) ? `連絡先: ${[reg.email, reg.phone, reg.mobile].filter(Boolean).join(' / ')}` : '',
+    ].filter(Boolean);
+    const project = await projectService.create(
+      {
+        name: company ? `${company}（内覧会）` : `内覧会来場 ${personName}`,
+        customer_id: customerId,
+        gls_category: glsCategory,
+        assigned_to: actor.userId,
+        notes: noteLines.join('\n'),
+      },
+      actor.userId,
+    ) as any;
+    // 流入チャネルを記録 (create は source_channel を持たないため後付け UPDATE)
+    await execute(`UPDATE projects SET source_channel = '内覧会' WHERE id = ?`, [project.id]);
+
+    // 3) 来場を活動記録に (visit)
+    const activityDate = (reg.session_date && /^\d{4}-\d{2}-\d{2}$/.test(String(reg.session_date)))
+      ? String(reg.session_date) : new Date().toISOString().slice(0, 10);
+    await activityLogService.create(
+      {
+        project_id: project.id,
+        customer_id: customerId,
+        activity_type: 'visit',
+        activity_date: activityDate,
+        subject: '内覧会 来場',
+        description: noteLines.slice(1).join('\n'),
+      },
+      actor.userId,
+    );
+
+    // 4) 昇格を記録
+    await execute(
+      `UPDATE inview_registrations SET promoted_project_id = ?, promoted_at = NOW(), promoted_by = ?, updated_at = NOW() WHERE id = ?`,
+      [project.id, actor.userName ?? actor.userId, id],
+    );
+
+    return { promoted: true, project_id: String(project.id), customer_id: String(customerId), customer_created: customerCreated };
   },
 
   /** 来場チェックの切替 (checkedIn=true で受付、false で取消) */

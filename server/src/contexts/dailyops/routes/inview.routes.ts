@@ -44,6 +44,18 @@ router.put('/inview/:id', ...canEdit, async (req, res) => {
   res.json({ success: true, data: row });
 });
 
+// 案件化 (昇格): 来場予約 → 顧客(find-or-create) + ヨミ案件 + 来場の活動記録
+// body: { gls_category?: 'A'|'B', customer_id?: string }
+router.post('/inview/:id/promote', ...canEdit, async (req, res) => {
+  const glsCategory = req.body?.gls_category === 'B' ? 'B' : req.body?.gls_category === 'A' ? 'A' : undefined;
+  const result = await inviewService.promote(
+    String(req.params.id),
+    { userId: req.user!.id, userName: req.user!.name },
+    { gls_category: glsCategory, customer_id: req.body?.customer_id },
+  );
+  res.json({ success: true, data: result });
+});
+
 // 来場チェック (body: { checked_in: boolean })
 router.post('/inview/:id/check-in', ...canEdit, async (req, res) => {
   const checkedIn = req.body?.checked_in !== false; // 既定 true
