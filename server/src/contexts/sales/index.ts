@@ -7,6 +7,7 @@ import companiesRoutes from './routes/companies.routes';
 import pricingRoutes from './routes/pricing.routes';
 import activityLogsRoutes from './routes/activity-logs.routes';
 import salesAnalyticsRoutes from './routes/sales-analytics.routes';
+import keepReportRoutes from './routes/keep-report.routes';
 import { createSalesExcelRouter } from './routes/excel.routes';
 
 export function createSalesRoutes(): Router {
@@ -20,6 +21,7 @@ export function createSalesRoutes(): Router {
   router.use('/pricing', pricingRoutes);
   router.use('/activity-logs', activityLogsRoutes);
   router.use('/sales-analytics', salesAnalyticsRoutes);
+  router.use('/keep', keepReportRoutes);
   router.use(createSalesExcelRouter()); // /customers/excel/* etc.
 
   return router;

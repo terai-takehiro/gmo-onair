@@ -1,59 +1,14 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { queryOne, execute } from '../../../shared/db/connection';
-import { getMonthlySummary } from '../../finance/services/monthly-summary.service';
+import { keepReportService } from '../../sales/services/keep-report.service';
 import { ok, runTool, audit, REQUESTED_BY } from '../helpers';
 
 // 隔週キープ資料 Phase 2: 月次予算 (monthly_budgets) + 実績補正 (monthly_actual_overrides)。
 // 損益ページの「目標」列と、固定原価 (FIXED-COGS 償却) が ONAiR 未計上の月の経理確定値補完を担う。
 // get_monthly_pl が損益ページの単一入口 — 目標 / 補正込み実績 / 対目標差・判定 (○/✕) を一括で返す。
+// ロジックは keepReportService に集約 — UI (報告資料ページ) と同一コードパス。
 
 const YM_RE = /^\d{4}-\d{2}$/;
-
-/** BIGINT は pg から string で返るため数値化 (null は保持) */
-function num(v: unknown): number | null {
-  return v == null ? null : Number(v);
-}
-
-async function getBudgetRow(ym: string) {
-  const r = await queryOne('SELECT * FROM monthly_budgets WHERE year_month = ?', [ym]) as Record<string, unknown> | null;
-  if (!r) return null;
-  return {
-    year_month: r.year_month,
-    revenue: num(r.revenue),
-    cogs_fixed: num(r.cogs_fixed),
-    cogs_variable: num(r.cogs_variable),
-    sga: num(r.sga),
-    operating_profit: num(r.operating_profit),
-    updated_at: r.updated_at,
-  };
-}
-
-async function getOverrideRow(ym: string) {
-  const r = await queryOne('SELECT * FROM monthly_actual_overrides WHERE year_month = ?', [ym]) as Record<string, unknown> | null;
-  if (!r) return null;
-  return {
-    year_month: r.year_month,
-    cogs_fixed_actual: num(r.cogs_fixed_actual),
-    sga_actual: num(r.sga_actual),
-    note: r.note,
-    updated_at: r.updated_at,
-  };
-}
-
-/**
- * 判定ロジック (要件書 §2.5):
- *  - 売上・利益系: 実績≧目標 → ○ / それ以外 → ✕
- *  - 費用系 (原価・販管費): 実績≦目標 → ○ / それ以外 → ✕
- *  - 目標未登録は判定・対目標比を "-"
- */
-function varianceOf(actual: number, budget: number | null, kind: 'higher_better' | 'lower_better') {
-  if (budget == null) return { actual, budget: null, diff: null, ratio: null, judge: '-' };
-  const diff = actual - budget;
-  const ratio = budget !== 0 ? Math.round((actual / budget) * 1000) / 10 : null; // % (小数1桁)
-  const judge = kind === 'higher_better' ? (actual >= budget ? '○' : '✕') : (actual <= budget ? '○' : '✕');
-  return { actual, budget, diff, ratio, judge };
-}
 
 export function registerBudgetTools(server: McpServer): void {
   server.registerTool(
@@ -66,7 +21,7 @@ export function registerBudgetTools(server: McpServer): void {
       },
     },
     async (args) => runTool(async () => {
-      const budget = await getBudgetRow(args.year_month);
+      const budget = await keepReportService.getBudget(args.year_month);
       return ok(budget ? { found: true, budget } : { found: false, year_month: args.year_month });
     }),
   );
@@ -89,31 +44,13 @@ export function registerBudgetTools(server: McpServer): void {
       },
     },
     async (args) => runTool(async () => {
-      const existing = await getBudgetRow(args.year_month);
-      const merged = {
-        revenue: args.revenue ?? existing?.revenue ?? null,
-        cogs_fixed: args.cogs_fixed ?? existing?.cogs_fixed ?? null,
-        cogs_variable: args.cogs_variable ?? existing?.cogs_variable ?? null,
-        sga: args.sga ?? existing?.sga ?? null,
-        operating_profit: args.operating_profit ?? existing?.operating_profit ?? null,
-      };
-      // 営業利益: 明示指定が無く構成要素が揃っていれば自動計算
-      if (args.operating_profit === undefined
-          && merged.revenue != null && merged.cogs_fixed != null && merged.cogs_variable != null && merged.sga != null) {
-        merged.operating_profit = merged.revenue - merged.cogs_fixed - merged.cogs_variable - merged.sga;
-      }
-      await execute(
-        `INSERT INTO monthly_budgets (year_month, revenue, cogs_fixed, cogs_variable, sga, operating_profit)
-         VALUES (?, ?, ?, ?, ?, ?)
-         ON CONFLICT (year_month) DO UPDATE SET
-           revenue = EXCLUDED.revenue, cogs_fixed = EXCLUDED.cogs_fixed, cogs_variable = EXCLUDED.cogs_variable,
-           sga = EXCLUDED.sga, operating_profit = EXCLUDED.operating_profit, updated_at = NOW()`,
-        [args.year_month, merged.revenue, merged.cogs_fixed, merged.cogs_variable, merged.sga, merged.operating_profit],
-      );
-      const action = existing ? 'updated' : 'created';
-      audit('upsert_monthly_budget', { year_month: args.year_month, ...merged },
+      const { action, budget } = await keepReportService.upsertBudget(args.year_month, {
+        revenue: args.revenue, cogs_fixed: args.cogs_fixed, cogs_variable: args.cogs_variable,
+        sga: args.sga, operating_profit: args.operating_profit,
+      });
+      audit('upsert_monthly_budget', { ...budget },
         { year_month: args.year_month, action }, args.requested_by);
-      return ok({ [action]: true, action, budget: await getBudgetRow(args.year_month) });
+      return ok({ [action]: true, action, budget });
     }),
   );
 
@@ -134,24 +71,12 @@ export function registerBudgetTools(server: McpServer): void {
       },
     },
     async (args) => runTool(async () => {
-      const existing = await getOverrideRow(args.year_month);
-      const merged = {
-        cogs_fixed_actual: args.cogs_fixed_actual ?? existing?.cogs_fixed_actual ?? null,
-        sga_actual: args.sga_actual ?? existing?.sga_actual ?? null,
-        note: args.note ?? existing?.note ?? null,
-      };
-      await execute(
-        `INSERT INTO monthly_actual_overrides (year_month, cogs_fixed_actual, sga_actual, note)
-         VALUES (?, ?, ?, ?)
-         ON CONFLICT (year_month) DO UPDATE SET
-           cogs_fixed_actual = EXCLUDED.cogs_fixed_actual, sga_actual = EXCLUDED.sga_actual,
-           note = EXCLUDED.note, updated_at = NOW()`,
-        [args.year_month, merged.cogs_fixed_actual, merged.sga_actual, merged.note],
-      );
-      const action = existing ? 'updated' : 'created';
-      audit('upsert_monthly_actual_override', { year_month: args.year_month, ...merged },
+      const { action, override } = await keepReportService.upsertOverride(args.year_month, {
+        cogs_fixed_actual: args.cogs_fixed_actual, sga_actual: args.sga_actual, note: args.note,
+      });
+      audit('upsert_monthly_actual_override', { ...override },
         { year_month: args.year_month, action }, args.requested_by);
-      return ok({ [action]: true, action, override: await getOverrideRow(args.year_month) });
+      return ok({ [action]: true, action, override });
     }),
   );
 
@@ -168,43 +93,8 @@ export function registerBudgetTools(server: McpServer): void {
       },
     },
     async (args) => runTool(async () => {
-      const [budget, override, summary] = await Promise.all([
-        getBudgetRow(args.year_month),
-        getOverrideRow(args.year_month),
-        getMonthlySummary({ month: args.year_month }),
-      ]);
-      // 補正適用済み実績 (override があれば上書きして利益を再計算)
-      const revenue = Number(summary.revenue_total);
-      const cogsVariable = Number(summary.variable_cost_total);
-      const cogsFixed = override?.cogs_fixed_actual ?? Number(summary.fixed_cost_total);
-      const sga = override?.sga_actual ?? Number(summary.sga_total);
-      const marginalProfit = revenue - cogsVariable;
-      const grossProfit = marginalProfit - cogsFixed;
-      const operatingProfit = grossProfit - sga;
-      const actual = {
-        revenue,
-        cogs_fixed: cogsFixed,
-        cogs_variable: cogsVariable,
-        sga,
-        marginal_profit: marginalProfit,
-        gross_profit: grossProfit,
-        operating_profit: operatingProfit,
-      };
-      const variance = {
-        revenue: varianceOf(revenue, budget?.revenue ?? null, 'higher_better'),
-        cogs_fixed: varianceOf(cogsFixed, budget?.cogs_fixed ?? null, 'lower_better'),
-        cogs_variable: varianceOf(cogsVariable, budget?.cogs_variable ?? null, 'lower_better'),
-        sga: varianceOf(sga, budget?.sga ?? null, 'lower_better'),
-        operating_profit: varianceOf(operatingProfit, budget?.operating_profit ?? null, 'higher_better'),
-      };
-      return ok({
-        year_month: args.year_month,
-        budget,
-        actual,
-        variance,
-        has_override: !!override,
-        override_note: override?.note ?? null,
-      });
+      const { override: _override, ...pl } = await keepReportService.getMonthlyPl(args.year_month);
+      return ok(pl);
     }),
   );
 }

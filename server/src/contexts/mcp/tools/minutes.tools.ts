@@ -1,18 +1,14 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { queryAll, queryOne, execute } from '../../../shared/db/connection';
+import { keepReportService } from '../../sales/services/keep-report.service';
 import { ok, runTool, audit, clampLimit, REQUESTED_BY } from '../helpers';
 
 // 隔週キープ資料 Phase 3: 議事録サマリ (meeting_minutes)。
 // 開催日をキーに 決定事項 (decisions) と領域別サマリ (topics: {area, text}[]) を保持。
 // topics の一部 (数値報告・営業進捗) は get_weekly_activity_stats から下書き自動生成し、
-// 人が確定する運用を想定。
+// 人が確定する運用を想定。ロジックは keepReportService に集約 — UI と同一コードパス。
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-async function getMinutesRow(meetingDate: string) {
-  return await queryOne('SELECT * FROM meeting_minutes WHERE meeting_date = ?', [meetingDate]) as Record<string, unknown> | null;
-}
 
 export function registerMinutesTools(server: McpServer): void {
   server.registerTool(
@@ -25,7 +21,7 @@ export function registerMinutesTools(server: McpServer): void {
       },
     },
     async (args) => runTool(async () => {
-      const row = await getMinutesRow(args.meeting_date);
+      const row = await keepReportService.getMinutes(args.meeting_date);
       return ok(row ? { found: true, minutes: row } : { found: false, meeting_date: args.meeting_date });
     }),
   );
@@ -50,30 +46,13 @@ export function registerMinutesTools(server: McpServer): void {
       },
     },
     async (args) => runTool(async () => {
-      const existing = await getMinutesRow(args.meeting_date);
-      let action: 'created' | 'updated';
-      if (!existing) {
-        action = 'created';
-        await execute(
-          `INSERT INTO meeting_minutes (meeting_date, decisions, topics, next_meeting_date)
-           VALUES (?, ?::jsonb, ?::jsonb, ?)`,
-          [args.meeting_date, JSON.stringify(args.decisions ?? []), JSON.stringify(args.topics ?? []),
-           args.next_meeting_date ?? null],
-        );
-      } else {
-        action = 'updated';
-        const sets: string[] = ['updated_at = NOW()'];
-        const params: unknown[] = [];
-        if (args.decisions !== undefined) { sets.push('decisions = ?::jsonb'); params.push(JSON.stringify(args.decisions)); }
-        if (args.topics !== undefined) { sets.push('topics = ?::jsonb'); params.push(JSON.stringify(args.topics)); }
-        if (args.next_meeting_date !== undefined) { sets.push('next_meeting_date = ?'); params.push(args.next_meeting_date); }
-        await execute(`UPDATE meeting_minutes SET ${sets.join(', ')} WHERE meeting_date = ?`, [...params, args.meeting_date]);
-      }
-      const row = await getMinutesRow(args.meeting_date);
+      const { action, minutes } = await keepReportService.upsertMinutes(args.meeting_date, {
+        decisions: args.decisions, topics: args.topics, next_meeting_date: args.next_meeting_date,
+      });
       audit('upsert_meeting_minutes',
         { meeting_date: args.meeting_date, fields: Object.keys(args).filter((k) => k !== 'requested_by' && k !== 'meeting_date') },
         { meeting_date: args.meeting_date, action }, args.requested_by);
-      return ok({ [action]: true, action, minutes: row });
+      return ok({ [action]: true, action, minutes });
     }),
   );
 
@@ -89,16 +68,8 @@ export function registerMinutesTools(server: McpServer): void {
       },
     },
     async (args) => runTool(async () => {
-      const limit = clampLimit(args.limit);
-      let where = 'WHERE 1=1';
-      const params: unknown[] = [];
-      if (args.from) { where += ' AND meeting_date >= ?'; params.push(args.from); }
-      if (args.to) { where += ' AND meeting_date <= ?'; params.push(args.to); }
-      const rows = await queryAll(
-        `SELECT * FROM meeting_minutes ${where} ORDER BY meeting_date DESC LIMIT ?`,
-        [...params, limit],
-      );
-      return ok({ total: (rows as unknown[]).length, minutes: rows });
+      const rows = await keepReportService.listMinutes({ from: args.from, to: args.to, limit: clampLimit(args.limit) });
+      return ok({ total: rows.length, minutes: rows });
     }),
   );
 }
