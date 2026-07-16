@@ -10,6 +10,8 @@ export interface ActivityLogFilter {
   search?: string;
   /** 'ai' = AI (MCP) 取込のみ / 'human' = 手入力のみ。判定は mcp_audit_log 照合 (OAuth 本人名義でも検出) */
   origin?: 'ai' | 'human';
+  /** 並び順: date (既定・活動日が新しい順) / next_action (未完了の次回アクション期限が近い順) */
+  sort?: 'date' | 'next_action';
 }
 
 /** AI 取込判定の EXISTS 句 (COUNT とデータ取得の両方で共有) */
@@ -26,16 +28,31 @@ export class ActivityLogService {
     if (filter.customerId) { where += ' AND a.customer_id = ?'; params.push(filter.customerId); }
     if (filter.userId) { where += ' AND a.user_id = ?'; params.push(filter.userId); }
     if (filter.activityType) { where += ' AND a.activity_type = ?'; params.push(filter.activityType); }
-    if (filter.search) { where += ' AND (a.subject ILIKE ? OR a.description ILIKE ?)'; params.push(`%${filter.search}%`, `%${filter.search}%`); }
+    // 検索は件名・詳細に加えて 案件名・顧客名 も対象 (「あの会社とのやり取り」を探せるように)
+    if (filter.search) {
+      where += ' AND (a.subject ILIKE ? OR a.description ILIKE ? OR p.name ILIKE ? OR c.name ILIKE ?)';
+      params.push(`%${filter.search}%`, `%${filter.search}%`, `%${filter.search}%`, `%${filter.search}%`);
+    }
     if (filter.origin === 'ai') { where += ` AND ${AI_ORIGIN_EXISTS}`; }
     else if (filter.origin === 'human') { where += ` AND NOT ${AI_ORIGIN_EXISTS}`; }
 
-    const total = ((await queryOne(`SELECT COUNT(*) as c FROM activity_logs a ${where}`, params)) as any).c;
+    // 並び順: 既定 = 活動日が新しい順。next_action = 未完了の次回アクション (期限が近い順) を先頭に
+    const orderBy = filter.sort === 'next_action'
+      ? `ORDER BY (a.next_action IS NOT NULL AND a.next_action_done_at IS NULL AND a.next_action_date IS NOT NULL) DESC,
+                  a.next_action_date ASC NULLS LAST, a.activity_date DESC, a.created_at DESC`
+      : 'ORDER BY a.activity_date DESC, a.created_at DESC';
+
+    // COUNT も検索が p/c を参照するため同じ JOIN を張る
+    const total = ((await queryOne(
+      `SELECT COUNT(*) as c FROM activity_logs a
+       LEFT JOIN projects p ON p.id = a.project_id
+       LEFT JOIN customers c ON c.id = a.customer_id
+       ${where}`, params)) as any).c;
     // v2.9.178+: AI 起票 (MCP create_activity_log) を mcp_audit_log から逆引きして
     // is_ai_created / ai_requested_by (指示者) を付与 (migration 117 の expression index が効く)
     const rows = await queryAll(
       `SELECT a.*, u.name as user_name,
-              p.code as project_code, p.name as project_name,
+              p.code as project_code, p.name as project_name, p.gls_number as project_gls,
               c.name as customer_name,
               (ai.audit_id IS NOT NULL) as is_ai_created,
               ai.requested_by as ai_requested_by
@@ -50,7 +67,7 @@ export class ActivityLogService {
          LIMIT 1
        ) ai ON TRUE
        ${where}
-       ORDER BY a.activity_date DESC, a.created_at DESC
+       ${orderBy}
        LIMIT ? OFFSET ?`,
       [...params, limit, offset]
     );
