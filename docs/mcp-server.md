@@ -81,7 +81,7 @@ https://gmo-onair.jp/api/v1/mcp?key=<MCP_API_KEY>
 
 URL 自体が秘密情報になるので共有・掲示しないこと。キーをローテーションしたらコネクタ URL も更新する。
 
-## ツール一覧 (44 種 / v2.9.196+)
+## ツール一覧 (56 種 / v2.9.200+)
 
 ### 案件管理
 | ツール | 種別 | 概要 |
@@ -152,6 +152,22 @@ kind と運用契約:
 | `list_finance_docs` | read | 見積/請求書の一覧 (status / doc_type / pending) |
 | `record_inquiry` | write | 他カテゴリに属さない**有益メールのみ**登録。**スパム・営業・メルマガ・他ツール対象 (見積請求/内覧会/案件) は呼び出し前に AI が除外する契約**。summary / importance / category / action_needed を付与 |
 | `list_inquiries` | read | その他問い合わせの一覧 (importance / unhandled) |
+
+### 隔週キープ資料 (v2.9.200+ — イベント報告 / 月次予算・損益 / 議事録)
+| ツール | 種別 | 概要 |
+|---|---|---|
+| `get_event_report` | read | 案件のイベント実施報告 (トピック / 来場者数 / 写真) + 収支サマリー。未作成は found=false |
+| `list_event_reports` | read | 実施報告の一覧 (reported_at 範囲・既定 confirmed のみ)。案件情報 + 収支サマリー同梱 — 隔週キープの②ページ生成の主入口 |
+| `upsert_event_report` | write | 実施報告の作成/更新 (**渡したフィールドのみマージ更新**)。headline / highlights / 来場者数 / report_status (draft→confirmed で資料掲載) |
+| `attach_event_photo` | write | 写真の追加 (実体は Box・box_file_id 参照のみ保持。レポート未作成なら draft を自動作成) |
+| `detach_event_photo` | write | 写真の削除 (Box 上の実体は削除しない) |
+| `get_monthly_budget` | read | 月次予算 (売上/固定原価/変動原価/販管費/営業利益の目標) |
+| `upsert_monthly_budget` | write | 月次予算の登録/更新 (マージ更新。operating_profit 未指定は構成要素から自動計算) |
+| `upsert_monthly_actual_override` | write | 実績補正 (経理確定値) の登録 — FIXED-COGS 償却の未計上補完・販管費確定値 |
+| `get_monthly_pl` | read | **損益ページの単一入口**: 予算 / 補正込み実績 / 対目標差・比・判定 (売上・利益系: 実績≧目標→○、費用系: 実績≦目標→○、目標未登録→"-") |
+| `get_meeting_minutes` | read | 議事録サマリ (決定事項 / 領域別トピック / 次回開催日) |
+| `upsert_meeting_minutes` | write | 議事録サマリの登録/更新 (マージ更新) |
+| `list_meeting_minutes` | read | 議事録サマリの一覧 (開催日範囲・新しい順) — 前回会議分の取得に使用 |
 
 絞り込み・並び替え・書き込みロジックは UI と同一の service 層 (`projectService` / `activityLogService` / `projectTasksService` / `salesAnalyticsService` / `finance/list-query.ts`) を共有しているため、画面と同じ結果・同じ副作用になる。
 
