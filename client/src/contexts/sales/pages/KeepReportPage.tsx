@@ -606,7 +606,7 @@ export default function KeepReportPage() {
             <Presentation className="h-5 w-5 text-primary" aria-hidden="true" />
           </span>
           <div>
-            <h1 className="text-xl lg:text-2xl font-bold">報告資料 (隔週キープ)</h1>
+            <h1 className="text-xl lg:text-2xl font-bold">報告資料</h1>
             <p className="text-xs text-muted-foreground">
               パワポ報告資料の基礎データをここで整理・確定します。確定 (confirmed) したデータを AI (MCP) が読んで資料を自動生成します。
             </p>
