@@ -29,15 +29,16 @@ export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklySta
   const nextWeekEnd = addDays(weekStart, 13);
   const month = weekStart.slice(0, 7);
 
-  // 週内に作成された案件 (AI 起票は mcp_audit_log から指示者を逆引き — sales-board と同形)
+  // 週内に作成された案件 (AI 起票判定は created_by=mcpActor OR 監査ログ照合 — OAuth 本人名義でも検出)
   const newProjects = await queryAll(
     `SELECT p.id, p.gls_number, p.name, p.stage, p.expected_amount, p.created_by,
             c.name AS customer_name,
-            ai.requested_by AS ai_requested_by
+            ai.requested_by AS ai_requested_by,
+            (p.created_by = ? OR ai.audit_id IS NOT NULL) AS is_ai_created
      FROM projects p
      LEFT JOIN customers c ON c.id = p.customer_id
      LEFT JOIN LATERAL (
-       SELECT m.requested_by FROM mcp_audit_log m
+       SELECT m.id AS audit_id, m.requested_by FROM mcp_audit_log m
        WHERE m.tool_name = 'create_project' AND m.result_summary->>'created_id' = p.id
        ORDER BY m.created_at ASC
        LIMIT 1
@@ -46,22 +47,32 @@ export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklySta
        AND p.created_at >= ?::date AND p.created_at < (?::date + INTERVAL '1 day')
      ORDER BY p.created_at ASC
      LIMIT 20`,
-    [weekStart, weekEnd],
+    [config.mcpActorId, weekStart, weekEnd],
   );
   const newProjectCounts = await queryOne(
-    `SELECT COUNT(*) AS c, COUNT(*) FILTER (WHERE created_by = ?) AS ai_c
+    `SELECT COUNT(*) AS c,
+            COUNT(*) FILTER (WHERE created_by = ? OR EXISTS (
+              SELECT 1 FROM mcp_audit_log m
+              WHERE m.tool_name = 'create_project' AND m.result_summary->>'created_id' = projects.id
+            )) AS ai_c
      FROM projects
      WHERE deleted_at IS NULL
        AND created_at >= ?::date AND created_at < (?::date + INTERVAL '1 day')`,
     [config.mcpActorId, weekStart, weekEnd],
   );
 
-  // 週内の営業活動 (activity_date は TEXT の日付)
+  // 週内の営業活動 (activity_date は TEXT の日付)。
+  // AI 取込判定は監査ログ照合のみ — 活動の created_by は常に実担当者 (MCP は user_id を渡す) のため
+  // 旧判定 (created_by=mcpActor) では AI 件数が常に 0 だった既存バグを修正。
   const activityCounts = await queryOne(
-    `SELECT COUNT(*) AS c, COUNT(*) FILTER (WHERE created_by = ?) AS ai_c
+    `SELECT COUNT(*) AS c,
+            COUNT(*) FILTER (WHERE EXISTS (
+              SELECT 1 FROM mcp_audit_log m
+              WHERE m.tool_name = 'create_activity_log' AND m.result_summary->>'created_id' = activity_logs.id
+            )) AS ai_c
      FROM activity_logs
      WHERE deleted_at IS NULL AND activity_date BETWEEN ? AND ?`,
-    [config.mcpActorId, weekStart, weekEnd],
+    [weekStart, weekEnd],
   );
   const activityByType = await queryAll(
     `SELECT activity_type, COUNT(*) AS count

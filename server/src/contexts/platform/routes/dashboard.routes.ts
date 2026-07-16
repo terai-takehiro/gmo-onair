@@ -170,7 +170,8 @@ router.get('/recent-projects', async (_req, res) => {
 router.get('/sales-board', async (_req, res) => {
   // v2.9.178+: 次回アクションは「未完了 (next_action_done_at IS NULL) で期限が最も近いもの」を
   // 直近活動とは独立した lateral で取得 (完了/延期の操作対象として activity_id も返す)。
-  // AI 起票 (created_by='mcp-claude') は mcp_audit_log から指示者 (requested_by) を逆引きして併記。
+  // v2.9.197+: AI 起票判定は created_by=mcpActor OR 監査ログ照合 (OAuth 本人名義でも検出)。
+  // 直近活動自体の AI 取込判定 (last_activity_is_ai) も返す。
   const rows = await queryAll(
     `SELECT p.id, p.gls_number, p.name, p.stage, p.event_start,
             p.created_by, p.ai_reviewed_at,
@@ -178,18 +179,24 @@ router.get('/sales-board', async (_req, res) => {
             la.activity_type   AS last_activity_type,
             la.subject         AS last_activity_subject,
             la.activity_date   AS last_activity_date,
+            la.is_ai           AS last_activity_is_ai,
             na.activity_id     AS next_action_activity_id,
             na.next_action     AS next_action,
             na.next_action_date AS next_action_date,
             ac.cnt             AS activity_count,
             ai.requested_by    AS ai_requested_by,
+            (p.created_by = ? OR ai.audit_id IS NOT NULL) AS is_ai_created,
             CASE WHEN la.activity_date IS NOT NULL
                  AND la.activity_date >= (CURRENT_DATE - INTERVAL '14 days')::text
                  THEN 1 ELSE 0 END AS is_hot
      FROM projects p
      LEFT JOIN customers c ON c.id = p.customer_id
      LEFT JOIN LATERAL (
-       SELECT a.activity_type, a.subject, a.activity_date
+       SELECT a.activity_type, a.subject, a.activity_date,
+              EXISTS (
+                SELECT 1 FROM mcp_audit_log m2
+                WHERE m2.tool_name = 'create_activity_log' AND m2.result_summary->>'created_id' = a.id
+              ) AS is_ai
        FROM activity_logs a
        WHERE a.project_id = p.id AND a.deleted_at IS NULL
        ORDER BY a.activity_date DESC, a.created_at DESC
@@ -209,7 +216,7 @@ router.get('/sales-board', async (_req, res) => {
        WHERE a2.project_id = p.id AND a2.deleted_at IS NULL
      ) ac ON TRUE
      LEFT JOIN LATERAL (
-       SELECT m.requested_by FROM mcp_audit_log m
+       SELECT m.id AS audit_id, m.requested_by FROM mcp_audit_log m
        WHERE m.tool_name = 'create_project' AND m.result_summary->>'created_id' = p.id
        ORDER BY m.created_at ASC
        LIMIT 1
@@ -231,7 +238,8 @@ router.get('/sales-board', async (_req, res) => {
        END ASC,
        p.event_start ASC NULLS LAST,
        p.created_at DESC
-     LIMIT 100`
+     LIMIT 100`,
+    [config.mcpActorId]
   );
   res.json({ success: true, data: rows });
 });
@@ -248,19 +256,52 @@ router.get('/ai-inbox', async (_req, res) => {
      LEFT JOIN customers c ON c.id = p.customer_id
      LEFT JOIN users u ON u.id = p.assigned_to
      LEFT JOIN LATERAL (
-       SELECT m.requested_by FROM mcp_audit_log m
+       SELECT m.id AS audit_id, m.requested_by FROM mcp_audit_log m
        WHERE m.tool_name = 'create_project' AND m.result_summary->>'created_id' = p.id
        ORDER BY m.created_at ASC
        LIMIT 1
      ) ai ON TRUE
      WHERE p.deleted_at IS NULL
-       AND p.created_by = ?
+       AND (p.created_by = ? OR ai.audit_id IS NOT NULL)
        AND p.ai_reviewed_at IS NULL
      ORDER BY p.created_at DESC
      LIMIT 50`,
     [config.mcpActorId]
   );
   res.json({ success: true, data: rows });
+});
+
+// v2.9.197+: AI 活動フィード — mcp_audit_log の書き込み履歴を時系列で返す
+// (「AI が最近やったこと」をホームで一望する用途)。actor_id は OAuth 経由なら実ユーザー。
+// v2.9.198+: tool (単一 tool_name) 絞り込み + page ページング + pagination 返却
+// (data は従来どおり配列 = ホームのダイジェストは後方互換)。
+router.get('/ai-activity-feed', async (req, res) => {
+  const days = Math.min(90, Math.max(1, parseInt(req.query.days as string) || 7));
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 30));
+  const page = Math.max(1, parseInt(req.query.page as string) || 1);
+  const offset = (page - 1) * limit;
+
+  let where = `WHERE m.created_at >= NOW() - (? || ' days')::interval`;
+  const params: unknown[] = [days];
+  const tool = req.query.tool as string;
+  if (tool && /^[a-z_]{1,60}$/.test(tool)) { where += ' AND m.tool_name = ?'; params.push(tool); }
+
+  const total = ((await queryOne(`SELECT COUNT(*) as c FROM mcp_audit_log m ${where}`, params)) as any).c;
+  const rows = await queryAll(
+    `SELECT m.id, m.tool_name, m.result_summary, m.requested_by, m.actor_id, m.created_at,
+            u.name AS actor_name
+     FROM mcp_audit_log m
+     LEFT JOIN users u ON u.id = m.actor_id
+     ${where}
+     ORDER BY m.created_at DESC
+     LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  );
+  res.json({
+    success: true,
+    data: rows,
+    pagination: { page, limit, total: Number(total), totalPages: Math.ceil(Number(total) / limit) },
+  });
 });
 
 router.get('/weekly-schedule', async (_req, res) => {

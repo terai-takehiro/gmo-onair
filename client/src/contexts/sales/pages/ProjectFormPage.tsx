@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import api from "@/lib/api";
 import { formatCurrency, formatShortDate } from "@/lib/format";
+import { relativeTime } from "@/lib/aiFeed";
 import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
@@ -121,6 +122,9 @@ export default function ProjectFormPage() {
   const simulationItems: Array<{ subtotal: number; status?: string }> = simulationData?.data ?? [];
   const hasDraftSimulation = simulationItems.length > 0 && simulationItems.some((s) => s.status === "draft");
   const draftSimulationTotal = simulationItems.reduce((sum, s) => sum + (Number(s.subtotal) || 0), 0);
+  // AI 下書きの由来 (いつ・誰の指示で・誰の名義で作られたか) — mcp_audit_log から (v2.9.198+)
+  const aiDraftOrigin: { created_at?: string; requested_by?: string | null; actor_id?: string | null; actor_name?: string | null } | null =
+    simulationData?.ai_draft_origin ?? null;
   const finalizeSimMutation = useMutation({
     mutationFn: async () => (await api.post(`/projects/${id}/simulation/finalize`)).data,
     onSuccess: (res) => {
@@ -622,8 +626,8 @@ export default function ProjectFormPage() {
         </div>
       )}
 
-      {/* v2.9.178+: AI 起票バナー (MCP 経由で AI が起票した案件) */}
-      {isEdit && project?.created_by === "mcp-claude" && (
+      {/* v2.9.178+: AI 起票バナー。判定はサーバー計算の is_ai_created (OAuth 本人名義でも検出) */}
+      {isEdit && !!project?.is_ai_created && (
         <div className="flex flex-wrap items-center gap-3 rounded-lg border border-violet-200 bg-violet-50 p-3 text-sm text-violet-900">
           <Sparkles className="h-4 w-4 shrink-0 text-violet-600" aria-hidden="true" />
           <span className="min-w-0 flex-1">
@@ -929,6 +933,16 @@ export default function ProjectFormPage() {
                           合計 <span className="font-number font-semibold">{formatCurrency(draftSimulationTotal)}</span>。
                           確定するまで想定金額には反映されません。
                         </p>
+                        {aiDraftOrigin?.created_at && (
+                          <p className="mt-0.5 text-[11px] text-amber-700">
+                            作成: {relativeTime(aiDraftOrigin.created_at)}
+                            {aiDraftOrigin.requested_by ? ` ／ 指示: ${aiDraftOrigin.requested_by}` : ""}
+                            {(() => {
+                              const actor = aiDraftOrigin.actor_id === "mcp-claude" ? "共用キー" : aiDraftOrigin.actor_name;
+                              return actor ? ` ／ 実行: ${actor}` : "";
+                            })()}
+                          </p>
+                        )}
                         <div className="mt-2 flex flex-wrap gap-2">
                           <Button
                             type="button"
@@ -1476,8 +1490,12 @@ export default function ProjectFormPage() {
                     const naOverdue = a.next_action_date && !a.next_action_done_at && a.next_action_date < new Date().toISOString().slice(0, 10);
                     return (
                       <li key={a.id} className="relative">
-                        <span className="absolute -left-[27px] top-0.5 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-card">
-                          <MIcon className="h-3 w-3 text-orange-600" aria-hidden="true" />
+                        {/* AI 取込は violet、手入力は orange でバレットを色分け (一目で入力元が分かる) */}
+                        <span className={cn(
+                          "absolute -left-[27px] top-0.5 flex h-5 w-5 items-center justify-center rounded-full border bg-card",
+                          a.is_ai_created ? "border-violet-300 bg-violet-50" : "border-border"
+                        )}>
+                          <MIcon className={cn("h-3 w-3", a.is_ai_created ? "text-violet-600" : "text-orange-600")} aria-hidden="true" />
                         </span>
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
                           <span className="font-medium text-foreground">{m.label}</span>
@@ -1490,6 +1508,22 @@ export default function ProjectFormPage() {
                             >
                               <Sparkles className="h-3 w-3" aria-hidden="true" />
                               AI取込
+                            </span>
+                          ) : null}
+                          {a.ai_requested_by ? (
+                            <span className="text-[10px] text-violet-600">指示: {a.ai_requested_by}</span>
+                          ) : null}
+                          {a.source_channel ? (
+                            <span className="inline-flex items-center rounded-full bg-sky-50 border border-sky-200 px-1.5 py-0.5 text-[10px] text-sky-700" title="流入チャネル">
+                              {a.source_channel}
+                            </span>
+                          ) : null}
+                          {a.message_id ? (
+                            <span
+                              className="inline-flex items-center gap-0.5 rounded-full bg-slate-100 border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-600"
+                              title={`メール由来 (Message-ID: ${a.message_id})`}
+                            >
+                              ✉ メール取込
                             </span>
                           ) : null}
                         </div>

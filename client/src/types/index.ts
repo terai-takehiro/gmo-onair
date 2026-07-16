@@ -448,6 +448,9 @@ export interface ProjectTask {
   children?: ProjectTask[];
   created_at: string;
   updated_at: string;
+  /** v2.9.198+: AI (MCP create_task) が作成したタスクか (mcp_audit_log 照合) */
+  is_ai_created?: boolean;
+  ai_requested_by?: string | null;
 }
 
 export interface TaskColumnTemplate {

@@ -75,15 +75,16 @@ router.patch('/bulk', requirePermission('sales', 'manager'), async (req, res) =>
 // 詳細
 router.get('/:id', async (req, res) => {
   const project = await projectService.getById(req.params.id as string) as Record<string, unknown>;
-  // AI 起票 (MCP 経由) の場合は監査ログから指示者 (requested_by) を逆引きして併記
-  if (project && project.created_by === config.mcpActorId) {
+  // AI 起票判定: 監査ログ照合 (OAuth 経由の本人名義でも検出) OR created_by=mcpActor (静的キー)
+  if (project) {
     const audit = await queryOne(
       `SELECT requested_by FROM mcp_audit_log
        WHERE tool_name = 'create_project' AND result_summary->>'created_id' = ?
        ORDER BY created_at ASC LIMIT 1`,
       [project.id]
-    );
-    project.ai_requested_by = (audit as Record<string, unknown> | null)?.requested_by ?? null;
+    ) as Record<string, unknown> | null;
+    project.is_ai_created = !!audit || project.created_by === config.mcpActorId;
+    project.ai_requested_by = audit?.requested_by ?? null;
   }
   res.json({ success: true, data: project });
 });
