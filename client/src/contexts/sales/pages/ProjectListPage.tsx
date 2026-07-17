@@ -32,9 +32,9 @@ const tabs: { value: TabFilter; label: string }[] = [
   { value: 'lost', label: '失注' },
 ];
 
-// v2.9.175+: デフォルトは「提案中 (B→D) → 受注済 (完了→A) → その他 (ネタ→失注)」
+// v2.9.203+: デフォルトは「ネタ → 提案中 (B→D) → 受注済 (完了→A) → 失注」(ネタを先頭に)
 const sortOptions: { value: `${SortKey}:${SortDir}`; label: string }[] = [
-  { value: 'default:asc', label: 'おすすめ (提案中 → 受注済 → その他)' },
+  { value: 'default:asc', label: 'おすすめ (ネタ → 提案中 → 受注済)' },
   { value: 'event_start:asc', label: 'イベント日 (近い順)' },
   { value: 'event_start:desc', label: 'イベント日 (遠い順)' },
   { value: 'created_at:desc', label: '作成日 (新しい順)' },
@@ -279,18 +279,20 @@ export default function ProjectListPage() {
         <EmptyState title="該当する案件がありません" description="検索条件を変えるか、新しい案件を作成してください。" />
       ) : (
         <>
-          {/* v2.9.175+: 提案中 (B→D) → 受注済 (完了→A) → その他 (ネタ→失注) の 3 区分で表示 */}
+          {/* v2.9.203+: ネタ → 提案中 (B→D) → 受注済 (完了→A) → 失注 の 4 区分で表示 (ネタを先頭に) */}
           {(() => {
             const groupOf = (p: Record<string, unknown>) => {
               const s = p.stage as string;
-              if (s === 'b_verbal' || s === 'c_proposal' || s === 'd_hold') return 0;
-              if (s === 's_completed' || s === 'a_won') return 1;
-              return 2; // e_lost, neta
+              if (s === 'neta') return 0;
+              if (s === 'b_verbal' || s === 'c_proposal' || s === 'd_hold') return 1;
+              if (s === 's_completed' || s === 'a_won') return 2;
+              return 3; // e_lost
             };
             const groups = [
-              { label: '提案中', items: projects.filter((p: Record<string, unknown>) => groupOf(p) === 0) },
-              { label: '受注済・完了', items: projects.filter((p: Record<string, unknown>) => groupOf(p) === 1) },
-              { label: 'その他（ネタ・失注）', items: projects.filter((p: Record<string, unknown>) => groupOf(p) === 2) },
+              { label: 'ネタ', items: projects.filter((p: Record<string, unknown>) => groupOf(p) === 0) },
+              { label: '提案中', items: projects.filter((p: Record<string, unknown>) => groupOf(p) === 1) },
+              { label: '受注済・完了', items: projects.filter((p: Record<string, unknown>) => groupOf(p) === 2) },
+              { label: '失注', items: projects.filter((p: Record<string, unknown>) => groupOf(p) === 3) },
             ].filter((g) => g.items.length > 0);
             return groups.map((g, gi) => (
               <div key={g.label} className="space-y-3">
