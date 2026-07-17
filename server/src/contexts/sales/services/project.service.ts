@@ -78,12 +78,12 @@ const SORT_COLUMN_MAP: Record<string, string> = {
  */
 const DEFAULT_SORT_SQL = `
   CASE p.stage
-    WHEN 'b_verbal'    THEN 1
-    WHEN 'c_proposal'  THEN 2
-    WHEN 'd_hold'      THEN 3
-    WHEN 's_completed' THEN 4
-    WHEN 'a_won'       THEN 5
-    WHEN 'neta'        THEN 6
+    WHEN 'neta'        THEN 1
+    WHEN 'b_verbal'    THEN 2
+    WHEN 'c_proposal'  THEN 3
+    WHEN 'd_hold'      THEN 4
+    WHEN 's_completed' THEN 5
+    WHEN 'a_won'       THEN 6
     WHEN 'e_lost'      THEN 7
     ELSE 8
   END ASC,
