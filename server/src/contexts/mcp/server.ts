@@ -5,6 +5,7 @@ import { registerFinanceTools } from './tools/finance.tools';
 import { registerCustomerTools } from './tools/customers.tools';
 import { registerActivityTools } from './tools/activities.tools';
 import { registerTaskTools } from './tools/tasks.tools';
+import { registerMemberTools } from './tools/members.tools';
 import { registerAnalyticsTools } from './tools/analytics.tools';
 import { registerUserTools } from './tools/users.tools';
 import { registerOpsReportTools } from './tools/opsreports.tools';
@@ -31,7 +32,8 @@ export function buildMcpServer(): McpServer {
   registerFinanceTools(server);   // 財務管理 (read)
   registerCustomerTools(server);  // 顧客 (read + create/update・重複ガード)
   registerActivityTools(server);  // 営業活動記録 (read + create/update)
-  registerTaskTools(server);      // 案件タスク (read + create/update)
+  registerTaskTools(server);      // 案件タスク (read + create/update/move/reorder/delete/一括作成)
+  registerMemberTools(server);    // プロジェクト担当メンバー (複数担当・外部の方 read + add/remove)
   registerAnalyticsTools(server); // 営業分析 (read)
   registerUserTools(server);      // ユーザー解決 (read)
   registerOpsReportTools(server); // 日常業務レポート (read + 週報/日報の投稿)
