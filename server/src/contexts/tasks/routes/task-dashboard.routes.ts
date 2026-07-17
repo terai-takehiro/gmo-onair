@@ -12,12 +12,12 @@ router.use(requireAuth, requirePermission('sales'));
 // 完了・失注を除く全案件のカラム + タスクを返す
 router.get('/', wrap(async (req, res) => {
   const projects = (await queryAll(
-    `SELECT id, gls_number, name, stage
+    `SELECT id, gls_number, gls_category, name, stage
      FROM projects
      WHERE deleted_at IS NULL
        AND stage NOT IN ('s_completed', 'e_lost')
      ORDER BY gls_number NULLS LAST, name`
-  )) as unknown as { id: string; gls_number: string | null; name: string; stage: string }[];
+  )) as unknown as { id: string; gls_number: string | null; gls_category: string | null; name: string; stage: string }[];
 
   if (projects.length === 0) {
     res.json({ success: true, data: { projects: [], columns: [], tasks: [] } });

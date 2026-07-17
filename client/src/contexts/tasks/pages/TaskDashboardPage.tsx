@@ -1,3 +1,4 @@
+import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { KanbanSquare, ListTodo, GanttChart, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -8,11 +9,18 @@ import DashboardGanttView from "@/contexts/tasks/components/DashboardGantt/Dashb
 import { Loader2 } from "lucide-react";
 
 type ViewType = "kanban" | "list" | "gantt";
+type CatFilter = "all" | "B" | "A";
 
 const VIEWS: { id: ViewType; label: string; Icon: React.ElementType }[] = [
   { id: "kanban", label: "カンバン", Icon: KanbanSquare },
   { id: "list", label: "タスクリスト", Icon: ListTodo },
   { id: "gantt", label: "ガント", Icon: GanttChart },
+];
+
+const CAT_FILTERS: { id: CatFilter; label: string }[] = [
+  { id: "all", label: "すべて" },
+  { id: "B", label: "ビジネス" },
+  { id: "A", label: "スタジオ" },
 ];
 
 export default function TaskDashboardPage() {
@@ -22,6 +30,20 @@ export default function TaskDashboardPage() {
     view === "kanban" || view === "list" || view === "gantt" ? view : "kanban";
 
   const { data, isLoading, isError, refetch, isFetching } = useTaskDashboard();
+  const [cat, setCat] = useState<CatFilter>("all");
+
+  // GLS 区分でプロジェクト + タスクを絞り込む (columns は project_id 経由で自然に絞られる)
+  const filtered = useMemo(() => {
+    if (!data) return data;
+    if (cat === "all") return data;
+    const projects = data.projects.filter((p) => p.gls_category === cat);
+    const ids = new Set(projects.map((p) => p.id));
+    return {
+      projects,
+      columns: data.columns.filter((c) => ids.has(c.project_id)),
+      tasks: data.tasks.filter((t) => ids.has(t.project_id)),
+    };
+  }, [data, cat]);
 
   return (
     <div className="flex flex-col h-full">
@@ -45,9 +67,25 @@ export default function TaskDashboardPage() {
           ))}
         </div>
 
-        {data && (
+        {/* GLS 区分フィルタ (ビジネス / スタジオ) */}
+        <div className="flex items-center gap-1 rounded-md border bg-muted/40 p-0.5">
+          {CAT_FILTERS.map(({ id, label }) => (
+            <button
+              key={id}
+              onClick={() => setCat(id)}
+              className={cn(
+                "rounded px-2.5 py-1 text-xs font-medium transition-colors",
+                cat === id ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {filtered && (
           <span className="text-xs text-muted-foreground">
-            {data.projects.length}案件 · {data.tasks.length}タスク
+            {filtered.projects.length}案件 · {filtered.tasks.length}タスク
           </span>
         )}
 
@@ -77,27 +115,27 @@ export default function TaskDashboardPage() {
               再試行
             </button>
           </div>
-        ) : data ? (
+        ) : filtered ? (
           <>
             {activeView === "kanban" && (
               <DashboardKanbanView
-                projects={data.projects}
-                columns={data.columns}
-                tasks={data.tasks}
+                projects={filtered.projects}
+                columns={filtered.columns}
+                tasks={filtered.tasks}
               />
             )}
             {activeView === "list" && (
               <DashboardListView
-                projects={data.projects}
-                columns={data.columns}
-                tasks={data.tasks}
+                projects={filtered.projects}
+                columns={filtered.columns}
+                tasks={filtered.tasks}
               />
             )}
             {activeView === "gantt" && (
               <DashboardGanttView
-                projects={data.projects}
-                columns={data.columns}
-                tasks={data.tasks}
+                projects={filtered.projects}
+                columns={filtered.columns}
+                tasks={filtered.tasks}
               />
             )}
           </>

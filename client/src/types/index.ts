@@ -218,6 +218,7 @@ export interface Partner extends BaseEntity {
 export interface Project extends BaseEntity {
   code: string;
   gls_number: string | null;
+  gls_category?: 'A' | 'B' | null;
   name: string;
   customer_id: string;
   stage: ProjectStage;
@@ -474,6 +475,7 @@ export interface TaskColumnTemplateColumn {
 export interface DashboardProject {
   id: string;
   gls_number: string | null;
+  gls_category: 'A' | 'B' | null;
   name: string;
   stage: string;
 }
