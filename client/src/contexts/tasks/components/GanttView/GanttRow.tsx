@@ -57,7 +57,7 @@ export default function GanttRow({ task, x, y, width, rowHeight, isDragging, onD
           fillOpacity={task.is_completed ? 0.4 : 0.95}
           stroke="#b45309"
           strokeWidth={1}
-          style={{ cursor: isDragging ? "grabbing" : "grab" }}
+          style={{ cursor: isDragging ? "grabbing" : "grab", touchAction: "none" }}
           onPointerDown={start("move")}
         />
         <text x={cx + r + 4} y={cy + 4} fontSize={10} fill="currentColor" fillOpacity={0.75}
@@ -85,7 +85,7 @@ export default function GanttRow({ task, x, y, width, rowHeight, isDragging, onD
         rx={4}
         fill={barColor}
         fillOpacity={0.28}
-        style={{ cursor: isDragging ? "grabbing" : "grab" }}
+        style={{ cursor: isDragging ? "grabbing" : "grab", touchAction: "none" }}
         onPointerDown={start("move")}
       />
       {/* 進捗フィル */}
@@ -107,10 +107,10 @@ export default function GanttRow({ task, x, y, width, rowHeight, isDragging, onD
       )}
       {/* 左端リサイズ (開始日) */}
       <rect x={x} y={barY} width={HANDLE_W} height={barHeight} rx={4} fill="#ffffff" fillOpacity={0.001}
-        style={{ cursor: "ew-resize" }} onPointerDown={start("resize-start")} />
+        style={{ cursor: "ew-resize", touchAction: "none" }} onPointerDown={start("resize-start")} />
       {/* 右端リサイズ (期限日) */}
       <rect x={x + width - HANDLE_W} y={barY} width={HANDLE_W} height={barHeight} rx={4} fill="#ffffff" fillOpacity={0.001}
-        style={{ cursor: "ew-resize" }} onPointerDown={start("resize-end")} />
+        style={{ cursor: "ew-resize", touchAction: "none" }} onPointerDown={start("resize-end")} />
       {titleEl}
     </g>
   );

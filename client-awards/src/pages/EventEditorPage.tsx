@@ -708,7 +708,7 @@ export default function EventEditorPage() {
                     onUpdateCat={(catId, patch) => updateCategory.mutate({ catId, patch })}
                     onAddEntry={(catId, name) => addEntry.mutate({ catId, name })}
                     onUpdateEntry={(eid, patch) => updateEntry.mutate({ id: eid, patch })}
-                    onDeleteEntry={(eid) => deleteEntry.mutate(eid)}
+                    onDeleteEntry={(eid) => { if (confirm('このエントリを削除しますか？（写真・ポイント・CG表示内容も削除されます）')) deleteEntry.mutate(eid); }}
                     onPhotoUpload={(eid, file) => uploadPhoto.mutate({ eid, file })}
                     onGenerateDummyPoints={(catId) => generateDummyPoints.mutate(catId)}
                   />

@@ -140,13 +140,13 @@ export default function KanbanCard({ task, projectId, episodeId, columnId }: Pro
             </div>
           </div>
 
-          {/* アクション */}
-          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 shrink-0">
+          {/* アクション (タッチ端末では常時表示・sm以上はhover) */}
+          <div className="flex items-center gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 shrink-0">
             <Button
               type="button"
               size="icon"
               variant="ghost"
-              className="h-6 w-6"
+              className="h-7 w-7 sm:h-6 sm:w-6"
               onClick={() => setEditOpen(true)}
               aria-label={`${task.title} を編集`}
             >
@@ -156,8 +156,8 @@ export default function KanbanCard({ task, projectId, episodeId, columnId }: Pro
               type="button"
               size="icon"
               variant="ghost"
-              className="h-6 w-6 text-muted-foreground hover:text-destructive"
-              onClick={() => deleteTask.mutate(task.id)}
+              className="h-7 w-7 sm:h-6 sm:w-6 text-muted-foreground hover:text-destructive"
+              onClick={() => { if (window.confirm(`「${task.title}」を削除しますか？`)) deleteTask.mutate(task.id); }}
               aria-label={`${task.title} を削除`}
             >
               <Trash2 className="h-3 w-3" />

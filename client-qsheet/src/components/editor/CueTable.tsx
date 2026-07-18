@@ -498,7 +498,7 @@ function CueTableLg({
         <Plus size={12} />
       </span>
       {/* hover/focus 時: 3 種挿入ボタン */}
-      <div className="absolute inset-0 flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+      <div className="absolute inset-0 flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto group-focus-within:pointer-events-auto">
         <button
           type="button"
           onClick={() => insertSectionAt(idx)}

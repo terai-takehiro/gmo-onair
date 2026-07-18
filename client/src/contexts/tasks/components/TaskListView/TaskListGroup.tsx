@@ -66,7 +66,7 @@ export default function TaskListGroup({ column, tasks, projectId, episodeId }: P
 
         {/* カラム操作 (カラムありのみ) */}
         {column && (
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
+          <div className="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100">
             <Button
               type="button"
               size="icon"

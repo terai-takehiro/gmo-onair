@@ -259,6 +259,14 @@ export default function OnAirPage() {
     cueStart.current = null;
   }, []);
 
+  // 本番中の誤操作防止: 計時が走行中の停止/リセットは確認する。
+  // (走行していないときは確認なしで停止・戻る)
+  const confirmStop = useCallback(() => {
+    if (running && !window.confirm("計時を停止して番組をリセットします。よろしいですか？")) return false;
+    stop();
+    return true;
+  }, [running, stop]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -282,8 +290,7 @@ export default function OnAirPage() {
           break;
         case "Escape":
           e.preventDefault();
-          stop();
-          if (id) navigate(`/qsheet/editor/${id}`);
+          if (confirmStop() && id) navigate(`/qsheet/editor/${id}`);
           break;
         case "ArrowUp":
           e.preventDefault();
@@ -297,7 +304,7 @@ export default function OnAirPage() {
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [running, go, next, prev, tog, stop]);
+  }, [running, go, next, prev, tog, stop, confirmStop, id, navigate]);
 
   // 放送モードはダークテーマ強制 (DADS の .dark トークンに統一)
   useEffect(() => {
@@ -641,7 +648,7 @@ export default function OnAirPage() {
                   >
                     <SkipForward size={26} />
                   </button>
-                  <button onClick={stop} className="p-3 rounded-lg bg-muted hover:bg-muted/80 text-foreground font-bold transition-all active:scale-90">
+                  <button onClick={confirmStop} title="停止してリセット" aria-label="停止してリセット" className="p-3 rounded-lg bg-muted hover:bg-muted/80 text-foreground font-bold transition-all active:scale-90">
                     <Square size={22} />
                   </button>
                   <div className="w-px h-8 bg-muted/80 mx-2" />

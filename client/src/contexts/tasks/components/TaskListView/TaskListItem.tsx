@@ -143,8 +143,8 @@ export default function TaskListItem({ task, projectId, episodeId }: Props) {
           </div>
         </div>
 
-        {/* アクションボタン */}
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 shrink-0">
+        {/* アクションボタン (タッチ端末では常時表示・sm以上はhover) */}
+        <div className="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 shrink-0">
           <Button
             type="button"
             size="icon"
@@ -160,7 +160,7 @@ export default function TaskListItem({ task, projectId, episodeId }: Props) {
             size="icon"
             variant="ghost"
             className="h-7 w-7 text-muted-foreground hover:text-destructive"
-            onClick={() => deleteTask.mutate(task.id)}
+            onClick={() => { if (window.confirm(`「${task.title}」を削除しますか？`)) deleteTask.mutate(task.id); }}
             aria-label={`${task.title} を削除`}
           >
             <Trash2 className="h-3.5 w-3.5" />
