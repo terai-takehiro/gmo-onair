@@ -286,8 +286,13 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
 
   // billing_key生成
   const project = await queryOne('SELECT gls_number, code FROM projects WHERE id = ?', [project_id]) as any;
+  // billing_key の連番は「作成回数」ベースで採番する。
+  // deleted_at IS NULL でフィルタすると、売上を1件削除したとき count が減り、
+  // 次の新規作成が生存中の既存行と同じ連番を再利用して billing_key (請求キー) が
+  // 重複する。ソフトデリート分も含めて数え、削除しても連番が減らないようにする
+  // (連番が飛んでも一意性を優先)。
   const existingCount = ((await queryOne(
-    `SELECT COUNT(*) as c FROM revenues WHERE project_id = ? AND deleted_at IS NULL`,
+    `SELECT COUNT(*) as c FROM revenues WHERE project_id = ?`,
     [project_id]
   )) as any).c;
   const seqNum = String(existingCount + 1).padStart(3, '0');
@@ -303,8 +308,12 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
 
   let billing_key: string;
   if (revenueStatus === 'estimate') {
-    // 概算見積: EST-OPPコード-連番-税枝番
-    billing_key = `EST-${seqNum}-${taxSuffix}`;
+    // 概算見積: EST-{案件コード}-連番-税枝番。
+    // 案件コードを含めないと全案件横断で EST-001-1 が量産され、別案件の見積 PDF が
+    // 同名になる (billing_key はファイル名にも使われる)。code 未採番のヨミ案件は
+    // project_id 先頭8桁で代替する。
+    const estBase = (project?.code as string) || String(project_id).slice(0, 8);
+    billing_key = `EST-${estBase}-${seqNum}-${taxSuffix}`;
   } else if (episodeCode) {
     // エピソード (月次ユニット等) 紐づき: {エピソードコード}-税枝番
     billing_key = `${episodeCode}-${taxSuffix}`;

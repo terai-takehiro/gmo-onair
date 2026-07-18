@@ -1,9 +1,22 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { mcpAuth } from './auth';
+import { enforceToolPermissions } from './gate';
 import { buildMcpServer } from './server';
 import { actorContext, type McpActor } from './helpers';
 import { config } from '../../config';
+
+// MCP エンドポイントのレート制限。認証済み (成功) リクエストは skip し、認証失敗
+// (APIキー総当たり等) のみをカウントして総当たりを抑制する。正常なツール連続呼び出しは妨げない。
+const mcpLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { jsonrpc: '2.0', error: { code: -32000, message: 'Rate limit exceeded' }, id: null },
+});
 
 // MCP (Model Context Protocol) エンドポイント — /api/v1/mcp
 // Claude Code 等の MCP クライアントが Streamable HTTP で接続する。
@@ -16,12 +29,28 @@ import { config } from '../../config';
 export function createMcpRoutes(): Router {
   const router = Router();
 
+  router.use(mcpLimiter);
   router.use(mcpAuth);
 
   router.post('/', async (req, res) => {
     // 書き込み actor をリクエストスコープに載せる (OAuth 経由なら実 ONAiR ユーザー、
     // 静的キー経由なら共用 mcpActorId)。ツールは currentActorId() で参照する。
     const actor: McpActor = (req as any).mcpActor ?? { actorId: config.mcpActorId, isOAuth: false };
+
+    // 権限ゲート: OAuth (per-user) actor の書き込みツールは対応モジュールの権限を要求する。
+    // 静的 APIキー actor はフルアクセス運用鍵として素通り。
+    try {
+      await enforceToolPermissions(req.body, actor);
+    } catch (err) {
+      const id = req.body && !Array.isArray(req.body) ? ((req.body as any).id ?? null) : null;
+      res.status(403).json({
+        jsonrpc: '2.0',
+        error: { code: -32001, message: err instanceof Error ? err.message : 'Forbidden' },
+        id,
+      });
+      return;
+    }
+
     await actorContext.run(actor, async () => {
       const server = buildMcpServer();
       const transport = new StreamableHTTPServerTransport({

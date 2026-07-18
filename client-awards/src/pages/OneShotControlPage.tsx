@@ -465,7 +465,7 @@ export default function OneShotControlPage({ embedded = false }: { embedded?: bo
         </a>
         <button
           onClick={toggleFullscreen}
-          title={isFullscreen ? '全画面解除 (F)' : '全画面表示 (F)'}
+          title={isFullscreen ? '全画面解除' : '全画面表示'}
           className="flex items-center justify-center h-9 w-9 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
         >
           {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}

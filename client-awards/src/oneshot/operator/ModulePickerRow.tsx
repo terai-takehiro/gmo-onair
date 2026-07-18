@@ -36,13 +36,8 @@ export default function ModulePickerRow({ modules, selected, onSelect, lang }: P
                 ? 'border-amber-500 bg-amber-950/50 ring-1 ring-amber-700/40'
                 : 'border-slate-800 bg-slate-900/40 hover:bg-slate-800 hover:border-slate-700'
             )}
-            title={`${m.id}${m.shortcutKey ? ` · key: ${m.shortcutKey}` : ''}`}
+            title={m.id}
           >
-            {m.shortcutKey && (
-              <kbd className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1 rounded border border-slate-700 bg-slate-800 text-[11px] font-bold text-amber-400 shrink-0">
-                {m.shortcutKey}
-              </kbd>
-            )}
             <span className={cn('text-sm font-black tracking-wide leading-tight min-w-0 break-words', active ? 'text-amber-300' : 'text-slate-200')}>
               {label}
             </span>

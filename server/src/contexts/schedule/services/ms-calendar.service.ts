@@ -183,8 +183,11 @@ export function buildDesiredFromMs(items: any[]): Map<string, DesiredEvent> {
   return desired;
 }
 
-/** primary カレンダーの calendarView を取得 (繰り返し展開・ウィンドウ内・ページング対応) */
-async function listEvents(accessToken: string, now = new Date()): Promise<any[]> {
+/** primary カレンダーの calendarView を取得 (繰り返し展開・ウィンドウ内・ページング対応)。
+ *  安全上限 (MAX_EVENTS / 25ページ) に達しても @odata.nextLink がまだ残っている場合は
+ *  truncated=true を返し、呼び出し側は削除フェーズをスキップして取りこぼしを「消えた予定」と
+ *  誤認するのを防ぐ。 */
+async function listEvents(accessToken: string, now = new Date()): Promise<{ items: any[]; truncated: boolean }> {
   const startDateTime = new Date(now.getTime() - WINDOW_PAST_DAYS * 24 * 3600_000).toISOString();
   const endDateTime = new Date(now.getTime() + WINDOW_FUTURE_DAYS * 24 * 3600_000).toISOString();
   const items: any[] = [];
@@ -203,7 +206,7 @@ async function listEvents(accessToken: string, now = new Date()): Promise<any[]>
     if (Array.isArray(res.data?.value)) items.push(...res.data.value);
     url = typeof res.data?.['@odata.nextLink'] === 'string' ? res.data['@odata.nextLink'] : null;
   }
-  return items;
+  return { items, truncated: Boolean(url) }; // url が残っていれば取りきれていない
 }
 
 export interface SyncResult {
@@ -225,7 +228,7 @@ export async function syncMsAccount(accountId: string): Promise<SyncResult> {
 
   try {
     const accessToken = await getAccessToken(account);
-    const items = await listEvents(accessToken);
+    const { items, truncated } = await listEvents(accessToken);
     const desired = buildDesiredFromMs(items);
 
     const existing = await queryAll(
@@ -258,11 +261,15 @@ export async function syncMsAccount(accountId: string): Promise<SyncResult> {
         created++;
       }
     }
-    // Outlook から消えた予定を soft-delete (ウィンドウ内取込なので全比較で良い)
-    for (const [key, cur] of existingByKey) {
-      if (!desired.has(key)) {
-        await execute(`UPDATE personal_events SET deleted_at=NOW(), updated_at=NOW() WHERE id=?`, [cur.id]);
-        removed++;
+    // Outlook から消えた予定を soft-delete (ウィンドウ内取込なので全比較で良い)。
+    // ただし全ページを取得しきれなかった (truncated) 場合はスキップする — 取りこぼした
+    // 実在イベントを「消えた予定」と誤認して削除するのを防ぐ。
+    if (!truncated) {
+      for (const [key, cur] of existingByKey) {
+        if (!desired.has(key)) {
+          await execute(`UPDATE personal_events SET deleted_at=NOW(), updated_at=NOW() WHERE id=?`, [cur.id]);
+          removed++;
+        }
       }
     }
 
