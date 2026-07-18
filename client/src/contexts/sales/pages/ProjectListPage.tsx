@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { formatCurrency, formatDate, formatShortDate } from "@/lib/format";
@@ -15,7 +15,6 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Plus, Search, Loader2, ExternalLink, Building2, User, Calendar, Tag, Sparkles, Info,
-  Check, CheckSquare, Square,
 } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
 
@@ -47,15 +46,13 @@ const sortOptions: { value: `${SortKey}:${SortDir}`; label: string }[] = [
 
 export default function ProjectListPage() {
   const navigate = useNavigate();
-  const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<TabFilter>("all");
   const [termHintOpen, setTermHintOpen] = useState(false);
   const [page, setPage] = useState(1);
-  // AI 起票フィルタ + 一括レビュー
+  // AI 起票フィルタ (確認操作は受信箱 /sales/inbox に一本化 — ここはバッジ+絞り込みのみ)
   const [aiOnly, setAiOnly] = useState(false);
   const [aiUnreviewedOnly, setAiUnreviewedOnly] = useState(true);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<`${SortKey}:${SortDir}`>("default:asc");
   const [sortKey, sortDir] = sort.split(":") as [SortKey, SortDir];
   // 開催期間 絞り込み。既定は「今月〜半年先」、月/四半期/年/全件 も選択可
@@ -104,27 +101,6 @@ export default function ProjectListPage() {
   const projects = data?.data ?? [];
   const pagination = data?.pagination;
 
-  const bulkReview = useMutation({
-    mutationFn: async (ids: string[]) => (await api.post("/projects/ai-review-bulk", { ids })).data,
-    onSuccess: () => {
-      setSelectedIds(new Set());
-      qc.invalidateQueries({ queryKey: ["projects"] });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
-    },
-  });
-
-  const toggleSelect = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
-  // 選択可能なのは AI 起票フィルタ ON かつ 未確認の案件のみ
-  const selectableIds: string[] = aiOnly
-    ? projects.filter((p: Record<string, unknown>) => p.is_ai_created && !p.ai_reviewed_at).map((p: Record<string, unknown>) => p.id as string)
-    : [];
-
   return (
     <PageTransition>
     <div className="space-y-4 p-3 lg:p-6">
@@ -164,7 +140,7 @@ export default function ProjectListPage() {
         {/* AI 起票フィルタ */}
         <button
           type="button"
-          onClick={() => { setAiOnly((v) => !v); setSelectedIds(new Set()); setPage(1); }}
+          onClick={() => { setAiOnly((v) => !v); setPage(1); }}
           className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
             aiOnly ? "border-violet-300 bg-violet-50 text-violet-700" : "border-input bg-background text-muted-foreground hover:bg-muted"
           }`}
@@ -176,7 +152,7 @@ export default function ProjectListPage() {
         {aiOnly && (
           <button
             type="button"
-            onClick={() => { setAiUnreviewedOnly((v) => !v); setSelectedIds(new Set()); setPage(1); }}
+            onClick={() => { setAiUnreviewedOnly((v) => !v); setPage(1); }}
             className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
               aiUnreviewedOnly ? "border-amber-300 bg-amber-50 text-amber-700" : "border-input bg-background text-muted-foreground hover:bg-muted"
             }`}
@@ -195,28 +171,18 @@ export default function ProjectListPage() {
         </div>
       )}
 
-      {/* AI 起票 一括レビュー バー */}
-      {aiOnly && selectableIds.length > 0 && (
+      {/* AI 起票の確認操作は受信箱 (/sales/inbox) に一本化 */}
+      {aiOnly && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-violet-200 bg-violet-50/60 px-3 py-2">
           <span className="text-xs text-violet-800">
-            {selectedIds.size > 0 ? `${selectedIds.size} 件を選択中` : "未確認の AI 起票案件を選択して一括で確認済みにできます"}
+            AI 起票の「確認済み」操作は受信箱から行えます。
           </span>
-          <div className="ml-auto flex items-center gap-2">
-            <Button
-              type="button" variant="outline" size="sm" className="h-8 text-xs"
-              onClick={() => setSelectedIds(new Set(selectedIds.size === selectableIds.length ? [] : selectableIds))}
-            >
-              {selectedIds.size === selectableIds.length ? "選択解除" : `すべて選択 (${selectableIds.length})`}
-            </Button>
-            <Button
-              type="button" size="sm" className="h-8 bg-violet-600 text-xs hover:bg-violet-700"
-              disabled={selectedIds.size === 0 || bulkReview.isPending}
-              onClick={() => bulkReview.mutate([...selectedIds])}
-            >
-              {bulkReview.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Check className="mr-1 h-3 w-3" />}
-              確認済みにする
-            </Button>
-          </div>
+          <Button
+            type="button" variant="outline" size="sm" className="ml-auto h-8 gap-1 text-xs text-violet-700"
+            onClick={() => navigate("/sales/inbox")}
+          >
+            受信箱を開く
+          </Button>
         </div>
       )}
 
@@ -332,9 +298,6 @@ export default function ProjectListPage() {
                       project={p}
                       terminal={p.stage === 'e_lost'}
                       onClick={() => navigate(`/sales/projects/${p.id}`)}
-                      selectable={selectableIds.includes(p.id as string)}
-                      selected={selectedIds.has(p.id as string)}
-                      onToggleSelect={() => toggleSelect(p.id as string)}
                     />
                   ))}
                 </div>
@@ -375,16 +338,10 @@ function ProjectCard({
   project: p,
   onClick,
   terminal = false,
-  selectable = false,
-  selected = false,
-  onToggleSelect,
 }: {
   project: Record<string, unknown>;
   onClick: () => void;
   terminal?: boolean;
-  selectable?: boolean;
-  selected?: boolean;
-  onToggleSelect?: () => void;
 }) {
   const totalRevenue = Number(p.total_revenue) || 0;
   const totalPurchase = Number(p.total_purchase) || 0;
@@ -405,22 +362,11 @@ function ProjectCard({
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
       className={`group cursor-pointer rounded-xl border p-4 transition-all hover:border-primary/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
         terminal ? 'bg-muted/40 opacity-75 hover:opacity-100' : 'bg-card'
-      } ${selected ? 'ring-2 ring-violet-400 border-violet-300' : ''}`}
+      }`}
     >
       {/* Top row: code + stage + amount */}
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
-          {selectable && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onToggleSelect?.(); }}
-              className="shrink-0 text-violet-600 hover:text-violet-800"
-              aria-label={selected ? "選択解除" : "選択"}
-              title={selected ? "選択解除" : "選択"}
-            >
-              {selected ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
-            </button>
-          )}
           <span className=" text-xs text-muted-foreground">{code || "—"}</span>
           <Badge className="shrink-0 text-[11px]" style={{ backgroundColor: stageColor, color: '#fff' }}>
             {stageLabel}

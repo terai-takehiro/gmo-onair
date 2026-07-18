@@ -13,12 +13,7 @@ import {
   EmptyState,
 } from "@gmo-onair/shared/src/client/dashboard";
 import api from "@/lib/api";
-import {
-  PROJECT_STAGE,
-  ALERT_TYPE,
-  ALERT_PRIORITY,
-  statusOf,
-} from "@gmo-onair/shared/src/constants/statuses";
+import { PROJECT_STAGE, statusOf } from "@gmo-onair/shared/src/constants/statuses";
 import { queryKeys } from "@gmo-onair/shared/src/client/hooks/queryKeys";
 import {
   type AiFeedItem,
@@ -28,6 +23,15 @@ import {
   aiFeedActor,
   relativeTime,
 } from "@/lib/aiFeed";
+import {
+  type InboxData,
+  type InboxItem,
+  KIND_LABELS,
+  KIND_BADGE_CLASS,
+  ElapsedChip,
+  elapsedHours,
+  formatElapsed,
+} from "@/contexts/sales/pages/InboxPage";
 import {
   FolderKanban,
   PiggyBank,
@@ -42,7 +46,6 @@ import {
   Database,
   Settings,
   ExternalLink,
-  AlertTriangle,
   Wrench,
   ArrowRight,
   ShieldCheck,
@@ -106,14 +109,6 @@ interface MonthlyChart {
   operating_profit: number;
 }
 
-interface Alert {
-  id: string;
-  gls_number?: string;
-  name: string;
-  alert_type: string;
-  message: string;
-}
-
 interface Project {
   id: string;
   gls_number: string;
@@ -144,20 +139,6 @@ interface SalesBoardItem {
   created_by?: string | null;
   is_ai_created?: boolean | null;
   ai_reviewed_at?: string | null;
-  ai_requested_by?: string | null;
-}
-
-// v2.9.178+: AI 起票インボックスの 1 案件
-interface AiInboxItem {
-  id: string;
-  code?: string | null;
-  gls_number?: string | null;
-  name: string;
-  stage: string;
-  expected_amount?: number | null;
-  created_at: string;
-  customer_name?: string | null;
-  assigned_to_name?: string | null;
   ai_requested_by?: string | null;
 }
 
@@ -263,14 +244,8 @@ export default function HomePage() {
           <QuickAccessSection navigate={navigate} canSeeSales={canSeeSales} canSeeBudget={canSeeBudget} />
         )}
 
-        {/* ───── 3. 要対応 (対応漏れ・AI起票の確認・日常業務を1本化) ───── */}
-        {(canSeeSales || canSeeDailyops) && (
-          <ActionRequiredSection
-            navigate={navigate}
-            canSeeSales={canSeeSales}
-            canSeeDailyops={canSeeDailyops}
-          />
-        )}
+        {/* ───── 3. 受信箱サマリー (お客様を待たせているもの — /sales/inbox へ) ───── */}
+        {(canSeeSales || canSeeDailyops) && <InboxSummarySection navigate={navigate} />}
 
         {/* ───── 4. 今月の主要指標 + 前月比 ───── */}
         {canSeeSales && <KpiSection navigate={navigate} />}
@@ -311,9 +286,6 @@ export default function HomePage() {
           </div>
         </SectionCard>
 
-        {/* ───── 7. 今日対応すべきこと (優先度低めのため下部に配置) ───── */}
-        {canSeeSales && <ActionItemsSection navigate={navigate} />}
-
         {/* ───── 8. システム管理 (admin only) ───── */}
         {isAdmin && (
           <SectionCard
@@ -352,88 +324,6 @@ export default function HomePage() {
         </p>
       </div>
     </PageTransition>
-  );
-}
-
-// ══════════════════════════════════════════════════════════
-// セクション 1: 今日対応すべきこと
-// 「目的に則する」: ユーザーが今すぐ判断・行動すべきものだけ
-// 優先度順 (緊急→警告→情報) でソート、最大5件表示
-// ══════════════════════════════════════════════════════════
-function ActionItemsSection({ navigate }: { navigate: (to: string) => void }) {
-  const { data: alerts, isLoading } = useQuery<Alert[]>({
-    queryKey: queryKeys.dashboard.alerts(),
-    queryFn: async () => (await api.get("/dashboard/alerts")).data.data,
-    staleTime: 60_000,
-  });
-
-  const sorted = (alerts ?? []).slice().sort((a, b) => {
-    const pa = ALERT_PRIORITY[a.alert_type as keyof typeof ALERT_PRIORITY] ?? 99;
-    const pb = ALERT_PRIORITY[b.alert_type as keyof typeof ALERT_PRIORITY] ?? 99;
-    return pa - pb;
-  });
-  const top = sorted.slice(0, 5);
-  const total = sorted.length;
-
-  if (isLoading) return null;
-  if (total === 0) {
-    return (
-      <SectionCard
-        title="今日対応すべきこと"
-        description="緊急対応・期限・申込書未提出など、今すぐ判断が必要な項目です。"
-        icon={<CheckCircle2 />}
-        padding="compact"
-      >
-        <p className="flex items-center gap-2 rounded-md bg-success/10 px-3 py-2 text-sm text-success">
-          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-          対応が必要な項目はありません。
-        </p>
-      </SectionCard>
-    );
-  }
-
-  return (
-    <SectionCard
-      title={`今日対応すべきこと (${total}件)`}
-      description="緊急度順に表示。タップで案件詳細へ。"
-      icon={<AlertTriangle />}
-      actions={
-        total > 5 ? (
-          <button
-            type="button"
-            className="text-xs text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-            onClick={() => navigate("/sales/projects")}
-          >
-            すべて表示
-          </button>
-        ) : null
-      }
-      padding="compact"
-    >
-      <ul className="divide-y divide-border">
-        {top.map((a, i) => (
-          <li key={`${a.id}-${a.alert_type}-${i}`}>
-            <button
-              type="button"
-              className="flex w-full items-start gap-3 px-2 py-2.5 text-left transition-colors hover:bg-accent rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              onClick={() => a.id && navigate(`/sales/projects/${a.id}`)}
-            >
-              <Badge variant={statusOf(ALERT_TYPE, a.alert_type).variant} className="shrink-0 mt-0.5">
-                {statusOf(ALERT_TYPE, a.alert_type).label}
-              </Badge>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-foreground truncate">
-                  {a.gls_number ? <span className=" text-xs text-muted-foreground mr-1.5">{a.gls_number}</span> : null}
-                  {a.name}
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">{a.message}</p>
-              </div>
-              <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground mt-1" aria-hidden="true" />
-            </button>
-          </li>
-        ))}
-      </ul>
-    </SectionCard>
   );
 }
 
@@ -754,72 +644,6 @@ function ScheduleSection() {
 }
 
 // ══════════════════════════════════════════════════════════
-// セクション: AI 起票インボックス (v2.9.178+)
-// AI (メール取込等の MCP 経由) が起票した案件のうち未確認のものを表示し、
-// 人間が内容を確認 → 「確認済み」にするレビュー導線。0 件のときは非表示。
-// ══════════════════════════════════════════════════════════
-// 要対応内の「AI 起票の確認」ブロック (親 ActionRequiredSection が list を渡す)
-function AiInboxBlock({ list, navigate }: { list: AiInboxItem[]; navigate: (to: string) => void }) {
-  const qc = useQueryClient();
-  const reviewMutation = useMutation({
-    mutationFn: async (projectId: string) => api.post(`/projects/${projectId}/ai-review`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.dashboard.aiInbox() });
-      qc.invalidateQueries({ queryKey: queryKeys.dashboard.salesBoard() });
-    },
-  });
-
-  return (
-    <div>
-      <p className="mb-1 flex items-center gap-1.5 px-1 text-xs font-semibold text-violet-700">
-        <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-        AI 起票の確認 {list.length}件
-      </p>
-      <ul className="divide-y divide-border">
-        {list.map((p) => (
-          <li key={p.id} className="flex items-start gap-3 px-2 py-2.5">
-            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-violet-500" aria-label="AI起票" />
-            <button
-              type="button"
-              className="min-w-0 flex-1 text-left rounded-md transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              onClick={() => navigate(`/sales/projects/${p.id}`)}
-            >
-              <p className="text-sm font-medium text-foreground truncate">
-                {(p.gls_number || p.code) ? (
-                  <span className="text-xs text-muted-foreground mr-1.5">{p.gls_number || p.code}</span>
-                ) : null}
-                {p.name}
-              </p>
-              <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-                {p.customer_name ? <span className="truncate">{p.customer_name}</span> : null}
-                <span>起票 {relativeDay(p.created_at?.slice(0, 10))}</span>
-                {p.ai_requested_by ? (
-                  <span className="text-violet-600">指示: {p.ai_requested_by}</span>
-                ) : null}
-                {p.assigned_to_name ? <span>担当: {p.assigned_to_name}</span> : null}
-              </p>
-            </button>
-            <Badge variant={statusOf(PROJECT_STAGE, p.stage).variant} className="shrink-0 mt-0.5">
-              {statusOf(PROJECT_STAGE, p.stage).label}
-            </Badge>
-            <Button
-              size="sm"
-              variant="outline"
-              className="shrink-0 h-8 gap-1 text-xs"
-              disabled={reviewMutation.isPending}
-              onClick={() => reviewMutation.mutate(p.id)}
-            >
-              <Check className="h-3.5 w-3.5" aria-hidden="true" />
-              確認済み
-            </Button>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════════════════
 // セクション: AI 活動フィード (v2.9.197+)
 // mcp_audit_log から「AI が最近やったこと」を時系列で一望する。
 // actor (OAuth 経由の実行者 or 共用キー) と指示者を併記して帰属を明確に。
@@ -903,190 +727,107 @@ function AiActivityFeedSection({ navigate }: { navigate: (to: string) => void })
   );
 }
 
-// ══════════════════════════════════════════════════════════
-// セクション: 要対応 (v2.9.216+)
-// 従来バラバラに並んでいた 3 アラート (対応漏れ=期限超過 / AI起票の確認 /
-// 日常業務の未処理) を 1 つの SectionCard に統合。優先度順 (対応漏れ → AI起票 →
-// 日常業務) に上から並べ、合計 0 件なら丸ごと非表示 (アラートを溜めない)。
-// ══════════════════════════════════════════════════════════
-interface OverdueActionItem {
-  activity_id: string;
-  next_action: string;
-  next_action_date: string;
-  days_overdue: number;
-  project_id: string;
-  gls_number: string | null;
-  project_code: string | null;
-  project_name: string;
-  assigned_to_name: string | null;
-  customer_name: string | null;
-}
 
-function ActionRequiredSection({
-  navigate,
-  canSeeSales,
-  canSeeDailyops,
-}: {
-  navigate: (to: string) => void;
-  canSeeSales: boolean;
-  canSeeDailyops: boolean;
-}) {
-  // 対応漏れ (期限超過の次回アクション)
-  const overdueQ = useQuery<OverdueActionItem[]>({
-    queryKey: queryKeys.dashboard.overdueActions(),
-    queryFn: async () => (await api.get("/dashboard/overdue-actions")).data.data,
-    staleTime: 60_000,
+// ══════════════════════════════════════════════════════════
+// セクション: 受信箱サマリー (v2.9.217+)
+// 「今日、お客様を待たせているものはゼロか?」に3秒で答えるための1カード。
+// 件数 + 最古の待ち時間 + 先頭3件のプレビューのみ表示し、対応操作は
+// /sales/inbox (受信箱) に一本化。0件のときは細い緑ストリップで肯定表示。
+// ══════════════════════════════════════════════════════════
+function InboxSummarySection({ navigate }: { navigate: (to: string) => void }) {
+  const { data } = useQuery<InboxData>({
+    queryKey: queryKeys.dashboard.inbox(),
+    queryFn: async () => (await api.get("/dashboard/inbox")).data.data,
+    staleTime: 30_000,
     refetchOnMount: "always",
-    enabled: canSeeSales,
   });
-  // AI 起票の未確認案件
-  const aiQ = useQuery<AiInboxItem[]>({
-    queryKey: queryKeys.dashboard.aiInbox(),
-    queryFn: async () => (await api.get("/dashboard/ai-inbox")).data.data,
-    staleTime: 60_000,
-    refetchOnMount: "always",
-    enabled: canSeeSales,
-  });
-  // 日常業務 (未処理の見積/請求 + 要確認の問い合わせ)
-  const dailyQ = useQuery<{ pendingFinanceDocs: number; unhandledInquiries: number }>({
-    queryKey: ["dailyops", "alerts"],
-    queryFn: async () => (await api.get("/dailyops/alerts")).data.data,
-    staleTime: 60_000,
-    enabled: canSeeDailyops,
-  });
+  if (!data) return null;
+  const items = data.items;
+  const checklistCount = data.counts.agreement;
 
-  const overdue = overdueQ.data ?? [];
-  const aiInbox = aiQ.data ?? [];
-  const pending = dailyQ.data?.pendingFinanceDocs ?? 0;
-  const unhandled = dailyQ.data?.unhandledInquiries ?? 0;
-  const dailyCount = pending + unhandled;
-  const total = overdue.length + aiInbox.length + dailyCount;
-  if (total === 0) return null;
+  if (items.length === 0) {
+    return (
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2 text-sm text-emerald-800">
+        <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
+        <span className="font-medium">受信箱は空です — お客様を待たせているものはありません</span>
+        {checklistCount > 0 && (
+          <button
+            type="button"
+            className="text-xs text-emerald-700 underline-offset-2 hover:underline"
+            onClick={() => navigate("/sales/inbox")}
+          >
+            書類チェック {checklistCount}件
+          </button>
+        )}
+        <button
+          type="button"
+          className="ml-auto inline-flex items-center gap-0.5 text-xs text-emerald-700 hover:underline"
+          onClick={() => navigate("/sales/inbox")}
+        >
+          受信箱 <ArrowRight className="h-3 w-3" aria-hidden="true" />
+        </button>
+      </div>
+    );
+  }
+
+  const oldest = elapsedHours(items[0]?.received_at ?? null);
+  const preview = items.slice(0, 3);
+  const titleOf = (it: InboxItem): string => {
+    const m = it.meta;
+    switch (it.kind) {
+      case "overdue_action":
+        return `${m.gls_number || m.project_code || m.project_name} → ${m.next_action}`;
+      case "ai_project":
+        return `AI起票: ${m.name ?? ""}`;
+      case "inquiry":
+        return String(m.subject || m.sender || "問い合わせ");
+      case "finance_doc":
+        return String(m.subject || m.sender || "見積・請求");
+      default:
+        return "";
+    }
+  };
 
   return (
     <SectionCard
-      title={`要対応 (${total}件)`}
-      description="確認・対応が必要な項目をまとめています。上から優先度順です。"
-      icon={<AlertTriangle />}
+      title={`受信箱 (未対応 ${items.length}件)`}
+      description={`最古のお待たせ: ${formatElapsed(oldest)}。お客様を待たせているものを1箇所に集約しています。`}
+      icon={<Inbox />}
       padding="compact"
       className="border-amber-200"
+      actions={
+        <Button size="sm" className="h-8 gap-1 text-xs" onClick={() => navigate("/sales/inbox")}>
+          受信箱を開く
+          <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+        </Button>
+      }
     >
-      <div className="space-y-4">
-        {overdue.length > 0 && <OverdueBlock list={overdue} navigate={navigate} />}
-        {aiInbox.length > 0 && <AiInboxBlock list={aiInbox} navigate={navigate} />}
-        {dailyCount > 0 && <DailyOpsBlock pending={pending} unhandled={unhandled} />}
-      </div>
-    </SectionCard>
-  );
-}
-
-// 要対応内の「対応漏れ (期限超過)」ブロック
-function OverdueBlock({ list, navigate }: { list: OverdueActionItem[]; navigate: (to: string) => void }) {
-  const qc = useQueryClient();
-  const [expanded, setExpanded] = useState(false);
-  const [postponeFor, setPostponeFor] = useState<string | null>(null);
-  const mutation = useMutation({
-    mutationFn: async (p: { id: string; action: "complete" | "postpone"; date?: string }) =>
-      p.action === "complete"
-        ? api.post(`/activity-logs/${p.id}/complete-next-action`)
-        : api.post(`/activity-logs/${p.id}/postpone-next-action`, { date: p.date }),
-    onSuccess: () => {
-      setPostponeFor(null);
-      qc.invalidateQueries({ queryKey: queryKeys.dashboard.overdueActions() });
-      qc.invalidateQueries({ queryKey: queryKeys.dashboard.salesBoard() });
-    },
-  });
-  const dateAfter = (days: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() + days);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  };
-  const VISIBLE = 5;
-  const shown = expanded ? list : list.slice(0, VISIBLE);
-
-  return (
-    <div>
-      <p className="mb-1 flex items-center gap-1.5 px-1 text-xs font-semibold text-red-700">
-        <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
-        対応漏れ（次回アクション期限超過）{list.length}件
-      </p>
-      <ul className="space-y-1.5">
-        {shown.map((a) => (
-          <li key={a.activity_id} className="rounded-md border border-red-100 bg-white px-2.5 py-1.5 text-xs">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <button
-                className="font-medium text-primary hover:underline"
-                onClick={() => navigate(`/sales/projects/${a.project_id}`)}
-              >
-                {a.gls_number || a.project_code || a.project_name}
-              </button>
-              <span className="truncate text-muted-foreground">{a.project_name}</span>
-              <span className="rounded bg-red-100 px-1.5 py-0.5 font-medium text-red-700">
-                {a.days_overdue}日超過
-              </span>
-              {a.assigned_to_name && <span className="text-muted-foreground">担当: {a.assigned_to_name}</span>}
-            </div>
-            <div className="mt-1 flex flex-wrap items-center gap-2">
-              <span className="flex-1 min-w-0 truncate text-foreground">
-                → {a.next_action}（期限 {a.next_action_date}）
-              </span>
-              <div className="flex shrink-0 items-center gap-1">
-                <Button
-                  size="sm" variant="outline" className="h-6 px-2 text-[11px]"
-                  disabled={mutation.isPending}
-                  onClick={() => mutation.mutate({ id: a.activity_id, action: "complete" })}
-                >
-                  完了
-                </Button>
-                {postponeFor === a.activity_id ? (
-                  <>
-                    <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px]" onClick={() => mutation.mutate({ id: a.activity_id, action: "postpone", date: dateAfter(1) })}>明日</Button>
-                    <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px]" onClick={() => mutation.mutate({ id: a.activity_id, action: "postpone", date: dateAfter(7) })}>1週間</Button>
-                    <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px]" onClick={() => setPostponeFor(null)}>×</Button>
-                  </>
-                ) : (
-                  <Button size="sm" variant="outline" className="h-6 px-2 text-[11px]" onClick={() => setPostponeFor(a.activity_id)}>延期</Button>
+      <ul className="divide-y divide-border">
+        {preview.map((it) => (
+          <li key={it.key}>
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => navigate("/sales/inbox")}
+            >
+              <span
+                className={cn(
+                  "shrink-0 rounded border px-1.5 py-0.5 text-[11px] font-semibold",
+                  KIND_BADGE_CLASS[it.kind]
                 )}
-              </div>
-            </div>
+              >
+                {KIND_LABELS[it.kind]}
+              </span>
+              <ElapsedChip receivedAt={it.received_at} forceRed={it.kind === "overdue_action"} />
+              <span className="min-w-0 flex-1 truncate text-sm text-foreground">{titleOf(it)}</span>
+            </button>
           </li>
         ))}
       </ul>
-      {list.length > VISIBLE && (
-        <button className="mt-2 text-xs text-red-700 hover:underline" onClick={() => setExpanded((v) => !v)}>
-          {expanded ? "折りたたむ" : `残り${list.length - VISIBLE}件を表示`}
-        </button>
+      {items.length > preview.length && (
+        <p className="mt-1 px-2 text-xs text-muted-foreground">ほか {items.length - preview.length} 件</p>
       )}
-    </div>
-  );
-}
-
-// 要対応内の「日常業務」ブロック (未処理があるときだけ親が描画・/daily/ は別 SPA)
-function DailyOpsBlock({ pending, unhandled }: { pending: number; unhandled: number }) {
-  return (
-    <div>
-      <p className="mb-1 flex items-center gap-1.5 px-1 text-xs font-semibold text-primary">
-        <ClipboardList className="h-3.5 w-3.5" aria-hidden="true" />
-        日常業務
-      </p>
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        {pending > 0 && (
-          <a href="/daily/finance" className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs text-amber-700 hover:bg-amber-100">
-            <FileText className="h-3.5 w-3.5" aria-hidden="true" />
-            未処理の見積/請求 {pending}件
-          </a>
-        )}
-        {unhandled > 0 && (
-          <a href="/daily/inquiries" className="inline-flex items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs text-violet-700 hover:bg-violet-100">
-            <Inbox className="h-3.5 w-3.5" aria-hidden="true" />
-            要確認の問い合わせ {unhandled}件
-          </a>
-        )}
-        <a href="/daily/" className="ml-auto inline-flex items-center gap-0.5 text-xs text-primary hover:underline">
-          日常業務を開く <ArrowRight className="h-3 w-3" aria-hidden="true" />
-        </a>
-      </div>
-    </div>
+    </SectionCard>
   );
 }
 

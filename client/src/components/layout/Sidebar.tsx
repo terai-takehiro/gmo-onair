@@ -4,6 +4,7 @@ import { useUiStore } from "@/stores/uiStore";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  Inbox,
   FolderKanban,
   Receipt,
   ShoppingCart,
@@ -67,6 +68,12 @@ interface NavSection {
 /** ブロックアプリ別のナビゲーション定義 */
 const APP_NAV: Record<string, NavSection[]> = {
   sales: [
+    {
+      title: "要対応",
+      items: [
+        { label: "受信箱", to: "/sales/inbox", icon: Inbox },
+      ],
+    },
     {
       title: "案件",
       items: [
