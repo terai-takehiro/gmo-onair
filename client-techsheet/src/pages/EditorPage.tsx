@@ -97,6 +97,7 @@ interface TechsheetDoc {
   venue: string | null;
   version: string;
   status: string;
+  updated_at?: string;
   data: DocumentData;
 }
 
@@ -139,9 +140,13 @@ export default function EditorPage() {
   const [doc, setDoc] = useState<TechsheetDoc | null>(null);
   const [dirty, setDirty] = useState(false);
   const [activeTab, setActiveTab] = useState("header");
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [conflict, setConflict] = useState(false);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
+  // 楽観ロック用: 読み込み/保存時点の updated_at を保持し、保存時に expected_updated_at として送る
+  const lastUpdatedAtRef = useRef<string | null>(null);
 
-  const { data: queryData, isLoading } = useQuery({
+  const { data: queryData, isLoading, refetch } = useQuery({
     queryKey: ["techsheet-document", id],
     queryFn: async () => {
       const res = await api.get(`/techsheet/documents/${id}`);
@@ -170,30 +175,54 @@ export default function EditorPage() {
   });
 
   useEffect(() => {
-    if (queryData && !doc) setDoc(queryData);
+    if (queryData && !doc) {
+      setDoc(queryData);
+      lastUpdatedAtRef.current = queryData.updated_at ?? null;
+    }
   }, [queryData, doc]);
 
   const saveMutation = useMutation({
     mutationFn: async (document: TechsheetDoc) => {
-      await api.put(`/techsheet/documents/${document.id}`, {
+      const res = await api.put(`/techsheet/documents/${document.id}`, {
         title: document.data.header.programName || document.title,
         data: document.data,
         status: document.status,
         production_date: document.production_date,
         venue: document.venue,
         version: document.version,
+        expected_updated_at: lastUpdatedAtRef.current,
       });
+      return res.data.data as TechsheetDoc;
     },
-    onSuccess: () => {
+    onSuccess: (row) => {
       setDirty(false);
+      setConflict(false);
+      if (row?.updated_at) lastUpdatedAtRef.current = row.updated_at;
+      setLastSavedAt(new Date());
       queryClient.invalidateQueries({ queryKey: ["techsheet-documents"] });
     },
     onError: (err: any) => {
+      // 409 = 他のタブ/端末が先に保存。自動保存を止めて競合バナーを表示する。
+      if (err?.response?.status === 409) {
+        setConflict(true);
+        return;
+      }
       const msg = err?.response?.data?.error?.message || err?.message || "保存に失敗しました";
       console.error("[techsheet] save error:", msg);
       alert(`保存エラー: ${msg}`);
     },
   });
+
+  // 競合時に最新を読み込み直す (自動保存を再開できる状態に戻す)
+  const handleReload = useCallback(async () => {
+    const { data } = await refetch();
+    if (data) {
+      setDoc(data);
+      lastUpdatedAtRef.current = data.updated_at ?? null;
+      setConflict(false);
+      setDirty(false);
+    }
+  }, [refetch]);
 
   const updateData = useCallback((updater: (data: DocumentData) => DocumentData) => {
     setDoc((prev) => {
@@ -205,13 +234,13 @@ export default function EditorPage() {
 
   // Auto-save 3s debounce
   useEffect(() => {
-    if (!dirty || !doc) return;
+    if (!dirty || !doc || conflict) return;
     clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(() => {
       saveMutation.mutate(doc);
     }, 3000);
     return () => clearTimeout(autoSaveTimer.current);
-  }, [dirty, doc]);
+  }, [dirty, doc, conflict]);
 
   // Helper to update a specific sheet
   const updateSheet = useCallback((sheetId: string, updater: (sheet: SheetData) => SheetData) => {
@@ -252,6 +281,17 @@ export default function EditorPage() {
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
+          {conflict ? (
+            <span className="hidden sm:inline text-xs text-destructive font-medium">保存が競合しました</span>
+          ) : saveMutation.isPending ? (
+            <span className="hidden sm:inline text-xs text-muted-foreground">保存中…</span>
+          ) : dirty ? (
+            <span className="hidden sm:inline text-xs text-amber-600">未保存</span>
+          ) : lastSavedAt ? (
+            <span className="hidden sm:inline text-xs text-muted-foreground">
+              保存済み {lastSavedAt.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          ) : null}
           <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs" onClick={() => navigate(`/techsheet/print/${doc.id}`)}>
             <Printer className="h-3.5 w-3.5" />
             <span className="hidden lg:inline">印刷</span>
@@ -267,6 +307,16 @@ export default function EditorPage() {
           </Button>
         </div>
       </div>
+
+      {/* 競合バナー */}
+      {conflict && (
+        <div className="flex items-center justify-between gap-2 bg-destructive/10 border-b border-destructive/30 px-4 py-2 text-xs text-destructive">
+          <span>この技術資料は別のタブ/端末で更新されました。上書きを防ぐため自動保存を停止しています。CSV 等で退避してから最新を読み込んでください。</span>
+          <Button size="sm" variant="outline" className="h-7 text-xs shrink-0" onClick={handleReload}>
+            最新を読み込む
+          </Button>
+        </div>
+      )}
 
       {/* Tab bar */}
       <div className="flex items-center gap-1 border-b bg-white px-4 overflow-x-auto">

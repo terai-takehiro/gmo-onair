@@ -139,7 +139,7 @@ export default function CgCockpitPage() {
         >
           <ChevronLeft className="h-4 w-4 text-slate-300" />
         </button>
-        <span className="text-sm font-bold text-slate-200 truncate max-w-[140px] lg:max-w-[220px]">
+        <span className="hidden sm:block text-sm font-bold text-slate-200 truncate max-w-[120px] lg:max-w-[220px]">
           {event?.name ?? '送出'}
         </span>
 
