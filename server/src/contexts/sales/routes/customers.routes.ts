@@ -46,6 +46,98 @@ router.get('/:id', async (req, res) => {
   res.json({ success: true, data: row });
 });
 
+// ══════════════════════════════════════════════════════════
+// 顧客360 (v2.9.218+) — お客様単位で全接点を1画面に集約する overview
+// summary (取引実績) / timeline (活動履歴・直接 or 案件経由) / projects / sales_by_year。
+// 既存テーブルのみで成立 (新規テーブル/migration 不要)。
+// ══════════════════════════════════════════════════════════
+router.get('/:id/overview', async (req, res) => {
+  const id = req.params.id;
+  const customer = await queryOne('SELECT * FROM customers WHERE id = ? AND deleted_at IS NULL', [id]) as Record<string, unknown> | null;
+  if (!customer) throw new AppError(404, 'NOT_FOUND', '顧客が見つかりません');
+
+  // AI 登録判定 (一覧・単体と同形)
+  const custAudit = await queryOne(
+    `SELECT requested_by FROM mcp_audit_log
+     WHERE tool_name = 'create_customer' AND result_summary->>'created_id' = ?
+     ORDER BY created_at ASC LIMIT 1`,
+    [id]
+  ) as Record<string, unknown> | null;
+  customer.is_ai_created = !!custAudit;
+  customer.ai_requested_by = custAudit?.requested_by ?? null;
+
+  const [summaryRow, projects, timeline, salesByYear] = await Promise.all([
+    // 取引実績サマリー
+    queryOne(
+      `SELECT
+         (SELECT COALESCE(SUM(amount),0) FROM revenues
+          WHERE customer_id = ? AND status = 'confirmed' AND deleted_at IS NULL) AS confirmed_revenue,
+         (SELECT COUNT(*) FROM projects
+          WHERE customer_id = ? AND deleted_at IS NULL) AS project_total,
+         (SELECT COUNT(*) FROM projects
+          WHERE customer_id = ? AND deleted_at IS NULL AND stage NOT IN ('s_completed','e_lost')) AS project_active,
+         (SELECT MAX(a.activity_date) FROM activity_logs a
+          LEFT JOIN projects p ON p.id = a.project_id
+          WHERE a.deleted_at IS NULL AND (a.customer_id = ? OR p.customer_id = ?)) AS last_contact_date,
+         (SELECT COUNT(*) FROM activity_logs a
+          LEFT JOIN projects p ON p.id = a.project_id
+          WHERE a.deleted_at IS NULL AND (a.customer_id = ? OR p.customer_id = ?)
+            AND a.next_action IS NOT NULL AND a.next_action_done_at IS NULL) AS open_actions`,
+      [id, id, id, id, id, id, id]
+    ),
+    // 案件リスト (進行中を先頭・イベント日降順) + 実績集計
+    queryAll(
+      `SELECT p.id, p.gls_number, p.code, p.name, p.stage, p.event_start, p.expected_amount,
+              COALESCE(r.rev, 0) AS total_revenue, COALESCE(pu.pur, 0) AS total_purchase,
+              (p.stage NOT IN ('s_completed','e_lost')) AS is_active
+       FROM projects p
+       LEFT JOIN (SELECT project_id, SUM(amount) AS rev FROM revenues
+                  WHERE status = 'confirmed' AND deleted_at IS NULL GROUP BY project_id) r ON r.project_id = p.id
+       LEFT JOIN (SELECT project_id, SUM(amount) AS pur FROM purchases
+                  WHERE deleted_at IS NULL GROUP BY project_id) pu ON pu.project_id = p.id
+       WHERE p.customer_id = ? AND p.deleted_at IS NULL
+       ORDER BY (p.stage NOT IN ('s_completed','e_lost')) DESC, p.event_start DESC NULLS LAST, p.created_at DESC`,
+      [id]
+    ),
+    // 統合タイムライン (顧客直付け or 案件経由の活動・直近50件)
+    queryAll(
+      `SELECT a.id, a.activity_type, a.subject, a.description, a.activity_date,
+              a.next_action, a.next_action_date, a.next_action_done_at,
+              a.source_channel, a.message_id,
+              a.project_id, u.name AS user_name,
+              p.name AS project_name, p.gls_number AS project_gls,
+              (ai.audit_id IS NOT NULL) AS is_ai_created, ai.requested_by AS ai_requested_by
+       FROM activity_logs a
+       LEFT JOIN users u ON u.id = a.user_id
+       LEFT JOIN projects p ON p.id = a.project_id
+       LEFT JOIN LATERAL (
+         SELECT m.id AS audit_id, m.requested_by FROM mcp_audit_log m
+         WHERE m.tool_name = 'create_activity_log' AND m.result_summary->>'created_id' = a.id
+         ORDER BY m.created_at ASC LIMIT 1
+       ) ai ON TRUE
+       WHERE a.deleted_at IS NULL AND (a.customer_id = ? OR p.customer_id = ?)
+       ORDER BY a.activity_date DESC, a.created_at DESC
+       LIMIT 50`,
+      [id, id]
+    ),
+    // 年次売上 (確定売上・計上日ベース)
+    queryAll(
+      `SELECT LEFT(recognition_date, 4) AS year, SUM(amount) AS total
+       FROM revenues
+       WHERE customer_id = ? AND status = 'confirmed' AND deleted_at IS NULL
+         AND recognition_date IS NOT NULL AND recognition_date <> ''
+       GROUP BY LEFT(recognition_date, 4)
+       ORDER BY year`,
+      [id]
+    ),
+  ]);
+
+  res.json({
+    success: true,
+    data: { customer, summary: summaryRow, projects, timeline, sales_by_year: salesByYear },
+  });
+});
+
 router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
   const { name, short_name, contact_name, email, phone, address, notes } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', '顧客名は必須です');
