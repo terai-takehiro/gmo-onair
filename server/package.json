@@ -1,7 +1,7 @@
 {
   "name": "@gmo-onair/server",
   "private": true,
-  "version": "2.9.210",
+  "version": "2.9.211",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
@@ -30,7 +30,6 @@
     "node-ical": "^0.26.1",
     "nodemailer": "^8.0.5",
     "pdfkit": "^0.18.0",
-    "pdfmake": "^0.3.7",
     "pg": "^8.13.0",
     "qrcode": "^1.5.4",
     "socket.io": "^4.8.3",
@@ -47,9 +46,8 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.9",
     "@types/nodemailer": "^8.0.0",
-    "@types/pdfmake": "^0.3.2",
+    "@types/pdfkit": "^0.17.6",
     "@types/pg": "^8.11.0",
-    "@types/socket.io": "^3.0.1",
     "@types/uuid": "^10.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
