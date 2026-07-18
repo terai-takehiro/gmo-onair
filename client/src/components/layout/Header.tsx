@@ -6,10 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Search, Loader2 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import api from "@/lib/api";
-import SharedHeader from "@gmo-onair/shared/src/client/SharedHeader";
-import ManualModal from "@gmo-onair/shared/src/client/manual/ManualModal";
-import VersionHistoryModal from "@gmo-onair/shared/src/client/versionHistory/VersionHistoryModal";
-import McpInfoModal from "@gmo-onair/shared/src/client/mcpInfo/McpInfoModal";
+import AppHeader from "@gmo-onair/shared/src/client/AppHeader";
 import { PROJECT_STAGE, statusOf } from "@gmo-onair/shared/src/constants/statuses";
 import { SALES_MANUAL } from "@/manual/content";
 
@@ -32,9 +29,6 @@ export default function Header({ title }: { title?: string }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const isHome = pathname === "/" || pathname === "";
-  const [manualOpen, setManualOpen] = useState(false);
-  const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
-  const [mcpInfoOpen, setMcpInfoOpen] = useState(false);
 
   const appLabel = title ?? Object.entries(APP_LABELS).find(([p]) => pathname.startsWith(p))?.[1] ?? "";
   const currentApp = pathname.startsWith("/sales") ? "sales"
@@ -154,22 +148,15 @@ export default function Header({ title }: { title?: string }) {
   );
 
   return (
-    <>
-      <SharedHeader
-        currentApp={currentApp}
-        appLabel={appLabel}
-        currentUser={currentUser}
-        onLogout={logout}
-        onSwitchUser={logout}
-        onToggleSidebar={isHome ? undefined : toggleSidebar}
-        centerContent={searchBox}
-        onOpenManual={() => setManualOpen(true)}
-        onOpenVersionHistory={() => setVersionHistoryOpen(true)}
-        onOpenMcpInfo={() => setMcpInfoOpen(true)}
-      />
-      <ManualModal open={manualOpen} onOpenChange={setManualOpen} content={SALES_MANUAL} />
-      <VersionHistoryModal open={versionHistoryOpen} onOpenChange={setVersionHistoryOpen} productLabel="GMO ONAiR" />
-      <McpInfoModal open={mcpInfoOpen} onOpenChange={setMcpInfoOpen} />
-    </>
+    <AppHeader
+      currentApp={currentApp}
+      appLabel={appLabel}
+      currentUser={currentUser}
+      onLogout={logout}
+      onSwitchUser={logout}
+      onToggleSidebar={isHome ? undefined : toggleSidebar}
+      centerContent={searchBox}
+      manualContent={SALES_MANUAL}
+    />
   );
 }
