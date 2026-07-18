@@ -70,6 +70,8 @@ export function registerTaskTools(server: McpServer): void {
         start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('期限日'),
         assigned_to: z.string().optional().describe('担当者の users.id'),
+        progress: z.number().int().min(0).max(100).optional().describe('進捗% (0-100)'),
+        is_milestone: z.boolean().optional().describe('マイルストーンか (◆・単一日)'),
         ...REQUESTED_BY,
       },
     },
@@ -84,6 +86,8 @@ export function registerTaskTools(server: McpServer): void {
           start_date: args.start_date ?? null,
           due_date: args.due_date ?? null,
           assigned_to: args.assigned_to ?? null,
+          progress: args.progress,
+          is_milestone: args.is_milestone,
         },
         currentActorId(),
       );
@@ -106,13 +110,15 @@ export function registerTaskTools(server: McpServer): void {
         start_date: z.string().nullable().optional(),
         due_date: z.string().nullable().optional(),
         assigned_to: z.string().nullable().optional().describe('users.id / null で担当解除'),
+        progress: z.number().int().min(0).max(100).optional().describe('進捗% (0-100)'),
+        is_milestone: z.boolean().optional().describe('マイルストーンか (◆)'),
         completed: z.boolean().optional().describe('完了状態の変更'),
         ...REQUESTED_BY,
       },
     },
     async (args) => runTool(async () => {
       const data: Record<string, unknown> = {};
-      for (const f of ['title', 'description', 'column_id', 'start_date', 'due_date', 'assigned_to'] as const) {
+      for (const f of ['title', 'description', 'column_id', 'start_date', 'due_date', 'assigned_to', 'progress', 'is_milestone'] as const) {
         const argVal = (args as Record<string, unknown>)[f];
         if (argVal !== undefined) data[f] = argVal;
       }
@@ -207,6 +213,8 @@ export function registerTaskTools(server: McpServer): void {
           start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
           due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
           assigned_to: z.string().optional(),
+          progress: z.number().int().min(0).max(100).optional(),
+          is_milestone: z.boolean().optional(),
         })).min(1).max(100).describe('作成するタスクの配列 (最大100件)'),
         ...REQUESTED_BY,
       },
@@ -224,6 +232,8 @@ export function registerTaskTools(server: McpServer): void {
             start_date: t.start_date ?? null,
             due_date: t.due_date ?? null,
             assigned_to: t.assigned_to ?? null,
+            progress: t.progress,
+            is_milestone: t.is_milestone,
           },
           currentActorId(),
         );
@@ -231,6 +241,59 @@ export function registerTaskTools(server: McpServer): void {
       }
       audit('bulk_create_tasks', args, { project_id: args.project_id, created_count: created.length }, args.requested_by);
       return ok({ created: true, count: created.length, tasks: created });
+    }),
+  );
+
+  server.registerTool(
+    'list_task_dependencies',
+    {
+      title: 'タスク依存関係一覧',
+      description: '案件内のタスク依存関係 (先行 predecessor → 後続 successor) を一覧する。',
+      inputSchema: {
+        project_id: z.string().min(1).describe('案件 ID'),
+      },
+    },
+    async (args) => runTool(async () => {
+      const deps = await projectTasksService.listDependencies(args.project_id);
+      return ok(deps);
+    }),
+  );
+
+  server.registerTool(
+    'add_task_dependency',
+    {
+      title: 'タスク依存関係を追加',
+      description:
+        'タスク間に依存 (先行 → 後続) を追加する。predecessor_id が完了後に successor_id を開始する関係。' +
+        '同じ組は冪等。逆向きが既にあると循環になるため拒否。ガントに → 線で表示される。',
+      inputSchema: {
+        project_id: z.string().min(1).describe('案件 ID'),
+        predecessor_id: z.string().min(1).describe('先行タスク ID'),
+        successor_id: z.string().min(1).describe('後続タスク ID'),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      const dep = await projectTasksService.addDependency(args.project_id, args.predecessor_id, args.successor_id, currentActorId());
+      audit('add_task_dependency', args, { dependency_id: dep.id, predecessor_id: args.predecessor_id, successor_id: args.successor_id }, args.requested_by);
+      return ok({ added: true, dependency: dep });
+    }),
+  );
+
+  server.registerTool(
+    'remove_task_dependency',
+    {
+      title: 'タスク依存関係を削除',
+      description: 'タスク依存関係を削除する。id は list_task_dependencies で取得。',
+      inputSchema: {
+        id: z.string().min(1).describe('依存関係 ID'),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      await projectTasksService.removeDependency(args.id);
+      audit('remove_task_dependency', args, { removed_id: args.id }, args.requested_by);
+      return ok({ removed: true, id: args.id });
     }),
   );
 }

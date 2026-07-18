@@ -442,6 +442,8 @@ export interface ProjectTask {
   assigned_to_name: string | null;
   is_completed: boolean;
   completed_at: string | null;
+  progress?: number;
+  is_milestone?: boolean;
   sort_order: number;
   parent_task_id: string | null;
   column_name: string | null;

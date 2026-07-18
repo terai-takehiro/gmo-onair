@@ -196,6 +196,48 @@ export function useReorderTasks(projectId: string) {
   });
 }
 
+// ------------------------------------------------------------------ dependencies
+export interface TaskDependency {
+  id: string;
+  predecessor_id: string;
+  successor_id: string;
+}
+
+const depKey = (pid: string) => ["task-dependencies", pid] as const;
+
+export function useTaskDependencies(projectId: string) {
+  return useQuery({
+    queryKey: depKey(projectId),
+    queryFn: async () => {
+      const res = await api.get<{ data: TaskDependency[] }>(
+        `/projects/${projectId}/tasks/dependencies`
+      );
+      return res.data.data;
+    },
+    enabled: !!projectId,
+  });
+}
+
+export function useAddDependency(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { predecessor_id: string; successor_id: string }) =>
+      api
+        .post<{ data: TaskDependency }>(`/projects/${projectId}/tasks/dependencies`, data)
+        .then((r) => r.data.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: depKey(projectId) }),
+  });
+}
+
+export function useRemoveDependency(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.delete(`/projects/${projectId}/tasks/dependencies/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: depKey(projectId) }),
+  });
+}
+
 // ------------------------------------------------------------------ templates
 export function useTaskTemplates() {
   return useQuery({

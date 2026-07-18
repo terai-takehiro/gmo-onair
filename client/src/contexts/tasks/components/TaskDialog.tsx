@@ -20,11 +20,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import ChecklistItems from "./ChecklistItems";
 import {
   useCreateTask,
   useUpdateTask,
   useTaskColumns,
+  useProjectTasks,
+  useTaskDependencies,
+  useAddDependency,
+  useRemoveDependency,
 } from "../hooks/useProjectTasks";
 import {
   TaskTypeLabels,
@@ -64,6 +69,8 @@ export default function TaskDialog({
   const [assignedTo, setAssignedTo] = useState<string>("");
   const [startDate, setStartDate] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [progress, setProgress] = useState(0);
+  const [isMilestone, setIsMilestone] = useState(false);
 
   const { data: columns = [] } = useTaskColumns(projectId);
   const { data: users = [] } = useQuery({
@@ -89,6 +96,8 @@ export default function TaskDialog({
       setAssignedTo(existing.assigned_to ?? "");
       setStartDate(existing.start_date ?? "");
       setDueDate(existing.due_date ?? "");
+      setProgress(existing.progress ?? 0);
+      setIsMilestone(existing.is_milestone ?? false);
     } else {
       setTitle("");
       setDescription("");
@@ -98,6 +107,8 @@ export default function TaskDialog({
       setAssignedTo("");
       setStartDate("");
       setDueDate("");
+      setProgress(0);
+      setIsMilestone(false);
     }
   }, [existing, defaultColumnId, open]);
 
@@ -115,6 +126,8 @@ export default function TaskDialog({
       assigned_to: assignedTo || null,
       start_date: startDate || null,
       due_date: dueDate || null,
+      progress: isMilestone ? 0 : progress,
+      is_milestone: isMilestone,
     };
 
     try {
@@ -255,6 +268,38 @@ export default function TaskDialog({
             </div>
           </div>
 
+          {/* マイルストーン + 進捗 */}
+          <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="task-milestone" className="flex items-center gap-2">
+                <span className="text-amber-500">◆</span> マイルストーン
+              </Label>
+              <Switch id="task-milestone" checked={isMilestone} onCheckedChange={setIsMilestone} />
+            </div>
+            {!isMilestone && (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label>進捗</Label>
+                  <span className="text-sm font-semibold tabular-nums">{progress}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={progress}
+                  onChange={(e) => setProgress(Number(e.target.value))}
+                  className="w-full accent-primary"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* 先行タスク (依存関係) — 既存タスクのみ */}
+          {existing && (
+            <PredecessorEditor projectId={projectId} taskId={existing.id} />
+          )}
+
           {/* メモ */}
           <div className="space-y-1">
             <Label htmlFor="task-desc">メモ</Label>
@@ -297,5 +342,62 @@ export default function TaskDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** 先行タスク (この後に始めるタスク) の依存関係を即時に追加/削除 */
+function PredecessorEditor({ projectId, taskId }: { projectId: string; taskId: string }) {
+  const { data: tasks = [] } = useProjectTasks(projectId);
+  const { data: deps = [] } = useTaskDependencies(projectId);
+  const addDep = useAddDependency(projectId);
+  const removeDep = useRemoveDependency(projectId);
+
+  // この (successor) タスクの先行タスク id → dependency id
+  const predOf = new Map<string, string>();
+  for (const d of deps) if (d.successor_id === taskId) predOf.set(d.predecessor_id, d.id);
+
+  const candidates = tasks.filter((t) => t.id !== taskId);
+  const [adding, setAdding] = useState(false);
+
+  return (
+    <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
+      <div className="flex items-center justify-between">
+        <Label className="text-sm">先行タスク（完了後にこのタスクを開始）</Label>
+        {predOf.size > 0 && <Badge variant="secondary" className="text-xs">{predOf.size}</Badge>}
+      </div>
+      {predOf.size === 0 && !adding && (
+        <p className="text-xs text-muted-foreground">先行タスクなし</p>
+      )}
+      {/* 現在の先行タスク */}
+      <div className="flex flex-wrap gap-1.5">
+        {[...predOf.entries()].map(([pid, depId]) => {
+          const t = tasks.find((x) => x.id === pid);
+          return (
+            <span key={depId} className="flex items-center gap-1 rounded-full border bg-background px-2 py-0.5 text-xs">
+              {t?.title ?? "(削除済み)"}
+              <button type="button" onClick={() => removeDep.mutate(depId)}
+                className="text-muted-foreground hover:text-destructive">×</button>
+            </span>
+          );
+        })}
+      </div>
+      {/* 追加 */}
+      {adding ? (
+        <Select
+          value=""
+          onValueChange={(v) => { if (v) { addDep.mutate({ predecessor_id: v, successor_id: taskId }); setAdding(false); } }}
+        >
+          <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="先行タスクを選択..." /></SelectTrigger>
+          <SelectContent>
+            {candidates.filter((t) => !predOf.has(t.id)).map((t) => (
+              <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : (
+        <button type="button" onClick={() => setAdding(true)}
+          className="text-xs text-primary hover:underline">+ 先行タスクを追加</button>
+      )}
+    </div>
   );
 }

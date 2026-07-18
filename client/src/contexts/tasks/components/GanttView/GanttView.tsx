@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { addDays, subDays, format } from "date-fns";
 import GanttTimeline from "./GanttTimeline";
 import GanttRow, { type DragMode } from "./GanttRow";
-import { useProjectTasks, useUpdateTask } from "../../hooks/useProjectTasks";
+import { useProjectTasks, useUpdateTask, useTaskDependencies } from "../../hooks/useProjectTasks";
 import type { ProjectTask } from "@/types";
 
 const DAY_WIDTH = 24;
@@ -30,6 +30,7 @@ const dayOffset = (date: Date, origin: Date) =>
 
 export default function GanttView({ projectId, episodeId }: Props) {
   const { data: tasks = [] } = useProjectTasks(projectId, episodeId);
+  const { data: dependencies = [] } = useTaskDependencies(projectId);
   const updateTask = useUpdateTask(projectId);
 
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -155,6 +156,10 @@ export default function GanttView({ projectId, episodeId }: Props) {
     };
   };
 
+  // 依存関係の矢印描画用に各バーの座標を索引化
+  const geomById = new Map<string, { x: number; width: number; y: number }>();
+  scheduledTasks.forEach((t, i) => geomById.set(t.id, barGeom(t, i)));
+
   return (
     <div className="flex flex-col h-full" style={drag ? { userSelect: "none" } : undefined}>
       <div className="flex items-center gap-2 px-1 pb-2 text-[11px] text-muted-foreground">
@@ -220,6 +225,34 @@ export default function GanttView({ projectId, episodeId }: Props) {
                   isDragging={drag?.taskId === task.id}
                   onDragStart={(mode, clientX) => beginDrag(task, mode, clientX)}
                 />
+              );
+            })}
+
+            {/* 依存関係の矢印 (先行 → 後続) */}
+            {dependencies.map((dep) => {
+              const p = geomById.get(dep.predecessor_id);
+              const s = geomById.get(dep.successor_id);
+              if (!p || !s) return null;
+              const ex = p.x + p.width;
+              const ey = p.y + ROW_HEIGHT / 2;
+              const sx = s.x;
+              const sy = s.y + ROW_HEIGHT / 2;
+              const midX = ex + 8;
+              return (
+                <g key={dep.id} style={{ pointerEvents: "none" }}>
+                  <polyline
+                    points={`${ex},${ey} ${midX},${ey} ${midX},${sy} ${sx},${sy}`}
+                    fill="none"
+                    stroke="#64748b"
+                    strokeWidth={1.3}
+                    strokeOpacity={0.75}
+                  />
+                  <polygon
+                    points={`${sx - 6},${sy - 3} ${sx},${sy} ${sx - 6},${sy + 3}`}
+                    fill="#64748b"
+                    fillOpacity={0.85}
+                  />
+                </g>
               );
             })}
             {todayOffset >= 0 && todayOffset <= totalWidth && (

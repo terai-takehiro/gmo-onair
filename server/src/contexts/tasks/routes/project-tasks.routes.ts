@@ -8,6 +8,30 @@ const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<v
 const router = Router({ mergeParams: true });
 router.use(requireAuth, requirePermission('sales'));
 
+// ---- タスク依存関係 (先行 → 後続) — /:id より前に定義 ----
+// GET /projects/:projectId/tasks/dependencies
+router.get('/dependencies', wrap(async (req, res) => {
+  const projectId = (req.params as Record<string, string>).projectId;
+  const deps = await projectTasksService.listDependencies(projectId);
+  res.json({ success: true, data: deps });
+}));
+
+// POST /projects/:projectId/tasks/dependencies
+router.post('/dependencies', wrap(async (req, res) => {
+  const projectId = (req.params as Record<string, string>).projectId;
+  const userId = (req as { user?: { id: string } }).user!.id;
+  const { predecessor_id, successor_id } = req.body as { predecessor_id: string; successor_id: string };
+  const dep = await projectTasksService.addDependency(projectId, predecessor_id, successor_id, userId);
+  res.status(201).json({ success: true, data: dep });
+}));
+
+// DELETE /projects/:projectId/tasks/dependencies/:id
+router.delete('/dependencies/:id', wrap(async (req, res) => {
+  const { id } = req.params as Record<string, string>;
+  await projectTasksService.removeDependency(id);
+  res.json({ success: true });
+}));
+
 // GET /projects/:projectId/tasks
 router.get('/', wrap(async (req, res) => {
   const projectId = (req.params as Record<string, string>).projectId;

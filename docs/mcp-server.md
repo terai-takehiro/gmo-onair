@@ -81,7 +81,7 @@ https://gmo-onair.jp/api/v1/mcp?key=<MCP_API_KEY>
 
 URL 自体が秘密情報になるので共有・掲示しないこと。キーをローテーションしたらコネクタ URL も更新する。
 
-## ツール一覧 (63 種 / v2.9.204+)
+## ツール一覧 (66 種 / v2.9.206+)
 
 ### 案件管理
 | ツール | 種別 | 概要 |
@@ -103,11 +103,14 @@ URL 自体が秘密情報になるので共有・掲示しないこと。キー�
 | `list_overdue_actions` | read | 期限超過の次回アクション (対応漏れ) 一覧。定期リマインド→Slack 通知用 (毎朝叩いて「対応漏れ N件」を投稿する運用)。days_overdue / 案件 / 担当者 / 顧客を含む |
 | `create_activity_log` / `update_activity_log` | write | 活動記録の登録/更新 (user_id は活動した担当者の users.id 必須)。create は **idempotency_key で二重登録防止** + message_id / source_channel 保存可。同一メールから案件と活動を両方起票するときは key を意図別に分ける (例 `email:<msgid>:project` / `:activity`) |
 | `list_tasks` | read | タスク一覧 (案件内 or 進行中案件の横断) |
-| `create_task` / `update_task` | write | タスク作成/更新 (completed で完了切替) |
+| `create_task` / `update_task` | write | タスク作成/更新 (completed で完了切替。progress 0-100 / is_milestone ◆ も指定可) |
 | `move_task` | write | タスクをかんばん列へ移動 / 列内の並び替え (column_id + sort_order) |
 | `reorder_tasks` | write | 同一案件内のタスク並び順を一括更新 |
 | `delete_task` | write | タスク削除 (soft delete・子タスクも一緒に) |
-| `bulk_create_tasks` | write | タスク一括作成 (制作/プロジェクトのスケジュール雛形を一気に投入。start/due・担当・列を指定可) |
+| `bulk_create_tasks` | write | タスク一括作成 (制作/プロジェクトのスケジュール雛形を一気に投入。start/due・担当・列・progress・is_milestone を指定可) |
+| `list_task_dependencies` | read | 案件内のタスク依存 (先行→後続) 一覧 |
+| `add_task_dependency` | write | タスク依存を追加 (先行 predecessor → 後続 successor。冪等・循環は拒否。ガントの → 線) |
+| `remove_task_dependency` | write | タスク依存を削除 |
 | `list_project_members` | read | 案件の担当メンバー一覧 (複数担当・外部の方含む) |
 | `add_project_member` | write | 担当メンバー追加 (登録ユーザーは user_id / 外部の方は member_name+is_external。同ユーザーは冪等) |
 | `remove_project_member` | write | 担当メンバーを外す (soft delete) |

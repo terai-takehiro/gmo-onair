@@ -17,6 +17,8 @@ export interface ProjectTask {
   assigned_to_name: string | null;
   is_completed: boolean;
   completed_at: string | null;
+  progress: number;
+  is_milestone: boolean;
   sort_order: number;
   parent_task_id: string | null;
   column_name: string | null;
@@ -36,7 +38,8 @@ const SELECT_TASK = `
     t.title, t.description, t.task_type, t.production_step,
     t.start_date::text AS start_date, t.due_date::text AS due_date,
     t.assigned_to, u.name AS assigned_to_name,
-    t.is_completed, t.completed_at, t.sort_order, t.parent_task_id,
+    t.is_completed, t.completed_at, t.progress, t.is_milestone,
+    t.sort_order, t.parent_task_id,
     tc.name AS column_name, tc.color AS column_color,
     t.created_at, t.updated_at,
     (ai.audit_id IS NOT NULL) AS is_ai_created,
@@ -138,6 +141,8 @@ export const projectTasksService = {
       due_date?: string | null;
       assigned_to?: string | null;
       parent_task_id?: string | null;
+      progress?: number;
+      is_milestone?: boolean;
     },
     userId: string
   ): Promise<ProjectTask> {
@@ -158,13 +163,13 @@ export const projectTasksService = {
       `INSERT INTO project_tasks
          (id, project_id, episode_id, column_id, title, description,
           task_type, production_step, start_date, due_date,
-          assigned_to, sort_order, parent_task_id,
+          assigned_to, sort_order, parent_task_id, progress, is_milestone,
           created_at, updated_at, created_by, updated_by)
        VALUES
          ($1, $2, $3, $4, $5, $6,
           $7, $8, $9::date, $10::date,
-          $11, $12, $13,
-          NOW(), NOW(), $14, $14)`,
+          $11, $12, $13, $14, $15,
+          NOW(), NOW(), $16, $16)`,
       [
         id, projectId,
         data.episode_id ?? null, data.column_id ?? null,
@@ -173,6 +178,7 @@ export const projectTasksService = {
         data.start_date ?? null, data.due_date ?? null,
         data.assigned_to ?? null, sortOrder,
         data.parent_task_id ?? null,
+        Math.max(0, Math.min(100, data.progress ?? 0)), data.is_milestone ?? false,
         userId,
       ]
     );
@@ -192,6 +198,8 @@ export const projectTasksService = {
       start_date: string | null;
       due_date: string | null;
       assigned_to: string | null;
+      progress: number;
+      is_milestone: boolean;
     }>,
     userId: string
   ): Promise<ProjectTask> {
@@ -207,11 +215,15 @@ export const projectTasksService = {
 
     const fields = [
       'title', 'description', 'task_type', 'production_step',
-      'episode_id', 'column_id', 'assigned_to',
+      'episode_id', 'column_id', 'assigned_to', 'is_milestone',
     ] as const;
 
     for (const f of fields) {
       if (f in data) { sets.push(`${f} = $${i++}`); params.push((data as Record<string, unknown>)[f]); }
+    }
+    if ('progress' in data) {
+      sets.push(`progress = $${i++}`);
+      params.push(Math.max(0, Math.min(100, Number(data.progress) || 0)));
     }
     if ('start_date' in data) { sets.push(`start_date = $${i++}::date`); params.push(data.start_date); }
     if ('due_date' in data) { sets.push(`due_date = $${i++}::date`); params.push(data.due_date); }
@@ -299,5 +311,59 @@ export const projectTasksService = {
        WHERE id = $2`,
       [userId, id]
     );
+  },
+
+  // ---- タスク依存関係 (先行 → 後続) ----
+  async listDependencies(projectId: string): Promise<Array<{ id: string; predecessor_id: string; successor_id: string }>> {
+    return (await queryAll(
+      `SELECT id, predecessor_id, successor_id FROM task_dependencies
+       WHERE project_id = $1 ORDER BY created_at`,
+      [projectId]
+    )) as unknown as Array<{ id: string; predecessor_id: string; successor_id: string }>;
+  },
+
+  async addDependency(
+    projectId: string,
+    predecessorId: string,
+    successorId: string,
+    userId: string
+  ): Promise<{ id: string; predecessor_id: string; successor_id: string }> {
+    if (predecessorId === successorId) {
+      throw new AppError(400, 'VALIDATION_ERROR', '同じタスク同士は依存関係にできません');
+    }
+    // 両タスクがこの案件に属するか確認
+    const cnt = (await queryOne(
+      `SELECT COUNT(*)::int AS c FROM project_tasks
+       WHERE id IN ($1, $2) AND project_id = $3 AND deleted_at IS NULL`,
+      [predecessorId, successorId, projectId]
+    )) as unknown as { c: number };
+    if (cnt.c !== 2) throw new AppError(400, 'VALIDATION_ERROR', '対象タスクが見つかりません');
+
+    // 逆向きの依存があれば循環になるため拒否
+    const reverse = await queryOne(
+      `SELECT id FROM task_dependencies WHERE predecessor_id = $1 AND successor_id = $2`,
+      [successorId, predecessorId]
+    );
+    if (reverse) throw new AppError(400, 'VALIDATION_ERROR', '逆向きの依存が既に存在します (循環)');
+
+    // 重複は冪等に既存を返す
+    const existing = (await queryOne(
+      `SELECT id, predecessor_id, successor_id FROM task_dependencies
+       WHERE predecessor_id = $1 AND successor_id = $2`,
+      [predecessorId, successorId]
+    )) as unknown as { id: string; predecessor_id: string; successor_id: string } | undefined;
+    if (existing) return existing;
+
+    const id = uuidv4();
+    await execute(
+      `INSERT INTO task_dependencies (id, project_id, predecessor_id, successor_id, created_at, created_by)
+       VALUES ($1, $2, $3, $4, NOW(), $5)`,
+      [id, projectId, predecessorId, successorId, userId]
+    );
+    return { id, predecessor_id: predecessorId, successor_id: successorId };
+  },
+
+  async removeDependency(id: string): Promise<void> {
+    await execute(`DELETE FROM task_dependencies WHERE id = $1`, [id]);
   },
 };
