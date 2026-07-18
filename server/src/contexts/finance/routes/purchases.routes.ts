@@ -93,23 +93,37 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
 });
 
 router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
-  const existing = await queryOne('SELECT id, is_provisional FROM purchases WHERE id = ? AND deleted_at IS NULL', [req.params.id]) as any;
+  const existing = await queryOne('SELECT * FROM purchases WHERE id = ? AND deleted_at IS NULL', [req.params.id]) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '仕入が見つかりません');
 
   const { project_id, episode_id, vendor_id, settlement_method, settlement_number, settlement_url,
           tax_category, invoice_qualified, amount, description,
           recognition_date, inspection_date, payment_due_date, notes, is_provisional,
           service_completed_date } = req.body;
+  // 部分更新契約: 送られなかったフィールドは既存値を保持する (省略で NOT NULL 違反・
+  // 計上日消失・適格 0 への強制降格が起きていたのを防ぐ)。空文字は null 化する。
   await execute(
     `UPDATE purchases SET project_id=?, episode_id=?, vendor_id=?, settlement_method=?, settlement_number=?, settlement_url=?,
      tax_category=?, invoice_qualified=?, amount=?, description=?,
      recognition_date=?, inspection_date=?, payment_due_date=?, notes=?, is_provisional=?, service_completed_date=?,
      updated_at=NOW(), updated_by=? WHERE id=?`,
-    [project_id, episode_id || null, vendor_id, settlement_method || null, settlement_number || null, settlement_url || null,
-     tax_category, invoice_qualified ? 1 : 0, amount, description || null,
-     recognition_date || null, inspection_date || null, payment_due_date || null, notes || null,
+    [project_id !== undefined ? project_id : existing.project_id,
+     episode_id !== undefined ? (episode_id || null) : existing.episode_id,
+     vendor_id !== undefined ? vendor_id : existing.vendor_id,
+     settlement_method !== undefined ? (settlement_method || null) : existing.settlement_method,
+     settlement_number !== undefined ? (settlement_number || null) : existing.settlement_number,
+     settlement_url !== undefined ? (settlement_url || null) : existing.settlement_url,
+     tax_category !== undefined ? tax_category : existing.tax_category,
+     invoice_qualified !== undefined ? (invoice_qualified ? 1 : 0) : existing.invoice_qualified,
+     amount !== undefined ? amount : existing.amount,
+     description !== undefined ? (description || null) : existing.description,
+     recognition_date !== undefined ? (recognition_date || null) : existing.recognition_date,
+     inspection_date !== undefined ? (inspection_date || null) : existing.inspection_date,
+     payment_due_date !== undefined ? (payment_due_date || null) : existing.payment_due_date,
+     notes !== undefined ? (notes || null) : existing.notes,
      is_provisional !== undefined ? !!is_provisional : existing.is_provisional,
-     service_completed_date || null, req.user!.id, req.params.id]
+     service_completed_date !== undefined ? (service_completed_date || null) : existing.service_completed_date,
+     req.user!.id, req.params.id]
   );
   const row = await queryOne('SELECT * FROM purchases WHERE id = ?', [req.params.id]);
   res.json({ success: true, data: row });

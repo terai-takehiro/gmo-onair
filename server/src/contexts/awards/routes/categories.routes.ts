@@ -86,28 +86,6 @@ router.put('/categories/:id', wrap(async (req, res) => {
   res.json({ success: true, data: row });
 }));
 
-// ── 投票数の一括更新 (vote-reveal 用) ────────────────────────
-router.put('/categories/:id/vote-counts', wrap(async (req, res) => {
-  const id = parseInt(req.params.id as string);
-  const { counts } = req.body as { counts: { entryId: number; voteCount: number }[] };
-  if (!Array.isArray(counts)) throw new AppError(400, 'BAD_REQUEST', 'counts は配列です');
-
-  for (const c of counts) {
-    if (typeof c.entryId !== 'number') continue;
-    const vc = Math.max(0, Math.floor(Number(c.voteCount) || 0));
-    await execute(
-      `UPDATE awards_entries SET vote_count=?, updated_at=NOW() WHERE id=? AND category_id=?`,
-      [vc, c.entryId, id]
-    );
-  }
-
-  const rows = await queryAll(
-    `SELECT id, vote_count FROM awards_entries WHERE category_id=? ORDER BY id`,
-    [id]
-  );
-  res.json({ success: true, data: rows });
-}));
-
 // ── 並び替え ────────────────────────────────────────────────
 router.put('/events/:eventId/categories/reorder', wrap(async (req, res) => {
   const { order } = req.body as { order: { id: number; displayOrder: number }[] };

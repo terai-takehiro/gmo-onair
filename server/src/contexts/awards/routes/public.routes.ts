@@ -71,16 +71,6 @@ router.get('/events/:eventId/cue', wrap(async (req, res) => {
   });
 }));
 
-// ── リアルタイムCG (1S) module 構成 (放送送出ページ用) ─────────────
-router.get('/events/:id/module-config', wrap(async (req, res) => {
-  const id = parseInt(req.params.id as string);
-  const row = await queryOne(
-    `SELECT module_config FROM awards_events WHERE id = ?`, [id]
-  );
-  if (!row) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
-  res.json({ success: true, data: row.module_config ?? null });
-}));
-
 // ── リアルタイムCG (1S) output (event 詳細 + categories + entries(oneshot_data含む) + 現在の oneshot cue state) ──
 router.get('/events/:id/oneshot/output', wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);

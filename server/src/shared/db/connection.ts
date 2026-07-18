@@ -89,3 +89,37 @@ export async function execMultiple(sql: string): Promise<void> {
   const p = getDb();
   await p.query(sql);
 }
+
+// トランザクション用の軽量クライアント。既存の execute/queryOne/queryAll と同じ
+// `?` プレースホルダを受け付ける。
+export interface TxClient {
+  execute(sql: string, params?: unknown[]): Promise<void>;
+  queryOne(sql: string, params?: unknown[]): Promise<Row | undefined>;
+  queryAll(sql: string, params?: unknown[]): Promise<Row[]>;
+}
+
+/**
+ * fn を単一のトランザクション (BEGIN/COMMIT) 内で実行する。fn が throw したら
+ * ROLLBACK する。DELETE→再INSERT のような複数書き込みで、途中失敗による部分破壊
+ * (明細の全損等) を防ぐために使う。
+ */
+export async function withTransaction<T>(fn: (tx: TxClient) => Promise<T>): Promise<T> {
+  const p = getDb();
+  const client: PoolClient = await p.connect();
+  const tx: TxClient = {
+    async execute(sql, params = []) { await client.query(convertPlaceholders(sql), params); },
+    async queryAll(sql, params = []) { const r = await client.query(convertPlaceholders(sql), params); return r.rows; },
+    async queryOne(sql, params = []) { const r = await client.query(convertPlaceholders(sql), params); return r.rows[0]; },
+  };
+  try {
+    await client.query('BEGIN');
+    const result = await fn(tx);
+    await client.query('COMMIT');
+    return result;
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+}

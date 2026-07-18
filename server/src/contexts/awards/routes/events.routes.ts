@@ -59,18 +59,6 @@ router.get('/events/:id/output', wrap(async (req, res) => {
   res.json({ success: true, data: { ...event, categories: [...catMap.values()], surveys } });
 }));
 
-// ── 公開: 1S CG モジュール構成 GET (放送送出ページ用、認証不要) ──────
-// v2.8.92+: ranking CG output 同様、出力 URL からモジュール構成も取得できるように。
-// 書き込みの PUT は下の auth 区画に残置。
-router.get('/events/:id/module-config', wrap(async (req, res) => {
-  const id = parseInt(req.params.id as string);
-  const row = await queryOne(
-    `SELECT module_config FROM awards_events WHERE id = ?`, [id]
-  );
-  if (!row) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
-  res.json({ success: true, data: row.module_config ?? null });
-}));
-
 // v2.8.95: パススコープを明示。`router.use(mw)` (パス無し) は router 内のすべての
 // リクエストで発火するため、`/awards/images/...` 等の他 router 担当のパスが
 // この router を通過する際に誤って 401 で蹴られる不具合を起こしていた。
@@ -158,36 +146,6 @@ router.put('/events/:id', wrap(async (req, res) => {
   );
   if (!row) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
   res.json({ success: true, data: row });
-}));
-
-// ── 1S CG モジュール構成 (module_config) ────────────────────
-// v2.8.74+: ユーザーが追加・編集した送出モジュールの構成を保存。
-// NULL は「デフォルトプリセット使用」、設定済みは EventModuleConfig (JSON)。
-// PUT は認証必須で別途下に定義。 GET は公開 (放送送出ページが取得するため、
-// ランキングCG output と同じくログイン不要)。
-router.put('/events/:id/module-config', wrap(async (req, res) => {
-  const id = parseInt(req.params.id as string);
-  const config = req.body?.config;
-  // null が来た場合はデフォルト復帰 (column を NULL にセット)
-  if (config !== null && (typeof config !== 'object' || Array.isArray(config))) {
-    throw new AppError(400, 'BAD_REQUEST', 'config はオブジェクト or null で送信してください');
-  }
-  if (config !== null) {
-    if (config.version !== 1) {
-      throw new AppError(400, 'BAD_REQUEST', 'config.version は 1 のみ対応');
-    }
-    if (!Array.isArray(config.modules)) {
-      throw new AppError(400, 'BAD_REQUEST', 'config.modules は配列で送信してください');
-    }
-  }
-  const json = config === null ? null : JSON.stringify(config);
-  const row = await queryOne(
-    `UPDATE awards_events SET module_config = ?::jsonb, updated_at = NOW()
-     WHERE id = ? RETURNING module_config`,
-    [json, id]
-  );
-  if (!row) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
-  res.json({ success: true, data: row.module_config ?? null });
 }));
 
 // ── ステータス変更 ───────────────────────────────────────────
