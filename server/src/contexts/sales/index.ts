@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import projectsRoutes from './routes/projects.routes';
+import projectMembersRoutes from './routes/project-members.routes';
 import projectGroupsRoutes from './routes/project-groups.routes';
 import simulationsRoutes from './routes/simulations.routes';
 import customersRoutes from './routes/customers.routes';
@@ -15,6 +16,7 @@ export function createSalesRoutes(): Router {
 
   router.use('/project-groups', projectGroupsRoutes);
   router.use('/projects', projectsRoutes);
+  router.use('/projects', projectMembersRoutes);
   router.use('/projects', simulationsRoutes);
   router.use('/customers', customersRoutes);
   router.use('/companies', companiesRoutes);

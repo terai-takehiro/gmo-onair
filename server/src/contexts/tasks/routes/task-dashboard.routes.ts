@@ -12,12 +12,12 @@ router.use(requireAuth, requirePermission('sales'));
 // 完了・失注を除く全案件のカラム + タスクを返す
 router.get('/', wrap(async (req, res) => {
   const projects = (await queryAll(
-    `SELECT id, gls_number, name, stage
+    `SELECT id, gls_number, gls_category, name, stage
      FROM projects
      WHERE deleted_at IS NULL
        AND stage NOT IN ('s_completed', 'e_lost')
      ORDER BY gls_number NULLS LAST, name`
-  )) as unknown as { id: string; gls_number: string | null; name: string; stage: string }[];
+  )) as unknown as { id: string; gls_number: string | null; gls_category: string | null; name: string; stage: string }[];
 
   if (projects.length === 0) {
     res.json({ success: true, data: { projects: [], columns: [], tasks: [] } });
@@ -42,7 +42,8 @@ router.get('/', wrap(async (req, res) => {
        t.title, t.description, t.task_type, t.production_step,
        t.start_date::text AS start_date, t.due_date::text AS due_date,
        t.assigned_to, u.name AS assigned_to_name,
-       t.is_completed, t.completed_at, t.sort_order, t.parent_task_id,
+       t.is_completed, t.completed_at, t.progress, t.is_milestone,
+       t.sort_order, t.parent_task_id,
        tc.name AS column_name, tc.color AS column_color,
        t.created_at, t.updated_at,
        p.gls_number AS project_gls_number,

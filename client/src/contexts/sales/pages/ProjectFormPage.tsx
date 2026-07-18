@@ -35,6 +35,7 @@ import {
 } from "@/types";
 import SimulationDialog from "../components/SimulationDialog";
 import CustomerDialog from "../components/CustomerDialog";
+import ProjectMembersEditor from "../components/ProjectMembersEditor";
 
 interface LostDialogState {
   open: boolean;
@@ -973,15 +974,26 @@ export default function ProjectFormPage() {
                 )}
               </div>
               <div>
-                <Label>担当者</Label>
+                <Label>主担当</Label>
                 <SearchableSelect
                   options={(users as Array<{ id: string; name: string }>).map((u) => ({ value: u.id, label: u.name }))}
                   value={watch("assigned_to")}
                   onChange={(v) => setValue("assigned_to", v)}
-                  placeholder="担当者を検索..."
+                  placeholder="主担当を検索..."
                 />
               </div>
             </div>
+
+            {/* 担当メンバー (複数担当・外部の方対応) — 案件保存後に利用可能 */}
+            {isEdit && id ? (
+              <div className="rounded-lg border bg-card p-4">
+                <ProjectMembersEditor projectId={id} />
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                担当メンバー（複数・外部の方の手入力）は、案件を保存後に追加できます。
+              </p>
+            )}
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>

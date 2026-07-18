@@ -218,6 +218,7 @@ export interface Partner extends BaseEntity {
 export interface Project extends BaseEntity {
   code: string;
   gls_number: string | null;
+  gls_category?: 'A' | 'B' | null;
   name: string;
   customer_id: string;
   stage: ProjectStage;
@@ -441,6 +442,8 @@ export interface ProjectTask {
   assigned_to_name: string | null;
   is_completed: boolean;
   completed_at: string | null;
+  progress?: number;
+  is_milestone?: boolean;
   sort_order: number;
   parent_task_id: string | null;
   column_name: string | null;
@@ -474,6 +477,7 @@ export interface TaskColumnTemplateColumn {
 export interface DashboardProject {
   id: string;
   gls_number: string | null;
+  gls_category: 'A' | 'B' | null;
   name: string;
   stage: string;
 }
