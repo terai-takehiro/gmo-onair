@@ -1,10 +1,5 @@
-import path from 'path';
-import fs from 'fs';
 import PDFDocument from 'pdfkit';
-
-const fontsDir  = path.resolve(__dirname, '../../../fonts');
-const FONT_REG  = path.join(fontsDir, 'NotoSansJP-Regular.ttf');
-const FONT_BOLD = path.join(fontsDir, 'NotoSansJP-Bold.ttf');
+import { registerNotoFonts } from '../utils/pdf-fonts';
 
 const COMPANY = {
   name:   'GMOグローバルスタジオ株式会社',
@@ -83,10 +78,7 @@ export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
       doc.on('end',   () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      if (fs.existsSync(FONT_REG))  doc.registerFont('R', FONT_REG);
-      if (fs.existsSync(FONT_BOLD)) doc.registerFont('B', FONT_BOLD);
-      const R = fs.existsSync(FONT_REG)  ? 'R' : 'Helvetica';
-      const B = fs.existsSync(FONT_BOLD) ? 'B' : 'Helvetica-Bold';
+      const { regular: R, bold: B } = registerNotoFonts(doc, { regular: 'R', bold: 'B' });
 
       const ML = 40, PW = 515;
       let y = 40;

@@ -3,19 +3,11 @@ import { queryOne } from '../../../shared/db/connection';
 import { requireAuth } from '../../../shared/middleware/auth';
 import { canAccessDoc } from '../access';
 import PDFDocument from 'pdfkit';
-import path from 'path';
-import fs from 'fs';
+import { registerNotoFonts } from '../../../shared/utils/pdf-fonts';
 
 const router = Router();
 
 router.use(requireAuth);
-
-// ============================================================
-// Font paths
-// ============================================================
-const FONTS_DIR = path.join(__dirname, '../../../../fonts');
-const NOTO_REGULAR = path.join(FONTS_DIR, 'NotoSansJP-Regular.ttf');
-const NOTO_BOLD = path.join(FONTS_DIR, 'NotoSansJP-Bold.ttf');
 
 // ============================================================
 // Time helpers
@@ -151,14 +143,11 @@ router.post('/export-pdf', async (req: Request, res: Response) => {
       bufferPages: true,
     });
 
-    // Register Japanese font
-    const hasNoto = fs.existsSync(NOTO_REGULAR);
-    if (hasNoto) {
-      pdf.registerFont('NotoSansJP', NOTO_REGULAR);
-      pdf.registerFont('NotoSansJP-Bold', fs.existsSync(NOTO_BOLD) ? NOTO_BOLD : NOTO_REGULAR);
-    }
-    const fontRegular = hasNoto ? 'NotoSansJP' : 'Helvetica';
-    const fontBold = hasNoto ? 'NotoSansJP-Bold' : 'Helvetica-Bold';
+    // Register Japanese font (無い環境では Helvetica にフォールバック)
+    const { regular: fontRegular, bold: fontBold } = registerNotoFonts(pdf, {
+      regular: 'NotoSansJP',
+      bold: 'NotoSansJP-Bold',
+    });
 
     // Response headers
     res.setHeader('Content-Type', 'application/pdf');
