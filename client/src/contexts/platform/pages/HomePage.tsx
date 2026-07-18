@@ -236,16 +236,16 @@ export default function HomePage() {
           }
         />
 
-        {/* ───── 1. 今後のスケジュール (最上部・全幅で目立たせる) ───── */}
+        {/* ───── 1. 受信箱サマリー (「今日お客様を待たせているものはゼロか」= 最優先) ───── */}
+        {(canSeeSales || canSeeDailyops) && <InboxSummarySection navigate={navigate} />}
+
+        {/* ───── 2. 今日・明日の現場 (今後のスケジュール) ───── */}
         {canSeeStudio && <ScheduleSection />}
 
-        {/* ───── 2. クイックアクセス (作成系・高頻度業務への導線) ───── */}
+        {/* ───── 3. クイックアクセス (作成系・高頻度業務への導線) ───── */}
         {(canSeeSales || canSeeBudget) && (
           <QuickAccessSection navigate={navigate} canSeeSales={canSeeSales} canSeeBudget={canSeeBudget} />
         )}
-
-        {/* ───── 3. 受信箱サマリー (お客様を待たせているもの — /sales/inbox へ) ───── */}
-        {(canSeeSales || canSeeDailyops) && <InboxSummarySection navigate={navigate} />}
 
         {/* ───── 4. 今月の主要指標 + 前月比 ───── */}
         {canSeeSales && <KpiSection navigate={navigate} />}

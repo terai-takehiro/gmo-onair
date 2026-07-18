@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Inbox,
+  TrendingUp,
   FolderKanban,
   Receipt,
   ShoppingCart,
@@ -67,6 +68,7 @@ interface NavSection {
 
 /** ブロックアプリ別のナビゲーション定義 */
 const APP_NAV: Record<string, NavSection[]> = {
+  // v2.9.220+: 営業ジャーニー縦軸でグルーピング (お客様の声→お客様→商談→案件→ふりかえり)
   sales: [
     {
       title: "要対応",
@@ -75,13 +77,26 @@ const APP_NAV: Record<string, NavSection[]> = {
       ],
     },
     {
+      title: "お客様",
+      items: [
+        { label: "顧客", to: "/sales/customers", icon: Building2 },
+      ],
+    },
+    {
+      title: "商談",
+      items: [
+        { label: "ヨミ・パイプライン", to: "/sales/pipeline", icon: TrendingUp },
+        { label: "営業活動記録", to: "/sales/activity-logs", icon: ClipboardList },
+      ],
+    },
+    {
       title: "案件",
       items: [
         { label: "案件一覧", to: "/sales/projects", icon: FolderKanban },
-        { label: "旧GLS（決算取込）", to: "/sales/gls-import", icon: Database },
         { label: "確定案件（スタジオ）", to: "/sales/projects/confirmed/studio", icon: Film },
         { label: "確定案件（ビジネス）", to: "/sales/projects/confirmed/business", icon: Briefcase },
         { label: "按分グループ", to: "/sales/project-groups", icon: GitBranch },
+        { label: "旧GLS（決算取込）", to: "/sales/gls-import", icon: Database },
       ],
     },
     {
@@ -93,12 +108,11 @@ const APP_NAV: Record<string, NavSection[]> = {
       ],
     },
     {
-      title: "営業",
+      title: "ふりかえり",
       items: [
-        { label: "営業活動記録", to: "/sales/activity-logs", icon: ClipboardList },
-        { label: "AI活動履歴", to: "/sales/ai-activity", icon: Sparkles },
         { label: "営業レビュー", to: "/sales/review", icon: Award },
         { label: "報告資料", to: "/sales/keep-report", icon: Presentation },
+        { label: "AI活動履歴", to: "/sales/ai-activity", icon: Sparkles },
         { label: "ダッシュボード", to: "/sales/dashboard", icon: BarChart3 },
       ],
     },
@@ -106,7 +120,6 @@ const APP_NAV: Record<string, NavSection[]> = {
       title: "マスター",
       items: [
         { label: "取引先マスター", to: "/sales/companies", icon: Store },
-        { label: "顧客", to: "/sales/customers", icon: Building2 },
         { label: "料金表", to: "/sales/pricing", icon: DollarSign },
       ],
     },

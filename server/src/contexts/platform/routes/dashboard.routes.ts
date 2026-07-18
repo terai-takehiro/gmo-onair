@@ -175,7 +175,7 @@ router.get('/sales-board', async (_req, res) => {
   // v2.9.197+: AI 起票判定は created_by=mcpActor OR 監査ログ照合 (OAuth 本人名義でも検出)。
   // 直近活動自体の AI 取込判定 (last_activity_is_ai) も返す。
   const rows = await queryAll(
-    `SELECT p.id, p.gls_number, p.name, p.stage, p.event_start,
+    `SELECT p.id, p.gls_number, p.name, p.stage, p.event_start, p.expected_amount,
             p.created_by, p.ai_reviewed_at,
             c.name AS customer_name,
             la.activity_type   AS last_activity_type,
