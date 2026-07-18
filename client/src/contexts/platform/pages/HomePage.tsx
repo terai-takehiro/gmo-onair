@@ -52,6 +52,7 @@ import {
   Timer,
   Tv,
   FileSearch,
+  FolderPlus,
   Zap,
   RefreshCw,
   Loader2,
@@ -257,8 +258,10 @@ export default function HomePage() {
         {/* ───── 1. 今後のスケジュール (最上部・全幅で目立たせる) ───── */}
         {canSeeStudio && <ScheduleSection />}
 
-        {/* ───── 2. クイックアクセス (財務管理が有効なユーザー) ───── */}
-        {canSeeBudget && <QuickAccessSection navigate={navigate} />}
+        {/* ───── 2. クイックアクセス (作成系・高頻度業務への導線) ───── */}
+        {(canSeeSales || canSeeBudget) && (
+          <QuickAccessSection navigate={navigate} canSeeSales={canSeeSales} canSeeBudget={canSeeBudget} />
+        )}
 
         {/* ───── 3. AI 起票インボックス (未確認の AI 起票案件があるときだけ表示) ───── */}
         {canSeeSales && <AiInboxSection navigate={navigate} />}
@@ -438,35 +441,75 @@ function ActionItemsSection({ navigate }: { navigate: (to: string) => void }) {
 // セクション 1.5: クイックアクセス (財務管理が有効なユーザー向け)
 // 経費精算 PDF 取込などの高頻度業務へトップページからワンタップで移動
 // ══════════════════════════════════════════════════════════
-function QuickAccessSection({ navigate }: { navigate: (to: string) => void }) {
+function QuickAccessSection({ navigate, canSeeSales, canSeeBudget }: { navigate: (to: string) => void; canSeeSales: boolean; canSeeBudget: boolean }) {
   return (
     <SectionCard
       title="クイックアクセス"
-      description="よく使う財務業務へワンタップで移動できます。"
+      description="よく使う業務へワンタップで移動できます。"
       icon={<Zap />}
       padding="compact"
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <button
-          type="button"
-          onClick={() => navigate("/budget/xpoint-import")}
-          aria-label="精算PDF取込を開く"
-          className="group flex items-center gap-3 rounded-md border border-border bg-card p-3 text-left transition-colors hover:border-primary hover:bg-accent active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-            <FileSearch className="h-5 w-5" aria-hidden="true" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-foreground flex flex-wrap items-center gap-1.5">
-              精算PDF取込
-              <Badge variant="outline" className="text-[10px] px-1.5 font-normal">X-Point / 楽楽精算</Badge>
-            </p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              申請PDFをアップロード or Boxから読み取り、確認して仕入・販管費に登録
-            </p>
-          </div>
-          <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden="true" />
-        </button>
+        {canSeeSales && (
+          <button
+            type="button"
+            onClick={() => navigate("/sales/projects/new")}
+            aria-label="新規案件を作成"
+            className="group flex items-center gap-3 rounded-md border border-border bg-card p-3 text-left transition-colors hover:border-primary hover:bg-accent active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <FolderPlus className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground">新規案件を作成</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                ヨミ案件（見込み）として登録。GLS発番前でもここから始められます
+              </p>
+            </div>
+            <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden="true" />
+          </button>
+        )}
+        {canSeeSales && (
+          <button
+            type="button"
+            onClick={() => navigate("/sales/activity-logs")}
+            aria-label="営業活動を記録"
+            className="group flex items-center gap-3 rounded-md border border-border bg-card p-3 text-left transition-colors hover:border-primary hover:bg-accent active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <ClipboardList className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground">営業活動を記録</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                メール・電話・打合せのやり取りと次回アクションを記録
+              </p>
+            </div>
+            <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden="true" />
+          </button>
+        )}
+        {canSeeBudget && (
+          <button
+            type="button"
+            onClick={() => navigate("/budget/xpoint-import")}
+            aria-label="精算PDF取込を開く"
+            className="group flex items-center gap-3 rounded-md border border-border bg-card p-3 text-left transition-colors hover:border-primary hover:bg-accent active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <FileSearch className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground flex flex-wrap items-center gap-1.5">
+                精算PDF取込
+                <Badge variant="outline" className="text-[10px] px-1.5 font-normal">X-Point / 楽楽精算</Badge>
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                申請PDFをアップロード or Boxから読み取り、確認して仕入・販管費に登録
+              </p>
+            </div>
+            <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden="true" />
+          </button>
+        )}
       </div>
     </SectionCard>
   );
