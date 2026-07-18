@@ -3,6 +3,7 @@
  * useCrudPage / FilterBar / Pagination の shared プリミティブを使用。
  */
 import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { FilterBar } from "@gmo-onair/shared/src/client/ui/filter-bar";
@@ -58,6 +59,7 @@ const EMPTY_FORM: CustomerForm = {
 };
 
 export default function CustomerListPage() {
+  const navigate = useNavigate();
   const crud = useCrudPage<Customer>({
     endpoint: "/customers",
     queryKey: ["customers"],
@@ -117,9 +119,13 @@ export default function CustomerListPage() {
               {crud.items.map((c) => (
                 <div key={c.id} className="rounded-lg border p-3 transition-colors hover:bg-muted/50">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 text-left"
+                      onClick={() => navigate(`/sales/customers/${c.id}`)}
+                    >
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="font-medium truncate">{c.name}</span>
+                        <span className="font-medium truncate text-primary">{c.name}</span>
                         {c.is_ai_created && <AiCreatedBadge requestedBy={c.ai_requested_by} />}
                       </div>
                       <div className="text-sm text-muted-foreground truncate">
@@ -130,7 +136,7 @@ export default function CustomerListPage() {
                       {c.email && (
                         <div className="text-sm text-muted-foreground truncate">{c.email}</div>
                       )}
-                    </div>
+                    </button>
                     <div className="flex gap-1 shrink-0">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => crud.openEdit(c)} aria-label="編集">
                         <Pencil className="h-4 w-4" />
@@ -150,11 +156,12 @@ export default function CustomerListPage() {
                 data={crud.items}
                 rowKey={(c) => c.id}
                 storageKey="customers"
+                onRowClick={(c) => navigate(`/sales/customers/${c.id}`)}
                 columns={[
                   {
                     key: "name", header: "顧客名", defaultWidth: 240, className: "font-medium",
                     cell: (c) => (
-                      <span className="inline-flex items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1.5 text-primary">
                         {c.name}
                         {c.is_ai_created && <AiCreatedBadge requestedBy={c.ai_requested_by} />}
                       </span>
@@ -168,10 +175,10 @@ export default function CustomerListPage() {
                 actionsWidth={96}
                 actions={(c) => (
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => crud.openEdit(c)} aria-label="編集">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); crud.openEdit(c); }} aria-label="編集">
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(c)} aria-label="削除">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); handleDelete(c); }} aria-label="削除">
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>

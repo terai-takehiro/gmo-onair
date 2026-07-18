@@ -128,26 +128,28 @@ router.get('/alerts', async (_req, res) => {
   res.json({ success: true, data: alerts });
 });
 
+// 期限超過の次回アクション SQL (overdue-actions と 受信箱 /inbox が共用)
+const OVERDUE_ACTIONS_SQL =
+  `SELECT a.id AS activity_id, a.next_action, a.next_action_date,
+          a.project_id, p.code AS project_code, p.gls_number, p.name AS project_name, p.stage,
+          a.user_id, u.name AS assigned_to_name, c.name AS customer_name,
+          (CURRENT_DATE - a.next_action_date::date) AS days_overdue
+   FROM activity_logs a
+   JOIN projects p ON p.id = a.project_id
+   LEFT JOIN users u ON u.id = a.user_id
+   LEFT JOIN customers c ON c.id = p.customer_id
+   WHERE a.deleted_at IS NULL AND p.deleted_at IS NULL
+     AND p.stage NOT IN ('s_completed','e_lost')
+     AND a.next_action IS NOT NULL AND a.next_action_date IS NOT NULL
+     AND a.next_action_done_at IS NULL
+     AND a.next_action_date < CURRENT_DATE::text
+   ORDER BY a.next_action_date ASC
+   LIMIT 200`;
+
 // 期限超過の次回アクション (エスカレーション用)。進行中案件で next_action_date < 今日 かつ 未完了。
 // 期限が古い順。ホームの「対応漏れ」アラートと、Claude スケジュール実行→Slack 通知の両方で使う。
 router.get('/overdue-actions', async (_req, res) => {
-  const rows = await queryAll(
-    `SELECT a.id AS activity_id, a.next_action, a.next_action_date,
-            a.project_id, p.code AS project_code, p.gls_number, p.name AS project_name, p.stage,
-            a.user_id, u.name AS assigned_to_name, c.name AS customer_name,
-            (CURRENT_DATE - a.next_action_date::date) AS days_overdue
-     FROM activity_logs a
-     JOIN projects p ON p.id = a.project_id
-     LEFT JOIN users u ON u.id = a.user_id
-     LEFT JOIN customers c ON c.id = p.customer_id
-     WHERE a.deleted_at IS NULL AND p.deleted_at IS NULL
-       AND p.stage NOT IN ('s_completed','e_lost')
-       AND a.next_action IS NOT NULL AND a.next_action_date IS NOT NULL
-       AND a.next_action_done_at IS NULL
-       AND a.next_action_date < CURRENT_DATE::text
-     ORDER BY a.next_action_date ASC
-     LIMIT 200`
-  );
+  const rows = await queryAll(OVERDUE_ACTIONS_SQL);
   res.json({ success: true, data: rows });
 });
 
@@ -173,7 +175,7 @@ router.get('/sales-board', async (_req, res) => {
   // v2.9.197+: AI 起票判定は created_by=mcpActor OR 監査ログ照合 (OAuth 本人名義でも検出)。
   // 直近活動自体の AI 取込判定 (last_activity_is_ai) も返す。
   const rows = await queryAll(
-    `SELECT p.id, p.gls_number, p.name, p.stage, p.event_start,
+    `SELECT p.id, p.gls_number, p.name, p.stage, p.event_start, p.expected_amount,
             p.created_by, p.ai_reviewed_at,
             c.name AS customer_name,
             la.activity_type   AS last_activity_type,
@@ -247,28 +249,117 @@ router.get('/sales-board', async (_req, res) => {
 // v2.9.178+: AI 起票インボックス — AI (MCP 経由のメール取込等) が起票した案件のうち
 // 人間がまだ内容確認していないもの (ai_reviewed_at IS NULL) を新しい順に返す。
 // 確認は POST /projects/:id/ai-review (projects.routes) で記録する。
+// AI 起票の未確認案件 SQL (ai-inbox と 受信箱 /inbox が共用)
+const AI_INBOX_SQL =
+  `SELECT p.id, p.code, p.gls_number, p.name, p.stage, p.expected_amount, p.created_at,
+          c.name AS customer_name, u.name AS assigned_to_name,
+          ai.requested_by AS ai_requested_by
+   FROM projects p
+   LEFT JOIN customers c ON c.id = p.customer_id
+   LEFT JOIN users u ON u.id = p.assigned_to
+   LEFT JOIN LATERAL (
+     SELECT m.id AS audit_id, m.requested_by FROM mcp_audit_log m
+     WHERE m.tool_name = 'create_project' AND m.result_summary->>'created_id' = p.id
+     ORDER BY m.created_at ASC
+     LIMIT 1
+   ) ai ON TRUE
+   WHERE p.deleted_at IS NULL
+     AND (p.created_by = ? OR ai.audit_id IS NOT NULL)
+     AND p.ai_reviewed_at IS NULL
+   ORDER BY p.created_at DESC
+   LIMIT 50`;
+
 router.get('/ai-inbox', async (_req, res) => {
-  const rows = await queryAll(
-    `SELECT p.id, p.code, p.gls_number, p.name, p.stage, p.expected_amount, p.created_at,
-            c.name AS customer_name, u.name AS assigned_to_name,
-            ai.requested_by AS ai_requested_by
-     FROM projects p
-     LEFT JOIN customers c ON c.id = p.customer_id
-     LEFT JOIN users u ON u.id = p.assigned_to
-     LEFT JOIN LATERAL (
-       SELECT m.id AS audit_id, m.requested_by FROM mcp_audit_log m
-       WHERE m.tool_name = 'create_project' AND m.result_summary->>'created_id' = p.id
-       ORDER BY m.created_at ASC
-       LIMIT 1
-     ) ai ON TRUE
-     WHERE p.deleted_at IS NULL
-       AND (p.created_by = ? OR ai.audit_id IS NOT NULL)
-       AND p.ai_reviewed_at IS NULL
-     ORDER BY p.created_at DESC
-     LIMIT 50`,
-    [config.mcpActorId]
-  );
+  const rows = await queryAll(AI_INBOX_SQL, [config.mcpActorId]);
   res.json({ success: true, data: rows });
+});
+
+// ══════════════════════════════════════════════════════════
+// 受信箱 (v2.9.217+) — 「お客様を待たせているもの」を1本のキューに集約
+// items   = 終端状態を持つ inbound のみ (期限超過アクション / AI起票未確認 /
+//           未対応の問い合わせ / 未処理の見積・請求)。received_at 昇順 = 古いものが先頭。
+// checklist = 経過時間の概念が薄いチェック系 (申込書未提出)。
+// dailyops 系 (問い合わせ/見積請求) は dailyops 権限がある人にだけ含める。
+// ══════════════════════════════════════════════════════════
+router.get('/inbox', async (req, res) => {
+  const user = req.user!;
+  const dailyLevel = user.permissions?.['dailyops'] ?? '';
+  const dailyopsVisible = user.role === 'system_admin' || !!dailyLevel;
+  const dailyopsEditable =
+    user.role === 'system_admin' || ['editor', 'manager', 'owner'].includes(dailyLevel);
+
+  const [overdue, aiProjects, agreements, inquiries, financeDocs] = await Promise.all([
+    queryAll(OVERDUE_ACTIONS_SQL),
+    queryAll(AI_INBOX_SQL, [config.mcpActorId]),
+    queryAll(
+      `SELECT p.id, p.gls_number, p.name, c.name AS customer_name
+       FROM projects p
+       LEFT JOIN customers c ON c.id = p.customer_id
+       WHERE p.application_form = 0 AND p.gls_number IS NOT NULL
+         AND p.stage NOT IN ('s_completed','e_lost') AND p.deleted_at IS NULL
+       ORDER BY p.updated_at DESC
+       LIMIT 100`
+    ),
+    dailyopsVisible
+      ? queryAll(
+          `SELECT id, sender, subject, summary, category, importance, action_needed, url,
+                  received_at, created_at
+           FROM misc_inquiries
+           WHERE deleted_at IS NULL AND handled_at IS NULL
+           ORDER BY created_at ASC
+           LIMIT 100`
+        )
+      : Promise.resolve([]),
+    dailyopsVisible
+      ? queryAll(
+          `SELECT id, doc_type, sender, subject, amount, status, payment_due,
+                  received_at, created_at
+           FROM finance_docs
+           WHERE deleted_at IS NULL AND status NOT IN ('processed','rejected')
+           ORDER BY created_at ASC
+           LIMIT 100`
+        )
+      : Promise.resolve([]),
+  ]);
+
+  // received_at: 経過タイマーの起点。inquiry/finance は受信日 (YYYY-MM-DD TEXT) を優先し、
+  // 無ければ created_at。overdue は期限日 (= お客様を待たせ始めた瞬間)。
+  const toMs = (v: unknown): number => {
+    if (!v) return 0;
+    const d = new Date(String(v));
+    return isNaN(d.getTime()) ? 0 : d.getTime();
+  };
+  const items = [
+    ...overdue.map((r) => ({
+      key: `overdue:${r.activity_id}`, kind: 'overdue_action', received_at: r.next_action_date, meta: r,
+    })),
+    ...aiProjects.map((r) => ({
+      key: `ai:${r.id}`, kind: 'ai_project', received_at: r.created_at, meta: r,
+    })),
+    ...inquiries.map((r) => ({
+      key: `inquiry:${r.id}`, kind: 'inquiry', received_at: r.received_at ?? r.created_at, meta: r,
+    })),
+    ...financeDocs.map((r) => ({
+      key: `finance:${r.id}`, kind: 'finance_doc', received_at: r.received_at ?? r.created_at, meta: r,
+    })),
+  ].sort((a, b) => toMs(a.received_at) - toMs(b.received_at));
+
+  res.json({
+    success: true,
+    data: {
+      items,
+      checklist: agreements.map((r) => ({ key: `agreement:${r.id}`, kind: 'agreement', meta: r })),
+      counts: {
+        total: items.length,
+        overdue_action: overdue.length,
+        ai_project: aiProjects.length,
+        inquiry: inquiries.length,
+        finance_doc: financeDocs.length,
+        agreement: agreements.length,
+      },
+      dailyops: { visible: dailyopsVisible, editable: dailyopsEditable },
+    },
+  });
 });
 
 // v2.9.197+: AI 活動フィード — mcp_audit_log の書き込み履歴を時系列で返す

@@ -21,7 +21,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator, AlertTriangle, Info, CalendarDays, FileText, Calendar, Plus, Pencil, Trash2, Check, FolderPlus, Sparkles, Phone, Mail, Users, MessageSquare, CalendarClock, History } from "lucide-react";
+import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator, AlertTriangle, Info, CalendarDays, FileText, Calendar, Plus, Pencil, Trash2, Check, FolderPlus, Sparkles, Phone, Mail, Users, MessageSquare, CalendarClock, History, ChevronRight, XCircle } from "lucide-react";
 import StudioBookingDialog from "@/contexts/production/components/studio/StudioBookingDialog";
 import { Switch } from "@/components/ui/switch";
 import { ToggleButtonGroup } from "@gmo-onair/shared/src/client/ui/toggle-button-group";
@@ -85,6 +85,62 @@ function addOneDayStr(dateStr: string): string {
   const next = new Date(y, m - 1, d + 1);
   const pad2 = (n: number) => String(n).padStart(2, "0");
   return `${next.getFullYear()}-${pad2(next.getMonth() + 1)}-${pad2(next.getDate())}`;
+}
+
+// v2.9.219+: ジャーニーステッパー — ゴール(受注→完了)から逆算した現在地を可視化。
+// 案件のステージ順 (ネタ→仮押さえ→見積提案→口頭決定→受注→完了) を並べ、
+// 現在地を強調・通過済みにチェック。失注 (e_lost) は本線から外れた終端として別表示。
+const JOURNEY_STAGES: ProjectStage[] = ['neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 's_completed'];
+const JOURNEY_SHORT: Record<ProjectStage, string> = {
+  neta: 'ネタ', d_hold: '仮押さえ', c_proposal: '見積提案', b_verbal: '口頭決定',
+  a_won: '受注', s_completed: '完了', e_lost: '失注',
+};
+function JourneyStepper({ currentStage }: { currentStage: ProjectStage }) {
+  if (currentStage === 'e_lost') {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <XCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+        <span className="font-medium">失注</span>
+        <span className="text-red-600">この案件は失注として終了しています。</span>
+      </div>
+    );
+  }
+  const curIdx = JOURNEY_STAGES.indexOf(currentStage);
+  return (
+    <div className="overflow-x-auto rounded-lg border border-border bg-card px-3 py-2.5">
+      <ol className="flex min-w-max items-center gap-1">
+        {JOURNEY_STAGES.map((st, i) => {
+          const done = i < curIdx;
+          const current = i === curIdx;
+          return (
+            <li key={st} className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={cn(
+                    "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
+                    current ? "ring-2 ring-offset-1" : "",
+                    done ? "text-white" : current ? "text-white" : "bg-muted text-muted-foreground"
+                  )}
+                  style={done || current ? { backgroundColor: ProjectStageColors[st] } : undefined}
+                >
+                  {done ? <Check className="h-3 w-3" aria-hidden="true" /> : i + 1}
+                </span>
+                <span className={cn(
+                  "whitespace-nowrap text-xs",
+                  current ? "font-bold text-foreground" : done ? "text-foreground" : "text-muted-foreground"
+                )}>
+                  {JOURNEY_SHORT[st]}
+                </span>
+              </div>
+              {i < JOURNEY_STAGES.length - 1 && (
+                <ChevronRight className={cn("h-3.5 w-3.5 shrink-0", i < curIdx ? "text-foreground/40" : "text-muted-foreground/30")} aria-hidden="true" />
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
 }
 
 export default function ProjectFormPage() {
@@ -243,6 +299,24 @@ export default function ProjectFormPage() {
       qc.invalidateQueries({ queryKey: queryKeys.dashboard.aiInbox() });
     },
   });
+
+  // v2.9.219+: 「今すべきこと」の次回アクション 完了/延期 (ページ遷移なしのワンタップ)
+  const nextActionMutation = useMutation({
+    mutationFn: async (p: { activityId: string; action: "complete" | "postpone"; date?: string }) =>
+      p.action === "complete"
+        ? api.post(`/activity-logs/${p.activityId}/complete-next-action`)
+        : api.post(`/activity-logs/${p.activityId}/postpone-next-action`, { date: p.date }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["project-activities", id] });
+      qc.invalidateQueries({ queryKey: queryKeys.dashboard.overdueActions() });
+      qc.invalidateQueries({ queryKey: queryKeys.dashboard.salesBoard() });
+    },
+  });
+  const [naPostponeFor, setNaPostponeFor] = useState<string | null>(null);
+  const dateAfterDays = (days: number) => {
+    const d = new Date(); d.setDate(d.getDate() + days);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
 
   const { data: customersData } = useQuery({
     queryKey: ["customers-select"],
@@ -587,6 +661,8 @@ export default function ProjectFormPage() {
         )}
       </div>
 
+      {/* ジャーニーステッパー (ゴールから逆算した現在地) */}
+      {isEdit && project && <JourneyStepper currentStage={currentStage} />}
 
       {/* 保存完了バナー（画面上部・幅広） */}
       {saveSuccess && (
@@ -674,6 +750,182 @@ export default function ProjectFormPage() {
             </p>
           </div>
         </div>
+      )}
+
+      {/* ① 今すべきこと — 次回アクション + 未設定の警告 (自問自答⑩「ネクストアクションはあるか」) */}
+      {isEdit && project && (() => {
+        const openActions = projectActivities.filter(
+          (a) => a.next_action && !a.next_action_done_at
+        );
+        const today = new Date().toISOString().slice(0, 10);
+        // 進行中 (ネタ・失注・完了以外) で次アクションが1つも無ければ「異常」として警告
+        const needsNextAction = !isTerminal && currentStage !== 'neta' && openActions.length === 0;
+        if (openActions.length === 0 && !needsNextAction) return null;
+        return (
+          <Card className={needsNextAction ? "border-amber-300 bg-amber-50/50" : "border-blue-200"}>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <CalendarClock className={cn("h-4 w-4", needsNextAction ? "text-amber-600" : "text-blue-600")} aria-hidden="true" />
+                今すべきこと
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {needsNextAction ? (
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
+                  <span className="font-medium text-amber-800">次にやることが決まっていません。</span>
+                  <span className="text-amber-700">お客様を待たせないよう、次回アクションを設定しましょう。</span>
+                  <Button
+                    type="button" size="sm" variant="outline"
+                    className="ml-auto h-8 gap-1 border-amber-300 text-xs text-amber-700"
+                    onClick={() => navigate("/sales/activity-logs")}
+                  >
+                    <Plus className="h-3.5 w-3.5" aria-hidden="true" /> やり取りを記録
+                  </Button>
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {openActions.map((a) => {
+                    const overdue = a.next_action_date && a.next_action_date < today;
+                    return (
+                      <li key={a.id} className="flex flex-wrap items-center gap-2 text-sm">
+                        <span className={cn("min-w-0 flex-1", overdue ? "text-red-700 font-medium" : "text-foreground")}>
+                          → {a.next_action}
+                          {a.next_action_date ? (
+                            <span className="ml-1 text-xs text-muted-foreground">
+                              （期限 {a.next_action_date}{overdue ? " · 超過" : ""}）
+                            </span>
+                          ) : null}
+                        </span>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <Button
+                            type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px]"
+                            disabled={nextActionMutation.isPending}
+                            onClick={() => nextActionMutation.mutate({ activityId: a.id, action: "complete" })}
+                          >
+                            <Check className="h-3 w-3" aria-hidden="true" /> 完了
+                          </Button>
+                          {naPostponeFor === a.id ? (
+                            <>
+                              <Button type="button" size="sm" variant="ghost" className="h-7 px-1.5 text-[11px]" onClick={() => nextActionMutation.mutate({ activityId: a.id, action: "postpone", date: dateAfterDays(1) })}>明日</Button>
+                              <Button type="button" size="sm" variant="ghost" className="h-7 px-1.5 text-[11px]" onClick={() => nextActionMutation.mutate({ activityId: a.id, action: "postpone", date: dateAfterDays(7) })}>1週間</Button>
+                              <Button type="button" size="sm" variant="ghost" className="h-7 px-1.5 text-[11px]" onClick={() => setNaPostponeFor(null)}>×</Button>
+                            </>
+                          ) : (
+                            <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => setNaPostponeFor(a.id)}>延期</Button>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
+
+      {/* ② お客様とのやり取り (タイムライン — 高頻度なので上部に配置。AI メール取込分も含む) */}
+      {isEdit && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <History className="h-4 w-4 text-primary" aria-hidden="true" />
+              お客様とのやり取り
+              {projectActivities.length > 0 ? (
+                <span className="text-xs font-normal text-muted-foreground">直近 {projectActivities.length} 件</span>
+              ) : null}
+              <button
+                type="button"
+                className="ml-auto text-xs font-normal text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+                onClick={() => navigate("/sales/activity-logs")}
+              >
+                営業活動ページで記録
+              </button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {projectActivities.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                この案件の活動記録はまだありません。メール・電話などのやり取りは営業活動ページ (または AI のメール取込) から記録されます。
+              </p>
+            ) : (
+              <ol className="relative space-y-4 border-l border-border pl-5 ml-1.5">
+                {projectActivities.map((a: any) => {
+                  const actMeta: Record<string, { label: string; icon: React.ElementType }> = {
+                    call: { label: "電話", icon: Phone },
+                    email: { label: "メール", icon: Mail },
+                    meeting: { label: "打合せ", icon: Users },
+                    visit: { label: "訪問", icon: Users },
+                    proposal: { label: "提案", icon: FileText },
+                    demo: { label: "デモ", icon: MessageSquare },
+                    followup: { label: "フォロー", icon: MessageSquare },
+                    follow_up: { label: "フォロー", icon: MessageSquare },
+                    other: { label: "その他", icon: MessageSquare },
+                  };
+                  const m = actMeta[a.activity_type] ?? actMeta.other;
+                  const MIcon = m.icon;
+                  const naOverdue = a.next_action_date && !a.next_action_done_at && a.next_action_date < new Date().toISOString().slice(0, 10);
+                  return (
+                    <li key={a.id} className="relative">
+                      {/* AI 取込は violet、手入力は orange でバレットを色分け (一目で入力元が分かる) */}
+                      <span className={cn(
+                        "absolute -left-[27px] top-0.5 flex h-5 w-5 items-center justify-center rounded-full border bg-card",
+                        a.is_ai_created ? "border-violet-300 bg-violet-50" : "border-border"
+                      )}>
+                        <MIcon className={cn("h-3 w-3", a.is_ai_created ? "text-violet-600" : "text-orange-600")} aria-hidden="true" />
+                      </span>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground">{m.label}</span>
+                        <span>{a.activity_date}</span>
+                        {a.user_name ? <span>{a.user_name}</span> : null}
+                        {a.is_ai_created ? (
+                          <span
+                            className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0.5 text-[10px] text-violet-700"
+                            title={a.ai_requested_by ? `AI取込 (指示: ${a.ai_requested_by})` : "AI取込"}
+                          >
+                            <Sparkles className="h-3 w-3" aria-hidden="true" />
+                            AI取込
+                          </span>
+                        ) : null}
+                        {a.ai_requested_by ? (
+                          <span className="text-[10px] text-violet-600">指示: {a.ai_requested_by}</span>
+                        ) : null}
+                        {a.source_channel ? (
+                          <span className="inline-flex items-center rounded-full bg-sky-50 border border-sky-200 px-1.5 py-0.5 text-[10px] text-sky-700" title="流入チャネル">
+                            {a.source_channel}
+                          </span>
+                        ) : null}
+                        {a.message_id ? (
+                          <span
+                            className="inline-flex items-center gap-0.5 rounded-full bg-slate-100 border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-600"
+                            title={`メール由来 (Message-ID: ${a.message_id})`}
+                          >
+                            ✉ メール取込
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="mt-0.5 text-sm font-medium text-foreground">{a.subject}</p>
+                      {a.description ? (
+                        <p className="mt-0.5 text-xs text-muted-foreground whitespace-pre-line line-clamp-3">{a.description}</p>
+                      ) : null}
+                      {a.next_action ? (
+                        <p className={cn(
+                          "mt-1 flex items-center gap-1.5 text-xs",
+                          a.next_action_done_at ? "text-muted-foreground line-through" : naOverdue ? "text-red-600 font-medium" : "text-blue-700"
+                        )}>
+                          <CalendarClock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                          {a.next_action_date ?? ""} {a.next_action}
+                          {a.next_action_done_at ? <span className="no-underline">✓ 完了</span> : naOverdue ? <span>(期限超過)</span> : null}
+                        </p>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Stage change actions */}
@@ -1455,109 +1707,6 @@ export default function ProjectFormPage() {
                   })()}
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* v2.9.178+: 営業活動タイムライン (AI メール取込分も含む) */}
-        {isEdit && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <History className="h-4 w-4 text-primary" aria-hidden="true" />
-                営業活動タイムライン
-                {projectActivities.length > 0 ? (
-                  <span className="text-xs font-normal text-muted-foreground">直近 {projectActivities.length} 件</span>
-                ) : null}
-                <button
-                  type="button"
-                  className="ml-auto text-xs font-normal text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-                  onClick={() => navigate("/sales/activity-logs")}
-                >
-                  営業活動ページで記録
-                </button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {projectActivities.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  この案件の活動記録はまだありません。メール・電話などのやり取りは営業活動ページ (または AI のメール取込) から記録されます。
-                </p>
-              ) : (
-                <ol className="relative space-y-4 border-l border-border pl-5 ml-1.5">
-                  {projectActivities.map((a: any) => {
-                    const actMeta: Record<string, { label: string; icon: React.ElementType }> = {
-                      call: { label: "電話", icon: Phone },
-                      email: { label: "メール", icon: Mail },
-                      meeting: { label: "打合せ", icon: Users },
-                      visit: { label: "訪問", icon: Users },
-                      proposal: { label: "提案", icon: FileText },
-                      demo: { label: "デモ", icon: MessageSquare },
-                      followup: { label: "フォロー", icon: MessageSquare },
-                      follow_up: { label: "フォロー", icon: MessageSquare },
-                      other: { label: "その他", icon: MessageSquare },
-                    };
-                    const m = actMeta[a.activity_type] ?? actMeta.other;
-                    const MIcon = m.icon;
-                    const naOverdue = a.next_action_date && !a.next_action_done_at && a.next_action_date < new Date().toISOString().slice(0, 10);
-                    return (
-                      <li key={a.id} className="relative">
-                        {/* AI 取込は violet、手入力は orange でバレットを色分け (一目で入力元が分かる) */}
-                        <span className={cn(
-                          "absolute -left-[27px] top-0.5 flex h-5 w-5 items-center justify-center rounded-full border bg-card",
-                          a.is_ai_created ? "border-violet-300 bg-violet-50" : "border-border"
-                        )}>
-                          <MIcon className={cn("h-3 w-3", a.is_ai_created ? "text-violet-600" : "text-orange-600")} aria-hidden="true" />
-                        </span>
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-                          <span className="font-medium text-foreground">{m.label}</span>
-                          <span>{a.activity_date}</span>
-                          {a.user_name ? <span>{a.user_name}</span> : null}
-                          {a.is_ai_created ? (
-                            <span
-                              className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0.5 text-[10px] text-violet-700"
-                              title={a.ai_requested_by ? `AI取込 (指示: ${a.ai_requested_by})` : "AI取込"}
-                            >
-                              <Sparkles className="h-3 w-3" aria-hidden="true" />
-                              AI取込
-                            </span>
-                          ) : null}
-                          {a.ai_requested_by ? (
-                            <span className="text-[10px] text-violet-600">指示: {a.ai_requested_by}</span>
-                          ) : null}
-                          {a.source_channel ? (
-                            <span className="inline-flex items-center rounded-full bg-sky-50 border border-sky-200 px-1.5 py-0.5 text-[10px] text-sky-700" title="流入チャネル">
-                              {a.source_channel}
-                            </span>
-                          ) : null}
-                          {a.message_id ? (
-                            <span
-                              className="inline-flex items-center gap-0.5 rounded-full bg-slate-100 border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-600"
-                              title={`メール由来 (Message-ID: ${a.message_id})`}
-                            >
-                              ✉ メール取込
-                            </span>
-                          ) : null}
-                        </div>
-                        <p className="mt-0.5 text-sm font-medium text-foreground">{a.subject}</p>
-                        {a.description ? (
-                          <p className="mt-0.5 text-xs text-muted-foreground whitespace-pre-line line-clamp-3">{a.description}</p>
-                        ) : null}
-                        {a.next_action ? (
-                          <p className={cn(
-                            "mt-1 flex items-center gap-1.5 text-xs",
-                            a.next_action_done_at ? "text-muted-foreground line-through" : naOverdue ? "text-red-600 font-medium" : "text-blue-700"
-                          )}>
-                            <CalendarClock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                            {a.next_action_date ?? ""} {a.next_action}
-                            {a.next_action_done_at ? <span className="no-underline">✓ 完了</span> : naOverdue ? <span>(期限超過)</span> : null}
-                          </p>
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ol>
-              )}
             </CardContent>
           </Card>
         )}
