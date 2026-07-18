@@ -313,7 +313,7 @@ export default function DashboardPage() {
                       e.stopPropagation();
                       window.open(`/awards/output/${event.id}`, '_blank');
                     }}
-                    className="hidden group-hover:flex items-center justify-center h-8 w-8 rounded-lg hover:bg-muted text-muted-foreground"
+                    className="flex sm:hidden sm:group-hover:flex items-center justify-center h-8 w-8 rounded-lg hover:bg-muted text-muted-foreground"
                     title="出力画面を開く"
                   >
                     <ExternalLink className="h-4 w-4" />
@@ -325,7 +325,7 @@ export default function DashboardPage() {
                         deleteMutation.mutate(event.id);
                       }
                     }}
-                    className="hidden group-hover:flex items-center justify-center h-8 w-8 rounded-lg hover:bg-destructive/10 text-destructive/70 hover:text-destructive"
+                    className="flex sm:hidden sm:group-hover:flex items-center justify-center h-8 w-8 rounded-lg hover:bg-destructive/10 text-destructive/70 hover:text-destructive"
                     title="削除"
                   >
                     <Trash2 className="h-4 w-4" />

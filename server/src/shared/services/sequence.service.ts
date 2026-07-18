@@ -1,4 +1,4 @@
-import { queryOne, execute } from '../db/connection';
+import { queryOne } from '../db/connection';
 
 export type GlsCategory = 'A' | 'B';
 
@@ -7,19 +7,18 @@ export async function generateSequenceNumber(seqName: string, prefix: string): P
   const now = new Date();
   const ym = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-  const row = await queryOne('SELECT year_month, counter FROM sequences WHERE seq_name = ?', [seqName]);
-
-  let counter: number;
-  if (!row) {
-    counter = 1;
-    await execute('INSERT INTO sequences (seq_name, prefix, year_month, counter) VALUES (?, ?, ?, ?)', [seqName, prefix, ym, counter]);
-  } else if (row.year_month !== ym) {
-    counter = 1;
-    await execute('UPDATE sequences SET year_month = ?, counter = ? WHERE seq_name = ?', [ym, counter, seqName]);
-  } else {
-    counter = (row.counter as number) + 1;
-    await execute('UPDATE sequences SET counter = ? WHERE seq_name = ?', [counter, seqName]);
-  }
+  // アトミックに採番する (read-then-write だと並行実行で同一番号が採番され得る)。
+  // 月が変わったら counter を 1 にリセットする。
+  const row = await queryOne(
+    `INSERT INTO sequences (seq_name, prefix, year_month, counter)
+     VALUES (?, ?, ?, 1)
+     ON CONFLICT (seq_name) DO UPDATE SET
+       counter = CASE WHEN sequences.year_month = EXCLUDED.year_month THEN sequences.counter + 1 ELSE 1 END,
+       year_month = EXCLUDED.year_month
+     RETURNING counter`,
+    [seqName, prefix, ym]
+  );
+  const counter = row!.counter as number;
 
   return `${prefix}-${ym}-${String(counter).padStart(4, '0')}`;
 }
@@ -32,17 +31,16 @@ export async function generateGlsNumber(category: GlsCategory): Promise<string> 
   }
   const seqName = `gls_${category.toLowerCase()}`;
 
-  const row = await queryOne('SELECT counter FROM sequences WHERE seq_name = ?', [seqName]);
-
-  let counter: number;
-  if (!row) {
-    counter = 1;
-    await execute('INSERT INTO sequences (seq_name, prefix, year_month, counter) VALUES (?, ?, ?, ?)',
-      [seqName, `GLS-${category}`, '000000', counter]);
-  } else {
-    counter = (row.counter as number) + 1;
-    await execute('UPDATE sequences SET counter = ? WHERE seq_name = ?', [counter, seqName]);
-  }
+  // アトミックに採番する (read-then-write だと UI + MCP の並行発番で
+  // 同一 GLS 番号が 2 案件に付与され得る)。
+  const row = await queryOne(
+    `INSERT INTO sequences (seq_name, prefix, year_month, counter)
+     VALUES (?, ?, '000000', 1)
+     ON CONFLICT (seq_name) DO UPDATE SET counter = sequences.counter + 1
+     RETURNING counter`,
+    [seqName, `GLS-${category}`]
+  );
+  const counter = row!.counter as number;
 
   return `GLS-${category}${String(counter).padStart(3, '0')}`;
 }

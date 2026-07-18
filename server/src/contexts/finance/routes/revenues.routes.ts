@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { queryAll, queryOne, execute } from '../../../shared/db/connection';
+import { queryAll, queryOne, execute, withTransaction } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
@@ -286,8 +286,13 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
 
   // billing_key生成
   const project = await queryOne('SELECT gls_number, code FROM projects WHERE id = ?', [project_id]) as any;
+  // billing_key の連番は「作成回数」ベースで採番する。
+  // deleted_at IS NULL でフィルタすると、売上を1件削除したとき count が減り、
+  // 次の新規作成が生存中の既存行と同じ連番を再利用して billing_key (請求キー) が
+  // 重複する。ソフトデリート分も含めて数え、削除しても連番が減らないようにする
+  // (連番が飛んでも一意性を優先)。
   const existingCount = ((await queryOne(
-    `SELECT COUNT(*) as c FROM revenues WHERE project_id = ? AND deleted_at IS NULL`,
+    `SELECT COUNT(*) as c FROM revenues WHERE project_id = ?`,
     [project_id]
   )) as any).c;
   const seqNum = String(existingCount + 1).padStart(3, '0');
@@ -303,8 +308,12 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
 
   let billing_key: string;
   if (revenueStatus === 'estimate') {
-    // 概算見積: EST-OPPコード-連番-税枝番
-    billing_key = `EST-${seqNum}-${taxSuffix}`;
+    // 概算見積: EST-{案件コード}-連番-税枝番。
+    // 案件コードを含めないと全案件横断で EST-001-1 が量産され、別案件の見積 PDF が
+    // 同名になる (billing_key はファイル名にも使われる)。code 未採番のヨミ案件は
+    // project_id 先頭8桁で代替する。
+    const estBase = (project?.code as string) || String(project_id).slice(0, 8);
+    billing_key = `EST-${estBase}-${seqNum}-${taxSuffix}`;
   } else if (episodeCode) {
     // エピソード (月次ユニット等) 紐づき: {エピソードコード}-税枝番
     billing_key = `${episodeCode}-${taxSuffix}`;
@@ -324,24 +333,28 @@ router.post('/', requirePermission('budget', 'editor'), async (req, res) => {
   const isAdvancePayment = is_advance_payment ? true : false;
   const invoiceIssued = invoice_issued ? true : false;
 
-  await execute(`INSERT INTO revenues (id, billing_key, project_id, customer_id, episode_id, assigned_to, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, subtitle, status, is_advance_payment, invoice_issued, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, billing_key, project_id, customer_id, episode_id || null, req.user!.id, tax_category || 'tax10', finalAmount, recognition_date || null, billing_date || null, payment_due_date || null, notes || null, subtitle || null, revenueStatus, isAdvancePayment, invoiceIssued, req.user!.id]);
+  // 本体 + 明細 + 案件想定金額の同期を単一トランザクションで実行 (途中失敗で明細が
+  // 半端に残らないように)
+  await withTransaction(async (tx) => {
+    await tx.execute(`INSERT INTO revenues (id, billing_key, project_id, customer_id, episode_id, assigned_to, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, subtitle, status, is_advance_payment, invoice_issued, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, billing_key, project_id, customer_id, episode_id || null, req.user!.id, tax_category || 'tax10', finalAmount, recognition_date || null, billing_date || null, payment_due_date || null, notes || null, subtitle || null, revenueStatus, isAdvancePayment, invoiceIssued, req.user!.id]);
 
-  // 明細行を保存
-  if (Array.isArray(items)) {
-    for (let i = 0; i < items.length; i++) {
-      const it = items[i];
-      await execute(
-        `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount, pricing_item_id, sort_order, period_start, period_end, item_notes, category) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [uuidv4(), id, it.description || '', it.quantity || 1, it.unit_price || 0, it.amount || 0, it.pricing_item_id || null, i + 1, it.period_start || null, it.period_end || null, it.item_notes || null, it.category || null]
-      );
+    // 明細行を保存
+    if (Array.isArray(items)) {
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        await tx.execute(
+          `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount, pricing_item_id, sort_order, period_start, period_end, item_notes, category) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [uuidv4(), id, it.description || '', it.quantity || 1, it.unit_price || 0, it.amount || 0, it.pricing_item_id || null, i + 1, it.period_start || null, it.period_end || null, it.item_notes || null, it.category || null]
+        );
+      }
     }
-  }
 
-  // 売上/概算見積登録時: 案件の想定金額を同期（estimateでも常に最新値で上書き）
-  if (finalAmount > 0) {
-    await execute(`UPDATE projects SET expected_amount = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL`, [finalAmount, project_id]);
-  }
+    // 売上/概算見積登録時: 案件の想定金額を同期（estimateでも常に最新値で上書き）
+    if (finalAmount > 0) {
+      await tx.execute(`UPDATE projects SET expected_amount = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL`, [finalAmount, project_id]);
+    }
+  });
 
   const row = await queryOne('SELECT * FROM revenues WHERE id = ?', [id]);
   res.status(201).json({ success: true, data: row });
@@ -381,20 +394,29 @@ router.put('/:id', requirePermission('budget', 'editor'), async (req, res) => {
   const isAdvancePayment = is_advance_payment !== undefined ? (is_advance_payment ? true : false) : existing.is_advance_payment;
   const invoiceIssued = invoice_issued !== undefined ? (invoice_issued ? true : false) : existing.invoice_issued;
 
-  await execute(`UPDATE revenues SET billing_key=?, project_id=?, customer_id=?, episode_id=?, tax_category=?, amount=?, recognition_date=?, billing_date=?, payment_due_date=?, notes=?, subtitle=?, is_advance_payment=?, invoice_issued=?, updated_at=NOW(), updated_by=? WHERE id=?`,
-    [finalBillingKey || null, project_id || existing.project_id, customer_id || existing.customer_id, episode_id !== undefined ? (episode_id || null) : existing.episode_id, tax_category || existing.tax_category, finalAmount, recognition_date || null, billing_date || null, payment_due_date || null, notes || null, subtitle !== undefined ? (subtitle || null) : existing.subtitle, isAdvancePayment, invoiceIssued, req.user!.id, req.params.id]);
+  // 本体 UPDATE + 明細の全置換 (DELETE→INSERT) を単一トランザクションで実行する。
+  // トランザクション無しだと DELETE 後の INSERT が途中失敗したとき明細が全損するため。
+  await withTransaction(async (tx) => {
+    await tx.execute(`UPDATE revenues SET billing_key=?, project_id=?, customer_id=?, episode_id=?, tax_category=?, amount=?, recognition_date=?, billing_date=?, payment_due_date=?, notes=?, subtitle=?, is_advance_payment=?, invoice_issued=?, updated_at=NOW(), updated_by=? WHERE id=?`,
+      [finalBillingKey || null, project_id || existing.project_id, customer_id || existing.customer_id, episode_id !== undefined ? (episode_id || null) : existing.episode_id, tax_category || existing.tax_category, finalAmount,
+       recognition_date !== undefined ? (recognition_date || null) : existing.recognition_date,
+       billing_date !== undefined ? (billing_date || null) : existing.billing_date,
+       payment_due_date !== undefined ? (payment_due_date || null) : existing.payment_due_date,
+       notes !== undefined ? (notes || null) : existing.notes,
+       subtitle !== undefined ? (subtitle || null) : existing.subtitle, isAdvancePayment, invoiceIssued, req.user!.id, req.params.id]);
 
-  // 明細行を置換
-  if (Array.isArray(items)) {
-    await execute('DELETE FROM revenue_items WHERE revenue_id = ?', [req.params.id]);
-    for (let i = 0; i < items.length; i++) {
-      const it = items[i];
-      await execute(
-        `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount, pricing_item_id, sort_order, period_start, period_end, item_notes, category) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [uuidv4(), req.params.id, it.description || '', it.quantity || 1, it.unit_price || 0, it.amount || 0, it.pricing_item_id || null, i + 1, it.period_start || null, it.period_end || null, it.item_notes || null, it.category || null]
-      );
+    // 明細行を置換
+    if (Array.isArray(items)) {
+      await tx.execute('DELETE FROM revenue_items WHERE revenue_id = ?', [req.params.id]);
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        await tx.execute(
+          `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount, pricing_item_id, sort_order, period_start, period_end, item_notes, category) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [uuidv4(), req.params.id, it.description || '', it.quantity || 1, it.unit_price || 0, it.amount || 0, it.pricing_item_id || null, i + 1, it.period_start || null, it.period_end || null, it.item_notes || null, it.category || null]
+        );
+      }
     }
-  }
+  });
 
   // 売上/概算見積更新時: 案件の想定金額を同期（estimateでも常に最新値で上書き）
   const finalProjectId = project_id || existing.project_id;

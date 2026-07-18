@@ -1,6 +1,6 @@
 {
   "name": "gmo-onair",
-  "version": "2.9.206",
+  "version": "2.9.216",
   "private": true,
   "description": "GMO ONAiR - 統合業務管理システム",
   "workspaces": [
@@ -24,10 +24,16 @@
     "start:render": "node server/dist/index.js",
     "db:migrate": "npm run db:migrate -w server",
     "db:seed": "npm run db:seed -w server",
-    "db:reset": "npm run db:reset -w server"
+    "db:reset": "npm run db:reset -w server",
+    "lint": "eslint ."
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "@eslint/js": "^9.39.5",
+    "concurrently": "^8.2.2",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.7.0",
+    "typescript-eslint": "^8.64.0"
   },
   "dependencies": {
     "@digital-go-jp/design-tokens": "^1.1.9",

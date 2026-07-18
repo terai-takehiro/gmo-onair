@@ -196,14 +196,17 @@ router.post('/:id/revenues', requirePermission('sales', 'editor'), async (req, r
 
   // billing_key生成
   const project = await queryOne('SELECT gls_number, code FROM projects WHERE id = ?', [allocations[0].project_id]) as any;
+  // deleted_at でフィルタすると削除後に連番が再利用され billing_key が重複するため、
+  // ソフトデリート分も含めて数える (連番は飛んでも一意性を優先)。
   const existingCount = (await queryOne(
-    `SELECT COUNT(*) as c FROM revenues WHERE project_id = ? AND deleted_at IS NULL`,
+    `SELECT COUNT(*) as c FROM revenues WHERE project_id = ?`,
     [allocations[0].project_id]
   ) as any).c;
   const seqNum = String(existingCount + 1).padStart(3, '0');
   const taxSuffix = taxCat === 'tax8' ? '2' : (taxCat === 'exempt' ? '0' : '1');
+  const estBase = (project?.code as string) || String(allocations[0].project_id).slice(0, 8);
   const billing_key = revenueStatus === 'estimate'
-    ? `EST-${seqNum}-${taxSuffix}`
+    ? `EST-${estBase}-${seqNum}-${taxSuffix}`
     : `${project?.gls_number || 'REV'}-${seqNum}-${taxSuffix}`;
 
   // 明細行がある場合は合計を計算

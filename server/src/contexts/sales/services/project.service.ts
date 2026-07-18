@@ -404,7 +404,7 @@ export class ProjectService {
    */
   async update(id: string, data: Record<string, unknown>, userId: string) {
     const existing = await queryOne(
-      'SELECT id, name, code, gls_number, customer_type, box_url_internal, box_url_external FROM projects WHERE id = ? AND deleted_at IS NULL',
+      'SELECT id, name, code, gls_number, customer_type, box_url_internal, box_url_external, expected_amount FROM projects WHERE id = ? AND deleted_at IS NULL',
       [id],
     ) as Record<string, unknown> | null;
     if (!existing) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
@@ -479,14 +479,21 @@ export class ProjectService {
       );
     }
 
-    // 想定金額が変わった場合、確定売上の代表レコードにも反映
-    if (expected_amount !== undefined && Number(expected_amount) > 0) {
+    // 想定金額が「変更された」場合のみ、確定売上の代表レコードにも反映する。
+    // ただし明細 (revenue_items) を持つ売上は amount = SUM(items) が正のため対象外にする。
+    // ※変更検知なしで毎回上書きすると、別の確定売上を作った後 (= projects.expected_amount が
+    //   その売上額で上書きされた後) に案件を保存しただけで、最古売上の金額が現在のフォーム値に
+    //   化ける不具合になる。明細ありの売上を上書きすると amount と SUM(items) も乖離する。
+    const prevExpected = Number((existing as { expected_amount?: unknown }).expected_amount ?? 0);
+    const nextExpected = Number(expected_amount);
+    if (expected_amount !== undefined && Number.isFinite(nextExpected) && nextExpected > 0 && nextExpected !== prevExpected) {
       await execute(
         `UPDATE revenues SET amount = ?, updated_at = NOW()
          WHERE id = (
-           SELECT id FROM revenues
-           WHERE project_id = ? AND status = 'confirmed' AND group_id IS NULL AND deleted_at IS NULL
-           ORDER BY created_at ASC LIMIT 1
+           SELECT r.id FROM revenues r
+           WHERE r.project_id = ? AND r.status = 'confirmed' AND r.group_id IS NULL AND r.deleted_at IS NULL
+             AND NOT EXISTS (SELECT 1 FROM revenue_items ri WHERE ri.revenue_id = r.id)
+           ORDER BY r.created_at ASC LIMIT 1
          )`,
         [expected_amount, id]
       );
@@ -902,11 +909,13 @@ export class ProjectService {
     ) as any[];
     if (estimates.length === 0) return;
 
-    // 既存の確定売上数をカウント（同一GLS番号の全プロジェクト横断）
+    // 既存の確定売上数をカウント（同一GLS番号の全プロジェクト横断）。
+    // deleted_at でフィルタすると削除後に連番が再利用され billing_key が重複するため、
+    // ソフトデリート分も含めて数える (連番は飛んでも一意性を優先)。
     const existingConfirmed = ((await queryOne(
       `SELECT COUNT(*) as c FROM revenues r
        JOIN projects p ON p.id = r.project_id
-       WHERE p.gls_number = ? AND r.status = 'confirmed' AND r.deleted_at IS NULL`,
+       WHERE p.gls_number = ? AND r.status = 'confirmed'`,
       [glsNumber]
     )) as any).c;
 

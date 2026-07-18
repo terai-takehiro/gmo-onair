@@ -43,10 +43,6 @@ export function useEventModuleConfig(_eventId: number | null) {
   return { data };
 }
 
-export function loadEventModuleConfig(_eventId: number): EventModuleConfig {
-  return createDefaultEventModuleConfig();
-}
-
 // ── visibility / order ヘルパー ──────────────────────────────
 
 export function isModuleVisible(mod: ModuleDef, n: Nominee | null): boolean {
@@ -71,26 +67,4 @@ export function getOrderedVisibleModules(
       if (a.order !== b.order) return a.order - b.order;
       return a.id.localeCompare(b.id);
     });
-}
-
-export function findModuleByShortcut(
-  config: EventModuleConfig,
-  n: Nominee | null,
-  shortcutKey: string,
-): ModuleDef | undefined {
-  return getOrderedVisibleModules(config, n).find((m) => m.shortcutKey === shortcutKey);
-}
-
-export function detectShortcutConflicts(
-  config: EventModuleConfig,
-): Record<string, ModuleDef[]> {
-  const map: Record<string, ModuleDef[]> = {};
-  for (const m of config.modules) {
-    if (!m.shortcutKey) continue;
-    map[m.shortcutKey] = map[m.shortcutKey] || [];
-    map[m.shortcutKey].push(m);
-  }
-  return Object.fromEntries(
-    Object.entries(map).filter(([, mods]) => mods.length > 1),
-  );
 }

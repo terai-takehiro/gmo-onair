@@ -205,7 +205,7 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
     });
   }, [event, nextStep, nextCategoryId, nextStyle, cue.voteDisplay, sendNextCue, voteManualWinner, nextWinnerId]);
 
-  // 全カテゴリ一覧 (NEXT ↑↓ 循環 + TAKE 自動進行で使用)
+  // 全カテゴリ一覧 (NEXT 部門選択 + TAKE 自動進行で使用)
   const allCats = event?.categories ?? [];
 
   const take = useCallback(() => {
@@ -392,7 +392,7 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
         {/* 全画面ボタン: モバイルでは hidden (タッチデバイスでは必要性低) */}
         <button
           onClick={toggleFullscreen}
-          title={isFullscreen ? '全画面解除 (F)' : '全画面表示 (F)'}
+          title={isFullscreen ? '全画面解除' : '全画面表示'}
           className="hidden sm:flex items-center justify-center h-9 w-9 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors shrink-0"
         >
           {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
@@ -615,13 +615,6 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
                 </span>
               </div>
               <SendActionRow isLive={isLive} onTake={take} onClear={clear} />
-              <div className="hidden sm:flex items-center gap-3 text-[9px] text-slate-500 tracking-widest uppercase font-medium flex-wrap">
-                <span><kbd className="px-1 rounded bg-slate-800 text-slate-300">0–5</kbd> ステップ</span>
-                <span><kbd className="px-1 rounded bg-slate-800 text-slate-300">↑↓</kbd> 部門</span>
-                <span><kbd className="px-1 rounded bg-slate-800 text-slate-300">Space</kbd> TAKE</span>
-                <span><kbd className="px-1 rounded bg-slate-800 text-slate-300">X</kbd> / <kbd className="px-1 rounded bg-slate-800 text-slate-300">Esc</kbd> CLEAR</span>
-                <span><kbd className="px-1 rounded bg-slate-800 text-slate-300">F</kbd> 全画面</span>
-              </div>
             </div>
           </div>
         </div>

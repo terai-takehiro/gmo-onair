@@ -181,10 +181,30 @@ router.post('/documents', async (req: Request, res: Response) => {
 // ============================================================
 router.put('/documents/:id', async (req: Request, res: Response) => {
   try {
-    const existing = await queryOne('SELECT id FROM techsheet_documents WHERE id = $1', [req.params.id]);
+    const existing = await queryOne('SELECT id, updated_at FROM techsheet_documents WHERE id = $1', [req.params.id]);
     if (!existing) {
       res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: '技術資料が見つかりません' } });
       return;
+    }
+
+    // 楽観ロック: クライアントが読み込んだ時点の updated_at を送ってきた場合、DB の
+    // updated_at と異なれば「他のタブ/端末で先に保存された」として 409 を返す
+    // (同時編集での黙った上書き合戦を防止。expected_updated_at 未送信の旧クライアントは従来どおり)。
+    const { expected_updated_at } = req.body as { expected_updated_at?: unknown };
+    if (typeof expected_updated_at === 'string' && expected_updated_at) {
+      const expectedMs = new Date(expected_updated_at).getTime();
+      const currentMs = new Date(existing.updated_at as string).getTime();
+      if (Number.isFinite(expectedMs) && Number.isFinite(currentMs) && expectedMs !== currentMs) {
+        res.status(409).json({
+          success: false,
+          error: {
+            code: 'CONFLICT',
+            message: 'この技術資料は別のタブ/端末で更新されています。最新の内容を読み込み直してください。',
+            current_updated_at: existing.updated_at,
+          },
+        });
+        return;
+      }
     }
 
     const { title, project_id, episode_id, production_date, venue, version, status, data } = req.body;

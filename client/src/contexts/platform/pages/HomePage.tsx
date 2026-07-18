@@ -52,6 +52,7 @@ import {
   Timer,
   Tv,
   FileSearch,
+  FolderPlus,
   Zap,
   RefreshCw,
   Loader2,
@@ -257,17 +258,19 @@ export default function HomePage() {
         {/* ───── 1. 今後のスケジュール (最上部・全幅で目立たせる) ───── */}
         {canSeeStudio && <ScheduleSection />}
 
-        {/* ───── 2. クイックアクセス (財務管理が有効なユーザー) ───── */}
-        {canSeeBudget && <QuickAccessSection navigate={navigate} />}
+        {/* ───── 2. クイックアクセス (作成系・高頻度業務への導線) ───── */}
+        {(canSeeSales || canSeeBudget) && (
+          <QuickAccessSection navigate={navigate} canSeeSales={canSeeSales} canSeeBudget={canSeeBudget} />
+        )}
 
-        {/* ───── 3. AI 起票インボックス (未確認の AI 起票案件があるときだけ表示) ───── */}
-        {canSeeSales && <AiInboxSection navigate={navigate} />}
-
-        {/* ───── 3.3 対応漏れ (期限超過の次回アクション) アラート ───── */}
-        {canSeeSales && <OverdueActionsStrip navigate={navigate} />}
-
-        {/* ───── 3.5 日常業務アラート (未処理があるときだけ・コンパクト) ───── */}
-        {canSeeDailyops && <DailyOpsAlertStrip />}
+        {/* ───── 3. 要対応 (対応漏れ・AI起票の確認・日常業務を1本化) ───── */}
+        {(canSeeSales || canSeeDailyops) && (
+          <ActionRequiredSection
+            navigate={navigate}
+            canSeeSales={canSeeSales}
+            canSeeDailyops={canSeeDailyops}
+          />
+        )}
 
         {/* ───── 4. 今月の主要指標 + 前月比 ───── */}
         {canSeeSales && <KpiSection navigate={navigate} />}
@@ -438,35 +441,75 @@ function ActionItemsSection({ navigate }: { navigate: (to: string) => void }) {
 // セクション 1.5: クイックアクセス (財務管理が有効なユーザー向け)
 // 経費精算 PDF 取込などの高頻度業務へトップページからワンタップで移動
 // ══════════════════════════════════════════════════════════
-function QuickAccessSection({ navigate }: { navigate: (to: string) => void }) {
+function QuickAccessSection({ navigate, canSeeSales, canSeeBudget }: { navigate: (to: string) => void; canSeeSales: boolean; canSeeBudget: boolean }) {
   return (
     <SectionCard
       title="クイックアクセス"
-      description="よく使う財務業務へワンタップで移動できます。"
+      description="よく使う業務へワンタップで移動できます。"
       icon={<Zap />}
       padding="compact"
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <button
-          type="button"
-          onClick={() => navigate("/budget/xpoint-import")}
-          aria-label="精算PDF取込を開く"
-          className="group flex items-center gap-3 rounded-md border border-border bg-card p-3 text-left transition-colors hover:border-primary hover:bg-accent active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-            <FileSearch className="h-5 w-5" aria-hidden="true" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-foreground flex flex-wrap items-center gap-1.5">
-              精算PDF取込
-              <Badge variant="outline" className="text-[10px] px-1.5 font-normal">X-Point / 楽楽精算</Badge>
-            </p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              申請PDFをアップロード or Boxから読み取り、確認して仕入・販管費に登録
-            </p>
-          </div>
-          <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden="true" />
-        </button>
+        {canSeeSales && (
+          <button
+            type="button"
+            onClick={() => navigate("/sales/projects/new")}
+            aria-label="新規案件を作成"
+            className="group flex items-center gap-3 rounded-md border border-border bg-card p-3 text-left transition-colors hover:border-primary hover:bg-accent active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <FolderPlus className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground">新規案件を作成</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                ヨミ案件（見込み）として登録。GLS発番前でもここから始められます
+              </p>
+            </div>
+            <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden="true" />
+          </button>
+        )}
+        {canSeeSales && (
+          <button
+            type="button"
+            onClick={() => navigate("/sales/activity-logs")}
+            aria-label="営業活動を記録"
+            className="group flex items-center gap-3 rounded-md border border-border bg-card p-3 text-left transition-colors hover:border-primary hover:bg-accent active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <ClipboardList className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground">営業活動を記録</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                メール・電話・打合せのやり取りと次回アクションを記録
+              </p>
+            </div>
+            <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden="true" />
+          </button>
+        )}
+        {canSeeBudget && (
+          <button
+            type="button"
+            onClick={() => navigate("/budget/xpoint-import")}
+            aria-label="精算PDF取込を開く"
+            className="group flex items-center gap-3 rounded-md border border-border bg-card p-3 text-left transition-colors hover:border-primary hover:bg-accent active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <FileSearch className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground flex flex-wrap items-center gap-1.5">
+                精算PDF取込
+                <Badge variant="outline" className="text-[10px] px-1.5 font-normal">X-Point / 楽楽精算</Badge>
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                申請PDFをアップロード or Boxから読み取り、確認して仕入・販管費に登録
+              </p>
+            </div>
+            <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden="true" />
+          </button>
+        )}
       </div>
     </SectionCard>
   );
@@ -715,15 +758,9 @@ function ScheduleSection() {
 // AI (メール取込等の MCP 経由) が起票した案件のうち未確認のものを表示し、
 // 人間が内容を確認 → 「確認済み」にするレビュー導線。0 件のときは非表示。
 // ══════════════════════════════════════════════════════════
-function AiInboxSection({ navigate }: { navigate: (to: string) => void }) {
+// 要対応内の「AI 起票の確認」ブロック (親 ActionRequiredSection が list を渡す)
+function AiInboxBlock({ list, navigate }: { list: AiInboxItem[]; navigate: (to: string) => void }) {
   const qc = useQueryClient();
-  const { data: items } = useQuery<AiInboxItem[]>({
-    queryKey: queryKeys.dashboard.aiInbox(),
-    queryFn: async () => (await api.get("/dashboard/ai-inbox")).data.data,
-    staleTime: 60_000,
-    refetchOnMount: "always",
-  });
-
   const reviewMutation = useMutation({
     mutationFn: async (projectId: string) => api.post(`/projects/${projectId}/ai-review`),
     onSuccess: () => {
@@ -732,17 +769,12 @@ function AiInboxSection({ navigate }: { navigate: (to: string) => void }) {
     },
   });
 
-  const list = items ?? [];
-  if (list.length === 0) return null;
-
   return (
-    <SectionCard
-      title={`AI 起票インボックス (未確認 ${list.length}件)`}
-      description="AI が問い合わせメール等から起票した案件です。内容を確認して「確認済み」にしてください。"
-      icon={<Inbox />}
-      padding="compact"
-      className="border-violet-200"
-    >
+    <div>
+      <p className="mb-1 flex items-center gap-1.5 px-1 text-xs font-semibold text-violet-700">
+        <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+        AI 起票の確認 {list.length}件
+      </p>
       <ul className="divide-y divide-border">
         {list.map((p) => (
           <li key={p.id} className="flex items-start gap-3 px-2 py-2.5">
@@ -783,7 +815,7 @@ function AiInboxSection({ navigate }: { navigate: (to: string) => void }) {
           </li>
         ))}
       </ul>
-    </SectionCard>
+    </div>
   );
 }
 
@@ -872,15 +904,10 @@ function AiActivityFeedSection({ navigate }: { navigate: (to: string) => void })
 }
 
 // ══════════════════════════════════════════════════════════
-// セクション: 日常業務アラート (v2.9.181+)
-// 未処理の見積/請求書・未対応の問い合わせがあるときだけコンパクトに表示。
-// 0 件 or 取得失敗時は非表示 (ごちゃつかないように)。/daily/ は別 SPA のため full nav。
-// ══════════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════
-// セクション: 対応漏れ (期限超過の次回アクション) エスカレーション
-// - 進行中案件で next_action_date < 今日 かつ 未完了 のものを一覧
-// - 完了 / 延期 (明日・1週間) をワンタップ (SalesBoardSection と同じ経路)
-// - 0 件のときは非表示 (アラートを溜めない)
+// セクション: 要対応 (v2.9.216+)
+// 従来バラバラに並んでいた 3 アラート (対応漏れ=期限超過 / AI起票の確認 /
+// 日常業務の未処理) を 1 つの SectionCard に統合。優先度順 (対応漏れ → AI起票 →
+// 日常業務) に上から並べ、合計 0 件なら丸ごと非表示 (アラートを溜めない)。
 // ══════════════════════════════════════════════════════════
 interface OverdueActionItem {
   activity_id: string;
@@ -894,16 +921,70 @@ interface OverdueActionItem {
   assigned_to_name: string | null;
   customer_name: string | null;
 }
-function OverdueActionsStrip({ navigate }: { navigate: (to: string) => void }) {
-  const qc = useQueryClient();
-  const [expanded, setExpanded] = useState(false);
-  const [postponeFor, setPostponeFor] = useState<string | null>(null);
-  const { data } = useQuery<OverdueActionItem[]>({
+
+function ActionRequiredSection({
+  navigate,
+  canSeeSales,
+  canSeeDailyops,
+}: {
+  navigate: (to: string) => void;
+  canSeeSales: boolean;
+  canSeeDailyops: boolean;
+}) {
+  // 対応漏れ (期限超過の次回アクション)
+  const overdueQ = useQuery<OverdueActionItem[]>({
     queryKey: queryKeys.dashboard.overdueActions(),
     queryFn: async () => (await api.get("/dashboard/overdue-actions")).data.data,
     staleTime: 60_000,
     refetchOnMount: "always",
+    enabled: canSeeSales,
   });
+  // AI 起票の未確認案件
+  const aiQ = useQuery<AiInboxItem[]>({
+    queryKey: queryKeys.dashboard.aiInbox(),
+    queryFn: async () => (await api.get("/dashboard/ai-inbox")).data.data,
+    staleTime: 60_000,
+    refetchOnMount: "always",
+    enabled: canSeeSales,
+  });
+  // 日常業務 (未処理の見積/請求 + 要確認の問い合わせ)
+  const dailyQ = useQuery<{ pendingFinanceDocs: number; unhandledInquiries: number }>({
+    queryKey: ["dailyops", "alerts"],
+    queryFn: async () => (await api.get("/dailyops/alerts")).data.data,
+    staleTime: 60_000,
+    enabled: canSeeDailyops,
+  });
+
+  const overdue = overdueQ.data ?? [];
+  const aiInbox = aiQ.data ?? [];
+  const pending = dailyQ.data?.pendingFinanceDocs ?? 0;
+  const unhandled = dailyQ.data?.unhandledInquiries ?? 0;
+  const dailyCount = pending + unhandled;
+  const total = overdue.length + aiInbox.length + dailyCount;
+  if (total === 0) return null;
+
+  return (
+    <SectionCard
+      title={`要対応 (${total}件)`}
+      description="確認・対応が必要な項目をまとめています。上から優先度順です。"
+      icon={<AlertTriangle />}
+      padding="compact"
+      className="border-amber-200"
+    >
+      <div className="space-y-4">
+        {overdue.length > 0 && <OverdueBlock list={overdue} navigate={navigate} />}
+        {aiInbox.length > 0 && <AiInboxBlock list={aiInbox} navigate={navigate} />}
+        {dailyCount > 0 && <DailyOpsBlock pending={pending} unhandled={unhandled} />}
+      </div>
+    </SectionCard>
+  );
+}
+
+// 要対応内の「対応漏れ (期限超過)」ブロック
+function OverdueBlock({ list, navigate }: { list: OverdueActionItem[]; navigate: (to: string) => void }) {
+  const qc = useQueryClient();
+  const [expanded, setExpanded] = useState(false);
+  const [postponeFor, setPostponeFor] = useState<string | null>(null);
   const mutation = useMutation({
     mutationFn: async (p: { id: string; action: "complete" | "postpone"; date?: string }) =>
       p.action === "complete"
@@ -920,17 +1001,15 @@ function OverdueActionsStrip({ navigate }: { navigate: (to: string) => void }) {
     d.setDate(d.getDate() + days);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   };
-  const list = data ?? [];
-  if (list.length === 0) return null;
   const VISIBLE = 5;
   const shown = expanded ? list : list.slice(0, VISIBLE);
 
   return (
-    <div className="rounded-lg border border-red-200 bg-red-50/50 p-3">
-      <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-red-800">
-        <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+    <div>
+      <p className="mb-1 flex items-center gap-1.5 px-1 text-xs font-semibold text-red-700">
+        <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
         対応漏れ（次回アクション期限超過）{list.length}件
-      </div>
+      </p>
       <ul className="space-y-1.5">
         {shown.map((a) => (
           <li key={a.activity_id} className="rounded-md border border-red-100 bg-white px-2.5 py-1.5 text-xs">
@@ -982,37 +1061,31 @@ function OverdueActionsStrip({ navigate }: { navigate: (to: string) => void }) {
   );
 }
 
-function DailyOpsAlertStrip() {
-  const { data } = useQuery<{ pendingFinanceDocs: number; unhandledInquiries: number }>({
-    queryKey: ["dailyops", "alerts"],
-    queryFn: async () => (await api.get("/dailyops/alerts")).data.data,
-    staleTime: 60_000,
-  });
-  const pending = data?.pendingFinanceDocs ?? 0;
-  const unhandled = data?.unhandledInquiries ?? 0;
-  if (pending + unhandled === 0) return null;
-
+// 要対応内の「日常業務」ブロック (未処理があるときだけ親が描画・/daily/ は別 SPA)
+function DailyOpsBlock({ pending, unhandled }: { pending: number; unhandled: number }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/20 bg-primary/[0.03] px-3 py-2 text-sm">
-      <span className="flex items-center gap-1.5 font-medium text-foreground">
-        <ClipboardList className="h-4 w-4 text-primary" aria-hidden="true" />
+    <div>
+      <p className="mb-1 flex items-center gap-1.5 px-1 text-xs font-semibold text-primary">
+        <ClipboardList className="h-3.5 w-3.5" aria-hidden="true" />
         日常業務
-      </span>
-      {pending > 0 && (
-        <a href="/daily/finance" className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs text-amber-700 hover:bg-amber-100">
-          <FileText className="h-3.5 w-3.5" aria-hidden="true" />
-          未処理の見積/請求 {pending}件
+      </p>
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        {pending > 0 && (
+          <a href="/daily/finance" className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs text-amber-700 hover:bg-amber-100">
+            <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+            未処理の見積/請求 {pending}件
+          </a>
+        )}
+        {unhandled > 0 && (
+          <a href="/daily/inquiries" className="inline-flex items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs text-violet-700 hover:bg-violet-100">
+            <Inbox className="h-3.5 w-3.5" aria-hidden="true" />
+            要確認の問い合わせ {unhandled}件
+          </a>
+        )}
+        <a href="/daily/" className="ml-auto inline-flex items-center gap-0.5 text-xs text-primary hover:underline">
+          日常業務を開く <ArrowRight className="h-3 w-3" aria-hidden="true" />
         </a>
-      )}
-      {unhandled > 0 && (
-        <a href="/daily/inquiries" className="inline-flex items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs text-violet-700 hover:bg-violet-100">
-          <Inbox className="h-3.5 w-3.5" aria-hidden="true" />
-          要確認の問い合わせ {unhandled}件
-        </a>
-      )}
-      <a href="/daily/" className="ml-auto inline-flex items-center gap-0.5 text-xs text-primary hover:underline">
-        日常業務を開く <ArrowRight className="h-3 w-3" aria-hidden="true" />
-      </a>
+      </div>
     </div>
   );
 }

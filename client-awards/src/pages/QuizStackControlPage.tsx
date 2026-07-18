@@ -252,7 +252,7 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
         </button>
         <div className="flex items-center gap-1.5 shrink-0">
           <HelpCircle className="h-4 w-4 text-purple-400" />
-          <span className="text-sm font-black text-slate-200 tracking-wider">クイズ / アンケートCG</span>
+          <span className="hidden sm:inline text-sm font-black text-slate-200 tracking-wider">クイズ / アンケートCG</span>
         </div>
         <div className="flex-1" />
         {/* ── 3-way 回遊ナビ (v2.9.34): リアルタイムCG / 字幕スーパー へジャンプ ── */}
@@ -273,20 +273,20 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
           <span className="hidden md:inline">字幕スーパー</span>
         </button>
         <div className={cn(
-          'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black tracking-widest uppercase',
+          'flex items-center gap-1.5 px-2 py-1.5 sm:px-3 rounded-full text-xs font-black tracking-widest uppercase shrink-0',
           cue.step !== 'idle'
             ? 'bg-red-950/70 text-red-300 border border-red-700/60'
             : 'bg-slate-800/70 text-slate-200 border border-slate-600/50',
         )}>
           <Radio className={cn('h-3 w-3', cue.step !== 'idle' && 'animate-pulse')} />
-          {cue.step !== 'idle' ? 'ON AIR' : 'STANDBY'}
+          <span className="hidden sm:inline">{cue.step !== 'idle' ? 'ON AIR' : 'STANDBY'}</span>
         </div>
         <a
           href={`/awards/output/quiz-stack/${eventId}?lang=ja`}
           target="_blank"
           rel="noreferrer"
           title="OA 出力 (JA)"
-          className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
+          className="flex items-center gap-1 rounded-lg bg-slate-800 px-2 py-2 sm:px-3 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors shrink-0"
         >
           <ExternalLink className="h-3.5 w-3.5" />JA
         </a>
@@ -295,7 +295,7 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
           target="_blank"
           rel="noreferrer"
           title="OA 出力 (EN)"
-          className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
+          className="flex items-center gap-1 rounded-lg bg-slate-800 px-2 py-2 sm:px-3 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors shrink-0"
         >
           <ExternalLink className="h-3.5 w-3.5" />EN
         </a>

@@ -317,7 +317,7 @@ function LedSceneSection({
                 </button>
                 <button
                   onClick={() => removeScene(i)}
-                  className="size-5 rounded inline-flex items-center justify-center opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive transition-all flex-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:opacity-100"
+                  className="size-6 rounded inline-flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive transition-all flex-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:opacity-100"
                   aria-label={`シーン ${i + 1} を削除`}
                 >
                   <X size={11} aria-hidden />

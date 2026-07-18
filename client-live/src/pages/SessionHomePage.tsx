@@ -201,7 +201,7 @@ export default function SessionHomePage() {
                       <button
                         onClick={e => handleDelete(e, p.id, p.name)}
                         disabled={deleteMutation.isPending}
-                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
+                        className="sm:opacity-0 sm:group-hover:opacity-100 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
                         title="削除"
                       >
                         <Trash2 className="h-3.5 w-3.5" />

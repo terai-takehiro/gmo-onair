@@ -190,22 +190,41 @@ export function buildDesiredFromGoogle(items: any[]): Map<string, DesiredEvent> 
   return desired;
 }
 
-/** primary カレンダーの events を取得 (singleEvents 展開・ウィンドウ内) */
-async function listEvents(accessToken: string, now = new Date()): Promise<any[]> {
+/** primary カレンダーの events を全ページ取得 (singleEvents 展開・ウィンドウ内)。
+ *  Google Calendar API は maxResults 未満でも nextPageToken 付きで部分ページを返すことが
+ *  あるため、必ず nextPageToken を辿って全件取得する。安全上限 (MAX_EVENTS) に達しても
+ *  まだページが残っている場合は truncated=true を返し、呼び出し側は削除フェーズをスキップして
+ *  取りこぼしを「消えた予定」と誤認するのを防ぐ。 */
+async function listEvents(accessToken: string, now = new Date()): Promise<{ items: any[]; truncated: boolean }> {
   const timeMin = new Date(now.getTime() - WINDOW_PAST_DAYS * 24 * 3600_000).toISOString();
   const timeMax = new Date(now.getTime() + WINDOW_FUTURE_DAYS * 24 * 3600_000).toISOString();
-  const res = await axios.get(CALENDAR_EVENTS_URL, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-    params: {
-      singleEvents: true,
-      orderBy: 'startTime',
-      maxResults: MAX_EVENTS,
-      timeMin,
-      timeMax,
-    },
-    timeout: 20_000,
-  });
-  return Array.isArray(res.data?.items) ? res.data.items : [];
+  const items: any[] = [];
+  let pageToken: string | undefined;
+  let guard = 0;
+  let truncated = false;
+  do {
+    const res = await axios.get(CALENDAR_EVENTS_URL, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      params: {
+        singleEvents: true,
+        orderBy: 'startTime',
+        maxResults: 2500,
+        timeMin,
+        timeMax,
+        ...(pageToken ? { pageToken } : {}),
+      },
+      timeout: 20_000,
+    });
+    const pageItems = Array.isArray(res.data?.items) ? res.data.items : [];
+    items.push(...pageItems);
+    pageToken = typeof res.data?.nextPageToken === 'string' ? res.data.nextPageToken : undefined;
+    guard++;
+    if (items.length >= MAX_EVENTS || guard >= 25) {
+      truncated = Boolean(pageToken); // 取りきれずに打ち切ったときのみ truncated
+      break;
+    }
+  } while (pageToken);
+  return { items, truncated };
 }
 
 export interface SyncResult {
@@ -227,7 +246,7 @@ export async function syncGoogleAccount(accountId: string): Promise<SyncResult> 
 
   try {
     const accessToken = await getAccessToken(account);
-    const items = await listEvents(accessToken);
+    const { items, truncated } = await listEvents(accessToken);
     const desired = buildDesiredFromGoogle(items);
 
     const existing = await queryAll(
@@ -260,11 +279,15 @@ export async function syncGoogleAccount(accountId: string): Promise<SyncResult> 
         created++;
       }
     }
-    // Google から消えた予定を soft-delete (ウィンドウ内取込なので全比較で良い)
-    for (const [key, cur] of existingByKey) {
-      if (!desired.has(key)) {
-        await execute(`UPDATE personal_events SET deleted_at=NOW(), updated_at=NOW() WHERE id=?`, [cur.id]);
-        removed++;
+    // Google から消えた予定を soft-delete (ウィンドウ内取込なので全比較で良い)。
+    // ただし全ページを取得しきれなかった (truncated) 場合はスキップする — 取りこぼした
+    // 実在イベントを「消えた予定」と誤認して削除するのを防ぐ。
+    if (!truncated) {
+      for (const [key, cur] of existingByKey) {
+        if (!desired.has(key)) {
+          await execute(`UPDATE personal_events SET deleted_at=NOW(), updated_at=NOW() WHERE id=?`, [cur.id]);
+          removed++;
+        }
       }
     }
 

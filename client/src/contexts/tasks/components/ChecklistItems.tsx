@@ -53,8 +53,8 @@ export default function ChecklistItems({ projectId, parentTask }: Props) {
           </span>
           <button
             type="button"
-            onClick={() => deleteTask.mutate(child.id)}
-            className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 p-1 rounded text-muted-foreground hover:text-destructive transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            onClick={() => { if (window.confirm('このサブタスクを削除しますか？')) deleteTask.mutate(child.id); }}
+            className="sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 p-1 rounded text-muted-foreground hover:text-destructive transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             aria-label={`${child.title} を削除`}
           >
             <Trash2 className="h-3.5 w-3.5" />

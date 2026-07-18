@@ -311,13 +311,27 @@ export const projectTasksService = {
        WHERE id = $2`,
       [userId, id]
     );
+
+    // このタスク (と子タスク) に関わる依存関係も物理削除する。soft-delete では
+    // ON DELETE CASCADE が効かず、削除済みタスクを指す依存がガントの矢印データに
+    // 残り続けるため。
+    await execute(
+      `DELETE FROM task_dependencies
+       WHERE predecessor_id = $1 OR successor_id = $1
+          OR predecessor_id IN (SELECT id FROM project_tasks WHERE parent_task_id = $1)
+          OR successor_id IN (SELECT id FROM project_tasks WHERE parent_task_id = $1)`,
+      [id]
+    );
   },
 
   // ---- タスク依存関係 (先行 → 後続) ----
   async listDependencies(projectId: string): Promise<Array<{ id: string; predecessor_id: string; successor_id: string }>> {
+    // 生存タスク同士の依存のみ返す (削除済みタスクを指す依存を除外し矢印データを健全に保つ)
     return (await queryAll(
-      `SELECT id, predecessor_id, successor_id FROM task_dependencies
-       WHERE project_id = $1 ORDER BY created_at`,
+      `SELECT d.id, d.predecessor_id, d.successor_id FROM task_dependencies d
+       JOIN project_tasks p ON p.id = d.predecessor_id AND p.deleted_at IS NULL
+       JOIN project_tasks s ON s.id = d.successor_id AND s.deleted_at IS NULL
+       WHERE d.project_id = $1 ORDER BY d.created_at`,
       [projectId]
     )) as unknown as Array<{ id: string; predecessor_id: string; successor_id: string }>;
   },
@@ -339,12 +353,22 @@ export const projectTasksService = {
     )) as unknown as { c: number };
     if (cnt.c !== 2) throw new AppError(400, 'VALIDATION_ERROR', '対象タスクが見つかりません');
 
-    // 逆向きの依存があれば循環になるため拒否
-    const reverse = await queryOne(
-      `SELECT id FROM task_dependencies WHERE predecessor_id = $1 AND successor_id = $2`,
-      [successorId, predecessorId]
+    // 循環検出: 新しいエッジ predecessor→successor を追加すると循環になるか。
+    // = successor から辿って predecessor に到達できるか (再帰CTE) を判定する。
+    // 直接の逆向き (successor→predecessor) だけでなく間接循環 (successor→…→predecessor) も拒否する。
+    const cycle = await queryOne(
+      `WITH RECURSIVE reachable AS (
+         SELECT successor_id AS node FROM task_dependencies
+         WHERE predecessor_id = $1 AND project_id = $2
+         UNION
+         SELECT d.successor_id FROM task_dependencies d
+         JOIN reachable r ON d.predecessor_id = r.node
+         WHERE d.project_id = $2
+       )
+       SELECT 1 FROM reachable WHERE node = $3 LIMIT 1`,
+      [successorId, projectId, predecessorId]
     );
-    if (reverse) throw new AppError(400, 'VALIDATION_ERROR', '逆向きの依存が既に存在します (循環)');
+    if (cycle) throw new AppError(400, 'VALIDATION_ERROR', '循環する依存関係は作成できません');
 
     // 重複は冪等に既存を返す
     const existing = (await queryOne(

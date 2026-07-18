@@ -4,6 +4,7 @@ import GanttTimeline from "./GanttTimeline";
 import GanttRow, { type DragMode } from "./GanttRow";
 import { useProjectTasks, useUpdateTask, useTaskDependencies } from "../../hooks/useProjectTasks";
 import type { ProjectTask } from "@/types";
+import TaskDialog from "../TaskDialog";
 
 const DAY_WIDTH = 24;
 const ROW_HEIGHT = 36;
@@ -36,6 +37,19 @@ export default function GanttView({ projectId, episodeId }: Props) {
   const [drag, setDrag] = useState<DragState | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const startDateRef = useRef<Date>(new Date());
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const timelineScrollRef = useRef<HTMLDivElement>(null);
+  const leftPanelRef = useRef<HTMLDivElement>(null);
+
+  // 本体スクロールにヘッダー(タイムライン)と左パネルを追従させる (単一スクロールソースにして
+  // 日付ヘッダーとバー・タスク名がずれないようにする)
+  const onBodyScroll = useCallback(() => {
+    const b = bodyRef.current;
+    if (!b) return;
+    if (timelineScrollRef.current) timelineScrollRef.current.scrollLeft = b.scrollLeft;
+    if (leftPanelRef.current) leftPanelRef.current.scrollTop = b.scrollTop;
+  }, []);
 
   const { scheduledTasks, unscheduledTasks, startDate, endDate } = useMemo(() => {
     const scheduled = tasks.filter((t) => t.start_date || t.due_date);
@@ -100,15 +114,26 @@ export default function GanttView({ projectId, episodeId }: Props) {
     };
     const onUp = () => {
       const d = dragRef.current;
-      if (d) persist(d);
+      if (d) {
+        // ドラッグ量ゼロ (= タップ/クリック) はバー編集を開く。移動があれば永続化する。
+        if (d.deltaDays === 0 && d.mode === "move") setEditingTaskId(d.taskId);
+        else persist(d);
+      }
+      dragRef.current = null;
+      setDrag(null);
+    };
+    // タッチのスクロール競合等でドラッグがキャンセルされたら変更を破棄する
+    const onCancel = () => {
       dragRef.current = null;
       setDrag(null);
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onCancel);
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onCancel);
     };
   }, [persist]);
 
@@ -139,6 +164,8 @@ export default function GanttView({ projectId, episodeId }: Props) {
     );
   }
 
+  const editingTask = editingTaskId ? tasks.find((t) => t.id === editingTaskId) ?? null : null;
+
   const barGeom = (task: ProjectTask, index: number) => {
     const s = task.start_date ? new Date(task.start_date) : new Date(task.due_date!);
     const eDate = task.due_date ? new Date(task.due_date) : new Date(task.start_date!);
@@ -163,7 +190,7 @@ export default function GanttView({ projectId, episodeId }: Props) {
   return (
     <div className="flex flex-col h-full" style={drag ? { userSelect: "none" } : undefined}>
       <div className="flex items-center gap-2 px-1 pb-2 text-[11px] text-muted-foreground">
-        <span className="rounded bg-muted px-1.5 py-0.5">ドラッグで移動 · 端をドラッグで期間変更</span>
+        <span className="rounded bg-muted px-1.5 py-0.5">タップで編集 · ドラッグで移動 · 端をドラッグで期間変更</span>
       </div>
       {/* ヘッダー行（左パネル + タイムライン） */}
       <div className="flex border-b border-border bg-background sticky top-0 z-20">
@@ -174,7 +201,7 @@ export default function GanttView({ projectId, episodeId }: Props) {
           タスク名
         </div>
         <div className="overflow-hidden flex-1">
-          <div className="overflow-x-auto" style={{ scrollbarGutter: "stable" }}>
+          <div ref={timelineScrollRef} className="overflow-hidden">
             <GanttTimeline startDate={startDate} endDate={endDate} dayWidth={DAY_WIDTH} rowHeight={TIMELINE_HEIGHT} />
           </div>
         </div>
@@ -183,7 +210,7 @@ export default function GanttView({ projectId, episodeId }: Props) {
       {/* スクロール可能なボディ */}
       <div className="flex flex-1 overflow-hidden">
         {/* 左パネル（タスク名） */}
-        <div className="shrink-0 border-r border-border overflow-y-auto" style={{ width: LEFT_PANEL_WIDTH }}>
+        <div ref={leftPanelRef} className="shrink-0 border-r border-border overflow-hidden" style={{ width: LEFT_PANEL_WIDTH }}>
           {scheduledTasks.map((task) => (
             <div
               key={task.id}
@@ -202,7 +229,7 @@ export default function GanttView({ projectId, episodeId }: Props) {
         </div>
 
         {/* ガントチャート本体 */}
-        <div className="flex-1 overflow-auto">
+        <div ref={bodyRef} onScroll={onBodyScroll} className="flex-1 overflow-auto">
           <svg width={totalWidth} height={Math.max(svgHeight, ROW_HEIGHT)} aria-label="ガントチャート">
             {scheduledTasks.map((_, i) => (
               <rect key={i} x={0} y={i * ROW_HEIGHT} width={totalWidth} height={ROW_HEIGHT}
@@ -280,6 +307,16 @@ export default function GanttView({ projectId, episodeId }: Props) {
             ))}
           </div>
         </div>
+      )}
+
+      {editingTask && (
+        <TaskDialog
+          open
+          onClose={() => setEditingTaskId(null)}
+          projectId={projectId}
+          episodeId={episodeId}
+          existing={editingTask}
+        />
       )}
     </div>
   );

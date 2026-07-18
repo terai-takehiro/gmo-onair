@@ -539,7 +539,7 @@ export default function EventEditorPage() {
         <div className="flex-1 min-w-0">
           <h1 className="text-lg font-bold truncate">{event.name}</h1>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center justify-end gap-1.5 shrink-0">
           <select
             value={event.status}
             onChange={(e) => changeStatus.mutate(e.target.value)}
@@ -551,35 +551,35 @@ export default function EventEditorPage() {
           </select>
           <button
             onClick={() => navigate(`/event/${eventId}/cg/control`)}
-            className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800 transition-colors ring-1 ring-slate-500"
+            className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-2 sm:px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800 transition-colors ring-1 ring-slate-500"
             title="統合送出コックピット (ランキング/字幕/クイズを1画面で操作)"
           >
             <Layers className="h-3.5 w-3.5" />
-            統合送出
+            <span className="hidden sm:inline">統合送出</span>
           </button>
           <button
             onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
-            className="flex items-center gap-1.5 rounded-lg border border-amber-500/60 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-500/20 transition-colors"
+            className="flex items-center gap-1.5 rounded-lg border border-amber-500/60 bg-amber-500/10 px-2 sm:px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-500/20 transition-colors"
             title="字幕スーパー (下部テロップ) のオペレーター画面"
           >
             <Subtitles className="h-3.5 w-3.5" />
-            字幕スーパー
+            <span className="hidden sm:inline">字幕スーパー</span>
           </button>
           <button
             onClick={() => navigate(`/event/${eventId}/quiz`)}
-            className="flex items-center gap-1.5 rounded-lg border border-purple-500/60 bg-purple-500/10 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-500/20 transition-colors"
+            className="flex items-center gap-1.5 rounded-lg border border-purple-500/60 bg-purple-500/10 px-2 sm:px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-500/20 transition-colors"
             title="アンケート/クイズCG のオペレーター画面"
           >
             <HelpCircle className="h-3.5 w-3.5" />
-            アンケート/クイズ
+            <span className="hidden sm:inline">アンケート/クイズ</span>
           </button>
           <button
             onClick={() => navigate(`/event/${eventId}/control`)}
-            className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition-colors"
+            className="flex items-center gap-1.5 rounded-lg bg-red-600 px-2 sm:px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition-colors"
             title="ランキングCG (ランキング演出) のオペレーター画面"
           >
             <Tv className="h-3.5 w-3.5" />
-            ランキングCG
+            <span className="hidden sm:inline">ランキングCG</span>
           </button>
         </div>
       </div>
@@ -708,7 +708,7 @@ export default function EventEditorPage() {
                     onUpdateCat={(catId, patch) => updateCategory.mutate({ catId, patch })}
                     onAddEntry={(catId, name) => addEntry.mutate({ catId, name })}
                     onUpdateEntry={(eid, patch) => updateEntry.mutate({ id: eid, patch })}
-                    onDeleteEntry={(eid) => deleteEntry.mutate(eid)}
+                    onDeleteEntry={(eid) => { if (confirm('このエントリを削除しますか？（写真・ポイント・CG表示内容も削除されます）')) deleteEntry.mutate(eid); }}
                     onPhotoUpload={(eid, file) => uploadPhoto.mutate({ eid, file })}
                     onGenerateDummyPoints={(catId) => generateDummyPoints.mutate(catId)}
                   />

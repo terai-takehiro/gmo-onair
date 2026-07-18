@@ -1,4 +1,5 @@
 import { Router, type Request, type Response, type NextFunction, type RequestHandler } from 'express';
+import rateLimit from 'express-rate-limit';
 import { authorizationHandler } from '@modelcontextprotocol/sdk/server/auth/handlers/authorize.js';
 import { tokenHandler } from '@modelcontextprotocol/sdk/server/auth/handlers/token.js';
 import { clientRegistrationHandler } from '@modelcontextprotocol/sdk/server/auth/handlers/register.js';
@@ -73,9 +74,26 @@ function onairLoginGate(authHandler: RequestHandler): RequestHandler {
 export function createMcpOAuthRouter(): Router {
   const router = Router();
   const authHandler = authorizationHandler({ provider: mcpOAuthProvider });
+
+  // レート制限: DCR (動的クライアント登録) の濫用 (DB 肥大) と token エンドポイントへの
+  // 総当たりを抑制する。token は認証成功 (正常フロー) を skip し失敗のみカウント。
+  const registerLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  const tokenLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 60,
+    skipSuccessfulRequests: true,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
   router.use('/authorize', onairLoginGate(authHandler));
-  router.use('/token', tokenHandler({ provider: mcpOAuthProvider }));
-  router.use('/register', clientRegistrationHandler({ clientsStore: mcpClientsStore }));
+  router.use('/token', tokenLimiter, tokenHandler({ provider: mcpOAuthProvider }));
+  router.use('/register', registerLimiter, clientRegistrationHandler({ clientsStore: mcpClientsStore }));
   router.use('/revoke', revocationHandler({ provider: mcpOAuthProvider }));
   return router;
 }

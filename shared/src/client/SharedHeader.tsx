@@ -140,6 +140,37 @@ export default function SharedHeader({
 
       {/* アクション */}
       <div className="p-1.5 space-y-0.5">
+        {/* モバイル: ヘッダーに常時置けないボタンをメニューに集約 (sm 未満のみ) */}
+        {onOpenManual && (
+          <button
+            onClick={() => { setOpen(false); onOpenManual(); }}
+            className="sm:hidden flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-foreground hover:bg-accent active:scale-[.98] transition-all"
+            style={{ touchAction: "manipulation" }}
+          >
+            <HelpCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+            利用マニュアル
+          </button>
+        )}
+        {onOpenVersionHistory && (
+          <button
+            onClick={() => { setOpen(false); onOpenVersionHistory(); }}
+            className="sm:hidden flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-foreground hover:bg-accent active:scale-[.98] transition-all"
+            style={{ touchAction: "manipulation" }}
+          >
+            <History className="h-4 w-4 text-muted-foreground shrink-0" />
+            バージョン履歴
+          </button>
+        )}
+        {onOpenMcpInfo && (
+          <button
+            onClick={() => { setOpen(false); onOpenMcpInfo(); }}
+            className="sm:hidden flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-foreground hover:bg-accent active:scale-[.98] transition-all"
+            style={{ touchAction: "manipulation" }}
+          >
+            <Plug className="h-4 w-4 text-muted-foreground shrink-0" />
+            MCP コネクタ
+          </button>
+        )}
         {onSwitchUser && (
           <button
             onClick={() => { setOpen(false); onSwitchUser(); }}
@@ -209,7 +240,7 @@ export default function SharedHeader({
       {onOpenMcpInfo && (
         <button
           onClick={onOpenMcpInfo}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all"
+          className="hidden sm:flex h-10 w-10 shrink-0 items-center justify-center rounded-lg hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all"
           aria-label="MCP コネクタ情報を開く"
           title="MCP コネクタ"
           style={{ touchAction: "manipulation" }}
@@ -222,7 +253,7 @@ export default function SharedHeader({
       {onOpenVersionHistory && (
         <button
           onClick={onOpenVersionHistory}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all"
+          className="hidden sm:flex h-10 w-10 shrink-0 items-center justify-center rounded-lg hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all"
           aria-label="バージョン履歴を開く"
           title="バージョン履歴"
           style={{ touchAction: "manipulation" }}
@@ -235,7 +266,7 @@ export default function SharedHeader({
       {onOpenManual && (
         <button
           onClick={onOpenManual}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all"
+          className="hidden sm:flex h-10 w-10 shrink-0 items-center justify-center rounded-lg hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all"
           aria-label="利用マニュアルを開く"
           title="利用マニュアル"
           style={{ touchAction: "manipulation" }}

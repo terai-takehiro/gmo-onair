@@ -44,7 +44,7 @@ export default function TimerControls({ state, onSet, onStart, onStop, onReset, 
         <Label className="text-xs text-muted-foreground mb-1.5 block">プリセット</Label>
         <div className="flex flex-wrap gap-1.5">
           {PRESETS.map(m => (
-            <Button key={m} variant="outline" size="sm" onClick={() => onSet(m * 60)}>
+            <Button key={m} variant="outline" size="sm" disabled={running} onClick={() => onSet(m * 60)}>
               {m}分
             </Button>
           ))}
@@ -56,17 +56,17 @@ export default function TimerControls({ state, onSet, onStart, onStop, onReset, 
         <Label className="text-xs text-muted-foreground mb-1.5 block">カスタム</Label>
         <div className="flex items-center gap-2">
           <Input
-            type="number" min={0} max={99} placeholder="00"
+            type="number" min={0} max={99} placeholder="00" disabled={running}
             value={customMin} onChange={e => setCustomMin(e.target.value)}
             className="w-16 text-center"
           />
           <span className="text-muted-foreground font-bold">:</span>
           <Input
-            type="number" min={0} max={59} placeholder="00"
+            type="number" min={0} max={59} placeholder="00" disabled={running}
             value={customSec} onChange={e => setCustomSec(e.target.value)}
             className="w-16 text-center"
           />
-          <Button variant="secondary" size="sm" onClick={handleCustomSet}>セット</Button>
+          <Button variant="secondary" size="sm" disabled={running} onClick={handleCustomSet}>セット</Button>
         </div>
       </div>
 
@@ -87,7 +87,11 @@ export default function TimerControls({ state, onSet, onStart, onStop, onReset, 
         >
           停止
         </Button>
-        <Button variant="destructive" size="sm" onClick={onReset}>
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={() => { if (running && !window.confirm('タイマーをリセットします。よろしいですか？')) return; onReset(); }}
+        >
           リセット
         </Button>
       </div>

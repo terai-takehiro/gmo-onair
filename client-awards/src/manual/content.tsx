@@ -223,7 +223,6 @@ export const AWARDS_MANUAL: ManualContent = {
             "「投票No.1決定」パターンでは BEST 3 → PITCH（ファイナルピッチ）と進み、PITCH中は「3人並び／1番をピック／2番をピック／3番をピック」のPICKボタンで演出を制御します。",
             "「RANKS」のラベルは部門の人数に応じて「RANKS 4→2」「RANKS 3→2」に自動で変わります。「CELEB」（全部門No.1＋紙吹雪）は賞の最後の部門でのみ表示されます。",
             "連動アンケートを持つ部門では、賞の最後に「SURVEY No.1」ステップ（アンケートNo.1発表）が追加されます。",
-            "キーボード：0〜5＝ステップ／↑↓＝部門／Space＝TAKE／X・Esc＝CLEAR／F＝全画面。",
           ],
         },
       ],
@@ -240,7 +239,7 @@ export const AWARDS_MANUAL: ManualContent = {
         {
           type: "steps",
           items: [
-            { title: "人を選ぶ", text: "「賞 · Award」プルダウン →「部門 · Division」ボタン →「人 · Nominee」の3段階で送出するノミネートを選びます（↑↓キーでも移動可）。" },
+            { title: "人を選ぶ", text: "「賞 · Award」プルダウン →「部門 · Division」ボタン →「人 · Nominee」の3段階で送出するノミネートを選びます。" },
             { title: "モジュールを選ぶ", text: "表示内容（情報なし／タイトル／尊敬ポイント／得意技／チームメンバー等、イベント設定による）をボタンで選びます。" },
             { title: "TAKEする", text: "「TAKE」でOAに送出、「CLEAR」で退場します。「画像 ON/OFF」で顔写真の有無、「透過 ON/OFF」でプレビューの背景を切り替えられます。" },
             { title: "ティッカーを流す", text: "「TICKER ON」で画面下部にノミネート一覧のスクロールテロップを流します。横に「流す賞 → ○○（N部門ループ・N名）」と対象が表示されます。ティッカーはテロップと独立してON/OFFできます。" },

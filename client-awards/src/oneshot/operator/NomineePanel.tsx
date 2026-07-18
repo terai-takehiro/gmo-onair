@@ -115,7 +115,7 @@ export default function NomineePanel({
       <div className="space-y-1.5">
         <div className="flex items-center gap-1.5 text-[11px] font-black tracking-widest text-slate-300 uppercase px-0.5">
           <User className="h-3 w-3 text-amber-500/70" />
-          人 · Nominee · ↑/↓
+          人 · Nominee
           <span className="text-slate-300 normal-case font-medium tracking-wide">
             ({filtered.length})
           </span>
