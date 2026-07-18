@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Plus, Search, Loader2, ExternalLink, Building2, User, Calendar, Tag, Sparkles,
+  Plus, Search, Loader2, ExternalLink, Building2, User, Calendar, Tag, Sparkles, Info,
   Check, CheckSquare, Square,
 } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
@@ -50,6 +50,7 @@ export default function ProjectListPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<TabFilter>("all");
+  const [termHintOpen, setTermHintOpen] = useState(false);
   const [page, setPage] = useState(1);
   // AI 起票フィルタ + 一括レビュー
   const [aiOnly, setAiOnly] = useState(false);
@@ -148,6 +149,18 @@ export default function ProjectListPage() {
             ))}
           </TabsList>
         </Tabs>
+        <button
+          type="button"
+          onClick={() => setTermHintOpen((v) => !v)}
+          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1.5 text-xs font-medium transition ${
+            termHintOpen ? "border-primary/40 bg-primary/5 text-primary" : "border-input bg-background text-muted-foreground hover:bg-muted"
+          }`}
+          title="ヨミ・ネタ・GLS などの用語の説明"
+          aria-expanded={termHintOpen}
+        >
+          <Info className="h-3.5 w-3.5" />
+          用語
+        </button>
         {/* AI 起票フィルタ */}
         <button
           type="button"
@@ -172,6 +185,15 @@ export default function ProjectListPage() {
           </button>
         )}
       </div>
+
+      {/* 用語ヒント (「用語」ボタンで開閉) */}
+      {termHintOpen && (
+        <div className="rounded-lg border border-primary/20 bg-primary/[0.03] px-3 py-2.5 text-xs text-muted-foreground space-y-1">
+          <p><span className="font-semibold text-foreground">ネタ</span> … 最初の見込み段階。まだ提案前の「案件のタネ」。</p>
+          <p><span className="font-semibold text-foreground">ヨミ</span> … GLS 発番前の見込み案件全般（ネタ → 提案 → 口頭決定 の各段階）。受注確度を「読む」フェーズ。</p>
+          <p><span className="font-semibold text-foreground">GLS 番号</span> … 受注が固まった案件に発番される正式な案件番号（GLS-A… / GLS-B…）。発番後は「進行中」タブに移ります。</p>
+        </div>
+      )}
 
       {/* AI 起票 一括レビュー バー */}
       {aiOnly && selectableIds.length > 0 && (

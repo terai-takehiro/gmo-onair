@@ -515,7 +515,7 @@ export default function DashboardPage() {
       queryClient.invalidateQueries({ queryKey: ["qsheet-documents"] });
       setShowCreate(false);
       resetCreateForm();
-      notifySuccess("ドキュメントを作成しました");
+      notifySuccess("作成しました。このQシートはあなたと管理者のみ閲覧できます（他の人に見せるにはカードの「共有」ボタンから共有してください）");
       navigate(`/qsheet/editor/${doc.id}`);
     },
     onError: () => {
@@ -668,6 +668,9 @@ export default function DashboardPage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>新規台本作成</DialogTitle>
+            <DialogDescription>
+              作成したQシートは最初あなた（と管理者）だけが閲覧できます。他の人に見せるには、作成後にカードの「共有」ボタンから共有してください。
+            </DialogDescription>
           </DialogHeader>
           <form
             className="space-y-4 pt-2"
