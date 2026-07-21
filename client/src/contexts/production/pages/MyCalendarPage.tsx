@@ -18,7 +18,7 @@ import {
   SCHEDULE_TYPE_COLORS, SCHEDULE_TYPE_LABELS,
   useIsMobile, paintHolidayCell, toExclusiveEnd,
   loadCalState, saveCalState, clampView,
-  CalendarNavPills, type PersonalEvent, type PartnerSchedule,
+  CalendarShell, type PersonalEvent, type PartnerSchedule,
 } from "../components/schedule/scheduleShared";
 
 // マイカレンダー — 本人のみに表示される個人カレンダー。
@@ -29,6 +29,7 @@ const MANUAL_COLOR = "#2563eb";
 const ICS_COLOR = "#64748b";
 const GOOGLE_COLOR = "#16a34a";
 const OUTLOOK_COLOR = "#0078d4";
+const SHARED_COLOR = "#9333ea"; // 共有予定 (自分が共有した/された) は紫で区別
 
 export default function MyCalendarPage() {
   const isMobile = useIsMobile(1024);
@@ -94,10 +95,15 @@ export default function MyCalendarPage() {
   const calendarEvents = useMemo(() => {
     const list: any[] = events.map((e) => {
       const isAllDay = !!e.all_day;
-      const color = e.source === "google" ? GOOGLE_COLOR : e.source === "outlook" ? OUTLOOK_COLOR : e.source === "ics" ? ICS_COLOR : MANUAL_COLOR;
+      const isSharedIn = e.is_owner === false;    // 自分に共有された (別ユーザー作成)
+      const isShared = !!e.shared;                // 共有 (自分が共有した or された)
+      const color = isShared ? SHARED_COLOR
+        : e.source === "google" ? GOOGLE_COLOR : e.source === "outlook" ? OUTLOOK_COLOR : e.source === "ics" ? ICS_COLOR : MANUAL_COLOR;
+      const base = e.source === "ics" && e.feed_label ? `${e.title}｜${e.feed_label}` : e.title;
+      const title = isSharedIn ? `👥 ${base}（${e.owner_name || "共有"}）` : isShared ? `👥 ${base}` : base;
       return {
         id: `pe-${e.id}`,
-        title: e.source === "ics" && e.feed_label ? `${e.title}｜${e.feed_label}` : e.title,
+        title,
         start: isAllDay ? e.start_time.split("T")[0] : e.start_time,
         end: isAllDay ? toExclusiveEnd(e.end_time) : e.end_time,
         allDay: isAllDay,
@@ -154,34 +160,26 @@ export default function MyCalendarPage() {
   }, []);
 
   return (
-    <div className="animate-in fade-in duration-200">
-      <div className="space-y-4 p-4 sm:p-6">
-        {/* ヘッダー: モバイルは「タイトル+ボタン」「回遊ピル」の 2 行、sm 以上は 1 行 */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <CalendarClock className="h-6 w-6 text-primary shrink-0" />
-            <h1 className="text-lg sm:text-xl font-bold truncate">マイカレンダー</h1>
-          </div>
-          <div className="flex shrink-0 items-center gap-2 sm:order-last">
-            <Button size="sm" variant="outline" onClick={() => setFeedsDialogOpen(true)}>
-              <CloudDownload className="mr-1 h-4 w-4" />
-              <span className="hidden sm:inline">外部カレンダー連携</span>
-              <span className="sm:hidden">連携</span>
-            </Button>
-            <Button size="sm" onClick={() => { setEditing(null); setPresetRange(null); setEventDialogOpen(true); }}>
-              <Plus className="mr-1 h-4 w-4" />
-              <span className="hidden sm:inline">予定を登録</span>
-              <span className="sm:hidden">登録</span>
-            </Button>
-          </div>
-          <div className="w-full sm:w-auto flex">
-            <CalendarNavPills current="my" />
-          </div>
-        </div>
-        <p className="hidden sm:block text-sm text-muted-foreground -mt-2">
-          あなただけに表示される個人カレンダーです。Outlook/Google の予定を連携して取り込めます。
-        </p>
-
+    <CalendarShell
+      current="my"
+      icon={CalendarClock}
+      title="マイカレンダー"
+      description="あなただけに表示される個人カレンダーです。Outlook/Google の予定を連携し、双方向で同期できます。会議予定などはメンバーに共有できます。"
+      actions={
+        <>
+          <Button size="sm" variant="outline" onClick={() => setFeedsDialogOpen(true)}>
+            <CloudDownload className="mr-1 h-4 w-4" />
+            <span className="hidden sm:inline">外部カレンダー連携</span>
+            <span className="sm:hidden">連携</span>
+          </Button>
+          <Button size="sm" onClick={() => { setEditing(null); setPresetRange(null); setEventDialogOpen(true); }}>
+            <Plus className="mr-1 h-4 w-4" />
+            <span className="hidden sm:inline">予定を登録</span>
+            <span className="sm:hidden">登録</span>
+          </Button>
+        </>
+      }
+    >
         {googleNotice && (
           <div
             className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
@@ -212,6 +210,10 @@ export default function MyCalendarPage() {
           <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
             <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: ICS_COLOR }} />
             ICS 購読
+          </span>
+          <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
+            <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: SHARED_COLOR }} />
+            共有予定
           </span>
           <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
             <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: SCHEDULE_TYPE_COLORS.daikyu }} />
@@ -278,7 +280,6 @@ export default function MyCalendarPage() {
           presetRange={presetRange}
         />
         <IcsFeedsDialog open={feedsDialogOpen} onOpenChange={setFeedsDialogOpen} />
-      </div>
-    </div>
+    </CalendarShell>
   );
 }

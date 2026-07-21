@@ -17,7 +17,7 @@ import {
   SCHEDULE_TYPE_LABELS, SCHEDULE_TYPE_COLORS,
   useIsMobile, paintHolidayCell, toExclusiveEnd,
   loadCalState, saveCalState, clampView,
-  CalendarNavPills, type PartnerSchedule,
+  CalendarShell, type PartnerSchedule,
 } from "../components/schedule/scheduleShared";
 
 // パートナー (従業員) スケジュール — 代休/有給/出張/社外活動 等をパートナー間で共有する。
@@ -104,29 +104,19 @@ export default function PartnerSchedulePage() {
   }, [canEdit]);
 
   return (
-    <div className="animate-in fade-in duration-200">
-      <div className="space-y-4 p-4 sm:p-6">
-        {/* ヘッダー: モバイルは「タイトル+ボタン」「回遊ピル」の 2 行、sm 以上は 1 行 */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <Users className="h-6 w-6 text-primary shrink-0" />
-            <h1 className="text-lg sm:text-xl font-bold truncate">パートナースケジュール</h1>
-          </div>
-          {canEdit && (
-            <Button size="sm" className="shrink-0 sm:order-last" onClick={() => { setEditing(null); setPresetRange(null); setDialogOpen(true); }}>
-              <Plus className="mr-1 h-4 w-4" />
-              <span className="hidden sm:inline">予定を登録</span>
-              <span className="sm:hidden">登録</span>
-            </Button>
-          )}
-          <div className="w-full sm:w-auto flex">
-            <CalendarNavPills current="partners" />
-          </div>
-        </div>
-        <p className="hidden sm:block text-sm text-muted-foreground -mt-2">
-          代休・有給・出張・社外活動などをパートナー間で共有します（この画面はパートナースケジュール権限を持つメンバーのみ閲覧できます）。
-        </p>
-
+    <CalendarShell
+      current="partners"
+      icon={Users}
+      title="パートナースケジュール"
+      description="代休・有給・出張・社外活動などをパートナー間で共有します（この画面はパートナースケジュール権限を持つメンバーのみ閲覧できます）。"
+      actions={canEdit ? (
+        <Button size="sm" onClick={() => { setEditing(null); setPresetRange(null); setDialogOpen(true); }}>
+          <Plus className="mr-1 h-4 w-4" />
+          <span className="hidden sm:inline">予定を登録</span>
+          <span className="sm:hidden">登録</span>
+        </Button>
+      ) : undefined}
+    >
         {/* メンバー絞り込み + 凡例 */}
         <div className="flex flex-wrap items-center gap-1.5">
           <button
@@ -218,7 +208,6 @@ export default function PartnerSchedulePage() {
           presetRange={presetRange}
           isManager={isManager}
         />
-      </div>
-    </div>
+    </CalendarShell>
   );
 }
