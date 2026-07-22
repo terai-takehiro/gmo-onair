@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Trash2, CloudDownload } from "lucide-react";
+import { Loader2, Trash2, CloudDownload, Users, Check, CloudUpload, UserMinus } from "lucide-react";
 import type { PersonalEvent } from "./scheduleShared";
 
 interface Props {
@@ -18,11 +18,18 @@ interface Props {
   presetRange?: { start: string; end: string; allDay: boolean } | null;
 }
 
+interface OAuthStatus { configured: boolean; connected: boolean; can_write?: boolean; }
+
 // マイカレンダーの個人予定 ダイアログ。
-// 外部同期分 (source='ics' / 'google' / 'outlook') は読み取り専用 (削除のみ可・次回同期で復活する旨を表示)。
+// - 外部同期分 (source='ics' / 'google' / 'outlook') は読み取り専用 (削除のみ可)。
+// - 手入力予定は作成者が「共有先メンバー」を選べる (パートナー権限保持者から選択)。
+// - 共有された側 (受け手) は内容を編集できるが、共有先の変更・予定の削除はできず「共有から外す」のみ。
+// - 書き込み連携済みの Google/Outlook があれば、保存時に外部カレンダーにも反映される。
 export default function PersonalEventDialog({ open, onOpenChange, editing, presetRange }: Props) {
   const qc = useQueryClient();
-  const isIcs = editing?.source === "ics" || editing?.source === "google" || editing?.source === "outlook";
+  const isExternalSynced = editing?.source === "ics" || editing?.source === "google" || editing?.source === "outlook";
+  const isSharedIn = !!editing && editing.is_owner === false; // 自分に共有された (別ユーザー作成)
+  const isOwner = !editing || editing.is_owner !== false;      // 新規 or 自分が作成
 
   const [title, setTitle] = useState("");
   const [allDay, setAllDay] = useState(false);
@@ -32,11 +39,38 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
   const [endTime, setEndTime] = useState("11:00");
   const [location, setLocation] = useState("");
   const [notes, setNotes] = useState("");
+  const [shareIds, setShareIds] = useState<string[]>([]);
+  const [shareSearch, setShareSearch] = useState("");
+  const [showShare, setShowShare] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 共有先候補 = パートナースケジュール権限保持者
+  const { data: partnerUsers = [] } = useQuery<Array<{ id: string; name: string }>>({
+    queryKey: ["partner-schedule-users"],
+    queryFn: async () => (await api.get("/users/by-module/partner_schedule")).data.data,
+    enabled: open && isOwner && !isExternalSynced,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // 書き込み連携の有無 (書き戻し案内の表示判定)
+  const { data: google } = useQuery<OAuthStatus>({
+    queryKey: ["google-cal-status"],
+    queryFn: async () => (await api.get("/schedule/google/status")).data.data,
+    enabled: open && isOwner && !isExternalSynced,
+    staleTime: 60 * 1000,
+  });
+  const { data: outlook } = useQuery<OAuthStatus>({
+    queryKey: ["ms-cal-status"],
+    queryFn: async () => (await api.get("/schedule/ms/status")).data.data,
+    enabled: open && isOwner && !isExternalSynced,
+    staleTime: 60 * 1000,
+  });
+  const writeTarget = google?.can_write ? "Google" : outlook?.can_write ? "Outlook" : null;
 
   useEffect(() => {
     if (!open) return;
     setError(null);
+    setShareSearch("");
     if (editing) {
       setTitle(editing.title);
       setAllDay(!!editing.all_day);
@@ -47,6 +81,9 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
       setEndTime(et?.slice(0, 5) || "11:00");
       setLocation(editing.location || "");
       setNotes(editing.notes || "");
+      const ids = (editing.shared_with || []).map((s) => s.id);
+      setShareIds(ids);
+      setShowShare(ids.length > 0);
     } else {
       const today = new Date().toISOString().split("T")[0];
       setTitle("");
@@ -55,13 +92,13 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
       setEndDate(presetRange?.end?.split("T")[0] || presetRange?.start?.split("T")[0] || today);
       setStartTime(presetRange?.start?.split("T")[1]?.slice(0, 5) || "10:00");
       setEndTime(presetRange?.end?.split("T")[1]?.slice(0, 5) || "11:00");
-      setLocation(""); setNotes("");
+      setLocation(""); setNotes(""); setShareIds([]); setShowShare(false);
     }
   }, [open, editing, presetRange]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const payload = {
+      const payload: Record<string, unknown> = {
         title: title.trim(),
         all_day: allDay,
         start_time: allDay ? startDate : `${startDate}T${startTime}`,
@@ -69,6 +106,8 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
         location: location.trim() || null,
         notes: notes.trim() || null,
       };
+      // 共有先の指定は作成者のみ (受け手は再共有できない)
+      if (isOwner) payload.share_user_ids = shareIds;
       if (editing) return api.put(`/schedule/personal/${editing.id}`, payload);
       return api.post("/schedule/personal", payload);
     },
@@ -90,17 +129,29 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
 
   const canSubmit = !!title.trim() && !!startDate;
 
+  const filteredUsers = useMemo(() => {
+    const q = shareSearch.trim().toLowerCase();
+    return partnerUsers.filter((u) => !q || u.name.toLowerCase().includes(q));
+  }, [partnerUsers, shareSearch]);
+
+  const toggleShare = (id: string) =>
+    setShareIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{editing ? (isIcs ? "同期された予定" : "個人予定を編集") : "個人予定を登録"}</DialogTitle>
+          <DialogTitle>
+            {editing ? (isExternalSynced ? "同期された予定" : isSharedIn ? "共有された予定" : "個人予定を編集") : "個人予定を登録"}
+          </DialogTitle>
           <DialogDescription>
-            個人予定はあなた以外には表示されません。
+            {isSharedIn
+              ? "共有された予定です。内容を編集できます（予定の削除は作成者のみ）。"
+              : "個人予定はあなたと共有先のメンバーにのみ表示されます。"}
           </DialogDescription>
         </DialogHeader>
 
-        {isIcs && (
+        {isExternalSynced && (
           <div className="flex items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800">
             <CloudDownload className="h-4 w-4 shrink-0 mt-0.5" />
             <span>
@@ -110,38 +161,45 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
           </div>
         )}
 
+        {isSharedIn && (
+          <div className="flex items-start gap-2 rounded-lg border border-purple-200 bg-purple-50 p-3 text-xs text-purple-800">
+            <Users className="h-4 w-4 shrink-0 mt-0.5" />
+            <span>共有元: <b>{editing?.owner_name || "他のメンバー"}</b> ／ この予定はメンバー間で共有されています。</span>
+          </div>
+        )}
+
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label>タイトル</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} disabled={isIcs} placeholder="例：歯医者 / 私用" />
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} disabled={isExternalSynced} placeholder="例：歯医者 / 定例会議" />
           </div>
 
           <div className="flex items-center gap-2">
-            <Switch checked={allDay} onCheckedChange={setAllDay} id="pe-allday" disabled={isIcs} />
+            <Switch checked={allDay} onCheckedChange={setAllDay} id="pe-allday" disabled={isExternalSynced} />
             <Label htmlFor="pe-allday">終日</Label>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>開始日</Label>
-              <Input type="date" value={startDate} disabled={isIcs} onChange={(e) => {
+              <Input type="date" value={startDate} disabled={isExternalSynced} onChange={(e) => {
                 setStartDate(e.target.value);
                 if (!endDate || endDate < e.target.value) setEndDate(e.target.value);
               }} />
             </div>
             <div className="space-y-1.5">
               <Label>終了日</Label>
-              <Input type="date" value={endDate} min={startDate} disabled={isIcs} onChange={(e) => setEndDate(e.target.value)} />
+              <Input type="date" value={endDate} min={startDate} disabled={isExternalSynced} onChange={(e) => setEndDate(e.target.value)} />
             </div>
             {!allDay && (
               <>
                 <div className="space-y-1.5">
                   <Label>開始時刻</Label>
-                  <Input type="time" value={startTime} disabled={isIcs} onChange={(e) => setStartTime(e.target.value)} />
+                  <Input type="time" value={startTime} disabled={isExternalSynced} onChange={(e) => setStartTime(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
                   <Label>終了時刻</Label>
-                  <Input type="time" value={endTime} disabled={isIcs} onChange={(e) => setEndTime(e.target.value)} />
+                  <Input type="time" value={endTime} disabled={isExternalSynced} onChange={(e) => setEndTime(e.target.value)} />
                 </div>
               </>
             )}
@@ -149,12 +207,77 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
 
           <div className="space-y-1.5">
             <Label>場所（任意）</Label>
-            <Input value={location} onChange={(e) => setLocation(e.target.value)} disabled={isIcs} />
+            <Input value={location} onChange={(e) => setLocation(e.target.value)} disabled={isExternalSynced} />
           </div>
           <div className="space-y-1.5">
             <Label>メモ（任意）</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} disabled={isIcs} />
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} disabled={isExternalSynced} />
           </div>
+
+          {/* 共有先 (作成者のみ・手入力予定のみ) */}
+          {isOwner && !isExternalSynced && (
+            <div className="space-y-2 rounded-lg border p-3">
+              <button
+                type="button"
+                onClick={() => setShowShare((v) => !v)}
+                className="flex w-full items-center gap-2 text-sm font-medium"
+              >
+                <Users className="h-4 w-4 text-primary" />
+                メンバーに共有
+                {shareIds.length > 0 && (
+                  <span className="rounded-full bg-purple-600/15 px-2 py-0.5 text-[11px] font-medium text-purple-700">
+                    {shareIds.length} 名
+                  </span>
+                )}
+                <span className="ml-auto text-xs text-muted-foreground">{showShare ? "閉じる" : "開く"}</span>
+              </button>
+              {showShare && (
+                <div className="space-y-2">
+                  <Input
+                    value={shareSearch}
+                    onChange={(e) => setShareSearch(e.target.value)}
+                    placeholder="メンバーを検索"
+                    className="h-9"
+                  />
+                  <div className="max-h-44 space-y-1 overflow-y-auto">
+                    {filteredUsers.length === 0 ? (
+                      <p className="py-2 text-center text-xs text-muted-foreground">対象のメンバーがいません</p>
+                    ) : (
+                      filteredUsers.map((u) => {
+                        const on = shareIds.includes(u.id);
+                        return (
+                          <button
+                            key={u.id}
+                            type="button"
+                            onClick={() => toggleShare(u.id)}
+                            className={`flex w-full items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors ${
+                              on ? "border-purple-400 bg-purple-50 text-purple-800" : "hover:bg-accent"
+                            }`}
+                          >
+                            <span className={`flex h-4 w-4 items-center justify-center rounded border ${on ? "border-purple-500 bg-purple-500 text-white" : "border-muted-foreground/40"}`}>
+                              {on && <Check className="h-3 w-3" />}
+                            </span>
+                            {u.name}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    共有すると、選んだメンバーのマイカレンダーに表示され、メンバーも内容を編集できます。
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 外部カレンダーへの書き戻し案内 */}
+          {isOwner && !isExternalSynced && writeTarget && (
+            <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 text-[11px] text-emerald-800">
+              <CloudUpload className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+              <span>この予定は連携中の <b>{writeTarget}</b> カレンダーにも自動で反映されます。</span>
+            </div>
+          )}
 
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
@@ -165,17 +288,21 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
               type="button"
               variant="outline"
               className="text-destructive border-destructive/40 hover:bg-destructive/10 sm:mr-auto"
-              onClick={() => { if (confirm("この予定を削除しますか？")) deleteMutation.mutate(); }}
+              onClick={() => {
+                const msg = isSharedIn ? "この予定の共有を外しますか？（あなたのカレンダーから消えます）" : "この予定を削除しますか？";
+                if (confirm(msg)) deleteMutation.mutate();
+              }}
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
-              削除
+              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" />
+                : isSharedIn ? <UserMinus className="mr-1 h-4 w-4" /> : <Trash2 className="mr-1 h-4 w-4" />}
+              {isSharedIn ? "共有から外す" : "削除"}
             </Button>
           )}
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            {isIcs ? "閉じる" : "キャンセル"}
+            {isExternalSynced ? "閉じる" : "キャンセル"}
           </Button>
-          {!isIcs && (
+          {!isExternalSynced && (
             <Button type="button" onClick={() => saveMutation.mutate()} disabled={!canSubmit || saveMutation.isPending}>
               {saveMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
               {editing ? "保存" : "登録"}

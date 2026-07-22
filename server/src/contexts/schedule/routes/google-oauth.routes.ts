@@ -28,7 +28,9 @@ const router = Router();
 const canUse = [requireAuth, requirePermission('partner_schedule', 'editor')] as const;
 
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
-const SCOPE = 'https://www.googleapis.com/auth/calendar.readonly openid email';
+// calendar.events = イベントの読み取り + 書き込み (取込と ONAiR→Google の書き戻しの両方に必要)。
+// 旧 calendar.readonly で連携済みのアカウントは can_write=0 のまま → UI が再連携を促す。
+const SCOPE = 'https://www.googleapis.com/auth/calendar.events openid email';
 const STATE_TTL_MS = 10 * 60 * 1000; // 10 分
 
 // state = base64url(payload).hmac  (payload = userId:nonce:issuedAt)
@@ -61,7 +63,7 @@ function verifyState(state: string, expectedUserId: string): boolean {
 router.get('/google/status', ...canUse, async (req, res) => {
   const configured = isGoogleConfigured();
   const acct = await queryOne(
-    `SELECT google_email, last_synced_at, last_error, event_count
+    `SELECT google_email, last_synced_at, last_error, event_count, can_write
      FROM personal_google_accounts WHERE user_id = ? AND deleted_at IS NULL`,
     [req.user!.id]
   ) as any;
@@ -74,6 +76,7 @@ router.get('/google/status', ...canUse, async (req, res) => {
       last_synced_at: acct?.last_synced_at ?? null,
       last_error: acct?.last_error ?? null,
       event_count: acct?.event_count ?? null,
+      can_write: !!acct?.can_write,
     },
   });
 });
@@ -110,6 +113,9 @@ router.get('/google/callback', requireAuth, async (req, res) => {
 
     const tokens = await exchangeCodeForTokens(code);
     const email = emailFromIdToken(tokens.id_token);
+    // 付与されたスコープに calendar.events (書込) が含まれていれば書き戻し可
+    const grantedScope = String((tokens as any).scope || '');
+    const canWrite = /calendar\.events|auth\/calendar(\s|$)/.test(grantedScope) ? 1 : 0;
 
     const existing = await queryOne(
       `SELECT id, refresh_token_enc FROM personal_google_accounts WHERE user_id = ? AND deleted_at IS NULL`,
@@ -126,16 +132,16 @@ router.get('/google/callback', requireAuth, async (req, res) => {
       await execute(
         `UPDATE personal_google_accounts
          SET google_email=?, refresh_token_enc=?, access_token_enc=NULL, token_expiry=NULL,
-             enabled=1, last_error=NULL, updated_at=NOW()
+             enabled=1, last_error=NULL, can_write=?, updated_at=NOW()
          WHERE id=?`,
-        [email, refreshEnc, accountId]
+        [email, refreshEnc, canWrite, accountId]
       );
     } else {
       accountId = randomUUID();
       await execute(
-        `INSERT INTO personal_google_accounts (id, user_id, google_email, refresh_token_enc)
-         VALUES (?, ?, ?, ?)`,
-        [accountId, req.user!.id, email, refreshEnc]
+        `INSERT INTO personal_google_accounts (id, user_id, google_email, refresh_token_enc, can_write)
+         VALUES (?, ?, ?, ?, ?)`,
+        [accountId, req.user!.id, email, refreshEnc, canWrite]
       );
     }
 

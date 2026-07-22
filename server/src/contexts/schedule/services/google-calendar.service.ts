@@ -227,6 +227,96 @@ async function listEvents(accessToken: string, now = new Date()): Promise<{ item
   return { items, truncated };
 }
 
+// ─── 書き戻し (GMO ONAiR → Google の一方向・手入力の個人予定のみ) ─────────────────
+// 手入力の個人予定を Google カレンダーへ作成/更新/削除する。書き込みスコープ
+// (calendar.events) で連携し can_write=1 のアカウントのみ対象。
+
+export interface ManualEventInput {
+  title: string;
+  all_day: number | boolean;
+  start_time: string;   // YYYY-MM-DD (終日) または YYYY-MM-DDTHH:mm
+  end_time: string;     // 終日は inclusive の最終日
+  location?: string | null;
+  notes?: string | null;
+}
+
+/** 終日の inclusive 最終日 (YYYY-MM-DD) → Google の exclusive end (+1 日) */
+function addOneDay(dateStr: string): string {
+  const d = new Date(`${dateStr.slice(0, 10)}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
+}
+
+function googleEventBody(ev: ManualEventInput): Record<string, unknown> {
+  const base: Record<string, unknown> = {
+    summary: ev.title,
+    location: ev.location || undefined,
+    description: ev.notes || undefined,
+  };
+  if (ev.all_day) {
+    return {
+      ...base,
+      start: { date: ev.start_time.slice(0, 10) },
+      end: { date: addOneDay(ev.end_time || ev.start_time) },
+    };
+  }
+  return {
+    ...base,
+    start: { dateTime: `${ev.start_time.slice(0, 16)}:00`, timeZone: 'Asia/Tokyo' },
+    end: { dateTime: `${(ev.end_time || ev.start_time).slice(0, 16)}:00`, timeZone: 'Asia/Tokyo' },
+  };
+}
+
+/** 書き込み可能な Google 連携アカウントを返す (無ければ null) */
+export async function getWritableGoogleAccount(userId: string): Promise<AccountRow | null> {
+  const row = await queryOne(
+    `SELECT id, user_id, google_email, refresh_token_enc, access_token_enc, token_expiry
+     FROM personal_google_accounts
+     WHERE user_id = ? AND enabled = 1 AND can_write = 1 AND deleted_at IS NULL`,
+    [userId]
+  ) as AccountRow | undefined;
+  return row ?? null;
+}
+
+/** 手入力予定を Google に作成 → 外部イベント id を返す (書込不可なら null) */
+export async function pushEventToGoogle(userId: string, ev: ManualEventInput): Promise<string | null> {
+  const account = await getWritableGoogleAccount(userId);
+  if (!account) return null;
+  const accessToken = await getAccessToken(account);
+  const res = await axios.post(CALENDAR_EVENTS_URL, googleEventBody(ev), {
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    timeout: 15_000,
+  });
+  return typeof res.data?.id === 'string' ? res.data.id : null;
+}
+
+/** Google 側の既存イベントを更新 */
+export async function updateGoogleEvent(userId: string, externalId: string, ev: ManualEventInput): Promise<void> {
+  const account = await getWritableGoogleAccount(userId);
+  if (!account) return;
+  const accessToken = await getAccessToken(account);
+  await axios.patch(`${CALENDAR_EVENTS_URL}/${encodeURIComponent(externalId)}`, googleEventBody(ev), {
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    timeout: 15_000,
+  });
+}
+
+/** Google 側の既存イベントを削除 (既に無い場合の 404/410 は無視) */
+export async function deleteGoogleEvent(userId: string, externalId: string): Promise<void> {
+  const account = await getWritableGoogleAccount(userId);
+  if (!account) return;
+  const accessToken = await getAccessToken(account);
+  try {
+    await axios.delete(`${CALENDAR_EVENTS_URL}/${encodeURIComponent(externalId)}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      timeout: 15_000,
+    });
+  } catch (err: any) {
+    const status = err?.response?.status;
+    if (status !== 404 && status !== 410) throw err;
+  }
+}
+
 export interface SyncResult {
   created: number;
   updated: number;
@@ -248,6 +338,15 @@ export async function syncGoogleAccount(accountId: string): Promise<SyncResult> 
     const accessToken = await getAccessToken(account);
     const { items, truncated } = await listEvents(accessToken);
     const desired = buildDesiredFromGoogle(items);
+
+    // 書き戻しで自分が作った手入力予定は、pull で source='google' の重複として取り込まない
+    const pushed = await queryAll(
+      `SELECT external_event_id FROM personal_events
+       WHERE user_id = ? AND external_provider = 'google' AND external_event_id IS NOT NULL
+         AND source = 'manual' AND deleted_at IS NULL`,
+      [account.user_id]
+    ) as Array<{ external_event_id: string }>;
+    for (const p of pushed) desired.delete(String(p.external_event_id));
 
     const existing = await queryAll(
       `SELECT id, ics_key, title, all_day, start_time, end_time, location, notes

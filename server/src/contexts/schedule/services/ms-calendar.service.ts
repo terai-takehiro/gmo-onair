@@ -38,7 +38,9 @@ function authorizeUrl(): string {
 export { authorizeUrl as msAuthorizeUrl };
 
 // v2 エンドポイントのスコープ (Graph 委任 + refresh_token 用 offline_access + id_token 用 openid/email)
-export const MS_SCOPE = 'https://graph.microsoft.com/Calendars.Read offline_access openid email profile';
+// Calendars.ReadWrite = 取込 + ONAiR→Outlook の書き戻しの両方に必要。
+// 旧 Calendars.Read で連携済みのアカウントは can_write=0 のまま → UI が再連携を促す。
+export const MS_SCOPE = 'https://graph.microsoft.com/Calendars.ReadWrite offline_access openid email profile';
 
 // ─── OAuth トークンやり取り (axios 直叩き) ─────────────────────────────────────
 
@@ -209,6 +211,100 @@ async function listEvents(accessToken: string, now = new Date()): Promise<{ item
   return { items, truncated: Boolean(url) }; // url が残っていれば取りきれていない
 }
 
+// ─── 書き戻し (GMO ONAiR → Outlook の一方向・手入力の個人予定のみ) ────────────────
+// Calendars.ReadWrite で連携し can_write=1 のアカウントのみ対象。
+
+const GRAPH_EVENTS_URL = 'https://graph.microsoft.com/v1.0/me/events';
+const MS_TZ = 'Tokyo Standard Time';
+
+export interface ManualEventInput {
+  title: string;
+  all_day: number | boolean;
+  start_time: string;   // YYYY-MM-DD (終日) または YYYY-MM-DDTHH:mm
+  end_time: string;     // 終日は inclusive の最終日
+  location?: string | null;
+  notes?: string | null;
+}
+
+/** 終日の inclusive 最終日 → Graph の exclusive end (+1 日) */
+function addOneDay(dateStr: string): string {
+  const d = new Date(`${dateStr.slice(0, 10)}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
+}
+
+function msEventBody(ev: ManualEventInput): Record<string, unknown> {
+  const base: Record<string, unknown> = {
+    subject: ev.title,
+    body: { contentType: 'text', content: ev.notes || '' },
+    location: ev.location ? { displayName: ev.location } : undefined,
+  };
+  if (ev.all_day) {
+    return {
+      ...base,
+      isAllDay: true,
+      start: { dateTime: `${ev.start_time.slice(0, 10)}T00:00:00`, timeZone: MS_TZ },
+      end: { dateTime: `${addOneDay(ev.end_time || ev.start_time)}T00:00:00`, timeZone: MS_TZ },
+    };
+  }
+  return {
+    ...base,
+    isAllDay: false,
+    start: { dateTime: `${ev.start_time.slice(0, 16)}:00`, timeZone: MS_TZ },
+    end: { dateTime: `${(ev.end_time || ev.start_time).slice(0, 16)}:00`, timeZone: MS_TZ },
+  };
+}
+
+/** 書き込み可能な Outlook 連携アカウントを返す (無ければ null) */
+export async function getWritableMsAccount(userId: string): Promise<AccountRow | null> {
+  const row = await queryOne(
+    `SELECT id, user_id, ms_email, refresh_token_enc, access_token_enc, token_expiry
+     FROM personal_ms_accounts
+     WHERE user_id = ? AND enabled = 1 AND can_write = 1 AND deleted_at IS NULL`,
+    [userId]
+  ) as AccountRow | undefined;
+  return row ?? null;
+}
+
+/** 手入力予定を Outlook に作成 → 外部イベント id を返す (書込不可なら null) */
+export async function pushEventToMs(userId: string, ev: ManualEventInput): Promise<string | null> {
+  const account = await getWritableMsAccount(userId);
+  if (!account) return null;
+  const accessToken = await getAccessToken(account);
+  const res = await axios.post(GRAPH_EVENTS_URL, msEventBody(ev), {
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    timeout: 15_000,
+  });
+  return typeof res.data?.id === 'string' ? res.data.id : null;
+}
+
+/** Outlook 側の既存イベントを更新 */
+export async function updateMsEvent(userId: string, externalId: string, ev: ManualEventInput): Promise<void> {
+  const account = await getWritableMsAccount(userId);
+  if (!account) return;
+  const accessToken = await getAccessToken(account);
+  await axios.patch(`${GRAPH_EVENTS_URL}/${encodeURIComponent(externalId)}`, msEventBody(ev), {
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    timeout: 15_000,
+  });
+}
+
+/** Outlook 側の既存イベントを削除 (既に無い場合の 404 は無視) */
+export async function deleteMsEvent(userId: string, externalId: string): Promise<void> {
+  const account = await getWritableMsAccount(userId);
+  if (!account) return;
+  const accessToken = await getAccessToken(account);
+  try {
+    await axios.delete(`${GRAPH_EVENTS_URL}/${encodeURIComponent(externalId)}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      timeout: 15_000,
+    });
+  } catch (err: any) {
+    const status = err?.response?.status;
+    if (status !== 404 && status !== 410) throw err;
+  }
+}
+
 export interface SyncResult {
   created: number;
   updated: number;
@@ -230,6 +326,15 @@ export async function syncMsAccount(accountId: string): Promise<SyncResult> {
     const accessToken = await getAccessToken(account);
     const { items, truncated } = await listEvents(accessToken);
     const desired = buildDesiredFromMs(items);
+
+    // 書き戻しで自分が作った手入力予定は、pull で source='outlook' の重複として取り込まない
+    const pushed = await queryAll(
+      `SELECT external_event_id FROM personal_events
+       WHERE user_id = ? AND external_provider = 'outlook' AND external_event_id IS NOT NULL
+         AND source = 'manual' AND deleted_at IS NULL`,
+      [account.user_id]
+    ) as Array<{ external_event_id: string }>;
+    for (const p of pushed) desired.delete(String(p.external_event_id));
 
     const existing = await queryAll(
       `SELECT id, ics_key, title, all_day, start_time, end_time, location, notes

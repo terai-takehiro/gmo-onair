@@ -15,6 +15,7 @@ interface OAuthStatus {
   last_synced_at: string | null;
   last_error: string | null;
   event_count: number | null;
+  can_write?: boolean; // 書き込みスコープで連携済み (ONAiR→外部の書き戻し可)
 }
 
 interface Props {
@@ -127,8 +128,8 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
             外部カレンダー連携（Outlook / Google）
           </DialogTitle>
           <DialogDescription>
-            Outlook や Google カレンダーの「公開 ICS URL」を登録すると、15 分ごとに自動で予定を取り込みます
-            （取込のみの一方向。ONAiR 側からの書き込みはありません）。
+            Google / Outlook と OAuth 連携すると、双方向で同期します（外部→取込 + マイカレンダーで作った予定を外部へ書き戻し）。
+            公開 ICS URL での連携は取込のみの一方向です。
           </DialogDescription>
         </DialogHeader>
 
@@ -147,7 +148,7 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
           ) : !google.connected ? (
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground">
-                Google にログインして許可すると、自分のカレンダーを 15 分ごとに自動で取り込みます（取込のみ・一方向）。
+                Google にログインして許可すると、双方向で同期します（自分のカレンダーを 15 分ごとに取り込み + マイカレンダーで作った予定を Google へ書き戻し）。
                 会社ポリシーで ICS 公開ができない場合はこちらをご利用ください。
               </p>
               <Button
@@ -163,7 +164,9 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
             <div className="space-y-1.5">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-medium">{google.email || "連携中"}</span>
-                <span className="rounded bg-green-600/15 px-1.5 py-0.5 text-[11px] font-medium text-green-700">連携中</span>
+                <span className="rounded bg-green-600/15 px-1.5 py-0.5 text-[11px] font-medium text-green-700">
+                  {google.can_write ? "双方向同期" : "取込のみ"}
+                </span>
                 <div className="ml-auto flex items-center gap-1">
                   <Button
                     size="sm" variant="outline" className="h-8"
@@ -183,6 +186,16 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
                   </Button>
                 </div>
               </div>
+              {!google.can_write && (
+                <button
+                  type="button"
+                  onClick={() => { window.location.href = "/api/v1/internal/schedule/google/start"; }}
+                  className="flex w-full items-start gap-1.5 rounded-md border border-amber-300 bg-amber-50 p-2 text-left text-[11px] text-amber-800 hover:bg-amber-100"
+                >
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <span>ONAiR で作った予定を Google へ書き戻すには <b>再連携</b>（書き込み許可）が必要です。タップして再連携。</span>
+                </button>
+              )}
               <p className="text-[11px] text-muted-foreground">
                 {google.last_synced_at
                   ? `最終同期: ${new Date(google.last_synced_at).toLocaleString("ja-JP")}${google.event_count != null ? ` ・ ${google.event_count} 件` : ""}`
@@ -213,7 +226,7 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
           ) : !outlook.connected ? (
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground">
-                Microsoft にログインして許可すると、自分のカレンダーを 15 分ごとに自動で取り込みます（取込のみ・一方向）。
+                Microsoft にログインして許可すると、双方向で同期します（自分のカレンダーを 15 分ごとに取り込み + マイカレンダーで作った予定を Outlook へ書き戻し）。
                 会社ポリシーで ICS 公開ができない場合はこちらをご利用ください。
               </p>
               <Button
@@ -229,7 +242,9 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
             <div className="space-y-1.5">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-medium">{outlook.email || "連携中"}</span>
-                <span className="rounded bg-[#0078d4]/15 px-1.5 py-0.5 text-[11px] font-medium text-[#0078d4]">連携中</span>
+                <span className="rounded bg-[#0078d4]/15 px-1.5 py-0.5 text-[11px] font-medium text-[#0078d4]">
+                  {outlook.can_write ? "双方向同期" : "取込のみ"}
+                </span>
                 <div className="ml-auto flex items-center gap-1">
                   <Button
                     size="sm" variant="outline" className="h-8"
@@ -249,6 +264,16 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
                   </Button>
                 </div>
               </div>
+              {!outlook.can_write && (
+                <button
+                  type="button"
+                  onClick={() => { window.location.href = "/api/v1/internal/schedule/ms/start"; }}
+                  className="flex w-full items-start gap-1.5 rounded-md border border-amber-300 bg-amber-50 p-2 text-left text-[11px] text-amber-800 hover:bg-amber-100"
+                >
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <span>ONAiR で作った予定を Outlook へ書き戻すには <b>再連携</b>（書き込み許可）が必要です。タップして再連携。</span>
+                </button>
+              )}
               <p className="text-[11px] text-muted-foreground">
                 {outlook.last_synced_at
                   ? `最終同期: ${new Date(outlook.last_synced_at).toLocaleString("ja-JP")}${outlook.event_count != null ? ` ・ ${outlook.event_count} 件` : ""}`

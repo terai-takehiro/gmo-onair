@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode, type ElementType } from "react";
 import { NavLink } from "react-router-dom";
 import { CalendarDays, Users, CalendarClock, Layers } from "lucide-react";
 import { useAuth } from "@/contexts/platform/AuthContext";
@@ -31,6 +31,15 @@ export interface PersonalEvent {
   source: "manual" | "ics" | "google" | "outlook";
   feed_id: string | null;
   feed_label?: string | null;
+  // 書き戻し (ONAiR→外部) の反映先
+  external_provider?: string | null;
+  // 共有関連 (GET /schedule/personal が付与)
+  is_owner?: boolean;
+  shared?: boolean;
+  owner_id?: string;
+  owner_name?: string;
+  shared_with?: Array<{ id: string; name: string }>;
+  can_edit?: boolean;
 }
 
 export interface IcsFeed {
@@ -212,6 +221,52 @@ export function CalendarNavPills({ current }: { current: "all" | "studio" | "par
           {p.label}
         </NavLink>
       ))}
+    </div>
+  );
+}
+
+/**
+ * 統合 / スタジオ / パートナー / マイ の 4 カレンダーで共通のページ枠 (ヘッダー)。
+ * 余白・タイトル位置・回遊ピルの配置を完全に統一することで、ページを切り替えても
+ * 上部 (タイトル + ピル) がガタつかない (v2.9.188 の状態保持と合わせて滑らかに切替)。
+ *   - 1 行目: アイコン + タイトル (flex-1) / アクション (sm:order-last)
+ *   - 2 行目 (モバイル) or 右端 (sm+): 回遊ピル (w-full sm:w-auto)
+ *   - 説明文は sm 以上のみ表示 (高さを一定に保つ)
+ * ページ固有の 2 次コンテンツ (レイヤートグル / 部屋フィルタ / 凡例 / カレンダー本体) は children。
+ */
+export function CalendarShell({
+  current, icon: Icon, title, description, actions, children,
+}: {
+  current: "all" | "studio" | "partners" | "my";
+  icon: ElementType;
+  title: string;
+  description?: ReactNode;
+  actions?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="animate-in fade-in duration-200">
+      <div className="space-y-4 p-4 sm:p-6">
+        {/* ヘッダー: モバイルは「タイトル+アクション」「回遊ピル」の 2 行、sm 以上は 1 行 */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <Icon className="h-6 w-6 shrink-0 text-primary" />
+            <h1 className="truncate text-lg font-bold sm:text-xl">{title}</h1>
+          </div>
+          {actions && (
+            <div className="flex shrink-0 flex-wrap items-center gap-1.5 sm:order-last sm:gap-2">
+              {actions}
+            </div>
+          )}
+          <div className="flex w-full sm:w-auto">
+            <CalendarNavPills current={current} />
+          </div>
+        </div>
+        {description && (
+          <p className="-mt-2 hidden text-sm text-muted-foreground sm:block">{description}</p>
+        )}
+        {children}
+      </div>
     </div>
   );
 }

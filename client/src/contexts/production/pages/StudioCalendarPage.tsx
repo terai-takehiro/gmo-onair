@@ -21,7 +21,7 @@ import StudioRoomsManagerDialog from "../components/studio/StudioRoomsManagerDia
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { Settings, CalendarSync, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CalendarNavPills, loadCalState, saveCalState, clampView } from "../components/schedule/scheduleShared";
+import { CalendarShell, loadCalState, saveCalState, clampView } from "../components/schedule/scheduleShared";
 
 interface StudioRoom {
   id: string;
@@ -492,37 +492,13 @@ export default function StudioCalendarPage() {
   const totalUpcoming = upcomingDays.reduce((sum, d) => sum + d.items.length, 0);
 
   return (
-    <div className="animate-in fade-in duration-200">
-    <div className="space-y-4 lg:space-y-6 p-3 lg:p-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="min-w-0">
-          <h1 className="text-xl lg:text-2xl font-bold">スタジオ予約</h1>
-          {filterProjectId && filterProjectName ? (
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-sm text-muted-foreground">
-                絞り込み: <span className="font-medium text-foreground">{filterProjectName}</span>
-              </span>
-              <Button variant="ghost" size="sm" className="h-5 px-1.5 text-xs" onClick={() => navigate("/studio/calendar")}>
-                解除
-              </Button>
-            </div>
-          ) : (
-            <p className="hidden sm:block text-sm text-muted-foreground">カレンダーをタップして予約を追加</p>
-          )}
-        </div>
-        {filterProjectId && (
-          <ProjectQuickLinks
-            projectId={filterProjectId}
-            projectName={filterProjectName}
-            currentPage="calendar"
-          />
-        )}
-        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-          {/* 回遊ピルはモバイルでは独立行 (order-last + w-full) に落として潰れを防ぐ */}
-          <div className="order-last w-full sm:order-none sm:w-auto flex">
-            <CalendarNavPills current="studio" />
-          </div>
+    <CalendarShell
+      current="studio"
+      icon={CalendarDays}
+      title="スタジオ予約"
+      description="カレンダーをタップして予約を追加"
+      actions={
+        <>
           <Button
             variant={filterOpen ? "default" : "outline"}
             size="sm"
@@ -553,8 +529,27 @@ export default function StudioCalendarPage() {
               <span className="hidden sm:inline">予約追加</span>
             </Button>
           )}
+        </>
+      }
+    >
+      {/* 案件で絞り込み中の表示 + クイックリンク */}
+      {filterProjectId && (
+        <div className="flex flex-wrap items-center justify-between gap-2 -mt-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              絞り込み: <span className="font-medium text-foreground">{filterProjectName}</span>
+            </span>
+            <Button variant="ghost" size="sm" className="h-5 px-1.5 text-xs" onClick={() => navigate("/studio/calendar")}>
+              解除
+            </Button>
+          </div>
+          <ProjectQuickLinks
+            projectId={filterProjectId}
+            projectName={filterProjectName}
+            currentPage="calendar"
+          />
         </div>
-      </div>
+      )}
 
       {/* Rooms admin dialog (system_admin only) */}
       {isAdmin && (
@@ -882,8 +877,7 @@ export default function StudioCalendarPage() {
           if (confirm("この予約を削除しますか？")) deleteMutation.mutate(id);
         }}
       />
-    </div>
-    </div>
+    </CalendarShell>
   );
 }
 

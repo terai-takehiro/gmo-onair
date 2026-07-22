@@ -57,7 +57,7 @@ function verifyState(state: string, expectedUserId: string): boolean {
 router.get('/ms/status', ...canUse, async (req, res) => {
   const configured = isMsConfigured();
   const acct = await queryOne(
-    `SELECT ms_email, last_synced_at, last_error, event_count
+    `SELECT ms_email, last_synced_at, last_error, event_count, can_write
      FROM personal_ms_accounts WHERE user_id = ? AND deleted_at IS NULL`,
     [req.user!.id]
   ) as any;
@@ -70,6 +70,7 @@ router.get('/ms/status', ...canUse, async (req, res) => {
       last_synced_at: acct?.last_synced_at ?? null,
       last_error: acct?.last_error ?? null,
       event_count: acct?.event_count ?? null,
+      can_write: !!acct?.can_write,
     },
   });
 });
@@ -105,6 +106,9 @@ router.get('/ms/callback', requireAuth, async (req, res) => {
 
     const tokens = await exchangeCodeForTokens(code);
     const email = emailFromIdToken(tokens.id_token);
+    // 付与されたスコープに Calendars.ReadWrite が含まれていれば書き戻し可
+    const grantedScope = String((tokens as any).scope || '');
+    const canWrite = /Calendars\.ReadWrite/i.test(grantedScope) ? 1 : 0;
 
     const existing = await queryOne(
       `SELECT id, refresh_token_enc FROM personal_ms_accounts WHERE user_id = ? AND deleted_at IS NULL`,
@@ -120,16 +124,16 @@ router.get('/ms/callback', requireAuth, async (req, res) => {
       await execute(
         `UPDATE personal_ms_accounts
          SET ms_email=?, refresh_token_enc=?, access_token_enc=NULL, token_expiry=NULL,
-             enabled=1, last_error=NULL, updated_at=NOW()
+             enabled=1, last_error=NULL, can_write=?, updated_at=NOW()
          WHERE id=?`,
-        [email, refreshEnc, accountId]
+        [email, refreshEnc, canWrite, accountId]
       );
     } else {
       accountId = randomUUID();
       await execute(
-        `INSERT INTO personal_ms_accounts (id, user_id, ms_email, refresh_token_enc)
-         VALUES (?, ?, ?, ?)`,
-        [accountId, req.user!.id, email, refreshEnc]
+        `INSERT INTO personal_ms_accounts (id, user_id, ms_email, refresh_token_enc, can_write)
+         VALUES (?, ?, ?, ?, ?)`,
+        [accountId, req.user!.id, email, refreshEnc, canWrite]
       );
     }
 

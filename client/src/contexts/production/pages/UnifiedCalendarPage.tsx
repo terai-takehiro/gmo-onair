@@ -19,7 +19,7 @@ import {
   BOOKING_TYPE_COLORS,
   useIsMobile, paintHolidayCell, toExclusiveEnd,
   loadCalState, saveCalState, clampView,
-  CalendarNavPills, type PartnerSchedule, type PersonalEvent,
+  CalendarShell, type PartnerSchedule, type PersonalEvent,
 } from "../components/schedule/scheduleShared";
 
 // 統合カレンダー — スタジオ予約 + パートナースケジュール + 個人予定 を 1 画面にマージ表示。
@@ -222,22 +222,12 @@ export default function UnifiedCalendarPage() {
   ];
 
   return (
-    <div className="animate-in fade-in duration-200">
-      <div className="space-y-4 p-4 sm:p-6">
-        {/* ヘッダー: モバイルは「タイトル」「回遊ピル」の 2 行、sm 以上は 1 行 */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <Layers className="h-6 w-6 text-primary shrink-0" />
-            <h1 className="text-lg sm:text-xl font-bold truncate">統合カレンダー</h1>
-          </div>
-          <div className="w-full sm:w-auto flex">
-            <CalendarNavPills current="all" />
-          </div>
-        </div>
-        <p className="hidden sm:block text-sm text-muted-foreground -mt-2">
-          スタジオ予約・パートナースケジュール・個人予定をまとめて表示します。予定の新規登録は各カレンダーで行ってください。
-        </p>
-
+    <CalendarShell
+      current="all"
+      icon={Layers}
+      title="統合カレンダー"
+      description="スタジオ予約・パートナースケジュール・個人予定をまとめて表示します。予定の新規登録は各カレンダーで行ってください。"
+    >
         {/* レイヤートグル */}
         <div className="flex items-center gap-1.5 overflow-x-auto">
           {layerChips.filter((c) => c.show).map((c) => (
@@ -333,7 +323,6 @@ export default function UnifiedCalendarPage() {
           editing={editingEvent}
           presetRange={null}
         />
-      </div>
-    </div>
+    </CalendarShell>
   );
 }

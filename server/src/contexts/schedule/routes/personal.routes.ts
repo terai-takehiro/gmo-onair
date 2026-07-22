@@ -5,56 +5,211 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { encrypt, decrypt, mask } from '../../liveops/crypto';
 import { syncFeedById } from '../services/ics-sync.service';
+import {
+  getWritableGoogleAccount, pushEventToGoogle, updateGoogleEvent, deleteGoogleEvent,
+  type ManualEventInput,
+} from '../services/google-calendar.service';
+import {
+  getWritableMsAccount, pushEventToMs, updateMsEvent, deleteMsEvent,
+} from '../services/ms-calendar.service';
 
-// マイカレンダー (個人予定 + ICS 購読フィード) — 完全プライベート。
-// 全エンドポイントは常に user_id = req.user.id でスコープするため、
-// system_admin であっても他人の個人予定・フィードには一切アクセスできない
-// (requirePermission の bypass は権限チェックのみで、データのスコープには効かない)。
+// マイカレンダー (個人予定 + ICS 購読フィード) — 本人 + 共有された相手のみ。
+// 個人予定 (source='manual') は本人のみが起点だが、personal_event_shares で共有された
+// メンバーにも表示され、共有メンバーは内容を編集できる (予定自体の削除は作成者のみ)。
+// ICS/Google/Outlook 同期分は本人のみ・読み取り専用 (外部側で編集)。
 // 権限: partner_schedule / editor (マイカレンダーの利用 = 記入を伴うため editor 基準)。
 
 const router = Router();
 const canUse = [requireAuth, requirePermission('partner_schedule', 'editor')] as const;
 
+// ─── 外部カレンダーへの書き戻し (連携済みに自動・Google 優先。best-effort) ─────────
+
+function toManualInput(row: {
+  title: string; all_day: number; start_time: string; end_time: string;
+  location: string | null; notes: string | null;
+}): ManualEventInput {
+  return {
+    title: row.title, all_day: row.all_day, start_time: row.start_time,
+    end_time: row.end_time, location: row.location, notes: row.notes,
+  };
+}
+
+/** 手入力予定を連携済み外部カレンダーへ作成 (Google 優先→Outlook)。返り値は反映先 or null */
+async function pushToExternal(ownerId: string, ev: ManualEventInput): Promise<{ provider: string; externalId: string } | null> {
+  try {
+    if (await getWritableGoogleAccount(ownerId)) {
+      const id = await pushEventToGoogle(ownerId, ev);
+      if (id) return { provider: 'google', externalId: id };
+    }
+    if (await getWritableMsAccount(ownerId)) {
+      const id = await pushEventToMs(ownerId, ev);
+      if (id) return { provider: 'outlook', externalId: id };
+    }
+  } catch (err) {
+    console.warn('[personal] external push failed:', err instanceof Error ? err.message : err);
+  }
+  return null;
+}
+
+async function updateExternal(ownerId: string, provider: string, externalId: string, ev: ManualEventInput): Promise<void> {
+  try {
+    if (provider === 'google') await updateGoogleEvent(ownerId, externalId, ev);
+    else if (provider === 'outlook') await updateMsEvent(ownerId, externalId, ev);
+  } catch (err) {
+    console.warn('[personal] external update failed:', err instanceof Error ? err.message : err);
+  }
+}
+
+async function deleteExternal(ownerId: string, provider: string, externalId: string): Promise<void> {
+  try {
+    if (provider === 'google') await deleteGoogleEvent(ownerId, externalId);
+    else if (provider === 'outlook') await deleteMsEvent(ownerId, externalId);
+  } catch (err) {
+    console.warn('[personal] external delete failed:', err instanceof Error ? err.message : err);
+  }
+}
+
 // ─── 個人予定 ────────────────────────────────────────────────────────────────
 
-// 一覧 (?from=&to= 任意。TEXT 文字列比較の重なり判定)
+// 一覧 (?from=&to= 任意。TEXT 文字列比較の重なり判定)。本人の予定 + 自分に共有された予定。
 router.get('/personal', ...canUse, async (req, res) => {
-  let where = 'WHERE pe.user_id = ? AND pe.deleted_at IS NULL';
-  const params: unknown[] = [req.user!.id];
-  if (req.query.from) { where += ' AND substr(pe.end_time, 1, 10) >= ?'; params.push(String(req.query.from).slice(0, 10)); }
-  if (req.query.to) { where += ' AND substr(pe.start_time, 1, 10) <= ?'; params.push(String(req.query.to).slice(0, 10)); }
-  const rows = await queryAll(
+  const me = req.user!.id;
+  const from = req.query.from ? String(req.query.from).slice(0, 10) : null;
+  const to = req.query.to ? String(req.query.to).slice(0, 10) : null;
+
+  const overlap = (alias: string) => {
+    let sql = '';
+    const p: unknown[] = [];
+    if (from) { sql += ` AND substr(${alias}.end_time, 1, 10) >= ?`; p.push(from); }
+    if (to) { sql += ` AND substr(${alias}.start_time, 1, 10) <= ?`; p.push(to); }
+    return { sql, p };
+  };
+
+  // 1. 本人の予定
+  const ow = overlap('pe');
+  const owned = await queryAll(
     `SELECT pe.*, f.label AS feed_label
      FROM personal_events pe
      LEFT JOIN personal_ics_feeds f ON f.id = pe.feed_id
-     ${where}
+     WHERE pe.user_id = ? AND pe.deleted_at IS NULL${ow.sql}
      ORDER BY pe.start_time`,
-    params
-  );
-  res.json({ success: true, data: rows });
+    [me, ...ow.p]
+  ) as any[];
+
+  // 2. 自分に共有された予定 (別ユーザーが作成)
+  const sw = overlap('pe');
+  const sharedIn = await queryAll(
+    `SELECT pe.*, u.name AS owner_name
+     FROM personal_event_shares s
+     JOIN personal_events pe ON pe.id = s.event_id
+     JOIN users u ON u.id = pe.user_id
+     WHERE s.user_id = ? AND pe.deleted_at IS NULL${sw.sql}
+     ORDER BY pe.start_time`,
+    [me, ...sw.p]
+  ) as any[];
+
+  // 3. 本人の予定に対する共有先 (誰に共有しているか)
+  const ownedIds = owned.map((r) => r.id);
+  const sharesByEvent = new Map<string, Array<{ id: string; name: string }>>();
+  if (ownedIds.length) {
+    const placeholders = ownedIds.map(() => '?').join(',');
+    const shareRows = await queryAll(
+      `SELECT s.event_id, s.user_id, u.name
+       FROM personal_event_shares s JOIN users u ON u.id = s.user_id
+       WHERE s.event_id IN (${placeholders})`,
+      ownedIds
+    ) as Array<{ event_id: string; user_id: string; name: string }>;
+    for (const r of shareRows) {
+      const arr = sharesByEvent.get(r.event_id) || [];
+      arr.push({ id: r.user_id, name: r.name });
+      sharesByEvent.set(r.event_id, arr);
+    }
+  }
+
+  const ownedOut = owned.map((r) => {
+    const shared_with = sharesByEvent.get(r.id) || [];
+    return { ...r, is_owner: true, shared: shared_with.length > 0, shared_with, can_edit: true };
+  });
+  const sharedOut = sharedIn.map((r) => ({
+    ...r, is_owner: false, shared: true, owner_id: r.user_id, can_edit: true, shared_with: [],
+  }));
+
+  res.json({ success: true, data: [...ownedOut, ...sharedOut] });
 });
 
-// 作成 (手入力のみ)
+// 共有先を同期する (作成者のみ。渡された user_ids に完全一致させる)
+async function syncShares(eventId: string, ownerId: string, userIds: unknown): Promise<void> {
+  if (!Array.isArray(userIds)) return;
+  const ids = [...new Set(userIds.map((x) => String(x)).filter((x) => x && x !== ownerId))];
+  const existing = await queryAll(
+    `SELECT user_id FROM personal_event_shares WHERE event_id = ?`, [eventId]
+  ) as Array<{ user_id: string }>;
+  const existingSet = new Set(existing.map((r) => r.user_id));
+  const nextSet = new Set(ids);
+  // 追加
+  for (const uid of ids) {
+    if (!existingSet.has(uid)) {
+      await execute(
+        `INSERT INTO personal_event_shares (id, event_id, user_id, created_by) VALUES (?, ?, ?, ?)
+         ON CONFLICT (event_id, user_id) DO NOTHING`,
+        [randomUUID(), eventId, uid, ownerId]
+      );
+    }
+  }
+  // 削除
+  for (const uid of existingSet) {
+    if (!nextSet.has(uid)) {
+      await execute(`DELETE FROM personal_event_shares WHERE event_id = ? AND user_id = ?`, [eventId, uid]);
+    }
+  }
+}
+
+// 作成 (手入力のみ)。share_user_ids で共有先を指定可。連携済み外部カレンダーへ書き戻し。
 router.post('/personal', ...canUse, async (req, res) => {
-  const { title, all_day, start_time, end_time, location, notes } = req.body ?? {};
+  const { title, all_day, start_time, end_time, location, notes, share_user_ids } = req.body ?? {};
   if (!title || !start_time || !end_time) throw new AppError(400, 'VALIDATION_ERROR', 'タイトル・開始・終了は必須です');
   const id = randomUUID();
+  const me = req.user!.id;
   await execute(
     `INSERT INTO personal_events (id, user_id, title, all_day, start_time, end_time, location, notes, source)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'manual')`,
-    [id, req.user!.id, String(title).slice(0, 300), all_day ? 1 : 0, String(start_time), String(end_time),
+    [id, me, String(title).slice(0, 300), all_day ? 1 : 0, String(start_time), String(end_time),
      location ? String(location).slice(0, 300) : null, notes ? String(notes).slice(0, 1000) : null]
   );
+
+  await syncShares(id, me, share_user_ids);
+
+  // 外部カレンダーへ書き戻し (best-effort)
+  const row = await queryOne(`SELECT * FROM personal_events WHERE id = ?`, [id]) as any;
+  const pushed = await pushToExternal(me, toManualInput(row));
+  if (pushed) {
+    await execute(
+      `UPDATE personal_events SET external_provider=?, external_event_id=?, external_synced_at=NOW() WHERE id=?`,
+      [pushed.provider, pushed.externalId, id]
+    );
+  }
+
   res.status(201).json({ success: true, data: await queryOne(`SELECT * FROM personal_events WHERE id = ?`, [id]) });
 });
 
-// 更新 (手入力のみ。ICS 同期分は Outlook/Google 側で編集してもらう)
+// 更新 (作成者 or 共有メンバー)。ICS/Google/Outlook 同期分は不可。外部書き戻しに反映。
 router.put('/personal/:id', ...canUse, async (req, res) => {
+  const me = req.user!.id;
   const existing = await queryOne(
-    `SELECT * FROM personal_events WHERE id = ? AND user_id = ? AND deleted_at IS NULL`,
-    [String(req.params.id), req.user!.id]) as any;
+    `SELECT * FROM personal_events WHERE id = ? AND deleted_at IS NULL`,
+    [String(req.params.id)]) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '予定が見つかりません');
-  if (existing.source === 'ics' || existing.source === 'google' || existing.source === 'outlook') throw new AppError(400, 'VALIDATION_ERROR', '同期された予定は編集できません (Outlook/Google 側で編集してください)');
+
+  const isOwner = existing.user_id === me;
+  if (!isOwner) {
+    const share = await queryOne(
+      `SELECT id FROM personal_event_shares WHERE event_id = ? AND user_id = ?`, [existing.id, me]) as any;
+    if (!share) throw new AppError(404, 'NOT_FOUND', '予定が見つかりません');
+  }
+  if (existing.source === 'ics' || existing.source === 'google' || existing.source === 'outlook') {
+    throw new AppError(400, 'VALIDATION_ERROR', '同期された予定は編集できません (Outlook/Google 側で編集してください)');
+  }
+
   const b = req.body ?? {};
   await execute(
     `UPDATE personal_events SET title=?, all_day=?, start_time=?, end_time=?, location=?, notes=?, updated_at=NOW() WHERE id=?`,
@@ -66,17 +221,47 @@ router.put('/personal/:id', ...canUse, async (req, res) => {
      b.notes !== undefined ? (b.notes ? String(b.notes).slice(0, 1000) : null) : existing.notes,
      existing.id]
   );
-  res.json({ success: true, data: await queryOne(`SELECT * FROM personal_events WHERE id = ?`, [existing.id]) });
+
+  // 共有先の変更は作成者のみ
+  if (isOwner && b.share_user_ids !== undefined) {
+    await syncShares(existing.id, existing.user_id, b.share_user_ids);
+  }
+
+  // 外部書き戻しは作成者のカレンダーへ反映 (共有メンバーの編集も作成者側に反映される)
+  const updated = await queryOne(`SELECT * FROM personal_events WHERE id = ?`, [existing.id]) as any;
+  if (updated.external_provider && updated.external_event_id) {
+    await updateExternal(existing.user_id, updated.external_provider, updated.external_event_id, toManualInput(updated));
+    await execute(`UPDATE personal_events SET external_synced_at=NOW() WHERE id=?`, [existing.id]);
+  }
+
+  res.json({ success: true, data: updated });
 });
 
-// 削除 (論理削除。ICS 同期分も削除可 — ただし次回同期で復活するためフィード側の削除を案内)
+// 削除。作成者は予定を論理削除 (外部からも削除)。共有メンバーは自分の共有を外すのみ。
 router.delete('/personal/:id', ...canUse, async (req, res) => {
+  const me = req.user!.id;
   const existing = await queryOne(
-    `SELECT id FROM personal_events WHERE id = ? AND user_id = ? AND deleted_at IS NULL`,
-    [String(req.params.id), req.user!.id]) as any;
+    `SELECT * FROM personal_events WHERE id = ? AND deleted_at IS NULL`,
+    [String(req.params.id)]) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '予定が見つかりません');
-  await execute(`UPDATE personal_events SET deleted_at=NOW(), updated_at=NOW() WHERE id=?`, [existing.id]);
-  res.json({ success: true, data: { deleted: true } });
+
+  if (existing.user_id === me) {
+    // 作成者: 予定全体を削除 (外部・共有も)
+    if (existing.external_provider && existing.external_event_id && existing.source === 'manual') {
+      await deleteExternal(existing.user_id, existing.external_provider, existing.external_event_id);
+    }
+    await execute(`DELETE FROM personal_event_shares WHERE event_id = ?`, [existing.id]);
+    await execute(`UPDATE personal_events SET deleted_at=NOW(), updated_at=NOW() WHERE id=?`, [existing.id]);
+    res.json({ success: true, data: { deleted: true } });
+    return;
+  }
+
+  // 共有メンバー: 自分の共有だけ解除 (予定自体は残す)
+  const share = await queryOne(
+    `SELECT id FROM personal_event_shares WHERE event_id = ? AND user_id = ?`, [existing.id, me]) as any;
+  if (!share) throw new AppError(404, 'NOT_FOUND', '予定が見つかりません');
+  await execute(`DELETE FROM personal_event_shares WHERE event_id = ? AND user_id = ?`, [existing.id, me]);
+  res.json({ success: true, data: { left: true } });
 });
 
 // ─── ICS 購読フィード ─────────────────────────────────────────────────────────
