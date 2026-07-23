@@ -1044,13 +1044,13 @@ export const SALES_MANUAL: ManualContent = {
       group: "財務管理",
       icon: FlaskConical,
       title: "決算インポート",
-      keywords: ["決算", "csv", "freee", "moneyforward", "解析", "投入"],
+      keywords: ["決算", "csv", "freee", "moneyforward", "仕訳帳", "総勘定元帳", "解析", "投入"],
       blocks: [
         {
           type: "callout",
           tone: "muted",
-          title: "システム管理者のみ",
-          text: "会計システム（freee／MoneyForward）の総勘定元帳データ（Box格納）を、財務管理・案件管理へ一括で取り込む機能です。",
+          title: "システム管理者のみ（財務管理メニュー内）",
+          text: "会計システム（freee／MoneyForward）の取引明細データ（Box格納）を、財務管理・案件管理へ一括で取り込む機能です。freee は仕訳帳（借方/貸方形式）と総勘定元帳の両CSVに対応。損益計算書／残高試算表は集計表のため取込対象外です（指定すると理由を表示します）。",
         },
         {
           type: "steps",

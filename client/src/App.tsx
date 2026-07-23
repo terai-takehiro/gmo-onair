@@ -138,6 +138,8 @@ function AppRoutes() {
         <Route path="/budget/purchases" element={<PermissionRoute module="budget"><PurchaseListPage /></PermissionRoute>} />
         <Route path="/budget/sga" element={<PermissionRoute module="budget"><SgaListPage /></PermissionRoute>} />
         <Route path="/budget/xpoint-import" element={<PermissionRoute module="budget"><XpointImportPage /></PermissionRoute>} />
+        {/* 決算インポートは財務管理メニューに配置。実行は system_admin 限定のため module="admin" でゲート */}
+        <Route path="/budget/kessan-import" element={<PermissionRoute module="admin"><KessanImportPage /></PermissionRoute>} />
         <Route path="/budget/vendors" element={<PermissionRoute module="budget"><VendorListPage /></PermissionRoute>} />
         <Route path="/budget/partners" element={<PermissionRoute module="budget"><PartnerListPage /></PermissionRoute>} />
         <Route path="/budget/reports/vendors" element={<PermissionRoute module="budget"><VendorReportPage /></PermissionRoute>} />
@@ -156,7 +158,8 @@ function AppRoutes() {
         <Route path="/admin/users" element={<PermissionRoute module="admin"><UserListPage /></PermissionRoute>} />
         <Route path="/admin/data-viewer" element={<PermissionRoute module="admin"><DataViewerPage /></PermissionRoute>} />
         <Route path="/admin/db-backups" element={<PermissionRoute module="admin"><DbBackupsPage /></PermissionRoute>} />
-        <Route path="/admin/kessan-import" element={<PermissionRoute module="admin"><KessanImportPage /></PermissionRoute>} />
+        {/* 決算インポートは /budget/kessan-import へ移管。旧URLはリダイレクト */}
+        <Route path="/admin/kessan-import" element={<Navigate to="/budget/kessan-import" replace />} />
         <Route path="/admin/settings" element={<PermissionRoute module="admin"><SettingsPage /></PermissionRoute>} />
 
         {/* ブロックアプリ インデックスリダイレクト（BLOCK_APPS.basePath対応） */}

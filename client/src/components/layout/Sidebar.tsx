@@ -59,6 +59,8 @@ interface NavItem {
   module?: string;
   /** 指定すると、いずれかのモジュール権限を持つユーザーに表示 (複合ページ用・module より優先) */
   modules?: string[];
+  /** true のとき system_admin のみに表示 (財務メニュー内の管理者専用ツール等) */
+  adminOnly?: boolean;
 }
 
 interface NavSection {
@@ -137,6 +139,7 @@ const APP_NAV: Record<string, NavSection[]> = {
         { label: "仕入管理", to: "/budget/purchases", icon: ShoppingCart },
         { label: "販管費", to: "/budget/sga", icon: Receipt },
         { label: "精算PDF取込", to: "/budget/xpoint-import", icon: FileSearch },
+        { label: "決算インポート", to: "/budget/kessan-import", icon: FlaskConical, adminOnly: true },
         { label: "案件月別詳細", to: "/budget/detail", icon: FolderKanban },
       ],
     },
@@ -171,7 +174,6 @@ const APP_NAV: Record<string, NavSection[]> = {
         { label: "ユーザー管理", to: "/admin/users", icon: UserCog },
         { label: "データビューア", to: "/admin/data-viewer", icon: Database },
         { label: "DBバックアップ", to: "/admin/db-backups", icon: HardDrive },
-        { label: "決算インポート", to: "/admin/kessan-import", icon: FlaskConical },
         { label: "システム設定", to: "/admin/settings", icon: Settings },
       ],
     },
@@ -255,6 +257,7 @@ export default function Sidebar() {
                 {section.items
                   .filter((item) => {
                     if (isAdmin) return true;
+                    if (item.adminOnly) return false; // system_admin 専用 (非管理者には非表示)
                     if (item.modules && item.modules.length > 0) return item.modules.some((m) => hasPermission(m));
                     if (item.module) return hasPermission(item.module);
                     return true;
