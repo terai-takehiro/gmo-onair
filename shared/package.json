@@ -1,6 +1,6 @@
 {
   "name": "@gmo-onair/shared",
-  "version": "2.9.222",
+  "version": "2.9.223",
   "private": true,
   "main": "src/index.ts",
   "types": "src/index.ts",

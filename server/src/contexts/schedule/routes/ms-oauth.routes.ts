@@ -110,8 +110,10 @@ router.get('/ms/callback', requireAuth, async (req, res) => {
     const grantedScope = String((tokens as any).scope || '');
     const canWrite = /Calendars\.ReadWrite/i.test(grantedScope) ? 1 : 0;
 
+    // user_id は UNIQUE なので、解除済み (deleted_at セット) の行も含めて既存行を探す。
+    // deleted_at IS NULL で絞ると、一度解除した人の再連携で INSERT に回り UNIQUE 違反になる。
     const existing = await queryOne(
-      `SELECT id, refresh_token_enc FROM personal_ms_accounts WHERE user_id = ? AND deleted_at IS NULL`,
+      `SELECT id, refresh_token_enc FROM personal_ms_accounts WHERE user_id = ?`,
       [req.user!.id]
     ) as { id: string; refresh_token_enc: string } | undefined;
 
@@ -121,10 +123,11 @@ router.get('/ms/callback', requireAuth, async (req, res) => {
     let accountId: string;
     if (existing) {
       accountId = existing.id;
+      // 解除済みの行なら deleted_at=NULL で復活させる
       await execute(
         `UPDATE personal_ms_accounts
          SET ms_email=?, refresh_token_enc=?, access_token_enc=NULL, token_expiry=NULL,
-             enabled=1, last_error=NULL, can_write=?, updated_at=NOW()
+             enabled=1, last_error=NULL, can_write=?, deleted_at=NULL, updated_at=NOW()
          WHERE id=?`,
         [email, refreshEnc, canWrite, accountId]
       );
