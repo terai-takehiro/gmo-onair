@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import {
   CalendarCheck, Plus, Users, Mail, Phone, Smartphone, Building2, Sparkles,
   CheckCircle2, Circle, Pencil, Trash2, Clock, MapPin, Loader2, Briefcase, ExternalLink,
+  Download, ArrowDownUp, User, UserPlus, PieChart,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -20,7 +21,96 @@ import {
 
 // セッション (回) キー
 function sessionKey(r: InviewRegistration): string {
-  return `${r.session_date ?? ''}${r.session_label}`;
+  return `${r.session_date ?? ''}${r.session_label}`;
+}
+
+// 予約の参加人数 (party_size は代表+同行を含む合計。未設定なら 1 + 同行者数)
+function headOf(r: InviewRegistration): number {
+  const named = 1 + (r.companions?.length ?? 0);
+  return Math.max(r.party_size || 0, named, 1);
+}
+
+type SortKey = 'default' | 'company' | 'name' | 'party' | 'checkin';
+const SORT_LABELS: Record<SortKey, string> = {
+  default: '登録順',
+  company: '会社名',
+  name: '氏名 (ふりがな)',
+  party: '参加人数 (多い順)',
+  checkin: '来場状況 (未受付を先に)',
+};
+
+function sortRegs(items: InviewRegistration[], key: SortKey): InviewRegistration[] {
+  const arr = [...items];
+  const byName = (r: InviewRegistration) => (r.furigana || r.name || '').toString();
+  switch (key) {
+    case 'company':
+      return arr.sort((a, b) =>
+        (a.company || '￿').localeCompare(b.company || '￿', 'ja') || byName(a).localeCompare(byName(b), 'ja'));
+    case 'name':
+      return arr.sort((a, b) => byName(a).localeCompare(byName(b), 'ja'));
+    case 'party':
+      return arr.sort((a, b) => headOf(b) - headOf(a) || byName(a).localeCompare(byName(b), 'ja'));
+    case 'checkin':
+      return arr.sort((a, b) => (a.checked_in_at ? 1 : 0) - (b.checked_in_at ? 1 : 0) || byName(a).localeCompare(byName(b), 'ja'));
+    default:
+      return arr; // list() が返す登録順 (created_at ASC) を維持
+  }
+}
+
+// ── CSV 出力 ────────────────────────────────────────
+function csvCell(v: unknown): string {
+  const s = v == null ? '' : String(v);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+const CSV_HEADERS = [
+  '回日付', '回ラベル', '時間帯', '対象', '区分', '氏名', 'ふりがな', '登録者',
+  '会社情報', '役職', 'メール', '電話', '携帯', 'FAX', '郵便番号', '住所',
+  '参加人数', '来場予定時間', '興味・ご相談', '運営メモ', '来場状況', '受付者',
+  '案件化', '登録元', '登録日時',
+];
+
+/** 予約を「参加者ごとの行」に展開して CSV を組み立てる (代表 + 同行者を各1行)。 */
+function buildCsv(rows: InviewRegistration[]): string {
+  const lines: string[][] = [CSV_HEADERS];
+  for (const r of rows) {
+    const sessionDate = r.session_date ? formatDateJa(r.session_date) : '';
+    const checkin = r.checked_in_at ? '来場済み' : '未受付';
+    const promoted = r.promoted_project_id ? '案件化済み' : '';
+    const src = r.source === 'kairos3' ? 'AI取込 (メール)' : '手入力';
+    const createdAt = r.created_at ? new Date(r.created_at).toLocaleString('ja-JP') : '';
+    // 代表 (登録者)
+    lines.push([
+      sessionDate, r.session_label ?? '', r.session_time ?? '', r.session_audience ?? '',
+      '代表', r.name ?? '', r.furigana ?? '', '',
+      r.company ?? '', r.role ?? '', r.email ?? '', r.phone ?? '', r.mobile ?? '', r.fax ?? '',
+      r.postal_code ?? '', r.address ?? '', String(headOf(r)), r.visit_time ?? '',
+      r.interests ?? '', r.notes ?? '', checkin, r.checked_in_by ?? '', promoted, src, createdAt,
+    ].map(csvCell));
+    // 同行者 (会社・回・来場状況は代表から継承)
+    for (const c of r.companions ?? []) {
+      lines.push([
+        sessionDate, r.session_label ?? '', r.session_time ?? '', r.session_audience ?? '',
+        '同行', c, '', r.name ?? '',
+        r.company ?? '', '', '', '', '', '', '', '', '', '', '', '', checkin, '', '', src, '',
+      ].map(csvCell));
+    }
+  }
+  return lines.map((cols) => cols.join(',')).join('\r\n');
+}
+
+function downloadCsv(rows: InviewRegistration[]) {
+  const csv = buildCsv(rows);
+  // UTF-8 BOM を付与して Excel での文字化けを防ぐ
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `内覧会来場予約_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 export default function InviewPage() {
@@ -29,6 +119,9 @@ export default function InviewPage() {
   const { data: rows, isLoading } = useInviewList({ upcoming });
   const [editing, setEditing] = useState<InviewRegistration | null>(null);
   const [adding, setAdding] = useState(false);
+  const [sessionAsc, setSessionAsc] = useState(false); // false = 新しい順 (既定)
+  const [sortKey, setSortKey] = useState<SortKey>('default');
+  const [showSummary, setShowSummary] = useState(false);
 
   const groups = useMemo(() => {
     const list = rows ?? [];
@@ -38,8 +131,20 @@ export default function InviewPage() {
       if (!map.has(k)) map.set(k, { label: r.session_label, date: r.session_date, time: r.session_time, audience: r.session_audience, items: [] });
       map.get(k)!.items.push(r);
     }
-    return Array.from(map.values());
-  }, [rows]);
+    const arr = Array.from(map.values());
+    // 回の並び順 (session_date、未定は末尾)
+    arr.sort((a, b) => {
+      if (!a.date && !b.date) return a.label.localeCompare(b.label, 'ja');
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return sessionAsc ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date);
+    });
+    // 回内の参加者並び替え
+    for (const g of arr) g.items = sortRegs(g.items, sortKey);
+    return arr;
+  }, [rows, sessionAsc, sortKey]);
+
+  const totalRegs = rows?.length ?? 0;
 
   return (
     <div className="mx-auto max-w-5xl p-4 sm:p-6 space-y-5">
@@ -60,16 +165,68 @@ export default function InviewPage() {
         )}
       </div>
 
-      {/* 表示切替 */}
-      <div className="flex items-center gap-1.5 text-sm">
-        <button
-          onClick={() => setUpcoming(false)}
-          className={`rounded-md px-3 py-1.5 ${!upcoming ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:bg-accent'}`}
-        >すべて</button>
-        <button
-          onClick={() => setUpcoming(true)}
-          className={`rounded-md px-3 py-1.5 ${upcoming ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:bg-accent'}`}
-        >今後の回のみ</button>
+      {/* ツールバー */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+        {/* 表示切替 */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setUpcoming(false)}
+            className={`rounded-md px-3 py-1.5 ${!upcoming ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:bg-accent'}`}
+          >すべて</button>
+          <button
+            onClick={() => setUpcoming(true)}
+            className={`rounded-md px-3 py-1.5 ${upcoming ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:bg-accent'}`}
+          >今後の回のみ</button>
+        </div>
+
+        <div className="hidden sm:block h-5 w-px bg-border" />
+
+        {/* 回の順序 */}
+        <label className="flex items-center gap-1.5 text-muted-foreground">
+          <span className="text-xs">回</span>
+          <select
+            value={sessionAsc ? 'asc' : 'desc'}
+            onChange={(e) => setSessionAsc(e.target.value === 'asc')}
+            className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground"
+          >
+            <option value="desc">新しい順</option>
+            <option value="asc">古い順</option>
+          </select>
+        </label>
+
+        {/* 回内の並び替え */}
+        <label className="flex items-center gap-1.5 text-muted-foreground">
+          <ArrowDownUp className="h-3.5 w-3.5" />
+          <select
+            value={sortKey}
+            onChange={(e) => setSortKey(e.target.value as SortKey)}
+            className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground"
+          >
+            {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
+              <option key={k} value={k}>{SORT_LABELS[k]}</option>
+            ))}
+          </select>
+        </label>
+
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            size="sm"
+            variant={showSummary ? 'default' : 'outline'}
+            className="h-8 gap-1 text-xs"
+            onClick={() => setShowSummary((v) => !v)}
+          >
+            <PieChart className="h-3.5 w-3.5" /> 会社別サマリー
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1 text-xs"
+            disabled={!totalRegs}
+            onClick={() => downloadCsv(rows ?? [])}
+          >
+            <Download className="h-3.5 w-3.5" /> CSV出力
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -81,7 +238,7 @@ export default function InviewPage() {
       ) : (
         <div className="space-y-6">
           {groups.map((g) => {
-            const headcount = g.items.reduce((a, r) => a + (r.party_size || 1), 0);
+            const headcount = g.items.reduce((a, r) => a + headOf(r), 0);
             const checkedIn = g.items.filter((r) => r.checked_in_at).length;
             return (
               <div key={`${g.date}-${g.label}`} className="space-y-2">
@@ -101,6 +258,8 @@ export default function InviewPage() {
                 {g.label && (g.date ? formatDateJa(g.date) : '') !== g.label && (
                   <p className="text-[11px] text-muted-foreground/70">{g.label}</p>
                 )}
+                {/* 会社別サマリー */}
+                {showSummary && <CompanySummary items={g.items} />}
                 <div className="space-y-2">
                   {g.items.map((r) => (
                     <AttendeeCard key={r.id} r={r} canEdit={canEdit} onEdit={() => setEditing(r)} />
@@ -122,12 +281,52 @@ export default function InviewPage() {
   );
 }
 
+// 会社名 | 組数 | 参加人数 のサマリー (回内)
+function CompanySummary({ items }: { items: InviewRegistration[] }) {
+  const summary = useMemo(() => {
+    const map = new Map<string, { company: string; regs: number; head: number }>();
+    for (const r of items) {
+      const key = (r.company || '（会社名なし）').trim() || '（会社名なし）';
+      if (!map.has(key)) map.set(key, { company: key, regs: 0, head: 0 });
+      const e = map.get(key)!;
+      e.regs += 1;
+      e.head += headOf(r);
+    }
+    return Array.from(map.values()).sort((a, b) => b.head - a.head || a.company.localeCompare(b.company, 'ja'));
+  }, [items]);
+  const totalHead = summary.reduce((a, s) => a + s.head, 0);
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/20 p-3">
+      <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        <Building2 className="h-3.5 w-3.5" /> 会社別サマリー（{summary.length}社 / {totalHead}名）
+      </p>
+      <div className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
+        {summary.map((s) => (
+          <div key={s.company} className="flex items-baseline justify-between gap-2 border-b border-dashed border-border/50 py-0.5 text-sm">
+            <span className="min-w-0 truncate">{s.company}</span>
+            <span className="shrink-0 tabular-nums text-muted-foreground">
+              <span className="font-semibold text-foreground">{s.head}</span> 名
+              {s.regs > 1 ? <span className="ml-1 text-[11px]">({s.regs}組)</span> : null}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AttendeeCard({ r, canEdit, onEdit }: { r: InviewRegistration; canEdit: boolean; onEdit: () => void }) {
   const checkIn = useCheckInInview();
   const del = useDeleteInview();
   const promote = usePromoteInview();
   const isKairos = r.source === 'kairos3';
   const isPromoted = !!r.promoted_project_id;
+  const companions = r.companions ?? [];
+  const head = headOf(r);
+  // 氏名が登録されていない同行者 (人数 - 代表1 - 同行者名の数)
+  const unnamed = Math.max(head - 1 - companions.length, 0);
+  const hasParticipants = companions.length > 0 || head > 1;
   return (
     <Card className={r.checked_in_at ? 'border-emerald-200 bg-emerald-50/30' : ''}>
       <CardContent className="p-3 sm:p-4">
@@ -136,7 +335,7 @@ function AttendeeCard({ r, canEdit, onEdit }: { r: InviewRegistration; canEdit: 
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span className="font-semibold">{r.name}</span>
               {r.furigana ? <span className="text-xs text-muted-foreground">{r.furigana}</span> : null}
-              <Badge variant="outline" className="text-[11px]"><Users className="h-3 w-3 mr-0.5" />{r.party_size}名</Badge>
+              <Badge variant="outline" className="text-[11px]"><Users className="h-3 w-3 mr-0.5" />{head}名</Badge>
               {isKairos ? (
                 <span className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0.5 text-[10px] text-violet-700" title={r.requested_by ? `AI取込 (指示: ${r.requested_by})` : 'AI (メール) 取込'}>
                   <Sparkles className="h-3 w-3" />AI取込
@@ -172,8 +371,32 @@ function AttendeeCard({ r, canEdit, onEdit }: { r: InviewRegistration; canEdit: 
               {r.address ? <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{r.postal_code ? `〒${r.postal_code} ` : ''}{r.address}</span> : null}
               {r.visit_time ? <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" />来場予定 {r.visit_time}</span> : null}
             </div>
-            {r.companions && r.companions.length > 0 && (
-              <p className="mt-1 text-xs"><span className="text-muted-foreground">同行者:</span> {r.companions.join('、')}</p>
+            {/* 参加者 (代表 + 同行者) — 同行者も1人の参加者として表示 */}
+            {hasParticipants && (
+              <div className="mt-2 rounded-md border border-border/60 bg-muted/20 p-2">
+                <p className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
+                  <Users className="h-3 w-3" /> 参加者 {head}名
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs">
+                    <User className="h-3 w-3 text-primary" />
+                    {r.name}
+                    <span className="rounded bg-primary/20 px-1 text-[9px] font-medium text-primary">代表</span>
+                  </span>
+                  {companions.map((c, i) => (
+                    <span key={i} className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-xs">
+                      <UserPlus className="h-3 w-3 text-muted-foreground" />
+                      {c}
+                      <span className="rounded bg-muted px-1 text-[9px] text-muted-foreground">同行</span>
+                    </span>
+                  ))}
+                  {unnamed > 0 && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-xs text-muted-foreground">
+                      ほか {unnamed}名（氏名未登録）
+                    </span>
+                  )}
+                </div>
+              </div>
             )}
             {r.interests ? <p className="mt-1 text-xs text-foreground/80 whitespace-pre-line">💬 {r.interests}</p> : null}
             {r.notes ? <p className="mt-1 text-xs text-muted-foreground whitespace-pre-line">📝 {r.notes}</p> : null}
@@ -338,6 +561,7 @@ function InviewDialog({ initial, onClose }: { initial: InviewRegistration | null
                 onChange={(e) => setCompanionsText(e.target.value)}
                 placeholder="同行者がいれば1行ずつ"
               />
+              <p className="mt-1 text-[11px] text-muted-foreground">氏名を入れると各同行者が1人の参加者として表示されます</p>
             </div>
           </div>
           <div>
