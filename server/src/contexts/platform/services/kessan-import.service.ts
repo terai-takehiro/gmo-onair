@@ -98,18 +98,30 @@ const acct = (s: unknown): { code: number; name: string } => {
 };
 const firstNonEmpty = (...xs: unknown[]): string => xs.map((x) => String(x ?? '').trim()).find((x) => x.length > 0) || '';
 const stripCode = (s: unknown): string => String(s ?? '').trim().replace(/^\d+\s+/, '').trim();
+// GLS 番号トークン: 新形式 GLS-A004 / GLS-B005 と 旧形式 GLS137 / GLS149,150 の両対応
+const GLS_TOKEN_RE = /GLS-[A-Z]\d+|GLS\d+(?:,\d+)*/g;
 function parseGls(memo: unknown): string[] {
   const out: string[] = [];
-  const re = /GLS(\d+(?:,\d+)*)/g;
+  const re = new RegExp(GLS_TOKEN_RE.source, 'g');
   let m: RegExpExecArray | null;
-  while ((m = re.exec(String(memo ?? '')))) for (const n of m[1].split(',')) out.push('GLS' + n.trim());
+  while ((m = re.exec(String(memo ?? '')))) {
+    const tok = m[0];
+    if (tok.includes(',')) {
+      // 旧コンマ列挙 (GLS149,150,151) → GLS149 / GLS150 / GLS151
+      for (const n of tok.slice(3).split(',')) out.push('GLS' + n.trim());
+    } else {
+      out.push(tok); // GLS-A004 / GLS137
+    }
+  }
   return [...new Set(out)];
 }
 function stripGlsName(memo: unknown): string {
   const nm = String(memo ?? '')
+    .replace(/(仕入|売上)?GLS-[A-Z]\d+/g, '')
     .replace(/(仕入|売上)?GLS\d+(?:,\d+)*/g, '')
     .replace(/XP\d+/g, '')
-    .replace(/^[\s/、,]+/, '')
+    .replace(/^[\s/、,･・]+/, '')
+    .replace(/[\s/、,･・]+$/, '')
     .trim();
   return (nm || String(memo ?? '').trim()).slice(0, 80);
 }
@@ -127,7 +139,18 @@ const yen = (n: number): string => '¥' + Number(n).toLocaleString();
 
 /** 取込対象の GL ファイルを解決: 明示ID → 指定フォルダの最新CSV → 既定ID */
 async function resolveGlFile(opts: KessanOptions): Promise<{ id: string; name: string }> {
-  if (opts.glFileId) return { id: opts.glFileId, name: '(指定ファイル)' };
+  if (opts.glFileId) {
+    // 指定ファイルの実ファイル名を取得 (エラーメッセージ/レポートで役立つ)。取得失敗は無視。
+    let name = '(指定ファイル)';
+    try {
+      const client = getBoxClient();
+      if (client) {
+        const info = await client.files.get(opts.glFileId, { fields: 'name' });
+        if (info?.name) name = info.name;
+      }
+    } catch { /* best-effort */ }
+    return { id: opts.glFileId, name };
+  }
   const folderId = opts.boxFolderId || process.env.KESSAN_BOX_FOLDER_ID;
   if (folderId) {
     const client = getBoxClient();
@@ -135,8 +158,9 @@ async function resolveGlFile(opts: KessanOptions): Promise<{ id: string; name: s
     const items = await client.folders.getItems(folderId, { fields: 'id,name,type,created_at', limit: 1000 });
     const csvs = items.entries.filter((e) => e.type === 'file' && /\.csv$/i.test(e.name));
     if (!csvs.length) throw new Error(`Box フォルダ (${folderId}) に CSV ファイルがありません`);
-    // 「総勘定元帳/元帳」を優先、無ければ全CSV。最新 (created_at 降順、同点はファイル名降順)
-    const preferred = csvs.filter((e) => /元帳|総勘定/.test(e.name));
+    // 取引明細 (仕訳帳/総勘定元帳) を優先。損益計算書/残高試算表 (集計表) は取込不可のため後回し。
+    // 最新 (created_at 降順、同点はファイル名降順) を採用。
+    const preferred = csvs.filter((e) => /仕訳|元帳|総勘定/.test(e.name));
     const pool = preferred.length ? preferred : csvs;
     pool.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')) || String(b.name).localeCompare(String(a.name)));
     return { id: pool[0].id, name: pool[0].name };
@@ -192,18 +216,42 @@ const parseFlexDate = (s: unknown): string => {
   const iso = normDate(str);
   return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : '';
 };
-/** 摘要から案件 GLS 番号 (1件) を抽出: 「GLS137｢…｣」のように鍵括弧直前を優先、無ければ最初の GLS 番号 */
+/** 摘要から案件 GLS 番号 (1件) を抽出: 「GLS137｢…｣」のように鍵括弧直前を優先、無ければ最初の GLS 番号。新旧両形式対応 */
 function parseGlsPrimary(memo: unknown): string | null {
   const s = String(memo ?? '');
-  let m = s.match(/GLS(\d+)\s*[｢「]/);
-  if (m) return 'GLS' + m[1];
-  m = s.match(/GLS(\d+)/);
-  return m ? 'GLS' + m[1] : null;
+  const m = s.match(/GLS\d+(?=\s*[｢「])/); // 旧形式の鍵括弧直前を優先
+  if (m) return m[0];
+  return parseGls(s)[0] ?? null;
 }
 
-/** freee 総勘定元帳 CSV (借方/貸方・複式) から P/L 行を抽出 */
-function extractFreeeCsv(csv: string, glFileName: string): Extracted {
+/**
+ * freee CSV の形式を自動判別して P/L 行を抽出するディスパッチャ。
+ *   - 損益計算書／残高試算表 (集計表) → 取引明細でないため取込不可 (親切なエラー)
+ *   - 仕訳帳 (借方/貸方セパレート形式) → extractFreeeJournalRows
+ *   - 総勘定元帳 (単一勘定科目 + 借方/貸方金額) → extractFreeeLedgerRows
+ */
+function extractFreeeCsv(csv: string, glFileName: string, warnings: string[]): Extracted {
   const rows = parseCsv(csv);
+  const header = rows[0] || [];
+  const has = (n: string) => header.includes(n);
+  // 損益計算書／残高試算表 (集計表): 期間借方/貸方金額・構成比があり取引No が無い
+  if ((has('期間借方金額') || has('期間貸方金額') || has('構成比')) && !has('取引No')) {
+    throw new Error(
+      `「${glFileName}」は損益計算書／残高試算表（集計表）のため決算インポートに使えません。` +
+      `決算インポートは取引明細（仕入・売上・販管費）を投入する機能です。仕訳帳（借方/貸方形式）または総勘定元帳の CSV を指定してください。`
+    );
+  }
+  // 仕訳帳 (借方勘定科目 + 貸方勘定科目 のセパレート形式)
+  if (has('借方勘定科目') && has('貸方勘定科目')) {
+    warnings.push('仕訳帳（借方/貸方形式）として取り込みました。');
+    return extractFreeeJournalRows(rows, glFileName);
+  }
+  // 総勘定元帳 (単一勘定科目)
+  return extractFreeeLedgerRows(rows, glFileName);
+}
+
+/** freee 総勘定元帳 CSV (単一勘定科目 + 借方/貸方金額) から P/L 行を抽出 */
+function extractFreeeLedgerRows(rows: string[][], glFileName: string): Extracted {
   const header = rows[0] || [];
   const idx = (name: string) => header.indexOf(name);
   const C = {
@@ -249,6 +297,79 @@ function extractFreeeCsv(csv: string, glFileName: string): Extracted {
         gls.forEach((g, i) => pur.push({ ...base, gls: g, amount: per + (i === 0 ? rem : 0), split: gls.length }));
       }
     }
+  }
+  return { sga, rev, pur, fixed };
+}
+
+/**
+ * freee 仕訳帳 CSV (借方/貸方セパレート形式) から P/L 行を抽出。
+ * 1 仕訳 = 1 行で借方科目と貸方科目を両方持つため、両側を走査して P/L 科目 (5/6/7xxx) を
+ * 符号付きで拾う (費用/売上原価=借方増、売上=貸方増、反対側に出る訂正は負数)。
+ * 相手先 (取引先/顧客) は反対側の補助科目/取引先から取得 (総勘定元帳の「相手補助科目」に相当)。
+ */
+function extractFreeeJournalRows(rows: string[][], glFileName: string): Extracted {
+  const header = rows[0] || [];
+  const idx = (name: string) => header.indexOf(name);
+  const C = {
+    no: idx('取引No'), date: idx('取引日'),
+    dAcct: idx('借方勘定科目'), dSub: idx('借方補助科目'), dPartner: idx('借方取引先'),
+    dTax: idx('借方税区分'), dInv: idx('借方インボイス'), dAmt: idx('借方金額(円)'),
+    cAcct: idx('貸方勘定科目'), cSub: idx('貸方補助科目'), cPartner: idx('貸方取引先'),
+    cTax: idx('貸方税区分'), cInv: idx('貸方インボイス'), cAmt: idx('貸方金額(円)'),
+    memo: idx('摘要'),
+  };
+  if (C.dAcct < 0 || C.dAmt < 0 || C.cAcct < 0 || C.cAmt < 0) {
+    throw new Error(`CSV ヘッダーが仕訳帳形式と異なります (借方勘定科目/借方金額(円)/貸方勘定科目/貸方金額(円) が見つからない)。取込元=${glFileName} / 先頭行=${header.join('|').slice(0, 160)}`);
+  }
+  const maxCol = Math.max(C.dAmt, C.cAmt, C.memo);
+  const data = rows.slice(1).filter((r) => r.length > maxCol && String(r[C.no] ?? '').trim());
+
+  const sga: SgaRow[] = [], rev: RevRow[] = [], pur: PurRow[] = [], fixed: PurRow[] = [];
+
+  const addSide = (
+    isDebit: boolean,
+    acctStr: unknown, amtStr: unknown, tax: unknown, inv: unknown, ownSub: unknown,
+    counterPartner: unknown, counterSub: unknown,
+    no: string, date: string, memo: unknown,
+  ) => {
+    const a = acct(acctStr);
+    if (!Number.isFinite(a.code)) return;
+    const amt = toInt(amtStr);
+    if (amt === 0) return;
+    const party = stripCode(firstNonEmpty(counterPartner, counterSub));
+    const desc = [a.name, ownSub, memo].map((x) => String(x ?? '').trim()).filter(Boolean).join(' / ').slice(0, 240);
+    if (a.code >= 7000 && a.code <= 7999) {
+      const amount = isDebit ? amt : -amt; // 費用は借方増
+      if (amount === 0) return;
+      sga.push({ no, date, amount, tax_category: mapTax(tax), invoice_qualified: invQualified(inv), vendor_name: party || `（${a.name}）`, description: desc });
+    } else if (a.code === 5000) {
+      const amount = isDebit ? -amt : amt; // 売上は貸方増
+      if (amount === 0) return;
+      const gls = parseGls(memo);
+      rev.push({ no, date, amount, tax_category: mapTax(tax), customer_name: party || '(顧客不明)', gls: gls[0] || null, project_name: stripGlsName(memo), memo: String(memo ?? '').trim() });
+    } else if (a.code >= 6000 && a.code <= 6999) {
+      const amount = isDebit ? amt : -amt; // 売上原価は借方増
+      if (amount === 0) return;
+      const gls = parseGls(memo);
+      const base = { no, date, tax_category: mapTax(tax), invoice_qualified: invQualified(inv), vendor_name: party || `（${a.name}）`, description: desc };
+      if (gls.length === 0) {
+        fixed.push({ ...base, gls: null, amount, split: 1 });
+      } else {
+        const per = Math.floor(amount / gls.length);
+        const rem = amount - per * gls.length;
+        gls.forEach((g, i) => pur.push({ ...base, gls: g, amount: per + (i === 0 ? rem : 0), split: gls.length }));
+      }
+    }
+  };
+
+  for (const r of data) {
+    const no = String(r[C.no] ?? '').trim();
+    const date = normDate(r[C.date]);
+    const memo = r[C.memo] ?? '';
+    // 借方側 (相手先 = 貸方側の取引先/補助科目)
+    addSide(true, r[C.dAcct], r[C.dAmt], r[C.dTax], r[C.dInv], r[C.dSub], r[C.cPartner], r[C.cSub], no, date, memo);
+    // 貸方側 (相手先 = 借方側の取引先/補助科目)
+    addSide(false, r[C.cAcct], r[C.cAmt], r[C.cTax], r[C.cInv], r[C.cSub], r[C.dPartner], r[C.dSub], no, date, memo);
   }
   return { sga, rev, pur, fixed };
 }
@@ -339,7 +460,7 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
   const sourceFmt = isXlsx ? 'MoneyForward (xlsx)' : 'freee (CSV)';
   const { sga, rev, pur, fixed } = isXlsx
     ? extractMoneyForwardXlsx(buf, warnings)
-    : extractFreeeCsv(decodeCsv(buf), glFile.name);
+    : extractFreeeCsv(decodeCsv(buf), glFile.name, warnings);
 
   // period 判定 + 対象期間 (抽出行の日付の最小〜最大 + 含まれる年月)
   const counts: Record<string, number> = {};

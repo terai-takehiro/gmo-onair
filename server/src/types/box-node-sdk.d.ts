@@ -18,6 +18,7 @@ declare module 'box-node-sdk' {
       getItems(folderId: string, options?: { limit?: number; offset?: number; fields?: string }): Promise<BoxItemsResponse>;
     };
     files: {
+      get(fileId: string, options?: { fields?: string }): Promise<BoxItem>;
       delete(fileId: string): Promise<void>;
       getReadStream(fileId: string): Promise<NodeJS.ReadableStream>;
       uploadFile(folderId: string, name: string, content: NodeJS.ReadableStream | Buffer | string): Promise<{ entries?: BoxItem[]; id?: string; name?: string }>;
