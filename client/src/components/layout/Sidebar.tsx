@@ -44,6 +44,7 @@ import {
   ListTodo,
   GanttChart,
   Languages,
+  CopyCheck,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -140,6 +141,7 @@ const APP_NAV: Record<string, NavSection[]> = {
         { label: "販管費", to: "/budget/sga", icon: Receipt },
         { label: "精算PDF取込", to: "/budget/xpoint-import", icon: FileSearch },
         { label: "決算インポート", to: "/budget/kessan-import", icon: FlaskConical, adminOnly: true },
+        { label: "二重計上スクリーニング", to: "/budget/dedup-screening", icon: CopyCheck, adminOnly: true },
         { label: "案件月別詳細", to: "/budget/detail", icon: FolderKanban },
       ],
     },

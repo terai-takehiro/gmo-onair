@@ -14,6 +14,7 @@ import UserListPage from "@/contexts/platform/pages/UserListPage";
 import DataViewerPage from "@/contexts/platform/pages/DataViewerPage";
 import DbBackupsPage from "@/contexts/platform/pages/DbBackupsPage";
 import KessanImportPage from "@/contexts/platform/pages/KessanImportPage";
+import DedupScreeningPage from "@/contexts/platform/pages/DedupScreeningPage";
 
 // Sales (営業管理)
 import DashboardPage from "@/contexts/platform/pages/DashboardPage";
@@ -140,6 +141,7 @@ function AppRoutes() {
         <Route path="/budget/xpoint-import" element={<PermissionRoute module="budget"><XpointImportPage /></PermissionRoute>} />
         {/* 決算インポートは財務管理メニューに配置。実行は system_admin 限定のため module="admin" でゲート */}
         <Route path="/budget/kessan-import" element={<PermissionRoute module="admin"><KessanImportPage /></PermissionRoute>} />
+        <Route path="/budget/dedup-screening" element={<PermissionRoute module="admin"><DedupScreeningPage /></PermissionRoute>} />
         <Route path="/budget/vendors" element={<PermissionRoute module="budget"><VendorListPage /></PermissionRoute>} />
         <Route path="/budget/partners" element={<PermissionRoute module="budget"><PartnerListPage /></PermissionRoute>} />
         <Route path="/budget/reports/vendors" element={<PermissionRoute module="budget"><VendorReportPage /></PermissionRoute>} />

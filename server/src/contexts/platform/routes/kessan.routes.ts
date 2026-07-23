@@ -10,7 +10,7 @@
  */
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../../../shared/middleware/auth';
-import { runKessanImport, type KessanOptions } from '../services/kessan-import.service';
+import { runKessanImport, screenKessanDuplicates, type KessanOptions, type DedupScreenOptions } from '../services/kessan-import.service';
 import { isBoxConfigured } from '../../../shared/services/box';
 
 const router = Router();
@@ -61,6 +61,31 @@ router.post('/run', async (req, res) => {
     const msg = `${e?.message || '不明なエラー'}${boxStatus ? ` (Box応答: ${boxStatus})` : ''}`;
     console.error('[kessan] run error:', e?.message, boxStatus ?? '', JSON.stringify(e?.response?.body ?? '').slice(0, 300));
     res.status(500).json({ success: false, error: { code: 'KESSAN_IMPORT_ERROR', message: msg } });
+  }
+});
+
+/**
+ * POST /admin/kessan/screen-duplicates — 二重計上スクリーニング
+ *   決算インポート行 (notes が [kessan:...]) のうち、手入力行と同一
+ *   (金額+GLS/取引先+計上年月) のものを検出し、決算側だけを削除候補にする。
+ *   body: { scope?, commit?, monthFrom?, monthTo? }
+ */
+router.post('/screen-duplicates', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const scope = ['sga', 'revenues', 'purchases', 'all'].includes(b.scope) ? b.scope : 'all';
+    const opts: DedupScreenOptions = {
+      scope,
+      commit: b.commit === true,
+      monthFrom: typeof b.monthFrom === 'string' && /^\d{4}-\d{2}$/.test(b.monthFrom) ? b.monthFrom : undefined,
+      monthTo: typeof b.monthTo === 'string' && /^\d{4}-\d{2}$/.test(b.monthTo) ? b.monthTo : undefined,
+    };
+    const report = await screenKessanDuplicates(opts, req.user!.id);
+    res.json({ success: true, data: report });
+  } catch (err) {
+    const e = err as { message?: string };
+    console.error('[kessan] screen-duplicates error:', e?.message);
+    res.status(500).json({ success: false, error: { code: 'KESSAN_DEDUP_ERROR', message: e?.message || '不明なエラー' } });
   }
 });
 

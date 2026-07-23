@@ -526,10 +526,12 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
 
     const cache = { customers: new Map<string, string | null>(), vendors: new Map<string, string | null>(), projects: new Map<string, { id: string; customer_id: string | null } | null>() };
     const counts = { sga: 0, rev: 0, pur: 0, skipped: 0, dupSkipped: 0 };
-    // 重複候補チェックで作った「既存キー」集合 (skipDuplicates 時に投入をスキップするのに使う)
-    let dupSetSga: Set<string> | undefined;
-    let dupSetRev: Set<string> | undefined;
-    let dupSetPur: Set<string> | undefined;
+    // 既存の手入力行の「キー→件数」マップ (skipDuplicates 時に投入をスキップ)。
+    // 件数ベース (min(手入力,取込)) で消費するため、同一キーの正当な複数明細を消しすぎない。
+    let existSga: Map<string, number> | undefined;
+    let existRev: Map<string, number> | undefined;
+    let existPur: Map<string, number> | undefined;
+    const incKey = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) || 0) + 1);
 
     async function findCustomer(name: string) {
       if (cache.customers.has(name)) return cache.customers.get(name)!;
@@ -569,10 +571,13 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
              AND (notes IS NULL OR notes NOT LIKE $3) AND deleted_at IS NULL`,
           [dateFrom, dateTo, selfMarker]
         );
-        dupSetSga = new Set(ex.rows.map((r) => `${toInt(r.amount)}|${String(r.vendor_name || '').trim()}|${ym(r.recognition_date)}`));
+        existSga = new Map();
+        for (const r of ex.rows) incKey(existSga, `${toInt(r.amount)}|${String(r.vendor_name || '').trim()}|${ym(r.recognition_date)}`);
+        const budget = new Map(existSga); // 検出は複製で消費 (投入スキップと二重消費しない)
         for (const x of sga) {
-          if (dupSetSga.has(`${x.amount}|${x.vendor_name}|${ym(x.date)}`)) {
-            report.duplicates.sga++;
+          const k = `${x.amount}|${x.vendor_name}|${ym(x.date)}`;
+          if ((budget.get(k) || 0) > 0) {
+            budget.set(k, budget.get(k)! - 1); report.duplicates.sga++;
             if (dupSamples.length < 8) dupSamples.push(`[販管費] ${x.date} ${yen(x.amount)} ${x.vendor_name}`);
           }
         }
@@ -585,10 +590,14 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
              AND (r.notes IS NULL OR r.notes NOT LIKE $3) AND r.deleted_at IS NULL`,
           [dateFrom, dateTo, selfMarker]
         );
-        dupSetRev = new Set(ex.rows.map((r) => `${toInt(r.amount)}|${String(r.gls_number || '').trim()}|${ym(r.recognition_date)}`));
+        existRev = new Map();
+        for (const r of ex.rows) incKey(existRev, `${toInt(r.amount)}|${String(r.gls_number || '').trim()}|${ym(r.recognition_date)}`);
+        const budget = new Map(existRev);
         for (const x of rev) {
-          if (x.gls && dupSetRev.has(`${x.amount}|${x.gls}|${ym(x.date)}`)) {
-            report.duplicates.revenues++;
+          if (!x.gls) continue;
+          const k = `${x.amount}|${x.gls}|${ym(x.date)}`;
+          if ((budget.get(k) || 0) > 0) {
+            budget.set(k, budget.get(k)! - 1); report.duplicates.revenues++;
             if (dupSamples.length < 8) dupSamples.push(`[売上] ${x.date} ${yen(x.amount)} ${x.gls}`);
           }
         }
@@ -601,10 +610,14 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
              AND (pu.notes IS NULL OR pu.notes NOT LIKE $3) AND pu.deleted_at IS NULL`,
           [dateFrom, dateTo, selfMarker]
         );
-        dupSetPur = new Set(ex.rows.map((r) => `${toInt(r.amount)}|${String(r.gls_number || '').trim()}|${ym(r.recognition_date)}`));
+        existPur = new Map();
+        for (const r of ex.rows) incKey(existPur, `${toInt(r.amount)}|${String(r.gls_number || '').trim()}|${ym(r.recognition_date)}`);
+        const budget = new Map(existPur);
         for (const x of pur) {
-          if (x.gls && dupSetPur.has(`${x.amount}|${x.gls}|${ym(x.date)}`)) {
-            report.duplicates.purchases++;
+          if (!x.gls) continue;
+          const k = `${x.amount}|${x.gls}|${ym(x.date)}`;
+          if ((budget.get(k) || 0) > 0) {
+            budget.set(k, budget.get(k)! - 1); report.duplicates.purchases++;
             if (dupSamples.length < 8) dupSamples.push(`[仕入] ${x.date} ${yen(x.amount)} ${x.gls}`);
           }
         }
@@ -676,7 +689,7 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       if (scopes.includes('sga')) {
         await client.query('DELETE FROM sga_expenses WHERE notes LIKE $1', [`${MARKER}%`]);
         for (const x of sga) {
-          if (skipDuplicates && dupSetSga?.has(`${x.amount}|${x.vendor_name}|${ym(x.date)}`)) { counts.dupSkipped++; continue; }
+          if (skipDuplicates && existSga) { const k = `${x.amount}|${x.vendor_name}|${ym(x.date)}`; if ((existSga.get(k) || 0) > 0) { existSga.set(k, existSga.get(k)! - 1); counts.dupSkipped++; continue; } }
           await client.query(
             `INSERT INTO sga_expenses (id, billing_key, vendor_name, description, amount, tax_category,
                invoice_qualified, expense_type, source, recognition_date, notes, created_by)
@@ -689,7 +702,7 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       if (scopes.includes('revenues')) {
         await client.query('DELETE FROM revenues WHERE notes LIKE $1', [`${MARKER}%`]);
         for (const x of rev) {
-          if (skipDuplicates && x.gls && dupSetRev?.has(`${x.amount}|${x.gls}|${ym(x.date)}`)) { counts.dupSkipped++; continue; }
+          if (skipDuplicates && x.gls && existRev) { const k = `${x.amount}|${x.gls}|${ym(x.date)}`; if ((existRev.get(k) || 0) > 0) { existRev.set(k, existRev.get(k)! - 1); counts.dupSkipped++; continue; } }
           if (!x.gls) { counts.skipped++; continue; }
           const customerId = await ensureCustomer(x.customer_name);
           if (!customerId) { counts.skipped++; continue; }
@@ -706,7 +719,7 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       if (scopes.includes('purchases')) {
         await client.query('DELETE FROM purchases WHERE notes LIKE $1', [`${MARKER}%`]);
         for (const x of pur) {
-          if (skipDuplicates && x.gls && dupSetPur?.has(`${x.amount}|${x.gls}|${ym(x.date)}`)) { counts.dupSkipped++; continue; }
+          if (skipDuplicates && x.gls && existPur) { const k = `${x.amount}|${x.gls}|${ym(x.date)}`; if ((existPur.get(k) || 0) > 0) { existPur.set(k, existPur.get(k)! - 1); counts.dupSkipped++; continue; } }
           const proj = await ensureProject(x.gls as string, x.gls as string, null);
           if (!proj) { counts.skipped++; continue; }
           const vendorId = await ensureVendor(x.vendor_name);
@@ -766,6 +779,182 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       throw e;
     }
     report.committed = { sga: counts.sga, revenues: counts.rev, purchases: counts.pur, skipped: counts.skipped, dupSkipped: counts.dupSkipped };
+    return report;
+  } finally {
+    client.release();
+  }
+}
+
+// ============================================================
+// 二重計上スクリーニング (過去データ含む・決算インポート行のみ削除候補)
+// ============================================================
+//
+// 目的: 「手入力した行」と「決算インポートした行 (notes が [kessan:...])」が
+//       同一取引で二重計上されているものを検出し、決算インポート側だけを削除する
+//       (手入力は常に残す)。
+//
+// 突合キー: 金額 + GLS番号(売上/仕入) or 取引先名(販管費) + 計上年月(YYYY-MM)。
+// 重要: 同一 GLS・同一月に同額の明細が複数正当に存在する (例: GLS-A004 に ¥110,000 が2件) ため、
+//       グループを丸ごと削除してはならない。手入力 M 件・決算 D 件のグループでは、
+//       min(M, D) 件の決算行だけを削除する (手入力に対応する分だけ間引く)。
+//       手入力ゼロのグループ (決算のみ) は判別不能なので削除しない (誤削除防止)。
+
+export interface DedupScreenOptions {
+  scope?: 'sga' | 'revenues' | 'purchases' | 'all';
+  commit?: boolean;
+  monthFrom?: string; // YYYY-MM (任意)
+  monthTo?: string;   // YYYY-MM (任意)
+}
+export interface DedupCandidate {
+  table: 'revenues' | 'purchases' | 'sga';
+  id: string;
+  amount: number;
+  key: string;   // GLS番号 or 取引先名
+  month: string; // YYYY-MM
+  label: string;      // 削除する決算行の表示
+  keptLabel: string;  // 残す手入力行の表示
+}
+export interface DedupScreenReport {
+  dryRun: boolean;
+  targetDb: string;
+  isProd: boolean;
+  scopes: string[];
+  monthFrom?: string;
+  monthTo?: string;
+  summary: {
+    revenues: { count: number; amount: number };
+    purchases: { count: number; amount: number };
+    sga: { count: number; amount: number };
+    total: { count: number; amount: number };
+  };
+  candidates: DedupCandidate[]; // 表示用 (先頭 300 件まで)
+  truncated: boolean;
+  deleted?: { revenues: number; purchases: number; sga: number; total: number };
+}
+
+const isKessanNotes = (notes: unknown): boolean => /^\s*\[kessan:/.test(String(notes ?? ''));
+
+interface ScreenRow { id: string; amount: number; recognition_date: string; notes: string; created_at: string; key: string; label: string; }
+
+export async function screenKessanDuplicates(opts: DedupScreenOptions, _userId: string | null): Promise<DedupScreenReport> {
+  const scope = opts.scope || 'all';
+  const scopes = scope === 'all' ? ['revenues', 'purchases', 'sga'] : [scope];
+  const commit = !!opts.commit;
+  const monthFrom = /^\d{4}-\d{2}$/.test(opts.monthFrom || '') ? opts.monthFrom : undefined;
+  const monthTo = /^\d{4}-\d{2}$/.test(opts.monthTo || '') ? opts.monthTo : undefined;
+  const ymOf = (d: unknown): string => normDate(d).slice(0, 7);
+  const inRange = (m: string): boolean => (!monthFrom || m >= monthFrom) && (!monthTo || m <= monthTo);
+
+  const targetDb = String(process.env.DB_NAME || process.env.DATABASE_URL || '').toLowerCase();
+  const isProd = targetDb.includes('prod') || targetDb.includes('production');
+
+  const allCandidates: DedupCandidate[] = [];
+  const byTable = { revenues: 0, purchases: 0, sga: 0 };
+  const amtByTable = { revenues: 0, purchases: 0, sga: 0 };
+
+  // グループ化 + ペアリング: 手入力 M 件・決算 D 件 → min(M,D) 件の決算を削除候補に
+  const pair = (rows: ScreenRow[], table: DedupCandidate['table']) => {
+    const groups = new Map<string, ScreenRow[]>();
+    for (const r of rows) {
+      const m = ymOf(r.recognition_date);
+      if (!inRange(m)) continue;
+      const gk = `${r.amount}|${r.key}|${m}`;
+      const g = groups.get(gk);
+      if (g) g.push(r); else groups.set(gk, [r]);
+    }
+    const byCreated = (a: ScreenRow, b: ScreenRow) => String(a.created_at).localeCompare(String(b.created_at));
+    for (const arr of groups.values()) {
+      if (arr.length < 2) continue;
+      const manual = arr.filter((x) => !isKessanNotes(x.notes)).sort(byCreated);
+      const decal = arr.filter((x) => isKessanNotes(x.notes)).sort(byCreated);
+      if (manual.length === 0 || decal.length === 0) continue; // 手入力が無ければ削除しない
+      const nDel = Math.min(manual.length, decal.length);
+      for (let i = 0; i < nDel; i++) {
+        const d = decal[i];
+        byTable[table]++; amtByTable[table] += d.amount;
+        allCandidates.push({
+          table, id: d.id, amount: d.amount, key: d.key, month: ymOf(d.recognition_date),
+          label: d.label, keptLabel: manual[Math.min(i, manual.length - 1)].label,
+        });
+      }
+    }
+  };
+
+  const pool = getDb();
+  const client: PoolClient = await pool.connect();
+  try {
+    if (scopes.includes('revenues')) {
+      const r = await client.query(
+        `SELECT r.id, r.amount, r.recognition_date, r.notes, r.created_at, p.gls_number, c.name AS cname
+         FROM revenues r JOIN projects p ON p.id = r.project_id LEFT JOIN customers c ON c.id = r.customer_id
+         WHERE r.deleted_at IS NULL`
+      );
+      pair(r.rows.map((row): ScreenRow => ({
+        id: row.id, amount: toInt(row.amount), recognition_date: row.recognition_date, notes: row.notes, created_at: row.created_at,
+        key: String(row.gls_number || ''),
+        label: `${ymOf(row.recognition_date)} ${yen(toInt(row.amount))} ${row.gls_number || 'GLS?'} ${row.cname || ''}`.trim(),
+      })), 'revenues');
+    }
+    if (scopes.includes('purchases')) {
+      const r = await client.query(
+        `SELECT pu.id, pu.amount, pu.recognition_date, pu.notes, pu.created_at, p.gls_number, v.name AS vname
+         FROM purchases pu JOIN projects p ON p.id = pu.project_id LEFT JOIN vendors v ON v.id = pu.vendor_id
+         WHERE pu.deleted_at IS NULL`
+      );
+      pair(r.rows.map((row): ScreenRow => ({
+        id: row.id, amount: toInt(row.amount), recognition_date: row.recognition_date, notes: row.notes, created_at: row.created_at,
+        key: String(row.gls_number || ''),
+        label: `${ymOf(row.recognition_date)} ${yen(toInt(row.amount))} ${row.gls_number || 'GLS無'} ${row.vname || ''}`.trim(),
+      })), 'purchases');
+    }
+    if (scopes.includes('sga')) {
+      const r = await client.query(
+        `SELECT id, amount, recognition_date, notes, created_at, vendor_name
+         FROM sga_expenses WHERE deleted_at IS NULL`
+      );
+      pair(r.rows.map((row): ScreenRow => ({
+        id: row.id, amount: toInt(row.amount), recognition_date: row.recognition_date, notes: row.notes, created_at: row.created_at,
+        key: String(row.vendor_name || ''),
+        label: `${ymOf(row.recognition_date)} ${yen(toInt(row.amount))} ${row.vendor_name || ''}`.trim(),
+      })), 'sga');
+    }
+
+    const report: DedupScreenReport = {
+      dryRun: !commit, targetDb: process.env.DB_NAME || (isProd ? 'prod' : 'dev'), isProd, scopes, monthFrom, monthTo,
+      summary: {
+        revenues: { count: byTable.revenues, amount: amtByTable.revenues },
+        purchases: { count: byTable.purchases, amount: amtByTable.purchases },
+        sga: { count: byTable.sga, amount: amtByTable.sga },
+        total: { count: allCandidates.length, amount: amtByTable.revenues + amtByTable.purchases + amtByTable.sga },
+      },
+      candidates: allCandidates.slice(0, 300),
+      truncated: allCandidates.length > 300,
+    };
+
+    if (commit && allCandidates.length) {
+      const ids = { revenues: [] as string[], purchases: [] as string[], sga: [] as string[] };
+      for (const c of allCandidates) ids[c.table].push(c.id);
+      const tableName: Record<string, string> = { revenues: 'revenues', purchases: 'purchases', sga: 'sga_expenses' };
+      await client.query('BEGIN');
+      try {
+        const del = { revenues: 0, purchases: 0, sga: 0 };
+        for (const t of ['revenues', 'purchases', 'sga'] as const) {
+          if (!ids[t].length) continue;
+          const res = await client.query(
+            `UPDATE ${tableName[t]} SET deleted_at = NOW(), updated_at = NOW(),
+               notes = COALESCE(notes, '') || ' [dedup-removed]'
+             WHERE id = ANY($1) AND deleted_at IS NULL`,
+            [ids[t]]
+          );
+          del[t] = res.rowCount || 0;
+        }
+        await client.query('COMMIT');
+        report.deleted = { ...del, total: del.revenues + del.purchases + del.sga };
+      } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+      }
+    }
     return report;
   } finally {
     client.release();
