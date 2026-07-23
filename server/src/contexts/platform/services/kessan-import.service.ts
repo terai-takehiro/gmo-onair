@@ -131,6 +131,16 @@ function mapTax(z: unknown): 'tax10' | 'tax8' | 'exempt' {
   if (s.includes('対象外') || s.includes('非課税') || s.includes('不課税')) return 'exempt';
   return 'tax10';
 }
+/**
+ * 税込金額 → 税抜金額。freee 仕訳帳 (税込経理入力) の P/L 行金額は税込のため、
+ * ONAiR が保持する税抜額に換算する (税区分で 10%/8% を除算・非課税/対象外はそのまま)。
+ * 負数 (逆仕訳) も対応。
+ */
+function grossToNet(gross: number, taxCat: 'tax10' | 'tax8' | 'exempt'): number {
+  if (taxCat === 'tax10') return Math.round(gross / 1.1);
+  if (taxCat === 'tax8') return Math.round(gross / 1.08);
+  return gross;
+}
 const invQualified = (...xs: unknown[]): number => {
   const s = xs.map((x) => String(x ?? '')).join(' ');
   return (s.includes('80%') || s.includes('非適格') || s.includes('50%')) ? 0 : 1;
@@ -338,20 +348,22 @@ function extractFreeeJournalRows(rows: string[][], glFileName: string): Extracte
     if (amt === 0) return;
     const party = stripCode(firstNonEmpty(counterPartner, counterSub));
     const desc = [a.name, ownSub, memo].map((x) => String(x ?? '').trim()).filter(Boolean).join(' / ').slice(0, 240);
+    const taxCat = mapTax(tax);
+    // 仕訳帳の P/L 行金額は税込のため税抜へ換算 (ONAiR は税抜保持・手入力分と突合可能に)
     if (a.code >= 7000 && a.code <= 7999) {
-      const amount = isDebit ? amt : -amt; // 費用は借方増
+      const amount = grossToNet(isDebit ? amt : -amt, taxCat); // 費用は借方増
       if (amount === 0) return;
-      sga.push({ no, date, amount, tax_category: mapTax(tax), invoice_qualified: invQualified(inv), vendor_name: party || `（${a.name}）`, description: desc });
+      sga.push({ no, date, amount, tax_category: taxCat, invoice_qualified: invQualified(inv), vendor_name: party || `（${a.name}）`, description: desc });
     } else if (a.code === 5000) {
-      const amount = isDebit ? -amt : amt; // 売上は貸方増
+      const amount = grossToNet(isDebit ? -amt : amt, taxCat); // 売上は貸方増
       if (amount === 0) return;
       const gls = parseGls(memo);
-      rev.push({ no, date, amount, tax_category: mapTax(tax), customer_name: party || '(顧客不明)', gls: gls[0] || null, project_name: stripGlsName(memo), memo: String(memo ?? '').trim() });
+      rev.push({ no, date, amount, tax_category: taxCat, customer_name: party || '(顧客不明)', gls: gls[0] || null, project_name: stripGlsName(memo), memo: String(memo ?? '').trim() });
     } else if (a.code >= 6000 && a.code <= 6999) {
-      const amount = isDebit ? amt : -amt; // 売上原価は借方増
+      const amount = grossToNet(isDebit ? amt : -amt, taxCat); // 売上原価は借方増
       if (amount === 0) return;
       const gls = parseGls(memo);
-      const base = { no, date, tax_category: mapTax(tax), invoice_qualified: invQualified(inv), vendor_name: party || `（${a.name}）`, description: desc };
+      const base = { no, date, tax_category: taxCat, invoice_qualified: invQualified(inv), vendor_name: party || `（${a.name}）`, description: desc };
       if (gls.length === 0) {
         fixed.push({ ...base, gls: null, amount, split: 1 });
       } else {
@@ -543,8 +555,10 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       }
     }
 
-    // 重複候補チェック (既存の「決算インポート以外」の行に同一 金額+内容+日付 があるか)
+    // 重複候補チェック (既存の「決算インポート以外」の行に同一 金額+内容 が同月にあるか)
+    // 仕訳帳は月末日付、手入力は実日付とズレるため、日付は「年月 (YYYY-MM)」で突合する。
     // dry-run でも実行し、誤って二重計上しないよう事前に警告する。
+    const ym = (d: unknown): string => normDate(d).slice(0, 7);
     if (dateFrom && dateTo) {
       const dupSamples: string[] = [];
       const selfMarker = `${MARKER}%`; // 今回の取込分は自己重複と見なさず除外
@@ -555,9 +569,9 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
              AND (notes IS NULL OR notes NOT LIKE $3) AND deleted_at IS NULL`,
           [dateFrom, dateTo, selfMarker]
         );
-        dupSetSga = new Set(ex.rows.map((r) => `${toInt(r.amount)}|${String(r.vendor_name || '').trim()}|${normDate(r.recognition_date)}`));
+        dupSetSga = new Set(ex.rows.map((r) => `${toInt(r.amount)}|${String(r.vendor_name || '').trim()}|${ym(r.recognition_date)}`));
         for (const x of sga) {
-          if (dupSetSga.has(`${x.amount}|${x.vendor_name}|${x.date}`)) {
+          if (dupSetSga.has(`${x.amount}|${x.vendor_name}|${ym(x.date)}`)) {
             report.duplicates.sga++;
             if (dupSamples.length < 8) dupSamples.push(`[販管費] ${x.date} ${yen(x.amount)} ${x.vendor_name}`);
           }
@@ -571,9 +585,9 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
              AND (r.notes IS NULL OR r.notes NOT LIKE $3) AND r.deleted_at IS NULL`,
           [dateFrom, dateTo, selfMarker]
         );
-        dupSetRev = new Set(ex.rows.map((r) => `${toInt(r.amount)}|${String(r.gls_number || '').trim()}|${normDate(r.recognition_date)}`));
+        dupSetRev = new Set(ex.rows.map((r) => `${toInt(r.amount)}|${String(r.gls_number || '').trim()}|${ym(r.recognition_date)}`));
         for (const x of rev) {
-          if (x.gls && dupSetRev.has(`${x.amount}|${x.gls}|${x.date}`)) {
+          if (x.gls && dupSetRev.has(`${x.amount}|${x.gls}|${ym(x.date)}`)) {
             report.duplicates.revenues++;
             if (dupSamples.length < 8) dupSamples.push(`[売上] ${x.date} ${yen(x.amount)} ${x.gls}`);
           }
@@ -587,9 +601,9 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
              AND (pu.notes IS NULL OR pu.notes NOT LIKE $3) AND pu.deleted_at IS NULL`,
           [dateFrom, dateTo, selfMarker]
         );
-        dupSetPur = new Set(ex.rows.map((r) => `${toInt(r.amount)}|${String(r.gls_number || '').trim()}|${normDate(r.recognition_date)}`));
+        dupSetPur = new Set(ex.rows.map((r) => `${toInt(r.amount)}|${String(r.gls_number || '').trim()}|${ym(r.recognition_date)}`));
         for (const x of pur) {
-          if (x.gls && dupSetPur.has(`${x.amount}|${x.gls}|${x.date}`)) {
+          if (x.gls && dupSetPur.has(`${x.amount}|${x.gls}|${ym(x.date)}`)) {
             report.duplicates.purchases++;
             if (dupSamples.length < 8) dupSamples.push(`[仕入] ${x.date} ${yen(x.amount)} ${x.gls}`);
           }
@@ -662,7 +676,7 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       if (scopes.includes('sga')) {
         await client.query('DELETE FROM sga_expenses WHERE notes LIKE $1', [`${MARKER}%`]);
         for (const x of sga) {
-          if (skipDuplicates && dupSetSga?.has(`${x.amount}|${x.vendor_name}|${x.date}`)) { counts.dupSkipped++; continue; }
+          if (skipDuplicates && dupSetSga?.has(`${x.amount}|${x.vendor_name}|${ym(x.date)}`)) { counts.dupSkipped++; continue; }
           await client.query(
             `INSERT INTO sga_expenses (id, billing_key, vendor_name, description, amount, tax_category,
                invoice_qualified, expense_type, source, recognition_date, notes, created_by)
@@ -675,7 +689,7 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       if (scopes.includes('revenues')) {
         await client.query('DELETE FROM revenues WHERE notes LIKE $1', [`${MARKER}%`]);
         for (const x of rev) {
-          if (skipDuplicates && x.gls && dupSetRev?.has(`${x.amount}|${x.gls}|${x.date}`)) { counts.dupSkipped++; continue; }
+          if (skipDuplicates && x.gls && dupSetRev?.has(`${x.amount}|${x.gls}|${ym(x.date)}`)) { counts.dupSkipped++; continue; }
           if (!x.gls) { counts.skipped++; continue; }
           const customerId = await ensureCustomer(x.customer_name);
           if (!customerId) { counts.skipped++; continue; }
@@ -692,7 +706,7 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       if (scopes.includes('purchases')) {
         await client.query('DELETE FROM purchases WHERE notes LIKE $1', [`${MARKER}%`]);
         for (const x of pur) {
-          if (skipDuplicates && x.gls && dupSetPur?.has(`${x.amount}|${x.gls}|${x.date}`)) { counts.dupSkipped++; continue; }
+          if (skipDuplicates && x.gls && dupSetPur?.has(`${x.amount}|${x.gls}|${ym(x.date)}`)) { counts.dupSkipped++; continue; }
           const proj = await ensureProject(x.gls as string, x.gls as string, null);
           if (!proj) { counts.skipped++; continue; }
           const vendorId = await ensureVendor(x.vendor_name);
