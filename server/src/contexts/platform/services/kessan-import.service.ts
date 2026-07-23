@@ -834,7 +834,7 @@ export interface DedupScreenReport {
 
 const isKessanNotes = (notes: unknown): boolean => /^\s*\[kessan:/.test(String(notes ?? ''));
 
-interface ScreenRow { id: string; amount: number; recognition_date: string; notes: string; created_at: string; key: string; label: string; }
+interface ScreenRow { id: string; amount: number; recognition_date: string; notes: string; created_at: string; key: string; label: string; taxCat: 'tax10' | 'tax8' | 'exempt'; }
 
 export async function screenKessanDuplicates(opts: DedupScreenOptions, _userId: string | null): Promise<DedupScreenReport> {
   const scope = opts.scope || 'all';
@@ -852,13 +852,18 @@ export async function screenKessanDuplicates(opts: DedupScreenOptions, _userId: 
   const byTable = { revenues: 0, purchases: 0, sga: 0 };
   const amtByTable = { revenues: 0, purchases: 0, sga: 0 };
 
-  // グループ化 + ペアリング: 手入力 M 件・決算 D 件 → min(M,D) 件の決算を削除候補に
+  // グループ化 + ペアリング: (GLS/取引先 + 計上年月) でまとめ、決算行を手入力行に突き合わせる。
+  // 手入力は税抜。決算行は「税抜(新取込)」または「税込(旧取込・v2.9.224以前)」の両方があり得るため、
+  //   ①金額完全一致 → ②決算金額を税抜換算した値が手入力と一致、の2パスで突合する
+  //   (税込 ¥5,024,517 の決算 ↔ 税抜 ¥4,567,743 の手入力 を拾う)。
+  // 手入力の件数だけ決算を消費する (min(M,D)) ため、同一キー・同月の正当な複数明細は消しすぎない。
+  // 手入力が無いグループ (決算のみ) は削除しない。
   const pair = (rows: ScreenRow[], table: DedupCandidate['table']) => {
     const groups = new Map<string, ScreenRow[]>();
     for (const r of rows) {
       const m = ymOf(r.recognition_date);
       if (!inRange(m)) continue;
-      const gk = `${r.amount}|${r.key}|${m}`;
+      const gk = `${r.key}|${m}`;
       const g = groups.get(gk);
       if (g) g.push(r); else groups.set(gk, [r]);
     }
@@ -868,13 +873,41 @@ export async function screenKessanDuplicates(opts: DedupScreenOptions, _userId: 
       const manual = arr.filter((x) => !isKessanNotes(x.notes)).sort(byCreated);
       const decal = arr.filter((x) => isKessanNotes(x.notes)).sort(byCreated);
       if (manual.length === 0 || decal.length === 0) continue; // 手入力が無ければ削除しない
-      const nDel = Math.min(manual.length, decal.length);
-      for (let i = 0; i < nDel; i++) {
-        const d = decal[i];
+
+      // 手入力を「税抜金額 → 未消費キュー」に。決算行を金額でここから消費する。
+      const manualQ = new Map<number, ScreenRow[]>();
+      for (const mrow of manual) {
+        const q = manualQ.get(mrow.amount);
+        if (q) q.push(mrow); else manualQ.set(mrow.amount, [mrow]);
+      }
+      const take = (amt: number): ScreenRow | undefined => {
+        const q = manualQ.get(amt);
+        return q && q.length ? q.shift() : undefined;
+      };
+      // 税抜換算は Math.round のため freee の税抜額と ±1 ずれることがある (例 9,457,004÷1.1=8,597,276
+      // だが公式税抜は 8,597,277)。パス2 のみ ±1 の許容で突合する。
+      const takeNear = (target: number): ScreenRow | undefined => take(target) || take(target - 1) || take(target + 1);
+      const matchedKept = new Map<string, ScreenRow>();
+      const pending: ScreenRow[] = [];
+      // パス1: 金額完全一致 (新取込=税抜 と 手入力=税抜、または 手入力が税込で入っている場合)
+      for (const d of decal) {
+        const kept = take(d.amount);
+        if (kept) matchedKept.set(d.id, kept); else pending.push(d);
+      }
+      // パス2: 残った決算行 (旧取込=税込) を税抜換算 (±1 許容) して手入力と突合
+      for (const d of pending) {
+        const net = grossToNet(d.amount, d.taxCat);
+        if (net === d.amount) continue; // 非課税等は換算しても同じ → パス1で拾えていなければ対象外
+        const kept = takeNear(net);
+        if (kept) matchedKept.set(d.id, kept);
+      }
+      for (const d of decal) {
+        const kept = matchedKept.get(d.id);
+        if (!kept) continue;
         byTable[table]++; amtByTable[table] += d.amount;
         allCandidates.push({
           table, id: d.id, amount: d.amount, key: d.key, month: ymOf(d.recognition_date),
-          label: d.label, keptLabel: manual[Math.min(i, manual.length - 1)].label,
+          label: d.label, keptLabel: kept.label,
         });
       }
     }
@@ -885,35 +918,38 @@ export async function screenKessanDuplicates(opts: DedupScreenOptions, _userId: 
   try {
     if (scopes.includes('revenues')) {
       const r = await client.query(
-        `SELECT r.id, r.amount, r.recognition_date, r.notes, r.created_at, p.gls_number, c.name AS cname
+        `SELECT r.id, r.amount, r.recognition_date, r.notes, r.created_at, r.tax_category, p.gls_number, c.name AS cname
          FROM revenues r JOIN projects p ON p.id = r.project_id LEFT JOIN customers c ON c.id = r.customer_id
          WHERE r.deleted_at IS NULL`
       );
       pair(r.rows.map((row): ScreenRow => ({
         id: row.id, amount: toInt(row.amount), recognition_date: row.recognition_date, notes: row.notes, created_at: row.created_at,
+        taxCat: (row.tax_category === 'tax8' || row.tax_category === 'exempt') ? row.tax_category : 'tax10',
         key: String(row.gls_number || ''),
         label: `${ymOf(row.recognition_date)} ${yen(toInt(row.amount))} ${row.gls_number || 'GLS?'} ${row.cname || ''}`.trim(),
       })), 'revenues');
     }
     if (scopes.includes('purchases')) {
       const r = await client.query(
-        `SELECT pu.id, pu.amount, pu.recognition_date, pu.notes, pu.created_at, p.gls_number, v.name AS vname
+        `SELECT pu.id, pu.amount, pu.recognition_date, pu.notes, pu.created_at, pu.tax_category, p.gls_number, v.name AS vname
          FROM purchases pu JOIN projects p ON p.id = pu.project_id LEFT JOIN vendors v ON v.id = pu.vendor_id
          WHERE pu.deleted_at IS NULL`
       );
       pair(r.rows.map((row): ScreenRow => ({
         id: row.id, amount: toInt(row.amount), recognition_date: row.recognition_date, notes: row.notes, created_at: row.created_at,
+        taxCat: (row.tax_category === 'tax8' || row.tax_category === 'exempt') ? row.tax_category : 'tax10',
         key: String(row.gls_number || ''),
         label: `${ymOf(row.recognition_date)} ${yen(toInt(row.amount))} ${row.gls_number || 'GLS無'} ${row.vname || ''}`.trim(),
       })), 'purchases');
     }
     if (scopes.includes('sga')) {
       const r = await client.query(
-        `SELECT id, amount, recognition_date, notes, created_at, vendor_name
+        `SELECT id, amount, recognition_date, notes, created_at, tax_category, vendor_name
          FROM sga_expenses WHERE deleted_at IS NULL`
       );
       pair(r.rows.map((row): ScreenRow => ({
         id: row.id, amount: toInt(row.amount), recognition_date: row.recognition_date, notes: row.notes, created_at: row.created_at,
+        taxCat: (row.tax_category === 'tax8' || row.tax_category === 'exempt') ? row.tax_category : 'tax10',
         key: String(row.vendor_name || ''),
         label: `${ymOf(row.recognition_date)} ${yen(toInt(row.amount))} ${row.vendor_name || ''}`.trim(),
       })), 'sga');
