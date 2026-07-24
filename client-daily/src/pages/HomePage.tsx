@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom';
-import { CalendarCheck, Newspaper, ChevronRight, Sparkles, CheckCircle2, CircleDashed, DoorOpen, Users, FileText, Inbox } from 'lucide-react';
+import { CalendarCheck, Newspaper, ChevronRight, Sparkles, CheckCircle2, CircleDashed, DoorOpen, Users, FileText, Inbox, KeyRound, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useReports } from '@/lib/reportsApi';
 import { useInviewList } from '@/lib/inviewApi';
 import { useFinanceDocs, useInquiries } from '@/lib/inboxApi';
+import { useSecurityCardStats } from '@/lib/securityCardApi';
 import { MENUS, formatDateJa, formatWeekJa, type OpsReport } from '@/lib/types';
 
 const MENU_ICONS: Record<string, React.ElementType> = {
@@ -26,6 +27,7 @@ export default function HomePage() {
   const pendingFinance = (financeDocs.data ?? []).filter((d) => d.status !== 'processed' && d.status !== 'rejected').length;
   const inquiries = useInquiries();
   const unhandledInquiries = (inquiries.data ?? []).filter((q) => !q.handled_at).length;
+  const cardStats = useSecurityCardStats();
 
   return (
     <div className="mx-auto max-w-4xl p-4 sm:p-6 space-y-6">
@@ -157,6 +159,33 @@ export default function HomePage() {
                     {unhandledInquiries > 0 ? (
                       <Badge variant="outline" className="gap-1 border-violet-300 text-violet-700"><Sparkles className="h-3 w-3" /> 未対応 {unhandledInquiries}件</Badge>
                     ) : <span className="text-muted-foreground">未対応はありません</span>}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        {/* スタジオ セキュリティカード */}
+        <Link to="/security-cards" className="group">
+          <Card className="h-full transition-shadow hover:shadow-md">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><KeyRound className="h-5 w-5" /></div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <h2 className="font-semibold text-sm truncate">セキュリティカード</h2>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">GMOサムライスタジオ用賀のセキュリティカード24枚の貸出・返却を管理</p>
+                  <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
+                    <Badge variant="outline" className="gap-1 border-emerald-300 text-emerald-700"><CheckCircle2 className="h-3 w-3" /> 利用可能 {cardStats.data?.available ?? '—'}</Badge>
+                    {(cardStats.data?.lent ?? 0) > 0 && (
+                      <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700"><Users className="h-3 w-3" /> 貸出中 {cardStats.data?.lent}</Badge>
+                    )}
+                    {(cardStats.data?.overdue ?? 0) > 0 && (
+                      <Badge variant="outline" className="gap-1 border-red-300 text-red-700"><AlertTriangle className="h-3 w-3" /> 期限超過 {cardStats.data?.overdue}</Badge>
+                    )}
                   </div>
                 </div>
               </div>

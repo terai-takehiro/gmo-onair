@@ -81,7 +81,7 @@ https://gmo-onair.jp/api/v1/mcp?key=<MCP_API_KEY>
 
 URL 自体が秘密情報になるので共有・掲示しないこと。キーをローテーションしたらコネクタ URL も更新する。
 
-## ツール一覧 (66 種 / v2.9.206+)
+## ツール一覧 (71 種 / v2.9.229+)
 
 ### 案件管理
 | ツール | 種別 | 概要 |
@@ -162,6 +162,16 @@ kind と運用契約:
 | `list_finance_docs` | read | 見積/請求書の一覧 (status / doc_type / pending) |
 | `record_inquiry` | write | 他カテゴリに属さない**有益メールのみ**登録。**スパム・営業・メルマガ・他ツール対象 (見積請求/内覧会/案件) は呼び出し前に AI が除外する契約**。summary / importance / category / action_needed を付与 |
 | `list_inquiries` | read | その他問い合わせの一覧 (importance / unhandled) |
+
+### スタジオ セキュリティカード (dailyops — security cards)
+GMOサムライスタジオ用賀のセキュリティカード 24 枚。カードはセキュリティレベルに応じて解錠できる部屋が異なる。貸出対応者は GMO ONAiR ユーザー。
+| ツール | 種別 | 概要 |
+|---|---|---|
+| `list_security_cards` | read | カード一覧 (レベル・解錠できる部屋 access・貸出状況)。status=available/lent で絞り込み |
+| `get_security_card` | read | カード 1 枚の詳細 (解錠できる部屋・現在の貸出・履歴)。card_no (1-24) or card_id |
+| `lend_security_card` | write | 貸出。card_no + 貸出先担当者 (borrower_person) 必須。会社/連絡先/目的/貸出日/返却予定日/対応者を記録。貸出中はエラー |
+| `return_security_card` | write | 返却。card_no で指定。返却日は既定で今日 |
+| `list_security_card_lendings` | read | 貸出履歴 (status=active/returned・card_id・from/to で絞り込み) |
 
 ### 隔週キープ資料 (v2.9.200+ — イベント報告 / 月次予算・損益 / 議事録)
 | ツール | 種別 | 概要 |

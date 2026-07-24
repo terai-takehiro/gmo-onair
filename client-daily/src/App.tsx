@@ -10,6 +10,7 @@ import DailyNewsPage from './pages/DailyNewsPage';
 import InviewPage from './pages/InviewPage';
 import FinanceDocsPage from './pages/FinanceDocsPage';
 import InquiriesPage from './pages/InquiriesPage';
+import SecurityCardsPage from './pages/SecurityCardsPage';
 
 export default function App() {
   const { currentUser: user, loading } = useAuth();
@@ -34,6 +35,7 @@ export default function App() {
             <Route path="/inview" element={<InviewPage />} />
             <Route path="/finance" element={<FinanceDocsPage />} />
             <Route path="/inquiries" element={<InquiriesPage />} />
+            <Route path="/security-cards" element={<SecurityCardsPage />} />
           </Route>
         ) : (
           <Route path="*" element={<RedirectOnce to="/login" />} />
