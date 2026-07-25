@@ -1,249 +1,407 @@
-// 顧客360 (v2.9.218+) — 営業ジャーニー刷新フェーズB
-// お客様単位で全接点を1画面に集約。「この会社と今どうなっているか」を3秒で把握し、
-// 次に会う前に文脈を復元できる。上から: 取引実績サマリー → 統合タイムライン
-// (この場でインライン追記可能・D3解消) → 案件リスト → 年次売上。
-import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+/**
+ * CustomerDetailPage — お客様1社 / 顧客360 (§4.9 / デザイン 11b)
+ *
+ * 「次に会う前の下調べを1画面で。その場で直せて、その場で記録できる」
+ *
+ * ヘッダーの連絡先は**その場で直せる** (旧版は「編集は一覧から」と書いて一覧に送り返していた)。
+ * タブ = 接点と実績 / 案件 / 請求先 / 連絡先 (`?tab=`)。
+ * 「請求先」は取引先マスター (`companies`) をここに統合したもの。
+ * 同じ会社の情報を2か所で持たないため、`/sales/companies` は廃止した。
+ *
+ * 左 = やり取りの履歴 (記録欄が先頭・案件に紐づかない会話もここ) / この会社の案件
+ * 右 = この会社で待たせているもの / 年ごとの売上 / 来訪・見学の記録 (内覧会を含む)
+ */
+import { useEffect, useState } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  ArrowLeft, Mail, Phone, MapPin, User, Sparkles, Plus, Loader2, CalendarClock,
+  Check, Building2, ChevronRight, Pencil, DoorOpen, ReceiptText,
+} from "lucide-react";
+import api from "@/lib/api";
+import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/format";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
-import api from "@/lib/api";
-import { cn } from "@/lib/utils";
-import { formatCurrency } from "@/lib/format";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { EmptyState, ErrorPanel, Delayed, SkeletonRows } from "@gmo-onair/shared/src/client/states";
+import { useAuth } from "@/contexts/platform/AuthContext";
 import { ProjectStageLabels, ProjectStageColors, type ProjectStage } from "@/types";
-import {
-  ArrowLeft, Building2, Mail, Phone, MapPin, User, Sparkles, History,
-  Plus, Loader2, CalendarClock, TrendingUp, FolderKanban, Clock, Check,
-  Phone as PhoneIcon, Users, FileText, MessageSquare,
-} from "lucide-react";
 
 // ── 型 ────────────────────────────────────────────────────
+type Rec = Record<string, unknown>;
+
 interface CustomerOverview {
-  customer: Record<string, unknown>;
+  customer: Rec;
   summary: {
-    confirmed_revenue: number;
-    project_total: number;
-    project_active: number;
+    confirmed_revenue: number | string;
+    project_total: number | string;
+    project_active: number | string;
     last_contact_date: string | null;
-    open_actions: number;
+    open_actions: number | string;
   };
-  projects: Array<Record<string, unknown>>;
-  timeline: Array<Record<string, unknown>>;
-  sales_by_year: Array<{ year: string; total: number }>;
+  projects: Rec[];
+  timeline: Rec[];
+  sales_by_year: Array<{ year: string; total: number | string }>;
+  open_actions: Rec[];
+  visits: Rec[];
+  billing: Rec | null;
 }
 
-const ACT_META: Record<string, { label: string; icon: React.ElementType }> = {
-  call: { label: "電話", icon: PhoneIcon },
-  email: { label: "メール", icon: Mail },
-  meeting: { label: "打合せ", icon: Users },
-  visit: { label: "訪問", icon: Users },
-  proposal: { label: "提案", icon: FileText },
-  demo: { label: "デモ", icon: MessageSquare },
-  followup: { label: "フォロー", icon: MessageSquare },
-  follow_up: { label: "フォロー", icon: MessageSquare },
-  other: { label: "その他", icon: MessageSquare },
+const ACT_LABELS: Record<string, string> = {
+  call: "電話", email: "メール", meeting: "打合せ", visit: "訪問",
+  proposal: "提案", demo: "デモ", followup: "フォロー", follow_up: "フォロー", other: "その他",
 };
 
 const ACTIVITY_TYPES = [
-  { value: "call", label: "電話" },
-  { value: "email", label: "メール" },
-  { value: "meeting", label: "打合せ" },
-  { value: "visit", label: "訪問" },
-  { value: "proposal", label: "提案" },
-  { value: "demo", label: "デモ" },
-  { value: "follow_up", label: "フォロー" },
-  { value: "other", label: "その他" },
+  { value: "call", label: "電話" }, { value: "email", label: "メール" },
+  { value: "meeting", label: "打合せ" }, { value: "visit", label: "訪問" },
+  { value: "proposal", label: "提案" }, { value: "demo", label: "デモ" },
+  { value: "follow_up", label: "フォロー" }, { value: "other", label: "その他" },
 ];
 
-// 最終接点からの経過日数
-function daysSince(dateStr: string | null): number | null {
-  if (!dateStr) return null;
-  const d = new Date(`${dateStr}T00:00:00`);
-  if (isNaN(d.getTime())) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return Math.round((today.getTime() - d.getTime()) / 86_400_000);
-}
+const TABS = [
+  { id: "contact", label: "接点と実績" },
+  { id: "projects", label: "案件" },
+  { id: "billing", label: "請求先" },
+  { id: "profile", label: "連絡先" },
+] as const;
+type TabId = (typeof TABS)[number]["id"];
 
+const n = (v: unknown) => Number(v ?? 0) || 0;
+const str = (v: unknown) => (v == null ? "" : String(v));
 const todayStr = () => new Date().toISOString().slice(0, 10);
+const dateAfter = (days: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+};
+
+function daysSince(date: string | null): number | null {
+  if (!date) return null;
+  const t = Date.parse(`${date}T00:00:00`);
+  if (Number.isNaN(t)) return null;
+  return Math.round((Date.parse(`${todayStr()}T00:00:00`) - t) / 86_400_000);
+}
 
 export default function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { hasPermission } = useAuth();
+  const canEdit = hasPermission("sales", "manager");
+  const [sp, setSp] = useSearchParams();
+  const tab = (TABS.some((t) => t.id === sp.get("tab")) ? sp.get("tab") : "contact") as TabId;
 
-  const { data, isLoading, isError } = useQuery<CustomerOverview>({
+  const q = useQuery<CustomerOverview>({
     queryKey: ["customer-overview", id],
     queryFn: async () => (await api.get(`/customers/${id}/overview`)).data.data,
     enabled: !!id,
-    staleTime: 30_000,
     refetchOnMount: "always",
   });
 
-  // 活動のインライン追記
-  const [showForm, setShowForm] = useState(false);
-  const [actType, setActType] = useState("call");
-  const [actSubject, setActSubject] = useState("");
-  const [actDesc, setActDesc] = useState("");
-  const [actProjectId, setActProjectId] = useState<string>("none");
-  const [nextAction, setNextAction] = useState("");
-  const [nextActionDate, setNextActionDate] = useState("");
-
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["customer-overview", id] });
-    qc.invalidateQueries({ queryKey: ["dashboard"] });
+    qc.invalidateQueries({ queryKey: ["customers"] });
   };
 
-  const createActivity = useMutation({
-    mutationFn: async () =>
-      api.post("/activity-logs", {
-        customer_id: id,
-        project_id: actProjectId === "none" ? null : actProjectId,
-        activity_type: actType,
-        activity_date: todayStr(),
-        subject: actSubject.trim(),
-        description: actDesc.trim() || null,
-        next_action: nextAction.trim() || null,
-        next_action_date: nextAction.trim() ? (nextActionDate || null) : null,
-      }),
-    onSuccess: () => {
-      setShowForm(false);
-      setActSubject(""); setActDesc(""); setNextAction(""); setNextActionDate(""); setActProjectId("none");
-      invalidate();
-    },
-  });
-
-  // 次回アクション 完了/延期
-  const actionMutation = useMutation({
-    mutationFn: async (p: { id: string; action: "complete" | "postpone"; date?: string }) =>
-      p.action === "complete"
-        ? api.post(`/activity-logs/${p.id}/complete-next-action`)
-        : api.post(`/activity-logs/${p.id}/postpone-next-action`, { date: p.date }),
-    onSuccess: invalidate,
-  });
-  const dateAfter = (days: number) => {
-    const d = new Date(); d.setDate(d.getDate() + days);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  };
-  const [postponeFor, setPostponeFor] = useState<string | null>(null);
-
-  if (isLoading) {
+  if (q.isLoading) {
     return (
-      <div className="flex justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" aria-label="読み込み中" />
+      <div className="mx-auto max-w-screen-2xl px-4 py-6">
+        <Delayed><SkeletonRows rows={5} /></Delayed>
       </div>
     );
   }
-  if (isError || !data) {
+  if (q.isError || !q.data) {
     return (
-      <div className="mx-auto max-w-3xl p-6">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/sales/customers")} className="mb-4 gap-1">
-          <ArrowLeft className="h-4 w-4" /> 顧客一覧へ
+      <div className="mx-auto max-w-3xl space-y-3 px-4 py-6">
+        <Button variant="ghost" size="sm" className="-ml-2 gap-1" onClick={() => navigate("/customers")}>
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" /> お客様一覧へ
         </Button>
-        <EmptyState title="顧客が見つかりません" />
+        <ErrorPanel title="このお客様を読み込めませんでした" error={q.error} onRetry={() => void q.refetch()} />
       </div>
     );
   }
 
-  const c = data.customer;
-  const s = data.summary;
-  const since = daysSince(s.last_contact_date);
-  const maxYear = Math.max(1, ...data.sales_by_year.map((y) => Number(y.total)));
+  const d = q.data;
+  const c = d.customer;
+  const since = daysSince(d.summary.last_contact_date);
 
   return (
     <PageTransition>
-      <div className="mx-auto max-w-5xl space-y-4 p-4 sm:p-6">
-        {/* 戻る */}
-        <Button variant="ghost" size="sm" onClick={() => navigate("/sales/customers")} className="gap-1 -ml-2">
-          <ArrowLeft className="h-4 w-4" /> 顧客一覧へ
+      <div className="mx-auto max-w-screen-2xl space-y-4 px-4 py-5 sm:py-7">
+        <Button variant="ghost" size="sm" className="-ml-2 gap-1" onClick={() => navigate("/customers")}>
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" /> お客様一覧へ
         </Button>
 
-        {/* ヘッダー: 顧客名 + 連絡先 + 取引実績サマリー */}
-        <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
-          <div className="flex flex-wrap items-start gap-3">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-6 w-6 shrink-0 text-primary" aria-hidden="true" />
-              <h1 className="text-xl font-bold text-foreground">{String(c.name)}</h1>
-            </div>
-            {!!c.is_ai_created && (
-              <span
-                className="inline-flex items-center gap-0.5 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[11px] text-violet-700"
-                title={c.ai_requested_by ? `AI が登録しました (指示: ${c.ai_requested_by})` : "AI が登録しました"}
-              >
-                <Sparkles className="h-3 w-3" aria-hidden="true" /> AI作成
-              </span>
-            )}
-            <Button
-              variant="outline" size="sm" className="ml-auto gap-1 text-xs"
-              onClick={() => navigate("/sales/customers")}
-            >
-              編集は一覧から
-            </Button>
-          </div>
+        {/* ヘッダー — 連絡先はその場で直せる */}
+        <CustomerHeader customer={c} canEdit={canEdit} onSaved={invalidate} />
 
-          {/* 連絡先 */}
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-            {c.contact_name ? <span className="inline-flex items-center gap-1"><User className="h-3.5 w-3.5" />{String(c.contact_name)}</span> : null}
-            {c.email ? <span className="inline-flex items-center gap-1"><Mail className="h-3.5 w-3.5" />{String(c.email)}</span> : null}
-            {c.phone ? <span className="inline-flex items-center gap-1"><Phone className="h-3.5 w-3.5" />{String(c.phone)}</span> : null}
-            {c.address ? <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{String(c.address)}</span> : null}
-          </div>
-
-          {/* 取引実績サマリー */}
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <SummaryTile label="累計売上 (確定)" value={formatCurrency(Number(s.confirmed_revenue))} icon={<TrendingUp className="h-4 w-4" />} />
-            <SummaryTile label="案件数" value={`${s.project_active} / ${s.project_total}`} sub="進行中 / 全体" icon={<FolderKanban className="h-4 w-4" />} />
-            <SummaryTile
-              label="最終接点"
-              value={since === null ? "—" : since === 0 ? "今日" : `${since}日前`}
-              sub={s.last_contact_date ?? undefined}
-              icon={<Clock className="h-4 w-4" />}
-              emphasis={since !== null && since >= 30 ? "warn" : undefined}
-            />
-            <SummaryTile
-              label="未完了アクション"
-              value={`${s.open_actions}件`}
-              icon={<CalendarClock className="h-4 w-4" />}
-              emphasis={s.open_actions > 0 ? "info" : undefined}
-            />
-          </div>
+        {/* 数字 */}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <Tile label="累計売上（確定）" value={formatCurrency(n(d.summary.confirmed_revenue))} />
+          <Tile
+            label="案件"
+            value={`${n(d.summary.project_total)}件`}
+            sub={n(d.summary.project_active) > 0 ? `進行中 ${n(d.summary.project_active)}件` : "進行中なし"}
+          />
+          <Tile
+            label="最終接点"
+            value={since === null ? "接点なし" : since === 0 ? "今日" : `${since}日前`}
+            sub={d.summary.last_contact_date ?? undefined}
+            tone={since !== null && since >= 30 ? "warn" : undefined}
+          />
+          <Tile
+            label="待たせているもの"
+            value={`${n(d.summary.open_actions)}件`}
+            tone={n(d.summary.open_actions) > 0 ? "info" : undefined}
+          />
         </div>
 
-        {/* 統合タイムライン (インライン追記) */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <History className="h-4 w-4 text-primary" aria-hidden="true" />
-              やり取りの履歴
-              {data.timeline.length > 0 && (
-                <span className="text-xs font-normal text-muted-foreground">直近 {data.timeline.length} 件</span>
+        {/* タブ */}
+        <div className="flex gap-1 overflow-x-auto border-b border-divider" role="tablist">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.id}
+              onClick={() => {
+                const next = new URLSearchParams(sp);
+                if (t.id === "contact") next.delete("tab");
+                else next.set("tab", t.id);
+                setSp(next, { replace: true });
+              }}
+              className={cn(
+                "-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-[14px] transition-colors",
+                tab === t.id
+                  ? "border-primary font-bold text-primary"
+                  : "border-transparent text-secondary-foreground hover:text-foreground"
               )}
-              <Button
-                size="sm"
-                className="ml-auto h-8 gap-1 text-xs"
-                onClick={() => setShowForm((v) => !v)}
-              >
-                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                やり取りを記録
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {/* インライン追記フォーム */}
-            {showForm && (
-              <div className="mb-4 rounded-lg border border-primary/20 bg-primary/[0.03] p-3 space-y-2">
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === "contact" && (
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="min-w-0 space-y-4">
+              <TimelineCard
+                customerId={id!}
+                projects={d.projects}
+                timeline={d.timeline}
+                canEdit={canEdit}
+                onChanged={invalidate}
+              />
+            </div>
+            <div className="min-w-0 space-y-4">
+              <WaitingCard rows={d.open_actions} canEdit={canEdit} onChanged={invalidate} />
+              <SalesByYearCard rows={d.sales_by_year} />
+              <VisitsCard rows={d.visits} />
+            </div>
+          </div>
+        )}
+
+        {tab === "projects" && <ProjectsCard rows={d.projects} />}
+        {tab === "billing" && (
+          <BillingCard customerId={id!} billing={d.billing} canEdit={canEdit} onChanged={invalidate} />
+        )}
+        {tab === "profile" && <ProfileCard customer={c} canEdit={canEdit} onSaved={invalidate} />}
+      </div>
+    </PageTransition>
+  );
+}
+
+// ─────────────────────────────────────────────
+// ヘッダー (その場編集)
+// ─────────────────────────────────────────────
+function CustomerHeader({ customer, canEdit, onSaved }: { customer: Rec; canEdit: boolean; onSaved: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({
+    name: str(customer.name),
+    contact_name: str(customer.contact_name),
+    email: str(customer.email),
+    phone: str(customer.phone),
+  });
+  useEffect(() => {
+    setForm({
+      name: str(customer.name),
+      contact_name: str(customer.contact_name),
+      email: str(customer.email),
+      phone: str(customer.phone),
+    });
+  }, [customer]);
+
+  const save = useMutation({
+    mutationFn: async () => api.put(`/customers/${customer.id}`, form),
+    onSuccess: () => {
+      setEditing(false);
+      onSaved();
+    },
+  });
+
+  const initial = str(customer.name).replace(/^(株式会社|有限会社|合同会社|一般社団法人)/, "").trim().slice(0, 1) || "・";
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-4 sm:p-5">
+      <div className="flex flex-wrap items-start gap-3">
+        <span
+          aria-hidden="true"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-secondary text-[17px] font-bold text-secondary-foreground"
+        >
+          {initial}
+        </span>
+        <div className="min-w-0 flex-1">
+          {editing ? (
+            <div className="space-y-2">
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="会社名" />
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <Input value={form.contact_name} onChange={(e) => setForm({ ...form, contact_name: e.target.value })} placeholder="担当者" />
+                <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="メール" />
+                <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="電話" />
+              </div>
+              <div className="flex items-center gap-2">
+                <Button size="sm" disabled={!form.name.trim() || save.isPending} onClick={() => save.mutate()}>
+                  {save.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+                  保存する
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>やめる</Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-xl font-bold text-foreground sm:text-2xl">{str(customer.name)}</h1>
+                {!!customer.is_ai_created && (
+                  <span
+                    className="inline-flex items-center gap-0.5 rounded-full border border-ai-border bg-ai-surface px-1.5 py-0.5 text-[10px] font-bold text-ai"
+                    title={customer.ai_requested_by ? `AI が登録しました（指示: ${customer.ai_requested_by}）` : "AI が登録しました"}
+                  >
+                    <Sparkles className="h-3 w-3" aria-hidden="true" /> AI作成
+                  </span>
+                )}
+              </div>
+              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-secondary-foreground">
+                {customer.contact_name ? (
+                  <span className="inline-flex items-center gap-1"><User className="h-3.5 w-3.5" aria-hidden="true" />{str(customer.contact_name)}</span>
+                ) : null}
+                {customer.email ? (
+                  <a href={`mailto:${str(customer.email)}`} className="inline-flex items-center gap-1 hover:text-primary">
+                    <Mail className="h-3.5 w-3.5" aria-hidden="true" />{str(customer.email)}
+                  </a>
+                ) : null}
+                {customer.phone ? (
+                  <a href={`tel:${str(customer.phone)}`} className="inline-flex items-center gap-1 hover:text-primary">
+                    <Phone className="h-3.5 w-3.5" aria-hidden="true" />{str(customer.phone)}
+                  </a>
+                ) : null}
+                {customer.address ? (
+                  <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" aria-hidden="true" />{str(customer.address)}</span>
+                ) : null}
+              </div>
+            </>
+          )}
+        </div>
+        {canEdit && !editing && (
+          <Button variant="outline" size="sm" className="gap-1" onClick={() => setEditing(true)}>
+            <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+            直す
+          </Button>
+        )}
+      </div>
+      {canEdit && !editing && (
+        <p className="mt-2 text-[12px] text-muted-foreground">「直す」でこの場で書き換えられます。</p>
+      )}
+    </div>
+  );
+}
+
+function Tile({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "warn" | "info" }) {
+  return (
+    <div
+      className={cn(
+        "rounded-lg border bg-card p-3",
+        tone === "warn" ? "border-warning-strong/40 bg-warning-surface" : "border-border"
+      )}
+    >
+      <div className="text-[12px] text-secondary-foreground">{label}</div>
+      <div
+        className={cn(
+          "mt-0.5 whitespace-nowrap text-lg font-bold tabular-nums",
+          tone === "warn" ? "text-warning-strong" : tone === "info" ? "text-primary" : "text-foreground"
+        )}
+      >
+        {value}
+      </div>
+      {sub ? <div className="text-[11px] text-muted-foreground">{sub}</div> : null}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// やり取りの履歴 (記録欄が先頭)
+// ─────────────────────────────────────────────
+function TimelineCard({
+  customerId, projects, timeline, canEdit, onChanged,
+}: { customerId: string; projects: Rec[]; timeline: Rec[]; canEdit: boolean; onChanged: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [type, setType] = useState("call");
+  const [projectId, setProjectId] = useState("none");
+  const [subject, setSubject] = useState("");
+  const [desc, setDesc] = useState("");
+  const [next, setNext] = useState("");
+  const [nextDate, setNextDate] = useState("");
+  const navigate = useNavigate();
+
+  const create = useMutation({
+    mutationFn: async () =>
+      api.post("/activity-logs", {
+        customer_id: customerId,
+        project_id: projectId === "none" ? null : projectId,
+        activity_type: type,
+        activity_date: todayStr(),
+        subject: subject.trim(),
+        description: desc.trim() || null,
+        next_action: next.trim() || null,
+        next_action_date: next.trim() ? nextDate || null : null,
+      }),
+    onSuccess: () => {
+      setOpen(false);
+      setSubject(""); setDesc(""); setNext(""); setNextDate(""); setProjectId("none");
+      onChanged();
+    },
+  });
+
+  return (
+    <section className="rounded-lg border border-border bg-card" aria-label="やり取りの履歴">
+      <header className="flex flex-wrap items-center gap-2 border-b border-divider px-4 py-3">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-[15px] font-bold text-foreground">やり取りの履歴</h2>
+          <p className="mt-0.5 text-[12px] text-secondary-foreground">案件に紐づかないやり取りもここに入ります</p>
+        </div>
+        {canEdit && (
+          <Button size="sm" className="gap-1" onClick={() => setOpen((v) => !v)}>
+            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+            やり取りを記録
+          </Button>
+        )}
+      </header>
+
+      <div className="p-4">
+        {canEdit && (
+          <div className="mb-4">
+            {open ? (
+              <div className="space-y-2 rounded-lg border border-primary/25 bg-primary/[0.03] p-3">
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground">種別</label>
-                    <Select value={actType} onValueChange={setActType}>
+                    <Label className="text-[12px]">種別</Label>
+                    <Select value={type} onValueChange={setType}>
                       <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {ACTIVITY_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
@@ -251,14 +409,14 @@ export default function CustomerDetailPage() {
                     </Select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground">関連案件 (任意)</label>
-                    <Select value={actProjectId} onValueChange={setActProjectId}>
+                    <Label className="text-[12px]">案件（後からでも紐づけられます）</Label>
+                    <Select value={projectId} onValueChange={setProjectId}>
                       <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">案件に紐づけない</SelectItem>
-                        {data.projects.map((p) => (
-                          <SelectItem key={String(p.id)} value={String(p.id)}>
-                            {String(p.gls_number || p.code || "")} {String(p.name)}
+                        {projects.map((p) => (
+                          <SelectItem key={str(p.id)} value={str(p.id)}>
+                            {str(p.gls_number || p.code)} {str(p.name)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -266,226 +424,482 @@ export default function CustomerDetailPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">件名 *</label>
-                  <Input value={actSubject} onChange={(e) => setActSubject(e.target.value)} placeholder="例: 見積内容の確認電話" className="h-9" />
+                  <Label className="text-[12px]">何があったか *</Label>
+                  <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="例）見積の内容を電話で確認した" className="h-9" />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">詳細 (任意)</label>
-                  <Textarea value={actDesc} onChange={(e) => setActDesc(e.target.value)} rows={2} className="resize-y" />
+                  <Label className="text-[12px]">くわしく</Label>
+                  <Textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={2} className="resize-y" />
                 </div>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground">次回アクション (任意)</label>
-                    <Input value={nextAction} onChange={(e) => setNextAction(e.target.value)} placeholder="例: 再提案の日程調整" className="h-9" />
+                    <Label className="text-[12px]">次にやること</Label>
+                    <Input value={next} onChange={(e) => setNext(e.target.value)} placeholder="例）再提案の日程を決める" className="h-9" />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground">次回アクション期限</label>
-                    <Input type="date" value={nextActionDate} onChange={(e) => setNextActionDate(e.target.value)} className="h-9" disabled={!nextAction.trim()} />
+                    <Label className="text-[12px]">その期限</Label>
+                    <Input type="date" value={nextDate} onChange={(e) => setNextDate(e.target.value)} className="h-9" disabled={!next.trim()} />
                   </div>
                 </div>
-                <div className="flex items-center justify-end gap-2 pt-1">
-                  <Button variant="ghost" size="sm" onClick={() => setShowForm(false)}>キャンセル</Button>
-                  <Button
-                    size="sm"
-                    disabled={!actSubject.trim() || createActivity.isPending}
-                    onClick={() => createActivity.mutate()}
-                  >
-                    {createActivity.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
+                <div className="flex items-center justify-end gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>やめる</Button>
+                  <Button size="sm" disabled={!subject.trim() || create.isPending} onClick={() => create.mutate()}>
+                    {create.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
                     記録する
                   </Button>
                 </div>
               </div>
-            )}
-
-            {data.timeline.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                やり取りの記録はまだありません。「やり取りを記録」から追加できます (メールは AI が自動で取り込みます)。
-              </p>
             ) : (
-              <ol className="relative space-y-4 border-l border-border pl-5 ml-1.5">
-                {data.timeline.map((a) => {
-                  const meta = ACT_META[String(a.activity_type)] ?? ACT_META.other;
-                  const MIcon = meta.icon;
-                  const naOverdue = a.next_action_date && !a.next_action_done_at &&
-                    String(a.next_action_date) < todayStr();
-                  return (
-                    <li key={String(a.id)} className="relative">
-                      <span className={cn(
-                        "absolute -left-[27px] top-0.5 flex h-5 w-5 items-center justify-center rounded-full border bg-card",
-                        a.is_ai_created ? "border-violet-300 bg-violet-50" : "border-border"
-                      )}>
-                        <MIcon className={cn("h-3 w-3", a.is_ai_created ? "text-violet-600" : "text-orange-600")} aria-hidden="true" />
-                      </span>
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-                        <span className="font-medium text-foreground">{meta.label}</span>
-                        <span>{String(a.activity_date)}</span>
-                        {a.user_name ? <span>{String(a.user_name)}</span> : null}
-                        {a.project_name ? (
-                          <button
-                            className="inline-flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-primary"
-                            onClick={() => navigate(`/sales/projects/${a.project_id}`)}
-                            title="案件を開く"
-                          >
-                            {String(a.project_gls || "")} {String(a.project_name)}
-                          </button>
-                        ) : null}
-                        {a.is_ai_created ? (
-                          <span className="inline-flex items-center gap-0.5 rounded-full border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] text-violet-700" title={a.ai_requested_by ? `AI が記録しました (指示: ${a.ai_requested_by})` : "AI が記録しました"}>
-                            <Sparkles className="h-3 w-3" aria-hidden="true" /> AI作成
-                          </span>
-                        ) : null}
-                        {a.source_channel ? (
-                          <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[10px] text-sky-700" title="どこから届いたか">
-                            {String(a.source_channel)}
-                          </span>
-                        ) : null}
-                        {a.message_id ? (
-                          <span className="inline-flex items-center gap-0.5 rounded-full border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600" title={`メールから作られました (Message-ID: ${a.message_id})`}>
-                            ✉ メール
-                          </span>
-                        ) : null}
-                      </div>
-                      <p className="mt-0.5 text-sm font-medium text-foreground">{String(a.subject)}</p>
-                      {a.description ? (
-                        <p className="mt-0.5 whitespace-pre-line text-xs text-muted-foreground line-clamp-3">{String(a.description)}</p>
-                      ) : null}
-                      {a.next_action ? (
-                        <div className="mt-1 flex flex-wrap items-center gap-2">
-                          <span className={cn(
-                            "inline-flex items-center gap-1.5 text-xs",
-                            a.next_action_done_at ? "text-muted-foreground line-through" : naOverdue ? "font-medium text-red-600" : "text-blue-700"
-                          )}>
-                            <CalendarClock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                            {String(a.next_action)}
-                            {a.next_action_date ? `（期限 ${String(a.next_action_date)}${naOverdue ? " · 超過" : ""}）` : ""}
-                          </span>
-                          {!a.next_action_done_at && (
-                            <div className="flex items-center gap-1">
-                              <Button size="sm" variant="outline" className="h-6 px-2 text-[11px]"
-                                disabled={actionMutation.isPending}
-                                onClick={() => actionMutation.mutate({ id: String(a.id), action: "complete" })}>
-                                <Check className="h-3 w-3" aria-hidden="true" />完了
-                              </Button>
-                              {postponeFor === String(a.id) ? (
-                                <>
-                                  <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px]" onClick={() => actionMutation.mutate({ id: String(a.id), action: "postpone", date: dateAfter(1) })}>明日</Button>
-                                  <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px]" onClick={() => actionMutation.mutate({ id: String(a.id), action: "postpone", date: dateAfter(7) })}>1週間</Button>
-                                  <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px]" onClick={() => setPostponeFor(null)}>×</Button>
-                                </>
-                              ) : (
-                                <Button size="sm" variant="outline" className="h-6 px-2 text-[11px]" onClick={() => setPostponeFor(String(a.id))}>延期</Button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ol>
+              <button
+                type="button"
+                onClick={() => setOpen(true)}
+                className="w-full rounded-lg border border-dashed border-border px-3 py-2.5 text-left text-[13px] text-secondary-foreground transition-colors hover:border-primary/40 hover:bg-secondary"
+              >
+                電話・メール・打合せの内容を書く（案件は後から紐づけられます）
+              </button>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        )}
 
-        {/* 案件リスト */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <FolderKanban className="h-4 w-4 text-primary" aria-hidden="true" />
-              案件 ({data.projects.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {data.projects.length === 0 ? (
-              <p className="text-sm text-muted-foreground">この顧客の案件はまだありません。</p>
-            ) : (
-              <ul className="divide-y divide-border">
-                {data.projects.map((p) => {
-                  const stage = p.stage as ProjectStage;
-                  const rev = Number(p.total_revenue) || 0;
-                  const pur = Number(p.total_purchase) || 0;
-                  const gp = rev - pur;
-                  return (
-                    <li key={String(p.id)}>
+        {timeline.length === 0 ? (
+          <p className="text-[13px] text-secondary-foreground">
+            まだ記録がありません。メールは AI が自動で取り込みます。
+          </p>
+        ) : (
+          <ol className="ml-1.5 space-y-4 border-l border-divider pl-5">
+            {timeline.map((a) => {
+              const overdue = !!a.next_action_date && !a.next_action_done_at && str(a.next_action_date) < todayStr();
+              return (
+                <li key={str(a.id)} className="relative">
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "absolute -left-[27px] top-1.5 h-2.5 w-2.5 rounded-full border-2 bg-card",
+                      a.is_ai_created ? "border-ai" : "border-border"
+                    )}
+                  />
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-secondary-foreground">
+                    <span className="font-bold text-foreground">{ACT_LABELS[str(a.activity_type)] ?? "その他"}</span>
+                    <span className="tabular-nums">{str(a.activity_date)}</span>
+                    {a.user_name ? <span>{str(a.user_name)}</span> : null}
+                    {a.project_name ? (
                       <button
                         type="button"
-                        className="flex w-full flex-wrap items-center gap-x-2 gap-y-1 px-1 py-2.5 text-left transition-colors hover:bg-accent rounded-md"
-                        onClick={() => navigate(`/sales/projects/${p.id}`)}
+                        className="rounded-full bg-secondary px-1.5 py-0.5 text-[11px] hover:text-primary"
+                        onClick={() => navigate(`/sales/projects/${a.project_id}`)}
+                        title="案件を開く"
                       >
-                        <span className="text-xs text-muted-foreground">{String(p.gls_number || p.code || "—")}</span>
-                        <Badge className="shrink-0 text-[11px]" style={{ backgroundColor: ProjectStageColors[stage], color: "#fff" }}>
-                          {ProjectStageLabels[stage] || String(p.stage)}
-                        </Badge>
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{String(p.name)}</span>
-                        {p.event_start ? <span className="text-xs text-muted-foreground">{String(p.event_start)}</span> : null}
-                        {rev > 0 || pur > 0 ? (
-                          <span className="text-xs tabular-nums text-muted-foreground">
-                            売上 {formatCurrency(rev)} / 粗利 {formatCurrency(gp)}
-                          </span>
-                        ) : Number(p.expected_amount) > 0 ? (
-                          <span className="text-xs tabular-nums text-muted-foreground">想定 {formatCurrency(Number(p.expected_amount))}</span>
-                        ) : null}
+                        {str(a.project_gls)} {str(a.project_name)}
                       </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* 年次売上 */}
-        {data.sales_by_year.length > 0 && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <TrendingUp className="h-4 w-4 text-primary" aria-hidden="true" />
-                年次売上 (確定)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {data.sales_by_year.map((y) => (
-                  <div key={y.year} className="flex items-center gap-3">
-                    <span className="w-12 shrink-0 text-xs tabular-nums text-muted-foreground">{y.year}年</span>
-                    <div className="h-5 flex-1 overflow-hidden rounded bg-muted">
-                      <div
-                        className="h-full rounded bg-primary/70"
-                        style={{ width: `${Math.max(2, (Number(y.total) / maxYear) * 100)}%` }}
-                      />
-                    </div>
-                    <span className="w-24 shrink-0 text-right text-xs tabular-nums text-foreground">{formatCurrency(Number(y.total))}</span>
+                    ) : null}
+                    {a.is_ai_created ? (
+                      <span
+                        className="inline-flex items-center gap-0.5 rounded-full border border-ai-border bg-ai-surface px-1.5 py-0.5 text-[10px] font-bold text-ai"
+                        title={a.ai_requested_by ? `AI が記録しました（指示: ${a.ai_requested_by}）` : "AI が記録しました"}
+                      >
+                        <Sparkles className="h-3 w-3" aria-hidden="true" /> AI作成
+                      </span>
+                    ) : null}
+                    {a.message_id ? (
+                      <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px]" title="メールから作られました">✉ メール</span>
+                    ) : null}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  <p className="mt-0.5 text-[14px] font-bold text-foreground">{str(a.subject)}</p>
+                  {a.description ? (
+                    <p className="mt-0.5 line-clamp-3 whitespace-pre-line text-[12px] text-secondary-foreground">{str(a.description)}</p>
+                  ) : null}
+                  {a.next_action ? (
+                    <p
+                      className={cn(
+                        "mt-1 inline-flex items-center gap-1.5 text-[12px]",
+                        a.next_action_done_at ? "text-muted-foreground line-through" : overdue ? "font-bold text-destructive" : "text-primary"
+                      )}
+                    >
+                      <CalendarClock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      {str(a.next_action)}
+                      {a.next_action_date ? `（期限 ${str(a.next_action_date)}${overdue ? " · 過ぎています" : ""}）` : ""}
+                    </p>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ol>
         )}
       </div>
-    </PageTransition>
+    </section>
   );
 }
 
-// 取引実績タイル
-function SummaryTile({ label, value, sub, icon, emphasis }: {
-  label: string; value: string; sub?: string; icon: React.ReactNode;
-  emphasis?: "warn" | "info";
-}) {
+// ─────────────────────────────────────────────
+// この会社で待たせているもの
+// ─────────────────────────────────────────────
+function WaitingCard({ rows, canEdit, onChanged }: { rows: Rec[]; canEdit: boolean; onChanged: () => void }) {
+  const [postponeFor, setPostponeFor] = useState<string | null>(null);
+  const act = useMutation({
+    mutationFn: async (p: { id: string; action: "complete" | "postpone"; date?: string }) =>
+      p.action === "complete"
+        ? api.post(`/activity-logs/${p.id}/complete-next-action`)
+        : api.post(`/activity-logs/${p.id}/postpone-next-action`, { date: p.date }),
+    onSuccess: onChanged,
+  });
+
   return (
-    <div className={cn(
-      "rounded-lg border p-2.5",
-      emphasis === "warn" ? "border-amber-200 bg-amber-50/50"
-        : emphasis === "info" ? "border-blue-200 bg-blue-50/50"
-        : "border-border bg-muted/30"
-    )}>
-      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-        <span className={cn(
-          emphasis === "warn" ? "text-amber-600" : emphasis === "info" ? "text-blue-600" : "text-muted-foreground"
-        )}>{icon}</span>
-        {label}
+    <section className="rounded-lg border border-border bg-card p-4" aria-label="この会社で待たせているもの">
+      <h2 className="text-[15px] font-bold text-foreground">この会社で待たせているもの</h2>
+      {rows.length === 0 ? (
+        <p className="mt-1 text-[13px] text-secondary-foreground">待たせているものはありません。</p>
+      ) : (
+        <ul className="mt-2 space-y-2">
+          {rows.map((r) => {
+            const overdue = str(r.next_action_date) < todayStr();
+            return (
+              <li key={str(r.id)} className="rounded-lg border border-border px-3 py-2">
+                <p className="text-[13px] font-bold text-foreground">{str(r.next_action)}</p>
+                <p className={cn("mt-0.5 text-[12px] tabular-nums", overdue ? "font-bold text-destructive" : "text-secondary-foreground")}>
+                  期限 {str(r.next_action_date)}{overdue ? "（過ぎています）" : ""}
+                </p>
+                {r.project_name ? (
+                  <p className="mt-0.5 truncate text-[12px] text-muted-foreground">{str(r.project_gls)} {str(r.project_name)}</p>
+                ) : null}
+                {canEdit && (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                    <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-[12px]"
+                      disabled={act.isPending}
+                      onClick={() => act.mutate({ id: str(r.id), action: "complete" })}>
+                      <Check className="h-3 w-3" aria-hidden="true" />もう終わった
+                    </Button>
+                    {postponeFor === str(r.id) ? (
+                      <>
+                        <Button size="sm" variant="ghost" className="h-7 px-1.5 text-[12px]" onClick={() => act.mutate({ id: str(r.id), action: "postpone", date: dateAfter(1) })}>明日</Button>
+                        <Button size="sm" variant="ghost" className="h-7 px-1.5 text-[12px]" onClick={() => act.mutate({ id: str(r.id), action: "postpone", date: dateAfter(7) })}>1週間</Button>
+                        <Button size="sm" variant="ghost" className="h-7 px-1.5 text-[12px]" onClick={() => setPostponeFor(null)}>やめる</Button>
+                      </>
+                    ) : (
+                      <Button size="sm" variant="outline" className="h-7 px-2 text-[12px]" onClick={() => setPostponeFor(str(r.id))}>期限を引き直す</Button>
+                    )}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+// ─────────────────────────────────────────────
+// 年ごとの売上 / 来訪・見学 / 案件
+// ─────────────────────────────────────────────
+function SalesByYearCard({ rows }: { rows: Array<{ year: string; total: number | string }> }) {
+  if (rows.length === 0) return null;
+  const max = Math.max(1, ...rows.map((r) => n(r.total)));
+  return (
+    <section className="rounded-lg border border-border bg-card p-4" aria-label="年ごとの売上">
+      <h2 className="text-[15px] font-bold text-foreground">年ごとの売上（確定）</h2>
+      <div className="mt-2 space-y-1.5">
+        {rows.map((r) => (
+          <div key={r.year} className="flex items-center gap-2">
+            <span className="w-11 shrink-0 text-[12px] tabular-nums text-secondary-foreground">{r.year}年</span>
+            <div className="h-4 flex-1 overflow-hidden rounded bg-secondary">
+              <div className="h-full rounded bg-primary/70" style={{ width: `${Math.max(2, (n(r.total) / max) * 100)}%` }} />
+            </div>
+            <span className="w-20 shrink-0 text-right text-[12px] tabular-nums text-foreground">{formatCurrency(n(r.total))}</span>
+          </div>
+        ))}
       </div>
-      <div className="mt-0.5 text-lg font-bold tabular-nums text-foreground">{value}</div>
-      {sub ? <div className="text-[10px] text-muted-foreground">{sub}</div> : null}
-    </div>
+    </section>
+  );
+}
+
+function VisitsCard({ rows }: { rows: Rec[] }) {
+  return (
+    <section className="rounded-lg border border-border bg-card p-4" aria-label="来訪・見学の記録">
+      <h2 className="flex items-center gap-1.5 text-[15px] font-bold text-foreground">
+        <DoorOpen className="h-4 w-4 text-primary" aria-hidden="true" />
+        来訪・見学の記録
+      </h2>
+      {rows.length === 0 ? (
+        <p className="mt-1 text-[13px] text-secondary-foreground">まだありません。</p>
+      ) : (
+        <ul className="mt-2 space-y-1.5">
+          {rows.map((r, i) => (
+            <li key={i} className="flex items-start gap-2 text-[13px]">
+              <span className="w-20 shrink-0 tabular-nums text-secondary-foreground">{str(r.date)}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-foreground">{str(r.what)}</span>
+                <span className="block text-[12px] text-muted-foreground">
+                  {str(r.kind)}
+                  {r.who ? ` ・ ${str(r.who)}` : ""}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-2 text-[12px] text-muted-foreground">内覧会の来場予約もこの会社の記録として入ります。</p>
+    </section>
+  );
+}
+
+function ProjectsCard({ rows }: { rows: Rec[] }) {
+  const navigate = useNavigate();
+  const active = rows.filter((p) => p.is_active).length;
+  if (rows.length === 0) {
+    return (
+      <EmptyState
+        icon={<Building2 className="h-6 w-6" aria-hidden="true" />}
+        title="この会社の案件はまだありません"
+        description="案件をつくると、ここに並びます。"
+        action={<Button onClick={() => navigate("/sales/projects/new")}>案件をつくる</Button>}
+      />
+    );
+  }
+  return (
+    <section className="rounded-lg border border-border bg-card" aria-label="この会社の案件">
+      <header className="flex items-center gap-2 border-b border-divider px-4 py-3">
+        <h2 className="text-[15px] font-bold text-foreground">この会社の案件</h2>
+        <span className="text-[13px] text-secondary-foreground">
+          {rows.length}件{active > 0 ? `（進行中 ${active}件）` : ""}
+        </span>
+      </header>
+      <ul className="divide-y divide-divider">
+        {rows.map((p) => {
+          const rev = n(p.total_revenue);
+          const pur = n(p.total_purchase);
+          return (
+            <li key={str(p.id)}>
+              <button
+                type="button"
+                className="flex w-full flex-wrap items-center gap-x-2 gap-y-1 px-4 py-3 text-left transition-colors hover:bg-secondary/60"
+                onClick={() => navigate(`/sales/projects/${p.id}`)}
+              >
+                <Badge
+                  className="shrink-0 text-[11px]"
+                  style={{ backgroundColor: ProjectStageColors[p.stage as ProjectStage], color: "#fff" }}
+                >
+                  {ProjectStageLabels[p.stage as ProjectStage] ?? str(p.stage)}
+                </Badge>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[14px] font-bold text-foreground">{str(p.name)}</span>
+                  <span className="mt-0.5 block text-[12px] text-secondary-foreground">
+                    {p.event_start ? str(p.event_start) : "実施日 未定"}
+                    {p.gls_number || p.code ? ` ・ ${str(p.gls_number || p.code)}` : ""}
+                  </span>
+                </span>
+                <span className="shrink-0 text-right text-[13px] tabular-nums">
+                  {rev > 0 || pur > 0 ? (
+                    <>
+                      <span className="block font-bold text-foreground">{formatCurrency(rev)}</span>
+                      <span className="block text-[12px] text-secondary-foreground">粗利 {formatCurrency(rev - pur)}</span>
+                    </>
+                  ) : n(p.expected_amount) > 0 ? (
+                    <>
+                      <span className="block font-bold text-foreground">{formatCurrency(n(p.expected_amount))}</span>
+                      <span className="block text-[12px] text-secondary-foreground">想定</span>
+                    </>
+                  ) : null}
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+// ─────────────────────────────────────────────
+// 請求先 (取引先マスターの統合先)
+// ─────────────────────────────────────────────
+function BillingCard({
+  customerId, billing, canEdit, onChanged,
+}: { customerId: string; billing: Rec | null; canEdit: boolean; onChanged: () => void }) {
+  const [form, setForm] = useState({
+    name: str(billing?.name),
+    contact_name: str(billing?.contact_name),
+    email: str(billing?.email),
+    phone: str(billing?.phone),
+    address: str(billing?.address),
+    invoice_registration_number: str(billing?.invoice_registration_number),
+    is_vendor: !!billing?.is_vendor,
+    is_sga_payee: !!billing?.is_sga_payee,
+    notes: str(billing?.notes),
+  });
+  useEffect(() => {
+    setForm({
+      name: str(billing?.name),
+      contact_name: str(billing?.contact_name),
+      email: str(billing?.email),
+      phone: str(billing?.phone),
+      address: str(billing?.address),
+      invoice_registration_number: str(billing?.invoice_registration_number),
+      is_vendor: !!billing?.is_vendor,
+      is_sga_payee: !!billing?.is_sga_payee,
+      notes: str(billing?.notes),
+    });
+  }, [billing]);
+
+  const create = useMutation({
+    mutationFn: async () => api.post(`/customers/${customerId}/billing-party`),
+    onSuccess: onChanged,
+  });
+  const save = useMutation({
+    mutationFn: async () => api.put(`/companies/${billing!.id}`, { ...form, is_customer: true }),
+    onSuccess: onChanged,
+  });
+
+  if (!billing) {
+    return (
+      <EmptyState
+        icon={<ReceiptText className="h-6 w-6" aria-hidden="true" />}
+        title="請求先の情報がまだありません"
+        description="請求書に出す名前・住所・適格請求書の登録番号をここで持ちます。この会社の情報から作れます。"
+        action={
+          canEdit ? (
+            <Button disabled={create.isPending} onClick={() => create.mutate()}>
+              {create.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
+              この会社の請求先を作る
+            </Button>
+          ) : undefined
+        }
+      />
+    );
+  }
+
+  return (
+    <section className="max-w-3xl space-y-3 rounded-lg border border-border bg-card p-4" aria-label="請求先">
+      <div>
+        <h2 className="text-[15px] font-bold text-foreground">請求先</h2>
+        <p className="mt-0.5 text-[12px] text-secondary-foreground">
+          請求書・見積書に出す情報です。同じ会社の情報を2か所で持たないよう、取引先マスターはここに統合しました。
+        </p>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="bp-name">請求先の名前</Label>
+          <Input id="bp-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} disabled={!canEdit} />
+        </div>
+        <div>
+          <Label htmlFor="bp-contact">担当者</Label>
+          <Input id="bp-contact" value={form.contact_name} onChange={(e) => setForm({ ...form, contact_name: e.target.value })} disabled={!canEdit} />
+        </div>
+        <div>
+          <Label htmlFor="bp-email">メール</Label>
+          <Input id="bp-email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} disabled={!canEdit} />
+        </div>
+        <div>
+          <Label htmlFor="bp-phone">電話</Label>
+          <Input id="bp-phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} disabled={!canEdit} />
+        </div>
+      </div>
+      <div>
+        <Label htmlFor="bp-address">住所</Label>
+        <Input id="bp-address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} disabled={!canEdit} />
+      </div>
+      <div>
+        <Label htmlFor="bp-invoice">適格請求書の登録番号</Label>
+        <Input
+          id="bp-invoice"
+          value={form.invoice_registration_number}
+          onChange={(e) => setForm({ ...form, invoice_registration_number: e.target.value })}
+          placeholder="T0000000000000"
+          disabled={!canEdit}
+        />
+        <p className="mt-1 text-[12px] text-muted-foreground">
+          支払期日は売上・仕入の1件ごとに入れます（会社ごとの支払条件はまだ持っていません）。
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-4">
+        <label className="flex items-center gap-2 text-[13px]">
+          <Switch checked={form.is_vendor} onCheckedChange={(v) => setForm({ ...form, is_vendor: v })} disabled={!canEdit} />
+          仕入先でもある
+        </label>
+        <label className="flex items-center gap-2 text-[13px]">
+          <Switch checked={form.is_sga_payee} onCheckedChange={(v) => setForm({ ...form, is_sga_payee: v })} disabled={!canEdit} />
+          販管費の支払先でもある
+        </label>
+      </div>
+      <div>
+        <Label htmlFor="bp-notes">メモ</Label>
+        <Textarea id="bp-notes" rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} disabled={!canEdit} />
+      </div>
+      {canEdit && (
+        <div className="flex justify-end">
+          <Button disabled={save.isPending} onClick={() => save.mutate()}>
+            {save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
+            請求先を保存する
+          </Button>
+        </div>
+      )}
+      {save.isError && (
+        <ErrorPanel title="請求先を保存できませんでした" error={save.error} inputPreserved />
+      )}
+    </section>
+  );
+}
+
+// ─────────────────────────────────────────────
+// 連絡先 (顧客レコードそのもの)
+// ─────────────────────────────────────────────
+function ProfileCard({ customer, canEdit, onSaved }: { customer: Rec; canEdit: boolean; onSaved: () => void }) {
+  const [form, setForm] = useState({
+    name: str(customer.name),
+    short_name: str(customer.short_name),
+    contact_name: str(customer.contact_name),
+    email: str(customer.email),
+    phone: str(customer.phone),
+    address: str(customer.address),
+    notes: str(customer.notes),
+  });
+  const save = useMutation({
+    mutationFn: async () => api.put(`/customers/${customer.id}`, form),
+    onSuccess: onSaved,
+  });
+
+  return (
+    <section className="max-w-3xl space-y-3 rounded-lg border border-border bg-card p-4" aria-label="連絡先">
+      <h2 className="text-[15px] font-bold text-foreground">連絡先</h2>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="cp-name">会社名</Label>
+          <Input id="cp-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} disabled={!canEdit} />
+        </div>
+        <div>
+          <Label htmlFor="cp-short">略称</Label>
+          <Input id="cp-short" value={form.short_name} onChange={(e) => setForm({ ...form, short_name: e.target.value })} disabled={!canEdit} />
+        </div>
+        <div>
+          <Label htmlFor="cp-contact">担当者</Label>
+          <Input id="cp-contact" value={form.contact_name} onChange={(e) => setForm({ ...form, contact_name: e.target.value })} disabled={!canEdit} />
+        </div>
+        <div>
+          <Label htmlFor="cp-phone">電話</Label>
+          <Input id="cp-phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} disabled={!canEdit} />
+        </div>
+      </div>
+      <div>
+        <Label htmlFor="cp-email">メール</Label>
+        <Input id="cp-email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} disabled={!canEdit} />
+      </div>
+      <div>
+        <Label htmlFor="cp-address">住所</Label>
+        <Input id="cp-address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} disabled={!canEdit} />
+      </div>
+      <div>
+        <Label htmlFor="cp-notes">メモ</Label>
+        <Textarea id="cp-notes" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} disabled={!canEdit} />
+      </div>
+      {canEdit && (
+        <div className="flex justify-end">
+          <Button disabled={save.isPending} onClick={() => save.mutate()}>
+            {save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
+            保存する
+          </Button>
+        </div>
+      )}
+      {save.isError && <ErrorPanel title="保存できませんでした" error={save.error} inputPreserved />}
+    </section>
   );
 }

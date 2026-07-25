@@ -255,7 +255,7 @@ export default function CompanyListPage() {
                     {c.customer_id && (
                       <button
                         className="text-xs text-primary hover:underline flex items-center gap-0.5"
-                        onClick={() => navigate("/sales/customers")}
+                        onClick={() => navigate(`/customers/${c.customer_id}`)}
                       >
                         <ExternalLink className="h-3 w-3" />顧客ページ
                       </button>
@@ -327,7 +327,7 @@ export default function CompanyListPage() {
                         {c.customer_id && (
                           <button
                             className="text-xs text-primary hover:underline flex items-center gap-0.5 whitespace-nowrap"
-                            onClick={(e) => { e.stopPropagation(); navigate("/sales/customers"); }}
+                            onClick={(e) => { e.stopPropagation(); navigate(`/customers/${c.customer_id}`); }}
                           >
                             <ExternalLink className="h-3 w-3" />顧客
                           </button>
