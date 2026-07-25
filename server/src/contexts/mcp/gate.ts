@@ -52,6 +52,16 @@ const WRITE_TOOL_PERMISSIONS: Record<string, { module: string; level: 'editor' |
   // HTTP 側 security-card.routes.ts の canEdit = requirePermission('dailyops','editor') と一致させる)
   lend_security_card: { module: 'dailyops', level: 'editor' },
   return_security_card: { module: 'dailyops', level: 'editor' },
+  // 個人タスク・依頼・投入 (v2.9.245 / 改革 Phase 2a)。
+  // 受け皿は日常業務アプリの「タスク・依頼」メニューなので module は dailyops に揃える
+  // (HTTP 側 dailyops/tasks.routes.ts の requirePermission と一致させる)。
+  // 注意: 「自分に割り当てられた案件タスクを読む」のは sales 権限を要求しない設計だが、
+  // それは読み取り系 (list_my_tasks 等) なのでこの表の対象外。
+  create_task_intake: { module: 'dailyops', level: 'editor' },
+  commit_task_intake: { module: 'dailyops', level: 'editor' },
+  discard_task_intake: { module: 'dailyops', level: 'editor' },
+  create_delegation: { module: 'dailyops', level: 'editor' },
+  respond_to_delegation: { module: 'dailyops', level: 'editor' },
   // studio (スタジオ予約カレンダー)
   create_studio_booking: { module: 'studio', level: 'editor' },
 };
