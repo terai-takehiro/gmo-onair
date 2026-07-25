@@ -16,6 +16,7 @@ import { registerEventReportTools } from './tools/eventreports.tools';
 import { registerBudgetTools } from './tools/budget.tools';
 import { registerMinutesTools } from './tools/minutes.tools';
 import { registerSecurityCardTools } from './tools/security-cards.tools';
+import { registerAiFeedbackTools } from './tools/aifeedback.tools';
 
 // GMO ONAiR MCP サーバー本体。
 // stateless HTTP モードのためリクエストごとに生成される (ツール登録のみで I/O は無いので軽量)。
@@ -45,6 +46,7 @@ export function buildMcpServer(): McpServer {
   registerBudgetTools(server);      // 月次予算 + 実績補正 + 損益 (目標 vs 実績)
   registerMinutesTools(server);     // 議事録サマリ
   registerSecurityCardTools(server); // スタジオ セキュリティカード管理 (read + 貸出/返却)
+  registerAiFeedbackTools(server); // AI出力の修正傾向ダイジェスト (フィードバックの還流・read)
 
   return server;
 }
