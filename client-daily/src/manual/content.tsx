@@ -18,23 +18,23 @@ export const DAILY_MANUAL: ManualContent = {
   appLabel: "日常業務",
   appIcon: ClipboardList,
   intro:
-    "AI エージェント (MCP 経由) と人間が協働して日々の定型業務レポートを運用するアプリです。第1弾はウィークリー活動報告とデイリーニュース報告の 2 メニュー。AI が自動生成・収集し、人間が追記・確認して仕上げます。",
+    "AI と人が一緒に日々の定型レポートを回すアプリです。第1弾はウィークリー活動報告とデイリーニュース報告の 2 メニュー。AI が下書きを作り、人が追記・確認して仕上げます。",
   sections: [
     {
       id: "intro-overview",
       group: "はじめに",
       icon: ClipboardList,
       title: "日常業務アプリとは",
-      keywords: ["概要", "AI", "MCP", "レポート"],
+      keywords: ["概要", "AI", "レポート"],
       blocks: [
         {
           type: "p",
-          text: "GMO ONAiR の MCP サーバーを通じて、Claude 等の AI エージェントが定期的にレポートを投稿します。人間はこのアプリでレポートを閲覧し、行 (項目) を追記・編集し、確認・確定します。今後もこの中に小さな業務メニューを追加していきます。",
+          text: "AI が定期的にレポートの下書きを投稿します。人はこのアプリでそれを読み、行 (項目) を追記・編集して、確認・確定します。今後もこの中に小さな業務メニューを追加していきます。",
         },
         {
           type: "flow",
           steps: [
-            { icon: Bot, label: "AI が生成・収集", sub: "MCP 経由で投稿", tone: "info" },
+            { icon: Bot, label: "AI が生成・収集", sub: "下書きを投稿", tone: "info" },
             { icon: Plus, label: "人間が追記", sub: "トピック・ニュース行", tone: "primary" },
             { icon: UserCheck, label: "確認・確定", sub: "レビュー記録", tone: "success" },
           ],

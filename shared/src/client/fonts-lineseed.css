@@ -1,0 +1,45 @@
+/* ==========================================================================
+ * LINE Seed JP — 自己ホスト用 @font-face 定義
+ *
+ * このファイルは既定では読み込まれていない。woff2 を置いてから有効化する。
+ *
+ * 手順:
+ *   1. https://seed.line.me/ から LINE Seed JP をダウンロード (SIL OFL 1.1)
+ *   2. woff2 を client/public/fonts/ に下記のファイル名で置く
+ *        LINESeedJP_A_OTF_Rg.woff2   (400)
+ *        LINESeedJP_A_OTF_Bd.woff2   (700)
+ *        LINESeedJP_A_OTF_Eb.woff2   (800)
+ *   3. 各アプリの src/index.css で tokens.css の直後に 1 行足す
+ *        @import '@gmo-onair/shared/src/client/fonts-lineseed.css';
+ *
+ * 参照は同一オリジンの絶対パス。client/dist が / を配信するので、
+ * /qsheet/ や /equipment/ 配下のアプリからも同じ 1 セットを共有する
+ * (7 アプリ分の重複配置は不要)。CSP は fontSrc: 'self' なので追加設定も不要。
+ *
+ * font-display: swap — 読み込み前は Noto Sans JP で描画し、
+ * 落ちてきたら差し替える (本番中に文字が消えない)。
+ * ========================================================================== */
+
+@font-face {
+  font-family: 'LINE Seed JP';
+  src: url('/fonts/LINESeedJP_A_OTF_Rg.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'LINE Seed JP';
+  src: url('/fonts/LINESeedJP_A_OTF_Bd.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'LINE Seed JP';
+  src: url('/fonts/LINESeedJP_A_OTF_Eb.woff2') format('woff2');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}

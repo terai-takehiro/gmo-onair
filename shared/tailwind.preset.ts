@@ -19,10 +19,13 @@ const preset = {
     },
     extend: {
       fontFamily: {
-        sans: ['"Noto Sans JP"', '-apple-system', '"Hiragino Sans"', 'sans-serif'],
-        serif: ['"Noto Sans JP"', '-apple-system', '"Hiragino Sans"', 'sans-serif'],
-        mono: ['"Noto Sans JP"', '-apple-system', '"Hiragino Sans"', 'sans-serif'],
-        number: ['"Roboto Condensed"', '"Noto Sans JP"', 'sans-serif'],
+        /* 刷新の書体 = LINE Seed JP。未配置なら Noto Sans JP に落ちる
+         * (自己ホストの手順は shared/src/client/fonts-lineseed.css 参照) */
+        sans: ['"LINE Seed JP"', '"Noto Sans JP"', '-apple-system', '"Hiragino Sans"', 'sans-serif'],
+        serif: ['"LINE Seed JP"', '"Noto Sans JP"', '-apple-system', '"Hiragino Sans"', 'sans-serif'],
+        mono: ['"LINE Seed JP"', '"Noto Sans JP"', '-apple-system', '"Hiragino Sans"', 'sans-serif'],
+        /* 数字も本文と同じ書体 (見出しと数字で書体が変わらないようにする) */
+        number: ['"LINE Seed JP"', '"Noto Sans JP"', 'sans-serif'],
       },
       colors: {
         /* GMO Blue scale — matches --color-gmo-blue-* from tokens.css */
@@ -43,9 +46,18 @@ const preset = {
         /* shadcn/ui semantic slots — HSL indirect through CSS variables */
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
+        divider: 'hsl(var(--divider))',
         ring: 'hsl(var(--ring))',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
+
+        /* AI が作ったもの・AI に投げるものだけに使う */
+        ai: {
+          DEFAULT: 'hsl(var(--ai))',
+          foreground: 'hsl(var(--ai-foreground))',
+          surface: 'hsl(var(--ai-surface))',
+          border: 'hsl(var(--ai-border))',
+        },
 
         primary: {
           DEFAULT: 'hsl(var(--primary))',
@@ -69,14 +81,18 @@ const preset = {
         destructive: {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
+          surface: 'hsl(var(--destructive-surface))',
         },
         success: {
           DEFAULT: 'hsl(var(--success))',
           foreground: 'hsl(var(--success-foreground))',
+          surface: 'hsl(var(--success-surface))',
         },
         warning: {
           DEFAULT: 'hsl(var(--warning))',
           foreground: 'hsl(var(--warning-foreground))',
+          surface: 'hsl(var(--warning-surface))',
+          strong: 'hsl(var(--warning-strong))',
         },
         info: {
           DEFAULT: 'hsl(var(--info))',
@@ -116,10 +132,13 @@ const preset = {
           '5': 'hsl(var(--chart-5))',
         },
       },
+      /* 刷新の角丸 = 11–16px。カード 14px (rounded-lg) / ボタンと入力 11px (rounded-control) */
       borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        xl: 'calc(var(--radius) + 2px)',   /* 16px — 大きな面 (シェル・モーダル) */
+        lg: 'var(--radius)',               /* 14px — カード */
+        md: 'calc(var(--radius) - 2px)',   /* 12px */
+        sm: 'calc(var(--radius) - 4px)',   /* 10px */
+        control: '0.6875rem',              /* 11px — ボタン・入力 */
       },
       /* DADS Fibonacci spacing — already covered by Tailwind's default 4px scale;
        * tokens.css provides CSS variables for explicit use. */

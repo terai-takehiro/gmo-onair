@@ -1,11 +1,15 @@
 import * as React from "react";
-import { Inbox } from "lucide-react";
-import { cn } from "../utils";
+import { EmptyState as BaseEmptyState } from "../states/EmptyState";
 
 /**
- * EmptyState — データなし時の表示
- * デジタル庁ダッシュボードガイドブック: 空の状態でも情報の意味を伝え、
- * 利用者が次に取るべきアクションを示す。
+ * EmptyState (dashboard 互換ラッパー)
+ *
+ * 実装は shared/src/client/states/EmptyState.tsx に一本化した。
+ * 新しい画面は `states` から直接 import すること。
+ *
+ * ここに残しているのは既存 29 画面の呼び出しを壊さないため。
+ * title は本来必須 (「データがありません」で終わらせない — §2.4) なので、
+ * 既定値に頼っている箇所を見つけたら対象ごとの文に書き換える。
  */
 export interface EmptyStateProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "title"> {
   icon?: React.ReactNode;
@@ -20,25 +24,14 @@ export function EmptyState({
   description,
   action,
   className,
-  ...rest
 }: EmptyStateProps) {
   return (
-    <div
-      className={cn(
-        "flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border bg-muted/30 px-4 py-10 text-center",
-        className
-      )}
-      role="status"
-      {...rest}
-    >
-      <div className="text-muted-foreground [&>svg]:h-8 [&>svg]:w-8" aria-hidden="true">
-        {icon ?? <Inbox />}
-      </div>
-      <p className="text-sm font-medium text-foreground">{title}</p>
-      {description ? (
-        <p className="max-w-md text-xs text-muted-foreground">{description}</p>
-      ) : null}
-      {action ? <div className="mt-2">{action}</div> : null}
-    </div>
+    <BaseEmptyState
+      icon={icon}
+      title={title}
+      description={description}
+      action={action}
+      className={className}
+    />
   );
 }

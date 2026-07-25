@@ -36,7 +36,7 @@
  * ========================================================================== */
 :root {
   /* Surfaces — DADS neutral palette (sumi / solid-gray) */
-  --background:          0 0% 98%;          /* #fafafa — app background */
+  --background:          220 20% 97%;       /* #f7f8fa — app background (v2.9.251 刷新) */
   --foreground:          220 15% 11%;       /* #1a1d24 — body text (WCAG AA on bg) */
 
   --card:                0 0% 100%;         /* #ffffff — card surface */
@@ -51,7 +51,7 @@
 
   /* Neutrals (DADS sumi aligned) */
   --secondary:           220 14% 96%;       /* #f3f4f6 — subtle surface */
-  --secondary-foreground: 220 15% 20%;
+  --secondary-foreground: 218 12% 27%;      /* #3c424c — 副テキスト (contrast 9.4:1) */
 
   --muted:               220 14% 96%;
   --muted-foreground:    220 10% 40%;        /* #5d6470 — secondary text (contrast 5.5:1) */
@@ -59,26 +59,37 @@
   --accent:              209 85% 95%;        /* tint of brand for hover */
   --accent-foreground:   209 100% 25%;
 
-  /* Status (DADS semantic) */
+  /* Status (DADS semantic) — `-surface` は帯(バナー)の背景、`-strong` は帯の上に載る文字 */
   --destructive:         0 78% 44%;          /* red-800 #c7243a */
   --destructive-foreground: 0 0% 100%;
+  --destructive-surface: 0 93% 94%;          /* #fee2e2 — 危険の帯 */
 
   --success:             152 74% 30%;         /* green-800 #197a4b */
   --success-foreground:  0 0% 100%;
+  --success-surface:     152 45% 94%;          /* 成功の帯 */
 
   --warning:             36 100% 46%;          /* yellow-700 / orange boundary */
   --warning-foreground:  0 0% 100%;
+  --warning-surface:     48 96% 89%;           /* #fef3c7 — 警告の帯 */
+  --warning-strong:      26 90% 37%;           /* #b45309 — 警告の帯の上の文字 */
 
   --info:                201 100% 37%;          /* light-blue-700 #0877d7 */
   --info-foreground:     0 0% 100%;
 
+  /* AI — AI が作ったもの・AI に投げるものだけに使う (人が作ったものには使わない) */
+  --ai:                  263 70% 50%;           /* #6d28d9 */
+  --ai-foreground:       0 0% 100%;
+  --ai-surface:          250 100% 98%;          /* #f5f3ff */
+  --ai-border:           250 95% 92%;           /* #ddd6fe */
+
   /* Chrome — borders, inputs, focus ring */
-  --border:              220 13% 88%;          /* #dbdee3 — surface divider */
-  --input:               220 13% 88%;
+  --border:              214 16% 92%;          /* #e6e9ed — 境界 (薄) */
+  --input:               214 16% 92%;
+  --divider:             214 19% 93%;          /* #e9ecf0 — 区切り線 */
   --ring:                209 100% 34%;           /* focus ring = primary */
 
-  /* Radius — DADS uses 4/8/12/16, map to shadcn's --radius */
-  --radius:              0.5rem;                 /* 8px default */
+  /* Radius — 刷新で 11–16px に拡大。rounded-lg = カード14px / ボタンと入力は 11px 固定 */
+  --radius:              0.875rem;               /* 14px — card */
 
   /* Charts — derived from DADS semantic palette */
   --chart-1: 209 100% 34%;        /* GMO Blue */
@@ -126,18 +137,28 @@
 
   --destructive:         0 65% 55%;
   --destructive-foreground: 0 0% 100%;
+  --destructive-surface: 0 40% 18%;
 
   --success:             152 50% 50%;
   --success-foreground:  220 15% 9%;
+  --success-surface:     152 35% 16%;
 
   --warning:             36 85% 55%;
   --warning-foreground:  220 15% 9%;
+  --warning-surface:     36 45% 18%;
+  --warning-strong:      36 90% 70%;
 
   --info:                201 85% 55%;
   --info-foreground:     220 15% 9%;
 
+  --ai:                  263 85% 72%;
+  --ai-foreground:       220 15% 9%;
+  --ai-surface:          263 35% 18%;
+  --ai-border:           263 40% 32%;
+
   --border:              220 10% 22%;
   --input:               220 10% 22%;
+  --divider:             220 10% 20%;
   --ring:                209 100% 55%;
 
   --chart-1: 209 100% 55%;
@@ -157,15 +178,32 @@
 }
 
 /* ==========================================================================
- * Typography — Noto Sans JP for all UI; Roboto Condensed for emphasized numbers.
+ * Typography
+ *
+ * 刷新の書体は LINE Seed JP (400/700/800)。数字も同書体を使い、
+ * 見出しと数字で書体が変わらないようにする。
+ *
+ * LINE Seed JP は Google Fonts では配信されていないため、
+ * woff2 を自分で置いて使う (SIL OFL 1.1 / 再配布可):
+ *   1. https://seed.line.me/ から LINE Seed JP をダウンロード
+ *   2. woff2 を client/public/fonts/ に置く
+ *      (全アプリが同一オリジンの絶対パス /fonts/... を参照するため 1 か所でよい)
+ *   3. 各アプリの index.css で tokens.css の直後に 1 行足す:
+ *        @import '@gmo-onair/shared/src/client/fonts-lineseed.css';
+ *
+ * ファイルを置くまでは Noto Sans JP に落ちる (フォールバック順で自動。
+ * --font-sans の先頭に置いてあるだけなので、置いた瞬間に全アプリが切り替わる)。
  * ========================================================================== */
 :root {
-  --font-sans: 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif;
+  --font-sans: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif;
   --font-serif: var(--font-sans);
   --font-mono-ui: var(--font-sans);
-  --font-mono-num: 'Roboto Condensed', 'Noto Sans JP', sans-serif;
+  /* 数字も本文と同じ書体。tabular-nums は .font-number 側で当てる */
+  --font-mono-num: var(--font-sans);
 
   --text-body:         15px;
+  /* 補助テキストの下限 = 12px。これより小さい文字は使わない (§2.4) */
+  --text-caption:      12px;
   --line-height-jp:    1.75;
   --letter-spacing-jp: 0.02em;
 }

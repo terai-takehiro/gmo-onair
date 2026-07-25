@@ -1,17 +1,42 @@
-import { Outlet } from 'react-router-dom';
-import Sidebar from './Sidebar';
-import Header from './Header';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { LayoutDashboard } from 'lucide-react';
+import SharedAppShell from '@gmo-onair/shared/src/client/shell/AppShell';
+import SecondaryNavList, { type SecondaryNavItem } from '@gmo-onair/shared/src/client/shell/SecondaryNavList';
+import type { RailLinkRenderer } from '@gmo-onair/shared/src/client/shell/Rail';
+import { realPathname } from '@gmo-onair/shared/src/client/shell/realPath';
+import { useAuth } from '@/hooks/useAuth';
+import { AWARDS_MANUAL } from '@/manual/content';
+
+// href はルーター相対 (basename="/awards")
+const NAV_ITEMS: SecondaryNavItem[] = [
+  { label: 'イベント一覧', href: '/', Icon: LayoutDashboard, exact: true },
+];
+
+const renderLink: RailLinkRenderer = ({ href, children, className, onClick, title, ...rest }) => (
+  <NavLink to={href} className={className} onClick={onClick} title={title} {...rest}>
+    {children}
+  </NavLink>
+);
 
 export function AppShell() {
+  const { pathname } = useLocation();
+  const { currentUser, logout, permissions } = useAuth();
+
   return (
-    <div className="flex h-screen overflow-x-hidden">
-      <Sidebar />
-      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-        <Header />
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">
-          <Outlet />
-        </main>
-      </div>
-    </div>
+    <SharedAppShell
+      currentUser={currentUser}
+      onLogout={logout}
+      role={currentUser?.role}
+      permissions={permissions}
+      currentPath={realPathname(pathname)}
+      breadcrumb={<span className="font-bold text-foreground">リアルタイムCG</span>}
+      secondaryNav={
+        <SecondaryNavList items={NAV_ITEMS} currentPath={pathname} renderLink={renderLink} />
+      }
+      secondaryNavLabel="リアルタイムCG"
+      manualContent={AWARDS_MANUAL}
+    >
+      <Outlet />
+    </SharedAppShell>
   );
 }

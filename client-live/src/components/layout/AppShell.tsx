@@ -1,38 +1,91 @@
-import { Outlet, useParams } from 'react-router-dom';
-import Header from './Header';
-import Sidebar from './Sidebar';
+import { NavLink, Outlet, useLocation, useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { Timer, LayoutDashboard, Settings, ArrowLeft } from 'lucide-react';
+import SharedAppShell from '@gmo-onair/shared/src/client/shell/AppShell';
+import SecondaryNavList, { type SecondaryNavItem } from '@gmo-onair/shared/src/client/shell/SecondaryNavList';
+import type { RailLinkRenderer } from '@gmo-onair/shared/src/client/shell/Rail';
+import { realPathname } from '@gmo-onair/shared/src/client/shell/realPath';
+import { NoPermissionPanel } from '@gmo-onair/shared/src/client/states';
+import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
-import { ShieldOff } from 'lucide-react';
+import { LIVE_MANUAL } from '@/manual/content';
+import api from '@/lib/api';
+
+interface LiveProgram {
+  id: string;
+  name: string;
+  project_id: string | null;
+  project_name?: string;
+  gls_number?: string | null;
+}
+
+const renderLink: RailLinkRenderer = ({ href, children, className, onClick, title, ...rest }) => (
+  <NavLink to={href} className={className} onClick={onClick} title={title} {...rest}>
+    {children}
+  </NavLink>
+);
 
 export default function AppShell() {
-  const { canView, permissionsLoading } = usePermissions();
+  const { pathname } = useLocation();
   const { programId } = useParams<{ programId?: string }>();
+  const { currentUser, logout, permissions } = useAuth();
+  const { canView, permissionsLoading } = usePermissions();
 
-  if (!permissionsLoading && !canView) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="text-center space-y-4 max-w-sm px-4">
-          <ShieldOff className="h-12 w-12 text-muted-foreground mx-auto" />
-          <h2 className="text-lg font-semibold">アクセス権限がありません</h2>
-          <p className="text-sm text-muted-foreground">
-            計時LIVEへのアクセス権限がありません。<br />
-            管理者に <code className="text-xs bg-muted px-1 py-0.5 rounded">liveops</code> モジュールの権限付与を依頼してください。
-          </p>
-          <a href="/" className="inline-block text-sm text-primary underline">メインアプリに戻る</a>
-        </div>
-      </div>
-    );
-  }
+  const { data: program } = useQuery({
+    queryKey: ['program', programId],
+    queryFn: () => api.get(`/liveops/programs/${programId}`).then((r) => r.data.data as LiveProgram),
+    enabled: !!programId,
+    staleTime: 60_000,
+  });
+
+  // href はルーター相対 (basename="/live")
+  const navItems: SecondaryNavItem[] = programId
+    ? [
+        { label: 'ダッシュボード', href: `/program/${programId}`, Icon: LayoutDashboard, exact: true },
+        { label: 'タイマー管理', href: `/program/${programId}/timers`, Icon: Timer },
+        { label: '番組設定', href: `/program/${programId}/settings`, Icon: Settings },
+        { label: 'セッション一覧へ', href: '/', Icon: ArrowLeft, exact: true, groupTitle: 'ほか' },
+        { label: '設定', href: '/settings', Icon: Settings },
+      ]
+    : [
+        { label: 'セッション一覧', href: '/', Icon: Timer, exact: true },
+        { label: '設定', href: '/settings', Icon: Settings },
+      ];
+
+  const noAccess = !permissionsLoading && !canView;
+
+  const breadcrumb = (
+    <span className="flex min-w-0 items-center gap-1.5">
+      <span className="shrink-0 font-bold text-foreground">計時LIVE</span>
+      {program && (
+        <>
+          <span className="shrink-0 select-none text-border" aria-hidden="true">
+            /
+          </span>
+          <span className="min-w-0 truncate text-secondary-foreground">
+            {program.gls_number ? `${program.gls_number} ${program.name}` : program.name}
+          </span>
+        </>
+      )}
+    </span>
+  );
 
   return (
-    <div className="flex h-screen overflow-x-hidden">
-      <Sidebar programId={programId} />
-      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-        <Header programId={programId} />
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">
-          <Outlet />
-        </main>
-      </div>
-    </div>
+    <SharedAppShell
+      currentUser={currentUser}
+      onLogout={logout}
+      role={currentUser?.role}
+      permissions={permissions}
+      currentPath={realPathname(pathname)}
+      breadcrumb={breadcrumb}
+      secondaryNav={
+        <SecondaryNavList items={navItems} currentPath={pathname} renderLink={renderLink} />
+      }
+      secondaryNavLabel="計時LIVE"
+      manualContent={LIVE_MANUAL}
+      padMain={noAccess}
+    >
+      {noAccess ? <NoPermissionPanel modules={['liveops']} target="計時LIVE" /> : <Outlet />}
+    </SharedAppShell>
   );
 }

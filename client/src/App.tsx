@@ -60,6 +60,7 @@ import BudgetDashboardPage from "@/contexts/finance/pages/BudgetDashboardPage";
 
 // 機材管理は client-equipment/ が /equipment 配下で配信 (案件管理アプリ側では扱わない)
 import SettingsPage from "@/contexts/platform/pages/SettingsPage";
+import SettingsHubPage from "@/contexts/platform/pages/SettingsHubPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -109,6 +110,27 @@ function AppRoutes() {
       >
         {/* ホーム（アプリランチャー） */}
         <Route path="/" element={<HomePage />} />
+
+        {/*
+          ===== 共通レールの行き先 (刷新後の正となるパス) =====
+          いまは既存ページをそのまま出している。各フェーズで中身を差し替える:
+            /today    → Phase 2 で「今日」の画面に
+            /projects → Phase 4 で一覧+ボードに
+            /tasks    → Phase 5 で 3スコープ×3表示に
+            /customers→ Phase 6 で顧客360に
+            /schedule → Phase 7 で1カレンダーに
+            /finance  → Phase 8 で損益の流れ+3列レビューに
+            /settings → Phase 12 で役割テンプレートを持つ設定画面に
+          旧パス (/sales/* 等) からのリダイレクトは Phase 3 (§3.3) でまとめて入れる。
+        */}
+        <Route path="/today" element={<HomePage />} />
+        <Route path="/projects" element={<PermissionRoute module="sales"><ProjectListPage /></PermissionRoute>} />
+        <Route path="/tasks" element={<Navigate to="/sales/tasks/kanban" replace />} />
+        <Route path="/customers" element={<PermissionRoute module="sales"><CustomerListPage /></PermissionRoute>} />
+        <Route path="/schedule" element={<PermissionRoute anyOf={["studio", "partner_schedule"]}><UnifiedCalendarPage /></PermissionRoute>} />
+        <Route path="/finance" element={<PermissionRoute module="budget"><BudgetDashboardPage /></PermissionRoute>} />
+        {/* 設定の入口。中身は権限に応じてこの画面が出し分ける */}
+        <Route path="/settings" element={<SettingsHubPage />} />
 
         {/* ===== 営業管理 (sales) ===== */}
         <Route path="/sales/dashboard" element={<PermissionRoute module="sales"><DashboardPage /></PermissionRoute>} />
@@ -170,8 +192,8 @@ function AppRoutes() {
         <Route path="/studio" element={<Navigate to="/studio/calendar" replace />} />
 
         {/* 旧URLリダイレクト */}
-        <Route path="/projects" element={<Navigate to="/sales/projects" replace />} />
-        <Route path="/projects/*" element={<Navigate to="/sales/projects" replace />} />
+        {/* /projects は上のレール行き先で実ページを出すため、ここでは配下だけを受ける */}
+        <Route path="/projects/*" element={<Navigate to="/projects" replace />} />
         <Route path="/revenues" element={<Navigate to="/budget/revenues" replace />} />
         <Route path="/purchases" element={<Navigate to="/budget/purchases" replace />} />
         <Route path="/sga" element={<Navigate to="/budget/sga" replace />} />

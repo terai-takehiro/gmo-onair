@@ -1,74 +1,106 @@
 import React from "react";
-import { Outlet } from "react-router-dom";
-import Sidebar from "./Sidebar";
-import Header from "./Header";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
+import SharedAppShell from "@gmo-onair/shared/src/client/shell/AppShell";
+import { activeRailKey, resolveRailItems } from "@gmo-onair/shared/src/client/shell/railItems";
+import type { RailLinkRenderer } from "@gmo-onair/shared/src/client/shell/Rail";
+import { ErrorPanel } from "@gmo-onair/shared/src/client/states";
+import { useAuth } from "@/contexts/platform/AuthContext";
+import { SALES_MANUAL } from "@/manual/content";
+import SecondaryNav, { activeNavSection, SECONDARY_NAV_LABELS } from "./SecondaryNav";
+import GlobalSearchBox from "./GlobalSearchBox";
 
 interface ErrorBoundaryState {
   hasError: boolean;
+  error?: unknown;
 }
 
-class PageErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  ErrorBoundaryState
-> {
+class PageErrorBoundary extends React.Component<{ children: React.ReactNode }, ErrorBoundaryState> {
   constructor(props: { children: React.ReactNode }) {
     super(props);
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(): ErrorBoundaryState {
-    return { hasError: true };
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error('[PageErrorBoundary] Caught error:', error, info.componentStack);
+    console.error("[PageErrorBoundary] Caught error:", error, info.componentStack);
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex flex-col items-center justify-center h-full p-8 gap-4 text-center">
-          <p className="text-lg font-medium text-destructive">ページの読み込み中にエラーが発生しました</p>
-          <p className="text-sm text-muted-foreground">前のページに戻るか、ホームに移動してください。</p>
-          <div className="flex gap-3">
+        <ErrorPanel
+          title="この画面を開けませんでした"
+          cause={{
+            cause: "画面の組み立て中に処理が止まりました。",
+            next: "前の画面に戻るか、今日の画面から開き直してください。",
+          }}
+          onRetry={() => {
+            this.setState({ hasError: false, error: undefined });
+            window.history.back();
+          }}
+          retryLabel="前の画面に戻る"
+          action={
             <button
-              className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
+              type="button"
+              className="rounded-control bg-primary px-4 py-2 text-[13px] font-bold text-primary-foreground transition-colors hover:bg-primary-800"
               onClick={() => {
-                this.setState({ hasError: false });
-                window.history.back();
+                this.setState({ hasError: false, error: undefined });
+                window.location.href = "/today";
               }}
             >
-              戻る
+              今日の画面へ
             </button>
-            <button
-              className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90"
-              onClick={() => {
-                this.setState({ hasError: false });
-                window.location.href = "/";
-              }}
-            >
-              ホームへ
-            </button>
-          </div>
-        </div>
+          }
+        />
       );
     }
     return this.props.children;
   }
 }
 
+/** レールの遷移をアプリ内ルーティングにする (フルリロードを避ける) */
+const renderRailLink: RailLinkRenderer = ({ href, children, className, onClick, title, ...rest }) => (
+  <NavLink to={href} className={className} onClick={onClick} title={title} {...rest}>
+    {children}
+  </NavLink>
+);
+
+/** 上辺のパンくず。いまはレールの区画名 (案件の名前を出すのは Phase 4) */
+function useBreadcrumb(pathname: string, role?: string, permissions?: Record<string, string>): string | null {
+  const items = resolveRailItems({ role, permissions });
+  const key = activeRailKey(pathname, items);
+  return items.find((i) => i.key === key)?.label ?? null;
+}
+
 export default function AppShell() {
+  const { pathname } = useLocation();
+  const { currentUser, logout, permissions } = useAuth();
+  const breadcrumb = useBreadcrumb(pathname, currentUser?.role, permissions);
+
+  const navSection = activeNavSection(pathname);
+  const hasSecondaryNav = navSection !== null;
+
   return (
-    <div className="flex h-full overflow-hidden">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Header />
-        <main className="flex-1 min-h-0 overflow-y-auto" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-          <PageErrorBoundary>
-            <Outlet />
-          </PageErrorBoundary>
-        </main>
-      </div>
-    </div>
+    <SharedAppShell
+      currentUser={currentUser}
+      onLogout={logout}
+      onSwitchUser={logout}
+      role={currentUser?.role}
+      permissions={permissions}
+      currentPath={pathname}
+      renderLink={renderRailLink}
+      breadcrumb={breadcrumb ? <span className="font-bold text-foreground">{breadcrumb}</span> : undefined}
+      secondaryNav={hasSecondaryNav ? <SecondaryNav /> : undefined}
+      secondaryNavLabel={navSection ? SECONDARY_NAV_LABELS[navSection] : undefined}
+      centerContent={<GlobalSearchBox />}
+      manualContent={SALES_MANUAL}
+    >
+      <PageErrorBoundary>
+        <Outlet />
+      </PageErrorBoundary>
+    </SharedAppShell>
   );
 }
