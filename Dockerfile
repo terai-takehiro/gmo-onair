@@ -3,7 +3,9 @@
 # (v2.9.230: ワークスペース別の並列ビルドステージ構成)
 #
 # 設計:
-#   deps        — 全ワークスペースの npm install。package*.json が変わらない限り
+#   manifests   — package.json の version を固定値へ正規化するだけの軽量ステージ。
+#                 バージョン更新で npm install のキャッシュが飛ぶのを防ぐ (下記参照)。
+#   deps        — 全ワークスペースの npm install。依存が変わらない限り
 #                 レイヤーキャッシュが効き、install (最も重い工程) を丸ごとスキップ。
 #   build-*     — 各クライアント / サーバーを独立ステージでビルド。
 #                 BuildKit がステージを並列実行し、変更のないワークスペースは
@@ -15,8 +17,24 @@
 # VPS は pull して起動するだけ (詳細: docs/deploy-pipeline.md)。
 # ============================================
 
-# ── Stage: deps (依存インストール) ─────────────
-FROM node:20-alpine AS deps
+# ── Stage: manifests (package.json の version 正規化) ──
+# Why: このプロジェクトはプッシュのたびに 10 個の package.json のバージョンを上げる運用。
+# それをそのまま COPY すると、依存が 1 つも変わっていなくても後続の npm install
+# レイヤーのキャッシュが毎回破棄され、install が丸ごと再実行される
+# (v2.9.232 の本番ビルド実測 4 分のうち、root install 約 40 秒 + server install 約 29 秒)。
+#
+# 正規化を COPY の「後」に置いても無意味なことに注意: Docker のレイヤーキャッシュは
+# 逐次的で、COPY の時点で既に無効化されるため。そこで正規化専用ステージを置き、
+# deps / production は COPY --from=manifests で受け取る。
+# COPY --from のキャッシュキーは「コピー元の内容」で決まるので、version だけの変更では
+# 正規化後の内容が同一 → deps 以降のレイヤーが無効化されなくなる。
+#
+# 依存解決に version は使われない: ワークスペース間の参照は npm workspaces の symlink
+# (node_modules/@gmo-onair/shared → ../shared) で、どの package.json も相手の
+# バージョンを固定参照していないことを確認済み。version を実際に読むのは client の
+# __APP_VERSION__ (ルート package.json) と SettingsPage (client/package.json) だけなので、
+# build-client ステージで実ファイルを COPY し直して戻す。
+FROM node:20-alpine AS manifests
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY client/package.json client/
@@ -28,6 +46,12 @@ COPY client-awards/package.json client-awards/
 COPY client-daily/package.json client-daily/
 COPY server/package.json server/
 COPY shared/package.json shared/
+RUN node -e "const f=require('fs'),W=['package.json','client/package.json','client-equipment/package.json','client-qsheet/package.json','client-techsheet/package.json','client-live/package.json','client-awards/package.json','client-daily/package.json','server/package.json','shared/package.json'],V='0.0.0-build';for(const p of W){const j=JSON.parse(f.readFileSync(p,'utf8'));j.version=V;f.writeFileSync(p,JSON.stringify(j,null,2)+'\n')}const l=JSON.parse(f.readFileSync('package-lock.json','utf8'));l.version=V;for(const[k,v]of Object.entries(l.packages||{}))if(v&&v.version&&(k===''||W.includes(k+'/package.json')))v.version=V;f.writeFileSync('package-lock.json',JSON.stringify(l,null,2)+'\n')"
+
+# ── Stage: deps (依存インストール) ─────────────
+FROM node:20-alpine AS deps
+WORKDIR /app
+COPY --from=manifests /app/ ./
 RUN npm install --workspaces --include-workspace-root
 
 # ── Stage: build-client (案件管理) ─────────────
@@ -39,10 +63,20 @@ RUN npm install --workspaces --include-workspace-root
 # この 3 つを COPY し忘れると prebuild が ENOENT で落ちるので、
 # prebuild に新しい生成スクリプトを足したら参照元もここに追加すること。
 FROM deps AS build-client
+# deps は manifests 由来の正規化済み package.json (version=0.0.0-build) を持つため、
+# ここで実ファイルを COPY し直してバージョン表示を正しくする。
+#   - ルート package.json → vite.config.ts が __APP_VERSION__ に埋め込む (HomePage の表示)
+#   - client/package.json → 下の COPY client/ に含まれる (SettingsPage の表示)
+# この 2 つはバージョン更新のたびに変わるので build-client だけは毎回再ビルドされる
+# (表示バージョンが変わる = 再ビルドが正しい)。他のワークスペースはキャッシュに載る。
+COPY package.json ./
 COPY shared/ shared/
 COPY CLAUDE.md ./
 COPY scripts/ scripts/
 COPY server/src/contexts/mcp/tools/ server/src/contexts/mcp/tools/
+# gate.ts は generate-mcp-tools.mjs の権限ゲート検証 (書き込みツールの登録漏れ検出) が読む。
+# これを COPY し忘れると検証が実行できず、スクリプトは exit 1 で落ちる (fail closed)。
+COPY server/src/contexts/mcp/gate.ts server/src/contexts/mcp/gate.ts
 COPY client/ client/
 RUN npm run build --workspace=client
 
@@ -98,8 +132,12 @@ WORKDIR /app
 # postgresql-client をインストール (Postgres 16 のクライアントツール一式: pg_dump 等)
 RUN apk add --no-cache postgresql16-client
 
-# Server dependencies only
-COPY server/package.json server/
+# Server dependencies only.
+# manifests 由来 (version 正規化済み) を使うことで、バージョン更新だけでは
+# この install (実測約 29 秒) のキャッシュが飛ばない。
+# サーバーは自身の package.json の version を読まない (/health が version:"unknown" を
+# 返すのと一致) ため、正規化しても実害はない。
+COPY --from=manifests /app/server/package.json server/
 RUN cd server && npm install --omit=dev
 
 # Server build output + migrations

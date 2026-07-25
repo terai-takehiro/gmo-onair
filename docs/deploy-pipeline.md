@@ -37,7 +37,7 @@ push (dev/main)
 
 | ファイル | 変更内容 |
 |---|---|
-| `Dockerfile` | 単一 builder ステージ → `deps` + ワークスペース別 `build-*` ステージ (BuildKit が並列実行・独立キャッシュ) |
+| `Dockerfile` | 単一 builder ステージ → `manifests` + `deps` + ワークスペース別 `build-*` ステージ (BuildKit が並列実行・独立キャッシュ) |
 | `.github/workflows/deploy.yml` | `build` ジョブ新設 (buildx + GHA cache + GHCR push)。deploy ジョブは pull のみに |
 | `docker-compose.yml` | `app_prod` / `app_dev` に `image:` を追加 (`APP_IMAGE_PROD` / `APP_IMAGE_DEV` で上書き可能)。`build:` はフォールバック用に残置 |
 
@@ -49,6 +49,42 @@ push (dev/main)
 | クライアントビルド | 7 本逐次 + 常に全再ビルド | 並列 + 変更のあったアプリのみ |
 | VPS 上の処理 | フルビルド + 再作成 | pull + 再作成 (1〜2 分) |
 | デプロイ中の本番負荷 | ビルドで CPU/RAM を圧迫 | ほぼゼロ (pull の I/O のみ) |
+
+## バージョン更新でキャッシュが飛ぶ問題 (v2.9.235 で対処)
+
+このプロジェクトはプッシュのたびに 10 個の `package.json` のバージョンを上げる運用のため、
+素直に COPY すると **依存が 1 つも変わっていなくても `npm install` のキャッシュが毎回破棄**され、
+「変更のないワークスペースはスキップ」という利点がほぼ打ち消されていた
+(v2.9.232 の本番ビルド実測 4 分 7 秒。うち root install 約 40 秒 + server install 約 29 秒)。
+
+**注意すべき性質**: Docker のレイヤーキャッシュは逐次的なので、
+**正規化を COPY の「後」に置いても効果がない** (COPY の時点で既に無効化される)。
+
+そこで正規化専用の `manifests` ステージを置き、`deps` と `production` は
+`COPY --from=manifests` で受け取る。`COPY --from` のキャッシュキーは
+**コピー元の内容**で決まるため、バージョンだけの変更では正規化後の内容が同一になり、
+後続の install レイヤーが無効化されない。
+
+```
+manifests (毎回走るが数秒: 10ファイルをコピーして version を 0.0.0-build に潰すだけ)
+   ↓ COPY --from=manifests  ← ここのキャッシュキーが内容ベースになる
+deps (npm install — 依存が変わらない限りキャッシュヒット)
+   ↓
+build-* / production
+```
+
+**安全性の根拠**:
+- ワークスペース間の参照は npm workspaces の symlink (`node_modules/@gmo-onair/shared → ../shared`) で、
+  どの `package.json` も相手のバージョンを固定参照していない → 依存解決に影響しない
+- version を実際に読むのは **client の 2 箇所だけ**
+  (`vite.config.ts` → `__APP_VERSION__` → HomePage / `SettingsPage.tsx` → `client/package.json`)。
+  どちらも `build-client` ステージで実ファイルを COPY し直すので表示は正しいままになる
+- サーバーは自身の version を読まない (`/health` が `version:"unknown"` を返すのと一致)
+
+**残る制約**: `build-client` はバージョン更新のたびに再ビルドされる (表示バージョンが変わるため正しい挙動)。
+他 6 クライアント + server も、それぞれの `package.json` が更新対象に入っているため再ビルドされる。
+**バージョン更新をルート `package.json` だけに限定すれば** build-client 以外もキャッシュに載り、
+バージョン更新のみのデプロイは 1 分程度まで縮む (現状はプロジェクトのルール上、全ワークスペースを更新している)。
 
 ## 運用メモ
 

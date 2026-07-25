@@ -72,8 +72,16 @@ function assertGateCoverage(allTools) {
   try {
     gateSrc = readFileSync(GATE_FILE, "utf8");
   } catch {
-    console.warn(`[mcp-tools] gate.ts が読めないため権限ゲート検証をスキップ: ${GATE_FILE}`);
-    return;
+    // 読めないときは「検証できなかった」= 通してはいけない (fail closed)。
+    // 警告でスキップにすると、Docker の build-client ステージが gate.ts を COPY し忘れた
+    // 場合に検証が黙って無効化される (実際に一度そうなった)。落として気付けるようにする。
+    console.error(
+      `\n[mcp-tools] ✗ gate.ts が読めないため権限ゲートを検証できません: ${GATE_FILE}\n` +
+        `  この検証は MCP 書き込みツールの権限漏れを防ぐためのもので、スキップしてはいけません。\n` +
+        `  Docker ビルドで出た場合は、build-client ステージに次の COPY があるか確認してください:\n` +
+        `    COPY server/src/contexts/mcp/gate.ts server/src/contexts/mcp/gate.ts\n`
+    );
+    process.exit(1);
   }
   const listed = new Set(
     [...gateSrc.matchAll(/^\s{2}([a-z_]+):\s*\{\s*module:/gm)].map((m) => m[1])
