@@ -1,18 +1,18 @@
-// 問い合わせの展開 (§4.4)
-//   見せるもの: AI がまとめた内容 + AI の判定 (重要度 / 分類 / 対応の要否) + 見学の候補日
-//   押せるもの: 対応済み (終端) / 元のメールを開く
+// 問い合わせの展開 (§4.4 / デザイン 5a)
+//   左: 本文 (AI がまとめた内容) と AI の判定
+//   右: 次にとれる予定 (用賀の空きから3つ)
+//   押せるもの: 対応済みにする (終端) / 営業でない（除外） (終端) / 元のメールを開く
 // 見学候補は「今日から2週間で全部屋が空いている日」の先頭3日。
 // 空き照会は既存の GET /studios/bookings/availability をそのまま使う (新規APIなし)。
 
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ExternalLink, Loader2, CalendarCheck } from "lucide-react";
 import api from "@/lib/api";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { str } from "./types";
 
-const IMPORTANCE_LABEL: Record<string, string> = { high: "重要", medium: "普通", low: "低" };
+const IMPORTANCE_LABEL: Record<string, string> = { high: "高", medium: "中", low: "低" };
 
 interface AvailabilityRoom {
   room_id: string;
@@ -46,9 +46,11 @@ export interface InquiryDetailProps {
   editable: boolean;
   pending: boolean;
   onHandled: () => void;
+  /** 営業案件ではないので数えない (対応の要否を外して終端にする) */
+  onExclude: () => void;
 }
 
-export function InquiryDetail({ meta, editable, pending, onHandled }: InquiryDetailProps) {
+export function InquiryDetail({ meta, editable, pending, onHandled, onExclude }: InquiryDetailProps) {
   const { hasPermission } = useAuth();
   const canSeeStudio = hasPermission("studio");
 
@@ -67,75 +69,79 @@ export function InquiryDetail({ meta, editable, pending, onHandled }: InquiryDet
     return avail.days.filter((d) => freeSets.every((s) => s.has(d))).slice(0, 3);
   })();
 
+  const locationName = avail?.rooms[0]?.location_name ?? "スタジオ";
   const importance = str(meta.importance);
-  const actionNeeded = meta.action_needed;
+  const category = str(meta.category);
   const url = str(meta.url);
+
+  // AI の判定を1文で書く (§2.5 ルール1)
+  const verdict = [
+    category ? `${category}。` : "",
+    meta.action_needed ? "対応が必要と判断しました" : "対応は不要と判断しました",
+    importance ? `（重要度 ${IMPORTANCE_LABEL[importance] ?? importance}）` : "",
+    "。",
+  ].join("");
 
   return (
     <div className="space-y-3 border-t border-divider pt-3">
-      {/* AI の判定 */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-[12px] font-bold text-muted-foreground">AI の判定:</span>
-        {importance && (
-          <Badge variant={importance === "high" ? "destructive" : "outline"} className="text-[11px]">
-            重要度 {IMPORTANCE_LABEL[importance] ?? importance}
-          </Badge>
-        )}
-        {meta.category ? (
-          <Badge variant="outline" className="text-[11px]">
-            {str(meta.category)}
-          </Badge>
-        ) : null}
-        <Badge variant="outline" className="text-[11px]">
-          {actionNeeded ? "対応が必要" : "対応は不要"}
-        </Badge>
-      </div>
-
-      {/* 本文 (AI がまとめたもの) */}
-      <div>
-        <p className="mb-1.5 text-[12px] font-bold text-muted-foreground">届いた内容</p>
-        <p className="whitespace-pre-wrap rounded-control border border-border bg-secondary/50 px-3 py-2 text-[13px] leading-relaxed text-foreground">
-          {str(meta.summary) || "内容が取れていません。元のメールを開いて確認してください。"}
-        </p>
-        {str(meta.sender) && (
-          <p className="mt-1 text-[12px] text-muted-foreground">送ってきた人: {str(meta.sender)}</p>
-        )}
-      </div>
-
-      {/* 見学の候補日 */}
-      {canSeeStudio && (
-        <div>
-          <p className="mb-1.5 flex items-center gap-1.5 text-[12px] font-bold text-muted-foreground">
-            <CalendarCheck className="h-3.5 w-3.5" aria-hidden="true" />
-            見学を提案できる日（全部屋が空いている日）
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_240px]">
+        {/* 本文 */}
+        <div className="min-w-0">
+          <p className="mb-1.5 text-[12px] font-bold text-muted-foreground">本文</p>
+          <p className="whitespace-pre-wrap rounded-control border border-border bg-secondary/40 px-3 py-2 text-[13px] leading-relaxed text-foreground">
+            {str(meta.summary) || "内容が取れていません。元のメールを開いて確認してください。"}
           </p>
-          {availLoading ? (
-            <p className="text-[13px] text-secondary-foreground">空きを調べています…</p>
-          ) : candidates.length === 0 ? (
-            <p className="text-[13px] text-secondary-foreground">
-              今後2週間で全部屋が空いている日はありません。予定から個別に空きを探してください。
-            </p>
-          ) : (
-            <ul className="flex flex-wrap gap-1.5">
-              {candidates.map((d) => (
-                <li
-                  key={d}
-                  className="rounded-full border border-border bg-card px-2.5 py-1 text-[12px] font-bold text-foreground"
-                >
-                  {fmtDay(d)}
-                </li>
-              ))}
-            </ul>
+          <p className="mt-1.5 text-[12px] text-ai">AIの判定: {verdict}</p>
+          {str(meta.sender) && (
+            <p className="mt-1 text-[12px] text-muted-foreground">送ってきた人: {str(meta.sender)}</p>
           )}
         </div>
-      )}
+
+        {/* 次にとれる予定 */}
+        {canSeeStudio && (
+          <div className="rounded-control border border-border bg-secondary/40 p-3">
+            <p className="mb-1.5 flex items-center gap-1.5 text-[12px] font-bold text-muted-foreground">
+              <CalendarCheck className="h-3.5 w-3.5" aria-hidden="true" />
+              次にとれる予定
+            </p>
+            {availLoading ? (
+              <p className="text-[13px] text-secondary-foreground">空きを調べています…</p>
+            ) : candidates.length === 0 ? (
+              <p className="text-[13px] text-secondary-foreground">
+                今後2週間で全部屋が空いている日はありません。予定から個別に空きを探してください。
+              </p>
+            ) : (
+              <>
+                <ul className="space-y-1">
+                  {candidates.map((d) => (
+                    <li
+                      key={d}
+                      className="rounded-control border border-border bg-card px-2.5 py-1.5 text-[13px] font-bold text-foreground"
+                    >
+                      {fmtDay(d)}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-1.5 text-[12px] text-muted-foreground">
+                  {locationName}の空きから{candidates.length}つ出しています
+                </p>
+              </>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* 終端アクション */}
       <div className="flex flex-wrap items-center gap-2">
         {editable ? (
-          <Button size="sm" className="h-9" disabled={pending} onClick={onHandled}>
-            対応済みにする
-          </Button>
+          <>
+            <Button size="sm" className="h-9" disabled={pending} onClick={onHandled}>
+              対応済みにする
+            </Button>
+            <Button size="sm" variant="outline" className="h-9" disabled={pending} onClick={onExclude}>
+              営業でない（除外）
+            </Button>
+          </>
         ) : (
           <p className="text-[13px] text-secondary-foreground">
             対応済みにするには「日常業務」の書ける権限が必要です。
@@ -161,6 +167,9 @@ export function InquiryDetail({ meta, editable, pending, onHandled }: InquiryDet
         </a>
         {pending && <Loader2 className="h-4 w-4 animate-spin text-primary" aria-label="処理中" />}
       </div>
+      <p className="text-[12px] text-muted-foreground">
+        「営業でない（除外）」を押すと、対応は不要として記録し行列から外します。件名や分類は残ります。
+      </p>
     </div>
   );
 }

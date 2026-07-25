@@ -127,6 +127,9 @@ function isFarDue(dueAt?: string | null): boolean {
   return (t - Date.now()) / 86400000 > 14;
 }
 
+/** 何を投げていいのか迷わせない。デザイン 4a の「こんなものを:」 */
+const INTAKE_EXAMPLES = ["朝会のメモ", "口で言われた依頼", "議事録", "メールの本文"];
+
 /** AI が投入文に対してやっていること。読み取り中に何をしているか見せる (§4.3 状態2) */
 const READING_STEPS = [
   "誰に頼んだのかを探しています",
@@ -271,10 +274,15 @@ export function TaskIntakeBox() {
     <>
       {/* ── 投入欄 (トップページ最上部) ── */}
       <div className="rounded-xl border border-primary/25 bg-primary/[0.03] p-3 sm:p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <Sparkles className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-          <p className="text-sm font-semibold">依頼・タスクを書き留める</p>
-          <div className="ml-auto inline-flex rounded-lg border border-border p-0.5">
+        <div className="flex flex-wrap items-start gap-2">
+          <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+          <div className="min-w-0">
+            <p className="text-[15px] font-bold text-foreground">AIに投げる</p>
+            <p className="mt-0.5 text-[12px] text-secondary-foreground">
+              議事録でも、口で言われた依頼でも、そのまま貼ってください。宛先と期限はAIが整えます。
+            </p>
+          </div>
+          <div className="ml-auto inline-flex shrink-0 rounded-lg border border-border p-0.5">
             {([["freeform", "ひとこと"], ["minutes", "議事録"]] as const).map(([v, lbl]) => (
               <button
                 key={v}
@@ -303,10 +311,22 @@ export function TaskIntakeBox() {
           }
         />
 
+        <p className="mt-1.5 text-[12px] text-muted-foreground">
+          期限は<span className="font-bold text-foreground">何月何日何時何分まで</span>で書くと、そのまま登録できます。
+        </p>
+
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <p className="text-xs text-muted-foreground">
-            期限は<span className="font-medium text-foreground">何月何日何時何分まで</span>で書くと、そのまま登録できます。
-          </p>
+          <span className="text-[12px] text-muted-foreground">こんなものを:</span>
+          <ul className="flex flex-wrap gap-1.5">
+            {INTAKE_EXAMPLES.map((e) => (
+              <li
+                key={e}
+                className="rounded-full border border-border bg-card px-2 py-0.5 text-[12px] text-secondary-foreground"
+              >
+                {e}
+              </li>
+            ))}
+          </ul>
           <Button
             type="button"
             size="sm"
@@ -317,7 +337,7 @@ export function TaskIntakeBox() {
             {submitMutation.isPending
               ? <Loader2 className="h-4 w-4 animate-spin" />
               : <Send className="h-4 w-4" aria-hidden="true" />}
-            内容を確認する
+            AIに振り分けてもらう
           </Button>
         </div>
 
@@ -329,7 +349,10 @@ export function TaskIntakeBox() {
           >
             <p className="flex items-center gap-1.5 text-[13px] font-bold text-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin text-ai" aria-hidden="true" />
-              AI が読んでいます
+              AIが読んでいます
+            </p>
+            <p className="mt-0.5 text-[12px] text-secondary-foreground">
+              終わったらこの下に「確認待ち」で出ます。閉じても消えません。
             </p>
             <ul className="mt-1.5 space-y-0.5">
               {READING_STEPS.map((sline) => (
@@ -355,14 +378,15 @@ export function TaskIntakeBox() {
           <div className="mt-2.5 rounded-control border border-warning/35 bg-warning-surface px-3 py-2.5">
             <p className="flex items-center gap-1.5 text-[13px] font-bold text-foreground">
               <AlertTriangle className="h-3.5 w-3.5 text-warning-strong" aria-hidden="true" />
-              宛先と期限が読めませんでした
+              読み取れなかったときも捨てません
             </p>
             <p className="mt-1 text-[12px] leading-relaxed text-foreground/80">
-              投げた文は記録に残してあります。分かるところだけ入れて1件つくるか、文だけ残して後で見てください。
+              宛先や期限が読めなかったので、投げた文はそのまま残してあります。分かるところだけ入れて1件つくるか、
+              文だけ残して後で見てください。
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <Button type="button" size="sm" className="h-9" onClick={startManualRow}>
-                分かるところだけ入れて作る
+                自分で埋める
               </Button>
               <Button
                 type="button"

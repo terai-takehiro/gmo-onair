@@ -26,11 +26,7 @@ import {
 import { TaskIntakeBox } from "@/contexts/tasks/components/TaskIntakeBox";
 import { MyTasksSummarySection } from "@/contexts/tasks/components/MyTasksSummarySection";
 import { TodayQueue } from "@/contexts/platform/components/todayQueue/TodayQueue";
-import {
-  type InboxData,
-  elapsedHours,
-  formatElapsed,
-} from "@/contexts/platform/components/todayQueue/types";
+import { type InboxData } from "@/contexts/platform/components/todayQueue/types";
 import {
   FolderKanban,
   PiggyBank,
@@ -66,11 +62,6 @@ import {
 const ICON_MAP: Record<string, React.ElementType> = {
   FolderKanban, PiggyBank, Calendar, Package, FileText,
   BookOpen, Users, Truck, Sparkles, Wrench, Timer, Tv, Languages, ClipboardList,
-};
-
-const roleLabelMap: Record<string, string> = {
-  system_admin: "システム管理者",
-  staff: "スタッフ",
 };
 
 // ──────────────────────────────────────
@@ -159,7 +150,8 @@ function relativeDay(dateStr?: string | null): string {
 // ステータス定義は shared/src/constants/statuses.ts に一元化済み (v2.4.0)
 
 // 円表示
-const formatYen = (v: number) => `¥${(v / 10000).toLocaleString()}万`;
+// 万単位に丸めて出す。丸めないと 14,531,520 が「¥1,453.152万」になり桁が読めない
+const formatYen = (v: number) => `¥${Math.round(v / 10000).toLocaleString()}万`;
 
 // 数値変化を「+X%」「-X%」形式に
 function formatDelta(curr: number, prev: number): { text: string; pct: number } | null {
@@ -198,7 +190,7 @@ export default function TodayPage() {
     <PageTransition>
       <div className="mx-auto max-w-screen-2xl space-y-4 px-4 py-5 sm:py-7">
         {/* ───── あいさつ ───── */}
-        <TodayGreeting greeting={greeting} name={currentUser?.name} role={currentUser?.role} />
+        <TodayGreeting greeting={greeting} name={currentUser?.name} />
 
         {/* ───── AI に投げる ─────
              イズム (目標達成10カ条 2-3)「会話だけでなく、形に残さないとメンバーは動かない」。
@@ -277,34 +269,49 @@ export default function TodayPage() {
 // あいさつ — 待たせている件数を1文で書く (数字で書く / §2.5 ルール4)
 // 件数は行列と同じ 1 本のクエリを共有するので、二重取得にはならない。
 // ══════════════════════════════════════════════════════════
-function TodayGreeting({ greeting, name, role }: { greeting: string; name?: string; role?: string }) {
-  const { data } = useQuery<InboxData>({
+function TodayGreeting({ greeting, name }: { greeting: string; name?: string }) {
+  const { data, dataUpdatedAt } = useQuery<InboxData>({
     queryKey: queryKeys.dashboard.inbox(),
     queryFn: async () => (await api.get("/dashboard/inbox")).data.data,
     staleTime: 30_000,
   });
 
   const items = data?.items ?? [];
-  const oldest = items.length > 0 ? formatElapsed(elapsedHours(items[0].received_at)) : null;
+  const overdue = items.filter((i) => i.kind === "overdue_action").length;
+  const updated = dataUpdatedAt
+    ? new Date(dataUpdatedAt).toLocaleString("ja-JP", {
+        month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+      }).replace(/\//, "/")
+    : null;
 
   return (
     <header className="flex flex-wrap items-end justify-between gap-2">
       <div className="min-w-0">
-        <h1 className="text-xl font-bold text-foreground sm:text-2xl">今日</h1>
+        <h1 className="text-xl font-bold text-foreground sm:text-2xl">
+          {greeting}、{name} さん
+        </h1>
         <p className="mt-1 text-[13px] text-secondary-foreground">
-          {greeting}、{name} さん。
           {items.length === 0 ? (
-            <span className="ml-1 font-bold text-foreground">お客様を待たせているものはありません。</span>
+            <>お客様を待たせているものはありません。</>
           ) : (
-            <span className="ml-1 font-bold text-foreground">
-              お客様を待たせているものが {items.length}件、いちばん古いものは {oldest} 待っています。
-            </span>
+            <>
+              お客様を待たせているものが{" "}
+              <span className="font-bold text-foreground">{items.length}件</span>
+              {overdue > 0 ? (
+                <>
+                  、うち期限を過ぎたものが{" "}
+                  <span className="font-bold text-destructive">{overdue}件</span> あります。
+                </>
+              ) : (
+                <>あります。期限を過ぎたものはありません。</>
+              )}
+            </>
           )}
         </p>
       </div>
-      <Badge variant="outline" className="shrink-0 text-[12px]">
-        {roleLabelMap[role || ""] || role}
-      </Badge>
+      {updated && (
+        <p className="shrink-0 text-[12px] tabular-nums text-muted-foreground">最終更新 {updated}</p>
+      )}
     </header>
   );
 }
@@ -331,7 +338,7 @@ function KpiSection({ navigate }: { navigate: (to: string) => void }) {
 
   if (isLoading || !kpi) {
     return (
-      <SectionCard title="今月の主要指標" description="読み込み中..." icon={<PiggyBank />} padding="compact">
+      <SectionCard title="今月" description="読み込み中..." icon={<PiggyBank />} padding="compact">
         <div className="flex justify-center py-8">
           <Loader2 className="h-6 w-6 animate-spin text-primary" aria-label="読み込み中" />
         </div>
@@ -345,8 +352,8 @@ function KpiSection({ navigate }: { navigate: (to: string) => void }) {
 
   return (
     <SectionCard
-      title={`今月の主要指標 (${kpi.period_label})`}
-      description="売上・粗利・営業利益・案件数。前月との比較を併記し変化を把握できるようにしています。"
+      title="今月"
+      description={kpi.period_label}
       icon={<PiggyBank />}
       actions={
         <button
@@ -354,7 +361,7 @@ function KpiSection({ navigate }: { navigate: (to: string) => void }) {
           className="text-xs text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm flex items-center gap-1"
           onClick={() => navigate("/sales/dashboard")}
         >
-          詳細 <ArrowRight className="h-3 w-3" aria-hidden="true" />
+          内訳を見る <ArrowRight className="h-3 w-3" aria-hidden="true" />
         </button>
       }
       footnote="前月比は前月実績との差分。事業会計年度・案件範囲はダッシュボードで切替可能です。"
@@ -453,8 +460,8 @@ function ScheduleSection() {
 
   return (
     <SectionCard
-      title="今後のスケジュール"
-      description="今日から 7 日間の本番・収録・放送とスタジオ予約 (リハーサル・メンテナンス等すべて) の予定です。"
+      title="今日と明日の現場"
+      description="本番・収録・放送とスタジオ予約 (リハーサル・メンテナンス等すべて) を 7 日先まで。"
       icon={<Calendar />}
       actions={
         <span className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
@@ -544,6 +551,14 @@ function ScheduleSection() {
           })}
         </div>
       )}
+      <div className="mt-2 border-t border-divider pt-2">
+        <a
+          href="/schedule"
+          className="inline-flex items-center gap-1 rounded-sm text-xs text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          カレンダーを開く <ArrowRight className="h-3 w-3" aria-hidden="true" />
+        </a>
+      </div>
     </SectionCard>
   );
 }
@@ -569,8 +584,8 @@ function AiActivityFeedSection({ navigate }: { navigate: (to: string) => void })
 
   return (
     <SectionCard
-      title={`AI がやったこと (直近7日 ${list.length}件)`}
-      description="AI がこの1週間に作ったり直したりした記録です。"
+      title="AI がやったこと"
+      description={`直近7日 ${list.length}件`}
       icon={<Sparkles />}
       padding="compact"
       className="border-violet-100"
@@ -686,8 +701,8 @@ function SalesBoardSection({ navigate }: { navigate: (to: string) => void }) {
 
   return (
     <SectionCard
-      title={`営業ダッシュボード${list.length ? ` (進行中 ${list.length}件)` : ""}`}
-      description="進行中の全案件を一覧化。メール・電話など直近のやり取りがある案件を上部に強調表示します。"
+      title="動いている案件"
+      description={list.length ? `直近のやり取り順・${list.length}件` : "進行中の案件を、直近のやり取りが新しい順に並べています。"}
       icon={<TrendingUp />}
       actions={
         <button
@@ -695,7 +710,7 @@ function SalesBoardSection({ navigate }: { navigate: (to: string) => void }) {
           className="text-xs text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm flex items-center gap-1"
           onClick={() => navigate("/sales/projects")}
         >
-          案件一覧 <ArrowRight className="h-3 w-3" aria-hidden="true" />
+          すべて見る <ArrowRight className="h-3 w-3" aria-hidden="true" />
         </button>
       }
       padding="compact"

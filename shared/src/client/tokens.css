@@ -198,8 +198,10 @@
   --font-sans: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif;
   --font-serif: var(--font-sans);
   --font-mono-ui: var(--font-sans);
-  /* 数字も本文と同じ書体。tabular-nums は .font-number 側で当てる */
-  --font-mono-num: var(--font-sans);
+  /* 数字は LINE Seed JP → Roboto Condensed (デザイン準拠)。
+     金額・件数は桁が並ぶので、和字が無い箇所は幅の狭い Roboto Condensed に落ちる。
+     tabular-nums は .font-number 側で当てる */
+  --font-mono-num: 'LINE Seed JP', 'Roboto Condensed', sans-serif;
 
   --text-body:         15px;
   /* 補助テキストの下限 = 12px。これより小さい文字は使わない (§2.4) */

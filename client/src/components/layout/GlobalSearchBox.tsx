@@ -75,7 +75,7 @@ export default function GlobalSearchBox() {
       searchResults.vendors.length > 0);
 
   return (
-    <div ref={searchRef} className="relative hidden shrink-0 sm:block">
+    <div ref={searchRef} className="relative w-full">
       <div className="relative">
         <Search
           className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
@@ -83,8 +83,8 @@ export default function GlobalSearchBox() {
         />
         <Input
           type="text"
-          placeholder="案件・顧客・仕入先..."
-          className="h-10 w-40 pl-9 pr-8 text-sm lg:w-56"
+          placeholder="案件・顧客・仕入先をさがす"
+          className="h-10 w-full pl-9 pr-8 text-sm"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onFocus={() => {
@@ -101,7 +101,7 @@ export default function GlobalSearchBox() {
       </div>
 
       {showDropdown && searchResults && (
-        <div className="absolute right-0 top-full z-50 mt-1 w-80 rounded-lg border border-border bg-card shadow-lg">
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 min-w-[280px] rounded-lg border border-border bg-card shadow-lg">
           <div className="max-h-72 overflow-y-auto p-1">
             {!hasResults && (
               <p className="px-3 py-4 text-center text-[13px] text-secondary-foreground">

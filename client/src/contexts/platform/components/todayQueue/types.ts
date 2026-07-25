@@ -55,6 +55,14 @@ export function formatElapsed(hours: number | null): string {
   return `${Math.floor(hours / 24)}日`;
 }
 
+/** 行を閉じているときに出す次の一手。行を開くと「閉じる」に変わる */
+export const KIND_CTA: Record<InboxKind, string> = {
+  overdue_action: "片づける",
+  ai_project: "確認する",
+  inquiry: "返事をする",
+  finance_doc: "内容を確認する",
+};
+
 /** 期限の引き直し候補。何月何日何時何分まで で書く (§2.5 ルール3) */
 export function dueOption(days: number, hour: number): { date: string; label: string } {
   const d = new Date();

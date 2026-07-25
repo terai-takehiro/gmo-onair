@@ -22,7 +22,12 @@ export function FinanceDocDetail({ meta, editable, pending, onSetStatus }: Finan
     <div className="space-y-3 border-t border-divider pt-3">
       {/* AI が読み取った値 */}
       <div>
-        <p className="mb-1.5 text-[12px] font-bold text-muted-foreground">AI が読み取った内容</p>
+        <p className="mb-1.5 flex flex-wrap items-baseline gap-2">
+          <span className="text-[12px] font-bold text-ai">AIが読み取った内容</span>
+          <span className="text-[12px] text-muted-foreground">
+            数字はそのまま登録されます。違っていたら直してください
+          </span>
+        </p>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[13px] sm:grid-cols-4">
           <div>
             <dt className="text-[12px] text-muted-foreground">種別</dt>
@@ -81,7 +86,7 @@ export function FinanceDocDetail({ meta, editable, pending, onSetStatus }: Finan
           )}
           {(status === "new" || status === "reviewing") && (
             <Button size="sm" className="h-9" disabled={pending} onClick={() => onSetStatus("approved")}>
-              この内容で承認
+              この内容で承認する
             </Button>
           )}
           <Button size="sm" className="h-9" disabled={pending} onClick={() => onSetStatus("processed")}>
@@ -94,13 +99,13 @@ export function FinanceDocDetail({ meta, editable, pending, onSetStatus }: Finan
             disabled={pending}
             onClick={() => onSetStatus("rejected")}
           >
-            却下
+            却下する
           </Button>
           <a
             href="/daily/finance"
             className="inline-flex h-9 items-center gap-1.5 rounded-control border border-border px-3 text-[13px] text-secondary-foreground hover:bg-secondary"
           >
-            金額や案件を直す
+            直してから承認
             <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
           </a>
           {pending && <Loader2 className="h-4 w-4 animate-spin text-primary" aria-label="処理中" />}
@@ -111,8 +116,8 @@ export function FinanceDocDetail({ meta, editable, pending, onSetStatus }: Finan
         </p>
       )}
       <p className="text-[12px] text-muted-foreground">
-        「処理完了」を押すと、あなたが処理した記録として残ります。金額や計上月を直してから承認したいときは
-        「金額や案件を直す」で開いてください。
+        承認すると仕入に登録され、処理した人の名前が残ります。金額や計上月が違うときは
+        「直してから承認」で開いてください。
       </p>
     </div>
   );

@@ -19,7 +19,7 @@ import { queryKeys } from "@gmo-onair/shared/src/client/hooks/queryKeys";
 import { cn } from "@/lib/utils";
 import { Delayed, ErrorPanel, SkeletonRows } from "@gmo-onair/shared/src/client/states";
 import {
-  DOC_TYPE_LABELS, FD_STATUS_LABELS, KIND_BADGE_CLASS, KIND_LABELS,
+  DOC_TYPE_LABELS, FD_STATUS_LABELS, KIND_BADGE_CLASS, KIND_CTA, KIND_LABELS,
   elapsedHours, formatElapsed, str, yen,
   type InboxData, type InboxItem, type InboxKind,
 } from "./types";
@@ -41,7 +41,7 @@ export function ElapsedChip({ receivedAt, forceRed }: { receivedAt: string | nul
       className={cn("shrink-0 rounded px-1.5 py-0.5 text-[11px] font-bold tabular-nums", cls)}
       title={receivedAt ? `受信: ${str(receivedAt).slice(0, 16).replace("T", " ")}` : undefined}
     >
-      {formatElapsed(h)}
+      {formatElapsed(h)} お待たせ
     </span>
   );
 }
@@ -161,6 +161,15 @@ export function TodayQueue({ emptySlot }: TodayQueueProps) {
     onSuccess: () => { setOpenKey(null); invalidate(); },
   });
 
+  // 営業でない (除外): 対応の要否を外してから対応済みにする。件名・分類は残す
+  const excludeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await api.put(`/dailyops/inquiries/${id}`, { action_needed: false });
+      return api.post(`/dailyops/inquiries/${id}/handle`);
+    },
+    onSuccess: () => { setOpenKey(null); invalidate(); },
+  });
+
   const financeMutation = useMutation({
     mutationFn: async (p: { id: string; status: string }) =>
       api.put(`/dailyops/finance-docs/${p.id}`, { status: p.status }),
@@ -191,13 +200,19 @@ export function TodayQueue({ emptySlot }: TodayQueueProps) {
   }
 
   return (
-    <section aria-label="お客様を待たせているもの" className="space-y-2">
+    <section aria-label="待たせている行列" className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-[15px] font-bold text-foreground">
-          お客様を待たせているもの
-          {items.length > 0 && <span className="ml-1.5 tabular-nums text-destructive">{items.length}件</span>}
+          待たせている行列
+          {items.length > 0 && (
+            <span className="ml-1.5 rounded bg-destructive-surface px-1.5 py-0.5 text-[12px] tabular-nums text-destructive">
+              {items.length}件
+            </span>
+          )}
         </h2>
-        <p className="hidden text-[12px] text-muted-foreground sm:block">古いものが上です。</p>
+        <p className="hidden text-[12px] text-muted-foreground sm:block">
+          古い順。行を開くとその場で終わらせられます
+        </p>
         <div className="ml-auto flex items-center gap-1.5">
           {aiIds.length > 1 && (
             <Button
@@ -267,10 +282,17 @@ export function TodayQueue({ emptySlot }: TodayQueueProps) {
                   </span>
                   <ElapsedChip receivedAt={item.received_at} forceRed={item.kind === "overdue_action"} />
                   <RowSummary item={item} />
+                  {/* 次の一手を行の右端に置く。開くと「閉じる」に変わる (行全体が1つのボタンなので span) */}
                   {isOpen ? (
-                    <ChevronUp className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <span className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-control border border-border px-2.5 py-1 text-[12px] font-bold text-secondary-foreground">
+                      閉じる
+                      <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
+                    </span>
                   ) : (
-                    <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <span className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-control bg-primary px-2.5 py-1 text-[12px] font-bold text-primary-foreground">
+                      {KIND_CTA[item.kind]}
+                      <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+                    </span>
                   )}
                 </button>
 
@@ -337,8 +359,9 @@ export function TodayQueue({ emptySlot }: TodayQueueProps) {
                       <InquiryDetail
                         meta={m}
                         editable={editable}
-                        pending={handleMutation.isPending}
+                        pending={handleMutation.isPending || excludeMutation.isPending}
                         onHandled={() => handleMutation.mutate(str(m.id))}
+                        onExclude={() => excludeMutation.mutate(str(m.id))}
                       />
                     )}
 

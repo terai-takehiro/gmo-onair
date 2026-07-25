@@ -4,6 +4,7 @@
 // 案件ページに飛ばさず、開いた場所で終端 (完了 or 新しい期限) に到達させる。
 
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Mail, Phone, Users, MessageSquare, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,7 @@ export interface OverdueDetailProps {
 }
 
 export function OverdueDetail({ meta, pending, onComplete, onPostpone }: OverdueDetailProps) {
+  const navigate = useNavigate();
   const [pickDate, setPickDate] = useState("");
   const projectId = str(meta.project_id);
 
@@ -77,63 +79,73 @@ export function OverdueDetail({ meta, pending, onComplete, onPostpone }: Overdue
 
   return (
     <div className="space-y-3 border-t border-divider pt-3">
-      {/* 案件の状態 */}
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[13px] sm:grid-cols-4">
-        <div>
-          <dt className="text-[12px] text-muted-foreground">ヨミ</dt>
-          <dd className="font-bold text-foreground">{stageLabel}</dd>
+      {/* 左: この案件の直近のやり取り / 右: 案件の状態 */}
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_240px]">
+        <div className="min-w-0">
+          <p className="mb-1.5 text-[12px] font-bold text-muted-foreground">この案件の直近のやり取り</p>
+          {isLoading ? (
+            <Delayed>
+              <SkeletonRows rows={2} rowHeight={40} />
+            </Delayed>
+          ) : !activities || activities.length === 0 ? (
+            <p className="text-[13px] text-secondary-foreground">
+              やり取りの記録がありません。まず1件記録すると次にやることが決まります。
+            </p>
+          ) : (
+            <ul className="space-y-1">
+              {activities.slice(0, 3).map((a) => {
+                const Icon = ACTIVITY_ICON[a.activity_type] ?? FileText;
+                return (
+                  <li key={a.id} className="flex items-start gap-2 text-[13px]">
+                    <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <span className="shrink-0 tabular-nums text-muted-foreground">
+                      {str(a.activity_date).slice(5)}
+                    </span>
+                    <span className="shrink-0 rounded bg-secondary px-1.5 text-[11px] font-bold text-secondary-foreground">
+                      {ACTIVITY_LABEL[a.activity_type] ?? a.activity_type}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-foreground">
+                      {a.subject || "(件名なし)"}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
-        <div>
-          <dt className="text-[12px] text-muted-foreground">想定金額</dt>
-          <dd className="font-bold tabular-nums text-foreground">{yen(meta.expected_amount)}</dd>
-        </div>
-        <div>
-          <dt className="text-[12px] text-muted-foreground">実施日</dt>
-          <dd className="font-bold text-foreground">{period}</dd>
-        </div>
-        <div>
-          <dt className="text-[12px] text-muted-foreground">担当</dt>
-          <dd className="font-bold text-foreground">{str(meta.assigned_to_name) || "—"}</dd>
-        </div>
-      </dl>
 
-      {/* 直近のやり取り3件 */}
-      <div>
-        <p className="mb-1.5 text-[12px] font-bold text-muted-foreground">直近のやり取り</p>
-        {isLoading ? (
-          <Delayed>
-            <SkeletonRows rows={2} rowHeight={40} />
-          </Delayed>
-        ) : !activities || activities.length === 0 ? (
-          <p className="text-[13px] text-secondary-foreground">
-            やり取りの記録がありません。まず1件記録すると次にやることが決まります。
-          </p>
-        ) : (
-          <ul className="space-y-1">
-            {activities.slice(0, 3).map((a) => {
-              const Icon = ACTIVITY_ICON[a.activity_type] ?? FileText;
-              return (
-                <li key={a.id} className="flex items-start gap-2 text-[13px]">
-                  <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                  <span className="shrink-0 tabular-nums text-muted-foreground">
-                    {str(a.activity_date).slice(5)}
-                  </span>
-                  <span className="shrink-0 rounded bg-secondary px-1.5 text-[11px] font-bold text-secondary-foreground">
-                    {ACTIVITY_LABEL[a.activity_type] ?? a.activity_type}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-foreground">
-                    {a.subject || "(件名なし)"}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+        <div className="rounded-control border border-border bg-secondary/40 p-3">
+          <p className="mb-1.5 text-[12px] font-bold text-muted-foreground">案件の状態</p>
+          <dl className="space-y-1 text-[13px]">
+            {[
+              { label: "ヨミ", value: stageLabel },
+              { label: "想定金額", value: yen(meta.expected_amount), num: true },
+              { label: "実施日", value: period },
+              { label: "担当", value: str(meta.assigned_to_name) || "—" },
+            ].map((r) => (
+              <div key={r.label} className="flex items-baseline justify-between gap-2">
+                <dt className="shrink-0 text-[12px] text-muted-foreground">{r.label}</dt>
+                <dd className={cn("min-w-0 truncate text-right font-bold text-foreground", r.num && "tabular-nums")}>
+                  {r.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
       </div>
 
       {/* 終端アクション */}
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" className="h-9" disabled={pending} onClick={onComplete}>
+        {projectId && (
+          <Button
+            size="sm"
+            className="h-9"
+            onClick={() => navigate(`/sales/projects/${projectId}`)}
+          >
+            案件を開いて対応する
+          </Button>
+        )}
+        <Button size="sm" variant="outline" className="h-9" disabled={pending} onClick={onComplete}>
           もう送った（完了）
         </Button>
         <span className="text-[12px] text-muted-foreground">期限を引き直す:</span>
@@ -173,7 +185,8 @@ export function OverdueDetail({ meta, pending, onComplete, onPostpone }: Overdue
         {pending && <Loader2 className="h-4 w-4 animate-spin text-primary" aria-label="処理中" />}
       </div>
       <p className="text-[12px] text-muted-foreground">
-        引き直した期限は 18:00 として扱います。時刻まで決めたいときは案件のやり取りから記録してください。
+        引き直すときは「何月何日何時何分まで」で入れてください。日付だけ選んだときは 18:00 として扱います。
+        相手にも同じ期限が伝わります。
       </p>
     </div>
   );

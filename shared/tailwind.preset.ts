@@ -25,7 +25,7 @@ const preset = {
         serif: ['"LINE Seed JP"', '"Noto Sans JP"', '-apple-system', '"Hiragino Sans"', 'sans-serif'],
         mono: ['"LINE Seed JP"', '"Noto Sans JP"', '-apple-system', '"Hiragino Sans"', 'sans-serif'],
         /* 数字も本文と同じ書体 (見出しと数字で書体が変わらないようにする) */
-        number: ['"LINE Seed JP"', '"Noto Sans JP"', 'sans-serif'],
+        number: ['"LINE Seed JP"', '"Roboto Condensed"', 'sans-serif'],
       },
       colors: {
         /* GMO Blue scale — matches --color-gmo-blue-* from tokens.css */

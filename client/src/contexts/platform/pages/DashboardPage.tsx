@@ -84,7 +84,8 @@ const pipelineStageColors: Record<string, string> = {
   a_won: chartColors.positive,
 };
 
-const formatYen = (value: number) => `¥${(value / 10000).toLocaleString()}万`;
+// 万単位に丸めて出す (丸めないと 14,531,520 が「¥1,453.152万」になり桁が読めない)
+const formatYen = (value: number) => `¥${Math.round(value / 10000).toLocaleString()}万`;
 const formatYenShort = (value: number) => `¥${(value / 10000).toFixed(0)}万`;
 
 /* 週次スケジュールのイベントタイプ — ニュートラル+brand軸で分類 */

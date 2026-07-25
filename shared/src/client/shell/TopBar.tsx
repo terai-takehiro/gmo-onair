@@ -178,7 +178,7 @@ export default function TopBar({
       </a>
 
       {/* パンくず */}
-      <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-sm">
+      <div className="flex min-w-0 shrink items-center gap-1.5 overflow-hidden text-sm">
         {breadcrumb ? (
           <>
             <span className="shrink-0 select-none text-border" aria-hidden="true">
@@ -189,8 +189,13 @@ export default function TopBar({
         ) : null}
       </div>
 
-      {/* 移行期の任意スロット (既存のグローバル検索) */}
-      {centerContent}
+      {/* 移行期の任意スロット (既存のグローバル検索)。
+          さがす場所は上辺の中央に置く。Phase 3 で ⌘K に置き換える */}
+      {centerContent ? (
+        <div className="mx-auto hidden min-w-0 max-w-lg flex-1 px-2 sm:block">{centerContent}</div>
+      ) : (
+        <div className="flex-1" />
+      )}
 
       {/* ⌘K — Phase 3 でコマンドパレットを配線 */}
       {onOpenCommandPalette && (
