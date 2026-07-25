@@ -708,7 +708,7 @@ export default function ProjectFormPage() {
         <div className="flex flex-wrap items-center gap-3 rounded-lg border border-violet-200 bg-violet-50 p-3 text-sm text-violet-900">
           <Sparkles className="h-4 w-4 shrink-0 text-violet-600" aria-hidden="true" />
           <span className="min-w-0 flex-1">
-            この案件は AI（問い合わせメール取込等）により起票されました。
+            AI がメールから作った案件です。内容が合っているか見てください。
             {project.ai_requested_by ? <span className="ml-1 font-medium">指示: {project.ai_requested_by}</span> : null}
           </span>
           {project.ai_reviewed_at ? (
@@ -726,7 +726,7 @@ export default function ProjectFormPage() {
               onClick={() => aiReviewMutation.mutate()}
             >
               {aiReviewMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" aria-hidden="true" />}
-              内容を確認済みにする
+              確認した
             </Button>
           )}
         </div>
@@ -847,7 +847,7 @@ export default function ProjectFormPage() {
           <CardContent>
             {projectActivities.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                この案件の活動記録はまだありません。メール・電話などのやり取りは営業活動ページ (または AI のメール取込) から記録されます。
+                やり取りの記録はまだありません。営業活動ページから記録できます（メールは AI が自動で取り込みます）。
               </p>
             ) : (
               <ol className="relative space-y-4 border-l border-border pl-5 ml-1.5">
@@ -882,10 +882,10 @@ export default function ProjectFormPage() {
                         {a.is_ai_created ? (
                           <span
                             className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0.5 text-[10px] text-violet-700"
-                            title={a.ai_requested_by ? `AI取込 (指示: ${a.ai_requested_by})` : "AI取込"}
+                            title={a.ai_requested_by ? `AI が記録しました (指示: ${a.ai_requested_by})` : "AI が記録しました"}
                           >
                             <Sparkles className="h-3 w-3" aria-hidden="true" />
-                            AI取込
+                            AI作成
                           </span>
                         ) : null}
                         {a.ai_requested_by ? (
@@ -1181,19 +1181,19 @@ export default function ProjectFormPage() {
                     <div className="flex items-start gap-2">
                       <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-amber-900">AI 下書きの見積があります（未確定）</p>
+                        <p className="text-sm font-semibold text-amber-900">AI が作った見積の下書きがあります</p>
                         <p className="mt-0.5 text-xs text-amber-800">
                           合計 <span className="font-number font-semibold">{formatCurrency(draftSimulationTotal)}</span>。
-                          確定するまで想定金額には反映されません。
+                          「確定する」を押すと想定金額に入ります。
                         </p>
                         {aiDraftOrigin?.created_at && (
-                          <p className="mt-0.5 text-[11px] text-amber-700">
-                            作成: {relativeTime(aiDraftOrigin.created_at)}
-                            {aiDraftOrigin.requested_by ? ` ／ 指示: ${aiDraftOrigin.requested_by}` : ""}
-                            {(() => {
-                              const actor = aiDraftOrigin.actor_id === "mcp-claude" ? "共用キー" : aiDraftOrigin.actor_name;
-                              return actor ? ` ／ 実行: ${actor}` : "";
-                            })()}
+                          // 実行者は主線に出さず title に退避する (認証方式そのものは書かない)
+                          <p
+                            className="mt-0.5 text-[11px] text-amber-700"
+                            title={`実行: ${aiDraftOrigin.actor_id === "mcp-claude" ? "AI（担当者の記録なし）" : (aiDraftOrigin.actor_name ?? "不明")}`}
+                          >
+                            {relativeTime(aiDraftOrigin.created_at)}に作成
+                            {aiDraftOrigin.requested_by ? `（指示: ${aiDraftOrigin.requested_by}）` : ""}
                           </p>
                         )}
                         <div className="mt-2 flex flex-wrap gap-2">

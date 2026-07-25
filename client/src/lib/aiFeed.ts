@@ -35,8 +35,8 @@ export const AI_TOOL_LABELS: Record<string, string> = {
   update_task: "タスク更新",
   create_studio_booking: "スタジオ予約を作成",
   set_project_simulation: "見積を作成",
-  record_finance_doc: "見積/請求書を取込",
-  record_inquiry: "問い合わせを取込",
+  record_finance_doc: "見積・請求書を記録",
+  record_inquiry: "問い合わせを記録",
   register_inview_attendee: "内覧会予約を登録",
   submit_ops_report: "レポート投稿",
   add_ops_report_items: "レポート行を追加",
@@ -49,8 +49,8 @@ export function aiFeedSubject(rs: Record<string, unknown> | null): string {
   const v = cand.find((x) => typeof x === "string" && x);
   let s = (v as string) ?? "";
   if (rs.total != null && typeof rs.total === "number") s += `${s ? " " : ""}(合計 ¥${Number(rs.total).toLocaleString()})`;
-  if (rs.status === "draft") s += " [下書き]";
-  if (rs.idempotent) s += " [既存・重複回避]";
+  if (rs.status === "draft") s += "（下書き）";
+  if (rs.idempotent) s += "（すでに登録済み）";
   return s;
 }
 
@@ -62,9 +62,24 @@ export function aiFeedProjectLink(f: AiFeedItem): string | null {
   return null;
 }
 
-/** actor 表示名 (共用キー or OAuth 実行者名) */
+/**
+ * 画面に出す実行者名。
+ * 共用キー経由 (actor_id = 'mcp-claude') は「誰が」に相当する人が居らず、
+ * 認証方式を画面に書いても読む人の役に立たないので null を返して非表示にする。
+ * 内部の詳細が必要なときは aiFeedActorDetail をツールチップに使う。
+ */
 export function aiFeedActor(f: AiFeedItem): string | null {
-  return f.actor_id === "mcp-claude" ? "共用キー" : (f.actor_name ?? null);
+  return f.actor_id === "mcp-claude" ? null : (f.actor_name ?? null);
+}
+
+/**
+ * ツールチップ用の補足 (消さずに主線から外すためのもの)。
+ * 共用 API キー経由は「担当者の記録が無い」ことだけを平易に伝える
+ * (認証方式そのものは画面に書かない)。
+ */
+export function aiFeedActorDetail(f: AiFeedItem): string {
+  const who = f.actor_id === "mcp-claude" ? "AI（担当者の記録なし）" : (f.actor_name ?? "不明");
+  return `実行: ${who}${f.requested_by ? ` ／ 指示: ${f.requested_by}` : ""}`;
 }
 
 /** created_at → 相対時刻 (○分前/○時間前/○日前) */

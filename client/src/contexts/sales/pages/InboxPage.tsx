@@ -1,5 +1,5 @@
 // 受信箱 (v2.9.217+) — 営業ジャーニー刷新フェーズA
-// 「お客様を待たせているもの」(期限超過アクション / AI起票未確認 / 問い合わせ / 見積・請求)
+// 「お客様を待たせているもの」(期限超過アクション / AI作成の未確認案件 / 問い合わせ / 見積・請求)
 // を1本のキューに集約し、全件が必ず終端状態 (完了/確認済み/対応済み/処理済み) に到達させる。
 // 古いものが先頭。各行に受信からの経過タイマー (4h でアンバー / 24h で赤)。
 // 0件のときは「お客様を待たせているものはありません」を大きく表示 (Inbox Zero)。
@@ -54,7 +54,7 @@ export interface InboxData {
 
 export const KIND_LABELS: Record<InboxKind, string> = {
   overdue_action: "期限超過",
-  ai_project: "AI起票",
+  ai_project: "AI作成",
   inquiry: "問い合わせ",
   finance_doc: "見積・請求",
 };
@@ -235,13 +235,13 @@ export default function InboxPage() {
               className="ml-auto h-8 gap-1 border-violet-300 text-xs text-violet-700"
               disabled={bulkReviewMutation.isPending}
               onClick={() => {
-                if (confirm(`AI起票 ${aiIds.length} 件をまとめて確認済みにしますか？\n(内容を確認してから実行してください)`)) {
+                if (confirm(`${aiIds.length} 件を確認済みにします。内容は見ましたか？`)) {
                   bulkReviewMutation.mutate(aiIds);
                 }
               }}
             >
               <Check className="h-3.5 w-3.5" aria-hidden="true" />
-              AI起票をまとめて確認 ({aiIds.length})
+              まとめて確認 ({aiIds.length})
             </Button>
           )}
         </div>

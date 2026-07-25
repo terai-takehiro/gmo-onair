@@ -21,6 +21,7 @@ import {
   aiFeedSubject,
   aiFeedProjectLink,
   aiFeedActor,
+  aiFeedActorDetail,
   relativeTime,
 } from "@/lib/aiFeed";
 import {
@@ -664,8 +665,8 @@ function AiActivityFeedSection({ navigate }: { navigate: (to: string) => void })
 
   return (
     <SectionCard
-      title={`AI 活動フィード (直近7日 ${list.length}件)`}
-      description="AI (MCP 経由) がこの1週間に実行した書き込みの履歴です。"
+      title={`AI がやったこと (直近7日 ${list.length}件)`}
+      description="AI がこの1週間に作ったり直したりした記録です。"
       icon={<Sparkles />}
       padding="compact"
       className="border-violet-100"
@@ -704,9 +705,10 @@ function AiActivityFeedSection({ navigate }: { navigate: (to: string) => void })
                     )
                   ) : null}
                 </p>
-                <p className="mt-0.5 flex flex-wrap gap-x-2 text-[11px] text-muted-foreground">
+                {/* 内部の詳細 (実行者・ツール名) は title に退避し、主線には出さない */}
+                <p className="mt-0.5 flex flex-wrap gap-x-2 text-[11px] text-muted-foreground" title={aiFeedActorDetail(f)}>
                   <span>{relativeTime(f.created_at)}</span>
-                  {actor ? <span>実行: {actor}</span> : null}
+                  {actor ? <span>{actor}</span> : null}
                   {f.requested_by ? <span className="text-violet-600">指示: {f.requested_by}</span> : null}
                 </p>
               </div>
@@ -777,8 +779,9 @@ function InboxSummarySection({ navigate }: { navigate: (to: string) => void }) {
     switch (it.kind) {
       case "overdue_action":
         return `${m.gls_number || m.project_code || m.project_name} → ${m.next_action}`;
+      // 種別バッジが「AI作成」を示すので、ここで繰り返さない
       case "ai_project":
-        return `AI起票: ${m.name ?? ""}`;
+        return String(m.name ?? "");
       case "inquiry":
         return String(m.subject || m.sender || "問い合わせ");
       case "finance_doc":
@@ -951,10 +954,10 @@ function SalesBoardSection({ navigate }: { navigate: (to: string) => void }) {
                         {aiCreated ? (
                           <span
                             className="ml-1.5 inline-flex items-center gap-0.5 align-middle rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0.5 text-[10px] font-normal text-violet-700"
-                            title={p.ai_requested_by ? `AI起票 (指示: ${p.ai_requested_by})` : "AI起票"}
+                            title={p.ai_requested_by ? `AI が作りました (指示: ${p.ai_requested_by})` : "AI が作りました"}
                           >
                             <Sparkles className="h-3 w-3" aria-hidden="true" />
-                            AI起票
+                            AI作成
                             {!p.ai_reviewed_at ? <span className="text-amber-600 font-medium">·未確認</span> : null}
                           </span>
                         ) : null}
@@ -973,7 +976,7 @@ function SalesBoardSection({ navigate }: { navigate: (to: string) => void }) {
                           {p.last_activity_is_ai ? (
                             <span
                               className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1 py-0 text-[10px] text-violet-700"
-                              title="この活動は AI（メール取込等）により記録されました"
+                              title="AI がメールなどから記録しました"
                             >
                               <Sparkles className="h-2.5 w-2.5" aria-hidden="true" />AI
                             </span>

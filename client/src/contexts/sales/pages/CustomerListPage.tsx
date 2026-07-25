@@ -34,10 +34,10 @@ function AiCreatedBadge({ requestedBy }: { requestedBy?: string | null }) {
   return (
     <span
       className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 shrink-0"
-      title={requestedBy ? `AI登録（指示者: ${requestedBy}）` : "AI登録"}
+      title={requestedBy ? `AI が登録しました（指示: ${requestedBy}）` : "AI が登録しました"}
     >
       <Sparkles className="h-3 w-3" />
-      AI登録
+      AI作成
     </span>
   );
 }

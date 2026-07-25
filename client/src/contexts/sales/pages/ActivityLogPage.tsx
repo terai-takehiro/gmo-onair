@@ -19,10 +19,10 @@ function AiCreatedBadge({ requestedBy }: { requestedBy?: string | null }) {
   return (
     <span
       className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0.5 text-[10px] text-violet-700"
-      title={requestedBy ? `AI取込 (指示: ${requestedBy})` : "AI取込"}
+      title={requestedBy ? `AI が記録しました (指示: ${requestedBy})` : "AI が記録しました"}
     >
       <Sparkles className="h-3 w-3" aria-hidden="true" />
-      AI取込
+      AI作成
     </span>
   );
 }
@@ -37,20 +37,21 @@ function ProvenanceChips({ log }: { log: Record<string, unknown> }) {
   return (
     <span className="inline-flex flex-wrap items-center gap-1">
       {channel && (
-        <span className="inline-flex shrink-0 items-center rounded-full bg-sky-50 border border-sky-200 px-1.5 py-0.5 text-[10px] text-sky-700" title="流入チャネル">
+        <span className="inline-flex shrink-0 items-center rounded-full bg-sky-50 border border-sky-200 px-1.5 py-0.5 text-[10px] text-sky-700" title="どこから届いたか">
           {channel}
         </span>
       )}
       {hasMail && (
+        // Message-ID は突合用の内部キーなので title に退避する
         <span
           className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-slate-100 border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-600"
-          title={`メール由来 (Message-ID: ${log.message_id})`}
+          title={`メールから作られました (Message-ID: ${log.message_id})`}
         >
-          ✉ メール取込
+          ✉ メール
         </span>
       )}
       {requestedBy && (
-        <span className="text-[10px] text-violet-600" title="AI への指示者">指示: {requestedBy}</span>
+        <span className="text-[10px] text-violet-600" title="AI に指示した人">指示: {requestedBy}</span>
       )}
     </span>
   );
@@ -311,7 +312,7 @@ export default function ActivityLogPage() {
         </Select>
         {/* 入力元フィルタ (AI 取込 / 手入力) */}
         <div className="inline-flex rounded-lg border border-border p-0.5">
-          {([["", "すべて"], ["ai", "AI取込"], ["human", "手入力"]] as ["" | "ai" | "human", string][]).map(([v, lbl]) => (
+          {([["", "すべて"], ["ai", "AI作成"], ["human", "手入力"]] as ["" | "ai" | "human", string][]).map(([v, lbl]) => (
             <button
               key={v || "all"}
               type="button"

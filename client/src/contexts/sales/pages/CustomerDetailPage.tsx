@@ -176,9 +176,9 @@ export default function CustomerDetailPage() {
             {!!c.is_ai_created && (
               <span
                 className="inline-flex items-center gap-0.5 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[11px] text-violet-700"
-                title={c.ai_requested_by ? `AI登録 (指示: ${c.ai_requested_by})` : "AI登録"}
+                title={c.ai_requested_by ? `AI が登録しました (指示: ${c.ai_requested_by})` : "AI が登録しました"}
               >
-                <Sparkles className="h-3 w-3" aria-hidden="true" /> AI登録
+                <Sparkles className="h-3 w-3" aria-hidden="true" /> AI作成
               </span>
             )}
             <Button
@@ -330,18 +330,18 @@ export default function CustomerDetailPage() {
                           </button>
                         ) : null}
                         {a.is_ai_created ? (
-                          <span className="inline-flex items-center gap-0.5 rounded-full border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] text-violet-700" title={a.ai_requested_by ? `AI取込 (指示: ${a.ai_requested_by})` : "AI取込"}>
-                            <Sparkles className="h-3 w-3" aria-hidden="true" /> AI取込
+                          <span className="inline-flex items-center gap-0.5 rounded-full border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] text-violet-700" title={a.ai_requested_by ? `AI が記録しました (指示: ${a.ai_requested_by})` : "AI が記録しました"}>
+                            <Sparkles className="h-3 w-3" aria-hidden="true" /> AI作成
                           </span>
                         ) : null}
                         {a.source_channel ? (
-                          <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[10px] text-sky-700" title="流入チャネル">
+                          <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[10px] text-sky-700" title="どこから届いたか">
                             {String(a.source_channel)}
                           </span>
                         ) : null}
                         {a.message_id ? (
-                          <span className="inline-flex items-center gap-0.5 rounded-full border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600" title={`メール由来 (Message-ID: ${a.message_id})`}>
-                            ✉ メール取込
+                          <span className="inline-flex items-center gap-0.5 rounded-full border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600" title={`メールから作られました (Message-ID: ${a.message_id})`}>
+                            ✉ メール
                           </span>
                         ) : null}
                       </div>

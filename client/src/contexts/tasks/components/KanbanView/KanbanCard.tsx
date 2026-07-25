@@ -97,10 +97,10 @@ export default function KanbanCard({ task, projectId, episodeId, columnId }: Pro
               {task.is_ai_created && (
                 <span
                   className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 text-[10px] font-medium text-violet-700 h-4"
-                  title={task.ai_requested_by ? `AI作成（指示者: ${task.ai_requested_by}）` : "AI作成"}
+                  title={task.ai_requested_by ? `AI が作りました (指示: ${task.ai_requested_by})` : "AI が作りました"}
                 >
                   <Sparkles className="h-2.5 w-2.5" />
-                  AI
+                  AI作成
                 </span>
               )}
 

@@ -20,6 +20,7 @@ import {
   aiFeedSubject,
   aiFeedProjectLink,
   aiFeedActor,
+  aiFeedActorDetail,
   relativeTime,
 } from "@/lib/aiFeed";
 
@@ -63,9 +64,9 @@ export default function AiActivityPage() {
             <Sparkles className="h-5 w-5 text-violet-600" aria-hidden="true" />
           </span>
           <div>
-            <h1 className="text-xl lg:text-2xl font-bold">AI 活動履歴</h1>
+            <h1 className="text-xl lg:text-2xl font-bold">AI がやったこと</h1>
             <p className="text-xs text-muted-foreground">
-              AI (MCP 経由) が実行した書き込みの監査履歴です。実行者 (本人名義 / 共用キー) と指示者を併記します。
+              AI が作ったり直したりしたものの記録です。誰の指示だったかも残ります。
             </p>
           </div>
         </div>
@@ -116,8 +117,8 @@ export default function AiActivityPage() {
           </div>
         ) : items.length === 0 ? (
           <EmptyState
-            title="該当する AI 活動がありません"
-            description="期間や操作種別の条件を変えてみてください。"
+            title="この条件に合う記録はありません"
+            description="期間や操作の種類を変えてみてください。"
           />
         ) : (
           <ul className="divide-y divide-border rounded-lg border">
@@ -148,11 +149,10 @@ export default function AiActivityPage() {
                         )
                       ) : null}
                     </p>
-                    <p className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-                      <span title={new Date(f.created_at).toLocaleString("ja-JP")}>
-                        {absoluteTime(f.created_at)}（{relativeTime(f.created_at)}）
-                      </span>
-                      {actor ? <span>実行: {actor}</span> : null}
+                    {/* 内部の詳細 (実行者・ツール名) は title に退避し、主線には出さない */}
+                    <p className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-muted-foreground" title={aiFeedActorDetail(f)}>
+                      <span>{absoluteTime(f.created_at)}（{relativeTime(f.created_at)}）</span>
+                      {actor ? <span>{actor}</span> : null}
                       {f.requested_by ? <span className="text-violet-600">指示: {f.requested_by}</span> : null}
                     </p>
                   </div>

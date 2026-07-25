@@ -144,10 +144,10 @@ export default function ProjectListPage() {
           className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
             aiOnly ? "border-violet-300 bg-violet-50 text-violet-700" : "border-input bg-background text-muted-foreground hover:bg-muted"
           }`}
-          title="AI（メール取込等）が起票した案件だけを表示"
+          title="AI が作った案件だけを表示"
         >
           <Sparkles className="h-3.5 w-3.5" />
-          AI起票のみ
+          AI作成のみ
         </button>
         {aiOnly && (
           <button
@@ -175,7 +175,7 @@ export default function ProjectListPage() {
       {aiOnly && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-violet-200 bg-violet-50/60 px-3 py-2">
           <span className="text-xs text-violet-800">
-            AI 起票の「確認済み」操作は受信箱から行えます。
+            確認済みにする操作は受信箱でできます。
           </span>
           <Button
             type="button" variant="outline" size="sm" className="ml-auto h-8 gap-1 text-xs text-violet-700"
@@ -374,10 +374,10 @@ function ProjectCard({
           {!!p.is_ai_created && (
             <span
               className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0.5 text-[10px] text-violet-700"
-              title={p.ai_requested_by ? `AI起票 (指示: ${p.ai_requested_by})` : "AI（メール取込等）により起票された案件"}
+              title={p.ai_requested_by ? `AI が作りました (指示: ${p.ai_requested_by})` : "AI が作りました"}
             >
               <Sparkles className="h-3 w-3" aria-hidden="true" />
-              AI起票
+              AI作成
               {!p.ai_reviewed_at ? <span className="text-amber-600 font-medium">·未確認</span> : null}
             </span>
           )}
