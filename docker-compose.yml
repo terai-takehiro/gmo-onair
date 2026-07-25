@@ -72,6 +72,9 @@ services:
       CONOHA_COMPUTE_ENDPOINT: ${CONOHA_COMPUTE_ENDPOINT:-}
       # MCP サーバー (v2.9.171+) — 未設定なら /api/v1/mcp は 503 (機能無効)
       MCP_API_KEY: ${MCP_API_KEY:-}
+      # タスク投入欄の解析 (v2.9.246+) — 未設定なら規則ベースに自動縮退 (投入口自体は動く)
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      INTAKE_AI_MODEL: ${INTAKE_AI_MODEL:-}
       # Google カレンダー OAuth 連携 (v2.9.190+) — 未設定ならマイカレンダーの Google 連携は無効。
       # prod/dev で同じ OAuth クライアントを使う (Google Cloud に両ドメインの redirect URI を登録)。
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
@@ -127,6 +130,9 @@ services:
       CONOHA_COMPUTE_ENDPOINT: ${CONOHA_COMPUTE_ENDPOINT:-}
       # MCP サーバー (v2.9.171+) — 未設定なら /api/v1/mcp は 503 (機能無効)。本番とは別のキーを使うこと
       MCP_API_KEY: ${MCP_API_KEY_DEV:-}
+      # タスク投入欄の解析 (v2.9.246+) — dev 専用キーがあればそれを使う。未設定なら規則ベースに縮退
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY_DEV:-${ANTHROPIC_API_KEY:-}}
+      INTAKE_AI_MODEL: ${INTAKE_AI_MODEL_DEV:-${INTAKE_AI_MODEL:-}}
       # Google カレンダー OAuth 連携 (v2.9.190+) — prod と同じ OAuth クライアントを共有 (redirect は CLIENT_URL から自動生成)
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}

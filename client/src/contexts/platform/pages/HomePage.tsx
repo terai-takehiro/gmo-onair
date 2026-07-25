@@ -24,6 +24,8 @@ import {
   aiFeedActorDetail,
   relativeTime,
 } from "@/lib/aiFeed";
+import { TaskIntakeBox } from "@/contexts/tasks/components/TaskIntakeBox";
+import { MyTasksSummarySection } from "@/contexts/tasks/components/MyTasksSummarySection";
 import {
   type InboxData,
   type InboxItem,
@@ -236,6 +238,15 @@ export default function HomePage() {
             </Button>
           }
         />
+
+        {/* ───── 0. 投入欄 (依頼・タスクを書き留める。最上部に置く) ─────
+             イズム (目標達成10カ条 2-3)「会話だけでなく、形に残さないとメンバーは動かない」。
+             投げるのは 1 秒で終わる行為なので入口の最上部に置く。
+             奥に置くと「あとでいいか」になり、口頭のまま消える元の状態に戻る。 */}
+        {canSeeDailyops && <TaskIntakeBox />}
+
+        {/* ───── 0.5 あなたのタスクと依頼 (ストックとして置く。ポップアップは作らない) ───── */}
+        {canSeeDailyops && <MyTasksSummarySection navigate={navigate} />}
 
         {/* ───── 1. 受信箱サマリー (「今日お客様を待たせているものはゼロか」= 最優先) ───── */}
         {(canSeeSales || canSeeDailyops) && <InboxSummarySection navigate={navigate} />}

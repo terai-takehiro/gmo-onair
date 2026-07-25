@@ -114,6 +114,10 @@ export const taskIntakeService = {
       note?: string | null;
       requested_by?: string | null;
       tool_name?: string | null;
+      /** 解析に使ったモデル (規則ベースなら 'rules')。改善効果の測定に使う */
+      model?: string | null;
+      /** プロンプト版。これが無いとプロンプト改善の前後を比較できない */
+      prompt_version?: string | null;
     },
     userId: string
   ): Promise<TaskIntake> {
@@ -129,6 +133,8 @@ export const taskIntakeService = {
       targetId: id,
       payload: { raw_text: data.raw_text, kind: data.kind ?? 'freeform', drafts },
       toolName: data.tool_name ?? null,
+      model: data.model ?? null,
+      promptVersion: data.prompt_version ?? null,
       actorId: userId,
       requestedBy: data.requested_by ?? null,
     });

@@ -27,6 +27,10 @@ export const queryKeys = {
     weeklySchedule: () => ['dashboard', 'weekly-schedule'] as const,
     pipeline:       () => ['dashboard', 'pipeline'] as const,
     checkCompleted: () => ['dashboard', 'check-completed'] as const,
+    // 個人タスク・依頼 (v2.9.246 / 改革 Phase 2b)
+    myTaskSummary:  () => ['dashboard', 'my-task-summary'] as const,
+    myDelegations:  (direction: 'received' | 'sent') =>
+                      ['dashboard', 'my-delegations', direction] as const,
   },
 
   // ── 案件 (Sales) ─────────────────────────────────────────
