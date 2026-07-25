@@ -11,6 +11,7 @@ import InviewPage from './pages/InviewPage';
 import FinanceDocsPage from './pages/FinanceDocsPage';
 import InquiriesPage from './pages/InquiriesPage';
 import SecurityCardsPage from './pages/SecurityCardsPage';
+import TasksPage from './pages/TasksPage';
 
 export default function App() {
   const { currentUser: user, loading } = useAuth();
@@ -29,6 +30,7 @@ export default function App() {
         ) : user ? (
           <Route element={<AppShell />}>
             <Route index element={<HomePage />} />
+            <Route path="/tasks" element={<TasksPage />} />
             <Route path="/weekly" element={<WeeklyListPage />} />
             <Route path="/weekly/:id" element={<WeeklyDetailPage />} />
             <Route path="/news" element={<DailyNewsPage />} />

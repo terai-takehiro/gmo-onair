@@ -300,6 +300,205 @@ export const myTasksService = {
   },
 
   /**
+   * タスクを直す (人軸)。
+   *
+   * 権限は **担当者本人または依頼者** に限る。case タスクでも sales 権限は要求しない
+   * (要件 D0: 自分に割り当てられたものは触れないと使えない)。
+   * ただし案件の付け替えはここではやらない (案件軸の責務なので project-tasks 側)。
+   */
+  async updateMyTask(
+    taskId: string,
+    userId: string,
+    patch: {
+      title?: string;
+      description?: string | null;
+      due_at?: string | null;
+      importance?: number;
+      urgency?: number;
+      visibility?: 'team' | 'private';
+      is_completed?: boolean;
+    }
+  ): Promise<MyTask> {
+    const row = await queryOne(
+      `SELECT id, assigned_to, requester_id, delegation_status
+       FROM project_tasks WHERE id = ? AND deleted_at IS NULL`,
+      [taskId]
+    );
+    if (!row) throw new AppError(404, 'NOT_FOUND', 'タスクが見つかりません');
+    if (row.assigned_to !== userId && row.requester_id !== userId) {
+      throw new AppError(403, 'FORBIDDEN', '自分のタスクか自分が出した依頼だけ直せます');
+    }
+    if (patch.importance != null && (patch.importance < 1 || patch.importance > 3)) {
+      throw new AppError(400, 'VALIDATION_ERROR', '重要度は 1〜3 で指定してください');
+    }
+    if (patch.urgency != null && (patch.urgency < 1 || patch.urgency > 3)) {
+      throw new AppError(400, 'VALIDATION_ERROR', '緊急度は 1〜3 で指定してください');
+    }
+    // 依頼から期限を消させない。「いつまでに」の無い依頼は指示として成立していない (要件 D9)
+    if (row.requester_id && patch.due_at === null) {
+      throw new AppError(
+        400, 'VALIDATION_ERROR',
+        '依頼の期限は空にできません。何月何日何時何分までかを指定してください'
+      );
+    }
+    if (patch.title !== undefined && !patch.title.trim()) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'タイトルは必須です');
+    }
+
+    const sets: string[] = [];
+    const params: unknown[] = [];
+    const set = (col: string, v: unknown) => { sets.push(`${col} = ?`); params.push(v); };
+    if (patch.title !== undefined) set('title', patch.title.trim());
+    if (patch.description !== undefined) set('description', patch.description);
+    if (patch.due_at !== undefined) set('due_at', patch.due_at);
+    if (patch.importance !== undefined) set('importance', patch.importance);
+    if (patch.urgency !== undefined) set('urgency', patch.urgency);
+    if (patch.visibility !== undefined) set('visibility', patch.visibility);
+    if (patch.is_completed !== undefined) {
+      set('is_completed', patch.is_completed);
+      sets.push(`completed_at = ${patch.is_completed ? 'NOW()' : 'NULL'}`);
+      // 依頼を完了させたら依頼者側の一覧でも「done」と分かるようにする (要件 D3)
+      if (row.requester_id && patch.is_completed) set('delegation_status', 'done');
+    }
+    if (sets.length === 0) return this.get(taskId);
+
+    await execute(
+      `UPDATE project_tasks SET ${sets.join(', ')}, updated_at = NOW(), updated_by = ?
+       WHERE id = ?`,
+      [...params, userId, taskId]
+    );
+    return this.get(taskId);
+  },
+
+  /**
+   * 差し戻された依頼を依頼者が片づける (要件 D3)。
+   *
+   * 辞退・相談された依頼は**消えない**ので、依頼者が
+   * 「自分でやる / 別の人に振り直す / 取り下げる」のいずれかを決めるまで残り続ける。
+   * ここはその決着をつける操作。**依頼者だけ**が呼べる。
+   */
+  async resolveDelegation(
+    taskId: string,
+    userId: string,
+    action: 'take_over' | 'reassign' | 'withdraw',
+    payload: { assigned_to?: string; due_at?: string | null } = {}
+  ): Promise<MyTask | null> {
+    const row = await queryOne(
+      `SELECT id, assigned_to, requester_id FROM project_tasks
+       WHERE id = ? AND deleted_at IS NULL`,
+      [taskId]
+    );
+    if (!row) throw new AppError(404, 'NOT_FOUND', 'タスクが見つかりません');
+    if (!row.requester_id) throw new AppError(400, 'VALIDATION_ERROR', 'これは依頼ではありません');
+    if (row.requester_id !== userId) {
+      throw new AppError(403, 'FORBIDDEN', '自分が出した依頼だけ片づけられます');
+    }
+
+    if (action === 'take_over') {
+      // 依頼をやめて自分のタスクにする。requester_id を外すので依頼ではなくなる
+      await execute(
+        `UPDATE project_tasks
+         SET assigned_to = ?, requester_id = NULL, delegation_status = NULL,
+             requested_at = NULL, accepted_at = NULL,
+             updated_at = NOW(), updated_by = ?
+         WHERE id = ?`,
+        [userId, userId, taskId]
+      );
+      return this.get(taskId);
+    }
+
+    if (action === 'reassign') {
+      if (!payload.assigned_to) {
+        throw new AppError(400, 'VALIDATION_ERROR', '振り直す相手を指定してください');
+      }
+      if (payload.assigned_to === userId) {
+        throw new AppError(400, 'VALIDATION_ERROR', '自分に振り直す場合は「自分でやる」を使ってください');
+      }
+      const assignee = await queryOne('SELECT id FROM users WHERE id = ?', [payload.assigned_to]);
+      if (!assignee) throw new AppError(404, 'NOT_FOUND', '振り直す相手のユーザーが見つかりません');
+      // 相手が変わるので未承諾に戻す (新しい相手はまだ何も答えていない)
+      const sets = [
+        'assigned_to = ?', "delegation_status = 'requested'",
+        'requested_at = NOW()', 'accepted_at = NULL',
+      ];
+      const params: unknown[] = [payload.assigned_to];
+      if (payload.due_at !== undefined && payload.due_at !== null) {
+        sets.push('due_at = ?'); params.push(payload.due_at);
+      }
+      await execute(
+        `UPDATE project_tasks SET ${sets.join(', ')}, updated_at = NOW(), updated_by = ?
+         WHERE id = ?`,
+        [...params, userId, taskId]
+      );
+      return this.get(taskId);
+    }
+
+    // withdraw = 取り下げ。ここだけは消す (依頼者自身が「もう要らない」と決めた場合)
+    await execute(
+      `UPDATE project_tasks SET deleted_at = NOW(), updated_at = NOW(), updated_by = ?
+       WHERE id = ?`,
+      [userId, taskId]
+    );
+    return null;
+  },
+
+  /**
+   * チームの負荷 (要件 D8「チーム」タブ)。
+   *
+   * **中身は返さない。件数だけ。** `visibility='private'` のタスクも件数には入るが
+   * タイトルは一切返さないので、個人の予定が覗かれない。
+   * 「誰が溢れているか」を見て仕事を配り直すための画面なので、件数で足りる。
+   */
+  async getTeamLoad(): Promise<{
+    user_id: string;
+    user_name: string;
+    open_count: number;
+    overdue_count: number;
+    top_priority_count: number;
+    unanswered_count: number;
+    private_count: number;
+    no_due_count: number;
+  }[]> {
+    const rows = await queryAll(
+      `SELECT
+         u.id                                   AS user_id,
+         u.name                                 AS user_name,
+         COUNT(t.id)                            AS open_count,
+         COUNT(t.id) FILTER (WHERE ${DUE_EXPR} IS NOT NULL AND ${DUE_EXPR} < NOW())
+                                                AS overdue_count,
+         COUNT(t.id) FILTER (WHERE ${SCORE_EXPR} >= 9) AS top_priority_count,
+         COUNT(t.id) FILTER (WHERE t.delegation_status = 'requested')
+                                                AS unanswered_count,
+         COUNT(t.id) FILTER (WHERE t.visibility = 'private') AS private_count,
+         COUNT(t.id) FILTER (WHERE ${DUE_EXPR} IS NULL) AS no_due_count
+       FROM users u
+       LEFT JOIN user_permissions perm ON perm.user_id = u.id AND perm.module = 'dailyops'
+       LEFT JOIN project_tasks t
+              ON t.assigned_to = u.id
+             AND t.deleted_at IS NULL
+             AND t.parent_task_id IS NULL
+             AND t.is_completed = FALSE
+             AND (t.delegation_status IS NULL
+                  OR t.delegation_status NOT IN ('declined', 'consulting'))
+       WHERE u.deleted_at IS NULL AND u.status = 'active'
+         AND (u.role = 'system_admin' OR perm.access_level IS NOT NULL)
+       GROUP BY u.id, u.name
+       ORDER BY COUNT(t.id) FILTER (WHERE ${DUE_EXPR} IS NOT NULL AND ${DUE_EXPR} < NOW()) DESC,
+                COUNT(t.id) DESC, u.name`
+    );
+    return rows.map((r) => ({
+      user_id: String(r.user_id),
+      user_name: String(r.user_name),
+      open_count: Number(r.open_count ?? 0),
+      overdue_count: Number(r.overdue_count ?? 0),
+      top_priority_count: Number(r.top_priority_count ?? 0),
+      unanswered_count: Number(r.unanswered_count ?? 0),
+      private_count: Number(r.private_count ?? 0),
+      no_due_count: Number(r.no_due_count ?? 0),
+    }));
+  },
+
+  /**
    * 投入者の「確認待ち」件数 + 自分に関係する未対応の件数。
    * トップページのカードとヘッダーのベルが使う (要件 D7)。
    */

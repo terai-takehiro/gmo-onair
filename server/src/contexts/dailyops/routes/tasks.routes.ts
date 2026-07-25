@@ -5,7 +5,7 @@ import { queryAll } from '../../../shared/db/connection';
 import { myTasksService } from '../../tasks/services/my-tasks.service';
 import { taskIntakeService, type TaskDraft } from '../../tasks/services/task-intake.service';
 import { parseIntakeText, type ParseResult } from '../../tasks/services/intake-parser.service';
-import { parseIntakeWithAi, isIntakeAiConfigured } from '../../tasks/services/intake-ai.service';
+import { parseIntakeWithAi, isIntakeAiConfigured, resolveProvider } from '../../tasks/services/intake-ai.service';
 
 // 日常業務アプリ (dailyops) — 「タスク・依頼」メニューの API。
 //
@@ -51,7 +51,7 @@ async function canOpenProject(userId: string): Promise<boolean> {
  * 投げたテキストを一次資料として保存し、一次解析した下書きを返す。
  * クライアントはこの下書きを確認画面に出し、人が確認してから /commit を呼ぶ。
  *
- * 解析は Claude API を主経路、規則ベースをフォールバックにする。
+ * 解析は LLM (OpenAI または Anthropic) を主経路、規則ベースをフォールバックにする。
  * API キー未設定・障害・タイムアウトでも **投入口は必ず動く**ようにする
  * (ここが動かないと依頼が口頭のまま消え、この仕組みの目的が失われるため)。
  */
@@ -84,7 +84,9 @@ router.post('/tasks/intake', ...canEdit, async (req, res) => {
     } catch (e) {
       // 解析が落ちても投入自体は通す。規則ベースに縮退して人に確認させる
       aiError = (e as Error).message;
-      console.warn('[task-intake] AI 解析に失敗したため規則ベースに縮退:', aiError);
+      console.warn(
+        `[task-intake] AI 解析に失敗したため規則ベースに縮退 (provider=${resolveProvider() ?? 'なし'}): ${aiError}`
+      );
       parsed = parseIntakeText(rawText, users, { now });
     }
   } else {
@@ -219,6 +221,54 @@ router.post('/tasks/:id/respond', ...canEdit, async (req, res) => {
     req.body?.note ? String(req.body.note) : null
   );
   res.json({ success: true, data: task });
+});
+
+/**
+ * タスクを直す (期限・重要度・緊急度・完了)。
+ * 担当者本人か依頼者だけが呼べる (service 側でスコープ)。
+ */
+router.patch('/tasks/:id', ...canEdit, async (req, res) => {
+  const userId = me(req);
+  const b = req.body ?? {};
+  const patch: Parameters<typeof myTasksService.updateMyTask>[2] = {};
+  if (b.title !== undefined) patch.title = String(b.title);
+  if (b.description !== undefined) patch.description = b.description === null ? null : String(b.description);
+  if (b.due_at !== undefined) patch.due_at = b.due_at ? String(b.due_at) : null;
+  if (b.importance !== undefined) patch.importance = Number(b.importance);
+  if (b.urgency !== undefined) patch.urgency = Number(b.urgency);
+  if (b.visibility !== undefined) patch.visibility = b.visibility === 'private' ? 'private' : 'team';
+  if (b.is_completed !== undefined) patch.is_completed = Boolean(b.is_completed);
+  const task = await myTasksService.updateMyTask(String(req.params.id), userId, patch);
+  res.json({ success: true, data: task });
+});
+
+/**
+ * 差し戻された依頼を依頼者が片づける (自分でやる / 振り直す / 取り下げる)。
+ * 辞退・相談されても依頼は消えないので、決着はここでつける (要件 D3)。
+ */
+router.post('/tasks/:id/resolve', ...canEdit, async (req, res) => {
+  const userId = me(req);
+  const action = String(req.body?.action ?? '');
+  if (!['take_over', 'reassign', 'withdraw'].includes(action)) {
+    throw new AppError(400, 'VALIDATION_ERROR', '操作の種類が不正です');
+  }
+  const task = await myTasksService.resolveDelegation(
+    String(req.params.id), userId, action as 'take_over' | 'reassign' | 'withdraw',
+    {
+      assigned_to: req.body?.assigned_to ? String(req.body.assigned_to) : undefined,
+      due_at: req.body?.due_at ? String(req.body.due_at) : undefined,
+    }
+  );
+  res.json({ success: true, data: task });
+});
+
+/**
+ * チームの負荷。**件数だけ**を返し中身は返さない
+ * (private なタスクも件数には入るがタイトルは出さない。要件 D8)。
+ */
+router.get('/tasks/team', ...canRead, async (_req, res) => {
+  const rows = await myTasksService.getTeamLoad();
+  res.json({ success: true, data: rows });
 });
 
 /** 依頼または個人タスクを 1 件作る (投入を介さない直接作成) */

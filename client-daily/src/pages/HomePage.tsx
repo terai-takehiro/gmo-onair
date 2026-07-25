@@ -1,11 +1,12 @@
 import { Link } from 'react-router-dom';
-import { CalendarCheck, Newspaper, ChevronRight, Sparkles, CheckCircle2, CircleDashed, DoorOpen, Users, FileText, Inbox, KeyRound, AlertTriangle } from 'lucide-react';
+import { CalendarCheck, Newspaper, ChevronRight, Sparkles, CheckCircle2, CircleDashed, DoorOpen, Users, FileText, Inbox, KeyRound, AlertTriangle, ListChecks, Clock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useReports } from '@/lib/reportsApi';
 import { useInviewList } from '@/lib/inviewApi';
 import { useFinanceDocs, useInquiries } from '@/lib/inboxApi';
 import { useSecurityCardStats } from '@/lib/securityCardApi';
+import { useMyTaskSummary } from '@/lib/tasksApi';
 import { MENUS, formatDateJa, formatWeekJa, type OpsReport } from '@/lib/types';
 
 const MENU_ICONS: Record<string, React.ElementType> = {
@@ -28,6 +29,8 @@ export default function HomePage() {
   const inquiries = useInquiries();
   const unhandledInquiries = (inquiries.data ?? []).filter((q) => !q.handled_at).length;
   const cardStats = useSecurityCardStats();
+  const taskSummary = useMyTaskSummary();
+  const ts = taskSummary.data;
 
   return (
     <div className="mx-auto max-w-4xl p-4 sm:p-6 space-y-6">
@@ -39,6 +42,51 @@ export default function HomePage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* タスク・依頼 — 期限は何月何日何時何分まで。件数だけを出す */}
+        <Link to="/tasks" className="group">
+          <Card className="h-full transition-shadow hover:shadow-md">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <ListChecks className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <h2 className="font-semibold text-sm truncate">タスク・依頼</h2>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                    案件と個人のタスクを重要度 × 緊急度の順に。受けた依頼・出した依頼もここで
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
+                    {ts && (ts.overdue > 0 || ts.due_today > 0 || ts.unanswered_delegations > 0) ? (
+                      <>
+                        {ts.overdue > 0 && (
+                          <Badge variant="outline" className="gap-1 border-red-300 text-red-700">
+                            <AlertTriangle className="h-3 w-3" /> 期限超過 {ts.overdue}
+                          </Badge>
+                        )}
+                        {ts.due_today > 0 && (
+                          <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700">
+                            <Clock className="h-3 w-3" /> 今日が期限 {ts.due_today}
+                          </Badge>
+                        )}
+                        {ts.unanswered_delegations > 0 && (
+                          <Badge variant="outline" className="gap-1 border-violet-300 text-violet-700">
+                            未返答の依頼 {ts.unanswered_delegations}
+                          </Badge>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">待たせているものはありません</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
         {MENUS.map((menu) => {
           const Icon = MENU_ICONS[menu.icon] ?? CalendarCheck;
           const latest = latestByKind[menu.kind];

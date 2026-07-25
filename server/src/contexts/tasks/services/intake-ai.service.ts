@@ -1,6 +1,12 @@
-// 投入テキストの解析 (Claude API) — 「誰に / 何を / いつまでに」を LLM で読み取る。
+// 投入テキストの解析 (LLM) — 「誰に / 何を / いつまでに」を読み取る。
 //
 // 要件: docs/requirements/2026-07-25-collaboration-and-personal-agent.md (D4 / D9)
+//
+// **対応プロバイダは OpenAI と Anthropic の 2 つ。**
+//   スキーマ・プロンプト・出力の後段検証はプロバイダ共通にしてある。
+//   差し替えても「存在しない id を捨てる」「壊れた期限を不明に倒す」といった
+//   安全側の処理は同じように効くので、乗り換えのコストと事故の余地を小さくしている。
+//   選択は環境変数 (下の resolveProvider) で、キーを入れたほうが自動で使われる。
 //
 // なぜ LLM を主経路にするのか:
 //   朝会メモや議事録の文は崩れている (体言止め・主語省略・複数依頼が 1 行に混在)。
@@ -26,14 +32,26 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
+import OpenAI from 'openai';
+import { zodTextFormat } from 'openai/helpers/zod';
 import * as z from 'zod/v4';
 import { suggestUrgency, type ParsedDraft, type ParseResult, type ParserUser } from './intake-parser.service';
 
 /** プロンプトを変えたら必ず上げる。ai_outputs.prompt_version に入り、改善効果の比較単位になる */
 export const INTAKE_PROMPT_VERSION = 'task-intake-v1';
 
-/** 既定モデル。環境変数で下げられるようにしておく (コストを運用側で選べるように) */
-const DEFAULT_MODEL = 'claude-opus-5';
+export type IntakeAiProvider = 'openai' | 'anthropic';
+
+/**
+ * 既定モデル。
+ * どちらも**上位モデルを既定にしている**。ここで読み落とすと依頼が口頭のまま消えるので、
+ * この機能ではコストより解析精度を優先する。1 日に数件〜十数件の投入なので費用は小さい。
+ * コストを詰めたい場合は INTAKE_AI_MODEL で mini 系に下げられる。
+ */
+const DEFAULT_MODELS: Record<IntakeAiProvider, string> = {
+  openai: 'gpt-5.4',
+  anthropic: 'claude-opus-5',
+};
 
 /** 解析は対話 UI の中で待たせるので、nginx の 60 秒より十分手前で諦める */
 const TIMEOUT_MS = 30_000;
@@ -41,12 +59,39 @@ const TIMEOUT_MS = 30_000;
 /** 投入テキストの上限。これを超える分は切らずに **エラーにして人に分けさせる** (黙って切ると依頼が消える) */
 const MAX_INPUT_CHARS = 20_000;
 
-export function isIntakeAiConfigured(): boolean {
-  return Boolean(process.env.ANTHROPIC_API_KEY);
+/**
+ * 使うプロバイダを決める。
+ * INTAKE_AI_PROVIDER で明示指定でき、無指定ならキーが入っているほうを使う。
+ * 両方あるときは OpenAI を優先する (運用でこちらを主に使う想定)。
+ * どちらも無ければ null = 規則ベースに縮退する。
+ */
+let warnedUnknownProvider = false;
+
+export function resolveProvider(): IntakeAiProvider | null {
+  const forced = (process.env.INTAKE_AI_PROVIDER ?? '').trim().toLowerCase();
+  if (forced === 'openai') return process.env.OPENAI_API_KEY ? 'openai' : null;
+  if (forced === 'anthropic') return process.env.ANTHROPIC_API_KEY ? 'anthropic' : null;
+  if (forced && !warnedUnknownProvider) {
+    // 綴り間違いで黙って別のプロバイダが使われると原因が分からなくなるので必ず言う
+    warnedUnknownProvider = true;
+    console.warn(
+      `[intake-ai] INTAKE_AI_PROVIDER="${forced}" は未対応です (openai | anthropic)。` +
+      'キーが入っているプロバイダを自動選択します。'
+    );
+  }
+  if (process.env.OPENAI_API_KEY) return 'openai';
+  if (process.env.ANTHROPIC_API_KEY) return 'anthropic';
+  return null;
 }
 
-export function intakeAiModel(): string {
-  return process.env.INTAKE_AI_MODEL || DEFAULT_MODEL;
+export function isIntakeAiConfigured(): boolean {
+  return resolveProvider() !== null;
+}
+
+export function intakeAiModel(provider?: IntakeAiProvider | null): string {
+  const p = provider ?? resolveProvider();
+  if (!p) return 'rules';
+  return process.env.INTAKE_AI_MODEL || DEFAULT_MODELS[p];
 }
 
 // ── 出力スキーマ ────────────────────────────────────────────
@@ -157,6 +202,7 @@ function clamp3(v: unknown, fallback = 2): number {
 const LONG_DUE_DAYS = 14;
 
 export interface IntakeAiResult extends ParseResult {
+  provider: IntakeAiProvider;
   model: string;
   promptVersion: string;
 }
@@ -231,15 +277,49 @@ export async function parseIntakeWithAi(
   users: ParserUser[],
   opts: { now?: Date; submitterId?: string | null } = {}
 ): Promise<IntakeAiResult> {
-  if (!isIntakeAiConfigured()) throw new Error('ANTHROPIC_API_KEY が未設定です');
+  const provider = resolveProvider();
+  if (!provider) {
+    throw new Error('OPENAI_API_KEY / ANTHROPIC_API_KEY のどちらも未設定です');
+  }
   if (text.length > MAX_INPUT_CHARS) {
     throw new Error(`投入テキストが長すぎます (${text.length} 文字)。分けて投入してください`);
   }
 
   const now = opts.now ?? new Date();
-  const model = intakeAiModel();
-  const client = new Anthropic({ timeout: TIMEOUT_MS, maxRetries: 1 });
+  const model = intakeAiModel(provider);
+  const userPrompt = buildUserPrompt(text, users, now, opts.submitterId);
 
+  const raw = provider === 'openai'
+    ? await callOpenAi(model, userPrompt)
+    : await callAnthropic(model, userPrompt);
+
+  const normalized = normalizeAiResult(raw, users, now);
+  return { ...normalized, provider, model, promptVersion: INTAKE_PROMPT_VERSION };
+}
+
+/** OpenAI (Responses API + structured output) */
+async function callOpenAi(model: string, userPrompt: string): Promise<RawAiResult> {
+  const client = new OpenAI({ timeout: TIMEOUT_MS, maxRetries: 1 });
+  const response = await client.responses.parse({
+    model,
+    instructions: SYSTEM_PROMPT,
+    input: userPrompt,
+    text: { format: zodTextFormat(IntakeResultSchema, 'task_intake') },
+  });
+
+  // 途中で打ち切られた / 拒否された場合は output_parsed が null になる。
+  // 中途半端な結果で確定させたくないので投げて規則ベースに縮退させる。
+  if (response.status === 'incomplete') {
+    throw new Error(`解析が途中で終わりました: ${response.incomplete_details?.reason ?? '理由不明'}`);
+  }
+  const parsed = response.output_parsed;
+  if (!parsed) throw new Error(`解析結果を読み取れませんでした (status=${response.status ?? '不明'})`);
+  return parsed as RawAiResult;
+}
+
+/** Anthropic (Messages API + structured output) */
+async function callAnthropic(model: string, userPrompt: string): Promise<RawAiResult> {
+  const client = new Anthropic({ timeout: TIMEOUT_MS, maxRetries: 1 });
   const response = await client.messages.parse({
     model,
     max_tokens: 8000,
@@ -247,7 +327,7 @@ export async function parseIntakeWithAi(
     // 抽出タスクなので低めで十分。対話 UI の待ち時間を優先する
     output_config: { effort: 'low', format: zodOutputFormat(IntakeResultSchema) },
     system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: buildUserPrompt(text, users, now, opts.submitterId) }],
+    messages: [{ role: 'user', content: userPrompt }],
   });
 
   if (response.stop_reason === 'refusal') {
@@ -255,7 +335,5 @@ export async function parseIntakeWithAi(
   }
   const parsed = response.parsed_output;
   if (!parsed) throw new Error('解析結果を読み取れませんでした');
-
-  const normalized = normalizeAiResult(parsed as RawAiResult, users, now);
-  return { ...normalized, model, promptVersion: INTAKE_PROMPT_VERSION };
+  return parsed as RawAiResult;
 }
