@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import SharedAppShell from '@gmo-onair/shared/src/client/shell/AppShell';
 import { createPaletteSearch } from '@gmo-onair/shared/src/client/commandPalette/search';
+import { createNotificationFetcher } from '@gmo-onair/shared/src/client/notifications';
 import api from '@/lib/api';
 import SecondaryNavList, { type SecondaryNavItem } from '@gmo-onair/shared/src/client/shell/SecondaryNavList';
 import type { RailLinkRenderer } from '@gmo-onair/shared/src/client/shell/Rail';
@@ -41,6 +42,7 @@ export default function AppShell() {
     : <Outlet />;
 
   const searchHits = useMemo(() => createPaletteSearch(api), []);
+  const fetchNotifications = useMemo(() => createNotificationFetcher(api), []);
 
   return (
     <SharedAppShell
@@ -55,6 +57,7 @@ export default function AppShell() {
       }
       secondaryNavLabel="日常業務"
       commandPalette={{ onRun: (path) => { window.location.href = path; }, search: searchHits }}
+      notifications={{ fetchData: fetchNotifications, onRun: (path) => { window.location.href = path; }, onOpenPrefs: () => { window.location.href = "/settings/notifications"; } }}
       manualContent={DAILY_MANUAL}
       padMain={!permissionsLoading && !canView}
     >

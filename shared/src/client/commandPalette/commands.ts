@@ -33,6 +33,7 @@ const OPEN_COMMANDS: CommandDef[] = [
   { id: 'open-customers', kind: 'open', label: 'お客様', path: '/customers', keywords: 'kokyaku customer 顧客', module: 'sales' },
   { id: 'open-schedule', kind: 'open', label: '予定', path: '/schedule', keywords: 'yotei schedule カレンダー calendar', modules: ['studio', 'partner_schedule'] },
   { id: 'open-finance', kind: 'open', label: 'お金', path: '/finance', keywords: 'okane finance 財務 予算 損益', module: 'budget' },
+  { id: 'open-notification-prefs', kind: 'open', label: '通知の受け取り方', path: '/settings/notifications', keywords: 'notification 通知 朝 slack メール' },
   { id: 'open-settings', kind: 'open', label: '設定', path: '/settings', keywords: 'settei settings マスター' },
 
   // 案件

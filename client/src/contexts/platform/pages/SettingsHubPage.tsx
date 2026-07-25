@@ -19,8 +19,7 @@ import {
   Server,
   ChevronRight,
   ShieldAlert,
-  type LucideIcon,
-} from "lucide-react";
+  type LucideIcon, Bell, } from "lucide-react";
 import { useAuth } from "@/contexts/platform/AuthContext";
 
 interface SettingLink {
@@ -43,6 +42,17 @@ interface SettingGroup {
 }
 
 const GROUPS: SettingGroup[] = [
+  {
+    title: "自分の設定",
+    Icon: Bell,
+    links: [
+      {
+        label: "通知の受け取り方",
+        description: "朝の1通をどこで受けるか、期限超過をまとめるか。通知が流れて消えることはありません。",
+        to: "/settings/notifications",
+      },
+    ],
+  },
   {
     title: "人と権限",
     Icon: Users,

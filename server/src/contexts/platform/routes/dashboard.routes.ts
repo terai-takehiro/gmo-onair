@@ -364,6 +364,163 @@ router.get('/inbox', async (req, res) => {
   });
 });
 
+/**
+ * GET /dashboard/notifications — ベルの中身 (§4.15 / デザイン 18a)
+ *
+ * **通知は保存しない**。既存データ (inbox / tasks / bookings) から**その場で導出**する。
+ * だから **既読の概念を持たない** — 終わらせた分は次に開いたときに消えている。
+ * 「読んだだけでは何も終わっていない」ため、既読フラグを持つと嘘の «片づいた» が生まれる。
+ *
+ * グループ: お客様を待たせている / 依頼の返事 / AIが作ったもの (確認待ち) / 今日の現場。
+ */
+router.get('/notifications', async (req, res) => {
+  const user = req.user!;
+  const isAdmin = user.role === 'system_admin';
+  const has = (m: string) => isAdmin || !!user.permissions?.[m];
+  const today = new Date().toISOString().slice(0, 10);
+
+  const [overdue, aiProjects, delegations, todayBookings] = await Promise.all([
+    // お客様を待たせている (期限を過ぎた次回アクション)
+    has('sales') ? queryAll(OVERDUE_ACTIONS_SQL) : Promise.resolve([]),
+    // AI が作ったもの (未確認)
+    has('sales') ? queryAll(AI_INBOX_SQL, [config.mcpActorId]) : Promise.resolve([]),
+    // 依頼の返事 — 自分が出して未返答のもの (催促の判断は依頼者にさせる)
+    has('dailyops')
+      ? queryAll(
+          `SELECT t.id, t.title, t.due_at, t.requested_at, t.delegation_status,
+                  u.name AS assignee_name
+           FROM project_tasks t
+           LEFT JOIN users u ON u.id = t.assigned_to
+           WHERE t.deleted_at IS NULL AND t.is_completed = FALSE
+             AND t.requester_id = ? AND t.delegation_status IN ('requested','declined','consulting')
+           ORDER BY t.requested_at ASC NULLS LAST
+           LIMIT 50`,
+          [user.id]
+        )
+      : Promise.resolve([]),
+    // 今日の現場 (スタジオ予約)。start_time は TEXT なので先頭10桁で日付を見る
+    has('studio')
+      ? queryAll(
+          `SELECT b.id, b.title, b.booking_type, b.all_day, b.start_time, b.end_time,
+                  p.name AS project_name, p.gls_number,
+                  COALESCE(
+                    (SELECT string_agg(r.name, ' / ' ORDER BY r.sort_order, r.name)
+                     FROM studio_booking_rooms br JOIN studio_rooms r ON r.id = br.room_id
+                     WHERE br.booking_id = b.id), ''
+                  ) AS room_names
+           FROM studio_bookings b
+           LEFT JOIN projects p ON p.id = b.project_id
+           WHERE b.deleted_at IS NULL
+             AND substr(b.start_time, 1, 10) <= ?
+             AND substr(COALESCE(NULLIF(b.end_time, ''), b.start_time), 1, 10) >= ?
+           ORDER BY b.start_time ASC
+           LIMIT 30`,
+          [today, today]
+        )
+      : Promise.resolve([]),
+  ]);
+
+  const groups = [
+    {
+      key: 'waiting',
+      label: 'お客様を待たせている',
+      rule: '期限を過ぎた次回アクション。終わらせると消えます',
+      items: overdue.map((r: any) => ({
+        id: `overdue:${r.activity_id}`,
+        title: r.next_action,
+        meta: [r.gls_number, r.project_name].filter(Boolean).join(' '),
+        at: r.next_action_date,
+        cta: '片づける',
+        path: r.project_id ? `/sales/projects/${r.project_id}` : '/today',
+      })),
+    },
+    {
+      key: 'delegation',
+      label: '依頼の返事',
+      rule: '自分が出した依頼で、まだ返事が来ていないもの',
+      items: delegations.map((r: any) => ({
+        id: `deleg:${r.id}`,
+        title: r.title,
+        meta: `${r.assignee_name ?? '担当未設定'}・${r.delegation_status === 'requested' ? '未返答' : r.delegation_status === 'declined' ? '辞退された' : '相談中'}`,
+        at: r.requested_at,
+        cta: '決める',
+        path: '/tasks?scope=me',
+      })),
+    },
+    {
+      key: 'ai',
+      label: 'AIが作ったもの（確認待ち）',
+      rule: '内容を見て確認済みにすると消えます',
+      items: aiProjects.map((r: any) => ({
+        id: `ai:${r.id}`,
+        title: r.name,
+        meta: [r.gls_number, r.customer_name].filter(Boolean).join(' '),
+        at: r.created_at,
+        cta: '確認する',
+        path: `/sales/projects/${r.id}`,
+      })),
+    },
+    {
+      key: 'today',
+      label: '今日の現場',
+      rule: '今日ぶんだけ。日付が変われば消えます',
+      items: todayBookings.map((r: any) => ({
+        id: `bk:${r.id}`,
+        title: r.project_name || r.title,
+        meta: [r.room_names, r.all_day ? '終日' : String(r.start_time).slice(11, 16)].filter(Boolean).join(' ・ '),
+        at: r.start_time,
+        cta: '予定を開く',
+        path: '/schedule?layers=studio',
+      })),
+    },
+  ].filter((g) => g.items.length > 0);
+
+  res.json({
+    success: true,
+    data: {
+      groups,
+      total: groups.reduce((n, g) => n + g.items.length, 0),
+    },
+  });
+});
+
+/**
+ * 通知の受け取り方 (migration 137)。**通知そのものは保存しない**ので、
+ * ここに入るのは「どう受け取りたいか」だけ。
+ */
+router.get('/notification-prefs', async (req, res) => {
+  const row = await queryOne('SELECT * FROM user_notification_prefs WHERE user_id = ?', [req.user!.id]);
+  res.json({
+    success: true,
+    data: row ?? {
+      user_id: req.user!.id,
+      morning_slack: true,
+      morning_email: false,
+      overdue_digest: true,
+      delegation_instant: true,
+    },
+  });
+});
+
+router.put('/notification-prefs', async (req, res) => {
+  const b = req.body as Record<string, unknown>;
+  const bool = (k: string, d: boolean) => (b[k] === undefined ? d : !!b[k]);
+  await execute(
+    `INSERT INTO user_notification_prefs (user_id, morning_slack, morning_email, overdue_digest, delegation_instant, updated_at)
+     VALUES (?, ?, ?, ?, ?, NOW())
+     ON CONFLICT (user_id) DO UPDATE SET
+       morning_slack = EXCLUDED.morning_slack,
+       morning_email = EXCLUDED.morning_email,
+       overdue_digest = EXCLUDED.overdue_digest,
+       delegation_instant = EXCLUDED.delegation_instant,
+       updated_at = NOW()`,
+    [req.user!.id, bool('morning_slack', true), bool('morning_email', false),
+     bool('overdue_digest', true), bool('delegation_instant', true)]
+  );
+  const row = await queryOne('SELECT * FROM user_notification_prefs WHERE user_id = ?', [req.user!.id]);
+  res.json({ success: true, data: row });
+});
+
 // v2.9.197+: AI 活動フィード — mcp_audit_log の書き込み履歴を時系列で返す
 // (「AI が最近やったこと」をホームで一望する用途)。actor_id は OAuth 経由なら実ユーザー。
 // v2.9.198+: tool (単一 tool_name) 絞り込み + page ページング + pagination 返却

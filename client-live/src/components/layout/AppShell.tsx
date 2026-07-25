@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Timer, LayoutDashboard, Settings, ArrowLeft } from 'lucide-react';
 import SharedAppShell from '@gmo-onair/shared/src/client/shell/AppShell';
 import { createPaletteSearch } from '@gmo-onair/shared/src/client/commandPalette/search';
+import { createNotificationFetcher } from '@gmo-onair/shared/src/client/notifications';
 import SecondaryNavList, { type SecondaryNavItem } from '@gmo-onair/shared/src/client/shell/SecondaryNavList';
 import type { RailLinkRenderer } from '@gmo-onair/shared/src/client/shell/Rail';
 import { realPathname } from '@gmo-onair/shared/src/client/shell/realPath';
@@ -73,6 +74,7 @@ export default function AppShell() {
   );
 
   const searchHits = useMemo(() => createPaletteSearch(api), []);
+  const fetchNotifications = useMemo(() => createNotificationFetcher(api), []);
 
   return (
     <SharedAppShell
@@ -87,6 +89,7 @@ export default function AppShell() {
       }
       secondaryNavLabel="計時LIVE"
       commandPalette={{ onRun: (path) => { window.location.href = path; }, search: searchHits }}
+      notifications={{ fetchData: fetchNotifications, onRun: (path) => { window.location.href = path; }, onOpenPrefs: () => { window.location.href = "/settings/notifications"; } }}
       manualContent={LIVE_MANUAL}
       padMain={noAccess}
     >

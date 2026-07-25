@@ -18,6 +18,7 @@ import ManualModal from '../manual/ManualModal';
 import VersionHistoryModal from '../versionHistory/VersionHistoryModal';
 import McpInfoModal from '../mcpInfo/McpInfoModal';
 import CommandPalette from '../commandPalette/CommandPalette';
+import { NotificationBell, type NotificationData } from '../notifications';
 import type { PaletteHit } from '../commandPalette/types';
 import type { ManualContent } from '../manual/types';
 
@@ -51,8 +52,16 @@ export interface AppShellProps {
     onRun: (path: string) => void;
     search?: (q: string) => Promise<PaletteHit[]>;
   };
-  onOpenNotifications?: () => void;
-  notificationCount?: number;
+  /**
+   * 通知ベル (Phase 9)。渡すと上辺にベルが出る。
+   *   fetchData 既存データからの導出を返す (通知は保存しない・§4.15)
+   *   onRun     行き先を開く
+   */
+  notifications?: {
+    fetchData: () => Promise<NotificationData>;
+    onRun: (path: string) => void;
+    onOpenPrefs?: () => void;
+  };
   /** 渡すと ⋯ に「利用マニュアル」が出る */
   manualContent?: ManualContent;
   productLabel?: string;
@@ -79,8 +88,7 @@ export default function AppShell({
   secondaryNavLabel,
   centerContent,
   commandPalette,
-  onOpenNotifications,
-  notificationCount,
+  notifications,
   manualContent,
   productLabel = 'GMO ONAiR',
   padMain = false,
@@ -117,8 +125,15 @@ export default function AppShell({
         onToggleSecondaryNav={secondaryNav ? () => setNavOpen((v) => !v) : undefined}
         centerContent={centerContent}
         onOpenCommandPalette={commandPalette ? () => setPaletteOpen(true) : undefined}
-        onOpenNotifications={onOpenNotifications}
-        notificationCount={notificationCount}
+        notificationSlot={
+          notifications ? (
+            <NotificationBell
+              fetchData={notifications.fetchData}
+              onRun={notifications.onRun}
+              onOpenPrefs={notifications.onOpenPrefs}
+            />
+          ) : undefined
+        }
         onOpenManual={manualContent ? () => setManualOpen(true) : undefined}
         onOpenVersionHistory={() => setVersionOpen(true)}
         onOpenMcpInfo={() => setMcpOpen(true)}

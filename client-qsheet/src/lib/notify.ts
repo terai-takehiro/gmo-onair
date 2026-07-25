@@ -1,42 +1,18 @@
-import { toast } from '@gmo-onair/shared/src/client/ui';
+// 操作フィードバックは **消えないお知らせ帯** に出す (トーストは使わない・§4.15)。
+// 流れて消えると「保存に失敗した」ことに気づけないため、人が閉じるまで残す。
+import { setNotice } from '@gmo-onair/shared/src/client/ui';
 
-type NotifyOptions = {
-  description?: string;
-  duration?: number;
-};
+type NotifyOptions = { description?: string };
 
 export function notifySuccess(message: string, options?: NotifyOptions) {
-  return toast({
-    variant: 'success',
-    title: message,
-    description: options?.description,
-    duration: options?.duration ?? 3000,
-  });
+  setNotice({ tone: 'success', title: message, description: options?.description });
 }
-
 export function notifyError(message: string, options?: NotifyOptions) {
-  return toast({
-    variant: 'destructive',
-    title: message,
-    description: options?.description,
-    duration: options?.duration ?? 5000,
-  });
+  setNotice({ tone: 'error', title: message, description: options?.description });
 }
-
 export function notifyInfo(message: string, options?: NotifyOptions) {
-  return toast({
-    variant: 'info',
-    title: message,
-    description: options?.description,
-    duration: options?.duration ?? 3000,
-  });
+  setNotice({ tone: 'info', title: message, description: options?.description });
 }
-
 export function notifyWarning(message: string, options?: NotifyOptions) {
-  return toast({
-    variant: 'warning',
-    title: message,
-    description: options?.description,
-    duration: options?.duration ?? 4000,
-  });
+  setNotice({ tone: 'warning', title: message, description: options?.description });
 }

@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Bell, ChevronDown, LogOut, Menu, MoreHorizontal, Search, ArrowLeftRight, HelpCircle, History, Plug } from 'lucide-react';
+import { ChevronDown, LogOut, Menu, MoreHorizontal, Search, ArrowLeftRight, HelpCircle, History, Plug } from 'lucide-react';
 import { cn } from '../utils';
 
 export interface TopBarUser {
@@ -35,9 +35,8 @@ export interface TopBarProps {
   centerContent?: ReactNode;
   /** 渡すと ⌘K ボタンを出す (Phase 3 でコマンドパレットを配線) */
   onOpenCommandPalette?: () => void;
-  /** 渡すと通知ベルを出す (Phase 9) */
-  onOpenNotifications?: () => void;
-  notificationCount?: number;
+  /** 通知ベル (Phase 9)。AppShell が組み立てたものを差し込む */
+  notificationSlot?: ReactNode;
   onOpenManual?: () => void;
   onOpenVersionHistory?: () => void;
   onOpenMcpInfo?: () => void;
@@ -134,8 +133,7 @@ export default function TopBar({
   onToggleSecondaryNav,
   centerContent,
   onOpenCommandPalette,
-  onOpenNotifications,
-  notificationCount = 0,
+  notificationSlot,
   onOpenManual,
   onOpenVersionHistory,
   onOpenMcpInfo,
@@ -212,23 +210,8 @@ export default function TopBar({
         <div className="flex-1" />
       )}
 
-      {/* 通知ベル — Phase 9 */}
-      {onOpenNotifications && (
-        <button
-          type="button"
-          onClick={onOpenNotifications}
-          className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-control transition-colors hover:bg-secondary"
-          aria-label={notificationCount > 0 ? `通知 ${notificationCount}件` : '通知'}
-          style={{ touchAction: 'manipulation' }}
-        >
-          <Bell className="h-5 w-5 text-secondary-foreground" aria-hidden="true" />
-          {notificationCount > 0 && (
-            <span className="absolute right-1.5 top-1.5 min-w-[18px] rounded-full bg-destructive px-1 text-center text-[11px] font-bold leading-[18px] text-destructive-foreground">
-              {notificationCount > 99 ? '99+' : notificationCount}
-            </span>
-          )}
-        </button>
-      )}
+      {/* 通知ベル — 溜まる場所 (§4.15) */}
+      {notificationSlot}
 
       {/* ⋯ (マニュアル / バージョン履歴 / MCP) */}
       {moreItems.length > 0 && (

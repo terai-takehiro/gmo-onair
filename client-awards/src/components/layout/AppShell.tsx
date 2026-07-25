@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { LayoutDashboard } from 'lucide-react';
 import SharedAppShell from '@gmo-onair/shared/src/client/shell/AppShell';
 import { createPaletteSearch } from '@gmo-onair/shared/src/client/commandPalette/search';
+import { createNotificationFetcher } from '@gmo-onair/shared/src/client/notifications';
 import api from '@/lib/api';
 import SecondaryNavList, { type SecondaryNavItem } from '@gmo-onair/shared/src/client/shell/SecondaryNavList';
 import type { RailLinkRenderer } from '@gmo-onair/shared/src/client/shell/Rail';
@@ -26,6 +27,7 @@ export function AppShell() {
   const { currentUser, logout, permissions } = useAuth();
 
   const searchHits = useMemo(() => createPaletteSearch(api), []);
+  const fetchNotifications = useMemo(() => createNotificationFetcher(api), []);
 
   return (
     <SharedAppShell
@@ -40,6 +42,7 @@ export function AppShell() {
       }
       secondaryNavLabel="リアルタイムCG"
       commandPalette={{ onRun: (path) => { window.location.href = path; }, search: searchHits }}
+      notifications={{ fetchData: fetchNotifications, onRun: (path) => { window.location.href = path; }, onOpenPrefs: () => { window.location.href = "/settings/notifications"; } }}
       manualContent={AWARDS_MANUAL}
     >
       <Outlet />

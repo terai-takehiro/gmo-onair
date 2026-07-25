@@ -55,6 +55,7 @@ import BudgetDetailPage from "@/contexts/finance/pages/BudgetDetailPage";
 // 機材管理は client-equipment/ が /equipment 配下で配信 (案件管理アプリ側では扱わない)
 import SettingsPage from "@/contexts/platform/pages/SettingsPage";
 import SettingsHubPage from "@/contexts/platform/pages/SettingsHubPage";
+import NotificationPrefsPage from "@/contexts/platform/pages/NotificationPrefsPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -125,6 +126,7 @@ function AppRoutes() {
 
         {/* 設定。入口 + 個別画面 (旧 /admin/* の新しい住所) */}
         <Route path="/settings" element={<SettingsHubPage />} />
+        <Route path="/settings/notifications" element={<NotificationPrefsPage />} />
         <Route path="/settings/users" element={<PermissionRoute module="admin"><UserListPage /></PermissionRoute>} />
         <Route path="/settings/data-viewer" element={<PermissionRoute module="admin"><DataViewerPage /></PermissionRoute>} />
         <Route path="/settings/db-backups" element={<PermissionRoute module="admin"><DbBackupsPage /></PermissionRoute>} />

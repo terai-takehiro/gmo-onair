@@ -7,6 +7,7 @@ import { ErrorPanel } from "@gmo-onair/shared/src/client/states";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { SALES_MANUAL } from "@/manual/content";
 import { createPaletteSearch } from "@gmo-onair/shared/src/client/commandPalette/search";
+import { createNotificationFetcher } from "@gmo-onair/shared/src/client/notifications";
 import api from "@/lib/api";
 
 /** 別バンドルのアプリ。ここへ行くときだけフルリロードする */
@@ -97,6 +98,7 @@ export default function AppShell() {
   );
 
   const searchHits = useMemo(() => createPaletteSearch(api), []);
+  const fetchNotifications = useMemo(() => createNotificationFetcher(api), []);
 
 
   return (
@@ -110,6 +112,7 @@ export default function AppShell() {
       renderLink={renderRailLink}
       breadcrumb={breadcrumb ? <span className="font-bold text-foreground">{breadcrumb}</span> : undefined}
       commandPalette={{ onRun: runCommand, search: searchHits }}
+      notifications={{ fetchData: fetchNotifications, onRun: runCommand, onOpenPrefs: () => navigate("/settings/notifications") }}
       manualContent={SALES_MANUAL}
     >
       <PageErrorBoundary>
