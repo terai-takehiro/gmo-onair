@@ -12,14 +12,14 @@
  * ブックマーク・過去のメール・Slack のリンクを壊さないため。
  */
 import { Navigate, useLocation, useParams, useSearchParams } from "react-router-dom";
-import { Link } from "react-router-dom";
-import { FileSearch, FlaskConical, CopyCheck, ChevronRight } from "lucide-react";
+import { FileSearch, FlaskConical, ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/platform/AuthContext";
 
 import ProjectsPage from "@/contexts/sales/pages/ProjectsPage";
 import TasksPage from "@/contexts/tasks/pages/TasksPage";
 import SchedulePage from "@/contexts/production/pages/SchedulePage";
-import BudgetDashboardPage from "@/contexts/finance/pages/BudgetDashboardPage";
+import FinancePage from "@/contexts/finance/pages/FinancePage";
 import RevenueListPage from "@/contexts/finance/pages/RevenueListPage";
 import PurchaseListPage from "@/contexts/finance/pages/PurchaseListPage";
 import SgaListPage from "@/contexts/finance/pages/SgaListPage";
@@ -117,82 +117,161 @@ export function FinanceRoute() {
     case "sga":
       return <SgaListPage />;
     default:
-      return <BudgetDashboardPage />;
+      return <FinancePage />;
   }
 }
 
-/** /finance/import — ?tool=xpoint|kessan|dedup。未指定は選ぶ画面 */
+/**
+ * /finance/import — 「取り込む → 確認する → 登録する」の1本道 (§4.11)
+ *
+ * 旧版は 精算PDF / 決算CSV / 二重計上チェック の**3メニューを選ばせる画面**だった。
+ * 3ステップの枠を1つ用意し、その中で取込元を選ぶ形に変えた (`?tool=`)。
+ * 決算CSVと二重計上の整理は管理者だけに出す (日常のメニューには置かない)。
+ */
 export function FinanceImportRoute() {
-  const [sp] = useSearchParams();
-  switch (sp.get("tool")) {
-    case "xpoint":
-      return <XpointImportPage />;
-    case "kessan":
-      return <KessanImportPage />;
-    case "dedup":
-      return <DedupScreeningPage />;
-    default:
-      return <ImportPicker />;
-  }
+  return <ImportFlow />;
 }
 
-const IMPORT_TOOLS = [
+const STEPS = [
+  { no: 1, label: "取り込む", detail: "PDFを置く / Boxの仕訳帳を読む" },
+  { no: 2, label: "確認する", detail: "読み取った内容を全項目チェック" },
+  { no: 3, label: "登録する", detail: "仕入・販管費・売上に入れる" },
+];
+
+const SOURCES = [
   {
     tool: "xpoint",
-    label: "精算PDFを取り込む",
-    description: "X-Point / 楽楽精算の申請PDFから、仕入・販管費の下書きを作ります。",
+    label: "精算PDF",
+    hint: "X-Point / 楽楽精算 の申請PDF。この画面に置くか、Boxフォルダから読み込みます。",
     Icon: FileSearch,
     adminOnly: false,
   },
   {
     tool: "kessan",
-    label: "決算インポート",
-    description: "仕訳帳CSVから売上・仕入・販管費を取り込みます。",
+    label: "決算CSV（freee 仕訳帳）",
+    hint: "Box に置いた仕訳帳から売上・仕入・販管費を取り込みます。まず解析して内容を確認します。",
     Icon: FlaskConical,
-    adminOnly: true,
-  },
-  {
-    tool: "dedup",
-    label: "同じ支払いが2回入っていないか調べる",
-    description: "手入力と決算取込が重なった行を見つけて、片方を消します。",
-    Icon: CopyCheck,
     adminOnly: true,
   },
 ];
 
-/** 取り込みの入口。「取り込む → 確認する → 登録する」の1本道は Phase 8 で作る */
-function ImportPicker() {
+/** 1本道の枠。ステップ表示 + 取込元の選択 + 選んだツールを中に描く */
+function ImportFlow() {
+  const [sp, setSp] = useSearchParams();
   const { currentUser } = useAuth();
   const isAdmin = currentUser?.role === "system_admin";
-  const tools = IMPORT_TOOLS.filter((t) => !t.adminOnly || isAdmin);
+  const tool = sp.get("tool") ?? "";
+  const sources = SOURCES.filter((s) => !s.adminOnly || isAdmin);
+  const activeStep = tool ? 2 : 1;
+
+  const setTool = (t: string) => {
+    const next = new URLSearchParams(sp);
+    if (t) next.set("tool", t);
+    else next.delete("tool");
+    setSp(next, { replace: true });
+  };
 
   return (
-    <div className="space-y-4 p-4 sm:p-6">
+    <div className="mx-auto max-w-screen-xl space-y-4 px-4 py-5 sm:py-7">
       <header>
         <h1 className="text-xl font-bold sm:text-2xl">取り込む</h1>
         <p className="mt-1 text-[13px] text-secondary-foreground">
           取り込んだ内容は確認してから登録します。いきなり登録されることはありません。
         </p>
       </header>
-      <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {tools.map((t) => (
-          <li key={t.tool}>
-            <Link
-              to={`/finance/import?tool=${t.tool}`}
-              className="flex h-full items-start gap-3 rounded-lg border border-border bg-card px-4 py-3 transition-colors hover:bg-secondary"
+
+      {/* 1本道のステップ */}
+      <ol className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        {STEPS.map((s) => (
+          <li
+            key={s.no}
+            className={cn(
+              "flex items-start gap-2.5 rounded-lg border px-3 py-2.5",
+              s.no === activeStep ? "border-primary bg-primary/[0.04]" : "border-border bg-card"
+            )}
+          >
+            <span
+              className={cn(
+                "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-bold",
+                s.no === activeStep ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+              )}
             >
-              <t.Icon className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
-              <span className="min-w-0 flex-1">
-                <span className="block text-[14px] font-bold text-foreground">{t.label}</span>
-                <span className="mt-0.5 block text-[12px] leading-relaxed text-secondary-foreground">
-                  {t.description}
-                </span>
-              </span>
-              <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            </Link>
+              {s.no}
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[14px] font-bold text-foreground">{s.label}</span>
+              <span className="mt-0.5 block text-[12px] leading-relaxed text-secondary-foreground">{s.detail}</span>
+            </span>
           </li>
         ))}
-      </ul>
+      </ol>
+
+      {/* 取込元 */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[12px] text-muted-foreground">取込元:</span>
+        {sources.map((s) => (
+          <button
+            key={s.tool}
+            type="button"
+            onClick={() => setTool(s.tool)}
+            aria-pressed={tool === s.tool}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-control border px-3 py-1.5 text-[13px] transition-colors",
+              tool === s.tool
+                ? "border-primary bg-primary/10 font-bold text-primary"
+                : "border-border text-secondary-foreground hover:bg-secondary"
+            )}
+          >
+            <s.Icon className="h-3.5 w-3.5" aria-hidden="true" />
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 取込元を選ぶ前 */}
+      {!tool && (
+        <ul className="grid gap-3 md:grid-cols-2">
+          {sources.map((s) => (
+            <li key={s.tool}>
+              <button
+                type="button"
+                onClick={() => setTool(s.tool)}
+                className="flex h-full w-full items-start gap-3 rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:border-primary/40 hover:bg-secondary"
+              >
+                <s.Icon className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[14px] font-bold text-foreground">{s.label}</span>
+                  <span className="mt-0.5 block text-[12px] leading-relaxed text-secondary-foreground">{s.hint}</span>
+                </span>
+                <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* 選んだ取込元の本体 (2 確認する → 3 登録する はこの中) */}
+      {tool === "xpoint" && <XpointImportPage embedded />}
+      {tool === "kessan" && isAdmin && <KessanImportPage embedded />}
+      {tool === "dedup" && isAdmin && <DedupScreeningPage embedded />}
+
+      {/* 仕上げ: 二重計上の確認 (管理者のみ) */}
+      {isAdmin && tool !== "dedup" && (
+        <section className="rounded-lg border border-border bg-card px-4 py-3">
+          <h2 className="text-[14px] font-bold text-foreground">仕上げ: 同じ支払いが2回入っていないか調べる</h2>
+          <p className="mt-0.5 text-[12px] text-secondary-foreground">
+            手入力した行と決算インポートした行が重なっていないかを確認し、決算側だけを消せます（手入力は必ず残します）。
+          </p>
+          <button
+            type="button"
+            onClick={() => setTool("dedup")}
+            className="mt-2 inline-flex items-center gap-1 text-[13px] text-primary underline underline-offset-2"
+          >
+            二重計上を調べる
+            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </section>
+      )}
     </div>
   );
 }

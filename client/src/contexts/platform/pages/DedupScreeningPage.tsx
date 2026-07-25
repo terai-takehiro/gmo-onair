@@ -37,7 +37,7 @@ const yen = (n: number) => "¥" + Number(n || 0).toLocaleString();
 type Scope = "sga" | "revenues" | "purchases" | "all";
 const TABLE_LABEL: Record<string, string> = { revenues: "売上", purchases: "仕入", sga: "販管費" };
 
-export default function DedupScreeningPage() {
+export default function DedupScreeningPage({ embedded }: { embedded?: boolean } = {}) {
   const { currentUser } = useAuth();
   const isSystemAdmin = currentUser?.role === "system_admin";
 
@@ -78,8 +78,8 @@ export default function DedupScreeningPage() {
 
   return (
     <PageTransition>
-      <div className="mx-auto max-w-4xl space-y-5 p-4 sm:p-6">
-        <div className="flex items-center gap-2">
+      <div className={embedded ? "space-y-5" : "mx-auto max-w-4xl space-y-5 p-4 sm:p-6"}>
+        <div className={embedded ? "hidden" : "flex items-center gap-2"}>
           <CopyCheck className="h-6 w-6 text-primary" />
           <h1 className="text-xl font-bold lg:text-2xl">二重計上スクリーニング</h1>
         </div>

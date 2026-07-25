@@ -152,7 +152,7 @@ function settlementPrefix(format: string): string {
   return format === "rakuraku" ? "楽" : "X";
 }
 
-export default function XpointImportPage() {
+export default function XpointImportPage({ embedded }: { embedded?: boolean } = {}) {
   const queryClient = useQueryClient();
   const [folderInput, setFolderInput] = useState("");
   const [scanned, setScanned] = useState<{ folderId: string; folderUrl: string; files: XpointFileRow[] } | null>(null);
@@ -266,8 +266,8 @@ export default function XpointImportPage() {
 
   return (
     <PageTransition>
-      <div className="space-y-4 lg:space-y-6 p-3 lg:p-6 mx-auto max-w-screen-xl">
-        <div>
+      <div className={embedded ? "space-y-4 lg:space-y-6" : "space-y-4 lg:space-y-6 p-3 lg:p-6 mx-auto max-w-screen-xl"}>
+        <div className={embedded ? "hidden" : undefined}>
           <h1 className="text-xl lg:text-2xl font-bold">精算 PDF 取込 (X-Point / 楽楽精算)</h1>
           <p className="text-sm text-muted-foreground mt-1">
             X-Point / 楽楽精算の申請 PDF を読み込み、内容を確認・修正してから仕入 / 販管費に登録します。
@@ -275,8 +275,8 @@ export default function XpointImportPage() {
           </p>
         </div>
 
-        {/* 使い方 3 ステップ */}
-        <div className="rounded-xl border bg-card p-3 sm:p-4">
+        {/* 使い方 3 ステップ (枠に出すので埋め込み時は隠す) */}
+        <div className={embedded ? "hidden" : "rounded-xl border bg-card p-3 sm:p-4"}>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
             {[
               { icon: CloudUpload, title: "1. PDF を取り込む", desc: "Box フォルダに置いて読み込むか、この画面に直接アップロード" },

@@ -1,6 +1,15 @@
+/**
+ * FinancePage — お金 (§4.11 / デザイン 14a / 15a)
+ *
+ * KPI 7 枚を並べるのをやめ、**損益の流れ** (売上 −変動原価 = 粗利 −固定原価 = 売上総利益 −販管費 = 営業利益)
+ * として関係が読める形にした。数字はクリックで明細へ。
+ *
+ * `?view=review3col` で **3列レビュー表示** (売上 ｜ 仕入(変動原価)+固定原価 ｜ 販管費) に切り替わる。
+ * 財務MTGはこの表示でレビューする。上部は損益の流れを1行帯に圧縮し、「MTG用に出す」で印刷できる。
+ */
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
 import { formatCurrency, formatMonth } from "@/lib/format";
 import { PageTransition } from "@/components/ui/motion";
@@ -13,11 +22,14 @@ import {
 } from "@/components/ui/select";
 import {
   DashboardHeader,
-  KpiCard,
   SectionCard,
   EmptyState,
 } from "@gmo-onair/shared/src/client/dashboard";
-import { Loader2, AlertCircle, RefreshCw, ExternalLink, Receipt, ShoppingCart, DollarSign } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  Loader2, AlertCircle, RefreshCw, ExternalLink, Receipt, ShoppingCart, DollarSign,
+  Printer, LayoutGrid, Columns3, Upload,
+} from "lucide-react";
 
 interface MonthlySummary {
   month: string;
@@ -46,8 +58,18 @@ const EMPTY_SUMMARY: MonthlySummary = {
 type PeriodMode = "month" | "quarter" | "year" | "range";
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
-export default function BudgetDashboardPage() {
+type ViewMode = "flow" | "review3col";
+
+export default function FinancePage() {
   const navigate = useNavigate();
+  const [sp, setSp] = useSearchParams();
+  const view: ViewMode = sp.get("view") === "review3col" ? "review3col" : "flow";
+  const setView = (v: ViewMode) => {
+    const next = new URLSearchParams(sp);
+    if (v === "flow") next.delete("view");
+    else next.set("view", v);
+    setSp(next, { replace: true });
+  };
   const now = new Date();
   const curYm = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}`;
   const [periodMode, setPeriodMode] = useState<PeriodMode>("month");
@@ -202,29 +224,74 @@ export default function BudgetDashboardPage() {
     </li>
   );
 
-  const refreshButton = (
-    <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} aria-label="データ更新">
-      {isFetching ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1 h-4 w-4" />}
-      更新
-    </Button>
-  );
-
   const marginalPct = summary.revenue_total > 0 ? (summary.marginal_profit / summary.revenue_total * 100) : 0;
   const grossMarginPct = summary.revenue_total > 0 ? (summary.gross_profit / summary.revenue_total * 100) : 0;
   const operatingMarginPct = summary.revenue_total > 0 ? (summary.operating_profit / summary.revenue_total * 100) : 0;
+
+  const headerControls = (
+    <div className="flex flex-wrap items-center gap-2 print:hidden">
+      {/* 表示切替 — 同じ画面の切り替え (別ページを作らない) */}
+      <div className="inline-flex rounded-control border border-border p-0.5">
+        {([["flow", "損益の流れ", LayoutGrid], ["review3col", "3列レビュー", Columns3]] as const).map(([v, label, Icon]) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => setView(v as ViewMode)}
+            aria-pressed={view === v}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-[9px] px-2.5 py-1.5 text-[13px] transition-colors",
+              view === v ? "bg-secondary font-bold text-foreground" : "text-secondary-foreground hover:bg-secondary"
+            )}
+          >
+            <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+            {label}
+          </button>
+        ))}
+      </div>
+      {view === "review3col" && (
+        <Button variant="outline" size="sm" className="gap-1" onClick={() => window.print()}>
+          <Printer className="h-4 w-4" aria-hidden="true" />
+          MTG用に出す
+        </Button>
+      )}
+      <Button variant="outline" size="sm" className="gap-1" onClick={() => navigate("/finance/import")}>
+        <Upload className="h-4 w-4" aria-hidden="true" />
+        取り込む
+      </Button>
+      <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} aria-label="データ更新">
+        {isFetching ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1 h-4 w-4" />}
+        更新
+      </Button>
+    </div>
+  );
+
+  /** 損益の流れ 1 段 */
+  const flowSteps: Array<{ label: string; value: number; sub?: string; op?: string; tone?: "profit"; pct?: number; to?: string }> = [
+    { label: "売上", value: summary.revenue_total, sub: `確定売上 ${revenueRows.length}件`, op: "−", to: "/finance?tab=revenue" },
+    { label: "仕入（変動原価）", value: summary.variable_cost_total, sub: `案件に紐づく ${variablePurchaseRows.length}件`, op: "=", to: "/finance?tab=purchase" },
+    { label: "粗利（限界利益）", value: summary.marginal_profit, tone: "profit", pct: marginalPct, op: "−" },
+    { label: "固定原価", value: summary.fixed_cost_total, sub: `償却負担額など ${fixedPurchaseRows.length}件`, op: "=", to: "/finance?tab=purchase" },
+    { label: "売上総利益", value: summary.gross_profit, tone: "profit", pct: grossMarginPct, op: "−" },
+    { label: "販管費", value: summary.sga_total, sub: projectId ? "案件絞り込み中は対象外" : `案件に紐づかない ${sgaRows.length}件`, op: "=", to: "/finance?tab=sga" },
+    { label: "営業利益", value: summary.operating_profit, tone: "profit", pct: operatingMarginPct },
+  ];
 
   return (
     <PageTransition>
       <div className="space-y-5 p-4 sm:space-y-6 sm:p-6">
         <DashboardHeader
-          title="財務ダッシュボード"
-          description="売上・変動原価・限界利益・固定原価・売上総利益・販管費・営業利益を、月／四半期／年／期間指定で確認します。"
-          period={period.label}
-          controls={refreshButton}
+          title="お金"
+          description={
+            view === "review3col"
+              ? "売上 ｜ 仕入（変動原価）＋固定原価 ｜ 販管費 を横並びでレビューします。行をクリックすると編集が開きます。"
+              : "左から順に引いていくと営業利益になります。数字はクリックで明細へ。"
+          }
+          period={`${period.label} ・ 確定売上ベース ・ ${projectId ? "案件で絞り込み中（販管費は対象外）" : "全案件（販管費含む）"}`}
+          controls={headerControls}
         />
 
         {/* 絞り込みフィルタ */}
-        <SectionCard title="集計条件" description="集計期間（月／四半期／年／期間指定）と案件で絞り込みます。" padding="compact">
+        <SectionCard title="集計条件" description="集計期間（月／四半期／年／期間指定）と案件で絞り込みます。" padding="compact" className="print:hidden">
           {/* 期間モード切替 */}
           <div className="mb-3 inline-flex flex-wrap rounded-lg border border-border p-0.5">
             {([["month", "月"], ["quarter", "四半期"], ["year", "年"], ["range", "期間指定"]] as [PeriodMode, string][]).map(([m, lbl]) => (
@@ -318,49 +385,94 @@ export default function BudgetDashboardPage() {
           </div>
         )}
 
-        {/* 主要指標 — 損益の流れ: 売上 −変動原価= 粗利(限界利益) −固定原価= 売上総利益 −販管費= 営業利益 */}
-        <section aria-labelledby="budget-kpi-heading">
-          <h2 id="budget-kpi-heading" className="sr-only">損益サマリー</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
-            <KpiCard label="売上" value={formatCurrency(summary.revenue_total)} loading={isFetching && !hasData} />
-            <KpiCard label="仕入（変動原価）" value={formatCurrency(summary.variable_cost_total)} loading={isFetching && !hasData} />
-            <KpiCard
-              label="粗利（限界利益）"
-              value={formatCurrency(summary.marginal_profit)}
-              emphasis={summary.marginal_profit >= 0 ? 'success' : 'negative'}
-              unit={hasData && summary.revenue_total > 0 ? `${marginalPct.toFixed(1)}%` : undefined}
-              loading={isFetching && !hasData}
-            />
-            <KpiCard label="固定原価" value={formatCurrency(summary.fixed_cost_total)} loading={isFetching && !hasData} />
-            <KpiCard
-              label="売上総利益"
-              value={formatCurrency(summary.gross_profit)}
-              emphasis={summary.gross_profit >= 0 ? 'success' : 'negative'}
-              unit={hasData && summary.revenue_total > 0 ? `${grossMarginPct.toFixed(1)}%` : undefined}
-              loading={isFetching && !hasData}
-            />
-            <KpiCard label="販管費" value={formatCurrency(summary.sga_total)} loading={isFetching && !hasData} />
-            <KpiCard
-              label="営業利益"
-              value={formatCurrency(summary.operating_profit)}
-              emphasis={summary.operating_profit >= 0 ? 'success' : 'negative'}
-              unit={hasData && summary.revenue_total > 0 ? `${operatingMarginPct.toFixed(1)}%` : undefined}
-              loading={isFetching && !hasData}
-            />
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            売上 −変動原価 = <span className="font-medium text-foreground">粗利（限界利益）</span> ／
-            粗利 −固定原価 = <span className="font-medium text-foreground">売上総利益</span> ／
-            売上総利益 −販管費 = <span className="font-medium text-foreground">営業利益</span>
-          </p>
+        {/* 損益の流れ (14a) — 関係が読める形にする。KPI を7枚並べるのをやめた */}
+        <section aria-labelledby="pl-flow-heading">
+          <h2 id="pl-flow-heading" className="sr-only">損益の流れ</h2>
+          {view === "review3col" ? (
+            /* 3列レビュー: 1行帯に圧縮 */
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-border bg-card px-4 py-3">
+              {flowSteps.map((f, i) => (
+                <span key={f.label} className="flex items-center gap-3">
+                  <span className="whitespace-nowrap">
+                    <span className="mr-1.5 text-[12px] text-secondary-foreground">{f.label}</span>
+                    <span
+                      className={cn(
+                        "text-[15px] font-bold tabular-nums",
+                        f.tone === "profit" ? (f.value >= 0 ? "text-success" : "text-destructive") : "text-foreground"
+                      )}
+                    >
+                      {formatCurrency(f.value)}
+                    </span>
+                    {f.pct !== undefined && hasData && summary.revenue_total > 0 && (
+                      <span className="ml-1 text-[11px] text-muted-foreground">{f.pct.toFixed(1)}%</span>
+                    )}
+                  </span>
+                  {f.op && <span aria-hidden="true" className="text-[15px] font-bold text-muted-foreground">{f.op}</span>}
+                  {i === flowSteps.length - 1 && null}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-stretch gap-2">
+                {flowSteps.map((f) => (
+                  <span key={f.label} className="flex items-stretch gap-2">
+                    <button
+                      type="button"
+                      disabled={!f.to}
+                      onClick={() => f.to && navigate(f.to)}
+                      className={cn(
+                        "min-w-[152px] flex-1 rounded-lg border px-3 py-2.5 text-left transition-colors",
+                        f.tone === "profit" ? "border-primary/30 bg-primary/[0.04]" : "border-border bg-card",
+                        f.to ? "hover:border-primary/40 hover:bg-secondary cursor-pointer" : "cursor-default"
+                      )}
+                      title={f.to ? "クリックで明細へ" : undefined}
+                    >
+                      <span className="block text-[12px] text-secondary-foreground">{f.label}</span>
+                      <span
+                        className={cn(
+                          "mt-0.5 block whitespace-nowrap text-lg font-bold tabular-nums",
+                          f.tone === "profit" ? (f.value >= 0 ? "text-success" : "text-destructive") : "text-foreground"
+                        )}
+                      >
+                        {formatCurrency(f.value)}
+                        {f.pct !== undefined && hasData && summary.revenue_total > 0 && (
+                          <span className="ml-1 text-[11px] font-medium text-muted-foreground">{f.pct.toFixed(1)}%</span>
+                        )}
+                      </span>
+                      {f.sub && <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{f.sub}</span>}
+                    </button>
+                    {f.op && (
+                      <span aria-hidden="true" className="flex items-center text-lg font-bold text-muted-foreground">
+                        {f.op}
+                      </span>
+                    )}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                左から順に引いていくと営業利益になります。
+                {projectId && "案件で絞り込むと販管費は集計から外れます（販管費は案件に紐づかないため）。"}
+              </p>
+            </>
+          )}
         </section>
 
-        {/* 内訳 (明細) — PC は横並び 3 カラム */}
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3 lg:gap-6">
+        {/* 内訳 (明細) — 3列。レビュー表示では印刷でも3列を維持する */}
+        <div
+          className={cn(
+            "grid gap-5 lg:gap-6",
+            view === "review3col" ? "grid-cols-1 md:grid-cols-3" : "grid-cols-1 lg:grid-cols-3"
+          )}
+        >
           {/* 売上 内訳 */}
           <SectionCard
-            title="売上 内訳"
-            description="選択月の売上明細です。"
+            title="売上"
+            description={
+              view === "review3col"
+                ? `${formatCurrency(summary.revenue_total)} ／ 確定売上 ${revenueRows.length}件 ・ 計上月 ${period.label}`
+                : "選択期間の売上明細です。"
+            }
             icon={<DollarSign />}
             footnote={`${revenueRows.length} 件`}
           >
@@ -396,8 +508,12 @@ export default function BudgetDashboardPage() {
           {/* 仕入(変動原価) 内訳 + 固定原価 内訳 を中央カラムに縦積み */}
           <div className="space-y-5 lg:space-y-6">
             <SectionCard
-              title="仕入（変動原価） 内訳"
-              description="案件に紐づく変動原価の明細です。申請URLボタンで精算ページを開けます。"
+              title="仕入（変動原価）"
+              description={
+                view === "review3col"
+                  ? `${formatCurrency(summary.variable_cost_total)} ／ 案件に紐づく ${variablePurchaseRows.length}件 ・ 申請URLから精算へ`
+                  : "案件に紐づく変動原価の明細です。申請URLボタンで精算ページを開けます。"
+              }
               icon={<ShoppingCart />}
               footnote={`${variablePurchaseRows.length} 件`}
             >
@@ -411,8 +527,12 @@ export default function BudgetDashboardPage() {
             </SectionCard>
 
             <SectionCard
-              title="固定原価 内訳"
-              description="固定原価プロジェクト（スタジオ償却負担額等）に計上された原価です。"
+              title="固定原価"
+              description={
+                view === "review3col"
+                  ? `${formatCurrency(summary.fixed_cost_total)} ／ スタジオ償却負担額など ${fixedPurchaseRows.length}件`
+                  : "固定原価プロジェクト（スタジオ償却負担額等）に計上された原価です。"
+              }
               icon={<ShoppingCart />}
               footnote={`${fixedPurchaseRows.length} 件`}
             >
@@ -429,8 +549,12 @@ export default function BudgetDashboardPage() {
           {/* 販管費 内訳 (案件絞り込み時は非表示) */}
           {!projectId && (
             <SectionCard
-              title="販管費 内訳"
-              description="選択月の販管費明細です。申請URLボタンで精算ページを開けます。"
+              title="販管費"
+              description={
+                view === "review3col"
+                  ? `${formatCurrency(summary.sga_total)} ／ 案件に紐づかない ${sgaRows.length}件`
+                  : "選択期間の販管費明細です。申請URLボタンで精算ページを開けます。"
+              }
               icon={<Receipt />}
               footnote={`${sgaRows.length} 件`}
             >
@@ -476,6 +600,11 @@ export default function BudgetDashboardPage() {
             </SectionCard>
           )}
         </div>
+
+        <p className="text-[12px] text-muted-foreground">
+          案件で絞り込むと販管費は集計から外れます（販管費は案件に紐づかないため）。3列表示のときも同じ挙動です。
+          金額はすべて税抜です。
+        </p>
       </div>
     </PageTransition>
   );

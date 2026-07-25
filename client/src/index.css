@@ -280,3 +280,20 @@
   font-style: italic;
   opacity: 0.75;
 }
+
+/* ── MTG用に出す (お金 > 3列レビューの印刷) ─────────────────────
+   レール・上辺・操作系は紙に不要なので落とし、3列を横並びのまま出す。 */
+@media print {
+  aside,
+  header[class*="sticky"],
+  nav[aria-label="下タブ"] {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+  }
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+}
