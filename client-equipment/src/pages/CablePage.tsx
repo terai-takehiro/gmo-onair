@@ -96,7 +96,7 @@ function KindBadge({ code }: { code: KindCode }) {
   );
 }
 
-export default function CablePage() {
+export default function CablePage({ embedded }: { embedded?: boolean } = {}) {
   const qc = useQueryClient();
   const { hasPermission } = useAuth();
   const canEdit = hasPermission("equipment", "editor");
@@ -339,7 +339,7 @@ export default function CablePage() {
     <div className="space-y-4 p-4 lg:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="heading-page text-xl lg:text-2xl">ケーブル管理</h1>
+          <h1 className={embedded ? "hidden" : "heading-page text-xl lg:text-2xl"}>ケーブル管理</h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             {items.length} 種類 / 合計 {totalQuantity.toLocaleString()} 本
           </p>

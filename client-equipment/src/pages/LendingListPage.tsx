@@ -1,3 +1,4 @@
+import { useSearchParams } from "react-router-dom";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,11 @@ const today = new Date().toISOString().split("T")[0];
 
 export default function LendingListPage() {
   const qc = useQueryClient();
+  // 案件から来たとき (`?project_id=`) は番組貸出として案件を最初から入れておく (§4.16)。
+  // ここで拾わないと「案件から貸出を始められる」が案件を選び直させる導線になってしまう。
+  const [urlParams] = useSearchParams();
+  const fromProjectId = urlParams.get("project_id") ?? "";
+  const fromProjectName = urlParams.get("project_name") ?? "";
 
   // ─── Lending list state ───────────────────────────────────
   const [filterStatus, setFilterStatus] = useState("lent");
@@ -29,11 +35,13 @@ export default function LendingListPage() {
   const [step, setStep] = useState<"select" | "form">("select");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [typeTab, setTypeTab] = useState("");
-  const [lendingType, setLendingType] = useState<"standalone" | "program">("standalone");
-  const [projectSearch, setProjectSearch] = useState("");
+  const [lendingType, setLendingType] = useState<"standalone" | "program">(
+    fromProjectId ? "program" : "standalone"
+  );
+  const [projectSearch, setProjectSearch] = useState(fromProjectName);
   const [form, setForm] = useState({
     borrower_name: "", purpose: "",
-    lent_at: today, due_date: "", notes: "", project_id: "",
+    lent_at: today, due_date: "", notes: "", project_id: fromProjectId,
   });
 
   // ─── Return dialog ────────────────────────────────────────
@@ -121,7 +129,7 @@ export default function LendingListPage() {
     setTypeTab("");
     setLendingType("standalone");
     setProjectSearch("");
-    setForm({ borrower_name: "", purpose: "", lent_at: today, due_date: "", notes: "", project_id: "" });
+    setForm({ borrower_name: "", purpose: "", lent_at: today, due_date: "", notes: "", project_id: fromProjectId });
   };
 
   const openDialog = () => {

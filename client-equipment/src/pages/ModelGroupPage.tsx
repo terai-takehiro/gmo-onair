@@ -216,7 +216,7 @@ function CategoryManagerDialog({ open, onClose }: { open: boolean; onClose: () =
 }
 
 // ─── メインページ ─────────────────────────────────────────────────────
-export default function ModelGroupPage() {
+export default function ModelGroupPage({ embedded }: { embedded?: boolean } = {}) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
@@ -338,7 +338,7 @@ export default function ModelGroupPage() {
     <div className="space-y-4 p-3 lg:p-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-xl lg:text-2xl font-bold">貸出機材一覧</h1>
+        <h1 className={embedded ? "hidden" : "text-xl lg:text-2xl font-bold"}>貸出機材一覧</h1>
         <div className="flex items-center gap-2">
           {!isLoading && (
             <p className="text-sm text-muted-foreground">

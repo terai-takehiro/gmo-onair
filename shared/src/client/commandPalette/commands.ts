@@ -88,9 +88,9 @@ const OPEN_COMMANDS: CommandDef[] = [
   { id: 'open-equipment-lendings', kind: 'open', label: '貸出管理', path: '/equipment/lendings', keywords: 'kashidashi lending 貸出', module: 'equipment' },
   { id: 'open-equipment-inventory', kind: 'open', label: '棚卸し', path: '/equipment/inventory', keywords: 'tanaoroshi inventory 棚卸', module: 'equipment' },
   { id: 'open-equipment-maintenance', kind: 'open', label: 'メンテナンス', path: '/equipment/maintenance', keywords: 'maintenance 修理 点検', module: 'equipment' },
-  { id: 'open-equipment-racks', kind: 'open', label: 'ラック実装', path: '/equipment/racks', keywords: 'rack ラック 実装', module: 'equipment' },
-  { id: 'open-equipment-cables', kind: 'open', label: 'ケーブル管理', path: '/equipment/cables', keywords: 'cable ケーブル', module: 'equipment' },
-  { id: 'open-equipment-connectors', kind: 'open', label: 'コネクタ管理', path: '/equipment/connectors', keywords: 'connector コネクタ', module: 'equipment' },
+  { id: 'open-equipment-racks', kind: 'open', label: 'ラック実装', path: '/equipment/items?kind=racks', keywords: 'rack ラック 実装', module: 'equipment' },
+  { id: 'open-equipment-cables', kind: 'open', label: 'ケーブル管理', path: '/equipment/items?kind=cables', keywords: 'cable ケーブル', module: 'equipment' },
+  { id: 'open-equipment-connectors', kind: 'open', label: 'コネクタ管理', path: '/equipment/items?kind=connectors', keywords: 'connector コネクタ', module: 'equipment' },
   { id: 'open-equipment-masters', kind: 'open', label: '機材のマスター (保管場所・メーカー・色)', path: '/equipment/locations', keywords: 'master 保管場所 メーカー 色', module: 'equipment' },
 
   // 現場の道具

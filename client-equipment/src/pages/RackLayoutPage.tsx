@@ -64,7 +64,7 @@ function slotToColumn(slot: string): { start: number; span: number } {
 
 
 // ── Page ──────────────────────────────────────────────────────────────────────
-export default function RackLayoutPage() {
+export default function RackLayoutPage({ embedded }: { embedded?: boolean } = {}) {
   const navigate = useNavigate();
   const [sp, setSp] = useSearchParams();
   const qc = useQueryClient();
@@ -394,7 +394,7 @@ export default function RackLayoutPage() {
       {/* Header */}
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <h1 className="heading-page text-lg sm:text-xl lg:text-2xl flex items-center gap-2">
+          <h1 className={embedded ? "hidden" : "heading-page text-lg sm:text-xl lg:text-2xl flex items-center gap-2"}>
             <Server className="h-5 w-5 text-amber-500" />
             ラック実装ビュー
           </h1>

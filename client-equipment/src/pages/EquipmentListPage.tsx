@@ -78,7 +78,7 @@ const defaultForm = {
 
 type BulkField = 'branch_code' | 'asset_class' | 'equipment_section' | 'equipment_type_code' | 'location_id' | 'purchased_at' | 'warranty_years' | 'depreciation_years' | 'status' | 'notes' | 'name' | 'manufacturer_id' | 'model_number' | 'serial_number' | 'unit_number' | 'fixed_asset_code' | 'condition' | 'color_id' | 'location_detail' | 'rack_position' | 'rack_height' | 'rack_slot' | 'rack_side';
 
-export default function EquipmentListPage() {
+export default function EquipmentListPage({ embedded }: { embedded?: boolean } = {}) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const qc = useQueryClient();
@@ -936,7 +936,7 @@ export default function EquipmentListPage() {
         </div>
       )}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="heading-page text-xl lg:text-2xl">機材一覧</h1>
+        <h1 className={embedded ? "hidden" : "heading-page text-xl lg:text-2xl"}>機材一覧</h1>
         <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
             <Upload className="h-4 w-4 mr-1" />Excelインポート

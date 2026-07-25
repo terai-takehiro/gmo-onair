@@ -1,11 +1,17 @@
-import { useQuery } from "@tanstack/react-query";
+/**
+ * EquipmentDailyPage — 機材 ＞ 日々 (§4.16 / デザイン 17b)
+ *
+ * 現場が毎日開く画面。**ダッシュボードという独立メニューをやめてここに統合**した。
+ * 上から 返ってきていないもの (その場で返却記録) → 今日と明日の出し入れ → 直しているもの、
+ * 右に 棚卸しの進捗 / 種別ごとの在庫 / よく使う操作。
+ */
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MAINTENANCE_STATUS, MAINTENANCE_TYPE, statusOf } from "@gmo-onair/shared/src/constants/statuses";
 import {
-  DashboardHeader,
   KpiCard,
   SectionCard,
   EmptyState,
@@ -29,21 +35,15 @@ import {
   Plug,
 } from "lucide-react";
 
-function fmtDate(dateStr: string | null) {
-  if (!dateStr) return "—";
-  const d = new Date(dateStr);
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-}
-
-function isOverdue(dueDateStr: string | null) {
-  if (!dueDateStr) return false;
-  return new Date(dueDateStr) < new Date();
-}
-
 // ステータス定義は shared/src/constants/statuses.ts に一元化済み (v2.4.0)
 
-export default function DashboardPage() {
+const TYPE_LABEL: Record<string, string> = {
+  V: "映像", C: "カメラ", A: "音声", IC: "インカム", NW: "ネットワーク", L: "照明", XR: "XR", E: "電源", "?": "未分類",
+};
+
+export default function EquipmentDailyPage() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["equipment-stats"],
@@ -80,6 +80,12 @@ export default function DashboardPage() {
     </Button>
   );
 
+  const markReturned = useMutation({
+    mutationFn: async (lendingId: string) =>
+      api.put(`/equipment/lendings/${lendingId}/return`, { returned_at: new Date().toISOString() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["equipment-stats"] }),
+  });
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-24">
@@ -105,16 +111,175 @@ export default function DashboardPage() {
   }
 
   const stats = data || {};
-  const recentLendings: any[] = stats.recent_lendings || [];
   const recentMaintenance: any[] = stats.recent_maintenance || [];
+  const overdueLendings: any[] = stats.overdue_lendings || [];
+  const todayMoves: any[] = stats.today_moves || [];
+  const byType: any[] = stats.by_type || [];
+  const todayKey = new Date().toISOString().slice(0, 10);
 
   return (
     <div className="space-y-5 p-4 sm:space-y-6 sm:p-6">
-      <DashboardHeader
-        title="機材ダッシュボード"
-        description="機材台帳・貸出・メンテナンスの状況を一望できます。"
-        controls={refreshButton}
-      />
+      <header className="flex flex-wrap items-end justify-between gap-2">
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold text-foreground sm:text-2xl">機材 ＞ 日々</h1>
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[13px] text-secondary-foreground">
+            貸出中 <span className="font-bold tabular-nums text-foreground">{stats.lent_out ?? 0}点</span>
+            <span aria-hidden="true">・</span>
+            <span className={overdueLendings.length > 0 ? "text-destructive" : undefined}>
+              返却遅延 <span className="font-bold tabular-nums">{overdueLendings.length}点</span>
+            </span>
+            <span aria-hidden="true">・</span>
+            修理中 <span className="font-bold tabular-nums text-foreground">{stats.in_repair ?? 0}点</span>
+            <span aria-hidden="true">・</span>
+            今日の出し入れ <span className="font-bold tabular-nums text-foreground">
+              {todayMoves.filter((m) => String(m.on_date).slice(0, 10) === todayKey).length}件
+            </span>
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" className="gap-1" onClick={() => navigate("/equipment/scan")}>
+            <QrCode className="h-4 w-4" aria-hidden="true" />
+            QRで読む
+          </Button>
+          <Button size="sm" className="gap-1" onClick={() => navigate("/equipment/lendings")}>
+            <ArrowRightLeft className="h-4 w-4" aria-hidden="true" />
+            貸し出す
+          </Button>
+          {refreshButton}
+        </div>
+      </header>
+
+      {/* ── 返ってきていないもの / 今日と明日の出し入れ / 直しているもの ── */}
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:gap-6">
+        <div className="min-w-0 space-y-5">
+          {/* 返ってきていないもの */}
+          <SectionCard
+            title="返ってきていないもの"
+            description="返却予定日を過ぎています。ここで返却を記録できます。"
+            icon={<AlertTriangle />}
+            footnote={`${overdueLendings.length} 点`}
+          >
+            {overdueLendings.length === 0 ? (
+              <EmptyState title="返却遅延はありません" />
+            ) : (
+              <ul className="divide-y divide-border">
+                {overdueLendings.map((o) => (
+                  <li key={o.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5">
+                    <span className="shrink-0 font-number text-[12px] text-primary">{o.eq_code || "—"}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[14px] font-bold text-foreground">{o.equipment_name}</span>
+                      <span className="block truncate text-[12px] text-secondary-foreground">
+                        {[o.borrower_name, o.project_name].filter(Boolean).join(" ・ ") || "貸出先 未記録"}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-[13px] font-bold tabular-nums text-destructive">
+                      {o.days_late}日 超過
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 shrink-0 text-[12px]"
+                      disabled={markReturned.isPending}
+                      onClick={() => markReturned.mutate(o.id)}
+                    >
+                      返却を記録
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </SectionCard>
+
+          {/* 今日と明日の出し入れ */}
+          <SectionCard
+            title="今日と明日の出し入れ"
+            description="貸出の日付から自動で出しています。"
+            icon={<CalendarDays />}
+            footnote={`${todayMoves.length} 件`}
+          >
+            {todayMoves.length === 0 ? (
+              <EmptyState title="今日と明日の出し入れはありません" />
+            ) : (
+              <ul className="divide-y divide-border">
+                {todayMoves.map((m, i) => {
+                  const isToday = String(m.on_date).slice(0, 10) === todayKey;
+                  return (
+                    <li key={`${m.kind}-${m.id}-${i}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5">
+                      <Badge
+                        className="shrink-0 text-[11px]"
+                        variant={m.kind === "out" ? "default" : "secondary"}
+                      >
+                        {m.kind === "out" ? "出庫" : "返却"}
+                      </Badge>
+                      <span className="shrink-0 text-[12px] tabular-nums text-secondary-foreground">
+                        {isToday ? "今日" : "明日"}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[14px] text-foreground">{m.equipment_name}</span>
+                        <span className="block truncate text-[12px] text-secondary-foreground">
+                          {[m.project_name, m.borrower_name].filter(Boolean).join(" ・ ") || "—"}
+                        </span>
+                      </span>
+                      <span className="shrink-0 font-number text-[12px] text-primary">{m.eq_code || ""}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </SectionCard>
+        </div>
+
+        {/* 右: 棚卸し / 種別ごとの在庫 */}
+        <div className="min-w-0 space-y-5">
+          <SectionCard
+            title="棚卸し"
+            description={
+              (stats.pending_inventory ?? 0) > 0
+                ? "実施中の棚卸しがあります。QRで読むと ✓ が付きます。"
+                : "実施中の棚卸しはありません。"
+            }
+            icon={<ClipboardCheck />}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-bold tabular-nums text-foreground">{stats.pending_inventory ?? 0}</span>
+              <span className="text-[13px] text-secondary-foreground">件 実施中</span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="ml-auto"
+                onClick={() => navigate("/equipment/inventory")}
+              >
+                棚卸しを開く
+              </Button>
+            </div>
+          </SectionCard>
+
+          <SectionCard title="種別ごとの在庫" description="括弧の中は貸出中の数です。" icon={<Package />}>
+            {byType.length === 0 ? (
+              <EmptyState title="機材が登録されていません" />
+            ) : (
+              <ul className="space-y-1.5">
+                {byType.map((t) => {
+                  const pct = t.total > 0 ? Math.round((t.lent / t.total) * 100) : 0;
+                  return (
+                    <li key={t.type} className="flex items-center gap-2">
+                      <span className="w-24 shrink-0 truncate text-[13px] text-foreground">
+                        {TYPE_LABEL[t.type] ?? t.type}
+                      </span>
+                      <span className="h-4 flex-1 overflow-hidden rounded bg-secondary">
+                        <span className="block h-full rounded bg-primary/70" style={{ width: `${pct}%` }} />
+                      </span>
+                      <span className="w-20 shrink-0 text-right text-[12px] tabular-nums text-secondary-foreground">
+                        {t.total}（{t.lent}）
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </SectionCard>
+        </div>
+      </div>
 
       {/* 主要指標 */}
       <section aria-labelledby="equipment-kpi-heading">
@@ -249,67 +414,6 @@ export default function DashboardPage() {
               </button>
             )}
           </div>
-        </SectionCard>
-      )}
-
-      {/* 最近の貸出 */}
-      {recentLendings.length > 0 && (
-        <SectionCard
-          title={`貸出中 (${stats.lent_out ?? 0} 件)`}
-          icon={<ArrowRightLeft />}
-          actions={
-            <button
-              type="button"
-              className="text-xs text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
-              onClick={() => navigate("/equipment/lendings")}
-            >
-              すべて表示
-            </button>
-          }
-          padding="compact"
-        >
-          <ul className="space-y-2">
-            {recentLendings.map((l: any) => {
-              const overdue = isOverdue(l.due_date);
-              return (
-                <li
-                  key={l.id}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm border ${
-                    overdue ? "bg-warning/10 border-warning/30" : "bg-muted/40 border-border"
-                  }`}
-                >
-                  <CalendarDays
-                    className={`h-4 w-4 shrink-0 ${overdue ? "text-warning" : "text-muted-foreground"}`}
-                    aria-hidden="true"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">
-                      {l.equipment_name}
-                      {l.unit_number ? ` #${l.unit_number}` : ""}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {l.borrower_name}
-                      {l.project_name ? ` · ${l.project_name}` : ""}
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p
-                      className={`text-xs font-number tabular-nums ${
-                        overdue ? "text-warning font-semibold" : "text-muted-foreground"
-                      }`}
-                    >
-                      返却 {fmtDate(l.due_date)}
-                    </p>
-                    {overdue && (
-                      <Badge variant="warning" className="text-xs mt-1">
-                        遅延
-                      </Badge>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
         </SectionCard>
       )}
 

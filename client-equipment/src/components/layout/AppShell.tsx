@@ -1,9 +1,8 @@
 import { useMemo } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
-  BarChart3, Package, ClipboardList, Wrench, ClipboardCheck,
-  QrCode, MapPin, Building2, Palette, Server, Layers, Settings,
-  Cable, Plug,
+  ArrowRightLeft, Package, ClipboardList, Wrench, ClipboardCheck,
+  QrCode, MapPin, Building2, Palette, Settings,
 } from "lucide-react";
 import SharedAppShell from "@gmo-onair/shared/src/client/shell/AppShell";
 import { createPaletteSearch } from "@gmo-onair/shared/src/client/commandPalette/search";
@@ -16,25 +15,25 @@ import { useAuth } from "@/hooks/useAuth";
 import { EQUIPMENT_MANUAL } from "@/manual/content";
 
 /**
- * 機材管理の二次ナビ。
- * 14項目を「日々 / モノ / 設定」に割り直すのは Phase 10 (§4.16)。
- * ここではまずグループ見出しを入れて、どこに何があるか読めるようにした。
+ * 機材管理の二次ナビ (§4.16 / デザイン 17a)。
+ *
+ * 14項目を **日々 / モノ / 設定** に割り直した。
+ * 毎日使うのは 貸出・棚卸し・スキャン だけで、残りは台帳とマスター — 頻度も担当者も違う。
+ *   - 日々 (`/equipment`): ダッシュボードという独立メニューをやめてここに統合
+ *   - モノ (`/equipment/items`): 機材・貸出機材・ケーブル・コネクタ・ラック図を1つの種別タブに
+ *   - 設定: マスターは頻度が低いので下にまとめる (§4.17 で `/settings` へ寄せる)
  */
 const NAV_ITEMS: SecondaryNavItem[] = [
-  { label: "ダッシュボード", href: "/equipment", Icon: BarChart3, exact: true, groupTitle: "日々" },
+  { label: "日々（貸出・棚卸し）", href: "/equipment", Icon: ArrowRightLeft, exact: true, groupTitle: "日々" },
   { label: "貸出管理", href: "/equipment/lendings", Icon: ClipboardList },
   { label: "棚卸し", href: "/equipment/inventory", Icon: ClipboardCheck },
   { label: "メンテナンス", href: "/equipment/maintenance", Icon: Wrench },
   { label: "QRスキャン", href: "/equipment/scan", Icon: QrCode },
 
-  { label: "機材一覧", href: "/equipment/items", Icon: Package, groupTitle: "モノ" },
-  { label: "貸出機材一覧", href: "/equipment/model-groups", Icon: Layers },
-  { label: "ケーブル管理", href: "/equipment/cables", Icon: Cable },
-  { label: "コネクタ管理", href: "/equipment/connectors", Icon: Plug },
-  { label: "ラック実装", href: "/equipment/racks", Icon: Server },
+  { label: "モノ（台帳）", href: "/equipment/items", Icon: Package, groupTitle: "モノ" },
 
-  { label: "保管場所管理", href: "/equipment/locations", Icon: MapPin, groupTitle: "設定" },
-  { label: "メーカー管理", href: "/equipment/manufacturers", Icon: Building2 },
+  { label: "保管場所", href: "/equipment/locations", Icon: MapPin, groupTitle: "設定" },
+  { label: "メーカー", href: "/equipment/manufacturers", Icon: Building2 },
   { label: "機材色", href: "/equipment/colors", Icon: Palette },
   { label: "貸出機材設定", href: "/equipment/rental-settings", Icon: Settings },
 ];
