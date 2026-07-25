@@ -121,8 +121,16 @@ RUN npm run build --workspace=client-daily
 # ── Stage: build-server ───────────────────────
 # server は現状 shared workspace を import していないが、将来の参照に備えて
 # クライアントと同じく shared/ を含める (並列ビルドなので wall-clock への影響なし)
+#
+# server の prebuild が参照する外部ファイル (このステージに必須):
+#   - scripts/check-collab-parity.mjs  ← Yjs 変換層の 2 部 (shared / server) の一致を検証
+# 検証対象が shared/ と server/ の両方に跨るため、client ではなく server の prebuild に
+# 置いている (build-client には server/src/shared が無く v2.9.231 と同じ事故になる)。
+# COPY し忘れると prebuild が MODULE_NOT_FOUND で落ちる (v2.9.249 で実際に踏んだ)。
+# server の prebuild にスクリプトを足したら、その本体もここに COPY すること。
 FROM deps AS build-server
 COPY shared/ shared/
+COPY scripts/check-collab-parity.mjs scripts/
 COPY server/ server/
 RUN npm run build --workspace=server
 

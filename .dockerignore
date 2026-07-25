@@ -20,5 +20,8 @@ nginx
 !scripts/generate-version-history.mjs
 !scripts/generate-mcp-tools.mjs
 # server の prebuild = check-collab-parity.mjs (同時共同編集の変換層の一致検証)。
-# server/ と shared/ の両方を COPY する build-server ステージで走るので参照は揃う。
+# 検証対象が server/ と shared/ に跨るため build-server ステージで走らせる。
+# **ここでの再包含だけでは足りない**: Dockerfile の build-server にも
+# `COPY scripts/check-collab-parity.mjs scripts/` が必要 (検証対象が COPY されていても
+# スクリプト本体が無ければ MODULE_NOT_FOUND で落ちる。v2.9.249 で実際に踏んだ)。
 !scripts/check-collab-parity.mjs
