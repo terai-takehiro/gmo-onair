@@ -91,6 +91,12 @@ jobs:
       # チャネルタグ (:dev / :prod) は常に最新、sha タグはロールバック用に残る。
       - name: Build and push image
         uses: docker/build-push-action@v6
+        env:
+          # ビルドレコードを artifact としてアップロードしない。
+          # (このリポジトリは artifact ストレージの上限に達しており、
+          #  毎回 "Artifact storage quota has been hit" の警告でログが汚れるだけで
+          #  デプロイには不要。ビルド結果は Actions のログで確認できる。)
+          DOCKER_BUILD_SUMMARY: 'false'
         with:
           context: .
           push: true

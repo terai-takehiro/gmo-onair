@@ -31,11 +31,18 @@ COPY shared/package.json shared/
 RUN npm install --workspaces --include-workspace-root
 
 # ── Stage: build-client (案件管理) ─────────────
-# client の prebuild だけが CLAUDE.md + scripts/generate-*.mjs を参照する
+# client の prebuild (generate-version-history / generate-mcp-tools) だけが
+# ワークスペース外のファイルを参照する:
+#   - CLAUDE.md                        ← 「現在のバージョン」節をパース
+#   - scripts/generate-*.mjs           ← 生成スクリプト本体
+#   - server/src/contexts/mcp/tools/   ← registerTool() を走査して MCP ツール一覧を生成
+# この 3 つを COPY し忘れると prebuild が ENOENT で落ちるので、
+# prebuild に新しい生成スクリプトを足したら参照元もここに追加すること。
 FROM deps AS build-client
 COPY shared/ shared/
 COPY CLAUDE.md ./
 COPY scripts/ scripts/
+COPY server/src/contexts/mcp/tools/ server/src/contexts/mcp/tools/
 COPY client/ client/
 RUN npm run build --workspace=client
 
