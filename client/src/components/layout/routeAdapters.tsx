@@ -16,9 +16,7 @@ import { Link } from "react-router-dom";
 import { FileSearch, FlaskConical, CopyCheck, ChevronRight } from "lucide-react";
 import { useAuth } from "@/contexts/platform/AuthContext";
 
-import ProjectListPage from "@/contexts/sales/pages/ProjectListPage";
-import PipelinePage from "@/contexts/sales/pages/PipelinePage";
-import ConfirmedProjectsPage from "@/contexts/sales/pages/ConfirmedProjectsPage";
+import ProjectsPage from "@/contexts/sales/pages/ProjectsPage";
 import TaskDashboardPage from "@/contexts/tasks/pages/TaskDashboardPage";
 import ProjectTasksPage from "@/contexts/tasks/pages/ProjectTasksPage";
 import StudioCalendarPage from "@/contexts/production/pages/StudioCalendarPage";
@@ -69,14 +67,12 @@ export function RedirectTaskView() {
 // 新ルートのアダプタ
 // ─────────────────────────────────────────────
 
-/** /projects — ?view=board でボード、?filter=confirmed_* で確定案件 */
+/**
+ * /projects — リストとボードは同じ画面の切替 (§4.6)。
+ * `?view=board` と `?filter=confirmed_studio|confirmed_business` は ProjectsPage が読む。
+ */
 export function ProjectsRoute() {
-  const [sp] = useSearchParams();
-  const filter = sp.get("filter");
-  if (filter === "confirmed_studio") return <ConfirmedProjectsPage category="studio" />;
-  if (filter === "confirmed_business") return <ConfirmedProjectsPage category="business" />;
-  if (sp.get("view") === "board") return <PipelinePage />;
-  return <ProjectListPage />;
+  return <ProjectsPage />;
 }
 
 /** /tasks — ?scope=me|project|all &view=board|list|gantt */

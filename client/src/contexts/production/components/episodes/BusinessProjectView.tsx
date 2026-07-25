@@ -755,8 +755,8 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
               ? navigate(`/sales/projects/${projectId}`)
               : navigate(
                   isCategoryA
-                    ? "/projects/confirmed/studio"
-                    : "/projects/confirmed/business"
+                    ? "/projects?filter=confirmed_studio"
+                    : "/projects?filter=confirmed_business"
                 )
           }
         >

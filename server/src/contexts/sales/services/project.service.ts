@@ -99,15 +99,17 @@ export class ProjectService {
     let where = 'WHERE p.deleted_at IS NULL';
     const params: unknown[] = [];
 
-    // タブフィルタ
+    // タブフィルタ。タブごとの件数を出すために where 本体とは分けて持つ
+    // (タブ条件はプレースホルダを使わないので params の順序には影響しない)
+    let tabClause = '';
     if (filter.tab === 'yomi') {
-      where += ` AND p.gls_number IS NULL AND p.stage NOT IN ('e_lost')`;
+      tabClause = ` AND p.gls_number IS NULL AND p.stage NOT IN ('e_lost')`;
     } else if (filter.tab === 'active') {
-      where += ` AND p.gls_number IS NOT NULL AND p.stage NOT IN ('s_completed', 'e_lost')`;
+      tabClause = ` AND p.gls_number IS NOT NULL AND p.stage NOT IN ('s_completed', 'e_lost')`;
     } else if (filter.tab === 'completed') {
-      where += ` AND p.stage = 's_completed'`;
+      tabClause = ` AND p.stage = 's_completed'`;
     } else if (filter.tab === 'lost') {
-      where += ` AND p.stage = 'e_lost'`;
+      tabClause = ` AND p.stage = 'e_lost'`;
     }
 
     // 個別フィルタ
@@ -178,6 +180,11 @@ export class ProjectService {
       params.push(filter.eventTo, filter.eventFrom);
     }
 
+    // タブ以外の絞り込みだけを残した where (タブごとの件数用)
+    const whereNoTab = where;
+    const paramsNoTab = params;
+    where += tabClause;
+
     // v2.8.1+: sortBy='default' (または未指定) のときは「完了/失注は最後 + イベント日近い順」
     let orderBy: string;
     if (!filter.sortBy || filter.sortBy === 'default') {
@@ -199,7 +206,9 @@ export class ProjectService {
        COALESCE((SELECT SUM(r.amount) FROM revenues r WHERE r.project_id = p.id AND r.status = 'confirmed' AND r.deleted_at IS NULL AND r.group_id IS NULL), 0) as total_revenue,
        COALESCE((SELECT SUM(pu.amount) FROM purchases pu WHERE pu.project_id = p.id AND pu.deleted_at IS NULL AND pu.group_id IS NULL), 0) as total_purchase,
        (p.created_by = ? OR ai.audit_id IS NOT NULL) as is_ai_created,
-       ai.requested_by as ai_requested_by
+       ai.requested_by as ai_requested_by,
+       na.activity_id AS next_action_activity_id,
+       na.next_action, na.next_action_date
        FROM projects p
        LEFT JOIN customers c ON c.id = p.customer_id
        LEFT JOIN users u ON u.id = p.assigned_to
@@ -208,10 +217,62 @@ export class ProjectService {
          WHERE m.tool_name = 'create_project' AND m.result_summary->>'created_id' = p.id
          ORDER BY m.created_at ASC LIMIT 1
        ) ai ON TRUE
+       -- 次にやること = 未完了で期限が最も近いもの (/dashboard/sales-board と同じ定義)
+       LEFT JOIN LATERAL (
+         SELECT a.id AS activity_id, a.next_action, a.next_action_date
+         FROM activity_logs a
+         WHERE a.project_id = p.id AND a.deleted_at IS NULL
+           AND a.next_action IS NOT NULL AND a.next_action_date IS NOT NULL
+           AND a.next_action_done_at IS NULL
+         ORDER BY a.next_action_date ASC, a.created_at DESC
+         LIMIT 1
+       ) na ON TRUE
        ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
       [config.mcpActorId, ...params, limit, offset]
     );
-    return { rows, total, page, limit };
+
+    // 区分 (ネタ / 提案中 / 受注済・完了 / 失注) ごとの件数と金額。
+    // 1ページ分から数えるとページをまたいだ合計が出せないので、絞り込み全体で集計する。
+    const groupRows = await queryAll(
+      `SELECT CASE
+                WHEN p.stage = 'neta' THEN 'neta'
+                WHEN p.stage IN ('b_verbal','c_proposal','d_hold') THEN 'proposal'
+                WHEN p.stage IN ('s_completed','a_won') THEN 'won'
+                ELSE 'lost'
+              END AS grp,
+              COUNT(*)::int AS count,
+              COALESCE(SUM(p.expected_amount), 0)::float AS expected_total,
+              COALESCE(SUM((
+                SELECT COALESCE(SUM(r.amount), 0) FROM revenues r
+                WHERE r.project_id = p.id AND r.status = 'confirmed'
+                  AND r.deleted_at IS NULL AND r.group_id IS NULL
+              )), 0)::float AS confirmed_total
+       FROM projects p LEFT JOIN customers c ON c.id = p.customer_id
+       ${where}
+       GROUP BY grp`,
+      params
+    );
+
+    // タブごとの件数。タブ以外の絞り込み (検索・期間・AI) はそのまま効かせる。
+    const tabRows = await queryAll(
+      `SELECT
+         COUNT(*)::int AS all_count,
+         COUNT(*) FILTER (WHERE p.gls_number IS NULL AND p.stage <> 'e_lost')::int AS yomi,
+         COUNT(*) FILTER (WHERE p.gls_number IS NOT NULL AND p.stage NOT IN ('s_completed','e_lost'))::int AS active,
+         COUNT(*) FILTER (WHERE p.stage = 's_completed')::int AS completed,
+         COUNT(*) FILTER (WHERE p.stage = 'e_lost')::int AS lost
+       FROM projects p LEFT JOIN customers c ON c.id = p.customer_id
+       ${whereNoTab}`,
+      paramsNoTab
+    );
+
+    const summary = {
+      groups: groupRows as Record<string, unknown>[],
+      tabs: (tabRows[0] ?? { all_count: 0, yomi: 0, active: 0, completed: 0, lost: 0 }) as Record<string, unknown>,
+      expected_total: (groupRows as Record<string, number>[]).reduce((a, g) => a + Number(g.expected_total || 0), 0),
+    };
+
+    return { rows, total, page, limit, summary };
   }
 
   async getById(id: string) {

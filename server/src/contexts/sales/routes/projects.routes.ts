@@ -33,8 +33,9 @@ router.get('/', async (req, res) => {
     sortBy: req.query.sort_by as string,
     sortDir: (req.query.sort_dir as 'asc' | 'desc') || 'desc',
   };
-  const { rows, total } = await projectService.list(filter, page, limit, offset);
-  res.json(paginatedResponse(rows, total, page, limit));
+  const { rows, total, summary } = await projectService.list(filter, page, limit, offset);
+  // summary (区分ごとの件数・金額 / タブごとの件数) は既存レスポンスへの追加なので後方互換
+  res.json({ ...paginatedResponse(rows, total, page, limit), summary });
 });
 
 // CSV Export
