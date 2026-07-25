@@ -31,6 +31,10 @@ services:
   # 本番アプリ (gmo-onair.jp)
   # ──────────────────────────────────────
   app_prod:
+    # デプロイは GitHub Actions がビルドして GHCR に push したイメージを pull して使う
+    # (deploy.yml 参照)。APP_IMAGE_PROD を指定すればロールバック用の sha-<commit> タグ等に
+    # 差し替え可能。build: はローカル開発 / GHCR 障害時のフォールバック用に残置。
+    image: ${APP_IMAGE_PROD:-ghcr.io/terai-takehiro/gmo-onair:prod}
     build: .
     ports:
       - "127.0.0.1:3000:3000"
@@ -91,6 +95,9 @@ services:
   # 開発アプリ (dev.gmo-onair.jp)
   # ──────────────────────────────────────
   app_dev:
+    # prod と同じく GHCR のビルド済みイメージを pull (タグは :dev)。
+    # APP_IMAGE_DEV でロールバック用 sha-<commit> タグ等に差し替え可能。
+    image: ${APP_IMAGE_DEV:-ghcr.io/terai-takehiro/gmo-onair:dev}
     build:
       context: /root/gmo-onair-dev
     ports:

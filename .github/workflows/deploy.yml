@@ -20,6 +20,18 @@ concurrency:
   cancel-in-progress: true
 
 # ─────────────────────────────────────────────────────────────────────
+# デプロイパイプライン (v2.9.230 で全面刷新 — 詳細: docs/deploy-pipeline.md)
+#
+#   [build]  GitHub Actions ランナー上で Docker イメージをビルドし GHCR へ push。
+#            - Dockerfile はワークスペース別の並列ステージ構成。buildx の
+#              GHA レイヤーキャッシュにより「変更のないワークスペースのビルド」
+#              「依存が変わらない限りの npm install」は丸ごとスキップされる。
+#            - VPS (2GB RAM) 上ではもうビルドしない。デプロイ中に本番アプリの
+#              リソースを奪わず、ビルド時間もランナーの性能で大幅短縮。
+#   [deploy] VPS へ SSH し、GHCR から pull → コンテナ再作成のみ (1〜2 分)。
+#            GHCR 認証にはジョブの一時 GITHUB_TOKEN を使用 (追加 secret 不要)。
+#            pull に失敗した場合のみ従来どおり VPS 上でビルドにフォールバック。
+#
 # VPS 上のレイアウト (デプロイ前提):
 #   /root/gmo-onair      ← main ブランチの worktree (prod 専用)
 #   /root/gmo-onair-dev  ← dev ブランチの worktree (dev 専用)
@@ -33,16 +45,72 @@ concurrency:
 #   - prod デプロイは /root/gmo-onair だけを参照 (dev worktree を一切触らない)
 #   - 「次回デプロイで戻る」等の暗黙リセットには依存しない
 #   - --no-deps + --force-recreate でデプロイ対象外サービスへの影響を最小化
+#
+# ロールバック: GHCR には sha-<commit> タグも push される。
+#   VPS で `APP_IMAGE_DEV=ghcr.io/<repo>:sha-<旧commit> docker compose ... up -d app_dev`
+#   のように環境変数でイメージを差し替えれば任意のコミットへ即戻せる。
 # ─────────────────────────────────────────────────────────────────────
 
 jobs:
   # ============================================
+  # イメージビルド (GitHub ランナー上) → GHCR push
+  # ============================================
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      channel: ${{ steps.meta.outputs.channel }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve deploy channel (dev / prod)
+        id: meta
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ] || [ "${{ inputs.target }}" = "prod" ]; then
+            echo "channel=prod" >> "$GITHUB_OUTPUT"
+          else
+            echo "channel=dev" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # cache-from/to type=gha: npm install レイヤーと、変更のないワークスペースの
+      # ビルドステージがキャッシュヒットする (mode=max で中間ステージも保存)。
+      # チャネルタグ (:dev / :prod) は常に最新、sha タグはロールバック用に残る。
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ steps.meta.outputs.channel }}
+            ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================
   # 検証環境 (dev.gmo-onair.jp) — dev push で自動
   # ============================================
   deploy-dev:
+    needs: build
     if: github.ref == 'refs/heads/dev' || (github.event_name == 'workflow_dispatch' && inputs.target == 'dev')
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
 
     steps:
       - name: Setup SSH key
@@ -54,35 +122,35 @@ jobs:
 
       - name: Deploy to dev environment
         run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} bash -s << 'ENDSSH'
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "GHCR_USER='${{ github.actor }}' GHCR_TOKEN='${{ secrets.GITHUB_TOKEN }}' bash -s" << 'ENDSSH'
             set -euo pipefail
 
             # 1) dev worktree を最新に更新
-            #    Why: 以降のすべての操作 (compose build / volume マウント / nginx config) が
-            #         この worktree のファイルを直接参照するため、最初に同期する。
+            #    Why: compose ファイル / nginx config / .env 参照 / フォールバックビルドの
+            #         コンテキストがこの worktree のファイルを参照するため、最初に同期する。
             cd /root/gmo-onair-dev
             git fetch origin dev
             git reset --hard origin/dev
 
             # 2) dev worktree の docker-compose.yml を明示的に指定して dev 操作を行う。
             #    Why -f: cp で main worktree (/root/gmo-onair) を汚さない。
-            #            dev branch の compose / nginx 設定変更が確実に反映される。
             #    Why -p gmo-onair: prod デプロイと同じ project 名にすることで、
             #            app_prod / db / nginx を共有 (別プロジェクトとして並走しない)。
-            #    Why --env-file: docker compose は pwd の .env を読むが、cwd は dev worktree で
-            #            そこには .env が無い (gitignore)。secrets (DB_PASSWORD / JWT_SECRET 等) は
-            #            main worktree の /root/gmo-onair/.env にだけ置かれているので明示参照。
-            #            この修正がないと DATABASE_URL の ${DB_PASSWORD} が空文字になり、
-            #            app_dev が PostgreSQL に空パスワードで接続しようとして SASL エラーで起動失敗、
-            #            結果的に nginx → app_dev のプロキシで 502 が返る (v2.6.0〜v2.6.2 の症状)。
+            #    Why --env-file: secrets (DB_PASSWORD / JWT_SECRET 等) は main worktree の
+            #            /root/gmo-onair/.env にだけ置かれているので明示参照。
             COMPOSE_DEV="docker compose -p gmo-onair --env-file /root/gmo-onair/.env -f /root/gmo-onair-dev/docker-compose.yml"
 
-            # 3) app_dev のみ再ビルド & 再作成。
-            #    Why --no-cache: dev branch のソース変更を確実に bundle に反映するため
-            #                    (Docker レイヤーキャッシュ由来の古い JS 事故を防止)。
-            #    Why --no-deps:  app_prod / db / nginx を巻き込まない。
-            #    Why --force-recreate: 既存コンテナを停止せず一気に新コンテナへ置換。
-            $COMPOSE_DEV build --no-cache app_dev
+            # 3) GHCR にログインしてビルド済みイメージを pull (VPS 上ではビルドしない)。
+            #    GHCR_TOKEN はこのワークフロー実行中だけ有効な一時トークン。
+            #    pull に失敗した場合 (GHCR 障害等) のみ、従来どおり VPS 上でビルドに
+            #    フォールバックする (--no-cache は古い JS 事故防止の保険で従来踏襲)。
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            if $COMPOSE_DEV pull app_dev; then
+              echo "✓ pulled prebuilt image from GHCR"
+            else
+              echo "⚠ GHCR pull failed — falling back to on-VPS build"
+              $COMPOSE_DEV build --no-cache app_dev
+            fi
             $COMPOSE_DEV up -d --no-deps --force-recreate app_dev
 
             # 4) nginx を dev の compose + dev の nginx config で再作成。
@@ -91,7 +159,11 @@ jobs:
             #         prod デプロイ側は nginx に触れない (下記 deploy-prod 参照)。
             $COMPOSE_DEV up -d --no-deps --force-recreate nginx
 
-            # 5) 診断: app_dev / nginx の起動状況を deploy ログに必ず吐く。
+            # 5) 後片付け: 認証情報を残さない + タグ付け替えで dangling になった旧イメージを削除
+            docker logout ghcr.io || true
+            docker image prune -f || true
+
+            # 6) 診断: app_dev / nginx の起動状況を deploy ログに必ず吐く。
             #    502 Bad Gateway 等のトラブル時にここが原因特定の唯一の窓口になる。
             #
             # NOTE: 単一引用 heredoc 内では \$(...) と書くと remote bash が
@@ -146,9 +218,13 @@ jobs:
   # 本番環境 (gmo-onair.jp) — main push で自動
   # ============================================
   deploy-prod:
+    needs: build
     if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.target == 'prod')
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
 
     steps:
       - name: Setup SSH key
@@ -160,7 +236,7 @@ jobs:
 
       - name: Deploy to production
         run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} bash -s << 'ENDSSH'
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "GHCR_USER='${{ github.actor }}' GHCR_TOKEN='${{ secrets.GITHUB_TOKEN }}' bash -s" << 'ENDSSH'
             set -euo pipefail
 
             # 1) main worktree を最新に更新。dev worktree (/root/gmo-onair-dev) は一切触らない。
@@ -171,14 +247,24 @@ jobs:
             # 2) main の docker-compose.yml を明示。-p で project 名を共有。
             COMPOSE_PROD="docker compose -p gmo-onair -f /root/gmo-onair/docker-compose.yml"
 
-            # 3) app_prod のみ再ビルド & 再作成。
+            # 3) GHCR からビルド済みイメージを pull (VPS 上ではビルドしない)。
+            #    pull 失敗時のみ従来どおり VPS 上ビルドにフォールバック。
             #    Why nginx に触れない: nginx は dev デプロイで最新化済み。prod 側で
-            #         main の nginx config を強制すると、dev branch にしかない設定変更
-            #         (例: dev block の Basic 認証撤去) が消えてしまう。
+            #         main の nginx config を強制すると、dev branch にしかない設定変更が消えてしまう。
             #         nginx 設定を本番に反映したい場合は、まず dev → main を merge してから
             #         dev デプロイ → prod デプロイの順で実施する (dev 側で nginx 再起動が走る)。
-            $COMPOSE_PROD build --no-cache app_prod
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            if $COMPOSE_PROD pull app_prod; then
+              echo "✓ pulled prebuilt image from GHCR"
+            else
+              echo "⚠ GHCR pull failed — falling back to on-VPS build"
+              $COMPOSE_PROD build --no-cache app_prod
+            fi
             $COMPOSE_PROD up -d --no-deps --force-recreate app_prod
+
+            # 後片付け: 認証情報を残さない + dangling になった旧イメージを削除
+            docker logout ghcr.io || true
+            docker image prune -f || true
 
             # 4) サーバー起動ログ + ヘルスチェック
             echo "=== Container logs (first 10s) ==="

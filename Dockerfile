@@ -1,12 +1,23 @@
 # ============================================
 # GMO ONAiR — Multi-stage Docker Build
+# (v2.9.230: ワークスペース別の並列ビルドステージ構成)
+#
+# 設計:
+#   deps        — 全ワークスペースの npm install。package*.json が変わらない限り
+#                 レイヤーキャッシュが効き、install (最も重い工程) を丸ごとスキップ。
+#   build-*     — 各クライアント / サーバーを独立ステージでビルド。
+#                 BuildKit がステージを並列実行し、変更のないワークスペースは
+#                 レイヤーキャッシュでビルド自体がスキップされる
+#                 (例: client-daily だけ変更 → 他 6 クライアント + server はキャッシュヒット)。
+#   production  — サーバー + 各クライアントの dist だけを集約した実行イメージ。
+#
+# ビルドは GitHub Actions (buildx + キャッシュ) で行い GHCR へ push、
+# VPS は pull して起動するだけ (詳細: docs/deploy-pipeline.md)。
 # ============================================
 
-# ── Stage 1: Builder ──────────────────────────
-FROM node:20-alpine AS builder
+# ── Stage: deps (依存インストール) ─────────────
+FROM node:20-alpine AS deps
 WORKDIR /app
-
-# 1. Install dependencies (cached unless package*.json change)
 COPY package.json package-lock.json ./
 COPY client/package.json client/
 COPY client-equipment/package.json client-equipment/
@@ -19,32 +30,60 @@ COPY server/package.json server/
 COPY shared/package.json shared/
 RUN npm install --workspaces --include-workspace-root
 
-# 2. Copy ALL source (invalidates cache when any source changes)
+# ── Stage: build-client (案件管理) ─────────────
+# client の prebuild だけが CLAUDE.md + scripts/generate-*.mjs を参照する
+FROM deps AS build-client
 COPY shared/ shared/
-COPY client/ client/
-COPY client-equipment/ client-equipment/
-COPY client-qsheet/ client-qsheet/
-COPY client-techsheet/ client-techsheet/
-COPY client-live/ client-live/
-COPY client-awards/ client-awards/
-COPY client-daily/ client-daily/
-COPY server/ server/
-# CLAUDE.md 「現在のバージョン」節 + それをパースする scripts/ (client の prebuild が参照)
 COPY CLAUDE.md ./
 COPY scripts/ scripts/
-
-# 3. Build in order
-RUN npm run build --workspace=shared 2>/dev/null || true
+COPY client/ client/
 RUN npm run build --workspace=client
+
+# ── Stage: build-client-equipment (機材管理) ──
+FROM deps AS build-client-equipment
+COPY shared/ shared/
+COPY client-equipment/ client-equipment/
 RUN npm run build --workspace=client-equipment
+
+# ── Stage: build-client-qsheet (Qシート) ──────
+FROM deps AS build-client-qsheet
+COPY shared/ shared/
+COPY client-qsheet/ client-qsheet/
 RUN npm run build --workspace=client-qsheet
+
+# ── Stage: build-client-techsheet (技術資料) ──
+FROM deps AS build-client-techsheet
+COPY shared/ shared/
+COPY client-techsheet/ client-techsheet/
 RUN npm run build --workspace=client-techsheet
+
+# ── Stage: build-client-live (計時LIVE) ───────
+FROM deps AS build-client-live
+COPY shared/ shared/
+COPY client-live/ client-live/
 RUN npm run build --workspace=client-live
+
+# ── Stage: build-client-awards (リアルタイムCG) ─
+FROM deps AS build-client-awards
+COPY shared/ shared/
+COPY client-awards/ client-awards/
 RUN npm run build --workspace=client-awards
+
+# ── Stage: build-client-daily (日常業務) ──────
+FROM deps AS build-client-daily
+COPY shared/ shared/
+COPY client-daily/ client-daily/
 RUN npm run build --workspace=client-daily
+
+# ── Stage: build-server ───────────────────────
+# server は現状 shared workspace を import していないが、将来の参照に備えて
+# クライアントと同じく shared/ を含める (並列ビルドなので wall-clock への影響なし)
+FROM deps AS build-server
+COPY shared/ shared/
+COPY server/ server/
 RUN npm run build --workspace=server
 
-# ── Stage 2: Production ──────────────────────
+# ── Stage: production ─────────────────────────
 FROM node:20-alpine AS production
 WORKDIR /app
 
@@ -57,7 +96,7 @@ COPY server/package.json server/
 RUN cd server && npm install --omit=dev
 
 # Server build output + migrations
-COPY --from=builder /app/server/dist server/dist
+COPY --from=build-server /app/server/dist server/dist
 COPY server/src/shared/db/migrations server/dist/shared/db/migrations
 
 # DB バックアップスクリプト (cron から docker exec 経由で呼ばれる)
@@ -67,13 +106,13 @@ COPY server/scripts server/scripts
 COPY server/fonts server/fonts
 
 # Client build outputs
-COPY --from=builder /app/client/dist client/dist
-COPY --from=builder /app/client-equipment/dist client-equipment/dist
-COPY --from=builder /app/client-qsheet/dist client-qsheet/dist
-COPY --from=builder /app/client-techsheet/dist client-techsheet/dist
-COPY --from=builder /app/client-live/dist client-live/dist
-COPY --from=builder /app/client-awards/dist client-awards/dist
-COPY --from=builder /app/client-daily/dist client-daily/dist
+COPY --from=build-client /app/client/dist client/dist
+COPY --from=build-client-equipment /app/client-equipment/dist client-equipment/dist
+COPY --from=build-client-qsheet /app/client-qsheet/dist client-qsheet/dist
+COPY --from=build-client-techsheet /app/client-techsheet/dist client-techsheet/dist
+COPY --from=build-client-live /app/client-live/dist client-live/dist
+COPY --from=build-client-awards /app/client-awards/dist client-awards/dist
+COPY --from=build-client-daily /app/client-daily/dist client-daily/dist
 
 # Runtime
 RUN mkdir -p /app/uploads/qsheet /app/uploads/awards
