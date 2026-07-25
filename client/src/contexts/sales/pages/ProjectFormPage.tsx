@@ -1192,7 +1192,7 @@ export default function ProjectFormPage() {
             variant="outline"
             size="sm"
             className="border-blue-300 text-blue-700 hover:bg-blue-50"
-            onClick={() => navigate("/studio/calendar", {
+            onClick={() => navigate("/schedule?layers=studio", {
               state: {
                 presetRoomIds: scheduleRoomIds,
                 presetDate: buildProjectPresetDate(),
@@ -2247,7 +2247,7 @@ export default function ProjectFormPage() {
               className="bg-blue-600 hover:bg-blue-700"
               onClick={() => {
                 setHoldPromptOpen(false);
-                navigate("/studio/calendar", {
+                navigate("/schedule?layers=studio", {
                   state: {
                     presetRoomIds: scheduleRoomIds,
                     presetDate: buildProjectPresetDate(),

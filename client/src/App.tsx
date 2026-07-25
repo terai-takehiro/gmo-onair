@@ -5,6 +5,7 @@ import AppShell from "@/components/layout/AppShell";
 import PermissionRoute from "@/components/layout/PermissionRoute";
 import {
   RedirectTo,
+  RedirectPreserveState,
   RedirectConfirmed,
   RedirectTaskView,
   ProjectsRoute,
@@ -171,10 +172,10 @@ function AppRoutes() {
         <Route path="/sales/customers/:id" element={<RedirectTo to="/customers/:id" />} />
         <Route path="/sales/companies" element={<Navigate to="/settings/billing-parties" replace />} />
 
-        <Route path="/studio/all" element={<Navigate to="/schedule" replace />} />
-        <Route path="/studio/calendar" element={<Navigate to="/schedule?layers=studio" replace />} />
-        <Route path="/studio/partners" element={<Navigate to="/schedule?layers=partner" replace />} />
-        <Route path="/studio/my-calendar" element={<Navigate to="/schedule?layers=me" replace />} />
+        <Route path="/studio/all" element={<RedirectPreserveState to="/schedule" />} />
+        <Route path="/studio/calendar" element={<RedirectPreserveState to="/schedule?layers=studio" />} />
+        <Route path="/studio/partners" element={<RedirectPreserveState to="/schedule?layers=partner" />} />
+        <Route path="/studio/my-calendar" element={<RedirectPreserveState to="/schedule?layers=me" />} />
 
         <Route path="/budget/dashboard" element={<Navigate to="/finance" replace />} />
         <Route path="/budget/revenues" element={<Navigate to="/finance?tab=revenue" replace />} />

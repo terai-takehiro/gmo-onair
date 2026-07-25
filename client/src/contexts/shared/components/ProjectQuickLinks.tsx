@@ -38,7 +38,7 @@ export default function ProjectQuickLinks({
     { key: "project",   label: "案件",    icon: <Briefcase className="h-3.5 w-3.5" />, to: `/sales/projects/${projectId}` },
     { key: "revenues",  label: "売上",    icon: <Wallet    className="h-3.5 w-3.5" />, to: `/budget/revenues?project_id=${projectId}${nameParam}` },
     { key: "purchases", label: "仕入",    icon: <Truck     className="h-3.5 w-3.5" />, to: `/budget/purchases?project_id=${projectId}${nameParam}` },
-    { key: "calendar",  label: "カレンダー", icon: <Calendar      className="h-3.5 w-3.5" />, to: `/studio/calendar?project_id=${projectId}${nameParam}` },
+    { key: "calendar",  label: "カレンダー", icon: <Calendar      className="h-3.5 w-3.5" />, to: `/schedule?layers=studio&project_id=${projectId}${nameParam}` },
     { key: "tasks",     label: "タスク",     icon: <KanbanSquare className="h-3.5 w-3.5" />, to: `/sales/projects/${projectId}/tasks` },
   ];
 

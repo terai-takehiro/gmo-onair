@@ -1,3 +1,15 @@
+/**
+ * SchedulePage — 予定 (§4.10 / デザイン 13a)
+ *
+ * **カレンダーは1本**。旧 4 ルート (統合 / スタジオ / パートナー / マイ) を
+ * レイヤー (`?layers=studio,partner,me`) の切り替えに統合した。
+ *
+ * 旧統合カレンダーは**閲覧専用**で「新規登録は各カレンダーで」と書いてあった。
+ * ここでは 1 つのダイアログで **スタジオ予約 / 自分の予定 / パートナーの予定** を選んで
+ * その場で登録できる (種別ごとに別画面へ行かせない)。
+ *
+ * 下部に **期限が近い仮押さえ** を出し、その場で本予約に切り替えられる。
+ */
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
@@ -19,9 +31,19 @@ import StudioBookingDetailDialog from "../components/studio/StudioBookingDetailD
 import KoubanView from "../components/studio/KoubanView";
 import StudioRoomsManagerDialog from "../components/studio/StudioRoomsManagerDialog";
 import { useAuth } from "@/contexts/platform/AuthContext";
-import { Settings, CalendarSync, CalendarDays } from "lucide-react";
+import {
+  Settings, CalendarSync, CalendarDays, Users, CalendarClock, Rows3, Clock, Link2,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CalendarShell, loadCalState, saveCalState, clampView } from "../components/schedule/scheduleShared";
+import PartnerScheduleDialog from "../components/schedule/PartnerScheduleDialog";
+import PersonalEventDialog from "../components/schedule/PersonalEventDialog";
+import IcsFeedsDialog from "../components/schedule/IcsFeedsDialog";
+import {
+  loadCalState, saveCalState, clampView,
+  SCHEDULE_TYPE_COLORS, SCHEDULE_TYPE_LABELS, toExclusiveEnd,
+  type PartnerSchedule, type PersonalEvent,
+} from "../components/schedule/scheduleShared";
+import { EmptyState } from "@gmo-onair/shared/src/client/states";
 
 interface StudioRoom {
   id: string;
@@ -141,7 +163,28 @@ function useIsMobile(breakpoint = 640) {
   return isMobile;
 }
 
-export default function StudioCalendarPage() {
+type LayerKey = "studio" | "partner" | "me";
+const ALL_LAYERS: LayerKey[] = ["studio", "partner", "me"];
+const MANUAL_COLOR = "#2563eb";
+const ICS_COLOR = "#64748b";
+
+/** 仮押さえの「期限が近い」= 本番日まであと何日か。切替期限の列は持っていない */
+interface HoldRow {
+  id: string;
+  title: string;
+  start_date: string;
+  project_id: string | null;
+  project_name: string | null;
+  gls_number: string | null;
+  customer_name: string | null;
+  room_names: string | null;
+}
+
+const todayStr = () => new Date().toISOString().slice(0, 10);
+const daysUntil = (date: string) =>
+  Math.round((Date.parse(`${date}T00:00:00`) - Date.parse(`${todayStr()}T00:00:00`)) / 86_400_000);
+
+export default function SchedulePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -195,10 +238,52 @@ export default function StudioCalendarPage() {
   const [presetProjectId, setPresetProjectId] = useState<string>("");
   const [roomsManagerOpen, setRoomsManagerOpen] = useState(false);
   const [feedsOpen, setFeedsOpen] = useState(false);
+  const [icsOpen, setIcsOpen] = useState(false);
   const { currentUser, hasPermission } = useAuth();
   const isAdmin = currentUser?.role === "system_admin";
   const canEdit = hasPermission("studio", "editor");
   const canManage = hasPermission("studio", "manager");
+  const canStudio = isAdmin || hasPermission("studio");
+  const canPartner = isAdmin || hasPermission("partner_schedule");
+  const canPersonal = isAdmin || hasPermission("partner_schedule", "editor");
+  const isPartnerManager = isAdmin || hasPermission("partner_schedule", "manager");
+
+  // ── レイヤー (旧 4 ルートの統合先) ────────────────────────
+  // `?layers=studio,partner,me`。未指定は権限のあるものすべて。
+  const availableLayers = ALL_LAYERS.filter((l) =>
+    l === "studio" ? canStudio : l === "partner" ? canPartner : canPersonal
+  );
+  const layers = useMemo(() => {
+    const raw = (searchParams.get("layers") ?? "")
+      .split(",").map((x) => x.trim()).filter(Boolean) as LayerKey[];
+    const picked = raw.filter((l) => availableLayers.includes(l));
+    return picked.length > 0 ? picked : availableLayers;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, canStudio, canPartner, canPersonal]);
+  const on = (l: LayerKey) => layers.includes(l);
+
+  const setLayers = (next: LayerKey[]) => {
+    const sp = new URLSearchParams(searchParams);
+    if (next.length === 0 || next.length === availableLayers.length) sp.delete("layers");
+    else sp.set("layers", next.join(","));
+    navigate({ pathname: "/schedule", search: sp.toString() ? `?${sp}` : "" }, { replace: true });
+  };
+  const toggleLayer = (l: LayerKey) => {
+    const next = on(l) ? layers.filter((x) => x !== l) : [...layers, l];
+    setLayers(next.length === 0 ? [l] : next); // 全部消すと何も見えないので最低1つ残す
+  };
+
+  // 部屋ごとの行 (香盤表) で見るか
+  const [laneView, setLaneView] = useState(false);
+  // 人で絞る (パートナーレイヤー)
+  const [memberFilter, setMemberFilter] = useState("");
+  // 予定を入れるときの種別ピッカー
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerRange, setPickerRange] = useState<{ start: string; end: string; allDay: boolean } | null>(null);
+  const [editingSchedule, setEditingSchedule] = useState<PartnerSchedule | null>(null);
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<PersonalEvent | null>(null);
+  const [eventDialogOpen, setEventDialogOpen] = useState(false);
 
   // Fetch locations & rooms
   const { data: locationsData } = useQuery({
@@ -238,7 +323,64 @@ export default function StudioCalendarPage() {
     },
   });
 
-  const bookings: StudioBooking[] = bookingsData ?? [];
+  const bookings: StudioBooking[] = canStudio && on("studio") ? (bookingsData ?? []) : [];
+
+  const { data: schedules = [] } = useQuery<PartnerSchedule[]>({
+    queryKey: ["partner-schedules", dateRange.from, dateRange.to],
+    queryFn: async () =>
+      (await api.get(`/schedule/partner?from=${dateRange.from}&to=${dateRange.to}`)).data.data,
+    enabled: canPartner && on("partner"),
+    placeholderData: (prev) => prev,
+  });
+
+  const { data: personalEvents = [] } = useQuery<PersonalEvent[]>({
+    queryKey: ["personal-events", dateRange.from, dateRange.to],
+    queryFn: async () =>
+      (await api.get(`/schedule/personal?from=${dateRange.from}&to=${dateRange.to}`)).data.data,
+    enabled: canPersonal && on("me"),
+    placeholderData: (prev) => prev,
+  });
+
+  const { data: partnerUsers = [] } = useQuery<Array<{ id: string; name: string }>>({
+    queryKey: ["partner-users"],
+    queryFn: async () => (await api.get("/users/by-module/partner_schedule")).data.data,
+    enabled: canPartner && on("partner"),
+    staleTime: 300_000,
+  });
+
+  // 期限が近い仮押さえ (表示中の月に関係なく常に同じ一覧を出す)
+  const { data: holds = [] } = useQuery<HoldRow[]>({
+    queryKey: ["studio-holds"],
+    queryFn: async () => (await api.get("/studios/bookings/holds", { params: { days: 45 } })).data.data,
+    enabled: canStudio,
+    staleTime: 60_000,
+  });
+
+  const confirmHold = useMutation({
+    mutationFn: async (id: string) => api.patch(`/studios/bookings/${id}/confirm`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["studio-holds"] });
+      qc.invalidateQueries({ queryKey: ["studio-bookings"] });
+    },
+  });
+
+  // 見出しの数字 — 今週 (日曜起点) の本番・リハ件数
+  const weekCounts = useMemo(() => {
+    const now = new Date();
+    const sun = new Date(now); sun.setDate(now.getDate() - now.getDay()); sun.setHours(0, 0, 0, 0);
+    const sat = new Date(sun); sat.setDate(sun.getDate() + 6);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const key = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const from = key(sun), to = key(sat);
+    let perf = 0, reh = 0;
+    for (const b of bookings) {
+      const d = (b.start_time || "").split("T")[0];
+      if (d < from || d > to) continue;
+      if (b.booking_type === "performance") perf++;
+      else if (b.booking_type === "rehearsal") reh++;
+    }
+    return { perf, reh };
+  }, [bookings]);
 
   // Delete mutation
   const deleteMutation = useMutation({
@@ -366,8 +508,48 @@ export default function StudioCalendarPage() {
       }
     }
 
+    // パートナーの予定 (レイヤー)
+    if (canPartner && on("partner")) {
+      for (const sc of schedules) {
+        if (memberFilter && sc.user_id !== memberFilter) continue;
+        const color = SCHEDULE_TYPE_COLORS[sc.schedule_type] || SCHEDULE_TYPE_COLORS.other;
+        const isAllDay = !!sc.all_day;
+        events.push({
+          id: `ps-${sc.id}`,
+          title: `${sc.user_name}: ${sc.title}`,
+          start: isAllDay ? sc.start_time.split("T")[0] : sc.start_time,
+          end: isAllDay ? toExclusiveEnd(sc.end_time) : sc.end_time,
+          allDay: isAllDay,
+          backgroundColor: color,
+          borderColor: color,
+          textColor: "#ffffff",
+          extendedProps: { kind: "partner", refId: sc.id },
+        });
+      }
+    }
+
+    // 自分の予定 (レイヤー)
+    if (canPersonal && on("me")) {
+      for (const e of personalEvents) {
+        const color = e.source === "manual" ? MANUAL_COLOR : ICS_COLOR;
+        const isAllDay = !!e.all_day;
+        events.push({
+          id: `pe-${e.id}`,
+          title: e.source !== "manual" && e.feed_label ? `${e.title}｜${e.feed_label}` : e.title,
+          start: isAllDay ? e.start_time.split("T")[0] : e.start_time,
+          end: isAllDay ? toExclusiveEnd(e.end_time) : e.end_time,
+          allDay: isAllDay,
+          backgroundColor: color,
+          borderColor: color,
+          textColor: "#ffffff",
+          extendedProps: { kind: "personal", refId: e.id },
+        });
+      }
+    }
+
     return events;
-  }, [bookings, projectEventsData, selectedRoomIds, currentView]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookings, projectEventsData, selectedRoomIds, currentView, schedules, personalEvents, layers, memberFilter]);
 
   // 案件編集ページからのナビゲーション state を受け取って予約ダイアログを開く
   useEffect(() => {
@@ -409,28 +591,44 @@ export default function StudioCalendarPage() {
         setDetailBooking(booking);
         setDetailDialogOpen(true);
       }
+    } else if (props.kind === "partner") {
+      const sc = schedules.find((x) => x.id === props.refId);
+      if (sc) { setEditingSchedule(sc); setScheduleDialogOpen(true); }
+    } else if (props.kind === "personal") {
+      const e = personalEvents.find((x) => x.id === props.refId);
+      if (e) { setEditingEvent(e); setEventDialogOpen(true); }
     } else if (props.kind === "episode" && props.project_id) {
       navigate(`/sales/projects/${props.project_id}`);
     }
-  }, [bookings, navigate]);
+  }, [bookings, schedules, personalEvents, navigate]);
+
+  /** 何を入れるかを1つのダイアログで選ぶ。選べる種別が1つだけならその場で開く */
+  const openCreate = useCallback((range: { start: string; end: string; allDay: boolean } | null) => {
+    const kinds: LayerKey[] = [];
+    if (canEdit && on("studio")) kinds.push("studio");
+    if (canPersonal && on("me")) kinds.push("me");
+    if (canPersonal && on("partner")) kinds.push("partner");
+
+    if (kinds.length === 1) {
+      if (kinds[0] === "studio") {
+        setPresetDate(range); setPresetRoomIds([]); setEditingBooking(null); setBookingDialogOpen(true);
+      } else if (kinds[0] === "me") {
+        setPickerRange(range); setEditingEvent(null); setEventDialogOpen(true);
+      } else {
+        setPickerRange(range); setEditingSchedule(null); setScheduleDialogOpen(true);
+      }
+      return;
+    }
+    setPickerRange(range);
+    setPickerOpen(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canEdit, canPersonal, layers]);
 
   const handleDateSelect = useCallback((info: DateSelectArg) => {
-    setPresetDate({
-      start: info.startStr,
-      end: info.endStr,
-      allDay: info.allDay,
-    });
-    setPresetRoomIds([]);
-    setEditingBooking(null);
-    setBookingDialogOpen(true);
-  }, []);
+    openCreate({ start: info.startStr, end: info.endStr, allDay: info.allDay });
+  }, [openCreate]);
 
-  const handleNewBooking = () => {
-    setPresetDate(null);
-    setPresetRoomIds([]);
-    setEditingBooking(null);
-    setBookingDialogOpen(true);
-  };
+  const handleNewBooking = () => openCreate(null);
 
   const handleEditBooking = (booking: StudioBooking) => {
     setEditingBooking(booking);
@@ -491,47 +689,142 @@ export default function StudioCalendarPage() {
 
   const totalUpcoming = upcomingDays.reduce((sum, d) => sum + d.items.length, 0);
 
+  const layerChips: Array<{ key: LayerKey; label: string; icon: React.ElementType; color: string }> = [
+    { key: "studio", label: "スタジオ予約", icon: CalendarDays, color: bookingTypeColors.performance },
+    { key: "partner", label: "パートナー", icon: Users, color: SCHEDULE_TYPE_COLORS.daikyu },
+    { key: "me", label: "自分", icon: CalendarClock, color: MANUAL_COLOR },
+  ].filter((c) => availableLayers.includes(c.key as LayerKey)) as any;
+
+  const canCreateAnything =
+    (canEdit && on("studio")) || (canPersonal && (on("me") || on("partner")));
+
   return (
-    <CalendarShell
-      current="studio"
-      icon={CalendarDays}
-      title="スタジオ予約"
-      description="カレンダーをタップして予約を追加"
-      actions={
-        <>
-          <Button
-            variant={filterOpen ? "default" : "outline"}
-            size="sm"
-            onClick={() => setFilterOpen(!filterOpen)}
-            className="gap-1"
-          >
-            <Filter className="h-4 w-4" />
-            <span className="hidden sm:inline">部屋</span>
-            {selectedRoomIds.size > 0 && (
-              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
-                {selectedRoomIds.size}
-              </Badge>
+    <div className="mx-auto max-w-screen-2xl space-y-4 px-4 py-5 sm:py-7">
+      {/* ヘッダー (13a) — 数字で書く */}
+      <header className="flex flex-wrap items-end justify-between gap-2">
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold text-foreground sm:text-2xl">予定</h1>
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[13px] text-secondary-foreground">
+            今週 本番 <span className="font-bold tabular-nums text-foreground">{weekCounts.perf}件</span>
+            <span aria-hidden="true">・</span>
+            リハ <span className="font-bold tabular-nums text-foreground">{weekCounts.reh}件</span>
+            {canStudio && (
+              <>
+                <span aria-hidden="true">・</span>
+                <span className={cn(holds.length > 0 && "text-warning-strong")}>
+                  期限が近い仮押さえ <span className="font-bold tabular-nums">{holds.length}件</span>
+                </span>
+              </>
             )}
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setFeedsOpen(true)} className="gap-1">
-            <CalendarSync className="h-4 w-4" />
-            <span className="hidden sm:inline">カレンダー連携</span>
-          </Button>
-          {isAdmin && (
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {on("studio") && (
+            <Button
+              variant={filterOpen ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilterOpen(!filterOpen)}
+              className="gap-1"
+            >
+              <Filter className="h-4 w-4" />
+              <span className="hidden sm:inline">部屋</span>
+              {selectedRoomIds.size > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{selectedRoomIds.size}</Badge>
+              )}
+            </Button>
+          )}
+          {on("studio") && (
+            <Button variant="outline" size="sm" onClick={() => setFeedsOpen(true)} className="gap-1">
+              <CalendarSync className="h-4 w-4" />
+              <span className="hidden sm:inline">カレンダー連携</span>
+            </Button>
+          )}
+          {canPersonal && on("me") && (
+            <Button variant="outline" size="sm" onClick={() => setIcsOpen(true)} className="gap-1">
+              <Link2 className="h-4 w-4" />
+              <span className="hidden sm:inline">外部カレンダー</span>
+            </Button>
+          )}
+          {isAdmin && on("studio") && (
             <Button variant="outline" size="sm" onClick={() => setRoomsManagerOpen(true)} className="gap-1">
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">部屋管理</span>
             </Button>
           )}
-          {canEdit && (
-            <Button size="sm" onClick={handleNewBooking}>
-              <Plus className="h-4 w-4 sm:mr-1" />
-              <span className="hidden sm:inline">予約追加</span>
+          {canCreateAnything && (
+            <Button size="sm" className="gap-1" onClick={handleNewBooking}>
+              <Plus className="h-4 w-4" />
+              予定を入れる
             </Button>
           )}
-        </>
-      }
-    >
+        </div>
+      </header>
+
+      {/* 出すもの (レイヤー) + 部屋ごとの行 */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[12px] text-muted-foreground">出すもの:</span>
+        {layerChips.map((c: any) => (
+          <button
+            key={c.key}
+            type="button"
+            onClick={() => toggleLayer(c.key)}
+            aria-pressed={on(c.key)}
+            className={cn(
+              "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[13px] transition-colors",
+              on(c.key) ? "border-transparent font-bold text-white" : "border-border text-secondary-foreground hover:bg-secondary"
+            )}
+            style={on(c.key) ? { backgroundColor: c.color } : undefined}
+          >
+            <c.icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            {c.label}
+          </button>
+        ))}
+        {on("studio") && !isMobile && (
+          <button
+            type="button"
+            onClick={() => setLaneView((v) => !v)}
+            aria-pressed={laneView}
+            className={cn(
+              "ml-auto inline-flex items-center gap-1.5 rounded-control border px-3 py-1.5 text-[13px] transition-colors",
+              laneView ? "border-primary bg-primary/10 font-bold text-primary" : "border-border text-secondary-foreground hover:bg-secondary"
+            )}
+          >
+            <Rows3 className="h-3.5 w-3.5" aria-hidden="true" />
+            部屋ごとの行で見る
+          </button>
+        )}
+      </div>
+
+      {/* 人で絞る (パートナー) */}
+      {canPartner && on("partner") && partnerUsers.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[12px] text-muted-foreground">人で絞る:</span>
+          <button
+            type="button"
+            onClick={() => setMemberFilter("")}
+            className={cn(
+              "rounded-full border px-2.5 py-1 text-[12px]",
+              !memberFilter ? "border-transparent bg-primary font-bold text-primary-foreground" : "border-border text-secondary-foreground hover:bg-secondary"
+            )}
+          >
+            全員
+          </button>
+          {partnerUsers.map((u) => (
+            <button
+              key={u.id}
+              type="button"
+              onClick={() => setMemberFilter(memberFilter === u.id ? "" : u.id)}
+              className={cn(
+                "rounded-full border px-2.5 py-1 text-[12px]",
+                memberFilter === u.id ? "border-transparent bg-primary font-bold text-primary-foreground" : "border-border text-secondary-foreground hover:bg-secondary"
+              )}
+            >
+              {u.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* 案件で絞り込み中の表示 + クイックリンク */}
       {filterProjectId && (
         <div className="flex flex-wrap items-center justify-between gap-2 -mt-1">
@@ -539,7 +832,7 @@ export default function StudioCalendarPage() {
             <span className="text-sm text-muted-foreground">
               絞り込み: <span className="font-medium text-foreground">{filterProjectName}</span>
             </span>
-            <Button variant="ghost" size="sm" className="h-5 px-1.5 text-xs" onClick={() => navigate("/studio/calendar")}>
+            <Button variant="ghost" size="sm" className="h-5 px-1.5 text-xs" onClick={() => navigate("/schedule?layers=studio")}>
               解除
             </Button>
           </div>
@@ -704,8 +997,8 @@ export default function StudioCalendarPage() {
         <span className="ml-2 italic opacity-70">※ 斜体・薄色は未確定の予約</span>
       </div>
 
-      {/* 香盤 View (PC day view) */}
-      {!isMobile && currentView === "timeGridDay" ? (
+      {/* 部屋ごとの行 (香盤表) — トグル or 日ビュー */}
+      {!isMobile && on("studio") && (laneView || currentView === "timeGridDay") ? (
         <Card>
           <CardContent className="p-2 sm:p-4">
             <div className="flex items-center justify-end gap-2 mb-3">
@@ -713,12 +1006,15 @@ export default function StudioCalendarPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setCurrentView("dayGridMonth");
-                  const calApi = calendarRef.current?.getApi?.();
-                  if (calApi) calApi.changeView("dayGridMonth");
+                  setLaneView(false);
+                  if (currentView === "timeGridDay") {
+                    setCurrentView("dayGridMonth");
+                    const calApi = calendarRef.current?.getApi?.();
+                    if (calApi) calApi.changeView("dayGridMonth");
+                  }
                 }}
               >
-                月カレンダーに戻る
+                カレンダーに戻る
               </Button>
             </div>
             {bookingsLoading ? (
@@ -764,7 +1060,7 @@ export default function StudioCalendarPage() {
       ) : null}
 
       {/* Calendar */}
-      <Card className={!isMobile && currentView === "timeGridDay" ? "hidden" : ""}>
+      <Card className={!isMobile && on("studio") && (laneView || currentView === "timeGridDay") ? "hidden" : ""}>
         <CardContent className="p-2 sm:p-4 relative">
           {bookingsLoading && bookings.length === 0 && (
             <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-background/40">
@@ -803,7 +1099,18 @@ export default function StudioCalendarPage() {
               eventClick={handleEventClick}
               eventContent={(arg) => {
                 const ext = arg.event.extendedProps as { projectLine?: string; roomsLine?: string; kind?: string };
-                if (ext?.kind !== 'booking') return undefined; // default rendering
+                // 背景イベント (エピソード) は中身を出さない
+                if (ext?.kind === 'episode') return <></>;
+                // パートナー・自分の予定は 時刻 + タイトルの1行
+                // (eventContent から undefined を返すと **何も描画されない** ので明示的に組む)
+                if (ext?.kind !== 'booking') {
+                  return (
+                    <div className="overflow-hidden px-1 py-0.5 text-[11px] leading-tight">
+                      {arg.timeText && <span className="mr-1 font-medium opacity-90">{arg.timeText}</span>}
+                      <span className="font-semibold">{arg.event.title}</span>
+                    </div>
+                  );
+                }
                 const projectLine = ext.projectLine || arg.event.title;
                 const roomsLine = ext.roomsLine || '';
                 const timeText = arg.timeText;
@@ -877,7 +1184,143 @@ export default function StudioCalendarPage() {
           if (confirm("この予約を削除しますか？")) deleteMutation.mutate(id);
         }}
       />
-    </CalendarShell>
+      {/* 期限が近い仮押さえ (13a) */}
+      {canStudio && (
+        <section className="rounded-lg border border-border bg-card" aria-label="期限が近い仮押さえ">
+          <header className="flex flex-wrap items-center gap-2 border-b border-divider px-4 py-3">
+            <Clock className="h-4 w-4 text-warning-strong" aria-hidden="true" />
+            <h2 className="text-[15px] font-bold text-foreground">期限が近い仮押さえ</h2>
+            <span className="font-bold tabular-nums text-warning-strong">{holds.length}</span>
+            <span className="text-[12px] text-secondary-foreground">
+              本予約に切り替えないと他社に取られます（本番日が近い順・45日先まで）
+            </span>
+          </header>
+          {holds.length === 0 ? (
+            <p className="px-4 py-3 text-[13px] text-secondary-foreground">
+              45日先までに仮押さえのまま残っているものはありません。
+            </p>
+          ) : (
+            <ul className="divide-y divide-divider">
+              {holds.map((h) => {
+                const left = daysUntil(h.start_date);
+                return (
+                  <li key={h.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
+                    <span className="w-20 shrink-0 text-[13px] font-bold tabular-nums text-foreground">
+                      {h.start_date.slice(5).replace("-", "/")}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[14px] font-bold text-foreground">
+                        {h.project_name || h.title}
+                      </span>
+                      <span className="mt-0.5 block truncate text-[12px] text-secondary-foreground">
+                        {h.room_names || "部屋なし"}
+                        {h.customer_name ? ` ・ ${h.customer_name}` : ""}
+                        {h.gls_number ? ` ・ ${h.gls_number}` : ""}
+                      </span>
+                    </span>
+                    <span
+                      className={cn(
+                        "shrink-0 text-[13px] tabular-nums",
+                        left <= 7 ? "font-bold text-destructive" : "text-warning-strong"
+                      )}
+                    >
+                      {left <= 0 ? "本番日です" : `あと${left}日`}
+                    </span>
+                    {canEdit && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 shrink-0 text-[12px]"
+                        disabled={confirmHold.isPending}
+                        onClick={() => confirmHold.mutate(h.id)}
+                      >
+                        本予約にする
+                      </Button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      )}
+
+      {/* 何も出していないとき */}
+      {layers.length === 0 && (
+        <EmptyState
+          title="出すものが選ばれていません"
+          description="上のチップで スタジオ予約 / パートナー / 自分 のどれかを選んでください。"
+        />
+      )}
+
+      {/* 予定を入れるときの種別 — 1つのダイアログで選ぶ (種別ごとに別画面へ行かせない) */}
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>何の予定を入れますか</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {canEdit && on("studio") && (
+              <PickRow
+                label="スタジオ予約"
+                hint="本番・リハーサル・仮押さえ・メンテナンス など（部屋を押さえます）"
+                color={bookingTypeColors.performance}
+                icon={CalendarDays}
+                onClick={() => {
+                  setPickerOpen(false);
+                  setPresetDate(pickerRange); setPresetRoomIds([]); setEditingBooking(null);
+                  setBookingDialogOpen(true);
+                }}
+              />
+            )}
+            {canPersonal && on("me") && (
+              <PickRow
+                label="自分の予定"
+                hint="自分だけの予定。共有相手を選べば相手にも見えます"
+                color={MANUAL_COLOR}
+                icon={CalendarClock}
+                onClick={() => {
+                  setPickerOpen(false);
+                  setEditingEvent(null); setEventDialogOpen(true);
+                }}
+              />
+            )}
+            {canPersonal && on("partner") && (
+              <PickRow
+                label="パートナーの予定"
+                hint={`代休・有給・出張・社外活動 など（${SCHEDULE_TYPE_LABELS.daikyu}等）`}
+                color={SCHEDULE_TYPE_COLORS.daikyu}
+                icon={Users}
+                onClick={() => {
+                  setPickerOpen(false);
+                  setEditingSchedule(null); setScheduleDialogOpen(true);
+                }}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* パートナーの予定 */}
+      <PartnerScheduleDialog
+        open={scheduleDialogOpen}
+        onOpenChange={(v) => { setScheduleDialogOpen(v); if (!v) { setEditingSchedule(null); setPickerRange(null); } }}
+        editing={editingSchedule}
+        presetRange={editingSchedule ? null : pickerRange}
+        isManager={isPartnerManager}
+      />
+
+      {/* 自分の予定 */}
+      <PersonalEventDialog
+        open={eventDialogOpen}
+        onOpenChange={(v) => { setEventDialogOpen(v); if (!v) { setEditingEvent(null); setPickerRange(null); } }}
+        editing={editingEvent}
+        presetRange={editingEvent ? null : pickerRange}
+      />
+
+      {/* 外部カレンダー連携 (Google / Outlook / ICS) */}
+      {canPersonal && <IcsFeedsDialog open={icsOpen} onOpenChange={setIcsOpen} />}
+    </div>
   );
 }
 
@@ -1005,5 +1448,29 @@ function CalendarFeedsDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** 種別ピッカーの1行 */
+function PickRow({
+  label, hint, color, icon: Icon, onClick,
+}: { label: string; hint: string; color: string; icon: React.ElementType; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-start gap-3 rounded-lg border border-border px-3 py-2.5 text-left transition-colors hover:border-primary/40 hover:bg-secondary"
+    >
+      <span
+        className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white"
+        style={{ backgroundColor: color }}
+      >
+        <Icon className="h-4 w-4" aria-hidden="true" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[14px] font-bold text-foreground">{label}</span>
+        <span className="mt-0.5 block text-[12px] leading-relaxed text-secondary-foreground">{hint}</span>
+      </span>
+    </button>
   );
 }

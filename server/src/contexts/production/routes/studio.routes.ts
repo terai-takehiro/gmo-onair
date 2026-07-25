@@ -406,6 +406,68 @@ router.get('/bookings/availability', async (req, res) => {
   res.json({ success: true, data: result });
 });
 
+/**
+ * GET /studios/bookings/holds?days=45 — 期限が近い仮押さえ (§4.10 / デザイン 13a)
+ *
+ * **本予約への切替期限という列は持っていない**ので、
+ * 「本番日が近いのにまだ仮押さえのまま」を期限が近いものとして扱う
+ * (列を作らずに、あるデータで意味のある並びにする)。
+ * ※ /bookings/:id より前に定義すること
+ */
+router.get('/bookings/holds', async (req, res) => {
+  const days = Math.min(Math.max(Number(req.query.days) || 45, 1), 180);
+  const today = new Date();
+  const from = today.toISOString().slice(0, 10);
+  const until = new Date(today.getTime() + days * 86_400_000).toISOString().slice(0, 10);
+
+  // start_time は TEXT (ISO 文字列) なので先頭 10 桁の文字列比較で日付を見る
+  const rows = await queryAll(
+    `SELECT b.id, b.title, b.booking_type, b.all_day, b.start_time, b.end_time,
+            b.status, b.project_id, p.name AS project_name, p.gls_number,
+            c.name AS customer_name,
+            COALESCE(
+              (SELECT string_agg(r.name, ' / ' ORDER BY r.sort_order, r.name)
+               FROM studio_booking_rooms br JOIN studio_rooms r ON r.id = br.room_id
+               WHERE br.booking_id = b.id), ''
+            ) AS room_names,
+            substr(b.start_time, 1, 10) AS start_date
+     FROM studio_bookings b
+     LEFT JOIN projects p ON p.id = b.project_id
+     LEFT JOIN customers c ON c.id = p.customer_id
+     WHERE b.deleted_at IS NULL AND b.booking_type = 'hold'
+       AND substr(b.start_time, 1, 10) >= ? AND substr(b.start_time, 1, 10) <= ?
+     ORDER BY substr(b.start_time, 1, 10) ASC
+     LIMIT 50`,
+    [from, until]
+  );
+  res.json({ success: true, data: rows });
+});
+
+/**
+ * PATCH /studios/bookings/:id/confirm — 仮押さえを本予約にする
+ *
+ * PUT は全上書きなので、ワンクリックのボタンから叩くと送っていない項目 (部屋・備考) が
+ * 消える。種別と確定フラグだけを触る専用の口を用意する。
+ */
+router.patch('/bookings/:id/confirm', requirePermission('studio', 'editor'), async (req, res) => {
+  const existing = await queryOne(
+    'SELECT id, booking_type FROM studio_bookings WHERE id = ? AND deleted_at IS NULL',
+    [req.params.id]
+  ) as any;
+  if (!existing) throw new AppError(404, 'NOT_FOUND', '予約が見つかりません');
+
+  const to = ['performance', 'rehearsal'].includes(String(req.body?.booking_type))
+    ? String(req.body.booking_type)
+    : 'performance';
+  await execute(
+    `UPDATE studio_bookings SET booking_type = ?, status = 'confirmed', updated_at = NOW(), updated_by = ?
+     WHERE id = ?`,
+    [to, req.user!.id, req.params.id]
+  );
+  const row = await queryOne('SELECT * FROM studio_bookings WHERE id = ?', [req.params.id]);
+  res.json({ success: true, data: row });
+});
+
 // GET /studios/bookings/:id
 router.get('/bookings/:id', async (req, res) => {
   const booking = await queryOne(

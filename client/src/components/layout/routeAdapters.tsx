@@ -11,17 +11,14 @@
  * 旧URLは削除せずリダイレクトで残す (§3.3「必須・削除しない」)。
  * ブックマーク・過去のメール・Slack のリンクを壊さないため。
  */
-import { Navigate, useParams, useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useParams, useSearchParams } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { FileSearch, FlaskConical, CopyCheck, ChevronRight } from "lucide-react";
 import { useAuth } from "@/contexts/platform/AuthContext";
 
 import ProjectsPage from "@/contexts/sales/pages/ProjectsPage";
 import TasksPage from "@/contexts/tasks/pages/TasksPage";
-import StudioCalendarPage from "@/contexts/production/pages/StudioCalendarPage";
-import PartnerSchedulePage from "@/contexts/production/pages/PartnerSchedulePage";
-import MyCalendarPage from "@/contexts/production/pages/MyCalendarPage";
-import UnifiedCalendarPage from "@/contexts/production/pages/UnifiedCalendarPage";
+import SchedulePage from "@/contexts/production/pages/SchedulePage";
 import BudgetDashboardPage from "@/contexts/finance/pages/BudgetDashboardPage";
 import RevenueListPage from "@/contexts/finance/pages/RevenueListPage";
 import PurchaseListPage from "@/contexts/finance/pages/PurchaseListPage";
@@ -45,6 +42,24 @@ export function RedirectTo({ to }: { to: string }) {
     return v ? encodeURIComponent(v) : "";
   });
   return <Navigate to={resolved} replace />;
+}
+
+/**
+ * 旧URLからのリダイレクトで **クエリと state を落とさない** 版。
+ *
+ * `<Navigate to="/schedule?layers=studio">` は元URLのクエリ (`?project_id=`) と
+ * `navigate(..., { state })` を捨てるため、案件から「スタジオ予約」を開いたときの
+ * 絞り込みと日付のプリセットが消えていた。旧URLを踏んでも同じ挙動になるよう引き継ぐ。
+ */
+export function RedirectPreserveState({ to }: { to: string }) {
+  const location = useLocation();
+  const [base, targetQuery] = to.split("?");
+  const merged = new URLSearchParams(targetQuery ?? "");
+  new URLSearchParams(location.search).forEach((v, k) => {
+    if (!merged.has(k)) merged.set(k, v);
+  });
+  const search = merged.toString();
+  return <Navigate to={search ? `${base}?${search}` : base} replace state={location.state} />;
 }
 
 /** 確定案件: /sales/projects/confirmed/studio → /projects?filter=confirmed_studio */
@@ -82,20 +97,13 @@ export function TasksRoute() {
   return <TasksPage />;
 }
 
-/** /schedule — ?layers=studio|partner|me。複数・未指定は統合カレンダー */
+/**
+ * /schedule — カレンダーは1本 (§4.10)。
+ * `?layers=studio,partner,me` は SchedulePage が読んでレイヤーの ON/OFF にする。
+ * 旧 4 ルート (統合 / スタジオ / パートナー / マイ) はここに集約した。
+ */
 export function ScheduleRoute() {
-  const [sp] = useSearchParams();
-  const layers = (sp.get("layers") ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  if (layers.length === 1) {
-    if (layers[0] === "studio") return <StudioCalendarPage />;
-    if (layers[0] === "partner") return <PartnerSchedulePage />;
-    if (layers[0] === "me") return <MyCalendarPage />;
-  }
-  return <UnifiedCalendarPage />;
+  return <SchedulePage />;
 }
 
 /** /finance — ?tab=revenue|purchase|sga。未指定はダッシュボード */
