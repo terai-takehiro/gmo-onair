@@ -141,8 +141,22 @@ export function registerPricingTools(server: McpServer): void {
         rows.push({ pricing_item_id: item.id, quantity, days, unit_price: unitPrice, subtotal, name: item.name });
       }
 
-      // 全置換 (status タグ付き)。expected_amount は final のときだけ反映 (draft は確定済み金額に触れない)
-      await execute('DELETE FROM simulations WHERE project_id = ?', [args.project_id]);
+      // 同じ status の明細だけを置き換える。expected_amount は final のときだけ反映。
+      //
+      // Why status で絞るか: 以前は `WHERE project_id = ?` だけで全行を削除していたため、
+      // AI に下書き (draft) を作らせると **営業が確定済み (final) の明細まで消えていた**。
+      // しかも draft は expected_amount に触れないので、想定金額だけ残って裏付け明細が
+      // 無い状態になっていた (コメント上の意図「draft は確定済みに触れない」と実装が
+      // 食い違っていた)。draft 書き込みでは final を保持する。
+      //
+      // final を書くときは draft も消す: 確定版を直接書いたのだから、以前の AI 下書きは
+      // 陳腐化している。残すと案件編集画面に「AI 下書きの見積があります (未確定)」の
+      // バナーが出続けて誤解を招く。
+      if (status === 'final') {
+        await execute('DELETE FROM simulations WHERE project_id = ?', [args.project_id]);
+      } else {
+        await execute('DELETE FROM simulations WHERE project_id = ? AND status = ?', [args.project_id, 'draft']);
+      }
       for (const r of rows) {
         await execute(
           `INSERT INTO simulations (id, project_id, pricing_item_id, quantity, days, unit_price, subtotal, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,

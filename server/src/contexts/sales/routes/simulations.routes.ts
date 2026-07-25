@@ -52,6 +52,15 @@ router.put('/:id/simulation', requirePermission('sales', 'editor'), async (req, 
   const { items } = req.body;
   if (!Array.isArray(items)) throw new AppError(400, 'VALIDATION_ERROR', 'itemsは配列で指定してください');
 
+  // ここは全置換で正しい: 人が内容を確認・編集して保存した = 確定版なので、
+  // 以前の明細 (final も、AI が作った draft も) は置き換えられる。
+  //
+  // ただしフィードバックループ上の注意点: AI の draft をここで消すため、
+  // 「AI は 120 万と出したが営業は 95 万に直した」という**最も価値のある差分が、
+  // 最も価値のあるタイミングで失われる**。差分を残すには、この DELETE の直前に
+  // draft 明細を ai_outputs.payload_snapshot として保存する必要がある
+  // (詳細: .claude/skills/ai-feedback-loop/references/onair-current-state.md の Phase 1)。
+  // ここがそのスナップショット挿入点。
   await execute(`DELETE FROM simulations WHERE project_id = ?`, [req.params.id]);
 
   for (const item of items) {
