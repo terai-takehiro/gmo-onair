@@ -183,16 +183,16 @@
  * 刷新の書体は LINE Seed JP (400/700/800)。数字も同書体を使い、
  * 見出しと数字で書体が変わらないようにする。
  *
- * LINE Seed JP は Google Fonts では配信されていないため、
- * woff2 を自分で置いて使う (SIL OFL 1.1 / 再配布可):
- *   1. https://seed.line.me/ から LINE Seed JP をダウンロード
- *   2. woff2 を client/public/fonts/ に置く
- *      (全アプリが同一オリジンの絶対パス /fonts/... を参照するため 1 か所でよい)
- *   3. 各アプリの index.css で tokens.css の直後に 1 行足す:
- *        @import '@gmo-onair/shared/src/client/fonts-lineseed.css';
+ * 配信は Google Fonts (各アプリの index.html の <link>):
+ *   family=LINE+Seed+JP:wght@400;700;800
+ * 日本語なので unicode-range で 124 サブセット/ウェイトに分割されており、
+ * ブラウザは実際に使う文字の分だけ落とす (1 サブセット ≒ 4KB)。
+ * CSP は styleSrc に fonts.googleapis.com / fontSrc に fonts.gstatic.com を
+ * 既に許可しているため追加設定は不要。
  *
- * ファイルを置くまでは Noto Sans JP に落ちる (フォールバック順で自動。
- * --font-sans の先頭に置いてあるだけなので、置いた瞬間に全アプリが切り替わる)。
+ * 400=本文 / 700=見出し・強調 / 800=数字の特大表示。
+ * 300 と 500/600 は配信されていないので使わない (font-weight で指定しても
+ * 700 か 400 に丸められる)。
  * ========================================================================== */
 :root {
   --font-sans: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif;

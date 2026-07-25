@@ -19,8 +19,8 @@ const preset = {
     },
     extend: {
       fontFamily: {
-        /* 刷新の書体 = LINE Seed JP。未配置なら Noto Sans JP に落ちる
-         * (自己ホストの手順は shared/src/client/fonts-lineseed.css 参照) */
+        /* 刷新の書体 = LINE Seed JP (Google Fonts・400/700/800)。
+         * 配信されていないウェイト (300/500/600) は使わない。詳細は tokens.css */
         sans: ['"LINE Seed JP"', '"Noto Sans JP"', '-apple-system', '"Hiragino Sans"', 'sans-serif'],
         serif: ['"LINE Seed JP"', '"Noto Sans JP"', '-apple-system', '"Hiragino Sans"', 'sans-serif'],
         mono: ['"LINE Seed JP"', '"Noto Sans JP"', '-apple-system', '"Hiragino Sans"', 'sans-serif'],
