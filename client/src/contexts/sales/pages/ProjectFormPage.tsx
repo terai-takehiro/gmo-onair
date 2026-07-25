@@ -7,6 +7,7 @@ import { formatCurrency, formatShortDate } from "@/lib/format";
 import { relativeTime } from "@/lib/aiFeed";
 import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
 import { PageTransition } from "@/components/ui/motion";
+import { humanizeError } from "@gmo-onair/shared/src/client/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -21,7 +22,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator, AlertTriangle, Info, CalendarDays, FileText, Calendar, Plus, Pencil, Trash2, Check, FolderPlus, Sparkles, Phone, Mail, Users, MessageSquare, CalendarClock, History, ChevronRight, XCircle } from "lucide-react";
+import { Loader2, Save, ArrowLeft, Trophy, CheckCircle2, ExternalLink, Calculator, AlertTriangle, CalendarDays, FileText, Calendar, Plus, Pencil, Trash2, Check, FolderPlus, Sparkles, Phone, Mail, Users, MessageSquare, CalendarClock, History, ChevronRight, XCircle } from "lucide-react";
 import StudioBookingDialog from "@/contexts/production/components/studio/StudioBookingDialog";
 import { Switch } from "@/components/ui/switch";
 import { ToggleButtonGroup } from "@gmo-onair/shared/src/client/ui/toggle-button-group";
@@ -95,50 +96,221 @@ const JOURNEY_SHORT: Record<ProjectStage, string> = {
   neta: 'ネタ', d_hold: '仮押さえ', c_proposal: '見積提案', b_verbal: '口頭決定',
   a_won: '受注', s_completed: '完了', e_lost: '失注',
 };
-function JourneyStepper({ currentStage }: { currentStage: ProjectStage }) {
+/**
+ * ジャーニー (7a) — 6段の現在地を日付つきで出し、**次の一手を1つだけ**主ボタンにする。
+ * 他のステージは「ほかのステージ」に畳む (選択肢を10個並べると人は選べない)。
+ * 失注は本線から外れた終端として別扱い。
+ */
+const NEXT_STAGE_LABEL: Partial<Record<ProjectStage, { to: ProjectStage; label: string; note: string }>> = {
+  neta: { to: 'd_hold', label: '仮押さえにする', note: 'いまネタ。日程を押さえる目処が立ったら「仮押さえ」に進めてください。' },
+  d_hold: { to: 'c_proposal', label: '見積提案にする', note: 'いま仮押さえ。見積を出したら「見積提案」に進めてください。' },
+  c_proposal: { to: 'b_verbal', label: '口頭決定にする', note: 'いま見積提案。お客様の合意が取れたら「口頭決定」に進めてください。' },
+  b_verbal: { to: 'a_won', label: '受注にする', note: 'いま口頭決定。正式受注が固まったら「受注」に進めてください。見積・売上の明細登録はそこから始まります。' },
+  a_won: { to: 's_completed', label: '完了にする', note: 'いま受注済。実施と請求が終わったら「完了」にしてください。' },
+};
+
+function JourneyPanel({
+  currentStage, project, disabled, onGoStage, onOpenLost,
+}: {
+  currentStage: ProjectStage;
+  project: Record<string, unknown> | undefined;
+  disabled: boolean;
+  onGoStage: (stage: ProjectStage) => void;
+  onOpenLost: () => void;
+}) {
+  const [otherOpen, setOtherOpen] = useState(false);
+
   if (currentStage === 'e_lost') {
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-        <XCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
-        <span className="font-medium">失注</span>
-        <span className="text-red-600">この案件は失注として終了しています。</span>
+      <div className="rounded-lg border border-destructive/30 bg-destructive-surface px-4 py-3">
+        <p className="flex items-center gap-2 text-[14px] font-bold text-destructive">
+          <XCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+          失注
+        </p>
+        <p className="mt-1 text-[13px] text-foreground">
+          この案件は失注として終わっています。本線には戻せますが、学びだけ残すのが基本です。
+        </p>
+        <button
+          type="button"
+          className="mt-2 text-[13px] text-primary hover:underline"
+          onClick={() => setOtherOpen((v) => !v)}
+        >
+          ほかのステージに戻す
+        </button>
+        {otherOpen && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {JOURNEY_STAGES.map((st) => (
+              <Button key={st} type="button" size="sm" variant="outline" className="h-8" disabled={disabled} onClick={() => onGoStage(st)}>
+                {JOURNEY_SHORT[st]}
+              </Button>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
+
   const curIdx = JOURNEY_STAGES.indexOf(currentStage);
+  const next = NEXT_STAGE_LABEL[currentStage];
+  // 各段の日付 (分かるものだけ)。ネタ=作成日 / 受注・完了=実施日
+  const dateOf = (st: ProjectStage): string | null => {
+    const d = (k: string) => {
+      const v = project?.[k];
+      return typeof v === 'string' && v ? v.slice(0, 10) : null;
+    };
+    if (st === 'neta') return d('created_at');
+    if (st === 'a_won' || st === 's_completed') return d('event_start');
+    return null;
+  };
+
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-card px-3 py-2.5">
-      <ol className="flex min-w-max items-center gap-1">
-        {JOURNEY_STAGES.map((st, i) => {
-          const done = i < curIdx;
-          const current = i === curIdx;
-          return (
-            <li key={st} className="flex items-center gap-1">
-              <div className="flex items-center gap-1.5">
-                <span
-                  className={cn(
-                    "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
-                    current ? "ring-2 ring-offset-1" : "",
-                    done ? "text-white" : current ? "text-white" : "bg-muted text-muted-foreground"
-                  )}
-                  style={done || current ? { backgroundColor: ProjectStageColors[st] } : undefined}
-                >
-                  {done ? <Check className="h-3 w-3" aria-hidden="true" /> : i + 1}
-                </span>
-                <span className={cn(
-                  "whitespace-nowrap text-xs",
-                  current ? "font-bold text-foreground" : done ? "text-foreground" : "text-muted-foreground"
-                )}>
-                  {JOURNEY_SHORT[st]}
-                </span>
-              </div>
-              {i < JOURNEY_STAGES.length - 1 && (
-                <ChevronRight className={cn("h-3.5 w-3.5 shrink-0", i < curIdx ? "text-foreground/40" : "text-muted-foreground/30")} aria-hidden="true" />
-              )}
-            </li>
-          );
-        })}
-      </ol>
+    <div className="rounded-lg border border-border bg-card">
+      <div className="overflow-x-auto px-3 py-2.5">
+        <ol className="flex min-w-max items-center gap-1">
+          {JOURNEY_STAGES.map((st, i) => {
+            const done = i < curIdx;
+            const current = i === curIdx;
+            const dt = dateOf(st);
+            return (
+              <li key={st} className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={cn(
+                      "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
+                      current ? "ring-2 ring-offset-1" : "",
+                      done || current ? "text-white" : "bg-secondary text-muted-foreground"
+                    )}
+                    style={done || current ? { backgroundColor: ProjectStageColors[st] } : undefined}
+                  >
+                    {done ? <Check className="h-3 w-3" aria-hidden="true" /> : i + 1}
+                  </span>
+                  <span className="whitespace-nowrap">
+                    <span className={cn("block text-[12px]", current ? "font-bold text-foreground" : done ? "text-foreground" : "text-muted-foreground")}>
+                      {JOURNEY_SHORT[st]}
+                    </span>
+                    {dt && <span className="block text-[11px] tabular-nums text-muted-foreground">{dt}</span>}
+                  </span>
+                </div>
+                {i < JOURNEY_STAGES.length - 1 && (
+                  <ChevronRight className={cn("h-3.5 w-3.5 shrink-0", i < curIdx ? "text-foreground/40" : "text-muted-foreground/30")} aria-hidden="true" />
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 border-t border-divider px-3 py-2.5">
+        <p className="min-w-0 flex-1 text-[13px] text-foreground">{next?.note ?? 'この案件は完了しています。'}</p>
+        {next && (
+          <Button type="button" size="sm" className="h-9 shrink-0" disabled={disabled} onClick={() => onGoStage(next.to)}>
+            {next.label}
+          </Button>
+        )}
+        <Button type="button" size="sm" variant="outline" className="h-9 shrink-0" onClick={() => setOtherOpen((v) => !v)}>
+          ほかのステージ
+        </Button>
+      </div>
+
+      {otherOpen && (
+        <div className="flex flex-wrap items-center gap-1.5 border-t border-divider px-3 py-2.5">
+          {JOURNEY_STAGES.filter((st) => st !== currentStage).map((st) => (
+            <Button key={st} type="button" size="sm" variant="outline" className="h-8" disabled={disabled} onClick={() => onGoStage(st)}>
+              {JOURNEY_SHORT[st]}
+            </Button>
+          ))}
+          <Button
+            type="button" size="sm" variant="outline"
+            className="h-8 border-destructive/40 text-destructive hover:bg-destructive-surface"
+            onClick={onOpenLost}
+          >
+            失注にする
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * やり取りをこの場で記録する (7a)。営業活動ページに飛ばさない —
+ * 飛ばすと戻ってこないので、案件の文脈のまま1件残せるようにする。
+ * 既存の POST /activity-logs をそのまま使う (新規APIなし)。
+ */
+function ActivityQuickAdd({ projectId, onDone }: { projectId: string; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [kind, setKind] = useState("email");
+  const [subject, setSubject] = useState("");
+  const [detail, setDetail] = useState("");
+  const [nextAction, setNextAction] = useState("");
+  const [nextDate, setNextDate] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+
+  const add = useMutation({
+    mutationFn: async () =>
+      api.post("/activity-logs", {
+        project_id: projectId,
+        activity_type: kind,
+        activity_date: new Date().toISOString().slice(0, 10),
+        subject: subject.trim(),
+        description: detail.trim() || undefined,
+        next_action: nextAction.trim() || undefined,
+        next_action_date: nextAction.trim() ? nextDate || undefined : undefined,
+      }),
+    onSuccess: () => {
+      setSubject(""); setDetail(""); setNextAction(""); setNextDate(""); setErr(null); setOpen(false);
+      onDone();
+    },
+    onError: (e: unknown) => setErr(humanizeError(e).cause),
+  });
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex w-full items-center gap-2 rounded-control border border-border bg-secondary/40 px-3 py-2.5 text-left text-[13px] text-secondary-foreground transition-colors hover:bg-secondary"
+      >
+        <Plus className="h-4 w-4 shrink-0" aria-hidden="true" />
+        ここにやり取りを書くと、この案件の記録として残ります（次にやることもここで決められます）
+      </button>
+    );
+  }
+
+  return (
+    <div className="space-y-2 rounded-control border border-primary/30 bg-accent/30 p-3">
+      <div className="flex flex-wrap gap-1.5">
+        {([["email", "メール"], ["call", "電話"], ["meeting", "打合せ"], ["visit", "訪問"], ["other", "その他"]] as const).map(([v, lbl]) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => setKind(v)}
+            className={cn(
+              "rounded-full border px-2.5 py-1 text-[12px] transition-colors",
+              kind === v ? "border-primary bg-primary font-bold text-primary-foreground" : "border-border bg-card text-secondary-foreground hover:bg-secondary"
+            )}
+          >
+            {lbl}
+          </button>
+        ))}
+      </div>
+      <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="何があったか (例: 見積の相談を受けた)" className="h-9" />
+      <Textarea value={detail} onChange={(e) => setDetail(e.target.value)} rows={2} placeholder="くわしく (任意)" className="text-[13px]" />
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_170px]">
+        <Input value={nextAction} onChange={(e) => setNextAction(e.target.value)} placeholder="次にやること (任意)" className="h-9" />
+        <Input type="date" value={nextDate} onChange={(e) => setNextDate(e.target.value)} className="h-9" aria-label="次にやることの期限" />
+      </div>
+      {err && <p className="text-[12px] text-destructive">{err}</p>}
+      <div className="flex items-center gap-2">
+        <Button type="button" size="sm" className="h-9" disabled={!subject.trim() || add.isPending} onClick={() => add.mutate()}>
+          {add.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+          記録する
+        </Button>
+        <Button type="button" size="sm" variant="outline" className="h-9" onClick={() => { setOpen(false); setErr(null); }}>
+          やめる
+        </Button>
+        <span className="text-[12px] text-muted-foreground">期限は「何月何日」で入れてください。</span>
+      </div>
     </div>
   );
 }
@@ -265,7 +437,7 @@ export default function ProjectFormPage() {
     } catch (e) { console.error(e); }
   };
 
-  const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, setValue, watch, reset, formState: { errors, dirtyFields } } = useForm<FormValues>({
     defaultValues: {
       name: "", customer_id: "", customer_type: "external", project_type: "", project_type_other: "",
       gls_category: "",
@@ -615,6 +787,9 @@ export default function ProjectFormPage() {
     },
   });
 
+  // 未保存の項目数 (明示保存の目印)
+  const dirtyCount = Object.keys(dirtyFields ?? {}).length;
+
   if (isEdit && projectLoading) {
     return (
       <div className="flex justify-center py-12">
@@ -637,32 +812,80 @@ export default function ProjectFormPage() {
 
   return (
     <PageTransition>
-    <div className="mx-auto max-w-5xl space-y-4 lg:space-y-6 p-3 lg:p-6">
-      <div className="flex items-center gap-4 flex-wrap">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/sales/projects")}>
+    <div className="mx-auto max-w-screen-2xl space-y-4 px-4 py-5 sm:py-7">
+      {/* ヘッダー (7a): 上=状態、真ん中=案件名、下=事実。右に行き先と保存 */}
+      <header className="flex flex-wrap items-start gap-3">
+        <Button type="button" variant="ghost" size="icon" className="mt-0.5 shrink-0" aria-label="案件一覧へ戻る" onClick={() => navigate("/projects")}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-xl lg:text-2xl font-bold">{isEdit ? "案件編集" : "新規案件作成"}</h1>
-        {isEdit && (
-          <Badge style={{ backgroundColor: ProjectStageColors[currentStage], color: '#fff' }}>
-            {ProjectStageLabels[currentStage] || currentStage}
-          </Badge>
-        )}
-        {isEdit && project?.code && (
-          <span className="text-sm text-muted-foreground">{project.gls_number || project.code}</span>
-        )}
-        {isEdit && id && (
-          <ProjectQuickLinks
-            projectId={id}
-            projectName={watch("name") || project?.name}
-            currentPage="project"
-            className="ml-auto"
-          />
-        )}
-      </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            {isEdit && (
+              <Badge className="shrink-0" style={{ backgroundColor: ProjectStageColors[currentStage], color: '#fff' }}>
+                {ProjectStageLabels[currentStage] || currentStage}
+              </Badge>
+            )}
+            {isEdit && project?.gls_category && (
+              <span className="text-[12px] text-secondary-foreground">
+                {project.gls_category === 'A' ? 'スタジオ案件' : 'ビジネス案件'}
+              </span>
+            )}
+            {isEdit && project?.assigned_to_name && (
+              <span className="text-[12px] text-secondary-foreground">担当 {project.assigned_to_name}</span>
+            )}
+          </div>
+          <h1 className="mt-1 text-xl font-bold text-foreground sm:text-2xl [overflow-wrap:anywhere]">
+            {isEdit ? (watch("name") || project?.name || "案件") : "新しい案件"}
+          </h1>
+          {isEdit && (
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px] text-secondary-foreground">
+              {project?.customer_name && <span>{project.customer_name}</span>}
+              {project?.event_start && (
+                <span>
+                  {String(project.event_start).slice(0, 10)}
+                  {project?.event_end && project.event_end !== project.event_start ? ` 〜 ${String(project.event_end).slice(0, 10)}` : ""}
+                </span>
+              )}
+              {(project?.gls_number || project?.code) && (
+                <span className="tabular-nums text-muted-foreground">
+                  {project.gls_number || project.code}
+                  <span className="ml-1 text-[12px]">経理・請求で使う番号です</span>
+                </span>
+              )}
+            </p>
+          )}
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {isEdit && id && (
+            <ProjectQuickLinks
+              projectId={id}
+              projectName={watch("name") || project?.name}
+              currentPage="project"
+            />
+          )}
+          {/* 明示保存。自動保存にはしない (金額を含む画面なので勝手に確定させない) */}
+          {dirtyCount > 0 && (
+            <span className="rounded-full bg-warning-surface px-2 py-1 text-[12px] font-bold text-warning-strong">
+              未保存の変更 {dirtyCount}件
+            </span>
+          )}
+          <Button type="submit" form="project-form" disabled={saveMutation.isPending} className="h-9 gap-1.5">
+            {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            保存
+          </Button>
+        </div>
+      </header>
 
-      {/* ジャーニーステッパー (ゴールから逆算した現在地) */}
-      {isEdit && project && <JourneyStepper currentStage={currentStage} />}
+      {/* ジャーニー (現在地 + 次の一手1つ) */}
+      {isEdit && project && (
+        <JourneyPanel
+          currentStage={currentStage}
+          project={project}
+          disabled={stageMutation.isPending}
+          onGoStage={(st) => { setStageSelectValue(st); setStageConfirmOpen(true); }}
+          onOpenLost={() => setLostDialog({ open: true, lost_reason: '', lost_reason_note: '', lessons_learned: '' })}
+        />
+      )}
 
       {/* 保存完了バナー（画面上部・幅広） */}
       {saveSuccess && (
@@ -684,22 +907,6 @@ export default function ProjectFormPage() {
           <ul className="list-disc list-inside text-sm text-red-700 space-y-0.5">
             {submitErrors.map((e) => <li key={e}>{e}</li>)}
           </ul>
-        </div>
-      )}
-
-      {/* Stage guide */}
-      {isEdit && project && !isTerminal && (
-        <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
-          <Info className="h-4 w-4 mt-0.5 shrink-0" />
-          <span>
-            {currentStage === 'neta' && 'ネタ段階です。仮押さえ・見積提案を経て、確度が高まったらGLS発番で正式な案件にしましょう。'}
-            {currentStage === 'd_hold' && (isCategoryA
-              ? '仮押さえ中です。スタジオ予約カレンダーで日程を押さえましょう。見積提案を経てGLS発番へ進みます。'
-              : '仮押さえ中です。見積提案を行うか、確定したらGLS発番に進みましょう。')}
-            {currentStage === 'c_proposal' && '見積提案済みです。顧客の承認が得られたらGLS発番で案件を確定しましょう。'}
-            {currentStage === 'b_verbal' && 'GLS発番済みです。正式受注が確定したら「A 受注済へ」に進み、見積・売上管理で制作準備を始めましょう。'}
-            {currentStage === 'a_won' && '受注済みです。見積・売上管理から明細を登録しましょう。'}
-          </span>
         </div>
       )}
 
@@ -732,26 +939,9 @@ export default function ProjectFormPage() {
         </div>
       )}
 
-      {/* 財務サマリー */}
-      {isEdit && project && (Number(project.total_revenue) > 0 || Number(project.total_purchase) > 0) && (
-        <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-lg border bg-card p-3 text-center">
-            <p className="text-xs text-muted-foreground mb-1">売上（確定）</p>
-            <p className="text-base font-bold font-number">{formatCurrency(Number(project.total_revenue))}</p>
-          </div>
-          <div className="rounded-lg border bg-card p-3 text-center">
-            <p className="text-xs text-muted-foreground mb-1">仕入</p>
-            <p className="text-base font-bold font-number">{formatCurrency(Number(project.total_purchase))}</p>
-          </div>
-          <div className={`rounded-lg border p-3 text-center ${Number(project.total_revenue) - Number(project.total_purchase) >= 0 ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
-            <p className="text-xs text-muted-foreground mb-1">粗利</p>
-            <p className={`text-base font-bold font-number ${Number(project.total_revenue) - Number(project.total_purchase) >= 0 ? "text-green-700" : "text-red-700"}`}>
-              {formatCurrency(Number(project.total_revenue) - Number(project.total_purchase))}
-            </p>
-          </div>
-        </div>
-      )}
-
+      {/* ───── 左=進める / 右=事実 (7a) ───── */}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_460px]">
+      <div className="min-w-0 space-y-4">
       {/* ① 今すべきこと — 次回アクション + 未設定の警告 (自問自答⑩「ネクストアクションはあるか」) */}
       {isEdit && project && (() => {
         const openActions = projectActivities.filter(
@@ -835,19 +1025,17 @@ export default function ProjectFormPage() {
               {projectActivities.length > 0 ? (
                 <span className="text-xs font-normal text-muted-foreground">直近 {projectActivities.length} 件</span>
               ) : null}
-              <button
-                type="button"
-                className="ml-auto text-xs font-normal text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-                onClick={() => navigate("/sales/activity-logs")}
-              >
-                営業活動ページで記録
-              </button>
+              <span className="ml-auto text-[12px] font-normal text-muted-foreground">
+                メールは AI が自動で取り込みます
+              </span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
+            {/* この場で記録する (画面を離れさせない) */}
+            <ActivityQuickAdd projectId={id!} onDone={() => qc.invalidateQueries({ queryKey: ["project-activities", id] })} />
             {projectActivities.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                やり取りの記録はまだありません。営業活動ページから記録できます（メールは AI が自動で取り込みます）。
+                やり取りの記録はまだありません。上の欄に書くと、この案件の記録として残ります。
               </p>
             ) : (
               <ol className="relative space-y-4 border-l border-border pl-5 ml-1.5">
@@ -928,79 +1116,26 @@ export default function ProjectFormPage() {
         </Card>
       )}
 
-      {/* Stage change actions */}
-      {isEdit && project && (
-        <Card>
-          <CardHeader><CardTitle className="text-base">ステージ変更</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-end gap-2 flex-wrap">
-              <div className="flex-1 min-w-[160px]">
-                <Label className="text-xs text-muted-foreground mb-1 block">変更先ステージ</Label>
-                <Select value={stageSelectValue} onValueChange={setStageSelectValue} disabled={stageMutation.isPending}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="ステージを選択..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.entries(ProjectStageLabels) as [string, string][])
-                      .filter(([val]) => val !== currentStage)
-                      .map(([val, label]) => (
-                        <SelectItem key={val} value={val}>{label}</SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!stageSelectValue || stageMutation.isPending}
-                onClick={() => {
-                  if (!stageSelectValue) return;
-                  if (stageSelectValue === 'e_lost') {
-                    setLostDialog({ open: true, lost_reason: '', lost_reason_note: '', lessons_learned: '' });
-                    setStageSelectValue("");
-                  } else {
-                    setStageConfirmOpen(true);
-                  }
-                }}
-              >
-                {stageMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "変更"}
-              </Button>
 
-              {/* GLS発番 */}
-              {isYomi && (
-                <Button
-                  size="sm"
-                  className="bg-green-600 hover:bg-green-700"
-                  onClick={() => setGlsDialog({ ...glsDialog, open: true })}
-                  disabled={glsMutation.isPending}
-                >
-                  <Trophy className="mr-2 h-4 w-4" />
-                  GLS発番
-                </Button>
-              )}
-            </div>
-
-            {/* 仮押さえ中 + A系：スタジオ予約ショートカット */}
-            {currentStage === 'd_hold' && isCategoryA && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="border-blue-300 text-blue-700 hover:bg-blue-50"
-                onClick={() => navigate("/studio/calendar", {
-                  state: {
-                    presetRoomIds: scheduleRoomIds,
-                    presetDate: buildProjectPresetDate(),
-                    presetProjectId: id,
-                  },
-                })}
-              >
-                <CalendarDays className="mr-1 h-4 w-4" />
-                スタジオ予約
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+        {/* お金 — 見積 → 売上 → 仕入。数字は税抜 */}
+      {/* 財務サマリー */}
+      {isEdit && project && (Number(project.total_revenue) > 0 || Number(project.total_purchase) > 0) && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-lg border bg-card p-3 text-center">
+            <p className="text-xs text-muted-foreground mb-1">売上（確定）</p>
+            <p className="text-base font-bold font-number">{formatCurrency(Number(project.total_revenue))}</p>
+          </div>
+          <div className="rounded-lg border bg-card p-3 text-center">
+            <p className="text-xs text-muted-foreground mb-1">仕入</p>
+            <p className="text-base font-bold font-number">{formatCurrency(Number(project.total_purchase))}</p>
+          </div>
+          <div className={`rounded-lg border p-3 text-center ${Number(project.total_revenue) - Number(project.total_purchase) >= 0 ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
+            <p className="text-xs text-muted-foreground mb-1">粗利</p>
+            <p className={`text-base font-bold font-number ${Number(project.total_revenue) - Number(project.total_purchase) >= 0 ? "text-green-700" : "text-red-700"}`}>
+              {formatCurrency(Number(project.total_revenue) - Number(project.total_purchase))}
+            </p>
+          </div>
+        </div>
       )}
 
       {/* 概算見積セクション (ヨミ段階のみ) */}
@@ -1047,10 +1182,33 @@ export default function ProjectFormPage() {
         </Card>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      </div>
+
+      <div className="min-w-0 space-y-4">
+        {/* 仮押さえ中 + A系：スタジオ予約ショートカット */}
+        {currentStage === 'd_hold' && isCategoryA && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="border-blue-300 text-blue-700 hover:bg-blue-50"
+            onClick={() => navigate("/studio/calendar", {
+              state: {
+                presetRoomIds: scheduleRoomIds,
+                presetDate: buildProjectPresetDate(),
+                presetProjectId: id,
+              },
+            })}
+          >
+            <CalendarDays className="mr-1 h-4 w-4" />
+            スタジオ予約
+          </Button>
+        )}
+
+      <form id="project-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         {/* 基本情報 (常に表示) */}
         <Card>
-          <CardHeader><CardTitle className="text-base">基本情報</CardTitle></CardHeader>
+          <CardHeader className="pb-3"><CardTitle className="flex flex-wrap items-baseline gap-2 text-base">案件の中身<span className="text-[12px] font-normal text-muted-foreground">直したら右上の「保存」を押してください</span></CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div>
               <Label>案件名 *</Label>
@@ -1319,7 +1477,7 @@ export default function ProjectFormPage() {
             <div className="space-y-3 rounded-xl border bg-muted/20 p-4">
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-primary" />
-                <Label className="font-semibold">書類管理</Label>
+                <Label className="font-semibold">まだ揃っていない書類</Label>
               </div>
               <p className="text-xs text-muted-foreground">
                 申込書を ON にするとダッシュボードの「申込書未提出」アラート対象から外れます。
@@ -1360,7 +1518,7 @@ export default function ProjectFormPage() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Calendar className="h-4 w-4" />
-              スタジオスケジュール
+              スタジオの日程
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1713,7 +1871,7 @@ export default function ProjectFormPage() {
 
         {/* タグ */}
         <Card>
-          <CardHeader><CardTitle className="text-base">タグ</CardTitle></CardHeader>
+          <CardHeader className="pb-3"><CardTitle className="text-base">タグ</CardTitle></CardHeader>
           <CardContent>
             <div>
               <Label>タグ (カンマ区切り)</Label>
@@ -1723,26 +1881,23 @@ export default function ProjectFormPage() {
           </CardContent>
         </Card>
 
-        <div className="flex items-center justify-end gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           {saveSuccess && (
-            <span className="flex items-center gap-1.5 text-sm text-green-700">
-              <CheckCircle2 className="h-4 w-4" />
+            <span className="flex items-center gap-1.5 text-[13px] font-bold text-success">
+              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
               保存しました
             </span>
           )}
-          <Button type="button" variant="outline" onClick={() => navigate("/sales/projects")}>キャンセル</Button>
-          <Button type="submit" disabled={saveMutation.isPending} className={saveSuccess ? "bg-green-600 hover:bg-green-700" : ""}>
-            {saveMutation.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : saveSuccess ? (
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-            ) : (
-              <Save className="mr-2 h-4 w-4" />
-            )}
-            {saveSuccess ? "保存しました" : "保存"}
+          <Button type="button" variant="outline" className="h-9" onClick={() => navigate("/projects")}>案件一覧へ戻る</Button>
+          <Button type="submit" disabled={saveMutation.isPending} className="h-9 gap-1.5">
+            {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            保存
           </Button>
         </div>
       </form>
+      </div>
+      </div>
+
 
       {/* 新規顧客ダイアログ */}
       <CustomerDialog
