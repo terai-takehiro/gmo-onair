@@ -1,0 +1,100 @@
+{
+  "measured_at": "2026-07-25",
+  "model": "claude-opus-5",
+  "queries": 20,
+  "runs_per_query": 3,
+  "split": "train 12 / test 8 (holdout 0.4)",
+  "iterations": [
+    {
+      "iteration": 1,
+      "train": {
+        "correct": "18",
+        "total": "36",
+        "precision": "100",
+        "recall": "0",
+        "accuracy": "50"
+      },
+      "test": {
+        "correct": "13",
+        "total": "24",
+        "precision": "100",
+        "recall": "8",
+        "accuracy": "54"
+      }
+    },
+    {
+      "iteration": 2,
+      "train": {
+        "correct": "21",
+        "total": "36",
+        "precision": "100",
+        "recall": "17",
+        "accuracy": "58"
+      },
+      "test": {
+        "correct": "13",
+        "total": "24",
+        "precision": "100",
+        "recall": "8",
+        "accuracy": "54"
+      }
+    },
+    {
+      "iteration": 3,
+      "train": {
+        "correct": "19",
+        "total": "36",
+        "precision": "100",
+        "recall": "6",
+        "accuracy": "53"
+      },
+      "test": {
+        "correct": "13",
+        "total": "24",
+        "precision": "100",
+        "recall": "8",
+        "accuracy": "54"
+      }
+    },
+    {
+      "iteration": 4,
+      "train": {
+        "correct": "20",
+        "total": "36",
+        "precision": "100",
+        "recall": "11",
+        "accuracy": "56"
+      },
+      "test": {
+        "correct": "13",
+        "total": "24",
+        "precision": "100",
+        "recall": "8",
+        "accuracy": "54"
+      }
+    },
+    {
+      "iteration": 5,
+      "train": {
+        "correct": "19",
+        "total": "36",
+        "precision": "100",
+        "recall": "6",
+        "accuracy": "53"
+      },
+      "test": {
+        "correct": "13",
+        "total": "24",
+        "precision": "100",
+        "recall": "8",
+        "accuracy": "54"
+      }
+    }
+  ],
+  "best": {
+    "score": "4/8",
+    "iteration": 1
+  },
+  "conclusion": "元の description が最良 (iteration 1)。5回の書き換えで改善せず。",
+  "validity_caveat": "この数値を『実運用の発火率』として読んではいけない。run_eval.py は (a) スキルではなく .claude/commands/*.md のスラッシュコマンドとして登録し、(b) claude -p の『最初のツール呼び出し』が Skill/Read 以外なら即 False とする実装 (else: return False)。コードベースの設計相談では Claude はまず Grep/Glob/Bash で調査するのが自然なため、直後にスキルを参照しても『未発火』と数えられる。よって recall はこのスキル種別を過小評価する。一方 precision=100% (誤発火0) は有意で、過剰発火の懸念は無いと言える。必須チェックの担保は自動発火に依存せず、常時読み込まれる CLAUDE.md の節で行う。"
+}
