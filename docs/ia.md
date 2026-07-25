@@ -96,6 +96,37 @@ UI/UX 刷新 (v2.9.251〜) の合意事項。**「入口は1つ」を判定す�
 
 `/daily/tasks` → `/tasks?scope=me` の吸収は Phase 5 (いまは新URLが日常業務アプリへ送る一方向)。
 
+### Phase 4 (v2.9.257 / v2.9.258) — 済
+
+案件の一覧・ボード・確定案件の3画面を `/projects` に統合 (`?view=list|board` / `?filter=confirmed_*`)。
+案件ワークスペースは「左=進める / 右=事実」の2カラムに組み直し、次の一手だけを主ボタンにした。
+
+### Phase 5 (v2.9.259) — 済
+
+タスクを `/tasks` 1画面に統合した。**スコープ (自分 / 案件 / 全体) × 表示形式 (リスト / ボード / ガント)** を
+`?scope=` `?view=` `?project=` で切り替える。
+
+| 旧 | 新 | 中身 |
+| --- | --- | --- |
+| `/sales/tasks/kanban` | `/tasks?scope=all&view=board` | 案件横断のかんばん |
+| `/sales/tasks/list` | `/tasks?scope=all&view=list` | 案件横断のリスト |
+| `/sales/tasks/gantt` | `/tasks?scope=all&view=gantt` | 案件横断のガント |
+| `/sales/projects/:id/tasks` | `/tasks?scope=project&project=:id` | 1案件のタスク |
+| `/daily/tasks` | `/tasks?scope=me` | 自分のタスク・依頼・投入ログ・9マス |
+
+**なぜ統合が必要だったか**: 上の a) と b) は**同じ `project_tasks` の行**を案件軸と人軸で見ていたのに、
+実装が2つのアプリに分かれていたため「期限超過」「今日が期限」が別々の画面に別々の実装で出ていた
+(どちらが正か分からない)。`client-daily/src/pages/TasksPage.tsx` を
+`client/src/contexts/tasks/pages/MyTasksPanels.tsx` に**移動** (コピーを残さない) して1本にした。
+
+**表示形式の切り替えは1組だけ**: 移設した3画面はそれぞれ自前の切替を持っていたため、統合すると
+同じ軸のボタンが2組並ぶ。`MyTasksTab` / `ProjectTasksPage` / `TaskDashboardPage` に `view` +
+`onViewChange` (`embedded`) を追加し、渡されたときは内側のボタンを描かない。
+自分スコープはボードの実体が9マスなのでラベルを「スコア順 / 9 マス」に差し替える。
+
+**サーバー変更なし**。使うのは既存の `/dailyops/tasks/*` (自分・依頼・投入・チーム) と
+`/task-dashboard` (案件横断) と `/projects/:id/tasks` (1案件) のみ。
+
 ---
 
 ## 4. 壊してはいけないもの

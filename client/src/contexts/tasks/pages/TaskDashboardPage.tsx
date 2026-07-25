@@ -24,7 +24,10 @@ const CAT_FILTERS: { id: CatFilter; label: string }[] = [
 ];
 
 /** view は旧パス (/sales/tasks/:view) と新クエリ (/tasks?view=) の両方から来る */
-export default function TaskDashboardPage({ view: viewProp }: { view?: string } = {}) {
+export default function TaskDashboardPage({
+  view: viewProp,
+  embedded,
+}: { view?: string; embedded?: boolean } = {}) {
   const params = useParams<{ view: string }>();
   const view = viewProp ?? params.view;
   const navigate = useNavigate();
@@ -51,11 +54,12 @@ export default function TaskDashboardPage({ view: viewProp }: { view?: string } 
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="border-b px-4 py-3 flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-1 rounded-md border bg-muted/40 p-0.5">
+        {/* 表示形式は /tasks の見出しが持つ。埋め込みのときは同じ切り替えを2つ出さない */}
+        <div className={cn("flex items-center gap-1 rounded-md border bg-muted/40 p-0.5", embedded && "hidden")}>
           {VIEWS.map(({ id, label, Icon }) => (
             <button
               key={id}
-              onClick={() => navigate(`/sales/tasks/${id}`)}
+              onClick={() => navigate(`/tasks?scope=all&view=${id === "kanban" ? "board" : id}`)}
               className={cn(
                 "flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors",
                 activeView === id

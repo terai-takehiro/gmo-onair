@@ -17,8 +17,7 @@ import { FileSearch, FlaskConical, CopyCheck, ChevronRight } from "lucide-react"
 import { useAuth } from "@/contexts/platform/AuthContext";
 
 import ProjectsPage from "@/contexts/sales/pages/ProjectsPage";
-import TaskDashboardPage from "@/contexts/tasks/pages/TaskDashboardPage";
-import ProjectTasksPage from "@/contexts/tasks/pages/ProjectTasksPage";
+import TasksPage from "@/contexts/tasks/pages/TasksPage";
 import StudioCalendarPage from "@/contexts/production/pages/StudioCalendarPage";
 import PartnerSchedulePage from "@/contexts/production/pages/PartnerSchedulePage";
 import MyCalendarPage from "@/contexts/production/pages/MyCalendarPage";
@@ -75,22 +74,12 @@ export function ProjectsRoute() {
   return <ProjectsPage />;
 }
 
-/** /tasks — ?scope=me|project|all &view=board|list|gantt */
-const QUERY_TO_VIEW: Record<string, string> = { board: "kanban", list: "list", gantt: "gantt" };
+/**
+ * /tasks — スコープ (自分/案件/全体) × 表示 (リスト/ボード/ガント)。
+ * 旧 /sales/tasks/* と /daily/tasks はここに集約した (§4.8)。
+ */
 export function TasksRoute() {
-  const [sp] = useSearchParams();
-  const scope = sp.get("scope") ?? "all";
-
-  if (scope === "project") {
-    const projectId = sp.get("project");
-    if (projectId) return <ProjectTasksPage projectId={projectId} />;
-    return <Navigate to="/tasks?scope=all" replace />;
-  }
-
-  // 自分のタスクと依頼は日常業務アプリが持っている (Phase 5 でここに吸収する)
-  if (scope === "me") return <ForwardToApp path="/daily/tasks" label="自分のタスクと依頼" />;
-
-  return <TaskDashboardPage view={QUERY_TO_VIEW[sp.get("view") ?? ""] ?? "kanban"} />;
+  return <TasksPage />;
 }
 
 /** /schedule — ?layers=studio|partner|me。複数・未指定は統合カレンダー */
@@ -196,16 +185,6 @@ function ImportPicker() {
           </li>
         ))}
       </ul>
-    </div>
-  );
-}
-
-/** 別バンドルのアプリへ送る (フルリロード)。押し戻されないよう replace で飛ばす */
-function ForwardToApp({ path, label }: { path: string; label: string }) {
-  if (typeof window !== "undefined") window.location.replace(path);
-  return (
-    <div className="p-6 text-[13px] text-secondary-foreground">
-      {label}を開いています…
     </div>
   );
 }

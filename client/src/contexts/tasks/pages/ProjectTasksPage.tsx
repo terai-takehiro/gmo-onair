@@ -77,10 +77,21 @@ function HealthStrip({ projectId, episodeId }: { projectId: string; episodeId: s
 }
 
 /** projectId は旧パス (/sales/projects/:projectId/tasks) と新クエリ (?project=) の両方から来る */
-export default function ProjectTasksPage({ projectId: projectIdProp }: { projectId?: string } = {}) {
+/**
+ * view / onViewChange を渡すと表示形式の切り替えは呼び出し側 (/tasks の見出し) が持つ。
+ * 同じ切り替えを2箇所に出さないため、渡されたときは内側の ViewToggle を出さない。
+ */
+export default function ProjectTasksPage({
+  projectId: projectIdProp,
+  view: viewProp,
+  onViewChange,
+}: { projectId?: string; view?: TaskView; onViewChange?: (v: TaskView) => void } = {}) {
   const params = useParams<{ projectId: string }>();
   const projectId = projectIdProp ?? params.projectId;
-  const [view, setView] = useState<TaskView>("kanban");
+  const controlled = viewProp !== undefined;
+  const [localView, setLocalView] = useState<TaskView>("kanban");
+  const view = viewProp ?? localView;
+  const setView = (v: TaskView) => (onViewChange ? onViewChange(v) : setLocalView(v));
   const [episodeId, setEpisodeId] = useState<string | null>(null);
   const didInitView = useRef(false);
 
@@ -99,9 +110,9 @@ export default function ProjectTasksPage({ projectId: projectIdProp }: { project
   useEffect(() => {
     if (project && !didInitView.current) {
       didInitView.current = true;
-      if (isBusiness) setView("gantt");
+      if (isBusiness && !controlled) setLocalView("gantt");
     }
-  }, [project, isBusiness]);
+  }, [project, isBusiness, controlled]);
 
   if (isLoading) {
     return (
@@ -123,12 +134,12 @@ export default function ProjectTasksPage({ projectId: projectIdProp }: { project
       <div className="border-b border-border bg-background px-4 py-3 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-col gap-1">
-            <h1 className="text-sm font-semibold truncate max-w-[60vw]">
+            <h2 className="text-sm font-semibold truncate max-w-[60vw]">
               {project.gls_number ?? project.code} — {project.name}
-            </h1>
+            </h2>
             <ProjectQuickLinks projectId={projectId} projectName={project.name} currentPage="tasks" />
           </div>
-          <ViewToggle current={view} onChange={setView} />
+          {!controlled && <ViewToggle current={view} onChange={setView} />}
         </div>
 
         {/* ヘルスストリップ (進捗 / 期限超過 / 担当メンバー) */}

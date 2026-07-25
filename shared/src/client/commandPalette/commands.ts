@@ -47,7 +47,9 @@ const OPEN_COMMANDS: CommandDef[] = [
   { id: 'open-tasks-board', kind: 'open', label: 'タスク (カンバン)', path: '/tasks?scope=all&view=board', keywords: 'kanban board カンバン', module: 'sales' },
   { id: 'open-tasks-list', kind: 'open', label: 'タスク (リスト)', path: '/tasks?scope=all&view=list', keywords: 'list リスト', module: 'sales' },
   { id: 'open-tasks-gantt', kind: 'open', label: 'タスク (ガント)', path: '/tasks?scope=all&view=gantt', keywords: 'gantt ガント 工程', module: 'sales' },
-  { id: 'open-tasks-me', kind: 'open', label: '自分のタスクと依頼', path: '/tasks?scope=me', keywords: 'mytask 依頼 delegation 自分', module: 'dailyops' },
+  { id: 'open-tasks-me', kind: 'open', label: '自分のタスクと依頼', path: '/tasks?scope=me', keywords: 'mytask 依頼 delegation 自分 9マス', module: 'dailyops' },
+  { id: 'open-tasks-project', kind: 'open', label: '案件のタスク', path: '/tasks?scope=project', keywords: 'project task 案件', module: 'sales' },
+  { id: 'open-tasks-team', kind: 'open', label: 'チームの負荷 (件数だけ)', path: '/tasks?scope=all&view=list', keywords: 'team load 負荷 チーム', module: 'dailyops' },
 
   // ふりかえり
   { id: 'open-sales-review', kind: 'open', label: '営業レビュー', path: '/sales/review', keywords: 'review funnel ファネル 失注', module: 'sales' },

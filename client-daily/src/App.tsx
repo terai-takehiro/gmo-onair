@@ -11,7 +11,12 @@ import InviewPage from './pages/InviewPage';
 import FinanceDocsPage from './pages/FinanceDocsPage';
 import InquiriesPage from './pages/InquiriesPage';
 import SecurityCardsPage from './pages/SecurityCardsPage';
-import TasksPage from './pages/TasksPage';
+
+/** 別バンドル (案件管理アプリ) へフルリロードで送る */
+function ForwardTo({ path }: { path: string }) {
+  if (typeof window !== 'undefined') window.location.replace(path);
+  return <div className="p-6 text-[13px] text-secondary-foreground">タスク・依頼を開いています…</div>;
+}
 
 export default function App() {
   const { currentUser: user, loading } = useAuth();
@@ -30,7 +35,8 @@ export default function App() {
         ) : user ? (
           <Route element={<AppShell />}>
             <Route index element={<HomePage />} />
-            <Route path="/tasks" element={<TasksPage />} />
+            {/* タスク・依頼は案件管理アプリの /tasks に統合した (§4.8)。旧URLは壊さずリダイレクト */}
+            <Route path="/tasks" element={<ForwardTo path="/tasks?scope=me" />} />
             <Route path="/weekly" element={<WeeklyListPage />} />
             <Route path="/weekly/:id" element={<WeeklyDetailPage />} />
             <Route path="/news" element={<DailyNewsPage />} />

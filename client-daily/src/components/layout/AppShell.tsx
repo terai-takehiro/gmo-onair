@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, ListChecks, CalendarCheck, Newspaper, DoorOpen, FileText, Inbox, KeyRound,
+  LayoutDashboard, CalendarCheck, Newspaper, DoorOpen, FileText, Inbox, KeyRound,
 } from 'lucide-react';
 import SharedAppShell from '@gmo-onair/shared/src/client/shell/AppShell';
 import { createPaletteSearch } from '@gmo-onair/shared/src/client/commandPalette/search';
@@ -17,7 +17,6 @@ import { DAILY_MANUAL } from '@/manual/content';
 // href はルーター相対 (basename="/daily")
 const NAV_ITEMS: SecondaryNavItem[] = [
   { label: 'ホーム', href: '/', Icon: LayoutDashboard, exact: true },
-  { label: 'タスク・依頼', href: '/tasks', Icon: ListChecks, groupTitle: 'メニュー' },
   { label: 'ウィークリー活動報告', href: '/weekly', Icon: CalendarCheck },
   { label: 'デイリーニュース報告', href: '/news', Icon: Newspaper },
   { label: '内覧会 来場予約', href: '/inview', Icon: DoorOpen },

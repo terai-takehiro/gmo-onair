@@ -1,22 +1,19 @@
-// タスク・依頼 — 1 ページ 4 タブ (要件 D8)。
+// タスクのパネル群 (9b) — 日常業務アプリの /daily/tasks から案件管理アプリへ移設。
 //
-// 要件: docs/requirements/2026-07-25-collaboration-and-personal-agent.md (D2 / D3 / D8)
-//
-// 投入口は案件管理アプリのトップ (投げるのは 1 秒で終わる行為なので入口に置く)。
-// こちらは**格納先と棚卸し**。腰を据えて優先順位を見直す場所。
+// 「同じ期限が2画面に別実装で出ている」状態をやめるため、実装をこの1か所に寄せた。
+// 殻 (スコープ × 表示形式のヘッダー) は TasksPage が持つ。
 //
 // GMO イズムに従う点:
 //   - 目標達成10カ条 1-1「期限は何月何日何時何分まで」→ 期限は必ず分まで表示・入力する
 //   - 同 1-1「期限はできるだけ短く」→ クイック選択を短い順に並べる
-//   - 同 9-5「報告は数字で行え」→ チームタブは件数だけ
+//   - 同 9-5「報告は数字で行え」→ チームは件数だけ
 //   - 同 10-3「指示をしたら完了させるまでがリーダーの仕事」
 //     → 出した依頼で反応が無いものを依頼者に見せ、差し戻しは決着するまで残す
 
 import { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import {
-  ListChecks, LayoutGrid, List, Users, Inbox, Plus, Loader2, Check, X, MessageCircle,
-  Clock, AlertTriangle, ChevronRight, Sparkles, Pencil, Send, UserPlus, Undo2, Trash2, Eye, EyeOff,
+  LayoutGrid, List, Plus, Loader2, Check, X, MessageCircle,
+  Clock, AlertTriangle, ChevronRight, Sparkles, Pencil, UserPlus, Undo2, Trash2, Eye, EyeOff,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -26,78 +23,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { usePermissions } from '@/hooks/usePermissions';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/platform/AuthContext';
 import {
   useMyTasks, useMyDelegations, useTaskIntakes, useTaskIntake, useTeamLoad, useAssignees,
   useUpdateTask, useRespondDelegation, useResolveDelegation, useCreateTask,
   CELL_ACTION, LEVEL_LABELS, DELEGATION_LABELS,
   formatDue, toLocalInput, fromLocalInput, daysSinceRequested, scoreTone,
   type MyTask, type TaskIntake,
-} from '@/lib/tasksApi';
-
-type TabKey = 'mine' | 'delegations' | 'intake' | 'team';
-
-const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
-  { key: 'mine', label: 'マイタスク', icon: ListChecks },
-  { key: 'delegations', label: '依頼', icon: Send },
-  { key: 'intake', label: '投入ログ', icon: Inbox },
-  { key: 'team', label: 'チーム', icon: Users },
-];
-
-export default function TasksPage() {
-  const [params, setParams] = useSearchParams();
-  const raw = params.get('tab');
-  const tab: TabKey = TABS.some((t) => t.key === raw) ? (raw as TabKey) : 'mine';
-  const setTab = (k: TabKey) => setParams(k === 'mine' ? {} : { tab: k }, { replace: true });
-
-  return (
-    <div className="mx-auto max-w-5xl space-y-4 p-4 sm:p-6">
-      <div className="min-w-0">
-        <h1 className="flex items-center gap-2 text-xl font-bold">
-          <ListChecks className="h-5 w-5 text-primary" />タスク・依頼
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          案件のタスクと個人のタスクを混ぜて、重要度 × 緊急度の順に並べます。
-          期限は何月何日何時何分まで入れてください。
-        </p>
-      </div>
-
-      {/* タブ。横スクロールでモバイルでも全部に届く */}
-      <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-        <div className="flex w-max items-center gap-1 border-b border-border pb-px">
-          {TABS.map((t) => {
-            const Icon = t.icon;
-            const active = tab === t.key;
-            return (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                className={cn(
-                  'flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-md px-3 py-2 text-sm font-medium transition-colors',
-                  active
-                    ? 'border-b-2 border-primary bg-primary/10 text-primary'
-                    : 'border-b-2 border-transparent text-muted-foreground hover:bg-accent hover:text-foreground'
-                )}
-              >
-                <Icon className="h-4 w-4" />{t.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {tab === 'mine' && <MyTasksTab />}
-      {tab === 'delegations' && <DelegationsTab />}
-      {tab === 'intake' && <IntakeLogTab />}
-      {tab === 'team' && <TeamTab />}
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════════
-// マイタスク
-// ══════════════════════════════════════════════════
+} from '@/contexts/tasks/lib/tasksApi';
 
 /** 9 マスの並び。上が重要、左が緊急。位置に意味があるので固定 */
 const CELL_GRID: string[][] = [
@@ -106,9 +39,20 @@ const CELL_GRID: string[][] = [
   ['1x3', '1x2', '1x1'],
 ];
 
-function MyTasksTab() {
-  const { canEdit } = usePermissions();
-  const [view, setView] = useState<'list' | 'board'>('list');
+/**
+ * view / onViewChange を渡すと「スコア順 / 9 マス」の切り替えは呼び出し側が持つ。
+ * 同じ切り替えを2箇所に出さないため、渡されたときは内側のボタンを出さない。
+ */
+export function MyTasksTab({
+  view: viewProp,
+  onViewChange,
+}: { view?: 'list' | 'board'; onViewChange?: (v: 'list' | 'board') => void } = {}) {
+  const { hasPermission } = useAuth();
+  const canEdit = hasPermission('dailyops', 'editor');
+  const controlled = viewProp !== undefined;
+  const [localView, setLocalView] = useState<'list' | 'board'>('list');
+  const view = viewProp ?? localView;
+  const setView = (v: 'list' | 'board') => (onViewChange ? onViewChange(v) : setLocalView(v));
   const [showDone, setShowDone] = useState(false);
   const [editing, setEditing] = useState<MyTask | null>(null);
   const [adding, setAdding] = useState(false);
@@ -157,10 +101,12 @@ function MyTasksTab() {
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
-          <ViewBtn active={view === 'list'} onClick={() => setView('list')} icon={List}>スコア順</ViewBtn>
-          <ViewBtn active={view === 'board'} onClick={() => setView('board')} icon={LayoutGrid}>9 マス</ViewBtn>
-        </div>
+        {!controlled && (
+          <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
+            <ViewBtn active={view === 'list'} onClick={() => setView('list')} icon={List}>スコア順</ViewBtn>
+            <ViewBtn active={view === 'board'} onClick={() => setView('board')} icon={LayoutGrid}>9 マス</ViewBtn>
+          </div>
+        )}
         <button
           onClick={() => setShowDone((v) => !v)}
           className={cn('rounded-md px-3 py-1.5 text-sm', showDone ? 'bg-primary/15 font-medium text-primary' : 'text-muted-foreground hover:bg-accent')}
@@ -381,8 +327,9 @@ function TaskRow({ t, canEdit, canOpenProject, onEdit }: {
 // 依頼
 // ══════════════════════════════════════════════════
 
-function DelegationsTab() {
-  const { canEdit } = usePermissions();
+export function DelegationsTab() {
+  const { hasPermission } = useAuth();
+  const canEdit = hasPermission('dailyops', 'editor');
   const [includeDone, setIncludeDone] = useState(false);
   const { data: received, isLoading: l1 } = useMyDelegations('received', includeDone);
   const { data: sent, isLoading: l2 } = useMyDelegations('sent', includeDone);
@@ -588,7 +535,7 @@ const INTAKE_KIND_LABELS: Record<string, string> = {
   freeform: 'ひとこと', minutes: '議事録', mail: 'メール', chat: 'チャット', other: 'その他',
 };
 
-function IntakeLogTab() {
+export function IntakeLogTab() {
   const [all, setAll] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const { data, isLoading } = useTaskIntakes({ all });
@@ -706,7 +653,7 @@ function IntakeDetailDialog({ id, onClose }: { id: string; onClose: () => void }
 // チーム — 件数だけ。中身は出さない (要件 D8)
 // ══════════════════════════════════════════════════
 
-function TeamTab() {
+export function TeamTab() {
   const { data, isLoading } = useTeamLoad();
   if (isLoading) {
     return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;

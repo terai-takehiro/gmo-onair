@@ -43,7 +43,7 @@ export default function HomePage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* タスク・依頼 — 期限は何月何日何時何分まで。件数だけを出す */}
-        <Link to="/tasks" className="group">
+        <a href="/tasks?scope=me" className="group">
           <Card className="h-full transition-shadow hover:shadow-md">
             <CardContent className="p-4 sm:p-5">
               <div className="flex items-start gap-3">
@@ -85,7 +85,7 @@ export default function HomePage() {
               </div>
             </CardContent>
           </Card>
-        </Link>
+        </a>
 
         {MENUS.map((menu) => {
           const Icon = MENU_ICONS[menu.icon] ?? CalendarCheck;
