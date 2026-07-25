@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { findLatestAiOutput, recordCorrections, diffByKey } from '../../../shared/services/ai-output.service';
 
 const router = Router();
 
@@ -52,15 +53,32 @@ router.put('/:id/simulation', requirePermission('sales', 'editor'), async (req, 
   const { items } = req.body;
   if (!Array.isArray(items)) throw new AppError(400, 'VALIDATION_ERROR', 'itemsは配列で指定してください');
 
-  // ここは全置換で正しい: 人が内容を確認・編集して保存した = 確定版なので、
-  // 以前の明細 (final も、AI が作った draft も) は置き換えられる。
+  // フィードバックループ (ai-feedback-loop Phase 1): **ここが教師データの回収点**。
+  // この DELETE は全置換で正しい (人が確認・編集して保存 = 確定版) が、AI の draft を
+  // 消してしまうため、消す前に「AI が出した明細」と「人が保存した明細」を突き合わせて
+  // 差分を記録する。これが無いと「AI は 120 万・営業は 95 万に直した」という
+  // 最も価値のある情報が、最も価値のあるタイミングで失われる。
   //
-  // ただしフィードバックループ上の注意点: AI の draft をここで消すため、
-  // 「AI は 120 万と出したが営業は 95 万に直した」という**最も価値のある差分が、
-  // 最も価値のあるタイミングで失われる**。差分を残すには、この DELETE の直前に
-  // draft 明細を ai_outputs.payload_snapshot として保存する必要がある
-  // (詳細: .claude/skills/ai-feedback-loop/references/onair-current-state.md の Phase 1)。
-  // ここがそのスナップショット挿入点。
+  // 突合は配列 index ではなく pricing_item_id で行う (index だと 1 行挿入しただけで
+  // 以降すべてが「変更された」ことになり修正率が実態とかけ離れる)。
+  // 記録失敗は業務を止めない (service 側で warn に落としている)。
+  const aiDraft = await findLatestAiOutput('projects', String(req.params.id), 'estimate_draft');
+  if (aiDraft) {
+    const corrections = diffByKey(
+      aiDraft.payload?.items ?? [],
+      items,
+      'pricing_item_id',
+      ['quantity', 'days', 'unit_price', 'subtotal'],
+    );
+    // 1 箇所も直さず保存した場合も 'none' を 1 行残す。これが正解ラベルで、
+    // 無いと「無修正採用率」の分母が壊れて改善判断ができなくなる。
+    await recordCorrections(
+      aiDraft.id,
+      corrections.length ? corrections : [{ fieldPath: 'items', type: 'none' as const }],
+      (req as any).user?.id ?? null,
+    );
+  }
+
   await execute(`DELETE FROM simulations WHERE project_id = ?`, [req.params.id]);
 
   for (const item of items) {
@@ -92,6 +110,17 @@ router.post('/:id/simulation/finalize', requirePermission('sales', 'editor'), as
     `UPDATE simulations SET status = 'final' WHERE project_id = ? AND status = 'draft'`,
     [req.params.id]
   );
+
+  // フィードバックループ: 「AI の下書きを一切直さずそのまま確定した」= 正解ラベル。
+  // 修正差分と同じくらい重要で、これが無いと無修正採用率の分母が作れない。
+  const aiDraft = await findLatestAiOutput('projects', String(req.params.id), 'estimate_draft');
+  if (aiDraft) {
+    await recordCorrections(
+      aiDraft.id,
+      [{ fieldPath: 'items', type: 'none', note: 'finalize (無修正で確定)' }],
+      (req as any).user?.id ?? null,
+    );
+  }
 
   const saved = await queryAll(SIM_SELECT, [req.params.id]) as any[];
   const totalAmount = saved.reduce((sum: number, it: any) => sum + (Number(it.subtotal) || 0), 0);

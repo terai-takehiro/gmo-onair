@@ -64,11 +64,13 @@ RUN npm install --workspaces --include-workspace-root
 # prebuild に新しい生成スクリプトを足したら参照元もここに追加すること。
 FROM deps AS build-client
 # deps は manifests 由来の正規化済み package.json (version=0.0.0-build) を持つため、
-# ここで実ファイルを COPY し直してバージョン表示を正しくする。
-#   - ルート package.json → vite.config.ts が __APP_VERSION__ に埋め込む (HomePage の表示)
-#   - client/package.json → 下の COPY client/ に含まれる (SettingsPage の表示)
-# この 2 つはバージョン更新のたびに変わるので build-client だけは毎回再ビルドされる
-# (表示バージョンが変わる = 再ビルドが正しい)。他のワークスペースはキャッシュに載る。
+# ここでルートの実ファイルを COPY し直してバージョン表示を正しくする。
+# vite.config.ts がこれを読んで __APP_VERSION__ に埋め込む (HomePage / SettingsPage の表示)。
+#
+# v2.9.238 以降、バージョンを更新するのは**ルート package.json だけ**なので、
+# バージョン更新のみのプッシュでは build-client だけが再ビルドされ
+# (表示バージョンが変わる = 再ビルドが正しい)、他 6 クライアント + server は
+# キャッシュに載る。ワークスペース側の package.json を更新するとこの利点が消える。
 COPY package.json ./
 COPY shared/ shared/
 COPY CLAUDE.md ./

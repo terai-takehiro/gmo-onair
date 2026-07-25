@@ -8,7 +8,6 @@ import { BLOCK_APPS, useAuth } from "@/contexts/platform/AuthContext";
 import { Database, Download, Lock, CheckCircle2, AlertCircle } from "lucide-react";
 import api from "@/lib/api";
 import { useState } from "react";
-import pkg from "../../../../package.json";
 
 export default function SettingsPage() {
   const { currentUser } = useAuth();
@@ -40,7 +39,10 @@ export default function SettingsPage() {
               <dt className="text-muted-foreground">アプリ名</dt>
               <dd className="font-medium">GMO ONAiR</dd>
               <dt className="text-muted-foreground">バージョン</dt>
-              <dd className="font-medium">v{pkg.version}</dd>
+              {/* ルート package.json 由来 (vite.config.ts の define)。HomePage と同じソース。
+                  client/package.json を import すると、バージョン更新のたびに
+                  Docker の build-client 以外のステージまでキャッシュが飛ぶため使わない。 */}
+              <dd className="font-medium">v{__APP_VERSION__}</dd>
             </dl>
           </CardContent>
         </Card>

@@ -3,7 +3,8 @@ import { v4 as uuidv4 } from 'uuid';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
-import { ok, runTool, audit, REQUESTED_BY } from '../helpers';
+import { ok, runTool, audit, REQUESTED_BY, currentActorId } from '../helpers';
+import { recordAiOutput } from '../../../shared/services/ai-output.service';
 
 // 料金表 (pricing_categories / pricing_items) と 見積シミュレーション (simulations) の MCP ツール。
 // - list_pricing: 料金表マスタの参照 (見積を組む前に pricing_item_id と calc_type を調べる)
@@ -164,6 +165,21 @@ export function registerPricingTools(server: McpServer): void {
         );
       }
       const total = rows.reduce((s, r) => s + r.subtotal, 0);
+
+      // フィードバックループ (ai-feedback-loop Phase 1): AI が出した明細の全文を残す。
+      // 単価・小計はサーバー算出なので **値を焼き込む** — 料金表マスタは差し替えられる
+      // (migration 121 の前例) ため pricing_item_id だけでは当時の金額を再現できない。
+      // これが後で「営業がどこをいくらに直したか」の before になる。
+      await recordAiOutput({
+        kind: 'estimate_draft',
+        targetTable: 'projects',
+        targetId: args.project_id,
+        payload: { status, total, items: rows },
+        toolName: 'set_project_simulation',
+        actorId: currentActorId(),
+        requestedBy: args.requested_by ?? null,
+      });
+
       let expectedAmountUpdated = false;
       if (status === 'final' && total > 0) {
         await execute(
