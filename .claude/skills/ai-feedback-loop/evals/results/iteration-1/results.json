@@ -1,0 +1,210 @@
+{
+  "iteration": 1,
+  "date": "2026-07-25",
+  "model": "claude-opus-5",
+  "baseline_note": "baseline は CLAUDE.md の要約節を読める状態。よって「フル版スキルが要約以上の価値を出すか」の比較。合格率が両者100%=このアサーション群は non-discriminating。",
+  "runs": [
+    {
+      "eval": "eval-0-new-ai-feature-design",
+      "config": "with_skill",
+      "pass_rate": 1.0,
+      "passed": 6,
+      "total": 6,
+      "duration_seconds": 278.3,
+      "total_tokens": 326151,
+      "expectations": [
+        {
+          "text": "5つの必須条件すべてに言及し、充足状況を判定している",
+          "passed": true
+        },
+        {
+          "text": "AI が生成した返信文の全文を保存する仕組みを設計に含めている",
+          "passed": true
+        },
+        {
+          "text": "人間が修正した差分を残す仕組みを設計に含めている",
+          "passed": true
+        },
+        {
+          "text": "ONAiR 外に出るため差分が回収しにくい点を指摘し代替案を示している",
+          "passed": true
+        },
+        {
+          "text": "レビューの頻度と担当を明示している",
+          "passed": true
+        },
+        {
+          "text": "フェーズ分けを提案している",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "eval": "eval-0-new-ai-feature-design",
+      "config": "without_skill",
+      "pass_rate": 1.0,
+      "passed": 6,
+      "total": 6,
+      "duration_seconds": 579.8,
+      "total_tokens": 349031,
+      "expectations": [
+        {
+          "text": "5つの必須条件すべてに言及し、充足状況を判定している",
+          "passed": true
+        },
+        {
+          "text": "AI が生成した返信文の全文を保存する仕組みを設計に含めている",
+          "passed": true
+        },
+        {
+          "text": "人間が修正した差分を残す仕組みを設計に含めている",
+          "passed": true
+        },
+        {
+          "text": "ONAiR 外に出るため差分が回収しにくい点を指摘し代替案を示している",
+          "passed": true
+        },
+        {
+          "text": "レビューの頻度と担当を明示している",
+          "passed": true
+        },
+        {
+          "text": "フェーズ分けを提案している",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "eval": "eval-1-review-flawed-design",
+      "config": "with_skill",
+      "pass_rate": 1.0,
+      "passed": 6,
+      "total": 6,
+      "duration_seconds": 160.4,
+      "total_tokens": 308271,
+      "expectations": [
+        {
+          "text": "全置換で AI 下書きが消え差分が取れなくなる点を指摘している",
+          "passed": true
+        },
+        {
+          "text": "確定前スナップショット等の具体的な修正案を示している",
+          "passed": true
+        },
+        {
+          "text": "mcp_audit_log の args 1000文字切り詰めを指摘している",
+          "passed": true
+        },
+        {
+          "text": "全文を別カラム/別テーブルに保持する案を示している",
+          "passed": true
+        },
+        {
+          "text": "「このままでは進めるべきでない」と明確な結論を先に述べている",
+          "passed": true
+        },
+        {
+          "text": "顧客反応・成果指標の紐づけ不足に言及している",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "eval": "eval-1-review-flawed-design",
+      "config": "without_skill",
+      "pass_rate": 1.0,
+      "passed": 6,
+      "total": 6,
+      "duration_seconds": 158.8,
+      "total_tokens": 300422,
+      "expectations": [
+        {
+          "text": "全置換で AI 下書きが消え差分が取れなくなる点を指摘している",
+          "passed": true
+        },
+        {
+          "text": "確定前スナップショット等の具体的な修正案を示している",
+          "passed": true
+        },
+        {
+          "text": "mcp_audit_log の args 1000文字切り詰めを指摘している",
+          "passed": true
+        },
+        {
+          "text": "全文を別カラム/別テーブルに保持する案を示している",
+          "passed": true
+        },
+        {
+          "text": "「このままでは進めるべきでない」と明確な結論を先に述べている",
+          "passed": true
+        },
+        {
+          "text": "顧客反応・成果指標の紐づけ不足に言及している",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "eval": "eval-2-mcp-tool-proportionality",
+      "config": "with_skill",
+      "pass_rate": 1.0,
+      "passed": 5,
+      "total": 5,
+      "duration_seconds": 271.2,
+      "total_tokens": 316120,
+      "expectations": [
+        {
+          "text": "AI 出力を人間が受け取るためループ対象と判定している",
+          "passed": true
+        },
+        {
+          "text": "要約の全文を保存する設計を含めている",
+          "passed": true
+        },
+        {
+          "text": "人間の評価を軽量に回収する方法を提案している",
+          "passed": true
+        },
+        {
+          "text": "過剰な設計を押し付けていない（作らない判断を明示）",
+          "passed": true
+        },
+        {
+          "text": "ONAiR の既存構造に触れている",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "eval": "eval-2-mcp-tool-proportionality",
+      "config": "without_skill",
+      "pass_rate": 1.0,
+      "passed": 5,
+      "total": 5,
+      "duration_seconds": 465.0,
+      "total_tokens": 351439,
+      "expectations": [
+        {
+          "text": "AI 出力を人間が受け取るためループ対象と判定している",
+          "passed": true
+        },
+        {
+          "text": "要約の全文を保存する設計を含めている",
+          "passed": true
+        },
+        {
+          "text": "人間の評価を軽量に回収する方法を提案している",
+          "passed": true
+        },
+        {
+          "text": "過剰な設計を押し付けていない（作らない判断を明示）",
+          "passed": true
+        },
+        {
+          "text": "ONAiR の既存構造に触れている",
+          "passed": true
+        }
+      ]
+    }
+  ]
+}

@@ -41,12 +41,17 @@ const WRITE_TOOL_PERMISSIONS: Record<string, { module: string; level: 'editor' |
   upsert_meeting_minutes: { module: 'sales', level: 'editor' },
   upsert_monthly_budget: { module: 'sales', level: 'editor' },
   upsert_monthly_actual_override: { module: 'sales', level: 'editor' },
-  // dailyops (日常業務: 見積/請求書・問い合わせ・内覧会・週報/ニュース)
+  // dailyops (日常業務: 見積/請求書・問い合わせ・内覧会・週報/ニュース・セキュリティカード)
   record_finance_doc: { module: 'dailyops', level: 'editor' },
   record_inquiry: { module: 'dailyops', level: 'editor' },
   register_inview_attendee: { module: 'dailyops', level: 'editor' },
   submit_ops_report: { module: 'dailyops', level: 'editor' },
   add_ops_report_items: { module: 'dailyops', level: 'editor' },
+  // セキュリティカードの貸出/返却 (v2.9.229 で追加された際に登録が漏れており、
+  // OAuth 経由で dailyops 権限の無いユーザーでも実行できる状態だった。
+  // HTTP 側 security-card.routes.ts の canEdit = requirePermission('dailyops','editor') と一致させる)
+  lend_security_card: { module: 'dailyops', level: 'editor' },
+  return_security_card: { module: 'dailyops', level: 'editor' },
   // studio (スタジオ予約カレンダー)
   create_studio_booking: { module: 'studio', level: 'editor' },
 };

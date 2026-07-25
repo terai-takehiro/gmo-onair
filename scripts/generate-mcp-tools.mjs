@@ -36,29 +36,60 @@ const CATEGORY_LABELS = {
 // カテゴリ表示順 (未知は末尾)
 const CATEGORY_ORDER = Object.keys(CATEGORY_LABELS);
 
-// name 接頭辞 → read / write 判定
-const WRITE_PREFIXES = [
-  "create_", "update_", "record_", "register_", "change_", "issue_",
-  "submit_", "add_", "delete_", "set_", "upsert_",
-];
-function toolType(name) {
-  return WRITE_PREFIXES.some((p) => name.startsWith(p)) ? "write" : "read";
-}
+// read / write 判定は「実装が audit() を呼ぶか」で行う。
+//
+// Why: 以前は name の接頭辞 (create_ / update_ …) で判定していたが、
+// 動詞が一覧に無いツール (lend_ / return_ / upsert_ / attach_ / move_ など) が
+// 書き込みなのに「参照」と誤判定されていた。この誤判定は 2 つの実害を出した:
+//   1. MCP コネクタ画面と docs で 15 個の書き込みツールが「参照」と表示されていた
+//   2. 書き込みツールとして認識されないため gate.ts の権限表への登録が漏れ、
+//      lend_security_card / return_security_card が権限ゲート無しで公開されていた
+//      (OAuth 経由なら dailyops 権限の無いユーザーでも実行できる状態)
+// コードベースの規約は「全書き込みは audit() を呼ぶ」なので、それを唯一の判定基準にする。
+const GATE_FILE = path.join(ROOT, "server", "src", "contexts", "mcp", "gate.ts");
 
 // registerTool('name', { ... title: '...' ... }) を素朴にパース
 function extractTools(src) {
   const tools = [];
-  const re = /server\.registerTool\(\s*(['"`])([^'"`]+)\1\s*,\s*\{/g;
-  let m;
-  while ((m = re.exec(src)) !== null) {
-    const name = m[2];
-    // title は registerTool の設定オブジェクト先頭付近にある単一行文字列
-    const after = src.slice(m.index, m.index + 600);
-    const tm = after.match(/title:\s*(['"`])([^'"`]*)\1/);
+  // registerTool ごとに本文を切り出し、その中の audit( の有無で write を判定する
+  const parts = src.split(/server\.registerTool\(\s*['"`]([a-z_]+)['"`]/);
+  // parts = [先頭, name1, body1, name2, body2, ...]
+  for (let i = 1; i < parts.length; i += 2) {
+    const name = parts[i];
+    const body = parts[i + 1] ?? "";
+    const tm = body.slice(0, 600).match(/title:\s*(['"`])([^'"`]*)\1/);
     const title = tm ? tm[2].trim() : name;
-    tools.push({ name, title, type: toolType(name) });
+    tools.push({ name, title, type: /\baudit\(/.test(body) ? "write" : "read" });
   }
   return tools;
+}
+
+// 書き込みツールが gate.ts の権限表に登録されているかを検証する。
+// 未登録の書き込みツールは「権限ゲート無しで公開」= 権限モデルのバイパスなので、
+// 生成を失敗させて気付ける状態にする (fail closed)。
+function assertGateCoverage(allTools) {
+  let gateSrc;
+  try {
+    gateSrc = readFileSync(GATE_FILE, "utf8");
+  } catch {
+    console.warn(`[mcp-tools] gate.ts が読めないため権限ゲート検証をスキップ: ${GATE_FILE}`);
+    return;
+  }
+  const listed = new Set(
+    [...gateSrc.matchAll(/^\s{2}([a-z_]+):\s*\{\s*module:/gm)].map((m) => m[1])
+  );
+  const missing = allTools.filter((t) => t.type === "write" && !listed.has(t.name));
+  if (missing.length) {
+    console.error(
+      `\n[mcp-tools] ✗ 書き込みツールが gate.ts の WRITE_TOOL_PERMISSIONS に未登録です。\n` +
+        `  権限ゲートを通らないため、OAuth 経由で対応モジュールの権限が無いユーザーでも実行できてしまいます。\n` +
+        missing.map((t) => `    - ${t.name}`).join("\n") +
+        `\n\n  server/src/contexts/mcp/gate.ts に、対応する HTTP ルートの requirePermission と同じ\n` +
+        `  module / level を追記してください。例: ${missing[0].name}: { module: 'dailyops', level: 'editor' },\n`
+    );
+    process.exit(1);
+  }
+  console.log(`[mcp-tools] 権限ゲート検証 OK (書き込み ${allTools.filter((t) => t.type === "write").length} 種すべて登録済み)`);
 }
 
 function build() {
@@ -80,6 +111,9 @@ function build() {
     ...Object.keys(byKey).filter((k) => !CATEGORY_ORDER.includes(k)),
   ];
   for (const k of orderedKeys) categories.push(byKey[k]);
+
+  // 書き込みツールの権限ゲート漏れを検出 (未登録なら exit 1 でビルドを止める)
+  assertGateCoverage(orderedKeys.flatMap((k) => byKey[k].tools));
 
   const output = {
     generatedFrom: "server/src/contexts/mcp/tools/*.tools.ts (registerTool)",
