@@ -19,3 +19,6 @@ nginx
 !CLAUDE.md
 !scripts/generate-version-history.mjs
 !scripts/generate-mcp-tools.mjs
+# server の prebuild = check-collab-parity.mjs (同時共同編集の変換層の一致検証)。
+# server/ と shared/ の両方を COPY する build-server ステージで走るので参照は揃う。
+!scripts/check-collab-parity.mjs

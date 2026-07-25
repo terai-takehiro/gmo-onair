@@ -3,7 +3,9 @@
   "private": true,
   "version": "2.9.237",
   "scripts": {
+    "predev": "node ../scripts/check-collab-parity.mjs",
     "dev": "tsx watch src/index.ts",
+    "prebuild": "node ../scripts/check-collab-parity.mjs",
     "build": "tsc",
     "start": "node dist/index.js",
     "db:migrate": "tsx src/shared/db/migrate.ts",

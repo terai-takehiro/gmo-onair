@@ -118,10 +118,31 @@ export function requireRole(...roles: string[]) {
  * system_admin は常にアクセス可能
  * req.user.permissions が空の場合は DB を直接クエリしてフォールバック
  */
-export function requirePermission(module: string, minLevel: 'reader' | 'exporter' | 'editor' | 'manager' | 'owner' = 'reader') {
-  // 3段階に集約: 閲覧(reader+exporter) / 編集(editor) / 管理(manager+owner)
-  const levelOrder = { reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3 };
+export type PermissionLevel = 'reader' | 'exporter' | 'editor' | 'manager' | 'owner';
 
+// 3段階に集約: 閲覧(reader+exporter) / 編集(editor) / 管理(manager+owner)
+const LEVEL_ORDER: Record<string, number> = {
+  reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3,
+};
+
+/**
+ * 権限レベルが要求を満たすか。
+ *
+ * HTTP の requirePermission と、HTTP を通らない経路 (Socket.IO の共同編集など) で
+ * **同じ判定を使う**ために export している。判定を写すと片方だけ緩くなる
+ * (v2.9.207 で MCP 側が HTTP の requirePermission をバイパスしていたのと同じ形)。
+ */
+export function meetsPermissionLevel(
+  userRole: string | undefined,
+  userLevel: string | undefined,
+  minLevel: PermissionLevel,
+): boolean {
+  if (userRole === 'system_admin') return true;
+  if (!userLevel) return false;
+  return (LEVEL_ORDER[userLevel] ?? 0) >= LEVEL_ORDER[minLevel];
+}
+
+export function requirePermission(module: string, minLevel: PermissionLevel = 'reader') {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     if (!req.user) {
       res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: '認証が必要です' } });
@@ -149,7 +170,7 @@ export function requirePermission(module: string, minLevel: 'reader' | 'exporter
       } catch { /* ignore DB errors */ }
     }
 
-    if (!userLevel || (levelOrder[userLevel as keyof typeof levelOrder] ?? 0) < levelOrder[minLevel]) {
+    if (!meetsPermissionLevel(req.user.role, userLevel, minLevel)) {
       const isProduction = process.env.NODE_ENV === 'production';
       console.log(`[auth] 403 user=${req.user.id} role=${req.user.role} module=${module} userLevel=${userLevel}`);
       const error = isProduction

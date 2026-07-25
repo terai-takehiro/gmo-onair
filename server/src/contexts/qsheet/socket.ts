@@ -1,9 +1,8 @@
 import { Server, Socket } from 'socket.io';
-import { verifyToken } from '../../shared/auth/jwt';
 import { queryOne } from '../../shared/db/connection';
 import { canAccessDoc } from './access';
-import { config } from '../../config';
 import { qsheetRooms } from './collab';
+import { resolveSocketUser, type SocketUser } from '../../shared/collab/socketAuth';
 
 /**
  * Qsheet Socket.IO namespace.
@@ -19,57 +18,11 @@ import { qsheetRooms } from './collab';
  *     → docId さえ知れば誰でも進行を注入できた従来の穴を塞ぐ。
  */
 
-interface SocketUser {
-  id: string;
-  name: string;
-  role: string;
-}
+// 認証解決とユーザー型は shared/collab/socketAuth.ts に移設した (案件の共同編集と共有)。
+// 認証はコピーを残すと片方だけ緩くなるため、必ず 1 か所に置く。
 
 // docId -> (socketId -> user) : 認証済み参加者のみ
 const presenceByDoc = new Map<string, Map<string, SocketUser>>();
-
-function parseCookie(header: string | undefined, key: string): string | undefined {
-  if (!header) return undefined;
-  for (const part of header.split(';')) {
-    const eq = part.indexOf('=');
-    if (eq === -1) continue;
-    const k = part.slice(0, eq).trim();
-    if (k === key) return decodeURIComponent(part.slice(eq + 1).trim());
-  }
-  return undefined;
-}
-
-/** ハンドシェイクからユーザーを解決する (JWT 優先、dev のみ userId を信頼)。 */
-async function resolveSocketUser(socket: Socket): Promise<SocketUser | null> {
-  const auth = (socket.handshake.auth || {}) as { token?: string; userId?: string };
-  let userId: string | null = null;
-
-  // 1) JWT (prod): auth.token または cookie
-  const token =
-    auth.token && auth.token !== 'undefined' && auth.token !== 'null'
-      ? auth.token
-      : parseCookie(socket.handshake.headers.cookie, 'gmo_onair_token');
-  if (token) {
-    const payload = verifyToken(token);
-    if (payload) userId = payload.userId;
-  }
-
-  // 2) dev mockAuth: password 認証が無効なときのみ client の userId を信頼 (HTTP の x-user-id と同じ)
-  if (!userId && config.authMode !== 'password' && auth.userId) {
-    userId = auth.userId;
-  }
-
-  if (!userId) return null;
-  try {
-    const u = (await queryOne(
-      'SELECT id, name, role FROM users WHERE id = $1 AND deleted_at IS NULL',
-      [userId]
-    )) as { id: string; name: string; role: string } | undefined;
-    return u ? { id: u.id, name: u.name, role: u.role } : null;
-  } catch {
-    return null; // DB not ready
-  }
-}
 
 /** doc の在席一覧を userId で重複排除して返す (同一ユーザーの複数タブ = 1 件)。 */
 function presenceList(docId: string): { userId: string; name: string }[] {
@@ -83,7 +36,16 @@ function presenceList(docId: string): { userId: string; name: string }[] {
 export function initQsheetSocketIO(io: Server): void {
   const qsheetNs = io.of('/qsheet');
 
-  qsheetNs.on('connection', async (socket: Socket) => {
+  // connection ハンドラは **同期関数** にしてある。
+  //
+  // async にして先に await すると、認証解決の間はまだ socket.on(...) が登録されておらず、
+  // **接続直後にクライアントが送る最初の 'yjs:sync' が捨てられる**
+  // (Socket.IO は未登録イベントをバッファしない)。
+  // クライアント (useCollabDoc) は connect 時に 1 度だけ yjs:sync を送り、
+  // その後は再送しないので、取りこぼすと再接続まで同期されない
+  // = 共同編集が黙って HTTP 保存モードに縮退する。
+  // ハンドラは即座に張り、各ハンドラ側で「準備完了」を待つ形にする。
+  qsheetNs.on('connection', (socket: Socket) => {
     const docId = socket.handshake.query.docId as string;
     if (!docId) {
       socket.disconnect();
@@ -94,37 +56,41 @@ export function initQsheetSocketIO(io: Server): void {
     socket.join(room);
 
     // 認証 + アクセス判定 (匿名も join してリッスンは可能)
-    const user = await resolveSocketUser(socket);
-    let canAccess = false;
-    if (user) {
-      try {
-        const doc = (await queryOne(
-          'SELECT created_by FROM qsheet_documents WHERE id = $1 AND deleted_at IS NULL',
-          [docId]
-        )) as { created_by: string | null } | undefined;
-        if (doc) canAccess = await canAccessDoc(user, docId, doc.created_by ?? null);
-      } catch {
-        /* DB not ready — アクセス不可扱い */
+    const ready: Promise<void> = (async () => {
+      const user = await resolveSocketUser(socket);
+      let canAccess = false;
+      if (user) {
+        try {
+          const doc = (await queryOne(
+            'SELECT created_by FROM qsheet_documents WHERE id = $1 AND deleted_at IS NULL',
+            [docId]
+          )) as { created_by: string | null } | undefined;
+          if (doc) canAccess = await canAccessDoc(user, docId, doc.created_by ?? null);
+        } catch {
+          /* DB not ready — アクセス不可扱い */
+        }
       }
-    }
-    socket.data.user = user;
-    socket.data.canAccess = canAccess;
+      socket.data.user = user;
+      socket.data.canAccess = canAccess;
 
-    // 在席登録: 認証済み & アクセス権のあるユーザーのみ
-    if (user && canAccess) {
-      let m = presenceByDoc.get(docId);
-      if (!m) {
-        m = new Map();
-        presenceByDoc.set(docId, m);
+      // 在席登録: 認証済み & アクセス権のあるユーザーのみ
+      if (user && canAccess) {
+        let m = presenceByDoc.get(docId);
+        if (!m) {
+          m = new Map();
+          presenceByDoc.set(docId, m);
+        }
+        m.set(socket.id, user);
+        qsheetNs.to(room).emit('presence:sync', { users: presenceList(docId) });
+      } else {
+        // リッスン専用でも現在の在席一覧は渡す
+        socket.emit('presence:sync', { users: presenceList(docId) });
       }
-      m.set(socket.id, user);
-      qsheetNs.to(room).emit('presence:sync', { users: presenceList(docId) });
-    } else {
-      // リッスン専用でも現在の在席一覧は渡す
-      socket.emit('presence:sync', { users: presenceList(docId) });
-    }
+    })();
+    void ready.catch((e) => console.error('[qsheet] socket 初期化に失敗', e));
 
-    socket.on('presence:query', () => {
+    socket.on('presence:query', async () => {
+      await ready;
       socket.emit('presence:sync', { users: presenceList(docId) });
     });
 
@@ -132,6 +98,7 @@ export function initQsheetSocketIO(io: Server): void {
     // アクセス権のあるユーザーのみ参加可 (匿名/未認可は cue:sync リッスンのみ)。
     let collabAcquired = false;
     socket.on('yjs:sync', async () => {
+      await ready;
       if (!socket.data.canAccess) return;
       if (!collabAcquired) {
         collabAcquired = true;
@@ -147,7 +114,8 @@ export function initQsheetSocketIO(io: Server): void {
       if (state) socket.emit('yjs:state', Buffer.from(state));
     });
 
-    socket.on('yjs:update', (update: ArrayBuffer | Buffer | Uint8Array) => {
+    socket.on('yjs:update', async (update: ArrayBuffer | Buffer | Uint8Array) => {
+      await ready;
       if (!socket.data.canAccess || !collabAcquired) return;
       const u = update instanceof Uint8Array ? update : new Uint8Array(update as ArrayBuffer);
       qsheetRooms.applyUpdate(docId, u);
@@ -156,14 +124,16 @@ export function initQsheetSocketIO(io: Server): void {
     });
 
     // awareness (ライブカーソル/選択) — ephemeral、永続化せず room へ中継のみ
-    socket.on('awareness:update', (update: ArrayBuffer | Buffer | Uint8Array) => {
+    socket.on('awareness:update', async (update: ArrayBuffer | Buffer | Uint8Array) => {
+      await ready;
       if (!socket.data.canAccess) return;
       const u = update instanceof Uint8Array ? update : new Uint8Array(update as ArrayBuffer);
       socket.to(room).emit('awareness:update', Buffer.from(u));
     });
 
     // ── transport (cue:*) — 発火はアクセス権のあるユーザーのみ、匿名/未認可はリッスンのみ ──
-    socket.on('cue:update', (data: { currentCue: number; elapsed: number; isPlaying: boolean }) => {
+    socket.on('cue:update', async (data: { currentCue: number; elapsed: number; isPlaying: boolean }) => {
+      await ready;
       if (!socket.data.canAccess) return;
       socket.to(room).emit('cue:sync', {
         currentCue: data.currentCue,
@@ -172,22 +142,28 @@ export function initQsheetSocketIO(io: Server): void {
         timestamp: Date.now(),
       });
     });
-    socket.on('cue:next', () => {
+    socket.on('cue:next', async () => {
+      await ready;
       if (socket.data.canAccess) socket.to(room).emit('cue:next');
     });
-    socket.on('cue:prev', () => {
+    socket.on('cue:prev', async () => {
+      await ready;
       if (socket.data.canAccess) socket.to(room).emit('cue:prev');
     });
-    socket.on('cue:jump', (data: { cueIndex: number }) => {
+    socket.on('cue:jump', async (data: { cueIndex: number }) => {
+      await ready;
       if (socket.data.canAccess) socket.to(room).emit('cue:jump', { cueIndex: data.cueIndex });
     });
-    socket.on('cue:play', () => {
+    socket.on('cue:play', async () => {
+      await ready;
       if (socket.data.canAccess) socket.to(room).emit('cue:play');
     });
-    socket.on('cue:pause', () => {
+    socket.on('cue:pause', async () => {
+      await ready;
       if (socket.data.canAccess) socket.to(room).emit('cue:pause');
     });
-    socket.on('cue:reset', () => {
+    socket.on('cue:reset', async () => {
+      await ready;
       if (socket.data.canAccess) socket.to(room).emit('cue:reset');
     });
 

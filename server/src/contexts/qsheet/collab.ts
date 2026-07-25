@@ -9,10 +9,14 @@
 //
 // 永続化は注入 (RoomPersistence) にして純粋にテスト可能にしている。
 
-import * as Y from 'yjs';
 import { randomUUID } from 'crypto';
 import { queryOne, execute } from '../../shared/db/connection';
 import { docToUpdate, updateToData } from '../../shared/collab/yjsDoc';
+import { YjsRoomManager, type RoomPersistence } from '../../shared/collab/roomManager';
+
+// ルームマネージャは shared/collab/roomManager.ts に移設した (案件の共同編集と共有)。
+// ここに残すのは Qシート固有の永続化 (JSONB 種化 + JSONB スナップショット同期) だけ。
+export { YjsRoomManager, type RoomPersistence };
 
 /**
  * 種化前に全 section/row へ安定 id を後付けする。
@@ -31,120 +35,6 @@ function backfillIds(data: any): any {
     }
   }
   return data;
-}
-
-export interface RoomPersistence {
-  /** 保存済み Y state を返す (無ければ null)。 */
-  loadState(docId: string): Promise<Uint8Array | null>;
-  /** JSONB から初期 Y state (種) を構築して返す (無ければ null)。 */
-  loadSeed(docId: string): Promise<Uint8Array | null>;
-  /** Y state を永続化する。 */
-  persist(docId: string, state: Uint8Array): Promise<void>;
-}
-
-interface Room {
-  ydoc: Y.Doc;
-  members: number;
-  dirty: boolean;
-  saveTimer: ReturnType<typeof setTimeout> | null;
-}
-
-export class YjsRoomManager {
-  private rooms = new Map<string, Room>();
-  private loading = new Map<string, Promise<Room>>();
-
-  constructor(
-    private persistence: RoomPersistence,
-    private saveDebounceMs = 3000,
-  ) {}
-
-  private async hydrate(docId: string): Promise<Room> {
-    const ydoc = new Y.Doc();
-    const saved = await this.persistence.loadState(docId);
-    if (saved) {
-      Y.applyUpdate(ydoc, saved);
-    } else {
-      const seed = await this.persistence.loadSeed(docId);
-      if (seed) {
-        Y.applyUpdate(ydoc, seed);
-        // 種を即 authoritative として永続化 (以後は loadState 経由になり二度と seed しない)
-        await this.persistence.persist(docId, Y.encodeStateAsUpdate(ydoc));
-      }
-    }
-    return { ydoc, members: 0, dirty: false, saveTimer: null };
-  }
-
-  /** ルームを取得 (無ければ hydrate)。member 数を +1 する。 */
-  async acquire(docId: string): Promise<void> {
-    const existing = this.rooms.get(docId);
-    if (existing) {
-      existing.members++;
-      return;
-    }
-    let p = this.loading.get(docId);
-    if (!p) {
-      p = this.hydrate(docId).then((r) => {
-        this.rooms.set(docId, r);
-        this.loading.delete(docId);
-        return r;
-      });
-      this.loading.set(docId, p);
-    }
-    const room = await p;
-    room.members++;
-  }
-
-  /** member 数を -1。無人になったら flush して evict。 */
-  release(docId: string): void {
-    const room = this.rooms.get(docId);
-    if (!room) return;
-    room.members = Math.max(0, room.members - 1);
-    if (room.members === 0) {
-      void this.flush(docId).finally(() => {
-        const r = this.rooms.get(docId);
-        if (r && r.members === 0) {
-          r.ydoc.destroy();
-          this.rooms.delete(docId);
-        }
-      });
-    }
-  }
-
-  /** 現在の Y state (全体) を返す (同期の初期応答用)。 */
-  getState(docId: string): Uint8Array | null {
-    const room = this.rooms.get(docId);
-    return room ? Y.encodeStateAsUpdate(room.ydoc) : null;
-  }
-
-  /** クライアントからの増分更新を適用 (マージ) し、debounce 永続化を予約する。 */
-  applyUpdate(docId: string, update: Uint8Array): void {
-    const room = this.rooms.get(docId);
-    if (!room) return;
-    Y.applyUpdate(room.ydoc, update, 'remote');
-    room.dirty = true;
-    this.scheduleSave(docId);
-  }
-
-  private scheduleSave(docId: string): void {
-    const room = this.rooms.get(docId);
-    if (!room || room.saveTimer) return;
-    room.saveTimer = setTimeout(() => {
-      if (room) room.saveTimer = null;
-      this.flush(docId).catch((e) => console.error('[qsheet-collab] persist error', e));
-    }, this.saveDebounceMs);
-  }
-
-  /** dirty なら即永続化する。 */
-  async flush(docId: string): Promise<void> {
-    const room = this.rooms.get(docId);
-    if (!room || !room.dirty) return;
-    room.dirty = false;
-    if (room.saveTimer) {
-      clearTimeout(room.saveTimer);
-      room.saveTimer = null;
-    }
-    await this.persistence.persist(docId, Y.encodeStateAsUpdate(room.ydoc));
-  }
 }
 
 // ── 本番配線: DB 永続化 ────────────────────────────────
@@ -184,4 +74,4 @@ const dbPersistence: RoomPersistence = {
   },
 };
 
-export const qsheetRooms = new YjsRoomManager(dbPersistence);
+export const qsheetRooms = new YjsRoomManager(dbPersistence, 3000, 'qsheet-collab');

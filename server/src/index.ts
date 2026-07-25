@@ -9,6 +9,7 @@ import { seedTasks } from './shared/db/seed-tasks';
 import { ensureStaffPermissions } from './shared/db/ensure-permissions';
 import { initSocketIO, shutdownSocketIO } from './shared/socket';
 import { initQsheetSocketIO } from './contexts/qsheet/socket';
+import { initProjectCollabSocketIO } from './contexts/sales/collab-socket';
 import { initLiveopsSocketIO, initLiveopsServices } from './contexts/liveops';
 import { initAwardsSocketIO } from './contexts/awards';
 import { initQuizSocketIO, initInteractivePoller } from './contexts/quiz';
@@ -58,6 +59,7 @@ async function main() {
   // Socket.IO for qsheet sync + liveops timer + awards + quiz
   const io = initSocketIO(httpServer);
   initQsheetSocketIO(io);
+  initProjectCollabSocketIO(io);
   initLiveopsSocketIO(io);
   initAwardsSocketIO(io);
   initQuizSocketIO(io);
@@ -70,7 +72,7 @@ async function main() {
   httpServer.listen(config.port, () => {
     console.log(`GMO ONAiR API running on http://localhost:${config.port}`);
     console.log(`  Environment: ${config.nodeEnv}`);
-    console.log(`  Socket.IO: enabled (qsheet sync, liveops timer, awards, quiz)`);
+    console.log(`  Socket.IO: enabled (qsheet sync, project collab, liveops timer, awards, quiz)`);
   });
 
   // Graceful shutdown
