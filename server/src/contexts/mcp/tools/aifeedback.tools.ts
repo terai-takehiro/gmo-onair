@@ -16,16 +16,29 @@ export function registerAiFeedbackTools(server: McpServer): void {
       title: 'AI出力の修正傾向ダイジェスト (生成前に読む)',
       description:
         'AI が過去に出した内容を人間がどう直したかの集計を返す。' +
-        '無修正採用率・よく直されるフィールド・直近の修正例 (before→after)・成果 (受注/失注) と、' +
+        '無修正採用率・よく直されるフィールド・直近の修正例 (before→after)・成果と、' +
         'それを踏まえた助言文 (advice) を含む。' +
-        '**見積の下書きや案件起票などを生成する前に必ず一度読み、advice と top_corrected_fields を踏まえて出力すること。** ' +
+        '**見積の下書き・案件起票・タスクの下書きなどを生成する前に必ず一度読み、' +
+        'advice と top_corrected_field_types を踏まえて出力すること。** ' +
         '例: 単価がよく下方修正されているなら、料金表の定価をそのまま置くのではなく過去の修正幅を考慮する。' +
-        'データがまだ無い場合は advice が「傾向は不明」を返すので通常どおり作成してよい。',
+        'データがまだ無い場合は advice が「傾向は不明」を返すので通常どおり作成してよい。' +
+        '\n\n返り値の読み方: ' +
+        '`top_corrected_field_types` は配列の鍵を潰した集計 (`tasks[].due_at` 等) で、' +
+        '**どのフィールドが弱いかを読むのはこちら**。' +
+        '`top_corrected_fields` は鍵ごとの集計で、見積の `items[camera].unit_price` のように' +
+        '鍵自体に意味がある場合だけ見る (通し番号の鍵では意味を持たない)。' +
+        '`by_model` はモデル / プロンプト版ごとの無修正採用率で、改善したかを比較する単位。' +
+        '`intake` (kind=task_intake のとき) は誤検知率 (人がチェックを外した割合) と、' +
+        '投入から生まれたタスクの期限内完了率を含む。' +
+        '誤検知率が高いなら拾いすぎ、期限内完了率が低いなら置いた期限が短すぎる疑いがある。',
       inputSchema: {
         kind: z
           .string()
           .optional()
-          .describe('AI出力の種別 (既定 estimate_draft)。現在記録があるのは estimate_draft'),
+          .describe(
+            'AI出力の種別 (既定 estimate_draft)。記録があるのは ' +
+            'estimate_draft (見積の下書き) と task_intake (投入欄からのタスク下書き)'
+          ),
         window_days: z
           .number()
           .int()

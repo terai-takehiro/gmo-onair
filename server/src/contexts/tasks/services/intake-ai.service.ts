@@ -40,6 +40,15 @@ import { suggestUrgency, type ParsedDraft, type ParseResult, type ParserUser } f
 /** プロンプトを変えたら必ず上げる。ai_outputs.prompt_version に入り、改善効果の比較単位になる */
 export const INTAKE_PROMPT_VERSION = 'task-intake-v1';
 
+/**
+ * 過去の修正傾向をプロンプトに載せたときの版名。
+ *
+ * 版を分けているのは、**フィードバックを載せた回と載せていない回を比較したい**から。
+ * 同じ版に混ぜると「ループを回した効果があったのか」を後から数字で言えなくなる
+ * (get_ai_feedback_digest の by_model が prompt_version ごとの無修正採用率を返す)。
+ */
+export const INTAKE_PROMPT_VERSION_WITH_FEEDBACK = 'task-intake-v1+fb';
+
 export type IntakeAiProvider = 'openai' | 'anthropic';
 
 /**
@@ -169,21 +178,44 @@ function describeNow(now: Date): string {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}(${WEEKDAY_JA[now.getDay()]}) ${pad(now.getHours())}:${pad(now.getMinutes())}`;
 }
 
-function buildUserPrompt(text: string, users: ParserUser[], now: Date, submitterId?: string | null): string {
+/** 助言としてプロンプトに載せる行数の上限。長くしても効かず、入力を膨らませるだけ */
+const MAX_ADVICE_LINES = 8;
+
+function buildUserPrompt(
+  text: string,
+  users: ParserUser[],
+  now: Date,
+  submitterId?: string | null,
+  advice?: string[]
+): string {
   const roster = users.length
     ? users.map((u) => `- ${u.id} : ${u.name}${u.id === submitterId ? '（この文を投入した人）' : ''}`).join('\n')
     : '(登録ユーザーなし)';
+
+  // 過去に人がどう直したかを渡す。これが**ループを閉じている部分**で、
+  // プロンプトを書き換えなくても次の解析から傾向が効く (開発の絶対原則の条件4)。
+  const lessons = (advice ?? []).slice(0, MAX_ADVICE_LINES);
+  const lessonBlock = lessons.length
+    ? `\n## 前回までの傾向（人があなたの出力をどう直したか）
+以下は実測値です。同じ間違いを繰り返さないように踏まえてください。
+ただし**原文に書かれていないことを補ってはいけません**。傾向は判断の重み付けにだけ使うこと。
+${lessons.map((l) => `- ${l}`).join('\n')}\n`
+    : '';
+
   return `現在の日時: ${describeNow(now)}
 相対的な日付（「明日」「金曜」「来週月曜」など）はこの日時を基準に解決してください。
 
 ## 担当者として使えるユーザー一覧（この id 以外は使わない）
 ${roster}
-
+${lessonBlock}
 ## 投入されたテキスト
 """
 ${text}
 """`;
 }
+
+/** テスト・検証から中身を確認できるように export する */
+export { buildUserPrompt };
 
 // ── 実行 ────────────────────────────────────────────────────
 
@@ -275,7 +307,12 @@ export function normalizeAiResult(parsed: RawAiResult, users: ParserUser[], now:
 export async function parseIntakeWithAi(
   text: string,
   users: ParserUser[],
-  opts: { now?: Date; submitterId?: string | null } = {}
+  opts: {
+    now?: Date;
+    submitterId?: string | null;
+    /** 過去の修正傾向 (ai-feedback の advice)。渡すとプロンプトに載る = ループが閉じる */
+    advice?: string[];
+  } = {}
 ): Promise<IntakeAiResult> {
   const provider = resolveProvider();
   if (!provider) {
@@ -287,14 +324,17 @@ export async function parseIntakeWithAi(
 
   const now = opts.now ?? new Date();
   const model = intakeAiModel(provider);
-  const userPrompt = buildUserPrompt(text, users, now, opts.submitterId);
+  const userPrompt = buildUserPrompt(text, users, now, opts.submitterId, opts.advice);
 
   const raw = provider === 'openai'
     ? await callOpenAi(model, userPrompt)
     : await callAnthropic(model, userPrompt);
 
   const normalized = normalizeAiResult(raw, users, now);
-  return { ...normalized, provider, model, promptVersion: INTAKE_PROMPT_VERSION };
+  const promptVersion = (opts.advice?.length ?? 0) > 0
+    ? INTAKE_PROMPT_VERSION_WITH_FEEDBACK
+    : INTAKE_PROMPT_VERSION;
+  return { ...normalized, provider, model, promptVersion };
 }
 
 /** OpenAI (Responses API + structured output) */

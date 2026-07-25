@@ -7,6 +7,8 @@ import { taskIntakeService, type TaskDraft } from '../../tasks/services/task-int
 import { parseIntakeText, type ParseResult } from '../../tasks/services/intake-parser.service';
 import { parseIntakeWithAi, isIntakeAiConfigured, resolveProvider } from '../../tasks/services/intake-ai.service';
 
+import { getFeedbackDigest } from '../../../shared/services/ai-feedback.service';
+
 // 日常業務アプリ (dailyops) — 「タスク・依頼」メニューの API。
 //
 // 要件: docs/requirements/2026-07-25-collaboration-and-personal-agent.md (D0 / D4 / D7)
@@ -27,6 +29,36 @@ function me(req: { user?: { id: string } }): string {
   const id = req.user?.id;
   if (!id) throw new AppError(401, 'UNAUTHORIZED', 'ログインが必要です');
   return id;
+}
+
+// ── 過去の修正傾向 (ループを閉じる部分) ──────────────────
+//
+// 解析の前に「人が今までどう直したか」を読んでプロンプトに載せる。
+// これが無いと記録しているだけで賢くならない (開発の絶対原則の条件4)。
+//
+// 集計は数本の GROUP BY だが投入ごとに毎回叩く必要はないので短く握る。
+// **取得に失敗しても投入は止めない** (傾向は無くても解析はできる)。
+const ADVICE_TTL_MS = 5 * 60_000;
+const ADVICE_WINDOW_DAYS = 60;
+let adviceCache: { at: number; advice: string[] } | null = null;
+
+async function getIntakeAdvice(): Promise<string[]> {
+  if (adviceCache && Date.now() - adviceCache.at < ADVICE_TTL_MS) return adviceCache.advice;
+  try {
+    const digest = await getFeedbackDigest('task_intake', ADVICE_WINDOW_DAYS);
+    // データが無いときの「傾向は不明」だけを載せても意味が無いので落とす
+    const advice = digest.reviewed_outputs > 0 ? digest.advice : [];
+    adviceCache = { at: Date.now(), advice };
+    return advice;
+  } catch (e) {
+    console.warn('[task-intake] 修正傾向の取得に失敗 (解析は続行):', (e as Error).message);
+    return [];
+  }
+}
+
+/** 投入が確定・破棄されたら傾向が変わるのでキャッシュを捨てる */
+function invalidateAdviceCache(): void {
+  adviceCache = null;
 }
 
 /** sales 権限 (reader 以上) を持つか。案件リンクを出すかの判定に使う */
@@ -77,7 +109,8 @@ router.post('/tasks/intake', ...canEdit, async (req, res) => {
 
   if (isIntakeAiConfigured()) {
     try {
-      const ai = await parseIntakeWithAi(rawText, users, { now, submitterId: userId });
+      const advice = await getIntakeAdvice();
+      const ai = await parseIntakeWithAi(rawText, users, { now, submitterId: userId, advice });
       parsed = { drafts: ai.drafts, skipped: ai.skipped };
       model = ai.model;
       promptVersion = ai.promptVersion;
@@ -144,6 +177,7 @@ router.post('/tasks/intake/:id/commit', ...canEdit, async (req, res) => {
   const result = await taskIntakeService.commitIntake(
     String(req.params.id), tasks as TaskDraft[], userId
   );
+  invalidateAdviceCache();
   res.json({ success: true, data: result });
 });
 
@@ -153,6 +187,7 @@ router.post('/tasks/intake/:id/discard', ...canEdit, async (req, res) => {
   const intake = await taskIntakeService.discardIntake(
     String(req.params.id), userId, req.body?.note ? String(req.body.note) : null
   );
+  invalidateAdviceCache();
   res.json({ success: true, data: intake });
 });
 

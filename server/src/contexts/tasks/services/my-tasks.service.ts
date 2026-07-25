@@ -14,6 +14,20 @@
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { recordCorrections, type CorrectionInput } from '../../../shared/services/ai-output.service';
+
+/**
+ * 確定後の修正を「AI の誤り」として数える時間の窓 (時間)。
+ *
+ * 確認画面で OK した直後に期限を直したのなら、それは
+ * **AI が間違えたのに人が見落として通した**という信号で、確定時の差分では取れない。
+ * 一方で数日後の期限延長は**正常な業務更新**であって AI の誤りではない。
+ * ここを区別しないと「AI が悪い」ことになって集計が壊れる (要件 第6章のリスク)。
+ */
+const POST_COMMIT_CORRECTION_WINDOW_HOURS = 24;
+
+/** 確定後の修正として差分を取るフィールド。振り分け結果そのものが教師データになる */
+const POST_COMMIT_DIFF_FIELDS = ['title', 'due_at', 'importance', 'urgency'] as const;
 
 /** 期限が入っていない既存行を読むときに補う時刻 (終業時刻)。要件 D9 */
 export const DEFAULT_DUE_HOUR = 18;
@@ -86,6 +100,62 @@ const ORDER_BY_PRIORITY = `
            t.importance DESC,
            t.created_at DESC
 `;
+
+/**
+ * 確定後の修正を ai_corrections に積む (要件 第6章 / 開発の絶対原則の条件2)。
+ *
+ * 確認画面で通した直後に人が直したのなら、それは AI が間違えたのに見落として
+ * 通ったという信号で、**確定時の差分では取れない**。ここで拾う。
+ *
+ * ただし数日後の期限延長は正常な業務更新なので、作成から
+ * POST_COMMIT_CORRECTION_WINDOW_HOURS 以内に限る。
+ *
+ * field_path は `tasks[<task_id>].<field>` にする。確定時の `tasks[<draft_key>].<field>` と
+ * 鍵は違うが、ダイジェストは鍵を潰して集計する (`tasks[].due_at`) ので同じ束に入る。
+ *
+ * **best-effort**。記録に失敗しても業務操作は壊さない。
+ */
+async function recordPostCommitCorrections(
+  before: Record<string, unknown>,
+  after: MyTask,
+  patch: Record<string, unknown>,
+  userId: string
+): Promise<void> {
+  try {
+    if (!before.within_window) return;
+    const source = String(before.source ?? '');
+    const sourceRef = before.source_ref ? String(before.source_ref) : null;
+    if (!source.startsWith('intake') || !sourceRef) return;
+
+    const intake = await queryOne(
+      `SELECT ai_output_id FROM task_intake WHERE id = ? AND deleted_at IS NULL`,
+      [sourceRef]
+    );
+    const outputId = intake?.ai_output_id ? String(intake.ai_output_id) : null;
+    if (!outputId) return;
+
+    const corrections: CorrectionInput[] = [];
+    for (const f of POST_COMMIT_DIFF_FIELDS) {
+      // patch に含まれていないフィールドは触られていないので比較しない
+      if (patch[f] === undefined) continue;
+      const bv = before[f] ?? null;
+      const av = (after as unknown as Record<string, unknown>)[f] ?? null;
+      const same = String(bv ?? '') === String(av ?? '');
+      if (same) continue;
+      corrections.push({
+        fieldPath: `tasks[${after.id}].${f}`,
+        before: bv,
+        after: av,
+        type: 'fix',
+        note: `確定後 ${POST_COMMIT_CORRECTION_WINDOW_HOURS} 時間以内の修正`,
+      });
+    }
+    if (corrections.length === 0) return;
+    await recordCorrections(outputId, corrections, userId);
+  } catch (e) {
+    console.warn('[my-tasks] 確定後の修正差分の記録に失敗 (業務操作は成功):', (e as Error).message);
+  }
+}
 
 function decorate(row: Record<string, unknown>): MyTask {
   const importance = Number(row.importance ?? 2);
@@ -319,10 +389,15 @@ export const myTasksService = {
       is_completed?: boolean;
     }
   ): Promise<MyTask> {
+    // 確定後の修正を差分として残すため、変更前の値も一緒に読む
     const row = await queryOne(
-      `SELECT id, assigned_to, requester_id, delegation_status
-       FROM project_tasks WHERE id = ? AND deleted_at IS NULL`,
-      [taskId]
+      // DUE_EXPR は `t.` 別名を前提にしているので、ここでも t で別名を付ける
+      `SELECT t.id, t.assigned_to, t.requester_id, t.delegation_status,
+              t.title, ${DUE_EXPR}::text AS due_at, t.importance, t.urgency,
+              t.source, t.source_ref, t.created_at,
+              (t.created_at >= NOW() - (? || ' hours')::interval) AS within_window
+       FROM project_tasks t WHERE t.id = ? AND t.deleted_at IS NULL`,
+      [String(POST_COMMIT_CORRECTION_WINDOW_HOURS), taskId]
     );
     if (!row) throw new AppError(404, 'NOT_FOUND', 'タスクが見つかりません');
     if (row.assigned_to !== userId && row.requester_id !== userId) {
@@ -367,7 +442,10 @@ export const myTasksService = {
        WHERE id = ?`,
       [...params, userId, taskId]
     );
-    return this.get(taskId);
+
+    const updated = await this.get(taskId);
+    await recordPostCommitCorrections(row, updated, patch, userId);
+    return updated;
   },
 
   /**
