@@ -8,7 +8,6 @@ import { useAuth } from "@/contexts/platform/AuthContext";
 import { SALES_MANUAL } from "@/manual/content";
 import { createPaletteSearch } from "@gmo-onair/shared/src/client/commandPalette/search";
 import api from "@/lib/api";
-import SecondaryNav, { activeNavSection, SECONDARY_NAV_LABELS } from "./SecondaryNav";
 
 /** 別バンドルのアプリ。ここへ行くときだけフルリロードする */
 const EXTERNAL_PREFIXES = ["/equipment", "/qsheet", "/techsheet", "/live", "/awards", "/daily"];
@@ -100,9 +99,6 @@ export default function AppShell() {
   const searchHits = useMemo(() => createPaletteSearch(api), []);
 
 
-  const navSection = activeNavSection(pathname);
-  const hasSecondaryNav = navSection !== null;
-
   return (
     <SharedAppShell
       currentUser={currentUser}
@@ -113,8 +109,6 @@ export default function AppShell() {
       currentPath={pathname}
       renderLink={renderRailLink}
       breadcrumb={breadcrumb ? <span className="font-bold text-foreground">{breadcrumb}</span> : undefined}
-      secondaryNav={hasSecondaryNav ? <SecondaryNav /> : undefined}
-      secondaryNavLabel={navSection ? SECONDARY_NAV_LABELS[navSection] : undefined}
       commandPalette={{ onRun: runCommand, search: searchHits }}
       manualContent={SALES_MANUAL}
     >

@@ -152,7 +152,7 @@ export default function TopBar({
 
   return (
     <header
-      className="relative z-30 flex h-16 shrink-0 items-center gap-2 border-b border-border bg-card px-3 sm:px-5"
+      className="relative z-30 flex h-16 shrink-0 items-center gap-1.5 border-b border-border bg-card px-3 sm:gap-2 sm:px-5"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
       {/* 二次ナビのハンバーガー (モバイル) */}
@@ -174,11 +174,11 @@ export default function TopBar({
         className="flex shrink-0 items-center rounded-control px-1 py-1 transition-opacity hover:opacity-80"
         aria-label="GMO ONAiR の今日の画面へ"
       >
-        <img src="/logo-onair.svg" alt="GMO ONAiR" className="h-5 w-auto" />
+        <img src="/logo-onair.svg" alt="GMO ONAiR" className="h-4 w-auto max-w-[100px] sm:h-5 sm:max-w-none" />
       </a>
 
-      {/* パンくず */}
-      <div className="flex min-w-0 shrink items-center gap-1.5 overflow-hidden text-sm">
+      {/* パンくず — モバイルは下タブが現在地を示すので出さない (さがす場所に幅を譲る) */}
+      <div className="hidden min-w-0 shrink items-center gap-1.5 overflow-hidden text-sm sm:flex">
         {breadcrumb ? (
           <>
             <span className="shrink-0 select-none text-border" aria-hidden="true">
@@ -191,7 +191,7 @@ export default function TopBar({
 
       {/* さがす場所は上辺の中央 (デザイン 3a)。⌘K の入口を兼ねる */}
       {onOpenCommandPalette ? (
-        <div className="mx-auto min-w-0 max-w-lg flex-1 px-1 sm:px-2">
+        <div className="mx-auto min-w-[128px] max-w-lg flex-1 px-0 sm:px-2">
           <button
             type="button"
             onClick={onOpenCommandPalette}
@@ -237,7 +237,7 @@ export default function TopBar({
             type="button"
             ref={more.btnRef}
             onClick={more.open ? () => more.setOpen(false) : more.show}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-control transition-colors hover:bg-secondary"
+            className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-control transition-colors hover:bg-secondary sm:flex"
             aria-label="その他のメニュー"
             aria-expanded={more.open}
             aria-haspopup="menu"
@@ -297,6 +297,21 @@ export default function TopBar({
                   </span>
                 </div>
               </div>
+              {/* モバイルは ⋯ をここに畳む (上辺に並べると 375px で入らない) */}
+              {moreItems.length > 0 && (
+                <div className="space-y-0.5 border-b border-divider p-1.5 sm:hidden">
+                  {moreItems.map((item) => (
+                    <MenuRow
+                      key={item.label}
+                      {...item}
+                      onSelect={() => {
+                        user.setOpen(false);
+                        item.onSelect();
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
               <div className="space-y-0.5 p-1.5">
                 {onSwitchUser && (
                   <MenuRow
