@@ -132,7 +132,8 @@ router.get('/alerts', async (_req, res) => {
 const OVERDUE_ACTIONS_SQL =
   `SELECT a.id AS activity_id, a.next_action, a.next_action_date,
           a.project_id, p.code AS project_code, p.gls_number, p.name AS project_name, p.stage,
-          a.user_id, u.name AS assigned_to_name, c.name AS customer_name,
+          p.expected_amount, p.event_start, p.event_end,
+          a.user_id, u.name AS assigned_to_name, c.name AS customer_name, p.customer_id,
           (CURRENT_DATE - a.next_action_date::date) AS days_overdue
    FROM activity_logs a
    JOIN projects p ON p.id = a.project_id
@@ -313,6 +314,7 @@ router.get('/inbox', async (req, res) => {
     dailyopsVisible
       ? queryAll(
           `SELECT id, doc_type, sender, subject, amount, status, payment_due,
+                  content, closing_month, gls_number, notes,
                   received_at, created_at
            FROM finance_docs
            WHERE deleted_at IS NULL AND status NOT IN ('processed','rejected')

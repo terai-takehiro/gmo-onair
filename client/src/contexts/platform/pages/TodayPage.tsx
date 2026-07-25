@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
-  DashboardHeader,
   KpiCard,
   SectionCard,
   EmptyState,
@@ -26,15 +25,12 @@ import {
 } from "@/lib/aiFeed";
 import { TaskIntakeBox } from "@/contexts/tasks/components/TaskIntakeBox";
 import { MyTasksSummarySection } from "@/contexts/tasks/components/MyTasksSummarySection";
+import { TodayQueue } from "@/contexts/platform/components/todayQueue/TodayQueue";
 import {
   type InboxData,
-  type InboxItem,
-  KIND_LABELS,
-  KIND_BADGE_CLASS,
-  ElapsedChip,
   elapsedHours,
   formatElapsed,
-} from "@/contexts/sales/pages/InboxPage";
+} from "@/contexts/platform/components/todayQueue/types";
 import {
   FolderKanban,
   PiggyBank,
@@ -45,9 +41,6 @@ import {
   Users,
   Truck,
   Sparkles,
-  UserCog,
-  Database,
-  Settings,
   ExternalLink,
   Wrench,
   ArrowRight,
@@ -57,13 +50,7 @@ import {
   ChevronUp,
   Timer,
   Tv,
-  FileSearch,
-  FolderPlus,
-  Zap,
-  RefreshCw,
   Loader2,
-  CheckCircle2,
-  Clock,
   ClipboardList,
   Briefcase,
   Languages,
@@ -74,7 +61,6 @@ import {
   MessageSquare,
   CalendarClock,
   Check,
-  Inbox,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -110,15 +96,6 @@ interface MonthlyChart {
   sga: number;
   gross_profit: number;
   operating_profit: number;
-}
-
-interface Project {
-  id: string;
-  gls_number: string;
-  name: string;
-  customer_name?: string;
-  stage: string;
-  event_start?: string;
 }
 
 // v2.9.175+: 営業ダッシュボード (ホット案件) の 1 案件
@@ -193,92 +170,79 @@ function formatDelta(curr: number, prev: number): { text: string; pct: number } 
 }
 
 // ──────────────────────────────────────
-// ホームページ本体
+// 今日 (§4.2 / デザイン 3a)
+//
+//   あいさつ (待たせている件数を1文)
+//   AI に投げる
+//   待たせている行列 (古い順・行を開くとその場で確定)
+//   動いている案件
+//   右列: 今日と明日の現場 / 今月 / AI がやったこと
+//
+// 一覧より先に「今日やること」を出す (原則1)。
+// 同じ元データのカードを2つ置かない (原則2) — 旧「受信箱サマリー」と「直近の案件」は
+// それぞれ行列・動いている案件と同じ元データだったので消した。
 // ──────────────────────────────────────
-export default function HomePage() {
+export default function TodayPage() {
   const navigate = useNavigate();
   const { currentUser, hasPermission } = useAuth();
   const isAdmin = currentUser?.role === "system_admin";
 
   const canSeeSales = hasPermission("sales");
   const canSeeStudio = hasPermission("studio");
-  const canSeeBudget = hasPermission("budget");
   const canSeeDailyops = hasPermission("dailyops");
 
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? "おはようございます" : hour < 18 ? "お疲れさまです" : "お疲れさまです";
-  const lastUpdated = new Date().toLocaleString('ja-JP', {
-    month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
-  });
+  const greeting = hour < 12 ? "おはようございます" : "お疲れさまです";
 
   return (
     <PageTransition>
-      <div className="mx-auto max-w-screen-2xl px-4 py-5 sm:py-8 space-y-5 sm:space-y-6">
-        {/* ───── ヘッダー ───── */}
-        <DashboardHeader
-          title={<img src="/logo-onair.svg" alt="GMO ONAiR" className="h-8 sm:h-10 w-auto" />}
-          description={
-            <span className="flex flex-wrap items-center gap-2">
-              <span>{greeting}、{currentUser?.name} さん</span>
-              <Badge variant="outline" className="text-xs">
-                {roleLabelMap[currentUser?.role || ""] || currentUser?.role}
-              </Badge>
-            </span>
-          }
-          lastUpdated={`最終更新 ${lastUpdated}`}
-          controls={
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.location.reload()}
-              aria-label="データを再取得"
-            >
-              <RefreshCw className="h-4 w-4 mr-1" aria-hidden="true" />
-              更新
-            </Button>
-          }
-        />
+      <div className="mx-auto max-w-screen-2xl space-y-4 px-4 py-5 sm:py-7">
+        {/* ───── あいさつ ───── */}
+        <TodayGreeting greeting={greeting} name={currentUser?.name} role={currentUser?.role} />
 
-        {/* ───── 0. 投入欄 (依頼・タスクを書き留める。最上部に置く) ─────
+        {/* ───── AI に投げる ─────
              イズム (目標達成10カ条 2-3)「会話だけでなく、形に残さないとメンバーは動かない」。
-             投げるのは 1 秒で終わる行為なので入口の最上部に置く。
+             投げるのは1秒で終わる行為なので最上部に置く。
              奥に置くと「あとでいいか」になり、口頭のまま消える元の状態に戻る。 */}
         {canSeeDailyops && <TaskIntakeBox />}
 
-        {/* ───── 0.5 あなたのタスクと依頼 (ストックとして置く。ポップアップは作らない) ───── */}
-        {canSeeDailyops && <MyTasksSummarySection navigate={navigate} />}
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+          {/* ── 左: 今日やること ── */}
+          <div className="min-w-0 space-y-4">
+            {(canSeeSales || canSeeDailyops) && (
+              <TodayQueue
+                emptySlot={
+                  <p className="mt-1 text-[13px] text-secondary-foreground">
+                    空いた時間でやるなら、止まっている提案の後押しか、期限が近い仮押さえの確認です。
+                    下の「動いている案件」で次にやることが決まっていないものから見てください。
+                  </p>
+                }
+              />
+            )}
 
-        {/* ───── 1. 受信箱サマリー (「今日お客様を待たせているものはゼロか」= 最優先) ───── */}
-        {(canSeeSales || canSeeDailyops) && <InboxSummarySection navigate={navigate} />}
+            {/* あなたへの依頼と自分のタスク (行列とは別の元データ。ポップアップは作らない) */}
+            {canSeeDailyops && <MyTasksSummarySection navigate={navigate} />}
 
-        {/* ───── 2. 今日・明日の現場 (今後のスケジュール) ───── */}
-        {canSeeStudio && <ScheduleSection />}
+            {/* 動いている案件 */}
+            {canSeeSales && <SalesBoardSection navigate={navigate} />}
+          </div>
 
-        {/* ───── 3. クイックアクセス (作成系・高頻度業務への導線) ───── */}
-        {(canSeeSales || canSeeBudget) && (
-          <QuickAccessSection navigate={navigate} canSeeSales={canSeeSales} canSeeBudget={canSeeBudget} />
-        )}
+          {/* ── 右: 事実 ── */}
+          <div className="min-w-0 space-y-4">
+            {canSeeStudio && <ScheduleSection />}
+            {canSeeSales && <KpiSection navigate={navigate} />}
+            {canSeeSales && <AiActivityFeedSection navigate={navigate} />}
+          </div>
+        </div>
 
-        {/* ───── 4. 今月の主要指標 + 前月比 ───── */}
-        {canSeeSales && <KpiSection navigate={navigate} />}
-
-        {/* ───── 5. 営業ダッシュボード (進行中案件 + ホットな情報) ───── */}
-        {canSeeSales && <SalesBoardSection navigate={navigate} />}
-
-        {/* ───── 5.2 AI 活動フィード (AI が最近やったこと・監査ログから) ───── */}
-        {canSeeSales && <AiActivityFeedSection navigate={navigate} />}
-
-        {/* ───── 5. 直近の案件 ───── */}
-        {canSeeSales && <RecentProjectsSection navigate={navigate} />}
-
-        {/* ───── 6. ブロックアプリ起動 (補助) ───── */}
+        {/* ───── 現場の道具 (⌘K が入る Phase 3 まで残す唯一の到達経路) ───── */}
         <SectionCard
-          title="アプリを起動"
-          description="業務に応じたブロックアプリへ遷移します。"
+          title="現場の道具"
+          description="案件から開くのが基本です。単発で使うときはここから。"
           icon={<Briefcase />}
           padding="compact"
         >
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 auto-rows-fr">
+          <div className="grid auto-rows-fr grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {BLOCK_APPS.map((app) => (
               <AppCard
                 key={app.id}
@@ -298,41 +262,11 @@ export default function HomePage() {
           </div>
         </SectionCard>
 
-        {/* ───── 8. システム管理 (admin only) ───── */}
-        {isAdmin && (
-          <SectionCard
-            title="システム管理"
-            description="ユーザー・データ・システム設定。"
-            icon={<Settings />}
-            padding="compact"
-          >
-            <div className="flex flex-wrap gap-2">
-              {[
-                { label: "ユーザー管理", icon: UserCog, to: "/admin/users" },
-                { label: "データビューア", icon: Database, to: "/admin/data-viewer" },
-                { label: "システム設定", icon: Settings, to: "/admin/settings" },
-              ].map((item) => (
-                <Button
-                  key={item.to}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate(item.to)}
-                  className="gap-1.5"
-                >
-                  <item.icon className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-                  {item.label}
-                </Button>
-              ))}
-            </div>
-          </SectionCard>
-        )}
-
         {/* スタッフ向け権限診断 */}
         {!isAdmin && <PermDiagPanel />}
 
-        {/* バージョン */}
-        <p className="pt-4 text-center text-xs text-muted-foreground/60">
-          GMO ONAiR Platform v{__APP_VERSION__}
+        <p className="pt-2 text-center text-[12px] text-muted-foreground">
+          GMO ONAiR v{__APP_VERSION__}
         </p>
       </div>
     </PageTransition>
@@ -340,80 +274,38 @@ export default function HomePage() {
 }
 
 // ══════════════════════════════════════════════════════════
-// セクション 1.5: クイックアクセス (財務管理が有効なユーザー向け)
-// 経費精算 PDF 取込などの高頻度業務へトップページからワンタップで移動
+// あいさつ — 待たせている件数を1文で書く (数字で書く / §2.5 ルール4)
+// 件数は行列と同じ 1 本のクエリを共有するので、二重取得にはならない。
 // ══════════════════════════════════════════════════════════
-function QuickAccessSection({ navigate, canSeeSales, canSeeBudget }: { navigate: (to: string) => void; canSeeSales: boolean; canSeeBudget: boolean }) {
+function TodayGreeting({ greeting, name, role }: { greeting: string; name?: string; role?: string }) {
+  const { data } = useQuery<InboxData>({
+    queryKey: queryKeys.dashboard.inbox(),
+    queryFn: async () => (await api.get("/dashboard/inbox")).data.data,
+    staleTime: 30_000,
+  });
+
+  const items = data?.items ?? [];
+  const oldest = items.length > 0 ? formatElapsed(elapsedHours(items[0].received_at)) : null;
+
   return (
-    <SectionCard
-      title="クイックアクセス"
-      description="よく使う業務へワンタップで移動できます。"
-      icon={<Zap />}
-      padding="compact"
-    >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {canSeeSales && (
-          <button
-            type="button"
-            onClick={() => navigate("/sales/projects/new")}
-            aria-label="新規案件を作成"
-            className="group flex items-center gap-3 rounded-md border border-border bg-card p-3 text-left transition-colors hover:border-primary hover:bg-accent active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-              <FolderPlus className="h-5 w-5" aria-hidden="true" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-foreground">新規案件を作成</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                ヨミ案件（見込み）として登録。GLS発番前でもここから始められます
-              </p>
-            </div>
-            <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden="true" />
-          </button>
-        )}
-        {canSeeSales && (
-          <button
-            type="button"
-            onClick={() => navigate("/sales/activity-logs")}
-            aria-label="営業活動を記録"
-            className="group flex items-center gap-3 rounded-md border border-border bg-card p-3 text-left transition-colors hover:border-primary hover:bg-accent active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-              <ClipboardList className="h-5 w-5" aria-hidden="true" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-foreground">営業活動を記録</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                メール・電話・打合せのやり取りと次回アクションを記録
-              </p>
-            </div>
-            <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden="true" />
-          </button>
-        )}
-        {canSeeBudget && (
-          <button
-            type="button"
-            onClick={() => navigate("/budget/xpoint-import")}
-            aria-label="精算PDF取込を開く"
-            className="group flex items-center gap-3 rounded-md border border-border bg-card p-3 text-left transition-colors hover:border-primary hover:bg-accent active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-              <FileSearch className="h-5 w-5" aria-hidden="true" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-foreground flex flex-wrap items-center gap-1.5">
-                精算PDF取込
-                <Badge variant="outline" className="text-[10px] px-1.5 font-normal">X-Point / 楽楽精算</Badge>
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                申請PDFをアップロード or Boxから読み取り、確認して仕入・販管費に登録
-              </p>
-            </div>
-            <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden="true" />
-          </button>
-        )}
+    <header className="flex flex-wrap items-end justify-between gap-2">
+      <div className="min-w-0">
+        <h1 className="text-xl font-bold text-foreground sm:text-2xl">今日</h1>
+        <p className="mt-1 text-[13px] text-secondary-foreground">
+          {greeting}、{name} さん。
+          {items.length === 0 ? (
+            <span className="ml-1 font-bold text-foreground">お客様を待たせているものはありません。</span>
+          ) : (
+            <span className="ml-1 font-bold text-foreground">
+              お客様を待たせているものが {items.length}件、いちばん古いものは {oldest} 待っています。
+            </span>
+          )}
+        </p>
       </div>
-    </SectionCard>
+      <Badge variant="outline" className="shrink-0 text-[12px]">
+        {roleLabelMap[role || ""] || role}
+      </Badge>
+    </header>
   );
 }
 
@@ -467,7 +359,8 @@ function KpiSection({ navigate }: { navigate: (to: string) => void }) {
       }
       footnote="前月比は前月実績との差分。事業会計年度・案件範囲はダッシュボードで切替可能です。"
     >
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      {/* 右カラム (360px) に置くので常に2列。md:grid-cols-4 はビューポート基準で潰れる */}
+      <div className="grid grid-cols-2 gap-3">
         <KpiCard
           label="売上"
           value={formatYen(kpi.monthly_revenue)}
@@ -588,7 +481,7 @@ function ScheduleSection() {
       ) : !weeklyData || weeklyData.length === 0 || totalEvents === 0 ? (
         <EmptyState title="今後 7 日間の予定はありません" />
       ) : (
-        <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
+        <div className="grid grid-cols-7 gap-1 sm:gap-1.5 xl:grid-cols-1">
           {weeklyData.map((day, i) => {
             const isToday = i === 0;
             const count = day.events.length;
@@ -740,110 +633,6 @@ function AiActivityFeedSection({ navigate }: { navigate: (to: string) => void })
   );
 }
 
-
-// ══════════════════════════════════════════════════════════
-// セクション: 受信箱サマリー (v2.9.217+)
-// 「今日、お客様を待たせているものはゼロか?」に3秒で答えるための1カード。
-// 件数 + 最古の待ち時間 + 先頭3件のプレビューのみ表示し、対応操作は
-// /sales/inbox (受信箱) に一本化。0件のときは細い緑ストリップで肯定表示。
-// ══════════════════════════════════════════════════════════
-function InboxSummarySection({ navigate }: { navigate: (to: string) => void }) {
-  const { data } = useQuery<InboxData>({
-    queryKey: queryKeys.dashboard.inbox(),
-    queryFn: async () => (await api.get("/dashboard/inbox")).data.data,
-    staleTime: 30_000,
-    refetchOnMount: "always",
-  });
-  if (!data) return null;
-  const items = data.items;
-  const checklistCount = data.counts.agreement;
-
-  if (items.length === 0) {
-    return (
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2 text-sm text-emerald-800">
-        <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
-        <span className="font-medium">受信箱は空です — お客様を待たせているものはありません</span>
-        {checklistCount > 0 && (
-          <button
-            type="button"
-            className="text-xs text-emerald-700 underline-offset-2 hover:underline"
-            onClick={() => navigate("/sales/inbox")}
-          >
-            書類チェック {checklistCount}件
-          </button>
-        )}
-        <button
-          type="button"
-          className="ml-auto inline-flex items-center gap-0.5 text-xs text-emerald-700 hover:underline"
-          onClick={() => navigate("/sales/inbox")}
-        >
-          受信箱 <ArrowRight className="h-3 w-3" aria-hidden="true" />
-        </button>
-      </div>
-    );
-  }
-
-  const oldest = elapsedHours(items[0]?.received_at ?? null);
-  const preview = items.slice(0, 3);
-  const titleOf = (it: InboxItem): string => {
-    const m = it.meta;
-    switch (it.kind) {
-      case "overdue_action":
-        return `${m.gls_number || m.project_code || m.project_name} → ${m.next_action}`;
-      // 種別バッジが「AI作成」を示すので、ここで繰り返さない
-      case "ai_project":
-        return String(m.name ?? "");
-      case "inquiry":
-        return String(m.subject || m.sender || "問い合わせ");
-      case "finance_doc":
-        return String(m.subject || m.sender || "見積・請求");
-      default:
-        return "";
-    }
-  };
-
-  return (
-    <SectionCard
-      title={`受信箱 (未対応 ${items.length}件)`}
-      description={`最古のお待たせ: ${formatElapsed(oldest)}。お客様を待たせているものを1箇所に集約しています。`}
-      icon={<Inbox />}
-      padding="compact"
-      className="border-amber-200"
-      actions={
-        <Button size="sm" className="h-8 gap-1 text-xs" onClick={() => navigate("/sales/inbox")}>
-          受信箱を開く
-          <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-        </Button>
-      }
-    >
-      <ul className="divide-y divide-border">
-        {preview.map((it) => (
-          <li key={it.key}>
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              onClick={() => navigate("/sales/inbox")}
-            >
-              <span
-                className={cn(
-                  "shrink-0 rounded border px-1.5 py-0.5 text-[11px] font-semibold",
-                  KIND_BADGE_CLASS[it.kind]
-                )}
-              >
-                {KIND_LABELS[it.kind]}
-              </span>
-              <ElapsedChip receivedAt={it.received_at} forceRed={it.kind === "overdue_action"} />
-              <span className="min-w-0 flex-1 truncate text-sm text-foreground">{titleOf(it)}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-      {items.length > preview.length && (
-        <p className="mt-1 px-2 text-xs text-muted-foreground">ほか {items.length - preview.length} 件</p>
-      )}
-    </SectionCard>
-  );
-}
 
 // ══════════════════════════════════════════════════════════
 // セクション: 営業ダッシュボード (進行中案件 + ホットな情報)
@@ -1085,69 +874,6 @@ function SalesBoardSection({ navigate }: { navigate: (to: string) => void }) {
             </button>
           ) : null}
         </>
-      )}
-    </SectionCard>
-  );
-}
-
-// ══════════════════════════════════════════════════════════
-// セクション 3-B: 直近の案件 (今後7日以内)
-// ══════════════════════════════════════════════════════════
-function RecentProjectsSection({ navigate }: { navigate: (to: string) => void }) {
-  const { data: projects, isLoading } = useQuery<Project[]>({
-    queryKey: queryKeys.dashboard.recentProjects(),
-    queryFn: async () => (await api.get("/dashboard/recent-projects")).data.data,
-    staleTime: 60_000,
-  });
-
-  return (
-    <SectionCard
-      title="直近の案件"
-      description="今後 7 日以内のイベント・収録案件。"
-      icon={<ClipboardList />}
-      actions={
-        <button
-          type="button"
-          className="text-xs text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-          onClick={() => navigate("/sales/projects")}
-        >
-          すべて表示
-        </button>
-      }
-      padding="compact"
-    >
-      {isLoading ? (
-        <div className="flex justify-center py-6">
-          <Loader2 className="h-5 w-5 animate-spin text-primary" aria-label="読み込み中" />
-        </div>
-      ) : !projects || projects.length === 0 ? (
-        <EmptyState title="直近 7 日間の案件はありません" />
-      ) : (
-        <ul className="divide-y divide-border">
-          {projects.slice(0, 5).map((p) => (
-            <li key={p.id}>
-              <button
-                type="button"
-                className="flex w-full items-center gap-3 px-2 py-2.5 text-left transition-colors hover:bg-accent rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                onClick={() => navigate(`/sales/projects/${p.id}`)}
-              >
-                <Clock className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-foreground truncate">
-                    <span className=" text-xs text-muted-foreground mr-1.5">{p.gls_number}</span>
-                    {p.name}
-                  </p>
-                  {p.customer_name ? (
-                    <p className="text-xs text-muted-foreground truncate">{p.customer_name}</p>
-                  ) : null}
-                </div>
-                <Badge variant={statusOf(PROJECT_STAGE, p.stage).variant} className="shrink-0">
-                  {statusOf(PROJECT_STAGE, p.stage).label}
-                </Badge>
-              </button>
-            </li>
-          ))}
-        </ul>
       )}
     </SectionCard>
   );

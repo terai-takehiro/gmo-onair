@@ -15,7 +15,7 @@
 //   - 既定はチェック済み (opt-out)。ただし宛先・期限が足りないものは既定 OFF
 //   - 確定するまで受け手には見えない (AI の誤読がそのまま相手に飛ぶのを防ぐ)
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -127,6 +127,14 @@ function isFarDue(dueAt?: string | null): boolean {
   return (t - Date.now()) / 86400000 > 14;
 }
 
+/** AI が投入文に対してやっていること。読み取り中に何をしているか見せる (§4.3 状態2) */
+const READING_STEPS = [
+  "誰に頼んだのかを探しています",
+  "何をするのかを1行にまとめています",
+  "いつまでか（何月何日何時何分）を読んでいます",
+  "決定事項や報告はタスクにしないよう分けています",
+];
+
 export function TaskIntakeBox() {
   const qc = useQueryClient();
   const [text, setText] = useState("");
@@ -135,21 +143,66 @@ export function TaskIntakeBox() {
   const [rows, setRows] = useState<Row[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [doneMsg, setDoneMsg] = useState<string | null>(null);
+  /** 読み取ったが1件も取れなかったとき (§4.3 読み取り失敗)。投げた文は消さない */
+  const [unread, setUnread] = useState<IntakeResponse | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const users = intake?.users ?? [];
+  const users = intake?.users ?? unread?.users ?? [];
 
   const submitMutation = useMutation({
-    mutationFn: async () =>
-      (await api.post("/dailyops/tasks/intake", { raw_text: text, kind })).data.data as IntakeResponse,
-    onSuccess: (data) => {
-      setIntake(data);
-      setRows(
-        (data.drafts ?? []).map((d) => ({ ...d, checked: d.suggested_default !== false }))
-      );
-      setError(null);
+    mutationFn: async () => {
+      abortRef.current = new AbortController();
+      return (
+        await api.post(
+          "/dailyops/tasks/intake",
+          { raw_text: text, kind },
+          { signal: abortRef.current.signal }
+        )
+      ).data.data as IntakeResponse;
     },
-    onError: (e: any) => setError(e?.response?.data?.error?.message ?? "投入に失敗しました"),
+    onSuccess: (data) => {
+      setError(null);
+      const drafts = data.drafts ?? [];
+      if (drafts.length === 0) {
+        // 読めなかった。捨てずに残して人に聞く (捨てると依頼そのものが消えて元の課題に戻る)
+        setUnread(data);
+        return;
+      }
+      setIntake(data);
+      setRows(drafts.map((d) => ({ ...d, checked: d.suggested_default !== false })));
+    },
+    onError: (e: any) => {
+      if (e?.code === "ERR_CANCELED" || e?.name === "CanceledError") return; // 自分で止めた
+      setError(e?.response?.data?.error?.message ?? "読み取りが終わりませんでした");
+    },
   });
+
+  const cancelReading = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    submitMutation.reset();
+  };
+
+  /** 読めなかった投入から、自分で1件だけ作る (宛先と期限は人が入れる) */
+  const startManualRow = () => {
+    if (!unread) return;
+    setIntake(unread);
+    setRows([
+      {
+        draft_key: "manual-1",
+        title: unread.raw_text.split("\n")[0].slice(0, 120),
+        assigned_to: null,
+        requester_id: null,
+        due_at: null,
+        importance: 2,
+        urgency: 2,
+        assignee_unclear: true,
+        due_unclear: true,
+        checked: true,
+      },
+    ]);
+    setUnread(null);
+  };
 
   const commitMutation = useMutation({
     mutationFn: async () => {
@@ -175,8 +228,10 @@ export function TaskIntakeBox() {
   });
 
   const discardMutation = useMutation({
-    mutationFn: async () =>
-      (await api.post(`/dailyops/tasks/intake/${intake!.id}/discard`, {})).data.data,
+    mutationFn: async () => {
+      const id = intake?.id ?? unread?.id;
+      return (await api.post(`/dailyops/tasks/intake/${id}/discard`, {})).data.data;
+    },
     onSuccess: () => {
       setDoneMsg("下書きを破棄しました（投げた文は記録に残っています）");
       closeAll();
@@ -186,6 +241,7 @@ export function TaskIntakeBox() {
 
   function closeAll() {
     setIntake(null);
+    setUnread(null);
     setRows([]);
     setText("");
     setError(null);
@@ -265,13 +321,70 @@ export function TaskIntakeBox() {
           </Button>
         </div>
 
+        {/* ── 状態2: AI が読んでいる (何をしているか見せる・止められる) ── */}
+        {submitMutation.isPending && (
+          <div
+            role="status"
+            className="mt-2.5 rounded-control border border-ai-border bg-ai-surface px-3 py-2.5"
+          >
+            <p className="flex items-center gap-1.5 text-[13px] font-bold text-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-ai" aria-hidden="true" />
+              AI が読んでいます
+            </p>
+            <ul className="mt-1.5 space-y-0.5">
+              {READING_STEPS.map((sline) => (
+                <li key={sline} className="flex items-start gap-1.5 text-[12px] text-secondary-foreground">
+                  <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-ai" aria-hidden="true" />
+                  {sline}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-2 flex items-center gap-2">
+              <Button type="button" size="sm" variant="outline" className="h-8" onClick={cancelReading}>
+                やめる
+              </Button>
+              <p className="text-[12px] text-muted-foreground">
+                投げた文はこのまま残るので、やめてもやり直せます。
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ── 状態4: 読めなかった (捨てずに残して人に聞く) ── */}
+        {unread && (
+          <div className="mt-2.5 rounded-control border border-warning/35 bg-warning-surface px-3 py-2.5">
+            <p className="flex items-center gap-1.5 text-[13px] font-bold text-foreground">
+              <AlertTriangle className="h-3.5 w-3.5 text-warning-strong" aria-hidden="true" />
+              宛先と期限が読めませんでした
+            </p>
+            <p className="mt-1 text-[12px] leading-relaxed text-foreground/80">
+              投げた文は記録に残してあります。分かるところだけ入れて1件つくるか、文だけ残して後で見てください。
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Button type="button" size="sm" className="h-9" onClick={startManualRow}>
+                分かるところだけ入れて作る
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-9"
+                disabled={discardMutation.isPending}
+                onClick={() => discardMutation.mutate()}
+              >
+                投げた文だけ残す
+              </Button>
+            </div>
+          </div>
+        )}
+
         {doneMsg && (
-          <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-green-700">
+          <p className="mt-2 flex items-center gap-1.5 text-[13px] font-bold text-success">
             <Check className="h-3.5 w-3.5" aria-hidden="true" />{doneMsg}
           </p>
         )}
-        {error && !intake && (
-          <p className="mt-2 text-xs font-medium text-red-700">{error}</p>
+        {error && !intake && !unread && (
+          <p className="mt-2 text-[13px] font-bold text-destructive">{error}</p>
         )}
       </div>
 
@@ -282,11 +395,25 @@ export function TaskIntakeBox() {
           onInteractOutside={(e) => e.preventDefault()}
         >
           <DialogHeader>
-            <DialogTitle className="text-base">
-              {rows.length > 0
-                ? `${rows.length} 件みつけました。登録しますか？`
-                : "タスクは見つかりませんでした"}
+            <DialogTitle className="flex flex-wrap items-center gap-2 text-base">
+              <span>
+                {rows.length > 0
+                  ? `${rows.length} 件みつけました。登録しますか？`
+                  : "タスクは見つかりませんでした"}
+              </span>
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-ai-border bg-ai-surface px-2 py-0.5 text-[11px] font-bold text-ai">
+                <Sparkles className="h-3 w-3" aria-hidden="true" />
+                AI作成
+              </span>
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-warning/35 bg-warning-surface px-2 py-0.5 text-[11px] font-bold text-warning-strong">
+                <Clock className="h-3 w-3" aria-hidden="true" />
+                確認待ち
+              </span>
             </DialogTitle>
+            <p className="text-[13px] text-secondary-foreground">
+              「この内容で確定する」を押すまで、相手には出ません。
+              <span className="font-bold text-warning-strong">オレンジの印</span>は AI が補ったところです。
+            </p>
           </DialogHeader>
 
           {/* 拾わなかった行 (決定事項など) を見せる */}
@@ -506,7 +633,7 @@ export function TaskIntakeBox() {
               {commitMutation.isPending
                 ? <Loader2 className="h-4 w-4 animate-spin" />
                 : <Check className="h-4 w-4" aria-hidden="true" />}
-              {checkedRows.length} 件を登録する
+              この内容で確定する（{checkedRows.length} 件）
             </Button>
           </DialogFooter>
         </DialogContent>

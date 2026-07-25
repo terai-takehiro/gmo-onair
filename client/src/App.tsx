@@ -9,7 +9,7 @@ import { Loader2 } from "lucide-react";
 import LoginPage from "@/contexts/platform/pages/LoginPage";
 import AuthCallbackPage from "@/contexts/platform/pages/AuthCallbackPage";
 import AcceptInvitationPage from "@/contexts/platform/pages/AcceptInvitationPage";
-import HomePage from "@/contexts/platform/pages/HomePage";
+import TodayPage from "@/contexts/platform/pages/TodayPage";
 import UserListPage from "@/contexts/platform/pages/UserListPage";
 import DataViewerPage from "@/contexts/platform/pages/DataViewerPage";
 import DbBackupsPage from "@/contexts/platform/pages/DbBackupsPage";
@@ -19,7 +19,6 @@ import DedupScreeningPage from "@/contexts/platform/pages/DedupScreeningPage";
 // Sales (営業管理)
 import DashboardPage from "@/contexts/platform/pages/DashboardPage";
 import ProjectListPage from "@/contexts/sales/pages/ProjectListPage";
-import InboxPage from "@/contexts/sales/pages/InboxPage";
 import PipelinePage from "@/contexts/sales/pages/PipelinePage";
 import GlsImportProjectsPage from "@/contexts/sales/pages/GlsImportProjectsPage";
 import ProjectFormPage from "@/contexts/sales/pages/ProjectFormPage";
@@ -109,12 +108,11 @@ function AppRoutes() {
         }
       >
         {/* ホーム（アプリランチャー） */}
-        <Route path="/" element={<HomePage />} />
+        <Route path="/" element={<TodayPage />} />
 
         {/*
           ===== 共通レールの行き先 (刷新後の正となるパス) =====
-          いまは既存ページをそのまま出している。各フェーズで中身を差し替える:
-            /today    → Phase 2 で「今日」の画面に
+          /today は Phase 2 で「今日」の画面になった。残りは各フェーズで差し替える:
             /projects → Phase 4 で一覧+ボードに
             /tasks    → Phase 5 で 3スコープ×3表示に
             /customers→ Phase 6 で顧客360に
@@ -123,7 +121,7 @@ function AppRoutes() {
             /settings → Phase 12 で役割テンプレートを持つ設定画面に
           旧パス (/sales/* 等) からのリダイレクトは Phase 3 (§3.3) でまとめて入れる。
         */}
-        <Route path="/today" element={<HomePage />} />
+        <Route path="/today" element={<TodayPage />} />
         <Route path="/projects" element={<PermissionRoute module="sales"><ProjectListPage /></PermissionRoute>} />
         <Route path="/tasks" element={<Navigate to="/sales/tasks/kanban" replace />} />
         <Route path="/customers" element={<PermissionRoute module="sales"><CustomerListPage /></PermissionRoute>} />
@@ -145,7 +143,8 @@ function AppRoutes() {
         <Route path="/sales/tasks" element={<Navigate to="/sales/tasks/kanban" replace />} />
         <Route path="/sales/tasks/:view" element={<PermissionRoute module="sales"><TaskDashboardPage /></PermissionRoute>} />
         <Route path="/sales/project-groups" element={<PermissionRoute module="sales"><ProjectGroupListPage /></PermissionRoute>} />
-        <Route path="/sales/inbox" element={<PermissionRoute module="sales"><InboxPage /></PermissionRoute>} />
+        {/* 受信箱は「今日」の行列に統合した (§4.2) */}
+        <Route path="/sales/inbox" element={<Navigate to="/today" replace />} />
         <Route path="/sales/pipeline" element={<PermissionRoute module="sales"><PipelinePage /></PermissionRoute>} />
         <Route path="/sales/activity-logs" element={<PermissionRoute module="sales"><ActivityLogPage /></PermissionRoute>} />
         <Route path="/sales/ai-activity" element={<PermissionRoute module="sales"><AiActivityPage /></PermissionRoute>} />
