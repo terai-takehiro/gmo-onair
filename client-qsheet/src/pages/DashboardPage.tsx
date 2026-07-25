@@ -269,9 +269,15 @@ function DocCard({
               共有中 {shareCount}
             </span>
           ) : (
-            <span className="inline-flex items-center gap-0.5" title="作成者と管理者のみ閲覧可能">
+            /* 案件に紐づいていない台本は作成者だけが見える。ここを一律「案件メンバー」と書くと嘘になる */
+            <span
+              className="inline-flex items-center gap-0.5"
+              title={doc.project_id
+                ? "この案件のメンバーに見えます。案件の外の人には「共有」から追加してください"
+                : "案件に紐づいていないので、あなただけが見られます。案件に紐づけるか「共有」から追加してください"}
+            >
               <Lock size={9} aria-hidden />
-              自分のみ
+              {doc.project_id ? "案件メンバー" : "自分のみ"}
             </span>
           )}
         </div>
@@ -515,7 +521,11 @@ export default function DashboardPage() {
       queryClient.invalidateQueries({ queryKey: ["qsheet-documents"] });
       setShowCreate(false);
       resetCreateForm();
-      notifySuccess("作成しました。このQシートはあなたと管理者のみ閲覧できます（他の人に見せるにはカードの「共有」ボタンから共有してください）");
+      notifySuccess(
+        doc.project_id
+          ? "作成しました。この案件のメンバーにも見えます（案件の外の人に見せるにはカードの「共有」から追加してください）。"
+          : "作成しました。案件に紐づいていないので、いまはあなただけが見られます（他の人に見せるにはカードの「共有」から追加してください）。"
+      );
       navigate(`/qsheet/editor/${doc.id}`);
     },
     onError: () => {

@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Mic, AlertTriangle, Radio, ArrowRight } from "lucide-react";
 import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
+import SyncStatusBadge from "@/components/SyncStatusBadge";
 
 type MicState = "on" | "off" | "standby";
 
@@ -283,6 +284,7 @@ function CueColumn({
 export default function AudioSupportPage() {
   const { id } = useParams<{ id: string }>();
   const [currentCue, setCurrentCue] = useState(0);
+  const [syncConnected, setSyncConnected] = useState(false);
   const socketRef = useRef<ReturnType<typeof getQsheetSocket> | null>(null);
 
   const { data, isLoading, error } = useQuery({
@@ -308,6 +310,13 @@ export default function AudioSupportPage() {
     const sock = getQsheetSocket(id);
     socketRef.current = sock;
 
+    // 切れても最後に届いたキューが残り続けるので状態を出す (§4.13)
+    const onConnect = () => setSyncConnected(true);
+    const onDisconnect = () => setSyncConnected(false);
+    sock.on("connect", onConnect);
+    sock.on("disconnect", onDisconnect);
+    setSyncConnected(sock.connected);
+
     const onSync = (payload: { currentCue: number }) => {
       if (typeof payload?.currentCue === "number") {
         setCurrentCue(payload.currentCue);
@@ -329,6 +338,8 @@ export default function AudioSupportPage() {
       sock.off("cue:jump", onJump);
       sock.off("cue:next", onNext);
       sock.off("cue:prev", onPrev);
+      sock.off("connect", onConnect);
+      sock.off("disconnect", onDisconnect);
       disconnectQsheetSocket();
       socketRef.current = null;
     };
@@ -412,9 +423,9 @@ export default function AudioSupportPage() {
             <h1 className="text-base font-bold truncate">{data.meta.title || "音声サポート"}</h1>
             <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full flex-none">マイク香盤</span>
           </div>
-          <div className="flex items-center gap-3 text-xs text-zinc-400 flex-none">
-            <span className="hidden sm:inline">公開URL · リアルタイム同期中</span>
-            <span className="size-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden />
+          <div className="flex items-center gap-2 text-xs text-zinc-400 flex-none">
+            <span className="hidden sm:inline">公開URL</span>
+            <SyncStatusBadge connected={syncConnected} />
           </div>
         </div>
       </header>

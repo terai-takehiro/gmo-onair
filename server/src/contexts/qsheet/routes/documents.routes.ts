@@ -40,11 +40,25 @@ router.get('/documents', async (req: Request, res: Response) => {
     const params: unknown[] = [];
     let paramIndex = 1;
 
-    // 管理者以外は「自分が作成」または「自分に共有された」ドキュメントのみ
+    // 管理者以外は 自分が作成 / 自分に共有された / **案件メンバーである案件のもの**。
+    // 一覧と canAccessDoc は同じ条件でなければならない
+    // (一覧に出ないのに開ける、逆に出るのに開けない が起きる)。
     if (!isQsheetAdmin(req.user!)) {
-      sql += ` AND (d.created_by = $${paramIndex} OR EXISTS (
-                 SELECT 1 FROM qsheet_document_shares s
-                 WHERE s.document_id = d.id AND s.user_id = $${paramIndex}))`;
+      sql += ` AND (
+                 d.created_by = $${paramIndex}
+                 OR EXISTS (
+                   SELECT 1 FROM qsheet_document_shares s
+                   WHERE s.document_id = d.id AND s.user_id = $${paramIndex}
+                 )
+                 OR (d.project_id IS NOT NULL AND p.deleted_at IS NULL AND (
+                   p.assigned_to = $${paramIndex}
+                   OR EXISTS (
+                     SELECT 1 FROM project_members pm
+                     WHERE pm.project_id = d.project_id AND pm.user_id = $${paramIndex}
+                       AND pm.deleted_at IS NULL
+                   )
+                 ))
+               )`;
       params.push(req.user!.id);
       paramIndex++;
     }

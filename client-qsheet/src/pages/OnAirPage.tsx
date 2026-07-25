@@ -5,6 +5,7 @@ import api from "@/lib/api";
 import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
 import { parseDur, fmtAbs } from "@/lib/time";
 import { notifySuccess, notifyError } from "@/lib/notify";
+import LiveRoleSwitch from "@/components/LiveRoleSwitch";
 import {
   ChevronLeft,
   Play,
@@ -409,11 +410,15 @@ export default function OnAirPage() {
           )}
           {paused && <span className="ml-2 text-sm font-black tracking-wider text-warning">PAUSE</span>}
         </div>
-        <div className="text-sm font-bold text-muted-foreground hidden md:flex gap-6">
-          <span>SPACE 次へ</span>
-          <span>P 一時停止</span>
-          <span>↑↓ ±1分</span>
-          <span>ESC 終了</span>
+        <div className="flex items-center gap-4">
+          <div className="text-sm font-bold text-muted-foreground hidden lg:flex gap-6">
+            <span>SPACE 次へ</span>
+            <span>P 一時停止</span>
+            <span>↑↓ ±1分</span>
+            <span>ESC 終了</span>
+          </div>
+          {/* 本番の役割切替 (§4.13) — 別のURLを教え直さずここから移れる */}
+          {id && <LiveRoleSwitch docId={id} current="onair" />}
         </div>
       </header>
 

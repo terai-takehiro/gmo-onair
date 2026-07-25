@@ -6,6 +6,7 @@ import LoginPage from "@/pages/LoginPage";
 import DashboardPage from "@/pages/DashboardPage";
 import EditorPage from "@/pages/EditorPage";
 import OnAirPage from "@/pages/OnAirPage";
+import LivePage from "@/pages/LivePage";
 import RundownPage from "@/pages/RundownPage";
 import PrompterPage from "@/pages/PrompterPage";
 import AudioSupportPage from "@/pages/AudioSupportPage";
@@ -40,6 +41,8 @@ export default function App() {
       </Route>
 
       {/* Full-screen pages without AppShell */}
+      {/* 本番は1入口 + 役割切替 (§4.13)。旧URLは残して ?role= に寄せる */}
+      <Route path="/qsheet/live/:id" element={<ProtectedRoute><LivePage /></ProtectedRoute>} />
       <Route path="/qsheet/onair/:id" element={<ProtectedRoute><OnAirPage /></ProtectedRoute>} />
       <Route path="/qsheet/rundown/:id" element={<ProtectedRoute><RundownPage /></ProtectedRoute>} />
       <Route path="/qsheet/prompter/:id" element={<ProtectedRoute><PrompterPage /></ProtectedRoute>} />

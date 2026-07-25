@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
@@ -21,24 +21,48 @@ import { applyDataDiff } from "@/lib/collab/ydocDiff";
 import { yDocToData } from "@gmo-onair/shared/src/collab/yjsDoc";
 import StageEditor from "@/components/editor/StageEditor";
 import AudioShareDialog from "@/components/editor/AudioShareDialog";
+import ColumnChips from "@/components/editor/ColumnChips";
 import CsvImportDialog from "@/components/editor/CsvImportDialog";
 import type { CsvImportResult } from "@/lib/csvImport";
 import {
   Loader2,
   Save,
   Radio,
-  List,
   Clock,
   Download,
   Upload,
   PanelRightOpen,
   PanelRightClose,
   ChevronLeft,
-  MonitorPlay,
-  Mic,
+  Share2,
+  Undo2,
   Eye,
   Trash2,
+  MoreHorizontal,
 } from "lucide-react";
+
+/**
+ * セルに中身があるか (出す列の自動判定用)。
+ * 型ごとに形が違うので、空配列・空文字を「無い」として扱う。
+ */
+function cellHasContent(cell: unknown): boolean {
+  if (cell == null) return false;
+  if (typeof cell === "string") return cell.trim().length > 0;
+  if (typeof cell !== "object") return true;
+  const c = cell as Record<string, unknown>;
+  if (Array.isArray(c.entries)) {
+    return (c.entries as Record<string, unknown>[]).some((e) =>
+      Object.values(e ?? {}).some((v) => typeof v === "string" ? v.replace(/<[^>]*>/g, "").trim().length > 0 : v != null && v !== "")
+    );
+  }
+  if (Array.isArray(c.assignments)) {
+    return (c.assignments as Record<string, unknown>[]).some((a) => a?.state && a.state !== "off");
+  }
+  if (typeof c.value === "string") return c.value.trim().length > 0;
+  if (c.value != null) return true;
+  // sceneId (LED/XR) や imageUrl (スライド) など、上のどれでもない型
+  return Object.entries(c).some(([, v]) => typeof v === "string" ? v.trim().length > 0 : v != null && v !== "");
+}
 
 // ============================================================
 // Types
@@ -221,9 +245,32 @@ export default function EditorPage() {
   const { data: collabData, synced: collabSynced, mutate: collabMutate, peers: collabPeers, setCursor: setCollabCursor } =
     useCollabDoc(id, collabEnabled, collabUser);
   const [collapsedBlocks, setCollapsedBlocks] = useState<Set<string>>(new Set());
+  /**
+   * 出す列 (§4.12)。端末ごとの見た目なので localStorage に持ち、台本の中身 (data) には入れない。
+   * null = まだ何も選んでいない → 空の列を自動で隠す初期値を1度だけ入れる。
+   */
+  const [hiddenBlockIds, setHiddenBlockIds] = useState<Set<string> | null>(null);
+
+  /**
+   * 直前の変更 (§4.12)。
+   *
+   * ゴミ箱 (`doc.data.trash`) はドキュメントと一緒に保存されるので、
+   * **保存される前に閉じると消えてしまう**。ロールを1つ消して閉じたら戻せない。
+   * そこで「保存とは無関係にその場で戻せる」履歴をメモリに持つ。
+   * 保存済みの変更にも効くので「間違えて消した」を実際に取り消せる。
+   */
+  const historyRef = useRef<{ label: string; at: number; data: DocumentData }[]>([]);
+  /** undo は updateData より前に定義されるので ref 越しに呼ぶ */
+  const updateDataRef = useRef<((updater: (d: DocumentData) => DocumentData) => void) | null>(null);
+  const [historyMarks, setHistoryMarks] = useState<{ label: string; at: number }[]>([]);
+  /** 直前に見た data。これと変わったら1手として記録する */
+  const prevDataRef = useRef<DocumentData | null>(null);
+  /** 元に戻した直後の変化を記録しないための1回フラグ */
+  const skipNextHistoryRef = useRef(false);
   const [collapsedSections, setCollapsedSections] = useState<Set<number>>(new Set());
   const [showPreview, setShowPreview] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
+  const [showMore, setShowMore] = useState(false);
   const [showAudioShare, setShowAudioShare] = useState(false);
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [editingStageIdx, setEditingStageIdx] = useState<number | null>(null);
@@ -322,6 +369,20 @@ export default function EditorPage() {
     },
   });
 
+  /** 何が変わったかを数だけで見て一言にする (中身の比較はしない — 高頻度で走るため) */
+  const describeChange = useCallback((prev: DocumentData, next: DocumentData): string => {
+    const secs = (d: DocumentData) => d.sections?.length ?? 0;
+    const rows = (d: DocumentData) => (d.sections ?? []).reduce((a, s) => a + (s.rows?.length ?? 0), 0);
+    const blks = (d: DocumentData) => d.blocks?.length ?? 0;
+    if (secs(next) < secs(prev)) return "ロールを削除";
+    if (secs(next) > secs(prev)) return "ロールを追加";
+    if (blks(next) < blks(prev)) return "列を削除";
+    if (blks(next) > blks(prev)) return "列を追加";
+    if (rows(next) < rows(prev)) return "行を削除";
+    if (rows(next) > rows(prev)) return "行を追加";
+    return "編集";
+  }, []);
+
   const updateData = useCallback((updater: (data: DocumentData) => DocumentData) => {
     if (collabEnabled) {
       // collab: Y.Doc を真実源に。現在の Y 状態を prev として updater を適用し、差分を Y 操作へ翻訳。
@@ -341,6 +402,45 @@ export default function EditorPage() {
     // 競合状態は編集しても解除しない (バナーで「最新を読み込む」を促す)
     setSaveStatus((prev) => (prev === "conflict" ? prev : "unsaved"));
   }, [collabEnabled, collabMutate]);
+
+  useEffect(() => { updateDataRef.current = updateData; }, [updateData]);
+
+  /**
+   * 履歴の記録は **確定した data の変化**を見て行う。
+   * updateData の中 (setDoc の updater や collabMutate のコールバック) で
+   * setState を呼ぶと React に無視されることがあり、実際に履歴が積まれなかった。
+   * ここなら collab / 非collab のどちらの経路でも同じ1か所で拾える。
+   */
+  useEffect(() => {
+    const cur = doc?.data;
+    if (!cur) return;
+    const prev = prevDataRef.current;
+    prevDataRef.current = cur;
+    if (!prev || prev === cur) return;
+    // 元に戻した直後の1回は積まない (積むと行き来を繰り返すだけになる)
+    if (skipNextHistoryRef.current) { skipNextHistoryRef.current = false; return; }
+    const entry = { label: describeChange(prev, cur), at: Date.now(), data: prev };
+    const list = [...historyRef.current, entry].slice(-30); // 30 手前まで
+    historyRef.current = list;
+    setHistoryMarks(list.map(({ label, at }) => ({ label, at })));
+  }, [doc?.data, describeChange]);
+
+  /**
+   * 元に戻す — 履歴を1つ戻す (n を渡すとそこまで一気に戻す)。
+   * 戻す操作自身は履歴に積まない (積むと行き来を繰り返すだけになる)。
+   */
+  const undo = useCallback((index?: number) => {
+    const list = historyRef.current;
+    if (list.length === 0) return;
+    const target = typeof index === "number" ? index : list.length - 1;
+    const snapshot = list[target];
+    if (!snapshot) return;
+    const rest = list.slice(0, target);
+    historyRef.current = rest;
+    setHistoryMarks(rest.map(({ label, at }) => ({ label, at })));
+    skipNextHistoryRef.current = true;
+    updateDataRef.current?.(() => snapshot.data);
+  }, []);
 
   // CSV インポート: 解析済みセクションを置き換え or 末尾に追加、検出した話者を masters.persons にマージ
   const handleCsvImport = useCallback((result: CsvImportResult, mode: "replace" | "append") => {
@@ -480,26 +580,66 @@ export default function EditorPage() {
     return () => window.removeEventListener("keydown", handler);
   });
 
-  // Manual save — increments draftNumber if numbered mode
+  // Ctrl+Z / Cmd+Z → 元に戻す (入力欄の中はブラウザの取り消しに任せる)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.key === "z" || e.key === "Z") || !(e.ctrlKey || e.metaKey) || e.shiftKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName?.toLowerCase();
+        if (tag === "input" || tag === "textarea" || tag === "select") return;
+        if (target.isContentEditable) return;
+      }
+      e.preventDefault();
+      undo();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [undo]);
+
+  /**
+   * 手動保存。**稿番号は上げない** (§4.12)。
+   *
+   * 従来は `draftType=numbered` のとき手動保存のたびに +1 していたため、
+   * 「ちょっと直して保存」を3回やると第4稿になっていた。稿を上げるかどうかは
+   * 人が決めることなので、「稿を上げる」を別の明示操作にした (handleBumpDraft)。
+   */
   const handleManualSave = useCallback(() => {
     if (!doc) return;
     if (collabEnabled) {
-      // collab: 稿番号の更新のみ Y 経由で行い、HTTP 保存はしない (サーバーが Y を永続化)。
-      updateData((d) => {
-        const meta = { ...d.meta };
-        if (meta.draftType === "numbered" || !meta.draftType) meta.draftNumber = (meta.draftNumber || 1) + 1;
-        meta.updatedAt = new Date().toISOString();
-        return { ...d, meta };
-      });
+      // collab: 内容は Y が持つので、ここでは更新時刻だけ触る (サーバーが Y を永続化)
+      updateData((d) => ({ ...d, meta: { ...d.meta, updatedAt: new Date().toISOString() } }));
       setSaveFlash(true);
       setTimeout(() => setSaveFlash(false), 1500);
       return;
     }
     clearTimeout(autoSaveTimer.current);
     const nextDoc = { ...doc, data: { ...doc.data, meta: { ...doc.data.meta } } };
-    if (nextDoc.data.meta.draftType === "numbered" || !nextDoc.data.meta.draftType) {
-      nextDoc.data.meta.draftNumber = (nextDoc.data.meta.draftNumber || 1) + 1;
+    nextDoc.data.meta.updatedAt = new Date().toISOString();
+    setDoc(nextDoc);
+    setSaveFlash(true);
+    setTimeout(() => setSaveFlash(false), 1500);
+    saveMutation.mutate(nextDoc);
+  }, [doc, saveMutation, collabEnabled, updateData]);
+
+  /** 稿を上げる — 明示操作。番号が上がるのはここだけ */
+  const handleBumpDraft = useCallback(() => {
+    if (!doc) return;
+    const cur = doc.data.meta?.draftNumber || 1;
+    if (!confirm(`第${cur}稿 → 第${cur + 1}稿 にします。よろしいですか？`)) return;
+    if (collabEnabled) {
+      updateData((d) => ({
+        ...d,
+        meta: { ...d.meta, draftType: "numbered", draftNumber: (d.meta.draftNumber || 1) + 1, updatedAt: new Date().toISOString() },
+      }));
+      setSaveFlash(true);
+      setTimeout(() => setSaveFlash(false), 1500);
+      return;
     }
+    clearTimeout(autoSaveTimer.current);
+    const nextDoc = { ...doc, data: { ...doc.data, meta: { ...doc.data.meta } } };
+    nextDoc.data.meta.draftType = "numbered";
+    nextDoc.data.meta.draftNumber = cur + 1;
     nextDoc.data.meta.updatedAt = new Date().toISOString();
     setDoc(nextDoc);
     setSaveFlash(true);
@@ -518,6 +658,61 @@ export default function EditorPage() {
   const totalDuration = doc?.data.sections.reduce(
     (acc, section) => acc + (parseDur(section.duration) || section.rows.reduce((a, r) => a + parseDur(r.duration), 0)), 0
   ) || 0;
+
+  // ── 出す列 (§4.12) ─────────────────────────────────────
+  // hooks は早期 return より前に置く (doc 読み込み中でも hooks の数を変えない)
+  const COLS_KEY = `qs_cols_${id}`;
+
+  /** 中身が1つも無い列 = まだ使っていない列 */
+  const emptyBlockIds = useMemo(() => {
+    const empty = new Set<string>();
+    const blocks = doc?.data.blocks ?? [];
+    const sections = doc?.data.sections ?? [];
+    for (const blk of blocks) {
+      let used = false;
+      for (const sec of sections) {
+        for (const row of sec.rows) {
+          const cell = (row.cells as Record<string, unknown> | undefined)?.[blk.id];
+          if (cell && cellHasContent(cell)) { used = true; break; }
+        }
+        if (used) break;
+      }
+      if (!used) empty.add(blk.id);
+    }
+    return empty;
+  }, [doc?.data.blocks, doc?.data.sections]);
+
+  // 初回だけ「空の列は隠す」を入れる。以降はユーザーの選択を尊重する
+  useEffect(() => {
+    if (!doc || hiddenBlockIds !== null) return;
+    try {
+      const raw = localStorage.getItem(COLS_KEY);
+      if (raw) { setHiddenBlockIds(new Set(JSON.parse(raw) as string[])); return; }
+    } catch { /* 壊れていたら既定に落とす */ }
+    setHiddenBlockIds(new Set(emptyBlockIds));
+  }, [doc, hiddenBlockIds, emptyBlockIds, COLS_KEY]);
+
+  // 毎レンダーで新しい Set を作ると下の useMemo が効かないので memo 化する
+  const hidden = useMemo(() => hiddenBlockIds ?? new Set<string>(), [hiddenBlockIds]);
+
+  const persistHidden = useCallback((next: Set<string>) => {
+    setHiddenBlockIds(next);
+    try { localStorage.setItem(COLS_KEY, JSON.stringify([...next])); } catch { /* noop */ }
+  }, [COLS_KEY]);
+
+  const toggleColumn = useCallback((blockId: string) => {
+    const next = new Set(hidden);
+    if (next.has(blockId)) next.delete(blockId); else next.add(blockId);
+    persistHidden(next);
+  }, [hidden, persistHidden]);
+
+  const resetColumns = useCallback(() => persistHidden(new Set()), [persistHidden]);
+
+  // 表に渡すのは「出している列」だけ。中身 (row.cells) は触らないので隠しても消えない
+  const visibleBlocks = useMemo(
+    () => (doc?.data.blocks ?? []).filter((b) => !hidden.has(b.id)),
+    [doc?.data.blocks, hidden]
+  );
 
   if (isLoading || !doc) {
     return (
@@ -610,79 +805,61 @@ export default function EditorPage() {
               <Save size={14} aria-hidden />
               <span className="hidden sm:inline">{saveFlash ? "保存しました" : "保存"}</span>
             </button>
-            {/* ゴミ箱 — ロール/行の復元用 */}
-            {(() => {
-              const trashCount = getTrash(doc.data).length;
-              return (
-                <button
-                  onClick={() => setShowTrash(true)}
-                  className="relative hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-                  title="ゴミ箱（削除したロール/行を復元）"
-                  aria-label={`ゴミ箱 ${trashCount}件`}
-                >
-                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                  <span className="hidden md:inline">ゴミ箱</span>
-                  {trashCount > 0 && (
-                    <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold min-w-[18px] text-center">
-                      {trashCount}
-                    </span>
-                  )}
-                </button>
-              );
-            })()}
-            {/* CSV export — desktop only */}
-            <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1 text-xs" onClick={() => exportCsv(doc)} title="CSVエクスポート">
-              <Download className="h-3.5 w-3.5" />
-              <span className="hidden lg:inline">CSV</span>
-            </Button>
-            {/* CSV import — desktop only */}
-            <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1 text-xs" onClick={() => setShowCsvImport(true)} title="CSVインポート">
-              <Upload className="h-3.5 w-3.5" />
-              <span className="hidden lg:inline">CSV取込</span>
-            </Button>
-            {/* PDF export */}
+            {/* 印刷 / PDF */}
             <button
               onClick={() => setShowPreview(true)}
               className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-              aria-label="印刷 / PDF プレビュー"
+              aria-label="紙 / PDF"
             >
               <Eye size={13} aria-hidden />
-              <span className="hidden md:inline">印刷 / PDF</span>
+              <span className="hidden md:inline">紙 / PDF</span>
             </button>
-            {/* 音声サポート URL 共有 (マイク香盤ブロックがある時のみ表示) */}
-            {doc.data.blocks.some((b) => b.type === "audio_mic") && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="hidden md:flex h-8 gap-1"
-                onClick={() => setShowAudioShare(true)}
-                title="音声サポート画面 URL を共有"
-              >
-                <Mic className="h-4 w-4 text-pink-600" />
-                <span className="hidden lg:inline text-xs">音声共有</span>
-              </Button>
-            )}
 
-            {/* Navigation buttons — tablet+ */}
-            <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1" onClick={() => navigate(`/qsheet/rundown/${doc.id}`)}>
-              <List className="h-4 w-4" />
-              <span className="hidden lg:inline text-xs">ランダウン</span>
-            </Button>
-            <Button variant="ghost" size="sm" className="hidden lg:flex h-8 gap-1" onClick={() => navigate(`/qsheet/prompter/${doc.id}`)}>
-              <MonitorPlay className="h-4 w-4" />
-              <span className="hidden xl:inline text-xs">プロンプター</span>
-            </Button>
-            <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => navigate(`/qsheet/onair/${doc.id}`)}>
+            {/* 本番をはじめる — ここから先は本番の役割切替 (§4.13) */}
+            <Button size="sm" className="h-8 gap-1" onClick={() => navigate(`/qsheet/live/${doc.id}?role=onair`)}>
               <Radio className="h-4 w-4" />
-              <span className="hidden sm:inline text-xs">ON AIR</span>
+              <span className="hidden sm:inline text-xs">本番をはじめる</span>
             </Button>
-            <button
-              className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground transition-colors hidden lg:block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              aria-label={sidebarOpen ? "サイドバーを閉じる" : "サイドバーを開く"}
-            >
-              {sidebarOpen ? <PanelRightClose size={16} aria-hidden /> : <PanelRightOpen size={16} aria-hidden />}
-            </button>
+
+            {/* ⋯ — 頻度の低いものはここに畳む (§4.12: ヘッダーは4つに圧縮) */}
+            <div className="relative">
+              <button
+                onClick={() => setShowMore((v) => !v)}
+                className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                aria-label="そのほかの操作"
+                aria-expanded={showMore}
+              >
+                <MoreHorizontal size={16} aria-hidden />
+              </button>
+              {showMore && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowMore(false)} aria-hidden />
+                  <div className="absolute right-0 top-9 z-50 w-56 rounded-lg border border-border bg-card py-1 shadow-xl">
+                    {[
+                      ...(historyMarks.length > 0
+                        ? [{ label: `元に戻す（${historyMarks[historyMarks.length - 1].label}）`, Icon: Undo2, run: () => undo() }]
+                        : []),
+                      { label: `ゴミ箱と直前の変更${getTrash(doc.data).length > 0 ? `（${getTrash(doc.data).length}）` : ""}`, Icon: Trash2, run: () => setShowTrash(true) },
+                      { label: "CSVで出す", Icon: Download, run: () => exportCsv(doc) },
+                      { label: "CSVから取り込む", Icon: Upload, run: () => setShowCsvImport(true) },
+                      // ランダウン・プロンプターは本番画面の役割切替から行けるので、ここには置かない (§4.13)
+                      { label: "本番のURLを配る", Icon: Share2, run: () => setShowAudioShare(true) },
+                      { label: sidebarOpen ? "サイドバーを閉じる" : "サイドバーを開く", Icon: sidebarOpen ? PanelRightClose : PanelRightOpen, run: () => setSidebarOpen(!sidebarOpen) },
+                    ].map((m) => (
+                      <button
+                        key={m.label}
+                        type="button"
+                        onClick={() => { setShowMore(false); m.run(); }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-foreground hover:bg-accent"
+                      >
+                        <m.Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -699,10 +876,19 @@ export default function EditorPage() {
               className="bg-transparent border border-border rounded px-1.5 py-0.5 text-[11px] outline-none cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               aria-label="稿の種類"
             >
-              <option value="numbered">稿番号を自動設定</option>
+              <option value="numbered">稿番号で管理</option>
               <option value="準備稿">準備稿</option>
               <option value="決定稿">決定稿</option>
             </select>
+            {/* 稿を上げるのは明示操作。保存では上がらない (§4.12) */}
+            <button
+              type="button"
+              onClick={handleBumpDraft}
+              className="rounded border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              title="稿番号を1つ上げます。保存では上がりません"
+            >
+              稿を上げる
+            </button>
           </div>
           <span className="text-border" aria-hidden>|</span>
           <label className="flex items-center gap-1">
@@ -726,6 +912,17 @@ export default function EditorPage() {
             <span style={{ fontFamily: "'Roboto Condensed',sans-serif" }} aria-label="総尺">{formatTime(totalDuration)}</span>
           </div>
         </div>
+
+        {/* Row 3: 出す列 — サイドバーの「列」タブに埋もれていた表示切替を上に出した (§4.12) */}
+        <div className="hidden sm:block px-4 pb-2">
+          <ColumnChips
+            blocks={doc.data.blocks}
+            hidden={hidden}
+            emptyIds={emptyBlockIds}
+            onToggle={toggleColumn}
+            onReset={resetColumns}
+          />
+        </div>
       </header>
 
       {/* 同時編集の競合バナー */}
@@ -747,7 +944,7 @@ export default function EditorPage() {
           - lg 未満: 親自身を overflow-y-auto にして CueCardList を含む全コンテンツをスクロール可能にする */}
       <div className="flex flex-1 overflow-y-auto lg:overflow-hidden">
         <CueTable
-          blocks={doc.data.blocks}
+          blocks={visibleBlocks}
           sections={doc.data.sections}
           masters={doc.data.masters}
           stageTemplates={(doc.data as any).stageTemplates}
@@ -852,6 +1049,8 @@ export default function EditorPage() {
       {/* ゴミ箱 Drawer */}
       {showTrash && (
         <TrashDrawer
+          history={historyMarks}
+          onUndo={undo}
           data={doc.data}
           onChange={(updater) => updateData(updater)}
           onClose={() => setShowTrash(false)}

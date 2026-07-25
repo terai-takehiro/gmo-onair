@@ -1,6 +1,13 @@
-// Qシート: ゴミ箱ドロワー
-// doc.data.trash の内容を一覧表示し、復元・完全削除を行う。
-import { X, RotateCcw, Trash2, AlertCircle } from "lucide-react";
+/**
+ * Qシート: ゴミ箱と直前の変更 (§4.12)
+ *
+ * 2つを1枚に並べている。役割が違うため。
+ *   - **ゴミ箱** … 消したロール・行を「元の場所に戻す」。Qシートと一緒に保存されるので後日でも戻せるが、
+ *     **保存される前に閉じると消える** (保存されていない削除は復元手段がなくなる)。
+ *   - **直前の変更** … 保存とは無関係にメモリで持っている履歴。開いている間だけだが、
+ *     消した直後・保存前でも確実に戻せる。ゴミ箱の穴を埋めるのがこちら。
+ */
+import { X, RotateCcw, Trash2, AlertCircle, Undo2, History } from "lucide-react";
 import {
   TrashItem,
   getTrash,
@@ -14,9 +21,21 @@ interface TrashDrawerProps {
   data: any; // doc.data
   onChange: (updater: (data: any) => any) => void;
   onClose: () => void;
+  /** 直前の変更 (古い順)。保存に依存しないメモリ上の履歴 */
+  history?: { label: string; at: number }[];
+  /** index を渡すとそこまで戻す */
+  onUndo?: (index?: number) => void;
 }
 
-export default function TrashDrawer({ data, onChange, onClose }: TrashDrawerProps) {
+function elapsed(at: number): string {
+  const sec = Math.max(0, Math.floor((Date.now() - at) / 1000));
+  if (sec < 60) return `${sec}秒前`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}分前`;
+  return `${Math.floor(min / 60)}時間前`;
+}
+
+export default function TrashDrawer({ data, onChange, onClose, history = [], onUndo }: TrashDrawerProps) {
   const trash = getTrash(data);
 
   const handleRestore = (item: TrashItem) => {
@@ -105,7 +124,7 @@ export default function TrashDrawer({ data, onChange, onClose }: TrashDrawerProp
         <header className="flex-none flex items-center justify-between px-5 py-3 border-b border-zinc-200 dark:border-zinc-800">
           <div className="flex items-center gap-2">
             <Trash2 size={18} className="text-zinc-500" />
-            <h2 className="text-base font-semibold">ゴミ箱</h2>
+            <h2 className="text-base font-semibold">ゴミ箱と直前の変更</h2>
             <span className="px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-xs text-zinc-600 dark:text-zinc-400">
               {trash.length}
             </span>
@@ -131,8 +150,52 @@ export default function TrashDrawer({ data, onChange, onClose }: TrashDrawerProp
         </header>
 
         <div className="flex-1 overflow-auto">
+          {/* 直前の変更 — 保存前でも戻せるのはこちら */}
+          <section className="border-b border-zinc-200 dark:border-zinc-800">
+            <div className="flex items-center justify-between px-5 pt-3 pb-2">
+              <h3 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-zinc-500">
+                <History size={12} />
+                直前の変更
+              </h3>
+              {history.length > 0 && onUndo && (
+                <button
+                  onClick={() => onUndo()}
+                  className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  title="1つ戻す (Ctrl+Z)"
+                >
+                  <Undo2 size={12} />
+                  1つ戻す
+                </button>
+              )}
+            </div>
+            {history.length === 0 ? (
+              <p className="px-5 pb-3 text-[11px] leading-relaxed text-zinc-400">
+                この画面を開いてからの変更がここに並びます。保存する前でも戻せます（画面を閉じると履歴は消えます）。
+              </p>
+            ) : (
+              <ul className="pb-2">
+                {history.slice().reverse().slice(0, 12).map((h, revIdx) => {
+                  const idx = history.length - 1 - revIdx;
+                  return (
+                    <li key={`${h.at}-${idx}`}>
+                      <button
+                        onClick={() => onUndo?.(idx)}
+                        className="flex w-full items-center gap-2 px-5 py-1.5 text-left text-xs text-zinc-700 transition-colors hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800/50"
+                        title="ここまで戻す"
+                      >
+                        <Undo2 size={12} className="flex-shrink-0 text-zinc-400" />
+                        <span className="flex-1 truncate">{h.label}</span>
+                        <span className="flex-shrink-0 text-[10px] text-zinc-400">{elapsed(h.at)}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+
           {trash.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-zinc-400 gap-3 p-8">
+            <div className="flex flex-col items-center justify-center text-zinc-400 gap-3 p-8">
               <Trash2 size={40} className="opacity-30" />
               <p className="text-sm">ゴミ箱は空です</p>
               <p className="text-xs text-zinc-400 text-center">
@@ -185,7 +248,7 @@ export default function TrashDrawer({ data, onChange, onClose }: TrashDrawerProp
         <footer className="flex-none px-5 py-3 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
           <p className="text-[11px] text-zinc-500 flex items-start gap-1.5">
             <AlertCircle size={12} className="mt-0.5 flex-shrink-0" />
-            ゴミ箱の内容はQシートと一緒に保存されます。保存前にブラウザを閉じると失われます。
+ゴミ箱はQシートと一緒に保存されるので後日でも戻せますが、保存する前に閉じると消えます。保存前の取り消しは上の「直前の変更」を使ってください。
           </p>
         </footer>
       </div>

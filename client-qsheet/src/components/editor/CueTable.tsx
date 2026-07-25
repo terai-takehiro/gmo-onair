@@ -807,9 +807,13 @@ function CueTableLg({
                                   updateState((s: any) => {
                                     const blks = [...s.blocks];
                                     const fromIdx = blks.findIndex((b: Block) => b.id === fromId);
-                                    if (fromIdx < 0 || fromIdx === bi) return s;
+                                    // 挿入位置は**落とした列の id** から引く。
+                                    // 表示している列 (bi) は「出す列」で絞られていることがあり、
+                                    // その番号で state の配列に splice すると別の列の位置に入ってしまう。
+                                    const toIdx = blks.findIndex((b: Block) => b.id === blk.id);
+                                    if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return s;
                                     const [moved] = blks.splice(fromIdx, 1);
-                                    blks.splice(bi, 0, moved);
+                                    blks.splice(toIdx, 0, moved);
                                     return { ...s, blocks: blks };
                                   });
                                   setDraggedBlockId(null);

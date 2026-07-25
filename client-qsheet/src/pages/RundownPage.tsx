@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { parseDur, fmtAbs } from "@/lib/time";
 import { StageDiagramPreview } from "@/components/editor/StageDiagramCell";
+import LiveRoleSwitch from "@/components/LiveRoleSwitch";
+import SyncStatusBadge from "@/components/SyncStatusBadge";
 import {
   Loader2,
   ArrowLeft,
@@ -162,6 +164,8 @@ export default function RundownPage() {
     return (localStorage.getItem(STORAGE_KEY_THEME) as "light" | "dark") || "dark";
   });
   const [columnSelectorOpen, setColumnSelectorOpen] = useState(false);
+  // 放送同期の状態 (切れても数字は最後の値で残るので画面に出す)
+  const [syncConnected, setSyncConnected] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY_COLUMNS);
@@ -279,6 +283,13 @@ export default function RundownPage() {
     const socket = getQsheetSocket(id);
     socketRef.current = socket;
 
+    // 切断すると数字が最後の値で止まるだけなので、状態を画面に出す (§4.13)
+    const onConnect = () => setSyncConnected(true);
+    const onDisconnect = () => setSyncConnected(false);
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+    setSyncConnected(socket.connected);
+
     socket.on("cue:sync", (data: { currentCue: number; elapsed: number; isPlaying: boolean }) => {
       setCurrentCue(data.currentCue);
       setElapsed(data.elapsed);
@@ -297,6 +308,8 @@ export default function RundownPage() {
     socket.on("cue:reset", () => { setIsPlaying(false); setCurrentCue(0); setElapsed(0); resetCueTiming(); });
 
     return () => {
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
       disconnectQsheetSocket();
       socketRef.current = null;
     };
@@ -472,6 +485,11 @@ export default function RundownPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <SyncStatusBadge connected={syncConnected} tone={isDark ? "dark" : "light"} />
+
+          {/* 本番の役割切替 (§4.13) */}
+          {id && <LiveRoleSwitch docId={id} current="rundown" tone={isDark ? "dark" : "light"} />}
+
           {/* Column selector toggle */}
           <Button
             variant="ghost"
