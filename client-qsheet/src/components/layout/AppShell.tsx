@@ -1,6 +1,9 @@
+import { useMemo } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { LayoutDashboard, FilePlus } from "lucide-react";
 import SharedAppShell from "@gmo-onair/shared/src/client/shell/AppShell";
+import { createPaletteSearch } from "@gmo-onair/shared/src/client/commandPalette/search";
+import api from "@/lib/api";
 import SecondaryNavList, { type SecondaryNavItem } from "@gmo-onair/shared/src/client/shell/SecondaryNavList";
 import type { RailLinkRenderer } from "@gmo-onair/shared/src/client/shell/Rail";
 import { realPathname } from "@gmo-onair/shared/src/client/shell/realPath";
@@ -43,6 +46,8 @@ export default function AppShell() {
     />
   );
 
+  const searchHits = useMemo(() => createPaletteSearch(api), []);
+
   return (
     <SharedAppShell
       currentUser={currentUser}
@@ -53,6 +58,7 @@ export default function AppShell() {
       breadcrumb={<span className="font-bold text-foreground">Qシート</span>}
       secondaryNav={nav}
       secondaryNavLabel="Qシート"
+      commandPalette={{ onRun: (path) => { window.location.href = path; }, search: searchHits }}
       manualContent={QSHEET_MANUAL}
     >
       <Outlet />

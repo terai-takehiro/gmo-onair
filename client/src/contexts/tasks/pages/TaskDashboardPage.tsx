@@ -23,8 +23,10 @@ const CAT_FILTERS: { id: CatFilter; label: string }[] = [
   { id: "A", label: "スタジオ" },
 ];
 
-export default function TaskDashboardPage() {
-  const { view } = useParams<{ view: string }>();
+/** view は旧パス (/sales/tasks/:view) と新クエリ (/tasks?view=) の両方から来る */
+export default function TaskDashboardPage({ view: viewProp }: { view?: string } = {}) {
+  const params = useParams<{ view: string }>();
+  const view = viewProp ?? params.view;
   const navigate = useNavigate();
   const activeView: ViewType =
     view === "kanban" || view === "list" || view === "gantt" ? view : "kanban";

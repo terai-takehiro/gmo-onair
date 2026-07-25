@@ -1,7 +1,9 @@
+import { useMemo } from 'react';
 import { NavLink, Outlet, useLocation, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Timer, LayoutDashboard, Settings, ArrowLeft } from 'lucide-react';
 import SharedAppShell from '@gmo-onair/shared/src/client/shell/AppShell';
+import { createPaletteSearch } from '@gmo-onair/shared/src/client/commandPalette/search';
 import SecondaryNavList, { type SecondaryNavItem } from '@gmo-onair/shared/src/client/shell/SecondaryNavList';
 import type { RailLinkRenderer } from '@gmo-onair/shared/src/client/shell/Rail';
 import { realPathname } from '@gmo-onair/shared/src/client/shell/realPath';
@@ -70,6 +72,8 @@ export default function AppShell() {
     </span>
   );
 
+  const searchHits = useMemo(() => createPaletteSearch(api), []);
+
   return (
     <SharedAppShell
       currentUser={currentUser}
@@ -82,6 +86,7 @@ export default function AppShell() {
         <SecondaryNavList items={navItems} currentPath={pathname} renderLink={renderLink} />
       }
       secondaryNavLabel="計時LIVE"
+      commandPalette={{ onRun: (path) => { window.location.href = path; }, search: searchHits }}
       manualContent={LIVE_MANUAL}
       padMain={noAccess}
     >

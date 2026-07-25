@@ -62,14 +62,29 @@ UI/UX 刷新 (v2.9.251〜) の合意事項。**「入口は1つ」を判定す�
 - レールの行き先 (`/today` 〜 `/settings`) を追加。中身は既存ページのまま
 - `/settings` に設定の入口 (8グループ) を新設
 
-**この時点で残っている二重の入口**: 旧パス (`/sales/*` 等) と新パス (`/projects` 等) が両方生きている。
-§3.3 のリダイレクトで旧→新に寄せるのは Phase 3。
+### Phase 2 (v2.9.253 / v2.9.254) — 済
 
-### Phase 3 で消すもの
+- `/today` が「今日」の画面に (あいさつ → AIに投げる → 待たせている行列 → 動いている案件 → 右列)
+- 受信箱ページを行列に統合 (`/sales/inbox` → `/today`)
+- 行列の全種別が開いた場所で終端に到達する
+- v2.9.254 でデザインファイル (3a / 4a / 5a) と突き合わせて文言・書体・上辺を合わせた
 
-- `client` の二次ナビ (約40メニュー) → ⌘K に集約
-- 旧パスを新パスへリダイレクト (仕様書 §3.3 の表)
-- 移行期のグローバル検索 (`client/src/components/layout/GlobalSearchBox.tsx`) → コマンドパレットに統合
+### Phase 3 (v2.9.255) — 済
+
+- **⌘K** (`shared/src/client/commandPalette/`) を全7アプリに配線。
+  コマンド表は静的1ファイル (`commands.ts`) + 権限フィルタ。約70件。
+- **上辺の中央がさがす場所**になった (⌘K の入口を兼ねる)。
+  移行期のグローバル検索 (`GlobalSearchBox.tsx`) は**削除**。
+- **§3.3 のリダイレクトを全部入れた** (36本)。新URLが正:
+  `/projects` `/tasks` `/customers` `/schedule` `/finance` `/finance/import` `/settings/*`。
+  表示の切り替えは**クエリ** (`?view=` `?filter=` `?scope=` `?layers=` `?tab=` `?tool=`)。
+- 新URLを受けて既存の画面を出すのは `client/src/components/layout/routeAdapters.tsx`。
+  画面そのものの作り直し (Phase 4〜8) はここの中身を差し替えるだけで済み、**URL は変わらない**。
+- 行列がゼロのときは祝わず、「空いた時間でやるなら」を出す (6b)。
+
+**Phase 3 で残した二重の入口**: `client` の二次ナビ (約40メニュー)。
+⌘K から全部到達できるので削除できる状態だが、レールだけで探せるかを dev で確かめてから外す。
+`/daily/tasks` → `/tasks?scope=me` の吸収は Phase 5 (いまは新URLが日常業務アプリへ送る一方向)。
 
 ---
 
@@ -93,8 +108,8 @@ UI/UX 刷新 (v2.9.251〜) の合意事項。**「入口は1つ」を判定す�
 | --- | --- | --- | --- |
 | テーブル | `external_tool_outputs` | 翻訳・インタラクティブ・CGの成果物 (`project_id` nullable) | Phase 12 |
 | テーブル | `user_notification_prefs` | 通知の受け取り方 | Phase 9 |
-| API | `GET /search` (拡張) | コマンド・メニューを候補に含める | Phase 3 |
+| API | `GET /search` (拡張) | 案件に顧客名を同梱 (コマンド・メニューはクライアント側の静的表) | 済 (v2.9.255) |
 | API | `GET /dailyops/weekly-stats` (拡張) | 期限を守れた率・AIの無修正採用率 | Phase 12 |
-| API | `GET /commands` または静的定義 | ⌘Kのコマンド一覧 (権限フィルタ) | Phase 3 |
+| API | `GET /commands` または静的定義 | ⌘Kのコマンド一覧 → **静的定義を採用** (`shared/src/client/commandPalette/commands.ts`) | 済 (v2.9.255) |
 
 タスク・投入・AI差分は既存 (migration 134 / 135) を使う。**新規テーブルは2つだけ**。

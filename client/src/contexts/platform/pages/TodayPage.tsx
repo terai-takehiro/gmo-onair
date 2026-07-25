@@ -202,14 +202,7 @@ export default function TodayPage() {
           {/* ── 左: 今日やること ── */}
           <div className="min-w-0 space-y-4">
             {(canSeeSales || canSeeDailyops) && (
-              <TodayQueue
-                emptySlot={
-                  <p className="mt-1 text-[13px] text-secondary-foreground">
-                    空いた時間でやるなら、止まっている提案の後押しか、期限が近い仮押さえの確認です。
-                    下の「動いている案件」で次にやることが決まっていないものから見てください。
-                  </p>
-                }
-              />
+              <TodayQueue emptySlot={<QueueZeroSuggestions navigate={navigate} canSeeSales={canSeeSales} />} />
             )}
 
             {/* あなたへの依頼と自分のタスク (行列とは別の元データ。ポップアップは作らない) */}
@@ -262,6 +255,81 @@ export default function TodayPage() {
         </p>
       </div>
     </PageTransition>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// 行列がゼロのとき (§4.5 6b)
+// 祝わずに、次にやることだけ出す。
+// 件数は「動いている案件」と同じクエリキーを共有するので二重取得にならない。
+// ══════════════════════════════════════════════════════════
+function QueueZeroSuggestions({
+  navigate,
+  canSeeSales,
+}: {
+  navigate: (to: string) => void;
+  canSeeSales: boolean;
+}) {
+  const { data: board } = useQuery<SalesBoardItem[]>({
+    queryKey: queryKeys.dashboard.salesBoard(),
+    queryFn: async () => (await api.get("/dashboard/sales-board")).data.data,
+    staleTime: 60_000,
+    enabled: canSeeSales,
+  });
+
+  const list = board ?? [];
+  // 止まっている提案 = 提案済み/口頭決定なのに次にやることが決まっていない
+  const stalled = list.filter(
+    (p) => (p.stage === "c_proposal" || p.stage === "b_verbal") && !p.next_action
+  );
+  // 期限が近い仮押さえ = 仮押さえのまま実施日が2週間以内
+  const limit = new Date();
+  limit.setDate(limit.getDate() + 14);
+  const limitStr = `${limit.getFullYear()}-${String(limit.getMonth() + 1).padStart(2, "0")}-${String(limit.getDate()).padStart(2, "0")}`;
+  const soonHold = list.filter((p) => p.stage === "d_hold" && p.event_start && p.event_start <= limitStr);
+
+  const suggestions: { title: string; sub: string; to: string }[] = [];
+  if (stalled.length > 0) {
+    suggestions.push({
+      title: `止まっている提案 ${stalled.length}件`,
+      sub: "次にやることが決まっていません。ひとつ決めると動き出します。",
+      to: "/projects?view=board",
+    });
+  }
+  if (soonHold.length > 0) {
+    suggestions.push({
+      title: `期限が近い仮押さえ ${soonHold.length}件`,
+      sub: "2週間以内に実施日があります。確定させるか、押さえを外します。",
+      to: "/projects?view=board",
+    });
+  }
+  suggestions.push({
+    title: "週次報告を書く",
+    sub: "今週の動きを1枚にまとめておくと、来週の判断が早くなります。",
+    to: "/sales/keep-report",
+  });
+
+  return (
+    <div className="mt-3 border-t border-divider pt-3">
+      <p className="mb-1.5 text-[12px] font-bold text-muted-foreground">空いた時間でやるなら</p>
+      <ul className="space-y-1.5">
+        {suggestions.map((sg) => (
+          <li key={sg.title}>
+            <button
+              type="button"
+              onClick={() => navigate(sg.to)}
+              className="flex w-full items-start gap-2 rounded-control border border-border px-3 py-2 text-left transition-colors hover:bg-secondary"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block text-[13px] font-bold text-foreground">{sg.title}</span>
+                <span className="mt-0.5 block text-[12px] text-secondary-foreground">{sg.sub}</span>
+              </span>
+              <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -384,7 +452,7 @@ function KpiSection({ navigate }: { navigate: (to: string) => void }) {
           trend={grossDelta?.text}
           trendLabel="前月比"
           trendSemantics="positive"
-          onClick={() => navigate("/budget/dashboard")}
+          onClick={() => navigate("/finance")}
         />
         <KpiCard
           label="営業利益"
@@ -394,7 +462,7 @@ function KpiSection({ navigate }: { navigate: (to: string) => void }) {
           trend={opDelta?.text}
           trendLabel="前月比"
           trendSemantics="positive"
-          onClick={() => navigate("/budget/dashboard")}
+          onClick={() => navigate("/finance")}
         />
         <KpiCard
           label="進行中案件"

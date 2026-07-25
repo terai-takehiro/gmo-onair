@@ -27,8 +27,10 @@ const stageTabs: { value: StageFilter; label: string }[] = [
   { value: "completed", label: "完了" },
 ];
 
-export default function ConfirmedProjectsPage() {
-  const { category } = useParams<{ category: string }>();
+/** category は旧パス (/sales/projects/confirmed/:category) と新クエリ (?filter=) の両方から来る */
+export default function ConfirmedProjectsPage({ category: categoryProp }: { category?: string } = {}) {
+  const params = useParams<{ category: string }>();
+  const category = categoryProp ?? params.category;
   const glsCategory = category === "business" ? "B" : "A";
   const isStudio = glsCategory === "A";
 

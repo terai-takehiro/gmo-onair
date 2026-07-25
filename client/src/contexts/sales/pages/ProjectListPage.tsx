@@ -179,7 +179,7 @@ export default function ProjectListPage() {
           </span>
           <Button
             type="button" variant="outline" size="sm" className="ml-auto h-8 gap-1 text-xs text-violet-700"
-            onClick={() => navigate("/sales/inbox")}
+            onClick={() => navigate("/today")}
           >
             受信箱を開く
           </Button>

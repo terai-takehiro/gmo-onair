@@ -8,7 +8,7 @@
 // 案件管理は ⌘K が入る Phase 3 まで既存メニューをここに置いて到達性を保ち、
 // 現場アプリ (機材・Qシート等) はこのスロットが本来の居場所。
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '../utils';
 import Rail, { type RailLinkRenderer } from './Rail';
@@ -17,6 +17,8 @@ import TopBar, { type TopBarUser } from './TopBar';
 import ManualModal from '../manual/ManualModal';
 import VersionHistoryModal from '../versionHistory/VersionHistoryModal';
 import McpInfoModal from '../mcpInfo/McpInfoModal';
+import CommandPalette from '../commandPalette/CommandPalette';
+import type { PaletteHit } from '../commandPalette/types';
 import type { ManualContent } from '../manual/types';
 
 export interface AppShellProps {
@@ -40,7 +42,15 @@ export interface AppShellProps {
   secondaryNavLabel?: string;
   /** ⌘K の左に置く任意スロット (移行期の既存グローバル検索) */
   centerContent?: ReactNode;
-  onOpenCommandPalette?: () => void;
+  /**
+   * ⌘K。渡すと上辺にボタンが出て ⌘K / Ctrl+K でも開く。
+   *   onRun  行き先を開く (アプリ内遷移かフルリロードかは各アプリが決める)
+   *   search 案件・お客様の検索 (既存 GET /search)。省略すると3グループ目を出さない
+   */
+  commandPalette?: {
+    onRun: (path: string) => void;
+    search?: (q: string) => Promise<PaletteHit[]>;
+  };
   onOpenNotifications?: () => void;
   notificationCount?: number;
   /** 渡すと ⋯ に「利用マニュアル」が出る */
@@ -68,7 +78,7 @@ export default function AppShell({
   secondaryNav,
   secondaryNavLabel,
   centerContent,
-  onOpenCommandPalette,
+  commandPalette,
   onOpenNotifications,
   notificationCount,
   manualContent,
@@ -80,6 +90,20 @@ export default function AppShell({
   const [versionOpen, setVersionOpen] = useState(false);
   const [mcpOpen, setMcpOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // ⌘K / Ctrl+K。入力中でも開けるようにする (探すのは常に最短距離で)
+  useEffect(() => {
+    if (!commandPalette) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [commandPalette]);
 
   const railItems = resolveRailItems({ role, permissions });
 
@@ -92,7 +116,7 @@ export default function AppShell({
         breadcrumb={breadcrumb}
         onToggleSecondaryNav={secondaryNav ? () => setNavOpen((v) => !v) : undefined}
         centerContent={centerContent}
-        onOpenCommandPalette={onOpenCommandPalette}
+        onOpenCommandPalette={commandPalette ? () => setPaletteOpen(true) : undefined}
         onOpenNotifications={onOpenNotifications}
         notificationCount={notificationCount}
         onOpenManual={manualContent ? () => setManualOpen(true) : undefined}
@@ -162,6 +186,15 @@ export default function AppShell({
       )}
       <VersionHistoryModal open={versionOpen} onOpenChange={setVersionOpen} productLabel={productLabel} />
       <McpInfoModal open={mcpOpen} onOpenChange={setMcpOpen} />
+      {commandPalette && (
+        <CommandPalette
+          open={paletteOpen}
+          onOpenChange={setPaletteOpen}
+          access={{ role, permissions }}
+          onRun={commandPalette.onRun}
+          search={commandPalette.search}
+        />
+      )}
     </div>
   );
 }

@@ -76,8 +76,10 @@ function HealthStrip({ projectId, episodeId }: { projectId: string; episodeId: s
   );
 }
 
-export default function ProjectTasksPage() {
-  const { projectId } = useParams<{ projectId: string }>();
+/** projectId は旧パス (/sales/projects/:projectId/tasks) と新クエリ (?project=) の両方から来る */
+export default function ProjectTasksPage({ projectId: projectIdProp }: { projectId?: string } = {}) {
+  const params = useParams<{ projectId: string }>();
+  const projectId = projectIdProp ?? params.projectId;
   const [view, setView] = useState<TaskView>("kanban");
   const [episodeId, setEpisodeId] = useState<string | null>(null);
   const didInitView = useRef(false);

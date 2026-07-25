@@ -3,6 +3,16 @@ import { AuthProvider, useAuth } from "@/contexts/platform/AuthContext";
 import { RedirectOnce } from "@gmo-onair/shared/src/client/RedirectOnce";
 import AppShell from "@/components/layout/AppShell";
 import PermissionRoute from "@/components/layout/PermissionRoute";
+import {
+  RedirectTo,
+  RedirectConfirmed,
+  RedirectTaskView,
+  ProjectsRoute,
+  TasksRoute,
+  ScheduleRoute,
+  FinanceRoute,
+  FinanceImportRoute,
+} from "@/components/layout/routeAdapters";
 import { Loader2 } from "lucide-react";
 
 // Platform
@@ -13,13 +23,9 @@ import TodayPage from "@/contexts/platform/pages/TodayPage";
 import UserListPage from "@/contexts/platform/pages/UserListPage";
 import DataViewerPage from "@/contexts/platform/pages/DataViewerPage";
 import DbBackupsPage from "@/contexts/platform/pages/DbBackupsPage";
-import KessanImportPage from "@/contexts/platform/pages/KessanImportPage";
-import DedupScreeningPage from "@/contexts/platform/pages/DedupScreeningPage";
 
 // Sales (営業管理)
 import DashboardPage from "@/contexts/platform/pages/DashboardPage";
-import ProjectListPage from "@/contexts/sales/pages/ProjectListPage";
-import PipelinePage from "@/contexts/sales/pages/PipelinePage";
 import GlsImportProjectsPage from "@/contexts/sales/pages/GlsImportProjectsPage";
 import ProjectFormPage from "@/contexts/sales/pages/ProjectFormPage";
 import CustomerListPage from "@/contexts/sales/pages/CustomerListPage";
@@ -30,32 +36,20 @@ import ActivityLogPage from "@/contexts/sales/pages/ActivityLogPage";
 import AiActivityPage from "@/contexts/sales/pages/AiActivityPage";
 import KeepReportPage from "@/contexts/sales/pages/KeepReportPage";
 import SalesReviewPage from "@/contexts/sales/pages/SalesReviewPage";
-import ConfirmedProjectsPage from "@/contexts/sales/pages/ConfirmedProjectsPage";
 import EstimatePage from "@/contexts/sales/pages/EstimatePage";
 import ProjectGroupListPage from "@/contexts/sales/pages/ProjectGroupListPage";
 
 // Tasks (タスク管理)
-import ProjectTasksPage from "@/contexts/tasks/pages/ProjectTasksPage";
-import TaskDashboardPage from "@/contexts/tasks/pages/TaskDashboardPage";
 
 // Production (スタジオ予約)
 import EpisodeListPage from "@/contexts/production/pages/EpisodeListPage";
-import StudioCalendarPage from "@/contexts/production/pages/StudioCalendarPage";
-import PartnerSchedulePage from "@/contexts/production/pages/PartnerSchedulePage";
-import MyCalendarPage from "@/contexts/production/pages/MyCalendarPage";
-import UnifiedCalendarPage from "@/contexts/production/pages/UnifiedCalendarPage";
 import SignagePage from "@/contexts/production/pages/SignagePage";
 import VendorReportPage from "@/contexts/production/pages/VendorReportPage";
 
 // Finance (財務管理)
-import RevenueListPage from "@/contexts/finance/pages/RevenueListPage";
-import PurchaseListPage from "@/contexts/finance/pages/PurchaseListPage";
-import SgaListPage from "@/contexts/finance/pages/SgaListPage";
-import XpointImportPage from "@/contexts/finance/pages/XpointImportPage";
 import VendorListPage from "@/contexts/finance/pages/VendorListPage";
 import PartnerListPage from "@/contexts/finance/pages/PartnerListPage";
 import BudgetDetailPage from "@/contexts/finance/pages/BudgetDetailPage";
-import BudgetDashboardPage from "@/contexts/finance/pages/BudgetDashboardPage";
 
 // 機材管理は client-equipment/ が /equipment 配下で配信 (案件管理アプリ側では扱わない)
 import SettingsPage from "@/contexts/platform/pages/SettingsPage";
@@ -107,97 +101,107 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        {/* ホーム（アプリランチャー） */}
-        <Route path="/" element={<TodayPage />} />
-
         {/*
           ===== 共通レールの行き先 (刷新後の正となるパス) =====
-          /today は Phase 2 で「今日」の画面になった。残りは各フェーズで差し替える:
-            /projects → Phase 4 で一覧+ボードに
-            /tasks    → Phase 5 で 3スコープ×3表示に
-            /customers→ Phase 6 で顧客360に
-            /schedule → Phase 7 で1カレンダーに
-            /finance  → Phase 8 で損益の流れ+3列レビューに
-            /settings → Phase 12 で役割テンプレートを持つ設定画面に
-          旧パス (/sales/* 等) からのリダイレクトは Phase 3 (§3.3) でまとめて入れる。
+          §3.1 の4本 (/projects /tasks /schedule /finance) は表示をクエリで切り替える。
+          いまは routeAdapters が既存の画面を出し分けている。画面そのものの作り直しは
+            /projects → Phase 4 (一覧+ボード)
+            /tasks    → Phase 5 (3スコープ×3表示)
+            /customers→ Phase 6 (顧客360)
+            /schedule → Phase 7 (1カレンダー)
+            /finance  → Phase 8 (損益の流れ+3列レビュー)
+            /settings → Phase 12 (役割テンプレート)
+          が担当。URL は変わらないのでリンクを貼り直す必要はない。
         */}
         <Route path="/today" element={<TodayPage />} />
-        <Route path="/projects" element={<PermissionRoute module="sales"><ProjectListPage /></PermissionRoute>} />
-        <Route path="/tasks" element={<Navigate to="/sales/tasks/kanban" replace />} />
+        <Route path="/projects" element={<PermissionRoute module="sales"><ProjectsRoute /></PermissionRoute>} />
+        <Route path="/tasks" element={<PermissionRoute anyOf={["sales", "dailyops"]}><TasksRoute /></PermissionRoute>} />
         <Route path="/customers" element={<PermissionRoute module="sales"><CustomerListPage /></PermissionRoute>} />
-        <Route path="/schedule" element={<PermissionRoute anyOf={["studio", "partner_schedule"]}><UnifiedCalendarPage /></PermissionRoute>} />
-        <Route path="/finance" element={<PermissionRoute module="budget"><BudgetDashboardPage /></PermissionRoute>} />
-        {/* 設定の入口。中身は権限に応じてこの画面が出し分ける */}
-        <Route path="/settings" element={<SettingsHubPage />} />
+        <Route path="/customers/:id" element={<PermissionRoute module="sales"><CustomerDetailPage /></PermissionRoute>} />
+        <Route path="/schedule" element={<PermissionRoute anyOf={["studio", "partner_schedule"]}><ScheduleRoute /></PermissionRoute>} />
+        <Route path="/finance" element={<PermissionRoute module="budget"><FinanceRoute /></PermissionRoute>} />
+        <Route path="/finance/import" element={<PermissionRoute module="budget"><FinanceImportRoute /></PermissionRoute>} />
 
-        {/* ===== 営業管理 (sales) ===== */}
+        {/* 設定。入口 + 個別画面 (旧 /admin/* の新しい住所) */}
+        <Route path="/settings" element={<SettingsHubPage />} />
+        <Route path="/settings/users" element={<PermissionRoute module="admin"><UserListPage /></PermissionRoute>} />
+        <Route path="/settings/data-viewer" element={<PermissionRoute module="admin"><DataViewerPage /></PermissionRoute>} />
+        <Route path="/settings/db-backups" element={<PermissionRoute module="admin"><DbBackupsPage /></PermissionRoute>} />
+        <Route path="/settings/system" element={<PermissionRoute module="admin"><SettingsPage /></PermissionRoute>} />
+        <Route path="/settings/billing-parties" element={<PermissionRoute module="sales"><CompanyListPage /></PermissionRoute>} />
+
+        {/* ===== 営業管理 (sales) — 新URLに無いものはこのまま。⌘K から到達する ===== */}
         <Route path="/sales/dashboard" element={<PermissionRoute module="sales"><DashboardPage /></PermissionRoute>} />
-        <Route path="/sales/projects" element={<PermissionRoute module="sales"><ProjectListPage /></PermissionRoute>} />
         <Route path="/sales/gls-import" element={<PermissionRoute module="sales"><GlsImportProjectsPage /></PermissionRoute>} />
         <Route path="/sales/projects/new" element={<PermissionRoute module="sales"><ProjectFormPage /></PermissionRoute>} />
         <Route path="/sales/projects/:id" element={<PermissionRoute module="sales"><ProjectFormPage /></PermissionRoute>} />
-        <Route path="/sales/projects/confirmed/:category" element={<PermissionRoute module="sales"><ConfirmedProjectsPage /></PermissionRoute>} />
         <Route path="/sales/projects/:projectId/episodes" element={<PermissionRoute module="sales"><EpisodeListPage /></PermissionRoute>} />
         <Route path="/sales/projects/:projectId/estimates" element={<PermissionRoute module="sales"><EstimatePage /></PermissionRoute>} />
-        <Route path="/sales/projects/:projectId/tasks" element={<PermissionRoute module="sales"><ProjectTasksPage /></PermissionRoute>} />
-        <Route path="/sales/tasks" element={<Navigate to="/sales/tasks/kanban" replace />} />
-        <Route path="/sales/tasks/:view" element={<PermissionRoute module="sales"><TaskDashboardPage /></PermissionRoute>} />
         <Route path="/sales/project-groups" element={<PermissionRoute module="sales"><ProjectGroupListPage /></PermissionRoute>} />
-        {/* 受信箱は「今日」の行列に統合した (§4.2) */}
-        <Route path="/sales/inbox" element={<Navigate to="/today" replace />} />
-        <Route path="/sales/pipeline" element={<PermissionRoute module="sales"><PipelinePage /></PermissionRoute>} />
         <Route path="/sales/activity-logs" element={<PermissionRoute module="sales"><ActivityLogPage /></PermissionRoute>} />
         <Route path="/sales/ai-activity" element={<PermissionRoute module="sales"><AiActivityPage /></PermissionRoute>} />
         <Route path="/sales/keep-report" element={<PermissionRoute module="sales"><KeepReportPage /></PermissionRoute>} />
         <Route path="/sales/review" element={<PermissionRoute module="sales"><SalesReviewPage /></PermissionRoute>} />
-        <Route path="/sales/customers" element={<PermissionRoute module="sales"><CustomerListPage /></PermissionRoute>} />
-        <Route path="/sales/customers/:id" element={<PermissionRoute module="sales"><CustomerDetailPage /></PermissionRoute>} />
-        <Route path="/sales/companies" element={<PermissionRoute module="sales"><CompanyListPage /></PermissionRoute>} />
         <Route path="/sales/pricing" element={<PermissionRoute module="sales"><PricingListPage /></PermissionRoute>} />
 
-        {/* ===== 財務管理 (budget) ===== */}
-        <Route path="/budget/revenues" element={<PermissionRoute module="budget"><RevenueListPage /></PermissionRoute>} />
-        <Route path="/budget/purchases" element={<PermissionRoute module="budget"><PurchaseListPage /></PermissionRoute>} />
-        <Route path="/budget/sga" element={<PermissionRoute module="budget"><SgaListPage /></PermissionRoute>} />
-        <Route path="/budget/xpoint-import" element={<PermissionRoute module="budget"><XpointImportPage /></PermissionRoute>} />
-        {/* 決算インポートは財務管理メニューに配置。実行は system_admin 限定のため module="admin" でゲート */}
-        <Route path="/budget/kessan-import" element={<PermissionRoute module="admin"><KessanImportPage /></PermissionRoute>} />
-        <Route path="/budget/dedup-screening" element={<PermissionRoute module="admin"><DedupScreeningPage /></PermissionRoute>} />
+        {/* ===== 財務管理 (budget) — 新URLに無いもの ===== */}
         <Route path="/budget/vendors" element={<PermissionRoute module="budget"><VendorListPage /></PermissionRoute>} />
         <Route path="/budget/partners" element={<PermissionRoute module="budget"><PartnerListPage /></PermissionRoute>} />
         <Route path="/budget/reports/vendors" element={<PermissionRoute module="budget"><VendorReportPage /></PermissionRoute>} />
         <Route path="/budget/detail" element={<PermissionRoute module="budget"><BudgetDetailPage /></PermissionRoute>} />
-        <Route path="/budget/dashboard" element={<PermissionRoute module="budget"><BudgetDashboardPage /></PermissionRoute>} />
-
-        {/* ===== スタジオ予約 (studio) ===== */}
-        <Route path="/studio/calendar" element={<PermissionRoute module="studio"><StudioCalendarPage /></PermissionRoute>} />
-        <Route path="/studio/partners" element={<PermissionRoute module="partner_schedule"><PartnerSchedulePage /></PermissionRoute>} />
-        <Route path="/studio/my-calendar" element={<PermissionRoute module="partner_schedule"><MyCalendarPage /></PermissionRoute>} />
-        <Route path="/studio/all" element={<PermissionRoute anyOf={["studio", "partner_schedule"]}><UnifiedCalendarPage /></PermissionRoute>} />
 
         {/* 機材管理 (/equipment/*) は client-equipment/ が Nginx 経由で配信 */}
 
-        {/* ===== システム管理 (admin) ===== */}
-        <Route path="/admin/users" element={<PermissionRoute module="admin"><UserListPage /></PermissionRoute>} />
-        <Route path="/admin/data-viewer" element={<PermissionRoute module="admin"><DataViewerPage /></PermissionRoute>} />
-        <Route path="/admin/db-backups" element={<PermissionRoute module="admin"><DbBackupsPage /></PermissionRoute>} />
-        {/* 決算インポートは /budget/kessan-import へ移管。旧URLはリダイレクト */}
-        <Route path="/admin/kessan-import" element={<Navigate to="/budget/kessan-import" replace />} />
-        <Route path="/admin/settings" element={<PermissionRoute module="admin"><SettingsPage /></PermissionRoute>} />
+        {/*
+          ===== 旧URL → 新URL (§3.3「必須・削除しない」) =====
+          ブックマーク・過去のメール・Slack のリンクを壊さないため、消さずに残す。
+        */}
+        <Route path="/" element={<Navigate to="/today" replace />} />
+        <Route path="/sales/inbox" element={<Navigate to="/today" replace />} />
 
-        {/* ブロックアプリ インデックスリダイレクト（BLOCK_APPS.basePath対応） */}
-        <Route path="/sales" element={<Navigate to="/sales/projects" replace />} />
-        <Route path="/budget" element={<Navigate to="/budget/dashboard" replace />} />
-        <Route path="/studio" element={<Navigate to="/studio/calendar" replace />} />
+        <Route path="/sales/projects" element={<Navigate to="/projects" replace />} />
+        <Route path="/sales/pipeline" element={<Navigate to="/projects?view=board" replace />} />
+        <Route path="/sales/projects/confirmed/:category" element={<RedirectConfirmed />} />
 
-        {/* 旧URLリダイレクト */}
-        {/* /projects は上のレール行き先で実ページを出すため、ここでは配下だけを受ける */}
+        <Route path="/sales/tasks" element={<Navigate to="/tasks?scope=all&view=board" replace />} />
+        <Route path="/sales/tasks/:view" element={<RedirectTaskView />} />
+        <Route path="/sales/projects/:projectId/tasks" element={<RedirectTo to="/tasks?scope=project&project=:projectId" />} />
+
+        <Route path="/sales/customers" element={<Navigate to="/customers" replace />} />
+        <Route path="/sales/customers/:id" element={<RedirectTo to="/customers/:id" />} />
+        <Route path="/sales/companies" element={<Navigate to="/settings/billing-parties" replace />} />
+
+        <Route path="/studio/all" element={<Navigate to="/schedule" replace />} />
+        <Route path="/studio/calendar" element={<Navigate to="/schedule?layers=studio" replace />} />
+        <Route path="/studio/partners" element={<Navigate to="/schedule?layers=partner" replace />} />
+        <Route path="/studio/my-calendar" element={<Navigate to="/schedule?layers=me" replace />} />
+
+        <Route path="/budget/dashboard" element={<Navigate to="/finance" replace />} />
+        <Route path="/budget/revenues" element={<Navigate to="/finance?tab=revenue" replace />} />
+        <Route path="/budget/purchases" element={<Navigate to="/finance?tab=purchase" replace />} />
+        <Route path="/budget/sga" element={<Navigate to="/finance?tab=sga" replace />} />
+        <Route path="/budget/xpoint-import" element={<Navigate to="/finance/import?tool=xpoint" replace />} />
+        <Route path="/budget/kessan-import" element={<Navigate to="/finance/import?tool=kessan" replace />} />
+        <Route path="/budget/dedup-screening" element={<Navigate to="/finance/import?tool=dedup" replace />} />
+
+        <Route path="/admin/users" element={<Navigate to="/settings/users" replace />} />
+        <Route path="/admin/data-viewer" element={<Navigate to="/settings/data-viewer" replace />} />
+        <Route path="/admin/db-backups" element={<Navigate to="/settings/db-backups" replace />} />
+        <Route path="/admin/settings" element={<Navigate to="/settings/system" replace />} />
+        <Route path="/admin/kessan-import" element={<Navigate to="/finance/import?tool=kessan" replace />} />
+
+        {/* ブロックアプリ インデックス (BLOCK_APPS.basePath 対応) */}
+        <Route path="/sales" element={<Navigate to="/projects" replace />} />
+        <Route path="/budget" element={<Navigate to="/finance" replace />} />
+        <Route path="/studio" element={<Navigate to="/schedule" replace />} />
+
+        {/* さらに古いURL */}
         <Route path="/projects/*" element={<Navigate to="/projects" replace />} />
-        <Route path="/revenues" element={<Navigate to="/budget/revenues" replace />} />
-        <Route path="/purchases" element={<Navigate to="/budget/purchases" replace />} />
-        <Route path="/sga" element={<Navigate to="/budget/sga" replace />} />
-        <Route path="/calendar" element={<Navigate to="/studio/calendar" replace />} />
-        <Route path="/masters/customers" element={<Navigate to="/sales/customers" replace />} />
+        <Route path="/revenues" element={<Navigate to="/finance?tab=revenue" replace />} />
+        <Route path="/purchases" element={<Navigate to="/finance?tab=purchase" replace />} />
+        <Route path="/sga" element={<Navigate to="/finance?tab=sga" replace />} />
+        <Route path="/calendar" element={<Navigate to="/schedule?layers=studio" replace />} />
+        <Route path="/masters/customers" element={<Navigate to="/customers" replace />} />
         <Route path="/masters/pricing" element={<Navigate to="/sales/pricing" replace />} />
         <Route path="/masters/vendors" element={<Navigate to="/budget/vendors" replace />} />
         <Route path="/masters/partners" element={<Navigate to="/budget/partners" replace />} />

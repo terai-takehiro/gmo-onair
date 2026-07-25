@@ -68,21 +68,21 @@ const APP_NAV: Record<string, NavSection[]> = {
   sales: [
     {
       title: "お客様",
-      items: [{ label: "顧客", to: "/sales/customers", icon: Building2 }],
+      items: [{ label: "顧客", to: "/customers", icon: Building2 }],
     },
     {
       title: "商談",
       items: [
-        { label: "ヨミ・パイプライン", to: "/sales/pipeline", icon: TrendingUp },
+        { label: "ヨミ・パイプライン", to: "/projects?view=board", icon: TrendingUp },
         { label: "営業活動記録", to: "/sales/activity-logs", icon: ClipboardList },
       ],
     },
     {
       title: "案件",
       items: [
-        { label: "案件一覧", to: "/sales/projects", icon: FolderKanban },
-        { label: "確定案件（スタジオ）", to: "/sales/projects/confirmed/studio", icon: Film },
-        { label: "確定案件（ビジネス）", to: "/sales/projects/confirmed/business", icon: Briefcase },
+        { label: "案件一覧", to: "/projects", icon: FolderKanban },
+        { label: "確定案件（スタジオ）", to: "/projects?filter=confirmed_studio", icon: Film },
+        { label: "確定案件（ビジネス）", to: "/projects?filter=confirmed_business", icon: Briefcase },
         { label: "按分グループ", to: "/sales/project-groups", icon: GitBranch },
         { label: "旧GLS（決算取込）", to: "/sales/gls-import", icon: Database },
       ],
@@ -90,9 +90,9 @@ const APP_NAV: Record<string, NavSection[]> = {
     {
       title: "タスク",
       items: [
-        { label: "カンバン", to: "/sales/tasks/kanban", icon: KanbanSquare },
-        { label: "タスクリスト", to: "/sales/tasks/list", icon: ListTodo },
-        { label: "ガントチャート", to: "/sales/tasks/gantt", icon: GanttChart },
+        { label: "カンバン", to: "/tasks?scope=all&view=board", icon: KanbanSquare },
+        { label: "タスクリスト", to: "/tasks?scope=all&view=list", icon: ListTodo },
+        { label: "ガントチャート", to: "/tasks?scope=all&view=gantt", icon: GanttChart },
       ],
     },
     {
@@ -107,31 +107,31 @@ const APP_NAV: Record<string, NavSection[]> = {
     {
       title: "マスター",
       items: [
-        { label: "取引先マスター", to: "/sales/companies", icon: Store },
+        { label: "取引先マスター", to: "/settings/billing-parties", icon: Store },
         { label: "料金表", to: "/sales/pricing", icon: DollarSign },
       ],
     },
   ],
   budget: [
     {
-      items: [{ label: "財務ダッシュボード", to: "/budget/dashboard", icon: BarChart3 }],
+      items: [{ label: "財務ダッシュボード", to: "/finance", icon: BarChart3 }],
     },
     {
       title: "収支",
       items: [
-        { label: "売上管理", to: "/budget/revenues", icon: Receipt },
-        { label: "仕入管理", to: "/budget/purchases", icon: ShoppingCart },
-        { label: "販管費", to: "/budget/sga", icon: Receipt },
-        { label: "精算PDF取込", to: "/budget/xpoint-import", icon: FileSearch },
-        { label: "決算インポート", to: "/budget/kessan-import", icon: FlaskConical, adminOnly: true },
-        { label: "同じ支払いが2回入っていないか調べる", to: "/budget/dedup-screening", icon: CopyCheck, adminOnly: true },
+        { label: "売上管理", to: "/finance?tab=revenue", icon: Receipt },
+        { label: "仕入管理", to: "/finance?tab=purchase", icon: ShoppingCart },
+        { label: "販管費", to: "/finance?tab=sga", icon: Receipt },
+        { label: "精算PDF取込", to: "/finance/import?tool=xpoint", icon: FileSearch },
+        { label: "決算インポート", to: "/finance/import?tool=kessan", icon: FlaskConical, adminOnly: true },
+        { label: "同じ支払いが2回入っていないか調べる", to: "/finance/import?tool=dedup", icon: CopyCheck, adminOnly: true },
         { label: "案件月別詳細", to: "/budget/detail", icon: FolderKanban },
       ],
     },
     {
       title: "マスター",
       items: [
-        { label: "取引先マスター", to: "/sales/companies", icon: Store },
+        { label: "取引先マスター", to: "/settings/billing-parties", icon: Store },
         { label: "仕入先", to: "/budget/vendors", icon: Truck },
         { label: "パートナー", to: "/budget/partners", icon: Users },
       ],
@@ -144,10 +144,10 @@ const APP_NAV: Record<string, NavSection[]> = {
   studio: [
     {
       items: [
-        { label: "統合カレンダー", to: "/studio/all", icon: Layers, modules: ["studio", "partner_schedule"] },
-        { label: "スタジオカレンダー", to: "/studio/calendar", icon: Calendar },
-        { label: "パートナースケジュール", to: "/studio/partners", icon: Users, module: "partner_schedule" },
-        { label: "マイカレンダー", to: "/studio/my-calendar", icon: CalendarClock, module: "partner_schedule" },
+        { label: "統合カレンダー", to: "/schedule", icon: Layers, modules: ["studio", "partner_schedule"] },
+        { label: "スタジオカレンダー", to: "/schedule?layers=studio", icon: Calendar },
+        { label: "パートナースケジュール", to: "/schedule?layers=partner", icon: Users, module: "partner_schedule" },
+        { label: "マイカレンダー", to: "/schedule?layers=me", icon: CalendarClock, module: "partner_schedule" },
       ],
     },
   ],
@@ -155,10 +155,10 @@ const APP_NAV: Record<string, NavSection[]> = {
     {
       items: [
         { label: "設定の入口", to: "/settings", icon: Settings },
-        { label: "ユーザー管理", to: "/admin/users", icon: UserCog },
-        { label: "データビューア", to: "/admin/data-viewer", icon: Database },
-        { label: "DBバックアップ", to: "/admin/db-backups", icon: HardDrive },
-        { label: "システム設定", to: "/admin/settings", icon: Settings },
+        { label: "ユーザー管理", to: "/settings/users", icon: UserCog },
+        { label: "データビューア", to: "/settings/data-viewer", icon: Database },
+        { label: "DBバックアップ", to: "/settings/db-backups", icon: HardDrive },
+        { label: "システム設定", to: "/settings/system", icon: Settings },
       ],
     },
   ],

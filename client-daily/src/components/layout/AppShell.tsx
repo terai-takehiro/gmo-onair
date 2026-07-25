@@ -1,8 +1,11 @@
+import { useMemo } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, ListChecks, CalendarCheck, Newspaper, DoorOpen, FileText, Inbox, KeyRound,
 } from 'lucide-react';
 import SharedAppShell from '@gmo-onair/shared/src/client/shell/AppShell';
+import { createPaletteSearch } from '@gmo-onair/shared/src/client/commandPalette/search';
+import api from '@/lib/api';
 import SecondaryNavList, { type SecondaryNavItem } from '@gmo-onair/shared/src/client/shell/SecondaryNavList';
 import type { RailLinkRenderer } from '@gmo-onair/shared/src/client/shell/Rail';
 import { realPathname } from '@gmo-onair/shared/src/client/shell/realPath';
@@ -38,6 +41,8 @@ export default function AppShell() {
     ? <NoPermissionPanel modules={['dailyops']} target="日常業務" />
     : <Outlet />;
 
+  const searchHits = useMemo(() => createPaletteSearch(api), []);
+
   return (
     <SharedAppShell
       currentUser={currentUser}
@@ -50,6 +55,7 @@ export default function AppShell() {
         <SecondaryNavList items={NAV_ITEMS} currentPath={pathname} renderLink={renderLink} />
       }
       secondaryNavLabel="日常業務"
+      commandPalette={{ onRun: (path) => { window.location.href = path; }, search: searchHits }}
       manualContent={DAILY_MANUAL}
       padMain={!permissionsLoading && !canView}
     >

@@ -16,8 +16,14 @@ router.get('/', requireAuth, async (req, res) => {
   const safe = q.replace(/[%_\\]/g, '\\$&');
   const like = `%${safe}%`;
 
+  // ⌘K が「案件名 / 顧客名」の2行で出せるよう customer_name を同梱 (既存レスポンスへの追加)
   const projects = await queryAll(
-    `SELECT id, code, gls_number, name, stage FROM projects WHERE (name ILIKE ? ESCAPE '\\' OR code ILIKE ? ESCAPE '\\' OR gls_number ILIKE ? ESCAPE '\\') AND deleted_at IS NULL LIMIT 10`,
+    `SELECT p.id, p.code, p.gls_number, p.name, p.stage, c.name AS customer_name
+       FROM projects p
+       LEFT JOIN customers c ON c.id = p.customer_id AND c.deleted_at IS NULL
+      WHERE (p.name ILIKE ? ESCAPE '\\' OR p.code ILIKE ? ESCAPE '\\' OR p.gls_number ILIKE ? ESCAPE '\\')
+        AND p.deleted_at IS NULL
+      LIMIT 10`,
     [like, like, like]
   );
 

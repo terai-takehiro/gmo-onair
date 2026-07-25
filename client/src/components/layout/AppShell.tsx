@@ -1,13 +1,17 @@
-import React from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import React, { useCallback, useMemo } from "react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import SharedAppShell from "@gmo-onair/shared/src/client/shell/AppShell";
 import { activeRailKey, resolveRailItems } from "@gmo-onair/shared/src/client/shell/railItems";
 import type { RailLinkRenderer } from "@gmo-onair/shared/src/client/shell/Rail";
 import { ErrorPanel } from "@gmo-onair/shared/src/client/states";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { SALES_MANUAL } from "@/manual/content";
+import { createPaletteSearch } from "@gmo-onair/shared/src/client/commandPalette/search";
+import api from "@/lib/api";
 import SecondaryNav, { activeNavSection, SECONDARY_NAV_LABELS } from "./SecondaryNav";
-import GlobalSearchBox from "./GlobalSearchBox";
+
+/** 別バンドルのアプリ。ここへ行くときだけフルリロードする */
+const EXTERNAL_PREFIXES = ["/equipment", "/qsheet", "/techsheet", "/live", "/awards", "/daily"];
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -77,8 +81,24 @@ function useBreadcrumb(pathname: string, role?: string, permissions?: Record<str
 
 export default function AppShell() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const { currentUser, logout, permissions } = useAuth();
   const breadcrumb = useBreadcrumb(pathname, currentUser?.role, permissions);
+
+  // ⌘K の行き先。案件管理アプリ内はルーティング、別アプリはフルリロード
+  const runCommand = useCallback(
+    (path: string) => {
+      if (EXTERNAL_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`) || path.startsWith(`${p}?`))) {
+        window.location.href = path;
+        return;
+      }
+      navigate(path);
+    },
+    [navigate]
+  );
+
+  const searchHits = useMemo(() => createPaletteSearch(api), []);
+
 
   const navSection = activeNavSection(pathname);
   const hasSecondaryNav = navSection !== null;
@@ -95,7 +115,7 @@ export default function AppShell() {
       breadcrumb={breadcrumb ? <span className="font-bold text-foreground">{breadcrumb}</span> : undefined}
       secondaryNav={hasSecondaryNav ? <SecondaryNav /> : undefined}
       secondaryNavLabel={navSection ? SECONDARY_NAV_LABELS[navSection] : undefined}
-      centerContent={<GlobalSearchBox />}
+      commandPalette={{ onRun: runCommand, search: searchHits }}
       manualContent={SALES_MANUAL}
     >
       <PageErrorBoundary>

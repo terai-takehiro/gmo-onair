@@ -244,9 +244,11 @@ export function TodayQueue({ emptySlot }: TodayQueueProps) {
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-lg border border-success/25 bg-success-surface px-4 py-3">
-          <p className="text-[15px] font-bold text-foreground">
-            お客様を待たせているものはありません。
+        /* ゼロは祝わない (§4.5 6b)。事実を1行だけ書いて、次にやることを出す */
+        <div className="rounded-lg border border-border bg-card px-4 py-3">
+          <p className="text-[14px] font-bold text-foreground">待たせている行列は空です。</p>
+          <p className="mt-1 text-[13px] text-secondary-foreground">
+            この状態を保つコツは、頼まれたその場で上の投入欄に投げることです。
           </p>
           {emptySlot}
         </div>

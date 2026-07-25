@@ -197,10 +197,10 @@ export function CalendarNavPills({ current }: { current: "all" | "studio" | "par
   }, [current]);
 
   const pills = [
-    { key: "all", label: "統合", to: "/studio/all", icon: Layers, show: canStudio || canPartner },
-    { key: "studio", label: "スタジオ", to: "/studio/calendar", icon: CalendarDays, show: canStudio },
-    { key: "partners", label: "パートナー", to: "/studio/partners", icon: Users, show: canPartner },
-    { key: "my", label: "マイ", to: "/studio/my-calendar", icon: CalendarClock, show: canPartner },
+    { key: "all", label: "統合", to: "/schedule", icon: Layers, show: canStudio || canPartner },
+    { key: "studio", label: "スタジオ", to: "/schedule?layers=studio", icon: CalendarDays, show: canStudio },
+    { key: "partners", label: "パートナー", to: "/schedule?layers=partner", icon: Users, show: canPartner },
+    { key: "my", label: "マイ", to: "/schedule?layers=me", icon: CalendarClock, show: canPartner },
   ].filter((p) => p.show);
   if (pills.length <= 1) return null;
   return (

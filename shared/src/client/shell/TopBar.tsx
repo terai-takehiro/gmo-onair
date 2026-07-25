@@ -189,29 +189,27 @@ export default function TopBar({
         ) : null}
       </div>
 
-      {/* 移行期の任意スロット (既存のグローバル検索)。
-          さがす場所は上辺の中央に置く。Phase 3 で ⌘K に置き換える */}
-      {centerContent ? (
+      {/* さがす場所は上辺の中央 (デザイン 3a)。⌘K の入口を兼ねる */}
+      {onOpenCommandPalette ? (
+        <div className="mx-auto min-w-0 max-w-lg flex-1 px-1 sm:px-2">
+          <button
+            type="button"
+            onClick={onOpenCommandPalette}
+            className="flex h-10 w-full items-center gap-2 rounded-control border border-input bg-background px-3 text-left text-secondary-foreground transition-colors hover:bg-secondary"
+            aria-label="案件・顧客・機能をさがす"
+            style={{ touchAction: 'manipulation' }}
+          >
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <span className="min-w-0 flex-1 truncate text-[13px]">案件・顧客・機能をさがす</span>
+            <kbd className="hidden shrink-0 rounded border border-border bg-secondary px-1.5 py-0.5 text-[11px] font-bold sm:inline">
+              ⌘K
+            </kbd>
+          </button>
+        </div>
+      ) : centerContent ? (
         <div className="mx-auto hidden min-w-0 max-w-lg flex-1 px-2 sm:block">{centerContent}</div>
       ) : (
         <div className="flex-1" />
-      )}
-
-      {/* ⌘K — Phase 3 でコマンドパレットを配線 */}
-      {onOpenCommandPalette && (
-        <button
-          type="button"
-          onClick={onOpenCommandPalette}
-          className="flex h-10 shrink-0 items-center gap-2 rounded-control border border-border px-2.5 text-secondary-foreground transition-colors hover:bg-secondary sm:px-3"
-          aria-label="さがす"
-          style={{ touchAction: 'manipulation' }}
-        >
-          <Search className="h-4 w-4" aria-hidden="true" />
-          <span className="hidden text-[13px] font-medium sm:inline">さがす</span>
-          <kbd className="hidden rounded border border-border bg-secondary px-1.5 py-0.5 text-[11px] font-bold md:inline">
-            ⌘K
-          </kbd>
-        </button>
       )}
 
       {/* 通知ベル — Phase 9 */}

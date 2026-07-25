@@ -51,7 +51,7 @@ const GROUPS: SettingGroup[] = [
       {
         label: "ユーザー管理",
         description: "メンバーの追加と、誰がどこまで見えるかの設定。",
-        to: "/admin/users",
+        to: "/settings/users",
         adminOnly: true,
       },
     ],
@@ -60,7 +60,7 @@ const GROUPS: SettingGroup[] = [
     title: "お客様・取引先",
     Icon: Building2,
     links: [
-      { label: "取引先マスター", description: "請求先の名前・住所・支払条件。", to: "/sales/companies", module: "sales" },
+      { label: "取引先マスター", description: "請求先の名前・住所・支払条件。", to: "/settings/billing-parties", module: "sales" },
       { label: "仕入先", description: "発注先の登録と適格請求書の番号。", to: "/budget/vendors", module: "budget" },
       { label: "パートナー", description: "外部スタッフの登録。", to: "/budget/partners", module: "budget" },
     ],
@@ -72,7 +72,7 @@ const GROUPS: SettingGroup[] = [
       {
         label: "スタジオカレンダー",
         description: "拠点・部屋の予約状況。カレンダー連携のURLもここから。",
-        to: "/studio/calendar",
+        to: "/schedule?layers=studio",
         module: "studio",
       },
     ],
@@ -95,13 +95,13 @@ const GROUPS: SettingGroup[] = [
       {
         label: "決算インポート",
         description: "仕訳帳CSVから売上・仕入・販管費を取り込む。",
-        to: "/budget/kessan-import",
+        to: "/finance/import?tool=kessan",
         adminOnly: true,
       },
       {
         label: "同じ支払いが2回入っていないか調べる",
         description: "手入力と決算取込が重なった行を見つけて片方を消す。",
-        to: "/budget/dedup-screening",
+        to: "/finance/import?tool=dedup",
         adminOnly: true,
       },
     ],
@@ -136,9 +136,9 @@ const GROUPS: SettingGroup[] = [
     Icon: Server,
     adminOnly: true,
     links: [
-      { label: "システム設定", description: "アプリ全体の設定。", to: "/admin/settings", adminOnly: true },
-      { label: "データビューア", description: "テーブルの中身を直接見る。", to: "/admin/data-viewer", adminOnly: true },
-      { label: "DBバックアップ", description: "3時間ごとの控えの一覧と、戻し方。", to: "/admin/db-backups", adminOnly: true },
+      { label: "システム設定", description: "アプリ全体の設定。", to: "/settings/system", adminOnly: true },
+      { label: "データビューア", description: "テーブルの中身を直接見る。", to: "/settings/data-viewer", adminOnly: true },
+      { label: "DBバックアップ", description: "3時間ごとの控えの一覧と、戻し方。", to: "/settings/db-backups", adminOnly: true },
     ],
   },
 ];
