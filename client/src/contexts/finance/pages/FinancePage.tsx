@@ -28,7 +28,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   Loader2, AlertCircle, RefreshCw, ExternalLink, Receipt, ShoppingCart, DollarSign,
-  Printer, LayoutGrid, Columns3, Upload, CalendarCheck,
+  Printer, LayoutGrid, Columns3, Upload, CalendarCheck, FileText,
 } from "lucide-react";
 
 interface MonthlySummary {
@@ -254,6 +254,11 @@ export default function FinancePage() {
           MTG用に出す
         </Button>
       )}
+      {/* 請求のしごと (31章)。締めの日にここから始める */}
+      <Button variant="outline" size="sm" className="gap-1" onClick={() => navigate("/finance/billing")}>
+        <FileText className="h-4 w-4" aria-hidden="true" />
+        請求のしごと
+      </Button>
       <Button variant="outline" size="sm" className="gap-1" onClick={() => navigate("/finance/import")}>
         <Upload className="h-4 w-4" aria-hidden="true" />
         取り込む

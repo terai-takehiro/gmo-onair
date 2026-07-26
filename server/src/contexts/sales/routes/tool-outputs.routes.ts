@@ -15,6 +15,20 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
  * 中身は各ツール側にあり、複製しない。
  */
 const router = Router();
+
+/**
+ * このルーターは `/tool-outputs` に**パス付きでマウントする** (sales/index.ts)。
+ *
+ * 以前はパス無しでマウントし、ここで `router.use(requireAuth, requirePermission('sales'))`
+ * を**パス無し**で掛けていた。Express のパス無し `use` は
+ * **そのルーターに届いた全リクエスト**で発火するため、sales ルーターは API のルートに
+ * マウントされている関係で「sales より後にマウントされた全コンテキスト
+ * (finance / equipment / qsheet …) のリクエストにも sales 権限を要求する」状態になっていた。
+ * 結果、**budget 権限だけの経理ユーザーは財務の全画面が 403** になっていた
+ * (v2.8.96 で awards が踏んだのと同じ形)。
+ *
+ * パス付きマウント + ルート定義を '/' 基準にすることで、この漏れが構造的に起きない。
+ */
 router.use(requireAuth, requirePermission('sales'));
 
 const TOOLS = ['translate', 'interactive', 'cg'] as const;
@@ -35,7 +49,7 @@ const SELECT = `
  *   ?project_id=… → その案件の成果物
  *   ?unlinked=1   → まだ案件に紐づいていないもの (社内利用と決めたものは出さない)
  */
-router.get('/tool-outputs', async (req, res) => {
+router.get('/', async (req, res) => {
   const { project_id, unlinked, tool } = req.query;
   const where: string[] = ['o.deleted_at IS NULL'];
   const params: unknown[] = [];
@@ -60,7 +74,7 @@ router.get('/tool-outputs', async (req, res) => {
 });
 
 /** 記録する (ツールを開いたとき / 成果物ができたとき) */
-router.post('/tool-outputs', requirePermission('sales', 'editor'), async (req, res) => {
+router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
   const { tool, title, external_url, project_id, note, is_internal_use } = req.body ?? {};
   if (!TOOLS.includes(tool)) {
     throw new AppError(400, 'VALIDATION_ERROR', `tool は ${TOOLS.join(' / ')} のいずれかです`);
@@ -93,7 +107,7 @@ router.post('/tool-outputs', requirePermission('sales', 'editor'), async (req, r
  * 後から紐づける / 社内利用にする。
  * どちらも「案件を探し続ける状態」を終わらせる操作なので同じ口にした。
  */
-router.patch('/tool-outputs/:id', requirePermission('sales', 'editor'), async (req, res) => {
+router.patch('/:id', requirePermission('sales', 'editor'), async (req, res) => {
   const { project_id, is_internal_use, title, note } = req.body ?? {};
   const existing = await queryOne(
     'SELECT id FROM external_tool_outputs WHERE id = ? AND deleted_at IS NULL',
@@ -134,7 +148,7 @@ router.patch('/tool-outputs/:id', requirePermission('sales', 'editor'), async (r
   res.json({ success: true, data: row });
 });
 
-router.delete('/tool-outputs/:id', requirePermission('sales', 'editor'), async (req, res) => {
+router.delete('/:id', requirePermission('sales', 'editor'), async (req, res) => {
   await execute(
     'UPDATE external_tool_outputs SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL',
     [req.params.id]

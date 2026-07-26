@@ -6,8 +6,20 @@ import { projectCommentService } from '../../sales/services/project-history.serv
 
 const router = Router();
 
-// Apply auth + permission middleware to all routes
-router.use(requireAuth, requirePermission('sales'));
+/**
+ * ベル (`/notifications`) と「受け取り方の設定」(`/notification-prefs`) は
+ * **全アプリ共通の上辺**にあるので、sales 権限を持たない人 (経理・機材だけの人) でも
+ * 開ける必要がある。ベルの中身は**グループごとに権限で絞ってある** (has('sales') 等) ので、
+ * ルーター全体に sales を要求すると、経理の画面でベルが 403 になるだけで得るものが無い。
+ *
+ * **既定は sales 必須のまま**にして、この2つだけを通す (新しく足したルートは
+ * 何もしなくても sales で守られる = 付け忘れても緩くならない)。
+ */
+const SALES_NOT_REQUIRED = new Set(['/notifications', '/notification-prefs']);
+router.use(requireAuth, (req, res, next) => {
+  if (SALES_NOT_REQUIRED.has(req.path)) return next();
+  return requirePermission('sales')(req, res, next);
+});
 
 function countMonths(start: string, end: string): number {
   const [sy, sm] = start.split('-').map(Number);

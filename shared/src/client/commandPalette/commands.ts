@@ -45,6 +45,7 @@ const OPEN_COMMANDS: CommandDef[] = [
   { id: 'open-projects-board', kind: 'open', label: '案件 (ボード表示)', path: '/projects?view=board', keywords: 'pipeline yomi ヨミ パイプライン ボード', module: 'sales' },
   { id: 'open-projects-studio', kind: 'open', label: '確定案件 (スタジオ)', path: '/projects?filter=confirmed_studio', keywords: 'kakutei studio 確定 A系', module: 'sales' },
   { id: 'open-projects-business', kind: 'open', label: '確定案件 (ビジネス)', path: '/projects?filter=confirmed_business', keywords: 'kakutei business 確定 B系', module: 'sales' },
+  { id: 'open-billing', kind: 'open', label: '請求のしごと', path: '/finance/billing', keywords: 'seikyu invoice 請求 入金 検収 締め', module: 'budget' },
   { id: 'open-project-groups', kind: 'open', label: '費用を分け合う案件', path: '/sales/project-groups', keywords: 'anbun group 按分 配分 グループ 合同 分担', module: 'sales' },
   { id: 'open-gls-import', kind: 'open', label: '旧GLS (決算取込)', path: '/sales/gls-import', keywords: 'gls kessan 決算 旧', module: 'sales' },
   { id: 'open-activity-logs', kind: 'open', label: '営業活動記録', path: '/sales/activity-logs', keywords: 'eigyou activity 活動 記録', module: 'sales' },

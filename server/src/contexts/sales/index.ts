@@ -35,7 +35,9 @@ export function createSalesRoutes(): Router {
   router.use('/sales-analytics', salesAnalyticsRoutes);
   router.use('/keep', keepReportRoutes);
   // 現場の道具の成果物 (§4.14): /tool-outputs
-  router.use(toolOutputsRoutes);
+  // **パス付きでマウントする**。パス無しにすると、このルーターの
+  // パス無し requirePermission('sales') が sales より後の全コンテキストに漏れる
+  router.use('/tool-outputs', toolOutputsRoutes);
   router.use(createSalesExcelRouter()); // /customers/excel/* etc.
 
   return router;
