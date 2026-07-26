@@ -324,6 +324,66 @@ router.get('/inbox', async (req, res) => {
       : Promise.resolve([]),
   ]);
 
+  // ── 二重計上の警告 (デザイン 5a・v2.9.253 で見送っていた分) ──────────────
+  //
+  // finance_docs は**まだ登録されていない**ので、既存の重複判定 (登録済みの行同士を
+  // 突き合わせる仕組み) が使えない。ここで「同じ税抜金額の仕入・販管費が既にあるか」を
+  // 突き合わせて、承認する前に気付けるようにする。
+  //
+  // **金額だけの一致は「同じ支払い」の証明にはならない** (月額の定額費用など、
+  // 同額が正しく並ぶことは普通にある) ので、断定せず「既に1件あります」と出して
+  // 人に確認させる。GLS 番号が読めているものはそれも併記する。
+  const docAmounts = Array.from(
+    new Set(financeDocs.map((d) => Number(d.amount)).filter((n) => Number.isFinite(n) && n > 0)),
+  );
+  let dupByAmount = new Map<number, { kind: string; gls_number: string | null; label: string; recognition_date: string | null }[]>();
+  if (docAmounts.length > 0) {
+    const ph = docAmounts.map(() => '?').join(',');
+    const [pur, sga] = await Promise.all([
+      queryAll(
+        `SELECT pu.amount, pu.recognition_date, p.gls_number,
+                COALESCE(NULLIF(pu.description,''), v.name, '仕入') AS label
+         FROM purchases pu
+         LEFT JOIN projects p ON p.id = pu.project_id
+         LEFT JOIN vendors v ON v.id = pu.vendor_id
+         WHERE pu.deleted_at IS NULL AND pu.amount IN (${ph})
+         ORDER BY pu.created_at DESC LIMIT 200`,
+        docAmounts,
+      ),
+      queryAll(
+        `SELECT amount, recognition_date, NULL AS gls_number,
+                COALESCE(NULLIF(description,''), vendor_name, '販管費') AS label
+         FROM sga_expenses
+         WHERE deleted_at IS NULL AND amount IN (${ph})
+         ORDER BY created_at DESC LIMIT 200`,
+        docAmounts,
+      ),
+    ]);
+    dupByAmount = new Map();
+    for (const [kind, rows] of [['purchase', pur], ['sga', sga]] as const) {
+      for (const r of rows) {
+        const amt = Number(r.amount);
+        const list = dupByAmount.get(amt) ?? [];
+        list.push({
+          kind,
+          gls_number: (r.gls_number as string | null) ?? null,
+          label: String(r.label ?? ''),
+          recognition_date: (r.recognition_date as string | null) ?? null,
+        });
+        dupByAmount.set(amt, list);
+      }
+    }
+  }
+  for (const d of financeDocs) {
+    const hits = dupByAmount.get(Number(d.amount)) ?? [];
+    // 同じ GLS のものがあればそれを先に見せる (一番心当たりが付く)
+    const sameGls = d.gls_number ? hits.filter((h) => h.gls_number === d.gls_number) : [];
+    const shown = (sameGls.length > 0 ? sameGls : hits).slice(0, 3);
+    d.duplicate_count = hits.length;
+    d.duplicate_same_gls = sameGls.length;
+    d.duplicate_samples = shown;
+  }
+
   // received_at: 経過タイマーの起点。inquiry/finance は受信日 (YYYY-MM-DD TEXT) を優先し、
   // 無ければ created_at。overdue は期限日 (= お客様を待たせ始めた瞬間)。
   const toMs = (v: unknown): number => {
@@ -346,10 +406,30 @@ router.get('/inbox', async (req, res) => {
     })),
   ].sort((a, b) => toMs(a.received_at) - toMs(b.received_at));
 
+  // 行列が空のときに出す「直近7日で N件 終わらせました」(デザイン 6b)。
+  // **新しいテーブルは作らず**、既にある完了の記録から数える:
+  //   - project_tasks.completed_at (自分が担当のタスク)
+  //   - activity_logs.next_action_done_at (自分が終わらせた次回アクション)
+  // 数字を出せない状態で当てずっぽうを置くほうが害が大きいので、0 件なら画面に出さない。
+  const doneRow = await queryOne(
+    `SELECT
+       (SELECT COUNT(*) FROM project_tasks
+         WHERE deleted_at IS NULL AND completed_at IS NOT NULL
+           AND completed_at >= NOW() - interval '7 days'
+           AND (assigned_to = ? OR requester_id = ?)) AS tasks,
+       (SELECT COUNT(*) FROM activity_logs
+         WHERE deleted_at IS NULL AND next_action_done_at IS NOT NULL
+           AND next_action_done_at >= NOW() - interval '7 days'
+           AND user_id = ?) AS actions`,
+    [user.id, user.id, user.id],
+  ) as { tasks?: unknown; actions?: unknown } | null;
+  const doneLast7 = Number(doneRow?.tasks ?? 0) + Number(doneRow?.actions ?? 0);
+
   res.json({
     success: true,
     data: {
       items,
+      done_last_7days: doneLast7,
       checklist: agreements.map((r) => ({ key: `agreement:${r.id}`, kind: 'agreement', meta: r })),
       counts: {
         total: items.length,

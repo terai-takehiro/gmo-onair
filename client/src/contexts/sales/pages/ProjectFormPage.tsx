@@ -38,6 +38,9 @@ import {
 import SimulationDialog from "../components/SimulationDialog";
 import CustomerDialog from "../components/CustomerDialog";
 import ProjectMembersEditor from "../components/ProjectMembersEditor";
+import PresenceAvatars from "@gmo-onair/shared/src/client/collab/PresenceAvatars";
+import { useProjectPresence } from "../hooks/useProjectPresence";
+import { useAuth } from "@/contexts/platform/AuthContext";
 
 interface LostDialogState {
   open: boolean;
@@ -325,6 +328,12 @@ export default function ProjectFormPage() {
   const [simOpen, setSimOpen] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [submitErrors, setSubmitErrors] = useState<string[]>([]);
+  // 楽観ロック: 読み込んだ版と、409 で止まったときのお知らせ
+  const [baseUpdatedAt, setBaseUpdatedAt] = useState<string | null>(null);
+  const [conflictMsg, setConflictMsg] = useState<string | null>(null);
+  // 在席 (今この案件を開いている人)
+  const { currentUser } = useAuth();
+  const presenceUsers = useProjectPresence(isEdit ? id : undefined);
   const [glsDialog, setGlsDialog] = useState<GlsDialogState>({
     open: false, mode: 'new', broadcast_types: ["recording"], media_platforms: ["other"], target_project_id: "",
   });
@@ -349,7 +358,9 @@ export default function ProjectFormPage() {
     enabled: isEdit,
     refetchOnMount: "always",
   });
-  const simulationItems: Array<{ subtotal: number; status?: string }> = simulationData?.data ?? [];
+  // 配列でないものが返っても案件画面が丸ごと落ちないようにする (reduce/some は配列前提)
+  const simulationItems: Array<{ subtotal: number; status?: string }> =
+    Array.isArray(simulationData?.data) ? simulationData.data : [];
   const hasDraftSimulation = simulationItems.length > 0 && simulationItems.some((s) => s.status === "draft");
   const draftSimulationTotal = simulationItems.reduce((sum, s) => sum + (Number(s.subtotal) || 0), 0);
   // AI 下書きの由来 (いつ・誰の指示で・誰の名義で作られたか) — mcp_audit_log から (v2.9.198+)
@@ -503,6 +514,11 @@ export default function ProjectFormPage() {
   });
   const users = usersData ?? [];
 
+  // 読み込んだ版 (楽観ロックの基準)。保存が通ったらサーバーの新しい updated_at に差し替える。
+  useEffect(() => {
+    if (project?.updated_at) setBaseUpdatedAt((prev) => prev ?? (project.updated_at as string));
+  }, [project?.updated_at]);
+
   useEffect(() => {
     if (project) {
       reset({
@@ -541,7 +557,8 @@ export default function ProjectFormPage() {
   const saveMutation = useMutation({
     mutationFn: async (values: FormValues) => {
       if (isEdit) {
-        return (await api.put(`/projects/${id}`, values)).data.data;
+        // 読み込んだ版を添えて送る → 誰かが先に保存していればサーバーが 409 で止める
+        return (await api.put(`/projects/${id}`, { ...values, expected_updated_at: baseUpdatedAt })).data.data;
       } else {
         return (await api.post("/projects", values)).data.data;
       }
@@ -550,12 +567,24 @@ export default function ProjectFormPage() {
       qc.invalidateQueries({ queryKey: ["projects"] });
       qc.invalidateQueries({ queryKey: ["dashboard", "alerts"] });
       if (isEdit) {
+        setConflictMsg(null);
+        setBaseUpdatedAt(result?.updated_at ?? null);
         qc.invalidateQueries({ queryKey: ["project", id] });
         setSaveSuccess(true);
         window.scrollTo({ top: 0, behavior: "smooth" });
         setTimeout(() => setSaveSuccess(false), 4000);
       } else {
         navigate(`/sales/projects/${result.id}`);
+      }
+    },
+    onError: (err: unknown) => {
+      const e = err as { response?: { status?: number; data?: { error?: { message?: string } } } };
+      if (e?.response?.status === 409) {
+        setConflictMsg(
+          e.response?.data?.error?.message ??
+            "この案件は他の人が先に保存しています。最新を読み込んでから直してください。",
+        );
+        window.scrollTo({ top: 0, behavior: "smooth" });
       }
     },
   });
@@ -859,6 +888,8 @@ export default function ProjectFormPage() {
           )}
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {/* 今この案件を開いている人 (他に誰もいなければ何も出さない) */}
+          <PresenceAvatars users={presenceUsers} currentUserId={currentUser?.id} />
           {isEdit && id && (
             <ProjectQuickLinks
               projectId={id}
@@ -888,6 +919,35 @@ export default function ProjectFormPage() {
           onGoStage={(st) => { setStageSelectValue(st); setStageConfirmOpen(true); }}
           onOpenLost={() => setLostDialog({ open: true, lost_reason: '', lost_reason_note: '', lessons_learned: '' })}
         />
+      )}
+
+      {/* 競合バナー: 他の人が先に保存していた (保存は通していない = 相手の変更は消していない) */}
+      {conflictMsg && (
+        <div className="sticky top-2 z-40 rounded-lg border border-destructive bg-destructive-surface p-3 shadow-sm">
+          <div className="flex flex-wrap items-center gap-2 text-sm font-bold text-destructive">
+            <AlertTriangle className="h-5 w-5 shrink-0" />
+            {conflictMsg}
+          </div>
+          <p className="mt-1 text-[13px] text-secondary-foreground">
+            入力した内容はこの画面に残っています。必要な箇所を控えてから「最新を読み込む」を押してください。
+          </p>
+          <div className="mt-2 flex gap-2">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                setConflictMsg(null);
+                setBaseUpdatedAt(null);
+                qc.invalidateQueries({ queryKey: ["project", id] });
+              }}
+            >
+              最新を読み込む
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => setConflictMsg(null)}>
+              閉じる
+            </Button>
+          </div>
+        </div>
       )}
 
       {/* 保存完了バナー（画面上部・幅広） */}

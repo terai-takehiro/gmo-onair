@@ -9,8 +9,8 @@
  *   左 = あなたへの依頼 → 自分のタスク
  *   右 = AIに投げる / 出した依頼の返事待ち / 9マス
  */
-import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { User, FolderKanban, Users, List, LayoutGrid, GanttChart, Plus, ChevronRight } from "lucide-react";
 import api from "@/lib/api";
@@ -61,6 +61,23 @@ export default function TasksPage() {
 
   const canDailyops = hasPermission("dailyops");
   const canSales = hasPermission("sales");
+
+  // ⌘K の「チームの負荷」は `#team-load` 付きで飛んでくる。react-router は
+  // ハッシュまで面倒を見ないので、対象が出るまで数回だけ探して寄せる
+  // (チームの負荷は一覧の下なので、寄せないと「行き先が同じ」に見える)
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (!hash) return;
+    let tries = 0;
+    const id = window.setInterval(() => {
+      const el = document.getElementById(hash.slice(1));
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        window.clearInterval(id);
+      } else if (++tries > 20) window.clearInterval(id);
+    }, 150);
+    return () => window.clearInterval(id);
+  }, [hash]);
 
   const { data: summary } = useQuery<Summary>({
     queryKey: ["dailyops", "tasks", "summary"],
@@ -194,7 +211,7 @@ export default function TasksPage() {
             <div className="space-y-4">
               <TaskDashboardPage view={view === "board" ? "kanban" : view} embedded />
               {canDailyops && (
-                <section className="rounded-lg border border-border bg-card p-4" aria-label="チームの負荷">
+                <section id="team-load" className="scroll-mt-20 rounded-lg border border-border bg-card p-4" aria-label="チームの負荷">
                   <h2 className="text-[15px] font-bold text-foreground">チームの負荷</h2>
                   <p className="mb-3 mt-0.5 text-[13px] text-secondary-foreground">
                     誰が溢れているかを見て、配り直すかどうかを決めます。

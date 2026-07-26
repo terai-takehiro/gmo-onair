@@ -129,9 +129,9 @@ export default function DedupScreeningPage({ embedded }: { embedded?: boolean } 
             </Button>
             <Button
               variant="destructive"
-              disabled={run.isPending || !report || report.summary.total.count === 0}
+              disabled={run.isPending || !report || (report.summary?.total?.count ?? 0) === 0}
               onClick={() => {
-                const n = report?.summary.total.count ?? 0;
+                const n = report?.summary?.total?.count ?? 0;
                 if (window.confirm(`決算インポート行 ${n} 件を削除します（手入力行は残ります）。よろしいですか？\n※論理削除のため必要ならバックアップから復元できます。`)) {
                   run.mutate(true);
                 }

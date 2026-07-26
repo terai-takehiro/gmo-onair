@@ -294,7 +294,8 @@ export default function AudioSupportPage() {
         credentials: "omit",
       });
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
+        // 410 = 配布をやめた URL。「間違えた」ではなく「もう配っていない」と伝える
+        throw new Error(res.status === 410 ? "REVOKED" : `HTTP ${res.status}`);
       }
       const json = await res.json();
       return json.data as PublicDoc;
@@ -397,8 +398,14 @@ export default function AudioSupportPage() {
     return (
       <div className="min-h-screen bg-zinc-950 text-zinc-200 flex flex-col items-center justify-center gap-3 p-6">
         <AlertTriangle className="h-12 w-12 text-amber-500" aria-hidden />
-        <h1 className="text-xl font-bold">読み込めませんでした</h1>
-        <p className="text-sm text-zinc-400">ドキュメントが存在しないか、共有が解除されている可能性があります</p>
+        <h1 className="text-xl font-bold">
+          {(error as Error | null)?.message === "REVOKED" ? "この配布URLは無効になりました" : "読み込めませんでした"}
+        </h1>
+        <p className="text-sm text-zinc-400">
+          {(error as Error | null)?.message === "REVOKED"
+            ? "番組が終わったため配布を止めています。まだ必要な場合は担当者に新しいURLを聞いてください。"
+            : "ドキュメントが存在しないか、共有が解除されている可能性があります"}
+        </p>
       </div>
     );
   }

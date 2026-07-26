@@ -170,6 +170,18 @@ export function TodayQueue({ emptySlot }: TodayQueueProps) {
     onSuccess: () => { setOpenKey(null); invalidate(); },
   });
 
+  // ネタ案件にする: 案件を起票して問い合わせを終端にする。作った案件をそのまま開く
+  const promoteMutation = useMutation({
+    mutationFn: async (id: string) =>
+      (await api.post(`/dailyops/inquiries/${id}/promote`)).data.data as { project_id: string },
+    onSuccess: (r) => {
+      setOpenKey(null);
+      invalidate();
+      qc.invalidateQueries({ queryKey: ["projects"] });
+      if (r?.project_id) navigate(`/sales/projects/${r.project_id}`);
+    },
+  });
+
   const financeMutation = useMutation({
     mutationFn: async (p: { id: string; status: string }) =>
       api.put(`/dailyops/finance-docs/${p.id}`, { status: p.status }),
@@ -249,6 +261,12 @@ export function TodayQueue({ emptySlot }: TodayQueueProps) {
         /* ゼロは祝わない (§4.5 6b)。事実を1行だけ書いて、次にやることを出す */
         <div className="rounded-lg border border-border bg-card px-4 py-3">
           <p className="text-[14px] font-bold text-foreground">待たせている行列は空です。</p>
+          {/* 実績は「数字が出せるときだけ」出す (0 件のときは何も書かない = 当てずっぽうを置かない) */}
+          {(data?.done_last_7days ?? 0) > 0 && (
+            <p className="mt-0.5 text-[13px] text-secondary-foreground">
+              直近7日で <span className="font-bold tabular-nums text-foreground">{data?.done_last_7days}</span> 件 終わらせました。
+            </p>
+          )}
           <p className="mt-1 text-[13px] text-secondary-foreground">
             この状態を保つコツは、頼まれたその場で上の投入欄に投げることです。
           </p>
@@ -363,9 +381,10 @@ export function TodayQueue({ emptySlot }: TodayQueueProps) {
                       <InquiryDetail
                         meta={m}
                         editable={editable}
-                        pending={handleMutation.isPending || excludeMutation.isPending}
+                        pending={handleMutation.isPending || excludeMutation.isPending || promoteMutation.isPending}
                         onHandled={() => handleMutation.mutate(str(m.id))}
                         onExclude={() => excludeMutation.mutate(str(m.id))}
+                        onPromote={() => promoteMutation.mutate(str(m.id))}
                       />
                     )}
 

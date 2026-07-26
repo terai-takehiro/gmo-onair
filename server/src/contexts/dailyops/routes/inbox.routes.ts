@@ -69,6 +69,30 @@ router.post('/inquiries/:id/handle', ...canEdit, async (req, res) => {
   res.json({ success: true, data: row });
 });
 
+/**
+ * 問い合わせを **ネタ案件にする** (デザイン 5a)。
+ * 案件を作るので **sales の editor も必要** (dailyops だけでは案件を起票させない)。
+ */
+router.post(
+  '/inquiries/:id/promote',
+  requireAuth,
+  requirePermission('dailyops', 'editor'),
+  requirePermission('sales', 'editor'),
+  async (req, res) => {
+    const { gls_category, customer_id, name } = req.body ?? {};
+    const result = await inquiryService.promote(
+      String(req.params.id),
+      { userId: req.user!.id, userName: req.user!.name },
+      {
+        gls_category: gls_category === 'B' ? 'B' : 'A',
+        customer_id: customer_id ? String(customer_id) : undefined,
+        name: name ? String(name) : undefined,
+      },
+    );
+    res.json({ success: true, data: result });
+  },
+);
+
 router.delete('/inquiries/:id', ...canEdit, async (req, res) => {
   await inquiryService.remove(String(req.params.id));
   res.json({ success: true, data: { deleted: true } });

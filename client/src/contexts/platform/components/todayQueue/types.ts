@@ -11,8 +11,18 @@ export interface InboxItem {
   meta: Record<string, unknown>;
 }
 
+/** 見積・請求の行に付く「同じ金額が既にある」の手がかり (二重計上の警告) */
+export interface DuplicateSample {
+  kind: "purchase" | "sga";
+  gls_number: string | null;
+  label: string;
+  recognition_date: string | null;
+}
+
 export interface InboxData {
   items: InboxItem[];
+  /** 行列が空のときだけ使う。0 のときは画面に出さない */
+  done_last_7days?: number;
   checklist: { key: string; kind: "agreement"; meta: Record<string, unknown> }[];
   counts: {
     total: number;

@@ -357,6 +357,48 @@ router.put('/documents/:id/shares', requirePermission('qsheet', 'editor'), async
 });
 
 // ============================================================
+// 音声サポートの配布URL (認証なしの公開URL) を止める / 再開する
+//   作成者 または 管理者のみ。番組が終わったら止められるようにするための口。
+//   止めても台本は消えない (公開URLが 410 を返すだけ)。
+// ============================================================
+router.post('/documents/:id/audio-share', requirePermission('qsheet', 'editor'), async (req: Request, res: Response) => {
+  try {
+    const doc = await queryOne(
+      'SELECT id, created_by FROM qsheet_documents WHERE id = $1 AND deleted_at IS NULL',
+      [req.params.id],
+    );
+    if (!doc) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'ドキュメントが見つかりません' } });
+      return;
+    }
+    if (!isQsheetAdmin(req.user!) && (doc.created_by as string) !== req.user!.id) {
+      res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: '配布URLを止める権限がありません' } });
+      return;
+    }
+    const revoked = (req.body as { revoked?: unknown })?.revoked !== false; // 既定は「止める」
+    if (revoked) {
+      await execute(
+        `UPDATE qsheet_documents SET audio_share_revoked_at = NOW(), audio_share_revoked_by = $2, updated_at = NOW() WHERE id = $1`,
+        [req.params.id, req.user!.id],
+      );
+    } else {
+      await execute(
+        `UPDATE qsheet_documents SET audio_share_revoked_at = NULL, audio_share_revoked_by = NULL, updated_at = NOW() WHERE id = $1`,
+        [req.params.id],
+      );
+    }
+    const row = await queryOne(
+      `SELECT audio_share_revoked_at, audio_share_revoked_by FROM qsheet_documents WHERE id = $1`,
+      [req.params.id],
+    );
+    res.json({ success: true, data: row });
+  } catch (err: unknown) {
+    console.error('POST /documents/:id/audio-share error:', err);
+    res.status(500).json({ success: false, error: { code: 'INTERNAL', message: 'サーバー内部エラーが発生しました' } });
+  }
+});
+
+// ============================================================
 // エピソード検索 (ドキュメント紐付け用)
 // ============================================================
 router.get('/episodes', async (req: Request, res: Response) => {

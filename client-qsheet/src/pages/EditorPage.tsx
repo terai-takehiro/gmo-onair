@@ -1057,11 +1057,12 @@ export default function EditorPage() {
         />
       )}
 
-      {/* 音声サポート URL 共有ダイアログ */}
+      {/* 本番のURLを配る (4役割 + 音声サポートの配布停止) */}
       <AudioShareDialog
         open={showAudioShare}
         onOpenChange={setShowAudioShare}
         docId={doc.id}
+        audioRevokedAt={(queryData as { audio_share_revoked_at?: string | null } | undefined)?.audio_share_revoked_at ?? null}
       />
 
       {/* Stage Editor Modal */}

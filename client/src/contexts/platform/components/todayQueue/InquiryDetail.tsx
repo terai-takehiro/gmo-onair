@@ -7,7 +7,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, Loader2, CalendarCheck } from "lucide-react";
+import { ExternalLink, Loader2, CalendarCheck, FolderPlus } from "lucide-react";
 import api from "@/lib/api";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { str } from "./types";
@@ -48,11 +48,15 @@ export interface InquiryDetailProps {
   onHandled: () => void;
   /** 営業案件ではないので数えない (対応の要否を外して終端にする) */
   onExclude: () => void;
+  /** ネタ案件にする (案件を起票して問い合わせを終端にする) */
+  onPromote: () => void;
 }
 
-export function InquiryDetail({ meta, editable, pending, onHandled, onExclude }: InquiryDetailProps) {
+export function InquiryDetail({ meta, editable, pending, onHandled, onExclude, onPromote }: InquiryDetailProps) {
   const { hasPermission } = useAuth();
   const canSeeStudio = hasPermission("studio");
+  const canPromote = hasPermission("sales", "editor");
+  const promotedId = str(meta.promoted_project_id);
 
   // 見学候補: 全部屋が終日空いている日を先頭3件
   const { data: avail, isLoading: availLoading } = useQuery<AvailabilityData>({
@@ -135,7 +139,22 @@ export function InquiryDetail({ meta, editable, pending, onHandled, onExclude }:
       <div className="flex flex-wrap items-center gap-2">
         {editable ? (
           <>
-            <Button size="sm" className="h-9" disabled={pending} onClick={onHandled}>
+            {/* 案件になるものは「対応済み」で消さずに案件にする (経緯が案件側に残る) */}
+            {promotedId ? (
+              <a
+                href={`/sales/projects/${promotedId}`}
+                className="inline-flex h-9 items-center gap-1.5 rounded-control border border-border bg-card px-3 text-[13px] font-bold text-foreground hover:bg-secondary"
+              >
+                作った案件を開く
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+              </a>
+            ) : canPromote ? (
+              <Button size="sm" className="h-9 gap-1.5" disabled={pending} onClick={onPromote}>
+                <FolderPlus className="h-4 w-4" aria-hidden="true" />
+                ネタ案件にする
+              </Button>
+            ) : null}
+            <Button size="sm" variant={promotedId ? "default" : "outline"} className="h-9" disabled={pending} onClick={onHandled}>
               対応済みにする
             </Button>
             <Button size="sm" variant="outline" className="h-9" disabled={pending} onClick={onExclude}>
@@ -168,6 +187,8 @@ export function InquiryDetail({ meta, editable, pending, onHandled, onExclude }:
         {pending && <Loader2 className="h-4 w-4 animate-spin text-primary" aria-label="処理中" />}
       </div>
       <p className="text-[12px] text-muted-foreground">
+        「ネタ案件にする」を押すと、送ってきた人を顧客として（無ければ作って）ネタ案件を起票し、この本文を
+        営業活動の記録として残します。同じ問い合わせから2つ案件はできません。
         「営業でない（除外）」を押すと、対応は不要として記録し行列から外します。件名や分類は残ります。
       </p>
     </div>

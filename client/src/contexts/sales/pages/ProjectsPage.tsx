@@ -186,8 +186,8 @@ export default function ProjectsPage() {
     setSp(next, { replace: true });
   };
 
-  const groupTotal = (key: string) => summary?.groups.find((g) => g.grp === key);
-  const headerCount = summary?.tabs.all_count ?? pagination?.total ?? 0;
+  const groupTotal = (key: string) => summary?.groups?.find((g) => g.grp === key);
+  const headerCount = summary?.tabs?.all_count ?? pagination?.total ?? 0;
 
   return (
     <PageTransition>

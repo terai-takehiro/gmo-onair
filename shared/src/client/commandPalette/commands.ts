@@ -36,8 +36,9 @@ const OPEN_COMMANDS: CommandDef[] = [
   { id: 'open-notification-prefs', kind: 'open', label: '通知の受け取り方', path: '/settings/notifications', keywords: 'notification 通知 朝 slack メール' },
   { id: 'open-settings', kind: 'open', label: '設定', path: '/settings', keywords: 'settei settings マスター' },
   // 現場の道具 (§4.14) — レールとホームには出さないので、単発で開く経路はここ
-  { id: 'open-tools', kind: 'open', label: '現場の道具（翻訳・インタラクティブ・CG）', path: '/tools', keywords: 'tool honyaku translate interactive cg 翻訳 演出 道具', module: 'sales' },
-  { id: 'open-tools-unlinked', kind: 'open', label: 'まだ案件に紐づいていないもの', path: '/tools', keywords: 'himozuke 紐づけ 未紐づけ 成果物', module: 'sales' },
+  // 「まだ案件に紐づいていないもの」は同じ画面の下段なので、別項目にはせずキーワードで拾う
+  //  (行き先が同じ項目を2つ並べると、選ぶときに違いが分からない)
+  { id: 'open-tools', kind: 'open', label: '現場の道具（翻訳・インタラクティブ・CG）', path: '/tools', keywords: 'tool honyaku translate interactive cg 翻訳 演出 道具 himozuke 紐づけ 未紐づけ 成果物', module: 'sales' },
 
   // 案件
   { id: 'open-projects-board', kind: 'open', label: '案件 (ボード表示)', path: '/projects?view=board', keywords: 'pipeline yomi ヨミ パイプライン ボード', module: 'sales' },
@@ -53,7 +54,8 @@ const OPEN_COMMANDS: CommandDef[] = [
   { id: 'open-tasks-gantt', kind: 'open', label: 'タスク (ガント)', path: '/tasks?scope=all&view=gantt', keywords: 'gantt ガント 工程', module: 'sales' },
   { id: 'open-tasks-me', kind: 'open', label: '自分のタスクと依頼', path: '/tasks?scope=me', keywords: 'mytask 依頼 delegation 自分 9マス', module: 'dailyops' },
   { id: 'open-tasks-project', kind: 'open', label: '案件のタスク', path: '/tasks?scope=project', keywords: 'project task 案件', module: 'sales' },
-  { id: 'open-tasks-team', kind: 'open', label: 'チームの負荷 (件数だけ)', path: '/tasks?scope=all&view=list', keywords: 'team load 負荷 チーム', module: 'dailyops' },
+  // 「タスク (リスト)」と同じ画面だが、チームの負荷は一覧の下にあるので #team-load まで送る
+  { id: 'open-tasks-team', kind: 'open', label: 'チームの負荷 (件数だけ)', path: '/tasks?scope=all&view=list#team-load', keywords: 'team load 負荷 チーム', module: 'dailyops' },
 
   // ふりかえり
   { id: 'open-review', kind: 'open', label: 'ふりかえり（今週）', path: '/review', keywords: 'furikaeri review 週次 ふりかえり', module: 'sales' },

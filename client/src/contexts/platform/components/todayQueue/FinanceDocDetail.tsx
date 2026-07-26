@@ -4,8 +4,8 @@
 // 「処理へ」で別アプリに飛ばさず、この場でステータスを終端 (処理完了 or 却下) まで進める。
 
 import { Button } from "@/components/ui/button";
-import { Loader2, ExternalLink } from "lucide-react";
-import { DOC_TYPE_LABELS, FD_STATUS_LABELS, str, yen } from "./types";
+import { Loader2, ExternalLink, AlertTriangle } from "lucide-react";
+import { DOC_TYPE_LABELS, FD_STATUS_LABELS, str, yen, type DuplicateSample } from "./types";
 
 export interface FinanceDocDetailProps {
   meta: Record<string, unknown>;
@@ -17,9 +17,35 @@ export interface FinanceDocDetailProps {
 export function FinanceDocDetail({ meta, editable, pending, onSetStatus }: FinanceDocDetailProps) {
   const status = str(meta.status) || "new";
   const content = str(meta.content);
+  const dupCount = Number(meta.duplicate_count ?? 0);
+  const dupSamples = (Array.isArray(meta.duplicate_samples) ? meta.duplicate_samples : []) as DuplicateSample[];
+  const dupSameGls = Number(meta.duplicate_same_gls ?? 0);
 
   return (
     <div className="space-y-3 border-t border-divider pt-3">
+      {/* 二重計上の警告。承認する前に気付けるように、承認ボタンより上に置く */}
+      {dupCount > 0 && (
+        <div className="rounded-control border border-warning/40 bg-warning-surface px-3 py-2">
+          <p className="flex items-start gap-1.5 text-[13px] font-bold text-warning-strong">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            同じ金額（{yen(meta.amount)}）の{dupSameGls > 0 ? `仕入が ${str(meta.gls_number)} に` : "支払いが"}
+            すでに {dupSameGls > 0 ? dupSameGls : dupCount} 件あります。
+          </p>
+          <ul className="mt-1 space-y-0.5 text-[12px] text-secondary-foreground">
+            {dupSamples.map((d, i) => (
+              <li key={i}>
+                ・{d.kind === "purchase" ? "仕入" : "販管費"}
+                {d.gls_number ? ` / ${d.gls_number}` : ""}
+                {d.recognition_date ? ` / ${d.recognition_date}` : ""}
+                {d.label ? ` / ${d.label}` : ""}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 text-[12px] text-secondary-foreground">
+            金額が同じだけでは同じ支払いとは限りません（毎月の定額など）。別のものであればそのまま承認してください。
+          </p>
+        </div>
+      )}
       {/* AI が読み取った値 */}
       <div>
         <p className="mb-1.5 flex flex-wrap items-baseline gap-2">

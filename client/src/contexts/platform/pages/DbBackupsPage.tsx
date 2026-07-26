@@ -156,7 +156,7 @@ export default function DbBackupsPage() {
         )}
 
         {/* Backup tables per environment */}
-        {data?.environments.map((envBackup) => (
+        {(data?.environments ?? []).map((envBackup) => (
           <BackupTable
             key={envBackup.env}
             env={envBackup.env}

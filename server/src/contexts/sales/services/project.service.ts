@@ -465,10 +465,32 @@ export class ProjectService {
    */
   async update(id: string, data: Record<string, unknown>, userId: string) {
     const existing = await queryOne(
-      'SELECT id, name, code, gls_number, customer_type, box_url_internal, box_url_external, expected_amount FROM projects WHERE id = ? AND deleted_at IS NULL',
+      'SELECT id, name, code, gls_number, customer_type, box_url_internal, box_url_external, expected_amount, updated_at FROM projects WHERE id = ? AND deleted_at IS NULL',
       [id],
     ) as Record<string, unknown> | null;
     if (!existing) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
+
+    // 楽観ロック (Qシート v2.9.166 と同じ形)
+    //
+    // 案件の保存は**全項目の上書き**なので、2人が同じ案件を開いていると後に保存した側が
+    // 相手の変更を黙って消す。金額を含む画面でこれが起きると気付けないため、
+    // 読み込み時点の updated_at を送ってきたクライアントには 409 を返す。
+    // **送ってこない旧クライアント / MCP は従来どおり通す** (後方互換)。
+    if (data.expected_updated_at) {
+      const dbAt = new Date(existing.updated_at as string).getTime();
+      const reqAt = new Date(data.expected_updated_at as string).getTime();
+      if (Number.isFinite(dbAt) && Number.isFinite(reqAt) && dbAt !== reqAt) {
+        const who = await queryOne(
+          `SELECT u.name FROM projects p LEFT JOIN users u ON u.id = p.updated_by WHERE p.id = ?`,
+          [id],
+        ) as { name?: string } | null;
+        throw new AppError(
+          409,
+          'CONFLICT',
+          `この案件は${who?.name ? `${who.name}さんが` : '他の人が'}先に保存しています。最新を読み込んでから直してください。`,
+        );
+      }
+    }
 
     const { name, customer_id, expected_amount, assigned_to, project_type, project_type_other,
             event_start, event_end, broadcast_type, media_platform, tags,

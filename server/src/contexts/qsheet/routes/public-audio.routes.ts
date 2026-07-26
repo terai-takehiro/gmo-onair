@@ -47,11 +47,20 @@ interface DocData {
 router.get('/documents/:id/public-audio', async (req: Request, res: Response) => {
   try {
     const row = await queryOne(
-      `SELECT id, title, data, deleted_at FROM qsheet_documents WHERE id = $1`,
+      `SELECT id, title, data, deleted_at, audio_share_revoked_at FROM qsheet_documents WHERE id = $1`,
       [req.params.id],
-    ) as DocumentRow | undefined;
+    ) as (DocumentRow & { audio_share_revoked_at?: unknown }) | undefined;
     if (!row || row.deleted_at) {
       res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'ドキュメントが見つかりません' } });
+      return;
+    }
+    // 番組が終わって配布をやめた URL。410 Gone で「あったが今は無い」と伝える
+    // (404 だと「URL を間違えた」に見えて現場が探し続ける)
+    if (row.audio_share_revoked_at) {
+      res.status(410).json({
+        success: false,
+        error: { code: 'SHARE_REVOKED', message: 'この配布URLは無効になりました。担当者に新しいURLを聞いてください。' },
+      });
       return;
     }
 

@@ -9,7 +9,9 @@
  * 同じ見た目のURLが4本並ぶと、社外に渡してよいのがどれか分からなくなる。
  */
 import { useEffect, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import QRCode from "qrcode";
+import api from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +25,8 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   docId: string;
+  /** 音声サポートの配布URLを止めているか (null = 有効) */
+  audioRevokedAt?: string | null;
 }
 
 type RoleId = "onair" | "rundown" | "prompter" | "audio";
@@ -46,10 +50,24 @@ function pathFor(role: RoleId, docId: string): string {
   return role === "audio" ? `/qsheet/audio/${docId}` : `/qsheet/live/${docId}?role=${role}`;
 }
 
-export default function AudioShareDialog({ open, onOpenChange, docId }: Props) {
+export default function AudioShareDialog({ open, onOpenChange, docId, audioRevokedAt }: Props) {
   const [role, setRole] = useState<RoleId>("onair");
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // 配布の停止/再開。サーバーの値を正としつつ、押した直後は手元の値で即反映する
+  const [revokedLocal, setRevokedLocal] = useState<boolean | null>(null);
+  const revoked = revokedLocal ?? !!audioRevokedAt;
+  const qc = useQueryClient();
+  const revokeMutation = useMutation({
+    mutationFn: async (next: boolean) =>
+      (await api.post(`/qsheet/documents/${docId}/audio-share`, { revoked: next })).data.data,
+    onSuccess: (_d, next) => {
+      setRevokedLocal(next);
+      qc.invalidateQueries({ queryKey: ["qsheet-document", docId] });
+      qc.invalidateQueries({ queryKey: ["qsheet-documents"] });
+    },
+  });
+  useEffect(() => { if (!open) setRevokedLocal(null); }, [open]);
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const url = `${origin}${pathFor(role, docId)}`;
@@ -176,9 +194,56 @@ export default function AudioShareDialog({ open, onOpenChange, docId }: Props) {
           </a>
         </div>
 
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
-          番組が終わったあとにURLを無効にする仕組みは、まだ持っていません。閉じたいときはドキュメントごと削除してください。
-        </p>
+        {/* 配布をやめる — 音声サポート (認証なしのURL) だけに意味がある操作 */}
+        {role === "audio" && (
+          <div className="rounded-control border border-border bg-muted/40 p-2.5">
+            {revoked ? (
+              <>
+                <p className="text-[11px] font-bold text-warning-strong">
+                  この配布URLは無効です。開いた人には「無効になりました」と出ます。
+                </p>
+                <button
+                  type="button"
+                  onClick={() => revokeMutation.mutate(false)}
+                  disabled={revokeMutation.isPending}
+                  className="mt-1.5 inline-flex items-center gap-1 rounded-control border border-border bg-card px-2.5 py-1.5 text-[11px] font-semibold text-foreground hover:bg-accent disabled:opacity-60"
+                >
+                  {revokeMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <Globe className="h-3 w-3" aria-hidden />}
+                  もう一度配れるようにする
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  番組が終わったら、このURLを止められます（台本は消えません。同じURLで開くと「無効になりました」と出ます）。
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm("音声サポートの配布URLを止めます。今このURLを開いている人は次の読み込みで見られなくなります。よろしいですか？")) {
+                      revokeMutation.mutate(true);
+                    }
+                  }}
+                  disabled={revokeMutation.isPending}
+                  className="mt-1.5 inline-flex items-center gap-1 rounded-control border border-destructive/40 bg-card px-2.5 py-1.5 text-[11px] font-semibold text-destructive hover:bg-destructive/10 disabled:opacity-60"
+                >
+                  {revokeMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <Lock className="h-3 w-3" aria-hidden />}
+                  配布をやめる
+                </button>
+              </>
+            )}
+            {revokeMutation.isError && (
+              <p className="mt-1 text-[11px] text-destructive">
+                変更できませんでした。作成者または管理者だけが止められます。
+              </p>
+            )}
+          </div>
+        )}
+        {role !== "audio" && (
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            ログインが要る役割のURLは、権限を外せばそれだけで開けなくなります（URLを止める操作は要りません）。
+          </p>
+        )}
       </DialogContent>
     </Dialog>
   );
