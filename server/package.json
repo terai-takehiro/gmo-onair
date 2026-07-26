@@ -12,7 +12,8 @@
     "db:seed": "tsx src/shared/db/seed.ts",
     "db:reset": "tsx src/shared/db/reset.ts",
     "db:seed:subapps": "tsx src/shared/db/seed-subapps.ts",
-    "db:seed:tasks": "tsx src/shared/db/seed-tasks.ts"
+    "db:seed:tasks": "tsx src/shared/db/seed-tasks.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
@@ -31,7 +32,7 @@
     "morgan": "^1.10.0",
     "multer": "^2.1.1",
     "node-ical": "^0.26.1",
-    "nodemailer": "^8.0.5",
+    "nodemailer": "^9.0.3",
     "openai": "^6.49.0",
     "pdfkit": "^0.18.0",
     "pg": "^8.13.0",
@@ -53,7 +54,7 @@
     "@types/pdfkit": "^0.17.6",
     "@types/pg": "^8.11.0",
     "@types/uuid": "^10.0.0",
-    "tsx": "^4.19.0",
+    "tsx": "^4.23.1",
     "typescript": "^5.6.0"
   }
 }

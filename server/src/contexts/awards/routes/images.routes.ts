@@ -24,6 +24,10 @@ const MAGIC: Record<string, number[]> = {
   '.webp': [0x52, 0x49, 0x46, 0x46],
 };
 
+/** ZIP 一括アップロードの上限 (展開後)。1 部門 500 人でも 500 枚には収まる想定 */
+const ZIP_MAX_ENTRIES = 1000;
+const ZIP_MAX_TOTAL_BYTES = 300 * 1024 * 1024;
+
 function detectExt(buf: Buffer): string | null {
   for (const [ext, sig] of Object.entries(MAGIC)) {
     if (sig.every((b, i) => buf[i] === b)) return ext;
@@ -122,12 +126,32 @@ router.post(
 
     const zip = new AdmZip(req.file.buffer);
     const entries = zip.getEntries();
+    // ZIP は展開すると何倍にも膨らむ (10MB の ZIP から数 GB を作れる)。
+    // 展開しながら合計サイズと件数を数え、超えたらそこで止める。
+    // 止めずに全件 getData() すると、この 1 リクエストでサーバーのメモリが尽きる。
+    if (entries.length > ZIP_MAX_ENTRIES) {
+      throw new AppError(
+        400,
+        'BAD_REQUEST',
+        `ZIP に入っているファイルが多すぎます (${entries.length} 件)。${ZIP_MAX_ENTRIES} 件までに分けてください`
+      );
+    }
+
     const saved: { filename: string; url: string }[] = [];
+    let totalBytes = 0;
 
     for (const entry of entries) {
       if (entry.isDirectory) continue;
       const name = path.basename(entry.entryName);
       const buf = entry.getData();
+      totalBytes += buf.length;
+      if (totalBytes > ZIP_MAX_TOTAL_BYTES) {
+        throw new AppError(
+          400,
+          'BAD_REQUEST',
+          `ZIP を開いた合計サイズが上限 (${Math.floor(ZIP_MAX_TOTAL_BYTES / 1024 / 1024)}MB) を超えました。写真を分けてアップロードしてください`
+        );
+      }
       const ext = detectExt(buf);
       if (!ext) continue;
 

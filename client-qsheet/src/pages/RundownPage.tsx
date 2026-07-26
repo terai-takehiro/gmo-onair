@@ -310,7 +310,7 @@ export default function RundownPage() {
     return () => {
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
-      disconnectQsheetSocket();
+      disconnectQsheetSocket(id);
       socketRef.current = null;
     };
   }, [id, flatCues.length]);

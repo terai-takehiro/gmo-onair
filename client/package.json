@@ -7,7 +7,8 @@
     "predev": "node ../scripts/generate-version-history.mjs && node ../scripts/generate-mcp-tools.mjs",
     "dev": "vite",
     "prebuild": "node ../scripts/generate-version-history.mjs && node ../scripts/generate-mcp-tools.mjs",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
+    "typecheck": "tsc -b",
     "preview": "vite preview",
     "lint": "eslint ."
   },

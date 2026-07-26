@@ -76,6 +76,22 @@ const RULES = [
   },
 ];
 
+/**
+ * サーバー側の禁止パターン。画面の話ではないが、**同じ「入れたら止まる」形**で
+ * 守りたいものをここに置く (検査を2本に分けると片方だけ走る事故が起きる)。
+ */
+const SERVER_DIRS = ['server/src'];
+const SERVER_SKIP = ['server/src/shared/utils/xlsx-safe.ts'];
+const SERVER_RULES = [
+  {
+    id: 'raw-xlsx-read',
+    re: /XLSX\.read\s*\(/,
+    why: 'Excel の読み取りは `safeReadWorkbook()` を通してください'
+       + '（xlsx には npm 上に修正版が無い脆弱性が2件あり、中身の判定と'
+       + ' prototype 汚染の検知を境界で必ず通す必要があります。詳細: server/src/shared/utils/xlsx-safe.ts）',
+  },
+];
+
 function walk(dir, out = []) {
   let entries;
   try { entries = readdirSync(dir); } catch { return out; }
@@ -111,12 +127,26 @@ for (const file of files) {
   });
 }
 
+const serverFiles = SERVER_DIRS.flatMap((d) => walk(join(ROOT, d)));
+for (const file of serverFiles) {
+  const rel = relative(ROOT, file);
+  if (SERVER_SKIP.some((s) => rel === s)) continue;
+  const lines = readFileSync(file, 'utf8').split('\n');
+  lines.forEach((line, i) => {
+    if (line.includes('ui-tokens-ok')) return;
+    for (const rule of SERVER_RULES) {
+      if (!rule.re.test(line)) continue;
+      findings.push({ rel, line: i + 1, id: rule.id, why: rule.why, text: line.trim().slice(0, 120) });
+    }
+  });
+}
+
 if (findings.length === 0) {
-  console.log(`[ui-tokens] ${files.length} ファイルを見ました。手で書かれた数字・見出しはありません。`);
+  console.log(`[ui-tokens] ${files.length + serverFiles.length} ファイルを見ました。手で書かれた数字・見出し、禁止パターンはありません。`);
   process.exit(0);
 }
 
-console.error(`[ui-tokens] 手で書かれている箇所が ${findings.length} 件あります。\n`);
+console.error(`[ui-tokens] 直す必要がある箇所が ${findings.length} 件あります。\n`);
 const byRule = new Map();
 for (const f of findings) {
   if (!byRule.has(f.id)) byRule.set(f.id, []);

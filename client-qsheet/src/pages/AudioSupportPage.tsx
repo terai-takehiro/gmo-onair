@@ -341,7 +341,7 @@ export default function AudioSupportPage() {
       sock.off("cue:prev", onPrev);
       sock.off("connect", onConnect);
       sock.off("disconnect", onDisconnect);
-      disconnectQsheetSocket();
+      disconnectQsheetSocket(id);
       socketRef.current = null;
     };
   }, [id]);

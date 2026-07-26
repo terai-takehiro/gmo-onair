@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import { safeReadWorkbook } from '../../../shared/utils/xlsx-safe';
 import { getDb } from '../../../shared/db/connection';
 
 export interface EntryChange {
@@ -323,7 +324,7 @@ export interface PreviewResult {
 }
 
 export function previewAwardsExcel(buffer: Buffer): PreviewResult {
-  const wb = XLSX.read(buffer, { type: 'buffer' });
+  const wb = safeReadWorkbook(buffer);
   const sheetName = wb.SheetNames[0];
   if (!sheetName) throw new Error('Excel にシートが見つかりません');
   const sheet = wb.Sheets[sheetName];
@@ -406,7 +407,7 @@ export async function importAwardsExcel(
 ): Promise<ImportResult> {
   const warnings: string[] = [];
 
-  const wb = XLSX.read(buffer, { type: 'buffer' });
+  const wb = safeReadWorkbook(buffer);
   const sheetName = wb.SheetNames[0];
   if (!sheetName) throw new Error('Excel にシートが見つかりません');
 

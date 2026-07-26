@@ -554,7 +554,7 @@ export default function EditorPage() {
     return () => {
       socket.off("presence:sync", onPresence);
       socket.off("connect", onConnect);
-      disconnectQsheetSocket();
+      disconnectQsheetSocket(id);
       setPresenceUsers([]);
     };
   }, [id]);

@@ -14,8 +14,18 @@ export default defineConfig({
     port: 5174,
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        // サーバーの既定ポートは 3001 (server/src/config.ts)。ここだけ 3000 を
+        // 指していたため、ローカルで Qシートの画面が API に一切つながらなかった。
+        target: 'http://localhost:3001',
         changeOrigin: true,
+      },
+      // Socket.IO の中継。これが無いと **OnAir とランダウンの同期を
+      // ローカルで一度も動かせない** (本番の nginx では通るので、
+      // 手元で再現できないまま本番だけで壊れる形になっていた)。
+      '/socket.io': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        ws: true,
       },
     },
   },

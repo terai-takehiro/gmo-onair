@@ -13,6 +13,17 @@
 #                 (例: client-daily だけ変更 → 他 6 クライアント + server はキャッシュヒット)。
 #   production  — サーバー + 各クライアントの dist だけを集約した実行イメージ。
 #
+# v2.9.289: **クライアントの型チェック (tsc -b) をイメージのビルドから外した**。
+#   クライアントの tsconfig は `noEmit: true` なので、tsc は 1 バイトも出力しない
+#   (vite は esbuild で型を捨てるだけでバンドルする) — つまり中身は変わらず、
+#   時間だけがビルドの一直線上に乗っていた。実測で client が 20.6 秒、
+#   他 6 クライアントが各 4〜5 秒、合計約 50 秒。GitHub のランナーは 2 コアなので
+#   これがほぼそのまま待ち時間になっていた。
+#   型チェックは deploy.yml の `typecheck` ジョブで**ビルドと同時に**走り、
+#   deploy ジョブは build と typecheck の両方が通るまで動かない
+#   (= 型エラーのあるイメージは作られても配られない)。
+#   server の tsc は dist を出力する本体なので、ここに残す。
+#
 # ビルドは GitHub Actions (buildx + キャッシュ) で行い GHCR へ push、
 # VPS は pull して起動するだけ (詳細: docs/deploy-pipeline.md)。
 # ============================================
@@ -49,10 +60,15 @@ COPY shared/package.json shared/
 RUN node -e "const f=require('fs'),W=['package.json','client/package.json','client-equipment/package.json','client-qsheet/package.json','client-techsheet/package.json','client-live/package.json','client-awards/package.json','client-daily/package.json','server/package.json','shared/package.json'],V='0.0.0-build';for(const p of W){const j=JSON.parse(f.readFileSync(p,'utf8'));j.version=V;f.writeFileSync(p,JSON.stringify(j,null,2)+'\n')}const l=JSON.parse(f.readFileSync('package-lock.json','utf8'));l.version=V;for(const[k,v]of Object.entries(l.packages||{}))if(v&&v.version&&(k===''||W.includes(k+'/package.json')))v.version=V;f.writeFileSync('package-lock.json',JSON.stringify(l,null,2)+'\n')"
 
 # ── Stage: deps (依存インストール) ─────────────
+# npm ci を使う (npm install ではなく):
+#   - lockfile の解決結果をそのまま入れるので依存ツリーの再計算をしない (実測で速い)
+#   - lockfile と package.json が食い違っていたらその場で落ちる。install だと
+#     黙って lockfile を書き換えて進むので、**イメージの中身が lockfile と違う**
+#     状態でデプロイされ得る (コード健全性ポリシーの「宣言と解決を一致させる」)
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY --from=manifests /app/ ./
-RUN npm install --workspaces --include-workspace-root
+RUN npm ci --workspaces --include-workspace-root
 
 # ── Stage: build-client (案件管理) ─────────────
 # client の prebuild (generate-version-history / generate-mcp-tools) だけが

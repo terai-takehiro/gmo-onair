@@ -93,6 +93,42 @@ import していた箇所を `__APP_VERSION__` (ルート由来・HomePage と�
 ⚠️ **ワークスペースの `package.json` の version を更新すると、この利点が消える**
 (全ビルドステージが無効化される)。バージョンはルートだけを上げること。
 
+## 型チェックをビルドから出した (v2.9.289)
+
+クライアント 7 本の `build` は `tsc -b && vite build` だったが、**クライアントの tsconfig は
+`noEmit: true`** なので tsc は 1 バイトも出力しない (vite は esbuild で型を捨ててバンドルする)。
+つまり**中身は変わらず、時間だけがイメージのビルドの一直線上に乗っていた**。
+
+実測 (このリポジトリ):
+
+| 工程 | 時間 |
+|---|---|
+| `client` の `tsc -b` | 20.6 秒 |
+| `client` の `vite build` | (tsc とほぼ同じ規模) |
+| `client-live` の `tsc -b` / `vite build` | 4.6 秒 / 4.5 秒 |
+| 7 クライアント合計の tsc | **約 50 秒** |
+
+GitHub のランナーは 2 コアなので、この 50 秒はほぼそのまま待ち時間になる。
+
+そこで:
+
+- 各クライアントの `build` は `vite build` だけにし、`typecheck` (`tsc -b`) を別スクリプトにした
+- `deploy.yml` に **`typecheck` ジョブ**を足して `build` と**並走**させた
+- `deploy-dev` / `deploy-prod` は `needs: [build, typecheck]`
+  → **型エラーがあればデプロイは止まる** (イメージは GHCR に上がるが配られない)
+- ルートの `npm run build` は `npm run typecheck && …` にしたので、**手元の `npm run build` は
+  今までどおり型を見る** (型チェックを飛ばしたいときだけ `npm run build:nocheck`)
+
+`server` の `tsc` は `dist` を出力する本体なので、これは今までどおりイメージのビルドの中に残す。
+
+### `npm install` → `npm ci` (v2.9.289)
+
+`deps` ステージを `npm ci` にした。lockfile の解決結果をそのまま入れるので依存ツリーの
+再計算をせず、**lockfile と `package.json` が食い違っていたらその場で落ちる**。
+`npm install` は黙って lockfile を書き換えて進むため、**イメージの中身が lockfile と違う**
+状態でデプロイされ得た (コード健全性ポリシーの「宣言と解決を一致させる」に反する)。
+
+
 ## 運用メモ
 
 ### ロールバック

@@ -53,6 +53,32 @@ concurrency:
 
 jobs:
   # ============================================
+  # 型チェック (build と同時に走らせる)
+  # ============================================
+  # なぜ別ジョブか: クライアントの tsconfig は noEmit なので、tsc は成果物を
+  # 1 バイトも作らない (vite は esbuild で型を捨ててバンドルする)。それが
+  # イメージのビルドの中で直列に走っていて、実測で約 50 秒 (client だけで 20.6 秒)
+  # がそのまま待ち時間になっていた。
+  #
+  # ここに出すと build と**並走**するので、型チェックの時間は事実上ゼロになる。
+  # 一方で deploy-dev / deploy-prod は `needs: [build, typecheck]` なので、
+  # **型エラーがあればデプロイは止まる** (イメージは GHCR に上がるが配られない)。
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci --workspaces --include-workspace-root
+      - name: Type check (7 clients + server)
+        run: npm run typecheck
+      - name: Lint (禁止パターン + eslint)
+        run: npm run lint
+
+  # ============================================
   # イメージビルド (GitHub ランナー上) → GHCR push
   # ============================================
   build:
@@ -110,7 +136,7 @@ jobs:
   # 検証環境 (dev.gmo-onair.jp) — dev push で自動
   # ============================================
   deploy-dev:
-    needs: build
+    needs: [build, typecheck]
     if: github.ref == 'refs/heads/dev' || (github.event_name == 'workflow_dispatch' && inputs.target == 'dev')
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -224,7 +250,7 @@ jobs:
   # 本番環境 (gmo-onair.jp) — main push で自動
   # ============================================
   deploy-prod:
-    needs: build
+    needs: [build, typecheck]
     if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.target == 'prod')
     runs-on: ubuntu-latest
     timeout-minutes: 20

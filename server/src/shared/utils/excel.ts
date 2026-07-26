@@ -2,6 +2,7 @@
 // xlsx (SheetJS) ベース。日本語ヘッダー対応・複数シート対応。
 import * as XLSX from 'xlsx';
 import { Response } from 'express';
+import { safeReadWorkbook } from './xlsx-safe';
 
 export interface SheetSpec {
   /** シート名 (日本語可、31文字以内) */
@@ -53,8 +54,7 @@ export const normalizeHeader = (v: unknown): string =>
   String(v ?? '').normalize('NFKC').replace(/\s+/g, '').trim();
 
 function readWorkbookFirstSheet(buffer: Buffer): { data: unknown[][]; warnings: string[] } {
-  const wb = XLSX.read(buffer, {
-    type: 'buffer',
+  const wb = safeReadWorkbook(buffer, {
     cellFormula: false,
     cellStyles: false,
     cellHTML: false,

@@ -17,6 +17,7 @@ import type { PoolClient } from 'pg';
 import { randomUUID } from 'node:crypto';
 import { TextDecoder } from 'node:util';
 import * as XLSX from 'xlsx';
+import { safeReadWorkbook } from '../../../shared/utils/xlsx-safe';
 import { getDb } from '../../../shared/db/connection';
 import { getBoxClient } from '../../../shared/services/box';
 
@@ -393,7 +394,7 @@ function extractFreeeJournalRows(rows: string[][], glFileName: string): Extracte
  * - G社名='GLS' 以外 (AM/GLOVIA 等の他社レガシー) は除外。
  */
 function extractMoneyForwardXlsx(buf: Buffer, warnings: string[]): Extracted {
-  const wb = XLSX.read(buf, { type: 'buffer' });
+  const wb = safeReadWorkbook(buf);
   let H: Record<string, number> | null = null;
   let body: string[][] = [];
   for (const sheetName of wb.SheetNames) {

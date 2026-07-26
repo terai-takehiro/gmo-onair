@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useAwardsStore, DEFAULT_CUE } from '@/cg/useStore';
-import { getAwardsSocket, disconnectAwardsSocket } from '@/lib/socket';
+import { getAwardsSocket, acquireAwardsSocket, disconnectAwardsSocket } from '@/lib/socket';
 import { updateServerOffsetFromTimestamp } from '@/lib/serverClock';
 import type { CgStep, OneshotStyle, CgCueState, VoteDisplay } from '@/cg/types';
 
@@ -30,27 +30,29 @@ function normalizeCue(data: CuePayload): CgCueState {
 }
 
 export function useAwardsCue(eventId: number | null) {
-  const { cue, setCue } = useAwardsStore();
+  // 欲しいものだけを見る。以前は `useAwardsStore()` を引数なしで呼んでいたため
+  // **ストア全体**を見ていて、部門一覧やアンケート票数が変わるたびに
+  // (票数は 3 秒ごとに来る) このフックを使う画面が全部描き直されていた。
+  const cue = useAwardsStore((s) => s.cue);
+  const setCue = useAwardsStore((s) => s.setCue);
   const cueRef = useRef(cue);
   cueRef.current = cue;
-  const connectedRef = useRef(false);
 
   useEffect(() => {
     if (!eventId) return;
-    const socket = getAwardsSocket(eventId);
-    connectedRef.current = true;
+    const socket = acquireAwardsSocket(eventId);
 
-    socket.on('cue:sync', (data: CuePayload) => {
+    const onSync = (data: CuePayload) => {
       updateServerOffsetFromTimestamp(data.timestamp);
       setCue(normalizeCue(data));
-    });
+    };
+    socket.on('cue:sync', onSync);
 
     return () => {
-      socket.off('cue:sync');
-      if (connectedRef.current) {
-        disconnectAwardsSocket();
-        connectedRef.current = false;
-      }
+      // 自分が張った受け口だけを外す。以前は `off('cue:sync')` と書いていたため
+      // **他の画面が張った受け口まで消していた** (同じ接続を共有している)。
+      socket.off('cue:sync', onSync);
+      disconnectAwardsSocket(eventId);
     };
   }, [eventId, setCue]);
 

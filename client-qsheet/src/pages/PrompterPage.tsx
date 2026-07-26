@@ -143,7 +143,7 @@ export default function PrompterPage() {
     return () => {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
-      disconnectQsheetSocket();
+      disconnectQsheetSocket(id);
     };
   }, [id]);
 
