@@ -22,6 +22,7 @@ import AuthCallbackPage from "@/contexts/platform/pages/AuthCallbackPage";
 import AcceptInvitationPage from "@/contexts/platform/pages/AcceptInvitationPage";
 import TodayPage from "@/contexts/platform/pages/TodayPage";
 import UserListPage from "@/contexts/platform/pages/UserListPage";
+import UserPermissionPage from "@/contexts/platform/pages/UserPermissionPage";
 import DataViewerPage from "@/contexts/platform/pages/DataViewerPage";
 import DbBackupsPage from "@/contexts/platform/pages/DbBackupsPage";
 
@@ -35,8 +36,8 @@ import CompanyListPage from "@/contexts/sales/pages/CompanyListPage";
 import PricingListPage from "@/contexts/sales/pages/PricingListPage";
 import ActivityLogPage from "@/contexts/sales/pages/ActivityLogPage";
 import AiActivityPage from "@/contexts/sales/pages/AiActivityPage";
-import KeepReportPage from "@/contexts/sales/pages/KeepReportPage";
-import SalesReviewPage from "@/contexts/sales/pages/SalesReviewPage";
+import ReviewPage from "@/contexts/sales/pages/ReviewPage";
+import ToolsPage from "@/contexts/shared/pages/ToolsPage";
 import EstimatePage from "@/contexts/sales/pages/EstimatePage";
 import ProjectGroupListPage from "@/contexts/sales/pages/ProjectGroupListPage";
 
@@ -128,6 +129,8 @@ function AppRoutes() {
         <Route path="/settings" element={<SettingsHubPage />} />
         <Route path="/settings/notifications" element={<NotificationPrefsPage />} />
         <Route path="/settings/users" element={<PermissionRoute module="admin"><UserListPage /></PermissionRoute>} />
+        {/* この人にできること (§4.17 / 20b) — 役割テンプレート + 見えるレールのプレビュー */}
+        <Route path="/settings/users/:id" element={<PermissionRoute module="admin"><UserPermissionPage /></PermissionRoute>} />
         <Route path="/settings/data-viewer" element={<PermissionRoute module="admin"><DataViewerPage /></PermissionRoute>} />
         <Route path="/settings/db-backups" element={<PermissionRoute module="admin"><DbBackupsPage /></PermissionRoute>} />
         <Route path="/settings/system" element={<PermissionRoute module="admin"><SettingsPage /></PermissionRoute>} />
@@ -143,8 +146,12 @@ function AppRoutes() {
         <Route path="/sales/project-groups" element={<PermissionRoute module="sales"><ProjectGroupListPage /></PermissionRoute>} />
         <Route path="/sales/activity-logs" element={<PermissionRoute module="sales"><ActivityLogPage /></PermissionRoute>} />
         <Route path="/sales/ai-activity" element={<PermissionRoute module="sales"><AiActivityPage /></PermissionRoute>} />
-        <Route path="/sales/keep-report" element={<PermissionRoute module="sales"><KeepReportPage /></PermissionRoute>} />
-        <Route path="/sales/review" element={<PermissionRoute module="sales"><SalesReviewPage /></PermissionRoute>} />
+        {/* ふりかえり (§4.18 / 21a) — レールには出さず ⌘K と お金 の画面から。旧2ルートはここへ寄せる */}
+        <Route path="/review" element={<PermissionRoute module="sales"><ReviewPage /></PermissionRoute>} />
+        {/* 現場の道具 (§4.14 / 12a) — レールとホームには出さない。案件か ⌘K から */}
+        <Route path="/tools" element={<PermissionRoute module="sales"><ToolsPage /></PermissionRoute>} />
+        <Route path="/sales/keep-report" element={<RedirectPreserveState to="/review?tab=keep" />} />
+        <Route path="/sales/review" element={<RedirectPreserveState to="/review?tab=sales" />} />
         <Route path="/sales/pricing" element={<PermissionRoute module="sales"><PricingListPage /></PermissionRoute>} />
 
         {/* ===== 財務管理 (budget) — 新URLに無いもの ===== */}

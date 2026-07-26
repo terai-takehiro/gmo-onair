@@ -335,7 +335,7 @@ function MonthlyPlTab() {
         )}
       </div>
 
-      {isLoading || !pl ? (
+      {isLoading || !pl?.variance || !pl?.actual ? (
         <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
       ) : (
         <>
@@ -597,7 +597,19 @@ function MinutesDialog({ initial, onClose }: { initial: Minutes | null; onClose:
 // ============================================================
 // ページ本体
 // ============================================================
-export default function KeepReportPage() {
+/**
+ * 報告資料の基礎データ。
+ *
+ * `only` を渡すと、そのタブの中身だけを枠なしで返す (ふりかえり `/review` に埋める用)。
+ * ふりかえり側が「今週 / 隔週キープ / 月次の損益 / 営業レビュー」のタブを持つので、
+ * ここのタブ列を一緒に出すと同じ階層の切り替えが2組並んでしまう。
+ */
+export default function KeepReportPage({ only }: { only?: "events" | "pl" | "minutes" } = {}) {
+  if (only) {
+    if (only === "events") return <EventReportsTab />;
+    if (only === "pl") return <MonthlyPlTab />;
+    return <MinutesTab />;
+  }
   return (
     <PageTransition>
       <div className="mx-auto max-w-5xl space-y-4 p-3 lg:p-6">

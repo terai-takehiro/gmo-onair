@@ -221,7 +221,12 @@ router.get('/me/permissions', wrap(async (req, res) => {
 
 // ユーザーのパーミッション一覧
 router.get('/:id/permissions', wrap(async (req, res) => {
-  const perms = await queryAll('SELECT module, access_level FROM user_permissions WHERE user_id = ?', [req.params.id]);
+  // updated_at も返す (§4.17: 権限画面で「いつ変えたか」を出す。
+  // 誰が変えたかは記録していないので、そこは画面に「持っていない」と書く)
+  const perms = await queryAll(
+    'SELECT module, access_level, updated_at FROM user_permissions WHERE user_id = ?',
+    [req.params.id]
+  );
   res.json({ success: true, data: perms });
 }));
 

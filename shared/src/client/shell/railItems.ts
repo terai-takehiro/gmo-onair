@@ -35,11 +35,21 @@ export interface RailItem {
   matchPrefixes?: string[];
   /** レールの下端に寄せる (設定) */
   position?: 'top' | 'bottom';
+  /**
+   * スマホの下タブに出す (§4.19)。
+   *
+   * PC の縦レールは7項目まで無理なく並ぶが、375px の下タブに7つ入れると
+   * 1つ 53px でラベルが潰れ、押し間違える。**現場でスマホから触るのは
+   * 今日・案件・タスク・予定の4つ**なので、下タブはそれ + さがす の5つに固定し、
+   * 残り (お客様・お金・設定) は さがす (⌘K) と上辺のメニューから辿る。
+   */
+  mobile?: boolean;
 }
 
 export const RAIL_ITEMS: RailItem[] = [
   {
     key: 'today',
+    mobile: true,
     label: '今日',
     href: '/today',
     Icon: Sun,
@@ -48,6 +58,7 @@ export const RAIL_ITEMS: RailItem[] = [
   },
   {
     key: 'projects',
+    mobile: true,
     label: '案件',
     href: '/projects',
     Icon: FolderKanban,
@@ -64,6 +75,7 @@ export const RAIL_ITEMS: RailItem[] = [
   },
   {
     key: 'tasks',
+    mobile: true,
     label: 'タスク',
     href: '/tasks',
     Icon: ListTodo,
@@ -80,6 +92,7 @@ export const RAIL_ITEMS: RailItem[] = [
   },
   {
     key: 'schedule',
+    mobile: true,
     label: '予定',
     href: '/schedule',
     Icon: CalendarDays,

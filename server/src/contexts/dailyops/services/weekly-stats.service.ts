@@ -1,6 +1,7 @@
 import { queryAll, queryOne } from '../../../shared/db/connection';
 import { config } from '../../../config';
 import { normalizeWeekStart, defaultWeekStart, addDays } from './ops-report.service';
+import { getFeedbackDigest } from '../../../shared/services/ai-feedback.service';
 
 // ウィークリー活動報告の数値集計 (オンデマンド)。
 // dashboard.routes の /kpi /sales-board /weekly-schedule と同じ流儀で集計する。
@@ -19,6 +20,26 @@ export interface WeeklyStats {
     week_end: string;
     events: Record<string, unknown>[];
     next_actions: Record<string, unknown>[];
+  };
+  /**
+   * ふりかえりで見る「守れたか」(§4.18)。
+   * 件数だけでは「忙しかった」しか分からないので、**約束を守れた割合**を出す。
+   */
+  quality: {
+    /** 今週が期限だったタスク */
+    tasks_due: number;
+    /** そのうち期限内に終えたもの */
+    tasks_on_time: number;
+    /** 終えたが期限を過ぎていたもの */
+    tasks_late: number;
+    /** まだ終わっていないもの (期限は過ぎている) */
+    tasks_open: number;
+    /** 期限内完了率 (0〜1)。期限のあるタスクが無い週は null */
+    on_time_rate: number | null;
+    /** AI が出したものが直されずに通った割合 (直近30日・kind=task_intake) */
+    ai_reviewed_outputs: number;
+    ai_accepted_as_is: number;
+    ai_as_is_rate: number | null;
   };
 }
 
@@ -140,6 +161,42 @@ export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklySta
     [nextWeekStart, nextWeekEnd],
   );
 
+  /**
+   * 今週が期限だったタスクを、期限内 / 遅れ / 未完了 に分ける。
+   * 期限は `due_at` を正とし、旧 `due_date` はその日の 18:00 として読む
+   * (v2.9.244 の決めごと。DB は書き換えない)。
+   */
+  const dueExpr = `COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp)`;
+  const taskQuality = await queryOne(
+    `SELECT COUNT(*)::int AS due_count,
+            COUNT(*) FILTER (WHERE t.is_completed = TRUE AND t.completed_at IS NOT NULL
+                             AND t.completed_at <= ${dueExpr})::int AS on_time,
+            COUNT(*) FILTER (WHERE t.is_completed = TRUE AND (t.completed_at IS NULL
+                             OR t.completed_at > ${dueExpr}))::int AS late,
+            COUNT(*) FILTER (WHERE t.is_completed = FALSE)::int AS still_open
+     FROM project_tasks t
+     WHERE t.deleted_at IS NULL
+       AND ${dueExpr} >= ?::timestamp
+       AND ${dueExpr} < (?::date + 1)::timestamp`,
+    [weekStart, weekEnd]
+  ) as Record<string, unknown> | null;
+
+  // AI の無修正採用率は既存のダイジェストから借りる (同じ数字を2か所で計算しない)
+  let aiReviewed = 0;
+  let aiAsIs = 0;
+  let aiRate: number | null = null;
+  try {
+    const digest = await getFeedbackDigest('task_intake', 30);
+    aiReviewed = digest.reviewed_outputs;
+    aiAsIs = digest.accepted_as_is;
+    aiRate = digest.as_is_rate;
+  } catch {
+    // ダイジェストが取れなくても週報は出す (数字が1つ欠けるだけ)
+  }
+
+  const dueCount = Number(taskQuality?.due_count ?? 0);
+  const onTime = Number(taskQuality?.on_time ?? 0);
+
   return {
     period: { week_start: weekStart, week_end: weekEnd },
     new_projects: {
@@ -164,6 +221,16 @@ export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklySta
       week_end: nextWeekEnd,
       events: eventsNextWeek,
       next_actions: nextActions,
+    },
+    quality: {
+      tasks_due: dueCount,
+      tasks_on_time: onTime,
+      tasks_late: Number(taskQuality?.late ?? 0),
+      tasks_open: Number(taskQuality?.still_open ?? 0),
+      on_time_rate: dueCount > 0 ? onTime / dueCount : null,
+      ai_reviewed_outputs: aiReviewed,
+      ai_accepted_as_is: aiAsIs,
+      ai_as_is_rate: aiRate,
     },
   };
 }

@@ -138,11 +138,26 @@ export default function TaskDashboardPage({
               />
             )}
             {activeView === "gantt" && (
-              <DashboardGanttView
-                projects={filtered.projects}
-                columns={filtered.columns}
-                tasks={filtered.tasks}
-              />
+              <>
+                {/* ガントはPCのみ (§4.19)。スマホでは横に長すぎて読めないのでリストへ誘導する */}
+                <div className="hidden h-full flex-col sm:flex">
+                  <DashboardGanttView
+                    projects={filtered.projects}
+                    columns={filtered.columns}
+                    tasks={filtered.tasks}
+                  />
+                </div>
+                <div className="flex flex-col items-center justify-center gap-3 py-12 text-center sm:hidden">
+                  <p className="text-sm text-muted-foreground">ガントは横に長いのでPCで見てください。</p>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/tasks?scope=all&view=list")}
+                    className="text-sm text-primary underline underline-offset-2"
+                  >
+                    リストで見る
+                  </button>
+                </div>
+              </>
             )}
           </>
         ) : null}

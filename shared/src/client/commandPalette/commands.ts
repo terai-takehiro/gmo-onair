@@ -35,6 +35,9 @@ const OPEN_COMMANDS: CommandDef[] = [
   { id: 'open-finance', kind: 'open', label: 'お金', path: '/finance', keywords: 'okane finance 財務 予算 損益', module: 'budget' },
   { id: 'open-notification-prefs', kind: 'open', label: '通知の受け取り方', path: '/settings/notifications', keywords: 'notification 通知 朝 slack メール' },
   { id: 'open-settings', kind: 'open', label: '設定', path: '/settings', keywords: 'settei settings マスター' },
+  // 現場の道具 (§4.14) — レールとホームには出さないので、単発で開く経路はここ
+  { id: 'open-tools', kind: 'open', label: '現場の道具（翻訳・インタラクティブ・CG）', path: '/tools', keywords: 'tool honyaku translate interactive cg 翻訳 演出 道具', module: 'sales' },
+  { id: 'open-tools-unlinked', kind: 'open', label: 'まだ案件に紐づいていないもの', path: '/tools', keywords: 'himozuke 紐づけ 未紐づけ 成果物', module: 'sales' },
 
   // 案件
   { id: 'open-projects-board', kind: 'open', label: '案件 (ボード表示)', path: '/projects?view=board', keywords: 'pipeline yomi ヨミ パイプライン ボード', module: 'sales' },
@@ -53,8 +56,10 @@ const OPEN_COMMANDS: CommandDef[] = [
   { id: 'open-tasks-team', kind: 'open', label: 'チームの負荷 (件数だけ)', path: '/tasks?scope=all&view=list', keywords: 'team load 負荷 チーム', module: 'dailyops' },
 
   // ふりかえり
-  { id: 'open-sales-review', kind: 'open', label: '営業レビュー', path: '/sales/review', keywords: 'review funnel ファネル 失注', module: 'sales' },
-  { id: 'open-keep-report', kind: 'open', label: '報告資料', path: '/sales/keep-report', keywords: 'houkoku keep 報告 資料', module: 'sales' },
+  { id: 'open-review', kind: 'open', label: 'ふりかえり（今週）', path: '/review', keywords: 'furikaeri review 週次 ふりかえり', module: 'sales' },
+  { id: 'open-sales-review', kind: 'open', label: 'ふりかえり（営業レビュー）', path: '/review?tab=sales', keywords: 'review funnel ファネル 失注', module: 'sales' },
+  { id: 'open-keep-report', kind: 'open', label: 'ふりかえり（隔週キープの資料）', path: '/review?tab=keep', keywords: 'houkoku keep 報告 資料', module: 'sales' },
+  { id: 'open-monthly-pl', kind: 'open', label: 'ふりかえり（月次の損益）', path: '/review?tab=pl', keywords: 'pl 損益 月次 目標', module: 'sales' },
   { id: 'open-ai-activity', kind: 'open', label: 'AI がやったこと', path: '/sales/ai-activity', keywords: 'ai 履歴 activity', module: 'sales' },
   { id: 'open-sales-dashboard', kind: 'open', label: '全社ダッシュボード', path: '/sales/dashboard', keywords: 'dashboard kpi ダッシュボード', module: 'sales' },
   { id: 'open-weekly', kind: 'open', label: 'ウィークリー活動報告', path: '/daily/weekly', keywords: 'weekly 週報 活動報告', module: 'dailyops' },
@@ -100,7 +105,7 @@ const OPEN_COMMANDS: CommandDef[] = [
   { id: 'open-awards', kind: 'open', label: 'リアルタイムCG', path: '/awards', keywords: 'cg awards テロップ ランキング', module: 'awards' },
 
   // 設定
-  { id: 'open-users', kind: 'open', label: 'ユーザー管理', path: '/settings/users', keywords: 'user 権限 メンバー 招待', adminOnly: true },
+  { id: 'open-users', kind: 'open', label: '人と権限', path: '/settings/users', keywords: 'user 権限 メンバー 招待 やくわり 役割', adminOnly: true },
   { id: 'open-data-viewer', kind: 'open', label: 'データビューア', path: '/settings/data-viewer', keywords: 'data viewer テーブル', adminOnly: true },
   { id: 'open-db-backups', kind: 'open', label: 'DBバックアップ', path: '/settings/db-backups', keywords: 'backup 復元 db', adminOnly: true },
   { id: 'open-system-settings', kind: 'open', label: 'システム設定', path: '/settings/system', keywords: 'system 設定', adminOnly: true },

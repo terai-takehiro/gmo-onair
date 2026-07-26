@@ -54,7 +54,8 @@ const currentMonth = now.getMonth() + 1;
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
-export default function SalesReviewPage() {
+/** `embedded` のときは見出しを出さない (ふりかえり `/review` に埋める用。見出しが二重になる) */
+export default function SalesReviewPage({ embedded = false }: { embedded?: boolean } = {}) {
   const qc = useQueryClient();
   const [year, setYear] = useState(currentYear);
   const [month, setMonth] = useState<number | undefined>(undefined);
@@ -159,8 +160,8 @@ export default function SalesReviewPage() {
 
   return (
     <PageTransition>
-    <div className="space-y-5 p-4 sm:space-y-6 sm:p-6">
-      <DashboardHeader
+    <div className={embedded ? "space-y-5" : "space-y-5 p-4 sm:space-y-6 sm:p-6"}>
+      {!embedded && <DashboardHeader
         title="営業レビュー"
         description="ファネル分析・失注分析・営業評価を横断で確認します。"
         period={`${year}年${month ? ` ${month}月` : ' 通年'}`}
@@ -188,7 +189,7 @@ export default function SalesReviewPage() {
             </Select>
           </div>
         }
-      />
+      />}
 
       <Tabs defaultValue="funnel" className="space-y-4">
         <TabsList className="flex-wrap h-auto gap-1">

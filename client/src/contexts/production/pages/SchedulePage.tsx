@@ -41,6 +41,7 @@ import IcsFeedsDialog from "../components/schedule/IcsFeedsDialog";
 import {
   loadCalState, saveCalState, clampView,
   SCHEDULE_TYPE_COLORS, SCHEDULE_TYPE_LABELS, toExclusiveEnd,
+  BOOKING_TYPE_COLORS, BOOKING_TYPE_LABELS,
   type PartnerSchedule, type PersonalEvent,
 } from "../components/schedule/scheduleShared";
 import { EmptyState } from "@gmo-onair/shared/src/client/states";
@@ -204,9 +205,9 @@ export default function SchedulePage() {
     const api = calendarRef.current?.getApi?.();
     if (!api) return;
     const currentView = api.view.type;
-    if (isMobile && currentView === "dayGridMonth") {
-      api.changeView("listMonth");
-    } else if (!isMobile && (currentView === "listWeek" || currentView === "listMonth")) {
+    if (isMobile && (currentView === "dayGridMonth" || currentView === "timeGridWeek" || currentView === "timeGridDay")) {
+      api.changeView("listNext7");
+    } else if (!isMobile && (currentView === "listWeek" || currentView === "listMonth" || currentView === "listNext7")) {
       api.changeView("dayGridMonth");
     }
   }, [isMobile]);
@@ -214,10 +215,15 @@ export default function SchedulePage() {
   // カレンダー間 (統合/スタジオ/パートナー/マイ) で表示中の月・ビューを共有し、
   // 切り替え時にリセットされないようにする
   const calState = useRef(loadCalState()).current;
+  /**
+   * スマホは**格子を出さず今日からの並び**にする (§4.19 / デザイン 19c)。
+   * 375px の月格子は1マスが 50px 程度で、予定名が読めず押し間違える。
+   * `listNext7` は「今日から7日」の一覧 (時刻順)。月で見たいときだけ月の一覧に切り替える。
+   */
   const allowedViews = isMobile
-    ? ["listMonth", "timeGridDay"]
+    ? ["listNext7", "listMonth"]
     : ["dayGridMonth", "timeGridWeek", "timeGridDay", "listWeek"];
-  const initialView = clampView(calState.view, allowedViews, isMobile ? "listMonth" : "dayGridMonth");
+  const initialView = clampView(calState.view, allowedViews, isMobile ? "listNext7" : "dayGridMonth");
 
   // Track current FullCalendar view to prevent resets
   const [currentView, setCurrentView] = useState<string>(initialView);
@@ -419,11 +425,14 @@ export default function SchedulePage() {
       // Strip leading GLS number (e.g. "GLS-A005 番組名" → "番組名")
       const displayTitle = b.title.replace(/^GLS[-A-Z0-9]*\s+/i, "").trim() || b.title;
 
-      if (b.rooms.length > 0) {
+      // rooms はサーバーが必ず配列で返すが、無い形が来てもページ全体を落とさない
+      // (下の upcomingDays は既に `?? []` で守っている。片方だけ無防備だった)
+      const bRooms = b.rooms ?? [];
+      if (bRooms.length > 0) {
         // 月間ビュー: 案件単位で1イベントにまとめる
         const filteredRooms = selectedRoomIds.size > 0
-          ? b.rooms.filter((r) => selectedRoomIds.has(r.room_id))
-          : b.rooms;
+          ? bRooms.filter((r) => selectedRoomIds.has(r.room_id))
+          : bRooms;
         if (filteredRooms.length === 0) continue;
 
         const color = useTypeColor ? typeColor : filteredRooms[0].room_color;
@@ -948,7 +957,7 @@ export default function SchedulePage() {
                       const typeLabel = bookingTypeLabels[b.booking_type] || b.booking_type;
                       const tentative = b.status === 'tentative';
                       const displayTitle = b.title.replace(/^GLS[-A-Z0-9]*\s+/i, '').trim() || b.title;
-                      const roomChain = b.rooms.length > 0 ? buildRoomChain(b.rooms as any) : (b.location_note || '');
+                      const roomChain = (b.rooms ?? []).length > 0 ? buildRoomChain((b.rooms ?? []) as any) : (b.location_note || '');
                       return (
                         <button
                           key={b.id}
@@ -1067,6 +1076,26 @@ export default function SchedulePage() {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           )}
+          {/* スマホの注意書きと色の凡例 (§4.19) — 格子ではなく並びで見せるので、色の意味を添える */}
+          {isMobile && (
+            <div className="mb-2 space-y-1.5 lg:hidden">
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                今日からの予定を時刻順に並べています。月で見るときは右上の「月」を押してください。
+              </p>
+              <div className="flex flex-wrap gap-x-3 gap-y-1">
+                {(["performance", "rehearsal", "hold", "setup", "maintenance"] as const).map((k) => (
+                  <span key={k} className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ background: BOOKING_TYPE_COLORS[k] }}
+                      aria-hidden
+                    />
+                    {BOOKING_TYPE_LABELS[k]}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="studio-calendar">
             <FullCalendar
               ref={calendarRef}
@@ -1074,10 +1103,14 @@ export default function SchedulePage() {
               initialView={initialView}
               initialDate={calState.dateStr}
               locale="ja"
+              views={{
+                // 「今日から7日」の一覧。FullCalendar に既定では無いので足す
+                listNext7: { type: "list", duration: { days: 7 }, buttonText: "これから" },
+              }}
               headerToolbar={isMobile ? {
                 left: "prev,next",
                 center: "title",
-                right: "listMonth,timeGridDay",
+                right: "listNext7,listMonth",
               } : {
                 left: "prev,next today",
                 center: "title",
@@ -1090,7 +1123,12 @@ export default function SchedulePage() {
                 month: "月",
                 week: "週",
                 day: "日",
-                list: "一覧",
+                // 総称の `list` は list 系すべてに効いてしまう。
+                // 入れると listNext7 と listMonth が**どちらも「一覧」**になり、
+                // スマホの右上に同じラベルのボタンが2つ並んで区別が付かない。
+                listNext7: "これから",
+                listMonth: "月",
+                listWeek: "一覧",
               }}
               noEventsText="この期間に予定はありません"
               buttonIcons={false}

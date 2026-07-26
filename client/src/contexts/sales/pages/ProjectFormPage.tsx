@@ -6,6 +6,7 @@ import api from "@/lib/api";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { relativeTime } from "@/lib/aiFeed";
 import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
+import ProjectToolsCard from "@/contexts/shared/components/ProjectToolsCard";
 import { PageTransition } from "@/components/ui/motion";
 import { humanizeError } from "@gmo-onair/shared/src/client/states";
 import { Button } from "@/components/ui/button";
@@ -789,6 +790,8 @@ export default function ProjectFormPage() {
 
   // 未保存の項目数 (明示保存の目印)
   const dirtyCount = Object.keys(dirtyFields ?? {}).length;
+  // スマホでは入力フォームを畳む (§4.19)。xl 以上では常に開いている扱い
+  const [formOpen, setFormOpen] = useState(false);
 
   if (isEdit && projectLoading) {
     return (
@@ -1117,6 +1120,9 @@ export default function ProjectFormPage() {
       )}
 
 
+        {/* 現場の道具 — 案件から開くと、この案件の記録として残る (§4.14) */}
+        {isEdit && id && <ProjectToolsCard projectId={id} projectName={watch("name") || project?.name} />}
+
         {/* お金 — 見積 → 売上 → 仕入。数字は税抜 */}
       {/* 財務サマリー */}
       {isEdit && project && (Number(project.total_revenue) > 0 || Number(project.total_purchase) > 0) && (
@@ -1205,7 +1211,32 @@ export default function ProjectFormPage() {
           </Button>
         )}
 
-      <form id="project-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      {/*
+        スマホでは「案件の中身」(入力フォーム) を既定で畳む (§4.19 / デザイン 19b)。
+        スマホで見るのは 状態 → 3値 → 今すべきこと → やり取り で、長い入力フォームは
+        その下に積むと延々スクロールすることになる。
+        **unmount ではなく CSS で隠す** — ヘッダーの「保存」は form="project-form" で
+        この form を submit するので、外すと畳んだ状態で保存が黙って効かなくなる。
+      */}
+      <button
+        type="button"
+        onClick={() => setFormOpen((v) => !v)}
+        aria-expanded={formOpen}
+        className="flex w-full items-center justify-between rounded-control border border-border bg-card px-3 py-2.5 text-sm font-bold text-foreground xl:hidden"
+      >
+        案件の中身を{formOpen ? "閉じる" : "開いて直す"}
+        {dirtyCount > 0 && (
+          <span className="rounded-full bg-warning-surface px-2 py-0.5 text-[11px] font-bold text-warning-strong">
+            未保存 {dirtyCount}件
+          </span>
+        )}
+      </button>
+
+      <form
+        id="project-form"
+        onSubmit={handleSubmit(onSubmit)}
+        className={cn("space-y-4", formOpen ? "" : "hidden xl:block")}
+      >
         {/* 基本情報 (常に表示) */}
         <Card>
           <CardHeader className="pb-3"><CardTitle className="flex flex-wrap items-baseline gap-2 text-base">案件の中身<span className="text-[12px] font-normal text-muted-foreground">直したら右上の「保存」を押してください</span></CardTitle></CardHeader>

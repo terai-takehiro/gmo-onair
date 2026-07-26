@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import api from "@/lib/api";
-import { useAuth, MODULE_LABELS, ACCESS_LEVEL_LABELS, ACCESS_LEVEL_DESCRIPTIONS } from "@/contexts/platform/AuthContext";
+import { useAuth } from "@/contexts/platform/AuthContext";
 import { formatDate } from "@/lib/format";
 import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Loader2, ShieldAlert, KeyRound, Copy, CheckCircle2, Info, Wrench } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, ShieldAlert, KeyRound, Copy, CheckCircle2, Wrench } from "lucide-react";
 
 const roleLabelMap: Record<string, string> = {
   system_admin: "システム管理者",
@@ -30,27 +31,6 @@ const roleColorMap: Record<string, string> = {
   system_admin: "#dc2626",
   staff: "#005bac",
 };
-
-// アクセスレベルの色（3段階）
-const LEVEL_COLORS: Record<string, string> = {
-  reader:  "bg-sky-100 text-sky-800",
-  editor:  "bg-violet-100 text-violet-800",
-  manager: "bg-amber-100 text-amber-800",
-  none:    "bg-muted text-muted-foreground",
-};
-
-// DB に残る旧レベルを新レベルに正規化（表示・保存用）
-const normalizeLevel = (level: string | undefined): string | undefined => {
-  if (!level) return level;
-  if (level === "exporter") return "reader";
-  if (level === "owner") return "manager";
-  return level;
-};
-
-// 権限ダイアログで表示するモジュール（順序付き）
-const PERM_MODULES = [
-  "sales", "budget", "studio", "partner_schedule", "equipment", "qsheet", "techsheet", "liveops", "awards", "dailyops",
-];
 
 interface User {
   id: string;
@@ -68,204 +48,13 @@ interface UserForm {
   role: string;
 }
 
-/* ---------- Permission Dialog ---------- */
-function PermissionDialog({
-  user,
-  open,
-  onOpenChange,
-}: {
-  user: User | null;
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-}) {
-  const [localPerms, setLocalPerms] = useState<Record<string, string>>({});
-  const [showHelp, setShowHelp] = useState(false);
-
-  const isTargetAdmin = user?.role === "system_admin";
-
-  const { data: permsData, isLoading } = useQuery<{ module: string; access_level: string }[]>({
-    queryKey: ["user-permissions", user?.id],
-    queryFn: async () => (await api.get(`/users/${user!.id}/permissions`)).data.data,
-    enabled: open && !!user && !isTargetAdmin,
-  });
-
-  // open または permsData が変わるたびに localPerms を再初期化
-  // ※ 依存配列に両方入れることでキャッシュ済みデータ(同一参照)でも正しく動作する
-  useEffect(() => {
-    if (!open) {
-      setLocalPerms({});
-      setShowHelp(false);
-      return;
-    }
-    if (permsData) {
-      const map: Record<string, string> = {};
-      for (const p of permsData) {
-        const normalized = normalizeLevel(p.access_level);
-        if (normalized) map[p.module] = normalized;
-      }
-      setLocalPerms(map);
-    }
-  }, [open, permsData]);
-
-  const qc = useQueryClient();
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      const permissions: Record<string, string | null> = {};
-      for (const mod of PERM_MODULES) {
-        permissions[mod] = localPerms[mod] || null;
-      }
-      await api.put(`/users/${user!.id}/permissions`, { permissions });
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["user-permissions", user?.id] });
-      onOpenChange(false);
-    },
-  });
-
-  const setModuleLevel = (mod: string, level: string) => {
-    setLocalPerms((prev) => {
-      const next = { ...prev };
-      if (level === "none") delete next[mod];
-      else next[mod] = level;
-      return next;
-    });
-  };
-
-  const accessCount = PERM_MODULES.filter(m => localPerms[m]).length;
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            権限設定
-            <span className="text-muted-foreground font-normal">— {user?.name}</span>
-          </DialogTitle>
-          <DialogDescription>
-            各アプリへのアクセス権限を設定します
-          </DialogDescription>
-        </DialogHeader>
-
-        {isTargetAdmin ? (
-          <div className="space-y-3">
-            <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-sm text-primary">
-              システム管理者はすべてのアプリにフルアクセスできます
-            </div>
-            <div className="space-y-1.5">
-              {PERM_MODULES.map((mod) => (
-                <div key={mod} className="flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-muted/40">
-                  <span className="text-sm font-medium">{MODULE_LABELS[mod]}</span>
-                  <Badge className="bg-primary/10 text-primary text-xs">フルアクセス</Badge>
-                </div>
-              ))}
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>閉じる</Button>
-            </DialogFooter>
-          </div>
-        ) : isLoading ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {/* サマリー */}
-            <div className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2">
-              <span className="text-sm text-muted-foreground">
-                {accessCount} / {PERM_MODULES.length} アプリにアクセス可
-              </span>
-              <button
-                type="button"
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                onClick={() => setShowHelp((v) => !v)}
-              >
-                <Info className="h-3.5 w-3.5" />
-                レベル説明
-              </button>
-            </div>
-
-            {/* レベル説明（展開可） */}
-            {showHelp && (
-              <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5 text-xs">
-                <p className="font-semibold text-xs text-muted-foreground mb-2">アクセスレベルの説明</p>
-                {Object.entries(ACCESS_LEVEL_LABELS).map(([level, label]) => (
-                  <div key={level} className="flex items-baseline gap-2">
-                    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0 ${LEVEL_COLORS[level]}`}>
-                      {label}
-                    </span>
-                    <span className="text-muted-foreground">{ACCESS_LEVEL_DESCRIPTIONS[level]}</span>
-                  </div>
-                ))}
-                <div className="flex items-baseline gap-2">
-                  <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0 ${LEVEL_COLORS.none}`}>
-                    アクセスなし
-                  </span>
-                  <span className="text-muted-foreground">このアプリを使用できません</span>
-                </div>
-              </div>
-            )}
-
-            {/* モジュール別設定 */}
-            <div className="space-y-1">
-              {PERM_MODULES.map((mod) => {
-                const level = localPerms[mod] || "none";
-                return (
-                  <div key={mod} className="flex items-center gap-3 py-1.5 px-1 rounded-md hover:bg-muted/40">
-                    <span className="text-sm font-medium flex-1 min-w-0 truncate">
-                      {MODULE_LABELS[mod]}
-                    </span>
-                    <span className={`hidden sm:inline-block text-xs px-2 py-0.5 rounded shrink-0 ${LEVEL_COLORS[level]}`}>
-                      {level === "none" ? "なし" : ACCESS_LEVEL_LABELS[level]}
-                    </span>
-                    <Select value={level} onValueChange={(v) => setModuleLevel(mod, v)}>
-                      {/* トリガーは 1 行の短いラベルのみ表示 (説明はドロップダウン内に表示)。
-                          SelectValue だと選択項目の2行レイアウトがそのまま出て枠からはみ出すため、算出ラベルを直接描画する。 */}
-                      <SelectTrigger className="w-32 sm:w-40 h-9 text-xs shrink-0">
-                        <span className="truncate">
-                          {level === "none" ? "アクセスなし" : ACCESS_LEVEL_LABELS[level]}
-                        </span>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">
-                          <span className="text-muted-foreground">アクセスなし</span>
-                        </SelectItem>
-                        {Object.entries(ACCESS_LEVEL_LABELS).map(([lv, lbl]) => (
-                          <SelectItem key={lv} value={lv}>
-                            <span className="flex items-baseline gap-2 whitespace-nowrap">
-                              <span className="font-medium">{lbl}</span>
-                              <span className="text-[10px] text-muted-foreground">{ACCESS_LEVEL_DESCRIPTIONS[lv]}</span>
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                );
-              })}
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
-              <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-                {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                保存
-              </Button>
-            </DialogFooter>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 /* ---------- Main Page ---------- */
 export default function UserListPage() {
+  const navigate = useNavigate();
   const { currentUser } = useAuth();
   const qc = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [permUser, setPermUser] = useState<User | null>(null);
-  const [permDialogOpen, setPermDialogOpen] = useState(false);
   const [repairResult, setRepairResult] = useState<null | { staffCount: number; permissionsInserted: number; rolesFixed: {role:string;c:number}[] }>(null);
   const [repairDialogOpen, setRepairDialogOpen] = useState(false);
 
@@ -384,7 +173,7 @@ export default function UserListPage() {
                         )}
                       </div>
                       <div className="flex gap-1 shrink-0">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setPermUser(u); setPermDialogOpen(true); }} title="権限設定">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/settings/users/${u.id}`)} title="この人にできること">
                           <KeyRound className="h-4 w-4" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(u)}>
@@ -434,7 +223,7 @@ export default function UserListPage() {
                       <TableCell>{formatDate(u.created_at)}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setPermUser(u); setPermDialogOpen(true); }} title="権限設定"><KeyRound className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/settings/users/${u.id}`)} title="この人にできること"><KeyRound className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(u)}><Pencil className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(u.id)}><Trash2 className="h-4 w-4" /></Button>
                         </div>
@@ -506,7 +295,7 @@ export default function UserListPage() {
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1.5">
                     スタッフは<strong>アプリ権限ゼロの状態で招待</strong>され、
-                    招待承諾後に管理者が🔑権限設定から必要なアプリを付与します
+                    招待承諾後に管理者が🔑「この人にできること」から役割を当てます
                   </p>
                 </div>
                 <DialogFooter>
@@ -522,7 +311,6 @@ export default function UserListPage() {
         </DialogContent>
       </Dialog>
 
-      <PermissionDialog user={permUser} open={permDialogOpen} onOpenChange={setPermDialogOpen} />
 
       {/* 権限修復 結果ダイアログ */}
       <Dialog open={repairDialogOpen} onOpenChange={setRepairDialogOpen}>

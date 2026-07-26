@@ -28,7 +28,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   Loader2, AlertCircle, RefreshCw, ExternalLink, Receipt, ShoppingCart, DollarSign,
-  Printer, LayoutGrid, Columns3, Upload,
+  Printer, LayoutGrid, Columns3, Upload, CalendarCheck,
 } from "lucide-react";
 
 interface MonthlySummary {
@@ -257,6 +257,11 @@ export default function FinancePage() {
       <Button variant="outline" size="sm" className="gap-1" onClick={() => navigate("/finance/import")}>
         <Upload className="h-4 w-4" aria-hidden="true" />
         取り込む
+      </Button>
+      {/* ふりかえりはレールに出さないので、ここから行けるようにしておく (§4.18) */}
+      <Button variant="outline" size="sm" className="gap-1" onClick={() => navigate("/review")}>
+        <CalendarCheck className="h-4 w-4" aria-hidden="true" />
+        ふりかえり
       </Button>
       <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} aria-label="データ更新">
         {isFetching ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1 h-4 w-4" />}

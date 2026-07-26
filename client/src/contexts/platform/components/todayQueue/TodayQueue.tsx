@@ -178,7 +178,9 @@ export function TodayQueue({ emptySlot }: TodayQueueProps) {
 
   const items = useMemo(() => data?.items ?? [], [data]);
   const checklist = data?.checklist ?? [];
-  const editable = !!data?.dailyops.editable;
+  // `data?.dailyops.editable` だと data はあるが dailyops が無い形で**「今日」が丸ごと白くなる**。
+  // ここは全員が最初に開く画面なので、1つ欠けただけで落ちる書き方にしない
+  const editable = !!data?.dailyops?.editable;
   const aiIds = items.filter((i) => i.kind === "ai_project").map((i) => str(i.meta.id));
 
   if (error && !data) {

@@ -304,9 +304,9 @@ function QueueZeroSuggestions({
     });
   }
   suggestions.push({
-    title: "週次報告を書く",
-    sub: "今週の動きを1枚にまとめておくと、来週の判断が早くなります。",
-    to: "/sales/keep-report",
+    title: "今週をふりかえる",
+    sub: "期限を守れた割合と動いた量を見ておくと、来週の判断が早くなります。",
+    to: "/review",
   });
 
   return (

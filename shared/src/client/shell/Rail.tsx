@@ -7,6 +7,7 @@
 // アプリ内遷移にしたい場合は renderLink で NavLink を注入する。
 
 import type { ReactNode } from 'react';
+import { Search } from 'lucide-react';
 import { cn } from '../utils';
 import { activeRailKey, type RailItem } from './railItems';
 
@@ -38,6 +39,8 @@ export interface RailProps {
   renderLink?: RailLinkRenderer;
   /** 遷移時に呼ぶ (モバイルの二次ナビを閉じる等) */
   onNavigate?: () => void;
+  /** スマホの下タブ「さがす」を押したとき (⌘K を開く)。渡さなければタブを出さない */
+  onSearch?: () => void;
 }
 
 function Badge({ count }: { count: number }) {
@@ -52,12 +55,16 @@ function Badge({ count }: { count: number }) {
   );
 }
 
-export default function Rail({ items, currentPath, badges, renderLink, onNavigate }: RailProps) {
+export default function Rail({ items, currentPath, badges, renderLink, onNavigate, onSearch }: RailProps) {
   const link = renderLink ?? defaultRenderLink;
   const activeKey = activeRailKey(currentPath, items);
 
   const top = items.filter((i) => i.position !== 'bottom');
   const bottom = items.filter((i) => i.position === 'bottom');
+  // 下タブに出す項目。RAIL_ITEMS は 4 つに mobile を立てているので通常はそちらが使われる。
+  // items を自前で組んだ呼び出し側 (mobile 指定なし) では従来どおり全項目を出す。
+  const flagged = items.filter((i) => i.mobile);
+  const mobileItems = flagged.length > 0 ? flagged : [...top, ...bottom];
 
   const renderItem = (item: RailItem, layout: 'column' | 'bar') => {
     const isActive = item.key === activeKey;
@@ -115,13 +122,35 @@ export default function Rail({ items, currentPath, badges, renderLink, onNavigat
         )}
       </nav>
 
-      {/* スマホ — 下端のタブバー */}
+      {/*
+        スマホ — 下端のタブバー (§4.19 / デザイン 19a)。
+        7項目を 375px に並べると 1つ 53px でラベルが潰れるので、**現場で使う4つ + さがす**に絞る。
+        絞った分 (お客様・お金・設定) は さがす から辿れる (⌘K は全メニューを持っている)。
+      */}
       <nav
-        aria-label="メインナビゲーション"
+        aria-label="下タブ"
         className="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-card lg:hidden"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-        {[...top, ...bottom].map((i) => renderItem(i, 'bar'))}
+        {mobileItems.map((i) => renderItem(i, 'bar'))}
+        {onSearch && (
+          <div className="flex flex-1 justify-center">
+            <button
+              type="button"
+              onClick={onSearch}
+              className={cn(
+                'group relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-control px-1 py-1.5',
+                'min-h-[52px] text-[12px] font-bold leading-none text-secondary-foreground transition-colors',
+                'hover:bg-secondary hover:text-foreground',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+              )}
+              aria-label="さがす"
+            >
+              <Search className="h-5 w-5 shrink-0" aria-hidden="true" />
+              <span className="whitespace-nowrap">さがす</span>
+            </button>
+          </div>
+        )}
       </nav>
     </>
   );

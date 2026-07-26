@@ -59,8 +59,8 @@ const GROUPS: SettingGroup[] = [
     adminOnly: true,
     links: [
       {
-        label: "ユーザー管理",
-        description: "メンバーの追加と、誰がどこまで見えるかの設定。",
+        label: "人と権限",
+        description: "メンバーの追加と、役割テンプレートで「この人にできること」を当てる。",
         to: "/settings/users",
         adminOnly: true,
       },
@@ -122,7 +122,7 @@ const GROUPS: SettingGroup[] = [
     links: [
       {
         label: "Qシート",
-        description: "マイクCh・LED/XRシーン・立ち位置図のひな形は各シートの中で編集する。",
+        description: "マイクCh・LED/XRシーン・立ち位置図のひな形は**その台本のための設定**なので、各シートの中で編集する（全社共通のマスターにはしていない）。",
         to: "/qsheet",
         external: true,
         module: "qsheet",
@@ -137,6 +137,12 @@ const GROUPS: SettingGroup[] = [
         label: "AI がやったこと",
         description: "AI が作ったり直したりした記録。誰の指示だったかも残る。",
         to: "/sales/ai-activity",
+        module: "sales",
+      },
+      {
+        label: "現場の道具",
+        description: "翻訳・インタラクティブ・CG。単発で作ったものを案件に紐づける。",
+        to: "/tools",
         module: "sales",
       },
     ],

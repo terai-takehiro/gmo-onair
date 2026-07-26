@@ -146,6 +146,8 @@ export default function AppShell({
           badges={railBadges}
           renderLink={renderLink}
           onNavigate={() => setNavOpen(false)}
+          // スマホの下タブ「さがす」= ⌘K。下タブに出さない項目 (お客様・お金・設定) はここから辿る
+          onSearch={commandPalette ? () => setPaletteOpen(true) : undefined}
         />
 
         {secondaryNav && (

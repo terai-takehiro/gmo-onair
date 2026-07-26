@@ -313,6 +313,11 @@ export function TaskIntakeBox() {
 
         <p className="mt-1.5 text-[12px] text-muted-foreground">
           期限は<span className="font-bold text-foreground">何月何日何時何分まで</span>で書くと、そのまま登録できます。
+          {/*
+            スマホは声で入れられる (§4.19)。独自の音声入力は作らない —
+            端末のキーボードにある音声入力がそのまま使え、精度も端末側の方が良い。
+          */}
+          <span className="sm:hidden">キーボードの音声入力（マイク）でそのまま話しても入ります。</span>
         </p>
 
         <div className="mt-2 flex flex-wrap items-center gap-2">
