@@ -6,6 +6,7 @@ import vendorsRoutes from './routes/vendors.routes';
 import partnersRoutes from './routes/partners.routes';
 import xpointRoutes from './routes/xpoint.routes';
 import billingRoutes from './routes/billing.routes';
+import jointEventsRoutes from './routes/joint-events.routes';
 import { createFinanceExcelRouter } from './routes/excel.routes';
 import { getMonthlySummary } from './services/monthly-summary.service';
 import { requireAuth, requirePermission } from '../../shared/middleware/auth';
@@ -33,6 +34,8 @@ export function createFinanceRoutes(): Router {
   router.use('/xpoint', xpointRoutes);
   // 請求のしごと (31章 31a): 請求書を出す / 入金の確認 / 検収書を出す
   router.use('/billing', billingRoutes);
+  // 合同案件 (32章 40a/40b): 1回のイベントを複数社で開き、参加社数ぶんの請求書を出す
+  router.use('/joint-events', jointEventsRoutes);
   router.use(createFinanceExcelRouter()); // /revenues/excel/*, /purchases/excel/*, /sga-expenses/excel/*
 
   return router;

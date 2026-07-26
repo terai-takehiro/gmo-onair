@@ -53,6 +53,7 @@ import VendorListPage from "@/contexts/finance/pages/VendorListPage";
 import PartnerListPage from "@/contexts/finance/pages/PartnerListPage";
 import BudgetDetailPage from "@/contexts/finance/pages/BudgetDetailPage";
 import BillingWorkPage from "@/contexts/finance/pages/BillingWorkPage";
+import JointEventsPage, { JointEventDetailPage } from "@/contexts/finance/pages/JointEventsPage";
 
 // 機材管理は client-equipment/ が /equipment 配下で配信 (案件管理アプリ側では扱わない)
 import SettingsPage from "@/contexts/platform/pages/SettingsPage";
@@ -128,6 +129,9 @@ function AppRoutes() {
         <Route path="/finance/import" element={<PermissionRoute module="budget"><FinanceImportRoute /></PermissionRoute>} />
         {/* 請求のしごと (31章 31a): 請求書を出す / 入金の確認 / 検収書を出す */}
         <Route path="/finance/billing" element={<PermissionRoute module="budget"><BillingWorkPage /></PermissionRoute>} />
+        {/* 合同案件 (32章): 1回のイベントを複数社で開き、参加社数ぶんの請求書を出す */}
+        <Route path="/finance/joint" element={<PermissionRoute module="budget"><JointEventsPage /></PermissionRoute>} />
+        <Route path="/finance/joint/:id" element={<PermissionRoute module="budget"><JointEventDetailPage /></PermissionRoute>} />
 
         {/* 設定。入口 + 個別画面 (旧 /admin/* の新しい住所) */}
         <Route path="/settings" element={<SettingsHubPage />} />
