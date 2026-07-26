@@ -11,6 +11,7 @@ import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
+import StageAskDialog from "@/contexts/sales/components/StageAskDialog";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { ProjectStageColors, ProjectStageLabels, type ProjectStage } from "@/types";
 import { PageTransition } from "@/components/ui/motion";
@@ -178,6 +179,22 @@ export default function ProjectsPage() {
       qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
+
+  // 進んだ段で聞く (14章 27c)。ボードで動かしたときに足りない項目があれば
+  // その場で1〜2問だけ聞く。無ければそのまま動かす (押すだけの段で1手増やさない)。
+  const [ask, setAsk] = useState<{ id: string; stage: ProjectStage } | null>(null);
+  const moveStage = async (id: string, stage: ProjectStage) => {
+    try {
+      const res = await api.get(`/projects/${id}/stage-ask`, { params: { to: stage } });
+      if ((res.data?.data?.missing ?? []).length > 0) {
+        setAsk({ id, stage });
+        return;
+      }
+    } catch {
+      // 聞く項目が取れなくても動かせるようにする (サーバー側で必須は止まる)
+    }
+    stageMutation.mutate({ id, stage });
+  };
 
   const setView = (v: ViewMode) => {
     const next = new URLSearchParams(sp);
@@ -379,7 +396,7 @@ export default function ProjectsPage() {
           <BoardView
             rows={rows}
             onOpen={(id) => navigate(`/sales/projects/${id}`)}
-            onMove={(id, stage) => stageMutation.mutate({ id, stage })}
+            onMove={(id, stage) => { void moveStage(id, stage); }}
             moving={stageMutation.isPending}
           />
         ) : (
@@ -430,6 +447,20 @@ export default function ProjectsPage() {
           </>
         )}
       </div>
+
+      {/* 進んだ段で聞く (14章 27c)。足りない項目があるときだけ出る */}
+      {ask && (
+        <StageAskDialog
+          projectId={ask.id}
+          toStage={ask.stage}
+          open
+          onClose={() => setAsk(null)}
+          onDone={() => {
+            qc.invalidateQueries({ queryKey: ["projects"] });
+            qc.invalidateQueries({ queryKey: ["dashboard"] });
+          }}
+        />
+      )}
     </PageTransition>
   );
 }

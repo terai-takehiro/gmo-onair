@@ -30,6 +30,7 @@ import DbBackupsPage from "@/contexts/platform/pages/DbBackupsPage";
 import DashboardPage from "@/contexts/platform/pages/DashboardPage";
 import GlsImportProjectsPage from "@/contexts/sales/pages/GlsImportProjectsPage";
 import ProjectFormPage from "@/contexts/sales/pages/ProjectFormPage";
+import ProjectIntakePage from "@/contexts/sales/pages/ProjectIntakePage";
 import CustomerListPage from "@/contexts/sales/pages/CustomerListPage";
 import CustomerDetailPage from "@/contexts/sales/pages/CustomerDetailPage";
 import CompanyListPage from "@/contexts/sales/pages/CompanyListPage";
@@ -149,7 +150,8 @@ function AppRoutes() {
         {/* ===== 営業管理 (sales) — 新URLに無いものはこのまま。⌘K から到達する ===== */}
         <Route path="/sales/dashboard" element={<PermissionRoute module="sales"><DashboardPage /></PermissionRoute>} />
         <Route path="/sales/gls-import" element={<PermissionRoute module="sales"><GlsImportProjectsPage /></PermissionRoute>} />
-        <Route path="/sales/projects/new" element={<PermissionRoute module="sales"><ProjectFormPage /></PermissionRoute>} />
+        {/* 起票は3項目だけ (14章 27b)。22項目のフォームは編集のときだけ使う */}
+        <Route path="/sales/projects/new" element={<PermissionRoute module="sales"><ProjectIntakePage /></PermissionRoute>} />
         <Route path="/sales/projects/:id" element={<PermissionRoute module="sales"><ProjectFormPage /></PermissionRoute>} />
         <Route path="/sales/projects/:projectId/episodes" element={<PermissionRoute module="sales"><EpisodeListPage /></PermissionRoute>} />
         <Route path="/sales/projects/:projectId/estimates" element={<PermissionRoute module="sales"><EstimatePage /></PermissionRoute>} />

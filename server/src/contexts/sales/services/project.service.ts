@@ -393,9 +393,17 @@ export class ProjectService {
     const { name, customer_id, expected_amount, assigned_to, project_type, notes, customer_type,
             box_url_internal, box_url_external, application_form, logo_permission,
             event_start, event_end, dates, gls_category } = data;
-    if (!name || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名と顧客は必須です');
-    const glsCategory = normalizeGlsCategory(gls_category);
-    if (!glsCategory) throw new AppError(400, 'VALIDATION_ERROR', '案件分類（スタジオ / ビジネス）を選択してください');
+    if (!name || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名とお客様は必須です');
+
+    // 14章 27b: 起票で聞くのは3つだけ (案件名 / お客様 / スタジオを使うか)。
+    // 案件分類は「スタジオを使うか」から決まるので**人には聞かない**
+    // (同じことを2度聞くと、片方だけ直された案件ができる)。
+    // 既存の画面と MCP は gls_category を直接渡してくるので、そちらも受ける。
+    const glsCategory = normalizeGlsCategory(gls_category)
+      ?? (data.uses_studio === undefined ? null : (data.uses_studio ? 'A' : 'B'));
+    if (!glsCategory) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'スタジオを使うかどうかを選んでください');
+    }
 
     const id = uuidv4();
     const code = await generateSequenceNumber('opp_code', 'OPP');

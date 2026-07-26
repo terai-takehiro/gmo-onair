@@ -6,6 +6,10 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { config } from '../../../config';
+import {
+  getStageAsk, assertStageRequirements, applyStageAnswers, attachHoldRooms,
+  STAGE_ASKS, INTAKE_FIELDS,
+} from '../services/stage-ask.service';
 
 const router = Router();
 
@@ -134,10 +138,43 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
   res.json({ success: true, data: result });
 });
 
+// 進んだ段で聞くこと (14章 27c)。画面はこれを読んで「その瞬間に聞く1〜2問」を出す。
+// 定義はサーバー1か所 (stage-ask.service) にあるので、画面とずれない。
+router.get('/:id/stage-ask', async (req, res) => {
+  const to = String(req.query.to ?? '');
+  res.json({ success: true, data: await getStageAsk(String(req.params.id), to) });
+});
+
+// 聞く項目そのもの (案件に依らない一覧)。27a の仕分けを画面に出すのに使う。
+router.get('/stage-asks/all', async (_req, res) => {
+  res.json({ success: true, data: { asks: STAGE_ASKS, intake: INTAKE_FIELDS } });
+});
+
 // ステージ変更
 router.patch('/:id/stage', requirePermission('sales', 'editor'), async (req, res) => {
   const { stage, ...rest } = req.body;
-  const result = await projectService.changeStage(req.params.id as string, stage, rest, req.user!.id);
+  const id = String(req.params.id);
+
+  // 必須が揃っていなければ止める。**画面だけの制限は必ず抜ける**ので
+  // ここでも同じ定義で確かめる (何が足りないかは日本語の名前で返る)。
+  await assertStageRequirements(id, stage, rest);
+
+  // 聞いた答えを先に書く。書いてから動かせば changeStage の自動処理
+  // (仮押さえ予約の作成など) が入った値を見られる。
+  await applyStageAnswers(id, stage, rest, req.user!.id);
+
+  const result = await projectService.changeStage(id, stage, rest, req.user!.id);
+
+  // 仮押さえの部屋を予約に紐づける (予約が出来てから)。
+  // 失敗してもステージ変更は成立させる — 部屋の紐づけのために操作を止めない。
+  if (Array.isArray(rest.room_ids) && rest.room_ids.length > 0) {
+    try {
+      await attachHoldRooms(id, rest.room_ids.map(String), req.user!.id);
+    } catch (e) {
+      console.warn('[stage] 部屋の紐づけに失敗 (ステージ変更は成立):', (e as Error).message);
+    }
+  }
+
   res.json({ success: true, data: result });
 });
 

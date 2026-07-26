@@ -1414,12 +1414,8 @@ export default function ProjectFormPage() {
                 </Select>
               </div>
             </div>
-            {projectType === "other" && (
-              <div>
-                <Label>案件種類(その他)</Label>
-                <Input {...register("project_type_other")} placeholder="案件種類を入力" />
-              </div>
-            )}
+            {/* 案件種類(その他) は 14章 27a の「やめる」。同じ意味の言葉が増えるだけで、
+                検索も集計も使っていなかった。既存データは残るが新しくは入れない。 */}
 
             {/* 案件分類 (GLS-A / GLS-B) — 登録時必須。発番後は採番し直しダイアログ経由 */}
             <div>
@@ -2037,16 +2033,8 @@ export default function ProjectFormPage() {
         )}
 
         {/* タグ */}
-        <Card>
-          <CardHeader className="pb-3"><CardTitle className="text-base">タグ</CardTitle></CardHeader>
-          <CardContent>
-            <div>
-              <Label>タグ (カンマ区切り)</Label>
-              <Input {...register("tags")} placeholder="例: 定期案件,重要顧客" />
-              <p className="mt-1 text-xs text-muted-foreground">複数のタグをカンマ区切りで入力できます</p>
-            </div>
-          </CardContent>
-        </Card>
+        {/* タグは 14章 27a の「やめる」。入れる手間だけがかかっていて検索に使われていない。
+            サーバー側の絞り込み (?tag=) と MCP の一括更新は残してあるので既存データは読める。 */}
 
         <div className="flex flex-wrap items-center justify-end gap-2">
           {saveSuccess && (

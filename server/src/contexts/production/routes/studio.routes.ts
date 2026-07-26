@@ -303,8 +303,25 @@ router.post('/rooms/feeds/regenerate-token', requireAuth, requireRole('system_ad
 // 以下、認証必須のAPI
 // ============================================================
 
-// Apply auth + permission middleware to all routes below
-router.use(requireAuth, requirePermission('studio'));
+// 以降のルートは認証 + studio 権限。
+//
+// ただし**案件フォームは営業が開く**のに、その中の「使用する部屋・空間」と
+// 「登録済みの予約」がこの2本を読んでいた。営業は studio 権限を持たないのが普通なので、
+// 部屋も予約も**黙って空になっていた** (画面はエラーも出さないので、
+// 「この案件には部屋が登録されていない」と読めてしまう)。
+// v2.9.277 のベルと同じ形なので、同じ直し方にする:
+// **既定は studio 必須のまま**、営業も要る読み取りだけを通す。
+// こうすると新しく足したルートは何もしなくても守られる (付け忘れても緩くならない)。
+const SALES_MAY_READ = new Set(['/locations', '/bookings']);
+router.use(requireAuth, (req, res, next) => {
+  if (req.method === 'GET' && SALES_MAY_READ.has(req.path)) {
+    // どちらかを持っていれば読める。studio を先に見る (本来の持ち主)
+    const level = req.user?.permissions?.studio ?? req.user?.permissions?.sales;
+    if (req.user?.role === 'system_admin' || level) return next();
+    return requirePermission('sales')(req, res, next);
+  }
+  return requirePermission('studio')(req, res, next);
+});
 
 // ============================================================
 // Studio Locations & Rooms
