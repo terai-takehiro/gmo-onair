@@ -22,6 +22,7 @@ import {
   Columns3,
   X,
 } from "lucide-react";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 // ============================================================
 // Types (shared with EditorPage / OnAirPage)
@@ -342,8 +343,8 @@ export default function RundownPage() {
   const sendPrev = useCallback(() => { socketRef.current?.emit("cue:prev"); setCurrentCue((p) => Math.max(p - 1, 0)); }, []);
   const sendPlay = useCallback(() => { socketRef.current?.emit("cue:play"); setIsPlaying(true); }, []);
   const sendPause = useCallback(() => { socketRef.current?.emit("cue:pause"); setIsPlaying(false); }, []);
-  const sendReset = useCallback(() => {
-    if (!window.confirm("計時をリセットしますか？ (経過時間と実尺の記録がクリアされます)")) return;
+  const sendReset = useCallback(async () => {
+    if (!(await confirmAction({ title: "計時をリセットしますか？", description: "(経過時間と実尺の記録がクリアされます)", confirmLabel: 'リセットする', tone: 'danger' }))) return;
     socketRef.current?.emit("cue:reset");
     setIsPlaying(false); setCurrentCue(0); setElapsed(0); resetCueTiming();
   }, [resetCueTiming]);

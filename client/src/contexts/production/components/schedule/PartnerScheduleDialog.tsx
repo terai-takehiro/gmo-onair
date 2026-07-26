@@ -11,6 +11,7 @@ import { Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { SCHEDULE_TYPE_LABELS, SCHEDULE_TYPE_COLORS, type PartnerSchedule } from "./scheduleShared";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface Props {
   open: boolean;
@@ -216,7 +217,7 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
               type="button"
               variant="outline"
               className="text-destructive border-destructive/40 hover:bg-destructive/10 sm:mr-auto"
-              onClick={() => { if (confirm("この予定を削除しますか？")) deleteMutation.mutate(); }}
+              onClick={async () => { if ((await confirmAction({ title: "この予定を削除しますか？", confirmLabel: '削除する', tone: 'danger' }))) deleteMutation.mutate(); }}
               disabled={deleteMutation.isPending}
             >
               {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}

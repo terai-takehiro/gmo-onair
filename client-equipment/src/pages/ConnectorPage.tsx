@@ -23,6 +23,7 @@ import {
 import { useRef } from "react";
 import ConsumableExcelImportDialog from "@/components/ConsumableExcelImportDialog";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 const COL_DEFS = [
   { key: "kind",              label: "種別",     default: true },
@@ -291,8 +292,8 @@ export default function ConnectorPage({ embedded }: { embedded?: boolean } = {})
     setDialogOpen(true);
   };
 
-  const handleDelete = (it: Connector) => {
-    if (!confirm(`「${it.name}」を削除しますか？`)) return;
+  const handleDelete = async (it: Connector) => {
+    if (!(await confirmAction({ title: `「${it.name}」を削除しますか？`, confirmLabel: '削除する', tone: 'danger' }))) return;
     deleteMutation.mutate(it.id);
   };
 

@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Loader2, Trash2, CloudDownload, Users, Check, CloudUpload, UserMinus } from "lucide-react";
 import type { PersonalEvent } from "./scheduleShared";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface Props {
   open: boolean;
@@ -288,9 +289,9 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
               type="button"
               variant="outline"
               className="text-destructive border-destructive/40 hover:bg-destructive/10 sm:mr-auto"
-              onClick={() => {
+              onClick={async () => {
                 const msg = isSharedIn ? "この予定の共有を外しますか？（あなたのカレンダーから消えます）" : "この予定を削除しますか？";
-                if (confirm(msg)) deleteMutation.mutate();
+                if ((await confirmAction({ title: msg }))) deleteMutation.mutate();
               }}
               disabled={deleteMutation.isPending}
             >

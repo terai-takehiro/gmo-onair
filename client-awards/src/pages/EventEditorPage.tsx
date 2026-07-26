@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import ExcelImportDialog from '../oneshot/operator/ExcelImportDialog';
 import SoundConfigSection from '../components/SoundConfigSection';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { notifyError, notifyInfo } from '@/lib/notify';
 
 // ── Types ───────────────────────────────────────────────────
 interface Entry {
@@ -509,10 +511,10 @@ export default function EventEditorPage() {
           }
         }
       }
-      alert(lines.join('\n'));
+      notifyInfo(lines.join('\n'));
       invalidate();
     } catch (err: any) {
-      alert(`画像インポートエラー: ${err?.response?.data?.error?.message ?? err.message}`);
+      notifyError(`画像インポートエラー: ${err?.response?.data?.error?.message ?? err.message}`);
     }
   };
 
@@ -733,15 +735,15 @@ export default function EventEditorPage() {
                     onAddDivision={(awardName) => {
                       addCategory.mutate(awardName);
                     }}
-                    onDeleteCat={(catId) => {
+                    onDeleteCat={async (catId) => {
                       const cat = event.categories.find((c) => c.id === catId);
-                      if (confirm(`「${cat?.description || cat?.name}」を削除しますか？`))
+                      if ((await confirmAction({ title: `「${cat?.description || cat?.name}」を削除しますか？`, confirmLabel: '削除する', tone: 'danger' })))
                         deleteCategory.mutate(catId);
                     }}
                     onUpdateCat={(catId, patch) => updateCategory.mutate({ catId, patch })}
                     onAddEntry={(catId, name) => addEntry.mutate({ catId, name })}
                     onUpdateEntry={(eid, patch) => updateEntry.mutate({ id: eid, patch })}
-                    onDeleteEntry={(eid) => { if (confirm('このエントリを削除しますか？（写真・ポイント・CG表示内容も削除されます）')) deleteEntry.mutate(eid); }}
+                    onDeleteEntry={async (eid) => { if ((await confirmAction({ title: 'このエントリを削除しますか？', description: '（写真・ポイント・CG表示内容も削除されます）', confirmLabel: '削除する', tone: 'danger' }))) deleteEntry.mutate(eid); }}
                     onPhotoUpload={(eid, file) => uploadPhoto.mutate({ eid, file })}
                     onGenerateDummyPoints={(catId) => generateDummyPoints.mutate(catId)}
                   />

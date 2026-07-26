@@ -13,6 +13,7 @@ import { IMPORTANCE_LABELS, formatDateJa, type MiscInquiry, type Importance } fr
 import {
   useInquiries, useCreateInquiry, useUpdateInquiry, useHandleInquiry, useDeleteInquiry, type InquiryInput,
 } from '@/lib/inboxApi';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 const IMP_STYLE: Record<Importance, string> = {
   high: 'border-rose-300 text-rose-700 bg-rose-50',
@@ -93,7 +94,7 @@ function InquiryCard({ q, canEdit, onEdit }: { q: MiscInquiry; canEdit: boolean;
               </Button>
               <div className="flex gap-1">
                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onEdit}><Pencil className="h-3.5 w-3.5" /></Button>
-                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => { if (confirm('この問い合わせを削除しますか？')) del.mutate(q.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={async () => { if ((await confirmAction({ title: 'この問い合わせを削除しますか？', confirmLabel: '削除する', tone: 'danger' }))) del.mutate(q.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
               </div>
             </div>
           )}

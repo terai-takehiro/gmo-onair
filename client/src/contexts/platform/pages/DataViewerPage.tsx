@@ -45,6 +45,7 @@ import {
   Trash2,
   Save,
 } from "lucide-react";
+import { notifyError } from '@/lib/notify';
 
 interface TableInfo {
   name: string;
@@ -427,7 +428,7 @@ export default function DataViewerPage() {
       setEditFormValues({});
     },
     onError: (err: any) => {
-      window.alert(`更新に失敗しました: ${err?.response?.data?.error || err.message}`);
+      notifyError(`更新に失敗しました: ${err?.response?.data?.error || err.message}`);
     },
   });
 
@@ -441,7 +442,7 @@ export default function DataViewerPage() {
       setDeletingRow(null);
     },
     onError: (err: any) => {
-      window.alert(`削除に失敗しました: ${err?.response?.data?.error || err.message}`);
+      notifyError(`削除に失敗しました: ${err?.response?.data?.error || err.message}`);
     },
   });
 
@@ -460,7 +461,7 @@ export default function DataViewerPage() {
     if (!editingRow) return;
     const id = editingRow.id as string;
     if (!id) {
-      window.alert("id が無いため更新できません");
+      notifyError("id が無いため更新できません");
       return;
     }
     // 編集可能なフィールドかつ元と異なるものだけ送信
@@ -483,7 +484,7 @@ export default function DataViewerPage() {
     if (!deletingRow) return;
     const id = deletingRow.id as string;
     if (!id) {
-      window.alert("id が無いため削除できません");
+      notifyError("id が無いため削除できません");
       return;
     }
     deleteMutation.mutate(id);

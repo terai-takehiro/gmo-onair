@@ -16,6 +16,8 @@ import {
   formatDeletedAt,
   describeTrashItem,
 } from "@/lib/trash";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { notifyError } from '@/lib/notify';
 
 interface TrashDrawerProps {
   data: any; // doc.data
@@ -66,7 +68,7 @@ export default function TrashDrawer({ data, onChange, onClose, history = [], onU
           return { ...next, sections };
         }
         // 元セクションが見つからない場合は末尾のセクションに追加（それも無ければ新セクション）
-        alert("元のロールが見つからないため、末尾に新しいロールを作って復元します。");
+        notifyError("元のロールが見つからないため、末尾に新しいロールを作って復元します。");
         sections.push({ id: `restored-${Date.now()}`, label: "復元された行", rows: [item.payload] });
         return { ...next, sections };
       }
@@ -96,7 +98,7 @@ export default function TrashDrawer({ data, onChange, onClose, history = [], onU
             return { ...next, sections };
           }
         }
-        alert("元の行/列が見つからないため、復元できませんでした。");
+        notifyError("元の行/列が見つからないため、復元できませんでした。");
         return d; // 復元せずゴミ箱にも残す
       }
 
@@ -104,13 +106,13 @@ export default function TrashDrawer({ data, onChange, onClose, history = [], onU
     });
   };
 
-  const handlePermanentDelete = (item: TrashItem) => {
-    if (!confirm("このアイテムを完全に削除します。よろしいですか？")) return;
+  const handlePermanentDelete = async (item: TrashItem) => {
+    if (!(await confirmAction({ title: "このアイテムを完全に削除します。よろしいですか？", confirmLabel: '削除する', tone: 'danger' }))) return;
     onChange((d) => removeFromTrash(d, item.id));
   };
 
-  const handleClearAll = () => {
-    if (!confirm(`ゴミ箱の全 ${trash.length} 件を完全に削除します。よろしいですか？`)) return;
+  const handleClearAll = async () => {
+    if (!(await confirmAction({ title: `ゴミ箱の全 ${trash.length} 件を完全に削除します。よろしいですか？`, confirmLabel: '削除する', tone: 'danger' }))) return;
     onChange((d) => clearTrash(d));
   };
 

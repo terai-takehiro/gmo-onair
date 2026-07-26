@@ -23,6 +23,7 @@ import { Delayed, SkeletonRows, ErrorPanel } from "@gmo-onair/shared/src/client/
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useAuth } from "@/contexts/platform/AuthContext";
 import { cn } from "@/lib/utils";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 export interface ToolOutput {
   id: string;
@@ -321,7 +322,7 @@ export default function ToolsPage() {
                 busy={patch.isPending}
                 onLink={(projectId) => patch.mutate({ id: o.id, body: { project_id: projectId } })}
                 onInternal={() => patch.mutate({ id: o.id, body: { is_internal_use: true } })}
-                onDelete={() => { if (confirm(`「${o.title}」を消しますか？`)) remove.mutate(o.id); }}
+                onDelete={async () => { if ((await confirmAction({ title: `「${o.title}」を消しますか？`, confirmLabel: '削除する', tone: 'danger' }))) remove.mutate(o.id); }}
               />
             ))}
           </ul>

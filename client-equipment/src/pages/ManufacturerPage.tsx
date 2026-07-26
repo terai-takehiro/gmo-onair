@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, Plus, Pencil, Trash2, Building2, Phone, Mail, MapPin, User } from "lucide-react";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface Manufacturer {
   id: string;
@@ -76,8 +77,8 @@ export default function ManufacturerPage() {
     crud.save.mutate({ ...form, sort_order: Number(form.sort_order) || 0 });
   };
 
-  const handleDelete = (m: Manufacturer) => {
-    if (!confirm(`「${m.name}」を削除しますか？`)) return;
+  const handleDelete = async (m: Manufacturer) => {
+    if (!(await confirmAction({ title: `「${m.name}」を削除しますか？`, confirmLabel: '削除する', tone: 'danger' }))) return;
     crud.remove.mutate(m.id);
   };
 

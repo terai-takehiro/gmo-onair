@@ -12,6 +12,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { notifyInfo } from '@/lib/notify';
 
 export interface DiscountResult {
   description: string;
@@ -81,7 +82,7 @@ export default function DiscountDialog({
 
   const handleApply = () => {
     if (discountAmount <= 0) {
-      alert("値引き額が0です。率または金額を入力してください。");
+      notifyInfo("値引き額が0です。率または金額を入力してください。");
       return;
     }
     onApply({

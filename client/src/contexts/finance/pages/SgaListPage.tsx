@@ -42,6 +42,7 @@ import SgaDialog, {
   SettlementBadge,
 } from "../components/SgaDialog";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 export default function SgaListPage() {
   const { currentUser } = useAuth();
@@ -196,8 +197,8 @@ export default function SgaListPage() {
     crud.save.mutate(payload);
   };
 
-  const handleDelete = (id: string) => {
-    if (!confirm("この販管費を削除しますか？")) return;
+  const handleDelete = async (id: string) => {
+    if (!(await confirmAction({ title: "この販管費を削除しますか？", confirmLabel: '削除する', tone: 'danger' }))) return;
     crud.remove.mutate(id);
   };
 

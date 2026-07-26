@@ -18,6 +18,7 @@ import TaskDialog from "../TaskDialog";
 import ChecklistItems from "../ChecklistItems";
 import type { ProjectTask } from "@/types";
 import { TaskTypeLabels, ProductionStepLabels } from "@/types";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface Props {
   task: ProjectTask;
@@ -160,7 +161,7 @@ export default function TaskListItem({ task, projectId, episodeId }: Props) {
             size="icon"
             variant="ghost"
             className="h-7 w-7 text-muted-foreground hover:text-destructive"
-            onClick={() => { if (window.confirm(`「${task.title}」を削除しますか？`)) deleteTask.mutate(task.id); }}
+            onClick={async () => { if ((await confirmAction({ title: `「${task.title}」を削除しますか？`, confirmLabel: '削除する', tone: 'danger' }))) deleteTask.mutate(task.id); }}
             aria-label={`${task.title} を削除`}
           >
             <Trash2 className="h-3.5 w-3.5" />

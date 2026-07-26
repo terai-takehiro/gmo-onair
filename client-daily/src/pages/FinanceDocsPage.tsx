@@ -20,6 +20,7 @@ import {
 import {
   useFinanceDocs, useCreateFinanceDoc, useUpdateFinanceDoc, useDeleteFinanceDoc, type FinanceDocInput,
 } from '@/lib/inboxApi';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 const STATUS_STYLE: Record<FinanceDocStatus, string> = {
   new: 'border-blue-300 text-blue-700 bg-blue-50',
@@ -155,7 +156,7 @@ function FinanceCard({ d, canEdit, onEdit }: { d: FinanceDoc; canEdit: boolean; 
             {(d.status === 'processed' || d.status === 'rejected') && <StepBtn onClick={() => setStatus('new')} icon={RotateCcw}>受信に戻す</StepBtn>}
             <div className="ml-auto flex gap-1">
               <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onEdit}><Pencil className="h-3.5 w-3.5" /></Button>
-              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => { if (confirm('この書類を削除しますか？')) del.mutate(d.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={async () => { if ((await confirmAction({ title: 'この書類を削除しますか？', confirmLabel: '削除する', tone: 'danger' }))) del.mutate(d.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
             </div>
           </div>
         )}

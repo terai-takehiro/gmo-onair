@@ -8,6 +8,7 @@ import {
   parseOverridesJson,
   type I18nOverrides,
 } from '../lib/i18nOverrides';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface CategoryRow {
   id: number;
@@ -61,8 +62,8 @@ export default function I18nDictDialog({ open, onClose, categories, onSaved }: P
     onClose();
   };
 
-  const handleReset = () => {
-    if (!confirm('全ての英訳辞書設定を消去しますか？(localStorage 内のみ。DB は影響なし)')) return;
+  const handleReset = async () => {
+    if (!(await confirmAction({ title: '全ての英訳辞書設定を消去しますか？', description: '(localStorage 内のみ。DB は影響なし)', confirmLabel: '削除する', tone: 'danger' }))) return;
     const empty = { awards: {}, divisions: {} };
     saveOverrides(empty);
     setDraft(empty);

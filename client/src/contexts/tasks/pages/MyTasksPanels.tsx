@@ -31,6 +31,7 @@ import {
   formatDue, toLocalInput, fromLocalInput, daysSinceRequested, scoreTone,
   type MyTask, type TaskIntake,
 } from '@/contexts/tasks/lib/tasksApi';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 /** 9 マスの並び。上が重要、左が緊急。位置に意味があるので固定 */
 const CELL_GRID: string[][] = [
@@ -513,7 +514,7 @@ function SentRow({ t, canEdit }: { t: MyTask; canEdit: boolean }) {
                 ))}
               </select>
               <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs text-destructive" disabled={resolve.isPending}
-                onClick={() => { if (confirm('この依頼を取り下げます。よろしいですか？')) resolve.mutate({ id: t.id, action: 'withdraw' }); }}>
+                onClick={async () => { if ((await confirmAction({ title: 'この依頼を取り下げます。よろしいですか？' }))) resolve.mutate({ id: t.id, action: 'withdraw' }); }}>
                 <Trash2 className="h-3.5 w-3.5" />取り下げる
               </Button>
             </div>

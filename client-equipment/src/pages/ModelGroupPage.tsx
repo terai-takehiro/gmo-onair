@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { TYPE_CODES, CONDITION_LABELS } from "@/lib/constants";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 const STATUS_LABELS: Record<string, string> = {
   active: "稼働中", in_repair: "修理中", retired: "休止", disposed: "廃棄", lost: "紛失",
@@ -195,7 +196,7 @@ function CategoryManagerDialog({ open, onClose }: { open: boolean; onClose: () =
                       <button className="p-1 rounded hover:bg-muted text-muted-foreground" onClick={() => { setEditingId(cat.id); setEditingName(cat.name); }} title="名前を変更"><Pencil className="h-3 w-3" /></button>
                       <button
                         className="p-1 rounded hover:bg-muted text-destructive"
-                        onClick={() => { if (confirm(`「${cat.name}」を削除しますか？\n割り当て済みの機材のカテゴリは解除されます。`)) deleteMutation.mutate(cat.id); }}
+                        onClick={async () => { if ((await confirmAction({ title: `「${cat.name}」を削除しますか？`, description: `割り当て済みの機材のカテゴリは解除されます。`, confirmLabel: '削除する', tone: 'danger' }))) deleteMutation.mutate(cat.id); }}
                         title="削除"
                       >
                         <Trash2 className="h-3 w-3" />

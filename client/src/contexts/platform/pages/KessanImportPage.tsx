@@ -6,6 +6,7 @@ import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertTriangle, Database, FlaskConical } from "lucide-react";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface KessanReport {
   dryRun: boolean;
@@ -164,12 +165,12 @@ export default function KessanImportPage({ embedded }: { embedded?: boolean } = 
             </Button>
             <Button
               disabled={run.isPending}
-              onClick={() => {
+              onClick={async () => {
                 const tgt = report?.isProd ? "⚠ 本番DB" : "検証DB";
                 const extra = report?.isProd
                   ? "\n\n【本番DB】に書き込みます。先に「解析(dry-run)」で件数・金額・重複候補を必ず確認してください。"
                   : "";
-                if (window.confirm(`${tgt}に決算データを投入します。よろしいですか？（対象月分は入れ直しになります）${extra}`)) run.mutate(true);
+                if ((await confirmAction({ title: `${tgt}に決算データを投入します。よろしいですか？`, description: `（対象月分は入れ直しになります）${extra}` }))) run.mutate(true);
               }}
             >
               {run.isPending && run.variables ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}

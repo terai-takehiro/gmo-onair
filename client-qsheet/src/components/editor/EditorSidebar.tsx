@@ -26,6 +26,7 @@ import {
   TabsTrigger,
   TabsContent,
 } from "@gmo-onair/shared/src/client/ui";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 // ─── Types ──────────────────────────────────────────────
 interface Block {
@@ -263,8 +264,8 @@ function LedSceneSection({
     next[idx] = { ...next[idx], ...patch };
     onChange(next);
   };
-  const removeScene = (idx: number) => {
-    if (!confirm("このシーンを削除しますか？")) return;
+  const removeScene = async (idx: number) => {
+    if (!(await confirmAction({ title: "このシーンを削除しますか？", confirmLabel: '削除する', tone: 'danger' }))) return;
     const next = [...scenes];
     next.splice(idx, 1);
     onChange(next);
@@ -394,8 +395,8 @@ export function EditorSidebarBody({
     setShowBlockPicker(false);
   };
 
-  const removeBlock = (idx: number) => {
-    if (!confirm("この列を削除しますか？")) return;
+  const removeBlock = async (idx: number) => {
+    if (!(await confirmAction({ title: "この列を削除しますか？", confirmLabel: '削除する', tone: 'danger' }))) return;
     const newBlocks = [...blocks];
     newBlocks.splice(idx, 1);
     onBlocksChange(newBlocks);

@@ -5,6 +5,7 @@ import { queryClient } from './lib/queryClient';
 import App from './App';
 import './index.css';
 import './cg/cg.css';
+import { NoticeBar, ConfirmHost } from '@gmo-onair/shared/src/client/ui';
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -55,6 +56,14 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
+        {/*
+          お知らせ帯と確認ダイアログの出る場所。**アプリに1組だけ、ルート直下**に置く (v2.9.290)。
+          AppShell (ヘッダーとレール) の中ではなくここに置く理由: OnAir・ランダウン・
+          プロンプターなどの**全画面ページは AppShell を通らない**ので、そちらに置くと
+          本番中の画面で確認ダイアログが出せず「停止してリセット」が黙って何もしない。
+        */}
+        <NoticeBar />
+        <ConfirmHost />
         <App />
       </QueryClientProvider>
     </ErrorBoundary>

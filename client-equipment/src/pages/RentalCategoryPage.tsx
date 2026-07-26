@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Plus, Trash2, Pencil, Check, X, ArrowUp, ArrowDown, Tag } from "lucide-react";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface RentalCategory {
   id: string;
@@ -169,8 +170,8 @@ export default function RentalCategoryPage() {
                   </button>
                   <button
                     className="p-1.5 rounded hover:bg-muted text-destructive"
-                    onClick={() => {
-                      if (confirm(`「${cat.name}」を削除しますか？\n割り当て済みの機材のカテゴリは解除されます。`)) {
+                    onClick={async () => {
+                      if ((await confirmAction({ title: `「${cat.name}」を削除しますか？`, description: `割り当て済みの機材のカテゴリは解除されます。`, confirmLabel: '削除する', tone: 'danger' }))) {
                         deleteMutation.mutate(cat.id);
                       }
                     }}

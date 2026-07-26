@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Plus, Palette, Pencil, Trash2 } from "lucide-react";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface Color {
   id: string;
@@ -64,8 +65,8 @@ export default function ColorPage() {
     });
   };
 
-  const handleDelete = (c: Color) => {
-    if (!confirm(`「${c.name}」を削除しますか？`)) return;
+  const handleDelete = async (c: Color) => {
+    if (!(await confirmAction({ title: `「${c.name}」を削除しますか？`, confirmLabel: '削除する', tone: 'danger' }))) return;
     crud.remove.mutate(c.id);
   };
 

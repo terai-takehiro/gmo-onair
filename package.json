@@ -1,6 +1,6 @@
 {
   "name": "gmo-onair",
-  "version": "2.9.289",
+  "version": "2.9.290",
   "private": true,
   "description": "GMO ONAiR - 統合業務管理システム",
   "workspaces": [
@@ -32,7 +32,7 @@
     "verify:up": "bash scripts/dev-verify/up.sh",
     "verify:fresh": "bash scripts/dev-verify/up.sh --fresh",
     "verify:down": "bash scripts/dev-verify/down.sh",
-    "typecheck": "concurrently -m 4 -n client,equipment,qsheet,techsheet,live,awards,daily \"npm run typecheck -w client\" \"npm run typecheck -w client-qsheet\" \"npm run typecheck -w client-equipment\" \"npm run typecheck -w client-techsheet\" \"npm run typecheck -w client-live\" \"npm run typecheck -w client-awards\" \"npm run typecheck -w client-daily\" && npm run typecheck -w server",
+    "typecheck": "concurrently -m 4 -n client,equipment,qsheet,techsheet,live,awards,daily \"npm run typecheck -w client\" \"npm run typecheck -w client-equipment\" \"npm run typecheck -w client-qsheet\" \"npm run typecheck -w client-techsheet\" \"npm run typecheck -w client-live\" \"npm run typecheck -w client-awards\" \"npm run typecheck -w client-daily\" && npm run typecheck -w server",
     "build:nocheck": "npm run build -w shared && concurrently -m 4 -n client,equipment,qsheet,techsheet,live,awards,daily,server \"npm run build -w client\" \"npm run build -w client-equipment\" \"npm run build -w client-qsheet\" \"npm run build -w client-techsheet\" \"npm run build -w client-live\" \"npm run build -w client-awards\" \"npm run build -w client-daily\" \"npm run build -w server\""
   },
   "devDependencies": {

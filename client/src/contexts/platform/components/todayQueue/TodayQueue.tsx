@@ -26,6 +26,7 @@ import {
 import { OverdueDetail } from "./OverdueDetail";
 import { FinanceDocDetail } from "./FinanceDocDetail";
 import { InquiryDetail } from "./InquiryDetail";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 /** 経過時間チップ。4時間で色が変わり、24時間で赤 */
 export function ElapsedChip({ receivedAt, forceRed }: { receivedAt: string | null; forceRed?: boolean }) {
@@ -234,8 +235,8 @@ export function TodayQueue({ emptySlot }: TodayQueueProps) {
               variant="outline"
               className="h-9 gap-1 border-ai-border text-ai"
               disabled={bulkReviewMutation.isPending}
-              onClick={() => {
-                if (confirm(`${aiIds.length} 件を確認済みにします。内容は見ましたか？`)) {
+              onClick={async () => {
+                if ((await confirmAction({ title: `${aiIds.length} 件を確認済みにします。内容は見ましたか？` }))) {
                   bulkReviewMutation.mutate(aiIds);
                 }
               }}

@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Plus, MapPin, Pencil, Trash2, Server, Settings } from "lucide-react";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface Location {
   id: string;
@@ -110,8 +111,8 @@ export default function LocationPage() {
     });
   };
 
-  const handleDelete = (loc: Location) => {
-    if (!confirm(`「${loc.name}」を削除しますか？`)) return;
+  const handleDelete = async (loc: Location) => {
+    if (!(await confirmAction({ title: `「${loc.name}」を削除しますか？`, confirmLabel: '削除する', tone: 'danger' }))) return;
     crud.remove.mutate(loc.id);
   };
 
@@ -407,7 +408,7 @@ function MasterSection({ title, apiPath, queryKey, placeholder }: {
                 <Button
                   variant="ghost" size="icon" className="h-6 w-6 text-destructive"
                   disabled={deleteMutation.isPending}
-                  onClick={() => { if (confirm(`「${item.name}」を削除しますか？`)) deleteMutation.mutate(item.id); }}
+                  onClick={async () => { if ((await confirmAction({ title: `「${item.name}」を削除しますか？`, confirmLabel: '削除する', tone: 'danger' }))) deleteMutation.mutate(item.id); }}
                 >
                   <Trash2 className="h-3 w-3" />
                 </Button>

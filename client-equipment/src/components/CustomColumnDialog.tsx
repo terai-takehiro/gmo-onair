@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Plus, Pencil, Trash2, Check, X, Users, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 export interface CustomColumn {
   id: string;
@@ -110,8 +111,8 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
                 onEdit={() => startEdit(col)}
                 onSave={() => updateMutation.mutate({ id: col.id, data: editForm })}
                 onCancel={() => setEditingId(null)}
-                onDelete={() => {
-                  if (confirm(`列「${col.name}」とその全データを削除します。よろしいですか？`)) {
+                onDelete={async () => {
+                  if ((await confirmAction({ title: `列「${col.name}」とその全データを削除します。よろしいですか？`, confirmLabel: '削除する', tone: 'danger' }))) {
                     deleteMutation.mutate(col.id);
                   }
                 }}
@@ -139,8 +140,8 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
                 onEdit={() => startEdit(col)}
                 onSave={() => updateMutation.mutate({ id: col.id, data: editForm })}
                 onCancel={() => setEditingId(null)}
-                onDelete={() => {
-                  if (confirm(`列「${col.name}」とその全データを削除します。よろしいですか？`)) {
+                onDelete={async () => {
+                  if ((await confirmAction({ title: `列「${col.name}」とその全データを削除します。よろしいですか？`, confirmLabel: '削除する', tone: 'danger' }))) {
                     deleteMutation.mutate(col.id);
                   }
                 }}

@@ -20,6 +20,7 @@ import {
 import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { Search, Loader2, Pencil, Database, X, AlertTriangle } from "lucide-react";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface Row {
   id: string;
@@ -395,8 +396,8 @@ export default function GlsImportProjectsPage() {
               <Button variant="outline" onClick={() => setDialogOpen(false)}>キャンセル</Button>
               <Button
                 disabled={!anyFieldEnabled || bulk.isPending}
-                onClick={() => {
-                  if (window.confirm(`選択中の ${selected.size} 件にチェックした項目を一括適用します。よろしいですか？`)) bulk.mutate();
+                onClick={async () => {
+                  if ((await confirmAction({ title: `選択中の ${selected.size} 件にチェックした項目を一括適用します。よろしいですか？` }))) bulk.mutate();
                 }}
               >
                 {bulk.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}

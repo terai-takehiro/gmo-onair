@@ -20,6 +20,7 @@ import { genId } from "@/lib/stableIds";
 import CueRow from "./CueRow";
 import CueCardList from "./CueCardList";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 // ─── Types ──────────────────────────────────────────────
 interface Block {
@@ -235,8 +236,8 @@ function CueTableLg({
     });
   }, [updateState]);
 
-  const deleteSection = useCallback((si: number) => {
-    if (!confirm("このロールを削除しますか？（ゴミ箱から復元可能です）")) return;
+  const deleteSection = useCallback(async (si: number) => {
+    if (!(await confirmAction({ title: "このロールを削除しますか？", description: "（ゴミ箱から復元可能です）", confirmLabel: '削除する', tone: 'danger' }))) return;
     updateState((s: any) => {
       const section = s.sections[si];
       if (!section) return s;

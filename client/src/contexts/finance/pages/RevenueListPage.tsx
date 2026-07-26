@@ -49,6 +49,8 @@ import { Loader2, Plus, Trash2, Download, ExternalLink, Link2, Percent } from "l
 import PricingItemPicker, { type PickedPricingItem } from "../components/PricingItemPicker";
 import DiscountDialog, { type DiscountResult } from "../components/DiscountDialog";
 import ProjectQuickLinks from "@/contexts/shared/components/ProjectQuickLinks";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { notifyError } from '@/lib/notify';
 
 type SortKey = "billing_key" | "gls_number" | "project_name" | "customer_name" | "tax_category" | "amount" | "recognition_date";
 type SortDir = "asc" | "desc";
@@ -360,9 +362,9 @@ export default function RevenueListPage() {
     },
   });
 
-  const handleDeleteRevenue = () => {
+  const handleDeleteRevenue = async () => {
     if (!existingRevenueId) return;
-    if (!window.confirm("この売上を削除しますか？この操作は元に戻せません。")) return;
+    if (!(await confirmAction({ title: "この売上を削除しますか？", description: "この操作は元に戻せません。", confirmLabel: '削除する', tone: 'danger' }))) return;
     deleteMutation.mutate(existingRevenueId);
   };
 
@@ -527,7 +529,7 @@ export default function RevenueListPage() {
     setItems((prev) => {
       const item = prev[idx];
       if (!item || (item.amount || 0) <= 0) {
-        alert("値引きの対象となる金額が0円以下です");
+        notifyError("値引きの対象となる金額が0円以下です");
         return prev;
       }
       setDiscountDialog({
@@ -549,7 +551,7 @@ export default function RevenueListPage() {
         0
       );
       if (positiveSubtotal <= 0) {
-        alert("値引きの対象となる小計が0円以下です");
+        notifyError("値引きの対象となる小計が0円以下です");
         return prev;
       }
       setDiscountDialog({

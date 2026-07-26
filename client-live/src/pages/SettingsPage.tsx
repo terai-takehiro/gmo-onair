@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, CheckCircle, Download, Upload, ShieldOff, PlugZap, Loader2, XCircle, AlertTriangle, HelpCircle } from 'lucide-react';
+import { notifySuccess } from '@/lib/notify';
 
 type TestPlatform = 'youtube' | 'jstream' | 'zoom' | 'teams';
 interface TestResult { status: 'ok' | 'error' | 'unconfigured' | 'untested'; message: string; latencyMs: number; detail?: string }
@@ -163,7 +164,7 @@ export default function SettingsPage() {
           }).catch(() => {});
         }
       }
-      alert('インポートが完了しました');
+      notifySuccess('インポートが完了しました');
     };
     input.click();
   };

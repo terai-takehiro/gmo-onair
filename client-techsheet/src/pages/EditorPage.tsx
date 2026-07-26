@@ -18,6 +18,7 @@ import {
   Monitor,
   Radio,
 } from "lucide-react";
+import { notifyError } from '@/lib/notify';
 
 // ============================================================
 // Types
@@ -209,7 +210,7 @@ export default function EditorPage() {
       }
       const msg = err?.response?.data?.error?.message || err?.message || "保存に失敗しました";
       console.error("[techsheet] save error:", msg);
-      alert(`保存エラー: ${msg}`);
+      notifyError(`保存エラー: ${msg}`);
     },
   });
 

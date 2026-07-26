@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Search, Edit2, Trash2, Clock, AlertCircle, Sparkles } from "lucide-react";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 // v2.9.178+: AI 起票 (MCP 経由のメール取込等) バッジ
 function AiCreatedBadge({ requestedBy }: { requestedBy?: string | null }) {
@@ -437,8 +438,8 @@ export default function ActivityLogPage() {
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(log)}>
                               <Edit2 className="h-3.5 w-3.5" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => {
-                              if (confirm("削除しますか？")) deleteMutation.mutate(log.id);
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={async () => {
+                              if ((await confirmAction({ title: "削除しますか？", confirmLabel: '削除する', tone: 'danger' }))) deleteMutation.mutate(log.id);
                             }}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -545,7 +546,7 @@ export default function ActivityLogPage() {
               <Button
                 variant="ghost"
                 className="text-destructive hover:text-destructive sm:mr-auto"
-                onClick={() => { if (confirm("この活動記録を削除しますか？")) deleteMutation.mutate(editingId); }}
+                onClick={async () => { if ((await confirmAction({ title: "この活動記録を削除しますか？", confirmLabel: '削除する', tone: 'danger' }))) deleteMutation.mutate(editingId); }}
                 disabled={deleteMutation.isPending}
               >
                 <Trash2 className="h-4 w-4 mr-1" />削除

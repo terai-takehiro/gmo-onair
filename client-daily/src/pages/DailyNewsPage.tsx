@@ -12,6 +12,7 @@ import {
 } from '@/lib/reportsApi';
 import { usePermissions } from '@/hooks/usePermissions';
 import { NEWS_CATEGORIES, formatDateJa, toDateStr, addDays, type OpsReportItem } from '@/lib/types';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 export default function DailyNewsPage() {
   const [date, setDate] = useState(() => toDateStr(new Date()));
@@ -252,8 +253,8 @@ function NewsRow({ item, canEdit, layout }: { item: OpsReportItem; canEdit: bool
   const setPick = (pick: number | null) => {
     updateItem.mutate({ itemId: item.id, fields: { pick } });
   };
-  const remove = () => {
-    if (!window.confirm('このニュースを削除しますか？')) return;
+  const remove = async () => {
+    if (!(await confirmAction({ title: 'このニュースを削除しますか？', confirmLabel: '削除する', tone: 'danger' }))) return;
     deleteItem.mutate(item.id);
   };
   const saveEdit = async (fields: NewsFields) => {

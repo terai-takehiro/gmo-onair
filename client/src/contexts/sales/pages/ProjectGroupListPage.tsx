@@ -46,6 +46,7 @@ import {
   FileText,
 } from "lucide-react";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface GroupSummary {
   id: string;
@@ -520,8 +521,8 @@ export default function ProjectGroupListPage() {
                   <Button variant="outline" size="sm" onClick={openEditGroup}>
                     <Pencil className="h-4 w-4 mr-1" />編集
                   </Button>
-                  <Button variant="destructive" size="sm" onClick={() => {
-                    if (confirm("このグループを削除しますか？")) deleteGroupMutation.mutate(detail.id);
+                  <Button variant="destructive" size="sm" onClick={async () => {
+                    if ((await confirmAction({ title: "このグループを削除しますか？", confirmLabel: '削除する', tone: 'danger' }))) deleteGroupMutation.mutate(detail.id);
                   }}>
                     <Trash2 className="h-4 w-4 mr-1" />削除
                   </Button>
@@ -596,8 +597,8 @@ export default function ProjectGroupListPage() {
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditRevenue(rev)}>
                                 <Pencil className="h-3.5 w-3.5" />
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => {
-                                if (confirm("この売上を削除しますか？")) deleteRevenueMutation.mutate(rev.id);
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={async () => {
+                                if ((await confirmAction({ title: "この売上を削除しますか？", confirmLabel: '削除する', tone: 'danger' }))) deleteRevenueMutation.mutate(rev.id);
                               }}>
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
@@ -679,8 +680,8 @@ export default function ProjectGroupListPage() {
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditPurchase(pu)}>
                                 <Pencil className="h-3.5 w-3.5" />
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => {
-                                if (confirm("この仕入を削除しますか？")) deletePurchaseMutation.mutate(pu.id);
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={async () => {
+                                if ((await confirmAction({ title: "この仕入を削除しますか？", confirmLabel: '削除する', tone: 'danger' }))) deletePurchaseMutation.mutate(pu.id);
                               }}>
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>

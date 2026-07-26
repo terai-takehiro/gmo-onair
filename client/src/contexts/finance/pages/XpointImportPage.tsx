@@ -34,6 +34,7 @@ import {
   RotateCcw, SkipForward, ScanSearch, Check, Upload, CloudUpload, PenLine,
 } from "lucide-react";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { notifyError } from '@/lib/notify';
 
 // ---- サーバーの解析結果に対応する型 (表示に使う分のみ) ----
 interface XpointParsed {
@@ -247,7 +248,7 @@ export default function XpointImportPage({ embedded }: { embedded?: boolean } = 
       scan.mutate(); // 一覧のステータスを更新
     },
     onError: (err: any) => {
-      alert(`PDF の解析に失敗しました: ${err?.response?.data?.error?.message || err.message}`);
+      notifyError(`PDF の解析に失敗しました: ${err?.response?.data?.error?.message || err.message}`);
       scan.mutate();
     },
   });
@@ -660,7 +661,7 @@ function XpointReviewDialog({
       });
     },
     onError: (err: any) => {
-      alert(`登録に失敗しました: ${err?.response?.data?.error?.message || err.message}`);
+      notifyError(`登録に失敗しました: ${err?.response?.data?.error?.message || err.message}`);
     },
   });
 

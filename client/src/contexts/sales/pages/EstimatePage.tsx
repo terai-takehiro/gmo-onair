@@ -30,6 +30,7 @@ import {
   ChevronRight, ChevronLeft, Printer, Sparkles, Plus, Trash2, Loader2, Check, Send,
   History, BookOpen, CalendarClock, Receipt, AlertTriangle,
 } from "lucide-react";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 /** 明細のグループ。3つに固定する (増やすと並び順が読めなくなる) */
 const GROUPS = ["スタジオ", "技術・人員", "制作・その他"] as const;
@@ -390,8 +391,8 @@ export default function EstimatePage() {
                   variant="outline"
                   size="sm"
                   className="h-8 border-ai-border text-ai hover:bg-ai-surface"
-                  onClick={() => {
-                    if (hasRows && !window.confirm("いまの明細を AI の下書きで置き換えます。よろしいですか？")) return;
+                  onClick={async () => {
+                    if (hasRows && !(await confirmAction({ title: "いまの明細を AI の下書きで置き換えます。よろしいですか？" }))) return;
                     draftMutation.mutate();
                   }}
                   disabled={busy}

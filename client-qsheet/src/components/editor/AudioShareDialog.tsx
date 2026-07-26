@@ -20,6 +20,7 @@ import {
   DialogDescription,
 } from "@gmo-onair/shared/src/client/ui";
 import { Copy, Check, ExternalLink, Loader2, Radio, List, MonitorPlay, Mic, Lock, Globe } from "lucide-react";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface Props {
   open: boolean;
@@ -219,8 +220,8 @@ export default function AudioShareDialog({ open, onOpenChange, docId, audioRevok
                 </p>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (window.confirm("音声サポートの配布URLを止めます。今このURLを開いている人は次の読み込みで見られなくなります。よろしいですか？")) {
+                  onClick={async () => {
+                    if ((await confirmAction({ title: "音声サポートの配布URLを止めます。今このURLを開いている人は次の読み込みで見られなくなります。よろしいですか？", tone: 'danger' }))) {
                       revokeMutation.mutate(true);
                     }
                   }}

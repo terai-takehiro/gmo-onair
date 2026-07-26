@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, QrCode, ExternalLink, Trash2, ChevronRight } from 'lucide-react';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface TimerData { id: string; name: string; phase: string }
 
@@ -134,7 +135,7 @@ export default function TimerAdminPage() {
                   <Button
                     variant="ghost" size="sm"
                     className="ml-auto text-destructive hover:text-destructive"
-                    onClick={() => { if (confirm('削除しますか？')) deleteMutation.mutate(selectedId); }}
+                    onClick={async () => { if ((await confirmAction({ title: '削除しますか？', confirmLabel: '削除する', tone: 'danger' }))) deleteMutation.mutate(selectedId); }}
                   >
                     <Trash2 className="h-4 w-4 mr-1" />削除
                   </Button>

@@ -67,6 +67,16 @@ const RULES = [
     extra: (line) => /text-(2xl|3xl|4xl|5xl)/.test(line),
   },
   {
+    id: 'browser-dialog',
+    // ブラウザ標準の alert() / confirm()。`.alert(` のようなメソッド呼び出しは除く
+    re: /(?<![\w.$])(?:window\.)?(alert|confirm)\s*\(/,
+    why: '`alert()` / `confirm()` は使いません。'
+       + '知らせるときは `notifyError()` / `notifySuccess()`（お知らせ帯）、'
+       + '確認するときは `await confirmAction({ title, description, tone })` を使います'
+       + '（ブラウザ標準のダイアログはデザインの外側に出て、押すまで他の操作ができず、'
+       + '何が一緒に起きるかを書けません。v2.9.290 で 129 か所を置き換えました）',
+  },
+  {
     id: 'page-title-by-hand',
     // `lg:` と `sm:` の両方の変種を止める。**同じページに2つの段が出ていた**
     // (`/finance/import` は枠が `text-xl sm:text-2xl`、中身が `text-xl lg:text-2xl` だった)

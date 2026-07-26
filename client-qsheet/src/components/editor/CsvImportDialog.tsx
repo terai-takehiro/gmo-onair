@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { X, Upload, FileText, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { parseCsv, mapCsvColumns, buildSectionsFromCsv, type CsvColumnMap, type CsvImportResult } from "@/lib/csvImport";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface CsvImportDialogProps {
   blocks: { id: string; type: string; label: string }[];
@@ -50,9 +51,9 @@ export default function CsvImportDialog({ blocks, onImport, onClose }: CsvImport
     }
   };
 
-  const handleExecute = () => {
+  const handleExecute = async () => {
     if (!result) return;
-    if (mode === "replace" && !confirm("現在のロール・行をすべて置き換えます。よろしいですか？\n（置き換え前の内容は元に戻せません。必要なら先に CSV を書き出してください）")) return;
+    if (mode === "replace" && !(await confirmAction({ title: "現在のロール・行をすべて置き換えます。よろしいですか？", description: "（置き換え前の内容は元に戻せません。必要なら先に CSV を書き出してください）", tone: 'danger' }))) return;
     onImport(result, mode);
     onClose();
   };

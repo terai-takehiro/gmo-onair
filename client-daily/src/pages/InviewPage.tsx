@@ -18,6 +18,8 @@ import {
   useInviewList, useCreateInview, useUpdateInview, useCheckInInview, useDeleteInview,
   usePromoteInview, type InviewInput,
 } from '@/lib/inviewApi';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { notifyError, notifySuccess } from '@/lib/notify';
 
 // セッション (回) キー
 function sessionKey(r: InviewRegistration): string {
@@ -418,17 +420,17 @@ function AttendeeCard({ r, canEdit, onEdit }: { r: InviewRegistration; canEdit: 
                   variant="outline"
                   className="h-8 gap-1 border-blue-300 text-xs text-blue-700 hover:bg-blue-50"
                   disabled={promote.isPending}
-                  onClick={() => {
-                    if (!confirm(`${r.company || r.name} を案件化しますか？\n顧客・ヨミ案件・来場の活動記録を作成します。`)) return;
+                  onClick={async () => {
+                    if (!(await confirmAction({ title: `${r.company || r.name} を案件化しますか？`, description: `顧客・ヨミ案件・来場の活動記録を作成します。` }))) return;
                     promote.mutate({ id: r.id }, {
                       onSuccess: (res) => {
-                        alert(res.customer_created
+                        notifySuccess(res.customer_created
                           ? '案件化しました（新規顧客も作成）。案件管理アプリでヨミ案件を確認できます。'
                           : '案件化しました。案件管理アプリでヨミ案件を確認できます。');
                       },
                       onError: (e: unknown) => {
                         const msg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
-                        alert(`案件化に失敗しました: ${msg || '不明なエラー'}`);
+                        notifyError(`案件化に失敗しました: ${msg || '不明なエラー'}`);
                       },
                     });
                   }}
@@ -440,7 +442,7 @@ function AttendeeCard({ r, canEdit, onEdit }: { r: InviewRegistration; canEdit: 
               <div className="flex gap-1">
                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onEdit} aria-label="編集"><Pencil className="h-3.5 w-3.5" /></Button>
                 <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" aria-label="削除"
-                  onClick={() => { if (confirm(`${r.name} さんの来場予約を削除しますか？`)) del.mutate(r.id); }}>
+                  onClick={async () => { if ((await confirmAction({ title: `${r.name} さんの来場予約を削除しますか？`, confirmLabel: '削除する', tone: 'danger' }))) del.mutate(r.id); }}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>

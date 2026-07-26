@@ -12,6 +12,8 @@ import {
 import { Loader2, Plus, ClipboardCheck, Check, X, HelpCircle, Save, Undo2, MapPin, RefreshCw, Trash2 } from "lucide-react";
 import { INVENTORY_STATUS, statusOf } from "@gmo-onair/shared/src/constants/statuses";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { notifySuccess } from '@/lib/notify';
 
 type CheckItem = {
   id: string;
@@ -83,7 +85,7 @@ export default function InventoryPage() {
     onSuccess: (res: any) => {
       qc.invalidateQueries({ queryKey: ["inventory-check", selectedCheck] });
       const added = res?.data?.data?.added ?? 0;
-      if (added > 0) alert(`${added}件の機材を追加しました`);
+      if (added > 0) notifySuccess(`${added}件の機材を追加しました`);
     },
   });
 
@@ -170,7 +172,7 @@ export default function InventoryPage() {
               size="sm" variant="outline"
               className="text-destructive border-destructive/30 hover:bg-destructive/10"
               disabled={deleteMutation.isPending}
-              onClick={() => { if (confirm(`「${detail.title}」を削除しますか？\n※この操作は取り消せません`)) deleteMutation.mutate(detail.id); }}
+              onClick={async () => { if ((await confirmAction({ title: `「${detail.title}」を削除しますか？`, description: `※この操作は取り消せません`, confirmLabel: '削除する', tone: 'danger' }))) deleteMutation.mutate(detail.id); }}
             >
               {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 mr-1" />}
               削除
@@ -301,7 +303,7 @@ export default function InventoryPage() {
                       size="icon" variant="ghost"
                       className="h-7 w-7 text-muted-foreground hover:text-destructive"
                       disabled={deleteMutation.isPending}
-                      onClick={(e) => { e.stopPropagation(); if (confirm(`「${c.title}」を削除しますか？`)) deleteMutation.mutate(c.id); }}
+                      onClick={async (e) => { e.stopPropagation(); if ((await confirmAction({ title: `「${c.title}」を削除しますか？`, confirmLabel: '削除する', tone: 'danger' }))) deleteMutation.mutate(c.id); }}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>

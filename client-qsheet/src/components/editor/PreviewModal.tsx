@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef } from "react";
 import { X, Download, Printer } from "lucide-react";
 import { parseDur as parseDurShared, fmtAbs as fmtAbsShared, fmtMinSec as fmtMinSecShared } from "@/lib/time";
+import { notifyWarning } from '@/lib/notify';
 
 // ─── Constants ──────────────────────────────────────────
 const SPEAKER_COLORS = ["#1e3a5f", "#0f766e", "#7e22ce", "#be185d", "#b45309", "#15803d", "#1d4ed8", "#9f1239", "#4338ca", "#a16207"];
@@ -228,7 +229,7 @@ export default function PreviewModal({ state, onClose, docUpdatedAt, docCreatedA
   const handlePDF = () => {
     if (!pageRef.current) return;
     const printWindow = window.open("", "_blank");
-    if (!printWindow) { alert("ポップアップがブロックされました。許可してください。"); return; }
+    if (!printWindow) { notifyWarning("PDF を開けませんでした", { description: "ブラウザがポップアップをブロックしています。このサイトのポップアップを許可してから、もう一度お試しください。" }); return; }
     const sizes: Record<string, [string, string]> = {
       A4P: ["210mm", "297mm"],
       A4L: ["297mm", "210mm"],

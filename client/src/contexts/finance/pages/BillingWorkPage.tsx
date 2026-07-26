@@ -25,6 +25,7 @@ import { useAuth } from "@/contexts/platform/AuthContext";
 import {
   Receipt, Wallet, ClipboardCheck, Loader2, AlertTriangle, RefreshCw, Repeat, Printer,
 } from "lucide-react";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface BillRow {
   id: string;
@@ -386,8 +387,8 @@ export default function BillingWorkPage() {
                       <Button
                         variant="ghost" size="sm" className="h-9 text-muted-foreground"
                         title="発行を取り消します（請求書の番号は残ります）"
-                        onClick={() => {
-                          if (!window.confirm("この請求の「出した」記録を取り消します。請求書の番号は残ります。よろしいですか？")) return;
+                        onClick={async () => {
+                          if (!(await confirmAction({ title: "この請求の「出した」記録を取り消します。請求書の番号は残ります。よろしいですか？", confirmLabel: '削除する', tone: 'danger' }))) return;
                           unissueMutation.mutate(r.id);
                         }}
                         disabled={unissueMutation.isPending}

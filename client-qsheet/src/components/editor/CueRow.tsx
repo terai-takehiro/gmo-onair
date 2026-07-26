@@ -4,6 +4,7 @@ import api from "@/lib/api";
 import StageDiagramCell from "./StageDiagramCell";
 import { HighlightPicker } from "./HighlightPicker";
 import MicAssignmentCell from "./MicAssignmentCell";
+import { notifyError } from '@/lib/notify';
 
 // ─── Buffered text inputs ───────────────────────────────
 // 入力中はローカル state に保持し、blur / IME 確定 / 短いデバウンスでのみグローバル
@@ -200,7 +201,7 @@ function EntryImageButton({
   const uploadFile = async (file: File) => {
     if (!file.type.startsWith("image/")) return;
     if (file.size > 5 * 1024 * 1024) {
-      alert("ファイルサイズが5MBを超えています");
+      notifyError("ファイルサイズが5MBを超えています");
       return;
     }
     setUploading(true);
@@ -217,7 +218,7 @@ function EntryImageButton({
       });
       onChange(res.data.data.url);
     } catch {
-      alert("画像のアップロードに失敗しました");
+      notifyError("画像のアップロードに失敗しました");
     } finally {
       setUploading(false);
     }

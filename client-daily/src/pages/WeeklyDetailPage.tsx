@@ -15,6 +15,7 @@ import {
   WEEKLY_CATEGORIES, STAGE_LABELS, ACTIVITY_TYPE_LABELS,
   formatWeekJa, formatDateJa, formatYen, type OpsReportItem,
 } from '@/lib/types';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface StatsShape {
   period?: { week_start: string; week_end: string };
@@ -47,8 +48,8 @@ export default function WeeklyDetailPage() {
   const isPublished = report.status === 'published';
   const editable = canEdit && !isPublished;
 
-  const onPublish = () => {
-    if (!window.confirm('このレポートを確認・確定 (公開) しますか？\n確定後はトピックの追記ができなくなります。')) return;
+  const onPublish = async () => {
+    if (!(await confirmAction({ title: 'このレポートを確認・確定 (公開) しますか？', description: '確定後はトピックの追記ができなくなります。', confirmLabel: '確定する' }))) return;
     publish.mutate(report.id);
   };
 
@@ -337,8 +338,8 @@ function TopicRow({ item, editable }: { item: OpsReportItem; editable: boolean }
     await updateItem.mutateAsync({ itemId: item.id, fields: { category: category || null, content, note: note || null } });
     setEditing(false);
   };
-  const remove = () => {
-    if (!window.confirm('このトピックを削除しますか？')) return;
+  const remove = async () => {
+    if (!(await confirmAction({ title: 'このトピックを削除しますか？', confirmLabel: '削除する', tone: 'danger' }))) return;
     deleteItem.mutate(item.id);
   };
 

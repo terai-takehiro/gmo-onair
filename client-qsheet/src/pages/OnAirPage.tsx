@@ -17,6 +17,7 @@ import {
   Plus,
   Loader2,
 } from "lucide-react";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 // ============================================================
 // Types
@@ -266,15 +267,18 @@ export default function OnAirPage() {
 
   // 本番中の誤操作防止: 計時が走行中の停止/リセットは確認する。
   // (走行していないときは確認なしで停止・戻る)
-  const confirmStop = useCallback(() => {
-    if (running && !window.confirm("計時を停止して番組をリセットします。よろしいですか？")) return false;
+  const confirmStop = useCallback(async () => {
+    if (running && !(await confirmAction({ title: "計時を停止して番組をリセットします。よろしいですか？", confirmLabel: 'リセットする', tone: 'danger' }))) return false;
     stop();
     return true;
   }, [running, stop]);
 
   // Keyboard shortcuts
   useEffect(() => {
-    const h = (e: KeyboardEvent) => {
+    // 確認ダイアログを待つ必要があるので async。
+    // (同期のままだと `if (confirmStop() && id)` が Promise を truthy と見て
+    //  **「やめる」を押しても画面を離れてしまう** — 本番中に起きたら事故になる)
+    const h = async (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === "INPUT" || (e.target as HTMLElement).tagName === "TEXTAREA") return;
       switch (e.code) {
         case "Space":
@@ -295,7 +299,7 @@ export default function OnAirPage() {
           break;
         case "Escape":
           e.preventDefault();
-          if (confirmStop() && id) navigate(`/qsheet/editor/${id}`);
+          if ((await confirmStop()) && id) navigate(`/qsheet/editor/${id}`);
           break;
         case "ArrowUp":
           e.preventDefault();

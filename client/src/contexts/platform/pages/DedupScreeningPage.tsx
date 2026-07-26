@@ -6,6 +6,7 @@ import { PageTransition } from "@/components/ui/motion";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertTriangle, CopyCheck, Trash2 } from "lucide-react";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface DedupCandidate {
   table: "revenues" | "purchases" | "sga";
@@ -131,9 +132,9 @@ export default function DedupScreeningPage({ embedded }: { embedded?: boolean } 
             <Button
               variant="destructive"
               disabled={run.isPending || !report || (report.summary?.total?.count ?? 0) === 0}
-              onClick={() => {
+              onClick={async () => {
                 const n = report?.summary?.total?.count ?? 0;
-                if (window.confirm(`決算インポート行 ${n} 件を削除します（手入力行は残ります）。よろしいですか？\n※論理削除のため必要ならバックアップから復元できます。`)) {
+                if ((await confirmAction({ title: `決算インポート行 ${n} 件を削除します（手入力行は残ります）。よろしいですか？`, description: `※論理削除のため必要ならバックアップから復元できます。`, confirmLabel: '削除する', tone: 'danger' }))) {
                   run.mutate(true);
                 }
               }}

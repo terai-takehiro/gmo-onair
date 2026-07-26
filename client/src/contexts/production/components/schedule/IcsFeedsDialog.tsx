@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Trash2, RefreshCw, Plus, CloudDownload, AlertTriangle, ShieldAlert, ChevronDown, Link2 } from "lucide-react";
 import type { IcsFeed } from "./scheduleShared";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface OAuthStatus {
   configured: boolean;
@@ -178,7 +179,7 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
                   </Button>
                   <Button
                     size="sm" variant="outline" className="h-8 text-destructive border-destructive/40 hover:bg-destructive/10"
-                    onClick={() => { if (confirm("Google カレンダーの連携を解除しますか？（同期済みの予定も削除されます）")) googleDisconnectMutation.mutate(); }}
+                    onClick={async () => { if ((await confirmAction({ title: "Google カレンダーの連携を解除しますか？", description: "（同期済みの予定も削除されます）", confirmLabel: '削除する', tone: 'danger' }))) googleDisconnectMutation.mutate(); }}
                     disabled={googleDisconnectMutation.isPending}
                     title="連携を解除"
                   >
@@ -256,7 +257,7 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
                   </Button>
                   <Button
                     size="sm" variant="outline" className="h-8 text-destructive border-destructive/40 hover:bg-destructive/10"
-                    onClick={() => { if (confirm("Outlook カレンダーの連携を解除しますか？（同期済みの予定も削除されます）")) msDisconnectMutation.mutate(); }}
+                    onClick={async () => { if ((await confirmAction({ title: "Outlook カレンダーの連携を解除しますか？", description: "（同期済みの予定も削除されます）", confirmLabel: '削除する', tone: 'danger' }))) msDisconnectMutation.mutate(); }}
                     disabled={msDisconnectMutation.isPending}
                     title="連携を解除"
                   >
@@ -382,7 +383,7 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
                     </Button>
                     <Button
                       size="sm" variant="outline" className="h-8 text-destructive border-destructive/40 hover:bg-destructive/10"
-                      onClick={() => { if (confirm(`「${f.label}」の連携を解除しますか？（同期済みの予定も削除されます）`)) deleteMutation.mutate(f.id); }}
+                      onClick={async () => { if ((await confirmAction({ title: `「${f.label}」の連携を解除しますか？`, description: `（同期済みの予定も削除されます）`, confirmLabel: '削除する', tone: 'danger' }))) deleteMutation.mutate(f.id); }}
                       disabled={deleteMutation.isPending}
                       title="連携を解除"
                     >

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import api from '@/lib/api';
 import { Music, Upload, Trash2, Play, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 /**
  * 演出SE 設定セクション (イベント編集画面) — v2.9.122
@@ -84,7 +85,7 @@ export default function SoundConfigSection({ eventId }: { eventId: number }) {
     try { await api.put(`/awards/sounds/${s.id}`, { volume }); } catch { /* noop */ }
   };
   const onDelete = async (s: Sound) => {
-    if (!window.confirm('この音源を削除しますか？')) return;
+    if (!(await confirmAction({ title: 'この音源を削除しますか？', confirmLabel: '削除する', tone: 'danger' }))) return;
     try { await api.delete(`/awards/sounds/${s.id}`); flash('ok', '削除しました'); load(); }
     catch { flash('err', '削除に失敗しました'); }
   };

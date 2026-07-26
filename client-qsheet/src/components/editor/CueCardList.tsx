@@ -2,6 +2,7 @@ import { useState, Fragment } from "react";
 import { Plus, Trash2, ChevronUp, ChevronDown, X } from "lucide-react";
 import { Button } from "@gmo-onair/shared/src/client/ui";
 import CueRowSheet from "./CueRowSheet";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface Block {
   id: string;
@@ -107,8 +108,8 @@ export default function CueCardList({
     });
   };
 
-  const removeRow = (si: number, ri: number) => {
-    if (!confirm("この行を削除しますか？")) return;
+  const removeRow = async (si: number, ri: number) => {
+    if (!(await confirmAction({ title: "この行を削除しますか？", confirmLabel: '削除する', tone: 'danger' }))) return;
     updateState((s: any) => {
       const next = { ...s };
       next.sections = next.sections.map((sec: any, i: number) =>
@@ -150,8 +151,8 @@ export default function CueCardList({
     });
   };
 
-  const removeSection = (si: number) => {
-    if (!confirm("このロールを削除しますか？")) return;
+  const removeSection = async (si: number) => {
+    if (!(await confirmAction({ title: "このロールを削除しますか？", confirmLabel: '削除する', tone: 'danger' }))) return;
     updateState((s: any) => ({
       ...s,
       sections: s.sections.filter((_: any, i: number) => i !== si),

@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { DashboardHeader, EmptyState } from "@gmo-onair/shared/src/client/dashboard";
 import { TECHSHEET_STATUS, statusOf } from "@gmo-onair/shared/src/constants/statuses";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface TechsheetDocument {
   id: string;
@@ -324,9 +325,9 @@ export default function DashboardPage() {
                       variant="ghost"
                       size="sm"
                       className="h-8 gap-1 text-xs text-destructive hover:text-destructive ml-auto"
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.stopPropagation();
-                        if (confirm("この技術資料を削除しますか？")) {
+                        if ((await confirmAction({ title: "この技術資料を削除しますか？", confirmLabel: '削除する', tone: 'danger' }))) {
                           deleteMutation.mutate(doc.id);
                         }
                       }}

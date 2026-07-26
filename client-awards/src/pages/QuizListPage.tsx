@@ -17,6 +17,7 @@ import { quizStackLabel, type Quiz, type QuizMode } from '@/quiz/types';
 import InteractiveLinkPanel from '@/quiz/InteractiveLinkPanel';
 import QuizInteractiveSync, { type IaQuestion } from '@/quiz/QuizInteractiveSync';
 import type { CgCategory } from '@/cg/types';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface AwardsEventDetail {
   id: number; name: string;
@@ -249,7 +250,7 @@ export default function QuizListPage() {
                   className="flex items-center gap-1 rounded-lg border border-slate-200 hover:bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-700">
                   <Edit3 className="h-3.5 w-3.5" />編集
                 </button>
-                <button onClick={() => { if (window.confirm(`「${q.title}」を削除します。よろしいですか？`)) deleteMut.mutate(q.id); }}
+                <button onClick={async () => { if ((await confirmAction({ title: `「${q.title}」を削除します。よろしいですか？`, confirmLabel: '削除する', tone: 'danger' }))) deleteMut.mutate(q.id); }}
                   className="flex items-center justify-center rounded-lg p-2 text-red-500 hover:bg-red-50"
                   title="削除">
                   <Trash2 className="h-3.5 w-3.5" />

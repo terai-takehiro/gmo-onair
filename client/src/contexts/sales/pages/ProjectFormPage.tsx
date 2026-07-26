@@ -47,6 +47,8 @@ import ProjectMoneyTab from "../components/ProjectMoneyTab";
 import ProjectScheduleTab from "../components/ProjectScheduleTab";
 import ProjectDocsTab from "../components/ProjectDocsTab";
 import { useAuth } from "@/contexts/platform/AuthContext";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { notifyError, notifySuccess } from '@/lib/notify';
 
 interface LostDialogState {
   open: boolean;
@@ -426,7 +428,7 @@ export default function ProjectFormPage() {
     },
     onError: (e: unknown) => {
       const msg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
-      alert(`見積の確定に失敗しました: ${msg || "不明なエラー"}`);
+      notifyError(`見積の確定に失敗しました: ${msg || "不明なエラー"}`);
     },
   });
 
@@ -490,7 +492,7 @@ export default function ProjectFormPage() {
   const handleAddBooking = () => { setEditingBooking(null); setBookingDialogOpen(true); };
   const handleEditBooking = (b: any) => { setEditingBooking(b); setBookingDialogOpen(true); };
   const handleDeleteBooking = async (b: any) => {
-    if (!window.confirm("この予約を削除しますか？")) return;
+    if (!(await confirmAction({ title: "この予約を削除しますか？", confirmLabel: '削除する', tone: 'danger' }))) return;
     try {
       await api.delete(`/studios/bookings/${b.id}`);
       qc.invalidateQueries({ queryKey: ["project-studio-bookings", id] });
@@ -693,10 +695,10 @@ export default function ProjectFormPage() {
       qc.invalidateQueries({ queryKey: ["projects"] });
       qc.invalidateQueries({ queryKey: ["project", id] });
       setRelinkDialog({ open: false, target_project_id: "" });
-      window.alert(`✓ ${data.data.gls_number} のエピソードに紐づけ直しました（旧GLS番号は履歴に保存されています）`);
+      notifySuccess(`✓ ${data.data.gls_number} のエピソードに紐づけ直しました（旧GLS番号は履歴に保存されています）`);
     },
     onError: (err: any) => {
-      window.alert(err?.response?.data?.error?.message || err?.message || '紐づけに失敗しました');
+      notifyError(err?.response?.data?.error?.message || err?.message || '紐づけに失敗しました');
     },
   });
 
@@ -708,7 +710,7 @@ export default function ProjectFormPage() {
       if (result?.urlInternal) setValue("box_url_internal", result.urlInternal, { shouldDirty: false });
       if (result?.urlExternal) setValue("box_url_external", result.urlExternal, { shouldDirty: false });
       qc.invalidateQueries({ queryKey: ["project", id] });
-      window.alert(result?.already
+      notifySuccess(result?.already
         ? "既に BOX フォルダが登録されています"
         : "✓ BOX フォルダを作成しました（社内限り / 社外共有可）");
     },
@@ -720,12 +722,12 @@ export default function ProjectFormPage() {
         : code === 'BOX_FOLDER_CREATE_FAILED'
           ? 'BOX フォルダ作成に失敗しました。親フォルダ ID 設定を確認してください。'
           : `BOX フォルダ作成に失敗しました: ${msg}`;
-      window.alert(friendly);
+      notifyError(friendly);
     },
   });
 
-  const handleCreateBoxFolder = () => {
-    if (!window.confirm("BOX に案件フォルダを作成しますか？")) return;
+  const handleCreateBoxFolder = async () => {
+    if (!(await confirmAction({ title: "BOX に案件フォルダを作成しますか？" }))) return;
     createBoxFolderMutation.mutate();
   };
 
@@ -2278,8 +2280,8 @@ export default function ProjectFormPage() {
             <Button variant="outline" onClick={() => setRelinkDialog({ open: false, target_project_id: "" })}>キャンセル</Button>
             <Button
               disabled={!relinkDialog.target_project_id || relinkMutation.isPending}
-              onClick={() => {
-                if (window.confirm("この案件を選択したGLSのエピソードに紐づけ直します。よろしいですか？")) {
+              onClick={async () => {
+                if ((await confirmAction({ title: "この案件を選択したGLSのエピソードに紐づけ直します。よろしいですか？" }))) {
                   relinkMutation.mutate(relinkDialog.target_project_id);
                 }
               }}

@@ -17,6 +17,7 @@ import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
 import { useCrudPage } from "@/hooks/useCrudPage";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface Partner {
   id: string;
@@ -80,8 +81,8 @@ export default function PartnerListPage() {
     });
   };
 
-  const handleDelete = (p: Partner) => {
-    if (!confirm(`「${p.name}」を削除しますか？`)) return;
+  const handleDelete = async (p: Partner) => {
+    if (!(await confirmAction({ title: `「${p.name}」を削除しますか？`, confirmLabel: '削除する', tone: 'danger' }))) return;
     crud.remove.mutate(p.id);
   };
 

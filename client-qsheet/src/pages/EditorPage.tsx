@@ -40,6 +40,7 @@ import {
   Trash2,
   MoreHorizontal,
 } from "lucide-react";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 /**
  * セルに中身があるか (出す列の自動判定用)。
@@ -623,10 +624,10 @@ export default function EditorPage() {
   }, [doc, saveMutation, collabEnabled, updateData]);
 
   /** 稿を上げる — 明示操作。番号が上がるのはここだけ */
-  const handleBumpDraft = useCallback(() => {
+  const handleBumpDraft = useCallback(async () => {
     if (!doc) return;
     const cur = doc.data.meta?.draftNumber || 1;
-    if (!confirm(`第${cur}稿 → 第${cur + 1}稿 にします。よろしいですか？`)) return;
+    if (!(await confirmAction({ title: `第${cur}稿 → 第${cur + 1}稿 にします。よろしいですか？` }))) return;
     if (collabEnabled) {
       updateData((d) => ({
         ...d,

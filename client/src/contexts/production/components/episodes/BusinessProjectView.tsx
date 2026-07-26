@@ -68,6 +68,8 @@ import DiscountDialog, { DiscountResult } from "@/contexts/finance/components/Di
 import PricingItemPicker, { PickedPricingItem } from "@/contexts/finance/components/PricingItemPicker";
 import SimulationDialog, { SimulationAppliedItem } from "@/contexts/sales/components/SimulationDialog";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { notifyError, notifyInfo } from '@/lib/notify';
 
 interface RevenueItem {
   description: string;
@@ -222,7 +224,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
     onError: (err: any) => {
       const msg =
         err?.response?.data?.error?.message || err?.message || "月ユニットの作成に失敗しました";
-      alert(`月の追加に失敗しました: ${msg}`);
+      notifyError(`月の追加に失敗しました: ${msg}`);
     },
   });
 
@@ -236,20 +238,20 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
     onError: (err: any) => {
       const msg =
         err?.response?.data?.error?.message || err?.message || "削除に失敗しました";
-      alert(`月ユニットの削除に失敗しました: ${msg}`);
+      notifyError(`月ユニットの削除に失敗しました: ${msg}`);
     },
   });
 
-  const handleDeleteMonth = (ep: { id: string; episode_code: string }) => {
+  const handleDeleteMonth = async (ep: { id: string; episode_code: string }) => {
     const linkedRevs = revenues.filter((r) => (r as any).episode_id === ep.id).length;
     const linkedPurs = purchases.filter((p) => (p as any).episode_id === ep.id).length;
     if (linkedRevs > 0 || linkedPurs > 0) {
-      alert(
+      notifyInfo(
         `${ep.episode_code} には売上 ${linkedRevs} 件 / 仕入 ${linkedPurs} 件が紐づいています。\n先にそれらを削除（または編集で紐づけを変更）してから月を削除してください。`,
       );
       return;
     }
-    if (!confirm(`${ep.episode_code} を削除しますか？`)) return;
+    if (!(await confirmAction({ title: `${ep.episode_code} を削除しますか？`, confirmLabel: '削除する', tone: 'danger' }))) return;
     deleteMonthMutation.mutate(ep.id);
   };
 
@@ -480,7 +482,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch {
-      alert('PDF生成に失敗しました');
+      notifyError('PDF生成に失敗しました');
     }
   };
 
@@ -502,7 +504,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch {
-      alert('Excel生成に失敗しました');
+      notifyError('Excel生成に失敗しました');
     }
   };
 
@@ -624,7 +626,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
   const openItemDiscount = (idx: number) => {
     const item = items[idx];
     if (!item || (item.amount || 0) <= 0) {
-      alert("値引きの対象となる金額が0円以下です");
+      notifyError("値引きの対象となる金額が0円以下です");
       return;
     }
     setDiscountDialog({
@@ -643,7 +645,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
       0
     );
     if (positiveSubtotal <= 0) {
-      alert("値引きの対象となる小計が0円以下です");
+      notifyError("値引きの対象となる小計が0円以下です");
       return;
     }
     setDiscountDialog({
@@ -1166,8 +1168,8 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-destructive"
-                        onClick={() => {
-                          if (confirm("この明細を削除しますか？"))
+                        onClick={async () => {
+                          if ((await confirmAction({ title: "この明細を削除しますか？", confirmLabel: '削除する', tone: 'danger' })))
                             deleteMutation.mutate(rev.id);
                         }}
                       >
@@ -1395,8 +1397,8 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditPurchase(pu)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => {
-                            if (confirm("この仕入を削除しますか？")) deletePurMutation.mutate(pu.id);
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={async () => {
+                            if ((await confirmAction({ title: "この仕入を削除しますか？", confirmLabel: '削除する', tone: 'danger' }))) deletePurMutation.mutate(pu.id);
                           }}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -1985,8 +1987,8 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
               {editingPurId && (
                 <Button
                   variant="destructive"
-                  onClick={() => {
-                    if (!confirm("この仕入を削除しますか？この操作は元に戻せません。")) return;
+                  onClick={async () => {
+                    if (!(await confirmAction({ title: "この仕入を削除しますか？", description: "この操作は元に戻せません。", confirmLabel: '削除する', tone: 'danger' }))) return;
                     deletePurMutation.mutate(editingPurId, { onSuccess: () => closePurDialog() });
                   }}
                   disabled={deletePurMutation.isPending}

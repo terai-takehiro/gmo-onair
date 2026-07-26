@@ -16,6 +16,7 @@ import { Sparkles, Loader2, Copy, Check, Send, Ban, RefreshCw } from "lucide-rea
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface ReplyRow {
   inquiry_id: string;
@@ -180,8 +181,8 @@ export function InquiryReply({ inquiryId, editable }: { inquiryId: string; edita
             </Button>
             <Button
               size="sm" variant="outline" className="ml-auto h-9 gap-1.5" disabled={busy}
-              onClick={() => {
-                if (window.confirm("下書きを作り直します。いま直している本文は消えます。よろしいですか？")) {
+              onClick={async () => {
+                if ((await confirmAction({ title: "下書きを作り直します。いま直している本文は消えます。よろしいですか？" }))) {
                   draft.mutate();
                 }
               }}

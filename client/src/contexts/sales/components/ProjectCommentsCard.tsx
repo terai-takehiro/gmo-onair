@@ -17,6 +17,7 @@ import { useAuth } from "@/contexts/platform/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface Mention {
   user_id: string;
@@ -146,8 +147,8 @@ export function ProjectCommentsCard({
                     {c.author_id === currentUser?.id && editable && (
                       <button
                         type="button"
-                        onClick={() => {
-                          if (window.confirm("このコメントを消します。よろしいですか？")) remove.mutate(c.id);
+                        onClick={async () => {
+                          if ((await confirmAction({ title: "このコメントを消します。よろしいですか？", confirmLabel: '削除する', tone: 'danger' }))) remove.mutate(c.id);
                         }}
                         className="ml-auto rounded-control p-1 text-muted-foreground hover:bg-secondary hover:text-destructive"
                         aria-label="このコメントを消す"

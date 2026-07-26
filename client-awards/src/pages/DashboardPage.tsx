@@ -4,6 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Tv, Plus, Trash2, ExternalLink, Calendar, ChevronRight, Archive, RotateCcw, Clock } from 'lucide-react';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { notifyError, notifySuccess } from '@/lib/notify';
 
 interface AwardsEvent {
   id: number;
@@ -81,7 +83,7 @@ export default function DashboardPage() {
     onError: (err: unknown) => {
       const msg = (err as { response?: { data?: { error?: { message?: string } } } })
         ?.response?.data?.error?.message ?? 'イベント作成に失敗しました';
-      alert(msg);
+      notifyError(msg);
     },
   });
 
@@ -115,13 +117,13 @@ export default function DashboardPage() {
       qc.invalidateQueries({ queryKey: ['awards-events'] });
       qc.invalidateQueries({ queryKey: ['awards-box-backups'] });
       setRestoreNameDraft(null);
-      alert(`復元しました: ${d.filesRestored} 件の画像 / ${d.entriesCreated} 件のエントリ`);
+      notifySuccess(`復元しました: ${d.filesRestored} 件の画像 / ${d.entriesCreated} 件のエントリ`);
       navigate(`/event/${d.eventId}`);
     },
     onError: (err: unknown) => {
       const msg = (err as { response?: { data?: { error?: { message?: string } } } })
         ?.response?.data?.error?.message ?? '復元に失敗しました';
-      alert(msg);
+      notifyError(msg);
     },
   });
 
@@ -385,9 +387,9 @@ export default function DashboardPage() {
                     <ExternalLink className="h-4 w-4" />
                   </button>
                   <button
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.stopPropagation();
-                      if (confirm(`「${event.name}」を削除しますか？`)) {
+                      if ((await confirmAction({ title: `「${event.name}」を削除しますか？`, confirmLabel: '削除する', tone: 'danger' }))) {
                         deleteMutation.mutate(event.id);
                       }
                     }}

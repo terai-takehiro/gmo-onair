@@ -45,9 +45,22 @@ const TONE: Record<NoticeTone, { cls: string; Icon: typeof Info }> = {
   warning: { cls: 'border-warning-strong/40 bg-warning-surface text-warning-strong', Icon: AlertTriangle },
 };
 
-/** レイアウトの上端に置く。出るものが無ければ何も描かない */
+// 二重に置いても1本しか出ないようにする (v2.9.290)。
+// 置き場所はアプリのルート直下 1 か所だが、全画面ページ (OnAir・ランダウン等) を
+// 取りこぼさないために「置き忘れ」より「二重」の方を許す設計にしてある。
+let barMounted = 0;
+
+/** アプリのルート直下に置く。出るものが無ければ何も描かない */
 export function NoticeBar({ className }: { className?: string }): ReactNode {
   const n = useNotice();
+  const [primary, setPrimary] = useState(false);
+  useEffect(() => {
+    barMounted += 1;
+    const mine = barMounted === 1;
+    setPrimary(mine);
+    return () => { barMounted -= 1; };
+  }, []);
+  if (!primary) return null;
   if (!n) return null;
   const { cls, Icon } = TONE[n.tone];
   return (

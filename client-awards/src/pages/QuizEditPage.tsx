@@ -10,6 +10,8 @@ import { useQuiz, useSyncQuizFromCategory } from '@/quiz/api';
 import type { Quiz, QuizChoice } from '@/quiz/types';
 import { QUIZ_COLORS } from '@/quiz/types';
 import type { CgCategory } from '@/cg/types';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
+import { notifyError, notifyWarning } from '@/lib/notify';
 
 interface AwardsEventDetail {
   id: number; name: string;
@@ -96,13 +98,13 @@ export default function QuizEditPage() {
   // 取込 (Interactive → リアルタイムCG): 連携中の問題の本文・選択肢・正解で上書き
   const onPull = async () => {
     if (!iqId) return;
-    if (!window.confirm('インタラクティブ演出側の本文・選択肢・正解で、この問題を上書きします。よろしいですか？')) return;
+    if (!(await confirmAction({ title: 'インタラクティブ演出側の本文・選択肢・正解で、この問題を上書きします。よろしいですか？', confirmLabel: '上書きする', tone: 'danger' }))) return;
     setPulling(true);
     try {
       await api.post(`/quiz/events/${eventId}/interactive-link/pull/${quizId}`);
       await qc.invalidateQueries({ queryKey: ['quizzes'] });
     } catch {
-      alert('取込に失敗しました（連携先の問題が見つからない可能性があります）。');
+      notifyError('取込に失敗しました（連携先の問題が見つからない可能性があります）。');
     } finally {
       setPulling(false);
     }
@@ -274,8 +276,8 @@ export default function QuizEditPage() {
                 ))}
               </select>
               <button onClick={async () => {
-                if (!quiz.link_category_id) { alert('先に連動カテゴリを保存してください'); return; }
-                if (!window.confirm('連動カテゴリの TOP-N で choices を上書きします。よろしいですか？')) return;
+                if (!quiz.link_category_id) { notifyWarning('先に連動カテゴリを保存してください'); return; }
+                if (!(await confirmAction({ title: '連動カテゴリの TOP-N で choices を上書きします。よろしいですか？', confirmLabel: '上書きする', tone: 'danger' }))) return;
                 await sync.mutateAsync();
               }}
                 disabled={!quiz.link_category_id || sync.isPending}

@@ -28,6 +28,7 @@ import {
   TYPE_CODES, ASSET_CLASS_OPTIONS, ASSET_CLASS_LABELS, SECTIONS, LOC_CODES,
   RACK_SLOT_OPTIONS, TYPE_BORDER_COLOR, CONDITION_LABELS,
 } from "@/lib/constants";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 const sectionDisplay = (typeCode: string | null, section: string | null) => {
   const t = TYPE_CODES.find((c) => c.code === typeCode)?.label || "";
@@ -1294,7 +1295,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
                         <div className="flex gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                           {canEdit && <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" title="コピーして新規登録" onClick={(e) => openCopy(item, e)}><Copy className="h-3 w-3" /></Button>}
                           {canEdit && <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); openEdit(item); }}><Pencil className="h-3 w-3" /></Button>}
-                          {canDelete && <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); if (confirm(`「${item.name}」を削除？`)) deleteMutation.mutate(item.id); }}><Trash2 className="h-3 w-3" /></Button>}
+                          {canDelete && <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={async (e) => { e.stopPropagation(); if ((await confirmAction({ title: `「${item.name}」を削除？`, confirmLabel: '削除する', tone: 'danger' }))) deleteMutation.mutate(item.id); }}><Trash2 className="h-3 w-3" /></Button>}
                         </div>
                       </td>
                     </tr>
@@ -1335,7 +1336,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
                         <div className="flex gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                           {canEdit && <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" title="コピーして新規登録" onClick={(e) => openCopy(item, e)}><Copy className="h-3.5 w-3.5" /></Button>}
                           {canEdit && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(item); }}><Pencil className="h-3.5 w-3.5" /></Button>}
-                          {canDelete && <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={(e) => { e.stopPropagation(); if (confirm(`「${item.name}」を削除？`)) deleteMutation.mutate(item.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>}
+                          {canDelete && <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={async (e) => { e.stopPropagation(); if ((await confirmAction({ title: `「${item.name}」を削除？`, confirmLabel: '削除する', tone: 'danger' }))) deleteMutation.mutate(item.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>}
                         </div>
                       </td>
                     </tr>
@@ -1353,7 +1354,7 @@ export default function EquipmentListPage({ embedded }: { embedded?: boolean } =
                           <div className="flex gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                             {canEdit && <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" title="コピーして新規登録" onClick={(e) => openCopy(child, e)}><Copy className="h-3 w-3" /></Button>}
                             {canEdit && <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); openEdit(child); }}><Pencil className="h-3 w-3" /></Button>}
-                            {canDelete && <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); if (confirm(`「${child.name}」を削除？`)) { deleteMutation.mutate(child.id, { onSuccess: () => { setChildrenCache(prev => ({ ...prev, [item.id]: (prev[item.id] ?? []).filter((c: any) => c.id !== child.id) })); } }); } }}><Trash2 className="h-3 w-3" /></Button>}
+                            {canDelete && <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={async (e) => { e.stopPropagation(); if ((await confirmAction({ title: `「${child.name}」を削除？`, confirmLabel: '削除する', tone: 'danger' }))) { deleteMutation.mutate(child.id, { onSuccess: () => { setChildrenCache(prev => ({ ...prev, [item.id]: (prev[item.id] ?? []).filter((c: any) => c.id !== child.id) })); } }); } }}><Trash2 className="h-3 w-3" /></Button>}
                           </div>
                         </td>
                       </tr>

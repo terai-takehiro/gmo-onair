@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface LiveProgram {
   id: string;
@@ -61,9 +62,9 @@ export default function SessionHomePage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['programs-all'] }),
   });
 
-  const handleDelete = (e: React.MouseEvent, id: string, name: string) => {
+  const handleDelete = async (e: React.MouseEvent, id: string, name: string) => {
     e.stopPropagation();
-    if (!confirm(`「${name}」を削除しますか？\nタイマーのデータは残りますが、このセッションには戻れません。`)) return;
+    if (!(await confirmAction({ title: `「${name}」を削除しますか？`, description: `タイマーのデータは残りますが、このセッションには戻れません。`, confirmLabel: '削除する', tone: 'danger' }))) return;
     deleteMutation.mutate(id);
   };
 

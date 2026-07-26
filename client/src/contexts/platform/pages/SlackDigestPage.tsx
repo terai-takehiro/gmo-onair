@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { ErrorPanel, EmptyState } from "@gmo-onair/shared/src/client/states";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface BlockDef { key: string; label: string; hint: string; money?: boolean }
 interface Channel { id: string; name: string; is_private: boolean }
@@ -510,8 +511,8 @@ export default function SlackDigestPage() {
                         variant="outline"
                         className="h-9 gap-1.5"
                         disabled={sendNow.isPending || !meta?.slack_configured}
-                        onClick={() => {
-                          if (window.confirm(`${d.channel} に、いま1回だけ送ります。よろしいですか？`)) {
+                        onClick={async () => {
+                          if ((await confirmAction({ title: `${d.channel} に、いま1回だけ送ります。よろしいですか？` }))) {
                             sendNow.mutate(row.id);
                           }
                         }}
@@ -530,8 +531,8 @@ export default function SlackDigestPage() {
                         size="sm"
                         variant="outline"
                         className="ml-auto h-9 gap-1.5 border-destructive/40 text-destructive hover:bg-destructive-surface"
-                        onClick={() => {
-                          if (window.confirm("この配信を削除します。よろしいですか？")) remove.mutate(row!.id);
+                        onClick={async () => {
+                          if ((await confirmAction({ title: "この配信を削除します。よろしいですか？", confirmLabel: '削除する', tone: 'danger' }))) remove.mutate(row!.id);
                         }}
                       >
                         <Trash2 className="h-4 w-4" aria-hidden="true" />

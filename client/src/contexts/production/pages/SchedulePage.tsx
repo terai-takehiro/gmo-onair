@@ -45,6 +45,7 @@ import {
   type PartnerSchedule, type PersonalEvent,
 } from "../components/schedule/scheduleShared";
 import { EmptyState } from "@gmo-onair/shared/src/client/states";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 interface StudioRoom {
   id: string;
@@ -1218,8 +1219,8 @@ export default function SchedulePage() {
         onEdit={handleEditBooking}
         canEdit={canEdit}
         canDelete={canManage}
-        onDelete={(id) => {
-          if (confirm("この予約を削除しますか？")) deleteMutation.mutate(id);
+        onDelete={async (id) => {
+          if ((await confirmAction({ title: "この予約を削除しますか？", confirmLabel: '削除する', tone: 'danger' }))) deleteMutation.mutate(id);
         }}
       />
       {/* 期限が近い仮押さえ (13a) */}
@@ -1471,8 +1472,8 @@ function CalendarFeedsDialog({ open, onOpenChange }: { open: boolean; onOpenChan
             variant="outline"
             className="text-destructive hover:text-destructive"
             disabled={regenerateMutation.isPending}
-            onClick={() => {
-              if (window.confirm("フィードトークンを再生成しますか？\n既存のカレンダー登録・サイネージ表示はすべて無効になり、上記URLを登録し直す必要があります。")) {
+            onClick={async () => {
+              if ((await confirmAction({ title: "フィードトークンを再生成しますか？", description: "既存のカレンダー登録・サイネージ表示はすべて無効になり、上記URLを登録し直す必要があります。" }))) {
                 regenerateMutation.mutate();
               }
             }}

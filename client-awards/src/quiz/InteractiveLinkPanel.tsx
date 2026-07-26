@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { Link2, Download, Upload, Loader2, CheckCircle2, AlertCircle, Unlink, Activity } from 'lucide-react';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 /**
  * 表彰CG ⇄ インタラクティブ演出 (別 VPS) 連携パネル — v2.9.24
@@ -150,7 +151,7 @@ export default function InteractiveLinkPanel({ eventId }: { eventId: number }) {
             {pullMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
             Interactive から取込
           </button>
-          <button onClick={() => { if (window.confirm('CG の全 quiz の本文・選択肢を Interactive に書き込みます。よろしいですか？')) pushMut.mutate(); }} disabled={pushMut.isPending}
+          <button onClick={async () => { if ((await confirmAction({ title: 'CG の全 quiz の本文・選択肢を Interactive に書き込みます。よろしいですか？' }))) pushMut.mutate(); }} disabled={pushMut.isPending}
             className="flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-3 py-2 text-xs font-bold text-white">
             {pushMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
             Interactive へ送信
@@ -256,7 +257,7 @@ export default function InteractiveLinkPanel({ eventId }: { eventId: number }) {
               {saveMut.isPending ? '保存中…' : '連携設定を保存'}
             </button>
             {configured && (
-              <button onClick={() => { if (window.confirm('連携を解除します（quiz の紐づけも外れます）。よろしいですか？')) unlinkMut.mutate(); }}
+              <button onClick={async () => { if ((await confirmAction({ title: '連携を解除します（quiz の紐づけも外れます）。よろしいですか？', confirmLabel: '解除する', tone: 'danger' }))) unlinkMut.mutate(); }}
                 className="flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50">
                 <Unlink className="h-3.5 w-3.5" />連携解除
               </button>

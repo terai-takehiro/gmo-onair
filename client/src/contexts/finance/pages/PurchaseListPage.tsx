@@ -56,6 +56,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Loader2, Plus, Trash2, ExternalLink } from "lucide-react";
 import ExcelToolbar from "@/components/ExcelToolbar";
 import { PageTitle } from "@gmo-onair/shared/src/client/ui";
+import { confirmAction } from '@gmo-onair/shared/src/client/ui';
 
 function SettlementBadge({ number }: { number: string | null | undefined }) {
   const isApplied = !!number && number !== "pending";
@@ -248,9 +249,9 @@ export default function PurchaseListPage() {
   });
   const vendors: Vendor[] = vendorsData?.data ?? [];
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!crud.editingItem) return;
-    if (!window.confirm("この仕入を削除しますか？この操作は元に戻せません。")) return;
+    if (!(await confirmAction({ title: "この仕入を削除しますか？", description: "この操作は元に戻せません。", confirmLabel: '削除する', tone: 'danger' }))) return;
     crud.remove.mutate(crud.editingItem.id, {
       onSuccess: () => crud.closeDialog(),
     });

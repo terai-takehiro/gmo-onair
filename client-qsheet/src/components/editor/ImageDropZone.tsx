@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { ImagePlus, X, Loader2 } from "lucide-react";
 import api from "@/lib/api";
+import { notifyError } from '@/lib/notify';
 
 interface Props {
   imageUrl: string | null;
@@ -15,7 +16,7 @@ export default function ImageDropZone({ imageUrl, onImageChange }: Props) {
   const uploadFile = useCallback(async (file: File) => {
     if (!file.type.startsWith("image/")) return;
     if (file.size > 5 * 1024 * 1024) {
-      alert("ファイルサイズが5MBを超えています");
+      notifyError("ファイルサイズが5MBを超えています");
       return;
     }
 
@@ -34,7 +35,7 @@ export default function ImageDropZone({ imageUrl, onImageChange }: Props) {
       });
       onImageChange(res.data.data.url);
     } catch {
-      alert("画像のアップロードに失敗しました");
+      notifyError("画像のアップロードに失敗しました");
     } finally {
       setUploading(false);
     }
