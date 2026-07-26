@@ -658,6 +658,23 @@ export class ProjectService {
       }
     }
 
+    // 受注したら、見積の「仕入(見込み)」列を見込み仕入の明細にする (30章 37a)。
+    // 見積を作るときに「この行は外部に幾ら払うか」が分かっているのに、
+    // 受注後にもう一度仕入画面で打ち直すのが二度打ちの実体。
+    // 冪等なのでステージを往復しても増えない。失敗しても受注は成立させる
+    // (仕入の自動作成のために営業の操作を止めない)。
+    if (stage === 'a_won') {
+      try {
+        const { materializeEstimateCosts } = await import('./estimate.service');
+        const r = await materializeEstimateCosts(id, userId);
+        if (r.created > 0) {
+          console.log(`[estimate] 受注により見込み仕入 ${r.created} 件を作成 (project=${id})`);
+        }
+      } catch (e) {
+        console.warn('[estimate] 見込み仕入の自動作成に失敗 (受注は成立):', (e as Error).message);
+      }
+    }
+
     return this.getById(id);
   }
 

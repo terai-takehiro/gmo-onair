@@ -1270,20 +1270,23 @@ export default function ProjectFormPage() {
         </div>
       )}
 
-      {/* 概算見積セクション (ヨミ段階のみ) */}
-      {isEdit && isYomi && !isTerminal && (
-        <Card className="border-orange-200 bg-orange-50">
-          <CardContent className="flex items-center justify-between py-4">
+      {/* 見積 (30章 37a)。**ヨミ段階に限らない** — 口頭決定・受注のあとに直すことも多い */}
+      {isEdit && !isTerminal && (
+        <Card>
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
             <div className="flex items-center gap-3">
-              <FileText className="h-5 w-5 text-orange-600" />
+              <FileText className="h-5 w-5 text-primary" />
               <div>
-                <span className="font-medium text-orange-800">概算見積書</span>
-                <p className="text-xs text-orange-600">提案用の概算見積を作成できます。GLS発番時に確定売上へ自動変換されます。</p>
+                <span className="font-medium">見積</span>
+                <p className="text-xs text-muted-foreground">
+                  料金表から選ぶか AI に下書きさせて、粗利をその場で見ながら組みます。
+                  確定すると想定金額に入ります{isYomi ? "（GLS発番時に確定売上へ変わります）" : ""}。
+                </p>
               </div>
             </div>
-            <Button size="sm" variant="outline" className="border-orange-300 text-orange-700 hover:bg-orange-100" onClick={() => navigate(`/sales/projects/${id}/estimates`)}>
+            <Button size="sm" variant="outline" onClick={() => navigate(`/sales/projects/${id}/estimates`)}>
               <ExternalLink className="mr-2 h-4 w-4" />
-              概算見積作成
+              見積をつくる
             </Button>
           </CardContent>
         </Card>

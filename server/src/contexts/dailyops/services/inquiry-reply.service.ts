@@ -128,15 +128,16 @@ export async function draftReply(
   actor: { userId: string },
 ): Promise<{ row: InquiryReplyRow; usedAdvice: boolean }> {
   const iq = await inquiryService.getById(inquiryId);
-  if (!iq) throw new AppError(404, '問い合わせが見つかりません', 'NOT_FOUND');
+  if (!iq) throw new AppError(404, 'NOT_FOUND', '問い合わせが見つかりません');
 
   const provider = resolveProvider();
   if (!provider) {
+    // AppError は (statusCode, code, message) の順。以前は code と message が
+    // 入れ替わっていて、画面に日本語ではなく 'AI_NOT_CONFIGURED' が出ていた
     throw new AppError(
       503,
-      'AI のキー (OPENAI_API_KEY / ANTHROPIC_API_KEY) が未設定のため下書きを作れません。' +
-      '本文は自分で書いてください（保存すれば記録は残ります）。',
       'AI_NOT_CONFIGURED',
+      'AI が使えない設定のため下書きを作れません。本文は自分で書いてください（保存すれば記録は残ります）。',
     );
   }
   const model = intakeAiModel(provider);
@@ -204,9 +205,9 @@ export async function saveReply(
   actor: { userId: string },
 ): Promise<InquiryReplyRow> {
   const row = await getReply(inquiryId);
-  if (!row) throw new AppError(404, '下書きがありません', 'NOT_FOUND');
+  if (!row) throw new AppError(404, 'NOT_FOUND', '下書きがありません');
   const text = (finalText ?? '').trim();
-  if (!text) throw new AppError(400, '本文が空です', 'VALIDATION_ERROR');
+  if (!text) throw new AppError(400, 'VALIDATION_ERROR', '本文が空です');
 
   await execute(
     `UPDATE inquiry_replies SET final_text = ?, note = ?, status = 'saved',
@@ -247,7 +248,7 @@ export async function markReply(
   actor: { userId: string },
 ): Promise<InquiryReplyRow> {
   const row = await getReply(inquiryId);
-  if (!row) throw new AppError(404, '下書きがありません', 'NOT_FOUND');
+  if (!row) throw new AppError(404, 'NOT_FOUND', '下書きがありません');
 
   await execute(
     `UPDATE inquiry_replies SET status = ?, sent_at = ${outcome === 'sent' ? 'NOW()' : 'NULL'},

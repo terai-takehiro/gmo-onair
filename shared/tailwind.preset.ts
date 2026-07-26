@@ -47,6 +47,7 @@ const preset = {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         divider: 'hsl(var(--divider))',
+        row: 'hsl(var(--row))',
         ring: 'hsl(var(--ring))',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',

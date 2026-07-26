@@ -25,3 +25,4 @@ export * from "./crud-form-dialog";
 export * from "./toggle-button-group";
 export * from "./notice";
 export * from "./tax-aware-amount-input";
+export * from "./money";

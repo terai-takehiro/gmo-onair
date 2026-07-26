@@ -5,6 +5,7 @@ import projectCollabRoutes from './routes/project-collab.routes';
 import projectHistoryRoutes from './routes/project-history.routes';
 import projectGroupsRoutes from './routes/project-groups.routes';
 import simulationsRoutes from './routes/simulations.routes';
+import estimateRoutes from './routes/estimate.routes';
 import customersRoutes from './routes/customers.routes';
 import companiesRoutes from './routes/companies.routes';
 import pricingRoutes from './routes/pricing.routes';
@@ -25,6 +26,8 @@ export function createSalesRoutes(): Router {
   router.use('/projects', projectMembersRoutes);
   router.use('/projects', projectCollabRoutes);
   router.use('/projects', simulationsRoutes);
+  // 見積 (30章 37a)。sales 権限で開ける — 見積を作るのは営業で budget 権限は持たない
+  router.use('/projects', estimateRoutes);
   router.use('/customers', customersRoutes);
   router.use('/companies', companiesRoutes);
   router.use('/pricing', pricingRoutes);
