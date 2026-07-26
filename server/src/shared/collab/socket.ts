@@ -45,6 +45,12 @@ export function initCollabNamespace(io: Server, cfg: CollabNamespaceConfig): voi
 
   const ns = io.of(cfg.namespace);
 
+  // サーバー由来の更新 (AI の追記など) を接続中の全員へ配る。
+  // クライアント由来は下の 'yjs:update' で中継しているが、あちらは送信者を除くため別に要る。
+  cfg.rooms.setBroadcaster((docId, update) => {
+    ns.to(`${cfg.roomPrefix}:${docId}`).emit('yjs:update', Buffer.from(update));
+  });
+
   // connection ハンドラは **同期関数** にしてある。
   //
   // ここを async にして先に await すると、認証解決の間はまだ socket.on(...) が

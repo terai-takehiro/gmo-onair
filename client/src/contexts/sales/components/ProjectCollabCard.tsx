@@ -10,7 +10,7 @@
  */
 import { useLayoutEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { NotebookPen, Plus, Trash2, Users, WifiOff } from "lucide-react";
+import { NotebookPen, Plus, Trash2, Users, WifiOff, Sparkles } from "lucide-react";
 import * as Y from "yjs";
 import api from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -193,6 +193,15 @@ export function ProjectCollabCard({
                     aria-label={`${it.text} を完了にする`}
                   />
                   {/* 1行=1項目なので、同じ行を同時に打った場合だけ後勝ちになる (粒度が小さいので許容) */}
+                  {it.by_ai && (
+                    <span
+                      className="flex shrink-0 items-center gap-0.5 rounded bg-ai-surface px-1.5 py-0.5 text-[11px] font-bold text-ai"
+                      title="AI が足した行です。要らなければ消してください"
+                    >
+                      <Sparkles className="h-3 w-3" aria-hidden="true" />
+                      AI
+                    </span>
+                  )}
                   <input
                     value={it.text}
                     disabled={readOnly || !synced}
@@ -271,6 +280,7 @@ export function ProjectCollabCard({
 
         <p className="text-[12px] text-muted-foreground">
           ここは2人で同時に書いても消えません（文字単位で合わせます）。
+          AI が足した分には <span className="font-bold">AI</span> の印が付きます（要らなければ消してください）。
           <span className="font-bold">金額と案件の中身は対象外です</span> —
           あちらは全項目まとめて保存するので、右上の「保存」を押してください。
         </p>
