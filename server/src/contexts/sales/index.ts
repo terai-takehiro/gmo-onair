@@ -2,6 +2,7 @@ import { Router } from 'express';
 import projectsRoutes from './routes/projects.routes';
 import projectMembersRoutes from './routes/project-members.routes';
 import projectCollabRoutes from './routes/project-collab.routes';
+import projectHistoryRoutes from './routes/project-history.routes';
 import projectGroupsRoutes from './routes/project-groups.routes';
 import simulationsRoutes from './routes/simulations.routes';
 import customersRoutes from './routes/customers.routes';
@@ -17,6 +18,9 @@ export function createSalesRoutes(): Router {
   const router = Router();
 
   router.use('/project-groups', projectGroupsRoutes);
+  // コメント / 変更の記録は projectsRoutes より**前**に置く
+  // (/projects/comments/:id が /projects/:id 系のパターンに吸われないように)
+  router.use('/projects', projectHistoryRoutes);
   router.use('/projects', projectsRoutes);
   router.use('/projects', projectMembersRoutes);
   router.use('/projects', projectCollabRoutes);

@@ -41,6 +41,8 @@ import ProjectMembersEditor from "../components/ProjectMembersEditor";
 import PresenceAvatars from "@gmo-onair/shared/src/client/collab/PresenceAvatars";
 import { useProjectCollab } from "../hooks/useProjectCollab";
 import ProjectCollabCard from "../components/ProjectCollabCard";
+import ProjectCommentsCard from "../components/ProjectCommentsCard";
+import ProjectChangesCard from "../components/ProjectChangesCard";
 import { useAuth } from "@/contexts/platform/AuthContext";
 
 interface LostDialogState {
@@ -1237,6 +1239,12 @@ export default function ProjectFormPage() {
             setField={collab.setField}
           />
         )}
+
+        {/* コメントと知らせる人 — メモと違い「言った・言わない」の記録なので残す */}
+        {isEdit && id && <ProjectCommentsCard projectId={id} editable={canEditCollab} />}
+
+        {/* 変更の記録 (主要な項目だけ)。既定は畳む — 毎回見るものではない */}
+        {isEdit && id && <ProjectChangesCard projectId={id} />}
 
         {/* 現場の道具 — 案件から開くと、この案件の記録として残る (§4.14) */}
         {isEdit && id && <ProjectToolsCard projectId={id} projectName={watch("name") || project?.name} />}

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { config } from '../../../config';
+import { projectCommentService } from '../../sales/services/project-history.service';
 
 const router = Router();
 
@@ -461,7 +462,7 @@ router.get('/notifications', async (req, res) => {
   const has = (m: string) => isAdmin || !!user.permissions?.[m];
   const today = new Date().toISOString().slice(0, 10);
 
-  const [overdue, aiProjects, delegations, todayBookings] = await Promise.all([
+  const [overdue, aiProjects, delegations, todayBookings, mentions] = await Promise.all([
     // お客様を待たせている (期限を過ぎた次回アクション)
     has('sales') ? queryAll(OVERDUE_ACTIONS_SQL) : Promise.resolve([]),
     // AI が作ったもの (未確認)
@@ -500,6 +501,9 @@ router.get('/notifications', async (req, res) => {
           [today, today]
         )
       : Promise.resolve([]),
+    // 案件のコメントで自分に知らせが来ていて、まだ対応していないもの (B3)
+    // **既読では消えない** — 本人が「対応した」と言ったときだけ消える
+    has('sales') ? projectCommentService.listMyOpenMentions(user.id) : Promise.resolve([]),
   ]);
 
   const groups = [
@@ -514,6 +518,20 @@ router.get('/notifications', async (req, res) => {
         at: r.next_action_date,
         cta: '片づける',
         path: r.project_id ? `/sales/projects/${r.project_id}` : '/today',
+      })),
+    },
+    {
+      key: 'mention',
+      label: '案件で名前を呼ばれた',
+      rule: 'コメントで知らせが来たもの。「対応した」を押すと消えます',
+      items: mentions.map((r) => ({
+        id: `mention:${r.comment_id}`,
+        title: r.body.length > 60 ? `${r.body.slice(0, 60)}…` : r.body,
+        meta: [r.author_name ? `${r.author_name}さん` : null, r.gls_number, r.project_name]
+          .filter(Boolean).join(' ・ '),
+        at: r.created_at,
+        cta: '見に行く',
+        path: `/sales/projects/${r.project_id}#comments`,
       })),
     },
     {

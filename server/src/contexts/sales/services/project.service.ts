@@ -9,6 +9,7 @@ import {
 } from './box-folder.service';
 import { extractFolderId } from '../../../shared/services/box';
 import { config } from '../../../config';
+import { recordProjectChanges } from './project-history.service';
 
 /** 案件登録時に渡された値を 'A' | 'B' に正規化。不正値は null を返す */
 function normalizeGlsCategory(value: unknown): GlsCategory | null {
@@ -464,8 +465,10 @@ export class ProjectService {
    * 更新（ヨミ段階でも案件段階でも同じAPI）
    */
   async update(id: string, data: Record<string, unknown>, userId: string) {
+    // `SELECT *` にしてあるのは変更の記録 (project_changes) が変更前の主要項目を必要とするため。
+    // 列を絞ると「何が変わったか」を比べられない。
     const existing = await queryOne(
-      'SELECT id, name, code, gls_number, customer_type, box_url_internal, box_url_external, expected_amount, updated_at FROM projects WHERE id = ? AND deleted_at IS NULL',
+      'SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL',
       [id],
     ) as Record<string, unknown> | null;
     if (!existing) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
@@ -582,6 +585,14 @@ export class ProjectService {
       );
     }
 
+    // 変更の記録 (主要な項目だけ・実際に変わった行だけ)。失敗しても保存は成立させる
+    await recordProjectChanges(id, existing, {
+      name, customer_id, assigned_to, project_type,
+      event_start: finalEventStart, event_end: finalEventEnd,
+      expected_amount: expected_amount === undefined ? undefined : (expected_amount || 0),
+      ...(allowCategoryUpdate ? { gls_category: reqCategory } : {}),
+    }, { userId });
+
     // 案件名変更を BOX 両フォルダ (社内限り / 社外共有可) に並行反映 (非ブロッキング)
     if (typeof name === 'string' && name && name !== existing.name) {
       try {
@@ -623,6 +634,9 @@ export class ProjectService {
         [stage, userId, id]
       );
     }
+
+    // 変更の記録 (ステージは update() とは別の経路で変わるのでここでも記録する)
+    await recordProjectChanges(id, project, { stage }, { userId });
 
     // d_hold 遷移時、案件に日程が入っていれば仮押さえ予約を自動生成。
     // 重複防止: この案件に既に予約 (種別問わず: 本番/リハ/仮押さえ/手動登録) があれば作らない。
@@ -669,6 +683,12 @@ export class ProjectService {
        updated_at=NOW(), updated_by=? WHERE id=?`,
       [glsNumber, broadcast_type || null, media_platform || null, userId, id]
     );
+
+    // 変更の記録 (GLS 発番はステージも上がるので両方記録する)
+    await recordProjectChanges(id, project, {
+      gls_number: glsNumber,
+      stage: ['neta', 'd_hold', 'c_proposal'].includes(String(project.stage)) ? 'b_verbal' : project.stage,
+    }, { userId });
 
     // 概算見積を確定売上に変換
     await this.migrateEstimates(id, glsNumber);
