@@ -14,9 +14,14 @@ nginx
 # client の prebuild が使う生成スクリプトは全て再包含すること。
 # (scripts/ は除外だが、prebuild = generate-version-history.mjs && generate-mcp-tools.mjs が
 #  Docker ビルド中に実行されるため、これらを個別に再包含しないと MODULE_NOT_FOUND で build 失敗。
-#  generate-version-history.mjs は CLAUDE.md をパースするため CLAUDE.md も必要。
+#  generate-version-history.mjs は CLAUDE.md + docs/version-history.md をパースするため
+#  その 2 つも必要 (docs/ と *.md はどちらも除外対象なので個別に再包含する)。
 #  今後 scripts/generate-*.mjs を prebuild に追加したら、ここに !行 を追加すること。)
 !CLAUDE.md
+# 履歴のアーカイブ。**再包含だけでは足りず Dockerfile の build-client にも COPY が要る。**
+# 忘れると generate-version-history.mjs が exit 1 で落ちる (fail closed。静かに履歴が
+# 最新5件だけになるより、ビルドを止めて気付けるほうがよい)。
+!docs/version-history.md
 !scripts/generate-version-history.mjs
 !scripts/generate-mcp-tools.mjs
 # server の prebuild = check-collab-parity.mjs (同時共同編集の変換層の一致検証)。
