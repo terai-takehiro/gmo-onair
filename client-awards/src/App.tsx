@@ -17,6 +17,9 @@ import QuizStackControlPage from './pages/QuizStackControlPage';
 import QuizStackOutputPage from './pages/QuizStackOutputPage';
 import CgCockpitPage from './pages/CgCockpitPage';
 import QuizStackOutputNextPage from './pages/QuizStackOutputNextPage';
+import OnAirPage from './pages/OnAirPage';
+import OutputsPage from './pages/OutputsPage';
+import IntakePage from './pages/IntakePage';
 
 // 出力ページ (/awards/output/*) はuseAuthを使わない独立ルーター
 // → useAuth内のaxiosが/auth/meを呼び、401でloginにリダイレクトされるのを防ぐ
@@ -55,6 +58,11 @@ function AuthenticatedApp() {
           <Route element={<AppShell />}>
             <Route index element={<DashboardPage />} />
             <Route path="/event/:id" element={<EventEditorPage />} />
+            {/* 送出（本番中に見る唯一の画面。20章 24a）*/}
+            <Route path="/event/:id/onair" element={<OnAirPage />} />
+            {/* 出力URLの配り方 (24b) / データを入れる (20f) — どちらも準備 */}
+            <Route path="/event/:id/outputs" element={<OutputsPage />} />
+            <Route path="/event/:id/intake" element={<IntakePage />} />
             <Route path="/event/:id/cg/control" element={<CgCockpitPage />} />
             <Route path="/event/:id/control" element={<ControlPage />} />
             <Route path="/event/:id/oneshot/control" element={<OneShotControlPage />} />

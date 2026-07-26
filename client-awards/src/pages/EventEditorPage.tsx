@@ -15,7 +15,7 @@ import { CSS } from '@dnd-kit/utilities';
 import {
   Tv, ChevronLeft, Plus, Trash2, Check, X, GripVertical, HelpCircle,
   Upload, RefreshCw, Shuffle, FileSpreadsheet, ExternalLink, Copy,
-  ChevronDown, ChevronRight, Subtitles, Layers,
+  ChevronDown, ChevronRight, Subtitles, Layers, Radio, Link2,
 } from 'lucide-react';
 import ExcelImportDialog from '../oneshot/operator/ExcelImportDialog';
 import SoundConfigSection from '../components/SoundConfigSection';
@@ -549,39 +549,72 @@ export default function EventEditorPage() {
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
+          {/* ── 送出は1つ (20章 24a) ──────────────────────────
+              本番中に見る画面は1つ。以前は「統合送出 / 字幕スーパー /
+              アンケート・クイズ / ランキングCG」の4つが同じ並びにあり、
+              **どれを開いて本番に臨むのか**が人によって違っていた。 */}
           <button
-            onClick={() => navigate(`/event/${eventId}/cg/control`)}
-            className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-2 sm:px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800 transition-colors ring-1 ring-slate-500"
-            title="統合送出コックピット (ランキング/字幕/クイズを1画面で操作)"
+            onClick={() => navigate(`/event/${eventId}/onair`)}
+            className="flex min-h-[44px] items-center gap-1.5 rounded-lg bg-red-600 px-3 sm:px-4 py-1.5 text-sm font-bold text-white hover:bg-red-700 transition-colors"
+            title="本番中に見る画面。次に出るものを見てTAKEします"
           >
-            <Layers className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">統合送出</span>
-          </button>
-          <button
-            onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
-            className="flex items-center gap-1.5 rounded-lg border border-amber-500/60 bg-amber-500/10 px-2 sm:px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-500/20 transition-colors"
-            title="字幕スーパー (下部テロップ) のオペレーター画面"
-          >
-            <Subtitles className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">字幕スーパー</span>
-          </button>
-          <button
-            onClick={() => navigate(`/event/${eventId}/quiz`)}
-            className="flex items-center gap-1.5 rounded-lg border border-purple-500/60 bg-purple-500/10 px-2 sm:px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-500/20 transition-colors"
-            title="アンケート/クイズCG のオペレーター画面"
-          >
-            <HelpCircle className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">アンケート/クイズ</span>
-          </button>
-          <button
-            onClick={() => navigate(`/event/${eventId}/control`)}
-            className="flex items-center gap-1.5 rounded-lg bg-red-600 px-2 sm:px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition-colors"
-            title="ランキングCG (ランキング演出) のオペレーター画面"
-          >
-            <Tv className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">ランキングCG</span>
+            <Radio className="h-4 w-4" />
+            送出
           </button>
         </div>
+      </div>
+
+      {/* ── 準備（本番中は触りません。24a）────────────────────
+          設定は本番の操作と同じ並びに置かない。混ざると本番中に
+          設定を触ってしまう。 */}
+      <div className="mb-4 flex flex-wrap items-center gap-1.5 rounded-xl border bg-muted/30 px-3 py-2">
+        <span className="mr-1 text-xs font-bold text-muted-foreground">準備</span>
+        <button
+          onClick={() => navigate(`/event/${eventId}/intake`)}
+          className="flex min-h-[44px] items-center gap-1.5 rounded-lg border bg-background px-3 text-xs hover:bg-muted"
+          title="ノミネートの一覧を入れる (貼る / 落とす / AIに整えさせる)"
+        >
+          <FileSpreadsheet className="h-3.5 w-3.5" />
+          データを入れる
+        </button>
+        <button
+          onClick={() => navigate(`/event/${eventId}/outputs`)}
+          className="flex min-h-[44px] items-center gap-1.5 rounded-lg border bg-background px-3 text-xs hover:bg-muted"
+          title="OBS に貼る URL を作る"
+        >
+          <Link2 className="h-3.5 w-3.5" />
+          出力URLの配り方
+        </button>
+        <span className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
+        <button
+          onClick={() => navigate(`/event/${eventId}/control`)}
+          className="flex min-h-[44px] items-center gap-1.5 rounded-lg border bg-background px-3 text-xs hover:bg-muted"
+        >
+          <Tv className="h-3.5 w-3.5" />
+          ランキングCGの設定
+        </button>
+        <button
+          onClick={() => navigate(`/event/${eventId}/oneshot/control`)}
+          className="flex min-h-[44px] items-center gap-1.5 rounded-lg border bg-background px-3 text-xs hover:bg-muted"
+        >
+          <Subtitles className="h-3.5 w-3.5" />
+          字幕スーパーの設定
+        </button>
+        <button
+          onClick={() => navigate(`/event/${eventId}/quiz`)}
+          className="flex min-h-[44px] items-center gap-1.5 rounded-lg border bg-background px-3 text-xs hover:bg-muted"
+        >
+          <HelpCircle className="h-3.5 w-3.5" />
+          クイズ・アンケートの設定
+        </button>
+        <button
+          onClick={() => navigate(`/event/${eventId}/cg/control`)}
+          className="flex min-h-[44px] items-center gap-1.5 rounded-lg border bg-background px-3 text-xs text-muted-foreground hover:bg-muted"
+          title="以前の統合コックピット (送出は上の「送出」を使います)"
+        >
+          <Layers className="h-3.5 w-3.5" />
+          以前のコックピット
+        </button>
       </div>
 
       {/* Tabs */}

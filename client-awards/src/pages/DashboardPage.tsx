@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { Tv, Plus, Trash2, ExternalLink, Calendar, ChevronRight, Archive, RotateCcw } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Tv, Plus, Trash2, ExternalLink, Calendar, ChevronRight, Archive, RotateCcw, Clock } from 'lucide-react';
 
 interface AwardsEvent {
   id: number;
@@ -11,6 +12,15 @@ interface AwardsEvent {
   scheduled_at: string | null;
   status: 'draft' | 'live' | 'closed';
   created_at: string;
+}
+
+/** 演出のテンプレート (20e)。**実装しているのはアワードだけ** */
+interface Template {
+  key: string;
+  label: string;
+  implemented: boolean;
+  what: string;
+  uses: string[];
 }
 
 interface BoxBackup {
@@ -34,6 +44,9 @@ export default function DashboardPage() {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [showBackups, setShowBackups] = useState(false);
+  // テンプレート (20e)。既定はアワード = いま作れる唯一のもの
+  const [template, setTemplate] = useState('awards');
+  const [notReady, setNotReady] = useState<string | null>(null);
   const [restoreNameDraft, setRestoreNameDraft] = useState<{ folderId: string; name: string } | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -44,9 +57,17 @@ export default function DashboardPage() {
     },
   });
 
+  const { data: templates } = useQuery({
+    queryKey: ['awards-templates'],
+    queryFn: async () => {
+      const res = await api.get('/awards/templates');
+      return res.data.data.templates as Template[];
+    },
+  });
+
   const createMutation = useMutation({
     mutationFn: async (name: string) => {
-      const res = await api.post('/awards/events', { name });
+      const res = await api.post('/awards/events', { name, template });
       return res.data.data as AwardsEvent;
     },
     onSuccess: (event) => {
@@ -236,6 +257,51 @@ export default function DashboardPage() {
       {creating && (
         <div className="mb-4 rounded-xl border bg-card p-4 shadow-sm">
           <p className="text-sm font-medium mb-3">新規イベント作成</p>
+
+          {/* ── テンプレート (20e) ────────────────────────────
+              一覧から隠さない。隠すと「うちの演出は作れないのか」が分からず
+              毎回聞かれる。**出すが作れない**ことをその場で言う。 */}
+          <p className="text-xs font-medium mb-1.5">どの演出をつくりますか</p>
+          <div className="mb-3 grid gap-2 sm:grid-cols-2">
+            {(templates ?? []).map((t) => (
+              <button
+                key={t.key}
+                onClick={() => {
+                  if (!t.implemented) { setNotReady(t.label); setTemplate('awards'); return; }
+                  setTemplate(t.key); setNotReady(null);
+                }}
+                className={cn(
+                  'rounded-lg border p-2.5 text-left min-h-[44px]',
+                  template === t.key
+                    ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
+                    : t.implemented ? 'hover:bg-muted' : 'opacity-60 hover:bg-muted',
+                )}
+              >
+                <span className="flex items-center gap-1.5 text-sm font-bold">
+                  {t.label}
+                  {!t.implemented && (
+                    <span className="flex items-center gap-0.5 rounded bg-muted px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      準備中
+                    </span>
+                  )}
+                </span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">{t.what}</span>
+                {t.uses.length > 0 && (
+                  <span className="mt-1 block text-[11px] text-muted-foreground/80">
+                    使うもの: {t.uses.join(' / ')}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+          {notReady && (
+            <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              「{notReady}」は準備中です。いま作れるのは<strong>「アワード」</strong>だけなので、
+              アワードに戻しました。
+            </p>
+          )}
+
           <div className="flex gap-2">
             <input
               autoFocus

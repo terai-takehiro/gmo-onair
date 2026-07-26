@@ -176,11 +176,25 @@ interface Props {
   onClose: () => void;
   eventId: number;
   onImported: () => void;
+  /**
+   * 20章 20f「データを入れる」の**貼る / AIに整えさせる**から渡される表の文字。
+   * これがあるときはファイル選択を飛ばし、貼られた文字を下見にかける。
+   *
+   * **列の当て方の画面をここで作り直していない**のが要点 —
+   * 貼るとファイルで当て方が違うと「ファイルなら入るのに貼ると入らない」形の
+   * 食い違いが出て、本番中に原因が分からない。
+   */
+  pastedText?: string | null;
+  /** 見出しに出す名前 (「貼った表」「AIが整えた表」など) */
+  sourceLabel?: string;
 }
 
 type Phase = 'select' | 'preview' | 'planning' | 'plan' | 'committing' | 'done';
 
-export default function ExcelImportDialog({ open, onClose, eventId, onImported }: Props) {
+export default function ExcelImportDialog({
+  open, onClose, eventId, onImported, pastedText, sourceLabel,
+}: Props) {
+  const isPaste = Boolean(pastedText && pastedText.trim());
   const [phase, setPhase] = useState<Phase>('select');
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<PreviewResult | null>(null);
@@ -198,13 +212,22 @@ export default function ExcelImportDialog({ open, onClose, eventId, onImported }
       setPlan(null);
       setResult(null);
       setError(null);
+      // 貼られた文字はファイル選択が要らないのでそのまま下見にかける
+      if (pastedText && pastedText.trim()) previewMutation.mutate(pastedText);
     }
-  }, [open]);
+    // previewMutation は毎回作り直されるため依存に入れない (入れると無限に走る)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, pastedText]);
 
   const previewMutation = useMutation({
-    mutationFn: async (f: File) => {
+    mutationFn: async (src: File | string) => {
+      // 貼られた文字はサーバーで表として読み、**同じ下見の形**を返す
+      if (typeof src === 'string') {
+        const res = await api.post(`/awards/events/${eventId}/paste-preview`, { text: src });
+        return res.data.data as PreviewResult;
+      }
       const fd = new FormData();
-      fd.append('file', f);
+      fd.append('file', src);
       const res = await api.post(`/awards/events/${eventId}/import-preview`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
@@ -246,8 +269,15 @@ export default function ExcelImportDialog({ open, onClose, eventId, onImported }
 
   const importMutation = useMutation({
     mutationFn: async (dryRun: boolean) => {
-      if (!file) throw new Error('ファイルが選択されていません');
       const { mapping, extraColumns } = buildPayload(assignments);
+      // 貼った表もファイルと**同じ取り込み**を通る (サーバーで xlsx にしてから渡す)
+      if (pastedText && pastedText.trim()) {
+        const res = await api.post(`/awards/events/${eventId}/paste-import`, {
+          text: pastedText, mapping, extraColumns, dryRun,
+        });
+        return res.data.data as ImportResult;
+      }
+      if (!file) throw new Error('ファイルが選択されていません');
       const fd = new FormData();
       fd.append('file', file);
       fd.append('mapping', JSON.stringify(mapping));
@@ -304,7 +334,7 @@ export default function ExcelImportDialog({ open, onClose, eventId, onImported }
         <div className="flex items-center gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200">
           <FileSpreadsheet className="h-5 w-5 text-emerald-600 shrink-0" />
           <h2 className="text-base font-bold text-slate-900 min-w-0 truncate">
-            Excel インポート
+            {isPaste ? (sourceLabel ?? '貼った表を取り込む') : 'Excel インポート'}
             <span className="ml-2 text-sm text-slate-500 font-normal">列の自動分類 → 確認</span>
           </h2>
           <div className="flex-1" />
@@ -315,7 +345,8 @@ export default function ExcelImportDialog({ open, onClose, eventId, onImported }
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto">
-          {phase === 'select' && (
+          {phase === 'select' && isPaste && <PhaseSpinner label="貼られた表を読んでいます…" />}
+          {phase === 'select' && !isPaste && (
             <PhaseSelect
               onPick={(f) => { setFile(f); setError(null); previewMutation.mutate(f); }}
               pending={previewMutation.isPending}
@@ -326,6 +357,7 @@ export default function ExcelImportDialog({ open, onClose, eventId, onImported }
             <PhasePreview
               preview={preview}
               file={file}
+              sourceName={isPaste ? (sourceLabel ?? '貼った表') : undefined}
               assignments={assignments}
               setAssignments={setAssignments}
               validation={validation}
@@ -343,12 +375,14 @@ export default function ExcelImportDialog({ open, onClose, eventId, onImported }
           <div className="flex-1" />
           {phase === 'preview' && preview && (
             <>
-              <button
-                onClick={() => { setPhase('select'); setFile(null); setPreview(null); }}
-                className="rounded-md border px-3 py-2 text-sm hover:bg-muted"
-              >
-                ファイル変更
-              </button>
+              {!isPaste && (
+                <button
+                  onClick={() => { setPhase('select'); setFile(null); setPreview(null); }}
+                  className="rounded-md border px-3 py-2 text-sm hover:bg-muted"
+                >
+                  ファイル変更
+                </button>
+              )}
               <button
                 onClick={() => setAssignments(buildAutoAssignments(preview))}
                 className="flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm hover:bg-muted"
@@ -468,10 +502,12 @@ function PhaseSelect({
 
 // ── Phase: プレビュー / 列カードリスト ─────────────────
 function PhasePreview({
-  preview, file, assignments, setAssignments, validation,
+  preview, file, sourceName, assignments, setAssignments, validation,
 }: {
   preview: PreviewResult;
   file: File | null;
+  /** 貼った表のときの名前 (ファイル名の代わりに出す) */
+  sourceName?: string;
   assignments: Record<string, Assignment>;
   setAssignments: (a: Record<string, Assignment>) => void;
   validation: { ok: boolean; missing: ImportMappingKey[]; conflicts: ImportMappingKey[] };
@@ -489,7 +525,7 @@ function PhasePreview({
         <Info className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
           <div className="font-bold text-emerald-900">
-            {file?.name} · {preview.totalRows}行 · {preview.columns.length}列
+            {sourceName ?? file?.name} · {preview.totalRows}行 · {preview.columns.length}列
           </div>
           <div className="text-xs text-emerald-800/80 mt-0.5">
             列ごとに「自動分類タイプ」と「推奨 CG 項目」を表示しています。違っていればプルダウンで修正してください。

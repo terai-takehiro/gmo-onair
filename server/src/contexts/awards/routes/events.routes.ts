@@ -15,6 +15,11 @@ import {
   downloadEventBackupImages,
 } from '../services/awards-box.service';
 import { fetchEventSurveys } from '../services/survey-output.service';
+import { getOnAir, buildOutputUrl, OUTPUT_USES, KEY_OPS, LAYERS, LEFTOVER_MINUTES } from '../services/onair.service';
+import {
+  TEMPLATES, assertTemplate, previewPasted, importPasted, tidyWithAi,
+  recordIntakeCorrections, recordIntakeOutcome, recordIntakeDropped, PASTE_MAX_CHARS,
+} from '../services/awards-intake.service';
 
 const UPLOAD_DIR = path.join(__dirname, '../../../../../uploads/awards');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -84,10 +89,50 @@ router.get('/events/:id/cg-status', wrap(async (req, res) => {
   });
 }));
 
+// ── 送出（本番中に見る唯一の画面。20章 24a）──────────────────
+//
+// 本番は1画面・準備は別画面。ここが返すのは**見せ方の情報だけ**で、
+// TAKE / CLEAR は既存の `/cue` `/oneshot/cue` をそのまま使う
+// (出る絵は1バイトも変わらない)。
+router.get('/events/:id/onair', wrap(async (req, res) => {
+  res.json({ success: true, data: await getOnAir(parseInt(req.params.id as string)) });
+}));
+
+// 送出の決まり (イベントに依らない)。キー操作の一覧などを画面に出すのに使う
+// `router.use(['/events', ...])` はパス指定なのでここは通らない → 明示的に守る
+router.get('/onair/format', requireAuth, requirePermission('awards'), wrap(async (_req, res) => {
+  res.json({
+    success: true,
+    data: { keys: KEY_OPS, layers: LAYERS, output_uses: OUTPUT_USES, leftover_minutes: LEFTOVER_MINUTES },
+  });
+}));
+
+// 出力URLの配り方 (24b)。?bg=1 / ?audio=1 / ?lang=en を人に組み立てさせない
+router.get('/events/:id/output-url', wrap(async (req, res) => {
+  res.json({
+    success: true,
+    data: buildOutputUrl({
+      eventId: parseInt(req.params.id as string),
+      use: String(req.query.use ?? 'ranking'),
+      audio: req.query.audio === '1' || req.query.audio === 'true',
+      lang: String(req.query.lang ?? 'ja'),
+      opaque: req.query.opaque === '1' || req.query.opaque === 'true',
+    }),
+  });
+}));
+
+// ── テンプレート (20e)。実装しているのはアワードだけ ─────────
+//
+// 一覧から隠さない。隠すと「うちの演出は作れないのか」が分からず毎回聞かれる。
+// **出すが作れない**ことをその場で言う。
+router.get('/templates', requireAuth, requirePermission('awards'), wrap(async (_req, res) => {
+  res.json({ success: true, data: { templates: TEMPLATES, paste_max_chars: PASTE_MAX_CHARS } });
+}));
+
 // ── 一覧 ────────────────────────────────────────────────────
 router.get('/events', wrap(async (_req, res) => {
   const rows = await queryAll(
-    `SELECT id, name, subtitle, description, scheduled_at, status, created_at, updated_at
+    `SELECT id, name, subtitle, description, scheduled_at, status, template, created_at, updated_at
      FROM awards_events ORDER BY scheduled_at DESC NULLS LAST, id DESC`
   );
   res.json({ success: true, data: rows });
@@ -97,11 +142,13 @@ router.get('/events', wrap(async (_req, res) => {
 router.post('/events', wrap(async (req, res) => {
   const { name, subtitle, description, scheduled_at } = req.body;
   if (!name?.trim()) throw new AppError(400, 'BAD_REQUEST', 'name は必須です');
+  // 画面でも選べないようにしているが、画面だけの制限は必ず抜ける (20e)
+  const template = assertTemplate(req.body.template);
 
   const row = await queryOne(
-    `INSERT INTO awards_events (name, subtitle, description, scheduled_at)
-     VALUES (?, ?, ?, ?) RETURNING *`,
-    [name.trim(), subtitle ?? null, description ?? null, scheduled_at ?? null]
+    `INSERT INTO awards_events (name, subtitle, description, scheduled_at, template)
+     VALUES (?, ?, ?, ?, ?) RETURNING *`,
+    [name.trim(), subtitle ?? null, description ?? null, scheduled_at ?? null, template]
   );
   res.status(201).json({ success: true, data: row });
 }));
@@ -322,6 +369,61 @@ router.post('/events/:id/import-excel', upload.single('file'), wrap(async (req, 
 
   const result = await importAwardsExcel(req.file.buffer, eventId, mapping, extraColumns, dryRun);
   res.json({ success: true, data: result });
+}));
+
+// ── データを入れる: 貼る (20f) ───────────────────────────────
+//
+// 貼られた文字は**その場で xlsx にして上の取り込みに渡す**。
+// 取り込みの処理を2本書くと「ファイルなら入るのに貼ると入らない」形の
+// 食い違いが出て、現場では原因が分からない。
+router.post('/events/:id/paste-preview', wrap(async (req, res) => {
+  const eventId = parseInt(req.params.id as string);
+  const event = await queryOne(`SELECT id FROM awards_events WHERE id=?`, [eventId]);
+  if (!event) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
+  res.json({ success: true, data: previewPasted(String(req.body?.text ?? '')) });
+}));
+
+router.post('/events/:id/paste-import', wrap(async (req, res) => {
+  const eventId = parseInt(req.params.id as string);
+  const event = await queryOne(`SELECT id FROM awards_events WHERE id=?`, [eventId]);
+  if (!event) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
+
+  const mapping = (req.body?.mapping ?? undefined) as ImportMapping | undefined;
+  const extraColumns = Array.isArray(req.body?.extraColumns)
+    ? (req.body.extraColumns as unknown[]).filter((s): s is string => typeof s === 'string')
+    : undefined;
+  const dryRun = req.body?.dryRun === true || req.body?.dryRun === 'true';
+
+  const result = await importPasted(
+    eventId, String(req.body?.text ?? ''), mapping, extraColumns, dryRun);
+
+  // 本番の取り込みだけ AI の差分と成果を記録する (下見では記録しない)
+  if (!dryRun) {
+    const rows = (result.changes ?? []).map((c) => ({
+      row_key: `${c.category}::${c.name}`, category: c.category, name: c.name, org: '',
+    }));
+    await recordIntakeCorrections(eventId, rows, req.user?.id ?? 'unknown');
+    await recordIntakeOutcome(eventId, result);
+  }
+  res.json({ success: true, data: result });
+}));
+
+// ── データを入れる: AIに整えさせる (20f) ─────────────────────
+//
+// AI がやるのは**表の形に直すところまで**。取り込むかどうかは人が決める。
+router.post('/events/:id/tidy', requireAuth, requirePermission('awards'), wrap(async (req, res) => {
+  const eventId = parseInt(req.params.id as string);
+  res.json({
+    success: true,
+    data: await tidyWithAi(eventId, String(req.body?.text ?? ''),
+      { userId: req.user?.id ?? 'unknown' }),
+  });
+}));
+
+// 整えた表を使わなかった (使われなかったことも成果として残す)
+router.post('/events/:id/tidy/dropped', requireAuth, requirePermission('awards'), wrap(async (req, res) => {
+  await recordIntakeDropped(parseInt(req.params.id as string), req.body?.note);
+  res.json({ success: true });
 }));
 
 // ── 画像フォルダ一括インポート ──────────────────────────────
